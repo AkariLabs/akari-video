@@ -129,6 +129,12 @@ function validateV2Tracks(value) {
 
 function validateV2Item(item, label) {
   if (!isPlainObject(item)) return;
+  if (hasOwn(item, "reason") && item.reason !== "silence" && item.reason !== "word") {
+    fail(`${label}.reason は silence/word のいずれかである必要があります`);
+  }
+  if (hasOwn(item, "label") && typeof item.label !== "string") {
+    fail(`${label}.label は文字列である必要があります`);
+  }
   if (hasOwn(item, "adjust")) validateAdjust(item.adjust, `${label}.adjust`);
   if (hasOwn(item, "keyframes")) validateV2Keyframes(item.keyframes, `${label}.keyframes`);
   if (!Array.isArray(item.items)) return;
@@ -1135,6 +1141,12 @@ function validateCuts(value, version, sources) {
       if (!isFiniteNumber(cut.speed) || cut.speed <= 0) {
         fail(`${label}.speed は 0 より大きい有限数である必要があります`);
       }
+    }
+    if (hasOwn(cut, "reason") && cut.reason !== "silence" && cut.reason !== "word") {
+      fail(`${label}.reason は silence/word のいずれかである必要があります`);
+    }
+    if (hasOwn(cut, "label") && typeof cut.label !== "string") {
+      fail(`${label}.label は文字列である必要があります`);
     }
     if (hasOwn(cut, "at")) {
       if (!isFiniteNumber(cut.at) || cut.at < 0) {

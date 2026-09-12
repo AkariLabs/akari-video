@@ -1,17 +1,15 @@
 "use strict";
-/**
- * Caption display policy v1.  This is the single pure implementation used by
- * render-cut, preview-server, and the shell backend.  It deliberately performs
- * no file IO and returns timeline-domain display cues; browser consumers only
- * select a resolved cue by output time.
- */
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.CaptionDisplayError = exports.CAPTION_UNIT_METRIC = exports.CAPTION_DISPLAY_ALGORITHM = exports.CAPTION_DISPLAY_MODE = exports.CAPTION_DISPLAY_SCHEMA = void 0;
 exports.measureCaptionUnits = measureCaptionUnits;
+exports.joinCaptionLines = joinCaptionLines;
 exports.validateCaptionDisplayPolicy = validateCaptionDisplayPolicy;
 exports.resolveCaptionDisplay = resolveCaptionDisplay;
 exports.validateCaptionTextStyle = validateCaptionTextStyle;
+exports.projectCaptionWords = projectCaptionWords;
+exports.dedupeCaptionOccurrences = dedupeCaptionOccurrences;
 exports.splitCaptionFragments = splitCaptionFragments;
+exports.foldCaptionLines = foldCaptionLines;
 exports.scheduleCaptionFragments = scheduleCaptionFragments;
 exports.mergeCaptionDisplayStyles = mergeCaptionDisplayStyles;
 exports.resolveCaptionReferenceScale = resolveCaptionReferenceScale;
@@ -19,6 +17,14 @@ exports.scaleCaptionPx = scaleCaptionPx;
 exports.captionAnchorPositionVars = captionAnchorPositionVars;
 exports.resolveCaptionStyleForOutput = resolveCaptionStyleForOutput;
 exports.formatCssNumber = formatCssNumber;
+const caption_style_preset_1 = require("./caption-style-preset");
+const textstyle_catalog_1 = require("./generated/textstyle-catalog");
+/**
+ * Caption display policy v1.  This is the single pure implementation used by
+ * render-cut, preview-server, and the shell backend.  It deliberately performs
+ * no file IO and returns timeline-domain display cues; browser consumers only
+ * select a resolved cue by output time.
+ */
 exports.CAPTION_DISPLAY_SCHEMA = 'caption-layout/v1';
 exports.CAPTION_DISPLAY_MODE = 'single_line_sequential';
 exports.CAPTION_DISPLAY_ALGORITHM = 'a4-ja-two-fragment-v1';
@@ -31,7 +37,7 @@ const CAPTION_STYLE_KEYS = new Set([
     'color', 'size_px', 'font_weight', 'line_height', 'stroke', 'background', 'zone', 'layout',
     'font_family', 'weight', 'italic', 'underline', 'letter_spacing_em', 'align',
     'vertical_align', 'vertical', 'text_transform', 'max_width_pct', 'max_characters', 'text_anchor',
-    'position', 'shadow', 'glow', 'animation', 'reference_height_px'
+    'position', 'scale', 'rotate', 'shadow', 'glow', 'animation', 'reference_height_px'
 ]);
 const CAPTION_STROKE_KEYS = new Set(['method', 'color', 'width_px']);
 const CAPTION_BACKGROUND_KEYS = new Set([
@@ -60,6 +66,7 @@ const CAPTION_ZONES = new Set([
 ]);
 const CAPTION_WORD_STYLES = new Set(['karaoke', 'pop', 'reveal', 'reveal-word']);
 const HEX_COLOR = /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/u;
+const PROJECTION_EPSILON = 0.000001;
 class CaptionDisplayError extends Error {
     constructor(code, message) {
         super(message);
@@ -71,12 +78,20 @@ exports.CaptionDisplayError = CaptionDisplayError;
 function measureCaptionUnits(text) {
     return Array.from(text).reduce((total, character) => total + (/^[\x00-\x7F]$/u.test(character) ? 0.5 : 1), 0);
 }
+function joinCaptionLines(lines, locale) {
+    if (/^ja/iu.test(locale)) {
+        // ja は語間に空白を入れない。
+        return lines.join('');
+    }
+    // ja 以外も断片は原文の slice なので空白は原文側に含まれ、現状どおり空文字で連結する。
+    return lines.join('');
+}
 function validateCaptionDisplayPolicy(value) {
     if (!isRecord(value))
         fail('INVALID_POLICY', 'display_policy must be an object');
     const allowed = new Set([
         'mode', 'algorithm', 'unit_metric', 'max_line_units',
-        'minimum_fragment_duration_seconds', 'locale', 'break_hints'
+        'minimum_fragment_duration_seconds', 'locale', 'lines', 'wrap', 'break_hints'
     ]);
     rejectUnknown(value, allowed, 'display_policy');
     if (value.mode !== exports.CAPTION_DISPLAY_MODE)
@@ -92,6 +107,12 @@ function validateCaptionDisplayPolicy(value) {
     if (!strictText(value.locale)) {
         fail('INVALID_POLICY', 'display_policy.locale must be a non-empty NFC trimmed string');
     }
+    if (value.lines !== undefined && (!Number.isInteger(value.lines) || value.lines < 1 || value.lines > 6)) {
+        fail('INVALID_POLICY', 'display_policy.lines must be an integer within [1, 6]');
+    }
+    if (value.wrap !== undefined && value.wrap !== 'multi' && value.wrap !== 'fold') {
+        fail('INVALID_POLICY', 'display_policy.wrap must be multi or fold');
+    }
     const breakHints = value.break_hints === undefined ? undefined : validateBreakHints(value.break_hints);
     return {
         mode: value.mode,
@@ -100,6 +121,8 @@ function validateCaptionDisplayPolicy(value) {
         max_line_units: value.max_line_units,
         minimum_fragment_duration_seconds: value.minimum_fragment_duration_seconds,
         locale: value.locale,
+        ...(value.lines !== undefined ? { lines: value.lines } : {}),
+        ...(value.wrap !== undefined ? { wrap: value.wrap } : {}),
         ...(breakHints ? { break_hints: breakHints } : {})
     };
 }
@@ -123,6 +146,11 @@ function resolveCaptionDisplay(captionsRoot, edit, options = {}) {
         return null;
     }
     const policy = validateCaptionDisplayPolicy(captionsRoot.display_policy);
+    const lines = policy.lines ?? 1;
+    const wrap = policy.wrap ?? 'multi';
+    const splitPolicy = wrap === 'fold'
+        ? { ...policy, max_line_units: policy.max_line_units * lines }
+        : policy;
     if (options.extra_protected_terms !== undefined
         && (!Array.isArray(options.extra_protected_terms)
             || options.extra_protected_terms.some(entry => !strictText(entry)))) {
@@ -146,9 +174,13 @@ function resolveCaptionDisplay(captionsRoot, edit, options = {}) {
     const defaultStyle = Object.prototype.hasOwnProperty.call(captionsRoot, 'default_text_style')
         ? validateCaptionTextStyle(captionsRoot.default_text_style, 'default_text_style')
         : undefined;
+    const cuts = Array.isArray(edit?.cuts) ? edit.cuts : [];
+    const styleOutput = options.output ?? edit?.output;
+    validateProjectionCuts(cuts, edit);
+    const projectedCaptions = captions.map(caption => projectCaptionWords(caption, cuts));
     const captionIds = new Set();
     captions.forEach((caption, index) => {
-        validateSourceCaption(caption, index, policy);
+        validateSourceCaption(caption, index, policy, projectedCaptions[index]);
         if (Object.prototype.hasOwnProperty.call(caption, 'text_style')) {
             validateCaptionTextStyle(caption.text_style, `captions[${index}].text_style`);
         }
@@ -156,11 +188,10 @@ function resolveCaptionDisplay(captionsRoot, edit, options = {}) {
             fail('DUPLICATE_CAPTION_ID', `captions[].id is duplicated: ${caption.id}`);
         captionIds.add(caption.id);
     });
+    const wordStylesByCaption = resolveProjectedWordStyles(captions, projectedCaptions, captionsRoot.emphasis_words, styleOutput);
     validateEmphasisConflicts(captions, edit?.emphasis_words);
-    const cuts = Array.isArray(edit?.cuts) ? edit.cuts : [];
-    validateLinearCuts(cuts, edit);
     const sourceCount = validateSourceReferences(captions, cuts, edit);
-    const occurrences = projectOccurrences(captions, cuts, sourceCount);
+    const occurrences = dedupeCaptionOccurrences(projectOccurrences(captions, projectedCaptions, cuts, sourceCount), captionTrackOrder(cuts, edit));
     occurrences.sort(compareOccurrence);
     const byCue = new Map();
     for (const occurrence of occurrences) {
@@ -175,10 +206,13 @@ function resolveCaptionDisplay(captionsRoot, edit, options = {}) {
     const wordBookFallbacks = [];
     const fragmentsByCaption = new Map();
     captions.forEach((caption, index) => {
-        const text = caption.display_text ?? caption.text;
+        const projected = projectedCaptions[index];
+        if (!projected.renderable)
+            return;
+        const text = projected.displayText;
         let fragments;
         let manual = false;
-        if (caption.display_fragments !== undefined) {
+        if (!projected.changed && caption.display_fragments !== undefined) {
             fragments = validateManualFragments(caption, text, policy, index);
             manual = true;
             boundaryProjection.push({ source_cue_id: caption.id, text, boundaries: [] });
@@ -186,7 +220,9 @@ function resolveCaptionDisplay(captionsRoot, edit, options = {}) {
         else {
             let split;
             try {
-                split = splitCaptionFragments(text, policyWithExtraTerms);
+                split = splitCaptionFragments(text, wrap === 'fold'
+                    ? { ...policyWithExtraTerms, max_line_units: policyWithExtraTerms.max_line_units * lines }
+                    : policyWithExtraTerms);
             }
             catch (error) {
                 if (!(error instanceof CaptionDisplayError)
@@ -194,7 +230,7 @@ function resolveCaptionDisplay(captionsRoot, edit, options = {}) {
                     || incrementalProtectedTerms.length === 0) {
                     throw error;
                 }
-                split = splitCaptionFragments(text, policy);
+                split = splitCaptionFragments(text, splitPolicy);
                 wordBookFallbacks.push({
                     caption_id: caption.id,
                     dropped_terms: incrementalProtectedTerms.filter(term => text.includes(term))
@@ -212,28 +248,62 @@ function resolveCaptionDisplay(captionsRoot, edit, options = {}) {
         if (resolved.fragments.length > 1)
             splitCueIds.add(occurrence.source_cue_id);
         const resolvedStyle = mergeCaptionDisplayStyles(defaultStyle, occurrence.text_style);
-        const styleOutput = options.output ?? edit?.output;
         const styleResolution = resolvedStyle
             ? resolveCaptionStyleForOutput(resolvedStyle, styleOutput)
             : undefined;
         const scheduled = scheduleCaptionFragments(occurrence.start, occurrence.end, resolved.fragments, policy.minimum_fragment_duration_seconds);
-        scheduled.forEach((fragment, index) => displayCues.push({
-            id: `${occurrence.source_cue_id}-occ-${String(occurrence.occurrence_index).padStart(4, '0')}-part-${index + 1}`,
-            source_cue_id: occurrence.source_cue_id,
-            src: occurrence.src,
-            cut_index: occurrence.cut_index,
-            occurrence_index: occurrence.occurrence_index,
-            fragment_index: index + 1,
-            fragment_count: scheduled.length,
-            start: fragment.start,
-            end: fragment.end,
-            text: fragment.text,
-            units: measureCaptionUnits(fragment.text),
-            line_override: resolved.manual,
-            ...(resolvedStyle ? { text_style: resolvedStyle } : {}),
-            ...(styleResolution ? { style_vars: styleResolution.vars } : {}),
-            ...(styleResolution?.layout ? { layout: styleResolution.layout } : {})
-        }));
+        let scheduledCharacterOffset = 0;
+        const scheduledWithOffsets = scheduled.map(fragment => {
+            const charStart = scheduledCharacterOffset;
+            scheduledCharacterOffset += fragment.text.length;
+            return { ...fragment, charStart, charEnd: scheduledCharacterOffset };
+        });
+        const groups = wrap === 'fold'
+            ? scheduledWithOffsets.map(fragment => ({
+                start: fragment.start,
+                end: fragment.end,
+                lines: resolved.manual
+                    ? [fragment.text]
+                    : foldCaptionLines(fragment.text, policy.max_line_units, lines, policy.locale),
+                charStart: fragment.charStart,
+                charEnd: fragment.charEnd
+            }))
+            : Array.from({ length: Math.ceil(scheduledWithOffsets.length / lines) }, (_, groupIndex) => {
+                const fragments = scheduledWithOffsets.slice(groupIndex * lines, (groupIndex + 1) * lines);
+                return {
+                    start: fragments[0].start,
+                    end: fragments[fragments.length - 1].end,
+                    lines: fragments.map(fragment => fragment.text),
+                    charStart: fragments[0].charStart,
+                    charEnd: fragments[fragments.length - 1].charEnd
+                };
+            });
+        groups.forEach((group, index) => {
+            const text = joinCaptionLines(group.lines, policy.locale);
+            if (group.charEnd - group.charStart !== text.length) {
+                fail('INVALID_WORD_PROJECTION', `caption ${occurrence.source_cue_id} fragment character range is inconsistent`);
+            }
+            const wordDisplay = buildCueWordDisplay(wordStylesByCaption.get(occurrence.caption_input_index), occurrence, group.charStart, group.charEnd, group.lines, text);
+            displayCues.push({
+                id: `${occurrence.source_cue_id}-occ-${String(occurrence.occurrence_index).padStart(4, '0')}-part-${index + 1}`,
+                source_cue_id: occurrence.source_cue_id,
+                src: occurrence.src,
+                cut_index: occurrence.cut_index,
+                occurrence_index: occurrence.occurrence_index,
+                fragment_index: index + 1,
+                fragment_count: groups.length,
+                start: group.start,
+                end: group.end,
+                text,
+                ...(group.lines.length >= 2 ? { display_lines: group.lines } : {}),
+                units: measureCaptionUnits(text),
+                line_override: resolved.manual,
+                ...(resolvedStyle ? { text_style: resolvedStyle } : {}),
+                ...(styleResolution ? { style_vars: styleResolution.vars } : {}),
+                ...(styleResolution?.layout ? { layout: styleResolution.layout } : {}),
+                ...(wordDisplay ? { words: wordDisplay.words, word_styles: wordDisplay.wordStyles } : {})
+            });
+        });
     }
     displayCues.sort(compareDisplayCue);
     for (let index = 1; index < displayCues.length; index++) {
@@ -252,6 +322,125 @@ function resolveCaptionDisplay(captionsRoot, edit, options = {}) {
         display_cues: displayCues,
         word_book_fallbacks: wordBookFallbacks
     };
+}
+function resolveProjectedWordStyles(captions, projectedCaptions, emphasisValue, output) {
+    if (!Array.isArray(emphasisValue))
+        return new Map();
+    const emphasisWords = emphasisValue.filter(value => isRecord(value)
+        && typeof value.style_preset === 'string' && value.style_preset.length > 0
+        && finiteNonNegative(value.t_start) && finitePositive(value.t_end) && value.t_end > value.t_start
+        && (value.src === undefined || strictText(value.src)));
+    if (emphasisWords.length === 0)
+        return new Map();
+    const presetCache = new Map();
+    const resolvePreset = (presetId) => {
+        if (presetCache.has(presetId))
+            return presetCache.get(presetId);
+        const resolved = (0, caption_style_preset_1.resolveCaptionStylePreset)({ style_preset: presetId }, textstyle_catalog_1.TEXTSTYLE_CATALOG);
+        const vars = resolved.resolved && isRecord(resolved.record.text_style)
+            ? resolveCaptionStyleForOutput(resolved.record.text_style, output).vars
+            : null;
+        presetCache.set(presetId, vars);
+        return vars;
+    };
+    const result = new Map();
+    captions.forEach((caption, index) => {
+        if (caption.time_domain === 'output')
+            return;
+        const projected = projectedCaptions[index];
+        if (!Array.isArray(projected.words) || projected.words.length === 0
+            || projected.words.map(word => String(word.text)).join('') !== projected.displayText)
+            return;
+        let offset = 0;
+        const words = projected.words.map(word => {
+            const text = String(word.text);
+            let emphasis;
+            let styleVars = null;
+            for (const candidate of emphasisWords) {
+                const sourceMatches = !(strictText(candidate.src) && strictText(caption.src))
+                    || candidate.src === caption.src;
+                if (!sourceMatches
+                    || Math.min(word.end, candidate.t_end) - Math.max(word.start, candidate.t_start) <= PROJECTION_EPSILON)
+                    continue;
+                const resolvedVars = resolvePreset(candidate.style_preset);
+                if (!resolvedVars)
+                    continue;
+                emphasis = candidate;
+                styleVars = resolvedVars;
+                break;
+            }
+            const value = {
+                start: word.start,
+                end: word.end,
+                text,
+                offset,
+                ...(emphasis && styleVars ? { preset_id: emphasis.style_preset, style_vars: styleVars } : {})
+            };
+            offset += text.length;
+            return value;
+        });
+        if (words.some(word => word.preset_id))
+            result.set(index, words);
+    });
+    return result;
+}
+function buildCueWordDisplay(sourceWords, occurrence, charStart, charEnd, lines, cueText) {
+    if (!sourceWords)
+        return undefined;
+    const lineRanges = [];
+    let lineOffset = charStart;
+    lines.forEach((line, index) => {
+        lineRanges.push({ start: lineOffset, end: lineOffset + line.length, line: index });
+        lineOffset += line.length;
+    });
+    const styledWords = [];
+    for (const word of sourceWords) {
+        const wordEnd = word.offset + word.text.length;
+        if (Math.min(wordEnd, charEnd) - Math.max(word.offset, charStart) <= 0)
+            continue;
+        for (const line of lineRanges) {
+            const start = Math.max(word.offset, charStart, line.start);
+            const end = Math.min(wordEnd, charEnd, line.end);
+            if (end <= start)
+                continue;
+            const timeScale = occurrence.time_scale ?? 1;
+            const timeOffset = occurrence.time_offset ?? 0;
+            styledWords.push({
+                start: roundOutputSecond(timeOffset + word.start * timeScale),
+                end: roundOutputSecond(timeOffset + word.end * timeScale),
+                text: word.text.slice(start - word.offset, end - word.offset),
+                line: line.line,
+                ...(word.preset_id ? { preset_id: word.preset_id, style_vars: word.style_vars } : {})
+            });
+        }
+    }
+    if (styledWords.map(word => word.text).join('') !== cueText) {
+        fail('INVALID_WORD_PROJECTION', `caption ${occurrence.source_cue_id} words do not reconstruct display cue text`);
+    }
+    if (!styledWords.some(word => word.preset_id))
+        return undefined;
+    const wordStyles = [];
+    styledWords.forEach((word, index) => {
+        if (!word.preset_id || !word.style_vars)
+            return;
+        const previous = wordStyles[wordStyles.length - 1];
+        if (previous?.preset_id === word.preset_id && previous.to === index)
+            previous.to = index + 1;
+        else
+            wordStyles.push({
+                from: index,
+                to: index + 1,
+                preset_id: word.preset_id,
+                style_vars: word.style_vars
+            });
+    });
+    return {
+        words: styledWords.map(({ start, end, text, line }) => ({ start, end, text, line })),
+        wordStyles
+    };
+}
+function roundOutputSecond(value) {
+    return Number(value.toFixed(6));
 }
 /**
  * Strict captions.schema textStyle validation for the opt-in display-policy kernel.
@@ -277,6 +466,14 @@ function validateCaptionTextStyle(value, label = 'text_style') {
     }
     if (Object.prototype.hasOwnProperty.call(value, 'line_height') && !finitePositive(value.line_height)) {
         fail('INVALID_TEXT_STYLE', `${label}.line_height must be a positive finite number`);
+    }
+    if (Object.prototype.hasOwnProperty.call(value, 'scale')
+        && (!finiteNumber(value.scale) || value.scale < 0.4 || value.scale > 3)) {
+        fail('INVALID_TEXT_STYLE', `${label}.scale must be a finite number within [0.4, 3]`);
+    }
+    if (Object.prototype.hasOwnProperty.call(value, 'rotate')
+        && (!finiteNumber(value.rotate) || value.rotate < -180 || value.rotate > 180)) {
+        fail('INVALID_TEXT_STYLE', `${label}.rotate must be a finite number within [-180, 180]`);
     }
     validateTextStyleV0(value, label);
     if (Object.prototype.hasOwnProperty.call(value, 'stroke'))
@@ -500,38 +697,172 @@ function validateSourceReferences(captions, cuts, edit) {
     });
     return edit.sources.length;
 }
-function validateLinearCuts(cuts, edit) {
+function validateProjectionCuts(cuts, edit) {
     cuts.forEach((cut, index) => {
         if (!isRecord(cut) || !finiteNonNegative(cut.in) || !finitePositive(cut.out) || cut.out <= cut.in) {
             fail('INVALID_CUT', `edit.json cuts[${index}] must satisfy 0 <= in < out`);
         }
-        if (Object.prototype.hasOwnProperty.call(cut, 'at')
-            || Object.prototype.hasOwnProperty.call(cut, 'track')
-            || Object.prototype.hasOwnProperty.call(cut, 'transition_out')
+        if ((cut.at !== undefined && !finiteNonNegative(cut.at))
+            || (cut.track !== undefined && (!Number.isInteger(cut.track) || cut.track < 0))) {
+            fail('INVALID_CUT', `edit.json cuts[${index}].at/track must be non-negative timeline coordinates`);
+        }
+        if (Object.prototype.hasOwnProperty.call(cut, 'transition_out')
             || Object.prototype.hasOwnProperty.call(cut, 'transitionOut')) {
-            fail('UNSUPPORTED_TIMELINE', `display_policy does not support cuts[${index}].at/track/transition_out`);
+            fail('UNSUPPORTED_TIMELINE', `display_policy does not support cuts[${index}].transition_out`);
         }
         if (cut.speed !== undefined && !finitePositive(cut.speed))
             fail('INVALID_CUT', `edit.json cuts[${index}].speed must be positive`);
     });
-    if (Array.isArray(edit?.timeline?.tracks)
-        && edit.timeline.tracks.some((track) => track?.kind === 'cuts')) {
-        fail('UNSUPPORTED_TIMELINE', 'display_policy does not support timeline.tracks cuts winner overrides');
-    }
 }
-function projectOccurrences(captions, cuts, sourceCount) {
-    const occurrences = [];
+/**
+ * `captions.json` は変更せず、keep cut から外れた語だけを描画用の本文と words から除く。
+ * どれかの cut と一部でも交差する語は残す（語の途中で切った場合に欠落させない）。
+ */
+function projectCaptionWords(caption, cuts) {
+    const displayText = typeof caption?.display_text === 'string' ? caption.display_text : caption?.text;
+    const words = Array.isArray(caption?.words) ? caption.words.filter(isProjectionWord) : undefined;
+    if (typeof displayText !== 'string' || !words || words.length === 0
+        || caption.time_domain === 'output' || cuts.length === 0) {
+        return {
+            displayText: typeof displayText === 'string' ? displayText : '',
+            words,
+            changed: false,
+            renderable: typeof displayText === 'string' && displayText.trim().length > 0
+        };
+    }
+    const captionSource = strictText(caption.src) ? caption.src : null;
+    const visible = words.map(word => cuts.some(cut => {
+        if (!isRecord(cut) || cut.captions === 'off')
+            return false;
+        if (captionSource !== null && cut.src !== captionSource)
+            return false;
+        return finiteNonNegative(cut.in) && finitePositive(cut.out)
+            && word.end - cut.in > PROJECTION_EPSILON
+            && cut.out - word.start > PROJECTION_EPSILON;
+    }));
+    if (visible.every(Boolean)) {
+        return { displayText, words, changed: false, renderable: displayText.trim().length > 0 };
+    }
+    const keptWords = words.filter((_word, index) => visible[index]);
+    const projectedText = removeHiddenWords(displayText, words, visible);
+    return {
+        displayText: projectedText,
+        words: keptWords,
+        changed: true,
+        renderable: projectedText.trim().length > 0 && keptWords.length > 0
+    };
+}
+function isProjectionWord(value) {
+    return isRecord(value) && typeof value.text === 'string' && value.text.length > 0
+        && finiteNonNegative(value.start) && finiteNonNegative(value.end) && value.end > value.start;
+}
+function removeHiddenWords(text, words, visible) {
     let cursor = 0;
+    let output = '';
+    for (let index = 0; index < words.length; index++) {
+        const wordText = String(words[index].text);
+        const offset = text.indexOf(wordText, cursor);
+        if (offset < 0) {
+            return words.filter((_word, wordIndex) => visible[wordIndex]).map(word => String(word.text)).join('');
+        }
+        if (visible[index])
+            output += text.slice(cursor, offset + wordText.length);
+        cursor = offset + wordText.length;
+    }
+    if (visible[visible.length - 1])
+        output += text.slice(cursor);
+    return output.trim();
+}
+/**
+ * 同じ source cue が同じ出力区間へ複数回射影された場合、下→上の trackOrder で
+ * 最後に描かれる occurrence だけを残す。部分重複は境界で分割する。
+ */
+function dedupeCaptionOccurrences(occurrences, trackOrder) {
+    const inputOrder = new Map(occurrences.map((occurrence, index) => [occurrence, index]));
+    const trackRank = new Map();
+    trackOrder.forEach((track, index) => trackRank.set(track, index));
+    const rankOf = (occurrence) => trackRank.get(occurrence.track) ?? occurrence.track;
+    const byCue = new Map();
+    for (const occurrence of occurrences) {
+        const values = byCue.get(occurrence.source_cue_id) ?? [];
+        values.push(occurrence);
+        byCue.set(occurrence.source_cue_id, values);
+    }
+    const output = [];
+    for (const values of byCue.values()) {
+        const boundaries = [...new Set(values.flatMap(value => [value.start, value.end]))]
+            .sort((left, right) => left - right);
+        const pieces = [];
+        for (let index = 0; index + 1 < boundaries.length; index++) {
+            const start = boundaries[index];
+            const end = boundaries[index + 1];
+            if (end - start <= PROJECTION_EPSILON)
+                continue;
+            const midpoint = (start + end) / 2;
+            const active = values.filter(value => value.start <= midpoint && value.end > midpoint);
+            if (active.length === 0)
+                continue;
+            const winner = active.reduce((current, candidate) => {
+                const rankDifference = rankOf(candidate) - rankOf(current);
+                if (rankDifference !== 0)
+                    return rankDifference > 0 ? candidate : current;
+                return (inputOrder.get(candidate) ?? 0) > (inputOrder.get(current) ?? 0) ? candidate : current;
+            });
+            const last = pieces[pieces.length - 1];
+            if (last?.winner === winner && Math.abs(last.end - start) <= PROJECTION_EPSILON)
+                last.end = end;
+            else
+                pieces.push({ winner, start, end });
+        }
+        for (const piece of pieces) {
+            const whole = piece.winner;
+            if (Math.abs(piece.start - whole.start) <= PROJECTION_EPSILON
+                && Math.abs(piece.end - whole.end) <= PROJECTION_EPSILON) {
+                output.push(whole);
+                continue;
+            }
+            const duration = whole.end - whole.start;
+            const clipped = { ...whole, start: piece.start, end: piece.end };
+            if (duration > 0 && finiteNumber(whole.source_start) && finiteNumber(whole.source_end)) {
+                const sourceDuration = whole.source_end - whole.source_start;
+                clipped.source_start = whole.source_start + sourceDuration * ((piece.start - whole.start) / duration);
+                clipped.source_end = whole.source_start + sourceDuration * ((piece.end - whole.start) / duration);
+            }
+            output.push(clipped);
+        }
+    }
+    return output.sort((left, right) => left.start - right.start
+        || (inputOrder.get(left) ?? inputOrder.get(left) ?? 0) - (inputOrder.get(right) ?? 0));
+}
+function captionTrackOrder(cuts, edit) {
+    const declared = Array.isArray(edit?.timeline?.tracks)
+        ? edit.timeline.tracks
+            .filter((track) => track?.kind === 'cuts' && Number.isInteger(track.ref) && track.ref >= 0)
+            .map((track) => track.ref)
+        : [];
+    const fallback = cuts.map(cut => Number.isInteger(cut.track) && cut.track >= 0 ? cut.track : 0)
+        .sort((left, right) => left - right);
+    return [...new Set(declared.length > 0 ? declared : fallback)];
+}
+function projectOccurrences(captions, projectedCaptions, cuts, sourceCount) {
+    const occurrences = [];
+    const cursors = new Map();
     const segments = cuts.map((cut, cutIndex) => {
         const speed = finitePositive(cut.speed) ? cut.speed : 1;
         const duration = (cut.out - cut.in) / speed;
-        const segment = { cut, cutIndex, speed, start: cursor, end: cursor + duration };
-        cursor += duration;
+        const track = Number.isInteger(cut.track) && cut.track >= 0 ? cut.track : 0;
+        const cursor = cursors.get(track) ?? 0;
+        const start = finiteNonNegative(cut.at) ? cut.at : cursor;
+        const segment = { cut, cutIndex, speed, track, start, end: start + duration };
+        cursors.set(track, segment.end);
         return segment;
     });
-    const timelineEnd = cursor;
+    const timelineEnd = segments.reduce((maximum, segment) => Math.max(maximum, segment.end), 0);
     captions.forEach((caption, captionInputIndex) => {
         if (!isRecord(caption) || caption.time_domain !== 'output')
+            return;
+        const projected = projectedCaptions[captionInputIndex];
+        if (!projected.renderable)
             return;
         const clampedEnd = Math.min(caption.end, timelineEnd);
         if (!(clampedEnd > caption.start))
@@ -545,17 +876,23 @@ function projectOccurrences(captions, cuts, sourceCount) {
             source_end: clampedEnd,
             start: caption.start,
             end: clampedEnd,
-            text: caption.display_text ?? caption.text,
-            display_fragments: caption.display_fragments,
-            text_style: caption.text_style
+            track: 0,
+            text: projected.displayText,
+            display_fragments: projected.changed ? undefined : caption.display_fragments,
+            text_style: caption.text_style,
+            time_offset: 0,
+            time_scale: 1
         });
     });
     if (cuts.length === 0) {
         captions.forEach((caption, captionInputIndex) => {
             if (caption?.time_domain === 'output')
                 return;
-            const text = caption?.display_text ?? caption?.text;
+            const projected = projectedCaptions[captionInputIndex];
+            const text = projected.displayText;
             if (isRecord(caption) && finiteNonNegative(caption.start) && finitePositive(caption.end) && caption.end > caption.start && typeof text === 'string') {
+                if (!projected.renderable)
+                    return;
                 occurrences.push({
                     source_cue_id: caption.id,
                     src: typeof caption.src === 'string' ? caption.src : null,
@@ -565,9 +902,12 @@ function projectOccurrences(captions, cuts, sourceCount) {
                     source_end: caption.end,
                     start: caption.start,
                     end: caption.end,
+                    track: 0,
                     text,
-                    display_fragments: caption.display_fragments,
-                    text_style: caption.text_style
+                    display_fragments: projected.changed ? undefined : caption.display_fragments,
+                    text_style: caption.text_style,
+                    time_offset: 0,
+                    time_scale: 1
                 });
             }
         });
@@ -578,11 +918,16 @@ function projectOccurrences(captions, cuts, sourceCount) {
             return;
         if (caption.time_domain === 'output')
             return;
+        const projected = projectedCaptions[captionInputIndex];
+        if (!projected.renderable)
+            return;
         const captionSource = strictText(caption.src) ? caption.src : null;
         if (sourceCount > 1 && captionSource === null) {
             fail('MISSING_SOURCE', `captions[${captionInputIndex}].src is required for a multi-source edit`);
         }
         for (const segment of segments) {
+            if (segment.cut.captions === 'off')
+                continue;
             if (captionSource !== null && segment.cut.src !== captionSource)
                 continue;
             const sourceStart = Math.max(caption.start, segment.cut.in);
@@ -598,15 +943,18 @@ function projectOccurrences(captions, cuts, sourceCount) {
                 source_end: sourceEnd,
                 start: segment.start + (sourceStart - segment.cut.in) / segment.speed,
                 end: segment.start + (sourceEnd - segment.cut.in) / segment.speed,
-                text: caption.display_text ?? caption.text,
-                display_fragments: caption.display_fragments,
-                text_style: caption.text_style
+                track: segment.track,
+                text: projected.displayText,
+                display_fragments: projected.changed ? undefined : caption.display_fragments,
+                text_style: caption.text_style,
+                time_offset: segment.start - segment.cut.in / segment.speed,
+                time_scale: 1 / segment.speed
             });
         }
     });
     return occurrences;
 }
-function validateSourceCaption(caption, index, policy) {
+function validateSourceCaption(caption, index, policy, projected) {
     if (!isRecord(caption) || !strictText(caption.id))
         fail('INVALID_CAPTION', `captions[${index}].id must be a non-empty string`);
     if (!finiteNonNegative(caption.start) || !finitePositive(caption.end) || caption.end <= caption.start) {
@@ -619,9 +967,10 @@ function validateSourceCaption(caption, index, policy) {
         && caption.time_domain !== 'source' && caption.time_domain !== 'output') {
         fail('INVALID_CAPTION', `captions[${index}].time_domain must be source or output when present`);
     }
-    const text = caption.display_text ?? caption.text;
-    if (!strictText(text))
+    const sourceText = caption.display_text ?? caption.text;
+    if (!strictText(sourceText))
         fail('INVALID_TEXT', `captions[${index}] display text must be non-empty, NFC, and trimmed`);
+    const text = projected?.renderable ? projected.displayText : sourceText;
     if (caption.style !== undefined) {
         if (CAPTION_WORD_STYLES.has(caption.style)) {
             fail('STYLE_CONFLICT', `captions[${index}].style cannot be combined with display_policy`);
@@ -629,7 +978,9 @@ function validateSourceCaption(caption, index, policy) {
         fail('INVALID_CAPTION', `captions[${index}].style ${JSON.stringify(caption.style)} is not a known caption style `
             + `(expected one of: ${[...CAPTION_WORD_STYLES].join(', ')})`);
     }
-    if (measureCaptionUnits(text) > policy.max_line_units * 2 && caption.display_fragments === undefined) {
+    if (projected?.renderable !== false
+        && measureCaptionUnits(text) > policy.max_line_units * (policy.wrap === 'fold' ? (policy.lines ?? 1) : 1) * 2
+        && (caption.display_fragments === undefined || projected?.changed === true)) {
         fail('NO_WORD_BOUNDARY_SPLIT', `caption ${caption.id} cannot fit in two ${policy.max_line_units}-unit fragments; provide display_fragments`);
     }
 }
@@ -648,8 +999,8 @@ function validateEmphasisConflicts(captions, emphasisValue) {
     });
 }
 function validateManualFragments(caption, text, policy, index) {
-    if (!Array.isArray(caption.display_fragments) || caption.display_fragments.length < 1 || caption.display_fragments.length > 2) {
-        fail('INVALID_MANUAL_FRAGMENTS', `captions[${index}].display_fragments must contain one or two strings`);
+    if (!Array.isArray(caption.display_fragments) || caption.display_fragments.length < 1 || caption.display_fragments.length > 6) {
+        fail('INVALID_MANUAL_FRAGMENTS', `captions[${index}].display_fragments must contain between one and six strings`);
     }
     if (caption.display_fragments.some((fragment) => !strictText(fragment))) {
         fail('INVALID_MANUAL_FRAGMENTS', `captions[${index}].display_fragments must contain non-empty NFC trimmed strings`);
@@ -695,6 +1046,52 @@ function splitCaptionFragments(text, policy) {
     }
     candidates.sort((left, right) => right.score - left.score || left.boundary - right.boundary);
     return { fragments: candidates[0].fragments, boundaries };
+}
+function foldCaptionLines(text, maxLineUnits, lines, locale = 'ja') {
+    if (!finitePositive(maxLineUnits) || !Number.isInteger(lines) || lines < 1) {
+        fail('INVALID_POLICY', 'foldCaptionLines requires positive maxLineUnits and lines >= 1');
+    }
+    if (lines === 1 || measureCaptionUnits(text) <= maxLineUnits)
+        return [text];
+    const Segmenter = Intl.Segmenter;
+    const segments = typeof Segmenter === 'function'
+        ? [...new Segmenter(locale, { granularity: 'word' }).segment(text)].map(segment => segment.segment)
+        : Array.from(text);
+    const tokens = segments.flatMap(segment => splitCaptionUnitChunks(segment, maxLineUnits));
+    const result = [];
+    let current = '';
+    for (let index = 0; index < tokens.length; index++) {
+        const token = tokens[index];
+        if (current === '' || measureCaptionUnits(current + token) <= maxLineUnits) {
+            current += token;
+            continue;
+        }
+        result.push(current);
+        if (result.length === lines - 1) {
+            current = tokens.slice(index).join('');
+            break;
+        }
+        current = token;
+    }
+    if (current !== '')
+        result.push(current);
+    return result;
+}
+function splitCaptionUnitChunks(text, maxLineUnits) {
+    if (measureCaptionUnits(text) <= maxLineUnits)
+        return [text];
+    const chunks = [];
+    let current = '';
+    for (const character of Array.from(text)) {
+        if (current !== '' && measureCaptionUnits(current + character) > maxLineUnits) {
+            chunks.push(current);
+            current = '';
+        }
+        current += character;
+    }
+    if (current !== '')
+        chunks.push(current);
+    return chunks;
 }
 function captionBreakScore(first, second, firstUnits, secondUnits, hints) {
     let score = 100 - Math.abs(firstUnits - secondUnits) * 4;

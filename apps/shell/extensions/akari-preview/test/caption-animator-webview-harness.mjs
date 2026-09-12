@@ -24,25 +24,54 @@ function section(text, from, to) {
     return vm.runInNewContext('`' + text.slice(start, end) + '`', visual);
 }
 
-export function harness({ text = source, cues = [], engine = true, available = true, emphasisWords = [], applyAnimator, output } = {}) {
+export function harness({ text = source, cues = [], engine = true, available = true, emphasisWords = [], applyAnimator, output, selectedIds = [] } = {}) {
     const calls = [];
     const warnings = [];
     const selectionEffects = [];
     let html = '';
     let writes = 0;
     let nodes = [];
+    const plateAttributes = new Set();
+    const plateChildren = [];
     const listeners = new Map();
     const animations = [{ pause() {}, currentTime: 0, effect: { getComputedTiming: () => ({ endTime: 0 }) } }];
     const escape = value => String(value).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
+    const createElement = tagName => {
+        const attributes = new Map();
+        const children = [];
+        return {
+            tagName: tagName.toUpperCase(), className: '', style: {}, children, parentElement: null,
+            setAttribute(name, value) { attributes.set(name, value); },
+            getAttribute(name) { return attributes.get(name) ?? null; },
+            appendChild(child) { child.parentElement = this; children.push(child); return child; },
+            remove() {
+                const siblings = this.parentElement?.children ?? plateChildren;
+                const index = siblings.indexOf(this);
+                if (index >= 0) siblings.splice(index, 1);
+                this.parentElement = null;
+            }
+        };
+    };
     const plate = {
         id: 'caption-plate',
+        setAttribute(name) { plateAttributes.add(name); },
+        removeAttribute(name) { plateAttributes.delete(name); },
+        hasAttribute(name) { return plateAttributes.has(name); },
         style: { removeProperty() {}, setProperty() {} },
-        classList: { toggle() {} },
+        classList: { toggle() {}, contains() { return false; } },
         get innerHTML() { return html; },
-        set innerHTML(value) { html = value; nodes = []; writes++; },
-        set textContent(value) { html = escape(value); nodes = []; writes++; },
+        set innerHTML(value) { html = value; nodes = []; plateChildren.length = 0; writes++; },
+        set textContent(value) { html = escape(value); nodes = []; plateChildren.length = 0; writes++; },
+        children: plateChildren,
+        appendChild(child) { child.parentElement = this; plateChildren.push(child); return child; },
         getAnimations: () => animations,
         querySelectorAll(selector) {
+            if (selector === '.akari-caption-handle-box, .akari-caption-handle') {
+                return plateChildren.flatMap(child => [child, ...child.children]);
+            }
+            if (selector === '.akari-caption-handle') {
+                return plateChildren.flatMap(child => child.children);
+            }
             assert.equal(selector, '.akari-caption__char');
             if (!nodes.length) nodes = [...html.matchAll(/<span class="akari-caption__char" data-akari-char="(\d+)">([\s\S]*?)<\/span>/g)]
                 .map(match => {
@@ -63,6 +92,12 @@ export function harness({ text = source, cues = [], engine = true, available = t
                     return node;
                 });
             return nodes;
+        },
+        querySelector(selector) {
+            if (selector === '.akari-caption-handle-box') {
+                return plateChildren.find(child => child.className === 'akari-caption-handle-box') ?? null;
+            }
+            return null;
         }
     };
     const noop = () => {};
@@ -70,7 +105,7 @@ export function harness({ text = source, cues = [], engine = true, available = t
     const clock = { tick: time => time, seek: time => time, totalDuration: 60 };
     const context = vm.createContext({
         console: { warn: (...values) => warnings.push(values) },
-        document: { getElementById: id => id === 'caption-plate' ? plate : null },
+        document: { getElementById: id => id === 'caption-plate' ? plate : null, createElement },
         window: {
             addEventListener: (type, listener) => listeners.set(type, listener),
             dispatchEvent: event => { listeners.get(event.type)?.(event); },
@@ -80,14 +115,16 @@ export function harness({ text = source, cues = [], engine = true, available = t
                 applyAnimator?.(root, declaration);
             } } } : {}),
             akari: { ...(engine ? { frameEngineClock: clock } : {}), runtime: { tick: noop },
-                playbackTick: noop, audioMeterTick: noop, reviewTransport: noop }
+                playbackTick: noop, audioMeterTick: noop, reviewTransport: noop, reportAltAll: noop }
         },
         initial: { summary }, summary, captions: cues, outputTime: 0, isPlaying: false,
+        selectedCaptionIds: new Set(selectedIds), captionAltAll: false,
         requestedCutId: undefined, selectedCaptionId: null, selectedLayerId: null, cutSelected: false,
         cropModeActive: false, perspectivePanelOpen: false, activePerspectivePreset: null,
         layerPerspectivePresetButtons: [], findLayerEntry: id => summary.layers?.find(layer => layer.id === id),
         // Layout/probe boundaries are recorded; selection transitions below use the real source.
         updateCaptionSelectBox: () => selectionEffects.push('caption-box'),
+        syncCaptionHandleBox: noop,
         updateCutSelectBox: () => selectionEffects.push('cut-box'),
         ensureCutSourceNaturalSize: () => selectionEffects.push('cut-probe'),
         activeCaption: null, activeCaptionEdit: null, styledCaptionActive: false, captionHitRegionPending: false,

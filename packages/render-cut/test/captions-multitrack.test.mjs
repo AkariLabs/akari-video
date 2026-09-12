@@ -39,6 +39,46 @@ test("fully covered copies contribute no captions", () => {
   assert.deepEqual(generateCaptionOverlays([captions[0]], stacked, { sourceCount: 2 }), []);
 });
 
+test("(a)(b) duplicate source cues render once and an off item contributes no occurrence", () => {
+  const cue = [{ id: "same", src: "src-1", start: 0, end: 2, text: "Once" }];
+  const duplicated = [
+    { src: "src-1", in: 0, out: 2, at: 0, track: 0 },
+    { src: "src-1", in: 0, out: 2, at: 0, track: 1 },
+  ];
+  assert.equal(generateCaptionOverlays(cue, duplicated).length, 1);
+  duplicated[1].captions = "off";
+  assert.equal(generateCaptionOverlays(cue, duplicated).length, 1, "the lower on item remains");
+  duplicated[0].captions = "off";
+  assert.equal(generateCaptionOverlays(cue, duplicated).length, 0);
+});
+
+test("(c) fully excluded words leave rendered text while partially intersecting words survive", () => {
+  const cue = {
+    id: "cut-words", src: "src-1", start: 0, end: 2, text: "前消残後",
+    words: [
+      { text: "前", start: 0, end: 0.5 },
+      { text: "消", start: 0.5, end: 0.9 },
+      { text: "残", start: 0.9, end: 1.2 },
+      { text: "後", start: 1.2, end: 2 },
+    ],
+  };
+  const before = JSON.stringify(cue);
+  const overlays = generateCaptionOverlays([cue], [
+    { src: "src-1", in: 0, out: 0.5 },
+    { src: "src-1", in: 1, out: 2 },
+  ]);
+  assert.equal(overlays.length, 2);
+  assert.ok(overlays.every(overlay => overlay.html.includes("前残後")));
+  assert.ok(overlays.every(overlay => !overlay.html.includes("前消残後")));
+  assert.equal(JSON.stringify(cue), before, "text/words[] source bytes");
+
+  const onlyCutWord = { ...cue, text: "消", words: [cue.words[1]] };
+  assert.deepEqual(generateCaptionOverlays([onlyCutWord], [
+    { src: "src-1", in: 0, out: 0.5 },
+    { src: "src-1", in: 1, out: 2 },
+  ]), []);
+});
+
 test("a cue splits at each visible winner boundary, then resumes on the lower track", () => {
   const stacked = [
     { src: "src-1", in: 0, out: 10, at: 0, track: 0 },

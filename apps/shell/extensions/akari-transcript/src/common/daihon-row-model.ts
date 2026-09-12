@@ -36,28 +36,36 @@ export interface DaihonRow {
     style: string | null;
     words: DaihonCaptionWord[] | null;
     unrecognized: { start: number; end: number }[];
+    fragmentBreakWordIndices: number[];
+    fragmentBreakCharacterOffsets: number[];
+    /** @deprecated N 境界対応前の互換フィールド。新規描画は配列フィールドを使う。 */
     fragmentBreakWordIndex: number | null;
     edited: boolean;
     timeDomain: 'source' | 'output';
 }
 
-function fragmentBreak(caption: DaihonCaptionLike, words: readonly DaihonCaptionWord[] | null): number | null {
+function fragmentBreaks(caption: DaihonCaptionLike, words: readonly DaihonCaptionWord[] | null): {
+    wordIndices: number[];
+    characterOffsets: number[];
+} {
     const fragments = caption.displayFragments ?? caption.display_fragments;
-    if (fragments?.length !== 2) {
-        return null;
+    if (!fragments || fragments.length < 2 || fragments.join('') !== caption.text) {
+        return { wordIndices: [], characterOffsets: [] };
     }
-    const firstLength = fragments[0].length;
-    if (!words) {
-        return firstLength;
+    const offsets = fragments.slice(0, -1).map((_fragment, index) =>
+        fragments.slice(0, index + 1).reduce((length, item) => length + item.length, 0));
+    if (!words || words.map(word => word.text).join('') !== caption.text) {
+        return { wordIndices: [], characterOffsets: offsets };
     }
+    const wordIndices: number[] = [];
     let length = 0;
     for (let index = 0; index < words.length; index++) {
         length += words[index].text.length;
-        if (length >= firstLength) {
-            return index + 1;
-        }
+        if (offsets.includes(length) && index + 1 < words.length) wordIndices.push(index + 1);
     }
-    return words.length;
+    return wordIndices.length === offsets.length
+        ? { wordIndices, characterOffsets: [] }
+        : { wordIndices: [], characterOffsets: offsets };
 }
 
 function overlapsKeptSource(
@@ -95,6 +103,7 @@ export function buildDaihonRows(
                 outEnd = null;
             }
         }
+        const breaks = fragmentBreaks(caption, words);
         return {
             id: caption.id,
             start: caption.start,
@@ -106,7 +115,9 @@ export function buildDaihonRows(
             style: caption.style ?? null,
             words,
             unrecognized,
-            fragmentBreakWordIndex: fragmentBreak(caption, words),
+            fragmentBreakWordIndices: breaks.wordIndices,
+            fragmentBreakCharacterOffsets: breaks.characterOffsets,
+            fragmentBreakWordIndex: breaks.wordIndices[0] ?? breaks.characterOffsets[0] ?? null,
             edited: caption.edited === true,
             timeDomain
         };

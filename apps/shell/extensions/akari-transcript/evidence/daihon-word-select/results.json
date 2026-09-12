@@ -1,0 +1,127 @@
+{
+  "status": "pass",
+  "steps": [
+    {
+      "name": "1. 横ドラッグで 3 語 → 浮きバーに「3 語」",
+      "pass": true,
+      "detail": {
+        "label": "3 語 · 0:01.00–0:02.45",
+        "selected": 3,
+        "selectedRows": 0
+      }
+    },
+    {
+      "name": "2. ⌘ で 2 行目の語を足す → 「2 範囲 · 4 語」",
+      "pass": true,
+      "detail": {
+        "label": "2 範囲 · 4 語",
+        "selected": 4,
+        "target": {
+          "row": "c-0003",
+          "index": 1,
+          "blocked": [
+            {
+              "row": "c-0002",
+              "index": 1,
+              "coveredBy": "akari-daihon-pop akari-daihon-wordbar||"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "3. 🎨 → neon → emphasis_words 2 件・本文バイト不変",
+      "pass": true,
+      "detail": {
+        "ids": [
+          "e-0001",
+          "e-0002"
+        ],
+        "words": [
+          "ネオンとかグリッチとかそういう",
+          "右クリックで"
+        ],
+        "cards": [
+          "neon",
+          "glitch",
+          "title-impact",
+          "emphasis-red",
+          "verdict-badge"
+        ],
+        "cardSample": "ネオンとかグリッチ",
+        "commitDelta": 1,
+        "validateCaptionsExit": 0,
+        "textLinesEqual": true
+      }
+    },
+    {
+      "name": "4. 右クリックで 5 群・Coming soon は書き込み 0",
+      "pass": true,
+      "detail": {
+        "dispatch": "native",
+        "groups": [
+          "2 範囲を一括「ネオンとかグリッチとかそういう・右クリックで」",
+          "強調",
+          "挿入",
+          "行",
+          "マーク"
+        ],
+        "comingSoonItems": 7,
+        "writes": 0
+      }
+    },
+    {
+      "name": "5. ⊕ → 改行 → display_fragments + edited",
+      "pass": true,
+      "detail": {
+        "fragments": [
+          "語と語の",
+          "間に⊕が出る"
+        ],
+        "edited": true
+      }
+    },
+    {
+      "name": "6. ⌘Z で両ファイルとも戻る",
+      "pass": true,
+      "detail": {
+        "breakUndone": true,
+        "captionsBytesEqualOriginal": true,
+        "editBytesEqualOriginal": true,
+        "emphasisIdsBefore": [
+          "e-0001",
+          "e-0002"
+        ]
+      }
+    }
+  ],
+  "screenshots": [
+    "01-drag-3-words.png",
+    "02-cmd-add-second-row.png",
+    "03-tpl-cards.png",
+    "04-emphasis-applied.png",
+    "05-context-menu-5-groups.png",
+    "06-gap-menu-break.png"
+  ],
+  "cleanup": {
+    "killedPid": 90212,
+    "survivingProcesses": 0
+  },
+  "fixture": {
+    "ok": true,
+    "rows": 5,
+    "words": [
+      5,
+      5,
+      4,
+      5,
+      3
+    ]
+  },
+  "preloadOverlay": "removed",
+  "daihonVisible": {
+    "w": 67.328125,
+    "h": 17,
+    "top": 145.5
+  }
+}

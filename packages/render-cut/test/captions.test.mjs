@@ -2,12 +2,36 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  captionTransform,
   generateCaptionOverlays,
   generateResolvedCaptionOverlays,
   renderCaptionFragment,
+  renderResolvedSingleLineCaption,
   renderStyledCaptionFragment,
   sourceRangeToTimeline,
 } from "../src/captions.mjs";
+
+test("captionTransform accepts declared scale/rotate and ignores invalid values", () => {
+  assert.deepEqual(captionTransform({ scale: 1.5, rotate: -8 }), { x: 0, y: 0, scale: 1.5, rotate: -8 });
+  assert.deepEqual(captionTransform(), { x: 0, y: 0, scale: 1, rotate: 0 });
+  assert.deepEqual(captionTransform({ scale: Infinity, rotate: 181 }), { x: 0, y: 0, scale: 1, rotate: 0 });
+});
+
+test('legacy display_fragments become unique overlays at word boundaries', () => {
+  const overlays = generateCaptionOverlays([{
+    id: 'c-0001', start: 0, end: 3, text: '前半後半', display_fragments: ['前半', '後半'],
+    words: [{ text: '前半', start: 0.2, end: 1.1 }, { text: '後半', start: 1.6, end: 2.8 }],
+  }], []);
+  assert.deepEqual(overlays.map(overlay => ({
+    id: overlay.id, start: overlay.start, duration: overlay.duration, generatedFrom: overlay.generatedFrom
+  })), [
+    { id: 'c-0001-f1-01', start: 0.2, duration: 0.9000000000000001, generatedFrom: 'c-0001' },
+    { id: 'c-0001-f2-01', start: 1.6, duration: 1.1999999999999997, generatedFrom: 'c-0001' }
+  ]);
+  assert.match(overlays[0].html, /前半/u);
+  assert.doesNotMatch(overlays[0].html, /後半/u);
+  assert.match(overlays[1].html, /後半/u);
+});
 
 test("resolved caption overlay consumes the Node-resolved cue without re-splitting or animation", () => {
   const [overlay] = generateResolvedCaptionOverlays({
@@ -37,6 +61,76 @@ test("resolved caption overlay consumes the Node-resolved cue without re-splitti
   assert.match(overlay.html, /gap:0/u);
   assert.match(overlay.html, /padding:0/u);
   assert.doesNotMatch(overlay.html, /animation:/u);
+});
+
+test("resolved caption overlay renders display_lines as sibling line paragraphs", () => {
+  const [overlay] = generateResolvedCaptionOverlays({
+    display_cues: [{
+      id: "c-0001-occ-0001-part-1", source_cue_id: "c-0001",
+      start: 0, end: 1, text: "one & two", display_lines: ["one &", " two"],
+    }],
+  });
+  assert.match(overlay.html, /<p class="akari-caption__line">one &amp;<\/p><p class="akari-caption__line"> two<\/p>/u);
+});
+
+test("resolved caption overlay renders word preset spans without changing cues that omit word_styles", () => {
+  const legacy = renderResolvedSingleLineCaption("AKARI Video", ["AKARI Video"]);
+  assert.equal(legacy, renderResolvedSingleLineCaption("AKARI Video", ["AKARI Video"], {}));
+  const [overlay] = generateResolvedCaptionOverlays({
+    display_cues: [{
+      id: "c-0001-occ-0001-part-1", source_cue_id: "c-0001",
+      start: 0, end: 1, text: "AKARI Video",
+      words: [
+        { start: 0, end: 0.5, text: "AKARI", line: 0 },
+        { start: 0.5, end: 1, text: " Video", line: 0 },
+      ],
+      word_styles: [{
+        from: 0, to: 1, preset_id: "neon",
+        style_vars: { "--caption-color": "#aefcff" },
+      }],
+    }],
+  });
+  assert.match(overlay.html, /data-emphasis-preset="neon"/u);
+  assert.match(overlay.html, /akari-caption__tok--preset/u);
+  assert.match(overlay.html, /--caption-color:#aefcff;/u);
+});
+
+test("resolved word preset spans preserve a standalone ASCII space", () => {
+  const [overlay] = generateResolvedCaptionOverlays({
+    display_cues: [{
+      id: "c-0001-occ-0001-part-1", source_cue_id: "c-0001",
+      start: 0, end: 1, text: "AKARI Video",
+      words: [
+        { start: 0, end: 0.4, text: "AKARI", line: 0 },
+        { start: 0.4, end: 0.5, text: " ", line: 0 },
+        { start: 0.5, end: 1, text: "Video", line: 0 },
+      ],
+      word_styles: [{
+        from: 0, to: 1, preset_id: "neon",
+        style_vars: { "--caption-color": "#aefcff" },
+      }],
+    }],
+  });
+  assert.match(overlay.html, /\.akari-caption__tok\{display:inline-block;white-space:pre;\}/u);
+  const tokenText = [...overlay.html.matchAll(/<span class="akari-caption__tok[^>]*>([^<]*)<\/span>/gu)]
+    .map(match => match[1]).join("");
+  assert.equal(tokenText, "AKARI Video");
+});
+
+test("legacy emphasis style_preset wins over emotion rendering", () => {
+  const [overlay] = generateCaptionOverlays([{
+    id: "c-0001", start: 0, end: 1, text: "AKARI", style: "karaoke",
+    words: [{ start: 0, end: 1, text: "AKARI" }],
+  }], [{ in: 0, out: 1 }], {
+    output: { width: 1920, height: 1080 },
+    emphasisWords: [{
+      id: "e-0001", t_start: 0, t_end: 1, word: "AKARI",
+      emotion: "anger", style_preset: "neon",
+    }],
+  });
+  assert.match(overlay.html, /data-emphasis-preset="neon"/u);
+  assert.match(overlay.html, /--caption-color:#aefcff;/u);
+  assert.doesNotMatch(overlay.html, /akari-caption__tok--one-char-bang/u);
 });
 
 test("caption generation is deterministic and uses the line-fit plate structure", () => {

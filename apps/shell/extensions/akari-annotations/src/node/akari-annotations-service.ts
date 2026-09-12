@@ -1,6 +1,7 @@
 import { injectable } from '@theia/core/shared/inversify';
 import URI from '@theia/core/lib/common/uri';
 import { writeAtomic, writeProjectFilesGuarded } from '@akari-video/edit-store/lib/write-gate';
+import { validateCaptionDisplayPolicy } from '@akari-video/edit-store';
 import { readInternalSources } from '@akari-video/edit-store/lib/internal-model';
 import {
     applyCutRanges as applyCutRangesToSource,
@@ -9,6 +10,7 @@ import {
 } from '@akari-video/edit-store/lib/cut-ranges';
 import { refreshItemAnchors, type EditableEditV2 } from '@akari-video/edit-store/lib/tree-ops';
 import { toAnchorCaptions, withoutItemAnchors } from '@akari-video/edit-store/lib/item-anchor';
+import { list as listHistory, restore as restoreHistory, snapshot as snapshotHistory } from '@akari-video/edit-store/lib/history-store';
 import { applyMigration, planMigration, revertMigration } from '@akari-video/edit-store/lib/migrate';
 import { execFile } from 'child_process';
 import { createHash } from 'crypto';
@@ -29,6 +31,8 @@ import {
     EditMigrationPlanResult,
     EditMigrationProposal,
     EditMigrationRequest,
+    EditHistoryEntry,
+    EditHistoryProjectRequest,
     GetAudioDurationRequest,
     GetAudioDurationResult,
     ProbeSourceDimensionsRequest,
@@ -51,12 +55,14 @@ import {
     MoveLayerRequest,
     MoveOverlayRequest,
     MoveSfxRequest,
+    MergeCaptionsRequest,
     RemoveCaptionRequest,
     RemoveLayerRequest,
     RemoveLayerResult,
     RemoveOverlayRequest,
     RemoveSfxRequest,
     RemoveSfxResult,
+    RestoreEditHistoryRequest,
     ReorderCutsRequest,
     ResizeOverlayRequest,
     ResolveAnnotationRequest,
@@ -66,8 +72,12 @@ import {
     SlipCutRequest,
     SetBgmFieldsRequest,
     SetCaptionFieldsRequest,
+    SetCaptionDisplayPolicyRequest,
+    SetCaptionDisplayPolicyResult,
     SetCaptionStylePresetRequest,
     SetCaptionStylePresetResult,
+    SetEmphasisWordsRequest,
+    SetEmphasisWordsResult,
     SetCaptionTimingRequest,
     SetCaptionTextStyleRequest,
     SetCutAtValuesRequest,
@@ -82,6 +92,7 @@ import {
     SetSfxFadeRequest,
     SetSfxGainRequest,
     SplitCutRequest,
+    SplitCaptionRequest,
     TrimCutRequest,
     TrimSfxRequest,
     WriteBackResult,
@@ -108,7 +119,9 @@ import {
 } from '../common/annotation-store';
 import {
     insertCaptionLine,
+    mergeCaptionLines,
     removeCaptionLine,
+    splitCaptionLine,
     shiftCaptionLine,
     setCaptionTimingLine,
     updateCaptionFieldsInSource,
@@ -712,6 +725,155 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         return { committed, changed: updated.changed, beforeSource };
     }
 
+    async setCaptionDisplayPolicy(request: SetCaptionDisplayPolicyRequest): Promise<SetCaptionDisplayPolicyResult> {
+        this.requireWriteRequest(request?.captionsUri, request?.projectRootUri);
+        const captionsPath = this.fsPath(request.captionsUri);
+        const beforeSource = await fs.readFile(captionsPath, 'utf8');
+        const policy = validateCaptionDisplayPolicy(request.displayPolicy);
+        const updated = this.replaceCaptionDisplayPolicy(beforeSource, policy);
+        if (updated === beforeSource) return { committed: false, changed: 0, beforeSource };
+        await this.writeProjectFileGuarded(captionsPath, updated);
+        const projectRoot = this.fsPath(request.projectRootUri);
+        const committed = this.commitWrite(projectRoot, '字幕の表示設定を変更')
+            || await this.commitIfOwnRoot(projectRoot, '字幕の表示設定を変更', [captionsPath]);
+        return { committed, changed: 1, beforeSource };
+    }
+
+    private replaceCaptionDisplayPolicy(source: string, policy: ReturnType<typeof validateCaptionDisplayPolicy>): string {
+        const first = source.search(/\S/u);
+        if (first < 0) throw new Error('captions.json が空です。');
+        const policyText = JSON.stringify(policy, null, 2);
+        if (source[first] === '[') {
+            const end = source.lastIndexOf(']');
+            if (end < first) throw new Error('captions 配列が閉じていません。');
+            return `{\n  "display_policy": ${policyText.replace(/\n/gu, '\n  ')},\n  "captions": ${source.slice(first, end + 1)}\n}\n`;
+        }
+        const parsed = JSON.parse(source) as unknown;
+        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+            throw new Error('captions.json のルートは object または配列である必要があります。');
+        }
+        const match = /(^[ \t]*)"display_policy"\s*:\s*\{/mu.exec(source);
+        if (match) {
+            const open = match.index + match[0].lastIndexOf('{');
+            const close = this.matchingJsonObject(source, open);
+            const indent = match[1];
+            const replacement = policyText.replace(/\n/gu, `\n${indent}`);
+            return source.slice(0, open) + replacement + source.slice(close + 1);
+        }
+        const captions = /(^[ \t]*)"captions"\s*:/mu.exec(source);
+        if (!captions) throw new Error('captions キーが見つかりません。');
+        const indent = captions[1];
+        const replacement = policyText.replace(/\n/gu, `\n${indent}`);
+        return source.slice(0, captions.index) + `${indent}"display_policy": ${replacement},\n` + source.slice(captions.index);
+    }
+
+    private matchingJsonObject(source: string, open: number): number {
+        let depth = 0; let inString = false; let escaped = false;
+        for (let index = open; index < source.length; index++) {
+            const char = source[index];
+            if (inString) { if (escaped) escaped = false; else if (char === '\\') escaped = true; else if (char === '"') inString = false; continue; }
+            if (char === '"') inString = true;
+            else if (char === '{') depth++;
+            else if (char === '}' && --depth === 0) return index;
+        }
+        throw new Error('display_policy object が閉じていません。');
+    }
+
+    async setEmphasisWords(request: SetEmphasisWordsRequest): Promise<SetEmphasisWordsResult> {
+        this.requireWriteRequest(request?.captionsUri, request?.projectRootUri);
+        const captionsPath = this.fsPath(request.captionsUri);
+        const beforeSource = await fs.readFile(captionsPath, 'utf8');
+        const parsed = JSON.parse(beforeSource) as unknown;
+        const existing = !Array.isArray(parsed) && parsed && typeof parsed === 'object'
+            && Array.isArray((parsed as { emphasis_words?: unknown[] }).emphasis_words)
+            ? (parsed as { emphasis_words: Array<Record<string, unknown>> }).emphasis_words : [];
+        const remove = new Set(request.removeIds);
+        const records = existing.filter(record => typeof record.id !== 'string' || !remove.has(record.id));
+        const used = new Set(existing.flatMap(record => typeof record.id === 'string' ? [record.id] : []));
+        const ids: string[] = [];
+        const sameSpan = (left: Record<string, unknown>, right: SetEmphasisWordsRequest['upserts'][number]): boolean =>
+            (left.src ?? null) === (right.src ?? null) && typeof left.t_start === 'number' && typeof left.t_end === 'number'
+            && Math.abs(left.t_start - right.t_start) <= 1e-6 && Math.abs(left.t_end - right.t_end) <= 1e-6
+            && left.word === right.word;
+        for (const upsert of request.upserts) {
+            const matched = existing.find(record => sameSpan(record, upsert));
+            let id = upsert.id ?? (typeof matched?.id === 'string' ? matched.id : undefined);
+            if (!id) {
+                for (let number = 1; number <= 9999; number++) {
+                    const candidate = `e-${String(number).padStart(4, '0')}`;
+                    if (!used.has(candidate)) { id = candidate; break; }
+                }
+            }
+            if (!id || !/^e-\d{4}$/u.test(id)) throw new Error('emphasis_words の id を採番できません。');
+            used.add(id); ids.push(id);
+            const previous = records.findIndex(record => record.id === id || sameSpan(record, upsert));
+            const unknown = previous >= 0 ? records[previous] : matched ?? {};
+            const next: Record<string, unknown> = { ...unknown, id };
+            if (upsert.src === undefined || upsert.src === null) delete next.src; else next.src = upsert.src;
+            Object.assign(next, { t_start: upsert.t_start, t_end: upsert.t_end, word: upsert.word, emotion: upsert.emotion });
+            if (upsert.style_preset === undefined) delete next.style_preset; else next.style_preset = upsert.style_preset;
+            if (upsert.style_hint === undefined) delete next.style_hint; else next.style_hint = upsert.style_hint;
+            if (previous >= 0) records[previous] = next; else records.push(next);
+        }
+        records.sort((left, right) => Number(left.t_start) - Number(right.t_start));
+        const ordered = records.map(record => {
+            const value: Record<string, unknown> = { id: record.id };
+            if (record.src !== undefined && record.src !== null) value.src = record.src;
+            for (const key of ['t_start', 't_end', 'word', 'emotion', 'style_preset', 'style_hint']) {
+                if (record[key] !== undefined) value[key] = record[key];
+            }
+            for (const [key, entry] of Object.entries(record)) if (!(key in value) && key !== 'src') value[key] = entry;
+            return value;
+        });
+        const updated = this.replaceEmphasisWords(beforeSource, ordered);
+        if (updated === beforeSource) return { committed: false, changed: 0, beforeSource, ids };
+        await this.writeProjectFileGuarded(captionsPath, updated);
+        const root = this.fsPath(request.projectRootUri);
+        const committed = this.commitWrite(root, '語の強調を変更')
+            || await this.commitIfOwnRoot(root, '語の強調を変更', [captionsPath]);
+        return { committed, changed: request.upserts.length + existing.filter(record => remove.has(String(record.id))).length,
+            beforeSource, ids };
+    }
+
+    private replaceEmphasisWords(source: string, records: Array<Record<string, unknown>>): string {
+        const first = source.search(/\S/u);
+        const arrayText = `[${records.length ? `\n${records.map(record => `    ${JSON.stringify(record)}`).join(',\n')}\n  ` : ''}]`;
+        if (first >= 0 && source[first] === '[') {
+            if (!records.length) return source;
+            const end = source.lastIndexOf(']');
+            return `{\n  "emphasis_words": ${arrayText},\n  "captions": ${source.slice(first, end + 1)}\n}\n`;
+        }
+        const key = /(^[ \t]*)"emphasis_words"\s*:\s*\[/mu.exec(source);
+        if (key) {
+            const open = key.index + key[0].lastIndexOf('[');
+            const close = this.matchingJsonBracket(source, open);
+            if (records.length) return source.slice(0, open) + arrayText + source.slice(close + 1);
+            const lineStart = key.index;
+            let end = close + 1;
+            while (end < source.length && /[ \t]/u.test(source[end])) end++;
+            if (source[end] === ',') end++;
+            if (source[end] === '\r') end++;
+            if (source[end] === '\n') end++;
+            return source.slice(0, lineStart) + source.slice(end);
+        }
+        if (!records.length) return source;
+        const captions = /(^[ \t]*)"captions"\s*:/mu.exec(source);
+        if (!captions) throw new Error('captions キーが見つかりません。');
+        return source.slice(0, captions.index) + `${captions[1]}"emphasis_words": ${arrayText},\n` + source.slice(captions.index);
+    }
+
+    private matchingJsonBracket(source: string, open: number): number {
+        let depth = 0; let inString = false; let escaped = false;
+        for (let index = open; index < source.length; index++) {
+            const char = source[index];
+            if (inString) { if (escaped) escaped = false; else if (char === '\\') escaped = true; else if (char === '"') inString = false; continue; }
+            if (char === '"') inString = true;
+            else if (char === '[') depth++;
+            else if (char === ']' && --depth === 0) return index;
+        }
+        throw new Error('emphasis_words 配列が閉じていません。');
+    }
+
     async reorderCuts(request: ReorderCutsRequest): Promise<WriteBackResult> {
         this.requireWriteRequest(request?.editUri, request?.projectRootUri);
         const editPath = this.fsPath(request.editUri);
@@ -778,7 +940,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         const updated = insertCaptionLine(source, request.caption);
         await this.writeProjectFileGuarded(captionsPath, updated);
         await this.refreshAnchorsAfterCaptionWrite(captionsPath);
-        return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), '字幕を複製') };
+        return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), request.label ?? '字幕を複製') };
     }
 
     async removeCaption(request: RemoveCaptionRequest): Promise<WriteBackResult> {
@@ -789,6 +951,34 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         await this.writeProjectFileGuarded(captionsPath, updated);
         await this.refreshAnchorsAfterCaptionWrite(captionsPath);
         return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), '字幕の複製を取り消し') };
+    }
+
+    async splitCaption(request: SplitCaptionRequest): Promise<WriteBackResult> {
+        this.requireWriteRequest(request?.captionsUri, request?.projectRootUri);
+        const captionsPath = this.fsPath(request.captionsUri);
+        const projectRoot = this.fsPath(request.projectRootUri);
+        const source = await fs.readFile(captionsPath, 'utf8');
+        const updated = splitCaptionLine(source, request.captionId, request.wordIndex, request.newCaptionId);
+        await this.writeProjectFileGuarded(captionsPath, updated);
+        await this.refreshAnchorsAfterCaptionWrite(captionsPath);
+        const label = '字幕を分割';
+        const committed = await this.commitWrite(projectRoot, label)
+            || await this.commitIfOwnRoot(projectRoot, label, [captionsPath]);
+        return { committed };
+    }
+
+    async mergeCaptions(request: MergeCaptionsRequest): Promise<WriteBackResult> {
+        this.requireWriteRequest(request?.captionsUri, request?.projectRootUri);
+        const captionsPath = this.fsPath(request.captionsUri);
+        const projectRoot = this.fsPath(request.projectRootUri);
+        const source = await fs.readFile(captionsPath, 'utf8');
+        const updated = mergeCaptionLines(source, request.captionIds);
+        await this.writeProjectFileGuarded(captionsPath, updated);
+        await this.refreshAnchorsAfterCaptionWrite(captionsPath);
+        const label = '字幕を結合';
+        const committed = await this.commitWrite(projectRoot, label)
+            || await this.commitIfOwnRoot(projectRoot, label, [captionsPath]);
+        return { committed };
     }
 
     async moveOverlay(request: MoveOverlayRequest): Promise<WriteBackResult> {
@@ -1027,6 +1217,38 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
             })
         });
         return { committed: false };
+    }
+
+    async snapshotEditHistory(request: EditHistoryProjectRequest & { label: string }): Promise<EditHistoryEntry | null> {
+        if (!request?.projectRootUri || typeof request.label !== 'string') throw new Error('履歴の保存先を特定できません。');
+        return snapshotHistory({ projectDir: this.fsPath(request.projectRootUri), label: request.label });
+    }
+
+    async listEditHistory(request: EditHistoryProjectRequest): Promise<EditHistoryEntry[]> {
+        if (!request?.projectRootUri) throw new Error('履歴の保存先を特定できません。');
+        return listHistory(this.fsPath(request.projectRootUri));
+    }
+
+    async restoreEditHistory(request: RestoreEditHistoryRequest): Promise<{ restored: EditHistoryEntry; snapshot: EditHistoryEntry | null }> {
+        if (!request?.projectRootUri || !request.id) throw new Error('復元する履歴を特定できません。');
+        const projectDir = this.fsPath(request.projectRootUri);
+        return restoreHistory(projectDir, request.id, {
+            write: async candidates => {
+                for (const name of Object.keys(candidates)) {
+                    this.client?.onWillWrite(URI.fromFilePath(join(projectDir, name)).toString());
+                }
+                await writeProjectFilesGuarded(projectDir, candidates, {
+                    onDidWrite: (filePath, text) => this.notifyDidWrite(filePath, text),
+                    onLintResult: result => this.client?.onLintResult({
+                        projectRootUri: request.projectRootUri,
+                        pass: result.pass,
+                        errors: result.errors,
+                        writtenFiles: Object.keys(candidates),
+                        findings: result.findings
+                    })
+                });
+            }
+        });
     }
 
     protected requireWriteRequest(uri: string | undefined, projectRootUri: string | undefined): void {

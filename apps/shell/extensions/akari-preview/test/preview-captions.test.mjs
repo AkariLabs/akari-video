@@ -1,11 +1,12 @@
 import assert from 'node:assert/strict';
 import { mkdir, mkdtemp, readFile, rename, rm, symlink, writeFile } from 'node:fs/promises';
-import Module, { createRequire } from 'node:module';
+import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import test from 'node:test';
 import { toV2Edit } from './helpers/v2-fixture.mjs';
+import { RESOLVED_CAPTION_WORD_PRESET_CSS } from '../../../../../packages/render-cut/src/captions.mjs';
 
 const require = createRequire(import.meta.url);
 const { parsePreviewCaptions, parseResolvedPreviewCaptions } = require('../lib/browser/akari-preview-captions.js');
@@ -22,27 +23,13 @@ const checkedVisualContract = JSON.parse(await readFile(join(
     repositoryRoot, 'packages/edit-store/src/caption-visual-contract.json'
 ), 'utf8'));
 
-const TheiaToken = class {};
-const originalModuleLoad = Module._load;
-Module._load = function (request, parent, isMain) {
-    const mocks = {
-        '@theia/core/lib/browser': { ApplicationShell: TheiaToken, OpenHandler: TheiaToken, OpenerService: TheiaToken, WidgetManager: TheiaToken, open() {} },
-        '@theia/filesystem/lib/browser/file-service': { FileService: TheiaToken },
-        '@theia/workspace/lib/browser/workspace-service': { WorkspaceService: TheiaToken },
-        '@theia/plugin-ext/lib/main/browser/webview/webview': { WebviewWidget: class { static FACTORY_ID = 'webview'; } },
-        './material-preview-slot': { MaterialPreviewSlot: TheiaToken },
-        './akari-audio-meter-widget': { AkariAudioMeterWidget: TheiaToken },
-        './review-session-recorder': { ReviewSessionRecorder: TheiaToken },
-        './review-session-recording-indicator': { ReviewSessionRecordingIndicator: TheiaToken }
-    };
-    return mocks[request] ?? originalModuleLoad.call(this, request, parent, isMain);
-};
-let AkariPreviewOpenHandler;
-try {
-    ({ AkariPreviewOpenHandler } = require('../lib/browser/akari-preview-open-handler.js'));
-} finally {
-    Module._load = originalModuleLoad;
-}
+test('webview に埋め込む語プリセット CSS は render-cut と一致する', async () => {
+    const source = await readFile(join(
+        extensionRoot, 'src', 'browser', 'akari-preview-open-handler.ts'
+    ), 'utf8');
+    const embedded = source.match(/\+ '(\.akari-caption__tok\{display:inline-block;white-space:pre;\}\.akari-caption__tok--preset\{[^']+\})'/u);
+    assert.equal(embedded?.[1], RESOLVED_CAPTION_WORD_PRESET_CSS);
+});
 
 const caption = {
     id: 'c-0001',
@@ -54,11 +41,15 @@ const caption = {
     edited: false
 };
 
-test('無装飾字幕も fragment 経路で描画する（plain 流し込みに戻る再発を防ぐ）', () => {
+test('無装飾字幕も fragment 経路で描画する（plain 流し込みに戻る再発を防ぐ）', async () => {
     // plain の textContent 経路では焼き込みと同じ複数行分割が使われず、長い字幕が折り返されなかった。
-    const bootstrap = AkariPreviewOpenHandler.prototype.previewBootstrapScript.call({});
-    assert.ok(!bootstrap.includes("captionPlate.textContent = caption ? caption.text : ''"));
-    assert.ok(bootstrap.includes('renderPlainCaptionFragment(caption)'));
+    // 合流時に webview のモジュール読み込み（inversify の @inject）へ依存しない形へ直した:
+    // 上の語プリセット CSS テストと同じく open-handler のソース文字列を見る。
+    const source = await readFile(join(
+        extensionRoot, 'src', 'browser', 'akari-preview-open-handler.ts'
+    ), 'utf8');
+    assert.ok(!source.includes("captionPlate.textContent = caption ? caption.text : ''"));
+    assert.ok(source.includes('renderPlainCaptionFragment(caption)'));
 });
 
 test('shell resolved-caption fragment and managed variables come from the checked source contract', () => {
@@ -78,6 +69,40 @@ test('配列ルートを従来どおり読み text_style 不在なら id 以外�
     // （akari-preview-captions.ts PreviewCaption）。他のフィールドは変更なし。
     const [parsed] = parsePreviewCaptions(JSON.stringify([caption]));
     assert.deepEqual(parsed, { id: 'c-0001', start: 0, end: 2, text: '字幕' });
+});
+
+test('legacy parse は display_fragments を語境界時刻の caption へ展開する', () => {
+    const parsed = parsePreviewCaptions(JSON.stringify([{
+        ...caption, text: '前半後半', display_fragments: ['前半', '後半'],
+        words: [{ text: '前半', start: 0, end: 0.8 }, { text: '後半', start: 1.2, end: 2 }]
+    }]));
+    assert.deepEqual(parsed.map(item => ({
+        id: item.id, text: item.text, start: item.start, end: item.end,
+        fragmentKey: item.fragmentKey, fragmentIndex: item.fragmentIndex, fragmentCount: item.fragmentCount
+    })), [
+        { id: 'c-0001', text: '前半', start: 0, end: 0.8, fragmentKey: 'c-0001#f1', fragmentIndex: 1, fragmentCount: 2 },
+        { id: 'c-0001', text: '後半', start: 1.2, end: 2, fragmentKey: 'c-0001#f2', fragmentIndex: 2, fragmentCount: 2 }
+    ]);
+});
+
+test('scale/rotate become caption transform variables and resolved display lines are preserved', () => {
+    const [parsed] = parsePreviewCaptions(JSON.stringify({
+        captions: [{ ...caption, text_style: { scale: 1.5, rotate: -8 } }]
+    }));
+    assert.equal(parsed.textStyleVars['--caption-scale'], '1.5');
+    assert.equal(parsed.textStyleVars['--caption-rotate'], '-8deg');
+
+    const [resolved] = parseResolvedPreviewCaptions({
+        schema: 'caption-layout/v1',
+        captions: [{
+            id: 'c-0001-occ-0001-part-1', source_cue_id: 'c-0001', start: 0, end: 2,
+            text: '字幕二行', display_lines: ['字幕', '二行'], text_style: { scale: 1.5, rotate: -8 }
+        }]
+    });
+    assert.deepEqual(resolved.displayLines, ['字幕', '二行']);
+    assert.equal(resolved.text, '字幕二行');
+    assert.equal(resolved.textStyleVars['--caption-scale'], '1.5');
+    assert.equal(resolved.textStyleVars['--caption-rotate'], '-8deg');
 });
 
 test('text_anchor + position は共有カーネル単一定義の位置変数になる（プレビューだけ既定下段へ落ちる出力不一致の再発防止）', () => {
@@ -418,6 +443,45 @@ test('kernel, render, preview API, and shell return the exact same complete disp
     assert.deepEqual(shell.captions, kernel.display_cues);
     assert.ok(kernel.display_cues.every(cue => cue.text_style && cue.style_vars && cue.layout));
     await rm(root, { recursive: true, force: true });
+});
+
+test('word preset style_vars are identical across kernel, render, preview API, and shell', async () => {
+    const fixture = JSON.parse(await readFile(join(
+        repositoryRoot, 'packages/edit-store/test/fixtures/caption-consumer-parity-emphasis.json'
+    ), 'utf8'));
+    const kernel = resolveCaptionDisplay(fixture.captionsRoot, fixture.edit, { output: fixture.edit.output });
+    const { generateResolvedCaptionOverlays } = await import(pathToFileURL(join(
+        repositoryRoot, 'packages/render-cut/src/captions.mjs'
+    )).toString());
+    const { resolveCaptionApiPayload } = await import(pathToFileURL(join(
+        repositoryRoot, 'packages/preview-server/src/caption-api.mjs'
+    )).toString());
+    const root = await mkdtemp(join(tmpdir(), 'akari-shell-caption-word-style-parity-'));
+    try {
+        const captionsPath = join(root, 'captions.json');
+        const editPath = join(root, 'edit.json');
+        await writeFile(captionsPath, JSON.stringify(fixture.captionsRoot));
+        await writeFile(editPath, JSON.stringify(toV2Edit(fixture.edit)));
+        const service = new AkariPreviewServiceImpl();
+        service.workspaceServer = { getMostRecentlyUsedWorkspace: async () => pathToFileURL(root).toString() };
+        const shell = await service.resolveCaptionDisplay({
+            captionsUri: pathToFileURL(captionsPath).toString(),
+            editUri: pathToFileURL(editPath).toString()
+        });
+        const render = generateResolvedCaptionOverlays(kernel).map(overlay => overlay.displayCue.word_styles);
+        const api = resolveCaptionApiPayload(fixture.captionsRoot, fixture.edit).captions.map(cue => cue.word_styles);
+        const shellStyles = shell.captions.map(cue => cue.word_styles);
+        const expected = kernel.display_cues.map(cue => cue.word_styles);
+        assert.deepEqual(render, expected);
+        assert.deepEqual(api, expected);
+        assert.deepEqual(shellStyles, expected);
+        assert.ok(expected.some(styles => styles?.some(style => style.preset_id === 'neon'
+            && style.style_vars['--caption-color'] === '#aefcff')));
+        const preview = parseResolvedPreviewCaptions({ schema: kernel.schema, captions: kernel.display_cues });
+        assert.ok(preview.some(cue => cue.wordStyles?.[0]?.preset_id === 'neon' && cue.resolvedWords?.length));
+    } finally {
+        await rm(root, { recursive: true, force: true });
+    }
 });
 
 test('shell backend supplies protect_break terms and matches soft-fallback fragments', async () => {

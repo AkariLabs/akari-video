@@ -1834,6 +1834,8 @@ ${indent}`);
       exports.updateCaptionStylePresetInSource = updateCaptionStylePresetInSource;
       exports.insertCaptionLine = insertCaptionLine;
       exports.removeCaptionLine = removeCaptionLine;
+      exports.splitCaptionLine = splitCaptionLine;
+      exports.mergeCaptionLines = mergeCaptionLines;
       var edit_store_1 = require_edit_store();
       var caption_words_rederive_1 = require_caption_words_rederive();
       var caption_style_preset_1 = require_caption_style_preset();
@@ -2190,6 +2192,104 @@ ${indent}`);
         }
         return replaceArrayInner(source, array, nextInner);
       }
+      function splitCaptionLine(source, captionId, wordIndex, newCaptionId) {
+        const array = locateCaptionArray(source);
+        const entries = captionElementEntries(array.elements);
+        if (entries.some((entry) => entry.id === newCaptionId)) {
+          throw new Error(`\u5B57\u5E55 ${newCaptionId} \u306F\u65E2\u306B\u3042\u308A\u307E\u3059\u3002`);
+        }
+        const element = findCaptionElement(array.elements, captionId);
+        const record2 = JSON.parse(element.text);
+        if (!Array.isArray(record2.words) || record2.words.length < 2 || !Number.isInteger(wordIndex) || wordIndex <= 0 || wordIndex >= record2.words.length) {
+          throw new Error("\u3053\u306E\u884C\u306F\u5206\u5272\u3067\u304D\u307E\u305B\u3093\uFF08\u5358\u8A9E\u304C 2 \u3064\u4EE5\u4E0A\u5FC5\u8981\u3067\u3059\uFF09");
+        }
+        const words = record2.words;
+        const wordsA = words.slice(0, wordIndex);
+        const wordsB = words.slice(wordIndex);
+        const textA = wordsA.map((word) => String(word.text ?? "")).join("");
+        const textB = wordsB.map((word) => String(word.text ?? "")).join("");
+        if (textA + textB !== record2.text) {
+          throw new Error("\u3053\u306E\u884C\u306E\u30C6\u30AD\u30B9\u30C8\u3068\u8A9E\u306E\u30BF\u30A4\u30DF\u30F3\u30B0\u304C\u4E00\u81F4\u3057\u3066\u3044\u306A\u3044\u305F\u3081\u5206\u5272\u3067\u304D\u307E\u305B\u3093");
+        }
+        const splitEnd = wordsA[wordsA.length - 1].end;
+        if (typeof splitEnd !== "number") {
+          throw new Error("\u3053\u306E\u884C\u306F\u5206\u5272\u3067\u304D\u307E\u305B\u3093\uFF08\u5358\u8A9E\u304C 2 \u3064\u4EE5\u4E0A\u5FC5\u8981\u3067\u3059\uFF09");
+        }
+        const unrecognized = Array.isArray(record2.unrecognized) ? record2.unrecognized : [];
+        const recordA = {
+          ...record2,
+          end: splitEnd,
+          text: textA,
+          words: wordsA,
+          edited: true
+        };
+        const recordB = {
+          ...record2,
+          id: newCaptionId,
+          start: wordsB[0].start,
+          text: textB,
+          words: wordsB,
+          edited: true,
+          sourceRef: null
+        };
+        recordA.unrecognized = unrecognized.filter((span) => typeof span.start === "number" && span.start < splitEnd);
+        recordB.unrecognized = unrecognized.filter((span) => typeof span.start === "number" && span.start >= splitEnd);
+        for (const output of [recordA, recordB]) {
+          delete output.display_text;
+          delete output.display_fragments;
+          if (Array.isArray(output.words) && output.words.length === 0)
+            delete output.words;
+          if (Array.isArray(output.unrecognized) && output.unrecognized.length === 0)
+            delete output.unrecognized;
+        }
+        const index = array.elements.indexOf(element);
+        const separator = whitespaceBeforeElement(array.inner, array.elements, index);
+        const replacement = `${serializeCaptionRaw(recordA)},${separator}${serializeCaptionRaw(recordB)}`;
+        const nextInner = array.inner.slice(0, element.start) + replacement + array.inner.slice(element.end);
+        return replaceArrayInner(source, array, nextInner);
+      }
+      function mergeCaptionLines(source, captionIds) {
+        if (captionIds.length < 2) {
+          throw new Error("\u7D50\u5408\u3059\u308B\u5B57\u5E55\u3092 2 \u884C\u4EE5\u4E0A\u9078\u3093\u3067\u304F\u3060\u3055\u3044");
+        }
+        if (new Set(captionIds).size !== captionIds.length) {
+          throw new Error("\u540C\u3058\u5B57\u5E55\u3092\u91CD\u8907\u3057\u3066\u7D50\u5408\u3067\u304D\u307E\u305B\u3093");
+        }
+        const array = locateCaptionArray(source);
+        const elements = captionIds.map((id) => findCaptionElement(array.elements, id));
+        const records = elements.map((element) => JSON.parse(element.text));
+        const domains = records.map((record2) => record2.time_domain ?? "source");
+        if (domains.some((domain) => domain !== domains[0])) {
+          throw new Error("\u30BF\u30A4\u30E0\u30C9\u30E1\u30A4\u30F3\u304C\u7570\u306A\u308B\u884C\u306F\u7D50\u5408\u3067\u304D\u307E\u305B\u3093");
+        }
+        const words = records.flatMap((record2) => Array.isArray(record2.words) ? record2.words : []);
+        const unrecognized = records.flatMap((record2) => Array.isArray(record2.unrecognized) ? record2.unrecognized : []);
+        const survivor = {
+          ...records[0],
+          end: records[records.length - 1].end,
+          text: records.map((record2) => String(record2.text ?? "")).join(""),
+          words,
+          unrecognized,
+          edited: true
+        };
+        delete survivor.display_text;
+        delete survivor.display_fragments;
+        if (words.length === 0)
+          delete survivor.words;
+        if (unrecognized.length === 0)
+          delete survivor.unrecognized;
+        const selected = new Set(elements);
+        const survivorElement = elements[0];
+        const kept = array.elements.flatMap((element, index) => {
+          if (!selected.has(element))
+            return [{ element, index, text: element.text }];
+          return element === survivorElement ? [{ element, index, text: serializeCaptionRaw(survivor) }] : [];
+        });
+        const prefix = array.elements.length ? array.inner.slice(0, array.elements[0].start) : array.inner;
+        const suffix = array.elements.length ? array.inner.slice(array.elements[array.elements.length - 1].end) : "";
+        const nextInner = kept.reduce((result, item, index) => result + (index === 0 ? "" : `,${whitespaceBeforeElement(array.inner, array.elements, item.index)}`) + item.text, prefix) + suffix;
+        return replaceArrayInner(source, array, nextInner);
+      }
       function normalizeCaption(value, onTextStyleUnknownKeys) {
         if (!value || typeof value !== "object" || typeof value.id !== "string" || !value.id || typeof value.text !== "string" || typeof value.edited !== "boolean") {
           return void 0;
@@ -2431,6 +2531,37 @@ ${indent}`);
         }
         return `{ ${parts.join(", ")} }`;
       }
+      function serializeCaptionRaw(value) {
+        const schemaKeys = [
+          "id",
+          "start",
+          "end",
+          "text",
+          "speaker",
+          "sourceRef",
+          "edited",
+          "src",
+          "time_domain",
+          "words",
+          "unrecognized",
+          "style",
+          "display_text",
+          "display_fragments",
+          "style_preset",
+          "text_style"
+        ];
+        const known = new Set(schemaKeys);
+        const parts = [];
+        for (const key of schemaKeys) {
+          if (value[key] !== void 0)
+            parts.push(`${JSON.stringify(key)}: ${JSON.stringify(value[key])}`);
+        }
+        for (const [key, item] of Object.entries(value)) {
+          if (!known.has(key) && item !== void 0)
+            parts.push(`${JSON.stringify(key)}: ${JSON.stringify(item)}`);
+        }
+        return `{ ${parts.join(", ")} }`;
+      }
       function normalizeUnrecognized(value) {
         if (!Array.isArray(value))
           return void 0;
@@ -2477,6 +2608,8 @@ ${indent}`);
         "max_characters",
         "text_anchor",
         "position",
+        "scale",
+        "rotate",
         "shadow",
         "glow",
         "animation",
@@ -2998,12 +3131,103 @@ ${indent}`);
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.captionWindowSeconds = captionWindowSeconds;
+      exports.captionFragmentWindows = captionFragmentWindows;
+      exports.expandCaptionDisplayFragments = expandCaptionDisplayFragments;
       exports.findActiveCaption = findActiveCaption;
       function captionWindowSeconds(caption) {
         const start = typeof caption.start === "number" && Number.isFinite(caption.start) ? caption.start : 0;
         const duration = typeof caption.duration === "number" && Number.isFinite(caption.duration) ? caption.duration : 0;
         const end = typeof caption.end === "number" && Number.isFinite(caption.end) ? caption.end : start + duration;
         return { start, end };
+      }
+      function captionFragmentWindows(caption) {
+        const sourceText = caption.display_text ?? caption.text;
+        const text = typeof sourceText === "string" ? sourceText : null;
+        const fragments = caption.display_fragments;
+        if (text === null || text.length === 0 || !Array.isArray(fragments) || fragments.length < 2 || fragments.some((fragment) => typeof fragment !== "string") || fragments.join("") !== text) {
+          return null;
+        }
+        const window2 = captionWindowSeconds(caption);
+        const words = Array.isArray(caption.words) ? caption.words : null;
+        const validWords = words?.every((word) => isCaptionFragmentWord(word)) === true ? words : null;
+        const wordText = validWords?.map((word) => word.text).join("");
+        const fragmentEnds = [];
+        fragments.reduce((offset, fragment) => {
+          fragmentEnds.push(offset + fragment.length);
+          return offset + fragment.length;
+        }, 0);
+        let wordLength = 0;
+        const wordEnds = validWords ? validWords.map((word) => wordLength += word.text.length) : [];
+        const useWords = validWords !== null && wordText === text && fragmentEnds.slice(0, -1).every((end) => wordEnds.includes(end));
+        let characterStart = 0;
+        return fragments.map((fragment, index) => {
+          const characterEnd = characterStart + fragment.length;
+          let start;
+          let end;
+          if (useWords) {
+            const firstWord = characterStart === 0 ? 0 : wordEnds.indexOf(characterStart) + 1;
+            const lastWord = wordEnds.indexOf(characterEnd);
+            start = clamp6(validWords[firstWord].start, window2.start, window2.end);
+            end = clamp6(validWords[lastWord].end, window2.start, window2.end);
+          } else {
+            const duration = window2.end - window2.start;
+            start = window2.start + duration * (characterStart / text.length);
+            end = window2.start + duration * (characterEnd / text.length);
+          }
+          characterStart = characterEnd;
+          return { text: fragment, start, end, index: index + 1, count: fragments.length };
+        });
+      }
+      function expandCaptionDisplayFragments(captions) {
+        return captions.flatMap((caption) => {
+          const windows = captionFragmentWindows(caption);
+          if (windows === null)
+            return [caption];
+          let characterStart = 0;
+          return windows.map((window2) => {
+            const characterEnd = characterStart + window2.text.length;
+            const expanded = {
+              ...caption,
+              text: window2.text,
+              start: window2.start,
+              end: window2.end,
+              fragmentIndex: window2.index,
+              fragmentCount: window2.count,
+              fragmentKey: `${String(caption.id)}#f${window2.index}`
+            };
+            if (Object.prototype.hasOwnProperty.call(caption, "display_text"))
+              expanded.display_text = window2.text;
+            if (Array.isArray(caption.words)) {
+              let offset = 0;
+              expanded.words = caption.words.flatMap((word) => {
+                if (!isCaptionFragmentWord(word))
+                  return [];
+                const wordStart = offset;
+                const wordEnd = offset + word.text.length;
+                offset = wordEnd;
+                if (wordStart < characterStart || wordEnd > characterEnd)
+                  return [];
+                return [{
+                  ...word,
+                  start: clamp6(word.start, window2.start, window2.end),
+                  end: clamp6(word.end, window2.start, window2.end)
+                }];
+              });
+            }
+            delete expanded.display_fragments;
+            characterStart = characterEnd;
+            return expanded;
+          });
+        });
+      }
+      function isCaptionFragmentWord(value) {
+        if (!value || typeof value !== "object")
+          return false;
+        const word = value;
+        return typeof word.text === "string" && typeof word.start === "number" && Number.isFinite(word.start) && typeof word.end === "number" && Number.isFinite(word.end) && word.end >= word.start;
+      }
+      function clamp6(value, minimum, maximum) {
+        return Math.min(maximum, Math.max(minimum, value));
       }
       function findActiveCaption(captions, sourceSeconds) {
         return captions.find((caption) => {
@@ -3362,10 +3586,14 @@ ${indent}`);
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.CaptionDisplayError = exports.CAPTION_UNIT_METRIC = exports.CAPTION_DISPLAY_ALGORITHM = exports.CAPTION_DISPLAY_MODE = exports.CAPTION_DISPLAY_SCHEMA = void 0;
       exports.measureCaptionUnits = measureCaptionUnits;
+      exports.joinCaptionLines = joinCaptionLines;
       exports.validateCaptionDisplayPolicy = validateCaptionDisplayPolicy;
       exports.resolveCaptionDisplay = resolveCaptionDisplay;
       exports.validateCaptionTextStyle = validateCaptionTextStyle;
+      exports.projectCaptionWords = projectCaptionWords;
+      exports.dedupeCaptionOccurrences = dedupeCaptionOccurrences;
       exports.splitCaptionFragments = splitCaptionFragments;
+      exports.foldCaptionLines = foldCaptionLines;
       exports.scheduleCaptionFragments = scheduleCaptionFragments;
       exports.mergeCaptionDisplayStyles = mergeCaptionDisplayStyles;
       exports.resolveCaptionReferenceScale = resolveCaptionReferenceScale;
@@ -3373,6 +3601,8 @@ ${indent}`);
       exports.captionAnchorPositionVars = captionAnchorPositionVars;
       exports.resolveCaptionStyleForOutput = resolveCaptionStyleForOutput;
       exports.formatCssNumber = formatCssNumber;
+      var caption_style_preset_1 = require_caption_style_preset();
+      var textstyle_catalog_1 = require_textstyle_catalog();
       exports.CAPTION_DISPLAY_SCHEMA = "caption-layout/v1";
       exports.CAPTION_DISPLAY_MODE = "single_line_sequential";
       exports.CAPTION_DISPLAY_ALGORITHM = "a4-ja-two-fragment-v1";
@@ -3399,6 +3629,8 @@ ${indent}`);
         "max_characters",
         "text_anchor",
         "position",
+        "scale",
+        "rotate",
         "shadow",
         "glow",
         "animation",
@@ -3457,6 +3689,7 @@ ${indent}`);
       ]);
       var CAPTION_WORD_STYLES = /* @__PURE__ */ new Set(["karaoke", "pop", "reveal", "reveal-word"]);
       var HEX_COLOR = /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/u;
+      var PROJECTION_EPSILON = 1e-6;
       var CaptionDisplayError = class extends Error {
         constructor(code, message) {
           super(message);
@@ -3468,6 +3701,12 @@ ${indent}`);
       function measureCaptionUnits(text) {
         return Array.from(text).reduce((total, character) => total + (/^[\x00-\x7F]$/u.test(character) ? 0.5 : 1), 0);
       }
+      function joinCaptionLines(lines, locale) {
+        if (/^ja/iu.test(locale)) {
+          return lines.join("");
+        }
+        return lines.join("");
+      }
       function validateCaptionDisplayPolicy(value) {
         if (!isRecord2(value))
           fail("INVALID_POLICY", "display_policy must be an object");
@@ -3478,6 +3717,8 @@ ${indent}`);
           "max_line_units",
           "minimum_fragment_duration_seconds",
           "locale",
+          "lines",
+          "wrap",
           "break_hints"
         ]);
         rejectUnknown(value, allowed, "display_policy");
@@ -3494,6 +3735,12 @@ ${indent}`);
         if (!strictText(value.locale)) {
           fail("INVALID_POLICY", "display_policy.locale must be a non-empty NFC trimmed string");
         }
+        if (value.lines !== void 0 && (!Number.isInteger(value.lines) || value.lines < 1 || value.lines > 6)) {
+          fail("INVALID_POLICY", "display_policy.lines must be an integer within [1, 6]");
+        }
+        if (value.wrap !== void 0 && value.wrap !== "multi" && value.wrap !== "fold") {
+          fail("INVALID_POLICY", "display_policy.wrap must be multi or fold");
+        }
         const breakHints = value.break_hints === void 0 ? void 0 : validateBreakHints(value.break_hints);
         return {
           mode: value.mode,
@@ -3502,6 +3749,8 @@ ${indent}`);
           max_line_units: value.max_line_units,
           minimum_fragment_duration_seconds: value.minimum_fragment_duration_seconds,
           locale: value.locale,
+          ...value.lines !== void 0 ? { lines: value.lines } : {},
+          ...value.wrap !== void 0 ? { wrap: value.wrap } : {},
           ...breakHints ? { break_hints: breakHints } : {}
         };
       }
@@ -3525,6 +3774,9 @@ ${indent}`);
           return null;
         }
         const policy = validateCaptionDisplayPolicy(captionsRoot.display_policy);
+        const lines = policy.lines ?? 1;
+        const wrap = policy.wrap ?? "multi";
+        const splitPolicy = wrap === "fold" ? { ...policy, max_line_units: policy.max_line_units * lines } : policy;
         if (options.extra_protected_terms !== void 0 && (!Array.isArray(options.extra_protected_terms) || options.extra_protected_terms.some((entry) => !strictText(entry)))) {
           fail("INVALID_POLICY", "extra_protected_terms must contain only non-empty NFC trimmed strings");
         }
@@ -3542,9 +3794,13 @@ ${indent}`);
           fail("INVALID_CAPTIONS", "captions.json object root must contain captions[]");
         const captions = captionsRoot.captions;
         const defaultStyle = Object.prototype.hasOwnProperty.call(captionsRoot, "default_text_style") ? validateCaptionTextStyle(captionsRoot.default_text_style, "default_text_style") : void 0;
+        const cuts = Array.isArray(edit?.cuts) ? edit.cuts : [];
+        const styleOutput = options.output ?? edit?.output;
+        validateProjectionCuts(cuts, edit);
+        const projectedCaptions = captions.map((caption) => projectCaptionWords(caption, cuts));
         const captionIds = /* @__PURE__ */ new Set();
         captions.forEach((caption, index) => {
-          validateSourceCaption(caption, index, policy);
+          validateSourceCaption(caption, index, policy, projectedCaptions[index]);
           if (Object.prototype.hasOwnProperty.call(caption, "text_style")) {
             validateCaptionTextStyle(caption.text_style, `captions[${index}].text_style`);
           }
@@ -3552,11 +3808,10 @@ ${indent}`);
             fail("DUPLICATE_CAPTION_ID", `captions[].id is duplicated: ${caption.id}`);
           captionIds.add(caption.id);
         });
+        const wordStylesByCaption = resolveProjectedWordStyles(captions, projectedCaptions, captionsRoot.emphasis_words, styleOutput);
         validateEmphasisConflicts(captions, edit?.emphasis_words);
-        const cuts = Array.isArray(edit?.cuts) ? edit.cuts : [];
-        validateLinearCuts(cuts, edit);
         const sourceCount = validateSourceReferences(captions, cuts, edit);
-        const occurrences = projectOccurrences(captions, cuts, sourceCount);
+        const occurrences = dedupeCaptionOccurrences(projectOccurrences(captions, projectedCaptions, cuts, sourceCount), captionTrackOrder(cuts, edit));
         occurrences.sort(compareOccurrence);
         const byCue = /* @__PURE__ */ new Map();
         for (const occurrence of occurrences) {
@@ -3573,22 +3828,25 @@ ${indent}`);
         const wordBookFallbacks = [];
         const fragmentsByCaption = /* @__PURE__ */ new Map();
         captions.forEach((caption, index) => {
-          const text = caption.display_text ?? caption.text;
+          const projected = projectedCaptions[index];
+          if (!projected.renderable)
+            return;
+          const text = projected.displayText;
           let fragments;
           let manual = false;
-          if (caption.display_fragments !== void 0) {
+          if (!projected.changed && caption.display_fragments !== void 0) {
             fragments = validateManualFragments(caption, text, policy, index);
             manual = true;
             boundaryProjection.push({ source_cue_id: caption.id, text, boundaries: [] });
           } else {
             let split;
             try {
-              split = splitCaptionFragments(text, policyWithExtraTerms);
+              split = splitCaptionFragments(text, wrap === "fold" ? { ...policyWithExtraTerms, max_line_units: policyWithExtraTerms.max_line_units * lines } : policyWithExtraTerms);
             } catch (error) {
               if (!(error instanceof CaptionDisplayError) || error.code !== "NO_WORD_BOUNDARY_SPLIT" || incrementalProtectedTerms.length === 0) {
                 throw error;
               }
-              split = splitCaptionFragments(text, policy);
+              split = splitCaptionFragments(text, splitPolicy);
               wordBookFallbacks.push({
                 caption_id: caption.id,
                 dropped_terms: incrementalProtectedTerms.filter((term) => text.includes(term))
@@ -3606,26 +3864,56 @@ ${indent}`);
           if (resolved.fragments.length > 1)
             splitCueIds.add(occurrence.source_cue_id);
           const resolvedStyle = mergeCaptionDisplayStyles(defaultStyle, occurrence.text_style);
-          const styleOutput = options.output ?? edit?.output;
           const styleResolution = resolvedStyle ? resolveCaptionStyleForOutput(resolvedStyle, styleOutput) : void 0;
           const scheduled = scheduleCaptionFragments(occurrence.start, occurrence.end, resolved.fragments, policy.minimum_fragment_duration_seconds);
-          scheduled.forEach((fragment, index) => displayCues.push({
-            id: `${occurrence.source_cue_id}-occ-${String(occurrence.occurrence_index).padStart(4, "0")}-part-${index + 1}`,
-            source_cue_id: occurrence.source_cue_id,
-            src: occurrence.src,
-            cut_index: occurrence.cut_index,
-            occurrence_index: occurrence.occurrence_index,
-            fragment_index: index + 1,
-            fragment_count: scheduled.length,
+          let scheduledCharacterOffset = 0;
+          const scheduledWithOffsets = scheduled.map((fragment) => {
+            const charStart = scheduledCharacterOffset;
+            scheduledCharacterOffset += fragment.text.length;
+            return { ...fragment, charStart, charEnd: scheduledCharacterOffset };
+          });
+          const groups = wrap === "fold" ? scheduledWithOffsets.map((fragment) => ({
             start: fragment.start,
             end: fragment.end,
-            text: fragment.text,
-            units: measureCaptionUnits(fragment.text),
-            line_override: resolved.manual,
-            ...resolvedStyle ? { text_style: resolvedStyle } : {},
-            ...styleResolution ? { style_vars: styleResolution.vars } : {},
-            ...styleResolution?.layout ? { layout: styleResolution.layout } : {}
-          }));
+            lines: resolved.manual ? [fragment.text] : foldCaptionLines(fragment.text, policy.max_line_units, lines, policy.locale),
+            charStart: fragment.charStart,
+            charEnd: fragment.charEnd
+          })) : Array.from({ length: Math.ceil(scheduledWithOffsets.length / lines) }, (_3, groupIndex) => {
+            const fragments = scheduledWithOffsets.slice(groupIndex * lines, (groupIndex + 1) * lines);
+            return {
+              start: fragments[0].start,
+              end: fragments[fragments.length - 1].end,
+              lines: fragments.map((fragment) => fragment.text),
+              charStart: fragments[0].charStart,
+              charEnd: fragments[fragments.length - 1].charEnd
+            };
+          });
+          groups.forEach((group, index) => {
+            const text = joinCaptionLines(group.lines, policy.locale);
+            if (group.charEnd - group.charStart !== text.length) {
+              fail("INVALID_WORD_PROJECTION", `caption ${occurrence.source_cue_id} fragment character range is inconsistent`);
+            }
+            const wordDisplay = buildCueWordDisplay(wordStylesByCaption.get(occurrence.caption_input_index), occurrence, group.charStart, group.charEnd, group.lines, text);
+            displayCues.push({
+              id: `${occurrence.source_cue_id}-occ-${String(occurrence.occurrence_index).padStart(4, "0")}-part-${index + 1}`,
+              source_cue_id: occurrence.source_cue_id,
+              src: occurrence.src,
+              cut_index: occurrence.cut_index,
+              occurrence_index: occurrence.occurrence_index,
+              fragment_index: index + 1,
+              fragment_count: groups.length,
+              start: group.start,
+              end: group.end,
+              text,
+              ...group.lines.length >= 2 ? { display_lines: group.lines } : {},
+              units: measureCaptionUnits(text),
+              line_override: resolved.manual,
+              ...resolvedStyle ? { text_style: resolvedStyle } : {},
+              ...styleResolution ? { style_vars: styleResolution.vars } : {},
+              ...styleResolution?.layout ? { layout: styleResolution.layout } : {},
+              ...wordDisplay ? { words: wordDisplay.words, word_styles: wordDisplay.wordStyles } : {}
+            });
+          });
         }
         displayCues.sort(compareDisplayCue);
         for (let index = 1; index < displayCues.length; index++) {
@@ -3645,6 +3933,117 @@ ${indent}`);
           word_book_fallbacks: wordBookFallbacks
         };
       }
+      function resolveProjectedWordStyles(captions, projectedCaptions, emphasisValue, output) {
+        if (!Array.isArray(emphasisValue))
+          return /* @__PURE__ */ new Map();
+        const emphasisWords = emphasisValue.filter((value) => isRecord2(value) && typeof value.style_preset === "string" && value.style_preset.length > 0 && finiteNonNegative2(value.t_start) && finitePositive4(value.t_end) && value.t_end > value.t_start && (value.src === void 0 || strictText(value.src)));
+        if (emphasisWords.length === 0)
+          return /* @__PURE__ */ new Map();
+        const presetCache = /* @__PURE__ */ new Map();
+        const resolvePreset = (presetId) => {
+          if (presetCache.has(presetId))
+            return presetCache.get(presetId);
+          const resolved = (0, caption_style_preset_1.resolveCaptionStylePreset)({ style_preset: presetId }, textstyle_catalog_1.TEXTSTYLE_CATALOG);
+          const vars = resolved.resolved && isRecord2(resolved.record.text_style) ? resolveCaptionStyleForOutput(resolved.record.text_style, output).vars : null;
+          presetCache.set(presetId, vars);
+          return vars;
+        };
+        const result = /* @__PURE__ */ new Map();
+        captions.forEach((caption, index) => {
+          if (caption.time_domain === "output")
+            return;
+          const projected = projectedCaptions[index];
+          if (!Array.isArray(projected.words) || projected.words.length === 0 || projected.words.map((word) => String(word.text)).join("") !== projected.displayText)
+            return;
+          let offset = 0;
+          const words = projected.words.map((word) => {
+            const text = String(word.text);
+            let emphasis;
+            let styleVars = null;
+            for (const candidate of emphasisWords) {
+              const sourceMatches = !(strictText(candidate.src) && strictText(caption.src)) || candidate.src === caption.src;
+              if (!sourceMatches || Math.min(word.end, candidate.t_end) - Math.max(word.start, candidate.t_start) <= PROJECTION_EPSILON)
+                continue;
+              const resolvedVars = resolvePreset(candidate.style_preset);
+              if (!resolvedVars)
+                continue;
+              emphasis = candidate;
+              styleVars = resolvedVars;
+              break;
+            }
+            const value = {
+              start: word.start,
+              end: word.end,
+              text,
+              offset,
+              ...emphasis && styleVars ? { preset_id: emphasis.style_preset, style_vars: styleVars } : {}
+            };
+            offset += text.length;
+            return value;
+          });
+          if (words.some((word) => word.preset_id))
+            result.set(index, words);
+        });
+        return result;
+      }
+      function buildCueWordDisplay(sourceWords, occurrence, charStart, charEnd, lines, cueText) {
+        if (!sourceWords)
+          return void 0;
+        const lineRanges = [];
+        let lineOffset = charStart;
+        lines.forEach((line, index) => {
+          lineRanges.push({ start: lineOffset, end: lineOffset + line.length, line: index });
+          lineOffset += line.length;
+        });
+        const styledWords = [];
+        for (const word of sourceWords) {
+          const wordEnd = word.offset + word.text.length;
+          if (Math.min(wordEnd, charEnd) - Math.max(word.offset, charStart) <= 0)
+            continue;
+          for (const line of lineRanges) {
+            const start = Math.max(word.offset, charStart, line.start);
+            const end = Math.min(wordEnd, charEnd, line.end);
+            if (end <= start)
+              continue;
+            const timeScale = occurrence.time_scale ?? 1;
+            const timeOffset = occurrence.time_offset ?? 0;
+            styledWords.push({
+              start: roundOutputSecond(timeOffset + word.start * timeScale),
+              end: roundOutputSecond(timeOffset + word.end * timeScale),
+              text: word.text.slice(start - word.offset, end - word.offset),
+              line: line.line,
+              ...word.preset_id ? { preset_id: word.preset_id, style_vars: word.style_vars } : {}
+            });
+          }
+        }
+        if (styledWords.map((word) => word.text).join("") !== cueText) {
+          fail("INVALID_WORD_PROJECTION", `caption ${occurrence.source_cue_id} words do not reconstruct display cue text`);
+        }
+        if (!styledWords.some((word) => word.preset_id))
+          return void 0;
+        const wordStyles = [];
+        styledWords.forEach((word, index) => {
+          if (!word.preset_id || !word.style_vars)
+            return;
+          const previous = wordStyles[wordStyles.length - 1];
+          if (previous?.preset_id === word.preset_id && previous.to === index)
+            previous.to = index + 1;
+          else
+            wordStyles.push({
+              from: index,
+              to: index + 1,
+              preset_id: word.preset_id,
+              style_vars: word.style_vars
+            });
+        });
+        return {
+          words: styledWords.map(({ start, end, text, line }) => ({ start, end, text, line })),
+          wordStyles
+        };
+      }
+      function roundOutputSecond(value) {
+        return Number(value.toFixed(6));
+      }
       function validateCaptionTextStyle(value, label = "text_style") {
         if (!isRecord2(value))
           fail("INVALID_TEXT_STYLE", `${label} must be an object`);
@@ -3662,6 +4061,12 @@ ${indent}`);
         }
         if (Object.prototype.hasOwnProperty.call(value, "line_height") && !finitePositive4(value.line_height)) {
           fail("INVALID_TEXT_STYLE", `${label}.line_height must be a positive finite number`);
+        }
+        if (Object.prototype.hasOwnProperty.call(value, "scale") && (!finiteNumber2(value.scale) || value.scale < 0.4 || value.scale > 3)) {
+          fail("INVALID_TEXT_STYLE", `${label}.scale must be a finite number within [0.4, 3]`);
+        }
+        if (Object.prototype.hasOwnProperty.call(value, "rotate") && (!finiteNumber2(value.rotate) || value.rotate < -180 || value.rotate > 180)) {
+          fail("INVALID_TEXT_STYLE", `${label}.rotate must be a finite number within [-180, 180]`);
         }
         validateTextStyleV0(value, label);
         if (Object.prototype.hasOwnProperty.call(value, "stroke"))
@@ -3859,34 +4264,150 @@ ${indent}`);
         });
         return edit.sources.length;
       }
-      function validateLinearCuts(cuts, edit) {
+      function validateProjectionCuts(cuts, edit) {
         cuts.forEach((cut, index) => {
           if (!isRecord2(cut) || !finiteNonNegative2(cut.in) || !finitePositive4(cut.out) || cut.out <= cut.in) {
             fail("INVALID_CUT", `edit.json cuts[${index}] must satisfy 0 <= in < out`);
           }
-          if (Object.prototype.hasOwnProperty.call(cut, "at") || Object.prototype.hasOwnProperty.call(cut, "track") || Object.prototype.hasOwnProperty.call(cut, "transition_out") || Object.prototype.hasOwnProperty.call(cut, "transitionOut")) {
-            fail("UNSUPPORTED_TIMELINE", `display_policy does not support cuts[${index}].at/track/transition_out`);
+          if (cut.at !== void 0 && !finiteNonNegative2(cut.at) || cut.track !== void 0 && (!Number.isInteger(cut.track) || cut.track < 0)) {
+            fail("INVALID_CUT", `edit.json cuts[${index}].at/track must be non-negative timeline coordinates`);
+          }
+          if (Object.prototype.hasOwnProperty.call(cut, "transition_out") || Object.prototype.hasOwnProperty.call(cut, "transitionOut")) {
+            fail("UNSUPPORTED_TIMELINE", `display_policy does not support cuts[${index}].transition_out`);
           }
           if (cut.speed !== void 0 && !finitePositive4(cut.speed))
             fail("INVALID_CUT", `edit.json cuts[${index}].speed must be positive`);
         });
-        if (Array.isArray(edit?.timeline?.tracks) && edit.timeline.tracks.some((track) => track?.kind === "cuts")) {
-          fail("UNSUPPORTED_TIMELINE", "display_policy does not support timeline.tracks cuts winner overrides");
-        }
       }
-      function projectOccurrences(captions, cuts, sourceCount) {
-        const occurrences = [];
+      function projectCaptionWords(caption, cuts) {
+        const displayText = typeof caption?.display_text === "string" ? caption.display_text : caption?.text;
+        const words = Array.isArray(caption?.words) ? caption.words.filter(isProjectionWord) : void 0;
+        if (typeof displayText !== "string" || !words || words.length === 0 || caption.time_domain === "output" || cuts.length === 0) {
+          return {
+            displayText: typeof displayText === "string" ? displayText : "",
+            words,
+            changed: false,
+            renderable: typeof displayText === "string" && displayText.trim().length > 0
+          };
+        }
+        const captionSource = strictText(caption.src) ? caption.src : null;
+        const visible = words.map((word) => cuts.some((cut) => {
+          if (!isRecord2(cut) || cut.captions === "off")
+            return false;
+          if (captionSource !== null && cut.src !== captionSource)
+            return false;
+          return finiteNonNegative2(cut.in) && finitePositive4(cut.out) && word.end - cut.in > PROJECTION_EPSILON && cut.out - word.start > PROJECTION_EPSILON;
+        }));
+        if (visible.every(Boolean)) {
+          return { displayText, words, changed: false, renderable: displayText.trim().length > 0 };
+        }
+        const keptWords = words.filter((_word, index) => visible[index]);
+        const projectedText = removeHiddenWords(displayText, words, visible);
+        return {
+          displayText: projectedText,
+          words: keptWords,
+          changed: true,
+          renderable: projectedText.trim().length > 0 && keptWords.length > 0
+        };
+      }
+      function isProjectionWord(value) {
+        return isRecord2(value) && typeof value.text === "string" && value.text.length > 0 && finiteNonNegative2(value.start) && finiteNonNegative2(value.end) && value.end > value.start;
+      }
+      function removeHiddenWords(text, words, visible) {
         let cursor = 0;
+        let output = "";
+        for (let index = 0; index < words.length; index++) {
+          const wordText = String(words[index].text);
+          const offset = text.indexOf(wordText, cursor);
+          if (offset < 0) {
+            return words.filter((_word, wordIndex) => visible[wordIndex]).map((word) => String(word.text)).join("");
+          }
+          if (visible[index])
+            output += text.slice(cursor, offset + wordText.length);
+          cursor = offset + wordText.length;
+        }
+        if (visible[visible.length - 1])
+          output += text.slice(cursor);
+        return output.trim();
+      }
+      function dedupeCaptionOccurrences(occurrences, trackOrder) {
+        const inputOrder = new Map(occurrences.map((occurrence, index) => [occurrence, index]));
+        const trackRank = /* @__PURE__ */ new Map();
+        trackOrder.forEach((track, index) => trackRank.set(track, index));
+        const rankOf = (occurrence) => trackRank.get(occurrence.track) ?? occurrence.track;
+        const byCue = /* @__PURE__ */ new Map();
+        for (const occurrence of occurrences) {
+          const values = byCue.get(occurrence.source_cue_id) ?? [];
+          values.push(occurrence);
+          byCue.set(occurrence.source_cue_id, values);
+        }
+        const output = [];
+        for (const values of byCue.values()) {
+          const boundaries = [...new Set(values.flatMap((value) => [value.start, value.end]))].sort((left, right) => left - right);
+          const pieces = [];
+          for (let index = 0; index + 1 < boundaries.length; index++) {
+            const start = boundaries[index];
+            const end = boundaries[index + 1];
+            if (end - start <= PROJECTION_EPSILON)
+              continue;
+            const midpoint = (start + end) / 2;
+            const active = values.filter((value) => value.start <= midpoint && value.end > midpoint);
+            if (active.length === 0)
+              continue;
+            const winner = active.reduce((current, candidate) => {
+              const rankDifference = rankOf(candidate) - rankOf(current);
+              if (rankDifference !== 0)
+                return rankDifference > 0 ? candidate : current;
+              return (inputOrder.get(candidate) ?? 0) > (inputOrder.get(current) ?? 0) ? candidate : current;
+            });
+            const last = pieces[pieces.length - 1];
+            if (last?.winner === winner && Math.abs(last.end - start) <= PROJECTION_EPSILON)
+              last.end = end;
+            else
+              pieces.push({ winner, start, end });
+          }
+          for (const piece of pieces) {
+            const whole = piece.winner;
+            if (Math.abs(piece.start - whole.start) <= PROJECTION_EPSILON && Math.abs(piece.end - whole.end) <= PROJECTION_EPSILON) {
+              output.push(whole);
+              continue;
+            }
+            const duration = whole.end - whole.start;
+            const clipped = { ...whole, start: piece.start, end: piece.end };
+            if (duration > 0 && finiteNumber2(whole.source_start) && finiteNumber2(whole.source_end)) {
+              const sourceDuration = whole.source_end - whole.source_start;
+              clipped.source_start = whole.source_start + sourceDuration * ((piece.start - whole.start) / duration);
+              clipped.source_end = whole.source_start + sourceDuration * ((piece.end - whole.start) / duration);
+            }
+            output.push(clipped);
+          }
+        }
+        return output.sort((left, right) => left.start - right.start || (inputOrder.get(left) ?? inputOrder.get(left) ?? 0) - (inputOrder.get(right) ?? 0));
+      }
+      function captionTrackOrder(cuts, edit) {
+        const declared = Array.isArray(edit?.timeline?.tracks) ? edit.timeline.tracks.filter((track) => track?.kind === "cuts" && Number.isInteger(track.ref) && track.ref >= 0).map((track) => track.ref) : [];
+        const fallback = cuts.map((cut) => Number.isInteger(cut.track) && cut.track >= 0 ? cut.track : 0).sort((left, right) => left - right);
+        return [...new Set(declared.length > 0 ? declared : fallback)];
+      }
+      function projectOccurrences(captions, projectedCaptions, cuts, sourceCount) {
+        const occurrences = [];
+        const cursors = /* @__PURE__ */ new Map();
         const segments = cuts.map((cut, cutIndex) => {
           const speed = finitePositive4(cut.speed) ? cut.speed : 1;
           const duration = (cut.out - cut.in) / speed;
-          const segment = { cut, cutIndex, speed, start: cursor, end: cursor + duration };
-          cursor += duration;
+          const track = Number.isInteger(cut.track) && cut.track >= 0 ? cut.track : 0;
+          const cursor = cursors.get(track) ?? 0;
+          const start = finiteNonNegative2(cut.at) ? cut.at : cursor;
+          const segment = { cut, cutIndex, speed, track, start, end: start + duration };
+          cursors.set(track, segment.end);
           return segment;
         });
-        const timelineEnd = cursor;
+        const timelineEnd = segments.reduce((maximum, segment) => Math.max(maximum, segment.end), 0);
         captions.forEach((caption, captionInputIndex) => {
           if (!isRecord2(caption) || caption.time_domain !== "output")
+            return;
+          const projected = projectedCaptions[captionInputIndex];
+          if (!projected.renderable)
             return;
           const clampedEnd = Math.min(caption.end, timelineEnd);
           if (!(clampedEnd > caption.start))
@@ -3900,17 +4421,23 @@ ${indent}`);
             source_end: clampedEnd,
             start: caption.start,
             end: clampedEnd,
-            text: caption.display_text ?? caption.text,
-            display_fragments: caption.display_fragments,
-            text_style: caption.text_style
+            track: 0,
+            text: projected.displayText,
+            display_fragments: projected.changed ? void 0 : caption.display_fragments,
+            text_style: caption.text_style,
+            time_offset: 0,
+            time_scale: 1
           });
         });
         if (cuts.length === 0) {
           captions.forEach((caption, captionInputIndex) => {
             if (caption?.time_domain === "output")
               return;
-            const text = caption?.display_text ?? caption?.text;
+            const projected = projectedCaptions[captionInputIndex];
+            const text = projected.displayText;
             if (isRecord2(caption) && finiteNonNegative2(caption.start) && finitePositive4(caption.end) && caption.end > caption.start && typeof text === "string") {
+              if (!projected.renderable)
+                return;
               occurrences.push({
                 source_cue_id: caption.id,
                 src: typeof caption.src === "string" ? caption.src : null,
@@ -3920,9 +4447,12 @@ ${indent}`);
                 source_end: caption.end,
                 start: caption.start,
                 end: caption.end,
+                track: 0,
                 text,
-                display_fragments: caption.display_fragments,
-                text_style: caption.text_style
+                display_fragments: projected.changed ? void 0 : caption.display_fragments,
+                text_style: caption.text_style,
+                time_offset: 0,
+                time_scale: 1
               });
             }
           });
@@ -3933,11 +4463,16 @@ ${indent}`);
             return;
           if (caption.time_domain === "output")
             return;
+          const projected = projectedCaptions[captionInputIndex];
+          if (!projected.renderable)
+            return;
           const captionSource = strictText(caption.src) ? caption.src : null;
           if (sourceCount > 1 && captionSource === null) {
             fail("MISSING_SOURCE", `captions[${captionInputIndex}].src is required for a multi-source edit`);
           }
           for (const segment of segments) {
+            if (segment.cut.captions === "off")
+              continue;
             if (captionSource !== null && segment.cut.src !== captionSource)
               continue;
             const sourceStart = Math.max(caption.start, segment.cut.in);
@@ -3953,15 +4488,18 @@ ${indent}`);
               source_end: sourceEnd,
               start: segment.start + (sourceStart - segment.cut.in) / segment.speed,
               end: segment.start + (sourceEnd - segment.cut.in) / segment.speed,
-              text: caption.display_text ?? caption.text,
-              display_fragments: caption.display_fragments,
-              text_style: caption.text_style
+              track: segment.track,
+              text: projected.displayText,
+              display_fragments: projected.changed ? void 0 : caption.display_fragments,
+              text_style: caption.text_style,
+              time_offset: segment.start - segment.cut.in / segment.speed,
+              time_scale: 1 / segment.speed
             });
           }
         });
         return occurrences;
       }
-      function validateSourceCaption(caption, index, policy) {
+      function validateSourceCaption(caption, index, policy, projected) {
         if (!isRecord2(caption) || !strictText(caption.id))
           fail("INVALID_CAPTION", `captions[${index}].id must be a non-empty string`);
         if (!finiteNonNegative2(caption.start) || !finitePositive4(caption.end) || caption.end <= caption.start) {
@@ -3973,16 +4511,17 @@ ${indent}`);
         if (caption.time_domain !== void 0 && caption.time_domain !== "source" && caption.time_domain !== "output") {
           fail("INVALID_CAPTION", `captions[${index}].time_domain must be source or output when present`);
         }
-        const text = caption.display_text ?? caption.text;
-        if (!strictText(text))
+        const sourceText = caption.display_text ?? caption.text;
+        if (!strictText(sourceText))
           fail("INVALID_TEXT", `captions[${index}] display text must be non-empty, NFC, and trimmed`);
+        const text = projected?.renderable ? projected.displayText : sourceText;
         if (caption.style !== void 0) {
           if (CAPTION_WORD_STYLES.has(caption.style)) {
             fail("STYLE_CONFLICT", `captions[${index}].style cannot be combined with display_policy`);
           }
           fail("INVALID_CAPTION", `captions[${index}].style ${JSON.stringify(caption.style)} is not a known caption style (expected one of: ${[...CAPTION_WORD_STYLES].join(", ")})`);
         }
-        if (measureCaptionUnits(text) > policy.max_line_units * 2 && caption.display_fragments === void 0) {
+        if (projected?.renderable !== false && measureCaptionUnits(text) > policy.max_line_units * (policy.wrap === "fold" ? policy.lines ?? 1 : 1) * 2 && (caption.display_fragments === void 0 || projected?.changed === true)) {
           fail("NO_WORD_BOUNDARY_SPLIT", `caption ${caption.id} cannot fit in two ${policy.max_line_units}-unit fragments; provide display_fragments`);
         }
       }
@@ -3998,8 +4537,8 @@ ${indent}`);
         });
       }
       function validateManualFragments(caption, text, policy, index) {
-        if (!Array.isArray(caption.display_fragments) || caption.display_fragments.length < 1 || caption.display_fragments.length > 2) {
-          fail("INVALID_MANUAL_FRAGMENTS", `captions[${index}].display_fragments must contain one or two strings`);
+        if (!Array.isArray(caption.display_fragments) || caption.display_fragments.length < 1 || caption.display_fragments.length > 6) {
+          fail("INVALID_MANUAL_FRAGMENTS", `captions[${index}].display_fragments must contain between one and six strings`);
         }
         if (caption.display_fragments.some((fragment) => !strictText(fragment))) {
           fail("INVALID_MANUAL_FRAGMENTS", `captions[${index}].display_fragments must contain non-empty NFC trimmed strings`);
@@ -4043,6 +4582,50 @@ ${indent}`);
         }
         candidates.sort((left, right) => right.score - left.score || left.boundary - right.boundary);
         return { fragments: candidates[0].fragments, boundaries };
+      }
+      function foldCaptionLines(text, maxLineUnits, lines, locale = "ja") {
+        if (!finitePositive4(maxLineUnits) || !Number.isInteger(lines) || lines < 1) {
+          fail("INVALID_POLICY", "foldCaptionLines requires positive maxLineUnits and lines >= 1");
+        }
+        if (lines === 1 || measureCaptionUnits(text) <= maxLineUnits)
+          return [text];
+        const Segmenter = Intl.Segmenter;
+        const segments = typeof Segmenter === "function" ? [...new Segmenter(locale, { granularity: "word" }).segment(text)].map((segment) => segment.segment) : Array.from(text);
+        const tokens = segments.flatMap((segment) => splitCaptionUnitChunks(segment, maxLineUnits));
+        const result = [];
+        let current = "";
+        for (let index = 0; index < tokens.length; index++) {
+          const token = tokens[index];
+          if (current === "" || measureCaptionUnits(current + token) <= maxLineUnits) {
+            current += token;
+            continue;
+          }
+          result.push(current);
+          if (result.length === lines - 1) {
+            current = tokens.slice(index).join("");
+            break;
+          }
+          current = token;
+        }
+        if (current !== "")
+          result.push(current);
+        return result;
+      }
+      function splitCaptionUnitChunks(text, maxLineUnits) {
+        if (measureCaptionUnits(text) <= maxLineUnits)
+          return [text];
+        const chunks = [];
+        let current = "";
+        for (const character of Array.from(text)) {
+          if (current !== "" && measureCaptionUnits(current + character) > maxLineUnits) {
+            chunks.push(current);
+            current = "";
+          }
+          current += character;
+        }
+        if (current !== "")
+          chunks.push(current);
+        return chunks;
       }
       function captionBreakScore(first, second, firstUnits, secondUnits, hints) {
         let score = 100 - Math.abs(firstUnits - secondUnits) * 4;
@@ -4323,6 +4906,8 @@ ${indent}`);
         "name",
         "hidden",
         "locked",
+        "reason",
+        "label",
         "at",
         "duration",
         "transform",
@@ -5684,8 +6269,46 @@ ${indent}`);
           return void 0;
         }
       }
+      function extractV2MediaCaptionSwitches(raw) {
+        const captionsByItemId = /* @__PURE__ */ new Map();
+        const visit = (value) => {
+          if (!isRecord2(value))
+            return value;
+          const children = Array.isArray(value.items) ? value.items.map(visit) : value.items;
+          const isMedia = isRecord2(value.source) && value.source.kind === "media";
+          const validSwitch = value.captions === "on" || value.captions === "off";
+          if (isMedia && validSwitch && typeof value.id === "string") {
+            captionsByItemId.set(value.id, value.captions);
+            const { captions: _captions, ...withoutCaptions } = value;
+            return {
+              ...withoutCaptions,
+              ...Array.isArray(value.items) ? { items: children } : {}
+            };
+          }
+          return Array.isArray(value.items) ? { ...value, items: children } : value;
+        };
+        const tracks = Array.isArray(raw.tracks) ? raw.tracks.map((track) => isRecord2(track) && Array.isArray(track.items) ? { ...track, items: track.items.map(visit) } : track) : raw.tracks;
+        return {
+          input: Array.isArray(raw.tracks) ? { ...raw, tracks } : raw,
+          captionsByItemId
+        };
+      }
       function readV2Internal(raw) {
-        const edit = (0, edit_v2_1.readEditV2)(raw);
+        const { input, captionsByItemId } = extractV2MediaCaptionSwitches(raw);
+        const edit = (0, edit_v2_1.readEditV2)(input);
+        const restoreCaptionSwitches = (items) => {
+          for (const item of items) {
+            const captions = captionsByItemId.get(item.id);
+            if (captions !== void 0)
+              item.captions = captions;
+            if ("items" in item && Array.isArray(item.items))
+              restoreCaptionSwitches(item.items);
+          }
+        };
+        for (const track of edit.tracks) {
+          if ("items" in track && track.lane === "visual")
+            restoreCaptionSwitches(track.items);
+        }
         const fps = edit.output.fps;
         const sources = edit.sources.map((entry) => ({
           id: entry.id,
@@ -5915,7 +6538,8 @@ ${indent}`);
         })), pathOf).itemIds;
       }
       function findCrossTrackLayerEvacuations(edit) {
-        const parsed = (0, edit_v2_1.readEditV2)(edit);
+        const raw = toRecord(edit);
+        const parsed = (0, edit_v2_1.readEditV2)(raw === void 0 ? edit : extractV2MediaCaptionSwitches(raw).input);
         const pathOf = (id) => parsed.sources.find((entry) => entry.id === id)?.path;
         return analyzeOverlappingItems(parsed.tracks.flatMap((track) => track.lane === "visual" && "items" in track ? [{ items: track.items, trackId: track.id }] : []), pathOf).crossTrackEvacuations;
       }
@@ -5956,6 +6580,7 @@ ${indent}`);
         const at2 = atFrames / fps;
         const duration = durationFrames / fps;
         const declaredKeyframes = item.keyframes;
+        const captionSwitch = item.captions;
         const keyframes = Array.isArray(declaredKeyframes) ? declaredKeyframes.map((keyframe) => ({ ...keyframe, t: keyframe.t / fps })) : void 0;
         const common = {
           ...item.hidden !== void 0 ? { hidden: item.hidden } : {},
@@ -5968,9 +6593,12 @@ ${indent}`);
           ...item.motion !== void 0 ? { motion: structuredClone(item.motion) } : {},
           ...item.animator !== void 0 ? { animator: structuredClone(item.animator) } : {},
           ...keyframes !== void 0 ? { keyframes } : {},
-          ...item.source.kind === "media" && "mask" in item && item.mask !== void 0 ? { mask: pathOf(item.mask) ?? item.mask } : {}
+          ...item.source.kind === "media" && "mask" in item && item.mask !== void 0 ? { mask: pathOf(item.mask) ?? item.mask } : {},
+          ...item.source.kind === "media" && captionSwitch !== void 0 ? { captions: captionSwitch } : {}
         };
         const finish = (built) => {
+          if (item.source.kind === "media" && captionSwitch !== void 0)
+            built.item.captions = captionSwitch;
           if (!Array.isArray(declaredKeyframes) && declaredKeyframes !== void 0) {
             built.item.keyframesRef = { ...declaredKeyframes };
           }
@@ -6020,7 +6648,7 @@ ${indent}`);
                 in: item.source.in,
                 track: ref,
                 ...common,
-                ...copyMediaSourceFields(item.source),
+                ...copyMediaSourceFields(item.source, captionSwitch),
                 ..."audio" in item && item.audio === false ? { audio: false } : {}
               };
               const value2 = declaration;
@@ -6047,7 +6675,7 @@ ${indent}`);
               ...speed !== void 0 ? { speed } : {},
               ...item.transform !== void 0 ? { transform: item.transform } : {},
               ...item.opacity !== void 0 ? { opacity: item.opacity } : {},
-              ...copyMediaSourceFields(item.source),
+              ...copyMediaSourceFields(item.source, captionSwitch),
               ..."audio" in item && item.audio === false ? { audio: false } : {}
             };
             return finish({
@@ -6067,7 +6695,7 @@ ${indent}`);
                   at: at2,
                   track: ref,
                   ...common,
-                  ...copyMediaSourceFields(item.source),
+                  ...copyMediaSourceFields(item.source, captionSwitch),
                   ..."audio" in item && item.audio === false ? { audio: false } : {},
                   ...speed !== void 0 ? { speed } : {}
                 },
@@ -6431,7 +7059,7 @@ ${indent}`);
           }
         };
       }
-      function copyMediaSourceFields(source) {
+      function copyMediaSourceFields(source, captions) {
         return {
           ...source.framing !== void 0 ? { framing: source.framing } : {},
           ...source.transition_out !== void 0 ? { transition_out: source.transition_out } : {},
@@ -6440,7 +7068,8 @@ ${indent}`);
           ...source.speed !== void 0 ? { speed: source.speed } : {},
           ...source.gain_db !== void 0 ? { gain_db: source.gain_db } : {},
           ...source.mute !== void 0 ? { mute: source.mute } : {},
-          ...source.chroma_key !== void 0 ? { chroma_key: source.chroma_key } : {}
+          ...source.chroma_key !== void 0 ? { chroma_key: source.chroma_key } : {},
+          ...captions !== void 0 ? { captions } : {}
         };
       }
       function addV2AudioItems(tracks, audioValue, fps, legacyIndexCounters) {
@@ -9562,6 +10191,9 @@ ${indent}`);
               source = (0, edit_store_1.splitCutInSource)(source, index + 1, effectiveOut);
               source = (0, edit_store_1.deleteCutInSource)(source, index + 1).source;
             }
+            if (range.reason !== void 0 || range.label !== void 0) {
+              source = annotateLegacySegments(source, cut, effectiveIn, effectiveOut, range);
+            }
           }
           if (!matched)
             warnings2.push(`\u30AB\u30C3\u30C8\u5BFE\u8C61\u304C\u898B\u3064\u304B\u308A\u307E\u305B\u3093: ${range.in}\u2013${range.out}`);
@@ -9597,6 +10229,9 @@ ${indent}`);
               matched = true;
               affectedTrackIds.add(track.id);
               const replacement = splitAndRemove(item, overlapIn, overlapOut, edit);
+              for (const replacementItem of replacement.items) {
+                copyRangeMetadata(replacementItem, range);
+              }
               removedFrames += replacement.removedFrames;
               track.items.splice(index, 1, ...replacement.items);
             }
@@ -9618,6 +10253,28 @@ ${indent}`);
         (0, edit_v2_1.readEditV2)(edit);
         return { source: `${JSON.stringify(edit, null, 2)}
 `, removedFrames, warnings: warnings2 };
+      }
+      function copyRangeMetadata(target, range) {
+        if (range.reason !== void 0)
+          target.reason = range.reason;
+        if (range.label !== void 0)
+          target.label = range.label;
+      }
+      function annotateLegacySegments(source, original, removedIn, removedOut, range) {
+        const edit = JSON.parse(source);
+        if (!Array.isArray(edit.cuts))
+          return source;
+        const originalTrack = normalizeTrack(original.track);
+        for (const cut of edit.cuts) {
+          if (normalizeTrack(cut.track) !== originalTrack || cut.src !== original.src)
+            continue;
+          if (cut.in < original.in || cut.out > original.out)
+            continue;
+          if (cut.out <= removedIn || cut.in >= removedOut)
+            copyRangeMetadata(cut, range);
+        }
+        return `${JSON.stringify(edit, null, 2)}
+`;
       }
       function splitAndRemove(item, overlapIn, overlapOut, edit) {
         if (item.source.kind !== "media")

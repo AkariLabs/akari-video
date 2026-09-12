@@ -217,7 +217,17 @@ import { computeCutBoundaries } from '../common/cut-boundaries';
 import { resolveItemRowLayout } from '../common/item-row-layout';
 import { splitLintBlame } from '../common/lint-blame-scope';
 import { formatLintFailureForUi, japaneseLintWarningSummary, UiLintFinding } from '../common/lint-message-ja';
-import { buildTimelineClipMenuItems } from '../common/timeline-context-menu-items';
+import {
+    buildTimelineClipMenuItems,
+    CLIP_ANNOTATION_LABELS_EVENT,
+    CLIP_ANNOTATION_LABELS_REQUEST_EVENT,
+    CLIP_ANNOTATION_OPEN_EVENT,
+    CLIP_ANNOTATION_REQUEST_EVENT,
+    CLIP_ANNOTATION_REVEAL_EVENT,
+    resolveTimelineAnnotationTarget,
+    TimelineAnnotationTargetKind
+} from '../common/timeline-context-menu-items';
+import { parseTimelineUiTarget } from '../common/doc-target';
 import { formatTransitionSeconds, roundTransitionDurationForWrite } from '../common/transition-duration';
 import { resolveTimelineExtentSeconds } from '../common/timeline-extent';
 import {
@@ -337,12 +347,24 @@ import {
     TimelineTreeItemSelection,
     TimelineTreeItemSnapshot,
     TimelineSelectionModel,
+    CAPTION_CHIP_PLAYING_CLASS,
+    CAPTION_CHIP_SELECTED_CLASS,
+    captionChipState,
     captionIdForTreeSelection,
     resolveTimelineClipName
 } from './timeline-selection-model';
 
 // スキーマは akari-surfaces が所有。拡張間の依存を増やさず文字列をミラーする。
 const AKARI_TIMELINE_VISUAL_THUMBNAILS = 'akari.timeline.visualThumbnails';
+// akari-preview 側の同名イベントと payload を文字列だけミラーし、拡張間依存を増やさない。
+const REVIEW_SESSION_STATE_EVENT = 'akari.review.session.state';
+const REVIEW_SESSION_REFRESH_EVENT = 'akari.review.session.refresh';
+const REVIEW_SESSION_FOCUS_EVENT = 'akari.review.session.focus';
+const SELECTION_ALT_ALL_EVENT = 'akari.selection.altAll';
+const REVIEW_SESSION_RANGES_STORAGE_KEY = 'akari.annotations.reviewSessionRanges.visible';
+const REVIEW_SESSION_REFRESH_RETRY_INTERVAL_MS = 1_000;
+const REVIEW_SESSION_REFRESH_RETRY_LIMIT = 3;
+const REVIEW_SESSION_FOCUS_RETRY_DELAY_MS = 150;
 const ENSURE_PREVIEW_VISIBLE_COMMAND_ID = 'akari.preview.ensureVisible';
 const SEEK_OUTPUT_PREVIEW_COMMAND_ID = 'akari.preview.seekOutput';
 const TOGGLE_OUTPUT_PREVIEW_PLAYBACK_COMMAND_ID = 'akari.preview.togglePlayback';
@@ -362,10 +384,28 @@ const RULER_MIN_TICK_SPACING_PX = 80;
 const RULER_STEP_MULTIPLIERS_FRAMES = [1, 2, 5, 10, 20, 50, 100];
 const RULER_STEP_SECONDS = [0.5, 1, 2, 5, 10, 15, 30, 60, 120, 300, 600];
 const RULER_BAND_HEIGHT_PX = 14;
+const REVIEW_SESSION_LANE_HEIGHT_PX = 18;
 const RULER_TICK_COLOR = '#3f3f46';
 const RULER_BAND_BACKGROUND = '#1e1e21';
 const STRIP_BACKGROUND = '#1a1d22';
 const STRIP_BORDER_COLOR = '#2a2d33';
+
+interface ReviewSessionRange {
+    start: number;
+    end: number;
+}
+
+interface TimelineReviewSessionSummary {
+    id: string;
+    ranges?: ReviewSessionRange[];
+}
+
+interface TimelineReviewSessionUiState {
+    editUri: string;
+    sessions: TimelineReviewSessionSummary[];
+    activeSessionId?: string;
+    activeRanges?: ReviewSessionRange[];
+}
 const ZOOM_SLIDER_RESOLUTION = 1000;
 const ZOOM_WHEEL_SENSITIVITY = 0.01;
 const ZOOM_EVENT_FACTOR_MIN = 1 / 1.5;
@@ -780,6 +820,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected readonly zoomLabel = document.createElement('button');
     protected readonly zoomSlider = document.createElement('input');
     protected readonly reviewButton = document.createElement('button');
+    protected readonly reviewSessionRangesButton = document.createElement('button');
     protected readonly timelineViewport = document.createElement('div');
     protected readonly trackHeaderColumn = document.createElement('div');
     protected readonly trackHeaderRulerSpacer = document.createElement('div');
@@ -821,6 +862,15 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected readonly annotationsClient!: AkariAnnotationsClientImpl;
 
     protected location: ProjectLocation | undefined;
+    protected reviewSessionState: TimelineReviewSessionUiState | undefined;
+    protected recordingRangesVisible = this.readReviewSessionRangesVisible();
+    protected lastReviewSessionContext = '';
+    protected lastClipAnnotationLabelsSignature = '';
+    protected reviewSessionBandsCache: Array<{ id: string; ranges: ReviewSessionRange[] }> = [];
+    protected cachedRulerRowHeightPx = RULER_BAND_HEIGHT_PX;
+    protected reviewSessionRefreshTimer: number | undefined;
+    protected reviewSessionRefreshRetries = 0;
+    protected reviewSessionFocusTimer: number | undefined;
     protected timelineEmpty = false;
     protected createEditPromise?: Promise<void>;
     protected refreshLocationEditUri?: (uri: URI) => Promise<ProjectLocation | undefined>;
@@ -964,6 +1014,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected fps = 30;
     /** 出力秒（アウトプットタイムライン軸）。cuts が無ければ source 秒と一致する。 */
     protected playheadT = 0;
+    protected captionAltAll = false;
+    protected playingCaptionId: string | undefined;
     protected thumbnailCache = new Map<string, string | MediaCacheFailure>();
     /** 各ノードが最後に参照した失敗だけを、次の描画要求で再試行判定する。 */
     protected readonly clipMediaFailures = new WeakMap<HTMLDivElement, MediaCacheFailure[]>();
@@ -1093,6 +1145,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
         document.addEventListener('dragstart', pause, true);
         document.addEventListener('dragend', resume, true);
         window.addEventListener('blur', resume);
+        const onSelectionAltAll = (event: Event): void => {
+            const detail = (event as CustomEvent<{ on?: unknown }>).detail;
+            if (typeof detail?.on !== 'boolean') return;
+            this.captionAltAll = detail.on;
+            this.applyCaptionStateClasses();
+        };
+        window.addEventListener(SELECTION_ALT_ALL_EVENT, onSelectionAltAll);
         this.toDispose.push(Disposable.create(() => {
             document.removeEventListener('pointerdown', pause, true);
             document.removeEventListener('pointerup', resume, true);
@@ -1100,7 +1159,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
             document.removeEventListener('dragstart', pause, true);
             document.removeEventListener('dragend', resume, true);
             window.removeEventListener('blur', resume);
+            window.removeEventListener(SELECTION_ALT_ALL_EVENT, onSelectionAltAll);
             if (this.visualThumbnailRetryTimer) clearTimeout(this.visualThumbnailRetryTimer);
+            if (this.reviewSessionRefreshTimer !== undefined) window.clearTimeout(this.reviewSessionRefreshTimer);
+            if (this.reviewSessionFocusTimer !== undefined) window.clearTimeout(this.reviewSessionFocusTimer);
             this.failedVisualThumbnails.clear();
             this.visualThumbnails.dispose(); this.visualHover?.remove();
         }));
@@ -1111,6 +1173,81 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 this.visualInputEpoch++;
             }
             this.renderStrip();
+        }));
+        const onReviewSessionState = (event: Event): void => {
+            const state = (event as CustomEvent<TimelineReviewSessionUiState>).detail;
+            const editUri = this.location?.editUri?.toString();
+            if (!state || !editUri || this.normalizeUri(state.editUri) !== this.normalizeUri(editUri)) return;
+            this.reviewSessionState = state;
+            this.stopReviewSessionRefreshRetries();
+            this.updateReviewSessionRangeLayout();
+            this.renderStrip();
+        };
+        window.addEventListener(REVIEW_SESSION_STATE_EVENT, onReviewSessionState);
+        this.toDispose.push(Disposable.create(() => {
+            window.removeEventListener(REVIEW_SESSION_STATE_EVENT, onReviewSessionState);
+        }));
+        const onClipAnnotationRequest = (event: Event): void => {
+            const detail = (event as CustomEvent<{
+                editUri?: string; timelineT?: number; itemId?: string; kind?: TimelineAnnotationTargetKind;
+            }>).detail;
+            const editUri = this.location?.editUri.normalizePath().toString();
+            if (!detail || !editUri || this.normalizeUri(detail.editUri ?? '') !== this.normalizeUri(editUri)
+                || typeof detail.timelineT !== 'number' || !Number.isFinite(detail.timelineT)) return;
+            const sourceT = this.outputToSource(detail.timelineT);
+            const itemId = typeof detail.itemId === 'string' && detail.itemId.trim() ? detail.itemId : undefined;
+            const resolved = itemId ? resolveTimelineAnnotationTarget({
+                kind: detail.kind ?? 'item', itemId,
+                label: this.timelineTreeRows.find(row => row.id === itemId)?.label
+            }) : undefined;
+            this.publishClipAnnotationLabels(true);
+            window.dispatchEvent(new CustomEvent(CLIP_ANNOTATION_OPEN_EVENT, {
+                detail: {
+                    editUri,
+                    ...(this.location?.root ? { projectRootUri: this.location.root.normalizePath().toString() } : {}),
+                    sourceT,
+                    ...(resolved ? { target: resolved.target, label: resolved.label } : {})
+                }
+            }));
+        };
+        const onClipAnnotationReveal = (event: Event): void => {
+            const detail = (event as CustomEvent<{ editUri?: string; target?: string }>).detail;
+            const editUri = this.location?.editUri.normalizePath().toString();
+            if (!detail?.target || !editUri
+                || this.normalizeUri(detail.editUri ?? '') !== this.normalizeUri(editUri)) return;
+            const target = parseTimelineUiTarget(detail.target);
+            if (!target) return;
+            let start: number | undefined;
+            if (target.kind === 'cut' && target.index !== undefined && this.cuts[target.index]) {
+                this.applySelection({ kind: 'cut', index: target.index });
+                start = this.segments.find(segment => segment.index === target.index)?.tlStart;
+            } else if ((target.kind === 'item' || target.kind === 'overlay') && target.id) {
+                const row = this.timelineTreeRows.find(candidate => candidate.id === target.id);
+                if (!row) return;
+                this.applySelection({
+                    kind: 'item', id: row.id, itemKind: row.itemKind,
+                    ...(row.parentId === undefined ? {} : { parentId: row.parentId }), trackId: row.trackId
+                });
+                start = row.at;
+            }
+            if (start === undefined) return;
+            this.setViewStart(start - Math.min(1, this.visibleDuration() * 0.1));
+            this.renderStrip();
+        };
+        const onClipAnnotationLabelsRequest = (event: Event): void => {
+            const detail = (event as CustomEvent<{ editUri?: string }>).detail;
+            const editUri = this.location?.editUri.normalizePath().toString();
+            if (detail?.editUri && editUri
+                && this.normalizeUri(detail.editUri) !== this.normalizeUri(editUri)) return;
+            this.publishClipAnnotationLabels(true);
+        };
+        window.addEventListener(CLIP_ANNOTATION_REQUEST_EVENT, onClipAnnotationRequest);
+        window.addEventListener(CLIP_ANNOTATION_REVEAL_EVENT, onClipAnnotationReveal);
+        window.addEventListener(CLIP_ANNOTATION_LABELS_REQUEST_EVENT, onClipAnnotationLabelsRequest);
+        this.toDispose.push(Disposable.create(() => {
+            window.removeEventListener(CLIP_ANNOTATION_REQUEST_EVENT, onClipAnnotationRequest);
+            window.removeEventListener(CLIP_ANNOTATION_REVEAL_EVENT, onClipAnnotationReveal);
+            window.removeEventListener(CLIP_ANNOTATION_LABELS_REQUEST_EVENT, onClipAnnotationLabelsRequest);
         }));
         this.id = AkariAnnotationsWidget.FACTORY_ID;
         this.title.label = 'タイムライン';
@@ -1202,14 +1339,28 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.reviewButton.textContent = '注釈';
         this.reviewButton.title = '注釈パネルを開く';
         this.reviewButton.addEventListener('click', () => void this.commands.executeCommand(OPEN_AKARI_REVIEW_PANEL_ID));
-        this.toolbar.append(this.zoomHud, this.reviewButton);
+        this.reviewSessionRangesButton.type = 'button';
+        this.reviewSessionRangesButton.className = `theia-button ${this.recordingRangesVisible ? 'main' : 'secondary'} akari-annotations-text-button`;
+        this.reviewSessionRangesButton.textContent = '録音帯';
+        this.reviewSessionRangesButton.title = '録音セッションの通過区間を表示';
+        this.reviewSessionRangesButton.dataset.testid = 'akari-timeline-review-session-ranges-toggle';
+        this.reviewSessionRangesButton.setAttribute('aria-pressed', String(this.recordingRangesVisible));
+        this.reviewSessionRangesButton.addEventListener('click', () => {
+            this.recordingRangesVisible = !this.recordingRangesVisible;
+            this.reviewSessionRangesButton.setAttribute('aria-pressed', String(this.recordingRangesVisible));
+            this.reviewSessionRangesButton.className = `theia-button ${this.recordingRangesVisible ? 'main' : 'secondary'} akari-annotations-text-button`;
+            this.writeReviewSessionRangesVisible();
+            this.updateReviewSessionRangeLayout();
+            this.renderStrip();
+        });
+        this.toolbar.append(this.zoomHud, this.reviewSessionRangesButton, this.reviewButton);
 
         Object.assign(this.timelineViewport.style, {
             display: 'grid', gridTemplateColumns: `${TRACK_HEADER_WIDTH}px minmax(0, 1fr)`, minHeight: '0',
             paddingLeft: '6px', boxSizing: 'border-box'
         });
         Object.assign(this.trackHeaderColumn.style, {
-            display: 'grid', gridTemplateRows: `${RULER_BAND_HEIGHT_PX}px minmax(0, 1fr)`,
+            display: 'grid', gridTemplateRows: `${this.rulerRowHeightPx()}px minmax(0, 1fr)`,
             minHeight: '0', margin: '2px 0'
         });
         Object.assign(this.trackHeaderRulerSpacer.style, {
@@ -1225,7 +1376,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             position: 'relative', width: `${TRACK_HEADER_WIDTH}px`, boxSizing: 'border-box'
         });
         Object.assign(this.timelineBody.style, {
-            position: 'relative', display: 'grid', gridTemplateRows: `${RULER_BAND_HEIGHT_PX}px minmax(0, 1fr)`,
+            position: 'relative', display: 'grid', gridTemplateRows: `${this.rulerRowHeightPx()}px minmax(0, 1fr)`,
             minWidth: '0', minHeight: '0', margin: '2px 6px 2px 0'
         });
         Object.assign(this.rulerBar.style, {
@@ -1483,6 +1634,19 @@ export class AkariAnnotationsWidget extends BaseWidget {
         background: color-mix(in srgb, var(--theia-charts-purple, #b180d7) 68%, transparent);
         border-radius: 5px;
     }
+    .akari-annotations-widget .akari-annotations-strip-caption.akari-annotations-caption-selected {
+        background: rgba(245, 196, 81, .35);
+        outline: 2px solid #f5c451;
+        outline-offset: -2px;
+        box-shadow: none;
+        z-index: 3;
+    }
+    .akari-annotations-widget .akari-annotations-strip-caption.akari-annotations-caption-playing {
+        box-shadow: inset 0 0 0 1.5px #53d1bc;
+    }
+    .akari-annotations-widget .akari-annotations-strip-caption.akari-annotations-caption-selected.akari-annotations-caption-playing {
+        box-shadow: inset 0 0 0 1.5px #53d1bc;
+    }
     .akari-annotations-widget .akari-annotations-tree-tick {
         position: absolute;
         width: 2px;
@@ -1705,6 +1869,47 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
     .akari-annotations-widget .akari-annotations-pin[data-annotation-status="resolved"] {
         opacity: .55;
+    }
+    .akari-annotations-widget .akari-review-session-range {
+        position: absolute;
+        top: ${RULER_BAND_HEIGHT_PX + 2}px;
+        height: ${REVIEW_SESSION_LANE_HEIGHT_PX - 4}px;
+        min-width: 2px;
+        box-sizing: border-box;
+        border: 1px solid color-mix(in srgb, var(--theia-charts-blue, #3794ff) 45%, transparent);
+        border-radius: 3px;
+        background: color-mix(in srgb, var(--theia-charts-blue, #3794ff) 24%, transparent);
+        color: var(--theia-editor-foreground, #fff);
+        cursor: pointer;
+        pointer-events: auto;
+        z-index: 3;
+    }
+    .akari-annotations-widget .akari-review-session-range:hover {
+        background: color-mix(in srgb, var(--theia-charts-blue, #3794ff) 36%, transparent);
+    }
+    .akari-annotations-widget .akari-review-session-range > span {
+        display: block;
+        padding: 0 3px;
+        font: 9px/${REVIEW_SESSION_LANE_HEIGHT_PX - 5}px ui-monospace, SFMono-Regular, monospace;
+        white-space: nowrap;
+        text-shadow: 0 1px 2px #000;
+        pointer-events: none;
+    }
+    .akari-annotations-widget .akari-review-session-range.is-point {
+        width: 9px;
+        height: 9px;
+        min-width: 9px;
+        margin-left: -4px;
+        margin-top: 2px;
+        border-radius: 1px;
+        transform: rotate(45deg);
+    }
+    .akari-annotations-widget .akari-review-session-range.is-point > span {
+        position: absolute;
+        left: 8px;
+        top: -7px;
+        padding-left: 3px;
+        transform: rotate(-45deg);
     }
     .akari-annotations-widget .akari-annotations-segment-label {
         display: block;
@@ -3740,6 +3945,49 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 'akari-annotations-selected', selectedKeys.has(rowKey)
             );
         }
+        this.applyCaptionStateClasses();
+    }
+
+    protected applyCaptionStateClasses(): void {
+        for (const element of Array.from(
+            this.strip.querySelectorAll<HTMLElement>('[data-akari-item-kind="caption"]')
+        )) {
+            const id = element.dataset.akariItemId;
+            if (!id) continue;
+            const state = captionChipState(id, {
+                selectedIds: this.selectionModel.selectedCaptionIds,
+                playingId: this.playingCaptionId,
+                altAll: this.captionAltAll
+            });
+            element.classList.toggle(CAPTION_CHIP_SELECTED_CLASS, state.selected);
+            element.classList.toggle(CAPTION_CHIP_PLAYING_CLASS, state.playing);
+        }
+    }
+
+    protected resolveCaptionAtPlayhead(): string | undefined {
+        for (const [id, layout] of this.captionLayouts) {
+            if (layout.start <= this.playheadT && this.playheadT < layout.end) return id;
+        }
+        return undefined;
+    }
+
+    /** 台本 → タイムラインの片方向同期（task 2026-09-12-daihon-selection-sync 指示2）。 */
+    selectCaptions(editUri: string, captionIds: readonly string[]): void {
+        if (!this.canHandlePlaybackTick(editUri)) return;
+        const requested = new Set(captionIds);
+        const ids = this.captions.map(caption => caption.id).filter(id => requested.has(id));
+        if (ids.length === 0) {
+            this.applySelection(undefined, false);
+        } else if (ids.length === 1) {
+            this.applySelection({ kind: 'caption', id: ids[0] }, false);
+        } else {
+            this.selection = undefined;
+            this.multiSelection = ids.map(id => ({ kind: 'caption', id }));
+            this.pushSelectionSnapshot();
+            this.applySelectionClass();
+        }
+        this.selectionModel.selectedCaptionIds = ids;
+        this.applyCaptionStateClasses();
     }
 
     handleOverlaySelection(editUri: string, overlayId: string | null): void {
@@ -5267,7 +5515,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         );
         this.setGhostRange(this.materialGhost, range.start, range.end);
         this.setGhostRejected(this.materialGhost, false);
-        const viewportTop = RULER_BAND_HEIGHT_PX + target.top - this.stripScroll.scrollTop;
+        const viewportTop = this.rulerRowHeightPx() + target.top - this.stripScroll.scrollTop;
         this.materialGhost.style.top = `${viewportTop}px`;
         this.materialGhost.style.height = `${target.height}px`;
         this.materialGhost.style.display = 'block';
@@ -5373,6 +5621,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             ...this.location, editUri: uri,
             captionsUri: uri.parent.resolve('captions.json'), reviewUri: uri.parent.resolve('review.json')
         };
+        this.refreshReviewSessionRanges();
         await this.updateTimelineTabCaption();
         await this.reloadEdit();
     }
@@ -5422,6 +5671,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.adoptTimelineIdentity(location.editUri?.toString());
         this.location = location;
         this.refreshLocationEditUri = refreshLocationEditUri;
+        this.refreshReviewSessionRanges();
         await this.updateTimelineTabCaption();
         await this.reloadAll();
         requestAnimationFrame(() => this.renderStrip());
@@ -6892,6 +7142,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             : this.timelineTreeRows;
         this.treeRowsByTrack = rowsByTrack(headerRows);
         this.detachedCaptionChipRows = detachedCaptionChipRows(this.timelineTreeRows, headerRows);
+        this.publishClipAnnotationLabels();
         this.keyframeRowsByItem.clear();
         if (this.focusScope.rootId !== null) {
             for (const row of headerRows) {
@@ -10248,6 +10499,121 @@ export class AkariAnnotationsWidget extends BaseWidget {
         return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9H4Z"/><path d="M16 9a4 4 0 0 1 0 6M18.5 6.5a8 8 0 0 1 0 11"/></svg>';
     }
 
+    protected readReviewSessionRangesVisible(): boolean {
+        try {
+            const stored = typeof localStorage === 'undefined'
+                ? null : localStorage.getItem(REVIEW_SESSION_RANGES_STORAGE_KEY);
+            return stored === null ? true : stored !== 'false';
+        } catch {
+            return true;
+        }
+    }
+
+    protected writeReviewSessionRangesVisible(): void {
+        try {
+            if (typeof localStorage !== 'undefined') {
+                localStorage.setItem(REVIEW_SESSION_RANGES_STORAGE_KEY, String(this.recordingRangesVisible));
+            }
+        } catch {
+            // 表示設定を保存できなくても、このウィンドウ内の切り替えは有効に保つ。
+        }
+    }
+
+    protected computeReviewSessionBands(): Array<{ id: string; ranges: ReviewSessionRange[] }> {
+        const sessions = new Map<string, ReviewSessionRange[]>();
+        for (const session of this.reviewSessionState?.sessions ?? []) {
+            sessions.set(session.id, this.validReviewSessionRanges(session.ranges));
+        }
+        const activeId = this.reviewSessionState?.activeSessionId;
+        if (activeId) {
+            sessions.set(activeId, this.validReviewSessionRanges(this.reviewSessionState?.activeRanges));
+        }
+        return [...sessions].map(([id, ranges]) => ({ id, ranges })).filter(session => session.ranges.length > 0);
+    }
+
+    protected validReviewSessionRanges(ranges: ReviewSessionRange[] | undefined): ReviewSessionRange[] {
+        return (ranges ?? []).filter(range => Number.isFinite(range.start) && Number.isFinite(range.end))
+            .map(range => ({ start: Math.min(range.start, range.end), end: Math.max(range.start, range.end) }));
+    }
+
+    protected rulerRowHeightPx(): number {
+        return this.cachedRulerRowHeightPx;
+    }
+
+    protected updateReviewSessionRangeLayout(): void {
+        this.reviewSessionBandsCache = this.computeReviewSessionBands();
+        this.cachedRulerRowHeightPx = RULER_BAND_HEIGHT_PX + (
+            this.recordingRangesVisible && this.reviewSessionBandsCache.length > 0
+                ? REVIEW_SESSION_LANE_HEIGHT_PX : 0
+        );
+        const rows = `${this.cachedRulerRowHeightPx}px minmax(0, 1fr)`;
+        this.trackHeaderColumn.style.gridTemplateRows = rows;
+        this.timelineBody.style.gridTemplateRows = rows;
+    }
+
+    protected stopReviewSessionRefreshRetries(): void {
+        if (this.reviewSessionRefreshTimer !== undefined) {
+            window.clearTimeout(this.reviewSessionRefreshTimer);
+            this.reviewSessionRefreshTimer = undefined;
+        }
+        this.reviewSessionRefreshRetries = 0;
+    }
+
+    protected dispatchReviewSessionRefresh(): void {
+        const location = this.location;
+        const editUri = location?.editUri?.normalizePath().toString();
+        if (!location || !editUri) return;
+        window.dispatchEvent(new CustomEvent(REVIEW_SESSION_REFRESH_EVENT, {
+            detail: { projectRootUri: location.root.normalizePath().toString(), editUri }
+        }));
+    }
+
+    protected dispatchReviewSessionFocus(sessionId: string): void {
+        window.dispatchEvent(new CustomEvent(REVIEW_SESSION_FOCUS_EVENT, {
+            detail: { sessionId, editUri: this.location?.editUri?.toString() ?? '' }
+        }));
+    }
+
+    protected focusReviewSession(sessionId: string): void {
+        // 開いているパネルへは同期で届ける。閉じていた場合だけを、open 要求後の 1 回再送で拾う。
+        this.dispatchReviewSessionFocus(sessionId);
+        void this.commands.executeCommand(OPEN_AKARI_REVIEW_PANEL_ID);
+        if (this.reviewSessionFocusTimer !== undefined) window.clearTimeout(this.reviewSessionFocusTimer);
+        this.reviewSessionFocusTimer = window.setTimeout(() => {
+            this.reviewSessionFocusTimer = undefined;
+            this.dispatchReviewSessionFocus(sessionId);
+        }, REVIEW_SESSION_FOCUS_RETRY_DELAY_MS);
+    }
+
+    protected scheduleReviewSessionRefreshRetry(): void {
+        if (this.reviewSessionState || this.reviewSessionRefreshTimer !== undefined
+            || this.reviewSessionRefreshRetries >= REVIEW_SESSION_REFRESH_RETRY_LIMIT) return;
+        this.reviewSessionRefreshTimer = window.setTimeout(() => {
+            this.reviewSessionRefreshTimer = undefined;
+            if (this.reviewSessionState) return;
+            this.reviewSessionRefreshRetries += 1;
+            this.dispatchReviewSessionRefresh();
+            this.scheduleReviewSessionRefreshRetry();
+        }, REVIEW_SESSION_REFRESH_RETRY_INTERVAL_MS);
+    }
+
+    protected refreshReviewSessionRanges(): void {
+        const location = this.location;
+        const editUri = location?.editUri?.normalizePath().toString();
+        if (!location || !editUri) return;
+        const projectRootUri = location.root.normalizePath().toString();
+        const context = `${projectRootUri}\n${editUri}`;
+        if (context !== this.lastReviewSessionContext) {
+            this.stopReviewSessionRefreshRetries();
+            this.lastReviewSessionContext = context;
+            this.reviewSessionState = undefined;
+            this.updateReviewSessionRangeLayout();
+        }
+        if (this.reviewSessionState || this.reviewSessionRefreshTimer !== undefined) return;
+        this.dispatchReviewSessionRefresh();
+        this.scheduleReviewSessionRefreshRetry();
+    }
+
     protected trackKindSvg(kind: 'video' | 'overlay' | 'layer' | 'audio' | 'caption' | 'beat'): string {
         switch (kind) {
             case 'video':
@@ -10305,7 +10671,47 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 transform: percent <= 2 ? 'none' : percent >= 98 ? 'translateX(-100%)' : 'translateX(-50%)'
             });
         }
+        this.renderReviewSessionRanges();
         this.renderAnnotationPins();
+    }
+
+    /** 録音の通過区間は source 写像を挟まず、events.jsonl の timelineT をそのまま出力軸へ置く。 */
+    protected renderReviewSessionRanges(): void {
+        if (!this.recordingRangesVisible) return;
+        for (const session of this.reviewSessionBandsCache) {
+            session.ranges.forEach((range, index) => {
+                const point = Math.abs(range.end - range.start) <= 1e-6;
+                const signature = `${range.start}:${range.end}:${point}`;
+                const { element, created } = this.keyedNode(
+                    'ruler', `review-session:${session.id}:${index}`, signature, () => document.createElement('div')
+                );
+                element.className = point ? 'akari-review-session-range is-point' : 'akari-review-session-range';
+                element.dataset.reviewSession = session.id;
+                element.dataset.testid = `akari-review-session-range-${session.id}-${index}`;
+                element.title = point
+                    ? `${session.id} ${this.formatTimestamp(range.start)}`
+                    : `${session.id} ${this.formatTimestamp(range.start)}–${this.formatTimestamp(range.end)}`;
+                element.style.left = `${this.layoutPercent(range.start)}%`;
+                element.style.width = point
+                    ? '9px'
+                    : `${Math.max(0.2, this.layoutPercent(range.end) - this.layoutPercent(range.start))}%`;
+                if (created) {
+                    const label = document.createElement('span');
+                    label.textContent = session.id;
+                    element.appendChild(label);
+                    const stop = (event: Event): void => event.stopPropagation();
+                    element.addEventListener('pointerdown', stop);
+                    element.addEventListener('click', event => {
+                        event.stopPropagation();
+                        this.focusReviewSession(session.id);
+                    });
+                    element.addEventListener('contextmenu', event => {
+                        event.preventDefault();
+                        event.stopPropagation();
+                    });
+                }
+            });
+        }
     }
 
     /**
@@ -12894,7 +13300,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.dragFeedback.textContent = text;
         this.dragFeedback.style.left = state.ghost.style.left;
         const ghostTop = parseFloat(state.ghost.style.top || '0');
-        let viewportTop = RULER_BAND_HEIGHT_PX + ghostTop - this.stripScroll.scrollTop;
+        let viewportTop = this.rulerRowHeightPx() + ghostTop - this.stripScroll.scrollTop;
         if (this.trackInsertIndicator.style.display === 'block') {
             if (state.ghost.parentElement !== this.timelineOverlay) this.timelineOverlay.appendChild(state.ghost);
             viewportTop = this.positionInsertionGhost(state.ghost, ghostTop,
@@ -12912,9 +13318,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
 
     protected positionInsertionGhost(ghost: HTMLDivElement, stripTop: number, requestedHeight: number): number {
         const height = Math.max(1, Math.min(requestedHeight, this.stripScroll.clientHeight - 4));
-        const top = Math.max(RULER_BAND_HEIGHT_PX + 2, Math.min(
-            RULER_BAND_HEIGHT_PX + stripTop - this.stripScroll.scrollTop,
-            RULER_BAND_HEIGHT_PX + this.stripScroll.clientHeight - height - 2
+        const top = Math.max(this.rulerRowHeightPx() + 2, Math.min(
+            this.rulerRowHeightPx() + stripTop - this.stripScroll.scrollTop,
+            this.rulerRowHeightPx() + this.stripScroll.clientHeight - height - 2
         ));
         Object.assign(ghost.style, {
             top: `${top}px`, height: `${height}px`, opacity: '.85',
@@ -12925,7 +13331,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected showTrackInsertIndicatorAt(stripLocalTop: number): void {
-        const viewportTop = RULER_BAND_HEIGHT_PX + stripLocalTop - this.stripScroll.scrollTop;
+        const viewportTop = this.rulerRowHeightPx() + stripLocalTop - this.stripScroll.scrollTop;
         this.trackInsertIndicator.style.top = `${viewportTop}px`;
         this.trackInsertIndicator.style.display = 'block';
     }
@@ -14391,6 +14797,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
             }
         }
         this.playhead.style.left = `${this.percent(this.playheadT)}%`;
+        const playing = this.resolveCaptionAtPlayhead();
+        if (playing !== this.playingCaptionId) {
+            this.playingCaptionId = playing;
+            this.applyCaptionStateClasses();
+        }
     }
 
     protected normalizeUri(value: string): string {
@@ -14591,6 +15002,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected dispatchTimelineClipMenuAction(
         id: string, item: TimelineSelectionItem, clientX: number, hasAudio?: boolean, altKey = false
     ): void {
+        if (id === 'annotate') {
+            void this.requestClipAnnotation(item, clientX);
+            return;
+        }
         if (id === 'split-audio' && item.kind === 'cut') {
             const cutId = this.cutItemId(item.index);
             if (this.rejectLockedCutAudio(cutId)) return;
@@ -14724,6 +15139,57 @@ export class AkariAnnotationsWidget extends BaseWidget {
             if (this.multiSelection.length > 1) void this.performDeleteMultiSelected(altKey);
             else void this.performDeleteSelected(altKey);
         }
+    }
+
+    protected async requestClipAnnotation(item: TimelineSelectionItem, clientX: number): Promise<void> {
+        const location = this.location;
+        if (!location) return;
+        const sourceT = this.outputToSource(this.timeAtClientX(clientX));
+        const itemId = item.kind === 'cut' ? this.cutItemIds[item.index] : item.id;
+        const resolved = resolveTimelineAnnotationTarget({
+            kind: item.kind,
+            itemId,
+            cutIndex: item.kind === 'cut' ? item.index : undefined,
+            label: this.timelineTreeRows.find(row => row.id === itemId)?.label
+        });
+        if (!resolved) {
+            this.showNotice('このクリップの注釈対象を特定できません。');
+            return;
+        }
+        await this.commands.executeCommand(OPEN_AKARI_REVIEW_PANEL_ID);
+        const editUri = location.editUri.normalizePath().toString();
+        this.publishClipAnnotationLabels(true);
+        window.dispatchEvent(new CustomEvent(CLIP_ANNOTATION_OPEN_EVENT, {
+            detail: {
+                editUri,
+                projectRootUri: location.root.normalizePath().toString(),
+                target: resolved.target,
+                label: resolved.label,
+                sourceT
+            }
+        }));
+    }
+
+    protected publishClipAnnotationLabels(force = false): void {
+        const location = this.location;
+        if (!location) return;
+        const labels: Record<string, string> = {};
+        for (const row of this.timelineTreeRows) {
+            labels[`timeline:item:${row.id}`] = row.label;
+        }
+        for (let index = 0; index < this.cutItemIds.length; index += 1) {
+            labels[`timeline:cut:${index}`] = `C${index + 1}`;
+        }
+        for (const overlay of this.overlays) {
+            const row = this.timelineTreeRows.find(candidate => candidate.id === overlay.id);
+            if (row) labels[`timeline:overlay:${overlay.id}`] = row.label;
+        }
+        const signature = JSON.stringify(labels);
+        if (!force && signature === this.lastClipAnnotationLabelsSignature) return;
+        this.lastClipAnnotationLabelsSignature = signature;
+        window.dispatchEvent(new CustomEvent(CLIP_ANNOTATION_LABELS_EVENT, {
+            detail: { editUri: location.editUri.normalizePath().toString(), labels }
+        }));
     }
 
     /** タイムライン上の右クリックから直接追加する経路。一覧・入力欄は注釈パネルが持つ。 */

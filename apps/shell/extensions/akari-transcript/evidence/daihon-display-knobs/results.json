@@ -1,0 +1,158 @@
+{
+  "status": "pass",
+  "steps": [
+    {
+      "name": "1. 18字 → 12字で自動の／が増え、max_line_units=12 を書く",
+      "pass": true,
+      "detail": {
+        "buttonLabel": "⚙ 表示 18字 · 1行",
+        "before": {
+          "total": 1,
+          "auto": 0,
+          "manual": 1
+        },
+        "after": {
+          "total": 4,
+          "auto": 3,
+          "manual": 1
+        },
+        "maxLineUnits": 12
+      }
+    },
+    {
+      "name": "2. 行数 2 を書き、multi のプレビュー DOM を観測する",
+      "pass": true,
+      "detail": {
+        "lines": 2,
+        "wrap": "multi",
+        "preview": {
+          "observed": true,
+          "time": 1,
+          "captionCount": 5,
+          "captions": [
+            {
+              "id": "c-0001-occ-0001-part-1",
+              "text": "きょうは朝から雨が降っています",
+              "display_lines": [
+                "きょうは朝から",
+                "雨が降っています"
+              ],
+              "start": 0.2,
+              "end": 2.2
+            }
+          ],
+          "plate": {
+            "className": "akari-caption-host--styled",
+            "innerHTML": "<div class=\"akari-caption akari-caption--single-line\"><style>.akari-caption--single-line{position:absolute;inset:0;pointer-events:none;color:var(--caption-color,#fff);text-shadow:var(--caption-text-shadow,-1.5px -1.5px 0 rgba(0,0,0,.85),1.5px -1.5px 0 rgba(0,0,0,.85),-1.5px 1.5px 0 rgba(0,0,0,.85),1.5px 1.5px 0 rgba(0,0,0,.85),0 0 8px rgba(0,0,0,.6));-webkit-text-stroke:var(--caption-webkit-text-s",
+            "lineCount": 1,
+            "lineTextContent": [
+              "きょうは朝から雨が降っています"
+            ],
+            "textContent": ".akari-caption--single-line{position:absolute;inset:0;pointer-events:none;color:var(--caption-color,#fff);text-shadow:var(--caption-text-shadow,-1.5px -1.5px 0 rgba(0,0,0,.85),1.5px -1.5px 0 rgba(0,0,0,.85),-1.5px 1.5px 0 rgba(0,0,0,.85),1.5px 1.5px 0 rgba(0,0,0,.85),0 0 8px rgba(0,0,0,.6));-webkit-text-stroke:var(--caption-webkit-text-stroke,0 transparent);paint-order:var(--caption-paint-order,normal);font-family:\"AKARI Noto Sans JP\",sans-serif;font-size:var(--caption-font-size,38px);font-style:normal;font-weight:var(--caption-font-weight,700);line-height:var(--caption-line-height,1.42);text-align:center;animation:none;transform:none;}.akari-caption--single-line .akari-caption__plate{position:absolute;left:var(--caption-left,0);right:var(--caption-right,0);bottom:var(--caption-bottom,7%);width:var(--caption-width,auto);max-width:100%;display:flex;flex-direction:column;gap:0;padding:0;background:transparent;animation:none;transform:none;}.akari-caption--single-line .akari-caption__line{width:100%;max-width:100%;margin:0;padding:0;border-radius:0;background:transparent;text-align:center;white-space:nowrap;animation:none;transform:none;}きょうは朝から雨が降っています"
+          }
+        }
+      }
+    },
+    {
+      "name": "3. fold を書き、1 断片を N 行に折るプレビュー DOM を観測する",
+      "pass": true,
+      "detail": {
+        "lines": 2,
+        "wrap": "fold",
+        "preview": {
+          "observed": true,
+          "time": 1,
+          "captionCount": 5,
+          "captions": [
+            {
+              "id": "c-0001-occ-0001-part-1",
+              "text": "きょうは朝から雨が降っています",
+              "display_lines": [
+                "きょうは朝から",
+                "雨が降っています"
+              ],
+              "start": 0.2,
+              "end": 2.2
+            }
+          ],
+          "plate": {
+            "className": "akari-caption-host--styled",
+            "innerHTML": "<div class=\"akari-caption akari-caption--single-line\"><style>.akari-caption--single-line{position:absolute;inset:0;pointer-events:none;color:var(--caption-color,#fff);text-shadow:var(--caption-text-shadow,-1.5px -1.5px 0 rgba(0,0,0,.85),1.5px -1.5px 0 rgba(0,0,0,.85),-1.5px 1.5px 0 rgba(0,0,0,.85),1.5px 1.5px 0 rgba(0,0,0,.85),0 0 8px rgba(0,0,0,.6));-webkit-text-stroke:var(--caption-webkit-text-s",
+            "lineCount": 1,
+            "lineTextContent": [
+              "きょうは朝から雨が降っています"
+            ],
+            "textContent": ".akari-caption--single-line{position:absolute;inset:0;pointer-events:none;color:var(--caption-color,#fff);text-shadow:var(--caption-text-shadow,-1.5px -1.5px 0 rgba(0,0,0,.85),1.5px -1.5px 0 rgba(0,0,0,.85),-1.5px 1.5px 0 rgba(0,0,0,.85),1.5px 1.5px 0 rgba(0,0,0,.85),0 0 8px rgba(0,0,0,.6));-webkit-text-stroke:var(--caption-webkit-text-stroke,0 transparent);paint-order:var(--caption-paint-order,normal);font-family:\"AKARI Noto Sans JP\",sans-serif;font-size:var(--caption-font-size,38px);font-style:normal;font-weight:var(--caption-font-weight,700);line-height:var(--caption-line-height,1.42);text-align:center;animation:none;transform:none;}.akari-caption--single-line .akari-caption__plate{position:absolute;left:var(--caption-left,0);right:var(--caption-right,0);bottom:var(--caption-bottom,7%);width:var(--caption-width,auto);max-width:100%;display:flex;flex-direction:column;gap:0;padding:0;background:transparent;animation:none;transform:none;}.akari-caption--single-line .akari-caption__line{width:100%;max-width:100%;margin:0;padding:0;border-radius:0;background:transparent;text-align:center;white-space:nowrap;animation:none;transform:none;}きょうは朝から雨が降っています"
+          }
+        }
+      }
+    },
+    {
+      "name": "4. 手動／固定・種別・display_fragments bytes・カスタム 7 拒否",
+      "pass": true,
+      "detail": {
+        "decoration": {
+          "lock": "🔒 改行を手で固定",
+          "manual": 1,
+          "currentAuto": 0
+        },
+        "automaticObservedAfterSlider": 3,
+        "customAttempt": 7,
+        "linesAfterRejection": 2,
+        "notice": "カスタム行数は 4〜6 で指定してください",
+        "manualFragmentsByteIdentical": true
+      }
+    }
+  ],
+  "screenshots": [
+    "01-max-line-units-12.png",
+    "02-lines-2-multi.png",
+    "03-wrap-fold.png",
+    "04-manual-lock-and-custom-rejection.png"
+  ],
+  "cleanup": {
+    "killedPid": 87296,
+    "survivingProcesses": 0
+  },
+  "fixture": {
+    "ok": true,
+    "rows": 5,
+    "mediaSeconds": 11,
+    "texts": [
+      {
+        "id": "c-0001",
+        "text": "きょうは朝から雨が降っています",
+        "characters": 15
+      },
+      {
+        "id": "c-0002",
+        "text": "あしたの予定を決めましょう",
+        "characters": 13
+      },
+      {
+        "id": "c-0003",
+        "text": "この機能は台本から使えます",
+        "characters": 13
+      },
+      {
+        "id": "c-0004",
+        "text": "短い行です",
+        "characters": 5
+      },
+      {
+        "id": "c-0005",
+        "text": "きょうは天気がとてもよいので外に出ます",
+        "characters": 19
+      }
+    ],
+    "manualFragments": [
+      "きょうは天気が",
+      "とてもよいので外に出ます"
+    ]
+  },
+  "preloadOverlay": "removed",
+  "daihonVisible": {
+    "width": 427,
+    "height": 47.328125
+  }
+}

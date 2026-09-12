@@ -46,6 +46,11 @@ test('legacy v1 の中央レンジを二分割して除去する', () => {
   assert.deepEqual(cuts.map(cut => [cut.in, cut.out]), [[0, 2], [8, 10]]);
 });
 
+test('legacy v1 は reason / label を残った cuts へ永続化する', () => {
+  const cuts = JSON.parse(applyCutRanges(legacy(1), [range([2, 8], 'silence', { reason: 'silence', label: '長い無音' })], { fps: 30 }).source).cuts;
+  assert.deepEqual(cuts.map(cut => [cut.reason, cut.label]), [['silence', '長い無音'], ['silence', '長い無音']]);
+});
+
 test('legacy の左端一致は分割せずトリムする', () => {
   const cuts = JSON.parse(applyCutRanges(legacy(), [range([0, 2])], { fps: 30 }).source).cuts;
   assert.deepEqual(cuts.map(cut => [cut.in, cut.out]), [[2, 10]]);
@@ -123,6 +128,11 @@ test('v2 の中央レンジは source と duration を同じ比率で二分す�
     [0, 90, 0, 3], [90, 150, 5, 10],
   ]);
   assert.equal(result.removedFrames, 60);
+});
+
+test('v2 は reason / label を残った media items へ永続化する', () => {
+  const items = JSON.parse(applyCutRanges(v2(), [range([3, 5], 'row', { reason: 'word', label: '言い直し' })], { fps: 30 }).source).tracks[0].items;
+  assert.deepEqual(items.map(item => [item.reason, item.label]), [['word', '言い直し'], ['word', '言い直し']]);
 });
 
 test('v2 の左端レンジは先頭を除去して残りを 0 へリップルする', () => {

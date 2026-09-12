@@ -30,6 +30,10 @@ import {
 
 const execFileAsync = promisify(execFile);
 const compileCli = fileURLToPath(new URL("../bin/compile-review-session.mjs", import.meta.url));
+const fixtureSessions = fileURLToPath(new URL(
+  "../dev-fixtures/fixture-project/review/sessions/",
+  import.meta.url,
+));
 
 const snapshot = {
   cuts: [
@@ -43,6 +47,70 @@ test("timelineT の cut 境界を半開区間で sourceT へ写像する", () =>
   assert.deepEqual(map.locate(9.5), expectLocation(19.5, 0));
   assert.deepEqual(map.locate(10), expectLocation(100, 1));
   assert.deepEqual(map.locate(45), expectLocation(135, 1));
+});
+
+test("v2 snapshot は edit-store の互換射影で v0 と同じ cut 写像になる", async () => {
+  const v0 = JSON.parse(await fs.readFile(path.join(fixtureSessions, "s-0001", "edit.snapshot.json"), "utf8"));
+  const v2 = JSON.parse(await fs.readFile(path.join(fixtureSessions, "s-0010", "edit.snapshot.json"), "utf8"));
+  const v0Map = buildCutMap(v0);
+  const v2Map = buildCutMap(v2);
+
+  assert.deepEqual(v2Map.intervals, v0Map.intervals);
+  assert.deepEqual(v2Map.locate(15), v0Map.locate(15));
+  assert.deepEqual(v2Map.cutIdentityByIndex.get(1), { itemId: "cut-2", trackId: "t1" });
+  assert.equal(v2Map.cutIndexByItemId.get("cut-2"), 1);
+});
+
+test("v0 と v2 fixture の compile-proposals は sourceT / target / region が一致する", async (context) => {
+  const temporary = await fs.mkdtemp(path.join(os.tmpdir(), "compile-review-v2-fixture-"));
+  context.after(() => fs.rm(temporary, { recursive: true, force: true }));
+  await fs.writeFile(
+    path.join(temporary, "review.json"),
+    '{\n  "version": 0,\n  "annotations": [\n  ]\n}\n',
+  );
+  const sessionsRoot = path.join(temporary, "review", "sessions");
+  await fs.mkdir(sessionsRoot, { recursive: true });
+  const transcript = {
+    version: 1,
+    backend: "fixture",
+    segments: [{
+      start: 2,
+      end: 3,
+      text: "このカットを削除してください",
+      words: [{ start: 2, end: 3, text: "このカットを削除してください" }],
+    }],
+  };
+
+  for (const sessionId of ["s-0001", "s-0010"]) {
+    const sessionDirectory = path.join(sessionsRoot, sessionId);
+    await fs.cp(path.join(fixtureSessions, sessionId), sessionDirectory, { recursive: true });
+    await fs.writeFile(path.join(sessionDirectory, "transcript.json"), JSON.stringify(transcript));
+    await execFileAsync(process.execPath, [
+      compileCli,
+      temporary,
+      "--session",
+      sessionId,
+      "--prepare-only",
+      "--json",
+    ]);
+  }
+
+  const comparable = async (sessionId) => {
+    const prepared = JSON.parse(await fs.readFile(
+      path.join(sessionsRoot, sessionId, "compile-proposals.json"),
+      "utf8",
+    ));
+    return prepared.proposals.map((proposal) => ({
+      sourceT: proposal.reference.sourceT,
+      target: proposal.reference.target,
+      region: proposal.reference.pairedStroke?.tool === "rect"
+        ? { box: proposal.reference.pairedStroke.box }
+        : null,
+    }));
+  };
+
+  assert.deepEqual(await comparable("s-0010"), await comparable("s-0001"));
+  assert.deepEqual(await comparable("s-0010"), [{ sourceT: 105, target: "cut:1", region: null }]);
 });
 
 test("tick を正として recT から停止・再生位置を復元する", () => {

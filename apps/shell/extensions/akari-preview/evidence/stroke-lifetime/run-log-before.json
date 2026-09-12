@@ -1,0 +1,972 @@
+{
+  "status": "PASS",
+  "label": "before",
+  "summary": {
+    "label": "before",
+    "tuning": {
+      "visibleWindowSec": 8,
+      "fadeOutSec": 1.5
+    },
+    "strokesDrawn": 3,
+    "bothAandBVisible": [
+      {
+        "band": 0,
+        "inkPixels": 11926,
+        "maxAlpha": 255
+      },
+      {
+        "band": 1,
+        "inkPixels": 11952,
+        "maxAlpha": 255
+      },
+      {
+        "band": 2,
+        "inkPixels": 82,
+        "maxAlpha": 14
+      }
+    ],
+    "afterThirdStroke": [
+      {
+        "band": 0,
+        "inkPixels": 11926,
+        "maxAlpha": 255
+      },
+      {
+        "band": 1,
+        "inkPixels": 11952,
+        "maxAlpha": 255
+      },
+      {
+        "band": 2,
+        "inkPixels": 11980,
+        "maxAlpha": 255
+      }
+    ],
+    "afterTwelveSecondWait": [
+      {
+        "band": 0,
+        "inkPixels": 11926,
+        "maxAlpha": 255
+      },
+      {
+        "band": 1,
+        "inkPixels": 11952,
+        "maxAlpha": 255
+      },
+      {
+        "band": 2,
+        "inkPixels": 11980,
+        "maxAlpha": 255
+      }
+    ],
+    "afterRecordingStopped": [
+      {
+        "band": 0,
+        "inkPixels": 11926,
+        "maxAlpha": 255
+      },
+      {
+        "band": 1,
+        "inkPixels": 11952,
+        "maxAlpha": 255
+      },
+      {
+        "band": 2,
+        "inkPixels": 11980,
+        "maxAlpha": 255
+      }
+    ],
+    "replayPlayhead2s": [
+      {
+        "band": 0,
+        "inkPixels": 12444,
+        "maxAlpha": 252
+      },
+      {
+        "band": 1,
+        "inkPixels": 12444,
+        "maxAlpha": 252
+      },
+      {
+        "band": 2,
+        "inkPixels": 12444,
+        "maxAlpha": 252
+      }
+    ],
+    "replayPlayhead22s": [
+      {
+        "band": 0,
+        "inkPixels": 12444,
+        "maxAlpha": 252
+      },
+      {
+        "band": 1,
+        "inkPixels": 12444,
+        "maxAlpha": 252
+      },
+      {
+        "band": 2,
+        "inkPixels": 12444,
+        "maxAlpha": 252
+      }
+    ],
+    "replayPlayhead42s": [
+      {
+        "band": 0,
+        "inkPixels": 12444,
+        "maxAlpha": 252
+      },
+      {
+        "band": 1,
+        "inkPixels": 12444,
+        "maxAlpha": 252
+      },
+      {
+        "band": 2,
+        "inkPixels": 12444,
+        "maxAlpha": 252
+      }
+    ],
+    "visibilityOff": [
+      {
+        "band": 0,
+        "inkPixels": 0,
+        "maxAlpha": 0
+      },
+      {
+        "band": 1,
+        "inkPixels": 0,
+        "maxAlpha": 0
+      },
+      {
+        "band": 2,
+        "inkPixels": 0,
+        "maxAlpha": 0
+      }
+    ],
+    "visibilityOn": [
+      {
+        "band": 0,
+        "inkPixels": 12444,
+        "maxAlpha": 252
+      },
+      {
+        "band": 1,
+        "inkPixels": 12444,
+        "maxAlpha": 252
+      },
+      {
+        "band": 2,
+        "inkPixels": 12444,
+        "maxAlpha": 252
+      }
+    ],
+    "strokeDrawnInsideWindow": [
+      {
+        "band": 0,
+        "inkPixels": 11926,
+        "maxAlpha": 255
+      },
+      {
+        "band": 1,
+        "inkPixels": 54,
+        "maxAlpha": 10
+      },
+      {
+        "band": 2,
+        "inkPixels": 0,
+        "maxAlpha": 0
+      }
+    ],
+    "afterStopInsideWindow": [
+      {
+        "band": 0,
+        "inkPixels": 11926,
+        "maxAlpha": 255
+      },
+      {
+        "band": 1,
+        "inkPixels": 54,
+        "maxAlpha": 10
+      },
+      {
+        "band": 2,
+        "inkPixels": 0,
+        "maxAlpha": 0
+      }
+    ],
+    "shots": [
+      "before-01-stroke-A-penlayer.png",
+      "before-01b-strokes-A-and-B-both-visible-penlayer.png",
+      "before-02-three-strokes-penlayer.png",
+      "before-02-three-strokes-app.png",
+      "before-03-after-10s-wait-penlayer.png",
+      "before-03-after-10s-wait-app.png",
+      "before-04-after-recording-stopped-penlayer.png",
+      "before-05-replay-playhead-2s-penlayer.png",
+      "before-08-visibility-off-penlayer.png",
+      "before-09-s2-stroke-inside-window-penlayer.png",
+      "before-10-s2-after-stop-inside-window-penlayer.png"
+    ]
+  },
+  "timeline": [
+    {
+      "atSec": 0.02,
+      "note": "before-any-stroke",
+      "bands": [
+        {
+          "band": 0,
+          "inkPixels": 0,
+          "maxAlpha": 0
+        },
+        {
+          "band": 1,
+          "inkPixels": 0,
+          "maxAlpha": 0
+        },
+        {
+          "band": 2,
+          "inkPixels": 0,
+          "maxAlpha": 0
+        }
+      ]
+    },
+    {
+      "atSec": 1.77,
+      "note": "after-stroke-A",
+      "bands": [
+        {
+          "band": 0,
+          "inkPixels": 11926,
+          "maxAlpha": 255
+        },
+        {
+          "band": 1,
+          "inkPixels": 54,
+          "maxAlpha": 10
+        },
+        {
+          "band": 2,
+          "inkPixels": 0,
+          "maxAlpha": 0
+        }
+      ]
+    },
+    {
+      "atSec": 7.33,
+      "note": "after-stroke-B",
+      "bands": [
+        {
+          "band": 0,
+          "inkPixels": 11926,
+          "maxAlpha": 255
+        },
+        {
+          "band": 1,
+          "inkPixels": 11952,
+          "maxAlpha": 255
+        },
+        {
+          "band": 2,
+          "inkPixels": 82,
+          "maxAlpha": 14
+        }
+      ]
+    },
+    {
+      "atSec": 12.91,
+      "note": "after-stroke-C-all-three-drawn",
+      "bands": [
+        {
+          "band": 0,
+          "inkPixels": 11926,
+          "maxAlpha": 255
+        },
+        {
+          "band": 1,
+          "inkPixels": 11952,
+          "maxAlpha": 255
+        },
+        {
+          "band": 2,
+          "inkPixels": 11980,
+          "maxAlpha": 255
+        }
+      ]
+    },
+    {
+      "atSec": 14.02,
+      "note": "wait-1s-after-third-stroke",
+      "bands": [
+        {
+          "band": 0,
+          "inkPixels": 11926,
+          "maxAlpha": 255
+        },
+        {
+          "band": 1,
+          "inkPixels": 11952,
+          "maxAlpha": 255
+        },
+        {
+          "band": 2,
+          "inkPixels": 11980,
+          "maxAlpha": 255
+        }
+      ]
+    },
+    {
+      "atSec": 15.03,
+      "note": "wait-2s-after-third-stroke",
+      "bands": [
+        {
+          "band": 0,
+          "inkPixels": 11926,
+          "maxAlpha": 255
+        },
+        {
+          "band": 1,
+          "inkPixels": 11952,
+          "maxAlpha": 255
+        },
+        {
+          "band": 2,
+          "inkPixels": 11980,
+          "maxAlpha": 255
+        }
+      ]
+    },
+    {
+      "atSec": 16.04,
+      "note": "wait-3s-after-third-stroke",
+      "bands": [
+        {
+          "band": 0,
+          "inkPixels": 11926,
+          "maxAlpha": 255
+        },
+        {
+          "band": 1,
+          "inkPixels": 11952,
+          "maxAlpha": 255
+        },
+        {
+          "band": 2,
+          "inkPixels": 11980,
+          "maxAlpha": 255
+        }
+      ]
+    },
+    {
+      "atSec": 17.04,
+      "note": "wait-4s-after-third-stroke",
+      "bands": [
+        {
+          "band": 0,
+          "inkPixels": 11926,
+          "maxAlpha": 255
+        },
+        {
+          "band": 1,
+          "inkPixels": 11952,
+          "maxAlpha": 255
+        },
+        {
+          "band": 2,
+          "inkPixels": 11980,
+          "maxAlpha": 255
+        }
+      ]
+    },
+    {
+      "atSec": 18.05,
+      "note": "wait-5s-after-third-stroke",
+      "bands": [
+        {
+          "band": 0,
+          "inkPixels": 11926,
+          "maxAlpha": 255
+        },
+        {
+          "band": 1,
+          "inkPixels": 11952,
+          "maxAlpha": 255
+        },
+        {
+          "band": 2,
+          "inkPixels": 11980,
+          "maxAlpha": 255
+        }
+      ]
+    },
+    {
+      "atSec": 19.06,
+      "note": "wait-6s-after-third-stroke",
+      "bands": [
+        {
+          "band": 0,
+          "inkPixels": 11926,
+          "maxAlpha": 255
+        },
+        {
+          "band": 1,
+          "inkPixels": 11952,
+          "maxAlpha": 255
+        },
+        {
+          "band": 2,
+          "inkPixels": 11980,
+          "maxAlpha": 255
+        }
+      ]
+    },
+    {
+      "atSec": 20.06,
+      "note": "wait-7s-after-third-stroke",
+      "bands": [
+        {
+          "band": 0,
+          "inkPixels": 11926,
+          "maxAlpha": 255
+        },
+        {
+          "band": 1,
+          "inkPixels": 11952,
+          "maxAlpha": 255
+        },
+        {
+          "band": 2,
+          "inkPixels": 11980,
+          "maxAlpha": 255
+        }
+      ]
+    },
+    {
+      "atSec": 21.07,
+      "note": "wait-8s-after-third-stroke",
+      "bands": [
+        {
+          "band": 0,
+          "inkPixels": 11926,
+          "maxAlpha": 255
+        },
+        {
+          "band": 1,
+          "inkPixels": 11952,
+          "maxAlpha": 255
+        },
+        {
+          "band": 2,
+          "inkPixels": 11980,
+          "maxAlpha": 255
+        }
+      ]
+    },
+    {
+      "atSec": 22.08,
+      "note": "wait-9s-after-third-stroke",
+      "bands": [
+        {
+          "band": 0,
+          "inkPixels": 11926,
+          "maxAlpha": 255
+        },
+        {
+          "band": 1,
+          "inkPixels": 11952,
+          "maxAlpha": 255
+        },
+        {
+          "band": 2,
+          "inkPixels": 11980,
+          "maxAlpha": 255
+        }
+      ]
+    },
+    {
+      "atSec": 23.09,
+      "note": "wait-10s-after-third-stroke",
+      "bands": [
+        {
+          "band": 0,
+          "inkPixels": 11926,
+          "maxAlpha": 255
+        },
+        {
+          "band": 1,
+          "inkPixels": 11952,
+          "maxAlpha": 255
+        },
+        {
+          "band": 2,
+          "inkPixels": 11980,
+          "maxAlpha": 255
+        }
+      ]
+    },
+    {
+      "atSec": 24.09,
+      "note": "wait-11s-after-third-stroke",
+      "bands": [
+        {
+          "band": 0,
+          "inkPixels": 11926,
+          "maxAlpha": 255
+        },
+        {
+          "band": 1,
+          "inkPixels": 11952,
+          "maxAlpha": 255
+        },
+        {
+          "band": 2,
+          "inkPixels": 11980,
+          "maxAlpha": 255
+        }
+      ]
+    },
+    {
+      "atSec": 25.1,
+      "note": "wait-12s-after-third-stroke",
+      "bands": [
+        {
+          "band": 0,
+          "inkPixels": 11926,
+          "maxAlpha": 255
+        },
+        {
+          "band": 1,
+          "inkPixels": 11952,
+          "maxAlpha": 255
+        },
+        {
+          "band": 2,
+          "inkPixels": 11980,
+          "maxAlpha": 255
+        }
+      ]
+    },
+    {
+      "atSec": 26.42,
+      "note": "after-recording-stopped",
+      "bands": [
+        {
+          "band": 0,
+          "inkPixels": 11926,
+          "maxAlpha": 255
+        },
+        {
+          "band": 1,
+          "inkPixels": 11952,
+          "maxAlpha": 255
+        },
+        {
+          "band": 2,
+          "inkPixels": 11980,
+          "maxAlpha": 255
+        }
+      ]
+    },
+    {
+      "atSec": 27.24,
+      "note": "replay-playhead-2s",
+      "bands": [
+        {
+          "band": 0,
+          "inkPixels": 12444,
+          "maxAlpha": 252
+        },
+        {
+          "band": 1,
+          "inkPixels": 12444,
+          "maxAlpha": 252
+        },
+        {
+          "band": 2,
+          "inkPixels": 12444,
+          "maxAlpha": 252
+        }
+      ]
+    },
+    {
+      "atSec": 28.46,
+      "note": "replay-playhead-22s",
+      "bands": [
+        {
+          "band": 0,
+          "inkPixels": 12444,
+          "maxAlpha": 252
+        },
+        {
+          "band": 1,
+          "inkPixels": 12444,
+          "maxAlpha": 252
+        },
+        {
+          "band": 2,
+          "inkPixels": 12444,
+          "maxAlpha": 252
+        }
+      ]
+    },
+    {
+      "atSec": 29.68,
+      "note": "replay-playhead-42s",
+      "bands": [
+        {
+          "band": 0,
+          "inkPixels": 12444,
+          "maxAlpha": 252
+        },
+        {
+          "band": 1,
+          "inkPixels": 12444,
+          "maxAlpha": 252
+        },
+        {
+          "band": 2,
+          "inkPixels": 12444,
+          "maxAlpha": 252
+        }
+      ]
+    },
+    {
+      "atSec": 30.52,
+      "note": "stroke-visibility-off",
+      "bands": [
+        {
+          "band": 0,
+          "inkPixels": 0,
+          "maxAlpha": 0
+        },
+        {
+          "band": 1,
+          "inkPixels": 0,
+          "maxAlpha": 0
+        },
+        {
+          "band": 2,
+          "inkPixels": 0,
+          "maxAlpha": 0
+        }
+      ]
+    },
+    {
+      "atSec": 31.33,
+      "note": "stroke-visibility-on",
+      "bands": [
+        {
+          "band": 0,
+          "inkPixels": 12444,
+          "maxAlpha": 252
+        },
+        {
+          "band": 1,
+          "inkPixels": 12444,
+          "maxAlpha": 252
+        },
+        {
+          "band": 2,
+          "inkPixels": 12444,
+          "maxAlpha": 252
+        }
+      ]
+    },
+    {
+      "atSec": 33.77,
+      "note": "s2-stroke-drawn-inside-window",
+      "bands": [
+        {
+          "band": 0,
+          "inkPixels": 11926,
+          "maxAlpha": 255
+        },
+        {
+          "band": 1,
+          "inkPixels": 54,
+          "maxAlpha": 10
+        },
+        {
+          "band": 2,
+          "inkPixels": 0,
+          "maxAlpha": 0
+        }
+      ]
+    },
+    {
+      "atSec": 34.99,
+      "note": "s2-after-stop-inside-window",
+      "bands": [
+        {
+          "band": 0,
+          "inkPixels": 11926,
+          "maxAlpha": 255
+        },
+        {
+          "band": 1,
+          "inkPixels": 54,
+          "maxAlpha": 10
+        },
+        {
+          "band": 2,
+          "inkPixels": 0,
+          "maxAlpha": 0
+        }
+      ]
+    }
+  ],
+  "records": [
+    {
+      "step": "launched",
+      "pid": 28822,
+      "label": "before"
+    },
+    {
+      "step": "preview-attached"
+    },
+    {
+      "step": "recording-armed",
+      "penLayerIsActive": true
+    },
+    {
+      "step": "draw-rect",
+      "penLayerRectInWebview": {
+        "x": 36,
+        "y": 179.125,
+        "width": 332,
+        "height": 186.75
+      },
+      "outerFrameRectInMain": {
+        "x": 221.9140625,
+        "y": 39,
+        "width": 404,
+        "height": 603
+      }
+    },
+    {
+      "step": "stroke-drawn",
+      "band": 0,
+      "atSec": 0.56
+    },
+    {
+      "step": "stroke-drawn",
+      "band": 1,
+      "atSec": 6.11
+    },
+    {
+      "step": "stroke-drawn",
+      "band": 2,
+      "atSec": 11.7
+    },
+    {
+      "step": "verdict",
+      "status": "PASS",
+      "label": "before",
+      "tuning": {
+        "visibleWindowSec": 8,
+        "fadeOutSec": 1.5
+      },
+      "strokesDrawn": 3,
+      "bothAandBVisible": [
+        {
+          "band": 0,
+          "inkPixels": 11926,
+          "maxAlpha": 255
+        },
+        {
+          "band": 1,
+          "inkPixels": 11952,
+          "maxAlpha": 255
+        },
+        {
+          "band": 2,
+          "inkPixels": 82,
+          "maxAlpha": 14
+        }
+      ],
+      "afterThirdStroke": [
+        {
+          "band": 0,
+          "inkPixels": 11926,
+          "maxAlpha": 255
+        },
+        {
+          "band": 1,
+          "inkPixels": 11952,
+          "maxAlpha": 255
+        },
+        {
+          "band": 2,
+          "inkPixels": 11980,
+          "maxAlpha": 255
+        }
+      ],
+      "afterTwelveSecondWait": [
+        {
+          "band": 0,
+          "inkPixels": 11926,
+          "maxAlpha": 255
+        },
+        {
+          "band": 1,
+          "inkPixels": 11952,
+          "maxAlpha": 255
+        },
+        {
+          "band": 2,
+          "inkPixels": 11980,
+          "maxAlpha": 255
+        }
+      ],
+      "afterRecordingStopped": [
+        {
+          "band": 0,
+          "inkPixels": 11926,
+          "maxAlpha": 255
+        },
+        {
+          "band": 1,
+          "inkPixels": 11952,
+          "maxAlpha": 255
+        },
+        {
+          "band": 2,
+          "inkPixels": 11980,
+          "maxAlpha": 255
+        }
+      ],
+      "replayPlayhead2s": [
+        {
+          "band": 0,
+          "inkPixels": 12444,
+          "maxAlpha": 252
+        },
+        {
+          "band": 1,
+          "inkPixels": 12444,
+          "maxAlpha": 252
+        },
+        {
+          "band": 2,
+          "inkPixels": 12444,
+          "maxAlpha": 252
+        }
+      ],
+      "replayPlayhead22s": [
+        {
+          "band": 0,
+          "inkPixels": 12444,
+          "maxAlpha": 252
+        },
+        {
+          "band": 1,
+          "inkPixels": 12444,
+          "maxAlpha": 252
+        },
+        {
+          "band": 2,
+          "inkPixels": 12444,
+          "maxAlpha": 252
+        }
+      ],
+      "replayPlayhead42s": [
+        {
+          "band": 0,
+          "inkPixels": 12444,
+          "maxAlpha": 252
+        },
+        {
+          "band": 1,
+          "inkPixels": 12444,
+          "maxAlpha": 252
+        },
+        {
+          "band": 2,
+          "inkPixels": 12444,
+          "maxAlpha": 252
+        }
+      ],
+      "visibilityOff": [
+        {
+          "band": 0,
+          "inkPixels": 0,
+          "maxAlpha": 0
+        },
+        {
+          "band": 1,
+          "inkPixels": 0,
+          "maxAlpha": 0
+        },
+        {
+          "band": 2,
+          "inkPixels": 0,
+          "maxAlpha": 0
+        }
+      ],
+      "visibilityOn": [
+        {
+          "band": 0,
+          "inkPixels": 12444,
+          "maxAlpha": 252
+        },
+        {
+          "band": 1,
+          "inkPixels": 12444,
+          "maxAlpha": 252
+        },
+        {
+          "band": 2,
+          "inkPixels": 12444,
+          "maxAlpha": 252
+        }
+      ],
+      "strokeDrawnInsideWindow": [
+        {
+          "band": 0,
+          "inkPixels": 11926,
+          "maxAlpha": 255
+        },
+        {
+          "band": 1,
+          "inkPixels": 54,
+          "maxAlpha": 10
+        },
+        {
+          "band": 2,
+          "inkPixels": 0,
+          "maxAlpha": 0
+        }
+      ],
+      "afterStopInsideWindow": [
+        {
+          "band": 0,
+          "inkPixels": 11926,
+          "maxAlpha": 255
+        },
+        {
+          "band": 1,
+          "inkPixels": 54,
+          "maxAlpha": 10
+        },
+        {
+          "band": 2,
+          "inkPixels": 0,
+          "maxAlpha": 0
+        }
+      ],
+      "shots": [
+        "before-01-stroke-A-penlayer.png",
+        "before-01b-strokes-A-and-B-both-visible-penlayer.png",
+        "before-02-three-strokes-penlayer.png",
+        "before-02-three-strokes-app.png",
+        "before-03-after-10s-wait-penlayer.png",
+        "before-03-after-10s-wait-app.png",
+        "before-04-after-recording-stopped-penlayer.png",
+        "before-05-replay-playhead-2s-penlayer.png",
+        "before-08-visibility-off-penlayer.png",
+        "before-09-s2-stroke-inside-window-penlayer.png",
+        "before-10-s2-after-stop-inside-window-penlayer.png"
+      ]
+    }
+  ]
+}

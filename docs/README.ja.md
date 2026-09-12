@@ -85,7 +85,7 @@
 | [contract-2026-07-22-edit-json-v1-beats.md](./contract-2026-07-22-edit-json-v1-beats.md) | v1 ビート（音楽同期） |
 | [contract-2026-07-23-edit-json-v1-direction.md](./contract-2026-07-23-edit-json-v1-direction.md) | v1 演出（direction） |
 | [contract-2026-07-23-edit-json-v1-emphasis-words.md](./contract-2026-07-23-edit-json-v1-emphasis-words.md) | v1 強調ワード |
-| [contract-2026-08-23-captions-emphasis-words-v0.md](./contract-2026-08-23-captions-emphasis-words-v0.md) | captions.json object ルートの語レベル演出 `emphasis_words[]` 席（edit.json v1 席は後方互換フォールバック） |
+| [contract-2026-08-23-captions-emphasis-words-v0.md](./contract-2026-08-23-captions-emphasis-words-v0.md) | captions.json object ルートの語レベル演出 `emphasis_words[]` 席（台本パネルの単語選択 → 🎨 テンプレの書き先 `style_preset`、edit.json v1 席は後方互換フォールバック） |
 | [contract-2026-09-02-captions-style-preset-v0.md](./contract-2026-09-02-captions-style-preset-v0.md) | `captions[].style_preset` の id 参照・解決順・生成 textstyle カタログ・ピッカー一括適用 RPC・行バッジ・無料字幕テンプレ 3 種 |
 | [contract-2026-07-22-render-basics.md](./contract-2026-07-22-render-basics.md) | レンダー基礎機能（速度・クロマキー・トランジション・LUT・音声マスター） |
 | [contract-2026-08-12-still-image-cut-source-v0.md](./contract-2026-08-12-still-image-cut-source-v0.md) | 静止画 cut ソース v0 — cuts[] のソースに静止画（拡張子判定）を許可し speed/freeze の適用範囲を拡張 |
@@ -107,6 +107,7 @@
 | [contract-2026-07-20-review-json-v1-annotation-model.md](./contract-2026-07-20-review-json-v1-annotation-model.md) | review.json v1 注釈モデル（target 5 型） |
 | [contract-2026-08-11-review-session-ui-events.md](./contract-2026-08-11-review-session-ui-events.md) | レビューセッション UI イベント（events.jsonl 拡張）+ 記録中インジケータ |
 | [contract-2026-08-23-stroke-persistence.md](./contract-2026-08-23-stroke-persistence.md) | 注釈ストロークの永続表示（持続オーバーレイ + トグル + セッション再表示 + review.json の `strokeRefs`） |
+| [contract-2026-09-12-review-session-viewer.md](./contract-2026-09-12-review-session-viewer.md) | recT 同期の音声・描線・文字起こし・プレビューと edit snapshot 差分を備えたレビューセッションビューア |
 | [contract-2026-08-03-cut-candidate-bridge-v1.md](./contract-2026-08-03-cut-candidate-bridge-v1.md) | semantic event と A4 pause 短縮の review-only candidate bridge |
 
 ### プレビュー・書き出し

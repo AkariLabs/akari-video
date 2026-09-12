@@ -1,0 +1,419 @@
+{
+  "status": "pass",
+  "steps": [
+    {
+      "name": "1. 行を選ぶとプレートに data-selected と 5 個のハンドル（nw/ne/sw/se/rot）が出る。非選択では 0 個",
+      "pass": true,
+      "detail": {
+        "unselected": {
+          "handleCount": 0,
+          "selected": false,
+          "text": "きょうはとてもよい天気です"
+        },
+        "selected": {
+          "handleCount": 5,
+          "kinds": [
+            "nw",
+            "ne",
+            "sw",
+            "se",
+            "rot"
+          ],
+          "styles": {
+            "nw": {
+              "background": "rgb(255, 255, 255)",
+              "borderColor": "rgb(245, 196, 81)",
+              "borderRadius": "50%",
+              "width": "11px",
+              "height": "11px"
+            },
+            "ne": {
+              "background": "rgb(255, 255, 255)",
+              "borderColor": "rgb(245, 196, 81)",
+              "borderRadius": "50%",
+              "width": "11px",
+              "height": "11px"
+            },
+            "sw": {
+              "background": "rgb(255, 255, 255)",
+              "borderColor": "rgb(245, 196, 81)",
+              "borderRadius": "50%",
+              "width": "11px",
+              "height": "11px"
+            },
+            "se": {
+              "background": "rgb(255, 255, 255)",
+              "borderColor": "rgb(245, 196, 81)",
+              "borderRadius": "50%",
+              "width": "11px",
+              "height": "11px"
+            },
+            "rot": {
+              "background": "rgb(245, 196, 81)",
+              "borderColor": "rgb(255, 255, 255)",
+              "borderRadius": "50%",
+              "width": "14px",
+              "height": "14px"
+            }
+          },
+          "outlineStyle": "solid",
+          "outlineColor": "rgb(245, 196, 81)",
+          "host": {
+            "left": 316.72021484375,
+            "top": 251.11386108398438,
+            "width": 372.53729248046875,
+            "height": 42.766693115234375,
+            "cx": 502.9888610839844,
+            "cy": 272.49720764160156
+          },
+          "handles": {
+            "nw": {
+              "left": 309.59521484375,
+              "top": 243.98886108398438,
+              "width": 7.837493896484375,
+              "height": 7.837493896484375,
+              "cx": 313.5139617919922,
+              "cy": 247.90760803222656
+            },
+            "ne": {
+              "left": 688.5449829101562,
+              "top": 243.98886108398438,
+              "width": 7.8375244140625,
+              "height": 7.837493896484375,
+              "cx": 692.4637451171875,
+              "cy": 247.90760803222656
+            },
+            "sw": {
+              "left": 309.59521484375,
+              "top": 293.1680603027344,
+              "width": 7.837493896484375,
+              "height": 7.837493896484375,
+              "cx": 313.5139617919922,
+              "cy": 297.08680725097656
+            },
+            "se": {
+              "left": 688.5449829101562,
+              "top": 293.1680603027344,
+              "width": 7.8375244140625,
+              "height": 7.837493896484375,
+              "cx": 692.4637451171875,
+              "cy": 297.08680725097656
+            },
+            "rot": {
+              "left": 498.0013427734375,
+              "top": 226.88885498046875,
+              "width": 9.975006103515625,
+              "height": 9.975006103515625,
+              "cx": 502.9888458251953,
+              "cy": 231.87635803222656
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "2. 上（rot）の丸をドラッグすると text_style.rotate ≒ -12 だけが書かれる（scale / position は書かれない）",
+      "pass": true,
+      "detail": {
+        "midCssRotate": "-11.98deg",
+        "writes": [
+          {
+            "id": "c-0001",
+            "patch": {
+              "plateTransform": {
+                "captionIds": [
+                  "c-0001"
+                ],
+                "rotate": -11.98
+              }
+            }
+          }
+        ],
+        "style": {
+          "rotate": -11.98
+        },
+        "effectiveAngle": -11.999999999999991,
+        "drag": {
+          "center": {
+            "x": 502.9888610839844,
+            "y": 272.49720764160156
+          },
+          "start": {
+            "x": 502.9888458251953,
+            "y": 231.87635803222656
+          },
+          "target": {
+            "x": 461.40644943429197,
+            "y": 76.86770311481615
+          },
+          "endClient": {
+            "x": 461.40644943429197,
+            "y": 76.86770311481615
+          }
+        }
+      }
+    },
+    {
+      "name": "3. 右下（se）の丸をドラッグすると text_style.scale ≒ 1.35 だけが書かれ、直前の rotate -12 は保たれる",
+      "pass": true,
+      "detail": {
+        "midCssScale": "1.35",
+        "writes": [
+          {
+            "id": "c-0001",
+            "patch": {
+              "plateTransform": {
+                "captionIds": [
+                  "c-0001"
+                ],
+                "scale": 1.35
+              }
+            }
+          }
+        ],
+        "style": {
+          "rotate": -11.98,
+          "scale": 1.35
+        },
+        "effectiveFactor": 1.35,
+        "drag": {
+          "center": {
+            "x": 502.9944305419922,
+            "y": 272.4944305419922
+          },
+          "start": {
+            "x": 692.8533935546875,
+            "y": 335.2834930419922
+          },
+          "target": {
+            "x": 759.3040306091309,
+            "y": 357.25966491699216
+          },
+          "endClient": {
+            "x": 759.3040306091309,
+            "y": 357.25966491699216
+          }
+        }
+      }
+    },
+    {
+      "name": "4. 2 行（c-0001 / c-0002）を選んで 1 回ドラッグすると、captionWrite 1 回で 2 cue に同じ scale が入る",
+      "pass": true,
+      "detail": {
+        "writes": [
+          {
+            "id": "c-0002",
+            "patch": {
+              "plateTransform": {
+                "captionIds": [
+                  "c-0001",
+                  "c-0002"
+                ],
+                "scale": 1.6
+              }
+            }
+          }
+        ],
+        "c1": {
+          "rotate": -11.98,
+          "scale": 1.6
+        },
+        "c2": {
+          "scale": 1.6
+        },
+        "c3": null,
+        "effectiveFactor": 1.6
+      }
+    },
+    {
+      "name": "5. display_policy（lines 2 / wrap fold）を足すと resolved 字幕が 2 行（.akari-caption__line が 2 個）で描かれる（c-0003 で観測）",
+      "pass": true,
+      "detail": {
+        "lineCount": 2,
+        "lineTexts": [
+          "みじかい行",
+          "です"
+        ],
+        "styled": true,
+        "hostTransform": "matrix(1, 0, 0, 1, 0, 0)",
+        "hostOrigin": "588.805px 53.9531px"
+      }
+    }
+  ],
+  "screenshots": [
+    "01-selected-shows-five-handles.png",
+    "02-rotate-handle-writes-rotate.png",
+    "03-corner-drag-writes-scale.png",
+    "04-two-rows-one-commit-same-scale.png",
+    "05-display-lines-two-rows.png"
+  ],
+  "cleanup": {
+    "killedPid": 57237,
+    "survivingProcesses": 0,
+    "survivingBackendMain": 0
+  },
+  "fixture": {
+    "ok": true,
+    "rows": 3,
+    "mediaSeconds": 8,
+    "captions": [
+      {
+        "id": "c-0001",
+        "text": "きょうはとてもよい天気です",
+        "start": 1,
+        "end": 3.2
+      },
+      {
+        "id": "c-0002",
+        "text": "あしたの予定を決めましょう",
+        "start": 3.6,
+        "end": 5.2
+      },
+      {
+        "id": "c-0003",
+        "text": "みじかい行です",
+        "start": 5.6,
+        "end": 6.6
+      }
+    ]
+  },
+  "windowBoundsError": "Error: {\"code\":-32601,\"message\":\"'Browser.getWindowForTarget' wasn't found\"}\n    at WebSocket.<anonymous> (file://<WORKTREE>/apps/shell/extensions/akari-preview/evidence/caption-plate-handles/scripts/cdp-lib.mjs:14:179)\n    at [nodejs.internal.kHybridDispatch] (node:internal/event_target:843:20)\n    at WebSocket.dispatchEvent (node:internal/event_target:776:26)\n    at fireEvent (node:internal/deps/undici/undici:14623:14)\n    at #onMessage (node:internal/deps/undici/undici:15926:9)\n    at Object.onMessage (node:internal/deps/undici/undici:15636:76)\n    at websocketMessageReceived (node:internal/deps/undici/undici:14627:15)\n    at node:internal/deps/undici/undici:15343:21\n    at node:internal/deps/undici/undici:15130:11\n    at afterWrite (node:internal/streams/writable:710:5)",
+  "viewport": {
+    "w": 1120,
+    "h": 668,
+    "dpr": 2
+  },
+  "preloadOverlay": "removed",
+  "collapsedPanels": "left,right,bottom",
+  "calibration": {
+    "iframe": {
+      "left": 57,
+      "top": 39,
+      "width": 1006,
+      "height": 603
+    },
+    "probe": {
+      "x": 560,
+      "y": 341
+    },
+    "webviewClient": {
+      "x": 503,
+      "y": 302
+    },
+    "offset": {
+      "x": 57,
+      "y": 39
+    }
+  },
+  "finalCaptions": {
+    "default_text_style": {
+      "zone": "center"
+    },
+    "captions": [
+      {
+        "id": "c-0001",
+        "src": "main",
+        "start": 1,
+        "end": 3.2,
+        "text": "きょうはとてもよい天気です",
+        "speaker": null,
+        "sourceRef": {
+          "segment": 0
+        },
+        "edited": false,
+        "words": [
+          {
+            "text": "きょうは",
+            "start": 1,
+            "end": 1.3
+          },
+          {
+            "text": "とても",
+            "start": 1.6,
+            "end": 1.9
+          },
+          {
+            "text": "よい",
+            "start": 2.2,
+            "end": 2.5
+          },
+          {
+            "text": "天気です",
+            "start": 2.8,
+            "end": 3.1
+          }
+        ],
+        "text_style": {
+          "rotate": -11.98,
+          "scale": 1.76
+        }
+      },
+      {
+        "id": "c-0002",
+        "src": "main",
+        "start": 3.6,
+        "end": 5.2,
+        "text": "あしたの予定を決めましょう",
+        "speaker": null,
+        "sourceRef": {
+          "segment": 1
+        },
+        "edited": false,
+        "words": [
+          {
+            "text": "あしたの",
+            "start": 3.6,
+            "end": 3.9
+          },
+          {
+            "text": "予定を",
+            "start": 4.2,
+            "end": 4.5
+          },
+          {
+            "text": "決めましょう",
+            "start": 4.8,
+            "end": 5.1
+          }
+        ],
+        "text_style": {
+          "scale": 1.6
+        }
+      },
+      {
+        "id": "c-0003",
+        "src": "main",
+        "start": 5.6,
+        "end": 6.6,
+        "text": "みじかい行です",
+        "speaker": null,
+        "sourceRef": {
+          "segment": 2
+        },
+        "edited": false,
+        "words": [
+          {
+            "text": "みじかい",
+            "start": 5.6,
+            "end": 5.9
+          },
+          {
+            "text": "行です",
+            "start": 6.2,
+            "end": 6.5
+          }
+        ]
+      }
+    ],
+    "display_policy": {
+      "mode": "single_line_sequential",
+      "algorithm": "a4-ja-two-fragment-v1",
+      "unit_metric": "ascii-half-other-one-v1",
+      "max_line_units": 6,
+      "minimum_fragment_duration_seconds": 0.3,
+      "locale": "ja",
+      "lines": 2,
+      "wrap": "fold"
+    }
+  }
+}

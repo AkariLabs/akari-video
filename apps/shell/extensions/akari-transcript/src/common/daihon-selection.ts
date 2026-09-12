@@ -13,6 +13,36 @@ export interface DaihonSelectionClickModifiers {
     meta: boolean;
 }
 
+export type DaihonRowClickAction =
+    | { kind: 'seek' }
+    | { kind: 'select'; modifiers: DaihonSelectionClickModifiers };
+
+/** 修飾なし = シーク（選択は変えない）・⌘/Ctrl = トグル追加・Shift = 範囲（裁定 2026-09-12）。 */
+export function planRowClick(modifiers: DaihonSelectionClickModifiers): DaihonRowClickAction {
+    return modifiers.meta || modifiers.shift ? { kind: 'select', modifiers } : { kind: 'seek' };
+}
+
+export interface DaihonSelectionSyncPayload {
+    editUri: string;
+    captionIds: string[];
+}
+
+/** 台本 → タイムライン / プレビューへ片方向で流す payload（コマンド・イベント共用）。 */
+export function selectionSyncPayload(editUri: string, selection: DaihonSelection): DaihonSelectionSyncPayload {
+    return { editUri, captionIds: [...selection.selected] };
+}
+
+/** ⌥ 全体モード中は全行が選択の形になる（実選択は保持したまま見た目だけ全体）。 */
+export function selectedRowIds(
+    order: readonly string[],
+    selection: DaihonSelection,
+    altAll: boolean
+): string[] {
+    if (altAll) return [...order];
+    const selected = new Set(selection.selected);
+    return order.filter(id => selected.has(id));
+}
+
 function orderedSelection(order: readonly string[], selected: ReadonlySet<string>): string[] {
     return order.filter(id => selected.has(id));
 }

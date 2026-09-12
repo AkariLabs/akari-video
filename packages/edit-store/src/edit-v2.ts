@@ -364,7 +364,7 @@ const SHAPE_KINDS = new Set<ShapeKindV0>([
     'rect', 'rounded-rect', 'ellipse', 'line', 'arrow', 'speech-bubble'
 ]);
 const ITEM_KEYS = new Set([
-    'id', 'name', 'hidden', 'locked', 'at', 'duration', 'transform', 'opacity', 'blend', 'crop', 'adjust', 'perspective',
+    'id', 'name', 'hidden', 'locked', 'reason', 'label', 'at', 'duration', 'transform', 'opacity', 'blend', 'crop', 'adjust', 'perspective',
     'motion', 'animator', 'keyframes', 'items', 'mask', 'source', 'audio'
 ]);
 const AUDIO_ITEM_KEYS = new Set([

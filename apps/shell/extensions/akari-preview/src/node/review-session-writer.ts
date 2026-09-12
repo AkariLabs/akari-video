@@ -20,13 +20,19 @@ import {
     AppendReviewSessionStrokeRequest,
     EndReviewSessionRequest,
     ListReviewSessionsRequest,
+    ReadReviewSessionBundleRequest,
+    ReadReviewSessionBundleResult,
     ReadReviewSessionStrokesRequest,
     ReadReviewSessionStrokesResult,
+    ReviewSessionLifecycleStatus,
+    ReviewSessionProposalSummary,
+    ReviewSessionTranscriptSegment,
     ReviewSessionSummary,
     ReviewStroke,
     StartReviewSessionRequest,
     StartReviewSessionResult
 } from '../common/akari-preview-protocol';
+import { reviewSessionRangesFromJsonl, ReviewSessionRange } from '../common/review-session-ranges';
 
 const SESSION_DIRECTORY_PATTERN = /^s-(\d{4,})$/;
 const WAV_HEADER_BYTES = 44;
@@ -252,6 +258,128 @@ export class ReviewSessionWriter {
         return { sessionId: request.sessionId, strokes, warnings };
     }
 
+    async readBundle(request: ReadReviewSessionBundleRequest): Promise<ReadReviewSessionBundleResult> {
+        const projectRoot = await this.resolveProjectRoot(request?.projectRootUri);
+        if (typeof request?.sessionId !== 'string' || !SESSION_DIRECTORY_PATTERN.test(request.sessionId)) {
+            throw new Error('Invalid review session id');
+        }
+        const sessionDirectory = join(projectRoot, 'review', 'sessions', request.sessionId);
+        const normalized = resolve(sessionDirectory);
+        if (!this.contains(projectRoot, normalized)) {
+            throw new Error('The review session must be inside the current workspace');
+        }
+        if (!(await stat(normalized)).isDirectory()) {
+            throw new Error('Invalid review session directory');
+        }
+
+        const replay = await this.readStrokes(request);
+        const warnings = [...replay.warnings];
+        const events: Array<{ event: import('../common/akari-preview-protocol').ReviewSessionEvent; order: number }> = [];
+        try {
+            const lines = (await readFile(join(sessionDirectory, 'events.jsonl'), 'utf8')).split(/\r?\n/);
+            lines.forEach((line, index) => {
+                if (!line.trim()) return;
+                try {
+                    const parsed = JSON.parse(line) as { recT?: unknown; type?: unknown };
+                    if (!Number.isFinite(parsed?.recT) || typeof parsed?.type !== 'string') throw new Error();
+                    events.push({
+                        event: parsed as unknown as import('../common/akari-preview-protocol').ReviewSessionEvent,
+                        order: index
+                    });
+                } catch {
+                    warnings.push(`events.jsonl ${index + 1} 行目を読み飛ばしました。`);
+                }
+            });
+            events.sort((left, right) => left.event.recT - right.event.recT || left.order - right.order);
+        } catch (error) {
+            warnings.push((error as { code?: string }).code === 'ENOENT'
+                ? 'events.jsonl が見つかりません。'
+                : 'events.jsonl を読み取れませんでした。');
+        }
+
+        let transcript: ReviewSessionTranscriptSegment[] | null = null;
+        try {
+            const parsed = JSON.parse(await readFile(join(sessionDirectory, 'transcript.json'), 'utf8')) as {
+                segments?: unknown;
+            };
+            if (!Array.isArray(parsed?.segments)) throw new Error('shape');
+            transcript = parsed.segments.flatMap(candidate => {
+                const segment = candidate as { start?: unknown; end?: unknown; text?: unknown };
+                return Number.isFinite(segment.start) && Number.isFinite(segment.end)
+                    && (segment.end as number) > (segment.start as number)
+                    && typeof segment.text === 'string' && segment.text.trim()
+                    ? [{ start: segment.start as number, end: segment.end as number, text: segment.text }]
+                    : [];
+            }).sort((left, right) => left.start - right.start);
+        } catch (error) {
+            if ((error as { code?: string }).code !== 'ENOENT') {
+                warnings.push('transcript.json を読み取れないため文字起こしなしとして扱いました。');
+            }
+        }
+
+        let proposals: ReviewSessionProposalSummary[] | null = null;
+        try {
+            const parsed = JSON.parse(await readFile(join(sessionDirectory, 'compile-proposals.json'), 'utf8')) as {
+                sessionId?: unknown; proposals?: unknown;
+            };
+            if (parsed.sessionId !== request.sessionId || !Array.isArray(parsed.proposals)) throw new Error('shape');
+            proposals = parsed.proposals.map((candidate, index) => {
+                const proposal = candidate as {
+                    transcript?: unknown; recRange?: unknown;
+                    reference?: { target?: unknown; sourceT?: unknown; timelineT?: unknown;
+                        confidence?: unknown; resolutionMethod?: unknown };
+                };
+                const range = Array.isArray(proposal.recRange) ? proposal.recRange : [];
+                const finite = (value: unknown): number | null => Number.isFinite(value) ? value as number : null;
+                const string = (value: unknown): string | null => typeof value === 'string' ? value : null;
+                return {
+                    index,
+                    transcript: typeof proposal.transcript === 'string' ? proposal.transcript : '',
+                    recStart: finite(range[0]), recEnd: finite(range[1]),
+                    target: string(proposal.reference?.target), sourceT: finite(proposal.reference?.sourceT),
+                    timelineT: finite(proposal.reference?.timelineT),
+                    confidence: string(proposal.reference?.confidence),
+                    resolutionMethod: string(proposal.reference?.resolutionMethod)
+                };
+            });
+        } catch (error) {
+            if ((error as { code?: string }).code !== 'ENOENT') {
+                warnings.push('compile-proposals.json を読み取れないため対象情報なしとして扱いました。');
+            }
+        }
+
+        let editSnapshotText: string | null = null;
+        try {
+            const snapshotPath = join(sessionDirectory, 'edit.snapshot.json');
+            if ((await stat(snapshotPath)).size > 8 * 1024 * 1024) {
+                warnings.push('edit.snapshot.json が 8 MiB を超えるため読み飛ばしました。');
+            } else {
+                editSnapshotText = await readFile(snapshotPath, 'utf8');
+            }
+        } catch {
+            warnings.push('edit.snapshot.json を読み取れませんでした。');
+        }
+
+        let audioUri: string | null = null;
+        const audioPath = join(sessionDirectory, 'audio.wav');
+        try {
+            if ((await stat(audioPath)).isFile()) audioUri = pathToFileURL(audioPath).toString();
+        } catch {
+            // Missing audio is represented by null; the widget presents the user-facing notice.
+        }
+        return {
+            sessionId: request.sessionId,
+            audioUri,
+            audioDurationSec: audioUri ? await this.wavDuration(audioPath) : 0,
+            events: events.map(entry => entry.event),
+            strokes: replay.strokes,
+            transcript,
+            proposals,
+            editSnapshotText,
+            warnings
+        };
+    }
+
     async end(request: EndReviewSessionRequest): Promise<void> {
         const sessionDirectory = await this.resolveSessionDirectory(request?.sessionDir);
         if (!this.isIsoDate(request?.startedAt) || !this.isIsoDate(request?.endedAt)
@@ -322,7 +450,13 @@ export class ReviewSessionWriter {
                     startedAt: parsed.startedAt,
                     endedAt: parsed.endedAt,
                     durationSec: await this.wavDuration(join(sessionDirectory, 'audio.wav')),
-                    orphaned: false
+                    orphaned: false,
+                    ranges: await this.readRanges(sessionDirectory),
+                    status: parsed.status as ReviewSessionLifecycleStatus,
+                    compiledAnnotations: Array.isArray(parsed.compiledAnnotations)
+                        && parsed.compiledAnnotations.every(value => typeof value === 'string')
+                        ? parsed.compiledAnnotations as string[]
+                        : null
                 });
             } catch (error) {
                 console.warn(`[akari-preview] skipping damaged review session ${entry.name}`, error);
@@ -433,8 +567,19 @@ export class ReviewSessionWriter {
             startedAt: directoryStat.birthtime.toISOString(),
             endedAt: null,
             durationSec: await this.wavDuration(join(sessionDirectory, 'audio.wav')),
-            orphaned: true
+            orphaned: true,
+            ranges: await this.readRanges(sessionDirectory),
+            status: null,
+            compiledAnnotations: null
         };
+    }
+
+    protected async readRanges(sessionDirectory: string): Promise<ReviewSessionRange[]> {
+        try {
+            return reviewSessionRangesFromJsonl(await readFile(join(sessionDirectory, 'events.jsonl'), 'utf8'));
+        } catch {
+            return [];
+        }
     }
 
     protected async appendAndSync(path: string, content: string): Promise<void> {

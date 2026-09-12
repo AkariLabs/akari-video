@@ -57,6 +57,55 @@ const edit = {
   overlays: [],
 };
 
+test('caption sprite copies scale/rotate into transform and non-default vars', () => {
+  const style = { scale: 1.5, rotate: -8 };
+  const cue = { id: 'c-0001', start: 0, end: 1, text: 'caption', text_style: style };
+  const built = buildGpuPage({ edit, captions: [cue], projectRoot: process.cwd(), duration: 2 });
+  const sprite = built.spriteManifest.captions[0];
+
+  assert.deepEqual(sprite.transform, { x: 0, y: 0, scale: 1.5, rotate: -8 });
+  assert.equal(Number(sprite.vars['--scale']), 1.5);
+  assert.equal(Number.parseFloat(sprite.vars['--rotate']), -8);
+
+  const defaultBuilt = buildGpuPage({ edit, captions: [{ ...cue, text_style: {} }], projectRoot: process.cwd(), duration: 2 });
+  const defaultSprite = defaultBuilt.spriteManifest.captions[0];
+  assert.deepEqual(defaultSprite.transform, { x: 0, y: 0, scale: 1, rotate: 0 });
+  assert.equal(defaultSprite.vars['--scale'], undefined);
+  assert.equal(defaultSprite.vars['--rotate'], undefined);
+});
+
+test('legacy display_fragments reach page-builder as separate caption sprites', () => {
+  const captions = [{
+    id: 'c-fragmented', src: 'main', start: 0, end: 2, text: '前半後半',
+    display_fragments: ['前半', '後半'],
+    words: [{ text: '前半', start: 0, end: 0.8 }, { text: '後半', start: 1.2, end: 2 }],
+  }];
+  const built = buildGpuPage({ edit, captions, projectRoot: process.cwd(), duration: 2 });
+  assert.deepEqual(built.spriteManifest.captions.map(sprite => ({
+    id: sprite.id, start: sprite.start, duration: sprite.duration
+  })), [
+    { id: 'c-fragmented-f1-01', start: 0, duration: 0.8 },
+    { id: 'c-fragmented-f2-01', start: 1.2, duration: 0.8 }
+  ]);
+});
+
+test('caption sprite keeps the shared word preset DOM from render-cut', () => {
+  const captions = {
+    emphasis_words: [{
+      id: 'e-0001', src: 'main', t_start: 0, t_end: 1,
+      word: 'AKARI', emotion: 'neutral', style_preset: 'neon',
+    }],
+    captions: [{
+      id: 'c-0001', src: 'main', start: 0, end: 1, text: 'AKARI', style: 'karaoke',
+      words: [{ start: 0, end: 1, text: 'AKARI' }],
+    }],
+  };
+  const built = buildGpuPage({ edit, captions, projectRoot: process.cwd(), duration: 2 });
+  const html = built.spriteManifest.captions[0].html;
+  assert.match(html, /data-emphasis-preset="neon"/u);
+  assert.match(html, /akari-caption__tok--preset/u);
+});
+
 function zAxisEdit(order) {
   const tracks = {
     low: { id: "low-track", lane: "visual", items: [{ id: "low", at: 0, duration: 30, source: { kind: "html", path: "low.html" } }] },

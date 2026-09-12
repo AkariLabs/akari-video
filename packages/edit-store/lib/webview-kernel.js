@@ -35,6 +35,7 @@ var AkariEditKernel = (() => {
     buildWebAudioSchedule: () => buildWebAudioSchedule,
     captionAnchorPositionVars: () => captionAnchorPositionVars,
     captionClockDomainOf: () => captionClockDomainOf,
+    captionFragmentWindows: () => captionFragmentWindows,
     captionWindowSeconds: () => captionWindowSeconds,
     composeEnvelopesDb: () => composeEnvelopesDb,
     computeAdjustCssVisual: () => computeAdjustCssVisual,
@@ -44,6 +45,7 @@ var AkariEditKernel = (() => {
     easingProgress: () => easingProgress,
     envelopeToGainEvents: () => envelopeToGainEvents,
     evaluateEnvelopeDb: () => evaluateEnvelopeDb,
+    expandCaptionDisplayFragments: () => expandCaptionDisplayFragments,
     findActiveCaption: () => findActiveCaption,
     findActiveResolvedCaption: () => findActiveResolvedCaption,
     isAudioItemAudible: () => isAudioItemAudible,
@@ -385,6 +387,90 @@ var AkariEditKernel = (() => {
     const duration = typeof caption.duration === "number" && Number.isFinite(caption.duration) ? caption.duration : 0;
     const end = typeof caption.end === "number" && Number.isFinite(caption.end) ? caption.end : start + duration;
     return { start, end };
+  }
+  function captionFragmentWindows(caption) {
+    const sourceText = caption.display_text ?? caption.text;
+    const text = typeof sourceText === "string" ? sourceText : null;
+    const fragments = caption.display_fragments;
+    if (text === null || text.length === 0 || !Array.isArray(fragments) || fragments.length < 2 || fragments.some((fragment) => typeof fragment !== "string") || fragments.join("") !== text) {
+      return null;
+    }
+    const window = captionWindowSeconds(caption);
+    const words = Array.isArray(caption.words) ? caption.words : null;
+    const validWords = words?.every((word) => isCaptionFragmentWord(word)) === true ? words : null;
+    const wordText = validWords?.map((word) => word.text).join("");
+    const fragmentEnds = [];
+    fragments.reduce((offset, fragment) => {
+      fragmentEnds.push(offset + fragment.length);
+      return offset + fragment.length;
+    }, 0);
+    let wordLength = 0;
+    const wordEnds = validWords ? validWords.map((word) => wordLength += word.text.length) : [];
+    const useWords = validWords !== null && wordText === text && fragmentEnds.slice(0, -1).every((end) => wordEnds.includes(end));
+    let characterStart = 0;
+    return fragments.map((fragment, index) => {
+      const characterEnd = characterStart + fragment.length;
+      let start;
+      let end;
+      if (useWords) {
+        const firstWord = characterStart === 0 ? 0 : wordEnds.indexOf(characterStart) + 1;
+        const lastWord = wordEnds.indexOf(characterEnd);
+        start = clamp(validWords[firstWord].start, window.start, window.end);
+        end = clamp(validWords[lastWord].end, window.start, window.end);
+      } else {
+        const duration = window.end - window.start;
+        start = window.start + duration * (characterStart / text.length);
+        end = window.start + duration * (characterEnd / text.length);
+      }
+      characterStart = characterEnd;
+      return { text: fragment, start, end, index: index + 1, count: fragments.length };
+    });
+  }
+  function expandCaptionDisplayFragments(captions) {
+    return captions.flatMap((caption) => {
+      const windows = captionFragmentWindows(caption);
+      if (windows === null) return [caption];
+      let characterStart = 0;
+      return windows.map((window) => {
+        const characterEnd = characterStart + window.text.length;
+        const expanded = {
+          ...caption,
+          text: window.text,
+          start: window.start,
+          end: window.end,
+          fragmentIndex: window.index,
+          fragmentCount: window.count,
+          fragmentKey: `${String(caption.id)}#f${window.index}`
+        };
+        if (Object.prototype.hasOwnProperty.call(caption, "display_text")) expanded.display_text = window.text;
+        if (Array.isArray(caption.words)) {
+          let offset = 0;
+          expanded.words = caption.words.flatMap((word) => {
+            if (!isCaptionFragmentWord(word)) return [];
+            const wordStart = offset;
+            const wordEnd = offset + word.text.length;
+            offset = wordEnd;
+            if (wordStart < characterStart || wordEnd > characterEnd) return [];
+            return [{
+              ...word,
+              start: clamp(word.start, window.start, window.end),
+              end: clamp(word.end, window.start, window.end)
+            }];
+          });
+        }
+        delete expanded.display_fragments;
+        characterStart = characterEnd;
+        return expanded;
+      });
+    });
+  }
+  function isCaptionFragmentWord(value) {
+    if (!value || typeof value !== "object") return false;
+    const word = value;
+    return typeof word.text === "string" && typeof word.start === "number" && Number.isFinite(word.start) && typeof word.end === "number" && Number.isFinite(word.end) && word.end >= word.start;
+  }
+  function clamp(value, minimum, maximum) {
+    return Math.min(maximum, Math.max(minimum, value));
   }
   function findActiveCaption(captions, sourceSeconds) {
     return captions.find((caption) => {
@@ -897,7 +983,7 @@ var AkariEditKernel = (() => {
   var MIN_LINEAR_GAIN = 1e-4;
   var CUBIC_BEZIER_PATTERN = /^cubic-bezier\(\s*([-+]?(?:\d+\.?\d*|\.\d+)(?:e[-+]?\d+)?)\s*,\s*([-+]?(?:\d+\.?\d*|\.\d+)(?:e[-+]?\d+)?)\s*,\s*([-+]?(?:\d+\.?\d*|\.\d+)(?:e[-+]?\d+)?)\s*,\s*([-+]?(?:\d+\.?\d*|\.\d+)(?:e[-+]?\d+)?)\s*\)$/iu;
   function easingProgress(easing, progress) {
-    const value = clamp(progress);
+    const value = clamp2(progress);
     switch (easing ?? "linear") {
       case "hold":
         return 0;
@@ -1118,7 +1204,7 @@ var AkariEditKernel = (() => {
   function finiteInRange(value, minimum, maximum, fallback) {
     return typeof value === "number" && Number.isFinite(value) && value >= minimum && value <= maximum ? value : fallback;
   }
-  function clamp(value, minimum = 0, maximum = 1) {
+  function clamp2(value, minimum = 0, maximum = 1) {
     return Math.min(maximum, Math.max(minimum, value));
   }
   function cubicCoordinateAt(parameter, first, second) {
@@ -1793,6 +1879,8 @@ var AkariEditKernel = (() => {
     "name",
     "hidden",
     "locked",
+    "reason",
+    "label",
     "at",
     "duration",
     "transform",
@@ -2592,8 +2680,42 @@ var AkariEditKernel = (() => {
     const resolved = options?.captions === void 0 ? record : resolveItemAnchors(record, options.captions).edit;
     return readV2Internal(withoutItemAnchors(resolved));
   }
+  function extractV2MediaCaptionSwitches(raw) {
+    const captionsByItemId = /* @__PURE__ */ new Map();
+    const visit = (value) => {
+      if (!isRecord2(value)) return value;
+      const children = Array.isArray(value.items) ? value.items.map(visit) : value.items;
+      const isMedia = isRecord2(value.source) && value.source.kind === "media";
+      const validSwitch = value.captions === "on" || value.captions === "off";
+      if (isMedia && validSwitch && typeof value.id === "string") {
+        captionsByItemId.set(value.id, value.captions);
+        const { captions: _captions, ...withoutCaptions } = value;
+        return {
+          ...withoutCaptions,
+          ...Array.isArray(value.items) ? { items: children } : {}
+        };
+      }
+      return Array.isArray(value.items) ? { ...value, items: children } : value;
+    };
+    const tracks = Array.isArray(raw.tracks) ? raw.tracks.map((track) => isRecord2(track) && Array.isArray(track.items) ? { ...track, items: track.items.map(visit) } : track) : raw.tracks;
+    return {
+      input: Array.isArray(raw.tracks) ? { ...raw, tracks } : raw,
+      captionsByItemId
+    };
+  }
   function readV2Internal(raw) {
-    const edit = readEditV2(raw);
+    const { input, captionsByItemId } = extractV2MediaCaptionSwitches(raw);
+    const edit = readEditV2(input);
+    const restoreCaptionSwitches = (items) => {
+      for (const item of items) {
+        const captions = captionsByItemId.get(item.id);
+        if (captions !== void 0) item.captions = captions;
+        if ("items" in item && Array.isArray(item.items)) restoreCaptionSwitches(item.items);
+      }
+    };
+    for (const track of edit.tracks) {
+      if ("items" in track && track.lane === "visual") restoreCaptionSwitches(track.items);
+    }
     const fps = edit.output.fps;
     const sources = edit.sources.map((entry) => ({
       id: entry.id,
@@ -2890,6 +3012,7 @@ var AkariEditKernel = (() => {
     const at = atFrames / fps;
     const duration = durationFrames / fps;
     const declaredKeyframes = item.keyframes;
+    const captionSwitch = item.captions;
     const keyframes = Array.isArray(declaredKeyframes) ? declaredKeyframes.map((keyframe) => ({ ...keyframe, t: keyframe.t / fps })) : void 0;
     const common = {
       ...item.hidden !== void 0 ? { hidden: item.hidden } : {},
@@ -2902,9 +3025,11 @@ var AkariEditKernel = (() => {
       ...item.motion !== void 0 ? { motion: structuredClone(item.motion) } : {},
       ...item.animator !== void 0 ? { animator: structuredClone(item.animator) } : {},
       ...keyframes !== void 0 ? { keyframes } : {},
-      ...item.source.kind === "media" && "mask" in item && item.mask !== void 0 ? { mask: pathOf(item.mask) ?? item.mask } : {}
+      ...item.source.kind === "media" && "mask" in item && item.mask !== void 0 ? { mask: pathOf(item.mask) ?? item.mask } : {},
+      ...item.source.kind === "media" && captionSwitch !== void 0 ? { captions: captionSwitch } : {}
     };
     const finish = (built) => {
+      if (item.source.kind === "media" && captionSwitch !== void 0) built.item.captions = captionSwitch;
       if (!Array.isArray(declaredKeyframes) && declaredKeyframes !== void 0) {
         built.item.keyframesRef = { ...declaredKeyframes };
       }
@@ -2954,7 +3079,7 @@ var AkariEditKernel = (() => {
             in: item.source.in,
             track: ref,
             ...common,
-            ...copyMediaSourceFields(item.source),
+            ...copyMediaSourceFields(item.source, captionSwitch),
             ..."audio" in item && item.audio === false ? { audio: false } : {}
           };
           const value2 = declaration;
@@ -2981,7 +3106,7 @@ var AkariEditKernel = (() => {
           ...speed !== void 0 ? { speed } : {},
           ...item.transform !== void 0 ? { transform: item.transform } : {},
           ...item.opacity !== void 0 ? { opacity: item.opacity } : {},
-          ...copyMediaSourceFields(item.source),
+          ...copyMediaSourceFields(item.source, captionSwitch),
           ..."audio" in item && item.audio === false ? { audio: false } : {}
         };
         return finish({
@@ -3001,7 +3126,7 @@ var AkariEditKernel = (() => {
               at,
               track: ref,
               ...common,
-              ...copyMediaSourceFields(item.source),
+              ...copyMediaSourceFields(item.source, captionSwitch),
               ..."audio" in item && item.audio === false ? { audio: false } : {},
               ...speed !== void 0 ? { speed } : {}
             },
@@ -3365,7 +3490,7 @@ var AkariEditKernel = (() => {
       }
     };
   }
-  function copyMediaSourceFields(source) {
+  function copyMediaSourceFields(source, captions) {
     return {
       ...source.framing !== void 0 ? { framing: source.framing } : {},
       ...source.transition_out !== void 0 ? { transition_out: source.transition_out } : {},
@@ -3374,7 +3499,8 @@ var AkariEditKernel = (() => {
       ...source.speed !== void 0 ? { speed: source.speed } : {},
       ...source.gain_db !== void 0 ? { gain_db: source.gain_db } : {},
       ...source.mute !== void 0 ? { mute: source.mute } : {},
-      ...source.chroma_key !== void 0 ? { chroma_key: source.chroma_key } : {}
+      ...source.chroma_key !== void 0 ? { chroma_key: source.chroma_key } : {},
+      ...captions !== void 0 ? { captions } : {}
     };
   }
   function addV2AudioItems(tracks, audioValue, fps, legacyIndexCounters) {

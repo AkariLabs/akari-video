@@ -27,6 +27,11 @@ export const OPEN_AKARI_REVIEW_BOARD: Command = {
 
 export const OPEN_AKARI_REVIEW_BOARD_ID = OPEN_AKARI_REVIEW_BOARD.id;
 
+export const OPEN_AKARI_SESSION_VIEWER: Command = {
+    id: 'akari.sessionViewer.open',
+    label: 'AKARI: 録音セッションを見返す'
+};
+
 /** キャンバス面（contract-2026-07-26-canvas-surface）を新規に開く。 */
 export const OPEN_AKARI_CANVAS: Command = {
     id: 'akari.canvas.open',

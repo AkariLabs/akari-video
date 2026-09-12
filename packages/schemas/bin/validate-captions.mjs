@@ -350,7 +350,7 @@ function validateTextStyle(value, label) {
     "color", "size_px", "font_weight", "line_height", "stroke", "background", "zone", "layout",
     "font_family", "weight", "italic", "underline", "letter_spacing_em", "align",
     "vertical_align", "vertical", "text_transform", "max_width_pct", "max_characters", "text_anchor",
-    "position", "shadow", "glow", "animation", "reference_height_px",
+    "position", "scale", "rotate", "shadow", "glow", "animation", "reference_height_px",
   ]);
   for (const key of Object.keys(value)) {
     if (!allowedKeys.has(key)) fail(`${label} に未知のキーがあります: ${key}`);
@@ -435,6 +435,14 @@ function validateTextStyleV0(value, label) {
         }
       }
     }
+  }
+  if (hasOwn(value, "scale")
+    && (!isFiniteNumber(value.scale) || value.scale < 0.4 || value.scale > 3)) {
+    fail(`${label}.scale は 0.4 から 3 の有限数である必要があります`);
+  }
+  if (hasOwn(value, "rotate")
+    && (!isFiniteNumber(value.rotate) || value.rotate < -180 || value.rotate > 180)) {
+    fail(`${label}.rotate は -180 から 180 の有限数である必要があります`);
   }
   if (hasOwn(value, "shadow")) validateShadowLike(value.shadow, SHADOW_KEYS, `${label}.shadow`);
   if (hasOwn(value, "glow")) validateShadowLike(value.glow, GLOW_KEYS, `${label}.glow`);
@@ -521,7 +529,7 @@ function validateDisplayPolicy(value) {
     fail("display_policy は object である必要があります");
     return;
   }
-  const allowed = new Set(["mode", "algorithm", "unit_metric", "max_line_units", "minimum_fragment_duration_seconds", "locale", "break_hints"]);
+  const allowed = new Set(["mode", "algorithm", "unit_metric", "max_line_units", "minimum_fragment_duration_seconds", "locale", "lines", "wrap", "break_hints"]);
   for (const key of Object.keys(value)) if (!allowed.has(key)) fail(`display_policy に未知のキーがあります: ${key}`);
   if (value.mode !== "single_line_sequential") fail("display_policy.mode は single_line_sequential である必要があります");
   if (value.algorithm !== "a4-ja-two-fragment-v1") fail("display_policy.algorithm は a4-ja-two-fragment-v1 である必要があります");
@@ -529,6 +537,12 @@ function validateDisplayPolicy(value) {
   if (!isFiniteNumber(value.max_line_units) || value.max_line_units <= 0) fail("display_policy.max_line_units は正の有限数である必要があります");
   if (!isFiniteNumber(value.minimum_fragment_duration_seconds) || value.minimum_fragment_duration_seconds <= 0) fail("display_policy.minimum_fragment_duration_seconds は正の有限数である必要があります");
   if (!strictText(value.locale)) fail("display_policy.locale は NFC かつ前後空白のない文字列である必要があります");
+  if (value.lines !== undefined && (!Number.isInteger(value.lines) || value.lines < 1 || value.lines > 6)) {
+    fail("display_policy.lines は 1 から 6 の整数である必要があります");
+  }
+  if (value.wrap !== undefined && value.wrap !== "multi" && value.wrap !== "fold") {
+    fail("display_policy.wrap は multi または fold である必要があります");
+  }
   if (value.break_hints !== undefined) {
     if (!isPlainObject(value.break_hints)) return fail("display_policy.break_hints は object である必要があります");
     const keys = ["preferred_second_starts", "preferred_first_ends", "protected_terms"];

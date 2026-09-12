@@ -160,3 +160,5 @@ export declare function updateCaptionStylePresetInSource(source: string, caption
 };
 export declare function insertCaptionLine(source: string, caption: CaptionRecord): string;
 export declare function removeCaptionLine(source: string, captionId: string): string;
+export declare function splitCaptionLine(source: string, captionId: string, wordIndex: number, newCaptionId: string): string;
+export declare function mergeCaptionLines(source: string, captionIds: readonly string[]): string;

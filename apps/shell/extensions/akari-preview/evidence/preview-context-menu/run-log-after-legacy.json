@@ -1,0 +1,159 @@
+{
+  "status": "PASS",
+  "label": "after-legacy",
+  "frameEngine": "0",
+  "summary": {
+    "label": "after-legacy",
+    "frameEngine": "0",
+    "dispatchedVia": "main-target",
+    "menuCountBefore": 0,
+    "menuCountAfter": 0,
+    "menuCountPeakDuringSampling": 0,
+    "menuSampleCount": 25,
+    "visibleMenuCountAfter": 0,
+    "visibleMenus": [],
+    "defaultPrevented": [
+      true
+    ],
+    "hostContextMenuLogs": [],
+    "hostProbe": [
+      "[akari-preview] context menu {\"type\":\"akari-preview-context-menu\",\"x\":0.5,\"y\":0.5026773761713521,\"timelineT\":0}"
+    ],
+    "hostHandleContextMenuCalls": [],
+    "contextMenuRenderRequests": [],
+    "nativePopupRequests": [],
+    "menuNodesAddedToBody": [],
+    "shots": [
+      "after-legacy-after-right-click.png"
+    ]
+  },
+  "records": [
+    {
+      "step": "launched",
+      "pid": 64979,
+      "frameEngine": "0",
+      "label": "after-legacy"
+    },
+    {
+      "step": "preview-attached",
+      "frameEngine": "0"
+    },
+    {
+      "step": "menu-probe-installed",
+      "titleBarStyle": "native",
+      "hasCore": true
+    },
+    {
+      "step": "widget-probe-installed",
+      "ok": true,
+      "widget": "BSn"
+    },
+    {
+      "step": "renderer-probe-installed",
+      "ok": true,
+      "renderer": "x0e",
+      "useNativeStyle": true
+    },
+    {
+      "step": "menu-before-right-click",
+      "count": 0,
+      "menus": [],
+      "shot": null
+    },
+    {
+      "step": "right-click-point",
+      "inner": {
+        "x": 36,
+        "y": 179.125,
+        "width": 332,
+        "height": 186.75
+      },
+      "outer": {
+        "x": 221.9140625,
+        "y": 39,
+        "width": 404,
+        "height": 603
+      },
+      "x": 424,
+      "y": 312
+    },
+    {
+      "step": "probe",
+      "dispatchedVia": "main-target",
+      "probe": [
+        {
+          "defaultPrevented": true,
+          "clientX": 202,
+          "clientY": 273,
+          "target": "preview-still"
+        }
+      ]
+    },
+    {
+      "step": "menu-after-right-click",
+      "count": 0,
+      "menus": [],
+      "shot": "after-legacy-after-right-click.png"
+    },
+    {
+      "step": "renderer-probe",
+      "rendererProbe": []
+    },
+    {
+      "step": "widget-probe",
+      "widgetProbe": []
+    },
+    {
+      "step": "menu-probe",
+      "popups": [],
+      "added": []
+    },
+    {
+      "step": "host-console",
+      "hostLogs": [],
+      "hostProbe": [
+        "[akari-preview] context menu {\"type\":\"akari-preview-context-menu\",\"x\":0.5,\"y\":0.5026773761713521,\"timelineT\":0}"
+      ]
+    },
+    {
+      "step": "ok",
+      "message": "webview 内で contextmenu イベントが実際に発火した",
+      "probe": [
+        {
+          "defaultPrevented": true,
+          "clientX": 202,
+          "clientY": 273,
+          "target": "preview-still"
+        }
+      ]
+    },
+    {
+      "step": "verdict",
+      "status": "PASS",
+      "label": "after-legacy",
+      "frameEngine": "0",
+      "dispatchedVia": "main-target",
+      "menuCountBefore": 0,
+      "menuCountAfter": 0,
+      "menuCountPeakDuringSampling": 0,
+      "menuSampleCount": 25,
+      "visibleMenuCountAfter": 0,
+      "visibleMenus": [],
+      "defaultPrevented": [
+        true
+      ],
+      "hostContextMenuLogs": [],
+      "hostProbe": [
+        "[akari-preview] context menu {\"type\":\"akari-preview-context-menu\",\"x\":0.5,\"y\":0.5026773761713521,\"timelineT\":0}"
+      ],
+      "hostHandleContextMenuCalls": [],
+      "contextMenuRenderRequests": [],
+      "nativePopupRequests": [],
+      "menuNodesAddedToBody": [],
+      "shots": [
+        "after-legacy-00-before-right-click.png",
+        "after-legacy-01-after-right-click.png"
+      ]
+    }
+  ]
+}

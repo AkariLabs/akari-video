@@ -179,6 +179,8 @@ export interface ReviewStrokeFrame {
     timelineT: number;
     sourceT: number;
     cutIndex: number | null;
+    itemId?: string;
+    trackId?: string;
 }
 
 interface ReviewStrokeBase {
@@ -241,12 +243,56 @@ export interface ListReviewSessionsRequest {
     projectRootUri: string;
 }
 
+export interface ReadReviewSessionBundleRequest {
+    projectRootUri: string;
+    sessionId: string;
+}
+
+/** transcript.json の発話（recT 秒）。compile-review-session が書く形の寛容な読み取り結果。 */
+export interface ReviewSessionTranscriptSegment {
+    start: number;
+    end: number;
+    text: string;
+}
+
+/** compile-proposals.json の 1 提案から「人が目で確認する」ぶんだけ抜いた要約。 */
+export interface ReviewSessionProposalSummary {
+    index: number;
+    transcript: string;
+    recStart: number | null;
+    recEnd: number | null;
+    target: string | null;
+    sourceT: number | null;
+    timelineT: number | null;
+    confidence: string | null;
+    resolutionMethod: string | null;
+}
+
+/** セッション原本を一切変更せずに読む寛容リーダーの結果。 */
+export interface ReadReviewSessionBundleResult {
+    sessionId: string;
+    audioUri: string | null;
+    audioDurationSec: number;
+    events: ReviewSessionEvent[];
+    strokes: ReviewStroke[];
+    transcript: ReviewSessionTranscriptSegment[] | null;
+    proposals: ReviewSessionProposalSummary[] | null;
+    editSnapshotText: string | null;
+    warnings: string[];
+}
+
+/** session.json の status。session.json が無い（orphaned）ときは null。 */
+export type ReviewSessionLifecycleStatus = 'recorded' | 'transcribed' | 'compiled';
+
 export interface ReviewSessionSummary {
     id: string;
     startedAt: string;
     endedAt: string | null;
     durationSec: number;
     orphaned: boolean;
+    ranges: import('./review-session-ranges').ReviewSessionRange[];
+    status: ReviewSessionLifecycleStatus | null;
+    compiledAnnotations: string[] | null;
 }
 
 // HEVC (H.265) is not reliably decodable on Windows without a paid Store add-on (see the
@@ -375,6 +421,7 @@ export interface AkariPreviewService {
     readReviewSessionStrokes(request: ReadReviewSessionStrokesRequest): Promise<ReadReviewSessionStrokesResult>;
     endReviewSession(request: EndReviewSessionRequest): Promise<void>;
     listReviewSessions(request: ListReviewSessionsRequest): Promise<ReviewSessionSummary[]>;
+    readReviewSessionBundle(request: ReadReviewSessionBundleRequest): Promise<ReadReviewSessionBundleResult>;
     lintEditCandidate(request: LintEditCandidateRequest): Promise<LintEditCandidateResult>;
     prepareLegacyEdit(request: PrepareLegacyEditRequest): Promise<PrepareLegacyEditResult>;
     resolveCaptionDisplay(request: ResolveCaptionDisplayRequest): Promise<ResolvedCaptionDisplayPayload | null>;

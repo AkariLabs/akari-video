@@ -5,9 +5,31 @@ import { FileDialogService } from '@theia/filesystem/lib/browser';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
 import { WebviewWidget } from '@theia/plugin-ext/lib/main/browser/webview/webview';
 import { inject, injectable, postConstruct } from '@theia/core/shared/inversify';
+import { Message } from '@theia/core/shared/@lumino/messaging';
 import { Annotation } from '../common/akari-annotations-protocol';
 import { AnnotationStroke } from '../common/annotation-store';
-import { collectBlockIds, extractBlocksManifest, parseCanvasTarget, parseDocTarget, parseImageTarget, parseUiTarget } from '../common/doc-target';
+import {
+    compileClipboardFailureFooter,
+    compileClipboardFailureNotice,
+    compileCopiedMessage,
+    planCompileHandoff
+} from '../common/compile-session-handoff';
+import {
+    buildUiTargetRow,
+    collectBlockIds,
+    extractBlocksManifest,
+    parseCanvasTarget,
+    parseDocTarget,
+    parseImageTarget,
+    parseUiTarget,
+    needsUiTargetLabels
+} from '../common/doc-target';
+import {
+    CLIP_ANNOTATION_LABELS_EVENT,
+    CLIP_ANNOTATION_LABELS_REQUEST_EVENT,
+    CLIP_ANNOTATION_OPEN_EVENT,
+    CLIP_ANNOTATION_REVEAL_EVENT
+} from '../common/timeline-context-menu-items';
 import { resolveRawSourceId } from '../common/raw-source-selection';
 import {
     RawPreviewAnnotationStateSnapshot,
@@ -21,8 +43,8 @@ import {
 import { AkariCanvasDialog } from './akari-canvas-dialog';
 import { AKARI_WARNING_TEXT_COLOR, createAkariNoticeBanner } from './akari-notice-banner';
 import { AkariImageAnnotationDialog } from './akari-image-annotation-dialog';
-import { OPEN_AKARI_REVIEW_BOARD } from './akari-annotations-commands';
-import { AnnotationStatusFilter, ReviewModel } from './review-model';
+import { OPEN_AKARI_REVIEW_BOARD, OPEN_AKARI_SESSION_VIEWER } from './akari-annotations-commands';
+import { AnnotationStatusFilter, ReviewModel, reviewSessionBadge } from './review-model';
 
 /** doc: target のブロック存在チェック結果（契約 §6 の劣化規約に対応）。 */
 type DocTargetHealth = 'ok' | 'path-missing' | 'block-missing';
@@ -31,19 +53,13 @@ type ImageTargetHealth = 'ok' | 'path-missing';
 /** canvas: target のディレクトリ存在チェック結果（contract-2026-07-26-canvas-surface §6）。 */
 type CanvasTargetHealth = 'ok' | 'dir-missing';
 
-// パートナー拡張の公開コマンド ID とミラー（extension 間の npm 依存を作らない。
-// akari-partner-command-contribution.ts の AkariPartnerCommands.BEGIN_ONBOARDING と同一）。
-// 「入力欄への投入」に対応する公開 API は無く、送信専用の akari.partner.send しか無いため、
-// ここでは送信せずクリップボードコピー + パートナーペインへのフォーカスで代替する
-// （task.md の代替実装規約どおり）。
-const BEGIN_PARTNER_ONBOARDING_COMMAND_ID = 'akari.partner.beginOnboarding';
-
 // akari-preview 側の同名定数とミラー。extension 間の npm 依存を作らず outer window で連携する。
 const REVIEW_SESSION_START_EVENT = 'akari.review.session.start';
 const REVIEW_SESSION_STOP_EVENT = 'akari.review.session.stop';
 const REVIEW_SESSION_REFRESH_EVENT = 'akari.review.session.refresh';
 const REVIEW_SESSION_OPEN_FOLDER_EVENT = 'akari.review.session.openFolder';
 const REVIEW_SESSION_STATE_EVENT = 'akari.review.session.state';
+const REVIEW_SESSION_FOCUS_EVENT = 'akari.review.session.focus';
 const REVIEW_ANNOTATION_SHOW_STROKES_EVENT = 'akari.review.annotation.showStrokes';
 // M2 (task.md): ツールモード（neutral/pen/rect/select）切替 request。akari-preview 側
 // （akari-preview-open-handler.ts の REVIEW_TOOL_MODE_SET_EVENT）と文字列だけミラーする。
@@ -71,6 +87,14 @@ interface ReviewSessionSummary {
     endedAt: string | null;
     durationSec: number;
     orphaned: boolean;
+    ranges?: Array<{ start: number; end: number }>;
+    status?: 'recorded' | 'transcribed' | 'compiled' | null;
+    compiledAnnotations?: string[] | null;
+}
+
+interface ReviewSessionFocusDetail {
+    sessionId: string;
+    editUri: string;
 }
 
 /** M3 (task.md 指示2): select ツールで直近クリックした登録済み UI 要素。akari-preview 側とミラー。 */
@@ -142,6 +166,9 @@ export class AkariReviewPanelWidget extends BaseWidget {
     protected readonly docSelectionChip = document.createElement('div');
     protected readonly docSelectionLabel = document.createElement('span');
     protected readonly docSelectionClear = document.createElement('button');
+    protected readonly clipSelectionChip = document.createElement('div');
+    protected readonly clipSelectionLabel = document.createElement('span');
+    protected readonly clipSelectionClear = document.createElement('button');
     // M3 (task.md 指示2): select ツールで選択中の UI 要素へのコメント導線（docSelectionChip とミラー）。
     protected readonly uiSelectionChip = document.createElement('div');
     protected readonly uiSelectionLabel = document.createElement('span');
@@ -170,12 +197,16 @@ export class AkariReviewPanelWidget extends BaseWidget {
     protected readonly listContainer = document.createElement('div');
     protected readonly footer = document.createElement('div');
     protected reviewSessionState: ReviewSessionUiState | undefined;
+    protected focusedReviewSessionId: string | undefined;
     protected lastReviewSessionContext = '';
     protected rawSourceState: RawSourceSelectionState = {};
     protected rawSourceResolutionKey: string | undefined;
     protected resolvedRawSourceKey: string | undefined;
     protected rawSourceResolutionSequence = 0;
     protected rawSourceResolutionPromise: Promise<void> | undefined;
+    protected clipAnnotationSelection: { editUri: string; target: string; label: string; sourceT: number } | undefined;
+    protected uiTargetLabels: Record<string, string> = {};
+    protected lastUiTargetLabelsRequest = '';
 
     @postConstruct()
     protected init(): void {
@@ -250,6 +281,22 @@ export class AkariReviewPanelWidget extends BaseWidget {
         });
         this.docSelectionClear.addEventListener('click', () => { this.model.docSelection = undefined; });
         this.docSelectionChip.append(this.docSelectionLabel, this.docSelectionClear);
+        this.clipSelectionChip.setAttribute('data-review-clip-selection-chip', '');
+        Object.assign(this.clipSelectionChip.style, {
+            display: 'none', alignItems: 'center', gap: '5px', fontSize: '11px',
+            padding: '2px 8px', borderRadius: '999px',
+            border: '1px solid var(--theia-textLink-foreground)', color: 'var(--theia-textLink-foreground)'
+        });
+        this.clipSelectionLabel.setAttribute('data-review-clip-selection-label', '');
+        this.clipSelectionClear.type = 'button';
+        this.clipSelectionClear.textContent = '✕';
+        this.clipSelectionClear.title = 'クリップの選択を解除して動画注釈に戻す';
+        this.clipSelectionClear.setAttribute('aria-label', 'クリップの選択を解除');
+        Object.assign(this.clipSelectionClear.style, {
+            background: 'none', border: 'none', padding: '0', cursor: 'pointer', font: 'inherit', color: 'inherit'
+        });
+        this.clipSelectionClear.addEventListener('click', () => this.clearClipAnnotationSelection());
+        this.clipSelectionChip.append(this.clipSelectionLabel, this.clipSelectionClear);
         // M3 (task.md 指示2): docSelectionChip とミラーした「選択中の UI 要素」チップ。
         this.uiSelectionChip.setAttribute('data-review-ui-selection-chip', '');
         Object.assign(this.uiSelectionChip.style, {
@@ -302,6 +349,7 @@ export class AkariReviewPanelWidget extends BaseWidget {
         this.composerRow.append(
             this.timeLabel,
             this.docSelectionChip,
+            this.clipSelectionChip,
             this.uiSelectionChip,
             this.rawSourceChip,
             this.textInput,
@@ -328,6 +376,13 @@ export class AkariReviewPanelWidget extends BaseWidget {
         this.recordingElapsed.textContent = '00:00';
         recordingHeading.append(recordingTitle, this.recordingIndicator, this.recordingElapsed);
 
+        const recordingHint = document.createElement('div');
+        recordingHint.setAttribute('data-review-sessions-hint', '');
+        recordingHint.textContent = '喋りながら描いた記録。コンパイルすると下のコメント（チケット）になります';
+        Object.assign(recordingHint.style, {
+            color: 'var(--theia-descriptionForeground)', fontSize: '11px', lineHeight: '1.4'
+        });
+
         const recordingControls = document.createElement('div');
         Object.assign(recordingControls.style, { display: 'flex', alignItems: 'center', gap: '7px' });
         this.recordingButton.type = 'button';
@@ -344,7 +399,7 @@ export class AkariReviewPanelWidget extends BaseWidget {
         this.compileButton.setAttribute('data-review-compile', '');
         this.compileButton.className = 'theia-button secondary';
         this.compileButton.textContent = 'コンパイル';
-        this.compileButton.title = '最新の録音セッションをコンパイルする定型文をパートナーへ渡す';
+        this.compileButton.title = '最新の録音セッションのコンパイル依頼文をクリップボードへコピーする（パートナーへ貼り付けて使う）';
         this.compileButton.addEventListener('click', () => void this.compileLatestSession());
         recordingControls.append(this.recordingButton, this.openSessionsButton, this.compileButton);
 
@@ -400,10 +455,11 @@ export class AkariReviewPanelWidget extends BaseWidget {
             display: 'none', color: 'var(--theia-errorForeground)', fontSize: '11px', lineHeight: '1.4'
         });
         Object.assign(this.sessionList.style, {
-            display: 'grid', gap: '3px', maxHeight: '92px', overflow: 'auto', fontSize: '11px'
+            display: 'grid', gap: '3px', maxHeight: '140px', overflow: 'auto', fontSize: '11px'
         });
         this.recordingSection.append(
             recordingHeading,
+            recordingHint,
             recordingControls,
             this.toolModeRow,
             this.recordingLevelMeter,
@@ -451,8 +507,9 @@ export class AkariReviewPanelWidget extends BaseWidget {
         this.toDispose.push(this.model.onReveal(id => this.revealAnnotation(id)));
         const onReviewSessionState = (event: Event): void => {
             const state = (event as CustomEvent<ReviewSessionUiState>).detail;
-            const editUri = this.model.location?.editUri?.normalizePath().toString();
-            if (!state || !editUri || this.normalizeUri(state.editUri) !== this.normalizeUri(editUri)) {
+            const projectRootUri = this.model.location?.root.normalizePath().toString();
+            if (!state || !projectRootUri
+                || this.normalizeUri(state.projectRootUri) !== this.normalizeUri(projectRootUri)) {
                 return;
             }
             this.reviewSessionState = state;
@@ -465,6 +522,17 @@ export class AkariReviewPanelWidget extends BaseWidget {
         this.toDispose.push({
             dispose: () => window.removeEventListener(REVIEW_SESSION_STATE_EVENT, onReviewSessionState)
         });
+        const onReviewSessionFocus = (event: Event): void => {
+            const detail = (event as CustomEvent<ReviewSessionFocusDetail>).detail;
+            const editUri = this.model.location?.editUri?.normalizePath().toString();
+            if (!detail || !editUri || this.normalizeUri(detail.editUri) !== this.normalizeUri(editUri)) return;
+            this.focusedReviewSessionId = detail.sessionId;
+            this.revealReviewSession(detail.sessionId);
+        };
+        window.addEventListener(REVIEW_SESSION_FOCUS_EVENT, onReviewSessionFocus);
+        this.toDispose.push({
+            dispose: () => window.removeEventListener(REVIEW_SESSION_FOCUS_EVENT, onReviewSessionFocus)
+        });
         const onRawPreviewAnnotationState = (event: Event): void => {
             const state = (event as CustomEvent<RawPreviewAnnotationState>).detail;
             this.handleRawPreviewAnnotationState(state);
@@ -473,7 +541,49 @@ export class AkariReviewPanelWidget extends BaseWidget {
         this.toDispose.push({
             dispose: () => window.removeEventListener(RAW_PREVIEW_ANNOTATION_STATE_EVENT, onRawPreviewAnnotationState)
         });
+        const onClipAnnotationOpen = (event: Event): void => {
+            const detail = (event as CustomEvent<{
+                editUri?: string; target?: string; label?: string; sourceT?: number;
+            }>).detail;
+            const editUri = this.model.location?.editUri?.normalizePath().toString();
+            if (!detail || !editUri || this.normalizeUri(detail.editUri ?? '') !== this.normalizeUri(editUri)
+                || typeof detail.sourceT !== 'number' || !Number.isFinite(detail.sourceT)) return;
+            if (typeof detail.target === 'string' && detail.target) {
+                this.clipAnnotationSelection = {
+                    editUri,
+                    target: detail.target,
+                    label: typeof detail.label === 'string' && detail.label.trim() ? detail.label.trim() : detail.target,
+                    sourceT: detail.sourceT
+                };
+            } else {
+                this.clearClipAnnotationSelection();
+            }
+            this.model.selectedSourceT = detail.sourceT;
+            this.renderDocSelectionChip();
+            this.textInput.focus();
+        };
+        const onClipAnnotationLabels = (event: Event): void => {
+            const detail = (event as CustomEvent<{ editUri?: string; labels?: Record<string, string> }>).detail;
+            const editUri = this.model.location?.editUri?.normalizePath().toString();
+            if (!detail || !editUri || this.normalizeUri(detail.editUri ?? '') !== this.normalizeUri(editUri)
+                || !detail.labels || typeof detail.labels !== 'object') return;
+            this.uiTargetLabels = { ...detail.labels };
+            this.renderList();
+        };
+        window.addEventListener(CLIP_ANNOTATION_OPEN_EVENT, onClipAnnotationOpen);
+        window.addEventListener(CLIP_ANNOTATION_LABELS_EVENT, onClipAnnotationLabels);
+        this.toDispose.push({ dispose: () => {
+            window.removeEventListener(CLIP_ANNOTATION_OPEN_EVENT, onClipAnnotationOpen);
+            window.removeEventListener(CLIP_ANNOTATION_LABELS_EVENT, onClipAnnotationLabels);
+        } });
         this.render();
+    }
+
+    protected override onAfterAttach(msg: Message): void {
+        super.onAfterAttach(msg);
+        this.lastReviewSessionContext = '';
+        this.refreshReviewSessionContext();
+        this.requestMissingUiTargetLabels();
     }
 
     protected render(): void {
@@ -492,10 +602,12 @@ export class AkariReviewPanelWidget extends BaseWidget {
      */
     protected renderDocSelectionChip(): void {
         const selection = this.model.docSelection;
-        const uiSelection = selection ? undefined : this.reviewSessionState?.selectedUiTarget;
-        const rawSelection = selection || uiSelection ? undefined : this.rawSourceState.selection;
-        if (!selection && !uiSelection && !rawSelection) {
+        const clipSelection = selection ? undefined : this.clipAnnotationSelection;
+        const uiSelection = selection || clipSelection ? undefined : this.reviewSessionState?.selectedUiTarget;
+        const rawSelection = selection || clipSelection || uiSelection ? undefined : this.rawSourceState.selection;
+        if (!selection && !clipSelection && !uiSelection && !rawSelection) {
             this.docSelectionChip.style.display = 'none';
+            this.clipSelectionChip.style.display = 'none';
             this.uiSelectionChip.style.display = 'none';
             this.rawSourceChip.style.display = 'none';
             this.timeLabel.style.display = '';
@@ -506,6 +618,7 @@ export class AkariReviewPanelWidget extends BaseWidget {
         this.timeLabel.style.display = 'none';
         if (selection) {
             this.docSelectionChip.style.display = 'inline-flex';
+            this.clipSelectionChip.style.display = 'none';
             this.uiSelectionChip.style.display = 'none';
             this.rawSourceChip.style.display = 'none';
             this.docSelectionLabel.textContent = `📄 ${this.reportBaseName(selection.path)} を選択中`;
@@ -513,8 +626,19 @@ export class AkariReviewPanelWidget extends BaseWidget {
             this.textInput.placeholder = 'このブロックについてコメント';
             return;
         }
+        if (clipSelection) {
+            this.docSelectionChip.style.display = 'none';
+            this.clipSelectionChip.style.display = 'inline-flex';
+            this.uiSelectionChip.style.display = 'none';
+            this.rawSourceChip.style.display = 'none';
+            this.clipSelectionLabel.textContent = `🎛️ ${clipSelection.label} を選択中`;
+            this.clipSelectionLabel.title = `ui:${clipSelection.target}`;
+            this.textInput.placeholder = 'このクリップについてコメント';
+            return;
+        }
         if (uiSelection) {
             this.docSelectionChip.style.display = 'none';
+            this.clipSelectionChip.style.display = 'none';
             this.uiSelectionChip.style.display = 'inline-flex';
             this.rawSourceChip.style.display = 'none';
             this.uiSelectionLabel.textContent = `🎛️ ${uiSelection.label} を選択中`;
@@ -523,6 +647,7 @@ export class AkariReviewPanelWidget extends BaseWidget {
             return;
         }
         this.docSelectionChip.style.display = 'none';
+        this.clipSelectionChip.style.display = 'none';
         this.uiSelectionChip.style.display = 'none';
         this.rawSourceChip.style.display = 'inline-flex';
         this.rawSourceLabel.textContent = `🎞 ${rawSelection!.src}`;
@@ -615,6 +740,11 @@ export class AkariReviewPanelWidget extends BaseWidget {
         this.renderDocSelectionChip();
     }
 
+    protected clearClipAnnotationSelection(): void {
+        this.clipAnnotationSelection = undefined;
+        this.renderDocSelectionChip();
+    }
+
     /** task.md 指示2: ✕ ボタンから ReviewSessionRecorder（akari-preview 側）へ選択解除を渡す。 */
     protected clearUiSelection(): void {
         const location = this.model.location;
@@ -680,10 +810,14 @@ export class AkariReviewPanelWidget extends BaseWidget {
             return;
         }
         for (const session of [...sessions].reverse()) {
+            const badge = reviewSessionBadge(session);
+            const wrapper = document.createElement('div');
+            Object.assign(wrapper.style, { display: 'grid', gap: '2px' });
             const row = document.createElement('div');
+            row.className = 'akari-review-row';
             row.setAttribute('data-review-session', session.id);
             Object.assign(row.style, {
-                display: 'grid', gridTemplateColumns: 'auto minmax(0, 1fr) auto',
+                display: 'grid', gridTemplateColumns: 'auto minmax(0, 1fr) auto auto',
                 alignItems: 'center', gap: '7px'
             });
             const id = document.createElement('strong');
@@ -695,36 +829,67 @@ export class AkariReviewPanelWidget extends BaseWidget {
             started.style.textOverflow = 'ellipsis';
             started.style.whiteSpace = 'nowrap';
             const duration = document.createElement('span');
-            duration.textContent = session.orphaned
-                ? `${this.formatSessionDuration(session.durationSec)}・未完了`
-                : this.formatSessionDuration(session.durationSec);
+            duration.textContent = this.formatSessionDuration(session.durationSec);
             duration.style.fontVariantNumeric = 'tabular-nums';
-            if (session.orphaned) {
-                duration.style.color = AKARI_WARNING_TEXT_COLOR;
+            const badgeElement = document.createElement('span');
+            badgeElement.setAttribute('data-review-session-badge', badge.key);
+            badgeElement.textContent = badge.label;
+            Object.assign(badgeElement.style, {
+                border: '1px solid var(--theia-widget-border)', borderRadius: '999px',
+                padding: '0 6px', whiteSpace: 'nowrap',
+                color: badge.key === 'orphaned' ? AKARI_WARNING_TEXT_COLOR : 'var(--theia-descriptionForeground)'
+            });
+            const viewer = document.createElement('button');
+            viewer.type = 'button';
+            viewer.className = 'theia-button secondary';
+            viewer.textContent = '見返す';
+            viewer.title = `${session.id} を音・描線・文字起こしで見返す`;
+            viewer.setAttribute('data-review-session-viewer', session.id);
+            viewer.addEventListener('click', () => void this.openSessionViewer(session.id));
+            row.append(id, started, duration, badgeElement, viewer);
+            wrapper.appendChild(row);
+            if (badge.key === 'recorded' && badge.hint) {
+                const hint = document.createElement('div');
+                hint.setAttribute('data-review-session-hint', session.id);
+                hint.textContent = badge.hint;
+                Object.assign(hint.style, {
+                    color: 'var(--theia-descriptionForeground)', paddingLeft: '4px'
+                });
+                wrapper.appendChild(hint);
             }
-            row.append(id, started, duration);
-            this.sessionList.appendChild(row);
+            this.sessionList.appendChild(wrapper);
         }
+        this.revealReviewSession(this.focusedReviewSessionId);
     }
 
     protected refreshReviewSessionContext(): void {
         const location = this.model.location;
         const editUri = location?.editUri?.normalizePath().toString();
-        if (!location || !editUri) {
+        if (!location) {
             this.lastReviewSessionContext = '';
             this.reviewSessionState = undefined;
             return;
         }
         const projectRootUri = location.root.normalizePath().toString();
-        const context = `${projectRootUri}\n${editUri}`;
+        const context = projectRootUri;
         if (context === this.lastReviewSessionContext) {
             return;
         }
         this.lastReviewSessionContext = context;
         this.reviewSessionState = undefined;
         window.dispatchEvent(new CustomEvent(REVIEW_SESSION_REFRESH_EVENT, {
-            detail: { projectRootUri, editUri }
+            detail: { projectRootUri, ...(editUri ? { editUri } : {}) }
         }));
+    }
+
+    protected async openSessionViewer(sessionId: string): Promise<void> {
+        const location = this.model.location;
+        if (!location) return;
+        await this.commands.executeCommand(OPEN_AKARI_SESSION_VIEWER.id, {
+            projectRootUri: location.root.normalizePath().toString(),
+            editUri: location.editUri?.normalizePath().toString(),
+            sessionId
+        });
     }
 
     protected toggleRecording(): void {
@@ -769,6 +934,7 @@ export class AkariReviewPanelWidget extends BaseWidget {
     }
 
     protected renderList(): void {
+        this.requestMissingUiTargetLabels();
         // 一覧が再描画されるたびに劣化状態を再確認する（ファイルのリネーム・差し替えを
         // ライブセッション中に検知できるよう、レンダーパスをまたいでキャッシュしない）。
         this.docTargetHealthCache.clear();
@@ -787,6 +953,21 @@ export class AkariReviewPanelWidget extends BaseWidget {
         for (const annotation of filtered) {
             this.listContainer.appendChild(this.renderAnnotationRow(annotation));
         }
+    }
+
+    protected requestMissingUiTargetLabels(): void {
+        const targets = this.model.annotations.map(annotation => annotation.target);
+        if (!needsUiTargetLabels(targets, this.uiTargetLabels)) {
+            this.lastUiTargetLabelsRequest = '';
+            return;
+        }
+        const request = JSON.stringify(targets.filter(target => typeof target === 'string').sort());
+        if (request === this.lastUiTargetLabelsRequest) return;
+        this.lastUiTargetLabelsRequest = request;
+        const editUri = this.model.location?.editUri?.normalizePath().toString();
+        window.dispatchEvent(new CustomEvent(CLIP_ANNOTATION_LABELS_REQUEST_EVENT, {
+            detail: { ...(editUri ? { editUri } : {}) }
+        }));
     }
 
     protected renderAnnotationRow(annotation: Annotation): HTMLDivElement {
@@ -902,18 +1083,25 @@ export class AkariReviewPanelWidget extends BaseWidget {
         return row;
     }
 
-    /**
-     * ui: target 注釈のラベル（task.md 指示2: 「一覧に label が出れば十分。深い統合は不要」）。
-     * doc:/image:/canvas: と違い review.json には UI 側の label 文字列を保存しない（§2 の id
-     * だけを保存する）ため、素の id をそのまま表示する。クリック導線（該当 UI へのジャンプ等）は
-     * スコープ外。
-     */
-    protected renderUiTargetLabel(uiTarget: { id: string }): HTMLSpanElement {
-        const label = document.createElement('span');
+    /** ui:timeline:* はタイムラインが公開した表示名を使い、該当クリップへのクリック導線を持つ。 */
+    protected renderUiTargetLabel(uiTarget: { id: string }): HTMLElement {
+        const row = buildUiTargetRow(uiTarget.id, this.uiTargetLabels);
+        const label = document.createElement(row.revealable ? 'button' : 'span');
+        if (label instanceof HTMLButtonElement) label.type = 'button';
         label.setAttribute('data-review-ui-target', uiTarget.id);
-        label.textContent = `🎛️ ${uiTarget.id}`;
-        label.title = `ui:${uiTarget.id}`;
-        Object.assign(label.style, { fontSize: '11px', color: 'var(--theia-descriptionForeground)' });
+        label.textContent = `🎛️ ${row.label}`;
+        label.title = row.revealable ? `${row.title} — クリックで該当クリップを選択` : row.title;
+        Object.assign(label.style, {
+            fontSize: '11px',
+            color: row.revealable ? 'var(--theia-textLink-foreground)' : 'var(--theia-descriptionForeground)',
+            ...(row.revealable ? { background: 'none', border: 'none', padding: '0', cursor: 'pointer', font: 'inherit' } : {})
+        });
+        if (row.revealable) label.addEventListener('click', () => {
+            const editUri = this.model.location?.editUri?.normalizePath().toString();
+            if (editUri) window.dispatchEvent(new CustomEvent(CLIP_ANNOTATION_REVEAL_EVENT, {
+                detail: { editUri, target: uiTarget.id }
+            }));
+        });
         return label;
     }
 
@@ -1207,6 +1395,19 @@ export class AkariReviewPanelWidget extends BaseWidget {
         row.classList.add('akari-review-row-revealed');
     }
 
+    protected revealReviewSession(sessionId: string | undefined): void {
+        if (!sessionId) return;
+        const row = this.sessionList.querySelector<HTMLElement>(
+            `[data-review-session="${CSS.escape(sessionId)}"]`
+        );
+        if (!row) return;
+        row.scrollIntoView({ block: 'nearest' });
+        this.node.querySelectorAll('.akari-review-row-revealed').forEach(
+            highlighted => highlighted.classList.remove('akari-review-row-revealed')
+        );
+        row.classList.add('akari-review-row-revealed');
+    }
+
     protected async submitAnnotation(): Promise<void> {
         const text = this.textInput.value.trim();
         if (!text) {
@@ -1217,24 +1418,29 @@ export class AkariReviewPanelWidget extends BaseWidget {
             return;
         }
         const docSelection = this.model.docSelection;
-        const uiSelection = docSelection ? undefined : this.reviewSessionState?.selectedUiTarget;
+        const clipSelection = docSelection ? undefined : this.clipAnnotationSelection;
+        const uiSelection = docSelection || clipSelection ? undefined : this.reviewSessionState?.selectedUiTarget;
         this.addButton.disabled = true;
         try {
             // 解決中の古い selection を捕まえず、クリック時点の最新 activation の確定を待つ。
-            const rawSelection = docSelection || uiSelection
+            const rawSelection = docSelection || clipSelection || uiSelection
                 ? undefined
                 : await this.currentRawSourceSelection();
             const result = docSelection
                 ? await this.model.addDocAnnotation(text, docSelection)
-                : uiSelection
-                    ? await this.model.addUiAnnotation(text, this.model.selectedSourceT, uiSelection.target)
-                    : rawSelection
-                        ? await this.model.addAnnotation(text, rawSelection.sourceT, rawSelection.src)
-                        : await this.model.addAnnotation(text, this.model.selectedSourceT);
+                : clipSelection
+                    ? await this.model.addUiAnnotation(text, clipSelection.sourceT, clipSelection.target)
+                    : uiSelection
+                        ? await this.model.addUiAnnotation(text, this.model.selectedSourceT, uiSelection.target)
+                        : rawSelection
+                            ? await this.model.addAnnotation(text, rawSelection.sourceT, rawSelection.src)
+                            : await this.model.addAnnotation(text, this.model.selectedSourceT);
             this.textInput.value = '';
             // 送信後は選択を解除する（同じブロックへ連続で誤って追加しないため）。
             if (docSelection) {
                 this.model.docSelection = undefined;
+            } else if (clipSelection) {
+                this.clearClipAnnotationSelection();
             } else if (uiSelection) {
                 this.clearUiSelection();
             }
@@ -1252,46 +1458,26 @@ export class AkariReviewPanelWidget extends BaseWidget {
     }
 
     /**
-     * 最新の録音セッション id を含む定型文をパートナーへ渡す（task.md §指示3・最小のコンパイル導線）。
-     * akari-partner の公開 API には「入力欄へ投入するだけ（送信しない）」ものが無く、
-     * `akari.partner.send` は即送信してしまうため、ここでは送信せずクリップボードコピー +
-     * `akari.partner.beginOnboarding`（接続済みならペインを表に出すだけ・未接続なら推奨導線を開始）
-     * によるフォーカスで代替する。
+     * 2026-09-12 裁定 A: 定型文のコピーのみ行い、パートナーペインへフォーカスを移さない。
+     * 入力欄へ投入するだけの公開 API が無く、`akari.partner.send` は即送信するためここでは送信しない。
+     * sessionId 省略時は最新セッション、指定時はそのセッションを使い、ボード等からの id 指定に対応する。
      */
-    protected async compileLatestSession(): Promise<void> {
-        const sessions = this.reviewSessionState?.sessions ?? [];
-        if (sessions.length === 0) {
-            this.showNotice('録音済みセッションがありません。先に録音してください。');
+    protected async compileLatestSession(sessionId?: string): Promise<void> {
+        const plan = planCompileHandoff(this.reviewSessionState?.sessions ?? [], sessionId);
+        if (plan.kind === 'notice') {
+            this.showNotice(plan.notice);
             return;
         }
-        const latest = [...sessions].sort((left, right) => {
-            const leftOrder = this.sessionSortKey(left);
-            const rightOrder = this.sessionSortKey(right);
-            return leftOrder === rightOrder
-                ? left.startedAt.localeCompare(right.startedAt)
-                : leftOrder - rightOrder;
-        }).pop();
-        if (!latest) {
-            return;
-        }
-        const prompt = `review セッション ${latest.id} をコンパイルして`;
         try {
-            await navigator.clipboard.writeText(prompt);
+            await navigator.clipboard.writeText(plan.prompt);
             this.hideNotice();
-            this.footer.textContent = `「${prompt}」をクリップボードにコピーしました。パートナーへ貼り付けてください。`;
+            const message = compileCopiedMessage(plan.prompt);
+            this.footer.textContent = message;
+            void this.messages.info(message, { timeout: 3000 });
         } catch (error) {
-            this.showNotice(`クリップボードにコピーできません: ${this.errorMessage(error)}`);
+            this.showNotice(compileClipboardFailureNotice(this.errorMessage(error)));
+            this.footer.textContent = compileClipboardFailureFooter(plan.prompt);
         }
-        try {
-            await this.commands.executeCommand(BEGIN_PARTNER_ONBOARDING_COMMAND_ID);
-        } catch (error) {
-            console.warn('[akari-annotations] partner focus skipped:', error);
-        }
-    }
-
-    protected sessionSortKey(session: ReviewSessionSummary): number {
-        const match = /^s-(\d+)$/.exec(session.id);
-        return match ? Number(match[1]) : 0;
     }
 
     protected async resolveAnnotationById(id: string): Promise<void> {

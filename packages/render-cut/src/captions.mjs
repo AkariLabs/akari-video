@@ -13,9 +13,15 @@ const require = createRequire(import.meta.url);
 // OSR（osr-export page-builder）は両方この generateCaptionOverlays の vars を使うので実効 px が揃う。
 const {
   captionAnchorPositionVars,
+  dedupeCaptionOccurrences,
+  expandCaptionDisplayFragments,
   normalizeCaptionClock,
+  projectCaptionWords,
   resolveCaptionReferenceScale,
+  resolveCaptionStyleForOutput,
+  resolveCaptionStylePreset,
   scaleCaptionPx,
+  TEXTSTYLE_CATALOG,
 } = require("../../edit-store/lib/index.js");
 
 const DEFAULT_MAX_CHARACTERS = 20;
@@ -82,6 +88,8 @@ const RESOLVED_CAPTION_FONT_FACE_CSS = `@font-face {
       font-style: normal;
     }`;
 
+export const RESOLVED_CAPTION_WORD_PRESET_CSS = '.akari-caption__tok{display:inline-block;white-space:pre;}.akari-caption__tok--preset{color:var(--caption-color,inherit);font-size:var(--caption-font-size,inherit);font-weight:var(--caption-font-weight,inherit);line-height:var(--caption-line-height,inherit);-webkit-text-stroke:var(--caption-webkit-text-stroke,inherit);paint-order:var(--caption-paint-order,inherit);text-shadow:var(--caption-text-shadow,inherit);}';
+
 // opt-in word-level スタイル。横長では既定 = 未指定 = 従来のプレーン字幕（既定出力のバイト等価を保つ）。
 // 縦長（portrait）だけは例外で、words[] があり複数行に折り返す字幕を reveal（行単位の順送り表示）へ
 // 自動昇格させる（2026-08-03 オーナー要望: 縦で文章の壁を出さない）。words 未充填・未対応スタイル値は
@@ -132,14 +140,14 @@ export function generateCaptionOverlays(captions, cuts, options = {}) {
   const baseFontSize = portrait
     ? Math.round(output.width * PORTRAIT_FONT_SIZE_RATIO)
     : DEFAULT_FONT_SIZE_PX;
-  const emphasisWords = normalizeEmphasisWords(options.emphasisWords);
+  const emphasisWords = normalizeEmphasisWords(options.emphasisWords, output);
   const sourceCount = options.sourceCount ?? 1;
   const overlays = [];
 
-  for (const caption of captions) {
-    const displayText = typeof caption.display_text === "string"
-      ? caption.display_text
-      : caption.text;
+  for (const caption of expandCaptionDisplayFragments(captions)) {
+    const projectedCaption = projectCaptionWords(caption, cuts);
+    if (!projectedCaption.renderable) continue;
+    const displayText = projectedCaption.displayText;
     const captionSource = typeof caption.src === "string" && caption.src !== "" ? caption.src : null;
     if (captionSource === null && sourceCount > 1 && caption.time_domain !== "output") {
       options.onWarning?.(
@@ -153,6 +161,7 @@ export function generateCaptionOverlays(captions, cuts, options = {}) {
       cuts,
       captionSource,
       caption.time_domain,
+      caption.id,
     );
     let style = normalizeCaptionStyle(caption.style);
     const textStyle = mergeCaptionTextStyles(options.defaultTextStyle, caption.text_style);
@@ -160,7 +169,7 @@ export function generateCaptionOverlays(captions, cuts, options = {}) {
       ?? options.maxCharacters
       ?? (portrait ? PORTRAIT_MAX_CHARACTERS : DEFAULT_MAX_CHARACTERS);
     const textStyleVars = captionTextStyleVars(textStyle, output);
-    const allWords = clipWordsToRange(caption.words, caption.start, caption.end);
+    const allWords = clipWordsToRange(projectedCaption.words, caption.start, caption.end);
     // 縦長の既定: 複数行へ折り返す長さの字幕は全行を一度に出さず、既存 reveal 機構で
     // 行単位に順送り表示する（words[] のタイミングが無い字幕は従来どおり静的表示）。
     if (
@@ -208,7 +217,7 @@ export function generateCaptionOverlays(captions, cuts, options = {}) {
     }
     for (const [index, range] of ranges.entries()) {
       const words = style || emphasisWords.length > 0
-        ? clipWordsToRange(caption.words, range.sourceStart, range.sourceEnd)
+        ? clipWordsToRange(projectedCaption.words, range.sourceStart, range.sourceEnd)
         : [];
       const hasEmphasis = words.some((word) => findMatchingEmphasis(word, emphasisWords));
       const rangeTokens = displayTokens
@@ -233,6 +242,7 @@ export function generateCaptionOverlays(captions, cuts, options = {}) {
               extendedBackground: usesExtendedPerLineBackground(textStyle?.background),
               captionAnimation,
               animator: caption.animator,
+              output,
             })
           : renderCaptionFragment(displayText, {
               maximum,
@@ -245,11 +255,11 @@ export function generateCaptionOverlays(captions, cuts, options = {}) {
               words: allWords,
             });
       overlays.push({
-        id: `${caption.id}-${String(index + 1).padStart(2, "0")}`,
+        id: `${caption.id}${caption.fragmentIndex ? `-f${caption.fragmentIndex}` : ""}-${String(index + 1).padStart(2, "0")}`,
         html,
         start: range.start,
         duration: range.duration,
-        transform: { x: 0, y: 0, scale: 1, rotate: 0 },
+        transform: captionTransform(textStyle),
         vars: textStyleVars,
         generatedFrom: caption.id,
       });
@@ -266,10 +276,10 @@ export function generateCaptionOverlays(captions, cuts, options = {}) {
 export function generateResolvedCaptionOverlays(displayResult) {
   return displayResult.display_cues.map((cue) => ({
     id: cue.id,
-    html: renderResolvedSingleLineCaption(cue.text),
+    html: renderResolvedSingleLineCaption(cue.text, cue.display_lines, cue),
     start: cue.start,
     duration: cue.end - cue.start,
-    transform: { x: 0, y: 0, scale: 1, rotate: 0 },
+    transform: captionTransform(cue.text_style),
     vars: cue.style_vars ?? {},
     generatedFrom: cue.source_cue_id,
     sourceCueId: cue.source_cue_id,
@@ -277,7 +287,21 @@ export function generateResolvedCaptionOverlays(displayResult) {
   }));
 }
 
-export function renderResolvedSingleLineCaption(text) {
+export function captionTransform(style) {
+  const scale = finiteNumber(style?.scale) && style.scale >= 0.4 && style.scale <= 3 ? style.scale : 1;
+  const rotate = finiteNumber(style?.rotate) && style.rotate >= -180 && style.rotate <= 180 ? style.rotate : 0;
+  return { x: 0, y: 0, scale, rotate };
+}
+
+export function renderResolvedSingleLineCaption(text, lines, cue) {
+  const hasWordStyles = Array.isArray(cue?.word_styles) && cue.word_styles.length > 0
+    && Array.isArray(cue?.words) && cue.words.length > 0;
+  const renderedText = hasWordStyles
+    ? renderResolvedCaptionWords(cue.words, cue.word_styles)
+    : Array.isArray(lines) && lines.length >= 2
+      ? lines.map(escapeHtml).join('</p><p class="akari-caption__line">')
+      : escapeHtml(text);
+  const wordPresetCss = hasWordStyles ? `    ${RESOLVED_CAPTION_WORD_PRESET_CSS}\n` : '';
   return `<div class="akari-caption akari-caption--single-line">
   <style>
     ${RESOLVED_CAPTION_FONT_FACE_CSS}
@@ -318,9 +342,34 @@ export function renderResolvedSingleLineCaption(text) {
       text-align:center;
       white-space:nowrap;
     }
-  </style>
-  <div class="akari-caption__plate"><p class="akari-caption__line">${escapeHtml(text)}</p></div>
+${wordPresetCss}  </style>
+  <div class="akari-caption__plate"><p class="akari-caption__line">${renderedText}</p></div>
 </div>`;
+}
+
+function renderResolvedCaptionWords(words, wordStyles) {
+  let currentLine = words[0]?.line ?? 0;
+  return words.map((word, index) => {
+    const lineBreak = word.line !== currentLine
+      ? '</p><p class="akari-caption__line">'
+      : '';
+    currentLine = word.line;
+    const style = wordStyles.find(entry => entry.from <= index && index < entry.to);
+    if (!style) return `${lineBreak}<span class="akari-caption__tok">${escapeHtml(word.text)}</span>`;
+    return `${lineBreak}<span class="akari-caption__tok akari-caption__tok--preset" data-emphasis-preset="${escapeHtml(style.preset_id)}" style="${captionStyleVarsAttribute(style.style_vars)}">${escapeHtml(word.text)}</span>`;
+  }).join('');
+}
+
+function captionStyleVarsAttribute(vars) {
+  if (!vars || typeof vars !== 'object') return '';
+  return Object.entries(vars)
+    .filter(([name, value]) => name.startsWith('--') && typeof value === 'string')
+    .map(([name, value]) => `${name}:${value};`)
+    .join('')
+    .replaceAll('&', '&amp;')
+    .replaceAll('"', '&quot;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;');
 }
 
 function normalizeCaptionStyle(style) {
@@ -512,6 +561,8 @@ function normalizeTextStyle(value) {
   return {
     ...(typeof value.color === "string" ? { color: value.color } : {}),
     ...(finiteNumber(value.size_px) ? { size_px: value.size_px } : {}),
+    ...(finiteNumber(value.scale) && value.scale >= 0.4 && value.scale <= 3 ? { scale: value.scale } : {}),
+    ...(finiteNumber(value.rotate) && value.rotate >= -180 && value.rotate <= 180 ? { rotate: value.rotate } : {}),
     // zone 方式の px 系フィールドの基準出力高さ（issue #40 §2）。integer ≥ 1 だけ受理する。
     ...(Number.isInteger(value.reference_height_px) && value.reference_height_px >= 1
       ? { reference_height_px: value.reference_height_px } : {}),
@@ -792,7 +843,7 @@ export function buildCaptionAnimation(animation, overlayDuration, onWarning) {
 // のまま → computeContentDurationSeconds が captionsEnd を採用し、末尾に黒フレームが
 // 追加された）。両実装は cuts と同じ index で参照されるだけの並列配列を返す点で同形なので、
 // 常に computeCutTimelineOffsets(cuts) を使うよう統合する。
-function computeCaptionRanges(start, end, cuts, sourceId = null, timeDomain = undefined) {
+function computeCaptionRanges(start, end, cuts, sourceId = null, timeDomain = undefined, cueId = "caption") {
   if (timeDomain === "output") {
     const timelineEnd = Array.isArray(cuts) && cuts.length > 0 ? predictedDuration(cuts) : 0;
     const clampedEnd = Math.min(end, timelineEnd);
@@ -807,14 +858,29 @@ function computeCaptionRanges(start, end, cuts, sourceId = null, timeDomain = un
   if (needsGapAwareCutTimeline(cuts)) {
     const cutSegments = resolveCutSegments(cuts);
     const outputDuration = cutSegments.reduce((maximum, segment) => Math.max(maximum, segment.end), 0);
-    const segments = computeVideoRuns(cutSegments, outputDuration).map((run) => (
-      run.kind === "gap"
-        ? run
-        : {
+    const segments = computeVideoRuns(cutSegments, outputDuration).map((run) => {
+      if (run.kind === "gap") {
+        return { kind: "gap", outStart: run.outStart, outEnd: run.outEnd };
+      }
+      let winner = cutSegments.find(segment => segment.cut === run.cut);
+      if (run.cut?.captions === "off") {
+        const midpoint = (run.outStart + run.outEnd) / 2;
+        winner = cutSegments
+          .filter(segment => segment.start <= midpoint && segment.end > midpoint
+            && segment.cut?.src === run.cut?.src && segment.cut?.captions !== "off")
+          .sort((left, right) => right.track - left.track)[0];
+      }
+      if (!winner) return { kind: "gap", outStart: run.outStart, outEnd: run.outEnd };
+      const speed = cutSpeed(winner.cut);
+      return {
             kind: "src", outStart: run.outStart, outEnd: run.outEnd,
-            src: run.cut.src, in: run.srcIn, out: run.srcOut, speed: cutSpeed(run.cut),
-          }
-    ));
+            src: winner.cut.src,
+            in: winner.cut.in + (run.outStart - winner.start) * speed,
+            out: winner.cut.in + (run.outEnd - winner.start) * speed,
+            speed,
+            cut: winner.cut,
+          };
+    });
     if (segments.length === 0) return [];
     // Share preview's projection over visible runs. Undeclared export cues remain source
     // cues; the preview's legacy gap-to-output heuristic must not promote them here.
@@ -822,7 +888,7 @@ function computeCaptionRanges(start, end, cuts, sourceId = null, timeDomain = un
       start, end, clockDomain: "source",
       ...(sourceId !== null ? { clockSourceId: sourceId } : {}),
     }], segments);
-    return occurrences.map((occurrence) => {
+    const ranges = occurrences.map((occurrence) => {
       // Visible runs are disjoint and every occurrence is clipped to one run. Recover
       // its source window for word clipping and source-timed emphasis rendering.
       const midpoint = (occurrence.start + occurrence.end) / 2;
@@ -834,13 +900,16 @@ function computeCaptionRanges(start, end, cuts, sourceId = null, timeDomain = un
         sourceStart: Math.max(start, segment.in),
         sourceEnd: Math.min(end, segment.out),
         emphasisTimeScale: 1 / segment.speed,
+        track: Number.isInteger(segment.cut?.track) ? segment.cut.track : 0,
       };
     });
+    return dedupeCaptionRanges(ranges, cueId, cuts);
   }
 
   const offsets = computeCutTimelineOffsets(cuts);
   const ranges = [];
   for (const [index, cut] of cuts.entries()) {
+    if (cut.captions === "off") continue;
     if (sourceId !== null && cut.src !== sourceId) continue;
     const overlapStart = Math.max(start, cut.in);
     const overlapEnd = Math.min(end, cut.out);
@@ -852,10 +921,38 @@ function computeCaptionRanges(start, end, cuts, sourceId = null, timeDomain = un
         sourceStart: overlapStart,
         sourceEnd: overlapEnd,
         emphasisTimeScale: 1 / speed,
+        track: Number.isInteger(cut.track) ? cut.track : 0,
+        cutIndex: index,
       });
     }
   }
-  return ranges;
+  return dedupeCaptionRanges(ranges, cueId, cuts);
+}
+
+function dedupeCaptionRanges(ranges, cueId, cuts) {
+  const occurrences = ranges.map((range, index) => ({
+    ...range,
+    source_cue_id: String(cueId ?? "caption"),
+    start: range.start,
+    end: range.start + range.duration,
+    source_start: range.sourceStart,
+    source_end: range.sourceEnd,
+    track: range.track ?? 0,
+    rangeIndex: index,
+  }));
+  const trackOrder = [...new Set(cuts.map(cut => Number.isInteger(cut?.track) ? cut.track : 0))]
+    .sort((left, right) => left - right);
+  return dedupeCaptionOccurrences(occurrences, trackOrder).map((occurrence) => {
+    const {
+      source_cue_id: _sourceCueId,
+      source_start: sourceStart,
+      source_end: sourceEnd,
+      end: occurrenceEnd,
+      rangeIndex: _rangeIndex,
+      ...range
+    } = occurrence;
+    return { ...range, duration: occurrenceEnd - occurrence.start, sourceStart, sourceEnd };
+  });
 }
 
 export function sourceRangeToTimeline(start, end, cuts) {
@@ -1091,13 +1188,17 @@ export function renderStyledCaptionFragment(words, style, options = {}) {
   const rangeEnd = options.rangeEnd ?? Math.max(rangeStart, ...words.map((word) => word.end));
   const emphasisTimeScale = options.emphasisTimeScale ?? 1;
   const normalizedStyle = SUPPORTED_WORD_STYLES.has(style) ? style : null;
-  const emphasisWords = normalizeEmphasisWords(options.emphasisWords);
+  const emphasisWords = normalizeEmphasisWords(options.emphasisWords, options.output);
   const renderTokens = Array.isArray(options.displayTokens)
     ? options.displayTokens
     : words.map((word) => ({ ...word, sourceText: word.text, untimed: false }));
   const hasEmphasis = renderTokens.some(
     (word) => !word.untimed && findMatchingEmphasis(word, emphasisWords),
   );
+  const hasPresetEmphasis = renderTokens.some((word) => {
+    const emphasis = !word.untimed && findMatchingEmphasis(word, emphasisWords);
+    return Boolean(emphasis?._presetStyleVars);
+  });
   const effectiveStyle = normalizedStyle ?? (hasEmphasis ? null : KARAOKE_STYLE);
   const rootStyle = effectiveStyle ?? "emphasis";
   const useMappedLines = Array.isArray(options.displayTokens) || effectiveStyle === REVEAL_STYLE;
@@ -1223,7 +1324,7 @@ ${writingModeCss}    }${blockPlateCss}${extendedPlateCss}
     }
     .akari-caption__tok--pop {
       animation: akari-caption-pop 0.2s var(--akari-tok-delay, 0s) ease-out both paused;
-    }${revealWordCss}${revealCss}${emphasisCss}
+    }${revealWordCss}${revealCss}${emphasisCss}${hasPresetEmphasis ? RESOLVED_CAPTION_WORD_PRESET_CSS : ''}
   </style>
   <div class="akari-caption__plate">${plateMarkup}</div>
 </div>`;
@@ -1562,6 +1663,9 @@ function renderCaptionToken(word, rangeStart, style, emphasisWords = [], emphasi
 
 function renderEmphasisCaptionToken(word, rangeStart, emphasis, timeScale, charText = null) {
   const text = charText ?? escapeHtml;
+  if (emphasis._presetStyleVars) {
+    return `<span class="akari-caption__tok akari-caption__tok--emphasis akari-caption__tok--preset" data-emphasis-id="${escapeHtml(emphasis.id)}" data-emphasis-preset="${escapeHtml(emphasis.style_preset)}" style="${captionStyleVarsAttribute(emphasis._presetStyleVars)}">${text(word.text)}</span>`;
+  }
   const style = resolveEmphasisStyle(emphasis);
   const overlapStart = Math.max(word.start, emphasis.t_start);
   const overlapEnd = Math.min(word.end, emphasis.t_end);
@@ -1684,7 +1788,7 @@ function renderEmphasisCss() {
     }`;
 }
 
-function normalizeEmphasisWords(value) {
+function normalizeEmphasisWords(value, output) {
   if (!Array.isArray(value)) return [];
   const seenIds = new Set();
   const normalized = [];
@@ -1705,10 +1809,20 @@ function normalizeEmphasisWords(value) {
       && typeof item.emotion === "string"
       && /\S/u.test(item.emotion)
       && (item.src === undefined || (typeof item.src === "string" && /\S/u.test(item.src)))
-      && (item.style_hint === undefined || typeof item.style_hint === "string");
+      && (item.style_hint === undefined || typeof item.style_hint === "string")
+      && (item.style_preset === undefined || typeof item.style_preset === "string");
     if (!valid) continue;
     seenIds.add(item.id);
-    normalized.push(item);
+    if (item._presetStyleVars && typeof item._presetStyleVars === "object") {
+      normalized.push(item);
+      continue;
+    }
+    const preset = typeof item.style_preset === "string" && item.style_preset.length > 0
+      ? resolveCaptionStylePreset({ style_preset: item.style_preset }, TEXTSTYLE_CATALOG)
+      : null;
+    normalized.push(preset?.resolved
+      ? { ...item, _presetStyleVars: resolveCaptionStyleForOutput(preset.record.text_style, output).vars }
+      : item);
   }
   return normalized;
 }

@@ -29,6 +29,23 @@ export interface UiTarget {
     id: string;
 }
 
+export interface TimelineUiTarget {
+    readonly kind: 'item' | 'cut' | 'overlay';
+    /** kind === 'cut' 以外で必ず入る。 */
+    readonly id?: string;
+    /** kind === 'cut' のときの cuts[] index。 */
+    readonly index?: number;
+}
+
+export interface UiTargetRow {
+    /** 画面に出す表示名（必ず非空。未知 id は id をそのまま返す）。 */
+    readonly label: string;
+    /** title 属性用の完全表記（`ui:<id>`）。 */
+    readonly title: string;
+    /** タイムライン上で選択・スクロールできる target か（timeline:* のときだけ true）。 */
+    readonly revealable: boolean;
+}
+
 const DOC_TARGET_PATTERN = /^doc:(.+)#(.+)$/;
 const IMAGE_TARGET_PATTERN = /^image:(.+)$/;
 /** contract-2026-07-26-canvas-surface §4: canvas:<c-NNNN>。 */
@@ -66,6 +83,49 @@ export function parseUiTarget(target: string | null | undefined): UiTarget | und
     }
     const match = UI_TARGET_PATTERN.exec(target);
     return match ? { id: match[1] } : undefined;
+}
+
+/** `ui:` を外した timeline target id を解釈する。 */
+export function parseTimelineUiTarget(uiTargetId: string | null | undefined): TimelineUiTarget | undefined {
+    if (typeof uiTargetId !== 'string') return undefined;
+    const item = /^timeline:item:(.+)$/.exec(uiTargetId);
+    if (item?.[1]) return { kind: 'item', id: item[1] };
+    const cut = /^timeline:cut:(\d+)$/.exec(uiTargetId);
+    if (cut) return { kind: 'cut', index: Number(cut[1]) };
+    const overlay = /^timeline:overlay:(.+)$/.exec(uiTargetId);
+    if (overlay?.[1]) return { kind: 'overlay', id: overlay[1] };
+    return undefined;
+}
+
+/** ui: target 1 件をパネル・ボード共通の表示行モデルへ落とす。 */
+export function buildUiTargetRow(
+    uiTargetId: string, labels?: Readonly<Record<string, string>>
+): UiTargetRow {
+    const timelineTarget = parseTimelineUiTarget(uiTargetId);
+    const indexedLabel = labels?.[uiTargetId];
+    const label = typeof indexedLabel === 'string' && indexedLabel.trim()
+        ? indexedLabel.trim()
+        : timelineTarget?.kind === 'cut'
+            ? `C${timelineTarget.index! + 1}`
+            : uiTargetId;
+    return { label, title: `ui:${uiTargetId}`, revealable: timelineTarget !== undefined };
+}
+
+/**
+ * `ui:` 付きの review.json target 群のうち、labels 索引に表示名が無い timeline:* が
+ * 1 件でもあるか。cut は索引なしでも C<n+1> を表示できるため要求対象にしない。
+ */
+export function needsUiTargetLabels(
+    targets: readonly (string | null | undefined)[], labels?: Readonly<Record<string, string>>
+): boolean {
+    return targets.some(target => {
+        const uiTarget = parseUiTarget(target);
+        if (!uiTarget) return false;
+        const timelineTarget = parseTimelineUiTarget(uiTarget.id);
+        if (!timelineTarget || timelineTarget.kind === 'cut') return false;
+        const label = labels?.[uiTarget.id];
+        return typeof label !== 'string' || !label.trim();
+    });
 }
 
 /**

@@ -7,13 +7,14 @@ import { AkariAudioMeterWidget } from './akari-audio-meter-widget';
 import { FileUri } from '@theia/core/lib/common/file-uri';
 import { selectPreviewAudioItemsAt } from '../common/preview-audio-priority';
 import { previewAudioTrimOf } from '../common/preview-audio-trim';
-import { Command, CommandRegistry, MessageService } from '@theia/core/lib/common';
+import { Command, CommandRegistry, MenuModelRegistry, MessageService } from '@theia/core/lib/common';
 import { BinaryBuffer } from '@theia/core/lib/common/buffer';
 import { Disposable, DisposableCollection } from '@theia/core/lib/common/disposable';
 import { EnvVariablesServer } from '@theia/core/lib/common/env-variables';
 import { PreferenceService } from '@theia/core/lib/common/preferences';
 import {
     ApplicationShell,
+    ContextMenuRenderer,
     FrontendApplicationContribution,
     OpenHandler,
     OpenerService,
@@ -23,7 +24,7 @@ import {
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
 import { FileChangesEvent, FileStat } from '@theia/filesystem/lib/common/files';
 import { WorkspaceService } from '@theia/workspace/lib/browser/workspace-service';
-import { WebviewWidget } from '@theia/plugin-ext/lib/main/browser/webview/webview';
+import { WEBVIEW_CONTEXT_MENU, WebviewWidget } from '@theia/plugin-ext/lib/main/browser/webview/webview';
 import { inject, injectable } from '@theia/core/shared/inversify';
 import {
     buildTimelineMap,
@@ -74,6 +75,7 @@ import {
     persistCaptionText,
     persistCaptionZone
 } from '../common/caption-zone-write';
+import { persistCaptionPlateTransform } from '../common/caption-plate-handles';
 import { collectItems, hasInlineCaptions, readPreviewInternalEdit } from '../common/preview-items';
 import { filterRenderableFrameEngineLayers } from '../common/frame-engine-layer-supply';
 import { parseRenderScaleMode, resolveRenderScale, scaledOutputSize, scaleEvaluationPlan, RenderScaleMode } from '../common/frame-engine-render-scale';
@@ -108,6 +110,7 @@ import { resolveLayerHitRegionClip } from '../common/layer-hit-region';
 import { layerDeclaredGeometryHitAt, resolveLayerDeclaredSize } from '../common/layer-declared-geometry';
 import { computeLayerKeyframesVisual } from '../common/layer-keyframes-visual';
 import { layerResizeCornerPoint } from '../common/layer-resize-anchor';
+import { buildPreviewContextMenuMessage } from '../common/preview-context-menu';
 import {
     buildCaptionAnimatorSummaryFields,
     CaptionAnimatorSummary,
@@ -121,7 +124,11 @@ import {
     MotionSummary,
     normalizeChromaKeyForSummary
 } from '../common/edit-summary-fields';
-import { normalizePersistentStrokeItems, PEN_TUNING } from '../common/pen-canvas-visuals';
+import {
+    normalizePersistentStrokeItems,
+    PEN_TUNING,
+    resolveStrokeLifetimeAlpha
+} from '../common/pen-canvas-visuals';
 import { fitPreviewCompositeRect } from '../common/preview-composite-layout';
 import { computeZoomMinimapLayout } from '../common/zoom-minimap-layout';
 import { outputTimeForSourceClock, resolveSourceClockPosition } from '../common/preview-playback-clock';
@@ -729,6 +736,17 @@ interface CaptionWriteRequest {
         | { groupZone: CaptionZoneValue }
         | { groupPosition: { anchor: 'bc' | 'tc'; position: { x?: number; y: number } } }
         | { cuePosition: { anchor: 'bc' | 'tc'; position: { x?: number; y: number } } }
+        | {
+            plateTransform: {
+                captionIds: string[];
+                scale?: number;
+                rotate?: number;
+                cuePosition?: {
+                    captionId: string;
+                    value: { anchor: 'bc' | 'tc'; position: { x?: number; y: number } };
+                };
+            };
+        }
         | { cuePositionReset: true };
 }
 
@@ -903,6 +921,8 @@ const REVIEW_SESSION_STOP_EVENT = 'akari.review.session.stop';
 const REVIEW_SESSION_REFRESH_EVENT = 'akari.review.session.refresh';
 const REVIEW_SESSION_OPEN_FOLDER_EVENT = 'akari.review.session.openFolder';
 const REVIEW_SESSION_STATE_EVENT = 'akari.review.session.state';
+// akari-session-viewer-widget.ts の同名定数と文字列だけミラーする。
+const REVIEW_SESSION_VIEWER_SYNC_EVENT = 'akari.review.session.viewer.sync';
 // M2 (task.md): 右パネルの選択/ペン/四角ボタンからの mode request。akari-annotations 側と
 // 文字列だけミラーする（既存 5 定数と同じ配線パターン）。
 const REVIEW_TOOL_MODE_SET_EVENT = 'akari.review.toolMode.set';
@@ -919,6 +939,11 @@ const ENSURE_PREVIEW_VISIBLE_COMMAND: Command = { id: 'akari.preview.ensureVisib
 const SEEK_OUTPUT_PREVIEW_COMMAND: Command = { id: 'akari.preview.seekOutput' };
 const TOGGLE_OUTPUT_PREVIEW_PLAYBACK_COMMAND: Command = { id: 'akari.preview.togglePlayback' };
 const COMPACT_TRACKS_COMMAND: Command = { id: 'akari.preview.compactTracks' };
+const ANNOTATE_PREVIEW_AT_POINT_COMMAND: Command = { id: 'akari.preview.annotateAtPoint' };
+// akari-annotations の OPEN_AKARI_REVIEW_PANEL_ID とミラー（逆向き npm 依存を作らない）。
+const OPEN_AKARI_REVIEW_PANEL_COMMAND_ID = 'akari.review.open';
+// akari-annotations の CLIP_ANNOTATION_REQUEST_EVENT とミラー（逆向き npm 依存を作らない）。
+const CLIP_ANNOTATION_REQUEST_EVENT = 'akari.review.clipAnnotation.request';
 const COMPACT_TRACKS_ACTION = '整理する';
 const KEEP_TRACKS_ACTION = '今はしない';
 // task/2026-08-09-drop-hevc-proxy: withOpenTimeout はモデル読み込み・createVideoStream・
@@ -990,6 +1015,15 @@ interface PreviewReviewTransportRequest {
 interface ReviewSessionControlRequest {
     projectRootUri?: string;
     editUri?: string;
+}
+
+interface ReviewSessionViewerSyncDetail {
+    phase: 'attach' | 'tick' | 'detach';
+    projectRootUri: string;
+    editUri: string;
+    sessionId: string;
+    recT?: number;
+    timelineT?: number;
 }
 
 // task.md 指示2/6: 右パネルのツールボタン列/ショートカットからの mode 切替 request
@@ -1113,10 +1147,23 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
     protected reviewSessionRecorder: ReviewSessionRecorder | undefined;
     protected reviewSessionRecordingIndicator: ReviewSessionRecordingIndicator | undefined;
     protected readonly reviewSessionStateByEdit = new Map<string, ReviewSessionUiState>();
+    protected pendingSessionViewerTick: ReviewSessionViewerSyncDetail | undefined;
+    protected readonly sessionViewerSeekThrottle = createRafThrottle(() => {
+        const detail = this.pendingSessionViewerTick;
+        this.pendingSessionViewerTick = undefined;
+        if (!detail || !Number.isFinite(detail.timelineT)) return;
+        const editUri = this.normalizeReviewEditUri(detail.editUri);
+        this.openOutputPreviews.get(editUri ?? '')?.sendMessage({
+            type: 'akari-preview-seek', time: detail.timelineT
+        });
+    });
     protected readonly reviewStrokeVisibilityByEdit = new Map<string, boolean>();
     protected retryWidgetSequence = 0;
     protected activeRawPreviewWidget: PreviewWidgetMarker | undefined;
     protected rawPreviewActivation = 0;
+    protected lastClipAnnotationContext: {
+        editUri: string; timelineT: number; itemId?: string; kind?: 'cut';
+    } | undefined;
 
     @inject(WidgetManager)
     protected readonly widgetManager: WidgetManager;
@@ -1139,6 +1186,12 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
     @inject(CommandRegistry)
     protected readonly commandRegistry: CommandRegistry;
 
+    @inject(MenuModelRegistry)
+    protected readonly menuModelRegistry: MenuModelRegistry;
+
+    @inject(ContextMenuRenderer)
+    protected readonly contextMenuRenderer: ContextMenuRenderer;
+
     @inject(MessageService)
     protected readonly messages: MessageService;
 
@@ -1152,6 +1205,18 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
     protected readonly envVariables: EnvVariablesServer;
 
     onStart(): void {
+        this.lifecycleDisposables.push(this.commandRegistry.registerCommand(ANNOTATE_PREVIEW_AT_POINT_COMMAND, {
+            execute: async () => {
+                const detail = this.lastClipAnnotationContext;
+                if (!detail) return;
+                await this.commandRegistry.executeCommand(OPEN_AKARI_REVIEW_PANEL_COMMAND_ID);
+                window.dispatchEvent(new CustomEvent(CLIP_ANNOTATION_REQUEST_EVENT, { detail }));
+            }
+        }));
+        this.lifecycleDisposables.push(this.menuModelRegistry.registerMenuAction(WEBVIEW_CONTEXT_MENU, {
+            commandId: ANNOTATE_PREVIEW_AT_POINT_COMMAND.id,
+            label: 'この位置に注釈'
+        }));
         this.reviewSessionRecordingIndicator = new ReviewSessionRecordingIndicator();
         this.reviewSessionRecorder = new ReviewSessionRecorder(
             this.previewService,
@@ -1289,6 +1354,19 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         };
         window.addEventListener('akari.timeline.primarySelected', onPrimarySelected);
         this.lifecycleDisposables.push({ dispose: () => window.removeEventListener('akari.timeline.primarySelected', onPrimarySelected) });
+        const onDaihonSelectionChanged = (event: Event): void => {
+            const detail = (event as CustomEvent<{ editUri?: unknown; captionIds?: unknown }>).detail;
+            if (typeof detail?.editUri !== 'string' || !Array.isArray(detail.captionIds)) return;
+            const captionIds = detail.captionIds.filter((id): id is string => typeof id === 'string');
+            const key = new URI(detail.editUri).normalizePath().toString();
+            this.openOutputPreviews.get(key)?.sendMessage({
+                type: 'akari-preview-set-selected-captions', captionIds
+            });
+        };
+        window.addEventListener('akari.daihon.selectionChanged', onDaihonSelectionChanged);
+        this.lifecycleDisposables.push({
+            dispose: () => window.removeEventListener('akari.daihon.selectionChanged', onDaihonSelectionChanged)
+        });
         const registerTimelineSetting = <T extends { editUri?: string }>(
             type: string,
             apply: (widget: PreviewWidgetMarker | undefined, detail: T, settings: PreviewSessionSettings) => void
@@ -1687,6 +1765,17 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 this.messages.warn(`録音セッションの保存先を開けません: ${detail}`);
             });
         });
+        register(REVIEW_SESSION_VIEWER_SYNC_EVENT, event => {
+            const detail = (event as CustomEvent<ReviewSessionViewerSyncDetail>).detail;
+            if (!detail?.projectRootUri || !detail.editUri || !detail.sessionId) return;
+            if (detail.phase === 'tick') {
+                if (!Number.isFinite(detail.timelineT)) return;
+                this.pendingSessionViewerTick = detail;
+                this.sessionViewerSeekThrottle.call();
+                return;
+            }
+            void this.handleSessionViewerSync(detail);
+        });
         register(REVIEW_ANNOTATION_SHOW_STROKES_EVENT, event => {
             const detail = (event as CustomEvent<ReviewAnnotationStrokeRequest>).detail;
             if (detail) {
@@ -1871,14 +1960,20 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         const widget = this.openOutputPreviews.get(editUri);
         if (visibility === 'unavailable' || !widget?.isAttached) return;
         const first = replay.strokes[0];
-        let compositionSeconds = first.frame.sourceT;
-        try {
-            const model = await this.loadPreviewModel(new URI(editUri));
-            compositionSeconds = resolveAnnotationStrokeCompositionSeconds(
-                model.summary.cuts, first.frame.sourceT, first.frame.cutIndex
-            );
-        } catch {
-            // Keep the source-seconds fallback for old snapshots and partially repaired projects.
+        // v2 edit では sourceT が 0 に退避される場合があるため、記録済みの timelineT を優先する。
+        // timelineT の無い旧データだけ、従来の sourceT/cutIndex 解決へフォールバックする。
+        let compositionSeconds = Number.isFinite(first.frame.timelineT)
+            ? first.frame.timelineT
+            : first.frame.sourceT;
+        if (!Number.isFinite(first.frame.timelineT)) {
+            try {
+                const model = await this.loadPreviewModel(new URI(editUri));
+                compositionSeconds = resolveAnnotationStrokeCompositionSeconds(
+                    model.summary.cuts, first.frame.sourceT, first.frame.cutIndex
+                );
+            } catch {
+                // Keep the source-seconds fallback for old snapshots and partially repaired projects.
+            }
         }
         this.setReviewStrokeVisibility(editUri, true);
         this.syncReviewStrokeControls(state);
@@ -1887,6 +1982,31 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             type: 'akari-preview-show-session-strokes',
             sessionId,
             target: { tab: editUri, recT: first.recTStart },
+            strokes: replay.strokes
+        });
+    }
+
+    protected async handleSessionViewerSync(detail: ReviewSessionViewerSyncDetail): Promise<void> {
+        const editUri = this.normalizeReviewEditUri(detail.editUri);
+        if (!editUri) return;
+        if (detail.phase === 'detach') {
+            this.openOutputPreviews.get(editUri)?.sendMessage({
+                type: 'akari-preview-show-session-strokes', sessionId: detail.sessionId,
+                target: { tab: editUri, recT: 0 }, strokes: []
+            });
+            return;
+        }
+        if (detail.phase !== 'attach') return;
+        const replay = await this.previewService.readReviewSessionStrokes({
+            projectRootUri: detail.projectRootUri, sessionId: detail.sessionId
+        });
+        const visibility = await this.ensureVisible(editUri);
+        const widget = this.openOutputPreviews.get(editUri);
+        if (visibility === 'unavailable' || !widget?.isAttached) return;
+        this.setReviewStrokeVisibility(editUri, true);
+        widget.sendMessage({
+            type: 'akari-preview-show-session-strokes', sessionId: detail.sessionId,
+            target: { tab: editUri, recT: replay.strokes[0]?.recTStart ?? 0 },
             strokes: replay.strokes
         });
     }
@@ -2382,6 +2502,33 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             engine: lastAudioMeterFrame?.engine ?? 'frame-engine', t: lastAudioMeterFrame?.t ?? 0
         }));
         disposables.push(widget.onMessage(message => {
+            if (message?.type === 'akari-preview-alt-all' && typeof message.on === 'boolean') {
+                window.dispatchEvent(new CustomEvent('akari.selection.altAll', { detail: { on: message.on } }));
+            }
+            if (message?.type === 'akari-preview-context-menu') {
+                console.debug('[akari-preview] context menu', message);
+                const editUri = widget.akariPreviewEditUri?.normalizePath().toString();
+                if (kind === 'output' && editUri && typeof message.timelineT === 'number'
+                    && Number.isFinite(message.timelineT)
+                    && typeof message.x === 'number' && Number.isFinite(message.x)
+                    && typeof message.y === 'number' && Number.isFinite(message.y)) {
+                    const selection = this.primaryTimelineSelections.get(editUri);
+                    this.lastClipAnnotationContext = {
+                        editUri,
+                        timelineT: message.timelineT,
+                        ...(selection?.kind === 'cut' ? { itemId: selection.id, kind: 'cut' as const } : {})
+                    };
+                    const rect = widget.node.getBoundingClientRect();
+                    this.contextMenuRenderer.render({
+                        menuPath: WEBVIEW_CONTEXT_MENU,
+                        anchor: {
+                            x: rect.x + rect.width * message.x,
+                            y: rect.y + rect.height * message.y
+                        },
+                        context: widget.node
+                    });
+                }
+            }
             if (message?.type === 'akari-preview-gesture'
                 && (message.phase === 'begin' || message.phase === 'saved' || message.phase === 'end')) {
                 const result = reducePreviewGesture(
@@ -5525,6 +5672,21 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             };
             const lintResult = 'text' in request.patch
                 ? await persistCaptionText({ ...persistOptions, text: request.patch.text })
+                : 'plateTransform' in request.patch
+                    ? await persistCaptionPlateTransform({
+                        source: originalText,
+                        captionIds: request.patch.plateTransform.captionIds,
+                        patch: {
+                            ...(request.patch.plateTransform.scale === undefined
+                                ? {} : { scale: request.patch.plateTransform.scale }),
+                            ...(request.patch.plateTransform.rotate === undefined
+                                ? {} : { rotate: request.patch.plateTransform.rotate })
+                        },
+                        ...(request.patch.plateTransform.cuePosition
+                            ? { cuePosition: request.patch.plateTransform.cuePosition } : {}),
+                        lint: persistOptions.lint,
+                        write: persistOptions.write
+                    })
                 : 'cuePosition' in request.patch
                     ? await persistCaptionCuePosition({ ...persistOptions, value: request.patch.cuePosition })
                     : 'cuePositionReset' in request.patch
@@ -5581,13 +5743,40 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 || (Number.isFinite(cuePosition.position.x)
                     && cuePosition.position.x >= -1 && cuePosition.position.x <= 2));
         const hasCuePositionReset = message?.patch?.cuePositionReset === true;
+        const plateTransform = message?.patch?.plateTransform;
+        const plateCuePosition = plateTransform?.cuePosition;
+        const hasValidPlateCuePosition = plateCuePosition === undefined || (
+            typeof plateCuePosition.captionId === 'string' && plateCuePosition.captionId.length > 0
+            && (plateCuePosition.value?.anchor === 'bc' || plateCuePosition.value?.anchor === 'tc')
+            && plateCuePosition.value?.position && typeof plateCuePosition.value.position === 'object'
+            && Number.isFinite(plateCuePosition.value.position.y)
+            && plateCuePosition.value.position.y >= -1 && plateCuePosition.value.position.y <= 2
+            && (plateCuePosition.value.position.x === undefined
+                || (Number.isFinite(plateCuePosition.value.position.x)
+                    && plateCuePosition.value.position.x >= -1
+                    && plateCuePosition.value.position.x <= 2))
+        );
+        const hasPlateScale = plateTransform?.scale !== undefined
+            && Number.isFinite(plateTransform.scale)
+            && plateTransform.scale >= 0.4 && plateTransform.scale <= 3;
+        const hasPlateRotate = plateTransform?.rotate !== undefined
+            && Number.isFinite(plateTransform.rotate)
+            && plateTransform.rotate >= -180 && plateTransform.rotate <= 180;
+        const hasPlateTransform = !!plateTransform
+            && Array.isArray(plateTransform.captionIds)
+            && plateTransform.captionIds.length > 0
+            && plateTransform.captionIds.every((id: unknown) => typeof id === 'string' && id.length > 0)
+            && (hasPlateScale || hasPlateRotate)
+            && (plateTransform.scale === undefined || hasPlateScale)
+            && (plateTransform.rotate === undefined || hasPlateRotate)
+            && hasValidPlateCuePosition;
         return message?.type === 'akari-preview-caption-write'
             && typeof message.requestId === 'string'
             && typeof message.captionId === 'string'
             && message.patch
             && typeof message.patch === 'object'
             && [hasZone, hasText, hasGroupZone, !!hasGroupPosition,
-                !!hasCuePosition, hasCuePositionReset].filter(Boolean).length === 1;
+                !!hasCuePosition, hasCuePositionReset, hasPlateTransform].filter(Boolean).length === 1;
     }
 
     protected async persistCaptionGroupZoneForWidget(
@@ -6091,10 +6280,25 @@ ${kind === 'raw' ? '.akari-material-chip { position: absolute; top: 8px; left: 8
 #transition-fallback-label { position: absolute; left: 50%; bottom: 7%; display: none; transform: translateX(-50%); padding: 6px 10px; border: 1px solid rgba(255,255,255,.45); border-radius: 999px; background: rgba(20,20,20,.82); color: #fff; font-size: 12px; font-weight: 600; white-space: nowrap; pointer-events: none; }
 /* プレーン字幕 host の見た目は焼き込み既定（captions.mjs）とパリティ: 透明座布団 + 実ストローク縁取り。
    shrink-to-fit の形状と cursor: move はドラッグ当たり判定のため維持する。 */
-#caption-plate { position: absolute; left: 50%; bottom: 7%; max-width: 92%; transform: translateX(-50%); padding: 0.08em 0.42em; border-radius: 10px; background: transparent; color: #fff; font-size: ${captionFontSize}px; font-weight: 700; line-height: 1.42; text-align: center; -webkit-text-stroke: 0.14em rgba(0,0,0,.9); paint-order: stroke fill; text-shadow: 0 2px 8px rgba(0,0,0,.35); white-space: pre-wrap; pointer-events: auto; cursor: move; user-select: none; }
+#caption-plate { position: absolute; left: 50%; bottom: 7%; max-width: 92%; transform: translateX(-50%) rotate(var(--caption-rotate, 0deg)) scale(var(--caption-scale, 1)); transform-origin: center; padding: 0.08em 0.42em; border-radius: 10px; background: transparent; color: #fff; font-size: ${captionFontSize}px; font-weight: 700; line-height: 1.42; text-align: center; -webkit-text-stroke: 0.14em rgba(0,0,0,.9); paint-order: stroke fill; text-shadow: 0 2px 8px rgba(0,0,0,.35); white-space: pre-wrap; pointer-events: auto; cursor: move; user-select: none; }
 #caption-plate:empty { display: none; }
 #caption-plate.akari-caption-host--editing:empty { display: block; min-width: 1em; min-height: 1.42em; }
 #caption-plate.akari-caption-host--styled { pointer-events: none; inset: 0; max-width: none; transform: none; padding: 0; border-radius: 0; background: none; text-shadow: none; white-space: normal; --caption-font-size: ${captionFontSize}px; }
+#caption-plate[data-selected] { outline: 1.5px solid #f5c451; outline-offset: 4px; }
+#caption-plate[data-alt-all] { outline-style: dashed; outline-color: #53d1bc; }
+#caption-plate.akari-caption-host--styled[data-selected] { outline: none; }
+#caption-plate.akari-caption-host--styled[data-selected] .akari-caption__plate { outline: 1.5px solid #f5c451; outline-offset: 4px; }
+#caption-plate.akari-caption-host--styled[data-alt-all] .akari-caption__plate { outline-style: dashed; outline-color: #53d1bc; }
+#caption-plate .akari-caption-handle-box { position:absolute;pointer-events:none; }
+#caption-plate .akari-caption-handle { position:absolute;width:11px;height:11px;border-radius:50%;background:#fff;border:2px solid #f5c451;box-shadow:0 1px 4px rgba(0,0,0,.6);pointer-events:auto; }
+#caption-plate .akari-caption-handle[data-h="nw"] { left:-10px;top:-10px;cursor:nwse-resize; }
+#caption-plate .akari-caption-handle[data-h="ne"] { right:-10px;top:-10px;cursor:nesw-resize; }
+#caption-plate .akari-caption-handle[data-h="sw"] { left:-10px;bottom:-10px;cursor:nesw-resize; }
+#caption-plate .akari-caption-handle[data-h="se"] { right:-10px;bottom:-10px;cursor:nwse-resize; }
+#caption-plate .akari-caption-handle[data-h="rot"] { left:50%;top:-34px;transform:translateX(-50%);width:14px;height:14px;border-radius:50%;background:#f5c451;border:2px solid #fff;cursor:grab; }
+#caption-plate .akari-caption-handle[data-h="rot"]::before { content:"";position:absolute;left:50%;top:12px;width:1.5px;height:18px;background:#f5c451;transform:translateX(-50%); }
+#caption-plate[data-alt-all] .akari-caption-handle { border-color:#53d1bc; }
+#caption-plate[data-alt-all] .akari-caption-handle[data-h="rot"] { background:#53d1bc; }
 #caption-plate.akari-caption-host--editing, #caption-plate.akari-caption-host--editing * { cursor: text; user-select: text; }
 #caption-plate.akari-caption-host--styled .akari-caption__line, #caption-plate.akari-caption-host--styled .akari-caption__block { pointer-events: auto; }
 #caption-plate [data-akari-caption-editing="true"], #caption-plate[data-akari-caption-editing="true"] { pointer-events: auto; outline: 1px solid rgba(255,255,255,0.9); outline-offset: 3px; caret-color: currentColor; }
@@ -6366,6 +6570,7 @@ body { display: grid; place-items: center; padding: 32px; }
         return `(() => {
             const initial = window.__akariPreview;
             const clampPreviewPlaybackRateFn = (${clampPreviewPlaybackRate.toString()});
+            const buildPreviewContextMenuMessageFn = (${buildPreviewContextMenuMessage.toString()});
             const vscode = acquireVsCodeApi();
             const audioMeterOpen = document.getElementById('audio-meter-open');
             audioMeterOpen.addEventListener('click', () => {
@@ -6408,6 +6613,21 @@ body { display: grid; place-items: center; padding: 32px; }
             const stage = document.getElementById('overlay-stage');
             const penLayer = document.getElementById('pen-layer');
             const output = initial.summary.output;
+            let contextMenuTimelineT = Number.isFinite(initial.initialSeekTime)
+                ? Math.max(0, initial.initialSeekTime) : 0;
+            let selectedPrimary = null;
+
+            document.addEventListener('contextmenu', event => {
+                event.preventDefault();
+                const message = buildPreviewContextMenuMessageFn(
+                    event.clientX,
+                    event.clientY,
+                    previewStage.getBoundingClientRect(),
+                    contextMenuTimelineT,
+                    selectedPrimary?.id
+                );
+                vscode.postMessage(message);
+            }, true);
 
             let reloadToastTimer;
             function showReloadToast() {
@@ -7108,6 +7328,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 audioMeterTap = null;
             }, { once: true });
             window.akari.playbackTick = (time, playing, immediate = false) => {
+                if (Number.isFinite(time)) contextMenuTimelineT = Math.max(0, time);
                 const now = performance.now();
                 if (!immediate && now - lastPlaybackTickAt < 50) return;
                 lastPlaybackTickAt = now;
@@ -7147,17 +7368,24 @@ body { display: grid; place-items: center; padding: 32px; }
                 vscode.postMessage({ type: 'akari-preview-gesture', phase });
             };
             window.akari.reportOverlaySelection = overlayId => {
+                if (overlayId) selectedPrimary = null;
                 vscode.postMessage({ type: 'akari-preview-overlay-selected', overlayId });
             };
             window.akari.reportLayerSelection = layerId => {
+                if (layerId) selectedPrimary = null;
                 vscode.postMessage({ type: 'akari-preview-layer-selected', layerId });
             };
             window.akari.reportCutSelection = cutId => {
+                if (cutId) selectedPrimary = { kind: 'cut', id: cutId };
+                else if (selectedPrimary?.kind === 'cut') selectedPrimary = null;
                 vscode.postMessage({ type: 'akari-preview-cut-selected', cutId });
             };
             window.akari.reportCaptionSelection = captionId => {
+                if (captionId) selectedPrimary = { kind: 'caption', id: captionId };
+                else if (selectedPrimary?.kind === 'caption') selectedPrimary = null;
                 vscode.postMessage({ type: 'akari-preview-caption-selected', captionId });
             };
+            window.akari.reportAltAll = on => vscode.postMessage({ type: 'akari-preview-alt-all', on });
             if (outputPreviewLink && initial.relatedEditUri) {
                 outputPreviewLink.addEventListener('click', () => {
                     vscode.postMessage({ type: 'akari-preview-open-output-request' });
@@ -8882,6 +9110,7 @@ body { display: grid; place-items: center; padding: 32px; }
             // 実際の描画ロジック（グロー/スパークル/フェード）はここに残したまま無変更。
             const PEN_TUNING = ${JSON.stringify(PEN_TUNING)};
             const normalizePersistentStrokeItemsFn = (${normalizePersistentStrokeItems.toString()});
+            const resolveStrokeLifetimeAlphaFn = (${resolveStrokeLifetimeAlpha.toString()});
             // task.md 指示4 (rect tool): normalized drag -> [x,y,w,h] box, same shape as
             // review.json's region.box (../common/rect-tool-visual.ts).
             const normalizeRectFromPointsFn = (${normalizeRectFromPoints.toString()});
@@ -9126,10 +9355,16 @@ body { display: grid; place-items: center; padding: 32px; }
             let hevcFallbackInFlight = false;
             let audioNoticeShown = false;
             let activeCaption = null;
+            let selectedCaptionIds = new Set();
+            let captionAltAll = false;
             let styledCaptionActive = false;
             let captionHitRegionPending = false;
             let activeCaptionEdit = null;
             let reviewRecordingActive = false;
+            let reviewRecordingStartedAt = 0;
+            // host の recT と原点は厳密一致しないが、表示規則は経過秒の相対差しか使わないため十分。
+            // ディスクへ書く recT は host（ReviewSessionRecorder）が唯一の正本で、ここでは一切書かない。
+            const reviewRecNow = () => (performance.now() - reviewRecordingStartedAt) / 1000;
             // docs/contract-2026-08-11-review-session-ui-events.md #1 / internal
             // annotation-everywhere §3 (M2): neutral/pen/rect/select, mirrored from
             // ReviewSessionRecorder's toolModeState (host is authoritative -- see
@@ -9143,6 +9378,8 @@ body { display: grid; place-items: center; padding: 32px; }
             let sparkles = [];
             let annotationStrokeItems = [];
             let persistentStrokeItems = [];
+            let localStrokeSequence = 0;
+            const nextLocalStrokeId = () => 'local-st-' + String(++localStrokeSequence).padStart(4, '0');
             let persistentStrokesVisible = true;
             let activeDrawRect = null;
             let penCanvasWidth = 0;
@@ -9151,6 +9388,8 @@ body { display: grid; place-items: center; padding: 32px; }
             let penAnimationHandle = 0;
             let platinumGradient = null;
             let staticBitmap = null;
+            let lastStrokeLifetimeSignature = '';
+            let strokeLifetimeWasAnimating = false;
 
             const clamp = (value, minimum, maximum) => Math.max(minimum, Math.min(maximum, value));
             const penCtx = penLayer.getContext('2d');
@@ -9216,11 +9455,11 @@ body { display: grid; place-items: center; padding: 32px; }
                 const glowSize = PEN_TUNING.glowSizePx;
                 ctx.save();
                 ctx.globalCompositeOperation = 'lighter';
-                ctx.globalAlpha = PEN_TUNING.glowAlpha;
+                ctx.globalAlpha *= PEN_TUNING.glowAlpha;
                 ctx.drawImage(glowSprite, toPx[0] - glowSize / 2, toPx[1] - glowSize / 2, glowSize, glowSize);
                 ctx.restore();
                 ctx.save();
-                ctx.globalAlpha = PEN_TUNING.coreAlpha;
+                ctx.globalAlpha *= PEN_TUNING.coreAlpha;
                 ctx.strokeStyle = platinumGradient || '#eef2fb';
                 ctx.lineWidth = width;
                 ctx.lineCap = 'round';
@@ -9256,13 +9495,13 @@ body { display: grid; place-items: center; padding: 32px; }
                 const h = box[3] * penCanvasHeight;
                 ctx.save();
                 ctx.globalCompositeOperation = 'lighter';
-                ctx.globalAlpha = PEN_TUNING.glowAlpha;
+                ctx.globalAlpha *= PEN_TUNING.glowAlpha;
                 ctx.strokeStyle = platinumGradient || '#eef2fb';
                 ctx.lineWidth = PEN_TUNING.coreWidthPx * 2.5;
                 ctx.strokeRect(x, y, w, h);
                 ctx.restore();
                 ctx.save();
-                ctx.globalAlpha = PEN_TUNING.coreAlpha;
+                ctx.globalAlpha *= PEN_TUNING.coreAlpha;
                 ctx.strokeStyle = platinumGradient || '#eef2fb';
                 ctx.lineWidth = PEN_TUNING.coreWidthPx;
                 ctx.strokeRect(x, y, w, h);
@@ -9273,12 +9512,40 @@ body { display: grid; place-items: center; padding: 32px; }
                 if (item.tool === 'rect') drawRectShape(staticBitmap.ctx, item.box);
                 else paintStaticStroke(item.points);
             };
+            const strokeLifetimeContext = () => ({
+                recording: reviewRecordingActive === true,
+                visible: persistentStrokesVisible === true,
+                recT: reviewRecNow(),
+                playheadT: outputTime
+            });
+            const strokeLifetimeSignature = () => {
+                const context = strokeLifetimeContext();
+                return [...persistentStrokeItems, ...annotationStrokeItems]
+                    .map(item => resolveStrokeLifetimeAlphaFn(item, context, PEN_TUNING).toFixed(2))
+                    .join(',');
+            };
             const redrawStaticBitmap = () => {
                 if (!staticBitmap) return;
                 staticBitmap.ctx.clearRect(0, 0, penCanvasWidth, penCanvasHeight);
-                if (!persistentStrokesVisible) return;
-                for (const item of persistentStrokeItems) paintStaticItem(item);
-                for (const item of annotationStrokeItems) paintStaticItem(item);
+                const context = strokeLifetimeContext();
+                if (persistentStrokesVisible) {
+                    for (const item of [...persistentStrokeItems, ...annotationStrokeItems]) {
+                        const alpha = resolveStrokeLifetimeAlphaFn(item, context, PEN_TUNING);
+                        if (alpha <= 0) continue;
+                        staticBitmap.ctx.save();
+                        staticBitmap.ctx.globalAlpha = alpha;
+                        paintStaticItem(item);
+                        staticBitmap.ctx.restore();
+                    }
+                }
+                lastStrokeLifetimeSignature = strokeLifetimeSignature();
+            };
+            const syncStrokeLifetime = () => {
+                const next = strokeLifetimeSignature();
+                if (next === lastStrokeLifetimeSignature) return;
+                lastStrokeLifetimeSignature = next;
+                redrawStaticBitmap();
+                recomposite();
             };
             const redrawRectFull = rect => {
                 rect.canvas.width = Math.max(1, Math.round(penCanvasWidth * penCanvasDpr));
@@ -9368,12 +9635,22 @@ body { display: grid; place-items: center; padding: 32px; }
                     stroke.drawnIndex += 1;
                 }
             };
+            const strokeLifetimeAnimating = () => reviewRecordingActive && persistentStrokeItems.some(item => {
+                const base = Number.isFinite(item.recTEnd) ? item.recTEnd : item.recTStart;
+                return Number.isFinite(base)
+                    && (reviewRecNow() - base) < PEN_TUNING.visibleWindowSec + PEN_TUNING.fadeOutMs / 1000;
+            });
             const penTick = timestamp => {
                 if (currentStroke) drawPendingSegments(currentStroke);
                 fadingStrokes = fadingStrokes.filter(fading => penFadeAlpha(fading, timestamp) > 0);
+                syncStrokeLifetime();
+                const lifetimeAnimating = strokeLifetimeAnimating();
+                // 2 桁 signature が 0.00 へ丸まった後も、窓 + フェード終端で最後の透明化を確定する。
+                if (strokeLifetimeWasAnimating && !lifetimeAnimating) redrawStaticBitmap();
+                strokeLifetimeWasAnimating = lifetimeAnimating;
                 recomposite(timestamp);
                 const stillActive = currentStroke !== null || currentRect !== null
-                    || fadingStrokes.length > 0 || sparkles.length > 0;
+                    || fadingStrokes.length > 0 || sparkles.length > 0 || lifetimeAnimating;
                 penAnimationHandle = stillActive ? requestAnimationFrame(penTick) : 0;
             };
             const ensurePenLoopRunning = () => {
@@ -9455,12 +9732,16 @@ body { display: grid; place-items: center; padding: 32px; }
             const canDraw = () => penModeActive && reviewRecordingActive && !isPlaying;
             const canDrawRect = () => rectModeActive && reviewRecordingActive && !isPlaying;
             const currentFrame = () => {
-                const segment = segments[activeSegmentIndex];
+                const mapped = timelineToSource(outputTime);
+                const segment = segments[mapped.index];
                 return {
                     timelineT: outputTime,
-                    sourceT: video.currentTime,
+                    sourceT: mapped.kind === 'src' && Number.isFinite(mapped.time)
+                        ? mapped.time : video.currentTime,
                     cutIndex: segment && segment.kind === 'src' && Number.isInteger(segment.cutIndex)
-                        ? segment.cutIndex : null
+                        ? segment.cutIndex : null,
+                    ...(segment && typeof segment.id === 'string' ? { itemId: segment.id } : {}),
+                    ...(segment && typeof segment.trackId === 'string' ? { trackId: segment.trackId } : {})
                 };
             };
             // task.md 指示3: pen-toggle は既存の入口として残しつつ、実体は共有 toolMode への
@@ -9481,7 +9762,11 @@ body { display: grid; place-items: center; padding: 32px; }
                     captureDrawRect();
                     const point = normalizedPenPoint(event);
                     currentStroke = createActiveStroke(event.pointerId, point);
-                    window.akari.reviewStrokeStart(currentFrame());
+                    const frameAtStart = currentFrame();
+                    const recTStart = reviewRecNow();
+                    currentStroke.recTStart = recTStart;
+                    currentStroke.frameAtStart = frameAtStart;
+                    window.akari.reviewStrokeStart(frameAtStart);
                     ensurePenLoopRunning();
                 } else if (canDrawRect() && !currentRect) {
                     event.preventDefault();
@@ -9494,7 +9779,11 @@ body { display: grid; place-items: center; padding: 32px; }
                         kind: 'rect', pointerId: event.pointerId, start: point,
                         box: [point[0], point[1], 0, 0], canvas: bitmap.canvas, ctx: bitmap.ctx
                     };
-                    window.akari.reviewRectStart(currentFrame());
+                    const frameAtStart = currentFrame();
+                    const recTStart = reviewRecNow();
+                    currentRect.recTStart = recTStart;
+                    currentRect.frameAtStart = frameAtStart;
+                    window.akari.reviewRectStart(frameAtStart);
                     ensurePenLoopRunning();
                 }
             });
@@ -9526,7 +9815,13 @@ body { display: grid; place-items: center; padding: 32px; }
                 }
                 if (completed.points.length < 2) return;
                 window.akari.reviewStrokeEnd(completed.points);
-                persistentStrokeItems.push({ tool: 'pen', points: completed.points });
+                persistentStrokeItems.push({ tool: 'pen', points: completed.points,
+                    id: nextLocalStrokeId(),
+                    recTStart: completed.recTStart,
+                    recTEnd: reviewRecNow(),
+                    ...(Number.isFinite(completed.frameAtStart?.timelineT)
+                        ? { frame: { timelineT: completed.frameAtStart.timelineT } } : {})
+                });
                 redrawStaticBitmap();
                 completed.fadeStartedAt = performance.now();
                 fadingStrokes.push(completed);
@@ -9542,7 +9837,13 @@ body { display: grid; place-items: center; padding: 32px; }
                 }
                 if (completed.box[2] <= 0 || completed.box[3] <= 0) return;
                 window.akari.reviewRectEnd(completed.box);
-                persistentStrokeItems.push({ tool: 'rect', box: completed.box });
+                persistentStrokeItems.push({ tool: 'rect', box: completed.box,
+                    id: nextLocalStrokeId(),
+                    recTStart: completed.recTStart,
+                    recTEnd: reviewRecNow(),
+                    ...(Number.isFinite(completed.frameAtStart?.timelineT)
+                        ? { frame: { timelineT: completed.frameAtStart.timelineT } } : {})
+                });
                 redrawStaticBitmap();
                 completed.fadeStartedAt = performance.now();
                 fadingStrokes.push(completed);
@@ -11690,6 +11991,39 @@ body { display: grid; place-items: center; padding: 32px; }
                     bottom: bottomRight.y
                 };
             };
+            const syncCaptionHandleBox = () => {
+                const box = captionPlate.querySelector('.akari-caption-handle-box');
+                if (!box) return;
+                if (!captionPlate.classList.contains('akari-caption-host--styled')) {
+                    // 非 styled の #caption-plate 自身が文字の箱（shrink-to-fit）。
+                    box.style.inset = '0';
+                    box.style.width = '';
+                    box.style.height = '';
+                    return;
+                }
+                // styled の #caption-plate はステージ全面だがローカル px は表示 px。
+                // client 矩形を祖先の表示倍率で割り戻して文字の外接矩形へ合わせる。
+                const block = captionPlate.querySelector('.akari-caption__block');
+                const elements = block ? [block] : [...captionPlate.querySelectorAll('.akari-caption__line')];
+                const rects = (elements.length > 0 ? elements : [captionPlate])
+                    .map(element => element.getBoundingClientRect());
+                const ink = {
+                    left: Math.min(...rects.map(rect => rect.left)),
+                    right: Math.max(...rects.map(rect => rect.right)),
+                    top: Math.min(...rects.map(rect => rect.top)),
+                    bottom: Math.max(...rects.map(rect => rect.bottom))
+                };
+                const hostRect = captionPlate.getBoundingClientRect();
+                const rawX = captionPlate.offsetWidth > 0 ? hostRect.width / captionPlate.offsetWidth : 1;
+                const rawY = captionPlate.offsetHeight > 0 ? hostRect.height / captionPlate.offsetHeight : 1;
+                const scaleX = Number.isFinite(rawX) && rawX > 0 ? rawX : 1;
+                const scaleY = Number.isFinite(rawY) && rawY > 0 ? rawY : 1;
+                box.style.inset = 'auto';
+                box.style.left = ((ink.left - hostRect.left) / scaleX) + 'px';
+                box.style.top = ((ink.top - hostRect.top) / scaleY) + 'px';
+                box.style.width = Math.max(0, (ink.right - ink.left) / scaleX) + 'px';
+                box.style.height = Math.max(0, (ink.bottom - ink.top) / scaleY) + 'px';
+            };
             const setRectStyle = (element, rect) => {
                 element.style.left = rect.left + 'px';
                 element.style.top = rect.top + 'px';
@@ -11720,6 +12054,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     ? '全字幕が動く' : 'この字幕だけ動く — ⌥ドラッグで全字幕';
             };
             const updateCaptionSelectBoxForRect = rect => {
+                syncCaptionHandleBox();
                 if (!selectedCaptionId) {
                     captionSelectBox.classList.remove('is-active');
                     updateCaptionSelectTools();
@@ -11773,6 +12108,39 @@ body { display: grid; place-items: center; padding: 32px; }
                 if (!Number.isFinite(value)) throw new Error('字幕位置は有限数である必要があります');
                 return Math.round(value * 10000) / 10000;
             };
+            // common/caption-plate-handles.ts の純関数と同じ式を webview 内へ複製する。
+            const captionHandleScaleFactor = (center, start, now) => {
+                const startDistance = Math.hypot(start.x - center.x, start.y - center.y);
+                if (startDistance === 0 || !Number.isFinite(startDistance)) return 1;
+                return Math.hypot(now.x - center.x, now.y - center.y) / startDistance;
+            };
+            const captionHandleScaleValue = (baseScale, center, start, now) => {
+                const base = Number.isFinite(baseScale) ? baseScale : 1;
+                const value = Math.min(3, Math.max(
+                    0.4,
+                    base * captionHandleScaleFactor(center, start, now)
+                ));
+                return Math.round(value * 1000) / 1000;
+            };
+            const captionHandleRotateDelta = (center, start, now) => (
+                Math.atan2(now.y - center.y, now.x - center.x)
+                - Math.atan2(start.y - center.y, start.x - center.x)
+            ) * 180 / Math.PI;
+            const captionHandleRotateValue = (baseRotate, center, start, now) => {
+                const base = Number.isFinite(baseRotate) ? baseRotate : 0;
+                const value = base + captionHandleRotateDelta(center, start, now);
+                const normalized = ((value + 180) % 360 + 360) % 360 - 180;
+                return Math.round(normalized * 100) / 100;
+            };
+            const captionHandleTargets = (selectedIds, activeId, allIds, altAll) => {
+                const orderedIds = [...new Set(allIds.filter(Boolean))];
+                if (altAll) return orderedIds;
+                const selected = new Set(selectedIds.filter(Boolean));
+                if (activeId && selected.has(activeId)) {
+                    return orderedIds.filter(id => selected.has(id));
+                }
+                return activeId ? [activeId] : [];
+            };
             const captionGroupPositionFromRects = (plateRect, frameRect) => {
                 const centerRatio = ((plateRect.left + plateRect.right) / 2 - frameRect.x) / frameRect.width;
                 const centered = Math.abs(centerRatio - 0.5) < 0.03;
@@ -11823,6 +12191,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 return { anchor, position };
             };
             const updateCaptionSelectBox = () => {
+                syncCaptionHandleBox();
                 if (!selectedCaptionId) {
                     captionSelectBox.classList.remove('is-active');
                     updateCaptionSelectTools();
@@ -11990,15 +12359,124 @@ body { display: grid; place-items: center; padding: 32px; }
                     cancelCaptionEdit();
                 }
             });
+            const beginCaptionHandleDrag = (event, handle, caption, cueId) => {
+                const kind = handle.getAttribute('data-h');
+                if (!['nw', 'ne', 'sw', 'se', 'rot'].includes(kind)) return false;
+                event.preventDefault();
+                event.stopPropagation();
+                selectCaption(cueId);
+                const altAll = event.altKey || captionAltAll;
+                setCaptionGroupMode(altAll);
+                const targets = captionHandleTargets(
+                    [...selectedCaptionIds],
+                    cueId,
+                    captions.map(candidate => candidate.sourceCueId || candidate.id),
+                    altAll
+                );
+                const rect = captionVisualRect();
+                const center = { x: (rect.left + rect.right) / 2, y: (rect.top + rect.bottom) / 2 };
+                const start = captionOutputPoint(event.clientX, event.clientY);
+                const baseScale = Number.isFinite(caption.textStyle?.scale) ? caption.textStyle.scale : 1;
+                const baseRotate = Number.isFinite(caption.textStyle?.rotate) ? caption.textStyle.rotate : 0;
+                const pointerId = event.pointerId;
+                let moved = false;
+                selectionDragActive = true;
+                try { handle.setPointerCapture(pointerId); } catch (_error) { /* not capturable */ }
+                const restoreLocalTransform = () => {
+                    if (baseScale === 1) captionPlate.style.removeProperty('--caption-scale');
+                    else captionPlate.style.setProperty('--caption-scale', String(baseScale));
+                    if (baseRotate === 0) captionPlate.style.removeProperty('--caption-rotate');
+                    else captionPlate.style.setProperty('--caption-rotate', baseRotate + 'deg');
+                };
+                const cleanup = () => {
+                    selectionDragActive = false;
+                    window.removeEventListener('pointermove', onMove);
+                    window.removeEventListener('pointerup', onUp);
+                    window.removeEventListener('pointercancel', onCancel);
+                    window.removeEventListener('keydown', onKeyDown, true);
+                    setCaptionGroupMode(false);
+                    if (handle.hasPointerCapture && handle.hasPointerCapture(pointerId)) {
+                        handle.releasePointerCapture(pointerId);
+                    }
+                };
+                const currentPatch = () => kind === 'rot'
+                    ? { rotate: captionHandleRotateValue(
+                        baseRotate, center, start,
+                        captionOutputPoint(lastClientX, lastClientY)
+                    ) }
+                    : { scale: captionHandleScaleValue(
+                        baseScale, center, start,
+                        captionOutputPoint(lastClientX, lastClientY)
+                    ) };
+                let lastClientX = event.clientX;
+                let lastClientY = event.clientY;
+                const onMove = moveEvent => {
+                    if (moveEvent.pointerId !== pointerId) return;
+                    lastClientX = moveEvent.clientX;
+                    lastClientY = moveEvent.clientY;
+                    const now = captionOutputPoint(lastClientX, lastClientY);
+                    if (!moved && Math.hypot(now.x - start.x, now.y - start.y) > CLICK_THRESHOLD_PX) moved = true;
+                    if (!moved) return;
+                    const patch = kind === 'rot'
+                        ? { rotate: captionHandleRotateValue(baseRotate, center, start, now) }
+                        : { scale: captionHandleScaleValue(baseScale, center, start, now) };
+                    if (patch.scale !== undefined) {
+                        captionPlate.style.setProperty('--caption-scale', String(patch.scale));
+                    }
+                    if (patch.rotate !== undefined) {
+                        captionPlate.style.setProperty('--caption-rotate', patch.rotate + 'deg');
+                    }
+                    updateCaptionSelectBoxForRect(captionVisualRect());
+                };
+                const finish = async cancelled => {
+                    cleanup();
+                    if (cancelled || !moved) {
+                        restoreLocalTransform();
+                        updateCaptionSelectBox();
+                        return;
+                    }
+                    const patch = currentPatch();
+                    pendingCaptionDragReload = true;
+                    try {
+                        await window.akari.engine.captionWrite(cueId, {
+                            plateTransform: { captionIds: targets, ...patch }
+                        });
+                    } catch (error) {
+                        pendingCaptionDragReload = false;
+                        restoreLocalTransform();
+                        console.warn('[akari-preview] caption plate transform write rejected; reverting', error);
+                        window.akari.showWriteError(error);
+                    }
+                    updateCaptionSelectBox();
+                };
+                const onUp = upEvent => {
+                    if (upEvent.pointerId !== undefined && upEvent.pointerId !== pointerId) return;
+                    void finish(false);
+                };
+                const onCancel = cancelEvent => {
+                    if (cancelEvent.pointerId !== undefined && cancelEvent.pointerId !== pointerId) return;
+                    void finish(true);
+                };
+                const onKeyDown = keyEvent => {
+                    if (keyEvent.key === 'Escape') void finish(true);
+                };
+                window.addEventListener('pointermove', onMove);
+                window.addEventListener('pointerup', onUp);
+                window.addEventListener('pointercancel', onCancel);
+                window.addEventListener('keydown', onKeyDown, true);
+                return true;
+            };
             captionPlate.addEventListener('pointerdown', event => {
                 if (activeCaptionEdit) return;
                 if (event.button !== 0) return;
                 // 字幕ウィンドウ判定は共有カーネル（webview-kernel.js / caption-window.ts）
                 const caption = window.AkariEditKernel.findActiveCaption(captions, outputTime);
                 if (!caption || !caption.id) return;
+                const cueId = caption.sourceCueId || caption.id;
+                const handle = event.target.closest?.('.akari-caption-handle');
+                if (handle && beginCaptionHandleDrag(event, handle, caption, cueId)) return;
                 event.preventDefault();
                 event.stopPropagation();
-                const cueId = caption.sourceCueId || caption.id;
                 const groupMode = event.altKey;
                 const clampOn = !captionClampOff.has(cueId);
                 selectCaption(cueId);
@@ -12077,11 +12555,18 @@ body { display: grid; place-items: center; padding: 32px; }
                             await window.akari.engine.captionWrite(cueId, { groupPosition });
                         } else {
                             const cuePosition = captionCuePositionFromRects(
-                                captionVisualRect(),
-                                outputFrame,
-                                clampOn
+                                captionVisualRect(), outputFrame, clampOn
                             );
-                            await window.akari.engine.captionWrite(cueId, { cuePosition });
+                            const scale = Number.isFinite(caption.textStyle?.scale) ? caption.textStyle.scale : 1;
+                            const rotate = Number.isFinite(caption.textStyle?.rotate) ? caption.textStyle.rotate : 0;
+                            await window.akari.engine.captionWrite(cueId, {
+                                plateTransform: {
+                                    captionIds: [cueId],
+                                    scale,
+                                    rotate,
+                                    cuePosition: { captionId: cueId, value: cuePosition }
+                                }
+                            });
                             captionCuePositionKnown.set(cueId, true);
                         }
                     } catch (error) {
@@ -12870,6 +13355,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     playToggle.setAttribute('aria-label', label);
                     playToggle.title = label;
                 }
+                syncStrokeLifetime();
             };
             const escapeCaptionHtml = value => String(value)
                 .replace(/&/g, '&amp;')
@@ -13162,7 +13648,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     + 'paint-order:var(--caption-paint-order,stroke fill);'
                     + 'text-shadow:var(--caption-text-shadow,0 2px 8px rgba(0,0,0,.35));'
                     + 'font-family:"AKARI Noto Sans JP","Noto Sans JP",sans-serif;font-size:var(--caption-font-size,38px);font-weight:700;line-height:1.42;text-align:center;}'
-                    + '.akari-caption__plate{position:absolute;top:var(--caption-top,auto);translate:var(--caption-translate,none);left:var(--caption-left,0);right:var(--caption-right,0);bottom:var(--caption-bottom,7%);display:flex;flex-direction:column;justify-content:var(--caption-justify-content,flex-start);align-items:var(--caption-align-items,stretch);gap:var(--plate-gap,4px);}'
+                    + '.akari-caption__plate{position:absolute;top:var(--caption-top,auto);translate:var(--caption-translate,none);left:var(--caption-left,0);right:var(--caption-right,0);bottom:var(--caption-bottom,7%);display:flex;flex-direction:column;justify-content:var(--caption-justify-content,flex-start);align-items:var(--caption-align-items,stretch);gap:var(--plate-gap,4px);transform:rotate(var(--caption-rotate,0deg)) scale(var(--caption-scale,1));transform-origin:center;}'
                     + '.akari-caption__line{width:max-content;max-width:var(--caption-line-max-width,92%);margin:var(--caption-line-margin,0 auto);padding:var(--plate-pad-y,0.08em) var(--plate-pad-x,0.42em);border-radius:var(--plate-radius,10px);background:var(--plate-bg,transparent);text-align:var(--caption-text-align,center);white-space:pre;}'
                     + blockCss
                     + '.akari-caption__tok{display:inline-block;will-change:transform,color;}'
@@ -13179,10 +13665,39 @@ body { display: grid; place-items: center; padding: 32px; }
                 const renderChars = captionCharRenderer(caption.animator);
                 const renderText = renderChars || escapeCaptionHtml;
                 if (caption.resolvedTimeline) {
+                    if (caption.wordStyles && caption.resolvedWords) {
+                        let currentLine = caption.resolvedWords.length ? caption.resolvedWords[0].line : 0;
+                        const markup = caption.resolvedWords.map((word, index) => {
+                            const lineBreak = word.line !== currentLine
+                                ? '</p><p class="akari-caption__line">' : '';
+                            currentLine = word.line;
+                            const style = caption.wordStyles.find(entry => entry.from <= index && index < entry.to);
+                            if (!style) return lineBreak + '<span class="akari-caption__tok">'
+                                + renderText(word.text) + '</span>';
+                            const vars = Object.entries(style.style_vars || {})
+                                .filter(([name, value]) => name.startsWith('--') && typeof value === 'string')
+                                .map(([name, value]) => name + ':' + value + ';').join('');
+                            return lineBreak + '<span class="akari-caption__tok akari-caption__tok--preset" data-emphasis-preset="'
+                                + escapeCaptionHtml(style.preset_id) + '" style="' + escapeCaptionHtml(vars) + '">'
+                                + renderText(word.text) + '</span>';
+                        }).join('');
+                        return ${JSON.stringify(RESOLVED_SINGLE_LINE_FRAGMENT_OPEN)}
+                            + ${JSON.stringify(RESOLVED_SINGLE_LINE_CAPTION_CSS)}
+                            + '.akari-caption__tok{display:inline-block;white-space:pre;}.akari-caption__tok--preset{color:var(--caption-color,inherit);font-size:var(--caption-font-size,inherit);font-weight:var(--caption-font-weight,inherit);line-height:var(--caption-line-height,inherit);-webkit-text-stroke:var(--caption-webkit-text-stroke,inherit);paint-order:var(--caption-paint-order,inherit);text-shadow:var(--caption-text-shadow,inherit);}'
+                            + ${JSON.stringify(RESOLVED_SINGLE_LINE_FRAGMENT_MIDDLE)}
+                            + markup
+                            + ${JSON.stringify(RESOLVED_SINGLE_LINE_FRAGMENT_CLOSE)};
+                    }
+                    const resolvedMarkup = Array.isArray(caption.displayLines)
+                        && caption.displayLines.length >= 2
+                        ? caption.displayLines.map(line => renderText(line)).join(
+                            '</p><p class="akari-caption__line">'
+                        )
+                        : renderText(caption.text);
                     return ${JSON.stringify(RESOLVED_SINGLE_LINE_FRAGMENT_OPEN)}
                         + ${JSON.stringify(RESOLVED_SINGLE_LINE_CAPTION_CSS)}
                         + ${JSON.stringify(RESOLVED_SINGLE_LINE_FRAGMENT_MIDDLE)}
-                        + renderText(caption.text)
+                        + resolvedMarkup
                         + ${JSON.stringify(RESOLVED_SINGLE_LINE_FRAGMENT_CLOSE)};
                 }
                 // 焼き込みと同じ自然な区切り（句読点 → 空白 → 文節境界 → 文字上限）で折り返す
@@ -13200,7 +13715,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     : '';
                 return '<div class="akari-caption"><style>'
                     + '.akari-caption{position:absolute;inset:0;pointer-events:none;color:var(--caption-color,#fff);-webkit-text-stroke:var(--caption-webkit-text-stroke,var(--caption-stroke,0.14em rgba(0,0,0,.9)));paint-order:var(--caption-paint-order,stroke fill);text-shadow:var(--caption-text-shadow,0 2px 8px rgba(0,0,0,.35));font-family:"AKARI Noto Sans JP","Noto Sans JP",sans-serif;font-size:var(--caption-font-size,38px);font-weight:700;line-height:1.42;text-align:center;}'
-                    + '.akari-caption__plate{position:absolute;top:var(--caption-top,auto);translate:var(--caption-translate,none);left:var(--caption-left,0);right:var(--caption-right,0);bottom:var(--caption-bottom,7%);display:flex;flex-direction:column;justify-content:var(--caption-justify-content,flex-start);align-items:var(--caption-align-items,stretch);gap:var(--plate-gap,4px);}'
+                    + '.akari-caption__plate{position:absolute;top:var(--caption-top,auto);translate:var(--caption-translate,none);left:var(--caption-left,0);right:var(--caption-right,0);bottom:var(--caption-bottom,7%);display:flex;flex-direction:column;justify-content:var(--caption-justify-content,flex-start);align-items:var(--caption-align-items,stretch);gap:var(--plate-gap,4px);transform:rotate(var(--caption-rotate,0deg)) scale(var(--caption-scale,1));transform-origin:center;}'
                     + '.akari-caption__line{width:max-content;max-width:var(--caption-line-max-width,92%);margin:var(--caption-line-margin,0 auto);padding:var(--plate-pad-y,0.08em) var(--plate-pad-x,0.42em);border-radius:var(--plate-radius,10px);background:var(--plate-bg,transparent);text-align:var(--caption-text-align,center);white-space:pre;}'
                     + blockCss
                     + '</style><div class="akari-caption__plate">' + plateMarkup + '</div></div>';
@@ -13223,6 +13738,39 @@ body { display: grid; place-items: center; padding: 32px; }
                 }
             };
             let captionAnimatorUnavailableWarned = false;
+            const applyCaptionSelectionAttrs = () => {
+                const id = activeCaption && (activeCaption.sourceCueId || activeCaption.id);
+                if (id && selectedCaptionIds.has(id)) captionPlate.setAttribute('data-selected', '');
+                else captionPlate.removeAttribute('data-selected');
+                if (captionAltAll) captionPlate.setAttribute('data-alt-all', '');
+                else captionPlate.removeAttribute('data-alt-all');
+                captionPlate.querySelectorAll('.akari-caption-handle-box, .akari-caption-handle')
+                    .forEach(handle => handle.remove());
+                if (!captionPlate.hasAttribute('data-selected')) return;
+                const handleBox = document.createElement('div');
+                handleBox.className = 'akari-caption-handle-box';
+                for (const kind of ['nw', 'ne', 'sw', 'se', 'rot']) {
+                    const handle = document.createElement('i');
+                    handle.className = 'akari-caption-handle';
+                    handle.setAttribute('data-h', kind);
+                    handleBox.appendChild(handle);
+                }
+                captionPlate.appendChild(handleBox);
+                syncCaptionHandleBox();
+            };
+            const setCaptionAltAll = on => {
+                if (captionAltAll === on) return;
+                captionAltAll = on;
+                applyCaptionSelectionAttrs();
+                window.akari.reportAltAll?.(on);
+            };
+            window.addEventListener('keydown', event => {
+                if (event.key === 'Alt' || event.altKey) setCaptionAltAll(true);
+            });
+            window.addEventListener('keyup', event => {
+                if (event.key === 'Alt' || !event.altKey) setCaptionAltAll(false);
+            });
+            window.addEventListener('blur', () => setCaptionAltAll(false));
             const renderCaption = () => {
                 if (activeCaptionEdit) return;
                 // captions は host 読込層で全件 output-domain へ正規化済み。gap も同じ時計で
@@ -13253,6 +13801,8 @@ body { display: grid; place-items: center; padding: 32px; }
                     } else {
                         captionPlate.innerHTML = '';
                     }
+                    // renderCaption は innerHTML/textContent を置き換えるため、選択ハンドルは描画後に付け直す。
+                    applyCaptionSelectionAttrs();
                     captionHitRegionPending = true;
                 }
                 let captionAnimations = [];
@@ -15007,6 +15557,16 @@ body { display: grid; place-items: center; padding: 32px; }
                     const wasRecordingActive = reviewRecordingActive;
                     reviewRecordingActive = message.active;
                     if (reviewRecordingActive && !wasRecordingActive) {
+                        reviewRecordingStartedAt = performance.now();
+                        persistentStrokeItems = [];
+                        annotationStrokeItems = [];
+                        penLayer.dataset.akariStrokeSession = '';
+                        redrawStaticBitmap();
+                        recomposite();
+                    }
+                    if (!reviewRecordingActive && wasRecordingActive) {
+                        // 表示プールだけを捨てる。記録済みデータは strokes.json に残り、
+                        // セッション行の「描線」から必要な時点へ再表示できる。
                         persistentStrokeItems = [];
                         annotationStrokeItems = [];
                         penLayer.dataset.akariStrokeSession = '';
@@ -15050,16 +15610,23 @@ body { display: grid; place-items: center; padding: 32px; }
                     updateCaptionZoneHighlight(typeof message.zone === 'string' ? message.zone : null);
                     return;
                 }
+                if (message && message.type === 'akari-preview-set-selected-captions') {
+                    selectedCaptionIds = new Set(Array.isArray(message.captionIds) ? message.captionIds : []);
+                    applyCaptionSelectionAttrs();
+                    return;
+                }
                 if (message && message.type === 'akari-preview-captions-update') {
                     captions = Array.isArray(message.captions) ? message.captions : [];
                     window.akari.previewCaptions = captions;
                     void window.akari.frameEngineClock?.refreshContentDuration?.();
                     if (!window.akari.frameEngineClock) rebuildSegments();
-                    renderCaption();
                     if (pendingCaptionDragReload) {
                         pendingCaptionDragReload = false;
                         captionPlate.style.translate = '';
+                        captionPlate.style.removeProperty('--caption-scale');
+                        captionPlate.style.removeProperty('--caption-rotate');
                     }
+                    renderCaption();
                     updateCaptionSelectBox();
                     return;
                 }

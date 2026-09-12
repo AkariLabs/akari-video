@@ -87,6 +87,8 @@ export interface InternalItem {
     children: InternalItem[];
     /** 親があるときだけ宣言 id を保持する。 */
     parentId?: string;
+    /** この media item から source 字幕を射影するか。省略時は on。 */
+    captions?: 'on' | 'off';
     /** motion/ 袋参照。A1 ではファイルを解決しない。 */
     keyframesRef?: KeyframesReferenceV2;
     source: InternalItemSource;

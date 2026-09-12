@@ -41,6 +41,34 @@ test("visual media source validates embedded speech gain and mute", () => {
   }
 });
 
+test("media items and legacy cut/layer projections accept only captions on/off", () => {
+  const value = fixture("edit-v2-valid");
+  const media = value.tracks[3].items[0];
+  for (const captions of ["on", "off"]) {
+    media.captions = captions;
+    assert.equal(validate(value), true, JSON.stringify(validate.errors, null, 2));
+  }
+  media.captions = true;
+  assert.equal(validate(value), false);
+  assert.ok(validate.errors?.some(error => error.instancePath === "/tracks/3/items/0/captions"));
+  delete media.captions;
+  const html = value.tracks.find(track => track.items?.some(item => item.source.kind === "html")).items[0];
+  html.captions = "off";
+  assert.equal(validate(value), false, "captions belongs only to visual media items");
+
+  const legacy = {
+    version: 1,
+    output: { width: 1920, height: 1080, fps: 30 },
+    sources: [{ id: "s1", path: "main.mp4", proxy: null }],
+    cuts: [{ src: "s1", in: 0, out: 1, captions: "off" }],
+    layers: [{ id: "pip", t: 0, duration: 1, kind: "video", src: "main.mp4", captions: "on" }],
+  };
+  assert.equal(validate(legacy), true, JSON.stringify(validate.errors, null, 2));
+  legacy.cuts[0].captions = "sometimes";
+  assert.equal(validate(legacy), false);
+  assert.ok(validate.errors?.some(error => error.instancePath === "/cuts/0/captions"));
+});
+
 test("editV2 is the third root branch and keeps v2 timing/output definitions separate", () => {
   assert.equal(schema.$id, "urn:akari-video:schema:edit:v1");
   assert.match(schema.title, /v0\/v1\/v2/);

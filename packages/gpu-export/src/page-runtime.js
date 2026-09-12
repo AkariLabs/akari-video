@@ -1029,7 +1029,7 @@
     const scopedBandCss = scopeCaptionCss(bandCss, prefix);
     return `<foreignObject x="0" y="${offsetY}" width="${config.width}" height="${textureRect.height}">
       <div xmlns="http://www.w3.org/1999/xhtml" style="position:relative;width:${config.width}px;height:${textureRect.height}px;overflow:hidden">
-        <div class="akari-sprite-root" data-akari-band="${bandIndex}" style="position:absolute;left:0;top:${-textureRect.y}px;width:${config.width}px;height:${config.height}px;overflow:hidden;background:transparent;container-type:size;${varsCss(value.vars)}">
+        <div class="akari-sprite-root" data-akari-band="${bandIndex}" style="position:absolute;left:0;top:${-textureRect.y}px;width:${config.width}px;height:${config.height}px;overflow:hidden;background:transparent;container-type:size;transform:translate(var(--x, 0px), var(--y, 0px)) scale(var(--scale, 1)) rotate(var(--rotate, 0deg));transform-origin:center;${varsCss(value.vars)}">
           <style>html,body{margin:0;width:${config.width}px;height:${config.height}px;overflow:hidden}${sharedCss}${scopedBandCss}</style>${xhtml}
         </div>
       </div>
@@ -1041,7 +1041,7 @@
     const scopedBandCss = scopeCaptionCss(bandCss, `[data-akari-band="0"]`);
     return removeDuplicateCaptionFontFaces(`<svg xmlns="http://www.w3.org/2000/svg" width="${config.width}" height="${textureRect.height}" viewBox="0 ${textureRect.y} ${config.width} ${textureRect.height}">
       <foreignObject x="0" y="0" width="${config.width}" height="${config.height}">
-        <div xmlns="http://www.w3.org/1999/xhtml" class="akari-sprite-root" data-akari-band="0" style="position:relative;width:${config.width}px;height:${config.height}px;overflow:hidden;background:transparent;container-type:size;${varsCss(value.vars)}">
+        <div xmlns="http://www.w3.org/1999/xhtml" class="akari-sprite-root" data-akari-band="0" style="position:relative;width:${config.width}px;height:${config.height}px;overflow:hidden;background:transparent;container-type:size;transform:translate(var(--x, 0px), var(--y, 0px)) scale(var(--scale, 1)) rotate(var(--rotate, 0deg));transform-origin:center;${varsCss(value.vars)}">
           <style>html,body{margin:0;width:${config.width}px;height:${config.height}px;overflow:hidden}${sharedCss}${scopedBandCss}</style>${xhtml}
         </div>
       </foreignObject>

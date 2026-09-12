@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { mkdtemp, mkdir, readFile, readdir, realpath, writeFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, readdir, realpath, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -115,6 +115,12 @@ test('records non-silent PCM in the four S1 files with a valid 16 kHz mono WAV a
     assert.equal(listed[0].id, 's-0001');
     assert.equal(listed[0].durationSec, 1);
     assert.equal(listed[0].orphaned, false);
+    assert.equal(listed[0].status, 'recorded');
+    assert.equal(listed[0].compiledAnnotations, null);
+    assert.deepEqual(listed[0].ranges, [
+        { start: 12.4, end: 13.9 },
+        { start: 42, end: 42 }
+    ]);
 });
 
 test('allocates after the greatest existing directory and never reuses a missing number', async () => {
@@ -136,7 +142,13 @@ test('creates strokes.json only on the first valid stroke and rejects invalid co
         space: 'content-rect',
         recTStart: 1.2,
         recTEnd: 1.8,
-        frame: { timelineT: 12.4, sourceT: 42.5, cutIndex: 3 },
+        frame: {
+            timelineT: 12.4,
+            sourceT: 42.5,
+            cutIndex: 3,
+            itemId: 'cut-4',
+            trackId: 'main-track'
+        },
         points: [[0.1, 0.2], [0.5, 0.6], [0.9, 1]]
     };
     await writer.appendStroke({ sessionDir: started.sessionDir, stroke });
@@ -257,9 +269,51 @@ test('lists missing manifests as orphans and skips only a damaged manifest', asy
         const listed = await writer.list({ projectRootUri: pathToFileURL(root).toString() });
         assert.deepEqual(listed.map(session => session.id), ['s-0002']);
         assert.equal(listed[0].orphaned, true);
+        assert.equal(listed[0].status, null);
+        assert.equal(listed[0].compiledAnnotations, null);
     } finally {
         console.warn = previousWarn;
     }
+});
+
+test('list returns lifecycle metadata, normalizes invalid annotation ids, and does not write files', async () => {
+    const { root, writer, request } = await fixture();
+    const started = await writer.start(request);
+    await writer.end({
+        sessionDir: started.sessionDir,
+        startedAt: started.startedAt,
+        endedAt: new Date().toISOString(),
+        editHash: started.editHash,
+        recT: 1,
+        timelineT: request.timelineT
+    });
+    const manifestUrl = new URL('session.json', `${started.sessionDir}/`);
+    const manifest = JSON.parse(await readFile(manifestUrl, 'utf8'));
+    manifest.status = 'transcribed';
+    manifest.compiledAnnotations = ['a-0001', 2];
+    await writeFile(manifestUrl, `${JSON.stringify(manifest, null, 2)}\n`);
+    const before = {
+        manifest: await readFile(manifestUrl),
+        manifestMtime: (await stat(manifestUrl)).mtimeMs,
+        events: await readFile(new URL('events.jsonl', `${started.sessionDir}/`)),
+        audio: await readFile(new URL('audio.wav', `${started.sessionDir}/`))
+    };
+
+    const listed = await writer.list({ projectRootUri: pathToFileURL(root).toString() });
+
+    assert.equal(listed[0].status, 'transcribed');
+    assert.equal(listed[0].compiledAnnotations, null);
+    assert.deepEqual(await readFile(manifestUrl), before.manifest);
+    assert.equal((await stat(manifestUrl)).mtimeMs, before.manifestMtime);
+    assert.deepEqual(await readFile(new URL('events.jsonl', `${started.sessionDir}/`)), before.events);
+    assert.deepEqual(await readFile(new URL('audio.wav', `${started.sessionDir}/`)), before.audio);
+
+    manifest.status = 'compiled';
+    manifest.compiledAnnotations = ['a-0001', 'a-0002'];
+    await writeFile(manifestUrl, `${JSON.stringify(manifest, null, 2)}\n`);
+    const compiled = await writer.list({ projectRootUri: pathToFileURL(root).toString() });
+    assert.equal(compiled[0].status, 'compiled');
+    assert.deepEqual(compiled[0].compiledAnnotations, ['a-0001', 'a-0002']);
 });
 
 test('rejects project roots outside the current workspace', async () => {

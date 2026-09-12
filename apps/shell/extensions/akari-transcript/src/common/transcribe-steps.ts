@@ -17,11 +17,30 @@ export function transcribeModeView(mode: unknown, alreadyTranscribed: boolean, _
     };
 }
 
+export function analysisTranscriptSummary(analysis: unknown): string | undefined {
+    if (!analysis || typeof analysis !== 'object') return undefined;
+    const value = analysis as Record<string, unknown>;
+    const observations = Array.isArray(value.observations) ? value.observations : [];
+    const observation = [...observations].reverse().find(item => !!item && typeof item === 'object'
+        && (item as Record<string, unknown>).kind === 'transcribe') as Record<string, unknown> | undefined;
+    const args = observation?.args && typeof observation.args === 'object'
+        ? observation.args as Record<string, unknown> : undefined;
+    const timestamp = [value.transcript_generated_at, value.generated_at, observation?.at]
+        .find(item => typeof item === 'string' && item.length > 0) as string | undefined;
+    const backend = [value.transcript_backend, args?.backend]
+        .find(item => typeof item === 'string' && item.length > 0) as string | undefined;
+    const transcript = Array.isArray(value.transcript) ? value.transcript : undefined;
+    const hasTranscript = !!transcript;
+    if (!timestamp && !backend && !hasTranscript) return undefined;
+    return `${timestamp ?? '日時不明'} · ${backend ?? 'エンジン不明'} · ${transcript?.length ?? 0} 行`;
+}
+
 /** Keep artifact timestamps verbatim so the summary is independent of locale/timezone. */
-export function transcribeSummary(artifacts: Pick<TranscribeArtifacts, 'transcripts' | 'diff'>, alreadyTranscribed = false): string[] {
+export function transcribeSummary(artifacts: Pick<TranscribeArtifacts, 'transcripts' | 'diff'>,
+    alreadyTranscribed = false, fallback?: string): string[] {
     const lines = artifacts.transcripts.map(transcript =>
         `${transcript.generated_at || '日時不明'} · ${transcript.backend || 'エンジン不明'} · ${transcript.segments.length} 行`);
-    if (!lines.length && alreadyTranscribed) lines.push('文字起こし済み · 日時・エンジン・行数の記録なし');
+    if (!lines.length && alreadyTranscribed) lines.push(fallback ?? '文字起こし済み · 日時・エンジン・行数の記録なし');
     if (lines.length || artifacts.diff) lines.push(`比べる組: ${artifacts.diff?.engines.length ? artifacts.diff.engines.join(' / ') : 'なし'}`);
     return lines;
 }
@@ -49,11 +68,17 @@ export function advanceTranscribeSteps(state: TranscribeStepState, event: Materi
     const next = { ...state, engines: { ...state.engines }, completedOrder: [...state.completedOrder] };
     const key = event.backend && backendKey(event.backend);
     if (key && key in next.engines) {
-        if (event.status === 'completed') {
+        if (event.status === 'cancelled') next.engines[key] = 'waiting';
+        else if (event.status === 'completed') {
             next.engines[key] = 'completed';
             if (!next.completedOrder.includes(key)) next.completedOrder.push(key);
         } else if (event.status === 'failed') next.engines[key] = 'failed';
         else if (next.engines[key] === 'waiting') next.engines[key] = 'transcribing';
+    }
+    if (!key && event.status === 'cancelled') {
+        for (const backend of Object.keys(next.engines)) {
+            if (next.engines[backend] === 'transcribing') next.engines[backend] = 'waiting';
+        }
     }
     if (event.stage === 'diffing' && event.status === 'completed') next.step = 3;
     if (!event.backend && event.stage === 'completed') next.finished = true;
