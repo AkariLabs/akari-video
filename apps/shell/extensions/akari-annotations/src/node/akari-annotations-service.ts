@@ -1,6 +1,7 @@
 import { injectable } from '@theia/core/shared/inversify';
 import URI from '@theia/core/lib/common/uri';
 import { writeAtomic, writeProjectFilesGuarded } from '@akari-video/edit-store/lib/write-gate';
+import { validateCaptionDisplayPolicy } from '@akari-video/edit-store';
 import { readInternalSources } from '@akari-video/edit-store/lib/internal-model';
 import {
     applyCutRanges as applyCutRangesToSource,
@@ -66,6 +67,8 @@ import {
     SlipCutRequest,
     SetBgmFieldsRequest,
     SetCaptionFieldsRequest,
+    SetCaptionDisplayPolicyRequest,
+    SetCaptionDisplayPolicyResult,
     SetCaptionStylePresetRequest,
     SetCaptionStylePresetResult,
     SetEmphasisWordsRequest,
@@ -712,6 +715,60 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         const committed = this.commitWrite(projectRoot, '字幕テンプレを適用')
             || await this.commitIfOwnRoot(projectRoot, '字幕テンプレを適用', [captionsPath]);
         return { committed, changed: updated.changed, beforeSource };
+    }
+
+    async setCaptionDisplayPolicy(request: SetCaptionDisplayPolicyRequest): Promise<SetCaptionDisplayPolicyResult> {
+        this.requireWriteRequest(request?.captionsUri, request?.projectRootUri);
+        const captionsPath = this.fsPath(request.captionsUri);
+        const beforeSource = await fs.readFile(captionsPath, 'utf8');
+        const policy = validateCaptionDisplayPolicy(request.displayPolicy);
+        const updated = this.replaceCaptionDisplayPolicy(beforeSource, policy);
+        if (updated === beforeSource) return { committed: false, changed: 0, beforeSource };
+        await this.writeProjectFileGuarded(captionsPath, updated);
+        const projectRoot = this.fsPath(request.projectRootUri);
+        const committed = this.commitWrite(projectRoot, '字幕の表示設定を変更')
+            || await this.commitIfOwnRoot(projectRoot, '字幕の表示設定を変更', [captionsPath]);
+        return { committed, changed: 1, beforeSource };
+    }
+
+    private replaceCaptionDisplayPolicy(source: string, policy: ReturnType<typeof validateCaptionDisplayPolicy>): string {
+        const first = source.search(/\S/u);
+        if (first < 0) throw new Error('captions.json が空です。');
+        const policyText = JSON.stringify(policy, null, 2);
+        if (source[first] === '[') {
+            const end = source.lastIndexOf(']');
+            if (end < first) throw new Error('captions 配列が閉じていません。');
+            return `{\n  "display_policy": ${policyText.replace(/\n/gu, '\n  ')},\n  "captions": ${source.slice(first, end + 1)}\n}\n`;
+        }
+        const parsed = JSON.parse(source) as unknown;
+        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+            throw new Error('captions.json のルートは object または配列である必要があります。');
+        }
+        const match = /(^[ \t]*)"display_policy"\s*:\s*\{/mu.exec(source);
+        if (match) {
+            const open = match.index + match[0].lastIndexOf('{');
+            const close = this.matchingJsonObject(source, open);
+            const indent = match[1];
+            const replacement = policyText.replace(/\n/gu, `\n${indent}`);
+            return source.slice(0, open) + replacement + source.slice(close + 1);
+        }
+        const captions = /(^[ \t]*)"captions"\s*:/mu.exec(source);
+        if (!captions) throw new Error('captions キーが見つかりません。');
+        const indent = captions[1];
+        const replacement = policyText.replace(/\n/gu, `\n${indent}`);
+        return source.slice(0, captions.index) + `${indent}"display_policy": ${replacement},\n` + source.slice(captions.index);
+    }
+
+    private matchingJsonObject(source: string, open: number): number {
+        let depth = 0; let inString = false; let escaped = false;
+        for (let index = open; index < source.length; index++) {
+            const char = source[index];
+            if (inString) { if (escaped) escaped = false; else if (char === '\\') escaped = true; else if (char === '"') inString = false; continue; }
+            if (char === '"') inString = true;
+            else if (char === '{') depth++;
+            else if (char === '}' && --depth === 0) return index;
+        }
+        throw new Error('display_policy object が閉じていません。');
     }
 
     async setEmphasisWords(request: SetEmphasisWordsRequest): Promise<SetEmphasisWordsResult> {

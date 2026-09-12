@@ -1,5 +1,5 @@
 import type { EditAudioKeyframe, TransitionType } from '@akari-video/edit-store';
-import type { CaptionTextStyle } from '@akari-video/edit-store';
+import type { CaptionDisplayPolicy, CaptionTextStyle } from '@akari-video/edit-store';
 
 export const AKARI_ANNOTATIONS_SERVICE_PATH = '/services/akari-annotations';
 export const AkariAnnotationsService = Symbol('AkariAnnotationsService');
@@ -551,6 +551,17 @@ export interface SetCaptionStylePresetResult extends WriteBackResult {
     beforeSource: string;
 }
 
+export interface SetCaptionDisplayPolicyRequest {
+    captionsUri: string;
+    projectRootUri: string;
+    displayPolicy: CaptionDisplayPolicy;
+}
+
+export interface SetCaptionDisplayPolicyResult extends WriteBackResult {
+    changed: number;
+    beforeSource: string;
+}
+
 export interface EmphasisWord {
     /** Omit to reuse an equal span or allocate the lowest unused e-NNNN id. */
     id?: string;
@@ -701,6 +712,7 @@ export interface AkariAnnotationsService {
     setCaptionFields(request: SetCaptionFieldsRequest): Promise<WriteBackResult>;
     setCaptionTextStyle(request: SetCaptionTextStyleRequest): Promise<WriteBackResult>;
     setCaptionStylePreset(request: SetCaptionStylePresetRequest): Promise<SetCaptionStylePresetResult>;
+    setCaptionDisplayPolicy(request: SetCaptionDisplayPolicyRequest): Promise<SetCaptionDisplayPolicyResult>;
     setEmphasisWords(request: SetEmphasisWordsRequest): Promise<SetEmphasisWordsResult>;
     writeEditSnapshot(request: WriteEditSnapshotRequest): Promise<WriteBackResult>;
     planEditMigration(request: EditMigrationRequest): Promise<EditMigrationPlanResult>;
