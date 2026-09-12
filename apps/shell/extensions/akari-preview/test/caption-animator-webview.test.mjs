@@ -162,16 +162,16 @@ test('animator 無宣言 cue は評価器も warning も呼ばず、tick で DOM
     }
 });
 
-test('無宣言の HTML は r2 前の基底のバイト列を保持する', () => {
-    // Recorded by executing the baseline open-handler webview in the same bare VM.
+test('無宣言の HTML は caption transform 規則を含む基底のバイト列を保持する', () => {
+    // Recorded after the caption plate scale/rotate contract was added to every styled fragment.
     const expected = [
         '68c6c1af208310fcd29febf704dcf072a57fd5b2ca74b575cfb1eb7004dadb02',
-        'bd45c7f2d5472a5b85780f513a1386522c65fd6f6c8b314dbf38a7b8768ee021',
-        '7a31707c3788a3bf3f32a360ce54834662d9a202389eb0d2d914949ee0766146',
-        'da49aff2010bde987f91707683c5993833d48ae48f8e3eae71f3c4ec2757d6d5',
-        '242a551aede48d7de2f2e59df697df3313447445ae87c834ebc5c9d17f706429',
-        '4b33b61fb3e18120e4a00a807b34838328f1b1b5829b58d655b73da9d992c0b2',
-        '98618842a458a10f82d98286e57faa10192b475957384d8f2bbd6b5becfffe7c'
+        'e76192da9e083a9f58361c4092a3772c1d1197da57d55863152e2835a4d216ea',
+        '1062b1e3bf49c6df29a039e941f853e92316f04f9a04bb860f6854990b24f51e',
+        'a1d132b35aad29a165bcdd932df37bb0bd5061e0fc76008db6fcf03f8ec73245',
+        '739c7d583399fe5c0d789d15ab34b4c1eed9160f71322ee35eb7a268b21a2850',
+        'f333c8a196553b83c3cdad333505c21b906e7c804bd20ad3d23ee4e64af5ef0e',
+        'e240e36bf483a6b9ed12d94f3762810c9667a53bf7329c074cc662668c175b1e'
     ];
     const fixtures = [{}, { textStyle: { color: '#fff', background: { mode: 'block' } } },
         { resolvedTimeline: true }, ...['karaoke', 'pop', 'reveal', 'reveal-word'].map(style => ({ style,

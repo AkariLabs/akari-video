@@ -1,0 +1,121 @@
+{
+  "status": "pass",
+  "checks": [
+    {
+      "name": "render-cut --plan-only が exit 0",
+      "ok": true,
+      "detail": {
+        "code": 0,
+        "stdout": "PLAN: exports/ws.mp4 (8s)"
+      }
+    },
+    {
+      "name": "c-0001 の overlay.transform が text_style と一致",
+      "ok": true,
+      "detail": {
+        "expected": {
+          "scale": 1.76,
+          "rotate": -11.98
+        },
+        "actual": {
+          "x": 0,
+          "y": 0,
+          "scale": 1.76,
+          "rotate": -11.98
+        }
+      }
+    },
+    {
+      "name": "c-0002 の overlay.transform が text_style と一致",
+      "ok": true,
+      "detail": {
+        "expected": {
+          "scale": 1.6,
+          "rotate": 0
+        },
+        "actual": {
+          "x": 0,
+          "y": 0,
+          "scale": 1.6,
+          "rotate": 0
+        }
+      }
+    },
+    {
+      "name": "c-0001 の --scale:1.76 / --rotate:-11.98deg が焼き込み HTML のコンテナに出る",
+      "ok": true,
+      "detail": {
+        "scale": "1.76",
+        "rotate": "-11.98deg",
+        "containers": [
+          "--x:0px;--y:0px;--scale:1.76;--rotate:-11.98deg",
+          "--x:0px;--y:0px;--scale:1.76;--rotate:-11.98deg",
+          "--x:0px;--y:0px;--scale:1.6;--rotate:0deg",
+          "--x:0px;--y:0px;--scale:1.6;--rotate:0deg"
+        ]
+      }
+    },
+    {
+      "name": "c-0002 の --scale:1.6 / --rotate:0deg が焼き込み HTML のコンテナに出る",
+      "ok": true,
+      "detail": {
+        "scale": "1.6",
+        "rotate": "0deg",
+        "containers": [
+          "--x:0px;--y:0px;--scale:1.76;--rotate:-11.98deg",
+          "--x:0px;--y:0px;--scale:1.76;--rotate:-11.98deg",
+          "--x:0px;--y:0px;--scale:1.6;--rotate:0deg",
+          "--x:0px;--y:0px;--scale:1.6;--rotate:0deg"
+        ]
+      }
+    },
+    {
+      "name": ".akari-overlay-container の transform が --scale / --rotate を読む",
+      "ok": true,
+      "detail": {}
+    },
+    {
+      "name": "GPU の字幕スプライト root にも同じ transform 規則が出る",
+      "ok": true,
+      "detail": {
+        "roots": 3
+      }
+    }
+  ],
+  "writtenTextStyles": {
+    "c-0001": {
+      "rotate": -11.98,
+      "scale": 1.76
+    },
+    "c-0002": {
+      "scale": 1.6
+    }
+  },
+  "overlayTransforms": {
+    "c-0001": {
+      "x": 0,
+      "y": 0,
+      "scale": 1.76,
+      "rotate": -11.98
+    },
+    "c-0002": {
+      "x": 0,
+      "y": 0,
+      "scale": 1.6,
+      "rotate": 0
+    },
+    "c-0003": {
+      "x": 0,
+      "y": 0,
+      "scale": 1,
+      "rotate": 0
+    }
+  },
+  "overlayContainerStyles": [
+    "--x:0px;--y:0px;--scale:1.76;--rotate:-11.98deg",
+    "--x:0px;--y:0px;--scale:1.76;--rotate:-11.98deg",
+    "--x:0px;--y:0px;--scale:1.6;--rotate:0deg",
+    "--x:0px;--y:0px;--scale:1.6;--rotate:0deg",
+    "--x:0px;--y:0px;--scale:1;--rotate:0deg"
+  ]
+}

@@ -281,6 +281,7 @@ test('caption and layer coordinates use the measured frame with gutters, zoom, a
             declaration('computeOutputFrameRect'),
             'window.akari.computeOutputFrameRect = computeOutputFrameRect;',
             declaration('captionOutputPoint'), declaration('captionVisualRect'), declaration('setRectStyle'),
+            declaration('syncCaptionHandleBox'),
             declaration('updateCaptionSelectBoxForRect'), declaration('layerScreenRectForVideoRect'),
             'globalThis.frame = computeOutputFrameRect();',
             'globalThis.plate = captionVisualRect(); updateCaptionSelectBoxForRect(plate);',
