@@ -62,6 +62,14 @@ test("captions object root accepts emphasis_words with the v1 record shape", () 
   assert.match(executed.stdout, /^OK: /);
 });
 
+test("captions emphasis_words accepts a textstyle catalog style_preset", () => {
+  const executed = runValue({
+    emphasis_words: [{ id: "e-0001", t_start: 0, t_end: 1, word: "今回", emotion: "neutral", style_preset: "neon" }],
+    captions: [caption],
+  });
+  assert.equal(executed.status, 0, executed.stderr);
+});
+
 for (const [example, message] of [
   ["captions-emphasis-words-invalid-id", /emphasis_words\[0\]\.id は e- に続く 4 桁/u],
   ["captions-emphasis-words-empty-word", /emphasis_words\[0\]\.word は空でない文字列/u],
