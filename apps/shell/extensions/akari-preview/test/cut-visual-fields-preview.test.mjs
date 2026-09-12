@@ -116,6 +116,18 @@ test('cut segments and transition windows retain layer-style visual fields', () 
     assert.match(source, /incoming: decorateSegment\(window\.incoming\)/);
 });
 
+test('review stroke frame uses the timeline map and carries additive v2 item identity', () => {
+    const start = source.indexOf('const currentFrame = () => {');
+    const end = source.indexOf('            };', start);
+    assert.ok(start >= 0 && end > start, 'currentFrame() が見つからない');
+    const currentFrame = source.slice(start, end);
+    assert.match(currentFrame, /const mapped = timelineToSource\(outputTime\)/);
+    assert.match(currentFrame, /sourceT: mapped\.kind === 'src'/);
+    assert.match(currentFrame, /\? mapped\.time : video\.currentTime/);
+    assert.match(currentFrame, /itemId: segment\.id/);
+    assert.match(currentFrame, /trackId: segment\.trackId/);
+});
+
 test('cut rendering reuses the layer pure functions and shared layer-style layout', () => {
     assert.match(source, /import \{ computeLayerPerspectiveVisual \} from '\.\.\/common\/layer-perspective-visual'/);
     assert.match(source, /import \{ cropAnchorCorrectedTransform \} from '\.\.\/common\/layer-crop-anchor'/);

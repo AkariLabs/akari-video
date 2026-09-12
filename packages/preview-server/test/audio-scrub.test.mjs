@@ -230,11 +230,12 @@ test('off の seek は依存へ一切触らない', () => {
   assert.equal(controller.lastError, null);
 });
 
-test('通常再生中は鳴らさず resume しない', async () => {
+test('通常再生中の seek は鳴らさず追加で resume しない', async () => {
   const bundle = controllerFixture();
   await bundle.controller.prepare('/source.mp4');
+  assert.equal(bundle.audio.context.resumeCalls, 1);
   bundle.controller.onSeek({ outputTime: 0, sourceTime: 0, src: '/source.mp4', isPlaying: true });
-  assert.equal(bundle.audio.context.resumeCalls, 0);
+  assert.equal(bundle.audio.context.resumeCalls, 1);
   assert.equal(bundle.audio.sources.length, 0);
 });
 
@@ -486,35 +487,53 @@ test('muted または volume 0 では本編も BGM も鳴らない', async () =>
   }
 });
 
-test('idle suspend は再武装され stop/disabled で解除される', async () => {
+test('scrub audio は suspend を呼ばず idleSuspendMs を無視する', async () => {
   const timers = new Map();
   let id = 0;
-  const cleared = [];
   const bundle = controllerFixture({
     setTimeoutFn(fn, ms) { const key = ++id; timers.set(key, { fn, ms }); return key; },
-    clearTimeoutFn(key) { cleared.push(key); timers.delete(key); },
+    clearTimeoutFn(key) { timers.delete(key); },
+    idleSuspendMs: 0,
   });
-  bundle.audio.context.state = 'running';
-  bundle.controller.onPlaybackPaused();
-  assert.equal([...timers.values()][0].ms, 30000);
-  const first = [...timers.keys()][0];
-  bundle.controller.onPlaybackPaused();
-  assert.ok(cleared.includes(first));
-  const armedKey = [...timers.keys()][0];
-  const armed = timers.get(armedKey);
-  timers.delete(armedKey);
-  armed.fn();
-  await new Promise(resolve => setImmediate(resolve));
-  assert.equal(bundle.audio.context.suspendCalls, 1);
+  await prepareAndSeek(bundle);
   bundle.controller.onPlaybackPaused();
   bundle.controller.stop();
-  assert.equal(timers.size, 0);
-  bundle.controller.onPlaybackPaused();
   bundle.controller.enabled = false;
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(bundle.audio.context.suspendCalls, 0);
   assert.equal(timers.size, 0);
 });
 
-test('suspend 後の seek で resume し video の再生 API に触らない', async () => {
+test('prepare 時点で suspended の context を resume する', async () => {
+  const bundle = controllerFixture();
+  assert.equal(bundle.audio.context.state, 'suspended');
+  await bundle.controller.prepare('/source.mp4');
+  assert.equal(bundle.audio.context.resumeCalls, 1);
+  assert.equal(bundle.audio.context.state, 'running');
+});
+
+test('prepare の resume 失敗は throw せず lastError に残す', async () => {
+  const bundle = controllerFixture();
+  bundle.audio.context.resume = async function () {
+    this.resumeCalls++;
+    throw new Error('resume denied');
+  };
+  await assert.doesNotReject(bundle.controller.prepare('/source.mp4'));
+  assert.equal(bundle.audio.context.resumeCalls, 1);
+  assert.equal(bundle.controller.lastError, 'resume denied');
+});
+
+test('onPlaybackPaused は副作用のない no-op', () => {
+  const timers = [];
+  const bundle = controllerFixture({
+    setTimeoutFn(fn, ms) { timers.push({ fn, ms }); return timers.length; },
+  });
+  assert.doesNotThrow(() => bundle.controller.onPlaybackPaused());
+  assert.equal(bundle.audio.context.suspendCalls, 0);
+  assert.deepEqual(timers, []);
+});
+
+test('seek の resume fallback は video の再生 API に触らない', async () => {
   const video = new Proxy({ volume: 0.4, muted: false }, {
     get(target, key) {
       if (!['volume', 'muted'].includes(String(key))) throw new Error(`unexpected video read: ${String(key)}`);
@@ -523,8 +542,11 @@ test('suspend 後の seek で resume し video の再生 API に触らない', a
     set() { throw new Error('unexpected video write'); },
   });
   const bundle = controllerFixture({ video });
-  await prepareAndSeek(bundle);
-  assert.equal(bundle.audio.context.resumeCalls, 1);
+  await bundle.controller.prepare('/source.mp4');
+  bundle.audio.context.state = 'suspended';
+  bundle.controller.onSeek({ outputTime: 0.04, sourceTime: 0.04, src: '/source.mp4', isPlaying: false });
+  await until(() => bundle.audio.sources.length > 0 || bundle.controller.lastError);
+  assert.equal(bundle.audio.context.resumeCalls, 2);
   assert.ok(bundle.audio.gains[0].gain.calls.some(call => call[1] === 0.4));
 });
 

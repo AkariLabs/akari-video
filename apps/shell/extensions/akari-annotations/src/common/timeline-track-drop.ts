@@ -19,6 +19,79 @@ export interface TimelineTrackDropHit {
     readonly insertIndex?: number;
 }
 
+export interface TimelineDropRect {
+    readonly left: number;
+    readonly right: number;
+    readonly top: number;
+    readonly bottom: number;
+}
+
+export type TimelinePanelDropZone =
+    | 'strip'
+    | 'ruler-above'
+    | 'below-strip'
+    | 'header-column'
+    | 'outside';
+
+export interface TimelinePanelDropPoint {
+    readonly x: number;
+    readonly y: number;
+    readonly zone: TimelinePanelDropZone;
+}
+
+/** パネル内の死に地を、既存の client 座標ベースのストリップ D&D API へ射影する。 */
+export function clampTimelinePanelDropPoint(input: {
+    readonly pointerX: number;
+    readonly pointerY: number;
+    readonly stripRect: TimelineDropRect;
+    readonly headerColumnRect: TimelineDropRect;
+    readonly panelRect: TimelineDropRect;
+}): TimelinePanelDropPoint {
+    const { pointerX: x, pointerY: y, stripRect, headerColumnRect, panelRect } = input;
+    if (!containsPoint(panelRect, x, y)) {
+        return { x, y, zone: 'outside' };
+    }
+    if (containsPoint(headerColumnRect, x, y)) {
+        return { x: stripRect.left + 1, y, zone: 'header-column' };
+    }
+    if (containsPoint(stripRect, x, y)) {
+        return { x, y, zone: 'strip' };
+    }
+    if (y < stripRect.top) {
+        return { x, y: stripRect.top + 1, zone: 'ruler-above' };
+    }
+    if (y >= stripRect.bottom) {
+        return { x, y: stripRect.bottom - 1, zone: 'below-strip' };
+    }
+    return { x, y, zone: 'strip' };
+}
+
+/** ストリップ内端のホバーを、1 フレーム分の縦スクロール量へ変換する。 */
+export function planDragAutoScroll(input: {
+    readonly pointerY: number;
+    readonly stripRect: TimelineDropRect;
+    readonly edge: number;
+    readonly step: number;
+}): { readonly deltaY: number } {
+    const { pointerY, stripRect } = input;
+    const edge = Math.max(0, input.edge);
+    const step = Math.max(0, input.step);
+    if (pointerY < stripRect.top || pointerY >= stripRect.bottom) {
+        return { deltaY: 0 };
+    }
+    if (pointerY <= stripRect.top + edge) {
+        return { deltaY: -step };
+    }
+    if (pointerY >= stripRect.bottom - edge) {
+        return { deltaY: step };
+    }
+    return { deltaY: 0 };
+}
+
+function containsPoint(rect: TimelineDropRect, x: number, y: number): boolean {
+    return x >= rect.left && x < rect.right && y >= rect.top && y < rect.bottom;
+}
+
 /** 映像クリップの着地先。段の境界付近だけを新しいトラックへの差し込み先にする。 */
 export function hitTestTimelineTrackDrop(
     localY: number,
