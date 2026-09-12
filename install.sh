@@ -435,13 +435,22 @@ if [[ -n "$SHELL_CONFIG" ]] && ! grep -q "$INSTALL_DIR" "$SHELL_CONFIG" 2>/dev/n
   echo "" >> "$SHELL_CONFIG"
   echo "# AKARI Video" >> "$SHELL_CONFIG"
   echo "export PATH=\"\$PATH:$INSTALL_DIR\"" >> "$SHELL_CONFIG"
-  # 現在のセッションにも反映
+  # このプロセス内にだけ反映される（curl | bash では呼び出し元のシェルへは届かない）
   export PATH="$PATH:$INSTALL_DIR"
   info "  PATH を通しました: $SHELL_CONFIG"
-  info "  → akari.sh がすぐに使えます"
+  warn "  ※ 今開いているターミナルにはまだ反映されていません（akari.sh: command not found になります）"
+  warn "     新しいターミナルを開くか、次を実行してから akari.sh を使ってください:"
+  warn "       source $SHELL_CONFIG"
 elif [[ -z "$SHELL_CONFIG" ]]; then
   warn "  PATH の自動登録に対応していないシェルです。手動で以下を PATH に追加してください:"
   warn "    $INSTALL_DIR"
+fi
+
+# Quick start の手順 0 で使う「反映」コマンド（shell config を特定できない場合は汎用文言）
+if [[ -n "$SHELL_CONFIG" ]]; then
+  PATH_REFRESH_HINT="source $SHELL_CONFIG"
+else
+  PATH_REFRESH_HINT="PATH に $INSTALL_DIR を追加"
 fi
 
 # ─── Detect primary AI agent for Quick Start ───
@@ -456,16 +465,19 @@ fi
 echo ""
 echo -e "  ${BOLD}Quick start:${NC}"
 echo ""
-echo -e "    0. ヘルプを表示（サブコマンド一覧）"
+echo -e "    0. 新しいターミナルを開く（または今のターミナルで PATH を反映する）"
+echo -e "       ${MUTED}${PATH_REFRESH_HINT}${NC}"
+echo ""
+echo -e "    1. ヘルプを表示（サブコマンド一覧）"
 echo -e "       ${MUTED}akari.sh --help${NC}"
 echo ""
-echo -e "    1. 作業用ディレクトリを作って移動"
+echo -e "    2. 作業用ディレクトリを作って移動"
 echo -e "       ${MUTED}mkdir ~/my-first-video && cd ~/my-first-video${NC}"
 echo ""
-echo -e "    2. ${AGENT_NAME} を起動（プロジェクトが自動生成される）"
+echo -e "    3. ${AGENT_NAME} を起動（プロジェクトが自動生成される）"
 echo -e "       ${MUTED}akari.sh${NC}"
 echo ""
-echo -e "    3. 別の端末でプレビューサーバーを起動"
+echo -e "    4. 別の端末でプレビューサーバーを起動"
 echo -e "       ${MUTED}akari.sh --preview${NC}"
 echo ""
 echo -e "${MUTED}Docs: https://github.com/$REPO/blob/main/docs/getting-started.ja.md${NC}"

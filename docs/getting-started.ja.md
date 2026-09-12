@@ -49,6 +49,11 @@ curl -fsSL https://raw.githubusercontent.com/AkariLabs/akari-video/main/install.
 - ffmpeg（何もしなくて OK — `npm install` が同梱の GPL ビルドを自動で取得します。
   sha256 検証付き。PATH に ffmpeg があればそちらを優先）
 
+**インストール後は新しいターミナルを開いてください**（Linux / macOS）。インストーラーは
+`~/.zshrc`（bash は `~/.bashrc`）に PATH を追記しますが、今開いているターミナルには
+反映されないため、そのまま `akari.sh` を打つと `command not found` になります。
+同じターミナルで続ける場合は `source ~/.zshrc`（bash は `source ~/.bashrc`）を先に実行してください。
+
 CLI は既定で `~/.akari/app/` にインストールされます。インストール先は
 `AKARI_INSTALL_DIR` で上書きできます。`~/.akari/app/` はアップデート時にディレクトリごと
 入れ替えてよい領域です。一方、`~/.akari/` 直下のその他の項目（`assets/`、`avatars/`、
