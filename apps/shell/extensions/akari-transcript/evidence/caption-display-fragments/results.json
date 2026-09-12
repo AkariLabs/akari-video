@@ -1,0 +1,169 @@
+{
+  "status": "pass",
+  "steps": [
+    {
+      "name": "1. ⊕ →「／ ここで改行」で濃い／が 1 つ増え、display_fragments が書かれる",
+      "pass": true,
+      "detail": {
+        "buttonText": "／ ここで改行（表示だけ）",
+        "before": {
+          "rowManual": 0,
+          "rowAuto": 0,
+          "rowTotal": 0,
+          "lock": null,
+          "docTotal": 0
+        },
+        "after": {
+          "rowManual": 1,
+          "rowAuto": 0,
+          "rowTotal": 1,
+          "lock": "🔒 改行を手で固定",
+          "docTotal": 1
+        },
+        "fragments": [
+          "きょうは天気が",
+          "とてもよいので"
+        ],
+        "edited": true,
+        "kernelWindows": [
+          {
+            "text": "きょうは天気が",
+            "start": 1,
+            "end": 1.9,
+            "index": 1,
+            "count": 2
+          },
+          {
+            "text": "とてもよいので",
+            "start": 2.2,
+            "end": 3.1,
+            "index": 2,
+            "count": 2
+          }
+        ],
+        "threeFragments": {
+          "buttonText": "／ ここで改行（表示だけ）",
+          "fragments": [
+            "きょうは",
+            "天気が",
+            "とてもよいので"
+          ],
+          "slashes": {
+            "rowManual": 2,
+            "rowAuto": 0,
+            "rowTotal": 2,
+            "lock": "🔒 改行を手で固定",
+            "docTotal": 2
+          }
+        },
+        "afterRemoveSecond": {
+          "fragments": [
+            "きょうは天気が",
+            "とてもよいので"
+          ],
+          "slashes": {
+            "rowManual": 1,
+            "rowAuto": 0,
+            "rowTotal": 1,
+            "lock": "🔒 改行を手で固定",
+            "docTotal": 1
+          }
+        }
+      }
+    },
+    {
+      "name": "2. 前半の語の時刻では「前半」だけを描く（display_policy 無し）",
+      "pass": true,
+      "detail": {
+        "observed": true,
+        "time": 1.2,
+        "captionCount": 4,
+        "captions": [],
+        "plate": {
+          "className": "",
+          "lineTextContent": [],
+          "textContent": "きょうは天気が"
+        }
+      }
+    },
+    {
+      "name": "3. 後半の語の時刻では「後半」だけを描く",
+      "pass": true,
+      "detail": {
+        "observed": true,
+        "time": 2.4,
+        "captionCount": 4,
+        "captions": [],
+        "plate": {
+          "className": "",
+          "lineTextContent": [],
+          "textContent": "とてもよいので"
+        }
+      }
+    }
+  ],
+  "screenshots": [
+    "01-daihon-manual-slash.png",
+    "02-preview-first-fragment.png",
+    "03-preview-second-fragment.png"
+  ],
+  "cleanup": {
+    "killedPid": 22853,
+    "survivingProcesses": 0,
+    "survivingBackendMain": 0
+  },
+  "fixture": {
+    "ok": true,
+    "rows": 3,
+    "mediaSeconds": 8,
+    "hasDisplayPolicy": false,
+    "target": {
+      "id": "c-0001",
+      "text": "きょうは天気がとてもよいので",
+      "words": [
+        {
+          "text": "きょうは",
+          "start": 1,
+          "end": 1.3
+        },
+        {
+          "text": "天気が",
+          "start": 1.6,
+          "end": 1.9
+        },
+        {
+          "text": "とても",
+          "start": 2.2,
+          "end": 2.5
+        },
+        {
+          "text": "よいので",
+          "start": 2.8,
+          "end": 3.1
+        }
+      ],
+      "breakAtWordIndex": 2,
+      "expectedFragments": [
+        "きょうは天気が",
+        "とてもよいので"
+      ],
+      "expectedFirstWindow": [
+        1,
+        1.9
+      ],
+      "expectedSecondWindow": [
+        2.2,
+        3.1
+      ]
+    }
+  },
+  "legacyProject": {
+    "hasDisplayPolicy": false,
+    "captions": 3
+  },
+  "preloadOverlay": "removed",
+  "daihonVisible": {
+    "width": 427,
+    "height": 47.328125
+  }
+}

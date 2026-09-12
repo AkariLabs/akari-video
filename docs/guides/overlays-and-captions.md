@@ -87,6 +87,7 @@ An object-form `captions.json` can set `display_policy.lines` from 1 through 6; 
 1. `display_policy.wrap` controls how those lines are populated. The default, `multi`, displays
 up to N sequential fragments at the same time. `fold` instead keeps one fragment and folds it
 into up to N lines using `max_line_units` as the per-line budget.
+Manual line breaks (／) placed in the script panel affect previews and exports even when the project has no `display_policy`.
 
 Use `text_style.scale` for proportional plate scaling (0.4 through 3, default 1) and
 `text_style.rotate` for rotation in degrees (-180 through 180, default 0). Both transforms use

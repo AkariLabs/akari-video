@@ -60,6 +60,20 @@ test('配列ルートを従来どおり読み text_style 不在なら id 以外�
     assert.deepEqual(parsed, { id: 'c-0001', start: 0, end: 2, text: '字幕' });
 });
 
+test('legacy parse は display_fragments を語境界時刻の caption へ展開する', () => {
+    const parsed = parsePreviewCaptions(JSON.stringify([{
+        ...caption, text: '前半後半', display_fragments: ['前半', '後半'],
+        words: [{ text: '前半', start: 0, end: 0.8 }, { text: '後半', start: 1.2, end: 2 }]
+    }]));
+    assert.deepEqual(parsed.map(item => ({
+        id: item.id, text: item.text, start: item.start, end: item.end,
+        fragmentKey: item.fragmentKey, fragmentIndex: item.fragmentIndex, fragmentCount: item.fragmentCount
+    })), [
+        { id: 'c-0001', text: '前半', start: 0, end: 0.8, fragmentKey: 'c-0001#f1', fragmentIndex: 1, fragmentCount: 2 },
+        { id: 'c-0001', text: '後半', start: 1.2, end: 2, fragmentKey: 'c-0001#f2', fragmentIndex: 2, fragmentCount: 2 }
+    ]);
+});
+
 test('scale/rotate become caption transform variables and resolved display lines are preserved', () => {
     const [parsed] = parsePreviewCaptions(JSON.stringify({
         captions: [{ ...caption, text_style: { scale: 1.5, rotate: -8 } }]

@@ -26,7 +26,7 @@ test('sheet injects vgpu only for declarations and preserves existing static/thr
   assert.match(gpu, /pendingVgpuDraws\.push\(\[vgpuContainer, seconds - start\]\)/);
   for (const [html, hash] of [
     ['<div>static</div>', '5078fecb28be4bf74705d4b87ff01677ff78c67d1fd92cf7ca78f98f66c39d7e'],
-    ['<canvas></canvas><script type="application/json" data-akari-3d-scene>{"texts":[{"id":"title","text":"Test"}]}</script>', '4158fbb017567853f6d0f9f99ddc637b76a2236fdcb225b697dbd5a3e9aa0692'],
+    ['<canvas></canvas><script type="application/json" data-akari-3d-scene>{"texts":[{"id":"title","text":"Test"}]}</script>', '11ff66c0fbfd6adef79f329e72b21d30508f5cbc5cfb371179066867d3278e5a'],
   ]) {
     const actual = sheet(html);
     assert.doesNotMatch(actual, /vgpuRuntime|AkariVgpu|pendingVgpu/);

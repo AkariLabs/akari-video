@@ -15,9 +15,34 @@ export interface CaptionWindowLike {
     end?: unknown;
     duration?: unknown;
 }
+export interface CaptionFragmentLike extends CaptionWindowLike {
+    id?: unknown;
+    text?: unknown;
+    display_text?: unknown;
+    display_fragments?: unknown;
+    words?: unknown;
+}
+export interface CaptionFragmentWindow {
+    text: string;
+    start: number;
+    end: number;
+    index: number;
+    count: number;
+}
 export declare function captionWindowSeconds(caption: CaptionWindowLike): {
     start: number;
     end: number;
 };
+/**
+ * 手置き display_fragments を legacy 表示用の時間窓へ変換する。
+ * 不正・単一断片は既存挙動を守るため null とし、呼び出し側で元 caption をそのまま通す。
+ */
+export declare function captionFragmentWindows(caption: CaptionFragmentLike): CaptionFragmentWindow[] | null;
+/** legacy caption 配列を手置き断片単位の疑似 caption 配列へ展開する。 */
+export declare function expandCaptionDisplayFragments<T extends CaptionFragmentLike>(captions: readonly T[]): Array<T & {
+    fragmentIndex?: number;
+    fragmentCount?: number;
+    fragmentKey?: string;
+}>;
 /** source 秒 t に表示すべき字幕（最初にヒットしたもの）。無ければ undefined */
 export declare function findActiveCaption<T extends CaptionWindowLike>(captions: readonly T[], sourceSeconds: number): T | undefined;

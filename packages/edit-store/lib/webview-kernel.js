@@ -35,6 +35,7 @@ var AkariEditKernel = (() => {
     buildWebAudioSchedule: () => buildWebAudioSchedule,
     captionAnchorPositionVars: () => captionAnchorPositionVars,
     captionClockDomainOf: () => captionClockDomainOf,
+    captionFragmentWindows: () => captionFragmentWindows,
     captionWindowSeconds: () => captionWindowSeconds,
     composeEnvelopesDb: () => composeEnvelopesDb,
     computeAdjustCssVisual: () => computeAdjustCssVisual,
@@ -44,6 +45,7 @@ var AkariEditKernel = (() => {
     easingProgress: () => easingProgress,
     envelopeToGainEvents: () => envelopeToGainEvents,
     evaluateEnvelopeDb: () => evaluateEnvelopeDb,
+    expandCaptionDisplayFragments: () => expandCaptionDisplayFragments,
     findActiveCaption: () => findActiveCaption,
     findActiveResolvedCaption: () => findActiveResolvedCaption,
     isAudioItemAudible: () => isAudioItemAudible,
@@ -385,6 +387,90 @@ var AkariEditKernel = (() => {
     const duration = typeof caption.duration === "number" && Number.isFinite(caption.duration) ? caption.duration : 0;
     const end = typeof caption.end === "number" && Number.isFinite(caption.end) ? caption.end : start + duration;
     return { start, end };
+  }
+  function captionFragmentWindows(caption) {
+    const sourceText = caption.display_text ?? caption.text;
+    const text = typeof sourceText === "string" ? sourceText : null;
+    const fragments = caption.display_fragments;
+    if (text === null || text.length === 0 || !Array.isArray(fragments) || fragments.length < 2 || fragments.some((fragment) => typeof fragment !== "string") || fragments.join("") !== text) {
+      return null;
+    }
+    const window = captionWindowSeconds(caption);
+    const words = Array.isArray(caption.words) ? caption.words : null;
+    const validWords = words?.every((word) => isCaptionFragmentWord(word)) === true ? words : null;
+    const wordText = validWords?.map((word) => word.text).join("");
+    const fragmentEnds = [];
+    fragments.reduce((offset, fragment) => {
+      fragmentEnds.push(offset + fragment.length);
+      return offset + fragment.length;
+    }, 0);
+    let wordLength = 0;
+    const wordEnds = validWords ? validWords.map((word) => wordLength += word.text.length) : [];
+    const useWords = validWords !== null && wordText === text && fragmentEnds.slice(0, -1).every((end) => wordEnds.includes(end));
+    let characterStart = 0;
+    return fragments.map((fragment, index) => {
+      const characterEnd = characterStart + fragment.length;
+      let start;
+      let end;
+      if (useWords) {
+        const firstWord = characterStart === 0 ? 0 : wordEnds.indexOf(characterStart) + 1;
+        const lastWord = wordEnds.indexOf(characterEnd);
+        start = clamp(validWords[firstWord].start, window.start, window.end);
+        end = clamp(validWords[lastWord].end, window.start, window.end);
+      } else {
+        const duration = window.end - window.start;
+        start = window.start + duration * (characterStart / text.length);
+        end = window.start + duration * (characterEnd / text.length);
+      }
+      characterStart = characterEnd;
+      return { text: fragment, start, end, index: index + 1, count: fragments.length };
+    });
+  }
+  function expandCaptionDisplayFragments(captions) {
+    return captions.flatMap((caption) => {
+      const windows = captionFragmentWindows(caption);
+      if (windows === null) return [caption];
+      let characterStart = 0;
+      return windows.map((window) => {
+        const characterEnd = characterStart + window.text.length;
+        const expanded = {
+          ...caption,
+          text: window.text,
+          start: window.start,
+          end: window.end,
+          fragmentIndex: window.index,
+          fragmentCount: window.count,
+          fragmentKey: `${String(caption.id)}#f${window.index}`
+        };
+        if (Object.prototype.hasOwnProperty.call(caption, "display_text")) expanded.display_text = window.text;
+        if (Array.isArray(caption.words)) {
+          let offset = 0;
+          expanded.words = caption.words.flatMap((word) => {
+            if (!isCaptionFragmentWord(word)) return [];
+            const wordStart = offset;
+            const wordEnd = offset + word.text.length;
+            offset = wordEnd;
+            if (wordStart < characterStart || wordEnd > characterEnd) return [];
+            return [{
+              ...word,
+              start: clamp(word.start, window.start, window.end),
+              end: clamp(word.end, window.start, window.end)
+            }];
+          });
+        }
+        delete expanded.display_fragments;
+        characterStart = characterEnd;
+        return expanded;
+      });
+    });
+  }
+  function isCaptionFragmentWord(value) {
+    if (!value || typeof value !== "object") return false;
+    const word = value;
+    return typeof word.text === "string" && typeof word.start === "number" && Number.isFinite(word.start) && typeof word.end === "number" && Number.isFinite(word.end) && word.end >= word.start;
+  }
+  function clamp(value, minimum, maximum) {
+    return Math.min(maximum, Math.max(minimum, value));
   }
   function findActiveCaption(captions, sourceSeconds) {
     return captions.find((caption) => {
@@ -897,7 +983,7 @@ var AkariEditKernel = (() => {
   var MIN_LINEAR_GAIN = 1e-4;
   var CUBIC_BEZIER_PATTERN = /^cubic-bezier\(\s*([-+]?(?:\d+\.?\d*|\.\d+)(?:e[-+]?\d+)?)\s*,\s*([-+]?(?:\d+\.?\d*|\.\d+)(?:e[-+]?\d+)?)\s*,\s*([-+]?(?:\d+\.?\d*|\.\d+)(?:e[-+]?\d+)?)\s*,\s*([-+]?(?:\d+\.?\d*|\.\d+)(?:e[-+]?\d+)?)\s*\)$/iu;
   function easingProgress(easing, progress) {
-    const value = clamp(progress);
+    const value = clamp2(progress);
     switch (easing ?? "linear") {
       case "hold":
         return 0;
@@ -1118,7 +1204,7 @@ var AkariEditKernel = (() => {
   function finiteInRange(value, minimum, maximum, fallback) {
     return typeof value === "number" && Number.isFinite(value) && value >= minimum && value <= maximum ? value : fallback;
   }
-  function clamp(value, minimum = 0, maximum = 1) {
+  function clamp2(value, minimum = 0, maximum = 1) {
     return Math.min(maximum, Math.max(minimum, value));
   }
   function cubicCoordinateAt(parameter, first, second) {

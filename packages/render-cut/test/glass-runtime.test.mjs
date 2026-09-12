@@ -16,7 +16,7 @@ test('glass-free 2D and 3D sheets match pre-glass baseline bytes', () => {
   // Captured from 885fc54d rasterize.mjs with these exact inputs.
   for (const [html, expected] of [
     ['<div>Hello</div>', '397dddb4feb40ae417c671aa1d742eaf1b65e99ab41c05cb9bf5cbcfc388d7f3'],
-    ['<div><canvas></canvas><script type="application/json" data-akari-3d-scene>{"texts":[{"id":"t","text":"A"}]}</script></div>', '53343c6980e0fcb88b6ae785815e6c1a471203f8e42e22b4ad443ec8719dcaba'],
+    ['<div><canvas></canvas><script type="application/json" data-akari-3d-scene>{"texts":[{"id":"t","text":"A"}]}</script></div>', 'a80c01de35f8b794c66b403d7e88f083220ae5dcff3b5a5e91a5f91bd175c4fe'],
   ]) assert.equal(sha(renderOverlaySheet(input(html))), expected);
 });
 

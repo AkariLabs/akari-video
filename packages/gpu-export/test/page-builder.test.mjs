@@ -74,6 +74,21 @@ test('caption sprite copies scale/rotate into transform and non-default vars', (
   assert.equal(defaultSprite.vars['--rotate'], undefined);
 });
 
+test('legacy display_fragments reach page-builder as separate caption sprites', () => {
+  const captions = [{
+    id: 'c-fragmented', src: 'main', start: 0, end: 2, text: '前半後半',
+    display_fragments: ['前半', '後半'],
+    words: [{ text: '前半', start: 0, end: 0.8 }, { text: '後半', start: 1.2, end: 2 }],
+  }];
+  const built = buildGpuPage({ edit, captions, projectRoot: process.cwd(), duration: 2 });
+  assert.deepEqual(built.spriteManifest.captions.map(sprite => ({
+    id: sprite.id, start: sprite.start, duration: sprite.duration
+  })), [
+    { id: 'c-fragmented-f1-01', start: 0, duration: 0.8 },
+    { id: 'c-fragmented-f2-01', start: 1.2, duration: 0.8 }
+  ]);
+});
+
 test('caption sprite keeps the shared word preset DOM from render-cut', () => {
   const captions = {
     emphasis_words: [{

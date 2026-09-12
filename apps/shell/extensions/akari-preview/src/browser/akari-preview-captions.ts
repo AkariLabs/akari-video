@@ -2,6 +2,7 @@ import URI from '@theia/core/lib/common/uri';
 import {
     applyCaptionStylePresets,
     captionAnchorPositionVars,
+    expandCaptionDisplayFragments,
     TEXTSTYLE_CATALOG
 } from '@akari-video/edit-store';
 import { ResolvedCaptionDisplayPayload } from '../common/akari-preview-protocol';
@@ -51,6 +52,9 @@ export interface PreviewCaption {
     wordStyles?: { from: number; to: number; preset_id: string; style_vars: Record<string, string> }[];
     sourceCueId?: string;
     resolvedTimeline?: boolean;
+    fragmentKey?: string;
+    fragmentIndex?: number;
+    fragmentCount?: number;
 }
 
 export function locatePreviewCaptions(editUri: URI | undefined, workspaceRoot: URI | undefined): URI | undefined {
@@ -77,7 +81,7 @@ export function parsePreviewCaptions(source: string): PreviewCaption[] {
         throw new Error('captions.json default_text_style is invalid');
     }
     const captions: PreviewCaption[] = [];
-    for (const value of values) {
+    for (const value of expandCaptionDisplayFragments(values as Record<string, unknown>[])) {
         if (!value || typeof value !== 'object') {
             continue;
         }
@@ -125,6 +129,9 @@ export function parsePreviewCaptions(source: string): PreviewCaption[] {
             start,
             end,
             text,
+            ...(typeof candidate.fragmentKey === 'string' ? { fragmentKey: candidate.fragmentKey } : {}),
+            ...(typeof candidate.fragmentIndex === 'number' ? { fragmentIndex: candidate.fragmentIndex } : {}),
+            ...(typeof candidate.fragmentCount === 'number' ? { fragmentCount: candidate.fragmentCount } : {}),
             ...(style ? { style } : {}),
             ...(words.length > 0 ? { words } : {}),
             ...(textStyle ? {
