@@ -5639,10 +5639,27 @@ function runReferencedMediaChecks(rawEdit, projectedEdit, findings, skipped, pat
   const visualSourceIds = new Set();
   const visualCuts = [];
   const narrationItems = [];
+  // media.source-range はレーンを問わず（袋・グループの入れ子も含めて）全 media item を見る。
+  // 既存 3 検査の入力（referencedSourceIds / visualCuts / narrationItems）は変えない。
+  const rangeItems = [];
+  const rangeSourceIds = new Set();
 
   if (rawEdit?.version === 2 && Array.isArray(rawEdit.tracks)) {
     for (const [trackIndex, track] of rawEdit.tracks.entries()) {
       if (!isRecord(track) || !Array.isArray(track.items)) continue;
+      const collectRange = (items, pathPrefix) => {
+        for (const [itemIndex, item] of items.entries()) {
+          if (!isRecord(item)) continue;
+          const itemPath = `${pathPrefix}[${itemIndex}]`;
+          if (isRecord(item.source) && item.source.kind === "media"
+            && isNonEmptyString(item.source.src)) {
+            rangeItems.push({ item, sourceId: item.source.src, itemPath });
+            rangeSourceIds.add(item.source.src);
+          }
+          if (Array.isArray(item.items)) collectRange(item.items, `${itemPath}.items`);
+        }
+      };
+      collectRange(track.items, `edit.json#tracks[${trackIndex}].items`);
       for (const [itemIndex, item] of track.items.entries()) {
         if (!isRecord(item) || !isRecord(item.source) || item.source.kind !== "media"
           || !isNonEmptyString(item.source.src)) continue;
@@ -5662,11 +5679,11 @@ function runReferencedMediaChecks(rawEdit, projectedEdit, findings, skipped, pat
       if (!isRecord(cut) || !isNonEmptyString(cut.src)) continue;
       referencedSourceIds.add(cut.src);
       visualSourceIds.add(cut.src);
-      visualCuts.push({
-        item: { id: cut.id ?? `cut-${index + 1}`, source: cut },
-        sourceId: cut.src,
-        itemPath: `edit.json#cuts[${index}]`,
-      });
+      const itemPath = `edit.json#cuts[${index}]`;
+      const projectedItem = { id: cut.id ?? `cut-${index + 1}`, source: cut };
+      visualCuts.push({ item: projectedItem, sourceId: cut.src, itemPath });
+      rangeItems.push({ item: projectedItem, sourceId: cut.src, itemPath });
+      rangeSourceIds.add(cut.src);
     }
   }
 
@@ -5707,13 +5724,24 @@ function runReferencedMediaChecks(rawEdit, projectedEdit, findings, skipped, pat
     );
   }
 
+  // range 検査だけが参照する source（入れ子・音声レーン）も同じ path キャッシュで probe する。
+  // 既存検査（silence / volume）の対象集合は referencedSourceIds のままで変えない。
+  for (const sourceId of rangeSourceIds) {
+    if (probeBySourceId.has(sourceId)) continue;
+    const source = sourcesById.get(sourceId);
+    if (!source || !isNonEmptyString(source.path)) continue;
+    probeBySourceId.set(sourceId, probeForPath(resolveReference(paths.editPath, source.path, paths)));
+  }
+
+  const fps = projectedEdit?.output?.fps;
   validateVisualAudioDuration(
     visualCuts,
     probeBySourceId,
     findings,
     skipped,
-    projectedEdit?.output?.fps,
+    fps,
   );
+  validateMediaSourceRange(rangeItems, probeBySourceId, sourcesById, findings, skipped, fps);
   validateNarrationMediaStart(narrationItems, probeBySourceId, findings, skipped);
 
   if (Array.isArray(rawEdit?.audio?.narration)) {
@@ -5729,6 +5757,41 @@ function runReferencedMediaChecks(rawEdit, projectedEdit, findings, skipped, pat
         `edit.json#audio.narration[${index}].in`,
         findings,
       );
+    }
+  }
+
+  // v1 形の audio 宣言（path 直指定）も同じ実尺で見る。bgm は schema に out が無いので in だけ。
+  for (const key of ["narration", "sfx"]) {
+    const entries = rawEdit?.audio?.[key];
+    if (!Array.isArray(entries)) continue;
+    for (const [index, item] of entries.entries()) {
+      if (!isRecord(item) || !isNonEmptyString(item.path)) continue;
+      const probe = probeForPath(resolveReference(paths.editPath, item.path, paths));
+      if (!isPositiveNumber(probe?.containerDuration)) continue;
+      addSourceRangeFindings({
+        label: isNonEmptyString(item.id) ? item.id : `${key}-${index + 1}`,
+        duration: probe.containerDuration,
+        inSeconds: isFiniteNumber(item.in) ? item.in : 0,
+        outSeconds: isFiniteNumber(item.out) ? item.out : null,
+        pathPrefix: `edit.json#audio.${key}[${index}]`,
+        pathSuffix: "",
+        findings,
+      });
+    }
+  }
+  const declaredBgm = rawEdit?.audio?.bgm;
+  if (isRecord(declaredBgm) && isNonEmptyString(declaredBgm.path)) {
+    const probe = probeForPath(resolveReference(paths.editPath, declaredBgm.path, paths));
+    if (isPositiveNumber(probe?.containerDuration)) {
+      addSourceRangeFindings({
+        label: "bgm",
+        duration: probe.containerDuration,
+        inSeconds: isFiniteNumber(declaredBgm.in) ? declaredBgm.in : 0,
+        outSeconds: isFiniteNumber(declaredBgm.out) ? declaredBgm.out : null,
+        pathPrefix: "edit.json#audio.bgm",
+        pathSuffix: "",
+        findings,
+      });
     }
   }
 }
@@ -5844,6 +5907,17 @@ function bindCaptionsToVisualSource(captionsRoot, visualSourceIds) {
   };
 }
 
+/** item が要求する素材終端（秒）。out が無ければフレーム尺と speed から導く。 */
+function effectiveSourceOut(item, fps) {
+  const source = item?.source;
+  const inSeconds = isFiniteNumber(source?.in) ? source.in : 0;
+  if (isFiniteNumber(source?.out)) return source.out;
+  if (Number.isInteger(item?.duration) && isPositiveNumber(fps)) {
+    return inSeconds + (item.duration / fps) * (isPositiveNumber(source?.speed) ? source.speed : 1);
+  }
+  return null;
+}
+
 function validateVisualAudioDuration(visualCuts, probeBySourceId, findings, skipped, fps) {
   const unavailableSourceIds = new Set();
   for (const { item, sourceId, itemPath } of visualCuts) {
@@ -5852,14 +5926,12 @@ function validateVisualAudioDuration(visualCuts, probeBySourceId, findings, skip
       unavailableSourceIds.add(sourceId);
       continue;
     }
-    const source = item.source;
-    const inSeconds = isFiniteNumber(source?.in) ? source.in : 0;
-    const effectiveOut = isFiniteNumber(source?.out)
-      ? source.out
-      : Number.isInteger(item.duration) && isPositiveNumber(fps)
-        ? inSeconds + (item.duration / fps) * (isPositiveNumber(source?.speed) ? source.speed : 1)
-        : null;
+    const effectiveOut = effectiveSourceOut(item, fps);
     if (!isFiniteNumber(effectiveOut) || effectiveOut <= probe.duration + EPSILON) continue;
+    // 素材そのものの実尺を超えているぶんは media.source-range が error で出す。
+    // この検査が見るのは「コンテナ内で音声ストリームだけが先に終わる」素材。
+    if (isPositiveNumber(probe.containerDuration)
+      && effectiveOut > probe.containerDuration + EPSILON) continue;
     const itemId = isNonEmptyString(item.id) ? item.id : "media item";
     addFinding(findings, {
       severity: "warning",
@@ -5874,6 +5946,61 @@ function validateVisualAudioDuration(visualCuts, probeBySourceId, findings, skip
       "media.audio-shorter-than-out",
       `source ${sourceId}: audio stream duration is unavailable`,
     );
+  }
+}
+
+/**
+ * 実在しない区間の要求を素材のコンテナ実尺で弾く（issue #68）。
+ * media.audio-shorter-than-out は音声ストリーム基準のため、音声を持たない映像と
+ * audio レーンの item（bgm / narration / sfx）が無検査のまま PASS していた。
+ * レーンも入れ子も問わず、in / out を実尺と突き合わせて error にする。
+ */
+function validateMediaSourceRange(rangeItems, probeBySourceId, sourcesById, findings, skipped, fps) {
+  const unavailableSourceIds = new Set();
+  for (const { item, sourceId, itemPath } of rangeItems) {
+    const probe = probeBySourceId.get(sourceId);
+    if (!probe || !isPositiveNumber(probe.containerDuration)) {
+      if (sourcesById.has(sourceId)) unavailableSourceIds.add(sourceId);
+      continue;
+    }
+    addSourceRangeFindings({
+      label: isNonEmptyString(item.id) ? item.id : "media item",
+      duration: probe.containerDuration,
+      inSeconds: isFiniteNumber(item.source?.in) ? item.source.in : 0,
+      outSeconds: effectiveSourceOut(item, fps),
+      pathPrefix: `${itemPath}.source`,
+      pathSuffix: `[src=${sourceId}]`,
+      findings,
+    });
+  }
+  for (const sourceId of unavailableSourceIds) {
+    addSkipped(
+      skipped,
+      "media.source-range",
+      `source ${sourceId}: container duration is unavailable`,
+    );
+  }
+}
+
+function addSourceRangeFindings(
+  { label, duration, inSeconds, outSeconds, pathPrefix, pathSuffix, findings },
+) {
+  if (isFiniteNumber(inSeconds) && inSeconds >= duration - EPSILON) {
+    addFinding(findings, {
+      severity: "error",
+      check: "media.source-range",
+      message: `${label}: in=${inSeconds.toFixed(3)}s は素材の実尺 ${duration.toFixed(3)}s 以上です（その先に素材がありません）`,
+      path: `${pathPrefix}.in${pathSuffix}`,
+    });
+    return;
+  }
+  if (isFiniteNumber(outSeconds) && outSeconds > duration + EPSILON) {
+    addFinding(findings, {
+      severity: "error",
+      check: "media.source-range",
+      message: `${label}: out=${outSeconds.toFixed(3)}s が素材の実尺 ${duration.toFixed(3)}s を ${(outSeconds - duration).toFixed(3)}s 超えています（存在しない区間の要求）`,
+      path: `${pathPrefix}.out${pathSuffix}`,
+    });
   }
 }
 
@@ -5906,6 +6033,9 @@ function validateNarrationMediaStart(narrationItems, probeBySourceId, findings, 
 function addNarrationStartWarning(itemId, inSeconds, probe, path, findings) {
   if (probe?.hasAudio !== true || !isPositiveNumber(probe.duration)
     || inSeconds < probe.duration - EPSILON) return;
+  // 素材の実尺そのものを超えているぶんは media.source-range が error で出す。
+  if (isPositiveNumber(probe.containerDuration)
+    && inSeconds >= probe.containerDuration - EPSILON) return;
   addFinding(findings, {
     severity: "warning",
     check: "audio.narration.trim",
@@ -6053,6 +6183,7 @@ function probeMediaAudio(sourcePath, configuredCommand) {
   } catch (error) {
     return {
       hasAudio: null,
+      containerDuration: null,
       reason: `audio stream detection unavailable: ${messageOf(error)}`,
     };
   }
@@ -6064,7 +6195,7 @@ function probeMediaAudio(sourcePath, configuredCommand) {
       "-select_streams",
       "a:0",
       "-show_entries",
-      "stream=index,duration",
+      "format=duration:stream=index,duration",
       "-of",
       "json",
       sourcePath,
@@ -6074,6 +6205,7 @@ function probeMediaAudio(sourcePath, configuredCommand) {
   if (result.error) {
     return {
       hasAudio: null,
+      containerDuration: null,
       reason: `audio stream detection unavailable: ${messageOf(result.error)}`,
     };
   }
@@ -6081,6 +6213,7 @@ function probeMediaAudio(sourcePath, configuredCommand) {
     const detail = String(result.stderr || result.stdout || "").trim().split("\n").at(-1);
     return {
       hasAudio: null,
+      containerDuration: null,
       reason: `audio stream detection unavailable: ${detail || `ffprobe exited with status ${result.status}`}`,
     };
   }
@@ -6091,18 +6224,26 @@ function probeMediaAudio(sourcePath, configuredCommand) {
     return {
       hasAudio: null,
       duration: null,
+      containerDuration: null,
       reason: `audio stream detection unavailable: invalid ffprobe JSON (${messageOf(error)})`,
     };
   }
+  // コンテナ実尺は音声ストリームの有無に関わらず取れる（音声なし映像でも format.duration は出る）。
+  // media.source-range はこちらを基準にする。
+  const containerDurationValue = Number(parsed?.format?.duration);
+  const container = isPositiveNumber(containerDurationValue)
+    ? { containerDuration: containerDurationValue }
+    : { containerDuration: null };
   const stream = Array.isArray(parsed?.streams) ? parsed.streams[0] : undefined;
   if (!stream) {
-    return { hasAudio: false, reason: "source has no audio stream" };
+    return { hasAudio: false, reason: "source has no audio stream", ...container };
   }
   const duration = Number(stream.duration);
   return {
     hasAudio: true,
     duration: isPositiveNumber(duration) ? duration : null,
     reason: isPositiveNumber(duration) ? null : "audio stream duration is unavailable",
+    ...container,
   };
 }
 
