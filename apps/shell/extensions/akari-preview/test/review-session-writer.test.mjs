@@ -115,6 +115,10 @@ test('records non-silent PCM in the four S1 files with a valid 16 kHz mono WAV a
     assert.equal(listed[0].id, 's-0001');
     assert.equal(listed[0].durationSec, 1);
     assert.equal(listed[0].orphaned, false);
+    assert.deepEqual(listed[0].ranges, [
+        { start: 12.4, end: 13.9 },
+        { start: 42, end: 42 }
+    ]);
 });
 
 test('allocates after the greatest existing directory and never reuses a missing number', async () => {

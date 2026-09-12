@@ -43,6 +43,7 @@ const REVIEW_SESSION_STOP_EVENT = 'akari.review.session.stop';
 const REVIEW_SESSION_REFRESH_EVENT = 'akari.review.session.refresh';
 const REVIEW_SESSION_OPEN_FOLDER_EVENT = 'akari.review.session.openFolder';
 const REVIEW_SESSION_STATE_EVENT = 'akari.review.session.state';
+const REVIEW_SESSION_FOCUS_EVENT = 'akari.review.session.focus';
 const REVIEW_ANNOTATION_SHOW_STROKES_EVENT = 'akari.review.annotation.showStrokes';
 // M2 (task.md): ツールモード（neutral/pen/rect/select）切替 request。akari-preview 側
 // （akari-preview-open-handler.ts の REVIEW_TOOL_MODE_SET_EVENT）と文字列だけミラーする。
@@ -70,6 +71,12 @@ interface ReviewSessionSummary {
     endedAt: string | null;
     durationSec: number;
     orphaned: boolean;
+    ranges?: Array<{ start: number; end: number }>;
+}
+
+interface ReviewSessionFocusDetail {
+    sessionId: string;
+    editUri: string;
 }
 
 /** M3 (task.md 指示2): select ツールで直近クリックした登録済み UI 要素。akari-preview 側とミラー。 */
@@ -169,6 +176,7 @@ export class AkariReviewPanelWidget extends BaseWidget {
     protected readonly listContainer = document.createElement('div');
     protected readonly footer = document.createElement('div');
     protected reviewSessionState: ReviewSessionUiState | undefined;
+    protected focusedReviewSessionId: string | undefined;
     protected lastReviewSessionContext = '';
     protected rawSourceState: RawSourceSelectionState = {};
     protected rawSourceResolutionKey: string | undefined;
@@ -464,6 +472,17 @@ export class AkariReviewPanelWidget extends BaseWidget {
         this.toDispose.push({
             dispose: () => window.removeEventListener(REVIEW_SESSION_STATE_EVENT, onReviewSessionState)
         });
+        const onReviewSessionFocus = (event: Event): void => {
+            const detail = (event as CustomEvent<ReviewSessionFocusDetail>).detail;
+            const editUri = this.model.location?.editUri?.normalizePath().toString();
+            if (!detail || !editUri || this.normalizeUri(detail.editUri) !== this.normalizeUri(editUri)) return;
+            this.focusedReviewSessionId = detail.sessionId;
+            this.revealReviewSession(detail.sessionId);
+        };
+        window.addEventListener(REVIEW_SESSION_FOCUS_EVENT, onReviewSessionFocus);
+        this.toDispose.push({
+            dispose: () => window.removeEventListener(REVIEW_SESSION_FOCUS_EVENT, onReviewSessionFocus)
+        });
         const onRawPreviewAnnotationState = (event: Event): void => {
             const state = (event as CustomEvent<RawPreviewAnnotationState>).detail;
             this.handleRawPreviewAnnotationState(state);
@@ -680,6 +699,7 @@ export class AkariReviewPanelWidget extends BaseWidget {
         }
         for (const session of [...sessions].reverse()) {
             const row = document.createElement('div');
+            row.className = 'akari-review-row';
             row.setAttribute('data-review-session', session.id);
             Object.assign(row.style, {
                 display: 'grid', gridTemplateColumns: 'auto minmax(0, 1fr) auto',
@@ -704,6 +724,7 @@ export class AkariReviewPanelWidget extends BaseWidget {
             row.append(id, started, duration);
             this.sessionList.appendChild(row);
         }
+        this.revealReviewSession(this.focusedReviewSessionId);
     }
 
     protected refreshReviewSessionContext(): void {
@@ -1201,6 +1222,19 @@ export class AkariReviewPanelWidget extends BaseWidget {
         }
         row.scrollIntoView({ block: 'nearest' });
         this.listContainer.querySelectorAll('.akari-review-row-revealed').forEach(
+            highlighted => highlighted.classList.remove('akari-review-row-revealed')
+        );
+        row.classList.add('akari-review-row-revealed');
+    }
+
+    protected revealReviewSession(sessionId: string | undefined): void {
+        if (!sessionId) return;
+        const row = this.sessionList.querySelector<HTMLElement>(
+            `[data-review-session="${CSS.escape(sessionId)}"]`
+        );
+        if (!row) return;
+        row.scrollIntoView({ block: 'nearest' });
+        this.node.querySelectorAll('.akari-review-row-revealed').forEach(
             highlighted => highlighted.classList.remove('akari-review-row-revealed')
         );
         row.classList.add('akari-review-row-revealed');
