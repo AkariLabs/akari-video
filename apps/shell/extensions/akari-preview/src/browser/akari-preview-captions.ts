@@ -47,6 +47,8 @@ export interface PreviewCaption {
     textStyle?: PreviewCaptionTextStyle;
     textStyleVars?: Record<string, string>;
     displayLines?: string[];
+    resolvedWords?: { start: number; end: number; text: string; line: number }[];
+    wordStyles?: { from: number; to: number; preset_id: string; style_vars: Record<string, string> }[];
     sourceCueId?: string;
     resolvedTimeline?: boolean;
 }
@@ -141,6 +143,11 @@ export function parseResolvedPreviewCaptions(payload: ResolvedCaptionDisplayPayl
     return payload.captions.map(cue => {
         const textStyle = cue.text_style ? normalizeTextStyle(cue.text_style) : undefined;
         const displayLines = (cue as unknown as { display_lines?: string[] }).display_lines;
+        const wordDisplay = cue as unknown as {
+            words?: { start: number; end: number; text: string; line: number }[];
+            word_styles?: { from: number; to: number; preset_id: string; style_vars: Record<string, string> }[];
+        };
+        const hasWordDisplay = Array.isArray(wordDisplay.words) && Array.isArray(wordDisplay.word_styles);
         return {
             id: cue.id,
             sourceCueId: cue.source_cue_id,
@@ -149,6 +156,10 @@ export function parseResolvedPreviewCaptions(payload: ResolvedCaptionDisplayPayl
             end: cue.end,
             text: cue.text,
             ...(Array.isArray(displayLines) ? { displayLines: [...displayLines] } : {}),
+            ...(hasWordDisplay ? {
+                resolvedWords: wordDisplay.words!.map(word => ({ ...word })),
+                wordStyles: wordDisplay.word_styles!.map(style => ({ ...style, style_vars: { ...style.style_vars } }))
+            } : {}),
             ...(textStyle ? { textStyle } : {}),
             ...(cue.style_vars || textStyle ? {
                 textStyleVars: { ...captionTextStyleVars(textStyle), ...(cue.style_vars ?? {}) }

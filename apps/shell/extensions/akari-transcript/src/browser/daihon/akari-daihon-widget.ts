@@ -181,6 +181,7 @@ const STYLE = `
 .akari-daihon-word.now { color:#ffdf4d; background:rgba(255,223,77,.13); box-shadow:inset 0 -2px 0 #ffdf4d; }
 .akari-daihon-word:hover { background:rgba(83,209,188,.15); color:#e9ecf2; }
 .akari-daihon-word.wordsel { background:rgba(255,199,74,.28); color:#fff3d6; }
+.akari-daihon-word[data-emphasis-preset] { text-decoration:underline solid rgba(83,209,188,.55) 1.5px; text-underline-offset:3px; color:var(--daihon-word-preset-color, inherit); }
 .akari-daihon-wgap { display:inline-block; width:6px; height:1.5em; margin:0 -3px; vertical-align:middle; position:relative; cursor:pointer; }
 .akari-daihon-wgap::after { content:"⊕"; display:none; position:absolute; left:-5px; top:-12px; color:#ffc74a; font-size:12px; z-index:2; }
 .akari-daihon-wgap:hover::after { display:block; }
@@ -324,6 +325,7 @@ export class AkariDaihonWidget extends BaseWidget {
     protected readonly elements = new Map<string, RowElements>();
     protected rows: DaihonRow[] = [];
     protected captionExtraById = new Map<string, CaptionExtras>();
+    protected wordPresetByRowId = new Map<string, (string | undefined)[]>();
     protected captionsRoot: unknown = [];
     protected sourceCaptions: Caption[] = [];
     protected displayKnobs: DaihonDisplayKnobs = readDaihonDisplayKnobs([]);
@@ -639,6 +641,7 @@ export class AkariDaihonWidget extends BaseWidget {
             const extras = this.captionExtras(captionsSource);
             this.captionExtraById = extras;
             this.sourceCaptions = parsed.captions;
+            this.wordPresetByRowId = this.resolveWordPresets(this.captionsRoot, this.sourceCaptions);
             const captions = this.daihonCaptionsForDisplay();
             this.segments = this.timelineSegments(editSource, captions.length > 0);
             const next = buildDaihonRows(captions, this.segments);
@@ -748,6 +751,33 @@ export class AkariDaihonWidget extends BaseWidget {
                 ...(unrecognized?.length ? { unrecognized } : {}),
                 ...(stylePreset ? { stylePreset } : {})
             });
+        }
+        return result;
+    }
+
+    protected resolveWordPresets(root: unknown, captions: Caption[]): Map<string, (string | undefined)[]> {
+        if (!root || typeof root !== 'object' || Array.isArray(root)) return new Map();
+        const emphasisWords = Array.isArray((root as { emphasis_words?: unknown[] }).emphasis_words)
+            ? (root as { emphasis_words: unknown[] }).emphasis_words : [];
+        const candidates = emphasisWords.flatMap(value => {
+            if (!value || typeof value !== 'object') return [];
+            const record = value as Record<string, unknown>;
+            return typeof record.style_preset === 'string' && record.style_preset.length > 0
+                && typeof record.t_start === 'number' && Number.isFinite(record.t_start) && record.t_start >= 0
+                && typeof record.t_end === 'number' && Number.isFinite(record.t_end) && record.t_end > record.t_start
+                && (record.src === undefined || (typeof record.src === 'string' && /\S/u.test(record.src)))
+                ? [record as { style_preset: string; t_start: number; t_end: number; src?: string }] : [];
+        });
+        const result = new Map<string, (string | undefined)[]>();
+        for (const caption of captions) {
+            if (caption.timeDomain === 'output' || !caption.words?.length) continue;
+            if (caption.words.map(word => word.text).join('') !== (caption.displayText ?? caption.text)) continue;
+            const presets = caption.words.map(word => candidates.find(emphasis => {
+                const sourceMatches = !(emphasis.src && caption.src) || emphasis.src === caption.src;
+                return sourceMatches
+                    && Math.min(word.end, emphasis.t_end) - Math.max(word.start, emphasis.t_start) > 0.000001;
+            })?.style_preset);
+            if (presets.some(Boolean)) result.set(caption.id, presets);
         }
         return result;
     }
@@ -883,7 +913,7 @@ export class AkariDaihonWidget extends BaseWidget {
                 for (const placement of unknowns.filter(item => item.beforeWordIndex === index)) {
                     text.appendChild(this.unkChip(placement.span, row));
                 }
-                const span = this.word(word.text, index, row.id);
+                const span = this.word(word.text, index, row.id, this.wordPresetByRowId.get(row.id)?.[index]);
                 if (isFillerWord(word.text)) {
                     span.classList.add('akari-daihon-word-filler');
                     span.title = 'フィラー語 — クリックで削除メニュー';
@@ -2163,11 +2193,16 @@ export class AkariDaihonWidget extends BaseWidget {
         if (unknowns > 0) this.count.textContent += ` / ?? ${unknowns}`;
     }
 
-    protected word(text: string, index: number, rowId: string): HTMLSpanElement {
+    protected word(text: string, index: number, rowId: string, preset?: string): HTMLSpanElement {
         const span = document.createElement('span');
         span.className = 'akari-daihon-word';
         span.dataset.wordIndex = String(index);
         span.dataset.rowId = rowId;
+        if (preset) {
+            span.dataset.emphasisPreset = preset;
+            const color = TEXTSTYLE_CATALOG[preset]?.style.color;
+            if (typeof color === 'string') span.style.setProperty('--daihon-word-preset-color', color);
+        }
         span.textContent = text;
         return span;
     }

@@ -41,6 +41,20 @@ export interface CaptionDisplayCue {
     text_style?: Record<string, unknown>;
     style_vars?: Record<string, string>;
     layout?: ResolvedCaptionLayout;
+    words?: CaptionDisplayWord[];
+    word_styles?: CaptionDisplayWordStyle[];
+}
+export interface CaptionDisplayWord {
+    start: number;
+    end: number;
+    text: string;
+    line: number;
+}
+export interface CaptionDisplayWordStyle {
+    from: number;
+    to: number;
+    preset_id: string;
+    style_vars: Record<string, string>;
 }
 export interface CaptionBoundaryProjection {
     source_cue_id: string;
@@ -89,6 +103,8 @@ export interface CaptionOccurrence {
     display_fragments?: string[];
     occurrence_index?: number;
     text_style?: UnknownRecord;
+    time_offset?: number;
+    time_scale?: number;
 }
 export interface ProjectedCaptionWords {
     displayText: string;

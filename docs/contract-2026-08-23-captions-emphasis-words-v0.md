@@ -77,3 +77,21 @@
 語と `captions[].words[]` の実測値の突き合わせは v1 契約と同じく書き手の規律であり、静的検証では
 行わない。
 edit-lint は object ルートの `emphasis_words` を受理し、同じ規則で検証する。
+
+## 5. style_preset の描画
+
+共有字幕カーネルは、`style_preset` を持つ `emphasis_words[]` が投影後の語へ当たった場合にだけ、
+display cue へ `words[]` と `word_styles[]` を追加する。`words[]` は出力秒の `start` / `end`、本文
+`text`、`display_lines` の行番号 `line` を持つ。`word_styles[]` は `words[]` の半開区間 `from` / `to`、
+プリセット id `preset_id`、解決済み CSS 変数 `style_vars` を持つ。時間範囲が語の途中だけと重なる場合も、
+その語全体へ丸める（含む側）。該当語が無い cue には両キーとも追加せず、従来の出力を変えない。
+
+描画 DOM は通常の語を `akari-caption__tok`、プリセット付きの語を
+`akari-caption__tok akari-caption__tok--preset` とし、後者へ `data-emphasis-preset` と解決済み
+`style_vars` のインライン CSS を付ける。shell プレビュー、Web プレビュー、render-cut、gpu-export の
+4 出口はこの同じ規則で描く。台本パネルは語 span の `data-emphasis-preset` を読み取れる形で残し、
+プリセット色と薄い下線だけを表示する。既存の行テンプレチップは維持する。
+
+`style_preset` の無いレコードは従来の `emotion` / `style_hint` 経路のままである。現状、語へ渡す
+`style_vars` は color / font-size / font-weight / line-height / stroke 系だけであり、glow、shadow、
+`letter_spacing`、`text_transform` は未対応とする。
