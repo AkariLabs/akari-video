@@ -1342,6 +1342,19 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         };
         window.addEventListener('akari.timeline.primarySelected', onPrimarySelected);
         this.lifecycleDisposables.push({ dispose: () => window.removeEventListener('akari.timeline.primarySelected', onPrimarySelected) });
+        const onDaihonSelectionChanged = (event: Event): void => {
+            const detail = (event as CustomEvent<{ editUri?: unknown; captionIds?: unknown }>).detail;
+            if (typeof detail?.editUri !== 'string' || !Array.isArray(detail.captionIds)) return;
+            const captionIds = detail.captionIds.filter((id): id is string => typeof id === 'string');
+            const key = new URI(detail.editUri).normalizePath().toString();
+            this.openOutputPreviews.get(key)?.sendMessage({
+                type: 'akari-preview-set-selected-captions', captionIds
+            });
+        };
+        window.addEventListener('akari.daihon.selectionChanged', onDaihonSelectionChanged);
+        this.lifecycleDisposables.push({
+            dispose: () => window.removeEventListener('akari.daihon.selectionChanged', onDaihonSelectionChanged)
+        });
         const registerTimelineSetting = <T extends { editUri?: string }>(
             type: string,
             apply: (widget: PreviewWidgetMarker | undefined, detail: T, settings: PreviewSessionSettings) => void
@@ -2477,6 +2490,9 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             engine: lastAudioMeterFrame?.engine ?? 'frame-engine', t: lastAudioMeterFrame?.t ?? 0
         }));
         disposables.push(widget.onMessage(message => {
+            if (message?.type === 'akari-preview-alt-all' && typeof message.on === 'boolean') {
+                window.dispatchEvent(new CustomEvent('akari.selection.altAll', { detail: { on: message.on } }));
+            }
             if (message?.type === 'akari-preview-context-menu') {
                 console.debug('[akari-preview] context menu', message);
                 const editUri = widget.akariPreviewEditUri?.normalizePath().toString();
@@ -6214,6 +6230,11 @@ ${kind === 'raw' ? '.akari-material-chip { position: absolute; top: 8px; left: 8
 #caption-plate:empty { display: none; }
 #caption-plate.akari-caption-host--editing:empty { display: block; min-width: 1em; min-height: 1.42em; }
 #caption-plate.akari-caption-host--styled { pointer-events: none; inset: 0; max-width: none; transform: none; padding: 0; border-radius: 0; background: none; text-shadow: none; white-space: normal; --caption-font-size: ${captionFontSize}px; }
+#caption-plate[data-selected] { outline: 1.5px solid #f5c451; outline-offset: 4px; }
+#caption-plate[data-alt-all] { outline-style: dashed; outline-color: #53d1bc; }
+#caption-plate.akari-caption-host--styled[data-selected] { outline: none; }
+#caption-plate.akari-caption-host--styled[data-selected] .akari-caption__plate { outline: 1.5px solid #f5c451; outline-offset: 4px; }
+#caption-plate.akari-caption-host--styled[data-alt-all] .akari-caption__plate { outline-style: dashed; outline-color: #53d1bc; }
 #caption-plate.akari-caption-host--editing, #caption-plate.akari-caption-host--editing * { cursor: text; user-select: text; }
 #caption-plate.akari-caption-host--styled .akari-caption__line, #caption-plate.akari-caption-host--styled .akari-caption__block { pointer-events: auto; }
 #caption-plate [data-akari-caption-editing="true"], #caption-plate[data-akari-caption-editing="true"] { pointer-events: auto; outline: 1px solid rgba(255,255,255,0.9); outline-offset: 3px; caret-color: currentColor; }
@@ -7300,6 +7321,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 else if (selectedPrimary?.kind === 'caption') selectedPrimary = null;
                 vscode.postMessage({ type: 'akari-preview-caption-selected', captionId });
             };
+            window.akari.reportAltAll = on => vscode.postMessage({ type: 'akari-preview-alt-all', on });
             if (outputPreviewLink && initial.relatedEditUri) {
                 outputPreviewLink.addEventListener('click', () => {
                     vscode.postMessage({ type: 'akari-preview-open-output-request' });
@@ -9269,6 +9291,8 @@ body { display: grid; place-items: center; padding: 32px; }
             let hevcFallbackInFlight = false;
             let audioNoticeShown = false;
             let activeCaption = null;
+            let selectedCaptionIds = new Set();
+            let captionAltAll = false;
             let styledCaptionActive = false;
             let captionHitRegionPending = false;
             let activeCaptionEdit = null;
@@ -13460,6 +13484,26 @@ body { display: grid; place-items: center; padding: 32px; }
                 }
             };
             let captionAnimatorUnavailableWarned = false;
+            const applyCaptionSelectionAttrs = () => {
+                const id = activeCaption && (activeCaption.sourceCueId || activeCaption.id);
+                if (id && selectedCaptionIds.has(id)) captionPlate.setAttribute('data-selected', '');
+                else captionPlate.removeAttribute('data-selected');
+                if (captionAltAll) captionPlate.setAttribute('data-alt-all', '');
+                else captionPlate.removeAttribute('data-alt-all');
+            };
+            const setCaptionAltAll = on => {
+                if (captionAltAll === on) return;
+                captionAltAll = on;
+                applyCaptionSelectionAttrs();
+                window.akari.reportAltAll?.(on);
+            };
+            window.addEventListener('keydown', event => {
+                if (event.key === 'Alt' || event.altKey) setCaptionAltAll(true);
+            });
+            window.addEventListener('keyup', event => {
+                if (event.key === 'Alt' || !event.altKey) setCaptionAltAll(false);
+            });
+            window.addEventListener('blur', () => setCaptionAltAll(false));
             const renderCaption = () => {
                 if (activeCaptionEdit) return;
                 // captions は host 読込層で全件 output-domain へ正規化済み。gap も同じ時計で
@@ -13467,6 +13511,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 const caption = window.AkariEditKernel.findActiveCaption(captions, outputTime) || null;
                 if (caption !== activeCaption) {
                     activeCaption = caption;
+                    applyCaptionSelectionAttrs();
                     applyCaptionStyleVars(caption);
                     const hasEmphasis = Boolean(caption && Array.isArray(caption.words)
                         && caption.words.some(word => findMatchingEmphasis(word)));
@@ -15304,6 +15349,11 @@ body { display: grid; place-items: center; padding: 32px; }
                 }
                 if (message && message.type === 'akari-preview-caption-zone-hover') {
                     updateCaptionZoneHighlight(typeof message.zone === 'string' ? message.zone : null);
+                    return;
+                }
+                if (message && message.type === 'akari-preview-set-selected-captions') {
+                    selectedCaptionIds = new Set(Array.isArray(message.captionIds) ? message.captionIds : []);
+                    applyCaptionSelectionAttrs();
                     return;
                 }
                 if (message && message.type === 'akari-preview-captions-update') {

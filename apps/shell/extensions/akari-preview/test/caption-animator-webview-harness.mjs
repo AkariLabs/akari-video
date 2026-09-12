@@ -36,6 +36,8 @@ export function harness({ text = source, cues = [], engine = true, available = t
     const escape = value => String(value).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
     const plate = {
         id: 'caption-plate',
+        setAttribute() {},
+        removeAttribute() {},
         style: { removeProperty() {}, setProperty() {} },
         classList: { toggle() {} },
         get innerHTML() { return html; },
@@ -80,9 +82,10 @@ export function harness({ text = source, cues = [], engine = true, available = t
                 applyAnimator?.(root, declaration);
             } } } : {}),
             akari: { ...(engine ? { frameEngineClock: clock } : {}), runtime: { tick: noop },
-                playbackTick: noop, audioMeterTick: noop, reviewTransport: noop }
+                playbackTick: noop, audioMeterTick: noop, reviewTransport: noop, reportAltAll: noop }
         },
         initial: { summary }, summary, captions: cues, outputTime: 0, isPlaying: false,
+        selectedCaptionIds: new Set(), captionAltAll: false,
         requestedCutId: undefined, selectedCaptionId: null, selectedLayerId: null, cutSelected: false,
         cropModeActive: false, perspectivePanelOpen: false, activePerspectivePreset: null,
         layerPerspectivePresetButtons: [], findLayerEntry: id => summary.layers?.find(layer => layer.id === id),
