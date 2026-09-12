@@ -8,7 +8,8 @@ function normalizePersistentStrokeItems(value) {
     const metadata = {
       ...typeof item.id === "string" ? { id: item.id } : {},
       ...Number.isFinite(item.recTStart) ? { recTStart: item.recTStart } : {},
-      ...Number.isFinite(item.recTEnd) ? { recTEnd: item.recTEnd } : {}
+      ...Number.isFinite(item.recTEnd) ? { recTEnd: item.recTEnd } : {},
+      ...item.frame && typeof item.frame === "object" && !Array.isArray(item.frame) && Number.isFinite(item.frame.timelineT) ? { frame: { timelineT: item.frame.timelineT } } : {}
     };
     if ((item.tool === "pen" || item.tool === void 0) && Array.isArray(item.points)) {
       const points = item.points.filter((point) => Array.isArray(point) && point.length === 2 && point.every((coordinate) => Number.isFinite(coordinate) && coordinate >= 0 && coordinate <= 1)).map((point) => [point[0], point[1]]);
@@ -23,6 +24,33 @@ function normalizePersistentStrokeItems(value) {
     }
   }
   return normalized;
+}
+function resolveStrokeLifetimeAlpha(item, context, tuning) {
+  if (context.visible !== true) return 0;
+  if (!Number.isFinite(tuning.visibleWindowSec) || tuning.visibleWindowSec < 0) return 1;
+  let distance;
+  if (context.recording === true) {
+    const base = Number.isFinite(item.recTEnd) ? item.recTEnd : item.recTStart;
+    if (!Number.isFinite(base) || !Number.isFinite(context.recT)) return 1;
+    distance = Math.max(0, context.recT - base);
+  } else {
+    const timelineT = item.frame?.timelineT;
+    if (!Number.isFinite(timelineT) || !Number.isFinite(context.playheadT)) return 1;
+    distance = Math.abs(context.playheadT - timelineT);
+  }
+  if (distance <= tuning.visibleWindowSec) return 1;
+  const fadeSec = Math.max(0, tuning.fadeOutMs) / 1e3;
+  if (fadeSec === 0) return 0;
+  const alpha = distance < tuning.visibleWindowSec + fadeSec ? 1 - (distance - tuning.visibleWindowSec) / fadeSec : 0;
+  return Math.max(0, Math.min(1, alpha));
+}
+function selectVisibleStrokeItems(items, context, tuning = PEN_TUNING) {
+  const selected = [];
+  for (const item of items) {
+    const alpha = resolveStrokeLifetimeAlpha(item, context, tuning);
+    if (alpha > 0) selected.push({ item, alpha });
+  }
+  return selected;
 }
 var PEN_TUNING = {
   maxDevicePixelRatio: 2,
@@ -39,6 +67,8 @@ var PEN_TUNING = {
   sparkleMaxSizePx: 13,
   sparkleLifetimeMs: 620,
   sparkleTwinkleHz: 2.2,
+  visibleWindowSec: 8,
+  fadeOutMs: 1500,
   fadeDurationMs: 600
 };
 function createGlowSprite(size) {
@@ -111,5 +141,7 @@ export {
   createPlatinumGradient,
   createSparkleSprite,
   drawPenSegment,
-  normalizePersistentStrokeItems
+  normalizePersistentStrokeItems,
+  resolveStrokeLifetimeAlpha,
+  selectVisibleStrokeItems
 };
