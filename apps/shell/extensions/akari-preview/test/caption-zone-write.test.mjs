@@ -335,13 +335,14 @@ test('successful caption write refreshes the webview instead of suppressing its 
     assert.match(handler, /this\.queueCaptionsUpdate\(widget\)/);
 });
 
-test('caption drag follows the visual plate and writes one group position on release', () => {
+test('caption drag keeps Alt group movement and batches ordinary cue movement with plate transform', () => {
     assert.match(handlerSource, /captionPlate\.style\.translate = outputDx \+ 'px ' \+ outputDy \+ 'px'/);
     assert.match(handlerSource, /Math\.abs\(centerRatio - 0\.5\) < 0\.03/);
     assert.match(handlerSource, /Math\.abs\(bottomRatio - 0\.93\) < 0\.02/);
     assert.match(handlerSource, /const captionVisualRect =/);
     assert.match(handlerSource, /querySelectorAll\('\.akari-caption__line'\)/);
-    assert.match(handlerSource, /\{ groupPosition \}/);
+    assert.match(handlerSource, /await window\.akari\.engine\.captionWrite\(cueId, \{ groupPosition \}\)/);
+    assert.match(handlerSource, /plateTransform: \{[\s\S]*captionIds: \[cueId\][\s\S]*cuePosition: \{ captionId: cueId, value: cuePosition \}/);
     assert.match(handlerSource, /pendingCaptionDragReload = true/);
     assert.match(handlerSource, /akari-preview-captions-update'[\s\S]*captionPlate\.style\.translate = ''/);
     assert.doesNotMatch(handlerSource, /zoneFromFraction/);
@@ -368,7 +369,7 @@ test('caption cue drag clamp, reset, and Alt group mode are wired', () => {
     assert.match(handlerSource, /captionClampOff/);
     assert.match(handlerSource, /akari-caption-clamp-chip/);
     assert.match(handlerSource, /akari-caption-position-reset/);
-    assert.match(handlerSource, /\{ cuePosition \}/);
+    assert.match(handlerSource, /cuePosition: \{ captionId: cueId, value: cuePosition \}/);
     assert.match(handlerSource, /cuePositionReset: true/);
     assert.match(handlerSource, /event\.altKey/);
 });
