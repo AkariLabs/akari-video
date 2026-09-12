@@ -20,6 +20,7 @@ import {
   validateCaptionDisplayPolicy,
   validateCaptionTextStyle,
 } from '../lib/caption-display.js';
+import { resolveCaptionStylePreset, TEXTSTYLE_CATALOG } from '../lib/index.js';
 
 const testRoot = dirname(fileURLToPath(import.meta.url));
 const styleParity = JSON.parse(await readFile(join(testRoot, 'fixtures/caption-style-validation-parity.json'), 'utf8'));
@@ -72,6 +73,62 @@ test('lines=2 wrap=multi groups two scheduled fragments into one display cue', (
   assert.deepEqual([result.display_cues[0].start, result.display_cues[0].end], [0, 2]);
   assert.equal(result.display_cues[0].fragment_index, 1);
   assert.equal(result.display_cues[0].fragment_count, 1);
+});
+
+test('emphasis style_preset resolves per word, rounds partial overlap inward, and preserves cue text', () => {
+  const root = {
+    display_policy: { ...englishPolicy(20), lines: 2, wrap: 'multi' },
+    emphasis_words: [{
+      id: 'e-0001', src: 'a', t_start: 1.2, t_end: 1.3,
+      word: 'AKARI Video', emotion: 'neutral', style_preset: 'neon',
+    }],
+    captions: [caption('c-0001', 0, 2, 'AKARI Videoworks', {
+      src: 'a',
+      display_fragments: ['AKARI Video', 'works'],
+      words: [
+        { start: 1, end: 1.5, text: 'AKARI Video' },
+        { start: 1.5, end: 2, text: 'works' },
+      ],
+    })],
+  };
+  const output = { width: 1920, height: 1080 };
+  const result = resolveCaptionDisplay(root, { cuts: [{ src: 'a', in: 0, out: 2 }], output }, { output });
+  const cue = result.display_cues[0];
+  const preset = resolveCaptionStylePreset({ style_preset: 'neon' }, TEXTSTYLE_CATALOG);
+  const expectedVars = resolveCaptionStyleForOutput(preset.record.text_style, output).vars;
+
+  assert.equal(cue.words.map(word => word.text).join(''), cue.text);
+  assert.deepEqual(cue.words.map(word => word.line), [0, 1]);
+  assert.deepEqual(cue.word_styles, [{ from: 0, to: 1, preset_id: 'neon', style_vars: expectedVars }]);
+  assert.deepEqual([cue.words[0].start, cue.words[0].end], [1, 1.5]);
+});
+
+test('word presets ignore src mismatch, missing style_preset, unknown ids, and output-domain captions', () => {
+  const base = {
+    display_policy: englishPolicy(20),
+    captions: [caption('c-0001', 0, 2, 'AKARI', {
+      src: 'a', words: [{ start: 1, end: 1.5, text: 'AKARI' }],
+    })],
+  };
+  const edit = { cuts: [{ src: 'a', in: 0, out: 2 }] };
+  const cases = [
+    [{ id: 'e-0001', src: 'b', t_start: 1, t_end: 1.5, word: 'AKARI', emotion: 'neutral', style_preset: 'neon' }],
+    [{ id: 'e-0001', src: 'a', t_start: 1, t_end: 1.5, word: 'AKARI', emotion: 'joy' }],
+    [{ id: 'e-0001', src: 'a', t_start: 1, t_end: 1.5, word: 'AKARI', emotion: 'neutral', style_preset: 'missing-preset' }],
+  ];
+  const baseline = JSON.stringify(resolveCaptionDisplay(base, edit).display_cues);
+  for (const emphasis_words of cases) {
+    const cues = resolveCaptionDisplay({ ...base, emphasis_words }, edit).display_cues;
+    assert.equal(JSON.stringify(cues), baseline);
+    assert.equal(cues[0].words, undefined);
+    assert.equal(cues[0].word_styles, undefined);
+  }
+  const outputRoot = {
+    ...base,
+    emphasis_words: cases[0].map(value => ({ ...value, src: 'a' })),
+    captions: [{ ...base.captions[0], time_domain: 'output' }],
+  };
+  assert.equal(resolveCaptionDisplay(outputRoot, edit).display_cues[0].word_styles, undefined);
 });
 
 test('lines=2 wrap=fold keeps one effective fragment and folds it into two lines', () => {

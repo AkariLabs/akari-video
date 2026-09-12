@@ -6,6 +6,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import test from 'node:test';
 import { toV2Edit } from './helpers/v2-fixture.mjs';
+import { RESOLVED_CAPTION_WORD_PRESET_CSS } from '../../../../../packages/render-cut/src/captions.mjs';
 
 const require = createRequire(import.meta.url);
 const { parsePreviewCaptions, parseResolvedPreviewCaptions } = require('../lib/browser/akari-preview-captions.js');
@@ -21,6 +22,14 @@ const styleParity = JSON.parse(await readFile(join(
 const checkedVisualContract = JSON.parse(await readFile(join(
     repositoryRoot, 'packages/edit-store/src/caption-visual-contract.json'
 ), 'utf8'));
+
+test('webview に埋め込む語プリセット CSS は render-cut と一致する', async () => {
+    const source = await readFile(join(
+        extensionRoot, 'src', 'browser', 'akari-preview-open-handler.ts'
+    ), 'utf8');
+    const embedded = source.match(/\+ '(\.akari-caption__tok\{display:inline-block;white-space:pre;\}\.akari-caption__tok--preset\{[^']+\})'/u);
+    assert.equal(embedded?.[1], RESOLVED_CAPTION_WORD_PRESET_CSS);
+});
 
 const caption = {
     id: 'c-0001',
@@ -409,6 +418,45 @@ test('kernel, render, preview API, and shell return the exact same complete disp
     assert.deepEqual(shell.captions, kernel.display_cues);
     assert.ok(kernel.display_cues.every(cue => cue.text_style && cue.style_vars && cue.layout));
     await rm(root, { recursive: true, force: true });
+});
+
+test('word preset style_vars are identical across kernel, render, preview API, and shell', async () => {
+    const fixture = JSON.parse(await readFile(join(
+        repositoryRoot, 'packages/edit-store/test/fixtures/caption-consumer-parity-emphasis.json'
+    ), 'utf8'));
+    const kernel = resolveCaptionDisplay(fixture.captionsRoot, fixture.edit, { output: fixture.edit.output });
+    const { generateResolvedCaptionOverlays } = await import(pathToFileURL(join(
+        repositoryRoot, 'packages/render-cut/src/captions.mjs'
+    )).toString());
+    const { resolveCaptionApiPayload } = await import(pathToFileURL(join(
+        repositoryRoot, 'packages/preview-server/src/caption-api.mjs'
+    )).toString());
+    const root = await mkdtemp(join(tmpdir(), 'akari-shell-caption-word-style-parity-'));
+    try {
+        const captionsPath = join(root, 'captions.json');
+        const editPath = join(root, 'edit.json');
+        await writeFile(captionsPath, JSON.stringify(fixture.captionsRoot));
+        await writeFile(editPath, JSON.stringify(toV2Edit(fixture.edit)));
+        const service = new AkariPreviewServiceImpl();
+        service.workspaceServer = { getMostRecentlyUsedWorkspace: async () => pathToFileURL(root).toString() };
+        const shell = await service.resolveCaptionDisplay({
+            captionsUri: pathToFileURL(captionsPath).toString(),
+            editUri: pathToFileURL(editPath).toString()
+        });
+        const render = generateResolvedCaptionOverlays(kernel).map(overlay => overlay.displayCue.word_styles);
+        const api = resolveCaptionApiPayload(fixture.captionsRoot, fixture.edit).captions.map(cue => cue.word_styles);
+        const shellStyles = shell.captions.map(cue => cue.word_styles);
+        const expected = kernel.display_cues.map(cue => cue.word_styles);
+        assert.deepEqual(render, expected);
+        assert.deepEqual(api, expected);
+        assert.deepEqual(shellStyles, expected);
+        assert.ok(expected.some(styles => styles?.some(style => style.preset_id === 'neon'
+            && style.style_vars['--caption-color'] === '#aefcff')));
+        const preview = parseResolvedPreviewCaptions({ schema: kernel.schema, captions: kernel.display_cues });
+        assert.ok(preview.some(cue => cue.wordStyles?.[0]?.preset_id === 'neon' && cue.resolvedWords?.length));
+    } finally {
+        await rm(root, { recursive: true, force: true });
+    }
 });
 
 test('shell backend supplies protect_break terms and matches soft-fallback fragments', async () => {

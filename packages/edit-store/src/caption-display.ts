@@ -1,3 +1,6 @@
+import { resolveCaptionStylePreset } from './caption-style-preset';
+import { TEXTSTYLE_CATALOG } from './generated/textstyle-catalog';
+
 /**
  * Caption display policy v1.  This is the single pure implementation used by
  * render-cut, preview-server, and the shell backend.  It deliberately performs
@@ -83,6 +86,22 @@ export interface CaptionDisplayCue {
     text_style?: Record<string, unknown>;
     style_vars?: Record<string, string>;
     layout?: ResolvedCaptionLayout;
+    words?: CaptionDisplayWord[];
+    word_styles?: CaptionDisplayWordStyle[];
+}
+
+export interface CaptionDisplayWord {
+    start: number;
+    end: number;
+    text: string;
+    line: number;
+}
+
+export interface CaptionDisplayWordStyle {
+    from: number;
+    to: number;
+    preset_id: string;
+    style_vars: Record<string, string>;
 }
 
 export interface CaptionBoundaryProjection {
@@ -133,6 +152,17 @@ export interface CaptionOccurrence {
     display_fragments?: string[];
     occurrence_index?: number;
     text_style?: UnknownRecord;
+    time_offset?: number;
+    time_scale?: number;
+}
+
+interface ProjectedWordStyle {
+    start: number;
+    end: number;
+    text: string;
+    offset: number;
+    preset_id?: string;
+    style_vars?: Record<string, string>;
 }
 
 export interface ProjectedCaptionWords {
@@ -256,6 +286,7 @@ export function resolveCaptionDisplay(
         ? validateCaptionTextStyle(captionsRoot.default_text_style, 'default_text_style')
         : undefined;
     const cuts = Array.isArray(edit?.cuts) ? edit.cuts as UnknownRecord[] : [];
+    const styleOutput = options.output ?? edit?.output;
     validateProjectionCuts(cuts, edit);
     const projectedCaptions = captions.map(caption => projectCaptionWords(caption, cuts));
     const captionIds = new Set<string>();
@@ -267,6 +298,12 @@ export function resolveCaptionDisplay(
         if (captionIds.has(caption.id)) fail('DUPLICATE_CAPTION_ID', `captions[].id is duplicated: ${caption.id}`);
         captionIds.add(caption.id);
     });
+    const wordStylesByCaption = resolveProjectedWordStyles(
+        captions,
+        projectedCaptions,
+        captionsRoot.emphasis_words,
+        styleOutput
+    );
     validateEmphasisConflicts(captions, edit?.emphasis_words);
     const sourceCount = validateSourceReferences(captions, cuts, edit);
     const occurrences = dedupeCaptionOccurrences(
@@ -327,29 +364,49 @@ export function resolveCaptionDisplay(
         const resolved = fragmentsByCaption.get(occurrence.caption_input_index)!;
         if (resolved.fragments.length > 1) splitCueIds.add(occurrence.source_cue_id);
         const resolvedStyle = mergeCaptionDisplayStyles(defaultStyle, occurrence.text_style);
-        const styleOutput = options.output ?? edit?.output;
         const styleResolution = resolvedStyle
             ? resolveCaptionStyleForOutput(resolvedStyle, styleOutput)
             : undefined;
         const scheduled = scheduleCaptionFragments(occurrence.start, occurrence.end, resolved.fragments, policy.minimum_fragment_duration_seconds);
+        let scheduledCharacterOffset = 0;
+        const scheduledWithOffsets = scheduled.map(fragment => {
+            const charStart = scheduledCharacterOffset;
+            scheduledCharacterOffset += fragment.text.length;
+            return { ...fragment, charStart, charEnd: scheduledCharacterOffset };
+        });
         const groups = wrap === 'fold'
-            ? scheduled.map(fragment => ({
+            ? scheduledWithOffsets.map(fragment => ({
                 start: fragment.start,
                 end: fragment.end,
                 lines: resolved.manual
                     ? [fragment.text]
-                    : foldCaptionLines(fragment.text, policy.max_line_units, lines, policy.locale)
+                    : foldCaptionLines(fragment.text, policy.max_line_units, lines, policy.locale),
+                charStart: fragment.charStart,
+                charEnd: fragment.charEnd
             }))
-            : Array.from({ length: Math.ceil(scheduled.length / lines) }, (_, groupIndex) => {
-                const fragments = scheduled.slice(groupIndex * lines, (groupIndex + 1) * lines);
+            : Array.from({ length: Math.ceil(scheduledWithOffsets.length / lines) }, (_, groupIndex) => {
+                const fragments = scheduledWithOffsets.slice(groupIndex * lines, (groupIndex + 1) * lines);
                 return {
                     start: fragments[0].start,
                     end: fragments[fragments.length - 1].end,
-                    lines: fragments.map(fragment => fragment.text)
+                    lines: fragments.map(fragment => fragment.text),
+                    charStart: fragments[0].charStart,
+                    charEnd: fragments[fragments.length - 1].charEnd
                 };
             });
         groups.forEach((group, index) => {
             const text = joinCaptionLines(group.lines, policy.locale);
+            if (group.charEnd - group.charStart !== text.length) {
+                fail('INVALID_WORD_PROJECTION', `caption ${occurrence.source_cue_id} fragment character range is inconsistent`);
+            }
+            const wordDisplay = buildCueWordDisplay(
+                wordStylesByCaption.get(occurrence.caption_input_index),
+                occurrence,
+                group.charStart,
+                group.charEnd,
+                group.lines,
+                text
+            );
             displayCues.push({
                 id: `${occurrence.source_cue_id}-occ-${String(occurrence.occurrence_index).padStart(4, '0')}-part-${index + 1}`,
                 source_cue_id: occurrence.source_cue_id,
@@ -366,7 +423,8 @@ export function resolveCaptionDisplay(
                 line_override: resolved.manual,
                 ...(resolvedStyle ? { text_style: resolvedStyle } : {}),
                 ...(styleResolution ? { style_vars: styleResolution.vars } : {}),
-                ...(styleResolution?.layout ? { layout: styleResolution.layout } : {})
+                ...(styleResolution?.layout ? { layout: styleResolution.layout } : {}),
+                ...(wordDisplay ? { words: wordDisplay.words, word_styles: wordDisplay.wordStyles } : {})
             });
         });
     }
@@ -387,6 +445,127 @@ export function resolveCaptionDisplay(
         display_cues: displayCues,
         word_book_fallbacks: wordBookFallbacks
     };
+}
+
+function resolveProjectedWordStyles(
+    captions: UnknownRecord[],
+    projectedCaptions: ProjectedCaptionWords[],
+    emphasisValue: unknown,
+    output: { width: number; height: number } | undefined
+): Map<number, ProjectedWordStyle[]> {
+    if (!Array.isArray(emphasisValue)) return new Map();
+    const emphasisWords = emphasisValue.filter(value => isRecord(value)
+        && typeof value.style_preset === 'string' && value.style_preset.length > 0
+        && finiteNonNegative(value.t_start) && finitePositive(value.t_end) && value.t_end > value.t_start
+        && (value.src === undefined || strictText(value.src)));
+    if (emphasisWords.length === 0) return new Map();
+
+    const presetCache = new Map<string, Record<string, string> | null>();
+    const resolvePreset = (presetId: string): Record<string, string> | null => {
+        if (presetCache.has(presetId)) return presetCache.get(presetId)!;
+        const resolved = resolveCaptionStylePreset({ style_preset: presetId } as UnknownRecord, TEXTSTYLE_CATALOG);
+        const vars = resolved.resolved && isRecord(resolved.record.text_style)
+            ? resolveCaptionStyleForOutput(resolved.record.text_style, output).vars
+            : null;
+        presetCache.set(presetId, vars);
+        return vars;
+    };
+
+    const result = new Map<number, ProjectedWordStyle[]>();
+    captions.forEach((caption, index) => {
+        if (caption.time_domain === 'output') return;
+        const projected = projectedCaptions[index];
+        if (!Array.isArray(projected.words) || projected.words.length === 0
+            || projected.words.map(word => String(word.text)).join('') !== projected.displayText) return;
+        let offset = 0;
+        const words = projected.words.map(word => {
+            const text = String(word.text);
+            let emphasis: UnknownRecord | undefined;
+            let styleVars: Record<string, string> | null = null;
+            for (const candidate of emphasisWords) {
+                const sourceMatches = !(strictText(candidate.src) && strictText(caption.src))
+                    || candidate.src === caption.src;
+                if (!sourceMatches
+                    || Math.min(word.end, candidate.t_end) - Math.max(word.start, candidate.t_start) <= PROJECTION_EPSILON) continue;
+                const resolvedVars = resolvePreset(candidate.style_preset);
+                if (!resolvedVars) continue;
+                emphasis = candidate;
+                styleVars = resolvedVars;
+                break;
+            }
+            const value: ProjectedWordStyle = {
+                start: word.start,
+                end: word.end,
+                text,
+                offset,
+                ...(emphasis && styleVars ? { preset_id: emphasis.style_preset, style_vars: styleVars } : {})
+            };
+            offset += text.length;
+            return value;
+        });
+        if (words.some(word => word.preset_id)) result.set(index, words);
+    });
+    return result;
+}
+
+function buildCueWordDisplay(
+    sourceWords: ProjectedWordStyle[] | undefined,
+    occurrence: CaptionOccurrence,
+    charStart: number,
+    charEnd: number,
+    lines: string[],
+    cueText: string
+): { words: CaptionDisplayWord[]; wordStyles: CaptionDisplayWordStyle[] } | undefined {
+    if (!sourceWords) return undefined;
+    const lineRanges: Array<{ start: number; end: number; line: number }> = [];
+    let lineOffset = charStart;
+    lines.forEach((line, index) => {
+        lineRanges.push({ start: lineOffset, end: lineOffset + line.length, line: index });
+        lineOffset += line.length;
+    });
+    const styledWords: Array<CaptionDisplayWord & { preset_id?: string; style_vars?: Record<string, string> }> = [];
+    for (const word of sourceWords) {
+        const wordEnd = word.offset + word.text.length;
+        if (Math.min(wordEnd, charEnd) - Math.max(word.offset, charStart) <= 0) continue;
+        for (const line of lineRanges) {
+            const start = Math.max(word.offset, charStart, line.start);
+            const end = Math.min(wordEnd, charEnd, line.end);
+            if (end <= start) continue;
+            const timeScale = occurrence.time_scale ?? 1;
+            const timeOffset = occurrence.time_offset ?? 0;
+            styledWords.push({
+                start: roundOutputSecond(timeOffset + word.start * timeScale),
+                end: roundOutputSecond(timeOffset + word.end * timeScale),
+                text: word.text.slice(start - word.offset, end - word.offset),
+                line: line.line,
+                ...(word.preset_id ? { preset_id: word.preset_id, style_vars: word.style_vars } : {})
+            });
+        }
+    }
+    if (styledWords.map(word => word.text).join('') !== cueText) {
+        fail('INVALID_WORD_PROJECTION', `caption ${occurrence.source_cue_id} words do not reconstruct display cue text`);
+    }
+    if (!styledWords.some(word => word.preset_id)) return undefined;
+    const wordStyles: CaptionDisplayWordStyle[] = [];
+    styledWords.forEach((word, index) => {
+        if (!word.preset_id || !word.style_vars) return;
+        const previous = wordStyles[wordStyles.length - 1];
+        if (previous?.preset_id === word.preset_id && previous.to === index) previous.to = index + 1;
+        else wordStyles.push({
+            from: index,
+            to: index + 1,
+            preset_id: word.preset_id,
+            style_vars: word.style_vars
+        });
+    });
+    return {
+        words: styledWords.map(({ start, end, text, line }) => ({ start, end, text, line })),
+        wordStyles
+    };
+}
+
+function roundOutputSecond(value: number): number {
+    return Number(value.toFixed(6));
 }
 
 /**
@@ -826,7 +1005,9 @@ function projectOccurrences(
             track: 0,
             text: projected.displayText,
             display_fragments: projected.changed ? undefined : caption.display_fragments,
-            text_style: caption.text_style
+            text_style: caption.text_style,
+            time_offset: 0,
+            time_scale: 1
         });
     });
     if (cuts.length === 0) {
@@ -848,7 +1029,9 @@ function projectOccurrences(
                     track: 0,
                     text,
                     display_fragments: projected.changed ? undefined : caption.display_fragments,
-                    text_style: caption.text_style
+                    text_style: caption.text_style,
+                    time_offset: 0,
+                    time_scale: 1
                 });
             }
         });
@@ -881,7 +1064,9 @@ function projectOccurrences(
                 track: segment.track,
                 text: projected.displayText,
                 display_fragments: projected.changed ? undefined : caption.display_fragments,
-                text_style: caption.text_style
+                text_style: caption.text_style,
+                time_offset: segment.start - segment.cut.in / segment.speed,
+                time_scale: 1 / segment.speed
             });
         }
     });

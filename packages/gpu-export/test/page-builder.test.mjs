@@ -74,6 +74,23 @@ test('caption sprite copies scale/rotate into transform and non-default vars', (
   assert.equal(defaultSprite.vars['--rotate'], undefined);
 });
 
+test('caption sprite keeps the shared word preset DOM from render-cut', () => {
+  const captions = {
+    emphasis_words: [{
+      id: 'e-0001', src: 'main', t_start: 0, t_end: 1,
+      word: 'AKARI', emotion: 'neutral', style_preset: 'neon',
+    }],
+    captions: [{
+      id: 'c-0001', src: 'main', start: 0, end: 1, text: 'AKARI', style: 'karaoke',
+      words: [{ start: 0, end: 1, text: 'AKARI' }],
+    }],
+  };
+  const built = buildGpuPage({ edit, captions, projectRoot: process.cwd(), duration: 2 });
+  const html = built.spriteManifest.captions[0].html;
+  assert.match(html, /data-emphasis-preset="neon"/u);
+  assert.match(html, /akari-caption__tok--preset/u);
+});
+
 function zAxisEdit(order) {
   const tracks = {
     low: { id: "low-track", lane: "visual", items: [{ id: "low", at: 0, duration: 30, source: { kind: "html", path: "low.html" } }] },
