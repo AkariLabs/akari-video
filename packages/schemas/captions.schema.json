@@ -316,7 +316,7 @@
         "display_fragments": {
           "type": "array",
           "minItems": 1,
-          "maxItems": 2,
+          "maxItems": 6,
           "items": { "type": "string", "minLength": 1, "pattern": "\\S" }
         },
         "style_preset": {

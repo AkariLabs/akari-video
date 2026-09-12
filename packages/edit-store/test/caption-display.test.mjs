@@ -16,6 +16,7 @@ import {
   resolveCaptionDisplay,
   resolveCaptionReferenceScale,
   resolveCaptionStyleForOutput,
+  resolveCaptionWordStyleVars,
   scaleCaptionPx,
   validateCaptionDisplayPolicy,
   validateCaptionTextStyle,
@@ -130,12 +131,30 @@ test('emphasis style_preset resolves per word, rounds partial overlap inward, an
   const result = resolveCaptionDisplay(root, { cuts: [{ src: 'a', in: 0, out: 2 }], output }, { output });
   const cue = result.display_cues[0];
   const preset = resolveCaptionStylePreset({ style_preset: 'neon' }, TEXTSTYLE_CATALOG);
-  const expectedVars = resolveCaptionStyleForOutput(preset.record.text_style, output).vars;
+  const expectedVars = resolveCaptionWordStyleVars(preset.record.text_style, output);
 
   assert.equal(cue.words.map(word => word.text).join(''), cue.text);
   assert.deepEqual(cue.words.map(word => word.line), [0, 1]);
   assert.deepEqual(cue.word_styles, [{ from: 0, to: 1, preset_id: 'neon', style_vars: expectedVars }]);
   assert.deepEqual([cue.words[0].start, cue.words[0].end], [1, 1.5]);
+});
+
+test('word style vars expose complete neon and glitch decoration on the isolated token rail', () => {
+  const neon = resolveCaptionStylePreset({ style_preset: 'neon' }, TEXTSTYLE_CATALOG);
+  const neonVars = resolveCaptionWordStyleVars(neon.record.text_style, { width: 1920, height: 1080 });
+  assert.equal(neonVars['--caption-tok-color'], '#aefcff');
+  assert.equal(neonVars['--caption-tok-font-size'], '120px');
+  assert.equal(neonVars['--caption-tok-font-weight'], '700');
+  assert.equal(neonVars['--caption-tok-letter-spacing'], '0.12em');
+  assert.equal(neonVars['--caption-tok-text-transform'], 'uppercase');
+  assert.match(neonVars['--caption-tok-text-shadow'], /0px 0px 60px rgba\(0,229,255,1\)/u);
+  assert.match(neonVars['--caption-tok-text-shadow'], /0px 0px 120px rgba\(0,229,255,0\.7\)/u);
+
+  const glitch = resolveCaptionStylePreset({ style_preset: 'glitch' }, TEXTSTYLE_CATALOG);
+  const glitchVars = resolveCaptionWordStyleVars(glitch.record.text_style, undefined);
+  assert.equal(glitchVars['--caption-tok-text-shadow'], '8px 0px 0px rgba(255,0,102,0.9)');
+  assert.ok(Object.keys(neonVars).every(key => key.startsWith('--caption-tok-')));
+  assert.ok(Object.keys(glitchVars).every(key => key.startsWith('--caption-tok-')));
 });
 
 test('word presets ignore src mismatch, missing style_preset, unknown ids, and output-domain captions', () => {

@@ -3592,6 +3592,9 @@ var require_caption_display = __commonJS({
     exports.scaleCaptionPx = scaleCaptionPx;
     exports.captionAnchorPositionVars = captionAnchorPositionVars;
     exports.resolveCaptionStyleForOutput = resolveCaptionStyleForOutput;
+    exports.resolveCaptionWordStyleVars = resolveCaptionWordStyleVars;
+    exports.captionTextShadowValue = captionTextShadowValue;
+    exports.colorWithOpacity = colorWithOpacity;
     exports.formatCssNumber = formatCssNumber;
     var caption_style_preset_1 = require_caption_style_preset();
     var textstyle_catalog_1 = require_textstyle_catalog();
@@ -3936,7 +3939,7 @@ var require_caption_display = __commonJS({
         if (presetCache.has(presetId))
           return presetCache.get(presetId);
         const resolved = (0, caption_style_preset_1.resolveCaptionStylePreset)({ style_preset: presetId }, textstyle_catalog_1.TEXTSTYLE_CATALOG);
-        const vars = resolved.resolved && isRecord2(resolved.record.text_style) ? resolveCaptionStyleForOutput(resolved.record.text_style, output).vars : null;
+        const vars = resolved.resolved && isRecord2(resolved.record.text_style) ? resolveCaptionWordStyleVars(resolved.record.text_style, output) : null;
         presetCache.set(presetId, vars);
         return vars;
       };
@@ -4791,6 +4794,93 @@ var require_caption_display = __commonJS({
         Object.assign(vars, captionAnchorPositionVars(style.text_anchor, style.position, style.vertical_align));
       }
       return { vars, ...layout ? { layout } : {} };
+    }
+    function resolveCaptionWordStyleVars(style, output) {
+      const vars = {};
+      const scale = resolveCaptionReferenceScale(style, output);
+      if (typeof style.color === "string")
+        vars["--caption-tok-color"] = style.color;
+      if (finitePositive3(style.size_px))
+        vars["--caption-tok-font-size"] = `${formatCssNumber(style.size_px * scale)}px`;
+      if (typeof style.font_family === "string" && style.font_family.length > 0) {
+        vars["--caption-tok-font-family"] = style.font_family;
+      }
+      if (Number.isInteger(style.weight) && style.weight >= 100 && style.weight <= 900) {
+        vars["--caption-tok-font-weight"] = String(style.weight);
+      } else if (Number.isInteger(style.font_weight) && style.font_weight >= 1 && style.font_weight <= 1e3) {
+        vars["--caption-tok-font-weight"] = String(style.font_weight);
+      }
+      if (style.italic === true)
+        vars["--caption-tok-font-style"] = "italic";
+      if (style.underline === true)
+        vars["--caption-tok-text-decoration"] = "underline";
+      if (typeof style.letter_spacing_em === "number" && Number.isFinite(style.letter_spacing_em)) {
+        vars["--caption-tok-letter-spacing"] = `${formatCssNumber(style.letter_spacing_em)}em`;
+      }
+      if (finitePositive3(style.line_height))
+        vars["--caption-tok-line-height"] = formatCssNumber(style.line_height);
+      if (typeof style.text_transform === "string") {
+        const transform = CAPTION_TEXT_TRANSFORM_MAP[style.text_transform];
+        if (transform)
+          vars["--caption-tok-text-transform"] = transform;
+      }
+      let strokePart = null;
+      if (isRecord2(style.stroke)) {
+        const color = typeof style.stroke.color === "string" ? style.stroke.color : "rgba(0,0,0,.85)";
+        const width = finiteNonNegative2(style.stroke.width_px) ? style.stroke.width_px * scale : 1.5;
+        if (style.stroke.method === "webkit-outline") {
+          vars["--caption-tok-webkit-text-stroke"] = `${formatCssNumber(width)}px ${color}`;
+          vars["--caption-tok-paint-order"] = "stroke fill";
+        } else {
+          strokePart = strokeShadow(color, width, scale !== 1);
+        }
+      }
+      const decorPart = captionTextShadowValue(style.shadow, style.glow, scale);
+      if (strokePart && decorPart)
+        vars["--caption-tok-text-shadow"] = `${strokePart}, ${decorPart}`;
+      else if (strokePart)
+        vars["--caption-tok-text-shadow"] = strokePart;
+      else if (decorPart)
+        vars["--caption-tok-text-shadow"] = decorPart;
+      else if (isRecord2(style.stroke) && style.stroke.method === "webkit-outline") {
+        vars["--caption-tok-text-shadow"] = "none";
+      }
+      return vars;
+    }
+    var CAPTION_TEXT_TRANSFORM_MAP = {
+      upper: "uppercase",
+      uppercase: "uppercase",
+      lower: "lowercase",
+      lowercase: "lowercase",
+      title: "capitalize",
+      capitalize: "capitalize",
+      none: "none"
+    };
+    function captionTextShadowValue(shadow, glow, scale = 1) {
+      const parts = [];
+      if (isRecord2(shadow) && typeof shadow.color === "string") {
+        const angle = (shadow.angle_deg ?? 90) * Math.PI / 180;
+        const distance = scaleCaptionPx(shadow.distance_px ?? 0, scale);
+        const dx = Math.round(Math.cos(angle) * distance * 100) / 100;
+        const dy = Math.round(Math.sin(angle) * distance * 100) / 100;
+        parts.push(`${dx}px ${dy}px ${scaleCaptionPx(shadow.blur_px ?? 0, scale)}px ${colorWithOpacity(shadow.color, shadow.opacity)}`);
+      }
+      if (isRecord2(glow) && typeof glow.color === "string") {
+        const spread = glow.spread === void 0 ? 40 : scaleCaptionPx(glow.spread, scale);
+        const alpha = Math.min(1, (glow.density ?? 50) / 60);
+        const offsetX = scaleCaptionPx(glow.offset_x ?? 0, scale);
+        const offsetY = scaleCaptionPx(glow.offset_y ?? 0, scale);
+        parts.push(`${offsetX}px ${offsetY}px ${spread}px ${colorWithOpacity(glow.color, alpha)}`, `${offsetX}px ${offsetY}px ${spread * 2}px ${colorWithOpacity(glow.color, Number((alpha * 0.7).toFixed(4)))}`);
+      }
+      return parts.length > 0 ? parts.join(", ") : null;
+    }
+    function colorWithOpacity(color, explicitOpacity) {
+      const raw = color.slice(1);
+      const expanded = raw.length === 3 ? raw.split("").map((character) => character + character).join("") : raw;
+      const rgb = expanded.slice(0, 6).padEnd(6, "0");
+      const alphaFromColor = expanded.length === 8 ? parseInt(expanded.slice(6, 8), 16) / 255 : 1;
+      const alpha = explicitOpacity ?? alphaFromColor;
+      return `rgba(${parseInt(rgb.slice(0, 2), 16)},${parseInt(rgb.slice(2, 4), 16)},${parseInt(rgb.slice(4, 6), 16)},${Number(alpha.toFixed(4))})`;
     }
     function resolveReferencePixelLayout(value, output) {
       if (!isRecord2(value) || value.mode !== "reference-pixel")

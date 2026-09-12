@@ -207,6 +207,23 @@ test("display policy, manual fragments, and reference-pixel style pass together"
   assert.equal(executed.status, 0, executed.stderr);
 });
 
+test('display_fragments accepts three and six items, then rejects seven', () => {
+  for (const fragments of [['今', '回', '設定します'], ['今', '回', '設', '定', 'し', 'ます']]) {
+    const executed = runValue({
+      display_policy: displayPolicy,
+      captions: [{ ...caption, text: fragments.join(''), display_fragments: fragments }],
+    });
+    assert.equal(executed.status, 0, executed.stderr);
+  }
+  const fragments = ['今', '回', '設', '定', 'し', 'ま', 'す'];
+  const executed = runValue({
+    display_policy: displayPolicy,
+    captions: [{ ...caption, text: fragments.join(''), display_fragments: fragments }],
+  });
+  assert.equal(executed.status, 1, executed.stdout);
+  assert.match(executed.stderr, /1〜6 件/u);
+});
+
 test("display_policy lines/wrap and text_style scale/rotate accept their contract ranges", () => {
   const executed = runValue({
     display_policy: { ...displayPolicy, lines: 6, wrap: "fold" },

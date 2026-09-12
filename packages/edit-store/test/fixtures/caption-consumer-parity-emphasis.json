@@ -11,7 +11,8 @@
       "wrap": "multi"
     },
     "emphasis_words": [
-      { "id": "e-0001", "src": "a", "t_start": 2.1, "t_end": 2.9, "word": "AKARI Video", "emotion": "neutral", "style_preset": "neon" }
+      { "id": "e-0001", "src": "a", "t_start": 2.1, "t_end": 2.9, "word": "AKARI Video", "emotion": "neutral", "style_preset": "neon" },
+      { "id": "e-0002", "src": "a", "t_start": 4.3, "t_end": 4.7, "word": "GLITCH", "emotion": "neutral", "style_preset": "glitch" }
     ],
     "captions": [
       {
@@ -28,6 +29,21 @@
           { "start": 1, "end": 2, "text": "これは" },
           { "start": 2, "end": 3, "text": "AKARI Video" },
           { "start": 3, "end": 4, "text": "です" }
+        ]
+      },
+      {
+        "id": "c-0002",
+        "src": "a",
+        "start": 4,
+        "end": 5,
+        "text": "次はGLITCHです",
+        "speaker": null,
+        "sourceRef": null,
+        "edited": true,
+        "words": [
+          { "start": 4, "end": 4.3, "text": "次は" },
+          { "start": 4.3, "end": 4.7, "text": "GLITCH" },
+          { "start": 4.7, "end": 5, "text": "です" }
         ]
       }
     ]

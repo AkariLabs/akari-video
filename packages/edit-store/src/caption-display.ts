@@ -465,7 +465,7 @@ function resolveProjectedWordStyles(
         if (presetCache.has(presetId)) return presetCache.get(presetId)!;
         const resolved = resolveCaptionStylePreset({ style_preset: presetId } as UnknownRecord, TEXTSTYLE_CATALOG);
         const vars = resolved.resolved && isRecord(resolved.record.text_style)
-            ? resolveCaptionStyleForOutput(resolved.record.text_style, output).vars
+            ? resolveCaptionWordStyleVars(resolved.record.text_style, output)
             : null;
         presetCache.set(presetId, vars);
         return vars;
@@ -1417,6 +1417,97 @@ export function resolveCaptionStyleForOutput(style: UnknownRecord, output: { wid
         Object.assign(vars, captionAnchorPositionVars(style.text_anchor, style.position, style.vertical_align));
     }
     return { vars, ...(layout ? { layout } : {}) };
+}
+
+export function resolveCaptionWordStyleVars(
+    style: UnknownRecord,
+    output: { width: number; height: number } | undefined
+): Record<string, string> {
+    const vars: Record<string, string> = {};
+    const scale = resolveCaptionReferenceScale(style, output);
+    if (typeof style.color === 'string') vars['--caption-tok-color'] = style.color;
+    if (finitePositive(style.size_px)) vars['--caption-tok-font-size'] = `${formatCssNumber(style.size_px * scale)}px`;
+    if (typeof style.font_family === 'string' && style.font_family.length > 0) {
+        vars['--caption-tok-font-family'] = style.font_family;
+    }
+    if (Number.isInteger(style.weight) && (style.weight as number) >= 100 && (style.weight as number) <= 900) {
+        vars['--caption-tok-font-weight'] = String(style.weight);
+    } else if (Number.isInteger(style.font_weight) && style.font_weight >= 1 && style.font_weight <= 1000) {
+        vars['--caption-tok-font-weight'] = String(style.font_weight);
+    }
+    if (style.italic === true) vars['--caption-tok-font-style'] = 'italic';
+    if (style.underline === true) vars['--caption-tok-text-decoration'] = 'underline';
+    if (typeof style.letter_spacing_em === 'number' && Number.isFinite(style.letter_spacing_em)) {
+        vars['--caption-tok-letter-spacing'] = `${formatCssNumber(style.letter_spacing_em)}em`;
+    }
+    if (finitePositive(style.line_height)) vars['--caption-tok-line-height'] = formatCssNumber(style.line_height);
+    if (typeof style.text_transform === 'string') {
+        const transform = CAPTION_TEXT_TRANSFORM_MAP[style.text_transform];
+        if (transform) vars['--caption-tok-text-transform'] = transform;
+    }
+    let strokePart: string | null = null;
+    if (isRecord(style.stroke)) {
+        const color = typeof style.stroke.color === 'string' ? style.stroke.color : 'rgba(0,0,0,.85)';
+        const width = finiteNonNegative(style.stroke.width_px) ? style.stroke.width_px * scale : 1.5;
+        if (style.stroke.method === 'webkit-outline') {
+            vars['--caption-tok-webkit-text-stroke'] = `${formatCssNumber(width)}px ${color}`;
+            vars['--caption-tok-paint-order'] = 'stroke fill';
+        } else {
+            strokePart = strokeShadow(color, width, scale !== 1);
+        }
+    }
+    const decorPart = captionTextShadowValue(style.shadow, style.glow, scale);
+    if (strokePart && decorPart) vars['--caption-tok-text-shadow'] = `${strokePart}, ${decorPart}`;
+    else if (strokePart) vars['--caption-tok-text-shadow'] = strokePart;
+    else if (decorPart) vars['--caption-tok-text-shadow'] = decorPart;
+    else if (isRecord(style.stroke) && style.stroke.method === 'webkit-outline') {
+        vars['--caption-tok-text-shadow'] = 'none';
+    }
+    return vars;
+}
+
+const CAPTION_TEXT_TRANSFORM_MAP: Record<string, string> = {
+    upper: 'uppercase',
+    uppercase: 'uppercase',
+    lower: 'lowercase',
+    lowercase: 'lowercase',
+    title: 'capitalize',
+    capitalize: 'capitalize',
+    none: 'none'
+};
+
+export function captionTextShadowValue(shadow: unknown, glow: unknown, scale = 1): string | null {
+    const parts: string[] = [];
+    if (isRecord(shadow) && typeof shadow.color === 'string') {
+        const angle = (((shadow.angle_deg as number | undefined) ?? 90) * Math.PI) / 180;
+        const distance = scaleCaptionPx((shadow.distance_px as number | undefined) ?? 0, scale);
+        const dx = Math.round(Math.cos(angle) * distance * 100) / 100;
+        const dy = Math.round(Math.sin(angle) * distance * 100) / 100;
+        parts.push(`${dx}px ${dy}px ${scaleCaptionPx((shadow.blur_px as number | undefined) ?? 0, scale)}px ${colorWithOpacity(shadow.color, shadow.opacity as number | undefined)}`);
+    }
+    if (isRecord(glow) && typeof glow.color === 'string') {
+        const spread = glow.spread === undefined ? 40 : scaleCaptionPx(glow.spread as number, scale);
+        const alpha = Math.min(1, ((glow.density as number | undefined) ?? 50) / 60);
+        const offsetX = scaleCaptionPx((glow.offset_x as number | undefined) ?? 0, scale);
+        const offsetY = scaleCaptionPx((glow.offset_y as number | undefined) ?? 0, scale);
+        parts.push(
+            `${offsetX}px ${offsetY}px ${spread}px ${colorWithOpacity(glow.color, alpha)}`,
+            `${offsetX}px ${offsetY}px ${spread * 2}px ${colorWithOpacity(glow.color, Number((alpha * 0.7).toFixed(4)))}`
+        );
+    }
+    return parts.length > 0 ? parts.join(', ') : null;
+}
+
+export function colorWithOpacity(color: string, explicitOpacity?: number): string {
+    const raw = color.slice(1);
+    const expanded = raw.length === 3
+        ? raw.split('').map(character => character + character).join('')
+        : raw;
+    const rgb = expanded.slice(0, 6).padEnd(6, '0');
+    const alphaFromColor = expanded.length === 8 ? parseInt(expanded.slice(6, 8), 16) / 255 : 1;
+    const alpha = explicitOpacity ?? alphaFromColor;
+    return `rgba(${parseInt(rgb.slice(0, 2), 16)},${parseInt(rgb.slice(2, 4), 16)},`
+        + `${parseInt(rgb.slice(4, 6), 16)},${Number(alpha.toFixed(4))})`;
 }
 
 function resolveReferencePixelLayout(value: UnknownRecord, output: { width: number; height: number }): ResolvedCaptionLayout {

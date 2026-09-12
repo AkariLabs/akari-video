@@ -1,8 +1,10 @@
 import assert from "node:assert/strict";
+import { createRequire } from "node:module";
 import test from "node:test";
 
 import {
   captionTransform,
+  captionTextStyleVars,
   generateCaptionOverlays,
   generateResolvedCaptionOverlays,
   renderCaptionFragment,
@@ -10,6 +12,9 @@ import {
   renderStyledCaptionFragment,
   sourceRangeToTimeline,
 } from "../src/captions.mjs";
+
+const require = createRequire(import.meta.url);
+const { TEXTSTYLE_CATALOG } = require('../../edit-store/lib/index.js');
 
 test("captionTransform accepts declared scale/rotate and ignores invalid values", () => {
   assert.deepEqual(captionTransform({ scale: 1.5, rotate: -8 }), { x: 0, y: 0, scale: 1.5, rotate: -8 });
@@ -86,13 +91,15 @@ test("resolved caption overlay renders word preset spans without changing cues t
       ],
       word_styles: [{
         from: 0, to: 1, preset_id: "neon",
-        style_vars: { "--caption-color": "#aefcff" },
+        style_vars: { "--caption-tok-color": "#aefcff", "--caption-tok-text-shadow": "0 0 60px cyan" },
       }],
     }],
   });
   assert.match(overlay.html, /data-emphasis-preset="neon"/u);
   assert.match(overlay.html, /akari-caption__tok--preset/u);
-  assert.match(overlay.html, /--caption-color:#aefcff;/u);
+  assert.match(overlay.html, /--caption-tok-color:#aefcff;/u);
+  assert.match(overlay.html, /--caption-tok-text-shadow:/u);
+  assert.match(overlay.html, /text-shadow:var\(--caption-tok-text-shadow,inherit\)/u);
 });
 
 test("resolved word preset spans preserve a standalone ASCII space", () => {
@@ -107,11 +114,11 @@ test("resolved word preset spans preserve a standalone ASCII space", () => {
       ],
       word_styles: [{
         from: 0, to: 1, preset_id: "neon",
-        style_vars: { "--caption-color": "#aefcff" },
+        style_vars: { "--caption-tok-color": "#aefcff" },
       }],
     }],
   });
-  assert.match(overlay.html, /\.akari-caption__tok\{display:inline-block;white-space:pre;\}/u);
+  assert.match(overlay.html, /\.akari-caption__tok\{display:inline-block;white-space:pre;/u);
   const tokenText = [...overlay.html.matchAll(/<span class="akari-caption__tok[^>]*>([^<]*)<\/span>/gu)]
     .map(match => match[1]).join("");
   assert.equal(tokenText, "AKARI Video");
@@ -129,8 +136,18 @@ test("legacy emphasis style_preset wins over emotion rendering", () => {
     }],
   });
   assert.match(overlay.html, /data-emphasis-preset="neon"/u);
-  assert.match(overlay.html, /--caption-color:#aefcff;/u);
+  assert.match(overlay.html, /--caption-tok-color:#aefcff;/u);
+  assert.match(overlay.html, /--caption-tok-text-shadow:/u);
   assert.doesNotMatch(overlay.html, /akari-caption__tok--one-char-bang/u);
+});
+
+test('captionTextStyleVars keeps the existing neon line shadow output', () => {
+  const neon = TEXTSTYLE_CATALOG.neon;
+  assert.ok(neon);
+  assert.equal(
+    captionTextStyleVars(neon.style)['--caption-text-shadow'],
+    '0px 0px 24px rgba(0,229,255,0.9), 0px 0px 60px rgba(0,229,255,1), 0px 0px 120px rgba(0,229,255,0.7)',
+  );
 });
 
 test("caption generation is deterministic and uses the line-fit plate structure", () => {
