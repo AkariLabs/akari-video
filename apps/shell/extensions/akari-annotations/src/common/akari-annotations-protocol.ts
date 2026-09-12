@@ -294,6 +294,8 @@ export interface CutRangeInput {
     out: number;
     kind: 'row' | 'filler' | 'silence' | 'unrecognized';
     captionId?: string;
+    /** 台本の範囲エディタが付ける由来。edit.json への永続化は node 側（境界外）未対応。 */
+    reason?: 'silence' | 'word';
     label?: string;
 }
 
