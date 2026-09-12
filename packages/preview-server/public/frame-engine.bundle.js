@@ -1826,6 +1826,8 @@ var require_caption_store = __commonJS({
     exports.updateCaptionStylePresetInSource = updateCaptionStylePresetInSource;
     exports.insertCaptionLine = insertCaptionLine;
     exports.removeCaptionLine = removeCaptionLine;
+    exports.splitCaptionLine = splitCaptionLine;
+    exports.mergeCaptionLines = mergeCaptionLines;
     var edit_store_1 = require_edit_store();
     var caption_words_rederive_1 = require_caption_words_rederive();
     var caption_style_preset_1 = require_caption_style_preset();
@@ -2182,6 +2184,104 @@ var require_caption_store = __commonJS({
       }
       return replaceArrayInner(source, array, nextInner);
     }
+    function splitCaptionLine(source, captionId, wordIndex, newCaptionId) {
+      const array = locateCaptionArray(source);
+      const entries = captionElementEntries(array.elements);
+      if (entries.some((entry) => entry.id === newCaptionId)) {
+        throw new Error(`\u5B57\u5E55 ${newCaptionId} \u306F\u65E2\u306B\u3042\u308A\u307E\u3059\u3002`);
+      }
+      const element = findCaptionElement(array.elements, captionId);
+      const record = JSON.parse(element.text);
+      if (!Array.isArray(record.words) || record.words.length < 2 || !Number.isInteger(wordIndex) || wordIndex <= 0 || wordIndex >= record.words.length) {
+        throw new Error("\u3053\u306E\u884C\u306F\u5206\u5272\u3067\u304D\u307E\u305B\u3093\uFF08\u5358\u8A9E\u304C 2 \u3064\u4EE5\u4E0A\u5FC5\u8981\u3067\u3059\uFF09");
+      }
+      const words = record.words;
+      const wordsA = words.slice(0, wordIndex);
+      const wordsB = words.slice(wordIndex);
+      const textA = wordsA.map((word) => String(word.text ?? "")).join("");
+      const textB = wordsB.map((word) => String(word.text ?? "")).join("");
+      if (textA + textB !== record.text) {
+        throw new Error("\u3053\u306E\u884C\u306E\u30C6\u30AD\u30B9\u30C8\u3068\u8A9E\u306E\u30BF\u30A4\u30DF\u30F3\u30B0\u304C\u4E00\u81F4\u3057\u3066\u3044\u306A\u3044\u305F\u3081\u5206\u5272\u3067\u304D\u307E\u305B\u3093");
+      }
+      const splitEnd = wordsA[wordsA.length - 1].end;
+      if (typeof splitEnd !== "number") {
+        throw new Error("\u3053\u306E\u884C\u306F\u5206\u5272\u3067\u304D\u307E\u305B\u3093\uFF08\u5358\u8A9E\u304C 2 \u3064\u4EE5\u4E0A\u5FC5\u8981\u3067\u3059\uFF09");
+      }
+      const unrecognized = Array.isArray(record.unrecognized) ? record.unrecognized : [];
+      const recordA = {
+        ...record,
+        end: splitEnd,
+        text: textA,
+        words: wordsA,
+        edited: true
+      };
+      const recordB = {
+        ...record,
+        id: newCaptionId,
+        start: wordsB[0].start,
+        text: textB,
+        words: wordsB,
+        edited: true,
+        sourceRef: null
+      };
+      recordA.unrecognized = unrecognized.filter((span) => typeof span.start === "number" && span.start < splitEnd);
+      recordB.unrecognized = unrecognized.filter((span) => typeof span.start === "number" && span.start >= splitEnd);
+      for (const output of [recordA, recordB]) {
+        delete output.display_text;
+        delete output.display_fragments;
+        if (Array.isArray(output.words) && output.words.length === 0)
+          delete output.words;
+        if (Array.isArray(output.unrecognized) && output.unrecognized.length === 0)
+          delete output.unrecognized;
+      }
+      const index = array.elements.indexOf(element);
+      const separator = whitespaceBeforeElement(array.inner, array.elements, index);
+      const replacement = `${serializeCaptionRaw(recordA)},${separator}${serializeCaptionRaw(recordB)}`;
+      const nextInner = array.inner.slice(0, element.start) + replacement + array.inner.slice(element.end);
+      return replaceArrayInner(source, array, nextInner);
+    }
+    function mergeCaptionLines(source, captionIds) {
+      if (captionIds.length < 2) {
+        throw new Error("\u7D50\u5408\u3059\u308B\u5B57\u5E55\u3092 2 \u884C\u4EE5\u4E0A\u9078\u3093\u3067\u304F\u3060\u3055\u3044");
+      }
+      if (new Set(captionIds).size !== captionIds.length) {
+        throw new Error("\u540C\u3058\u5B57\u5E55\u3092\u91CD\u8907\u3057\u3066\u7D50\u5408\u3067\u304D\u307E\u305B\u3093");
+      }
+      const array = locateCaptionArray(source);
+      const elements = captionIds.map((id) => findCaptionElement(array.elements, id));
+      const records = elements.map((element) => JSON.parse(element.text));
+      const domains = records.map((record) => record.time_domain ?? "source");
+      if (domains.some((domain) => domain !== domains[0])) {
+        throw new Error("\u30BF\u30A4\u30E0\u30C9\u30E1\u30A4\u30F3\u304C\u7570\u306A\u308B\u884C\u306F\u7D50\u5408\u3067\u304D\u307E\u305B\u3093");
+      }
+      const words = records.flatMap((record) => Array.isArray(record.words) ? record.words : []);
+      const unrecognized = records.flatMap((record) => Array.isArray(record.unrecognized) ? record.unrecognized : []);
+      const survivor = {
+        ...records[0],
+        end: records[records.length - 1].end,
+        text: records.map((record) => String(record.text ?? "")).join(""),
+        words,
+        unrecognized,
+        edited: true
+      };
+      delete survivor.display_text;
+      delete survivor.display_fragments;
+      if (words.length === 0)
+        delete survivor.words;
+      if (unrecognized.length === 0)
+        delete survivor.unrecognized;
+      const selected = new Set(elements);
+      const survivorElement = elements[0];
+      const kept = array.elements.flatMap((element, index) => {
+        if (!selected.has(element))
+          return [{ element, index, text: element.text }];
+        return element === survivorElement ? [{ element, index, text: serializeCaptionRaw(survivor) }] : [];
+      });
+      const prefix = array.elements.length ? array.inner.slice(0, array.elements[0].start) : array.inner;
+      const suffix = array.elements.length ? array.inner.slice(array.elements[array.elements.length - 1].end) : "";
+      const nextInner = kept.reduce((result, item, index) => result + (index === 0 ? "" : `,${whitespaceBeforeElement(array.inner, array.elements, item.index)}`) + item.text, prefix) + suffix;
+      return replaceArrayInner(source, array, nextInner);
+    }
     function normalizeCaption(value, onTextStyleUnknownKeys) {
       if (!value || typeof value !== "object" || typeof value.id !== "string" || !value.id || typeof value.text !== "string" || typeof value.edited !== "boolean") {
         return void 0;
@@ -2420,6 +2520,37 @@ var require_caption_store = __commonJS({
         if (value !== void 0 && !schemaKeys.has(key)) {
           parts.push(`${JSON.stringify(key)}: ${JSON.stringify(value)}`);
         }
+      }
+      return `{ ${parts.join(", ")} }`;
+    }
+    function serializeCaptionRaw(value) {
+      const schemaKeys = [
+        "id",
+        "start",
+        "end",
+        "text",
+        "speaker",
+        "sourceRef",
+        "edited",
+        "src",
+        "time_domain",
+        "words",
+        "unrecognized",
+        "style",
+        "display_text",
+        "display_fragments",
+        "style_preset",
+        "text_style"
+      ];
+      const known = new Set(schemaKeys);
+      const parts = [];
+      for (const key of schemaKeys) {
+        if (value[key] !== void 0)
+          parts.push(`${JSON.stringify(key)}: ${JSON.stringify(value[key])}`);
+      }
+      for (const [key, item] of Object.entries(value)) {
+        if (!known.has(key) && item !== void 0)
+          parts.push(`${JSON.stringify(key)}: ${JSON.stringify(item)}`);
       }
       return `{ ${parts.join(", ")} }`;
     }

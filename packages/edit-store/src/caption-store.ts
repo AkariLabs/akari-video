@@ -629,6 +629,96 @@ export function removeCaptionLine(source: string, captionId: string): string {
     return replaceArrayInner(source, array, nextInner);
 }
 
+export function splitCaptionLine(
+    source: string, captionId: string, wordIndex: number, newCaptionId: string
+): string {
+    const array = locateCaptionArray(source);
+    const entries = captionElementEntries(array.elements);
+    if (entries.some(entry => entry.id === newCaptionId)) {
+        throw new Error(`字幕 ${newCaptionId} は既にあります。`);
+    }
+    const element = findCaptionElement(array.elements, captionId);
+    const record = JSON.parse(element.text) as Record<string, unknown>;
+    if (!Array.isArray(record.words) || record.words.length < 2
+        || !Number.isInteger(wordIndex) || wordIndex <= 0 || wordIndex >= record.words.length) {
+        throw new Error('この行は分割できません（単語が 2 つ以上必要です）');
+    }
+    const words = record.words as Array<Record<string, unknown>>;
+    const wordsA = words.slice(0, wordIndex);
+    const wordsB = words.slice(wordIndex);
+    const textA = wordsA.map(word => String(word.text ?? '')).join('');
+    const textB = wordsB.map(word => String(word.text ?? '')).join('');
+    if (textA + textB !== record.text) {
+        throw new Error('この行のテキストと語のタイミングが一致していないため分割できません');
+    }
+    const splitEnd = wordsA[wordsA.length - 1].end;
+    if (typeof splitEnd !== 'number') {
+        throw new Error('この行は分割できません（単語が 2 つ以上必要です）');
+    }
+    const unrecognized = Array.isArray(record.unrecognized)
+        ? record.unrecognized as Array<Record<string, unknown>> : [];
+    const recordA: Record<string, unknown> = {
+        ...record, end: splitEnd, text: textA, words: wordsA, edited: true
+    };
+    const recordB: Record<string, unknown> = {
+        ...record, id: newCaptionId, start: wordsB[0].start, text: textB,
+        words: wordsB, edited: true, sourceRef: null
+    };
+    recordA.unrecognized = unrecognized.filter(span => typeof span.start === 'number' && span.start < splitEnd);
+    recordB.unrecognized = unrecognized.filter(span => typeof span.start === 'number' && span.start >= splitEnd);
+    for (const output of [recordA, recordB]) {
+        delete output.display_text;
+        delete output.display_fragments;
+        if (Array.isArray(output.words) && output.words.length === 0) delete output.words;
+        if (Array.isArray(output.unrecognized) && output.unrecognized.length === 0) delete output.unrecognized;
+    }
+    const index = array.elements.indexOf(element);
+    const separator = whitespaceBeforeElement(array.inner, array.elements, index);
+    const replacement = `${serializeCaptionRaw(recordA)},${separator}${serializeCaptionRaw(recordB)}`;
+    const nextInner = array.inner.slice(0, element.start) + replacement + array.inner.slice(element.end);
+    return replaceArrayInner(source, array, nextInner);
+}
+
+export function mergeCaptionLines(source: string, captionIds: readonly string[]): string {
+    if (captionIds.length < 2) {
+        throw new Error('結合する字幕を 2 行以上選んでください');
+    }
+    if (new Set(captionIds).size !== captionIds.length) {
+        throw new Error('同じ字幕を重複して結合できません');
+    }
+    const array = locateCaptionArray(source);
+    const elements = captionIds.map(id => findCaptionElement(array.elements, id));
+    const records = elements.map(element => JSON.parse(element.text) as Record<string, unknown>);
+    const domains = records.map(record => record.time_domain ?? 'source');
+    if (domains.some(domain => domain !== domains[0])) {
+        throw new Error('タイムドメインが異なる行は結合できません');
+    }
+    const words = records.flatMap(record => Array.isArray(record.words) ? record.words : []);
+    const unrecognized = records.flatMap(record => Array.isArray(record.unrecognized) ? record.unrecognized : []);
+    const survivor: Record<string, unknown> = {
+        ...records[0], end: records[records.length - 1].end,
+        text: records.map(record => String(record.text ?? '')).join(''),
+        words, unrecognized, edited: true
+    };
+    delete survivor.display_text;
+    delete survivor.display_fragments;
+    if (words.length === 0) delete survivor.words;
+    if (unrecognized.length === 0) delete survivor.unrecognized;
+
+    const selected = new Set(elements);
+    const survivorElement = elements[0];
+    const kept = array.elements.flatMap((element, index) => {
+        if (!selected.has(element)) return [{ element, index, text: element.text }];
+        return element === survivorElement ? [{ element, index, text: serializeCaptionRaw(survivor) }] : [];
+    });
+    const prefix = array.elements.length ? array.inner.slice(0, array.elements[0].start) : array.inner;
+    const suffix = array.elements.length ? array.inner.slice(array.elements[array.elements.length - 1].end) : '';
+    const nextInner = kept.reduce((result, item, index) => result
+        + (index === 0 ? '' : `,${whitespaceBeforeElement(array.inner, array.elements, item.index)}`)
+        + item.text, prefix) + suffix;
+    return replaceArrayInner(source, array, nextInner);
+}
+
 function normalizeCaption(
     value: any,
     onTextStyleUnknownKeys?: (keys: string[]) => void
@@ -925,6 +1015,23 @@ function serializeCaption(caption: CaptionRecord): string {
         if (value !== undefined && !schemaKeys.has(key)) {
             parts.push(`${JSON.stringify(key)}: ${JSON.stringify(value)}`);
         }
+    }
+    return `{ ${parts.join(', ')} }`;
+}
+
+function serializeCaptionRaw(value: Record<string, unknown>): string {
+    const schemaKeys = [
+        'id', 'start', 'end', 'text', 'speaker', 'sourceRef', 'edited', 'src',
+        'time_domain', 'words', 'unrecognized', 'style', 'display_text',
+        'display_fragments', 'style_preset', 'text_style'
+    ];
+    const known = new Set(schemaKeys);
+    const parts: string[] = [];
+    for (const key of schemaKeys) {
+        if (value[key] !== undefined) parts.push(`${JSON.stringify(key)}: ${JSON.stringify(value[key])}`);
+    }
+    for (const [key, item] of Object.entries(value)) {
+        if (!known.has(key) && item !== undefined) parts.push(`${JSON.stringify(key)}: ${JSON.stringify(item)}`);
     }
     return `{ ${parts.join(', ')} }`;
 }

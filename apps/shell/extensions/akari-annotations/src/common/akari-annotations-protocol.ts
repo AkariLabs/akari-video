@@ -329,12 +329,27 @@ export interface InsertCaptionRequest {
     captionsUri: string;
     projectRootUri: string;
     caption: CaptionWritePayload;
+    label?: string;
 }
 
 export interface RemoveCaptionRequest {
     captionsUri: string;
     projectRootUri: string;
     captionId: string;
+}
+
+export interface SplitCaptionRequest {
+    captionsUri: string;
+    projectRootUri: string;
+    captionId: string;
+    wordIndex: number;
+    newCaptionId: string;
+}
+
+export interface MergeCaptionsRequest {
+    captionsUri: string;
+    projectRootUri: string;
+    captionIds: string[];
 }
 
 export interface OverlayWritePayload extends Record<string, unknown> {
@@ -701,6 +716,8 @@ export interface AkariAnnotationsService {
     setCaptionTiming(request: SetCaptionTimingRequest): Promise<WriteBackResult>;
     insertCaption(request: InsertCaptionRequest): Promise<WriteBackResult>;
     removeCaption(request: RemoveCaptionRequest): Promise<WriteBackResult>;
+    splitCaption(request: SplitCaptionRequest): Promise<WriteBackResult>;
+    mergeCaptions(request: MergeCaptionsRequest): Promise<WriteBackResult>;
     moveOverlay(request: MoveOverlayRequest): Promise<WriteBackResult>;
     resizeOverlay(request: ResizeOverlayRequest): Promise<WriteBackResult>;
     splitCut(request: SplitCutRequest): Promise<WriteBackResult>;
