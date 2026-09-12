@@ -19,6 +19,9 @@ test('scrub audio IIFE は preview-server の正本から生成される', () =>
     vm.runInNewContext(generated, sandbox);
     assert.equal(typeof sandbox.AkariScrubAudio.createScrubAudioController, 'function');
     assert.deepEqual([...sandbox.AkariScrubAudio.SCRUB_MODES], ['off', 'on']);
+    assert.equal(sandbox.AkariScrubAudio.SCRUB_TUNING.maxCacheBytes, 8 * 1024 * 1024);
+    assert.equal(sandbox.AkariScrubAudio.SCRUB_TUNING.maxRangesPerWindow, 12);
+    assert.equal(sandbox.AkariScrubAudio.SCRUB_TUNING.fastSpeedEnterRatio, 25);
     assert.match(bundleScript, /packages', 'preview-server', 'public', 'audio-scrub\.js'/);
     assert.match(bundleScript, /outputDirectory, 'scrub-audio\.js'/);
 });

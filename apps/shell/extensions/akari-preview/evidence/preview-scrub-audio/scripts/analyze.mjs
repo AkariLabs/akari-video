@@ -7,7 +7,9 @@
  *    BGM 帯（100〜220 Hz）それぞれのピーク周波数を半音インデックスへ写す（本編 440·2^(k/12)、BGM 110·2^(k/12)。2 帯は 2 オクターブ離れており漏れ込まない）
  *  - 一致（手順 5）: seek i の到達 a_i から 300 ms 以内に、期待する半音（floor(t) mod 12）±1 半音の音が本編帯に出れば「確認」
  *  - 遅延: 期待半音が直前の seek と変わる seek について、到達後に期待半音と**完全一致**する最初のフレーム（窓の中心）までの ms。p50 / p95
- *  - 音切れ: 駆動区間 [最初の seek, 最後の seek + 50 ms] のうち RMS < 0.01 の 5 ms フレームの割合と、10 ms 以上の無音区間数
+ *  - 音切れ / 可聴率: 駆動区間 [最初の seek, 最後の seek + 50 ms] のうち RMS < 0.01 の 5 ms フレームの割合（= 無音率）と、その裏返しの可聴率、10 ms 以上の無音区間数
+ *  - 発音の等間隔性: 本編断片の開始（BufferSource.start の when）の間隔 p50 / p95。体感の「途切れなさ」は鳴った seek 数より等間隔性に効く
+ *  - 実測駆動レート: onSeek 到達間隔から出した Hz（実マウスの送出レートではなく、アプリの rAF 間引きを通った後の実効レート）
  *  - クリック: 隣接サンプルの差 |Δ| > 0.2（正規化）の個数。純音 ≤ 900 Hz・振幅 0.5 では |Δ| ≤ 0.06 なので、それ以上は不連続
  *  - CPU: ps の累積 CPU 時間の差分 / 経過時間（role 別: renderer / gpu / audio-service / browser-main / preview-server）
  *
@@ -161,6 +163,13 @@ function analyzeRunEntry(run, evidenceDir) {
   for (let i = from; i < to; i++) { const d = Math.abs(samples[i] - samples[i - 1]); if (d > maxDelta) maxDelta = d; if (d > CLICK_DELTA) clicks++; }
   let peak = 0; let sum2 = 0;
   for (let i = from; i < to; i++) { const a = Math.abs(samples[i]); if (a > peak) peak = a; sum2 += samples[i] * samples[i]; }
+  // 発音の等間隔性: 本編断片の開始時刻（重複除去）の間隔。
+  const mainStarts = [...new Set(seeks.map(s => s.mainStartedCtxSec).filter(Number.isFinite))].sort((a, b) => a - b);
+  const startIntervals = mainStarts.slice(1).map((value, index) => (value - mainStarts[index]) * 1000);
+  // 実測の駆動レート: onSeek の到達間隔（アプリの rAF 間引きを通った後）。
+  const arrivalTimes = expected.map(s => s.arrivedCtxSec);
+  const seekIntervals = arrivalTimes.slice(1).map((value, index) => (value - arrivalTimes[index]) * 1000);
+  const drivenSec = lastArrival - firstArrival;
   // アプリ側の自己申告。
   const appLatency = seeks.filter(s => Number.isFinite(s.mainStartedCtxSec) && s.mainStartedCtxSec >= s.arrivedCtxSec).map(s => (s.mainStartedCtxSec - s.arrivedCtxSec) * 1000);
   const seekComplete = seeks.map(s => s.seekCompleteMs).filter(Number.isFinite);
@@ -193,7 +202,7 @@ function analyzeRunEntry(run, evidenceDir) {
   // 断片の長さ（BufferSource.start の duration）と復号窓の長さ。4 パケット窓なら断片は常に 40 ms のはず。
   const fragmentDur = seeks.map(s => s.mainDurationSec).filter(Number.isFinite).map(v => v * 1000);
   const windowDur = seeks.map(s => s.windowSec).filter(Number.isFinite).map(v => v * 1000);
-  const isReal = run.pattern === 'r';
+  const isReal = run.pattern === 'r' || run.config === 'real';
   const finite = list => list.filter(Number.isFinite);
   return {
     id: run.id, mode: run.mode, pattern: run.pattern, label: run.label, wav: run.wav, ticks: run.ticks, tickHz: run.tickHz ?? null,
@@ -216,6 +225,16 @@ function analyzeRunEntry(run, evidenceDir) {
       seekComplete: { n: seekComplete.length, p50: round(percentile(seekComplete, 50)), p95: round(percentile(seekComplete, 95)) },
       decode: { n: decodeMs.length, p50: round(percentile(decodeMs, 50), 2), p95: round(percentile(decodeMs, 95), 2) },
       fetch: { n: fetchMs.length, p50: round(percentile(fetchMs, 50), 2), p95: round(percentile(fetchMs, 95), 2), bytesTotal: bytes.reduce((a, b) => a + b, 0), cacheHits },
+    },
+    // 契約 2026-09-12-scrub-audio-fast-drag 指示 5: 「鳴った seek の割合」ではなく可聴率と等間隔性で見る。
+    pacing: {
+      requestedHz: run.tickHz ?? null, patternSpeed: run.patternSpeed ?? null, uncapFps: run.uncapFps ?? null,
+      drivenSec: round(drivenSec, 3),
+      measuredSeekHz: round(drivenSec > 0 ? (expected.length - 1) / drivenSec : null, 1),
+      seekIntervalMs: { n: seekIntervals.length, p50: round(percentile(seekIntervals, 50)), p95: round(percentile(seekIntervals, 95)) },
+      audibleRate: round(driven.length ? (driven.length - silentFrames) / driven.length * 100 : null, 1),
+      fragmentStartIntervalMs: { n: startIntervals.length, p50: round(percentile(startIntervals, 50)), p95: round(percentile(startIntervals, 95)), max: round(startIntervals.length ? Math.max(...startIntervals) : null) },
+      fragmentsStarted: mainStarts.length,
     },
     continuity: {
       silenceRate: round(driven.length ? silentFrames / driven.length * 100 : null, 1), gaps10ms: gapCount, clicks, maxSampleDelta: round(maxDelta, 3),
@@ -246,18 +265,20 @@ export function writeSummaryMarkdown(analysis, file) {
   const lines = [];
   lines.push(`# preview scrub audio — L1 実測サマリ（${analysis.fixture?.kind === 'real' ? '実素材' : '合成純音'}・機械生成: scripts/analyze.mjs）`, '');
   lines.push(`- 実行: ${analysis.analyzedAt} / Electron ${analysis.electron?.version} / ${analysis.host?.model} ${analysis.host?.cpus} cores ${analysis.host?.memGb} GB / Node ${analysis.host?.node}`);
-  lines.push(`- seek 30 Hz・断片 ${analysis.fragmentMs} ms・AudioContext ${analysis.page?.sampleRate} Hz（baseLatency ${round(analysis.page?.baseLatency * 1000, 1)} ms / outputLatency ${round(analysis.page?.outputLatency * 1000, 1)} ms）`);
+  lines.push(`- 断片 ${analysis.fragmentMs} ms・AudioContext ${analysis.page?.sampleRate} Hz（baseLatency ${round(analysis.page?.baseLatency * 1000, 1)} ms / outputLatency ${round(analysis.page?.outputLatency * 1000, 1)} ms）${analysis.uncapFps ? '・vsync 解除（120 Hz 駆動用）' : ''}`);
   lines.push('');
-  lines.push('| run | mode | pattern | 遅延 p50 / p95 ms（録音） | アプリ予約 p50 / p95 | 音程一致 本編 / BGM | 古い音 % | 無音 % / 10ms 途切れ | クリック 総数 / 素材由来 / artifact（最大 Δ） | 断片長 p50 / min ms（窓） | renderer / gpu / audio CPU % | played / skipped | lastError |');
-  lines.push('|---|---|---|---|---|---|---|---|---|---|---|---|---|');
+  lines.push('| run | mode | pattern | 駆動 Hz 要求 / 実測 | **可聴率 %** | **断片開始間隔 p50 / p95 ms** | 遅延 p50 / p95 ms（録音） | アプリ予約 p50 / p95 | 音程一致 本編 / BGM | 古い音 % | 無音 % / 10ms 途切れ | クリック 総数 / 素材由来 / artifact（最大 Δ） | 断片長 p50 / min ms（窓） | renderer / gpu / audio CPU % | played / skipped | lastError |');
+  lines.push('|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|');
   for (const r of analysis.runs) {
     const c = r.cpu;
     const p = r.pitch;
-    lines.push(`| ${r.id} | ${r.mode} | ${r.pattern}${r.tickHz && r.tickHz !== analysis.tickHz ? ` (${r.tickHz} Hz)` : ''} | ${r.latencyMs.recorded.p50 ?? '–'} / ${r.latencyMs.recorded.p95 ?? '–'}${r.isReal ? '' : ` (${r.latencyMs.recorded.found}/${r.latencyMs.recorded.n})`} | ${r.latencyMs.appReported.p50 ?? '–'} / ${r.latencyMs.appReported.p95 ?? '–'} | ${p ? `${p.mainConfirmRate ?? '–'}% / ${p.bgmConfirmRate ?? '–'}%` : '–（実素材）'} | ${p ? (p.staleRate ?? '–') : '–'} | ${r.continuity.silenceRate ?? '–'} / ${r.continuity.gaps10ms} | ${r.continuity.clicks} / ${r.continuity.clicksInSource ?? '–'} / **${r.continuity.artifactClicks}** (${r.continuity.maxSampleDelta}) | ${r.fragment.durationP50Ms ?? '–'} / ${r.fragment.durationMinMs ?? '–'} (${r.fragment.windowP50Ms ?? '–'}) | ${c.renderer?.pct ?? '–'} / ${c.gpu?.pct ?? '–'} / ${c['audio-service']?.pct ?? '–'} | ${r.played} / ${r.skipped} | ${r.lastError ?? '–'} |`);
+    const g = r.pacing ?? {};
+    lines.push(`| ${r.id} | ${r.mode} | ${r.pattern} | ${g.requestedHz ?? '–'} / ${g.measuredSeekHz ?? '–'} | **${g.audibleRate ?? '–'}** | ${g.fragmentStartIntervalMs?.p50 ?? '–'} / ${g.fragmentStartIntervalMs?.p95 ?? '–'} | ${r.latencyMs.recorded.p50 ?? '–'} / ${r.latencyMs.recorded.p95 ?? '–'}${r.isReal ? '' : ` (${r.latencyMs.recorded.found}/${r.latencyMs.recorded.n})`} | ${r.latencyMs.appReported.p50 ?? '–'} / ${r.latencyMs.appReported.p95 ?? '–'} | ${p ? `${p.mainConfirmRate ?? '–'}% / ${p.bgmConfirmRate ?? '–'}%` : '–（実素材）'} | ${p ? (p.staleRate ?? '–') : '–'} | ${r.continuity.silenceRate ?? '–'} / ${r.continuity.gaps10ms} | ${r.continuity.clicks} / ${r.continuity.clicksInSource ?? '–'} / **${r.continuity.artifactClicks}** (${r.continuity.maxSampleDelta}) | ${r.fragment.durationP50Ms ?? '–'} / ${r.fragment.durationMinMs ?? '–'} (${r.fragment.windowP50Ms ?? '–'}) | ${c.renderer?.pct ?? '–'} / ${c.gpu?.pct ?? '–'} / ${c['audio-service']?.pct ?? '–'} | ${r.played} / ${r.skipped} | ${r.lastError ?? '–'} |`);
   }
   lines.push('');
   lines.push('- 遅延（録音）= seek 到達（ページ側 audioContext.currentTime・onSeek ラップで記録）→ 期待半音と完全一致する最初の 21 ms 分析窓の中心。期待半音が直前の seek と変わる seek だけを数える（found / n）。アプリ予約 = 到達 → 本編断片の BufferSource.start(when) の差');
   lines.push('- 音程一致 = seek 到達から 300 ms 以内に期待半音 ±1 の音が出た seek の割合（手順 5）。古い音 = 可聴フレームのうち直近 250 ms のどの seek の音程にも合わないもの');
+  lines.push('- 駆動 Hz = 要求（実マウスの送出レート）/ 実測（onSeek 到達間隔から。アプリの rAF 間引きを通った後の実効レート）。可聴率 = 駆動区間の 5 ms フレームのうち RMS ≥ 0.01 の割合（無音 % の裏返し）。断片開始間隔 = 本編断片の BufferSource.start(when) の差分');
   lines.push('- 無音 % = 駆動区間の 5 ms フレームのうち RMS < 0.01。クリック = 隣接サンプル差 > 0.2 の個数（純音の最大差は 0.06）。素材由来 = 素材（ffmpeg で 48 kHz mono に復号した参照）の同じ位置 ±2 ms に同等以上（差 −0.05 まで）の隣接差があるもの（声の過渡）。artifact = 素材に無い不連続 = 断片の継ぎ目で生じたクリック');
   lines.push('');
   lines.push('| run | HTTP 要求 合計 | media Range 取得（fetch / media 要素） | media 全量取得 | moov 相当（fetch Range > 8 KB） | preview-audio API | sidecar .pcm | その他 |');

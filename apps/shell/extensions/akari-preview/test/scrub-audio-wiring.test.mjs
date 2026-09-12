@@ -3,16 +3,65 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 import { createScrubAudioController } from '../../../../../packages/preview-server/public/audio-scrub.js';
-import { createScrubFetchGate, resolveScrubSeek } from '../lib/common/scrub-audio-wiring.js';
+import { resolveScrubSeek } from '../lib/common/scrub-audio-wiring.js';
 
 const handlerSource = readFileSync(new URL('../src/browser/akari-preview-open-handler.ts', import.meta.url), 'utf8');
 const frontendSource = readFileSync(new URL('../src/browser/akari-preview-frontend-module.ts', import.meta.url), 'utf8');
+const wiringSource = readFileSync(new URL('../src/common/scrub-audio-wiring.ts', import.meta.url), 'utf8');
 
 function section(start, end) {
     const from = handlerSource.indexOf(start);
     const to = handlerSource.indexOf(end, from + start.length);
     assert.ok(from >= 0 && to > from, `section not found: ${start}`);
     return handlerSource.slice(from, to);
+}
+
+function scrubMp4Fixture() {
+    const concat = (...parts) => {
+        const result = new Uint8Array(parts.reduce((sum, part) => sum + part.byteLength, 0));
+        let offset = 0;
+        for (const part of parts) { result.set(part, offset); offset += part.byteLength; }
+        return result;
+    };
+    const bytes = (...values) => Uint8Array.from(values);
+    const ascii = value => Uint8Array.from(value, character => character.charCodeAt(0));
+    const u16 = value => bytes(value >>> 8, value);
+    const u32 = value => bytes(value >>> 24, value >>> 16, value >>> 8, value);
+    const box = (type, ...payload) => {
+        const body = concat(...payload);
+        return concat(u32(body.byteLength + 8), ascii(type), body);
+    };
+    const fullBox = (type, ...payload) => box(type, bytes(0, 0, 0, 0), ...payload);
+    const descriptor = (tag, payload) => concat(bytes(tag, payload.byteLength), payload);
+    const ftyp = box('ftyp', ascii('isom'), u32(0));
+    const media = bytes(...Array.from({ length: 64 }, (_, index) => index + 1));
+    const mediaOffset = ftyp.byteLength + 8;
+    const mdat = box('mdat', media);
+    const esdsPayload = descriptor(0x03, concat(u16(1), bytes(0), descriptor(0x04, concat(
+        bytes(0x40, 0x15), u32(0), u32(0), u32(0), descriptor(0x05, bytes(0x11, 0x90))
+    ))));
+    const entry = box('mp4a', bytes(0, 0, 0, 0, 0, 0), u16(1), u32(0), u32(0),
+        u16(2), u16(16), u16(0), u16(0), u32(48000 << 16), fullBox('esds', esdsPayload));
+    const stbl = box('stbl',
+        fullBox('stsd', u32(1), entry),
+        fullBox('stts', u32(1), u32(16), u32(1024)),
+        fullBox('stsc', u32(1), u32(1), u32(16), u32(1)),
+        fullBox('stsz', u32(0), u32(16), ...Array(16).fill(u32(4))),
+        fullBox('stco', u32(1), u32(mediaOffset))
+    );
+    const mdhd = fullBox('mdhd', u32(0), u32(0), u32(48000), u32(16384), u16(0), u16(0));
+    const hdlr = fullBox('hdlr', u32(0), ascii('soun'), new Uint8Array(12), bytes(0));
+    const trak = box('trak', fullBox('tkhd', u32(0)), box('mdia', mdhd, hdlr, box('minf', stbl)));
+    const moov = box('moov', fullBox('mvhd', u32(0), u32(0), u32(1000), u32(1000)), trak);
+    return { file: concat(ftyp, mdat, moov), mediaOffset };
+}
+
+async function until(predicate) {
+    for (let index = 0; index < 100; index++) {
+        if (predicate()) return;
+        await new Promise(resolve => setImmediate(resolve));
+    }
+    assert.fail('condition was not reached');
 }
 
 test('resolveScrubSeek はタイムライン位置を正しい音源 URL と source time へ解決する', () => {
@@ -71,50 +120,75 @@ test('controller は globalMuted・通常再生中・設定 OFF では取得も�
     assert.deepEqual(untouchedController({ enabled: false }), []);
 });
 
-function pendingFetchGate() {
-    const calls = [];
-    const timers = [];
-    const gate = createScrubFetchGate({
-        fetch: (input, init) => {
-            calls.push({ input, signal: init?.signal });
-            return new Promise(() => undefined);
+test('正本 controller が追い越された Range fetch を abort する', async () => {
+    const fixture = scrubMp4Fixture();
+    const moovSignals = [];
+    let packetSignal;
+    let packetFetches = 0;
+    const fetchFn = async (_src, options) => {
+        const match = /^bytes=(\d+)-(\d+)$/.exec(options.headers.Range);
+        const start = Number(match[1]);
+        const end = Math.min(fixture.file.byteLength - 1, Number(match[2]));
+        if (start >= fixture.mediaOffset && start < fixture.mediaOffset + 64 && ++packetFetches === 1) {
+            packetSignal = options.signal;
+            return new Promise((_resolve, reject) => options.signal.addEventListener('abort', () => {
+                const error = new Error('aborted');
+                error.name = 'AbortError';
+                reject(error);
+            }, { once: true }));
+        }
+        if (!(start >= fixture.mediaOffset && start < fixture.mediaOffset + 64)) {
+            moovSignals.push('signal' in options ? options.signal : null);
+        }
+        const chunk = fixture.file.slice(start, end + 1);
+        return {
+            status: 206,
+            headers: { get: name => name.toLowerCase() === 'content-range'
+                ? `bytes ${start}-${end}/${fixture.file.byteLength}` : null },
+            arrayBuffer: async () => chunk.buffer.slice(chunk.byteOffset, chunk.byteOffset + chunk.byteLength)
+        };
+    };
+    class Chunk { constructor(init) { Object.assign(this, init); } }
+    class Decoder {
+        static async isConfigSupported(config) { return { supported: true, config }; }
+        constructor(callbacks) { this.callbacks = callbacks; this.state = 'unconfigured'; this.chunks = []; }
+        configure() { this.state = 'configured'; }
+        decode(chunk) { this.chunks.push(chunk); }
+        async flush() {
+            for (const chunk of this.chunks) this.callbacks.output({
+                timestamp: chunk.timestamp, numberOfChannels: 2, numberOfFrames: 1024, sampleRate: 48000,
+                copyTo(target) { target.fill(0); }, close() {}
+            });
+        }
+        close() { this.state = 'closed'; }
+    }
+    const audioContext = {
+        currentTime: 0, state: 'running', destination: {},
+        createBuffer(channels, length, sampleRate) {
+            const planes = Array.from({ length: channels }, () => new Float32Array(length));
+            return { numberOfChannels: channels, length, duration: length / sampleRate,
+                getChannelData: channel => planes[channel] };
         },
-        setTimeout: fn => { timers.push(fn); return timers.length; }
+        createGain() { return { gain: { value: 0, setValueAtTime() {}, linearRampToValueAtTime() {} }, connect() {} }; },
+        createBufferSource() { return { connect() {}, start() {}, stop() {} }; },
+        async resume() {}, async suspend() {}
+    };
+    let wallMs = 0;
+    const controller = createScrubAudioController({
+        audioContext, video: { muted: false, volume: 1 }, getBgm: () => ({}), fetchFn,
+        now: () => wallMs, AudioDecoderCtor: Decoder, EncodedAudioChunkCtor: Chunk,
+        setTimeoutFn: () => 1, clearTimeoutFn: () => undefined,
+        tuning: { velocitySamples: 2, fastSpeedEnterRatio: 1000 }
     });
-    return { gate, calls, timers };
-}
-
-test('新しい seek は前世代の小さい Range fetch をすべて abort する', () => {
-    const { gate, calls } = pendingFetchGate();
-    gate.beginSeek();
-    void gate.fetchFn('/source.mp4', { headers: { Range: 'bytes=0-1023' } });
-    void gate.fetchFn('/source.mp4', { headers: { Range: 'bytes=2048-3071' } });
-    assert.equal(gate.inFlight(), 2);
-    gate.beginSeek();
-    assert.equal(calls[0].signal.aborted, true);
-    assert.equal(calls[1].signal.aborted, true);
-    assert.equal(gate.inFlight(), 0);
-});
-
-test('seek の macrotask 終了後に始まる fetch は札付けも abort もされない', () => {
-    const { gate, calls, timers } = pendingFetchGate();
-    gate.beginSeek();
-    void gate.fetchFn('/source.mp4', { headers: { Range: 'bytes=0-1023' } });
-    for (const run of timers.splice(0)) run();
-    void gate.fetchFn('/source.mp4', { headers: { Range: 'bytes=2048-3071' } });
-    assert.equal(calls[1].signal, undefined);
-    gate.beginSeek();
-    assert.equal(calls[1].signal, undefined);
-});
-
-test('8 KB を超える moov 用 Range は seek 中でも abort 対象にしない', () => {
-    const { gate, calls } = pendingFetchGate();
-    gate.beginSeek();
-    void gate.fetchFn('/source.mp4', { headers: { Range: 'bytes=32-157373' } });
-    assert.equal(calls[0].signal, undefined);
-    assert.equal(gate.inFlight(), 0);
-    gate.beginSeek();
-    assert.equal(calls[0].signal, undefined);
+    await controller.prepare('/source.mp4');
+    assert.ok(moovSignals.every(signal => signal === null));
+    controller.onSeek({ outputTime: 0.04, sourceTime: 0.04, src: '/source.mp4', isPlaying: false });
+    await until(() => packetSignal);
+    wallMs = 1000;
+    controller.onSeek({ outputTime: 0.12, sourceTime: 0.12, src: '/source.mp4', isPlaying: false });
+    assert.equal(packetSignal.aborted, true);
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(controller.lastError, null);
 });
 
 test('webview 配線は共有 AudioContext を BGM の有無と分離して使う', () => {
@@ -150,11 +224,14 @@ test('seek・transport・設定変更の scrub 配線を固定する', () => {
     assert.doesNotMatch(section('const applyInitialPosition = () =>', 'const showPlaybackError ='), /notifyScrubSeek/);
 });
 
-test('scrub controller は fetch gate を使い onSeek の直前に世代を切り替える', () => {
+test('shell 暫定 fetch gate を撤去し正本 controller の観測値を使う', () => {
     const ensure = section('const ensureScrubAudio = () =>', 'let scrubAudioEnabled =');
-    assert.match(ensure, /fetchFn: scrubFetchGate\.fetchFn/);
+    assert.doesNotMatch(ensure, /fetchFn:/);
     const notify = section('const notifyScrubSeek = () =>', 'window.akari.scrubAudioDebug = () =>');
-    assert.match(notify, /scrubFetchGate\.beginSeek\(\);\s*controller\.onSeek\(input\);/);
+    assert.doesNotMatch(handlerSource, /createScrubFetchGate|beginSeek/);
+    assert.doesNotMatch(wiringSource, /createScrubFetchGate/);
+    assert.match(notify, /controller\.onSeek\(input\);/);
+    assert.match(handlerSource, /inFlightFetches: scrubAudio \? scrubAudio\.inFlightFetches : null/);
 });
 
 test('設定・初期状態・原本 URL は host から webview まで伝播する', () => {
