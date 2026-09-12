@@ -143,9 +143,9 @@
           "minItems": 2,
           "maxItems": 2
         },
-        "confidence": { "enum": ["high", "low"] }
+        "confidence": { "enum": ["high", "medium", "low"] }
       },
-      "$comment": "review セッション契約 §6 の着地出所。id = review/sessions/<id>、recRange = 発話の録音秒 [start, end]、confidence = 位置解決の信頼度（low は本文に要確認が付く）。apps/shell の annotation-store.ts normalizeSessionRef と同じ形。"
+      "$comment": "review セッション契約 §6 の着地出所。id = review/sessions/<id>、recRange = 発話の録音秒 [start, end]、confidence = 位置解決の信頼度（compile-review-session は high / low を書き、low は本文に要確認が付く。medium は apps/shell の annotation-store.ts AnnotationSessionConfidence が受理する値で、読み手互換のため許容する）。"
     },
     "response": {
       "type": "object",
