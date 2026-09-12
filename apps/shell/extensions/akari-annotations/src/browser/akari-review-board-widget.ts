@@ -9,7 +9,21 @@ import { Message } from '@theia/core/shared/@lumino/messaging';
 import { AkariAnnotationsService, Annotation } from '../common/akari-annotations-protocol';
 import { AnnotationStroke, parseReview } from '../common/annotation-store';
 import { readInternalSources } from '../common/edit-store';
-import { collectBlockIds, extractBlocksManifest, parseCanvasTarget, parseDocTarget, parseImageTarget } from '../common/doc-target';
+import {
+    buildUiTargetRow,
+    collectBlockIds,
+    extractBlocksManifest,
+    parseCanvasTarget,
+    parseDocTarget,
+    parseImageTarget,
+    parseUiTarget,
+    needsUiTargetLabels
+} from '../common/doc-target';
+import {
+    CLIP_ANNOTATION_LABELS_EVENT,
+    CLIP_ANNOTATION_LABELS_REQUEST_EVENT,
+    CLIP_ANNOTATION_REVEAL_EVENT
+} from '../common/timeline-context-menu-items';
 import { AkariCanvasDialog } from './akari-canvas-dialog';
 import { AkariImageAnnotationDialog } from './akari-image-annotation-dialog';
 import {
@@ -106,6 +120,8 @@ export class AkariReviewBoardWidget extends BaseWidget {
     protected reviewSessionsProjectRootUri = '';
     protected lastReviewSessionDispatchProjectRootUri = '';
     protected lastReviewSessionDispatchAnnotationIds = '';
+    protected uiTargetLabels: Record<string, string> = {};
+    protected lastUiTargetLabelsRequest = '';
 
     @postConstruct()
     protected init(): void {
@@ -189,6 +205,18 @@ export class AkariReviewBoardWidget extends BaseWidget {
         this.toDispose.push({
             dispose: () => window.removeEventListener(REVIEW_SESSION_STATE_EVENT, onReviewSessionState)
         });
+        const onClipAnnotationLabels = (event: Event): void => {
+            const detail = (event as CustomEvent<{ editUri?: string; labels?: Record<string, string> }>).detail;
+            const editUri = this.model.location?.editUri?.normalizePath().toString();
+            if (!detail || !editUri || this.normalizeUri(detail.editUri ?? '') !== this.normalizeUri(editUri)
+                || !detail.labels || typeof detail.labels !== 'object') return;
+            this.uiTargetLabels = { ...detail.labels };
+            this.renderColumns();
+        };
+        window.addEventListener(CLIP_ANNOTATION_LABELS_EVENT, onClipAnnotationLabels);
+        this.toDispose.push({
+            dispose: () => window.removeEventListener(CLIP_ANNOTATION_LABELS_EVENT, onClipAnnotationLabels)
+        });
         this.refresh();
         this.refreshReviewSessions();
     }
@@ -196,6 +224,7 @@ export class AkariReviewBoardWidget extends BaseWidget {
     protected override onAfterAttach(msg: Message): void {
         super.onAfterAttach(msg);
         this.refreshReviewSessions(true);
+        this.requestMissingUiTargetLabels();
     }
 
     /** review.json の読み込み・監視はタイムライン側（ReviewModel 経由）に相乗りする。ここでは壊れ検知だけ独自に行う。 */
@@ -205,9 +234,26 @@ export class AkariReviewBoardWidget extends BaseWidget {
         void this.refreshVideoSources().then(() => {
             if (token === this.refreshToken) {
                 this.renderColumns();
+                this.requestMissingUiTargetLabels();
             }
         });
         void this.refreshDiagnostics();
+        this.requestMissingUiTargetLabels();
+    }
+
+    protected requestMissingUiTargetLabels(): void {
+        const targets = this.model.annotations.map(annotation => annotation.target);
+        if (!needsUiTargetLabels(targets, this.uiTargetLabels)) {
+            this.lastUiTargetLabelsRequest = '';
+            return;
+        }
+        const request = JSON.stringify(targets.filter(target => typeof target === 'string').sort());
+        if (request === this.lastUiTargetLabelsRequest) return;
+        this.lastUiTargetLabelsRequest = request;
+        const editUri = this.model.location?.editUri?.normalizePath().toString();
+        window.dispatchEvent(new CustomEvent(CLIP_ANNOTATION_LABELS_REQUEST_EVENT, {
+            detail: { ...(editUri ? { editUri } : {}) }
+        }));
     }
 
     protected refreshReviewSessions(force = false): void {
@@ -429,12 +475,15 @@ export class AkariReviewBoardWidget extends BaseWidget {
         const docTarget = parseDocTarget(annotation.target);
         const imageTarget = parseImageTarget(annotation.target);
         const canvasTarget = parseCanvasTarget(annotation.target);
+        const uiTarget = parseUiTarget(annotation.target);
         if (docTarget) {
             card.appendChild(this.renderDocTargetRow(docTarget));
         } else if (imageTarget) {
             card.appendChild(this.renderImageTargetRow(imageTarget));
         } else if (canvasTarget) {
             card.appendChild(this.renderCanvasTargetRow(canvasTarget));
+        } else if (uiTarget) {
+            card.appendChild(this.renderUiTargetRow(uiTarget));
         } else if (annotation.target) {
             const target = document.createElement('div');
             target.textContent = annotation.target;
@@ -480,6 +529,28 @@ export class AkariReviewBoardWidget extends BaseWidget {
             }
         });
         return card;
+    }
+
+    protected renderUiTargetRow(uiTarget: { id: string }): HTMLElement {
+        const model = buildUiTargetRow(uiTarget.id, this.uiTargetLabels);
+        const row = document.createElement(model.revealable ? 'button' : 'div');
+        if (row instanceof HTMLButtonElement) row.type = 'button';
+        row.setAttribute('data-board-ui-target', uiTarget.id);
+        row.textContent = `🎛️ ${model.label}`;
+        row.title = model.revealable ? `${model.title} — クリックで該当クリップを選択` : model.title;
+        Object.assign(row.style, {
+            fontSize: '11px',
+            color: model.revealable ? 'var(--theia-textLink-foreground)' : 'var(--theia-descriptionForeground)',
+            ...(model.revealable ? { background: 'none', border: 'none', padding: '0', cursor: 'pointer', font: 'inherit', textAlign: 'left' } : {})
+        });
+        if (model.revealable) row.addEventListener('click', event => {
+            event.stopPropagation();
+            const editUri = this.model.location?.editUri?.normalizePath().toString();
+            if (editUri) window.dispatchEvent(new CustomEvent(CLIP_ANNOTATION_REVEAL_EVENT, {
+                detail: { editUri, target: uiTarget.id }
+            }));
+        });
+        return row;
     }
 
     /**

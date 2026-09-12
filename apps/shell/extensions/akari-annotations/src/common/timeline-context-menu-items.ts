@@ -8,6 +8,35 @@
  */
 export type TimelineClipMenuItemKind = 'cut' | 'overlay' | 'caption' | 'layer' | 'audio';
 
+export type TimelineAnnotationTargetKind = TimelineClipMenuItemKind | 'item';
+
+export interface TimelineAnnotationTargetInput {
+    readonly kind: TimelineAnnotationTargetKind;
+    /** v2 tracks[].items[].id。解決できたときだけ渡す。 */
+    readonly itemId?: string;
+    /** legacy 投影の cuts[] index（kind === 'cut' のときだけ意味を持つ）。 */
+    readonly cutIndex?: number;
+    /** 画面に出ているクリップ名。空なら id / C<n+1> にフォールバックする。 */
+    readonly label?: string;
+}
+
+export interface TimelineAnnotationTarget {
+    /** `ui:` プレフィックスなしの target（ReviewModel.addUiAnnotation が ui: を付ける）。 */
+    readonly target: string;
+    readonly label: string;
+}
+
+/** 出力プレビュー（akari-preview ホスト）→ タイムライン。timelineT と選択中 item id を渡す生の要求。 */
+export const CLIP_ANNOTATION_REQUEST_EVENT = 'akari.review.clipAnnotation.request';
+/** タイムライン → 注釈パネル。sourceT / target / label を解決済みの composer 起動要求。 */
+export const CLIP_ANNOTATION_OPEN_EVENT = 'akari.review.clipAnnotation.open';
+/** パネル・ボード → タイムライン。ui:timeline:* 注釈から該当クリップを選択してスクロールさせる。 */
+export const CLIP_ANNOTATION_REVEAL_EVENT = 'akari.review.clipAnnotation.reveal';
+/** タイムライン → パネル・ボード。ui target id → 画面のクリップ名の索引（読み取り専用）。 */
+export const CLIP_ANNOTATION_LABELS_EVENT = 'akari.review.clipAnnotation.labels';
+/** パネル・ボード → タイムライン。ui target id → クリップ名の索引を送り直させる。 */
+export const CLIP_ANNOTATION_LABELS_REQUEST_EVENT = 'akari.review.clipAnnotation.labelsRequest';
+
 export interface TimelineClipMenuItem {
     readonly id: string;
     readonly label: string;
@@ -63,6 +92,24 @@ export function buildTimelineClipMenuItems(
         ...(audio.split.ok === false ? { disabled: true, disabledReason: audio.split.message } : {})
     });
     if (kind === 'audio' && audio.linked) items.push({ id: 'unlink-audio', label: 'リンクを解除' });
+    items.push({ id: 'annotate', label: '注釈…' });
     items.push({ id: 'delete', label: '削除', danger: true });
     return items;
+}
+
+export function resolveTimelineAnnotationTarget(
+    input: TimelineAnnotationTargetInput
+): TimelineAnnotationTarget | undefined {
+    const itemId = typeof input.itemId === 'string' && input.itemId.trim() ? input.itemId.trim() : undefined;
+    const cutIndex = input.kind === 'cut' && Number.isInteger(input.cutIndex) && input.cutIndex! >= 0
+        ? input.cutIndex : undefined;
+    const target = itemId
+        ? `timeline:item:${itemId}`
+        : cutIndex !== undefined ? `timeline:cut:${cutIndex}` : undefined;
+    if (!target) return undefined;
+    const suppliedLabel = typeof input.label === 'string' && input.label.trim() ? input.label.trim() : undefined;
+    return {
+        target,
+        label: suppliedLabel ?? itemId ?? `C${cutIndex! + 1}`
+    };
 }
