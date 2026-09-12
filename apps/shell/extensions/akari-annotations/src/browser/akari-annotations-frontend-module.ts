@@ -11,6 +11,7 @@ import { AkariAnnotationsWidget } from './akari-annotations-widget';
 import { AkariInspectorWidget } from './akari-inspector-widget';
 import { AkariReviewBoardWidget } from './akari-review-board-widget';
 import { AkariReviewPanelWidget } from './akari-review-panel-widget';
+import { AkariSessionViewerWidget } from './akari-session-viewer-widget';
 import { ReviewModel } from './review-model';
 import { TimelineSelectionModel } from './timeline-selection-model';
 import { AkariEditHistoryService } from './akari-edit-history-service';
@@ -56,6 +57,12 @@ export default new ContainerModule(bind => {
     bind(WidgetFactory).toDynamicValue(context => ({
         id: AkariReviewBoardWidget.FACTORY_ID,
         createWidget: async () => context.container.get(AkariReviewBoardWidget)
+    })).inSingletonScope();
+
+    bind(AkariSessionViewerWidget).toSelf();
+    bind(WidgetFactory).toDynamicValue(context => ({
+        id: AkariSessionViewerWidget.FACTORY_ID,
+        createWidget: async () => context.container.get(AkariSessionViewerWidget)
     })).inSingletonScope();
 
     bind(AkariAnnotationsContribution).toSelf().inSingletonScope();

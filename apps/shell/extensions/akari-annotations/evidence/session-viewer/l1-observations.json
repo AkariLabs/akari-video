@@ -1,0 +1,304 @@
+{
+  "observations": [
+    {
+      "step": "electron-spawned",
+      "pid": 4987
+    },
+    {
+      "step": "panel-viewer-button",
+      "label": "見返す",
+      "title": "s-0001 を音・描線・文字起こしで見返す"
+    },
+    {
+      "step": "viewer-opened",
+      "mounted": true,
+      "header": "s-0001 ・ 開始日時: 2026/9/12 14:00:00 ・ 録音長 00:09",
+      "time": "録音 00:00.0 / 出力 0.00s",
+      "audioMissing": null,
+      "audioReady": {
+        "hasSrc": true,
+        "currentTime": 0,
+        "paused": true,
+        "duration": 8.5
+      },
+      "utterances": [
+        {
+          "index": "0",
+          "active": false,
+          "low": false,
+          "at": "00:01.0",
+          "text": "このカットが長いです",
+          "target": "cut:0 / 素材 1.50s"
+        },
+        {
+          "index": "1",
+          "active": false,
+          "low": true,
+          "at": "00:05.5",
+          "text": "ここのテロップを大きくして",
+          "target": "cut:1 / 素材 7.50s（要確認）"
+        }
+      ],
+      "transcriptEmpty": null,
+      "diffSummary": "追加 0 / 削除 0 / 移動 1 / 尺変更 0 / 素材区間 0",
+      "diffLegacy": null,
+      "diffRows": [
+        {
+          "item": "cut-2",
+          "kind": "移動",
+          "detail": "cut-2: 位置 15.00s → 16.00s"
+        }
+      ],
+      "warnings": ""
+    },
+    {
+      "step": "preview-view-attached",
+      "attached": true
+    },
+    {
+      "step": "utterance-0-clicked",
+      "viewer": {
+        "mounted": true,
+        "header": "s-0001 ・ 開始日時: 2026/9/12 14:00:00 ・ 録音長 00:09",
+        "time": "録音 00:01.0 / 出力 0.50s",
+        "audioMissing": null,
+        "audioReady": {
+          "hasSrc": true,
+          "currentTime": 1,
+          "paused": true,
+          "duration": 8.5
+        },
+        "utterances": [
+          {
+            "index": "0",
+            "active": true,
+            "low": false,
+            "at": "00:01.0",
+            "text": "このカットが長いです",
+            "target": "cut:0 / 素材 1.50s"
+          },
+          {
+            "index": "1",
+            "active": false,
+            "low": true,
+            "at": "00:05.5",
+            "text": "ここのテロップを大きくして",
+            "target": "cut:1 / 素材 7.50s（要確認）"
+          }
+        ],
+        "transcriptEmpty": null,
+        "diffSummary": "追加 0 / 削除 0 / 移動 1 / 尺変更 0 / 素材区間 0",
+        "diffLegacy": null,
+        "diffRows": [
+          {
+            "item": "cut-2",
+            "kind": "移動",
+            "detail": "cut-2: 位置 15.00s → 16.00s"
+          }
+        ],
+        "warnings": ""
+      },
+      "preview": {
+        "bands": [
+          11585,
+          74,
+          0
+        ],
+        "seek": 0.5,
+        "timeLabel": "0:00 / 0:21"
+      }
+    },
+    {
+      "step": "playing",
+      "viewer": {
+        "mounted": true,
+        "header": "s-0001 ・ 開始日時: 2026/9/12 14:00:00 ・ 録音長 00:09",
+        "time": "録音 00:03.5 / 出力 2.97s",
+        "audioMissing": null,
+        "audioReady": {
+          "hasSrc": true,
+          "currentTime": 3.47,
+          "paused": false,
+          "duration": 8.5
+        },
+        "utterances": [
+          {
+            "index": "0",
+            "active": true,
+            "low": false,
+            "at": "00:01.0",
+            "text": "このカットが長いです",
+            "target": "cut:0 / 素材 1.50s"
+          },
+          {
+            "index": "1",
+            "active": false,
+            "low": true,
+            "at": "00:05.5",
+            "text": "ここのテロップを大きくして",
+            "target": "cut:1 / 素材 7.50s（要確認）"
+          }
+        ],
+        "transcriptEmpty": null,
+        "diffSummary": "追加 0 / 削除 0 / 移動 1 / 尺変更 0 / 素材区間 0",
+        "diffLegacy": null,
+        "diffRows": [
+          {
+            "item": "cut-2",
+            "kind": "移動",
+            "detail": "cut-2: 位置 15.00s → 16.00s"
+          }
+        ],
+        "warnings": ""
+      },
+      "preview": {
+        "bands": [
+          11585,
+          74,
+          0
+        ],
+        "seek": 2.933,
+        "timeLabel": "0:02 / 0:21"
+      }
+    },
+    {
+      "step": "paused",
+      "viewer": {
+        "mounted": true,
+        "header": "s-0001 ・ 開始日時: 2026/9/12 14:00:00 ・ 録音長 00:09",
+        "time": "録音 00:03.6 / 出力 3.00s",
+        "audioMissing": null,
+        "audioReady": {
+          "hasSrc": true,
+          "currentTime": 3.6,
+          "paused": true,
+          "duration": 8.5
+        },
+        "utterances": [
+          {
+            "index": "0",
+            "active": true,
+            "low": false,
+            "at": "00:01.0",
+            "text": "このカットが長いです",
+            "target": "cut:0 / 素材 1.50s"
+          },
+          {
+            "index": "1",
+            "active": false,
+            "low": true,
+            "at": "00:05.5",
+            "text": "ここのテロップを大きくして",
+            "target": "cut:1 / 素材 7.50s（要確認）"
+          }
+        ],
+        "transcriptEmpty": null,
+        "diffSummary": "追加 0 / 削除 0 / 移動 1 / 尺変更 0 / 素材区間 0",
+        "diffLegacy": null,
+        "diffRows": [
+          {
+            "item": "cut-2",
+            "kind": "移動",
+            "detail": "cut-2: 位置 15.00s → 16.00s"
+          }
+        ],
+        "warnings": ""
+      }
+    },
+    {
+      "step": "utterance-1-clicked",
+      "viewer": {
+        "mounted": true,
+        "header": "s-0001 ・ 開始日時: 2026/9/12 14:00:00 ・ 録音長 00:09",
+        "time": "録音 00:05.5 / 出力 17.00s",
+        "audioMissing": null,
+        "audioReady": {
+          "hasSrc": true,
+          "currentTime": 5.5,
+          "paused": true,
+          "duration": 8.5
+        },
+        "utterances": [
+          {
+            "index": "0",
+            "active": false,
+            "low": false,
+            "at": "00:01.0",
+            "text": "このカットが長いです",
+            "target": "cut:0 / 素材 1.50s"
+          },
+          {
+            "index": "1",
+            "active": true,
+            "low": true,
+            "at": "00:05.5",
+            "text": "ここのテロップを大きくして",
+            "target": "cut:1 / 素材 7.50s（要確認）"
+          }
+        ],
+        "transcriptEmpty": null,
+        "diffSummary": "追加 0 / 削除 0 / 移動 1 / 尺変更 0 / 素材区間 0",
+        "diffLegacy": null,
+        "diffRows": [
+          {
+            "item": "cut-2",
+            "kind": "移動",
+            "detail": "cut-2: 位置 15.00s → 16.00s"
+          }
+        ],
+        "warnings": ""
+      },
+      "preview": {
+        "bands": [
+          0,
+          0,
+          11573
+        ],
+        "seek": 17,
+        "timeLabel": "0:17 / 0:21"
+      }
+    },
+    {
+      "step": "legacy-session",
+      "mounted": true,
+      "header": "s-0002 ・ 開始日時: 2026/9/12 14:10:00 ・ 録音長 00:03",
+      "time": "録音 00:00.0 / 出力 2.00s",
+      "audioMissing": null,
+      "audioReady": {
+        "hasSrc": true,
+        "currentTime": 0,
+        "paused": true,
+        "duration": 3
+      },
+      "utterances": [],
+      "transcriptEmpty": "コンパイル（文字起こし）がまだです。コンパイル",
+      "diffSummary": null,
+      "diffLegacy": "旧形式（version 0）のスナップショットのため差分は出せません。",
+      "diffRows": [],
+      "warnings": ""
+    },
+    {
+      "step": "raw-invariant",
+      "before": {
+        "audio.wav": "c3cae523f718c98b4a02faa3bf09398891a35b0bdec14a000de9f63aa73aee43",
+        "events.jsonl": "8e535bcdcbd87393718bb4a3779af5b5f4d3da0e3abe3411d0b860ee93975950",
+        "strokes.json": "81960b5611703f16497b7bbc8a03690e10ba6d4acd9564525270564ad67368ef",
+        "edit.snapshot.json": "1538bdf1b5d4faea083fc732438e61ce518832bd63bfb03852ee8682f33cc6f0",
+        "transcript.json": "a27b8c76c6fbcf4a753ab7cc4088d7563f523010f42d8aff2e1ef6442e4334da",
+        "compile-proposals.json": "7a44bed568d32b1aee8e98e5897db1c7ce7c1d8c8ad013d388c363dd41b2d29e",
+        "session.json": "08e6675c4229afd9ec51940f2ac3c0be204a2ad8db9acaef33e306b5617e3203"
+      },
+      "after": {
+        "audio.wav": "c3cae523f718c98b4a02faa3bf09398891a35b0bdec14a000de9f63aa73aee43",
+        "events.jsonl": "8e535bcdcbd87393718bb4a3779af5b5f4d3da0e3abe3411d0b860ee93975950",
+        "strokes.json": "81960b5611703f16497b7bbc8a03690e10ba6d4acd9564525270564ad67368ef",
+        "edit.snapshot.json": "1538bdf1b5d4faea083fc732438e61ce518832bd63bfb03852ee8682f33cc6f0",
+        "transcript.json": "a27b8c76c6fbcf4a753ab7cc4088d7563f523010f42d8aff2e1ef6442e4334da",
+        "compile-proposals.json": "7a44bed568d32b1aee8e98e5897db1c7ce7c1d8c8ad013d388c363dd41b2d29e",
+        "session.json": "08e6675c4229afd9ec51940f2ac3c0be204a2ad8db9acaef33e306b5617e3203"
+      },
+      "identical": true
+    }
+  ],
+  "failed": false
+}

@@ -107,6 +107,7 @@
 | [contract-2026-07-20-review-json-v1-annotation-model.md](./contract-2026-07-20-review-json-v1-annotation-model.md) | review.json v1 注釈モデル（target 5 型） |
 | [contract-2026-08-11-review-session-ui-events.md](./contract-2026-08-11-review-session-ui-events.md) | レビューセッション UI イベント（events.jsonl 拡張）+ 記録中インジケータ |
 | [contract-2026-08-23-stroke-persistence.md](./contract-2026-08-23-stroke-persistence.md) | 注釈ストロークの永続表示（持続オーバーレイ + トグル + セッション再表示 + review.json の `strokeRefs`） |
+| [contract-2026-09-12-review-session-viewer.md](./contract-2026-09-12-review-session-viewer.md) | recT 同期の音声・描線・文字起こし・プレビューと edit snapshot 差分を備えたレビューセッションビューア |
 | [contract-2026-08-03-cut-candidate-bridge-v1.md](./contract-2026-08-03-cut-candidate-bridge-v1.md) | semantic event と A4 pause 短縮の review-only candidate bridge |
 
 ### プレビュー・書き出し

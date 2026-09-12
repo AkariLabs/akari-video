@@ -33,6 +33,7 @@ import {
     OPEN_AKARI_INSPECTOR,
     OPEN_AKARI_REVIEW_BOARD,
     OPEN_AKARI_REVIEW_PANEL,
+    OPEN_AKARI_SESSION_VIEWER,
     SELECT_DOC_BLOCK,
     SELECT_IMAGE_BLOCK
 } from './akari-annotations-commands';
@@ -44,6 +45,7 @@ import { AkariAnnotationsWidget, PreviewPlaybackTick } from './akari-annotations
 import { AkariInspectorWidget } from './akari-inspector-widget';
 import { AkariReviewBoardWidget } from './akari-review-board-widget';
 import { AkariReviewPanelWidget } from './akari-review-panel-widget';
+import { AkariSessionViewerWidget } from './akari-session-viewer-widget';
 import { ProjectLocation } from './project-location';
 import { computeRightPanelOrder } from './right-panel-order';
 import { installRightPanelTabStyle } from './right-panel-tab-style';
@@ -76,6 +78,7 @@ const DAIHON_WIDGET_ID = 'akari-daihon-widget';
 const CUTS_WIDGET_ID = 'akari-cuts-widget';
 // 右ドック固定配置: 注釈をカットとインスペクターの間の rank に置く。
 const REVIEW_PANEL_RANK = 195;
+const SESSION_VIEWER_PANEL_RANK = 197;
 const INSPECTOR_PANEL_RANK = 200;
 // Theia の SidePanelHandler.setLayoutData()（node_modules/@theia/core 実装を実測）は保存済み
 // レイアウトのタブ順をそのまま tabBar.addTab() で再生するだけで、rank による再ソートをしない。
@@ -265,6 +268,10 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
         commands.registerCommand(OPEN_AKARI_REVIEW_BOARD, {
             execute: () => this.openBoard()
         });
+        commands.registerCommand(OPEN_AKARI_SESSION_VIEWER, {
+            execute: (options?: { projectRootUri?: string; editUri?: string; sessionId?: string }) =>
+                this.openSessionViewer(options)
+        });
         commands.registerCommand(OPEN_AKARI_CANVAS, {
             execute: () => this.openCanvas()
         });
@@ -353,6 +360,11 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
             commandId: OPEN_AKARI_CANVAS.id,
             label: OPEN_AKARI_CANVAS.label,
             order: 'z23'
+        });
+        menus.registerMenuAction(CommonMenus.FILE, {
+            commandId: OPEN_AKARI_SESSION_VIEWER.id,
+            label: OPEN_AKARI_SESSION_VIEWER.label,
+            order: 'z24'
         });
     }
 
@@ -762,6 +774,25 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
             this.shell.addWidget(widget, { area: 'main' });
         }
         await this.shell.activateWidget(widget.id);
+        return widget;
+    }
+
+    async openSessionViewer(options?: {
+        projectRootUri?: string; editUri?: string; sessionId?: string;
+    }): Promise<AkariSessionViewerWidget | undefined> {
+        if (!options?.projectRootUri || !options.sessionId) return undefined;
+        const widget = await this.widgetManager.getOrCreateWidget<AkariSessionViewerWidget>(
+            AkariSessionViewerWidget.FACTORY_ID
+        );
+        if (!widget.isAttached) {
+            this.shell.addWidget(widget, { area: 'right', rank: SESSION_VIEWER_PANEL_RANK });
+        }
+        await this.shell.activateWidget(widget.id);
+        await widget.showSession({
+            projectRootUri: options.projectRootUri,
+            ...(options.editUri ? { editUri: options.editUri } : {}),
+            sessionId: options.sessionId
+        });
         return widget;
     }
 
