@@ -114,7 +114,7 @@ test('item 開始秒省略では offset 0、cue 切替で古い char span を残
     view.tick(4);
     assert.equal(view.calls[0].declaration.keyframeOffsetSeconds, 0);
     view.tick(8);
-    assert.equal(view.plate.innerHTML, '&lt;次&gt;');
+    assert.match(view.plate.innerHTML, /<p class="akari-caption__line">&lt;次&gt;<\/p>/);
     assert.equal(chars(view).length, 0);
     assert.equal(view.calls.length, 1);
     const writes = view.writes;
@@ -163,9 +163,10 @@ test('animator 無宣言 cue は評価器も warning も呼ばず、tick で DOM
 });
 
 test('無宣言の HTML は caption transform 規則を含む基底のバイト列を保持する', () => {
-    // Recorded after the caption plate scale/rotate contract was added to every styled fragment.
+    // Recorded after the caption plate scale/rotate contract was added to every styled fragment,
+    // and after plain (unstyled) captions started rendering through the same fragment path.
     const expected = [
-        '68c6c1af208310fcd29febf704dcf072a57fd5b2ca74b575cfb1eb7004dadb02',
+        '202c60f99ed93d846212ce844e55062b9279ce4d447b8989cafaa82f9df58493',
         'e76192da9e083a9f58361c4092a3772c1d1197da57d55863152e2835a4d216ea',
         '1062b1e3bf49c6df29a039e941f853e92316f04f9a04bb860f6854990b24f51e',
         'a1d132b35aad29a165bcdd932df37bb0bd5061e0fc76008db6fcf03f8ec73245',
@@ -186,12 +187,12 @@ test('無宣言の HTML は caption transform 規則を含む基底のバイト�
 test('chars の HTML エスケープは render-cut の captionCharRenderer と同じ', () => {
     const view = harness({ cues: [{ ...cue, text: `"'<>&` }] });
     view.tick(4);
-    assert.equal(view.plate.innerHTML,
+    assert.ok(view.plate.innerHTML.includes(
         '<span class="akari-caption__char" data-akari-char="0">&quot;</span>'
         + '<span class="akari-caption__char" data-akari-char="1">&#39;</span>'
         + '<span class="akari-caption__char" data-akari-char="2">&lt;</span>'
         + '<span class="akari-caption__char" data-akari-char="3">&gt;</span>'
-        + '<span class="akari-caption__char" data-akari-char="4">&amp;</span>');
+        + '<span class="akari-caption__char" data-akari-char="4">&amp;</span>'));
 });
 
 for (const engine of [true, false]) {

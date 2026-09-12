@@ -41,6 +41,17 @@ const caption = {
     edited: false
 };
 
+test('無装飾字幕も fragment 経路で描画する（plain 流し込みに戻る再発を防ぐ）', async () => {
+    // plain の textContent 経路では焼き込みと同じ複数行分割が使われず、長い字幕が折り返されなかった。
+    // 合流時に webview のモジュール読み込み（inversify の @inject）へ依存しない形へ直した:
+    // 上の語プリセット CSS テストと同じく open-handler のソース文字列を見る。
+    const source = await readFile(join(
+        extensionRoot, 'src', 'browser', 'akari-preview-open-handler.ts'
+    ), 'utf8');
+    assert.ok(!source.includes("captionPlate.textContent = caption ? caption.text : ''"));
+    assert.ok(source.includes('renderPlainCaptionFragment(caption)'));
+});
+
 test('shell resolved-caption fragment and managed variables come from the checked source contract', () => {
     assert.equal(shellVisualContract.RESOLVED_SINGLE_LINE_CAPTION_CSS, checkedVisualContract.resolved_single_line_caption_css);
     assert.equal(shellVisualContract.RESOLVED_SINGLE_LINE_FRAGMENT_OPEN, checkedVisualContract.resolved_single_line_fragment_open);

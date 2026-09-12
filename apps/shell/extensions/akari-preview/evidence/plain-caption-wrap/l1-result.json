@@ -1,0 +1,460 @@
+{
+  "captionText": "きょうはプレビューの字幕がシェルでも二行三行に折り返されるかを確かめます",
+  "expected": {
+    "landscapeLines": [
+      "きょうはプレビューの字幕がシェルでも",
+      "二行三行に折り返されるかを確かめます"
+    ],
+    "portraitLines": [
+      "きょうはプレビューの",
+      "字幕がシェルでも",
+      "二行三行に",
+      "折り返されるかを",
+      "確かめます"
+    ]
+  },
+  "passes": {
+    "landscape": {
+      "name": "landscape",
+      "width": 1920,
+      "height": 1080,
+      "durationSeconds": 6,
+      "probes": {
+        "plain_seek": {
+          "ok": true,
+          "value": 2,
+          "max": 6
+        },
+        "plain": {
+          "plateExists": true,
+          "lineCount": 2,
+          "lineTexts": [
+            "きょうはプレビューの字幕がシェルでも",
+            "二行三行に折り返されるかを確かめます"
+          ],
+          "karaokeTokenCount": 0,
+          "captionColorVar": null,
+          "styledHostClass": true,
+          "childCount": 1,
+          "innerHTMLLength": 1337,
+          "display": "block",
+          "plateText": ".akari-caption{position:absolute;inset:0;pointer-events:none;color:var(--caption-color,#fff);-webkit-text-stroke:var(--caption-webkit-text-stroke,var(--caption-",
+          "seek": 2,
+          "engineReady": "true"
+        },
+        "empty_seek": {
+          "ok": true,
+          "value": 5.6,
+          "max": 6
+        },
+        "empty": {
+          "plateExists": true,
+          "lineCount": 0,
+          "lineTexts": [],
+          "karaokeTokenCount": 0,
+          "captionColorVar": null,
+          "styledHostClass": false,
+          "childCount": 0,
+          "innerHTMLLength": 0,
+          "display": "none",
+          "plateText": "",
+          "seek": 5.6,
+          "engineReady": "true"
+        }
+      },
+      "screenshots": [
+        "landscape-2lines.png"
+      ],
+      "errors": [],
+      "electronPid": 69471,
+      "consentDismissed": false,
+      "openCommand": {
+        "ok": true,
+        "value": "opened"
+      },
+      "consoleWarnings": [
+        {
+          "type": "warning",
+          "args": [
+            "%cElectron Security Warning (Insecure Content-Security-Policy)",
+            "font-weight: bold;",
+            "This renderer process has either no Content Security\n  Policy set or a policy with \"unsafe-eval\" enabled. This exposes users of\n  this app to unnecessary security risks.\n\nFor more information and help, consult\nhttps://electronjs.org/docs/tutorial/security.\nThis warning will not show up\nonce the app is packaged."
+          ]
+        },
+        {
+          "type": "warning",
+          "args": [
+            "2026-09-12T04:26:50.046Z root WARN Frontend keybindings.onStart took longer than the expected maximum 100 milliseconds: 127.6 ms [2.324 s since frontend page start]"
+          ]
+        },
+        {
+          "type": "warning",
+          "args": [
+            "2026-09-12T04:26:50.239Z root WARN Linked preference \"workbench.colorCustomizations\" not found."
+          ]
+        },
+        {
+          "type": "warning",
+          "args": [
+            "2026-09-12T04:26:50.239Z root WARN Linked preference \"editor.experimental.preferTreeSitter\" not found."
+          ]
+        },
+        {
+          "type": "warning",
+          "args": [
+            "2026-09-12T04:26:50.441Z root WARN Frontend sat.onStart took longer than the expected maximum 100 milliseconds: 351.4 ms [2.727 s since frontend page start]"
+          ]
+        },
+        {
+          "type": "warning",
+          "args": [
+            "2026-09-12T04:26:50.836Z root WARN Frontend O7e.onDidInitializeLayout took longer than the expected maximum 100 milliseconds: 141.4 ms [3.120 s since frontend page start]"
+          ]
+        },
+        {
+          "type": "warning",
+          "args": [
+            "2026-09-12T04:26:52.836Z root WARN [akari-surfaces] layout initialization timed out after 2000ms; continuing in background",
+            ""
+          ]
+        },
+        {
+          "type": "warning",
+          "args": [
+            "2026-09-12T04:26:52.837Z root WARN Frontend Eci.onDidInitializeLayout took longer than the expected maximum 100 milliseconds: 2002.5 ms [5.123 s since frontend page start]"
+          ]
+        },
+        {
+          "type": "warning",
+          "args": [
+            "2026-09-12T04:26:56.886Z root WARN [akari-preview] speech sidecar cut-a-speech: no audio stream: Stream map '' matches no streams. To ignore this, add a trailing '?' to the map. Failed to set value '0:a:0' for option 'map': Invalid argument Error parsing options for output file <WORKTREE>/ws-landscape/.akari/cache/preview-audio/.d0cb55bb92e95be9c443a0ed1a79653812df0bfc.flac.69551.1789187215824.tmp.flac. Error opening output files: Invalid argument"
+          ]
+        }
+      ],
+      "electronStderr": [
+        "[70030:0912/132656.388377:ERROR:sandbox/mac/system_services.cc:35] SetApplicationIsDaemon: Error Domain=NSOSStatusErrorDomain Code=-50 \"paramErr: error in user parameter list\" (-50)",
+        "2026-09-12T04:26:56.887Z root WARN [akari-preview] speech sidecar cut-a-speech: no audio stream: Stream map '' matches no streams. To ignore this, add a trailing '?' to the map. Failed to set value '0:a:0' for option 'map': Invalid argument Error parsing options for output file <WORKTREE>/ws-landscape/.akari/cache/preview-audio/.d0cb55bb92e95be9c443a0ed1a79653812df0bfc.flac.69551.1789187215824.tmp.flac. Error opening output files: Invalid argument"
+      ],
+      "survivingProcesses": []
+    },
+    "portrait": {
+      "name": "portrait",
+      "width": 1080,
+      "height": 1920,
+      "durationSeconds": 6,
+      "probes": {
+        "plain_seek": {
+          "ok": true,
+          "value": 2,
+          "max": 6
+        },
+        "plain": {
+          "plateExists": true,
+          "lineCount": 5,
+          "lineTexts": [
+            "きょうはプレビューの",
+            "字幕がシェルでも",
+            "二行三行に",
+            "折り返されるかを",
+            "確かめます"
+          ],
+          "karaokeTokenCount": 0,
+          "captionColorVar": null,
+          "styledHostClass": true,
+          "childCount": 1,
+          "innerHTMLLength": 1442,
+          "display": "block",
+          "plateText": ".akari-caption{position:absolute;inset:0;pointer-events:none;color:var(--caption-color,#fff);-webkit-text-stroke:var(--caption-webkit-text-stroke,var(--caption-",
+          "seek": 2,
+          "engineReady": "true"
+        }
+      },
+      "screenshots": [
+        "portrait-3lines.png"
+      ],
+      "errors": [],
+      "electronPid": 70387,
+      "consentDismissed": false,
+      "openCommand": {
+        "ok": true,
+        "value": "opened"
+      },
+      "consoleWarnings": [
+        {
+          "type": "warning",
+          "args": [
+            "%cElectron Security Warning (Insecure Content-Security-Policy)",
+            "font-weight: bold;",
+            "This renderer process has either no Content Security\n  Policy set or a policy with \"unsafe-eval\" enabled. This exposes users of\n  this app to unnecessary security risks.\n\nFor more information and help, consult\nhttps://electronjs.org/docs/tutorial/security.\nThis warning will not show up\nonce the app is packaged."
+          ]
+        },
+        {
+          "type": "warning",
+          "args": [
+            "2026-09-12T04:27:08.602Z root WARN Frontend ug.configure took longer than the expected maximum 100 milliseconds: 115.8 ms [1.417 s since frontend page start]"
+          ]
+        },
+        {
+          "type": "warning",
+          "args": [
+            "2026-09-12T04:27:08.908Z root WARN Linked preference \"workbench.colorCustomizations\" not found."
+          ]
+        },
+        {
+          "type": "warning",
+          "args": [
+            "2026-09-12T04:27:08.908Z root WARN Linked preference \"editor.experimental.preferTreeSitter\" not found."
+          ]
+        },
+        {
+          "type": "warning",
+          "args": [
+            "2026-09-12T04:27:09.015Z root WARN Frontend sat.onStart took longer than the expected maximum 100 milliseconds: 267.8 ms [1.829 s since frontend page start]"
+          ]
+        },
+        {
+          "type": "warning",
+          "args": [
+            "2026-09-12T04:27:11.352Z root WARN [akari-surfaces] layout initialization timed out after 2000ms; continuing in background",
+            ""
+          ]
+        },
+        {
+          "type": "warning",
+          "args": [
+            "2026-09-12T04:27:11.353Z root WARN Frontend Eci.onDidInitializeLayout took longer than the expected maximum 100 milliseconds: 2001.9 ms [4.167 s since frontend page start]"
+          ]
+        },
+        {
+          "type": "warning",
+          "args": [
+            "2026-09-12T04:27:15.815Z root WARN [akari-preview] speech sidecar cut-a-speech: no audio stream: Stream map '' matches no streams. To ignore this, add a trailing '?' to the map. Failed to set value '0:a:0' for option 'map': Invalid argument Error parsing options for output file <WORKTREE>/ws-portrait/.akari/cache/preview-audio/.9ab54b8c192ab7d2bc81977066372e574bf000b6.flac.70401.1789187234698.tmp.flac. Error opening output files: Invalid argument"
+          ]
+        }
+      ],
+      "electronStderr": [
+        "[72484:0912/132715.636431:ERROR:sandbox/mac/system_services.cc:35] SetApplicationIsDaemon: Error Domain=NSOSStatusErrorDomain Code=-50 \"paramErr: error in user parameter list\" (-50)",
+        "2026-09-12T04:27:15.816Z root WARN [akari-preview] speech sidecar cut-a-speech: no audio stream: Stream map '' matches no streams. To ignore this, add a trailing '?' to the map. Failed to set value '0:a:0' for option 'map': Invalid argument Error parsing options for output file <WORKTREE>/ws-portrait/.akari/cache/preview-audio/.9ab54b8c192ab7d2bc81977066372e574bf000b6.flac.70401.1789187234698.tmp.flac. Error opening output files: Invalid argument"
+      ],
+      "survivingProcesses": []
+    },
+    "regression": {
+      "name": "regression",
+      "width": 1920,
+      "height": 1080,
+      "durationSeconds": 12,
+      "probes": {
+        "plain_seek": {
+          "ok": true,
+          "value": 2,
+          "max": 12
+        },
+        "plain": {
+          "plateExists": true,
+          "lineCount": 2,
+          "lineTexts": [
+            "きょうはプレビューの字幕がシェルでも",
+            "二行三行に折り返されるかを確かめます"
+          ],
+          "karaokeTokenCount": 0,
+          "captionColorVar": null,
+          "styledHostClass": true,
+          "childCount": 1,
+          "innerHTMLLength": 1337,
+          "display": "block",
+          "plateText": ".akari-caption{position:absolute;inset:0;pointer-events:none;color:var(--caption-color,#fff);-webkit-text-stroke:var(--caption-webkit-text-stroke,var(--caption-",
+          "seek": 2,
+          "engineReady": "true"
+        },
+        "styled_seek": {
+          "ok": true,
+          "value": 6.5,
+          "max": 12
+        },
+        "styled": {
+          "plateExists": true,
+          "lineCount": 1,
+          "lineTexts": [
+            "装飾付きの字幕は見た目を変えない"
+          ],
+          "karaokeTokenCount": 0,
+          "captionColorVar": "#ffd94a",
+          "styledHostClass": true,
+          "childCount": 1,
+          "innerHTMLLength": 1282,
+          "display": "block",
+          "plateText": ".akari-caption{position:absolute;inset:0;pointer-events:none;color:var(--caption-color,#fff);-webkit-text-stroke:var(--caption-webkit-text-stroke,var(--caption-",
+          "seek": 6.5,
+          "engineReady": "true"
+        },
+        "karaoke_seek": {
+          "ok": true,
+          "value": 9,
+          "max": 12
+        },
+        "karaoke": {
+          "plateExists": true,
+          "lineCount": 1,
+          "lineTexts": [
+            "カラオケもそのまま"
+          ],
+          "karaokeTokenCount": 3,
+          "captionColorVar": null,
+          "styledHostClass": true,
+          "childCount": 1,
+          "innerHTMLLength": 2256,
+          "display": "block",
+          "plateText": ".akari-caption{position:absolute;inset:0;pointer-events:none;color:var(--caption-color,#fff);-webkit-text-stroke:var(--caption-webkit-text-stroke,var(--caption-",
+          "seek": 9,
+          "engineReady": "true"
+        }
+      },
+      "screenshots": [
+        "styled.png",
+        "karaoke.png"
+      ],
+      "errors": [],
+      "electronPid": 73907,
+      "consentDismissed": false,
+      "openCommand": {
+        "ok": true,
+        "value": "opened"
+      },
+      "consoleWarnings": [
+        {
+          "type": "warning",
+          "args": [
+            "%cElectron Security Warning (Insecure Content-Security-Policy)",
+            "font-weight: bold;",
+            "This renderer process has either no Content Security\n  Policy set or a policy with \"unsafe-eval\" enabled. This exposes users of\n  this app to unnecessary security risks.\n\nFor more information and help, consult\nhttps://electronjs.org/docs/tutorial/security.\nThis warning will not show up\nonce the app is packaged."
+          ]
+        },
+        {
+          "type": "warning",
+          "args": [
+            "2026-09-12T04:27:29.963Z root WARN Frontend keybindings.onStart took longer than the expected maximum 100 milliseconds: 124.1 ms [2.413 s since frontend page start]"
+          ]
+        },
+        {
+          "type": "warning",
+          "args": [
+            "2026-09-12T04:27:30.164Z root WARN Linked preference \"workbench.colorCustomizations\" not found."
+          ]
+        },
+        {
+          "type": "warning",
+          "args": [
+            "2026-09-12T04:27:30.164Z root WARN Linked preference \"editor.experimental.preferTreeSitter\" not found."
+          ]
+        },
+        {
+          "type": "warning",
+          "args": [
+            "2026-09-12T04:27:30.415Z root WARN Frontend sat.onStart took longer than the expected maximum 100 milliseconds: 408.1 ms [2.872 s since frontend page start]"
+          ]
+        },
+        {
+          "type": "warning",
+          "args": [
+            "2026-09-12T04:27:30.798Z root WARN Frontend O7e.onDidInitializeLayout took longer than the expected maximum 100 milliseconds: 131.5 ms [3.255 s since frontend page start]"
+          ]
+        },
+        {
+          "type": "warning",
+          "args": [
+            "2026-09-12T04:27:32.799Z root WARN [akari-surfaces] layout initialization timed out after 2000ms; continuing in background",
+            ""
+          ]
+        },
+        {
+          "type": "warning",
+          "args": [
+            "2026-09-12T04:27:32.799Z root WARN Frontend Eci.onDidInitializeLayout took longer than the expected maximum 100 milliseconds: 2002.4 ms [5.257 s since frontend page start]"
+          ]
+        },
+        {
+          "type": "warning",
+          "args": [
+            "2026-09-12T04:27:36.491Z root WARN [akari-preview] speech sidecar cut-a-speech: no audio stream: Stream map '' matches no streams. To ignore this, add a trailing '?' to the map. Failed to set value '0:a:0' for option 'map': Invalid argument Error parsing options for output file <WORKTREE>/ws-regression/.akari/cache/preview-audio/.1f6ab3357edaac2f53bc05a156da9e6d0a7ca886.flac.73983.1789187255427.tmp.flac. Error opening output files: Invalid argument"
+          ]
+        }
+      ],
+      "electronStderr": [
+        "[74856:0912/132735.888070:ERROR:sandbox/mac/system_services.cc:35] SetApplicationIsDaemon: Error Domain=NSOSStatusErrorDomain Code=-50 \"paramErr: error in user parameter list\" (-50)",
+        "2026-09-12T04:27:36.492Z root WARN [akari-preview] speech sidecar cut-a-speech: no audio stream: Stream map '' matches no streams. To ignore this, add a trailing '?' to the map. Failed to set value '0:a:0' for option 'map': Invalid argument Error parsing options for output file <WORKTREE>/ws-regression/.akari/cache/preview-audio/.1f6ab3357edaac2f53bc05a156da9e6d0a7ca886.flac.73983.1789187255427.tmp.flac. Error opening output files: Invalid argument"
+      ],
+      "survivingProcesses": []
+    },
+    "previewServer": {
+      "name": "preview-server",
+      "width": 1920,
+      "height": 1080,
+      "errors": [],
+      "serverPid": 76500,
+      "chromeExecutable": "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+      "runtimeReady": {
+        "fontOk": true,
+        "frameEngine": true
+      },
+      "seek": {
+        "ok": true,
+        "value": 2,
+        "max": 6
+      },
+      "probe": {
+        "plateExists": true,
+        "lineCount": 2,
+        "lineTexts": [
+          "きょうはプレビューの字幕がシェルでも",
+          "二行三行に折り返されるかを確かめます"
+        ],
+        "karaokeTokenCount": 0,
+        "captionColorVar": null,
+        "styledHostClass": false,
+        "childCount": 1,
+        "innerHTMLLength": 179,
+        "display": "block",
+        "plateText": "きょうはプレビューの字幕がシェルでも二行三行に折り返されるかを確かめます",
+        "seek": 2,
+        "engineReady": "true"
+      },
+      "screenshots": [
+        "preview-server-landscape.png"
+      ],
+      "consoleWarnings": [
+        {
+          "type": "error",
+          "text": "Failed to load resource: the server responded with a status of 404 (Not Found)"
+        },
+        {
+          "type": "error",
+          "text": "Failed to load resource: net::ERR_CONTENT_LENGTH_MISMATCH"
+        }
+      ],
+      "serverLog": [
+        "[preview] speech cut-a-speech: no audio stream: Stream map '' matches no streams. To ignore this, add a trailing '?' to the map. Failed to set value '0:a:0' for option 'map': Invalid argument Error parsing options for output file <WORKTREE>/ws-preview-server/.akari/cache/preview-audio/.eddad113fa4f200f81be1b61a2b2c7de2d1f2316.flac.76500.1789187269374.tmp.flac. Error opening output files: Invalid argument"
+      ],
+      "survivingProcesses": []
+    }
+  },
+  "verdict": {
+    "a_landscapeLineCount": 2,
+    "a_landscapeMatchesSplit": true,
+    "a_landscapeTextsMatch": true,
+    "c_portraitLineCount": 5,
+    "c_portraitMatchesSplit": true,
+    "c_portraitTextsMatch": true,
+    "d_previewServerLineCount": 2,
+    "d_shellEqualsPreviewServer": true,
+    "e_styledCaptionColorVar": "#ffd94a",
+    "e_styledColorApplied": true,
+    "e_karaokeTokenCount": 3,
+    "e_karaokeTokensPresent": true,
+    "f_emptyChildCount": 0,
+    "f_emptyDisplay": "none",
+    "f_emptyHidden": true,
+    "survivingProcessCount": 0
+  },
+  "fatalErrors": [],
+  "pass": true
+}

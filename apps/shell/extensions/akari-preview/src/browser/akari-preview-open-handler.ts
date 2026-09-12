@@ -13781,8 +13781,6 @@ body { display: grid; place-items: center; padding: 32px; }
                     applyCaptionStyleVars(caption);
                     const hasEmphasis = Boolean(caption && Array.isArray(caption.words)
                         && caption.words.some(word => findMatchingEmphasis(word)));
-                    const hasTextStyle = Boolean(caption && ((caption.textStyle
-                        && Object.keys(caption.textStyle).length > 0) || caption.resolvedTimeline));
                     const hasCaptionWords = Boolean(caption && Array.isArray(caption.words)
                         && caption.words.length > 0);
                     // reveal（明示 + 縦長の複数行自動昇格）も word ベースの styled 経路で描く
@@ -13790,13 +13788,9 @@ body { display: grid; place-items: center; padding: 32px; }
                         && (caption.style === 'reveal'
                             || (!caption.style && captionPortrait
                                 && splitCaptionLines(caption.text || '', captionLineBudget).length > 1));
-                    styledCaptionActive = Boolean(caption
-                        && (hasTextStyle || (hasCaptionWords
-                            && ((caption.style === 'karaoke' || caption.style === 'pop')
-                                || caption.style === 'reveal-word'
-                                || hasEmphasis || wantsCaptionReveal))));
+                    styledCaptionActive = Boolean(caption);
                     captionPlate.classList.toggle('akari-caption-host--styled', styledCaptionActive);
-                    if (styledCaptionActive) {
+                    if (caption) {
                         const usesWords = hasCaptionWords
                             && ((caption.style === 'karaoke' || caption.style === 'pop')
                                 || caption.style === 'reveal-word'
@@ -13804,11 +13798,8 @@ body { display: grid; place-items: center; padding: 32px; }
                         captionPlate.innerHTML = usesWords
                             ? renderStyledCaptionFragment(caption)
                             : renderPlainCaptionFragment(caption);
-                    } else if (caption && Array.isArray(caption.animator)
-                        && caption.animator.some(a => a?.basis === 'chars')) {
-                        captionPlate.innerHTML = captionCharRenderer(caption.animator)(caption.text);
                     } else {
-                        captionPlate.textContent = caption ? caption.text : '';
+                        captionPlate.innerHTML = '';
                     }
                     // renderCaption は innerHTML/textContent を置き換えるため、選択ハンドルは描画後に付け直す。
                     applyCaptionSelectionAttrs();
