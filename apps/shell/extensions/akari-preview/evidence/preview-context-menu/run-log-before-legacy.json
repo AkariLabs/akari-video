@@ -1,0 +1,195 @@
+{
+  "status": "PASS",
+  "label": "before-legacy",
+  "frameEngine": "0",
+  "summary": {
+    "label": "before-legacy",
+    "frameEngine": "0",
+    "dispatchedVia": "main-target",
+    "menuCountBefore": 0,
+    "menuCountAfter": 0,
+    "menuCountPeakDuringSampling": 0,
+    "menuSampleCount": 25,
+    "visibleMenuCountAfter": 0,
+    "visibleMenus": [],
+    "defaultPrevented": [
+      false
+    ],
+    "hostContextMenuLogs": [],
+    "hostProbe": [],
+    "hostHandleContextMenuCalls": [
+      {
+        "clientX": 202,
+        "clientY": 273
+      }
+    ],
+    "contextMenuRenderRequests": [
+      {
+        "menuPath": "webview-context-menu",
+        "items": 0,
+        "anchor": {
+          "x": 423.9140625,
+          "y": 312
+        }
+      }
+    ],
+    "nativePopupRequests": [],
+    "menuNodesAddedToBody": [],
+    "shots": [
+      "before-legacy-after-right-click.png"
+    ]
+  },
+  "records": [
+    {
+      "step": "launched",
+      "pid": 55327,
+      "frameEngine": "0",
+      "label": "before-legacy"
+    },
+    {
+      "step": "preview-attached",
+      "frameEngine": "0"
+    },
+    {
+      "step": "menu-probe-installed",
+      "titleBarStyle": "native",
+      "hasCore": true
+    },
+    {
+      "step": "widget-probe-installed",
+      "ok": true,
+      "widget": "FSn"
+    },
+    {
+      "step": "renderer-probe-installed",
+      "ok": true,
+      "renderer": "x0e",
+      "useNativeStyle": true
+    },
+    {
+      "step": "menu-before-right-click",
+      "count": 0,
+      "menus": [],
+      "shot": null
+    },
+    {
+      "step": "right-click-point",
+      "inner": {
+        "x": 36,
+        "y": 179.125,
+        "width": 332,
+        "height": 186.75
+      },
+      "outer": {
+        "x": 221.9140625,
+        "y": 39,
+        "width": 404,
+        "height": 603
+      },
+      "x": 424,
+      "y": 312
+    },
+    {
+      "step": "probe",
+      "dispatchedVia": "main-target",
+      "probe": [
+        {
+          "defaultPrevented": false,
+          "clientX": 202,
+          "clientY": 273,
+          "target": "preview-still"
+        }
+      ]
+    },
+    {
+      "step": "menu-after-right-click",
+      "count": 0,
+      "menus": [],
+      "shot": "before-legacy-after-right-click.png"
+    },
+    {
+      "step": "renderer-probe",
+      "rendererProbe": [
+        {
+          "menuPath": "webview-context-menu",
+          "items": 0,
+          "anchor": {
+            "x": 423.9140625,
+            "y": 312
+          }
+        }
+      ]
+    },
+    {
+      "step": "widget-probe",
+      "widgetProbe": [
+        {
+          "clientX": 202,
+          "clientY": 273
+        }
+      ]
+    },
+    {
+      "step": "menu-probe",
+      "popups": [],
+      "added": []
+    },
+    {
+      "step": "host-console",
+      "hostLogs": [],
+      "hostProbe": []
+    },
+    {
+      "step": "ok",
+      "message": "webview 内で contextmenu イベントが実際に発火した",
+      "probe": [
+        {
+          "defaultPrevented": false,
+          "clientX": 202,
+          "clientY": 273,
+          "target": "preview-still"
+        }
+      ]
+    },
+    {
+      "step": "verdict",
+      "status": "PASS",
+      "label": "before-legacy",
+      "frameEngine": "0",
+      "dispatchedVia": "main-target",
+      "menuCountBefore": 0,
+      "menuCountAfter": 0,
+      "menuCountPeakDuringSampling": 0,
+      "menuSampleCount": 25,
+      "visibleMenuCountAfter": 0,
+      "visibleMenus": [],
+      "defaultPrevented": [
+        false
+      ],
+      "hostContextMenuLogs": [],
+      "hostProbe": [],
+      "hostHandleContextMenuCalls": [
+        {
+          "clientX": 202,
+          "clientY": 273
+        }
+      ],
+      "contextMenuRenderRequests": [
+        {
+          "menuPath": "webview-context-menu",
+          "items": 0,
+          "anchor": {
+            "x": 423.9140625,
+            "y": 312
+          }
+        }
+      ],
+      "nativePopupRequests": [],
+      "menuNodesAddedToBody": [],
+      "shots": [
+        "before-legacy-00-before-right-click.png",
+        "before-legacy-01-after-right-click.png"
+      ]
+    }
+  ]
+}
