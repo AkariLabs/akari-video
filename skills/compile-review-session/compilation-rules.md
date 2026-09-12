@@ -101,6 +101,9 @@ annotation には最大 100 点へ決定的に簡略化したポリラインを�
 - `timeline:cut:<n>` → `target: "cut:<n>"`。`sourceT` / `timelineT` は再生位置からではなく
   `edit.snapshot.json` の `cuts[n]` から直接算出する（`cuts[n].in` と cut map 上の
   `timelineStart`）。`n` が primary track の cut に存在しない場合は解決不能として何もしない。
+- `timeline:item:<id>` → v2 `tracks[].items[].id` と互換射影後の `cuts[]` index の対応から
+  `target: "cut:<n>"` へ解決する。`sourceT` / `timelineT` は対応する cut から直接算出する。
+  v2 の cut item に一致しない場合は解決不能として何もしない。
 - `timeline:overlay:<id>` → `target: "overlay:<id>"`。`edit.snapshot.json` の
   `overlays[]` から id 一致するエントリの `start`（timeline 秒）を cut map で source 秒へ
   写像する。id が見つからない、または `start` が有限数でない場合は解決不能として何もしない。

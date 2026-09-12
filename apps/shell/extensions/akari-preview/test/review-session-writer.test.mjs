@@ -136,7 +136,13 @@ test('creates strokes.json only on the first valid stroke and rejects invalid co
         space: 'content-rect',
         recTStart: 1.2,
         recTEnd: 1.8,
-        frame: { timelineT: 12.4, sourceT: 42.5, cutIndex: 3 },
+        frame: {
+            timelineT: 12.4,
+            sourceT: 42.5,
+            cutIndex: 3,
+            itemId: 'cut-4',
+            trackId: 'main-track'
+        },
         points: [[0.1, 0.2], [0.5, 0.6], [0.9, 1]]
     };
     await writer.appendStroke({ sessionDir: started.sessionDir, stroke });

@@ -432,7 +432,7 @@ async function compileSession({ sessionId, sessionDirectory, options, repoRoot }
     const trace = buildTimelineTrace(parsedEvents.events);
     const cutMap = buildCutMap(snapshot);
     const uiTrace = buildUiTrace(parsedEvents.events);
-    const overlays = Array.isArray(snapshot.overlays) ? snapshot.overlays : [];
+    const overlays = cutMap.overlays;
     const transcriptPath = path.join(sessionDirectory, "transcript.json");
     const { transcript, warnings: transcriptWarnings } = await loadOrCreateTranscript({
       transcriptPath,

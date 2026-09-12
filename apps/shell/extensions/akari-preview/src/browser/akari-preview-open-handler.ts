@@ -9455,12 +9455,16 @@ body { display: grid; place-items: center; padding: 32px; }
             const canDraw = () => penModeActive && reviewRecordingActive && !isPlaying;
             const canDrawRect = () => rectModeActive && reviewRecordingActive && !isPlaying;
             const currentFrame = () => {
-                const segment = segments[activeSegmentIndex];
+                const mapped = timelineToSource(outputTime);
+                const segment = segments[mapped.index];
                 return {
                     timelineT: outputTime,
-                    sourceT: video.currentTime,
+                    sourceT: mapped.kind === 'src' && Number.isFinite(mapped.time)
+                        ? mapped.time : video.currentTime,
                     cutIndex: segment && segment.kind === 'src' && Number.isInteger(segment.cutIndex)
-                        ? segment.cutIndex : null
+                        ? segment.cutIndex : null,
+                    ...(segment && typeof segment.id === 'string' ? { itemId: segment.id } : {}),
+                    ...(segment && typeof segment.trackId === 'string' ? { trackId: segment.trackId } : {})
                 };
             };
             // task.md 指示3: pen-toggle は既存の入口として残しつつ、実体は共有 toolMode への
