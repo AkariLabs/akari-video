@@ -33,6 +33,8 @@ import {
     ProbeAudioPresenceResult,
     ReadReviewSessionStrokesRequest,
     ReadReviewSessionStrokesResult,
+    ReadReviewSessionBundleRequest,
+    ReadReviewSessionBundleResult,
     PrepareLegacyEditRequest,
     PrepareLegacyEditResult,
     ReadVideoFxLutRequest,
@@ -1115,6 +1117,10 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
 
     async listReviewSessions(request: ListReviewSessionsRequest): Promise<ReviewSessionSummary[]> {
         return this.reviewSessionWriter.list(request);
+    }
+
+    async readReviewSessionBundle(request: ReadReviewSessionBundleRequest): Promise<ReadReviewSessionBundleResult> {
+        return this.reviewSessionWriter.readBundle(request);
     }
 
     // CF-write: layerWrite/audioWrite/captionWrite の書き込み前ゲート。実装は

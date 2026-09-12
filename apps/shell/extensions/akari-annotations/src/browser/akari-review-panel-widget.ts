@@ -43,7 +43,7 @@ import {
 import { AkariCanvasDialog } from './akari-canvas-dialog';
 import { AKARI_WARNING_TEXT_COLOR, createAkariNoticeBanner } from './akari-notice-banner';
 import { AkariImageAnnotationDialog } from './akari-image-annotation-dialog';
-import { OPEN_AKARI_REVIEW_BOARD } from './akari-annotations-commands';
+import { OPEN_AKARI_REVIEW_BOARD, OPEN_AKARI_SESSION_VIEWER } from './akari-annotations-commands';
 import { AnnotationStatusFilter, ReviewModel, reviewSessionBadge } from './review-model';
 
 /** doc: target のブロック存在チェック結果（契約 §6 の劣化規約に対応）。 */
@@ -839,7 +839,14 @@ export class AkariReviewPanelWidget extends BaseWidget {
                 padding: '0 6px', whiteSpace: 'nowrap',
                 color: badge.key === 'orphaned' ? AKARI_WARNING_TEXT_COLOR : 'var(--theia-descriptionForeground)'
             });
-            row.append(id, started, duration, badgeElement);
+            const viewer = document.createElement('button');
+            viewer.type = 'button';
+            viewer.className = 'theia-button secondary';
+            viewer.textContent = '見返す';
+            viewer.title = `${session.id} を音・描線・文字起こしで見返す`;
+            viewer.setAttribute('data-review-session-viewer', session.id);
+            viewer.addEventListener('click', () => void this.openSessionViewer(session.id));
+            row.append(id, started, duration, badgeElement, viewer);
             wrapper.appendChild(row);
             if (badge.key === 'recorded' && badge.hint) {
                 const hint = document.createElement('div');
@@ -873,6 +880,16 @@ export class AkariReviewPanelWidget extends BaseWidget {
         window.dispatchEvent(new CustomEvent(REVIEW_SESSION_REFRESH_EVENT, {
             detail: { projectRootUri, ...(editUri ? { editUri } : {}) }
         }));
+    }
+
+    protected async openSessionViewer(sessionId: string): Promise<void> {
+        const location = this.model.location;
+        if (!location) return;
+        await this.commands.executeCommand(OPEN_AKARI_SESSION_VIEWER.id, {
+            projectRootUri: location.root.normalizePath().toString(),
+            editUri: location.editUri?.normalizePath().toString(),
+            sessionId
+        });
     }
 
     protected toggleRecording(): void {
