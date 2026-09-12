@@ -17,7 +17,9 @@ import {
     buildTimelineMap,
     projectLegacyEdit,
     readInternalEdit,
+    splitCaptionFragments,
     TEXTSTYLE_CATALOG,
+    type CaptionDisplayPolicy,
     type TimelineSegment
 } from '@akari-video/edit-store';
 import { AkariAnnotationsService } from 'akari-annotations/lib/common/akari-annotations-protocol';
@@ -73,6 +75,13 @@ import {
     type DaihonUnrecognizedSpan,
     type PlacedUnrecognized
 } from '../../common/daihon-unrecognized';
+import {
+    daihonDisplayLabel,
+    daihonDisplayPolicyForWrite,
+    readDaihonDisplayKnobs,
+    validateDaihonCustomLines,
+    type DaihonDisplayKnobs
+} from '../../common/daihon-display-knobs';
 
 const PREVIEW_PLAYBACK_TICK_EVENT = 'akari.preview.playbackTick';
 const DAIHON_SELECTION_CHANGED_EVENT = 'akari.daihon.selectionChanged';
@@ -176,6 +185,22 @@ const STYLE = `
 .akari-daihon-wgap::after { content:"⊕"; display:none; position:absolute; left:-5px; top:-12px; color:#ffc74a; font-size:12px; z-index:2; }
 .akari-daihon-wgap:hover::after { display:block; }
 .akari-daihon-slash { color:#53d1bc; font-weight:700; margin:0 3px; opacity:.8; cursor:help; user-select:none; }
+.akari-daihon-slash.auto { color:#77808f; font-weight:500; opacity:.48; }
+.akari-daihon-slash.manual { color:#53d1bc; opacity:1; }
+.akari-daihon-badge-breaklock { font-size:9px; color:#7fe7d3; border:1px solid rgba(83,209,188,.38); border-radius:999px; padding:0 6px; white-space:nowrap; }
+.akari-daihon-display { background:#262c37; border:1px solid #333b48; color:#b9c1cf; border-radius:4px; font-size:10px; padding:1px 7px; cursor:pointer; white-space:nowrap; }
+.akari-daihon-display:hover { color:#e9ecf2; border-color:#445068; }
+.akari-daihon-displaygroup { padding:4px 6px; display:flex; flex-direction:column; gap:5px; }
+.akari-daihon-displaylabel { color:#8e97a9; font-size:10.5px; }
+.akari-daihon-displayrange { display:grid; grid-template-columns:1fr auto; align-items:center; gap:8px; }
+.akari-daihon-displayrange input { width:100%; accent-color:#53d1bc; }
+.akari-daihon-displayvalue { color:#e9ecf2; font-family:"JetBrains Mono",monospace; font-size:11px; min-width:28px; text-align:right; }
+.akari-daihon-segments { display:flex; gap:3px; }
+.akari-daihon-segments button { flex:1; text-align:center; border:1px solid #333b48; background:#262c37; padding:4px 6px; }
+.akari-daihon-segments button.selected { color:#7fe7d3; border-color:#53d1bc; background:rgba(83,209,188,.1); }
+.akari-daihon-segments button:disabled { opacity:.38; cursor:not-allowed; }
+.akari-daihon-customlines { width:52px; box-sizing:border-box; background:#171b21; color:#e9ecf2; border:1px solid #3a4356; border-radius:4px; padding:3px 5px; }
+.akari-daihon-displaynote { color:#77808f; font-size:10px; line-height:1.45; padding:2px 6px 5px; }
 .akari-daihon-row-edit { display:flex; gap:6px; align-items:center; }
 .akari-daihon-row-edit input { flex:1; font:inherit; font-size:15px; background:#12151a; color:#e9ecf2; border:1px solid #53d1bc; border-radius:6px; padding:5px 9px; }
 .akari-daihon-row-edit input:focus { outline:none; box-shadow:0 0 0 2px rgba(83,209,188,.25); }
@@ -285,6 +310,7 @@ export class AkariDaihonWidget extends BaseWidget {
     protected readonly quickPick!: QuickPickService;
 
     protected readonly captionsButton = document.createElement('button');
+    protected readonly displayButton = document.createElement('button');
     protected buildingCaptions = false;
     protected readonly count = document.createElement('span');
     protected readonly tplButton = document.createElement('button');
@@ -298,6 +324,9 @@ export class AkariDaihonWidget extends BaseWidget {
     protected readonly elements = new Map<string, RowElements>();
     protected rows: DaihonRow[] = [];
     protected captionExtraById = new Map<string, CaptionExtras>();
+    protected captionsRoot: unknown = [];
+    protected sourceCaptions: Caption[] = [];
+    protected displayKnobs: DaihonDisplayKnobs = readDaihonDisplayKnobs([]);
     protected segments: TimelineSegment[] = [];
     protected editSources: { id: string; path: string }[] = [];
     protected rootUri: URI | undefined;
@@ -375,6 +404,13 @@ export class AkariDaihonWidget extends BaseWidget {
         this.captionsButton.style.cssText = 'min-height:36px;padding:8px 14px;font-weight:600;white-space:normal';
         this.captionsButton.disabled = true;
         this.captionsButton.addEventListener('click', () => void this.buildCaptions());
+        this.displayButton.type = 'button';
+        this.displayButton.className = 'akari-daihon-display';
+        this.updateDisplayButton();
+        this.displayButton.addEventListener('click', event => {
+            event.stopPropagation();
+            this.openDisplayPop(event.currentTarget as HTMLElement);
+        });
         this.cutsButton.type = 'button';
         this.cutsButton.className = 'akari-daihon-cuts';
         this.cutsButton.textContent = cutsJumpButtonLabel(null);
@@ -387,7 +423,7 @@ export class AkariDaihonWidget extends BaseWidget {
             }
         });
         header.style.flexWrap = 'wrap';
-        header.append(title, this.count, spacer, this.captionsButton, this.tplButton, this.qcButton, this.silenceButton, this.cutsButton);
+        header.append(title, this.count, spacer, this.captionsButton, this.displayButton, this.tplButton, this.qcButton, this.silenceButton, this.cutsButton);
 
         this.rowsNode.className = 'akari-daihon-rows';
         this.rowsNode.tabIndex = 0;
@@ -597,11 +633,13 @@ export class AkariDaihonWidget extends BaseWidget {
                 this.readText(this.editUri), this.readText(this.captionsUri)
             ]);
             const parsed = parseCaptions(captionsSource);
+            this.captionsRoot = JSON.parse(captionsSource) as unknown;
+            this.displayKnobs = readDaihonDisplayKnobs(this.captionsRoot);
+            this.updateDisplayButton();
             const extras = this.captionExtras(captionsSource);
             this.captionExtraById = extras;
-            const captions: DaihonCaptionLike[] = parsed.captions.map(caption =>
-                this.toDaihonCaption(caption, extras.get(caption.id))
-            );
+            this.sourceCaptions = parsed.captions;
+            const captions = this.daihonCaptionsForDisplay();
             this.segments = this.timelineSegments(editSource, captions.length > 0);
             const next = buildDaihonRows(captions, this.segments);
             this.handEditedCaptionIds.clear();
@@ -637,7 +675,20 @@ export class AkariDaihonWidget extends BaseWidget {
         }).segments;
     }
 
-    protected toDaihonCaption(caption: Caption, extras: CaptionExtras | undefined): DaihonCaptionLike {
+    protected daihonCaptionsForDisplay(knobs = this.displayKnobs): DaihonCaptionLike[] {
+        const policy = daihonDisplayPolicyForWrite(this.captionsRoot, knobs);
+        return this.sourceCaptions.map(caption => this.toDaihonCaption(
+            caption, this.captionExtraById.get(caption.id), policy
+        ));
+    }
+
+    protected toDaihonCaption(
+        caption: Caption,
+        extras: CaptionExtras | undefined,
+        policy: CaptionDisplayPolicy
+    ): DaihonCaptionLike {
+        const displayFragments = extras?.displayFragments?.length
+            ? extras.displayFragments : this.automaticDisplayFragments(caption.text, policy);
         return {
             id: caption.id,
             start: caption.start,
@@ -646,11 +697,23 @@ export class AkariDaihonWidget extends BaseWidget {
             style: caption.style ?? null,
             edited: caption.edited,
             ...(caption.words ? { words: caption.words } : {}),
-            ...(extras?.displayFragments ? { displayFragments: extras.displayFragments } : {}),
+            ...(displayFragments ? { displayFragments } : {}),
             ...(extras?.timeDomain ? { timeDomain: extras.timeDomain } : {}),
             ...(extras?.unrecognized ? { unrecognized: extras.unrecognized } : {}),
             ...(extras?.stylePreset ? { stylePreset: extras.stylePreset } : {})
         };
+    }
+
+    protected automaticDisplayFragments(text: string, policy: CaptionDisplayPolicy): string[] | undefined {
+        try {
+            const effective = policy.wrap === 'fold'
+                ? { ...policy, max_line_units: policy.max_line_units * (policy.lines ?? 1) }
+                : policy;
+            const fragments = splitCaptionFragments(text, effective).fragments;
+            return fragments.length > 1 ? fragments : undefined;
+        } catch {
+            return undefined;
+        }
     }
 
     protected captionExtras(source: string): Map<string, CaptionExtras> {
@@ -770,6 +833,13 @@ export class AkariDaihonWidget extends BaseWidget {
             badge.textContent = '編集済';
             head.appendChild(badge);
         }
+        const manualFragments = this.captionExtraById.get(row.id)?.displayFragments;
+        if (manualFragments && manualFragments.length > 1) {
+            const badge = document.createElement('span');
+            badge.className = 'akari-daihon-badge-breaklock';
+            badge.textContent = '🔒 改行を手で固定';
+            head.appendChild(badge);
+        }
         if (row.stylePreset) {
             const preset = TEXTSTYLE_CATALOG[row.stylePreset];
             const badge = document.createElement('span');
@@ -795,12 +865,14 @@ export class AkariDaihonWidget extends BaseWidget {
         const unknowns = placeUnrecognized(useKaraokeWords ? row.words : null, row.unrecognized);
         if (row.words && useKaraokeWords) {
             const extras = this.captionExtraById.get(row.id);
-            const breaks = extras?.displayFragments
+            const manualBreaks = extras?.displayFragments?.length
                 ? new Set(fragmentBoundaries(row.words, extras.displayFragments))
-                : new Set(row.fragmentBreakWordIndex === null ? [] : [row.fragmentBreakWordIndex]);
+                : undefined;
+            const breaks = manualBreaks
+                ?? new Set(row.fragmentBreakWordIndex === null ? [] : [row.fragmentBreakWordIndex]);
             row.words.forEach((word, index) => {
                 if (index > 0) {
-                    if (breaks.has(index)) text.appendChild(this.slash());
+                    if (breaks.has(index)) text.appendChild(this.slash(manualBreaks ? 'manual' : 'auto'));
                     const gap = document.createElement('span');
                     gap.className = 'akari-daihon-wgap';
                     gap.dataset.rowId = row.id;
@@ -841,7 +913,8 @@ export class AkariDaihonWidget extends BaseWidget {
             const span = this.word('', 0, row.id);
             const split = row.words?.length ? null : row.fragmentBreakWordIndex;
             if (split !== null) {
-                span.append(document.createTextNode(row.text.slice(0, split)), this.slash(), document.createTextNode(row.text.slice(split)));
+                const manual = (this.captionExtraById.get(row.id)?.displayFragments?.length ?? 0) > 0;
+                span.append(document.createTextNode(row.text.slice(0, split)), this.slash(manual ? 'manual' : 'auto'), document.createTextNode(row.text.slice(split)));
             } else {
                 span.textContent = row.text;
             }
@@ -1528,6 +1601,135 @@ export class AkariDaihonWidget extends BaseWidget {
         }
     }
 
+    protected updateDisplayButton(): void {
+        this.displayButton.textContent = `⚙ 表示 ${daihonDisplayLabel(this.displayKnobs)}`;
+        this.displayButton.title = '字幕本文の区切り・行数・折り方を変更';
+    }
+
+    protected previewDisplayKnobs(next: DaihonDisplayKnobs): void {
+        this.displayKnobs = next;
+        this.updateDisplayButton();
+        this.renderRows(buildDaihonRows(this.daihonCaptionsForDisplay(next), this.segments));
+    }
+
+    protected async saveDisplayKnobs(next: DaihonDisplayKnobs): Promise<void> {
+        if (!this.captionsUri || !this.rootUri) return;
+        this.previewDisplayKnobs(next);
+        try {
+            await this.withHistory('字幕の表示設定を変更', async () => {
+                await this.annotationsService.setCaptionDisplayPolicy({
+                    captionsUri: this.captionsUri!.toString(),
+                    projectRootUri: this.rootUri!.toString(),
+                    displayPolicy: daihonDisplayPolicyForWrite(this.captionsRoot, next)
+                });
+            });
+            this.notify(`表示を ${daihonDisplayLabel(next)}・${next.wrap === 'multi' ? '断片を同時' : '断片を折る'} に変更しました`);
+        } catch (error) {
+            await this.reload();
+            this.notify(this.errorMessage(error));
+        }
+    }
+
+    protected openDisplayPop(anchor: HTMLElement): void {
+        const pop = this.openPop(anchor, 300);
+
+        const unitsGroup = document.createElement('div');
+        unitsGroup.className = 'akari-daihon-displaygroup';
+        const unitsLabel = document.createElement('div');
+        unitsLabel.className = 'akari-daihon-displaylabel';
+        unitsLabel.textContent = '1 行の文字数';
+        const rangeRow = document.createElement('div');
+        rangeRow.className = 'akari-daihon-displayrange';
+        const range = document.createElement('input');
+        range.type = 'range'; range.min = '10'; range.max = '28'; range.step = '1';
+        range.value = String(this.displayKnobs.maxLineUnits);
+        const rangeValue = document.createElement('span');
+        rangeValue.className = 'akari-daihon-displayvalue';
+        rangeValue.textContent = `${range.value}字`;
+        range.addEventListener('input', event => {
+            event.stopPropagation();
+            const next = { ...this.displayKnobs, maxLineUnits: Number(range.value) };
+            rangeValue.textContent = `${range.value}字`;
+            this.previewDisplayKnobs(next);
+        });
+        range.addEventListener('change', event => {
+            event.stopPropagation();
+            void this.saveDisplayKnobs({ ...this.displayKnobs, maxLineUnits: Number(range.value) });
+        });
+        rangeRow.append(range, rangeValue);
+        unitsGroup.append(unitsLabel, rangeRow);
+
+        const linesGroup = document.createElement('div');
+        linesGroup.className = 'akari-daihon-displaygroup';
+        const linesLabel = document.createElement('div');
+        linesLabel.className = 'akari-daihon-displaylabel';
+        linesLabel.textContent = '行数';
+        const lineSegments = document.createElement('div');
+        lineSegments.className = 'akari-daihon-segments';
+        const selectLines = (lines: number): void => {
+            const next = { ...this.displayKnobs, lines };
+            void this.saveDisplayKnobs(next);
+            this.openDisplayPop(anchor);
+        };
+        for (const lines of [1, 2, 3]) {
+            const button = this.popButton(String(lines), () => selectLines(lines));
+            button.classList.toggle('selected', this.displayKnobs.lines === lines);
+            lineSegments.appendChild(button);
+        }
+        const more = this.popButton('…', () => {
+            custom.hidden = false;
+            custom.focus();
+            custom.select();
+        });
+        more.classList.toggle('selected', this.displayKnobs.lines >= 4);
+        const custom = document.createElement('input');
+        custom.className = 'akari-daihon-customlines';
+        custom.type = 'number'; custom.min = '4'; custom.max = '6'; custom.step = '1';
+        custom.value = String(this.displayKnobs.lines >= 4 ? this.displayKnobs.lines : 4);
+        custom.hidden = this.displayKnobs.lines < 4;
+        custom.addEventListener('click', event => event.stopPropagation());
+        custom.addEventListener('change', event => {
+            event.stopPropagation();
+            const lines = validateDaihonCustomLines(custom.value);
+            if (lines === null) {
+                this.notify('カスタム行数は 4〜6 で指定してください');
+                custom.value = String(this.displayKnobs.lines >= 4 ? this.displayKnobs.lines : 4);
+                return;
+            }
+            selectLines(lines);
+        });
+        lineSegments.append(more, custom);
+        linesGroup.append(linesLabel, lineSegments);
+
+        const wrapGroup = document.createElement('div');
+        wrapGroup.className = 'akari-daihon-displaygroup';
+        const wrapLabel = document.createElement('div');
+        wrapLabel.className = 'akari-daihon-displaylabel';
+        wrapLabel.textContent = '2 行以上の出し方';
+        const wrapSegments = document.createElement('div');
+        wrapSegments.className = 'akari-daihon-segments';
+        const multi = this.popButton('N 断片を同時', () => {
+            void this.saveDisplayKnobs({ ...this.displayKnobs, wrap: 'multi' });
+            this.openDisplayPop(anchor);
+        });
+        const fold = this.popButton('1 断片を N 行に折る', () => {
+            void this.saveDisplayKnobs({ ...this.displayKnobs, wrap: 'fold' });
+            this.openDisplayPop(anchor);
+        });
+        multi.classList.toggle('selected', this.displayKnobs.wrap === 'multi');
+        fold.classList.toggle('selected', this.displayKnobs.wrap === 'fold');
+        multi.disabled = this.displayKnobs.lines === 1;
+        fold.disabled = this.displayKnobs.lines === 1;
+        wrapSegments.append(multi, fold);
+        wrapGroup.append(wrapLabel, wrapSegments);
+
+        const note = document.createElement('div');
+        note.className = 'akari-daihon-displaynote';
+        note.append(document.createTextNode('ベースは字幕本文です。'), document.createElement('br'),
+            document.createTextNode('手で置いた／は動きません。'));
+        pop.append(unitsGroup, linesGroup, wrapGroup, note);
+    }
+
     protected fieldRow(prefix: string, input: HTMLInputElement, suffix: string): HTMLDivElement {
         const row = document.createElement('div');
         row.className = 'akari-daihon-fieldrow';
@@ -1970,11 +2172,11 @@ export class AkariDaihonWidget extends BaseWidget {
         return span;
     }
 
-    protected slash(): HTMLSpanElement {
+    protected slash(kind: 'auto' | 'manual'): HTMLSpanElement {
         const slash = document.createElement('span');
-        slash.className = 'akari-daihon-slash';
+        slash.className = `akari-daihon-slash ${kind}`;
         slash.textContent = '/';
-        slash.title = '整文断片の切れ目';
+        slash.title = kind === 'manual' ? '手で固定した表示の切れ目' : '文字数から決めた表示の切れ目';
         return slash;
     }
 
