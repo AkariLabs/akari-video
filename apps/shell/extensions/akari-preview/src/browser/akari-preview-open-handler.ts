@@ -908,6 +908,8 @@ const REVIEW_SESSION_STOP_EVENT = 'akari.review.session.stop';
 const REVIEW_SESSION_REFRESH_EVENT = 'akari.review.session.refresh';
 const REVIEW_SESSION_OPEN_FOLDER_EVENT = 'akari.review.session.openFolder';
 const REVIEW_SESSION_STATE_EVENT = 'akari.review.session.state';
+// akari-session-viewer-widget.ts の同名定数と文字列だけミラーする。
+const REVIEW_SESSION_VIEWER_SYNC_EVENT = 'akari.review.session.viewer.sync';
 // M2 (task.md): 右パネルの選択/ペン/四角ボタンからの mode request。akari-annotations 側と
 // 文字列だけミラーする（既存 5 定数と同じ配線パターン）。
 const REVIEW_TOOL_MODE_SET_EVENT = 'akari.review.toolMode.set';
@@ -995,6 +997,15 @@ interface PreviewReviewTransportRequest {
 interface ReviewSessionControlRequest {
     projectRootUri?: string;
     editUri?: string;
+}
+
+interface ReviewSessionViewerSyncDetail {
+    phase: 'attach' | 'tick' | 'detach';
+    projectRootUri: string;
+    editUri: string;
+    sessionId: string;
+    recT?: number;
+    timelineT?: number;
 }
 
 // task.md 指示2/6: 右パネルのツールボタン列/ショートカットからの mode 切替 request
@@ -1118,6 +1129,16 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
     protected reviewSessionRecorder: ReviewSessionRecorder | undefined;
     protected reviewSessionRecordingIndicator: ReviewSessionRecordingIndicator | undefined;
     protected readonly reviewSessionStateByEdit = new Map<string, ReviewSessionUiState>();
+    protected pendingSessionViewerTick: ReviewSessionViewerSyncDetail | undefined;
+    protected readonly sessionViewerSeekThrottle = createRafThrottle(() => {
+        const detail = this.pendingSessionViewerTick;
+        this.pendingSessionViewerTick = undefined;
+        if (!detail || !Number.isFinite(detail.timelineT)) return;
+        const editUri = this.normalizeReviewEditUri(detail.editUri);
+        this.openOutputPreviews.get(editUri ?? '')?.sendMessage({
+            type: 'akari-preview-seek', time: detail.timelineT
+        });
+    });
     protected readonly reviewStrokeVisibilityByEdit = new Map<string, boolean>();
     protected retryWidgetSequence = 0;
     protected activeRawPreviewWidget: PreviewWidgetMarker | undefined;
@@ -1692,6 +1713,17 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 this.messages.warn(`録音セッションの保存先を開けません: ${detail}`);
             });
         });
+        register(REVIEW_SESSION_VIEWER_SYNC_EVENT, event => {
+            const detail = (event as CustomEvent<ReviewSessionViewerSyncDetail>).detail;
+            if (!detail?.projectRootUri || !detail.editUri || !detail.sessionId) return;
+            if (detail.phase === 'tick') {
+                if (!Number.isFinite(detail.timelineT)) return;
+                this.pendingSessionViewerTick = detail;
+                this.sessionViewerSeekThrottle.call();
+                return;
+            }
+            void this.handleSessionViewerSync(detail);
+        });
         register(REVIEW_ANNOTATION_SHOW_STROKES_EVENT, event => {
             const detail = (event as CustomEvent<ReviewAnnotationStrokeRequest>).detail;
             if (detail) {
@@ -1898,6 +1930,31 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             type: 'akari-preview-show-session-strokes',
             sessionId,
             target: { tab: editUri, recT: first.recTStart },
+            strokes: replay.strokes
+        });
+    }
+
+    protected async handleSessionViewerSync(detail: ReviewSessionViewerSyncDetail): Promise<void> {
+        const editUri = this.normalizeReviewEditUri(detail.editUri);
+        if (!editUri) return;
+        if (detail.phase === 'detach') {
+            this.openOutputPreviews.get(editUri)?.sendMessage({
+                type: 'akari-preview-show-session-strokes', sessionId: detail.sessionId,
+                target: { tab: editUri, recT: 0 }, strokes: []
+            });
+            return;
+        }
+        if (detail.phase !== 'attach') return;
+        const replay = await this.previewService.readReviewSessionStrokes({
+            projectRootUri: detail.projectRootUri, sessionId: detail.sessionId
+        });
+        const visibility = await this.ensureVisible(editUri);
+        const widget = this.openOutputPreviews.get(editUri);
+        if (visibility === 'unavailable' || !widget?.isAttached) return;
+        this.setReviewStrokeVisibility(editUri, true);
+        widget.sendMessage({
+            type: 'akari-preview-show-session-strokes', sessionId: detail.sessionId,
+            target: { tab: editUri, recT: replay.strokes[0]?.recTStart ?? 0 },
             strokes: replay.strokes
         });
     }

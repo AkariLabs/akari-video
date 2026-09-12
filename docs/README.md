@@ -111,6 +111,7 @@ All contracts follow the
 | [contract-2026-07-20-review-json-v1-annotation-model.md](./contract-2026-07-20-review-json-v1-annotation-model.md) | review.json v1 annotation model (five target types) |
 | [contract-2026-08-11-review-session-ui-events.md](./contract-2026-08-11-review-session-ui-events.md) | Review-session UI events (events.jsonl extension) + recording indicator |
 | [contract-2026-08-23-stroke-persistence.md](./contract-2026-08-23-stroke-persistence.md) | Persistent annotation strokes (lasting overlay + toggle + session replay + `strokeRefs` in review.json) |
+| [contract-2026-09-12-review-session-viewer.md](./contract-2026-09-12-review-session-viewer.md) | Review-session viewer with recT-synchronized audio, strokes, transcript, preview, and edit snapshot diff |
 | [contract-2026-08-03-cut-candidate-bridge-v1.md](./contract-2026-08-03-cut-candidate-bridge-v1.md) | Review-only semantic event and A4 pause-shortening candidate bridge |
 
 ### Preview & export
