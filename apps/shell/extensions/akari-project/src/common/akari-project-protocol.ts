@@ -250,7 +250,7 @@ export interface TranscribeCuts {
 export interface TranscribeArtifacts { transcripts: EngineTranscript[]; diff: TranscribeDiff | null; cuts: TranscribeCuts | null }
 export interface WriteCutsSelectionRequest extends TranscribeArtifactRequest { on: Record<string, boolean> }
 export interface TranscriptStatesRequest { projectRoot: string; relativePaths: string[] }
-export interface BuildCaptionsRequest extends TranscribeOptions { projectRoot: string; source?: string; force?: boolean; transcribeFirst?: boolean }
+export interface BuildCaptionsRequest extends TranscribeOptions { projectRoot: string; source?: string; force?: boolean; transcribeFirst?: boolean; dryRun?: boolean }
 export type BuildCaptionsResult = { needsForce: true } | { needsForce?: false; [key: string]: unknown };
 
 export interface AkariProjectService {
