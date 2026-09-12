@@ -424,7 +424,6 @@ var AkariScrubAudio = (() => {
     const EncodedAudioChunkCtor = deps.EncodedAudioChunkCtor ?? globalThis.EncodedAudioChunk;
     const setTimeoutFn = deps.setTimeoutFn ?? globalThis.setTimeout;
     const clearTimeoutFn = deps.clearTimeoutFn ?? globalThis.clearTimeout;
-    const idleSuspendMs = deps.idleSuspendMs ?? 3e4;
     const requestedCacheBytes = deps.maxCacheBytes ?? deps.tuning?.maxCacheBytes ?? SCRUB_TUNING.maxCacheBytes;
     const tuning = Object.freeze({
       ...SCRUB_TUNING,
@@ -438,7 +437,6 @@ var AkariScrubAudio = (() => {
     let prefetchGeneration = 0;
     let mainActive = null;
     let bgmActive = null;
-    let idleTimer = null;
     let fragmentTimer = null;
     let pendingInput = null;
     let seekState = null;
@@ -526,20 +524,6 @@ var AkariScrubAudio = (() => {
       if (fragmentTimer !== null) clearTimeoutFn(fragmentTimer);
       fragmentTimer = null;
       pendingInput = null;
-    }
-    function clearIdleTimer() {
-      if (idleTimer !== null) clearTimeoutFn(idleTimer);
-      idleTimer = null;
-    }
-    function armIdleTimer() {
-      clearIdleTimer();
-      idleTimer = setTimeoutFn(() => {
-        idleTimer = null;
-        if (isEnabled && audioContext.state === "running") {
-          Promise.resolve(audioContext.suspend()).catch(() => {
-          });
-        }
-      }, idleSuspendMs);
     }
     function updateVelocity(input, wallMs) {
       if (velocityHistory.at(-1)?.src !== input.src) {
@@ -652,6 +636,13 @@ var AkariScrubAudio = (() => {
       return entry;
     }
     async function prepare(srcs) {
+      if (audioContext.state === "suspended") {
+        try {
+          await audioContext.resume();
+        } catch (error) {
+          lastError = errorMessage(error);
+        }
+      }
       const values = Array.isArray(srcs) ? srcs : [srcs];
       const pending = [];
       for (const value of values) {
@@ -866,7 +857,6 @@ var AkariScrubAudio = (() => {
       latest = state.latest;
       if (video.muted === true || !(video.volume > 0)) {
         stopFragments(false);
-        armIdleTimer();
         return;
       }
       stopFragments(false);
@@ -887,7 +877,6 @@ var AkariScrubAudio = (() => {
         lastStartedSourceTime = latest.input.sourceTime;
       }
       void startPrefetch(latest.input, latest.speed, entry);
-      armIdleTimer();
     }
     function dispatchSeek(input, speed, wallMs = now()) {
       const existing = tracks.get(input.src);
@@ -957,10 +946,8 @@ var AkariScrubAudio = (() => {
         clearFragmentTimer();
         stopFragments();
         cancelPrefetch();
-        armIdleTimer();
         return;
       }
-      armIdleTimer();
       if (fragmentTimer !== null || fastMode && wallMs - lastFragmentStartedAtMs < tuning.minFragmentIntervalMs) {
         throttledSeeks++;
         queueLatestSeek(input, speed, wallMs);
@@ -973,7 +960,6 @@ var AkariScrubAudio = (() => {
       clearFragmentTimer();
       stopFragments();
       cancelPrefetch();
-      clearIdleTimer();
       velocityHistory = [];
       velocity = 0;
       direction = 0;
@@ -984,7 +970,6 @@ var AkariScrubAudio = (() => {
       lastStartedSourceTime = null;
     }
     function onPlaybackPaused() {
-      if (isEnabled) armIdleTimer();
     }
     const controller = {
       get enabled() {
