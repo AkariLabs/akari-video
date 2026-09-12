@@ -45,6 +45,7 @@ import {
 } from '/audio-declick.js';
 import { createScrubAudioController } from '/audio-scrub.js';
 import { editForPut } from '/transition-write-guard.js';
+import { relocateCutIndex } from '/cut-write-guard.js';
 import { dbToGain, resolveSfxWindow, scheduleSfxAt } from '/audio-clip.js';
 import { createTransitionVisualApplicator } from '/transition-visual.js';
 import { computeAdjustCssVisual } from '/edit-kernel.bundle.js';
@@ -3226,8 +3227,12 @@ function renderCutInfoContent(seg) {
     const toType = document.getElementById('cut-inp-to-type').value;
     const toDur = Number(document.getElementById('cut-inp-to-dur').value);
     if (!Number.isFinite(inVal) || !Number.isFinite(outVal) || !Number.isFinite(speedVal) || speedVal <= 0) return;
+    let cutIndex;
+    try { cutIndex = await refreshedCutIndex(selectedCutIndex); }
+    catch (e) { showMessage(e?.message || String(e)); return; }
+    if (cutIndex < 0) return;
     const newCuts = [...(summary?.cuts || [])];
-    const cut = newCuts[selectedCutIndex];
+    const cut = newCuts[cutIndex];
     if (!cut) return;
     const old = { in: cut.in, out: cut.out, speed: cut.speed, at: cut.at, transition_out: cut.transition_out };
     cut.in = inVal; cut.out = outVal; cut.speed = speedVal;
@@ -3247,6 +3252,26 @@ function renderCutInfoContent(seg) {
       }
     } catch (e) { Object.assign(cut, old); showMessage(e?.message || String(e)); }
   });
+}
+
+/**
+ * クリップ系の書き戻しは、送信前に現在の状態を取り直す。
+ * 以前はタブが持つ summary のキャッシュをそのまま送っていたため、その間に他の書き手
+ * （アプリのタイムライン・CLI）が足した item が射影から抜け落ち、書き戻し側の
+ * 「射影に無い既存 item は消す」規則で無言の削除になりえた（issue #69 の調査で判明）。
+ * オーバーレイ・レイヤー系は以前から送信前に取り直しているので、作法をそちらへ揃える。
+ *
+ * 取り直した cuts[] では対象の位置が変わりうるので、id があれば id で、無ければ
+ * 件数が一致することを条件に index で指し直す。指し直せないときは中断して表示を作り直す。
+ */
+async function refreshedCutIndex(index) {
+  const previousCuts = summary?.cuts;
+  await reloadSummary();
+  const relocated = relocateCutIndex(previousCuts, index, summary?.cuts);
+  if (relocated >= 0) return relocated;
+  showMessage('他の場所で編集されたため中断しました。表示を更新したので、やり直してください。');
+  requestSoftReload();
+  return -1;
 }
 
 // lint 契約（cuts.overlap / 最小尺 0.15s / 実尺内）を満たす空き source 区間を探す（P2-6:
@@ -3277,8 +3302,14 @@ function findFreeSourceRange(cuts, fromSec, direction) {
 }
 
 async function addCutAt(index, where) {
+  if (!Array.isArray(summary?.cuts) || index < 0) return;
+  let cutIndex;
+  try { cutIndex = await refreshedCutIndex(index); }
+  catch (e) { showMessage(e?.message || String(e)); return; }
+  if (cutIndex < 0) return;
+  index = cutIndex;
   const cuts = summary?.cuts;
-  if (!Array.isArray(cuts) || index < 0) return;
+  if (!Array.isArray(cuts)) return;
   const ref = cuts[index];
   if (!ref) return;
   const newCut = where === 'before'
@@ -3303,8 +3334,14 @@ async function addCutAt(index, where) {
 }
 
 async function moveCut(index, dir) {
+  if (!Array.isArray(summary?.cuts) || index < 0) return;
+  let cutIndex;
+  try { cutIndex = await refreshedCutIndex(index); }
+  catch (e) { showMessage(e?.message || String(e)); return; }
+  if (cutIndex < 0) return;
+  index = cutIndex;
   const cuts = summary?.cuts;
-  if (!Array.isArray(cuts) || index < 0) return;
+  if (!Array.isArray(cuts)) return;
   const target = index + dir;
   if (target < 0 || target >= cuts.length) return;
   const newCuts = [...cuts];
@@ -3322,8 +3359,14 @@ async function moveCut(index, dir) {
 }
 
 async function deleteCut(index) {
+  if (!Array.isArray(summary?.cuts) || index < 0) return;
+  let cutIndex;
+  try { cutIndex = await refreshedCutIndex(index); }
+  catch (e) { showMessage(e?.message || String(e)); return; }
+  if (cutIndex < 0) return;
+  index = cutIndex;
   const cuts = summary?.cuts;
-  if (!Array.isArray(cuts) || index < 0 || cuts.length <= 1) return;
+  if (!Array.isArray(cuts) || cuts.length <= 1) return;
   const newCuts = [...cuts.slice(0, index), ...cuts.slice(index + 1)];
   const res = await fetch('/api/edit.json', {
     method: 'PUT', headers: { 'content-type': 'application/json', 'x-akari-preview-projection': '1' },

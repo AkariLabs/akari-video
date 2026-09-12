@@ -201,19 +201,42 @@ export function previewReadError(error) {
   return { status, body: { error: message } };
 }
 
+// 凍結変換器の v1 受け入れ条件を満たすための詰め物（差分計算専用・正本には書かれない）。
+// legacy 射影は v2 の音声レーン item からも v1 audio.* を組むが、凍結変換器は
+// 「BGM に t / duration は無い」「narration には provenance がある」という v1 の形しか受けない。
+// そのため v2 として正当なプロジェクトが書き戻しの入口で弾かれ、ブラウザプレビューからの
+// 編集が全て失敗していた（BGM を音声レーンに置いた実機プロジェクトで再現。t / duration の
+// 射影は 01f762d4 で追加）。applyPreviewProjection はこの変換結果を before / after の
+// 差分計算にだけ使うので、両側へ同じ補正を当てれば正本にも差分にも現れない。
+export const MIGRATION_PROVENANCE_FILL = { provider: 'unknown' };
+
+function audioForFrozenMigration(audio) {
+  if (!audio || typeof audio !== 'object') return audio;
+  const next = { ...audio };
+  if (next.bgm && typeof next.bgm === 'object') {
+    // t / duration は音声レーン BGM の終端をプレビュー・書き出しへ渡す表示用の射影。
+    // 正本の at / duration が持つ値なので、v1 へ戻すときは落とす。
+    const { t: _displayOnlyT, duration: _displayOnlyDuration, ...bgm } = next.bgm;
+    next.bgm = bgm;
+  }
+  if (Array.isArray(next.narration)) {
+    next.narration = next.narration.map(value => (value && typeof value === 'object'
+      && (!value.provenance || typeof value.provenance !== 'object')
+      ? { ...value, provenance: { ...MIGRATION_PROVENANCE_FILL } }
+      : value));
+  }
+  next.sfx = (next.sfx ?? []).map(value => {
+    const { duration: _displayOnlyDuration, ...rest } = value;
+    return rest;
+  });
+  return next;
+}
+
 // summary は renderer 互換の v1 shape なので、そこから発生した WebUI の編集だけは凍結変換器で
 // v2 に戻す。任意の legacy PUT は受けず、サーバ側は専用ヘッダがある要求にだけこの経路を開く。
 export function migratePreviewCompatibility(source) {
   const parsed = typeof source === 'string' ? JSON.parse(source) : source;
-  const audio = parsed?.audio && typeof parsed.audio === 'object'
-    ? {
-        ...parsed.audio,
-        sfx: (parsed.audio.sfx ?? []).map(value => {
-          const { duration: _displayOnlyDuration, ...rest } = value;
-          return rest;
-        }),
-      }
-    : parsed?.audio;
+  const audio = audioForFrozenMigration(parsed?.audio);
   const compatible = {
     version: 1,
     output: parsed?.output,
@@ -270,7 +293,10 @@ export function applyPreviewProjection(project, source, baseline) {
     if (!previous || !current) continue;
     const patch = {};
     for (const key of mutableFields) {
-      if (!sameJson(previous[key], next[key])) patch[key] = next[key] ?? null;
+      if (sameJson(previous[key], next[key])) continue;
+      // 凍結変換器を通すための詰め物（provenance）は正本へ書かない。
+      if (key === 'provenance' && sameJson(next[key], MIGRATION_PROVENANCE_FILL)) continue;
+      patch[key] = next[key] ?? null;
     }
     const sourcePatch = {};
     for (const key of mutableSourceFields) {
