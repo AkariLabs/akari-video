@@ -1,0 +1,208 @@
+{
+  "status": "pass",
+  "steps": [
+    {
+      "name": "1. 無音チップ → 波形つき範囲エディタ（波形 RPC 込み ≤ 300ms）",
+      "pass": true,
+      "detail": {
+        "metrics": {
+          "openMs": 78.90000003576279,
+          "waveform": "ready",
+          "buckets": 200,
+          "kind": "silence"
+        },
+        "geometry": {
+          "height": 115,
+          "afterRow": true,
+          "labels": [
+            "いました",
+            "おばあさんは"
+          ],
+          "handles": 2,
+          "playhead": true,
+          "range": true,
+          "head": "無音 0.60 秒切る 0.45 秒 · 残す 0.15 秒 · 3.20–3.65"
+        },
+        "readout": {
+          "text": "切る 0.45 秒 · 残す 0.15 秒 · 3.20–3.65",
+          "cut": 0.45,
+          "keep": 0.15,
+          "from": 3.2,
+          "to": 3.65
+        }
+      }
+    },
+    {
+      "name": "2. つまみをドラッグ — 可動域（無音区間）の外へ出ない",
+      "pass": true,
+      "detail": {
+        "clampedLeft": {
+          "text": "切る 0.60 秒 · 残す 0.00 秒 · 3.05–3.65",
+          "cut": 0.6,
+          "keep": 0,
+          "from": 3.05,
+          "to": 3.65
+        },
+        "afterDrag": {
+          "text": "切る 0.18 秒 · 残す 0.42 秒 · 3.47–3.65",
+          "cut": 0.18,
+          "keep": 0.42,
+          "from": 3.47,
+          "to": 3.65
+        }
+      }
+    },
+    {
+      "name": "3. ✂ 詰める → edit.json の cut が 1 本増える・captions.json 不変",
+      "pass": true,
+      "detail": {
+        "before": [
+          {
+            "id": "main-clip",
+            "in": 0,
+            "out": 14,
+            "at": 0,
+            "duration": 420
+          }
+        ],
+        "after": [
+          {
+            "id": "main-clip",
+            "in": 0,
+            "out": 3.466666666666667,
+            "at": 0,
+            "duration": 104
+          },
+          {
+            "id": "main-clip-split",
+            "in": 3.6666666666666665,
+            "out": 14,
+            "at": 104,
+            "duration": 310
+          }
+        ],
+        "commitDelta": 1,
+        "cutAt": {
+          "text": "切る 0.18 秒 · 残す 0.42 秒 · 3.47–3.65",
+          "cut": 0.18,
+          "keep": 0.42,
+          "from": 3.47,
+          "to": 3.65
+        }
+      }
+    },
+    {
+      "name": "4. 詰めたあとに ✂ 詰めた ✎ 直す ↩ が出る",
+      "pass": true,
+      "detail": {
+        "text": "✂ 無音を詰めた 0:03.46–0:03.64✎ 直す↩ 戻す",
+        "buttons": [
+          {
+            "label": "✎ 直す",
+            "disabled": false
+          },
+          {
+            "label": "↩ 戻す",
+            "disabled": false
+          }
+        ]
+      }
+    },
+    {
+      "name": "5. ✎ 直す → 既存の範囲で開き直し、詰め直しても cut の本数は増えない",
+      "pass": true,
+      "detail": {
+        "reopened": {
+          "text": "切る 0.18 秒 · 残す 0.42 秒 · 3.47–3.65",
+          "cut": 0.18,
+          "keep": 0.42,
+          "from": 3.47,
+          "to": 3.65
+        },
+        "revisedTo": {
+          "text": "切る 0.60 秒 · 残す 0.00 秒 · 3.05–3.65",
+          "cut": 0.6,
+          "keep": 0,
+          "from": 3.05,
+          "to": 3.65
+        },
+        "items": [
+          {
+            "id": "main-clip",
+            "in": 0,
+            "out": 3.033333333333333,
+            "at": 0,
+            "duration": 91
+          },
+          {
+            "id": "main-clip-split",
+            "in": 3.6666666666666665,
+            "out": 14,
+            "at": 91,
+            "duration": 310
+          }
+        ],
+        "commitDelta": 1
+      }
+    },
+    {
+      "name": "6. ↩ 戻す → edit.json が最初のバイトへ戻る",
+      "pass": true,
+      "detail": {
+        "editBytesEqualOriginal": true,
+        "items": 1
+      }
+    },
+    {
+      "name": "7. 単語の ✂ → 同じエディタが語の前後 0.4 秒の可動域で開く・詰めて ⌘Z で戻る",
+      "pass": true,
+      "detail": {
+        "head": "「川へ洗濯に」を映像ごとカット切る 0.95 秒 · 4.15–5.10",
+        "initial": {
+          "text": "切る 0.95 秒 · 4.15–5.10",
+          "cut": 0.95,
+          "from": 4.15,
+          "to": 5.1
+        },
+        "widened": {
+          "text": "切る 1.75 秒 · 3.75–5.50",
+          "cut": 1.75,
+          "from": 3.75,
+          "to": 5.5
+        },
+        "itemsAfterCut": 2,
+        "undoRestoredBytes": true,
+        "captionsUnchanged": true
+      }
+    }
+  ],
+  "screenshots": [
+    "01-silence-editor-open.png",
+    "02-handle-dragged.png",
+    "03-cut-applied-chip.png",
+    "04-reopen-for-edit.png",
+    "05-restored.png",
+    "06-word-cut-editor.png"
+  ],
+  "cleanup": {
+    "killedPid": 36246,
+    "survivingProcesses": 0
+  },
+  "fixture": {
+    "ok": true,
+    "rows": 5,
+    "mediaSeconds": 14,
+    "gaps": [
+      0.6,
+      0.6,
+      0.6,
+      0.6
+    ]
+  },
+  "preloadOverlay": "removed",
+  "daihonVisible": {
+    "w": 427,
+    "h": 47.328125,
+    "top": 122
+  }
+}

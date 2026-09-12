@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -35,7 +35,11 @@ test("writes schema-valid deterministic captions and leaves edit.json intact", a
   const before = await readFile(path.join(f.root, "edit.json"), "utf8");
   const result = await f.run();
   assert.equal(result.code, 0, result.stderr.join("\n"));
-  assert.deepEqual(JSON.parse(result.stdout[0]), { captions: 3, warnings: [], path: f.captionsPath, word_book: { applied: 0 } });
+  assert.deepEqual(JSON.parse(result.stdout[0]), {
+    added: 3, changed: 0, protected: 0, removed: 0, total: 3,
+    ids: { added: ["c-0001", "c-0002", "c-0003"], changed: [], protected: [], removed: [] },
+    captions: 3, warnings: [], path: f.captionsPath, word_book: { applied: 0 }
+  });
   assert.equal(result.stdout.length, 1);
   assert.match(result.stderr[0], /v2.captions-track-undeclared/);
   const source = await readFile(f.captionsPath, "utf8");
@@ -57,15 +61,18 @@ test("dry-run emits the candidate and summary without writing", async (t) => {
   assert.equal(existsSync(f.captionsPath), false);
 });
 
-test("edited captions require force and retain all root settings", async (t) => {
+test("edited captions are protected by default, force replaces them, and root settings remain", async (t) => {
   const f = await fixture(t);
   const settings = { default_text_style: { font_size: 42 }, display_policy: { mode: "single_line_sequential", algorithm: "a4-ja-two-fragment-v1", unit_metric: "ascii-half-other-one-v1", max_line_units: 18, minimum_fragment_duration_seconds: 1, locale: "ja" }, emphasis_words: [] };
   const before = JSON.stringify({ ...settings, captions: [{ edited: true, text: "manual" }] });
   await writeFile(f.captionsPath, before);
-  const refused = await f.run();
-  assert.equal(refused.code, 1);
-  assert.match(refused.stderr[0], /手直し済み/);
-  assert.equal(await readFile(f.captionsPath, "utf8"), before);
+  const protectedResult = await f.run();
+  assert.equal(protectedResult.code, 0);
+  assert.doesNotMatch(protectedResult.stderr.join("\n"), /手直し済み/);
+  const protectedRoot = JSON.parse(await readFile(f.captionsPath, "utf8"));
+  assert.equal(JSON.stringify(protectedRoot.captions.find(row => row.edited)), JSON.stringify({ edited: true, text: "manual" }));
+  assert.equal(protectedRoot.captions.length, 4);
+  assert.equal(JSON.parse(protectedResult.stdout[0]).protected, 1);
   assert.equal((await f.run("--force")).code, 0);
   const { captions, ...retained } = JSON.parse(await readFile(f.captionsPath, "utf8"));
   assert.deepEqual(retained, settings);
@@ -78,9 +85,40 @@ test("edited captions require force and retain all root settings", async (t) => 
 test("array roots convert to objects and retain overwrite protection", async (t) => {
   const f = await fixture(t);
   await writeFile(f.captionsPath, JSON.stringify([{ edited: true }]));
-  assert.equal((await f.run()).code, 1);
+  const protectedResult = await f.run();
+  assert.equal(protectedResult.code, 0);
+  assert.equal(JSON.parse(protectedResult.stdout[0]).protected, 1);
+  assert.equal(JSON.parse(await readFile(f.captionsPath, "utf8")).captions.length, 4);
   assert.equal((await f.run("--force")).code, 0);
   assert.ok(Array.isArray(JSON.parse(await readFile(f.captionsPath, "utf8")).captions));
+});
+
+test("dry-run json emits one summary line and leaves captions content and mtime unchanged", async (t) => {
+  const f = await fixture(t);
+  await f.run();
+  const before = await readFile(f.captionsPath, "utf8");
+  const beforeMtime = (await stat(f.captionsPath)).mtimeMs;
+  const result = await f.run("--dry-run", "--json");
+  assert.equal(result.code, 0, result.stderr.join("\n"));
+  assert.equal(result.stdout.length, 1);
+  assert.deepEqual(JSON.parse(result.stdout[0]), {
+    dry_run: true, added: 0, changed: 0, protected: 0, removed: 0, total: 3,
+    ids: { added: [], changed: [], protected: [], removed: [] }, captions: 3,
+    warnings: [], path: f.captionsPath, word_book: { applied: 0 }
+  });
+  assert.equal(await readFile(f.captionsPath, "utf8"), before);
+  assert.equal((await stat(f.captionsPath)).mtimeMs, beforeMtime);
+});
+
+test("normal apply preserves the complete JSON representation of an edited row", async (t) => {
+  const f = await fixture(t);
+  const row = { id: "manual", src: "s1", start: 0, end: 2, text: "手直し", edited: true,
+    sourceRef: { segment: 0 }, custom: { order: [3, 1, 2] } };
+  await writeFile(f.captionsPath, JSON.stringify({ captions: [row] }));
+  const result = await f.run();
+  assert.equal(result.code, 0, result.stderr.join("\n"));
+  const written = JSON.parse(await readFile(f.captionsPath, "utf8"));
+  assert.equal(JSON.stringify(written.captions.find(item => item.id === "manual")), JSON.stringify(row));
 });
 
 test("multiple sources require selection; IDs take precedence over paths", async (t) => {

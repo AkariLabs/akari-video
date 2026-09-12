@@ -1,5 +1,5 @@
 import type { EditAudioKeyframe, TransitionType } from '@akari-video/edit-store';
-import type { CaptionTextStyle } from '@akari-video/edit-store';
+import type { CaptionDisplayPolicy, CaptionTextStyle } from '@akari-video/edit-store';
 
 export const AKARI_ANNOTATIONS_SERVICE_PATH = '/services/akari-annotations';
 export const AkariAnnotationsService = Symbol('AkariAnnotationsService');
@@ -294,6 +294,8 @@ export interface CutRangeInput {
     out: number;
     kind: 'row' | 'filler' | 'silence' | 'unrecognized';
     captionId?: string;
+    /** 台本の範囲エディタが付け、edit.json の cuts / media items へ永続化する由来。 */
+    reason?: 'silence' | 'word';
     label?: string;
 }
 
@@ -549,6 +551,42 @@ export interface SetCaptionStylePresetResult extends WriteBackResult {
     beforeSource: string;
 }
 
+export interface SetCaptionDisplayPolicyRequest {
+    captionsUri: string;
+    projectRootUri: string;
+    displayPolicy: CaptionDisplayPolicy;
+}
+
+export interface SetCaptionDisplayPolicyResult extends WriteBackResult {
+    changed: number;
+    beforeSource: string;
+}
+
+export interface EmphasisWord {
+    /** Omit to reuse an equal span or allocate the lowest unused e-NNNN id. */
+    id?: string;
+    src?: string | null;
+    t_start: number;
+    t_end: number;
+    word: string;
+    emotion: string;
+    style_preset?: string;
+    style_hint?: string;
+}
+
+export interface SetEmphasisWordsRequest {
+    captionsUri: string;
+    projectRootUri: string;
+    upserts: EmphasisWord[];
+    removeIds: string[];
+}
+
+export interface SetEmphasisWordsResult extends WriteBackResult {
+    changed: number;
+    beforeSource: string;
+    ids: string[];
+}
+
 /**
  * edit.json（と必要なら captions.json）全文スナップショットの atomic 書き戻し。
  * editSource / captionsSource の少なくとも一方は必須。両方渡すと連続保存した最新の組を
@@ -561,6 +599,24 @@ export interface WriteEditSnapshotRequest {
     editSource?: string;
     captionsUri?: string;
     captionsSource?: string;
+}
+
+export interface EditHistoryEntry {
+    id: string;
+    label: string;
+    at: string;
+    files: string[];
+    sha256: Record<string, string>;
+    legacy?: boolean;
+    bytes?: number;
+}
+
+export interface EditHistoryProjectRequest {
+    projectRootUri: string;
+}
+
+export interface RestoreEditHistoryRequest extends EditHistoryProjectRequest {
+    id: string;
 }
 
 export interface EditMigrationProposal {
@@ -674,7 +730,12 @@ export interface AkariAnnotationsService {
     setCaptionFields(request: SetCaptionFieldsRequest): Promise<WriteBackResult>;
     setCaptionTextStyle(request: SetCaptionTextStyleRequest): Promise<WriteBackResult>;
     setCaptionStylePreset(request: SetCaptionStylePresetRequest): Promise<SetCaptionStylePresetResult>;
+    setCaptionDisplayPolicy(request: SetCaptionDisplayPolicyRequest): Promise<SetCaptionDisplayPolicyResult>;
+    setEmphasisWords(request: SetEmphasisWordsRequest): Promise<SetEmphasisWordsResult>;
     writeEditSnapshot(request: WriteEditSnapshotRequest): Promise<WriteBackResult>;
+    snapshotEditHistory(request: EditHistoryProjectRequest & { label: string }): Promise<EditHistoryEntry | null>;
+    listEditHistory(request: EditHistoryProjectRequest): Promise<EditHistoryEntry[]>;
+    restoreEditHistory(request: RestoreEditHistoryRequest): Promise<{ restored: EditHistoryEntry; snapshot: EditHistoryEntry | null }>;
     planEditMigration(request: EditMigrationRequest): Promise<EditMigrationPlanResult>;
     applyEditMigration(proposal: EditMigrationProposal): Promise<void>;
     revertEditMigration(proposal: EditMigrationProposal): Promise<void>;

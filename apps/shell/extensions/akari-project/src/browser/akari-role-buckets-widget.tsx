@@ -2120,6 +2120,20 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         const root = this.workflow.workspaceRoot;
         if (!root || (entry.kind !== 'video' && entry.kind !== 'audio')) return;
         if (this.transcriptStateByPath[entry.relativePath] === 'running') return;
+        try {
+            const result = await this.commandService.executeCommand<string>('akari.transcribe.openDialog', {
+                projectRoot: root.toString(), relativePath: entry.relativePath
+            });
+            if (result === 'running') void this.messages.info(`${entry.name}: 文字起こしを実行中です`);
+            else if (result === 'cancelled') void this.messages.info(`${entry.name}: 文字起こしを中止しました`);
+            await this.loadMaterials();
+            return;
+        } catch (error) {
+            if (!(error instanceof Error && (error as Error & { code?: string }).code === 'NO_ACTIVE_HANDLER')) {
+                void this.messages.error(error instanceof Error ? error.message : String(error));
+                return;
+            }
+        }
         this.transcriptStateByPath[entry.relativePath] = 'running';
         this.update();
         void this.messages.info(`${entry.name}: 文字起こしを実行中です`);

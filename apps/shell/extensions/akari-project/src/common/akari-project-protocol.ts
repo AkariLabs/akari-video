@@ -224,10 +224,11 @@ export interface TranscribeOptions {
     approved?: boolean;
 }
 export interface TranscribeArtifactRequest { projectRoot: string; relativePath: string }
+export interface CancelTranscribeRequest extends TranscribeArtifactRequest {}
 export interface TranscribeMaterialRequest extends TranscribeArtifactRequest, TranscribeOptions {}
 export interface MaterialTranscriptEvent {
     type: 'material-transcript'; id: string; relativePath: string;
-    status: 'running' | 'completed' | 'failed';
+    status: 'running' | 'completed' | 'failed' | 'cancelled';
     stage: 'transcribing' | 'diffing' | 'cutting' | 'completed' | 'failed';
     backend?: string; error?: string; elapsed_sec?: number;
 }
@@ -249,7 +250,7 @@ export interface TranscribeCuts {
 export interface TranscribeArtifacts { transcripts: EngineTranscript[]; diff: TranscribeDiff | null; cuts: TranscribeCuts | null }
 export interface WriteCutsSelectionRequest extends TranscribeArtifactRequest { on: Record<string, boolean> }
 export interface TranscriptStatesRequest { projectRoot: string; relativePaths: string[] }
-export interface BuildCaptionsRequest extends TranscribeOptions { projectRoot: string; source?: string; force?: boolean; transcribeFirst?: boolean }
+export interface BuildCaptionsRequest extends TranscribeOptions { projectRoot: string; source?: string; force?: boolean; transcribeFirst?: boolean; dryRun?: boolean }
 export type BuildCaptionsResult = { needsForce: true } | { needsForce?: false; [key: string]: unknown };
 
 export interface AkariProjectService {
@@ -257,6 +258,7 @@ export interface AkariProjectService {
     writeCutsSelection(request: WriteCutsSelectionRequest): Promise<void>;
     applyCutsToEdit(request: TranscribeArtifactRequest): Promise<{ changed: boolean }>;
     transcribeMaterial(request: TranscribeMaterialRequest): Promise<void>;
+    cancelTranscribe(request: CancelTranscribeRequest): Promise<void>;
     transcriptStates(request: TranscriptStatesRequest): Promise<Record<string, TranscriptState>>;
     buildCaptions(request: BuildCaptionsRequest): Promise<BuildCaptionsResult>;
     createProject(destinationUri: string): Promise<void>;

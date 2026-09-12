@@ -1063,6 +1063,8 @@
         "captions": { "enum": ["on", "off"], "default": "on" },
         "in": { "$ref": "#/$defs/seconds" },
         "out": { "$ref": "#/$defs/seconds" },
+        "reason": { "enum": ["silence", "word"] },
+        "label": { "type": "string" },
         "speed": { "$ref": "#/$defs/positiveNumber" },
         "transform": { "$ref": "#/$defs/cutTransform" },
         "opacity": { "type": "number", "minimum": 0, "maximum": 1 },
@@ -1085,6 +1087,8 @@
         "src": { "type": "string", "minLength": 1, "pattern": "\\S" },
         "in": { "$ref": "#/$defs/seconds" },
         "out": { "$ref": "#/$defs/seconds" },
+        "reason": { "enum": ["silence", "word"] },
+        "label": { "type": "string" },
         "speed": { "$ref": "#/$defs/positiveNumber" },
         "transform": { "$ref": "#/$defs/cutTransform" },
         "opacity": { "type": "number", "minimum": 0, "maximum": 1 },
@@ -1572,7 +1576,9 @@
       "type": "object",
       "additionalProperties": false,
       "patternProperties": {
-        "^captions$": { "enum": ["on", "off"], "default": "on" }
+        "^captions$": { "enum": ["on", "off"], "default": "on" },
+        "^reason$": { "enum": ["silence", "word"] },
+        "^label$": { "type": "string" }
       },
       "required": ["id", "at", "duration", "source"],
       "properties": {

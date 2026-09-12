@@ -700,7 +700,7 @@ function isFiniteInRange(value, min, max) {
 const TEXT_STYLE_KEYS = new Set([
     'color', 'size_px', 'reference_height_px', 'font_family', 'font_weight', 'weight', 'italic', 'underline',
     'letter_spacing_em', 'line_height', 'align', 'vertical_align', 'vertical',
-    'text_transform', 'max_width_pct', 'max_characters', 'text_anchor', 'position', 'shadow', 'glow',
+    'text_transform', 'max_width_pct', 'max_characters', 'text_anchor', 'position', 'scale', 'rotate', 'shadow', 'glow',
     'animation', 'stroke', 'background', 'zone', 'layout'
 ]);
 const TEXT_TRANSFORM_VALUES = new Set(['upper', 'uppercase', 'lower', 'lowercase', 'title', 'capitalize', 'none']);

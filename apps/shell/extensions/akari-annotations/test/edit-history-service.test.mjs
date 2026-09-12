@@ -144,6 +144,25 @@ test('onDidChange は push の完了時に発火する', () => {
     assert.equal(changes, 1);
 });
 
+test('onDidPush は push した entry を通知する', () => {
+    const service = new AkariEditHistoryService();
+    const entry = historyEntry('永続化する編集');
+    let pushed;
+    service.onDidPush(value => { pushed = value; });
+    service.push(entry);
+    assert.equal(pushed, entry);
+});
+
+test('clear は undo / redo の両スタックを空にして変更を通知する', async () => {
+    const service = new AkariEditHistoryService();
+    service.push(historyEntry('編集'));
+    await service.undo();
+    let changes = 0;
+    service.onDidChange(() => { changes += 1; });
+    service.clear();
+    assert.deepEqual([service.canUndo, service.canRedo, changes], [false, false, 1]);
+});
+
 test('onDidChange は undo と redo の完了時に 1 回ずつ発火する', async () => {
     const service = new AkariEditHistoryService();
     service.push(historyEntry('編集'));

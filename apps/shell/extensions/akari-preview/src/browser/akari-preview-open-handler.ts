@@ -13393,6 +13393,29 @@ body { display: grid; place-items: center; padding: 32px; }
                 const renderChars = captionCharRenderer(caption.animator);
                 const renderText = renderChars || escapeCaptionHtml;
                 if (caption.resolvedTimeline) {
+                    if (caption.wordStyles && caption.resolvedWords) {
+                        let currentLine = caption.resolvedWords.length ? caption.resolvedWords[0].line : 0;
+                        const markup = caption.resolvedWords.map((word, index) => {
+                            const lineBreak = word.line !== currentLine
+                                ? '</p><p class="akari-caption__line">' : '';
+                            currentLine = word.line;
+                            const style = caption.wordStyles.find(entry => entry.from <= index && index < entry.to);
+                            if (!style) return lineBreak + '<span class="akari-caption__tok">'
+                                + renderText(word.text) + '</span>';
+                            const vars = Object.entries(style.style_vars || {})
+                                .filter(([name, value]) => name.startsWith('--') && typeof value === 'string')
+                                .map(([name, value]) => name + ':' + value + ';').join('');
+                            return lineBreak + '<span class="akari-caption__tok akari-caption__tok--preset" data-emphasis-preset="'
+                                + escapeCaptionHtml(style.preset_id) + '" style="' + escapeCaptionHtml(vars) + '">'
+                                + renderText(word.text) + '</span>';
+                        }).join('');
+                        return ${JSON.stringify(RESOLVED_SINGLE_LINE_FRAGMENT_OPEN)}
+                            + ${JSON.stringify(RESOLVED_SINGLE_LINE_CAPTION_CSS)}
+                            + '.akari-caption__tok{display:inline-block;white-space:pre;}.akari-caption__tok--preset{color:var(--caption-color,inherit);font-size:var(--caption-font-size,inherit);font-weight:var(--caption-font-weight,inherit);line-height:var(--caption-line-height,inherit);-webkit-text-stroke:var(--caption-webkit-text-stroke,inherit);paint-order:var(--caption-paint-order,inherit);text-shadow:var(--caption-text-shadow,inherit);}'
+                            + ${JSON.stringify(RESOLVED_SINGLE_LINE_FRAGMENT_MIDDLE)}
+                            + markup
+                            + ${JSON.stringify(RESOLVED_SINGLE_LINE_FRAGMENT_CLOSE)};
+                    }
                     return ${JSON.stringify(RESOLVED_SINGLE_LINE_FRAGMENT_OPEN)}
                         + ${JSON.stringify(RESOLVED_SINGLE_LINE_CAPTION_CSS)}
                         + ${JSON.stringify(RESOLVED_SINGLE_LINE_FRAGMENT_MIDDLE)}

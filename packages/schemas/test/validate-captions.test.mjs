@@ -62,6 +62,14 @@ test("captions object root accepts emphasis_words with the v1 record shape", () 
   assert.match(executed.stdout, /^OK: /);
 });
 
+test("captions emphasis_words accepts a textstyle catalog style_preset", () => {
+  const executed = runValue({
+    emphasis_words: [{ id: "e-0001", t_start: 0, t_end: 1, word: "今回", emotion: "neutral", style_preset: "neon" }],
+    captions: [caption],
+  });
+  assert.equal(executed.status, 0, executed.stderr);
+});
+
 for (const [example, message] of [
   ["captions-emphasis-words-invalid-id", /emphasis_words\[0\]\.id は e- に続く 4 桁/u],
   ["captions-emphasis-words-empty-word", /emphasis_words\[0\]\.word は空でない文字列/u],
@@ -197,6 +205,32 @@ test("display policy, manual fragments, and reference-pixel style pass together"
     captions: [{ ...caption, display_fragments: ["今回", "設定します"] }],
   });
   assert.equal(executed.status, 0, executed.stderr);
+});
+
+test("display_policy lines/wrap and text_style scale/rotate accept their contract ranges", () => {
+  const executed = runValue({
+    display_policy: { ...displayPolicy, lines: 6, wrap: "fold" },
+    default_text_style: { scale: 0.4, rotate: -180 },
+    captions: [{ ...caption, text_style: { scale: 3, rotate: 180 } }],
+  });
+  assert.equal(executed.status, 0, executed.stderr);
+});
+
+test("display_policy lines/wrap and text_style scale/rotate reject out-of-range values", () => {
+  for (const [seat, value, message] of [
+    ["policy", { lines: 0 }, /display_policy\.lines/u],
+    ["policy", { lines: 7 }, /display_policy\.lines/u],
+    ["policy", { wrap: "none" }, /display_policy\.wrap/u],
+    ["style", { scale: 0.3 }, /text_style\.scale/u],
+    ["style", { scale: 3.1 }, /text_style\.scale/u],
+    ["style", { rotate: 181 }, /text_style\.rotate/u],
+  ]) {
+    const executed = runValue(seat === "policy"
+      ? { display_policy: { ...displayPolicy, ...value }, captions: [caption] }
+      : { captions: [{ ...caption, text_style: value }] });
+    assert.equal(executed.status, 1, executed.stdout);
+    assert.match(executed.stderr, message);
+  }
 });
 
 test("display fragments fail closed on text loss, style conflict, and non-NFC text", () => {

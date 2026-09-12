@@ -30,6 +30,8 @@ export interface PreviewCaptionTextStyle {
     textAnchor?: string;
     position?: { x?: number; y?: number };
     verticalAlign?: 'top' | 'middle' | 'bottom';
+    scale?: number;
+    rotate?: number;
 }
 
 // akari-transcript の Caption から、プレビュー表示に必要なフィールドだけを複製する。
@@ -44,6 +46,9 @@ export interface PreviewCaption {
     words?: { start: number; end: number; text: string }[];
     textStyle?: PreviewCaptionTextStyle;
     textStyleVars?: Record<string, string>;
+    displayLines?: string[];
+    resolvedWords?: { start: number; end: number; text: string; line: number }[];
+    wordStyles?: { from: number; to: number; preset_id: string; style_vars: Record<string, string> }[];
     sourceCueId?: string;
     resolvedTimeline?: boolean;
 }
@@ -135,16 +140,32 @@ export function parseResolvedPreviewCaptions(payload: ResolvedCaptionDisplayPayl
     if (payload?.schema !== 'caption-layout/v1' || !Array.isArray(payload.captions)) {
         throw new Error('resolved caption payload is invalid');
     }
-    return payload.captions.map(cue => ({
-        id: cue.id,
-        sourceCueId: cue.source_cue_id,
-        resolvedTimeline: true,
-        start: cue.start,
-        end: cue.end,
-        text: cue.text,
-        ...(cue.text_style ? { textStyle: normalizeTextStyle(cue.text_style) } : {}),
-        ...(cue.style_vars ? { textStyleVars: cue.style_vars } : {})
-    }));
+    return payload.captions.map(cue => {
+        const textStyle = cue.text_style ? normalizeTextStyle(cue.text_style) : undefined;
+        const displayLines = (cue as unknown as { display_lines?: string[] }).display_lines;
+        const wordDisplay = cue as unknown as {
+            words?: { start: number; end: number; text: string; line: number }[];
+            word_styles?: { from: number; to: number; preset_id: string; style_vars: Record<string, string> }[];
+        };
+        const hasWordDisplay = Array.isArray(wordDisplay.words) && Array.isArray(wordDisplay.word_styles);
+        return {
+            id: cue.id,
+            sourceCueId: cue.source_cue_id,
+            resolvedTimeline: true,
+            start: cue.start,
+            end: cue.end,
+            text: cue.text,
+            ...(Array.isArray(displayLines) ? { displayLines: [...displayLines] } : {}),
+            ...(hasWordDisplay ? {
+                resolvedWords: wordDisplay.words!.map(word => ({ ...word })),
+                wordStyles: wordDisplay.word_styles!.map(style => ({ ...style, style_vars: { ...style.style_vars } }))
+            } : {}),
+            ...(textStyle ? { textStyle } : {}),
+            ...(cue.style_vars || textStyle ? {
+                textStyleVars: { ...captionTextStyleVars(textStyle), ...(cue.style_vars ?? {}) }
+            } : {})
+        };
+    });
 }
 
 export function captionTextStyleVars(style: PreviewCaptionTextStyle | undefined): Record<string, string> {
@@ -157,6 +178,12 @@ export function captionTextStyleVars(style: PreviewCaptionTextStyle | undefined)
     }
     if (style.sizePx !== undefined) {
         vars['--caption-font-size'] = `${style.sizePx}px`;
+    }
+    if (typeof style.scale === 'number' && Number.isFinite(style.scale) && style.scale !== 1) {
+        vars['--caption-scale'] = String(style.scale);
+    }
+    if (typeof style.rotate === 'number' && Number.isFinite(style.rotate) && style.rotate !== 0) {
+        vars['--caption-rotate'] = `${style.rotate}deg`;
     }
     if (style.stroke && (style.stroke.color !== undefined || style.stroke.widthPx !== undefined)) {
         vars['--caption-text-shadow'] = strokeShadow(
@@ -194,6 +221,8 @@ function normalizeTextStyle(value: unknown): PreviewCaptionTextStyle | undefined
     const style: PreviewCaptionTextStyle = {};
     if (typeof value.color === 'string') style.color = value.color;
     if (typeof value.size_px === 'number' && Number.isFinite(value.size_px)) style.sizePx = value.size_px;
+    if (typeof value.scale === 'number' && Number.isFinite(value.scale)) style.scale = value.scale;
+    if (typeof value.rotate === 'number' && Number.isFinite(value.rotate)) style.rotate = value.rotate;
     if (PREVIEW_CAPTION_ZONES.includes(value.zone as PreviewCaptionZone)) {
         style.zone = value.zone as PreviewCaptionZone;
     }

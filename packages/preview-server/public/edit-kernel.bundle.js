@@ -1724,6 +1724,8 @@ var ITEM_KEYS = /* @__PURE__ */ new Set([
   "name",
   "hidden",
   "locked",
+  "reason",
+  "label",
   "at",
   "duration",
   "transform",

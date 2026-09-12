@@ -14,6 +14,7 @@ Right-click an asset card (including unsorted items) or a deliverable row
 - **Open** / **Show in Finder** / **Copy file** (macOS only) / **Copy path**
 - **Add to timeline** (video / audio assets) — inserts at the playhead
 - **Show asset info** (items under `assets/`)
+- **Transcribe** (video / audio assets) — opens the step popup so you can follow progress and cancel midway
 - **Rename** / **Delete** — both run a reference check against `edit.json` /
   `captions.json` first; delete moves the file to the Trash
 - **Ask the agent** — hands the file to the connected partner agent

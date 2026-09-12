@@ -28,6 +28,9 @@ export class AkariEditHistoryService {
     protected readonly onDidExecuteEmitter = new Emitter<HistoryExecution>();
     readonly onDidExecute: Event<HistoryExecution> = this.onDidExecuteEmitter.event;
 
+    protected readonly onDidPushEmitter = new Emitter<HistoryEntry>();
+    readonly onDidPush: Event<HistoryEntry> = this.onDidPushEmitter.event;
+
     @postConstruct()
     protected init(): void {
         window.addEventListener('keydown', this.handleKeydown, true);
@@ -54,7 +57,14 @@ export class AkariEditHistoryService {
         this.past = [...this.past, entry].slice(-HISTORY_LIMIT);
         this.future = [];
         this.onDidChangeEmitter.fire();
+        this.onDidPushEmitter.fire(entry);
         return entry;
+    }
+
+    clear(): void {
+        this.past = [];
+        this.future = [];
+        this.onDidChangeEmitter.fire();
     }
 
     async undo(): Promise<void> {

@@ -8,6 +8,8 @@ import {
   CaptionDisplayError,
   captionAnchorPositionVars,
   dedupeCaptionOccurrences,
+  foldCaptionLines,
+  joinCaptionLines,
   measureCaptionUnits,
   mergeCaptionDisplayStyles,
   projectCaptionWords,
@@ -15,8 +17,10 @@ import {
   resolveCaptionReferenceScale,
   resolveCaptionStyleForOutput,
   scaleCaptionPx,
+  validateCaptionDisplayPolicy,
   validateCaptionTextStyle,
 } from '../lib/caption-display.js';
+import { resolveCaptionStylePreset, TEXTSTYLE_CATALOG } from '../lib/index.js';
 
 const testRoot = dirname(fileURLToPath(import.meta.url));
 const styleParity = JSON.parse(await readFile(join(testRoot, 'fixtures/caption-style-validation-parity.json'), 'utf8'));
@@ -57,6 +61,168 @@ function wordBookRoot(text, maxLineUnits = 3, protectedTerms = []) {
     captions: [caption('c-0001', 0, 2, text)],
   };
 }
+
+test('lines=2 wrap=multi groups two scheduled fragments into one display cue', () => {
+  const root = wordBookRoot('alpha beta gamma', 5);
+  root.display_policy.lines = 2;
+  root.display_policy.wrap = 'multi';
+  const result = resolveCaptionDisplay(root, { cuts: [{ in: 0, out: 2 }] });
+  assert.equal(result.display_cues.length, 1);
+  assert.deepEqual(result.display_cues[0].display_lines, ['alpha ', 'beta gamma']);
+  assert.equal(result.display_cues[0].text, 'alpha beta gamma');
+  assert.deepEqual([result.display_cues[0].start, result.display_cues[0].end], [0, 2]);
+  assert.equal(result.display_cues[0].fragment_index, 1);
+  assert.equal(result.display_cues[0].fragment_count, 1);
+});
+
+test('emphasis style_preset resolves per word, rounds partial overlap inward, and preserves cue text', () => {
+  const root = {
+    display_policy: { ...englishPolicy(20), lines: 2, wrap: 'multi' },
+    emphasis_words: [{
+      id: 'e-0001', src: 'a', t_start: 1.2, t_end: 1.3,
+      word: 'AKARI Video', emotion: 'neutral', style_preset: 'neon',
+    }],
+    captions: [caption('c-0001', 0, 2, 'AKARI Videoworks', {
+      src: 'a',
+      display_fragments: ['AKARI Video', 'works'],
+      words: [
+        { start: 1, end: 1.5, text: 'AKARI Video' },
+        { start: 1.5, end: 2, text: 'works' },
+      ],
+    })],
+  };
+  const output = { width: 1920, height: 1080 };
+  const result = resolveCaptionDisplay(root, { cuts: [{ src: 'a', in: 0, out: 2 }], output }, { output });
+  const cue = result.display_cues[0];
+  const preset = resolveCaptionStylePreset({ style_preset: 'neon' }, TEXTSTYLE_CATALOG);
+  const expectedVars = resolveCaptionStyleForOutput(preset.record.text_style, output).vars;
+
+  assert.equal(cue.words.map(word => word.text).join(''), cue.text);
+  assert.deepEqual(cue.words.map(word => word.line), [0, 1]);
+  assert.deepEqual(cue.word_styles, [{ from: 0, to: 1, preset_id: 'neon', style_vars: expectedVars }]);
+  assert.deepEqual([cue.words[0].start, cue.words[0].end], [1, 1.5]);
+});
+
+test('word presets ignore src mismatch, missing style_preset, unknown ids, and output-domain captions', () => {
+  const base = {
+    display_policy: englishPolicy(20),
+    captions: [caption('c-0001', 0, 2, 'AKARI', {
+      src: 'a', words: [{ start: 1, end: 1.5, text: 'AKARI' }],
+    })],
+  };
+  const edit = { cuts: [{ src: 'a', in: 0, out: 2 }] };
+  const cases = [
+    [{ id: 'e-0001', src: 'b', t_start: 1, t_end: 1.5, word: 'AKARI', emotion: 'neutral', style_preset: 'neon' }],
+    [{ id: 'e-0001', src: 'a', t_start: 1, t_end: 1.5, word: 'AKARI', emotion: 'joy' }],
+    [{ id: 'e-0001', src: 'a', t_start: 1, t_end: 1.5, word: 'AKARI', emotion: 'neutral', style_preset: 'missing-preset' }],
+  ];
+  const baseline = JSON.stringify(resolveCaptionDisplay(base, edit).display_cues);
+  for (const emphasis_words of cases) {
+    const cues = resolveCaptionDisplay({ ...base, emphasis_words }, edit).display_cues;
+    assert.equal(JSON.stringify(cues), baseline);
+    assert.equal(cues[0].words, undefined);
+    assert.equal(cues[0].word_styles, undefined);
+  }
+  const outputRoot = {
+    ...base,
+    emphasis_words: cases[0].map(value => ({ ...value, src: 'a' })),
+    captions: [{ ...base.captions[0], time_domain: 'output' }],
+  };
+  assert.equal(resolveCaptionDisplay(outputRoot, edit).display_cues[0].word_styles, undefined);
+});
+
+test('lines=2 wrap=fold keeps one effective fragment and folds it into two lines', () => {
+  const root = wordBookRoot('alpha beta', 3);
+  root.display_policy.lines = 2;
+  root.display_policy.wrap = 'fold';
+  const result = resolveCaptionDisplay(root, { cuts: [{ in: 0, out: 2 }] });
+  assert.equal(result.display_cues.length, 1);
+  assert.deepEqual(result.display_cues[0].display_lines, ['alpha ', 'beta']);
+  assert.equal(result.display_cues[0].text, 'alpha beta');
+});
+
+test('manual display_fragments remain sequential and are not folded under wrap=fold', () => {
+  const root = wordBookRoot('今回設定', 3);
+  root.display_policy.lines = 2;
+  root.display_policy.wrap = 'fold';
+  root.captions[0].display_fragments = ['今回', '設定'];
+  const result = resolveCaptionDisplay(root, { cuts: [{ in: 0, out: 2 }] });
+  assert.deepEqual(result.display_cues.map(cue => cue.text), ['今回', '設定']);
+  assert.ok(result.display_cues.every(cue => cue.display_lines === undefined));
+});
+
+test('manual display_fragments with lines=2 wrap=multi become one simultaneous two-line cue', () => {
+  const text = 'あいうえおかきくけこさしすせそたちつてと';
+  const fragments = ['あいうえおかきくけこ', 'さしすせそたちつてと'];
+  const root = {
+    display_policy: { ...policy, max_line_units: 10, lines: 2, wrap: 'multi' },
+    captions: [caption('c-0002', 0, 6, text, { display_fragments: fragments })],
+  };
+  const result = resolveCaptionDisplay(root, { cuts: [{ in: 0, out: 6 }] });
+  assert.equal(result.display_cues.length, 1);
+  assert.deepEqual(result.display_cues[0].display_lines, fragments);
+  assert.deepEqual([result.display_cues[0].start, result.display_cues[0].end], [0, 6]);
+  assert.equal(result.display_cues[0].text, text);
+  assert.equal(result.display_cues[0].line_override, true);
+
+  delete root.display_policy.lines;
+  const singleLine = resolveCaptionDisplay(root, { cuts: [{ in: 0, out: 6 }] });
+  assert.deepEqual(singleLine.display_cues.map(cue => cue.text), fragments);
+  assert.ok(singleLine.display_cues.every(cue => cue.display_lines === undefined));
+});
+
+test('manual display_fragments with lines=2 wrap=fold stay as two unfolded cues', () => {
+  const text = 'あいうえおかきくけこさしすせそたちつてと';
+  const fragments = ['あいうえおかきくけこ', 'さしすせそたちつてと'];
+  const root = {
+    display_policy: { ...policy, max_line_units: 10, lines: 2, wrap: 'fold' },
+    captions: [caption('c-0002', 0, 6, text, { display_fragments: fragments })],
+  };
+  const result = resolveCaptionDisplay(root, { cuts: [{ in: 0, out: 6 }] });
+  assert.deepEqual(result.display_cues.map(cue => cue.text), fragments);
+  assert.deepEqual(result.display_cues.map(cue => [cue.start, cue.end]), [[0, 3], [3, 6]]);
+  assert.ok(result.display_cues.every(cue => cue.display_lines === undefined && cue.line_override));
+});
+
+test('undeclared lines/wrap preserve the policy echo and single-line cue shape', () => {
+  const root = wordBookRoot('alpha beta', 3);
+  const result = resolveCaptionDisplay(root, { cuts: [{ in: 0, out: 2 }] });
+  assert.equal(Object.hasOwn(result.policy, 'lines'), false);
+  assert.equal(Object.hasOwn(result.policy, 'wrap'), false);
+  assert.ok(result.display_cues.every(cue => cue.display_lines === undefined));
+});
+
+test('joinCaptionLines preserves source slices and foldCaptionLines is greedy and lossless', () => {
+  assert.equal(joinCaptionLines(['日本', '語字幕'], 'ja-JP'), '日本語字幕');
+  assert.equal(joinCaptionLines(['alpha ', 'beta'], 'en'), 'alpha beta');
+  assert.deepEqual(foldCaptionLines('alpha beta', 3, 2, 'en'), ['alpha ', 'beta']);
+  assert.deepEqual(foldCaptionLines('abcdefghi', 1, 2, 'en'), ['ab', 'cdefghi']);
+});
+
+test('foldCaptionLines falls back to greedy code points when Intl.Segmenter is unavailable', () => {
+  const descriptor = Object.getOwnPropertyDescriptor(Intl, 'Segmenter');
+  try {
+    Object.defineProperty(Intl, 'Segmenter', { ...descriptor, value: undefined });
+    assert.deepEqual(foldCaptionLines('abcdef', 1.5, 2, 'en'), ['abc', 'def']);
+  } finally {
+    Object.defineProperty(Intl, 'Segmenter', descriptor);
+  }
+});
+
+test('display policy validates declared lines and wrap without materializing defaults', () => {
+  const normalized = validateCaptionDisplayPolicy({ ...policy, lines: 6, wrap: 'fold' });
+  assert.equal(normalized.lines, 6);
+  assert.equal(normalized.wrap, 'fold');
+  const omitted = validateCaptionDisplayPolicy(policy);
+  assert.equal(Object.hasOwn(omitted, 'lines'), false);
+  assert.equal(Object.hasOwn(omitted, 'wrap'), false);
+  for (const patch of [{ lines: 0 }, { lines: 7 }, { lines: 1.5 }, { wrap: 'none' }]) {
+    assert.throws(
+      () => validateCaptionDisplayPolicy({ ...policy, ...patch }),
+      error => error instanceof CaptionDisplayError && error.code === 'INVALID_POLICY',
+    );
+  }
+});
 
 test('word_book_fallbacks は fallback が無い結果にも空配列で載る', () => {
   const result = resolveCaptionDisplay(wordBookRoot('alpha', 3), { cuts: [{ in: 0, out: 2 }] });
