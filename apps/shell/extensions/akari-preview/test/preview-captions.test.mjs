@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { mkdir, mkdtemp, readFile, rename, rm, symlink, writeFile } from 'node:fs/promises';
-import { createRequire } from 'node:module';
+import Module, { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -22,6 +22,28 @@ const checkedVisualContract = JSON.parse(await readFile(join(
     repositoryRoot, 'packages/edit-store/src/caption-visual-contract.json'
 ), 'utf8'));
 
+const TheiaToken = class {};
+const originalModuleLoad = Module._load;
+Module._load = function (request, parent, isMain) {
+    const mocks = {
+        '@theia/core/lib/browser': { ApplicationShell: TheiaToken, OpenHandler: TheiaToken, OpenerService: TheiaToken, WidgetManager: TheiaToken, open() {} },
+        '@theia/filesystem/lib/browser/file-service': { FileService: TheiaToken },
+        '@theia/workspace/lib/browser/workspace-service': { WorkspaceService: TheiaToken },
+        '@theia/plugin-ext/lib/main/browser/webview/webview': { WebviewWidget: class { static FACTORY_ID = 'webview'; } },
+        './material-preview-slot': { MaterialPreviewSlot: TheiaToken },
+        './akari-audio-meter-widget': { AkariAudioMeterWidget: TheiaToken },
+        './review-session-recorder': { ReviewSessionRecorder: TheiaToken },
+        './review-session-recording-indicator': { ReviewSessionRecordingIndicator: TheiaToken }
+    };
+    return mocks[request] ?? originalModuleLoad.call(this, request, parent, isMain);
+};
+let AkariPreviewOpenHandler;
+try {
+    ({ AkariPreviewOpenHandler } = require('../lib/browser/akari-preview-open-handler.js'));
+} finally {
+    Module._load = originalModuleLoad;
+}
+
 const caption = {
     id: 'c-0001',
     start: 0,
@@ -31,6 +53,13 @@ const caption = {
     sourceRef: { segment: 0 },
     edited: false
 };
+
+test('無装飾字幕も fragment 経路で描画する（plain 流し込みに戻る再発を防ぐ）', () => {
+    // plain の textContent 経路では焼き込みと同じ複数行分割が使われず、長い字幕が折り返されなかった。
+    const bootstrap = AkariPreviewOpenHandler.prototype.previewBootstrapScript.call({});
+    assert.ok(!bootstrap.includes("captionPlate.textContent = caption ? caption.text : ''"));
+    assert.ok(bootstrap.includes('renderPlainCaptionFragment(caption)'));
+});
 
 test('shell resolved-caption fragment and managed variables come from the checked source contract', () => {
     assert.equal(shellVisualContract.RESOLVED_SINGLE_LINE_CAPTION_CSS, checkedVisualContract.resolved_single_line_caption_css);

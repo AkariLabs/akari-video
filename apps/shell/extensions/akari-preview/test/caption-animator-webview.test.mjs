@@ -114,7 +114,7 @@ test('item 開始秒省略では offset 0、cue 切替で古い char span を残
     view.tick(4);
     assert.equal(view.calls[0].declaration.keyframeOffsetSeconds, 0);
     view.tick(8);
-    assert.equal(view.plate.innerHTML, '&lt;次&gt;');
+    assert.match(view.plate.innerHTML, /<p class="akari-caption__line">&lt;次&gt;<\/p>/);
     assert.equal(chars(view).length, 0);
     assert.equal(view.calls.length, 1);
     const writes = view.writes;
@@ -162,10 +162,10 @@ test('animator 無宣言 cue は評価器も warning も呼ばず、tick で DOM
     }
 });
 
-test('無宣言の HTML は r2 前の基底のバイト列を保持する', () => {
-    // Recorded by executing the baseline open-handler webview in the same bare VM.
+test('無宣言の HTML は fragment 化後の基底のバイト列を保持する', () => {
+    // Recorded by executing the fragment-only open-handler webview in the same bare VM.
     const expected = [
-        '68c6c1af208310fcd29febf704dcf072a57fd5b2ca74b575cfb1eb7004dadb02',
+        'c0e4605451c921a37195af93c09e510887834271e9854f550623001f3207bedf',
         'bd45c7f2d5472a5b85780f513a1386522c65fd6f6c8b314dbf38a7b8768ee021',
         '7a31707c3788a3bf3f32a360ce54834662d9a202389eb0d2d914949ee0766146',
         'da49aff2010bde987f91707683c5993833d48ae48f8e3eae71f3c4ec2757d6d5',
@@ -186,12 +186,12 @@ test('無宣言の HTML は r2 前の基底のバイト列を保持する', () =
 test('chars の HTML エスケープは render-cut の captionCharRenderer と同じ', () => {
     const view = harness({ cues: [{ ...cue, text: `"'<>&` }] });
     view.tick(4);
-    assert.equal(view.plate.innerHTML,
+    assert.ok(view.plate.innerHTML.includes(
         '<span class="akari-caption__char" data-akari-char="0">&quot;</span>'
         + '<span class="akari-caption__char" data-akari-char="1">&#39;</span>'
         + '<span class="akari-caption__char" data-akari-char="2">&lt;</span>'
         + '<span class="akari-caption__char" data-akari-char="3">&gt;</span>'
-        + '<span class="akari-caption__char" data-akari-char="4">&amp;</span>');
+        + '<span class="akari-caption__char" data-akari-char="4">&amp;</span>'));
 });
 
 for (const engine of [true, false]) {
