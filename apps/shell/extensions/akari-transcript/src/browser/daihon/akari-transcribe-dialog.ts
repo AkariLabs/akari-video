@@ -1,12 +1,14 @@
 import { ApplicationShell, OpenerService, open } from '@theia/core/lib/browser';
 import { AbstractDialog, ConfirmDialog } from '@theia/core/lib/browser/dialogs';
 import { CommandService } from '@theia/core/lib/common';
+import { BinaryBuffer } from '@theia/core/lib/common/buffer';
 import { PreferenceScope, PreferenceService } from '@theia/core/lib/common/preferences';
 import URI from '@theia/core/lib/common/uri';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
 import { AkariProjectService, MaterialTranscriptEvent, TranscribeArtifacts, TranscribeOptions } from 'akari-project/lib/common/akari-project-protocol';
 import { transcribeModeView, TranscribeMode, transcribeEngineAvailability, TranscribeToolStatus, TranscribeConnectionStatus, advanceTranscribeSteps, analysisTranscriptSummary, backendKey, completedColumns, initialEngineSelection, startTranscribeSteps, transcribeExitOptions, transcribeSummary, TranscribeDialogResult, TranscribeExit, TranscribeStepState } from '../../common/transcribe-steps';
 import { AKARI_TRANSCRIPT_SEEK_REQUESTED } from '../akari-transcript-commands';
+import { CaptionsApplyPreview, captionsAppliedLine, captionsApplyHistoryLabel, captionsApplyPreviewLine, daihonHistoryService, parseCaptionsApplyPreview } from '../../common/captions-button';
 
 // Radar values: explainers/2026-09-07-transcribe-four-screens-v2-fix2.html.
 // Cloud rtf/hourlyUsd: skills/analyze-footage/bin/transcribe-cloud.mjs PROVIDERS.
@@ -91,6 +93,7 @@ export class AkariTranscribeDialog extends AbstractDialog<TranscribeDialogResult
     protected readonly steps = transcribeElement('nav');
     protected readonly foot = transcribeElement('div');
     protected readonly notice = transcribeElement('p');
+    protected readonly previewLine = transcribeElement('p');
     protected readonly seen = new Set<string>();
     protected eventTail = Promise.resolve();
     protected running = false;
@@ -112,6 +115,11 @@ export class AkariTranscribeDialog extends AbstractDialog<TranscribeDialogResult
     protected progressTimer: ReturnType<typeof setInterval> | undefined;
     protected fallbackSummary: string | undefined;
     protected cancelled = false;
+    protected preview: CaptionsApplyPreview | undefined;
+    protected applied: CaptionsApplyPreview | undefined;
+    protected applying = false;
+    protected sourceId: string | undefined;
+    protected applyCompleted = false;
 
     constructor(protected readonly root: URI, protected readonly relativePath: string,
         protected readonly preferences: PreferenceService, protected readonly service: AkariProjectService,
@@ -146,10 +154,53 @@ export class AkariTranscribeDialog extends AbstractDialog<TranscribeDialogResult
         this.defaultButton.click();
         return true;
     }
-    protected reuse(): void {
-        if (!this.baselineReady || this.running || this.confirming) return;
-        this.result = transcribeExitOptions('reuse', this.selection);
-        void this.accept();
+    protected async reuse(): Promise<void> {
+        if (!this.baselineReady || this.running || this.confirming || this.applying || this.applyCompleted) return;
+        this.applying = true;
+        this.render();
+        const captionsUri = this.root.resolve('captions.json');
+        let before: string | undefined;
+        try {
+            try { before = (await this.files.readFile(captionsUri)).value.toString(); } catch { before = undefined; }
+            const source = await this.resolveSourceId();
+            const result = await this.service.buildCaptions({ projectRoot: this.root.toString(), source, transcribeFirst: false });
+            this.applied = parseCaptionsApplyPreview(result);
+            const after = (await this.files.readFile(captionsUri)).value.toString();
+            this.applyCompleted = true;
+            if (this.applied) {
+                const applied = this.applied;
+                daihonHistoryService()?.push({
+                    label: captionsApplyHistoryLabel(applied),
+                    undo: async () => before === undefined ? this.files.delete(captionsUri) : void await this.files.writeFile(captionsUri, BinaryBuffer.fromString(before)),
+                    redo: async () => void await this.files.writeFile(captionsUri, BinaryBuffer.fromString(after))
+                });
+            }
+        } catch (error) {
+            this.applied = undefined;
+            this.applyCompleted = false;
+            this.notice.textContent = error instanceof Error ? error.message : String(error);
+        } finally {
+            this.applying = false;
+            this.render();
+        }
+    }
+    protected async resolveSourceId(): Promise<string> {
+        if (this.sourceId) return this.sourceId;
+        const edit = JSON.parse((await this.files.readFile(this.root.resolve('edit.json'))).value.toString());
+        const source = Array.isArray(edit.sources) ? edit.sources.find((item: { path?: string }) => item.path === this.relativePath) : undefined;
+        if (!source?.id) throw new Error('この素材は edit.json の sources[] にありません');
+        this.sourceId = source.id;
+        return this.sourceId;
+    }
+    protected async refreshPreview(): Promise<void> {
+        if (this.running || this.applying || this.applyCompleted || !this.baselineReady) return;
+        if (typeof this.service.buildCaptions !== 'function') return;
+        try {
+            const source = await this.resolveSourceId();
+            const result = await this.service.buildCaptions({ projectRoot: this.root.toString(), source, transcribeFirst: false, dryRun: true });
+            this.preview = parseCaptionsApplyPreview(result);
+        } catch { this.preview = undefined; }
+        this.render();
     }
     protected async initialize(): Promise<void> {
         this.artifacts = await this.service.readTranscribeArtifacts({ projectRoot: this.root.toString(), relativePath: this.relativePath });
@@ -169,13 +220,17 @@ export class AkariTranscribeDialog extends AbstractDialog<TranscribeDialogResult
             }
         }));
         this.render();
+        await this.refreshPreview();
     }
     protected async consumeEvent(uri: URI): Promise<void> {
         const event: MaterialTranscriptEvent = JSON.parse((await this.files.readFile(uri)).value.toString());
         if (event.type !== 'material-transcript' || event.relativePath !== this.relativePath || this.seen.has(event.id) || event.id < this.eventFloor) return;
         this.seen.add(event.id);
         this.state = advanceTranscribeSteps(this.state, event);
-        if (event.status === 'completed') this.artifacts = await this.service.readTranscribeArtifacts({ projectRoot: this.root.toString(), relativePath: this.relativePath });
+        if (event.status === 'completed') {
+            this.artifacts = await this.service.readTranscribeArtifacts({ projectRoot: this.root.toString(), relativePath: this.relativePath });
+            await this.refreshPreview();
+        }
         if (event.error) this.notice.textContent = event.error;
         this.render();
     }
@@ -185,7 +240,12 @@ export class AkariTranscribeDialog extends AbstractDialog<TranscribeDialogResult
         this.titleNode.textContent = mode === 'advanced' ? '文字起こしして字幕を作る' : '文字起こし';
         this.node.dataset.akariTranscribeMode = mode;
         this.node.dataset.step = view.steps ? String(this.state.step) : '1';
-        this.contentNode.replaceChildren(...(view.steps ? [this.steps] : []), this.body, this.notice, this.foot);
+        const showPreview = this.preview && !this.applied && !this.applyCompleted;
+        this.previewLine.textContent = showPreview ? captionsApplyPreviewLine(this.preview!) : '';
+        this.previewLine.dataset.akariCaptionsPreview = 'true';
+        this.previewLine.setAttribute('role', 'status');
+        this.contentNode.replaceChildren(...(view.steps ? [this.steps] : []), this.body, this.notice,
+            ...(showPreview ? [this.previewLine] : []), this.foot);
         this.steps.replaceChildren();
         if (view.steps) ['1 エンジン', '2 起こす', '3 差分', '4 注釈・辞書〔先〕', '5 まとめ〔先〕', '› 字幕へ'].forEach((label, index) => {
             const disabled = index >= 3 || (index === 2 ? !this.artifacts.diff : index + 1 > this.state.step) || (index === 0 && this.running);
@@ -204,7 +264,11 @@ export class AkariTranscribeDialog extends AbstractDialog<TranscribeDialogResult
         if (!view.steps || this.state.step === 1) this.renderCards(view);
         else if (this.state.step === 2) this.renderProgress();
         else this.renderDiff();
-        if (!view.steps) {
+        if (this.applyCompleted) {
+            const applied = transcribeElement('span', this.applied ? captionsAppliedLine(this.applied) : '台本に反映した');
+            applied.dataset.akariCaptionsApplied = 'true';
+            this.foot.append(applied, transcribeButton('閉じる', () => this.close()));
+        } else if (!view.steps) {
             if (this.running) {
                 const progress = transcribeElement('p', this.simpleProgress());
                 progress.setAttribute('role', 'status');
@@ -215,7 +279,7 @@ export class AkariTranscribeDialog extends AbstractDialog<TranscribeDialogResult
                 const button = transcribeButton(label, () => {
                     if (label === '台本へ') this.reuse();
                     else void this.start(label === '起こし直す' ? 'redo' : undefined);
-                }, this.running || !this.artifactsLoaded);
+                }, this.running || this.applying || !this.artifactsLoaded);
                 Object.assign(button.style, { padding: '14px 28px', fontSize: '18px' });
                 if (!this.defaultButton) { this.defaultButton = button; button.style.borderColor = '#f0832b'; }
                 this.foot.append(button);
@@ -223,7 +287,7 @@ export class AkariTranscribeDialog extends AbstractDialog<TranscribeDialogResult
         } else if (this.state.step === 1) {
             this.foot.append(transcribeElement('span', 'この場の選択だけに適用'));
             if (this.baselineReady) {
-                this.defaultButton = transcribeButton(view.buttons[0], () => this.reuse());
+                this.defaultButton = transcribeButton(view.buttons[0], () => void this.reuse(), this.applying);
                 this.defaultButton.style.borderColor = '#f0832b';
                 this.foot.append(this.defaultButton, transcribeButton(view.buttons[1], () => void this.start('redo')),
                     transcribeButton(view.buttons[2], () => void this.start('compare'), this.selection.compareSet.length < 2));
@@ -236,12 +300,13 @@ export class AkariTranscribeDialog extends AbstractDialog<TranscribeDialogResult
             this.foot.append(transcribeElement('span', this.state.step === 3 ? 'まとめは先の機能' : '先に終わったエンジンから列が埋まります'));
             if ((this.state.finished || this.artifacts.diff) && !this.running) {
                 this.foot.append(transcribeButton(`${this.artifacts.transcripts.length} つとも残す（何もしない）`, () => this.close()));
-                this.defaultButton = transcribeButton('字幕へ', () => this.reuse(), !this.baselineReady);
+                this.defaultButton = transcribeButton('字幕へ', () => void this.reuse(), !this.baselineReady || this.applying);
                 this.foot.append(this.defaultButton);
                 if (!this.baselineReady) this.foot.append(transcribeButton('エンジンを選び直す', () => { this.state.step = 1; this.render(); }));
             }
         }
         if (this.running) this.foot.append(transcribeButton('中止', () => void this.cancel(), !this.running));
+        if (this.applyCompleted) return;
         const switchLink = transcribeButton(view.switchLink, () => void this.switchMode());
         switchLink.dataset.akariTranscribeModeSwitch = 'true';
         Object.assign(switchLink.style, { marginLeft: 'auto', fontSize: '12px', padding: '4px', border: 'none', background: 'transparent', textDecoration: 'underline' });
@@ -440,6 +505,7 @@ export class AkariTranscribeDialog extends AbstractDialog<TranscribeDialogResult
             clearInterval(this.progressTimer); this.progressTimer = undefined;
             if (this.cancelled) this.notice.textContent = '文字起こしを中止しました';
             this.running = false; this.state.finished = true; this.render();
+            await this.refreshPreview();
             if (!this.autoStart && backends.length === 1 && this.baselineReady && !this.isDisposed) { this.result = transcribeExitOptions('reuse', options); void this.accept(); }
         }
         } finally { this.confirming = false; }

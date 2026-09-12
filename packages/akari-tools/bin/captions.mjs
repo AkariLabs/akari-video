@@ -9,6 +9,7 @@ import { fileURLToPath } from "node:url";
 import { resolveWordBook, buildMatcher, applyWordBook } from "../../word-book/src/index.mjs";
 
 import { buildCaptionsFromTranscript } from "../src/captions/build.mjs";
+import { mergeCaptionsForApply } from "../src/captions/apply-diff.mjs";
 import { analysisPathForTarget } from "../src/media/record.mjs";
 import { toPosix } from "../src/media/common.mjs";
 
@@ -24,8 +25,8 @@ const usage = [
   "  --pause <秒>         分割するポーズ（既定 0.6）",
   "  --word-book <path>   追加の単語帳",
   "  --no-word-book       単語帳の既定適用を抑止",
-  "  --force             手直し済みの字幕も上書き",
-  "  --dry-run           書き込まず結果 JSON を表示",
+  "  --force             手直し済みの字幕も再生成で置き換える（既定は保護）",
+  "  --dry-run           書き込まず結果を表示（--json と併せると差分要約だけを 1 行で出す）",
   "  --json", "  --help",
 ].join("\n");
 
@@ -73,9 +74,6 @@ export async function runCaptionsCli(argv, options = {}) {
       if (error?.code !== "ENOENT") throw error;
     }
     const records = Array.isArray(existing) ? existing : existing?.captions ?? [];
-    if (records.some((record) => record.edited === true) && !parsed.force) {
-      throw new Error("手直し済みの字幕があります。上書きするには --force");
-    }
     const result = buildCaptionsFromTranscript(analysis.transcript, { ...parsed, src: source.id, sourceDurationSeconds: Number.isFinite(analysis.probe?.duration_s) ? analysis.probe.duration_s : null });
     const wordBook = { applied: 0 };
     if (!parsed.noWordBook) {
@@ -90,14 +88,17 @@ export async function runCaptionsCli(argv, options = {}) {
     for (const field of ["default_text_style", "display_policy", "emphasis_words"]) {
       if (existing && !Array.isArray(existing) && Object.hasOwn(existing, field)) root[field] = existing[field];
     }
-    root.captions = result.captions;
+    const merged = mergeCaptionsForApply(records, result.captions, { force: parsed.force });
+    root.captions = merged.captions;
     const content = `${JSON.stringify(root, null, 2)}\n`;
-    if (parsed.dryRun) stdout(JSON.stringify({ ...root, word_book: wordBook }, null, 2));
+    const summary = { ...merged.summary, captions: merged.summary.total, warnings: result.warnings, path: captionsPath, word_book: wordBook };
+    if (parsed.dryRun && parsed.json) stdout(JSON.stringify({ dry_run: true, ...summary }));
+    else if (parsed.dryRun) stdout(JSON.stringify({ ...root, word_book: wordBook }, null, 2));
     else await writeProjectFilesGuarded(projectRoot, { "captions.json": content });
     if (!edit.tracks?.some((track) => track.items?.some((item) => item.source?.kind === "captions"))) {
       stderr("edit.json の visual トラックに字幕トラックを宣言してください（edit-lint v2.captions-track-undeclared の案内どおり）");
     }
-    stdout(JSON.stringify({ captions: result.captions.length, warnings: result.warnings, path: captionsPath, word_book: wordBook }));
+    if (!(parsed.dryRun && parsed.json)) stdout(JSON.stringify(summary));
     return 0;
   } catch (error) {
     stderr(error instanceof Error ? error.message : String(error));

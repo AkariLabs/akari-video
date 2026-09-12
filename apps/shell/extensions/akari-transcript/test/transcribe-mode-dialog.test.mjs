@@ -38,6 +38,8 @@ class Element {
     querySelectorAll(selector) {
         const matches = node => {
             if (selector === '[data-akari-transcribe-progress]') return node.dataset.akariTranscribeProgress !== undefined;
+            if (selector === '[data-akari-captions-preview]') return node.dataset.akariCaptionsPreview !== undefined;
+            if (selector === '[data-akari-captions-applied]') return node.dataset.akariCaptionsApplied !== undefined;
             if (selector === 'section[data-backend]') return node.tagName === 'section' && node.dataset.backend !== undefined;
             if (selector === 'input[type=checkbox]') return node.tagName === 'input' && node.type === 'checkbox';
             return node.tagName === selector;
@@ -75,8 +77,11 @@ function load(path, modules, clock) {
     return exports;
 }
 async function harness({ mode, done = false, pending, failSave = false, autoStart = false,
-    savedCompareSet = ['whisper-cpp', 'cloud:scribe'] } = {}) {
-    const clock = { now: 0, intervals: new Set() }, writes = [], requests = [], cancels = [];
+    savedCompareSet = ['whisper-cpp', 'cloud:scribe'], previewResult = { added: 12, changed: 3, protected: 2, removed: 0, total: 17 },
+    appliedResult = { added: 12, changed: 3, protected: 2, removed: 0, total: 17 }, captionsBefore = '{"captions":[]}', eventPayload } = {}) {
+    const clock = { now: 0, intervals: new Set() }, writes = [], fileWrites = [], requests = [], cancels = [], buildRequests = [], history = [], deleted = [];
+    const confirm = { count: 0 };
+    let captionsSource = captionsBefore;
     const compareSet = savedCompareSet;
     const preferences = {
         get(key, fallback) {
@@ -85,23 +90,48 @@ async function harness({ mode, done = false, pending, failSave = false, autoStar
         },
         async set(...args) { if (failSave) throw new Error('read only'); writes.push(args); }
     };
+    const captionsButton = require('../lib/common/captions-button.js');
+    captionsButton.setDaihonHistoryService({ push(entry) { history.push(entry); } });
     const { AkariTranscribeDialog } = load('../lib/browser/daihon/akari-transcribe-dialog.js', {
         '@theia/core/lib/browser': {},
-        '@theia/core/lib/browser/dialogs': { AbstractDialog, ConfirmDialog: class { async open() { return true; } } },
+        '@theia/core/lib/browser/dialogs': { AbstractDialog, ConfirmDialog: class { constructor() { confirm.count++; } async open() { return true; } } },
+        '@theia/core/lib/common/buffer': { BinaryBuffer: { fromString: value => value } },
         '@theia/core/lib/common/preferences': { PreferenceScope },
         '@theia/core/lib/common/uri': { default: URI },
         '../../common/transcribe-steps': view,
-        '../akari-transcript-commands': {}
+        '../akari-transcript-commands': {},
+        '../../common/captions-button': captionsButton
     }, clock);
     const dialog = new AkariTranscribeDialog(new URI('file:///fixture'), 'clip.mp4', preferences, {
         async readTranscribeArtifacts() { return { transcripts: [], diff: null, cuts: null }; },
         async transcribeMaterial(request) { requests.push(request); await pending?.promise; },
-        async cancelTranscribe(request) { cancels.push(request); }
+        async cancelTranscribe(request) { cancels.push(request); },
+        async buildCaptions(request) {
+            buildRequests.push(request);
+            if (request.dryRun) {
+                const previews = Array.isArray(previewResult) ? previewResult : [previewResult];
+                const dryRuns = buildRequests.filter(item => item.dryRun).length;
+                return previews[Math.min(dryRuns - 1, previews.length - 1)];
+            }
+            captionsSource = '{"captions":[{"id":"after"}]}';
+            return appliedResult;
+        }
     }, {
         async watch() { return { dispose() {} }; },
         onDidFilesChange() { return { dispose() {} }; },
         async resolve() { return { children: [] }; },
-        async readFile() { return { value: JSON.stringify({ probe: { duration_s: 180 } }) }; }
+        async readFile(uri) {
+            const path = uri.toString();
+            if (path.endsWith('/event.json') && eventPayload) return { value: JSON.stringify(eventPayload) };
+            if (path.endsWith('/edit.json')) return { value: JSON.stringify({ version: 2, sources: [{ id: 's1', path: 'clip.mp4' }] }) };
+            if (path.endsWith('/captions.json')) {
+                if (captionsSource === undefined) throw new Error('ENOENT');
+                return { value: captionsSource };
+            }
+            return { value: JSON.stringify({ probe: { duration_s: 180 } }) };
+        },
+        async writeFile(uri, value) { captionsSource = value.toString(); fileWrites.push([uri.toString(), captionsSource]); },
+        async delete(uri) { captionsSource = undefined; deleted.push(uri.toString()); }
     }, {
         async executeCommand(_id, service) {
             return service.endsWith('new-project') ? { tools: [{ id: 'whisper', available: true }, { id: 'speech-analyzer', available: false, needs: ['CLT'] }] }
@@ -109,7 +139,8 @@ async function harness({ mode, done = false, pending, failSave = false, autoStar
         }
     }, async () => {}, done, autoStart);
     await dialog.ready; await tick();
-    return { dialog, writes, requests, cancels, compareSet, clock };
+    return { dialog, writes, fileWrites, requests, cancels, compareSet, clock, buildRequests, history, confirm, deleted,
+        captions: () => captionsSource };
 }
 const buttons = dialog => dialog.foot.querySelectorAll('button').filter(node => !node.dataset.akariTranscribeModeSwitch).map(node => node.textContent);
 const switchLink = dialog => dialog.node.querySelectorAll('button').find(node => node.dataset.akariTranscribeModeSwitch === 'true');
@@ -205,17 +236,56 @@ test('simple start ignores saved comparison, shows timed progress on the same sc
     assert.deepEqual(dialog.value, { transcribeFirst: false });
     assert.equal(clock.intervals.size, 0);
 });
-test('simple reuse and redo preserve existing exit paths', async () => {
+test('simple reuse applies in place while redo preserves the existing exit path', async () => {
     for (const redo of [false, true]) {
-        const { dialog, requests } = await harness({ done: true });
+        const { dialog, requests, buildRequests } = await harness({ done: true });
         dialog.foot.querySelectorAll('button').find(button => button.textContent === (redo ? '起こし直す' : '台本へ')).click();
         await tick();
-        assert.equal(dialog.accepted, 1);
+        assert.equal(dialog.accepted, redo ? 1 : 0);
         assert.equal(requests.length, 0, 'redo delegates through the existing result to buildCaptions');
-        assert.deepEqual(dialog.value, redo
-            ? { backend: 'whisper-cpp', compareSet: [], approved: false, autoCuts: true, transcribeFirst: true }
-            : { transcribeFirst: false });
+        assert.deepEqual(dialog.value, redo ? { backend: 'whisper-cpp', compareSet: [], approved: false, autoCuts: true, transcribeFirst: true } : undefined);
+        assert.equal(buildRequests.filter(request => !request.dryRun).length, redo ? 0 : 1);
     }
+});
+
+test('opening shows apply preview with and without protected rows', async () => {
+    const { dialog, buildRequests } = await harness({ done: true });
+    assert.equal(buildRequests.filter(request => request.dryRun).length, 1);
+    assert.equal(dialog.node.querySelector('[data-akari-captions-preview]').textContent,
+        '新規 12 · 変更 3 · 手直し済み 2 行は保護 · 消える 0');
+    dialog.dispose();
+    const zero = await harness({ done: true, previewResult: { added: 12, changed: 3, protected: 0, removed: 0, total: 15 } });
+    assert.equal(zero.dialog.node.querySelector('[data-akari-captions-preview]').textContent, '新規 12 · 変更 3 · 消える 0');
+    zero.dialog.dispose();
+});
+
+test('apply runs once without confirmation, stays open, and registers undo history', async () => {
+    const before = '{"captions":[{"id":"before"}]}';
+    const { dialog, buildRequests, confirm, history, fileWrites } = await harness({ done: true, captionsBefore: before });
+    dialog.foot.querySelectorAll('button').find(button => button.textContent === '台本へ').click();
+    await tick();
+    assert.equal(buildRequests.filter(request => !request.dryRun).length, 1);
+    assert.equal(confirm.count, 0);
+    assert.equal(dialog.node.querySelector('[data-akari-captions-applied]').textContent, '台本に反映した（新規 12 · 変更 3）');
+    assert.equal(dialog.value, undefined);
+    assert.equal(dialog.closed, 0);
+    assert.equal(history.length, 1);
+    assert.equal(history[0].label, '台本へ反映（新規 12 · 変更 3）');
+    await history[0].undo();
+    assert.deepEqual(fileWrites.at(-1), ['file:///fixture/captions.json', before]);
+    dialog.dispose();
+});
+
+test('a completed engine event refreshes the dry-run summary', async () => {
+    const eventPayload = { id: '2026-09-12T00-00-00-000Z', type: 'material-transcript', relativePath: 'clip.mp4',
+        backend: 'whisper-cpp', stage: 'completed', status: 'completed' };
+    const first = { added: 12, changed: 3, protected: 2, removed: 0, total: 17 };
+    const second = { added: 4, changed: 1, protected: 0, removed: 2, total: 5 };
+    const { dialog, buildRequests } = await harness({ done: true, previewResult: [first, second], eventPayload });
+    await dialog.consumeEvent(new URI('file:///fixture/event.json'));
+    assert.equal(buildRequests.filter(request => request.dryRun).length, 2);
+    assert.equal(dialog.node.querySelector('[data-akari-captions-preview]').textContent, '新規 4 · 変更 1 · 消える 2');
+    dialog.dispose();
 });
 test('failed simple transcription stays on its screen with retry and releases the timer', async () => {
     const pending = deferred();

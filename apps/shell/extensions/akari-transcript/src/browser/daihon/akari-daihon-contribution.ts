@@ -16,6 +16,8 @@ import { OPEN_AKARI_DAIHON } from '../akari-transcript-commands';
 import { AkariCutsWidget } from './akari-cuts-widget';
 import { AkariDaihonWidget } from './akari-daihon-widget';
 import { AkariTranscribeDialog, listenTranscribeRange } from './akari-transcribe-dialog';
+import { AkariEditHistoryService } from 'akari-annotations/lib/browser/akari-edit-history-service';
+import { setDaihonHistoryService } from '../../common/captions-button';
 
 const DAIHON_PANEL_RANK = 190;
 export const OPEN_AKARI_CUTS: Command = { id: 'akari.cuts.open', label: 'カット候補を開く' };
@@ -32,8 +34,10 @@ export class AkariDaihonContribution implements CommandContribution, FrontendApp
     @inject(PreferenceService) protected readonly preferences!: PreferenceService;
     @inject(FileService) protected readonly files!: FileService;
     @inject(AkariProjectService) protected readonly projectService!: AkariProjectService;
+    @inject(AkariEditHistoryService) protected readonly history!: AkariEditHistoryService;
 
     registerCommands(commands: CommandRegistry): void {
+        setDaihonHistoryService(this.history);
         commands.registerCommand(OPEN_AKARI_DAIHON, { execute: () => this.open() });
         commands.registerCommand(OPEN_AKARI_CUTS, { execute: () => this.openCuts() });
         commands.registerCommand(AKARI_TRANSCRIBE_OPEN_DIALOG, {
