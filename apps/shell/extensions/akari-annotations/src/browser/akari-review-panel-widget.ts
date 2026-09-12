@@ -14,7 +14,22 @@ import {
     compileCopiedMessage,
     planCompileHandoff
 } from '../common/compile-session-handoff';
-import { collectBlockIds, extractBlocksManifest, parseCanvasTarget, parseDocTarget, parseImageTarget, parseUiTarget } from '../common/doc-target';
+import {
+    buildUiTargetRow,
+    collectBlockIds,
+    extractBlocksManifest,
+    parseCanvasTarget,
+    parseDocTarget,
+    parseImageTarget,
+    parseUiTarget,
+    needsUiTargetLabels
+} from '../common/doc-target';
+import {
+    CLIP_ANNOTATION_LABELS_EVENT,
+    CLIP_ANNOTATION_LABELS_REQUEST_EVENT,
+    CLIP_ANNOTATION_OPEN_EVENT,
+    CLIP_ANNOTATION_REVEAL_EVENT
+} from '../common/timeline-context-menu-items';
 import { resolveRawSourceId } from '../common/raw-source-selection';
 import {
     RawPreviewAnnotationStateSnapshot,
@@ -151,6 +166,9 @@ export class AkariReviewPanelWidget extends BaseWidget {
     protected readonly docSelectionChip = document.createElement('div');
     protected readonly docSelectionLabel = document.createElement('span');
     protected readonly docSelectionClear = document.createElement('button');
+    protected readonly clipSelectionChip = document.createElement('div');
+    protected readonly clipSelectionLabel = document.createElement('span');
+    protected readonly clipSelectionClear = document.createElement('button');
     // M3 (task.md 指示2): select ツールで選択中の UI 要素へのコメント導線（docSelectionChip とミラー）。
     protected readonly uiSelectionChip = document.createElement('div');
     protected readonly uiSelectionLabel = document.createElement('span');
@@ -186,6 +204,9 @@ export class AkariReviewPanelWidget extends BaseWidget {
     protected resolvedRawSourceKey: string | undefined;
     protected rawSourceResolutionSequence = 0;
     protected rawSourceResolutionPromise: Promise<void> | undefined;
+    protected clipAnnotationSelection: { editUri: string; target: string; label: string; sourceT: number } | undefined;
+    protected uiTargetLabels: Record<string, string> = {};
+    protected lastUiTargetLabelsRequest = '';
 
     @postConstruct()
     protected init(): void {
@@ -260,6 +281,22 @@ export class AkariReviewPanelWidget extends BaseWidget {
         });
         this.docSelectionClear.addEventListener('click', () => { this.model.docSelection = undefined; });
         this.docSelectionChip.append(this.docSelectionLabel, this.docSelectionClear);
+        this.clipSelectionChip.setAttribute('data-review-clip-selection-chip', '');
+        Object.assign(this.clipSelectionChip.style, {
+            display: 'none', alignItems: 'center', gap: '5px', fontSize: '11px',
+            padding: '2px 8px', borderRadius: '999px',
+            border: '1px solid var(--theia-textLink-foreground)', color: 'var(--theia-textLink-foreground)'
+        });
+        this.clipSelectionLabel.setAttribute('data-review-clip-selection-label', '');
+        this.clipSelectionClear.type = 'button';
+        this.clipSelectionClear.textContent = '✕';
+        this.clipSelectionClear.title = 'クリップの選択を解除して動画注釈に戻す';
+        this.clipSelectionClear.setAttribute('aria-label', 'クリップの選択を解除');
+        Object.assign(this.clipSelectionClear.style, {
+            background: 'none', border: 'none', padding: '0', cursor: 'pointer', font: 'inherit', color: 'inherit'
+        });
+        this.clipSelectionClear.addEventListener('click', () => this.clearClipAnnotationSelection());
+        this.clipSelectionChip.append(this.clipSelectionLabel, this.clipSelectionClear);
         // M3 (task.md 指示2): docSelectionChip とミラーした「選択中の UI 要素」チップ。
         this.uiSelectionChip.setAttribute('data-review-ui-selection-chip', '');
         Object.assign(this.uiSelectionChip.style, {
@@ -312,6 +349,7 @@ export class AkariReviewPanelWidget extends BaseWidget {
         this.composerRow.append(
             this.timeLabel,
             this.docSelectionChip,
+            this.clipSelectionChip,
             this.uiSelectionChip,
             this.rawSourceChip,
             this.textInput,
@@ -503,6 +541,41 @@ export class AkariReviewPanelWidget extends BaseWidget {
         this.toDispose.push({
             dispose: () => window.removeEventListener(RAW_PREVIEW_ANNOTATION_STATE_EVENT, onRawPreviewAnnotationState)
         });
+        const onClipAnnotationOpen = (event: Event): void => {
+            const detail = (event as CustomEvent<{
+                editUri?: string; target?: string; label?: string; sourceT?: number;
+            }>).detail;
+            const editUri = this.model.location?.editUri?.normalizePath().toString();
+            if (!detail || !editUri || this.normalizeUri(detail.editUri ?? '') !== this.normalizeUri(editUri)
+                || typeof detail.sourceT !== 'number' || !Number.isFinite(detail.sourceT)) return;
+            if (typeof detail.target === 'string' && detail.target) {
+                this.clipAnnotationSelection = {
+                    editUri,
+                    target: detail.target,
+                    label: typeof detail.label === 'string' && detail.label.trim() ? detail.label.trim() : detail.target,
+                    sourceT: detail.sourceT
+                };
+            } else {
+                this.clearClipAnnotationSelection();
+            }
+            this.model.selectedSourceT = detail.sourceT;
+            this.renderDocSelectionChip();
+            this.textInput.focus();
+        };
+        const onClipAnnotationLabels = (event: Event): void => {
+            const detail = (event as CustomEvent<{ editUri?: string; labels?: Record<string, string> }>).detail;
+            const editUri = this.model.location?.editUri?.normalizePath().toString();
+            if (!detail || !editUri || this.normalizeUri(detail.editUri ?? '') !== this.normalizeUri(editUri)
+                || !detail.labels || typeof detail.labels !== 'object') return;
+            this.uiTargetLabels = { ...detail.labels };
+            this.renderList();
+        };
+        window.addEventListener(CLIP_ANNOTATION_OPEN_EVENT, onClipAnnotationOpen);
+        window.addEventListener(CLIP_ANNOTATION_LABELS_EVENT, onClipAnnotationLabels);
+        this.toDispose.push({ dispose: () => {
+            window.removeEventListener(CLIP_ANNOTATION_OPEN_EVENT, onClipAnnotationOpen);
+            window.removeEventListener(CLIP_ANNOTATION_LABELS_EVENT, onClipAnnotationLabels);
+        } });
         this.render();
     }
 
@@ -510,6 +583,7 @@ export class AkariReviewPanelWidget extends BaseWidget {
         super.onAfterAttach(msg);
         this.lastReviewSessionContext = '';
         this.refreshReviewSessionContext();
+        this.requestMissingUiTargetLabels();
     }
 
     protected render(): void {
@@ -528,10 +602,12 @@ export class AkariReviewPanelWidget extends BaseWidget {
      */
     protected renderDocSelectionChip(): void {
         const selection = this.model.docSelection;
-        const uiSelection = selection ? undefined : this.reviewSessionState?.selectedUiTarget;
-        const rawSelection = selection || uiSelection ? undefined : this.rawSourceState.selection;
-        if (!selection && !uiSelection && !rawSelection) {
+        const clipSelection = selection ? undefined : this.clipAnnotationSelection;
+        const uiSelection = selection || clipSelection ? undefined : this.reviewSessionState?.selectedUiTarget;
+        const rawSelection = selection || clipSelection || uiSelection ? undefined : this.rawSourceState.selection;
+        if (!selection && !clipSelection && !uiSelection && !rawSelection) {
             this.docSelectionChip.style.display = 'none';
+            this.clipSelectionChip.style.display = 'none';
             this.uiSelectionChip.style.display = 'none';
             this.rawSourceChip.style.display = 'none';
             this.timeLabel.style.display = '';
@@ -542,6 +618,7 @@ export class AkariReviewPanelWidget extends BaseWidget {
         this.timeLabel.style.display = 'none';
         if (selection) {
             this.docSelectionChip.style.display = 'inline-flex';
+            this.clipSelectionChip.style.display = 'none';
             this.uiSelectionChip.style.display = 'none';
             this.rawSourceChip.style.display = 'none';
             this.docSelectionLabel.textContent = `📄 ${this.reportBaseName(selection.path)} を選択中`;
@@ -549,8 +626,19 @@ export class AkariReviewPanelWidget extends BaseWidget {
             this.textInput.placeholder = 'このブロックについてコメント';
             return;
         }
+        if (clipSelection) {
+            this.docSelectionChip.style.display = 'none';
+            this.clipSelectionChip.style.display = 'inline-flex';
+            this.uiSelectionChip.style.display = 'none';
+            this.rawSourceChip.style.display = 'none';
+            this.clipSelectionLabel.textContent = `🎛️ ${clipSelection.label} を選択中`;
+            this.clipSelectionLabel.title = `ui:${clipSelection.target}`;
+            this.textInput.placeholder = 'このクリップについてコメント';
+            return;
+        }
         if (uiSelection) {
             this.docSelectionChip.style.display = 'none';
+            this.clipSelectionChip.style.display = 'none';
             this.uiSelectionChip.style.display = 'inline-flex';
             this.rawSourceChip.style.display = 'none';
             this.uiSelectionLabel.textContent = `🎛️ ${uiSelection.label} を選択中`;
@@ -559,6 +647,7 @@ export class AkariReviewPanelWidget extends BaseWidget {
             return;
         }
         this.docSelectionChip.style.display = 'none';
+        this.clipSelectionChip.style.display = 'none';
         this.uiSelectionChip.style.display = 'none';
         this.rawSourceChip.style.display = 'inline-flex';
         this.rawSourceLabel.textContent = `🎞 ${rawSelection!.src}`;
@@ -648,6 +737,11 @@ export class AkariReviewPanelWidget extends BaseWidget {
 
     protected clearRawSourceSelection(): void {
         this.rawSourceState = suppressRawSourceSelection(this.rawSourceState);
+        this.renderDocSelectionChip();
+    }
+
+    protected clearClipAnnotationSelection(): void {
+        this.clipAnnotationSelection = undefined;
         this.renderDocSelectionChip();
     }
 
@@ -840,6 +934,7 @@ export class AkariReviewPanelWidget extends BaseWidget {
     }
 
     protected renderList(): void {
+        this.requestMissingUiTargetLabels();
         // 一覧が再描画されるたびに劣化状態を再確認する（ファイルのリネーム・差し替えを
         // ライブセッション中に検知できるよう、レンダーパスをまたいでキャッシュしない）。
         this.docTargetHealthCache.clear();
@@ -858,6 +953,21 @@ export class AkariReviewPanelWidget extends BaseWidget {
         for (const annotation of filtered) {
             this.listContainer.appendChild(this.renderAnnotationRow(annotation));
         }
+    }
+
+    protected requestMissingUiTargetLabels(): void {
+        const targets = this.model.annotations.map(annotation => annotation.target);
+        if (!needsUiTargetLabels(targets, this.uiTargetLabels)) {
+            this.lastUiTargetLabelsRequest = '';
+            return;
+        }
+        const request = JSON.stringify(targets.filter(target => typeof target === 'string').sort());
+        if (request === this.lastUiTargetLabelsRequest) return;
+        this.lastUiTargetLabelsRequest = request;
+        const editUri = this.model.location?.editUri?.normalizePath().toString();
+        window.dispatchEvent(new CustomEvent(CLIP_ANNOTATION_LABELS_REQUEST_EVENT, {
+            detail: { ...(editUri ? { editUri } : {}) }
+        }));
     }
 
     protected renderAnnotationRow(annotation: Annotation): HTMLDivElement {
@@ -973,18 +1083,25 @@ export class AkariReviewPanelWidget extends BaseWidget {
         return row;
     }
 
-    /**
-     * ui: target 注釈のラベル（task.md 指示2: 「一覧に label が出れば十分。深い統合は不要」）。
-     * doc:/image:/canvas: と違い review.json には UI 側の label 文字列を保存しない（§2 の id
-     * だけを保存する）ため、素の id をそのまま表示する。クリック導線（該当 UI へのジャンプ等）は
-     * スコープ外。
-     */
-    protected renderUiTargetLabel(uiTarget: { id: string }): HTMLSpanElement {
-        const label = document.createElement('span');
+    /** ui:timeline:* はタイムラインが公開した表示名を使い、該当クリップへのクリック導線を持つ。 */
+    protected renderUiTargetLabel(uiTarget: { id: string }): HTMLElement {
+        const row = buildUiTargetRow(uiTarget.id, this.uiTargetLabels);
+        const label = document.createElement(row.revealable ? 'button' : 'span');
+        if (label instanceof HTMLButtonElement) label.type = 'button';
         label.setAttribute('data-review-ui-target', uiTarget.id);
-        label.textContent = `🎛️ ${uiTarget.id}`;
-        label.title = `ui:${uiTarget.id}`;
-        Object.assign(label.style, { fontSize: '11px', color: 'var(--theia-descriptionForeground)' });
+        label.textContent = `🎛️ ${row.label}`;
+        label.title = row.revealable ? `${row.title} — クリックで該当クリップを選択` : row.title;
+        Object.assign(label.style, {
+            fontSize: '11px',
+            color: row.revealable ? 'var(--theia-textLink-foreground)' : 'var(--theia-descriptionForeground)',
+            ...(row.revealable ? { background: 'none', border: 'none', padding: '0', cursor: 'pointer', font: 'inherit' } : {})
+        });
+        if (row.revealable) label.addEventListener('click', () => {
+            const editUri = this.model.location?.editUri?.normalizePath().toString();
+            if (editUri) window.dispatchEvent(new CustomEvent(CLIP_ANNOTATION_REVEAL_EVENT, {
+                detail: { editUri, target: uiTarget.id }
+            }));
+        });
         return label;
     }
 
@@ -1301,24 +1418,29 @@ export class AkariReviewPanelWidget extends BaseWidget {
             return;
         }
         const docSelection = this.model.docSelection;
-        const uiSelection = docSelection ? undefined : this.reviewSessionState?.selectedUiTarget;
+        const clipSelection = docSelection ? undefined : this.clipAnnotationSelection;
+        const uiSelection = docSelection || clipSelection ? undefined : this.reviewSessionState?.selectedUiTarget;
         this.addButton.disabled = true;
         try {
             // 解決中の古い selection を捕まえず、クリック時点の最新 activation の確定を待つ。
-            const rawSelection = docSelection || uiSelection
+            const rawSelection = docSelection || clipSelection || uiSelection
                 ? undefined
                 : await this.currentRawSourceSelection();
             const result = docSelection
                 ? await this.model.addDocAnnotation(text, docSelection)
-                : uiSelection
-                    ? await this.model.addUiAnnotation(text, this.model.selectedSourceT, uiSelection.target)
-                    : rawSelection
-                        ? await this.model.addAnnotation(text, rawSelection.sourceT, rawSelection.src)
-                        : await this.model.addAnnotation(text, this.model.selectedSourceT);
+                : clipSelection
+                    ? await this.model.addUiAnnotation(text, clipSelection.sourceT, clipSelection.target)
+                    : uiSelection
+                        ? await this.model.addUiAnnotation(text, this.model.selectedSourceT, uiSelection.target)
+                        : rawSelection
+                            ? await this.model.addAnnotation(text, rawSelection.sourceT, rawSelection.src)
+                            : await this.model.addAnnotation(text, this.model.selectedSourceT);
             this.textInput.value = '';
             // 送信後は選択を解除する（同じブロックへ連続で誤って追加しないため）。
             if (docSelection) {
                 this.model.docSelection = undefined;
+            } else if (clipSelection) {
+                this.clearClipAnnotationSelection();
             } else if (uiSelection) {
                 this.clearUiSelection();
             }

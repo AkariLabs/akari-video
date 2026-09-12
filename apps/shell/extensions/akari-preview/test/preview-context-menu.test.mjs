@@ -74,12 +74,19 @@ test('context menu payload normalizes and clamps preview-stage coordinates', () 
     });
 });
 
-test('compiled host receives the context menu hook as a log-only branch', () => {
+test('compiled host turns the context menu hook into the registered annotation menu', () => {
     const branchStart = compiled.indexOf("if (message?.type === 'akari-preview-context-menu')");
-    const branchEnd = compiled.indexOf('\n            }', branchStart);
+    const branchEnd = compiled.indexOf("if (message?.type === 'akari-preview-gesture'", branchStart);
     assert.ok(branchStart >= 0 && branchEnd > branchStart);
-    const branch = compiled.slice(branchStart, branchEnd + '\n            }'.length);
+    const branch = compiled.slice(branchStart, branchEnd);
     assert.ok(branch.includes("console.debug('[akari-preview] context menu', message);"));
-    assert.equal(branch.split('\n').filter(line => line.trim() && line.trim() !== '}'
-        && !line.includes("if (message?.type === 'akari-preview-context-menu')")).length, 1);
+    assert.ok(branch.includes("kind === 'output'"));
+    assert.ok(branch.includes('this.primaryTimelineSelections.get(editUri)'));
+    assert.ok(branch.includes('this.contextMenuRenderer.render({'));
+    assert.ok(branch.includes('menuPath: webview_1.WEBVIEW_CONTEXT_MENU'));
+    assert.ok(branch.includes('x: rect.x + rect.width * message.x'));
+    assert.ok(branch.includes('y: rect.y + rect.height * message.y'));
+    assert.ok(compiled.includes("id: 'akari.preview.annotateAtPoint'"));
+    assert.ok(compiled.includes("label: 'この位置に注釈'"));
+    assert.ok(compiled.includes("'akari.review.clipAnnotation.request'"));
 });

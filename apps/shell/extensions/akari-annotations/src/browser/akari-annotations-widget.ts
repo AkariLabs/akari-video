@@ -217,7 +217,17 @@ import { computeCutBoundaries } from '../common/cut-boundaries';
 import { resolveItemRowLayout } from '../common/item-row-layout';
 import { splitLintBlame } from '../common/lint-blame-scope';
 import { formatLintFailureForUi, japaneseLintWarningSummary, UiLintFinding } from '../common/lint-message-ja';
-import { buildTimelineClipMenuItems } from '../common/timeline-context-menu-items';
+import {
+    buildTimelineClipMenuItems,
+    CLIP_ANNOTATION_LABELS_EVENT,
+    CLIP_ANNOTATION_LABELS_REQUEST_EVENT,
+    CLIP_ANNOTATION_OPEN_EVENT,
+    CLIP_ANNOTATION_REQUEST_EVENT,
+    CLIP_ANNOTATION_REVEAL_EVENT,
+    resolveTimelineAnnotationTarget,
+    TimelineAnnotationTargetKind
+} from '../common/timeline-context-menu-items';
+import { parseTimelineUiTarget } from '../common/doc-target';
 import { formatTransitionSeconds, roundTransitionDurationForWrite } from '../common/transition-duration';
 import { resolveTimelineExtentSeconds } from '../common/timeline-extent';
 import {
@@ -851,6 +861,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected reviewSessionState: TimelineReviewSessionUiState | undefined;
     protected recordingRangesVisible = this.readReviewSessionRangesVisible();
     protected lastReviewSessionContext = '';
+    protected lastClipAnnotationLabelsSignature = '';
     protected reviewSessionBandsCache: Array<{ id: string; ranges: ReviewSessionRange[] }> = [];
     protected cachedRulerRowHeightPx = RULER_BAND_HEIGHT_PX;
     protected reviewSessionRefreshTimer: number | undefined;
@@ -1161,6 +1172,68 @@ export class AkariAnnotationsWidget extends BaseWidget {
         window.addEventListener(REVIEW_SESSION_STATE_EVENT, onReviewSessionState);
         this.toDispose.push(Disposable.create(() => {
             window.removeEventListener(REVIEW_SESSION_STATE_EVENT, onReviewSessionState);
+        }));
+        const onClipAnnotationRequest = (event: Event): void => {
+            const detail = (event as CustomEvent<{
+                editUri?: string; timelineT?: number; itemId?: string; kind?: TimelineAnnotationTargetKind;
+            }>).detail;
+            const editUri = this.location?.editUri.normalizePath().toString();
+            if (!detail || !editUri || this.normalizeUri(detail.editUri ?? '') !== this.normalizeUri(editUri)
+                || typeof detail.timelineT !== 'number' || !Number.isFinite(detail.timelineT)) return;
+            const sourceT = this.outputToSource(detail.timelineT);
+            const itemId = typeof detail.itemId === 'string' && detail.itemId.trim() ? detail.itemId : undefined;
+            const resolved = itemId ? resolveTimelineAnnotationTarget({
+                kind: detail.kind ?? 'item', itemId,
+                label: this.timelineTreeRows.find(row => row.id === itemId)?.label
+            }) : undefined;
+            this.publishClipAnnotationLabels(true);
+            window.dispatchEvent(new CustomEvent(CLIP_ANNOTATION_OPEN_EVENT, {
+                detail: {
+                    editUri,
+                    ...(this.location?.root ? { projectRootUri: this.location.root.normalizePath().toString() } : {}),
+                    sourceT,
+                    ...(resolved ? { target: resolved.target, label: resolved.label } : {})
+                }
+            }));
+        };
+        const onClipAnnotationReveal = (event: Event): void => {
+            const detail = (event as CustomEvent<{ editUri?: string; target?: string }>).detail;
+            const editUri = this.location?.editUri.normalizePath().toString();
+            if (!detail?.target || !editUri
+                || this.normalizeUri(detail.editUri ?? '') !== this.normalizeUri(editUri)) return;
+            const target = parseTimelineUiTarget(detail.target);
+            if (!target) return;
+            let start: number | undefined;
+            if (target.kind === 'cut' && target.index !== undefined && this.cuts[target.index]) {
+                this.applySelection({ kind: 'cut', index: target.index });
+                start = this.segments.find(segment => segment.index === target.index)?.tlStart;
+            } else if ((target.kind === 'item' || target.kind === 'overlay') && target.id) {
+                const row = this.timelineTreeRows.find(candidate => candidate.id === target.id);
+                if (!row) return;
+                this.applySelection({
+                    kind: 'item', id: row.id, itemKind: row.itemKind,
+                    ...(row.parentId === undefined ? {} : { parentId: row.parentId }), trackId: row.trackId
+                });
+                start = row.at;
+            }
+            if (start === undefined) return;
+            this.setViewStart(start - Math.min(1, this.visibleDuration() * 0.1));
+            this.renderStrip();
+        };
+        const onClipAnnotationLabelsRequest = (event: Event): void => {
+            const detail = (event as CustomEvent<{ editUri?: string }>).detail;
+            const editUri = this.location?.editUri.normalizePath().toString();
+            if (detail?.editUri && editUri
+                && this.normalizeUri(detail.editUri) !== this.normalizeUri(editUri)) return;
+            this.publishClipAnnotationLabels(true);
+        };
+        window.addEventListener(CLIP_ANNOTATION_REQUEST_EVENT, onClipAnnotationRequest);
+        window.addEventListener(CLIP_ANNOTATION_REVEAL_EVENT, onClipAnnotationReveal);
+        window.addEventListener(CLIP_ANNOTATION_LABELS_REQUEST_EVENT, onClipAnnotationLabelsRequest);
+        this.toDispose.push(Disposable.create(() => {
+            window.removeEventListener(CLIP_ANNOTATION_REQUEST_EVENT, onClipAnnotationRequest);
+            window.removeEventListener(CLIP_ANNOTATION_REVEAL_EVENT, onClipAnnotationReveal);
+            window.removeEventListener(CLIP_ANNOTATION_LABELS_REQUEST_EVENT, onClipAnnotationLabelsRequest);
         }));
         this.id = AkariAnnotationsWidget.FACTORY_ID;
         this.title.label = 'タイムライン';
@@ -6999,6 +7072,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             : this.timelineTreeRows;
         this.treeRowsByTrack = rowsByTrack(headerRows);
         this.detachedCaptionChipRows = detachedCaptionChipRows(this.timelineTreeRows, headerRows);
+        this.publishClipAnnotationLabels();
         this.keyframeRowsByItem.clear();
         if (this.focusScope.rootId !== null) {
             for (const row of headerRows) {
@@ -14853,6 +14927,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected dispatchTimelineClipMenuAction(
         id: string, item: TimelineSelectionItem, clientX: number, hasAudio?: boolean, altKey = false
     ): void {
+        if (id === 'annotate') {
+            void this.requestClipAnnotation(item, clientX);
+            return;
+        }
         if (id === 'split-audio' && item.kind === 'cut') {
             const cutId = this.cutItemId(item.index);
             if (this.rejectLockedCutAudio(cutId)) return;
@@ -14986,6 +15064,57 @@ export class AkariAnnotationsWidget extends BaseWidget {
             if (this.multiSelection.length > 1) void this.performDeleteMultiSelected(altKey);
             else void this.performDeleteSelected(altKey);
         }
+    }
+
+    protected async requestClipAnnotation(item: TimelineSelectionItem, clientX: number): Promise<void> {
+        const location = this.location;
+        if (!location) return;
+        const sourceT = this.outputToSource(this.timeAtClientX(clientX));
+        const itemId = item.kind === 'cut' ? this.cutItemIds[item.index] : item.id;
+        const resolved = resolveTimelineAnnotationTarget({
+            kind: item.kind,
+            itemId,
+            cutIndex: item.kind === 'cut' ? item.index : undefined,
+            label: this.timelineTreeRows.find(row => row.id === itemId)?.label
+        });
+        if (!resolved) {
+            this.showNotice('このクリップの注釈対象を特定できません。');
+            return;
+        }
+        await this.commands.executeCommand(OPEN_AKARI_REVIEW_PANEL_ID);
+        const editUri = location.editUri.normalizePath().toString();
+        this.publishClipAnnotationLabels(true);
+        window.dispatchEvent(new CustomEvent(CLIP_ANNOTATION_OPEN_EVENT, {
+            detail: {
+                editUri,
+                projectRootUri: location.root.normalizePath().toString(),
+                target: resolved.target,
+                label: resolved.label,
+                sourceT
+            }
+        }));
+    }
+
+    protected publishClipAnnotationLabels(force = false): void {
+        const location = this.location;
+        if (!location) return;
+        const labels: Record<string, string> = {};
+        for (const row of this.timelineTreeRows) {
+            labels[`timeline:item:${row.id}`] = row.label;
+        }
+        for (let index = 0; index < this.cutItemIds.length; index += 1) {
+            labels[`timeline:cut:${index}`] = `C${index + 1}`;
+        }
+        for (const overlay of this.overlays) {
+            const row = this.timelineTreeRows.find(candidate => candidate.id === overlay.id);
+            if (row) labels[`timeline:overlay:${overlay.id}`] = row.label;
+        }
+        const signature = JSON.stringify(labels);
+        if (!force && signature === this.lastClipAnnotationLabelsSignature) return;
+        this.lastClipAnnotationLabelsSignature = signature;
+        window.dispatchEvent(new CustomEvent(CLIP_ANNOTATION_LABELS_EVENT, {
+            detail: { editUri: location.editUri.normalizePath().toString(), labels }
+        }));
     }
 
     /** タイムライン上の右クリックから直接追加する経路。一覧・入力欄は注釈パネルが持つ。 */

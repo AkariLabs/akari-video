@@ -7,13 +7,14 @@ import { AkariAudioMeterWidget } from './akari-audio-meter-widget';
 import { FileUri } from '@theia/core/lib/common/file-uri';
 import { selectPreviewAudioItemsAt } from '../common/preview-audio-priority';
 import { previewAudioTrimOf } from '../common/preview-audio-trim';
-import { Command, CommandRegistry, MessageService } from '@theia/core/lib/common';
+import { Command, CommandRegistry, MenuModelRegistry, MessageService } from '@theia/core/lib/common';
 import { BinaryBuffer } from '@theia/core/lib/common/buffer';
 import { Disposable, DisposableCollection } from '@theia/core/lib/common/disposable';
 import { EnvVariablesServer } from '@theia/core/lib/common/env-variables';
 import { PreferenceService } from '@theia/core/lib/common/preferences';
 import {
     ApplicationShell,
+    ContextMenuRenderer,
     FrontendApplicationContribution,
     OpenHandler,
     OpenerService,
@@ -23,7 +24,7 @@ import {
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
 import { FileChangesEvent, FileStat } from '@theia/filesystem/lib/common/files';
 import { WorkspaceService } from '@theia/workspace/lib/browser/workspace-service';
-import { WebviewWidget } from '@theia/plugin-ext/lib/main/browser/webview/webview';
+import { WEBVIEW_CONTEXT_MENU, WebviewWidget } from '@theia/plugin-ext/lib/main/browser/webview/webview';
 import { inject, injectable } from '@theia/core/shared/inversify';
 import {
     buildTimelineMap,
@@ -926,6 +927,11 @@ const ENSURE_PREVIEW_VISIBLE_COMMAND: Command = { id: 'akari.preview.ensureVisib
 const SEEK_OUTPUT_PREVIEW_COMMAND: Command = { id: 'akari.preview.seekOutput' };
 const TOGGLE_OUTPUT_PREVIEW_PLAYBACK_COMMAND: Command = { id: 'akari.preview.togglePlayback' };
 const COMPACT_TRACKS_COMMAND: Command = { id: 'akari.preview.compactTracks' };
+const ANNOTATE_PREVIEW_AT_POINT_COMMAND: Command = { id: 'akari.preview.annotateAtPoint' };
+// akari-annotations の OPEN_AKARI_REVIEW_PANEL_ID とミラー（逆向き npm 依存を作らない）。
+const OPEN_AKARI_REVIEW_PANEL_COMMAND_ID = 'akari.review.open';
+// akari-annotations の CLIP_ANNOTATION_REQUEST_EVENT とミラー（逆向き npm 依存を作らない）。
+const CLIP_ANNOTATION_REQUEST_EVENT = 'akari.review.clipAnnotation.request';
 const COMPACT_TRACKS_ACTION = '整理する';
 const KEEP_TRACKS_ACTION = '今はしない';
 // task/2026-08-09-drop-hevc-proxy: withOpenTimeout はモデル読み込み・createVideoStream・
@@ -1143,6 +1149,9 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
     protected retryWidgetSequence = 0;
     protected activeRawPreviewWidget: PreviewWidgetMarker | undefined;
     protected rawPreviewActivation = 0;
+    protected lastClipAnnotationContext: {
+        editUri: string; timelineT: number; itemId?: string; kind?: 'cut';
+    } | undefined;
 
     @inject(WidgetManager)
     protected readonly widgetManager: WidgetManager;
@@ -1165,6 +1174,12 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
     @inject(CommandRegistry)
     protected readonly commandRegistry: CommandRegistry;
 
+    @inject(MenuModelRegistry)
+    protected readonly menuModelRegistry: MenuModelRegistry;
+
+    @inject(ContextMenuRenderer)
+    protected readonly contextMenuRenderer: ContextMenuRenderer;
+
     @inject(MessageService)
     protected readonly messages: MessageService;
 
@@ -1178,6 +1193,18 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
     protected readonly envVariables: EnvVariablesServer;
 
     onStart(): void {
+        this.lifecycleDisposables.push(this.commandRegistry.registerCommand(ANNOTATE_PREVIEW_AT_POINT_COMMAND, {
+            execute: async () => {
+                const detail = this.lastClipAnnotationContext;
+                if (!detail) return;
+                await this.commandRegistry.executeCommand(OPEN_AKARI_REVIEW_PANEL_COMMAND_ID);
+                window.dispatchEvent(new CustomEvent(CLIP_ANNOTATION_REQUEST_EVENT, { detail }));
+            }
+        }));
+        this.lifecycleDisposables.push(this.menuModelRegistry.registerMenuAction(WEBVIEW_CONTEXT_MENU, {
+            commandId: ANNOTATE_PREVIEW_AT_POINT_COMMAND.id,
+            label: 'この位置に注釈'
+        }));
         this.reviewSessionRecordingIndicator = new ReviewSessionRecordingIndicator();
         this.reviewSessionRecorder = new ReviewSessionRecorder(
             this.previewService,
@@ -2452,6 +2479,27 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         disposables.push(widget.onMessage(message => {
             if (message?.type === 'akari-preview-context-menu') {
                 console.debug('[akari-preview] context menu', message);
+                const editUri = widget.akariPreviewEditUri?.normalizePath().toString();
+                if (kind === 'output' && editUri && typeof message.timelineT === 'number'
+                    && Number.isFinite(message.timelineT)
+                    && typeof message.x === 'number' && Number.isFinite(message.x)
+                    && typeof message.y === 'number' && Number.isFinite(message.y)) {
+                    const selection = this.primaryTimelineSelections.get(editUri);
+                    this.lastClipAnnotationContext = {
+                        editUri,
+                        timelineT: message.timelineT,
+                        ...(selection?.kind === 'cut' ? { itemId: selection.id, kind: 'cut' as const } : {})
+                    };
+                    const rect = widget.node.getBoundingClientRect();
+                    this.contextMenuRenderer.render({
+                        menuPath: WEBVIEW_CONTEXT_MENU,
+                        anchor: {
+                            x: rect.x + rect.width * message.x,
+                            y: rect.y + rect.height * message.y
+                        },
+                        context: widget.node
+                    });
+                }
             }
             if (message?.type === 'akari-preview-gesture'
                 && (message.phase === 'begin' || message.phase === 'saved' || message.phase === 'end')) {

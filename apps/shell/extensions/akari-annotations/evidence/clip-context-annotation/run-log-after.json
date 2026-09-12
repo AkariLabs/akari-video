@@ -1,0 +1,632 @@
+{
+  "status": "PASS",
+  "label": "after",
+  "summary": {
+    "label": "after",
+    "menuItems": [
+      {
+        "id": "copy",
+        "label": "コピー"
+      },
+      {
+        "id": "cut",
+        "label": "切り取り"
+      },
+      {
+        "id": "paste",
+        "label": "貼り付け"
+      },
+      {
+        "id": "duplicate",
+        "label": "複製"
+      },
+      {
+        "id": "split",
+        "label": "分割"
+      },
+      {
+        "id": "split-audio",
+        "label": "音声を分離"
+      },
+      {
+        "id": "annotate",
+        "label": "注釈…"
+      },
+      {
+        "id": "delete",
+        "label": "削除"
+      }
+    ],
+    "composerAfterTimelineMenu": {
+      "panel": true,
+      "clipChipDisplay": "inline-flex",
+      "clipChipText": "🎛️ cut-charlie を選択中",
+      "clipChipTitle": "ui:timeline:item:cut-charlie",
+      "uiChipDisplay": "none",
+      "placeholder": "このクリップについてコメント",
+      "focused": true
+    },
+    "composerAfterPreviewMenu": {
+      "panel": true,
+      "clipChipDisplay": "inline-flex",
+      "clipChipText": "🎛️ cut-bravo を選択中",
+      "clipChipTitle": "ui:timeline:item:cut-bravo",
+      "uiChipDisplay": "none",
+      "placeholder": "このクリップについてコメント",
+      "focused": true
+    },
+    "panelUiTargets": [
+      {
+        "tag": "BUTTON",
+        "target": "timeline:item:cut-charlie",
+        "text": "🎛️ cut-charlie",
+        "title": "ui:timeline:item:cut-charlie — クリックで該当クリップを選択"
+      }
+    ],
+    "boardUiTargets": [
+      {
+        "tag": "BUTTON",
+        "target": "timeline:item:cut-bravo",
+        "text": "🎛️ cut-bravo",
+        "title": "ui:timeline:item:cut-bravo — クリックで該当クリップを選択"
+      },
+      {
+        "tag": "BUTTON",
+        "target": "timeline:item:cut-charlie",
+        "text": "🎛️ cut-charlie",
+        "title": "ui:timeline:item:cut-charlie — クリックで該当クリップを選択"
+      }
+    ],
+    "selectionBeforeReveal": [
+      {
+        "kind": "cut",
+        "id": "0",
+        "ui": "timeline:cut:0"
+      }
+    ],
+    "selectionAfterReveal": [
+      {
+        "kind": "cut",
+        "id": "2",
+        "ui": "timeline:cut:2"
+      }
+    ],
+    "emptyBandPopup": {
+      "count": 1,
+      "placeholder": "00:00:04.000 に注釈",
+      "contextMenus": 0
+    },
+    "previewContextMenuRender": [
+      {
+        "menuPath": "webview-context-menu",
+        "groups": 1,
+        "labels": [
+          "この位置に注釈"
+        ],
+        "commands": [
+          "akari.preview.annotateAtPoint"
+        ],
+        "anchor": {
+          "x": 424,
+          "y": 219
+        }
+      }
+    ],
+    "validateReviewExit": 0,
+    "reviewVersion": 0,
+    "reviewAnnotations": [
+      {
+        "id": "a-0001",
+        "target": "ui:timeline:item:cut-charlie",
+        "input": "typed",
+        "status": "open",
+        "sourceT": 1.9577998991935477,
+        "text": "C3 の色が浮いている"
+      },
+      {
+        "id": "a-0002",
+        "target": "ui:timeline:item:cut-bravo",
+        "input": "typed",
+        "status": "open",
+        "sourceT": 0,
+        "text": "プレビューのこの位置、明るすぎる"
+      }
+    ],
+    "shots": [
+      "after-01-clip-context-menu.png",
+      "after-02-composer-clip-context.png",
+      "after-03-reveal-selects-clip.png",
+      "after-04-composer-from-preview.png",
+      "after-05-board-ui-target.png"
+    ],
+    "failures": []
+  },
+  "records": [
+    {
+      "step": "launched",
+      "pid": 33072,
+      "label": "after"
+    },
+    {
+      "step": "timeline-ready",
+      "clips": [
+        {
+          "id": "0",
+          "ui": "timeline:cut:0",
+          "label": "C1"
+        },
+        {
+          "id": "1",
+          "ui": "timeline:cut:1",
+          "label": "C2"
+        },
+        {
+          "id": "2",
+          "ui": "timeline:cut:2",
+          "label": "C3"
+        }
+      ]
+    },
+    {
+      "step": "ok",
+      "message": "C3 のクリップ矩形を取得できた",
+      "clipBox": {
+        "x": 514,
+        "y": 519.515625,
+        "width": 74.5390625,
+        "height": 48
+      }
+    },
+    {
+      "step": "ok",
+      "message": "クリップ右クリックに「注釈…」がある",
+      "menuItems": [
+        {
+          "id": "copy",
+          "label": "コピー"
+        },
+        {
+          "id": "cut",
+          "label": "切り取り"
+        },
+        {
+          "id": "paste",
+          "label": "貼り付け"
+        },
+        {
+          "id": "duplicate",
+          "label": "複製"
+        },
+        {
+          "id": "split",
+          "label": "分割"
+        },
+        {
+          "id": "split-audio",
+          "label": "音声を分離"
+        },
+        {
+          "id": "annotate",
+          "label": "注釈…"
+        },
+        {
+          "id": "delete",
+          "label": "削除"
+        }
+      ]
+    },
+    {
+      "step": "ok",
+      "message": "項目ラベルが「注釈…」",
+      "label": "注釈…"
+    },
+    {
+      "step": "ok",
+      "message": "「注釈…」は「削除」の直前にある",
+      "annotateIndex": 6,
+      "deleteIndex": 7
+    },
+    {
+      "step": "composer-after-timeline-menu",
+      "panel": true,
+      "clipChipDisplay": "inline-flex",
+      "clipChipText": "🎛️ cut-charlie を選択中",
+      "clipChipTitle": "ui:timeline:item:cut-charlie",
+      "uiChipDisplay": "none",
+      "placeholder": "このクリップについてコメント",
+      "focused": true
+    },
+    {
+      "step": "ok",
+      "message": "composer にクリップ文脈チップが出る"
+    },
+    {
+      "step": "ok",
+      "message": "チップは 🎛️ + クリップ名",
+      "text": "🎛️ cut-charlie を選択中"
+    },
+    {
+      "step": "ok",
+      "message": "チップの target は v2 語彙 ui:timeline:item:cut-charlie",
+      "title": "ui:timeline:item:cut-charlie"
+    },
+    {
+      "step": "ok",
+      "message": "placeholder がクリップ文脈に変わる",
+      "placeholder": "このクリップについてコメント"
+    },
+    {
+      "step": "ok",
+      "message": "録音中 select 用チップは出ない（録音していない）"
+    },
+    {
+      "step": "ok",
+      "message": "review.json に ui:timeline:item:cut-charlie が着地した",
+      "annotations": [
+        {
+          "id": "a-0001",
+          "target": "ui:timeline:item:cut-charlie",
+          "input": "typed",
+          "status": "open",
+          "sourceT": 1.9577998991935477,
+          "text": "C3 の色が浮いている"
+        }
+      ]
+    },
+    {
+      "step": "ok",
+      "message": "本文がそのまま着地した"
+    },
+    {
+      "step": "ok",
+      "message": "review.json の version は v1 契約の 0 のまま（additive）",
+      "version": 0
+    },
+    {
+      "step": "ok",
+      "message": "注釈レコードに v1 契約外のキーを増やしていない",
+      "keys": [
+        "id",
+        "createdAt",
+        "src",
+        "sourceT",
+        "sourceRange",
+        "timelineT",
+        "target",
+        "targetKind",
+        "region",
+        "strokes",
+        "refs",
+        "insertPosition",
+        "intent",
+        "text",
+        "input",
+        "audio",
+        "transcript",
+        "session",
+        "poses",
+        "status",
+        "response"
+      ]
+    },
+    {
+      "step": "ok",
+      "message": "送信後にクリップ選択は解除される"
+    },
+    {
+      "step": "panel-ui-targets",
+      "panelTargets": [
+        {
+          "tag": "BUTTON",
+          "target": "timeline:item:cut-charlie",
+          "text": "🎛️ cut-charlie",
+          "title": "ui:timeline:item:cut-charlie — クリックで該当クリップを選択"
+        }
+      ]
+    },
+    {
+      "step": "ok",
+      "message": "パネルの行が 🎛️ クリップ名 + クリック導線（button）になる",
+      "panelTargets": [
+        {
+          "tag": "BUTTON",
+          "target": "timeline:item:cut-charlie",
+          "text": "🎛️ cut-charlie",
+          "title": "ui:timeline:item:cut-charlie — クリックで該当クリップを選択"
+        }
+      ]
+    },
+    {
+      "step": "reveal",
+      "selectionBeforeReveal": [
+        {
+          "kind": "cut",
+          "id": "0",
+          "ui": "timeline:cut:0"
+        }
+      ],
+      "selectionAfterReveal": [
+        {
+          "kind": "cut",
+          "id": "2",
+          "ui": "timeline:cut:2"
+        }
+      ]
+    },
+    {
+      "step": "ok",
+      "message": "reveal 前は C1 が選択されている",
+      "selectionBeforeReveal": [
+        {
+          "kind": "cut",
+          "id": "0",
+          "ui": "timeline:cut:0"
+        }
+      ]
+    },
+    {
+      "step": "ok",
+      "message": "パネルの 🎛️ クリックで C3 が選択される",
+      "selectionAfterReveal": [
+        {
+          "kind": "cut",
+          "id": "2",
+          "ui": "timeline:cut:2"
+        }
+      ]
+    },
+    {
+      "step": "empty-band-point",
+      "stripBox": {
+        "x": 221.9140625,
+        "y": 441.515625,
+        "width": 404,
+        "height": 200.4765625
+      },
+      "lastClip": {
+        "x": 514,
+        "y": 519.515625,
+        "width": 74.5390625,
+        "height": 48
+      },
+      "emptyPoint": {
+        "x": 601.9140625,
+        "y": 543.515625
+      }
+    },
+    {
+      "step": "empty-band-context-menu",
+      "count": 1,
+      "placeholder": "00:00:04.000 に注釈",
+      "contextMenus": 0
+    },
+    {
+      "step": "ok",
+      "message": "空き帯の右クリックは従来の時刻ポップアップのまま",
+      "count": 1,
+      "placeholder": "00:00:04.000 に注釈",
+      "contextMenus": 0
+    },
+    {
+      "step": "ok",
+      "message": "時刻のみ（クリップ文脈なし）のプレースホルダ",
+      "placeholder": "00:00:04.000 に注釈"
+    },
+    {
+      "step": "ok",
+      "message": "空き帯ではクリップ用メニューを出さない",
+      "count": 1,
+      "placeholder": "00:00:04.000 に注釈",
+      "contextMenus": 0
+    },
+    {
+      "step": "renderer-probe-installed",
+      "ok": true,
+      "renderer": "ElectronContextMenuRenderer"
+    },
+    {
+      "step": "preview-attached"
+    },
+    {
+      "step": "preview-primary-selection",
+      "c2Box": {
+        "x": 439.453125,
+        "y": 519.515625,
+        "width": 74.5390625,
+        "height": 48
+      },
+      "selected": [
+        {
+          "kind": "cut",
+          "id": "1",
+          "ui": "timeline:cut:1"
+        }
+      ]
+    },
+    {
+      "step": "preview-right-click-point",
+      "inner": {
+        "x": 36,
+        "y": 57.125,
+        "width": 332,
+        "height": 186.75
+      },
+      "outer": {
+        "x": 221.9140625,
+        "y": 39,
+        "width": 404,
+        "height": 359
+      },
+      "point": {
+        "x": 424,
+        "y": 190
+      }
+    },
+    {
+      "step": "preview-context-menu-render",
+      "rendererProbe": [
+        {
+          "menuPath": "webview-context-menu",
+          "groups": 1,
+          "labels": [
+            "この位置に注釈"
+          ],
+          "commands": [
+            "akari.preview.annotateAtPoint"
+          ],
+          "anchor": {
+            "x": 424,
+            "y": 219
+          }
+        }
+      ]
+    },
+    {
+      "step": "ok",
+      "message": "プレビュー右クリックで webview-context-menu が要求される",
+      "rendererProbe": [
+        {
+          "menuPath": "webview-context-menu",
+          "groups": 1,
+          "labels": [
+            "この位置に注釈"
+          ],
+          "commands": [
+            "akari.preview.annotateAtPoint"
+          ],
+          "anchor": {
+            "x": 424,
+            "y": 219
+          }
+        }
+      ]
+    },
+    {
+      "step": "ok",
+      "message": "webview-context-menu に「この位置に注釈」が登録されている（項目 0 = 空メニューの再発なし）",
+      "labels": [
+        "この位置に注釈"
+      ]
+    },
+    {
+      "step": "ok",
+      "message": "メニュー項目は akari.preview.annotateAtPoint を指す",
+      "commands": [
+        "akari.preview.annotateAtPoint"
+      ]
+    },
+    {
+      "step": "composer-after-preview-menu",
+      "panel": true,
+      "clipChipDisplay": "inline-flex",
+      "clipChipText": "🎛️ cut-bravo を選択中",
+      "clipChipTitle": "ui:timeline:item:cut-bravo",
+      "uiChipDisplay": "none",
+      "placeholder": "このクリップについてコメント",
+      "focused": true
+    },
+    {
+      "step": "ok",
+      "message": "プレビュー由来の注釈は選択中クリップ（C2）を対象にする",
+      "title": "ui:timeline:item:cut-bravo"
+    },
+    {
+      "step": "ok",
+      "message": "review.json に ui:timeline:item:cut-bravo が着地した",
+      "annotations": [
+        {
+          "id": "a-0001",
+          "target": "ui:timeline:item:cut-charlie",
+          "input": "typed",
+          "status": "open",
+          "text": "C3 の色が浮いている"
+        },
+        {
+          "id": "a-0002",
+          "target": "ui:timeline:item:cut-bravo",
+          "input": "typed",
+          "status": "open",
+          "text": "プレビューのこの位置、明るすぎる"
+        }
+      ]
+    },
+    {
+      "step": "ok",
+      "message": "review.json の注釈は 2 件（タイムライン由来 + プレビュー由来）",
+      "count": 2
+    },
+    {
+      "step": "ok",
+      "message": "両方とも typed 入力として記録される"
+    },
+    {
+      "step": "board-ui-targets",
+      "boardTargets": [
+        {
+          "tag": "BUTTON",
+          "target": "timeline:item:cut-bravo",
+          "text": "🎛️ cut-bravo",
+          "title": "ui:timeline:item:cut-bravo — クリックで該当クリップを選択"
+        },
+        {
+          "tag": "BUTTON",
+          "target": "timeline:item:cut-charlie",
+          "text": "🎛️ cut-charlie",
+          "title": "ui:timeline:item:cut-charlie — クリックで該当クリップを選択"
+        }
+      ]
+    },
+    {
+      "step": "ok",
+      "message": "ボードのカードが 🎛️ クリップ名 + クリック導線になる（生 id ではない）",
+      "boardTargets": [
+        {
+          "tag": "BUTTON",
+          "target": "timeline:item:cut-bravo",
+          "text": "🎛️ cut-bravo",
+          "title": "ui:timeline:item:cut-bravo — クリックで該当クリップを選択"
+        },
+        {
+          "tag": "BUTTON",
+          "target": "timeline:item:cut-charlie",
+          "text": "🎛️ cut-charlie",
+          "title": "ui:timeline:item:cut-charlie — クリックで該当クリップを選択"
+        }
+      ]
+    },
+    {
+      "step": "ok",
+      "message": "プレビュー由来のカードも 🎛️ クリップ名で読める",
+      "boardTargets": [
+        {
+          "tag": "BUTTON",
+          "target": "timeline:item:cut-bravo",
+          "text": "🎛️ cut-bravo",
+          "title": "ui:timeline:item:cut-bravo — クリックで該当クリップを選択"
+        },
+        {
+          "tag": "BUTTON",
+          "target": "timeline:item:cut-charlie",
+          "text": "🎛️ cut-charlie",
+          "title": "ui:timeline:item:cut-charlie — クリックで該当クリップを選択"
+        }
+      ]
+    },
+    {
+      "step": "validate-review",
+      "exit": 0,
+      "stdout": "OK: <TMP>/project/review.json",
+      "stderr": ""
+    },
+    {
+      "step": "ok",
+      "message": "packages/schemas の validate-review が exit 0",
+      "exit": 0
+    },
+    {
+      "step": "verdict",
+      "status": "PASS",
+      "failures": []
+    }
+  ]
+}
