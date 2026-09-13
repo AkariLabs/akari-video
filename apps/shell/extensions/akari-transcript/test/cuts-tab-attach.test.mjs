@@ -55,6 +55,7 @@ const { AkariDaihonContribution, OPEN_AKARI_CUTS } = load('../lib/browser/daihon
     'akari-theme/lib/browser/init-layout-guard': { guardInitLayout },
     '@theia/core/lib/common': {}, '@theia/core/lib/browser': {},
     '@theia/core/lib/common/preferences': {}, '@theia/core/lib/common/uri': { default: URI },
+    '@theia/core/lib/common/preferences/preference-schema': {},
     '@theia/filesystem/lib/browser/file-service': {}, 'akari-project/lib/common/akari-project-protocol': {},
     'akari-annotations/lib/browser/akari-edit-history-service': { AkariEditHistoryService: class {} },
     '@theia/core/shared/inversify': inversify,

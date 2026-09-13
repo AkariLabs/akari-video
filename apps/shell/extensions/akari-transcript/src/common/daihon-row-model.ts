@@ -12,7 +12,9 @@ export interface DaihonCaptionLike {
     start: number;
     end: number;
     text: string;
+    displayText?: string;
     speaker?: string | null;
+    src?: string;
     /** 字幕テンプレ id。style の演出 enum とは別物。 */
     stylePreset?: string;
     style: string | null;
