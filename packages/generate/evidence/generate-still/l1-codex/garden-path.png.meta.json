@@ -1,0 +1,61 @@
+{
+  "version": 1,
+  "kind": "still",
+  "status": "done",
+  "model": {
+    "id": "codex:image",
+    "as_of": "2026-09-12"
+  },
+  "inputs": {
+    "prompt": "緑の庭へ続く小道を歩く人物、後方からのワイドショット\n\n映画的な自然光、16:9、画面内に文字やロゴを描かない。",
+    "negative_prompt": null,
+    "first_frame": null,
+    "last_frame": null,
+    "reference_images": [],
+    "reference_videos": [],
+    "reference_audios": [],
+    "source_video": null,
+    "mode": null,
+    "camera": null,
+    "seed": null,
+    "extra": {}
+  },
+  "output": {
+    "duration_s": 2,
+    "resolution": "1672x941",
+    "aspect": null,
+    "audio_out": null
+  },
+  "cost": {
+    "estimate_usd": 0,
+    "actual_usd": null,
+    "unit": "usd_per_image",
+    "source": "estimate"
+  },
+  "job": {
+    "provider": "codex",
+    "started_at": "2026-09-13T14:42:46.346Z",
+    "stale_after_s": 900
+  },
+  "provenance": {
+    "created_at": "2026-09-13T14:42:46.346Z",
+    "tool": "akari generate still",
+    "key_source": "login:codex"
+  },
+  "history": [
+    {
+      "at": "2026-09-13T14:42:46.346Z",
+      "status": "done",
+      "reason": null
+    }
+  ],
+  "result": {
+    "path": "assets/generated/garden-path.png",
+    "sha256": "55a2370201f165c565f36cd41283db3d934b4bf08838ad68ddb9f0c21d63e61a",
+    "bytes": 2963021,
+    "duration_s_actual": 2,
+    "width": 1672,
+    "height": 941,
+    "elapsed_s": 54.105
+  }
+}

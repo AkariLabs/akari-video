@@ -1,0 +1,7 @@
+{
+  "style_suffix": "柔らかな水彩画。文字は描かない。",
+  "beats": [
+    { "id": "leaving-desk", "prompt": "席を立つ人物", "duration_s": 1.5, "name": "席を立つ" },
+    { "id": "garden", "prompt": "庭へ歩く人物", "duration_s": 2 }
+  ]
+}

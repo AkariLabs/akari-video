@@ -5,7 +5,11 @@
   "description": "生成入力（9 スロット + 出力ノブ）を能力カタログ行に対して検証・正規化・丸め・費用見積する依存ゼロの共有モジュール。UI / CLI / エージェントが同じ関数を使う。",
   "type": "module",
   "main": "src/index.mjs",
+  "exports": {
+    ".": "./src/index.mjs",
+    "./cli": "./src/cli/index.mjs"
+  },
   "scripts": {
-    "test": "node --test \"test/*.test.mjs\""
+    "test": "node --test \"test/**/*.test.mjs\""
   }
 }

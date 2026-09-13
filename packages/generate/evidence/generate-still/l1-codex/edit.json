@@ -1,0 +1,16 @@
+{
+  "version": 2,
+  "output": { "width": 1920, "height": 1080, "fps": 30 },
+  "sources": [
+    { "id": "gen-morning-desk", "path": "assets/generated/morning-desk.png", "proxy": null },
+    { "id": "gen-leaving-desk", "path": "assets/generated/leaving-desk.png", "proxy": null },
+    { "id": "gen-garden-path", "path": "assets/generated/garden-path.png", "proxy": null }
+  ],
+  "tracks": [
+    { "id": "v1", "lane": "visual", "items": [
+      { "id": "gen-morning-desk", "name": "朝の机", "at": 0, "duration": 60, "source": { "kind": "media", "src": "gen-morning-desk", "in": 0, "out": 2 } },
+      { "id": "gen-leaving-desk", "name": "席を立つ", "at": 60, "duration": 60, "source": { "kind": "media", "src": "gen-leaving-desk", "in": 0, "out": 2 } },
+      { "id": "gen-garden-path", "name": "庭へ歩く", "at": 120, "duration": 60, "source": { "kind": "media", "src": "gen-garden-path", "in": 0, "out": 2 } }
+    ] }
+  ]
+}

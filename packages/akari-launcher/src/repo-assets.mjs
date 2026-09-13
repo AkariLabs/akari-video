@@ -39,6 +39,7 @@ const CAPTIONS_SCRIPT_RELATIVE = path.join('packages', 'akari-tools', 'bin', 'ca
 export const CAPTURE_SCRIPT_RELATIVE = path.join('packages', 'akari-tools', 'bin', 'capture.mjs');
 const RENDER_WHEN_IDLE_SCRIPT_RELATIVE = path.join('packages', 'akari-tools', 'bin', 'render-when-idle.sh');
 const EYE_BAR_SCRIPT_RELATIVE = path.join('packages', 'akari-tools', 'bin', 'eye-bar.mjs');
+export const GENERATE_CLI_RELATIVE = path.join('packages', 'generate', 'src', 'cli', 'index.mjs');
 
 /**
  * 指定ルート配下に同梱されているスキル正本・雛形・schemas・scaffold 実装・creator-root
@@ -60,6 +61,7 @@ export function resolveRepoAssets(repoRoot = DEFAULT_REPO_ROOT_CANDIDATE) {
   const mediaScript = path.join(repoRoot, 'packages', 'akari-tools', 'bin', 'media.mjs');
   const decisionLogScript = path.join(repoRoot, DECISION_LOG_SCRIPT_RELATIVE);
   const wordBookScript = path.join(repoRoot, 'packages', 'akari-tools', 'bin', 'word-book.mjs');
+  const generateScript = path.join(repoRoot, GENERATE_CLI_RELATIVE);
 
   return {
     repoRoot,
@@ -79,7 +81,8 @@ export function resolveRepoAssets(repoRoot = DEFAULT_REPO_ROOT_CANDIDATE) {
     eyeBarScript: existsSync(eyeBarScript) ? eyeBarScript : null,
     mediaScript: existsSync(mediaScript) ? mediaScript : null,
     ...(existsSync(decisionLogScript) ? { decisionLogScript } : {}),
-    ...(existsSync(wordBookScript) ? { wordBookScript } : {})
+    ...(existsSync(wordBookScript) ? { wordBookScript } : {}),
+    ...(existsSync(generateScript) ? { generateScript } : {})
   };
 }
 
@@ -115,6 +118,9 @@ export function resolveLauncherAssets({
     renderWhenIdleScript: candidate.renderWhenIdleScript ?? vendor.renderWhenIdleScript,
     eyeBarScript: candidate.eyeBarScript ?? vendor.eyeBarScript,
     mediaScript: candidate.mediaScript ?? vendor.mediaScript,
+    ...(candidate.generateScript ?? vendor.generateScript
+      ? { generateScript: candidate.generateScript ?? vendor.generateScript }
+      : {}),
     ...(candidate.decisionLogScript ?? vendor.decisionLogScript ? { decisionLogScript: candidate.decisionLogScript ?? vendor.decisionLogScript } : {}),
     ...(candidate.wordBookScript ?? vendor.wordBookScript
       ? { wordBookScript: candidate.wordBookScript ?? vendor.wordBookScript }
