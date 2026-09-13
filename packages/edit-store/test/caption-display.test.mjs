@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 
 import {
   CaptionDisplayError,
+  captionBreakBoundaryBlocked,
   captionAnchorPositionVars,
   dedupeCaptionOccurrences,
   foldCaptionLines,
@@ -316,6 +317,41 @@ test('automatic splitting extends to three and six fragments at word boundaries'
   assert.deepEqual(splitCaptionFragments('aa bb cc', englishPolicy(1.5)).fragments, ['aa ', 'bb ', 'cc']);
   assert.deepEqual(splitCaptionFragments('aa bb cc dd ee ff', englishPolicy(1.5)).fragments,
     ['aa ', 'bb ', 'cc ', 'dd ', 'ee ', 'ff']);
+});
+
+test('自動分割境界は Latin・数字の連続と Segmenter 語の内側を拒否する', () => {
+  assert.equal(captionBreakBoundaryBlocked('YouTube', 3, []), true);
+  assert.equal(captionBreakBoundaryBlocked('2026', 2, []), true);
+  assert.equal(captionBreakBoundaryBlocked('今日は撮影', 3, [{ start: 2, end: 5, wordLike: true }]), true);
+  assert.equal(captionBreakBoundaryBlocked('今日は撮影', 3, [{ start: 2, end: 5, wordLike: false }]), false);
+});
+
+test('10 単位の自動分割で YouTube を途中分割しない', () => {
+  const text = '今日はねひたすらYouTubeの撮影を';
+  const split = splitCaptionFragments(text, { ...policy, max_line_units: 10 });
+  assert.deepEqual(split.fragments, ['今日はねひたすら', 'YouTubeの撮影を']);
+  assert.ok(split.fragments.every(fragment => !fragment.includes('You') || fragment.includes('YouTube')));
+  assert.ok(split.fragments.every(fragment => !fragment.includes('Tube') || fragment.includes('YouTube')));
+});
+
+test('除外だけで 2 断片候補が消えたときは語外の中央寄り境界を次善にする', () => {
+  const OriginalSegmenter = Intl.Segmenter;
+  class MockSegmenter {
+    segment() {
+      return [
+        { index: 0, segment: 'a', isWordLike: true },
+        { index: 4, segment: 'd', isWordLike: true },
+      ];
+    }
+  }
+  Intl.Segmenter = MockSegmenter;
+  try {
+    const split = splitCaptionFragments('ab・cdええ', englishPolicy(3));
+    assert.deepEqual(split.fragments, ['ab・', 'cdええ']);
+    assert.deepEqual(split.boundaries, [4]);
+  } finally {
+    Intl.Segmenter = OriginalSegmenter;
+  }
 });
 
 test('the existing two-fragment choice and serialized result remain byte-identical', () => {

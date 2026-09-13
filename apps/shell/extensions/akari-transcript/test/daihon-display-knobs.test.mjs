@@ -5,6 +5,7 @@ import test from 'node:test';
 import {
   clampDaihonMaxLineUnits,
   daihonDisplayLabel,
+  readDaihonShowBreaks,
   readDaihonDisplayKnobs,
   validateDaihonCustomLines,
   writeDaihonDisplayKnobs
@@ -55,4 +56,16 @@ test('表示ポップオーバーは overflow 行数を再計算して表示す�
   const source = await readFile(new URL('../src/browser/daihon/akari-daihon-widget.ts', import.meta.url), 'utf8');
   assert.match(source, /収まらない行: \$\{this\.captionOverflowUnitsById\.size\}/u);
   assert.match(source, /this\.previewDisplayKnobs\(next\);\s*updateOverflowCount\(\);/u);
+});
+
+test('区切り表示は未設定なら ON、User preference の false だけ OFF', () => {
+  assert.equal(readDaihonShowBreaks(undefined), true);
+  assert.equal(readDaihonShowBreaks(true), true);
+  assert.equal(readDaihonShowBreaks(false), false);
+});
+
+test('表示ポップに区切りトグルがあり User scope へ保存する', async () => {
+  const source = await readFile(new URL('../src/browser/daihon/akari-daihon-widget.ts', import.meta.url), 'utf8');
+  assert.match(source, /区切りを表示/u);
+  assert.match(source, /DAIHON_SHOW_BREAKS_PREFERENCE, this\.showBreaks, PreferenceScope\.User/u);
 });

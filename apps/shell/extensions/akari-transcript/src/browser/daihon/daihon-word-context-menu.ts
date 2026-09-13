@@ -1,7 +1,7 @@
 export type WordMenuAction = { kind: 'play' } | { kind: 'edit' } | { kind: 'dictionary' } | { kind: 'cut-video' }
     | { kind: 'caption-only' } | { kind: 'freeze' } | { kind: 'preset'; presetId: string } | { kind: 'preset-clear' }
     | { kind: 'coming-soon'; what: string } | { kind: 'pause' } | { kind: 'break' } | { kind: 'split' }
-    | { kind: 'merge-prev' } | { kind: 'insert-word' } | { kind: 'item-captions' } | { kind: 'mark'; color: string };
+    | { kind: 'merge-prev' } | { kind: 'merge-next' } | { kind: 'insert-word' } | { kind: 'item-captions' } | { kind: 'mark'; color: string };
 export interface WordMenuItem { label: string; action?: WordMenuAction; accel?: string; disabled?: boolean; title?: string; danger?: boolean }
 export interface WordMenuGroup { title: string; note?: string; items: WordMenuItem[]; presets?: { id: string; name: string }[]; colors?: string[] }
 
@@ -9,7 +9,8 @@ const COLORS = ['#ff5c5c', '#ffb347', '#f5c451', '#6fd18a', '#4fa8ff', '#c77dff'
 export function wordContextMenuGroups(input: {
     rangeCount: number; wordCount: number; text: string; nextWordText: string;
     presets: readonly { id: string; name: string }[];
-    splitAvailable: boolean; mergeAvailable: boolean; wordInsertAvailable: boolean; itemCaptionsAvailable: boolean;
+    splitAvailable: boolean; mergeAvailable: boolean; mergeNextAvailable: boolean;
+    wordInsertAvailable: boolean; itemCaptionsAvailable: boolean;
 }): WordMenuGroup[] {
     const subject = input.rangeCount > 1 ? `${input.rangeCount} 範囲を一括`
         : input.wordCount > 1 ? 'この範囲' : 'この語';
@@ -39,6 +40,8 @@ export function wordContextMenuGroups(input: {
                 : coming('⏎ ここで分割（行が 2 つになる） — Coming soon', 'ここで分割'),
             input.mergeAvailable ? { label: '前の行と結合', accel: '⌫', action: { kind: 'merge-prev' } }
                 : coming('前の行と結合 — Coming soon', '前の行と結合'),
+            input.mergeNextAvailable ? { label: '次の行と結合', action: { kind: 'merge-next' } }
+                : coming('次の行と結合 — Coming soon', '次の行と結合'),
             { label: 'この行だけの字幕にする（同じ素材の他クリップでは出さない）', action: { kind: 'item-captions' },
                 disabled: !input.itemCaptionsAvailable, title: input.itemCaptionsAvailable ? undefined : '票 1（item の captions スイッチ）待ち' }
         ] },

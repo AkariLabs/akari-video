@@ -2,6 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.CaptionDisplayError = exports.CAPTION_UNIT_METRIC = exports.CAPTION_DISPLAY_ALGORITHM = exports.CAPTION_DISPLAY_MODE = exports.CAPTION_DISPLAY_SCHEMA = void 0;
 exports.measureCaptionUnits = measureCaptionUnits;
+exports.captionBreakBoundaryBlocked = captionBreakBoundaryBlocked;
 exports.joinCaptionLines = joinCaptionLines;
 exports.validateCaptionDisplayPolicy = validateCaptionDisplayPolicy;
 exports.resolveCaptionDisplay = resolveCaptionDisplay;
@@ -80,6 +81,14 @@ class CaptionDisplayError extends Error {
 exports.CaptionDisplayError = CaptionDisplayError;
 function measureCaptionUnits(text) {
     return Array.from(text).reduce((total, character) => total + (/^[\x00-\x7F]$/u.test(character) ? 0.5 : 1), 0);
+}
+/** 自動分割で採用してはいけない、Latin/数字または Segmenter 語の内部境界を判定する。 */
+function captionBreakBoundaryBlocked(text, boundary, wordSpans) {
+    if (!Number.isInteger(boundary) || boundary <= 0 || boundary >= text.length)
+        return false;
+    if (/[A-Za-z0-9]/u.test(text[boundary - 1]) && /[A-Za-z0-9]/u.test(text[boundary]))
+        return true;
+    return wordSpans.some(span => span.wordLike && span.start < boundary && boundary < span.end);
 }
 function joinCaptionLines(lines, locale) {
     if (/^ja/iu.test(locale)) {
@@ -1075,10 +1084,17 @@ function splitCaptionFragments(text, policy) {
         };
     }
     const segmenter = new Segmenter(policy.locale, { granularity: 'word' });
-    const boundaries = [...segmenter.segment(text)]
+    const segments = [...segmenter.segment(text)];
+    const wordSpans = segments.map(segment => ({
+        start: segment.index,
+        end: segment.index + segment.segment.length,
+        wordLike: segment.isWordLike === true
+    }));
+    const boundaries = segments
         .map(segment => segment.index)
         .filter(index => index > 0 && index < text.length);
     const candidates = [];
+    let blockedFittingBoundary = false;
     for (const boundary of boundaries) {
         const first = text.slice(0, boundary);
         const second = text.slice(boundary);
@@ -1088,6 +1104,10 @@ function splitCaptionFragments(text, policy) {
             continue;
         if (splitsProtectedTerm(text, boundary, policy.break_hints?.protected_terms ?? []))
             continue;
+        if (captionBreakBoundaryBlocked(text, boundary, wordSpans)) {
+            blockedFittingBoundary = true;
+            continue;
+        }
         candidates.push({
             fragments: [first, second],
             score: captionBreakScore(first, second, firstUnits, secondUnits, policy.break_hints),
@@ -1095,7 +1115,22 @@ function splitCaptionFragments(text, policy) {
         });
     }
     if (candidates.length === 0) {
-        const fragments = splitCaptionFragmentsAtBoundaries(text, boundaries, policy, 6);
+        if (blockedFittingBoundary) {
+            const fallbackBoundary = Array.from({ length: text.length - 1 }, (_value, index) => index + 1)
+                .filter(boundary => !captionBreakBoundaryBlocked(text, boundary, wordSpans)
+                && !splitsProtectedTerm(text, boundary, policy.break_hints?.protected_terms ?? [])
+                && measureCaptionUnits(text.slice(0, boundary)) <= policy.max_line_units
+                && measureCaptionUnits(text.slice(boundary)) <= policy.max_line_units)
+                .sort((left, right) => Math.abs(left - text.length / 2) - Math.abs(right - text.length / 2)
+                || left - right)[0];
+            if (fallbackBoundary !== undefined) {
+                return {
+                    fragments: [text.slice(0, fallbackBoundary), text.slice(fallbackBoundary)],
+                    boundaries
+                };
+            }
+        }
+        const fragments = splitCaptionFragmentsAtBoundaries(text, boundaries, wordSpans, policy, 6);
         if (fragments)
             return { fragments, boundaries };
         return {
@@ -1107,7 +1142,7 @@ function splitCaptionFragments(text, policy) {
     candidates.sort((left, right) => right.score - left.score || left.boundary - right.boundary);
     return { fragments: candidates[0].fragments, boundaries };
 }
-function splitCaptionFragmentsAtBoundaries(text, boundaries, policy, maximumFragments) {
+function splitCaptionFragmentsAtBoundaries(text, boundaries, wordSpans, policy, maximumFragments) {
     const ends = [...boundaries, text.length];
     const visit = (start, remaining) => {
         if (start === text.length)
@@ -1116,6 +1151,7 @@ function splitCaptionFragmentsAtBoundaries(text, boundaries, policy, maximumFrag
             return undefined;
         const candidates = ends.filter(end => end > start
             && measureCaptionUnits(text.slice(start, end)) <= policy.max_line_units
+            && (end === text.length || !captionBreakBoundaryBlocked(text, end, wordSpans))
             && !splitsProtectedTerm(text, end, policy.break_hints?.protected_terms ?? [])).reverse();
         for (const end of candidates) {
             const rest = visit(end, remaining - 1);

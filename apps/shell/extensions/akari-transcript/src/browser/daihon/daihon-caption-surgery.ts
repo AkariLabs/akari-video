@@ -18,14 +18,36 @@ export function fragmentBoundaries(words: readonly { text: string }[], fragments
 export function toggleFragmentBoundary(words: readonly { text: string }[], fragments: readonly string[] | undefined,
     text: string, atWordIndex: number): string[] {
     if (!Number.isInteger(atWordIndex) || atWordIndex <= 0 || atWordIndex >= words.length) return fragments ? [...fragments] : [];
-    const offsets = new Set(fragmentBoundaries(words, fragments).map(index =>
-        words.slice(0, index).reduce((sum, word) => sum + word.text.length, 0)));
     const at = words.slice(0, atWordIndex).reduce((sum, word) => sum + word.text.length, 0);
+    return toggleFragmentBoundaryAtOffset(fragments, text, at);
+}
+
+export function toggleFragmentBoundaryAtOffset(
+    fragments: readonly string[] | undefined,
+    text: string,
+    at: number
+): string[] {
+    if (!Number.isInteger(at) || at <= 0 || at >= text.length) return fragments ? [...fragments] : [];
+    const offsets = new Set<number>();
+    let fragmentCursor = 0;
+    for (const fragment of fragments?.slice(0, -1) ?? []) {
+        fragmentCursor += fragment.length;
+        if (fragmentCursor > 0 && fragmentCursor < text.length) offsets.add(fragmentCursor);
+    }
     if (offsets.has(at)) offsets.delete(at); else offsets.add(at);
     const sorted = [...offsets].filter(offset => offset > 0 && offset < text.length).sort((a, b) => a - b);
     if (!sorted.length) return [];
     let cursor = 0;
     return [...sorted, text.length].map(end => { const value = text.slice(cursor, end); cursor = end; return value; });
+}
+
+export function freezeAndRemoveCaptionBoundary(
+    fragments: readonly string[],
+    text: string,
+    at: number
+): string[] {
+    const next = toggleFragmentBoundaryAtOffset(fragments, text, at);
+    return next.length ? next : [text];
 }
 
 function rootArrayBounds(source: string): { start: number; end: number } | undefined {

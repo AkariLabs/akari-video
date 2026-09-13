@@ -197,6 +197,23 @@ export function measureCaptionUnits(text: string): number {
     );
 }
 
+export interface CaptionWordSpan {
+    start: number;
+    end: number;
+    wordLike: boolean;
+}
+
+/** 自動分割で採用してはいけない、Latin/数字または Segmenter 語の内部境界を判定する。 */
+export function captionBreakBoundaryBlocked(
+    text: string,
+    boundary: number,
+    wordSpans: readonly CaptionWordSpan[]
+): boolean {
+    if (!Number.isInteger(boundary) || boundary <= 0 || boundary >= text.length) return false;
+    if (/[A-Za-z0-9]/u.test(text[boundary - 1]) && /[A-Za-z0-9]/u.test(text[boundary])) return true;
+    return wordSpans.some(span => span.wordLike && span.start < boundary && boundary < span.end);
+}
+
 export function joinCaptionLines(lines: string[], locale: string): string {
     if (/^ja/iu.test(locale)) {
         // ja は語間に空白を入れない。
@@ -1214,10 +1231,17 @@ export function splitCaptionFragments(
         };
     }
     const segmenter = new Segmenter(policy.locale, { granularity: 'word' });
-    const boundaries = [...segmenter.segment(text)]
+    const segments = [...segmenter.segment(text)] as Array<{ index: number; segment: string; isWordLike?: boolean }>;
+    const wordSpans: CaptionWordSpan[] = segments.map(segment => ({
+        start: segment.index,
+        end: segment.index + segment.segment.length,
+        wordLike: segment.isWordLike === true
+    }));
+    const boundaries = segments
         .map(segment => segment.index)
         .filter(index => index > 0 && index < text.length);
     const candidates: Array<{ fragments: [string, string]; score: number; boundary: number }> = [];
+    let blockedFittingBoundary = false;
     for (const boundary of boundaries) {
         const first = text.slice(0, boundary);
         const second = text.slice(boundary);
@@ -1225,6 +1249,10 @@ export function splitCaptionFragments(
         const secondUnits = measureCaptionUnits(second);
         if (firstUnits > policy.max_line_units || secondUnits > policy.max_line_units) continue;
         if (splitsProtectedTerm(text, boundary, policy.break_hints?.protected_terms ?? [])) continue;
+        if (captionBreakBoundaryBlocked(text, boundary, wordSpans)) {
+            blockedFittingBoundary = true;
+            continue;
+        }
         candidates.push({
             fragments: [first, second],
             score: captionBreakScore(first, second, firstUnits, secondUnits, policy.break_hints),
@@ -1232,7 +1260,22 @@ export function splitCaptionFragments(
         });
     }
     if (candidates.length === 0) {
-        const fragments = splitCaptionFragmentsAtBoundaries(text, boundaries, policy, 6);
+        if (blockedFittingBoundary) {
+            const fallbackBoundary = Array.from({ length: text.length - 1 }, (_value, index) => index + 1)
+                .filter(boundary => !captionBreakBoundaryBlocked(text, boundary, wordSpans)
+                    && !splitsProtectedTerm(text, boundary, policy.break_hints?.protected_terms ?? [])
+                    && measureCaptionUnits(text.slice(0, boundary)) <= policy.max_line_units
+                    && measureCaptionUnits(text.slice(boundary)) <= policy.max_line_units)
+                .sort((left, right) => Math.abs(left - text.length / 2) - Math.abs(right - text.length / 2)
+                    || left - right)[0];
+            if (fallbackBoundary !== undefined) {
+                return {
+                    fragments: [text.slice(0, fallbackBoundary), text.slice(fallbackBoundary)],
+                    boundaries
+                };
+            }
+        }
+        const fragments = splitCaptionFragmentsAtBoundaries(text, boundaries, wordSpans, policy, 6);
         if (fragments) return { fragments, boundaries };
         return {
             fragments: [text],
@@ -1247,6 +1290,7 @@ export function splitCaptionFragments(
 function splitCaptionFragmentsAtBoundaries(
     text: string,
     boundaries: number[],
+    wordSpans: readonly CaptionWordSpan[],
     policy: CaptionDisplayPolicy,
     maximumFragments: number
 ): string[] | undefined {
@@ -1256,6 +1300,7 @@ function splitCaptionFragmentsAtBoundaries(
         if (remaining === 0) return undefined;
         const candidates = ends.filter(end => end > start
             && measureCaptionUnits(text.slice(start, end)) <= policy.max_line_units
+            && (end === text.length || !captionBreakBoundaryBlocked(text, end, wordSpans))
             && !splitsProtectedTerm(text, end, policy.break_hints?.protected_terms ?? [])).reverse();
         for (const end of candidates) {
             const rest = visit(end, remaining - 1);
