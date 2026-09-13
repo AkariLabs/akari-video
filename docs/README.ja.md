@@ -37,6 +37,7 @@
 | [音源に宣言を付ける](./guides/declare-audio.ja.md) | サビ・キメ・拍を自分の耳で付けて declarations.json へ（declare-audio） |
 | [ビート同期で作る](./guides/beat-sync.ja.md) | 宣言済み音源から拍スナップの PV・ショーケースを機械生成（beat-sync-edit） |
 | [edit.json の読み方](./guides/edit-json-access.ja.md) | 全文を読まず id で探し、点の変更または edit-store スクリプトで書く |
+| [生成モデル一覧（機械生成）](./guides/generation-models.ja.md) | 価格・尺・入力・音声・較正の事実一覧 |
 
 ## Skills
 

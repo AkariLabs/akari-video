@@ -36,6 +36,7 @@ Task-based guides, ordered by the flow of production.
 | [Declare your audio](./guides/declare-audio.md) | Pinning chorus / hits / beats on your music by ear → declarations.json (declare-audio) |
 | [Beat-synced edits](./guides/beat-sync.md) | Beat-snapped PVs and showcases machine-generated from declared audio (beat-sync-edit) |
 | [How the agent reads edit.json](./guides/edit-json-access.md) | Read by id without loading the whole file; write point edits or edit-store scripts |
+| [Generation models (machine-generated)](./guides/generation-models.md) | Facts about price, duration, inputs, audio, and calibration |
 
 ## Skills
 
