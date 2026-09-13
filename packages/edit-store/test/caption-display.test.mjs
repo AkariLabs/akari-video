@@ -143,7 +143,8 @@ test('emphasis style_preset resolves per word, rounds partial overlap inward, an
 
   assert.equal(cue.words.map(word => word.text).join(''), cue.text);
   assert.deepEqual(cue.words.map(word => word.line), [0, 1]);
-  assert.deepEqual(cue.word_styles, [{ from: 0, to: 1, preset_id: 'neon', style_vars: expectedVars }]);
+  // 語単位の吸い上げにより、Intl.Segmenter('en') が 1 語とする "Videoworks" 全体へ広がる。
+  assert.deepEqual(cue.word_styles, [{ from: 0, to: 2, preset_id: 'neon', style_vars: expectedVars }]);
   assert.deepEqual([cue.words[0].start, cue.words[0].end], [1, 1.5]);
 });
 

@@ -3811,7 +3811,7 @@ ${indent}`);
             fail("DUPLICATE_CAPTION_ID", `captions[].id is duplicated: ${caption.id}`);
           captionIds.add(caption.id);
         });
-        const wordStylesByCaption = resolveProjectedWordStyles(captions, projectedCaptions, captionsRoot.emphasis_words, styleOutput);
+        const wordStylesByCaption = resolveProjectedWordStyles(captions, projectedCaptions, captionsRoot.emphasis_words, styleOutput, policy.locale);
         validateEmphasisConflicts(captions, edit?.emphasis_words);
         const sourceCount = validateSourceReferences(captions, cuts, edit);
         const occurrences = dedupeCaptionOccurrences(projectOccurrences(captions, projectedCaptions, cuts, sourceCount), captionTrackOrder(cuts, edit));
@@ -3900,6 +3900,7 @@ ${indent}`);
               fail("INVALID_WORD_PROJECTION", `caption ${occurrence.source_cue_id} fragment character range is inconsistent`);
             }
             const wordDisplay = buildCueWordDisplay(wordStylesByCaption.get(occurrence.caption_input_index), occurrence, group.charStart, group.charEnd, group.lines, text);
+            const cueStyleVars = resolveCueStyleVars(styleResolution?.vars, wordDisplay?.wordStyles);
             displayCues.push({
               id: `${occurrence.source_cue_id}-occ-${String(occurrence.occurrence_index).padStart(4, "0")}-part-${index + 1}`,
               source_cue_id: occurrence.source_cue_id,
@@ -3916,7 +3917,7 @@ ${indent}`);
               line_override: resolved.manual,
               ...resolved.overflow ? { overflow: resolved.overflow } : {},
               ...resolvedStyle ? { text_style: resolvedStyle } : {},
-              ...styleResolution ? { style_vars: styleResolution.vars } : {},
+              ...cueStyleVars ? { style_vars: cueStyleVars } : {},
               ...styleResolution?.layout ? { layout: styleResolution.layout } : {},
               ...wordDisplay ? { words: wordDisplay.words, word_styles: wordDisplay.wordStyles } : {}
             });
@@ -3940,7 +3941,7 @@ ${indent}`);
           word_book_fallbacks: wordBookFallbacks
         };
       }
-      function resolveProjectedWordStyles(captions, projectedCaptions, emphasisValue, output) {
+      function resolveProjectedWordStyles(captions, projectedCaptions, emphasisValue, output, locale) {
         if (!Array.isArray(emphasisValue))
           return /* @__PURE__ */ new Map();
         const emphasisWords = emphasisValue.filter((value) => isRecord2(value) && typeof value.style_preset === "string" && value.style_preset.length > 0 && finiteNonNegative2(value.t_start) && finitePositive4(value.t_end) && value.t_end > value.t_start && (value.src === void 0 || strictText(value.src)));
@@ -3988,10 +3989,52 @@ ${indent}`);
             offset += text.length;
             return value;
           });
+          expandProjectedWordStyles(words, projected.displayText, locale);
           if (words.some((word) => word.preset_id))
             result.set(index, words);
         });
         return result;
+      }
+      function expandProjectedWordStyles(words, displayText, locale) {
+        try {
+          const Segmenter = Intl.Segmenter;
+          if (!Segmenter)
+            return;
+          const segments = new Segmenter(locale || "ja", { granularity: "word" }).segment(displayText);
+          const finalized = /* @__PURE__ */ new Set();
+          for (const segment of segments) {
+            if (segment.isWordLike === false)
+              continue;
+            const segmentEnd = segment.index + segment.segment.length;
+            const overlapping = words.filter((word) => Math.min(word.offset + word.text.length, segmentEnd) - Math.max(word.offset, segment.index) > 0);
+            const winner = overlapping.find((word) => word.preset_id && word.style_vars);
+            if (!winner?.preset_id || !winner.style_vars)
+              continue;
+            for (const word of overlapping) {
+              if (finalized.has(word))
+                continue;
+              word.preset_id = winner.preset_id;
+              word.style_vars = winner.style_vars;
+            }
+            overlapping.forEach((word) => finalized.add(word));
+          }
+        } catch {
+        }
+      }
+      function resolveCueStyleVars(lineVars, wordStyles) {
+        if (!wordStyles)
+          return lineVars;
+        const tokenSizes = wordStyles.flatMap((style) => {
+          const value = style.style_vars["--caption-tok-font-size"];
+          const match = typeof value === "string" ? /^(\d+(?:\.\d+)?)px$/u.exec(value) : null;
+          return match ? [Number(match[1])] : [];
+        });
+        const maxTokenSize = tokenSizes.length > 0 ? Math.max(...tokenSizes) : 0;
+        const baseMatch = /^(\d+(?:\.\d+)?)px$/u.exec(lineVars?.["--caption-font-size"] ?? "38px");
+        const baseSize = baseMatch ? Number(baseMatch[1]) : 38;
+        if (maxTokenSize <= baseSize)
+          return lineVars;
+        return { ...lineVars ?? {}, "--caption-word-line-height": `${formatCssNumber(maxTokenSize)}px` };
       }
       function buildCueWordDisplay(sourceWords, occurrence, charStart, charEnd, lines, cueText) {
         if (!sourceWords)
@@ -4870,27 +4913,17 @@ ${indent}`);
           if (transform)
             vars["--caption-tok-text-transform"] = transform;
         }
-        let strokePart = null;
         if (isRecord2(style.stroke)) {
           const color = typeof style.stroke.color === "string" ? style.stroke.color : "rgba(0,0,0,.85)";
           const width = finiteNonNegative2(style.stroke.width_px) ? style.stroke.width_px * scale : 1.5;
-          if (style.stroke.method === "webkit-outline") {
-            vars["--caption-tok-webkit-text-stroke"] = `${formatCssNumber(width)}px ${color}`;
-            vars["--caption-tok-paint-order"] = "stroke fill";
-          } else {
-            strokePart = strokeShadow(color, width, scale !== 1);
-          }
+          vars["--caption-tok-webkit-text-stroke"] = `${formatCssNumber(width)}px ${color}`;
+          vars["--caption-tok-paint-order"] = "stroke fill";
         }
         const decorPart = captionTextShadowValue(style.shadow, style.glow, scale);
-        if (strokePart && decorPart)
-          vars["--caption-tok-text-shadow"] = `${strokePart}, ${decorPart}`;
-        else if (strokePart)
-          vars["--caption-tok-text-shadow"] = strokePart;
-        else if (decorPart)
+        if (decorPart)
           vars["--caption-tok-text-shadow"] = decorPart;
-        else if (isRecord2(style.stroke) && style.stroke.method === "webkit-outline") {
+        else if (isRecord2(style.stroke))
           vars["--caption-tok-text-shadow"] = "none";
-        }
         return vars;
       }
       var CAPTION_TEXT_TRANSFORM_MAP = {
