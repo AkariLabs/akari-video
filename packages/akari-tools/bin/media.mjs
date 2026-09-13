@@ -18,7 +18,7 @@ const usage = [
   "使い方: akari media <subcommand> <target> [options]",
   "",
   "サブコマンド:",
-  ...commands.map((command) => `  ${command}`),
+  ...commands.map((command) => command === "transcribe" ? "  transcribe <target> [--no-snap]" : `  ${command}`),
   "  transcribe-diff <target> [--engines a,b,c]",
   "  transcribe-cuts <target> [--basis b] [--filler on] [--redo on] [--silence-min 1.5] [--silence-break 3.0] [--silence-keep 0.5]",
 ].join("\n");
@@ -93,6 +93,10 @@ function parseOptions(subcommand, argv) {
     }
     if (subcommand === "transcribe" && argument === "--no-word-book") {
       options.wordBook = false;
+      continue;
+    }
+    if (subcommand === "transcribe" && argument === "--no-snap") {
+      options.snap = false;
       continue;
     }
     if (subcommand === "grab" && argument === "-t") {

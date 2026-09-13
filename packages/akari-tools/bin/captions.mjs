@@ -97,7 +97,8 @@ export async function runCaptionsCli(argv, options = {}) {
       }
       const retimed = retimeCaptionsToSpeech(records, { silences, duration, source: source.id });
       const root = Array.isArray(existing) ? retimed.captions : { ...existing, captions: retimed.captions };
-      const summary = { retime: true, moved_words: retimed.moved, total_words: retimed.total, path: captionsPath };
+      const summary = { retime: true, moved_words: retimed.moved, total_words: retimed.total,
+        clamped_pairs: retimed.clamped_pairs, overlaps_left: retimed.overlaps_left, path: captionsPath };
       if (parsed.dryRun && parsed.json) stdout(JSON.stringify({ dry_run: true, ...summary }));
       else if (parsed.dryRun) {
         stdout(JSON.stringify(root, null, 2));

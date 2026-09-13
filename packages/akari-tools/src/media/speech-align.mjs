@@ -208,3 +208,101 @@ export function snapSegmentsToWords(segments, opts = {}) {
     return { ...segment, start, end };
   });
 }
+
+const OVERLAP_EPSILON = 0.000001;
+const MIN_CLAMPED_WORD_SEC = 0.01;
+
+function fitWordsBeforeBoundary(segment, boundary, minWordSec) {
+  let upper = boundary;
+  for (let index = segment.words.length - 1; index >= 0; index -= 1) {
+    const word = segment.words[index];
+    if (Number(word.end) <= upper) return true;
+    const length = Number(word.end) - Number(word.start);
+    let newEnd = upper;
+    let newStart = Number(word.start);
+    if (newEnd - newStart < minWordSec) newStart = newEnd - length;
+    const lowerBound = index > 0 ? Number(segment.words[index - 1].end) : Number(segment.start);
+    newStart = Math.max(newStart, lowerBound);
+    newStart = round(newStart);
+    newEnd = round(newEnd);
+    if (round(newEnd - newStart) < MIN_CLAMPED_WORD_SEC) return false;
+    word.start = newStart;
+    word.end = newEnd;
+    upper = newStart;
+  }
+  return true;
+}
+
+function fitWordsAfterBoundary(segment, boundary, minWordSec) {
+  let lower = boundary;
+  for (let index = 0; index < segment.words.length; index += 1) {
+    const word = segment.words[index];
+    if (Number(word.start) >= lower) return true;
+    const length = Number(word.end) - Number(word.start);
+    let newStart = lower;
+    let newEnd = Number(word.end);
+    if (newEnd - newStart < minWordSec) newEnd = newStart + length;
+    const upperBound = index + 1 < segment.words.length ? Number(segment.words[index + 1].start) : Number(segment.end);
+    newEnd = Math.min(newEnd, upperBound);
+    newStart = round(newStart);
+    newEnd = round(newEnd);
+    if (round(newEnd - newStart) < MIN_CLAMPED_WORD_SEC) return false;
+    word.start = newStart;
+    word.end = newEnd;
+    lower = newEnd;
+  }
+  return true;
+}
+
+/** 隣接する行の表示窓を、固定行と語境界を尊重して重ならないようにする。 */
+export function clampAdjacentSegments(segments, opts = {}) {
+  const minWordSec = Number(opts.minWordSec ?? SPEECH_SNAP_DEFAULTS.minWordSec);
+  const result = (Array.isArray(segments) ? segments : []).map((segment) => ({
+    ...segment,
+    ...(Array.isArray(segment.words) ? { words: segment.words.map((word) => ({ ...word })) } : {}),
+  }));
+  let clampedPairs = 0;
+  for (let index = 1; index < result.length; index += 1) {
+    const previous = result[index - 1];
+    const next = result[index];
+    if (Number(previous.end) - Number(next.start) <= OVERLAP_EPSILON) continue;
+    if (previous.fixed === true && next.fixed === true) continue;
+
+    if (previous.fixed !== true && next.fixed !== true) {
+      const lower = Number(previous.words?.at(-1)?.end ?? previous.start);
+      const upper = Number(next.words?.[0]?.start ?? next.end);
+      if (lower > upper || upper <= Number(previous.start) || lower >= Number(next.end)) continue;
+      const midpoint = (Number(previous.end) + Number(next.start)) / 2;
+      const boundary = Math.min(upper, Math.max(lower, midpoint));
+      if (boundary <= Number(previous.start) || boundary >= Number(next.end)) continue;
+      previous.end = boundary;
+      next.start = boundary;
+      clampedPairs += 1;
+      continue;
+    }
+
+    if (previous.fixed !== true) {
+      const candidate = { ...previous,
+        ...(Array.isArray(previous.words) ? { words: previous.words.map((word) => ({ ...word })) } : {}) };
+      const boundary = Number(next.start);
+      if (boundary <= Number(candidate.start) || !fitWordsBeforeBoundary(candidate, boundary, minWordSec)) continue;
+      candidate.end = boundary;
+      result[index - 1] = candidate;
+      clampedPairs += 1;
+      continue;
+    }
+
+    const candidate = { ...next,
+      ...(Array.isArray(next.words) ? { words: next.words.map((word) => ({ ...word })) } : {}) };
+    const boundary = Number(previous.end);
+    if (boundary >= Number(candidate.end) || !fitWordsAfterBoundary(candidate, boundary, minWordSec)) continue;
+    candidate.start = boundary;
+    result[index] = candidate;
+    clampedPairs += 1;
+  }
+  let overlapsLeft = 0;
+  for (let index = 1; index < result.length; index += 1) {
+    if (Number(result[index - 1].end) - Number(result[index].start) > OVERLAP_EPSILON) overlapsLeft += 1;
+  }
+  return { segments: result, clamped_pairs: clampedPairs, overlaps_left: overlapsLeft };
+}

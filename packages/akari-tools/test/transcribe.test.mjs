@@ -70,13 +70,34 @@ test("全 backend 共通で既定吸着し、snap/timingSnap false は吸着を�
   assert.equal(snapped.segments[0].words[1].start, 3);
   assert.deepEqual(snapped.segments[0].words[1], { start: 3, end: 3.05, text: "後", raw_start: 1.2, raw_end: 2 });
   assert.deepEqual(snapped.timing_snap.method, "silencedetect");
-  assert.equal((await json(transcriptPath(f))).timing_snap.moved_words, 1);
-  assert.equal((await json(path.join(f.directory, "analysis.json"))).observations.at(-1).args.timing_snap.moved_words, 1);
+  const recordedTimingSnap = (await json(transcriptPath(f))).timing_snap;
+  assert.equal(recordedTimingSnap.moved_words, 1);
+  assert.equal(recordedTimingSnap.clamped_pairs, 0);
+  assert.equal(recordedTimingSnap.overlaps_left, 0);
+  const observedTimingSnap = (await json(path.join(f.directory, "analysis.json"))).observations.at(-1).args.timing_snap;
+  assert.equal(observedTimingSnap.moved_words, 1);
+  assert.equal(observedTimingSnap.clamped_pairs, 0);
+  assert.equal(observedTimingSnap.overlaps_left, 0);
   for (const disabled of [{ snap: false }, { timingSnap: false }]) {
     const result = await transcribeMedia(f.target, { ...options, ...disabled, lang: Object.keys(disabled)[0] });
     assert.equal(result.segments[0].words[1].start, 1.2);
     assert.equal(Object.hasOwn(result, "timing_snap"), false);
   }
+});
+
+test("既定吸着は接する語を境界にして隣接 segment の表示窓をクランプする", async (t) => {
+  const f = await fixture(t, []);
+  const result = await transcribeMedia(f.target, {
+    ...speechOptions(f), unrecognized: false, lang: "adjacent-clamp",
+    backendRunner: async () => [
+      { start: 0.4, end: 1.12, text: "前", words: [{ start: 0.5, end: 1, text: "前" }] },
+      { start: 0.94, end: 1.6, text: "後", words: [{ start: 1, end: 1.5, text: "後" }] },
+    ],
+  });
+  assert.equal(result.segments[0].end, 1);
+  assert.equal(result.segments[1].start, 1);
+  assert.equal(result.timing_snap.clamped_pairs, 1);
+  assert.equal(result.timing_snap.overlaps_left, 0);
 });
 
 test("backend の speaker は空でない文字列だけを segment へ写す", async (t) => {
