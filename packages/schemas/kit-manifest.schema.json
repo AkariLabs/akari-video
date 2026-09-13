@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://akari-video.dev/schemas/kit-manifest.schema.json",
+  "$id": "urn:akari-video:schema:kit-manifest:v1",
   "title": "AKARI Video extension kit manifest",
   "type": "object",
   "additionalProperties": false,
