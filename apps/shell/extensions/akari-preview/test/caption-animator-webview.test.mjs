@@ -166,13 +166,13 @@ test('無宣言の HTML は caption transform 規則を含む基底のバイト�
     // Recorded after the caption plate scale/rotate contract was added to every styled fragment,
     // and after plain (unstyled) captions started rendering through the same fragment path.
     const expected = [
-        '202c60f99ed93d846212ce844e55062b9279ce4d447b8989cafaa82f9df58493',
-        'e76192da9e083a9f58361c4092a3772c1d1197da57d55863152e2835a4d216ea',
-        '1062b1e3bf49c6df29a039e941f853e92316f04f9a04bb860f6854990b24f51e',
-        'a1d132b35aad29a165bcdd932df37bb0bd5061e0fc76008db6fcf03f8ec73245',
-        '739c7d583399fe5c0d789d15ab34b4c1eed9160f71322ee35eb7a268b21a2850',
-        'f333c8a196553b83c3cdad333505c21b906e7c804bd20ad3d23ee4e64af5ef0e',
-        'e240e36bf483a6b9ed12d94f3762810c9667a53bf7329c074cc662668c175b1e'
+        'd1eb3729b1457c4049d02a7ec34be32423c95d2f87ea5304257de45aa9a6861b',
+        'e6f722ea103b2058f65fa30e93bba8ee68908979e009047f5efde78717c912fa',
+        '6eb09c0ee1950a9a1aa75853ecb71302c38969938376a4dd3955910de12f8540',
+        'aa2bf097981dc93fd4ad994d7d1660e2134a84d3fc3d0369306356170f3177ec',
+        'ea60416370c3e3765f14dd9e84fe5e88f5c5c29740a67d604b404650612b9521',
+        '534c798e4b2c410044c2b892b7aaecf37d05681c737326774744e9d075769125',
+        '8b3fb842ea6effa4c3fd132780835fb0123f84ac1de41ad562ee18e5c76f88bc'
     ];
     const fixtures = [{}, { textStyle: { color: '#fff', background: { mode: 'block' } } },
         { resolvedTimeline: true }, ...['karaoke', 'pop', 'reveal', 'reveal-word'].map(style => ({ style,

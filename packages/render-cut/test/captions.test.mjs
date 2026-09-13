@@ -130,7 +130,7 @@ test("resolved word preset spans preserve a standalone ASCII space", () => {
       }],
     }],
   });
-  assert.match(overlay.html, /\.akari-caption__tok\{display:inline-block;white-space:pre;/u);
+  assert.match(overlay.html, /\.akari-caption__tok\{display:inline-block;[^}]*white-space:pre;/u);
   const tokenText = [...overlay.html.matchAll(/<span class="akari-caption__tok[^>]*>([^<]*)<\/span>/gu)]
     .map(match => match[1]).join("");
   assert.equal(tokenText, "AKARI Video");

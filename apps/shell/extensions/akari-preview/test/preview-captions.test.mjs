@@ -31,7 +31,7 @@ test('webview に埋め込む語プリセット CSS は render-cut と一致す�
     const source = await readFile(join(
         extensionRoot, 'src', 'browser', 'akari-preview-open-handler.ts'
     ), 'utf8');
-    const embedded = source.match(/\+ '(\.akari-caption__tok\{display:inline-block;white-space:pre;[^']+\.akari-caption__tok--preset\{[^']+\})'/u);
+    const embedded = source.match(/\+ '(\.akari-caption__tok\{display:inline-block;[^']+\.akari-caption__tok--preset\{[^']+\})'/u);
     assert.equal(embedded?.[1], RESOLVED_CAPTION_WORD_PRESET_CSS);
 });
 

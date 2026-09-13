@@ -91,7 +91,7 @@ const RESOLVED_CAPTION_FONT_FACE_CSS = `@font-face {
       font-style: normal;
     }`;
 
-export const RESOLVED_CAPTION_WORD_PRESET_CSS = '.akari-caption__tok{display:inline-block;white-space:pre;--caption-tok-color:initial;--caption-tok-font-size:initial;--caption-tok-font-family:initial;--caption-tok-font-weight:initial;--caption-tok-font-style:initial;--caption-tok-text-decoration:initial;--caption-tok-letter-spacing:initial;--caption-tok-line-height:initial;--caption-tok-text-transform:initial;--caption-tok-webkit-text-stroke:initial;--caption-tok-paint-order:initial;--caption-tok-text-shadow:initial;}.akari-caption__tok--preset{color:var(--caption-tok-color,inherit);font-size:var(--caption-tok-font-size,inherit);font-family:var(--caption-tok-font-family,inherit);font-weight:var(--caption-tok-font-weight,inherit);font-style:var(--caption-tok-font-style,inherit);text-decoration:var(--caption-tok-text-decoration,inherit);letter-spacing:var(--caption-tok-letter-spacing,inherit);line-height:var(--caption-tok-line-height,inherit);text-transform:var(--caption-tok-text-transform,inherit);-webkit-text-stroke:var(--caption-tok-webkit-text-stroke,inherit);paint-order:var(--caption-tok-paint-order,inherit);text-shadow:var(--caption-tok-text-shadow,inherit);}';
+export const RESOLVED_CAPTION_WORD_PRESET_CSS = '.akari-caption__tok{display:inline-block;vertical-align:baseline;line-height:1;paint-order:stroke fill;white-space:pre;--caption-tok-color:initial;--caption-tok-font-size:initial;--caption-tok-font-family:initial;--caption-tok-font-weight:initial;--caption-tok-font-style:initial;--caption-tok-text-decoration:initial;--caption-tok-letter-spacing:initial;--caption-tok-line-height:initial;--caption-tok-text-transform:initial;--caption-tok-webkit-text-stroke:initial;--caption-tok-paint-order:initial;--caption-tok-text-shadow:initial;}.akari-caption__tok--preset{color:var(--caption-tok-color,inherit);font-size:var(--caption-tok-font-size,inherit);font-family:var(--caption-tok-font-family,inherit);font-weight:var(--caption-tok-font-weight,inherit);font-style:var(--caption-tok-font-style,inherit);text-decoration:var(--caption-tok-text-decoration,inherit);letter-spacing:var(--caption-tok-letter-spacing,inherit);line-height:var(--caption-tok-line-height,1);text-transform:var(--caption-tok-text-transform,inherit);-webkit-text-stroke:var(--caption-tok-webkit-text-stroke,inherit);paint-order:var(--caption-tok-paint-order,stroke fill);text-shadow:var(--caption-tok-text-shadow,inherit);}';
 
 // opt-in word-level スタイル。横長では既定 = 未指定 = 従来のプレーン字幕（既定出力のバイト等価を保つ）。
 // 縦長（portrait）だけは例外で、words[] があり複数行に折り返す字幕を reveal（行単位の順送り表示）へ
@@ -315,11 +315,11 @@ export function renderResolvedSingleLineCaption(text, lines, cue) {
       color:var(--caption-color,#fff);
       text-shadow:var(--caption-text-shadow,-1.5px -1.5px 0 rgba(0,0,0,.85),1.5px -1.5px 0 rgba(0,0,0,.85),-1.5px 1.5px 0 rgba(0,0,0,.85),1.5px 1.5px 0 rgba(0,0,0,.85),0 0 8px rgba(0,0,0,.6));
       -webkit-text-stroke:var(--caption-webkit-text-stroke,0 transparent);
-      paint-order:var(--caption-paint-order,normal);
+      paint-order:var(--caption-paint-order,stroke fill);
       font-family:${RESOLVED_CAPTION_FONT_STACK};
       font-size:var(--caption-font-size,38px);
       font-weight:var(--caption-font-weight,700);
-      line-height:var(--caption-line-height,1.42);
+      line-height:var(--caption-word-line-height,var(--caption-line-height,1.42));
       text-align:center;
     }
     .akari-caption--single-line .akari-caption__plate {
@@ -1273,6 +1273,9 @@ ${lineTextAlignCss}      white-space: pre;
 ${writingModeCss}    }${blockPlateCss}${extendedPlateCss}
     .akari-caption__tok {
       display: inline-block;
+      vertical-align: baseline;
+      line-height: 1;
+      paint-order: stroke fill;
       will-change: transform, color;
     }
     @keyframes akari-caption-fade {

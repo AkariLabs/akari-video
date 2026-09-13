@@ -50,7 +50,7 @@ test("emphasis_words absent keeps the pre-emphasis caption output byte-identical
   // 2026-08-03 縦長字幕改修: 擬似縁取り（4 方向 text-shadow）→ 実ストローク
   // （-webkit-text-stroke + paint-order）への意図的変更でダイジェストを更新
   // （レイアウト・タイミング系のアサーションは無改変）。
-  assert.equal(digest, "ac17100519fcde5b5da4954c73c02e110007d54bb6c4cde322ad4ca1aed0f2b3");
+  assert.equal(digest, "2b046558f501cc4d75131341620c22791a3f2b3991469279a6eb8264de7618a7");
   assert.deepEqual(generateCaptionOverlays(CAPTIONS, CUTS, { emphasisWords: [] }), output);
   assert.deepEqual(generateCaptionOverlays(CAPTIONS, CUTS, { emphasisWords: "invalid" }), output);
 });
