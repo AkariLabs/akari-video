@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "id": "invalid-kind-kit",
+  "kind": "course",
+  "name": "kind 不正の架空キット",
+  "version": 1,
+  "requires": { "cli": ">=0.1.70" },
+  "license": "LicenseRef-AKARI-Assets-v0"
+}

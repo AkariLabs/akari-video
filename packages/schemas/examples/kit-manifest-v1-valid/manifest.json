@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "id": "sample-kit",
+  "kind": "kit",
+  "name": "架空のサンプルキット",
+  "version": 1,
+  "requires": {
+    "cli": ">=0.1.70",
+    "runtimes": ["three"],
+    "products": []
+  },
+  "skills": [
+    { "dir": "skills/sample-kit-skill", "name": "sample-kit-skill" }
+  ],
+  "templates": [
+    { "path": "templates/sample.json", "for": "world-map", "label": "架空テンプレート" }
+  ],
+  "assets": [],
+  "docs": [
+    { "path": "docs/guide.md", "label": "架空ガイド" }
+  ],
+  "license": "LicenseRef-AKARI-Assets-v0",
+  "provenance": {
+    "author": "AKARI Labs",
+    "source": "example:sample-kit"
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "id": "invalid-skill-name-kit",
+  "kind": "kit",
+  "name": "スキル名不一致の架空キット",
+  "version": 1,
+  "requires": { "cli": ">=0.1.70" },
+  "skills": [
+    { "dir": "skills/manifest-name", "name": "manifest-name" }
+  ],
+  "license": "LicenseRef-AKARI-Assets-v0"
+}

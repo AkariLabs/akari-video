@@ -1,0 +1,8 @@
+{
+  "schemaVersion": 1,
+  "id": "missing-required-kit",
+  "kind": "kit",
+  "name": "必須欄欠落の架空キット",
+  "version": 1,
+  "requires": { "cli": ">=0.1.70" }
+}

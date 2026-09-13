@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "id": "invalid-skill-dir-kit",
+  "kind": "kit",
+  "name": "スキル dir 不在の架空キット",
+  "version": 1,
+  "requires": { "cli": ">=0.1.70" },
+  "skills": [
+    { "dir": "skills/no-such-skill", "name": "no-such-skill" }
+  ],
+  "license": "LicenseRef-AKARI-Assets-v0"
+}
