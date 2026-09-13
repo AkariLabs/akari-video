@@ -35,6 +35,7 @@ import {
     ReadReviewSessionStrokesResult,
     ReadReviewSessionBundleRequest,
     ReadReviewSessionBundleResult,
+    ReadGenerationSidecarsResult,
     PrepareLegacyEditRequest,
     PrepareLegacyEditResult,
     ReadVideoFxLutRequest,
@@ -311,6 +312,7 @@ const TRANSCODABLE_AUDIO_MIME_TYPES = new Map<string, string>([
 ]);
 const MAX_TRANSCODE_INPUT_BYTES = 50 * 1024 * 1024;
 const MAX_TRANSCODE_OUTPUT_BYTES = 200 * 1024 * 1024;
+const MAX_GENERATION_SIDECAR_BYTES = 1024 * 1024;
 const TRANSCODE_TIMEOUT_MS = 30_000;
 
 interface StaticAsset {
@@ -1148,6 +1150,100 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
             nextText: planned.nextText,
             changes: planned.changes
         };
+    }
+
+    async readGenerationSidecars(request: {
+        editUri: string;
+        workspaceRoots?: string[];
+    }): Promise<ReadGenerationSidecarsResult> {
+        if (!request || typeof request.editUri !== 'string') {
+            throw new Error('Invalid generation sidecar request');
+        }
+        const roots = await this.resolveWorkspaceRoots(request.workspaceRoots);
+        const editText = await this.readWorkspaceRegularFile(request.editUri, roots, 'edit.json');
+        let rawEdit: unknown;
+        try {
+            rawEdit = JSON.parse(editText);
+        } catch {
+            return { entries: [], itemNames: {} };
+        }
+        if (!rawEdit || typeof rawEdit !== 'object' || Array.isArray(rawEdit)) {
+            return { entries: [], itemNames: {} };
+        }
+        const edit = rawEdit as Record<string, unknown>;
+        const sourcePaths = new Map<string, string>();
+        if (Array.isArray(edit.sources)) {
+            for (const source of edit.sources) {
+                if (!source || typeof source !== 'object' || Array.isArray(source)) continue;
+                const record = source as Record<string, unknown>;
+                if (typeof record.path !== 'string' || record.path.length === 0) continue;
+                sourcePaths.set(typeof record.id === 'string' ? record.id : record.path, record.path);
+            }
+        }
+        const collected = new Set<string>(sourcePaths.values());
+        const itemNames: Record<string, string> = {};
+        if (Array.isArray(edit.tracks)) {
+            for (const track of edit.tracks) {
+                if (!track || typeof track !== 'object' || Array.isArray(track)) continue;
+                const trackRecord = track as Record<string, unknown>;
+                if (trackRecord.lane !== undefined && trackRecord.lane !== 'visual') continue;
+                const visit = (items: unknown): void => {
+                    if (!Array.isArray(items)) return;
+                    for (const item of items) {
+                        if (!item || typeof item !== 'object' || Array.isArray(item)) continue;
+                        const itemRecord = item as Record<string, unknown>;
+                        if (typeof itemRecord.id === 'string' && typeof itemRecord.name === 'string') {
+                            itemNames[itemRecord.id] = itemRecord.name;
+                        }
+                        const source = itemRecord.source;
+                        if (source && typeof source === 'object' && !Array.isArray(source)) {
+                            const sourceRecord = source as Record<string, unknown>;
+                            if (sourceRecord.kind === undefined || sourceRecord.kind === 'media') {
+                                if (typeof sourceRecord.path === 'string' && sourceRecord.path.length > 0) {
+                                    collected.add(sourceRecord.path);
+                                } else if (typeof sourceRecord.src === 'string') {
+                                    const resolvedPath = sourcePaths.get(sourceRecord.src);
+                                    if (resolvedPath) collected.add(resolvedPath);
+                                }
+                            }
+                        }
+                        visit(itemRecord.items);
+                    }
+                };
+                visit(trackRecord.items);
+            }
+        }
+        const projectRoot = dirname(this.filePath(request.editUri));
+        const entries = await Promise.all([...collected].map(async sourcePath => {
+            const sidecarPath = `${resolve(projectRoot, sourcePath)}.meta.json`;
+            let sidecarStat: Awaited<ReturnType<typeof lstat>>;
+            try {
+                const canonicalParent = await realpath(dirname(sidecarPath));
+                const requestedPath = join(canonicalParent, basename(sidecarPath));
+                if (!roots.some(root => this.contains(root, requestedPath))) {
+                    return { sourcePath, meta: null, mtimeMs: null };
+                }
+                sidecarStat = await lstat(requestedPath);
+                if (!sidecarStat.isFile() || sidecarStat.isSymbolicLink()) {
+                    return { sourcePath, meta: null, mtimeMs: null };
+                }
+                const mtimeMs = sidecarStat.mtimeMs;
+                if (sidecarStat.size > MAX_GENERATION_SIDECAR_BYTES) {
+                    return { sourcePath, meta: null, mtimeMs };
+                }
+                const text = await this.readWorkspaceRegularFile(
+                    pathToFileURL(requestedPath).toString(), roots, 'generation sidecar'
+                );
+                try {
+                    return { sourcePath, meta: JSON.parse(text) as unknown, mtimeMs };
+                } catch {
+                    return { sourcePath, meta: null, mtimeMs };
+                }
+            } catch {
+                return { sourcePath, meta: null, mtimeMs: null };
+            }
+        }));
+        return { entries, itemNames };
     }
 
     async resolveCaptionDisplay(request: ResolveCaptionDisplayRequest): Promise<ResolvedCaptionDisplayPayload | null> {

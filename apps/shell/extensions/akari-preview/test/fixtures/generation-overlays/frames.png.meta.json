@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "kind": "frames",
+  "status": "done",
+  "inputs": {
+    "extra": {
+      "fps": 6,
+      "mask_rect": { "x": 0.15, "y": 0.6, "w": 0.22, "h": 0.22 }
+    }
+  },
+  "output": { "fps": 8 },
+  "result": { "frames": 16 },
+  "history": []
+}

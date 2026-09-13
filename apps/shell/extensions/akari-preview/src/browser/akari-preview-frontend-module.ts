@@ -62,6 +62,11 @@ export default new ContainerModule((bind, _unbind, _isBound, rebind) => {
                     default: true,
                     description: 'タイムラインをドラッグ（スクラブ）したとき、その位置の音を短く鳴らします（出力プレビュー）。'
                 },
+                'akari.preview.exportLook': {
+                    type: 'boolean',
+                    default: false,
+                    description: '書き出しの見え方でプレビューを表示します（生成クリップの小札・帯・シマー・編集領域の点線を隠す）。書き出しの結果は変わりません。'
+                },
                 'akari.preview.renderScale': {
                     type: 'string',
                     enum: ['auto', '1', '0.5', '0.25'],
