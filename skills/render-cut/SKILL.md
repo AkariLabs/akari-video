@@ -82,6 +82,18 @@ node の解決順は `AKARI_NODE_BIN` → PATH の node（20 以上）→ 同梱
    - **空フレーム走査 warning の読み方**（既定 ON・`--no-verify-blank` で OFF）: `verify.findings` の `verify.blank-frames` は、輝度が背景レベルに張り付いた**連続 0.3 秒以上**の区間を挙げたもの。severity は、その区間に宣言上活性な overlay / cut が **1 件以上あれば `warning`**（カットの尺に対して中身のアニメが先に終わった疑い＝要調査）、**活性 0 件なら `info`**（意図した黒区間の可能性が高く、そのまま無視してよい）。区間表と活性 id は `render.json` の `verify.declared.blank_frames` と HTML レポートで読む。これらの finding は verify の verdict を変えない。
 8. 機械検証値、成果物 SHA-256、採用したラスタライズ手段、フォールバック理由、コンタクトシート起点のキーフレーム視認結果を報告する。verify FAIL の場合は納品可能と表現せず、`.akari/render-tmp/` を保持して原因を報告する。
 
+## 絵コンテ（印刷）
+
+タイムラインの初回確認にだけ、次のコマンドで L1 通しマップを作る。
+
+```sh
+node packages/decision-cards/render-storyboard-print.mjs <project-root>
+```
+
+置き場は `<project>/.akari/reports/storyboard/`。絵コンテは初回だけ作り、タイムライン変更に合わせて
+更新しない。AI は後から読まず、画像生成・動画生成の入力にも使わない。描き直す必要がある場合は
+先に `edit.json` / `captions.json` を直し、人が明示的に再生成する。
+
 ## 出力契約
 
 - 成果物は既定で `<project>/exports/<source-name>.mp4` に置く。既存名があれば連番を使う。

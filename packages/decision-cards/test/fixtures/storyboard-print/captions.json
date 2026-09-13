@@ -1,0 +1,7 @@
+{
+  "captions": [
+    { "id": "c-0001", "start": 0.2, "end": 0.8, "text": "最初の字幕です", "speaker": null, "sourceRef": null, "edited": false, "time_domain": "output" },
+    { "id": "c-0002", "start": 2.1, "end": 3.4, "text": "説明の字幕です", "speaker": null, "sourceRef": null, "edited": false, "time_domain": "output" },
+    { "id": "c-0003", "start": 4.2, "end": 5.0, "text": "結びの字幕です", "speaker": null, "sourceRef": null, "edited": false, "time_domain": "output" }
+  ]
+}
