@@ -1,0 +1,412 @@
+{
+  "status": "pass",
+  "steps": [
+    {
+      "name": "1. 8 行の見かけ上のサブブロック数が同じ RPC の cue 数と一致する",
+      "pass": true,
+      "detail": {
+        "expected": {
+          "c-0001": 1,
+          "c-0002": 2,
+          "c-0003": 1,
+          "c-0004": 1,
+          "c-0005": 3,
+          "c-0006": 2,
+          "c-0007": 1,
+          "c-0008": 1
+        },
+        "timeline": [
+          {
+            "id": "c-0001",
+            "visualBlocks": 1,
+            "fragmentCount": 0,
+            "left": "1.96778%",
+            "width": "6.11047%",
+            "label": "ということでね、",
+            "pointerEvents": [],
+            "ticks": 0,
+            "background": "color(srgb 0.694118 0.501961 0.843137 / 0.68)"
+          },
+          {
+            "id": "c-0002",
+            "visualBlocks": 2,
+            "fragmentCount": 2,
+            "left": "8.07825%",
+            "width": "9.87342%",
+            "label": "今日はねひたすらYouTubeの撮影を",
+            "pointerEvents": [
+              "none",
+              "none"
+            ],
+            "ticks": 0,
+            "background": "rgba(0, 0, 0, 0)"
+          },
+          {
+            "id": "c-0003",
+            "visualBlocks": 1,
+            "fragmentCount": 0,
+            "left": "17.9517%",
+            "width": "10.4258%",
+            "label": "頑張っておりました",
+            "pointerEvents": [],
+            "ticks": 0,
+            "background": "color(srgb 0.694118 0.501961 0.843137 / 0.68)"
+          },
+          {
+            "id": "c-0004",
+            "visualBlocks": 1,
+            "fragmentCount": 0,
+            "left": "30.6214%",
+            "width": "18.1933%",
+            "label": "いい感じにかけてます",
+            "pointerEvents": [],
+            "ticks": 0,
+            "background": "color(srgb 0.694118 0.501961 0.843137 / 0.68)"
+          },
+          {
+            "id": "c-0005",
+            "visualBlocks": 3,
+            "fragmentCount": 3,
+            "left": "49.8849%",
+            "width": "15.6732%",
+            "label": "これゴールデンウィーク明けにYou",
+            "pointerEvents": [
+              "none",
+              "none",
+              "none"
+            ],
+            "ticks": 0,
+            "background": "rgba(0, 0, 0, 0)"
+          },
+          {
+            "id": "c-0006",
+            "visualBlocks": 2,
+            "fragmentCount": 2,
+            "left": "65.5581%",
+            "width": "12.7388%",
+            "label": "Tubeで配信する予定なんで",
+            "pointerEvents": [
+              "none",
+              "none"
+            ],
+            "ticks": 0,
+            "background": "rgba(0, 0, 0, 0)"
+          },
+          {
+            "id": "c-0007",
+            "visualBlocks": 1,
+            "fragmentCount": 0,
+            "left": "78.2969%",
+            "width": "4.21174%",
+            "label": "お楽しみに",
+            "pointerEvents": [],
+            "ticks": 0,
+            "background": "color(srgb 0.694118 0.501961 0.843137 / 0.68)"
+          },
+          {
+            "id": "c-0008",
+            "visualBlocks": 1,
+            "fragmentCount": 0,
+            "left": "82.5086%",
+            "width": "6.69735%",
+            "label": "お疲れ様です",
+            "pointerEvents": [],
+            "ticks": 0,
+            "background": "color(srgb 0.694118 0.501961 0.843137 / 0.68)"
+          }
+        ]
+      }
+    },
+    {
+      "name": "2. サブブロック上のドラッグで行全体が動き、ブロック数は不変",
+      "pass": true,
+      "detail": {
+        "selectedId": "c-0005",
+        "slackTable": [
+          {
+            "id": "c-0001",
+            "leftSlack": 0.57,
+            "rightSlack": 0,
+            "visualBlocks": 1
+          },
+          {
+            "id": "c-0002",
+            "leftSlack": 0,
+            "rightSlack": 0,
+            "visualBlocks": 2
+          },
+          {
+            "id": "c-0003",
+            "leftSlack": 0,
+            "rightSlack": 0.6499999999999986,
+            "visualBlocks": 1
+          },
+          {
+            "id": "c-0004",
+            "leftSlack": 0.6499999999999986,
+            "rightSlack": 0.3099999999999987,
+            "visualBlocks": 1
+          },
+          {
+            "id": "c-0005",
+            "leftSlack": 0.3099999999999987,
+            "rightSlack": 0,
+            "visualBlocks": 3
+          },
+          {
+            "id": "c-0006",
+            "leftSlack": 0,
+            "rightSlack": 0,
+            "visualBlocks": 2
+          },
+          {
+            "id": "c-0007",
+            "leftSlack": 0,
+            "rightSlack": 0,
+            "visualBlocks": 1
+          },
+          {
+            "id": "c-0008",
+            "leftSlack": 0,
+            "rightSlack": 0,
+            "visualBlocks": 1
+          }
+        ],
+        "direction": -1,
+        "availableSlack": 0.3099999999999987,
+        "zoom": {
+          "sliderValue": 260,
+          "point": {
+            "x": 391.87628173828125,
+            "y": 512.015625,
+            "fragmentIndex": 1,
+            "chip": {
+              "left": 326.13409423828125,
+              "right": 471.96221923828125,
+              "width": 145.828125
+            },
+            "viewport": {
+              "left": 363.9140625,
+              "right": 619.9140625
+            },
+            "insets": {
+              "left": 65.7421875,
+              "right": 80.0859375
+            },
+            "hit": {
+              "tag": "DIV",
+              "itemId": "c-0005"
+            }
+          }
+        },
+        "pxPerSecond": 32.12073237885463,
+        "requestedSeconds": 0.18599999999999922,
+        "rawMovePx": -16,
+        "movePx": -16,
+        "beforeBlockCount": 3,
+        "grab": {
+          "x": 391.87628173828125,
+          "y": 512.015625,
+          "fragmentIndex": 1,
+          "chip": {
+            "left": 326.13409423828125,
+            "right": 471.96221923828125,
+            "width": 145.828125
+          },
+          "viewport": {
+            "left": 363.9140625,
+            "right": 619.9140625
+          },
+          "insets": {
+            "left": 65.7421875,
+            "right": 80.0859375
+          },
+          "hit": {
+            "tag": "DIV",
+            "itemId": "c-0005"
+          }
+        },
+        "dragPoint": {
+          "x": 391.87628173828125,
+          "y": 512.015625
+        },
+        "edgeInsets": {
+          "left": 65.7421875,
+          "right": 80.0859375
+        },
+        "before": {
+          "start": 14.45,
+          "end": 18.99,
+          "duration": 4.539999999999999
+        },
+        "after": {
+          "start": 14.14,
+          "end": 18.68,
+          "duration": 4.539999999999999
+        },
+        "deltas": {
+          "start": -0.3099999999999987,
+          "end": -0.3099999999999987
+        },
+        "shortToast": false,
+        "timeline": {
+          "id": "c-0005",
+          "visualBlocks": 3,
+          "fragmentCount": 3,
+          "left": "-19.8151%",
+          "width": "59.2814%",
+          "label": "これゴールデンウィーク明けにYou",
+          "pointerEvents": [
+            "none",
+            "none",
+            "none"
+          ],
+          "ticks": 0,
+          "background": "rgba(0, 0, 0, 0)"
+        }
+      }
+    },
+    {
+      "name": "3. 設定 OFF で全行が 1 本帯になり、旧 1px 目盛りも出ない",
+      "pass": true,
+      "detail": {
+        "renderTrigger": {
+          "before": 253,
+          "next": 0,
+          "max": 1000
+        },
+        "timeline": [
+          {
+            "id": "c-0001",
+            "visualBlocks": 1,
+            "fragmentCount": 0,
+            "left": "1.96778%",
+            "width": "6.11047%",
+            "label": "ということでね、",
+            "pointerEvents": [],
+            "ticks": 0,
+            "background": "color(srgb 0.694118 0.501961 0.843137 / 0.68)"
+          },
+          {
+            "id": "c-0002",
+            "visualBlocks": 1,
+            "fragmentCount": 0,
+            "left": "8.07825%",
+            "width": "9.87342%",
+            "label": "今日はねひたすらYouTubeの撮影を",
+            "pointerEvents": [],
+            "ticks": 0,
+            "background": "color(srgb 0.694118 0.501961 0.843137 / 0.68)"
+          },
+          {
+            "id": "c-0003",
+            "visualBlocks": 1,
+            "fragmentCount": 0,
+            "left": "17.9517%",
+            "width": "10.4258%",
+            "label": "頑張っておりました",
+            "pointerEvents": [],
+            "ticks": 0,
+            "background": "color(srgb 0.694118 0.501961 0.843137 / 0.68)"
+          },
+          {
+            "id": "c-0004",
+            "visualBlocks": 1,
+            "fragmentCount": 0,
+            "left": "30.6214%",
+            "width": "18.1933%",
+            "label": "いい感じにかけてます",
+            "pointerEvents": [],
+            "ticks": 0,
+            "background": "color(srgb 0.694118 0.501961 0.843137 / 0.68)"
+          },
+          {
+            "id": "c-0005",
+            "visualBlocks": 1,
+            "fragmentCount": 0,
+            "left": "48.8147%",
+            "width": "15.6732%",
+            "label": "これゴールデンウィーク明けにYou",
+            "pointerEvents": [],
+            "ticks": 0,
+            "background": "color(srgb 0.694118 0.501961 0.843137 / 0.68)"
+          },
+          {
+            "id": "c-0006",
+            "visualBlocks": 1,
+            "fragmentCount": 0,
+            "left": "65.5581%",
+            "width": "12.7388%",
+            "label": "Tubeで配信する予定なんで",
+            "pointerEvents": [],
+            "ticks": 0,
+            "background": "color(srgb 0.694118 0.501961 0.843137 / 0.68)"
+          },
+          {
+            "id": "c-0007",
+            "visualBlocks": 1,
+            "fragmentCount": 0,
+            "left": "78.2969%",
+            "width": "4.21174%",
+            "label": "お楽しみに",
+            "pointerEvents": [],
+            "ticks": 0,
+            "background": "color(srgb 0.694118 0.501961 0.843137 / 0.68)"
+          },
+          {
+            "id": "c-0008",
+            "visualBlocks": 1,
+            "fragmentCount": 0,
+            "left": "82.5086%",
+            "width": "6.69735%",
+            "label": "お疲れ様です",
+            "pointerEvents": [],
+            "ticks": 0,
+            "background": "color(srgb 0.694118 0.501961 0.843137 / 0.68)"
+          }
+        ]
+      }
+    },
+    {
+      "name": "4. watcher で max_line_units 10→18 を再解決し c-0002 が 1 本になる",
+      "pass": true,
+      "detail": {
+        "restoreTrigger": {
+          "before": 0,
+          "next": 1,
+          "max": 1000
+        },
+        "watcherRenderTrigger": {
+          "before": 61,
+          "next": 62,
+          "max": 1000
+        },
+        "resolved": {
+          "row": {
+            "id": "c-0002",
+            "visualBlocks": 1,
+            "fragmentCount": 0,
+            "left": "7.49866%",
+            "width": "10.0099%",
+            "label": "今日はねひたすらYouTubeの撮影を",
+            "pointerEvents": [],
+            "ticks": 0,
+            "background": "color(srgb 0.694118 0.501961 0.843137 / 0.68)"
+          },
+          "count": 1
+        }
+      }
+    }
+  ],
+  "screenshots": [
+    "01-rpc-cue-counts-match.png",
+    "02-fragment-drag-moves-row.png",
+    "03-fragment-breaks-off.png",
+    "04-watcher-reduces-fragments.png"
+  ],
+  "cleanup": {
+    "killedPid": 28071,
+    "survivingIsolatedProcesses": 0,
+    "temporaryProjectRemoved": true
+  }
+}

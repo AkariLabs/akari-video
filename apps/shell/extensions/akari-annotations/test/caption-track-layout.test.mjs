@@ -3,42 +3,51 @@ import test from 'node:test';
 
 import {
     CAPTION_FRAGMENT_BREAKS_STORAGE_KEY,
-    captionFragmentTicks,
+    captionFragmentBlocks,
+    groupCaptionDisplayCues,
+    loadCaptionDisplayCueGroups,
     readCaptionFragmentBreaksVisible,
     remapCaptionSelection,
     shouldReloadCaptions
 } from '../lib/common/caption-track-layout.js';
 
-test('断片の内側境界を字幕幅に対する位置へ変換する', () => {
-    assert.deepEqual(captionFragmentTicks({
-        start: 10,
-        end: 14,
-        text: 'abcd',
-        display_fragments: ['a', 'bc', 'd']
-    }), [
-        { index: 1, position: 0.25, seconds: 11 },
-        { index: 2, position: 0.75, seconds: 13 }
+test('解決 cue を source_cue_id ごとにまとめて時刻順に並べる', () => {
+    const grouped = groupCaptionDisplayCues([
+        { source_cue_id: 'b', start: 4, end: 5, text: 'B' },
+        { source_cue_id: 'a', start: 2, end: 4, text: '後', fragment_index: 1 },
+        { source_cue_id: 'a', start: 0, end: 2, text: '前', fragment_index: 0 }
     ]);
-    assert.deepEqual(captionFragmentTicks({
-        start: 1, end: 1, text: 'ab', display_fragments: ['a', 'b']
-    }), []);
-    assert.deepEqual(captionFragmentTicks({
-        start: 1, end: 2, text: 'ab', display_fragments: ['ab']
-    }), []);
+    assert.deepEqual([...grouped.keys()], ['b', 'a']);
+    assert.deepEqual(grouped.get('a')?.map(cue => cue.text), ['前', '後']);
 });
 
-test('語時刻が使える断片境界は source 秒を保ち、重複境界を除く', () => {
-    assert.deepEqual(captionFragmentTicks({
-        start: 0,
-        end: 3,
-        text: 'abc',
-        display_fragments: ['a', 'b', 'c'],
-        words: [
-            { text: 'a', start: 0, end: 1 },
-            { text: 'b', start: 1, end: 1 },
-            { text: 'c', start: 1, end: 3 }
-        ]
-    }), [{ index: 1, position: 1 / 3, seconds: 1 }]);
+test('cue 時刻を行内比率の断片ブロックへ変換する', () => {
+    assert.deepEqual(captionFragmentBlocks([
+        { source_cue_id: 'a', start: 10, end: 11, text: 'a', fragment_index: 0 },
+        { source_cue_id: 'a', start: 11, end: 13, text: 'bc', fragment_index: 1,
+            display_lines: ['b', 'c'] },
+        { source_cue_id: 'a', start: 13, end: 14, text: 'd', fragment_index: 2 }
+    ]), [
+        { index: 0, left: 0, width: 0.25, text: 'a', folded: false },
+        { index: 1, left: 0.25, width: 0.5, text: 'bc', folded: true },
+        { index: 2, left: 0.75, width: 0.25, text: 'd', folded: false }
+    ]);
+    assert.deepEqual(captionFragmentBlocks([
+        { source_cue_id: 'a', start: 1, end: 2, text: 'ab', fragment_count: 2 }
+    ]), []);
+});
+
+test('解決失敗は空の cue 表へ fail-open する', async () => {
+    let warnings = 0;
+    const groups = await loadCaptionDisplayCueGroups(async () => {
+        throw new Error('offline');
+    }, () => { warnings += 1; });
+    assert.equal(groups.size, 0);
+    assert.equal(warnings, 1);
+
+    const nullGroups = await loadCaptionDisplayCueGroups(async () => null, () => { warnings += 1; });
+    assert.equal(nullGroups.size, 0);
+    assert.equal(warnings, 2);
 });
 
 test("区切り表示は既定 ON で、文字列 'false' のときだけ OFF", () => {

@@ -1,0 +1,31 @@
+.akari-annotations-widget .akari-annotations-strip-caption.akari-annotations-caption-fragmented {
+    background: transparent !important;
+}
+
+.akari-annotations-widget .akari-annotations-strip-caption.akari-annotations-caption-selected
+    .akari-annotations-caption-fragment {
+    background: rgba(245, 196, 81, .35);
+}
+
+.akari-annotations-widget .akari-annotations-caption-fragment {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: calc(var(--akari-caption-fragment-left) * 1%);
+    width: max(0px, calc(var(--akari-caption-fragment-width) * 1% - 2px));
+    min-width: 0;
+    overflow: hidden;
+    border-radius: 5px;
+    background: color-mix(in srgb, var(--theia-charts-purple, #b180d7) 68%, transparent);
+    pointer-events: none;
+}
+
+.akari-annotations-widget .akari-annotations-caption-fragment-last {
+    width: calc(var(--akari-caption-fragment-width) * 1%);
+}
+
+.akari-annotations-widget .akari-annotations-caption-fragment .akari-annotations-strip-caption-text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}

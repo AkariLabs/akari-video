@@ -67,10 +67,18 @@ test('書き込み完了通知は captionsUri の本文を即時 reload へ渡�
     assert.match(widget, /annotationsClient\.onDidWriteEvent\(detail => \{[\s\S]*?detail\.uri === this\.location\?\.captionsUri\.toString\(\)[\s\S]*?reloadCaptionsIfChanged\(detail\.content\)/);
 });
 
-test('字幕チップの signature は目盛り入力を含み、tick span を append する', () => {
+test('字幕チップの signature は解決 cue を含み、非操作サブブロックを append する', () => {
     const branch = between(widget, 'this.captions.forEach(caption => {', 'this.overlays.forEach(overlay => {');
-    assert.match(branch, /JSON\.stringify\(\{ caption, captionFragmentBreaksVisible, ticks \}\)/);
-    assert.match(branch, /marker\.className = 'akari-annotations-caption-fragment-tick'/);
-    assert.match(branch, /marker\.dataset\.akariCaptionFragmentTick = String\(tick\.index\)/);
-    assert.match(branch, /element\.appendChild\(marker\)/);
+    assert.match(branch, /JSON\.stringify\(\{ caption, captionFragmentBreaksVisible, captionDisplayCues \}\)/);
+    assert.match(branch, /fragment\.className = 'akari-annotations-caption-fragment'/);
+    assert.match(branch, /fragment\.dataset\.akariCaptionFragment = String\(block\.index\)/);
+    assert.match(branch, /element\.appendChild\(fragment\)/);
+    assert.doesNotMatch(branch, /resolveCaptionDisplay/);
+});
+
+test('字幕と edit の reload は各 1 回だけ表示断片を解決する', () => {
+    const captionsReload = between(widget, 'protected async reloadCaptionsFromSource(', 'protected remapCaptionSelections(');
+    assert.equal(captionsReload.match(/await this\.reloadResolvedCaptionDisplay\(\)/g)?.length, 1);
+    const editReload = between(widget, 'protected async reloadEdit(', 'protected async resolveLegacyEditForOpen(');
+    assert.equal(editReload.match(/await this\.reloadResolvedCaptionDisplay\(\)/g)?.length, 1);
 });
