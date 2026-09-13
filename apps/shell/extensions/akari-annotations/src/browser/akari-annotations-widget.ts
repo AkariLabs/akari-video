@@ -17,6 +17,7 @@ import { ApplicationShell, BaseWidget, StorageService } from '@theia/core/lib/br
 import { PreferenceService } from '@theia/core/lib/common/preferences';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
 import { FileChangeType } from '@theia/filesystem/lib/common/files';
+import { WorkspaceService } from '@theia/workspace/lib/browser/workspace-service';
 import { inject, injectable, postConstruct } from '@theia/core/shared/inversify';
 import { AkariPreviewService } from 'akari-preview/lib/common/akari-preview-protocol';
 import 'akari-preview/lib/electron-common/electron-api';
@@ -101,6 +102,7 @@ import {
 // webpack（theia build）の css-loader が拾う。node の単体テストは .css を読めないので握りつぶす。
 // パスは lib/browser/ からの相対 — @theia/core の frontend-application-module と同じ流儀。
 try { require('../../src/browser/style/generation-chip.css'); } catch { /* node 単体テスト環境 */ }
+try { require('../../src/browser/style/caption-fragment-blocks.css'); } catch { /* node 単体テスト環境 */ }
 import {
     canRenderClipMedia, filmstripCellCount,
     isMediaCacheFailure, MediaCacheFailure, mediaCacheRequestAttempt
@@ -197,7 +199,9 @@ import { CaptionSubrowLayout, computeCaptionSubrowLayout } from '../common/capti
 import { clampCaptionOutputRange, resolveSourceCaptionEdgeDrag } from '../common/caption-output-domain';
 import { clampCaptionRangeToNeighbors, CaptionNeighborRange } from '../common/caption-overlap-guard';
 import {
-    captionFragmentTicks,
+    captionFragmentBlocks,
+    CaptionDisplayCueLike,
+    loadCaptionDisplayCueGroups,
     readCaptionFragmentBreaksVisible,
     remapCaptionSelection,
     shouldReloadCaptions
@@ -803,6 +807,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
     @inject(FileService)
     protected readonly fileService!: FileService;
 
+    @inject(WorkspaceService)
+    protected readonly workspaceService!: WorkspaceService;
+
     @inject(CommandService)
     protected readonly commands!: CommandService;
 
@@ -891,11 +898,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected readonly recentWrites = new Map<string, number>();
     protected captions: CaptionRecord[] = [];
     protected lastAppliedCaptionsSource: string | undefined;
-    protected captionFragmentInputs = new Map<string, {
-        display_text?: unknown;
-        display_fragments?: unknown;
-        words?: unknown;
-    }>();
+    protected captionDisplayCuesBySource = new Map<string, CaptionDisplayCueLike[]>();
+    protected captionDisplayReloadGeneration = 0;
+    protected captionDisplayFailureWarned = false;
     /** caption-store が正規化しない captions.json の src を、出力射影専用に保持する。 */
     protected captionSources = new Map<string, string>();
     /** 同じ captions/edit 状態の再読込で射影不能警告を積み上げないための直近文言。 */
@@ -6128,6 +6133,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.syncTimelineTrackTogglesToPreview();
         await this.loadTrackHeights();
         await this.reloadGenerationSidecars(false);
+        if (generation !== this.editReloadGeneration) return;
+        await this.reloadResolvedCaptionDisplay();
         if (generation === this.editReloadGeneration) this.renderStrip();
     }
 
@@ -6924,26 +6931,6 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 const parsed = parseCaptions(nextSource);
                 if (generation !== this.captionReloadGeneration) return;
                 const previousCaptions = this.captions;
-                const rawRoot = JSON.parse(nextSource) as unknown;
-                const rawCaptions = Array.isArray(rawRoot) ? rawRoot
-                    : rawRoot && typeof rawRoot === 'object' && Array.isArray((rawRoot as { captions?: unknown }).captions)
-                        ? (rawRoot as { captions: unknown[] }).captions : [];
-                this.captionFragmentInputs = new Map(rawCaptions.flatMap(value => {
-                    if (!value || typeof value !== 'object' || typeof (value as { id?: unknown }).id !== 'string') {
-                        return [];
-                    }
-                    const raw = value as {
-                        id: string;
-                        display_text?: unknown;
-                        display_fragments?: unknown;
-                        words?: unknown;
-                    };
-                    return [[raw.id, {
-                        display_text: raw.display_text,
-                        display_fragments: raw.display_fragments,
-                        words: raw.words
-                    }] as const];
-                }));
                 this.invalidateContentExtent();
                 this.captions = parsed.captions;
                 this.captionSources = readCaptionSourceMap(nextSource);
@@ -6958,15 +6945,53 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 this.invalidateContentExtent();
                 this.captions = [];
                 this.captionSources.clear();
-                this.captionFragmentInputs.clear();
                 this.defaultTextStyle = undefined;
                 this.lastAppliedCaptionsSource = undefined;
                 // A missing or unreadable captions.json means no caption segments are drawn.
             }
         }
+        await this.reloadResolvedCaptionDisplay();
+        if (generation !== this.captionReloadGeneration) return;
         this.notifyCaptionSourceMappingWarning();
         this.pushSelectionSnapshot();
         this.renderStrip();
+    }
+
+    protected async currentWorkspaceRoots(): Promise<string[]> {
+        try {
+            return (await this.workspaceService.roots).map(root => root.resource.toString());
+        } catch {
+            return [];
+        }
+    }
+
+    protected async reloadResolvedCaptionDisplay(): Promise<void> {
+        const generation = ++this.captionDisplayReloadGeneration;
+        const location = this.location;
+        if (!location?.editUri) {
+            this.captionDisplayCuesBySource.clear();
+            this.captionDisplayFailureWarned = false;
+            return;
+        }
+        let failed = false;
+        const groups = await loadCaptionDisplayCueGroups(
+            async () => this.visualPreviewService.resolveCaptionDisplay({
+                captionsUri: location.captionsUri.toString(),
+                editUri: location.editUri!.toString(),
+                workspaceRoots: await this.currentWorkspaceRoots()
+            }),
+            error => {
+                if (generation !== this.captionDisplayReloadGeneration) return;
+                failed = true;
+                if (!this.captionDisplayFailureWarned) {
+                    this.captionDisplayFailureWarned = true;
+                    console.warn('[akari-annotations] failed to resolve caption display; using whole caption bands', error);
+                }
+            }
+        );
+        if (generation !== this.captionDisplayReloadGeneration) return;
+        this.captionDisplayCuesBySource = groups;
+        if (!failed) this.captionDisplayFailureWarned = false;
     }
 
     protected remapCaptionSelections(previous: readonly CaptionRecord[], next: readonly CaptionRecord[]): void {
@@ -7959,12 +7984,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 return;
             }
             const top = captionTrackLayout.top;
-            const ticks = captionFragmentTicks({
-                ...caption,
-                ...this.captionFragmentInputs.get(caption.id)
-            });
+            const captionDisplayCues = this.captionDisplayCuesBySource.get(caption.id) ?? [];
+            const blocks = captionFragmentBreaksVisible
+                ? captionFragmentBlocks(captionDisplayCues) : [];
             const { element, created } = this.keyedStripSegment(
-                `caption:${caption.id}`, JSON.stringify({ caption, captionFragmentBreaksVisible, ticks }),
+                `caption:${caption.id}`, JSON.stringify({ caption, captionFragmentBreaksVisible, captionDisplayCues }),
                 outputStart, outputEnd, top, SUBROW_HEIGHT,
                 'akari-annotations-strip-caption', caption.text
             );
@@ -7975,6 +7999,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             const treeRow = this.captionTreeRow(caption.id);
             if (treeRow) element.dataset.akariTreeRowId = treeRow.id;
             element.style.opacity = this.captionsVisible ? '' : '.28';
+            element.classList.toggle('akari-annotations-caption-fragmented', blocks.length > 0);
             this.installDragListeners(element, (event, rect) => {
                 const mode = this.resolveClipEdgeMode(event, rect, element);
                 return {
@@ -7985,21 +8010,27 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 };
             });
             if (created) {
-                const label = this.captionLabel(caption.text);
-                label.style.opacity = this.captionsVisible ? '' : '.28';
-                element.appendChild(label);
-                if (captionFragmentBreaksVisible) {
-                    for (const tick of ticks) {
-                        const marker = document.createElement('span');
-                        marker.className = 'akari-annotations-caption-fragment-tick';
-                        marker.dataset.akariCaptionFragmentTick = String(tick.index);
-                        Object.assign(marker.style, {
-                            position: 'absolute', top: '0', bottom: '0', width: '1px',
-                            left: `${tick.position * 100}%`, background: 'rgba(255,255,255,.55)',
-                            pointerEvents: 'none'
-                        });
-                        element.appendChild(marker);
+                if (blocks.length > 0) {
+                    for (const [blockPosition, block] of blocks.entries()) {
+                        const fragment = document.createElement('div');
+                        fragment.className = 'akari-annotations-caption-fragment';
+                        fragment.dataset.akariCaptionFragment = String(block.index);
+                        fragment.style.setProperty('--akari-caption-fragment-left', String(block.left * 100));
+                        fragment.style.setProperty('--akari-caption-fragment-width', String(block.width * 100));
+                        fragment.classList.toggle('akari-annotations-caption-fragment-last', blockPosition === blocks.length - 1);
+                        const label = this.captionLabel(`${block.text}${block.folded ? ' ⏎' : ''}`);
+                        label.title = block.text;
+                        fragment.appendChild(label);
+                        element.appendChild(fragment);
                     }
+                } else {
+                    const folded = captionFragmentBreaksVisible && captionDisplayCues.length === 1
+                        && Array.isArray(captionDisplayCues[0].display_lines)
+                        && captionDisplayCues[0].display_lines!.length >= 2;
+                    const label = this.captionLabel(`${caption.text}${folded ? ' ⏎' : ''}`);
+                    label.title = caption.text;
+                    label.style.opacity = this.captionsVisible ? '' : '.28';
+                    element.appendChild(label);
                 }
             }
         });

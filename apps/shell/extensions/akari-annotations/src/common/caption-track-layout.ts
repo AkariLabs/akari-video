@@ -1,5 +1,3 @@
-import { captionFragmentWindows, type CaptionFragmentLike } from '@akari-video/edit-store';
-
 export const CAPTION_FRAGMENT_BREAKS_STORAGE_KEY = 'akari.captions.fragmentBreaks.visible';
 
 export function readCaptionFragmentBreaksVisible(storage?: Pick<Storage, 'getItem'>): boolean {
@@ -11,33 +9,79 @@ export function readCaptionFragmentBreaksVisible(storage?: Pick<Storage, 'getIte
     }
 }
 
-export interface CaptionFragmentTick {
-    index: number;
-    position: number;
-    seconds: number;
+export interface CaptionDisplayCueLike {
+    source_cue_id: string;
+    start: number;
+    end: number;
+    text: string;
+    occurrence_index?: number;
+    fragment_index?: number;
+    fragment_count?: number;
+    display_lines?: string[];
 }
 
-export function captionFragmentTicks(caption: CaptionFragmentLike): CaptionFragmentTick[] {
-    const start = caption.start;
-    const end = caption.end;
-    if (typeof start !== 'number' || typeof end !== 'number'
-        || !Number.isFinite(start) || !Number.isFinite(end) || end <= start) {
-        return [];
+export interface CaptionFragmentBlock {
+    index: number;
+    left: number;
+    width: number;
+    text: string;
+    folded: boolean;
+}
+
+export function groupCaptionDisplayCues(
+    cues: readonly CaptionDisplayCueLike[]
+): Map<string, CaptionDisplayCueLike[]> {
+    const grouped = new Map<string, CaptionDisplayCueLike[]>();
+    for (const cue of cues) {
+        if (!cue || typeof cue.source_cue_id !== 'string' || cue.source_cue_id.length === 0) continue;
+        const group = grouped.get(cue.source_cue_id) ?? [];
+        group.push(cue);
+        grouped.set(cue.source_cue_id, group);
     }
-    const windows = captionFragmentWindows(caption);
-    if (!windows || windows.length <= 1) return [];
+    for (const group of grouped.values()) {
+        group.sort((left, right) => left.start - right.start
+            || (left.occurrence_index ?? 0) - (right.occurrence_index ?? 0)
+            || (left.fragment_index ?? 0) - (right.fragment_index ?? 0));
+    }
+    return grouped;
+}
+
+export function captionFragmentBlocks(cues: readonly CaptionDisplayCueLike[]): CaptionFragmentBlock[] {
+    if (cues.length <= 1) return [];
+    const sorted = [...cues].sort((left, right) => left.start - right.start
+        || (left.occurrence_index ?? 0) - (right.occurrence_index ?? 0)
+        || (left.fragment_index ?? 0) - (right.fragment_index ?? 0));
+    const start = sorted[0].start;
+    const end = sorted[sorted.length - 1].end;
     const duration = end - start;
-    const seen = new Set<number>();
-    return windows.slice(0, -1).flatMap(window => {
-        const seconds = window.end;
-        const position = (seconds - start) / duration;
-        if (!Number.isFinite(seconds) || !Number.isFinite(position)
-            || position <= 0 || position >= 1 || seen.has(seconds)) {
-            return [];
-        }
-        seen.add(seconds);
-        return [{ index: window.index, position, seconds }];
-    }).sort((left, right) => left.seconds - right.seconds);
+    if (!Number.isFinite(start) || !Number.isFinite(end) || duration <= 0) return [];
+    return sorted.flatMap((cue, index) => {
+        if (!Number.isFinite(cue.start) || !Number.isFinite(cue.end) || cue.end <= cue.start) return [];
+        const left = (cue.start - start) / duration;
+        const width = (cue.end - cue.start) / duration;
+        if (!Number.isFinite(left) || !Number.isFinite(width) || width <= 0) return [];
+        return [{
+            index,
+            left: Math.max(0, Math.min(1, left)),
+            width: Math.max(0, Math.min(1 - left, width)),
+            text: cue.text,
+            folded: Array.isArray(cue.display_lines) && cue.display_lines.length >= 2
+        }];
+    });
+}
+
+export async function loadCaptionDisplayCueGroups(
+    resolve: () => Promise<{ captions: CaptionDisplayCueLike[] } | null>,
+    warn: (error: unknown) => void
+): Promise<Map<string, CaptionDisplayCueLike[]>> {
+    try {
+        const resolved = await resolve();
+        if (!resolved) throw new Error('resolveCaptionDisplay returned null');
+        return groupCaptionDisplayCues(resolved.captions);
+    } catch (error) {
+        warn(error);
+        return new Map();
+    }
 }
 
 export interface CaptionTimeSpan {

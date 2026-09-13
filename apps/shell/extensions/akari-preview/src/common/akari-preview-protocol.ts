@@ -367,9 +367,13 @@ export interface ResolvedCaptionDisplayPayload {
     captions: Array<{
         id: string;
         source_cue_id: string;
+        occurrence_index?: number;
+        fragment_index?: number;
+        fragment_count?: number;
         start: number;
         end: number;
         text: string;
+        display_lines?: string[];
         text_style?: Record<string, unknown>;
         style_vars?: Record<string, string>;
     }>;
