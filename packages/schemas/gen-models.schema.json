@@ -1,0 +1,207 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:akari-video:schema:gen-models:v1",
+  "title": "AKARI Video generation model catalog",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "models"],
+  "properties": {
+    "version": { "const": 1 },
+    "models": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/model" }
+    }
+  },
+  "$defs": {
+    "referenceInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["max"],
+      "properties": {
+        "max": { "type": ["integer", "null"], "minimum": 0 },
+        "tag": { "type": "string", "minLength": 1 },
+        "seconds_each": { "type": ["number", "null"], "exclusiveMinimum": 0 },
+        "seconds_total": { "type": ["number", "null"], "exclusiveMinimum": 0 }
+      }
+    },
+    "inputs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "first_frame",
+        "last_frame",
+        "reference_images",
+        "reference_videos",
+        "reference_audios",
+        "source_video",
+        "frames_and_refs_exclusive",
+        "negative_prompt",
+        "camera",
+        "extra_allowed"
+      ],
+      "properties": {
+        "first_frame": { "enum": ["required", "optional", "none"] },
+        "last_frame": { "enum": ["required", "optional", "none"] },
+        "reference_images": { "$ref": "#/$defs/referenceInput" },
+        "reference_videos": { "$ref": "#/$defs/referenceInput" },
+        "reference_audios": { "$ref": "#/$defs/referenceInput" },
+        "source_video": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "enum": ["edit", "extend", "motion", "frame-edit"] }
+        },
+        "frames_and_refs_exclusive": { "type": "boolean" },
+        "negative_prompt": { "type": "boolean" },
+        "camera": { "enum": ["prose", "bracket", "trajectory"] },
+        "extra_allowed": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "durationFormat": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type"],
+          "properties": { "type": { "const": "integer" } }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type"],
+          "properties": {
+            "type": { "const": "string" },
+            "suffix": { "type": "string", "minLength": 1 },
+            "auto": { "type": "boolean" }
+          }
+        }
+      ]
+    },
+    "durationEnum": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "values", "default", "format"],
+      "properties": {
+        "kind": { "const": "enum" },
+        "values": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "integer", "minimum": 0 }
+        },
+        "default": { "type": ["integer", "null"], "minimum": 0 },
+        "format": { "$ref": "#/$defs/durationFormat" }
+      }
+    },
+    "durationRange": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "min", "max", "step", "default", "format"],
+      "properties": {
+        "kind": { "const": "range" },
+        "min": { "type": "integer", "minimum": 0 },
+        "max": { "type": "integer", "minimum": 0 },
+        "step": { "type": "integer", "exclusiveMinimum": 0 },
+        "default": { "type": ["integer", "null"], "minimum": 0 },
+        "format": { "$ref": "#/$defs/durationFormat" }
+      }
+    },
+    "price": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["unit", "by_resolution", "audio_multiplier"],
+      "properties": {
+        "unit": { "enum": ["usd_per_second", "usd_per_image", "usd_per_clip"] },
+        "by_resolution": {
+          "type": "object",
+          "propertyNames": { "type": "string" },
+          "additionalProperties": { "type": "number", "minimum": 0 }
+        },
+        "audio_multiplier": { "type": ["number", "null"], "exclusiveMinimum": 0 }
+      }
+    },
+    "model": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "kind",
+        "provider",
+        "family",
+        "endpoint",
+        "inputs",
+        "duration",
+        "resolutions",
+        "aspects",
+        "audio_out",
+        "seed",
+        "price",
+        "as_of",
+        "source_url",
+        "price_url",
+        "verified",
+        "calibration"
+      ],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "kind": { "enum": ["video", "image"] },
+        "provider": { "type": "string", "minLength": 1 },
+        "family": { "type": "string", "minLength": 1 },
+        "endpoint": { "type": "string", "minLength": 1 },
+        "inputs": { "$ref": "#/$defs/inputs" },
+        "duration": {
+          "oneOf": [
+            { "$ref": "#/$defs/durationEnum" },
+            { "$ref": "#/$defs/durationRange" },
+            { "type": "null" }
+          ]
+        },
+        "resolutions": {
+          "type": ["array", "null"],
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "aspects": {
+          "type": ["array", "null"],
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "audio_out": { "enum": [true, false, "always"] },
+        "seed": { "type": "boolean" },
+        "price": { "oneOf": [{ "$ref": "#/$defs/price" }, { "type": "null" }] },
+        "as_of": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$" },
+        "source_url": { "type": "string", "pattern": "^https://" },
+        "price_url": { "type": ["string", "null"], "pattern": "^https://" },
+        "verified": { "const": "documented" },
+        "calibration": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1 }
+        }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "kind": { "const": "image" } }, "required": ["kind"] },
+          "then": {
+            "type": "object",
+            "properties": {
+              "duration": { "type": "null" },
+              "audio_out": { "const": false },
+              "inputs": {
+                "type": "object",
+                "properties": {
+                  "first_frame": { "const": "none" },
+                  "last_frame": { "const": "none" }
+                }
+              }
+            }
+          },
+          "else": { "type": "object", "properties": { "duration": { "type": "object" } } }
+        }
+      ]
+    }
+  }
+}

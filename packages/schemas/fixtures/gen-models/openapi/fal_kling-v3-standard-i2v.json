@@ -1,0 +1,621 @@
+{
+  "openapi": "3.0.4",
+  "info": {
+    "title": "Queue OpenAPI for fal-ai/kling-video/v3/standard/image-to-video",
+    "version": "1.0.0",
+    "description": "The OpenAPI schema for the fal-ai/kling-video/v3/standard/image-to-video queue.",
+    "x-fal-metadata": {
+      "endpointId": "fal-ai/kling-video/v3/standard/image-to-video",
+      "category": "image-to-video",
+      "thumbnailUrl": "https://v3b.fal.media/files/b/0a8cfcdb/TywpxxNj5_vDG8AUw3Yum_e2172b5c00e64a91a434ab5a38e496f0.jpg",
+      "playgroundUrl": "https://fal.ai/models/fal-ai/kling-video/v3/standard/image-to-video",
+      "documentationUrl": "https://fal.ai/models/fal-ai/kling-video/v3/standard/image-to-video/api",
+      "about": "Kling V3 (standard) Image to Video API.\n\nThe Kling V3 model is the latest generation of image-to-video with\nimproved visual quality and motion consistency. This version also\nsupports native audio generation when the `generate_audio` parameter is enabled."
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "apiKeyAuth": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "Authorization",
+        "description": "Fal Key"
+      }
+    },
+    "schemas": {
+      "QueueStatus": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "IN_QUEUE",
+              "IN_PROGRESS",
+              "COMPLETED"
+            ]
+          },
+          "request_id": {
+            "type": "string",
+            "description": "The request id."
+          },
+          "response_url": {
+            "type": "string",
+            "description": "The response url."
+          },
+          "status_url": {
+            "type": "string",
+            "description": "The status url."
+          },
+          "cancel_url": {
+            "type": "string",
+            "description": "The cancel url."
+          },
+          "logs": {
+            "type": "object",
+            "description": "The logs.",
+            "additionalProperties": true
+          },
+          "metrics": {
+            "type": "object",
+            "description": "The metrics.",
+            "additionalProperties": true
+          },
+          "queue_position": {
+            "type": "integer",
+            "description": "The queue position."
+          }
+        },
+        "required": [
+          "status",
+          "request_id"
+        ]
+      },
+      "KlingVideoV3StandardImageToVideoInput": {
+        "x-fal-order-properties": [
+          "prompt",
+          "multi_prompt",
+          "start_image_url",
+          "duration",
+          "generate_audio",
+          "end_image_url",
+          "elements",
+          "shot_type",
+          "negative_prompt",
+          "cfg_scale"
+        ],
+        "required": [
+          "start_image_url"
+        ],
+        "title": "ImageToVideoV3StandardRequest",
+        "properties": {
+          "elements": {
+            "description": "Elements (characters/objects) to include in the video. Each example can either be an image set (frontal + reference images) or a video. Reference in prompt as @Element1, @Element2, etc.",
+            "title": "Elements",
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/KlingV3ComboElementInput"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "examples": [
+              [
+                {
+                  "reference_image_urls": [
+                    "https://v3b.fal.media/files/b/0a8cfd62/psPCmzrD1y9vDgdyNfKAL_glasses_back.png"
+                  ],
+                  "frontal_image_url": "https://v3b.fal.media/files/b/0a8cfd5f/-kZL-ha3Iuelku5IHXC-A_glasses.png"
+                },
+                {
+                  "video_url": "https://v3b.fal.media/files/b/0a8cfd66/b03SOiQvKLlFx_jqdNZ9z_child_video.mp4"
+                }
+              ]
+            ]
+          },
+          "prompt": {
+            "description": "Text prompt for video generation. Either prompt or multi_prompt must be provided, but not both.",
+            "title": "Prompt",
+            "anyOf": [
+              {
+                "maxLength": 2500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "examples": [
+              "Camera slowly orbits around the vase. Soft light shifts across the ceramic surface. The pampas grass sways gently. Shadows move elegantly. Smooth continuous motion, premium feel."
+            ]
+          },
+          "duration": {
+            "description": "The duration of the generated video in seconds",
+            "default": "5",
+            "title": "Duration",
+            "examples": [
+              "12"
+            ],
+            "type": "string",
+            "enum": [
+              "3",
+              "4",
+              "5",
+              "6",
+              "7",
+              "8",
+              "9",
+              "10",
+              "11",
+              "12",
+              "13",
+              "14",
+              "15"
+            ]
+          },
+          "multi_prompt": {
+            "description": "List of prompts for multi-shot video generation. If provided, divides the video into multiple shots.",
+            "title": "Multi Prompt",
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/KlingV3MultiPromptElement"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "examples": [
+              null
+            ]
+          },
+          "start_image_url": {
+            "description": "URL of the image to be used for the video",
+            "x-fal": {
+              "min_width": 300,
+              "max_file_size": 10485760,
+              "max_aspect_ratio": 2.5,
+              "timeout": 20,
+              "min_height": 300,
+              "min_aspect_ratio": 0.4
+            },
+            "title": "Start Image Url",
+            "examples": [
+              "https://storage.googleapis.com/falserverless/example_inputs/kling-v3/standard-i2v/start_image.png"
+            ],
+            "type": "string",
+            "limit_description": "Max file size: 10.0MB, Min width: 300px, Min height: 300px, Min aspect ratio: 0.40, Max aspect ratio: 2.50, Timeout: 20.0s"
+          },
+          "shot_type": {
+            "description": "The type of multi-shot video generation. 'intelligent' lets the model automatically determine shot structure.",
+            "default": "customize",
+            "title": "Shot Type",
+            "enum": [
+              "customize",
+              "intelligent"
+            ],
+            "type": "string"
+          },
+          "cfg_scale": {
+            "description": "\n            The CFG (Classifier Free Guidance) scale is a measure of how close you want\n            the model to stick to your prompt.\n        ",
+            "default": 0.5,
+            "minimum": 0,
+            "maximum": 1,
+            "type": "number",
+            "title": "Cfg Scale"
+          },
+          "end_image_url": {
+            "description": "URL of the image to be used for the end of the video",
+            "title": "End Image Url",
+            "anyOf": [
+              {
+                "x-fal": {
+                  "min_width": 300,
+                  "max_file_size": 10485760,
+                  "max_aspect_ratio": 2.5,
+                  "timeout": 20,
+                  "min_height": 300,
+                  "min_aspect_ratio": 0.4
+                },
+                "ui": {
+                  "field": "image"
+                },
+                "type": "string",
+                "limit_description": "Max file size: 10.0MB, Min width: 300px, Min height: 300px, Min aspect ratio: 0.40, Max aspect ratio: 2.50, Timeout: 20.0s"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "negative_prompt": {
+            "maxLength": 2500,
+            "default": "blur, distort, and low quality",
+            "title": "Negative Prompt",
+            "type": "string"
+          },
+          "generate_audio": {
+            "description": "Whether to generate native audio for the video. Supports Chinese and English voice output. Other languages are automatically translated to English. For English speech, use lowercase letters; for acronyms or proper nouns, use uppercase.",
+            "default": true,
+            "title": "Generate Audio",
+            "type": "boolean"
+          }
+        },
+        "type": "object"
+      },
+      "KlingVideoV3StandardImageToVideoOutput": {
+        "x-fal-order-properties": [
+          "video"
+        ],
+        "required": [
+          "video"
+        ],
+        "title": "ImageToVideoV3StandardOutput",
+        "properties": {
+          "video": {
+            "description": "The generated video",
+            "examples": [
+              {
+                "content_type": "video/mp4",
+                "file_name": "out.mp4",
+                "file_size": 3149129,
+                "url": "https://storage.googleapis.com/falserverless/example_outputs/kling-v3/standard-i2v/out.mp4"
+              }
+            ],
+            "$ref": "#/components/schemas/File"
+          }
+        },
+        "type": "object"
+      },
+      "KlingV3ComboElementInput": {
+        "x-fal-order-properties": [
+          "frontal_image_url",
+          "reference_image_urls",
+          "video_url",
+          "voice_id"
+        ],
+        "title": "KlingV3ComboElementInput",
+        "properties": {
+          "reference_image_urls": {
+            "description": "Additional reference images from different angles. 1-3 images supported. At least one image is required.",
+            "title": "Reference Image Urls",
+            "anyOf": [
+              {
+                "items": {
+                  "x-fal": {
+                    "min_width": 300,
+                    "max_file_size": 10485760,
+                    "max_aspect_ratio": 2.5,
+                    "timeout": 20,
+                    "min_height": 300,
+                    "min_aspect_ratio": 0.4
+                  },
+                  "ui": {
+                    "field": "image"
+                  },
+                  "_fal_ui_field": "image",
+                  "type": "string",
+                  "limit_description": "Max file size: 10.0MB, Min width: 300px, Min height: 300px, Min aspect ratio: 0.40, Max aspect ratio: 2.50, Timeout: 20.0s"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "voice_id": {
+            "description": "The voice ID for this element. The voice will be binded to the element and references to this element will use the binded voice. Get voice IDs from the following endpoint: https://fal.ai/models/fal-ai/kling-video/create-voice",
+            "title": "Voice Id",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "frontal_image_url": {
+            "description": "The frontal image of the element (main view).",
+            "title": "Frontal Image Url",
+            "anyOf": [
+              {
+                "x-fal": {
+                  "min_width": 300,
+                  "max_file_size": 10485760,
+                  "max_aspect_ratio": 2.5,
+                  "timeout": 20,
+                  "min_height": 300,
+                  "min_aspect_ratio": 0.4
+                },
+                "ui": {
+                  "field": "image"
+                },
+                "type": "string",
+                "limit_description": "Max file size: 10.0MB, Min width: 300px, Min height: 300px, Min aspect ratio: 0.40, Max aspect ratio: 2.50, Timeout: 20.0s"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "video_url": {
+            "description": "The video URL of the element. A request can only have one element with a video.",
+            "title": "Video Url",
+            "anyOf": [
+              {
+                "x-fal": {
+                  "max_fps": 60,
+                  "max_file_size": 209715200,
+                  "min_fps": 24,
+                  "min_duration": 3,
+                  "max_height": 2160,
+                  "max_width": 2160,
+                  "max_duration": 10.05,
+                  "timeout": 30,
+                  "min_height": 720,
+                  "min_width": 720
+                },
+                "ui": {
+                  "field": "video"
+                },
+                "type": "string",
+                "limit_description": "Max file size: 200.0MB, Min width: 720px, Min height: 720px, Max width: 2160px, Max height: 2160px, Min duration: 3.0s, Max duration: 10.05s, Min FPS: 24.0, Max FPS: 60.0, Timeout: 30.0s"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object"
+      },
+      "KlingV3MultiPromptElement": {
+        "x-fal-order-properties": [
+          "prompt",
+          "duration"
+        ],
+        "required": [
+          "prompt"
+        ],
+        "title": "KlingV3MultiPromptElement",
+        "properties": {
+          "duration": {
+            "description": "The duration of this shot in seconds",
+            "default": "5",
+            "title": "Duration",
+            "enum": [
+              "1",
+              "2",
+              "3",
+              "4",
+              "5",
+              "6",
+              "7",
+              "8",
+              "9",
+              "10",
+              "11",
+              "12",
+              "13",
+              "14",
+              "15"
+            ],
+            "type": "string"
+          },
+          "prompt": {
+            "description": "The prompt for this shot.",
+            "title": "Prompt",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "File": {
+        "x-fal-order-properties": [
+          "url",
+          "content_type",
+          "file_name",
+          "file_size"
+        ],
+        "required": [
+          "url"
+        ],
+        "title": "File",
+        "properties": {
+          "content_type": {
+            "description": "The mime type of the file.",
+            "title": "Content Type",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "examples": [
+              "image/png"
+            ]
+          },
+          "file_name": {
+            "description": "The name of the file. It will be auto-generated if not provided.",
+            "title": "File Name",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "examples": [
+              "z9RV14K95DvU.png"
+            ]
+          },
+          "file_size": {
+            "description": "The size of the file in bytes.",
+            "title": "File Size",
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "examples": [
+              4404019
+            ]
+          },
+          "url": {
+            "description": "The URL where the file can be downloaded from.",
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      }
+    }
+  },
+  "paths": {
+    "/fal-ai/kling-video/v3/standard/image-to-video/requests/{request_id}/status": {
+      "get": {
+        "parameters": [
+          {
+            "name": "request_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Request ID"
+            }
+          },
+          {
+            "name": "logs",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "number",
+              "description": "Whether to include logs (`1`) in the response or not (`0`)."
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The request status.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QueueStatus"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/fal-ai/kling-video/v3/standard/image-to-video/requests/{request_id}/cancel": {
+      "put": {
+        "parameters": [
+          {
+            "name": "request_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Request ID"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The request was cancelled.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "description": "Whether the request was cancelled successfully."
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/fal-ai/kling-video/v3/standard/image-to-video": {
+      "post": {
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KlingVideoV3StandardImageToVideoInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The request status.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QueueStatus"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/fal-ai/kling-video/v3/standard/image-to-video/requests/{request_id}": {
+      "get": {
+        "parameters": [
+          {
+            "name": "request_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Request ID"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Result of the request.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KlingVideoV3StandardImageToVideoOutput"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "servers": [
+    {
+      "url": "https://queue.fal.run"
+    }
+  ],
+  "security": [
+    {
+      "apiKeyAuth": []
+    }
+  ]
+}
