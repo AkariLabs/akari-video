@@ -1,0 +1,129 @@
+{
+  "status": "pass",
+  "steps": [
+    {
+      "name": "1. 「ゴールデンウィーク」を 1 回クリック → 1 単位が選ばれる",
+      "pass": true,
+      "detail": {
+        "units": [
+          "これ",
+          "ゴールデンウィーク",
+          "明け",
+          "に",
+          "You"
+        ],
+        "selected": [
+          "ゴールデンウィーク"
+        ],
+        "label": "1 語 · 0:14.53–0:17.51"
+      }
+    },
+    {
+      "name": "2. 🎨 → emphasis_words 1 件・t_start 14.54 / t_end 17.51",
+      "pass": true,
+      "detail": {
+        "entry": {
+          "id": "e-0001",
+          "t_start": 14.54,
+          "t_end": 17.51,
+          "word": "ゴールデンウィーク",
+          "emotion": "neutral",
+          "style_preset": "neon"
+        },
+        "captionTokens": 13,
+        "tokenStartOfGo": 14.54,
+        "tokenEndOfKu": 17.51
+      }
+    },
+    {
+      "name": "3. ⚙ で「認識トークン」へ → 「ゴ」だけ選べる・設定は User スコープに残る",
+      "pass": true,
+      "detail": {
+        "tokens": [
+          "これ",
+          "ゴ",
+          "ール",
+          "デ",
+          "ン",
+          "ウ",
+          "ィ",
+          "ー",
+          "ク",
+          "明",
+          "け",
+          "に",
+          "You"
+        ],
+        "selected": [
+          "ゴ"
+        ],
+        "clickAttempts": 2,
+        "settings": "token",
+        "clearedOnSwitch": true
+      }
+    },
+    {
+      "name": "4. 開き直しても認識トークンのまま（User スコープの設定が効く）",
+      "pass": true,
+      "detail": {
+        "tokens": 13,
+        "firstRunCleanup": 0
+      }
+    },
+    {
+      "name": "5. 単語へ戻して ⧉ 分割 → 語の途中では切れない",
+      "pass": true,
+      "detail": {
+        "splitClicks": 2,
+        "head": "これゴールデンウィーク",
+        "tail": "明けにYou",
+        "headTokens": 9,
+        "tailTokens": 4,
+        "headEnd": 17.51
+      }
+    }
+  ],
+  "screenshots": [
+    "01-word-unit-click.png",
+    "02-emphasis-word-unit.png",
+    "03-token-unit-click.png",
+    "04-token-unit-after-restart.png",
+    "05-split-marks-at-word-boundaries.png"
+  ],
+  "cleanup": {
+    "killedPid": 34190,
+    "survivingProcesses": 0
+  },
+  "fixture": {
+    "ok": true,
+    "rows": 8,
+    "tokens": [
+      3,
+      8,
+      5,
+      6,
+      13,
+      9,
+      4,
+      5
+    ]
+  },
+  "preloadOverlay": "removed",
+  "daihonVisible": {
+    "w": 28.1328125,
+    "h": 17,
+    "top": 377.8125
+  },
+  "summary": {
+    "unitsC0005": 5,
+    "tokensC0005": 13,
+    "emphasis": {
+      "t_start": 14.54,
+      "t_end": 17.51,
+      "word": "ゴールデンウィーク"
+    },
+    "captionsWordsUnchanged": true,
+    "originalCaptionsBytes": 7227,
+    "firstRunSurvivingProcesses": 0
+  }
+}

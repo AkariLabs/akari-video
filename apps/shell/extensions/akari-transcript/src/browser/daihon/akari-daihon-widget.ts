@@ -1,6 +1,6 @@
 import { AkariProjectService, type TranscribeCuts } from 'akari-project/lib/common/akari-project-protocol';
 import { QuickPickService } from '@theia/core/lib/common/quick-pick-service';
-import { PreferenceService } from '@theia/core/lib/common/preferences';
+import { PreferenceScope, PreferenceService } from '@theia/core/lib/common/preferences';
 import { AkariTranscribeDialog, listenTranscribeRange } from './akari-transcribe-dialog';
 import { cutsJumpButtonLabel, handEditedLines } from '../../common/cuts-view';
 import { ConfirmDialog } from '@theia/core/lib/browser/dialogs';
@@ -102,6 +102,7 @@ import {
 import {
     parseSpeakerDictionary, speakerColorMap, speakerLabel, type SpeakerDictionary
 } from './daihon-speaker-chips';
+import { groupTokensIntoWords, type DaihonWordUnit } from '../../common/daihon-word-units';
 
 const PREVIEW_PLAYBACK_TICK_EVENT = 'akari.preview.playbackTick';
 const DAIHON_SELECTION_CHANGED_EVENT = 'akari.daihon.selectionChanged';
@@ -111,6 +112,7 @@ const ENSURE_PREVIEW_VISIBLE_COMMAND_ID = 'akari.preview.ensureVisible';
 const SEEK_OUTPUT_PREVIEW_COMMAND_ID = 'akari.preview.seekOutput';
 const TOGGLE_PREVIEW_PLAYBACK_COMMAND_ID = 'akari.preview.togglePlayback';
 const MIN_WORD_INSERT_GAP_SEC = 0.1;
+const DAIHON_WORD_UNIT_PREFERENCE = 'akari.daihon.wordUnit';
 const INTERACTIVE_SELECTOR = '.akari-daihon-speaker, button.akari-daihon-tc, .akari-daihon-word, .akari-daihon-word-unk, input, .akari-daihon-badge-qc, .akari-daihon-gapchip, button.akari-daihon-cut, button.akari-daihon-split, .akari-daihon-splitmark, .akari-daihon-gapzone, .akari-daihon-gapdraft, .akari-daihon-word-filler, button.akari-daihon-silence, button.akari-daihon-selcut, button.akari-daihon-selmerge, button.akari-daihon-tpl, button.akari-daihon-seltpl, .akari-daihon-tplcard, .akari-daihon-cutcell, .akari-daihon-cutrange, .akari-daihon-pop, .akari-daihon-minitl, .akari-daihon-wgap, .akari-daihon-wordbar, .akari-daihon-wordcm';
 
 interface PreviewPlaybackTick {
@@ -389,6 +391,8 @@ export class AkariDaihonWidget extends BaseWidget {
     protected captionExtraById = new Map<string, CaptionExtras>();
     protected readonly captionOverflowUnitsById = new Map<string, number>();
     protected wordPresetByRowId = new Map<string, (string | undefined)[]>();
+    protected wordUnitsByRowId = new Map<string, DaihonWordUnit[]>();
+    protected wordUnit: 'word' | 'token' = 'word';
     protected captionsRoot: unknown = [];
     protected sourceCaptions: Caption[] = [];
     protected displayKnobs: DaihonDisplayKnobs = readDaihonDisplayKnobs([]);
@@ -606,6 +610,7 @@ export class AkariDaihonWidget extends BaseWidget {
     async configure(): Promise<void> {
         if (this.configured) return;
         this.configured = true;
+        this.wordUnit = this.preferences.get(DAIHON_WORD_UNIT_PREFERENCE) === 'token' ? 'token' : 'word';
         await this.workspaceService.ready;
         const roots = await this.workspaceService.roots;
         const root = roots[0]?.resource;
@@ -741,8 +746,8 @@ export class AkariDaihonWidget extends BaseWidget {
             const extras = this.captionExtras(captionsSource);
             this.captionExtraById = extras;
             this.sourceCaptions = parsed.captions;
-            this.wordPresetByRowId = this.resolveWordPresets(this.captionsRoot, this.sourceCaptions);
             const captions = this.daihonCaptionsForDisplay();
+            this.wordPresetByRowId = this.resolveWordPresets(this.captionsRoot, captions);
             this.segments = this.timelineSegments(editSource, captions.length > 0);
             const next = buildDaihonRows(captions, this.segments);
             this.handEditedCaptionIds.clear();
@@ -781,6 +786,7 @@ export class AkariDaihonWidget extends BaseWidget {
     protected daihonCaptionsForDisplay(knobs = this.displayKnobs): DaihonCaptionLike[] {
         const policy = daihonDisplayPolicyForWrite(this.captionsRoot, knobs);
         this.captionOverflowUnitsById.clear();
+        this.wordUnitsByRowId.clear();
         return this.sourceCaptions.map(caption => this.toDaihonCaption(
             caption, this.captionExtraById.get(caption.id), policy
         ));
@@ -804,15 +810,21 @@ export class AkariDaihonWidget extends BaseWidget {
         } else {
             displayFragments = this.automaticDisplayFragments(caption.id, caption.text, policy);
         }
+        const units = this.wordUnit === 'word'
+            ? groupTokensIntoWords(caption.text, caption.words)
+            : caption.words?.map((word, index) => ({ ...word, tokenFrom: index, tokenTo: index })) ?? [];
+        if (units.length) this.wordUnitsByRowId.set(caption.id, units);
         return {
             id: caption.id,
             start: caption.start,
             end: caption.end,
             text: caption.text,
+            ...(caption.displayText ? { displayText: caption.displayText } : {}),
             speaker: caption.speaker ?? null,
+            ...(caption.src ? { src: caption.src } : {}),
             style: caption.style ?? null,
             edited: caption.edited,
-            ...(caption.words ? { words: caption.words } : {}),
+            ...(caption.words ? { words: units.map(({ text, start, end }) => ({ text, start, end })) } : {}),
             ...(displayFragments ? { displayFragments } : {}),
             ...(extras?.timeDomain ? { timeDomain: extras.timeDomain } : {}),
             ...(extras?.unrecognized ? { unrecognized: extras.unrecognized } : {}),
@@ -878,7 +890,7 @@ export class AkariDaihonWidget extends BaseWidget {
         return result;
     }
 
-    protected resolveWordPresets(root: unknown, captions: Caption[]): Map<string, (string | undefined)[]> {
+    protected resolveWordPresets(root: unknown, captions: DaihonCaptionLike[]): Map<string, (string | undefined)[]> {
         if (!root || typeof root !== 'object' || Array.isArray(root)) return new Map();
         const emphasisWords = Array.isArray((root as { emphasis_words?: unknown[] }).emphasis_words)
             ? (root as { emphasis_words: unknown[] }).emphasis_words : [];
@@ -1262,11 +1274,15 @@ export class AkariDaihonWidget extends BaseWidget {
 
     protected async splitRow(row: DaihonRow, wordIndex: number): Promise<void> {
         if (!this.captionsUri || !this.rootUri) return;
+        const sourceWordIndex = this.wordUnit === 'word'
+            ? this.wordUnitsByRowId.get(row.id)?.[wordIndex]?.tokenFrom ?? wordIndex
+            : wordIndex;
         try {
             await this.withHistory('字幕を分割', async () => {
                 await this.annotationsService.splitCaption({
                     captionsUri: this.captionsUri!.toString(), projectRootUri: this.rootUri!.toString(),
-                    captionId: row.id, wordIndex, newCaptionId: nextDaihonCaptionId(this.rows.map(item => item.id))
+                    captionId: row.id, wordIndex: sourceWordIndex,
+                    newCaptionId: nextDaihonCaptionId(this.rows.map(item => item.id))
                 });
             });
             this.splitModeRowId = undefined;
@@ -2058,6 +2074,31 @@ export class AkariDaihonWidget extends BaseWidget {
     protected openDisplayPop(anchor: HTMLElement): void {
         const pop = this.openPop(anchor, 300);
 
+        const wordUnitGroup = document.createElement('div');
+        wordUnitGroup.className = 'akari-daihon-displaygroup';
+        const wordUnitLabel = document.createElement('div');
+        wordUnitLabel.className = 'akari-daihon-displaylabel';
+        wordUnitLabel.textContent = '選択の単位';
+        const wordUnitSegments = document.createElement('div');
+        wordUnitSegments.className = 'akari-daihon-segments';
+        const selectWordUnit = (wordUnit: 'word' | 'token'): void => {
+            if (wordUnit === this.wordUnit) return;
+            this.wordRanges = [];
+            this.wordUnit = wordUnit;
+            const captions = this.daihonCaptionsForDisplay();
+            this.wordPresetByRowId = this.resolveWordPresets(this.captionsRoot, captions);
+            this.renderRows(buildDaihonRows(captions, this.segments));
+            void this.preferences.set(DAIHON_WORD_UNIT_PREFERENCE, wordUnit, PreferenceScope.User)
+                .then(() => this.openDisplayPop(anchor))
+                .catch(error => this.notify(this.errorMessage(error)));
+        };
+        const word = this.popButton('単語（既定）', () => selectWordUnit('word'));
+        const token = this.popButton('認識トークン', () => selectWordUnit('token'));
+        word.classList.toggle('selected', this.wordUnit === 'word');
+        token.classList.toggle('selected', this.wordUnit === 'token');
+        wordUnitSegments.append(word, token);
+        wordUnitGroup.append(wordUnitLabel, wordUnitSegments);
+
         const unitsGroup = document.createElement('div');
         unitsGroup.className = 'akari-daihon-displaygroup';
         const unitsLabel = document.createElement('div');
@@ -2159,7 +2200,7 @@ export class AkariDaihonWidget extends BaseWidget {
         note.className = 'akari-daihon-displaynote';
         note.append(document.createTextNode('ベースは字幕本文です。'), document.createElement('br'),
             document.createTextNode('手で置いた／は動きません。'));
-        pop.append(unitsGroup, linesGroup, wrapGroup, overflowCount, note);
+        pop.append(wordUnitGroup, unitsGroup, linesGroup, wrapGroup, overflowCount, note);
     }
 
     protected fieldRow(prefix: string, input: HTMLInputElement, suffix: string): HTMLDivElement {

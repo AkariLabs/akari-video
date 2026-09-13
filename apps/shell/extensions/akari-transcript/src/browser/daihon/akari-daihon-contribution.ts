@@ -8,6 +8,7 @@ import {
     WidgetManager
 } from '@theia/core/lib/browser';
 import { PreferenceService } from '@theia/core/lib/common/preferences';
+import { PreferenceSchemaService } from '@theia/core/lib/common/preferences/preference-schema';
 import URI from '@theia/core/lib/common/uri';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
 import { AkariProjectService } from 'akari-project/lib/common/akari-project-protocol';
@@ -35,6 +36,20 @@ export class AkariDaihonContribution implements CommandContribution, FrontendApp
     @inject(FileService) protected readonly files!: FileService;
     @inject(AkariProjectService) protected readonly projectService!: AkariProjectService;
     @inject(AkariEditHistoryService) protected readonly history!: AkariEditHistoryService;
+    @inject(PreferenceSchemaService) protected readonly schemas!: PreferenceSchemaService;
+
+    initialize(): void {
+        this.schemas.addSchema({
+            properties: {
+                'akari.daihon.wordUnit': {
+                    type: 'string',
+                    enum: ['word', 'token'],
+                    default: 'word',
+                    description: '台本で選択・操作する単位（単語または認識トークン）'
+                }
+            }
+        });
+    }
 
     registerCommands(commands: CommandRegistry): void {
         setDaihonHistoryService(this.history);
