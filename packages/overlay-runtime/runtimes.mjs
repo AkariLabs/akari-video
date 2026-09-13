@@ -81,6 +81,32 @@ export const runtimes = [
       if (!ctx.first) { ctx.fail("data-akari-vgpu-scene は1個までです"); return; }
     },
   },
+  {
+    id: "world", declaration: { attr: "data-akari-world-scene" }, browserGlobal: "worldRuntime",
+    scripts: [{ path: "src/vendor/world-camera.js" }, { path: "src/world-runtime.js", exportSource: exportDrawingSource }],
+    usesVideoTextures: false, exportRenderOptions: false, exportSceneLabel: "world",
+    assetReferences: () => [],
+    appliesTo: meta => Array.isArray(meta?.requires) && meta.requires.includes("world-runtime"),
+    requiredFor: () => false,
+    validate(descriptor, ctx) {
+      const object = value => value !== null && typeof value === "object" && !Array.isArray(value);
+      const finite = value => typeof value === "number" && Number.isFinite(value);
+      const string = value => typeof value === "string" && value.length > 0;
+      const tuple = (value, length) => Array.isArray(value) && value.length === length && value.every(finite);
+      if (!object(descriptor)) { ctx.fail("data-akari-world-scene は JSON object である必要があります"); return; }
+      const allowed = new Set(["schemaVersion", "kind", "frame", "worlds", "zones", "cameraStops", "edges", "retainedNodes", "render"]);
+      for (const key of Object.keys(descriptor)) if (!allowed.has(key)) ctx.fail(`data-akari-world-scene.${key} は未知のキーです`);
+      if (descriptor.schemaVersion !== 1) ctx.fail("data-akari-world-scene.schemaVersion は 1 である必要があります");
+      if (descriptor.kind !== "flat") ctx.fail("data-akari-world-scene.kind は flat である必要があります");
+      if (!object(descriptor.frame) || !Number.isFinite(descriptor.frame.width) || descriptor.frame.width <= 0 || !Number.isFinite(descriptor.frame.height) || descriptor.frame.height <= 0) ctx.fail("data-akari-world-scene.frame は正の width / height を持つ必要があります");
+      for (const name of ["worlds", "zones", "cameraStops", "edges", "retainedNodes"]) if (!Array.isArray(descriptor[name])) ctx.fail(`data-akari-world-scene.${name} は配列である必要があります`);
+      if (Array.isArray(descriptor.worlds) && !descriptor.worlds.every(world => object(world) && string(world.id) && object(world.palette) && object(world.flat) && tuple(world.flat.bounds, 4) && ["dots", "grid", "none"].includes(world.flat.pattern))) ctx.fail("data-akari-world-scene.worlds の形が不正です");
+      if (Array.isArray(descriptor.zones) && !descriptor.zones.every(zone => object(zone) && string(zone.id) && string(zone.world) && tuple(zone.c, 2))) ctx.fail("data-akari-world-scene.zones の形が不正です");
+      if (Array.isArray(descriptor.cameraStops) && !descriptor.cameraStops.every(stop => object(stop) && string(stop.id) && string(stop.world) && finite(stop.at) && finite(stop.leave) && tuple(stop.c, 3))) ctx.fail("data-akari-world-scene.cameraStops の形が不正です");
+      if (Array.isArray(descriptor.edges) && !descriptor.edges.every(edge => object(edge) && string(edge.id) && string(edge.from) && string(edge.to) && string(edge.type) && finite(edge.t0) && finite(edge.t1) && object(edge.transition) && string(edge.transition.kind) && finite(edge.transition.cover) && (edge.switchTime === undefined || finite(edge.switchTime)))) ctx.fail("data-akari-world-scene.edges の形が不正です");
+      if (descriptor.render !== undefined && (!object(descriptor.render) || ["dotStep", "margin", "hazeAlpha"].some(name => descriptor.render[name] !== undefined && !finite(descriptor.render[name])))) ctx.fail("data-akari-world-scene.render の形が不正です");
+    },
+  },
 ];
 // Shared by the asset CLI and in-process callers (including test-only entries).
 export function validateRuntimeDeclarations(html, ctx) {

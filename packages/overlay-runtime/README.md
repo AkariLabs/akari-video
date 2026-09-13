@@ -623,6 +623,23 @@ npm グローバルインストール禁止の制約内で完結するよう、�
 `prepare` を指定したランタイムは seek ごとにそのメソッドを await し、render 直後に ready を確認する。
 この場合、t=0 の事前描画と ready ポーリングは生成しない。
 
+## Canvas 2D ワールドランタイム
+
+`src/world-runtime.js` は `<script type="application/json" data-akari-world-scene>` を持つ
+`kind: "flat"` 断片を描く。宣言は `schemaVersion: 1`、出力枠 `frame`、および
+`worlds` / `zones` / `cameraStops` / `edges` / `retainedNodes` を持つ。任意の `render` は
+`dotStep: 90`、`margin: 0.25`、`hazeAlpha: 0.92` を既定値とする。
+
+registry は `world-camera.js`、`world-runtime.js` の順で読み込む。前者は
+`packages/akari-tools/src/world/camera.mjs` から `npm run gen:world-camera` で生成した classic script
+で、`npm run check:world-camera` が正本とのドリフトを検査する。
+
+ランタイムは Canvas に背景・遠景・格子・portal 枠・遷移 cover を描き、同じ `camera(seconds)`
+から断片直下の `.akari-world-sheet[data-world]` の transform と
+`.akari-world-zone[data-zone]` の画面外カリングを同期する。描画は外部時刻だけに依存する。
+俯瞰は公開 API `worldRuntime.drawOverview(ctx, descriptor, { scale, ox, oy }, seconds, options)` を使い、
+`options.frame: true` で現在の撮影枠を重ねられる。
+
 ## vgpu vendor の固定と再生成
 
 `src/vendor/vgpu-bundle.js` は `vgpu@0.4.0` の browser entry を `esbuild@0.24.2` で

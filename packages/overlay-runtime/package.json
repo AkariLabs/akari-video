@@ -11,6 +11,8 @@
     "README.md"
   ],
   "scripts": {
+    "gen:world-camera": "node scripts/gen-world-camera.mjs",
+    "check:world-camera": "node scripts/gen-world-camera.mjs --check",
     "check": "node --check src/parts.mjs && node --check src/vendor/three-bundle.js && node --check src/vendor/vendor-3d-text-bundle.js && node --check src/three-runtime.js && node --check src/slot-params.js && node --check src/video-fx.js && node --check src/viewport-units.js && node --check src/vendor/budoux-ja-bundle.js && node --check src/text-split.js && node --check src/overlay-runtime.js && node --check src/interaction.js && node --check src/minimap.js",
     "test": "node --test test-harness/*.test.mjs"
   }
