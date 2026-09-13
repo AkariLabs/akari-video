@@ -153,6 +153,7 @@ test("transcribe は単語帳を words 境界で適用して analysis.json に�
     wordBookPath,
     unrecognized: false,
     stderr: () => {},
+    snap: false,
     backendRunner: async () => [{
       start: 0, end: 1.2, text: "あかり ビデオです",
       words: [{ start: 0, end: 0.4, text: "あかり" }, { start: 0.4, end: 0.9, text: "ビデオ" }, { start: 0.9, end: 1.2, text: "です" }],
@@ -307,6 +308,7 @@ test("unrecognized: false は無音検出を呼ばず内部 markers も出力し
     backend: "speech-analyzer",
     speechAnalyzerAvailable: true,
     unrecognized: false,
+    snap: false,
     backendRunner: async () => [{
       start: 0, end: 1, text: "前", markers: [{ start: 0.5, end: 0.8 }],
     }],
@@ -369,7 +371,7 @@ test("transcribe CLI は unrecognized の無効化と閾値フラグを解釈す
   ], { ...common, stdout: (line) => disabledLines.push(line) });
   assert.equal(disabledExit, 0);
   assert.equal(Object.hasOwn(JSON.parse(disabledLines[0]).segments[0], "unrecognized"), false);
-  assert.equal(silenceCalls, 1);
+  assert.equal(silenceCalls, 2);
 });
 
 test("edit.json 未宣言のプロジェクト内素材にも帳面を作る", async () => {

@@ -1136,6 +1136,7 @@ try {
             backend: request.backend, compareSet: request.compareSet, autoCuts: request.autoCuts, approved: request.approved });
         const cli = await this.findMediaTool('captions');
         const result = await this.runNodeScript(cli, [root, '--source', source.id, ...(request.force ? ['--force'] : []),
+            ...(request.retime ? ['--retime'] : []),
             ...(request.dryRun ? ['--dry-run', '--json'] : [])], root);
         return interpretCaptionsResult(result.code, result.stdout, result.stderr);
     }

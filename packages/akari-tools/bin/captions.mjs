@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { realpathSync } from "node:fs";
-import { readFile } from "node:fs/promises";
+import { readFile, readdir } from "node:fs/promises";
 import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -10,13 +10,17 @@ import { resolveWordBook, buildMatcher, applyWordBook } from "../../word-book/sr
 
 import { buildCaptionsFromTranscript } from "../src/captions/build.mjs";
 import { mergeCaptionsForApply } from "../src/captions/apply-diff.mjs";
+import { retimeCaptionsToSpeech } from "../src/captions/retime.mjs";
 import { analysisPathForTarget } from "../src/media/record.mjs";
-import { toPosix } from "../src/media/common.mjs";
+import { probeRaw, resolveTools, toPosix } from "../src/media/common.mjs";
+import { runSilenceDetect } from "../src/media/transcribe.mjs";
+import { UNRECOGNIZED_DEFAULTS } from "../src/media/unrecognized-spans.mjs";
 
 const { writeProjectFilesGuarded } = createRequire(import.meta.url)("../../edit-store/lib/write-gate.js");
 const usage = [
   "使い方: akari captions <project-dir> [options]", "",
   "  --source <sources[].id|媒体パス>",
+  "  --retime            既存字幕の語時刻を発話へ合わせ直す",
   "  --readout <秒>       読み切り猶予（既定 0.3）",
   "  --min-duration <秒>  表示時間の床（既定 1.0）",
   "  --split phrase|none 文節優先 / 旧挙動（既定 phrase）",
@@ -63,9 +67,9 @@ export async function runCaptionsCli(argv, options = {}) {
       analysis = JSON.parse(await readFile(analysisPath, "utf8"));
     } catch (error) {
       if (error?.code !== "ENOENT") throw error;
-      throw new Error("文字起こしがありません。先に `akari media transcribe <path>` を実行してください");
+      if (parsed.retime) analysis = {};
+      else throw new Error("文字起こしがありません。先に `akari media transcribe <path>` を実行してください");
     }
-    if (!Array.isArray(analysis.transcript) || !analysis.transcript.length) throw new Error("発話がありません（transcript: []）");
     const captionsPath = path.join(projectRoot, "captions.json");
     let existing;
     try {
@@ -74,6 +78,37 @@ export async function runCaptionsCli(argv, options = {}) {
       if (error?.code !== "ENOENT") throw error;
     }
     const records = Array.isArray(existing) ? existing : existing?.captions ?? [];
+    if (parsed.retime) {
+      if (!existing || !records.length) throw new Error("captions.json に合わせ直す字幕がありません");
+      const inputPath = path.resolve(projectRoot, source.path);
+      const storedSilences = await readStoredSilences(analysis, analysisPath);
+      let duration = Number(options.duration ?? analysis.probe?.duration_s);
+      let silences = storedSilences;
+      if (!Number.isFinite(duration) || duration <= 0) {
+        const { ffprobe } = resolveTools(options);
+        duration = probeRaw(inputPath, ffprobe, options).duration;
+      }
+      if (!silences) {
+        const { ffmpeg } = resolveTools(options);
+        const runner = options.silencesRunner ?? runSilenceDetect;
+        const detected = await runner({ inputPath, range: { in: 0, out: duration }, ffmpeg,
+          silenceDb: UNRECOGNIZED_DEFAULTS.silenceDb, silenceMinSec: UNRECOGNIZED_DEFAULTS.silenceMinSec, options });
+        silences = Array.isArray(detected) ? detected : detected?.silences ?? [];
+      }
+      const retimed = retimeCaptionsToSpeech(records, { silences, duration, source: source.id });
+      const root = Array.isArray(existing) ? retimed.captions : { ...existing, captions: retimed.captions };
+      const summary = { retime: true, moved_words: retimed.moved, total_words: retimed.total, path: captionsPath };
+      if (parsed.dryRun && parsed.json) stdout(JSON.stringify({ dry_run: true, ...summary }));
+      else if (parsed.dryRun) {
+        stdout(JSON.stringify(root, null, 2));
+        stdout(JSON.stringify(summary));
+      } else {
+        await writeProjectFilesGuarded(projectRoot, { "captions.json": `${JSON.stringify(root, null, 2)}\n` });
+        stdout(JSON.stringify(summary));
+      }
+      return 0;
+    }
+    if (!Array.isArray(analysis.transcript) || !analysis.transcript.length) throw new Error("発話がありません（transcript: []）");
     const result = buildCaptionsFromTranscript(analysis.transcript, { ...parsed, src: source.id, sourceDurationSeconds: Number.isFinite(analysis.probe?.duration_s) ? analysis.probe.duration_s : null });
     const wordBook = { applied: 0 };
     if (!parsed.noWordBook) {
@@ -109,7 +144,7 @@ export async function runCaptionsCli(argv, options = {}) {
 function parseOptions(argv) {
   const parsed = {};
   const values = { "--source": "source", "--readout": "readoutSeconds", "--min-duration": "minDurationSeconds", "--max-chars": "maxCharacters", "--split": "splitMode", "--max-seconds": "maxSeconds", "--pause": "pauseSeconds", "--word-book": "wordBook" };
-  const booleans = { "--no-word-book": "noWordBook", "--force": "force", "--dry-run": "dryRun", "--json": "json" };
+  const booleans = { "--no-word-book": "noWordBook", "--force": "force", "--dry-run": "dryRun", "--json": "json", "--retime": "retime" };
   for (let index = 0; index < argv.length; index += 1) {
     const argument = argv[index];
     if (Object.hasOwn(booleans, argument)) parsed[booleans[argument]] = true;
@@ -120,6 +155,23 @@ function parseOptions(argv) {
     } else throw new Error(`不明なオプションです: ${argument}`);
   }
   return parsed;
+}
+
+async function readStoredSilences(analysis, analysisPath) {
+  if (Array.isArray(analysis?.timing_snap?.silences)) return analysis.timing_snap.silences;
+  const observations = Array.isArray(analysis?.observations) ? analysis.observations : [];
+  for (const observation of observations.toReversed()) {
+    if (observation?.kind === "transcribe" && Array.isArray(observation?.args?.timing_snap?.silences)) {
+      return observation.args.timing_snap.silences;
+    }
+  }
+  const directory = path.join(path.dirname(analysisPath), "transcripts");
+  const names = await readdir(directory).catch((error) => error?.code === "ENOENT" ? [] : Promise.reject(error));
+  for (const name of names.filter((value) => value.endsWith(".json")).sort().reverse()) {
+    const transcript = JSON.parse(await readFile(path.join(directory, name), "utf8"));
+    if (Array.isArray(transcript?.timing_snap?.silences)) return transcript.timing_snap.silences;
+  }
+  return null;
 }
 
 function isMainModule() {

@@ -125,6 +125,19 @@ const caption = {
   edited: false,
 };
 
+test("caption word は吸着前の raw_start/raw_end を任意で受理する", () => {
+  const valid = runValue([{ ...caption, words: [{ start: 1, end: 1.2, raw_start: 0.2, raw_end: 0.8, text: "語" }] }]);
+  assert.equal(valid.status, 0, valid.stderr);
+  for (const words of [
+    [{ start: 1, end: 1.2, raw_start: 0.2, text: "語" }],
+    [{ start: 1, end: 1.2, raw_start: 0.8, raw_end: 0.2, text: "語" }],
+  ]) {
+    const invalid = runValue([{ ...caption, words }]);
+    assert.equal(invalid.status, 1, invalid.stdout);
+    assert.match(invalid.stderr, /raw_start/u);
+  }
+});
+
 test('caption display_timing は speech-tight を受理する', () => {
   const executed = runValue([{ ...caption, display_timing: 'speech-tight' }]);
   assert.equal(executed.status, 0, executed.stderr);

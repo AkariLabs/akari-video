@@ -76,6 +76,11 @@ akari captions <project-dir>
 - 単語帳を当てる: 解決できる単語帳を既定で適用します（`--word-book <path>` で追加、`--no-word-book` で抑止）。
 
 手直しは台本パネルか `captions.json` を直接編集します。
+
+文字起こし時は、検出した無音へはみ出した語を既定で実際の発話区間へ吸着します。既存の
+`captions.json` は `akari captions <project-dir> --retime`、または台本ヘッダの
+「⏱ 発話に合わせ直す」で同じ補正を後から適用できます。本文は変えず、手直し済み
+（`edited: true`）の行では行の `start` / `end` を保護します。
 `speaker` はクラウドの話者分離（ElevenLabs Scribe 等）で埋まります。ローカルエンジン（SpeechAnalyzer / whisper.cpp）では `null` のままです。
 
 ## 行数・折り方・拡大回転

@@ -1,10 +1,11 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
+import { writeFileSync } from "node:fs";
 import { mkdir, readFile, readdir } from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
 
-import { transcribeMedia } from "../src/media/transcribe.mjs";
+import { transcribeMedia, whisperDtwPreset } from "../src/media/transcribe.mjs";
 import { UNRECOGNIZED_ALGO_VERSION } from "../src/media/unrecognized-spans.mjs";
 import { fixture, json, putJson } from "./fixtures/transcribe-compare/helpers.mjs";
 
@@ -23,6 +24,60 @@ const speechOptions = (f) => ({
 const cacheDirectory = (f) => path.join(f.project, ".akari/cache/transcribe");
 const transcriptPath = (f, backend = "speech-analyzer") => path.join(f.directory, "transcripts", `${backend}.json`);
 const spanCount = (result) => result.segments.reduce((count, segment) => count + (segment.unrecognized?.length ?? 0), 0);
+
+test("whisper model 名から DTW preset を詳細モデル優先で選ぶ", () => {
+  assert.equal(whisperDtwPreset("ggml-large-v3-turbo-q5_0.bin"), "large.v3.turbo");
+  assert.equal(whisperDtwPreset("ggml-large-v3.bin"), "large.v3");
+  for (const name of ["medium", "small", "base", "tiny"]) assert.equal(whisperDtwPreset(`ggml-${name}.bin`), name);
+  assert.equal(whisperDtwPreset("ggml-large-v2.bin"), null);
+});
+
+for (const rejectsDtw of [false, true]) {
+  test(`whisper-cli は -dtw を${rejectsDtw ? "拒否時だけ外して再実行する" : "モデル preset 付きで実行する"}`, async (t) => {
+    const f = await fixture(t, []);
+    const whisperCalls = [];
+    const spawn = (command, args) => {
+      if (command === "fixture-ffprobe") return { status: 0, stdout: JSON.stringify({ format: { duration: "30" }, streams: [{ codec_type: "audio" }] }), stderr: "" };
+      if (command === "fixture-ffmpeg") return { status: 0, stdout: "", stderr: "" };
+      whisperCalls.push(args);
+      if (rejectsDtw && whisperCalls.length === 1) return { status: 1, stdout: "", stderr: "unknown argument: -dtw" };
+      const prefix = args[args.indexOf("-of") + 1];
+      writeFileSync(`${prefix}.json`, JSON.stringify({ transcription: [{ offsets: { from: 0, to: 1000 }, text: "語",
+        tokens: [{ offsets: { from: 0, to: 1000 }, text: "語" }] }] }));
+      return { status: 0, stdout: "", stderr: "" };
+    };
+    const result = await transcribeMedia(f.target, { ...f.options, spawn, backend: "whisper-cpp", wordBook: false,
+      whisperBin: "fixture-whisper", whisperModel: "ggml-large-v3-turbo-q5_0.bin", unrecognized: false,
+      silencesRunner: async () => [], stderr: () => {},
+    });
+    assert.deepEqual(whisperCalls[0].slice(-2), ["-dtw", "large.v3.turbo"]);
+    assert.ok(whisperCalls.every((args) => !args.includes("-sow")));
+    assert.equal(whisperCalls.length, rejectsDtw ? 2 : 1);
+    if (rejectsDtw) assert.equal(whisperCalls[1].includes("-dtw"), false);
+    assert.equal(result.timing_snap.dtw, !rejectsDtw);
+  });
+}
+
+test("全 backend 共通で既定吸着し、snap/timingSnap false は吸着を飛ばす", async (t) => {
+  const f = await fixture(t, []);
+  const options = { ...speechOptions(f), unrecognized: false,
+    silencesRunner: async () => [{ start: 1, end: 3 }],
+    backendRunner: async () => [{ start: 0, end: 4, text: "前後", words: [
+      { start: 0.2, end: 0.8, text: "前" }, { start: 1.2, end: 2, text: "後" },
+    ] }],
+  };
+  const snapped = await transcribeMedia(f.target, { ...options, lang: "snap" });
+  assert.equal(snapped.segments[0].words[1].start, 3);
+  assert.deepEqual(snapped.segments[0].words[1], { start: 3, end: 3.05, text: "後", raw_start: 1.2, raw_end: 2 });
+  assert.deepEqual(snapped.timing_snap.method, "silencedetect");
+  assert.equal((await json(transcriptPath(f))).timing_snap.moved_words, 1);
+  assert.equal((await json(path.join(f.directory, "analysis.json"))).observations.at(-1).args.timing_snap.moved_words, 1);
+  for (const disabled of [{ snap: false }, { timingSnap: false }]) {
+    const result = await transcribeMedia(f.target, { ...options, ...disabled, lang: Object.keys(disabled)[0] });
+    assert.equal(result.segments[0].words[1].start, 1.2);
+    assert.equal(Object.hasOwn(result, "timing_snap"), false);
+  }
+});
 
 test("backend の speaker は空でない文字列だけを segment へ写す", async (t) => {
   const withSpeaker = await fixture(t, []);
@@ -98,7 +153,7 @@ test("transcripts の segment に判定版を記録し、span と top-level の�
   const f = await fixture(t, []);
   await transcribeMedia(f.target, speechOptions(f));
   const transcript = await json(transcriptPath(f));
-  assert.deepEqual(Object.keys(transcript), ["version", "backend", "generated_at", "source", "elapsed_sec", "cost_usd", "segments"]);
+  assert.deepEqual(Object.keys(transcript), ["version", "backend", "generated_at", "source", "elapsed_sec", "cost_usd", "segments", "timing_snap"]);
   assert.equal(transcript.segments[0].unrecognized_algo_version, UNRECOGNIZED_ALGO_VERSION);
   assert.deepEqual(transcript.segments[0].unrecognized, [{ start: 1.5, end: 2.5 }]);
 });

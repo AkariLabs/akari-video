@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { captionsAppliedLine, captionsApplyHistoryLabel, captionsApplyPreviewLine, captionsButtonLabel,
+    captionsRetimeHistoryLabel, captionsRetimeLine, captionsRetimeMovedWords,
     daihonHistoryService, parseCaptionsApplyPreview, setDaihonHistoryService } from '../lib/common/captions-button.js';
 
 test('処理済みの素材がなければ連続実行の文言を表示する', () => {
@@ -35,4 +36,13 @@ test('台本履歴サービスをモジュール単位で保持する', () => {
     assert.equal(daihonHistoryService(), service);
     setDaihonHistoryService(undefined);
     assert.equal(daihonHistoryService(), undefined);
+});
+
+test('発話への合わせ直し結果を検証して footer と履歴の文言を作る', () => {
+    assert.equal(captionsRetimeMovedWords({ moved_words: 7 }), 7);
+    for (const value of [{}, { moved_words: -1 }, { moved_words: '7' }, null]) {
+        assert.equal(captionsRetimeMovedWords(value), undefined);
+    }
+    assert.equal(captionsRetimeLine(7), '7 語を動かした');
+    assert.equal(captionsRetimeHistoryLabel(7), '発話に合わせ直す（7 語）');
 });

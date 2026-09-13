@@ -4,7 +4,13 @@ import { PreferenceScope, PreferenceService } from '@theia/core/lib/common/prefe
 import { AkariTranscribeDialog, listenTranscribeRange } from './akari-transcribe-dialog';
 import { cutsJumpButtonLabel, handEditedLines } from '../../common/cuts-view';
 import { ConfirmDialog } from '@theia/core/lib/browser/dialogs';
-import { captionsButtonLabel, daihonHistoryService } from '../../common/captions-button';
+import {
+    captionsButtonLabel,
+    captionsRetimeHistoryLabel,
+    captionsRetimeLine,
+    captionsRetimeMovedWords,
+    daihonHistoryService
+} from '../../common/captions-button';
 import URI from '@theia/core/lib/common/uri';
 import { CommandService } from '@theia/core/lib/common';
 import { BaseWidget, ApplicationShell, OpenerService } from '@theia/core/lib/browser';
@@ -281,8 +287,8 @@ const STYLE = `
 .akari-daihon-cutcell .akari-daihon-rbtn { margin-left:auto; background:none; border:1px solid rgba(255,143,115,.35); color:#d9927f; border-radius:4px; font-size:9.5px; padding:0 6px; cursor:pointer; white-space:nowrap; }
 .akari-daihon-cutcell .akari-daihon-rbtn:hover:not(:disabled) { color:#ffb39e; border-color:rgba(255,143,115,.7); }
 .akari-daihon-cutcell .akari-daihon-rbtn:disabled { opacity:.42; cursor:not-allowed; }
-.akari-daihon-cut,.akari-daihon-split,.akari-daihon-gear,.akari-daihon-selgear,.akari-daihon-selcut,.akari-daihon-selmerge,.akari-daihon-selmerge-next,.akari-daihon-silence,.akari-daihon-tpl,.akari-daihon-seltpl,.akari-daihon-cuts { background:#262c37; border:1px solid #333b48; color:#b9c1cf; border-radius:4px; font-size:10px; padding:1px 6px; cursor:pointer; white-space:nowrap; }
-.akari-daihon-cut:hover,.akari-daihon-gear:hover,.akari-daihon-selgear:hover,.akari-daihon-selcut:hover,.akari-daihon-silence:hover,.akari-daihon-tpl:hover,.akari-daihon-seltpl:hover,.akari-daihon-cuts:hover { color:#e9ecf2; border-color:#445068; }
+.akari-daihon-cut,.akari-daihon-split,.akari-daihon-gear,.akari-daihon-selgear,.akari-daihon-selcut,.akari-daihon-selmerge,.akari-daihon-selmerge-next,.akari-daihon-silence,.akari-daihon-tpl,.akari-daihon-seltpl,.akari-daihon-cuts,.akari-daihon-retime { background:#262c37; border:1px solid #333b48; color:#b9c1cf; border-radius:4px; font-size:10px; padding:1px 6px; cursor:pointer; white-space:nowrap; }
+.akari-daihon-cut:hover,.akari-daihon-gear:hover,.akari-daihon-selgear:hover,.akari-daihon-selcut:hover,.akari-daihon-silence:hover,.akari-daihon-tpl:hover,.akari-daihon-seltpl:hover,.akari-daihon-cuts:hover,.akari-daihon-retime:hover { color:#e9ecf2; border-color:#445068; }
 .akari-daihon-cut:hover { color:#ff8f73; border-color:rgba(255,143,115,.5); }
 .akari-daihon-split:disabled,.akari-daihon-selmerge:disabled,.akari-daihon-selmerge-next:disabled { opacity:.4; cursor:not-allowed; }
 .akari-daihon-gapzone { height:8px; margin:-3px 8px; position:relative; cursor:pointer; }
@@ -400,6 +406,7 @@ export class AkariDaihonWidget extends BaseWidget {
     protected readonly quickPick!: QuickPickService;
 
     protected readonly captionsButton = document.createElement('button');
+    protected readonly retimeButton = document.createElement('button');
     protected readonly displayButton = document.createElement('button');
     protected readonly historyButton = document.createElement('button');
     protected buildingCaptions = false;
@@ -507,6 +514,12 @@ export class AkariDaihonWidget extends BaseWidget {
         this.captionsButton.style.cssText = 'min-height:36px;padding:8px 14px;font-weight:600;white-space:normal';
         this.captionsButton.disabled = true;
         this.captionsButton.addEventListener('click', () => void this.buildCaptions());
+        this.retimeButton.type = 'button';
+        this.retimeButton.className = 'akari-daihon-retime';
+        this.retimeButton.textContent = '⏱ 発話に合わせ直す';
+        this.retimeButton.title = '無音に重なった語の時刻を実際の発話へ合わせ直す';
+        this.retimeButton.disabled = true;
+        this.retimeButton.addEventListener('click', () => void this.retimeCaptions());
         this.displayButton.type = 'button';
         this.displayButton.className = 'akari-daihon-display';
         this.updateDisplayButton();
@@ -534,7 +547,7 @@ export class AkariDaihonWidget extends BaseWidget {
             }
         });
         header.style.flexWrap = 'wrap';
-        header.append(title, this.count, spacer, this.captionsButton, this.historyButton, this.displayButton, this.tplButton, this.qcButton, this.silenceButton, this.cutsButton);
+        header.append(title, this.count, spacer, this.captionsButton, this.retimeButton, this.historyButton, this.displayButton, this.tplButton, this.qcButton, this.silenceButton, this.cutsButton);
 
         this.rowsNode.className = 'akari-daihon-rows';
         this.rowsNode.tabIndex = 0;
@@ -717,6 +730,7 @@ export class AkariDaihonWidget extends BaseWidget {
         }) : {};
         this.captionsButton.textContent = this.buildingCaptions ? '字幕を作成中…' : captionsButtonLabel(Object.values(states));
         this.captionsButton.disabled = this.buildingCaptions || !sources.length || Object.values(states).includes('running');
+        this.retimeButton.disabled = this.buildingCaptions || !sources.length || Object.values(states).includes('running');
     }
 
     protected async buildCaptions(): Promise<void> {
@@ -756,6 +770,34 @@ export class AkariDaihonWidget extends BaseWidget {
         } finally {
             this.buildingCaptions = false;
             await this.refreshCaptionsButton().catch(error => this.notify(this.errorMessage(error)));
+        }
+    }
+
+    protected async retimeCaptions(): Promise<void> {
+        if (!this.editUri) return;
+        const projectRoot = this.editUri.parent.toString();
+        try {
+            const sources = await this.captionSources();
+            const source = sources.length === 1 ? sources[0] : await this.quickPick.show(
+                sources.map(item => ({ label: item.id, description: item.path, ...item })),
+                { placeholder: '発話に合わせ直す素材を選ぶ' }
+            );
+            if (!source) return;
+            let moved = 0;
+            await this.withHistory('発話に合わせ直す', async () => {
+                const result = await this.projectService.buildCaptions({ projectRoot, source: source.id, retime: true });
+                moved = captionsRetimeMovedWords(result) ?? 0;
+            });
+            const history = daihonHistoryService();
+            if (history && moved > 0) {
+                // withHistory が作る 1 件の履歴が操作を表す。表示文言には実測語数を含める。
+                this.notify(`${captionsRetimeLine(moved)} · ${captionsRetimeHistoryLabel(moved)}`);
+            } else {
+                this.notify(captionsRetimeLine(moved));
+            }
+            await this.reload();
+        } catch (error) {
+            this.notify(`発話に合わせ直せません: ${this.errorMessage(error)}`);
         }
     }
 
