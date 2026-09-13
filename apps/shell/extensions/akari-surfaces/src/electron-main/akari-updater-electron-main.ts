@@ -1,12 +1,14 @@
 import { ElectronMainApplication, ElectronMainApplicationContribution } from '@theia/core/lib/electron-main/electron-main-application';
 import { app, BrowserWindow, ipcMain } from '@theia/core/electron-shared/electron';
 import { injectable } from '@theia/core/shared/inversify';
-import { appendFileSync, existsSync, mkdirSync, readFileSync } from 'fs';
+import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { homedir } from 'os';
-import { join } from 'path';
+import { dirname, join } from 'path';
 import { autoUpdater, UpdateInfo } from 'electron-updater';
 import { parseUpdateCache } from '../common/update-feed';
 import {
+    buildFallbackAppUpdateYml,
+    FALLBACK_APP_UPDATE_YML_FILENAME,
     FALLBACK_FEED_OPTIONS,
     isAppTranslocationPath,
     resolveAllowPrerelease,
@@ -69,6 +71,7 @@ export class AkariUpdaterElectronMain implements ElectronMainApplicationContribu
         const appUpdateYmlExists = existsSync(join(process.resourcesPath, 'app-update.yml'));
         if (shouldApplyFeedUrlFallback(app.isPackaged, appUpdateYmlExists)) {
             autoUpdater.setFeedURL(FALLBACK_FEED_OPTIONS);
+            this.applyFallbackUpdateConfig();
         }
 
         autoUpdater.autoDownload = true;
@@ -87,6 +90,26 @@ export class AkariUpdaterElectronMain implements ElectronMainApplicationContribu
         // （未署名の開発ビルド・オフライン・GitHub API 失敗のいずれもここに落ちる）。
         this.safeCheck();
         setInterval(() => this.safeCheck(), CHECK_INTERVAL_MS);
+    }
+
+    /**
+     * feed URL フォールバックの後半。`setFeedURL` は provider（checkForUpdates）にしか効かず、
+     * electron-updater は DL 開始時に app-update.yml から updaterCacheDirName を読む
+     * （AppUpdater.getOrCreateDownloadHelper → configOnDisk）。app-update.yml の無い
+     * ローカル --dir ビルドでは「チェック成功 → DL で ENOENT」を「更新する」のたびに
+     * 繰り返していた（オーナー実機 2026-09-13・0.1.63 → 0.1.64、updater.log に 16 回）。
+     * 同形の yml を userData へ書いて `updateConfigPath` を差し替え、DL まで通す。
+     * 失敗はログして続行する（チェックまでは従来どおり動く）。
+     */
+    protected applyFallbackUpdateConfig(): void {
+        try {
+            const configPath = join(app.getPath('userData'), FALLBACK_APP_UPDATE_YML_FILENAME);
+            mkdirSync(dirname(configPath), { recursive: true });
+            writeFileSync(configPath, buildFallbackAppUpdateYml(), 'utf8');
+            autoUpdater.updateConfigPath = configPath;
+        } catch (error) {
+            this.recordUpdaterError('フォールバック用 app-update.yml の準備に失敗しました', error);
+        }
     }
 
     protected safeCheck(): void {

@@ -378,7 +378,8 @@
       "provider": "github",
       "owner": "AkariLabs",
       "repo": "akari-video"
-    }
+    },
+    "afterPack": "./resources/scripts/after-pack-app-update-yml.cjs"
   },
   "allowScripts": {
     "electron@39.8.7": true,

@@ -23,6 +23,36 @@ export function shouldApplyFeedUrlFallback(isPackaged: boolean, appUpdateYmlExis
     return isPackaged && !appUpdateYmlExists;
 }
 
+/**
+ * electron-builder が app-update.yml に書く updaterCacheDirName（package name の '/' 除去 + '-updater'。
+ * `scripts/release/gen-app-update-yml.mjs` の deriveUpdaterCacheDirName と同じ導出・テストで drift を固定）。
+ * 通常ビルドと同じキャッシュ dir（~/Library/Caches 配下）を使うため、値を揃える。
+ */
+export const FALLBACK_UPDATER_CACHE_DIR_NAME = '@akari-videoshell-updater';
+
+/** main がフォールバック時に userData へ書く設定ファイル名（electron-updater の既定名と同じ）。 */
+export const FALLBACK_APP_UPDATE_YML_FILENAME = 'app-update.yml';
+
+/**
+ * app-update.yml 欠如時に main が userData へ書く設定の中身。
+ *
+ * `setFeedURL` は provider（checkForUpdates）にしか効かず、electron-updater は DL 開始時に
+ * app-update.yml から updaterCacheDirName を読む（AppUpdater.getOrCreateDownloadHelper）。
+ * 無いと ENOENT で DL が止まる（オーナー実機 2026-09-13: ローカル --dir ビルド 0.1.63 で
+ * 「更新する」を押すたびチェック成功 → DL で ENOENT）。同形の yml を用意して
+ * `autoUpdater.updateConfigPath` へ渡し、フォールバックを DL まで通す。
+ * 出力は gen-app-update-yml.mjs とバイト等価（テストで固定）。
+ */
+export function buildFallbackAppUpdateYml(): string {
+    return [
+        `owner: ${FALLBACK_FEED_OPTIONS.owner}`,
+        `repo: ${FALLBACK_FEED_OPTIONS.repo}`,
+        `provider: ${FALLBACK_FEED_OPTIONS.provider}`,
+        `updaterCacheDirName: '${FALLBACK_UPDATER_CACHE_DIR_NAME}'`,
+        ''
+    ].join('\n');
+}
+
 export type ShellUpdaterEventKind =
     | 'checking-for-update'
     | 'update-available'

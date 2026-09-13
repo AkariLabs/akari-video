@@ -64,6 +64,14 @@ test('nsis.artifactName は gen-latest-json.mjs の ARTIFACT_FILES.shellWinSetup
   assert.equal(substituteArtifactName(pkg.build.nsis.artifactName, 'exe'), ARTIFACT_FILES.shellWinSetup);
 });
 
+test('build.afterPack は app-update.yml 生成フックを指し、フックは gen-app-update-yml.mjs を使う（--dir ローカルビルドにも署名前に封入）', async () => {
+  const pkg = await readShellPackageJson();
+  assert.equal(pkg.build.afterPack, './resources/scripts/after-pack-app-update-yml.cjs');
+  const hook = await readFile(path.join(shellRoot, 'resources/scripts/after-pack-app-update-yml.cjs'), 'utf8');
+  assert.match(hook, /scripts', 'release', 'gen-app-update-yml\.mjs'/);
+  assert.match(hook, /getResourcesDir\(context\.appOutDir\)/);
+});
+
 test('electron-updater は dependencies に含まれる（main プロセスへバンドルされる実行時依存）', async () => {
   const pkg = await readShellPackageJson();
   assert.ok(pkg.dependencies['electron-updater'], 'electron-updater が dependencies に無い');

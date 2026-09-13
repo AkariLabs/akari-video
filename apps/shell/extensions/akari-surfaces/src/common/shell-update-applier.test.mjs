@@ -4,15 +4,20 @@ import test from 'node:test';
 // update-feed.test.mjs と同じ流儀（`src/common/` 同居 — task.md 所有パス境界のため
 // `test/` へは置けない）。`npm run build:ext`（tsc -b）で隣の shell-update-applier.ts を
 // コンパイルした後、`node --test` が拾って直接実行できる。
+import { fileURLToPath } from 'node:url';
+import { generateAppUpdateYml } from '../../../../../../scripts/release/gen-app-update-yml.mjs';
 import {
     applyImmediateUpdaterFallback,
     applyShellUpdaterEvent,
     beginUserInitiatedUpdaterCheck,
+    buildFallbackAppUpdateYml,
     checkForShellUpdatesOnHomeShow,
     formatDownloadedBannerText,
     formatDownloadingBannerText,
     formatUpdaterFallbackText,
+    FALLBACK_APP_UPDATE_YML_FILENAME,
     FALLBACK_FEED_OPTIONS,
+    FALLBACK_UPDATER_CACHE_DIR_NAME,
     INITIAL_SHELL_UPDATER_UI_STATE,
     isAppTranslocationPath,
     resolveAllowPrerelease,
@@ -32,6 +37,13 @@ test('feed URL フォールバックはパッケージ版かつ app-update.yml �
         owner: 'AkariLabs',
         repo: 'akari-video'
     });
+});
+
+test('フォールバック用 app-update.yml は gen-app-update-yml.mjs の出力とバイト等価（updaterCacheDirName の drift ガード）', async () => {
+    const repoRoot = fileURLToPath(new URL('../../../../../../', import.meta.url));
+    assert.equal(buildFallbackAppUpdateYml(), await generateAppUpdateYml({ repoRoot }));
+    assert.equal(FALLBACK_UPDATER_CACHE_DIR_NAME, '@akari-videoshell-updater');
+    assert.equal(FALLBACK_APP_UPDATE_YML_FILENAME, 'app-update.yml');
 });
 
 test('applyShellUpdaterEvent: update-downloaded で downloaded: true + version が入る（通知→DL済み・再起動ボタンの遷移）', () => {
