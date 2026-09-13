@@ -57,6 +57,7 @@ export const LANES = {
       pkg('project-scaffold'),
       pkg('schemas'),
       pkg('word-book'),           // 依存ゼロ・tmp fixture で作業場を組む（単語帳 v0 コア 2026-09-02）
+      pkg('generate'),            // 依存ゼロ・純関数（生成入力バリデータ w1-b 2026-09-13。adapters/ は test script の glob 外 = 合流後の統合小票で吸収）
       { id: 'scripts/test', cwd: '.', files: ['scripts/test/*.test.mjs'] },
       {
         id: 'skills/* (package.json を持たないスキル同梱テスト)',
