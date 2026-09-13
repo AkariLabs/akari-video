@@ -18,7 +18,7 @@ export const SETTINGS_SECTION_DESCRIPTIONS: Record<SettingsSectionId, string> = 
     export: '書き出しの画質・形式・フレームレートと保存先の既定値を選びます。',
     quality: '現在はこの値を読む機能がありません（AI 生成の品質段階として予約）',
     transcribe: '文字起こしのモードとエンジンを選びます。',
-    connections: '外部サービスの接続と API キーを管理します。',
+    connections: '外部サービスの接続と API キーを管理します。生成の既定モデル（静止画・動画）もここで選びます。',
     notifications: 'AI パートナーの処理が終わったときの通知を設定します。',
     tools: '動画づくりに必要な道具の状態を確認し、セットアップします。',
     developer: '開発者向けの表示とアプリのテーマを設定します。'

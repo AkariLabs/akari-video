@@ -1,0 +1,84 @@
+{
+  "task": "2026-09-13-settings-generation-defaults",
+  "targetVideoModel": "fal:kling-v3-pro-i2v",
+  "screenshots": [
+    "01-settings-generation-defaults.png",
+    "02-video-default-kling.png"
+  ],
+  "connectionsAfter": {
+    "providers": [],
+    "policy": {
+      "currency": "JPY",
+      "monthly_budget": 1234,
+      "approval_threshold": 500
+    },
+    "memory": [],
+    "defaults": {
+      "generate": {
+        "video": "fal:kling-v3-pro-i2v"
+      }
+    }
+  },
+  "checks": {
+    "electron-exit-0": {
+      "ok": true,
+      "detail": {
+        "exitCode": 0
+      }
+    },
+    "hook-reported-ok": {
+      "ok": true,
+      "detail": {}
+    },
+    "connections-json-readable": {
+      "ok": true,
+      "detail": {
+        "path": "<TMP>/Akari/.akari/connections.json"
+      }
+    },
+    "video-default-is-kling": {
+      "ok": true,
+      "detail": {
+        "value": "fal:kling-v3-pro-i2v"
+      }
+    },
+    "still-default-untouched": {
+      "ok": true,
+      "detail": {
+        "value": null
+      }
+    },
+    "other-fields-preserved": {
+      "ok": true,
+      "detail": {
+        "policy": {
+          "currency": "JPY",
+          "monthly_budget": 1234,
+          "approval_threshold": 500
+        },
+        "providers": [],
+        "memory": []
+      }
+    },
+    "validate-connections-exit-0": {
+      "ok": true,
+      "detail": {
+        "exitCode": 0,
+        "stdout": "OK: <TMP>/Akari/.akari/connections.json"
+      }
+    },
+    "credentials-env-mtime-unchanged": {
+      "ok": true,
+      "detail": {
+        "before": 1789316956176.372,
+        "after": 1789316956176.372
+      }
+    },
+    "no-orphan-processes": {
+      "ok": true,
+      "detail": {
+        "count": "0"
+      }
+    }
+  }
+}
