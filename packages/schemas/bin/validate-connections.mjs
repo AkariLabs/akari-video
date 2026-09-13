@@ -56,10 +56,30 @@ function validateConnections(value) {
     fail("connections.json のルートは object である必要があります");
     return;
   }
-  validateFields(value, ["providers", "policy"], ["providers", "policy", "memory"], "ルート");
+  validateFields(value, ["providers", "policy"], ["providers", "defaults", "policy", "memory"], "ルート");
   validateProviders(value.providers);
+  if (hasOwn(value, "defaults")) validateDefaults(value.defaults);
   validatePolicy(value.policy);
   if (hasOwn(value, "memory")) validateMemory(value.memory);
+}
+
+function validateDefaults(value) {
+  if (!isPlainObject(value)) {
+    fail("defaults は object である必要があります");
+    return;
+  }
+  validateFields(value, [], ["generate"], "defaults");
+  if (!hasOwn(value, "generate")) return;
+  if (!isPlainObject(value.generate)) {
+    fail("defaults.generate は object である必要があります");
+    return;
+  }
+  validateFields(value.generate, [], ["still", "video"], "defaults.generate");
+  for (const field of ["still", "video"]) {
+    if (hasOwn(value.generate, field) && value.generate[field] !== null) {
+      validateNonEmptyString(value.generate[field], `defaults.generate.${field}`);
+    }
+  }
 }
 
 function validateProviders(value) {

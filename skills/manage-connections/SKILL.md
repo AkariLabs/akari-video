@@ -10,11 +10,11 @@ description: AKARI Video の生成プロバイダ・SNS 接続・API キー参�
 次の規則は詳細手順より常に優先する。
 
 1. **キーの値を git 管理下ファイル・HTML・ログ・会話に出さない。** 表示は常にマスク
-2. **credentials.env 以外からキーを探索しない。チャットでキーの提示を求めない。**
+2. **キーは環境変数と credentials.env の 2 か所だけから探す（env が優先）。それ以外から探索せず、チャットでキーの提示を求めない。**
    置き場と KEY 名を案内し、人間が置く
 3. **keychain / 外部 vault を必須依存にしない**（オプションバックエンドとしてのみ将来検討）
 4. **doctor は無償・読み取り専用のみ。実生成テストはしない**（保留裁定 2026-07-17）
-5. **有償操作は見積 → 明示承認まで実行しない**（edit-plan の Decision Communication
+5. **有償操作は見積 → 費用承認まで実行しない**（edit-plan の Decision Communication
    Contract と同型）。予算上限の超過見込みで実行前に停止する
 6. **リアルタイムフック監視（PreToolUse 等）を採用しない。** 状態は JSON、伝達は git 正味差分
 7. **connections.json に無い接続を消費側スキルが使わない**（ここでいう connections.json は
@@ -32,8 +32,8 @@ description: AKARI Video の生成プロバイダ・SNS 接続・API キー参�
    そのプロジェクトルート、または connections.json のパスを第 1 引数に渡す。プロジェクトルート
    で実行した結果は provider の由来レイヤー（project / workspace / default）に対応するファイルへ
    書き戻される。
-3. `~/.config/akari-video/credentials.env` が無ければ、doctor が示す置き場・KEY 名・取得先 URL を
-   人間へ案内して停止する。代理取得・代理書き込みをしない。テストで差し替える場合だけ
+3. 環境変数にも `~/.config/akari-video/credentials.env` にも必要な鍵が無ければ、doctor が示す
+   置き場・KEY 名・取得先 URL を人間へ案内して停止する。代理取得・代理書き込みをしない。テストで差し替える場合だけ
    `AKARI_CREDENTIALS_FILE` にファイルパスを指定する。
 4. provider を追加する場合は、人間が credentials.env に `KEY=VALUE` を 1 行追加し、
    `.akari/connections.json` の `providers` に値を含まない entry を 1 件追加する。
@@ -42,12 +42,27 @@ description: AKARI Video の生成プロバイダ・SNS 接続・API キー参�
 5. モデルを変更する場合は `models.allowed` を先に確定し、`models.default` はその中から選ぶ。
    タスク単位の上書きは次の承認ゲートで宣言する。
 6. 有償操作の前に [承認ゲート](../edit-plan/approvals-and-generation.md) と同じ形式で対象、使う手、
-   理由、代替案、見積費用、待ち時間、外部送信、provenance を提示する。明示承認が得られるまで
+   理由、代替案、見積費用、待ち時間、外部送信、provenance を提示する。費用承認が得られるまで
    実行せず、未設定の予算上限や超過見込みがあれば停止する。
 
 doctor は connections.json の `doctor` ブロックを書き戻し、プロジェクトルートへ読み取り専用の
 `connections-report.html` を生成する。レポートに表示する資格情報は「設定済み（マスク）」または
 「未設定」の存在有無だけとし、HTTP 応答本文やキー値を表示しない。
+
+## 既定モデル（defaults.generate）
+
+- `.akari/connections.json` の任意欄 `defaults.generate.still` / `defaults.generate.video` が生成の既定モデル id
+- 解決は providers と同じ 3 層（project > workspace > 製品同梱の既定）だが、`still` / `video` の欄単位の浅いマージ
+- 製品同梱の既定値は still = `codex:image` / video = `fal:h3-i2v`
+- モデル id のカタログは `packages/schemas/gen-models.json`
+- `node <このスキルのディレクトリ>/bin/resolve-connections.mjs [プロジェクトルート]` の `effective.defaults` で確認する
+
+## 鍵の置き場（環境変数と credentials.env）
+
+- doctor は `auth: env-key` の provider について環境変数 → credentials.env の順で鍵を探す。env が優先
+- 報告は `env` / `credentials.env` / `未設定` の 3 値だけで、値も末尾 4 桁も出さない
+- `akari doctor` の `fal_key` 行でも同じ 3 値が見える。鍵が無くても判定（verdict）と終了コードは変わらない
+- テストで置き場を差し替えるときだけ `AKARI_CREDENTIALS_FILE` を使う
 
 ## memory 接続の管理
 

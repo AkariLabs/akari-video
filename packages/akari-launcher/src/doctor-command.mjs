@@ -36,6 +36,11 @@ export function formatDoctorReport(report) {
     ['ffmpeg', report.ffmpeg.origin, report.ffmpeg.path ?? '見つかりません'],
     ['ffprobe', report.ffprobe.origin, report.ffprobe.path ?? '見つかりません'],
     ['gpu_export', report.gpu_export?.available ? 'ok' : 'unavailable', report.gpu_export?.reason ?? '診断情報がありません'],
+    ['fal_key', report.fal_key?.source ?? 'missing', report.fal_key?.source === 'env'
+      ? '環境変数 FAL_KEY'
+      : report.fal_key?.source === 'credentials.env'
+        ? report.fal_key.credentials_path
+        : '環境変数にも credentials.env にもありません'],
     ['path', report.path.on_path ? 'ok' : 'missing', report.path.cli_shim_dir],
   ];
   const widths = [

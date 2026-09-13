@@ -62,21 +62,23 @@ async function mainLegacy({ connectionsPath, reportPath, credentialsPath }) {
   const credentialState = readCredentials(credentialsPath);
   const checkedAt = new Date().toISOString();
 
-  if (!credentialState.exists) {
-    printCredentialGuide(registry, credentialsPath);
-  } else if (!credentialState.securePermissions) {
+  if (credentialState.exists && !credentialState.securePermissions) {
     console.warn(`警告: credentials.env の権限は 600 ではありません（現在 ${credentialState.mode}）。chmod 600 ${credentialsPath} を実行してください。`);
   }
 
   const results = await Promise.all(
     registry.providers.map((provider) => inspectProvider(provider, credentialState, checkedAt)),
   );
+  if (results.some((result) => result.key_source === "missing")) {
+    printCredentialGuide(registry, credentialsPath);
+  }
   for (const [index, result] of results.entries()) registry.providers[index].doctor = result.doctor;
 
+  const secretValues = collectSecretValues(registry.providers, credentialState, process.env);
   const jsonOutput = `${JSON.stringify(registry, null, 2)}\n`;
-  refuseSecretLeak(jsonOutput, credentialState.values);
+  refuseSecretLeak(jsonOutput, secretValues);
   const htmlOutput = renderReport(registry, results, credentialState, checkedAt, credentialsPath);
-  refuseSecretLeak(htmlOutput, credentialState.values);
+  refuseSecretLeak(htmlOutput, secretValues);
 
   fs.writeFileSync(connectionsPath, jsonOutput, "utf8");
   fs.writeFileSync(reportPath, htmlOutput, "utf8");
@@ -93,9 +95,7 @@ async function mainResolved({ projectRoot, reportPath, credentialsPath }) {
   const credentialState = readCredentials(credentialsPath);
   const checkedAt = new Date().toISOString();
 
-  if (!credentialState.exists) {
-    printCredentialGuide(registry, credentialsPath);
-  } else if (!credentialState.securePermissions) {
+  if (credentialState.exists && !credentialState.securePermissions) {
     console.warn(`警告: credentials.env の権限は 600 ではありません（現在 ${credentialState.mode}）。chmod 600 ${credentialsPath} を実行してください。`);
   }
 
@@ -103,6 +103,9 @@ async function mainResolved({ projectRoot, reportPath, credentialsPath }) {
     ...await inspectProvider(provider, credentialState, checkedAt),
     layer: resolved.sources.providers[provider.id],
   })));
+  if (results.some((result) => result.key_source === "missing")) {
+    printCredentialGuide(registry, credentialsPath);
+  }
   for (const [index, result] of results.entries()) registry.providers[index].doctor = result.doctor;
 
   const projectRegistry = resolved.layers.project.exists
@@ -125,13 +128,14 @@ async function mainResolved({ projectRoot, reportPath, credentialsPath }) {
     }
   }
 
-  writeRegistry(resolved.layers.project.path, projectRegistry, credentialState.values);
+  const secretValues = collectSecretValues(registry.providers, credentialState, process.env);
+  writeRegistry(resolved.layers.project.path, projectRegistry, secretValues);
   if (workspaceRegistry) {
-    writeRegistry(resolved.layers.workspace.path, workspaceRegistry, credentialState.values);
+    writeRegistry(resolved.layers.workspace.path, workspaceRegistry, secretValues);
   }
 
   const htmlOutput = renderReport(registry, results, credentialState, checkedAt, credentialsPath);
-  refuseSecretLeak(htmlOutput, credentialState.values);
+  refuseSecretLeak(htmlOutput, secretValues);
   fs.writeFileSync(reportPath, htmlOutput, "utf8");
 
   if (resolved.layers.workspace) {
@@ -244,38 +248,55 @@ function readCredentials(credentialsPath) {
   return { exists: true, securePermissions: mode === "600", mode, values, parseWarnings };
 }
 
-async function inspectProvider(provider, credentialState, checkedAt) {
+export function resolveProviderKey(envName, credentialState, env) {
+  const environmentValue = env?.[envName];
+  if (typeof environmentValue === "string" && environmentValue.trim().length > 0) {
+    return { secret: environmentValue, key_source: "env" };
+  }
+  const credentialValue = credentialState?.values?.get(envName);
+  if (typeof credentialValue === "string" && credentialValue.trim().length > 0) {
+    return { secret: credentialValue, key_source: "credentials.env" };
+  }
+  return { secret: null, key_source: "missing" };
+}
+
+export async function inspectProvider(
+  provider,
+  credentialState,
+  checkedAt,
+  { env = process.env, adapters: adapterTable = adapters, localAdapters: localTable = localAdapters } = {},
+) {
   const id = typeof provider.id === "string" ? provider.id : "unknown-provider";
   if (provider.auth === "login" || provider.auth === "oauth-mcp") {
-    return result(id, checkedAt, "unchecked", `${provider.auth} 認証は doctor から疎通確認しません。人間がログイン状態を確認してください。`, false);
+    return result(id, checkedAt, "unchecked", `${provider.auth} 認証は doctor から疎通確認しません。人間がログイン状態を確認してください。`, false, null);
   }
   if (provider.auth === "none") {
-    const localAdapter = localAdapters[id];
+    const localAdapter = localTable[id];
     if (!localAdapter) {
-      return result(id, checkedAt, "unchecked", "無償・読み取り専用と確認済みの doctor adapter がありません。", true);
+      return result(id, checkedAt, "unchecked", "無償・読み取り専用と確認済みの doctor adapter がありません。", true, null);
     }
     const doctor = await localAdapter(checkedAt);
-    return { id, configured: true, doctor };
+    return { id, configured: true, key_source: null, doctor };
   }
   if (provider.auth !== "env-key") {
-    return result(id, checkedAt, "unchecked", "未対応の認証方式のため確認していません。", false);
+    return result(id, checkedAt, "unchecked", "未対応の認証方式のため確認していません。", false, null);
   }
 
   const envName = extractEnvName(provider.env);
   if (!envName) {
-    return result(id, checkedAt, "unconfigured", "env は ${KEY_NAME} 形式で登録してください。", false);
+    return result(id, checkedAt, "unconfigured", "env は ${KEY_NAME} 形式で登録してください。", false, "missing");
   }
-  const secret = credentialState.values.get(envName);
-  if (!credentialState.exists || typeof secret !== "string" || secret.length === 0) {
-    return result(id, checkedAt, "unconfigured", `${envName} は credentials.env に未設定です。`, false);
+  const { secret, key_source: keySource } = resolveProviderKey(envName, credentialState, env);
+  if (secret === null) {
+    return result(id, checkedAt, "unconfigured", `${envName} は環境変数にも credentials.env にも設定されていません。`, false, keySource);
   }
 
-  const adapter = adapters[id];
+  const adapter = adapterTable[id];
   if (!adapter) {
-    return result(id, checkedAt, "unchecked", "無償・読み取り専用と確認済みの doctor adapter がありません。", true);
+    return result(id, checkedAt, "unchecked", "無償・読み取り専用と確認済みの doctor adapter がありません。", true, keySource);
   }
   const doctor = await adapter(secret, checkedAt);
-  return { id, configured: true, doctor };
+  return { id, configured: true, key_source: keySource, doctor };
 }
 
 export const adapters = {
@@ -366,8 +387,8 @@ async function checkGet(url, headers, checkedAt) {
   }
 }
 
-function result(id, checkedAt, status, detail, configured) {
-  return { id, configured, doctor: { last_checked: checkedAt, status, detail } };
+function result(id, checkedAt, status, detail, configured, keySource) {
+  return { id, configured, key_source: keySource, doctor: { last_checked: checkedAt, status, detail } };
 }
 
 function extractEnvName(value) {
@@ -377,7 +398,7 @@ function extractEnvName(value) {
 }
 
 function printCredentialGuide(registry, credentialsPath) {
-  console.log(`credentials.env がありません: ${credentialsPath}`);
+  console.log(`鍵が未設定の provider があります。credentials.env: ${credentialsPath}`);
   console.log(`作成後に chmod 600 ${credentialsPath} を実行してください。キーは人間が取得して配置してください。`);
   for (const provider of registry.providers) {
     if (provider.auth !== "env-key") continue;
@@ -387,8 +408,20 @@ function printCredentialGuide(registry, credentialsPath) {
   }
 }
 
+function collectSecretValues(providers, credentialState, env) {
+  const secrets = new Set(credentialState.values.values());
+  for (const provider of providers) {
+    if (provider.auth !== "env-key") continue;
+    const envName = extractEnvName(provider.env);
+    if (!envName) continue;
+    const { secret } = resolveProviderKey(envName, credentialState, env);
+    if (secret) secrets.add(secret);
+  }
+  return secrets;
+}
+
 function refuseSecretLeak(output, values) {
-  for (const secret of values.values()) {
+  for (const secret of values) {
     if (secret && output.includes(secret)) {
       throw new Error("資格情報の値と一致する文字列が出力に含まれています");
     }
@@ -408,6 +441,13 @@ function renderReport(registry, results, credentialState, checkedAt, credentials
       : provider.auth === "none"
         ? "不要（ローカル接続）"
         : `${provider.auth}（値なし）`;
+    const keySourceLabel = result?.key_source === "env"
+      ? "環境変数"
+      : result?.key_source === "credentials.env"
+        ? "credentials.env"
+        : result?.key_source === "missing"
+          ? "未設定"
+          : "不要";
     const allowed = Array.isArray(provider.models?.allowed) && provider.models.allowed.length > 0
       ? provider.models.allowed.join(", ")
       : "未設定";
@@ -420,6 +460,7 @@ function renderReport(registry, results, credentialState, checkedAt, credentials
         <dt>quota</dt><dd>${escapeHtml(notes.quota ?? "未記入")}</dd>
         <dt>必要スコープ</dt><dd>${escapeHtml(arrayText(notes.scopes))}</dd>
         <dt>資格情報</dt><dd>${escapeHtml(credentialLabel)}</dd>
+        <dt>鍵の置き場</dt><dd>${escapeHtml(keySourceLabel)}</dd>
         <dt>既定モデル</dt><dd>${escapeHtml(provider.models?.default ?? "未設定")}</dd>
         <dt>許可モデル</dt><dd>${escapeHtml(allowed)}</dd>
         <dt>最終確認</dt><dd>${escapeHtml(provider.doctor.last_checked ?? "未確認")}</dd>
@@ -428,7 +469,8 @@ function renderReport(registry, results, credentialState, checkedAt, credentials
       ${typeof notes.setup_url === "string" ? `<p><a href="${escapeHtml(notes.setup_url)}">設定ページ</a></p>` : ""}
     </article>`;
   }).join("\n");
-  const missingGuide = credentialState.exists ? "" : `<section class="guide"><h2>credentials.env の準備</h2><p><code>${escapeHtml(credentialsPath)}</code> を作成し、権限を 600 にしてください。次の KEY 名だけを登録し、値はレポートや会話へ貼らないでください。</p><ul>${registry.providers.filter((provider) => provider.auth === "env-key").map((provider) => {
+  const hasMissingKey = results.some((result) => result.key_source === "missing");
+  const missingGuide = !hasMissingKey ? "" : `<section class="guide"><h2>credentials.env の準備</h2><p><code>${escapeHtml(credentialsPath)}</code> を作成し、権限を 600 にしてください。次の KEY 名だけを登録し、値はレポートや会話へ貼らないでください。</p><ul>${registry.providers.filter((provider) => provider.auth === "env-key").map((provider) => {
     const notes = isPlainObject(provider.notes) ? provider.notes : {};
     return `<li>${escapeHtml(provider.id)}: <code>${escapeHtml(extractEnvName(provider.env) ?? "KEY_NAME")}</code>${typeof notes.setup_url === "string" ? ` — <a href="${escapeHtml(notes.setup_url)}">取得先</a>` : ""}</li>`;
   }).join("")}</ul></section>`;

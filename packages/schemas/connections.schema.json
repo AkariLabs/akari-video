@@ -11,6 +11,31 @@
       "type": "array",
       "items": { "$ref": "#/$defs/provider" }
     },
+    "defaults": {
+      "$comment": "既定モデル。still = 静止画（例 codex:image）/ video = 動画（例 fal:h3-i2v）。カタログは packages/schemas/gen-models.json",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "generate": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "still": {
+              "oneOf": [
+                { "type": "null" },
+                { "$ref": "#/$defs/nonEmptyString" }
+              ]
+            },
+            "video": {
+              "oneOf": [
+                { "type": "null" },
+                { "$ref": "#/$defs/nonEmptyString" }
+              ]
+            }
+          }
+        }
+      }
+    },
     "policy": { "$ref": "#/$defs/policy" },
     "memory": {
       "type": "array",

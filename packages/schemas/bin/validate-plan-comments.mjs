@@ -25,7 +25,7 @@ const schemaPath = fileURLToPath(new URL("../plan-comments.schema.json", import.
 const errors = [];
 
 const PASSES = new Set(["structure", "scaffold", "final"]);
-const TARGET_KINDS = new Set(["shot", "slot", "cut"]);
+const TARGET_KINDS = new Set(["shot", "slot", "cut", "clip"]);
 const INDEX_TARGET_KINDS = new Set(["shot", "cut"]);
 
 if (!isRegularFile(planCommentsPath)) {
@@ -106,7 +106,7 @@ function validateComments(value) {
       }
     }
     if (hasOwn(comment, "target_kind") && !TARGET_KINDS.has(comment.target_kind)) {
-      fail(`${label}.target_kind は shot / slot / cut のいずれかである必要があります`);
+      fail(`${label}.target_kind は shot / slot / cut / clip のいずれかである必要があります`);
     }
     if (hasOwn(comment, "target_id")) {
       if (!isNonEmptyString(comment.target_id)) {

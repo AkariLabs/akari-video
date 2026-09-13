@@ -1,4 +1,5 @@
 import { existsSync, readFileSync } from 'node:fs';
+import { homedir } from 'node:os';
 import path, { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -132,6 +133,7 @@ export async function resolveDoctorReport(options = {}) {
   const runtime = resolveRuntimePaths(options);
   const mediaBin = await resolveMediaTools({ ...options, env, platform, pathEnv, pathExt });
   const gpuExport = await resolveGpuExportAvailability({ ...options, env, platform });
+  const falKey = resolveFalKeySource({ env, homeDirectory: options.homeDirectory });
   const akariHome = resolveAkariHome(env);
   const cliShimDir = join(akariHome, 'cli', 'bin');
   const report = {
@@ -148,6 +150,7 @@ export async function resolveDoctorReport(options = {}) {
     ffmpeg: mediaBin.ffmpeg,
     ffprobe: mediaBin.ffprobe,
     gpu_export: gpuExport,
+    fal_key: falKey,
     path: {
       cli_shim_dir: cliShimDir,
       on_path: pathContains(pathEnv, cliShimDir, platform),
@@ -156,6 +159,29 @@ export async function resolveDoctorReport(options = {}) {
   report.verdict = determineDoctorVerdict(report);
   report.next_steps = doctorNextSteps(report);
   return report;
+}
+
+function resolveFalKeySource({ env, homeDirectory }) {
+  const credentialsPath = env.AKARI_CREDENTIALS_FILE
+    ?? join(homeDirectory ?? homedir(), '.config', 'akari-video', 'credentials.env');
+  if (typeof env.FAL_KEY === 'string' && env.FAL_KEY.trim().length > 0) {
+    return { source: 'env', credentials_path: credentialsPath };
+  }
+  try {
+    const source = readFileSync(credentialsPath, 'utf8');
+    for (const originalLine of source.split(/\r?\n/u)) {
+      const line = originalLine.trim();
+      if (!line || line.startsWith('#')) continue;
+      const separator = line.indexOf('=');
+      if (separator < 1 || line.slice(0, separator).trim() !== 'FAL_KEY') continue;
+      if (line.slice(separator + 1).trim().length > 0) {
+        return { source: 'credentials.env', credentials_path: credentialsPath };
+      }
+    }
+  } catch {
+    // credentials.env が無い・読めない場合も doctor 自体は継続する。
+  }
+  return { source: 'missing', credentials_path: credentialsPath };
 }
 
 export async function resolveGpuExportAvailability(options = {}) {
@@ -264,6 +290,9 @@ function doctorNextSteps(report) {
   if (report.ffprobe.origin === 'none') steps.push('ffprobe を導入し、PATH または AKARI_FFPROBE_BIN で参照できるようにしてください。');
   if (!report.path.on_path && report.render_cut.origin !== 'monorepo') {
     steps.push('`~/.akari/cli/bin` を PATH に追加してください。');
+  }
+  if (report.fal_key?.source === 'missing') {
+    steps.push('FAL_KEY がありません。環境変数 FAL_KEY か credentials.env に置くと fal の生成が使えます（無くても書き出しは動きます）。');
   }
   return steps;
 }

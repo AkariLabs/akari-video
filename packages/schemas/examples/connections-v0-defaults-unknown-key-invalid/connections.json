@@ -1,0 +1,13 @@
+{
+  "providers": [],
+  "defaults": {
+    "generate": {
+      "foo": "unknown:model"
+    }
+  },
+  "policy": {
+    "currency": "JPY",
+    "monthly_budget": null,
+    "approval_threshold": null
+  }
+}

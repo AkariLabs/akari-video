@@ -202,6 +202,12 @@ export const DEFAULT_CONNECTIONS_REGISTRY = {
             }
         }
     ],
+    defaults: {
+        generate: {
+            still: 'codex:image',
+            video: 'fal:h3-i2v'
+        }
+    },
     policy: {
         currency: 'JPY',
         monthly_budget: null,

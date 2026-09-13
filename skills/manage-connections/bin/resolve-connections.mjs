@@ -91,12 +91,35 @@ export function mergePolicy(basePolicy, overlayPolicy) {
     };
 }
 
+export function mergeGenerationDefaults(baseDefaults, overlayDefaults) {
+    const baseGenerate = isPlainObject(baseDefaults?.generate) ? baseDefaults.generate : {};
+    const overlayGenerate = isPlainObject(overlayDefaults?.generate) ? overlayDefaults.generate : {};
+    const select = (field) => {
+        const overlayValue = overlayGenerate[field];
+        if (typeof overlayValue === 'string' && overlayValue.trim().length > 0) {
+            return overlayValue;
+        }
+        const baseValue = baseGenerate[field];
+        return typeof baseValue === 'string' && baseValue.trim().length > 0 ? baseValue : null;
+    };
+    return {
+        generate: {
+            still: select('still'),
+            video: select('video')
+        }
+    };
+}
+
 export function overlayConnections(base, overlay) {
     if (overlay === null) {
-        return base;
+        return {
+            ...base,
+            defaults: mergeGenerationDefaults(base.defaults, null)
+        };
     }
     return {
         providers: mergeProvidersById(base.providers, overlay.providers),
+        defaults: mergeGenerationDefaults(base.defaults, overlay.defaults),
         policy: mergePolicy(base.policy, overlay.policy),
         memory: mergeMemoryByName(base.memory ?? [], overlay.memory ?? [])
     };
@@ -134,7 +157,11 @@ export async function resolveConnections({
 
     const bundledDefault = clone(DEFAULT_CONNECTIONS_REGISTRY);
     const base = workspace ?? bundledDefault;
-    const effective = overlayConnections(base, project);
+    const mergedDefaults = mergeGenerationDefaults(
+        mergeGenerationDefaults(bundledDefault.defaults, workspace?.defaults),
+        project?.defaults
+    );
+    const effective = { ...overlayConnections(base, project), defaults: mergedDefaults };
     const sources = {
         providers: sourceMap(effective.providers, 'id', project?.providers, workspace?.providers),
         memory: sourceMap(effective.memory, 'name', project?.memory, workspace?.memory),
@@ -189,7 +216,8 @@ function policySource(field, project, workspace) {
 
 function validateRegistry(registry) {
     assertPlainObject(registry, 'ルート');
-    assertFields(registry, ['providers', 'policy'], ['providers', 'policy', 'memory'], 'ルート');
+    assertFields(registry, ['providers', 'policy'], ['providers', 'defaults', 'policy', 'memory'], 'ルート');
+    if (Object.hasOwn(registry, 'defaults')) assertPlainObject(registry.defaults, 'defaults');
     if (!Array.isArray(registry.providers)) invalid('providers は配列である必要があります');
     if (Object.hasOwn(registry, 'memory') && !Array.isArray(registry.memory)) {
         invalid('memory は配列である必要があります');
@@ -349,6 +377,10 @@ function invalid(message) {
 
 function clone(value) {
     return JSON.parse(JSON.stringify(value));
+}
+
+function isPlainObject(value) {
+    return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
 
 function isMainModule() {
