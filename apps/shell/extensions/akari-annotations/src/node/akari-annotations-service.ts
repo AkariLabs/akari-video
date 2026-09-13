@@ -45,6 +45,10 @@ import {
     GetClipThumbnailResult,
     GetClipWaveformRequest,
     GetClipWaveformResult,
+    GetClipSilencesRequest,
+    GetClipSilencesResult,
+    CLIP_SILENCE_NOISE_DB,
+    CLIP_SILENCE_MIN_SEC,
     InsertCaptionRequest,
     InsertCutRequest,
     InsertLayerRequest,
@@ -162,6 +166,26 @@ import {
 
 const execFileAsync = promisify(execFile);
 
+export function parseSilenceDetectOutput(stderr: string, offsetSeconds = 0): [number, number][] {
+    const results: [number, number][] = [];
+    let start: number | undefined;
+    for (const line of stderr.split(/\r?\n/u)) {
+        const startMatch = line.match(/silence_start:\s*(-?\d+(?:\.\d+)?)/u);
+        if (startMatch) {
+            start = Math.max(0, Number(startMatch[1]) + offsetSeconds);
+            continue;
+        }
+        const endMatch = line.match(/silence_end:\s*(-?\d+(?:\.\d+)?)/u);
+        if (!endMatch || start === undefined) continue;
+        const end = Math.max(0, Number(endMatch[1]) + offsetSeconds);
+        if (Number.isFinite(start) && Number.isFinite(end) && end > start) {
+            results.push([Math.round(start * 100) / 100, Math.round(end * 100) / 100]);
+        }
+        start = undefined;
+    }
+    return results;
+}
+
 /** review/canvas/c-NNNN/strokes.json の 1 要素（review-session §4.1 と同型・canvas-rect・frame なし）。 */
 interface CanvasStrokeRecord {
     id: string;
@@ -231,6 +255,78 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
             this.fsPath(request.projectRootUri), this.fsPath(request.videoUri),
             request.startSeconds, request.endSeconds
         );
+    }
+
+    async getClipSilences(request: GetClipSilencesRequest): Promise<GetClipSilencesResult> {
+        if (!request?.projectRootUri || !request?.videoUri) {
+            return { status: 'unavailable', reason: 'source-missing' };
+        }
+        try {
+            const projectRoot = this.fsPath(request.projectRootUri);
+            const videoPath = this.fsPath(request.videoUri);
+            const sourceStat = await fs.stat(videoPath).catch(() => undefined);
+            if (!sourceStat?.isFile()) return { status: 'unavailable', reason: 'source-missing' };
+            let ffmpeg = process.env.AKARI_FFMPEG_BIN;
+            if (!ffmpeg) {
+                const onPath = await execFileAsync('ffmpeg', ['-version'], { timeout: 5000 }).then(() => true).catch(() => false);
+                if (onPath) ffmpeg = 'ffmpeg';
+                else {
+                    const resourcesPath = (process as NodeJS.Process & { resourcesPath?: string }).resourcesPath;
+                    const packaged = resourcesPath
+                        ? join(resourcesPath, 'media-bin', process.platform === 'win32' ? 'ffmpeg.exe' : 'ffmpeg') : undefined;
+                    if (packaged && await fs.access(packaged).then(() => true).catch(() => false)) ffmpeg = packaged;
+                }
+            }
+            if (!ffmpeg) return { status: 'unavailable', reason: 'ffmpeg-not-found' };
+
+            const noiseDb = Number.isFinite(request.noiseDb) ? request.noiseDb! : CLIP_SILENCE_NOISE_DB;
+            const minSec = Number.isFinite(request.minSec) && request.minSec! > 0 ? request.minSec! : CLIP_SILENCE_MIN_SEC;
+            const startSeconds = Number.isFinite(request.startSeconds) ? Math.max(0, request.startSeconds!) : undefined;
+            const endSeconds = Number.isFinite(request.endSeconds) && request.endSeconds! > (startSeconds ?? 0)
+                ? request.endSeconds : undefined;
+            const hasRange = startSeconds !== undefined || endSeconds !== undefined;
+            const rangeValue: [number, number | null] = [startSeconds ?? 0, endSeconds ?? null];
+            const filter = `silencedetect=noise=${noiseDb}dB:d=${minSec}`;
+            const sourceRelative = relative(projectRoot, videoPath);
+            const cacheable = sourceRelative.length > 0 && !sourceRelative.startsWith(`..${sep}`)
+                && sourceRelative !== '..' && !isAbsolute(sourceRelative);
+            const cachePath = cacheable
+                ? join(projectRoot, '.akari', 'sidecars', `${sourceRelative}.analysis`, 'silences.json') : undefined;
+            if (cachePath) {
+                const cached = await fs.readFile(cachePath, 'utf8').then(text => JSON.parse(text)).catch(() => undefined);
+                if (cached?.filter === filter && Array.isArray(cached.range)
+                    && cached.range[0] === rangeValue[0] && cached.range[1] === rangeValue[1]
+                    && cached.source_size === sourceStat.size && cached.source_mtime_ms === sourceStat.mtimeMs
+                    && Array.isArray(cached.silences)) {
+                    return { status: 'ready', silences: cached.silences, cached: true };
+                }
+            }
+            const args = ['-hide_banner', '-nostats'];
+            if (hasRange) {
+                if (startSeconds !== undefined) args.push('-ss', String(startSeconds));
+                if (endSeconds !== undefined) args.push('-to', String(endSeconds));
+            }
+            args.push('-i', videoPath, '-map', '0:a:0', '-af', filter, '-f', 'null', '-');
+            const { stderr } = await execFileAsync(ffmpeg, args, {
+                encoding: 'utf8', maxBuffer: 8 * 1024 * 1024, timeout: 120_000
+            });
+            const silences = parseSilenceDetectOutput(stderr, hasRange ? startSeconds ?? 0 : 0);
+            if (cachePath) {
+                const payload = {
+                    source: sourceRelative.split(sep).join('/'), filter, range: rangeValue,
+                    source_size: sourceStat.size, source_mtime_ms: sourceStat.mtimeMs,
+                    generated_at: new Date().toISOString(), silences
+                };
+                await fs.mkdir(dirname(cachePath), { recursive: true }).then(async () => {
+                    const temporary = `${cachePath}.${process.pid}.${Date.now()}.tmp`;
+                    await fs.writeFile(temporary, `${JSON.stringify(payload, null, 2)}\n`, 'utf8');
+                    await fs.rename(temporary, cachePath);
+                }).catch(() => undefined);
+            }
+            return { status: 'ready', silences, cached: false };
+        } catch {
+            return { status: 'unavailable', reason: 'extraction-failed' };
+        }
     }
 
     async getAudioDuration(request: GetAudioDurationRequest): Promise<GetAudioDurationResult> {
