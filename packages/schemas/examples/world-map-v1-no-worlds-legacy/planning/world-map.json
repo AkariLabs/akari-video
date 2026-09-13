@@ -1,0 +1,12 @@
+{
+  "zones": [
+    { "id": "cloud-start", "c": [6, 2, 11], "color": "peach", "rot": [0, 0, 0], "parent": "imagined" },
+    { "id": "cloud-end", "c": [29, 7, -4], "color": "blue", "rot": [0, 1, 0], "parent": "imagined" }
+  ],
+  "cameraStops": [
+    { "at": 0, "leave": 1.7, "eye": [1, 8, 17], "target": [6, 2, 11] },
+    { "at": 2.5, "leave": 4.4, "eye": [35, 12, 5], "target": [29, 7, -4] }
+  ],
+  "retainedNodes": ["paper-kite"],
+  "inventory": [{ "id": "fictional-cloud" }]
+}
