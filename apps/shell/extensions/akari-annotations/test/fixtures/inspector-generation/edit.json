@@ -1,0 +1,21 @@
+{
+  "version": 2,
+  "output": { "width": 1280, "height": 720, "fps": 30 },
+  "sources": [
+    { "id": "still-a", "path": "assets/stills/a.png" },
+    { "id": "still-b", "path": "assets/stills/b.png" },
+    { "id": "still-c", "path": "assets/stills/c.png" }
+  ],
+  "tracks": [
+    {
+      "id": "visual-main",
+      "lane": "visual",
+      "items": [
+        { "id": "clip-a", "at": 0, "duration": 180, "source": { "kind": "media", "src": "still-a", "in": 0, "out": 6 } },
+        { "id": "clip-b", "at": 180, "duration": 180, "source": { "kind": "media", "src": "still-b", "in": 0, "out": 6 } },
+        { "id": "clip-c", "at": 360, "duration": 180, "source": { "kind": "media", "src": "still-c", "in": 0, "out": 6 } }
+      ]
+    }
+  ],
+  "audio": { "narration": [], "sfx": [] }
+}

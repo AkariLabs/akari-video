@@ -16,6 +16,7 @@ import { execFile } from 'child_process';
 import { createHash } from 'crypto';
 import { promises as fs } from 'fs';
 import { basename, dirname, join, relative, sep, extname, isAbsolute, resolve } from 'path';
+import { pathToFileURL } from 'url';
 import { promisify } from 'util';
 import {
     ListAdjustLutsRequest, ListAdjustLutsResult, ImportAdjustLutRequest, ImportAdjustLutResult,
@@ -41,6 +42,14 @@ import {
     ProbeSourceHasAudioResult,
     ReadGenerationSidecarsRequest,
     ReadGenerationSidecarsResult,
+    ReadGenerationCatalogResult,
+    ReadGenerationDefaultsResult,
+    ValidateGenerationInputsRequest,
+    GenerationValidationResult,
+    WriteGenerationDraftRequest,
+    StartGenerateVideoRequest,
+    GenerationProcessRequest,
+    GenerationProcessResult,
     GetClipFilmstripChunkRequest,
     GetClipFilmstripChunkResult,
     GetClipThumbnailRequest,
@@ -111,6 +120,7 @@ import type { GenerationSidecarMeta } from '../common/generation-sidecar';
 import { measureAudioForLevel } from './audio-level-resolver';
 import { setSfxFadeInSource } from '../common/sfx-fade-store';
 import { setAudioDuckInSource, setAudioKeyframesInSource } from '../common/audio-envelope-store';
+import { GenerationCliManager, generationDraftPath } from './generation-cli';
 import {
     appendAnnotationLine,
     emptyReviewSource,
@@ -200,6 +210,7 @@ interface CanvasStrokeRecord {
 @injectable()
 export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
     protected client: AkariAnnotationsClient | undefined;
+    protected readonly generationCli = new GenerationCliManager();
 
     setClient(client: AkariAnnotationsClient | undefined): void {
         this.client = client;
@@ -272,6 +283,98 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
             }
         }));
         return { entries: loaded.filter((entry): entry is { sourcePath: string; meta: GenerationSidecarMeta } => !!entry) };
+    }
+
+    async readGenerationCatalog(): Promise<ReadGenerationCatalogResult> {
+        const path = await this.findGenerationAsset('packages/schemas/gen-models.json');
+        const parsed = JSON.parse(await fs.readFile(path, 'utf8')) as ReadGenerationCatalogResult;
+        if (!Array.isArray(parsed.models)) throw new Error('生成モデルカタログの models[] がありません。');
+        return { models: parsed.models };
+    }
+
+    async readGenerationDefaults(request: { projectRootUri: string }): Promise<ReadGenerationDefaultsResult> {
+        if (!request?.projectRootUri) throw new Error('projectRootUri が必要です。');
+        const modulePath = await this.findGenerationAsset('skills/manage-connections/bin/resolve-connections.mjs');
+        const importEsm = new Function('specifier', 'return import(specifier)') as <T>(specifier: string) => Promise<T>;
+        const resolver = await importEsm<{
+            resolveConnections(options: { projectRoot: string; env: NodeJS.ProcessEnv }): Promise<{
+                effective?: { defaults?: { generate?: { video?: string | null } } };
+            }>;
+        }>(pathToFileURL(modulePath).toString());
+        const resolved = await resolver.resolveConnections({
+            projectRoot: this.fsPath(request.projectRootUri), env: process.env
+        });
+        return { video: resolved.effective?.defaults?.generate?.video || 'fal:h3-i2v' };
+    }
+
+    async validateGenerationInputs(request: ValidateGenerationInputsRequest): Promise<GenerationValidationResult> {
+        if (!request?.modelId) throw new Error('modelId が必要です。');
+        const [catalog, validatorPath] = await Promise.all([
+            this.readGenerationCatalog(),
+            this.findGenerationAsset('packages/generate/src/validate-inputs.mjs')
+        ]);
+        const model = catalog.models.find(row => row.id === request.modelId);
+        if (!model) throw new Error(`生成モデルがカタログにありません: ${request.modelId}`);
+        const importEsm = new Function('specifier', 'return import(specifier)') as <T>(specifier: string) => Promise<T>;
+        const validator = await importEsm<{
+            validateInputs(value: { inputs: Record<string, unknown>; output: Record<string, unknown>; model: unknown }): GenerationValidationResult;
+        }>(pathToFileURL(validatorPath).toString());
+        return validator.validateInputs({ inputs: request.inputs ?? {}, output: request.output ?? {}, model });
+    }
+
+    async writeGenerationDraft(request: WriteGenerationDraftRequest): Promise<{ ok: true; path: string }> {
+        if (!request?.projectRootUri || !request?.itemId || !request?.modelId) {
+            throw new Error('projectRootUri / itemId / modelId が必要です。');
+        }
+        const projectRoot = resolve(this.fsPath(request.projectRootUri));
+        const path = generationDraftPath(projectRoot, request.itemId);
+        await fs.mkdir(dirname(path), { recursive: true });
+        const temp = `${path}.${process.pid}.${Date.now()}.tmp`;
+        const content = `${JSON.stringify({ modelId: request.modelId, inputs: request.inputs ?? {}, output: request.output ?? {} }, null, 2)}\n`;
+        await fs.writeFile(temp, content, 'utf8');
+        await fs.rename(temp, path);
+        return { ok: true, path: relative(projectRoot, path).split(sep).join('/') };
+    }
+
+    async startGenerateVideo(request: StartGenerateVideoRequest): Promise<GenerationProcessResult> {
+        if (request?.approved !== true) throw new Error('費用承認が必要です。');
+        try {
+            return await this.generationCli.start(this.fsPath(request.projectRootUri), request.itemId);
+        } catch (error) {
+            return { ok: false, reason: error instanceof Error ? error.message : String(error), stdout: '' };
+        }
+    }
+
+    async resumeGenerateVideo(request: GenerationProcessRequest): Promise<GenerationProcessResult> {
+        try {
+            return await this.generationCli.resume(this.fsPath(request.projectRootUri), request.itemId);
+        } catch (error) {
+            return { ok: false, reason: error instanceof Error ? error.message : String(error), stdout: '' };
+        }
+    }
+
+    async cancelGenerateVideo(request: GenerationProcessRequest): Promise<GenerationProcessResult> {
+        try {
+            return await this.generationCli.cancel(request.itemId);
+        } catch (error) {
+            return { ok: false, reason: error instanceof Error ? error.message : String(error), stdout: '' };
+        }
+    }
+
+    protected async findGenerationAsset(relativeTarget: string): Promise<string> {
+        const resourcesPath = (process as NodeJS.Process & { resourcesPath?: string }).resourcesPath;
+        const starts = [__dirname, ...(resourcesPath ? [resourcesPath] : [])];
+        for (const start of starts) {
+            let directory = resolve(start);
+            for (let depth = 0; depth < 10; depth++) {
+                const candidate = resolve(directory, relativeTarget);
+                if (await fs.stat(candidate).then(stat => stat.isFile()).catch(() => false)) return candidate;
+                const parent = dirname(directory);
+                if (parent === directory) break;
+                directory = parent;
+            }
+        }
+        throw new Error(`生成ランタイム資産が同梱されていません: ${relativeTarget}`);
     }
 
     async getClipFilmstripChunk(request: GetClipFilmstripChunkRequest): Promise<GetClipFilmstripChunkResult> {

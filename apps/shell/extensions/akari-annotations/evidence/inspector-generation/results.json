@@ -1,0 +1,301 @@
+{
+  "status": "pass",
+  "steps": [
+    {
+      "name": "1. H3 は受ける欄だけ・常時音声・見積を表示する",
+      "pass": true,
+      "detail": {
+        "hidden": false,
+        "text": "▾ 生成モデルMiniMax H3 · $0.05/秒 · as_of 2026-09-12（fal:h3-i2v）MiniMax H3 · $0.05/秒 · as_of 2026-09-12（fal:h3-ref）Kling Video v3 Standard · 見積不可 · as_of 2026-09-12（fal:kling-v3-standard-i2v）Kling Video v3 Pro · $0.112/秒 · as_of 2026-09-12（fal:kling-v3-pro-i2v）Veo 3.1 · $0.2/秒 · as_of 2026-09-12（fal:veo-3.1-flf）Veo 3.1 · $0.2/秒 · as_of 2026-09-12（fal:veo-3.1-ref）Seedance 2.0 · $0.3034/秒 · as_of 2026-09-12（fal:seedance-2.0-i2v）Seedance 2.0 · $0.3034/秒 · as_of 2026-09-12（fal:seedance-2.0-ref）Seedance 2.5 · 見積不可 · as_of 2026-09-12（fal:seedance-2.5-i2v）Wan 2.7 · $0.1/秒 · as_of 2026-09-12（fal:wan-2.7-i2v）Grok Imagine Video · 見積不可 · as_of 2026-09-12（fal:grok-imagine-i2v）Vidu Q3 · 見積不可 · as_of 2026-09-12（fal:vidu-q3-i2v）prompt最初のフレームassets/stills/a.png（変更不可）最後のフレーム動き尺6 秒 → 5 秒解像度480P768P2K4K音声常に付く・既定 mute見積$0.30（as_of 2026-09-12）操作隣から取る動画にする",
+        "rows": [
+          {
+            "label": "モデル",
+            "value": "",
+            "input": "MiniMax H3 · $0.05/秒 · as_of 2026-09-12（fal:h3-i2v）",
+            "className": "akari-inspector-row akari-inspector-generation-facts"
+          },
+          {
+            "label": "prompt",
+            "value": "",
+            "input": "看板へゆっくり寄る",
+            "className": "akari-inspector-row"
+          },
+          {
+            "label": "最初のフレーム",
+            "value": "assets/stills/a.png（変更不可）",
+            "input": "",
+            "className": "akari-inspector-row"
+          },
+          {
+            "label": "最後のフレーム",
+            "value": "",
+            "input": "",
+            "className": "akari-inspector-row"
+          },
+          {
+            "label": "動き",
+            "value": "",
+            "input": "",
+            "className": "akari-inspector-row"
+          },
+          {
+            "label": "尺",
+            "value": "6 秒 → 5 秒",
+            "input": "",
+            "className": "akari-inspector-row akari-inspector-generation-warning"
+          },
+          {
+            "label": "解像度",
+            "value": "",
+            "input": "768P",
+            "className": "akari-inspector-row"
+          },
+          {
+            "label": "音声",
+            "value": "常に付く・既定 mute",
+            "input": "",
+            "className": "akari-inspector-row"
+          },
+          {
+            "label": "見積",
+            "value": "$0.30（as_of 2026-09-12）",
+            "input": "",
+            "className": "akari-inspector-row akari-inspector-generation-estimate"
+          },
+          {
+            "label": "操作",
+            "value": "",
+            "input": "",
+            "className": "akari-inspector-row"
+          }
+        ]
+      }
+    },
+    {
+      "name": "2. Kling standard は negative prompt・上限なし参照画像・見積不可を表示する",
+      "pass": true,
+      "detail": {
+        "hidden": false,
+        "text": "▾ 生成モデルMiniMax H3 · $0.05/秒 · as_of 2026-09-12（fal:h3-i2v）MiniMax H3 · $0.05/秒 · as_of 2026-09-12（fal:h3-ref）Kling Video v3 Standard · 見積不可 · as_of 2026-09-12（fal:kling-v3-standard-i2v）Kling Video v3 Pro · $0.112/秒 · as_of 2026-09-12（fal:kling-v3-pro-i2v）Veo 3.1 · $0.2/秒 · as_of 2026-09-12（fal:veo-3.1-flf）Veo 3.1 · $0.2/秒 · as_of 2026-09-12（fal:veo-3.1-ref）Seedance 2.0 · $0.3034/秒 · as_of 2026-09-12（fal:seedance-2.0-i2v）Seedance 2.0 · $0.3034/秒 · as_of 2026-09-12（fal:seedance-2.0-ref）Seedance 2.5 · 見積不可 · as_of 2026-09-12（fal:seedance-2.5-i2v）Wan 2.7 · $0.1/秒 · as_of 2026-09-12（fal:wan-2.7-i2v）Grok Imagine Video · 見積不可 · as_of 2026-09-12（fal:grok-imagine-i2v）Vidu Q3 · 見積不可 · as_of 2026-09-12（fal:vidu-q3-i2v）promptnegative prompt最初のフレームassets/stills/a.png（変更不可）最後のフレーム参照画像動き尺6 秒 → 5 秒音声ONOFF見積見積不可（明示確認で実行）注記見積不可（価格の記録がありません）。実行には明示の確認が必要です操作隣から取る動画にする",
+        "rows": [
+          {
+            "label": "モデル",
+            "value": "",
+            "input": "Kling Video v3 Standard · 見積不可 · as_of 2026-09-12（fal:kling-v3-standard-i2v）",
+            "className": "akari-inspector-row akari-inspector-generation-facts"
+          },
+          {
+            "label": "prompt",
+            "value": "",
+            "input": "看板へゆっくり寄る",
+            "className": "akari-inspector-row"
+          },
+          {
+            "label": "negative prompt",
+            "value": "",
+            "input": "",
+            "className": "akari-inspector-row"
+          },
+          {
+            "label": "最初のフレーム",
+            "value": "assets/stills/a.png（変更不可）",
+            "input": "",
+            "className": "akari-inspector-row"
+          },
+          {
+            "label": "最後のフレーム",
+            "value": "",
+            "input": "",
+            "className": "akari-inspector-row"
+          },
+          {
+            "label": "参照画像",
+            "value": "",
+            "input": "",
+            "className": "akari-inspector-row"
+          },
+          {
+            "label": "動き",
+            "value": "",
+            "input": "",
+            "className": "akari-inspector-row"
+          },
+          {
+            "label": "尺",
+            "value": "6 秒 → 5 秒",
+            "input": "",
+            "className": "akari-inspector-row akari-inspector-generation-warning"
+          },
+          {
+            "label": "音声",
+            "value": "",
+            "input": "true",
+            "className": "akari-inspector-row"
+          },
+          {
+            "label": "見積",
+            "value": "見積不可（明示確認で実行）",
+            "input": "",
+            "className": "akari-inspector-row akari-inspector-generation-estimate"
+          },
+          {
+            "label": "注記",
+            "value": "見積不可（価格の記録がありません）。実行には明示の確認が必要です",
+            "input": "",
+            "className": "akari-inspector-row akari-inspector-generation-note"
+          },
+          {
+            "label": "操作",
+            "value": "",
+            "input": "",
+            "className": "akari-inspector-row"
+          }
+        ]
+      }
+    },
+    {
+      "name": "3. Veo FLF は最後のフレームと 6 秒 → 8 秒の正規化を表示する",
+      "pass": true,
+      "detail": {
+        "hidden": false,
+        "text": "▾ 生成モデルMiniMax H3 · $0.05/秒 · as_of 2026-09-12（fal:h3-i2v）MiniMax H3 · $0.05/秒 · as_of 2026-09-12（fal:h3-ref）Kling Video v3 Standard · 見積不可 · as_of 2026-09-12（fal:kling-v3-standard-i2v）Kling Video v3 Pro · $0.112/秒 · as_of 2026-09-12（fal:kling-v3-pro-i2v）Veo 3.1 · $0.2/秒 · as_of 2026-09-12（fal:veo-3.1-flf）Veo 3.1 · $0.2/秒 · as_of 2026-09-12（fal:veo-3.1-ref）Seedance 2.0 · $0.3034/秒 · as_of 2026-09-12（fal:seedance-2.0-i2v）Seedance 2.0 · $0.3034/秒 · as_of 2026-09-12（fal:seedance-2.0-ref）Seedance 2.5 · 見積不可 · as_of 2026-09-12（fal:seedance-2.5-i2v）Wan 2.7 · $0.1/秒 · as_of 2026-09-12（fal:wan-2.7-i2v）Grok Imagine Video · 見積不可 · as_of 2026-09-12（fal:grok-imagine-i2v）Vidu Q3 · 見積不可 · as_of 2026-09-12（fal:vidu-q3-i2v）promptnegative prompt最初のフレームassets/stills/a.png（変更不可）最後のフレーム動き尺6 秒 → 8 秒解像度720p1080p4k音声ONOFF見積$3.20（as_of 2026-09-12）エラーこのモデルは最後のフレームが必要です操作隣から取る動画にする",
+        "rows": [
+          {
+            "label": "モデル",
+            "value": "",
+            "input": "Veo 3.1 · $0.2/秒 · as_of 2026-09-12（fal:veo-3.1-flf）",
+            "className": "akari-inspector-row akari-inspector-generation-facts"
+          },
+          {
+            "label": "prompt",
+            "value": "",
+            "input": "看板へゆっくり寄る",
+            "className": "akari-inspector-row"
+          },
+          {
+            "label": "negative prompt",
+            "value": "",
+            "input": "",
+            "className": "akari-inspector-row"
+          },
+          {
+            "label": "最初のフレーム",
+            "value": "assets/stills/a.png（変更不可）",
+            "input": "",
+            "className": "akari-inspector-row"
+          },
+          {
+            "label": "最後のフレーム",
+            "value": "",
+            "input": "",
+            "className": "akari-inspector-row"
+          },
+          {
+            "label": "動き",
+            "value": "",
+            "input": "",
+            "className": "akari-inspector-row"
+          },
+          {
+            "label": "尺",
+            "value": "6 秒 → 8 秒",
+            "input": "",
+            "className": "akari-inspector-row akari-inspector-generation-warning"
+          },
+          {
+            "label": "解像度",
+            "value": "",
+            "input": "720p",
+            "className": "akari-inspector-row"
+          },
+          {
+            "label": "音声",
+            "value": "",
+            "input": "true",
+            "className": "akari-inspector-row"
+          },
+          {
+            "label": "見積",
+            "value": "$3.20（as_of 2026-09-12）",
+            "input": "",
+            "className": "akari-inspector-row akari-inspector-generation-estimate"
+          },
+          {
+            "label": "エラー",
+            "value": "このモデルは最後のフレームが必要です",
+            "input": "",
+            "className": "akari-inspector-row akari-inspector-generation-error"
+          },
+          {
+            "label": "操作",
+            "value": "",
+            "input": "",
+            "className": "akari-inspector-row"
+          }
+        ]
+      }
+    },
+    {
+      "name": "4. 動画にするは金額・as_of・model id 付き費用承認を開く",
+      "pass": true,
+      "detail": {
+        "text": "費用承認$0.25（as_of 2026-09-12）で fal:h3-i2v に送ります。費用承認しますかキャンセル費用承認する",
+        "title": "費用承認"
+      }
+    },
+    {
+      "name": "5. 費用承認後に偽 CLI が走りタイムラインチップが generating になる",
+      "pass": true,
+      "detail": {
+        "state": "generating",
+        "badge": "生成中 45%"
+      }
+    },
+    {
+      "name": "6. edit.json / captions.json の mtime は全手順で不変",
+      "pass": true,
+      "detail": {
+        "mtimesBefore": {
+          "edit": 1789318182006.8933,
+          "captions": 1789318182085.7146
+        },
+        "mtimesAfter": {
+          "edit": 1789318182006.8933,
+          "captions": 1789318182085.7146
+        }
+      }
+    }
+  ],
+  "screenshots": [
+    "01-model-h3.png",
+    "02-model-kling.png",
+    "03-model-veo.png",
+    "04-cost-approval-dialog.png",
+    "05-timeline-chip-generating.png"
+  ],
+  "cleanup": {
+    "killedPid": 78560,
+    "survivingProcesses": 0,
+    "survivingBackendMain": 0,
+    "alive": 0
+  },
+  "fixture": {
+    "ok": true,
+    "project": "evidence/inspector-generation/fixture/project",
+    "clips": [
+      "clip-a",
+      "clip-b",
+      "clip-c"
+    ],
+    "sidecars": [
+      "assets/stills/c.png.meta.json"
+    ],
+    "captions": true
+  },
+  "preloadOverlay": "removed",
+  "dismissedAtStartup": {
+    "dialogs": 0,
+    "notifications": 0,
+    "noticeContainers": 2
+  }
+}

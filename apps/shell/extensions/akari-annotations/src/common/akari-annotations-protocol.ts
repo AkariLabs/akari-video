@@ -47,6 +47,54 @@ export interface ReadGenerationSidecarsResult {
     entries: Array<{ sourcePath: string; meta: GenerationSidecarMeta }>;
 }
 
+export interface GenerationCatalogRow {
+    id: string;
+    kind: string;
+    provider?: string;
+    family?: string;
+    inputs: Record<string, unknown>;
+    duration: Record<string, unknown>;
+    resolutions?: string[] | null;
+    aspects?: string[] | null;
+    audio_out?: boolean | 'always';
+    seed?: boolean;
+    price?: { unit?: string; by_resolution?: Record<string, number>; audio_multiplier?: number | null } | null;
+    as_of?: string | null;
+    [key: string]: unknown;
+}
+
+export interface ReadGenerationCatalogResult { models: GenerationCatalogRow[]; }
+export interface ReadGenerationDefaultsResult { video: string; }
+export interface ValidateGenerationInputsRequest {
+    modelId: string;
+    inputs: Record<string, unknown>;
+    output: Record<string, unknown>;
+}
+export interface GenerationValidationResult {
+    ok: boolean;
+    normalized: { inputs: Record<string, unknown>; output: Record<string, unknown> };
+    rounded: { duration_s?: { from: number; to: number; reason?: string } } | null;
+    messages: Array<{ level: 'error' | 'warn' | 'info'; code?: string; text: string }>;
+    cost: { estimate_usd: number | null; as_of?: string | null; source?: string; needs_explicit_confirm?: boolean };
+}
+export interface WriteGenerationDraftRequest extends ValidateGenerationInputsRequest {
+    projectRootUri: string;
+    itemId: string;
+}
+export interface StartGenerateVideoRequest {
+    projectRootUri: string;
+    itemId: string;
+    approved?: boolean;
+}
+export interface GenerationProcessRequest { projectRootUri: string; itemId: string; }
+export interface GenerationProcessResult {
+    ok: boolean;
+    reason?: string;
+    stdout: string;
+    stderr?: string;
+    exitCode?: number | null;
+}
+
 export interface GetClipFilmstripChunkRequest {
     projectRootUri: string;
     /** 素材（クリップ区間ではなく素材全体）の URI。チャンクはこの単位 + chunkIndex でキャッシュされる。 */
@@ -738,6 +786,13 @@ export interface AkariAnnotationsService {
     setClient(client: AkariAnnotationsClient | undefined): void;
     getClipThumbnail(request: GetClipThumbnailRequest): Promise<GetClipThumbnailResult>;
     readGenerationSidecars(request: ReadGenerationSidecarsRequest): Promise<ReadGenerationSidecarsResult>;
+    readGenerationCatalog(): Promise<ReadGenerationCatalogResult>;
+    readGenerationDefaults(request: { projectRootUri: string }): Promise<ReadGenerationDefaultsResult>;
+    validateGenerationInputs(request: ValidateGenerationInputsRequest): Promise<GenerationValidationResult>;
+    writeGenerationDraft(request: WriteGenerationDraftRequest): Promise<{ ok: true; path: string }>;
+    startGenerateVideo(request: StartGenerateVideoRequest): Promise<GenerationProcessResult>;
+    resumeGenerateVideo(request: GenerationProcessRequest): Promise<GenerationProcessResult>;
+    cancelGenerateVideo(request: GenerationProcessRequest): Promise<GenerationProcessResult>;
     getClipFilmstripChunk(request: GetClipFilmstripChunkRequest): Promise<GetClipFilmstripChunkResult>;
     getClipWaveform(request: GetClipWaveformRequest): Promise<GetClipWaveformResult>;
     getClipSilences(request: GetClipSilencesRequest): Promise<GetClipSilencesResult>;
