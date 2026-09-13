@@ -93,9 +93,9 @@ OpenAI、Gemini 等の API キーを直接使わない。キーの提示を求�
 
 Checkpoint 2 / Checkpoint 3 の再提示に着手する前に、`<plan-dir>/plan-comments.json` の有無を確認する（**チャット返信の解釈より先に本ファイルを読む**）。`research-plan/storyboard.md` の `structure-confirm` と同型の規約であり、正本は [contract-2026-07-25-plan-comments-v0.md](../../docs/contract-2026-07-25-plan-comments-v0.md)。
 
-- `pass: "scaffold"` の `plan-comments.json` が在れば、Checkpoint 2（素材計画）向けの差し戻しとして扱い、`comments[].target_kind: "slot"`（`target_id` は `plan.json` の `slots[].id`）で名指しされた slot **だけ**を改訂する。
+- `pass: "scaffold"` の `plan-comments.json` が在れば、Checkpoint 2（素材計画）向けの差し戻しとして扱い、`comments[].target_kind: "clip"`（`target_id` は edit.json v2 の item id）で名指しされたクリップ **だけ**を改訂する。旧 `target_kind: "slot"` は退役した。
 - `pass: "final"` の `plan-comments.json` が在れば、Checkpoint 3（実行）向けの差し戻しとして扱い、`comments[].target_kind: "cut"`（`target_id` は v2 item id）で名指しされたクリップ **だけ**を改訂する。
-- どちらも、名指しされていない slot / cut は無変更のまま次の提示に進む。改訂が終わったら **`plan-comments.json` を削除**してから、更新後の内容を再提示する。
+- どちらも、名指しされていない clip / cut は無変更のまま次の提示に進む。改訂が終わったら **`plan-comments.json` を削除**してから、更新後の内容を再提示する。
 - ファイルが無い回は、従来どおりチャットの差し戻し指示のみを解釈する。
 
 ## よくある間違い

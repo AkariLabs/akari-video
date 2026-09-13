@@ -33,18 +33,18 @@
 | `planning/research-plan.json` | 企画の SSOT（topic / target / structure / shot_list） |
 | `research-plan-report.html` | 企画レポート（決定記録付き） |
 
-## 撮影しない場合 — 仮枠タイムライン（plan.json）
+## 撮影しない場合 — 仮枠クリップ
 
-素材ゼロで組む場合、edit-plan は対話を通じて **plan.json（仮枠タイムライン）** を作ります。
-確定度つきのスロット列で、各スロットは 3 つの手段で埋められます:
+素材ゼロで組む場合も、正本は最初から `edit.json` のタイムラインです。仮枠は
+**タイムライン上の静止画クリップ + 素材の隣の `<path>.meta.json`**。静止画クリップが尺と場所を
+持つので、そのまま完成品にしても、後から同じクリップを動画へ差し替えても構いません。
 
-- **generate** — 生成する（画像・映像・3D ベイクなど）
-- **record** — 撮る・録る
-- **import** — 手持ち素材を当てる
-
-スロットが埋まると plan.json は `edit.json` へコンパイルされ、以降は通常の編集フローに合流します。
+`akari generate still <projectDir> --spec <beats.json>` で静止画仮枠を作ります。絵をまだ決めずに
+尺と並びだけ確認するなら `--placeholder` で無料の文字カードを使います。動かすクリップだけを選び、
+`akari generate video <projectDir> --item <itemId>` へ進みます。有償生成は見積と費用承認の後に
+`--yes` を付けて実行します。
 
 ## 次のステップ
 
 - 撮影素材が揃ったら → [素材を分析する](./analyze-footage.ja.md)
-- スロットを埋めて編集へ → [編集計画を立てて実行する](./plan-your-edit.ja.md)
+- 仮枠を組んで編集へ → [編集計画を立てて実行する](./plan-your-edit.ja.md)

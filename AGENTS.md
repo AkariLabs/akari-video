@@ -21,7 +21,7 @@ Node ESM のエントリポイントガードは両辺を realpath で比較す�
 
 <!-- BEGIN GENERATED skills-index — scripts/gen-skills-index.mjs が生成。手で編集しない -->
 
-スキル数: 23
+スキル数: 24
 
 | スキル | 発動条件（description） | 正本 |
 |---|---|---|
@@ -37,6 +37,7 @@ Node ESM のエントリポイントガードは両辺を realpath で比較す�
 | `edit-lint` | edit.json と任意の analysis.json / captions.json / メディアを決定的 CLI で検査し、PASS 後のフレーム視認とレポートまで QA を完了する。edit.json を書いた、または変更した直後、書き出し前、レビュー指摘を反映した後の再確認で使う。 | `skills/edit-lint/SKILL.md` |
 | `edit-plan` | analyze-project が作る分析レポート（interpretation.json + analysis-report.html）を一次証拠として読み、方針・素材計画・実行をチャットの明示承認で確定したうえで edit.json とオーバーレイ HTML へ落とすスキル。複数素材の編集計画、素材ゼロからの生成計画（質問対話 → plan.json の仮枠タイムライン確定）、分析結果からカットや BGM・SFX・B ロールを決める依頼で使う。 | `skills/edit-plan/SKILL.md` |
 | `export-nle` | BETA（実 NLE 取り込み未確認）: edit.json を Final Cut Pro / DaVinci Resolve（FCPXML）・Premiere Pro（FCP7 XML）・SRT 字幕へ書き出す。「Premiere で開きたい」「Final Cut に持っていきたい」「Resolve 用に書き出して」「SRT がほしい」で使う。移せないフィールドは dropped[] で必ず報告する。 | `skills/export-nle/SKILL.md` |
+| `generate-media` | 静止画の仮枠から動画生成・再取得までを扱うスキル。「静止画で仮枠を組みたい」「このクリップを動画にして」「生成が落ちた・再取得」「文字カードで尺だけ先に」と頼まれたときに使う。 | `skills/generate-media/SKILL.md` |
 | `generate-narration` | 原稿テキストから VOICEVOX（ローカル・ゼロ円の既製声）または fal Qwen3-TTS（自声クローン）でナレーション音声を生成し、edit.json の audio.narration[] へ書き込むスキル。ナレーションを作ってほしいと頼まれたとき、仮ナレ（下書き試聴）が欲しいとき、声プロファイルを新規に作りたいとき、または既存のナレーションをエンジンや声で差し替えたいときに使う。 | `skills/generate-narration/SKILL.md` |
 | `harvest-asset` | 案件で作った高コスト・再利用価値の高いオーバーレイ、3D、モーション、テロップ、サムネ構図、音源、B ロールを AKARI Video の assets ライブラリへ素材化するときに発動する。入庫判定、meta.json 下書き、preview、INDEX 更新、検証を行う。 | `skills/harvest-asset/SKILL.md` |
 | `manage-connections` | AKARI Video の生成プロバイダ・SNS 接続・API キー参照・モデル選択・コスト承認ポリシーを一元管理する。初回セットアップ、接続状態の確認、provider やモデルの追加、有償生成・外部公開の実行前ゲートで発動し、`.akari/connections.json` と無償・読み取り専用の doctor を扱う。 | `skills/manage-connections/SKILL.md` |
