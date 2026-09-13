@@ -1,4 +1,17 @@
+import {
+    GenerationMetaV1,
+    resolveGenerationState as resolveGenerationStateHelper
+} from '@akari-video/edit-store';
+
 export type GenerationState = 'none' | 'planned' | 'generating' | 'stale' | 'done' | 'failed';
+
+// webview へ Function.prototype.toString() で流し込むため、helper は module 定数へ束ねる。
+// import 束縛のままだと tsc(commonjs) が `edit_store_1.resolveGenerationState` へ畳み、
+// toString() した関数が webview で ReferenceError になる（隣の isCutAudioAudible と同じ罠）。
+const resolveGenerationStateV1 = resolveGenerationStateHelper;
+
+/** webview の bootstrap が同名で先に注入するための実体。 */
+export const generationStateHelperV1 = resolveGenerationStateV1;
 
 export interface GenerationOverlayDescription {
     tag: string | null;
@@ -19,24 +32,14 @@ export interface DescribeOverlayOptions {
 export function resolveGenerationState(meta: unknown, nowMs: number): GenerationState {
     try {
         if (!meta || typeof meta !== 'object' || Array.isArray(meta)) return 'none';
-        const value = meta as { status?: unknown; job?: unknown };
-        if (value.status === 'planned' || value.status === 'done' || value.status === 'failed') {
-            return value.status;
-        }
-        if (value.status !== 'generating') return 'none';
-        const job = value.job && typeof value.job === 'object' && !Array.isArray(value.job)
-            ? value.job as { started_at?: unknown; stale_after_s?: unknown }
-            : undefined;
-        const startedAt = typeof job?.started_at === 'string' ? Date.parse(job.started_at) : Number.NaN;
-        const declaredStaleAfter = job?.stale_after_s;
-        const staleAfterSeconds = typeof declaredStaleAfter === 'number'
-            && Number.isFinite(declaredStaleAfter) && declaredStaleAfter >= 0
-            ? declaredStaleAfter : 900;
-        if (Number.isFinite(startedAt) && Number.isFinite(nowMs)
-            && nowMs - startedAt > staleAfterSeconds * 1000) {
-            return 'stale';
-        }
-        return 'generating';
+        const value = meta as { version?: unknown; status?: unknown };
+        if (value.version !== undefined && value.version !== 1) return 'none';
+        if (value.status !== 'planned' && value.status !== 'generating'
+            && value.status !== 'done' && value.status !== 'failed') return 'none';
+        const state = resolveGenerationStateV1(meta as GenerationMetaV1, nowMs);
+        if (state === 'none' || state === 'planned' || state === 'generating'
+            || state === 'stale' || state === 'done' || state === 'failed') return state;
+        return 'none';
     } catch {
         return 'none';
     }

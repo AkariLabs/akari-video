@@ -42,3 +42,22 @@ test('progress が無い generating は不定バー用に undefined を返す', 
   assert.equal(description.badge, '生成中');
   assert.equal(description.progress, undefined);
 });
+
+test('stale_after_s 未指定では helper の既定 900 秒を使う', () => {
+  const meta = { version: 1, kind: 'still', status: 'generating', job: {
+    started_at: '2026-09-13T00:00:00.000Z'
+  } };
+  for (const [seconds, expected] of [[899, 'generating'], [900, 'generating'], [901, 'stale']]) {
+    assert.equal(resolveGenerationState(meta, startedAt + seconds * 1000), expected, `${seconds} 秒`);
+  }
+});
+
+test('orphan は v1 タイムラインでは none に潰す', () => {
+  assert.equal(resolveGenerationState({
+    version: 1, kind: 'still', status: 'orphan'
+  }, startedAt), 'none');
+});
+
+test('orphan のチップは none と同じ見た目になる', () => {
+  assert.deepEqual(describeGenerationChip('orphan'), describeGenerationChip('none'));
+});
