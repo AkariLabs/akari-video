@@ -51,18 +51,27 @@ import {
 import { isFillerWord, normalizeFillerWord } from '../../common/daihon-filler';
 import { clampRowCutRange, normalizeCutRanges, type DaihonCutRange } from '../../common/daihon-cut-plan';
 import {
+    CUT_RANGE_PAD_SEC,
     clampCutRange,
     cutRangeBounds,
+    cutRangeIsSpeech,
     cutRangePreviewSpans,
     cutRangeRatio,
     cutRangeReadout,
+    cutRangeTicks,
     cutRangeTime,
+    cutRangeWaveWindow,
     cutRangeWindow,
+    cutRangeWordBands,
+    cutRangeZoomSpan,
     defaultCutRange,
     moveCutRangeEdge,
+    resampleCutRangePeaks,
+    type DaihonCutRangeBand,
     type DaihonCutRangeSelection,
     type DaihonCutRangeTarget,
-    type DaihonCutRangeWindow
+    type DaihonCutRangeWindow,
+    type DaihonCutRangeWord
 } from '../../common/daihon-cut-range';
 import { DAIHON_SILENCE_DEFAULTS, findRowGaps, type DaihonRowGap } from '../../common/daihon-silence';
 import { orderPresetsForPicker, presetCardStyle } from '../../common/daihon-preset-card';
@@ -293,17 +302,25 @@ const STYLE = `
 .akari-daihon-tl-meta { display:flex; gap:10px; align-items:center; font-size:10px; color:#6b7480; margin-top:3px; }
 .akari-daihon-tl-meta .mono2 { font-family:"JetBrains Mono",monospace; font-variant-numeric:tabular-nums; }
 .akari-daihon-footer { height:26px; min-height:26px; max-height:26px; padding:5px 10px; box-sizing:border-box; border-top:1px solid var(--theia-widget-border); color:var(--theia-descriptionForeground); font-size:11px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.akari-daihon-cutrange { max-height:120px; box-sizing:border-box; overflow:hidden; margin:2px 4px 3px 8px; padding:4px 7px; border:1px solid #3a4356; border-radius:7px; background:#171b21; }
+.akari-daihon-cutrange { max-height:200px; box-sizing:border-box; overflow:hidden; margin:2px 4px 3px 8px; padding:4px 7px; border:1px solid #3a4356; border-radius:7px; background:#171b21; }
 .akari-daihon-cutrange .h { display:flex; align-items:baseline; gap:8px; height:16px; color:#cdd3de; font-size:10px; line-height:16px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .akari-daihon-cutrange .h > span:first-child { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; }
-.akari-daihon-cutrange .wave { position:relative; height:56px; border:1px solid #2a303a; border-radius:5px; background:#12151a; overflow:hidden; }
-.akari-daihon-cutrange canvas { display:block; width:100%; height:56px; }
+.akari-daihon-cutrange .zoom { display:flex; align-items:center; gap:3px; flex:none; color:#8a93a5; }
+.akari-daihon-cutrange .zoom button { width:20px; min-width:20px; height:15px; padding:0; line-height:12px; }
+.akari-daihon-cutrange .zoom .span { min-width:53px; text-align:center; font-family:"JetBrains Mono",monospace; font-size:8.5px; }
+.akari-daihon-cutrange .wave { position:relative; height:110px; border:1px solid #2a303a; border-radius:5px; background:#12151a; overflow:hidden; }
+.akari-daihon-cutrange canvas { display:block; width:100%; height:110px; }
+.akari-daihon-cutrange .bands { position:absolute; z-index:2; left:0; right:0; top:2px; height:15px; pointer-events:none; }
+.akari-daihon-cutrange .band { position:absolute; box-sizing:border-box; min-width:1px; padding:0 2px; overflow:hidden; color:#8ea99f; background:rgba(18,21,26,.78); font-size:8.5px; line-height:14px; text-overflow:ellipsis; white-space:nowrap; pointer-events:none; }
+.akari-daihon-cutrange .band.tgt { color:#7fe7d3; background:rgba(37,75,68,.86); font-weight:700; }
 .akari-daihon-cutrange .rng { position:absolute; top:0; bottom:0; background:rgba(255,138,91,.16); pointer-events:none; }
-.akari-daihon-cutrange .hnd { position:absolute; top:0; bottom:0; width:8px; margin-left:-4px; cursor:ew-resize; background:rgba(255,223,77,.72); border-radius:2px; touch-action:none; }
-.akari-daihon-cutrange .hnd::after { content:""; position:absolute; inset:0 3px; background:rgba(8,9,11,.45); }
+.akari-daihon-cutrange .hnd { position:absolute; z-index:3; top:0; bottom:0; width:22px; margin-left:-11px; cursor:ew-resize; background:rgba(255,223,77,.18); border-radius:3px; touch-action:none; }
+.akari-daihon-cutrange .hnd::before { content:""; position:absolute; top:0; bottom:0; left:9.5px; width:3px; background:rgba(255,223,77,.9); border-radius:2px; }
 .akari-daihon-cutrange .ph { position:absolute; top:0; bottom:0; width:1px; background:#fff; box-shadow:0 0 2px #000; pointer-events:none; }
-.akari-daihon-cutrange .lbl { position:absolute; bottom:1px; max-width:38%; padding:0 3px; color:#98a2b3; background:rgba(18,21,26,.78); font-size:8.5px; line-height:13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; pointer-events:none; }
-.akari-daihon-cutrange .lbl.l { left:2px; } .akari-daihon-cutrange .lbl.r { right:2px; text-align:right; }
+.akari-daihon-cutrange .ticks { position:relative; height:13px; color:#687283; font-family:"JetBrains Mono",monospace; font-size:7px; overflow:hidden; }
+.akari-daihon-cutrange .tick { position:absolute; top:0; width:1px; height:4px; background:#4a5363; }
+.akari-daihon-cutrange .tick.mj { height:7px; background:#707b8e; }
+.akari-daihon-cutrange .tick i { position:absolute; top:5px; left:2px; color:#707b8e; font-style:normal; line-height:8px; white-space:nowrap; }
 .akari-daihon-cutrange .foot { display:flex; align-items:center; justify-content:flex-end; gap:5px; height:31px; white-space:nowrap; }
 .akari-daihon-cutrange .read { flex:0 1 auto; min-width:0; margin-left:auto; overflow:hidden; color:#8a93a5; font-family:"JetBrains Mono",monospace; font-size:9px; text-overflow:ellipsis; white-space:nowrap; }
 .akari-daihon-cutrange .nowave { margin-right:5px; color:#6b7480; font-family:inherit; }
@@ -1550,12 +1567,32 @@ export class AkariDaihonWidget extends BaseWidget {
         this.closeCutRangeEditor();
         this.closePop();
         const openedAt = performance.now();
+        const fallbackWords = (candidate: DaihonRow | undefined): DaihonCutRangeWord[] => {
+            if (!candidate) return [];
+            return candidate.words?.length
+                ? candidate.words.map(word => ({ ...word }))
+                : [{ text: candidate.text.slice(0, 8) || '—', start: candidate.start, end: candidate.end }];
+        };
+        const previousRow = target.kind === 'silence'
+            ? this.rows.find(candidate => candidate.id === target.gap.prevId)
+            : undefined;
+        const nextRow = target.kind === 'silence'
+            ? this.rows.find(candidate => candidate.id === target.gap.nextId)
+            : undefined;
+        const neighborWords = [...this.rows]
+            .sort((left, right) => left.start - right.start || left.end - right.end)
+            .flatMap(candidate => fallbackWords(candidate))
+            .sort((left, right) => left.start - right.start || left.end - right.end);
         const model: DaihonCutRangeTarget = target.kind === 'silence'
             ? { kind: 'silence', start: target.gap.start, end: target.gap.end,
-                limitStart: target.gap.start, limitEnd: target.gap.end }
+                limitStart: previousRow?.start ?? target.gap.start - CUT_RANGE_PAD_SEC,
+                limitEnd: nextRow?.end ?? target.gap.end + CUT_RANGE_PAD_SEC }
             : { kind: 'word', start: target.from, end: target.to, limitStart: row.start, limitEnd: row.end };
         const bounds = cutRangeBounds(model);
-        const viewWindow = cutRangeWindow(bounds);
+        const naturalWindow = cutRangeWindow(model, neighborWords);
+        const waveWindow = cutRangeWaveWindow(model, neighborWords);
+        let zoomSpan: number | undefined;
+        let viewWindow = naturalWindow;
         let selection: DaihonCutRangeSelection = existing
             ? clampCutRange({ from: existing.range.in, to: existing.range.out }, bounds)
             : defaultCutRange(model, DAIHON_SILENCE_DEFAULTS.keepSec);
@@ -1568,9 +1605,17 @@ export class AkariDaihonWidget extends BaseWidget {
             ? `無音 ${(target.gap.end - target.gap.start).toFixed(2)} 秒`
             : `「${target.label}」を映像ごとカット`;
         heading.appendChild(headingText);
+        const zoom = document.createElement('span');
+        zoom.className = 'zoom';
+        const zoomReadout = document.createElement('span');
+        zoomReadout.className = 'span';
+        zoom.appendChild(zoomReadout);
+        heading.appendChild(zoom);
         const wave = document.createElement('div');
         wave.className = 'wave';
         const canvas = document.createElement('canvas');
+        const bands = document.createElement('span');
+        bands.className = 'bands';
         const range = document.createElement('span');
         range.className = 'rng';
         const fromHandle = document.createElement('span');
@@ -1580,29 +1625,45 @@ export class AkariDaihonWidget extends BaseWidget {
         const playhead = document.createElement('span');
         playhead.className = 'ph';
         playhead.hidden = true;
-        const [leftLabel, rightLabel] = this.cutRangeEdgeLabels(row, target);
-        const left = document.createElement('span');
-        left.className = 'lbl l'; left.textContent = leftLabel;
-        const right = document.createElement('span');
-        right.className = 'lbl r'; right.textContent = rightLabel;
-        wave.append(canvas, range, fromHandle, toHandle, playhead, left, right);
+        wave.append(canvas, bands, range, fromHandle, toHandle, playhead);
+        const ticks = document.createElement('div');
+        ticks.className = 'ticks';
         const foot = document.createElement('div');
         foot.className = 'foot';
         const readout = document.createElement('span');
         readout.className = 'read';
         heading.appendChild(readout);
-        const intact = this.cutRangeButton('▶ 切らずに聞く', () => void this.playCutRange(selection, viewWindow, 'intact'));
-        const tightened = this.cutRangeButton('▶ 詰めた結果を聞く', () => void this.playCutRange(selection, viewWindow, 'tightened'));
+        const intact = this.cutRangeButton('▶ 切らずに聞く', () => void this.playCutRange(selection, naturalWindow, 'intact'));
+        const tightened = this.cutRangeButton('▶ 詰めた結果を聞く', () => void this.playCutRange(selection, naturalWindow, 'tightened'));
         const apply = this.cutRangeButton(existing ? '✂ 直して詰める' : '✂ 詰める', () => {
             void this.applyCutRangeEditor(row, target, selection, existing);
         }, 'primary');
         const close = this.cutRangeButton('✕', () => this.closeCutRangeEditor());
         foot.append(intact, tightened, apply, close);
-        root.append(heading, wave, foot);
+        root.append(heading, wave, ticks, foot);
         rowElement.after(root);
         this.cutRangeEditor = { root, window: viewWindow, playhead };
 
         let peaks: number[] | undefined;
+        let waveformStatus: 'loading' | 'ready' | 'unavailable' = 'loading';
+        let openMs = 0;
+        const updateMetrics = (labels: string[]): void => {
+            const windowSec = viewWindow.end - viewWindow.start;
+            root.dataset.windowSec = windowSec.toFixed(2);
+            (window as any).__akariDaihonCutRangeMetrics = {
+                openMs: openMs || performance.now() - openedAt,
+                waveform: waveformStatus,
+                buckets: peaks?.length ?? 0,
+                kind: target.kind,
+                window: { ...viewWindow },
+                windowSec,
+                bounds: { ...bounds },
+                target: { start: model.start, end: model.end },
+                labels,
+                ticks: cutRangeTicks(viewWindow).length,
+                selection: { ...selection }
+            };
+        };
         const redraw = (): void => {
             const from = cutRangeRatio(selection.from, viewWindow) * 100;
             const to = cutRangeRatio(selection.to, viewWindow) * 100;
@@ -1612,8 +1673,45 @@ export class AkariDaihonWidget extends BaseWidget {
             toHandle.style.left = `${to}%`;
             readout.lastChild?.remove();
             readout.append(document.createTextNode(cutRangeReadout(model, selection)));
-            this.drawCutRangeWaveform(canvas, peaks, model, selection, viewWindow);
+            zoomReadout.textContent = `窓 ${(viewWindow.end - viewWindow.start).toFixed(1)} 秒`;
+            const visibleBands = cutRangeWordBands(model, neighborWords, viewWindow);
+            bands.replaceChildren(...visibleBands.map(item => {
+                const band = document.createElement('span');
+                band.className = `band${item.role === 'target' ? ' tgt' : ''}`;
+                band.style.left = `${item.ratio * 100}%`;
+                band.style.width = `${item.widthRatio * 100}%`;
+                band.textContent = wave.clientWidth * item.widthRatio >= 14 ? item.text : '';
+                band.title = `${item.text} (${item.start.toFixed(2)}–${item.end.toFixed(2)})`;
+                return band;
+            }));
+            ticks.replaceChildren(...cutRangeTicks(viewWindow).map(item => {
+                const tick = document.createElement('span');
+                tick.className = `tick${item.major ? ' mj' : ''}`;
+                tick.style.left = `${item.ratio * 100}%`;
+                if (item.label) {
+                    const label = document.createElement('i');
+                    label.textContent = item.label;
+                    tick.appendChild(label);
+                }
+                return tick;
+            }));
+            this.drawCutRangeWaveform(canvas, peaks, waveWindow, selection, viewWindow, visibleBands);
+            updateMetrics(visibleBands.map(item => item.text));
         };
+        const zoomBy = (direction: 'in' | 'out'): void => {
+            const currentSpan = viewWindow.end - viewWindow.start;
+            const nextSpan = cutRangeZoomSpan(currentSpan, direction);
+            if (zoomSpan === nextSpan && Math.abs(currentSpan - nextSpan) < 1e-6) return;
+            zoomSpan = nextSpan;
+            viewWindow = cutRangeWindow(model, neighborWords, { zoom: zoomSpan });
+            this.cutRangeEditor!.window = viewWindow;
+            redraw();
+        };
+        const zoomOut = this.cutRangeButton('−', () => zoomBy('out'));
+        zoomOut.title = '縮小して広く見る';
+        const zoomIn = this.cutRangeButton('+', () => zoomBy('in'));
+        zoomIn.title = '拡大して細かく見る';
+        zoom.prepend(zoomOut, zoomIn);
         const drag = (handle: HTMLElement, edge: 'from' | 'to'): void => {
             handle.addEventListener('pointerdown', event => {
                 event.preventDefault();
@@ -1629,22 +1727,25 @@ export class AkariDaihonWidget extends BaseWidget {
         };
         drag(fromHandle, 'from');
         drag(toHandle, 'to');
+        wave.addEventListener('wheel', event => {
+            event.preventDefault();
+            if (event.deltaY === 0) return;
+            zoomBy(event.deltaY < 0 ? 'in' : 'out');
+        }, { passive: false });
         redraw();
-        void this.loadCutRangeWaveform(model, viewWindow).then(result => {
+        void this.loadCutRangeWaveform(model, waveWindow).then(result => {
             if (!root.isConnected) return;
             peaks = result.peaks;
+            waveformStatus = result.status;
             if (result.status === 'unavailable') {
                 const unavailable = document.createElement('small');
                 unavailable.className = 'nowave';
                 unavailable.textContent = '波形なし';
                 readout.prepend(unavailable);
             }
-            redraw();
-            const openMs = performance.now() - openedAt;
+            openMs = performance.now() - openedAt;
             root.dataset.openMs = openMs.toFixed(1);
-            (window as any).__akariDaihonCutRangeMetrics = {
-                openMs, waveform: result.status, buckets: result.peaks?.length ?? 0, kind: target.kind
-            };
+            redraw();
         });
     }
 
@@ -1654,20 +1755,6 @@ export class AkariDaihonWidget extends BaseWidget {
         if (className) button.className = className;
         button.addEventListener('click', event => { event.stopPropagation(); action(); });
         return button;
-    }
-
-    protected cutRangeEdgeLabels(row: DaihonRow, target: CutRangeEditorTarget): [string, string] {
-        const fallback = (candidate: DaihonRow | undefined): string => candidate?.text.slice(0, 6) || '—';
-        if (target.kind === 'silence') {
-            const previous = this.rows.find(candidate => candidate.id === target.gap.prevId);
-            const next = this.rows.find(candidate => candidate.id === target.gap.nextId);
-            const previousWord = previous?.words?.[Math.max(0, (previous.words?.length ?? 1) - 1)]?.text;
-            return [previousWord ?? fallback(previous), next?.words?.[0]?.text ?? fallback(next)];
-        }
-        const beforeWords = row.words?.filter(word => word.end <= target.from) ?? [];
-        const before = beforeWords[beforeWords.length - 1]?.text;
-        const after = row.words?.find(word => word.start >= target.to)?.text;
-        return [before ?? fallback(row), after ?? fallback(row)];
     }
 
     protected async loadCutRangeWaveform(
@@ -1684,7 +1771,7 @@ export class AkariDaihonWidget extends BaseWidget {
             return await this.annotationsService.getClipWaveform({
                 projectRootUri: this.editUri.parent.toString(),
                 videoUri: this.editUri.parent.resolve(source.path).normalizePath().toString(),
-                startSeconds: viewWindow.start, endSeconds: viewWindow.end, bucketCount: 200
+                startSeconds: viewWindow.start, endSeconds: viewWindow.end, bucketCount: 480
             });
         } catch {
             return { status: 'unavailable' };
@@ -1694,26 +1781,33 @@ export class AkariDaihonWidget extends BaseWidget {
     protected drawCutRangeWaveform(
         canvas: HTMLCanvasElement,
         peaks: readonly number[] | undefined,
-        target: DaihonCutRangeTarget,
+        waveWindow: DaihonCutRangeWindow,
         selection: DaihonCutRangeSelection,
-        viewWindow: DaihonCutRangeWindow
+        viewWindow: DaihonCutRangeWindow,
+        visibleBands: readonly DaihonCutRangeBand[]
     ): void {
         const ratio = window.devicePixelRatio || 1;
         const width = Math.max(1, canvas.clientWidth);
-        const height = 56;
+        const height = 110;
         canvas.width = Math.round(width * ratio); canvas.height = Math.round(height * ratio);
         const context = canvas.getContext('2d');
         if (!context) return;
         context.scale(ratio, ratio);
+        context.fillStyle = 'rgba(83,209,188,.10)';
+        for (const band of visibleBands) {
+            context.fillRect(band.ratio * width, 0, Math.max(1, band.widthRatio * width), height);
+        }
         context.strokeStyle = '#2a303a'; context.lineWidth = 1;
         context.beginPath(); context.moveTo(0, height / 2); context.lineTo(width, height / 2); context.stroke();
         if (!peaks?.length) return;
-        const barWidth = width / peaks.length;
-        peaks.forEach((peak, index) => {
-            const seconds = viewWindow.start + (index + 0.5) / peaks.length * (viewWindow.end - viewWindow.start);
+        const count = Math.max(1, Math.min(peaks.length, Math.round(width / 2)));
+        const sampled = resampleCutRangePeaks(peaks, waveWindow, viewWindow, count);
+        const barWidth = width / sampled.length;
+        sampled.forEach((peak, index) => {
+            const seconds = viewWindow.start + (index + 0.5) / sampled.length * (viewWindow.end - viewWindow.start);
             context.fillStyle = selection.from <= seconds && seconds <= selection.to
-                ? 'rgba(255,138,91,.55)'
-                : target.start <= seconds && seconds <= target.end ? '#3a4356' : '#53d1bc';
+                ? 'rgba(255,138,91,.85)'
+                : cutRangeIsSpeech(seconds, visibleBands) ? '#53d1bc' : '#3a4356';
             const barHeight = Math.max(1, Math.min(1, Math.abs(peak)) * (height - 4));
             context.fillRect(index * barWidth, (height - barHeight) / 2, Math.max(1, barWidth - 1), barHeight);
         });

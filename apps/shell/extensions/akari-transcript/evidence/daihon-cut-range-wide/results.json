@@ -1,0 +1,152 @@
+{
+  "status": "pass",
+  "steps": [
+    {
+      "name": "1. 無音チップ → 前後の語が見える広い窓（≤ 300ms）",
+      "pass": true,
+      "detail": {
+        "metrics": {
+          "openMs": 102.80000001192093,
+          "waveform": "ready",
+          "buckets": 480,
+          "kind": "silence",
+          "window": {
+            "start": 1.3,
+            "end": 5.3
+          },
+          "windowSec": 4,
+          "bounds": {
+            "lo": 2.65,
+            "hi": 4.05
+          },
+          "target": {
+            "start": 3.05,
+            "end": 3.65
+          },
+          "labels": [
+            "むかしむかし",
+            "あるところに",
+            "おじいさんが",
+            "いました",
+            "おばあさんは",
+            "川へ",
+            "洗濯に",
+            "行きました"
+          ],
+          "ticks": 8,
+          "selection": {
+            "from": 3.1999999999999997,
+            "to": 3.65
+          }
+        },
+        "geometry": {
+          "height": 182,
+          "waveHeight": 112,
+          "handleWidth": 22,
+          "afterRow": true,
+          "bands": [
+            "むかしむかし",
+            "あるところに",
+            "おじいさんが",
+            "いました",
+            "おばあさんは",
+            "川へ",
+            "洗濯に",
+            "行きました"
+          ],
+          "ticks": 8,
+          "majorTicks": [
+            "2.0",
+            "3.0",
+            "4.0",
+            "5.0"
+          ],
+          "handles": 2,
+          "playhead": true,
+          "range": true
+        }
+      }
+    },
+    {
+      "name": "2. ズーム（− / + ボタンとホイールで 2〜12 秒）",
+      "pass": true,
+      "detail": {
+        "naturalSec": 4,
+        "zoomInSec": 3.2,
+        "zoomOutSec": 5,
+        "minSec": 1.9999999999999996,
+        "maxSec": 12,
+        "backSec": 3.9300000000000006,
+        "labelsAtMin": [
+          "おじいさんが",
+          "いました",
+          "おばあさんは",
+          "川へ"
+        ],
+        "labelsAtMax": [
+          "むかしむかし",
+          "あるところに",
+          "おじいさんが",
+          "いました",
+          "おばあさんは",
+          "川へ",
+          "洗濯に",
+          "行きました",
+          "そこへ",
+          "大きな",
+          "桃が",
+          "流れてきて",
+          "中から",
+          "元気な",
+          "男の子が",
+          "出てきました",
+          "めでたし"
+        ]
+      }
+    },
+    {
+      "name": "3. つまみを無音の外へ 0.3 秒動かせる",
+      "pass": true,
+      "detail": {
+        "before": {
+          "from": 3.1999999999999997,
+          "to": 3.65
+        },
+        "movedFrom": 2.7500001468515043,
+        "clampedFrom": 2.65,
+        "clampedTo": 4.05,
+        "outsideBy": 0.3
+      }
+    }
+  ],
+  "screenshots": [
+    "01-wide-window-with-neighbor-words.png",
+    "02-zoomed-out-12s.png",
+    "03-handle-outside-silence.png"
+  ],
+  "cleanup": {
+    "killedPid": 28825,
+    "survivingProcesses": 0
+  },
+  "fixture": {
+    "ok": true,
+    "rows": 5,
+    "mediaSeconds": 14,
+    "gaps": [
+      0.6,
+      0.6,
+      0.6,
+      0.6
+    ]
+  },
+  "preloadOverlay": "removed",
+  "daihonVisible": {
+    "w": 427,
+    "h": 47.328125,
+    "top": 149
+  },
+  "untouched": {
+    "captions": true,
+    "edit": true
+  }
+}

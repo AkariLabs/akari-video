@@ -1,5 +1,10 @@
-export const CUT_RANGE_WORD_PAD_SEC = 0.4;
-export const CUT_RANGE_WINDOW_PAD_SEC = 0.9;
+export const CUT_RANGE_PAD_SEC = 0.4;
+export const CUT_RANGE_NEIGHBOR_PAD_SEC = 0.5;
+export const CUT_RANGE_WINDOW_MIN_SEC = 4;
+export const CUT_RANGE_ZOOM_MIN_SEC = 2;
+export const CUT_RANGE_ZOOM_MAX_SEC = 12;
+export const CUT_RANGE_ZOOM_FACTOR = 1.25;
+export const CUT_RANGE_TICK_SEC = 0.5;
 export const CUT_RANGE_PREVIEW_PAD_SEC = 0.8;
 export const CUT_RANGE_MIN_SEC = 0.05;
 
@@ -17,25 +22,39 @@ export interface DaihonCutRangeBounds { lo: number; hi: number }
 export interface DaihonCutRangeSelection { from: number; to: number }
 export interface DaihonCutRangeWindow { start: number; end: number }
 export interface DaihonCutRangeSpan { from: number; to: number }
+export interface DaihonCutRangeWord { text: string; start: number; end: number }
+export interface DaihonCutRangeTick { seconds: number; ratio: number; major: boolean; label: string }
+export interface DaihonCutRangeBand {
+    text: string;
+    start: number;
+    end: number;
+    ratio: number;
+    widthRatio: number;
+    role: 'target' | 'context';
+}
+export interface DaihonCutRangeZoomOptions { zoom?: number }
 
 function clamp(value: number, lo: number, hi: number): number {
     return Math.max(lo, Math.min(hi, value));
 }
 
 export function cutRangeBounds(target: DaihonCutRangeTarget): DaihonCutRangeBounds {
-    if (target.kind === 'silence') return { lo: target.start, hi: target.end };
     return {
-        lo: Math.max(target.limitStart, target.start - CUT_RANGE_WORD_PAD_SEC),
-        hi: Math.min(target.limitEnd, target.end + CUT_RANGE_WORD_PAD_SEC)
+        lo: Math.max(target.limitStart, target.start - CUT_RANGE_PAD_SEC),
+        hi: Math.min(target.limitEnd, target.end + CUT_RANGE_PAD_SEC)
     };
 }
 
 export function defaultCutRange(target: DaihonCutRangeTarget, keepSec: number): DaihonCutRangeSelection {
     const bounds = cutRangeBounds(target);
     if (target.kind === 'word') return clampCutRange({ from: target.start, to: target.end }, bounds);
+    const silenceBounds = {
+        lo: Math.max(bounds.lo, target.start),
+        hi: Math.min(bounds.hi, target.end)
+    };
     const kept = Number.isFinite(keepSec) ? Math.max(0, keepSec) : 0;
-    const from = Math.max(bounds.lo, Math.min(target.start + kept, bounds.hi - CUT_RANGE_MIN_SEC));
-    return clampCutRange({ from, to: target.end }, bounds);
+    const from = Math.max(silenceBounds.lo, Math.min(target.start + kept, silenceBounds.hi - CUT_RANGE_MIN_SEC));
+    return clampCutRange({ from, to: target.end }, silenceBounds);
 }
 
 export function clampCutRange(
@@ -68,11 +87,144 @@ export function moveCutRangeEdge(
         : { from: current.from, to: clamp(seconds, current.from + CUT_RANGE_MIN_SEC, bounds.hi) };
 }
 
+export function cutRangeNeighborWords(
+    target: DaihonCutRangeTarget,
+    words: readonly DaihonCutRangeWord[]
+): { previous?: DaihonCutRangeWord; next?: DaihonCutRangeWord } {
+    const sorted = [...words].sort((left, right) => left.start - right.start || left.end - right.end);
+    const previousWords = sorted.filter(word => word.end <= target.start + 1e-6);
+    const previous = previousWords[previousWords.length - 1];
+    const next = sorted.find(word => word.start >= target.end - 1e-6);
+    return {
+        ...(previous ? { previous } : {}),
+        ...(next ? { next } : {})
+    };
+}
+
+function roundedSeconds(seconds: number): number {
+    const rounded = Math.round(seconds * 1e6) / 1e6;
+    return Object.is(rounded, -0) ? 0 : rounded;
+}
+
 export function cutRangeWindow(
-    bounds: DaihonCutRangeBounds,
-    pad = CUT_RANGE_WINDOW_PAD_SEC
+    target: DaihonCutRangeTarget,
+    words: readonly DaihonCutRangeWord[],
+    options?: DaihonCutRangeZoomOptions
 ): DaihonCutRangeWindow {
-    return { start: Math.max(0, bounds.lo - pad), end: bounds.hi + pad };
+    const bounds = cutRangeBounds(target);
+    const zoom = options?.zoom;
+    let start: number;
+    let end: number;
+    if (Number.isFinite(zoom)) {
+        const width = clamp(zoom!, CUT_RANGE_ZOOM_MIN_SEC, CUT_RANGE_ZOOM_MAX_SEC);
+        const center = (target.start + target.end) / 2;
+        start = center - width / 2;
+        end = center + width / 2;
+    } else {
+        const { previous, next } = cutRangeNeighborWords(target, words);
+        start = (previous?.start ?? target.start) - CUT_RANGE_NEIGHBOR_PAD_SEC;
+        end = (next?.end ?? target.end) + CUT_RANGE_NEIGHBOR_PAD_SEC;
+        if (end - start < CUT_RANGE_WINDOW_MIN_SEC) {
+            const center = (start + end) / 2;
+            start = center - CUT_RANGE_WINDOW_MIN_SEC / 2;
+            end = center + CUT_RANGE_WINDOW_MIN_SEC / 2;
+        }
+    }
+    start = Math.min(start, bounds.lo);
+    end = Math.max(end, bounds.hi);
+    if (start < 0) {
+        end -= start;
+        start = 0;
+    }
+    return { start: roundedSeconds(start), end: roundedSeconds(end) };
+}
+
+export function cutRangeWaveWindow(
+    target: DaihonCutRangeTarget,
+    words: readonly DaihonCutRangeWord[]
+): DaihonCutRangeWindow {
+    const natural = cutRangeWindow(target, words);
+    const widest = cutRangeWindow(target, words, { zoom: CUT_RANGE_ZOOM_MAX_SEC });
+    return { start: Math.min(natural.start, widest.start), end: Math.max(natural.end, widest.end) };
+}
+
+export function cutRangeZoomSpan(span: number, direction: 'in' | 'out'): number {
+    if (!Number.isFinite(span)) return CUT_RANGE_WINDOW_MIN_SEC;
+    const next = direction === 'in' ? span / CUT_RANGE_ZOOM_FACTOR : span * CUT_RANGE_ZOOM_FACTOR;
+    return Math.round(clamp(next, CUT_RANGE_ZOOM_MIN_SEC, CUT_RANGE_ZOOM_MAX_SEC) * 100) / 100;
+}
+
+export function cutRangeTicks(
+    window: DaihonCutRangeWindow,
+    step = CUT_RANGE_TICK_SEC
+): DaihonCutRangeTick[] {
+    const width = window.end - window.start;
+    if (!Number.isFinite(step) || step <= 0 || width === 0) return [];
+    const ticks: DaihonCutRangeTick[] = [];
+    const first = Math.ceil((window.start - 1e-6) / step) * step;
+    for (let seconds = first; seconds <= window.end + 1e-6; seconds += step) {
+        const rounded = roundedSeconds(seconds);
+        const major = Math.abs(rounded - Math.round(rounded)) <= 1e-6;
+        ticks.push({
+            seconds: rounded,
+            ratio: cutRangeRatio(rounded, window),
+            major,
+            label: major ? rounded.toFixed(1) : ''
+        });
+    }
+    return ticks;
+}
+
+export function cutRangeWordBands(
+    target: DaihonCutRangeTarget,
+    words: readonly DaihonCutRangeWord[],
+    window: DaihonCutRangeWindow
+): DaihonCutRangeBand[] {
+    const width = window.end - window.start;
+    if (width <= 0) return [];
+    return words.flatMap(word => {
+        const start = Math.max(word.start, window.start);
+        const end = Math.min(word.end, window.end);
+        if (end <= start) return [];
+        return [{
+            text: word.text,
+            start: word.start,
+            end: word.end,
+            ratio: (start - window.start) / width,
+            widthRatio: (end - start) / width,
+            role: word.start < target.end && target.start < word.end ? 'target' as const : 'context' as const
+        }];
+    });
+}
+
+export function cutRangeIsSpeech(seconds: number, words: readonly DaihonCutRangeWord[]): boolean {
+    return words.some(word => word.start <= seconds && seconds <= word.end);
+}
+
+export function resampleCutRangePeaks(
+    peaks: readonly number[],
+    source: DaihonCutRangeWindow,
+    view: DaihonCutRangeWindow,
+    count: number
+): number[] {
+    const sourceWidth = source.end - source.start;
+    const viewWidth = view.end - view.start;
+    const outputCount = Math.floor(count);
+    if (!peaks.length || outputCount <= 0 || sourceWidth === 0 || viewWidth <= 0) return [];
+    const bucketWidth = sourceWidth / peaks.length;
+    return Array.from({ length: outputCount }, (_, index) => {
+        const intervalStart = view.start + index / outputCount * viewWidth;
+        const intervalEnd = view.start + (index + 1) / outputCount * viewWidth;
+        const first = Math.max(0, Math.floor((intervalStart - source.start) / bucketWidth));
+        const last = Math.min(peaks.length - 1, Math.ceil((intervalEnd - source.start) / bucketWidth) - 1);
+        let maximum = 0;
+        for (let bucket = first; bucket <= last; bucket++) {
+            const bucketStart = source.start + bucket * bucketWidth;
+            const bucketEnd = bucketStart + bucketWidth;
+            if (bucketStart < intervalEnd && intervalStart < bucketEnd) maximum = Math.max(maximum, peaks[bucket]);
+        }
+        return maximum;
+    });
 }
 
 export function cutRangeRatio(seconds: number, window: DaihonCutRangeWindow): number {
@@ -90,9 +242,13 @@ export function cutRangeReadout(
 ): string {
     const cut = (selection.to - selection.from).toFixed(2);
     const times = `${selection.from.toFixed(2)}–${selection.to.toFixed(2)}`;
-    return target.kind === 'silence'
-        ? `切る ${cut} 秒 · 残す ${(selection.from - target.start).toFixed(2)} 秒 · ${times}`
-        : `切る ${cut} 秒 · ${times}`;
+    if (target.kind === 'silence') {
+        const keep = selection.from - target.start;
+        return keep < 0
+            ? `切る ${cut} 秒 · 食い込み ${Math.abs(keep).toFixed(2)} 秒 · ${times}`
+            : `切る ${cut} 秒 · 残す ${keep.toFixed(2)} 秒 · ${times}`;
+    }
+    return `切る ${cut} 秒 · ${times}`;
 }
 
 export function cutRangePreviewSpans(
