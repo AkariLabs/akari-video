@@ -256,13 +256,28 @@
       "pass": true,
       "detail": {
         "mtimesBefore": {
-          "edit": 1789318182006.8933,
-          "captions": 1789318182085.7146
+          "edit": 1789320859709.757,
+          "captions": 1789320859819.2358
         },
         "mtimesAfter": {
-          "edit": 1789318182006.8933,
-          "captions": 1789318182085.7146
+          "edit": 1789320859709.757,
+          "captions": 1789320859819.2358
         }
+      }
+    },
+    {
+      "name": "7. SS 5 枚の SHA256 が相異なる",
+      "pass": true,
+      "detail": {
+        "count": 5,
+        "sha256s": [
+          "4dbd739434757d78ab4e1c6d165f64b81d682e741ee85cc8fcf28964d83b8195",
+          "3f3e20835ca0485f0c918ab6b0057ac3cd778f87192d0863378f6978f0caed1c",
+          "aa119756c9aa16c216488fcaa34193cd529a409627afdf8f05c46288dbbdd513",
+          "268be311a6b00790d809735d4f14833b78cc0c9bd6eaea8419b60ea4f019ec18",
+          "b6fbdcdef6b94ed451770fa861e7dcdff0f236914923d9966eb258a79bc8efc1"
+        ],
+        "distinct": true
       }
     }
   ],
@@ -273,8 +288,45 @@
     "04-cost-approval-dialog.png",
     "05-timeline-chip-generating.png"
   ],
+  "screenshotDetails": [
+    {
+      "name": "01-model-h3.png",
+      "sha256": "4dbd739434757d78ab4e1c6d165f64b81d682e741ee85cc8fcf28964d83b8195",
+      "inspectorFront": true,
+      "sectionVisible": true,
+      "modelRow": "MiniMax H3 · $0.05/秒 · as_of 2026-09-12（fal:h3-i2v）"
+    },
+    {
+      "name": "02-model-kling.png",
+      "sha256": "3f3e20835ca0485f0c918ab6b0057ac3cd778f87192d0863378f6978f0caed1c",
+      "inspectorFront": true,
+      "sectionVisible": true,
+      "modelRow": "Kling Video v3 Standard · 見積不可 · as_of 2026-09-12（fal:kling-v3-standard-i2v）"
+    },
+    {
+      "name": "03-model-veo.png",
+      "sha256": "aa119756c9aa16c216488fcaa34193cd529a409627afdf8f05c46288dbbdd513",
+      "inspectorFront": true,
+      "sectionVisible": true,
+      "modelRow": "Veo 3.1 · $0.2/秒 · as_of 2026-09-12（fal:veo-3.1-flf）"
+    },
+    {
+      "name": "04-cost-approval-dialog.png",
+      "sha256": "268be311a6b00790d809735d4f14833b78cc0c9bd6eaea8419b60ea4f019ec18",
+      "inspectorFront": true,
+      "sectionVisible": true,
+      "modelRow": "MiniMax H3 · $0.05/秒 · as_of 2026-09-12（fal:h3-i2v）"
+    },
+    {
+      "name": "05-timeline-chip-generating.png",
+      "sha256": "b6fbdcdef6b94ed451770fa861e7dcdff0f236914923d9966eb258a79bc8efc1",
+      "inspectorFront": true,
+      "sectionVisible": true,
+      "modelRow": "MiniMax H3 · $0.05/秒 · as_of 2026-09-12（fal:h3-i2v）"
+    }
+  ],
   "cleanup": {
-    "killedPid": 78560,
+    "killedPid": 88082,
     "survivingProcesses": 0,
     "survivingBackendMain": 0,
     "alive": 0

@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // L1（CDP）— 生成インスペクターのモデル別欄・費用承認・生成中チップを実機観測する。
 import { spawn } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { mkdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -18,7 +19,7 @@ const ISO = path.join(ROOT, 'runs', 'l1');
 const LOG = path.join(ROOT, 'runs', 'l1.log');
 const FAKE_CLI = path.join(REPO, 'apps', 'shell', 'extensions', 'akari-annotations', 'test', 'fixtures', 'inspector-generation', 'fake-generate.mjs');
 const S = value => JSON.stringify(value);
-const out = { status: 'running', steps: [], screenshots: [], cleanup: null };
+const out = { status: 'running', steps: [], screenshots: [], screenshotDetails: [], cleanup: null };
 
 export const sanitizeText = value => {
   let text = String(value);
@@ -184,9 +185,30 @@ e.value=o.value;e.dispatchEvent(new Event('change',{bubbles:true}));return{value
 }
 
 async function shot(cdp, name) {
-  await screenshot(cdp, path.join(ROOT, name));
-  out.screenshots.push(name);
-  await save();
+  const destination = path.join(ROOT, name);
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    await ensureInspectorVisible(cdp);
+    await ensureSection(cdp);
+    await screenshot(cdp, destination);
+    const state = await evalOn(cdp, `(()=>{const panel=document.querySelector('[data-akari-ui="panel:inspector"]');const section=${sectionSnapshot};const body=document.querySelector(${S(SECTION)})?.querySelector('.akari-inspector-section-body');return{
+inspectorFront:Boolean(panel&&panel.offsetParent!==null),
+sectionVisible:Boolean(section&&body&&!body.hidden&&body.offsetParent!==null),
+modelRow:section?.rows.find(row=>row.label==='モデル')?.input||''}})()`);
+    if (state.inspectorFront && state.sectionVisible) {
+      const sha256 = createHash('sha256').update(await readFile(destination)).digest('hex');
+      out.screenshots.push(name);
+      out.screenshotDetails.push({
+        name,
+        sha256,
+        inspectorFront: true,
+        sectionVisible: true,
+        modelRow: state.modelRow
+      });
+      await save();
+      return;
+    }
+  }
+  throw new Error(`${name}: インスペクター前面・生成セクション可視の状態で 3 回撮影できなかった`);
 }
 
 let spawnedChild;
@@ -355,6 +377,13 @@ try {
     assert(mtimesAfter.edit === mtimesBefore.edit, `edit.json mtime changed: ${mtimesBefore.edit} -> ${mtimesAfter.edit}`);
     assert(mtimesAfter.captions === mtimesBefore.captions, `captions.json mtime changed: ${mtimesBefore.captions} -> ${mtimesAfter.captions}`);
     return { mtimesBefore, mtimesAfter };
+  });
+
+  await step('7. SS 5 枚の SHA256 が相異なる', async () => {
+    const sha256s = out.screenshotDetails.map(detail => detail.sha256);
+    const distinct = sha256s.length === 5 && new Set(sha256s).size === 5;
+    assert(distinct, `SS 5 枚の SHA256 が相異ならない: count=${sha256s.length}, distinct=${new Set(sha256s).size}`);
+    return { count: sha256s.length, sha256s, distinct: true };
   });
 
   // 偽 CLI は generating の 3 秒後に done を書いて正常終了する。Electron の子を残さないよう待つ。
