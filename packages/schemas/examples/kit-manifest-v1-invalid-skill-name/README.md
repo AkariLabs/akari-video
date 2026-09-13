@@ -1,0 +1,1 @@
+# Invalid skill name fixture

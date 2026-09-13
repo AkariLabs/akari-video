@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "id": "invalid-runtime-kit",
+  "kind": "kit",
+  "name": "runtime 不正の架空キット",
+  "version": 1,
+  "requires": {
+    "cli": ">=0.1.70",
+    "runtimes": ["no-such-runtime"]
+  },
+  "license": "LicenseRef-AKARI-Assets-v0"
+}

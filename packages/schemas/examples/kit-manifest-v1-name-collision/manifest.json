@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "id": "name-collision-kit",
+  "kind": "kit",
+  "name": "公開スキル名衝突の架空キット",
+  "version": 1,
+  "requires": { "cli": ">=0.1.70" },
+  "skills": [
+    { "dir": "skills/edit-lint", "name": "edit-lint" }
+  ],
+  "license": "LicenseRef-AKARI-Assets-v0"
+}

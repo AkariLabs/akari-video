@@ -1,0 +1,1 @@
+# Skill name collision fixture

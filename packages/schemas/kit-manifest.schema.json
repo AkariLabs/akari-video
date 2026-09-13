@@ -1,0 +1,108 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://akari-video.dev/schemas/kit-manifest.schema.json",
+  "title": "AKARI Video extension kit manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "id",
+    "kind",
+    "name",
+    "version",
+    "requires",
+    "license"
+  ],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]*$"
+    },
+    "kind": { "const": "kit" },
+    "name": { "type": "string", "minLength": 1 },
+    "version": { "type": "integer", "minimum": 1 },
+    "requires": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["cli"],
+      "properties": {
+        "cli": {
+          "type": "string",
+          "pattern": "^(?:\\^|~|>=)?[0-9]+\\.[0-9]+\\.[0-9]+$"
+        },
+        "runtimes": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "products": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "skills": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["dir", "name"],
+        "properties": {
+          "dir": { "type": "string", "minLength": 1 },
+          "name": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "templates": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "for", "label"],
+        "properties": {
+          "path": { "type": "string", "minLength": 1 },
+          "for": { "enum": ["world-map"] },
+          "label": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "assets": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["category", "id"],
+        "properties": {
+          "category": {
+            "enum": ["overlay", "still", "scene3d", "audio", "broll", "font"]
+          },
+          "id": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "docs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "label"],
+        "properties": {
+          "path": { "type": "string", "minLength": 1 },
+          "label": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "license": {
+      "enum": ["LicenseRef-AKARI-Assets-v0", "CC0-1.0"]
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["author", "source"],
+      "properties": {
+        "author": { "type": "string", "minLength": 1 },
+        "source": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}
