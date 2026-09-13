@@ -324,7 +324,12 @@
           "pattern": "^[a-z0-9][a-z0-9-]*$",
           "$comment": "解決順は default_text_style < style_preset の style < 同じレコードの text_style。未知 id は値を適用せず、edit-lint が warning を出す。"
         },
-        "text_style": { "$ref": "#/$defs/textStyle" }
+        "text_style": { "$ref": "#/$defs/textStyle" },
+        "display_timing": {
+          "type": "string",
+          "enum": ["full", "speech-tight"],
+          "description": "表示ウィンドウの決め方。full（既定・省略時）= start〜end をそのまま使う。speech-tight = words[] の先頭 start 〜 末尾 end だけ表示する（start/end 自体は書き換えない）。"
+        }
       },
       "$comment": "end > start、ID 一意性、words[].end >= start は JSON Schema 標準だけでは兄弟値を比較できないため validate-captions.mjs でも検証する。time_domain 省略時は source。style は既存の単語リビール演出、text_style は見た目のスタイルであり別契約。"
     },

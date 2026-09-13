@@ -9,18 +9,20 @@
  *   - Web UI（packages/preview-server public/app.js — updateCaption / 字幕クリック）
  *   - shell webview（previewBootstrapScript — renderCaption / ㉓ 字幕クリック選択。
  *     webview-kernel.js 経由で注入）
+ * `display_timing: speech-tight` の表示窓解決も本カーネル 1 か所へ集約する。
  */
 export interface CaptionWindowLike {
     start?: unknown;
     end?: unknown;
     duration?: unknown;
+    display_timing?: unknown;
+    words?: unknown;
 }
 export interface CaptionFragmentLike extends CaptionWindowLike {
     id?: unknown;
     text?: unknown;
     display_text?: unknown;
     display_fragments?: unknown;
-    words?: unknown;
 }
 export interface CaptionFragmentWindow {
     text: string;
@@ -29,6 +31,10 @@ export interface CaptionFragmentWindow {
     index: number;
     count: number;
 }
+export declare function captionSpeechWindow(caption: CaptionWindowLike): {
+    start: number;
+    end: number;
+} | null;
 export declare function captionWindowSeconds(caption: CaptionWindowLike): {
     start: number;
     end: number;

@@ -1,0 +1,92 @@
+{
+  "status": "pass",
+  "steps": [
+    {
+      "name": "1. 行の字幕設定ポップは 3 フィールドの初期値を表示",
+      "pass": true,
+      "detail": {
+        "count": 3,
+        "values": [
+          "plain",
+          "full",
+          ""
+        ]
+      }
+    },
+    {
+      "name": "2. カラオケ切替は style 以外を保全",
+      "pass": true,
+      "detail": {
+        "style": "karaoke",
+        "preserved": true
+      }
+    },
+    {
+      "name": "3. アニメ設定と解除は animation 以外を保全",
+      "pass": true,
+      "detail": {
+        "removed": true,
+        "textStyle": null
+      }
+    },
+    {
+      "name": "4. speech-tight は start/end とアンカーを変えず preview の padding だけ隠す",
+      "pass": true,
+      "detail": {
+        "padding": {
+          "text": "",
+          "count": 4
+        },
+        "speech": {
+          "text": "最初の発話です",
+          "count": 4
+        },
+        "restored": {
+          "text": "最初の発話です",
+          "count": 4
+        },
+        "anchorAt": 246
+      }
+    },
+    {
+      "name": "5. words 無し行では表示タイミングを無効化",
+      "pass": true,
+      "detail": {
+        "disabled": true
+      }
+    },
+    {
+      "name": "6. 選択行への一括適用は words 無しをスキップ",
+      "pass": true,
+      "detail": {
+        "skipped": 1
+      }
+    },
+    {
+      "name": "7. インスペクターへ対象字幕をフォーカス",
+      "pass": true,
+      "detail": {
+        "timelineAttachedBefore": true,
+        "visible": true,
+        "text": "二番目の字幕です"
+      }
+    }
+  ],
+  "screenshots": [
+    "01-gear-fields.png",
+    "02-karaoke.png",
+    "03-animation.png",
+    "04-speech-tight-preview.png",
+    "05-no-words-disabled.png",
+    "06-selection-tight.png",
+    "07-inspector-focus.png"
+  ],
+  "cleanup": {
+    "killedPid": 95587,
+    "survivingProcesses": 0
+  },
+  "fixture": {
+    "ok": true,
+    "rows": 4
+  }
+}

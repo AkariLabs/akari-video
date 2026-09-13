@@ -101,6 +101,20 @@ export interface CaptionTextStylePatch {
         radiusPx?: number | null;
         mode?: CaptionBackgroundMode | null;
     };
+    animation?: {
+        in?: {
+            id: string;
+            durationSec?: number;
+            ease?: string | null;
+            amp?: number | null;
+        } | null;
+        out?: {
+            id: string;
+            durationSec?: number;
+            ease?: string | null;
+            amp?: number | null;
+        } | null;
+    } | null;
     zone?: CaptionZone | null;
 }
 export interface CaptionRecord {
@@ -151,6 +165,8 @@ export declare function updateCaptionFieldsInSource(source: string, captionId: s
         start: number;
         end: number;
     }> | null;
+    style?: string | null;
+    displayTiming?: 'full' | 'speech-tight' | null;
 }): string;
 export declare function applyWordBookToCaptionsInSource(source: string, changes: WordBookCaptionChange[]): string;
 export declare function updateCaptionTextStyleInSource(source: string, captionId: string, updates: CaptionTextStylePatch): string;

@@ -4086,7 +4086,7 @@ function validateCaptions(captions, edit, analysis, findings, paths, cutsEndSeco
       continue;
     }
     const required = ["id", "start", "end", "text", "speaker", "sourceRef", "edited"];
-    const optional = ["src", "time_domain", "words", "unrecognized", "style", "display_text", "display_fragments", "style_preset", "text_style"];
+    const optional = ["src", "time_domain", "words", "unrecognized", "style", "display_text", "display_fragments", "display_timing", "style_preset", "text_style"];
     for (const field of required) {
       if (!Object.hasOwn(caption, field)) {
         captionFinding(findings, "captions.schema", `${field} is required`, itemPath);
@@ -4179,6 +4179,10 @@ function validateCaptions(captions, edit, analysis, findings, paths, cutsEndSeco
     }
     if (Object.hasOwn(caption, "display_fragments") && !Array.isArray(caption.display_fragments)) {
       captionFinding(findings, "captions.schema", "display_fragments must be an array when present", itemPath);
+    }
+    if (Object.hasOwn(caption, "display_timing")
+      && caption.display_timing !== "full" && caption.display_timing !== "speech-tight") {
+      captionFinding(findings, "captions.schema", 'display_timing must be "full" or "speech-tight" when present', itemPath);
     }
     if (Object.hasOwn(caption, "style_preset")) {
       if (typeof caption.style_preset !== "string"

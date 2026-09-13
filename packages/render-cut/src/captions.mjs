@@ -13,6 +13,7 @@ const require = createRequire(import.meta.url);
 // OSR（osr-export page-builder）は両方この generateCaptionOverlays の vars を使うので実効 px が揃う。
 const {
   captionAnchorPositionVars,
+  captionWindowSeconds,
   captionTextShadowValue,
   colorWithOpacity,
   dedupeCaptionOccurrences,
@@ -158,9 +159,10 @@ export function generateCaptionOverlays(captions, cuts, options = {}) {
       );
       continue;
     }
+    const window = captionWindowSeconds(caption);
     const ranges = computeCaptionRanges(
-      caption.start,
-      caption.end,
+      window.start,
+      window.end,
       cuts,
       captionSource,
       caption.time_domain,
@@ -172,7 +174,7 @@ export function generateCaptionOverlays(captions, cuts, options = {}) {
       ?? options.maxCharacters
       ?? (portrait ? PORTRAIT_MAX_CHARACTERS : DEFAULT_MAX_CHARACTERS);
     const textStyleVars = captionTextStyleVars(textStyle, output);
-    const allWords = clipWordsToRange(projectedCaption.words, caption.start, caption.end);
+    const allWords = clipWordsToRange(projectedCaption.words, window.start, window.end);
     // 縦長の既定: 複数行へ折り返す長さの字幕は全行を一度に出さず、既存 reveal 機構で
     // 行単位に順送り表示する（words[] のタイミングが無い字幕は従来どおり静的表示）。
     if (

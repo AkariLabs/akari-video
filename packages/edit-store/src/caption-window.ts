@@ -9,12 +9,15 @@
  *   - Web UI（packages/preview-server public/app.js — updateCaption / 字幕クリック）
  *   - shell webview（previewBootstrapScript — renderCaption / ㉓ 字幕クリック選択。
  *     webview-kernel.js 経由で注入）
+ * `display_timing: speech-tight` の表示窓解決も本カーネル 1 か所へ集約する。
  */
 
 export interface CaptionWindowLike {
     start?: unknown;
     end?: unknown;
     duration?: unknown;
+    display_timing?: unknown;
+    words?: unknown;
 }
 
 export interface CaptionFragmentLike extends CaptionWindowLike {
@@ -22,7 +25,6 @@ export interface CaptionFragmentLike extends CaptionWindowLike {
     text?: unknown;
     display_text?: unknown;
     display_fragments?: unknown;
-    words?: unknown;
 }
 
 export interface CaptionFragmentWindow {
@@ -33,11 +35,34 @@ export interface CaptionFragmentWindow {
     count: number;
 }
 
-export function captionWindowSeconds(caption: CaptionWindowLike): { start: number; end: number } {
+function baseCaptionWindowSeconds(caption: CaptionWindowLike): { start: number; end: number } {
     const start = typeof caption.start === 'number' && Number.isFinite(caption.start) ? caption.start : 0;
     const duration = typeof caption.duration === 'number' && Number.isFinite(caption.duration) ? caption.duration : 0;
     const end = typeof caption.end === 'number' && Number.isFinite(caption.end) ? caption.end : start + duration;
     return { start, end };
+}
+
+export function captionSpeechWindow(caption: CaptionWindowLike): { start: number; end: number } | null {
+    if (caption.display_timing !== 'speech-tight' || !Array.isArray(caption.words) || caption.words.length === 0) {
+        return null;
+    }
+    const words = caption.words.flatMap(value => {
+        if (!value || typeof value !== 'object') return [];
+        const word = value as Record<string, unknown>;
+        return typeof word.start === 'number' && Number.isFinite(word.start)
+            && typeof word.end === 'number' && Number.isFinite(word.end) && word.end >= word.start
+            ? [{ start: word.start, end: word.end }] : [];
+    });
+    if (words.length === 0) return null;
+    const base = baseCaptionWindowSeconds(caption);
+    const tightStart = Math.max(base.start, Math.min(...words.map(word => word.start)));
+    const tightEnd = Math.min(base.end, Math.max(...words.map(word => word.end)));
+    if (tightEnd - tightStart <= 0 || (tightStart <= base.start && tightEnd >= base.end)) return null;
+    return { start: tightStart, end: tightEnd };
+}
+
+export function captionWindowSeconds(caption: CaptionWindowLike): { start: number; end: number } {
+    return captionSpeechWindow(caption) ?? baseCaptionWindowSeconds(caption);
 }
 
 /**
@@ -95,7 +120,10 @@ export function expandCaptionDisplayFragments<T extends CaptionFragmentLike>(cap
 }> {
     return captions.flatMap(caption => {
         const windows = captionFragmentWindows(caption);
-        if (windows === null) return [caption];
+        if (windows === null) {
+            const speechWindow = captionSpeechWindow(caption);
+            return speechWindow === null ? [caption] : [{ ...caption, ...speechWindow }];
+        }
         let characterStart = 0;
         return windows.map(window => {
             const characterEnd = characterStart + window.text.length;

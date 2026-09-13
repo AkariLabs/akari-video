@@ -37,6 +37,71 @@ const caption = (id, start, text, extra = {}) => ({
   ...extra
 });
 
+test('style を karaoke に設定しても edited は立たない', () => {
+  const source = JSON.stringify([caption('c-0001', 0, '本文')]);
+  const record = JSON.parse(updateCaptionFieldsInSource(source, 'c-0001', { style: 'karaoke' }))[0];
+  assert.equal(record.style, 'karaoke');
+  assert.equal(record.edited, false);
+});
+
+test('style null は style キーを削除する', () => {
+  const source = JSON.stringify([caption('c-0001', 0, '本文', { style: 'karaoke' })]);
+  const record = JSON.parse(updateCaptionFieldsInSource(source, 'c-0001', { style: null }))[0];
+  assert.equal(Object.hasOwn(record, 'style'), false);
+});
+
+test('style と displayTiming 未指定では既存フィールドを保全する', () => {
+  const source = JSON.stringify([caption('c-0001', 0, '本文', { style: 'karaoke', display_timing: 'speech-tight' })]);
+  assert.equal(updateCaptionFieldsInSource(source, 'c-0001', { unrecognized: null }), source);
+});
+
+test('displayTiming speech-tight を付け full でキーごと戻す', () => {
+  const source = JSON.stringify([caption('c-0001', 0, '本文')]);
+  const tight = updateCaptionFieldsInSource(source, 'c-0001', { displayTiming: 'speech-tight' });
+  assert.equal(JSON.parse(tight)[0].display_timing, 'speech-tight');
+  assert.equal(updateCaptionFieldsInSource(tight, 'c-0001', { displayTiming: 'full' }), source);
+});
+
+test('animation in/out を snake_case のスロットとして設定する', () => {
+  const source = JSON.stringify([caption('c-0001', 0, '本文', { text_style: { color: '#fff' } })]);
+  const record = JSON.parse(updateCaptionTextStyleInSource(source, 'c-0001', {
+    animation: { in: { id: 'fade-up', durationSec: 0.2 }, out: { id: 'pop', amp: 1.2 } }
+  }))[0];
+  assert.deepEqual(record.text_style.animation, {
+    in: { id: 'fade-up', duration_sec: 0.2 }, out: { id: 'pop', amp: 1.2 }
+  });
+  assert.equal(record.text_style.color, '#fff');
+});
+
+test('animation null は animation キーだけを削除する', () => {
+  const source = JSON.stringify([caption('c-0001', 0, '本文', {
+    text_style: { color: '#fff', animation: { in: { id: 'fade-up' } } }
+  })]);
+  const record = JSON.parse(updateCaptionTextStyleInSource(source, 'c-0001', { animation: null }))[0];
+  assert.deepEqual(record.text_style, { color: '#fff' });
+});
+
+test('animation の片スロット削除は loop と stroke を保全する', () => {
+  const source = JSON.stringify([caption('c-0001', 0, '本文', {
+    text_style: { stroke: { color: '#fff', width_px: 2 }, animation: {
+      in: { id: 'fade-up' }, loop: { id: 'pulse' }, out: { id: 'fade-up' }
+    } }
+  })]);
+  const record = JSON.parse(updateCaptionTextStyleInSource(source, 'c-0001', {
+    animation: { in: null, out: { id: 'pop' } }
+  }))[0];
+  assert.deepEqual(record.text_style.stroke, { color: '#fff', width_px: 2 });
+  assert.deepEqual(record.text_style.animation, { loop: { id: 'pulse' }, out: { id: 'pop' } });
+});
+
+test('text_style 不在でも animation を新規作成できる', () => {
+  const source = JSON.stringify([caption('c-0001', 0, '本文')]);
+  const record = JSON.parse(updateCaptionTextStyleInSource(source, 'c-0001', {
+    animation: { in: { id: 'typewriter', ease: null }, out: { id: 'typewriter' } }
+  }))[0];
+  assert.deepEqual(record.text_style.animation, { in: { id: 'typewriter', ease: null }, out: { id: 'typewriter' } });
+});
+
 test('text 更新は対象 1 物理行だけを書き換え words を再導出する', () => {
   const rows = [
     caption('c-0001', 0, 'alpha beta gamma', {

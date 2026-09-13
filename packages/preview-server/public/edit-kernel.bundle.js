@@ -311,11 +311,30 @@ function sourceToOutput(segments, sourceT) {
 }
 
 // ../edit-store/src/caption-window.ts
-function captionWindowSeconds(caption) {
+function baseCaptionWindowSeconds(caption) {
   const start = typeof caption.start === "number" && Number.isFinite(caption.start) ? caption.start : 0;
   const duration = typeof caption.duration === "number" && Number.isFinite(caption.duration) ? caption.duration : 0;
   const end = typeof caption.end === "number" && Number.isFinite(caption.end) ? caption.end : start + duration;
   return { start, end };
+}
+function captionSpeechWindow(caption) {
+  if (caption.display_timing !== "speech-tight" || !Array.isArray(caption.words) || caption.words.length === 0) {
+    return null;
+  }
+  const words = caption.words.flatMap((value) => {
+    if (!value || typeof value !== "object") return [];
+    const word = value;
+    return typeof word.start === "number" && Number.isFinite(word.start) && typeof word.end === "number" && Number.isFinite(word.end) && word.end >= word.start ? [{ start: word.start, end: word.end }] : [];
+  });
+  if (words.length === 0) return null;
+  const base = baseCaptionWindowSeconds(caption);
+  const tightStart = Math.max(base.start, Math.min(...words.map((word) => word.start)));
+  const tightEnd = Math.min(base.end, Math.max(...words.map((word) => word.end)));
+  if (tightEnd - tightStart <= 0 || tightStart <= base.start && tightEnd >= base.end) return null;
+  return { start: tightStart, end: tightEnd };
+}
+function captionWindowSeconds(caption) {
+  return captionSpeechWindow(caption) ?? baseCaptionWindowSeconds(caption);
 }
 function captionFragmentWindows(caption) {
   const sourceText = caption.display_text ?? caption.text;
@@ -358,7 +377,10 @@ function captionFragmentWindows(caption) {
 function expandCaptionDisplayFragments(captions) {
   return captions.flatMap((caption) => {
     const windows = captionFragmentWindows(caption);
-    if (windows === null) return [caption];
+    if (windows === null) {
+      const speechWindow = captionSpeechWindow(caption);
+      return speechWindow === null ? [caption] : [{ ...caption, ...speechWindow }];
+    }
     let characterStart = 0;
     return windows.map((window) => {
       const characterEnd = characterStart + window.text.length;
@@ -3931,6 +3953,7 @@ export {
   captionAnchorPositionVars,
   captionClockDomainOf,
   captionFragmentWindows,
+  captionSpeechWindow,
   captionWindowSeconds,
   composeEnvelopesDb,
   computeAdjustCssVisual,

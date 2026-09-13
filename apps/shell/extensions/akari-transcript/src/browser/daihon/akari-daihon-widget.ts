@@ -110,10 +110,22 @@ import {
     parseSpeakerDictionary, speakerColorMap, speakerLabel, type SpeakerDictionary
 } from './daihon-speaker-chips';
 import { groupTokensIntoWords, type DaihonWordUnit } from '../../common/daihon-word-units';
+import {
+    DAIHON_GEAR_ANIM_PRESETS,
+    gearSpeechTrimSeconds,
+    gearSpeechWindow,
+    planSpeechTightApply,
+    readDisplayTiming,
+    readGearAnimationId,
+    readGearStyle,
+    type DaihonDisplayTiming
+} from '../../common/daihon-gear';
 
 const PREVIEW_PLAYBACK_TICK_EVENT = 'akari.preview.playbackTick';
 const DAIHON_SELECTION_CHANGED_EVENT = 'akari.daihon.selectionChanged';
 const TIMELINE_SELECT_CAPTIONS_COMMAND_ID = 'akari.timeline.selectCaptions';
+const PREVIEW_CAPTION_SELECTED_EVENT = 'akari.preview.captionSelected';
+const INSPECTOR_OPEN_COMMAND_ID = 'akari.inspector.open';
 const SELECTION_ALT_ALL_EVENT = 'akari.selection.altAll';
 const ENSURE_PREVIEW_VISIBLE_COMMAND_ID = 'akari.preview.ensureVisible';
 const SEEK_OUTPUT_PREVIEW_COMMAND_ID = 'akari.preview.seekOutput';
@@ -121,7 +133,7 @@ const TOGGLE_PREVIEW_PLAYBACK_COMMAND_ID = 'akari.preview.togglePlayback';
 const MIN_WORD_INSERT_GAP_SEC = 0.1;
 const DAIHON_WORD_UNIT_PREFERENCE = 'akari.daihon.wordUnit';
 const DAIHON_SHOW_BREAKS_PREFERENCE = 'akari.daihon.showBreaks';
-const INTERACTIVE_SELECTOR = '.akari-daihon-speaker, button.akari-daihon-tc, .akari-daihon-word, .akari-daihon-word-unk, input, .akari-daihon-badge-qc, .akari-daihon-gapchip, button.akari-daihon-cut, button.akari-daihon-split, .akari-daihon-splitmark, .akari-daihon-gapzone, .akari-daihon-gapdraft, .akari-daihon-word-filler, button.akari-daihon-silence, button.akari-daihon-selcut, button.akari-daihon-selmerge, button.akari-daihon-selmerge-next, button.akari-daihon-tpl, button.akari-daihon-seltpl, .akari-daihon-tplcard, .akari-daihon-cutcell, .akari-daihon-cutrange, .akari-daihon-pop, .akari-daihon-minitl, .akari-daihon-wgap, .akari-daihon-wordbar, .akari-daihon-wordcm, .akari-daihon-slash';
+const INTERACTIVE_SELECTOR = '.akari-daihon-speaker, button.akari-daihon-tc, .akari-daihon-word, .akari-daihon-word-unk, input, .akari-daihon-badge-qc, .akari-daihon-gapchip, button.akari-daihon-cut, button.akari-daihon-split, button.akari-daihon-gear, button.akari-daihon-selgear, .akari-daihon-splitmark, .akari-daihon-gapzone, .akari-daihon-gapdraft, .akari-daihon-word-filler, button.akari-daihon-silence, button.akari-daihon-selcut, button.akari-daihon-selmerge, button.akari-daihon-selmerge-next, button.akari-daihon-tpl, button.akari-daihon-seltpl, .akari-daihon-tplcard, .akari-daihon-cutcell, .akari-daihon-cutrange, .akari-daihon-pop, .akari-daihon-minitl, .akari-daihon-wgap, .akari-daihon-wordbar, .akari-daihon-wordcm, .akari-daihon-slash';
 
 interface PreviewPlaybackTick {
     videoUri?: string;
@@ -154,6 +166,8 @@ interface CaptionExtras {
     timeDomain?: 'source' | 'output';
     unrecognized?: DaihonUnrecognizedSpan[];
     stylePreset?: string;
+    displayTiming?: DaihonDisplayTiming;
+    animationInId?: string | null;
 }
 
 type CutRangeEditorTarget =
@@ -267,8 +281,8 @@ const STYLE = `
 .akari-daihon-cutcell .akari-daihon-rbtn { margin-left:auto; background:none; border:1px solid rgba(255,143,115,.35); color:#d9927f; border-radius:4px; font-size:9.5px; padding:0 6px; cursor:pointer; white-space:nowrap; }
 .akari-daihon-cutcell .akari-daihon-rbtn:hover:not(:disabled) { color:#ffb39e; border-color:rgba(255,143,115,.7); }
 .akari-daihon-cutcell .akari-daihon-rbtn:disabled { opacity:.42; cursor:not-allowed; }
-.akari-daihon-cut,.akari-daihon-split,.akari-daihon-selcut,.akari-daihon-selmerge,.akari-daihon-selmerge-next,.akari-daihon-silence,.akari-daihon-tpl,.akari-daihon-seltpl,.akari-daihon-cuts { background:#262c37; border:1px solid #333b48; color:#b9c1cf; border-radius:4px; font-size:10px; padding:1px 6px; cursor:pointer; white-space:nowrap; }
-.akari-daihon-cut:hover,.akari-daihon-selcut:hover,.akari-daihon-silence:hover,.akari-daihon-tpl:hover,.akari-daihon-seltpl:hover,.akari-daihon-cuts:hover { color:#e9ecf2; border-color:#445068; }
+.akari-daihon-cut,.akari-daihon-split,.akari-daihon-gear,.akari-daihon-selgear,.akari-daihon-selcut,.akari-daihon-selmerge,.akari-daihon-selmerge-next,.akari-daihon-silence,.akari-daihon-tpl,.akari-daihon-seltpl,.akari-daihon-cuts { background:#262c37; border:1px solid #333b48; color:#b9c1cf; border-radius:4px; font-size:10px; padding:1px 6px; cursor:pointer; white-space:nowrap; }
+.akari-daihon-cut:hover,.akari-daihon-gear:hover,.akari-daihon-selgear:hover,.akari-daihon-selcut:hover,.akari-daihon-silence:hover,.akari-daihon-tpl:hover,.akari-daihon-seltpl:hover,.akari-daihon-cuts:hover { color:#e9ecf2; border-color:#445068; }
 .akari-daihon-cut:hover { color:#ff8f73; border-color:rgba(255,143,115,.5); }
 .akari-daihon-split:disabled,.akari-daihon-selmerge:disabled,.akari-daihon-selmerge-next:disabled { opacity:.4; cursor:not-allowed; }
 .akari-daihon-gapzone { height:8px; margin:-3px 8px; position:relative; cursor:pointer; }
@@ -285,6 +299,10 @@ const STYLE = `
 .akari-daihon-pop button { background:none; border:none; color:#e9ecf2; text-align:left; font:inherit; font-size:12.5px; padding:5px 8px; border-radius:5px; cursor:pointer; }
 .akari-daihon-pop button:hover { background:#2a313d; }
 .akari-daihon-pop button.danger { color:#ff9d84; }
+.akari-daihon-gearfield { display:flex; align-items:center; gap:7px; padding:2px 6px; }
+.akari-daihon-gearlabel { min-width:44px; color:#8e97a9; font-size:10.5px; }
+.akari-daihon-gearfield select { flex:1; min-width:0; color:#e9ecf2; background:#171b21; border:1px solid #3a4356; border-radius:4px; padding:3px 5px; }
+.akari-daihon-gearnote { color:#77808f; font-size:10px; padding:0 6px 3px 57px; }
 .akari-daihon-wordbar { flex-direction:row; align-items:center; white-space:nowrap; }
 .akari-daihon-wordbar .summary { color:#ffc74a; font-size:11px; padding:0 6px; }
 .akari-daihon-wordcm { min-width:310px; max-height:calc(100vh - 16px); }
@@ -565,8 +583,14 @@ export class AkariDaihonWidget extends BaseWidget {
         this.selectionMergeNext.className = 'akari-daihon-selmerge-next';
         this.selectionMergeNext.textContent = '次の行と結合';
         this.selectionMergeNext.addEventListener('click', () => void this.mergeSelectedRowWithNext());
+        const selectionGear = document.createElement('button');
+        selectionGear.type = 'button';
+        selectionGear.className = 'akari-daihon-selgear';
+        selectionGear.textContent = '発話にぴったり';
+        selectionGear.title = '選択行の字幕を語の発話区間だけ表示する';
+        selectionGear.addEventListener('click', () => void this.applySpeechTightToSelection());
         this.selectionBar.append(this.selectionCount, selectionSpacer, selectionTpl, this.selectionMerge,
-            this.selectionMergeNext, selectionCut, selectionClear);
+            this.selectionMergeNext, selectionGear, selectionCut, selectionClear);
 
         this.footer.className = 'akari-daihon-footer';
         this.footer.textContent = '秒数や語をクリックするとプレビューへシークします。';
@@ -896,12 +920,16 @@ export class AkariDaihonWidget extends BaseWidget {
                         ? [{ start: span.start, end: span.end }] : [];
                 }) : undefined;
             const stylePreset = typeof record.style_preset === 'string' ? record.style_preset : undefined;
+            const hasDisplayTiming = Object.prototype.hasOwnProperty.call(record, 'display_timing');
+            const hasTextStyle = Object.prototype.hasOwnProperty.call(record, 'text_style');
             result.set(record.id, {
                 ...(hasDisplayFragments ? { hasDisplayFragments: true } : {}),
                 ...(displayFragments ? { displayFragments } : {}),
                 ...(timeDomain ? { timeDomain } : {}),
                 ...(unrecognized?.length ? { unrecognized } : {}),
-                ...(stylePreset ? { stylePreset } : {})
+                ...(stylePreset ? { stylePreset } : {}),
+                ...(hasDisplayTiming ? { displayTiming: readDisplayTiming(record.display_timing) } : {}),
+                ...(hasTextStyle ? { animationInId: readGearAnimationId(record.text_style) } : {})
             });
         }
         return result;
@@ -1069,6 +1097,16 @@ export class AkariDaihonWidget extends BaseWidget {
             this.replaceRenderedRow(row);
         });
         head.appendChild(split);
+        const gear = document.createElement('button');
+        gear.type = 'button';
+        gear.className = 'akari-daihon-gear';
+        gear.textContent = '⚙';
+        gear.title = '字幕設定（スタイル・表示タイミング・アニメ）';
+        gear.addEventListener('click', event => {
+            event.stopPropagation();
+            this.openGearPop(gear, row);
+        });
+        head.appendChild(gear);
         if (row.edited) {
             const badge = document.createElement('span');
             badge.className = 'akari-daihon-badge-edited';
@@ -1382,6 +1420,158 @@ export class AkariDaihonWidget extends BaseWidget {
         const captionOnly = this.popButton('字幕から消す（音声はそのまま）', () => void this.removeFillerCaption(row, wordIndex));
         const cut = this.popButton('✂ 映像ごとカット', () => void this.cutFiller(row, wordIndex), 'danger');
         pop.append(title, seek, captionOnly, cut);
+    }
+
+    protected gearField(label: string, control: HTMLElement): HTMLDivElement {
+        const field = document.createElement('div');
+        field.className = 'akari-daihon-gearfield';
+        const fieldLabel = document.createElement('span');
+        fieldLabel.className = 'akari-daihon-gearlabel';
+        fieldLabel.textContent = label;
+        control.addEventListener('click', event => event.stopPropagation());
+        field.append(fieldLabel, control);
+        return field;
+    }
+
+    protected openGearPop(anchor: HTMLElement, row: DaihonRow): void {
+        const pop = this.openPop(anchor, 260);
+        const title = document.createElement('div');
+        title.className = 'akari-daihon-pttl';
+        title.textContent = `${row.id} の字幕設定`;
+
+        const style = document.createElement('select');
+        for (const [value, label] of [['karaoke', 'カラオケ（読み上げ追従）'], ['plain', '通常表示（カラオケなし）']]) {
+            style.add(new Option(label, value));
+        }
+        style.value = readGearStyle(row.style);
+        style.addEventListener('change', () => void this.saveCaptionFields(row.id,
+            { style: style.value === 'karaoke' ? 'karaoke' : null }, 'カラオケ表示を変更'));
+
+        const timing = document.createElement('select');
+        timing.add(new Option('行の時間いっぱい（余韻あり）', 'full'));
+        timing.add(new Option('発話にぴったり', 'speech-tight'));
+        const initialTiming = this.captionExtraById.get(row.id)?.displayTiming ?? 'full';
+        timing.value = initialTiming;
+        if (gearSpeechWindow(row.words, row.start, row.end) === null && initialTiming !== 'speech-tight') {
+            timing.disabled = true;
+            timing.title = '語の時刻（words）が無い行では使えません';
+        }
+        timing.addEventListener('change', () => void this.saveCaptionFields(row.id,
+            { displayTiming: readDisplayTiming(timing.value) }, '字幕の表示タイミングを変更'));
+
+        const animation = document.createElement('select');
+        for (const preset of DAIHON_GEAR_ANIM_PRESETS) animation.add(new Option(preset.label, preset.id ?? ''));
+        animation.value = this.captionExtraById.get(row.id)?.animationInId ?? '';
+        animation.addEventListener('change', () => void this.saveCaptionAnimation(row.id, animation.value || null));
+
+        pop.append(title, this.gearField('スタイル', style), this.gearField('表示', timing));
+        const trim = gearSpeechTrimSeconds(row.words, row.start, row.end);
+        if (trim) {
+            const note = document.createElement('div');
+            note.className = 'akari-daihon-gearnote';
+            note.textContent = `前 ${trim.head.toFixed(2)} 秒 / 後 ${trim.tail.toFixed(2)} 秒を詰めます`;
+            pop.appendChild(note);
+        }
+        pop.append(this.gearField('アニメ', animation),
+            this.popButton('⚙ インスペクターで開く →', () => void this.focusCaptionInspector(row.id)));
+    }
+
+    protected async saveCaptionFields(
+        captionId: string,
+        fields: { style?: string | null; displayTiming?: DaihonDisplayTiming },
+        label: string
+    ): Promise<void> {
+        if (!this.captionsUri || !this.rootUri) return;
+        try {
+            await this.withHistory(label, async () => {
+                await this.annotationsService.setCaptionFields({
+                    captionsUri: this.captionsUri!.toString(),
+                    projectRootUri: this.rootUri!.toString(),
+                    captionId,
+                    ...fields
+                });
+            });
+            this.notify(label);
+        } catch (error) {
+            await this.reload();
+            this.notify(this.errorMessage(error));
+        }
+    }
+
+    protected async saveCaptionAnimation(captionId: string, animationId: string | null): Promise<void> {
+        if (!this.captionsUri || !this.rootUri) return;
+        try {
+            await this.withHistory('字幕アニメを変更', async () => {
+                await this.annotationsService.setCaptionTextStyle({
+                    captionsUri: this.captionsUri!.toString(),
+                    projectRootUri: this.rootUri!.toString(),
+                    captionId,
+                    textStyle: {
+                        animation: animationId === null ? null : { in: { id: animationId }, out: { id: animationId } }
+                    }
+                });
+            });
+            this.notify(animationId === null ? '字幕アニメを外しました' : '字幕アニメを変更しました');
+        } catch (error) {
+            await this.reload();
+            this.notify(this.errorMessage(error));
+        }
+    }
+
+    protected async focusCaptionInspector(captionId: string): Promise<void> {
+        const editUri = this.editUri?.normalizePath().toString();
+        if (!editUri) return;
+        this.closePop();
+        try {
+            await this.commands.executeCommand(INSPECTOR_OPEN_COMMAND_ID);
+        } catch (error) {
+            this.notify(`インスペクターを開けません: ${this.errorMessage(error)}`);
+        }
+        window.dispatchEvent(new CustomEvent(PREVIEW_CAPTION_SELECTED_EVENT, { detail: { editUri, captionId } }));
+    }
+
+    protected async applySpeechTightToSelection(): Promise<void> {
+        const ids = new Set(selectedRowIds(this.rowOrder(), this.selection, this.altAll));
+        const rows = this.rows.filter(row => ids.has(row.id)).map(row => ({
+            ...row,
+            displayTiming: this.captionExtraById.get(row.id)?.displayTiming ?? 'full' as const
+        }));
+        await this.applyDisplayTiming(rows, 'speech-tight', false);
+    }
+
+    protected async applyDisplayTiming(
+        rows: readonly (DaihonRow & { displayTiming?: DaihonDisplayTiming })[],
+        timing: DaihonDisplayTiming,
+        allRows: boolean
+    ): Promise<void> {
+        if (!this.captionsUri || !this.rootUri) return;
+        const plannedRows = rows.map(row => ({
+            ...row,
+            displayTiming: this.captionExtraById.get(row.id)?.displayTiming ?? 'full' as const
+        }));
+        const plan = planSpeechTightApply(plannedRows, timing);
+        if (plan.targets.length === 0) {
+            this.notify('変更が必要な行はありません（語の時刻が必要です）');
+            return;
+        }
+        try {
+            await this.withHistory('字幕の表示タイミングを変更', async () => {
+                for (const captionId of plan.targets) {
+                    await this.annotationsService.setCaptionFields({
+                        captionsUri: this.captionsUri!.toString(), projectRootUri: this.rootUri!.toString(),
+                        captionId, displayTiming: timing
+                    });
+                }
+            });
+            if (allRows) {
+                this.notify(`全 ${plan.targets.length} 行を${timing === 'speech-tight' ? '発話ぴったりに' : '余韻ありに戻し'}ました（${plan.skipped.length} 行はスキップ）`);
+            } else {
+                this.notify(`${plan.targets.length} 行を発話にぴったりへ（語の時刻が無い ${plan.skipped.length} 行はスキップ）`);
+            }
+        } catch (error) {
+            await this.reload();
+            this.notify(this.errorMessage(error));
+        }
     }
 
     protected unkChip(span: DaihonUnrecognizedSpan, row: DaihonRow): HTMLSpanElement {
@@ -2167,6 +2357,30 @@ export class AkariDaihonWidget extends BaseWidget {
         breaksToggle.classList.toggle('selected', this.showBreaks);
         breaksGroup.append(breaksLabel, breaksToggle);
 
+        const timingGroup = document.createElement('div');
+        timingGroup.className = 'akari-daihon-displaygroup';
+        const timingLabel = document.createElement('div');
+        timingLabel.className = 'akari-daihon-displaylabel';
+        timingLabel.textContent = '表示タイミング';
+        const timingSegments = document.createElement('div');
+        timingSegments.className = 'akari-daihon-segments';
+        const rowsWithWords = this.rows.filter(row => Array.isArray(row.words) && row.words.length > 0);
+        const allSpeechTight = rowsWithWords.length > 0 && rowsWithWords.every(row =>
+            this.captionExtraById.get(row.id)?.displayTiming === 'speech-tight');
+        const full = this.popButton('余韻あり', () => {
+            void this.applyDisplayTiming(this.rows, 'full', true).then(() => this.openDisplayPop(anchor));
+        });
+        const tight = this.popButton('発話ぴったり', () => {
+            void this.applyDisplayTiming(this.rows, 'speech-tight', true).then(() => this.openDisplayPop(anchor));
+        });
+        full.classList.toggle('selected', !allSpeechTight);
+        tight.classList.toggle('selected', allSpeechTight);
+        timingSegments.append(full, tight);
+        const timingNote = document.createElement('div');
+        timingNote.className = 'akari-daihon-displaynote';
+        timingNote.textContent = '行ごとの ⚙ の設定が優先されます。';
+        timingGroup.append(timingLabel, timingSegments, timingNote);
+
         const unitsGroup = document.createElement('div');
         unitsGroup.className = 'akari-daihon-displaygroup';
         const unitsLabel = document.createElement('div');
@@ -2268,7 +2482,7 @@ export class AkariDaihonWidget extends BaseWidget {
         note.className = 'akari-daihon-displaynote';
         note.append(document.createTextNode('ベースは字幕本文です。'), document.createElement('br'),
             document.createTextNode('手で置いた／は動きません。'));
-        pop.append(wordUnitGroup, breaksGroup, unitsGroup, linesGroup, wrapGroup, overflowCount, note);
+        pop.append(wordUnitGroup, breaksGroup, timingGroup, unitsGroup, linesGroup, wrapGroup, overflowCount, note);
     }
 
     protected fieldRow(prefix: string, input: HTMLInputElement, suffix: string): HTMLDivElement {
