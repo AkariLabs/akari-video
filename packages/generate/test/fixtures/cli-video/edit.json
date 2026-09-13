@@ -1,0 +1,37 @@
+{
+  "version": 2,
+  "output": { "width": 640, "height": 360, "fps": 30 },
+  "sources": [
+    { "id": "still", "path": "assets/stills/start.png", "proxy": null },
+    { "id": "other", "path": "assets/stills/other.png", "proxy": null }
+  ],
+  "tracks": [
+    {
+      "id": "video",
+      "lane": "visual",
+      "name": "映像",
+      "items": [
+        {
+          "id": "clip-a",
+          "at": 0,
+          "duration": 180,
+          "source": {
+            "kind": "media",
+            "src": "still",
+            "in": 0,
+            "out": 6,
+            "framing": { "fit": "cover" },
+            "transition_out": { "type": "fade", "duration": 6 },
+            "fx": []
+          }
+        },
+        {
+          "id": "clip-other",
+          "at": 180,
+          "duration": 30,
+          "source": { "kind": "media", "src": "other", "in": 0, "out": 1 }
+        }
+      ]
+    }
+  ]
+}
