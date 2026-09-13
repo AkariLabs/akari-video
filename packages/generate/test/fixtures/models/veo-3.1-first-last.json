@@ -1,0 +1,30 @@
+{
+  "id": "fal:veo-3.1-first-last",
+  "kind": "video",
+  "provider": "fal",
+  "family": "Veo 3.1 first-last",
+  "endpoint": "fal-ai/veo3.1/first-last-frame-to-video",
+  "inputs": {
+    "first_frame": "required",
+    "last_frame": "required",
+    "reference_images": { "max": 0, "max_seconds_each": null, "max_seconds_total": null },
+    "reference_videos": { "max": 0, "max_seconds_each": null, "max_seconds_total": null },
+    "reference_audios": { "max": 0, "max_seconds_each": null, "max_seconds_total": null },
+    "source_video": [],
+    "frames_and_refs_exclusive": false,
+    "negative_prompt": true,
+    "camera": "prose",
+    "extra_allowed": ["safety_tolerance", "auto_fix"]
+  },
+  "duration": { "kind": "enum", "values": [4, 6, 8], "default": 8, "format": { "type": "string", "suffix": "s" } },
+  "resolutions": ["720p", "1080p", "4k"],
+  "aspects": ["auto", "16:9", "9:16"],
+  "audio_out": true,
+  "seed": true,
+  "price": { "unit": "usd_per_second", "by_resolution": { "720p": 0.2, "1080p": 0.2, "4k": 0.4 }, "audio_multiplier": 2 },
+  "as_of": "2026-09-12",
+  "source_url": "https://fal.ai/api/openapi/queue/openapi.json?endpoint_id=fal-ai/veo3.1/first-last-frame-to-video",
+  "price_url": "https://fal.ai/models/fal-ai/veo3.1/image-to-video",
+  "verified": "documented",
+  "calibration": []
+}
