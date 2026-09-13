@@ -306,7 +306,14 @@
           "bin/validate-edit.mjs",
           "bin/validate-interpretation.mjs",
           "bin/validate-word-book.mjs",
-          "word-book.schema.json"
+          "word-book.schema.json",
+          "gen-models.json",
+          "gen-models.schema.json",
+          "generation-meta.schema.json",
+          "connections.schema.json",
+          "plan-comments.schema.json",
+          "bin/validate-connections.mjs",
+          "bin/validate-plan-comments.mjs"
         ]
       },
       {
@@ -323,6 +330,21 @@
       {
         "from": "../../presets/word-book",
         "to": "presets/word-book"
+      },
+      {
+        "from": "../../packages/generate",
+        "to": "packages/generate",
+        "filter": [
+          "package.json",
+          "src/**/*"
+        ]
+      },
+      {
+        "from": "../../skills/manage-connections/bin",
+        "to": "skills/manage-connections/bin",
+        "filter": [
+          "*.mjs"
+        ]
       }
     ],
     "mac": {
