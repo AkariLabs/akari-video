@@ -1,0 +1,30 @@
+{
+  "id": "fal:h3-i2v",
+  "kind": "video",
+  "provider": "fal",
+  "family": "MiniMax H3",
+  "endpoint": "minimax/h3/image-to-video",
+  "inputs": {
+    "first_frame": "optional",
+    "last_frame": "optional",
+    "reference_images": { "max": 0, "max_seconds_each": null, "max_seconds_total": null },
+    "reference_videos": { "max": 0, "max_seconds_each": null, "max_seconds_total": null },
+    "reference_audios": { "max": 0, "max_seconds_each": null, "max_seconds_total": null },
+    "source_video": [],
+    "frames_and_refs_exclusive": false,
+    "negative_prompt": false,
+    "camera": "bracket",
+    "extra_allowed": ["prompt_expansion_mode"]
+  },
+  "duration": { "kind": "range", "min": 5, "max": 15, "step": 1, "default": 5, "format": { "type": "integer" } },
+  "resolutions": ["480P", "768P", "2K", "4K"],
+  "aspects": null,
+  "audio_out": "always",
+  "seed": true,
+  "price": { "unit": "usd_per_second", "by_resolution": { "480P": 0.05, "768P": 0.06, "2K": 0.13, "4K": 0.16 }, "audio_multiplier": null },
+  "as_of": "2026-09-12",
+  "source_url": "https://fal.ai/api/openapi/queue/openapi.json?endpoint_id=minimax/h3/image-to-video",
+  "price_url": "https://fal.ai/models/minimax/h3/image-to-video",
+  "verified": "documented",
+  "calibration": ["calibration/2026-08-23-camera-direction", "lab/2026-09-13-w0-spikes"]
+}

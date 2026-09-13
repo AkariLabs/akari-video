@@ -1,0 +1,30 @@
+{
+  "id": "fal:seedance-2.0-reference",
+  "kind": "video",
+  "provider": "fal",
+  "family": "Seedance 2.0",
+  "endpoint": "bytedance/seedance-2.0/reference-to-video",
+  "inputs": {
+    "first_frame": "optional",
+    "last_frame": "optional",
+    "reference_images": { "max": 9, "max_seconds_each": null, "max_seconds_total": null },
+    "reference_videos": { "max": 3, "max_seconds_each": 15, "max_seconds_total": 15 },
+    "reference_audios": { "max": 3, "max_seconds_each": null, "max_seconds_total": 15 },
+    "source_video": [],
+    "frames_and_refs_exclusive": true,
+    "negative_prompt": false,
+    "camera": "prose",
+    "extra_allowed": ["task"]
+  },
+  "duration": { "kind": "range", "min": 4, "max": 15, "step": 1, "default": 5, "format": { "type": "string", "auto": true } },
+  "resolutions": ["480p", "720p", "1080p", "4k"],
+  "aspects": ["auto", "21:9", "16:9", "4:3", "1:1", "3:4", "9:16"],
+  "audio_out": true,
+  "seed": false,
+  "price": { "unit": "usd_per_second", "by_resolution": { "720p": 0.3034, "1080p": 0.682 }, "audio_multiplier": null },
+  "as_of": "2026-09-12",
+  "source_url": "https://fal.ai/api/openapi/queue/openapi.json?endpoint_id=bytedance/seedance-2.0/reference-to-video",
+  "price_url": "https://fal.ai/models/bytedance/seedance-2.0/text-to-video",
+  "verified": "documented",
+  "calibration": []
+}

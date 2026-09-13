@@ -1,0 +1,30 @@
+{
+  "id": "fal:grok-imagine-i2v",
+  "kind": "video",
+  "provider": "fal",
+  "family": "Grok Imagine",
+  "endpoint": "xai/grok-imagine-video/image-to-video",
+  "inputs": {
+    "first_frame": "required",
+    "last_frame": "none",
+    "reference_images": { "max": 0, "max_seconds_each": null, "max_seconds_total": null },
+    "reference_videos": { "max": 0, "max_seconds_each": null, "max_seconds_total": null },
+    "reference_audios": { "max": 0, "max_seconds_each": null, "max_seconds_total": null },
+    "source_video": [],
+    "frames_and_refs_exclusive": false,
+    "negative_prompt": false,
+    "camera": "prose",
+    "extra_allowed": []
+  },
+  "duration": { "kind": "range", "min": 1, "max": 15, "step": 1, "default": 6, "format": { "type": "integer" } },
+  "resolutions": ["480p", "720p"],
+  "aspects": null,
+  "audio_out": false,
+  "seed": false,
+  "price": null,
+  "as_of": "2026-09-12",
+  "source_url": "https://fal.ai/api/openapi/queue/openapi.json?endpoint_id=xai/grok-imagine-video/image-to-video",
+  "price_url": "https://fal.ai/models/xai/grok-imagine-video/image-to-video",
+  "verified": "documented",
+  "calibration": []
+}
