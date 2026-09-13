@@ -43,6 +43,11 @@ export interface CaptionDisplayCue {
     layout?: ResolvedCaptionLayout;
     words?: CaptionDisplayWord[];
     word_styles?: CaptionDisplayWordStyle[];
+    overflow?: CaptionDisplayOverflow;
+}
+export interface CaptionDisplayOverflow {
+    code: 'NO_WORD_BOUNDARY_SPLIT' | 'INVALID_MANUAL_FRAGMENTS';
+    units: number;
 }
 export interface CaptionDisplayWord {
     start: number;
@@ -152,6 +157,7 @@ export declare function dedupeCaptionOccurrences<T extends {
 export declare function splitCaptionFragments(text: string, policy: CaptionDisplayPolicy): {
     fragments: string[];
     boundaries: number[];
+    overflow?: CaptionDisplayOverflow;
 };
 export declare function foldCaptionLines(text: string, maxLineUnits: number, lines: number, locale?: string): string[];
 export declare function scheduleCaptionFragments(start: number, end: number, fragments: string[], minimumSeconds: number): Array<{

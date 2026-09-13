@@ -9,7 +9,11 @@ import { toV2Edit } from './helpers/v2-fixture.mjs';
 import { RESOLVED_CAPTION_WORD_PRESET_CSS } from '../../../../../packages/render-cut/src/captions.mjs';
 
 const require = createRequire(import.meta.url);
-const { parsePreviewCaptions, parseResolvedPreviewCaptions } = require('../lib/browser/akari-preview-captions.js');
+const {
+    loadCaptionDisplayFailOpen,
+    parsePreviewCaptions,
+    parseResolvedPreviewCaptions
+} = require('../lib/browser/akari-preview-captions.js');
 const { AkariPreviewServiceImpl } = require('../lib/node/akari-preview-service.js');
 const shellVisualContract = require('../lib/common/caption-visual-contract.js');
 const { captionAnchorPositionVars, resolveCaptionDisplay } = require('../../../../../packages/edit-store/lib/index.js');
@@ -83,6 +87,36 @@ test('legacy parse は display_fragments を語境界時刻の caption へ展開
         { id: 'c-0001', text: '前半', start: 0, end: 0.8, fragmentKey: 'c-0001#f1', fragmentIndex: 1, fragmentCount: 2 },
         { id: 'c-0001', text: '後半', start: 1.2, end: 2, fragmentKey: 'c-0001#f2', fragmentIndex: 2, fragmentCount: 2 }
     ]);
+});
+
+test('RPC throw は legacy captions へ fail-open し同じ code の warn は連続中 1 回だけ', async () => {
+    const state = {};
+    const warnings = [];
+    const options = {
+        resolve: async () => { throw Object.assign(new Error('cannot resolve'), { code: 'INVALID_POLICY' }); },
+        resolved: value => value,
+        legacy: async () => ({ captions: parsePreviewCaptions(JSON.stringify([caption])) }),
+        warn: code => warnings.push(code),
+        state
+    };
+    const first = await loadCaptionDisplayFailOpen(options);
+    const second = await loadCaptionDisplayFailOpen(options);
+    assert.deepEqual(first.captions.map(item => item.text), ['字幕']);
+    assert.deepEqual(second.captions.map(item => item.text), ['字幕']);
+    assert.deepEqual(warnings, ['INVALID_POLICY']);
+
+    await loadCaptionDisplayFailOpen({ ...options, resolve: async () => ({ captions: ['resolved'] }) });
+    await loadCaptionDisplayFailOpen(options);
+    assert.deepEqual(warnings, ['INVALID_POLICY', 'INVALID_POLICY']);
+});
+
+test('Web preview は解決 API 失敗時にモード別の静的字幕へ一度だけ警告して fallback する', async () => {
+    const source = await readFile(join(repositoryRoot, 'packages/preview-server/public/app.js'), 'utf8');
+    assert.match(source, /const fallbackPath = isOutputMode \? '\/captions\.output\.json' : '\/captions\.json';/u);
+    assert.match(source, /fetch\(fallbackPath\)/u);
+    assert.match(source, /lastCaptionDisplayFallbackCode !== code/u);
+    assert.match(source, /字幕の表示設定を解決できないため、設定を無視して表示しています/u);
+    assert.match(source, /applyCaptionApiPayload\(captionsBody\)/u);
 });
 
 test('scale/rotate become caption transform variables and resolved display lines are preserved', () => {
@@ -356,7 +390,7 @@ test('shell backend resolves policy while browser source contains no segmentatio
     await assert.rejects(service.resolveCaptionDisplay({
         captionsUri: pathToFileURL(captionsPath).toString(),
         editUri: pathToFileURL(editPath).toString()
-    }), /captions\[0\]\.src does not reference edit\.json sources/u);
+    }), /UNKNOWN_SOURCE: captions\[0\]\.src does not reference edit\.json sources/u);
 
     const browserSource = await readFile(join(extensionRoot, 'src', 'browser', 'akari-preview-captions.ts'), 'utf8');
     assert.doesNotMatch(browserSource, /Intl\.Segmenter/u);

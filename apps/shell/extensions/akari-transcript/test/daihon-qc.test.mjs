@@ -95,6 +95,13 @@ test('カット行の未認識は QC に数えない', () => {
     })), []);
 });
 
+test('overflow は文字数予算つきの QC チップになる', () => {
+    assert.deepEqual(rowIssues(row(), 10).find(issue => issue.kind === 'overflow'), {
+        kind: 'overflow', label: '10 字に収まらない'
+    });
+    assert.equal(rowIssues(row()).some(issue => issue.kind === 'overflow'), false);
+});
+
 test('summarizeQc は issue 合計・問題行数・kind 別件数を返す', () => {
     const rows = [
         row({ id: 'fast', text: 'あ'.repeat(9), end: 1, outEnd: 1, words: null }),
@@ -106,6 +113,17 @@ test('summarizeQc は issue 合計・問題行数・kind 別件数を返す', ()
     assert.deepEqual(summarizeQc(rows), {
         issueCount: 4,
         rowCount: 4,
-        byKind: { fast: 1, short: 1, 'karaoke-unhealthy': 1, 'karaoke-missing': 1, unrecognized: 0 }
+        byKind: {
+            fast: 1, short: 1, 'karaoke-unhealthy': 1, 'karaoke-missing': 1,
+            unrecognized: 0, overflow: 0
+        }
     });
+});
+
+test('summarizeQc は overflow 行と issue を数える', () => {
+    const rows = [row({ id: 'overflow' }), row({ id: 'ok' })];
+    const summary = summarizeQc(rows, new Map([['overflow', 12]]));
+    assert.equal(summary.issueCount, 1);
+    assert.equal(summary.rowCount, 1);
+    assert.equal(summary.byKind.overflow, 1);
 });

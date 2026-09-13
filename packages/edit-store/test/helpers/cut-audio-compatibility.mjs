@@ -15,7 +15,9 @@ export async function compatibilityFixtures() {
     for (const entry of await readdir(join(repositoryRoot, directory), { withFileTypes: true })) {
       const path = `${directory}/${entry.name}`;
       if (entry.isDirectory()) {
-        if (!entry.name.startsWith('edit-v2-cut-audio-')) await visit(path, examples);
+        if (!entry.name.startsWith('edit-v2-cut-audio-') && entry.name !== 'caption-policy-fail-open') {
+          await visit(path, examples);
+        }
       } else if (entry.name.endsWith('.json') && (!examples || entry.name === 'edit.json')) {
         const value = JSON.parse(await readFile(join(repositoryRoot, path), 'utf8'));
         if (value && !Array.isArray(value) && (!examples || validate(value))) paths.push(path);

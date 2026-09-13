@@ -89,6 +89,21 @@ test('legacy display_fragments reach page-builder as separate caption sprites', 
   ]);
 });
 
+test('display-policy overflow stays one unbroken caption sprite on the legacy GPU path', () => {
+  const captions = {
+    display_policy: {
+      mode: 'single_line_sequential', algorithm: 'a4-ja-two-fragment-v1',
+      unit_metric: 'ascii-half-other-one-v1', max_line_units: 3,
+      minimum_fragment_duration_seconds: 0.1, locale: 'en',
+    },
+    captions: [{ id: 'c-overflow', src: 'main', start: 0, end: 2, text: 'abcdefghijklmnopq' }],
+  };
+  const built = buildGpuPage({ edit, captions, projectRoot: process.cwd(), duration: 2 });
+  assert.equal(built.spriteManifest.captions.length, 1);
+  assert.match(built.spriteManifest.captions[0].html, /abcdefghijklmnopq/u);
+  assert.equal(built.spriteManifest.captions[0].html.includes('abcdefghijklmnopq'), true);
+});
+
 test('caption sprite keeps the shared word preset DOM from render-cut', () => {
   const captions = {
     emphasis_words: [{

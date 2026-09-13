@@ -1224,10 +1224,18 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
             // 単語帳は字幕表示の補助情報なので、解決・import 失敗時も従来の字幕表示を維持する。
             extraProtectedTerms = [];
         }
-        const resolved = resolveCaptionDisplay(captionsRoot, edit, {
-            output: rawEdit.output,
-            extra_protected_terms: extraProtectedTerms
-        });
+        let resolved: ReturnType<typeof resolveCaptionDisplay>;
+        try {
+            resolved = resolveCaptionDisplay(captionsRoot, edit, {
+                output: rawEdit.output,
+                extra_protected_terms: extraProtectedTerms
+            });
+        } catch (error) {
+            const code = error && typeof error === 'object' && typeof (error as { code?: unknown }).code === 'string'
+                ? (error as { code: string }).code : 'CAPTION_DISPLAY_RESOLUTION_FAILED';
+            const message = error instanceof Error ? error.message : String(error);
+            throw new Error(`${code}: ${message}`);
+        }
         if (!resolved) return null;
         const emphasisWords = resolvePreviewEmphasisWords(captionsEmphasisWords, legacyEmphasisWords);
         return { schema: resolved.schema, captions: resolved.display_cues, emphasisWords };

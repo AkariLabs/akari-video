@@ -1,5 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -18,10 +19,17 @@ import {
   resolveCaptionStyleForOutput,
   resolveCaptionWordStyleVars,
   scaleCaptionPx,
+  splitCaptionFragments,
   validateCaptionDisplayPolicy,
   validateCaptionTextStyle,
 } from '../lib/caption-display.js';
-import { resolveCaptionStylePreset, TEXTSTYLE_CATALOG } from '../lib/index.js';
+import {
+  projectLegacyEdit,
+  readInternalEdit,
+  resolveCaptionStylePreset,
+  TEXTSTYLE_CATALOG,
+  toAnchorCaptions,
+} from '../lib/index.js';
 
 const testRoot = dirname(fileURLToPath(import.meta.url));
 const styleParity = JSON.parse(await readFile(join(testRoot, 'fixtures/caption-style-validation-parity.json'), 'utf8'));
@@ -303,6 +311,57 @@ test('extra で分割不能なら extra だけ外して成功し fallback を返
   assert.deepEqual(result.word_book_fallbacks, [{ caption_id: 'c-0001', dropped_terms: ['alpha beta'] }]);
 });
 
+test('automatic splitting extends to three and six fragments at word boundaries', () => {
+  assert.deepEqual(splitCaptionFragments('aa bb cc', englishPolicy(1.5)).fragments, ['aa ', 'bb ', 'cc']);
+  assert.deepEqual(splitCaptionFragments('aa bb cc dd ee ff', englishPolicy(1.5)).fragments,
+    ['aa ', 'bb ', 'cc ', 'dd ', 'ee ', 'ff']);
+});
+
+test('the existing two-fragment choice and serialized result remain byte-identical', () => {
+  const split = splitCaptionFragments('one two three', {
+    ...englishPolicy(4.5),
+    break_hints: { preferred_second_starts: ['two'] },
+  });
+  assert.equal(JSON.stringify(split), JSON.stringify({
+    fragments: ['one ', 'two three'], boundaries: [3, 4, 7, 8],
+  }));
+  assert.equal(Object.hasOwn(split, 'overflow'), false);
+});
+
+test('no usable boundary or more than six fragments fail open as one overflow cue', () => {
+  for (const [text, maxLineUnits] of [
+    ['abcdefghijklmnopq', 4],
+    ['aa bb cc dd ee ff gg', 1.5],
+  ]) {
+    const result = resolveCaptionDisplay(wordBookRoot(text, maxLineUnits), { cuts: [{ in: 0, out: 2 }] });
+    assert.equal(result.display_cue_count, 1);
+    assert.equal(result.display_cues[0].text, text);
+    assert.deepEqual(result.display_cues[0].overflow, {
+      code: 'NO_WORD_BOUNDARY_SPLIT', units: maxLineUnits,
+    });
+  }
+});
+
+test('invalid manual fragments fail open as the unbroken source line', () => {
+  for (const display_fragments of [
+    null,
+    [],
+    [''],
+    ['alpha beta'],
+    ['alpha', ' wrong'],
+    ['a', 'l', 'p', 'h', 'a', ' ', 'beta'],
+  ]) {
+    const root = wordBookRoot('alpha beta', 3);
+    root.captions[0].display_fragments = display_fragments;
+    const result = resolveCaptionDisplay(root, { cuts: [{ in: 0, out: 2 }] });
+    assert.equal(result.display_cue_count, 1);
+    assert.equal(result.display_cues[0].text, 'alpha beta');
+    assert.deepEqual(result.display_cues[0].overflow, {
+      code: 'INVALID_MANUAL_FRAGMENTS', units: 3,
+    });
+  }
+});
+
 test('fallback の dropped_terms は入力順・重複除去・本文出現だけを保つ', () => {
   const result = resolveCaptionDisplay(wordBookRoot('alpha beta'), { cuts: [{ in: 0, out: 2 }] }, {
     extra_protected_terms: ['missing', 'alpha beta', 'alpha beta'],
@@ -310,22 +369,26 @@ test('fallback の dropped_terms は入力順・重複除去・本文出現だ�
   assert.deepEqual(result.word_book_fallbacks, [{ caption_id: 'c-0001', dropped_terms: ['alpha beta'] }]);
 });
 
-test('policy 明示の protected_terms だけで不能なら従来どおり throw する', () => {
-  assert.throws(
-    () => resolveCaptionDisplay(wordBookRoot('alpha beta', 3, ['alpha beta']), { cuts: [{ in: 0, out: 2 }] }),
-    error => error instanceof CaptionDisplayError && error.code === 'NO_WORD_BOUNDARY_SPLIT',
+test('policy 明示の protected_terms だけで不能なら overflow で原文を残す', () => {
+  const result = resolveCaptionDisplay(
+    wordBookRoot('alpha beta', 3, ['alpha beta']), { cuts: [{ in: 0, out: 2 }] }
   );
+  assert.equal(result.display_cues[0].text, 'alpha beta');
+  assert.deepEqual(result.display_cues[0].overflow, {
+    code: 'NO_WORD_BOUNDARY_SPLIT', units: 3,
+  });
+  assert.deepEqual(result.word_book_fallbacks, []);
 });
 
-test('本文が二行上限を超える :660 の失敗は extra があっても再試行しない', () => {
-  assert.throws(
-    () => resolveCaptionDisplay(wordBookRoot('abcdefghijklm', 3), { cuts: [{ in: 0, out: 2 }] }, {
-      extra_protected_terms: ['abc'],
-    }),
-    error => error instanceof CaptionDisplayError
-      && error.code === 'NO_WORD_BOUNDARY_SPLIT'
-      && /cannot fit in two/u.test(error.message),
-  );
+test('六断片でも収まらない本文は extra があっても overflow で原文を残す', () => {
+  const result = resolveCaptionDisplay(wordBookRoot('abcdefghijklm', 3), { cuts: [{ in: 0, out: 2 }] }, {
+    extra_protected_terms: ['abc'],
+  });
+  assert.equal(result.display_cues[0].text, 'abcdefghijklm');
+  assert.deepEqual(result.display_cues[0].overflow, {
+    code: 'NO_WORD_BOUNDARY_SPLIT', units: 3,
+  });
+  assert.deepEqual(result.word_book_fallbacks, []);
 });
 
 test('不正な extra_protected_terms は INVALID_POLICY', () => {
@@ -452,7 +515,7 @@ test('source reference validation is driven by normalized sources, not edit.vers
   );
 });
 
-test('accepts at/track projection and fails closed for transitions, normalization, style, overlap, and impossible split', () => {
+test('accepts at/track projection, fails closed for structural errors, and fails open for impossible splits', () => {
   const base = { display_policy: policy, captions: [caption('c-0001', 0, 1, '正常です')] };
   assert.equal(resolveCaptionDisplay(base, { cuts: [{ in: 0, out: 1, at: 0, track: 0 }] }).occurrence_count, 1);
   assert.throws(() => resolveCaptionDisplay(base, { cuts: [{ in: 0, out: 1, transition_out: null }] }), /does not support/);
@@ -462,7 +525,38 @@ test('accepts at/track projection and fails closed for transitions, normalizatio
   assert.throws(() => resolveCaptionDisplay(base, { cuts: [], emphasis_words: [{ t_start: 0.2, t_end: 0.4 }] }), /emphasis_words cannot act/);
   assert.throws(() => resolveCaptionDisplay({ ...base, captions: [caption('c-0001', -1, 1, '範囲不正')] }, { cuts: [] }), /0 <= start < end/);
   assert.throws(() => resolveCaptionDisplay({ ...base, captions: [caption('c-0001', 0, 2, '重なり'), caption('c-0002', 1, 3, '重なる')] }, { cuts: [] }), /overlap/);
-  assert.throws(() => resolveCaptionDisplay({ ...base, captions: [caption('c-0001', 0, 1, 'abcdefghijklmnopq')] }, { cuts: [] }), /provide display_fragments/);
+  assert.deepEqual(
+    resolveCaptionDisplay({ ...base, captions: [caption('c-0001', 0, 1, 'abcdefghijklmnopq')] }, { cuts: [] })
+      .display_cues[0].overflow,
+    { code: 'NO_WORD_BOUNDARY_SPLIT', units: policy.max_line_units },
+  );
+});
+
+test('owner max-10 fixture keeps all occurrences and max-18 remains byte-identical', async () => {
+  const fixtureRoot = join(testRoot, 'fixtures/caption-policy-fail-open');
+  const captionsRoot = JSON.parse(await readFile(join(fixtureRoot, 'captions-max10.json'), 'utf8'));
+  const rawEdit = JSON.parse(await readFile(join(fixtureRoot, 'edit.json'), 'utf8'));
+  const internal = readInternalEdit(rawEdit, { captions: toAnchorCaptions(captionsRoot) });
+  const legacy = projectLegacyEdit(internal);
+  const edit = {
+    output: internal.output,
+    sources: internal.sources.map(source => ({ id: source.id, path: source.path })),
+    cuts: legacy.cuts,
+  };
+
+  const max10 = resolveCaptionDisplay(captionsRoot, edit, { output: rawEdit.output });
+  assert.equal(max10.occurrence_count, 8);
+  assert.ok(max10.display_cue_count >= 8);
+  assert.equal(new Set(max10.display_cues.map(cue => cue.source_cue_id)).size, 8);
+
+  const max18 = resolveCaptionDisplay({
+    ...captionsRoot,
+    display_policy: { ...captionsRoot.display_policy, max_line_units: 18 },
+  }, edit, { output: rawEdit.output });
+  assert.equal(createHash('sha256').update(JSON.stringify(max18)).digest('hex'),
+    '016f543be70bf584db0161d3fd4d657e8753b002d22bf1ed5e31d52c80036772');
+  assert.equal(max18.display_cue_count, 8);
+  assert.ok(max18.display_cues.every(cue => !Object.hasOwn(cue, 'overflow')));
 });
 
 test('(a) same cue is deduped on overlapping tracks while non-overlapping occurrences remain', () => {

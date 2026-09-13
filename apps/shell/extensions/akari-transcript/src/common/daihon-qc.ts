@@ -5,7 +5,7 @@ export const DAIHON_QC_THRESHOLDS = {
     minDurationSec: 0.6
 } as const;
 
-export type DaihonQcIssueKind = 'fast' | 'short' | 'karaoke-unhealthy' | 'karaoke-missing' | 'unrecognized';
+export type DaihonQcIssueKind = 'fast' | 'short' | 'karaoke-unhealthy' | 'karaoke-missing' | 'unrecognized' | 'overflow';
 
 export interface DaihonQcIssue {
     kind: DaihonQcIssueKind;
@@ -13,7 +13,7 @@ export interface DaihonQcIssue {
 }
 
 const QC_KINDS: readonly DaihonQcIssueKind[] = [
-    'fast', 'short', 'karaoke-unhealthy', 'karaoke-missing', 'unrecognized'
+    'fast', 'short', 'karaoke-unhealthy', 'karaoke-missing', 'unrecognized', 'overflow'
 ];
 
 function visibleText(text: string): string {
@@ -24,9 +24,12 @@ export function visibleLength(text: string): number {
     return text.replace(/[\s\p{P}]/gu, '').length;
 }
 
-export function rowIssues(row: DaihonRow): DaihonQcIssue[] {
+export function rowIssues(row: DaihonRow, overflowUnits?: number): DaihonQcIssue[] {
     if (row.outStart === null) return [];
     const issues: DaihonQcIssue[] = [];
+    if (typeof overflowUnits === 'number' && Number.isFinite(overflowUnits) && overflowUnits > 0) {
+        issues.push({ kind: 'overflow', label: `${overflowUnits} 字に収まらない` });
+    }
     if (row.unrecognized.length > 0) {
         const count = row.unrecognized.length;
         issues.push({ kind: 'unrecognized', label: count > 1 ? `?? 未認識 ×${count}` : '?? 未認識' });
@@ -58,7 +61,7 @@ export function rowIssues(row: DaihonRow): DaihonQcIssue[] {
     return issues;
 }
 
-export function summarizeQc(rows: readonly DaihonRow[]): {
+export function summarizeQc(rows: readonly DaihonRow[], overflowUnitsById: ReadonlyMap<string, number> = new Map()): {
     issueCount: number;
     rowCount: number;
     byKind: Record<DaihonQcIssueKind, number>;
@@ -67,7 +70,7 @@ export function summarizeQc(rows: readonly DaihonRow[]): {
     let issueCount = 0;
     let rowCount = 0;
     for (const row of rows) {
-        const issues = rowIssues(row);
+        const issues = rowIssues(row, overflowUnitsById.get(row.id));
         if (issues.length > 0) rowCount++;
         issueCount += issues.length;
         for (const issue of issues) byKind[issue.kind]++;
