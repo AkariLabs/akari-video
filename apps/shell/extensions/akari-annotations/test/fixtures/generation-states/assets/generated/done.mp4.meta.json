@@ -1,0 +1,86 @@
+{
+  "version": 1,
+  "kind": "video",
+  "status": "done",
+  "model": {
+    "id": "fal:h3-i2v",
+    "endpoint": "minimax/h3/image-to-video",
+    "as_of": "2026-09-12"
+  },
+  "inputs": {
+    "prompt": "[Tracking shot] A person stands up from a dim night desk and walks toward warm window light. The camera follows them from behind at a steady pace. The shot ends outdoors in a sunlit garden, seen from behind a small child. Quiet, calm, no text on screen.",
+    "negative_prompt": null,
+    "first_frame": {
+      "path": "assets/generated/generating.png",
+      "sha256": "a8c3de39e178bc1aa482ad016eafe1e151a279dd96d5412594f9d23ab4824ee6",
+      "source_id": null
+    },
+    "last_frame": {
+      "path": "assets/generated/stale.png",
+      "sha256": "6bcad5e4188f7a60a41d244a891bad4fd4f6b8ed3c9b3e8bad8059c4b03ee4a8",
+      "source_id": null
+    },
+    "reference_images": [],
+    "reference_videos": [],
+    "reference_audios": [],
+    "source_video": null,
+    "camera": {
+      "notation": "bracket",
+      "value": "[Tracking shot]",
+      "from_annotation": null
+    },
+    "seed": null
+  },
+  "output": {
+    "duration_s": 6,
+    "resolution": "768P",
+    "aspect": null,
+    "audio_out": null
+  },
+  "cost": {
+    "estimate_usd": 0.36,
+    "actual_usd": null,
+    "unit": "usd_per_second",
+    "source": "estimate"
+  },
+  "provenance": {
+    "created_at": "2026-09-13T09:44:37.328Z",
+    "tool": "lab/2026-09-13-w0-spikes/spike1-h3-first-last.mjs",
+    "key_source": "env:FAL_KEY",
+    "request_id": null,
+    "provider_request_id": "01a09a27-e54c-7551-b6e6-51d97b665664"
+  },
+  "job": {
+    "provider": "fal",
+    "request_id": "01a09a27-e54c-7551-b6e6-51d97b665664",
+    "status_url": "https://queue.fal.run/minimax/h3/requests/01a09a27-e54c-7551-b6e6-51d97b665664/status",
+    "response_url": "https://queue.fal.run/minimax/h3/requests/01a09a27-e54c-7551-b6e6-51d97b665664",
+    "started_at": "2026-09-13T09:44:37.328Z",
+    "stale_after_s": 900
+  },
+  "result": {
+    "path": "assets/generated/done.mp4",
+    "sha256": "6a46eaa0b55a4319abd23e67c7360245a404630a81385f20612a6faeb6c724f8",
+    "bytes": 4817489,
+    "duration_s_actual": 6.592,
+    "width": 1344,
+    "height": 768,
+    "fps": "24/1",
+    "has_audio": true,
+    "provider_file": {
+      "url_expires": true,
+      "file_name": "3sb9lYHq8tgnKyFguN_qN_minimax-h3.mp4",
+      "content_type": "video/mp4",
+      "file_size": 4817489
+    },
+    "expanded_prompt": "How the reference pictures align with the target video — Picture 1 (from Shot 1) aligns with the 0.00-second mark of the target video; Picture 2 (from Shot 1) aligns with the 6.58-second mark of the target video.\n\nintegrated_multimodal_description: [Shot 1] This is a live-action, cinematic tracking shot. In the foreground, a woman in a white shirt and dark trousers stands by a wooden desk in a dimly lit office, her left hand resting on a black leather chair and her right hand holding a dark jacket. She looks out a large window at a golden city sunset. Early in the clip, she releases the chair and takes her first steps toward the glowing window. The camera pushes in steadily behind her, following her path. As she walks, the scene undergoes a fluid, continuous transition. The warm golden light from the window flares and expands, enveloping the frame as the office walls, the desk, and the distant skyline gently dissolve into a bright, sunlit outdoor garden. Simultaneously, the woman's attire seamlessly shifts from her office wear into a casual green dress, and her loose wavy hair gathers up into a relaxed bun. She slows her forward momentum and gently lowers herself to kneel on the soft grass. Toward the end of the clip, two young children—a boy in a grey t-shirt and a girl in a light floral dress—dart playfully into view, running barefoot across the lawn toward a spinning water sprinkler in the golden afternoon sunlight, as the woman watches them from her seated position.\n\noverall_soundscape: The ambient soundscape begins with the quiet, muffled hum of a high-rise office. A soft rustle of fabric and a faint leather creak are clearly heard as the woman releases the chair, followed by the distinct, rhythmic clicking of footsteps on a hard floor. As the light flares, a gentle, sweeping whoosh marks the environment's transformation, which transitions into the vibrant outdoor ambiance of chirping birds and a gentle breeze. The steady, spraying hiss of a water sprinkler becomes dominant in the foreground, accompanied by the rapid, soft thuds of bare feet on grass and the joyful, distant giggles of children running.\n\nnon_diegetic_music: A calm, serene ambient instrumental track plays throughout, featuring slow, warm synthesizer pads that swell subtly during the visual transition.",
+    "elapsed_s": 206
+  },
+  "history": [
+    {
+      "at": "2026-09-13T09:48:03.315Z",
+      "status": "done",
+      "reason": null
+    }
+  ]
+}

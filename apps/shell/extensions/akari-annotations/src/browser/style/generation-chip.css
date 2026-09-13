@@ -1,0 +1,80 @@
+.akari-generation-none {
+    border-color: var(--theia-editorInfo-foreground, #3794ff) !important;
+}
+
+.akari-generation-planned {
+    border-style: dashed !important;
+    opacity: .58;
+}
+
+.akari-generation-generating,
+.akari-generation-stale {
+    border-color: var(--theia-editorWarning-foreground, #f5c842) !important;
+    background-image: repeating-linear-gradient(
+        135deg,
+        color-mix(in srgb, var(--theia-editorWarning-foreground, #f5c842) 11%, transparent) 0 6px,
+        color-mix(in srgb, var(--theia-editorWarning-foreground, #f5c842) 20%, transparent) 6px 12px
+    ) !important;
+}
+
+.akari-generation-failed {
+    border-color: var(--theia-editorError-foreground, #d6402b) !important;
+}
+
+.akari-generation-badge {
+    position: absolute;
+    top: 3px;
+    right: 5px;
+    z-index: 4;
+    max-width: calc(100% - 10px);
+    overflow: hidden;
+    color: var(--theia-descriptionForeground);
+    font-size: 9px;
+    line-height: 14px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    pointer-events: none;
+}
+
+.akari-generation-none .akari-generation-badge {
+    color: var(--theia-editorInfo-foreground, #3794ff);
+}
+
+.akari-generation-generating .akari-generation-badge,
+.akari-generation-stale .akari-generation-badge {
+    color: var(--theia-editorWarning-foreground, #f5c842);
+}
+
+.akari-generation-failed .akari-generation-badge {
+    color: var(--theia-editorError-foreground, #d6402b);
+}
+
+.akari-generation-progress {
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    z-index: 4;
+    height: 3px;
+    max-width: 100%;
+    background: var(--theia-editorWarning-foreground, #f5c842);
+    pointer-events: none;
+}
+
+.akari-generation-progress-indeterminate {
+    width: 35%;
+    background: repeating-linear-gradient(
+        90deg,
+        var(--theia-editorWarning-foreground, #f5c842) 0 6px,
+        transparent 6px 10px
+    );
+    animation: akari-generation-progress-slide 1s linear infinite;
+}
+
+@keyframes akari-generation-progress-slide {
+    from { transform: translateX(-100%); }
+    to { transform: translateX(286%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .akari-generation-progress-indeterminate { animation: none; }
+}

@@ -1,5 +1,6 @@
 import type { EditAudioKeyframe, TransitionType } from '@akari-video/edit-store';
 import type { CaptionDisplayPolicy, CaptionTextStyle } from '@akari-video/edit-store';
+import type { GenerationSidecarMeta } from './generation-sidecar';
 
 export const AKARI_ANNOTATIONS_SERVICE_PATH = '/services/akari-annotations';
 export const AkariAnnotationsService = Symbol('AkariAnnotationsService');
@@ -33,6 +34,15 @@ export interface GetClipThumbnailResult {
     status: 'ready' | 'unavailable';
     dataUri?: string;
     reason?: MediaUnavailableReason;
+}
+
+export interface ReadGenerationSidecarsRequest {
+    projectRootUri: string;
+    sourcePaths: string[];
+}
+
+export interface ReadGenerationSidecarsResult {
+    entries: Array<{ sourcePath: string; meta: GenerationSidecarMeta }>;
 }
 
 export interface GetClipFilmstripChunkRequest {
@@ -709,6 +719,7 @@ export interface RemoveSfxResult extends DeleteArrayItemResult {
 export interface AkariAnnotationsService {
     setClient(client: AkariAnnotationsClient | undefined): void;
     getClipThumbnail(request: GetClipThumbnailRequest): Promise<GetClipThumbnailResult>;
+    readGenerationSidecars(request: ReadGenerationSidecarsRequest): Promise<ReadGenerationSidecarsResult>;
     getClipFilmstripChunk(request: GetClipFilmstripChunkRequest): Promise<GetClipFilmstripChunkResult>;
     getClipWaveform(request: GetClipWaveformRequest): Promise<GetClipWaveformResult>;
     getAudioDuration(request: GetAudioDurationRequest): Promise<GetAudioDurationResult>;

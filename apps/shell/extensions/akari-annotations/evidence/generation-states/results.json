@@ -1,0 +1,294 @@
+{
+  "status": "pass",
+  "steps": [
+    {
+      "name": "1. 映像トラックの 6 クリップが 6 種の生成状態を出す",
+      "pass": true,
+      "detail": {
+        "clips": [
+          {
+            "id": "0",
+            "label": "still.png",
+            "state": "none",
+            "badge": "静止画",
+            "badgeColor": "rgb(89, 164, 249)",
+            "borderStyle": "solid",
+            "borderColor": "rgb(89, 164, 249)",
+            "opacity": "1",
+            "progress": null
+          },
+          {
+            "id": "1",
+            "label": "planned.png",
+            "state": "planned",
+            "badge": "planned",
+            "badgeColor": "rgba(204, 204, 204, 0.7)",
+            "borderStyle": "dashed",
+            "borderColor": "rgb(63, 63, 70)",
+            "opacity": "0.58",
+            "progress": null
+          },
+          {
+            "id": "2",
+            "label": "generating.png",
+            "state": "generating",
+            "badge": "生成中 62%",
+            "badgeColor": "rgb(204, 167, 0)",
+            "borderStyle": "solid",
+            "borderColor": "rgb(204, 167, 0)",
+            "opacity": "1",
+            "progress": {
+              "width": "62%",
+              "value": "62",
+              "className": "akari-generation-progress",
+              "background": "rgb(204, 167, 0)",
+              "height": "3px"
+            }
+          },
+          {
+            "id": "3",
+            "label": "stale.png",
+            "state": "stale",
+            "badge": "応答なし・再取得",
+            "badgeColor": "rgb(204, 167, 0)",
+            "borderStyle": "solid",
+            "borderColor": "rgb(204, 167, 0)",
+            "opacity": "1",
+            "progress": null
+          },
+          {
+            "id": "4",
+            "label": "done.mp4",
+            "state": "done",
+            "badge": "生成",
+            "badgeColor": "rgba(204, 204, 204, 0.7)",
+            "borderStyle": "solid",
+            "borderColor": "rgb(63, 63, 70)",
+            "opacity": "1",
+            "progress": null
+          },
+          {
+            "id": "5",
+            "label": "failed.png",
+            "state": "failed",
+            "badge": "失敗",
+            "badgeColor": "rgb(241, 76, 76)",
+            "borderStyle": "solid",
+            "borderColor": "rgb(241, 76, 76)",
+            "opacity": "1",
+            "progress": null
+          }
+        ]
+      }
+    },
+    {
+      "name": "2. planned のサイドカーを failed へ書き換えると 1 秒以内にチップが変わる",
+      "pass": true,
+      "detail": {
+        "watch": {
+          "baseline": {
+            "state": "planned",
+            "className": "akari-annotations-strip-clip akari-generation-planned akari-annotations-strip-hit-target",
+            "badge": "planned"
+          },
+          "reached": {
+            "state": "failed",
+            "badge": "失敗",
+            "className": "akari-annotations-strip-clip akari-generation-failed akari-annotations-strip-hit-target"
+          },
+          "msFromWrite": 17.6,
+          "changes": [
+            {
+              "state": "failed",
+              "badge": "失敗"
+            }
+          ]
+        },
+        "afterStates": [
+          {
+            "label": "still.png",
+            "state": "none",
+            "badge": "静止画"
+          },
+          {
+            "label": "planned.png",
+            "state": "failed",
+            "badge": "失敗"
+          },
+          {
+            "label": "generating.png",
+            "state": "generating",
+            "badge": "生成中 62%"
+          },
+          {
+            "label": "stale.png",
+            "state": "stale",
+            "badge": "応答なし・再取得"
+          },
+          {
+            "label": "done.mp4",
+            "state": "done",
+            "badge": "生成"
+          },
+          {
+            "label": "failed.png",
+            "state": "failed",
+            "badge": "失敗"
+          }
+        ]
+      }
+    },
+    {
+      "name": "3. 生成状態の表示は edit.json / captions.json を 1 バイトも書かない",
+      "pass": true,
+      "detail": {
+        "mtimesBefore": {
+          "edit": 1789302021787.2056,
+          "captions": 1789302021787.6309
+        },
+        "mtimesAfter": {
+          "edit": 1789302021787.2056,
+          "captions": 1789302021787.6309
+        }
+      }
+    }
+  ],
+  "screenshots": [
+    "01-six-generation-states.png",
+    "02-before-sidecar-rewrite.png",
+    "03-after-sidecar-rewrite.png"
+  ],
+  "cleanup": {
+    "killedPid": 12697,
+    "survivingProcesses": 0,
+    "survivingBackendMain": 0
+  },
+  "fixture": {
+    "ok": true,
+    "states": [
+      "still",
+      "planned",
+      "generating",
+      "stale",
+      "done",
+      "failed"
+    ],
+    "sidecars": [
+      "planned.png",
+      "generating.png",
+      "stale.png",
+      "failed.png",
+      "done.mp4"
+    ],
+    "stillWithoutSidecar": "still.png",
+    "clipFrames": 60,
+    "fps": 30
+  },
+  "preloadOverlay": "removed",
+  "expected": [
+    {
+      "label": "still.png",
+      "state": "none",
+      "badge": "静止画"
+    },
+    {
+      "label": "planned.png",
+      "state": "planned",
+      "badge": "planned"
+    },
+    {
+      "label": "generating.png",
+      "state": "generating",
+      "badge": "生成中 62%"
+    },
+    {
+      "label": "stale.png",
+      "state": "stale",
+      "badge": "応答なし・再取得"
+    },
+    {
+      "label": "done.mp4",
+      "state": "done",
+      "badge": "生成"
+    },
+    {
+      "label": "failed.png",
+      "state": "failed",
+      "badge": "失敗"
+    }
+  ],
+  "sixStates": [
+    {
+      "id": "0",
+      "label": "still.png",
+      "state": "none",
+      "badge": "静止画",
+      "badgeColor": "rgb(89, 164, 249)",
+      "borderStyle": "solid",
+      "borderColor": "rgb(89, 164, 249)",
+      "opacity": "1",
+      "progress": null
+    },
+    {
+      "id": "1",
+      "label": "planned.png",
+      "state": "planned",
+      "badge": "planned",
+      "badgeColor": "rgba(204, 204, 204, 0.7)",
+      "borderStyle": "dashed",
+      "borderColor": "rgb(63, 63, 70)",
+      "opacity": "0.58",
+      "progress": null
+    },
+    {
+      "id": "2",
+      "label": "generating.png",
+      "state": "generating",
+      "badge": "生成中 62%",
+      "badgeColor": "rgb(204, 167, 0)",
+      "borderStyle": "solid",
+      "borderColor": "rgb(204, 167, 0)",
+      "opacity": "1",
+      "progress": {
+        "width": "62%",
+        "value": "62",
+        "className": "akari-generation-progress",
+        "background": "rgb(204, 167, 0)",
+        "height": "3px"
+      }
+    },
+    {
+      "id": "3",
+      "label": "stale.png",
+      "state": "stale",
+      "badge": "応答なし・再取得",
+      "badgeColor": "rgb(204, 167, 0)",
+      "borderStyle": "solid",
+      "borderColor": "rgb(204, 167, 0)",
+      "opacity": "1",
+      "progress": null
+    },
+    {
+      "id": "4",
+      "label": "done.mp4",
+      "state": "done",
+      "badge": "生成",
+      "badgeColor": "rgba(204, 204, 204, 0.7)",
+      "borderStyle": "solid",
+      "borderColor": "rgb(63, 63, 70)",
+      "opacity": "1",
+      "progress": null
+    },
+    {
+      "id": "5",
+      "label": "failed.png",
+      "state": "failed",
+      "badge": "失敗",
+      "badgeColor": "rgb(241, 76, 76)",
+      "borderStyle": "solid",
+      "borderColor": "rgb(241, 76, 76)",
+      "opacity": "1",
+      "progress": null
+    }
+  ]
+}

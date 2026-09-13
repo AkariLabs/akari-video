@@ -1,0 +1,44 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+
+import {
+  describeGenerationChip, resolveGenerationState, sidecarPathFor
+} from '../lib/common/generation-sidecar.js';
+
+const startedAt = Date.parse('2026-09-13T00:00:00.000Z');
+const cases = [
+  ['none', undefined, startedAt, 'none', '静止画'],
+  ['planned', { kind: 'still', status: 'planned' }, startedAt, 'planned', 'planned'],
+  ['generating', { kind: 'still', status: 'generating', progress: 62,
+    job: { started_at: '2026-09-13T00:00:00.000Z', stale_after_s: 900 } }, startedAt + 1000,
+  'generating', '生成中 62%'],
+  ['stale', { kind: 'still', status: 'generating',
+    job: { started_at: '2026-09-13T00:00:00.000Z', stale_after_s: 900 } }, startedAt + 901000,
+  'stale', '応答なし・再取得'],
+  ['done', { kind: 'video', status: 'done' }, startedAt, 'done', '生成'],
+  ['failed', { kind: 'still', status: 'failed' }, startedAt, 'failed', '失敗']
+];
+
+test('6 状態を契約語彙と表示文言へ写像する', () => {
+  for (const [name, meta, now, expectedState, badge] of cases) {
+    const state = resolveGenerationState(meta, now);
+    assert.equal(state, expectedState, name);
+    assert.equal(describeGenerationChip(state, meta).badge, badge, name);
+  }
+  assert.equal(sidecarPathFor('assets/generated/a.mp4'), 'assets/generated/a.mp4.meta.json');
+});
+
+test('stale は stale_after_s を超えたときだけ成立する', () => {
+  const meta = { status: 'generating', job: {
+    started_at: '2026-09-13T00:00:00.000Z', stale_after_s: 900
+  } };
+  assert.equal(resolveGenerationState(meta, startedAt + 899000), 'generating', '境界 -1 秒');
+  assert.equal(resolveGenerationState(meta, startedAt + 900000), 'generating', '境界ちょうど');
+  assert.equal(resolveGenerationState(meta, startedAt + 901000), 'stale', '境界 +1 秒');
+});
+
+test('progress が無い generating は不定バー用に undefined を返す', () => {
+  const description = describeGenerationChip('generating', { status: 'generating' });
+  assert.equal(description.badge, '生成中');
+  assert.equal(description.progress, undefined);
+});

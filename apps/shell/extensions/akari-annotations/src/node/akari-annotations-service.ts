@@ -39,6 +39,8 @@ import {
     ProbeSourceDimensionsResult,
     ProbeSourceHasAudioRequest,
     ProbeSourceHasAudioResult,
+    ReadGenerationSidecarsRequest,
+    ReadGenerationSidecarsResult,
     GetClipFilmstripChunkRequest,
     GetClipFilmstripChunkResult,
     GetClipThumbnailRequest,
@@ -101,6 +103,7 @@ import {
 import type { SetAudioDuckRequest, SetAudioKeyframesRequest } from '../common/akari-annotations-protocol';
 import type { MeasureAudioForLevelRequest, MeasureAudioForLevelResult } from '../common/akari-annotations-protocol';
 import * as mediaCache from './media-cache';
+import type { GenerationSidecarMeta } from '../common/generation-sidecar';
 import { measureAudioForLevel } from './audio-level-resolver';
 import { setSfxFadeInSource } from '../common/sfx-fade-store';
 import { setAudioDuckInSource, setAudioKeyframesInSource } from '../common/audio-envelope-store';
@@ -205,6 +208,46 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         return mediaCache.getClipThumbnail(
             this.fsPath(request.projectRootUri), this.fsPath(request.videoUri), request.atSeconds
         );
+    }
+
+    async readGenerationSidecars(request: ReadGenerationSidecarsRequest): Promise<ReadGenerationSidecarsResult> {
+        if (!request?.projectRootUri || !Array.isArray(request.sourcePaths)) return { entries: [] };
+        const root = resolve(this.fsPath(request.projectRootUri));
+        const candidates = new Map<string, string>();
+        for (const sourcePath of request.sourcePaths) {
+            if (typeof sourcePath !== 'string' || !sourcePath.trim()) continue;
+            const sourceFsPath = /^[a-z][a-z\d+.-]*:/iu.test(sourcePath) && !/^[a-z]:[\\/]/iu.test(sourcePath)
+                ? this.fsPath(sourcePath) : sourcePath;
+            const absolute = isAbsolute(sourceFsPath) ? resolve(sourceFsPath) : resolve(root, sourceFsPath);
+            candidates.set(sourcePath, `${absolute}.meta.json`);
+        }
+        const generatedRoot = join(root, 'assets', 'generated');
+        const visit = async (directory: string): Promise<void> => {
+            let entries: import('fs').Dirent[];
+            try {
+                entries = await fs.readdir(directory, { withFileTypes: true });
+            } catch {
+                return;
+            }
+            await Promise.all(entries.map(async entry => {
+                const path = join(directory, entry.name);
+                if (entry.isDirectory()) return visit(path);
+                if (!entry.isFile() || !entry.name.endsWith('.meta.json')) return;
+                const sourcePath = relative(root, path.slice(0, -'.meta.json'.length)).split(sep).join('/');
+                if (!candidates.has(sourcePath)) candidates.set(sourcePath, path);
+            }));
+        };
+        await visit(generatedRoot);
+        const loaded = await Promise.all([...candidates].map(async ([sourcePath, path]) => {
+            try {
+                const parsed = JSON.parse(await fs.readFile(path, 'utf8')) as unknown;
+                return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+                    ? { sourcePath, meta: parsed as GenerationSidecarMeta } : undefined;
+            } catch {
+                return undefined;
+            }
+        }));
+        return { entries: loaded.filter((entry): entry is { sourcePath: string; meta: GenerationSidecarMeta } => !!entry) };
     }
 
     async getClipFilmstripChunk(request: GetClipFilmstripChunkRequest): Promise<GetClipFilmstripChunkResult> {
