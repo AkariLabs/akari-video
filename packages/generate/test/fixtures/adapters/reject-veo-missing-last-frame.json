@@ -1,0 +1,9 @@
+{
+  "ok": false,
+  "rejected": [
+    {
+      "slot": "last_frame",
+      "reason": "required by this model"
+    }
+  ]
+}

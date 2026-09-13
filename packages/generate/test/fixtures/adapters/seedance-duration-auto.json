@@ -1,0 +1,11 @@
+{
+  "ok": true,
+  "endpoint": "bytedance/seedance-2.0/image-to-video",
+  "body": {
+    "prompt": "A paper bird glides across the room.",
+    "image_url": "https://example.invalid/assets/stills/paper-bird.png",
+    "duration": "auto",
+    "resolution": "720p",
+    "aspect_ratio": "16:9"
+  }
+}

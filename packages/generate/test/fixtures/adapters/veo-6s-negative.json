@@ -1,0 +1,13 @@
+{
+  "ok": true,
+  "endpoint": "fal-ai/veo3.1/first-last-frame-to-video",
+  "body": {
+    "prompt": "Clouds part above a mountain lake.",
+    "negative_prompt": "text, watermark",
+    "first_frame_url": "https://example.invalid/assets/stills/lake-cloudy.png",
+    "last_frame_url": "https://example.invalid/assets/stills/lake-sunrise.png",
+    "seed": 42,
+    "duration": "6s",
+    "resolution": "1080p"
+  }
+}

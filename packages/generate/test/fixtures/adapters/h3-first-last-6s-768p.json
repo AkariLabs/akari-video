@@ -1,0 +1,11 @@
+{
+  "ok": true,
+  "endpoint": "minimax/h3/image-to-video",
+  "body": {
+    "prompt": "[Tracking shot] A person stands up from a dim night desk and walks toward warm window light.",
+    "image_url": "https://example.invalid/assets/stills/s03-leaving-desk.png",
+    "end_image_url": "https://example.invalid/assets/stills/s03-family-garden.png",
+    "duration": 6,
+    "resolution": "768P"
+  }
+}
