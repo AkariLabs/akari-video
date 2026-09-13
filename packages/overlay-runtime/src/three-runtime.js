@@ -25,6 +25,8 @@ window.akari.threeRuntime = (() => {
     "model",
     "camera",
     "environment",
+    "fog",
+    "background",
     "lights",
     "animationClip",
     "materialOverrides",
@@ -598,6 +600,44 @@ window.akari.threeRuntime = (() => {
       if (descriptor.environment.map !== undefined
         && (typeof descriptor.environment.map !== "string" || descriptor.environment.map.length === 0)) {
         throw new TypeError("environment.map は正距円筒画像の URL である必要があります");
+      }
+    }
+    if (descriptor.background !== undefined) {
+      if (!descriptor.background
+        || typeof descriptor.background !== "object"
+        || Array.isArray(descriptor.background)
+        || Object.keys(descriptor.background).some((key) => key !== "color")) {
+        throw new TypeError("background は color を指定する object である必要があります");
+      }
+      if (typeof descriptor.background.color !== "string"
+        || !/^#[0-9a-fA-F]{6}$/.test(descriptor.background.color)) {
+        throw new TypeError("background.color は 6 桁 hex 色である必要があります");
+      }
+    }
+    if (descriptor.fog !== undefined) {
+      if (!descriptor.fog
+        || typeof descriptor.fog !== "object"
+        || Array.isArray(descriptor.fog)
+        || Object.keys(descriptor.fog).some(
+          (key) => key !== "color" && key !== "near" && key !== "far" && key !== "density"
+        )) {
+        throw new TypeError("fog は color / near / far / density を指定する object である必要があります");
+      }
+      if (typeof descriptor.fog.color !== "string"
+        || !/^#[0-9a-fA-F]{6}$/.test(descriptor.fog.color)) {
+        throw new TypeError("fog.color は 6 桁 hex 色である必要があります");
+      }
+      if (descriptor.fog.density !== undefined) {
+        if (descriptor.fog.near !== undefined || descriptor.fog.far !== undefined) {
+          throw new TypeError("fog.density は near / far と併記できません");
+        }
+        if (!Number.isFinite(descriptor.fog.density) || descriptor.fog.density <= 0) {
+          throw new TypeError("fog.density は正の有限数である必要があります");
+        }
+      } else if (!Number.isFinite(descriptor.fog.near)
+        || !Number.isFinite(descriptor.fog.far)
+        || descriptor.fog.near >= descriptor.fog.far) {
+        throw new TypeError("fog.near / fog.far は near < far を満たす有限数である必要があります");
       }
     }
     if (descriptor.shadows !== undefined && typeof descriptor.shadows !== "boolean") {
@@ -1901,6 +1941,8 @@ window.akari.threeRuntime = (() => {
     instance.model = null;
     instance.mixer = null;
     instance.scene.environment = null;
+    instance.scene.fog = null;
+    instance.scene.background = null;
     instance.environmentTarget?.dispose();
     instance.environmentTarget = null;
     instance.renderer.renderLists?.dispose();
@@ -2096,6 +2138,14 @@ window.akari.threeRuntime = (() => {
         descriptor
       );
       scene.environment = environmentTarget.texture;
+      if (descriptor.background !== undefined) {
+        scene.background = new THREE.Color(descriptor.background.color);
+      }
+      if (descriptor.fog !== undefined) {
+        scene.fog = descriptor.fog.density !== undefined
+          ? new THREE.FogExp2(descriptor.fog.color, descriptor.fog.density)
+          : new THREE.Fog(descriptor.fog.color, descriptor.fog.near, descriptor.fog.far);
+      }
     } catch (error) {
       renderer.dispose();
       throw error;

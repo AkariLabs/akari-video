@@ -6,6 +6,8 @@ Three.js + glTF シーンを決定的な時刻で描画し（`three-runtime.js`�
 選択・ドラッグ移動・拡縮・テキスト編集を行い（`interaction.js`）、ズーム時の
 全体像インジケータを提供する（`minimap.js`）。
 
+`three-runtime` の `fog` / `background` は additive（無指定時は従来どおり、2026-09-13）。
+
 **出自**: legacy `akari-video-tauri/ui/` から選別インポート（Wave I-3、
 2026-07-15）。当初の JS 3 本（`overlay-runtime.js` / `interaction.js` / `minimap.js`）は
 機能的に無改変で移送。詳しい挙動仕様は `docs/notes-2026-07-14-viewer-ui-round.md`
