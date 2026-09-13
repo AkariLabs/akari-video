@@ -203,8 +203,10 @@ import {
     CaptionDisplayCueLike,
     loadCaptionDisplayCueGroups,
     readCaptionFragmentBreaksVisible,
+    renderAroundCaptionDisplayReload,
     remapCaptionSelection,
-    shouldReloadCaptions
+    shouldReloadCaptions,
+    writeCaptionFragmentBreaksVisible
 } from '../common/caption-track-layout';
 import {
     CaptionSourceForMapping,
@@ -6134,8 +6136,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
         await this.loadTrackHeights();
         await this.reloadGenerationSidecars(false);
         if (generation !== this.editReloadGeneration) return;
-        await this.reloadResolvedCaptionDisplay();
-        if (generation === this.editReloadGeneration) this.renderStrip();
+        await renderAroundCaptionDisplayReload(
+            () => this.reloadResolvedCaptionDisplay(),
+            () => this.renderStrip(),
+            () => generation === this.editReloadGeneration
+        );
     }
 
     protected async resolveLegacyEditForOpen(source: string): Promise<string | undefined> {
@@ -6950,11 +6955,14 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 // A missing or unreadable captions.json means no caption segments are drawn.
             }
         }
-        await this.reloadResolvedCaptionDisplay();
         if (generation !== this.captionReloadGeneration) return;
         this.notifyCaptionSourceMappingWarning();
         this.pushSelectionSnapshot();
-        this.renderStrip();
+        await renderAroundCaptionDisplayReload(
+            () => this.reloadResolvedCaptionDisplay(),
+            () => this.renderStrip(),
+            () => generation === this.captionReloadGeneration
+        );
     }
 
     protected async currentWorkspaceRoots(): Promise<string[]> {
@@ -7734,9 +7742,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             return;
         }
         this.waveformT2PanTargets.clear();
-        const captionFragmentBreaksVisible = readCaptionFragmentBreaksVisible(
-            typeof localStorage === 'undefined' ? undefined : localStorage
-        );
+        const captionFragmentBreaksVisible = this.captionFragmentBreaksVisible();
 
         const maxDuration = this.totalDuration();
         if (this.viewDuration !== undefined) {
@@ -9772,7 +9778,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
             const treeRows = this.treeRowsByTrack.get(track.id) ?? [];
             const { element: header, created } = this.keyedNode(
                 'header', `header:${layout.id ?? track.id}`, JSON.stringify([track, name, visible, audible, locked, treeRows,
-                    this.timelineRowStride(track.id), this.pasteTargetTracks.has(track.id), treeRows.map(row => this.keyframeRowsByItem.get(row.id))]),
+                    this.timelineRowStride(track.id), this.pasteTargetTracks.has(track.id),
+                    treeRows.map(row => this.keyframeRowsByItem.get(row.id)),
+                    ...(track.kind === 'captions' ? [this.captionFragmentBreaksVisible()] : [])]),
                 () => this.trackHeaderRow(
                     name, iconKind, track.id, layout.top, layout.height,
                     visible, toggleVisibility, audible, toggleMute, layout.track, track
@@ -10060,6 +10068,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
         };
         if (controls.visibility) {
             row.append(this.trackHeaderButton(`${name}を表示`, 'visibility', visible, this.eyeSvg(), toggleVisibility));
+        }
+        if (controls.fragmentBreaks) {
+            row.append(this.trackHeaderButton(
+                '字幕の区切りを表示', 'fragment-breaks', this.captionFragmentBreaksVisible(),
+                this.captionFragmentBreaksSvg(), () => this.toggleCaptionFragmentBreaks()
+            ));
         }
         if (controls.mute) {
             const muteButton = this.trackHeaderButton(
@@ -10704,7 +10718,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
 
     protected trackHeaderButton(
         label: string,
-        toggle: 'visibility' | 'mute' | 'lock',
+        toggle: 'visibility' | 'fragment-breaks' | 'mute' | 'lock',
         enabled: boolean,
         svg: string,
         action: () => void
@@ -10728,12 +10742,30 @@ export class AkariAnnotationsWidget extends BaseWidget {
         return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"/><circle cx="12" cy="12" r="2.5"/></svg>';
     }
 
+    protected captionFragmentBreaksSvg(): string {
+        return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 19 16 5"/></svg>';
+    }
+
     protected lockSvg(): string {
         return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 10V7a5 5 0 0 1 10 0v3M5 10h14v11H5V10Zm7 4v3"/></svg>';
     }
 
     protected speakerSvg(): string {
         return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9H4Z"/><path d="M16 9a4 4 0 0 1 0 6M18.5 6.5a8 8 0 0 1 0 11"/></svg>';
+    }
+
+    protected captionFragmentBreaksVisible(): boolean {
+        return readCaptionFragmentBreaksVisible(
+            typeof localStorage === 'undefined' ? undefined : localStorage
+        );
+    }
+
+    protected toggleCaptionFragmentBreaks(): void {
+        writeCaptionFragmentBreaksVisible(
+            typeof localStorage === 'undefined' ? undefined : localStorage,
+            !this.captionFragmentBreaksVisible()
+        );
+        this.renderStrip();
     }
 
     protected readReviewSessionRangesVisible(): boolean {

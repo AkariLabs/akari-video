@@ -10,7 +10,10 @@ const source = ts.createSourceFile('widget.ts', readFileSync(
   new URL('../src/browser/akari-annotations-widget.ts', import.meta.url), 'utf8'
 ), ts.ScriptTarget.Latest, true);
 const widget = source.statements.find(node => ts.isClassDeclaration(node) && node.name?.text === 'AkariAnnotationsWidget');
-const methods = ['trackHeaderRow', 'trackHeaderButton', 'eyeSvg', 'speakerSvg', 'lockSvg'].map(name => {
+const methods = [
+  'trackHeaderRow', 'trackHeaderButton', 'eyeSvg', 'captionFragmentBreaksSvg', 'speakerSvg', 'lockSvg',
+  'captionFragmentBreaksVisible', 'toggleCaptionFragmentBreaks'
+].map(name => {
   const method = widget.members.find(member => member.name?.getText(source) === name);
   assert.ok(method, name);
   return method.getText(source);
@@ -27,18 +30,36 @@ const document = {
     addEventListener(name, action) { this.listeners[name] = action; },
   }),
 };
+const storage = new Map();
+const localStorage = {
+  getItem: key => storage.get(key) ?? null,
+  setItem: (key, value) => storage.set(key, value),
+};
+const readCaptionFragmentBreaksVisible = target => target?.getItem('akari.captions.fragmentBreaks.visible') !== 'false';
+const writeCaptionFragmentBreaksVisible = (target, value) => target?.setItem(
+  'akari.captions.fragmentBreaks.visible', String(value)
+);
+Object.defineProperty(globalThis, 'localStorage', { value: localStorage, configurable: true, writable: true });
+Object.defineProperty(globalThis, 'readCaptionFragmentBreaksVisible', {
+  value: readCaptionFragmentBreaksVisible, configurable: true, writable: true
+});
+Object.defineProperty(globalThis, 'writeCaptionFragmentBreaksVisible', {
+  value: writeCaptionFragmentBreaksVisible, configurable: true, writable: true
+});
 const Handler = new Function('document', 'trackHeaderControls', `${code}\nreturn Handler;`)(document, trackHeaderControls);
 
-for (const [kind, visibility, mute] of [
-  ['video', true, true], ['overlay', true, true], ['layer', true, true],
-  ['audio', false, true], ['caption', true, false], ['beat', true, false],
+for (const [kind, visibility, fragmentBreaks, mute] of [
+  ['video', true, false, true], ['overlay', true, false, true], ['layer', true, false, true],
+  ['audio', false, false, true], ['caption', true, true, false], ['beat', true, false, false],
 ]) {
   test(`track controls and real row buttons: ${kind}`, () => {
-    assert.deepEqual(trackHeaderControls(kind), { visibility, mute, lock: true });
+    assert.deepEqual(trackHeaderControls(kind), { visibility, fragmentBreaks, mute, lock: true });
     const handler = new Handler();
     handler.trackKindSvg = () => '';
     for (const enabled of [true, false]) {
+      storage.set('akari.captions.fragmentBreaks.visible', String(enabled));
       const toggled = [];
+      handler.renderStrip = () => toggled.push('fragment-breaks');
       handler.beatsLocked = enabled;
       handler.isTrackLocked = () => enabled;
       handler.toggleTimelineTrackFlag = (_track, field) => {
@@ -48,9 +69,15 @@ for (const [kind, visibility, mute] of [
       const row = handler.trackHeaderRow('Track', kind, 'lane', 10, 48, enabled,
         () => toggled.push('visibility'), enabled, () => toggled.push('mute'));
       const buttons = row.children.filter(child => child.tag === 'button');
-      const expected = [...(visibility ? ['visibility'] : []), ...(mute ? ['mute'] : []), 'lock'];
+      const expected = [
+        ...(visibility ? ['visibility'] : []),
+        ...(fragmentBreaks ? ['fragment-breaks'] : []),
+        ...(mute ? ['mute'] : []),
+        'lock'
+      ];
       assert.deepEqual(buttons.map(button => button.dataset.akariToggle), expected);
       assert.equal(buttons.some(button => button.innerHTML === handler.eyeSvg()), visibility);
+      assert.equal(buttons.some(button => button.innerHTML === handler.captionFragmentBreaksSvg()), fragmentBreaks);
       assert.equal(buttons.some(button => button.innerHTML === handler.speakerSvg()), mute);
       assert.equal(buttons.at(-1).innerHTML, handler.lockSvg());
       assert.equal(buttons.at(-1).dataset.akariFlag, 'lock');
@@ -59,6 +86,9 @@ for (const [kind, visibility, mute] of [
         button.listeners.click({ stopPropagation() {} });
       }
       assert.deepEqual(toggled, expected);
+      if (fragmentBreaks) {
+        assert.equal(storage.get('akari.captions.fragmentBreaks.visible'), String(!enabled));
+      }
     }
   });
 }

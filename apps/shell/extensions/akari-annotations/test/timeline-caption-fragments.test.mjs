@@ -76,9 +76,22 @@ test('字幕チップの signature は解決 cue を含み、非操作サブブ�
     assert.doesNotMatch(branch, /resolveCaptionDisplay/);
 });
 
-test('字幕と edit の reload は各 1 回だけ表示断片を解決する', () => {
+test('字幕トラックヘッダの signature は区切り表示の現在値を含む', () => {
+    const headers = between(widget, 'protected renderTrackHeaders(', 'protected decorateTreeTrackHeader(');
+    assert.match(headers, /track\.kind === 'captions' \? \[this\.captionFragmentBreaksVisible\(\)\] : \[\]/);
+});
+
+test('字幕と edit の reload は共通ヘルパから各 1 回だけ表示断片を解決する', () => {
     const captionsReload = between(widget, 'protected async reloadCaptionsFromSource(', 'protected remapCaptionSelections(');
-    assert.equal(captionsReload.match(/await this\.reloadResolvedCaptionDisplay\(\)/g)?.length, 1);
+    assert.equal(captionsReload.match(/\(\) => this\.reloadResolvedCaptionDisplay\(\)/g)?.length, 1);
+    assert.doesNotMatch(captionsReload, /await this\.reloadResolvedCaptionDisplay\(\)/);
     const editReload = between(widget, 'protected async reloadEdit(', 'protected async resolveLegacyEditForOpen(');
-    assert.equal(editReload.match(/await this\.reloadResolvedCaptionDisplay\(\)/g)?.length, 1);
+    assert.equal(editReload.match(/\(\) => this\.reloadResolvedCaptionDisplay\(\)/g)?.length, 1);
+    assert.doesNotMatch(editReload, /await this\.reloadResolvedCaptionDisplay\(\)/);
+});
+
+test('字幕サブブロックは最小幅を持ち、親帯からはみ出さない', () => {
+    const css = readFileSync(join(here, '..', 'src', 'browser', 'style', 'caption-fragment-blocks.css'), 'utf8');
+    assert.match(css, /\.akari-annotations-caption-fragmented\s*\{[^}]*overflow:\s*hidden;/s);
+    assert.match(css, /\.akari-annotations-caption-fragment\s*\{[^}]*min-width:\s*3px;/s);
 });

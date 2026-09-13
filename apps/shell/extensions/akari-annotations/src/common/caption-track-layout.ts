@@ -9,6 +9,29 @@ export function readCaptionFragmentBreaksVisible(storage?: Pick<Storage, 'getIte
     }
 }
 
+export function writeCaptionFragmentBreaksVisible(
+    storage: Pick<Storage, 'setItem'> | undefined,
+    value: boolean
+): void {
+    if (!storage) return;
+    try {
+        storage.setItem(CAPTION_FRAGMENT_BREAKS_STORAGE_KEY, String(value));
+    } catch {
+        // Storage may be unavailable; the timeline can continue rendering with the default.
+    }
+}
+
+export async function renderAroundCaptionDisplayReload(
+    resolveDisplay: () => Promise<void>,
+    render: () => void,
+    isCurrent: () => boolean
+): Promise<void> {
+    const pending = resolveDisplay();
+    if (isCurrent()) render();
+    await pending;
+    if (isCurrent()) render();
+}
+
 export interface CaptionDisplayCueLike {
     source_cue_id: string;
     start: number;
