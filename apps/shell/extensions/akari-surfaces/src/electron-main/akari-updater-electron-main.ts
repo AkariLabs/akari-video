@@ -100,6 +100,11 @@ export class AkariUpdaterElectronMain implements ElectronMainApplicationContribu
      * 繰り返していた（オーナー実機 2026-09-13・0.1.63 → 0.1.64、updater.log に 16 回）。
      * 同形の yml を userData へ書いて `updateConfigPath` を差し替え、DL まで通す。
      * 失敗はログして続行する（チェックまでは従来どおり動く）。
+     *
+     * `updateConfigPath` の setter は clientPromise を捨てるため、成功したときは直前の
+     * `setFeedURL` ではなくこの yml が provider も決める（同じ FALLBACK_FEED_OPTIONS から
+     * 作るので結果は同じ）。`setFeedURL` は本メソッドが失敗したときにチェックを生かす
+     * 保険として残している — 消さないこと。
      */
     protected applyFallbackUpdateConfig(): void {
         try {

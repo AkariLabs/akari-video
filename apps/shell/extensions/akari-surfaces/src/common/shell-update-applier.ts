@@ -27,6 +27,9 @@ export function shouldApplyFeedUrlFallback(isPackaged: boolean, appUpdateYmlExis
  * electron-builder が app-update.yml に書く updaterCacheDirName（package name の '/' 除去 + '-updater'。
  * `scripts/release/gen-app-update-yml.mjs` の deriveUpdaterCacheDirName と同じ導出・テストで drift を固定）。
  * 通常ビルドと同じキャッシュ dir（~/Library/Caches 配下）を使うため、値を揃える。
+ * 注: electron-builder の実式は `sanitizeFileName(name).toLowerCase() + '-updater'`
+ * （app-builder-lib appInfo）。現在の package name `@akari-video/shell` では一致するが、
+ * name に大文字や特殊文字を入れると食い違うので、改名時は実ビルドの app-update.yml と突き合わせること。
  */
 export const FALLBACK_UPDATER_CACHE_DIR_NAME = '@akari-videoshell-updater';
 
