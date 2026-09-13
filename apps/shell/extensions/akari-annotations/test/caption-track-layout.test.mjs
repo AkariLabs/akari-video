@@ -7,8 +7,10 @@ import {
     groupCaptionDisplayCues,
     loadCaptionDisplayCueGroups,
     readCaptionFragmentBreaksVisible,
+    renderAroundCaptionDisplayReload,
     remapCaptionSelection,
-    shouldReloadCaptions
+    shouldReloadCaptions,
+    writeCaptionFragmentBreaksVisible
 } from '../lib/common/caption-track-layout.js';
 
 test('解決 cue を source_cue_id ごとにまとめて時刻順に並べる', () => {
@@ -59,6 +61,47 @@ test("区切り表示は既定 ON で、文字列 'false' のときだけ OFF", 
     } }), false);
     assert.equal(readCaptionFragmentBreaksVisible({ getItem: () => 'FALSE' }), true);
     assert.equal(readCaptionFragmentBreaksVisible({ getItem: () => { throw new Error('blocked'); } }), true);
+});
+
+test("区切り表示は 'true' / 'false' を保存し、保存失敗を描画から隔離する", () => {
+    const writes = [];
+    writeCaptionFragmentBreaksVisible({ setItem: (key, value) => writes.push([key, value]) }, false);
+    writeCaptionFragmentBreaksVisible({ setItem: (key, value) => writes.push([key, value]) }, true);
+    assert.deepEqual(writes, [
+        [CAPTION_FRAGMENT_BREAKS_STORAGE_KEY, 'false'],
+        [CAPTION_FRAGMENT_BREAKS_STORAGE_KEY, 'true']
+    ]);
+    assert.doesNotThrow(() => writeCaptionFragmentBreaksVisible({
+        setItem: () => { throw new Error('blocked'); }
+    }, false));
+    assert.doesNotThrow(() => writeCaptionFragmentBreaksVisible(undefined, true));
+});
+
+test('表示断片の解決前後で順番どおり描画する', async () => {
+    const order = [];
+    let finish;
+    const pending = renderAroundCaptionDisplayReload(
+        () => {
+            order.push('resolve');
+            return new Promise(resolve => { finish = () => { order.push('resolved'); resolve(); }; });
+        },
+        () => order.push('render'),
+        () => true
+    );
+    assert.deepEqual(order, ['resolve', 'render']);
+    finish();
+    await pending;
+    assert.deepEqual(order, ['resolve', 'render', 'resolved', 'render']);
+});
+
+test('古い表示断片の解決では前後どちらも描画しない', async () => {
+    const order = [];
+    await renderAroundCaptionDisplayReload(
+        async () => { order.push('resolve'); },
+        () => order.push('render'),
+        () => false
+    );
+    assert.deepEqual(order, ['resolve']);
 });
 
 test('選択は残存 id を維持し、結合先へ寄せて重複を除く', () => {

@@ -1,0 +1,930 @@
+{
+  "status": "pass",
+  "steps": [
+    {
+      "name": "1. ヘッダボタンで区切り表示を同じ描画内に切り替える",
+      "pass": true,
+      "detail": {
+        "ready": {
+          "rows": [
+            {
+              "id": "c-0001",
+              "visualBlocks": 1,
+              "fragmentCount": 0,
+              "ticks": 0,
+              "label": "ということでね、",
+              "fragmentWidths": []
+            },
+            {
+              "id": "c-0002",
+              "visualBlocks": 2,
+              "fragmentCount": 2,
+              "ticks": 0,
+              "label": "今日はねひたすらYouTubeの撮影を",
+              "fragmentWidths": [
+                10.328125,
+                11.9453125
+              ]
+            },
+            {
+              "id": "c-0003",
+              "visualBlocks": 1,
+              "fragmentCount": 0,
+              "ticks": 0,
+              "label": "頑張っておりました",
+              "fragmentWidths": []
+            },
+            {
+              "id": "c-0004",
+              "visualBlocks": 1,
+              "fragmentCount": 0,
+              "ticks": 0,
+              "label": "いい感じにかけてます",
+              "fragmentWidths": []
+            },
+            {
+              "id": "c-0005",
+              "visualBlocks": 3,
+              "fragmentCount": 3,
+              "ticks": 0,
+              "label": "これゴールデンウィーク明けにYou",
+              "fragmentWidths": [
+                6.71875,
+                15.84375,
+                11.9765625
+              ]
+            },
+            {
+              "id": "c-0006",
+              "visualBlocks": 2,
+              "fragmentCount": 2,
+              "ticks": 0,
+              "label": "Tubeで配信する予定なんで",
+              "fragmentWidths": [
+                12.0703125,
+                17.2578125
+              ]
+            },
+            {
+              "id": "c-0007",
+              "visualBlocks": 1,
+              "fragmentCount": 0,
+              "ticks": 0,
+              "label": "お楽しみに",
+              "fragmentWidths": []
+            },
+            {
+              "id": "c-0008",
+              "visualBlocks": 1,
+              "fragmentCount": 0,
+              "ticks": 0,
+              "label": "お疲れ様です",
+              "fragmentWidths": []
+            }
+          ],
+          "pressed": "true"
+        },
+        "offClick": {
+          "ok": true,
+          "reason": "ok",
+          "point": {
+            "x": 332.9140625,
+            "y": 513.515625
+          },
+          "viewport": {
+            "width": 1120,
+            "height": 668
+          },
+          "button": {
+            "tag": "BUTTON",
+            "id": null,
+            "className": "akari-track-header-button",
+            "toggle": "fragment-breaks",
+            "ariaPressed": "true"
+          },
+          "hit": {
+            "tag": "path",
+            "id": null,
+            "className": null,
+            "toggle": null,
+            "ariaPressed": null
+          }
+        },
+        "off": {
+          "rows": [
+            {
+              "id": "c-0001",
+              "visualBlocks": 1,
+              "fragmentCount": 0,
+              "ticks": 0,
+              "label": "ということでね、",
+              "fragmentWidths": []
+            },
+            {
+              "id": "c-0002",
+              "visualBlocks": 1,
+              "fragmentCount": 0,
+              "ticks": 0,
+              "label": "今日はねひたすらYouTubeの撮影を",
+              "fragmentWidths": []
+            },
+            {
+              "id": "c-0003",
+              "visualBlocks": 1,
+              "fragmentCount": 0,
+              "ticks": 0,
+              "label": "頑張っておりました",
+              "fragmentWidths": []
+            },
+            {
+              "id": "c-0004",
+              "visualBlocks": 1,
+              "fragmentCount": 0,
+              "ticks": 0,
+              "label": "いい感じにかけてます",
+              "fragmentWidths": []
+            },
+            {
+              "id": "c-0005",
+              "visualBlocks": 1,
+              "fragmentCount": 0,
+              "ticks": 0,
+              "label": "これゴールデンウィーク明けにYou",
+              "fragmentWidths": []
+            },
+            {
+              "id": "c-0006",
+              "visualBlocks": 1,
+              "fragmentCount": 0,
+              "ticks": 0,
+              "label": "Tubeで配信する予定なんで",
+              "fragmentWidths": []
+            },
+            {
+              "id": "c-0007",
+              "visualBlocks": 1,
+              "fragmentCount": 0,
+              "ticks": 0,
+              "label": "お楽しみに",
+              "fragmentWidths": []
+            },
+            {
+              "id": "c-0008",
+              "visualBlocks": 1,
+              "fragmentCount": 0,
+              "ticks": 0,
+              "label": "お疲れ様です",
+              "fragmentWidths": []
+            }
+          ],
+          "stored": "false",
+          "pressed": "false"
+        },
+        "onClick": {
+          "ok": true,
+          "reason": "ok",
+          "point": {
+            "x": 332.9140625,
+            "y": 513.515625
+          },
+          "viewport": {
+            "width": 1120,
+            "height": 668
+          },
+          "button": {
+            "tag": "BUTTON",
+            "id": null,
+            "className": "akari-track-header-button",
+            "toggle": "fragment-breaks",
+            "ariaPressed": "false"
+          },
+          "hit": {
+            "tag": "path",
+            "id": null,
+            "className": null,
+            "toggle": null,
+            "ariaPressed": null
+          }
+        },
+        "on": {
+          "rows": [
+            {
+              "id": "c-0001",
+              "visualBlocks": 1,
+              "fragmentCount": 0,
+              "ticks": 0,
+              "label": "ということでね、",
+              "fragmentWidths": []
+            },
+            {
+              "id": "c-0002",
+              "visualBlocks": 2,
+              "fragmentCount": 2,
+              "ticks": 0,
+              "label": "今日はねひたすらYouTubeの撮影を",
+              "fragmentWidths": [
+                10.328125,
+                11.9453125
+              ]
+            },
+            {
+              "id": "c-0003",
+              "visualBlocks": 1,
+              "fragmentCount": 0,
+              "ticks": 0,
+              "label": "頑張っておりました",
+              "fragmentWidths": []
+            },
+            {
+              "id": "c-0004",
+              "visualBlocks": 1,
+              "fragmentCount": 0,
+              "ticks": 0,
+              "label": "いい感じにかけてます",
+              "fragmentWidths": []
+            },
+            {
+              "id": "c-0005",
+              "visualBlocks": 3,
+              "fragmentCount": 3,
+              "ticks": 0,
+              "label": "これゴールデンウィーク明けにYou",
+              "fragmentWidths": [
+                6.71875,
+                15.84375,
+                11.9765625
+              ]
+            },
+            {
+              "id": "c-0006",
+              "visualBlocks": 2,
+              "fragmentCount": 2,
+              "ticks": 0,
+              "label": "Tubeで配信する予定なんで",
+              "fragmentWidths": [
+                12.0703125,
+                17.2578125
+              ]
+            },
+            {
+              "id": "c-0007",
+              "visualBlocks": 1,
+              "fragmentCount": 0,
+              "ticks": 0,
+              "label": "お楽しみに",
+              "fragmentWidths": []
+            },
+            {
+              "id": "c-0008",
+              "visualBlocks": 1,
+              "fragmentCount": 0,
+              "ticks": 0,
+              "label": "お疲れ様です",
+              "fragmentWidths": []
+            }
+          ],
+          "stored": "true",
+          "pressed": "true"
+        },
+        "screenshotSha256": [
+          "301e08b5722ae333e858a4809015184a78c580bdcdc6188bf179a9f1e5bcd651",
+          "7162dc46dcb1ea116fb4c2e858d761a0543188f54d29c1b41ab89f9d45ce57a6"
+        ]
+      }
+    },
+    {
+      "name": "2. lines=2 / wrap=fold で c-0002 が 1 cue と ⏎ 表示になる",
+      "pass": true,
+      "detail": {
+        "row": {
+          "id": "c-0002",
+          "visualBlocks": 1,
+          "fragmentCount": 0,
+          "ticks": 0,
+          "label": "今日はねひたすらYouTubeの撮影を ⏎",
+          "fragmentWidths": []
+        },
+        "cueCount": 1,
+        "displayLines": [
+          "今日はねひたすら",
+          "YouTubeの撮影を"
+        ]
+      }
+    },
+    {
+      "name": "3. INVALID_POLICY は 1 回警告して全行を fail-open する",
+      "pass": true,
+      "detail": {
+        "rows": [
+          {
+            "id": "c-0001",
+            "visualBlocks": 1,
+            "fragmentCount": 0,
+            "ticks": 0,
+            "label": "ということでね、",
+            "fragmentWidths": []
+          },
+          {
+            "id": "c-0002",
+            "visualBlocks": 1,
+            "fragmentCount": 0,
+            "ticks": 0,
+            "label": "今日はねひたすらYouTubeの撮影を",
+            "fragmentWidths": []
+          },
+          {
+            "id": "c-0003",
+            "visualBlocks": 1,
+            "fragmentCount": 0,
+            "ticks": 0,
+            "label": "頑張っておりました",
+            "fragmentWidths": []
+          },
+          {
+            "id": "c-0004",
+            "visualBlocks": 1,
+            "fragmentCount": 0,
+            "ticks": 0,
+            "label": "いい感じにかけてます",
+            "fragmentWidths": []
+          },
+          {
+            "id": "c-0005",
+            "visualBlocks": 1,
+            "fragmentCount": 0,
+            "ticks": 0,
+            "label": "これゴールデンウィーク明けにYou",
+            "fragmentWidths": []
+          },
+          {
+            "id": "c-0006",
+            "visualBlocks": 1,
+            "fragmentCount": 0,
+            "ticks": 0,
+            "label": "Tubeで配信する予定なんで",
+            "fragmentWidths": []
+          },
+          {
+            "id": "c-0007",
+            "visualBlocks": 1,
+            "fragmentCount": 0,
+            "ticks": 0,
+            "label": "お楽しみに",
+            "fragmentWidths": []
+          },
+          {
+            "id": "c-0008",
+            "visualBlocks": 1,
+            "fragmentCount": 0,
+            "ticks": 0,
+            "label": "お疲れ様です",
+            "fragmentWidths": []
+          }
+        ],
+        "warns": 1,
+        "notices": 0
+      }
+    },
+    {
+      "name": "4. 復旧時は帯を RPC 応答とサブブロックより先に描く",
+      "pass": true,
+      "detail": {
+        "failedOpen": {
+          "rows": [
+            {
+              "id": "c-0001",
+              "visualBlocks": 1,
+              "fragmentCount": 0,
+              "ticks": 0,
+              "label": "ということでね、",
+              "fragmentWidths": []
+            },
+            {
+              "id": "c-0002",
+              "visualBlocks": 1,
+              "fragmentCount": 0,
+              "ticks": 0,
+              "label": "今日はねひたすらYouTubeの撮影を",
+              "fragmentWidths": []
+            },
+            {
+              "id": "c-0003",
+              "visualBlocks": 1,
+              "fragmentCount": 0,
+              "ticks": 0,
+              "label": "頑張っておりました",
+              "fragmentWidths": []
+            },
+            {
+              "id": "c-0004",
+              "visualBlocks": 1,
+              "fragmentCount": 0,
+              "ticks": 0,
+              "label": "いい感じにかけてます",
+              "fragmentWidths": []
+            },
+            {
+              "id": "c-0005",
+              "visualBlocks": 1,
+              "fragmentCount": 0,
+              "ticks": 0,
+              "label": "これゴールデンウィーク明けにYou",
+              "fragmentWidths": []
+            },
+            {
+              "id": "c-0006",
+              "visualBlocks": 1,
+              "fragmentCount": 0,
+              "ticks": 0,
+              "label": "Tubeで配信する予定なんで",
+              "fragmentWidths": []
+            },
+            {
+              "id": "c-0007",
+              "visualBlocks": 1,
+              "fragmentCount": 0,
+              "ticks": 0,
+              "label": "お楽しみに",
+              "fragmentWidths": []
+            },
+            {
+              "id": "c-0008",
+              "visualBlocks": 1,
+              "fragmentCount": 0,
+              "ticks": 0,
+              "label": "お疲れ様です",
+              "fragmentWidths": []
+            }
+          ],
+          "warns": 1,
+          "notices": 0
+        },
+        "order": {
+          "firstBand": {
+            "kind": "band",
+            "t": 6762.399999976158,
+            "fragmentCount": 0
+          },
+          "firstFragment": {
+            "kind": "fragment",
+            "t": 6837.299999952316,
+            "fragmentCount": 7
+          },
+          "deltaMs": 74.89999997615814,
+          "rpcHookInstalled": true,
+          "rpcInstrumented": true,
+          "resolveCaptionDisplaySend": 6774,
+          "rpc": {
+            "sends": [
+              6774
+            ]
+          },
+          "events": [
+            {
+              "kind": "band",
+              "t": 6762.399999976158,
+              "fragmentCount": 0
+            },
+            {
+              "kind": "band",
+              "t": 6762.599999964237,
+              "fragmentCount": 0
+            },
+            {
+              "kind": "band",
+              "t": 6762.599999964237,
+              "fragmentCount": 0
+            },
+            {
+              "kind": "band",
+              "t": 6762.699999988079,
+              "fragmentCount": 0
+            },
+            {
+              "kind": "band",
+              "t": 6762.699999988079,
+              "fragmentCount": 0
+            },
+            {
+              "kind": "band",
+              "t": 6762.799999952316,
+              "fragmentCount": 0
+            },
+            {
+              "kind": "band",
+              "t": 6762.799999952316,
+              "fragmentCount": 0
+            },
+            {
+              "kind": "band",
+              "t": 6762.799999952316,
+              "fragmentCount": 0
+            },
+            {
+              "kind": "band",
+              "t": 6762.899999976158,
+              "fragmentCount": 0
+            },
+            {
+              "kind": "band",
+              "t": 6762.899999976158,
+              "fragmentCount": 0
+            },
+            {
+              "kind": "band",
+              "t": 6763,
+              "fragmentCount": 0
+            },
+            {
+              "kind": "band",
+              "t": 6763.099999964237,
+              "fragmentCount": 0
+            },
+            {
+              "kind": "band",
+              "t": 6763.099999964237,
+              "fragmentCount": 0
+            },
+            {
+              "kind": "band",
+              "t": 6763.199999988079,
+              "fragmentCount": 0
+            },
+            {
+              "kind": "band",
+              "t": 6763.199999988079,
+              "fragmentCount": 0
+            },
+            {
+              "kind": "band",
+              "t": 6763.299999952316,
+              "fragmentCount": 0
+            },
+            {
+              "kind": "band",
+              "t": 6763.299999952316,
+              "fragmentCount": 0
+            },
+            {
+              "kind": "band",
+              "t": 6763.299999952316,
+              "fragmentCount": 0
+            },
+            {
+              "kind": "band",
+              "t": 6763.399999976158,
+              "fragmentCount": 0
+            },
+            {
+              "kind": "band",
+              "t": 6763.399999976158,
+              "fragmentCount": 0
+            },
+            {
+              "kind": "band",
+              "t": 6763.5,
+              "fragmentCount": 0
+            },
+            {
+              "kind": "band",
+              "t": 6763.5,
+              "fragmentCount": 0
+            },
+            {
+              "kind": "band",
+              "t": 6763.599999964237,
+              "fragmentCount": 0
+            },
+            {
+              "kind": "band",
+              "t": 6763.599999964237,
+              "fragmentCount": 0
+            },
+            {
+              "kind": "band",
+              "t": 6763.599999964237,
+              "fragmentCount": 0
+            },
+            {
+              "kind": "band",
+              "t": 6763.699999988079,
+              "fragmentCount": 0
+            },
+            {
+              "kind": "band",
+              "t": 6763.699999988079,
+              "fragmentCount": 0
+            },
+            {
+              "kind": "band",
+              "t": 6763.899999976158,
+              "fragmentCount": 0
+            },
+            {
+              "kind": "band",
+              "t": 6763.899999976158,
+              "fragmentCount": 0
+            },
+            {
+              "kind": "band",
+              "t": 6763.899999976158,
+              "fragmentCount": 0
+            },
+            {
+              "kind": "band",
+              "t": 6764,
+              "fragmentCount": 0
+            },
+            {
+              "kind": "band",
+              "t": 6764,
+              "fragmentCount": 0
+            },
+            {
+              "kind": "band",
+              "t": 6772.199999988079,
+              "fragmentCount": 0
+            },
+            {
+              "kind": "band",
+              "t": 6772.399999976158,
+              "fragmentCount": 0
+            },
+            {
+              "kind": "band",
+              "t": 6772.5,
+              "fragmentCount": 0
+            },
+            {
+              "kind": "band",
+              "t": 6772.5,
+              "fragmentCount": 0
+            },
+            {
+              "kind": "band",
+              "t": 6772.599999964237,
+              "fragmentCount": 0
+            },
+            {
+              "kind": "band",
+              "t": 6772.599999964237,
+              "fragmentCount": 0
+            },
+            {
+              "kind": "band",
+              "t": 6772.599999964237,
+              "fragmentCount": 0
+            },
+            {
+              "kind": "band",
+              "t": 6772.599999964237,
+              "fragmentCount": 0
+            },
+            {
+              "kind": "band",
+              "t": 6772.699999988079,
+              "fragmentCount": 0
+            },
+            {
+              "kind": "band",
+              "t": 6772.699999988079,
+              "fragmentCount": 0
+            },
+            {
+              "kind": "band",
+              "t": 6772.799999952316,
+              "fragmentCount": 0
+            },
+            {
+              "kind": "band",
+              "t": 6772.899999976158,
+              "fragmentCount": 0
+            },
+            {
+              "kind": "band",
+              "t": 6772.899999976158,
+              "fragmentCount": 0
+            },
+            {
+              "kind": "band",
+              "t": 6773,
+              "fragmentCount": 0
+            },
+            {
+              "kind": "band",
+              "t": 6773,
+              "fragmentCount": 0
+            },
+            {
+              "kind": "band",
+              "t": 6773.099999964237,
+              "fragmentCount": 0
+            },
+            {
+              "kind": "band",
+              "t": 6773.099999964237,
+              "fragmentCount": 0
+            },
+            {
+              "kind": "band",
+              "t": 6773.099999964237,
+              "fragmentCount": 0
+            },
+            {
+              "kind": "band",
+              "t": 6773.099999964237,
+              "fragmentCount": 0
+            },
+            {
+              "kind": "band",
+              "t": 6773.199999988079,
+              "fragmentCount": 0
+            },
+            {
+              "kind": "band",
+              "t": 6773.199999988079,
+              "fragmentCount": 0
+            },
+            {
+              "kind": "band",
+              "t": 6773.299999952316,
+              "fragmentCount": 0
+            },
+            {
+              "kind": "band",
+              "t": 6773.299999952316,
+              "fragmentCount": 0
+            },
+            {
+              "kind": "band",
+              "t": 6773.399999976158,
+              "fragmentCount": 0
+            },
+            {
+              "kind": "band",
+              "t": 6773.399999976158,
+              "fragmentCount": 0
+            },
+            {
+              "kind": "band",
+              "t": 6773.5,
+              "fragmentCount": 0
+            },
+            {
+              "kind": "band",
+              "t": 6773.5,
+              "fragmentCount": 0
+            },
+            {
+              "kind": "band",
+              "t": 6773.599999964237,
+              "fragmentCount": 0
+            },
+            {
+              "kind": "band",
+              "t": 6773.599999964237,
+              "fragmentCount": 0
+            },
+            {
+              "kind": "band",
+              "t": 6773.599999964237,
+              "fragmentCount": 0
+            },
+            {
+              "kind": "band",
+              "t": 6773.699999988079,
+              "fragmentCount": 0
+            },
+            {
+              "kind": "band",
+              "t": 6773.799999952316,
+              "fragmentCount": 0
+            },
+            {
+              "kind": "band",
+              "t": 6837,
+              "fragmentCount": 7
+            },
+            {
+              "kind": "band",
+              "t": 6837.099999964237,
+              "fragmentCount": 7
+            },
+            {
+              "kind": "band",
+              "t": 6837.199999988079,
+              "fragmentCount": 7
+            },
+            {
+              "kind": "fragment",
+              "t": 6837.299999952316,
+              "fragmentCount": 7
+            },
+            {
+              "kind": "band",
+              "t": 6837.299999952316,
+              "fragmentCount": 7
+            },
+            {
+              "kind": "fragment",
+              "t": 6837.5,
+              "fragmentCount": 7
+            },
+            {
+              "kind": "band",
+              "t": 6837.5,
+              "fragmentCount": 7
+            },
+            {
+              "kind": "band",
+              "t": 6837.599999964237,
+              "fragmentCount": 7
+            },
+            {
+              "kind": "band",
+              "t": 6837.699999988079,
+              "fragmentCount": 7
+            },
+            {
+              "kind": "fragment",
+              "t": 6837.799999952316,
+              "fragmentCount": 7
+            },
+            {
+              "kind": "band",
+              "t": 6837.799999952316,
+              "fragmentCount": 7
+            },
+            {
+              "kind": "band",
+              "t": 6837.899999976158,
+              "fragmentCount": 7
+            },
+            {
+              "kind": "band",
+              "t": 6837.899999976158,
+              "fragmentCount": 7
+            },
+            {
+              "kind": "band",
+              "t": 6838,
+              "fragmentCount": 7
+            },
+            {
+              "kind": "band",
+              "t": 6838,
+              "fragmentCount": 7
+            },
+            {
+              "kind": "band",
+              "t": 6838.099999964237,
+              "fragmentCount": 7
+            },
+            {
+              "kind": "band",
+              "t": 6838.199999988079,
+              "fragmentCount": 7
+            },
+            {
+              "kind": "band",
+              "t": 6838.299999952316,
+              "fragmentCount": 7
+            },
+            {
+              "kind": "band",
+              "t": 6838.399999976158,
+              "fragmentCount": 7
+            },
+            {
+              "kind": "band",
+              "t": 6838.399999976158,
+              "fragmentCount": 7
+            },
+            {
+              "kind": "band",
+              "t": 6838.5,
+              "fragmentCount": 7
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "screenshots": [
+    "01-fragment-breaks-off.png",
+    "02-fragment-breaks-on.png",
+    "03-folded-caption-return-mark.png",
+    "04-invalid-policy-recovered.png"
+  ],
+  "screenshotSha256": {
+    "01-fragment-breaks-off.png": "301e08b5722ae333e858a4809015184a78c580bdcdc6188bf179a9f1e5bcd651",
+    "02-fragment-breaks-on.png": "7162dc46dcb1ea116fb4c2e858d761a0543188f54d29c1b41ab89f9d45ce57a6",
+    "03-folded-caption-return-mark.png": "5dc24d883b059a7a45bcc8457a18b76a4486db17955a81cbbfdba1d3c3832638",
+    "04-invalid-policy-recovered.png": "f77ffcb898db904c83c460aac8b9e297303c71181f6c4b72b2d95c977fb805ea"
+  },
+  "cleanup": {
+    "killedPid": 66141,
+    "survivingIsolatedProcesses": 0,
+    "temporaryProjectRemoved": true
+  }
+}
