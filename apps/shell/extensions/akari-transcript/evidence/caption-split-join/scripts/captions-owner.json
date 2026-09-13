@@ -1,0 +1,206 @@
+[
+    {
+      "id": "c-0002",
+      "start": 2.34,
+      "end": 5.2,
+      "text": "今日はねひたすらYouTubeの撮影を",
+      "speaker": null,
+      "sourceRef": {
+        "segment": 0
+      },
+      "edited": true,
+      "src": "src-1",
+      "words": [
+        {
+          "start": 2.34,
+          "end": 2.72,
+          "text": "今日"
+        },
+        {
+          "start": 3.06,
+          "end": 3.24,
+          "text": "は"
+        },
+        {
+          "start": 3.24,
+          "end": 3.34,
+          "text": "ね"
+        },
+        {
+          "start": 3.34,
+          "end": 3.42,
+          "text": "ひたすら"
+        },
+        {
+          "start": 3.6,
+          "end": 3.78,
+          "text": "YouTube"
+        },
+        {
+          "start": 3.78,
+          "end": 4.02,
+          "text": "の"
+        },
+        {
+          "start": 4.2,
+          "end": 4.49,
+          "text": "撮影"
+        },
+        {
+          "start": 4.58,
+          "end": 4.86,
+          "text": "を"
+        }
+      ]
+    },
+    {
+      "id": "c-0005",
+      "start": 14.45,
+      "end": 18.99,
+      "text": "これゴールデンウィーク明けにYou",
+      "speaker": null,
+      "sourceRef": {
+        "segment": 3
+      },
+      "edited": false,
+      "src": "src-1",
+      "words": [
+        {
+          "start": 14.45,
+          "end": 14.54,
+          "text": "これ"
+        },
+        {
+          "start": 14.54,
+          "end": 14.87,
+          "text": "ゴ"
+        },
+        {
+          "start": 14.87,
+          "end": 15.53,
+          "text": "ール"
+        },
+        {
+          "start": 15.53,
+          "end": 15.86,
+          "text": "デ"
+        },
+        {
+          "start": 15.86,
+          "end": 16.01,
+          "text": "ン"
+        },
+        {
+          "start": 16.19,
+          "end": 16.52,
+          "text": "ウ"
+        },
+        {
+          "start": 16.52,
+          "end": 16.62,
+          "text": "ィ"
+        },
+        {
+          "start": 17.02,
+          "end": 17.15,
+          "text": "ー"
+        },
+        {
+          "start": 17.22,
+          "end": 17.51,
+          "text": "ク"
+        },
+        {
+          "start": 17.51,
+          "end": 17.84,
+          "text": "明"
+        },
+        {
+          "start": 17.84,
+          "end": 18.16,
+          "text": "け"
+        },
+        {
+          "start": 18.16,
+          "end": 18.56,
+          "text": "に"
+        },
+        {
+          "start": 18.63,
+          "end": 18.99,
+          "text": "You"
+        }
+      ],
+      "text_style": {
+        "text_anchor": "bc",
+        "position": {
+          "y": 0.93
+        }
+      }
+    },
+    {
+      "id": "c-0006",
+      "start": 18.99,
+      "end": 22.68,
+      "text": "Tubeで配信する予定なんで",
+      "speaker": null,
+      "sourceRef": {
+        "segment": 3
+      },
+      "edited": false,
+      "src": "src-1",
+      "words": [
+        {
+          "start": 18.99,
+          "end": 19.42,
+          "text": "Tube"
+        },
+        {
+          "start": 19.6,
+          "end": 20,
+          "text": "で"
+        },
+        {
+          "start": 20,
+          "end": 20.28,
+          "text": "配"
+        },
+        {
+          "start": 20.28,
+          "end": 20.49,
+          "text": "信"
+        },
+        {
+          "start": 20.91,
+          "end": 21.17,
+          "text": "する"
+        },
+        {
+          "start": 21.17,
+          "end": 21.44,
+          "text": "予"
+        },
+        {
+          "start": 21.49,
+          "end": 21.74,
+          "text": "定"
+        },
+        {
+          "start": 21.74,
+          "end": 22.31,
+          "text": "なん"
+        },
+        {
+          "start": 22.32,
+          "end": 22.41,
+          "text": "で"
+        }
+      ],
+      "text_style": {
+        "text_anchor": "bc",
+        "position": {
+          "y": 0.93
+        }
+      }
+    }
+]

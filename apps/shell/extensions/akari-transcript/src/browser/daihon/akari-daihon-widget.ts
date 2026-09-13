@@ -81,7 +81,12 @@ import {
     type DaihonWordRange
 } from '../../common/daihon-word-selection';
 import { stringifyEditV2, updateItemDurationAndShiftFollowing } from 'akari-annotations/lib/common/edit-v2-mutations';
-import { fragmentBoundaries, setCaptionDisplayFragmentsInSource, toggleFragmentBoundary } from './daihon-caption-surgery';
+import {
+    fragmentBoundaries,
+    freezeAndRemoveCaptionBoundary,
+    setCaptionDisplayFragmentsInSource,
+    toggleFragmentBoundaryAtOffset
+} from './daihon-caption-surgery';
 import { emphasisIdsCovering, planEmphasisUpserts, readEmphasisWords } from './daihon-emphasis-words';
 import { openWordContextMenu, wordContextMenuGroups, type WordMenuAction } from './daihon-word-context-menu';
 import { nextDaihonCaptionId } from '../../common/daihon-caption-id';
@@ -96,9 +101,11 @@ import {
     daihonDisplayLabel,
     daihonDisplayPolicyForWrite,
     readDaihonDisplayKnobs,
+    readDaihonShowBreaks,
     validateDaihonCustomLines,
     type DaihonDisplayKnobs
 } from '../../common/daihon-display-knobs';
+import { activeDaihonFragment } from '../../common/daihon-fragment-highlight';
 import {
     parseSpeakerDictionary, speakerColorMap, speakerLabel, type SpeakerDictionary
 } from './daihon-speaker-chips';
@@ -113,7 +120,8 @@ const SEEK_OUTPUT_PREVIEW_COMMAND_ID = 'akari.preview.seekOutput';
 const TOGGLE_PREVIEW_PLAYBACK_COMMAND_ID = 'akari.preview.togglePlayback';
 const MIN_WORD_INSERT_GAP_SEC = 0.1;
 const DAIHON_WORD_UNIT_PREFERENCE = 'akari.daihon.wordUnit';
-const INTERACTIVE_SELECTOR = '.akari-daihon-speaker, button.akari-daihon-tc, .akari-daihon-word, .akari-daihon-word-unk, input, .akari-daihon-badge-qc, .akari-daihon-gapchip, button.akari-daihon-cut, button.akari-daihon-split, .akari-daihon-splitmark, .akari-daihon-gapzone, .akari-daihon-gapdraft, .akari-daihon-word-filler, button.akari-daihon-silence, button.akari-daihon-selcut, button.akari-daihon-selmerge, button.akari-daihon-tpl, button.akari-daihon-seltpl, .akari-daihon-tplcard, .akari-daihon-cutcell, .akari-daihon-cutrange, .akari-daihon-pop, .akari-daihon-minitl, .akari-daihon-wgap, .akari-daihon-wordbar, .akari-daihon-wordcm';
+const DAIHON_SHOW_BREAKS_PREFERENCE = 'akari.daihon.showBreaks';
+const INTERACTIVE_SELECTOR = '.akari-daihon-speaker, button.akari-daihon-tc, .akari-daihon-word, .akari-daihon-word-unk, input, .akari-daihon-badge-qc, .akari-daihon-gapchip, button.akari-daihon-cut, button.akari-daihon-split, .akari-daihon-splitmark, .akari-daihon-gapzone, .akari-daihon-gapdraft, .akari-daihon-word-filler, button.akari-daihon-silence, button.akari-daihon-selcut, button.akari-daihon-selmerge, button.akari-daihon-selmerge-next, button.akari-daihon-tpl, button.akari-daihon-seltpl, .akari-daihon-tplcard, .akari-daihon-cutcell, .akari-daihon-cutrange, .akari-daihon-pop, .akari-daihon-minitl, .akari-daihon-wgap, .akari-daihon-wordbar, .akari-daihon-wordcm, .akari-daihon-slash';
 
 interface PreviewPlaybackTick {
     videoUri?: string;
@@ -214,9 +222,10 @@ const STYLE = `
 .akari-daihon-wgap { display:inline-block; width:6px; height:1.5em; margin:0 -3px; vertical-align:middle; position:relative; cursor:pointer; }
 .akari-daihon-wgap::after { content:"⊕"; display:none; position:absolute; left:-5px; top:-12px; color:#ffc74a; font-size:12px; z-index:2; }
 .akari-daihon-wgap:hover::after { display:block; }
-.akari-daihon-slash { color:#53d1bc; font-weight:700; margin:0 3px; opacity:.8; cursor:help; user-select:none; }
+.akari-daihon-slash { color:#53d1bc; font-weight:700; margin:0 3px; opacity:.8; cursor:pointer; user-select:none; position:relative; z-index:3; }
 .akari-daihon-slash.auto { color:#77808f; font-weight:500; opacity:.48; }
 .akari-daihon-slash.manual { color:#53d1bc; opacity:1; }
+.akari-daihon-word.nowfrag { background:rgba(83,209,188,.16); box-shadow:inset 0 -2px #53d1bc; border-radius:3px; }
 .akari-daihon-badge-breaklock { font-size:9px; color:#7fe7d3; border:1px solid rgba(83,209,188,.38); border-radius:999px; padding:0 6px; white-space:nowrap; }
 .akari-daihon-display { background:#262c37; border:1px solid #333b48; color:#b9c1cf; border-radius:4px; font-size:10px; padding:1px 7px; cursor:pointer; white-space:nowrap; }
 .akari-daihon-display:hover { color:#e9ecf2; border-color:#445068; }
@@ -258,10 +267,10 @@ const STYLE = `
 .akari-daihon-cutcell .akari-daihon-rbtn { margin-left:auto; background:none; border:1px solid rgba(255,143,115,.35); color:#d9927f; border-radius:4px; font-size:9.5px; padding:0 6px; cursor:pointer; white-space:nowrap; }
 .akari-daihon-cutcell .akari-daihon-rbtn:hover:not(:disabled) { color:#ffb39e; border-color:rgba(255,143,115,.7); }
 .akari-daihon-cutcell .akari-daihon-rbtn:disabled { opacity:.42; cursor:not-allowed; }
-.akari-daihon-cut,.akari-daihon-split,.akari-daihon-selcut,.akari-daihon-selmerge,.akari-daihon-silence,.akari-daihon-tpl,.akari-daihon-seltpl,.akari-daihon-cuts { background:#262c37; border:1px solid #333b48; color:#b9c1cf; border-radius:4px; font-size:10px; padding:1px 6px; cursor:pointer; white-space:nowrap; }
+.akari-daihon-cut,.akari-daihon-split,.akari-daihon-selcut,.akari-daihon-selmerge,.akari-daihon-selmerge-next,.akari-daihon-silence,.akari-daihon-tpl,.akari-daihon-seltpl,.akari-daihon-cuts { background:#262c37; border:1px solid #333b48; color:#b9c1cf; border-radius:4px; font-size:10px; padding:1px 6px; cursor:pointer; white-space:nowrap; }
 .akari-daihon-cut:hover,.akari-daihon-selcut:hover,.akari-daihon-silence:hover,.akari-daihon-tpl:hover,.akari-daihon-seltpl:hover,.akari-daihon-cuts:hover { color:#e9ecf2; border-color:#445068; }
 .akari-daihon-cut:hover { color:#ff8f73; border-color:rgba(255,143,115,.5); }
-.akari-daihon-split:disabled,.akari-daihon-selmerge:disabled { opacity:.4; cursor:not-allowed; }
+.akari-daihon-split:disabled,.akari-daihon-selmerge:disabled,.akari-daihon-selmerge-next:disabled { opacity:.4; cursor:not-allowed; }
 .akari-daihon-gapzone { height:8px; margin:-3px 8px; position:relative; cursor:pointer; }
 .akari-daihon-gapzone button { display:none; position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); border:1px solid #80662a; border-radius:999px; background:#28251b; color:#ffc74a; font-size:10px; line-height:15px; width:17px; height:17px; padding:0; }
 .akari-daihon-gapzone:hover button { display:block; }
@@ -385,6 +394,7 @@ export class AkariDaihonWidget extends BaseWidget {
     protected readonly selectionBar = document.createElement('div');
     protected readonly selectionCount = document.createElement('span');
     protected readonly selectionMerge = document.createElement('button');
+    protected readonly selectionMergeNext = document.createElement('button');
     protected readonly footer = document.createElement('div');
     protected readonly elements = new Map<string, RowElements>();
     protected rows: DaihonRow[] = [];
@@ -393,6 +403,7 @@ export class AkariDaihonWidget extends BaseWidget {
     protected wordPresetByRowId = new Map<string, (string | undefined)[]>();
     protected wordUnitsByRowId = new Map<string, DaihonWordUnit[]>();
     protected wordUnit: 'word' | 'token' = 'word';
+    protected showBreaks = true;
     protected captionsRoot: unknown = [];
     protected sourceCaptions: Caption[] = [];
     protected displayKnobs: DaihonDisplayKnobs = readDaihonDisplayKnobs([]);
@@ -550,7 +561,12 @@ export class AkariDaihonWidget extends BaseWidget {
         this.selectionMerge.className = 'akari-daihon-selmerge';
         this.selectionMerge.textContent = '⧉ 選択行を結合';
         this.selectionMerge.addEventListener('click', () => void this.mergeSelectedRows());
-        this.selectionBar.append(this.selectionCount, selectionSpacer, selectionTpl, this.selectionMerge, selectionCut, selectionClear);
+        this.selectionMergeNext.type = 'button';
+        this.selectionMergeNext.className = 'akari-daihon-selmerge-next';
+        this.selectionMergeNext.textContent = '次の行と結合';
+        this.selectionMergeNext.addEventListener('click', () => void this.mergeSelectedRowWithNext());
+        this.selectionBar.append(this.selectionCount, selectionSpacer, selectionTpl, this.selectionMerge,
+            this.selectionMergeNext, selectionCut, selectionClear);
 
         this.footer.className = 'akari-daihon-footer';
         this.footer.textContent = '秒数や語をクリックするとプレビューへシークします。';
@@ -611,6 +627,7 @@ export class AkariDaihonWidget extends BaseWidget {
         if (this.configured) return;
         this.configured = true;
         this.wordUnit = this.preferences.get(DAIHON_WORD_UNIT_PREFERENCE) === 'token' ? 'token' : 'word';
+        this.showBreaks = readDaihonShowBreaks(this.preferences.get(DAIHON_SHOW_BREAKS_PREFERENCE));
         await this.workspaceService.ready;
         const roots = await this.workspaceService.roots;
         const root = roots[0]?.resource;
@@ -1108,7 +1125,12 @@ export class AkariDaihonWidget extends BaseWidget {
                         });
                         text.appendChild(marker);
                     }
-                    if (breaks.has(index)) text.appendChild(this.slash(manualBreaks ? 'manual' : 'auto'));
+                    if (this.showBreaks && breaks.has(index)) {
+                        text.appendChild(this.slash(manualBreaks ? 'manual' : 'auto', row, {
+                            wordIndex: index,
+                            characterOffset: row.words.slice(0, index).reduce((sum, item) => sum + item.text.length, 0)
+                        }));
+                    }
                     const gap = document.createElement('span');
                     gap.className = 'akari-daihon-wgap';
                     gap.dataset.rowId = row.id;
@@ -1152,7 +1174,8 @@ export class AkariDaihonWidget extends BaseWidget {
                 const manual = (this.captionExtraById.get(row.id)?.displayFragments?.length ?? 0) > 0;
                 let offset = 0;
                 for (const split of splits) {
-                    span.append(document.createTextNode(row.text.slice(offset, split)), this.slash(manual ? 'manual' : 'auto'));
+                    span.append(document.createTextNode(row.text.slice(offset, split)));
+                    if (this.showBreaks) span.append(this.slash(manual ? 'manual' : 'auto', row, { characterOffset: split }));
                     offset = split;
                 }
                 span.append(document.createTextNode(row.text.slice(offset)));
@@ -1309,10 +1332,40 @@ export class AkariDaihonWidget extends BaseWidget {
         } catch (error) { this.notify(this.errorMessage(error)); }
     }
 
+    protected async mergeSelectedRowWithNext(): Promise<void> {
+        if (!this.captionsUri || !this.rootUri || this.selection.selected.length !== 1) return;
+        const rowIndex = this.rows.findIndex(row => row.id === this.selection.selected[0]);
+        const row = this.rows[rowIndex];
+        const next = this.rows[rowIndex + 1];
+        if (!row || !next) return;
+        const result = canMergeRows(this.rows, [row.id, next.id]);
+        if (!result.ok) { this.notify('reason' in result ? result.reason : '次の行と結合できません。'); return; }
+        try {
+            await this.withHistory('字幕を結合', async () => {
+                await this.annotationsService.mergeCaptions({
+                    captionsUri: this.captionsUri!.toString(), projectRootUri: this.rootUri!.toString(),
+                    captionIds: [row.id, next.id]
+                });
+            });
+            this.setSelection(clearSelection());
+            await this.reload();
+            this.notify('2 行を結合しました。');
+        } catch (error) { this.notify(this.errorMessage(error)); }
+    }
+
     protected updateSelectionMerge(): void {
         const result = canMergeRows(this.rows, this.selection.selected);
         this.selectionMerge.disabled = !result.ok;
         this.selectionMerge.title = result.ok ? '選択した隣接行を結合' : ('reason' in result ? result.reason : '選択した行を結合できません。');
+        const selectedId = this.selection.selected.length === 1 ? this.selection.selected[0] : undefined;
+        const rowIndex = selectedId ? this.rows.findIndex(row => row.id === selectedId) : -1;
+        const row = this.rows[rowIndex];
+        const next = this.rows[rowIndex + 1];
+        const mergeNext = row && next ? canMergeRows(this.rows, [row.id, next.id])
+            : { ok: false as const, reason: row ? '次の行がありません。' : '1 行だけ選択してください。' };
+        this.selectionMergeNext.disabled = !mergeNext.ok;
+        this.selectionMergeNext.title = mergeNext.ok ? '選択行を次の行と結合'
+            : ('reason' in mergeNext ? mergeNext.reason : '次の行と結合できません。');
     }
 
     protected openFillerPop(anchor: HTMLElement, row: DaihonRow, wordIndex: number): void {
@@ -2099,6 +2152,21 @@ export class AkariDaihonWidget extends BaseWidget {
         wordUnitSegments.append(word, token);
         wordUnitGroup.append(wordUnitLabel, wordUnitSegments);
 
+        const breaksGroup = document.createElement('div');
+        breaksGroup.className = 'akari-daihon-displaygroup';
+        const breaksLabel = document.createElement('div');
+        breaksLabel.className = 'akari-daihon-displaylabel';
+        breaksLabel.textContent = '区切り';
+        const breaksToggle = this.popButton(this.showBreaks ? '区切りを表示 ✓' : '区切りを表示', () => {
+            this.showBreaks = !this.showBreaks;
+            this.renderRows(buildDaihonRows(this.daihonCaptionsForDisplay(), this.segments));
+            void this.preferences.set(DAIHON_SHOW_BREAKS_PREFERENCE, this.showBreaks, PreferenceScope.User)
+                .then(() => this.openDisplayPop(anchor))
+                .catch(error => this.notify(this.errorMessage(error)));
+        });
+        breaksToggle.classList.toggle('selected', this.showBreaks);
+        breaksGroup.append(breaksLabel, breaksToggle);
+
         const unitsGroup = document.createElement('div');
         unitsGroup.className = 'akari-daihon-displaygroup';
         const unitsLabel = document.createElement('div');
@@ -2200,7 +2268,7 @@ export class AkariDaihonWidget extends BaseWidget {
         note.className = 'akari-daihon-displaynote';
         note.append(document.createTextNode('ベースは字幕本文です。'), document.createElement('br'),
             document.createTextNode('手で置いた／は動きません。'));
-        pop.append(wordUnitGroup, unitsGroup, linesGroup, wrapGroup, overflowCount, note);
+        pop.append(wordUnitGroup, breaksGroup, unitsGroup, linesGroup, wrapGroup, overflowCount, note);
     }
 
     protected fieldRow(prefix: string, input: HTMLInputElement, suffix: string): HTMLDivElement {
@@ -2535,10 +2603,38 @@ export class AkariDaihonWidget extends BaseWidget {
 
     protected async toggleWordBreak(row: DaihonRow, index: number): Promise<void> {
         if (!this.editUri || !this.captionsUri || !this.rootUri || !row.words) return;
+        const at = row.words.slice(0, index).reduce((sum, word) => sum + word.text.length, 0);
+        await this.toggleDisplayBoundary(row, at);
+    }
+
+    protected rowDisplayFragments(row: DaihonRow): string[] | undefined {
+        const offsets = row.fragmentBreakCharacterOffsets.length
+            ? row.fragmentBreakCharacterOffsets
+            : row.fragmentBreakWordIndices.map(index => row.words?.slice(0, index)
+                .reduce((sum, word) => sum + word.text.length, 0) ?? 0);
+        if (!offsets.length) return undefined;
+        let cursor = 0;
+        return [...offsets, row.text.length].map(end => {
+            const fragment = row.text.slice(cursor, end);
+            cursor = end;
+            return fragment;
+        });
+    }
+
+    protected async toggleDisplayBoundary(
+        row: DaihonRow,
+        characterOffset: number,
+        freezeCurrent = false
+    ): Promise<void> {
+        if (!this.editUri || !this.captionsUri || !this.rootUri) return;
         let fragments: string[] | undefined;
         await this.withHistory('表示の改行を変更', async () => {
             const source = await this.readText(this.captionsUri!);
-            fragments = toggleFragmentBoundary(row.words!, this.captionExtraById.get(row.id)?.displayFragments, row.text, index);
+            const manual = this.captionExtraById.get(row.id)?.displayFragments;
+            const baseline = manual ?? (freezeCurrent ? this.rowDisplayFragments(row) : undefined);
+            fragments = freezeCurrent && baseline
+                ? freezeAndRemoveCaptionBoundary(baseline, row.text, characterOffset)
+                : toggleFragmentBoundaryAtOffset(baseline, row.text, characterOffset);
             const captionsSource = setCaptionDisplayFragmentsInSource(source, row.id, fragments);
             await this.annotationsService.writeEditSnapshot({ editUri: this.editUri!.toString(), projectRootUri: this.rootUri!.toString(),
                 captionsUri: this.captionsUri!.toString(), captionsSource });
@@ -2561,7 +2657,7 @@ export class AkariDaihonWidget extends BaseWidget {
             if (rowIndex >= 0) this.rows[rowIndex] = nextRow;
             this.replaceRenderedRow(nextRow);
         }
-        this.notify('表示の改行を入れました');
+        this.notify('表示の区切りを変更しました');
     }
 
     protected async insertPause(row: DaihonRow, wordIndex: number): Promise<void> {
@@ -2600,11 +2696,13 @@ export class AkariDaihonWidget extends BaseWidget {
         const selectedRange = this.wordRanges.find(range => range.row === row.id && range.a <= index && index <= range.b);
         const afterWordIndex = selectedRange ? Math.max(selectedRange.a, selectedRange.b) : index;
         const previousRow = this.rows[this.rows.findIndex(candidate => candidate.id === row.id) - 1];
+        const nextRow = this.rows[this.rows.findIndex(candidate => candidate.id === row.id) + 1];
         const groups = wordContextMenuGroups({ rangeCount: summary.rangeCount, wordCount: summary.wordCount,
             text: summary.text, nextWordText: row.words?.[Math.min(index + 1, row.words.length - 1)]?.text ?? '',
             presets: this.wordPresetCards().map(({ id, name }) => ({ id, name })),
             splitAvailable: canSplitRow(row) && new Set(this.wordRanges.map(range => range.row)).size === 1,
             mergeAvailable: !!previousRow && canMergeRows(this.rows, [previousRow.id, row.id]).ok,
+            mergeNextAvailable: !!nextRow && canMergeRows(this.rows, [row.id, nextRow.id]).ok,
             wordInsertAvailable: this.wordInsertAvailable(row, afterWordIndex), itemCaptionsAvailable: false });
         openWordContextMenu({ x: event.clientX, y: event.clientY, groups,
             onAction: action => {
@@ -2636,6 +2734,20 @@ export class AkariDaihonWidget extends BaseWidget {
                     if (!result.ok) { this.notify('reason' in result ? result.reason : '前の行と結合できません。'); break; }
                     await this.withHistory('字幕を結合', async () => this.annotationsService.mergeCaptions({
                         captionsUri: this.captionsUri!.toString(), projectRootUri: this.rootUri!.toString(), captionIds: result.orderedIds
+                    }).then(() => undefined));
+                    await this.reload();
+                    this.notify('2 行を結合しました。');
+                    break;
+                }
+                case 'merge-next': {
+                    const rowIndex = this.rows.findIndex(candidate => candidate.id === row.id);
+                    const next = this.rows[rowIndex + 1];
+                    if (!next || !this.captionsUri || !this.rootUri) break;
+                    const result = canMergeRows(this.rows, [row.id, next.id]);
+                    if (!result.ok) { this.notify('reason' in result ? result.reason : '次の行と結合できません。'); break; }
+                    await this.withHistory('字幕を結合', async () => this.annotationsService.mergeCaptions({
+                        captionsUri: this.captionsUri!.toString(), projectRootUri: this.rootUri!.toString(),
+                        captionIds: [row.id, next.id]
                     }).then(() => undefined));
                     await this.reload();
                     this.notify('2 行を結合しました。');
@@ -2853,11 +2965,29 @@ export class AkariDaihonWidget extends BaseWidget {
         return span;
     }
 
-    protected slash(kind: 'auto' | 'manual'): HTMLSpanElement {
+    protected slash(
+        kind: 'auto' | 'manual',
+        row: DaihonRow,
+        boundary: { wordIndex?: number; characterOffset: number }
+    ): HTMLSpanElement {
         const slash = document.createElement('span');
         slash.className = `akari-daihon-slash ${kind}`;
         slash.textContent = '/';
         slash.title = kind === 'manual' ? '手で固定した表示の切れ目' : '文字数から決めた表示の切れ目';
+        slash.dataset.rowId = row.id;
+        slash.dataset.characterOffset = String(boundary.characterOffset);
+        if (boundary.wordIndex !== undefined) slash.dataset.wordIndex = String(boundary.wordIndex);
+        slash.addEventListener('click', event => {
+            event.preventDefault();
+            event.stopPropagation();
+            const pop = this.openPop(slash);
+            const remove = this.popButton('✕ ここの区切りをやめる', () => this.runWordOperation(() =>
+                this.toggleDisplayBoundary(row, boundary.characterOffset, true)));
+            const add = this.popButton('／ ここで区切る', () => undefined);
+            add.disabled = true;
+            add.title = 'この位置には既に区切りがあります。';
+            pop.append(remove, add);
+        });
         return slash;
     }
 
@@ -2922,10 +3052,25 @@ export class AkariDaihonWidget extends BaseWidget {
             elements.root.classList.toggle('active', active);
             const row = this.rows.find(candidate => candidate.id === id);
             const passed = row?.outEnd !== null && row?.outEnd !== undefined && row.outEnd <= outputT;
+            const fragment = row ? activeDaihonFragment(
+                row.text,
+                this.rowDisplayFragments(row),
+                row.outStart,
+                row.outEnd,
+                outputT,
+                daihonDisplayPolicyForWrite(this.captionsRoot, this.displayKnobs).minimum_fragment_duration_seconds
+            ) : null;
+            let characterOffset = 0;
             elements.words.forEach((word, index) => {
+                const wordLength = row?.words?.[index]?.text.length ?? (index === 0 ? row?.text.length ?? 0 : 0);
+                const wordFrom = characterOffset;
+                const wordTo = characterOffset + wordLength;
+                characterOffset = wordTo;
                 word.classList.toggle('seen', !active && passed);
                 word.classList.toggle('past', active && next.wordIndex !== null && index < next.wordIndex);
                 word.classList.toggle('now', active && index === next.wordIndex);
+                word.classList.toggle('nowfrag', active && fragment !== null
+                    && wordFrom < fragment.to && fragment.from < wordTo);
             });
         }
     }

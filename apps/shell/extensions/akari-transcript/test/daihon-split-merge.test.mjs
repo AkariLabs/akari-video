@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { readFile } from 'node:fs/promises';
 import { canMergeRows, canSplitRow, splitWordBoundaries } from '../lib/common/daihon-split-merge.js';
 
 const row = (id, options = {}) => ({ id, outStart: 0, timeDomain: 'source', words: [{ text: 'a', start: 0, end: 1 }, { text: 'b', start: 1, end: 2 }], ...options });
@@ -17,3 +18,9 @@ test('カット中行を含む結合は拒否する', () => assert.match(canMerg
 test('存在しない id は拒否する', () => assert.match(canMergeRows([row('a'), row('b')], ['a', 'z']).reason, /見つかりません/));
 test('重複 id は拒否する', () => assert.match(canMergeRows([row('a'), row('b')], ['a', 'a']).reason, /2 行以上|重複/));
 test('連続 3 行を rows 順に返す', () => assert.deepEqual(canMergeRows([row('a'), row('b'), row('c')], ['c', 'a', 'b']), { ok: true, orderedIds: ['a', 'b', 'c'] }));
+test('右クリックと単一選択バーは次の行を 2 行結合で呼ぶ', async () => {
+  const source = await readFile(new URL('../src/browser/daihon/akari-daihon-widget.ts', import.meta.url), 'utf8');
+  assert.match(source, /case 'merge-next'/u);
+  assert.match(source, /captionIds: \[row\.id, next\.id\]/u);
+  assert.match(source, /selectionMergeNext\.title[^;]+mergeNext\.reason/su);
+});

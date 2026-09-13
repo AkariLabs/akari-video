@@ -122,6 +122,13 @@ export declare class CaptionDisplayError extends Error {
     constructor(code: string, message: string);
 }
 export declare function measureCaptionUnits(text: string): number;
+export interface CaptionWordSpan {
+    start: number;
+    end: number;
+    wordLike: boolean;
+}
+/** 自動分割で採用してはいけない、Latin/数字または Segmenter 語の内部境界を判定する。 */
+export declare function captionBreakBoundaryBlocked(text: string, boundary: number, wordSpans: readonly CaptionWordSpan[]): boolean;
 export declare function joinCaptionLines(lines: string[], locale: string): string;
 export declare function validateCaptionDisplayPolicy(value: unknown): CaptionDisplayPolicy;
 export declare function resolveCaptionDisplay(captionsRoot: unknown, edit: UnknownRecord, options?: {

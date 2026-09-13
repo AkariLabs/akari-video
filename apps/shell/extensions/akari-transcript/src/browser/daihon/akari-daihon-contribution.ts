@@ -46,6 +46,11 @@ export class AkariDaihonContribution implements CommandContribution, FrontendApp
                     enum: ['word', 'token'],
                     default: 'word',
                     description: '台本で選択・操作する単位（単語または認識トークン）'
+                },
+                'akari.daihon.showBreaks': {
+                    type: 'boolean',
+                    default: true,
+                    description: '台本の本文に自動・手置きの表示区切りを表示する'
                 }
             }
         });

@@ -1,0 +1,58 @@
+{
+  "status": "pass",
+  "steps": [
+    {
+      "name": "1. max_line_units 10 で YouTube が割れない",
+      "pass": true,
+      "detail": {
+        "words": [
+          "今日",
+          "は",
+          "ね",
+          "ひたすら",
+          "YouTube",
+          "の",
+          "撮影",
+          "を"
+        ],
+        "offsets": [
+          8
+        ]
+      }
+    },
+    {
+      "name": "2. 自動の／をクリックして境界を 1 個減らし edited=true",
+      "pass": true,
+      "detail": {
+        "fragments": [
+          "今日はねひたすらYouTubeの撮影を"
+        ],
+        "edited": true
+      }
+    },
+    {
+      "name": "3. 右クリック「次の行と結合」で c-0005 + c-0006 を 1 行にする",
+      "pass": true,
+      "detail": {
+        "route": "context-menu",
+        "rows": 2,
+        "id": "c-0005",
+        "text": "これゴールデンウィーク明けにYouTubeで配信する予定なんで"
+      }
+    }
+  ],
+  "screenshots": [
+    "01-youtube-unsplit.png",
+    "02-automatic-break-removed.png",
+    "03-merge-next.png"
+  ],
+  "cleanup": {
+    "killedPid": 14795,
+    "survivingProcesses": 0
+  },
+  "fixture": {
+    "ok": true,
+    "rows": 3
+  },
+  "preloadOverlay": "removed"
+}

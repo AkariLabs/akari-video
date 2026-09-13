@@ -33,6 +33,10 @@ const DEFAULT_POLICY: CaptionDisplayPolicy = {
     wrap: DEFAULT_KNOBS.wrap
 };
 
+export function readDaihonShowBreaks(value: unknown): boolean {
+    return value !== false;
+}
+
 function record(value: unknown): Record<string, unknown> | undefined {
     return value !== null && typeof value === 'object' && !Array.isArray(value)
         ? value as Record<string, unknown> : undefined;
