@@ -2,10 +2,51 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
     captionFragmentWindows,
+    captionSpeechWindow,
     captionWindowSeconds,
     expandCaptionDisplayFragments,
     findActiveCaption
 } from '../lib/caption-window.js';
+
+test('captionSpeechWindow: 有効語の最小最大へ前後を縮める', () => {
+    const caption = { start: 0, end: 4, display_timing: 'speech-tight', words: [
+        { start: 1, end: 1.5 }, { start: Number.NaN, end: 2 }, { start: 2, end: 3 }
+    ] };
+    assert.deepEqual(captionSpeechWindow(caption), { start: 1, end: 3 });
+    assert.deepEqual(captionWindowSeconds(caption), { start: 1, end: 3 });
+});
+
+test('captionSpeechWindow: 語なしと窓いっぱいは fail-open する', () => {
+    assert.equal(captionSpeechWindow({ start: 0, end: 2, display_timing: 'speech-tight' }), null);
+    assert.equal(captionSpeechWindow({ start: 0, end: 2, display_timing: 'speech-tight', words: [{ start: 0, end: 2 }] }), null);
+});
+
+test('expandCaptionDisplayFragments: 断片なし speech-tight は浅いコピーの窓だけを縮める', () => {
+    const caption = { id: 'c1', start: 0, end: 3, text: '本文', display_timing: 'speech-tight',
+        words: [{ text: '本文', start: 1, end: 2 }] };
+    const [expanded] = expandCaptionDisplayFragments([caption]);
+    assert.notEqual(expanded, caption);
+    assert.equal(expanded.start, 1);
+    assert.equal(expanded.end, 2);
+    assert.equal(expanded.words, caption.words);
+    assert.equal(expanded.display_timing, 'speech-tight');
+});
+
+test('speech-tight と display_fragments は縮めた base 窓を共有する', () => {
+    const windows = captionFragmentWindows({ start: 0, end: 4, text: '前後', display_fragments: ['前', '後'],
+        display_timing: 'speech-tight', words: [{ text: '前', start: 1, end: 2 }, { text: '後', start: 2.5, end: 3 }] });
+    assert.deepEqual(windows, [
+        { text: '前', start: 1, end: 2, index: 1, count: 2 },
+        { text: '後', start: 2.5, end: 3, index: 2, count: 2 }
+    ]);
+});
+
+test('findActiveCaption: speech-tight の無音 padding ではヒットしない', () => {
+    const captions = [{ id: 'tight', start: 0, end: 3, display_timing: 'speech-tight',
+        words: [{ start: 1, end: 2 }] }];
+    assert.equal(findActiveCaption(captions, 0.5), undefined);
+    assert.equal(findActiveCaption(captions, 1.5)?.id, 'tight');
+});
 
 test('captionWindowSeconds: start/end がそのまま窓になる（正典形）', () => {
     assert.deepEqual(captionWindowSeconds({ start: 3, end: 4 }), { start: 3, end: 4 });

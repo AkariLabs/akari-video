@@ -1968,7 +1968,7 @@ ${indent}`);
         if (!captionId) {
           throw new Error("\u5B57\u5E55 ID \u3092\u6307\u5B9A\u3057\u3066\u304F\u3060\u3055\u3044\u3002");
         }
-        if (updates.text === void 0 && updates.speaker === void 0 && updates.unrecognized === void 0) {
+        if (updates.text === void 0 && updates.speaker === void 0 && updates.unrecognized === void 0 && updates.style === void 0 && updates.displayTiming === void 0) {
           throw new Error("\u5909\u66F4\u3059\u308B\u5B57\u5E55\u30D5\u30A3\u30FC\u30EB\u30C9\u3092\u6307\u5B9A\u3057\u3066\u304F\u3060\u3055\u3044\u3002");
         }
         if (updates.text !== void 0 && (typeof updates.text !== "string" || !updates.text.trim())) {
@@ -1976,6 +1976,12 @@ ${indent}`);
         }
         if (updates.speaker !== void 0 && updates.speaker !== null && typeof updates.speaker !== "string") {
           throw new Error("\u5B57\u5E55\u306E\u8A71\u8005\u306F\u6587\u5B57\u5217\u307E\u305F\u306F null \u3067\u6307\u5B9A\u3057\u3066\u304F\u3060\u3055\u3044\u3002");
+        }
+        if (updates.style !== void 0 && updates.style !== null && !["karaoke", "pop", "reveal", "reveal-word"].includes(updates.style)) {
+          throw new Error("\u5B57\u5E55\u306E\u30B9\u30BF\u30A4\u30EB\uFF08\u6F14\u51FA\uFF09\u304C\u4E0D\u6B63\u3067\u3059\u3002");
+        }
+        if (updates.displayTiming !== void 0 && updates.displayTiming !== null && updates.displayTiming !== "full" && updates.displayTiming !== "speech-tight") {
+          throw new Error("\u5B57\u5E55\u306E\u8868\u793A\u30BF\u30A4\u30DF\u30F3\u30B0\u304C\u4E0D\u6B63\u3067\u3059\u3002");
         }
         let unrecognized;
         if (updates.unrecognized !== void 0 && updates.unrecognized !== null) {
@@ -2009,6 +2015,13 @@ ${indent}`);
         }
         if (updates.unrecognized !== void 0) {
           nextElement = syncOptionalCaptionProperty(nextElement, "unrecognized", updates.unrecognized === null || unrecognized?.length === 0 ? void 0 : unrecognized, captionId);
+        }
+        if (updates.style !== void 0) {
+          nextElement = syncOptionalCaptionProperty(nextElement, "style", updates.style ?? void 0, captionId);
+        }
+        if (updates.displayTiming !== void 0) {
+          const next = updates.displayTiming === "speech-tight" ? "speech-tight" : void 0;
+          nextElement = syncOptionalCaptionProperty(nextElement, "display_timing", next, captionId);
         }
         return replaceElement(source, array.openIndex + 1, element, nextElement);
       }
@@ -2060,6 +2073,7 @@ ${indent}`);
             radius_px: updates.background?.radiusPx,
             mode: updates.background?.mode
           }, `\u5B57\u5E55 ${captionId} \u306E text_style.background`);
+          textStyle = updateAnimationStyleObject(textStyle, updates.animation, `\u5B57\u5E55 ${captionId} \u306E text_style.animation`);
           nextElement = Object.keys(JSON.parse(textStyle)).length === 0 ? removeObjectProperty(nextElement, "text_style") : nextElement.slice(0, located.start) + textStyle + nextElement.slice(located.end);
         }
         return replaceElement(source, array.openIndex + 1, element, nextElement);
@@ -2962,7 +2976,7 @@ ${indent}`);
         return typeof value === "string" && /^#(?:[0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/iu.test(value);
       }
       function validateTextStylePatch(updates) {
-        const hasUpdate = updates.color !== void 0 || updates.sizePx !== void 0 || updates.zone !== void 0 || updates.stroke?.color !== void 0 || updates.stroke?.widthPx !== void 0 || updates.background?.color !== void 0 || updates.background?.opacity !== void 0 || updates.background?.radiusPx !== void 0 || updates.background?.mode !== void 0;
+        const hasUpdate = updates.color !== void 0 || updates.sizePx !== void 0 || updates.zone !== void 0 || updates.stroke?.color !== void 0 || updates.stroke?.widthPx !== void 0 || updates.background?.color !== void 0 || updates.background?.opacity !== void 0 || updates.background?.radiusPx !== void 0 || updates.background?.mode !== void 0 || updates.animation !== void 0;
         if (!hasUpdate) {
           throw new Error("\u5909\u66F4\u3059\u308B\u5B57\u5E55\u30B9\u30BF\u30A4\u30EB\u306E\u30D5\u30A3\u30FC\u30EB\u30C9\u3092\u6307\u5B9A\u3057\u3066\u304F\u3060\u3055\u3044\u3002");
         }
@@ -2989,6 +3003,27 @@ ${indent}`);
         if (updates.zone !== void 0 && updates.zone !== null && !exports.CAPTION_ZONES.includes(updates.zone)) {
           throw new Error("\u5B57\u5E55\u306E\u4F4D\u7F6E\u304C\u4E0D\u6B63\u3067\u3059\u3002");
         }
+        if (updates.animation !== void 0 && updates.animation !== null && (typeof updates.animation !== "object" || Array.isArray(updates.animation))) {
+          throw new Error("\u5B57\u5E55\u30A2\u30CB\u30E1\u306E\u8A2D\u5B9A\u304C\u4E0D\u6B63\u3067\u3059\u3002");
+        }
+        if (updates.animation && typeof updates.animation === "object") {
+          for (const slot of [updates.animation.in, updates.animation.out]) {
+            if (slot === void 0 || slot === null)
+              continue;
+            if (!slot || typeof slot !== "object" || typeof slot.id !== "string" || !/^[a-z0-9][a-z0-9-]*$/.test(slot.id)) {
+              throw new Error("\u5B57\u5E55\u30A2\u30CB\u30E1\u306E ID \u304C\u4E0D\u6B63\u3067\u3059\u3002");
+            }
+            if (slot.durationSec !== void 0 && (!Number.isFinite(slot.durationSec) || slot.durationSec <= 0)) {
+              throw new Error("\u5B57\u5E55\u30A2\u30CB\u30E1\u306E\u9577\u3055\u306F\u6B63\u306E\u6570\u3067\u6307\u5B9A\u3057\u3066\u304F\u3060\u3055\u3044\u3002");
+            }
+            if (slot.ease !== void 0 && slot.ease !== null && (typeof slot.ease !== "string" || !slot.ease.trim())) {
+              throw new Error("\u5B57\u5E55\u30A2\u30CB\u30E1\u306E\u30A4\u30FC\u30B8\u30F3\u30B0\u304C\u4E0D\u6B63\u3067\u3059\u3002");
+            }
+            if (slot.amp !== void 0 && slot.amp !== null && (!Number.isFinite(slot.amp) || slot.amp <= 0)) {
+              throw new Error("\u5B57\u5E55\u30A2\u30CB\u30E1\u306E\u5F37\u3055\u306F\u6B63\u306E\u6570\u3067\u6307\u5B9A\u3057\u3066\u304F\u3060\u3055\u3044\u3002");
+            }
+          }
+        }
       }
       function textStylePatchToJson(updates) {
         return {
@@ -3006,6 +3041,12 @@ ${indent}`);
               ...updates.background.opacity !== void 0 && updates.background.opacity !== null ? { opacity: updates.background.opacity } : {},
               ...updates.background.radiusPx !== void 0 && updates.background.radiusPx !== null ? { radius_px: updates.background.radiusPx } : {},
               ...updates.background.mode !== void 0 && updates.background.mode !== null ? { mode: updates.background.mode } : {}
+            }
+          } : {},
+          ...updates.animation && Object.values(updates.animation).some((value) => value !== void 0 && value !== null) ? {
+            animation: {
+              ...updates.animation.in ? { in: animationSlotToJson(updates.animation.in) } : {},
+              ...updates.animation.out ? { out: animationSlotToJson(updates.animation.out) } : {}
             }
           } : {},
           ...updates.zone !== void 0 && updates.zone !== null ? { zone: updates.zone } : {}
@@ -3057,6 +3098,41 @@ ${indent}`);
           next = updateOptionalStyleProperty(next, key, value, label);
         }
         return Object.keys(JSON.parse(next)).length === 0 ? removeObjectProperty(source, property) : source.slice(0, object.start) + next + source.slice(object.end);
+      }
+      function updateAnimationStyleObject(source, updates, label) {
+        if (updates === void 0)
+          return source;
+        const located = locateTopLevelProperty(source, "animation");
+        if (updates === null)
+          return located ? removeObjectProperty(source, "animation") : source;
+        if (!located) {
+          const created = {
+            ...updates.in ? { in: animationSlotToJson(updates.in) } : {},
+            ...updates.out ? { out: animationSlotToJson(updates.out) } : {}
+          };
+          return Object.keys(created).length > 0 ? appendJsonProperty(source, "animation", created) : source;
+        }
+        const object = locateTopLevelObjectProperty(source, "animation", label);
+        let next = object.text;
+        for (const [slotName, slot] of [["in", updates.in], ["out", updates.out]]) {
+          if (slot === void 0)
+            continue;
+          if (slot === null) {
+            next = removeObjectProperty(next, slotName);
+            continue;
+          }
+          const value = animationSlotToJson(slot);
+          const slotProperty = locateTopLevelProperty(next, slotName);
+          if (!slotProperty) {
+            next = appendJsonProperty(next, slotName, value);
+            continue;
+          }
+          const escaped = slotName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+          const pattern = new RegExp(`^("${escaped}"\\s*:\\s*)[\\s\\S]*?(\\s*)$`);
+          const replaced = slotProperty.text.replace(pattern, (_match, prefix, suffix) => `${prefix}${JSON.stringify(value)}${suffix}`);
+          next = next.slice(0, slotProperty.start) + replaced + next.slice(slotProperty.end);
+        }
+        return Object.keys(JSON.parse(next)).length === 0 ? removeObjectProperty(source, "animation") : source.slice(0, object.start) + next + source.slice(object.end);
       }
       function updateOptionalStyleProperty(source, property, value, label) {
         if (value === void 0) {
@@ -3130,15 +3206,38 @@ ${indent}`);
     "packages/edit-store/lib/caption-window.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
+      exports.captionSpeechWindow = captionSpeechWindow;
       exports.captionWindowSeconds = captionWindowSeconds;
       exports.captionFragmentWindows = captionFragmentWindows;
       exports.expandCaptionDisplayFragments = expandCaptionDisplayFragments;
       exports.findActiveCaption = findActiveCaption;
-      function captionWindowSeconds(caption) {
+      function baseCaptionWindowSeconds(caption) {
         const start = typeof caption.start === "number" && Number.isFinite(caption.start) ? caption.start : 0;
         const duration = typeof caption.duration === "number" && Number.isFinite(caption.duration) ? caption.duration : 0;
         const end = typeof caption.end === "number" && Number.isFinite(caption.end) ? caption.end : start + duration;
         return { start, end };
+      }
+      function captionSpeechWindow(caption) {
+        if (caption.display_timing !== "speech-tight" || !Array.isArray(caption.words) || caption.words.length === 0) {
+          return null;
+        }
+        const words = caption.words.flatMap((value) => {
+          if (!value || typeof value !== "object")
+            return [];
+          const word = value;
+          return typeof word.start === "number" && Number.isFinite(word.start) && typeof word.end === "number" && Number.isFinite(word.end) && word.end >= word.start ? [{ start: word.start, end: word.end }] : [];
+        });
+        if (words.length === 0)
+          return null;
+        const base = baseCaptionWindowSeconds(caption);
+        const tightStart = Math.max(base.start, Math.min(...words.map((word) => word.start)));
+        const tightEnd = Math.min(base.end, Math.max(...words.map((word) => word.end)));
+        if (tightEnd - tightStart <= 0 || tightStart <= base.start && tightEnd >= base.end)
+          return null;
+        return { start: tightStart, end: tightEnd };
+      }
+      function captionWindowSeconds(caption) {
+        return captionSpeechWindow(caption) ?? baseCaptionWindowSeconds(caption);
       }
       function captionFragmentWindows(caption) {
         const sourceText = caption.display_text ?? caption.text;
@@ -3181,8 +3280,10 @@ ${indent}`);
       function expandCaptionDisplayFragments(captions) {
         return captions.flatMap((caption) => {
           const windows = captionFragmentWindows(caption);
-          if (windows === null)
-            return [caption];
+          if (windows === null) {
+            const speechWindow = captionSpeechWindow(caption);
+            return speechWindow === null ? [caption] : [{ ...caption, ...speechWindow }];
+          }
           let characterStart = 0;
           return windows.map((window2) => {
             const characterEnd = characterStart + window2.text.length;

@@ -695,7 +695,9 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         const updated = updateCaptionFieldsInSource(source, request.captionId, {
             text: request.text,
             speaker: request.speaker,
-            unrecognized: request.unrecognized
+            unrecognized: request.unrecognized,
+            style: request.style,
+            displayTiming: request.displayTiming
         });
         await this.writeProjectFileGuarded(captionsPath, updated);
         return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), '字幕の内容を変更') };

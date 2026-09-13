@@ -49,6 +49,7 @@ const CAPTION_FIELDS = new Set([
   "style",
   "display_text",
   "display_fragments",
+  "display_timing",
   "style_preset",
   "text_style",
 ]);
@@ -242,6 +243,10 @@ function validateCaptionsArray(captions, optInDefaultTextStyle = null) {
     }
     if (hasOwn(caption, "display_fragments") && !Array.isArray(caption.display_fragments)) {
       fail(`${label}.display_fragments は配列である必要があります`);
+    }
+    if (hasOwn(caption, "display_timing")
+      && caption.display_timing !== "full" && caption.display_timing !== "speech-tight") {
+      fail(`${label}.display_timing は full または speech-tight である必要があります`);
     }
     if (hasOwn(caption, "style_preset")
       && (typeof caption.style_preset !== "string" || !TEXTSTYLE_PRESET_ID.test(caption.style_preset))) {

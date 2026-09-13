@@ -527,6 +527,15 @@ export interface SetCaptionFieldsRequest {
     text?: string;
     speaker?: string | null;
     unrecognized?: ReadonlyArray<{ start: number; end: number }> | null;
+    style?: string | null;
+    displayTiming?: 'full' | 'speech-tight' | null;
+}
+
+export interface TextAnimationSlotPatch {
+    id: string;
+    durationSec?: number;
+    ease?: string | null;
+    amp?: number | null;
 }
 
 export interface SetCaptionTextStyleRequest {
@@ -545,6 +554,7 @@ export interface SetCaptionTextStyleRequest {
             opacity?: number | null;
             radiusPx?: number | null;
         };
+        animation?: { in?: TextAnimationSlotPatch | null; out?: TextAnimationSlotPatch | null } | null;
         zone?: 'top-left' | 'top' | 'top-right' | 'left' | 'center' | 'right'
             | 'bottom-left' | 'bottom' | 'bottom-right' | null;
     };

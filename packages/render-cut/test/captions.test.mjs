@@ -16,6 +16,17 @@ import {
 const require = createRequire(import.meta.url);
 const { TEXTSTYLE_CATALOG } = require('../../edit-store/lib/index.js');
 
+test('speech-tight は overlay を words の発話窓だけにし、省略時は従来窓を保つ', () => {
+  const base = {
+    id: 'c-0001', start: 0, end: 3, text: '本文', speaker: null, sourceRef: null, edited: false,
+    words: [{ start: 1, end: 2, text: '本文' }],
+  };
+  const [full] = generateCaptionOverlays([base], []);
+  const [tight] = generateCaptionOverlays([{ ...base, display_timing: 'speech-tight' }], []);
+  assert.deepEqual({ start: full.start, duration: full.duration }, { start: 0, duration: 3 });
+  assert.deepEqual({ start: tight.start, duration: tight.duration }, { start: 1, duration: 1 });
+});
+
 test("captionTransform accepts declared scale/rotate and ignores invalid values", () => {
   assert.deepEqual(captionTransform({ scale: 1.5, rotate: -8 }), { x: 0, y: 0, scale: 1.5, rotate: -8 });
   assert.deepEqual(captionTransform(), { x: 0, y: 0, scale: 1, rotate: 0 });

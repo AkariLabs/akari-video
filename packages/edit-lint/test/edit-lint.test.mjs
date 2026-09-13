@@ -410,6 +410,23 @@ test("未知の caption style_preset は warning 1 件と候補最大 5 件を�
   });
 });
 
+test('caption display_timing は正常値を受理し未知値を schema error にする', async () => {
+  await withFixtures(async (fixtures) => {
+    const project = join(fixtures, 'v1-valid');
+    const base = {
+      id: 'c-0001', src: 's1', start: 2, end: 3, text: '字幕',
+      speaker: null, sourceRef: null, edited: false,
+    };
+    await writeFile(join(project, 'captions.json'), `${JSON.stringify([{ ...base, display_timing: 'speech-tight' }])}\n`, 'utf8');
+    let result = parseResult(run(project));
+    assert.ok(!result.findings.some(finding => finding.check === 'captions.schema'));
+    await writeFile(join(project, 'captions.json'), `${JSON.stringify([{ ...base, display_timing: 'loose' }])}\n`, 'utf8');
+    result = parseResult(run(project));
+    assert.ok(result.findings.some(finding => finding.check === 'captions.schema'
+      && /display_timing/u.test(finding.message)));
+  });
+});
+
 test("presets が無い bundled CLI 相当では存在検査をスキップする", async () => {
   await withFixtures(async (fixtures, root) => {
     const project = join(fixtures, "v1-valid");

@@ -125,6 +125,17 @@ const caption = {
   edited: false,
 };
 
+test('caption display_timing は speech-tight を受理する', () => {
+  const executed = runValue([{ ...caption, display_timing: 'speech-tight' }]);
+  assert.equal(executed.status, 0, executed.stderr);
+});
+
+test('caption display_timing は未知値を拒否する', () => {
+  const executed = runValue([{ ...caption, display_timing: 'loose' }]);
+  assert.equal(executed.status, 1, executed.stdout);
+  assert.match(executed.stderr, /display_timing/u);
+});
+
 const displayPolicy = {
   mode: "single_line_sequential",
   algorithm: "a4-ja-two-fragment-v1",

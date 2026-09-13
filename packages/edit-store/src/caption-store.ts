@@ -124,6 +124,10 @@ export interface CaptionTextStylePatch {
         radiusPx?: number | null;
         mode?: CaptionBackgroundMode | null;
     };
+    animation?: {
+        in?: { id: string; durationSec?: number; ease?: string | null; amp?: number | null } | null;
+        out?: { id: string; durationSec?: number; ease?: string | null; amp?: number | null } | null;
+    } | null;
     zone?: CaptionZone | null;
 }
 
@@ -319,12 +323,15 @@ export function updateCaptionFieldsInSource(
         text?: string;
         speaker?: string | null;
         unrecognized?: ReadonlyArray<{ start: number; end: number }> | null;
+        style?: string | null;
+        displayTiming?: 'full' | 'speech-tight' | null;
     }
 ): string {
     if (!captionId) {
         throw new Error('字幕 ID を指定してください。');
     }
-    if (updates.text === undefined && updates.speaker === undefined && updates.unrecognized === undefined) {
+    if (updates.text === undefined && updates.speaker === undefined && updates.unrecognized === undefined
+        && updates.style === undefined && updates.displayTiming === undefined) {
         throw new Error('変更する字幕フィールドを指定してください。');
     }
     if (updates.text !== undefined && (typeof updates.text !== 'string' || !updates.text.trim())) {
@@ -332,6 +339,14 @@ export function updateCaptionFieldsInSource(
     }
     if (updates.speaker !== undefined && updates.speaker !== null && typeof updates.speaker !== 'string') {
         throw new Error('字幕の話者は文字列または null で指定してください。');
+    }
+    if (updates.style !== undefined && updates.style !== null
+        && !['karaoke', 'pop', 'reveal', 'reveal-word'].includes(updates.style)) {
+        throw new Error('字幕のスタイル（演出）が不正です。');
+    }
+    if (updates.displayTiming !== undefined && updates.displayTiming !== null
+        && updates.displayTiming !== 'full' && updates.displayTiming !== 'speech-tight') {
+        throw new Error('字幕の表示タイミングが不正です。');
     }
     let unrecognized: { start: number; end: number }[] | undefined;
     if (updates.unrecognized !== undefined && updates.unrecognized !== null) {
@@ -383,6 +398,13 @@ export function updateCaptionFieldsInSource(
             updates.unrecognized === null || unrecognized?.length === 0 ? undefined : unrecognized,
             captionId
         );
+    }
+    if (updates.style !== undefined) {
+        nextElement = syncOptionalCaptionProperty(nextElement, 'style', updates.style ?? undefined, captionId);
+    }
+    if (updates.displayTiming !== undefined) {
+        const next = updates.displayTiming === 'speech-tight' ? 'speech-tight' : undefined;
+        nextElement = syncOptionalCaptionProperty(nextElement, 'display_timing', next, captionId);
     }
     return replaceElement(source, array.openIndex + 1, element, nextElement);
 }
@@ -452,6 +474,11 @@ export function updateCaptionTextStyleInSource(
                 mode: updates.background?.mode
             },
             `字幕 ${captionId} の text_style.background`
+        );
+        textStyle = updateAnimationStyleObject(
+            textStyle,
+            updates.animation,
+            `字幕 ${captionId} の text_style.animation`
         );
         nextElement = Object.keys(JSON.parse(textStyle) as Record<string, unknown>).length === 0
             ? removeObjectProperty(nextElement, 'text_style')
@@ -1462,7 +1489,8 @@ function validateTextStylePatch(updates: CaptionTextStylePatch): void {
     const hasUpdate = updates.color !== undefined || updates.sizePx !== undefined || updates.zone !== undefined
         || updates.stroke?.color !== undefined || updates.stroke?.widthPx !== undefined
         || updates.background?.color !== undefined || updates.background?.opacity !== undefined
-        || updates.background?.radiusPx !== undefined || updates.background?.mode !== undefined;
+        || updates.background?.radiusPx !== undefined || updates.background?.mode !== undefined
+        || updates.animation !== undefined;
     if (!hasUpdate) {
         throw new Error('変更する字幕スタイルのフィールドを指定してください。');
     }
@@ -1495,6 +1523,31 @@ function validateTextStylePatch(updates: CaptionTextStylePatch): void {
     if (updates.zone !== undefined && updates.zone !== null && !CAPTION_ZONES.includes(updates.zone)) {
         throw new Error('字幕の位置が不正です。');
     }
+    if (updates.animation !== undefined && updates.animation !== null
+        && (typeof updates.animation !== 'object' || Array.isArray(updates.animation))) {
+        throw new Error('字幕アニメの設定が不正です。');
+    }
+    if (updates.animation && typeof updates.animation === 'object') {
+        for (const slot of [updates.animation.in, updates.animation.out]) {
+            if (slot === undefined || slot === null) continue;
+            if (!slot || typeof slot !== 'object' || typeof slot.id !== 'string'
+                || !/^[a-z0-9][a-z0-9-]*$/.test(slot.id)) {
+                throw new Error('字幕アニメの ID が不正です。');
+            }
+            if (slot.durationSec !== undefined
+                && (!Number.isFinite(slot.durationSec) || slot.durationSec <= 0)) {
+                throw new Error('字幕アニメの長さは正の数で指定してください。');
+            }
+            if (slot.ease !== undefined && slot.ease !== null
+                && (typeof slot.ease !== 'string' || !slot.ease.trim())) {
+                throw new Error('字幕アニメのイージングが不正です。');
+            }
+            if (slot.amp !== undefined && slot.amp !== null
+                && (!Number.isFinite(slot.amp) || slot.amp <= 0)) {
+                throw new Error('字幕アニメの強さは正の数で指定してください。');
+            }
+        }
+    }
 }
 
 function textStylePatchToJson(updates: CaptionTextStylePatch): Record<string, unknown> {
@@ -1522,6 +1575,12 @@ function textStylePatchToJson(updates: CaptionTextStylePatch): Record<string, un
                         ? { mode: updates.background.mode } : {})
                 }
             } : {}),
+        ...(updates.animation && Object.values(updates.animation).some(value => value !== undefined && value !== null) ? {
+            animation: {
+                ...(updates.animation.in ? { in: animationSlotToJson(updates.animation.in) } : {}),
+                ...(updates.animation.out ? { out: animationSlotToJson(updates.animation.out) } : {})
+            }
+        } : {}),
         ...(updates.zone !== undefined && updates.zone !== null ? { zone: updates.zone } : {})
     };
 }
@@ -1587,6 +1646,46 @@ function updateNestedStyleObject(
     }
     return Object.keys(JSON.parse(next) as Record<string, unknown>).length === 0
         ? removeObjectProperty(source, property)
+        : source.slice(0, object.start) + next + source.slice(object.end);
+}
+
+function updateAnimationStyleObject(
+    source: string,
+    updates: CaptionTextStylePatch['animation'],
+    label: string
+): string {
+    if (updates === undefined) return source;
+    const located = locateTopLevelProperty(source, 'animation');
+    if (updates === null) return located ? removeObjectProperty(source, 'animation') : source;
+    if (!located) {
+        const created = {
+            ...(updates.in ? { in: animationSlotToJson(updates.in) } : {}),
+            ...(updates.out ? { out: animationSlotToJson(updates.out) } : {})
+        };
+        return Object.keys(created).length > 0 ? appendJsonProperty(source, 'animation', created) : source;
+    }
+    const object = locateTopLevelObjectProperty(source, 'animation', label);
+    let next = object.text;
+    for (const [slotName, slot] of [['in', updates.in], ['out', updates.out]] as const) {
+        if (slot === undefined) continue;
+        if (slot === null) {
+            next = removeObjectProperty(next, slotName);
+            continue;
+        }
+        const value = animationSlotToJson(slot);
+        const slotProperty = locateTopLevelProperty(next, slotName);
+        if (!slotProperty) {
+            next = appendJsonProperty(next, slotName, value);
+            continue;
+        }
+        const escaped = slotName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const pattern = new RegExp(`^("${escaped}"\\s*:\\s*)[\\s\\S]*?(\\s*)$`);
+        const replaced = slotProperty.text.replace(pattern, (_match, prefix, suffix) =>
+            `${prefix}${JSON.stringify(value)}${suffix}`);
+        next = next.slice(0, slotProperty.start) + replaced + next.slice(slotProperty.end);
+    }
+    return Object.keys(JSON.parse(next) as Record<string, unknown>).length === 0
+        ? removeObjectProperty(source, 'animation')
         : source.slice(0, object.start) + next + source.slice(object.end);
 }
 

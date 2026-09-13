@@ -24,7 +24,8 @@ const optionalValues = {
     display_text: '表示テキストです。',
     display_fragments: ['前半', '後半'],
     style_preset: 'subtitle-standard',
-    text_style: { color: '#ffffff' }
+    text_style: { color: '#ffffff' },
+    display_timing: 'speech-tight'
 };
 
 const baseRecord = edited => ({
