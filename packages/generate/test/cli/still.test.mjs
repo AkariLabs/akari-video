@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -20,9 +20,34 @@ const ONE_PIXEL_PNG = Buffer.from(
 
 async function temporaryProject(t, edit) {
   const projectDir = await mkdtemp(join(tmpdir(), "akari-generate-still-"));
-  t.after(() => rm(projectDir, { recursive: true, force: true }));
+  // 保存後 lint が .akari/ を書き足すため、ENOTEMPTY を再試行できる設定で削除する。
+  // ENOTEMPTY は fs.rm の retry 対象になる。
+  t.after(() => rm(projectDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }));
   if (edit) await writeFile(join(projectDir, "edit.json"), `${JSON.stringify(edit, null, 2)}\n`);
   return projectDir;
+}
+
+async function settleProjectLint(projectDir) {
+  const editPath = join(projectDir, "edit.json");
+  let editMtimeMs;
+  try {
+    editMtimeMs = (await stat(editPath)).mtimeMs;
+  } catch {
+    return;
+  }
+
+  const reportPath = join(projectDir, ".akari", "reports", "edit-lint-report.html");
+  const deadline = Date.now() + 5000;
+  // 保存後 lint は 400ms のデバウンス後に走り、HTML が最後に書かれる。
+  // edit.json 以上の mtime を要求すれば、2 回保存する場合も直近の lint 完了を待てる。
+  while (Date.now() < deadline) {
+    try {
+      if ((await stat(reportPath)).mtimeMs >= editMtimeMs) return;
+    } catch {
+      // ENOENT などは未書き込みとして扱い、期限まで待機する。
+    }
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
 }
 
 async function writeSpec(projectDir, value) {
@@ -78,6 +103,7 @@ test("still: 文字カード 1 枚の planned meta はスキーマを通る", as
   const projectDir = await temporaryProject(t, minimalEdit());
   const spec = await writeSpec(projectDir, [{ id: "title-card", prompt: "日本語の見出し", duration_s: 1 }]);
   const result = await runStillCommand([projectDir, "--spec", spec, "--placeholder"], { log: () => {}, logError: () => {} });
+  await settleProjectLint(projectDir);
   assert.equal(result.exitCode, 0);
   const metaPath = join(projectDir, "assets", "generated", "title-card.png.meta.json");
   const meta = JSON.parse(await readFile(metaPath, "utf8"));
@@ -159,6 +185,7 @@ test("still: 新規 edit と既存 edit へ fps 換算した連番で追加し�
     logError: () => {},
     editDependencies: { takeSnapshot: async () => { snapshots += 1; } },
   });
+  await settleProjectLint(projectDir);
   assert.equal(result.exitCode, 0);
   let edit = JSON.parse(await readFile(join(projectDir, "edit.json"), "utf8"));
   const doneMetaPath = join(projectDir, "assets", "generated", "first.png.meta.json");
@@ -175,6 +202,7 @@ test("still: 新規 edit と既存 edit へ fps 換算した連番で追加し�
     logError: () => {},
     editDependencies: { takeSnapshot: async () => { snapshots += 1; } },
   });
+  await settleProjectLint(projectDir);
   assert.equal(result.exitCode, 0);
   edit = JSON.parse(await readFile(join(projectDir, "edit.json"), "utf8"));
   assert.deepEqual(edit.tracks[0].items.map(({ id, at, duration }) => ({ id, at, duration })), [
