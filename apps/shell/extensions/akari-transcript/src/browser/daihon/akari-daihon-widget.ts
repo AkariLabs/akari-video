@@ -15,6 +15,7 @@ import { inject, injectable, postConstruct } from '@theia/core/shared/inversify'
 import { Message } from '@theia/core/shared/@lumino/messaging';
 import {
     buildTimelineMap,
+    measureCaptionUnits,
     projectLegacyEdit,
     readInternalEdit,
     splitCaptionFragments,
@@ -130,6 +131,7 @@ interface RowDragState {
 
 interface CaptionExtras {
     displayFragments?: string[];
+    hasDisplayFragments?: boolean;
     timeDomain?: 'source' | 'output';
     unrecognized?: DaihonUnrecognizedSpan[];
     stylePreset?: string;
@@ -368,6 +370,7 @@ export class AkariDaihonWidget extends BaseWidget {
     protected readonly elements = new Map<string, RowElements>();
     protected rows: DaihonRow[] = [];
     protected captionExtraById = new Map<string, CaptionExtras>();
+    protected readonly captionOverflowUnitsById = new Map<string, number>();
     protected wordPresetByRowId = new Map<string, (string | undefined)[]>();
     protected captionsRoot: unknown = [];
     protected sourceCaptions: Caption[] = [];
@@ -760,6 +763,7 @@ export class AkariDaihonWidget extends BaseWidget {
 
     protected daihonCaptionsForDisplay(knobs = this.displayKnobs): DaihonCaptionLike[] {
         const policy = daihonDisplayPolicyForWrite(this.captionsRoot, knobs);
+        this.captionOverflowUnitsById.clear();
         return this.sourceCaptions.map(caption => this.toDaihonCaption(
             caption, this.captionExtraById.get(caption.id), policy
         ));
@@ -770,8 +774,19 @@ export class AkariDaihonWidget extends BaseWidget {
         extras: CaptionExtras | undefined,
         policy: CaptionDisplayPolicy
     ): DaihonCaptionLike {
-        const displayFragments = extras?.displayFragments?.length
-            ? extras.displayFragments : this.automaticDisplayFragments(caption.text, policy);
+        this.captionOverflowUnitsById.delete(caption.id);
+        let displayFragments: string[] | undefined;
+        if (extras?.hasDisplayFragments) {
+            const manual = extras.displayFragments;
+            const valid = Array.isArray(manual) && manual.length >= 1 && manual.length <= 6
+                && manual.every(fragment => fragment.length > 0 && fragment.trim() === fragment
+                    && fragment.normalize() === fragment && measureCaptionUnits(fragment) <= policy.max_line_units)
+                && manual.join('') === caption.text;
+            if (valid) displayFragments = manual;
+            else this.captionOverflowUnitsById.set(caption.id, policy.max_line_units);
+        } else {
+            displayFragments = this.automaticDisplayFragments(caption.id, caption.text, policy);
+        }
         return {
             id: caption.id,
             start: caption.start,
@@ -788,13 +803,21 @@ export class AkariDaihonWidget extends BaseWidget {
         };
     }
 
-    protected automaticDisplayFragments(text: string, policy: CaptionDisplayPolicy): string[] | undefined {
+    protected automaticDisplayFragments(
+        captionId: string,
+        text: string,
+        policy: CaptionDisplayPolicy
+    ): string[] | undefined {
         try {
             const effective = policy.wrap === 'fold'
                 ? { ...policy, max_line_units: policy.max_line_units * (policy.lines ?? 1) }
                 : policy;
-            const fragments = splitCaptionFragments(text, effective).fragments;
-            return fragments.length > 1 ? fragments : undefined;
+            const result = splitCaptionFragments(text, effective);
+            if (result.overflow) {
+                this.captionOverflowUnitsById.set(captionId, policy.max_line_units);
+                return undefined;
+            }
+            return result.fragments.length > 1 ? result.fragments : undefined;
         } catch {
             return undefined;
         }
@@ -811,6 +834,7 @@ export class AkariDaihonWidget extends BaseWidget {
             if (!value || typeof value !== 'object') continue;
             const record = value as Record<string, unknown>;
             if (typeof record.id !== 'string') continue;
+            const hasDisplayFragments = Object.prototype.hasOwnProperty.call(record, 'display_fragments');
             const displayFragments = Array.isArray(record.display_fragments)
                 && record.display_fragments.every(fragment => typeof fragment === 'string')
                 ? record.display_fragments as string[] : undefined;
@@ -827,6 +851,7 @@ export class AkariDaihonWidget extends BaseWidget {
                 }) : undefined;
             const stylePreset = typeof record.style_preset === 'string' ? record.style_preset : undefined;
             result.set(record.id, {
+                ...(hasDisplayFragments ? { hasDisplayFragments: true } : {}),
                 ...(displayFragments ? { displayFragments } : {}),
                 ...(timeDomain ? { timeDomain } : {}),
                 ...(unrecognized?.length ? { unrecognized } : {}),
@@ -943,7 +968,8 @@ export class AkariDaihonWidget extends BaseWidget {
         root.classList.toggle('iscut', row.outStart === null);
         root.classList.toggle('splitting', this.splitModeRowId === row.id);
         root.classList.toggle('selected', this.altAll || this.selection.selected.includes(row.id));
-        root.classList.toggle('qc-hidden', this.qcFilter && rowIssues(row).length === 0);
+        root.classList.toggle('qc-hidden', this.qcFilter
+            && rowIssues(row, this.captionOverflowUnitsById.get(row.id)).length === 0);
         root.addEventListener('click', event => this.handleRowClick(event, row.id));
         root.addEventListener('pointerdown', event => this.handleRowPointerDown(event, row.id));
 
@@ -1018,7 +1044,7 @@ export class AkariDaihonWidget extends BaseWidget {
             if (!preset) badge.title = 'カタログに無いテンプレ id（edit-lint warning）';
             head.appendChild(badge);
         }
-        for (const issue of rowIssues(row)) {
+        for (const issue of rowIssues(row, this.captionOverflowUnitsById.get(row.id))) {
             const badge = document.createElement('span');
             badge.className = 'akari-daihon-badge-qc';
             badge.textContent = issue.label;
@@ -1951,11 +1977,18 @@ export class AkariDaihonWidget extends BaseWidget {
         const rangeValue = document.createElement('span');
         rangeValue.className = 'akari-daihon-displayvalue';
         rangeValue.textContent = `${range.value}字`;
+        const overflowCount = document.createElement('div');
+        overflowCount.className = 'akari-daihon-displaynote';
+        const updateOverflowCount = (): void => {
+            overflowCount.textContent = `収まらない行: ${this.captionOverflowUnitsById.size}`;
+        };
+        updateOverflowCount();
         range.addEventListener('input', event => {
             event.stopPropagation();
             const next = { ...this.displayKnobs, maxLineUnits: Number(range.value) };
             rangeValue.textContent = `${range.value}字`;
             this.previewDisplayKnobs(next);
+            updateOverflowCount();
         });
         range.addEventListener('change', event => {
             event.stopPropagation();
@@ -2032,7 +2065,7 @@ export class AkariDaihonWidget extends BaseWidget {
         note.className = 'akari-daihon-displaynote';
         note.append(document.createTextNode('ベースは字幕本文です。'), document.createElement('br'),
             document.createTextNode('手で置いた／は動きません。'));
-        pop.append(unitsGroup, linesGroup, wrapGroup, note);
+        pop.append(unitsGroup, linesGroup, wrapGroup, overflowCount, note);
     }
 
     protected fieldRow(prefix: string, input: HTMLInputElement, suffix: string): HTMLDivElement {
@@ -2376,8 +2409,13 @@ export class AkariDaihonWidget extends BaseWidget {
                 captionsUri: this.captionsUri!.toString(), captionsSource });
         });
         const extras = this.captionExtraById.get(row.id) ?? {};
-        if (fragments?.length) extras.displayFragments = fragments;
-        else delete extras.displayFragments;
+        if (fragments?.length) {
+            extras.displayFragments = fragments;
+            extras.hasDisplayFragments = true;
+        } else {
+            delete extras.displayFragments;
+            delete extras.hasDisplayFragments;
+        }
         this.captionExtraById.set(row.id, extras);
         const sourceCaption = this.sourceCaptions.find(caption => caption.id === row.id);
         if (sourceCaption) {
@@ -2640,7 +2678,7 @@ export class AkariDaihonWidget extends BaseWidget {
     }
 
     protected updateQcSummary(): void {
-        const summary = summarizeQc(this.rows);
+        const summary = summarizeQc(this.rows, this.captionOverflowUnitsById);
         const hasIssues = summary.issueCount > 0;
         this.qcButton.className = `akari-daihon-qc ${hasIssues ? 'warn' : 'ok'}`;
         this.qcButton.textContent = hasIssues ? `QC ⚠ ${summary.issueCount}` : 'QC ✓';
@@ -2649,7 +2687,8 @@ export class AkariDaihonWidget extends BaseWidget {
     protected applyQcFilter(): void {
         let visible = 0;
         for (const row of this.rows) {
-            const showQc = !this.qcFilter || rowIssues(row).length > 0;
+            const showQc = !this.qcFilter
+                || rowIssues(row, this.captionOverflowUnitsById.get(row.id)).length > 0;
             const showSpeaker = this.speakerFilter === null || row.speaker === this.speakerFilter;
             const root = this.elements.get(row.id)?.root;
             root?.classList.toggle('qc-hidden', !showQc);

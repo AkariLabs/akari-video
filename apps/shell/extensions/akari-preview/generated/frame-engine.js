@@ -3803,7 +3803,7 @@ ${indent}`);
         const projectedCaptions = captions.map((caption) => projectCaptionWords(caption, cuts));
         const captionIds = /* @__PURE__ */ new Set();
         captions.forEach((caption, index) => {
-          validateSourceCaption(caption, index, policy, projectedCaptions[index]);
+          validateSourceCaption(caption, index);
           if (Object.prototype.hasOwnProperty.call(caption, "text_style")) {
             validateCaptionTextStyle(caption.text_style, `captions[${index}].text_style`);
           }
@@ -3837,28 +3837,31 @@ ${indent}`);
           const text = projected.displayText;
           let fragments;
           let manual = false;
+          let overflow;
           if (!projected.changed && caption.display_fragments !== void 0) {
-            fragments = validateManualFragments(caption, text, policy, index);
+            const manualResult = validateManualFragments(caption, text, policy);
+            fragments = manualResult.fragments;
+            overflow = manualResult.overflow;
             manual = true;
             boundaryProjection.push({ source_cue_id: caption.id, text, boundaries: [] });
           } else {
-            let split;
-            try {
-              split = splitCaptionFragments(text, wrap === "fold" ? { ...policyWithExtraTerms, max_line_units: policyWithExtraTerms.max_line_units * lines } : policyWithExtraTerms);
-            } catch (error) {
-              if (!(error instanceof CaptionDisplayError) || error.code !== "NO_WORD_BOUNDARY_SPLIT" || incrementalProtectedTerms.length === 0) {
-                throw error;
+            let split = splitCaptionFragments(text, wrap === "fold" ? { ...policyWithExtraTerms, max_line_units: policyWithExtraTerms.max_line_units * lines } : policyWithExtraTerms);
+            if (split.overflow && incrementalProtectedTerms.length > 0) {
+              const fallback = splitCaptionFragments(text, splitPolicy);
+              if (!fallback.overflow) {
+                split = fallback;
+                wordBookFallbacks.push({
+                  caption_id: caption.id,
+                  dropped_terms: incrementalProtectedTerms.filter((term) => text.includes(term))
+                });
               }
-              split = splitCaptionFragments(text, splitPolicy);
-              wordBookFallbacks.push({
-                caption_id: caption.id,
-                dropped_terms: incrementalProtectedTerms.filter((term) => text.includes(term))
-              });
             }
+            if (split.overflow)
+              overflow = { ...split.overflow, units: policy.max_line_units };
             fragments = split.fragments;
             boundaryProjection.push({ source_cue_id: caption.id, text, boundaries: split.boundaries });
           }
-          fragmentsByCaption.set(index, { fragments, manual });
+          fragmentsByCaption.set(index, { fragments, manual, ...overflow ? { overflow } : {} });
         });
         const displayCues = [];
         const splitCueIds = /* @__PURE__ */ new Set();
@@ -3878,7 +3881,7 @@ ${indent}`);
           const groups = wrap === "fold" ? scheduledWithOffsets.map((fragment) => ({
             start: fragment.start,
             end: fragment.end,
-            lines: resolved.manual ? [fragment.text] : foldCaptionLines(fragment.text, policy.max_line_units, lines, policy.locale),
+            lines: resolved.manual || resolved.overflow ? [fragment.text] : foldCaptionLines(fragment.text, policy.max_line_units, lines, policy.locale),
             charStart: fragment.charStart,
             charEnd: fragment.charEnd
           })) : Array.from({ length: Math.ceil(scheduledWithOffsets.length / lines) }, (_3, groupIndex) => {
@@ -3911,6 +3914,7 @@ ${indent}`);
               ...group.lines.length >= 2 ? { display_lines: group.lines } : {},
               units: measureCaptionUnits(text),
               line_override: resolved.manual,
+              ...resolved.overflow ? { overflow: resolved.overflow } : {},
               ...resolvedStyle ? { text_style: resolvedStyle } : {},
               ...styleResolution ? { style_vars: styleResolution.vars } : {},
               ...styleResolution?.layout ? { layout: styleResolution.layout } : {},
@@ -4502,7 +4506,7 @@ ${indent}`);
         });
         return occurrences;
       }
-      function validateSourceCaption(caption, index, policy, projected) {
+      function validateSourceCaption(caption, index) {
         if (!isRecord2(caption) || !strictText(caption.id))
           fail("INVALID_CAPTION", `captions[${index}].id must be a non-empty string`);
         if (!finiteNonNegative2(caption.start) || !finitePositive4(caption.end) || caption.end <= caption.start) {
@@ -4517,15 +4521,11 @@ ${indent}`);
         const sourceText = caption.display_text ?? caption.text;
         if (!strictText(sourceText))
           fail("INVALID_TEXT", `captions[${index}] display text must be non-empty, NFC, and trimmed`);
-        const text = projected?.renderable ? projected.displayText : sourceText;
         if (caption.style !== void 0) {
           if (CAPTION_WORD_STYLES.has(caption.style)) {
             fail("STYLE_CONFLICT", `captions[${index}].style cannot be combined with display_policy`);
           }
           fail("INVALID_CAPTION", `captions[${index}].style ${JSON.stringify(caption.style)} is not a known caption style (expected one of: ${[...CAPTION_WORD_STYLES].join(", ")})`);
-        }
-        if (projected?.renderable !== false && measureCaptionUnits(text) > policy.max_line_units * (policy.wrap === "fold" ? policy.lines ?? 1 : 1) * 2 && (caption.display_fragments === void 0 || projected?.changed === true)) {
-          fail("NO_WORD_BOUNDARY_SPLIT", `caption ${caption.id} cannot fit in two ${policy.max_line_units}-unit fragments; provide display_fragments`);
         }
       }
       function validateEmphasisConflicts(captions, emphasisValue) {
@@ -4539,29 +4539,38 @@ ${indent}`);
             fail("EMPHASIS_CONFLICT", `edit.emphasis_words cannot act on captions[${index}] under display_policy`);
         });
       }
-      function validateManualFragments(caption, text, policy, index) {
+      function validateManualFragments(caption, text, policy) {
+        const overflow = () => ({
+          fragments: [text],
+          overflow: { code: "INVALID_MANUAL_FRAGMENTS", units: policy.max_line_units }
+        });
         if (!Array.isArray(caption.display_fragments) || caption.display_fragments.length < 1 || caption.display_fragments.length > 6) {
-          fail("INVALID_MANUAL_FRAGMENTS", `captions[${index}].display_fragments must contain between one and six strings`);
+          return overflow();
         }
         if (caption.display_fragments.some((fragment) => !strictText(fragment))) {
-          fail("INVALID_MANUAL_FRAGMENTS", `captions[${index}].display_fragments must contain non-empty NFC trimmed strings`);
+          return overflow();
         }
         if (caption.display_fragments.join("") !== text) {
-          fail("INVALID_MANUAL_FRAGMENTS", `captions[${index}].display_fragments must preserve display_text ?? text exactly`);
+          return overflow();
         }
         for (const fragment of caption.display_fragments) {
           if (measureCaptionUnits(fragment) > policy.max_line_units) {
-            fail("INVALID_MANUAL_FRAGMENTS", `captions[${index}].display_fragments exceeds max_line_units`);
+            return overflow();
           }
         }
-        return [...caption.display_fragments];
+        return { fragments: [...caption.display_fragments] };
       }
       function splitCaptionFragments(text, policy) {
         if (measureCaptionUnits(text) <= policy.max_line_units)
           return { fragments: [text], boundaries: [] };
         const Segmenter = Intl.Segmenter;
-        if (typeof Segmenter !== "function")
-          fail("SEGMENTER_UNAVAILABLE", "Intl.Segmenter is required by display_policy");
+        if (typeof Segmenter !== "function") {
+          return {
+            fragments: [text],
+            boundaries: [],
+            overflow: { code: "NO_WORD_BOUNDARY_SPLIT", units: policy.max_line_units }
+          };
+        }
         const segmenter = new Segmenter(policy.locale, { granularity: "word" });
         const boundaries = [...segmenter.segment(text)].map((segment) => segment.index).filter((index) => index > 0 && index < text.length);
         const candidates = [];
@@ -4581,10 +4590,39 @@ ${indent}`);
           });
         }
         if (candidates.length === 0) {
-          fail("NO_WORD_BOUNDARY_SPLIT", `caption cannot fit at an Intl.Segmenter boundary in two ${policy.max_line_units}-unit fragments; provide display_fragments: ${text}`);
+          const fragments = splitCaptionFragmentsAtBoundaries(text, boundaries, policy, 6);
+          if (fragments)
+            return { fragments, boundaries };
+          return {
+            fragments: [text],
+            boundaries,
+            overflow: { code: "NO_WORD_BOUNDARY_SPLIT", units: policy.max_line_units }
+          };
         }
         candidates.sort((left, right) => right.score - left.score || left.boundary - right.boundary);
         return { fragments: candidates[0].fragments, boundaries };
+      }
+      function splitCaptionFragmentsAtBoundaries(text, boundaries, policy, maximumFragments) {
+        const ends = [...boundaries, text.length];
+        const visit = (start, remaining) => {
+          if (start === text.length)
+            return [];
+          if (remaining === 0)
+            return void 0;
+          const candidates = ends.filter((end) => end > start && measureCaptionUnits(text.slice(start, end)) <= policy.max_line_units && !splitsProtectedTerm(text, end, policy.break_hints?.protected_terms ?? [])).reverse();
+          for (const end of candidates) {
+            const rest = visit(end, remaining - 1);
+            if (rest)
+              return [text.slice(start, end), ...rest];
+          }
+          return void 0;
+        };
+        for (let count = 3; count <= maximumFragments; count++) {
+          const fragments = visit(0, count);
+          if (fragments && fragments.length <= count)
+            return fragments;
+        }
+        return void 0;
       }
       function foldCaptionLines(text, maxLineUnits, lines, locale = "ja") {
         if (!finitePositive4(maxLineUnits) || !Number.isInteger(lines) || lines < 1) {

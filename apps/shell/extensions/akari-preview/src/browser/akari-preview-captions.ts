@@ -57,6 +57,42 @@ export interface PreviewCaption {
     fragmentCount?: number;
 }
 
+export interface CaptionDisplayFallbackState {
+    lastCode?: string;
+}
+
+export function captionDisplayErrorCode(error: unknown): string {
+    if (isRecord(error) && typeof error.code === 'string' && error.code.trim()) return error.code.trim();
+    const message = error instanceof Error ? error.message : String(error);
+    return message.match(/\b([A-Z][A-Z0-9_]{2,})\b/u)?.[1] ?? 'CAPTION_DISPLAY_RESOLUTION_FAILED';
+}
+
+export async function loadCaptionDisplayFailOpen<TResolved, TLoaded>(options: {
+    resolve: () => Promise<TResolved | null>;
+    resolved: (value: TResolved) => TLoaded;
+    legacy: () => Promise<TLoaded>;
+    warn: (code: string) => void;
+    state: CaptionDisplayFallbackState;
+}): Promise<TLoaded> {
+    try {
+        const value = await options.resolve();
+        if (value !== null) {
+            const loaded = options.resolved(value);
+            options.state.lastCode = undefined;
+            return loaded;
+        }
+    } catch (error) {
+        const loaded = await options.legacy();
+        const code = captionDisplayErrorCode(error);
+        if (options.state.lastCode !== code) options.warn(code);
+        options.state.lastCode = code;
+        return loaded;
+    }
+    const loaded = await options.legacy();
+    options.state.lastCode = undefined;
+    return loaded;
+}
+
 export function locatePreviewCaptions(editUri: URI | undefined, workspaceRoot: URI | undefined): URI | undefined {
     const base = editUri ? editUri.parent : workspaceRoot?.resolve('project');
     return base?.resolve('captions.json');

@@ -1,0 +1,401 @@
+{
+  "display_policy": {
+    "mode": "single_line_sequential",
+    "algorithm": "a4-ja-two-fragment-v1",
+    "unit_metric": "ascii-half-other-one-v1",
+    "max_line_units": 10,
+    "minimum_fragment_duration_seconds": 0.72,
+    "locale": "ja",
+    "lines": 1,
+    "wrap": "multi"
+  },
+  "captions": [
+    {
+      "id": "c-0001",
+      "start": 0.57,
+      "end": 2.34,
+      "text": "ということでね、",
+      "speaker": null,
+      "sourceRef": {
+        "segment": 0
+      },
+      "edited": false,
+      "src": "src-1",
+      "words": [
+        {
+          "start": 0.57,
+          "end": 1.85,
+          "text": "ということで"
+        },
+        {
+          "start": 1.85,
+          "end": 2.13,
+          "text": "ね"
+        },
+        {
+          "start": 2.31,
+          "end": 2.34,
+          "text": "、"
+        }
+      ]
+    },
+    {
+      "id": "c-0002",
+      "start": 2.34,
+      "end": 5.2,
+      "text": "今日はひたすらYouTubeの撮影を",
+      "speaker": null,
+      "sourceRef": {
+        "segment": 0
+      },
+      "edited": false,
+      "src": "src-1",
+      "words": [
+        {
+          "start": 2.34,
+          "end": 2.72,
+          "text": "今日は"
+        },
+        {
+          "start": 3.06,
+          "end": 3.24,
+          "text": "ひた"
+        },
+        {
+          "start": 3.34,
+          "end": 3.42,
+          "text": "す"
+        },
+        {
+          "start": 3.48,
+          "end": 3.6,
+          "text": "ら"
+        },
+        {
+          "start": 3.6,
+          "end": 3.78,
+          "text": "You"
+        },
+        {
+          "start": 3.78,
+          "end": 4.02,
+          "text": "Tube"
+        },
+        {
+          "start": 4.02,
+          "end": 4.2,
+          "text": "の"
+        },
+        {
+          "start": 4.2,
+          "end": 4.49,
+          "text": "撮"
+        },
+        {
+          "start": 4.58,
+          "end": 4.86,
+          "text": "影"
+        },
+        {
+          "start": 4.86,
+          "end": 5.15,
+          "text": "を"
+        }
+      ]
+    },
+    {
+      "id": "c-0003",
+      "start": 5.2,
+      "end": 8.22,
+      "text": "頑張っておりました",
+      "speaker": null,
+      "sourceRef": {
+        "segment": 1
+      },
+      "edited": false,
+      "src": "src-1",
+      "words": [
+        {
+          "start": 5.2,
+          "end": 5.53,
+          "text": "頑"
+        },
+        {
+          "start": 5.77,
+          "end": 5.87,
+          "text": "張"
+        },
+        {
+          "start": 5.87,
+          "end": 6.28,
+          "text": "って"
+        },
+        {
+          "start": 6.8,
+          "end": 6.89,
+          "text": "お"
+        },
+        {
+          "start": 6.89,
+          "end": 7.92,
+          "text": "りました"
+        }
+      ]
+    },
+    {
+      "id": "c-0004",
+      "start": 8.87,
+      "end": 14.14,
+      "text": "いい感じにかけてます",
+      "speaker": null,
+      "sourceRef": {
+        "segment": 2
+      },
+      "edited": false,
+      "src": "src-1",
+      "words": [
+        {
+          "start": 8.87,
+          "end": 10.02,
+          "text": "いい"
+        },
+        {
+          "start": 10.02,
+          "end": 11.72,
+          "text": "感じ"
+        },
+        {
+          "start": 11.78,
+          "end": 12.62,
+          "text": "に"
+        },
+        {
+          "start": 12.62,
+          "end": 12.78,
+          "text": "か"
+        },
+        {
+          "start": 12.88,
+          "end": 13.37,
+          "text": "けて"
+        },
+        {
+          "start": 13.37,
+          "end": 13.84,
+          "text": "ます"
+        }
+      ]
+    },
+    {
+      "id": "c-0005",
+      "start": 14.45,
+      "end": 18.99,
+      "text": "これゴールデンウィーク明けにYou",
+      "speaker": null,
+      "sourceRef": {
+        "segment": 3
+      },
+      "edited": false,
+      "src": "src-1",
+      "words": [
+        {
+          "start": 14.45,
+          "end": 14.54,
+          "text": "これ"
+        },
+        {
+          "start": 14.54,
+          "end": 14.87,
+          "text": "ゴ"
+        },
+        {
+          "start": 14.87,
+          "end": 15.53,
+          "text": "ール"
+        },
+        {
+          "start": 15.53,
+          "end": 15.86,
+          "text": "デ"
+        },
+        {
+          "start": 15.86,
+          "end": 16.01,
+          "text": "ン"
+        },
+        {
+          "start": 16.19,
+          "end": 16.52,
+          "text": "ウ"
+        },
+        {
+          "start": 16.52,
+          "end": 16.62,
+          "text": "ィ"
+        },
+        {
+          "start": 17.02,
+          "end": 17.15,
+          "text": "ー"
+        },
+        {
+          "start": 17.22,
+          "end": 17.51,
+          "text": "ク"
+        },
+        {
+          "start": 17.51,
+          "end": 17.84,
+          "text": "明"
+        },
+        {
+          "start": 17.84,
+          "end": 18.16,
+          "text": "け"
+        },
+        {
+          "start": 18.16,
+          "end": 18.56,
+          "text": "に"
+        },
+        {
+          "start": 18.63,
+          "end": 18.99,
+          "text": "You"
+        }
+      ]
+    },
+    {
+      "id": "c-0006",
+      "start": 18.99,
+      "end": 22.68,
+      "text": "Tubeで配信する予定なんで",
+      "speaker": null,
+      "sourceRef": {
+        "segment": 3
+      },
+      "edited": false,
+      "src": "src-1",
+      "words": [
+        {
+          "start": 18.99,
+          "end": 19.42,
+          "text": "Tube"
+        },
+        {
+          "start": 19.6,
+          "end": 20,
+          "text": "で"
+        },
+        {
+          "start": 20,
+          "end": 20.28,
+          "text": "配"
+        },
+        {
+          "start": 20.28,
+          "end": 20.49,
+          "text": "信"
+        },
+        {
+          "start": 20.91,
+          "end": 21.17,
+          "text": "する"
+        },
+        {
+          "start": 21.17,
+          "end": 21.44,
+          "text": "予"
+        },
+        {
+          "start": 21.49,
+          "end": 21.74,
+          "text": "定"
+        },
+        {
+          "start": 21.74,
+          "end": 22.31,
+          "text": "なん"
+        },
+        {
+          "start": 22.32,
+          "end": 22.41,
+          "text": "で"
+        }
+      ]
+    },
+    {
+      "id": "c-0007",
+      "start": 22.68,
+      "end": 23.9,
+      "text": "お楽しみに",
+      "speaker": null,
+      "sourceRef": {
+        "segment": 4
+      },
+      "edited": false,
+      "src": "src-1",
+      "words": [
+        {
+          "start": 22.68,
+          "end": 22.92,
+          "text": "お"
+        },
+        {
+          "start": 23.16,
+          "end": 23.4,
+          "text": "楽し"
+        },
+        {
+          "start": 23.4,
+          "end": 23.64,
+          "text": "み"
+        },
+        {
+          "start": 23.64,
+          "end": 23.81,
+          "text": "に"
+        }
+      ]
+    },
+    {
+      "id": "c-0008",
+      "start": 23.9,
+      "end": 25.84,
+      "text": "お疲れ様です",
+      "speaker": null,
+      "sourceRef": {
+        "segment": 5
+      },
+      "edited": false,
+      "src": "src-1",
+      "words": [
+        {
+          "start": 23.9,
+          "end": 24.17,
+          "text": "お"
+        },
+        {
+          "start": 24.17,
+          "end": 24.44,
+          "text": "疲"
+        },
+        {
+          "start": 24.48,
+          "end": 24.71,
+          "text": "れ"
+        },
+        {
+          "start": 24.71,
+          "end": 24.98,
+          "text": "様"
+        },
+        {
+          "start": 24.98,
+          "end": 25.54,
+          "text": "です"
+        }
+      ]
+    }
+  ]
+}

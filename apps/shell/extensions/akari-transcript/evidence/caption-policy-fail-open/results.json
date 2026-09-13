@@ -1,0 +1,65 @@
+{
+  "status": "pass",
+  "steps": [
+    {
+      "name": "10 字へ変更して overflow 件数と QC チップを確認",
+      "pass": true,
+      "detail": {
+        "maxLineUnits": 10,
+        "overflowRows": 1,
+        "chip": "10 字に収まらない"
+      }
+    },
+    {
+      "name": "分割された前半がプレビューに出る",
+      "detail": {
+        "captionCount": 13,
+        "parts": [
+          "今日はひたすら",
+          "YouTubeの撮影を"
+        ],
+        "text": "今日はひたすら"
+      },
+      "pass": true
+    },
+    {
+      "name": "分割された後半へ順に切り替わる",
+      "detail": {
+        "captionCount": 13,
+        "parts": [
+          "今日はひたすら",
+          "YouTubeの撮影を"
+        ],
+        "text": "YouTubeの撮影を"
+      },
+      "pass": true
+    },
+    {
+      "name": "RPC throw でも legacy 字幕を描き warn を 1 回だけ出す",
+      "detail": {
+        "transitionOut": {
+          "type": "dissolve",
+          "duration": 0.2
+        },
+        "notification": {
+          "count": 1,
+          "text": "字幕の表示設定を解決できないため、設定を無視して表示しています: UNSUPPORTED_TIMELINE"
+        },
+        "preview": {
+          "captionCount": 9,
+          "text": "今日はひたすらYouTubeの撮影を"
+        }
+      },
+      "pass": true
+    }
+  ],
+  "screenshots": [
+    "01-max10-overflow-qc.png",
+    "02-preview-first-fragment.png",
+    "03-preview-second-fragment.png",
+    "04-rpc-throw-fallback.png"
+  ],
+  "cleanup": {
+    "killedPid": 58965
+  }
+}

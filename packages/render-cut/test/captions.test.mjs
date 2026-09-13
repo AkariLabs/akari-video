@@ -68,6 +68,18 @@ test("resolved caption overlay consumes the Node-resolved cue without re-splitti
   assert.doesNotMatch(overlay.html, /animation:/u);
 });
 
+test("resolved overflow cue is burned once with its complete unbroken text", () => {
+  const cue = {
+    id: "c-overflow-occ-0001-part-1", source_cue_id: "c-overflow",
+    start: 0, end: 2, text: "abcdefghijklmnopq",
+    overflow: { code: "NO_WORD_BOUNDARY_SPLIT", units: 4 },
+  };
+  const overlays = generateResolvedCaptionOverlays({ display_cues: [cue] });
+  assert.equal(overlays.length, 1);
+  assert.match(overlays[0].html, /abcdefghijklmnopq/u);
+  assert.equal(overlays[0].displayCue, cue);
+});
+
 test("resolved caption overlay renders display_lines as sibling line paragraphs", () => {
   const [overlay] = generateResolvedCaptionOverlays({
     display_cues: [{

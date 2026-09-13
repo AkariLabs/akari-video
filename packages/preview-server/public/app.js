@@ -221,6 +221,33 @@ function applyCaptionApiPayload(body) {
   refreshCaptionClock();
 }
 
+let lastCaptionDisplayFallbackCode = null;
+function captionDisplayFallbackCode(message, status) {
+  const code = String(message ?? '').match(/\b([A-Z][A-Z0-9_]{2,})\b/)?.[1];
+  return code ?? `HTTP_${status}`;
+}
+async function loadCaptionApiPayload() {
+  const response = await fetch(api.captions).catch(() => new Response(null, { status: 404 }));
+  if (response.ok) {
+    const body = await response.json();
+    lastCaptionDisplayFallbackCode = null;
+    return body;
+  }
+  let errorMessage = '';
+  try { errorMessage = (await response.json())?.error ?? ''; } catch {}
+  const fallbackPath = isOutputMode ? '/captions.output.json' : '/captions.json';
+  const fallback = await fetch(fallbackPath).catch(() => new Response(null, { status: 404 }));
+  if (!fallback.ok) return null;
+  let body;
+  try { body = await fallback.json(); } catch { return null; }
+  const code = captionDisplayFallbackCode(errorMessage, response.status);
+  if (lastCaptionDisplayFallbackCode !== code) {
+    console.warn(`字幕の表示設定を解決できないため、設定を無視して表示しています: ${code}`);
+  }
+  lastCaptionDisplayFallbackCode = code;
+  return body;
+}
+
 // All geometry/capture paths await the exact repository-owned variable font.
 // The unique family name makes a system-installed Noto unable to satisfy check().
 let captionFontsReady = false;
@@ -261,21 +288,17 @@ async function init() {
     // Observe early failures while fetches run; awaiting the original promise still reports them.
     frameEngineModule?.catch(() => {});
     window.__akariCaptionFontReady?.catch(() => {});
-    const [timelineRes, editRes, captionsRes] = await Promise.all([
+    const [timelineRes, editRes, captionsBody] = await Promise.all([
       fetch(api.timeline),
       fetch(api.summary),
-      fetch(api.captions).catch(() => new Response(null, { status: 404 })),
+      loadCaptionApiPayload(),
     ]);
     if (!timelineRes.ok) throw new Error(await apiReadError(timelineRes, 'timeline'));
     if (!editRes.ok) throw new Error(await apiReadError(editRes, 'summary'));
     timelineData = await timelineRes.json();
     summary = await editRes.json();
-    if (captionsRes.ok) {
-      const body = await captionsRes.json();
-      applyCaptionApiPayload(body);
-    } else {
-      captionsData = [];
-    }
+    if (captionsBody !== null) applyCaptionApiPayload(captionsBody);
+    else captionsData = [];
     fps = timelineData.fps || 30;
     if (summary?.overlays?.some(o => Array.isArray(o?.keyframes))) {
       await ensureItemKeyframesRuntime();
@@ -3059,19 +3082,18 @@ async function applySoftReload() {
   const signatureBefore = overlaySignature(summary);
   if (isPlaying) pause();
 
-  const [timelineRes, editRes, captionsRes] = await Promise.all([
+  const [timelineRes, editRes, captionsBody] = await Promise.all([
     fetch(api.timeline),
     fetch(api.summary),
-    fetch(api.captions).catch(() => new Response(null, { status: 404 })),
+    loadCaptionApiPayload(),
   ]);
   if (!timelineRes.ok || !editRes.ok) {
     throw new Error(`reload fetch failed (timeline=${timelineRes.status}, summary=${editRes.status})`);
   }
   timelineData = await timelineRes.json();
   summary = await editRes.json();
-  if (captionsRes.ok) {
-    const body = await captionsRes.json();
-    applyCaptionApiPayload(body);
+  if (captionsBody !== null) {
+    applyCaptionApiPayload(captionsBody);
   } else {
     captionsData = [];
     captionsResolvedTimeline = false;
@@ -4691,11 +4713,10 @@ function connectWs() {
       }
       if (m.type === 'reload') { requestSoftReload(); return; }
       if (m.type === 'captions-reload') {
-        Promise.all([fetch(api.summary), fetch(api.captions)]).then(async ([summaryResponse, captionsResponse]) => {
+        Promise.all([fetch(api.summary), loadCaptionApiPayload()]).then(async ([summaryResponse, captionsBody]) => {
           if (summaryResponse.ok) summary = await summaryResponse.json();
-          if (captionsResponse.ok) {
-            const body = await captionsResponse.json();
-            applyCaptionApiPayload(body);
+          if (captionsBody !== null) {
+            applyCaptionApiPayload(captionsBody);
             _lastCaptionId = null;
             updateCaption();
           }

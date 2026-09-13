@@ -178,7 +178,13 @@ import {
     ReviewToolMode,
     shouldStopEditableDeletionKeydown
 } from '../common/review-tool-mode';
-import { locatePreviewCaptions, parsePreviewCaptions, parseResolvedPreviewCaptions, PreviewCaption } from './akari-preview-captions';
+import {
+    loadCaptionDisplayFailOpen,
+    locatePreviewCaptions,
+    parsePreviewCaptions,
+    parseResolvedPreviewCaptions,
+    PreviewCaption
+} from './akari-preview-captions';
 import { resolveOutputOpenFocusMode } from './open-focus-mode';
 import {
     ReviewSessionRecorder,
@@ -1122,6 +1128,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
     protected readonly pendingOutputInitialSeek = new Map<string, number>();
     protected readonly reviewTransportByEdit = new Map<string, ReviewTransportSnapshot>();
     protected readonly lastRawEditVersionByUri = new Map<string, 0 | 1 | 2>();
+    protected readonly captionDisplayFallbackState: { lastCode?: string } = {};
     protected readonly migrationCompactionPrompted = new Set<string>();
     // task/2026-08-09-drop-hevc-proxy: 実際に再生失敗した動画（videoUri.toString() をキー）だけを
     // 憶えておくフォールバック台帳。既定経路（resolveStreamVideoUri）はここに載っている場合だけ
@@ -5248,59 +5255,68 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         }
         try {
             if (editUri) {
-                const resolved = await this.previewService.resolveCaptionDisplay({
-                    captionsUri: captionsUri.toString(),
-                    editUri: editUri.toString(),
-                    workspaceRoots: await this.currentWorkspaceRoots()
-                });
-                if (resolved) {
-                    return {
+                return await loadCaptionDisplayFailOpen({
+                    resolve: async () => this.previewService.resolveCaptionDisplay({
+                        captionsUri: captionsUri.toString(),
+                        editUri: editUri.toString(),
+                        workspaceRoots: await this.currentWorkspaceRoots()
+                    }),
+                    resolved: resolved => ({
                         captions: parseResolvedPreviewCaptions(resolved).map(caption => ({
                             ...caption,
-                            clockDomain: 'output'
+                            clockDomain: 'output' as const
                         })),
                         emphasisWords: resolved.emphasisWords
-                    };
-                }
+                    }),
+                    legacy: () => this.loadLegacyPreviewCaptions(captionsUri),
+                    warn: code => this.messages.warn(
+                        `字幕の表示設定を解決できないため、設定を無視して表示しています: ${code}`
+                    ),
+                    state: this.captionDisplayFallbackState
+                });
             }
-            const source = await this.readText(captionsUri);
-            const parsed = parsePreviewCaptions(source);
-            const root: unknown = JSON.parse(source);
-            const emphasisWords = readCaptionsEmphasisWords(root);
-            const rawCaptions = Array.isArray(root)
-                ? root
-                : root && typeof root === 'object' && Array.isArray((root as { captions?: unknown }).captions)
-                    ? (root as { captions: unknown[] }).captions
-                    : [];
-            const rawById = new Map<string, Record<string, unknown>>();
-            for (const value of rawCaptions) {
-                if (value && typeof value === 'object' && !Array.isArray(value)
-                    && typeof (value as { id?: unknown }).id === 'string') {
-                    rawById.set((value as { id: string }).id, value as Record<string, unknown>);
-                }
-            }
-            const captions: PreviewCaptionClockInput[] = parsed.map((caption, index) => {
-                const raw = (caption.id ? rawById.get(caption.id) : undefined)
-                    ?? (rawCaptions[index] && typeof rawCaptions[index] === 'object'
-                        && !Array.isArray(rawCaptions[index])
-                        ? rawCaptions[index] as Record<string, unknown> : undefined);
-                // 明示 domain は schema 正本どおり直通し、未宣言だけ既存 legacy 推定へ渡す。
-                const declaredDomain = raw?.time_domain === 'source' || raw?.time_domain === 'output'
-                    ? raw.time_domain
-                    : 'legacy';
-                return {
-                    ...caption,
-                    clockDomain: declaredDomain,
-                    ...(typeof raw?.src === 'string' && raw.src ? { clockSourceId: raw.src } : {})
-                };
-            });
-            return { captions, emphasisWords };
+            return await this.loadLegacyPreviewCaptions(captionsUri);
         } catch (error) {
             if (await this.fileService.exists(captionsUri)) {
                 console.warn(`[akari-preview] failed to load ${captionsUri.toString()}; hiding captions`, error);
             }
             return { captions: [] };
         }
+    }
+
+    protected async loadLegacyPreviewCaptions(captionsUri: URI): Promise<LoadedPreviewCaptions> {
+        const source = await this.readText(captionsUri);
+        const parsed = parsePreviewCaptions(source);
+        const root: unknown = JSON.parse(source);
+        const emphasisWords = readCaptionsEmphasisWords(root);
+        const rawCaptions = Array.isArray(root)
+            ? root
+            : root && typeof root === 'object' && Array.isArray((root as { captions?: unknown }).captions)
+                ? (root as { captions: unknown[] }).captions
+                : [];
+        const rawById = new Map<string, Record<string, unknown>>();
+        for (const value of rawCaptions) {
+            if (value && typeof value === 'object' && !Array.isArray(value)
+                && typeof (value as { id?: unknown }).id === 'string') {
+                rawById.set((value as { id: string }).id, value as Record<string, unknown>);
+            }
+        }
+        const captions: PreviewCaptionClockInput[] = parsed.map((caption, index) => {
+            const raw = (caption.id ? rawById.get(caption.id) : undefined)
+                ?? (rawCaptions[index] && typeof rawCaptions[index] === 'object'
+                    && !Array.isArray(rawCaptions[index])
+                    ? rawCaptions[index] as Record<string, unknown> : undefined);
+            // 明示 domain は schema 正本どおり直通し、未宣言だけ既存 legacy 推定へ渡す。
+            const declaredDomain = raw?.time_domain === 'source' || raw?.time_domain === 'output'
+                ? raw.time_domain
+                : 'legacy';
+            return {
+                ...caption,
+                clockDomain: declaredDomain,
+                ...(typeof raw?.src === 'string' && raw.src ? { clockSourceId: raw.src } : {})
+            };
+        });
+        return { captions, emphasisWords };
     }
 
     protected async findEditJson(videoUri: URI): Promise<URI | undefined> {
