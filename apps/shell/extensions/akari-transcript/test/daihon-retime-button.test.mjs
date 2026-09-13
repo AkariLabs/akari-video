@@ -8,5 +8,5 @@ test('台本ヘッダは発話合わせ直しボタンから retime RPC・footer
     assert.match(source, /textContent = '⏱ 発話に合わせ直す'/);
     assert.match(source, /buildCaptions\(\{ projectRoot, source: source\.id, retime: true \}\)/);
     assert.match(source, /withHistory\('発話に合わせ直す'/);
-    assert.match(source, /captionsRetimeLine\(moved\)/);
+    assert.match(source, /captionsRetimeLine\(moved, retimeSummary\)/);
 });
