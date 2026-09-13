@@ -15,7 +15,7 @@ export function transcriptsDirForTarget(target) {
   return analysisPath ? path.join(path.dirname(analysisPath), "transcripts") : null;
 }
 
-export async function recordEngineTranscript(target, { backend, generated_at, source, elapsed_sec, cost_usd, segments }) {
+export async function recordEngineTranscript(target, { backend, generated_at, source, elapsed_sec, cost_usd, segments, timing_snap }) {
   const directory = transcriptsDirForTarget(target);
   if (!directory) return null;
   const name = backend.replace(/:/g, "-");
@@ -26,7 +26,8 @@ export async function recordEngineTranscript(target, { backend, generated_at, so
   const lock = await acquireLock(lockPath);
   const temporary = `${output}.tmp-${process.pid}-${Math.random().toString(16).slice(2)}`;
   try {
-    const value = { version: 1, backend: name, generated_at, source, elapsed_sec, cost_usd: cost_usd ?? null, segments };
+    const value = { version: 1, backend: name, generated_at, source, elapsed_sec, cost_usd: cost_usd ?? null, segments,
+      ...(timing_snap ? { timing_snap } : {}) };
     await writeFile(temporary, `${JSON.stringify(value, null, 2)}\n`, "utf8");
     if (existsSync(output)) {
       const previous = JSON.parse(readFileSync(output, "utf8"));
@@ -70,14 +71,14 @@ export async function recordObservation({ target, kind, result, args = {}, outpu
         generated_at: result.generated_at,
       };
     } else if (kind === "transcribe") {
-      analysis.transcript = replaceTranscriptRange(analysis.transcript, result.segments, range);
+      analysis.transcript = replaceTranscriptRange(analysis.transcript, result.segments.map(withoutSnapAuditFields), range);
     }
 
     analysis.observations = Array.isArray(analysis.observations) ? analysis.observations : [];
     const observation = {
       kind,
       at: result.generated_at ?? new Date().toISOString(),
-      args,
+      args: kind === "transcribe" && result.timing_snap ? { ...args, timing_snap: result.timing_snap } : args,
       outputs: outputs.map((output) => relativeFrom(analysisDirectory, output)),
       tool: `akari media ${MEDIA_VERSION}`,
     };
@@ -92,6 +93,11 @@ export async function recordObservation({ target, kind, result, args = {}, outpu
     await lock.close();
     await unlink(lockPath).catch(() => {});
   }
+}
+
+function withoutSnapAuditFields(segment) {
+  if (!Array.isArray(segment.words)) return segment;
+  return { ...segment, words: segment.words.map(({ raw_start: _rawStart, raw_end: _rawEnd, ...word }) => word) };
 }
 
 export async function updateAnalysisTranscript(target, update) {

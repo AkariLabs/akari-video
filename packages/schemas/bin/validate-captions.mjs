@@ -299,12 +299,19 @@ function validateCaptionWords(value, captionLabel) {
       if (!hasOwn(word, field)) fail(`${label}.${field} は必須です`);
     }
     for (const key of Object.keys(word)) {
-      if (!["start", "end", "text"].includes(key)) fail(`${label} に未知のキーがあります: ${key}`);
+      if (!["start", "end", "raw_start", "raw_end", "text"].includes(key)) fail(`${label} に未知のキーがあります: ${key}`);
     }
     const startValid = isFiniteNumber(word.start) && word.start >= 0;
     const endValid = isFiniteNumber(word.end) && word.end >= 0;
     if (!startValid || !endValid || word.end < word.start) {
       fail(`${label} は 0 <= start <= end を満たす必要があります`);
+    }
+    const hasRawStart = hasOwn(word, "raw_start");
+    const hasRawEnd = hasOwn(word, "raw_end");
+    if (hasRawStart !== hasRawEnd) fail(`${label}.raw_start / raw_end は両方指定してください`);
+    if (hasRawStart && (!isFiniteNumber(word.raw_start) || word.raw_start < 0
+        || !isFiniteNumber(word.raw_end) || word.raw_end < word.raw_start)) {
+      fail(`${label} は 0 <= raw_start <= raw_end を満たす必要があります`);
     }
     if (!isNonEmptyString(word.text)) {
       fail(`${label}.text は空でない文字列である必要があります`);

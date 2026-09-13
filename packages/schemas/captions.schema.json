@@ -247,9 +247,11 @@
       "properties": {
         "start": { "type": "number", "minimum": 0 },
         "end": { "type": "number", "minimum": 0 },
+        "raw_start": { "type": "number", "minimum": 0 },
+        "raw_end": { "type": "number", "minimum": 0 },
         "text": { "type": "string", "minLength": 1, "pattern": "\\S" }
       },
-      "$comment": "end >= start と親 caption の範囲外警告は JSON Schema 標準だけでは兄弟値を比較できないため検証器が扱う。"
+      "$comment": "raw_start/raw_end は発話吸着前の監査用時刻。end >= start、raw_end >= raw_start と親 caption の範囲外警告は JSON Schema 標準だけでは兄弟値を比較できないため検証器が扱う。"
     },
     "sourceRef": {
       "oneOf": [

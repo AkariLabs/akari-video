@@ -1,0 +1,51 @@
+{
+  "status": "pass",
+  "steps": [
+    {
+      "name": "1. owner 実素材の --retime --dry-run --json は moved_words >= 1",
+      "pass": true,
+      "detail": {
+        "movedWords": 52,
+        "totalWords": 53
+      }
+    },
+    {
+      "name": "2. 台本ヘッダに発話合わせ直しボタンが表示される",
+      "pass": true,
+      "detail": {
+        "label": "⏱ 発話に合わせ直す",
+        "disabled": false
+      }
+    },
+    {
+      "name": "3. 台本ボタン適用で owner 数値・本文・edited 行を保つ",
+      "pass": true,
+      "detail": {
+        "iiStart": 11.3,
+        "kanjiEnd": 12.124,
+        "goStart": 16.14,
+        "footer": "52 語を動かした · 発話に合わせ直す（52 語）"
+      }
+    },
+    {
+      "name": "4. プレビューは 11.3 秒より前に対象句を出さず、以後に出す",
+      "pass": true,
+      "detail": {
+        "before": "",
+        "after": "いい感じにかけてます",
+        "observedAt": 11.4
+      }
+    }
+  ],
+  "screenshots": [
+    "01-retime-button.png",
+    "02-retime-applied.png",
+    "03-preview-after-11-3.png"
+  ],
+  "cleanup": {
+    "killedPid": 81213,
+    "survivingProcesses": 0
+  },
+  "workspaceRoots": 1,
+  "ensureVisible": "opened"
+}

@@ -10,6 +10,8 @@ import { writeWordBookFile } from "../../word-book/src/index.mjs";
 import { runCaptionsCli } from "../bin/captions.mjs";
 import { analysisPathForTarget } from "../src/media/record.mjs";
 
+const ownerFixtureRoot = fileURLToPath(new URL("./fixtures/speech-snap-owner/", import.meta.url));
+
 async function fixture(t) {
   const root = await mkdtemp(path.join(tmpdir(), "akari-captions-"));
   t.after(() => rm(root, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 }));
@@ -215,4 +217,34 @@ test("probe duration caps the final caption", async (t) => {
   const result = await f.run();
   assert.equal(result.code, 0, result.stderr.join("\n"));
   assert.equal(JSON.parse(await readFile(f.captionsPath, "utf8")).captions.at(-1).end, 10);
+});
+
+test("--retime はオーナー実データを補正し dry-run と edited 行保護を守る", async (t) => {
+  const f = await fixture(t);
+  f.edit.sources[0].id = "src-1";
+  await writeFile(path.join(f.root, "edit.json"), JSON.stringify(f.edit));
+  const [silenceData, captionData] = await Promise.all([
+    readFile(path.join(ownerFixtureRoot, "silences-owner.json"), "utf8").then(JSON.parse),
+    readFile(path.join(ownerFixtureRoot, "captions-owner.json"), "utf8").then(JSON.parse),
+  ]);
+  await writeFile(f.analysisPath, JSON.stringify({ probe: { duration_s: 26.16 }, transcript: [], timing_snap: { silences: silenceData.silences } }));
+  await writeFile(f.captionsPath, JSON.stringify(captionData));
+  const before = await readFile(f.captionsPath, "utf8");
+  const dry = await f.run("--retime", "--dry-run", "--json");
+  assert.equal(dry.code, 0, dry.stderr.join("\n"));
+  assert.equal(dry.stdout.length, 1);
+  assert.ok(JSON.parse(dry.stdout[0]).moved_words >= 1);
+  assert.equal(await readFile(f.captionsPath, "utf8"), before);
+  const applied = await f.run("--retime");
+  assert.equal(applied.code, 0, applied.stderr.join("\n"));
+  const result = JSON.parse(await readFile(f.captionsPath, "utf8"));
+  const c4 = result.captions.find((row) => row.id === "c-0004");
+  const c5 = result.captions.find((row) => row.id === "c-0005");
+  assert.ok(c4.words.find((word) => word.text === "いい").start >= 11.30);
+  assert.ok(c4.words.find((word) => word.text === "感じ").end <= 12.33);
+  assert.ok(c5.words.find((word) => word.text === "ゴ").start >= 15.74);
+  const editedBefore = captionData.captions.find((row) => row.edited);
+  const editedAfter = result.captions.find((row) => row.id === editedBefore.id);
+  assert.deepEqual([editedAfter.start, editedAfter.end], [editedBefore.start, editedBefore.end]);
+  assert.deepEqual(result.captions.map((row) => row.text), captionData.captions.map((row) => row.text));
 });

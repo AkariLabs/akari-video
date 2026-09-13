@@ -22,7 +22,7 @@ test("transcribe の成功時は生 sidecar を保存、cache hit でも旧版�
   const file = path.join(f.directory, "transcripts/speech-analyzer.json");
   const before = await readFile(file, "utf8");
   const raw = JSON.parse(before);
-  assert.deepEqual(Object.keys(raw), ["version", "backend", "generated_at", "source", "elapsed_sec", "cost_usd", "segments"]);
+  assert.deepEqual(Object.keys(raw), ["version", "backend", "generated_at", "source", "elapsed_sec", "cost_usd", "segments", "timing_snap"]);
   assert.deepEqual(raw.source, { path: f.target, range: { in: 0, out: 30 } });
   assert.equal(raw.version, 1);
   assert.equal(raw.cost_usd, null);
@@ -79,7 +79,7 @@ test("機械の生は単語帳適用前、analysis は従来どおり適用後�
   const wordBookPath = path.join(f.project, "word-book.json");
   await writeWordBookFile(wordBookPath, { version: 0, entries: [{ surface: "AKARI Video", variants: ["あかりビデオ"], kind: "term" }] });
   await putJson(path.join(f.directory, "analysis.json"), { version: 0, transcript: [{ start: 0, end: 1, text: "残す" }] });
-  const result = await transcribeMedia(f.target, { ...speechOptions(f), wordBookPath, in: 5, out: 7, stderr: () => {},
+  const result = await transcribeMedia(f.target, { ...speechOptions(f), snap: false, wordBookPath, in: 5, out: 7, stderr: () => {},
     backendRunner: async () => [{ start: 0, end: 1, text: "あかりビデオ", words: [{ start: 0, end: 1, text: "あかりビデオ" }] }],
   });
   assert.equal(result.segments[0].text, "AKARI Video");

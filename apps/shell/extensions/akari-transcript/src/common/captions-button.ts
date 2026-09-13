@@ -28,6 +28,20 @@ export function captionsAppliedLine(preview: CaptionsApplyPreview): string {
     return `台本に反映した（新規 ${preview.added} · 変更 ${preview.changed}）`;
 }
 
+export function captionsRetimeMovedWords(value: unknown): number | undefined {
+    if (!value || typeof value !== 'object') return undefined;
+    const moved = (value as { moved_words?: unknown }).moved_words;
+    return typeof moved === 'number' && Number.isFinite(moved) && moved >= 0 ? moved : undefined;
+}
+
+export function captionsRetimeLine(movedWords: number): string {
+    return `${movedWords} 語を動かした`;
+}
+
+export function captionsRetimeHistoryLabel(movedWords: number): string {
+    return `発話に合わせ直す（${movedWords} 語）`;
+}
+
 export function captionsApplyHistoryLabel(preview: CaptionsApplyPreview): string {
     return `台本へ反映（新規 ${preview.added} · 変更 ${preview.changed}）`;
 }

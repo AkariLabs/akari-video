@@ -23,6 +23,12 @@ import {
 import { whisperModelCandidates, isWhisperModelExcluded } from "./whisper-model-candidates.mjs";
 import { parseSilences } from "./waveform.mjs";
 import {
+  detectSpeechChunks,
+  snapSegmentsToWords,
+  snapWordsToSpeech,
+  SPEECH_SNAP_DEFAULTS,
+} from "./speech-align.mjs";
+import {
   applyWordBook,
   buildMatcher,
   resolveWordBook,
@@ -61,11 +67,13 @@ export async function transcribeMedia(targetArgument, options = {}) {
   const lang = options.lang ?? "auto";
   const sha256 = await sha256File(target.inputPath);
   const asrResult = await transcribeAsr({ target, ffmpeg, value, range, lang, sha256, options });
+  const silenceDetection = await detectTranscribeSilences(asrResult.segments, target.inputPath, range, ffmpeg, options);
   // 未認識は ASR cache と独立した派生値。hit / miss とも現在の設定で付与する。
-  const rawResult = {
+  const withUnrecognized = {
     ...asrResult,
-    segments: await attachUnrecognizedSpans(asrResult.segments, target.inputPath, range, ffmpeg, options),
+    segments: await attachUnrecognizedSpans(asrResult.segments, target.inputPath, range, ffmpeg, options, silenceDetection),
   };
+  const rawResult = applyTimingSnap(withUnrecognized, silenceDetection, range, options);
   const result = await applyResolvedWordBook(rawResult, target, options);
   const recordedResult = result.cache.hit ? { ...result, generated_at: generatedAt(options) } : result;
   await recordTranscribe(target, recordedResult, options.in === undefined && options.out === undefined ? undefined : range, result.backend, lang, options.noRecord, rawResult, started);
@@ -109,14 +117,16 @@ async function transcribeAsr({ target, ffmpeg, value, range, lang, sha256, optio
         : await runBackend({ backendInfo, ffmpeg, target, range, lang, options });
     }
   }
-  const costUsd = backend.startsWith("cloud:") ? segments?.cost_estimate_usd ?? null : null;
-  segments = normalizeSegments(Array.isArray(segments) ? segments : segments?.segments, range);
+  const backendOutput = segments;
+  const costUsd = backend.startsWith("cloud:") ? backendOutput?.cost_estimate_usd ?? null : null;
+  segments = normalizeSegments(Array.isArray(backendOutput) ? backendOutput : backendOutput?.segments, range);
   const rawResult = {
     path: target.displayPath,
     range,
     backend,
     no_speech: segments.length === 0,
     ...(backend.startsWith("cloud:") ? { cost_usd: costUsd } : {}),
+    ...(backend === "whisper-cpp" ? { dtw: backendOutput?.dtw === true } : {}),
     segments,
     cache: { hit: false, key },
     generated_at: generatedAt(options),
@@ -299,14 +309,36 @@ async function runSpeechAnalyzer(wavPath, temporaryDirectory, options) {
   return value.segments ?? [];
 }
 
+export function whisperDtwPreset(modelPath) {
+  const name = path.basename(String(modelPath ?? "")).toLowerCase();
+  if (/large-v3-turbo/.test(name)) return "large.v3.turbo";
+  if (/large-v3/.test(name)) return "large.v3";
+  for (const preset of ["medium", "small", "base", "tiny"]) {
+    if (name.includes(preset)) return preset;
+  }
+  return null;
+}
+
 function runWhisper(wavPath, temporaryDirectory, backendInfo, lang, options) {
   const prefix = path.join(temporaryDirectory, "whisper.raw");
-  runChecked(backendInfo.bin, [
-    "-m", backendInfo.model, "-f", wavPath, "-l", lang, "-oj", "-ojf", "-of", prefix,
-  ], options);
+  const baseArgs = ["-m", backendInfo.model, "-f", wavPath, "-l", lang, "-oj", "-ojf", "-of", prefix];
+  const preset = whisperDtwPreset(backendInfo.model);
+  let dtw = false;
+  if (preset) {
+    try {
+      runChecked(backendInfo.bin, [...baseArgs, "-dtw", preset], options);
+      dtw = true;
+    } catch (error) {
+      if (!/unknown|invalid/i.test(error instanceof Error ? error.message : String(error))) throw error;
+      writeBackendLog(options, `whisper.cpp が -dtw を受理しないため、DTW なしで再実行します: ${error instanceof Error ? error.message : String(error)}`);
+      runChecked(backendInfo.bin, baseArgs, options);
+    }
+  } else {
+    runChecked(backendInfo.bin, baseArgs, options);
+  }
   const jsonPath = [`${prefix}.json`, prefix].find(existsSync);
   if (!jsonPath) throw new Error("whisper.cpp の JSON 出力が見つかりません");
-  return normalizeWhisperJson(JSON.parse(readFileSync(jsonPath, "utf8")));
+  return { segments: normalizeWhisperJson(JSON.parse(readFileSync(jsonPath, "utf8"))), dtw };
 }
 
 function runCloud(wavPath, projectRoot, connectionId, range, options) {
@@ -413,7 +445,56 @@ function normalizeSegments(segments, range) {
   }).sort((left, right) => left.start - right.start);
 }
 
-async function attachUnrecognizedSpans(segments, inputPath, range, ffmpeg, options) {
+async function detectTranscribeSilences(segments, inputPath, range, ffmpeg, options) {
+  if (!segments.length || (options.unrecognized === false && (options.snap === false || options.timingSnap === false))) return null;
+  const silenceDb = numericOption(options.silenceDb, UNRECOGNIZED_DEFAULTS.silenceDb, "silenceDb", false);
+  const silenceMinSec = numericOption(options.silenceMinSec, UNRECOGNIZED_DEFAULTS.silenceMinSec, "silenceMinSec");
+  const runner = options.silencesRunner ?? runSilenceDetect;
+  const detected = await runner({ inputPath, range, ffmpeg, silenceDb, silenceMinSec, options });
+  return {
+    silences: Array.isArray(detected) ? detected : detected?.silences ?? [],
+    silenceDb,
+    silenceMinSec,
+  };
+}
+
+function applyTimingSnap(result, detection, range, options) {
+  if (options.snap === false || options.timingSnap === false || !detection) return result;
+  const chunks = detectSpeechChunks({ silences: detection.silences, duration: range.out });
+  const words = result.segments.flatMap((segment) => segment.words ?? []);
+  const snapped = snapWordsToSpeech(words, chunks, options.timingSnapOptions);
+  let offset = 0;
+  const withWords = result.segments.map((segment) => {
+    if (!Array.isArray(segment.words) || !segment.words.length) return { ...segment };
+    const next = snapped.words.slice(offset, offset + segment.words.length);
+    offset += segment.words.length;
+    const moved = next.some((word, index) => word.start !== segment.words[index].start || word.end !== segment.words[index].end);
+    if (!moved) return { ...segment, words: next };
+    return snapSegmentsToWords([{ ...segment, words: next }], options.timingSnapOptions)[0];
+  });
+  return {
+    ...result,
+    segments: withWords,
+    timing_snap: {
+      method: "silencedetect",
+      moved_words: snapped.moved,
+      total_words: snapped.total,
+      params: {
+        silence_db: detection.silenceDb,
+        silence_min_sec: detection.silenceMinSec,
+        tolerance_sec: options.timingSnapOptions?.toleranceSec ?? SPEECH_SNAP_DEFAULTS.toleranceSec,
+        pad_in_sec: options.timingSnapOptions?.padInSec ?? SPEECH_SNAP_DEFAULTS.padInSec,
+        pad_out_sec: options.timingSnapOptions?.padOutSec ?? SPEECH_SNAP_DEFAULTS.padOutSec,
+        min_duration_sec: options.timingSnapOptions?.minDurSec ?? SPEECH_SNAP_DEFAULTS.minDurSec,
+        min_word_sec: options.timingSnapOptions?.minWordSec ?? SPEECH_SNAP_DEFAULTS.minWordSec,
+      },
+      silences: detection.silences,
+      ...(result.backend === "whisper-cpp" ? { dtw: result.dtw === true } : {}),
+    },
+  };
+}
+
+async function attachUnrecognizedSpans(segments, inputPath, range, ffmpeg, options, detection) {
   // 旧 cache の判定と版は持ち越さない。markers は再計算の入力として残す。
   segments = segments.map(({ unrecognized: _unrecognized, unrecognized_algo_version: _version, ...segment }) => segment);
   if (options.unrecognized === false || segments.length === 0) {
@@ -429,15 +510,7 @@ async function attachUnrecognizedSpans(segments, inputPath, range, ffmpeg, optio
     UNRECOGNIZED_DEFAULTS.minVoicedSec,
     "--unrecognized-min-voiced",
   );
-  const silenceDb = numericOption(options.silenceDb, UNRECOGNIZED_DEFAULTS.silenceDb, "silenceDb", false);
-  const silenceMinSec = numericOption(
-    options.silenceMinSec,
-    UNRECOGNIZED_DEFAULTS.silenceMinSec,
-    "silenceMinSec",
-  );
-  const runner = options.silencesRunner ?? runSilenceDetect;
-  const detected = await runner({ inputPath, range, ffmpeg, silenceDb, silenceMinSec, options });
-  const silences = Array.isArray(detected) ? detected : detected?.silences ?? [];
+  const silences = detection?.silences ?? [];
   return segments.map((segment) => {
     const unrecognized = detectUnrecognizedSpans(segment, silences, { minGapSec, minVoicedSec });
     const clean = withoutInternalMarkers(segment);
@@ -480,6 +553,7 @@ async function recordTranscribe(target, result, range, backend, lang, noRecord, 
     elapsed_sec: formatNumber((performance.now() - started) / 1000),
     cost_usd: backend.startsWith("cloud:") ? rawResult.cost_usd ?? null : null,
     segments: rawResult.segments,
+    timing_snap: rawResult.timing_snap,
   });
   await recordObservation({
     target,
