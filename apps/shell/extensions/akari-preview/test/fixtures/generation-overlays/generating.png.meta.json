@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "kind": "video",
+  "status": "generating",
+  "inputs": { "extra": {} },
+  "progress": { "percent": 62, "eta_s": 40.6 },
+  "job": {
+    "started_at": "2026-09-13T09:44:37.328Z",
+    "stale_after_s": 900
+  },
+  "history": []
+}

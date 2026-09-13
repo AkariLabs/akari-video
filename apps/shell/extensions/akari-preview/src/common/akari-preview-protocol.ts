@@ -393,6 +393,21 @@ export type SetHighPerformanceGpuResult =
     | { ok: true; state: GpuPreferenceState }
     | { ok: false; reason: string; state: GpuPreferenceState };
 
+export interface GenerationSidecarEntry {
+    /** プロジェクトルート相対のソースパス（edit.json に書かれている形）。 */
+    sourcePath: string;
+    /** 読めたサイドカー（<sourcePath>.meta.json）の中身。無ければ null。 */
+    meta: unknown | null;
+    /** サイドカーの mtimeMs。無ければ null。 */
+    mtimeMs: number | null;
+}
+
+export interface ReadGenerationSidecarsResult {
+    entries: GenerationSidecarEntry[];
+    /** v2 `tracks[].items[].name`。小札の <クリップ名>。 */
+    itemNames: Record<string, string>;
+}
+
 export interface AkariPreviewService {
     prepareAssetVisualThumbnail(request: { assetUri: string; time?: number }): Promise<import('./visual-thumbnail').VisualThumbnailPage & {
         assetUri: string; duration: number; time: number; mtime: number; size: number;
@@ -425,6 +440,7 @@ export interface AkariPreviewService {
     lintEditCandidate(request: LintEditCandidateRequest): Promise<LintEditCandidateResult>;
     prepareLegacyEdit(request: PrepareLegacyEditRequest): Promise<PrepareLegacyEditResult>;
     resolveCaptionDisplay(request: ResolveCaptionDisplayRequest): Promise<ResolvedCaptionDisplayPayload | null>;
+    readGenerationSidecars(request: { editUri: string; workspaceRoots?: string[] }): Promise<ReadGenerationSidecarsResult>;
     getGpuPreferenceState(): Promise<GpuPreferenceState>;
     setHighPerformanceGpu(enabled: boolean): Promise<SetHighPerformanceGpuResult>;
 }

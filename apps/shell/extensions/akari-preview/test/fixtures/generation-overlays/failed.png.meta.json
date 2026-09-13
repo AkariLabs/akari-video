@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "kind": "video",
+  "status": "failed",
+  "inputs": { "extra": {} },
+  "error": { "reason": "timeout" },
+  "history": [
+    { "at": "2026-09-13T09:59:00.000Z", "status": "failed", "reason": "timeout" }
+  ]
+}

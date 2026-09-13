@@ -193,6 +193,7 @@ import {
     ReviewTransportSnapshot
 } from './review-session-recorder';
 import { ReviewSessionRecordingIndicator } from './review-session-recording-indicator';
+import { describeOverlay, resolveGenerationState } from '../common/generation-overlay-model';
 
 export interface OverlayTransform {
     x?: number;
@@ -379,6 +380,8 @@ interface EditSummaryCut {
     mute?: boolean;
     /** v2 tracks[].items[].id（legacy でも内部表現が付けた安定 id）。 */
     id: string;
+    /** meta.json サイドカーとの結線に使うプロジェクト相対パス。 */
+    sourcePath?: string;
     /** 参照するソース id（v1 cuts[].src。v0 は既定 id）。webview はこれで <video> を切り替える */
     src: string;
     in: number;
@@ -824,6 +827,7 @@ interface PreviewWidgetMarker extends WebviewWidget {
     akariPreviewConfiguration?: Promise<void>;
     akariPreviewRefresh?: Promise<void>;
     akariPreviewCaptionsUpdate?: Promise<void>;
+    akariPreviewGenerationUpdate?: Promise<void>;
     akariPreviewModelSnapshot?: PreviewModelDiffInput;
     akariPreviewAssetUrlByUri?: Map<string, string>;
     akariPreviewEditUri?: URI;
@@ -1266,12 +1270,21 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         this.registerTogglePlaybackCommand();
         this.registerCompactTracksCommand();
         this.lifecycleDisposables.push(this.preferences.onPreferenceChanged(event => {
-            if (event.preferenceName !== 'akari.preview.scrubAudio') return;
-            // Theia の PreferenceChange は newValue を公開しないため、変更後の実効値を取得する。
-            const enabled = this.preferences.get<boolean>('akari.preview.scrubAudio', true) !== false;
-            for (const widget of [...this.openOutputPreviews.values(), ...this.openPreviews.values()]) {
-                if (widget.isAttached) {
-                    widget.sendMessage({ type: 'akari-preview-set-scrub-audio', enabled });
+            if (event.preferenceName === 'akari.preview.scrubAudio') {
+                // Theia の PreferenceChange は newValue を公開しないため、変更後の実効値を取得する。
+                const enabled = this.preferences.get<boolean>('akari.preview.scrubAudio', true) !== false;
+                for (const widget of [...this.openOutputPreviews.values(), ...this.openPreviews.values()]) {
+                    if (widget.isAttached) {
+                        widget.sendMessage({ type: 'akari-preview-set-scrub-audio', enabled });
+                    }
+                }
+            }
+            if (event.preferenceName === 'akari.preview.exportLook') {
+                const enabled = this.preferences.get<boolean>('akari.preview.exportLook', false) === true;
+                for (const widget of this.openOutputPreviews.values()) {
+                    if (widget.isAttached) {
+                        widget.sendMessage({ type: 'akari-preview-set-export-look', enabled });
+                    }
                 }
             }
         }));
@@ -2583,6 +2596,9 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     widget.sendMessage({ type: 'akari-preview-select-primary', selection: this.primaryTimelineSelections.get(key) });
                 }
             }
+            if (message?.type === 'akari-preview-generation-request' && kind === 'output') {
+                this.queueGenerationUpdate(widget);
+            }
             if (isAudioMeterFrame(message)) {
                 lastAudioMeterFrame = message;
                 this.forwardAudioMeterFrame(widget, message);
@@ -2676,6 +2692,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             const captionsKey = captionsUri?.toString();
             const captionsSuffix = captionsUri ? this.resourceSuffix(captionsUri) : undefined;
             let captionsChanged = false;
+            let generationChanged = false;
             let previewChanged = false;
             let nonModelResourceChanged = false;
             const editKey = widget.akariPreviewEditUri?.toString();
@@ -2683,6 +2700,10 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 ? this.resourceSuffix(widget.akariPreviewEditUri) : undefined;
             for (const change of event.changes) {
                 const key = change.resource.toString();
+                if (kind === 'output' && change.resource.path.base.endsWith('.meta.json')) {
+                    generationChanged = true;
+                    continue;
+                }
                 // ワークスペースルートの watcher は登録時に realpath() で解決される
                 // （@theia/filesystem の ParcelWatcher、拡張側からは変更不可）ため、シンボリック
                 // リンクを跨ぐワークスペース（例: iCloud Desktop/Documents 同期）では通知される
@@ -2708,6 +2729,9 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             }
             if (captionsChanged) {
                 this.queueCaptionsUpdate(widget);
+            }
+            if (generationChanged) {
+                this.queueGenerationUpdate(widget);
             }
             if (previewChanged) {
                 this.queueRefresh(widget, identityUri, kind, undefined, nonModelResourceChanged);
@@ -3644,6 +3668,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         const frameEngineRenderScaleMode = parseRenderScaleMode(frameEngineRenderScaleOverride
             ?? this.preferences.get<string>('akari.preview.renderScale', 'auto'));
         const scrubAudioEnabled = this.preferences.get<boolean>('akari.preview.scrubAudio', true);
+        const exportLook = this.preferences.get<boolean>('akari.preview.exportLook', false) === true;
         widget.setHTML(this.prepareHtml(
             videoUri,
             videoStream?.url ?? '',
@@ -3665,7 +3690,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             frameEngineReadyTimeoutMs,
             widget.akariPreviewPlaybackRate ?? 1,
             frameEngineRenderScaleMode,
-            scrubAudioEnabled
+            scrubAudioEnabled,
+            exportLook
         ));
         widget.akariPreviewModelSnapshot = nextSnapshot;
         widget.akariPreviewAssetUrlByUri = new Map(model.assetUrlByUri ? [...model.assetUrlByUri] : []);
@@ -4186,6 +4212,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 const cutChromaKey = await resolveChromaKey(result.fields.chromaKey, 'source');
                 return {
                     id: item.id,
+                    ...(item.source.kind === 'media' && typeof item.source.path === 'string'
+                        ? { sourcePath: item.source.path } : {}),
                     ...result.fields,
                     ...(value.audio === false ? { audio: false } : {}),
                     ...(typeof value.mute === 'boolean' ? { mute: value.mute } : {}),
@@ -6060,7 +6088,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         frameEngineReadyTimeoutMs?: number,
         initialPlaybackRate = 1,
         frameEngineRenderScaleMode: RenderScaleMode = 'auto',
-        scrubAudioEnabled = true
+        scrubAudioEnabled = true,
+        exportLook = false
     ): string {
         const { width, height } = model.summary.output;
         const threeTextRuntimeScript = hasThreeDimensionalTextOverlay(model.summary.overlays)
@@ -6127,7 +6156,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             hiddenTracksByScope: model.session?.hiddenTracksByScope ?? { cuts: [], layers: [], audio: [] },
             mutedTracksByScope: model.session?.mutedTracksByScope ?? { cuts: [], audio: [], layers: [] },
             allTracksHiddenScopes: model.session?.allTracksHiddenScopes ?? [],
-            allTracksMutedScopes: model.session?.allTracksMutedScopes ?? []
+            allTracksMutedScopes: model.session?.allTracksMutedScopes ?? [],
+            exportLook
         });
         return `<!doctype html>
 <html lang="ja">
@@ -6303,6 +6333,21 @@ ${kind === 'raw' ? '.akari-material-chip { position: absolute; top: 8px; left: 8
 #caption-zone-highlight { position: absolute; z-index: 1880; display: none; box-sizing: border-box; border: 1px dashed #4da3ff; background: rgba(77,163,255,.14); pointer-events: none; }
 #caption-zone-highlight.is-active { display: block; }
 #overlay-stage { position: absolute; top: 0; left: 0; width: ${width}px; height: ${height}px; overflow: hidden; pointer-events: none; }
+#akari-gen-overlay { position: absolute; inset: 0; pointer-events: none; z-index: 2100; }
+#akari-gen-overlay *, #akari-gen-overlay *::before, #akari-gen-overlay *::after { pointer-events: none; }
+#akari-gen-tag { position: absolute; left: 10px; top: 10px; font: 10.5px/1.4 ui-monospace, Menlo, monospace; padding: 2px 8px; border-radius: 4px; background: rgba(0,0,0,.6); color: #DCE6EE; border: 1px dashed #8FA3B4; }
+#akari-gen-tag[data-akari-gen-severity="generating"] { border-color: #F5C842; color: #F5C842; }
+#akari-gen-tag[data-akari-gen-severity="error"] { border-color: #D6402B; color: #D6402B; border-style: solid; }
+#akari-gen-tag[data-akari-gen-severity="frames"] { border-color: #1F6F8B; color: #1F6F8B; }
+#akari-gen-band { position: absolute; left: 0; right: 0; bottom: 0; height: 26px; box-sizing: border-box; background: rgba(0,0,0,.55); display: flex; align-items: center; gap: 8px; padding: 0 10px; font: 10.5px ui-monospace, Menlo, monospace; color: #F5C842; }
+#akari-gen-band-bar { flex: 1; height: 3px; background: rgba(255,255,255,.2); border-radius: 2px; overflow: hidden; }
+#akari-gen-band-fill { display: block; height: 100%; background: #F5C842; }
+#akari-gen-shimmer { position: absolute; inset: 0; background: linear-gradient(100deg, transparent 35%, rgba(255,255,255,.14) 50%, transparent 65%); background-size: 250% 100%; }
+@media (prefers-reduced-motion: no-preference) { #akari-gen-shimmer { animation: akari-gen-sh 1.6s linear infinite; } }
+@keyframes akari-gen-sh { from { background-position: 120% 0; } to { background-position: -120% 0; } }
+#akari-gen-mask { position: absolute; box-sizing: border-box; border: 2px dashed #D6402B; border-radius: 3px; }
+#akari-gen-mask-label { position: absolute; left: 0; top: -16px; font: 9.5px ui-monospace, Menlo, monospace; color: #D6402B; }
+#akari-gen-overlay[hidden], #akari-gen-overlay [hidden] { display: none; }
 #pen-layer { position: absolute; top: 0; left: 0; z-index: 2; pointer-events: none; }
 #pen-layer.is-active { pointer-events: auto; cursor: crosshair; touch-action: none; }
 #transition-plate { position: absolute; inset: 0; opacity: 0; pointer-events: none; }
@@ -6425,6 +6470,12 @@ ${kind === 'raw' ? '.akari-material-chip { position: absolute; top: 8px; left: 8
             <video id="transition-video" data-akari-transition-role="incoming" preload="auto" crossorigin="anonymous"></video>
             <img id="transition-still" data-akari-transition-role="incoming-still" alt="" draggable="false">
             <div id="overlay-stage"><div id="transition-plate"></div><div id="transition-fallback-label"></div><div id="caption-plate"></div></div>
+            <div id="akari-gen-overlay" aria-hidden="true" hidden>
+              <div id="akari-gen-shimmer" hidden></div>
+              <div id="akari-gen-mask" hidden><span id="akari-gen-mask-label">編集領域</span></div>
+              <div id="akari-gen-tag" hidden></div>
+              <div id="akari-gen-band" hidden><span id="akari-gen-band-text"></span><span id="akari-gen-band-bar"><i id="akari-gen-band-fill"></i></span></div>
+            </div>
           </div>
           <div id="layer-select-box"><div class="akari-layer-rotate-stem"></div><div class="akari-layer-handle akari-layer-handle-nw" data-akari-handle="nw"></div><div class="akari-layer-handle akari-layer-handle-ne" data-akari-handle="ne"></div><div class="akari-layer-handle akari-layer-handle-sw" data-akari-handle="sw"></div><div class="akari-layer-handle akari-layer-handle-se" data-akari-handle="se"></div><div class="akari-layer-handle akari-layer-handle-rotate" data-akari-handle="rotate"></div><div class="akari-crop-edge akari-crop-edge-n" data-akari-crop-edge="n"></div><div class="akari-crop-edge akari-crop-edge-e" data-akari-crop-edge="e"></div><div class="akari-crop-edge akari-crop-edge-s" data-akari-crop-edge="s"></div><div class="akari-crop-edge akari-crop-edge-w" data-akari-crop-edge="w"></div></div>
           <div id="layer-crop-box"><div class="akari-layer-crop-rect"><div class="akari-layer-crop-handle akari-layer-crop-handle-nw" data-akari-crop-handle="nw"></div><div class="akari-layer-crop-handle akari-layer-crop-handle-n" data-akari-crop-handle="n"></div><div class="akari-layer-crop-handle akari-layer-crop-handle-ne" data-akari-crop-handle="ne"></div><div class="akari-layer-crop-handle akari-layer-crop-handle-e" data-akari-crop-handle="e"></div><div class="akari-layer-crop-handle akari-layer-crop-handle-se" data-akari-crop-handle="se"></div><div class="akari-layer-crop-handle akari-layer-crop-handle-s" data-akari-crop-handle="s"></div><div class="akari-layer-crop-handle akari-layer-crop-handle-sw" data-akari-crop-handle="sw"></div><div class="akari-layer-crop-handle akari-layer-crop-handle-w" data-akari-crop-handle="w"></div></div></div>
@@ -7392,7 +7443,13 @@ body { display: grid; place-items: center; padding: 32px; }
             };
             window.akari.previewContentEnd = ${previewContentEnd.toString()};
             window.akari.previewCaptions = Array.isArray(initial.captions) ? initial.captions : [];
-            window.akari.reportPrimarySelectionReady = () => vscode.postMessage({ type: 'akari-preview-primary-selection-ready' });
+            window.akari.reportPrimarySelectionReady = () => {
+                vscode.postMessage({ type: 'akari-preview-primary-selection-ready' });
+                vscode.postMessage({ type: 'akari-preview-generation-request' });
+            };
+            window.akari.requestGenerationUpdate = () => {
+                vscode.postMessage({ type: 'akari-preview-generation-request' });
+            };
             window.akari.reportGesture = phase => {
                 vscode.postMessage({ type: 'akari-preview-gesture', phase });
             };
@@ -9036,6 +9093,8 @@ body { display: grid; place-items: center; padding: 32px; }
             const formatPreviewRateLabelFn = (${formatPreviewRateLabel.toString()});
             const freezeHoldMsFn = (${freezeHoldMs.toString()});
             const wallClockOutputTimeFn = (${wallClockOutputTime.toString()});
+            const resolveGenerationStateFn = (${resolveGenerationState.toString()});
+            const describeOverlayFn = (${describeOverlay.toString()});
             const previewRatePresets = ${JSON.stringify(PREVIEW_RATE_PRESETS)};
             const frameEngineMediaIdle = initial.frameEngineEnabled === true;
             let summary = initial.summary;
@@ -14635,6 +14694,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     window.akari.audioMeterTick(outputTime, isPlaying, immediatePlaybackTick);
                     renderCaption();
                     updateTransport();
+                    updateGenerationOverlay(outputTime);
                     return;
                 }
                 // ㉕ cuts[].freeze の一時停止ホールド中（contract-2026-08-02-preview-parity.md
@@ -14739,6 +14799,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 updateTransport();
                 applyCutsMuteState();
                 renderVideoFx(outputTime);
+                updateGenerationOverlay(outputTime);
             };
             const runTickGuarded = () => {
                 // A thrown exception here would otherwise abort animate()/the
@@ -15350,6 +15411,69 @@ body { display: grid; place-items: center; padding: 32px; }
                 }));
                 queueMicrotask(() => { applyingOverlaySelection = undefined; });
             };
+            const generationOverlay = document.getElementById('akari-gen-overlay');
+            const generationShimmer = document.getElementById('akari-gen-shimmer');
+            const generationMask = document.getElementById('akari-gen-mask');
+            const generationTag = document.getElementById('akari-gen-tag');
+            const generationBand = document.getElementById('akari-gen-band');
+            const generationBandText = document.getElementById('akari-gen-band-text');
+            const generationBandBar = document.getElementById('akari-gen-band-bar');
+            const generationBandFill = document.getElementById('akari-gen-band-fill');
+            let generationClips = [];
+            let generationExportLook = typeof initial !== 'undefined' && initial.exportLook === true;
+            const hideGenerationOverlay = () => {
+                if (!generationOverlay) return;
+                generationOverlay.hidden = true;
+                generationShimmer.hidden = true;
+                generationMask.hidden = true;
+                generationTag.hidden = true;
+                generationBand.hidden = true;
+            };
+            const updateGenerationOverlay = timelineTime => {
+                if (!generationOverlay) return;
+                if (generationExportLook) {
+                    hideGenerationOverlay();
+                    return;
+                }
+                const clip = generationClips.find(candidate => Number.isFinite(candidate.start)
+                    && Number.isFinite(candidate.end) && candidate.start <= timelineTime && timelineTime < candidate.end);
+                if (!clip) {
+                    hideGenerationOverlay();
+                    return;
+                }
+                const state = resolveGenerationStateFn(clip.meta, Date.now());
+                const description = describeOverlayFn(state, clip.meta, String(clip.name || clip.id || ''), {
+                    sourcePath: typeof clip.sourcePath === 'string' ? clip.sourcePath : undefined,
+                    localTimeSec: timelineTime - clip.start,
+                    clipDurationSec: clip.end - clip.start
+                });
+                if (description.tag === null && description.band === null
+                    && !description.shimmer && !description.maskRect) {
+                    hideGenerationOverlay();
+                    return;
+                }
+                generationOverlay.hidden = false;
+                generationTag.hidden = description.tag === null;
+                generationTag.textContent = description.tag || '';
+                if (state === 'failed') generationTag.dataset.akariGenSeverity = 'error';
+                else if (clip.meta && clip.meta.kind === 'frames') generationTag.dataset.akariGenSeverity = 'frames';
+                else if (state === 'generating') generationTag.dataset.akariGenSeverity = 'generating';
+                else delete generationTag.dataset.akariGenSeverity;
+                generationBand.hidden = description.band === null;
+                generationBandText.textContent = description.band?.text || '';
+                const progress = description.band?.progress;
+                generationBandBar.hidden = progress === null || progress === undefined;
+                generationBandFill.style.width = progress === null || progress === undefined
+                    ? '0%' : (Math.max(0, Math.min(1, progress)) * 100) + '%';
+                generationShimmer.hidden = !description.shimmer;
+                generationMask.hidden = description.maskRect === null;
+                if (description.maskRect) {
+                    generationMask.style.left = (description.maskRect.x * 100) + '%';
+                    generationMask.style.top = (description.maskRect.y * 100) + '%';
+                    generationMask.style.width = (description.maskRect.w * 100) + '%';
+                    generationMask.style.height = (description.maskRect.h * 100) + '%';
+                }
+            };
             const onMainVideoLoadedMetadata = event => {
                 if (event.currentTarget !== video) return;
                 void sfxDurationsReady.then(() => {
@@ -15571,6 +15695,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     });
                 }
                 tick(true);
+                window.akari.requestGenerationUpdate?.();
             };
             window.addEventListener('message', event => {
                 const message = event.data;
@@ -15581,6 +15706,18 @@ body { display: grid; place-items: center; padding: 32px; }
                 if (message && message.type === 'akari-preview-set-scrub-audio'
                     && typeof message.enabled === 'boolean') {
                     setScrubAudioEnabled(message.enabled);
+                    return;
+                }
+                if (message && message.type === 'akari-preview-generation-update') {
+                    generationClips = Array.isArray(message.clips) ? message.clips : [];
+                    generationExportLook = message.exportLook === true;
+                    updateGenerationOverlay(outputTime);
+                    return;
+                }
+                if (message && message.type === 'akari-preview-set-export-look'
+                    && typeof message.enabled === 'boolean') {
+                    generationExportLook = message.enabled;
+                    updateGenerationOverlay(outputTime);
                     return;
                 }
                 if (message && message.type === 'akari-preview-set-review-recording'
@@ -16110,6 +16247,51 @@ body { display: grid; place-items: center; padding: 32px; }
 
     protected inlineStyle(value: string): string {
         return value.replace(/<\/style/gi, '<\\/style');
+    }
+
+    protected queueGenerationUpdate(widget: PreviewWidgetMarker): void {
+        const previous = widget.akariPreviewGenerationUpdate ?? Promise.resolve();
+        widget.akariPreviewGenerationUpdate = previous.then(async () => {
+            await widget.akariPreviewRefresh;
+            if (widget.isDisposed) return;
+            await this.sendGenerationUpdate(widget);
+        }).catch(error => console.error('[akari-preview] failed to update generation sidecars', error));
+    }
+
+    protected async sendGenerationUpdate(widget: PreviewWidgetMarker): Promise<void> {
+        const editUri = widget.akariPreviewEditUri;
+        const summary = widget.akariPreviewSummary;
+        if (!editUri || !summary || widget.isDisposed) return;
+        try {
+            const sidecars = await this.previewService.readGenerationSidecars({
+                editUri: editUri.toString(),
+                workspaceRoots: await this.currentWorkspaceRoots()
+            });
+            if (widget.isDisposed) return;
+            const metaBySourcePath = new Map(sidecars.entries.map(entry => [entry.sourcePath, entry.meta]));
+            const segments = this.previewCaptionTimelineSegments(summary.cuts, summary.output.fps);
+            const clips = segments.flatMap(segment => {
+                if (segment.kind !== 'src' || segment.cutIndex === null) return [];
+                const cut = summary.cuts[segment.cutIndex];
+                if (!cut) return [];
+                const sourcePath = cut.sourcePath ?? '';
+                return [{
+                    id: cut.id,
+                    name: sidecars.itemNames[cut.id] ?? cut.id,
+                    start: segment.outStart,
+                    end: segment.outEnd,
+                    sourcePath,
+                    meta: metaBySourcePath.get(sourcePath) ?? null
+                }];
+            });
+            widget.sendMessage({
+                type: 'akari-preview-generation-update',
+                clips,
+                exportLook: this.preferences.get<boolean>('akari.preview.exportLook', false) === true
+            });
+        } catch (error) {
+            console.error('[akari-preview] failed to read generation sidecars', error);
+        }
     }
 
 }

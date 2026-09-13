@@ -1,0 +1,28 @@
+{
+  "version": 2,
+  "output": { "width": 1920, "height": 1080, "fps": 30 },
+  "sources": [
+    { "id": "src-still", "path": "still.png" },
+    { "id": "src-planned", "path": "planned.png" },
+    { "id": "src-generating", "path": "generating.png" },
+    { "id": "src-stale", "path": "stale.png" },
+    { "id": "src-done", "path": "done.mp4" },
+    { "id": "src-failed", "path": "failed.png" },
+    { "id": "src-frames", "path": "frames.png" }
+  ],
+  "tracks": [
+    {
+      "id": "visual-main",
+      "lane": "visual",
+      "items": [
+        { "id": "still", "name": "ビート 1", "at": 0, "duration": 60, "source": { "kind": "media", "src": "src-still", "in": 0, "out": 2 } },
+        { "id": "planned", "name": "ビート 2", "at": 60, "duration": 60, "source": { "kind": "media", "src": "src-planned", "in": 0, "out": 2 } },
+        { "id": "generating", "name": "ビート 3", "at": 120, "duration": 60, "source": { "kind": "media", "src": "src-generating", "in": 0, "out": 2 } },
+        { "id": "stale", "name": "ビート 4", "at": 180, "duration": 60, "source": { "kind": "media", "src": "src-stale", "in": 0, "out": 2 } },
+        { "id": "done", "name": "ビート 5", "at": 240, "duration": 60, "source": { "kind": "media", "src": "src-done", "in": 0, "out": 2 } },
+        { "id": "failed", "name": "ビート 6", "at": 300, "duration": 60, "source": { "kind": "media", "src": "src-failed", "in": 0, "out": 2 } },
+        { "id": "frames", "name": "ビート 7", "at": 360, "duration": 60, "source": { "kind": "media", "src": "src-frames", "in": 0, "out": 2 } }
+      ]
+    }
+  ]
+}
