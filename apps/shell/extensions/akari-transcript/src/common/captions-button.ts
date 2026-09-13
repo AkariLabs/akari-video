@@ -34,8 +34,18 @@ export function captionsRetimeMovedWords(value: unknown): number | undefined {
     return typeof moved === 'number' && Number.isFinite(moved) && moved >= 0 ? moved : undefined;
 }
 
-export function captionsRetimeLine(movedWords: number): string {
-    return `${movedWords} 語を動かした`;
+export function captionsRetimeLine(movedWords: number, value?: unknown): string {
+    const summary = value && typeof value === 'object' ? value as {
+        clamped_pairs?: unknown;
+        overlaps_left?: unknown;
+    } : {};
+    const clampedPairs = typeof summary.clamped_pairs === 'number' && Number.isFinite(summary.clamped_pairs)
+        ? summary.clamped_pairs : 0;
+    const overlapsLeft = typeof summary.overlaps_left === 'number' && Number.isFinite(summary.overlaps_left)
+        ? summary.overlaps_left : 0;
+    const clampedPart = clampedPairs >= 1 ? ` · ${clampedPairs} 組の重なりを解消` : '';
+    const overlapsPart = overlapsLeft >= 1 ? ` · ${overlapsLeft} 組は重なりのまま` : '';
+    return `${movedWords} 語を動かした${clampedPart}${overlapsPart}`;
 }
 
 export function captionsRetimeHistoryLabel(movedWords: number): string {

@@ -43,6 +43,17 @@ test('発話への合わせ直し結果を検証して footer と履歴の文言
     for (const value of [{}, { moved_words: -1 }, { moved_words: '7' }, null]) {
         assert.equal(captionsRetimeMovedWords(value), undefined);
     }
-    assert.equal(captionsRetimeLine(7), '7 語を動かした');
-    assert.equal(captionsRetimeHistoryLabel(7), '発話に合わせ直す（7 語）');
+    const cases = [
+        [{ moved_words: 52 }, '52 語を動かした'],
+        [{ moved_words: 52, clamped_pairs: 2, overlaps_left: 0 }, '52 語を動かした · 2 組の重なりを解消'],
+        [{ moved_words: 3, clamped_pairs: 1, overlaps_left: 1 },
+            '3 語を動かした · 1 組の重なりを解消 · 1 組は重なりのまま'],
+        [{ moved_words: 7, clamped_pairs: '2', overlaps_left: '1' }, '7 語を動かした']
+    ];
+    for (const [summary, line] of cases) {
+        const movedWords = captionsRetimeMovedWords(summary);
+        assert.notEqual(movedWords, undefined);
+        assert.equal(captionsRetimeLine(movedWords, summary), line);
+        assert.equal(captionsRetimeHistoryLabel(movedWords), `発話に合わせ直す（${movedWords} 語）`);
+    }
 });

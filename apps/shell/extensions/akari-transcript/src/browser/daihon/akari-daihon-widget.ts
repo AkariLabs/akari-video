@@ -799,16 +799,18 @@ export class AkariDaihonWidget extends BaseWidget {
             );
             if (!source) return;
             let moved = 0;
+            let retimeSummary: unknown;
             await this.withHistory('発話に合わせ直す', async () => {
                 const result = await this.projectService.buildCaptions({ projectRoot, source: source.id, retime: true });
+                retimeSummary = result;
                 moved = captionsRetimeMovedWords(result) ?? 0;
             });
             const history = daihonHistoryService();
             if (history && moved > 0) {
                 // withHistory が作る 1 件の履歴が操作を表す。表示文言には実測語数を含める。
-                this.notify(`${captionsRetimeLine(moved)} · ${captionsRetimeHistoryLabel(moved)}`);
+                this.notify(`${captionsRetimeLine(moved, retimeSummary)} · ${captionsRetimeHistoryLabel(moved)}`);
             } else {
-                this.notify(captionsRetimeLine(moved));
+                this.notify(captionsRetimeLine(moved, retimeSummary));
             }
             await this.reload();
         } catch (error) {
