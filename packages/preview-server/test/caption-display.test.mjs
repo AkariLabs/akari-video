@@ -125,7 +125,7 @@ test('managed CSS variables are replaced between resolved cues without style lea
   };
   replaceCaptionStyleVariables(style, {
     '--caption-color': '#ffffff',
-    '--caption-webkit-text-stroke': '5px #050505',
+    '--caption-webkit-text-stroke': '10px #050505',
     '--caption-left': '261px',
     '--caption-width': '1120px',
     '--caption-bottom': '29px',
@@ -134,9 +134,10 @@ test('managed CSS variables are replaced between resolved cues without style lea
   assert.deepEqual(Object.fromEntries(values), { '--caption-color': '#00ff00' });
 });
 
-test('browser edit-kernel bundle contains selection but no caption resolver or Segmenter', async () => {
+test('browser edit-kernel bundle contains selection and line-style resolution but no display resolver or Segmenter', async () => {
   const bundle = await readFile(join(packageRoot, 'public', 'edit-kernel.bundle.js'), 'utf8');
   assert.match(bundle, /findActiveResolvedCaption/u);
+  assert.match(bundle, /resolveCaptionLineStyleVars/u);
   assert.doesNotMatch(bundle, /resolveCaptionDisplay/u);
   assert.doesNotMatch(bundle, /Intl\.Segmenter/u);
   assert.doesNotMatch(bundle, /a4-ja-two-fragment-v1/u);

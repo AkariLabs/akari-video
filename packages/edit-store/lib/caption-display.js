@@ -13,9 +13,13 @@ exports.splitCaptionFragments = splitCaptionFragments;
 exports.foldCaptionLines = foldCaptionLines;
 exports.scheduleCaptionFragments = scheduleCaptionFragments;
 exports.mergeCaptionDisplayStyles = mergeCaptionDisplayStyles;
+exports.mergeCaptionLineTextStyles = mergeCaptionLineTextStyles;
+exports.usesPercentageBackground = usesPercentageBackground;
+exports.usesExtendedPerLineBackground = usesExtendedPerLineBackground;
 exports.resolveCaptionReferenceScale = resolveCaptionReferenceScale;
 exports.scaleCaptionPx = scaleCaptionPx;
 exports.captionAnchorPositionVars = captionAnchorPositionVars;
+exports.resolveCaptionLineStyleVars = resolveCaptionLineStyleVars;
 exports.resolveCaptionStyleForOutput = resolveCaptionStyleForOutput;
 exports.resolveCaptionWordStyleVars = resolveCaptionWordStyleVars;
 exports.captionTextShadowValue = captionTextShadowValue;
@@ -1280,6 +1284,134 @@ function mergeCaptionDisplayStyles(base, override) {
     }
     return merged;
 }
+function normalizeCaptionAnimationSlot(value) {
+    if (!isRecord(value) || typeof value.id !== 'string' || value.id === '')
+        return undefined;
+    return {
+        id: value.id,
+        ...(finitePositive(value.duration_sec) ? { duration_sec: value.duration_sec } : {}),
+        ...(typeof value.ease === 'string' && value.ease !== '' ? { ease: value.ease } : {}),
+        ...(finitePositive(value.amp) ? { amp: value.amp } : {})
+    };
+}
+function normalizeCaptionLineTextStyle(value) {
+    if (!isRecord(value))
+        return {};
+    const animationIn = normalizeCaptionAnimationSlot(value.animation?.in);
+    const animationLoop = normalizeCaptionAnimationSlot(value.animation?.loop);
+    const animationOut = normalizeCaptionAnimationSlot(value.animation?.out);
+    return {
+        ...(typeof value.color === 'string' ? { color: value.color } : {}),
+        ...(finiteNumber(value.size_px) ? { size_px: value.size_px } : {}),
+        ...(finiteNumber(value.scale) && value.scale >= 0.4 && value.scale <= 3 ? { scale: value.scale } : {}),
+        ...(finiteNumber(value.rotate) && value.rotate >= -180 && value.rotate <= 180 ? { rotate: value.rotate } : {}),
+        ...(positiveInteger(value.reference_height_px) ? { reference_height_px: value.reference_height_px } : {}),
+        ...(typeof value.font_family === 'string' && value.font_family !== '' ? { font_family: value.font_family } : {}),
+        ...(finiteNumber(value.weight) && value.weight >= 100 && value.weight <= 900
+            ? { weight: value.weight }
+            : Number.isInteger(value.font_weight) && value.font_weight >= 1 && value.font_weight <= 1000
+                ? { weight: value.font_weight } : {}),
+        ...(value.italic === true ? { italic: true } : {}),
+        ...(value.underline === true ? { underline: true } : {}),
+        ...(finiteNumber(value.letter_spacing_em) ? { letter_spacing_em: value.letter_spacing_em } : {}),
+        ...(finitePositive(value.line_height) ? { line_height: value.line_height } : {}),
+        ...(CAPTION_ALIGN_VALUES.has(value.align) ? { align: value.align } : {}),
+        ...(CAPTION_VERTICAL_ALIGN_VALUES.has(value.vertical_align) ? { vertical_align: value.vertical_align } : {}),
+        ...(value.vertical === true ? { vertical: true } : {}),
+        ...(CAPTION_TEXT_TRANSFORM_MAP[value.text_transform]
+            ? { text_transform: CAPTION_TEXT_TRANSFORM_MAP[value.text_transform] } : {}),
+        ...(finiteNumber(value.max_width_pct) && value.max_width_pct > 0 && value.max_width_pct < 100
+            ? { max_width_pct: value.max_width_pct } : {}),
+        ...(positiveInteger(value.max_characters) ? { max_characters: value.max_characters } : {}),
+        ...(CAPTION_TEXT_ANCHOR_VALUES.has(value.text_anchor) ? { text_anchor: value.text_anchor } : {}),
+        ...(isRecord(value.position) && (finiteNumber(value.position.x) || finiteNumber(value.position.y))
+            ? { position: {
+                    ...(finiteNumber(value.position.x) ? { x: value.position.x } : {}),
+                    ...(finiteNumber(value.position.y) ? { y: value.position.y } : {})
+                } } : {}),
+        ...(isRecord(value.shadow) && typeof value.shadow.color === 'string'
+            ? { shadow: {
+                    color: value.shadow.color,
+                    ...(finiteNumber(value.shadow.opacity) ? { opacity: value.shadow.opacity } : {}),
+                    ...(finiteNumber(value.shadow.blur_px) ? { blur_px: value.shadow.blur_px } : {}),
+                    ...(finiteNumber(value.shadow.distance_px) ? { distance_px: value.shadow.distance_px } : {}),
+                    ...(finiteNumber(value.shadow.angle_deg) ? { angle_deg: value.shadow.angle_deg } : {})
+                } } : {}),
+        ...(isRecord(value.glow) && typeof value.glow.color === 'string'
+            ? { glow: {
+                    color: value.glow.color,
+                    ...(finiteNumber(value.glow.density) ? { density: value.glow.density } : {}),
+                    ...(finiteNumber(value.glow.spread) ? { spread: value.glow.spread } : {}),
+                    ...(finiteNumber(value.glow.offset_x) ? { offset_x: value.glow.offset_x } : {}),
+                    ...(finiteNumber(value.glow.offset_y) ? { offset_y: value.glow.offset_y } : {})
+                } } : {}),
+        ...(animationIn || animationLoop || animationOut ? { animation: {
+                ...(animationIn ? { in: animationIn } : {}),
+                ...(animationLoop ? { loop: animationLoop } : {}),
+                ...(animationOut ? { out: animationOut } : {})
+            } } : {}),
+        ...(isRecord(value.stroke) ? { stroke: {
+                ...(typeof value.stroke.color === 'string' ? { color: value.stroke.color } : {}),
+                ...(finiteNumber(value.stroke.width_px) ? { width_px: value.stroke.width_px } : {})
+            } } : {}),
+        ...(isRecord(value.background) ? { background: {
+                ...(typeof value.background.color === 'string' ? { color: value.background.color } : {}),
+                ...(finiteNumber(value.background.opacity) ? { opacity: value.background.opacity } : {}),
+                ...(finiteNumber(value.background.radius_px) ? { radius_px: value.background.radius_px } : {}),
+                ...(finiteNumber(value.background.padding_px) ? { padding_px: value.background.padding_px } : {}),
+                ...(finiteNumber(value.background.height_pct) ? { height_pct: value.background.height_pct } : {}),
+                ...(finiteNumber(value.background.width_pct) ? { width_pct: value.background.width_pct } : {}),
+                ...(finiteNumber(value.background.offset_x) ? { offset_x: value.background.offset_x } : {}),
+                ...(finiteNumber(value.background.offset_y) ? { offset_y: value.background.offset_y } : {}),
+                ...(value.background.mode === 'per-line' || value.background.mode === 'block'
+                    ? { mode: value.background.mode } : {})
+            } } : {}),
+        ...(typeof value.zone === 'string' ? { zone: value.zone } : {})
+    };
+}
+/** Merge the snake_case captions.json line style vocabulary used by every renderer. */
+function mergeCaptionLineTextStyles(base, override) {
+    const left = normalizeCaptionLineTextStyle(base);
+    const right = normalizeCaptionLineTextStyle(override);
+    const merged = { ...left, ...right };
+    for (const key of ['stroke', 'background', 'shadow', 'glow', 'position', 'animation']) {
+        if (isRecord(left[key]) || isRecord(right[key])) {
+            merged[key] = { ...(isRecord(left[key]) ? left[key] : {}), ...(isRecord(right[key]) ? right[key] : {}) };
+            if (Object.keys(merged[key]).length === 0)
+                delete merged[key];
+        }
+    }
+    return Object.keys(merged).length > 0 ? merged : null;
+}
+function usesPercentageBackground(background) {
+    return isRecord(background) && ((finiteNumber(background.width_pct) && background.width_pct > 0)
+        || (finiteNumber(background.height_pct) && background.height_pct > 0));
+}
+function usesExtendedPerLineBackground(background) {
+    if (!isRecord(background) || background.mode === 'block')
+        return false;
+    return usesPercentageBackground(background)
+        || (finiteNumber(background.offset_x) && background.offset_x !== 0)
+        || (finiteNumber(background.offset_y) && background.offset_y !== 0);
+}
+function captionZoneVars(zone) {
+    if (typeof zone !== 'string' || zone === '' || zone === 'bottom')
+        return {};
+    const [vertical, horizontal] = zone.includes('-')
+        ? zone.split('-')
+        : zone === 'top' || zone === 'center' ? [zone, 'center'] : ['center', zone];
+    return {
+        '--caption-top': vertical === 'top' ? '7%' : vertical === 'center' ? '0' : 'auto',
+        '--caption-bottom': vertical === 'bottom' ? '7%' : vertical === 'center' ? '0' : 'auto',
+        '--caption-left': '4%',
+        '--caption-right': '4%',
+        '--caption-justify-content': vertical === 'center' ? 'center' : 'flex-start',
+        '--caption-align-items': horizontal === 'left' ? 'flex-start' : horizontal === 'right' ? 'flex-end' : 'center',
+        '--caption-line-margin': '0',
+        '--caption-line-max-width': '100%',
+        '--caption-text-align': horizontal
+    };
+}
 /**
  * zone 方式の px 系フィールドに掛ける scale（issue #40 §2）。`reference_height_px` が無ければ 1
  * （既存出力はバイト同一）。あれば output.height / reference_height_px — 基準は高さ（文字サイズは
@@ -1368,8 +1500,84 @@ function captionAnchorPositionVars(anchorValue, positionValue, verticalAlignValu
     }
     return vars;
 }
-function resolveCaptionStyleForOutput(style, output) {
+function resolveCaptionLineStyleVarsAtScale(style, scale) {
     const vars = {};
+    const px = (value) => scaleCaptionPx(value, scale);
+    const extendedBackground = usesExtendedPerLineBackground(style.background);
+    const percentageBackground = usesPercentageBackground(style.background);
+    if (typeof style.color === 'string')
+        vars['--caption-color'] = style.color;
+    if (finiteNumber(style.size_px))
+        vars['--caption-font-size'] = `${px(style.size_px)}px`;
+    if (isRecord(style.stroke) && (typeof style.stroke.color === 'string' || finiteNumber(style.stroke.width_px))) {
+        const width = finiteNumber(style.stroke.width_px) ? px(style.stroke.width_px) : 1.5;
+        const color = typeof style.stroke.color === 'string' ? style.stroke.color : 'rgba(0,0,0,.9)';
+        vars['--caption-stroke'] = `${width * 2}px ${color}`;
+    }
+    if (isRecord(style.background) && (typeof style.background.color === 'string' || finiteNumber(style.background.opacity))) {
+        const name = style.background.mode === 'block'
+            ? '--plate-block-bg' : extendedBackground ? '--plate-ext-bg' : '--plate-bg';
+        vars[name] = colorWithOpacity(typeof style.background.color === 'string' ? style.background.color : '#000000', finiteNumber(style.background.opacity) ? style.background.opacity : undefined);
+    }
+    if (isRecord(style.background) && finiteNumber(style.background.radius_px)) {
+        const name = style.background.mode === 'block'
+            ? '--plate-block-radius' : extendedBackground ? '--plate-ext-radius' : '--plate-radius';
+        vars[name] = `${px(style.background.radius_px)}px`;
+    }
+    if (typeof style.font_family === 'string')
+        vars['--caption-font-family'] = style.font_family;
+    if (finiteNumber(style.weight))
+        vars['--caption-font-weight'] = String(style.weight);
+    else if (Number.isInteger(style.font_weight))
+        vars['--caption-font-weight'] = String(style.font_weight);
+    if (style.italic)
+        vars['--caption-font-style'] = 'italic';
+    if (style.underline)
+        vars['--caption-text-decoration'] = 'underline';
+    if (finiteNumber(style.letter_spacing_em))
+        vars['--caption-letter-spacing'] = `${style.letter_spacing_em}em`;
+    if (finiteNumber(style.line_height))
+        vars['--caption-line-height'] = String(style.line_height);
+    if (typeof style.text_transform === 'string' && CAPTION_TEXT_TRANSFORM_MAP[style.text_transform]) {
+        vars['--caption-text-transform'] = CAPTION_TEXT_TRANSFORM_MAP[style.text_transform];
+    }
+    if (finiteNumber(style.max_width_pct))
+        vars['--caption-line-max-width'] = `${style.max_width_pct}%`;
+    if (style.vertical)
+        vars['--caption-writing-mode'] = 'vertical-rl';
+    if (extendedBackground && isRecord(style.background)) {
+        vars['--plate-ext-width'] = percentageBackground
+            ? `${style.background.width_pct ?? 0}%` : `${px(style.background.padding_px ?? 0)}px`;
+        vars['--plate-ext-height'] = percentageBackground
+            ? `${style.background.height_pct ?? 0}%` : `${px(style.background.padding_px ?? 0)}px`;
+        if (finiteNumber(style.background.offset_x))
+            vars['--plate-offset-x'] = `${px(style.background.offset_x)}px`;
+        if (finiteNumber(style.background.offset_y))
+            vars['--plate-offset-y'] = `${px(style.background.offset_y)}px`;
+    }
+    else if (isRecord(style.background) && finiteNumber(style.background.padding_px)) {
+        vars['--plate-pad-y'] = `${px(style.background.padding_px)}px`;
+        vars['--plate-pad-x'] = `${px(style.background.padding_px)}px`;
+    }
+    const textShadow = captionTextShadowValue(style.shadow, style.glow, scale);
+    if (textShadow !== null)
+        vars['--caption-text-shadow'] = textShadow;
+    Object.assign(vars, captionZoneVars(style.zone));
+    Object.assign(vars, captionAnchorPositionVars(style.text_anchor, style.position, style.vertical_align));
+    if (style.align) {
+        vars['--caption-text-align'] = style.align;
+        vars['--caption-align-items'] = style.align === 'left'
+            ? 'flex-start' : style.align === 'right' ? 'flex-end' : 'center';
+    }
+    return vars;
+}
+/** Resolve the complete snake_case captions.json line style vocabulary to CSS variables. */
+function resolveCaptionLineStyleVars(style, output) {
+    if (!isRecord(style))
+        return {};
+    return resolveCaptionLineStyleVarsAtScale(style, resolveCaptionReferenceScale(style, output));
+}
+function resolveCaptionStyleForOutput(style, output) {
     let layout;
     let scale = 1;
     if (style.layout !== undefined && style.reference_height_px !== undefined) {
@@ -1380,50 +1588,48 @@ function resolveCaptionStyleForOutput(style, output) {
             fail('INVALID_OUTPUT_GEOMETRY', 'output width/height are required for reference-pixel caption layout');
         layout = resolveReferencePixelLayout(style.layout, output);
         scale = layout.scale;
-        vars['--caption-left'] = `${formatCssNumber(layout.left_px)}px`;
-        vars['--caption-right'] = `${formatCssNumber(layout.right_px)}px`;
-        vars['--caption-bottom'] = `${formatCssNumber(layout.bottom_px)}px`;
-        vars['--caption-width'] = `${formatCssNumber(layout.width_px)}px`;
-        vars['--caption-text-align'] = 'center';
     }
     else if (style.reference_height_px !== undefined) {
         // zone 方式（issue #40 §2）: 高さ基準の scale を layout 経路と同じ px フィールドに掛ける。
         scale = resolveCaptionReferenceScale(style, output);
     }
-    if (typeof style.color === 'string')
-        vars['--caption-color'] = style.color;
-    if (finitePositive(style.size_px))
-        vars['--caption-font-size'] = `${formatCssNumber(style.size_px * scale)}px`;
-    // weight（textstyle v0 の正式名）と font_weight（display_policy 経路からの既存名）は同じ
-    // CSS font-weight を指す。両方あるときは weight を採る — 契約 $comment と同じ優先順位。
-    if (Number.isInteger(style.weight) && style.weight >= 100 && style.weight <= 900) {
-        vars['--caption-font-weight'] = String(style.weight);
-    }
-    else if (Number.isInteger(style.font_weight) && style.font_weight >= 1 && style.font_weight <= 1000) {
-        vars['--caption-font-weight'] = String(style.font_weight);
-    }
-    if (finitePositive(style.line_height))
-        vars['--caption-line-height'] = formatCssNumber(style.line_height);
+    const vars = resolveCaptionLineStyleVarsAtScale(style, scale);
+    vars['--caption-paint-order'] = 'stroke fill';
+    if (!isRecord(style.shadow) && !isRecord(style.glow))
+        vars['--caption-text-shadow'] = 'none';
     if (isRecord(style.stroke)) {
         const color = typeof style.stroke.color === 'string' ? style.stroke.color : 'rgba(0,0,0,.85)';
         const width = finiteNonNegative(style.stroke.width_px) ? style.stroke.width_px * scale : 1.5;
-        if (style.stroke.method === 'webkit-outline') {
-            vars['--caption-webkit-text-stroke'] = `${formatCssNumber(width)}px ${color}`;
-            vars['--caption-paint-order'] = 'stroke fill';
-            vars['--caption-text-shadow'] = 'none';
-        }
-        else {
-            vars['--caption-text-shadow'] = strokeShadow(color, width, layout !== undefined || scale !== 1);
-        }
+        vars['--caption-webkit-text-stroke'] = `${formatCssNumber(width * 2)}px ${color}`;
+        vars['--caption-paint-order'] = 'stroke fill';
     }
     if (isRecord(style.background) && finiteNonNegative(style.background.radius_px)) {
-        vars['--plate-radius'] = `${formatCssNumber(style.background.radius_px * scale)}px`;
         vars['--plate-block-radius'] = `${formatCssNumber(style.background.radius_px * scale)}px`;
+    }
+    if (isRecord(style.background) && style.background.mode === 'block'
+        && finiteNumber(style.background.padding_px)) {
+        vars['--plate-block-pad-y'] = `${scaleCaptionPx(style.background.padding_px, scale)}px`;
+        vars['--plate-block-pad-x'] = `${scaleCaptionPx(style.background.padding_px, scale)}px`;
+        delete vars['--plate-pad-y'];
+        delete vars['--plate-pad-x'];
     }
     // layout（reference-pixel）は px 座標で left/right/bottom を確定済みなので anchor と併用しない
     // （zone + layout は mergeCaptionDisplayStyles が既に拒否している）。
     if (layout === undefined) {
-        Object.assign(vars, captionAnchorPositionVars(style.text_anchor, style.position, style.vertical_align));
+        // resolveCaptionLineStyleVarsAtScale already supplied zone / anchor variables.
+    }
+    else {
+        for (const name of Object.keys(captionZoneVars(style.zone)))
+            delete vars[name];
+        for (const name of Object.keys(captionAnchorPositionVars(style.text_anchor, style.position, style.vertical_align))) {
+            delete vars[name];
+        }
+        vars['--caption-left'] = `${formatCssNumber(layout.left_px)}px`;
+        vars['--caption-right'] = `${formatCssNumber(layout.right_px)}px`;
+        vars['--caption-bottom'] = `${formatCssNumber(layout.bottom_px)}px`;
+        vars['--caption-width'] = `${formatCssNumber(layout.width_px)}px`;
+        vars['--caption-line-width'] = '100%';
+        vars['--caption-text-align'] = 'center';
     }
     return { vars, ...(layout ? { layout } : {}) };
 }
@@ -1545,14 +1751,6 @@ function resolveReferencePixelLayout(value, output) {
 }
 function formatCssNumber(value) {
     return Number(value.toFixed(6)).toString();
-}
-function strokeShadow(color, width, rounded) {
-    const serialized = rounded ? formatCssNumber(width) : String(width);
-    const negative = width === 0 ? '0' : `-${serialized}px`;
-    const positive = width === 0 ? '0' : `${serialized}px`;
-    return `${negative} ${negative} 0 ${color}, ${positive} ${negative} 0 ${color}, `
-        + `${negative} ${positive} 0 ${color}, ${positive} ${positive} 0 ${color}, `
-        + '0 0 8px rgba(0,0,0,.6)';
 }
 function compareOccurrence(left, right) {
     return left.start - right.start

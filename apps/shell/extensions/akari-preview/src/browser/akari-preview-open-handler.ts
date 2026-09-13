@@ -5268,14 +5268,14 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                         })),
                         emphasisWords: resolved.emphasisWords
                     }),
-                    legacy: () => this.loadLegacyPreviewCaptions(captionsUri),
+                    legacy: () => this.loadLegacyPreviewCaptions(captionsUri, editUri),
                     warn: code => this.messages.warn(
                         `字幕の表示設定を解決できないため、設定を無視して表示しています: ${code}`
                     ),
                     state: this.captionDisplayFallbackState
                 });
             }
-            return await this.loadLegacyPreviewCaptions(captionsUri);
+            return await this.loadLegacyPreviewCaptions(captionsUri, editUri);
         } catch (error) {
             if (await this.fileService.exists(captionsUri)) {
                 console.warn(`[akari-preview] failed to load ${captionsUri.toString()}; hiding captions`, error);
@@ -5284,9 +5284,22 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         }
     }
 
-    protected async loadLegacyPreviewCaptions(captionsUri: URI): Promise<LoadedPreviewCaptions> {
+    protected async loadLegacyPreviewCaptions(captionsUri: URI, editUri?: URI): Promise<LoadedPreviewCaptions> {
         const source = await this.readText(captionsUri);
-        const parsed = parsePreviewCaptions(source);
+        let output: { width: number; height: number } | undefined;
+        if (editUri) {
+            try {
+                const edit = JSON.parse(await this.readText(editUri)) as { output?: unknown };
+                if (edit.output && typeof edit.output === 'object'
+                    && typeof (edit.output as { width?: unknown }).width === 'number'
+                    && typeof (edit.output as { height?: unknown }).height === 'number') {
+                    output = edit.output as { width: number; height: number };
+                }
+            } catch {
+                // Legacy caption loading remains fail-open when edit output is unavailable.
+            }
+        }
+        const parsed = parsePreviewCaptions(source, output);
         const root: unknown = JSON.parse(source);
         const emphasisWords = readCaptionsEmphasisWords(root);
         const rawCaptions = Array.isArray(root)
@@ -12055,7 +12068,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 if (!id) return false;
                 if (captionCuePositionKnown.has(id)) return captionCuePositionKnown.get(id);
                 const style = caption.textStyle;
-                return !!(style && (style.textAnchor || style.position));
+                return !!(style && (style.text_anchor || style.position));
             };
             const updateCaptionSelectTools = () => {
                 const caption = selectedCaption();
@@ -13663,9 +13676,10 @@ body { display: grid; place-items: center; padding: 32px; }
                     + '-webkit-text-stroke:var(--caption-webkit-text-stroke,var(--caption-stroke,0.14em rgba(0,0,0,.9)));'
                     + 'paint-order:var(--caption-paint-order,stroke fill);'
                     + 'text-shadow:var(--caption-text-shadow,0 2px 8px rgba(0,0,0,.35));'
-                    + 'font-family:"AKARI Noto Sans JP","Noto Sans JP",sans-serif;font-size:var(--caption-font-size,38px);font-weight:700;line-height:var(--caption-word-line-height,var(--caption-line-height,1.42));text-align:center;}'
+                    + 'font-family:var(--caption-font-family,"AKARI Noto Sans JP","Noto Sans JP",sans-serif);font-size:var(--caption-font-size,38px);font-weight:var(--caption-font-weight,700);font-style:var(--caption-font-style,normal);text-decoration:var(--caption-text-decoration,none);letter-spacing:var(--caption-letter-spacing,normal);text-transform:var(--caption-text-transform,none);line-height:var(--caption-word-line-height,var(--caption-line-height,1.42));writing-mode:var(--caption-writing-mode,horizontal-tb);text-align:center;}'
                     + '.akari-caption__plate{position:absolute;top:var(--caption-top,auto);translate:var(--caption-translate,none);left:var(--caption-left,0);right:var(--caption-right,0);bottom:var(--caption-bottom,7%);display:flex;flex-direction:column;justify-content:var(--caption-justify-content,flex-start);align-items:var(--caption-align-items,stretch);gap:var(--plate-gap,4px);transform:rotate(var(--caption-rotate,0deg)) scale(var(--caption-scale,1));transform-origin:center;}'
-                    + '.akari-caption__line{width:max-content;max-width:var(--caption-line-max-width,92%);margin:var(--caption-line-margin,0 auto);padding:var(--plate-pad-y,0.08em) var(--plate-pad-x,0.42em);border-radius:var(--plate-radius,10px);background:var(--plate-bg,transparent);text-align:var(--caption-text-align,center);white-space:pre;}'
+                    + '.akari-caption__line{position:relative;isolation:isolate;width:max-content;max-width:var(--caption-line-max-width,92%);margin:var(--caption-line-margin,0 auto);padding:var(--plate-pad-y,0.08em) var(--plate-pad-x,0.42em);border-radius:var(--plate-radius,10px);background:var(--plate-bg,transparent);text-align:var(--caption-text-align,center);white-space:pre;}'
+                    + '.akari-caption__line::before{content:"";position:absolute;inset:calc(0px - var(--plate-ext-height,0px)) calc(0px - var(--plate-ext-width,0px));z-index:-1;border-radius:var(--plate-ext-radius,10px);background:var(--plate-ext-bg,transparent);transform:translate(var(--plate-offset-x,0px),var(--plate-offset-y,0px));}'
                     + blockCss
                     + '.akari-caption__tok{display:inline-block;vertical-align:baseline;line-height:1;paint-order:stroke fill;will-change:transform,color;}'
                     + '@keyframes akari-caption-karaoke-lit{from{color:var(--caption-color,#fff);}to{color:var(--caption-highlight-color,#ffd94a);}}'
@@ -13730,9 +13744,10 @@ body { display: grid; place-items: center; padding: 32px; }
                         + '.akari-caption__block .akari-caption__line{width:auto;max-width:none;margin:0;padding:0;border-radius:0;background:transparent;}'
                     : '';
                 return '<div class="akari-caption"><style>'
-                    + '.akari-caption{position:absolute;inset:0;pointer-events:none;color:var(--caption-color,#fff);-webkit-text-stroke:var(--caption-webkit-text-stroke,var(--caption-stroke,0.14em rgba(0,0,0,.9)));paint-order:var(--caption-paint-order,stroke fill);text-shadow:var(--caption-text-shadow,0 2px 8px rgba(0,0,0,.35));font-family:"AKARI Noto Sans JP","Noto Sans JP",sans-serif;font-size:var(--caption-font-size,38px);font-weight:700;line-height:var(--caption-word-line-height,var(--caption-line-height,1.42));text-align:center;}'
+                    + '.akari-caption{position:absolute;inset:0;pointer-events:none;color:var(--caption-color,#fff);-webkit-text-stroke:var(--caption-webkit-text-stroke,var(--caption-stroke,0.14em rgba(0,0,0,.9)));paint-order:var(--caption-paint-order,stroke fill);text-shadow:var(--caption-text-shadow,0 2px 8px rgba(0,0,0,.35));font-family:var(--caption-font-family,"AKARI Noto Sans JP","Noto Sans JP",sans-serif);font-size:var(--caption-font-size,38px);font-weight:var(--caption-font-weight,700);font-style:var(--caption-font-style,normal);text-decoration:var(--caption-text-decoration,none);letter-spacing:var(--caption-letter-spacing,normal);text-transform:var(--caption-text-transform,none);line-height:var(--caption-word-line-height,var(--caption-line-height,1.42));writing-mode:var(--caption-writing-mode,horizontal-tb);text-align:center;}'
                     + '.akari-caption__plate{position:absolute;top:var(--caption-top,auto);translate:var(--caption-translate,none);left:var(--caption-left,0);right:var(--caption-right,0);bottom:var(--caption-bottom,7%);display:flex;flex-direction:column;justify-content:var(--caption-justify-content,flex-start);align-items:var(--caption-align-items,stretch);gap:var(--plate-gap,4px);transform:rotate(var(--caption-rotate,0deg)) scale(var(--caption-scale,1));transform-origin:center;}'
-                    + '.akari-caption__line{width:max-content;max-width:var(--caption-line-max-width,92%);margin:var(--caption-line-margin,0 auto);padding:var(--plate-pad-y,0.08em) var(--plate-pad-x,0.42em);border-radius:var(--plate-radius,10px);background:var(--plate-bg,transparent);text-align:var(--caption-text-align,center);white-space:pre;}'
+                    + '.akari-caption__line{position:relative;isolation:isolate;width:max-content;max-width:var(--caption-line-max-width,92%);margin:var(--caption-line-margin,0 auto);padding:var(--plate-pad-y,0.08em) var(--plate-pad-x,0.42em);border-radius:var(--plate-radius,10px);background:var(--plate-bg,transparent);text-align:var(--caption-text-align,center);white-space:pre;}'
+                    + '.akari-caption__line::before{content:"";position:absolute;inset:calc(0px - var(--plate-ext-height,0px)) calc(0px - var(--plate-ext-width,0px));z-index:-1;border-radius:var(--plate-ext-radius,10px);background:var(--plate-ext-bg,transparent);transform:translate(var(--plate-offset-x,0px),var(--plate-offset-y,0px));}'
                     + blockCss
                     + '</style><div class="akari-caption__plate">' + plateMarkup + '</div></div>';
             };

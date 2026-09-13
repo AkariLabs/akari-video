@@ -25,9 +25,8 @@ color / size_px / weight / font_family / letter_spacing_em / text_transform / st
 shadow / glow / background(color, opacity, padding_px, radius_px) / position / animation。
 回帰テストは `packages/render-cut/test/captions-textstyle-v0.test.mjs`。
 
-**既知の制限**: `shadow.color` / `glow.color` は 16 進表記（`#RRGGBB`）で書く。
-`rgba(...)` の関数記法を書くと生成される CSS が無効値になり、影が丸ごと落ちる
-（既定の薄影も残らない）。現状 verdict-badge の `shadow.color` がこれに該当する。
+**既知の制限**: `shadow.color` / `glow.color` はカーネルの色検証に合わせ、
+16 進表記（`#RRGGBB`）で書く。透明度は色文字列へ含めず `opacity` / `density` で指定する。
 
 ## 一覧（12 件）
 

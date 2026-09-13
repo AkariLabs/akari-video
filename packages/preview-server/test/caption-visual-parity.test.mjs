@@ -167,12 +167,14 @@ function styleVarsFromOracle(oracle) {
     '--caption-right': `${value.plate_right_px}px`,
     '--caption-bottom': `${value.plate_bottom_px}px`,
     '--caption-width': `${value.plate_width_px}px`,
+    '--caption-line-width': '100%',
     '--caption-text-align': value.text_align,
     '--caption-color': value.color,
     '--caption-font-size': `${value.size_px}px`,
     '--caption-font-weight': String(value.font_weight),
     '--caption-line-height': String(value.line_height),
-    '--caption-webkit-text-stroke': `${value.stroke_width_px}px ${value.stroke_color}`,
+    '--caption-webkit-text-stroke': `${value.stroke_width_px * 2}px ${value.stroke_color}`,
+    '--caption-stroke': `${value.stroke_width_px * 2}px ${value.stroke_color}`,
     '--caption-paint-order': 'stroke fill',
     '--caption-text-shadow': 'none',
   };
@@ -203,7 +205,7 @@ function assertVisualOracle(metrics, oracle, consumer) {
   assert.equal(metrics.fontSize, `${expected.size_px}px`, `${consumer}: font size`);
   assertWithin(metrics.lineHeightRatio, expected.line_height, 0.000001, `${consumer}: line height`);
   assert.equal(metrics.fontStyle, 'normal', `${consumer}: font style`);
-  assert.equal(metrics.strokeWidth, `${expected.stroke_width_px}px`, `${consumer}: stroke width`);
+  assert.equal(metrics.strokeWidth, `${expected.stroke_width_px * 2}px`, `${consumer}: stroke width`);
   assert.equal(metrics.strokeColor, hexToRgb(expected.stroke_color), `${consumer}: stroke color`);
   // Chromium serializes the declared `stroke fill` shorthand as the equivalent
   // computed value `stroke`; cue.style_vars above still proves the full declaration.

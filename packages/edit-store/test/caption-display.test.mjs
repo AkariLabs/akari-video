@@ -798,7 +798,7 @@ test('reference-pixel geometry resolves A4 numeric oracle and scales only pixel 
   assert.equal(resolved.vars['--caption-font-size'], '82px');
   assert.equal(resolved.vars['--caption-font-weight'], '600');
   assert.equal(resolved.vars['--caption-line-height'], '1.08');
-  assert.equal(resolved.vars['--caption-webkit-text-stroke'], '5px #050505');
+  assert.equal(resolved.vars['--caption-webkit-text-stroke'], '10px #050505');
   assert.equal(resolved.vars['--caption-text-shadow'], 'none');
   assert.throws(() => resolveCaptionStyleForOutput({ layout: {
     mode: 'reference-pixel', reference_width_px: 1920, reference_height_px: 1080,
@@ -920,13 +920,11 @@ test('resolveCaptionStyleForOutput emits anchor/position vars unless a reference
   assert.equal(withLayout.vars['--caption-bottom'], '29px');
 });
 
-test('legacy shadow preserves non-integer width bytes while reference-pixel scaling rounds to six places', () => {
+test('stroke width doubles while reference-pixel scaling rounds to six places', () => {
   const width = 1.23456789;
   const legacy = resolveCaptionStyleForOutput({ stroke: { color: '#000000', width_px: width } }, undefined);
-  assert.equal(legacy.vars['--caption-text-shadow'],
-    '-1.23456789px -1.23456789px 0 #000000, 1.23456789px -1.23456789px 0 #000000, '
-    + '-1.23456789px 1.23456789px 0 #000000, 1.23456789px 1.23456789px 0 #000000, '
-    + '0 0 8px rgba(0,0,0,.6)');
+  assert.equal(legacy.vars['--caption-webkit-text-stroke'], '2.469136px #000000');
+  assert.equal(legacy.vars['--caption-text-shadow'], 'none');
   const scaled = resolveCaptionStyleForOutput({
     stroke: { color: '#000000', width_px: width },
     layout: {
@@ -934,7 +932,8 @@ test('legacy shadow preserves non-integer width bytes while reference-pixel scal
       left_px: 261, width_px: 1120, bottom_px: 29, text_align: 'center', max_lines: 1,
     },
   }, { width: 960, height: 540 });
-  assert.match(scaled.vars['--caption-text-shadow'], /0\.617284px/u);
+  assert.equal(scaled.vars['--caption-webkit-text-stroke'], '1.234568px #000000');
+  assert.equal(scaled.vars['--caption-text-shadow'], 'none');
 });
 
 test('omitting display_policy leaves the legacy path untouched', () => {
@@ -975,18 +974,20 @@ test('reference_height_px scales zone-style px fields by output height and leave
   const hd = resolveCaptionStyleForOutput(style, { width: 1280, height: 720 });
   assert.equal(hd.vars['--caption-font-size'], '36px');
   assert.equal(hd.vars['--plate-radius'], '8px');
-  assert.match(hd.vars['--caption-text-shadow'], /^-3px -3px 0 #000000, 3px -3px 0 #000000/u);
+  assert.equal(hd.vars['--caption-webkit-text-stroke'], '6px #000000');
+  assert.equal(hd.vars['--caption-text-shadow'], 'none');
   const uhd = resolveCaptionStyleForOutput(style, { width: 3840, height: 2160 });
   assert.equal(uhd.vars['--caption-font-size'], '108px');
   assert.equal(uhd.vars['--plate-radius'], '24px');
   assert.equal(uhd.vars['--plate-block-radius'], '24px');
-  assert.match(uhd.vars['--caption-text-shadow'], /^-9px -9px 0 #000000, 9px -9px 0 #000000/u);
+  assert.equal(uhd.vars['--caption-webkit-text-stroke'], '18px #000000');
+  assert.equal(uhd.vars['--caption-text-shadow'], 'none');
   assert.equal(uhd.layout, undefined, 'zone 方式なので reference-pixel layout は生まれない');
   const outline = resolveCaptionStyleForOutput(
     { ...style, stroke: { method: 'webkit-outline', color: '#000000', width_px: 3 } },
     { width: 3840, height: 2160 },
   );
-  assert.equal(outline.vars['--caption-webkit-text-stroke'], '9px #000000');
+  assert.equal(outline.vars['--caption-webkit-text-stroke'], '18px #000000');
   // 基準は高さ: 縦型 1080×1920 でも scale = 1920 / 720
   assert.equal(resolveCaptionStyleForOutput(style, { width: 1080, height: 1920 }).vars['--caption-font-size'], '96px');
   // 宣言なしは 4K でも従来値（720p の vars と同一 = 従来どおり追随しない）
@@ -1036,9 +1037,11 @@ test('cue-level reference_height_px overrides default_text_style field by field 
   }, { output: { width: 3840, height: 2160 }, cuts: [] });
   const [byDefault, overridden, colorOnly] = result.display_cues;
   assert.equal(byDefault.style_vars['--caption-font-size'], '108px');
-  assert.match(byDefault.style_vars['--caption-text-shadow'], /^-9px -9px 0 #000000/u);
+  assert.equal(byDefault.style_vars['--caption-webkit-text-stroke'], '18px #000000');
+  assert.equal(byDefault.style_vars['--caption-text-shadow'], 'none');
   assert.equal(overridden.style_vars['--caption-font-size'], '72px');
-  assert.match(overridden.style_vars['--caption-text-shadow'], /^-6px -6px 0 #000000/u);
+  assert.equal(overridden.style_vars['--caption-webkit-text-stroke'], '12px #000000');
+  assert.equal(overridden.style_vars['--caption-text-shadow'], 'none');
   assert.deepEqual(overridden.text_style, { size_px: 36, reference_height_px: 1080, stroke: { color: '#000000', width_px: 3 } });
   assert.equal(colorOnly.style_vars['--caption-font-size'], '108px', 'cue が reference_height_px を持たなければ default を継承する');
   assert.equal(colorOnly.style_vars['--caption-color'], '#FFF4D6');

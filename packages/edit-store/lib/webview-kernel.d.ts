@@ -18,7 +18,7 @@ export * from './envelope';
 export * from './audio-schedule';
 export * from './audio-ownership';
 export * from './item-anchor';
-export { captionAnchorPositionVars } from './caption-display';
+export { captionAnchorPositionVars, mergeCaptionLineTextStyles, resolveCaptionLineStyleVars } from './caption-display';
 /** Browser selection is timeline-domain only. Segmentation stays in the Node caller. */
 export declare function findActiveResolvedCaption<T extends {
     start: number;

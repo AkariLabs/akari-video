@@ -137,6 +137,12 @@ finalFrameNumber **239**、lookahead hits **8**を要求する。
 shell のプレビューでは DOM 層として提示し、書き出しでは同じ DOM 規約から overlay sheet を構成する。
 器専用の字幕 HTML や出口専用の再レイアウトを持たない。
 
+行用 `style_vars` は `packages/edit-store/src/caption-display.ts` の
+`resolveCaptionLineStyleVars` / `mergeCaptionLineTextStyles` をカーネル単一定義とし、shell、Web UI、
+render-cut、`display_policy` の 4 面が同じ関数を呼ぶ。`display_policy` 経路の stroke も
+`-webkit-text-stroke` として `width_px × 2` を出し、`paint-order: stroke fill` で描く
+（2026-09-13 裁定）。
+
 active cue の判定は両プレビューとも**出力秒**で行う。source 秒の cue（`time_domain: "source"` と未宣言の
 legacy）は共有カーネル `packages/edit-store/src/caption-clock.ts` の `normalizeCaptionClock` が cut map
 で出力秒へ射影し、削除区間をまたぐ cue は 1 本ずつに分割する（`<id>-output-<n>`、元 id は

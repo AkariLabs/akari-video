@@ -4,7 +4,6 @@
 // （パリティ契約 §2.1/§2.2。書き込み側 SSOT computeCutTrackSegments と同じ意味論）。
 import {
   buildTimelineMap,
-  captionAnchorPositionVars,
   computeDuckEnvelope,
   captionClockDomainOf,
   computeDuckIntervals,
@@ -12,8 +11,10 @@ import {
   evaluateEnvelopeDb,
   expandCaptionDisplayFragments,
   findActiveCaption,
+  mergeCaptionLineTextStyles,
   normalizeCaptionClock,
   outputToSource,
+  resolveCaptionLineStyleVars,
   TRANSITION_BY_ID,
   transitionProgressAt,
 } from '/edit-kernel.bundle.js';
@@ -4135,97 +4136,22 @@ async function overlayWriteViaPut(editPath, overlayId, patch) {
   }
 }
 
-function captionZoneParts(zone) {
-  if (!zone || zone === 'bottom') return { row: 'bottom', col: 'center' };
-  if (zone === 'center') return { row: 'middle', col: 'center' };
-  if (zone === 'top') return { row: 'top', col: 'center' };
-  if (zone === 'left' || zone === 'right') return { row: 'middle', col: zone };
-  const [row, col] = zone.split('-');
-  return { row, col };
-}
-function captionZoneVars(zone) {
-  if (!zone || zone === 'bottom') return {};
-  const parts = captionZoneParts(zone);
-  const v = parts.row === 'top' ? '7%' : parts.row === 'middle' ? '0' : 'auto';
-  const b = parts.row === 'bottom' ? '7%' : parts.row === 'middle' ? '0' : 'auto';
-  const align = parts.col === 'left' ? 'flex-start' : parts.col === 'right' ? 'flex-end' : 'center';
-  return {
-    '--caption-top': v,
-    '--caption-bottom': b,
-    '--caption-left': '4%',
-    '--caption-right': '4%',
-    '--caption-justify-content': parts.row === 'middle' ? 'center' : 'flex-start',
-    '--caption-align-items': align,
-    // 行は既定で margin:0 auto（中央寄せ）なので、これを外さないと align-items が効かず
-    // top-right などの水平成分が無視されて上中央に出る。shell の zoneVars と同じ指定。
-    '--caption-line-margin': '0',
-    '--caption-line-max-width': '100%',
-    // text-align に flex-* を渡すと無効値。CSS の水平キーワードへ落とす
-    '--caption-text-align': parts.col
-  };
-}
-
 // 字幕ごとに設定しうる CSS 変数。前の字幕の指定が残ると次の字幕に持ち越されるため
 // （実害: top-right の直後に出る既定 bottom の字幕が上段に出ていた）、毎回消してから積む。
 const CAPTION_STYLE_VARS = [
-  '--caption-color', '--caption-font-size', '--caption-text-shadow', '--caption-stroke',
-  '--plate-bg', '--plate-radius', '--plate-block-bg', '--plate-block-radius',
+  '--caption-color', '--caption-font-size', '--caption-font-family', '--caption-font-weight',
+  '--caption-font-style', '--caption-text-decoration', '--caption-letter-spacing',
+  '--caption-text-transform', '--caption-writing-mode', '--caption-line-height',
+  '--caption-text-shadow', '--caption-stroke', '--caption-webkit-text-stroke', '--caption-paint-order',
+  '--plate-bg', '--plate-radius', '--plate-pad-x', '--plate-pad-y',
+  '--plate-block-pad-x', '--plate-block-pad-y',
+  '--plate-ext-bg', '--plate-ext-radius', '--plate-ext-width', '--plate-ext-height',
+  '--plate-offset-x', '--plate-offset-y', '--plate-block-bg', '--plate-block-radius',
   '--caption-top', '--caption-bottom', '--caption-left', '--caption-right',
   '--caption-translate', '--caption-scale', '--caption-rotate',
   '--caption-justify-content', '--caption-align-items',
-  '--caption-line-margin', '--caption-line-max-width', '--caption-text-align'
+  '--caption-line-margin', '--caption-line-max-width', '--caption-line-width', '--caption-text-align'
 ];
-
-// shell captionTextStyleVars の colorWithOpacity / strokeShadow と同じ変換（パリティ層）
-function captionColorWithOpacity(color, explicitOpacity) {
-  if (typeof color !== 'string' || !color.startsWith('#')) {
-    return explicitOpacity === undefined ? String(color) : String(color);
-  }
-  const expanded = color.slice(1).length === 3
-    ? color.slice(1).split('').map(ch => ch + ch).join('')
-    : color.slice(1);
-  const rgb = expanded.slice(0, 6).padEnd(6, '0');
-  const alphaFromColor = expanded.length === 8 ? parseInt(expanded.slice(6, 8), 16) / 255 : 1;
-  const alpha = explicitOpacity ?? alphaFromColor;
-  return `rgba(${parseInt(rgb.slice(0, 2), 16)},${parseInt(rgb.slice(2, 4), 16)},`
-    + `${parseInt(rgb.slice(4, 6), 16)},${Number(alpha.toFixed(4))})`;
-}
-// text_style.stroke → --caption-stroke。render-cut captions.mjs（書き出し = 正）と同じ規則:
-// -webkit-text-stroke はグリフ輪郭の中心に乗るので、外側に width_px 見えるよう 2 倍を指定する
-// （.akari-caption は paint-order: stroke fill で塗りが上に乗り、内側半分は隠れる）。
-// 以前はここで縁取りを 4 方向の text-shadow に化かしていたが、行の CSS は既に書き出しと同じ
-// `-webkit-text-stroke: var(--caption-stroke, 0.14em rgba(0,0,0,.9))` を持つため、字幕ごとの
-// 縁取り色が変数に渡らず **既定の黒 0.14em の縁取り + 字幕色の影** の二重輪郭になっていた
-// （実機 2026-09-05: 白文字・青縁 3px の字幕が、青みがかった文字に太い黒縁で出た）。
-function captionStrokeValue(stroke) {
-  const width = typeof stroke?.width_px === 'number' && Number.isFinite(stroke.width_px) ? stroke.width_px : 1.5;
-  const color = typeof stroke?.color === 'string' ? stroke.color : 'rgba(0,0,0,.9)';
-  return `${width * 2}px ${color}`;
-}
-// shadow（角度 + 距離 → オフセット）と glow（発光 = ぼかしのみの多重影）を 1 本の text-shadow へ。
-// render-cut captionTextShadowValue のポート（scale は Web UI では 1）。どちらも無ければ null で
-// 行 CSS の既定の薄影に任せる。
-function captionTextShadowValue(shadow, glow) {
-  const parts = [];
-  if (shadow && typeof shadow.color === 'string') {
-    const angle = ((shadow.angle_deg ?? 90) * Math.PI) / 180;
-    const distance = shadow.distance_px ?? 0;
-    const dx = Math.round(Math.cos(angle) * distance * 100) / 100;
-    const dy = Math.round(Math.sin(angle) * distance * 100) / 100;
-    parts.push(`${dx}px ${dy}px ${shadow.blur_px ?? 0}px ${captionColorWithOpacity(shadow.color, shadow.opacity)}`);
-  }
-  if (glow && typeof glow.color === 'string') {
-    const spread = glow.spread === undefined ? 40 : glow.spread;
-    const alpha = Math.min(1, (glow.density ?? 50) / 60);
-    const offsetX = glow.offset_x ?? 0;
-    const offsetY = glow.offset_y ?? 0;
-    parts.push(
-      `${offsetX}px ${offsetY}px ${spread}px ${captionColorWithOpacity(glow.color, alpha)}`,
-      `${offsetX}px ${offsetY}px ${spread * 2}px ${captionColorWithOpacity(glow.color, Number((alpha * 0.7).toFixed(4)))}`,
-    );
-  }
-  return parts.length > 0 ? parts.join(', ') : null;
-}
 
 function applyCaptionStyle(caption) {
   for (const name of CAPTION_STYLE_VARS) captionPlate.style.removeProperty(name);
@@ -4242,43 +4168,15 @@ function applyCaptionStyle(caption) {
   }
   const ts = caption?.text_style;
   const dts = summary?.default_text_style;
-  if (ts?.color) vars['--caption-color'] = ts.color;
-  else if (dts?.color) vars['--caption-color'] = dts.color;
-  if (ts?.size_px) vars['--caption-font-size'] = ts.size_px + 'px';
-  else if (dts?.size_px) vars['--caption-font-size'] = dts.size_px + 'px';
-  else vars['--caption-font-size'] = defaultCaptionFontSize() + 'px';
-  const scale = ts?.scale ?? dts?.scale;
-  const rotate = ts?.rotate ?? dts?.rotate;
+  const merged = mergeCaptionLineTextStyles(dts, ts);
+  vars = resolveCaptionLineStyleVars(merged, summary?.output);
+  if (!Object.prototype.hasOwnProperty.call(vars, '--caption-font-size')) {
+    vars['--caption-font-size'] = defaultCaptionFontSize() + 'px';
+  }
+  const scale = merged?.scale;
+  const rotate = merged?.rotate;
   if (typeof scale === 'number' && Number.isFinite(scale) && scale !== 1) vars['--caption-scale'] = String(scale);
   if (typeof rotate === 'number' && Number.isFinite(rotate) && rotate !== 0) vars['--caption-rotate'] = `${rotate}deg`;
-  // 座布団（background）: block は 1 枚板の --plate-block-*、per-line/無指定は行ごとの --plate-*
-  // （shell captionTextStyleVars と同じ振り分け。ここが無く座布団が一切描かれていなかった）
-  const bg = ts?.background ?? dts?.background;
-  if (bg && (bg.color !== undefined || bg.opacity !== undefined)) {
-    const bgVar = bg.mode === 'block' ? '--plate-block-bg' : '--plate-bg';
-    vars[bgVar] = captionColorWithOpacity(bg.color ?? '#000000', bg.opacity);
-  }
-  if (bg?.radius_px !== undefined) {
-    const radiusVar = bg.mode === 'block' ? '--plate-block-radius' : '--plate-radius';
-    vars[radiusVar] = bg.radius_px + 'px';
-  }
-  // stroke / shadow / glow は書き出し（render-cut）と同じ合成規則: 字幕個別が既定を上書きする
-  const stroke = (ts?.stroke || dts?.stroke) ? { ...dts?.stroke, ...ts?.stroke } : undefined;
-  if (stroke && (stroke.color !== undefined || stroke.width_px !== undefined)) {
-    vars['--caption-stroke'] = captionStrokeValue(stroke);
-  }
-  const shadow = (ts?.shadow || dts?.shadow) ? { ...dts?.shadow, ...ts?.shadow } : undefined;
-  const glow = (ts?.glow || dts?.glow) ? { ...dts?.glow, ...ts?.glow } : undefined;
-  const textShadow = captionTextShadowValue(shadow, glow);
-  if (textShadow !== null) vars['--caption-text-shadow'] = textShadow;
-  const zone = ts?.zone || dts?.zone || 'bottom';
-  Object.assign(vars, captionZoneVars(zone));
-  const textAnchor = ts?.text_anchor ?? dts?.text_anchor;
-  const position = ts?.position || dts?.position
-    ? { ...dts?.position, ...ts?.position }
-    : undefined;
-  const verticalAlign = ts?.vertical_align ?? dts?.vertical_align;
-  Object.assign(vars, captionAnchorPositionVars(textAnchor, position, verticalAlign));
   replaceCaptionStyleVariables(captionPlate.style, vars);
   captionPlate.classList.toggle('akari-caption-resolved', captionsResolvedTimeline);
   captionPlate.classList.toggle('akari-caption-styled', captionsResolvedTimeline || !!ts || !!dts);
@@ -4515,9 +4413,10 @@ function injectCaptionStyles() {
   50%  { transform: scale(1.25); }
   100% { transform: scale(1); }
 }
-.akari-caption { position:absolute; inset:0; pointer-events:none; color:var(--caption-color,#fff); -webkit-text-stroke:var(--caption-stroke,0.14em rgba(0,0,0,.9)); paint-order:stroke fill; text-shadow:var(--caption-text-shadow,0 2px 8px rgba(0,0,0,.35)); font-family:"AKARI Noto Sans JP","Noto Sans JP",sans-serif; font-size:var(--caption-font-size,38px); font-weight:700; line-height:var(--caption-word-line-height,var(--caption-line-height,1.42)); text-align:center; }
+.akari-caption { position:absolute; inset:0; pointer-events:none; color:var(--caption-color,#fff); -webkit-text-stroke:var(--caption-webkit-text-stroke,var(--caption-stroke,0.14em rgba(0,0,0,.9))); paint-order:var(--caption-paint-order,stroke fill); text-shadow:var(--caption-text-shadow,0 2px 8px rgba(0,0,0,.35)); font-family:var(--caption-font-family,"AKARI Noto Sans JP","Noto Sans JP",sans-serif); font-size:var(--caption-font-size,38px); font-weight:var(--caption-font-weight,700); font-style:var(--caption-font-style,normal); text-decoration:var(--caption-text-decoration,none); letter-spacing:var(--caption-letter-spacing,normal); text-transform:var(--caption-text-transform,none); line-height:var(--caption-word-line-height,var(--caption-line-height,1.42)); writing-mode:var(--caption-writing-mode,horizontal-tb); text-align:center; }
 .akari-caption__plate { position:absolute; top:var(--caption-top,auto); translate:var(--caption-translate,none); left:var(--caption-left,0); right:var(--caption-right,0); bottom:var(--caption-bottom,7%); display:flex; flex-direction:column; justify-content:var(--caption-justify-content,flex-start); align-items:var(--caption-align-items,stretch); gap:4px; transform:rotate(var(--caption-rotate,0deg)) scale(var(--caption-scale,1)); transform-origin:center; }
-.akari-caption__line { width:max-content; max-width:var(--caption-line-max-width,92%); margin:var(--caption-line-margin,0 auto); padding:0.08em 0.42em; border-radius:10px; background:var(--plate-bg,transparent); text-align:var(--caption-text-align,center); white-space:pre; }
+.akari-caption__line { position:relative; isolation:isolate; width:max-content; max-width:var(--caption-line-max-width,92%); margin:var(--caption-line-margin,0 auto); padding:var(--plate-pad-y,0.08em) var(--plate-pad-x,0.42em); border-radius:var(--plate-radius,10px); background:var(--plate-bg,transparent); text-align:var(--caption-text-align,center); white-space:pre; }
+.akari-caption__line::before { content:""; position:absolute; inset:calc(0px - var(--plate-ext-height,0px)) calc(0px - var(--plate-ext-width,0px)); z-index:-1; border-radius:var(--plate-ext-radius,10px); background:var(--plate-ext-bg,transparent); transform:translate(var(--plate-offset-x,0px),var(--plate-offset-y,0px)); }
 .akari-caption__block { display:flex; flex-direction:column; width:max-content; max-width:var(--caption-line-max-width,92%); margin:var(--caption-line-margin,0 auto); gap:var(--plate-gap,4px); padding:var(--plate-pad-y,0.08em) var(--plate-pad-x,0.42em); border-radius:var(--plate-block-radius,10px); background:var(--plate-block-bg,transparent); }
 .akari-caption__block .akari-caption__line { width:auto; max-width:none; margin:0; padding:0; border-radius:0; background:transparent; }
 .akari-caption--reveal .akari-caption__plate { display:grid; }

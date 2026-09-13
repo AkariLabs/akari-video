@@ -166,22 +166,23 @@ test('無宣言の HTML は caption transform 規則を含む基底のバイト�
     // Recorded after the caption plate scale/rotate contract was added to every styled fragment,
     // and after plain (unstyled) captions started rendering through the same fragment path.
     const expected = [
-        'd1eb3729b1457c4049d02a7ec34be32423c95d2f87ea5304257de45aa9a6861b',
-        'e6f722ea103b2058f65fa30e93bba8ee68908979e009047f5efde78717c912fa',
-        '6eb09c0ee1950a9a1aa75853ecb71302c38969938376a4dd3955910de12f8540',
-        'aa2bf097981dc93fd4ad994d7d1660e2134a84d3fc3d0369306356170f3177ec',
-        'ea60416370c3e3765f14dd9e84fe5e88f5c5c29740a67d604b404650612b9521',
-        '534c798e4b2c410044c2b892b7aaecf37d05681c737326774744e9d075769125',
-        '8b3fb842ea6effa4c3fd132780835fb0123f84ac1de41ad562ee18e5c76f88bc'
+        '334f9029ad09127bc0eccfdb5046dfc4d9c587428700763d6cbcbe19d0595a8e',
+        '287f55aa58000709fb3c40e6fba3b25f893f9e287195c8b2a5de6261d7439853',
+        '95deb5a75ca8c1294493805ca3aabf6466c959b1f56d27388ab29069a32edaf9',
+        '92921ed0c6de7c61bcf813238d5e1cabd9add1ea8147d0cff0d1886d20201e7f',
+        'ff3a82868c750f72aa3729e269bd69aeef209ad68fe500d059254b2026b2719a',
+        '7d7576263b2ecb6ed19d60a06c0f0abef419a01e0c87f21b141653a97e490fd1',
+        'b8a8bd1d6d6efda89b0f8db602c901bd240b58fca24b50d78f5fdb5584d5a92c'
     ];
     const fixtures = [{}, { textStyle: { color: '#fff', background: { mode: 'block' } } },
         { resolvedTimeline: true }, ...['karaoke', 'pop', 'reveal', 'reveal-word'].map(style => ({ style,
             words: [{ text: '字幕', start: 3, end: 4 }, { text: '<&', start: 4, end: 5 }] }))];
-    for (const [i, extra] of fixtures.entries()) {
+    const actual = fixtures.map(extra => {
         const view = harness({ cues: [{ id: 'c1', start: 3, end: 8, text: '字幕<&が👨‍👩‍👧‍👦', ...extra }] });
         view.tick(4);
-        assert.equal(createHash('sha256').update(view.plate.innerHTML).digest('hex'), expected[i]);
-    }
+        return createHash('sha256').update(view.plate.innerHTML).digest('hex');
+    });
+    assert.deepEqual(actual, expected);
 });
 
 test('chars の HTML エスケープは render-cut の captionCharRenderer と同じ', () => {
