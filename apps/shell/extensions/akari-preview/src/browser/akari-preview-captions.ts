@@ -3,6 +3,8 @@ import {
     applyCaptionStylePresets,
     captionAnchorPositionVars,
     expandCaptionDisplayFragments,
+    mergeCaptionLineTextStyles,
+    resolveCaptionLineStyleVars,
     TEXTSTYLE_CATALOG
 } from '@akari-video/edit-store';
 import { ResolvedCaptionDisplayPayload } from '../common/akari-preview-protocol';
@@ -15,7 +17,9 @@ export const PREVIEW_CAPTION_ZONES = [
 
 export type PreviewCaptionZone = typeof PREVIEW_CAPTION_ZONES[number];
 
-export interface PreviewCaptionTextStyle {
+export type PreviewCaptionTextStyle = Record<string, any>;
+
+export interface LegacyPreviewCaptionTextStyle {
     color?: string;
     sizePx?: number;
     stroke?: { color?: string; widthPx?: number };
@@ -26,8 +30,6 @@ export interface PreviewCaptionTextStyle {
         mode?: 'per-line' | 'block';
     };
     zone?: PreviewCaptionZone;
-    // text_anchor（9 点）+ position（0..1 相対）+ vertical_align — 明示位置。CSS 変数化は
-    // 共有カーネル captionAnchorPositionVars（書き出し render-cut と同一定義）に委ねる。
     textAnchor?: string;
     position?: { x?: number; y?: number };
     verticalAlign?: 'top' | 'middle' | 'bottom';
@@ -98,7 +100,10 @@ export function locatePreviewCaptions(editUri: URI | undefined, workspaceRoot: U
     return base?.resolve('captions.json');
 }
 
-export function parsePreviewCaptions(source: string): PreviewCaption[] {
+export function parsePreviewCaptions(
+    source: string,
+    output?: { width: number; height: number }
+): PreviewCaption[] {
     let root: unknown = JSON.parse(source);
     root = applyCaptionStylePresets(root, TEXTSTYLE_CATALOG).root;
     const values = Array.isArray(root)
@@ -110,7 +115,7 @@ export function parsePreviewCaptions(source: string): PreviewCaption[] {
         throw new Error('captions.json must be an array or an object with captions[]');
     }
     const defaultTextStyle = !Array.isArray(root) && isRecord(root)
-        ? normalizeTextStyle(root.default_text_style)
+        ? (isRecord(root.default_text_style) ? root.default_text_style : undefined)
         : undefined;
     if (!Array.isArray(root) && isRecord(root)
         && root.default_text_style !== undefined && defaultTextStyle === undefined) {
@@ -151,7 +156,7 @@ export function parsePreviewCaptions(source: string): PreviewCaption[] {
         // 旧実装は null / 不正値のとき caption ごと捨てており、カラオケ字幕が無言で消えていた。
         const captionTextStyle = candidate.text_style === undefined || candidate.text_style === null
             ? undefined
-            : normalizeTextStyle(candidate.text_style);
+            : (isRecord(candidate.text_style) ? candidate.text_style : undefined);
         if (candidate.text_style !== undefined && candidate.text_style !== null
             && captionTextStyle === undefined) {
             console.warn(
@@ -159,7 +164,7 @@ export function parsePreviewCaptions(source: string): PreviewCaption[] {
                 typeof id === 'string' ? id : '(id なし)'
             );
         }
-        const textStyle = mergeTextStyles(defaultTextStyle, captionTextStyle);
+        const textStyle = mergeCaptionLineTextStyles(defaultTextStyle, captionTextStyle) ?? undefined;
         captions.push({
             ...(typeof id === 'string' && id ? { id } : {}),
             start,
@@ -172,7 +177,7 @@ export function parsePreviewCaptions(source: string): PreviewCaption[] {
             ...(words.length > 0 ? { words } : {}),
             ...(textStyle ? {
                 textStyle,
-                textStyleVars: captionTextStyleVars(textStyle)
+                textStyleVars: resolvePreviewCaptionStyleVars(textStyle, output)
             } : {})
         });
     }
@@ -184,7 +189,7 @@ export function parseResolvedPreviewCaptions(payload: ResolvedCaptionDisplayPayl
         throw new Error('resolved caption payload is invalid');
     }
     return payload.captions.map(cue => {
-        const textStyle = cue.text_style ? normalizeTextStyle(cue.text_style) : undefined;
+        const textStyle = isRecord(cue.text_style) ? cue.text_style : undefined;
         const displayLines = (cue as unknown as { display_lines?: string[] }).display_lines;
         const wordDisplay = cue as unknown as {
             words?: { start: number; end: number; text: string; line: number }[];
@@ -205,13 +210,28 @@ export function parseResolvedPreviewCaptions(payload: ResolvedCaptionDisplayPayl
             } : {}),
             ...(textStyle ? { textStyle } : {}),
             ...(cue.style_vars || textStyle ? {
-                textStyleVars: { ...captionTextStyleVars(textStyle), ...(cue.style_vars ?? {}) }
+                textStyleVars: {
+                    ...(cue.style_vars ?? {}),
+                    ...captionTransformStyleVars(textStyle)
+                }
             } : {})
         };
     });
 }
 
-export function captionTextStyleVars(style: PreviewCaptionTextStyle | undefined): Record<string, string> {
+function resolvePreviewCaptionStyleVars(
+    style: PreviewCaptionTextStyle | undefined,
+    output?: { width: number; height: number }
+): Record<string, string> {
+    return { ...resolveCaptionLineStyleVars(style, output), ...captionTransformStyleVars(style) };
+}
+
+/**
+ * akari-annotations の字幕ホバープレビュー専用の後方互換 shim。
+ * 出力プレビュー経路（parsePreviewCaptions / parseResolvedPreviewCaptions）はカーネルの
+ * resolveCaptionLineStyleVars を使う。別票で annotations 側もカーネルへ寄せる。
+ */
+export function captionTextStyleVars(style: LegacyPreviewCaptionTextStyle | undefined): Record<string, string> {
     if (!style) {
         return {};
     }
@@ -247,79 +267,23 @@ export function captionTextStyleVars(style: PreviewCaptionTextStyle | undefined)
         vars[radiusVariable] = `${style.background.radiusPx}px`;
     }
     Object.assign(vars, zoneVars(style.zone));
-    // 明示 text_anchor / position は zone より優先（書き出し captions.mjs applyTextStyle と同順・
-    // 変数化は共有カーネル単一定義 — プレビューだけ位置指定を落として下段に描く不一致の再発防止）。
     Object.assign(vars, captionAnchorPositionVars(style.textAnchor, style.position, style.verticalAlign));
+    return vars;
+}
+
+function captionTransformStyleVars(style: PreviewCaptionTextStyle | undefined): Record<string, string> {
+    const vars: Record<string, string> = {};
+    if (typeof style?.scale === 'number' && Number.isFinite(style.scale) && style.scale !== 1) {
+        vars['--caption-scale'] = String(style.scale);
+    }
+    if (typeof style?.rotate === 'number' && Number.isFinite(style.rotate) && style.rotate !== 0) {
+        vars['--caption-rotate'] = `${style.rotate}deg`;
+    }
     return vars;
 }
 
 function isRecord(value: unknown): value is Record<string, any> {
     return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
-}
-
-function normalizeTextStyle(value: unknown): PreviewCaptionTextStyle | undefined {
-    if (!isRecord(value)) {
-        return undefined;
-    }
-    const style: PreviewCaptionTextStyle = {};
-    if (typeof value.color === 'string') style.color = value.color;
-    if (typeof value.size_px === 'number' && Number.isFinite(value.size_px)) style.sizePx = value.size_px;
-    if (typeof value.scale === 'number' && Number.isFinite(value.scale)) style.scale = value.scale;
-    if (typeof value.rotate === 'number' && Number.isFinite(value.rotate)) style.rotate = value.rotate;
-    if (PREVIEW_CAPTION_ZONES.includes(value.zone as PreviewCaptionZone)) {
-        style.zone = value.zone as PreviewCaptionZone;
-    }
-    if (typeof value.text_anchor === 'string') style.textAnchor = value.text_anchor;
-    if (value.vertical_align === 'top' || value.vertical_align === 'middle' || value.vertical_align === 'bottom') {
-        style.verticalAlign = value.vertical_align;
-    }
-    if (isRecord(value.position)) {
-        const position = {
-            ...(typeof value.position.x === 'number' && Number.isFinite(value.position.x)
-                ? { x: value.position.x } : {}),
-            ...(typeof value.position.y === 'number' && Number.isFinite(value.position.y)
-                ? { y: value.position.y } : {})
-        };
-        if (Object.keys(position).length > 0) style.position = position;
-    }
-    if (isRecord(value.stroke)) {
-        style.stroke = {
-            ...(typeof value.stroke.color === 'string' ? { color: value.stroke.color } : {}),
-            ...(typeof value.stroke.width_px === 'number' && Number.isFinite(value.stroke.width_px)
-                ? { widthPx: value.stroke.width_px } : {})
-        };
-    }
-    if (isRecord(value.background)) {
-        style.background = {
-            ...(typeof value.background.color === 'string' ? { color: value.background.color } : {}),
-            ...(typeof value.background.opacity === 'number' && Number.isFinite(value.background.opacity)
-                ? { opacity: value.background.opacity } : {}),
-            ...(typeof value.background.radius_px === 'number' && Number.isFinite(value.background.radius_px)
-                ? { radiusPx: value.background.radius_px } : {}),
-            ...(value.background.mode === 'per-line' || value.background.mode === 'block'
-                ? { mode: value.background.mode } : {})
-        };
-    }
-    return style;
-}
-
-function mergeTextStyles(
-    base: PreviewCaptionTextStyle | undefined,
-    override: PreviewCaptionTextStyle | undefined
-): PreviewCaptionTextStyle | undefined {
-    const merged: PreviewCaptionTextStyle = {
-        ...base,
-        ...override,
-        ...(base?.stroke || override?.stroke ? { stroke: { ...base?.stroke, ...override?.stroke } } : {}),
-        ...(base?.background || override?.background
-            ? { background: { ...base?.background, ...override?.background } } : {}),
-        ...(base?.position || override?.position
-            ? { position: { ...base?.position, ...override?.position } } : {})
-    };
-    if (merged.stroke && Object.keys(merged.stroke).length === 0) delete merged.stroke;
-    if (merged.background && Object.keys(merged.background).length === 0) delete merged.background;
-    if (merged.position && Object.keys(merged.position).length === 0) delete merged.position;
-    return Object.keys(merged).length > 0 ? merged : undefined;
 }
 
 function strokeShadow(color: string, width: number): string {

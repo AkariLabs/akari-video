@@ -12,20 +12,18 @@ const require = createRequire(import.meta.url);
 // reference_height_px → scale（issue #40 §2）も同カーネル単一定義。GPU（gpu-export page-builder）と
 // OSR（osr-export page-builder）は両方この generateCaptionOverlays の vars を使うので実効 px が揃う。
 const {
-  captionAnchorPositionVars,
   captionWindowSeconds,
-  captionTextShadowValue,
-  colorWithOpacity,
   dedupeCaptionOccurrences,
   expandCaptionDisplayFragments,
+  mergeCaptionLineTextStyles,
   normalizeCaptionClock,
   projectCaptionWords,
-  resolveCaptionReferenceScale,
+  resolveCaptionLineStyleVars,
   resolveCaptionStyleForOutput,
   resolveCaptionWordStyleVars,
   resolveCaptionStylePreset,
-  scaleCaptionPx,
   TEXTSTYLE_CATALOG,
+  usesExtendedPerLineBackground,
 } = require("../../edit-store/lib/index.js");
 
 const DEFAULT_MAX_CHARACTERS = 20;
@@ -298,6 +296,10 @@ export function captionTransform(style) {
   return { x: 0, y: 0, scale, rotate };
 }
 
+function finiteNumber(value) {
+  return typeof value === "number" && Number.isFinite(value);
+}
+
 export function renderResolvedSingleLineCaption(text, lines, cue) {
   const hasWordStyles = Array.isArray(cue?.word_styles) && cue.word_styles.length > 0
     && Array.isArray(cue?.words) && cue.words.length > 0;
@@ -318,14 +320,23 @@ export function renderResolvedSingleLineCaption(text, lines, cue) {
       text-shadow:var(--caption-text-shadow,-1.5px -1.5px 0 rgba(0,0,0,.85),1.5px -1.5px 0 rgba(0,0,0,.85),-1.5px 1.5px 0 rgba(0,0,0,.85),1.5px 1.5px 0 rgba(0,0,0,.85),0 0 8px rgba(0,0,0,.6));
       -webkit-text-stroke:var(--caption-webkit-text-stroke,0 transparent);
       paint-order:var(--caption-paint-order,stroke fill);
-      font-family:${RESOLVED_CAPTION_FONT_STACK};
+      font-family:var(--caption-font-family, ${RESOLVED_CAPTION_FONT_STACK});
       font-size:var(--caption-font-size,38px);
+      font-style:var(--caption-font-style,normal);
       font-weight:var(--caption-font-weight,700);
+      text-decoration:var(--caption-text-decoration,none);
+      letter-spacing:var(--caption-letter-spacing,normal);
+      text-transform:var(--caption-text-transform,none);
       line-height:var(--caption-word-line-height,var(--caption-line-height,1.42));
+      writing-mode:var(--caption-writing-mode,horizontal-tb);
       text-align:center;
+      animation:none;
+      transform:none;
     }
     .akari-caption--single-line .akari-caption__plate {
       position:absolute;
+      top:var(--caption-top,auto);
+      translate:var(--caption-translate,none);
       left:var(--caption-left,0);
       right:var(--caption-right,0);
       bottom:var(--caption-bottom,7%);
@@ -333,19 +344,27 @@ export function renderResolvedSingleLineCaption(text, lines, cue) {
       max-width:100%;
       display:flex;
       flex-direction:column;
+      justify-content:var(--caption-justify-content,flex-start);
+      align-items:var(--caption-align-items,stretch);
       gap:0;
-      padding:0;
-      background:transparent;
+      padding:var(--plate-block-pad-y,0) var(--plate-block-pad-x,0);
+      border-radius:var(--plate-block-radius,0);
+      background:var(--plate-block-bg,transparent);
+      animation:none;
+      transform:rotate(var(--caption-rotate,0deg)) scale(var(--caption-scale,1));
+      transform-origin:center;
     }
     .akari-caption--single-line .akari-caption__line {
-      width:100%;
+      width:var(--caption-line-width,max-content);
       max-width:100%;
-      margin:0;
-      padding:0;
-      border-radius:0;
-      background:transparent;
-      text-align:center;
+      margin:0 auto;
+      padding:var(--plate-pad-y,0) var(--plate-pad-x,0);
+      border-radius:var(--plate-radius,0);
+      background:var(--plate-bg,transparent);
+      text-align:var(--caption-text-align,center);
       white-space:nowrap;
+      animation:none;
+      transform:none;
     }
 ${wordPresetCss}  </style>
   <div class="akari-caption__plate"><p class="akari-caption__line">${renderedText}</p></div>
@@ -381,21 +400,7 @@ function normalizeCaptionStyle(style) {
   return SUPPORTED_WORD_STYLES.has(style) ? style : null;
 }
 
-export function mergeCaptionTextStyles(defaultStyle, captionStyle) {
-  const base = normalizeTextStyle(defaultStyle);
-  const override = normalizeTextStyle(captionStyle);
-  const merged = {
-    ...base,
-    ...override,
-  };
-  for (const key of ["stroke", "background", "shadow", "glow", "position", "animation"]) {
-    if (base[key] || override[key]) {
-      merged[key] = { ...base[key], ...override[key] };
-      if (Object.keys(merged[key]).length === 0) delete merged[key];
-    }
-  }
-  return Object.keys(merged).length > 0 ? merged : null;
-}
+export const mergeCaptionTextStyles = mergeCaptionLineTextStyles;
 
 /**
  * text_style → CSS 変数。`output`（{width,height}）を渡すと `reference_height_px`（issue #40 §2）
@@ -405,275 +410,7 @@ export function mergeCaptionTextStyles(defaultStyle, captionStyle) {
  * 出力バイトは従来と同一。既定値（stroke 1.5 / glow spread 40 等）は宣言値ではないため掛けない
  * （カーネル resolveCaptionStyleForOutput の layout 経路と同じ扱い）。
  */
-export function captionTextStyleVars(style, output) {
-  if (!style || typeof style !== "object") return {};
-  const vars = {};
-  const scale = resolveCaptionReferenceScale(style, output);
-  const px = (value) => scaleCaptionPx(value, scale);
-  const extendedBackground = usesExtendedPerLineBackground(style.background);
-  const percentageBackground = usesPercentageBackground(style.background);
-  if (typeof style.color === "string") {
-    vars["--caption-color"] = style.color;
-  }
-  if (typeof style.size_px === "number" && Number.isFinite(style.size_px)) {
-    vars["--caption-font-size"] = `${px(style.size_px)}px`;
-  }
-  if (style.stroke && (typeof style.stroke.color === "string"
-    || (typeof style.stroke.width_px === "number" && Number.isFinite(style.stroke.width_px)))) {
-    // -webkit-text-stroke はグリフ輪郭の中心に乗るので、外側に width_px 見えるよう 2 倍を指定する
-    // （paint-order: stroke fill で塗りが上に乗り、内側半分は隠れる）。
-    const strokeWidth = typeof style.stroke.width_px === "number"
-      && Number.isFinite(style.stroke.width_px)
-      ? px(style.stroke.width_px) : 1.5;
-    const strokeColor = typeof style.stroke.color === "string"
-      ? style.stroke.color : "rgba(0,0,0,.9)";
-    vars["--caption-stroke"] = `${strokeWidth * 2}px ${strokeColor}`;
-  }
-  if (style.background && (typeof style.background.color === "string"
-    || (typeof style.background.opacity === "number" && Number.isFinite(style.background.opacity)))) {
-    const backgroundVariable = style.background.mode === "block"
-      ? "--plate-block-bg" : extendedBackground ? "--plate-ext-bg" : "--plate-bg";
-    vars[backgroundVariable] = colorWithOpacity(
-      typeof style.background.color === "string" ? style.background.color : "#000000",
-      typeof style.background.opacity === "number" && Number.isFinite(style.background.opacity)
-        ? style.background.opacity : undefined,
-    );
-  }
-  if (typeof style.background?.radius_px === "number"
-    && Number.isFinite(style.background.radius_px)) {
-    const radiusVariable = style.background.mode === "block"
-      ? "--plate-block-radius" : extendedBackground ? "--plate-ext-radius" : "--plate-radius";
-    vars[radiusVariable] = `${px(style.background.radius_px)}px`;
-  }
-  // --- 2026-08-03 textstyle v0 拡張 ---
-  if (typeof style.font_family === "string") {
-    vars["--caption-font-family"] = style.font_family;
-  }
-  if (typeof style.weight === "number") {
-    vars["--caption-font-weight"] = String(style.weight);
-  }
-  if (style.italic) vars["--caption-font-style"] = "italic";
-  if (style.underline) vars["--caption-text-decoration"] = "underline";
-  if (typeof style.letter_spacing_em === "number") {
-    vars["--caption-letter-spacing"] = `${style.letter_spacing_em}em`;
-  }
-  if (typeof style.line_height === "number") {
-    vars["--caption-line-height"] = String(style.line_height);
-  }
-  if (typeof style.text_transform === "string") {
-    vars["--caption-text-transform"] = style.text_transform;
-  }
-  if (typeof style.max_width_pct === "number") {
-    vars["--caption-line-max-width"] = `${style.max_width_pct}%`;
-  }
-  if (style.vertical) vars["--caption-writing-mode"] = "vertical-rl";
-  if (extendedBackground) {
-    const horizontalExpansion = percentageBackground
-      ? `${style.background.width_pct ?? 0}%`
-      : `${px(style.background.padding_px ?? 0)}px`;
-    const verticalExpansion = percentageBackground
-      ? `${style.background.height_pct ?? 0}%`
-      : `${px(style.background.padding_px ?? 0)}px`;
-    vars["--plate-ext-width"] = horizontalExpansion;
-    vars["--plate-ext-height"] = verticalExpansion;
-    if (typeof style.background.offset_x === "number") {
-      vars["--plate-offset-x"] = `${px(style.background.offset_x)}px`;
-    }
-    if (typeof style.background.offset_y === "number") {
-      vars["--plate-offset-y"] = `${px(style.background.offset_y)}px`;
-    }
-  } else if (typeof style.background?.padding_px === "number") {
-    vars["--plate-pad-y"] = `${px(style.background.padding_px)}px`;
-    vars["--plate-pad-x"] = `${px(style.background.padding_px)}px`;
-  }
-  const textShadow = captionTextShadowValue(style.shadow, style.glow, scale);
-  if (textShadow !== null) {
-    vars["--caption-text-shadow"] = textShadow;
-  }
-  Object.assign(vars, zoneVars(style.zone));
-  Object.assign(vars, captionAnchorPositionVars(style.text_anchor, style.position, style.vertical_align));
-  if (style.align) {
-    // 明示 align は zone / anchor の水平配置より優先する
-    vars["--caption-text-align"] = style.align;
-    vars["--caption-align-items"] = style.align === "left"
-      ? "flex-start" : style.align === "right" ? "flex-end" : "center";
-  }
-  return vars;
-}
-
-// shadow（角度 + 距離 → オフセット）と glow（発光 = ぼかしのみの多重影）を
-// 1 本の text-shadow 値へ合成する。どちらも無ければ null（既定の薄影を維持）。
-// scale（reference_height_px 由来・既定 1）は宣言済みの px フィールドだけに掛ける。
-// text_anchor / position → CSS 変数の実体は共有カーネル captionAnchorPositionVars（上の import）。
-// 旧ローカル複製 anchorPositionVars はプレビュー側の実装漏れ（text_anchor/position を落として
-// 既定下段に描く）と対で drift の温床だったため撤去した。
-
-const TEXT_TRANSFORM_MAP = {
-  upper: "uppercase",
-  uppercase: "uppercase",
-  lower: "lowercase",
-  lowercase: "lowercase",
-  title: "capitalize",
-  capitalize: "capitalize",
-  none: "none",
-};
-const TEXT_ANCHOR_VALUES = new Set(["tl", "tc", "tr", "ml", "mc", "mr", "bl", "bc", "br"]);
-const VERTICAL_ALIGN_VALUES = new Set(["top", "middle", "bottom"]);
-
-function finiteNumber(value) {
-  return typeof value === "number" && Number.isFinite(value);
-}
-
-function normalizeAnimationSlot(value) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
-  if (typeof value.id !== "string" || value.id === "") return undefined;
-  return {
-    id: value.id,
-    ...(finiteNumber(value.duration_sec) && value.duration_sec > 0
-      ? { duration_sec: value.duration_sec } : {}),
-    ...(typeof value.ease === "string" && value.ease !== "" ? { ease: value.ease } : {}),
-    ...(finiteNumber(value.amp) && value.amp > 0 ? { amp: value.amp } : {}),
-  };
-}
-
-function normalizeTextStyle(value) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
-  const animationIn = normalizeAnimationSlot(value.animation?.in);
-  const animationLoop = normalizeAnimationSlot(value.animation?.loop);
-  const animationOut = normalizeAnimationSlot(value.animation?.out);
-  return {
-    ...(typeof value.color === "string" ? { color: value.color } : {}),
-    ...(finiteNumber(value.size_px) ? { size_px: value.size_px } : {}),
-    ...(finiteNumber(value.scale) && value.scale >= 0.4 && value.scale <= 3 ? { scale: value.scale } : {}),
-    ...(finiteNumber(value.rotate) && value.rotate >= -180 && value.rotate <= 180 ? { rotate: value.rotate } : {}),
-    // zone 方式の px 系フィールドの基準出力高さ（issue #40 §2）。integer ≥ 1 だけ受理する。
-    ...(Number.isInteger(value.reference_height_px) && value.reference_height_px >= 1
-      ? { reference_height_px: value.reference_height_px } : {}),
-    // --- 2026-08-03 textstyle v0 拡張（presets/textstyle と同語彙） ---
-    ...(typeof value.font_family === "string" && value.font_family !== ""
-      ? { font_family: value.font_family } : {}),
-    // weight（textstyle v0 の正式名・100..900）と font_weight（display_policy 経路からの
-    // 既存名・1..1000）は同じ CSS font-weight を指す。compatibility レールは weight しか読んで
-    // いなかったため、contract 上は有効な font_weight が無言で捨てられていた。両方あるときは
-    // weight を優先する（captions.schema.json $defs/textStyle の $comment と同じ順序）。
-    ...(finiteNumber(value.weight) && value.weight >= 100 && value.weight <= 900
-      ? { weight: value.weight }
-      : Number.isInteger(value.font_weight) && value.font_weight >= 1 && value.font_weight <= 1000
-        ? { weight: value.font_weight } : {}),
-    ...(value.italic === true ? { italic: true } : {}),
-    ...(value.underline === true ? { underline: true } : {}),
-    ...(finiteNumber(value.letter_spacing_em) ? { letter_spacing_em: value.letter_spacing_em } : {}),
-    ...(finiteNumber(value.line_height) && value.line_height > 0
-      ? { line_height: value.line_height } : {}),
-    ...(value.align === "left" || value.align === "center" || value.align === "right"
-      ? { align: value.align } : {}),
-    ...(VERTICAL_ALIGN_VALUES.has(value.vertical_align)
-      ? { vertical_align: value.vertical_align } : {}),
-    ...(value.vertical === true ? { vertical: true } : {}),
-    ...(TEXT_TRANSFORM_MAP[value.text_transform]
-      ? { text_transform: TEXT_TRANSFORM_MAP[value.text_transform] } : {}),
-    ...(finiteNumber(value.max_width_pct) && value.max_width_pct > 0 && value.max_width_pct < 100
-      ? { max_width_pct: value.max_width_pct } : {}),
-    ...(Number.isInteger(value.max_characters) && value.max_characters > 0
-      ? { max_characters: value.max_characters } : {}),
-    ...(typeof value.text_anchor === "string" && TEXT_ANCHOR_VALUES.has(value.text_anchor)
-      ? { text_anchor: value.text_anchor } : {}),
-    ...(value.position && typeof value.position === "object" && !Array.isArray(value.position)
-      && (finiteNumber(value.position.x) || finiteNumber(value.position.y))
-      ? {
-          position: {
-            ...(finiteNumber(value.position.x) ? { x: value.position.x } : {}),
-            ...(finiteNumber(value.position.y) ? { y: value.position.y } : {}),
-          },
-        } : {}),
-    ...(value.shadow && typeof value.shadow === "object" && !Array.isArray(value.shadow)
-      && typeof value.shadow.color === "string"
-      ? {
-          shadow: {
-            color: value.shadow.color,
-            ...(finiteNumber(value.shadow.opacity) ? { opacity: value.shadow.opacity } : {}),
-            ...(finiteNumber(value.shadow.blur_px) ? { blur_px: value.shadow.blur_px } : {}),
-            ...(finiteNumber(value.shadow.distance_px) ? { distance_px: value.shadow.distance_px } : {}),
-            ...(finiteNumber(value.shadow.angle_deg) ? { angle_deg: value.shadow.angle_deg } : {}),
-          },
-        } : {}),
-    ...(value.glow && typeof value.glow === "object" && !Array.isArray(value.glow)
-      && typeof value.glow.color === "string"
-      ? {
-          glow: {
-            color: value.glow.color,
-            ...(finiteNumber(value.glow.density) ? { density: value.glow.density } : {}),
-            ...(finiteNumber(value.glow.spread) ? { spread: value.glow.spread } : {}),
-            ...(finiteNumber(value.glow.offset_x) ? { offset_x: value.glow.offset_x } : {}),
-            ...(finiteNumber(value.glow.offset_y) ? { offset_y: value.glow.offset_y } : {}),
-          },
-        } : {}),
-    ...(animationIn || animationLoop || animationOut
-      ? {
-          animation: {
-            ...(animationIn ? { in: animationIn } : {}),
-            ...(animationLoop ? { loop: animationLoop } : {}),
-            ...(animationOut ? { out: animationOut } : {}),
-          },
-        } : {}),
-    ...(value.stroke && typeof value.stroke === "object" && !Array.isArray(value.stroke)
-      ? {
-          stroke: {
-            ...(typeof value.stroke.color === "string" ? { color: value.stroke.color } : {}),
-            ...(finiteNumber(value.stroke.width_px) ? { width_px: value.stroke.width_px } : {}),
-          },
-        } : {}),
-    ...(value.background && typeof value.background === "object" && !Array.isArray(value.background)
-      ? {
-          background: {
-            ...(typeof value.background.color === "string" ? { color: value.background.color } : {}),
-            ...(finiteNumber(value.background.opacity) ? { opacity: value.background.opacity } : {}),
-            ...(finiteNumber(value.background.radius_px) ? { radius_px: value.background.radius_px } : {}),
-            ...(finiteNumber(value.background.padding_px) ? { padding_px: value.background.padding_px } : {}),
-            ...(finiteNumber(value.background.height_pct) ? { height_pct: value.background.height_pct } : {}),
-            ...(finiteNumber(value.background.width_pct) ? { width_pct: value.background.width_pct } : {}),
-            ...(finiteNumber(value.background.offset_x) ? { offset_x: value.background.offset_x } : {}),
-            ...(finiteNumber(value.background.offset_y) ? { offset_y: value.background.offset_y } : {}),
-            ...(value.background.mode === "per-line" || value.background.mode === "block"
-              ? { mode: value.background.mode } : {}),
-          },
-        } : {}),
-    ...(typeof value.zone === "string" ? { zone: value.zone } : {}),
-  };
-}
-
-function usesPercentageBackground(background) {
-  return (finiteNumber(background?.width_pct) && background.width_pct > 0)
-    || (finiteNumber(background?.height_pct) && background.height_pct > 0);
-}
-
-function usesExtendedPerLineBackground(background) {
-  if (!background || background.mode === "block") return false;
-  return usesPercentageBackground(background)
-    || (finiteNumber(background.offset_x) && background.offset_x !== 0)
-    || (finiteNumber(background.offset_y) && background.offset_y !== 0);
-}
-
-function zoneVars(zone) {
-  if (!zone || zone === "bottom") return {};
-  const [vertical, horizontal] = zone.includes("-")
-    ? zone.split("-")
-    : zone === "top" || zone === "center"
-      ? [zone, "center"]
-      : ["center", zone];
-  return {
-    "--caption-top": vertical === "top" ? "7%" : vertical === "center" ? "0" : "auto",
-    "--caption-bottom": vertical === "bottom" ? "7%" : vertical === "center" ? "0" : "auto",
-    "--caption-left": "4%",
-    "--caption-right": "4%",
-    "--caption-justify-content": vertical === "center" ? "center" : "flex-start",
-    "--caption-align-items": horizontal === "left"
-      ? "flex-start" : horizontal === "right" ? "flex-end" : "center",
-    "--caption-line-margin": "0",
-    "--caption-line-max-width": "100%",
-    "--caption-text-align": horizontal,
-  };
-}
+export const captionTextStyleVars = resolveCaptionLineStyleVars;
 
 // --- テキストアニメーション語彙（presets/textanim・2026-08-03 textstyle v0） ---
 // in / out / loop の 3 スロット（旧 video-on-os textAnimationAtf と同型）。

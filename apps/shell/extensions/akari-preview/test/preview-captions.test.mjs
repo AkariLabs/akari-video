@@ -216,14 +216,14 @@ test('object ルートを読み default と caption をネストもフィール�
 
     assert.deepEqual(parsed.textStyle, {
         color: '#AABBCC',
-        sizePx: 38,
-        stroke: { color: '#000000', widthPx: 3 },
-        background: { color: '#44556680', opacity: 0.25, radiusPx: 12 },
+        size_px: 38,
+        stroke: { color: '#000000', width_px: 3 },
+        background: { color: '#44556680', opacity: 0.25, radius_px: 12 },
         zone: 'top-right'
     });
     assert.equal(parsed.textStyleVars['--caption-color'], '#AABBCC');
     assert.equal(parsed.textStyleVars['--caption-font-size'], '38px');
-    assert.match(parsed.textStyleVars['--caption-text-shadow'], /3px 3px 0 #000000/);
+    assert.equal(parsed.textStyleVars['--caption-stroke'], '6px #000000');
     assert.equal(parsed.textStyleVars['--plate-bg'], 'rgba(68,85,102,0.25)');
     assert.equal(parsed.textStyleVars['--plate-radius'], '12px');
     assert.equal(parsed.textStyleVars['--caption-top'], '7%');

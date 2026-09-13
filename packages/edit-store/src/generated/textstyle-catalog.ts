@@ -240,7 +240,7 @@ export const TEXTSTYLE_CATALOG: Record<string, TextstylePreset> = {
         "width_px": 4
       },
       "shadow": {
-        "color": "rgba(229,57,53,0.6)",
+        "color": "#E53935",
         "opacity": 0.6,
         "blur_px": 16,
         "distance_px": 0,

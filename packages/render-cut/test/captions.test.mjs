@@ -75,8 +75,8 @@ test("resolved caption overlay consumes the Node-resolved cue without re-splitti
   assert.match(overlay.html, /&lt;今回&gt;/u);
   assert.match(overlay.html, /white-space:nowrap/u);
   assert.match(overlay.html, /gap:0/u);
-  assert.match(overlay.html, /padding:0/u);
-  assert.doesNotMatch(overlay.html, /animation:/u);
+  assert.match(overlay.html, /padding:var\(--plate-pad-y,0\) var\(--plate-pad-x,0\)/u);
+  assert.match(overlay.html, /animation:none/u);
 });
 
 test("resolved overflow cue is burned once with its complete unbroken text", () => {

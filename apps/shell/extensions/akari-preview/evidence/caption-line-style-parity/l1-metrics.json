@@ -1,0 +1,327 @@
+{
+  "measurements": {
+    "subtitle-news": {
+      "text": "速報ニュース",
+      "fragmentClass": "akari-caption akari-caption--single-line",
+      "fontFamily": "AKARI Noto Sans JP",
+      "fontWeight": "700",
+      "fontSize": "56px",
+      "letterSpacing": "normal",
+      "textTransform": "none",
+      "strokeWidth": "0px",
+      "strokeColor": "rgba(0, 0, 0, 0)",
+      "paintOrder": "stroke",
+      "textShadow": "none",
+      "backgroundColor": "rgb(198, 40, 40)",
+      "padding": "16px",
+      "borderRadius": "0px",
+      "widthCss": 154,
+      "heightCss": 47
+    },
+    "subtitle-variety": {
+      "text": "ここがすごい！",
+      "fragmentClass": "akari-caption akari-caption--single-line",
+      "fontFamily": "AKARI Noto Sans JP",
+      "fontWeight": "700",
+      "fontSize": "80px",
+      "letterSpacing": "normal",
+      "textTransform": "none",
+      "strokeWidth": "18px",
+      "strokeColor": "rgb(26, 26, 26)",
+      "paintOrder": "stroke",
+      "textShadow": "rgba(0, 0, 0, 0.6) 0px 6px 6px",
+      "backgroundColor": "rgba(0, 0, 0, 0)",
+      "padding": "0px",
+      "borderRadius": "0px",
+      "widthCss": 237,
+      "heightCss": 48
+    },
+    "neon": {
+      "text": "NEON",
+      "fragmentClass": "akari-caption akari-caption--single-line",
+      "fontFamily": "AKARI Noto Sans JP",
+      "fontWeight": "700",
+      "fontSize": "120px",
+      "letterSpacing": "14.4px",
+      "textTransform": "uppercase",
+      "strokeWidth": "0px",
+      "strokeColor": "rgba(0, 0, 0, 0)",
+      "paintOrder": "stroke",
+      "textShadow": "rgba(0, 229, 255, 0.9) 0px 0px 24px, rgb(0, 229, 255) 0px 0px 60px, rgba(0, 229, 255, 0.7) 0px 0px 120px",
+      "backgroundColor": "rgba(0, 0, 0, 0)",
+      "padding": "0px",
+      "borderRadius": "0px",
+      "widthCss": 171,
+      "heightCss": 72
+    },
+    "verdict-badge": {
+      "text": "買い！",
+      "fragmentClass": "akari-caption akari-caption--single-line",
+      "fontFamily": "AKARI Noto Sans JP",
+      "fontWeight": "400",
+      "fontSize": "80px",
+      "letterSpacing": "-1.6px",
+      "textTransform": "none",
+      "strokeWidth": "8px",
+      "strokeColor": "rgb(229, 57, 53)",
+      "paintOrder": "stroke",
+      "textShadow": "rgba(229, 57, 53, 0.6) 0px 0px 16px",
+      "backgroundColor": "rgba(0, 0, 0, 0)",
+      "padding": "0px",
+      "borderRadius": "0px",
+      "widthCss": 99,
+      "heightCss": 48
+    },
+    "style_preset-subtitle-news": {
+      "text": "速報ニュース",
+      "fragmentClass": "akari-caption akari-caption--single-line",
+      "fontFamily": "AKARI Noto Sans JP",
+      "fontWeight": "700",
+      "fontSize": "38px",
+      "letterSpacing": "normal",
+      "textTransform": "none",
+      "strokeWidth": "0px",
+      "strokeColor": "rgba(0, 0, 0, 0)",
+      "paintOrder": "stroke",
+      "textShadow": "rgba(0, 0, 0, 0.85) -1.5px -1.5px 0px, rgba(0, 0, 0, 0.85) 1.5px -1.5px 0px, rgba(0, 0, 0, 0.85) -1.5px 1.5px 0px, rgba(0, 0, 0, 0.85) 1.5px 1.5px 0px, rgba(0, 0, 0, 0.6) 0px 0px 8px",
+      "backgroundColor": "rgba(0, 0, 0, 0)",
+      "padding": "0px",
+      "borderRadius": "0px",
+      "widthCss": 96,
+      "heightCss": 23
+    }
+  },
+  "results": [
+    {
+      "step": "open-preview",
+      "result": "opened"
+    },
+    {
+      "step": "screenshot",
+      "name": "00-boot.png"
+    },
+    {
+      "step": "measure",
+      "id": "subtitle-news",
+      "text": "速報ニュース",
+      "fragmentClass": "akari-caption akari-caption--single-line",
+      "fontFamily": "AKARI Noto Sans JP",
+      "fontWeight": "700",
+      "fontSize": "56px",
+      "letterSpacing": "normal",
+      "textTransform": "none",
+      "strokeWidth": "0px",
+      "strokeColor": "rgba(0, 0, 0, 0)",
+      "paintOrder": "stroke",
+      "textShadow": "none",
+      "backgroundColor": "rgb(198, 40, 40)",
+      "padding": "16px",
+      "borderRadius": "0px",
+      "widthCss": 154,
+      "heightCss": 47
+    },
+    {
+      "step": "screenshot",
+      "name": "01-subtitle-news.png"
+    },
+    {
+      "step": "measure",
+      "id": "subtitle-variety",
+      "text": "ここがすごい！",
+      "fragmentClass": "akari-caption akari-caption--single-line",
+      "fontFamily": "AKARI Noto Sans JP",
+      "fontWeight": "700",
+      "fontSize": "80px",
+      "letterSpacing": "normal",
+      "textTransform": "none",
+      "strokeWidth": "18px",
+      "strokeColor": "rgb(26, 26, 26)",
+      "paintOrder": "stroke",
+      "textShadow": "rgba(0, 0, 0, 0.6) 0px 6px 6px",
+      "backgroundColor": "rgba(0, 0, 0, 0)",
+      "padding": "0px",
+      "borderRadius": "0px",
+      "widthCss": 237,
+      "heightCss": 48
+    },
+    {
+      "step": "screenshot",
+      "name": "02-subtitle-variety.png"
+    },
+    {
+      "step": "measure",
+      "id": "neon",
+      "text": "NEON",
+      "fragmentClass": "akari-caption akari-caption--single-line",
+      "fontFamily": "AKARI Noto Sans JP",
+      "fontWeight": "700",
+      "fontSize": "120px",
+      "letterSpacing": "14.4px",
+      "textTransform": "uppercase",
+      "strokeWidth": "0px",
+      "strokeColor": "rgba(0, 0, 0, 0)",
+      "paintOrder": "stroke",
+      "textShadow": "rgba(0, 229, 255, 0.9) 0px 0px 24px, rgb(0, 229, 255) 0px 0px 60px, rgba(0, 229, 255, 0.7) 0px 0px 120px",
+      "backgroundColor": "rgba(0, 0, 0, 0)",
+      "padding": "0px",
+      "borderRadius": "0px",
+      "widthCss": 171,
+      "heightCss": 72
+    },
+    {
+      "step": "screenshot",
+      "name": "03-neon.png"
+    },
+    {
+      "step": "measure",
+      "id": "verdict-badge",
+      "text": "買い！",
+      "fragmentClass": "akari-caption akari-caption--single-line",
+      "fontFamily": "AKARI Noto Sans JP",
+      "fontWeight": "400",
+      "fontSize": "80px",
+      "letterSpacing": "-1.6px",
+      "textTransform": "none",
+      "strokeWidth": "8px",
+      "strokeColor": "rgb(229, 57, 53)",
+      "paintOrder": "stroke",
+      "textShadow": "rgba(229, 57, 53, 0.6) 0px 0px 16px",
+      "backgroundColor": "rgba(0, 0, 0, 0)",
+      "padding": "0px",
+      "borderRadius": "0px",
+      "widthCss": 99,
+      "heightCss": 48
+    },
+    {
+      "step": "screenshot",
+      "name": "04-verdict-badge.png"
+    },
+    {
+      "step": "measure",
+      "id": "style_preset-subtitle-news",
+      "text": "速報ニュース",
+      "fragmentClass": "akari-caption akari-caption--single-line",
+      "fontFamily": "AKARI Noto Sans JP",
+      "fontWeight": "700",
+      "fontSize": "38px",
+      "letterSpacing": "normal",
+      "textTransform": "none",
+      "strokeWidth": "0px",
+      "strokeColor": "rgba(0, 0, 0, 0)",
+      "paintOrder": "stroke",
+      "textShadow": "rgba(0, 0, 0, 0.85) -1.5px -1.5px 0px, rgba(0, 0, 0, 0.85) 1.5px -1.5px 0px, rgba(0, 0, 0, 0.85) -1.5px 1.5px 0px, rgba(0, 0, 0, 0.85) 1.5px 1.5px 0px, rgba(0, 0, 0, 0.6) 0px 0px 8px",
+      "backgroundColor": "rgba(0, 0, 0, 0)",
+      "padding": "0px",
+      "borderRadius": "0px",
+      "widthCss": 96,
+      "heightCss": 23
+    },
+    {
+      "step": "screenshot",
+      "name": "05-style-preset-gap.png"
+    },
+    {
+      "step": "PASS",
+      "message": "subtitle-news の赤帯が出る",
+      "backgroundColor": "rgb(198, 40, 40)"
+    },
+    {
+      "step": "PASS",
+      "message": "subtitle-news の padding 16px",
+      "padding": "16px"
+    },
+    {
+      "step": "PASS",
+      "message": "subtitle-news の radius 0px",
+      "borderRadius": "0px"
+    },
+    {
+      "step": "PASS",
+      "message": "subtitle-news の size_px 56 が効く",
+      "fontSize": "56px"
+    },
+    {
+      "step": "PASS",
+      "message": "subtitle-variety の実ストロークが width_px 9 × 2 = 18px",
+      "strokeWidth": "18px"
+    },
+    {
+      "step": "PASS",
+      "message": "subtitle-variety の paint-order が stroke fill",
+      "paintOrder": "stroke"
+    },
+    {
+      "step": "PASS",
+      "message": "neon の発光が出る",
+      "textShadow": "rgba(0, 229, 255, 0.9) 0px 0px 24px, rgb(0, 229, 255) 0px 0px 60px, rgba(0, 229, 255, 0.7) 0px 0px 120px"
+    },
+    {
+      "step": "PASS",
+      "message": "neon の text-transform が uppercase",
+      "textTransform": "uppercase"
+    },
+    {
+      "step": "PASS",
+      "message": "neon の letter-spacing が効く",
+      "letterSpacing": "14.4px"
+    },
+    {
+      "step": "PASS",
+      "message": "verdict-badge を当てても字幕が消えない",
+      "text": "買い！"
+    },
+    {
+      "step": "PASS",
+      "message": "verdict-badge の実ストロークが width_px 4 × 2 = 8px",
+      "strokeWidth": "8px"
+    },
+    {
+      "step": "PASS",
+      "message": "verdict-badge の影が rgba(229,57,53,…) で出る",
+      "textShadow": "rgba(229, 57, 53, 0.6) 0px 0px 16px"
+    },
+    {
+      "step": "PASS",
+      "message": "subtitle-news: 4 方向 text-shadow の擬似輪郭が出ない",
+      "textShadow": "none"
+    },
+    {
+      "step": "PASS",
+      "message": "subtitle-variety: 4 方向 text-shadow の擬似輪郭が出ない",
+      "textShadow": "rgba(0, 0, 0, 0.6) 0px 6px 6px"
+    },
+    {
+      "step": "PASS",
+      "message": "neon: 4 方向 text-shadow の擬似輪郭が出ない",
+      "textShadow": "rgba(0, 229, 255, 0.9) 0px 0px 24px, rgb(0, 229, 255) 0px 0px 60px, rgba(0, 229, 255, 0.7) 0px 0px 120px"
+    },
+    {
+      "step": "PASS",
+      "message": "verdict-badge: 4 方向 text-shadow の擬似輪郭が出ない",
+      "textShadow": "rgba(229, 57, 53, 0.6) 0px 0px 16px"
+    },
+    {
+      "step": "KNOWN-GAP",
+      "message": "style_preset だけの cue は shell の display_policy 経路で無装飾になる（akari-preview-service.ts が applyCaptionStylePresets を通さない = 本票の境界外）",
+      "measured": {
+        "text": "速報ニュース",
+        "fragmentClass": "akari-caption akari-caption--single-line",
+        "fontFamily": "AKARI Noto Sans JP",
+        "fontWeight": "700",
+        "fontSize": "38px",
+        "letterSpacing": "normal",
+        "textTransform": "none",
+        "strokeWidth": "0px",
+        "strokeColor": "rgba(0, 0, 0, 0)",
+        "paintOrder": "stroke",
+        "textShadow": "rgba(0, 0, 0, 0.85) -1.5px -1.5px 0px, rgba(0, 0, 0, 0.85) 1.5px -1.5px 0px, rgba(0, 0, 0, 0.85) -1.5px 1.5px 0px, rgba(0, 0, 0, 0.85) 1.5px 1.5px 0px, rgba(0, 0, 0, 0.6) 0px 0px 8px",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "padding": "0px",
+        "borderRadius": "0px",
+        "widthCss": 96,
+        "heightCss": 23
+      }
+    }
+  ],
+  "failures": []
+}

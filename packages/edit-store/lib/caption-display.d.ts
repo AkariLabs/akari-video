@@ -173,6 +173,10 @@ export declare function scheduleCaptionFragments(start: number, end: number, fra
     text: string;
 }>;
 export declare function mergeCaptionDisplayStyles(base: unknown, override: unknown): UnknownRecord | undefined;
+/** Merge the snake_case captions.json line style vocabulary used by every renderer. */
+export declare function mergeCaptionLineTextStyles(base: unknown, override: unknown): UnknownRecord | null;
+export declare function usesPercentageBackground(background: unknown): boolean;
+export declare function usesExtendedPerLineBackground(background: unknown): boolean;
 /**
  * zone 方式の px 系フィールドに掛ける scale（issue #40 §2）。`reference_height_px` が無ければ 1
  * （既存出力はバイト同一）。あれば output.height / reference_height_px — 基準は高さ（文字サイズは
@@ -199,6 +203,11 @@ export declare function scaleCaptionPx(value: number, scale: number): number;
  * 不正な anchor / vertical_align は未宣言として無視する（書き込み時検証済みが前提の防御）。
  */
 export declare function captionAnchorPositionVars(anchorValue: unknown, positionValue: unknown, verticalAlignValue: unknown): Record<string, string>;
+/** Resolve the complete snake_case captions.json line style vocabulary to CSS variables. */
+export declare function resolveCaptionLineStyleVars(style: UnknownRecord | null | undefined, output: {
+    width: number;
+    height: number;
+} | undefined): Record<string, string>;
 export declare function resolveCaptionStyleForOutput(style: UnknownRecord, output: {
     width: number;
     height: number;

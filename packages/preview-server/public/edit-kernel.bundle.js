@@ -785,7 +785,7 @@ var TEXTSTYLE_CATALOG = {
         "width_px": 4
       },
       "shadow": {
-        "color": "rgba(229,57,53,0.6)",
+        "color": "#E53935",
         "opacity": 0.6,
         "blur_px": 16,
         "distance_px": 0,
@@ -3816,6 +3816,7 @@ function isRecord3(value) {
 }
 
 // ../edit-store/src/caption-display.ts
+var CAPTION_ALIGN_VALUES = /* @__PURE__ */ new Set(["left", "center", "right"]);
 var CAPTION_VERTICAL_ALIGN_VALUES = /* @__PURE__ */ new Set(["top", "middle", "bottom"]);
 var CAPTION_TEXT_ANCHOR_VALUES = /* @__PURE__ */ new Set(["tl", "tc", "tr", "ml", "mc", "mr", "bl", "bc", "br"]);
 var CAPTION_LAYOUT_KEYS = /* @__PURE__ */ new Set([
@@ -3829,6 +3830,137 @@ var CAPTION_LAYOUT_KEYS = /* @__PURE__ */ new Set([
   "max_lines"
 ]);
 var CAPTION_LAYOUT_REQUIRED_KEYS = [...CAPTION_LAYOUT_KEYS];
+var CaptionDisplayError = class extends Error {
+  constructor(code, message) {
+    super(message);
+    this.name = "CaptionDisplayError";
+    this.code = code;
+  }
+};
+function normalizeCaptionAnimationSlot(value) {
+  if (!isRecord4(value) || typeof value.id !== "string" || value.id === "") return void 0;
+  return {
+    id: value.id,
+    ...finitePositive2(value.duration_sec) ? { duration_sec: value.duration_sec } : {},
+    ...typeof value.ease === "string" && value.ease !== "" ? { ease: value.ease } : {},
+    ...finitePositive2(value.amp) ? { amp: value.amp } : {}
+  };
+}
+function normalizeCaptionLineTextStyle(value) {
+  if (!isRecord4(value)) return {};
+  const animationIn = normalizeCaptionAnimationSlot(value.animation?.in);
+  const animationLoop = normalizeCaptionAnimationSlot(value.animation?.loop);
+  const animationOut = normalizeCaptionAnimationSlot(value.animation?.out);
+  return {
+    ...typeof value.color === "string" ? { color: value.color } : {},
+    ...finiteNumber(value.size_px) ? { size_px: value.size_px } : {},
+    ...finiteNumber(value.scale) && value.scale >= 0.4 && value.scale <= 3 ? { scale: value.scale } : {},
+    ...finiteNumber(value.rotate) && value.rotate >= -180 && value.rotate <= 180 ? { rotate: value.rotate } : {},
+    ...positiveInteger(value.reference_height_px) ? { reference_height_px: value.reference_height_px } : {},
+    ...typeof value.font_family === "string" && value.font_family !== "" ? { font_family: value.font_family } : {},
+    ...finiteNumber(value.weight) && value.weight >= 100 && value.weight <= 900 ? { weight: value.weight } : Number.isInteger(value.font_weight) && value.font_weight >= 1 && value.font_weight <= 1e3 ? { weight: value.font_weight } : {},
+    ...value.italic === true ? { italic: true } : {},
+    ...value.underline === true ? { underline: true } : {},
+    ...finiteNumber(value.letter_spacing_em) ? { letter_spacing_em: value.letter_spacing_em } : {},
+    ...finitePositive2(value.line_height) ? { line_height: value.line_height } : {},
+    ...CAPTION_ALIGN_VALUES.has(value.align) ? { align: value.align } : {},
+    ...CAPTION_VERTICAL_ALIGN_VALUES.has(value.vertical_align) ? { vertical_align: value.vertical_align } : {},
+    ...value.vertical === true ? { vertical: true } : {},
+    ...CAPTION_TEXT_TRANSFORM_MAP[value.text_transform] ? { text_transform: CAPTION_TEXT_TRANSFORM_MAP[value.text_transform] } : {},
+    ...finiteNumber(value.max_width_pct) && value.max_width_pct > 0 && value.max_width_pct < 100 ? { max_width_pct: value.max_width_pct } : {},
+    ...positiveInteger(value.max_characters) ? { max_characters: value.max_characters } : {},
+    ...CAPTION_TEXT_ANCHOR_VALUES.has(value.text_anchor) ? { text_anchor: value.text_anchor } : {},
+    ...isRecord4(value.position) && (finiteNumber(value.position.x) || finiteNumber(value.position.y)) ? { position: {
+      ...finiteNumber(value.position.x) ? { x: value.position.x } : {},
+      ...finiteNumber(value.position.y) ? { y: value.position.y } : {}
+    } } : {},
+    ...isRecord4(value.shadow) && typeof value.shadow.color === "string" ? { shadow: {
+      color: value.shadow.color,
+      ...finiteNumber(value.shadow.opacity) ? { opacity: value.shadow.opacity } : {},
+      ...finiteNumber(value.shadow.blur_px) ? { blur_px: value.shadow.blur_px } : {},
+      ...finiteNumber(value.shadow.distance_px) ? { distance_px: value.shadow.distance_px } : {},
+      ...finiteNumber(value.shadow.angle_deg) ? { angle_deg: value.shadow.angle_deg } : {}
+    } } : {},
+    ...isRecord4(value.glow) && typeof value.glow.color === "string" ? { glow: {
+      color: value.glow.color,
+      ...finiteNumber(value.glow.density) ? { density: value.glow.density } : {},
+      ...finiteNumber(value.glow.spread) ? { spread: value.glow.spread } : {},
+      ...finiteNumber(value.glow.offset_x) ? { offset_x: value.glow.offset_x } : {},
+      ...finiteNumber(value.glow.offset_y) ? { offset_y: value.glow.offset_y } : {}
+    } } : {},
+    ...animationIn || animationLoop || animationOut ? { animation: {
+      ...animationIn ? { in: animationIn } : {},
+      ...animationLoop ? { loop: animationLoop } : {},
+      ...animationOut ? { out: animationOut } : {}
+    } } : {},
+    ...isRecord4(value.stroke) ? { stroke: {
+      ...typeof value.stroke.color === "string" ? { color: value.stroke.color } : {},
+      ...finiteNumber(value.stroke.width_px) ? { width_px: value.stroke.width_px } : {}
+    } } : {},
+    ...isRecord4(value.background) ? { background: {
+      ...typeof value.background.color === "string" ? { color: value.background.color } : {},
+      ...finiteNumber(value.background.opacity) ? { opacity: value.background.opacity } : {},
+      ...finiteNumber(value.background.radius_px) ? { radius_px: value.background.radius_px } : {},
+      ...finiteNumber(value.background.padding_px) ? { padding_px: value.background.padding_px } : {},
+      ...finiteNumber(value.background.height_pct) ? { height_pct: value.background.height_pct } : {},
+      ...finiteNumber(value.background.width_pct) ? { width_pct: value.background.width_pct } : {},
+      ...finiteNumber(value.background.offset_x) ? { offset_x: value.background.offset_x } : {},
+      ...finiteNumber(value.background.offset_y) ? { offset_y: value.background.offset_y } : {},
+      ...value.background.mode === "per-line" || value.background.mode === "block" ? { mode: value.background.mode } : {}
+    } } : {},
+    ...typeof value.zone === "string" ? { zone: value.zone } : {}
+  };
+}
+function mergeCaptionLineTextStyles(base, override) {
+  const left = normalizeCaptionLineTextStyle(base);
+  const right = normalizeCaptionLineTextStyle(override);
+  const merged = { ...left, ...right };
+  for (const key of ["stroke", "background", "shadow", "glow", "position", "animation"]) {
+    if (isRecord4(left[key]) || isRecord4(right[key])) {
+      merged[key] = { ...isRecord4(left[key]) ? left[key] : {}, ...isRecord4(right[key]) ? right[key] : {} };
+      if (Object.keys(merged[key]).length === 0) delete merged[key];
+    }
+  }
+  return Object.keys(merged).length > 0 ? merged : null;
+}
+function usesPercentageBackground(background) {
+  return isRecord4(background) && (finiteNumber(background.width_pct) && background.width_pct > 0 || finiteNumber(background.height_pct) && background.height_pct > 0);
+}
+function usesExtendedPerLineBackground(background) {
+  if (!isRecord4(background) || background.mode === "block") return false;
+  return usesPercentageBackground(background) || finiteNumber(background.offset_x) && background.offset_x !== 0 || finiteNumber(background.offset_y) && background.offset_y !== 0;
+}
+function captionZoneVars(zone) {
+  if (typeof zone !== "string" || zone === "" || zone === "bottom") return {};
+  const [vertical, horizontal] = zone.includes("-") ? zone.split("-") : zone === "top" || zone === "center" ? [zone, "center"] : ["center", zone];
+  return {
+    "--caption-top": vertical === "top" ? "7%" : vertical === "center" ? "0" : "auto",
+    "--caption-bottom": vertical === "bottom" ? "7%" : vertical === "center" ? "0" : "auto",
+    "--caption-left": "4%",
+    "--caption-right": "4%",
+    "--caption-justify-content": vertical === "center" ? "center" : "flex-start",
+    "--caption-align-items": horizontal === "left" ? "flex-start" : horizontal === "right" ? "flex-end" : "center",
+    "--caption-line-margin": "0",
+    "--caption-line-max-width": "100%",
+    "--caption-text-align": horizontal
+  };
+}
+function resolveCaptionReferenceScale(style, output) {
+  if (!isRecord4(style) || style.reference_height_px === void 0) return 1;
+  if (style.layout !== void 0) {
+    fail("STYLE_LAYOUT_CONFLICT", "caption text style cannot contain both layout and reference_height_px");
+  }
+  if (!positiveInteger(style.reference_height_px)) {
+    fail("INVALID_TEXT_STYLE", "text_style.reference_height_px must be an integer >= 1");
+  }
+  if (!output || !finitePositive2(output.height)) {
+    fail("INVALID_OUTPUT_GEOMETRY", "output height is required for reference_height_px caption text style");
+  }
+  return output.height / style.reference_height_px;
+}
+function scaleCaptionPx(value, scale) {
+  return scale === 1 ? value : Number((value * scale).toFixed(6));
+}
 function captionAnchorPositionVars(anchorValue, positionValue, verticalAlignValue) {
   const anchor = typeof anchorValue === "string" && CAPTION_TEXT_ANCHOR_VALUES.has(anchorValue) ? anchorValue : void 0;
   const position = isRecord4(positionValue) ? positionValue : void 0;
@@ -3870,8 +4002,116 @@ function captionAnchorPositionVars(anchorValue, positionValue, verticalAlignValu
   }
   return vars;
 }
+function resolveCaptionLineStyleVarsAtScale(style, scale) {
+  const vars = {};
+  const px = (value) => scaleCaptionPx(value, scale);
+  const extendedBackground = usesExtendedPerLineBackground(style.background);
+  const percentageBackground = usesPercentageBackground(style.background);
+  if (typeof style.color === "string") vars["--caption-color"] = style.color;
+  if (finiteNumber(style.size_px)) vars["--caption-font-size"] = `${px(style.size_px)}px`;
+  if (isRecord4(style.stroke) && (typeof style.stroke.color === "string" || finiteNumber(style.stroke.width_px))) {
+    const width = finiteNumber(style.stroke.width_px) ? px(style.stroke.width_px) : 1.5;
+    const color2 = typeof style.stroke.color === "string" ? style.stroke.color : "rgba(0,0,0,.9)";
+    vars["--caption-stroke"] = `${width * 2}px ${color2}`;
+  }
+  if (isRecord4(style.background) && (typeof style.background.color === "string" || finiteNumber(style.background.opacity))) {
+    const name = style.background.mode === "block" ? "--plate-block-bg" : extendedBackground ? "--plate-ext-bg" : "--plate-bg";
+    vars[name] = colorWithOpacity(
+      typeof style.background.color === "string" ? style.background.color : "#000000",
+      finiteNumber(style.background.opacity) ? style.background.opacity : void 0
+    );
+  }
+  if (isRecord4(style.background) && finiteNumber(style.background.radius_px)) {
+    const name = style.background.mode === "block" ? "--plate-block-radius" : extendedBackground ? "--plate-ext-radius" : "--plate-radius";
+    vars[name] = `${px(style.background.radius_px)}px`;
+  }
+  if (typeof style.font_family === "string") vars["--caption-font-family"] = style.font_family;
+  if (finiteNumber(style.weight)) vars["--caption-font-weight"] = String(style.weight);
+  else if (Number.isInteger(style.font_weight)) vars["--caption-font-weight"] = String(style.font_weight);
+  if (style.italic) vars["--caption-font-style"] = "italic";
+  if (style.underline) vars["--caption-text-decoration"] = "underline";
+  if (finiteNumber(style.letter_spacing_em)) vars["--caption-letter-spacing"] = `${style.letter_spacing_em}em`;
+  if (finiteNumber(style.line_height)) vars["--caption-line-height"] = String(style.line_height);
+  if (typeof style.text_transform === "string" && CAPTION_TEXT_TRANSFORM_MAP[style.text_transform]) {
+    vars["--caption-text-transform"] = CAPTION_TEXT_TRANSFORM_MAP[style.text_transform];
+  }
+  if (finiteNumber(style.max_width_pct)) vars["--caption-line-max-width"] = `${style.max_width_pct}%`;
+  if (style.vertical) vars["--caption-writing-mode"] = "vertical-rl";
+  if (extendedBackground && isRecord4(style.background)) {
+    vars["--plate-ext-width"] = percentageBackground ? `${style.background.width_pct ?? 0}%` : `${px(style.background.padding_px ?? 0)}px`;
+    vars["--plate-ext-height"] = percentageBackground ? `${style.background.height_pct ?? 0}%` : `${px(style.background.padding_px ?? 0)}px`;
+    if (finiteNumber(style.background.offset_x)) vars["--plate-offset-x"] = `${px(style.background.offset_x)}px`;
+    if (finiteNumber(style.background.offset_y)) vars["--plate-offset-y"] = `${px(style.background.offset_y)}px`;
+  } else if (isRecord4(style.background) && finiteNumber(style.background.padding_px)) {
+    vars["--plate-pad-y"] = `${px(style.background.padding_px)}px`;
+    vars["--plate-pad-x"] = `${px(style.background.padding_px)}px`;
+  }
+  const textShadow = captionTextShadowValue(style.shadow, style.glow, scale);
+  if (textShadow !== null) vars["--caption-text-shadow"] = textShadow;
+  Object.assign(vars, captionZoneVars(style.zone));
+  Object.assign(vars, captionAnchorPositionVars(style.text_anchor, style.position, style.vertical_align));
+  if (style.align) {
+    vars["--caption-text-align"] = style.align;
+    vars["--caption-align-items"] = style.align === "left" ? "flex-start" : style.align === "right" ? "flex-end" : "center";
+  }
+  return vars;
+}
+function resolveCaptionLineStyleVars(style, output) {
+  if (!isRecord4(style)) return {};
+  return resolveCaptionLineStyleVarsAtScale(style, resolveCaptionReferenceScale(style, output));
+}
+var CAPTION_TEXT_TRANSFORM_MAP = {
+  upper: "uppercase",
+  uppercase: "uppercase",
+  lower: "lowercase",
+  lowercase: "lowercase",
+  title: "capitalize",
+  capitalize: "capitalize",
+  none: "none"
+};
+function captionTextShadowValue(shadow, glow, scale = 1) {
+  const parts = [];
+  if (isRecord4(shadow) && typeof shadow.color === "string") {
+    const angle = (shadow.angle_deg ?? 90) * Math.PI / 180;
+    const distance = scaleCaptionPx(shadow.distance_px ?? 0, scale);
+    const dx = Math.round(Math.cos(angle) * distance * 100) / 100;
+    const dy = Math.round(Math.sin(angle) * distance * 100) / 100;
+    parts.push(`${dx}px ${dy}px ${scaleCaptionPx(shadow.blur_px ?? 0, scale)}px ${colorWithOpacity(shadow.color, shadow.opacity)}`);
+  }
+  if (isRecord4(glow) && typeof glow.color === "string") {
+    const spread = glow.spread === void 0 ? 40 : scaleCaptionPx(glow.spread, scale);
+    const alpha = Math.min(1, (glow.density ?? 50) / 60);
+    const offsetX = scaleCaptionPx(glow.offset_x ?? 0, scale);
+    const offsetY = scaleCaptionPx(glow.offset_y ?? 0, scale);
+    parts.push(
+      `${offsetX}px ${offsetY}px ${spread}px ${colorWithOpacity(glow.color, alpha)}`,
+      `${offsetX}px ${offsetY}px ${spread * 2}px ${colorWithOpacity(glow.color, Number((alpha * 0.7).toFixed(4)))}`
+    );
+  }
+  return parts.length > 0 ? parts.join(", ") : null;
+}
+function colorWithOpacity(color2, explicitOpacity) {
+  const raw = color2.slice(1);
+  const expanded = raw.length === 3 ? raw.split("").map((character) => character + character).join("") : raw;
+  const rgb = expanded.slice(0, 6).padEnd(6, "0");
+  const alphaFromColor = expanded.length === 8 ? parseInt(expanded.slice(6, 8), 16) / 255 : 1;
+  const alpha = explicitOpacity ?? alphaFromColor;
+  return `rgba(${parseInt(rgb.slice(0, 2), 16)},${parseInt(rgb.slice(2, 4), 16)},${parseInt(rgb.slice(4, 6), 16)},${Number(alpha.toFixed(4))})`;
+}
+function finiteNumber(value) {
+  return typeof value === "number" && Number.isFinite(value);
+}
+function finitePositive2(value) {
+  return typeof value === "number" && Number.isFinite(value) && value > 0;
+}
+function positiveInteger(value) {
+  return Number.isInteger(value) && value >= 1;
+}
 function isRecord4(value) {
   return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+function fail(code, message) {
+  throw new CaptionDisplayError(code, message);
 }
 
 // ../edit-store/src/adjust-css-visual.ts
@@ -3971,12 +4211,14 @@ export {
   isLayerAudioAudible,
   isTransitionType,
   isWithinDuckInterval,
+  mergeCaptionLineTextStyles,
   mergePresetTextStyle,
   normalizeCaptionClock,
   outputToSource,
   projectLayerSpeechDeclarations,
   projectSpeechDeclarations,
   projectSpeechKeyIntervals,
+  resolveCaptionLineStyleVars,
   resolveCaptionStylePreset,
   resolveItemAnchor,
   resolveItemAnchors,

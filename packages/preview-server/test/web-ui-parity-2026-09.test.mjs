@@ -28,7 +28,7 @@ test('字幕時計: 共有カーネルで出力秒へ正規化し、判定は ou
 test('字幕フォント: 登録名 "AKARI Noto Sans JP" を先頭に置く（index.html の @font-face と一致）', () => {
   assert.match(index, /@font-face \{ font-family: "AKARI Noto Sans JP";/u);
   const rule = app.slice(app.indexOf('.akari-caption {'), app.indexOf('.akari-caption__plate {'));
-  assert.match(rule, /font-family:"AKARI Noto Sans JP","Noto Sans JP",sans-serif;/u);
+  assert.match(rule, /font-family:var\(--caption-font-family,"AKARI Noto Sans JP","Noto Sans JP",sans-serif\);/u);
 });
 
 test('slot-params: ルートで配信し、index.html が app.js より先に読み、mount が renderTextSlots を通す', () => {
