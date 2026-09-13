@@ -23,6 +23,7 @@ import {
 import { whisperModelCandidates, isWhisperModelExcluded } from "./whisper-model-candidates.mjs";
 import { parseSilences } from "./waveform.mjs";
 import {
+  clampAdjacentSegments,
   detectSpeechChunks,
   snapSegmentsToWords,
   snapWordsToSpeech,
@@ -472,13 +473,16 @@ function applyTimingSnap(result, detection, range, options) {
     if (!moved) return { ...segment, words: next };
     return snapSegmentsToWords([{ ...segment, words: next }], options.timingSnapOptions)[0];
   });
+  const clamped = clampAdjacentSegments(withWords, options.timingSnapOptions);
   return {
     ...result,
-    segments: withWords,
+    segments: clamped.segments,
     timing_snap: {
       method: "silencedetect",
       moved_words: snapped.moved,
       total_words: snapped.total,
+      clamped_pairs: clamped.clamped_pairs,
+      overlaps_left: clamped.overlaps_left,
       params: {
         silence_db: detection.silenceDb,
         silence_min_sec: detection.silenceMinSec,

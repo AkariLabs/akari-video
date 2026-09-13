@@ -1,10 +1,12 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
+import { createRequire } from "node:module";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 
 import {
+  clampAdjacentSegments,
   detectSpeechChunks,
   detectSpeechChunksFromPeaks,
   snapSegmentsToWords,
@@ -14,6 +16,7 @@ import { retimeCaptionsToSpeech } from "../src/captions/retime.mjs";
 
 const fixtures = path.join(path.dirname(fileURLToPath(import.meta.url)), "fixtures/speech-snap-owner");
 const load = async (name) => JSON.parse(await readFile(path.join(fixtures, name), "utf8"));
+const { resolveCaptionDisplay } = createRequire(import.meta.url)("../../edit-store/lib/caption-display.js");
 
 function silenceOverlap(word, silence) {
   const [start, end] = Array.isArray(silence) ? silence : [silence.start, silence.end];
@@ -61,7 +64,104 @@ test("オーナー実データを発話へ吸着し本文・語数・edited 行�
   const today = byId("c-0002").words.find((word) => word.text === "今日");
   assert.ok(comma.end <= today.start, `読点 ${comma.start}-${comma.end} -> 今日 ${today.start}-${today.end}`);
   assert.equal(result.moved, 52);
+  assert.deepEqual([byId("c-0001").start, byId("c-0001").end], [0.53, 2.34]);
+  assert.deepEqual([comma.start, comma.end], [2.29, 2.34]);
+  assert.deepEqual([byId("c-0002").start, byId("c-0002").end], [2.34, 5.2]);
+  assert.equal(byId("c-0005").end, 19.56875);
+  assert.equal(byId("c-0006").start, 19.56875);
+  for (const [id, expected] of [
+    ["c-0003", [5.625714, 8.04]], ["c-0004", [11.24, 13.96]],
+    ["c-0007", [23.05, 23.88]], ["c-0008", [24.71, 25.66]],
+  ]) assert.deepEqual([byId(id).start, byId(id).end], expected);
+  assert.equal(result.clamped_pairs, 2);
+  assert.equal(result.overlaps_left, 0);
+  assert.doesNotThrow(() => resolveCaptionDisplay(
+    { ...captionData, captions: result.captions },
+    { cuts: [], output: { width: 1920, height: 1080 } },
+    { output: { width: 1920, height: 1080 } },
+  ));
   assert.ok(flattened.some((word) => Object.hasOwn(word, "raw_start") && Object.hasOwn(word, "raw_end")));
+});
+
+test("両方自由の重なりは語間に収まる中点で分け合う", () => {
+  const result = clampAdjacentSegments([
+    { start: 0, end: 1.4, words: [{ start: 0.2, end: 0.9, text: "前" }] },
+    { start: 1, end: 2, words: [{ start: 1.3, end: 1.8, text: "後" }] },
+  ]);
+  assert.deepEqual([result.segments[0].end, result.segments[1].start], [1.2, 1.2]);
+  assert.deepEqual([result.clamped_pairs, result.overlaps_left], [1, 0]);
+});
+
+test("語が接している両方自由の行は接点を境界にする", () => {
+  const result = clampAdjacentSegments([
+    { start: 0, end: 1.3, words: [{ start: 0.2, end: 1, text: "前" }] },
+    { start: 0.9, end: 2, words: [{ start: 1, end: 1.8, text: "後" }] },
+  ]);
+  assert.deepEqual([result.segments[0].end, result.segments[1].start], [1, 1]);
+});
+
+test("片方が固定なら自由な次行だけを固定 end へ寄せる", () => {
+  const result = clampAdjacentSegments([
+    { start: 0, end: 1.1, fixed: true, words: [{ start: 0.2, end: 1, text: "前" }] },
+    { start: 1, end: 2, words: [{ start: 1.05, end: 1.3, text: "後" }] },
+  ]);
+  assert.equal(result.segments[0].end, 1.1);
+  assert.equal(result.segments[1].start, 1.1);
+  assert.equal(result.segments[1].words[0].start, 1.1);
+  assert.deepEqual([result.clamped_pairs, result.overlaps_left], [1, 0]);
+});
+
+test("固定 start が末尾語へ食い込むと自由側の語を 0.05 秒のまま平行移動する", () => {
+  const result = clampAdjacentSegments([
+    { start: 0.53, end: 2.48, words: [
+      { start: 0.57, end: 1.85, text: "前" }, { start: 2.31, end: 2.36, text: "、" },
+    ] },
+    { start: 2.34, end: 5.2, fixed: true, words: [{ start: 2.34, end: 2.72, text: "今日" }] },
+  ]);
+  assert.deepEqual([result.segments[0].end, result.segments[1].start], [2.34, 2.34]);
+  assert.deepEqual([result.segments[0].words[1].start, result.segments[0].words[1].end], [2.29, 2.34]);
+});
+
+test("固定 start で 0.05 秒以上残る末尾語は start を動かさず切り詰める", () => {
+  const result = clampAdjacentSegments([
+    { start: 0, end: 1.6, words: [
+      { start: 0.2, end: 0.6, text: "a" }, { start: 0.8, end: 1.5, text: "b" },
+    ] },
+    { start: 1, end: 2, fixed: true, words: [{ start: 1, end: 1.5, text: "c" }] },
+  ]);
+  assert.deepEqual(result.segments[0].words[1], { start: 0.8, end: 1, text: "b" });
+  assert.deepEqual([result.clamped_pairs, result.overlaps_left], [1, 0]);
+});
+
+test("固定 end で 0.05 秒以上残る先頭語は end を動かさず切り詰める", () => {
+  const result = clampAdjacentSegments([
+    { start: 0, end: 1, fixed: true, words: [{ start: 0.2, end: 1, text: "a" }] },
+    { start: 0.7, end: 2, words: [
+      { start: 0.75, end: 1.6, text: "b" }, { start: 1.8, end: 1.9, text: "c" },
+    ] },
+  ]);
+  assert.deepEqual(result.segments[1].words[0], { start: 1, end: 1.6, text: "b" });
+  assert.deepEqual([result.clamped_pairs, result.overlaps_left], [1, 0]);
+});
+
+test("両方固定の重なりは残す", () => {
+  const result = clampAdjacentSegments([
+    { start: 0, end: 1.2, fixed: true, words: [{ start: 0, end: 1, text: "前" }] },
+    { start: 1, end: 2, fixed: true, words: [{ start: 1, end: 2, text: "後" }] },
+  ]);
+  assert.deepEqual([result.clamped_pairs, result.overlaps_left], [0, 1]);
+  assert.deepEqual(result.segments.map(({ start, end }) => [start, end]), [[0, 1.2], [1, 2]]);
+});
+
+test("語に 0.01 秒も確保できなければ境界を切らず重なりを残す", () => {
+  const result = clampAdjacentSegments([
+    { start: 0, end: 1.2, words: [
+      { start: 0.2, end: 0.995, text: "前" }, { start: 0.995, end: 1.1, text: "端" },
+    ] },
+    { start: 1, end: 2, fixed: true, words: [{ start: 1, end: 1.5, text: "後" }] },
+  ]);
+  assert.deepEqual([result.clamped_pairs, result.overlaps_left], [0, 1]);
+  assert.equal(result.segments[0].end, 1.2);
 });
 
 test("短い語は発話チャンク内に留まり、最短 0.05 秒へ延ばす", () => {

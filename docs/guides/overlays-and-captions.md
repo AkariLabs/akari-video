@@ -85,6 +85,8 @@ During transcription, words stretched into detected silence are snapped to the a
 default. Apply the same correction later with `akari captions <project-dir> --retime` or the
 “⏱ Align to speech” button in the script header. This preserves the text and keeps the row-level
 `start` / `end` of manually edited (`edited: true`) captions unchanged.
+When adjacent row display windows would overlap, speech alignment shares their boundary while keeping manually edited rows fixed.
+Pass `--no-snap` to `akari media transcribe` to disable automatic speech alignment.
 `speaker` is filled in by cloud diarization (such as ElevenLabs Scribe); local engines (SpeechAnalyzer / whisper.cpp) leave it `null`.
 
 ## Lines, wrapping, scale and rotation

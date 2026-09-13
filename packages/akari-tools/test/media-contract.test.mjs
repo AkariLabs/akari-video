@@ -214,6 +214,32 @@ test("transcribe CLI は --word-book と --no-word-book を解釈する", async 
   assert.equal(JSON.parse(disabled[0]).segments[0].text, "あかり ビデオ");
 });
 
+test("transcribe CLI の --no-snap は吸着監査情報と raw 語時刻を付けない", async () => {
+  const project = await createProjectFixture("no-snap-cli-project");
+  const common = {
+    cwd: project, ffmpegCommand: ffmpeg, ffprobeCommand: ffprobe,
+    speechAnalyzerAvailable: true, unrecognized: false, wordBook: false, stderr: () => {},
+    backendRunner: async () => [{ start: 0, end: 0.9, text: "前後", words: [
+      { start: 0, end: 0.4, text: "前" }, { start: 0.4, end: 0.9, text: "後" },
+    ] }],
+  };
+  const stdout = [];
+  assert.equal(await runMediaCli([
+    "transcribe", "assets/source.wav", "--backend", "speech-analyzer", "--lang", "no-snap-no-record", "--no-snap", "--no-record",
+  ], { ...common, stdout: (line) => stdout.push(line) }), 0);
+  const result = JSON.parse(stdout[0]);
+  assert.equal(Object.hasOwn(result, "timing_snap"), false);
+  assert.ok(result.segments.flatMap((segment) => segment.words).every((word) => !Object.hasOwn(word, "raw_start") && !Object.hasOwn(word, "raw_end")));
+
+  assert.equal(await runMediaCli([
+    "transcribe", "assets/source.wav", "--backend", "speech-analyzer", "--lang", "no-snap-recorded", "--no-snap",
+  ], { ...common, stdout: () => {} }), 0);
+  const transcriptPath = path.join(project, ".akari", "sidecars", "assets", "source.wav.analysis", "transcripts", "speech-analyzer.json");
+  const transcript = JSON.parse(readFileSync(transcriptPath, "utf8"));
+  assert.equal(Object.hasOwn(transcript, "timing_snap"), false);
+  assert.ok(transcript.segments.flatMap((segment) => segment.words).every((word) => !Object.hasOwn(word, "raw_start") && !Object.hasOwn(word, "raw_end")));
+});
+
 test("transcribe は backend 不在なら exit 1 相当で推測しない", async () => {
   await assert.rejects(
     transcribeMedia(wavPath, { ffmpegCommand: ffmpeg, ffprobeCommand: ffprobe, speechAnalyzerAvailable: false, whisperAvailable: false, noRecord: true }),
