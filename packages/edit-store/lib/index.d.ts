@@ -12,6 +12,7 @@ export * from './caption-window';
 export * from './caption-clock';
 export * from './timeline-map';
 export * from './caption-display';
+export * from './generation-meta';
 export * from './edit-v2';
 export * from './edit-v2-item-write';
 export * from './internal-model';

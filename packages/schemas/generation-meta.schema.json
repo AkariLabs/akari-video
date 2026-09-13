@@ -1,0 +1,170 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:akari-video:schema:generation-meta:v1",
+  "title": "AKARI Video generation sidecar meta.json v1",
+  "description": "素材ライブラリの asset-meta.schema.json（assets/ 工房の meta.json）とは別物。こちらは <元ファイル名>.meta.json の生成サイドカー。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "kind", "status", "model", "inputs", "output", "cost", "job", "provenance", "history"],
+  "properties": {
+    "version": { "const": 1 },
+    "kind": { "enum": ["still", "video", "frames"] },
+    "status": { "enum": ["planned", "generating", "done", "failed"] },
+    "model": { "$ref": "#/$defs/model" },
+    "inputs": { "$ref": "#/$defs/inputs" },
+    "output": { "$ref": "#/$defs/output" },
+    "cost": { "$ref": "#/$defs/cost" },
+    "job": { "$ref": "#/$defs/job" },
+    "provenance": { "$ref": "#/$defs/provenance" },
+    "result": { "$ref": "#/$defs/result" },
+    "history": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/historyEntry" }
+    }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "status": { "const": "generating" } }, "required": ["status"] },
+      "then": { "properties": { "job": { "required": ["request_id"] } } }
+    },
+    {
+      "if": { "properties": { "status": { "const": "done" } }, "required": ["status"] },
+      "then": { "required": ["result"] }
+    }
+  ],
+  "$defs": {
+    "nonEmptyString": { "type": "string", "minLength": 1, "pattern": "\\S" },
+    "nullableString": { "type": ["string", "null"] },
+    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "model": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "as_of"],
+      "properties": {
+        "id": { "$ref": "#/$defs/nonEmptyString" },
+        "endpoint": { "$ref": "#/$defs/nonEmptyString" },
+        "as_of": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" }
+      }
+    },
+    "reference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": { "$ref": "#/$defs/nonEmptyString" },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "source_id": { "$ref": "#/$defs/nullableString" },
+        "name": { "$ref": "#/$defs/nullableString" },
+        "role": { "$ref": "#/$defs/nullableString" },
+        "range_s": {
+          "type": ["array", "null"],
+          "prefixItems": [{ "type": "number", "minimum": 0 }, { "type": "number", "minimum": 0 }],
+          "minItems": 2,
+          "maxItems": 2
+        }
+      }
+    },
+    "nullableReference": { "oneOf": [{ "$ref": "#/$defs/reference" }, { "type": "null" }] },
+    "camera": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["notation", "value"],
+      "properties": {
+        "notation": { "enum": ["bracket", "trajectory", "prose"] },
+        "value": { "$ref": "#/$defs/nonEmptyString" },
+        "from_annotation": { "$ref": "#/$defs/nullableString" }
+      }
+    },
+    "inputs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["prompt", "negative_prompt", "first_frame", "last_frame", "reference_images", "reference_videos", "reference_audios", "source_video", "camera", "seed", "extra"],
+      "properties": {
+        "prompt": { "type": "string" },
+        "negative_prompt": { "$ref": "#/$defs/nullableString" },
+        "first_frame": { "$ref": "#/$defs/nullableReference" },
+        "last_frame": { "$ref": "#/$defs/nullableReference" },
+        "reference_images": { "type": "array", "items": { "$ref": "#/$defs/reference" } },
+        "reference_videos": { "type": "array", "items": { "$ref": "#/$defs/reference" } },
+        "reference_audios": { "type": "array", "items": { "$ref": "#/$defs/reference" } },
+        "source_video": { "$ref": "#/$defs/nullableReference" },
+        "mode": { "enum": ["edit", "extend", "motion", "frame-edit", null] },
+        "camera": { "oneOf": [{ "$ref": "#/$defs/camera" }, { "type": "null" }] },
+        "seed": { "type": ["integer", "null"] },
+        "extra": { "type": "object" }
+      }
+    },
+    "output": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["duration_s"],
+      "properties": {
+        "duration_s": { "type": "number", "exclusiveMinimum": 0 },
+        "resolution": { "$ref": "#/$defs/nullableString" },
+        "aspect": { "$ref": "#/$defs/nullableString" },
+        "audio_out": { "type": ["boolean", "null"] }
+      }
+    },
+    "cost": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["unit", "source"],
+      "properties": {
+        "estimate_usd": { "type": ["number", "null"], "minimum": 0 },
+        "actual_usd": { "type": ["number", "null"], "minimum": 0 },
+        "unit": { "$ref": "#/$defs/nonEmptyString" },
+        "source": { "enum": ["estimate", "provider"] }
+      }
+    },
+    "job": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["provider", "started_at", "stale_after_s"],
+      "properties": {
+        "provider": { "$ref": "#/$defs/nonEmptyString" },
+        "request_id": { "$ref": "#/$defs/nonEmptyString" },
+        "status_url": { "$ref": "#/$defs/nonEmptyString" },
+        "response_url": { "$ref": "#/$defs/nonEmptyString" },
+        "started_at": { "type": "string", "format": "date-time" },
+        "stale_after_s": { "type": "number", "minimum": 0 }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["created_at", "tool"],
+      "properties": {
+        "created_at": { "type": "string", "format": "date-time" },
+        "tool": { "$ref": "#/$defs/nonEmptyString" },
+        "key_source": { "$ref": "#/$defs/nullableString" }
+      }
+    },
+    "result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256", "bytes", "duration_s_actual"],
+      "properties": {
+        "path": { "$ref": "#/$defs/nonEmptyString" },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "bytes": { "type": "integer", "minimum": 0 },
+        "duration_s_actual": { "type": "number", "minimum": 0 },
+        "width": { "type": "integer", "minimum": 1 },
+        "height": { "type": "integer", "minimum": 1 },
+        "fps": { "$ref": "#/$defs/nonEmptyString" },
+        "has_audio": { "type": "boolean" },
+        "expanded_prompt": { "type": "string" },
+        "elapsed_s": { "type": "number", "minimum": 0 }
+      }
+    },
+    "historyEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["at", "status", "reason"],
+      "properties": {
+        "at": { "type": "string", "format": "date-time" },
+        "status": { "enum": ["planned", "generating", "done", "failed"] },
+        "reason": { "$ref": "#/$defs/nullableString" }
+      }
+    }
+  }
+}
