@@ -1,0 +1,179 @@
+{
+  "status": "pass",
+  "steps": [
+    {
+      "name": "1. 台本で c-0001 を分割すると字幕帯が 3 → 4 ブロックになる（1 秒以内）",
+      "pass": true,
+      "detail": {
+        "splitIndexes": [
+          "1",
+          "2",
+          "3"
+        ],
+        "splitAt": "2",
+        "watch": {
+          "baseline": 3,
+          "reached": 4,
+          "msFromClick": 65.6,
+          "msFromDidWrite": 0,
+          "didWrite": 1,
+          "changes": [
+            4
+          ]
+        },
+        "timelineIds": [
+          "c-0001",
+          "c-0004",
+          "c-0002",
+          "c-0003"
+        ],
+        "daihonIds": [
+          "c-0001",
+          "c-0004",
+          "c-0002",
+          "c-0003"
+        ]
+      }
+    },
+    {
+      "name": "2. 分割した 2 行を結合すると字幕帯が 4 → 3 ブロックへ戻り、選択が結合先の id へ付け替わる",
+      "pass": true,
+      "detail": {
+        "mergedIds": [
+          "c-0001",
+          "c-0004"
+        ],
+        "daihonSelectedBefore": [
+          "c-0001",
+          "c-0004"
+        ],
+        "timelineSelectedBefore": [
+          "c-0001",
+          "c-0004"
+        ],
+        "timelineSelectedAfter": [
+          "c-0001"
+        ],
+        "watch": {
+          "baseline": 4,
+          "reached": 3,
+          "msFromClick": 103.2,
+          "msFromDidWrite": 0.1,
+          "didWrite": 1,
+          "changes": [
+            3
+          ]
+        },
+        "timelineIds": [
+          "c-0001",
+          "c-0002",
+          "c-0003"
+        ]
+      }
+    },
+    {
+      "name": "3. 語間で「／ ここで改行」すると、その字幕ブロックに断片境界の目盛り（薄い縦線）が出る",
+      "pass": true,
+      "detail": {
+        "popButton": "／ ここで改行（表示だけ）",
+        "tick": {
+          "index": "1",
+          "left": "18.75%",
+          "width": "1px",
+          "background": "rgba(255, 255, 255, 0.55)",
+          "className": "akari-annotations-caption-fragment-tick"
+        },
+        "fragments": [
+          "あしたの",
+          "予定を決めましょう"
+        ],
+        "chips": [
+          {
+            "id": "c-0001",
+            "ticks": 0
+          },
+          {
+            "id": "c-0002",
+            "ticks": 1
+          },
+          {
+            "id": "c-0003",
+            "ticks": 0
+          }
+        ]
+      }
+    }
+  ],
+  "screenshots": [
+    "01-split-adds-one-caption-block.png",
+    "02-merge-removes-one-caption-block.png",
+    "03-manual-break-draws-fragment-tick.png"
+  ],
+  "cleanup": {
+    "killedPid": 69575,
+    "survivingProcesses": 0,
+    "survivingBackendMain": 0
+  },
+  "fixture": {
+    "ok": true,
+    "rows": 3,
+    "mediaSeconds": 8,
+    "captions": [
+      {
+        "id": "c-0001",
+        "text": "きょうは天気がとてもよいので",
+        "start": 1,
+        "end": 3.2,
+        "words": 4
+      },
+      {
+        "id": "c-0002",
+        "text": "あしたの予定を決めましょう",
+        "start": 3.6,
+        "end": 5.2,
+        "words": 3
+      },
+      {
+        "id": "c-0003",
+        "text": "短い行です",
+        "start": 5.6,
+        "end": 6.6,
+        "words": 2
+      }
+    ]
+  },
+  "preloadOverlay": "removed",
+  "daihonVisible": {
+    "width": 427,
+    "height": 47.328125
+  },
+  "timelineBaseline": {
+    "count": 3,
+    "ids": [
+      "c-0001",
+      "c-0002",
+      "c-0003"
+    ],
+    "selected": [],
+    "chips": [
+      {
+        "id": "c-0001",
+        "left": "11.1111%",
+        "width": "24.4444%",
+        "ticks": []
+      },
+      {
+        "id": "c-0002",
+        "left": "40%",
+        "width": "17.7778%",
+        "ticks": []
+      },
+      {
+        "id": "c-0003",
+        "left": "62.2222%",
+        "width": "11.1111%",
+        "ticks": []
+      }
+    ]
+  }
+}

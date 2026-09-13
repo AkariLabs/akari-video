@@ -190,6 +190,12 @@ import { CaptionSubrowLayout, computeCaptionSubrowLayout } from '../common/capti
 import { clampCaptionOutputRange, resolveSourceCaptionEdgeDrag } from '../common/caption-output-domain';
 import { clampCaptionRangeToNeighbors, CaptionNeighborRange } from '../common/caption-overlap-guard';
 import {
+    captionFragmentTicks,
+    readCaptionFragmentBreaksVisible,
+    remapCaptionSelection,
+    shouldReloadCaptions
+} from '../common/caption-track-layout';
+import {
     CaptionSourceForMapping,
     computeCaptionSourceMappingWarning,
     readCaptionSourceMap,
@@ -877,6 +883,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
     /** backend の atomic rename 前通知。自己書き込み由来 watcher reload を 1 秒だけ抑止する。 */
     protected readonly recentWrites = new Map<string, number>();
     protected captions: CaptionRecord[] = [];
+    protected lastAppliedCaptionsSource: string | undefined;
+    protected captionFragmentInputs = new Map<string, {
+        display_text?: unknown;
+        display_fragments?: unknown;
+        words?: unknown;
+    }>();
     /** caption-store が正規化しない captions.json の src を、出力射影専用に保持する。 */
     protected captionSources = new Map<string, string>();
     /** 同じ captions/edit 状態の再読込で射影不能警告を積み上げないための直近文言。 */
@@ -5678,6 +5690,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.toDispose.push(this.annotationsClient.onWillWriteEvent(uri => {
             this.recentWrites.set(uri, Date.now());
         }));
+        this.toDispose.push(this.annotationsClient.onDidWriteEvent(detail => {
+            if (detail.uri === this.location?.captionsUri.toString()) {
+                void this.reloadCaptionsIfChanged(detail.content);
+            }
+        }));
         this.toDispose.push(this.annotationsClient.onLintResultEvent(notification => {
             if (notification.projectRootUri === this.location?.root.toString()) {
                 this.showDeferredLintResult(
@@ -5736,9 +5753,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 && !this.isRecentWrite(this.location.editUri)) {
                 void this.reloadEdit();
             }
-            if (event.contains(this.location.captionsUri) && !this.isRecentWrite(this.location.captionsUri)) {
-                void this.reloadCaptions();
-            }
+            if (event.contains(this.location.captionsUri)) void this.reloadCaptionsIfChanged();
             if (this.location.analysisUri && event.contains(this.location.analysisUri)) {
                 void this.reloadAnalysis();
             }
@@ -6785,17 +6800,61 @@ export class AkariAnnotationsWidget extends BaseWidget {
 
     protected captionReloadGeneration = 0;
 
+    protected async reloadCaptionsIfChanged(source?: string): Promise<void> {
+        let nextSource = source;
+        if (nextSource === undefined && this.location) {
+            try {
+                nextSource = (await this.fileService.readFile(this.location.captionsUri)).value.toString();
+            } catch {
+                await this.reloadCaptions();
+                return;
+            }
+        }
+        if (shouldReloadCaptions(this.lastAppliedCaptionsSource, nextSource)) {
+            await this.reloadCaptionsFromSource(nextSource);
+        }
+    }
+
     protected async reloadCaptions(): Promise<void> {
+        this.invalidateContentExtent();
+        await this.reloadCaptionsFromSource();
+    }
+
+    protected async reloadCaptionsFromSource(source?: string): Promise<void> {
         const generation = ++this.captionReloadGeneration;
         if (this.location) {
             try {
-                const source = (await this.fileService.readFile(this.location.captionsUri)).value.toString();
-                const parsed = parseCaptions(source);
+                const nextSource = source
+                    ?? (await this.fileService.readFile(this.location.captionsUri)).value.toString();
+                const parsed = parseCaptions(nextSource);
                 if (generation !== this.captionReloadGeneration) return;
+                const previousCaptions = this.captions;
+                const rawRoot = JSON.parse(nextSource) as unknown;
+                const rawCaptions = Array.isArray(rawRoot) ? rawRoot
+                    : rawRoot && typeof rawRoot === 'object' && Array.isArray((rawRoot as { captions?: unknown }).captions)
+                        ? (rawRoot as { captions: unknown[] }).captions : [];
+                this.captionFragmentInputs = new Map(rawCaptions.flatMap(value => {
+                    if (!value || typeof value !== 'object' || typeof (value as { id?: unknown }).id !== 'string') {
+                        return [];
+                    }
+                    const raw = value as {
+                        id: string;
+                        display_text?: unknown;
+                        display_fragments?: unknown;
+                        words?: unknown;
+                    };
+                    return [[raw.id, {
+                        display_text: raw.display_text,
+                        display_fragments: raw.display_fragments,
+                        words: raw.words
+                    }] as const];
+                }));
                 this.invalidateContentExtent();
                 this.captions = parsed.captions;
-                this.captionSources = readCaptionSourceMap(source);
+                this.captionSources = readCaptionSourceMap(nextSource);
                 this.defaultTextStyle = parsed.defaultTextStyle;
+                this.lastAppliedCaptionsSource = nextSource;
+                this.remapCaptionSelections(previousCaptions, this.captions);
                 if (parsed.warnings.length > 0) {
                     this.showWarnings(parsed.warnings);
                 }
@@ -6804,13 +6863,39 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 this.invalidateContentExtent();
                 this.captions = [];
                 this.captionSources.clear();
+                this.captionFragmentInputs.clear();
                 this.defaultTextStyle = undefined;
+                this.lastAppliedCaptionsSource = undefined;
                 // A missing or unreadable captions.json means no caption segments are drawn.
             }
         }
         this.notifyCaptionSourceMappingWarning();
         this.pushSelectionSnapshot();
         this.renderStrip();
+    }
+
+    protected remapCaptionSelections(previous: readonly CaptionRecord[], next: readonly CaptionRecord[]): void {
+        this.selectionModel.selectedCaptionIds = remapCaptionSelection(
+            previous, next, this.selectionModel.selectedCaptionIds
+        );
+        const seenMultiCaptionIds = new Set<string>();
+        const nextMultiSelection: TimelineSelectionItem[] = [];
+        for (const item of this.multiSelection) {
+            if (item.kind !== 'caption') {
+                nextMultiSelection.push(item);
+                continue;
+            }
+            const [id] = remapCaptionSelection(previous, next, [item.id]);
+            if (id !== undefined && !seenMultiCaptionIds.has(id)) {
+                seenMultiCaptionIds.add(id);
+                nextMultiSelection.push({ ...item, id });
+            }
+        }
+        this.multiSelection = nextMultiSelection;
+        if (this.selection?.kind === 'caption') {
+            const [id] = remapCaptionSelection(previous, next, [this.selection.id]);
+            this.selection = id === undefined ? undefined : { ...this.selection, id };
+        }
     }
 
     /** cuts[].at / track と後方互換の連結規則から出力秒セグメントを再構築する。 */
@@ -7529,6 +7614,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
             return;
         }
         this.waveformT2PanTargets.clear();
+        const captionFragmentBreaksVisible = readCaptionFragmentBreaksVisible(
+            typeof localStorage === 'undefined' ? undefined : localStorage
+        );
 
         const maxDuration = this.totalDuration();
         if (this.viewDuration !== undefined) {
@@ -7773,8 +7861,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 return;
             }
             const top = captionTrackLayout.top;
+            const ticks = captionFragmentTicks({
+                ...caption,
+                ...this.captionFragmentInputs.get(caption.id)
+            });
             const { element, created } = this.keyedStripSegment(
-                `caption:${caption.id}`, JSON.stringify(caption), outputStart, outputEnd, top, SUBROW_HEIGHT,
+                `caption:${caption.id}`, JSON.stringify({ caption, captionFragmentBreaksVisible, ticks }),
+                outputStart, outputEnd, top, SUBROW_HEIGHT,
                 'akari-annotations-strip-caption', caption.text
             );
             element.dataset.akariItemKind = 'caption';
@@ -7797,6 +7890,19 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 const label = this.captionLabel(caption.text);
                 label.style.opacity = this.captionsVisible ? '' : '.28';
                 element.appendChild(label);
+                if (captionFragmentBreaksVisible) {
+                    for (const tick of ticks) {
+                        const marker = document.createElement('span');
+                        marker.className = 'akari-annotations-caption-fragment-tick';
+                        marker.dataset.akariCaptionFragmentTick = String(tick.index);
+                        Object.assign(marker.style, {
+                            position: 'absolute', top: '0', bottom: '0', width: '1px',
+                            left: `${tick.position * 100}%`, background: 'rgba(255,255,255,.55)',
+                            pointerEvents: 'none'
+                        });
+                        element.appendChild(marker);
+                    }
+                }
             }
         });
         this.overlays.forEach(overlay => {
