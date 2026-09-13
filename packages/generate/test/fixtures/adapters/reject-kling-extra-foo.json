@@ -1,0 +1,9 @@
+{
+  "ok": false,
+  "rejected": [
+    {
+      "slot": "extra.foo",
+      "reason": "not in extra allow-list"
+    }
+  ]
+}

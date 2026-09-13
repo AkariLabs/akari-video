@@ -1,0 +1,9 @@
+{
+  "ok": false,
+  "rejected": [
+    {
+      "slot": "reference_audios",
+      "reason": "slot not supported by this model"
+    }
+  ]
+}

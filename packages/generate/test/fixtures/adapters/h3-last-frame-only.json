@@ -1,0 +1,9 @@
+{
+  "ok": true,
+  "endpoint": "minimax/h3/image-to-video",
+  "body": {
+    "prompt": "Warm morning light fills a quiet garden.",
+    "end_image_url": "https://example.invalid/assets/stills/garden.png",
+    "duration": 5
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "ok": true,
+  "endpoint": "fal-ai/kling-video/v3/standard/image-to-video",
+  "body": {
+    "prompt": "The subject turns toward the camera.",
+    "start_image_url": "https://example.invalid/assets/stills/subject-start.png",
+    "elements": [
+      {
+        "frontal_image_url": "https://example.invalid/assets/refs/subject-front.png",
+        "reference_image_urls": [
+          "https://example.invalid/assets/refs/subject-side.png"
+        ]
+      }
+    ],
+    "duration": "7",
+    "generate_audio": true
+  }
+}
