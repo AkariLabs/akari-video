@@ -9,6 +9,7 @@
     ".": "./lib/index.js",
     "./lib/project": "./lib/project.js",
     "./lib/write-gate": "./lib/write-gate.js",
+    "./lib/generation-meta-node": "./lib/generation-meta-node.js",
     "./lib/migrate": "./lib/migrate/index.js",
     "./lib/*.js": "./lib/*.js",
     "./lib/*": "./lib/*.js",

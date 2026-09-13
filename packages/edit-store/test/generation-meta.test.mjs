@@ -8,9 +8,11 @@ import test from 'node:test';
 import {
   findGenerationMetaBySha,
   readGenerationMeta,
+} from '../lib/generation-meta-node.js';
+import {
   resolveGenerationState,
   sidecarPathFor,
-} from '../lib/index.js';
+} from '../lib/generation-meta.js';
 
 const NOW = new Date('2026-09-13T10:00:00.000Z');
 

@@ -5344,6 +5344,36 @@ ${indent}`);
     }
   });
 
+  // packages/edit-store/lib/generation-meta.js
+  var require_generation_meta = __commonJS({
+    "packages/edit-store/lib/generation-meta.js"(exports) {
+      "use strict";
+      Object.defineProperty(exports, "__esModule", { value: true });
+      exports.sidecarPathFor = sidecarPathFor;
+      exports.resolveGenerationState = resolveGenerationState;
+      function sidecarPathFor(sourcePath) {
+        return `${sourcePath}.meta.json`;
+      }
+      function resolveGenerationState(meta, now) {
+        if (!meta)
+          return "none";
+        if (meta.status === "failed")
+          return "failed";
+        if (meta.status === "generating") {
+          const nowMs2 = timeValue(now);
+          const startedMs = Date.parse(String(meta.job?.started_at ?? ""));
+          const staleAfterS = meta.job?.stale_after_s;
+          if (Number.isFinite(nowMs2) && Number.isFinite(startedMs) && typeof staleAfterS === "number" && nowMs2 - startedMs > staleAfterS * 1e3)
+            return "stale";
+        }
+        return meta.status;
+      }
+      function timeValue(value) {
+        return value instanceof Date ? value.getTime() : typeof value === "number" ? value : Date.parse(value);
+      }
+    }
+  });
+
   // packages/edit-store/lib/edit-v2.js
   var require_edit_v2 = __commonJS({
     "packages/edit-store/lib/edit-v2.js"(exports) {
@@ -11434,6 +11464,7 @@ ${indent}`);
       __exportStar(require_caption_clock(), exports);
       __exportStar(require_timeline_map(), exports);
       __exportStar(require_caption_display(), exports);
+      __exportStar(require_generation_meta(), exports);
       __exportStar(require_edit_v2(), exports);
       __exportStar(require_edit_v2_item_write(), exports);
       __exportStar(require_internal_model(), exports);
