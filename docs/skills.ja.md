@@ -2,7 +2,7 @@
 
 # スキルカタログ
 
-AKARI Video のエージェント側ワークフローは **23 のスキル**に分割されている（工程ごとに 1 つ + 横断 2 つ）。このページはその一枚地図 — 各スキルが何を担当し、いつ発動し、どの外部ツール・ランタイムに接続するかをまとめる。
+AKARI Video のエージェント側ワークフローは **24 のスキル**に分割されている（工程ごと + 横断スキル）。このページはその一枚地図 — 各スキルが何を担当し、いつ発動し、どの外部ツール・ランタイムに接続するかをまとめる。
 
 正本は各 `skills/<name>/SKILL.md`。ここは索引であり、手順・ハードルールの詳細は各 SKILL.md と関連契約（[Reference](./README.ja.md#reference)）に従う。
 
@@ -42,6 +42,7 @@ AKARI Video のエージェント側ワークフローは **23 のスキル**に
 | [edit-plan](../skills/edit-plan/SKILL.md) | 分析レポートを一次証拠に、方針・素材計画・実行を明示承認で確定し edit.json v0 + オーバーレイへ | — |
 | [overlay-authoring](../skills/overlay-authoring/SKILL.md) | オーバーレイ HTML の authoring ルーター（テロップ・字幕・表グラフ・3D・モーション・サムネ・人物の後ろに文字） | CSS keyframes / WAAPI、Three.js + glTF（宣言型のみ。→ [対応ランタイム](#対応アニメーションランタイム)） |
 | [generate-narration](../skills/generate-narration/SKILL.md) | 原稿 → ナレーション音声生成 → edit.json の audio.narration[] へ | VOICEVOX（ローカル・無償） / fal Qwen3-TTS（クラウド・自声クローン・承認制） |
+| [generate-media](../skills/generate-media/SKILL.md) | 静止画・文字カードの仮枠 → 1 クリップずつ動画生成 → 再取得可能な同一タイムライン item の差し替え | Codex 画像生成（無償） / manage-connections で許可された動画 provider（費用承認） |
 
 ### QA・レビュー
 

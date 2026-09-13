@@ -34,20 +34,19 @@ one records the decision in `planning/research-plan.json`.
 | `planning/research-plan.json` | The SSOT for the plan (topic / target / structure / shot_list) |
 | `research-plan-report.html` | The planning report (with a record of decisions) |
 
-## Not shooting — the placeholder timeline (plan.json)
+## Not shooting — placeholder clips
 
-When you assemble a video with zero footage, edit-plan builds a **plan.json (placeholder
-timeline)** through conversation. It's a sequence of slots each carrying a confidence level, and
-each slot gets filled by one of three means:
+With zero footage, the canonical source is still the `edit.json` timeline from the beginning. A
+placeholder is **a still-image clip on the timeline plus a neighboring `<path>.meta.json`**. The
+still clip owns its duration and position, so it can remain in the finished video or be replaced by
+video later without changing the clip identity.
 
-- **generate** — generate it (image, video, 3D bake, etc.)
-- **record** — shoot or record it
-- **import** — bring in existing material
-
-Once all slots are filled, plan.json compiles into `edit.json`, and the project joins the normal
-editing flow from there.
+Run `akari generate still <projectDir> --spec <beats.json>` to create still placeholders. To check
+only timing and order before choosing the pictures, add `--placeholder` for free text cards. Select
+only the clips that should move, then run `akari generate video <projectDir> --item <itemId>`. Paid
+generation runs with `--yes` only after a cost estimate and explicit cost approval.
 
 ## Next steps
 
 - Once you have footage → [Analyze footage](./analyze-footage.md)
-- Fill the slots and move to editing → [Plan your edit](./plan-your-edit.md)
+- Build placeholder clips and move to editing → [Plan your edit](./plan-your-edit.md)

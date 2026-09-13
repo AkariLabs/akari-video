@@ -2,7 +2,7 @@
 
 # Skills Catalog
 
-The agent-side workflow of AKARI Video is split into **23 skills** (one per production stage, plus two cross-cutting ones). This page is the single map: what each skill owns, when it triggers, and which external tools and runtimes it connects to.
+The agent-side workflow of AKARI Video is split into **24 skills** (one per production stage, plus cross-cutting skills). This page is the single map: what each skill owns, when it triggers, and which external tools and runtimes it connects to.
 
 The canonical source for each skill is its `skills/<name>/SKILL.md`. This page is an index; for procedures and hard rules, follow each SKILL.md and the related contracts ([Reference](./README.md#reference)).
 
@@ -42,6 +42,7 @@ The canonical source for each skill is its `skills/<name>/SKILL.md`. This page i
 | [edit-plan](../skills/edit-plan/SKILL.md) | Reads the analysis report as primary evidence; direction, asset plan, and execution confirmed by explicit approval, landing in edit.json v0 + overlays | — |
 | [overlay-authoring](../skills/overlay-authoring/SKILL.md) | Authoring router for overlay HTML (captions, tables & charts, 3D, motion graphics, thumbnails, text-behind-person) | CSS keyframes / WAAPI; Three.js + glTF (declarative only — see [Supported animation runtimes](#supported-animation-runtimes)) |
 | [generate-narration](../skills/generate-narration/SKILL.md) | Script text → narration audio → `audio.narration[]` in edit.json | VOICEVOX (local, free) / fal Qwen3-TTS (cloud voice clone, behind approval) |
+| [generate-media](../skills/generate-media/SKILL.md) | Still or text-card placeholder clips → one-clip-at-a-time video generation → resumable retrieval and in-place timeline replacement | Codex image generation (free) / allowed video providers from manage-connections (cost approval) |
 
 ### QA & review
 

@@ -40,7 +40,7 @@
 
 ## Skills
 
-ワークフローは 23 のエージェント側スキルとして同梱されています。[スキルカタログ](./skills.ja.md)が
+ワークフローは 24 のエージェント側スキルとして同梱されています。[スキルカタログ](./skills.ja.md)が
 その一枚地図です — 各スキルの担当・発動タイミング・接続先の外部ツールと
 アニメーションランタイム（3D の 2 経路含む）をまとめています。
 
@@ -72,6 +72,7 @@
 | [contract-2026-08-12-chat-approval-v0.md](./contract-2026-08-12-chat-approval-v0.md) | chat-approval 契約 v0 — 承認ゲートのチャット通知 + ボタン承認（Telegram・long polling・公開エンドポイントなし・自由文は指示として扱わない） |
 | [contract-2026-08-03-status-integrity-v1.md](./contract-2026-08-03-status-integrity-v1.md) | canonical status・immutable render receipt・人間受理記録・capability absence receipt |
 | [contract-2026-08-03-caption-display-encoding-qc-v1.md](./contract-2026-08-03-caption-display-encoding-qc-v1.md) | 共有字幕表示・reference-pixel layout・master encode・audio QC・recipe 境界 |
+| [contract-2026-09-13-generation-v0.md](./contract-2026-09-13-generation-v0.md) | 生成 v0（仮枠クリップ・9 入力スロット・サイドカー meta・能力カタログ・状態・差し替え・費用承認） |
 
 ### edit.json（編集のセーブデータ）
 

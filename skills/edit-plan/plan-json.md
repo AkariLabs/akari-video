@@ -44,9 +44,9 @@
   [report-guide.md の「素材計画」節](report-guide.md#素材計画)の管轄。plan.json には
   持ち込まない（契約 §5）
 
-## 4. 仮枠プレビュー（現時点の運用）
+## 4. 仮枠クリップへ接続する
 
-仮枠の再生 QA は「静止画 + TTS + テキストカードを通常の edit.json v1 にコンパイルする」
-規約（契約 §6）で行う設計だが、**コンパイラは未実装**。当面は静止コンセプトをチャットで
-提示する従来運用（workflow.md §2）を維持し、動画生成は承認工程まで保留する。
-コンパイラ実装後にこの節を差し替える。
+素材ゼロでは plan.json の仮枠役を使わない。[generate-media の still.md](../generate-media/still.md) へ進み、
+文字カードまたは Codex 静止画を edit.json v2 の media item としてタイムラインへ置く。仮枠は
+「タイムライン上の静止画クリップ + 素材の隣の `<path>.meta.json`」であり、尺は cuts が持つ。
+静止画のまま完成品としてよく、動画化するクリップだけ generate-media の video.md へ進める。

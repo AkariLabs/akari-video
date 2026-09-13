@@ -43,8 +43,8 @@
   "submitted_at": "2026-07-25T09:30:00.000Z",
   "comments": [
     {
-      "target_kind": "slot",          // "shot" | "slot" | "cut"
-      "target_id": "s-demo",          // shot/cut は配列インデックス文字列・slot は plan.json の slots[].id
+      "target_kind": "clip",          // "shot" | "clip" | "cut"。"slot" は退役
+      "target_id": "item-demo",       // scaffold の clip は edit.json v2 の item id
       "title": "操作デモ",             // 提出時点の対象名コピー（並べ替え検知用）
       "text": "画面収録の前に、書き出しボタンをクリックする瞬間まで映してほしい。"
     }
@@ -60,9 +60,9 @@
 | `pass` | enum | 要 | `structure` / `scaffold` / `final`（§4） |
 | `submitted_at` | string (ISO8601) | 要 | 提出時刻 |
 | `comments[]` | array | 要（空配列可） | 配列順に意味はない（対象名指しの集合） |
-| `comments[].target_kind` | enum | 要 | `shot` / `slot` / `cut` |
-| `comments[].target_id` | string | 要 | `shot`・`cut` は対象配列のインデックスを文字列化したもの（例 `"2"`）。`slot` は `plan.json` の `slots[].id` をそのまま使う（idごと持ち出せるため並べ替えに強い） |
-| `comments[].title` | string | 要 | 提出時点の対象名コピー（`shot` の `description` 冒頭 / `slot` の `label` / `cut` の `src` 等、読み手が実装時に選ぶ）。**並べ替え検知用の目視補助であり、参照解決には使わない**（参照解決は `target_id` のみで行う） |
+| `comments[].target_kind` | enum | 要 | `shot` / `clip` / `cut`。旧 `slot` は退役 |
+| `comments[].target_id` | string | 要 | `shot`・`cut` は対象配列のインデックスを文字列化したもの（例 `"2"`）。`clip` は edit.json v2 の item id |
+| `comments[].title` | string | 要 | 提出時点の対象名コピー（`shot` の `description` 冒頭 / `clip` の表示名 / `cut` の `src` 等、読み手が実装時に選ぶ）。**並べ替え検知用の目視補助であり、参照解決には使わない**（参照解決は `target_id` のみで行う） |
 | `comments[].text` | string | 要 | 指摘の逐語。要約・言い換えをしない |
 
 「要」= 値は空文字列を許さない（`comments[]` 自体は空配列を許す。提出はしたが個別指摘がない回はあり得るため）。
@@ -105,7 +105,7 @@
 | `pass` | 対象 `target_kind` | 読み手スキル | 対象データ |
 |---|---|---|---|
 | `structure` | `shot` | `skills/research-plan/storyboard.md`（`structure-confirm` 決定カードの差し戻し） | `research-plan.json` の `structure.chapters[]` / `structure.shots[]`（`shot` は `structure.shots[]` の配列インデックス） |
-| `scaffold` | `slot` | `skills/edit-plan/approvals-and-generation.md`（Checkpoint 2 素材計画の差し戻し） | `plan.json` の `slots[]`（`target_id` は `slots[].id`） |
+| `scaffold` | `clip` | `skills/edit-plan/approvals-and-generation.md`（Checkpoint 2 素材計画の差し戻し） | `edit.json` v2 の media item（`target_id` は item id）。旧 `slot` は退役 |
 | `final` | `cut` | `skills/edit-plan/approvals-and-generation.md`（Checkpoint 3 実行の差し戻し） | `edit.json` の `cuts[]`（`cut` は `cuts[]` の配列インデックス。`cuts[]` は永続 id を持たないため — `contract-2026-07-18-edit-json-v1-sources.md`） |
 
 3 つの組は 1 対 1 対応（`pass` が決まれば `target_kind` も決まる）。スキーマは
@@ -131,9 +131,8 @@
   現在の対象名と目視・機械比較することで「ズレ」を検知するための補助情報（正典は `target_id`）
 - **`shot`/`cut` がインデックス文字列である理由**: `research-plan.json` の `structure.shots[]` は
   id を持つが、GUI 側の実装を「今何番目のカードにコメントしたか」で完結させるため
-  インデックスに揃える。`slot` だけ `plan.json` の `slots[].id` を使うのは、
-  plan.json の slot が並べ替え時も id で安定して指せる設計（`contract-2026-07-20` §2）だから
-  ——同じ理由で cut は id を持たないため slot と同じ扱いにできない
+  インデックスに揃える。`scaffold` の `clip` は edit.json v2 の item id を使い、並べ替え後も
+  安定して対象を指す。旧 `slot` は plan.json の仮枠役とともに退役した
 - **`comments[]` を配列（連想配列でない）にした理由**: 同一対象への複数コメントを許す
   （1 対象 1 コメントに制限しない）
 - **状態を持たない理由**: `plan-comments.json` はイベント（差し戻し 1 回分）の記録であり、
@@ -147,8 +146,8 @@
 - **名指しされていない対象まで一緒に直す** — 誤り。名指し対象だけを改訂する（§3 の 3）
 - **`plan-comments.json` に `confidence` のような永続状態を持たせる** — 誤り。§0・§6。
   状態は plan.json 側の責務
-- **`slot` の `target_id` にインデックスを使う** — 誤り。`slot` は `plan.json` の `slots[].id`
-  を使う（`shot`/`cut` とは扱いが違う。§6）
+- **`scaffold` に `target_kind: "slot"` を使う** — 誤り。`slot` は退役済み。`target_kind: "clip"` と
+  edit.json v2 の item id を使う（§4・§6）
 - **提出のたび追記する（過去の `comments[]` を残したまま足す）** — 誤り。§2。1 回の提出 = 1 回の
   上書き作成。回収済みの指摘を残さない
 
