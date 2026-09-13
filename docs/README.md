@@ -78,6 +78,7 @@ All contracts follow the
 | [contract-2026-08-03-status-integrity-v1.md](./contract-2026-08-03-status-integrity-v1.md) | Canonical status, immutable render receipts, human acceptance records, and capability absence receipts |
 | [contract-2026-08-03-caption-display-encoding-qc-v1.md](./contract-2026-08-03-caption-display-encoding-qc-v1.md) | Shared caption display/layout, master encoding, audio QC evidence, and recipe boundaries |
 | [contract-2026-09-13-generation-v0.md](./contract-2026-09-13-generation-v0.md) | Generation v0: placeholder clips, nine normalized input slots, sidecar metadata, model capabilities, state, replacement, and cost approval (Japanese) |
+| [contract-2026-09-13-world-map-v0.md](./contract-2026-09-13-world-map-v0.md) | World map v0: schema, camera function, rendering model, CLI, overview, and production flow (Japanese) |
 
 ### edit.json (the editing save file)
 
