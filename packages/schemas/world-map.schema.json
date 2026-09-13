@@ -1,0 +1,166 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:akari-video:schema:world-map:v3",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "kind", "worlds", "zones", "cameraStops", "edges", "retainedNodes"],
+  "properties": {
+    "schemaVersion": { "const": 3 },
+    "kind": { "enum": ["flat", "spatial"] },
+    "worlds": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "label"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "label": { "type": "string", "minLength": 1 },
+          "palette": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["background", "dots", "accent"],
+            "properties": {
+              "background": { "$ref": "#/$defs/color" },
+              "dots": { "$ref": "#/$defs/color" },
+              "accent": { "$ref": "#/$defs/color" },
+              "haze": { "$ref": "#/$defs/color" }
+            }
+          },
+          "flat": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["bounds", "pattern"],
+            "properties": {
+              "bounds": { "$ref": "#/$defs/vector4" },
+              "pattern": { "enum": ["dots", "grid", "none"] },
+              "far": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["z", "color"],
+                  "properties": {
+                    "z": { "type": "number", "minimum": 0, "maximum": 1 },
+                    "color": { "$ref": "#/$defs/color" }
+                  }
+                }
+              }
+            }
+          },
+          "spatial": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["c"],
+            "properties": {
+              "c": { "$ref": "#/$defs/vector3" },
+              "floor": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["center", "size"],
+                "properties": {
+                  "center": { "$ref": "#/$defs/vector3" },
+                  "size": { "$ref": "#/$defs/vector2" }
+                }
+              },
+              "background": { "type": "array", "items": { "type": "number" } },
+              "haze": { "type": "array", "items": { "type": "number" } }
+            }
+          }
+        }
+      }
+    },
+    "zones": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "world", "c"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "label": { "type": "string", "minLength": 1 },
+          "world": { "type": "string", "minLength": 1 },
+          "c": { "type": "array", "items": { "type": "number" } }
+        }
+      }
+    },
+    "cameraStops": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "world", "at", "leave"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "label": { "type": "string", "minLength": 1 },
+          "world": { "type": "string", "minLength": 1 },
+          "at": { "type": "number" },
+          "leave": { "type": "number" },
+          "c": { "$ref": "#/$defs/vector3" },
+          "eye": { "$ref": "#/$defs/vector3" },
+          "target": { "$ref": "#/$defs/vector3" }
+        }
+      }
+    },
+    "edges": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "from", "to", "type", "t0", "t1", "transition"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "from": { "type": "string", "minLength": 1 },
+          "to": { "type": "string", "minLength": 1 },
+          "type": { "enum": ["move", "portal", "cut"] },
+          "t0": { "type": "number" },
+          "t1": { "type": "number" },
+          "switchTime": { "type": "number" },
+          "transition": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["kind", "cover"],
+            "properties": {
+              "kind": { "enum": ["none", "dive", "mist", "occluder", "fade", "push"] },
+              "cover": { "type": ["number", "null"] }
+            }
+          },
+          "via": { "type": "string", "minLength": 1 },
+          "carry": { "type": "array", "items": { "type": "string" } },
+          "easing": { "enum": ["ease-in-out", "linear"] }
+        }
+      }
+    },
+    "retainedNodes": { "type": "array", "items": { "type": "string" } },
+    "inventory": { "type": "array" }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "kind": { "const": "flat" } }, "required": ["kind"] },
+      "then": {
+        "properties": {
+          "worlds": { "items": { "required": ["flat"] } },
+          "zones": { "items": { "properties": { "c": { "$ref": "#/$defs/vector2" } } } },
+          "cameraStops": { "items": { "required": ["c"] } }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "kind": { "const": "spatial" } }, "required": ["kind"] },
+      "then": {
+        "properties": {
+          "worlds": { "items": { "required": ["spatial"] } },
+          "zones": { "items": { "properties": { "c": { "$ref": "#/$defs/vector3" } } } },
+          "cameraStops": { "items": { "required": ["eye", "target"] } }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "color": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$" },
+    "vector2": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": "number" } },
+    "vector3": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "number" } },
+    "vector4": { "type": "array", "minItems": 4, "maxItems": 4, "items": { "type": "number" } }
+  }
+}

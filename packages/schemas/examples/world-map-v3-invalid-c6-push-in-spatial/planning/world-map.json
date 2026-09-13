@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 3,
+  "kind": "spatial",
+  "worlds": [
+    { "id": "hall", "label": "Hall", "palette": { "background": "#182235", "dots": "#566a80", "accent": "#f3b65f", "haze": "#ccd9e6" }, "spatial": { "c": [0, 0, 0], "floor": { "center": [8, 0, -2], "size": [32, 18] } } },
+    { "id": "vault", "label": "Vault", "palette": { "background": "#261d32", "dots": "#6f5a7e", "accent": "#82d4ba", "haze": "#b9a9ca" }, "spatial": { "c": [48, 4, -12], "floor": { "center": [52, 0, -9], "size": [26, 22] } } }
+  ],
+  "zones": [
+    { "id": "hall-door", "world": "hall", "c": [-4, 2, 9] },
+    { "id": "hall-center", "world": "hall", "c": [12, 1, -3] },
+    { "id": "vault-stair", "world": "vault", "c": [43, 5, -2] },
+    { "id": "vault-core", "world": "vault", "c": [58, 3, -15] }
+  ],
+  "cameraStops": [
+    { "id": "hall-door", "world": "hall", "at": 0, "leave": 1.8, "eye": [-8, 5, 15], "target": [-4, 2, 9] },
+    { "id": "hall-center", "world": "hall", "at": 2.6, "leave": 4.2, "eye": [17, 7, 8], "target": [12, 1, -3] },
+    { "id": "vault-stair", "world": "vault", "at": 5.4, "leave": 7.0, "eye": [37, 10, 7], "target": [43, 5, -2] },
+    { "id": "vault-core", "world": "vault", "at": 7.8, "leave": 9.4, "eye": [64, 9, -5], "target": [58, 3, -15] }
+  ],
+  "edges": [
+    { "id": "door-center", "from": "hall-door", "to": "hall-center", "type": "move", "t0": 1.8, "t1": 2.6, "transition": { "kind": "none", "cover": 0 } },
+    { "id": "center-stair", "from": "hall-center", "to": "vault-stair", "type": "portal", "t0": 4.2, "t1": 5.4, "switchTime": 4.8, "transition": { "kind": "push", "cover": 0.22 }, "via": "vault-stair", "carry": ["key-ring"] },
+    { "id": "stair-core", "from": "vault-stair", "to": "vault-core", "type": "move", "t0": 7.0, "t1": 7.8, "transition": { "kind": "none", "cover": 0 } }
+  ],
+  "retainedNodes": ["key-ring"]
+}

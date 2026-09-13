@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 2,
+  "worlds": [
+    { "id": "amber-bay", "label": "Amber Bay", "palette": { "floor": "#2b3244", "dots": "#62728a", "paper": "#efb96c", "haze": "#ced7e4" }, "c": [3, 0, 5], "floor": { "center": [5, 0, 1], "size": [24, 16] }, "background": [11, 12], "haze": [21] },
+    { "id": "violet-nook", "label": "Violet Nook", "palette": { "floor": "#30243c", "dots": "#735e82", "paper": "#85d0bd", "haze": "#c8b8d4" }, "c": [44, 2, -9], "floor": { "center": [47, 0, -7], "size": [20, 14] }, "background": [31], "haze": [41, 42] }
+  ],
+  "zones": [
+    { "id": "amber-gate", "world": "amber-bay", "c": [-2, 2, 8], "color": "gold", "rot": [0, 1, 0], "parent": "root-a" },
+    { "id": "amber-dais", "world": "amber-bay", "c": [13, 3, -1], "color": "sand", "rot": [0, 0, 0], "parent": "root-a" },
+    { "id": "violet-step", "world": "violet-nook", "c": [39, 4, -2], "color": "lilac", "rot": [0, 2, 0], "parent": "root-b" },
+    { "id": "violet-lamp", "world": "violet-nook", "c": [54, 6, -13], "color": "mint", "rot": [0, 0, 1], "parent": "root-b" }
+  ],
+  "cameraStops": [
+    { "id": "amber-gate", "world": "amber-bay", "at": 0, "leave": 1.2, "eye": [-6, 6, 14], "target": [-2, 2, 8] },
+    { "id": "amber-dais", "world": "amber-bay", "at": 2, "leave": 3.4, "eye": [18, 8, 7], "target": [13, 3, -1] },
+    { "id": "violet-step", "world": "violet-nook", "at": 4.6, "leave": 6, "eye": [34, 9, 7], "target": [39, 4, -2] },
+    { "id": "violet-lamp", "world": "violet-nook", "at": 6.8, "leave": 8.2, "eye": [60, 10, -4], "target": [54, 6, -13] }
+  ],
+  "edges": [
+    { "from": "amber-gate", "to": "amber-dais", "type": "move", "t0": 1.2, "t1": 2 },
+    { "from": "amber-dais", "to": "violet-step", "type": "portal", "t0": 3.4, "t1": 4.6, "via": "violet-step", "carry": ["token"], "entry": "old" },
+    { "from": "violet-step", "to": "violet-lamp", "type": "move", "t0": 6, "t1": 6.8 }
+  ],
+  "retainedNodes": ["token"],
+  "inventory": [{ "id": "fictional-orb" }],
+  "nodeCount": 77
+}

@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 2,
+  "kind": "flat",
+  "worlds": [{ "id": "paper-room", "label": "Paper Room", "palette": { "background": "#faf4e8", "dots": "#cabfa9", "accent": "#e56f52" }, "bounds": [-12, 8, 96, 52], "atlas": "invented-sheet.svg", "pattern": "grid" }],
+  "zones": [{ "id": "paper-entry", "label": "Entry", "world": "paper-room", "c": [2, 18] }, { "id": "paper-board", "world": "paper-room", "c": [71, 42] }],
+  "cameraStops": [{ "id": "paper-entry", "world": "paper-room", "at": 0, "leave": 1.5, "c": [2, 18, 1] }, { "id": "paper-board", "world": "paper-room", "at": 2.2, "leave": 4.0, "c": [71, 42, 1.3] }],
+  "edges": [{ "id": "entry-board", "from": "paper-entry", "to": "paper-board", "type": "move", "t0": 1.5, "t1": 2.2 }],
+  "retainedNodes": [],
+  "inventory": [{ "id": "fictional-card" }]
+}

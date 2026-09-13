@@ -1,0 +1,34 @@
+{
+  "schemaVersion": 3,
+  "kind": "flat",
+  "worlds": [
+    { "id": "atelier", "label": "A · 工房", "palette": { "background": "#f4efe6", "dots": "#c7bfae", "accent": "#e8874f", "haze": "#fff8ed" }, "flat": { "bounds": [-40, -20, 180, 100], "pattern": "dots", "far": [{ "z": 0.35, "color": "#d9e8d2" }] } },
+    { "id": "garden", "label": "B · 庭", "palette": { "background": "#e8f2de", "dots": "#abc99f", "accent": "#f0a854", "haze": "#f7ffe9" }, "flat": { "bounds": [160, 30, 220, 140], "pattern": "grid" } },
+    { "id": "attic", "label": "C · 屋根裏", "palette": { "background": "#302d3d", "dots": "#69627d", "accent": "#f2c66d", "haze": "#bbb4d2" }, "flat": { "bounds": [410, -60, 170, 120], "pattern": "none" } }
+  ],
+  "zones": [
+    { "id": "atelier-desk", "label": "机", "world": "atelier", "c": [10, 12] },
+    { "id": "atelier-shelf", "label": "棚", "world": "atelier", "c": [92, 38] },
+    { "id": "garden-pond", "label": "池", "world": "garden", "c": [205, 84] },
+    { "id": "garden-arch", "label": "門", "world": "garden", "c": [344, 57] },
+    { "id": "attic-ladder", "label": "梯子", "world": "attic", "c": [438, -8] },
+    { "id": "attic-window", "label": "窓", "world": "attic", "c": [444, -4] }
+  ],
+  "cameraStops": [
+    { "id": "atelier-desk", "world": "atelier", "at": 0, "leave": 2.0, "c": [10, 12, 1.1] },
+    { "id": "atelier-shelf", "world": "atelier", "at": 2.8, "leave": 4.4, "c": [92, 38, 1.25] },
+    { "id": "garden-pond", "world": "garden", "at": 5.6, "leave": 7.2, "c": [205, 84, 0.95] },
+    { "id": "garden-arch", "world": "garden", "at": 8.0, "leave": 9.6, "c": [344, 57, 1.35] },
+    { "id": "attic-ladder", "world": "attic", "at": 10.8, "leave": 12.4, "c": [438, -8, 1.05] },
+    { "id": "attic-window", "world": "attic", "at": 13.2, "leave": 15.0, "c": [444, -4, 1.09] }
+  ],
+  "edges": [
+    { "id": "desk-shelf", "from": "atelier-desk", "to": "atelier-shelf", "type": "move", "t0": 2.0, "t1": 2.8, "transition": { "kind": "none", "cover": 0 } },
+    { "id": "shelf-pond", "from": "atelier-shelf", "to": "garden-pond", "type": "portal", "t0": 4.4, "t1": 5.6, "switchTime": 5.0, "transition": { "kind": "dive", "cover": 0.18 }, "via": "garden-pond", "carry": ["lantern"] },
+    { "id": "pond-arch", "from": "garden-pond", "to": "garden-arch", "type": "move", "t0": 7.0, "t1": 8.0, "transition": { "kind": "none", "cover": 0 } },
+    { "id": "arch-ladder", "from": "garden-arch", "to": "attic-ladder", "type": "cut", "t0": 9.6, "t1": 10.8, "switchTime": 10.2, "transition": { "kind": "mist", "cover": 0.24 }, "via": "attic-hatch", "carry": ["lantern", "note-card"] },
+    { "id": "ladder-window", "from": "attic-ladder", "to": "attic-window", "type": "move", "t0": 12.4, "t1": 13.2, "transition": { "kind": "none", "cover": 0 }, "easing": "linear" }
+  ],
+  "retainedNodes": ["lantern", "note-card"],
+  "inventory": [{ "id": "paper-star", "category": "decoration" }]
+}
