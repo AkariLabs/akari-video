@@ -1,0 +1,27 @@
+{
+  "version": 2,
+  "output": { "width": 640, "height": 360, "fps": 30 },
+  "sources": [
+    { "id": "none", "path": "assets/generated/none.png" },
+    { "id": "planned", "path": "assets/generated/planned.png" },
+    { "id": "generating", "path": "assets/generated/generating.png" },
+    { "id": "stale", "path": "assets/generated/stale.png" },
+    { "id": "done", "path": "assets/generated/done.mp4" },
+    { "id": "failed", "path": "assets/generated/failed.png" }
+  ],
+  "tracks": [
+    {
+      "id": "video",
+      "lane": "visual",
+      "name": "生成状態",
+      "items": [
+        { "id": "clip-none", "at": 0, "duration": 30, "source": { "kind": "media", "src": "none", "in": 0, "out": 1 } },
+        { "id": "clip-planned", "at": 30, "duration": 30, "source": { "kind": "media", "src": "planned", "in": 0, "out": 1 } },
+        { "id": "clip-generating", "at": 60, "duration": 30, "source": { "kind": "media", "src": "generating", "in": 0, "out": 1 } },
+        { "id": "clip-stale", "at": 90, "duration": 30, "source": { "kind": "media", "src": "stale", "in": 0, "out": 1 } },
+        { "id": "clip-done", "at": 120, "duration": 30, "source": { "kind": "media", "src": "done", "in": 0, "out": 1 } },
+        { "id": "clip-failed", "at": 150, "duration": 30, "source": { "kind": "media", "src": "failed", "in": 0, "out": 1 } }
+      ]
+    }
+  ]
+}

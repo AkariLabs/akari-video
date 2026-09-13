@@ -3,6 +3,9 @@ import { ClipboardKind, PasteTrack, TimelineFragment, TimelineClipboardSnapshot,
     fragmentForSelection, cutTimelineFragment, pasteTimelineFragment, planPaste, serializeTimelineFragment } from '../common/timeline-clipboard';
 import { clipKindBadge, ClipKindBadgeContext, ClipKindBadgeItem } from '../common/clip-kind-badge';
 import { timelineTabCaption } from '../common/timeline-tab-caption';
+import {
+    describeGenerationChip, GenerationSidecarMeta, GenerationState, resolveGenerationState
+} from '../common/generation-sidecar';
 import { HOVER_POPUP_DELAY_MS, hoverPopupGeometry } from '../common/hover-popup-geometry';
 import { createCaptionHoverPreview } from '../common/caption-hover-preview';
 import { visualHoverMode } from '../common/visual-hover-mode';
@@ -94,6 +97,10 @@ import {
     waveformPeakForPxRange,
     waveformHeightForPeak
 } from '../common/filmstrip-geometry';
+
+// webpack（theia build）の css-loader が拾う。node の単体テストは .css を読めないので握りつぶす。
+// パスは lib/browser/ からの相対 — @theia/core の frontend-application-module と同じ流儀。
+try { require('../../src/browser/style/generation-chip.css'); } catch { /* node 単体テスト環境 */ }
 import {
     canRenderClipMedia, filmstripCellCount,
     isMediaCacheFailure, MediaCacheFailure, mediaCacheRequestAttempt
@@ -904,6 +911,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
      */
     protected editSources: InternalSource[] = [];
     protected sourceMap = new Map<string, ResolvedEditSource>();
+    protected generationSidecars = new Map<string, GenerationSidecarMeta>();
+    protected generationSidecarReload = 0;
     /** 上記を videoUri へ解決した結果。Out クランプの実尺取得専用に使う。 */
     protected defaultSource: ResolvedEditSource | undefined;
     protected overlays: EditOverlay[] = [];
@@ -5754,6 +5763,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 void this.reloadEdit();
             }
             if (event.contains(this.location.captionsUri)) void this.reloadCaptionsIfChanged();
+            if (event.changes.some(change => change.resource.path.toString().endsWith('.meta.json'))) {
+                void this.reloadGenerationSidecars();
+            }
             if (this.location.analysisUri && event.contains(this.location.analysisUri)) {
                 void this.reloadAnalysis();
             }
@@ -6115,6 +6127,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         if (generation !== this.editReloadGeneration) return;
         this.syncTimelineTrackTogglesToPreview();
         await this.loadTrackHeights();
+        await this.reloadGenerationSidecars(false);
         if (generation === this.editReloadGeneration) this.renderStrip();
     }
 
@@ -6796,6 +6809,88 @@ export class AkariAnnotationsWidget extends BaseWidget {
             return new URI(path).withScheme('file');
         }
         return editUri.parent.resolve(path).normalizePath();
+    }
+
+    protected async reloadGenerationSidecars(render = true): Promise<void> {
+        const location = this.location;
+        const generation = ++this.generationSidecarReload;
+        if (!location) return;
+        const directMediaPaths: string[] = [];
+        type RawGenerationItem = { children?: RawGenerationItem[]; source?: { kind?: string; path?: string } };
+        const visit = (items: RawGenerationItem[]): void => {
+            for (const item of items) {
+                if (item.source?.kind === 'media' && typeof item.source.path === 'string') {
+                    directMediaPaths.push(item.source.path);
+                }
+                if (Array.isArray(item.children)) visit(item.children);
+            }
+        };
+        for (const track of (this.editDocument?.tracks ?? []) as Array<{ items?: RawGenerationItem[] }>) {
+            if (Array.isArray(track.items)) visit(track.items);
+        }
+        const sourcePaths = [...new Set([
+            ...this.editSources.flatMap(source => typeof source.path === 'string' ? [source.path] : []),
+            ...directMediaPaths
+        ])];
+        try {
+            const result = await this.annotationsService.readGenerationSidecars({
+                projectRootUri: location.root.toString(), sourcePaths
+            });
+            if (generation !== this.generationSidecarReload) return;
+            this.generationSidecars = new Map(result.entries.map(entry => [entry.sourcePath, entry.meta]));
+        } catch {
+            if (generation !== this.generationSidecarReload) return;
+            this.generationSidecars.clear();
+        }
+        if (render) this.renderStrip();
+    }
+
+    protected generationForPath(path: string | undefined): { state: GenerationState; meta?: GenerationSidecarMeta } | undefined {
+        if (!path) return undefined;
+        const meta = this.generationSidecars.get(path);
+        const isStill = /\.(?:png|jpe?g|webp)$/iu.test(path);
+        if (!meta && !isStill) return undefined;
+        return { state: resolveGenerationState(meta, Date.now()), meta };
+    }
+
+    protected applyGenerationChip(
+        element: HTMLElement, generation: { state: GenerationState; meta?: GenerationSidecarMeta } | undefined
+    ): void {
+        element.classList.remove(
+            'akari-generation-none', 'akari-generation-planned', 'akari-generation-generating',
+            'akari-generation-stale', 'akari-generation-done', 'akari-generation-failed'
+        );
+        element.dataset.akariGenerationState = generation?.state ?? 'none';
+        let badge = element.querySelector<HTMLElement>(':scope > [data-akari-generation-badge]');
+        let progress = element.querySelector<HTMLElement>(':scope > [data-akari-generation-progress]');
+        if (!generation) {
+            badge?.remove();
+            progress?.remove();
+            return;
+        }
+        const description = describeGenerationChip(generation.state, generation.meta);
+        element.classList.add(description.className);
+        if (!badge) {
+            badge = document.createElement('span');
+            badge.dataset.akariGenerationBadge = '';
+            element.appendChild(badge);
+        }
+        badge.className = 'akari-generation-badge';
+        badge.textContent = description.badge;
+        badge.title = description.title;
+        if (generation.state === 'generating') {
+            if (!progress) {
+                progress = document.createElement('span');
+                progress.dataset.akariGenerationProgress = '';
+                element.appendChild(progress);
+            }
+            progress.className = description.progress === undefined
+                ? 'akari-generation-progress akari-generation-progress-indeterminate' : 'akari-generation-progress';
+            progress.dataset.akariGenerationProgress = description.progress === undefined ? '' : String(description.progress);
+            progress.style.width = description.progress === undefined ? '' : `${description.progress}%`;
+        } else {
+            progress?.remove();
+        }
     }
 
     protected captionReloadGeneration = 0;
@@ -7803,8 +7898,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
             const label = typeof captionId === 'string'
                 ? this.captions.find(caption => caption.id === captionId)?.text ?? row.label
                 : String(raw?.name ?? row.label);
+            const path = badgeSources.find(source => source.id === raw?.source?.src)?.path
+                ?? (typeof raw?.source?.path === 'string' ? raw.source.path : undefined);
+            const generation = row.sourceKind === 'media' ? this.generationForPath(path) : undefined;
             const { element, created } = this.keyedStripSegment(
-                `tree:${row.id}`, JSON.stringify({ row, label }), row.at, row.at + row.duration,
+                `tree:${row.id}`, JSON.stringify({ row, label, generation }), row.at, row.at + row.duration,
                 layout.top + rowIndex * this.timelineRowStride(row.trackId),
                 row.sourceKind === 'caption' || row.sourceKind === 'captions' ? SUBROW_HEIGHT : this.timelineRowStride(row.trackId) - SUBROW_GAP,
                 'akari-annotations-strip-overlay akari-timeline-tree-item', label
@@ -7815,8 +7913,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
             element.dataset.akariTreeParentId = row.parentId ?? '';
             element.dataset.akariTreeTrackId = row.trackId;
             element.style.pointerEvents = 'auto';
+            this.applyGenerationChip(element, generation);
             if (created) {
-                const path = badgeSources.find(source => source.id === raw?.source?.src)?.path;
                 this.appendClipKindBadge(element, raw, { path });
                 element.appendChild(this.segmentLabel(label));
                 this.appendMotionMarks(element, this.rawKeyframeItem(row.id)?.motion);
@@ -8313,6 +8411,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             const clipWidth = stripLayoutWidthPx * widthPercent / 100;
             const cutWaveform = this.waveformCache.get(`${cut.src ?? ''}:${cut.in}:${cut.out}`);
             const cutTrimmerActive = this.trimmerItemId === segment.index;
+            const cutGeneration = this.generationForPath(this.sourceMap.get(cut.src)?.path ?? cut.src);
             // ズーム幾何（layoutViewDuration / stripLayoutWidthPx）とチャンク到着リビジョンは署名に入れない:
             // 再利用ノードは updateClipMediaGeometry が CSS / canvas だけを更新する（パンと同じ経路）。
             // 以前はズーム 1 イベントごとに全 cut チップ（フィルムストリップ最大 160 セル・波形 canvas・
@@ -8322,7 +8421,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 cut, segment, this.videoClipLabel(cutItemId, cut), cutLayout.height, cutTrimmerActive,
                 cutTrimmerActive ? [this.layoutViewDuration, stripLayoutWidthPx, this.filmstripContentRevision] : 0,
                 Array.isArray(cutWaveform) ? `ready:${cutWaveform.length}` : cutWaveform,
-                unsupportedDeclaredTransitions.has(segment.index)
+                unsupportedDeclaredTransitions.has(segment.index), cutGeneration
             ]);
             const { element, created } = this.keyedStripSegment(
                 `cut:${segment.index}`, cutSignature, segment.tlStart, segment.tlEnd,
@@ -8415,6 +8514,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     element.style.cursor = 'crosshair';
                 }
             }
+            this.applyGenerationChip(element, cutGeneration);
             if (created && unsupportedDeclaredTransitions.has(segment.index)) {
                 const warning = document.createElement('button');
                 warning.type = 'button';

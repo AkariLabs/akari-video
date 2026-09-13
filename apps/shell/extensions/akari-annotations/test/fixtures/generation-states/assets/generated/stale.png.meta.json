@@ -1,0 +1,6 @@
+{
+  "version": 1,
+  "kind": "still",
+  "status": "generating",
+  "job": { "started_at": "2026-09-13T00:00:00.000Z", "stale_after_s": 900 }
+}
