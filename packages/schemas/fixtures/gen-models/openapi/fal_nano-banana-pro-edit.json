@@ -1,0 +1,463 @@
+{
+  "openapi": "3.0.4",
+  "info": {
+    "title": "Queue OpenAPI for fal-ai/nano-banana-pro/edit",
+    "version": "1.0.0",
+    "description": "The OpenAPI schema for the fal-ai/nano-banana-pro/edit queue.",
+    "x-fal-metadata": {
+      "endpointId": "fal-ai/nano-banana-pro/edit",
+      "category": "image-to-image",
+      "playgroundUrl": "<url-removed>",
+      "documentationUrl": "<url-removed>",
+      "about": "Gemini 3 Pro Image is a text-to-image model that generates images from text descriptions.\n\nDecompression-bomb inputs to ``image_urls`` are rejected upstream by\n``validate_image_async`` (called from ``GoogleAIClient._format_image``):\nthe validator now enforces a header-only ``max_image_pixels`` cap\n(default 89,478,485 ≈ PIL's ``MAX_IMAGE_PIXELS``) *before* any pixel\ndecode, so oversized inputs raise a deterministic 422\n``image_too_large`` instead of OOM-killing the runner and taking out\nevery multiplexed request on it (``max_multiplexing=20``)."
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "apiKeyAuth": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "Authorization",
+        "description": "Fal Key"
+      }
+    },
+    "schemas": {
+      "QueueStatus": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "IN_QUEUE",
+              "IN_PROGRESS",
+              "COMPLETED"
+            ]
+          },
+          "request_id": {
+            "type": "string",
+            "description": "The request id."
+          },
+          "response_url": {
+            "type": "string",
+            "description": "The response url."
+          },
+          "status_url": {
+            "type": "string",
+            "description": "The status url."
+          },
+          "cancel_url": {
+            "type": "string",
+            "description": "The cancel url."
+          },
+          "logs": {
+            "type": "object",
+            "description": "The logs.",
+            "additionalProperties": true
+          },
+          "metrics": {
+            "type": "object",
+            "description": "The metrics.",
+            "additionalProperties": true
+          },
+          "queue_position": {
+            "type": "integer",
+            "description": "The queue position."
+          }
+        },
+        "required": [
+          "status",
+          "request_id"
+        ]
+      },
+      "NanoBananaProEditInput": {
+        "properties": {
+          "resolution": {
+            "type": "string",
+            "description": "The resolution of the image to generate.",
+            "enum": [
+              "1K",
+              "2K",
+              "4K"
+            ],
+            "title": "Resolution",
+            "default": "1K"
+          },
+          "enable_web_search": {
+            "type": "boolean",
+            "description": "Enable web search for the image generation task. This will allow the model to use the latest information from the web to generate the image.",
+            "default": false,
+            "title": "Enable Web Search"
+          },
+          "sync_mode": {
+            "type": "boolean",
+            "description": "If `True`, the media will be returned as a data URI and the output data won't be available in the request history.",
+            "default": false,
+            "title": "Sync Mode"
+          },
+          "aspect_ratio": {
+            "description": "The aspect ratio of the generated image.",
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "auto",
+                  "21:9",
+                  "16:9",
+                  "3:2",
+                  "4:3",
+                  "5:4",
+                  "1:1",
+                  "4:5",
+                  "3:4",
+                  "2:3",
+                  "9:16"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Aspect Ratio",
+            "default": "auto"
+          },
+          "seed": {
+            "description": "The seed for the random number generator.",
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Seed"
+          },
+          "output_format": {
+            "type": "string",
+            "description": "The format of the generated image.",
+            "enum": [
+              "jpeg",
+              "png",
+              "webp"
+            ],
+            "title": "Output Format",
+            "default": "png"
+          },
+          "safety_tolerance": {
+            "type": "string",
+            "description": "The safety tolerance level for content moderation. 1 is the most strict (blocks most content), 6 is the least strict.",
+            "enum": [
+              "1",
+              "2",
+              "3",
+              "4",
+              "5",
+              "6"
+            ],
+            "title": "Safety Tolerance",
+            "default": "4"
+          },
+          "image_urls": {
+            "description": "The URLs of the images to use for image-to-image generation or image editing.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "title": "Image URLs"
+          },
+          "prompt": {
+            "maxLength": 50000,
+            "description": "The prompt for image editing.",
+            "type": "string",
+            "minLength": 3,
+            "title": "Prompt"
+          },
+          "system_prompt": {
+            "type": "string",
+            "maxLength": 50000,
+            "description": "Optional system instruction that steers the model's persona and output style across the request. Leave blank to omit; when provided, it is sent as the system instruction to Gemini (or as a system message on OpenAI-compatible providers).",
+            "default": "",
+            "title": "System Prompt"
+          },
+          "limit_generations": {
+            "type": "boolean",
+            "description": "Experimental parameter to limit the number of generations from each round of prompting to 1. Set to `True` to to disregard any instructions in the prompt regarding the number of images to generate.",
+            "default": true,
+            "title": "Limit Generations"
+          },
+          "num_images": {
+            "maximum": 4,
+            "description": "The number of images to generate.",
+            "minimum": 1,
+            "type": "integer",
+            "default": 1,
+            "title": "Number of Images"
+          }
+        },
+        "required": [
+          "prompt",
+          "image_urls"
+        ],
+        "type": "object",
+        "x-fal-order-properties": [
+          "prompt",
+          "num_images",
+          "seed",
+          "aspect_ratio",
+          "output_format",
+          "safety_tolerance",
+          "sync_mode",
+          "image_urls",
+          "system_prompt",
+          "resolution",
+          "limit_generations",
+          "enable_web_search"
+        ],
+        "title": "NanoBananaImageToImageInput"
+      },
+      "NanoBananaProEditOutput": {
+        "properties": {
+          "description": {
+            "type": "string",
+            "description": "The description of the generated images.",
+            "title": "Description"
+          },
+          "images": {
+            "description": "The edited images.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ImageFile"
+            },
+            "title": "Images"
+          }
+        },
+        "required": [
+          "images",
+          "description"
+        ],
+        "type": "object",
+        "x-fal-order-properties": [
+          "images",
+          "description"
+        ],
+        "title": "NanoBananaImageToImageOutput"
+      },
+      "ImageFile": {
+        "properties": {
+          "content_type": {
+            "description": "The mime type of the file.",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Content Type"
+          },
+          "height": {
+            "description": "The height of the image",
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Height"
+          },
+          "url": {
+            "type": "string",
+            "description": "The URL where the file can be downloaded from.",
+            "title": "Url"
+          },
+          "file_name": {
+            "description": "The name of the file. It will be auto-generated if not provided.",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "File Name"
+          },
+          "file_size": {
+            "description": "The size of the file in bytes.",
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "File Size"
+          },
+          "width": {
+            "description": "The width of the image",
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Width"
+          }
+        },
+        "required": [
+          "url"
+        ],
+        "type": "object",
+        "x-fal-order-properties": [
+          "url",
+          "content_type",
+          "file_name",
+          "file_size",
+          "width",
+          "height"
+        ],
+        "title": "ImageFile"
+      }
+    }
+  },
+  "paths": {
+    "/fal-ai/nano-banana-pro/edit/requests/{request_id}/status": {
+      "get": {
+        "parameters": [
+          {
+            "name": "request_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Request ID"
+            }
+          },
+          {
+            "name": "logs",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "number",
+              "description": "Whether to include logs (`1`) in the response or not (`0`)."
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The request status.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QueueStatus"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/fal-ai/nano-banana-pro/edit/requests/{request_id}/cancel": {
+      "put": {
+        "parameters": [
+          {
+            "name": "request_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Request ID"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The request was cancelled.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "description": "Whether the request was cancelled successfully."
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/fal-ai/nano-banana-pro/edit": {
+      "post": {
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NanoBananaProEditInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The request status.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QueueStatus"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/fal-ai/nano-banana-pro/edit/requests/{request_id}": {
+      "get": {
+        "parameters": [
+          {
+            "name": "request_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Request ID"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Result of the request.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NanoBananaProEditOutput"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "servers": [
+    {
+      "url": "https://queue.fal.run"
+    }
+  ],
+  "security": [
+    {
+      "apiKeyAuth": []
+    }
+  ]
+}
