@@ -106,13 +106,13 @@ test("正常系: queue 完了後に meta done と item 差し替えを 1 snapsho
   const fetchImpl = async (url, init) => {
     fetches += 1;
     if (String(url).startsWith("https://queue.fal.run/minimax/h3/image-to-video") && init?.method === "POST") {
-      return jsonResponse({ request_id: "req-1", status_url: "https://fake/status", response_url: "https://fake/response" });
+      return jsonResponse({ request_id: "req-1", status_url: "https://queue.fal.run/fake/status", response_url: "https://queue.fal.run/fake/response" });
     }
-    if (String(url).startsWith("https://fake/status")) {
+    if (String(url).startsWith("https://queue.fal.run/fake/status")) {
       return jsonResponse(fetches === 2 ? { status: "IN_QUEUE" } : { status: "COMPLETED" });
     }
-    if (url === "https://fake/response") return jsonResponse({ video: { url: "https://fake/video.mp4" }, expanded_prompt: "expanded" });
-    if (url === "https://fake/video.mp4") return new Response(mp4, { status: 200 });
+    if (url === "https://queue.fal.run/fake/response") return jsonResponse({ video: { url: "https://queue.fal.run/fake/video.mp4" }, expanded_prompt: "expanded" });
+    if (url === "https://queue.fal.run/fake/video.mp4") return new Response(mp4, { status: 200 });
     throw new Error(`unexpected fake URL ${url}`);
   };
   const result = await runVideoCommand([...baseArgs(root), "--yes", "--json"], {
@@ -150,7 +150,7 @@ test("FAILED は meta failed にし edit.json を変更しない", async (t) => 
   let fetches = 0;
   const fetchImpl = async (url, init) => {
     fetches += 1;
-    if (init?.method === "POST") return jsonResponse({ request_id: "req-fail", status_url: "https://fake/status", response_url: "https://fake/response" });
+    if (init?.method === "POST") return jsonResponse({ request_id: "req-fail", status_url: "https://queue.fal.run/fake/status", response_url: "https://queue.fal.run/fake/response" });
     return jsonResponse({ status: "FAILED", error: "provider error" });
   };
   const result = await runVideoCommand([...baseArgs(root), "--yes"], {

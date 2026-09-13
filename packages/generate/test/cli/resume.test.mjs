@@ -44,7 +44,7 @@ async function generating(root, startedAt) {
     output: { duration_s: 6, resolution: "768P", aspect: null, audio_out: true },
     cost: { estimate_usd: 0.36, as_of: "2026-09-12", source: "estimate" },
     key_source: "env:FAL_KEY", request_id: "req-resume",
-    status_url: "https://fake/status", response_url: "https://fake/response",
+    status_url: "https://queue.fal.run/fake/status", response_url: "https://queue.fal.run/fake/response",
     started_at: startedAt, stale_after_s: 900,
   });
   return metaPath;
@@ -62,9 +62,9 @@ test("resume: COMPLETED を done にして同じ item へ差し替える", async
   const logs = [];
   const fetchImpl = async (url) => {
     fetches += 1;
-    if (String(url).startsWith("https://fake/status")) return jsonResponse({ status: "COMPLETED" });
-    if (url === "https://fake/response") return jsonResponse({ video: { url: "https://fake/video.mp4" }, expanded_prompt: "resume expanded" });
-    if (url === "https://fake/video.mp4") return new Response(mp4, { status: 200 });
+    if (String(url).startsWith("https://queue.fal.run/fake/status")) return jsonResponse({ status: "COMPLETED" });
+    if (url === "https://queue.fal.run/fake/response") return jsonResponse({ video: { url: "https://queue.fal.run/fake/video.mp4" }, expanded_prompt: "resume expanded" });
+    if (url === "https://queue.fal.run/fake/video.mp4") return new Response(mp4, { status: 200 });
     throw new Error(`unexpected fake URL ${url}`);
   };
   const result = await runResumeCommand([root, "--item", "clip-a"], {
