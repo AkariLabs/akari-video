@@ -59,9 +59,10 @@ import { isFillerWord, normalizeFillerWord } from '../../common/daihon-filler';
 import { clampRowCutRange, normalizeCutRanges, type DaihonCutRange } from '../../common/daihon-cut-plan';
 import {
     CUT_RANGE_PAD_SEC,
+    CUT_RANGE_MAGNET_TOL_SEC,
     clampCutRange,
-    cutRangeBounds,
     cutRangeIsSpeech,
+    cutRangeMagnets,
     cutRangePreviewSpans,
     cutRangeRatio,
     cutRangeReadout,
@@ -69,18 +70,29 @@ import {
     cutRangeTime,
     cutRangeWaveWindow,
     cutRangeWindow,
+    cutRangeWindowBounds,
     cutRangeWordBands,
+    cutRangeWordIntrusion,
     cutRangeZoomSpan,
     defaultCutRange,
     moveCutRangeEdge,
     resampleCutRangePeaks,
+    snapToMagnet,
     type DaihonCutRangeBand,
     type DaihonCutRangeSelection,
     type DaihonCutRangeTarget,
     type DaihonCutRangeWindow,
     type DaihonCutRangeWord
 } from '../../common/daihon-cut-range';
-import { DAIHON_SILENCE_DEFAULTS, findRowGaps, type DaihonRowGap } from '../../common/daihon-silence';
+import {
+    DAIHON_SILENCE_DEFAULTS,
+    DAIHON_SILENCE_DETECT_DEFAULTS,
+    parseSilenceSpans,
+    rowGapsWithSilences,
+    silencesInWindow,
+    type DaihonRowGap,
+    type DaihonSilenceSpan
+} from '../../common/daihon-silence';
 import { orderPresetsForPicker, presetCardStyle } from '../../common/daihon-preset-card';
 import {
     addWordRange, extendWordRange, normalizeWordRanges, removeWordRange, wordRangeSummary, wordsOf,
@@ -348,6 +360,8 @@ const STYLE = `
 .akari-daihon-cutrange .wave { position:relative; height:110px; border:1px solid #2a303a; border-radius:5px; background:#12151a; overflow:hidden; }
 .akari-daihon-cutrange canvas { display:block; width:100%; height:110px; }
 .akari-daihon-cutrange .bands { position:absolute; z-index:2; left:0; right:0; top:2px; height:15px; pointer-events:none; }
+.akari-daihon-cutrange .sils { position:absolute; z-index:1; inset:0; pointer-events:none; }
+.akari-daihon-cutrange .sil { position:absolute; top:0; bottom:0; box-sizing:border-box; background:rgba(150,158,172,.22); border-left:1px solid rgba(150,158,172,.5); border-right:1px solid rgba(150,158,172,.5); }
 .akari-daihon-cutrange .band { position:absolute; box-sizing:border-box; min-width:1px; padding:0 2px; overflow:hidden; color:#8ea99f; background:rgba(18,21,26,.78); font-size:8.5px; line-height:14px; text-overflow:ellipsis; white-space:nowrap; pointer-events:none; }
 .akari-daihon-cutrange .band.tgt { color:#7fe7d3; background:rgba(37,75,68,.86); font-weight:700; }
 .akari-daihon-cutrange .rng { position:absolute; top:0; bottom:0; background:rgba(255,138,91,.16); pointer-events:none; }
@@ -434,6 +448,7 @@ export class AkariDaihonWidget extends BaseWidget {
     protected displayKnobs: DaihonDisplayKnobs = readDaihonDisplayKnobs([]);
     protected segments: TimelineSegment[] = [];
     protected editSources: { id: string; path: string }[] = [];
+    protected silencesBySourceId = new Map<string, DaihonSilenceSpan[]>();
     protected rootUri: URI | undefined;
     protected editUri: URI | undefined;
     protected captionsUri: URI | undefined;
@@ -806,6 +821,8 @@ export class AkariDaihonWidget extends BaseWidget {
         this.closeCutRangeEditor();
         this.cutsButton.textContent = cutsJumpButtonLabel(null);
         this.editSources = await this.captionSources().catch(() => []);
+        this.silencesBySourceId = new Map();
+        void this.loadSilences();
         await this.refreshCaptionsButton(this.editSources).catch(error => {
             this.captionsButton.disabled = true;
             this.notify(this.errorMessage(error));
@@ -1004,12 +1021,110 @@ export class AkariDaihonWidget extends BaseWidget {
         return result;
     }
 
+    protected async loadSilences(): Promise<void> {
+        if (!this.editUri) return;
+        const sources = [...this.editSources];
+        const next = new Map<string, DaihonSilenceSpan[]>();
+        const timingSnapSilences = (root: unknown): unknown => {
+            if (!root || typeof root !== 'object') return undefined;
+            const record = root as Record<string, unknown>;
+            const direct = record.timing_snap;
+            if (direct && typeof direct === 'object'
+                && Object.prototype.hasOwnProperty.call(direct, 'silences')) {
+                return (direct as { silences?: unknown }).silences;
+            }
+            if (!Array.isArray(record.observations)) return undefined;
+            for (let index = record.observations.length - 1; index >= 0; index--) {
+                const observation = record.observations[index];
+                if (!observation || typeof observation !== 'object') continue;
+                const candidate = observation as { kind?: unknown; args?: unknown };
+                if (candidate.kind !== 'transcribe' || !candidate.args || typeof candidate.args !== 'object') continue;
+                const timing = (candidate.args as { timing_snap?: unknown }).timing_snap;
+                if (timing && typeof timing === 'object' && Object.prototype.hasOwnProperty.call(timing, 'silences')) {
+                    return (timing as { silences?: unknown }).silences;
+                }
+            }
+            return undefined;
+        };
+        await Promise.all(sources.map(async source => {
+            const sidecar = this.editUri!.parent.resolve(`.akari/sidecars/${source.path}.analysis`);
+            let raw: unknown;
+            try { raw = timingSnapSilences(JSON.parse(await this.readText(sidecar.resolve('analysis.json')))); } catch { /* fallback */ }
+            if (raw === undefined) {
+                try {
+                    const stat = await this.fileService.resolve(sidecar.resolve('transcripts'));
+                    const transcripts = [...(stat.children ?? [])]
+                        .filter(child => child.isFile && child.resource.path.base.endsWith('.json'))
+                        .sort((left, right) => right.resource.path.base.localeCompare(left.resource.path.base));
+                    for (const transcript of transcripts) {
+                        try { raw = timingSnapSilences(JSON.parse(await this.readText(transcript.resource))); } catch { /* next */ }
+                        if (raw !== undefined) break;
+                    }
+                } catch { /* fallback */ }
+            }
+            if (raw === undefined) {
+                try {
+                    const result = await this.annotationsService.getClipSilences({
+                        projectRootUri: this.editUri!.parent.toString(),
+                        videoUri: this.editUri!.parent.resolve(source.path).normalizePath().toString(),
+                        noiseDb: DAIHON_SILENCE_DETECT_DEFAULTS.noiseDb,
+                        minSec: DAIHON_SILENCE_DETECT_DEFAULTS.minSec
+                    });
+                    if (result.status === 'ready') raw = result.silences;
+                } catch { /* keep legacy gaps */ }
+            }
+            if (raw !== undefined) next.set(source.id, parseSilenceSpans(raw));
+        }));
+        if (sources.length !== this.editSources.length
+            || sources.some((source, index) => source.id !== this.editSources[index]?.id)) return;
+        this.silencesBySourceId = next;
+        if (this.rows.length) this.refreshRowGapChips();
+    }
+
+    protected silencesForSeconds(seconds: number): DaihonSilenceSpan[] {
+        const segment = this.segments.find(candidate => candidate.kind === 'src'
+            && (candidate.in ?? Number.POSITIVE_INFINITY) <= seconds
+            && (candidate.out ?? Number.NEGATIVE_INFINITY) >= seconds);
+        const sourceId = segment?.src ?? this.editSources[0]?.id;
+        return sourceId ? this.silencesBySourceId.get(sourceId) ?? [] : [];
+    }
+
+    protected gapChipFor(row: DaihonRow): HTMLSpanElement | undefined {
+        const gap = this.rowGaps.find(candidate => candidate.prevId === row.id
+            && candidate.span >= DAIHON_SILENCE_DEFAULTS.minGapSec);
+        if (!gap) return undefined;
+        const chip = document.createElement('span');
+        chip.className = 'akari-daihon-gapchip';
+        chip.dataset.source = gap.source ?? 'gap';
+        chip.textContent = `··· ${gap.span.toFixed(2)}`;
+        chip.title = gap.source === 'silence'
+            ? `次の行まで無音 ${gap.span.toFixed(2)} 秒（実際の音声から検出 ${gap.start.toFixed(2)}–${gap.end.toFixed(2)}）— クリックで波形を見て範囲を決めて詰める`
+            : `次の行まで無音 ${gap.span.toFixed(2)} 秒 — クリックで波形を見て範囲を決めて詰める`;
+        chip.addEventListener('click', event => {
+            event.stopPropagation();
+            this.openCutRangeEditor(row, { kind: 'silence', gap });
+        });
+        return chip;
+    }
+
+    protected refreshRowGapChips(): void {
+        this.rowGaps = rowGapsWithSilences(this.rows, this.silencesForSeconds(this.rows[0]?.end ?? 0));
+        for (const row of this.rows) {
+            const root = this.elements.get(row.id)?.root;
+            if (!root) continue;
+            root.querySelectorAll('.akari-daihon-gapchip').forEach(node => node.remove());
+            const text = root.querySelector('.akari-daihon-row-text');
+            const chip = this.gapChipFor(row);
+            if (text && chip) text.appendChild(chip);
+        }
+    }
+
     protected renderRows(next: DaihonRow[]): void {
         this.closeCutRangeEditor();
         this.rowsNode.querySelectorAll('.akari-daihon-cutcell').forEach(node => node.remove());
         this.rowsNode.querySelectorAll('.akari-daihon-gapzone').forEach(node => node.remove());
         this.rowsNode.querySelectorAll('.akari-daihon-gapdraft').forEach(node => node.remove());
-        this.rowGaps = findRowGaps(next);
+        this.rowGaps = rowGapsWithSilences(next, this.silencesForSeconds(next[0]?.end ?? 0));
         this.speakerColors = speakerColorMap(next);
         if (this.speakerFilter !== null && !this.speakerColors.has(this.speakerFilter)) this.speakerFilter = null;
         const plan = planDaihonUpdate(this.rows, next);
@@ -1271,19 +1386,8 @@ export class AkariDaihonWidget extends BaseWidget {
             text.appendChild(span);
             for (const placement of unknowns) text.appendChild(this.unkChip(placement.span, row));
         }
-        const gap = this.rowGaps.find(candidate => candidate.prevId === row.id
-            && candidate.span >= DAIHON_SILENCE_DEFAULTS.minGapSec);
-        if (gap) {
-            const chip = document.createElement('span');
-            chip.className = 'akari-daihon-gapchip';
-            chip.textContent = `··· ${gap.span.toFixed(2)}`;
-            chip.title = `次の行まで無音 ${gap.span.toFixed(2)} 秒 — クリックで波形を見て範囲を決めて詰める`;
-            chip.addEventListener('click', event => {
-                event.stopPropagation();
-                this.openCutRangeEditor(row, { kind: 'silence', gap });
-            });
-            text.appendChild(chip);
-        }
+        const chip = this.gapChipFor(row);
+        if (chip) text.appendChild(chip);
         text.addEventListener('dblclick', event => {
             event.preventDefault();
             this.wordRanges = [];
@@ -1915,11 +2019,15 @@ export class AkariDaihonWidget extends BaseWidget {
                 limitStart: previousRow?.start ?? target.gap.start - CUT_RANGE_PAD_SEC,
                 limitEnd: nextRow?.end ?? target.gap.end + CUT_RANGE_PAD_SEC }
             : { kind: 'word', start: target.from, end: target.to, limitStart: row.start, limitEnd: row.end };
-        const bounds = cutRangeBounds(model);
         const naturalWindow = cutRangeWindow(model, neighborWords);
         const waveWindow = cutRangeWaveWindow(model, neighborWords);
+        const silences = silencesInWindow(this.silencesForSeconds(model.start), waveWindow);
+        const magnets = cutRangeMagnets(silences, neighborWords);
         let zoomSpan: number | undefined;
         let viewWindow = naturalWindow;
+        let bounds = cutRangeWindowBounds(viewWindow);
+        let lastMagnet: ReturnType<typeof snapToMagnet>['magnet'] = null;
+        let lastShift = false;
         let selection: DaihonCutRangeSelection = existing
             ? clampCutRange({ from: existing.range.in, to: existing.range.out }, bounds)
             : defaultCutRange(model, DAIHON_SILENCE_DEFAULTS.keepSec);
@@ -1941,6 +2049,8 @@ export class AkariDaihonWidget extends BaseWidget {
         const wave = document.createElement('div');
         wave.className = 'wave';
         const canvas = document.createElement('canvas');
+        const silenceBands = document.createElement('span');
+        silenceBands.className = 'sils';
         const bands = document.createElement('span');
         bands.className = 'bands';
         const range = document.createElement('span');
@@ -1952,7 +2062,7 @@ export class AkariDaihonWidget extends BaseWidget {
         const playhead = document.createElement('span');
         playhead.className = 'ph';
         playhead.hidden = true;
-        wave.append(canvas, bands, range, fromHandle, toHandle, playhead);
+        wave.append(canvas, silenceBands, bands, range, fromHandle, toHandle, playhead);
         const ticks = document.createElement('div');
         ticks.className = 'ticks';
         const foot = document.createElement('div');
@@ -1986,6 +2096,12 @@ export class AkariDaihonWidget extends BaseWidget {
                 windowSec,
                 bounds: { ...bounds },
                 target: { start: model.start, end: model.end },
+                silences: silencesInWindow(silences, viewWindow).map(silence => ({ ...silence })),
+                magnets: magnets.map(magnet => ({ ...magnet })),
+                magnet: lastMagnet ? { ...lastMagnet } : null,
+                shift: lastShift,
+                intrusion: cutRangeWordIntrusion(selection, neighborWords, silences),
+                source: target.kind === 'silence' ? (target.gap.source ?? 'gap') : 'word',
                 labels,
                 ticks: cutRangeTicks(viewWindow).length,
                 selection: { ...selection }
@@ -1999,9 +2115,20 @@ export class AkariDaihonWidget extends BaseWidget {
             fromHandle.style.left = `${from}%`;
             toHandle.style.left = `${to}%`;
             readout.lastChild?.remove();
-            readout.append(document.createTextNode(cutRangeReadout(model, selection)));
+            readout.append(document.createTextNode(cutRangeReadout(model, selection, neighborWords, silences)));
             zoomReadout.textContent = `窓 ${(viewWindow.end - viewWindow.start).toFixed(1)} 秒`;
             const visibleBands = cutRangeWordBands(model, neighborWords, viewWindow);
+            const viewWidth = viewWindow.end - viewWindow.start;
+            silenceBands.replaceChildren(...silencesInWindow(silences, viewWindow).map(silence => {
+                const clippedStart = Math.max(silence.start, viewWindow.start);
+                const clippedEnd = Math.min(silence.end, viewWindow.end);
+                const band = document.createElement('span');
+                band.className = 'sil';
+                band.style.left = `${(clippedStart - viewWindow.start) / viewWidth * 100}%`;
+                band.style.width = `${(clippedEnd - clippedStart) / viewWidth * 100}%`;
+                band.title = `無音 ${silence.start.toFixed(2)}–${silence.end.toFixed(2)}`;
+                return band;
+            }));
             bands.replaceChildren(...visibleBands.map(item => {
                 const band = document.createElement('span');
                 band.className = `band${item.role === 'target' ? ' tgt' : ''}`;
@@ -2022,7 +2149,7 @@ export class AkariDaihonWidget extends BaseWidget {
                 }
                 return tick;
             }));
-            this.drawCutRangeWaveform(canvas, peaks, waveWindow, selection, viewWindow, visibleBands);
+            this.drawCutRangeWaveform(canvas, peaks, waveWindow, selection, viewWindow, silences, visibleBands);
             updateMetrics(visibleBands.map(item => item.text));
         };
         const zoomBy = (direction: 'in' | 'out'): void => {
@@ -2030,7 +2157,9 @@ export class AkariDaihonWidget extends BaseWidget {
             const nextSpan = cutRangeZoomSpan(currentSpan, direction);
             if (zoomSpan === nextSpan && Math.abs(currentSpan - nextSpan) < 1e-6) return;
             zoomSpan = nextSpan;
-            viewWindow = cutRangeWindow(model, neighborWords, { zoom: zoomSpan });
+            const zoomed = cutRangeWindow(model, neighborWords, { zoom: zoomSpan });
+            viewWindow = { start: Math.min(zoomed.start, selection.from), end: Math.max(zoomed.end, selection.to) };
+            bounds = cutRangeWindowBounds(viewWindow);
             this.cutRangeEditor!.window = viewWindow;
             redraw();
         };
@@ -2048,7 +2177,11 @@ export class AkariDaihonWidget extends BaseWidget {
                 if (!handle.hasPointerCapture(event.pointerId)) return;
                 const rect = wave.getBoundingClientRect();
                 const ratio = rect.width > 0 ? (event.clientX - rect.left) / rect.width : 0;
-                selection = moveCutRangeEdge(selection, edge, cutRangeTime(ratio, viewWindow), bounds);
+                const raw = cutRangeTime(ratio, viewWindow);
+                const snapped = snapToMagnet(raw, magnets, CUT_RANGE_MAGNET_TOL_SEC, event.shiftKey);
+                lastMagnet = snapped.magnet;
+                lastShift = event.shiftKey;
+                selection = moveCutRangeEdge(selection, edge, snapped.seconds, bounds);
                 redraw();
             });
         };
@@ -2111,6 +2244,7 @@ export class AkariDaihonWidget extends BaseWidget {
         waveWindow: DaihonCutRangeWindow,
         selection: DaihonCutRangeSelection,
         viewWindow: DaihonCutRangeWindow,
+        silences: readonly DaihonSilenceSpan[],
         visibleBands: readonly DaihonCutRangeBand[]
     ): void {
         const ratio = window.devicePixelRatio || 1;
@@ -2120,6 +2254,12 @@ export class AkariDaihonWidget extends BaseWidget {
         const context = canvas.getContext('2d');
         if (!context) return;
         context.scale(ratio, ratio);
+        context.fillStyle = 'rgba(150,158,172,.14)';
+        for (const silence of silencesInWindow(silences, viewWindow)) {
+            const start = cutRangeRatio(silence.start, viewWindow) * width;
+            const end = cutRangeRatio(silence.end, viewWindow) * width;
+            context.fillRect(start, 0, Math.max(1, end - start), height);
+        }
         context.fillStyle = 'rgba(83,209,188,.10)';
         for (const band of visibleBands) {
             context.fillRect(band.ratio * width, 0, Math.max(1, band.widthRatio * width), height);

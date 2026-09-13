@@ -1,0 +1,126 @@
+{
+  "status": "pass",
+  "steps": [
+    {
+      "name": "1. 行末チップが実無音 2.69 秒（8.61–11.30）を示し、灰の無音帯が出る",
+      "pass": true,
+      "detail": {
+        "chip": {
+          "text": "··· 2.69",
+          "source": "silence",
+          "title": "次の行まで無音 2.69 秒（実際の音声から検出 8.61–11.30）— クリックで波形を見て範囲を決めて詰める"
+        },
+        "sidecarWritten": true,
+        "sidecarFilter": "silencedetect=noise=-35dB:d=0.3",
+        "sidecarSilence": [
+          8.61,
+          11.3
+        ],
+        "metrics": {
+          "window": {
+            "start": 6.3,
+            "end": 13.87
+          },
+          "bounds": {
+            "lo": 6.3,
+            "hi": 13.87
+          },
+          "selection": {
+            "from": 8.76,
+            "to": 11.3
+          },
+          "silences": [
+            {
+              "start": 6.56,
+              "end": 7.05
+            },
+            {
+              "start": 8.61,
+              "end": 11.3
+            },
+            {
+              "start": 12.33,
+              "end": 12.66
+            },
+            {
+              "start": 12.7,
+              "end": 13.14
+            }
+          ],
+          "source": "silence"
+        },
+        "geometry": {
+          "heading": "無音 2.69 秒",
+          "sils": [
+            "無音 6.56–7.05",
+            "無音 8.61–11.30",
+            "無音 12.33–12.66",
+            "無音 12.70–13.14"
+          ],
+          "bands": [
+            "おりました",
+            "いい",
+            "感じ",
+            "にかけて",
+            "ます"
+          ],
+          "read": "切る 2.54 秒 · 残す 0.15 秒 · 8.76–11.30"
+        },
+        "prevWordStart": 6.89
+      }
+    },
+    {
+      "name": "2. つまみを 8.70 と 11.90（語の中）へ置ける — 読み値に「語に食い込み 0.54 秒」（「感じ」0.42 +「にかけて」0.12）",
+      "pass": true,
+      "detail": {
+        "from": 8.699999766349793,
+        "to": 11.899999454816182,
+        "intrusion": 0.539999,
+        "read": "切る 3.20 秒 · 残す 0.09 秒 · 8.70–11.90 · 語に食い込み 0.54 秒"
+      }
+    },
+    {
+      "name": "3. 磁石が無音の縁 11.30 へ吸う（許容 0.08 秒）",
+      "pass": true,
+      "detail": {
+        "to": 11.3,
+        "magnet": {
+          "seconds": 11.3,
+          "kind": "silence"
+        },
+        "tolerance": 0.08,
+        "aimed": 11.26,
+        "magnetCount": 61
+      }
+    },
+    {
+      "name": "4. Shift を押しながらなら磁石が外れて 11.25 に置ける",
+      "pass": true,
+      "detail": {
+        "to": 11.250000044504802,
+        "shift": true,
+        "magnet": null
+      }
+    }
+  ],
+  "screenshots": [
+    "01-silence-chip-and-band.png",
+    "02-handles-free-inside-word.png",
+    "03-magnet-snaps-to-silence-edge.png",
+    "04-shift-releases-magnet.png"
+  ],
+  "cleanup": {
+    "killedPid": 47328,
+    "survivingProcesses": 0,
+    "workdir": "<TMP>"
+  },
+  "workspaceRoots": 1,
+  "daihonVisible": {
+    "w": 427,
+    "h": 47.328125
+  },
+  "untouched": {
+    "captions": true,
+    "edit": true
+  }
+}

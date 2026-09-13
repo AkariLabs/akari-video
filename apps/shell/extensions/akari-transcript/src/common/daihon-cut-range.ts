@@ -7,6 +7,7 @@ export const CUT_RANGE_ZOOM_FACTOR = 1.25;
 export const CUT_RANGE_TICK_SEC = 0.5;
 export const CUT_RANGE_PREVIEW_PAD_SEC = 0.8;
 export const CUT_RANGE_MIN_SEC = 0.05;
+export const CUT_RANGE_MAGNET_TOL_SEC = 0.08;
 
 export interface DaihonCutRangeTarget {
     kind: 'silence' | 'word';
@@ -23,6 +24,7 @@ export interface DaihonCutRangeSelection { from: number; to: number }
 export interface DaihonCutRangeWindow { start: number; end: number }
 export interface DaihonCutRangeSpan { from: number; to: number }
 export interface DaihonCutRangeWord { text: string; start: number; end: number }
+export interface DaihonCutRangeMagnet { seconds: number; kind: 'silence' | 'word' }
 export interface DaihonCutRangeTick { seconds: number; ratio: number; major: boolean; label: string }
 export interface DaihonCutRangeBand {
     text: string;
@@ -43,6 +45,44 @@ export function cutRangeBounds(target: DaihonCutRangeTarget): DaihonCutRangeBoun
         lo: Math.max(target.limitStart, target.start - CUT_RANGE_PAD_SEC),
         hi: Math.min(target.limitEnd, target.end + CUT_RANGE_PAD_SEC)
     };
+}
+
+export function cutRangeWindowBounds(window: DaihonCutRangeWindow): DaihonCutRangeBounds {
+    return { lo: window.start, hi: Math.max(window.end, window.start + CUT_RANGE_MIN_SEC) };
+}
+
+export function cutRangeMagnets(
+    silences: readonly { start: number; end: number }[], words: readonly DaihonCutRangeWord[]
+): DaihonCutRangeMagnet[] {
+    const candidates: DaihonCutRangeMagnet[] = [
+        ...silences.flatMap(silence => [
+            { seconds: silence.start, kind: 'silence' as const },
+            { seconds: silence.end, kind: 'silence' as const }
+        ]),
+        ...words.flatMap(word => [
+            { seconds: word.start, kind: 'word' as const },
+            { seconds: word.end, kind: 'word' as const }
+        ])
+    ].filter(magnet => Number.isFinite(magnet.seconds));
+    candidates.sort((left, right) => left.seconds - right.seconds
+        || (left.kind === right.kind ? 0 : left.kind === 'silence' ? -1 : 1));
+    return candidates.filter((magnet, index) => index === 0 || magnet.seconds !== candidates[index - 1].seconds);
+}
+
+export function snapToMagnet(
+    seconds: number,
+    magnets: readonly DaihonCutRangeMagnet[],
+    tol = CUT_RANGE_MAGNET_TOL_SEC,
+    shift = false
+): { seconds: number; magnet: DaihonCutRangeMagnet | null } {
+    if (shift || !Number.isFinite(seconds) || !Number.isFinite(tol) || tol <= 0 || !magnets.length) {
+        return { seconds, magnet: null };
+    }
+    const candidate = magnets.filter(magnet => Number.isFinite(magnet.seconds) && Math.abs(magnet.seconds - seconds) <= tol)
+        .sort((left, right) => Math.abs(left.seconds - seconds) - Math.abs(right.seconds - seconds)
+            || (left.kind === right.kind ? 0 : left.kind === 'silence' ? -1 : 1)
+            || left.seconds - right.seconds)[0];
+    return candidate ? { seconds: candidate.seconds, magnet: candidate } : { seconds, magnet: null };
 }
 
 export function defaultCutRange(target: DaihonCutRangeTarget, keepSec: number): DaihonCutRangeSelection {
@@ -238,17 +278,53 @@ export function cutRangeTime(ratio: number, window: DaihonCutRangeWindow): numbe
 
 export function cutRangeReadout(
     target: DaihonCutRangeTarget,
-    selection: DaihonCutRangeSelection
+    selection: DaihonCutRangeSelection,
+    words?: readonly DaihonCutRangeWord[],
+    silences?: readonly { start: number; end: number }[]
 ): string {
     const cut = (selection.to - selection.from).toFixed(2);
     const times = `${selection.from.toFixed(2)}–${selection.to.toFixed(2)}`;
+    let readout: string;
     if (target.kind === 'silence') {
         const keep = selection.from - target.start;
-        return keep < 0
+        readout = keep < 0
             ? `切る ${cut} 秒 · 食い込み ${Math.abs(keep).toFixed(2)} 秒 · ${times}`
             : `切る ${cut} 秒 · 残す ${keep.toFixed(2)} 秒 · ${times}`;
+    } else {
+        readout = `切る ${cut} 秒 · ${times}`;
     }
-    return `切る ${cut} 秒 · ${times}`;
+    const intrusion = words ? cutRangeWordIntrusion(selection, words, silences) : 0;
+    return intrusion > 0.001 ? `${readout} · 語に食い込み ${intrusion.toFixed(2)} 秒` : readout;
+}
+
+export function cutRangeWordIntrusion(
+    selection: DaihonCutRangeSelection,
+    words: readonly DaihonCutRangeWord[],
+    silences?: readonly { start: number; end: number }[]
+): number {
+    const excluded = silences ? silences
+        .filter(silence => Number.isFinite(silence.start) && Number.isFinite(silence.end) && silence.end > silence.start)
+        .map(silence => ({ start: silence.start, end: silence.end }))
+        .sort((left, right) => left.start - right.start || left.end - right.end) : [];
+    const seconds = words.reduce((sum, word) => {
+        const start = Math.max(selection.from, word.start);
+        const end = Math.min(selection.to, word.end);
+        if (!(end > start)) return sum;
+        let covered = 0;
+        let cursor = start;
+        for (const silence of excluded) {
+            if (silence.end <= cursor) continue;
+            if (silence.start >= end) break;
+            const silenceStart = Math.max(cursor, silence.start);
+            const silenceEnd = Math.min(end, silence.end);
+            if (silenceEnd > silenceStart) {
+                covered += silenceEnd - silenceStart;
+                cursor = silenceEnd;
+            }
+        }
+        return sum + Math.max(0, end - start - covered);
+    }, 0);
+    return roundedSeconds(seconds);
 }
 
 export function cutRangePreviewSpans(

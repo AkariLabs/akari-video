@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { readFile } from 'node:fs/promises';
 import {
+    CUT_RANGE_MAGNET_TOL_SEC,
     CUT_RANGE_MIN_SEC,
     CUT_RANGE_NEIGHBOR_PAD_SEC,
     CUT_RANGE_PAD_SEC,
@@ -10,6 +12,7 @@ import {
     CUT_RANGE_ZOOM_MIN_SEC,
     clampCutRange,
     cutRangeBounds,
+    cutRangeMagnets,
     cutRangeIsSpeech,
     cutRangeNeighborWords,
     cutRangePreviewSpans,
@@ -19,11 +22,14 @@ import {
     cutRangeTime,
     cutRangeWaveWindow,
     cutRangeWindow,
+    cutRangeWindowBounds,
+    cutRangeWordIntrusion,
     cutRangeWordBands,
     cutRangeZoomSpan,
     defaultCutRange,
     moveCutRangeEdge,
-    resampleCutRangePeaks
+    resampleCutRangePeaks,
+    snapToMagnet
 } from '../lib/common/daihon-cut-range.js';
 
 const silence = { kind: 'silence', start: 1, end: 2, limitStart: 0.5, limitEnd: 2.5 };
@@ -35,6 +41,23 @@ test('自然窓の最低幅は 4 秒', () => assert.equal(CUT_RANGE_WINDOW_MIN_S
 test('ズーム範囲は 2〜12 秒', () => assert.deepEqual([CUT_RANGE_ZOOM_MIN_SEC, CUT_RANGE_ZOOM_MAX_SEC], [2, 12]));
 test('目盛り間隔は 0.5 秒', () => assert.equal(CUT_RANGE_TICK_SEC, 0.5));
 test('最小カット幅は 0.05 秒', () => assert.equal(CUT_RANGE_MIN_SEC, 0.05));
+test('磁石の許容距離は 0.08 秒', () => assert.equal(CUT_RANGE_MAGNET_TOL_SEC, 0.08));
+test('可動域は窓全体で、狭い窓は最小幅を保証する', () => {
+    assert.deepEqual(cutRangeWindowBounds({ start: 1, end: 2 }), { lo: 1, hi: 2 });
+    assert.deepEqual(cutRangeWindowBounds({ start: 1, end: 1.01 }), { lo: 1, hi: 1.05 });
+});
+test('磁石は秒順に重複を畳み、同秒は無音を優先する', () => assert.deepEqual(
+    cutRangeMagnets([{ start: 2, end: 3 }], [{ text: '語', start: 1, end: 2 }]),
+    [{ seconds: 1, kind: 'word' }, { seconds: 2, kind: 'silence' }, { seconds: 3, kind: 'silence' }]
+));
+test('磁石は最寄りへ吸着し Shift で解除する', () => {
+    const magnets = [{ seconds: 2, kind: 'silence' }, { seconds: 2.1, kind: 'word' }];
+    assert.deepEqual(snapToMagnet(2.04, magnets), { seconds: 2, magnet: magnets[0] });
+    assert.deepEqual(snapToMagnet(2.04, magnets, 0.08, true), { seconds: 2.04, magnet: null });
+});
+test('語への食い込みは各語との重なりを合計する', () => assert.equal(
+    cutRangeWordIntrusion({ from: 1.5, to: 3.25 }, [{ text: 'a', start: 1, end: 2 }, { text: 'b', start: 3, end: 4 }]), 0.75
+));
 
 test('無音の可動域は前後 0.4 秒へ広がる', () => assert.deepEqual(cutRangeBounds(silence), { lo: 0.6, hi: 2.4 }));
 test('無音の可動域は前後の行の端で止まる', () => assert.deepEqual(
@@ -209,6 +232,35 @@ test('無音の正の残しは従来どおり残す秒数を表示する', () =>
 test('無音の頭より前へ出た範囲は食い込み秒数を表示する', () => assert.equal(cutRangeReadout(silence, { from: 0.6, to: 2 }), '切る 1.40 秒 · 食い込み 0.40 秒 · 0.60–2.00'));
 test('無音の頭ちょうどは負のゼロにせず残す 0.00 秒を表示する', () => assert.equal(cutRangeReadout(silence, { from: 1, to: 1.5 }), '切る 0.50 秒 · 残す 0.00 秒 · 1.00–1.50'));
 test('語の読み値には切る秒数だけが入る', () => assert.equal(cutRangeReadout(word, { from: 1.23, to: 1.68 }), '切る 0.45 秒 · 1.23–1.68'));
+test('語を渡した読み値は食い込みを表示する', () => assert.equal(
+    cutRangeReadout(silence, { from: 0.9, to: 1.12 }, [{ text: '前', start: 0.8, end: 1 }]),
+    '切る 0.22 秒 · 食い込み 0.10 秒 · 0.90–1.12 · 語に食い込み 0.10 秒'
+));
+
+test('オーナー実データで窓全体を動かせ、無音末尾へ吸着する', async () => {
+    const fixture = new URL('./fixtures/daihon-cut-range-free/', import.meta.url);
+    const silenceRaw = JSON.parse(await readFile(new URL('silences-owner.json', fixture), 'utf8'));
+    const captionRaw = JSON.parse(await readFile(new URL('captions-owner.json', fixture), 'utf8'));
+    const words = captionRaw.captions.flatMap(caption => caption.words ?? []).sort((a, b) => a.start - b.start || a.end - b.end);
+    const target = { kind: 'silence', start: 8.61, end: 11.3, limitStart: 5.2, limitEnd: 14.14 };
+    const view = cutRangeWindow(target, words);
+    const bounds = cutRangeWindowBounds(view);
+    assert.deepEqual(view, { start: 6.39, end: 13.12 });
+    assert.deepEqual(bounds, { lo: 6.39, hi: 13.12 });
+    const selection = defaultCutRange(target, 0.15);
+    assert.equal(moveCutRangeEdge(selection, 'to', 11.1, bounds).to, 11.1);
+    const detected = silenceRaw.silences.map(([start, end]) => ({ start, end }));
+    assert.equal(cutRangeWordIntrusion(selection, words, detected), 0);
+    assert.doesNotMatch(cutRangeReadout(target, selection, words, detected), /語に食い込み/u);
+    assert.equal(cutRangeWordIntrusion({ from: 8.7, to: 11.9 }, words, detected), 0.54);
+    assert.match(cutRangeReadout(target, { from: 8.7, to: 11.9 }, words, detected), /語に食い込み 0\.54 秒/u);
+    assert.ok(cutRangeWordIntrusion(selection, words) > 0);
+    const magnets = cutRangeMagnets(detected, words);
+    assert.deepEqual(snapToMagnet(11.25, magnets), { seconds: 11.3, magnet: { seconds: 11.3, kind: 'silence' } });
+    assert.deepEqual(snapToMagnet(11.25, magnets, 0.08, true), { seconds: 11.25, magnet: null });
+    assert.deepEqual(snapToMagnet(11.1, magnets), { seconds: 11.1, magnet: null });
+    assert.match(cutRangeReadout(target, { from: 8.7, to: 11.25 }, words), /語に食い込み/u);
+});
 test('秒から比率への変換は範囲内で往復する', () => assert.equal(cutRangeTime(cutRangeRatio(2, { start: 1, end: 3 }), { start: 1, end: 3 }), 2));
 test('秒から比率への変換は 0..1 に収める', () => assert.deepEqual([-1, 4].map(value => cutRangeRatio(value, { start: 1, end: 3 })), [0, 1]));
 test('幅ゼロの窓の比率は 0', () => assert.equal(cutRangeRatio(3, { start: 2, end: 2 }), 0));

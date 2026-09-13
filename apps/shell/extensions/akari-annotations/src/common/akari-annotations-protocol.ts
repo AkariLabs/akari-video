@@ -9,6 +9,8 @@ export type MediaUnavailableReason = 'ffmpeg-not-found' | 'source-missing' | 'ex
 
 export const THUMBNAIL_WIDTH_PX = 160;
 export const WAVEFORM_BUCKET_COUNT = 200;
+export const CLIP_SILENCE_NOISE_DB = -35;
+export const CLIP_SILENCE_MIN_SEC = 0.3;
 
 /** フィルムストリップ atlas の既定パラメータ（旧版 `thumbnail_strip()` の実測値を踏襲）。 */
 export const FILMSTRIP_FRAME_WIDTH_PX = 98;
@@ -92,6 +94,22 @@ export interface GetClipWaveformResult {
     status: 'ready' | 'unavailable';
     peaks?: number[];
     reason?: MediaUnavailableReason;
+}
+
+export interface GetClipSilencesRequest {
+    projectRootUri: string;
+    videoUri: string;
+    startSeconds?: number;
+    endSeconds?: number;
+    noiseDb?: number;
+    minSec?: number;
+}
+
+export interface GetClipSilencesResult {
+    status: 'ready' | 'unavailable';
+    silences?: [number, number][];
+    reason?: MediaUnavailableReason;
+    cached?: boolean;
 }
 
 export interface GetAudioDurationRequest {
@@ -722,6 +740,7 @@ export interface AkariAnnotationsService {
     readGenerationSidecars(request: ReadGenerationSidecarsRequest): Promise<ReadGenerationSidecarsResult>;
     getClipFilmstripChunk(request: GetClipFilmstripChunkRequest): Promise<GetClipFilmstripChunkResult>;
     getClipWaveform(request: GetClipWaveformRequest): Promise<GetClipWaveformResult>;
+    getClipSilences(request: GetClipSilencesRequest): Promise<GetClipSilencesResult>;
     getAudioDuration(request: GetAudioDurationRequest): Promise<GetAudioDurationResult>;
     probeSourceDimensions(request: ProbeSourceDimensionsRequest): Promise<ProbeSourceDimensionsResult>;
     probeSourceHasAudio(request: ProbeSourceHasAudioRequest): Promise<ProbeSourceHasAudioResult>;
