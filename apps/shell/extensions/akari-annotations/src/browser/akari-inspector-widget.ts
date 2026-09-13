@@ -1,7 +1,9 @@
 import URI from '@theia/core/lib/common/uri';
 import { AkariAnnotationsService } from '../common/akari-annotations-protocol';
+import type { GenerationValidationResult } from '../common/akari-annotations-protocol';
 import { TRANSITION_VOCABULARY } from '@akari-video/edit-store';
 import { BaseWidget } from '@theia/core/lib/browser';
+import { ConfirmDialog } from '@theia/core/lib/browser/dialogs';
 import { FileDialogService } from '@theia/filesystem/lib/browser';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
 import { WorkspaceService } from '@theia/workspace/lib/browser/workspace-service';
@@ -66,6 +68,13 @@ import {
     cutPlaybackDuration,
     resolveCutFreezeDisplayAt
 } from './inspector/freeze-fields';
+import {
+    generationFields,
+    type GenerationCatalogRow,
+    type GenerationDraft,
+    type GenerationFieldDef,
+    type GenerationValidation
+} from './inspector/generation-fields';
 import { buildRgbCurveEditor, buildHueCurveEditor, buildColorWheelEditor, type AdjustEditorWrite } from './inspector/adjust-editors';
 import { INSPECTOR_LOOK_PRESETS, matchLookPreset } from './inspector/look-presets';
 import { buildLutOptions } from './inspector/lut-options';
@@ -121,6 +130,7 @@ import type {
 } from '../common/akari-annotations-protocol';
 
 type InspectorSnapshot = TimelineItemSelectionSnapshot;
+const GENERATION_SECTION_ID = 'generation';
 
 type AudioInspectorSnapshot = TimelineAudioSelection & {
     duckDb?: number;
@@ -153,6 +163,7 @@ interface InspectorFieldDef<TSnapshot = InspectorSnapshot> {
     removable?: boolean;
     disabled?: boolean;
     title?: string;
+    className?: string;
     actionLabel?: string;
     action?: (snapshot: TSnapshot) => Promise<InspectorWriteResult>;
     actions?: readonly {
@@ -594,7 +605,8 @@ function cutFreezeFields(
 
 function CUT_SECTIONS(
     snapshot: TimelineCutSelection,
-    requestWrite: (request: InspectorWriteRequest) => Promise<InspectorWriteResult>
+    requestWrite: (request: InspectorWriteRequest) => Promise<InspectorWriteResult>,
+    generation?: InspectorFieldDef<TimelineCutSelection>[]
 ): InspectorSection[] {
     const transformFields: InspectorFieldDef<TimelineCutSelection>[] = [
         {
@@ -657,6 +669,7 @@ function CUT_SECTIONS(
         { id: 'transform', label: '変形', fields: transformFields },
         { id: 'framing', label: 'フレーミング', fields: cutFramingFields(snapshot, requestWrite) },
         { id: 'freeze', label: 'フリーズ', fields: cutFreezeFields(snapshot, requestWrite) },
+        ...(generation ? [{ id: GENERATION_SECTION_ID, label: '生成', fields: generation }] : []),
         {
             id: 'appearance', label: '外観', fields: [
                 {
@@ -823,7 +836,8 @@ const layerAudioControls = new WeakMap<TimelineLayerSelection, LayerAudioControl
 function LAYER_SECTIONS(
     snapshot: TimelineLayerSelection,
     requestWrite: (request: InspectorWriteRequest) => Promise<InspectorWriteResult>,
-    layerAudio?: LayerAudioControls | null
+    layerAudio?: LayerAudioControls | null,
+    generation?: InspectorFieldDef<TimelineLayerSelection>[]
 ): InspectorSection[] {
     const chromaSimilarity = chromaControlValue(snapshot.chromaKey, 'similarity', 0.1);
     const chromaBlend = chromaControlValue(snapshot.chromaKey, 'blend', 0);
@@ -892,6 +906,7 @@ function LAYER_SECTIONS(
         ...(snapshot.sourceKind === 'html' ? [] : [{
             id: 'motion', label: '動き', collapsedByDefault: true, fields: MOTION_FIELDS(snapshot, requestWrite)
         }]),
+        ...(generation ? [{ id: GENERATION_SECTION_ID, label: '生成', fields: generation }] : []),
         {
             id: 'appearance', label: '外観', fields: [
                 {
@@ -2346,6 +2361,13 @@ export class AkariInspectorWidget extends BaseWidget {
     protected readonly tabState = new InspectorTabState(window.localStorage);
     protected readonly knobCache = new Map<string, readonly InspectorKnob[] | null>();
     protected lastEasingPreviewAt = -Infinity;
+    protected generationCatalog: GenerationCatalogRow[] = [];
+    protected generationDefaultModel = 'fal:h3-i2v';
+    protected readonly generationDrafts = new Map<string, GenerationDraft>();
+    protected readonly generationValidations = new Map<string, GenerationValidation>();
+    protected readonly generationStates = new Map<string, string>();
+    protected readonly generationLoads = new Set<string>();
+    protected readonly generationDraftTimers = new Map<string, number>();
 
     @postConstruct()
     protected init(): void {
@@ -2837,6 +2859,26 @@ export class AkariInspectorWidget extends BaseWidget {
         color: var(--theia-descriptionForeground);
         padding: 4px 0;
     }
+    .akari-inspector-widget .akari-inspector-generation-facts {
+        padding: 5px 0;
+        border-top: 1px solid var(--theia-panel-border);
+        border-bottom: 1px solid var(--theia-panel-border);
+        font-variant-numeric: tabular-nums;
+    }
+    .akari-inspector-widget .akari-inspector-generation-estimate {
+        color: var(--theia-textLink-foreground);
+        font-variant-numeric: tabular-nums;
+    }
+    .akari-inspector-widget .akari-inspector-generation-error {
+        color: var(--theia-errorForeground);
+    }
+    .akari-inspector-widget .akari-inspector-generation-warning {
+        color: var(--theia-editorWarning-foreground, var(--theia-descriptionForeground));
+    }
+    .akari-inspector-widget .akari-inspector-generation-note {
+        color: var(--theia-descriptionForeground);
+        font-size: 11px;
+    }
 `;
         this.node.appendChild(style);
 
@@ -2844,6 +2886,13 @@ export class AkariInspectorWidget extends BaseWidget {
             this.lutGeneration++;
             this.projectLutRefs = [];
             this.render();
+        }));
+        this.toDispose.push(this.fileService.onDidFilesChange(event => {
+            if (!event.changes.some(change => /(?:\.inputs\.json|\.meta\.json)$/u.test(change.resource.path.toString()))) return;
+            const current = this.generationIdentity(this.model.snapshot);
+            if (!current) return;
+            this.generationLoads.delete(current.key);
+            void this.loadGeneration(current);
         }));
         this.render();
     }
@@ -2860,6 +2909,11 @@ export class AkariInspectorWidget extends BaseWidget {
             empty.textContent = 'タイムラインで項目を選択してください。';
             this.body.appendChild(empty);
             return;
+        }
+
+        const generationIdentity = this.generationIdentity(snapshot);
+        if (generationIdentity && !this.generationLoads.has(generationIdentity.key)) {
+            void this.loadGeneration(generationIdentity);
         }
 
         const requestWrite = (request: InspectorWriteRequest): Promise<InspectorWriteResult> =>
@@ -2886,7 +2940,7 @@ export class AkariInspectorWidget extends BaseWidget {
             sectionKind = snapshot.kind;
             switch (snapshot.kind) {
                 case 'cut':
-                    sections = CUT_SECTIONS(snapshot, requestWrite);
+                    sections = CUT_SECTIONS(snapshot, requestWrite, this.generationSectionFields(snapshot));
                     break;
                 case 'layer':
                     if (snapshot.layerKind === 'video' && !layerAudioControls.has(snapshot)) {
@@ -2936,7 +2990,9 @@ export class AkariInspectorWidget extends BaseWidget {
                             if (this.model.snapshot === snapshot) this.render();
                         })().catch(error => this.showFieldNotice(String(error)));
                     }
-                    sections = LAYER_SECTIONS(snapshot, requestWrite, layerAudioControls.get(snapshot));
+                    sections = LAYER_SECTIONS(
+                        snapshot, requestWrite, layerAudioControls.get(snapshot), this.generationSectionFields(snapshot)
+                    );
                     break;
                 case 'caption':
                     sections = CAPTION_SECTIONS(snapshot, requestWrite, {
@@ -3318,6 +3374,248 @@ export class AkariInspectorWidget extends BaseWidget {
         window.localStorage.setItem(`akari.inspector.optional.v1:${kind}:${fieldName}`, String(visible));
     }
 
+    protected generationIdentity(snapshot: TimelineSelectionModel['snapshot']): {
+        key: string; itemId: string; sourcePath: string; duration: number; sourceId?: string;
+    } | undefined {
+        if (!snapshot || snapshot.kind === 'multi') return undefined;
+        if (snapshot.kind === 'cut') {
+            if (!snapshot.itemId || !snapshot.sourcePath || !/\.(?:png|jpe?g|webp|gif|bmp|tiff?)$/iu.test(snapshot.sourcePath)) return undefined;
+            return {
+                key: snapshot.itemId, itemId: snapshot.itemId, sourcePath: snapshot.sourcePath,
+                duration: Math.max(0, snapshot.outputEnd - snapshot.outputStart), sourceId: snapshot.src
+            };
+        }
+        if (snapshot.kind === 'layer' && snapshot.sourceKind === 'media' && snapshot.src
+            && /\.(?:png|jpe?g|webp|gif|bmp|tiff?)$/iu.test(snapshot.src)) {
+            return { key: snapshot.id, itemId: snapshot.id, sourcePath: snapshot.src, duration: snapshot.duration };
+        }
+        return undefined;
+    }
+
+    protected async loadGeneration(identity: { key: string; itemId: string; sourcePath: string; duration: number; sourceId?: string }): Promise<void> {
+        this.generationLoads.add(identity.key);
+        try {
+            await this.workspaceService.ready;
+            const root = this.workspaceService.tryGetRoots()[0]?.resource;
+            if (!root) return;
+            if (this.generationCatalog.length === 0) {
+                const [catalog, defaults] = await Promise.all([
+                    this.layerAudioService.readGenerationCatalog(),
+                    this.layerAudioService.readGenerationDefaults({ projectRootUri: root.toString() })
+                ]);
+                this.generationCatalog = catalog.models.filter(row => row.kind === 'video') as unknown as GenerationCatalogRow[];
+                this.generationDefaultModel = defaults.video || 'fal:h3-i2v';
+            }
+            let draft: GenerationDraft | undefined;
+            try {
+                const uri = root.resolve(`.akari/generation/${identity.itemId}.inputs.json`);
+                const parsed = JSON.parse((await this.fileService.read(uri)).value.toString()) as GenerationDraft;
+                if (parsed && typeof parsed === 'object' && typeof parsed.modelId === 'string') draft = parsed;
+            } catch { /* A missing draft is the normal first-open state. */ }
+            const model = this.generationCatalog.find(row => row.id === draft?.modelId)
+                ?? this.generationCatalog.find(row => row.id === this.generationDefaultModel)
+                ?? this.generationCatalog[0];
+            if (!model) throw new Error('動画生成モデルがカタログにありません。');
+            if (!draft) draft = {
+                modelId: model.id,
+                inputs: {
+                    prompt: null, negative_prompt: null,
+                    first_frame: { path: identity.sourcePath, source_id: identity.sourceId ?? null },
+                    last_frame: null, reference_images: [], reference_audios: [], camera: null
+                },
+                output: {
+                    duration_s: identity.duration,
+                    resolution: model.resolutions?.[0] ?? null,
+                    audio_out: model.audio_out === false ? false : true
+                }
+            };
+            this.generationDrafts.set(identity.key, draft);
+            await this.validateGenerationDraft(identity.key);
+            const sidecars = await this.layerAudioService.readGenerationSidecars({
+                projectRootUri: root.toString(), sourcePaths: [identity.sourcePath]
+            });
+            const meta = sidecars.entries.find(entry => entry.sourcePath === identity.sourcePath)?.meta;
+            let state = typeof meta?.status === 'string' ? meta.status : 'none';
+            const job = meta?.job as { started_at?: string; stale_after_s?: number } | undefined;
+            if (state === 'generating' && job?.started_at && Number.isFinite(job.stale_after_s)
+                && Date.now() > Date.parse(job.started_at) + Number(job.stale_after_s) * 1000) state = 'stale';
+            this.generationStates.set(identity.key, state);
+        } catch (error) {
+            this.showFieldNotice(error instanceof Error ? error.message : String(error));
+        }
+        if (this.generationIdentity(this.model.snapshot)?.key === identity.key) this.render();
+    }
+
+    protected async validateGenerationDraft(key: string): Promise<void> {
+        const draft = this.generationDrafts.get(key);
+        if (!draft) return;
+        const validation = await this.layerAudioService.validateGenerationInputs({
+            modelId: draft.modelId, inputs: draft.inputs, output: draft.output
+        });
+        this.generationValidations.set(key, validation as GenerationValidationResult as GenerationValidation);
+    }
+
+    protected generationSectionFields<T extends TimelineCutSelection | TimelineLayerSelection>(snapshot: T): InspectorFieldDef<T>[] | undefined {
+        const identity = this.generationIdentity(snapshot);
+        if (!identity || this.generationCatalog.length === 0) return undefined;
+        const draft = this.generationDrafts.get(identity.key);
+        if (!draft) return undefined;
+        const row = this.generationCatalog.find(candidate => candidate.id === draft.modelId);
+        if (!row) return undefined;
+        const fields = generationFields({
+            snapshot, catalogRow: row, draft, validation: this.generationValidations.get(identity.key),
+            defaults: {
+                catalog: this.generationCatalog, firstFrameLabel: `${identity.sourcePath}（変更不可）`,
+                state: this.generationStates.get(identity.key)
+            },
+            actions: {
+                update: (path, value) => this.updateGenerationDraft(identity, path, value),
+                copyAdjacent: () => this.copyAdjacentGenerationDraft(identity),
+                generate: () => this.confirmAndStartGeneration(identity),
+                resume: () => this.resumeGeneration(identity),
+                retry: () => this.confirmAndStartGeneration(identity)
+            }
+        });
+        return fields as GenerationFieldDef<T>[] as InspectorFieldDef<T>[];
+    }
+
+    protected async updateGenerationDraft(
+        identity: { key: string; itemId: string; sourcePath: string; duration: number; sourceId?: string },
+        path: string, value: unknown
+    ): Promise<InspectorWriteResult> {
+        const current = this.generationDrafts.get(identity.key);
+        if (!current) return { ok: false, message: '生成下書きを読み込み中です。' };
+        const next: GenerationDraft = {
+            modelId: current.modelId, inputs: { ...current.inputs }, output: { ...current.output }
+        };
+        if (path === 'modelId') {
+            next.modelId = String(value);
+            const model = this.generationCatalog.find(row => row.id === next.modelId);
+            if (model && (!model.resolutions?.includes(String(next.output.resolution)))) {
+                next.output.resolution = model.resolutions?.[0] ?? null;
+            }
+        } else {
+            const [group, field] = path.split('.');
+            if ((group === 'inputs' || group === 'output') && field) next[group][field] = value;
+        }
+        this.generationDrafts.set(identity.key, next);
+        try {
+            await this.validateGenerationDraft(identity.key);
+            this.scheduleGenerationDraftWrite(identity);
+            this.render();
+            return { ok: true };
+        } catch (error) {
+            return { ok: false, message: error instanceof Error ? error.message : String(error) };
+        }
+    }
+
+    protected scheduleGenerationDraftWrite(identity: { key: string; itemId: string; sourcePath: string; duration: number; sourceId?: string }): void {
+        const previous = this.generationDraftTimers.get(identity.key);
+        if (previous !== undefined) window.clearTimeout(previous);
+        this.generationDraftTimers.set(identity.key, window.setTimeout(() => {
+            this.generationDraftTimers.delete(identity.key);
+            void this.persistGenerationDraft(identity);
+        }, 300));
+    }
+
+    protected async persistGenerationDraft(identity: { key: string; itemId: string; sourcePath: string; duration: number; sourceId?: string }): Promise<void> {
+        await this.workspaceService.ready;
+        const root = this.workspaceService.tryGetRoots()[0]?.resource;
+        const draft = this.generationDrafts.get(identity.key);
+        if (!root || !draft) return;
+        await this.layerAudioService.writeGenerationDraft({
+            projectRootUri: root.toString(), itemId: identity.itemId,
+            modelId: draft.modelId, inputs: draft.inputs, output: draft.output
+        });
+    }
+
+    protected async copyAdjacentGenerationDraft(identity: { key: string; itemId: string; sourcePath: string; duration: number; sourceId?: string }): Promise<InspectorWriteResult> {
+        try {
+            await this.workspaceService.ready;
+            const root = this.workspaceService.tryGetRoots()[0]?.resource;
+            if (!root) throw new Error('プロジェクトが開かれていません。');
+            const edit = JSON.parse((await this.fileService.read(root.resolve('edit.json'))).value.toString()) as {
+                tracks?: Array<{ lane?: string; items?: Array<{ id?: string; source?: { kind?: string } }> }>;
+            };
+            const visual = (edit.tracks ?? []).filter(track => track.lane === 'visual')
+                .flatMap(track => track.items ?? []).filter(item => item.source?.kind === 'media' && item.id);
+            const index = visual.findIndex(item => item.id === identity.itemId);
+            const previousId = index > 0 ? visual[index - 1].id : undefined;
+            if (!previousId) return { ok: false, message: '直前の映像 item がありません。' };
+            const parsed = JSON.parse((await this.fileService.read(
+                root.resolve(`.akari/generation/${previousId}.inputs.json`)
+            )).value.toString()) as GenerationDraft;
+            const current = this.generationDrafts.get(identity.key);
+            this.generationDrafts.set(identity.key, {
+                modelId: parsed.modelId, inputs: {
+                    ...parsed.inputs, first_frame: current?.inputs.first_frame ?? null
+                }, output: {
+                    ...parsed.output, duration_s: identity.duration
+                }
+            });
+            await this.validateGenerationDraft(identity.key);
+            await this.persistGenerationDraft(identity);
+            this.render();
+            return { ok: true };
+        } catch (error) {
+            return { ok: false, message: error instanceof Error ? error.message : String(error) };
+        }
+    }
+
+    protected async confirmAndStartGeneration(identity: { key: string; itemId: string; sourcePath: string; duration: number; sourceId?: string }): Promise<InspectorWriteResult> {
+        try {
+            await this.persistGenerationDraft(identity);
+            const draft = this.generationDrafts.get(identity.key)!;
+            const validation = this.generationValidations.get(identity.key);
+            if (validation?.ok === false) return { ok: false, message: '入力エラーを直してから実行してください。' };
+            const estimate = validation?.cost?.estimate_usd;
+            const asOf = validation?.cost?.as_of
+                ?? this.generationCatalog.find(row => row.id === draft.modelId)?.as_of ?? '不明';
+            const amount = typeof estimate === 'number' ? `$${estimate.toFixed(2)}（as_of ${asOf}）` : '見積不可';
+            const approved = await new ConfirmDialog({
+                title: '費用承認',
+                msg: `${amount}で ${draft.modelId} に送ります。費用承認しますか`,
+                ok: '費用承認する', cancel: 'キャンセル'
+            }).open();
+            if (!approved) return { ok: true };
+            await this.workspaceService.ready;
+            const root = this.workspaceService.tryGetRoots()[0]?.resource;
+            if (!root) throw new Error('プロジェクトが開かれていません。');
+            this.generationStates.set(identity.key, 'generating');
+            this.render();
+            void this.layerAudioService.startGenerateVideo({
+                projectRootUri: root.toString(), itemId: identity.itemId, approved: true
+            }).then(result => {
+                if (!result.ok) this.showFieldNotice(result.reason ?? '生成に失敗しました。');
+                this.generationLoads.delete(identity.key);
+                void this.loadGeneration(identity);
+            });
+            return { ok: true };
+        } catch (error) {
+            return { ok: false, message: error instanceof Error ? error.message : String(error) };
+        }
+    }
+
+    protected async resumeGeneration(identity: { key: string; itemId: string; sourcePath: string; duration: number; sourceId?: string }): Promise<InspectorWriteResult> {
+        try {
+            await this.workspaceService.ready;
+            const root = this.workspaceService.tryGetRoots()[0]?.resource;
+            if (!root) throw new Error('プロジェクトが開かれていません。');
+            this.generationStates.set(identity.key, 'generating');
+            this.render();
+            void this.layerAudioService.resumeGenerateVideo({
+                projectRootUri: root.toString(), itemId: identity.itemId
+            }).then(result => {
+                if (!result.ok) this.showFieldNotice(result.reason ?? '再取得に失敗しました。');
+                this.generationLoads.delete(identity.key);
+                void this.loadGeneration(identity);
+            });
+            return { ok: true };
+        } catch (error) {
+            return { ok: false, message: error instanceof Error ? error.message : String(error) };
+        }
+    }
+
     protected async commitWrite(
         request: InspectorWriteRequest
     ): Promise<InspectorWriteResult> {
@@ -3411,6 +3709,7 @@ export class AkariInspectorWidget extends BaseWidget {
     ): void {
         const row = document.createElement('div');
         row.className = 'akari-inspector-row';
+        if (field.className) row.classList.add(field.className);
         if (field.title) row.title = field.title;
         const fieldName = field.name ?? field.label.toLowerCase().replace(/[^a-z0-9_-]+/giu, '-');
         const labelElement = document.createElement('div');
