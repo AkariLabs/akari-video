@@ -1,0 +1,62 @@
+{
+  "measurements": {
+    "style_preset-subtitle-news": {
+      "text": "速報ニュース",
+      "fontSize": "56px",
+      "strokeWidth": "0px",
+      "backgroundColor": "rgb(198, 40, 40)"
+    },
+    "style_preset-subtitle-variety": {
+      "text": "ここがすごい！",
+      "fontSize": "80px",
+      "strokeWidth": "18px",
+      "backgroundColor": "rgba(0, 0, 0, 0)"
+    }
+  },
+  "results": [
+    {
+      "step": "open-preview",
+      "result": "opened"
+    },
+    {
+      "step": "measure",
+      "id": "style_preset-subtitle-news",
+      "text": "速報ニュース",
+      "fontSize": "56px",
+      "strokeWidth": "0px",
+      "backgroundColor": "rgb(198, 40, 40)"
+    },
+    {
+      "step": "screenshot",
+      "name": "00-style-preset-news.png"
+    },
+    {
+      "step": "measure",
+      "id": "style_preset-subtitle-variety",
+      "text": "ここがすごい！",
+      "fontSize": "80px",
+      "strokeWidth": "18px",
+      "backgroundColor": "rgba(0, 0, 0, 0)"
+    },
+    {
+      "step": "screenshot",
+      "name": "01-style-preset-variety.png"
+    },
+    {
+      "step": "PASS",
+      "message": "style_preset だけの subtitle-news に赤帯が出る",
+      "backgroundColor": "rgb(198, 40, 40)"
+    },
+    {
+      "step": "PASS",
+      "message": "style_preset だけの subtitle-news に font-size 56px が出る",
+      "fontSize": "56px"
+    },
+    {
+      "step": "PASS",
+      "message": "style_preset だけの subtitle-variety に 18px の実ストロークが出る",
+      "strokeWidth": "18px"
+    }
+  ],
+  "failures": []
+}

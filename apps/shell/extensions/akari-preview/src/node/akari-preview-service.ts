@@ -1,7 +1,7 @@
 import { inject, injectable } from '@theia/core/shared/inversify';
 import { WorkspaceServer } from '@theia/workspace/lib/common';
 import { lintProjectCandidates } from '@akari-video/edit-store/lib/write-gate';
-import { projectLegacyEdit, readInternalEdit, resolveCaptionDisplay, toAnchorCaptions } from '@akari-video/edit-store';
+import { applyCaptionStylePresets, projectLegacyEdit, readInternalEdit, resolveCaptionDisplay, TEXTSTYLE_CATALOG, toAnchorCaptions } from '@akari-video/edit-store';
 import { planMigration } from '@akari-video/edit-store/lib/migrate';
 import { spawn } from 'child_process';
 import { createHash, randomBytes } from 'crypto';
@@ -1160,13 +1160,17 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
         // calls. readWorkspaceRegularFile opens with O_NOFOLLOW where available, reads from the
         // descriptor, and verifies file/parent identity and workspace containment before and
         // after the read. Any rename or symlink race therefore fails closed.
-        const captionsRoot = JSON.parse(await this.readWorkspaceRegularFile(
+        let captionsRoot = JSON.parse(await this.readWorkspaceRegularFile(
             request.captionsUri, roots, 'captions.json'
         ));
         if (Array.isArray(captionsRoot) || !captionsRoot || typeof captionsRoot !== 'object'
             || captionsRoot.display_policy === undefined) {
             return null;
         }
+        // display_policy 経路だけ前処理を欠き、行の style_preset が無視されていた。
+        // legacy の parsePreviewCaptions、Web UI、render-cut、page-builder は解決済みで、
+        // 公開字幕プリセット契約 §3 も captions.json 消費側での前処理を必須としている。
+        captionsRoot = applyCaptionStylePresets(captionsRoot, TEXTSTYLE_CATALOG).root;
         const captionsEmphasisWords = readCaptionsEmphasisWords(captionsRoot);
         const editText = await this.readWorkspaceRegularFile(request.editUri, roots, 'edit.json');
         let rawEdit = JSON.parse(editText);
