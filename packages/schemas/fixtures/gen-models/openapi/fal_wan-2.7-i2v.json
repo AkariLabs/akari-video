@@ -7,9 +7,8 @@
     "x-fal-metadata": {
       "endpointId": "fal-ai/wan/v2.7/image-to-video",
       "category": "image-to-video",
-      "thumbnailUrl": "https://v3b.fal.media/files/b/0a94048a/7oM_ro6v_fh2pGHvBbpyc_9db05a8e25034dcbb16db5192560d4af.jpg",
-      "playgroundUrl": "https://fal.ai/models/fal-ai/wan/v2.7/image-to-video",
-      "documentationUrl": "https://fal.ai/models/fal-ai/wan/v2.7/image-to-video/api",
+      "playgroundUrl": "<url-removed>",
+      "documentationUrl": "<url-removed>",
       "about": "Generate video from image or video input using WAN 2.7 I2V model.\n\nScenarios:\n- First-frame-to-video: provide image_url\n- First+last-frame-to-video: provide image_url + end_image_url\n- Video continuation: provide video_url\n- Any scenario can include driving audio via audio_url"
     }
   },
@@ -98,10 +97,7 @@
               }
             ],
             "description": "Text prompt describing the desired video. Max 5000 characters.",
-            "title": "Prompt",
-            "examples": [
-              "The massive humpback whale glides slowly through the deep blue water. It turns gracefully, its huge pectoral fin sweeping through the water like a wing. Sunbeams penetrate from above, illuminating the whale's textured skin. Small fish scatter. Awe-inspiring scale and grace."
-            ]
+            "title": "Prompt"
           },
           "audio_url": {
             "anyOf": [
@@ -149,10 +145,7 @@
               }
             ],
             "description": "Content to avoid in the video. Max 500 characters.",
-            "title": "Negative Prompt",
-            "examples": [
-              "low resolution, errors, worst quality, low quality, incomplete, extra fingers, bad proportions, blurry, distorted"
-            ]
+            "title": "Negative Prompt"
           },
           "image_url": {
             "anyOf": [
@@ -167,10 +160,7 @@
               }
             ],
             "description": "URL of the first frame image. Formats: JPEG, JPG, PNG, BMP, WEBP. Max 20 MB.",
-            "title": "Image Url",
-            "examples": [
-              "https://v3b.fal.media/files/b/0a9413bb/qH6QY4JRzWxHOFKtCe70S_uPDJyzKZ.png"
-            ]
+            "title": "Image Url"
           },
           "enable_prompt_expansion": {
             "default": true,
@@ -219,11 +209,6 @@
               12,
               13,
               14,
-              15
-            ],
-            "examples": [
-              5,
-              10,
               15
             ]
           },
@@ -345,10 +330,7 @@
               }
             ],
             "description": "The name of the file. It will be auto-generated if not provided.",
-            "title": "File Name",
-            "examples": [
-              "z9RV14K95DvU.png"
-            ]
+            "title": "File Name"
           },
           "content_type": {
             "anyOf": [
@@ -360,10 +342,7 @@
               }
             ],
             "description": "The mime type of the file.",
-            "title": "Content Type",
-            "examples": [
-              "image/png"
-            ]
+            "title": "Content Type"
           },
           "height": {
             "anyOf": [
@@ -399,10 +378,7 @@
               }
             ],
             "description": "The size of the file in bytes.",
-            "title": "File Size",
-            "examples": [
-              4404019
-            ]
+            "title": "File Size"
           },
           "duration": {
             "anyOf": [

@@ -7,9 +7,8 @@
     "x-fal-metadata": {
       "endpointId": "fal-ai/nano-banana-pro/edit",
       "category": "image-to-image",
-      "thumbnailUrl": "https://v3b.fal.media/files/b/0a9c2f0f/p3rXI18zMYTBz1M0qP2h4_b9a2087ce0b64cd788cb5ec067edc26e.jpg",
-      "playgroundUrl": "https://fal.ai/models/fal-ai/nano-banana-pro/edit",
-      "documentationUrl": "https://fal.ai/models/fal-ai/nano-banana-pro/edit/api",
+      "playgroundUrl": "<url-removed>",
+      "documentationUrl": "<url-removed>",
       "about": "Gemini 3 Pro Image is a text-to-image model that generates images from text descriptions.\n\nDecompression-bomb inputs to ``image_urls`` are rejected upstream by\n``validate_image_async`` (called from ``GoogleAIClient._format_image``):\nthe validator now enforces a header-only ``max_image_pixels`` cap\n(default 89,478,485 ≈ PIL's ``MAX_IMAGE_PIXELS``) *before* any pixel\ndecode, so oversized inputs raise a deterministic 422\n``image_too_large`` instead of OOM-killing the runner and taking out\nevery multiplexed request on it (``max_multiplexing=20``)."
     }
   },
@@ -159,12 +158,6 @@
             "default": "4"
           },
           "image_urls": {
-            "examples": [
-              [
-                "https://storage.googleapis.com/falserverless/example_inputs/nano-banana-edit-input.png",
-                "https://storage.googleapis.com/falserverless/example_inputs/nano-banana-edit-input-2.png"
-              ]
-            ],
             "description": "The URLs of the images to use for image-to-image generation or image editing.",
             "type": "array",
             "items": {
@@ -173,9 +166,6 @@
             "title": "Image URLs"
           },
           "prompt": {
-            "examples": [
-              "make a photo of the man driving the car down the california coastline"
-            ],
             "maxLength": 50000,
             "description": "The prompt for image editing.",
             "type": "string",
@@ -233,15 +223,6 @@
             "title": "Description"
           },
           "images": {
-            "examples": [
-              [
-                {
-                  "content_type": "image/png",
-                  "url": "https://storage.googleapis.com/falserverless/example_outputs/nano-banana-pro-edit-output.png",
-                  "file_name": "nano-banana-pro-edit-output.png"
-                }
-              ]
-            ],
             "description": "The edited images.",
             "type": "array",
             "items": {
@@ -264,9 +245,6 @@
       "ImageFile": {
         "properties": {
           "content_type": {
-            "examples": [
-              "image/png"
-            ],
             "description": "The mime type of the file.",
             "anyOf": [
               {
@@ -296,9 +274,6 @@
             "title": "Url"
           },
           "file_name": {
-            "examples": [
-              "z9RV14K95DvU.png"
-            ],
             "description": "The name of the file. It will be auto-generated if not provided.",
             "anyOf": [
               {
@@ -311,9 +286,6 @@
             "title": "File Name"
           },
           "file_size": {
-            "examples": [
-              4404019
-            ],
             "description": "The size of the file in bytes.",
             "anyOf": [
               {

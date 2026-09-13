@@ -7,9 +7,8 @@
     "x-fal-metadata": {
       "endpointId": "bytedance/seedance-2.0/image-to-video",
       "category": "image-to-video",
-      "thumbnailUrl": "https://v3b.fal.media/files/b/0a9c2f2b/C5HNQz1oux7K-6Tqfd_-9_c4a7c912a6db402686fe2c01591a1687.jpg",
-      "playgroundUrl": "https://fal.ai/models/bytedance/seedance-2.0/image-to-video",
-      "documentationUrl": "https://fal.ai/models/bytedance/seedance-2.0/image-to-video/api",
+      "playgroundUrl": "<url-removed>",
+      "documentationUrl": "<url-removed>",
       "about": "Image To Video"
     }
   },
@@ -161,9 +160,6 @@
               "standard",
               "high"
             ],
-            "examples": [
-              "standard"
-            ],
             "title": "Bitrate Mode",
             "type": "string",
             "default": "standard"
@@ -171,10 +167,7 @@
           "prompt": {
             "description": "The text prompt describing the desired motion and action for the video.",
             "title": "Prompt",
-            "type": "string",
-            "examples": [
-              "An octopus finds a football in the ocean and excitedly calls its octopus friends to come and play. Cut scene to an octopus football game under the sea."
-            ]
+            "type": "string"
           },
           "generate_audio": {
             "description": "Whether to generate synchronized audio for the video, including sound effects, ambient sounds, and lip-synced speech. The cost of video generation is the same regardless of whether audio is generated or not.",
@@ -185,10 +178,7 @@
           "image_url": {
             "description": "The URL of the starting frame image to animate. Supported formats: JPEG, PNG, WebP. Max 30 MB.",
             "title": "Image Url",
-            "type": "string",
-            "examples": [
-              "https://v3b.fal.media/files/b/0a8eba37/Cqg-4Uwzyz4DELfceT1CF_a17e588773ec45b1a9e6f100a787b80b.jpg"
-            ]
+            "type": "string"
           }
         },
         "type": "object",
@@ -207,19 +197,11 @@
           "seed": {
             "description": "The seed used for generation.",
             "title": "Seed",
-            "type": "integer",
-            "examples": [
-              42
-            ]
+            "type": "integer"
           },
           "video": {
             "description": "The generated video file.",
-            "$ref": "#/components/schemas/File",
-            "examples": [
-              {
-                "url": "https://storage.googleapis.com/falserverless/example_outputs/bytedance/seedance_2/output.mp4"
-              }
-            ]
+            "$ref": "#/components/schemas/File"
           }
         },
         "type": "object",
@@ -247,9 +229,6 @@
               {
                 "type": "null"
               }
-            ],
-            "examples": [
-              "image/png"
             ]
           },
           "file_name": {
@@ -262,9 +241,6 @@
               {
                 "type": "null"
               }
-            ],
-            "examples": [
-              "z9RV14K95DvU.png"
             ]
           },
           "url": {
@@ -282,9 +258,6 @@
               {
                 "type": "null"
               }
-            ],
-            "examples": [
-              4404019
             ]
           }
         },

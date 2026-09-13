@@ -7,9 +7,8 @@
     "x-fal-metadata": {
       "endpointId": "bytedance/seedance-2.5/image-to-video",
       "category": "image-to-video",
-      "thumbnailUrl": "https://v3b.fal.media/files/b/0aa30ef9/4Ux9T9X2458w7LH1AI_oz.jpg",
-      "playgroundUrl": "https://fal.ai/models/bytedance/seedance-2.5/image-to-video",
-      "documentationUrl": "https://fal.ai/models/bytedance/seedance-2.5/image-to-video/api",
+      "playgroundUrl": "<url-removed>",
+      "documentationUrl": "<url-removed>",
       "about": "Image To Video"
     }
   },
@@ -128,9 +127,6 @@
           "prompt": {
             "title": "Prompt",
             "type": "string",
-            "examples": [
-              "An octopus finds a football in the ocean and excitedly calls its octopus friends to come and play. Cut scene to an octopus football game under the sea."
-            ],
             "description": "The text prompt describing the desired motion and action for the video."
           },
           "generate_audio": {
@@ -142,9 +138,6 @@
           "image_url": {
             "title": "Image Url",
             "type": "string",
-            "examples": [
-              "https://v3b.fal.media/files/b/0a8eba37/Cqg-4Uwzyz4DELfceT1CF_a17e588773ec45b1a9e6f100a787b80b.jpg"
-            ],
             "description": "The URL of the starting frame image to animate. Supported formats: JPEG, PNG, WebP. Max 30 MB."
           },
           "resolution": {
@@ -186,9 +179,6 @@
             "title": "Bitrate Mode",
             "default": "standard",
             "type": "string",
-            "examples": [
-              "standard"
-            ],
             "enum": [
               "standard",
               "high"
@@ -219,18 +209,10 @@
           "seed": {
             "title": "Seed",
             "type": "integer",
-            "examples": [
-              42
-            ],
             "description": "The seed used for generation."
           },
           "video": {
             "description": "The generated video file.",
-            "examples": [
-              {
-                "url": "https://storage.googleapis.com/falserverless/example_outputs/bytedance/seedance_2/output.mp4"
-              }
-            ],
             "$ref": "#/components/schemas/File"
           }
         }
@@ -258,9 +240,6 @@
               }
             ],
             "title": "File Size",
-            "examples": [
-              4404019
-            ],
             "description": "The size of the file in bytes."
           },
           "url": {
@@ -278,9 +257,6 @@
               }
             ],
             "title": "Content Type",
-            "examples": [
-              "image/png"
-            ],
             "description": "The mime type of the file."
           },
           "file_name": {
@@ -293,9 +269,6 @@
               }
             ],
             "title": "File Name",
-            "examples": [
-              "z9RV14K95DvU.png"
-            ],
             "description": "The name of the file. It will be auto-generated if not provided."
           }
         }

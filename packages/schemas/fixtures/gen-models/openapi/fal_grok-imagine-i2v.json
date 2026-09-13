@@ -7,9 +7,8 @@
     "x-fal-metadata": {
       "endpointId": "xai/grok-imagine-video/image-to-video",
       "category": "image-to-video",
-      "thumbnailUrl": "https://v3b.fal.media/files/b/0a8a0dd0/3wXg362MQ0pczC2ZQFBfW_c153dd469fd14b75bbd9fa6d27f1b63e.jpg",
-      "playgroundUrl": "https://fal.ai/models/xai/grok-imagine-video/image-to-video",
-      "documentationUrl": "https://fal.ai/models/xai/grok-imagine-video/image-to-video/api",
+      "playgroundUrl": "<url-removed>",
+      "documentationUrl": "<url-removed>",
       "about": "Generate a video based on an image using Grok Imagine."
     }
   },
@@ -80,9 +79,6 @@
         ],
         "properties": {
           "prompt": {
-            "examples": [
-              "Medieval knight in ornate armor walking through a mystical forest, bioluminescent plants pulsing with light, ancient stone ruins overgrown with glowing vines, over-the-shoulder camera, dark fantasy aesthetic, volumetric fog and Lumen lighting"
-            ],
             "title": "Prompt",
             "type": "string",
             "maxLength": 4096,
@@ -120,9 +116,6 @@
             "description": "Aspect ratio of the generated video."
           },
           "image_url": {
-            "examples": [
-              "https://v3b.fal.media/files/b/0a8b90e0/BFLE9VDlZqsryU-UA3BoD_image_004.png"
-            ],
             "title": "Image URL",
             "type": "string",
             "description": "URL of the input image for video generation."
@@ -151,18 +144,6 @@
         ],
         "properties": {
           "video": {
-            "examples": [
-              {
-                "content_type": "video/mp4",
-                "fps": 24,
-                "duration": 6.041667,
-                "num_frames": 145,
-                "url": "https://v3b.fal.media/files/b/0a8b90e0/0Ci1dviuSnEyUZzBUq-_5_nu7MrAAa.mp4",
-                "height": 720,
-                "width": 1280,
-                "file_name": "0Ci1dviuSnEyUZzBUq-_5_nu7MrAAa.mp4"
-              }
-            ],
             "$ref": "#/components/schemas/VideoFile",
             "description": "The generated video."
           }
@@ -199,9 +180,6 @@
             "description": "The FPS of the video"
           },
           "content_type": {
-            "examples": [
-              "image/png"
-            ],
             "title": "Content Type",
             "anyOf": [
               {
@@ -267,9 +245,6 @@
             "description": "The width of the video"
           },
           "file_name": {
-            "examples": [
-              "z9RV14K95DvU.png"
-            ],
             "title": "File Name",
             "anyOf": [
               {
@@ -282,9 +257,6 @@
             "description": "The name of the file. It will be auto-generated if not provided."
           },
           "file_size": {
-            "examples": [
-              4404019
-            ],
             "title": "File Size",
             "anyOf": [
               {

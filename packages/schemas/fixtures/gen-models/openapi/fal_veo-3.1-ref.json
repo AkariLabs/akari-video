@@ -7,10 +7,9 @@
     "x-fal-metadata": {
       "endpointId": "fal-ai/veo3.1/reference-to-video",
       "category": "image-to-video",
-      "thumbnailUrl": "https://v3b.fal.media/files/b/tiger/IwzOGSbzp6e8N00QuLtFF_129417bb24f248298e95c3fa2b1b82fb.jpg",
-      "playgroundUrl": "https://fal.ai/models/fal-ai/veo3.1/reference-to-video",
-      "documentationUrl": "https://fal.ai/models/fal-ai/veo3.1/reference-to-video/api",
-      "about": "Generate videos from reference image(s) and text using Google's Veo 3.1 model.\n\nThe prompt should describe how to animate between the first and last frame. Include:\n- Action: How the first and last frame should be animated\n- Style: Desired animation style\n- Camera motion (optional): How camera should move\n- Ambiance (optional): Desired mood and atmosphere\n\nMore details are available in our [prompting guide](https://blog.fal.ai/mastering-video-generation-with-veo-2-a-comprehensive-guide/).\n\nThe model supports:\n- Input images up to 8MB in size\n- 720p or 1080p output resolution\n- Natural motion and realistic animations\n- Control over animation via text prompts\n\nSafety filters are applied to both input images and generated content."
+      "playgroundUrl": "<url-removed>",
+      "documentationUrl": "<url-removed>",
+      "about": "Generate videos from reference image(s) and text using Google's Veo 3.1 model.\n\nThe prompt should describe how to animate between the first and last frame. Include:\n- Action: How the first and last frame should be animated\n- Style: Desired animation style\n- Camera motion (optional): How camera should move\n- Ambiance (optional): Desired mood and atmosphere\n\nMore details are available in our [prompting guide](<url-removed>).\n\nThe model supports:\n- Input images up to 8MB in size\n- 720p or 1080p output resolution\n- Natural motion and realistic animations\n- Control over animation via text prompts\n\nSafety filters are applied to both input images and generated content."
     }
   },
   "components": {
@@ -92,13 +91,6 @@
           "image_urls": {
             "type": "array",
             "description": "URLs of the reference images to use for consistent subject appearance",
-            "examples": [
-              [
-                "https://storage.googleapis.com/falserverless/example_inputs/veo31-r2v-input-1.png",
-                "https://storage.googleapis.com/falserverless/example_inputs/veo31-r2v-input-2.png",
-                "https://storage.googleapis.com/falserverless/example_inputs/veo31-r2v-input-3.png"
-              ]
-            ],
             "items": {
               "type": "string"
             },
@@ -139,9 +131,6 @@
             "type": "string",
             "description": "The text prompt describing the video you want to generate",
             "maxLength": 20000,
-            "examples": [
-              "A chimpanzee wearing overalls frolics in the grassy field, gently playing with the butterflies. In the background, a circus tent and carousel beckon."
-            ],
             "title": "Prompt"
           },
           "generate_audio": {
@@ -171,11 +160,6 @@
       "Veo31ReferenceToVideoOutput": {
         "properties": {
           "video": {
-            "examples": [
-              {
-                "url": "https://storage.googleapis.com/falserverless/example_outputs/veo31-r2v-output.mp4"
-              }
-            ],
             "description": "The generated video.",
             "$ref": "#/components/schemas/File"
           }
@@ -192,9 +176,6 @@
       "File": {
         "properties": {
           "content_type": {
-            "examples": [
-              "image/png"
-            ],
             "description": "The mime type of the file.",
             "anyOf": [
               {
@@ -207,9 +188,6 @@
             "title": "Content Type"
           },
           "file_size": {
-            "examples": [
-              4404019
-            ],
             "description": "The size of the file in bytes.",
             "anyOf": [
               {
@@ -222,9 +200,6 @@
             "title": "File Size"
           },
           "file_name": {
-            "examples": [
-              "z9RV14K95DvU.png"
-            ],
             "description": "The name of the file. It will be auto-generated if not provided.",
             "anyOf": [
               {

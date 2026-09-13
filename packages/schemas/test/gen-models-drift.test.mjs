@@ -62,6 +62,41 @@ for (const model of catalog.models.filter((row) => row.provider === "fal")) {
   });
 }
 
+test("保存済み OpenAPI の URL は servers[0].url だけに残る", () => {
+  const violations = [];
+  for (const model of catalog.models.filter((row) => row.provider === "fal")) {
+    const fixtureName = `${model.id.replaceAll(":", "_")}.json`;
+    const document = JSON.parse(readFileSync(join(fixtureRoot, fixtureName), "utf8"));
+    collectUrlViolations(document, "$", fixtureName, violations);
+  }
+  if (violations.length > 0) {
+    assert.fail(`servers[0].url 以外に URL が残っています:\n${violations.join("\n")}`);
+  }
+});
+
+function collectUrlViolations(value, jsonPath, fixtureName, violations) {
+  if (typeof value === "string") {
+    const urls = value.match(/https?:\/\/[^\s<>"'`)\]}]+/g) ?? [];
+    if (jsonPath !== "$.servers[0].url") {
+      for (const url of urls) violations.push(`${fixtureName} ${jsonPath}: ${url}`);
+    }
+    return;
+  }
+  if (Array.isArray(value)) {
+    for (let index = 0; index < value.length; index += 1) {
+      collectUrlViolations(value[index], `${jsonPath}[${index}]`, fixtureName, violations);
+    }
+    return;
+  }
+  if (value === null || typeof value !== "object") return;
+  for (const [key, child] of Object.entries(value)) {
+    const childPath = /^[A-Za-z_$][A-Za-z0-9_$-]*$/.test(key)
+      ? `${jsonPath}.${key}`
+      : `${jsonPath}[${JSON.stringify(key)}]`;
+    collectUrlViolations(child, childPath, fixtureName, violations);
+  }
+}
+
 function inputSchema(document) {
   const operation = Object.values(document.paths).map((pathItem) => pathItem.post).find(Boolean);
   const reference = operation?.requestBody?.content?.["application/json"]?.schema?.$ref;

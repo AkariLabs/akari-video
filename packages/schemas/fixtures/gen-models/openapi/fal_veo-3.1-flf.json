@@ -7,10 +7,9 @@
     "x-fal-metadata": {
       "endpointId": "fal-ai/veo3.1/first-last-frame-to-video",
       "category": "image-to-video",
-      "thumbnailUrl": "https://v3b.fal.media/files/b/monkey/5YSsAJ8Fbwuj97_9vBiTW.jpg",
-      "playgroundUrl": "https://fal.ai/models/fal-ai/veo3.1/first-last-frame-to-video",
-      "documentationUrl": "https://fal.ai/models/fal-ai/veo3.1/first-last-frame-to-video/api",
-      "about": "Generate videos by animating between a first and last frame using Google's Veo 3.1 model.\n\nThe prompt should describe how to animate between the first and last frame. Include:\n- Action: How the first and last frame should be animated\n- Style: Desired animation style\n- Camera motion (optional): How camera should move\n- Ambiance (optional): Desired mood and atmosphere\n\nMore details are available in our [prompting guide](https://blog.fal.ai/mastering-video-generation-with-veo-2-a-comprehensive-guide/).\n\nThe model supports:\n- Input images up to 8MB in size\n- 720p or 1080p output resolution\n- 16:9 or 9:16 aspect ratio\n- Natural motion and realistic animations\n- Control over animation via text prompts\n\nSafety filters are applied to both input images and generated content."
+      "playgroundUrl": "<url-removed>",
+      "documentationUrl": "<url-removed>",
+      "about": "Generate videos by animating between a first and last frame using Google's Veo 3.1 model.\n\nThe prompt should describe how to animate between the first and last frame. Include:\n- Action: How the first and last frame should be animated\n- Style: Desired animation style\n- Camera motion (optional): How camera should move\n- Ambiance (optional): Desired mood and atmosphere\n\nMore details are available in our [prompting guide](<url-removed>).\n\nThe model supports:\n- Input images up to 8MB in size\n- 720p or 1080p output resolution\n- 16:9 or 9:16 aspect ratio\n- Natural motion and realistic animations\n- Control over animation via text prompts\n\nSafety filters are applied to both input images and generated content."
     }
   },
   "components": {
@@ -86,9 +85,6 @@
           "last_frame_url": {
             "type": "string",
             "description": "URL of the last frame of the video",
-            "examples": [
-              "https://storage.googleapis.com/falserverless/example_inputs/veo31-flf2v-input-2.jpeg"
-            ],
             "title": "Last Frame URL"
           },
           "auto_fix": {
@@ -112,9 +108,6 @@
           "first_frame_url": {
             "type": "string",
             "description": "URL of the first frame of the video",
-            "examples": [
-              "https://storage.googleapis.com/falserverless/example_inputs/veo31-flf2v-input-1.jpeg"
-            ],
             "title": "First Frame URL"
           },
           "seed": {
@@ -169,9 +162,6 @@
             "type": "string",
             "description": "The text prompt describing the video you want to generate",
             "maxLength": 20000,
-            "examples": [
-              "A woman looks into the camera, breathes in, then exclaims energetically, \"have you guys checked out Veo3.1 First-Last-Frame-to-Video on Fal? It's incredible!\""
-            ],
             "title": "Prompt"
           },
           "generate_audio": {
@@ -205,11 +195,6 @@
       "Veo31FirstLastFrameToVideoOutput": {
         "properties": {
           "video": {
-            "examples": [
-              {
-                "url": "https://storage.googleapis.com/falserverless/example_outputs/veo31-flf2v-output.mp4"
-              }
-            ],
             "description": "The generated video.",
             "$ref": "#/components/schemas/File"
           }
@@ -226,9 +211,6 @@
       "File": {
         "properties": {
           "content_type": {
-            "examples": [
-              "image/png"
-            ],
             "description": "The mime type of the file.",
             "anyOf": [
               {
@@ -241,9 +223,6 @@
             "title": "Content Type"
           },
           "file_size": {
-            "examples": [
-              4404019
-            ],
             "description": "The size of the file in bytes.",
             "anyOf": [
               {
@@ -256,9 +235,6 @@
             "title": "File Size"
           },
           "file_name": {
-            "examples": [
-              "z9RV14K95DvU.png"
-            ],
             "description": "The name of the file. It will be auto-generated if not provided.",
             "anyOf": [
               {

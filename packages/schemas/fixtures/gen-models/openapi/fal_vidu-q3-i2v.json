@@ -7,9 +7,8 @@
     "x-fal-metadata": {
       "endpointId": "fal-ai/vidu/q3/image-to-video",
       "category": "image-to-video",
-      "thumbnailUrl": "https://v3b.fal.media/files/b/0a8c915a/He8Pvpz77hcWVcUYC5hRZ_98109f8630944133a904fad6fe3a701d.jpg",
-      "playgroundUrl": "https://fal.ai/models/fal-ai/vidu/q3/image-to-video",
-      "documentationUrl": "https://fal.ai/models/fal-ai/vidu/q3/image-to-video/api",
+      "playgroundUrl": "<url-removed>",
+      "documentationUrl": "<url-removed>",
       "about": "Vidu Q3 Image to Video API: Generate a video from a single image using the Q3 model."
     }
   },
@@ -134,9 +133,6 @@
             "description": "Text prompt for video generation, max 2000 characters",
             "default": "",
             "title": "Prompt",
-            "examples": [
-              "The astronaut waved and the camera moved up."
-            ],
             "type": "string"
           },
           "audio": {
@@ -147,9 +143,6 @@
           },
           "image_url": {
             "description": "URL or base64 image to use as the starting frame",
-            "examples": [
-              "https://prod-ss-images.s3.cn-northwest-1.amazonaws.com.cn/vidu-maas/template/image2video.png"
-            ],
             "title": "Image Url",
             "type": "string"
           }
@@ -167,11 +160,6 @@
         "properties": {
           "video": {
             "description": "The generated video from image using the Q3 model",
-            "examples": [
-              {
-                "url": "https://v3b.fal.media/files/b/0a8c9189/n9z3uUDPqmU2msAtqr25-_output.mp4"
-              }
-            ],
             "$ref": "#/components/schemas/File"
           }
         },
@@ -191,9 +179,6 @@
         "properties": {
           "content_type": {
             "description": "The mime type of the file.",
-            "examples": [
-              "image/png"
-            ],
             "anyOf": [
               {
                 "type": "string"
@@ -206,9 +191,6 @@
           },
           "file_name": {
             "description": "The name of the file. It will be auto-generated if not provided.",
-            "examples": [
-              "z9RV14K95DvU.png"
-            ],
             "anyOf": [
               {
                 "type": "string"
@@ -221,9 +203,6 @@
           },
           "file_size": {
             "description": "The size of the file in bytes.",
-            "examples": [
-              4404019
-            ],
             "anyOf": [
               {
                 "type": "integer"

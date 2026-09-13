@@ -38,6 +38,7 @@ try {
     const response = await fetch(model.source_url, { headers: { accept: "application/json" } });
     if (!response.ok) throw new Error(`${model.id}: HTTP ${response.status} ${response.statusText}`);
     const document = await response.json();
+    sanitizeDocument(document);
     const outputPath = path.join(fixtureRoot, `${model.id.replaceAll(":", "_")}.json`);
     const temporaryPath = `${outputPath}.tmp`;
     fs.writeFileSync(temporaryPath, `${JSON.stringify(document, null, 2)}\n`, "utf8");
@@ -50,6 +51,67 @@ try {
 }
 
 console.log(`OK: fal ${models.length} 行の OpenAPI を更新しました`);
+
+function sanitizeDocument(document) {
+  // fal のメタデータに含まれる表示用サムネイルは、スナップショットへ保存しない。
+  delete document.info?.["x-fal-metadata"]?.thumbnailUrl;
+
+  // 名前マップ直下では同名の property / schema を保護し、それ以外の例示キーを落とす。
+  removeExampleKeys(document, []);
+
+  // 構造上必要な配信先だけを残し、説明文などに埋め込まれた URL も固定値へ置換する。
+  replaceUrls(document, []);
+}
+
+function removeExampleKeys(value, pathParts) {
+  if (Array.isArray(value)) {
+    for (let index = 0; index < value.length; index += 1) {
+      removeExampleKeys(value[index], [...pathParts, index]);
+    }
+    return;
+  }
+  if (value === null || typeof value !== "object") return;
+
+  const namedMapKeys = new Set(["properties", "schemas", "$defs", "definitions"]);
+  const protectedNameMap = namedMapKeys.has(pathParts.at(-1));
+  for (const key of Object.keys(value)) {
+    if (!protectedNameMap && ["examples", "example", "externalDocs"].includes(key)) {
+      delete value[key];
+      continue;
+    }
+    removeExampleKeys(value[key], [...pathParts, key]);
+  }
+}
+
+function replaceUrls(value, pathParts) {
+  if (Array.isArray(value)) {
+    for (let index = 0; index < value.length; index += 1) {
+      if (typeof value[index] === "string" && !isServerUrl([...pathParts, index])) {
+        value[index] = value[index].replace(/https?:\/\/[^\s<>"'`)\]}]+/g, "<url-removed>");
+      } else {
+        replaceUrls(value[index], [...pathParts, index]);
+      }
+    }
+    return;
+  }
+  if (value === null || typeof value !== "object") return;
+
+  for (const key of Object.keys(value)) {
+    const childPath = [...pathParts, key];
+    if (typeof value[key] === "string" && !isServerUrl(childPath)) {
+      value[key] = value[key].replace(/https?:\/\/[^\s<>"'`)\]}]+/g, "<url-removed>");
+    } else {
+      replaceUrls(value[key], childPath);
+    }
+  }
+}
+
+function isServerUrl(pathParts) {
+  return pathParts.length === 3
+    && pathParts[0] === "servers"
+    && Number.isInteger(pathParts[1])
+    && pathParts[2] === "url";
+}
 
 function messageOf(error) {
   return error instanceof Error ? error.message : String(error);

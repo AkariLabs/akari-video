@@ -7,9 +7,8 @@
     "x-fal-metadata": {
       "endpointId": "bytedance/seedance-2.0/reference-to-video",
       "category": "image-to-video",
-      "thumbnailUrl": "https://v3b.fal.media/files/b/0a9c2f1a/nie2992p9QXZaJbgszHZY_d584fa3e77b44d57a33417a48fac06ab.jpg",
-      "playgroundUrl": "https://fal.ai/models/bytedance/seedance-2.0/reference-to-video",
-      "documentationUrl": "https://fal.ai/models/bytedance/seedance-2.0/reference-to-video/api",
+      "playgroundUrl": "<url-removed>",
+      "documentationUrl": "<url-removed>",
       "about": "Reference To Video"
     }
   },
@@ -161,12 +160,7 @@
             "items": {
               "type": "string"
             },
-            "type": "array",
-            "examples": [
-              [
-                "https://v3b.fal.media/files/b/0a8eba37/Cqg-4Uwzyz4DELfceT1CF_a17e588773ec45b1a9e6f100a787b80b.jpg"
-              ]
-            ]
+            "type": "array"
           },
           "video_urls": {
             "maxItems": 3,
@@ -184,9 +178,6 @@
               "standard",
               "high"
             ],
-            "examples": [
-              "standard"
-            ],
             "title": "Bitrate Mode",
             "type": "string",
             "default": "standard"
@@ -194,10 +185,7 @@
           "prompt": {
             "description": "The text prompt used to generate the video.",
             "title": "Prompt",
-            "type": "string",
-            "examples": [
-              "An octopus finds a football in the ocean and excitedly calls its octopus friends to come and play. Cut scene to an octopus football game under the sea."
-            ]
+            "type": "string"
           },
           "generate_audio": {
             "description": "Whether to generate synchronized audio for the video, including sound effects, ambient sounds, and lip-synced speech. The cost of video generation is the same regardless of whether audio is generated or not.",
@@ -221,19 +209,11 @@
           "seed": {
             "description": "The seed used for generation.",
             "title": "Seed",
-            "type": "integer",
-            "examples": [
-              42
-            ]
+            "type": "integer"
           },
           "video": {
             "description": "The generated video file.",
-            "$ref": "#/components/schemas/File",
-            "examples": [
-              {
-                "url": "https://storage.googleapis.com/falserverless/example_outputs/bytedance/seedance_2/output.mp4"
-              }
-            ]
+            "$ref": "#/components/schemas/File"
           }
         },
         "type": "object",
@@ -261,9 +241,6 @@
               {
                 "type": "null"
               }
-            ],
-            "examples": [
-              "image/png"
             ]
           },
           "file_name": {
@@ -276,9 +253,6 @@
               {
                 "type": "null"
               }
-            ],
-            "examples": [
-              "z9RV14K95DvU.png"
             ]
           },
           "url": {
@@ -296,9 +270,6 @@
               {
                 "type": "null"
               }
-            ],
-            "examples": [
-              4404019
             ]
           }
         },

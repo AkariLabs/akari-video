@@ -7,9 +7,8 @@
     "x-fal-metadata": {
       "endpointId": "minimax/h3/image-to-video",
       "category": "image-to-video",
-      "thumbnailUrl": "https://v3b.fal.media/files/b/0aa42dac/wjm-S2eWgG8vU2uJoRwPx.jpg",
-      "playgroundUrl": "https://fal.ai/models/minimax/h3/image-to-video",
-      "documentationUrl": "https://fal.ai/models/minimax/h3/image-to-video/api",
+      "playgroundUrl": "<url-removed>",
+      "documentationUrl": "<url-removed>",
       "about": "Image-text-to-video: ``image_url`` optional; text-only routes to t2v."
     }
   },
@@ -109,9 +108,6 @@
             "minLength": 1,
             "title": "Prompt",
             "type": "string",
-            "examples": [
-              "The camera slowly pulls back from the scene, revealing the full landscape as clouds drift overhead and light shifts across the terrain."
-            ],
             "description": "Text prompt for video generation"
           },
           "end_image_url": {
@@ -127,9 +123,6 @@
             "description": "Optional URL of the image to use as the last frame. It may be provided alone for end-only keyframe generation; in that case the output canvas follows this image."
           },
           "image_url": {
-            "examples": [
-              "https://storage.googleapis.com/falserverless/example_inputs/hailuo23/pro_i2v_in.jpg"
-            ],
             "title": "Image URL",
             "anyOf": [
               {
@@ -154,11 +147,6 @@
             "description": "The resolution of the generated video. 480P and 768P are native generation modes; 2K and 4K upscale a 768P base result."
           },
           "prompt_expansion_mode": {
-            "examples": [
-              "fast",
-              "balanced",
-              "quality"
-            ],
             "title": "Prompt Expansion Mode",
             "default": "balanced",
             "anyOf": [
@@ -226,9 +214,6 @@
             "description": "The URL where the file can be downloaded from."
           },
           "file_name": {
-            "examples": [
-              "z9RV14K95DvU.png"
-            ],
             "title": "File Name",
             "anyOf": [
               {
@@ -241,9 +226,6 @@
             "description": "The name of the file. It will be auto-generated if not provided."
           },
           "file_size": {
-            "examples": [
-              4404019
-            ],
             "title": "File Size",
             "anyOf": [
               {
@@ -256,9 +238,6 @@
             "description": "The size of the file in bytes."
           },
           "content_type": {
-            "examples": [
-              "image/png"
-            ],
             "title": "Content Type",
             "anyOf": [
               {

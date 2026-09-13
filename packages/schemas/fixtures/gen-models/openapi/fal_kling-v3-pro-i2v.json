@@ -7,9 +7,8 @@
     "x-fal-metadata": {
       "endpointId": "fal-ai/kling-video/v3/pro/image-to-video",
       "category": "image-to-video",
-      "thumbnailUrl": "https://v3b.fal.media/files/b/0a9c2fb3/yPzcdzINnY5RdSoEqHc8G_382d4ec9337344ccaacf5599057f6cd0.jpg",
-      "playgroundUrl": "https://fal.ai/models/fal-ai/kling-video/v3/pro/image-to-video",
-      "documentationUrl": "https://fal.ai/models/fal-ai/kling-video/v3/pro/image-to-video/api",
+      "playgroundUrl": "<url-removed>",
+      "documentationUrl": "<url-removed>",
       "about": "Kling V3 (pro) Image to Video API.\n\nThe Kling V3 model is the latest generation of image-to-video with\nimproved visual quality and motion consistency. This version also\nsupports native audio generation when the `generate_audio` parameter is enabled."
     }
   },
@@ -101,19 +100,6 @@
               {
                 "type": "null"
               }
-            ],
-            "examples": [
-              [
-                {
-                  "reference_image_urls": [
-                    "https://v3b.fal.media/files/b/0a8cfd62/psPCmzrD1y9vDgdyNfKAL_glasses_back.png"
-                  ],
-                  "frontal_image_url": "https://v3b.fal.media/files/b/0a8cfd5f/-kZL-ha3Iuelku5IHXC-A_glasses.png"
-                },
-                {
-                  "video_url": "https://v3b.fal.media/files/b/0a8cfd66/b03SOiQvKLlFx_jqdNZ9z_child_video.mp4"
-                }
-              ]
             ]
           },
           "prompt": {
@@ -127,18 +113,12 @@
               {
                 "type": "null"
               }
-            ],
-            "examples": [
-              "The craftsman slowly examines the bowl, turning it gently in his weathered hands. His eyes reflect years of wisdom. Subtle smile forms on his face. Dust particles drift in warm light. Breathing motion, blinking eyes."
             ]
           },
           "duration": {
             "description": "The duration of the generated video in seconds",
             "default": "5",
             "title": "Duration",
-            "examples": [
-              "12"
-            ],
             "type": "string",
             "enum": [
               "3",
@@ -169,9 +149,6 @@
               {
                 "type": "null"
               }
-            ],
-            "examples": [
-              null
             ]
           },
           "start_image_url": {
@@ -185,9 +162,6 @@
               "min_aspect_ratio": 0.4
             },
             "title": "Start Image Url",
-            "examples": [
-              "https://storage.googleapis.com/falserverless/example_inputs/kling-v3/pro-i2v/start_image.png"
-            ],
             "type": "string",
             "limit_description": "Max file size: 10.0MB, Min width: 300px, Min height: 300px, Min aspect ratio: 0.40, Max aspect ratio: 2.50, Timeout: 20.0s"
           },
@@ -259,14 +233,6 @@
         "properties": {
           "video": {
             "description": "The generated video",
-            "examples": [
-              {
-                "content_type": "video/mp4",
-                "file_name": "out.mp4",
-                "file_size": 8431922,
-                "url": "https://storage.googleapis.com/falserverless/example_outputs/kling-v3/pro-i2v/out.mp4"
-              }
-            ],
             "$ref": "#/components/schemas/File"
           }
         },
@@ -310,7 +276,7 @@
             ]
           },
           "voice_id": {
-            "description": "The voice ID for this element. The voice will be binded to the element and references to this element will use the binded voice. Get voice IDs from the following endpoint: https://fal.ai/models/fal-ai/kling-video/create-voice",
+            "description": "The voice ID for this element. The voice will be binded to the element and references to this element will use the binded voice. Get voice IDs from the following endpoint: <url-removed>",
             "title": "Voice Id",
             "anyOf": [
               {
@@ -439,9 +405,6 @@
               {
                 "type": "null"
               }
-            ],
-            "examples": [
-              "image/png"
             ]
           },
           "file_name": {
@@ -454,9 +417,6 @@
               {
                 "type": "null"
               }
-            ],
-            "examples": [
-              "z9RV14K95DvU.png"
             ]
           },
           "file_size": {
@@ -469,9 +429,6 @@
               {
                 "type": "null"
               }
-            ],
-            "examples": [
-              4404019
             ]
           },
           "url": {

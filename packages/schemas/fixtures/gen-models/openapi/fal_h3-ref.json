@@ -7,9 +7,8 @@
     "x-fal-metadata": {
       "endpointId": "minimax/h3/reference-to-video",
       "category": "image-to-video",
-      "thumbnailUrl": "https://v3b.fal.media/files/b/0aa42dcf/3VDKabd7ifjCezrQpdfEI.jpg",
-      "playgroundUrl": "https://fal.ai/models/minimax/h3/reference-to-video",
-      "documentationUrl": "https://fal.ai/models/minimax/h3/reference-to-video/api",
+      "playgroundUrl": "<url-removed>",
+      "documentationUrl": "<url-removed>",
       "about": "Reference To Video Hailuo 03"
     }
   },
@@ -102,11 +101,6 @@
             "maxItems": 9,
             "title": "Reference Image URLs",
             "type": "array",
-            "examples": [
-              [
-                "https://storage.googleapis.com/falserverless/example_inputs/hailuo23/pro_i2v_in.jpg"
-              ]
-            ],
             "description": "URLs of subject/style reference images, referenced in the prompt as Image 1, Image 2, and so on. Reference images, videos, and audio clips must add up to at most 12 files."
           },
           "enable_safety_checker": {
@@ -156,9 +150,6 @@
             "minLength": 1,
             "title": "Prompt",
             "type": "string",
-            "examples": [
-              "Image 1 is the female protagonist. Image 2 is her small dog. Keep the woman and dog consistent with their respective reference images while they walk together through a sunlit garden."
-            ],
             "description": "Text prompt for video generation. Refer to reference assets by their modality and order in the reference lists: Image 1, Image 2, Video 1, Audio 1, and so on."
           },
           "resolution": {
@@ -174,11 +165,6 @@
             "description": "The resolution of the generated video. 480P and 768P are native generation modes; 2K and 4K upscale a 768P base result."
           },
           "prompt_expansion_mode": {
-            "examples": [
-              "fast",
-              "balanced",
-              "quality"
-            ],
             "title": "Prompt Expansion Mode",
             "default": "balanced",
             "anyOf": [
@@ -248,9 +234,6 @@
             "description": "The URL where the file can be downloaded from."
           },
           "file_name": {
-            "examples": [
-              "z9RV14K95DvU.png"
-            ],
             "title": "File Name",
             "anyOf": [
               {
@@ -263,9 +246,6 @@
             "description": "The name of the file. It will be auto-generated if not provided."
           },
           "file_size": {
-            "examples": [
-              4404019
-            ],
             "title": "File Size",
             "anyOf": [
               {
@@ -278,9 +258,6 @@
             "description": "The size of the file in bytes."
           },
           "content_type": {
-            "examples": [
-              "image/png"
-            ],
             "title": "Content Type",
             "anyOf": [
               {
