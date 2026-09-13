@@ -13,6 +13,7 @@ import { runAssetsCommand } from '../src/assets-command.mjs';
 import { runMigrateCommand } from '../src/migrate-command.mjs';
 import { runCleanCommand } from '../src/clean-command.mjs';
 import { runDoctorCommand } from '../src/doctor-command.mjs';
+import { runGenerateCommand } from '../src/generate-command.mjs';
 import { resolveRuntimePaths } from '../src/runtime-diagnostics.mjs';
 import { maybeApplyPendingUpdateOnLaunch, resolveInstalledVersionInfo } from '../src/update-check.mjs';
 import { describeCliHelp, describeInstalledVersions } from '../src/messages.mjs';
@@ -80,6 +81,7 @@ const invoke = (argv[0] === '--version' || argv[0] === '-v') ? printVersion()
   : argv[0] === 'assets' ? runAssetsCommand(argv.slice(1))
   : argv[0] === 'migrate' ? runMigrateCommand(argv.slice(1))
   : argv[0] === 'clean' ? runCleanCommand(argv.slice(1))
+  : argv[0] === 'generate' ? runGenerateCommand(argv.slice(1))
   : run(argv);
 
 const result = await invoke.catch((error) => {

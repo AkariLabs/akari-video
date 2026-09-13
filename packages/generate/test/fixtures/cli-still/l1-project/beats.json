@@ -1,0 +1,8 @@
+{
+  "style_suffix": "映画的な自然光、16:9、画面内に文字やロゴを描かない。",
+  "beats": [
+    { "id": "morning-desk", "prompt": "朝の光が差す静かな仕事机、正面からのワイドショット", "duration_s": 2, "name": "朝の机" },
+    { "id": "leaving-desk", "prompt": "人物が椅子から立ち上がり机を離れる瞬間、横からのミディアムショット", "duration_s": 2, "name": "席を立つ" },
+    { "id": "garden-path", "prompt": "緑の庭へ続く小道を歩く人物、後方からのワイドショット", "duration_s": 2, "name": "庭へ歩く" }
+  ]
+}
