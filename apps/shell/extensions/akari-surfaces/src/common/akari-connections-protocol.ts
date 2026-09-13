@@ -33,9 +33,42 @@ export interface SetCredentialResult {
     doctor: ConnectionDoctor;
 }
 
+export type GenerationDefaultsSource = 'project' | 'workspace' | 'default';
+export type GenerationKind = 'image' | 'video';
+
+export interface GenerationDefaults { still: string | null; video: string | null }
+
+export interface GenerationDefaultsResult {
+    effective: GenerationDefaults;
+    source: { still: GenerationDefaultsSource; video: GenerationDefaultsSource };
+    workspacePath: string | null;
+}
+
+export interface GenerationCatalogPrice {
+    unit: string;
+    by_resolution: Record<string, number>;
+    audio_multiplier: number | null;
+}
+
+export interface GenerationCatalogModel {
+    id: string;
+    kind: GenerationKind;
+    family: string;
+    provider: string;
+    price: GenerationCatalogPrice | null;
+    as_of: string;
+    resolutions: string[] | null;
+    audio_out: boolean | 'always';
+}
+
+export interface GenerationCatalog { models: GenerationCatalogModel[] }
+
 export interface AkariConnectionsService {
     listConnections(): Promise<ConnectionsList>;
     setCredential(id: string, value: string): Promise<SetCredentialResult>;
     deleteCredential(id: string): Promise<{ ok: boolean }>;
     checkConnection(id: string): Promise<{ doctor: ConnectionDoctor }>;
+    readGenerationDefaults(): Promise<GenerationDefaultsResult>;
+    setGenerationDefaults(update: { still?: string; video?: string }): Promise<GenerationDefaultsResult>;
+    readGenerationCatalog(): Promise<GenerationCatalog>;
 }

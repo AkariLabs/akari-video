@@ -1,0 +1,150 @@
+[
+  {
+    "step": "open-settings-connections",
+    "value": {
+      "known": true,
+      "ok": true
+    }
+  },
+  {
+    "step": "generation-defaults-before",
+    "value": {
+      "inFalCard": "fal",
+      "sources": [
+        {
+          "field": "still",
+          "source": "default",
+          "text": "既定"
+        },
+        {
+          "field": "video",
+          "source": "default",
+          "text": "既定"
+        }
+      ],
+      "still": {
+        "ariaLabel": "静止画の既定モデル",
+        "labels": [
+          "OpenAI GPT Image · codex:image · 見積不可 · 音声なし · 2026-09-12 時点",
+          "Nano Banana Pro · fal:nano-banana-pro-edit · 見積不可 · 音声なし · 2026-09-12 時点"
+        ],
+        "optionCount": 2,
+        "options": [
+          "codex:image",
+          "fal:nano-banana-pro-edit"
+        ],
+        "selectedLabel": "OpenAI GPT Image · codex:image · 見積不可 · 音声なし · 2026-09-12 時点",
+        "value": "codex:image"
+      },
+      "text": "既定モデル「静止画を作る」「動画にする」で最初に選ばれるモデルです。作業場の .akari/connections.json に保存します。静止画 OpenAI GPT Image · codex:image · 見積不可 · 音声なし · 2026-09-12 時点Nano Banana Pro · fal:nano-banana-pro-edit · 見積不可 · 音声なし · 2026-09-12 時点既定動画 MiniMax H3 · fal:h3-i2v · $0.05〜0.16/秒 · 音声つき（固定） · 2026-09-12 時点MiniMax H3 · fal:h3-ref · $0.05〜0.16/秒 · 音声つき（固定） · 2026-09-12 時点Kling Video v3 Standard · fal:kling-v3-standard-i2v · 見積不可 · 音声つき（切替） · 2026-09-12 時点Kling Video v3 Pro · fal:kling-v3-pro-i2v · $0.112/秒（音声つき ×1.5） · 音声つき（切替） · 2026-09-12 時点Veo 3.1 · fal:veo-3.1-flf · $0.2〜0.4/秒（音声つき ×2） · 音声つき（切替） · 2026-09-12 時点Veo 3.1 · fal:veo-3.1-ref · $0.2〜0.4/秒（音声つき ×2） · 音声つき（切替） · 2026-09-12 時点Seedance 2.0 · fal:seedance-2.0-i2v · $0.3034〜0.682/秒 · 音声つき（切替） · 2026-09-12 時点Seedance 2.0 · fal:seedance-2.0-ref · $0.3034〜0.682/秒 · 音声つき（切替） · 2026-09-12 時点Seedance 2.5 · fal:seedance-2.5-i2v · 見積不可 · 音声つき（切替） · 2026-09-12 時点Wan 2.7 · fal:wan-2.7-i2v · $0.1/秒 · 音声なし · 2026-09-12 時点Grok Imagine Video · fal:grok-imagine-i2v · 見積不可 · 音声なし · 2026-09-12 時点Vidu Q3 · fal:vidu-q3-i2v · 見積不可 · 音声つき（切替） · 2026-09-12 時点既定鍵が未登録でも選べます。実際に生成するときに fal の鍵が要ります。",
+      "video": {
+        "ariaLabel": "動画の既定モデル",
+        "labels": [
+          "MiniMax H3 · fal:h3-i2v · $0.05〜0.16/秒 · 音声つき（固定） · 2026-09-12 時点",
+          "MiniMax H3 · fal:h3-ref · $0.05〜0.16/秒 · 音声つき（固定） · 2026-09-12 時点",
+          "Kling Video v3 Standard · fal:kling-v3-standard-i2v · 見積不可 · 音声つき（切替） · 2026-09-12 時点",
+          "Kling Video v3 Pro · fal:kling-v3-pro-i2v · $0.112/秒（音声つき ×1.5） · 音声つき（切替） · 2026-09-12 時点",
+          "Veo 3.1 · fal:veo-3.1-flf · $0.2〜0.4/秒（音声つき ×2） · 音声つき（切替） · 2026-09-12 時点",
+          "Veo 3.1 · fal:veo-3.1-ref · $0.2〜0.4/秒（音声つき ×2） · 音声つき（切替） · 2026-09-12 時点",
+          "Seedance 2.0 · fal:seedance-2.0-i2v · $0.3034〜0.682/秒 · 音声つき（切替） · 2026-09-12 時点",
+          "Seedance 2.0 · fal:seedance-2.0-ref · $0.3034〜0.682/秒 · 音声つき（切替） · 2026-09-12 時点",
+          "Seedance 2.5 · fal:seedance-2.5-i2v · 見積不可 · 音声つき（切替） · 2026-09-12 時点",
+          "Wan 2.7 · fal:wan-2.7-i2v · $0.1/秒 · 音声なし · 2026-09-12 時点",
+          "Grok Imagine Video · fal:grok-imagine-i2v · 見積不可 · 音声なし · 2026-09-12 時点",
+          "Vidu Q3 · fal:vidu-q3-i2v · 見積不可 · 音声つき（切替） · 2026-09-12 時点"
+        ],
+        "optionCount": 12,
+        "options": [
+          "fal:h3-i2v",
+          "fal:h3-ref",
+          "fal:kling-v3-standard-i2v",
+          "fal:kling-v3-pro-i2v",
+          "fal:veo-3.1-flf",
+          "fal:veo-3.1-ref",
+          "fal:seedance-2.0-i2v",
+          "fal:seedance-2.0-ref",
+          "fal:seedance-2.5-i2v",
+          "fal:wan-2.7-i2v",
+          "fal:grok-imagine-i2v",
+          "fal:vidu-q3-i2v"
+        ],
+        "selectedLabel": "MiniMax H3 · fal:h3-i2v · $0.05〜0.16/秒 · 音声つき（固定） · 2026-09-12 時点",
+        "value": "fal:h3-i2v"
+      }
+    }
+  },
+  {
+    "step": "change-video-default",
+    "value": {
+      "ok": true,
+      "value": "fal:kling-v3-pro-i2v"
+    }
+  },
+  {
+    "step": "generation-defaults-after",
+    "value": {
+      "inFalCard": "fal",
+      "sources": [
+        {
+          "field": "still",
+          "source": "default",
+          "text": "既定"
+        },
+        {
+          "field": "video",
+          "source": "workspace",
+          "text": "ワークスペース"
+        }
+      ],
+      "still": {
+        "ariaLabel": "静止画の既定モデル",
+        "labels": [
+          "OpenAI GPT Image · codex:image · 見積不可 · 音声なし · 2026-09-12 時点",
+          "Nano Banana Pro · fal:nano-banana-pro-edit · 見積不可 · 音声なし · 2026-09-12 時点"
+        ],
+        "optionCount": 2,
+        "options": [
+          "codex:image",
+          "fal:nano-banana-pro-edit"
+        ],
+        "selectedLabel": "OpenAI GPT Image · codex:image · 見積不可 · 音声なし · 2026-09-12 時点",
+        "value": "codex:image"
+      },
+      "text": "既定モデル「静止画を作る」「動画にする」で最初に選ばれるモデルです。作業場の .akari/connections.json に保存します。静止画 OpenAI GPT Image · codex:image · 見積不可 · 音声なし · 2026-09-12 時点Nano Banana Pro · fal:nano-banana-pro-edit · 見積不可 · 音声なし · 2026-09-12 時点既定動画 MiniMax H3 · fal:h3-i2v · $0.05〜0.16/秒 · 音声つき（固定） · 2026-09-12 時点MiniMax H3 · fal:h3-ref · $0.05〜0.16/秒 · 音声つき（固定） · 2026-09-12 時点Kling Video v3 Standard · fal:kling-v3-standard-i2v · 見積不可 · 音声つき（切替） · 2026-09-12 時点Kling Video v3 Pro · fal:kling-v3-pro-i2v · $0.112/秒（音声つき ×1.5） · 音声つき（切替） · 2026-09-12 時点Veo 3.1 · fal:veo-3.1-flf · $0.2〜0.4/秒（音声つき ×2） · 音声つき（切替） · 2026-09-12 時点Veo 3.1 · fal:veo-3.1-ref · $0.2〜0.4/秒（音声つき ×2） · 音声つき（切替） · 2026-09-12 時点Seedance 2.0 · fal:seedance-2.0-i2v · $0.3034〜0.682/秒 · 音声つき（切替） · 2026-09-12 時点Seedance 2.0 · fal:seedance-2.0-ref · $0.3034〜0.682/秒 · 音声つき（切替） · 2026-09-12 時点Seedance 2.5 · fal:seedance-2.5-i2v · 見積不可 · 音声つき（切替） · 2026-09-12 時点Wan 2.7 · fal:wan-2.7-i2v · $0.1/秒 · 音声なし · 2026-09-12 時点Grok Imagine Video · fal:grok-imagine-i2v · 見積不可 · 音声なし · 2026-09-12 時点Vidu Q3 · fal:vidu-q3-i2v · 見積不可 · 音声つき（切替） · 2026-09-12 時点ワークスペース鍵が未登録でも選べます。実際に生成するときに fal の鍵が要ります。",
+      "video": {
+        "ariaLabel": "動画の既定モデル",
+        "labels": [
+          "MiniMax H3 · fal:h3-i2v · $0.05〜0.16/秒 · 音声つき（固定） · 2026-09-12 時点",
+          "MiniMax H3 · fal:h3-ref · $0.05〜0.16/秒 · 音声つき（固定） · 2026-09-12 時点",
+          "Kling Video v3 Standard · fal:kling-v3-standard-i2v · 見積不可 · 音声つき（切替） · 2026-09-12 時点",
+          "Kling Video v3 Pro · fal:kling-v3-pro-i2v · $0.112/秒（音声つき ×1.5） · 音声つき（切替） · 2026-09-12 時点",
+          "Veo 3.1 · fal:veo-3.1-flf · $0.2〜0.4/秒（音声つき ×2） · 音声つき（切替） · 2026-09-12 時点",
+          "Veo 3.1 · fal:veo-3.1-ref · $0.2〜0.4/秒（音声つき ×2） · 音声つき（切替） · 2026-09-12 時点",
+          "Seedance 2.0 · fal:seedance-2.0-i2v · $0.3034〜0.682/秒 · 音声つき（切替） · 2026-09-12 時点",
+          "Seedance 2.0 · fal:seedance-2.0-ref · $0.3034〜0.682/秒 · 音声つき（切替） · 2026-09-12 時点",
+          "Seedance 2.5 · fal:seedance-2.5-i2v · 見積不可 · 音声つき（切替） · 2026-09-12 時点",
+          "Wan 2.7 · fal:wan-2.7-i2v · $0.1/秒 · 音声なし · 2026-09-12 時点",
+          "Grok Imagine Video · fal:grok-imagine-i2v · 見積不可 · 音声なし · 2026-09-12 時点",
+          "Vidu Q3 · fal:vidu-q3-i2v · 見積不可 · 音声つき（切替） · 2026-09-12 時点"
+        ],
+        "optionCount": 12,
+        "options": [
+          "fal:h3-i2v",
+          "fal:h3-ref",
+          "fal:kling-v3-standard-i2v",
+          "fal:kling-v3-pro-i2v",
+          "fal:veo-3.1-flf",
+          "fal:veo-3.1-ref",
+          "fal:seedance-2.0-i2v",
+          "fal:seedance-2.0-ref",
+          "fal:seedance-2.5-i2v",
+          "fal:wan-2.7-i2v",
+          "fal:grok-imagine-i2v",
+          "fal:vidu-q3-i2v"
+        ],
+        "selectedLabel": "Kling Video v3 Pro · fal:kling-v3-pro-i2v · $0.112/秒（音声つき ×1.5） · 音声つき（切替） · 2026-09-12 時点",
+        "value": "fal:kling-v3-pro-i2v"
+      }
+    }
+  }
+]

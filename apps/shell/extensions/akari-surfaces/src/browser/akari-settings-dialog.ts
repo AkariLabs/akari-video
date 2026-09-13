@@ -16,8 +16,9 @@ import { StoreConnectionFlowController, StoreConnectionFlowState } from 'akari-p
 import { AkariProjectService } from 'akari-project/lib/common/akari-project-protocol';
 import { AKARI_BORDER, AKARI_SURFACE } from 'akari-project/lib/common/akari-surface-tokens';
 import {
-    AkariConnectionsService, ConnectionDoctor, ConnectionRow, ConnectionsList, TRANSCRIBE_BACKENDS, TranscribeBackend
+    AkariConnectionsService, ConnectionDoctor, ConnectionRow, ConnectionsList, GenerationKind, TRANSCRIBE_BACKENDS, TranscribeBackend
 } from '../common/akari-connections-protocol';
+import { generationOptions, generationSourceLabel } from '../common/generation-defaults-view';
 import { storeReconnectRequired, STORE_RECONNECT_REQUIRED_MESSAGE } from '../common/store-entitlements-visibility';
 import { dialogOutsideClick } from '../common/dialog-outside-click';
 import { AkariHomeCommands } from './akari-home-command-contribution';
@@ -507,6 +508,12 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
         };
         renderControls();
         card.append(controls, status);
+        if (row.id === 'fal') {
+            const defaults = element('div');
+            defaults.setAttribute('data-akari-generation-defaults', 'true');
+            card.append(defaults);
+            void this.renderGenerationDefaults(defaults);
+        }
         if (row.setup_url?.startsWith('https://')) {
             const link = element('a', '取得先 ↗');
             link.href = row.setup_url; link.target = '_blank'; link.rel = 'noopener noreferrer';
@@ -514,6 +521,61 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
             card.append(link);
         }
         return card;
+    }
+
+    private async renderGenerationDefaults(container: HTMLElement): Promise<void> {
+        container.replaceChildren(description('生成の既定モデルを読み込んでいます…'));
+        try {
+            const [defaults, catalog] = await Promise.all([
+                this.service.readGenerationDefaults(), this.service.readGenerationCatalog()
+            ]);
+            if (this.isDisposed) { return; }
+            const controls: HTMLSelectElement[] = [];
+            const rowFor = (field: 'still' | 'video', kind: GenerationKind, label: string): HTMLLabelElement => {
+                const select = element('select');
+                select.className = 'theia-select';
+                select.setAttribute('aria-label', `${label}の既定モデル`);
+                select.setAttribute('data-akari-generation-default', field);
+                for (const item of generationOptions(catalog.models, kind, defaults.effective[field])) {
+                    const option = element('option', item.label);
+                    option.value = item.value;
+                    if (item.missing) { option.setAttribute('data-akari-generation-option-missing', 'true'); }
+                    select.append(option);
+                }
+                select.value = defaults.effective[field] ?? '';
+                controls.push(select);
+                select.addEventListener('change', async () => {
+                    for (const control of controls) { control.disabled = true; }
+                    try {
+                        await this.service.setGenerationDefaults({ [field]: select.value });
+                        if (!this.isDisposed) { await this.renderGenerationDefaults(container); }
+                    } catch {
+                        this.notice.textContent = '生成の既定モデルを保存できませんでした。';
+                        if (!this.isDisposed) { await this.renderGenerationDefaults(container); }
+                    } finally {
+                        for (const control of controls) { control.disabled = false; }
+                    }
+                });
+                const source = element('span', generationSourceLabel(defaults.source[field]));
+                source.setAttribute('data-akari-generation-source', defaults.source[field]);
+                source.setAttribute('data-akari-generation-source-for', field);
+                Object.assign(source.style, { marginLeft: '8px', opacity: '0.7' });
+                const row = element('label', `${label} `);
+                Object.assign(row.style, { display: 'block', margin: '10px 0' });
+                row.append(select, source);
+                return row;
+            };
+            container.replaceChildren(
+                element('strong', '既定モデル'),
+                description('「静止画を作る」「動画にする」で最初に選ばれるモデルです。作業場の .akari/connections.json に保存します。'),
+                rowFor('still', 'image', '静止画'), rowFor('video', 'video', '動画'),
+                description('鍵が未登録でも選べます。実際に生成するときに fal の鍵が要ります。')
+            );
+        } catch {
+            if (this.isDisposed) { return; }
+            container.replaceChildren(description('生成モデルのカタログを読み込めませんでした。'),
+                action('再読み込み', () => void this.renderGenerationDefaults(container)));
+        }
     }
 }
 
