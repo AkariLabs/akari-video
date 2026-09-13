@@ -44,3 +44,24 @@ test("unknown auth value is still rejected (non-regression)", () => {
     /providers\[0\]\.auth は login \/ env-key \/ oauth-mcp \/ none のいずれかである必要があります/,
   );
 });
+
+test("defaults.generate with still and video passes", () => {
+  const target = join(exampleRoot, "connections-v0-defaults-valid", "connections.json");
+  const executed = run(target);
+  assert.equal(executed.status, 0, executed.stderr);
+  assert.match(executed.stdout, /^OK: /);
+});
+
+test("connections without defaults still passes (tolerant reader)", () => {
+  const target = join(exampleRoot, "connections-v0-defaults-absent-valid", "connections.json");
+  const executed = run(target);
+  assert.equal(executed.status, 0, executed.stderr);
+  assert.match(executed.stdout, /^OK: /);
+});
+
+test("unknown defaults.generate field is rejected", () => {
+  const target = join(exampleRoot, "connections-v0-defaults-unknown-key-invalid", "connections.json");
+  const executed = run(target);
+  assert.equal(executed.status, 1, executed.stdout);
+  assert.match(executed.stderr, /defaults\.generate\.foo/);
+});

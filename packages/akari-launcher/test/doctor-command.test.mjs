@@ -140,6 +140,53 @@ test('verdict と exit code は ok/degraded=0、broken=1', async () => {
   }
 });
 
+for (const fixture of [
+  { name: 'env', source: 'env', envValue: 'fal-env-test-secret', fileValue: null },
+  { name: 'credentials.env', source: 'credentials.env', envValue: null, fileValue: 'fal-file-test-secret' },
+  { name: 'missing', source: 'missing', envValue: null, fileValue: null },
+]) {
+  test(`doctor --json の fal_key は ${fixture.name} を値なしで報告する`, async () => {
+    await withFixture(async (root) => {
+      const binDirectory = join(root, 'bin');
+      const launcherDirectory = join(root, 'checkout', 'packages', 'akari-launcher', 'src');
+      const credentialsPath = join(root, 'credentials.env');
+      await put(join(binDirectory, 'ffmpeg'));
+      await put(join(binDirectory, 'ffprobe'));
+      await put(join(root, 'checkout', 'packages', 'render-cut', 'bin', 'render-cut.mjs'));
+      await put(join(root, 'checkout', 'packages', 'edit-lint', 'bin', 'edit-lint.mjs'));
+      await mkdir(launcherDirectory, { recursive: true });
+      if (fixture.fileValue !== null) {
+        await writeFile(credentialsPath, `FAL_KEY=${fixture.fileValue}\n`, 'utf8');
+      }
+      const env = {
+        AKARI_HOME: join(root, 'home'),
+        AKARI_CREDENTIALS_FILE: credentialsPath,
+        PATH: binDirectory,
+        ...(fixture.envValue === null ? {} : { FAL_KEY: fixture.envValue }),
+      };
+      const report = await resolveDoctorReport({
+        env,
+        launcherDirectory,
+        defaultAppResources: [],
+        installInfo: { status: 'valid', version: '1.0.0', path: join(root, 'managed', '.akari-install-ref') },
+        appBundle: { found: false, path: null, version: null },
+        loadMediaBin: async () => { throw new Error('fixture unavailable'); },
+        resolveGpuLauncher: async () => ({ tier: 0, reason: 'fixture unavailable' }),
+        entryPath: 'akari.mjs',
+      });
+      const lines = [];
+      const result = await runDoctorCommand(['--json'], { report, log: (line) => lines.push(line) });
+      const json = lines.join('\n');
+
+      assert.equal(result.exitCode, 0);
+      assert.equal(report.fal_key.source, fixture.source);
+      assert.equal(JSON.parse(json).fal_key.source, fixture.source);
+      if (fixture.envValue !== null) assert.equal(json.includes(fixture.envValue), false);
+      if (fixture.fileValue !== null) assert.equal(json.includes(fixture.fileValue), false);
+    });
+  });
+}
+
 test('update --force は managed app 不在時に install.sh を案内し、npm 不在なら cli.tgz を出さない', async () => {
   await withFixture(async (root) => {
     const lines = [];

@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
@@ -67,4 +69,24 @@ test("newer plan-comments.json version stops honestly", () => {
   const executed = run("unsupported-version");
   assert.equal(executed.status, 1);
   assert.match(executed.stderr, /新しい形式です。スキル \/ アプリを更新してください/);
+});
+
+test("scaffold comments accept persistent clip ids and legacy slot ids", () => {
+  const temporaryDirectory = mkdtempSync(join(tmpdir(), "akari-plan-comments-"));
+  try {
+    for (const [targetKind, targetId] of [["clip", "itm-03"], ["slot", "slot-a"]]) {
+      const target = join(temporaryDirectory, `${targetKind}.json`);
+      writeFileSync(target, `${JSON.stringify({
+        version: 0,
+        pass: "scaffold",
+        submitted_at: "2026-09-13T00:00:00.000Z",
+        comments: [{ target_kind: targetKind, target_id: targetId, title: "対象", text: "修正" }],
+      })}\n`, "utf8");
+      const executed = spawnSync(process.execPath, [cliPath, target], { encoding: "utf8" });
+      assert.equal(executed.status, 0, executed.stderr);
+      assert.match(executed.stdout, /^OK: /);
+    }
+  } finally {
+    rmSync(temporaryDirectory, { recursive: true, force: true });
+  }
 });

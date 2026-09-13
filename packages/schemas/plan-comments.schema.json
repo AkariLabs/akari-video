@@ -31,12 +31,12 @@
       "required": ["target_kind", "target_id", "title", "text"],
       "properties": {
         "target_kind": {
-          "enum": ["shot", "slot", "cut"],
-          "$comment": "shot = research-plan.json structure.shots[] / slot = plan.json slots[] / cut = edit.json cuts[] の対象種別。"
+          "enum": ["shot", "slot", "cut", "clip"],
+          "$comment": "shot = research-plan.json structure.shots[] / slot = plan.json slots[]（退役。plan.json 仮枠役の退役に伴う。互換のため受理）/ cut = edit.json cuts[] / clip = edit.json v2 の item id（2026-09-13〜）。"
         },
         "target_id": {
           "$ref": "#/$defs/nonEmptyString",
-          "$comment": "shot / cut は対象配列のインデックスを文字列化したもの（例 \"2\"。cuts[] は永続 id を持たないため）。slot は plan.json の slots[].id をそのまま使う。"
+          "$comment": "shot / cut は対象配列のインデックスを文字列化したもの（例 \"2\"。cuts[] は永続 id を持たないため）。slot は plan.json の slots[].id をそのまま使う。clip は edit.json v2 の item の永続 id を使う。"
         },
         "title": {
           "$ref": "#/$defs/nonEmptyString",
