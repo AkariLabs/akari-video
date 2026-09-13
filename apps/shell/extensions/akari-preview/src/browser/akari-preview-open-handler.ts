@@ -193,7 +193,11 @@ import {
     ReviewTransportSnapshot
 } from './review-session-recorder';
 import { ReviewSessionRecordingIndicator } from './review-session-recording-indicator';
-import { describeOverlay, resolveGenerationState } from '../common/generation-overlay-model';
+import {
+    describeOverlay,
+    generationStateHelperV1,
+    resolveGenerationState
+} from '../common/generation-overlay-model';
 
 export interface OverlayTransform {
     x?: number;
@@ -9093,6 +9097,8 @@ body { display: grid; place-items: center; padding: 32px; }
             const formatPreviewRateLabelFn = (${formatPreviewRateLabel.toString()});
             const freezeHoldMsFn = (${freezeHoldMs.toString()});
             const wallClockOutputTimeFn = (${wallClockOutputTime.toString()});
+            // toString() は import 参照を復元できないため、helper を同名で先に注入する（上の isCutAudioAudible と同じ流儀）。
+            const resolveGenerationStateV1 = (${generationStateHelperV1.toString()});
             const resolveGenerationStateFn = (${resolveGenerationState.toString()});
             const describeOverlayFn = (${describeOverlay.toString()});
             const previewRatePresets = ${JSON.stringify(PREVIEW_RATE_PRESETS)};

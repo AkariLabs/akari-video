@@ -5352,16 +5352,14 @@ var require_generation_meta = __commonJS({
       if (meta.status === "failed")
         return "failed";
       if (meta.status === "generating") {
-        const nowMs2 = timeValue(now);
+        const nowMs2 = now instanceof Date ? now.getTime() : typeof now === "number" ? now : Date.parse(now);
         const startedMs = Date.parse(String(meta.job?.started_at ?? ""));
-        const staleAfterS = meta.job?.stale_after_s;
-        if (Number.isFinite(nowMs2) && Number.isFinite(startedMs) && typeof staleAfterS === "number" && nowMs2 - startedMs > staleAfterS * 1e3)
+        const declaredStaleAfterS = meta.job?.stale_after_s;
+        const staleAfterS = typeof declaredStaleAfterS === "number" && Number.isFinite(declaredStaleAfterS) && declaredStaleAfterS >= 0 ? declaredStaleAfterS : 900;
+        if (Number.isFinite(nowMs2) && Number.isFinite(startedMs) && nowMs2 - startedMs > staleAfterS * 1e3)
           return "stale";
       }
       return meta.status;
-    }
-    function timeValue(value) {
-      return value instanceof Date ? value.getTime() : typeof value === "number" ? value : Date.parse(value);
     }
   }
 });

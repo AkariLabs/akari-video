@@ -44,24 +44,26 @@ export function sidecarPathFor(sourcePath: string): string {
     return `${sourcePath}.meta.json`;
 }
 
-/** fs に触れず、サイドカー自身が表す状態だけを解決する。 */
+/**
+ * fs に触れず、サイドカー自身が表す状態だけを解決する。
+ * `job.stale_after_s` が未指定・不正な場合は既定 900 秒を使う。
+ */
 export function resolveGenerationState(meta: GenerationMetaV1 | null | undefined, now: Date | string | number): GenerationState {
     if (!meta) return 'none';
     if (meta.status === 'failed') return 'failed';
     if (meta.status === 'generating') {
-        const nowMs = timeValue(now);
+        const nowMs = now instanceof Date ? now.getTime() : typeof now === 'number' ? now : Date.parse(now);
         const startedMs = Date.parse(String(meta.job?.started_at ?? ''));
-        const staleAfterS = meta.job?.stale_after_s;
+        const declaredStaleAfterS = meta.job?.stale_after_s;
+        const staleAfterS = typeof declaredStaleAfterS === 'number'
+            && Number.isFinite(declaredStaleAfterS)
+            && declaredStaleAfterS >= 0
+            ? declaredStaleAfterS : 900;
         if (
             Number.isFinite(nowMs)
             && Number.isFinite(startedMs)
-            && typeof staleAfterS === 'number'
             && nowMs - startedMs > staleAfterS * 1000
         ) return 'stale';
     }
     return meta.status;
-}
-
-function timeValue(value: Date | string | number): number {
-    return value instanceof Date ? value.getTime() : typeof value === 'number' ? value : Date.parse(value);
 }

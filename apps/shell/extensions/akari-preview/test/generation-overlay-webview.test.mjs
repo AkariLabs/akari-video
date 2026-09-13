@@ -48,3 +48,10 @@ test('frame-engine と legacy の両 tick 経路が生成オーバーレイを�
     const tickSource = previewBootstrapMethod.slice(tickStart, tickEnd);
     assert.equal(tickSource.split('updateGenerationOverlay(outputTime);').length - 1, 2);
 });
+
+test('bootstrap は状態 helper を状態ラッパーより前に注入する', () => {
+    const helper = previewBootstrapMethod.indexOf('const resolveGenerationStateV1 = (');
+    const wrapper = previewBootstrapMethod.indexOf('const resolveGenerationStateFn = (');
+    assert.ok(helper >= 0);
+    assert.ok(wrapper > helper);
+});

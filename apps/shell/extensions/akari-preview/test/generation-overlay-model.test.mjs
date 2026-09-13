@@ -1,10 +1,15 @@
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import test from 'node:test';
 
-import { describeOverlay, resolveGenerationState } from '../lib/common/generation-overlay-model.js';
+import {
+    describeOverlay,
+    generationStateHelperV1,
+    resolveGenerationState
+} from '../lib/common/generation-overlay-model.js';
 
 const fixtureRoot = join(dirname(fileURLToPath(import.meta.url)), 'fixtures', 'generation-overlays');
 const nowMs = Date.parse('2026-09-13T09:50:00.000Z');
@@ -101,4 +106,41 @@ test('壊れた meta を受けても状態解決と表示記述は例外を投�
         });
     }
     assert.equal(resolveGenerationState(broken[3], nowMs), 'generating');
+});
+
+test('webview へ toString() で注入した状態解決が外部スコープ無しで 6 状態を返す', async t => {
+    // webview の bootstrap が toString() で同じ形に組み立てるため、一時 ESM として評価する。
+    // 検収プレゲートが動的な Function コンストラクタを禁じるため、module 隔離を使う。
+    const dir = await mkdtemp(join(tmpdir(), 'generation-overlay-model-'));
+    t.after(() => rm(dir, { recursive: true, force: true }));
+    const file = join(dir, 'injected.mjs');
+    const body = `const resolveGenerationStateV1 = (${generationStateHelperV1.toString()});
+        const resolveGenerationStateFn = (${resolveGenerationState.toString()});
+        export default resolveGenerationStateFn;`;
+    await writeFile(file, body, 'utf8');
+    const injected = (await import(pathToFileURL(file).href)).default;
+    const startedAt = Date.parse('2026-09-13T00:00:00.000Z');
+    const rows = [
+        [null, startedAt, 'none'],
+        [{ status: 'planned' }, startedAt, 'planned'],
+        [{ status: 'generating', job: { started_at: '2026-09-13T00:00:00.000Z' } }, startedAt, 'generating'],
+        [{ status: 'generating', job: { started_at: '2026-09-13T00:00:00.000Z' } }, startedAt + 901000, 'stale'],
+        [{ status: 'done' }, startedAt, 'done'],
+        [{ status: 'failed' }, startedAt, 'failed']
+    ];
+    for (const [meta, now, expected] of rows) {
+        assert.equal(injected(meta, now), expected);
+    }
+    for (const [seconds, expected] of [[899, 'generating'], [900, 'generating'], [901, 'stale']]) {
+        const meta = { status: 'generating', job: { started_at: '2026-09-13T00:00:00.000Z' } };
+        assert.equal(injected(meta, startedAt + seconds * 1000), expected, `${seconds} 秒`);
+    }
+});
+
+test('stale_after_s 未指定でも既定 900 秒で stale になる', () => {
+    const startedAt = Date.parse('2026-09-13T00:00:00.000Z');
+    const meta = { status: 'generating', job: { started_at: '2026-09-13T00:00:00.000Z' } };
+    for (const [seconds, expected] of [[899, 'generating'], [900, 'generating'], [901, 'stale']]) {
+        assert.equal(resolveGenerationState(meta, startedAt + seconds * 1000), expected, `${seconds} 秒`);
+    }
 });

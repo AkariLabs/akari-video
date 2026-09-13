@@ -164,6 +164,41 @@ for (const row of [
   });
 }
 
+for (const row of [
+  { seconds: 899, expected: 'generating' },
+  { seconds: 900, expected: 'generating' },
+  { seconds: 901, expected: 'stale' },
+]) {
+  test(`stale_after_s 未指定では既定 900 秒を使う: ${row.seconds} 秒`, () => {
+    const value = {
+      version: 1,
+      kind: 'video',
+      status: 'generating',
+      job: { started_at: '2026-09-13T09:45:00.000Z' },
+    };
+    const now = new Date(Date.parse(value.job.started_at) + row.seconds * 1000);
+    assert.equal(resolveGenerationState(value, now), row.expected);
+  });
+}
+
+for (const row of [
+  { name: '負数', staleAfterS: -1 },
+  { name: 'NaN', staleAfterS: Number.NaN },
+  { name: '文字列', staleAfterS: '30' },
+]) {
+  test(`不正な stale_after_s（${row.name}）では既定 900 秒を使う`, () => {
+    const startedAt = '2026-09-13T09:45:00.000Z';
+    const value = {
+      version: 1,
+      kind: 'video',
+      status: 'generating',
+      job: { started_at: startedAt, stale_after_s: row.staleAfterS },
+    };
+    assert.equal(resolveGenerationState(value, Date.parse(startedAt) + 899000), 'generating');
+    assert.equal(resolveGenerationState(value, Date.parse(startedAt) + 901000), 'stale');
+  });
+}
+
 for (const sourcePath of ['../outside.mp4', path.join(os.tmpdir(), 'outside.mp4')]) {
   test(`projectRoot 外の sourcePath を拒否する: ${sourcePath}`, t => {
     const root = project();
