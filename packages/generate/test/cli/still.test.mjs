@@ -8,6 +8,7 @@ import test from "node:test";
 
 import { resolveFfmpeg } from "../../../media-bin/src/index.mjs";
 import { runGenerateCommand } from "../../src/cli/index.mjs";
+import { validateGenerationMeta } from "../../src/cli/meta-validate.mjs";
 import { runStillCommand } from "../../src/cli/still.mjs";
 import { createTextCard } from "../../src/cli/text-card.mjs";
 
@@ -246,4 +247,54 @@ test("still: Codex スタブの失敗ビートは failed meta だけを残し、
   assert.equal(meta.history[0].reason, "テスト用の失敗");
   const edit = JSON.parse(await readFile(join(projectDir, "edit.json"), "utf8"));
   assert.equal(edit.tracks[0].items.length, 0);
+});
+
+test("still: 注入した writeMeta の外側で planned / done / failed を検証する", async (t) => {
+  const written = [];
+  const common = {
+    readCodexModelAsOf: async () => "2026-09-13",
+    now: () => new Date("2026-09-13T10:00:00.000Z"),
+    writeMeta: async (_path, value) => { written.push(value); },
+    insertGeneratedStills: async () => {},
+    log: () => {},
+    logError: () => {},
+  };
+
+  const plannedProject = await temporaryProject(t, minimalEdit());
+  const plannedSpec = await writeSpec(plannedProject, [{ id: "planned", prompt: "計画", duration_s: 1 }]);
+  assert.equal((await runStillCommand([plannedProject, "--spec", plannedSpec, "--placeholder"], {
+    ...common,
+    createTextCard: async () => ({ ok: true, width: 1920, height: 1080 }),
+  })).exitCode, 0);
+
+  const doneProject = await temporaryProject(t, minimalEdit());
+  const doneSpec = await writeSpec(doneProject, [{ id: "done", prompt: "完了", duration_s: 1 }]);
+  assert.equal((await runStillCommand([doneProject, "--spec", doneSpec], {
+    ...common,
+    generateImages: async ({ items }) => items.map(({ id }) => ({ id, ok: true, elapsed_s: 0 })),
+    inspectPng: async () => ({ sha256: "a".repeat(64), bytes: 68, width: 1, height: 1 }),
+  })).exitCode, 0);
+
+  const failedProject = await temporaryProject(t, minimalEdit());
+  const failedSpec = await writeSpec(failedProject, [{ id: "failed", prompt: "失敗", duration_s: 1 }]);
+  assert.equal((await runStillCommand([failedProject, "--spec", failedSpec], {
+    ...common,
+    generateImages: async ({ items }) => items.map(({ id }) => ({ id, ok: false, error: "テスト失敗" })),
+  })).exitCode, 1);
+  assert.deepEqual(written.map(({ status }) => status), ["planned", "done", "failed"]);
+  for (const meta of written) assert.deepEqual(validateGenerationMeta(meta), { ok: true, errors: [] });
+
+  const invalidProject = await temporaryProject(t, minimalEdit());
+  const invalidSpec = await writeSpec(invalidProject, [{ id: "invalid", prompt: "不正", duration_s: 1 }]);
+  let invalidWriterCalls = 0;
+  await assert.rejects(
+    runStillCommand([invalidProject, "--spec", invalidSpec, "--placeholder"], {
+      ...common,
+      readCodexModelAsOf: async () => "invalid-date",
+      writeMeta: async () => { invalidWriterCalls += 1; },
+      createTextCard: async () => ({ ok: true, width: 1920, height: 1080 }),
+    }),
+    /model\/as_of/u,
+  );
+  assert.equal(invalidWriterCalls, 0);
 });

@@ -1,8 +1,5 @@
 import { readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
-import { spawnSync } from "node:child_process";
-import { fileURLToPath } from "node:url";
-
-const VALIDATOR = fileURLToPath(new URL("../../../schemas/bin/validate-generation-meta.mjs", import.meta.url));
+import { validateGenerationMeta } from "./meta-validate.mjs";
 
 function nowIso(now) {
   return (typeof now === "function" ? now() : now ?? new Date()).toISOString();
@@ -11,10 +8,10 @@ function nowIso(now) {
 function writeValidated(metaPath, meta) {
   const temporary = `${metaPath}.tmp-${process.pid}-${Date.now()}.meta.json`;
   writeFileSync(temporary, `${JSON.stringify(meta, null, 2)}\n`);
-  const checked = spawnSync(process.execPath, [VALIDATOR, temporary], { encoding: "utf8" });
-  if (checked.status !== 0) {
+  const checked = validateGenerationMeta(meta);
+  if (!checked.ok) {
     rmSync(temporary, { force: true });
-    throw new Error(`generation meta の検証に失敗しました: ${(checked.stderr || checked.stdout).trim()}`);
+    throw new Error(`generation meta の検証に失敗しました:\n- ${checked.errors.join("\n- ")}`);
   }
   renameSync(temporary, metaPath);
   return meta;

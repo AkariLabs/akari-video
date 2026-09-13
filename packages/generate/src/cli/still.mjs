@@ -6,6 +6,7 @@ import { generateCodexImages } from "./codex-image.mjs";
 import { createTextCard } from "./text-card.mjs";
 import { hasGeneratedId, insertGeneratedStills, readEditForPlan, firstVisualTrack, endOfTrack } from "./edit-insert.mjs";
 import { doneStillMeta, failedStillMeta, inspectPng, plannedStillMeta, readCodexModelAsOf } from "./meta-still.mjs";
+import { validateGenerationMeta } from "./meta-validate.mjs";
 import { STILL_USAGE } from "./usage.mjs";
 
 function parseArgs(argv) {
@@ -129,10 +130,15 @@ export async function runStillCommand(argv, options = {}) {
 
   const now = options.now ?? (() => new Date());
   const asOf = await (options.readCodexModelAsOf ?? readCodexModelAsOf)();
-  const writeMeta = options.writeMeta ?? (async (path, value) => {
+  const writeMetaImpl = options.writeMeta ?? (async (path, value) => {
     await mkdir(dirname(path), { recursive: true });
     await writeFile(path, `${JSON.stringify(value, null, 2)}\n`, "utf8");
   });
+  const writeMeta = async (path, value) => {
+    const checked = validateGenerationMeta(value);
+    if (!checked.ok) throw new Error(`generation meta の検証に失敗しました:\n- ${checked.errors.join("\n- ")}`);
+    await writeMetaImpl(path, value);
+  };
   const successful = [];
   let failed = 0;
   if (args.placeholder) {
