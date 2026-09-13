@@ -51,6 +51,7 @@ import { ProjectLocation } from './project-location';
 import { computeRightPanelOrder } from './right-panel-order';
 import { installRightPanelTabStyle } from './right-panel-tab-style';
 import { ReviewModel } from './review-model';
+import { coalesceReviewOpens, shouldOpenReviewPanelFor } from '../common/review-watch';
 
 export { OPEN_AKARI_ANNOTATIONS, OPEN_AKARI_CANVAS, OPEN_AKARI_INSPECTOR, OPEN_AKARI_REVIEW_BOARD, OPEN_AKARI_REVIEW_PANEL };
 
@@ -419,11 +420,25 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
     }
 
     protected async watchForReview(root: URI): Promise<void> {
+        const state = this as typeof this & {
+            reviewWatchRoots?: Set<string>;
+            reviewWatchSubscribed?: boolean;
+            scheduleReviewOpen?: (openReviewPanel: () => void) => void;
+        };
+        const rootPaths = state.reviewWatchRoots ??= new Set<string>();
+        rootPaths.add(root.path.toString());
         this.toDispose.push(await this.fileService.watch(root, { recursive: true, excludes: [] }));
+        if (state.reviewWatchSubscribed) {
+            return;
+        }
+        state.reviewWatchSubscribed = true;
+        const scheduleReviewOpen = state.scheduleReviewOpen ??= coalesceReviewOpens();
         this.toDispose.push(this.fileService.onDidFilesChange(event => {
             for (const change of event.changes) {
-                if (change.type === FileChangeType.ADDED && change.resource.path.base === 'review.json') {
-                    void this.openReviewPanel();
+                if (change.type === FileChangeType.ADDED
+                    && change.resource.path.base === 'review.json'
+                    && shouldOpenReviewPanelFor(change.resource.path.toString(), [...rootPaths]).reason === 'ok') {
+                    scheduleReviewOpen(() => void this.openReviewPanel());
                 }
             }
         }));

@@ -1,0 +1,95 @@
+{
+  "status": "pass",
+  "steps": [
+    {
+      "name": "A: outside-root and node_modules review files do not take the right panel",
+      "pass": true,
+      "detail": {
+        "external": [
+          "cli/x/package/vendor/a/review.json",
+          "cli/x/package/vendor/b/review.json",
+          "cli/x/package/vendor/c/review.json"
+        ],
+        "nodeModules": [
+          "node_modules/x/a/review.json",
+          "node_modules/x/b/review.json",
+          "node_modules/x/c/review.json"
+        ],
+        "vendor": [
+          "vendor/pkg/a/review.json",
+          "vendor/pkg/b/review.json",
+          "vendor/pkg/c/review.json"
+        ],
+        "front": "akari-inspector-widget",
+        "activateCount": 0,
+        "observedReviewAdds": 0,
+        "allChangeEvents": 0,
+        "addedChanges": 0,
+        "instrumented": {
+          "shell": "d6",
+          "fileService": null
+        }
+      }
+    },
+    {
+      "name": "B: three valid project reviews coalesce into one panel activation",
+      "pass": true,
+      "detail": {
+        "valid": [
+          ".akari/reviews/dogfood/a/review.json",
+          ".akari/reviews/dogfood/b/review.json",
+          ".akari/reviews/dogfood/c/review.json"
+        ],
+        "front": "akari-review-panel-widget",
+        "activateCount": 1,
+        "firstObserved": 1,
+        "observedReviewAdds": 0,
+        "allChangeEvents": 0,
+        "addedChanges": 0,
+        "instrumented": {
+          "shell": "d6",
+          "fileService": null
+        }
+      }
+    }
+  ],
+  "screenshots": [
+    {
+      "name": "01-skipped-review-inspector.png",
+      "sha256": "b6b2f70e3303236f8bec63bc371dc5f98745799e56893d354c644bfc8531b74a",
+      "front": "akari-inspector-widget",
+      "activateCount": 0
+    },
+    {
+      "name": "02-valid-review-panel.png",
+      "sha256": "27409d9e4475d2fa155358ec02519a9b9eaa58109f0f7cbe62eae6a42a5fed75",
+      "front": "akari-review-panel-widget",
+      "activateCount": 1
+    }
+  ],
+  "activateWidget": [
+    {
+      "id": "akari-review-panel-widget"
+    }
+  ],
+  "cleanup": {
+    "killedPid": 12074,
+    "alive": 0,
+    "survivingProcesses": 0,
+    "survivingBackendMain": 0
+  },
+  "fixture": {
+    "ok": true,
+    "clips": [
+      "clip-a",
+      "clip-b",
+      "clip-c"
+    ]
+  },
+  "preloadOverlay": "removed",
+  "dismissedAtStartup": {
+    "dialogs": 0,
+    "notifications": 0,
+    "noticeContainers": 2
+  }
+}
