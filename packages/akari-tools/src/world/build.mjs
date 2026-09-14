@@ -73,7 +73,7 @@ export function renderWorldHtml(map, items, fragments, frame) {
     itemsByZone.get(item.zone).push(item);
   }
   const sheets = map.worlds.map((world) => {
-    const [originX, originY, width, height] = world.flat.bounds;
+    const [, , width, height] = world.flat.bounds;
     const zones = map.zones.filter((zone) => zone.world === world.id).map((zone) => {
       const contents = itemsByZone.get(zone.id).map((item) => {
         const [dx, dy] = item.offset ?? [0, 0];
@@ -81,9 +81,9 @@ export function renderWorldHtml(map, items, fragments, frame) {
         const style = [`left:${number(dx)}px`, `top:${number(dy)}px`, `--akari-item-scale:${number(item.scale ?? 1)}`, vars].filter(Boolean).join(";");
         return `<div class="akari-world-item" data-item="${attribute(item.id)}" style="${attribute(style)}">${fragments.get(item.id)}</div>`;
       }).join("");
-      return `<div class="akari-world-zone" data-zone="${attribute(zone.id)}" style="left:${number(zone.c[0] - originX)}px; top:${number(zone.c[1] - originY)}px">${contents}</div>`;
+      return `<div class="akari-world-zone" data-zone="${attribute(zone.id)}" style="left:${number(zone.c[0])}px; top:${number(zone.c[1])}px">${contents}</div>`;
     }).join("");
-    return `<div class="akari-world-sheet" data-world="${attribute(world.id)}" style="left:${number(originX)}px; top:${number(originY)}px; width:${number(width)}px; height:${number(height)}px">${zones}</div>`;
+    return `<div class="akari-world-sheet" data-world="${attribute(world.id)}" style="left:0px; top:0px; width:${number(width)}px; height:${number(height)}px">${zones}</div>`;
   }).join("\n");
   return `<div class="akari-world-scene"><style>.akari-world-scene{position:absolute;inset:0}.akari-world-sheet,.akari-world-zone,.akari-world-item{position:absolute}.akari-world-sheet{transform-origin:0 0}.akari-world-item{scale:var(--akari-item-scale,1);transform-origin:0 0}</style><script type="application/json" data-akari-world-scene>${declaration}</script>\n${sheets}</div>\n`;
 }

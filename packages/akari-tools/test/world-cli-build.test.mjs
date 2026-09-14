@@ -7,6 +7,7 @@ import test from "node:test";
 import { openProject } from "../../edit-store/lib/project.js";
 import { runWorldCommand } from "../bin/world.mjs";
 import { buildWorld, SpatialWorldBuildError } from "../src/world/build.mjs";
+import { createCamera } from "../src/world/camera.mjs";
 
 const fixture = new URL("../../schemas/examples/world-map-v3-flat-valid/planning/world-map.json", import.meta.url);
 
@@ -33,6 +34,40 @@ test("world build: 宣言、3 sheets、6 zones を決定論的に生成して ed
   const opened = await openProject(root);
   assert.deepEqual(opened.edit.find("world").source, { kind: "html", path: "overlays/world.html" });
   assert.equal(opened.edit.find("world").duration, 450);
+});
+
+test("world build: 全 zone の left/top は world 座標と一致する", async (t) => {
+  const root = await project(t);
+  const { map, html } = await buildWorld(root);
+  const positions = new Map([...html.matchAll(/class="akari-world-zone" data-zone="([^"]+)" style="left:([-\d.]+)px; top:([-\d.]+)px"/g)]
+    .map((match) => [match[1], [Number(match[2]), Number(match[3])]]));
+  assert.equal(positions.size, 6);
+  for (const zone of map.zones) assert.deepEqual(positions.get(zone.id), zone.c);
+});
+
+test("world build: sheet-local 座標は camera の画面座標式と一致する", async (t) => {
+  const root = await project(t);
+  const { map, html } = await buildWorld(root);
+  const sheetPositions = new Map([...html.matchAll(/class="akari-world-sheet" data-world="([^"]+)" style="left:([-\d.]+)px; top:([-\d.]+)px;/g)]
+    .map((match) => [match[1], [Number(match[2]), Number(match[3])]]));
+  const zonePositions = new Map([...html.matchAll(/class="akari-world-zone" data-zone="([^"]+)" style="left:([-\d.]+)px; top:([-\d.]+)px"/g)]
+    .map((match) => [match[1], [Number(match[2]), Number(match[3])]]));
+  const frame = JSON.parse(html.match(/<script type="application\/json" data-akari-world-scene>([\s\S]*?)<\/script>/)[1]).frame;
+  const camera = createCamera(map);
+  const times = map.cameraStops.flatMap((stop) => [stop.at, (stop.at + stop.leave) / 2]);
+  for (const time of times) {
+    const cam = camera(time);
+    for (const zone of map.zones) {
+      const [sheetLeft, sheetTop] = sheetPositions.get(zone.world);
+      const [zoneLeft, zoneTop] = zonePositions.get(zone.id);
+      const actualX = sheetLeft + (frame.width / 2 - cam.x * cam.scale) + zoneLeft * cam.scale;
+      const actualY = sheetTop + (frame.height / 2 - cam.y * cam.scale) + zoneTop * cam.scale;
+      const expectedX = frame.width / 2 + (zone.c[0] - cam.x) * cam.scale;
+      const expectedY = frame.height / 2 + (zone.c[1] - cam.y) * cam.scale;
+      assert.ok(Math.abs(actualX - expectedX) <= 1, `${zone.id} の x が t=${time} で一致しません`);
+      assert.ok(Math.abs(actualY - expectedY) <= 1, `${zone.id} の y が t=${time} で一致しません`);
+    }
+  }
 });
 
 test("world build: spatial は案内つき exit 2 相当で拒否する", async (t) => {

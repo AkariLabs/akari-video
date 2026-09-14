@@ -24,7 +24,7 @@
 
 ## 3. 描画
 
-flat world は 1 個の overlay 断片で構成する。Canvas 層は背景、格子、遠景、portal、cut の覆いを描き、DOM sheet 層は素材と文字を持つ。各 world は直下の `.akari-world-sheet[data-world]`、zone はその子の `.akari-world-zone[data-zone]` とする。sheet の transform は authoring 時に固定せず、ランタイムが `camera(t)` から設定する。DOM と Canvas の混在出力は rasterize 経路を使う。
+flat world は 1 個の overlay 断片で構成する。Canvas 層は背景、格子、遠景、portal、cut の覆いを描き、DOM sheet 層は素材と文字を持つ。各 world は直下の `.akari-world-sheet[data-world]`、zone はその子の `.akari-world-zone[data-zone]` とし、sheet 自身は left / top 0、zone の px は bounds 原点を引かない world 座標そのままとする。sheet の transform は authoring 時に固定せず、ランタイムが `camera(t)` から設定する。DOM と Canvas の混在出力は rasterize 経路を使う。
 
 spatial world は three 断片で構成し、座標・床・背景・霧を宣言する。画面座標の 3D 小物は別 overlay item とする。
 

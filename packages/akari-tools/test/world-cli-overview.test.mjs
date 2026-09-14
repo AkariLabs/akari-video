@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import { cp, mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -21,7 +22,12 @@ test("world overview: 自己完結 HTML に帯と非 move マーカーを描き 
   assert.doesNotMatch(result.html, /https?:\/\//);
   assert.equal((result.html.match(/data-world-band/g) ?? []).length, 3);
   assert.equal((result.html.match(/data-edge-marker/g) ?? []).length, 2);
-  for (const match of result.html.matchAll(/<script>([\s\S]*?)<\/script>/g)) assert.doesNotThrow(() => new Function(match[1]));
+  for (const [index, match] of [...result.html.matchAll(/<script>([\s\S]*?)<\/script>/g)].entries()) {
+    const scriptFile = path.join(root, `inline-${index}.js`);
+    await writeFile(scriptFile, match[1], "utf8");
+    const checked = spawnSync(process.execPath, ["--check", scriptFile], { encoding: "utf8" });
+    assert.equal(checked.status, 0, checked.stderr);
+  }
   const chrome = findChrome();
   if (!chrome) return t.skip("Chrome が無いため file:// JS 検査を省略");
   let browser;
