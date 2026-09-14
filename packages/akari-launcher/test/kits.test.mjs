@@ -10,7 +10,7 @@ import { fileURLToPath } from 'node:url';
 
 import {
   checkRequires, enableHint, ensureKitsMarketplace, linkKitAssets, linkKitSkills,
-  readKitManifest, readKitsLedger, writeKitsLedger
+  readKitManifest, readKitsLedger, registerKitAssets, removeKit, writeKitsLedger
 } from '../src/kits.mjs';
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
@@ -52,6 +52,7 @@ test('skills / assets を所定位置へ相対 symlink で合成する', () => {
     const kitDir = path.join(ctx.home, 'assets', 'store', 'sample-kit');
     mkdirSync(path.join(kitDir, 'skills', 'sample-skill'), { recursive: true });
     mkdirSync(path.join(kitDir, 'assets', 'still', 'sample-still'), { recursive: true });
+    writeFileSync(path.join(kitDir, 'assets', 'still', 'sample-still', 'payload.txt'), 'fixture');
     const manifest = {
       id: 'sample-kit',
       skills: [{ dir: 'skills/sample-skill', name: 'sample-skill' }],
@@ -66,6 +67,43 @@ test('skills / assets を所定位置へ相対 symlink で合成する', () => {
     assert.deepEqual(assets.linked, [{ category: 'still', id: 'sample-still' }]);
     assert.equal(readlinkSync(path.join(ctx.home, 'kits', 'plugin', 'skills', 'sample-skill')), '../../../assets/store/sample-kit/skills/sample-skill');
     assert.equal(readlinkSync(path.join(ctx.home, 'assets', 'still', 'sample-still')), '../../assets/store/sample-kit/assets/still/sample-still');
+  } finally { ctx.cleanup(); }
+});
+
+test('kit install 後は installed.json に素材実体を登録し、uninstall で削除する', () => {
+  const ctx = scratch();
+  try {
+    const kitDir = path.join(ctx.home, 'assets', 'store', 'sample-kit');
+    const assetDir = path.join(kitDir, 'assets', 'overlay', 'sample-kit-frame');
+    mkdirSync(assetDir, { recursive: true });
+    writeFileSync(path.join(assetDir, 'fragment.html'), '<div>kit frame</div>\n');
+    writeFileSync(path.join(assetDir, 'meta.json'), '{"title":"Kit Frame"}\n');
+    const manifest = {
+      id: 'sample-kit', version: 3, skills: [],
+      assets: [{ category: 'overlay', id: 'sample-kit-frame' }]
+    };
+    const assetLinks = linkKitAssets(kitDir, manifest, ctx.home, {
+      validateAssetPath: '/fixture/validator.mjs', spawnSyncImpl: () => ({ status: 0 })
+    });
+    registerKitAssets(ctx.home, manifest, kitDir, assetLinks.items);
+    writeKitsLedger(ctx.home, {
+      id: manifest.id, version: manifest.version, installedAt: 'now', kitDir,
+      skills: [], assets: assetLinks.linked
+    });
+
+    const indexPath = path.join(ctx.home, 'assets', 'installed.json');
+    const index = JSON.parse(readFileSync(indexPath, 'utf8'));
+    const pack = index.packs['sample-kit'];
+    assert.equal(index.schema, 'akari-installed-assets/v0');
+    assert.equal(pack.root, kitDir);
+    assert.equal(pack.version, 3);
+    assert.equal(pack.items[0].path, 'assets/overlay/sample-kit-frame');
+    assert.equal(pack.items[0].title, 'Kit Frame');
+    assert.deepEqual(pack.items[0].files.map((file) => file.path), ['fragment.html', 'meta.json']);
+    assert.ok(pack.items[0].files.every((file) => Number.isInteger(file.bytes) && /^[a-f0-9]{64}$/u.test(file.sha256)));
+
+    assert.equal(removeKit(ctx.home, 'sample-kit'), true);
+    assert.equal(JSON.parse(readFileSync(indexPath, 'utf8')).packs['sample-kit'], undefined);
   } finally { ctx.cleanup(); }
 });
 

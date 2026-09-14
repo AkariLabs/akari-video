@@ -12,6 +12,7 @@ import { runStoreCommand } from '../src/store-command.mjs';
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 const FIXTURE = path.join(REPO_ROOT, 'packages', 'schemas', 'examples', 'kit-manifest-v1-valid');
+const FIXTURE_WITH_ASSET = path.join(REPO_ROOT, 'packages', 'schemas', 'examples', 'kit-manifest-v1-with-asset');
 
 function context() {
   const home = mkdtempSync(path.join(tmpdir(), 'akari-store-kits-test-'));
@@ -27,12 +28,13 @@ function fixtureZip(ctx, {
   compatible = false,
   invalid = false,
   manifest = true,
+  withAsset = false,
   id = 'sample-kit',
   skillName = 'sample-kit-skill'
 } = {}) {
   const source = path.join(ctx.home, `zip-source-${id}`);
   mkdirSync(source, { recursive: true });
-  if (manifest) cpSync(FIXTURE, source, { recursive: true });
+  if (manifest) cpSync(withAsset ? FIXTURE_WITH_ASSET : FIXTURE, source, { recursive: true });
   else writeFileSync(path.join(source, 'README.md'), 'legacy');
   if (manifest && !invalid) {
     const manifestPath = path.join(source, 'manifest.json');
@@ -72,6 +74,31 @@ test('kit install --from: compatible fixture を検査して台帳・skill・mar
     assert.equal(readlinkSync(skill), '../../../assets/store/sample-kit/skills/sample-kit-skill');
     assert.ok(existsSync(path.join(ctx.home, 'kits', '.claude-plugin', 'marketplace.json')));
     assert.ok(ctx.lines.some((line) => line.includes('claude plugin install akari-kits@akari-kits')));
+  } finally { ctx.cleanup(); }
+});
+
+test('kit install --from: 素材を installed.json に登録し uninstall で索引から外す', async () => {
+  const ctx = context();
+  try {
+    const zipPath = fixtureZip(ctx, { compatible: true, withAsset: true });
+    const installed = await runStoreCommand(['install', 'sample-kit', '--from', zipPath], ctx.options);
+    assert.equal(installed.exitCode, 0);
+
+    const indexPath = path.join(ctx.home, 'assets', 'installed.json');
+    const index = JSON.parse(readFileSync(indexPath, 'utf8'));
+    const pack = index.packs['sample-kit'];
+    assert.equal(index.schema, 'akari-installed-assets/v0');
+    assert.equal(pack.version, 1);
+    assert.equal(pack.root, path.join(ctx.home, 'assets', 'store', 'sample-kit'));
+    assert.equal(pack.items.length, 1);
+    assert.equal(pack.items[0].id, 'sample-kit-frame');
+    assert.equal(pack.items[0].path, 'assets/overlay/sample-kit-frame');
+    assert.ok(pack.items[0].files.some((file) => file.path === 'fragment.html'));
+    assert.ok(pack.items[0].files.every((file) => /^[a-f0-9]{64}$/u.test(file.sha256)));
+
+    const removed = await runStoreCommand(['uninstall', 'sample-kit'], ctx.options);
+    assert.equal(removed.exitCode, 0);
+    assert.equal(JSON.parse(readFileSync(indexPath, 'utf8')).packs['sample-kit'], undefined);
   } finally { ctx.cleanup(); }
 });
 

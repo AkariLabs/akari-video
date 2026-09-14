@@ -51,6 +51,7 @@
 
 1. manifest と `requires` を検査する。CLI または runtime の不足は fail-closed、依存商品の不足は警告と導入案内にする。
 2. `assets[]` を `~/.akari/assets/<category>/<id>` へ相対 symlink で公開する。各素材はリンク前に `validate-asset.mjs` で検査する。
+   素材の実体ファイルと checksum は `~/.akari/assets/installed.json` にも登録し、素材 id から解決できるようにする。
 3. `skills[]` を `~/.akari/kits/plugin/skills/<name>` へ相対 symlink で公開する。
 4. `~/.akari/kits/installed.json` に id、version、導入日時、展開先、スキル、素材を記録する。
 5. `templates[]` は移動せず、CLI が各展開先の manifest を列挙して読む。

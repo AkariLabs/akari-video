@@ -28,6 +28,7 @@ import {
   linkKitSkills,
   readKitManifest,
   readKitsLedger,
+  registerKitAssets,
   removeKit,
   writeKitsLedger
 } from './kits.mjs';
@@ -540,6 +541,7 @@ export async function runStoreCommand(args, options = {}) {
           for (const blocker of skillLinks.blockers) log(`導入できません: ${blocker}`);
           return { exitCode: 1 };
         }
+        registerKitAssets(home, manifest, kitDir, assetLinks.items);
         writeKitsLedger(home, {
           id: manifest.id,
           version: manifest.version,

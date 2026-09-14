@@ -1,13 +1,15 @@
 import { spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import {
   existsSync, lstatSync, mkdirSync, readFileSync, readlinkSync,
-  renameSync, rmSync, symlinkSync, writeFileSync
+  readdirSync, realpathSync, renameSync, rmSync, statSync, symlinkSync, writeFileSync
 } from 'node:fs';
 import path from 'node:path';
 
 import { resolveLauncherAssets } from './repo-assets.mjs';
 
 const KITS_SCHEMA = 'akari-installed-kits/v0';
+const INSTALLED_ASSETS_SCHEMA = 'akari-installed-assets/v0';
 const PLUGIN_DESCRIPTION = 'AKARI Video 拡張キットのスキルをまとめて提供するローカルプラグイン。';
 
 function parseVersion(value) {
@@ -93,9 +95,47 @@ function replaceSymlink(source, destination, {
   }
 }
 
+function listAssetFiles(assetRoot, current = assetRoot) {
+  const files = [];
+  for (const entry of readdirSync(current, { withFileTypes: true })) {
+    const filePath = path.join(current, entry.name);
+    const stat = statSync(filePath);
+    if (stat.isDirectory()) {
+      files.push(...listAssetFiles(assetRoot, filePath));
+    } else if (stat.isFile()) {
+      const content = readFileSync(filePath);
+      files.push({
+        path: path.relative(assetRoot, filePath).split(path.sep).join('/'),
+        bytes: stat.size,
+        sha256: createHash('sha256').update(content).digest('hex')
+      });
+    }
+  }
+  return files.sort((left, right) => left.path.localeCompare(right.path));
+}
+
+function installedAssetItem(source, asset, manifest) {
+  const assetRoot = realpathSync(source);
+  let title = asset.id;
+  try {
+    const meta = JSON.parse(readFileSync(path.join(assetRoot, 'meta.json'), 'utf8'));
+    if (typeof meta.title === 'string' && meta.title) title = meta.title;
+  } catch {
+    // validate-asset が検査済み。配布環境で検査器が無い場合だけ id へフォールバックする。
+  }
+  return {
+    id: asset.id,
+    title,
+    path: ['assets', asset.category, asset.id].join('/'),
+    version: manifest.version,
+    files: listAssetFiles(assetRoot)
+  };
+}
+
 export function linkKitAssets(kitDir, manifest, home, options = {}) {
   const warnings = [];
   const linked = [];
+  const items = [];
   const assets = options.assets?.schemasSourceDir !== undefined
     ? options.assets
     : resolveLauncherAssets(options.assets);
@@ -113,9 +153,14 @@ export function linkKitAssets(kitDir, manifest, home, options = {}) {
       warnings.push(`素材 ${asset.category}/${asset.id} の検査ツールが見つからないため検査をスキップしました。`);
     }
     const destination = path.join(home, 'assets', asset.category, asset.id);
+    const productRoot = path.join(home, 'assets', 'store', manifest.id);
+    const kitSubdir = path.relative(productRoot, kitDir);
     const result = replaceSymlink(source, destination, {
       ...options,
-      relativeTarget: path.join('..', '..', 'assets', 'store', manifest.id, 'assets', asset.category, asset.id)
+      relativeTarget: path.join(
+        '..', '..', 'assets', 'store', manifest.id, kitSubdir,
+        'assets', asset.category, asset.id
+      )
     });
     if (result.status === 'occupied') {
       warnings.push(`既存の実ディレクトリを保持しました: ${destination}`);
@@ -123,9 +168,55 @@ export function linkKitAssets(kitDir, manifest, home, options = {}) {
       warnings.push(`symlink を作成できませんでした（Windows の権限を確認してください）: ${destination}`);
     } else {
       linked.push({ category: asset.category, id: asset.id });
+      items.push(installedAssetItem(source, asset, manifest));
     }
   }
-  return { linked, warnings };
+  return { linked, items, warnings };
+}
+
+function readInstalledAssetsIndex(home) {
+  const indexPath = path.join(home, 'assets', 'installed.json');
+  if (!existsSync(indexPath)) return { schema: INSTALLED_ASSETS_SCHEMA, packs: {} };
+  const index = JSON.parse(readFileSync(indexPath, 'utf8'));
+  if (index?.schema !== INSTALLED_ASSETS_SCHEMA
+    || !index.packs || typeof index.packs !== 'object' || Array.isArray(index.packs)) {
+    throw new Error(`導入済み素材索引の形式が想定と違います: ${indexPath}`);
+  }
+  return index;
+}
+
+function writeInstalledAssetsIndex(home, index) {
+  const indexPath = path.join(home, 'assets', 'installed.json');
+  mkdirSync(path.dirname(indexPath), { recursive: true });
+  const temporary = `${indexPath}.tmp-${process.pid}`;
+  writeFileSync(temporary, `${JSON.stringify(index, null, 2)}\n`, { mode: 0o600 });
+  renameSync(temporary, indexPath);
+}
+
+export function registerKitAssets(home, manifest, kitDir, items) {
+  const root = path.resolve(kitDir);
+  const storeRoot = path.join(path.resolve(home), 'assets', 'store', manifest.id);
+  if (root !== storeRoot && !root.startsWith(`${storeRoot}${path.sep}`)) {
+    throw new Error(`キット素材の root が展開先の外を指しています: ${root}`);
+  }
+  const index = readInstalledAssetsIndex(home);
+  index.packs[manifest.id] = {
+    version: manifest.version,
+    installedAt: new Date().toISOString(),
+    root,
+    items
+  };
+  writeInstalledAssetsIndex(home, index);
+  return items;
+}
+
+function unregisterKitAssets(home, productId) {
+  const indexPath = path.join(home, 'assets', 'installed.json');
+  if (!existsSync(indexPath)) return;
+  const index = readInstalledAssetsIndex(home);
+  if (!Object.hasOwn(index.packs, productId)) return;
+  delete index.packs[productId];
+  writeInstalledAssetsIndex(home, index);
 }
 
 export function linkKitSkills(kitDir, manifest, home, options = {}) {
@@ -198,6 +289,7 @@ export function removeKit(home, productId) {
   const temporary = `${ledgerPath}.tmp-${process.pid}`;
   writeFileSync(temporary, `${JSON.stringify(ledger, null, 2)}\n`, { mode: 0o600 });
   renameSync(temporary, ledgerPath);
+  unregisterKitAssets(home, productId);
   return true;
 }
 
