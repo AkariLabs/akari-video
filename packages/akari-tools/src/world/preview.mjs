@@ -28,7 +28,6 @@ export function previewTimes(map) {
 export async function previewWorld(projectRoot, options = {}) {
   projectRoot = path.resolve(projectRoot);
   const { map, file: mapPath } = await readCheckedWorldMap(projectRoot);
-  if (map.kind !== "flat") throw new Error("preview は現在 flat world のみ対応します");
   const edit = JSON.parse(await readFile(path.join(projectRoot, "edit.json"), "utf8"));
   const htmlPath = path.join(projectRoot, "overlays", "world.html");
   const html = await readFile(htmlPath, "utf8");

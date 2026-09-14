@@ -50,3 +50,20 @@ test("world preview --measure: cover 以外の JSON 値を変えない", async (
   assert.equal(result.measurements.length, 2);
   assert.notEqual(after.edges[1].transition.cover, before.edges[1].transition.cover);
 });
+
+test("world preview: spatial も同じ rasterize capture 契約へ渡す", async (t) => {
+  const root = await project(t);
+  await cp(new URL("../../schemas/examples/world-map-v3-spatial-valid/planning/world-map.json", import.meta.url), path.join(root, "planning", "world-map.json"));
+  await buildWorld(root);
+  let receivedHtml = "";
+  const result = await previewWorld(root, { capture: async ({ html, times, outputDir }) => {
+    receivedHtml = html;
+    const files = new Map();
+    for (const time of times) { const file = path.join(outputDir, `spatial-${time}.png`); await writeFile(file, "png"); files.set(time, file); }
+    return files;
+  } });
+  assert.match(receivedHtml, /data-akari-3d-scene/);
+  const map = JSON.parse(await readFile(path.join(root, "planning", "world-map.json"), "utf8"));
+  assert.equal(result.frames.length, previewTimes(map).length);
+  assert.ok(result.frames.every((frame) => Array.isArray(frame.camera.eye) && Array.isArray(frame.camera.target)));
+});

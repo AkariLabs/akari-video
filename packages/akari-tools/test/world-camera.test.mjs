@@ -69,6 +69,13 @@ test("flat の linear 辺の中点は幾何的中点", () => {
   [value.x, value.y, value.scale].forEach((item, index) => assert.ok(Math.abs(item - (from[index] + to[index]) / 2) < 1e-9));
 });
 
+test("flat camera の既存出力をバイト同一で凍結する", () => {
+  const camera = createCamera(maps[0]);
+  const actual = JSON.stringify([-1, 0, 1, 2.2, 4.8, 5, 5.3, 8.5, 10.5, 15].map((time) => [time, camera(time)]));
+  const expected = '[[-1,{"world":"atelier","x":10,"y":12,"scale":1.1,"phase":"stop","stop":"atelier-desk"}],[0,{"world":"atelier","x":10,"y":12,"scale":1.1,"phase":"stop","stop":"atelier-desk"}],[1,{"world":"atelier","x":10,"y":12,"scale":1.1,"phase":"stop","stop":"atelier-desk"}],[2.2,{"world":"atelier","x":15.125000000000018,"y":13.625000000000005,"scale":1.1093750000000002,"phase":"move","edge":"desk-shelf"}],[4.8,{"world":"atelier","x":188.25925925925918,"y":77.18518518518516,"scale":2.314814814814814,"phase":"approach","edge":"shelf-pond"}],[5,{"world":"garden","x":205,"y":84,"scale":2.5,"phase":"escape","edge":"shelf-pond"}],[5.3,{"world":"garden","x":205,"y":84,"scale":1.725,"phase":"escape","edge":"shelf-pond"}],[8.5,{"world":"garden","x":344,"y":57,"scale":1.35,"phase":"stop","stop":"garden-arch"}],[10.5,{"world":"attic","x":414.5,"y":8.25,"scale":1.875,"phase":"escape","edge":"arch-ladder"}],[15,{"world":"attic","x":444,"y":-4,"scale":1.09,"phase":"stop","stop":"attic-window"}]]';
+  assert.equal(actual, expected);
+});
+
 test("camera.mjs は外部依存と非決定要因を含まない", () => {
   const source = fs.readFileSync(join(packageRoot, "src", "world", "camera.mjs"), "utf8");
   for (const pattern of [/\bimport\b/, /\brequire\b/, /\bprocess\b/, /Date/, /Math\.random/]) assert.doesNotMatch(source, pattern);
