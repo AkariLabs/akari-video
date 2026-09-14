@@ -41,11 +41,11 @@ test('akari world の相対 import 閉包と overview HTML は同梱される場
   const roots = packagedRoots(pkg.build.extraResources);
   const problems = [];
   const visited = new Set();
-  // world.mjs の 3 入口はサブコマンド選択後の動的 import。既存 helper は静的 import
+  // world.mjs の 4 入口はサブコマンド選択後の動的 import。既存 helper は静的 import
   // 閉包用なので、入口だけ明示して以降の相対 import を同じ解決器で辿る。
   const queue = [
     { sourcePath: path.resolve(shellRoot, '../..', worldRelative), packagedPath: worldPackagedPath },
-    ...['build', 'preview', 'overview'].map((name) => ({
+    ...['build', 'preview', 'overview', 'edit'].map((name) => ({
       sourcePath: path.resolve(shellRoot, '../../packages/akari-tools/src/world', `${name}.mjs`),
       packagedPath: `resources/packages/akari-tools/src/world/${name}.mjs`,
     })),
@@ -71,7 +71,7 @@ test('akari world の相対 import 閉包と overview HTML は同梱される場
   });
   if (!template.ok) problems.push(`${overviewPath}: ${template.specifier} — ${template.reason}`);
 
-  for (const name of ['normalize', 'invariants', 'camera', 'items', 'build', 'preview', 'overview']) {
+  for (const name of ['normalize', 'invariants', 'camera', 'items', 'build', 'preview', 'overview', 'edit']) {
     assert.ok(visited.has(`resources/packages/akari-tools/src/world/${name}.mjs`), `${name}.mjs を import 閉包で辿れない`);
   }
   assert.ok(template.ok, 'overview-template.html が src/**/* の同梱対象にない');

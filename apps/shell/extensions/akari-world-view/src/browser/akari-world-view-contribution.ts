@@ -21,6 +21,7 @@ export class AkariWorldViewContribution implements CommandContribution {
     @inject(AkariScopeService) protected readonly scope!: AkariScopeService;
     @inject(AkariWorldViewService) protected readonly service!: AkariWorldViewService;
     protected widget?: WebviewWidget;
+    protected readonly subscribedWidgets = new WeakSet<WebviewWidget>();
 
     registerCommands(registry: CommandRegistry): void {
         registry.registerCommand(OPEN_WORLD_MAP, { execute: () => this.open(false) });
@@ -36,6 +37,7 @@ export class AkariWorldViewContribution implements CommandContribution {
         if (!root) return undefined;
         const widget = await this.widgets.getOrCreateWidget<WebviewWidget>(WebviewWidget.FACTORY_ID, IDENTIFIER);
         this.widget = widget;
+        this.subscribeToWidget(widget);
         widget.viewType = 'akari.world';
         widget.title.label = '地図'; widget.title.caption = 'ワールド地図'; widget.title.iconClass = 'codicon codicon-map';
         widget.setContentOptions({ allowScripts: true });
@@ -47,5 +49,36 @@ export class AkariWorldViewContribution implements CommandContribution {
         await this.shell.activateWidget(widget.id);
         widget.disposed.connect(() => { if (this.widget === widget) this.widget = undefined; });
         return widget;
+    }
+
+    protected subscribeToWidget(widget: WebviewWidget): void {
+        if (this.subscribedWidgets.has(widget)) return;
+        this.subscribedWidgets.add(widget);
+        widget.onMessage(async (message: unknown) => {
+            const request = message as { type?: unknown; stopId?: unknown; c?: unknown; requestId?: unknown };
+            if (request.type !== 'akari-world-move-stop') return;
+            const requestId = request.requestId;
+            const valid = typeof request.stopId === 'string'
+                && Array.isArray(request.c) && request.c.length >= 2 && request.c.length <= 3
+                && request.c.every(value => typeof value === 'number' && Number.isFinite(value));
+            if (!valid) {
+                widget.sendMessage({ type: 'akari-world-move-failed', reason: '停留所の移動引数が不正です。', requestId });
+                return;
+            }
+            try {
+                const root = (await this.workspace.roots)[0]?.resource;
+                if (!root) throw new Error('プロジェクトルートが見つかりません。');
+                const result = await this.service.moveCameraStop(root.toString(), request.stopId as string, request.c as number[]);
+                if (!result.ok) {
+                    widget.sendMessage({ type: 'akari-world-move-failed', reason: result.reason ?? '停留所を移動できませんでした。', requestId });
+                    return;
+                }
+                const sources = await this.service.readWorldOverviewSources(root.toString());
+                if (sources.error) throw new Error(sources.error);
+                widget.sendMessage({ type: 'akari-world-map', worldMapJson: sources.worldMapJson, requestId });
+            } catch (error) {
+                widget.sendMessage({ type: 'akari-world-move-failed', reason: error instanceof Error ? error.message : String(error), requestId });
+            }
+        });
     }
 }

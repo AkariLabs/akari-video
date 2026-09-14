@@ -39,6 +39,7 @@ three 宣言は `model`、`camera.fromModel: "TourCamera"`、`animationClip: "To
 - `akari world build`: flat は宣言、sheet、zone、解決済み素材断片を `overlays/world.html` に生成する。spatial は世界 GLB と three 断片を生成する。どちらも edit.json の `world` item を id 安定で upsert する。edit.json が version 2 でなければ変更せず停止するため、先に `akari migrate <project-root>` を実行する。
 - `akari world preview [--measure]`: flat / spatial とも rasterize 経路で stop と edge の代表時点を PNG と `camera-proof.json` にする。measure 時は非 move edge の全画素 RGB 標準偏差が 2 以下になる完全被覆区間を 30 Hz で測り、該当する `transition.cover` だけを書き戻す。
 - `akari world overview`: 外部通信を行わず `file://` で開ける自己完結の俯瞰 HTML を生成する。
+- `akari world move-stop <project-root> --stop <id> --c x,y[,scale] [--json]`: flat の停留所座標だけを更新する。元テキストの整形と他の欄を変えず、bounds 外・spatial・不変条件違反では一切書き込まない。
 
 同じ入力から得る HTML と画像は決定論的でなければならない。素材 id は asset resolver で解決し、未解決時は失敗として扱う。
 
@@ -58,7 +59,7 @@ akari world overview .
 - main の「地図」タブは `akari-world-view` が担う。
 - タイムラインのワールド帯と地図インスペクターは `akari-annotations` が担う。
 
-地図 UI は world-map を読み取り専用で表示する。2D 俯瞰、ワールド帯、再生時刻に追従する撮影枠、選択中の stop / edge 詳細を提供し、データの編集機能は持たない。
+地図 UI は 2D 俯瞰、ワールド帯、再生時刻に追従する撮影枠、選択中の stop / edge 詳細を提供する。v1 では flat の停留所の座標だけを ⌥ ドラッグで `world-map.json` へ書き戻せる。書き手は `akari world move-stop` の 1 本に限定し、bounds 外・spatial・不変条件違反では書き込まない。`world-map.json` は edit.json の履歴の外にあるため、undo / redo は未対応とする。
 
 ## 6. 制作フロー
 
