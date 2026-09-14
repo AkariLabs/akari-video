@@ -77,7 +77,7 @@ import { AkariProjectLauncherDialog } from './akari-project-launcher-dialog';
 import { PROJECT_CARD_BORDER, PROJECT_CARD_RADIUS_PX, PROJECT_CURRENT_STYLE, ProjectCardPreview } from './akari-project-card-preview';
 import { AkariProjectService, AssetEntitlementsStatus } from 'akari-project/lib/common/akari-project-protocol';
 import { AkariKitsService } from '../common/akari-kits-protocol';
-import { buildKitCardModel, KitCardModel, KIT_REDEEM_URL } from '../common/kit-card-model';
+import { buildKitCardModel, KitCardModel, KIT_LAB_URL } from '../common/kit-card-model';
 import {
     AKARI_BORDER,
     AKARI_INK,
@@ -2678,10 +2678,10 @@ export class AkariHomeWidget extends ReactWidget {
                 )}
                 {card.kind === 'unpurchased' && (
                     <div style={homeFlowStyles.kitAction}>
-                        <span>教材『AKARI Video の使い方』の引換ページから</span>
+                        <span>AKARI Video Lab で入手できます（Lifetime パス対象）</span>
                         <button type='button' className='theia-button secondary'
-                            onClick={() => this.windowService.openNewWindow(KIT_REDEEM_URL, { external: true })}>
-                            引換ページを開く
+                            onClick={() => this.windowService.openNewWindow(KIT_LAB_URL, { external: true })}>
+                            Lab で見る
                         </button>
                     </div>
                 )}
