@@ -22,6 +22,7 @@ import { musicGrid } from "../../audio-library-setup/shared/beat-grid.mjs";
 import { resolveFfmpeg, resolveFfprobe } from "../../media-bin/src/index.mjs";
 import { buildMatcher, protectedTermsFrom } from "../../word-book/src/index.mjs";
 import { resolveWordBookSync, scanRecord } from "../../word-book/src/index.mjs";
+import { validateWorldSceneDeclaration } from "./world-scene-declaration.mjs";
 import {
   readProjectReferences,
   resolveAkariAssetsDir,
@@ -2542,6 +2543,7 @@ async function validateOverlays(overlays, timeline, findings, paths) {
       isHtmlFile ? relativePath(paths.projectRoot, htmlPath) : `${itemPath}.html`,
       findings,
     );
+    for (const finding of validateWorldSceneDeclaration(html, await readFile(join(paths.projectRoot, "planning/world-map.json"), "utf8").catch(error => error?.code === "ENOENT" ? null : Promise.reject(error)), isHtmlFile ? relativePath(paths.projectRoot, htmlPath) : `${itemPath}.html`)) addFinding(findings, finding);
     if (!isHtmlFile) continue;
 
     validateOverlayFragmentAssets(html, overlay, paths, findings);
