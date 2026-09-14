@@ -21,6 +21,7 @@
     "@theia/keymaps": "1.73.1",
     "@theia/userstorage": "1.73.1",
     "akari-shell-strip": "file:./extensions/akari-shell-strip",
+    "akari-world-view": "file:./extensions/akari-world-view",
     "akari-surfaces": "file:./extensions/akari-surfaces",
     "akari-project": "file:./extensions/akari-project",
     "akari-partner": "file:./extensions/akari-partner",
@@ -71,7 +72,7 @@
   "scripts": {
     "preflight": "node scripts/ensure-no-nested-extension-deps.mjs && node scripts/ensure-electron-dist.mjs",
     "prebuild": "npm run preflight && node resources/scripts/ensure-file-deps-linked.mjs",
-    "build:ext": "tsc -b extensions/akari-theme extensions/akari-preview extensions/akari-annotations extensions/akari-project extensions/akari-shell-strip extensions/akari-surfaces extensions/akari-partner extensions/akari-tabs extensions/akari-transcript",
+    "build:ext": "tsc -b extensions/akari-theme extensions/akari-preview extensions/akari-annotations extensions/akari-project extensions/akari-shell-strip extensions/akari-world-view extensions/akari-surfaces extensions/akari-partner extensions/akari-tabs extensions/akari-transcript",
     "build": "npm run build:ext && theia build --mode production",
     "postbuild": "node scripts/resign-electron.mjs",
     "postinstall": "npm run preflight && node scripts/resign-electron.mjs",

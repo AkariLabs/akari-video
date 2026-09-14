@@ -6,7 +6,7 @@ export interface InspectorTabDef {
     enabled: boolean;
 }
 
-export type InspectorTabKind = 'cut' | 'layer' | 'overlay' | 'item' | 'caption' | 'audio';
+export type InspectorTabKind = 'cut' | 'layer' | 'overlay' | 'item' | 'caption' | 'audio' | 'world';
 
 export interface InspectorTabSnapshotHints {
     src?: unknown;
@@ -19,6 +19,7 @@ export function tabsForKind(
     kind: InspectorTabKind,
     snapshotHints: InspectorTabSnapshotHints = {}
 ): InspectorTabDef[] {
+    if (kind === 'world') return [{ id: 'world', label: '地図', enabled: true }, { ...INFO_TAB }];
     if (kind === 'caption') {
         return [
             { id: 'text', label: 'テキスト', enabled: true },
@@ -48,6 +49,7 @@ export function assignSectionToTab(kind: InspectorTabKind, sectionId: string): s
     if (rootId === 'adjust') return 'adjust';
     if (kind === 'caption') return 'text';
     if (kind === 'audio') return 'audio';
+    if (kind === 'world') return 'world';
     return 'video';
 }
 

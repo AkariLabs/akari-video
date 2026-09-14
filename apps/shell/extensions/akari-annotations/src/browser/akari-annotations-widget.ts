@@ -11,14 +11,18 @@ import { createCaptionHoverPreview } from '../common/caption-hover-preview';
 import { visualHoverMode } from '../common/visual-hover-mode';
 import { selectGenerationSidecarForSource, setCaptionTimingLine } from '@akari-video/edit-store';
 import { maskSourceOptionsForSources } from './inspector/mask-fields';
-import { CommandService, Disposable, MessageService } from '@theia/core/lib/common';
+import { CommandRegistry, CommandService, Disposable, MessageService } from '@theia/core/lib/common';
 import { BinaryBuffer } from '@theia/core/lib/common/buffer';
 import { ApplicationShell, BaseWidget, StorageService } from '@theia/core/lib/browser';
+import { ContextKeyService } from '@theia/core/lib/browser/context-key-service';
 import { PreferenceService } from '@theia/core/lib/common/preferences';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
 import { FileChangeType } from '@theia/filesystem/lib/common/files';
 import { WorkspaceService } from '@theia/workspace/lib/browser/workspace-service';
 import { inject, injectable, postConstruct } from '@theia/core/shared/inversify';
+import { createWorldBand } from './timeline/world-band';
+import type { WorldBandMap } from '../common/world-band-layout';
+import { GET_TIMELINE_PLAYHEAD } from './akari-annotations-commands';
 import { AkariPreviewService } from 'akari-preview/lib/common/akari-preview-protocol';
 import 'akari-preview/lib/electron-common/electron-api';
 import { VisualThumbnailCache } from './visual-thumbnail-cache';
@@ -363,6 +367,7 @@ import {
     TimelineAudioSelection,
     TimelineCropSnapshot,
     TimelineItemSelectionSnapshot,
+    TimelineWorldSelection,
     TimelineTreeItemSelection,
     TimelineTreeItemSnapshot,
     TimelineSelectionModel,
@@ -603,6 +608,8 @@ type TimelineSelection =
     | { kind: 'layer'; id: string }
     | { kind: 'audio'; id: string }
     | { kind: 'item'; id: string; itemKind: TimelineTreeRow['itemKind']; parentId?: string; trackId: string }
+    | { kind: 'world-stop'; id: string }
+    | { kind: 'world-edge'; id: string }
     | undefined;
 
 type TimelineSelectionItem = Exclude<TimelineSelection, undefined>;
@@ -815,6 +822,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
     @inject(CommandService)
     protected readonly commands!: CommandService;
 
+    @inject(CommandRegistry)
+    protected readonly commandRegistry!: CommandRegistry;
+
+    @inject(ContextKeyService)
+    protected readonly contextKeys!: ContextKeyService;
+
     @inject(MessageService)
     protected readonly messages!: MessageService;
 
@@ -884,6 +897,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected readonly annotationsClient!: AkariAnnotationsClientImpl;
 
     protected location: ProjectLocation | undefined;
+    protected worldMapData: (Omit<WorldBandMap, 'cameraStops' | 'edges'> & {
+        zones?: Array<{ id: string; label?: string; world: string; c: number[] }>;
+        cameraStops: Array<{ id: string; world: string; at: number; leave: number; c?: number[] }>;
+        edges: Array<any>;
+    }) | undefined;
     protected reviewSessionState: TimelineReviewSessionUiState | undefined;
     protected recordingRangesVisible = this.readReviewSessionRangesVisible();
     protected lastReviewSessionContext = '';
@@ -1113,6 +1131,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected readonly pasteTargetTracks = new Set<string>();
     protected overlayTrackLayouts: OverlayTrackLayout[] = [];
     protected laneLayout: {
+        world: LaneBounds;
         beats: LaneBounds;
         captions: LaneBounds;
         overlayTracks: TrackGroupLayout[];
@@ -1121,7 +1140,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         audioTracks: TrackGroupLayout[];
         tracks: TrackGroupLayout[];
     } = {
-        beats: { top: 0, height: 0 }, captions: { top: 0, height: 0 }, overlayTracks: [],
+        world: { top: 0, height: 0 }, beats: { top: 0, height: 0 }, captions: { top: 0, height: 0 }, overlayTracks: [],
         cutTracks: [], layerTracks: [], audioTracks: [], tracks: []
     };
     protected readonly overlayRows = new Map<string, number>();
@@ -1158,6 +1177,16 @@ export class AkariAnnotationsWidget extends BaseWidget {
 
     @postConstruct()
     protected init(): void {
+        if (!this.commandRegistry.getCommand(GET_TIMELINE_PLAYHEAD.id)) {
+            this.toDispose.push(this.commandRegistry.registerCommand(GET_TIMELINE_PLAYHEAD, {
+                execute: () => this.playheadT
+            }));
+        }
+        this.toDispose.push(this.contextKeys.onDidChange(event => {
+            if (event.affects(new Set(['akari.worldMap']))) {
+                void this.reloadWorldMap().then(() => this.renderStrip());
+            }
+        }));
         const pause = (): void => {
             this.lastManualScrollAt = Date.now();
             this.visualPointerDown = true;
@@ -2643,7 +2672,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.applySelectionClass();
         if (notifyPreview) this.publishPrimaryPreviewSelection(selection);
         // 素材選択では現在の再生位置を保ったまま出力プレビューを開く。
-        if (selection) {
+        if (selection && selection.kind !== 'world-stop' && selection.kind !== 'world-edge') {
             this.revealOutputPreview();
         }
     }
@@ -4152,9 +4181,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 this.selectionModel.snapshot = undefined;
                 return;
             }
-            const items = this.multiSelection.flatMap(selection => {
+            const items: TimelineItemSelectionSnapshot[] = this.multiSelection.flatMap(selection => {
                 const snapshot = this.snapshotForSelection(selection);
-                return snapshot ? [snapshot] : [];
+                return snapshot && snapshot.kind !== 'world' ? [snapshot] : [];
             });
             this.multiSelection = items.map(item => item.kind === 'cut'
                 ? { kind: 'cut', index: item.index }
@@ -4238,7 +4267,27 @@ export class AkariAnnotationsWidget extends BaseWidget {
      * kind ごとの現在値を同じ snapshot 器へ解決する。multi はこの配列をそのまま運び、
      * inspector 側が今回対応する caption だけを一括編集へ配線する。
      */
-    protected snapshotForSelection(selection: TimelineSelectionItem): TimelineItemSelectionSnapshot | undefined {
+    protected snapshotForSelection(selection: TimelineSelectionItem): TimelineItemSelectionSnapshot | TimelineWorldSelection | undefined {
+        if (selection.kind === 'world-stop' || selection.kind === 'world-edge') {
+            const map = this.worldMapData;
+            if (!map) return undefined;
+            if (selection.kind === 'world-stop') {
+                const stop = map.cameraStops.find(candidate => candidate.id === selection.id);
+                const world = stop && map.worlds.find(candidate => candidate.id === stop.world);
+                if (!stop || !world) return undefined;
+                return { kind: 'world', world: { id: world.id, label: world.label ?? world.id }, stop: {
+                    id: stop.id, c: stop.c ?? [], at: stop.at, leave: stop.leave
+                } };
+            }
+            const edge = map.edges.find(candidate => candidate.id === selection.id);
+            const from = edge && map.cameraStops.find(candidate => candidate.id === edge.from);
+            const world = from && map.worlds.find(candidate => candidate.id === from.world);
+            if (!edge || !world) return undefined;
+            return { kind: 'world', world: { id: world.id, label: world.label ?? world.id }, edge: {
+                id: edge.id, from: edge.from, to: edge.to, type: edge.type,
+                transition: edge.transition, via: edge.via, carry: edge.carry
+            } };
+        }
         if (selection.kind === 'cut') {
             const segment = this.segments[selection.index];
             const cut = this.cuts[selection.index];
@@ -5772,6 +5821,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 void this.reloadEdit();
             }
             if (event.contains(this.location.captionsUri)) void this.reloadCaptionsIfChanged();
+            if (event.contains(this.location.root.resolve('planning/world-map.json'))) {
+                void this.reloadWorldMap().then(() => this.renderStrip());
+            }
             if (event.changes.some(change => change.resource.path.toString().endsWith('.meta.json'))) {
                 void this.reloadGenerationSidecars();
             }
@@ -5860,9 +5912,19 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected async reloadAll(): Promise<void> {
-        await Promise.all([this.reloadReview(), this.reloadEdit(), this.reloadCaptions(), this.reloadAnalysis()]);
+        await Promise.all([this.reloadReview(), this.reloadEdit(), this.reloadCaptions(), this.reloadAnalysis(), this.reloadWorldMap()]);
         // 並列 reload の別系統が notice を clear しても、初期表示では射影不能の案内を最後に確定する。
         this.notifyCaptionSourceMappingWarning(true);
+    }
+
+    protected async reloadWorldMap(): Promise<void> {
+        this.worldMapData = undefined;
+        if (!this.location || !this.contextKeys.match('akari.worldMap == present')) return;
+        try {
+            this.worldMapData = JSON.parse((await this.fileService.readFile(
+                this.location.root.resolve('planning/world-map.json')
+            )).value.toString());
+        } catch { /* Marker validity and its error text are owned by AkariScopeService. */ }
     }
 
     protected async reloadReview(): Promise<void> {
@@ -7389,6 +7451,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
         }
         this.renderFocusBreadcrumbs();
         let nextTop = topOffset + STRIP_TOP_MARGIN;
+        const world = { top: nextTop, height: this.worldMapData ? SUBROW_STRIDE : 0 };
+        if (world.height > 0) nextTop += world.height + LANE_GAP;
         const beats = { top: nextTop, height: this.beats.length > 0 ? SUBROW_STRIDE : 0 };
         if (beats.height > 0) {
             nextTop += beats.height + LANE_GAP;
@@ -7522,6 +7586,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             nextTop += height + LANE_GAP;
         }
         this.laneLayout = {
+            world,
             beats,
             captions,
             overlayTracks: this.overlayTrackLayouts,
@@ -7825,6 +7890,23 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.applyInitialVerticalScroll(stripHeight, viewportHeight, centerGapPx);
         this.trackHeaders.style.transform = `translateY(${-this.stripScroll.scrollTop}px)`;
         this.renderTrackHeaders(beatsBandTop, beatsBandHeight);
+
+        if (this.worldMapData) {
+            const signature = JSON.stringify([this.worldMapData, this.laneLayout.world, this.layoutViewStart, this.layoutViewDuration, stripLayoutWidthPx]);
+            const { element } = this.keyedNode('strip', 'band:world', signature, () => createWorldBand({
+                map: this.worldMapData!, top: this.laneLayout.world.top, height: this.laneLayout.world.height,
+                secondsToPx: seconds => (seconds - this.layoutViewStart) / this.layoutViewDuration * stripLayoutWidthPx,
+                timeAtClientX: clientX => this.timeAtClientX(clientX),
+                onSeek: seconds => {
+                    this.playheadT = Math.max(0, seconds);
+                    this.selectedSourceT = this.outputToSource(this.playheadT);
+                    this.playhead.style.left = `${this.percent(this.playheadT)}%`;
+                    void this.requestSeek(this.playheadT, { domain: 'output' });
+                },
+                onSelect: target => this.applySelection(target)
+            }));
+            element.style.top = `${this.laneLayout.world.top}px`;
+        }
 
         if (beatsBandHeight > 0) {
             const { element: beatsBand, created } = this.keyedNode(
@@ -9689,6 +9771,15 @@ export class AkariAnnotationsWidget extends BaseWidget {
 
     protected renderTrackHeaders(beatsTop: number, beatsHeight: number): void {
         this.beginKeyedRender('header');
+        if (this.worldMapData) {
+            this.keyedNode('header', 'header:world', 'world', () => {
+                const row = document.createElement('div');
+                row.className = 'akari-track-header-row';
+                row.textContent = '地図';
+                Object.assign(row.style, { position: 'absolute', left: '0', right: '0', top: `${this.laneLayout.world.top}px`, height: `${this.laneLayout.world.height}px`, padding: '4px 8px' });
+                return row;
+            });
+        }
         if (beatsHeight > 0) {
             this.keyedNode('header', 'header:beats', `${this.beatsVisible}:${this.beatsMuted}:${this.beatsLocked}`, () =>
                 this.trackHeaderRow(
@@ -15127,6 +15218,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
             SEEK_OUTPUT_PREVIEW_COMMAND_ID,
             { editUri: this.location.editUri.toString(), time: outputTime }
         );
+        if (this.commandRegistry.getCommand('akari.world.seek')) {
+            await this.commands.executeCommand('akari.world.seek', { time: outputTime }).catch(() => undefined);
+        }
         const timestamp = this.formatTimestamp(time);
         this.footer.textContent = result === 'seeked'
             ? `${timestamp} にプレビューをシークしました。`
@@ -15211,6 +15305,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         if (!alreadyMultiSelected) this.applySelection(item);
         const row = item.kind === 'item'
             ? this.timelineTreeRows.find(candidate => candidate.id === item.id) : undefined;
+        if (item.kind === 'world-stop' || item.kind === 'world-edge') return;
         const document = this.editDocument;
         let hasAudio: boolean | undefined;
         if (item.kind === 'cut' && document && this.location?.editUri) {
@@ -15424,6 +15519,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected async requestClipAnnotation(item: TimelineSelectionItem, clientX: number): Promise<void> {
+        if (item.kind === 'world-stop' || item.kind === 'world-edge') return;
         const location = this.location;
         if (!location) return;
         const sourceT = this.outputToSource(this.timeAtClientX(clientX));

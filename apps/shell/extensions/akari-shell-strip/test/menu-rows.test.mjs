@@ -22,6 +22,13 @@ test('ひらく contains exactly the nine ordered rows', () => {
     ]);
 });
 
+test('world map row is additive and opt-in', () => {
+    assert.equal(akariMenuRows().length, 9);
+    const rows = akariMenuRows({ worldMap: true });
+    assert.equal(rows.length, 10);
+    assert.deepEqual(rows[5], { id: 'akari.world.openMap', label: '地図', icon: 'codicon codicon-map' });
+});
+
 const dockTabs = [
     {
         widget: '../../akari-partner/src/browser/akari-partner-widget.tsx',
@@ -77,7 +84,7 @@ test('widget maps the pure rows, preserves the home route and appends dynamic pr
     const getter = declaration?.members.find(node => ts.isGetAccessor(node) && node.name.getText(source) === 'actions');
     assert.ok(getter?.body, 'actions getter');
     const actions = getter.body.getText(source);
-    assert.match(actions, /akariMenuRows\(\)\.map\(/);
+    assert.match(actions, /akariMenuRows\(\{ worldMap: this\.scopeService\.worldMap\.state === 'present' \}\)\.map\(/);
     assert.match(actions, /row\.id === 'akari\.menu\.openOverview'\s*\? void this\.openOverview\(\)\s*:\s*this\.runCommand\(row\.id\)/);
     assert.match(actions, /this\.browserPreviewAction\(\)\s*\];/);
     assert.doesNotMatch(actions, /\b(?:id|label|icon)\s*:/, 'no duplicated row definitions');
