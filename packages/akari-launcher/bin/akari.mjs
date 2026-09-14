@@ -15,6 +15,7 @@ import { runCleanCommand } from '../src/clean-command.mjs';
 import { runDoctorCommand } from '../src/doctor-command.mjs';
 import { runGenerateCommand } from '../src/generate-command.mjs';
 import { runStoryboardCommand } from '../src/storyboard-command.mjs';
+import { runWorldCommand } from '../src/world-command.mjs';
 import { resolveRuntimePaths } from '../src/runtime-diagnostics.mjs';
 import { maybeApplyPendingUpdateOnLaunch, resolveInstalledVersionInfo } from '../src/update-check.mjs';
 import { describeCliHelp, describeInstalledVersions } from '../src/messages.mjs';
@@ -37,7 +38,7 @@ async function printVersion() {
 // `--help` は claude/opencode へそのまま転送されてしまっていた — AKARI Video 自身の
 // コマンド一覧が一度も出ない行き止まりだったため新設した）。
 async function printCliHelp() {
-  for (const line of describeCliHelp()) {
+  for (const line of [...describeCliHelp(), '  world                    ワールド地図を検査・生成・プレビュー']) {
     console.log(line);
   }
   return { exitCode: 0 };
@@ -84,6 +85,7 @@ const invoke = (argv[0] === '--version' || argv[0] === '-v') ? printVersion()
   : argv[0] === 'clean' ? runCleanCommand(argv.slice(1))
   : argv[0] === 'generate' ? runGenerateCommand(argv.slice(1))
   : argv[0] === 'storyboard' ? runStoryboardCommand(argv.slice(1))
+  : argv[0] === 'world' ? runWorldCommand(argv.slice(1))
   : run(argv);
 
 const result = await invoke.catch((error) => {

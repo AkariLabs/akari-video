@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AKARI World Overview</title>
+<style>
+:root{color-scheme:dark;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#10131a;color:#edf2ff}*{box-sizing:border-box}body{margin:0;min-height:100vh;background:#10131a}header{display:flex;align-items:center;gap:18px;padding:16px 22px;border-bottom:1px solid #30384a}h1{margin:0;font-size:18px}main{display:grid;grid-template-columns:minmax(0,1fr) 330px;min-height:calc(100vh - 59px)}.stage{display:grid;grid-template-rows:minmax(360px,1fr) auto auto;min-width:0;padding:18px;gap:12px}canvas{width:100%;height:100%;min-height:360px;border:1px solid #30384a;border-radius:10px;background:#181d27}.band{display:flex;height:46px;overflow:hidden;border:1px solid #30384a;border-radius:8px}.world-band{position:relative;display:grid;place-items:center;min-width:70px;color:#10131a;font-size:12px;font-weight:800}.edge-marker{position:absolute;right:-5px;z-index:2;width:10px;height:100%;background:#fff;box-shadow:0 0 0 2px #10131a}input[type=range]{width:100%}aside{padding:20px;border-left:1px solid #30384a;background:#151923}dl{display:grid;grid-template-columns:92px 1fr;gap:8px;margin:0}dt{color:#8d9ab3}dd{margin:0;overflow-wrap:anywhere}.video-slot{margin-top:18px;aspect-ratio:16/9;border:1px dashed #526079;border-radius:8px;display:grid;place-items:center;color:#8d9ab3}video{display:block;width:100%;height:100%}
+</style>
+</head>
+<body __FALLBACK_ATTRIBUTE__>
+<header><h1>World Overview</h1><output id="time">0.000 s</output></header>
+<main><section class="stage"><canvas id="overview" width="1280" height="720"></canvas><div class="band" id="band">__WORLD_BANDS__</div><input id="scrub" type="range" min="0" max="__DURATION__" value="0" step="0.001" aria-label="時刻"></section><aside><dl id="details"><dt>world</dt><dd>-</dd><dt>停留所 / 辺</dt><dd>-</dd><dt>型</dt><dd>-</dd><dt>transition</dt><dd>-</dd><dt>cover</dt><dd>-</dd><dt>via</dt><dd>-</dd><dt>carry</dt><dd>-</dd></dl><div class="video-slot" id="videos">__VIDEOS__</div></aside></main>
+<script>__CAMERA_SOURCE__</script>
+<script>__RUNTIME_SOURCE__</script>
+<script>
+const worldMap=__WORLD_MAP__;
+const cameraAt=globalThis.__akariCreateCamera(worldMap);
+const canvas=document.getElementById('overview');const ctx=canvas.getContext('2d');const scrub=document.getElementById('scrub');const videos=[...document.querySelectorAll('video')];
+function fallbackDraw(map,camera){ctx.clearRect(0,0,canvas.width,canvas.height);const points=map.worlds.flatMap(w=>{const b=w.flat.bounds;return [[b[0],b[1]],[b[0]+b[2],b[1]+b[3]]]});const xs=points.map(p=>p[0]),ys=points.map(p=>p[1]);const minX=Math.min(...xs),maxX=Math.max(...xs),minY=Math.min(...ys),maxY=Math.max(...ys),pad=55,s=Math.min((canvas.width-pad*2)/(maxX-minX),(canvas.height-pad*2)/(maxY-minY));const xy=p=>[pad+(p[0]-minX)*s,pad+(p[1]-minY)*s];for(const w of map.worlds){const b=w.flat.bounds,[x,y]=xy(b);ctx.fillStyle=w.palette?.background||'#30384a';ctx.fillRect(x,y,b[2]*s,b[3]*s);ctx.strokeStyle=w.palette?.accent||'#fff';ctx.strokeRect(x,y,b[2]*s,b[3]*s)}ctx.lineWidth=2;for(const e of map.edges){const a=map.zones.find(z=>z.id===e.from),b=map.zones.find(z=>z.id===e.to);if(!a||!b)continue;const [x1,y1]=xy(a.c),[x2,y2]=xy(b.c);ctx.strokeStyle=e.type==='move'?'#8190aa':'#ffcf5a';ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke()}for(const z of map.zones){const [x,y]=xy(z.c);ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(x,y,5,0,Math.PI*2);ctx.fill();ctx.fillText(z.label||z.id,x+8,y-8)}const [cx,cy]=xy([camera.x,camera.y]);const fw=worldMap.frame?.width||1920,fh=worldMap.frame?.height||1080;ctx.strokeStyle='#ff5e78';ctx.lineWidth=3;ctx.strokeRect(cx-fw/(camera.scale||1)*s/2,cy-fh/(camera.scale||1)*s/2,fw/(camera.scale||1)*s,fh/(camera.scale||1)*s)}
+function overviewView(map){const p=map.worlds.flatMap(w=>{const b=w.flat.bounds;return[[b[0],b[1]],[b[0]+b[2],b[1]+b[3]]]});const xs=p.map(v=>v[0]),ys=p.map(v=>v[1]),minX=Math.min(...xs),maxX=Math.max(...xs),minY=Math.min(...ys),maxY=Math.max(...ys),pad=55,scale=Math.min((canvas.width-pad*2)/(maxX-minX),(canvas.height-pad*2)/(maxY-minY));return{scale,ox:pad-minX*scale,oy:pad-minY*scale}}
+function active(t){const stop=worldMap.cameraStops.find(s=>s.at<=t&&t<=s.leave);if(stop)return{label:stop.id,type:'stop'};const edge=worldMap.edges.find(e=>e.t0<=t&&t<=e.t1);return edge?{label:edge.id,type:edge.type,transition:edge.transition?.kind,cover:edge.transition?.cover,via:edge.via,carry:edge.carry}:{} }
+function draw(){const t=Number(scrub.value),camera=cameraAt(t),item=active(t);document.getElementById('time').value=t.toFixed(3)+' s';const values=[camera.world,item.label||'-',item.type||'-',item.transition||'-',item.cover??'-',item.via||'-',(item.carry||[]).join(', ')||'-'];document.querySelectorAll('#details dd').forEach((node,i)=>node.textContent=String(values[i]));const runtimeDraw=globalThis.akari?.worldRuntime?.drawOverview||globalThis.drawOverview;if(typeof runtimeDraw==='function')runtimeDraw(ctx,worldMap,overviewView(worldMap),t,{frame:true});else fallbackDraw(worldMap,camera);for(const video of videos){video.currentTime=t;video.pause()}}
+scrub.addEventListener('input',draw);draw();
+</script>
+</body></html>
