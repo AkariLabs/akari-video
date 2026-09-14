@@ -5,6 +5,7 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 import {
   DEFAULT_STORE_BASE_URL,
   defaultOpenBrowser,
@@ -17,6 +18,19 @@ import {
   startDeviceConnection,
   validateAndSaveCredentials
 } from './store-device-connect.mjs';
+import { readOwnVersion } from './update-check.mjs';
+import { resolveLauncherAssets } from './repo-assets.mjs';
+import {
+  checkRequires,
+  enableHint,
+  ensureKitsMarketplace,
+  linkKitAssets,
+  linkKitSkills,
+  readKitManifest,
+  readKitsLedger,
+  removeKit,
+  writeKitsLedger
+} from './kits.mjs';
 
 export { readCredentials, resolveCredentialsPath } from './store-device-connect.mjs';
 
@@ -288,6 +302,27 @@ export async function runStoreCommand(args, options = {}) {
     }
     log(`接続中: ${data.email}（${creds.url}）`);
     formatStoreEntitlements(data, log);
+    const kits = readKitsLedger(resolveAkariHome(env)).kits;
+    if (kits.length > 0) {
+      log('拡張キット:');
+      for (const kit of kits) {
+        log(`  ${kit.id} v${kit.version} / スキル: ${(kit.skills ?? []).join(', ') || 'なし'} / 素材: ${(kit.assets ?? []).length} 件`);
+      }
+    }
+    return { exitCode: 0 };
+  }
+
+  if (sub === 'uninstall') {
+    const productId = args[1];
+    if (!isSafePathSegment(productId) || productId.startsWith('--')) {
+      log('使い方: akari store uninstall <productId>');
+      return { exitCode: 1 };
+    }
+    if (!removeKit(resolveAkariHome(env), productId)) {
+      log(`導入済みの拡張キットが見つかりません: ${productId}`);
+      return { exitCode: 1 };
+    }
+    log(`拡張キットを無効化しました: ${productId}（展開済みファイルは残しています）`);
     return { exitCode: 0 };
   }
 
@@ -415,6 +450,107 @@ export async function runStoreCommand(args, options = {}) {
       const readme = findFile(destDir, 'README.md');
       log(`展開しました: ${destDir}`);
       if (readme) log(`導入手順: ${readme}`);
+      // 深い階層の無関係な manifest.json をキットと誤認すると、従来成功していた素材商品の
+      // install を壊す。キットの規定位置は展開ルート、または zip が単一トップディレクトリを
+      // 持つ場合のその直下だけとし、JSON として読めても kind !== kit なら完全に素通りする。
+      let manifestPath = path.join(destDir, 'manifest.json');
+      if (!existsSync(manifestPath)) {
+        const rootEntries = readdirSync(destDir, { withFileTypes: true });
+        manifestPath = rootEntries.length === 1 && rootEntries[0].isDirectory()
+          ? path.join(destDir, rootEntries[0].name, 'manifest.json')
+          : null;
+        if (manifestPath && !existsSync(manifestPath)) manifestPath = null;
+      }
+      let manifest = null;
+      if (manifestPath) {
+        try {
+          manifest = readKitManifest(path.dirname(manifestPath));
+        } catch {
+          log('キットの検査に失敗しました。展開済みファイルを確認してください。');
+          return { exitCode: 1 };
+        }
+      }
+      if (manifest?.kind === 'kit') {
+        const kitDir = path.dirname(manifestPath);
+        const home = resolveAkariHome(env);
+        const launcherAssets = options.assets ?? resolveLauncherAssets();
+        const validator = launcherAssets.schemasSourceDir
+          ? path.join(launcherAssets.schemasSourceDir, 'bin', 'validate-kit-manifest.mjs')
+          : null;
+        if (validator && existsSync(validator)) {
+          const validateArgs = [validator, kitDir];
+          if (launcherAssets.skillsSourceDir) validateArgs.push('--public-skills', launcherAssets.skillsSourceDir);
+          const validation = (options.spawnSync ?? spawnSync)(process.execPath, validateArgs, { stdio: 'pipe' });
+          if (validation.status !== 0) {
+            log('キットの検査に失敗しました。展開済みファイルを確認してください。');
+            return { exitCode: 1 };
+          }
+        } else {
+          // npm 配布物には schemas の検査 bin が無い場合がある。runtime と同じく、
+          // 器の欠落で購入済みコンテンツを利用不能にしないため warning へ degrade する。
+          log('キットの検査ツールが見つからないため検査をスキップしました');
+        }
+        const requirementWarnings = [];
+        let runtimeIds;
+        const runtimePath = path.join(launcherAssets.repoRoot, 'packages', 'overlay-runtime', 'runtimes.mjs');
+        if (existsSync(runtimePath)) {
+          try {
+            const runtimeModule = await import(pathToFileURL(runtimePath).href);
+            runtimeIds = runtimeModule.runtimes.map((runtime) => runtime.id);
+          } catch {
+            runtimeIds = null;
+          }
+        }
+        if (!runtimeIds) {
+          // overlay-runtime は launcher の npm tarball に同梱されない。照合不能は
+          // manifest 不備ではないため warning に落とし、要求 id を既知扱いして続行する。
+          requirementWarnings.push('runtime registry が見つからないため runtime id の照合をスキップしました。');
+          runtimeIds = manifest.requires?.runtimes ?? [];
+        }
+        let entitledProductIds = [];
+        const credentials = readCredentials(env);
+        if (credentials) {
+          const entitlementResult = await fetchStoreEntitlements(fetchImpl, credentials.url, credentials.token);
+          entitledProductIds = (entitlementResult.data?.entitlements ?? [])
+            .map((entry) => entry.product_id ?? entry.id)
+            .filter(Boolean);
+        }
+        const requires = checkRequires(manifest, {
+          cliVersion: options.cliVersion ?? readOwnVersion(),
+          runtimeIds,
+          entitledProductIds
+        });
+        if (manifest.id !== productId) requires.blockers.push(`manifest id が商品 id と一致しません: ${manifest.id} != ${productId}`);
+        requires.ok = requires.blockers.length === 0;
+        for (const warning of [...requirementWarnings, ...requires.warnings]) log(`警告: ${warning}`);
+        if (!requires.ok) {
+          for (const blocker of requires.blockers) log(`導入できません: ${blocker}`);
+          return { exitCode: 1 };
+        }
+
+        const hadInstalledKit = readKitsLedger(home).kits.length > 0;
+        const assetLinks = linkKitAssets(kitDir, manifest, home, {
+          assets: options.assets,
+          spawnSyncImpl: options.spawnSync,
+          platform: options.platform
+        });
+        const skillLinks = linkKitSkills(kitDir, manifest, home, { platform: options.platform });
+        for (const warning of [...assetLinks.warnings, ...skillLinks.warnings]) log(`警告: ${warning}`);
+        if (skillLinks.blockers.length > 0) {
+          for (const blocker of skillLinks.blockers) log(`導入できません: ${blocker}`);
+          return { exitCode: 1 };
+        }
+        writeKitsLedger(home, {
+          id: manifest.id,
+          version: manifest.version,
+          installedAt: new Date().toISOString(),
+          kitDir,
+          skills: skillLinks.linked,
+          assets: assetLinks.linked
+        });
+        ensureKitsMarketplace(home);
+        if (!hadInstalledKit) log(enableHint());
+      }
       const packPath = findFile(destDir, 'PACK.json');
       if (packPath) {
         const items = registerInstalledPack(env, productId, packPath);
@@ -436,10 +572,11 @@ export async function runStoreCommand(args, options = {}) {
     return { exitCode: 0 };
   }
 
-  log('使い方: akari store <connect|status|install|download|disconnect>');
+  log('使い方: akari store <connect|status|install|uninstall|download|disconnect>');
   log('  connect                              ブラウザで承認して接続（既定。--token akst_... で手動 / --no-open でブラウザを開かない / --url <base>）');
   log('  status                               接続状態と購入済み一覧');
   log('  install <productId> [--from <zip>]   購入済み商品の導入（--from は手元 zip / PACK.json 素材を installed 索引へ登録）');
+  log('  uninstall <productId>                拡張キットの symlink と台帳登録を解除（展開済みファイルは保持）');
   log('  download <productId> [--dest <dir>]  購入済み配布物の取得のみ');
   log('  disconnect                           接続解除');
   return { exitCode: sub ? 1 : 0 };

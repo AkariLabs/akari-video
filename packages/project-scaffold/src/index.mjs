@@ -1,6 +1,7 @@
 import { execFile } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import fs from 'node:fs/promises';
+import { homedir } from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
 
@@ -341,15 +342,25 @@ export async function installProjectSkills(destinationDir, skillsSourceDir, sche
 }
 
 export async function installSkillAdapters(destinationDir, options = {}) {
-    const { fsImpl = fs, platform = process.platform } = options;
+    const { fsImpl = fs, platform = process.platform, env = process.env } = options;
     const skillsDir = path.join(destinationDir, '.claude', 'skills');
     const skillNames = (await fsImpl.readdir(skillsDir, { withFileTypes: true }))
         .filter(entry => entry.isDirectory())
         .map(entry => entry.name);
+    const kitSkillsDir = path.join(env.AKARI_HOME || path.join(homedir(), '.akari'), 'kits', 'plugin', 'skills');
+    let kitSkillNames = [];
+    try {
+        kitSkillNames = (await fsImpl.readdir(kitSkillsDir, { withFileTypes: true }))
+            .filter(entry => entry.isDirectory() || entry.isSymbolicLink())
+            .map(entry => entry.name);
+    } catch (error) {
+        if (!error || typeof error !== 'object' || error.code !== 'ENOENT') throw error;
+    }
 
     const created = [];
     const skippedExisting = [];
     const degraded = [];
+    const warnings = [];
     for (const adapter of SKILL_ADAPTER_DIRECTORIES) {
         const adapterDir = path.join(destinationDir, adapter, 'skills');
         await fsImpl.mkdir(adapterDir, { recursive: true });
@@ -372,8 +383,27 @@ export async function installSkillAdapters(destinationDir, options = {}) {
                 skippedExisting.push(relativeName);
             }
         }
+        for (const name of kitSkillNames) {
+            const relativeName = `${adapter}/skills/${name}`;
+            if (skillNames.includes(name)) {
+                warnings.push(`${relativeName}: 純正スキルを優先し、同名の拡張キットスキルをスキップしました`);
+                continue;
+            }
+            try {
+                const { method } = await createSkillAdapterLink(
+                    path.relative(adapterDir, path.join(kitSkillsDir, name)),
+                    path.join(adapterDir, name),
+                    { fsImpl, platform }
+                );
+                created.push(relativeName);
+                if (method !== 'symlink') degraded.push({ name: relativeName, method });
+            } catch (error) {
+                if (!isAlreadyExists(error)) throw error;
+                skippedExisting.push(relativeName);
+            }
+        }
     }
-    return { created, skippedExisting, degraded };
+    return { created, skippedExisting, degraded, warnings };
 }
 
 export async function readSkillsVersion(destinationDir) {
@@ -517,7 +547,7 @@ export async function createProject(destinationDir, templateDir, options = {}) {
     const fallback = await writeFallbackTemplate(destination);
     if (options.skillsSourceDir) {
         await installProjectSkills(destination, options.skillsSourceDir, options.schemasSourceDir);
-        await installSkillAdapters(destination);
+        await installSkillAdapters(destination, { env: options.env });
     }
     const skillsVersion = await readSkillsVersion(destination);
     const boundary = await checkGitBoundary(destination);
