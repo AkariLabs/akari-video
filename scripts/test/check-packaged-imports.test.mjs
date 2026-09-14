@@ -6,7 +6,7 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 
-import { assembleResources, scanPackageResolverCalls } from '../release/check-packaged-imports.mjs';
+import { assembleResources, defaultEntries, scanPackageResolverCalls } from '../release/check-packaged-imports.mjs';
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const GUARD = join(REPO_ROOT, 'scripts/release/check-packaged-imports.mjs');
@@ -37,6 +37,19 @@ function shellPackageWithout(t, packageName) {
   writeFileSync(path, `${JSON.stringify(shellPackage, null, 2)}\n`);
   return path;
 }
+
+test('generate のサブコマンドを packaged import の入口に含める', (t) => {
+  const directory = temporaryDirectory(t);
+  const resourcesRoot = join(directory, 'Resources');
+  mkdirSync(resourcesRoot, { recursive: true });
+  const shellPackage = JSON.parse(readFileSync(SHELL_PACKAGE, 'utf8'));
+  assembleResources(shellPackage, { resourcesRoot });
+
+  const entries = defaultEntries(resourcesRoot);
+  for (const command of ['still.mjs', 'video.mjs', 'resume.mjs']) {
+    assert.ok(entries.includes(join(resourcesRoot, 'packages', 'generate', 'src', 'cli', command)));
+  }
+});
 
 test('実 Resources は解決関数走査を通り、restricted package を除外する', (t) => {
   const directory = temporaryDirectory(t);

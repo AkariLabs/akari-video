@@ -171,6 +171,7 @@
           "bin/captions.mjs",
           "bin/capture.mjs",
           "bin/decision-log.mjs",
+          "bin/avatar-vrm/find-chrome.mjs",
           "bin/media.mjs",
           "bin/word-book.mjs",
           "src/**/*"

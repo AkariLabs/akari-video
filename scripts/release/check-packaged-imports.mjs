@@ -12,8 +12,8 @@
 // やること:
 //   1. apps/shell/package.json の build.extraResources を読み、from → to を filter どおり模擬 Resources に
 //      symlink で組む（実ファイルはコピーしない。相対 import の解決は論理パスで行うので symlink で足りる）
-//   2. 入口 = 模擬 Resources 内の packages/*/bin/*.mjs 全部 + skills/**/bin/**/*.mjs +
-//      osr-export / gpu-export の src/electron-main.mjs
+//   2. 入口 = 模擬 Resources 内の packages/*/bin/*.mjs と packages/*/src/cli/*.mjs 全部 +
+//      skills/**/bin/**/*.mjs + osr-export / gpu-export の src/electron-main.mjs
 //   3. 静的 import（import … from / export … from / import "x"）を再帰的に辿る。相対は存在検査、
 //      bare は packages/node_modules（= resources/cli-node-modules）から解決。node: と electron は対象外
 //   4. リポジトリのソースツリーにある package 解決関数の文字列リテラル引数を走査し、模擬 Resources
@@ -361,9 +361,15 @@ export function defaultEntries(resourcesRoot) {
   const packagesDir = join(resourcesRoot, 'packages');
   if (existsSync(packagesDir)) {
     for (const name of readdirSync(packagesDir)) {
+      if (name === 'node_modules') continue;
       const binDir = join(packagesDir, name, 'bin');
-      if (name === 'node_modules' || !existsSync(binDir)) continue;
-      for (const file of readdirSync(binDir)) if (file.endsWith('.mjs')) entries.push(join(binDir, file));
+      if (existsSync(binDir)) {
+        for (const file of readdirSync(binDir)) if (file.endsWith('.mjs')) entries.push(join(binDir, file));
+      }
+      const cliDir = join(packagesDir, name, 'src', 'cli');
+      if (existsSync(cliDir)) {
+        for (const file of readdirSync(cliDir)) if (file.endsWith('.mjs')) entries.push(join(cliDir, file));
+      }
     }
   }
   const skillsDir = join(resourcesRoot, 'skills');

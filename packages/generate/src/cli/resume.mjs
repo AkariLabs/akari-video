@@ -1,9 +1,9 @@
 import { existsSync, readdirSync } from "node:fs";
 import path from "node:path";
 
-import { openProject } from "@akari-video/edit-store/lib/project";
-import { snapshot } from "@akari-video/edit-store/lib/history-store";
-import { readGenerationMeta } from "@akari-video/edit-store/lib/generation-meta-node";
+import { openProject } from "../../../edit-store/lib/project.js";
+import { snapshot } from "../../../edit-store/lib/history-store.js";
+import { readGenerationMeta } from "../../../edit-store/lib/generation-meta-node.js";
 
 import { resolveFalKey } from "./credentials.mjs";
 import { fetchStatus } from "./fal-queue.mjs";
