@@ -5,7 +5,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
-const VALIDATOR = path.resolve(HERE, "../../schemas/bin/validate-world-map.mjs");
+export const VALIDATOR = path.resolve(HERE, "../../schemas/bin/validate-world-map.mjs");
 const usage = "使い方: akari world <check|build|preview|overview> [project-root] [--strict] [--migrate] [--json] [--measure]";
 
 export async function runWorldCommand(args, options = {}) {

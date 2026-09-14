@@ -8,12 +8,12 @@
 // やること:
 //   1. Electron shell の build.files / extraFiles / extraResources が制限対象を取り込まないことを検査
 //   2. 制限対象配下のモデル重みが git 追跡されていないことを検査
-//   3. npm prepack の VENDOR_SOURCES / package.json#files / capability sources を検査
+//   3. npm vendor コピー正本の VENDOR_SOURCES / package.json#files / capability sources を検査
 //
 // 使い方:
 //   node scripts/release/check-no-gpl-redistribution.mjs
 //     [--repo-root <path>] [--shell-package <path>] [--tracked-files <1行1パス>]
-//     [--prepack <path>]
+//     [--vendor-sources <path>]
 // 終了コード: 違反 0 なら 0、1 件以上または入力を安全に検査できなければ 1。
 import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync, realpathSync } from 'node:fs';
@@ -120,7 +120,7 @@ export function checkNpmDistribution({ prepackSource, packageManifests, capabili
     const normalized = normalizeRepoPath(source);
     for (const asset of RESTRICTED_ASSETS) {
       if (patternMayIncludeAsset(normalized, asset) && !isAllowedMetadata(asset, normalized)) {
-        violations.push(violation('packages/akari-launcher/scripts/prepack.mjs VENDOR_SOURCES', normalized, asset,
+        violations.push(violation('packages/akari-launcher/src/vendor-sources.mjs VENDOR_SOURCES', normalized, asset,
           'npm vendor へコードまたは重みをコピーする'));
       }
     }
@@ -326,7 +326,7 @@ function readStringLiteral(source, start, quote) {
 
 function parseArgs(argv) {
   const options = {};
-  const allowed = new Set(['--repo-root', '--shell-package', '--tracked-files', '--prepack']);
+  const allowed = new Set(['--repo-root', '--shell-package', '--tracked-files', '--vendor-sources']);
   for (let index = 0; index < argv.length; index += 1) {
     const key = argv[index];
     if (!allowed.has(key)) throw new Error(`unknown option: ${key}`);
@@ -390,7 +390,7 @@ function runCli() {
     assertRestrictedPathsExist(repoRoot);
 
     const shellPath = resolveOptionPath(options['shell-package'], 'apps/shell/package.json', repoRoot);
-    const prepackPath = resolveOptionPath(options.prepack, 'packages/akari-launcher/scripts/prepack.mjs', repoRoot);
+    const vendorSourcesPath = resolveOptionPath(options['vendor-sources'], 'packages/akari-launcher/src/vendor-sources.mjs', repoRoot);
     const shellPackage = readJson(shellPath, shellPath);
     let trackedFiles;
     if (options['tracked-files']) {
@@ -401,7 +401,7 @@ function runCli() {
         encoding: 'utf8', maxBuffer: 64 * 1024 * 1024,
       }).split('\0').filter(Boolean);
     }
-    const prepackSource = readFileSync(prepackPath, 'utf8');
+    const prepackSource = readFileSync(vendorSourcesPath, 'utf8');
     const packageManifests = loadPackageManifests(repoRoot, trackedFiles);
     const capabilitySources = discoverCapabilitySources(trackedFiles);
     const violations = [

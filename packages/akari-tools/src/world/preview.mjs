@@ -13,7 +13,6 @@ import { readCheckedWorldMap } from "./build.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const require = createRequire(path.join(HERE, "../../../render-cut/src/render-cut.mjs"));
-const puppeteer = require("puppeteer-core");
 const FPS = 30;
 
 export function previewTimes(map) {
@@ -65,6 +64,12 @@ export async function captureFrames({ projectRoot, edit, html, htmlPath, times, 
   const sheet = renderOverlaySheet({ overlays: [{ id: "world", start: 0, duration: editDurationSeconds(edit), html, htmlPath }], edit, projectRoot, duration: editDurationSeconds(edit) });
   const sheetPath = path.join(outputDir, "sheet.html");
   await writeFile(sheetPath, sheet, "utf8");
+  let puppeteer;
+  try {
+    puppeteer = require("puppeteer-core");
+  } catch (error) {
+    throw new Error("`akari world preview` には puppeteer-core が必要です（配布版には同梱していません）。モノレポの checkout で実行するか、`akari world build` / `check` / `overview` を使ってください。", { cause: error });
+  }
   const executablePath = chromePath ?? process.env.AKARI_CHROME_BIN?.trim() ?? findChrome();
   if (!executablePath || !existsSync(executablePath)) throw new Error("この機能には Chrome が必要です（`AKARI_CHROME_BIN` で指定）");
   const browser = await puppeteer.launch({ executablePath, headless: true, protocolTimeout: 600_000, args: ["--no-sandbox", "--disable-gpu", "--enable-unsafe-swiftshader", "--use-angle=swiftshader", "--disable-dev-shm-usage", "--no-first-run", "--no-default-browser-check", "--allow-file-access-from-files"] });
