@@ -19,6 +19,7 @@ import {
     summarizeCatalogPackDistribution,
     toResolverAssetCatalogViewItem
 } from '../lib/common/asset-catalog-view.js';
+import { normalizeEntitledProducts } from '../lib/node/akari-project-service.js';
 
 // カタログ面「1 ビュー」の純関数群（マージ・resolver 生アイテムの正規化・状態バッジ文言）。
 // backend の getAssetCatalogView() / loadResolverCatalogItems() が使う本体をここで単体テストする。
@@ -128,6 +129,18 @@ test('mergeAssetCatalogViews: タイトルの五十音順にソートされる',
 
 test('mergeAssetCatalogViews: 両方空なら空配列（例外なし）', () => {
     assert.deepEqual(mergeAssetCatalogViews([], []), []);
+});
+
+test('normalizeEntitledProducts: 3 欄を正規化し id が文字列でない行を捨てる', () => {
+    assert.deepEqual(normalizeEntitledProducts([
+        { id: 'world-kit', kind: 'kit', currentVersion: 4 },
+        { id: 'legacy-kit', kind: 1, currentVersion: '3' },
+        { id: 42, kind: 'kit', currentVersion: 2 }
+    ]), [
+        { id: 'world-kit', kind: 'kit', currentVersion: 4 },
+        { id: 'legacy-kit', kind: null, currentVersion: null }
+    ]);
+    assert.deepEqual(normalizeEntitledProducts({}), []);
 });
 
 test('assetStateBadgeText: cached は ✓', () => {

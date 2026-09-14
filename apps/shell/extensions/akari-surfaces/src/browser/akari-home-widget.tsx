@@ -76,6 +76,8 @@ import { filterProjects, HOME_PROJECT_PAGE_SIZE, formatProjectUpdatedAt, project
 import { AkariProjectLauncherDialog } from './akari-project-launcher-dialog';
 import { PROJECT_CARD_BORDER, PROJECT_CARD_RADIUS_PX, PROJECT_CURRENT_STYLE, ProjectCardPreview } from './akari-project-card-preview';
 import { AkariProjectService, AssetEntitlementsStatus } from 'akari-project/lib/common/akari-project-protocol';
+import { AkariKitsService } from '../common/akari-kits-protocol';
+import { buildKitCardModel, KitCardModel, KIT_REDEEM_URL } from '../common/kit-card-model';
 import {
     AKARI_BORDER,
     AKARI_INK,
@@ -232,6 +234,7 @@ export class AkariHomeWidget extends ReactWidget {
     protected projectVisibleCount = HOME_PROJECT_PAGE_SIZE;
     protected projectLauncherPreparing = false;
     protected storeCredentialsUri: URI | undefined;
+    protected kitsLedgerUri: URI | undefined;
 
     @inject(FileService)
     protected readonly fileService: FileService;
@@ -265,6 +268,9 @@ export class AkariHomeWidget extends ReactWidget {
 
     @inject(AkariProjectService)
     protected readonly storeService: AkariProjectService;
+
+    @inject(AkariKitsService)
+    protected readonly kitsService: AkariKitsService;
 
     protected watching = false;
     // 起動時のホーム表示に必要なデータがすべて揃ったことを DOM から観測する。
@@ -307,6 +313,7 @@ export class AkariHomeWidget extends ReactWidget {
     // --- AKARI Store 接続（オーナー要望 2026-08-03「アプリ側でも欲しい」） ---
     protected storeEmail: string | null = null;
     protected storeEntitlementsStatus: AssetEntitlementsStatus = 'no_credentials';
+    protected kitCard: KitCardModel = { kind: 'hidden' };
 
     // --- D&D 復活: 素材の取り込み（v3 home dropzone から再利用） ---
     protected importing = false;
@@ -444,7 +451,8 @@ export class AkariHomeWidget extends ReactWidget {
             if (
                 (this.connectionsUri && event.contains(this.connectionsUri)) ||
                 (this.intakeUri && event.contains(this.intakeUri)) ||
-                (this.storeCredentialsUri && event.contains(this.storeCredentialsUri))
+                (this.storeCredentialsUri && event.contains(this.storeCredentialsUri)) ||
+                (this.kitsLedgerUri && event.contains(this.kitsLedgerUri))
             ) {
                 void this.refreshHomeFlow();
             }
@@ -788,15 +796,22 @@ export class AkariHomeWidget extends ReactWidget {
      * 入力が消えないようにするため（フォームの開閉は純粋な UI 状態）。
      */
     protected async refreshHomeFlow(): Promise<void> {
-        const [connected, storeEmail, storeEntitlementsStatus, intake] = await Promise.all([
+        const [connected, storeEmail, storeCatalog, kits, intake] = await Promise.all([
             this.readConnected(),
             this.readStoreConnection(),
-            this.readStoreEntitlementsStatus(),
+            this.readStoreCatalogSnapshot(),
+            this.kitsService.readInstalledKits().catch(() => ({ kits: [], pluginEnabled: null })),
             this.readIntake()
         ]);
         this.connected = connected;
         this.storeEmail = storeEmail;
-        this.storeEntitlementsStatus = storeEntitlementsStatus;
+        this.storeEntitlementsStatus = storeCatalog.entitlementsStatus;
+        this.kitCard = buildKitCardModel({
+            connected: storeEmail !== null,
+            entitledProducts: storeCatalog.entitledProducts,
+            installedKits: kits.kits,
+            pluginEnabled: kits.pluginEnabled
+        });
         this.intakeSnapshot = intake;
         this.intakeStatus = intake.status;
         this.update();
@@ -808,8 +823,16 @@ export class AkariHomeWidget extends ReactWidget {
      * 無い/壊れていれば未接続扱い。設定で接続した結果は資格情報の変更通知から読み直す。
      */
     protected async watchStoreConnection(): Promise<void> {
-        this.storeCredentialsUri = (await this.resolveAkariHomeUri()).resolve(STORE_CREDENTIALS_FILENAME);
+        const akariHome = await this.resolveAkariHomeUri();
+        this.storeCredentialsUri = akariHome.resolve(STORE_CREDENTIALS_FILENAME);
+        const kitsUri = akariHome.resolve('kits');
+        this.kitsLedgerUri = kitsUri.resolve('installed.json');
         if (!this.isDisposed) { this.toDispose.push(this.fileService.watch(this.storeCredentialsUri.parent)); }
+        try {
+            if (!this.isDisposed) { this.toDispose.push(this.fileService.watch(kitsUri)); }
+        } catch {
+            // kits/ は初回インストール前には存在しない。
+        }
     }
 
     protected async readStoreConnection(): Promise<string | null> {
@@ -829,11 +852,18 @@ export class AkariHomeWidget extends ReactWidget {
      * resolver と同じ entitlements 取得結果を akari-project のカタログ RPC 経由で読む。
      * ホーム独自のトークン検証は追加せず、カタログ面と判定元を一つに保つ。
      */
-    protected async readStoreEntitlementsStatus(): Promise<AssetEntitlementsStatus> {
+    protected async readStoreCatalogSnapshot(): Promise<{
+        entitlementsStatus: AssetEntitlementsStatus;
+        entitledProducts: Array<{ id: string; kind: string | null; currentVersion: number | null }>;
+    }> {
         try {
-            return (await this.storeService.getAssetCatalogView(undefined)).entitlementsStatus;
+            const catalog = await this.storeService.getAssetCatalogView(undefined);
+            return {
+                entitlementsStatus: catalog.entitlementsStatus,
+                entitledProducts: catalog.entitledProducts ?? []
+            };
         } catch {
-            return 'error';
+            return { entitlementsStatus: 'error', entitledProducts: [] };
         }
     }
 
@@ -2122,6 +2152,9 @@ export class AkariHomeWidget extends ReactWidget {
                 {this.renderExplanation()}
                 {this.renderProjectList()}
                 {this.renderStoreCard()}
+                {/* render を DI 無しで実行する既存テスト（src/common/home-init.test.mjs）は
+                    レンダー関数を名前でスタブするため、未提供のときは描かない。 */}
+                {this.renderKitCard && this.renderKitCard()}
                 {this.intakeFormOpen && this.renderIntakeForm()}
                 {this.dragActive && this.renderDropOverlay()}
             </div>
@@ -2605,6 +2638,66 @@ export class AkariHomeWidget extends ReactWidget {
         </button>;
     }
 
+    protected renderKitCard(): React.ReactNode {
+        if (this.kitCard.kind === 'hidden') { return false; }
+        const card = this.kitCard;
+        return (
+            <section data-akari-kit-card={card.kind} style={homeFlowStyles.kitCard}>
+                <strong style={homeFlowStyles.cardTitle}>拡張キット</strong>
+                {card.kind === 'installed' && (
+                    <>
+                        <div style={homeFlowStyles.kitList}>
+                            {card.kits.map(kit => (
+                                <div key={kit.id} style={homeFlowStyles.kitItem}>
+                                    <strong>{kit.id}</strong>
+                                    <span>version: {kit.version ?? '不明'}</span>
+                                    <span>スキル: {kit.skills.length > 0 ? kit.skills.join(', ') : 'なし'}</span>
+                                    <span>素材数: {kit.assetCount}</span>
+                                </div>
+                            ))}
+                        </div>
+                        {card.showEnableHint && (
+                            <div style={homeFlowStyles.kitAction}>
+                                <span>Claude Code で有効化</span>
+                                <button type='button' className='theia-button secondary'
+                                    onClick={() => void this.copyKitCommand(card.enableCommand, '有効化コマンド')}>
+                                    有効化コマンドをコピー
+                                </button>
+                            </div>
+                        )}
+                    </>
+                )}
+                {card.kind === 'purchased' && (
+                    <div style={homeFlowStyles.kitAction}>
+                        <span><code style={{ whiteSpace: 'pre-line' }}>{card.installCommand}</code> で導入</span>
+                        <button type='button' className='theia-button secondary'
+                            onClick={() => void this.copyKitCommand(card.installCommand, '導入コマンド')}>
+                            導入コマンドをコピー
+                        </button>
+                    </div>
+                )}
+                {card.kind === 'unpurchased' && (
+                    <div style={homeFlowStyles.kitAction}>
+                        <span>教材『AKARI Video の使い方』の引換ページから</span>
+                        <button type='button' className='theia-button secondary'
+                            onClick={() => this.windowService.openNewWindow(KIT_REDEEM_URL, { external: true })}>
+                            引換ページを開く
+                        </button>
+                    </div>
+                )}
+            </section>
+        );
+    }
+
+    protected async copyKitCommand(command: string, label: string): Promise<void> {
+        try {
+            await navigator.clipboard.writeText(command);
+            this.messages.info(`${label}をコピーしました。`);
+        } catch {
+            this.messages.error(`${label}をコピーできませんでした。`);
+        }
+    }
+
     /**
      * 進め方フォーム（intake サーフェス）。ステージではなく dashboard 内の展開
      * セクションで、畳む導線は「ダッシュボードに戻る」の 1 種類だけ（裁定 R5）。
@@ -2767,6 +2860,18 @@ const homeFlowStyles: Record<string, React.CSSProperties> = {
         flex: '0 0 auto', padding: '9px 18px', borderRadius: AKARI_RADIUS.chip, fontWeight: 700, fontSize: 13,
         minHeight: 'auto', height: 'auto'
     },
+    kitCard: {
+        display: 'flex', flexDirection: 'column', gap: 10, marginTop: 8, marginBottom: 12,
+        padding: '13px 15px', borderRadius: AKARI_RADIUS.panel,
+        border: AKARI_BORDER.hairline, background: AKARI_SURFACE.raised
+    },
+    kitList: { display: 'flex', flexDirection: 'column', gap: 8 },
+    kitItem: {
+        display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap',
+        padding: '8px 10px', borderRadius: AKARI_RADIUS.chip,
+        background: AKARI_SURFACE.elevated, fontSize: 12
+    },
+    kitAction: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', fontSize: 12.5 },
 
     // プロジェクト一覧 = 唯一のスイッチャー（U3。旧・過去プロジェクト一覧 裁定 R3）。
     projectList: { display: 'grid', gridTemplateColumns: PROJECT_CARD_GRID_COLUMNS, gap: PROJECT_CARD_GRID_GAP },

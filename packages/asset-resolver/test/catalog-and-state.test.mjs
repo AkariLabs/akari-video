@@ -50,3 +50,39 @@ test('composeState: ローカルに実体があるものは cached になる', a
   const free = items.find((i) => i.id === 'mini-still');
   assert.equal(free.state, 'cached');
 });
+
+test('composeState: entitledProducts に kit 商品を載せ、資格情報なしでは空配列にする', async () => {
+  const connected = setupFixtureEnv();
+  writeFileSync(
+    path.join(connected.home, 'store-credentials.json'),
+    `${JSON.stringify({ url: 'https://example.invalid/api/store', token: 'akst_test' }, null, 2)}\n`,
+  );
+  let fetchCount = 0;
+  const state = await composeState({
+    env: connected.env,
+    fetchImpl: async () => {
+      fetchCount += 1;
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          entitlements: [{ product_id: 'world-kit', kind: 'kit', current_version: 3 }],
+        }),
+      };
+    },
+  });
+  assert.deepEqual(state.entitledProducts, [{ id: 'world-kit', kind: 'kit', currentVersion: 3 }]);
+  assert.equal(fetchCount, 2);
+
+  const disconnected = setupFixtureEnv();
+  let disconnectedFetchCount = 0;
+  const disconnectedState = await composeState({
+    env: disconnected.env,
+    fetchImpl: async () => {
+      disconnectedFetchCount += 1;
+      throw new Error('資格情報なしでは呼ばれない');
+    },
+  });
+  assert.deepEqual(disconnectedState.entitledProducts, []);
+  assert.equal(disconnectedFetchCount, 0);
+});
