@@ -16,6 +16,7 @@ import {
     TranscribeMaterialRequest, TranscriptStatesRequest, TranscriptState, BuildCaptionsRequest, BuildCaptionsResult,
     AssetCatalogView,
     AssetCatalogViewItem,
+    EntitledProduct,
     AssetEntitlementsStatus,
     AssetResolveOutcome,
     DiffPreparationResult,
@@ -72,6 +73,22 @@ import {
     hasGeneratedMediaExtension,
     PROJECT_GITIGNORE
 } from 'akari-video/src/history-policy.mjs';
+
+export function normalizeEntitledProducts(value: unknown): EntitledProduct[] {
+    if (!Array.isArray(value)) { return []; }
+    return value.flatMap(entry => {
+        if (typeof entry !== 'object' || entry === null) { return []; }
+        const raw = entry as Record<string, unknown>;
+        if (typeof raw.id !== 'string') { return []; }
+        return [{
+            id: raw.id,
+            kind: typeof raw.kind === 'string' ? raw.kind : null,
+            currentVersion: typeof raw.currentVersion === 'number' && Number.isFinite(raw.currentVersion)
+                ? raw.currentVersion
+                : null
+        }];
+    });
+}
 
 const execFileAsync = promisify(execFile);
 const VIDEO_EXTENSIONS = new Set(['.mp4', '.mov', '.m4v', '.webm', '.mkv', '.avi']);
@@ -337,7 +354,8 @@ export class AkariProjectServiceImpl implements AkariProjectService {
                 itemCount: resolverResult.items.length,
                 error: resolverResult.error
             },
-            entitlementsStatus: resolverResult.entitlementsStatus
+            entitlementsStatus: resolverResult.entitlementsStatus,
+            entitledProducts: resolverResult.entitledProducts
         };
     }
 
@@ -507,6 +525,7 @@ export class AkariProjectServiceImpl implements AkariProjectService {
         items: AssetCatalogViewItem[];
         status: 'ok' | 'failed';
         entitlementsStatus: AssetEntitlementsStatus;
+        entitledProducts: EntitledProduct[];
         error?: string;
     }> {
         const srcDir = await this.findAssetResolverSrcDir();
@@ -515,32 +534,34 @@ export class AkariProjectServiceImpl implements AkariProjectService {
                 items: [],
                 status: 'failed',
                 entitlementsStatus: 'error',
+                entitledProducts: [],
                 error: 'アセット resolver が見つかりません（開発配置を確認してください）'
             };
         }
         const stateModuleUrl = pathToFileURL(join(srcDir, 'state.mjs')).toString();
         const script = `
 import { composeState } from ${JSON.stringify(stateModuleUrl)};
-const { base, items, entitlementsStatus } = await composeState();
-process.stdout.write(JSON.stringify({ base, items, entitlementsStatus }));
+const { base, items, entitlementsStatus, entitledProducts } = await composeState();
+process.stdout.write(JSON.stringify({ base, items, entitlementsStatus, entitledProducts }));
 `;
         const { code, stdout, stderr } = await this.runResolverScript(script);
         if (code !== 0) {
             const message = (stderr || stdout).trim();
             console.warn('[akari-project] resolver カタログの取得に失敗（ローカル catalog/ のみで継続）:', message);
-            return { items: [], status: 'failed', entitlementsStatus: 'error', error: message || undefined };
+            return { items: [], status: 'failed', entitlementsStatus: 'error', entitledProducts: [], error: message || undefined };
         }
         let parsed: {
             base: string;
             items: Array<ResolverRawCatalogItem & { preview?: string }>;
             entitlementsStatus?: AssetEntitlementsStatus;
+            entitledProducts?: unknown;
         };
         try {
             parsed = JSON.parse(stdout);
         } catch (error) {
             const message = error instanceof Error ? error.message : String(error);
             console.warn('[akari-project] resolver カタログの応答を解釈できませんでした:', error);
-            return { items: [], status: 'failed', entitlementsStatus: 'error', error: message };
+            return { items: [], status: 'failed', entitlementsStatus: 'error', entitledProducts: [], error: message };
         }
         const items = parsed.items.map(item => {
             const previewUrl = resolveResolverPreviewUrl(item.preview, parsed.base);
@@ -559,7 +580,8 @@ process.stdout.write(JSON.stringify({ base, items, entitlementsStatus }));
             status: 'ok',
             entitlementsStatus: entitlementsStatus && validEntitlementsStatuses.includes(entitlementsStatus)
                 ? entitlementsStatus
-                : 'error'
+                : 'error',
+            entitledProducts: normalizeEntitledProducts(parsed.entitledProducts)
         };
     }
 

@@ -22,10 +22,14 @@ import { AkariNewProjectService, AKARI_NEW_PROJECT_SERVICE_PATH } from '../commo
 import { AkariSettingsCommandContribution } from './akari-settings-dialog';
 import { AkariSettingsDialogStyleContribution } from './style/akari-settings-dialog-style';
 import { AkariConnectionsService, AKARI_CONNECTIONS_SERVICE_PATH } from '../common/akari-connections-protocol';
+import { AkariKitsService, AKARI_KITS_SERVICE_PATH } from '../common/akari-kits-protocol';
 
 export default new ContainerModule(bind => {
     bind(AkariConnectionsService).toDynamicValue(ctx =>
         WebSocketConnectionProvider.createProxy(ctx.container, AKARI_CONNECTIONS_SERVICE_PATH)
+    ).inSingletonScope();
+    bind(AkariKitsService).toDynamicValue(ctx =>
+        WebSocketConnectionProvider.createProxy(ctx.container, AKARI_KITS_SERVICE_PATH)
     ).inSingletonScope();
     bind(AkariSettingsCommandContribution).toSelf().inSingletonScope();
     bind(CommandContribution).toService(AkariSettingsCommandContribution);

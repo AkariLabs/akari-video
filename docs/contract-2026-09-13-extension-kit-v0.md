@@ -70,6 +70,10 @@ claude plugin install akari-kits@akari-kits
 
 Codex、Cursor、opencode では、プロジェクトの `.agents/.codex/.cursor/.opencode/skills` へキットスキルも合成する。同名があれば純正スキルを優先する。plugin が利用できない環境でも `~/.akari/kits/plugin/skills/<name>/SKILL.md` を直接読める。
 
+## 5. アプリ（ホームの拡張キットカード）
+
+ホームの AKARI Store カードの隣に拡張キットカードを 1 枚出し、未接続では出さず、導入済みは id・version・スキル名・素材数の一覧と未有効化時の有効化案内、購入済み・未導入は `akari store install <id>` の案内、未購入は教材の引換ページの案内、という 3 状態とする（アプリはコマンドを実行せず、コピーと外部ブラウザ起動だけを行う）。
+
 ## 6. 更新と版
 
 キットの版は Store の整数版とする。`akari store status` が導入済みの id、version、スキル名、素材数を表示し、同じ `akari store install` で新版へ置換する。
