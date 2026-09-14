@@ -6,9 +6,20 @@
  */
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.sidecarPathFor = sidecarPathFor;
+exports.bindingShaFor = bindingShaFor;
 exports.resolveGenerationState = resolveGenerationState;
 function sidecarPathFor(sourcePath) {
     return `${sourcePath}.meta.json`;
+}
+function bindingShaFor(meta) {
+    if (meta?.status === 'done' && typeof meta.result?.sha256 === 'string') {
+        return { sha256: meta.result.sha256, source: 'result' };
+    }
+    if ((meta?.kind === 'still' || meta?.status === 'planned')
+        && typeof meta.inputs?.first_frame?.sha256 === 'string') {
+        return { sha256: meta.inputs.first_frame.sha256, source: 'first_frame' };
+    }
+    return null;
 }
 /**
  * fs に触れず、サイドカー自身が表す状態だけを解決する。

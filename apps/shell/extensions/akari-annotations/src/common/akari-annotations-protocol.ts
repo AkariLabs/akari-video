@@ -1,6 +1,6 @@
 import type { EditAudioKeyframe, TransitionType } from '@akari-video/edit-store';
 import type { CaptionDisplayPolicy, CaptionTextStyle } from '@akari-video/edit-store';
-import type { GenerationSidecarMeta } from './generation-sidecar';
+import type { GenerationBindingView, GenerationSidecarMeta } from './generation-sidecar';
 
 export const AKARI_ANNOTATIONS_SERVICE_PATH = '/services/akari-annotations';
 export const AkariAnnotationsService = Symbol('AkariAnnotationsService');
@@ -44,7 +44,7 @@ export interface ReadGenerationSidecarsRequest {
 }
 
 export interface ReadGenerationSidecarsResult {
-    entries: Array<{ sourcePath: string; meta: GenerationSidecarMeta }>;
+    entries: Array<{ sourcePath: string; meta: GenerationSidecarMeta; binding: GenerationBindingView | null }>;
 }
 
 export interface GenerationCatalogRow {

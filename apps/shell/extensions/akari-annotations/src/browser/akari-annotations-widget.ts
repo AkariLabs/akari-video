@@ -4,7 +4,7 @@ import { ClipboardKind, PasteTrack, TimelineFragment, TimelineClipboardSnapshot,
 import { clipKindBadge, ClipKindBadgeContext, ClipKindBadgeItem } from '../common/clip-kind-badge';
 import { timelineTabCaption } from '../common/timeline-tab-caption';
 import {
-    describeGenerationChip, GenerationSidecarMeta, GenerationState, resolveGenerationState
+    describeGenerationChip, GenerationBindingView, GenerationSidecarMeta, GenerationState, resolveGenerationState
 } from '../common/generation-sidecar';
 import { HOVER_POPUP_DELAY_MS, hoverPopupGeometry } from '../common/hover-popup-geometry';
 import { createCaptionHoverPreview } from '../common/caption-hover-preview';
@@ -918,7 +918,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
      */
     protected editSources: InternalSource[] = [];
     protected sourceMap = new Map<string, ResolvedEditSource>();
-    protected generationSidecars = new Map<string, GenerationSidecarMeta>();
+    protected generationSidecars = new Map<string, {
+        meta: GenerationSidecarMeta; binding: GenerationBindingView | null
+    }>();
     protected generationSidecarReload = 0;
     /** 上記を videoUri へ解決した結果。Out クランプの実尺取得専用に使う。 */
     protected defaultSource: ResolvedEditSource | undefined;
@@ -6849,7 +6851,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 projectRootUri: location.root.toString(), sourcePaths
             });
             if (generation !== this.generationSidecarReload) return;
-            this.generationSidecars = new Map(result.entries.map(entry => [entry.sourcePath, entry.meta]));
+            this.generationSidecars = new Map(result.entries.map(entry => [
+                entry.sourcePath, { meta: entry.meta, binding: entry.binding ?? null }
+            ]));
         } catch {
             if (generation !== this.generationSidecarReload) return;
             this.generationSidecars.clear();
@@ -6857,20 +6861,27 @@ export class AkariAnnotationsWidget extends BaseWidget {
         if (render) this.renderStrip();
     }
 
-    protected generationForPath(path: string | undefined): { state: GenerationState; meta?: GenerationSidecarMeta } | undefined {
+    protected generationForPath(path: string | undefined): {
+        state: GenerationState; meta?: GenerationSidecarMeta; binding?: GenerationBindingView | null
+    } | undefined {
         if (!path) return undefined;
-        const meta = this.generationSidecars.get(path);
+        const sidecar = this.generationSidecars.get(path);
+        const meta = sidecar?.meta;
+        const binding = sidecar?.binding;
         const isStill = /\.(?:png|jpe?g|webp)$/iu.test(path);
         if (!meta && !isStill) return undefined;
-        return { state: resolveGenerationState(meta, Date.now()), meta };
+        return { state: resolveGenerationState(meta, Date.now(), binding), meta, binding };
     }
 
     protected applyGenerationChip(
-        element: HTMLElement, generation: { state: GenerationState; meta?: GenerationSidecarMeta } | undefined
+        element: HTMLElement, generation: {
+            state: GenerationState; meta?: GenerationSidecarMeta; binding?: GenerationBindingView | null
+        } | undefined
     ): void {
         element.classList.remove(
             'akari-generation-none', 'akari-generation-planned', 'akari-generation-generating',
-            'akari-generation-stale', 'akari-generation-done', 'akari-generation-failed'
+            'akari-generation-stale', 'akari-generation-done', 'akari-generation-failed',
+            'akari-generation-orphan'
         );
         element.dataset.akariGenerationState = generation?.state ?? 'none';
         let badge = element.querySelector<HTMLElement>(':scope > [data-akari-generation-badge]');

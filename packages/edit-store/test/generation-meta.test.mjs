@@ -10,6 +10,7 @@ import {
   readGenerationMeta,
 } from '../lib/generation-meta-node.js';
 import {
+  bindingShaFor,
   resolveGenerationState,
   sidecarPathFor,
 } from '../lib/generation-meta.js';
@@ -52,6 +53,25 @@ function put(root, relative, content, sidecar) {
 
 test('sidecarPathFor は元パスの末尾へ .meta.json を足す', () => {
   assert.equal(sidecarPathFor('assets/generated/clip.mp4'), 'assets/generated/clip.mp4.meta.json');
+});
+
+test('bindingShaFor は done の result.sha256 を返す', () => {
+  assert.deepEqual(bindingShaFor(meta('done')), { sha256: hash('素材'), source: 'result' });
+});
+
+test('bindingShaFor は kind still の first_frame.sha256 を返す', () => {
+  assert.deepEqual(bindingShaFor(meta('generating', '素材', { kind: 'still' })), {
+    sha256: hash('素材'), source: 'first_frame'
+  });
+});
+
+test('bindingShaFor は planned の first_frame.sha256 を返す', () => {
+  assert.deepEqual(bindingShaFor(meta('planned')), { sha256: hash('素材'), source: 'first_frame' });
+});
+
+test('bindingShaFor は sha の無い meta と null を null にする', () => {
+  assert.equal(bindingShaFor({ version: 1, kind: 'video', status: 'generating' }), null);
+  assert.equal(bindingShaFor(null), null);
 });
 
 for (const row of [

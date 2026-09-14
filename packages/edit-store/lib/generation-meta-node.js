@@ -13,7 +13,7 @@ function readGenerationMeta(options) {
         return { state: 'none', meta: null, sidecarPath, binding: null };
     }
     const meta = parseMeta(sidecarPath);
-    const expected = bindingSha(meta);
+    const expected = (0, generation_meta_1.bindingShaFor)(meta);
     let binding = null;
     let state = (0, generation_meta_1.resolveGenerationState)(meta, options.now);
     if (expected) {
@@ -37,18 +37,9 @@ function findGenerationMetaBySha(options) {
         return null;
     for (const sidecarPath of generationSidecars(generatedRoot)) {
         const meta = parseMeta(sidecarPath);
-        const expected = bindingSha(meta);
+        const expected = (0, generation_meta_1.bindingShaFor)(meta);
         if (expected?.sha256 === options.sha256)
             return meta;
-    }
-    return null;
-}
-function bindingSha(meta) {
-    if (meta.status === 'done' && typeof meta.result?.sha256 === 'string') {
-        return { sha256: meta.result.sha256, source: 'result' };
-    }
-    if ((meta.kind === 'still' || meta.status === 'planned') && typeof meta.inputs?.first_frame?.sha256 === 'string') {
-        return { sha256: meta.inputs.first_frame.sha256, source: 'first_frame' };
     }
     return null;
 }

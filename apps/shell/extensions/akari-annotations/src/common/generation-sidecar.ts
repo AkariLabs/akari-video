@@ -9,6 +9,13 @@ export { sidecarPathFor };
 export type GenerationState = GenerationStateV1;
 export type GenerationSidecarMeta = GenerationMetaV1;
 
+export interface GenerationBindingView {
+    expected: string;
+    actual: string | null;
+    matches: boolean;
+    source: 'result' | 'first_frame';
+}
+
 export interface GenerationChipDescription {
     badge: string;
     progress?: number;
@@ -17,10 +24,12 @@ export interface GenerationChipDescription {
 }
 
 const TIMELINE_STATES = ['planned', 'generating', 'stale', 'done', 'failed'] as const;
-export function resolveGenerationState(meta: GenerationSidecarMeta | undefined, nowMs: number): GenerationState {
+export function resolveGenerationState(
+    meta: GenerationSidecarMeta | undefined, nowMs: number, binding?: GenerationBindingView | null
+): GenerationState {
+    if (binding && binding.matches === false) return 'orphan';
     const state = resolveGenerationStateV1(meta, nowMs);
-    // v1 のタイムラインは orphan を持たない（sha 結線は未導入）。
-    // 契約外の status もここで 'none' に潰す＝従来の最小読み手と同じ見え方にする。
+    // 契約外の status は 'none' に潰す＝従来の最小読み手と同じ見え方にする。
     return (TIMELINE_STATES as readonly string[]).includes(state) ? state : 'none';
 }
 
@@ -47,9 +56,15 @@ export function describeGenerationChip(
     if (state === 'failed') {
         return { badge: '失敗', className: 'akari-generation-failed', title: '生成に失敗しました' };
     }
+    if (state === 'orphan') {
+        return {
+            badge: '孤児', className: 'akari-generation-orphan',
+            title: '素材が変わりました（meta の sha256 と一致しません）'
+        };
+    }
     if (state === 'done' && meta?.kind === 'video') {
         return { badge: '生成', className: 'akari-generation-done', title: '生成された動画' };
     }
-    // none / orphan は同じ見た目（v1）。
+    // none と done の still は静止画（仮枠）として見せる。
     return { badge: '静止画', className: 'akari-generation-none', title: '静止画（仮枠）' };
 }

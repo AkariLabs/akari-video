@@ -44,6 +44,19 @@ export function sidecarPathFor(sourcePath: string): string {
     return `${sourcePath}.meta.json`;
 }
 
+export function bindingShaFor(
+    meta: GenerationMetaV1 | null | undefined
+): { sha256: string; source: 'result' | 'first_frame' } | null {
+    if (meta?.status === 'done' && typeof meta.result?.sha256 === 'string') {
+        return { sha256: meta.result.sha256, source: 'result' };
+    }
+    if ((meta?.kind === 'still' || meta?.status === 'planned')
+        && typeof meta.inputs?.first_frame?.sha256 === 'string') {
+        return { sha256: meta.inputs.first_frame.sha256, source: 'first_frame' };
+    }
+    return null;
+}
+
 /**
  * fs に触れず、サイドカー自身が表す状態だけを解決する。
  * `job.stale_after_s` が未指定・不正な場合は既定 900 秒を使う。

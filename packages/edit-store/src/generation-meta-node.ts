@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 
-import { resolveGenerationState, sidecarPathFor } from './generation-meta';
+import { bindingShaFor, resolveGenerationState, sidecarPathFor } from './generation-meta';
 import type {
     GenerationBinding,
     GenerationMetaV1,
@@ -28,7 +28,7 @@ export function readGenerationMeta(options: {
     }
 
     const meta = parseMeta(sidecarPath);
-    const expected = bindingSha(meta);
+    const expected = bindingShaFor(meta);
     let binding: GenerationBinding | null = null;
     let state = resolveGenerationState(meta, options.now);
     if (expected) {
@@ -54,18 +54,8 @@ export function findGenerationMetaBySha(options: {
     if (!fs.existsSync(generatedRoot) || !fs.statSync(generatedRoot).isDirectory()) return null;
     for (const sidecarPath of generationSidecars(generatedRoot)) {
         const meta = parseMeta(sidecarPath);
-        const expected = bindingSha(meta);
+        const expected = bindingShaFor(meta);
         if (expected?.sha256 === options.sha256) return meta;
-    }
-    return null;
-}
-
-function bindingSha(meta: GenerationMetaV1): { sha256: string; source: 'result' | 'first_frame' } | null {
-    if (meta.status === 'done' && typeof meta.result?.sha256 === 'string') {
-        return { sha256: meta.result.sha256, source: 'result' };
-    }
-    if ((meta.kind === 'still' || meta.status === 'planned') && typeof meta.inputs?.first_frame?.sha256 === 'string') {
-        return { sha256: meta.inputs.first_frame.sha256, source: 'first_frame' };
     }
     return null;
 }

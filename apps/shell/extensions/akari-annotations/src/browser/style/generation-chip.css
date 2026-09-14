@@ -21,6 +21,15 @@
     border-color: var(--theia-editorError-foreground, #d6402b) !important;
 }
 
+.akari-generation-orphan {
+    border-style: dashed !important;
+    border-color: var(--theia-descriptionForeground, #8a8a8a) !important;
+}
+
+.akari-generation-orphan .akari-generation-badge {
+    color: var(--theia-descriptionForeground, #8a8a8a);
+}
+
 .akari-generation-badge {
     position: absolute;
     top: 3px;

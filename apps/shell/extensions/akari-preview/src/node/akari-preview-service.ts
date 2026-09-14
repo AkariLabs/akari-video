@@ -1,7 +1,7 @@
 import { inject, injectable } from '@theia/core/shared/inversify';
 import { WorkspaceServer } from '@theia/workspace/lib/common';
 import { lintProjectCandidates } from '@akari-video/edit-store/lib/write-gate';
-import { applyCaptionStylePresets, projectLegacyEdit, readInternalEdit, resolveCaptionDisplay, TEXTSTYLE_CATALOG, toAnchorCaptions } from '@akari-video/edit-store';
+import { applyCaptionStylePresets, bindingShaFor, projectLegacyEdit, readInternalEdit, resolveCaptionDisplay, TEXTSTYLE_CATALOG, toAnchorCaptions } from '@akari-video/edit-store';
 import { planMigration } from '@akari-video/edit-store/lib/migrate';
 import { spawn } from 'child_process';
 import { createHash, randomBytes } from 'crypto';
@@ -1221,26 +1221,56 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
                 const canonicalParent = await realpath(dirname(sidecarPath));
                 const requestedPath = join(canonicalParent, basename(sidecarPath));
                 if (!roots.some(root => this.contains(root, requestedPath))) {
-                    return { sourcePath, meta: null, mtimeMs: null };
+                    return { sourcePath, meta: null, mtimeMs: null, binding: null };
                 }
                 sidecarStat = await lstat(requestedPath);
                 if (!sidecarStat.isFile() || sidecarStat.isSymbolicLink()) {
-                    return { sourcePath, meta: null, mtimeMs: null };
+                    return { sourcePath, meta: null, mtimeMs: null, binding: null };
                 }
                 const mtimeMs = sidecarStat.mtimeMs;
                 if (sidecarStat.size > MAX_GENERATION_SIDECAR_BYTES) {
-                    return { sourcePath, meta: null, mtimeMs };
+                    return { sourcePath, meta: null, mtimeMs, binding: null };
                 }
                 const text = await this.readWorkspaceRegularFile(
                     pathToFileURL(requestedPath).toString(), roots, 'generation sidecar'
                 );
                 try {
-                    return { sourcePath, meta: JSON.parse(text) as unknown, mtimeMs };
+                    const meta = JSON.parse(text) as unknown;
+                    const expected = bindingShaFor(meta as any);
+                    if (!expected) return { sourcePath, meta, mtimeMs, binding: null };
+                    let actual: string | null = null;
+                    try {
+                        const sourceAbsolutePath = resolve(projectRoot, sourcePath);
+                        const canonicalSourceParent = await realpath(dirname(sourceAbsolutePath));
+                        const requestedSourcePath = join(canonicalSourceParent, basename(sourceAbsolutePath));
+                        if (roots.some(root => this.contains(root, requestedSourcePath))) {
+                            const sourceStat = await lstat(requestedSourcePath);
+                            if (sourceStat.isFile() && !sourceStat.isSymbolicLink()) {
+                                const hash = createHash('sha256');
+                                const stream = createReadStream(requestedSourcePath);
+                                for await (const chunk of stream as unknown as AsyncIterable<Buffer>) hash.update(chunk);
+                                actual = hash.digest('hex');
+                            }
+                        }
+                    } catch {
+                        actual = null;
+                    }
+                    return {
+                        sourcePath,
+                        meta,
+                        mtimeMs,
+                        binding: {
+                            expected: expected.sha256,
+                            actual,
+                            matches: actual === expected.sha256,
+                            source: expected.source
+                        }
+                    };
                 } catch {
-                    return { sourcePath, meta: null, mtimeMs };
+                    return { sourcePath, meta: null, mtimeMs, binding: null };
                 }
             } catch {
-                return { sourcePath, meta: null, mtimeMs: null };
+                return { sourcePath, meta: null, mtimeMs: null, binding: null };
             }
         }));
         return { entries, itemNames };
