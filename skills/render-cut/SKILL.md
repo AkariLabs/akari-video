@@ -87,7 +87,7 @@ node の解決順は `AKARI_NODE_BIN` → PATH の node（20 以上）→ 同梱
 タイムラインの初回確認にだけ、次のコマンドで L1 通しマップを作る。
 
 ```sh
-node packages/decision-cards/render-storyboard-print.mjs <project-root>
+akari storyboard <project-root>
 ```
 
 置き場は `<project>/.akari/reports/storyboard/`。絵コンテは初回だけ作り、タイムライン変更に合わせて
