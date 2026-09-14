@@ -38,7 +38,7 @@ async function printVersion() {
 // `--help` は claude/opencode へそのまま転送されてしまっていた — AKARI Video 自身の
 // コマンド一覧が一度も出ない行き止まりだったため新設した）。
 async function printCliHelp() {
-  for (const line of [...describeCliHelp(), '  world                    ワールド地図を検査・生成・プレビュー']) {
+  for (const line of [...describeCliHelp(), '  world                    ワールド地図を検査・生成・プレビュー・停留所移動']) {
     console.log(line);
   }
   return { exitCode: 0 };

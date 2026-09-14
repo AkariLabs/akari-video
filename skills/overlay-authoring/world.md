@@ -41,6 +41,12 @@
 （`screen = ox + p * scale`）。`options.frame === true` なら現在の撮影枠を `#EE82DF` で重ねる。
 独自の地図描画を複製しない。
 
+## 地図タブからの書き戻し
+
+flat の停留所は地図タブで ⌥ ドラッグして移動できる。書き戻しは
+`akari world move-stop <project-root> --stop <id> --c x,y[,scale]` だけが行い、spatial には対応しない。
+`world-map.json` は edit.json の履歴の外にあるため、undo / redo はない。
+
 ## spatial world の build / preview
 
 `kind: "spatial"` も flat と同じ `planning/world-map.json` と `camera(t)` を使う。
