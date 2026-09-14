@@ -20,7 +20,8 @@ const { findChrome } = await import('./avatar-vrm/find-chrome.mjs');
 const args = process.argv.slice(2);
 const flattenIndex = args.indexOf('--flatten');
 const flatten = flattenIndex >= 0 ? (args[flattenIndex + 1] ?? '#000000') : null;
-const positional = args.filter((a, i) => a !== '--flatten' && i !== flattenIndex + 1);
+const flattenValueIndex = flattenIndex >= 0 ? flattenIndex + 1 : -1;
+const positional = args.filter((a, i) => i !== flattenIndex && i !== flattenValueIndex);
 const projectRoot = resolve(positional[0] ?? '.');
 const times = positional.slice(1).map(Number).filter((n) => Number.isFinite(n));
 if (!times.length) {

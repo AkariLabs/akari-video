@@ -34,7 +34,7 @@ for ((i = 0; i < WAIT_MINUTES; i++)); do
   echo "$(date +%H:%M:%S) load=$LA threshold=$MAX_LOAD ok=$OK" >> "$WAIT_LOG"
   if [[ "$OK" == "1" ]]; then
     echo "$(date +%H:%M:%S) starting render (load=$LA)" >> "$WAIT_LOG"
-    RENDER_CUT_CAPTURE_TIMEOUT_MS="$TIMEOUT_MS" node "$RENDER_CUT" "$PROJECT" "${EXTRA[@]}"
+    RENDER_CUT_CAPTURE_TIMEOUT_MS="$TIMEOUT_MS" node "$RENDER_CUT" "$PROJECT" ${EXTRA[@]+"${EXTRA[@]}"}
     RC=$?
     echo "$(date +%H:%M:%S) render exited rc=$RC" >> "$WAIT_LOG"
     exit $RC
