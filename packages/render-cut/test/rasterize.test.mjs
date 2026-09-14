@@ -120,6 +120,7 @@ test("generated __akariSeek toggles data-akari-active with visibility", async ()
       dataset: { start: String(overlay.start), duration: String(overlay.duration) },
       style: { visibility: "hidden" },
       getAnimations: () => [],
+      hasAttribute: (name) => attributes.has(name),
       toggleAttribute(name, force) {
         if (force) attributes.add(name);
         else attributes.delete(name);
@@ -181,4 +182,50 @@ test("parseFfmpegOutTime accepts timestamps and rejects malformed input", () => 
 test("runChecked returns a successful child result", () => {
   const result = runChecked(process.execPath, ["-e", "process.stdout.write('ok')"]);
   assert.equal(result.stdout, "ok");
+});
+
+test("start > 0 のクリップでも [data-akari-active] ゲート内の CSS アニメーションがクリップ開始オフセット付きでクローンされる", async () => {
+  const overlays = [
+    { id: "early", start: 0, duration: 2, html: '<div class="x">a</div>' },
+    { id: "late", start: 2, duration: 5, html: '<div class="x">b</div>' },
+  ];
+  const sheet = renderOverlaySheet({
+    overlays, edit: { output: { width: 320, height: 180, fps: 30 } }, projectRoot: "/tmp/project", duration: 8,
+  });
+  const scriptStart = sheet.lastIndexOf("  <script>") + "  <script>".length;
+  const scriptEnd = sheet.indexOf("  </script>", scriptStart);
+  class CSSAnimation {}
+  const animateCalls = [];
+  const containers = overlays.map((overlay) => {
+    const attributes = new Set();
+    const target = { style: {}, animate(keyframes, options) { animateCalls.push({ id: overlay.id, options }); return { pause() {}, set currentTime(v) {} }; } };
+    const gated = Object.assign(new CSSAnimation(), {
+      effect: { target, getKeyframes: () => [{ opacity: 0 }, { opacity: 1 }], getTiming: () => ({ delay: 250, duration: 5000, fill: "both" }) },
+    });
+    return {
+      attributes, target,
+      dataset: { start: String(overlay.start), duration: String(overlay.duration) },
+      style: { visibility: "hidden" },
+      // ゲートが立っているときだけアニメーションが存在する（[data-akari-active] .x { animation } の再現）
+      getAnimations: () => (attributes.has("data-akari-active") ? [gated] : []),
+      hasAttribute: (name) => attributes.has(name),
+      toggleAttribute(name, force) { if (force) attributes.add(name); else attributes.delete(name); },
+    };
+  });
+  const document = { fonts: { ready: Promise.resolve() }, images: [], querySelectorAll: (s) => (s === ".akari-overlay-container" ? containers : []) };
+  const context = { CSSAnimation, clearTimeout, console, document, setTimeout, requestAnimationFrame: () => 0, cancelAnimationFrame: () => {} };
+  context.window = context;
+  vm.runInNewContext(sheet.slice(scriptStart, scriptEnd), context);
+  await context.window.__akariReady;
+
+  // 設定時（__akariSeek 前）に両方ともクローンされ、delay にクリップ開始が乗る
+  assert.deepEqual(animateCalls.map((c) => [c.id, c.options.delay]), [["early", 250], ["late", 2250]]);
+  assert.equal(containers[0].target.style.animationName, "none");
+  assert.equal(containers[1].target.style.animationName, "none");
+  // 走査のために立てたゲートは戻されている。ready までに __akariSeek(0) が走るので early（start 0）は
+  // 正当に活性だが、late（start 2）が活性のままなら走査の持ち上げが残っている
+  assert.equal(containers[1].attributes.has("data-akari-active"), false);
+  await context.window.__akariSeek(3);
+  assert.equal(containers[0].attributes.has("data-akari-active"), false);
+  assert.equal(containers[1].attributes.has("data-akari-active"), true);
 });

@@ -182,6 +182,14 @@ ${nodes}${slotRuntimeScripts}
       for (const container of document.querySelectorAll('.akari-overlay-container')) {
         const startMilliseconds = Number(container.dataset.start) * 1000;
         const conversions = [];
+        // Fragments gate entrance animations behind [data-akari-active] (motion.md), and this
+        // one-time scan runs before __akariSeek ever raises that gate. A clip whose start is
+        // later than 0 is inactive here, so its gated animations are absent from getAnimations()
+        // and never get cloned: the originals then run on absolute timeline time without the
+        // clip offset (issue: late-start overlay animations). Raise the gate for the scan only,
+        // the same way gpu-export's page-runtime samples entrances, then restore it.
+        const wasActive = container.hasAttribute('data-akari-active');
+        container.toggleAttribute('data-akari-active', true);
         for (const animation of container.getAnimations({ subtree: true })) {
           if (typeof CSSAnimation === 'undefined' || !(animation instanceof CSSAnimation)) continue;
           const effect = animation.effect;
@@ -214,6 +222,7 @@ ${nodes}${slotRuntimeScripts}
             clone.currentTime = 0;
           } catch {}
         }
+        container.toggleAttribute('data-akari-active', wasActive);
       }
     })();
     window.__akariSyncAnimations = function(seconds) {
