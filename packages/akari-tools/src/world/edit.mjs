@@ -6,6 +6,7 @@ import { checkWorldMap } from "./invariants.mjs";
 import { normalizeWorldMap } from "./normalize.mjs";
 
 const NUMBER = /-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?/y;
+const UNMEASURED_COVER_NOTE = "cover が未測定です。`akari world preview --measure` を先に";
 
 export function formatCoordinateNumber(value) {
   if (typeof value !== "number" || !Number.isFinite(value)) throw new TypeError("座標は有限数である必要があります");
@@ -69,6 +70,7 @@ export async function moveWorldStop(projectRoot, options = {}) {
   try { source = JSON.parse(text); } catch (error) { return failure("PARSE", error, file); }
   if (typeof source?.schemaVersion === "number" && source.schemaVersion > 3) return failure("VERSION", `schemaVersion ${source.schemaVersion} は未対応です`, file);
   const map = source?.schemaVersion === 3 ? source : normalizeWorldMap(source).map;
+  const beforeChecked = check(map, { strict: false });
   if (map?.kind !== "flat") return failure("KIND", "spatial の停留所は移動できません（flat のみ）", file);
   const stop = Array.isArray(map?.cameraStops) ? map.cameraStops.find((candidate) => candidate?.id === options.stopId) : undefined;
   if (!stop) return failure("NO_STOP", `world-map.json の cameraStops に ${options.stopId} がありません`, file);
@@ -83,7 +85,14 @@ export async function moveWorldStop(projectRoot, options = {}) {
   try { nextSource = JSON.parse(next); } catch (error) { return failure("WRITE_BACK", error, file); }
   const map2 = nextSource?.schemaVersion === 3 ? nextSource : normalizeWorldMap(nextSource).map;
   const checked = check(map2, { strict: false });
-  if (checked.errors.length > 0) return { ...failure("INVARIANT", "書き戻し後の world-map.json が不変条件に違反します", file), errors: checked.errors };
+  const previousC7 = new Set(beforeChecked.errors.filter((finding) => finding.code === "C7").map(findingKey));
+  const ignoredC7 = checked.errors.filter((finding) => finding.code === "C7" && previousC7.has(findingKey(finding)));
+  const errors = checked.errors.filter((finding) => finding.code !== "C7" || !previousC7.has(findingKey(finding)));
+  if (errors.length > 0) {
+    const hasNewC7 = errors.some((finding) => finding.code === "C7");
+    const reason = `書き戻し後の world-map.json が不変条件に違反します${hasNewC7 ? `。${UNMEASURED_COVER_NOTE}` : ""}`;
+    return { ...failure("INVARIANT", reason, file), errors };
+  }
   const before = Array.isArray(stop.c) ? [...stop.c] : [];
   const after = [...before];
   rounded.forEach((value, index) => { after[index] = value; });
@@ -98,7 +107,11 @@ export async function moveWorldStop(projectRoot, options = {}) {
   if (changed) {
     try { await write(file, next, "utf8"); } catch (error) { return failure("IO", error, file); }
   }
-  return { ok: true, file, stopId: options.stopId, before, after, changed };
+  return { ok: true, file, stopId: options.stopId, before, after, changed, notes: ignoredC7.length ? [UNMEASURED_COVER_NOTE] : [] };
+}
+
+function findingKey(finding) {
+  return `${finding.code}\u0000${finding.message}`;
 }
 
 function assertCoordinate(c) {

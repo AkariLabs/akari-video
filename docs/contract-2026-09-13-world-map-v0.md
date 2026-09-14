@@ -36,8 +36,10 @@ three 宣言は `model`、`camera.fromModel: "TourCamera"`、`animationClip: "To
 ## 4. CLI
 
 - `akari world check [--strict] [--migrate] [--json]`: スキーマと不変条件を検査し、必要なら v2 を v3 へ正規化する。
+- `check --migrate` はラベル文字列または `null` の `cover` と v3 語彙外の `pattern` を落として有限の暫定値へ正規化し、元の値と実測が必要な旨を注記に残す。
 - `akari world build`: flat は宣言、sheet、zone、解決済み素材断片を `overlays/world.html` に生成する。spatial は世界 GLB と three 断片を生成する。どちらも edit.json の `world` item を id 安定で upsert する。edit.json が version 2 でなければ変更せず停止するため、先に `akari migrate <project-root>` を実行する。
 - `akari world preview [--measure]`: flat / spatial とも rasterize 経路で stop と edge の代表時点を PNG と `camera-proof.json` にする。measure 時は非 move edge の全画素 RGB 標準偏差が 2 以下になる完全被覆区間を 30 Hz で測り、該当する `transition.cover` だけを書き戻す。
+- `preview --measure` は入口では C7 を問わず、実測値を書き戻した後に C7 を含む全項目を検査する。
 - `akari world overview`: 外部通信を行わず `file://` で開ける自己完結の俯瞰 HTML を生成する。
 - `akari world move-stop <project-root> --stop <id> --c x,y[,scale] [--json]`: flat の停留所座標だけを更新する。元テキストの整形と他の欄を変えず、bounds 外・spatial・不変条件違反では一切書き込まない。
 

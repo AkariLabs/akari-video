@@ -8,14 +8,16 @@ import { readWorldItems } from "./items.mjs";
 import { normalizeWorldMap } from "./normalize.mjs";
 import { buildSpatialGlb, renderSpatialWorldHtml } from "./spatial-glb.mjs";
 
-export async function readCheckedWorldMap(projectRoot) {
+export async function readCheckedWorldMap(projectRoot, options = {}) {
   const file = path.join(projectRoot, "planning", "world-map.json");
   const source = JSON.parse(await readFile(file, "utf8"));
   if (typeof source?.schemaVersion === "number" && source.schemaVersion > 3) throw new Error(`schemaVersion ${source.schemaVersion} は新しすぎます`);
   const map = source?.schemaVersion === 3 ? source : normalizeWorldMap(source).map;
   const checked = checkWorldMap(map, { strict: false });
-  if (checked.errors.length) throw new Error(checked.errors.map((finding) => `[${finding.code}] ${finding.message}`).join("\n"));
-  return { map, file };
+  const ignored = new Set(options.ignoreCodes ?? []);
+  const errors = checked.errors.filter((finding) => !ignored.has(finding.code));
+  if (errors.length) throw new Error(errors.map((finding) => `[${finding.code}] ${finding.message}`).join("\n"));
+  return { map, file, check: checked };
 }
 
 export async function buildWorld(projectRoot, options = {}) {

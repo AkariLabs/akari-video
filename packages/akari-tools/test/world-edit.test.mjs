@@ -86,7 +86,32 @@ test('moveWorldStop は全検査通過時だけ書き込む', async t => {
   await t.test('成功', async () => {
     const { root } = await fixture();
     const result = await moveWorldStop(root, { stopId: 'a', c: [12.3456, 23.4567, 1.23456] });
-    assert.deepEqual(result, { ok: true, file: path.join(root, 'planning/world-map.json'), stopId: 'a', before: [10, 20, 1], after: [12.346, 23.457, 1.2346], changed: true });
+    assert.deepEqual(result, { ok: true, file: path.join(root, 'planning/world-map.json'), stopId: 'a', before: [10, 20, 1], after: [12.346, 23.457, 1.2346], changed: true, notes: [] });
+  });
+  await t.test('元からある C7 違反は注記付きで通し座標だけを変える', async () => {
+    const value = JSON.parse(await readFile(new URL('../../schemas/examples/world-map-v3-flat-valid/planning/world-map.json', import.meta.url), 'utf8'));
+    value.edges.find((edge) => edge.type === 'cut').transition.cover = 0.9;
+    const { root, text } = await fixture(value);
+    const result = await moveWorldStop(root, { stopId: 'atelier-desk', c: [11, 13, 1.2] });
+    assert.equal(result.ok, true);
+    assert.deepEqual(result.notes, ['cover が未測定です。`akari world preview --measure` を先に']);
+    const after = JSON.parse(await readFile(path.join(root, 'planning/world-map.json'), 'utf8'));
+    const before = JSON.parse(text);
+    before.cameraStops.find((stop) => stop.id === 'atelier-desk').c = [11, 13, 1.2];
+    assert.deepEqual(after, before);
+  });
+  await t.test('書き戻しで新たに生じた C7 は案内付きで拒む', async () => {
+    const { root, text } = await fixture();
+    const check = value => ({
+      errors: value.cameraStops[0].c[0] === 10 ? [] : [{ code: 'C7', message: 'cut edge synthetic の cover が未測定です' }],
+      warnings: [],
+    });
+    const result = await moveWorldStop(root, { stopId: 'a', c: [11, 21, 1], check });
+    assert.equal(result.ok, false);
+    assert.equal(result.code, 'INVARIANT');
+    assert.match(result.reason, /cover が未測定です。`akari world preview --measure` を先に$/);
+    assert.deepEqual(result.errors, [{ code: 'C7', message: 'cut edge synthetic の cover が未測定です' }]);
+    assert.equal(await readFile(path.join(root, 'planning/world-map.json'), 'utf8'), text);
   });
   for (const entry of [
     { name: 'bounds 外', mutate: value => value, options: { stopId: 'a', c: [101, 20, 1] }, code: 'BOUNDS' },

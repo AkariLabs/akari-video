@@ -5,7 +5,7 @@ import path from "node:path";
 import test from "node:test";
 
 import { buildWorld } from "../src/world/build.mjs";
-import { previewTimes, previewWorld } from "../src/world/preview.mjs";
+import { previewTimes, previewWorld, replaceEdgeCover } from "../src/world/preview.mjs";
 
 const fixture = new URL("../../schemas/examples/world-map-v3-flat-valid/planning/world-map.json", import.meta.url);
 
@@ -49,6 +49,37 @@ test("world preview --measure: cover 以外の JSON 値を変えない", async (
   assert.deepEqual(strip(after), strip(before));
   assert.equal(result.measurements.length, 2);
   assert.notEqual(after.edges[1].transition.cover, before.edges[1].transition.cover);
+  assert.deepEqual(result.check.errors, []);
+});
+
+test("world preview --measure は入口の C7 だけを除外し、書き戻し後に全検査する", async (t) => {
+  const root = await project(t);
+  const file = path.join(root, "planning", "world-map.json");
+  const map = JSON.parse(await readFile(file, "utf8"));
+  map.edges.find((edge) => edge.type === "cut").transition.cover = 0.9;
+  await writeFile(file, `${JSON.stringify(map, null, 2)}\n`);
+  const capture = async ({ times, outputDir }) => {
+    const files = new Map();
+    for (const time of times) { const target = path.join(outputDir, `fake-${time}.png`); await writeFile(target, "png"); files.set(time, target); }
+    return files;
+  };
+
+  await assert.rejects(() => previewWorld(root, { capture }), /\[C7\]/);
+  const measured = await previewWorld(root, { capture, measure: true, measureFrame: async () => ({ covered: false }) });
+  assert.deepEqual(measured.check.errors, []);
+  assert.equal(JSON.parse(await readFile(file, "utf8")).edges.find((edge) => edge.type === "cut").transition.cover, 0);
+
+  await assert.rejects(
+    () => previewWorld(root, { capture, measure: true, measureFrame: async () => ({ covered: true }) }),
+    /\[C7\]/,
+  );
+});
+
+test("replaceEdgeCover はエスケープを含む文字列 cover を数値へ置換する", () => {
+  const source = '{"edges":[{"id":"cut","transition":{"kind":"fade","cover":"Chat \\\"handoff\\\" \\\\ next"},"via":"Chat handoff"}]}';
+  const next = replaceEdgeCover(source, "cut", 0.24);
+  assert.equal(JSON.parse(next).edges[0].transition.cover, 0.24);
+  assert.equal(JSON.parse(next).edges[0].via, "Chat handoff");
 });
 
 test("world preview: spatial も同じ rasterize capture 契約へ渡す", async (t) => {
