@@ -638,6 +638,7 @@ registry は `world-camera.js`、`world-runtime.js` の順で読み込む。前�
 から断片直下の `.akari-world-sheet[data-world]` の transform と
 `.akari-world-zone[data-zone]` の画面外カリングを同期する。描画は外部時刻だけに依存する。
 俯瞰は公開 API `worldRuntime.drawOverview(ctx, descriptor, { scale, ox, oy }, seconds, options)` を使い、
+`view` はカメラ位置に依存しない world → screen の affine（`screen = ox + p * scale`）として扱う。
 `options.frame: true` で現在の撮影枠を重ねられる。
 
 ## vgpu vendor の固定と再生成

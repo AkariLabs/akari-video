@@ -191,11 +191,12 @@ window.akari.worldRuntime = (() => {
     const descriptor = validateDescriptor(descriptorValue);
     if (!record(view) || !finite(view.scale) || !finite(view.ox) || !finite(view.oy)) fail("overview view が不正です");
     const camera = window.AkariWorldCamera.createCamera(descriptor)(seconds);
-    drawScene(ctx, descriptor, { ...camera, ...view }, seconds);
+    const anchored = { ...camera, scale: view.scale, ox: view.ox + camera.x * view.scale, oy: view.oy + camera.y * view.scale };
+    drawScene(ctx, descriptor, anchored, seconds);
     if (options.frame === true) {
       const width = descriptor.frame.width / camera.scale;
       const height = descriptor.frame.height / camera.scale;
-      ctx.save(); ctx.setTransform(view.scale, 0, 0, view.scale, view.ox - camera.x * view.scale, view.oy - camera.y * view.scale);
+      ctx.save(); ctx.setTransform(view.scale, 0, 0, view.scale, anchored.ox - camera.x * view.scale, anchored.oy - camera.y * view.scale);
       ctx.strokeStyle = "#EE82DF"; ctx.lineWidth = 3 / view.scale; ctx.strokeRect(camera.x - width / 2, camera.y - height / 2, width, height); ctx.restore();
     }
   }

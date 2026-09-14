@@ -37,5 +37,6 @@
 `switchTime ± transition.cover / 2` は一様な haze で覆う。
 
 俯瞰は `window.akari.worldRuntime.drawOverview(ctx, descriptor, view, seconds, options)` を使う。
-`view` は `{ scale, ox, oy }`、`options.frame === true` なら現在の撮影枠を `#EE82DF` で重ねる。
+`view` はカメラ位置に依存しない world → screen の affine `{ scale, ox, oy }`
+（`screen = ox + p * scale`）。`options.frame === true` なら現在の撮影枠を `#EE82DF` で重ねる。
 独自の地図描画を複製しない。

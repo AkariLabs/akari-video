@@ -78,15 +78,16 @@ test("world canvas, DOM sheets, overview, inspection and validation are determin
   const page = await runtimePage(t);
   assert.equal(await page.evaluate(() => window.akari.runtimes.list().some(entry => entry.id === "world")), true);
   await page.evaluate(html => { const container = document.createElement("section"); container.id = "world"; container.innerHTML = html; document.querySelector("#stage").appendChild(container); }, fragment);
-  const capture = async seconds => page.evaluate(time => {
+  const capture = async seconds => page.evaluate(async time => {
     const container = document.querySelector("#world");
     window.akari.worldRuntime.render(container, time);
     const canvas = container.querySelector("canvas");
-    const bytes = atob(canvas.toDataURL("image/png").split(",")[1]);
+    const blob = await new Promise(resolve => canvas.toBlob(resolve, "image/png"));
+    const png = [...new Uint8Array(await blob.arrayBuffer())];
     const data = canvas.getContext("2d").getImageData(0, 0, canvas.width, canvas.height).data;
     const channels = [[], [], []]; for (let index = 0; index < data.length; index += 4) for (let channel = 0; channel < 3; channel += 1) channels[channel].push(data[index + channel]);
     const spread = Math.max(...channels.map(values => { const mean = values.reduce((sum, value) => sum + value, 0) / values.length; return Math.sqrt(values.reduce((sum, value) => sum + (value - mean) ** 2, 0) / values.length); }));
-    return { png: Array.from(bytes, char => char.charCodeAt(0)), spread, inspect: window.akari.worldRuntime.inspect(container), transforms: [...container.querySelectorAll(".akari-world-sheet")].map(node => node.style.transform), origins: [...container.querySelectorAll(".akari-world-sheet")].map(node => node.style.transformOrigin), displays: [...container.querySelectorAll(".akari-world-zone")].map(node => node.style.display) };
+    return { png, spread, inspect: window.akari.worldRuntime.inspect(container), transforms: [...container.querySelectorAll(".akari-world-sheet")].map(node => node.style.transform), origins: [...container.querySelectorAll(".akari-world-sheet")].map(node => node.style.transformOrigin), displays: [...container.querySelectorAll(".akari-world-zone")].map(node => node.style.display) };
   }, seconds);
   const observations = new Map();
   for (const seconds of observationTimes) observations.set(seconds, await capture(seconds));
@@ -139,7 +140,14 @@ test("world canvas, DOM sheets, overview, inspection and validation are determin
   }, descriptor);
   for (const rgb of ["244,239,230", "232,242,222", "48,45,61", "238,130,223"]) assert.ok(overview.colors.includes(rgb), rgb);
   const overviewCamera = camera(1);
-  const expectedFrame = { minX: overview.view.ox - descriptor.frame.width / overviewCamera.scale * overview.view.scale / 2, maxX: overview.view.ox + descriptor.frame.width / overviewCamera.scale * overview.view.scale / 2, minY: overview.view.oy - descriptor.frame.height / overviewCamera.scale * overview.view.scale / 2, maxY: overview.view.oy + descriptor.frame.height / overviewCamera.scale * overview.view.scale / 2 };
+  const frameWidth = descriptor.frame.width / overviewCamera.scale;
+  const frameHeight = descriptor.frame.height / overviewCamera.scale;
+  const expectedFrame = {
+    minX: overview.view.ox + (overviewCamera.x - frameWidth / 2) * overview.view.scale,
+    maxX: overview.view.ox + (overviewCamera.x + frameWidth / 2) * overview.view.scale,
+    minY: overview.view.oy + (overviewCamera.y - frameHeight / 2) * overview.view.scale,
+    maxY: overview.view.oy + (overviewCamera.y + frameHeight / 2) * overview.view.scale,
+  };
   for (const key of ["minX", "maxX", "minY", "maxY"]) assert.ok(Math.abs(overview.pinkBounds[key] - expectedFrame[key]) <= 3, `${key}: ${overview.pinkBounds[key]} vs ${expectedFrame[key]}`);
   assert.equal(overview.cornerAlpha, 0, "overview clears outside descriptor.frame");
   assert.deepEqual(overview.hazeCorner, [247, 255, 233, 235], "overview haze fills the full target canvas");
