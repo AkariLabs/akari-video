@@ -340,6 +340,14 @@
         ]
       },
       {
+        "from": "../../packages/decision-cards",
+        "to": "packages/decision-cards",
+        "filter": [
+          "package.json",
+          "render-storyboard-print.mjs"
+        ]
+      },
+      {
         "from": "../../skills/manage-connections/bin",
         "to": "skills/manage-connections/bin",
         "filter": [

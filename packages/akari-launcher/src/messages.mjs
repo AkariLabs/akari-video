@@ -331,6 +331,7 @@ export function describeCliHelp() {
     '  status                 接続状態を確認する',
     '  migrate [dir]          古い edit.json を退避バックアップ付きで v2 へ変換',
     '  generate               台本のビートから静止画クリップを生成',
+    '  storyboard             タイムラインから印刷用の絵コンテを作成',
     '  akari clean [dir]      使い捨ての中間ファイルを一覧・削除（既定は一覧のみ）',
     '',
     '開発者向け:',

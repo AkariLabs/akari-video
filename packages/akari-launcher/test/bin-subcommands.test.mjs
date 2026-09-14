@@ -41,6 +41,7 @@ for (const [name, args, expected] of [
   ['word-book', ['word-book', '--help'], 'akari-word-book <subcommand>'],
   ['clean', ['clean', '--help'], 'akari clean'],
   ['generate', ['generate', '--help'], 'akari generate <still\\|video\\|resume>'],
+  ['storyboard', ['storyboard', '--help'], 'akari storyboard'],
 ]) {
   test(`bin/akari.mjs: ${name} 分岐が help を表示する`, () => {
     const result = spawnSync(process.execPath, [bin, ...args], { encoding: 'utf8' });
