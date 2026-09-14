@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "id": "sample-kit",
+  "kind": "kit",
+  "name": "素材入り架空キット",
+  "version": 1,
+  "requires": {
+    "cli": ">=0.1.70",
+    "runtimes": ["three"],
+    "products": []
+  },
+  "skills": [
+    { "dir": "skills/sample-kit-skill", "name": "sample-kit-skill" }
+  ],
+  "templates": [],
+  "assets": [
+    { "category": "overlay", "id": "sample-kit-frame" }
+  ],
+  "docs": [],
+  "license": "LicenseRef-AKARI-Assets-v0",
+  "provenance": {
+    "author": "AKARI Labs",
+    "source": "example:sample-kit-with-asset"
+  }
+}

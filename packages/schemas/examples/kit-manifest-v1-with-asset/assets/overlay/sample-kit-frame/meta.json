@@ -1,0 +1,24 @@
+{
+  "id": "sample-kit-frame",
+  "category": "overlay",
+  "title": "架空キットのフレーム",
+  "description": "キット同梱素材の登録と解決を検証する最小フレーム。",
+  "when_to_use": "拡張キットの素材導入テスト",
+  "tags": ["fixture", "frame"],
+  "knobs": [],
+  "ai_usage": "検証 fixture のため制作物には使用しない。",
+  "requires": [],
+  "provenance": {
+    "origin": "AKARI Video test fixture",
+    "generator": "hand-authored"
+  },
+  "author": "AKARI Labs",
+  "license": {
+    "spdx": "LicenseRef-AKARI-Assets-v0",
+    "scope": "test-only",
+    "attribution_required": false,
+    "ai_training_allowed": false
+  },
+  "price": null,
+  "version": 1
+}

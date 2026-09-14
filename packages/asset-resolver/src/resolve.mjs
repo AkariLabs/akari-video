@@ -11,7 +11,7 @@
 // checksums.txt 検証（paid-zip.mjs）→ 同じ validate-asset / 原子的 move の経路に合流する。
 
 import { spawnSync } from 'node:child_process';
-import { constants, existsSync } from 'node:fs';
+import { constants, existsSync, realpathSync } from 'node:fs';
 import { cp, mkdir, mkdtemp, rename, rm } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -38,6 +38,7 @@ export async function copyIntoProject(sourceDir, projectDir, category, id) {
   // 素材箱側が「meta.json を含むディレクトリ = 1 カード」でグルーピングする際、
   // 深さではなくディレクトリ形で判定するため、置き場の形をライブラリと合わせておく必要はないが、
   // カテゴリ別に整理された配置の方が人間が見ても分かりやすいのでライブラリ型に統一する。
+  const realSourceDir = realpathSync(sourceDir);
   const dest = path.join(path.resolve(projectDir), 'assets', category, id);
   await mkdir(path.dirname(dest), { recursive: true });
   await rm(dest, { recursive: true, force: true });
@@ -46,7 +47,7 @@ export async function copyIntoProject(sourceDir, projectDir, category, id) {
     // このマシンの Node（libuv）は clonefileat 相当が ENOSYS を返し、fs.cp の
     // COPYFILE_FICLONE では節約が効かない（前段 2026-08-09-project-copy-cow-clone で実測確認済み）。
     // BSD cp -c は clonefile(2) を Node を介さず直接使うため、同じ OS/FS 上で実際にクローンできる。
-    const clone = spawnSync('/bin/cp', ['-Rc', sourceDir, dest], { stdio: 'ignore' });
+    const clone = spawnSync('/bin/cp', ['-Rc', realSourceDir, dest], { stdio: 'ignore' });
     if (!clone.error && clone.status === 0) {
       return dest;
     }
@@ -57,7 +58,7 @@ export async function copyIntoProject(sourceDir, projectDir, category, id) {
 
   // COPYFILE_FICLONE（_FORCE ではない）: 対応 FS（APFS 等）では CoW クローンで実体化コピーを
   // 省略し、非対応環境では黙って通常コピーへフォールバックする（失敗しない）。
-  await cp(sourceDir, dest, { recursive: true, mode: constants.COPYFILE_FICLONE });
+  await cp(realSourceDir, dest, { recursive: true, mode: constants.COPYFILE_FICLONE });
   return dest;
 }
 

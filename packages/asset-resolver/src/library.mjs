@@ -24,14 +24,21 @@ export function scanLocalLibrary(home) {
   if (!existsSync(assetsDir)) return installed;
 
   for (const categoryEntry of readdirSync(assetsDir, { withFileTypes: true })) {
-    if (!categoryEntry.isDirectory()) continue;
     const categoryDir = path.join(assetsDir, categoryEntry.name);
-    for (const idEntry of readdirSync(categoryDir, { withFileTypes: true })) {
-      if (!idEntry.isDirectory()) continue;
-      const dir = path.join(categoryDir, idEntry.name);
-      if (readdirSync(dir).length > 0) {
-        installed.add(`${categoryEntry.name}/${idEntry.name}`);
+    try {
+      if (!statSync(categoryDir).isDirectory()) continue;
+      for (const idEntry of readdirSync(categoryDir, { withFileTypes: true })) {
+        const dir = path.join(categoryDir, idEntry.name);
+        try {
+          if (statSync(dir).isDirectory() && readdirSync(dir).length > 0) {
+            installed.add(`${categoryEntry.name}/${idEntry.name}`);
+          }
+        } catch {
+          // 壊れた symlink や読めない素材は取得済みとして数えない。
+        }
       }
+    } catch {
+      // ファイルや壊れた category symlink は対象外。
     }
   }
   return installed;
