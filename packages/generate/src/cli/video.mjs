@@ -6,8 +6,8 @@ import path from "node:path";
 import readline from "node:readline/promises";
 import { stdin as processInput, stdout as processOutput } from "node:process";
 
-import { openProject } from "@akari-video/edit-store/lib/project";
-import { snapshot } from "@akari-video/edit-store/lib/history-store";
+import { openProject } from "../../../edit-store/lib/project.js";
+import { snapshot } from "../../../edit-store/lib/history-store.js";
 import { resolveFfprobe } from "../../../media-bin/src/index.mjs";
 
 import { validateInputs } from "../validate-inputs.mjs";

@@ -1,9 +1,9 @@
 import { access, mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
-import { openProject } from "@akari-video/edit-store/lib/project";
-import { snapshot } from "@akari-video/edit-store/lib/history-store";
-import { insertItem, nextTrackId } from "@akari-video/edit-store/lib/tree-ops";
+import { openProject } from "../../../edit-store/lib/project.js";
+import { snapshot } from "../../../edit-store/lib/history-store.js";
+import { insertItem, nextTrackId } from "../../../edit-store/lib/tree-ops.js";
 
 const exists = (path) => access(path).then(() => true, () => false);
 
