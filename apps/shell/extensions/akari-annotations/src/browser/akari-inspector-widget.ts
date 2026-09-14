@@ -1,7 +1,7 @@
 import URI from '@theia/core/lib/common/uri';
 import { AkariAnnotationsService } from '../common/akari-annotations-protocol';
 import type { GenerationValidationResult } from '../common/akari-annotations-protocol';
-import { TRANSITION_VOCABULARY } from '@akari-video/edit-store';
+import { selectGenerationSidecarForSource, TRANSITION_VOCABULARY } from '@akari-video/edit-store';
 import { BaseWidget } from '@theia/core/lib/browser';
 import { ConfirmDialog } from '@theia/core/lib/browser/dialogs';
 import { FileDialogService } from '@theia/filesystem/lib/browser';
@@ -3434,7 +3434,7 @@ export class AkariInspectorWidget extends BaseWidget {
             const sidecars = await this.layerAudioService.readGenerationSidecars({
                 projectRootUri: root.toString(), sourcePaths: [identity.sourcePath]
             });
-            const meta = sidecars.entries.find(entry => entry.sourcePath === identity.sourcePath)?.meta;
+            const meta = selectGenerationSidecarForSource(identity.sourcePath, sidecars.entries, Date.now())?.meta;
             let state = typeof meta?.status === 'string' ? meta.status : 'none';
             const job = meta?.job as { started_at?: string; stale_after_s?: number } | undefined;
             if (state === 'generating' && job?.started_at && Number.isFinite(job.stale_after_s)

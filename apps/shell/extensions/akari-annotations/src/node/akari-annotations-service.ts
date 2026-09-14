@@ -310,6 +310,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
             }));
         };
         await visit(generatedRoot);
+        const canonicalRoot = await fs.realpath(root).catch(() => root);
         const loaded = await Promise.all([...candidates].map(async ([sourcePath, candidate]) => {
             try {
                 const parsed = JSON.parse(await fs.readFile(candidate.sidecarPath, 'utf8')) as unknown;
@@ -318,7 +319,26 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
                 const expected = bindingShaFor(meta as GenerationMetaV1);
                 let binding: GenerationBindingView | null = null;
                 if (expected) {
-                    const actual = await this.sourceSha256(candidate.sourceAbsolutePath);
+                    const firstFramePath = meta.inputs?.first_frame?.path;
+                    const bindsFirstFramePath = expected.source === 'first_frame'
+                        && typeof firstFramePath === 'string' && !!firstFramePath.trim();
+                    let actual: string | null;
+                    if (bindsFirstFramePath) {
+                        actual = null;
+                        try {
+                            const hashTarget = resolve(root, firstFramePath);
+                            const canonicalParent = await fs.realpath(dirname(hashTarget));
+                            const requestedHashTarget = join(canonicalParent, basename(hashTarget));
+                            const relativeHashTarget = relative(canonicalRoot, requestedHashTarget);
+                            const contained = relativeHashTarget === ''
+                                || (!relativeHashTarget.startsWith('..') && !isAbsolute(relativeHashTarget));
+                            if (contained) actual = await this.sourceSha256(requestedHashTarget);
+                        } catch {
+                            actual = null;
+                        }
+                    } else {
+                        actual = await this.sourceSha256(candidate.sourceAbsolutePath);
+                    }
                     binding = {
                         expected: expected.sha256,
                         actual,

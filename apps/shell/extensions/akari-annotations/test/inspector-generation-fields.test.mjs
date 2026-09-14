@@ -113,3 +113,16 @@ test('実カタログ 4 行で欄・見積・エラー・尺丸めを検証す�
     if (spec.counterless) assert.equal(fields.find(field => field.name === 'reference_images').label, '参照画像');
   }
 });
+
+test('generating は「動画にする」を disabled、stale は「再取得」を表示する', () => {
+  const validation = { ok: true, messages: [], cost: { estimate_usd: 0.36 } };
+  const fieldsFor = state => generationFields({
+    snapshot: {}, catalogRow: models[0], draft: draft(models[0].id), validation,
+    defaults: { catalog: models, state }, actions
+  });
+  const generating = fieldsFor('generating').find(field => field.name === 'generation-actions').actions;
+  assert.equal(generating.find(action => action.name === 'generate').disabled, true);
+  assert.match(generating.find(action => action.name === 'generate').label, /生成中/u);
+  const stale = fieldsFor('stale').find(field => field.name === 'generation-actions').actions;
+  assert.equal(stale.find(action => action.name === 'resume').label, '再取得');
+});

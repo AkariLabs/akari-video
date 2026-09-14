@@ -60,6 +60,27 @@ test('node reader は素材なしを actual null にする', async t => {
   assert.equal(entry.binding.matches, false);
 });
 
+test('生成中 mp4 が未存在でも first_frame の素材を hash して binding する', async t => {
+  const data = await fixture(t);
+  const stillRelative = 'assets/first.png';
+  const still = 'first-frame';
+  await writeFile(join(data.project, stillRelative), still);
+  await mkdir(join(data.project, 'assets', 'generated'), { recursive: true });
+  await writeFile(join(data.project, 'assets/generated/in-flight.mp4.meta.json'), JSON.stringify({
+    version: 1, kind: 'video', status: 'generating',
+    inputs: { first_frame: { path: stillRelative, sha256: sha256(still) } },
+    job: { started_at: new Date().toISOString(), stale_after_s: 30 }
+  }));
+  const result = await data.service.readGenerationSidecars({
+    editUri: pathToFileURL(join(data.project, 'edit.json')).toString(),
+    workspaceRoots: [data.rootUri]
+  });
+  const entry = result.entries.find(candidate => candidate.sourcePath === 'assets/generated/in-flight.mp4');
+  assert.equal(entry.binding.source, 'first_frame');
+  assert.equal(entry.binding.actual, sha256(still));
+  assert.equal(entry.binding.matches, true);
+});
+
 test('binding 不一致は orphan 状態になる', () => {
   assert.equal(resolveGenerationState({ status: 'done' }, Date.now(), { matches: false }), 'orphan');
 });

@@ -10,6 +10,7 @@
 - `03-model-veo.png`: Veo FLF の最後のフレームと尺の正規化
 - `04-cost-approval-dialog.png`: 金額・as_of・model id を含む費用承認
 - `05-timeline-chip-generating.png`: 費用承認後、偽 CLI 実行中のタイムラインチップ
+- `06-timeline-chip-after-done.png`: mp4 サイドカー完了後、差し替え前の png が「静止画」へ戻ったチップ
 
 再現コマンド（先に `apps/shell` の production build を作る）:
 

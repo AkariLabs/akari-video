@@ -11,6 +11,8 @@ export interface GenerationMetaV1 {
     inputs?: {
         first_frame?: {
             sha256?: string;
+            path?: string;
+            source_id?: string | null;
         } | null;
         [key: string]: unknown;
     };
@@ -47,3 +49,14 @@ export declare function bindingShaFor(meta: GenerationMetaV1 | null | undefined)
  * `job.stale_after_s` が未指定・不正な場合は既定 900 秒を使う。
  */
 export declare function resolveGenerationState(meta: GenerationMetaV1 | null | undefined, now: Date | string | number): GenerationState;
+/**
+ * item が現在指している素材へ、生成物側の video サイドカーを逆引きする。
+ * 選択だけを行い、各 surface 固有の orphan / 契約外 status の解決は呼び出し側へ残す。
+ */
+export declare function selectGenerationSidecarForSource<T extends {
+    sourcePath: string;
+    meta?: GenerationMetaV1 | null;
+    binding?: {
+        matches?: boolean;
+    } | null;
+}>(sourcePath: string | undefined, entries: readonly T[], now: Date | string | number): T | undefined;

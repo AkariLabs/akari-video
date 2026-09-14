@@ -9,7 +9,7 @@ import {
 import { HOVER_POPUP_DELAY_MS, hoverPopupGeometry } from '../common/hover-popup-geometry';
 import { createCaptionHoverPreview } from '../common/caption-hover-preview';
 import { visualHoverMode } from '../common/visual-hover-mode';
-import { setCaptionTimingLine } from '@akari-video/edit-store';
+import { selectGenerationSidecarForSource, setCaptionTimingLine } from '@akari-video/edit-store';
 import { maskSourceOptionsForSources } from './inspector/mask-fields';
 import { CommandService, Disposable, MessageService } from '@theia/core/lib/common';
 import { BinaryBuffer } from '@theia/core/lib/common/buffer';
@@ -6865,7 +6865,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
         state: GenerationState; meta?: GenerationSidecarMeta; binding?: GenerationBindingView | null
     } | undefined {
         if (!path) return undefined;
-        const sidecar = this.generationSidecars.get(path);
+        const sidecar = selectGenerationSidecarForSource(path, [...this.generationSidecars].map(
+            ([sourcePath, entry]) => ({ sourcePath, meta: entry.meta, binding: entry.binding })
+        ), Date.now());
         const meta = sidecar?.meta;
         const binding = sidecar?.binding;
         const isStill = /\.(?:png|jpe?g|webp)$/iu.test(path);

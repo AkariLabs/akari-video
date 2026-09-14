@@ -10,6 +10,7 @@ import {
     generationStateHelperV1,
     resolveGenerationState
 } from '../lib/common/generation-overlay-model.js';
+import { selectGenerationSidecarForSource } from '../../../../../packages/edit-store/lib/generation-meta.js';
 
 const fixtureRoot = join(dirname(fileURLToPath(import.meta.url)), 'fixtures', 'generation-overlays');
 const nowMs = Date.parse('2026-09-13T09:50:00.000Z');
@@ -82,6 +83,24 @@ test('生成中の進捗と残り時間は有無の 4 通りを契約文言へ�
         assert.equal(description.band.text, text);
         assert.equal(description.band.progress, progress);
     }
+});
+
+test('png clip は生成中 mp4 サイドカーから generating tag と shimmer を得る', () => {
+    const sourcePath = 'assets/stills/a.png';
+    const entry = selectGenerationSidecarForSource(sourcePath, [{
+        sourcePath: 'assets/generated/gen-a.mp4',
+        meta: {
+            version: 1, kind: 'video', status: 'generating', progress: { percent: 45 },
+            inputs: { first_frame: { path: sourcePath } },
+            job: { started_at: '2026-09-13T09:49:59.000Z', stale_after_s: 30 }
+        },
+        binding: { matches: true }
+    }], nowMs);
+    const state = resolveGenerationState(entry.meta, nowMs, entry.binding);
+    const overlay = describeOverlay(state, entry.meta, 'ビート 1', { sourcePath });
+    assert.equal(overlay.tag, '生成中 · ビート 1');
+    assert.equal(overlay.shimmer, true);
+    assert.equal(overlay.band.text, '生成中 45%');
 });
 
 test('frames は総コマ推定とクランプを行い、failed は frames 表示より優先する', () => {
