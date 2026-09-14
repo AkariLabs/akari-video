@@ -83,6 +83,7 @@ akari captions <project-dir>
 （`edited: true`）の行では行の `start` / `end` を保護します。
 隣り合う行の表示窓が重なるときは境界を分け合い、手直し済みの行は動かしません。
 自動の発話吸着を止めるには `akari media transcribe` に `--no-snap` を渡します。
+行末の無音チップ・範囲エディタ・無音短縮の一括は、その行が属する素材（`src`）の無音を使うため、素材が複数あるプロジェクトでも取り違えず、素材の境目は語の隙間として扱います。
 `speaker` はクラウドの話者分離（ElevenLabs Scribe 等）で埋まります。ローカルエンジン（SpeechAnalyzer / whisper.cpp）では `null` のままです。
 
 ## 行数・折り方・拡大回転

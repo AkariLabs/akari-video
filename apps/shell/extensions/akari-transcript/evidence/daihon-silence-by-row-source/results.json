@@ -1,0 +1,176 @@
+{
+  "status": "pass",
+  "steps": [
+    {
+      "name": "1. 素材 2 の行のチップが素材 2 の無音 4.00 秒（5.00–9.00）を示す",
+      "pass": true,
+      "detail": {
+        "chip": {
+          "text": "··· 4.00",
+          "source": "silence",
+          "title": "次の行まで無音 4.00 秒（実際の音声から検出 5.00–9.00）— クリックで波形を見て範囲を決めて詰める"
+        },
+        "range": {
+          "start": 5,
+          "end": 9
+        },
+        "expected": {
+          "start": 5,
+          "end": 9.000021,
+          "span": 4.000021
+        },
+        "sidecarFilter": "silencedetect=noise=-35dB:d=0.3",
+        "sidecarSilences": [
+          [
+            5,
+            9
+          ]
+        ]
+      }
+    },
+    {
+      "name": "2. 素材 2 の行の範囲エディタで灰帯と磁石が素材 2 の無音位置に出る",
+      "pass": true,
+      "detail": {
+        "heading": "無音 4.00 秒",
+        "sils": [
+          "無音 5.00–9.00"
+        ],
+        "read": "切る 3.85 秒 · 残す 0.15 秒 · 5.15–9.00",
+        "window": {
+          "start": 4.08,
+          "end": 11.2
+        },
+        "selection": {
+          "from": 5.15,
+          "to": 9
+        },
+        "silences": [
+          {
+            "start": 5,
+            "end": 9
+          }
+        ],
+        "silenceMagnets": [
+          {
+            "seconds": 5,
+            "kind": "silence"
+          },
+          {
+            "seconds": 9,
+            "kind": "silence"
+          }
+        ]
+      }
+    },
+    {
+      "name": "3. 素材 1 の行（c-0003 → c-0004）のチップは従来どおり 2.69 秒（8.61–11.3）",
+      "pass": true,
+      "detail": {
+        "chip": {
+          "text": "··· 2.69",
+          "source": "silence",
+          "title": "次の行まで無音 2.69 秒（実際の音声から検出 8.61–11.30）— クリックで波形を見て範囲を決めて詰める"
+        },
+        "range": {
+          "start": 8.61,
+          "end": 11.3
+        },
+        "sidecarFilter": "silencedetect=noise=-35dB:d=0.3",
+        "sidecarHasOwnerSilence": true
+      }
+    }
+  ],
+  "screenshots": [
+    "01-row-source-2-chip.png",
+    "02-range-editor-source-2-silence.png",
+    "03-row-source-1-chip-unchanged.png"
+  ],
+  "cleanup": {
+    "killedPid": 55371,
+    "survivingProcesses": 0,
+    "workdir": "<TMP>"
+  },
+  "synthetic": {
+    "ffmpeg": "<WORKTREE>/packages/media-bin/vendor/darwin-arm64/ffmpeg",
+    "silences": [
+      {
+        "start": 5,
+        "end": 9.000021
+      }
+    ],
+    "expected": {
+      "start": 5,
+      "end": 9.000021,
+      "span": 4.000021
+    }
+  },
+  "rendererErrors": [
+    "%cElectron Security Warning (Insecure Content-Security-Policy) font-weight: bold; This renderer process has either no Content Security\n  Policy set or a policy with \"unsafe-eval\" enabled. This exposes users of\n  this app to unnecessary security risks.\n\nFor more information and help, consult\nhttps://electronjs.org/docs/tutorial/security.\nThis warning will not show up\nonce the app is packaged.",
+    "2026-09-14T04:01:18.708Z root WARN Linked preference \"workbench.colorCustomizations\" not found.",
+    "2026-09-14T04:01:18.709Z root WARN Linked preference \"editor.experimental.preferTreeSitter\" not found.",
+    "2026-09-14T04:01:18.752Z root WARN Frontend keybindings.onStart took longer than the expected maximum 100 milliseconds: 400.2 ms [3.801 s since frontend page start]",
+    "2026-09-14T04:01:19.110Z root WARN Frontend dct.onStart took longer than the expected maximum 100 milliseconds: 292.8 ms [4.169 s since frontend page start]",
+    "2026-09-14T04:01:19.518Z root WARN Frontend v1.onStart took longer than the expected maximum 100 milliseconds: 367.1 ms [4.578 s since frontend page start]",
+    "2026-09-14T04:01:19.770Z root WARN Frontend Jf.initializeLayout took longer than the expected maximum 100 milliseconds: 158.7 ms [4.827 s since frontend page start]",
+    "2026-09-14T04:01:20.113Z root WARN Frontend BBe.onDidInitializeLayout took longer than the expected maximum 100 milliseconds: 212.9 ms [5.170 s since frontend page start]",
+    "2026-09-14T04:01:22.081Z core:ApplicationShell WARN Widget was activated, but did not accept focus after 2000ms: akari-daihon-widget"
+  ],
+  "workspaceRoots": 1,
+  "chips": [
+    {
+      "id": "c-0001",
+      "chip": null,
+      "source": null
+    },
+    {
+      "id": "c-0002",
+      "chip": null,
+      "source": null
+    },
+    {
+      "id": "c-0003",
+      "chip": "··· 2.69",
+      "source": "silence"
+    },
+    {
+      "id": "c-0004",
+      "chip": "··· 1.75",
+      "source": "silence"
+    },
+    {
+      "id": "c-0005",
+      "chip": "··· 0.77",
+      "source": "silence"
+    },
+    {
+      "id": "c-0006",
+      "chip": "··· 0.73",
+      "source": "silence"
+    },
+    {
+      "id": "c-0007",
+      "chip": "··· 1.01",
+      "source": "silence"
+    },
+    {
+      "id": "c-0008",
+      "chip": null,
+      "source": null
+    },
+    {
+      "id": "c-0009",
+      "chip": "··· 4.00",
+      "source": "silence"
+    },
+    {
+      "id": "c-0010",
+      "chip": null,
+      "source": null
+    }
+  ],
+  "untouched": {
+    "captions": true,
+    "edit": true
+  }
+}

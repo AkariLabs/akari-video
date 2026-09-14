@@ -1091,6 +1091,25 @@ export class AkariDaihonWidget extends BaseWidget {
         return sourceId ? this.silencesBySourceId.get(sourceId) ?? [] : [];
     }
 
+    /** 行が属する素材 id。行に src が無ければ captions.json 側の同 id の字幕から引く。 */
+    protected sourceIdForRow(row: { id: string; src?: string | null }): string | undefined {
+        if (typeof row.src === 'string' && row.src.length > 0) return row.src;
+        return this.sourceCaptions.find(candidate => candidate.id === row.id)?.src;
+    }
+
+    /** 行ごとの無音。src → 秒（従来の 1 素材フォールバック） → 空 の順に解決する。 */
+    protected silencesForRow(row: { id: string; start: number; src?: string | null }): DaihonSilenceSpan[] {
+        const sourceId = this.sourceIdForRow(row);
+        if (sourceId) return this.silencesBySourceId.get(sourceId) ?? [];
+        return this.silencesForSeconds(row.start);
+    }
+
+    /** 行に素材 id を添えて行ごとの無音で行間チップを引く。 */
+    protected rowGapsForRows(rows: readonly DaihonRow[]): DaihonRowGap[] {
+        const withSource = rows.map(row => ({ ...row, src: this.sourceIdForRow(row) }));
+        return rowGapsWithSilences(withSource, row => this.silencesForRow(row));
+    }
+
     protected gapChipFor(row: DaihonRow): HTMLSpanElement | undefined {
         const gap = this.rowGaps.find(candidate => candidate.prevId === row.id
             && candidate.span >= DAIHON_SILENCE_DEFAULTS.minGapSec);
@@ -1110,7 +1129,7 @@ export class AkariDaihonWidget extends BaseWidget {
     }
 
     protected refreshRowGapChips(): void {
-        this.rowGaps = rowGapsWithSilences(this.rows, this.silencesForSeconds(this.rows[0]?.end ?? 0));
+        this.rowGaps = this.rowGapsForRows(this.rows);
         for (const row of this.rows) {
             const root = this.elements.get(row.id)?.root;
             if (!root) continue;
@@ -1126,7 +1145,7 @@ export class AkariDaihonWidget extends BaseWidget {
         this.rowsNode.querySelectorAll('.akari-daihon-cutcell').forEach(node => node.remove());
         this.rowsNode.querySelectorAll('.akari-daihon-gapzone').forEach(node => node.remove());
         this.rowsNode.querySelectorAll('.akari-daihon-gapdraft').forEach(node => node.remove());
-        this.rowGaps = rowGapsWithSilences(next, this.silencesForSeconds(next[0]?.end ?? 0));
+        this.rowGaps = this.rowGapsForRows(next);
         this.speakerColors = speakerColorMap(next);
         if (this.speakerFilter !== null && !this.speakerColors.has(this.speakerFilter)) this.speakerFilter = null;
         const plan = planDaihonUpdate(this.rows, next);
@@ -2023,7 +2042,7 @@ export class AkariDaihonWidget extends BaseWidget {
             : { kind: 'word', start: target.from, end: target.to, limitStart: row.start, limitEnd: row.end };
         const naturalWindow = cutRangeWindow(model, neighborWords);
         const waveWindow = cutRangeWaveWindow(model, neighborWords);
-        const silences = silencesInWindow(this.silencesForSeconds(model.start), waveWindow);
+        const silences = silencesInWindow(this.silencesForRow(row), waveWindow);
         const magnets = cutRangeMagnets(silences, neighborWords);
         let zoomSpan: number | undefined;
         let viewWindow = naturalWindow;

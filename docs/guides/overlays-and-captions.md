@@ -87,6 +87,7 @@ default. Apply the same correction later with `akari captions <project-dir> --re
 `start` / `end` of manually edited (`edited: true`) captions unchanged.
 When adjacent row display windows would overlap, speech alignment shares their boundary while keeping manually edited rows fixed.
 Pass `--no-snap` to `akari media transcribe` to disable automatic speech alignment.
+End-of-row silence chips, the range editor, and batch silence shortening use silence from the source (`src`) that owns each row, avoiding source mix-ups in multi-source projects and treating source boundaries as word gaps.
 `speaker` is filled in by cloud diarization (such as ElevenLabs Scribe); local engines (SpeechAnalyzer / whisper.cpp) leave it `null`.
 
 ## Lines, wrapping, scale and rotation
