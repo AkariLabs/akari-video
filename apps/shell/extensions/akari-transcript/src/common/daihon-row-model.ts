@@ -1,5 +1,5 @@
 import type { TimelineSegment } from '@akari-video/edit-store';
-import { sourceToOutput } from './daihon-time-map';
+import { segmentsForSource, sourceToOutputForSource } from './daihon-time-map';
 
 export interface DaihonCaptionWord {
     text: string;
@@ -35,6 +35,7 @@ export interface DaihonRow {
     outEnd: number | null;
     text: string;
     speaker: string | null;
+    src: string | null;
     /** 字幕テンプレ id。style の演出 enum とは別物。 */
     stylePreset: string | null;
     style: string | null;
@@ -88,6 +89,7 @@ export function buildDaihonRows(
         const words = caption.words?.length ? caption.words.map(word => ({ ...word })) : null;
         const unrecognized = caption.unrecognized?.map(span => ({ ...span })) ?? [];
         const timeDomain = caption.timeDomain ?? caption.time_domain ?? 'source';
+        const src = caption.src ?? null;
         let outStart: number | null;
         let outEnd: number | null;
         if (timeDomain === 'output') {
@@ -96,12 +98,12 @@ export function buildDaihonRows(
         } else if (!segments) {
             outStart = caption.start;
             outEnd = caption.end;
-        } else if (!overlapsKeptSource(segments, caption.start, caption.end)) {
+        } else if (!overlapsKeptSource(segmentsForSource(segments, src), caption.start, caption.end)) {
             outStart = null;
             outEnd = null;
         } else {
-            outStart = sourceToOutput(segments, caption.start);
-            outEnd = sourceToOutput(segments, caption.end);
+            outStart = sourceToOutputForSource(segments, src, caption.start);
+            outEnd = sourceToOutputForSource(segments, src, caption.end);
             if (outStart === null || outEnd === null || outEnd <= outStart) {
                 outStart = null;
                 outEnd = null;
@@ -124,7 +126,8 @@ export function buildDaihonRows(
             fragmentBreakCharacterOffsets: breaks.characterOffsets,
             fragmentBreakWordIndex: breaks.wordIndices[0] ?? breaks.characterOffsets[0] ?? null,
             edited: caption.edited === true,
-            timeDomain
+            timeDomain,
+            src
         };
     });
 }
