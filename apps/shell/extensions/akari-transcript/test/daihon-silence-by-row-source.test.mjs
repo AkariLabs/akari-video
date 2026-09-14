@@ -86,3 +86,51 @@ test('rowGapsForRows は各行の src に対応する無音を使う', () => {
   assert.deepEqual(instance.rowGapsForRows(rows).find(gap => gap.prevId === 's2-a'),
     { prevId: 's2-a', nextId: 's2-b', start: 6.5, end: 8.5, span: 2, source: 'silence' });
 });
+
+const uri = { parent: {
+  resolve: p => ({ normalizePath: () => ({ toString: () => `file:///project/${p}` }) }),
+  toString: () => 'file:///project'
+} };
+
+async function waveformRequest(overrides, row) {
+  const calls = [];
+  const instance = widget({
+    editUri: uri,
+    annotationsService: {
+      getClipWaveform: async request => {
+        calls.push(request);
+        return { status: 'ready', peaks: [] };
+      }
+    },
+    ...overrides
+  });
+  await instance.loadCutRangeWaveform(
+    { kind: 'word', start: 5, end: 6, limitStart: 5, limitEnd: 6 },
+    { start: 4, end: 7 },
+    row
+  );
+  return calls[0];
+}
+
+test('loadCutRangeWaveform は行の src を秒引きより優先する', async () => {
+  const request = await waveformRequest({
+    segments: [{ kind: 'src', src: 'src-1', in: 0, out: 20 }],
+    editSources: [{ id: 'src-1', path: 'one.mp4' }, { id: 'src-2', path: 'two.mp4' }]
+  }, { id: 'row', src: 'src-2' });
+  assert.equal(request.videoUri, 'file:///project/two.mp4');
+});
+
+test('loadCutRangeWaveform は行の src 無しなら秒引きを使う', async () => {
+  const request = await waveformRequest({
+    segments: [{ kind: 'src', src: 'src-2', in: 0, out: 20 }],
+    editSources: [{ id: 'src-1', path: 'one.mp4' }, { id: 'src-2', path: 'two.mp4' }]
+  });
+  assert.equal(request.videoUri, 'file:///project/two.mp4');
+});
+
+test('loadCutRangeWaveform は行と秒で解決不能なら先頭素材を使う', async () => {
+  const request = await waveformRequest({
+    editSources: [{ id: 'src-1', path: 'one.mp4' }, { id: 'src-2', path: 'two.mp4' }]
+  });
+  assert.equal(request.videoUri, 'file:///project/one.mp4');
+});

@@ -81,9 +81,9 @@ import {
     type DaihonCutRangeBand,
     type DaihonCutRangeSelection,
     type DaihonCutRangeTarget,
-    type DaihonCutRangeWindow,
-    type DaihonCutRangeWord
+    type DaihonCutRangeWindow
 } from '../../common/daihon-cut-range';
+import { neighborWordsForRow } from '../../common/daihon-neighbor-words';
 import {
     DAIHON_SILENCE_DEFAULTS,
     DAIHON_SILENCE_DETECT_DEFAULTS,
@@ -2019,22 +2019,16 @@ export class AkariDaihonWidget extends BaseWidget {
         this.closeCutRangeEditor();
         this.closePop();
         const openedAt = performance.now();
-        const fallbackWords = (candidate: DaihonRow | undefined): DaihonCutRangeWord[] => {
-            if (!candidate) return [];
-            return candidate.words?.length
-                ? candidate.words.map(word => ({ ...word }))
-                : [{ text: candidate.text.slice(0, 8) || '—', start: candidate.start, end: candidate.end }];
-        };
         const previousRow = target.kind === 'silence'
             ? this.rows.find(candidate => candidate.id === target.gap.prevId)
             : undefined;
         const nextRow = target.kind === 'silence'
             ? this.rows.find(candidate => candidate.id === target.gap.nextId)
             : undefined;
-        const neighborWords = [...this.rows]
-            .sort((left, right) => left.start - right.start || left.end - right.end)
-            .flatMap(candidate => fallbackWords(candidate))
-            .sort((left, right) => left.start - right.start || left.end - right.end);
+        const neighborRows = this.rows.map(candidate => ({ ...candidate, src: this.sourceIdForRow(candidate) ?? null }));
+        const neighborRow = neighborRows.find(candidate => candidate.id === row.id)
+            ?? { ...row, src: this.sourceIdForRow(row) ?? null };
+        const neighborWords = neighborWordsForRow(neighborRows, neighborRow);
         const model: DaihonCutRangeTarget = target.kind === 'silence'
             ? { kind: 'silence', start: target.gap.start, end: target.gap.end,
                 limitStart: previousRow?.start ?? target.gap.start - CUT_RANGE_PAD_SEC,
@@ -2214,7 +2208,7 @@ export class AkariDaihonWidget extends BaseWidget {
             zoomBy(event.deltaY < 0 ? 'in' : 'out');
         }, { passive: false });
         redraw();
-        void this.loadCutRangeWaveform(model, waveWindow).then(result => {
+        void this.loadCutRangeWaveform(model, waveWindow, row).then(result => {
             if (!root.isConnected) return;
             peaks = result.peaks;
             waveformStatus = result.status;
@@ -2240,13 +2234,20 @@ export class AkariDaihonWidget extends BaseWidget {
 
     protected async loadCutRangeWaveform(
         target: DaihonCutRangeTarget,
-        viewWindow: DaihonCutRangeWindow
+        viewWindow: DaihonCutRangeWindow,
+        row?: { id: string; src?: string | null }
     ): Promise<{ status: 'ready' | 'unavailable'; peaks?: number[] }> {
         if (!this.editUri) return { status: 'unavailable' };
+        const rowSourceId = row ? this.sourceIdForRow(row) : undefined;
+        const bySource = rowSourceId
+            ? this.editSources.find(candidate => candidate.id === rowSourceId)
+            : undefined;
         const segment = this.segments.find(candidate => candidate.kind === 'src'
             && (candidate.in ?? Number.POSITIVE_INFINITY) <= target.start
             && (candidate.out ?? Number.NEGATIVE_INFINITY) >= target.end);
-        const source = this.editSources.find(candidate => candidate.id === segment?.src) ?? this.editSources[0];
+        const source = bySource
+            ?? this.editSources.find(candidate => candidate.id === segment?.src)
+            ?? this.editSources[0];
         if (!source) return { status: 'unavailable' };
         try {
             return await this.annotationsService.getClipWaveform({

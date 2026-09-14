@@ -1,0 +1,251 @@
+{
+  "status": "pass",
+  "steps": [
+    {
+      "name": "1. 素材 2 の行の範囲エディタで波形 RPC が素材 2 のファイル・語の帯に素材 1 の語が出ない",
+      "pass": true,
+      "detail": {
+        "videoUri": "<TMP>/synthetic.mp4",
+        "projectRootUri": "<TMP>",
+        "startSeconds": 1,
+        "endSeconds": 13,
+        "bucketCount": 480,
+        "bandTexts": [
+          "ピポパ音源",
+          "ブザ",
+          "合図"
+        ],
+        "waveform": "ready",
+        "buckets": 480,
+        "editorSilences": [
+          {
+            "start": 5,
+            "end": 9
+          }
+        ],
+        "expectedSilence": {
+          "start": 5,
+          "end": 9.000021
+        }
+      }
+    },
+    {
+      "name": "2. 素材 2 の行の outStart が 28（= 素材 1 の区間長 26 + 行の start 2）でシークもその時刻へ行く",
+      "pass": true,
+      "detail": {
+        "rows": [
+          {
+            "id": "c-0001",
+            "start": 0.57,
+            "end": 2.34,
+            "outStart": 0.57,
+            "outEnd": 2.34,
+            "src": "src-1"
+          },
+          {
+            "id": "c-0002",
+            "start": 2.34,
+            "end": 5.2,
+            "outStart": 2.34,
+            "outEnd": 5.2,
+            "src": "src-1"
+          },
+          {
+            "id": "c-0003",
+            "start": 5.2,
+            "end": 8.22,
+            "outStart": 5.2,
+            "outEnd": 8.22,
+            "src": "src-1"
+          },
+          {
+            "id": "c-0004",
+            "start": 8.87,
+            "end": 14.14,
+            "outStart": 8.87,
+            "outEnd": 14.14,
+            "src": "src-1"
+          },
+          {
+            "id": "c-0005",
+            "start": 14.45,
+            "end": 18.99,
+            "outStart": 14.45,
+            "outEnd": 18.99,
+            "src": "src-1"
+          },
+          {
+            "id": "c-0006",
+            "start": 18.99,
+            "end": 22.68,
+            "outStart": 18.99,
+            "outEnd": 22.68,
+            "src": "src-1"
+          },
+          {
+            "id": "c-0007",
+            "start": 22.68,
+            "end": 23.9,
+            "outStart": 22.68,
+            "outEnd": 23.9,
+            "src": "src-1"
+          },
+          {
+            "id": "c-0008",
+            "start": 23.9,
+            "end": 25.84,
+            "outStart": 23.9,
+            "outEnd": 25.84,
+            "src": "src-1"
+          },
+          {
+            "id": "c-0009",
+            "start": 2,
+            "end": 4.5,
+            "outStart": 28,
+            "outEnd": 30.5,
+            "src": "src-2"
+          },
+          {
+            "id": "c-0010",
+            "start": 9.5,
+            "end": 12,
+            "outStart": 35.5,
+            "outEnd": 38,
+            "src": "src-2"
+          }
+        ],
+        "footer": "0:28.00 にプレビューをシークしました。",
+        "seeked": 28,
+        "expected": 28,
+        "seekedToPreview": true
+      }
+    },
+    {
+      "name": "3. 素材 1 の行（c-0003）の範囲エディタは従来どおり（波形 = 素材 1・語の帯は素材 1 の語）",
+      "pass": true,
+      "detail": {
+        "videoUri": "<TMP>/owner.MOV",
+        "startSeconds": 3.955,
+        "endSeconds": 15.955,
+        "bandTexts": [
+          "おりました",
+          "いい",
+          "感じ",
+          "にかけて",
+          "ます"
+        ],
+        "waveform": "ready",
+        "buckets": 480,
+        "editorSilences": [
+          {
+            "start": 6.56,
+            "end": 7.05
+          },
+          {
+            "start": 8.61,
+            "end": 11.3
+          },
+          {
+            "start": 12.33,
+            "end": 12.66
+          },
+          {
+            "start": 12.7,
+            "end": 13.14
+          }
+        ]
+      }
+    }
+  ],
+  "screenshots": [
+    "01-range-editor-source-2-waveform-words.png",
+    "02-row-source-2-outstart-seek.png",
+    "03-range-editor-source-1-unchanged.png"
+  ],
+  "cleanup": {
+    "killedPid": 74007,
+    "survivingProcesses": 0,
+    "workdir": "<TMP>"
+  },
+  "fixture": {
+    "ffmpeg": "<WORKTREE>/packages/media-bin/vendor/darwin-arm64/ffmpeg",
+    "syntheticSilences": [
+      {
+        "start": 5,
+        "end": 9.000021
+      }
+    ],
+    "expectedSilence": {
+      "start": 5,
+      "end": 9.000021
+    },
+    "src2OutputOffset": 26,
+    "expectedOutStart": {
+      "c-0009": 28,
+      "c-0010": 35.5
+    },
+    "buggyOutStart": {
+      "c-0009": 2
+    }
+  },
+  "rendererErrors": [],
+  "workspaceRoots": 1,
+  "waveHook": "hooked",
+  "chips": [
+    {
+      "id": "c-0001",
+      "chip": null,
+      "source": null
+    },
+    {
+      "id": "c-0002",
+      "chip": null,
+      "source": null
+    },
+    {
+      "id": "c-0003",
+      "chip": "··· 2.69",
+      "source": "silence"
+    },
+    {
+      "id": "c-0004",
+      "chip": "··· 1.75",
+      "source": "silence"
+    },
+    {
+      "id": "c-0005",
+      "chip": "··· 0.77",
+      "source": "silence"
+    },
+    {
+      "id": "c-0006",
+      "chip": "··· 0.73",
+      "source": "silence"
+    },
+    {
+      "id": "c-0007",
+      "chip": "··· 1.01",
+      "source": "silence"
+    },
+    {
+      "id": "c-0008",
+      "chip": null,
+      "source": null
+    },
+    {
+      "id": "c-0009",
+      "chip": "··· 4.00",
+      "source": "silence"
+    },
+    {
+      "id": "c-0010",
+      "chip": null,
+      "source": null
+    }
+  ],
+  "untouched": {
+    "captions": true,
+    "edit": true
+  }
+}

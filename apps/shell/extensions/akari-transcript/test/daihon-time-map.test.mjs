@@ -3,7 +3,9 @@ import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);
-const { sourceToOutput, outputToSource, resolveCurrent } = require('../lib/common/daihon-time-map.js');
+const {
+    sourceToOutput, sourceToOutputForSource, outputToSource, resolveCurrent
+} = require('../lib/common/daihon-time-map.js');
 const { sourceToOutput: canonicalSourceToOutput } = require('@akari-video/edit-store');
 
 const segments = [
@@ -20,6 +22,23 @@ test('sourceToOutput は edit-store 正本と同値である', () => {
             canonicalSourceToOutput(candidateSegments, sourceT)
         );
     }
+});
+
+test('sourceToOutputForSource は素材で候補を絞り、列全体の出力時刻へ写す', () => {
+    const perSource = [
+        { kind: 'src', src: 'src-1', cutIndex: 0, in: 0, out: 10, outStart: 0, outEnd: 10 },
+        { kind: 'src', src: 'src-2', cutIndex: 1, in: 0, out: 20, outStart: 10, outEnd: 30 }
+    ];
+    assert.equal(sourceToOutputForSource(perSource, 'src-2', 5), 15);
+    assert.equal(sourceToOutputForSource(perSource, 'src-1', 5), 5);
+    assert.equal(sourceToOutputForSource(perSource, null, 5), sourceToOutput(perSource, 5));
+    assert.equal(sourceToOutputForSource(perSource, undefined, 5), sourceToOutput(perSource, 5));
+    assert.equal(sourceToOutputForSource(perSource, 'src-9', 5), null);
+});
+
+test('sourceToOutputForSource は src 無しのレガシー列を従来どおり写す', () => {
+    const legacy = [{ kind: 'src', cutIndex: 0, in: 0, out: 10, outStart: 0, outEnd: 10 }];
+    assert.equal(sourceToOutputForSource(legacy, 'src-9', 5), sourceToOutput(legacy, 5));
 });
 
 test('outputToSource は edit-store の gap 契約を保つ', () => {

@@ -60,3 +60,26 @@ export function resolveCurrent(rows: readonly DaihonRow[], outputT: number): Dai
     }
     return { rowId: row.id, wordIndex: previous };
 }
+
+/**
+ * 素材 id で区間を絞る。`src` が無いとき、または列が素材 id を一切持たない
+ * （レガシーの 1 素材 cuts）ときは列をそのまま返す。
+ */
+export function segmentsForSource(
+    segments: readonly TimelineSegment[], src: string | null | undefined
+): readonly TimelineSegment[] {
+    if (!src) return segments;
+    if (!segments.some(segment => typeof segment.src === 'string' && segment.src.length > 0)) return segments;
+    return segments.filter(segment => segment.src === src);
+}
+
+/**
+ * ソース秒 → 出力秒を「その行の素材」の区間だけで写す。
+ * output オフセットは列全体の累積（= segment.outStart）をそのまま使う。
+ * `src` が null / undefined なら従来の sourceToOutput と同じ。
+ */
+export function sourceToOutputForSource(
+    segments: readonly TimelineSegment[], src: string | null | undefined, sourceT: number
+): number | null {
+    return mapSourceToOutput(segmentsForSource(segments, src), sourceT);
+}
