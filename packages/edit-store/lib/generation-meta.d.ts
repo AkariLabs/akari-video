@@ -38,6 +38,10 @@ export interface ReadGenerationMetaResult {
     binding: GenerationBinding | null;
 }
 export declare function sidecarPathFor(sourcePath: string): string;
+export declare function bindingShaFor(meta: GenerationMetaV1 | null | undefined): {
+    sha256: string;
+    source: 'result' | 'first_frame';
+} | null;
 /**
  * fs に触れず、サイドカー自身が表す状態だけを解決する。
  * `job.stale_after_s` が未指定・不正な場合は既定 900 秒を使う。

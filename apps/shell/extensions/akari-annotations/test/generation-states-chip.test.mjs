@@ -174,3 +174,14 @@ test('generation chip 更新は再描画で class を復元し、2 回適用し�
   assert.match(renderStrip, /element\.style\.pointerEvents = 'auto';\s*this\.applyGenerationChip\(element, generation\);\s*if \(created\)/);
   assert.match(renderStrip, /}\s*this\.applyGenerationChip\(element, cutGeneration\);\s*if \(created && unsupportedDeclaredTransitions/);
 });
+
+test('orphan の generation chip は孤児クラスとバッジを表示する', () => {
+  const element = new DummyElement();
+  applyGenerationChip.call({}, element, {
+    state: 'orphan',
+    meta: { version: 1, kind: 'video', status: 'done' },
+    binding: { expected: 'a', actual: 'b', matches: false, source: 'result' }
+  });
+  assert.match(element.className, /akari-generation-orphan/);
+  assert.equal(element.children.find(child => Object.hasOwn(child.dataset, 'akariGenerationBadge'))?.textContent, '孤児');
+});

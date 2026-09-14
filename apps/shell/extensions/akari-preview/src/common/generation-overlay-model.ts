@@ -3,7 +3,14 @@ import {
     resolveGenerationState as resolveGenerationStateHelper
 } from '@akari-video/edit-store';
 
-export type GenerationState = 'none' | 'planned' | 'generating' | 'stale' | 'done' | 'failed';
+export interface GenerationBindingView {
+    expected: string;
+    actual: string | null;
+    matches: boolean;
+    source: 'result' | 'first_frame';
+}
+
+export type GenerationState = 'none' | 'planned' | 'generating' | 'stale' | 'done' | 'failed' | 'orphan';
 
 // webview へ Function.prototype.toString() で流し込むため、helper は module 定数へ束ねる。
 // import 束縛のままだと tsc(commonjs) が `edit_store_1.resolveGenerationState` へ畳み、
@@ -29,8 +36,10 @@ export interface DescribeOverlayOptions {
     clipDurationSec?: number;
 }
 
-export function resolveGenerationState(meta: unknown, nowMs: number): GenerationState {
+export function resolveGenerationState(meta: unknown, nowMs: number, binding?: unknown): GenerationState {
     try {
+        if (binding && typeof binding === 'object' && !Array.isArray(binding)
+            && (binding as { matches?: unknown }).matches === false) return 'orphan';
         if (!meta || typeof meta !== 'object' || Array.isArray(meta)) return 'none';
         const value = meta as { version?: unknown; status?: unknown };
         if (value.version !== undefined && value.version !== 1) return 'none';
@@ -38,7 +47,7 @@ export function resolveGenerationState(meta: unknown, nowMs: number): Generation
             && value.status !== 'done' && value.status !== 'failed') return 'none';
         const state = resolveGenerationStateV1(meta as GenerationMetaV1, nowMs);
         if (state === 'none' || state === 'planned' || state === 'generating'
-            || state === 'stale' || state === 'done' || state === 'failed') return state;
+            || state === 'stale' || state === 'done' || state === 'failed' || state === 'orphan') return state;
         return 'none';
     } catch {
         return 'none';
@@ -68,6 +77,10 @@ export function describeOverlay(
         };
         const finiteNumber = (candidate: unknown): number | undefined =>
             typeof candidate === 'number' && Number.isFinite(candidate) ? candidate : undefined;
+
+        if (state === 'orphan') {
+            return { tag: `孤児 · ${beatLabel}`, band: null, shimmer: false, maskRect: null };
+        }
 
         if (state === 'failed') {
             const error = objectAt(value, 'error');

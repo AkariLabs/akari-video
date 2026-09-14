@@ -58,6 +58,23 @@ test('orphan は v1 タイムラインでは none に潰す', () => {
   }, startedAt), 'none');
 });
 
-test('orphan のチップは none と同じ見た目になる', () => {
-  assert.deepEqual(describeGenerationChip('orphan'), describeGenerationChip('none'));
+test('binding 不一致は orphan、binding 一致と省略は素の状態になる', () => {
+  const meta = { version: 1, kind: 'video', status: 'done' };
+  assert.equal(resolveGenerationState(meta, startedAt, {
+    expected: 'a', actual: 'b', matches: false, source: 'result'
+  }), 'orphan');
+  assert.equal(resolveGenerationState(meta, startedAt, {
+    expected: 'a', actual: 'a', matches: true, source: 'result'
+  }), 'done');
+  assert.equal(resolveGenerationState(meta, startedAt), 'done');
+});
+
+test('orphan は専用の見た目になり none とは異なる', () => {
+  const description = describeGenerationChip('orphan');
+  assert.deepEqual(description, {
+    badge: '孤児',
+    className: 'akari-generation-orphan',
+    title: '素材が変わりました（meta の sha256 と一致しません）'
+  });
+  assert.notDeepEqual(description, describeGenerationChip('none'));
 });

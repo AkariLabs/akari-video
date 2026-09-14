@@ -39,6 +39,7 @@ test('reduced motion、exportLook、生成更新メッセージを webview HTML 
     assert.match(previewBootstrapMethod, /akari-preview-set-export-look/u);
     assert.match(previewBootstrapMethod, /akari-preview-generation-update/u);
     assert.match(previewBootstrapMethod, /updateGenerationOverlay\(outputTime\)/u);
+    assert.match(previewBootstrapMethod, /resolveGenerationStateFn\(clip\.meta, Date\.now\(\), clip\.binding\)/u);
 });
 
 test('frame-engine と legacy の両 tick 経路が生成オーバーレイを更新する', () => {

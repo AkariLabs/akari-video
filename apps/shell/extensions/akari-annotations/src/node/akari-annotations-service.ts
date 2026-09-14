@@ -1,7 +1,7 @@
 import { injectable } from '@theia/core/shared/inversify';
 import URI from '@theia/core/lib/common/uri';
 import { writeAtomic, writeProjectFilesGuarded } from '@akari-video/edit-store/lib/write-gate';
-import { validateCaptionDisplayPolicy } from '@akari-video/edit-store';
+import { bindingShaFor, validateCaptionDisplayPolicy, type GenerationMetaV1 } from '@akari-video/edit-store';
 import { readInternalSources } from '@akari-video/edit-store/lib/internal-model';
 import {
     applyCutRanges as applyCutRangesToSource,
@@ -14,7 +14,7 @@ import { list as listHistory, restore as restoreHistory, snapshot as snapshotHis
 import { applyMigration, planMigration, revertMigration } from '@akari-video/edit-store/lib/migrate';
 import { execFile } from 'child_process';
 import { createHash } from 'crypto';
-import { promises as fs } from 'fs';
+import { createReadStream, promises as fs } from 'fs';
 import { basename, dirname, join, relative, sep, extname, isAbsolute, resolve } from 'path';
 import { pathToFileURL } from 'url';
 import { promisify } from 'util';
@@ -116,7 +116,7 @@ import {
 import type { SetAudioDuckRequest, SetAudioKeyframesRequest } from '../common/akari-annotations-protocol';
 import type { MeasureAudioForLevelRequest, MeasureAudioForLevelResult } from '../common/akari-annotations-protocol';
 import * as mediaCache from './media-cache';
-import type { GenerationSidecarMeta } from '../common/generation-sidecar';
+import type { GenerationBindingView, GenerationSidecarMeta } from '../common/generation-sidecar';
 import { measureAudioForLevel } from './audio-level-resolver';
 import { setSfxFadeInSource } from '../common/sfx-fade-store';
 import { setAudioDuckInSource, setAudioKeyframesInSource } from '../common/audio-envelope-store';
@@ -211,6 +211,38 @@ interface CanvasStrokeRecord {
 export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
     protected client: AkariAnnotationsClient | undefined;
     protected readonly generationCli = new GenerationCliManager();
+    protected readonly sourceShaCache = new Map<string, string>();
+
+    protected async hashSourceFile(absolutePath: string): Promise<string> {
+        const hash = createHash('sha256');
+        const stream = createReadStream(absolutePath);
+        for await (const chunk of stream as unknown as AsyncIterable<Buffer>) hash.update(chunk);
+        return hash.digest('hex');
+    }
+
+    protected async sourceSha256(absolutePath: string): Promise<string | null> {
+        try {
+            const sourceStat = await fs.lstat(absolutePath);
+            if (!sourceStat.isFile() || sourceStat.isSymbolicLink()) return null;
+            const canonicalPath = await fs.realpath(absolutePath);
+            const key = `${canonicalPath}\0${sourceStat.size}\0${sourceStat.mtimeMs}`;
+            const cached = this.sourceShaCache.get(key);
+            if (cached !== undefined) {
+                this.sourceShaCache.delete(key);
+                this.sourceShaCache.set(key, cached);
+                return cached;
+            }
+            const sha256 = await this.hashSourceFile(canonicalPath);
+            this.sourceShaCache.set(key, sha256);
+            if (this.sourceShaCache.size > 512) {
+                const oldest = this.sourceShaCache.keys().next().value as string | undefined;
+                if (oldest !== undefined) this.sourceShaCache.delete(oldest);
+            }
+            return sha256;
+        } catch {
+            return null;
+        }
+    }
 
     setClient(client: AkariAnnotationsClient | undefined): void {
         this.client = client;
@@ -248,13 +280,13 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
     async readGenerationSidecars(request: ReadGenerationSidecarsRequest): Promise<ReadGenerationSidecarsResult> {
         if (!request?.projectRootUri || !Array.isArray(request.sourcePaths)) return { entries: [] };
         const root = resolve(this.fsPath(request.projectRootUri));
-        const candidates = new Map<string, string>();
+        const candidates = new Map<string, { sidecarPath: string; sourceAbsolutePath: string }>();
         for (const sourcePath of request.sourcePaths) {
             if (typeof sourcePath !== 'string' || !sourcePath.trim()) continue;
             const sourceFsPath = /^[a-z][a-z\d+.-]*:/iu.test(sourcePath) && !/^[a-z]:[\\/]/iu.test(sourcePath)
                 ? this.fsPath(sourcePath) : sourcePath;
             const absolute = isAbsolute(sourceFsPath) ? resolve(sourceFsPath) : resolve(root, sourceFsPath);
-            candidates.set(sourcePath, `${absolute}.meta.json`);
+            candidates.set(sourcePath, { sidecarPath: `${absolute}.meta.json`, sourceAbsolutePath: absolute });
         }
         const generatedRoot = join(root, 'assets', 'generated');
         const visit = async (directory: string): Promise<void> => {
@@ -269,20 +301,41 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
                 if (entry.isDirectory()) return visit(path);
                 if (!entry.isFile() || !entry.name.endsWith('.meta.json')) return;
                 const sourcePath = relative(root, path.slice(0, -'.meta.json'.length)).split(sep).join('/');
-                if (!candidates.has(sourcePath)) candidates.set(sourcePath, path);
+                if (!candidates.has(sourcePath)) {
+                    candidates.set(sourcePath, {
+                        sidecarPath: path,
+                        sourceAbsolutePath: path.slice(0, -'.meta.json'.length)
+                    });
+                }
             }));
         };
         await visit(generatedRoot);
-        const loaded = await Promise.all([...candidates].map(async ([sourcePath, path]) => {
+        const loaded = await Promise.all([...candidates].map(async ([sourcePath, candidate]) => {
             try {
-                const parsed = JSON.parse(await fs.readFile(path, 'utf8')) as unknown;
-                return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
-                    ? { sourcePath, meta: parsed as GenerationSidecarMeta } : undefined;
+                const parsed = JSON.parse(await fs.readFile(candidate.sidecarPath, 'utf8')) as unknown;
+                if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return undefined;
+                const meta = parsed as GenerationSidecarMeta;
+                const expected = bindingShaFor(meta as GenerationMetaV1);
+                let binding: GenerationBindingView | null = null;
+                if (expected) {
+                    const actual = await this.sourceSha256(candidate.sourceAbsolutePath);
+                    binding = {
+                        expected: expected.sha256,
+                        actual,
+                        matches: actual === expected.sha256,
+                        source: expected.source
+                    };
+                }
+                return { sourcePath, meta, binding };
             } catch {
                 return undefined;
             }
         }));
-        return { entries: loaded.filter((entry): entry is { sourcePath: string; meta: GenerationSidecarMeta } => !!entry) };
+        return {
+            entries: loaded.filter((entry): entry is {
+                sourcePath: string; meta: GenerationSidecarMeta; binding: GenerationBindingView | null
+            } => !!entry)
+        };
     }
 
     async readGenerationCatalog(): Promise<ReadGenerationCatalogResult> {

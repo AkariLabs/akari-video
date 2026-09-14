@@ -15447,7 +15447,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     hideGenerationOverlay();
                     return;
                 }
-                const state = resolveGenerationStateFn(clip.meta, Date.now());
+                const state = resolveGenerationStateFn(clip.meta, Date.now(), clip.binding);
                 const description = describeOverlayFn(state, clip.meta, String(clip.name || clip.id || ''), {
                     sourcePath: typeof clip.sourcePath === 'string' ? clip.sourcePath : undefined,
                     localTimeSec: timelineTime - clip.start,
@@ -16275,6 +16275,7 @@ body { display: grid; place-items: center; padding: 32px; }
             });
             if (widget.isDisposed) return;
             const metaBySourcePath = new Map(sidecars.entries.map(entry => [entry.sourcePath, entry.meta]));
+            const bindingBySourcePath = new Map(sidecars.entries.map(entry => [entry.sourcePath, entry.binding ?? null]));
             const segments = this.previewCaptionTimelineSegments(summary.cuts, summary.output.fps);
             const clips = segments.flatMap(segment => {
                 if (segment.kind !== 'src' || segment.cutIndex === null) return [];
@@ -16287,7 +16288,8 @@ body { display: grid; place-items: center; padding: 32px; }
                     start: segment.outStart,
                     end: segment.outEnd,
                     sourcePath,
-                    meta: metaBySourcePath.get(sourcePath) ?? null
+                    meta: metaBySourcePath.get(sourcePath) ?? null,
+                    binding: bindingBySourcePath.get(sourcePath) ?? null
                 }];
             });
             widget.sendMessage({

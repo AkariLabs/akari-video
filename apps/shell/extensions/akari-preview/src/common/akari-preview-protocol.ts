@@ -1,4 +1,5 @@
 import { ReviewToolMode } from './review-tool-mode';
+import type { GenerationBindingView } from './generation-overlay-model';
 
 export const AKARI_PREVIEW_SERVICE_PATH = '/services/akari-preview';
 export const AkariPreviewService = Symbol('AkariPreviewService');
@@ -404,6 +405,7 @@ export interface GenerationSidecarEntry {
     meta: unknown | null;
     /** サイドカーの mtimeMs。無ければ null。 */
     mtimeMs: number | null;
+    binding: GenerationBindingView | null;
 }
 
 export interface ReadGenerationSidecarsResult {
