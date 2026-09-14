@@ -62,6 +62,8 @@ akari world overview .
 
 ## 6. 制作フロー
 
+作り方（ブリーフ → テンプレート → 台本 → `world-map.json` → `akari world`）は無料の純正スキル `akari:design-world`（`skills/design-world/SKILL.md`）が持つ。
+
 企画と絵コンテで章を world として宣言し、モーション区間は `world-map.json` → `akari world build` → overlay → 書き出しの順に処理する。実写区間との接点は portal とカットアウェイ章に限定する。
 
 ## 7. 将来拡張

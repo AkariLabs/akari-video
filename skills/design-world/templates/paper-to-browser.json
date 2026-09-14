@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "id": "paper-to-browser",
+  "for": "world-map",
+  "summary": "紙面を読み進め、紙の窓からブラウザ世界へ潜る構成。\n手書きの導入から製品画面や Web の説明へ自然につなぐ動画向け。",
+  "layout": { "origin": [0, 0], "worldWidth": 3300, "worldHeight": 1700, "worldGap": 500, "stopSpacing": 2000, "padding": 1100, "stopOffsetY": 170 },
+  "worlds": [
+    { "id": "paper", "label": "紙の世界", "pattern": "dots", "palette": { "background": "#fffdf7", "dots": "#d8cfbd", "accent": "#ee82df", "haze": "#fff4d8" } },
+    { "id": "browser", "label": "ブラウザの世界", "pattern": "grid", "palette": { "background": "#edf5ff", "dots": "#afc7e8", "accent": "#4285f4", "haze": "#f8fbff" } }
+  ],
+  "stops": [
+    { "id": "paper-note", "world": "paper", "scale": 1.12 },
+    { "id": "paper-window", "world": "paper", "scale": 1.28 },
+    { "id": "browser-arrival", "world": "browser", "scale": 1.2 },
+    { "id": "browser-detail", "world": "browser", "scale": 1.1 },
+    { "id": "browser-summary", "world": "browser", "scale": 1.0 }
+  ],
+  "edges": [
+    { "type": "move" },
+    { "type": "portal", "via": "paper-portal", "transition": "dive" },
+    { "type": "move" },
+    { "type": "move" }
+  ],
+  "sampleScript": {
+    "worlds": {
+      "paper": { "label": "メモの平原" },
+      "browser": { "label": "青い画面の街" }
+    },
+    "stops": [
+      { "id": "paper-note", "label": "最初のひとこと", "dwell": 2.2, "asset": "signpost" },
+      { "id": "paper-window", "label": "紙の入口", "dwell": 1.8, "asset": "portal-frame" },
+      { "id": "browser-arrival", "label": "画面に到着", "dwell": 2.0, "asset": "portal-frame" },
+      { "id": "browser-detail", "label": "機能を見る", "dwell": 2.4, "asset": "signpost" },
+      { "id": "browser-summary", "label": "次へ進む", "dwell": 2.0, "asset": "signpost" }
+    ],
+    "carry": ["guide-card"]
+  }
+}

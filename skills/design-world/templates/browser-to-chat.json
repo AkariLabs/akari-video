@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "id": "browser-to-chat",
+  "for": "world-map",
+  "summary": "ブラウザから portal で中間世界へ入り、霧の cut でチャットへ渡す構成。\n製品ページ、処理の舞台、会話の結果を三段で見せる動画向け。",
+  "layout": { "origin": [0, 0], "worldWidth": 3300, "worldHeight": 1700, "worldGap": 500, "stopSpacing": 2000, "padding": 1100, "stopOffsetY": 170 },
+  "worlds": [
+    { "id": "browser", "label": "ブラウザ", "pattern": "grid", "palette": { "background": "#eef6ff", "dots": "#b5ccea", "accent": "#4285f4", "haze": "#ffffff" } },
+    { "id": "bridge", "label": "接続路", "pattern": "dots", "palette": { "background": "#fff6dd", "dots": "#dfc990", "accent": "#ffd449", "haze": "#fffdf7" } },
+    { "id": "chat", "label": "チャット", "pattern": "none", "palette": { "background": "#f5efff", "dots": "#c8b8e8", "accent": "#ae91f3", "haze": "#fffaff" } }
+  ],
+  "stops": [
+    { "id": "browser-home", "world": "browser", "scale": 1.08 },
+    { "id": "browser-action", "world": "browser", "scale": 1.24 },
+    { "id": "bridge-entry", "world": "bridge", "scale": 1.2 },
+    { "id": "bridge-exit", "world": "bridge", "scale": 1.08 },
+    { "id": "chat-question", "world": "chat", "scale": 1.2 },
+    { "id": "chat-answer", "world": "chat", "scale": 1.06 }
+  ],
+  "edges": [
+    { "type": "move" },
+    { "type": "portal", "via": "screen-portal", "transition": "dive" },
+    { "type": "move" },
+    { "type": "cut", "via": "mist-bridge", "transition": "mist" },
+    { "type": "move" }
+  ],
+  "sampleScript": {
+    "worlds": {},
+    "stops": [
+      { "id": "browser-home", "label": "入口ページ", "dwell": 2.0, "asset": "portal-frame" },
+      { "id": "browser-action", "label": "操作を選ぶ", "dwell": 2.1, "asset": "signpost" },
+      { "id": "bridge-entry", "label": "接続路へ", "dwell": 1.6, "asset": "signpost" },
+      { "id": "bridge-exit", "label": "応答を待つ", "dwell": 1.7, "asset": "signpost" },
+      { "id": "chat-question", "label": "問いかけ", "dwell": 2.2, "asset": "signpost" },
+      { "id": "chat-answer", "label": "返事が届く", "dwell": 2.4, "asset": "signpost" }
+    ],
+    "carry": ["cursor-guide"]
+  }
+}

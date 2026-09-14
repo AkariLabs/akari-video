@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "id": "street-to-room",
+  "for": "world-map",
+  "summary": "街を move で歩き、門を portal として通り、短い中間世界から部屋へ着く構成。\n移動の実感を主役にしながら屋外から室内へ導く動画向け。",
+  "layout": { "origin": [0, 0], "worldWidth": 3300, "worldHeight": 1700, "worldGap": 500, "stopSpacing": 2000, "padding": 1100, "stopOffsetY": 170 },
+  "worlds": [
+    { "id": "street", "label": "通り", "pattern": "grid", "palette": { "background": "#edf8f2", "dots": "#a9cfbb", "accent": "#2fc983", "haze": "#f7fff9" } },
+    { "id": "doorway", "label": "玄関", "pattern": "dots", "palette": { "background": "#fff3dc", "dots": "#d8be8f", "accent": "#fa8072", "haze": "#fffaf0" } },
+    { "id": "room", "label": "部屋", "pattern": "none", "palette": { "background": "#f6f0ff", "dots": "#cbbce6", "accent": "#ae91f3", "haze": "#fffbff" } }
+  ],
+  "stops": [
+    { "id": "street-start", "world": "street", "scale": 1.0 },
+    { "id": "street-corner", "world": "street", "scale": 1.14 },
+    { "id": "doorway-outside", "world": "doorway", "scale": 1.22 },
+    { "id": "doorway-inside", "world": "doorway", "scale": 1.12 },
+    { "id": "room-table", "world": "room", "scale": 1.18 },
+    { "id": "room-seat", "world": "room", "scale": 1.04 }
+  ],
+  "edges": [
+    { "type": "move" },
+    { "type": "portal", "via": "doorway-portal", "transition": "dive" },
+    { "type": "move" },
+    { "type": "cut", "via": "mist-threshold", "transition": "mist" },
+    { "type": "move" }
+  ],
+  "sampleScript": {
+    "worlds": {},
+    "stops": [
+      { "id": "street-start", "label": "歩きはじめ", "dwell": 1.8, "asset": "signpost" },
+      { "id": "street-corner", "label": "角を曲がる", "dwell": 1.7, "asset": "signpost" },
+      { "id": "doorway-outside", "label": "入口を見つける", "dwell": 2.0, "asset": "portal-frame" },
+      { "id": "doorway-inside", "label": "敷居を越える", "dwell": 1.6, "asset": "signpost" },
+      { "id": "room-table", "label": "机に着く", "dwell": 2.1, "asset": "signpost" },
+      { "id": "room-seat", "label": "落ち着く", "dwell": 2.3, "asset": "signpost" }
+    ],
+    "carry": ["traveler-token"]
+  }
+}
