@@ -54,15 +54,15 @@ test('メタ: vendor の ONNX を追跡対象へ足すと CLI が落ち、理由
   assert.match(result.stderr, /FORBIDDEN:.*vendor\/rvm_mobilenetv3_fp32\.onnx/u);
 });
 
-test('メタ: prepack VENDOR_SOURCES へ RVM src を足すと CLI が落ちる', (t) => {
+test('メタ: vendor-sources.mjs の VENDOR_SOURCES へ RVM src を足すと CLI が落ちる', (t) => {
   const directory = temporaryDirectory(t);
-  const source = readFileSync(join(REPO_ROOT, 'packages/akari-launcher/scripts/prepack.mjs'), 'utf8');
-  const modified = source.replace('const VENDOR_SOURCES = [', "const VENDOR_SOURCES = [\n  'packages/matte-rvm/src',");
+  const source = readFileSync(join(REPO_ROOT, 'packages/akari-launcher/src/vendor-sources.mjs'), 'utf8');
+  const modified = source.replace('export const VENDOR_SOURCES = [', "export const VENDOR_SOURCES = [\n  'packages/matte-rvm/src',");
   assert.notEqual(modified, source);
-  const prepackPath = join(directory, 'prepack.mjs');
-  writeFileSync(prepackPath, modified);
+  const vendorSourcesPath = join(directory, 'vendor-sources.mjs');
+  writeFileSync(vendorSourcesPath, modified);
 
-  const result = runGuard(['--prepack', prepackPath]);
+  const result = runGuard(['--vendor-sources', vendorSourcesPath]);
   assert.notEqual(result.status, 0, result.stdout);
   assert.match(result.stderr, /FORBIDDEN:.*packages\/matte-rvm\/src.*GPL-3\.0/u);
 });

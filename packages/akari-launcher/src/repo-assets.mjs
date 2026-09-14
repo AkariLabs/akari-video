@@ -19,28 +19,59 @@ const SKILLS_MARKER = path.join('skills', 'analyze-footage', 'SKILL.md');
 // 雛形側の .gitignore 実体は project-scaffold の writeFallbackTemplate が補完する。
 const TEMPLATE_MARKER = path.join('templates', 'project-default', 'CLAUDE.md');
 const SCHEMAS_MARKER = path.join('packages', 'schemas', 'analysis.schema.json');
-const DOCTOR_SCRIPT_RELATIVE = path.join('skills', 'manage-connections', 'bin', 'doctor.mjs');
-const SCAFFOLD_MODULE_RELATIVE = path.join('packages', 'project-scaffold', 'src', 'index.mjs');
+export const DOCTOR_SCRIPT_RELATIVE = path.join('skills', 'manage-connections', 'bin', 'doctor.mjs');
+export const SCAFFOLD_MODULE_RELATIVE = path.join('packages', 'project-scaffold', 'src', 'index.mjs');
 // 作業場（creator-root）モジュール。① Wave（packages/creator-root）の成果物で、本パッケージ
 // からは読み取り専用（動的 import のみ）。scaffoldModulePath と同型の解決方式。
-const CREATOR_ROOT_MODULE_RELATIVE = path.join('packages', 'creator-root', 'src', 'index.mjs');
+export const CREATOR_ROOT_MODULE_RELATIVE = path.join('packages', 'creator-root', 'src', 'index.mjs');
 // 公式音源ライブラリ（AKARI Sounds）の一括取得スクリプト。初回動線（sounds-setup.mjs）と
 // `akari sounds` が子プロセスとして起動する。未同梱なら null（機能スキップ）。
-const AUDIO_FETCH_SCRIPT_RELATIVE = path.join('packages', 'audio-library-setup', 'bin', 'fetch-akari-sounds.mjs');
+export const AUDIO_FETCH_SCRIPT_RELATIVE = path.join('packages', 'audio-library-setup', 'bin', 'fetch-akari-sounds.mjs');
 // 素材 resolver（アカウントの素材 = 無料 + 購入済みの一覧・取得）の CLI 実体。
 // `akari assets <list|fetch|sync|...>`（assets-command.mjs）が子プロセスとして起動する。
 // 未同梱なら null（`akari assets` はその旨のエラーを返す。他コマンドは無影響）。
-const ASSET_RESOLVER_CLI_RELATIVE = path.join('packages', 'asset-resolver', 'bin', 'akari-assets.mjs');
-const BEATMAP_SCRIPT_RELATIVE = path.join('packages', 'akari-tools', 'bin', 'beatmap.mjs');
-const PROBE_FRAME_SCRIPT_RELATIVE = path.join('packages', 'akari-tools', 'bin', 'probe-frame.mjs');
-const DECISION_LOG_SCRIPT_RELATIVE = path.join('packages', 'akari-tools', 'bin', 'decision-log.mjs');
-const CAPTIONS_SCRIPT_RELATIVE = path.join('packages', 'akari-tools', 'bin', 'captions.mjs');
+export const ASSET_RESOLVER_CLI_RELATIVE = path.join('packages', 'asset-resolver', 'bin', 'akari-assets.mjs');
+export const BEATMAP_SCRIPT_RELATIVE = path.join('packages', 'akari-tools', 'bin', 'beatmap.mjs');
+export const PROBE_FRAME_SCRIPT_RELATIVE = path.join('packages', 'akari-tools', 'bin', 'probe-frame.mjs');
+export const DECISION_LOG_SCRIPT_RELATIVE = path.join('packages', 'akari-tools', 'bin', 'decision-log.mjs');
+export const CAPTIONS_SCRIPT_RELATIVE = path.join('packages', 'akari-tools', 'bin', 'captions.mjs');
 // capture-command.mjs のエラー文と apps/shell の同梱テストが同じ相対パスを名指しできるよう export する。
 export const CAPTURE_SCRIPT_RELATIVE = path.join('packages', 'akari-tools', 'bin', 'capture.mjs');
-const RENDER_WHEN_IDLE_SCRIPT_RELATIVE = path.join('packages', 'akari-tools', 'bin', 'render-when-idle.sh');
-const EYE_BAR_SCRIPT_RELATIVE = path.join('packages', 'akari-tools', 'bin', 'eye-bar.mjs');
+export const RENDER_WHEN_IDLE_SCRIPT_RELATIVE = path.join('packages', 'akari-tools', 'bin', 'render-when-idle.sh');
+export const EYE_BAR_SCRIPT_RELATIVE = path.join('packages', 'akari-tools', 'bin', 'eye-bar.mjs');
+export const FINGER_FRAME_SCRIPT_RELATIVE = path.join('packages', 'akari-tools', 'bin', 'finger-frame.mjs');
+export const MEDIA_SCRIPT_RELATIVE = path.join('packages', 'akari-tools', 'bin', 'media.mjs');
+export const WORD_BOOK_SCRIPT_RELATIVE = path.join('packages', 'akari-tools', 'bin', 'word-book.mjs');
 export const GENERATE_CLI_RELATIVE = path.join('packages', 'generate', 'src', 'cli', 'index.mjs');
 export const STORYBOARD_CLI_RELATIVE = path.join('packages', 'decision-cards', 'render-storyboard-print.mjs');
+export const WORLD_CLI_RELATIVE = path.join('packages', 'akari-tools', 'bin', 'world.mjs');
+export const WORLD_VALIDATOR_RELATIVE = path.join('packages', 'schemas', 'bin', 'validate-world-map.mjs');
+
+// launcher が直接または起動した CLI の子プロセスとして解決する実行体の正本。
+// launcher-assets は resolveLauncherAssets() が資産フィールド単位で vendor を補完できる経路、
+// resources は assets.repoRoot または実行中 CLI の位置から自己解決し、vendor を見ない経路。
+// relative は上の解決定数だけから組み立て、配布検査と実行時解決の文字列を乖離させない。
+export const LAUNCHER_SUBCOMMAND_EXECUTABLES = [
+  { command: '接続 doctor（manage-connections）', relative: DOCTOR_SCRIPT_RELATIVE, resolution: 'launcher-assets' },
+  { command: 'akari new', relative: SCAFFOLD_MODULE_RELATIVE, resolution: 'launcher-assets' },
+  { command: '初回動線（first-run）の作業場モジュール', relative: CREATOR_ROOT_MODULE_RELATIVE, resolution: 'launcher-assets' },
+  { command: 'akari sounds', relative: AUDIO_FETCH_SCRIPT_RELATIVE, resolution: 'launcher-assets' },
+  { command: 'akari assets', relative: ASSET_RESOLVER_CLI_RELATIVE, resolution: 'launcher-assets' },
+  { command: 'akari internal beat-sync-beatmap', relative: BEATMAP_SCRIPT_RELATIVE, resolution: 'launcher-assets' },
+  { command: 'akari internal beat-sync-probe-frame', relative: PROBE_FRAME_SCRIPT_RELATIVE, resolution: 'launcher-assets' },
+  { command: 'akari decision-log', relative: DECISION_LOG_SCRIPT_RELATIVE, resolution: 'launcher-assets' },
+  { command: 'akari captions', relative: CAPTIONS_SCRIPT_RELATIVE, resolution: 'launcher-assets' },
+  { command: 'akari capture', relative: CAPTURE_SCRIPT_RELATIVE, resolution: 'launcher-assets' },
+  { command: 'akari internal beat-sync-render-when-idle', relative: RENDER_WHEN_IDLE_SCRIPT_RELATIVE, resolution: 'launcher-assets' },
+  { command: 'akari internal eye-bar', relative: EYE_BAR_SCRIPT_RELATIVE, resolution: 'launcher-assets' },
+  { command: 'akari internal vision-finger-frame', relative: FINGER_FRAME_SCRIPT_RELATIVE, resolution: 'resources' },
+  { command: 'akari media', relative: MEDIA_SCRIPT_RELATIVE, resolution: 'launcher-assets' },
+  { command: 'akari word-book', relative: WORD_BOOK_SCRIPT_RELATIVE, resolution: 'launcher-assets' },
+  { command: 'akari generate', relative: GENERATE_CLI_RELATIVE, resolution: 'launcher-assets' },
+  { command: 'akari storyboard', relative: STORYBOARD_CLI_RELATIVE, resolution: 'launcher-assets' },
+  { command: 'akari world', relative: WORLD_CLI_RELATIVE, resolution: 'resources' },
+  { command: 'akari world check', relative: WORLD_VALIDATOR_RELATIVE, resolution: 'resources' }
+];
 
 /**
  * 指定ルート配下に同梱されているスキル正本・雛形・schemas・scaffold 実装・creator-root
@@ -59,9 +90,9 @@ export function resolveRepoAssets(repoRoot = DEFAULT_REPO_ROOT_CANDIDATE) {
   const probeFrameScript = path.join(repoRoot, PROBE_FRAME_SCRIPT_RELATIVE);
   const renderWhenIdleScript = path.join(repoRoot, RENDER_WHEN_IDLE_SCRIPT_RELATIVE);
   const eyeBarScript = path.join(repoRoot, EYE_BAR_SCRIPT_RELATIVE);
-  const mediaScript = path.join(repoRoot, 'packages', 'akari-tools', 'bin', 'media.mjs');
+  const mediaScript = path.join(repoRoot, MEDIA_SCRIPT_RELATIVE);
   const decisionLogScript = path.join(repoRoot, DECISION_LOG_SCRIPT_RELATIVE);
-  const wordBookScript = path.join(repoRoot, 'packages', 'akari-tools', 'bin', 'word-book.mjs');
+  const wordBookScript = path.join(repoRoot, WORD_BOOK_SCRIPT_RELATIVE);
   const generateScript = path.join(repoRoot, GENERATE_CLI_RELATIVE);
   const storyboardScript = path.join(repoRoot, STORYBOARD_CLI_RELATIVE);
 

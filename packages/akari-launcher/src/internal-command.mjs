@@ -2,7 +2,7 @@ import { existsSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 
-import { resolveLauncherAssets } from './repo-assets.mjs';
+import { FINGER_FRAME_SCRIPT_RELATIVE, resolveLauncherAssets } from './repo-assets.mjs';
 
 const commands = [
   'beat-sync-beatmap',
@@ -31,12 +31,10 @@ export async function runInternalCommand(args, options = {}) {
     return { exitCode: 0 };
   }
 
-  // vision-finger-frame は task/2026-08-11-finger-frame-generator の境界規約により
-  // repo-assets.mjs（別タスク task/2026-08-11-eye-bar-generator と衝突しやすい共有ファイル）を
-  // 編集せず、他コマンドと違い assets.repoRoot から自己解決する（resolveRepoAssets() 側に
-  // フィールドを追加していない唯一の例外 -- 経緯は非公開の内部記録を参照）。
+  // vision-finger-frame は他コマンドと違い assets.repoRoot から自己解決するが、
+  // 相対パス自体は配布検査と共有する repo-assets.mjs の正本を使う。
   const fingerFrameScript = assets.repoRoot
-    ? path.join(assets.repoRoot, 'packages', 'akari-tools', 'bin', 'finger-frame.mjs')
+    ? path.join(assets.repoRoot, FINGER_FRAME_SCRIPT_RELATIVE)
     : null;
 
   const definitions = {

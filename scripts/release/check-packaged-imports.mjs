@@ -19,6 +19,7 @@
 //   4. リポジトリのソースツリーにある package 解決関数の文字列リテラル引数を走査し、模擬 Resources
 //      の packages/<pkg>/<rel> に実体があるか検査する。非リテラル引数は参考情報に留める
 //   5. 動的 import("x") は参考情報（hyperframes のように意図的に同梱しない依存があるため fail にしない）
+//   6. launcher が宣言するサブコマンド実行体を、模擬 Resources または npm vendor の同梱規則と照合する
 //
 // 前提: resources/cli-node-modules が staging 済み（scripts/release/install-bundled-cli-deps.mjs →
 // apps/shell/resources/scripts/bundle-cli-node-modules.mjs）。無ければ bare import は全部 missing になる。
@@ -32,6 +33,8 @@ import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { RESTRICTED_ASSETS } from './check-no-gpl-redistribution.mjs';
+import { LAUNCHER_SUBCOMMAND_EXECUTABLES } from '../../packages/akari-launcher/src/repo-assets.mjs';
+import { VENDOR_SOURCES } from '../../packages/akari-launcher/src/vendor-sources.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(here, '..', '..');
@@ -39,6 +42,18 @@ const args = process.argv.slice(2);
 const shellPackagePath = resolve(REPO_ROOT, args.includes('--shell-package') ? args[args.indexOf('--shell-package') + 1] : 'apps/shell/package.json');
 const SHELL_DIR = resolve(REPO_ROOT, 'apps', 'shell');
 const keep = args.includes('--keep');
+
+// 2026-09-14 実測: launcher が宣言する akari internal 系 5 本はデスクトップ配布物に
+// 同梱されていない。本変更は akari world の同梱だけを対象とし、この 5 本は意図的に直さず
+// 別票で扱う。先例コミット 05321ff2（akari capture の同梱漏れ修正）でも同じ 5 本を
+// 不採用と記録している。今後いずれかが同梱されたらこの集合から外すこと（陳腐化検出が失敗させる）。
+export const KNOWN_UNPACKAGED = new Set([
+  'akari internal beat-sync-beatmap',
+  'akari internal beat-sync-probe-frame',
+  'akari internal beat-sync-render-when-idle',
+  'akari internal eye-bar',
+  'akari internal vision-finger-frame',
+]);
 
 // resolvePackageDir はまだ export されていないが、追加時に走査漏れを作らないため同じ正本へ置く。
 export const PACKAGE_RESOLVER_NAMES = new Set([
@@ -356,6 +371,39 @@ export function scanPackageResolverCalls({ repoRoot = REPO_ROOT, resourcesRoot }
   return { scanned: files.length, found, missing, excluded, dynamic };
 }
 
+// launcher の実行時パス正本を、Electron の Resources と npm vendor の双方の
+// 同梱規則へ照合する。既知例外が実際には同梱済みなら例外表の陳腐化として失敗させる。
+export function scanLauncherSubcommands({
+  repoRoot = REPO_ROOT,
+  resourcesRoot,
+  knownUnpackaged = KNOWN_UNPACKAGED,
+  executables = LAUNCHER_SUBCOMMAND_EXECUTABLES,
+  vendorSources = VENDOR_SOURCES,
+}) {
+  const present = [];
+  const missing = [];
+  const unpackaged = [];
+  const staleKnownUnpackaged = [];
+  for (const executable of executables) {
+    const normalized = executable.relative.split('\\').join('/');
+    const inResources = existsSync(join(resourcesRoot, ...normalized.split('/')));
+    const inVendor = executable.resolution === 'launcher-assets'
+      && vendorSources.some((source) => normalized === source || normalized.startsWith(`${source}/`))
+      && existsSync(join(repoRoot, ...normalized.split('/')));
+    const item = { ...executable, relative: normalized, source: inResources ? 'Resources' : inVendor ? 'vendor' : null };
+    const known = knownUnpackaged.has(executable.command);
+    if (inResources || inVendor) {
+      present.push(item);
+      if (known) staleKnownUnpackaged.push(item);
+    } else if (known) {
+      unpackaged.push(item);
+    } else {
+      missing.push(item);
+    }
+  }
+  return { present, missing, unpackaged, staleKnownUnpackaged };
+}
+
 export function defaultEntries(resourcesRoot) {
   const entries = [];
   const packagesDir = join(resourcesRoot, 'packages');
@@ -394,6 +442,7 @@ if (process.argv[1] && realpathSync(process.argv[1]) === realpathSync(fileURLToP
   const entries = defaultEntries(resourcesRoot);
   const { walked, missing, dynamic } = walkImports(entries, resourcesRoot);
   const packageResolvers = scanPackageResolverCalls({ resourcesRoot });
+  const launcherSubcommands = scanLauncherSubcommands({ resourcesRoot });
   console.log(`check-packaged-imports: entries ${entries.length} / walked ${walked} files / Resources = ${resourcesRoot}`);
   if (skipped.length > 0) console.log(`  skipped (from が存在しない・生成物など): ${skipped.join(', ')}`);
   for (const entry of entries) console.log(`  entry: ${relative(resourcesRoot, entry)}`);
@@ -419,11 +468,26 @@ if (process.argv[1] && realpathSync(process.argv[1]) === realpathSync(fileURLToP
       console.error(`    (${item.resolver}) ${item.specifier}  <- ${item.from}:${item.line}`);
     }
   }
+  if (launcherSubcommands.unpackaged.length > 0) {
+    console.log(`  launcher 未同梱（既知の穴・別票の材料）: ${launcherSubcommands.unpackaged.length}`);
+    for (const item of launcherSubcommands.unpackaged) console.log(`    ${item.command}  -> ${item.relative}`);
+  }
+  if (launcherSubcommands.staleKnownUnpackaged.length > 0) {
+    console.error(`check-packaged-imports: KNOWN_UNPACKAGED STALE ${launcherSubcommands.staleKnownUnpackaged.length}`);
+    for (const item of launcherSubcommands.staleKnownUnpackaged) {
+      console.error(`    ${item.command}  -> ${item.relative} は同梱されたので KNOWN_UNPACKAGED から外してください`);
+    }
+  }
+  if (launcherSubcommands.missing.length > 0) {
+    console.error(`check-packaged-imports: LAUNCHER SUBCOMMAND MISSING ${launcherSubcommands.missing.length}`);
+    for (const item of launcherSubcommands.missing) console.error(`    ${item.command}  -> ${item.relative}`);
+  }
   if (missing.length > 0) {
     console.error(`check-packaged-imports: MISSING ${missing.length}（パッケージ版で ERR_MODULE_NOT_FOUND になる）`);
     for (const item of missing) console.error(`    ${item.specifier}  <- imported from ${item.from}`);
   }
-  if (missing.length > 0 || packageResolvers.missing.length > 0) {
+  if (missing.length > 0 || packageResolvers.missing.length > 0
+    || launcherSubcommands.missing.length > 0 || launcherSubcommands.staleKnownUnpackaged.length > 0) {
     if (!keep) rmSync(dirname(resourcesRoot), { recursive: true, force: true });
     process.exit(1);
   }
