@@ -306,3 +306,84 @@ export function clampAdjacentSegments(segments, opts = {}) {
   }
   return { segments: result, clamped_pairs: clampedPairs, overlaps_left: overlapsLeft };
 }
+
+/** 編集済み行の語を、行の枠 [start, end] の内側へ収める。行の start / end は動かさない。 */
+export function fitWordsIntoWindow(words, window, opts = {}) {
+  const source = Array.isArray(words) ? words : [];
+  const copy = source.map((word) => ({ ...word }));
+  const windowStart = Number(window?.start);
+  const windowEnd = Number(window?.end);
+  const minWordSec = Number(opts.minWordSec ?? SPEECH_SNAP_DEFAULTS.minWordSec);
+  if (!source.length || !Number.isFinite(windowStart) || !Number.isFinite(windowEnd)
+    || windowEnd <= windowStart
+    || source.some((word) => !Number.isFinite(Number(word.start)) || !Number.isFinite(Number(word.end)))) {
+    return { words: copy, fitted: 0 };
+  }
+
+  const changedCount = () => copy.reduce((count, word, index) => count
+    + (word.start !== source[index].start || word.end !== source[index].end ? 1 : 0), 0);
+  const windowDuration = windowEnd - windowStart;
+  if (windowDuration < source.length * minWordSec - 1e-9) {
+    const spanStart = Math.min(...source.map((word) => Number(word.start)));
+    const spanEnd = Math.max(...source.map((word) => Number(word.end)));
+    const spanDuration = spanEnd - spanStart;
+    let mapped = spanDuration > 0
+      ? source.map((word) => ({
+        ...word,
+        start: round(windowStart + (Number(word.start) - spanStart) * windowDuration / spanDuration),
+        end: round(windowStart + (Number(word.end) - spanStart) * windowDuration / spanDuration),
+      }))
+      : [];
+    const valid = mapped.length === source.length && mapped.every((word, index) => word.start >= windowStart
+      && word.end <= windowEnd && word.start < word.end
+      && (index === 0 || word.start >= mapped[index - 1].end));
+    if (!valid) {
+      const slot = windowDuration / source.length;
+      mapped = source.map((word, index) => ({
+        ...word,
+        start: round(windowStart + index * slot),
+        end: round(windowStart + (index + 1) * slot),
+      }));
+    }
+    copy.splice(0, copy.length, ...mapped);
+    return { words: copy, fitted: changedCount() };
+  }
+
+  let limit = windowEnd;
+  for (let index = copy.length - 1; index >= 0; index -= 1) {
+    const word = copy[index];
+    if (word.end <= limit) {
+      limit = Math.min(limit, word.start);
+      continue;
+    }
+    let newEnd = limit;
+    let newStart = word.start;
+    if (newEnd - newStart < minWordSec) {
+      newEnd = limit;
+      newStart = limit - minWordSec;
+    }
+    word.start = round(newStart);
+    word.end = round(newEnd);
+    limit = word.start;
+  }
+
+  limit = windowStart;
+  for (let index = 0; index < copy.length; index += 1) {
+    const word = copy[index];
+    if (word.start >= limit) {
+      limit = Math.max(limit, word.end);
+      continue;
+    }
+    let newStart = limit;
+    let newEnd = word.end;
+    if (newEnd - newStart < minWordSec) {
+      newStart = limit;
+      newEnd = limit + minWordSec;
+    }
+    word.start = round(newStart);
+    word.end = round(newEnd);
+    limit = word.end;
+  }
+
+  return { words: copy, fitted: changedCount() };
+}

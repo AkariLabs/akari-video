@@ -86,6 +86,7 @@ default. Apply the same correction later with `akari captions <project-dir> --re
 “⏱ Align to speech” button in the script header. This preserves the text and keeps the row-level
 `start` / `end` of manually edited (`edited: true`) captions unchanged.
 When adjacent row display windows would overlap, speech alignment shares their boundary while keeping manually edited rows fixed.
+For manually edited rows, it also fits every word inside the row's display window.
 Pass `--no-snap` to `akari media transcribe` to disable automatic speech alignment.
 `speaker` is filled in by cloud diarization (such as ElevenLabs Scribe); local engines (SpeechAnalyzer / whisper.cpp) leave it `null`.
 

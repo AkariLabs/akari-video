@@ -1,4 +1,4 @@
-import { clampAdjacentSegments, detectSpeechChunks, snapSegmentsToWords, snapWordsToSpeech } from "../media/speech-align.mjs";
+import { clampAdjacentSegments, detectSpeechChunks, fitWordsIntoWindow, snapSegmentsToWords, snapWordsToSpeech } from "../media/speech-align.mjs";
 
 export function retimeCaptionsToSpeech(captions, { silences, duration, source } = {}) {
   const rows = Array.isArray(captions) ? captions : [];
@@ -9,14 +9,17 @@ export function retimeCaptionsToSpeech(captions, { silences, duration, source } 
   const flatWords = selected.flatMap((row) => row.words);
   const snapped = snapWordsToSpeech(flatWords, chunks);
   let offset = 0;
+  let fittedWords = 0;
   const aligned = [];
   for (const row of selected) {
     const words = snapped.words.slice(offset, offset + row.words.length);
     offset += row.words.length;
     const [withBounds] = snapSegmentsToWords([{ ...row, words }]);
-    aligned.push(row.edited === true
-      ? { ...withBounds, start: row.start, end: row.end, fixed: true }
-      : { ...withBounds, fixed: false });
+    if (row.edited === true) {
+      const fitted = fitWordsIntoWindow(withBounds.words, { start: row.start, end: row.end });
+      fittedWords += fitted.fitted;
+      aligned.push({ ...withBounds, words: fitted.words, start: row.start, end: row.end, fixed: true });
+    } else aligned.push({ ...withBounds, fixed: false });
   }
   const clamped = clampAdjacentSegments(aligned);
   const replacements = new Map(selected.map((row, index) => {
@@ -27,6 +30,7 @@ export function retimeCaptionsToSpeech(captions, { silences, duration, source } 
     captions: rows.map((row) => replacements.get(row) ?? row),
     moved: snapped.moved,
     total: snapped.total,
+    fitted_words: fittedWords,
     clamped_pairs: clamped.clamped_pairs,
     overlaps_left: clamped.overlaps_left,
   };
