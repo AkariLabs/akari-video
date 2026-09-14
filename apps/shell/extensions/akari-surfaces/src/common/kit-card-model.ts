@@ -1,6 +1,6 @@
 import { KIT_ENABLE_HINT } from './kit-enable-hint';
 
-export const KIT_REDEEM_URL = 'https://akari-oss.app/lab/redeem';
+export const KIT_LAB_URL = 'https://akari.video/lab/asset?id=world-kit';
 
 export interface KitCardEntitledProduct {
     id: string;
@@ -26,7 +26,7 @@ export type KitCardModel =
     | { kind: 'hidden' }
     | { kind: 'installed'; kits: KitCardKit[]; showEnableHint: boolean; enableCommand: string }
     | { kind: 'purchased'; productIds: string[]; installCommand: string }
-    | { kind: 'unpurchased'; redeemUrl: string };
+    | { kind: 'unpurchased'; labUrl: string };
 
 export function buildKitCardModel(input: KitCardInput): KitCardModel {
     if (!input.connected) { return { kind: 'hidden' }; }
@@ -51,5 +51,5 @@ export function buildKitCardModel(input: KitCardInput): KitCardModel {
             installCommand: productIds.map(id => `akari store install ${id}`).join('\n')
         };
     }
-    return { kind: 'unpurchased', redeemUrl: KIT_REDEEM_URL };
+    return { kind: 'unpurchased', labUrl: KIT_LAB_URL };
 }

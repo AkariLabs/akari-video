@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { buildKitCardModel, KIT_REDEEM_URL } from '../../lib/common/kit-card-model.js';
+import { buildKitCardModel, KIT_LAB_URL } from '../../lib/common/kit-card-model.js';
 
 const base = {
     connected: true,
@@ -52,11 +52,11 @@ test('kit 以外の entitlement しかなければ unpurchased', () => {
     assert.deepEqual(buildKitCardModel({
         ...base,
         entitledProducts: [{ id: 'course', kind: 'course', currentVersion: 1 }]
-    }), { kind: 'unpurchased', redeemUrl: KIT_REDEEM_URL });
+    }), { kind: 'unpurchased', labUrl: KIT_LAB_URL });
 });
 
 test('entitlement が空なら unpurchased', () => {
-    assert.deepEqual(buildKitCardModel(base), { kind: 'unpurchased', redeemUrl: KIT_REDEEM_URL });
+    assert.deepEqual(buildKitCardModel(base), { kind: 'unpurchased', labUrl: KIT_LAB_URL });
 });
 
 test('導入済み id と同じ entitlement しかない場合も installed が勝つ', () => {
