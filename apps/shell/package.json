@@ -169,11 +169,17 @@
         "to": "packages/akari-tools",
         "filter": [
           "package.json",
+          "bin/beatmap.mjs",
           "bin/captions.mjs",
           "bin/capture.mjs",
           "bin/decision-log.mjs",
+          "bin/eye-bar.mjs",
+          "bin/finger-frame.mjs",
+          "bin/finger-frame/**/*",
           "bin/avatar-vrm/find-chrome.mjs",
           "bin/media.mjs",
+          "bin/probe-frame.mjs",
+          "bin/render-when-idle.sh",
           "bin/word-book.mjs",
           "bin/world.mjs",
           "src/**/*"

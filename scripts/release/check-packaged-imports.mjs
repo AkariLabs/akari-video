@@ -43,17 +43,9 @@ const shellPackagePath = resolve(REPO_ROOT, args.includes('--shell-package') ? a
 const SHELL_DIR = resolve(REPO_ROOT, 'apps', 'shell');
 const keep = args.includes('--keep');
 
-// 2026-09-14 実測: launcher が宣言する akari internal 系 5 本はデスクトップ配布物に
-// 同梱されていない。本変更は akari world の同梱だけを対象とし、この 5 本は意図的に直さず
-// 別票で扱う。先例コミット 05321ff2（akari capture の同梱漏れ修正）でも同じ 5 本を
-// 不採用と記録している。今後いずれかが同梱されたらこの集合から外すこと（陳腐化検出が失敗させる）。
-export const KNOWN_UNPACKAGED = new Set([
-  'akari internal beat-sync-beatmap',
-  'akari internal beat-sync-probe-frame',
-  'akari internal beat-sync-render-when-idle',
-  'akari internal eye-bar',
-  'akari internal vision-finger-frame',
-]);
+// 2026-09-14 に akari internal 系 5 本を同梱したので、既知の穴は無くなった。
+// 将来また意図的に同梱しないサブコマンドが出たら、ここへ追加すること。
+export const KNOWN_UNPACKAGED = new Set([]);
 
 // resolvePackageDir はまだ export されていないが、追加時に走査漏れを作らないため同じ正本へ置く。
 export const PACKAGE_RESOLVER_NAMES = new Set([

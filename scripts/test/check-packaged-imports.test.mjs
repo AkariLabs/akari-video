@@ -62,12 +62,12 @@ function shellPackageWithoutWorldValidator(t) {
   return fixturePath;
 }
 
-function shellPackageWithKnownInternal(t) {
+function shellPackageWithoutBeatmap(t) {
   const directory = temporaryDirectory(t);
   const shellPackage = JSON.parse(readFileSync(SHELL_PACKAGE, 'utf8'));
   const toolsResource = shellPackage.build.extraResources.find((entry) => entry.to === 'packages/akari-tools');
-  assert.ok(toolsResource?.filter, 'akari-tools fixture entry');
-  toolsResource.filter.push('bin/beatmap.mjs');
+  assert.ok(toolsResource?.filter?.includes('bin/beatmap.mjs'), 'beatmap fixture entry');
+  toolsResource.filter = toolsResource.filter.filter((entry) => entry !== 'bin/beatmap.mjs');
   const fixturePath = join(directory, 'package.json');
   writeFileSync(fixturePath, `${JSON.stringify(shellPackage, null, 2)}\n`);
   return fixturePath;
@@ -112,6 +112,29 @@ test('launcher サブコマンド実行体は実 Resources または vendor に�
   assert.ok(result.present.some((item) => item.command === 'akari world check' && item.relative === WORLD_VALIDATOR_RELATIVE));
 });
 
+test('akari internal 系 5 本は実 Resources に present として数えられる', (t) => {
+  const directory = temporaryDirectory(t);
+  const resourcesRoot = join(directory, 'Resources');
+  mkdirSync(resourcesRoot, { recursive: true });
+  const shellPackage = JSON.parse(readFileSync(SHELL_PACKAGE, 'utf8'));
+  assembleResources(shellPackage, { resourcesRoot });
+
+  const result = scanLauncherSubcommands({ repoRoot: REPO_ROOT, resourcesRoot });
+  const expected = [
+    'akari internal beat-sync-beatmap',
+    'akari internal beat-sync-probe-frame',
+    'akari internal beat-sync-render-when-idle',
+    'akari internal eye-bar',
+    'akari internal vision-finger-frame',
+  ];
+  for (const command of expected) {
+    assert.ok(
+      result.present.some((item) => item.command === command && item.source === 'Resources'),
+      `${command} が実 Resources に present として数えられない`,
+    );
+  }
+});
+
 test('launcher サブコマンド実在検査は world.mjs の同梱漏れを棄却する', (t) => {
   const result = runGuard(shellPackageWithoutWorld(t));
   assert.equal(result.status, 1, result.stdout);
@@ -127,11 +150,27 @@ test('launcher サブコマンド実在検査は world check validator の同梱
   assert.match(result.stderr, /packages\/schemas\/bin\/validate-world-map\.mjs/u);
 });
 
-test('KNOWN_UNPACKAGED の実行体が同梱されたら陳腐化として gate を失敗させる', (t) => {
-  const result = runGuard(shellPackageWithKnownInternal(t));
+test('launcher サブコマンド実在検査は beatmap.mjs の同梱漏れを棄却する', (t) => {
+  const result = runGuard(shellPackageWithoutBeatmap(t));
   assert.equal(result.status, 1, result.stdout);
-  assert.match(result.stderr, /KNOWN_UNPACKAGED STALE/u);
-  assert.match(result.stderr, /同梱されたので KNOWN_UNPACKAGED から外してください/u);
+  assert.match(result.stderr, /LAUNCHER SUBCOMMAND MISSING/u);
+  assert.match(result.stderr, /packages\/akari-tools\/bin\/beatmap\.mjs/u);
+});
+
+test('注入した既知未同梱の実行体が同梱済みなら陳腐化として検出する', (t) => {
+  const directory = temporaryDirectory(t);
+  const resourcesRoot = join(directory, 'Resources');
+  mkdirSync(resourcesRoot, { recursive: true });
+  const shellPackage = JSON.parse(readFileSync(SHELL_PACKAGE, 'utf8'));
+  assembleResources(shellPackage, { resourcesRoot });
+
+  const command = 'akari internal beat-sync-beatmap';
+  const result = scanLauncherSubcommands({
+    repoRoot: REPO_ROOT,
+    resourcesRoot,
+    knownUnpackaged: new Set([command]),
+  });
+  assert.deepEqual(result.staleKnownUnpackaged.map((item) => item.command), [command]);
 });
 
 test('world check の validator 実パスは launcher の相対パス正本と一致する', () => {

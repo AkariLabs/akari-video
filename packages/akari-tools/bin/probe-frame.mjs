@@ -44,7 +44,14 @@ const sheetPath = join(outDir, 'sheet.html');
 writeFileSync(sheetPath, renderOverlaySheet({ overlays, edit, projectRoot, duration }));
 
 const require = createRequire(join(RENDER_CUT_SRC, 'render-cut.mjs'));
-const puppeteer = require('puppeteer-core');
+let puppeteer;
+try {
+  puppeteer = require('puppeteer-core');
+} catch (error) {
+  console.error('`akari internal beat-sync-probe-frame` には puppeteer-core が必要です（配布版には同梱していません）。モノレポの checkout で実行するか、代わりに `akari capture -t <秒>` を使ってください。');
+  console.error(`原因: ${error instanceof Error ? error.message : String(error)}`);
+  process.exit(1);
+}
 const configuredChromePath = process.env.AKARI_CHROME_BIN?.trim();
 const chromePath = configuredChromePath
   ? (existsSync(configuredChromePath) ? configuredChromePath : null)
