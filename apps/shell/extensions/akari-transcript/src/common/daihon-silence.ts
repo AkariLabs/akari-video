@@ -5,6 +5,11 @@ export const DAIHON_SILENCE_DETECT_DEFAULTS = Object.freeze({ noiseDb: -35, minS
 
 export interface DaihonSilenceSpan { start: number; end: number }
 
+/** 無音解決に使う行。`src` は行が属する素材 id（無ければ 1 素材前提の従来動作）。 */
+export type DaihonSilenceRow = Pick<DaihonRow, 'id' | 'start' | 'end' | 'outStart'> & { src?: string | null };
+/** 行ごとの無音解決。行 → その行の素材の無音一覧。 */
+export type DaihonRowSilenceResolver = (row: DaihonSilenceRow) => readonly DaihonSilenceSpan[];
+
 export interface DaihonRowGap {
     prevId: string;
     nextId: string;
@@ -68,18 +73,22 @@ export function findRowSilenceGaps(
 }
 
 export function rowGapsWithSilences(
-    rows: readonly Pick<DaihonRow, 'id' | 'start' | 'end' | 'outStart'>[],
-    silences: readonly DaihonSilenceSpan[]
+    rows: readonly DaihonSilenceRow[],
+    silences: readonly DaihonSilenceSpan[] | DaihonRowSilenceResolver
 ): DaihonRowGap[] {
     const fallback = findRowGaps(rows).map(gap => ({ ...gap, source: 'gap' as const }));
-    if (!silences.length) return fallback;
-    const detected = findRowSilenceGaps(rows, silences);
-    const detectedByPair = new Map(detected.map(gap => [`${gap.prevId}\0${gap.nextId}`, gap]));
     const fallbackByPair = new Map(fallback.map(gap => [`${gap.prevId}\0${gap.nextId}`, gap]));
     const kept = rows.filter(row => row.outStart !== null);
     return kept.slice(0, -1).flatMap((previous, index) => {
-        const key = `${previous.id}\0${kept[index + 1].id}`;
-        const gap = detectedByPair.get(key) ?? fallbackByPair.get(key);
+        const next = kept[index + 1];
+        const key = `${previous.id}\0${next.id}`;
+        if ((previous.src ?? undefined) !== (next.src ?? undefined)) {
+            const gap = fallbackByPair.get(key);
+            return gap ? [gap] : [];
+        }
+        const resolved = typeof silences === 'function' ? silences(previous) : silences;
+        const detected = findRowSilenceGaps([previous, next], resolved)[0];
+        const gap = detected ?? fallbackByPair.get(key);
         return gap ? [gap] : [];
     });
 }
