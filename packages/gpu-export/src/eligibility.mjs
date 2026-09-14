@@ -1,6 +1,7 @@
 import { CAPTION_ANIMATION_RECIPES, splitCaptionLines } from "../../render-cut/src/captions.mjs";
 import { stripHtmlComments } from "../../render-cut/src/html-scan.mjs";
 import { hasDepthTransform, parseThreeEntrance, scanThreeComposite, scanThreeSampled } from "./three-entrance.mjs";
+import { runtimes as overlayRuntimes } from "../../overlay-runtime/runtimes.mjs";
 
 export const CAPTION_MEASURE_UNSTABLE_REASON = "caption-measure-unstable";
 
@@ -27,6 +28,14 @@ const OVERLAY_CONDITIONS = [
   ["animation-timing", /@keyframes|@property|\banimation(?:-[a-z-]+)?\s*:|\btransition(?:-[a-z-]+)?\s*:/iu, "dynamic"],
   ["advanced-css", /backdrop-filter|mix-blend-mode|filter\s*:|mask(?:-image)?\s*:|clip-path\s*:/iu, "dynamic"],
 ];
+// ランタイム宣言（data-akari-*-scene）は overlay-runtime の runtimes.mjs（マニフェスト）から導出する。
+// three / vgpu は上の表で個別に扱う。それ以外（world / glass / 今後の追加）は「動的・DOM 適格でない」として
+// fail-closed に落とす（--engine auto は OSR へ）。条件表に手で足し忘れて GPU が黙って別の絵を焼く事故の再発防止。
+const RUNTIME_DECLARATION_CONDITIONS = overlayRuntimes
+  .filter((entry) => !["three", "vgpu"].includes(entry.id))
+  .map((entry) => [`${entry.id}-runtime`, new RegExp(entry.declaration.attr.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "iu"), "dynamic"]);
+OVERLAY_CONDITIONS.push(...RUNTIME_DECLARATION_CONDITIONS);
+
 
 // 2026-09-03 の実測では CSS 3D 幾何は e 0.5222 / f 0.2364 / h 0.1757 / d 0.5336 と
 // 予算 1.0 内だった。一方 backface-hidden は a 13.4318、GPU にだけ最大 207,679 px が現れたため、

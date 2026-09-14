@@ -258,3 +258,31 @@ test("flat translate3d/translateZ and same-document url(#) references stay eligi
     assert.ok(result.entries[0].conditions.includes(condition), html);
   }
 });
+
+// ---- ランタイム宣言の取りこぼし防止（issue: GPU 書き出しが world overlay のランタイムを走らせない）----
+import { runtimes as overlayRuntimes } from "../../overlay-runtime/runtimes.mjs";
+
+test("world overlay（data-akari-world-scene）は GPU 適格にならず degraded に落ちる", () => {
+  const html = '<div class="akari-world"><script type="application/json" data-akari-world-scene>{"worlds":[]}</script></div>';
+  const result = evaluate([{ id: "world", html }]);
+  assert.equal(result.eligible, false);
+  assert.equal(result.entries[0].classification, "degraded");
+  assert.match(result.entries[0].reason, /world-runtime/u);
+});
+
+test("glass overlay（data-akari-glass-scene）も同じく degraded", () => {
+  const html = '<div data-akari-glass><script type="application/json" data-akari-glass-scene>{"backdrop":"x.png"}</script></div>';
+  const result = evaluate([{ id: "glass", html }]);
+  assert.equal(result.eligible, false);
+  assert.match(result.entries[0].reason, /glass-runtime/u);
+});
+
+test("runtimes.mjs の全ランタイム宣言が条件表に乗っている（マニフェスト drift ガード）", () => {
+  for (const entry of overlayRuntimes) {
+    const html = `<div><script type="application/json" ${entry.declaration.attr}>{}</script></div>`;
+    const result = evaluate([{ id: entry.id, html }]);
+    const { classification } = result.entries[0];
+    assert.notEqual(classification, "same", `${entry.id}: 静止スプライト扱いになっている`);
+    assert.notEqual(classification, "dom", `${entry.id}: DOM 層扱いになっている`);
+  }
+});
