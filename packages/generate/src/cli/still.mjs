@@ -3,7 +3,7 @@ import { dirname, isAbsolute, join, resolve } from "node:path";
 import { homedir, tmpdir } from "node:os";
 
 import { generateCodexImages } from "./codex-image.mjs";
-import { createTextCard } from "./text-card.mjs";
+import { renderTextCard } from "./text-card.mjs";
 import { hasGeneratedId, insertGeneratedStills, readEditForPlan, firstVisualTrack, endOfTrack } from "./edit-insert.mjs";
 import { doneStillMeta, failedStillMeta, inspectPng, plannedStillMeta, readCodexModelAsOf } from "./meta-still.mjs";
 import { validateGenerationMeta } from "./meta-validate.mjs";
@@ -142,25 +142,26 @@ export async function runStillCommand(argv, options = {}) {
   const successful = [];
   let failed = 0;
   if (args.placeholder) {
-    const makeCard = options.createTextCard ?? createTextCard;
+    const makeCard = options.renderTextCard ?? renderTextCard;
     for (const row of rows) {
       const absolute = join(args.projectDir, row.path);
       const createdAt = now().toISOString();
       const card = await makeCard({
-        outputPath: absolute,
+        outPath: absolute,
         id: row.id,
-        text: row.name ?? row.prompt,
-        logWarn: (line) => logError(sanitizeEvidenceText(line, args.projectDir)),
+        name: row.name ?? row.prompt,
+        prompt: row.prompt,
+        logRenderer: (line) => logError(sanitizeEvidenceText(line, args.projectDir)),
       });
-      await writeMeta(`${absolute}.meta.json`, plannedStillMeta({
+      const meta = plannedStillMeta({
         prompt: row.prompt,
         duration_s: row.duration_s,
         at: createdAt,
         asOf,
-        width: card.width ?? 1920,
-        height: card.height ?? 1080,
-      }));
-      if (card.ok) successful.push(row);
+      });
+      meta.provenance.tool = `akari generate still --placeholder (${card.renderer ?? "solid"})`;
+      await writeMeta(`${absolute}.meta.json`, meta);
+      successful.push(row);
     }
   } else {
     const generate = options.generateImages ?? generateCodexImages;

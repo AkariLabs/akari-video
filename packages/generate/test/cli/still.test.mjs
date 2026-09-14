@@ -6,11 +6,9 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
 
-import { resolveFfmpeg } from "../../../media-bin/src/index.mjs";
 import { runGenerateCommand } from "../../src/cli/index.mjs";
 import { validateGenerationMeta } from "../../src/cli/meta-validate.mjs";
 import { runStillCommand } from "../../src/cli/still.mjs";
-import { createTextCard } from "../../src/cli/text-card.mjs";
 
 const packageRoot = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const validator = join(packageRoot, "..", "schemas", "bin", "validate-generation-meta.mjs");
@@ -100,7 +98,6 @@ test("still: dry-run は fps と既存末尾から at を計算し、何も書�
 });
 
 test("still: 文字カード 1 枚の planned meta はスキーマを通る", async (t) => {
-  try { resolveFfmpeg(); } catch { t.skip("ffmpeg を解決できない環境では文字カード実生成をスキップ"); return; }
   const projectDir = await temporaryProject(t, minimalEdit());
   const spec = await writeSpec(projectDir, [{ id: "title-card", prompt: "日本語の見出し", duration_s: 1 }]);
   const result = await runStillCommand([projectDir, "--spec", spec, "--placeholder"], { log: () => {}, logError: () => {} });
@@ -110,48 +107,8 @@ test("still: 文字カード 1 枚の planned meta はスキーマを通る", as
   const meta = JSON.parse(await readFile(metaPath, "utf8"));
   assert.equal(meta.status, "planned");
   assert.equal(meta.model.id, "codex:image");
+  assert.match(meta.provenance.tool, /^akari generate still --placeholder \((?:chrome|ffmpeg-drawtext|solid)\)$/u);
   assert.equal(spawnSync(process.execPath, [validator, metaPath], { encoding: "utf8" }).status, 0);
-});
-
-test("still: ffmpeg を解決できない文字カードは WARN して skip し、throw しない", async (t) => {
-  const projectDir = await temporaryProject(t);
-  const warnings = [];
-  const result = await createTextCard({
-    outputPath: join(projectDir, "card.png"),
-    id: "no-ffmpeg",
-    text: "カード",
-    resolveBinary: () => { throw new Error("テスト用: ffmpeg なし"); },
-    logWarn: (line) => warnings.push(line),
-  });
-  assert.deepEqual(result, { ok: false, skipped: true, reason: "ffmpeg を解決できません" });
-  assert.match(warnings.join("\n"), /WARN: ffmpeg を解決できないため/);
-});
-
-test("still: drawtext 失敗時は文字なしの単色カードへ縮退する", async (t) => {
-  const projectDir = await temporaryProject(t);
-  const fontPath = join(projectDir, "font.ttf");
-  await writeFile(fontPath, "テスト用フォント代替");
-  const warnings = [];
-  const calls = [];
-  const result = await createTextCard({
-    outputPath: join(projectDir, "card.png"),
-    id: "no-drawtext",
-    text: "カード",
-    resolveBinary: () => "ffmpeg-stub",
-    fontCandidates: [fontPath],
-    spawn: (_command, args) => {
-      calls.push(args);
-      return args.includes("-vf")
-        ? { status: 1, stderr: "Filter not found" }
-        : { status: 0, stderr: "" };
-    },
-    logWarn: (line) => warnings.push(line),
-  });
-  assert.deepEqual(result, { ok: true, width: 1920, height: 1080 });
-  assert.equal(calls.length, 2);
-  assert.equal(calls[0].includes("-vf"), true);
-  assert.equal(calls[1].includes("-vf"), false);
-  assert.match(warnings.join("\n"), /drawtext が使えないため.*文字なしの単色カード/);
 });
 
 test("generate: still 本体の ERR_MODULE_NOT_FOUND は未同梱へ変換せず伝播する", async (t) => {
@@ -264,7 +221,7 @@ test("still: 注入した writeMeta の外側で planned / done / failed を検�
   const plannedSpec = await writeSpec(plannedProject, [{ id: "planned", prompt: "計画", duration_s: 1 }]);
   assert.equal((await runStillCommand([plannedProject, "--spec", plannedSpec, "--placeholder"], {
     ...common,
-    createTextCard: async () => ({ ok: true, width: 1920, height: 1080 }),
+    renderTextCard: async ({ outPath }) => ({ path: outPath, renderer: "solid" }),
   })).exitCode, 0);
 
   const doneProject = await temporaryProject(t, minimalEdit());
@@ -292,7 +249,7 @@ test("still: 注入した writeMeta の外側で planned / done / failed を検�
       ...common,
       readCodexModelAsOf: async () => "invalid-date",
       writeMeta: async () => { invalidWriterCalls += 1; },
-      createTextCard: async () => ({ ok: true, width: 1920, height: 1080 }),
+      renderTextCard: async ({ outPath }) => ({ path: outPath, renderer: "solid" }),
     }),
     /model\/as_of/u,
   );

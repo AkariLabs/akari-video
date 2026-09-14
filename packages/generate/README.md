@@ -13,6 +13,6 @@ A model without recorded pricing remains valid and returns `cost.needs_explicit_
 
 `akari generate still <projectDir> --spec beats.json` はビートごとの静止画を Codex で生成します。
 `--parallel N` で並列数を指定でき、既定は 4 です。
-`--placeholder` は Codex を呼ばず、無料の文字カード PNG を置きます。
+`--placeholder` は Codex を呼ばず、Chrome → ffmpeg drawtext → 単色の順で無料の文字カード PNG を置きます。
 `--dry-run` は edit.json や素材を書かず、配置予定だけを表示します。
 生成物と meta は `assets/generated/`、クリップは edit.json v2 の visual トラック末尾に入ります。
