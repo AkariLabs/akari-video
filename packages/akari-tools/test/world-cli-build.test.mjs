@@ -6,7 +6,7 @@ import test from "node:test";
 
 import { openProject } from "../../edit-store/lib/project.js";
 import { runWorldCommand } from "../bin/world.mjs";
-import { buildWorld, SpatialWorldBuildError } from "../src/world/build.mjs";
+import { buildWorld } from "../src/world/build.mjs";
 import { createCamera } from "../src/world/camera.mjs";
 
 const fixture = new URL("../../schemas/examples/world-map-v3-flat-valid/planning/world-map.json", import.meta.url);
@@ -70,19 +70,41 @@ test("world build: sheet-local 座標は camera の画面座標式と一致す�
   }
 });
 
-test("world build: spatial は案内つき exit 2 相当で拒否する", async (t) => {
+test("world build: spatial GLB と three 断片を決定論的に生成して upsert する", async (t) => {
   const root = await project(t);
-  const map = JSON.parse(await readFile(path.join(root, "planning", "world-map.json"), "utf8"));
-  map.kind = "spatial";
-  map.worlds = map.worlds.map(({ id, label, palette }) => ({ id, label, palette, spatial: { c: [0, 0, 0] } }));
-  map.zones = map.zones.map((zone) => ({ ...zone, c: [...zone.c, 0] }));
-  map.cameraStops = map.cameraStops.map(({ c, ...stop }) => ({ ...stop, eye: [c[0], c[1], 10], target: [c[0], c[1], 0] }));
-  await writeFile(path.join(root, "planning", "world-map.json"), `${JSON.stringify(map, null, 2)}\n`);
-  await assert.rejects(() => buildWorld(root), (error) => error instanceof SpatialWorldBuildError && error.exitCode === 2 && /GLB/.test(error.message));
-  const errors = [];
-  const result = await runWorldCommand(["build", root], { logError: (line) => errors.push(line) });
-  assert.equal(result.exitCode, 2);
-  assert.match(errors.join("\n"), /GLB/);
+  await cp(new URL("../../schemas/examples/world-map-v3-spatial-valid/planning/world-map.json", import.meta.url), path.join(root, "planning", "world-map.json"));
+  const first = await buildWorld(root);
+  const firstGlb = await readFile(first.glbPath);
+  const firstHtml = await readFile(first.overlayPath);
+  const second = await buildWorld(root);
+  assert.deepEqual(await readFile(second.glbPath), firstGlb);
+  assert.deepEqual(await readFile(second.overlayPath), firstHtml);
+  assert.equal(firstGlb.readUInt32LE(0), 0x46546c67);
+  assert.match(firstHtml.toString("utf8"), /data-akari-3d-scene/);
+  const declaration = JSON.parse(firstHtml.toString("utf8").match(/data-akari-3d-scene>(.*?)<\/script>/s)[1]);
+  assert.deepEqual(Object.keys(declaration), ["model", "camera", "animationClip", "environment", "lights", "fog", "background"]);
+  assert.deepEqual(declaration.camera, { fromModel: "TourCamera" });
+  assert.equal(declaration.animationClip, "Tour");
+  for (const world of first.map.worlds) {
+    const grid = first.gltf.nodes.find((node) => node.name === `World grid ${world.id}`);
+    assert.ok(grid);
+    const material = first.gltf.materials[first.gltf.meshes[grid.mesh].primitives[0].material];
+    assert.equal(material.name, `${world.palette.dots}:1`);
+  }
+  assert.ok(first.gltf.nodes.some((node) => node.name === "Transition fog center-stair"));
+  assert.equal(first.gltf.animations.find((animation) => animation.name === "Tour").channels.length, 3);
+  const opened = await openProject(root);
+  assert.deepEqual(opened.edit.find("world").source, { kind: "html", path: "overlays/world.html" });
+  assert.equal((await runWorldCommand(["build", root], { logError: () => {} })).exitCode, 0);
+});
+
+test("world build: edit.json v1 は変更せず migrate 案内で fail-closed にする", async (t) => {
+  const root = await project(t);
+  const file = path.join(root, "edit.json");
+  const legacy = `${JSON.stringify({ version: 1, output: { width: 1920, height: 1080, fps: 30 }, sources: [{ id: "base", path: "base.mp4" }], cuts: [{ src: "base", in: 0, out: 1 }], overlays: [] }, null, 2)}\n`;
+  await writeFile(file, legacy);
+  await assert.rejects(() => buildWorld(root), /先に akari migrate <project-root> を実行してください/);
+  assert.equal(await readFile(file, "utf8"), legacy);
 });
 
 test("world build: world-items の overlay 断片と CSS 変数を zone へ差し込む", async (t) => {
@@ -95,4 +117,17 @@ test("world build: world-items の overlay 断片と CSS 変数を zone へ差�
   assert.match(result.html, /data-fragment/);
   assert.match(result.html, /--color:#fff/);
   assert.match(result.html, /--akari-item-scale:1.25/);
+});
+
+test("world build: spatial の GLB を持つ overlay item を zone 配下へ統合する", async (t) => {
+  const root = await project(t);
+  await cp(new URL("../../schemas/examples/world-map-v3-spatial-valid/planning/world-map.json", import.meta.url), path.join(root, "planning", "world-map.json"));
+  const base = await buildWorld(root);
+  await writeFile(path.join(root, "planning", "world-items.json"), `${JSON.stringify({ schemaVersion: 1, items: [{ id: "prop", zone: "hall-door", asset: "overlay/prop", offset: [2, -1], scale: 0.5 }] }, null, 2)}\n`);
+  const result = await buildWorld(root, { resolveAsset: async () => ({ category: "overlay", dir: path.dirname(base.glbPath) }) });
+  const item = result.gltf.nodes.find((node) => node.name === "World item prop");
+  assert.deepEqual(item.translation, [-2, 1, 9]);
+  assert.deepEqual(item.scale, [0.5, 0.5, 0.5]);
+  assert.ok(result.gltf.animations.some((animation) => animation.name === "prop:Tour"));
+  assert.equal(result.gltf.animations.at(-1).name, "Tour");
 });

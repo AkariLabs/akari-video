@@ -43,3 +43,21 @@ test("world overview: 自己完結 HTML に帯と非 move マーカーを描き 
     assert.equal((await page.$$("[data-edge-marker]")).length, 2);
   } finally { await browser.close(); }
 });
+
+test("world overview: spatial は c の先頭 2 成分へたたんで生成できる", async (t) => {
+  const root = await mkdtemp(path.join(tmpdir(), "akari-world-overview-spatial-"));
+  t.after(() => import("node:fs/promises").then(({ rm }) => rm(root, { recursive: true, force: true })));
+  await mkdir(path.join(root, "planning"), { recursive: true });
+  await cp(new URL("../../schemas/examples/world-map-v3-spatial-valid/planning/world-map.json", import.meta.url), path.join(root, "planning", "world-map.json"));
+  await writeFile(path.join(root, "edit.json"), `${JSON.stringify({ version: 2, output: { width: 1920, height: 1080, fps: 30 }, sources: [], tracks: [] }, null, 2)}\n`);
+  const result = await buildWorldOverview(root);
+  assert.match(result.html, /"kind":"spatial"/);
+  assert.match(result.html, /function overviewPoints/);
+  assert.equal(result.fallback, true);
+  for (const [index, match] of [...result.html.matchAll(/<script>([\s\S]*?)<\/script>/g)].entries()) {
+    const scriptFile = path.join(root, `spatial-inline-${index}.js`);
+    await writeFile(scriptFile, match[1], "utf8");
+    const checked = spawnSync(process.execPath, ["--check", scriptFile], { encoding: "utf8" });
+    assert.equal(checked.status, 0, checked.stderr);
+  }
+});

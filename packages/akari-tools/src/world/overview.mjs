@@ -12,15 +12,16 @@ const RUNTIME = path.resolve(HERE, "../../../overlay-runtime/src/world-runtime.j
 export async function buildWorldOverview(projectRoot) {
   projectRoot = path.resolve(projectRoot);
   const { map } = await readCheckedWorldMap(projectRoot);
-  if (map.kind !== "flat") throw new Error("overview は現在 flat world のみ対応します");
-  const [template, cameraSource, runtimeSource, videos] = await Promise.all([
+  const [template, cameraSource, flatRuntimeSource, videos] = await Promise.all([
     readFile(TEMPLATE, "utf8"),
     readFile(CAMERA, "utf8"),
     readOptional(RUNTIME),
     embeddedVideos(projectRoot),
   ]);
+  const runtimeSource = map.kind === "flat" ? flatRuntimeSource : null;
   const duration = map.cameraStops.at(-1)?.leave ?? 0;
-  const declaration = worldSceneDeclaration(map, await editFrame(projectRoot));
+  const frame = await editFrame(projectRoot);
+  const declaration = map.kind === "flat" ? worldSceneDeclaration(map, frame) : { ...map, frame };
   const bands = map.worlds.map((world, index) => {
     const marker = index < map.worlds.length - 1 && map.edges.some((edge) => edge.type !== "move" && map.cameraStops.find((stop) => stop.id === edge.from)?.world === world.id) ? '<i class="edge-marker" data-edge-marker></i>' : "";
     return `<div class="world-band" data-world-band data-world="${escapeHtml(world.id)}" style="flex:1;background:${world.palette?.accent ?? "#8190aa"}">${escapeHtml(world.label)}${marker}</div>`;

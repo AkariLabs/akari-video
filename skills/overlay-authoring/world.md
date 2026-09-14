@@ -40,3 +40,36 @@
 `view` はカメラ位置に依存しない world → screen の affine `{ scale, ox, oy }`
 （`screen = ox + p * scale`）。`options.frame === true` なら現在の撮影枠を `#EE82DF` で重ねる。
 独自の地図描画を複製しない。
+
+## spatial world の build / preview
+
+`kind: "spatial"` も flat と同じ `planning/world-map.json` と `camera(t)` を使う。
+`akari world build <project-root>` は世界の床・遠景板・霧板・zone の目印を
+`assets/world/world.glb` に焼き、eye / target を別々に補間した `TourCamera` と `Tour` clip を加える。
+床には `palette.dots` 由来の決定論的な格子を焼き、背景色と同色の world でも観察できる構造を保つ。
+同時に `overlays/world.html` へ、three-runtime が受理する次の宣言を生成し、edit.json の
+visual lane へ id `world` で upsert する。
+
+```json
+{
+  "model": "assets/world/world.glb",
+  "camera": { "fromModel": "TourCamera" },
+  "animationClip": "Tour",
+  "environment": { "intensity": 0, "exposure": 1 },
+  "lights": [],
+  "fog": { "color": "#ccd9e6", "near": 1, "far": 128 },
+  "background": { "color": "#182235" }
+}
+```
+
+`fog` は先頭 world の `palette.haze`、`background` は `palette.background` がある場合だけ
+生成される。値が無いときにキーを補わない。テロップと 2D 素材はこの three 断片へ入れず、
+別 overlay item として重ねる。
+
+`akari world preview <project-root>` は flat と同じ rasterize 経路で stop と edge の代表 PNG を撮る。
+`--measure` を付けると非 move edge を 30 Hz で走査し、全画素 RGB の標準偏差が 2 以下の
+一様な霧となった連続時間を `transition.cover` へ書き戻す。3D の cut は霧または遮蔽物を通し、
+平面ワイプにしない。
+
+edit.json は version 2 が必要である。古い形式では build がファイルを書き換えずに停止するため、
+先に `akari migrate <project-root>` を実行して、専用コマンドの確認と退避バックアップを通す。

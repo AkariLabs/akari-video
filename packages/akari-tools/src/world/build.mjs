@@ -1,4 +1,4 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 import { resolve as resolveAssetDefault } from "../../../asset-resolver/src/resolve.mjs";
@@ -6,13 +6,7 @@ import { openProject as openProjectDefault } from "../../../edit-store/lib/proje
 import { checkWorldMap } from "./invariants.mjs";
 import { readWorldItems } from "./items.mjs";
 import { normalizeWorldMap } from "./normalize.mjs";
-
-export class SpatialWorldBuildError extends Error {
-  constructor() {
-    super("spatial の build は次票（GLB 焼き）で対応します");
-    this.exitCode = 2;
-  }
-}
+import { buildSpatialGlb, renderSpatialWorldHtml } from "./spatial-glb.mjs";
 
 export async function readCheckedWorldMap(projectRoot) {
   const file = path.join(projectRoot, "planning", "world-map.json");
@@ -27,11 +21,22 @@ export async function readCheckedWorldMap(projectRoot) {
 export async function buildWorld(projectRoot, options = {}) {
   projectRoot = path.resolve(projectRoot);
   const { map } = await readCheckedWorldMap(projectRoot);
-  if (map.kind !== "flat") throw new SpatialWorldBuildError();
   const items = await readWorldItems(projectRoot);
   const edit = await readEdit(projectRoot);
+  if (edit.version !== 2) throw new Error("world build は edit.json version 2 が必要です。先に akari migrate <project-root> を実行してください");
   const frame = { width: edit.output?.width ?? 1920, height: edit.output?.height ?? 1080 };
   const resolveAsset = options.resolveAsset ?? resolveAssetDefault;
+  if (map.kind === "spatial") {
+    const spatialItems = await resolveSpatialItems(projectRoot, map, items.items, resolveAsset);
+    const built = buildSpatialGlb(map, spatialItems);
+    const glbPath = path.join(projectRoot, "assets", "world", "world.glb");
+    const overlayPath = path.join(projectRoot, "overlays", "world.html");
+    const html = renderSpatialWorldHtml(map);
+    await Promise.all([mkdir(path.dirname(glbPath), { recursive: true }), mkdir(path.dirname(overlayPath), { recursive: true })]);
+    await Promise.all([writeFile(glbPath, built.buffer), writeFile(overlayPath, html, "utf8")]);
+    await upsertWorldItem(projectRoot, map, options);
+    return { map, html, overlayPath, glbPath, glb: built.buffer, gltf: built.json };
+  }
   const fragments = new Map();
   const zoneIds = new Set(map.zones.map((zone) => zone.id));
   for (const item of items.items) {
@@ -49,6 +54,44 @@ export async function buildWorld(projectRoot, options = {}) {
   await writeFile(overlayPath, html, "utf8");
   await upsertWorldItem(projectRoot, map, options);
   return { map, html, overlayPath };
+}
+
+async function resolveSpatialItems(projectRoot, map, items, resolveAsset) {
+  const zoneById = new Map(map.zones.map((zone) => [zone.id, zone]));
+  const result = [];
+  for (const item of items) {
+    const zone = zoneById.get(item.zone);
+    if (!zone) throw new Error(`world item ${item.id} が未定義の zone を参照しています: ${item.zone}`);
+    const assetId = item.asset.includes("/") ? item.asset.slice(item.asset.indexOf("/") + 1) : item.asset;
+    const resolved = await resolveAsset(assetId, { project: projectRoot });
+    const directory = resolved?.projectDir ?? resolved?.dir;
+    if (!directory) throw new Error(`素材 ${item.asset} の配置先を解決できません`);
+    const model = await findGlb(directory);
+    if (!model) continue;
+    result.push({ ...item, zone, buffer: await readFile(model) });
+  }
+  return result;
+}
+
+async function findGlb(directory) {
+  try {
+    const fragment = await readFile(path.join(directory, "fragment.html"), "utf8");
+    const match = /<script\b[^>]*\bdata-akari-3d-scene\b[^>]*>([\s\S]*?)<\/script>/i.exec(fragment);
+    if (match) {
+      const model = JSON.parse(match[1]).model;
+      const candidate = typeof model === "string" ? path.resolve(directory, model) : null;
+      if (candidate && candidate.startsWith(`${path.resolve(directory)}${path.sep}`) && candidate.toLowerCase().endsWith(".glb")) {
+        await readFile(candidate);
+        return candidate;
+      }
+    }
+  } catch (error) {
+    if (error?.code !== "ENOENT") throw error;
+  }
+  const entries = await readdir(directory, { withFileTypes: true, recursive: true });
+  const names = entries.filter((entry) => entry.isFile() && entry.name.toLowerCase().endsWith(".glb"))
+    .map((entry) => path.join(entry.parentPath ?? entry.path, entry.name)).sort();
+  return names[0] ?? null;
 }
 
 export function worldSceneDeclaration(map, frame) {
