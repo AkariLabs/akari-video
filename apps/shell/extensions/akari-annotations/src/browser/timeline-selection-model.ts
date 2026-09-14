@@ -201,6 +201,13 @@ export interface TimelineAudioSelection {
     clipName: string;
 }
 
+export interface TimelineWorldSelection {
+    kind: 'world';
+    world: { id: string; label: string };
+    stop?: { id: string; c: number[]; at: number; leave: number };
+    edge?: { id: string; from: string; to: string; type: string; transition?: { kind?: string; cover?: number | null }; via?: string; carry?: string[] };
+}
+
 export type TimelineItemSelectionSnapshot =
     | TimelineCutSelection
     | TimelineOverlaySelection
@@ -219,10 +226,13 @@ export interface TimelineMultiSelectionSnapshot {
 export type TimelineSelectionTarget =
     | { kind: 'cut'; index: number }
     | { kind: 'item'; id: string }
-    | { kind: Exclude<TimelineItemSelectionSnapshot['kind'], 'cut'>; id: string };
+    | { kind: Exclude<TimelineItemSelectionSnapshot['kind'], 'cut'>; id: string }
+    | { kind: 'world-stop'; id: string }
+    | { kind: 'world-edge'; id: string };
 
 export type TimelineSelectionSnapshot =
     | TimelineItemSelectionSnapshot
+    | TimelineWorldSelection
     | TimelineMultiSelectionSnapshot
     | undefined;
 

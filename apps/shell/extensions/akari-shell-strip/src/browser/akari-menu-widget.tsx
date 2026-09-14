@@ -18,6 +18,7 @@ import { AkariExportDialog } from './export-dialog/akari-export-dialog';
 import { AkariProjectCleanService, ProjectCleanInspection } from '../common/project-clean-protocol';
 import { formatBytes } from './export-dialog/export-view-shared';
 import { akariMenuRows } from '../common/menu-rows';
+import { AkariScopeService } from './akari-scope-service';
 
 interface MenuAction {
     id: string;
@@ -83,6 +84,8 @@ export class AkariMenuWidget extends ReactWidget {
     protected readonly exportSession!: AkariExportSessionService;
     @inject(AkariExportDialog)
     protected readonly exportDialog!: AkariExportDialog;
+    @inject(AkariScopeService)
+    protected readonly scopeService!: AkariScopeService;
 
     protected skills: SkillEntry[] = [];
     protected skillsNotice = '';
@@ -111,6 +114,7 @@ export class AkariMenuWidget extends ReactWidget {
             void this.resetPreviewServerOnWorkspaceChange();
         }));
         this.toDispose.push(this.exportSession.onDidChange(() => this.update()));
+        this.toDispose.push(this.scopeService.onDidChangeWorldMap(() => this.update()));
         // widget dispose ではポーリングだけ止める（サーバーは止めない —
         // メニューを閉じても生かす。裁定 1-f）。
         this.toDispose.push(Disposable.create(() => this.stopPreviewServerPolling()));
@@ -127,7 +131,7 @@ export class AkariMenuWidget extends ReactWidget {
 
     protected get actions(): MenuAction[] {
         return [
-            ...akariMenuRows().map(row => ({
+            ...akariMenuRows({ worldMap: this.scopeService.worldMap.state === 'present' }).map(row => ({
                 ...row,
                 run: () => row.id === 'akari.menu.openOverview'
                     ? void this.openOverview()

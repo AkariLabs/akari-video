@@ -39,6 +39,10 @@ spatial world は three 断片で構成し、座標・床・背景・霧を宣�
 
 ## 5. 地図 UI
 
+- 実装のマーカー判定は `akari-shell-strip` の ContextKey `akari.worldMap` に一元化する。
+- main の「地図」タブは `akari-world-view` が担う。
+- タイムラインのワールド帯と地図インスペクターは `akari-annotations` が担う。
+
 地図 UI は world-map を読み取り専用で表示する。2D 俯瞰、ワールド帯、再生時刻に追従する撮影枠、選択中の stop / edge 詳細を提供し、データの編集機能は持たない。
 
 ## 6. 制作フロー

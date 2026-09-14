@@ -1,0 +1,20 @@
+{
+  "name": "akari-world-view",
+  "version": "0.0.1",
+  "description": "AKARI Video read-only world map webview.",
+  "private": true,
+  "main": "lib/browser/akari-world-view-frontend-module.js",
+  "theiaExtensions": [
+    { "frontend": "lib/browser/akari-world-view-frontend-module" },
+    { "backend": "lib/node/akari-world-view-backend-module" }
+  ],
+  "scripts": { "build": "tsc -b", "clean": "rimraf lib", "test": "node --test test/*.test.mjs" },
+  "dependencies": {
+    "@theia/core": "1.73.1",
+    "@theia/plugin-ext": "1.73.1",
+    "@theia/workspace": "1.73.1",
+    "akari-shell-strip": "file:../akari-shell-strip",
+    "akari-theme": "file:../akari-theme"
+  },
+  "devDependencies": { "typescript": "^5.4.0", "rimraf": "^5.0.0" }
+}

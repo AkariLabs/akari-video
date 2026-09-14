@@ -22,8 +22,11 @@ import { AkariExportSessionService } from './akari-export-session-service';
 import { AkariExportDialog } from './export-dialog/akari-export-dialog';
 import { AkariExportBackgroundChip } from './export-dialog/export-background-chip';
 import { AkariExportThumbnailStripStore } from './export-dialog/export-thumbnail-strip';
+import { AkariScopeService } from './akari-scope-service';
 
 export default new ContainerModule((bind, unbind, isBound, rebind) => {
+    bind(AkariScopeService).toSelf().inSingletonScope();
+    bind(FrontendApplicationContribution).toService(AkariScopeService);
     bind(AkariExportPreferenceContribution).toSelf().inSingletonScope();
     bind(PreferenceContribution).toService(AkariExportPreferenceContribution);
     bind(AkariExportSessionService).toSelf().inSingletonScope();

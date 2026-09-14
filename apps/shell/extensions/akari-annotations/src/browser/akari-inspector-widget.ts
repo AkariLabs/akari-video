@@ -24,8 +24,10 @@ import {
     TimelineAudioMasterSnapshot,
     TimelineSelectionModel,
     TimelineSelectionTarget,
-    TimelineTreeItemSnapshot
+    TimelineTreeItemSnapshot,
+    TimelineWorldSelection
 } from './timeline-selection-model';
+import { worldInstructionCopy } from '../common/world-instruction-copy';
 import { keyframeRowPropertyOf, keyframeValueAt, type KeyframeSeatProperty } from './timeline/timeline-keyframe-rows';
 import { CAPTION_ZONES, type CaptionBackgroundMode, type CaptionTextStyle } from '../common/caption-store';
 import {
@@ -2910,6 +2912,10 @@ export class AkariInspectorWidget extends BaseWidget {
             this.body.appendChild(empty);
             return;
         }
+        if (snapshot.kind === 'world') {
+            this.renderWorldSelection(snapshot);
+            return;
+        }
 
         const generationIdentity = this.generationIdentity(snapshot);
         if (generationIdentity && !this.generationLoads.has(generationIdentity.key)) {
@@ -3094,6 +3100,35 @@ export class AkariInspectorWidget extends BaseWidget {
         }
     }
 
+    protected renderWorldSelection(snapshot: TimelineWorldSelection): void {
+        const tabs = tabsForKind('world');
+        const active = this.tabState.activeTab('world', tabs);
+        this.appendTabStrip('world', tabs, active);
+        const values: Array<[string, unknown]> = snapshot.stop ? [
+            ['world', `${snapshot.world.label} (${snapshot.world.id})`], ['停留所', snapshot.stop.id],
+            ['c (x, y, scale)', snapshot.stop.c.join(', ')], ['at', `${snapshot.stop.at} s`], ['leave', `${snapshot.stop.leave} s`]
+        ] : snapshot.edge ? [
+            ['world', `${snapshot.world.label} (${snapshot.world.id})`], ['辺', snapshot.edge.id],
+            ['接続', `${snapshot.edge.from} → ${snapshot.edge.to}`], ['type', snapshot.edge.type],
+            ['transition', snapshot.edge.transition?.kind ?? '-'], ['cover', `${snapshot.edge.transition?.cover ?? '-'} s`],
+            ['via', snapshot.edge.via ?? '-'], ['carry', snapshot.edge.carry?.join(', ') || '-']
+        ] : [];
+        const list = document.createElement('dl');
+        Object.assign(list.style, { display: 'grid', gridTemplateColumns: '90px 1fr', gap: '7px', margin: '4px 0 10px' });
+        for (const [label, value] of values) {
+            const dt = document.createElement('dt'); dt.textContent = label;
+            const dd = document.createElement('dd'); dd.textContent = String(value); dd.style.margin = '0';
+            list.append(dt, dd);
+        }
+        this.body.appendChild(list);
+        if (active === 'world') {
+            const button = document.createElement('button');
+            button.type = 'button'; button.className = 'theia-button'; button.textContent = 'AI への指示をコピー';
+            button.addEventListener('click', () => void navigator.clipboard.writeText(worldInstructionCopy(snapshot as any)));
+            this.body.appendChild(button);
+        }
+    }
+
     protected syncAdjustCompare(target: LivePreviewTarget | undefined, activeTab: string): void {
         const next = nextAdjustCompareState(this.adjustCompare, { target, activeTab });
         this.adjustCompare = next.state;
@@ -3146,7 +3181,7 @@ export class AkariInspectorWidget extends BaseWidget {
     }
 
     protected appendTabStrip(
-        kind: 'cut' | 'layer' | 'caption' | 'audio' | 'overlay' | 'item',
+        kind: 'cut' | 'layer' | 'caption' | 'audio' | 'overlay' | 'item' | 'world',
         tabs: readonly InspectorTabDef[],
         activeTab: string
     ): void {

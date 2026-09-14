@@ -77,6 +77,11 @@ export const ADD_MATERIAL_AT_PLAYHEAD: Command = {
     id: 'akari.timeline.addMaterialAtPlayhead'
 };
 
+/** 地図タブが開いた瞬間に現在の出力秒を取得する内部コマンド。 */
+export const GET_TIMELINE_PLAYHEAD: Command = {
+    id: 'akari.timeline.playhead'
+};
+
 /**
  * Finder からタイムライン帯へ落とされた素材を「落とした位置・落とした行」へ置く内部コマンド
  * （task 2026-09-08-timeline-file-drop 指示5）。akari-project 側のグローバル drop 経路

@@ -29,6 +29,7 @@ test('選択 kind ごとに正しいタブ語彙と enabled 状態を返す', ()
   assert.deepEqual(tabShape(tabsForKind('audio')), [
     ['音声', true], ['情報', true]
   ]);
+  assert.deepEqual(tabShape(tabsForKind('world')), [['地図', true], ['情報', true]]);
 });
 
 test('既存セクションを kind に応じたタブへ振り分ける', () => {
@@ -40,6 +41,7 @@ test('既存セクションを kind に応じたタブへ振り分ける', () =>
   assert.equal(assignSectionToTab('caption', 'timing'), 'text');
   assert.equal(assignSectionToTab('audio', 'time'), 'audio');
   assert.equal(assignSectionToTab('audio', 'audio:fades'), 'audio');
+  assert.equal(assignSectionToTab('world', 'location'), 'world');
   assert.equal(assignSectionToTab('cut', 'adjust:basic'), 'adjust');
   assert.equal(assignSectionToTab('item', 'adjust:lut'), 'adjust');
 });
