@@ -82,6 +82,7 @@ akari captions <project-dir>
 「⏱ 発話に合わせ直す」で同じ補正を後から適用できます。本文は変えず、手直し済み
 （`edited: true`）の行では行の `start` / `end` を保護します。
 隣り合う行の表示窓が重なるときは境界を分け合い、手直し済みの行は動かしません。
+手直し済みの行では、すべての語を行の枠内に収めます。
 自動の発話吸着を止めるには `akari media transcribe` に `--no-snap` を渡します。
 `speaker` はクラウドの話者分離（ElevenLabs Scribe 等）で埋まります。ローカルエンジン（SpeechAnalyzer / whisper.cpp）では `null` のままです。
 

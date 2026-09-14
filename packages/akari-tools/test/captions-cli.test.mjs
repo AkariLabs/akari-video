@@ -234,12 +234,14 @@ test("--retime はオーナー実データを補正し dry-run と edited 行保
   assert.equal(dry.code, 0, dry.stderr.join("\n"));
   assert.equal(dry.stdout.length, 1);
   assert.ok(JSON.parse(dry.stdout[0]).moved_words >= 1);
+  assert.ok(JSON.parse(dry.stdout[0]).fitted_words >= 1);
   assert.equal(JSON.parse(dry.stdout[0]).clamped_pairs, 2);
   assert.equal(JSON.parse(dry.stdout[0]).overlaps_left, 0);
   assert.equal(await readFile(f.captionsPath, "utf8"), before);
   const applied = await f.run("--retime");
   assert.equal(applied.code, 0, applied.stderr.join("\n"));
   assert.equal(JSON.parse(applied.stdout.at(-1)).clamped_pairs, 2);
+  assert.ok(JSON.parse(applied.stdout.at(-1)).fitted_words >= 1);
   assert.equal(JSON.parse(applied.stdout.at(-1)).overlaps_left, 0);
   const result = JSON.parse(await readFile(f.captionsPath, "utf8"));
   const c4 = result.captions.find((row) => row.id === "c-0004");

@@ -9,6 +9,7 @@ import {
   clampAdjacentSegments,
   detectSpeechChunks,
   detectSpeechChunksFromPeaks,
+  fitWordsIntoWindow,
   snapSegmentsToWords,
   snapWordsToSpeech,
 } from "../src/media/speech-align.mjs";
@@ -22,6 +23,50 @@ function silenceOverlap(word, silence) {
   const [start, end] = Array.isArray(silence) ? silence : [silence.start, silence.end];
   return Math.max(0, Math.min(word.end, end) - Math.max(word.start, start));
 }
+
+test("枠内の語は複製するだけで動かさない", () => {
+  const input = [{ start: 0.1, end: 0.2, text: "語", raw_start: 0, raw_end: 0.3 }];
+  const before = structuredClone(input);
+  const result = fitWordsIntoWindow(input, { start: 0, end: 1 });
+  assert.equal(result.fitted, 0);
+  assert.deepEqual(result.words, before);
+  assert.deepEqual(input, before);
+  assert.notEqual(result.words, input);
+  assert.notEqual(result.words[0], input[0]);
+});
+
+test("枠を越える語は最短長が残る範囲で境界だけ切り詰める", () => {
+  assert.deepEqual(fitWordsIntoWindow([{ start: 0.2, end: 1.4, text: "末" }], { start: 0, end: 1 }), {
+    words: [{ start: 0.2, end: 1, text: "末" }], fitted: 1,
+  });
+  assert.deepEqual(fitWordsIntoWindow([{ start: 0.4, end: 2, text: "先" }], { start: 1, end: 3 }), {
+    words: [{ start: 1, end: 2, text: "先" }], fitted: 1,
+  });
+});
+
+test("最短語長を確保できない枠は語列全体を線形に写す", () => {
+  const result = fitWordsIntoWindow([
+    { start: 0, end: 1, text: "a" }, { start: 2, end: 4, text: "b" },
+  ], { start: 10, end: 10.08 });
+  assert.deepEqual(result.words, [
+    { start: 10, end: 10.02, text: "a" }, { start: 10.04, end: 10.08, text: "b" },
+  ]);
+  assert.equal(result.fitted, 2);
+});
+
+test("丸ごと枠外の連続語は末尾から 0.05 秒ずつ後ろ詰めする", () => {
+  const result = fitWordsIntoWindow([
+    { start: 0.1, end: 0.2, text: "内" },
+    { start: 1.5, end: 1.6, text: "外1" },
+    { start: 1.7, end: 1.8, text: "外2" },
+  ], { start: 0, end: 1 });
+  assert.deepEqual(result.words, [
+    { start: 0.1, end: 0.2, text: "内" },
+    { start: 0.9, end: 0.95, text: "外1" },
+    { start: 0.95, end: 1, text: "外2" },
+  ]);
+  assert.equal(result.fitted, 2);
+});
 
 test("silencedetect の無音一覧を正規化して補集合を返す", () => {
   assert.deepEqual(detectSpeechChunks({ silences: [[1, 2], { start: 1.8, end: 3 }, [-1, 0.2]], duration: 4 }), [
@@ -75,6 +120,15 @@ test("オーナー実データを発話へ吸着し本文・語数・edited 行�
   ]) assert.deepEqual([byId(id).start, byId(id).end], expected);
   assert.equal(result.clamped_pairs, 2);
   assert.equal(result.overlaps_left, 0);
+  assert.equal(result.fitted_words, 4);
+  const edited = byId("c-0002");
+  assert.ok(edited.words.every((word) => word.start >= 2.34 && word.end <= 5.2));
+  assert.deepEqual(edited.words.slice(-4).map(({ text, start, end }) => ({ text, start, end })), [
+    { text: "YouTube", start: 4.051429, end: 5.05 },
+    { text: "の", start: 5.05, end: 5.1 },
+    { text: "撮影", start: 5.1, end: 5.15 },
+    { text: "を", start: 5.15, end: 5.2 },
+  ]);
   assert.doesNotThrow(() => resolveCaptionDisplay(
     { ...captionData, captions: result.captions },
     { cuts: [], output: { width: 1920, height: 1080 } },
