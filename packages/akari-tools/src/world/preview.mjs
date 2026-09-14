@@ -27,7 +27,7 @@ export function previewTimes(map) {
 
 export async function previewWorld(projectRoot, options = {}) {
   projectRoot = path.resolve(projectRoot);
-  const { map, file: mapPath } = await readCheckedWorldMap(projectRoot);
+  const { map, file: mapPath } = await readCheckedWorldMap(projectRoot, options.measure ? { ignoreCodes: ["C7"] } : undefined);
   const edit = JSON.parse(await readFile(path.join(projectRoot, "edit.json"), "utf8"));
   const htmlPath = path.join(projectRoot, "overlays", "world.html");
   const html = await readFile(htmlPath, "utf8");
@@ -46,6 +46,7 @@ export async function previewWorld(projectRoot, options = {}) {
   const proofPath = path.join(outputDir, "camera-proof.json");
   await writeFile(proofPath, `${JSON.stringify({ frames }, null, 2)}\n`, "utf8");
   const measurements = [];
+  let check;
   if (options.measure) {
     const measureFrame = options.measureFrame ?? ((file) => measurePng(file, options));
     for (const edge of map.edges.filter((candidate) => candidate.type !== "move")) {
@@ -55,8 +56,9 @@ export async function previewWorld(projectRoot, options = {}) {
       measurements.push({ id: edge.id, cover: roundTime(longest / FPS), samples });
     }
     await writeMeasuredCovers(mapPath, measurements);
+    ({ check } = await readCheckedWorldMap(projectRoot));
   }
-  return { frames, files, proofPath, measurements };
+  return { frames, files, proofPath, measurements, ...(check ? { check } : {}) };
 }
 
 export async function captureFrames({ projectRoot, edit, html, htmlPath, times, outputDir, width, height, chromePath }) {
@@ -120,7 +122,7 @@ export function replaceEdgeCover(text, edgeId, cover) {
   if (!match) throw new Error(`world-map.json に edge ${edgeId} がありません`);
   const end = objectEnd(text, text.lastIndexOf("{", match.index));
   const segment = text.slice(match.index, end);
-  const coverMatch = /"transition"\s*:\s*\{[^{}]*?"cover"(\s*:\s*)(null|-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)/s.exec(segment);
+  const coverMatch = /"transition"\s*:\s*\{[^{}]*?"cover"(\s*:\s*)(null|-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?|"(?:\\(?:["\\/bfnrt]|u[0-9a-fA-F]{4})|[^"\\\u0000-\u001f])*")/s.exec(segment);
   if (!coverMatch) throw new Error(`edge ${edgeId} の transition.cover がありません`);
   const start = match.index + coverMatch.index + coverMatch[0].lastIndexOf(coverMatch[2]);
   return text.slice(0, start) + String(cover) + text.slice(start + coverMatch[2].length);

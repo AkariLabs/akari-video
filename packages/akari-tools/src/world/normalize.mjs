@@ -1,4 +1,6 @@
 const copy = (value) => value === undefined ? undefined : JSON.parse(JSON.stringify(value));
+const FLAT_PATTERNS = new Set(["dots", "grid", "none"]);
+const PROVISIONAL_COVER = { move: 0, portal: 0.18, cut: 0.24 };
 
 export function normalizeWorldMap(json) {
   if (json?.schemaVersion === 3) return { map: copy(json), notes: [] };
@@ -76,6 +78,16 @@ export function normalizeWorldMap(json) {
         t1,
         transition: copy(edge.transition) ?? (type === "move" ? { kind: "none", cover: 0 } : { kind: type === "portal" ? "dive" : "mist", cover: null }),
       };
+      if (record(result.transition) && typeof result.transition.cover === "string") {
+        const label = result.transition.cover;
+        const cover = PROVISIONAL_COVER[type] ?? 0;
+        result.transition.cover = cover;
+        notes.push(`edge ${result.id} の cover のラベル "${label}" は v3 に写せない（暫定値 ${cover} を入れた。measure で実測する）`);
+      } else if (record(result.transition) && !Number.isFinite(result.transition.cover)) {
+        const cover = PROVISIONAL_COVER[type] ?? 0;
+        result.transition.cover = cover;
+        notes.push(`edge ${result.id} の cover は未測定（暫定値 ${cover} を入れた。measure で実測する）`);
+      }
       if (type !== "move") result.switchTime = edge.switchTime ?? (t0 + t1) / 2;
       for (const key of ["via", "carry", "easing"]) if (edge[key] !== undefined) result[key] = copy(edge[key]);
       return result;
@@ -98,6 +110,10 @@ export function normalizeWorldMap(json) {
   return { map, notes };
 }
 
+function record(value) {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
 function normalizeWorld(world, kind, notes) {
   const result = { id: world.id, label: world.label ?? world.id };
   if (world.palette) {
@@ -107,7 +123,10 @@ function normalizeWorld(world, kind, notes) {
     if (kind === "spatial") notes.push(`world ${world.id} の palette キーを v3 へ写した`);
   }
   if (kind === "flat") {
-    result.flat = { bounds: copy(world.bounds), pattern: world.pattern ?? "none" };
+    const sourcePattern = world.pattern ?? "none";
+    const pattern = FLAT_PATTERNS.has(sourcePattern) ? sourcePattern : "none";
+    result.flat = { bounds: copy(world.bounds), pattern };
+    if (pattern !== sourcePattern) notes.push(`world ${world.id} の pattern "${sourcePattern}" は v3 に無いので none にした`);
     if (world.far !== undefined) result.flat.far = copy(world.far);
     if (Object.keys(world).some((key) => !["id", "label", "palette", "bounds", "pattern", "far"].includes(key))) notes.push(`world ${world.id} の v3 に無いキーを除いた`);
   } else {
