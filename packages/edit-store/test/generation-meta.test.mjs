@@ -12,6 +12,7 @@ import {
 import {
   bindingShaFor,
   resolveGenerationState,
+  selectGenerationSidecarForSource,
   sidecarPathFor,
 } from '../lib/generation-meta.js';
 
@@ -69,9 +70,66 @@ test('bindingShaFor は planned の first_frame.sha256 を返す', () => {
   assert.deepEqual(bindingShaFor(meta('planned')), { sha256: hash('素材'), source: 'first_frame' });
 });
 
+test('bindingShaFor は生成中 video の first_frame.sha256 を返す', () => {
+  assert.deepEqual(bindingShaFor(meta('generating')), {
+    sha256: hash('素材'), source: 'first_frame'
+  });
+});
+
 test('bindingShaFor は sha の無い meta と null を null にする', () => {
   assert.equal(bindingShaFor({ version: 1, kind: 'video', status: 'generating' }), null);
   assert.equal(bindingShaFor(null), null);
+});
+
+const lookupMeta = (status, firstFramePath, startedAt = '2026-09-13T09:50:00.000Z') => ({
+  version: 1,
+  kind: 'video',
+  status,
+  inputs: { first_frame: { path: firstFramePath, sha256: hash('still') } },
+  job: { started_at: startedAt, stale_after_s: 30 },
+  ...(status === 'done' ? { result: { sha256: hash('video') } } : {})
+});
+
+test('selectGenerationSidecarForSource は生成物と still の優先規則を表駆動で解決する', () => {
+  const still = { sourcePath: 'assets/stills/a.png', meta: {
+    version: 1, kind: 'still', status: 'planned', inputs: { first_frame: { path: 'assets/stills/a.png' } }
+  } };
+  const rows = [
+    { name: '差し替え前 generating', status: 'generating', now: '2026-09-13T09:50:10.000Z', expected: 'video' },
+    { name: '差し替え前 stale', status: 'generating', now: '2026-09-13T09:50:31.000Z', expected: 'video' },
+    { name: '差し替え前 failed', status: 'failed', now: NOW, expected: 'video' },
+    { name: '差し替え前 done は still へ落とす', status: 'done', now: NOW, expected: 'still' }
+  ];
+  for (const row of rows) {
+    const video = {
+      sourcePath: 'assets/generated/gen-a.mp4', meta: lookupMeta(row.status, 'assets/stills/a.png'),
+      binding: { matches: true }
+    };
+    assert.equal(
+      selectGenerationSidecarForSource('assets/stills/a.png', [still, video], row.now)?.meta?.kind,
+      row.expected,
+      row.name
+    );
+  }
+});
+
+test('selectGenerationSidecarForSource は差し替え後の video 直接一致を返す', () => {
+  const video = { sourcePath: 'assets/generated/gen-a.mp4', meta: lookupMeta('done', 'assets/stills/a.png') };
+  assert.equal(selectGenerationSidecarForSource(video.sourcePath, [video], NOW), video);
+});
+
+test('selectGenerationSidecarForSource は最新候補、path 正規化、orphan 除外を決定的に扱う', () => {
+  const old = { sourcePath: 'old.mp4', meta: lookupMeta('generating', '././assets\\stills\\a.png', '2026-09-13T09:40:00Z'), binding: { matches: true } };
+  const orphan = { sourcePath: 'orphan.mp4', meta: lookupMeta('failed', 'assets/stills/a.png', '2026-09-13T10:00:00Z'), binding: { matches: false } };
+  const latest = { sourcePath: 'latest.mp4', meta: lookupMeta('failed', 'assets/stills/a.png', '2026-09-13T09:55:00Z') };
+  assert.equal(selectGenerationSidecarForSource(' ./assets/stills/a.png ', [old, orphan, latest], NOW), latest);
+  const firstInvalid = { sourcePath: 'first.mp4', meta: lookupMeta('failed', 'assets/stills/a.png', 'invalid') };
+  const secondInvalid = { sourcePath: 'second.mp4', meta: lookupMeta('failed', 'assets/stills/a.png', 'also-invalid') };
+  assert.equal(selectGenerationSidecarForSource('assets/stills/a.png', [firstInvalid, secondInvalid], NOW), firstInvalid);
+});
+
+test('selectGenerationSidecarForSource は entries 空なら undefined', () => {
+  assert.equal(selectGenerationSidecarForSource('assets/stills/a.png', [], NOW), undefined);
 });
 
 for (const row of [

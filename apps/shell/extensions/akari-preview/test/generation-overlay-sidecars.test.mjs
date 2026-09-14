@@ -79,6 +79,31 @@ test('v2 item の name を id ごとに返し、name の無い item は itemName
     assert.equal(Object.hasOwn(result.itemNames, 'unnamed'), false);
 });
 
+test('assets/generated の mp4 サイドカーを再帰走査し edit.json 由来と重複させない', async t => {
+    const data = await fixture(t);
+    await mkdir(join(data.project, 'assets', 'generated', 'nested'), { recursive: true });
+    await Promise.all([
+        writeFile(join(data.project, 'edit.json'), JSON.stringify({
+            version: 2,
+            sources: [{ id: 'still', path: 'assets/still.png' }, { id: 'direct', path: 'assets/generated/direct.mp4' }],
+            tracks: []
+        })),
+        writeFile(join(data.project, 'assets', 'still.png'), 'still'),
+        writeFile(join(data.project, 'assets/generated/direct.mp4.meta.json'), JSON.stringify({ status: 'done' })),
+        writeFile(join(data.project, 'assets/generated/nested/in-flight.mp4.meta.json'), JSON.stringify({
+            version: 1, kind: 'video', status: 'generating',
+            inputs: { first_frame: { path: 'assets/still.png' } }
+        }))
+    ]);
+    const result = await data.service.readGenerationSidecars({
+        editUri: pathToFileURL(join(data.project, 'edit.json')).toString(), workspaceRoots: [data.rootUri]
+    });
+    assert.deepEqual(result.entries.map(entry => entry.sourcePath), [
+        'assets/still.png', 'assets/generated/direct.mp4', 'assets/generated/nested/in-flight.mp4'
+    ]);
+    assert.ok(result.entries.at(-1).mtimeMs > 0);
+});
+
 test('1 MB 超、ワークスペース外、symlink のサイドカーを読まない', async t => {
     const data = await fixture(t);
     const outsideMeta = join(data.outside, 'escape.mp4.meta.json');

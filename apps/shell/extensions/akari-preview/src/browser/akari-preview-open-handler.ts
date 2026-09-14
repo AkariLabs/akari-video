@@ -36,11 +36,12 @@ import {
     projectSpeechDeclarations,
     resolveInternalTrackZ,
     resolvePreviewItemWrite,
+    selectGenerationSidecarForSource,
     toAnchorCaptions,
     TRANSITION_VOCABULARY,
     TimelineSegment
 } from '@akari-video/edit-store';
-import type { AdjustCurvesV1, AdjustWheelsV1, AdjustHueCurvesV1, EditV2 } from '@akari-video/edit-store';
+import type { AdjustCurvesV1, AdjustWheelsV1, AdjustHueCurvesV1, EditV2, GenerationMetaV1 } from '@akari-video/edit-store';
 import type { ReadableTransitionType } from '@akari-video/edit-store';
 import { applyAdjustBypass } from '../common/adjust-bypass';
 import {
@@ -16274,22 +16275,25 @@ body { display: grid; place-items: center; padding: 32px; }
                 workspaceRoots: await this.currentWorkspaceRoots()
             });
             if (widget.isDisposed) return;
-            const metaBySourcePath = new Map(sidecars.entries.map(entry => [entry.sourcePath, entry.meta]));
-            const bindingBySourcePath = new Map(sidecars.entries.map(entry => [entry.sourcePath, entry.binding ?? null]));
             const segments = this.previewCaptionTimelineSegments(summary.cuts, summary.output.fps);
             const clips = segments.flatMap(segment => {
                 if (segment.kind !== 'src' || segment.cutIndex === null) return [];
                 const cut = summary.cuts[segment.cutIndex];
                 if (!cut) return [];
                 const sourcePath = cut.sourcePath ?? '';
+                const generation = selectGenerationSidecarForSource(sourcePath, sidecars.entries.map(entry => ({
+                    sourcePath: entry.sourcePath,
+                    meta: entry.meta as GenerationMetaV1 | null,
+                    binding: entry.binding
+                })), Date.now());
                 return [{
                     id: cut.id,
                     name: sidecars.itemNames[cut.id] ?? cut.id,
                     start: segment.outStart,
                     end: segment.outEnd,
                     sourcePath,
-                    meta: metaBySourcePath.get(sourcePath) ?? null,
-                    binding: bindingBySourcePath.get(sourcePath) ?? null
+                    meta: generation?.meta ?? null,
+                    binding: generation?.binding ?? null
                 }];
             });
             widget.sendMessage({

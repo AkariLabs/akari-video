@@ -81,6 +81,18 @@ async function waitEval(cdp, expression, { timeoutMs = 60_000, label = 'conditio
   throw new Error(`${label} not reached${last ? `: ${sanitize(last)}` : ''}`);
 }
 
+async function waitForJsonStatus(file, expected, timeoutMs = 60_000) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    try {
+      const value = JSON.parse(await readFile(file, 'utf8'));
+      if (value?.status === expected) return value;
+    } catch {}
+    await sleep(150);
+  }
+  throw new Error(`${path.relative(PROJECT, file)} did not reach status ${expected}`);
+}
+
 async function settlePreloadOverlay(cdp) {
   const deadline = Date.now() + 1_500_000;
   let reloadAt = Date.now() + 300_000;
@@ -372,22 +384,32 @@ try {
   await dismissTransientUi(cdp, 2);
   await shot(cdp, '05-timeline-chip-generating.png');
 
-  await step('6. edit.json / captions.json の mtime は全手順で不変', async () => {
+  await step('6. 偽 CLI の mp4 サイドカーが done になると png チップは静止画へ戻る', async () => {
+    const generatedMetaPath = path.join(PROJECT, 'assets', 'generated', 'gen-clip-a.mp4.meta.json');
+    const stillMetaPath = path.join(PROJECT, 'assets', 'stills', 'a.png.meta.json');
+    await waitForJsonStatus(generatedMetaPath, 'done');
+    const stillSidecarExists = await stat(stillMetaPath).then(() => true).catch(() => false);
+    assert(!stillSidecarExists, 'still 側にサイドカーが作られた');
+    const state = await waitEval(cdp, `(()=>{const e=document.querySelector('[data-akari-ui="timeline:cut:0"]');return e?.dataset.akariGenerationState==='none'&&String(e.querySelector('[data-akari-generation-badge]')?.textContent||'')==='静止画'?{state:String(e.dataset.akariGenerationState),badge:'静止画'}:null})()`, { label: 'clip-a returns to still', timeoutMs: 60_000 });
+    return { state, generatedSidecar: 'assets/generated/gen-clip-a.mp4.meta.json', stillSidecarExists };
+  });
+  await dismissTransientUi(cdp, 2);
+  await shot(cdp, '06-timeline-chip-after-done.png');
+
+  await step('7. edit.json / captions.json の mtime は全手順で不変', async () => {
     const mtimesAfter = { edit: (await stat(editPath)).mtimeMs, captions: (await stat(captionsPath)).mtimeMs };
     assert(mtimesAfter.edit === mtimesBefore.edit, `edit.json mtime changed: ${mtimesBefore.edit} -> ${mtimesAfter.edit}`);
     assert(mtimesAfter.captions === mtimesBefore.captions, `captions.json mtime changed: ${mtimesBefore.captions} -> ${mtimesAfter.captions}`);
     return { mtimesBefore, mtimesAfter };
   });
 
-  await step('7. SS 5 枚の SHA256 が相異なる', async () => {
+  await step('8. SS 6 枚の SHA256 が相異なる', async () => {
     const sha256s = out.screenshotDetails.map(detail => detail.sha256);
-    const distinct = sha256s.length === 5 && new Set(sha256s).size === 5;
-    assert(distinct, `SS 5 枚の SHA256 が相異ならない: count=${sha256s.length}, distinct=${new Set(sha256s).size}`);
+    const distinct = sha256s.length === 6 && new Set(sha256s).size === 6;
+    assert(distinct, `SS 6 枚の SHA256 が相異ならない: count=${sha256s.length}, distinct=${new Set(sha256s).size}`);
     return { count: sha256s.length, sha256s, distinct: true };
   });
 
-  // 偽 CLI は generating の 3 秒後に done を書いて正常終了する。Electron の子を残さないよう待つ。
-  await sleep(3500);
   out.status = 'pass';
   await save();
 } catch (error) {

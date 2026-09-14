@@ -8,6 +8,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.sidecarPathFor = sidecarPathFor;
 exports.bindingShaFor = bindingShaFor;
 exports.resolveGenerationState = resolveGenerationState;
+exports.selectGenerationSidecarForSource = selectGenerationSidecarForSource;
 function sidecarPathFor(sourcePath) {
     return `${sourcePath}.meta.json`;
 }
@@ -15,8 +16,7 @@ function bindingShaFor(meta) {
     if (meta?.status === 'done' && typeof meta.result?.sha256 === 'string') {
         return { sha256: meta.result.sha256, source: 'result' };
     }
-    if ((meta?.kind === 'still' || meta?.status === 'planned')
-        && typeof meta.inputs?.first_frame?.sha256 === 'string') {
+    if (typeof meta?.inputs?.first_frame?.sha256 === 'string') {
         return { sha256: meta.inputs.first_frame.sha256, source: 'first_frame' };
     }
     return null;
@@ -44,4 +44,37 @@ function resolveGenerationState(meta, now) {
             return 'stale';
     }
     return meta.status;
+}
+/**
+ * item が現在指している素材へ、生成物側の video サイドカーを逆引きする。
+ * 選択だけを行い、各 surface 固有の orphan / 契約外 status の解決は呼び出し側へ残す。
+ */
+function selectGenerationSidecarForSource(sourcePath, entries, now) {
+    if (typeof sourcePath !== 'string')
+        return undefined;
+    const normalizePath = (value) => value.trim().replace(/\\/gu, '/').replace(/^(?:\.\/)+/u, '');
+    const normalizedSourcePath = normalizePath(sourcePath);
+    const direct = entries.find(entry => normalizePath(entry.sourcePath) === normalizedSourcePath);
+    if (direct?.meta?.kind === 'video')
+        return direct;
+    let selected;
+    let selectedStartedAt = Number.NEGATIVE_INFINITY;
+    for (const entry of entries) {
+        const meta = entry.meta;
+        if (meta?.kind !== 'video' || entry.binding?.matches === false)
+            continue;
+        const firstFramePath = meta.inputs?.first_frame?.path;
+        if (typeof firstFramePath !== 'string' || normalizePath(firstFramePath) !== normalizedSourcePath)
+            continue;
+        const state = resolveGenerationState(meta, now);
+        if (state !== 'generating' && state !== 'stale' && state !== 'failed')
+            continue;
+        const startedAt = Date.parse(String(meta.job?.started_at ?? ''));
+        const sortableStartedAt = Number.isFinite(startedAt) ? startedAt : Number.NEGATIVE_INFINITY;
+        if (!selected || sortableStartedAt > selectedStartedAt) {
+            selected = entry;
+            selectedStartedAt = sortableStartedAt;
+        }
+    }
+    return selected ?? direct;
 }

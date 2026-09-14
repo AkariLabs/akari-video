@@ -6,7 +6,7 @@ import { planMigration } from '@akari-video/edit-store/lib/migrate';
 import { spawn } from 'child_process';
 import { createHash, randomBytes } from 'crypto';
 import { constants as fsConstants, createReadStream, readFileSync, rmdirSync, rmSync, statSync, unlinkSync } from 'fs';
-import { FileHandle, lstat, mkdtemp, open, readFile, realpath, rm, rmdir, stat, unlink } from 'fs/promises';
+import { FileHandle, lstat, mkdtemp, open, readFile, readdir, realpath, rm, rmdir, stat, unlink } from 'fs/promises';
 import { createServer, IncomingMessage, Server, ServerResponse } from 'http';
 import { tmpdir } from 'os';
 import { fileURLToPath, pathToFileURL } from 'url';
@@ -1180,6 +1180,7 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
                 sourcePaths.set(typeof record.id === 'string' ? record.id : record.path, record.path);
             }
         }
+        const projectRoot = await realpath(dirname(this.filePath(request.editUri)));
         const collected = new Set<string>(sourcePaths.values());
         const itemNames: Record<string, string> = {};
         if (Array.isArray(edit.tracks)) {
@@ -1213,7 +1214,30 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
                 visit(trackRecord.items);
             }
         }
-        const projectRoot = dirname(this.filePath(request.editUri));
+        const generatedRoot = join(projectRoot, 'assets', 'generated');
+        const visitGenerated = async (directory: string): Promise<void> => {
+            if (!roots.some(root => this.contains(root, directory))) return;
+            let children: import('fs').Dirent[];
+            try {
+                children = await readdir(directory, { withFileTypes: true });
+            } catch {
+                return;
+            }
+            for (const child of children.sort((left, right) => left.name.localeCompare(right.name))) {
+                const candidatePath = join(directory, child.name);
+                if (child.isDirectory()) {
+                    await visitGenerated(candidatePath);
+                    continue;
+                }
+                if (!child.isFile() || !child.name.endsWith('.meta.json')) continue;
+                const candidateStat = await lstat(candidatePath).catch(() => null);
+                if (!candidateStat?.isFile() || candidateStat.isSymbolicLink()) continue;
+                const sourcePath = relative(projectRoot, candidatePath.slice(0, -'.meta.json'.length))
+                    .split(sep).join('/');
+                if (!collected.has(sourcePath)) collected.add(sourcePath);
+            }
+        };
+        await visitGenerated(generatedRoot);
         const entries = await Promise.all([...collected].map(async sourcePath => {
             const sidecarPath = `${resolve(projectRoot, sourcePath)}.meta.json`;
             let sidecarStat: Awaited<ReturnType<typeof lstat>>;
@@ -1240,7 +1264,11 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
                     if (!expected) return { sourcePath, meta, mtimeMs, binding: null };
                     let actual: string | null = null;
                     try {
-                        const sourceAbsolutePath = resolve(projectRoot, sourcePath);
+                        const firstFramePath = (meta as { inputs?: { first_frame?: { path?: unknown } | null } })
+                            .inputs?.first_frame?.path;
+                        const hashSourcePath = expected.source === 'first_frame' && typeof firstFramePath === 'string'
+                            && firstFramePath.trim() ? firstFramePath : sourcePath;
+                        const sourceAbsolutePath = resolve(projectRoot, hashSourcePath);
                         const canonicalSourceParent = await realpath(dirname(sourceAbsolutePath));
                         const requestedSourcePath = join(canonicalSourceParent, basename(sourceAbsolutePath));
                         if (roots.some(root => this.contains(root, requestedSourcePath))) {

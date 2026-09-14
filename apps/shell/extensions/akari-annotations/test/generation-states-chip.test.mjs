@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { cp, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -8,6 +9,7 @@ import ts from 'typescript';
 
 import { AkariAnnotationsServiceImpl } from '../lib/node/akari-annotations-service.js';
 import { describeGenerationChip, resolveGenerationState } from '../lib/common/generation-sidecar.js';
+import { selectGenerationSidecarForSource } from '../../../../../packages/edit-store/lib/generation-meta.js';
 
 const fixture = new URL('./fixtures/generation-states/', import.meta.url);
 const widgetSource = await readFile(new URL('../src/browser/akari-annotations-widget.ts', import.meta.url), 'utf8');
@@ -57,6 +59,9 @@ class DummyElement {
 
 globalThis.document = { createElement: () => new DummyElement() };
 const applyGenerationChip = widgetMethod('applyGenerationChip', { describeGenerationChip });
+const generationForPath = widgetMethod('generationForPath', {
+  resolveGenerationState, selectGenerationSidecarForSource
+});
 const uri = path => pathToFileURL(path).toString();
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -90,6 +95,35 @@ test('node reader は generated を再帰走査し fixture 6 状態を fail soft
   )), ['none', 'planned', 'generating', 'stale', 'done', 'failed']);
   assert.equal(entries.get('assets/generated/done.mp4').result.path, 'assets/generated/done.mp4');
   assert.equal(entries.get('assets/generated/done.mp4').inputs.first_frame.path, 'assets/generated/generating.png');
+});
+
+test('生成中 mp4 が未存在でも first frame の sha binding で png チップを生成中にする', async t => {
+  const root = await mkdtemp(join(tmpdir(), 'akari-generation-in-flight-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  await cp(fixture, root, { recursive: true });
+  const sourcePath = 'assets/generated/planned.png';
+  const source = await readFile(join(root, sourcePath));
+  const sha256 = createHash('sha256').update(source).digest('hex');
+  await writeFile(join(root, 'assets/generated/in-flight.mp4.meta.json'), JSON.stringify({
+    version: 1, kind: 'video', status: 'generating', progress: 45,
+    inputs: { first_frame: { path: sourcePath, sha256 } },
+    job: { started_at: new Date().toISOString(), stale_after_s: 30 }
+  }));
+  const result = await new AkariAnnotationsServiceImpl().readGenerationSidecars({
+    projectRootUri: uri(root), sourcePaths: [sourcePath]
+  });
+  const inFlight = result.entries.find(entry => entry.sourcePath === 'assets/generated/in-flight.mp4');
+  assert.equal(inFlight.binding.matches, true);
+  const sidecars = new Map(result.entries.map(entry => [entry.sourcePath, {
+    meta: entry.meta, binding: entry.binding
+  }]));
+  const generation = generationForPath.call({ generationSidecars: sidecars }, sourcePath);
+  const element = new DummyElement();
+  applyGenerationChip.call({}, element, generation);
+  assert.equal(element.dataset.akariGenerationState, 'generating');
+  assert.match(element.className, /akari-generation-generating/);
+  assert.equal(element.children.find(child => Object.hasOwn(child.dataset, 'akariGenerationBadge'))?.textContent,
+    '生成中 45%');
 });
 
 test('meta watcher は 1 秒以内に className / badge を差分更新し edit/captions を書かない', async t => {

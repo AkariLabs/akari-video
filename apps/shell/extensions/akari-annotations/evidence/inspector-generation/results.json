@@ -252,30 +252,43 @@
       }
     },
     {
-      "name": "6. edit.json / captions.json の mtime は全手順で不変",
+      "name": "6. 偽 CLI の mp4 サイドカーが done になると png チップは静止画へ戻る",
+      "pass": true,
+      "detail": {
+        "state": {
+          "state": "none",
+          "badge": "静止画"
+        },
+        "generatedSidecar": "assets/generated/gen-clip-a.mp4.meta.json",
+        "stillSidecarExists": false
+      }
+    },
+    {
+      "name": "7. edit.json / captions.json の mtime は全手順で不変",
       "pass": true,
       "detail": {
         "mtimesBefore": {
-          "edit": 1789320859709.757,
-          "captions": 1789320859819.2358
+          "edit": 1789366165623.1648,
+          "captions": 1789366167484.662
         },
         "mtimesAfter": {
-          "edit": 1789320859709.757,
-          "captions": 1789320859819.2358
+          "edit": 1789366165623.1648,
+          "captions": 1789366167484.662
         }
       }
     },
     {
-      "name": "7. SS 5 枚の SHA256 が相異なる",
+      "name": "8. SS 6 枚の SHA256 が相異なる",
       "pass": true,
       "detail": {
-        "count": 5,
+        "count": 6,
         "sha256s": [
-          "4dbd739434757d78ab4e1c6d165f64b81d682e741ee85cc8fcf28964d83b8195",
-          "3f3e20835ca0485f0c918ab6b0057ac3cd778f87192d0863378f6978f0caed1c",
-          "aa119756c9aa16c216488fcaa34193cd529a409627afdf8f05c46288dbbdd513",
-          "268be311a6b00790d809735d4f14833b78cc0c9bd6eaea8419b60ea4f019ec18",
-          "b6fbdcdef6b94ed451770fa861e7dcdff0f236914923d9966eb258a79bc8efc1"
+          "c92700edf9e1c620bf5024069133a88dea3d5cf3c89f92d8a99d7671126ccbeb",
+          "af0f5229af0491c0af36d9eb9c3d5477f17b0fc62c395dd1a261e34f0817df65",
+          "e886439fd190f30c679ba1e1b08834806ffbeee2b1853d2ac6ba942c32c07ea6",
+          "cb0afca36d32ed7ed5c861a92910671835cd1d11045c05fc4b982d80fe9d7709",
+          "7636f62a966947328f657171b26721347168caa86bcb087e2a52d490f6aee01e",
+          "e7af5a7f1815513396e1a69648c6542021292da8ff597641f8749c1f17460414"
         ],
         "distinct": true
       }
@@ -286,47 +299,55 @@
     "02-model-kling.png",
     "03-model-veo.png",
     "04-cost-approval-dialog.png",
-    "05-timeline-chip-generating.png"
+    "05-timeline-chip-generating.png",
+    "06-timeline-chip-after-done.png"
   ],
   "screenshotDetails": [
     {
       "name": "01-model-h3.png",
-      "sha256": "4dbd739434757d78ab4e1c6d165f64b81d682e741ee85cc8fcf28964d83b8195",
+      "sha256": "c92700edf9e1c620bf5024069133a88dea3d5cf3c89f92d8a99d7671126ccbeb",
       "inspectorFront": true,
       "sectionVisible": true,
       "modelRow": "MiniMax H3 · $0.05/秒 · as_of 2026-09-12（fal:h3-i2v）"
     },
     {
       "name": "02-model-kling.png",
-      "sha256": "3f3e20835ca0485f0c918ab6b0057ac3cd778f87192d0863378f6978f0caed1c",
+      "sha256": "af0f5229af0491c0af36d9eb9c3d5477f17b0fc62c395dd1a261e34f0817df65",
       "inspectorFront": true,
       "sectionVisible": true,
       "modelRow": "Kling Video v3 Standard · 見積不可 · as_of 2026-09-12（fal:kling-v3-standard-i2v）"
     },
     {
       "name": "03-model-veo.png",
-      "sha256": "aa119756c9aa16c216488fcaa34193cd529a409627afdf8f05c46288dbbdd513",
+      "sha256": "e886439fd190f30c679ba1e1b08834806ffbeee2b1853d2ac6ba942c32c07ea6",
       "inspectorFront": true,
       "sectionVisible": true,
       "modelRow": "Veo 3.1 · $0.2/秒 · as_of 2026-09-12（fal:veo-3.1-flf）"
     },
     {
       "name": "04-cost-approval-dialog.png",
-      "sha256": "268be311a6b00790d809735d4f14833b78cc0c9bd6eaea8419b60ea4f019ec18",
+      "sha256": "cb0afca36d32ed7ed5c861a92910671835cd1d11045c05fc4b982d80fe9d7709",
       "inspectorFront": true,
       "sectionVisible": true,
       "modelRow": "MiniMax H3 · $0.05/秒 · as_of 2026-09-12（fal:h3-i2v）"
     },
     {
       "name": "05-timeline-chip-generating.png",
-      "sha256": "b6fbdcdef6b94ed451770fa861e7dcdff0f236914923d9966eb258a79bc8efc1",
+      "sha256": "7636f62a966947328f657171b26721347168caa86bcb087e2a52d490f6aee01e",
+      "inspectorFront": true,
+      "sectionVisible": true,
+      "modelRow": "MiniMax H3 · $0.05/秒 · as_of 2026-09-12（fal:h3-i2v）"
+    },
+    {
+      "name": "06-timeline-chip-after-done.png",
+      "sha256": "e7af5a7f1815513396e1a69648c6542021292da8ff597641f8749c1f17460414",
       "inspectorFront": true,
       "sectionVisible": true,
       "modelRow": "MiniMax H3 · $0.05/秒 · as_of 2026-09-12（fal:h3-i2v）"
     }
   ],
   "cleanup": {
-    "killedPid": 88082,
+    "killedPid": 62855,
     "survivingProcesses": 0,
     "survivingBackendMain": 0,
     "alive": 0

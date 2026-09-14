@@ -42,6 +42,13 @@ test('reduced motion、exportLook、生成更新メッセージを webview HTML 
     assert.match(previewBootstrapMethod, /resolveGenerationStateFn\(clip\.meta, Date\.now\(\), clip\.binding\)/u);
 });
 
+test('sendGenerationUpdate は clip ごとに first frame 逆引きを使う', () => {
+    const sendGenerationUpdate = methods.get('sendGenerationUpdate');
+    assert.ok(sendGenerationUpdate);
+    assert.match(sendGenerationUpdate, /selectGenerationSidecarForSource\(sourcePath, sidecars\.entries\.map/u);
+    assert.doesNotMatch(sendGenerationUpdate, /metaBySourcePath\.get\(sourcePath\)|bindingBySourcePath\.get\(sourcePath\)/u);
+});
+
 test('frame-engine と legacy の両 tick 経路が生成オーバーレイを更新する', () => {
     const tickStart = previewBootstrapMethod.indexOf('const tick = (immediatePlaybackTick');
     const tickEnd = previewBootstrapMethod.indexOf('const runTickGuarded =', tickStart);
