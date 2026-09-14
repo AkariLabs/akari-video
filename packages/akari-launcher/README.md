@@ -56,6 +56,17 @@ sha256 検証・fail-closed は resolver 側の責務のまま。`src/assets-com
 `akari clean [project-dir] [--dry-run] [--yes] [--json]`（使い捨ての中間ファイル、保持する
 正本、判断が必要なものを容量付きで一覧する。既定は一覧のみで、削除可能なものだけを承認後に削除）。
 
+## 拡張キット
+
+`manifest.json` を持つ配布物を `akari store install <productId>` で導入すると、CLI / runtime の要件を検査し、素材とスキルを `~/.akari` 配下へ symlink で合成する。導入状況は `akari store status`、解除は `akari store uninstall <productId>` で確認・操作できる。Claude Code では初回だけ次を実行する。
+
+```sh
+claude plugin marketplace add ~/.akari/kits
+claude plugin install akari-kits@akari-kits
+```
+
+`claude` が PATH に無い場合は、Claude Code のプラグイン設定で `~/.akari/kits` を marketplace として追加する。
+
 `akari` に渡した引数はそのまま `opencode` に転送する（例: `akari --continue` は
 `opencode --continue` を起動する）。
 
