@@ -21,6 +21,7 @@ window.akari.worldRuntime = (() => {
 
   function validateDescriptor(value) {
     if (!record(value)) fail("宣言は JSON object である必要があります");
+    // frame / render are build-time additions and inventory is intentionally projected out, so top-level keys do not mirror the map schema.
     keys(value, ["schemaVersion", "kind", "frame", "worlds", "zones", "cameraStops", "edges", "retainedNodes", "render"], "宣言");
     if (value.schemaVersion !== 1) fail("schemaVersion は 1 である必要があります");
     if (value.kind !== "flat") throw new TypeError("world-runtime v0 は kind: flat のみ");
@@ -31,8 +32,9 @@ window.akari.worldRuntime = (() => {
     objectArray(value.cameraStops, "cameraStops"); objectArray(value.edges, "edges");
     if (!Array.isArray(value.retainedNodes)) fail("retainedNodes は配列である必要があります");
     for (const [index, world] of value.worlds.entries()) {
-      keys(world, ["id", "label", "palette", "flat"], `worlds[${index}]`);
+      keys(world, ["id", "label", "palette", "flat", "spatial"], `worlds[${index}]`);
       if (!string(world.id) || !record(world.palette) || !record(world.flat)) fail(`worlds[${index}] の id / palette / flat が不正です`);
+      if (world.spatial !== undefined && !record(world.spatial)) fail(`worlds[${index}].spatial は object である必要があります`);
       keys(world.palette, ["background", "dots", "accent", "haze"], `worlds[${index}].palette`);
       if (![world.palette.background, world.palette.dots, world.palette.accent].every(string) || (world.palette.haze !== undefined && !string(world.palette.haze))) fail(`worlds[${index}].palette の色が不正です`);
       keys(world.flat, ["bounds", "pattern", "far"], `worlds[${index}].flat`);
@@ -52,9 +54,12 @@ window.akari.worldRuntime = (() => {
       tuple(zone.c, 2, `zones[${index}].c`);
     }
     for (const [index, stop] of value.cameraStops.entries()) {
-      keys(stop, ["id", "world", "at", "leave", "c"], `cameraStops[${index}]`);
+      keys(stop, ["id", "label", "world", "at", "leave", "c", "eye", "target"], `cameraStops[${index}]`);
       if (!string(stop.id) || !string(stop.world) || !finite(stop.at) || !finite(stop.leave)) fail(`cameraStops[${index}] が不正です`);
+      if (stop.label !== undefined && !string(stop.label)) fail(`cameraStops[${index}].label は文字列である必要があります`);
       tuple(stop.c, 3, `cameraStops[${index}].c`);
+      if (stop.eye !== undefined) tuple(stop.eye, 3, `cameraStops[${index}].eye`);
+      if (stop.target !== undefined) tuple(stop.target, 3, `cameraStops[${index}].target`);
     }
     for (const [index, edge] of value.edges.entries()) {
       keys(edge, ["id", "from", "to", "type", "t0", "t1", "switchTime", "transition", "via", "carry", "easing"], `edges[${index}]`);
