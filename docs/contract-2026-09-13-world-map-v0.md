@@ -25,6 +25,8 @@
 ## 3. 描画
 
 flat world は 1 個の overlay 断片で構成する。Canvas 層は背景、格子、遠景、portal、cut の覆いを描き、DOM sheet 層は素材と文字を持つ。各 world は直下の `.akari-world-sheet[data-world]`、zone はその子の `.akari-world-zone[data-zone]` とし、sheet 自身は left / top 0、zone の px は bounds 原点を引かない world 座標そのままとする。sheet の transform は authoring 時に固定せず、ランタイムが `camera(t)` から設定する。DOM と Canvas の混在出力は rasterize 経路を使う。
+素材の時計の起点は同じ zone id の stop の `at + delay`（`delay` は秒・省略 0・0 以上）とし、到着前は 0 秒で止める。
+`role: "background"` の素材を含む zone はカリングしない。role 省略時も `vars` の `world-width` / `world-height`（`--` 接頭辞も可）があれば背景として扱う。
 
 spatial world は `akari world build` が `assets/world/world.glb` と `overlays/world.html` の
 three 断片へ決定論的に焼く。GLB は `worlds[].spatial.floor`、`background`、`haze`、

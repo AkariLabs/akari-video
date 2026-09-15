@@ -2,6 +2,8 @@
 window.akari = window.akari || {};
 window.akari.worldRuntime = (() => {
   const instances = new Map();
+  const itemAnimations = new WeakMap();
+  const ANIMATIONS_CACHE_MS = 250;
   const DECLARATION_SELECTOR = 'script[type="application/json"][data-akari-world-scene]';
   const DEFAULT_RENDER = { dotStep: 90, margin: 0.25, hazeAlpha: 0.92 };
 
@@ -166,6 +168,33 @@ window.akari.worldRuntime = (() => {
     }
   }
 
+  function setZoneDisplay(node, display) {
+    if (node.style.display !== display) {
+      // display:none cancels CSS animations; a scrub back must discover their replacements immediately.
+      for (const item of node.querySelectorAll('[data-akari-item-start]')) itemAnimations.delete(item);
+    }
+    node.style.display = display;
+  }
+
+  function syncItemAnimations(container, seconds) {
+    const now = performance.now();
+    for (const item of container.querySelectorAll('[data-akari-item-start]')) {
+      let cached = itemAnimations.get(item);
+      if (!cached || now - cached.at > ANIMATIONS_CACHE_MS) {
+        cached = { at: now, animations: item.getAnimations({ subtree: true }) };
+        itemAnimations.set(item, cached);
+      }
+      const start = Number(item.dataset.akariItemStart);
+      const time = Math.max(0, (seconds - (finite(start) ? start : 0)) * 1000);
+      for (const animation of cached.animations) {
+        try {
+          animation.pause();
+          animation.currentTime = time;
+        } catch { /* CSS animations can be replaced during a seek. */ }
+      }
+    }
+  }
+
   function syncSheets(container, instance, camera, overview) {
     const { width, height } = instance.descriptor.frame;
     const margin = { ...DEFAULT_RENDER, ...instance.descriptor.render }.margin;
@@ -177,11 +206,12 @@ window.akari.worldRuntime = (() => {
       sheet.style.transformOrigin = "0 0";
       for (const node of sheet.querySelectorAll(".akari-world-zone[data-zone]")) {
         const zone = zones.get(node.dataset.zone);
-        if (!zone) { node.style.display = "none"; continue; }
-        if (overview) { node.style.display = ""; continue; }
+        if (!overview && node.querySelector('[data-akari-role="background"]')) continue;
+        if (!zone) { setZoneDisplay(node, "none"); continue; }
+        if (overview) { setZoneDisplay(node, ""); continue; }
         const sx = width / 2 + (zone.c[0] - camera.x) * camera.scale;
         const sy = height / 2 + (zone.c[1] - camera.y) * camera.scale;
-        node.style.display = sx < -width * margin || sx > width * (1 + margin) || sy < -height * margin || sy > height * (1 + margin) ? "none" : "";
+        setZoneDisplay(node, sx < -width * margin || sx > width * (1 + margin) || sy < -height * margin || sy > height * (1 + margin) ? "none" : "");
       }
     }
   }
@@ -204,10 +234,12 @@ window.akari.worldRuntime = (() => {
         { ...camera, scale: overview.scale, ox: overview.ox + camera.x * overview.scale, oy: overview.oy + camera.y * overview.scale },
         seconds, { cover: false });
       syncSheets(container, instance, camera, overview);
+      syncItemAnimations(container, seconds);
       return;
     }
     drawScene(instance.ctx, instance.descriptor, { ...camera, ox: instance.descriptor.frame.width / 2, oy: instance.descriptor.frame.height / 2 }, seconds);
     syncSheets(container, instance, camera);
+    syncItemAnimations(container, seconds);
   }
 
   function drawOverview(ctx, descriptorValue, view, seconds, options = {}) {

@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 
-const ITEM_KEYS = new Set(["id", "zone", "asset", "offset", "scale", "vars"]);
+const ITEM_KEYS = new Set(["id", "zone", "asset", "offset", "scale", "vars", "delay", "role"]);
 
 export async function readWorldItems(projectRoot) {
   const file = path.join(projectRoot, "planning", "world-items.json");
@@ -36,6 +36,8 @@ export function validateWorldItems(value) {
     ids.add(item.id);
     if (item.offset !== undefined && (!Array.isArray(item.offset) || item.offset.length !== 2 || !item.offset.every(finite))) throw new Error(`world-items.json items[${index}].offset は有限数 2 要素です`);
     if (item.scale !== undefined && (!finite(item.scale) || item.scale <= 0)) throw new Error(`world-items.json items[${index}].scale は正の有限数です`);
+    if (item.delay !== undefined && (!finite(item.delay) || item.delay < 0)) throw new Error(`world-items.json items[${index}].delay は 0 以上の有限数です`);
+    if (item.role !== undefined && item.role !== "background") throw new Error(`world-items.json items[${index}].role は background です`);
     if (item.vars !== undefined && (!record(item.vars) || Object.values(item.vars).some((value) => !["string", "number"].includes(typeof value)))) throw new Error(`world-items.json items[${index}].vars は string / number 値の object です`);
   }
   return value;
