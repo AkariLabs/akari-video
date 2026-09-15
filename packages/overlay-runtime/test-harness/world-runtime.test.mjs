@@ -25,6 +25,16 @@ const declaration = value => `<script type="application/json" data-akari-world-s
 const sheets = descriptor.worlds.map(world => `<div class="akari-world-sheet" data-world="${world.id}">${descriptor.zones.filter(zone => zone.world === world.id).map(zone => `<div class="akari-world-zone" data-zone="${zone.id}"></div>`).join("")}</div>`).join("");
 const fragment = `<div style="position:relative;width:320px;height:180px">${sheets}${declaration(descriptor)}</div>`;
 const md5 = value => createHash("md5").update(value).digest("hex");
+const descriptorCases = [
+  ["cameraStops[].label", value => { value.cameraStops[0].label = "Atelier"; }],
+  ["worlds[].spatial", value => { value.worlds[0].spatial = { c: [10, 12, 0] }; }],
+  ["cameraStops[].eye", value => { value.cameraStops[0].eye = [10, 12, 100]; }],
+  ["cameraStops[].target", value => { value.cameraStops[0].target = [10, 12, 0]; }],
+].map(([label, mutate]) => {
+  const value = JSON.parse(JSON.stringify(descriptor));
+  mutate(value);
+  return [label, value];
+});
 const camera = createCamera(descriptor);
 const stopTime = (descriptor.cameraStops[0].at + descriptor.cameraStops[0].leave) / 2;
 const moveEdge = descriptor.edges.find(edge => edge.type === "move");
@@ -97,6 +107,18 @@ test("world canvas, DOM sheets, overview, inspection and validation are determin
   assert.deepEqual(stop.inspect, { status: "ready", world: "atelier", x: 10, y: 12, scale: 1.1, phase: "stop" });
   assert.equal(move.inspect.phase, "move");
 
+  for (const [label, value] of descriptorCases) {
+    const png = await page.evaluate(async ({ html, seconds }) => {
+      const container = document.createElement("section");
+      container.innerHTML = html;
+      document.querySelector("#stage").appendChild(container);
+      window.akari.worldRuntime.render(container, seconds);
+      const blob = await new Promise(resolve => container.querySelector("canvas").toBlob(resolve, "image/png"));
+      return [...new Uint8Array(await blob.arrayBuffer())];
+    }, { html: `${sheets}${declaration(value)}`, seconds: stopTime });
+    assert.equal(md5(Buffer.from(png)), md5(Buffer.from(stop.png)), `${label} must not change flat rendering`);
+  }
+
   for (const seconds of observationTimes) {
     const state = camera(seconds);
     const result = observations.get(seconds);
@@ -157,5 +179,14 @@ test("world canvas, DOM sheets, overview, inspection and validation are determin
     const container = document.createElement("div"); container.innerHTML = `<script type="application/json" data-akari-world-scene>${value}</script>`;
     try { window.akari.worldRuntime.render(container, 0); return false; } catch (error) { return error instanceof TypeError; }
   }, json), true);
+  const unknown = JSON.parse(JSON.stringify(descriptor));
+  unknown.cameraStops[0].__drift__ = true;
+  const unknownError = await page.evaluate(value => {
+    const container = document.createElement("div");
+    container.innerHTML = `<script type="application/json" data-akari-world-scene>${JSON.stringify(value)}</script>`;
+    try { window.akari.worldRuntime.readDescriptor(container); return null; }
+    catch (error) { return { name: error.name, message: error.message }; }
+  }, unknown);
+  assert.deepEqual(unknownError, { name: "TypeError", message: "world-runtime: cameraStops[0].__drift__ は未知のキーです" });
   assert.equal(await page.evaluate(() => { const container = document.querySelector("#world"); window.akari.worldRuntime.dispose(container); return container.querySelector("canvas") === null; }), true);
 });
