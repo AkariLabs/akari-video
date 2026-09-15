@@ -149,28 +149,31 @@ window.akari.worldRuntime = (() => {
     return descriptor.edges.find(edge => (edge.type === "cut" || edge.type === "portal") && finite(edge.switchTime) && edge.transition.cover > 0 && Math.abs(seconds - edge.switchTime) <= edge.transition.cover / 2);
   }
 
-  function drawScene(ctx, descriptor, view, seconds) {
+  function drawScene(ctx, descriptor, view, seconds, options = {}) {
     const width = ctx.canvas?.width ?? descriptor.frame.width;
     const height = ctx.canvas?.height ?? descriptor.frame.height;
     ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, width, height);
     drawWorlds(ctx, descriptor, view);
-    if (coveringEdge(descriptor, seconds)) {
+    if (options.cover !== false && coveringEdge(descriptor, seconds)) {
       const world = descriptor.worlds.find(item => item.id === view.world) ?? descriptor.worlds[0];
       ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, width, height); ctx.globalAlpha = { ...DEFAULT_RENDER, ...descriptor.render }.hazeAlpha;
       ctx.fillStyle = world.palette.haze ?? world.palette.background; ctx.fillRect(0, 0, width, height); ctx.globalAlpha = 1;
     }
   }
 
-  function syncSheets(container, instance, camera) {
+  function syncSheets(container, instance, camera, overview) {
     const { width, height } = instance.descriptor.frame;
     const margin = { ...DEFAULT_RENDER, ...instance.descriptor.render }.margin;
     const zones = new Map(instance.descriptor.zones.map(zone => [zone.id, zone]));
     for (const sheet of container.querySelectorAll(".akari-world-sheet[data-world]")) {
-      sheet.style.transform = `translate(${width / 2 - camera.x * camera.scale}px, ${height / 2 - camera.y * camera.scale}px) scale(${camera.scale})`;
+      sheet.style.transform = overview
+        ? `translate(${overview.ox}px, ${overview.oy}px) scale(${overview.scale})`
+        : `translate(${width / 2 - camera.x * camera.scale}px, ${height / 2 - camera.y * camera.scale}px) scale(${camera.scale})`;
       sheet.style.transformOrigin = "0 0";
       for (const node of sheet.querySelectorAll(".akari-world-zone[data-zone]")) {
         const zone = zones.get(node.dataset.zone);
         if (!zone) { node.style.display = "none"; continue; }
+        if (overview) { node.style.display = ""; continue; }
         const sx = width / 2 + (zone.c[0] - camera.x) * camera.scale;
         const sy = height / 2 + (zone.c[1] - camera.y) * camera.scale;
         node.style.display = sx < -width * margin || sx > width * (1 + margin) || sy < -height * margin || sy > height * (1 + margin) ? "none" : "";
@@ -178,11 +181,26 @@ window.akari.worldRuntime = (() => {
     }
   }
 
-  function render(container, seconds) {
+  function render(container, seconds, options = {}) {
     const instance = instances.get(container) ?? mount(container);
     if (instance.status === "error") throw new TypeError(instance.message);
     const camera = instance.camera(seconds);
     instance.current = camera;
+    const overview = options.overview;
+    if (record(overview)) {
+      if (!finite(overview.scale) || !finite(overview.ox) || !finite(overview.oy)) fail("overview view が不正です");
+      const width = finite(overview.width) ? overview.width : instance.descriptor.frame.width;
+      const height = finite(overview.height) ? overview.height : instance.descriptor.frame.height;
+      if (instance.canvas.width !== width || instance.canvas.height !== height) {
+        instance.canvas.width = width; instance.canvas.height = height;
+        instance.canvas.style.width = `${width}px`; instance.canvas.style.height = `${height}px`;
+      }
+      drawScene(instance.ctx, instance.descriptor,
+        { ...camera, scale: overview.scale, ox: overview.ox + camera.x * overview.scale, oy: overview.oy + camera.y * overview.scale },
+        seconds, { cover: false });
+      syncSheets(container, instance, camera, overview);
+      return;
+    }
     drawScene(instance.ctx, instance.descriptor, { ...camera, ox: instance.descriptor.frame.width / 2, oy: instance.descriptor.frame.height / 2 }, seconds);
     syncSheets(container, instance, camera);
   }

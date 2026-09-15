@@ -48,9 +48,10 @@ export async function runWorldCommand(args, options = {}) {
       const run = options.preview ?? (await import("../src/world/preview.mjs")).previewWorld;
       await run(project, { measure: rest.includes("--measure") });
     } else if (subcommand === "overview") {
-      if (rest.some((arg) => arg.startsWith("-"))) { logError(usage); return { exitCode: 2 }; }
+      if (rest.some((arg) => arg.startsWith("-") && arg !== "--json")) { logError(usage); return { exitCode: 2 }; }
       const run = options.overview ?? (await import("../src/world/overview.mjs")).buildWorldOverview;
-      await run(project);
+      const result = await run(project);
+      if (rest.includes("--json")) log(JSON.stringify({ output: result.output, fallback: result.fallback, atlas: result.atlas }));
     }
     else { logError(`不明な world サブコマンドです: ${subcommand}`); log(usage); return { exitCode: 1 }; }
     return { exitCode: 0 };

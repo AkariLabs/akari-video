@@ -93,6 +93,7 @@ test("world canvas, DOM sheets, overview, inspection and validation are determin
   for (const seconds of observationTimes) observations.set(seconds, await capture(seconds));
   const stop = observations.get(stopTime); const stopAgain = await capture(stopTime); const move = observations.get(moveTime);
   assert.equal(md5(Buffer.from(stop.png)), md5(Buffer.from(stopAgain.png)));
+  assert.equal(md5(Buffer.from(stop.png)), "f4907e4fedc9db621a848cb006b0ef1f", "options 無しの既定描画を固定する");
   assert.notEqual(md5(Buffer.from(stop.png)), md5(Buffer.from(move.png)));
   assert.deepEqual(stop.inspect, { status: "ready", world: "atelier", x: 10, y: 12, scale: 1.1, phase: "stop" });
   assert.equal(move.inspect.phase, "move");
@@ -120,6 +121,28 @@ test("world canvas, DOM sheets, overview, inspection and validation are determin
     assert.notEqual(md5(Buffer.from(before.png)), md5(Buffer.from(outside.png)));
     assert.notEqual(md5(Buffer.from(after.png)), md5(Buffer.from(outside.png)));
   }
+
+  const atlasState = await page.evaluate(async ({ time, view }) => {
+    const container = document.querySelector("#world");
+    window.akari.worldRuntime.render(container, time);
+    const defaultDisplays = [...container.querySelectorAll(".akari-world-zone")].map(node => node.style.display);
+    window.akari.worldRuntime.render(container, time, { overview: view });
+    const canvas = container.querySelector("canvas");
+    const data = canvas.getContext("2d").getImageData(0, 0, canvas.width, canvas.height).data;
+    const colors = new Set();
+    for (let index = 0; index < data.length; index += 4) if (data[index + 3]) colors.add(`${data[index]},${data[index + 1]},${data[index + 2]}`);
+    return {
+      defaultDisplays,
+      displays: [...container.querySelectorAll(".akari-world-zone")].map(node => node.style.display),
+      transforms: [...container.querySelectorAll(".akari-world-sheet")].map(node => node.style.transform),
+      colors: [...colors], canvas: { width: canvas.width, height: canvas.height },
+    };
+  }, { time: nonMoveEdges[0].switchTime, view: { scale: 0.5, ox: 40, oy: 30, width: 640, height: 360 } });
+  assert.ok(atlasState.defaultDisplays.includes("none"));
+  assert.ok(atlasState.displays.every(value => value !== "none"));
+  assert.ok(atlasState.transforms.every(value => value === "translate(40px, 30px) scale(0.5)"));
+  assert.deepEqual(atlasState.canvas, { width: 640, height: 360 });
+  assert.ok(atlasState.colors.length > 2, "overview は cover 時刻でも全面単色にしない");
 
   const overview = await page.evaluate(value => {
     const canvas = document.createElement("canvas"); canvas.width = 1000; canvas.height = 500;

@@ -89,6 +89,6 @@ description: 「ワールドを作って」「地図で見せる動画」「紙�
    `asset` の `<使う素材の id>` は実際に使う素材の id に置き換え、`zone` は `planning/world-map.json` の zone id と一致させる。同じ zone の items は配列順に重なり、後ろの item が上に乗る。素材ごとに基準点と既定サイズが異なるため、`meta.json` / `fragment.html` を実測して `offset` を決める。詳しくは [world.md の「構図の目安」](world.md#構図の目安) を見る。
 7. `akari world build "$PROJECT"` を実行する。`overlays/world.html` と `edit.json` の world item が生成される。
 8. `akari world preview "$PROJECT" --measure` を実行して `planning/world-map.json` の cover を実測値へ置き換える。生成済みの `overlays/world.html` は暫定値のままなので、`akari world build "$PROJECT"` をもう一度実行し、`akari world check "$PROJECT" --strict` を通す。順番は **build → preview --measure → build → check --strict**。
-9. `akari world overview "$PROJECT"` を実行し、地図を人に見せる。停留所の順、世界境界、carry、portal/cut の位置が意図どおりか確認する。
+9. `akari world overview "$PROJECT"` を実行し、実素材が同じ時刻で並ぶ俯瞰地図を人に見せる。停留所の順、世界境界、carry、portal/cut の位置が意図どおりか確認する。
 
 判断に迷ったら [world.md](world.md) の型を使う。概念と地図タブの読み方は [guide.md](guide.md) を見る。

@@ -8,6 +8,7 @@ import test from "node:test";
 
 import puppeteer from "puppeteer-core";
 import { findChrome } from "../bin/avatar-vrm/find-chrome.mjs";
+import { runWorldCommand } from "../bin/world.mjs";
 import { buildWorldOverview } from "../src/world/overview.mjs";
 
 const fixture = new URL("../../schemas/examples/world-map-v3-flat-valid/planning/world-map.json", import.meta.url);
@@ -22,6 +23,9 @@ test("world overview: 自己完結 HTML に帯と非 move マーカーを描き 
   assert.doesNotMatch(result.html, /https?:\/\//);
   assert.equal((result.html.match(/data-world-band/g) ?? []).length, 3);
   assert.equal((result.html.match(/data-edge-marker/g) ?? []).length, 2);
+  assert.match(result.html, /data-edge-marker="shelf-pond" title="portal \/ dive \/ cover 0\.18s"/);
+  assert.match(result.html, /data-edge-marker="arch-ladder" title="cut \/ mist \/ cover 0\.24s"/);
+  assert.match(result.html, /id="observe3d" disabled/);
   for (const [index, match] of [...result.html.matchAll(/<script>([\s\S]*?)<\/script>/g)].entries()) {
     const scriptFile = path.join(root, `inline-${index}.js`);
     await writeFile(scriptFile, match[1], "utf8");
@@ -31,7 +35,7 @@ test("world overview: 自己完結 HTML に帯と非 move マーカーを描き 
   const chrome = findChrome();
   if (!chrome) return t.skip("Chrome が無いため file:// JS 検査を省略");
   let browser;
-  try { browser = await puppeteer.launch({ executablePath: chrome, headless: true, args: ["--no-sandbox"] }); }
+  try { browser = await puppeteer.launch({ executablePath: chrome, headless: "shell", pipe: true, args: ["--single-process", "--no-zygote", "--disable-gpu", "--use-angle=swiftshader", "--allow-file-access-from-files"] }); }
   catch { return t.skip("この実行環境では Chrome を起動できないため file:// JS 検査を省略"); }
   try {
     const page = await browser.newPage();
@@ -60,4 +64,14 @@ test("world overview: spatial は c の先頭 2 成分へたたんで生成で�
     const checked = spawnSync(process.execPath, ["--check", scriptFile], { encoding: "utf8" });
     assert.equal(checked.status, 0, checked.stderr);
   }
+});
+
+test("world overview --json は生成先・fallback・atlas を 1 行で返す", async () => {
+  const lines = [];
+  const result = await runWorldCommand(["overview", "/project", "--json"], {
+    log: line => lines.push(line),
+    overview: async project => ({ output: path.join(project, ".akari", "reports", "world-overview.html"), fallback: false, atlas: true }),
+  });
+  assert.equal(result.exitCode, 0); assert.equal(lines.length, 1);
+  assert.deepEqual(JSON.parse(lines[0]), { output: path.resolve("/project/.akari/reports/world-overview.html"), fallback: false, atlas: true });
 });

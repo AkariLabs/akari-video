@@ -1,7 +1,7 @@
 import { ChildProcess, spawn } from 'node:child_process';
 import { promises as fs } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
-import { WorldStopMoveResult } from '../common/akari-world-view-protocol';
+import { WorldOverviewDocument, WorldStopMoveResult } from '../common/akari-world-view-protocol';
 
 export type SpawnWorldProcess = typeof spawn;
 
@@ -21,6 +21,40 @@ export class WorldCliRunner {
         this.spawnImpl = options.spawnImpl ?? spawn;
         this.env = options.env ?? process.env;
         this.dirnameValue = options.dirnameValue ?? __dirname;
+    }
+
+    async overview(projectRoot: string): Promise<WorldOverviewDocument> {
+        const key = `overview:${projectRoot}`;
+        if (this.children.has(key)) return { html: '', error: 'ワールド俯瞰を生成中です。' };
+        const cli = await this.resolveCli();
+        if (!cli) return { html: '', error: 'akari world CLI が見つかりません。' };
+        return new Promise(resolvePromise => {
+            let stdout = '', stderr = '', child: ChildProcess, settled = false;
+            const finish = (result: WorldOverviewDocument): void => {
+                if (settled) return; settled = true;
+                if (this.children.get(key) === child) this.children.delete(key);
+                resolvePromise(result);
+            };
+            try {
+                child = this.spawnImpl(process.execPath, [cli, 'world', 'overview', projectRoot, '--json'], {
+                    env: { ...this.env, ELECTRON_RUN_AS_NODE: '1' }, stdio: ['ignore', 'pipe', 'pipe'], detached: false
+                });
+            } catch (error) { finish({ html: '', error: error instanceof Error ? error.message : String(error) }); return; }
+            this.children.set(key, child);
+            child.stdout?.on('data', chunk => { stdout += chunk.toString(); });
+            child.stderr?.on('data', chunk => { stderr += chunk.toString(); });
+            child.once('error', error => finish({ html: '', error: error.message }));
+            child.once('close', async code => {
+                const lines = stdout.trim().split(/\r?\n/u).filter(Boolean);
+                const line = lines[lines.length - 1];
+                if (!line) { finish({ html: '', error: stderr.trim() || `akari world overview が結果を返しませんでした（exit ${code ?? '不明'}）` }); return; }
+                try {
+                    const result = JSON.parse(line) as { output?: unknown; fallback?: boolean; atlas?: boolean };
+                    if (typeof result.output !== 'string') throw new Error('output がありません');
+                    finish({ html: await fs.readFile(result.output, 'utf8'), fallback: result.fallback, atlas: result.atlas });
+                } catch (error) { finish({ html: '', error: `akari world overview の結果を解釈できません: ${error instanceof Error ? error.message : String(error)}` }); }
+            });
+        });
     }
 
     async moveStop(projectRoot: string, stopId: string, c: number[]): Promise<WorldStopMoveResult> {
