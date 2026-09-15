@@ -136,7 +136,11 @@ test("3D 断片の render にプレビュー用 maxRenderSize（既定 720）を
   const [call] = host.renderCalls;
   assert.equal(call.container.dataset.overlayId, "cube");
   assert.equal(call.seconds, 1.5);
-  assert.deepEqual(own(call.options), { syncVideos: true, maxRenderSize: 720 });
+  // playing は動画テクスチャの同期方式（再生中は <video> を走らせる / 停止中はシーク）に使う
+  assert.deepEqual(own(call.options), { syncVideos: true, maxRenderSize: 720, playing: true });
+
+  host.runtime.tick(2, false);
+  assert.deepEqual(own(host.renderCalls.at(-1).options), { syncVideos: true, maxRenderSize: 720, playing: false });
 });
 
 test("maxRenderSize は mount(summary, options) / configure / factory で上書き・無効化できる", async () => {
@@ -146,7 +150,7 @@ test("maxRenderSize は mount(summary, options) / configure / factory で上書�
 
   await host.runtime.mount(summary, { maxRenderSize: 480 });
   host.runtime.tick(1, true);
-  assert.deepEqual(lastOptions(), { syncVideos: true, maxRenderSize: 480 });
+  assert.deepEqual(lastOptions(), { syncVideos: true, maxRenderSize: 480, playing: true });
 
   // options 無しの再 mount は runtime に保持した値を引き継ぐ
   await host.runtime.mount(summary);

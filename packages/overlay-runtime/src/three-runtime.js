@@ -702,6 +702,16 @@ window.akari.threeRuntime = (() => {
     texture.magFilter = THREE.LinearFilter;
     texture.anisotropy = Math.min(16, instance.renderer.capabilities.getMaxAnisotropy());
     instance.videoTextures.add(texture);
+    // 提示フレームが変わったときだけ GPU へ上げ直す（tick ごとの無条件転送をやめる）
+    if (typeof video.requestVideoFrameCallback === "function" && !video.__akariFrameWatch) {
+      video.__akariFrameWatch = true;
+      const onFrame = () => {
+        video.__akariFrameDirty = true;
+        try { video.requestVideoFrameCallback(onFrame); } catch {}
+      };
+      try { video.requestVideoFrameCallback(onFrame); } catch {}
+    }
+    video.__akariFrameDirty = true;
     return texture;
   }
 
@@ -715,6 +725,11 @@ window.akari.threeRuntime = (() => {
     // export は rasterize の決定的シーク（currentTime → 提示フレーム確定）、
     // preview は overlay-runtime の tick。autoplay に任せると同じ時刻で絵が変わる
     video.autoplay = false;
+    // シェルのライブプレビューでは素材が asset stream（別オリジンの 127.0.0.1）から来る。
+    // CORS 無しの別オリジン動画は canvas を汚染し、WebGL への転送が黙って空になって
+    // 画面が真っ黒になる（静止画は TextureLoader が crossOrigin="anonymous" で読むので出る）。
+    // 同一オリジン・file: では無害
+    video.crossOrigin = "anonymous";
     // 素材の尺より合成が長いときは巻き戻して回す。シーク側はこの loop を見て時刻を畳む
     video.loop = true;
     video.dataset.akariThreeVideoTexture = "";
@@ -724,6 +739,7 @@ window.akari.threeRuntime = (() => {
       "position:absolute;left:-9999px;top:0;width:1px;height:1px;opacity:0;pointer-events:none";
     document.body.appendChild(video);
     instance.videoElements.add(video);
+    attachVideoSeekFollowUp(instance, video);
     video.src = url;
     await new Promise((resolve, reject) => {
       video.addEventListener("loadeddata", resolve, { once: true });
@@ -1783,19 +1799,113 @@ window.akari.threeRuntime = (() => {
   //
   // preview は壁時計で進むので提示フレームの確定は待たない（待つと tick が詰まる）。
   // 1 つ前後のフレームがずれることはあるが、絵は必ず「その時刻の近傍」になる。
-  function syncVideoTextures(instance, localSeconds) {
+  // ライブ tick が出した、まだ適用していないシーク先（<video> → 秒）。
+  // 前のシークが終わる前に次を積むと、デコーダは keyframe から復号し直しを繰り返して
+  // 一度も提示フレームに到達しない（seeking=true / readyState=1 のまま）。その間の
+  // 上げ直しは真っ黒になり、たまに完了した瞬間だけ絵が出るので「画面がちらつく」。
+  // 実測（2026-09-16 L1・phone-pro-titanium-live + screen.mp4）: 再生中 298 tick のうち
+  // 266 tick が seeking、画面は黒のまま。1 keyframe / 81 frame の素材で顕著。
+  const pendingSeekTargets = new WeakMap();
+
+  function videoSeekTarget(video, localSeconds) {
+    const duration = video.duration;
+    return video.loop && Number.isFinite(duration) && duration > 0
+      ? Math.max(0, localSeconds) % duration
+      : Math.max(0, localSeconds);
+  }
+
+  // 再生中は <video> を走らせ、ズレは playbackRate で寄せる（ハードシークは大きくズレたときだけ）。
+  // tick ごとのシークは、素材の keyframe 間隔が長い（例: 81 frame に 1 つ）と 1 回ごとに先頭から
+  // 復号し直しになり、再生中に繰り返すと frame-engine が遅れてタイムライン自体が減速する
+  // （実測 2026-09-16: 実時間の 0.22〜0.78 倍）。走らせておけば復号は逐次で軽い
+  const PLAYBACK_RATE_DEADBAND_SECONDS = 0.05;
+  const PLAYBACK_HARD_SEEK_SECONDS = 1.0;
+  const PLAYBACK_RATE_MAX_ADJUST = 0.25;
+
+  // ループ素材は「巻き戻った直後」を跨ぐズレを最短距離で測る（2.69 → 0.01 は +0.02 のズレ）
+  function signedVideoDrift(video, target) {
+    const duration = video.duration;
+    let drift = video.currentTime - target;
+    if (video.loop && Number.isFinite(duration) && duration > 0) {
+      if (drift > duration / 2) drift -= duration;
+      else if (drift < -duration / 2) drift += duration;
+    }
+    return drift;
+  }
+
+  function syncVideoTextures(instance, localSeconds, playing) {
     for (const video of instance.videoElements) {
-      const duration = video.duration;
-      const target = video.loop && Number.isFinite(duration) && duration > 0
-        ? Math.max(0, localSeconds) % duration
-        : Math.max(0, localSeconds);
+      const target = videoSeekTarget(video, localSeconds);
+      if (playing) {
+        if (video.paused) {
+          try {
+            const played = video.play();
+            if (played && typeof played.catch === "function") played.catch(() => {});
+          } catch {}
+        }
+        const drift = signedVideoDrift(video, target);
+        if (Math.abs(drift) > PLAYBACK_HARD_SEEK_SECONDS) {
+          if (video.seeking) continue;
+          try {
+            video.playbackRate = 1;
+            video.currentTime = target;
+          } catch {}
+          continue;
+        }
+        // 先行していれば少し遅く、遅れていれば少し速く。不感帯の中では等速
+        const adjust = Math.abs(drift) <= PLAYBACK_RATE_DEADBAND_SECONDS
+          ? 0
+          : Math.min(PLAYBACK_RATE_MAX_ADJUST, Math.abs(drift)) * (drift > 0 ? -1 : 1);
+        const rate = 1 + adjust;
+        if (video.playbackRate !== rate) {
+          try {
+            video.playbackRate = rate;
+          } catch {}
+        }
+        continue;
+      }
+      if (!video.paused) {
+        try {
+          video.pause();
+          video.playbackRate = 1;
+        } catch {}
+      }
+      const drift = Math.abs(video.currentTime - target);
       // 既に十分近ければ書かない。毎 tick 無条件に代入すると再生中でも
       // シークが走り続けてデコーダが追いつかなくなる
-      if (Math.abs(video.currentTime - target) < 0.02) continue;
+      if (drift < 0.02) {
+        pendingSeekTargets.delete(video);
+        continue;
+      }
+      // シーク中は積まずに保留。完了（seeked）時に最新の保留先へ 1 回だけ追いつく
+      if (video.seeking) {
+        pendingSeekTargets.set(video, target);
+        continue;
+      }
       try {
         video.currentTime = target;
       } catch {}
     }
+  }
+
+  // seeked: 保留中のシーク先があれば追いつく。無ければ停止中でも新しいフレームを
+  // 上げ直すために描き直す（tick が止まっている一時停止中は draw が来ないため）。
+  function attachVideoSeekFollowUp(instance, video) {
+    video.addEventListener("seeked", () => {
+      const target = pendingSeekTargets.get(video);
+      pendingSeekTargets.delete(video);
+      if (target !== undefined && Math.abs(video.currentTime - target) >= 0.02) {
+        try {
+          video.currentTime = target;
+        } catch {}
+        return;
+      }
+      // シーク完了 = 新しい提示フレーム。停止中でも即座に見えるように印を付けて描き直す
+      video.__akariFrameDirty = true;
+      if (instance.active && instances.get(instance.container) === instance) {
+        draw(instance, instance.lastTime ?? 0);
+      }
+    });
   }
 
   const canvasContentBoxes = new WeakMap();
@@ -1872,7 +1982,22 @@ window.akari.threeRuntime = (() => {
     if (instance.physicsBuffer) updatePhysicsChars(instance, localSeconds);
     // 動画テクスチャは「今 <video> に出ているフレーム」を GPU へ上げ直さないと 1 枚目で固まる。
     // どの時刻を出すかは外側が currentTime で決め、ここは上げ直しだけを担う
-    for (const texture of instance.videoTextures) texture.needsUpdate = true;
+    // ライブプレビュー（syncVideos）では、
+    //  (a) シーク中で提示フレームが無い（readyState < HAVE_CURRENT_DATA）間は上げ直さない
+    //      — 上げると真っ黒になる
+    //  (b) 提示フレームが変わった（requestVideoFrameCallback）ときだけ上げ直す
+    //      — 毎 tick 無条件に転送すると frame-engine の描画が遅れ、タイムラインが実時間の
+    //        0.2〜0.5 倍でしか進まなくなる（実測 2026-09-16）
+    // 書き出し（syncVideos 無し）は従来どおり毎 draw 上げ直す（決定的シーク後の確実な反映を優先）
+    for (const texture of instance.videoTextures) {
+      const video = texture.image;
+      if (!instance.liveVideoSync || !video || typeof video.readyState !== "number") {
+        texture.needsUpdate = true;
+      } else if (video.readyState >= 2 && (video.__akariFrameDirty || video.__akariFrameWatch !== true)) {
+        video.__akariFrameDirty = false;
+        texture.needsUpdate = true;
+      }
+    }
     instance.renderer.render(instance.scene, instance.camera);
     canvasContentBoxes.set(instance.canvas, projectContentBounds(instance.scene, instance.camera));
     // 内容枠申告に伴う描画直後通知。interaction 不在の書き出しではコピーしない。
@@ -2394,8 +2519,9 @@ window.akari.threeRuntime = (() => {
     }
     instance.lastTime = Math.max(0, finiteNumber(localTimeSeconds, 0));
     // syncVideos はライブプレビュー専用の opt-in（既定は同期しない = 書き出しの決定性を守る）
+    instance.liveVideoSync = Boolean(options?.syncVideos);
     if (options?.syncVideos && instance.videoElements.size > 0) {
-      syncVideoTextures(instance, instance.lastTime);
+      syncVideoTextures(instance, instance.lastTime, Boolean(options.playing));
     }
     // maxRenderSize もライブプレビュー専用の opt-in（未指定なら等倍 = 書き出しは不変）。
     // instance に持たせるのは、モデル読み込み完了直後の draw（呼び出し側を経由しない）にも

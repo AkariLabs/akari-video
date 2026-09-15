@@ -1,0 +1,599 @@
+{
+  "before": {
+    "at": "2026-09-15T16:47:08.431Z",
+    "electron": null,
+    "ok": true,
+    "playback": {
+      "playingTicks": 361,
+      "wallSeconds": 6.21,
+      "timelineAdvancedSeconds": 6,
+      "timelineToWallRatio": 0.966,
+      "tickIntervalMs": {
+        "median": 17,
+        "p95": 22,
+        "max": 26
+      }
+    },
+    "perOverlay": {
+      "phone-mp4": {
+        "draws": 322,
+        "brightPixels": {
+          "min": 32,
+          "median": 91,
+          "max": 168
+        },
+        "seekingDraws": 191,
+        "videoPausedDraws": 322
+      },
+      "phone-png": {
+        "draws": 322,
+        "brightPixels": {
+          "min": 288,
+          "median": 383,
+          "max": 448
+        },
+        "seekingDraws": 191,
+        "videoPausedDraws": 322
+      }
+    },
+    "static": {
+      "phone-mp4": {
+        "brightPixels": 58,
+        "videoSeeking": false,
+        "videoReadyState": 4
+      },
+      "phone-png": {
+        "brightPixels": 358,
+        "videoSeeking": false,
+        "videoReadyState": 4
+      }
+    },
+    "sceneInfo": [
+      {
+        "id": "phone-mp4",
+        "status": "ready",
+        "videoTextures": 1,
+        "materialOverrides": [
+          {
+            "name": "ScreenMaterial",
+            "applied": true,
+            "resolvedFrom": "literal",
+            "brightness": 1,
+            "emissiveIntensity": 1,
+            "video": true
+          }
+        ],
+        "render": {
+          "frame": 35,
+          "calls": 124,
+          "triangles": 46380,
+          "points": 0,
+          "lines": 0
+        }
+      },
+      {
+        "id": "phone-png",
+        "status": "ready",
+        "videoTextures": 0,
+        "materialOverrides": [
+          {
+            "name": "ScreenMaterial",
+            "applied": true,
+            "resolvedFrom": "literal",
+            "brightness": 1,
+            "emissiveIntensity": 1,
+            "video": false
+          }
+        ],
+        "render": {
+          "frame": 35,
+          "calls": 124,
+          "triangles": 46380,
+          "points": 0,
+          "lines": 0
+        }
+      }
+    ],
+    "log": [
+      {
+        "at": "2026-09-15T16:47:18.731Z",
+        "step": "preview-frame",
+        "url": "http://bc1da54b-97d2-5139-b8a8-bc15e5f18fcf.webview.localhos"
+      },
+      {
+        "at": "2026-09-15T16:47:25.343Z",
+        "step": "scene-info",
+        "info": [
+          {
+            "id": "phone-mp4",
+            "status": "ready",
+            "videoTextures": 1,
+            "materialOverrides": [
+              {
+                "name": "ScreenMaterial",
+                "applied": true,
+                "resolvedFrom": "literal",
+                "brightness": 1,
+                "emissiveIntensity": 1,
+                "video": true
+              }
+            ],
+            "render": {
+              "frame": 35,
+              "calls": 124,
+              "triangles": 46380,
+              "points": 0,
+              "lines": 0
+            }
+          },
+          {
+            "id": "phone-png",
+            "status": "ready",
+            "videoTextures": 0,
+            "materialOverrides": [
+              {
+                "name": "ScreenMaterial",
+                "applied": true,
+                "resolvedFrom": "literal",
+                "brightness": 1,
+                "emissiveIntensity": 1,
+                "video": false
+              }
+            ],
+            "render": {
+              "frame": 35,
+              "calls": 124,
+              "triangles": 46380,
+              "points": 0,
+              "lines": 0
+            }
+          }
+        ]
+      },
+      {
+        "at": "2026-09-15T16:47:25.345Z",
+        "step": "diag",
+        "video": {
+          "src": "http://127.0.0.1:51381/asset/c3d201bbf7a538b8a939365e5c50a53db47178f45c931059c2f",
+          "w": 540,
+          "h": 960,
+          "rs": 4,
+          "seeking": false,
+          "ct": 1,
+          "paused": true,
+          "error": null,
+          "networkState": 1
+        },
+        "drawn": {
+          "error": "SecurityError: Failed to execute 'getImageData' on 'CanvasRenderingContext2D': The canvas has been tainted by cross-orig"
+        },
+        "glCalls": 9,
+        "videoUploads": 0,
+        "uploadsWithoutFrame": 0,
+        "texStorage": [
+          {
+            "name": "texStorage2D",
+            "at": 1774,
+            "args": [
+              3553,
+              1,
+              33190,
+              2048,
+              2048
+            ],
+            "video": null,
+            "err": 0
+          },
+          {
+            "name": "texStorage2D",
+            "at": 1786,
+            "args": [
+              3553,
+              1,
+              33190,
+              2048,
+              2048
+            ],
+            "video": null,
+            "err": 0
+          },
+          {
+            "name": "texStorage2D",
+            "at": 1840,
+            "args": [
+              3553,
+              11,
+              32856,
+              1024,
+              1024
+            ],
+            "video": null,
+            "err": 0
+          },
+          {
+            "name": "texStorage2D",
+            "at": 1848,
+            "args": [
+              3553,
+              11,
+              32856,
+              1024,
+              1024
+            ],
+            "video": null,
+            "err": 0
+          },
+          {
+            "name": "texStorage2D",
+            "at": 2040,
+            "args": [
+              3553,
+              10.906890595608518,
+              35907,
+              540,
+              960
+            ],
+            "video": null,
+            "err": 0
+          },
+          {
+            "name": "texStorage2D",
+            "at": 2276,
+            "args": [
+              3553,
+              1,
+              33190,
+              2048,
+              2048
+            ],
+            "video": null,
+            "err": 0
+          }
+        ],
+        "firstVideoUploads": [],
+        "lastVideoUploads": [],
+        "errors": []
+      }
+    ]
+  },
+  "after": {
+    "at": "2026-09-15T16:56:35.183Z",
+    "electron": null,
+    "ok": true,
+    "playback": {
+      "playingTicks": 357,
+      "wallSeconds": 6.18,
+      "timelineAdvancedSeconds": 6.1,
+      "timelineToWallRatio": 0.987,
+      "tickIntervalMs": {
+        "median": 17,
+        "p95": 22,
+        "max": 67
+      }
+    },
+    "perOverlay": {
+      "phone-mp4": {
+        "draws": 297,
+        "brightPixels": {
+          "min": 206,
+          "median": 337,
+          "max": 418
+        },
+        "seekingDraws": 3,
+        "videoPausedDraws": 2
+      },
+      "phone-png": {
+        "draws": 294,
+        "brightPixels": {
+          "min": 288,
+          "median": 372,
+          "max": 448
+        },
+        "seekingDraws": 3,
+        "videoPausedDraws": 1
+      }
+    },
+    "static": {
+      "phone-mp4": {
+        "brightPixels": 360,
+        "videoSeeking": false,
+        "videoReadyState": 4
+      },
+      "phone-png": {
+        "brightPixels": 358,
+        "videoSeeking": true,
+        "videoReadyState": 1
+      }
+    },
+    "sceneInfo": [
+      {
+        "id": "phone-mp4",
+        "status": "ready",
+        "videoTextures": 1,
+        "materialOverrides": [
+          {
+            "name": "ScreenMaterial",
+            "applied": true,
+            "resolvedFrom": "literal",
+            "brightness": 1,
+            "emissiveIntensity": 1,
+            "video": true
+          }
+        ],
+        "render": {
+          "frame": 34,
+          "calls": 120,
+          "triangles": 47474,
+          "points": 0,
+          "lines": 0
+        }
+      },
+      {
+        "id": "phone-png",
+        "status": "ready",
+        "videoTextures": 0,
+        "materialOverrides": [
+          {
+            "name": "ScreenMaterial",
+            "applied": true,
+            "resolvedFrom": "literal",
+            "brightness": 1,
+            "emissiveIntensity": 1,
+            "video": false
+          }
+        ],
+        "render": {
+          "frame": 34,
+          "calls": 120,
+          "triangles": 47474,
+          "points": 0,
+          "lines": 0
+        }
+      }
+    ],
+    "log": [
+      {
+        "at": "2026-09-15T16:56:45.507Z",
+        "step": "preview-frame",
+        "url": "http://418edb64-27e8-56fb-9ca5-a397761b4215.webview.localhos"
+      },
+      {
+        "at": "2026-09-15T16:56:51.023Z",
+        "step": "scene-info",
+        "info": [
+          {
+            "id": "phone-mp4",
+            "status": "ready",
+            "videoTextures": 1,
+            "materialOverrides": [
+              {
+                "name": "ScreenMaterial",
+                "applied": true,
+                "resolvedFrom": "literal",
+                "brightness": 1,
+                "emissiveIntensity": 1,
+                "video": true
+              }
+            ],
+            "render": {
+              "frame": 34,
+              "calls": 120,
+              "triangles": 47474,
+              "points": 0,
+              "lines": 0
+            }
+          },
+          {
+            "id": "phone-png",
+            "status": "ready",
+            "videoTextures": 0,
+            "materialOverrides": [
+              {
+                "name": "ScreenMaterial",
+                "applied": true,
+                "resolvedFrom": "literal",
+                "brightness": 1,
+                "emissiveIntensity": 1,
+                "video": false
+              }
+            ],
+            "render": {
+              "frame": 34,
+              "calls": 120,
+              "triangles": 47474,
+              "points": 0,
+              "lines": 0
+            }
+          }
+        ]
+      },
+      {
+        "at": "2026-09-15T16:56:51.033Z",
+        "step": "diag",
+        "video": {
+          "src": "http://127.0.0.1:51912/asset/31b3dd66c11d09af09b161bf4fc269e05ac7931048236fefb00",
+          "w": 540,
+          "h": 960,
+          "rs": 4,
+          "seeking": false,
+          "ct": 0,
+          "paused": true,
+          "error": null,
+          "networkState": 1
+        },
+        "drawn": {
+          "nonBlack": 15654,
+          "total": 16320
+        },
+        "glCalls": 11,
+        "videoUploads": 2,
+        "uploadsWithoutFrame": 0,
+        "texStorage": [
+          {
+            "name": "texStorage2D",
+            "at": 1084,
+            "args": [
+              3553,
+              1,
+              33190,
+              2048,
+              2048
+            ],
+            "video": null,
+            "err": 0
+          },
+          {
+            "name": "texStorage2D",
+            "at": 1091,
+            "args": [
+              3553,
+              1,
+              33190,
+              2048,
+              2048
+            ],
+            "video": null,
+            "err": 0
+          },
+          {
+            "name": "texStorage2D",
+            "at": 1119,
+            "args": [
+              3553,
+              11,
+              32856,
+              1024,
+              1024
+            ],
+            "video": null,
+            "err": 0
+          },
+          {
+            "name": "texStorage2D",
+            "at": 1123,
+            "args": [
+              3553,
+              11,
+              32856,
+              1024,
+              1024
+            ],
+            "video": null,
+            "err": 0
+          },
+          {
+            "name": "texStorage2D",
+            "at": 1243,
+            "args": [
+              3553,
+              10.906890595608518,
+              35907,
+              540,
+              960
+            ],
+            "video": null,
+            "err": 0
+          },
+          {
+            "name": "texStorage2D",
+            "at": 1439,
+            "args": [
+              3553,
+              1,
+              33190,
+              2048,
+              2048
+            ],
+            "video": null,
+            "err": 0
+          }
+        ],
+        "firstVideoUploads": [
+          {
+            "name": "texImage2D",
+            "at": 1640,
+            "args": [
+              3553,
+              0,
+              32856,
+              6408,
+              5121,
+              "HTMLVideoElement"
+            ],
+            "video": {
+              "w": 540,
+              "h": 960,
+              "rs": 4,
+              "seeking": false,
+              "ct": 0
+            },
+            "err": 0
+          },
+          {
+            "name": "texImage2D",
+            "at": 1703,
+            "args": [
+              3553,
+              0,
+              32856,
+              6408,
+              5121,
+              "HTMLVideoElement"
+            ],
+            "video": {
+              "w": 540,
+              "h": 960,
+              "rs": 4,
+              "seeking": false,
+              "ct": 0
+            },
+            "err": 0
+          }
+        ],
+        "lastVideoUploads": [
+          {
+            "name": "texImage2D",
+            "at": 1640,
+            "args": [
+              3553,
+              0,
+              32856,
+              6408,
+              5121,
+              "HTMLVideoElement"
+            ],
+            "video": {
+              "w": 540,
+              "h": 960,
+              "rs": 4,
+              "seeking": false,
+              "ct": 0
+            },
+            "err": 0
+          },
+          {
+            "name": "texImage2D",
+            "at": 1703,
+            "args": [
+              3553,
+              0,
+              32856,
+              6408,
+              5121,
+              "HTMLVideoElement"
+            ],
+            "video": {
+              "w": 540,
+              "h": 960,
+              "rs": 4,
+              "seeking": false,
+              "ct": 0
+            },
+            "err": 0
+          }
+        ],
+        "errors": []
+      }
+    ]
+  }
+}

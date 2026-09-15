@@ -265,7 +265,7 @@ function createOverlayRuntime(options = {}) {
     mountedStage = stage;
   }
 
-  function tick(t, _playing) {
+  function tick(t, playing) {
     const timelineTime = finiteNumber(t, 0);
     if (premount && !premountConfigured) applyPremountConfiguration();
 
@@ -349,7 +349,8 @@ function createOverlayRuntime(options = {}) {
         animation.currentTime = localTimeMs;
       }
       for (const runtime of renderingRuntimes(overlay.container)) {
-        runtime.render(overlay.container, localTimeMs / 1000, { syncVideos: true, maxRenderSize });
+        // playing はランタイム側の動画テクスチャの同期方式（再生中は <video> を走らせ、停止・スクラブ中はシーク）に使う
+        runtime.render(overlay.container, localTimeMs / 1000, { syncVideos: true, maxRenderSize, playing: Boolean(playing) });
       }
       // opacity と clip-path は現在時刻へ合わせ、可視な間は入場アニメの終了まで毎 tick
       // 測り直す。フリップ時だけでは通常再生の localTimeMs がほぼ 0 となり、0% 姿勢の

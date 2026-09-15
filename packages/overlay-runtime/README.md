@@ -282,7 +282,7 @@ runtime.configure({ premount: false }); // 無効化
 
 ### ライブプレビューの tick 性能（3D 描画バッファ上限・`getAnimations()` キャッシュ）
 
-`tick()` は 3D 断片の `threeRuntime.render(container, localSeconds, { syncVideos: true, maxRenderSize })`
+`tick(t, playing)` は 3D 断片の `threeRuntime.render(container, localSeconds, { syncVideos: true, maxRenderSize, playing })`
 に描画バッファの長辺上限 `maxRenderSize`（px、既定 `720` = preview-server の `app.js` の
 `PREVIEW_3D_MAX_RENDER_SIZE` と同値）を渡す。`three-runtime.js` の `rendererSize()` は CSS 上の
 寸法とカメラのアスペクトを変えずに WebGL の描画バッファだけを縮める（4% のヒステリシス付き）ため、
@@ -291,6 +291,11 @@ runtime.configure({ premount: false }); // 無効化
 この option 無しで直接呼ぶため、出力画素は不変。上限は `mount(summary, { maxRenderSize })` /
 `configure({ maxRenderSize })` / `createOverlayRuntime({ maxRenderSize })` で上書きできる
 （正の数 = 長辺 px、`null` / `0` = 無効（等倍）。キー未指定の `mount(summary)` は保持値を引き継ぐ）。
+
+`playing` は動画テクスチャ（`materialOverrides` の動画）の同期方式に使う（2026-09-16）: 再生中は
+`<video>` を走らせて `playbackRate` で寄せ、停止・スクラブ中はシークで追従する（シーク中は次を積まない）。
+`<video>` は `crossOrigin="anonymous"` で作る（asset stream は別オリジン）。GPU への転送は提示フレームが
+変わったときだけ。詳細は `skills/overlay-authoring/3d.md` の VideoTexture 節。
 
 非 3D 断片の `tick()` は `container.getAnimations({ subtree: true })` の結果を overlay ごとに
 250ms キャッシュし（`app.js` と同じ）、可視化フリップ直後の tick・250ms 経過・未取得のときだけ
