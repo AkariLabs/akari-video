@@ -69,6 +69,8 @@ description: 「ワールドを作って」「地図で見せる動画」「紙�
 4. `akari world check "$PROJECT"` を実行し、エラーが 0 件になるまで台本を直して再展開する。
 5. 素材は、世界観の束（例: Pop Motion ワールド対応版）が持つ **背景 / 飛び込み口 / モチーフ** の 3 層で考える。背景で world ごとの材質を作り、飛び込み口で portal の通過を読ませ、モチーフを各停留所へ置く。必要な素材は `akari assets fetch <id>` で取得でき、`akari world build` がプロジェクト内の素材を解決する。
 6. `planning/world-items.json` を作り、素材を zone に対応づける。`asset` は必ず `overlay/<id>` と書く。`offset`、`scale`、`vars` は任意。
+   `delay: 0.5` のように 0 以上の秒数を指定すると、素材の時計は同じ zone id の stop の `at + delay` から始まる（省略 0）。
+   世界サイズの背景 item は `role: "background"` を付けると zone が画面外でも消えない。role 省略時も `vars` の `world-width` / `world-height`（`--` 接頭辞も可）で背景と判定する。
 
    ```json
    {

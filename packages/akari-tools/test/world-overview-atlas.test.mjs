@@ -137,5 +137,39 @@ test("world overview atlas: 実断片・撮影枠・ジャンプ・view 操作�
     }
     assert.ok(narrow.aside.y >= narrow.stage.y + narrow.stage.height - 1, `aside が stage に重なっています: ${JSON.stringify(narrow)}`);
     assert.equal(narrow.worlds, map.worlds.length); assert.equal(narrow.drawError, null);
+    const labelLayouts = await page.evaluate(async () => {
+      const api = window.__akariWorldOverview, context = document.getElementById('overlay').getContext('2d');
+      const fillText = context.fillText;
+      let drawn = [];
+      context.fillText = function(text, x, y, ...rest) {
+        const fontSize = Number(this.font.match(/([\d.]+)px/)[1]);
+        drawn.push({ text, fontSize, x: x - 2, y: y - fontSize - 2, width: this.measureText(text).width + 4, height: fontSize * 1.3 + 4 });
+        return fillText.call(this, text, x, y, ...rest);
+      };
+      const result = [];
+      try {
+        for (const factor of [1, 0.05, 100]) {
+          api.zoomBy(factor); drawn = []; await api.seek(6);
+          const first = [...drawn]; drawn = []; await api.seek(6);
+          result.push({ first, again: [...drawn] });
+        }
+      } finally { context.fillText = fillText; api.fit(); }
+      return result;
+    });
+    const worldLabels = map.worlds.map(world => world.label || world.id);
+    for (const { first, again } of labelLayouts) {
+      assert.deepEqual(first, again, "同じ倍率・時刻のラベル配置は決定論的");
+      assert.ok(first.length > 0 && worldLabels.includes(first[0].text), "ワールド名を carry より先に配置する");
+      for (const [index, label] of first.entries()) {
+        assert.ok(label.fontSize >= 9 && label.fontSize <= 13);
+        for (const other of first.slice(index + 1)) assert.ok(
+          label.x + label.width <= other.x || other.x + other.width <= label.x || label.y + label.height <= other.y || other.y + other.height <= label.y,
+          `ラベルが重なっています: ${label.text} / ${other.text}`);
+      }
+    }
+    assert.ok(labelLayouts[1].first.length < map.worlds.length + map.edges.filter(edge => edge.carry?.length).length, "縮小時に重なるラベルを省く");
+    assert.equal(labelLayouts[1].first[0].text, worldLabels[0]);
+    assert.equal(labelLayouts[1].first[0].fontSize, 9);
+    assert.equal(labelLayouts[2].first[0].fontSize, 13);
   } finally { await browser.close(); }
 });

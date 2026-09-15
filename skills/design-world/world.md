@@ -26,6 +26,9 @@ expand は最初の build を可能にするため、portal の `transition.cove
 
 ## 構図の目安
 
+素材の `delay: 0.5` は stop の `at` からの開始待ち秒数（0 以上・省略 0）で、到着前の素材の時計は 0 秒に固定される。
+背景 item に `role: "background"` を付けると zone は非カリングになる。省略時も `vars` の `world-width` / `world-height`（`--` 接頭辞も可）があれば背景として扱う。
+
 出力幅を `W`、出力高を `H`、停留所の `c` を `[x, y, scale]` とすると、画面に映る world の撮影枠は world px で次のようになる。
 
 ```text

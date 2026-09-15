@@ -113,6 +113,7 @@ export function worldSceneDeclaration(map, frame) {
 export function renderWorldHtml(map, items, fragments, frame) {
   const declaration = JSON.stringify(worldSceneDeclaration(map, frame)).replaceAll("</script", "<\\/script");
   const itemsByZone = new Map(map.zones.map((zone) => [zone.id, []]));
+  const stopsById = new Map(map.cameraStops.map((stop) => [stop.id, stop]));
   for (const item of items) {
     if (!itemsByZone.has(item.zone)) throw new Error(`world item ${item.id} が未定義の zone を参照しています: ${item.zone}`);
     itemsByZone.get(item.zone).push(item);
@@ -122,9 +123,12 @@ export function renderWorldHtml(map, items, fragments, frame) {
     const zones = map.zones.filter((zone) => zone.world === world.id).map((zone) => {
       const contents = itemsByZone.get(zone.id).map((item) => {
         const [dx, dy] = item.offset ?? [0, 0];
+        const stop = stopsById.get(zone.id);
+        const start = stop ? stop.at + (item.delay ?? 0) : 0;
+        const background = item.role === "background" || (item.role === undefined && Object.keys(item.vars ?? {}).some((key) => ["world-width", "world-height"].includes(cssName(key).replace(/^--/, ""))));
         const vars = Object.entries(item.vars ?? {}).sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0).map(([key, value]) => `${key.startsWith("--") ? "" : "--"}${cssName(key)}:${cssValue(value)}`).join(";");
         const style = [`left:${number(dx)}px`, `top:${number(dy)}px`, `--akari-item-scale:${number(item.scale ?? 1)}`, vars].filter(Boolean).join(";");
-        return `<div class="akari-world-item" data-item="${attribute(item.id)}" style="${attribute(style)}">${fragments.get(item.id)}</div>`;
+        return `<div class="akari-world-item" data-item="${attribute(item.id)}" data-akari-item-start="${number(start)}"${background ? ' data-akari-role="background"' : ""} style="${attribute(style)}">${fragments.get(item.id)}</div>`;
       }).join("");
       return `<div class="akari-world-zone" data-zone="${attribute(zone.id)}" style="left:${number(zone.c[0])}px; top:${number(zone.c[1])}px">${contents}</div>`;
     }).join("");
