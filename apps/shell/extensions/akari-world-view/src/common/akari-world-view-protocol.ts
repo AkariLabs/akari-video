@@ -1,11 +1,11 @@
 export const AKARI_WORLD_VIEW_SERVICE_PATH = '/services/akari-world-view';
 export const AkariWorldViewService = Symbol('AkariWorldViewService');
 
-export interface WorldOverviewSources {
-    runtimeSource: string;
-    cameraSource: string;
-    worldMapJson: string;
+export interface WorldOverviewDocument {
+    html: string;
     error?: string;
+    fallback?: boolean;
+    atlas?: boolean;
 }
 
 export interface WorldStopMoveResult {
@@ -19,6 +19,6 @@ export interface WorldStopMoveResult {
 }
 
 export interface AkariWorldViewService {
-    readWorldOverviewSources(projectRootUri: string): Promise<WorldOverviewSources>;
+    readWorldOverviewHtml(projectRootUri: string): Promise<WorldOverviewDocument>;
     moveCameraStop(projectRootUri: string, stopId: string, c: number[]): Promise<WorldStopMoveResult>;
 }

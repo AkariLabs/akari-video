@@ -5,7 +5,7 @@ import { WebviewWidget } from '@theia/plugin-ext/lib/main/browser/webview/webvie
 import { inject, injectable } from '@theia/core/shared/inversify';
 import { AkariScopeService } from 'akari-shell-strip/lib/browser/akari-scope-service';
 import { AkariWorldViewService } from '../common/akari-world-view-protocol';
-import { worldOverviewHtml } from '../common/world-overview-html';
+import { errorHtml } from '../common/error-html';
 
 export const OPEN_WORLD_MAP: Command = { id: 'akari.world.openMap', label: '地図を開く' };
 export const SEEK_WORLD_MAP: Command = { id: 'akari.world.seek' };
@@ -21,13 +21,17 @@ export class AkariWorldViewContribution implements CommandContribution {
     @inject(AkariScopeService) protected readonly scope!: AkariScopeService;
     @inject(AkariWorldViewService) protected readonly service!: AkariWorldViewService;
     protected widget?: WebviewWidget;
+    protected currentTime = 0;
     protected readonly subscribedWidgets = new WeakSet<WebviewWidget>();
 
     registerCommands(registry: CommandRegistry): void {
         registry.registerCommand(OPEN_WORLD_MAP, { execute: () => this.open(false) });
         registry.registerCommand(OPEN_WORLD_MAP_BESIDE_PREVIEW, { execute: () => this.open(true) });
         registry.registerCommand(SEEK_WORLD_MAP, { execute: (request?: { time?: number }) => {
-            if (Number.isFinite(request?.time)) this.widget?.sendMessage({ type: 'akari-world-seek', time: request!.time });
+            if (Number.isFinite(request?.time)) {
+                this.currentTime = request!.time!;
+                this.widget?.sendMessage({ type: 'akari-world-seek', time: this.currentTime });
+            }
         } });
     }
 
@@ -42,11 +46,14 @@ export class AkariWorldViewContribution implements CommandContribution {
         widget.title.label = '地図'; widget.title.caption = 'ワールド地図'; widget.title.iconClass = 'codicon codicon-map';
         widget.setContentOptions({ allowScripts: true });
         const initial = await this.commands.executeCommand<number>('akari.timeline.playhead').catch(() => 0);
-        const sources = await this.service.readWorldOverviewSources(root.toString());
-        widget.setHTML(worldOverviewHtml({ ...sources, seconds: initial ?? 0, error: this.scope.worldMap.error ?? sources.error }));
+        this.currentTime = Number.isFinite(initial) ? initial : 0;
+        const document = await this.service.readWorldOverviewHtml(root.toString());
+        const error = this.scope.worldMap.error ?? document.error;
+        widget.setHTML(error ? errorHtml(error) : document.html);
         const hasPreview = this.shell.widgets.some(candidate => Boolean((candidate as { akariPreviewEditUri?: unknown }).akariPreviewEditUri));
         if (!widget.isAttached) this.shell.addWidget(widget, beside && hasPreview ? { area: 'main', mode: 'split-right' } : { area: 'main' });
         await this.shell.activateWidget(widget.id);
+        if (!error) widget.sendMessage({ type: 'akari-world-seek', time: this.currentTime });
         widget.disposed.connect(() => { if (this.widget === widget) this.widget = undefined; });
         return widget;
     }
@@ -73,9 +80,12 @@ export class AkariWorldViewContribution implements CommandContribution {
                     widget.sendMessage({ type: 'akari-world-move-failed', reason: result.reason ?? '停留所を移動できませんでした。', requestId });
                     return;
                 }
-                const sources = await this.service.readWorldOverviewSources(root.toString());
-                if (sources.error) throw new Error(sources.error);
-                widget.sendMessage({ type: 'akari-world-map', worldMapJson: sources.worldMapJson, requestId });
+                const document = await this.service.readWorldOverviewHtml(root.toString());
+                if (document.error) throw new Error(document.error);
+                const playhead = await this.commands.executeCommand<number>('akari.timeline.playhead').catch(() => this.currentTime);
+                if (Number.isFinite(playhead)) this.currentTime = playhead;
+                widget.setHTML(document.html);
+                widget.sendMessage({ type: 'akari-world-seek', time: this.currentTime });
             } catch (error) {
                 widget.sendMessage({ type: 'akari-world-move-failed', reason: error instanceof Error ? error.message : String(error), requestId });
             }
