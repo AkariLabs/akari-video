@@ -7,6 +7,29 @@
 
 const FONT_EXTENSION_PATTERN = /\.(?:otf|ttf)$/i;
 
+/**
+ * `data-akari-3d-scene` の top-level key 許可リスト（シェル側の事前検査）。
+ *
+ * three-runtime.js の `ALLOWED_SCENE_KEYS` と**必ず同じ集合**に保つ。ここに無い key は宣言ごと
+ * 拒否され `{ model: '' }` に置換されるため、ランタイムだけが受理する key があると
+ * 「Web UI / 書き出しでは出るのにシェルのプレビューだけ 3D が空になる」事故になる
+ * （environment / shadows で 1 回、fog / background で 1 回起きた）。
+ * 一致は test/three-scene-keys-parity.test.mjs が runtime のソースと突き合わせて検査する。
+ */
+export const THREE_SCENE_KEYS: ReadonlySet<string> = new Set([
+    'model',
+    'camera',
+    'environment',
+    'fog',
+    'background',
+    'lights',
+    'animationClip',
+    'materialOverrides',
+    'shadows',
+    'texts',
+    'physics'
+]);
+
 export type ThreeSceneAssetResolver = (relativePath: string, field: string) => Promise<string>;
 
 export interface ThreeSceneDescriptor extends Record<string, unknown> {

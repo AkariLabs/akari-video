@@ -62,6 +62,7 @@ import {
 } from '../common/audio-schedule';
 import { classifyEditAssetPath, uncToFileUriString, windowsDriveToFileUriString } from '../common/edit-asset-path';
 import {
+    THREE_SCENE_KEYS,
     hasThreeDimensionalTextOverlay,
     resolveThreeSceneDescriptorAssets
 } from '../common/three-scene-assets';
@@ -1096,17 +1097,6 @@ const OUTSIDE_WORKSPACE_MESSAGE = 'ワークスペース外の動画はプレビ
 // 置くようになった（2026-08-08）ため、素材を入れる前に「編集データ」を開くのが通常の順序に
 // なった。ソース未宣言は不正ではないので、エラーではなくこの案内を出す。
 const EMPTY_PROJECT_MESSAGE = 'まだ動画が入っていません。左の「素材」に動画をドラッグして取り込むと、ここで仕上がりを確認できます。';
-const THREE_SCENE_KEYS = new Set([
-    'model',
-    'camera',
-    'lights',
-    'animationClip',
-    'materialOverrides',
-    'environment',
-    'shadows',
-    'texts',
-    'physics'
-]);
 const LAYER_BLEND_TO_CSS = new Map<string, string>([
     ['normal', 'normal'],
     ['screen', 'screen'],
