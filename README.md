@@ -93,6 +93,8 @@ Whichever entrance you start from, everything converges on the same file contrac
 | Inside Cursor Agent | Skills auto-discovered from `.cursor/skills/` (monorepo) or project adapters | Open the repo or project folder in Cursor and say "I want to start a new video project" |
 | Desktop app | Theia-based desktop shell | From the connect button on the Start screen |
 
+As a Claude Code plugin: `claude plugin marketplace add AkariLabs/akari-video` → `claude plugin install akari@akari` ([Getting Started §B](./docs/getting-started.md#b-from-inside-an-opencode-or-claude-code-session)).
+
 > `npm i -g akari-video` never uses sudo. If it fails with `EACCES` (permission error),
 > prefer `install.sh` above (user-space, no admin password needed) or configure an npm
 > user prefix instead. The desktop app provisions its own `akari` CLI automatically —

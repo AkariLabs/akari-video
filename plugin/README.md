@@ -24,20 +24,32 @@ Claude Code のプラグインマニフェスト（`plugin.json`）のコンポ�
 `.agents/skills` / `.cursor/skills` / `.codex/skills` を `.claude/skills` へのシンボリックリンクに
 する既存の流儀と同じ考え方）。
 
-**既知の制約**: skill シンボリックリンクはプラグインが本リポジトリの checkout と同じ場所に置かれて
-いることを前提にする。status core と SessionStart は `plugin/` 単体コピーでも動作するが、
-マーケットプレイス経由でのリモート配布・npm 経由の単体配布
-（プラグインだけを別ディレクトリへコピーする配布形態）では、シンボリックリンクの
-参照先が失われる。マーケットプレイス公開・配布チャネル整備は本タスクのスコープ外
-（上位契約 §7）のため、現状は「モノレポ checkout 内で有効なプラグイン」として設計
-している。
+**配布時の挙動（2026-09-17 実測）**: Claude Code はプラグインをマーケットプレイスから導入するとき、
+プラグインをキャッシュ（`plugins/cache/akari/akari/<version>/`）へコピーし、その際に
+`plugin/skills → ../skills` のシンボリックリンクを解決して**実体**を置く（全スキルが実ファイルで入る）。
+このため checkout と同じ場所に無いリモート配布でも、スキルの正本がそのまま届く
+（symlink を解決しない単純コピーで `plugin/` だけを持ち出した場合は、この限りでない）。
+ただしマーケットプレイスの clone はリポジトリ全体になる（約 1 GB。スキル本体は 1 MB 弱）。
+軽量化が要る場合は `plugin/` の実体ミラーを置く専用マーケットプレイスを別途検討する。
 
 capability 検索は `akari capability` CLI の責務である。単体コピー先で CLI が無ければ
 明示的に unsupported とし、プラグイン独自カタログへフォールバックしない。
 
-## 有効化（ローカル検証）
+## 有効化
 
 このプラグインは `npm publish` されない（本タスクのスコープは器の実装まで）。
-ローカルで試す場合は、Claude Code のプラグイン機構（`/plugin` 系コマンド、または
-プロジェクトの `.claude/settings.json` でこのディレクトリを指す）でこのリポジトリの
-`plugin/` を指定する。
+
+**第一手段 — マーケットプレイスから**（リポジトリ直下の `.claude-plugin/marketplace.json` を使う）:
+
+```sh
+claude plugin marketplace add AkariLabs/akari-video
+claude plugin install akari@akari
+```
+
+更新は `claude plugin update akari@akari`（マーケットプレイスの再取得 + 版の再コピー）。
+プラグインが届けるのはスキル・`/akari`・SessionStart hook で、`akari` CLI は含まない
+（CLI はインストーラーで入れる。`docs/getting-started.md` §B）。
+
+**第二手段 — ローカル checkout を指す**（開発・検証用）: Claude Code のプラグイン機構
+（`/plugin` 系コマンド、またはプロジェクトの `.claude/settings.json` でこのディレクトリを指す）で
+このリポジトリの `plugin/` を指定する。

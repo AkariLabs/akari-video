@@ -16,7 +16,7 @@
 | Page | Contents |
 |---|---|
 | [Introduction](./introduction.md) | What AKARI Video is — three principles, architecture at a glance, workflow |
-| [Getting Started](./getting-started.md) | Three entrances, creating your first project, the intake form |
+| [Getting Started](./getting-started.md) | Three entrances (incl. Claude Code plugin install from the marketplace), creating your first project, the intake form |
 
 ## Guides
 
