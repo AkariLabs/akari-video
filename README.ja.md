@@ -88,6 +88,8 @@ macOS の書き出しは v2（OSR）エンジンが既定になりました。�
 | Cursor Agent | `.cursor/skills/`（モノレポ）またはプロジェクトのアダプタから自動発見 | リポジトリまたはプロジェクトフォルダを Cursor で開き、「新しい動画プロジェクトを作りたい」と発話 |
 | アプリ | Theia ベースのデスクトップシェル | 「はじめる」画面の接続ボタンから |
 
+Claude Code プラグインとして入れる: `claude plugin marketplace add AkariLabs/akari-video` → `claude plugin install akari@akari`（[Getting Started §B](./docs/getting-started.ja.md#b-opencode--claude-code-セッション内から)）。
+
 > `npm i -g akari-video` は sudo を使いません。`EACCES`（権限エラー）が出た場合は
 > 上記の `install.sh`（ユーザー領域・管理者権限不要）を使うか、npm のユーザー prefix を
 > 設定してください。デスクトップアプリは `akari` CLI を自動配備するため、別途インストール

@@ -324,6 +324,15 @@ If you already use opencode or Claude Code, this is the natural entrance.
 - **Claude Code**: **`/akari`** — a slash command that diagnoses the current state and suggests
   the next step. Or just say "I want to start a new video project"
 
+**Install as a Claude Code plugin** (all 26 skills + `/akari`, from the marketplace):
+```sh
+claude plugin marketplace add AkariLabs/akari-video
+claude plugin install akari@akari
+```
+- The marketplace clones the whole repository (about 1 GB). Update with `claude plugin update akari@akari`.
+- The plugin only delivers the skills and `/akari`. The `akari` CLI (`akari new` etc.) still needs the installer used by §A ([Prerequisites](#prerequisites--what-you-need)) — the plugin alone cannot make a video.
+- One entry skill is enough → use E. Want all 26 skills inside Claude Code → use B.
+
 ### C. From Cursor Agent
 
 Open the monorepo (`akari-video`) or a video project folder in Cursor.

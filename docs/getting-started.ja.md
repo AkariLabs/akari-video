@@ -329,6 +329,15 @@ AKARI Video には 4 つの入口があります。
 - **Claude Code**: **`/akari`** — カレントの状態を診断して、次の一手を案内するスラッシュコマンド
   または「新しい動画プロジェクトを作りたい」と発話
 
+**Claude Code プラグインとして入れる**（26 本のスキルすべて + `/akari`、marketplace から）:
+```sh
+claude plugin marketplace add AkariLabs/akari-video
+claude plugin install akari@akari
+```
+- marketplace はリポジトリ全体を clone します（約 1 GB）。更新は `claude plugin update akari@akari`。
+- プラグインが届けるのは**スキルと `/akari` だけ**です。`akari` CLI（`akari new` など）には §A と同じインストーラー（[前提条件](#前提条件--何を揃えるか)）が要ります — プラグインだけでは動画は作れません。
+- 入口スキル 1 本で足りる人は E、Claude Code の中で 26 本すべてを使いたい人は B。
+
 ### C. Cursor Agent から
 
 モノレポ（`akari-video`）または動画プロジェクトフォルダを Cursor で開きます。

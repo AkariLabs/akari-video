@@ -17,7 +17,7 @@
 | ページ | 内容 |
 |---|---|
 | [Introduction](./introduction.ja.md) | AKARI Video とは — 3 つの原則・アーキテクチャ概観・ワークフロー（[English](./introduction.md)） |
-| [Getting Started](./getting-started.ja.md) | 3 つの入口・最初のプロジェクト作成・進め方フォーム（[English](./getting-started.md)） |
+| [Getting Started](./getting-started.ja.md) | 3 つの入口（marketplace からの Claude Code プラグイン導入を含む）・最初のプロジェクト作成・進め方フォーム（[English](./getting-started.md)） |
 
 ## Guides
 
