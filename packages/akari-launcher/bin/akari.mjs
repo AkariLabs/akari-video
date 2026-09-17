@@ -16,6 +16,7 @@ import { runDoctorCommand } from '../src/doctor-command.mjs';
 import { runGenerateCommand } from '../src/generate-command.mjs';
 import { runStoryboardCommand } from '../src/storyboard-command.mjs';
 import { runWorldCommand } from '../src/world-command.mjs';
+import { runSkillsCommand, refreshEntrySkillOnLaunch } from '../src/skills-command.mjs';
 import { resolveRuntimePaths } from '../src/runtime-diagnostics.mjs';
 import { maybeApplyPendingUpdateOnLaunch, resolveInstalledVersionInfo } from '../src/update-check.mjs';
 import { describeCliHelp, describeInstalledVersions } from '../src/messages.mjs';
@@ -38,7 +39,8 @@ async function printVersion() {
 // `--help` は claude/opencode へそのまま転送されてしまっていた — AKARI Video 自身の
 // コマンド一覧が一度も出ない行き止まりだったため新設した）。
 async function printCliHelp() {
-  for (const line of [...describeCliHelp(), '  world                    ワールド地図を検査・生成・プレビュー・停留所移動']) {
+  for (const line of [...describeCliHelp(), '  world                    ワールド地図を検査・生成・プレビュー・停留所移動',
+    '  skills                   入口スキルを配置・削除・確認（install/remove --entry, status --json）']) {
     console.log(line);
   }
   return { exitCode: 0 };
@@ -60,6 +62,7 @@ try {
 } catch (error) {
   console.error(`自動更新の適用確認でエラーが発生しました（続行します）: ${error instanceof Error ? error.message : String(error)}`);
 }
+refreshEntrySkillOnLaunch({ env: process.env });
 
 // `akari update` / `akari init` / `akari new` / `akari narration` / `akari internal` /
 // `akari sounds` / `akari status` / `akari accept` / `akari capability` / `akari store` /
@@ -73,6 +76,7 @@ const invoke = (argv[0] === '--version' || argv[0] === '-v') ? printVersion()
   : argv[0] === 'update' ? runUpdateCommand(argv.slice(1))
   : argv[0] === 'init' ? runInitCommand(argv.slice(1))
   : argv[0] === 'new' ? runNewCommand(argv.slice(1))
+  : argv[0] === 'skills' ? runSkillsCommand(argv.slice(1))
   : argv[0] === 'narration' ? runNarrationCommand(argv.slice(1))
   : argv[0] === 'internal' ? runInternalCommand(argv.slice(1))
   : argv[0] === 'sounds' ? runSoundsCommand(argv.slice(1))

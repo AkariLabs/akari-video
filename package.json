@@ -13,6 +13,7 @@
     "check:skills-index": "node scripts/gen-skills-index.mjs --check --strict",
     "gen:generation-models": "node scripts/gen-generation-models-doc.mjs",
     "check:generation-models": "node scripts/gen-generation-models-doc.mjs --check",
+    "check:entry-skill": "node scripts/check-entry-skill.mjs",
     "check:docs-sync": "node scripts/check-docs-sync.mjs",
     "test:unit": "node scripts/ci/run-unit-tests.mjs --lane pure",
     "test:shell": "node scripts/ci/run-unit-tests.mjs --lane shell",

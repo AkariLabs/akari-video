@@ -106,6 +106,11 @@ if errorlevel 1 (
     echo [OK] PATH を登録しました（次回以降の端末で有効）
 )
 
+:: Entry skill only; failure does not fail the installer.
+node "%INSTALL_DIR%\packages\akari-launcher\bin\akari.mjs" skills install --entry >nul 2>&1
+if errorlevel 1 echo [!!] Entry skill installation failed; retry: akari skills install --entry
+cmd /c exit 0
+
 :: ─── Detect primary AI agent for Quick Start ───
 set AGENT_NAME=AI エージェント
 where claude >nul 2>nul
@@ -120,6 +125,7 @@ echo ━━━━━━━━━━━━━━━━━━━━━━━━━
 echo   Installation complete!
 echo ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 echo.
+echo   In any folder, tell your AI agent: I want to make a video.
 echo   0. ヘルプを表示（サブコマンド一覧）
 echo      akari.cmd --help
 echo.

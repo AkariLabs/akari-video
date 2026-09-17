@@ -154,6 +154,15 @@ if ($currentPath -notlike "*$InstallDir*") {
 # 現在のセッションにも反映
 $env:PATH = "$InstallDir;$env:PATH"
 
+# 入口スキルの失敗は本体インストールの成功を妨げない。
+try {
+    & node "$InstallDir/packages/akari-launcher/bin/akari.mjs" skills install --entry *> $null
+    if ($LASTEXITCODE -ne 0) { throw "entry skill install failed" }
+} catch {
+    Write-Warn "Entry skill installation failed; retry: akari skills install --entry"
+}
+$global:LASTEXITCODE = 0
+
 # ═══ Done ═══
 
 Write-Host ""
@@ -170,6 +179,7 @@ if (Get-Command "claude" -ErrorAction SilentlyContinue) {
 
 Write-Host ""
 Write-Host "  Quick start:"
+Write-Host "    In any folder, tell your AI agent: I want to make a video."
 Write-Host ""
 Write-Host "    0. ヘルプを表示（サブコマンド一覧）"
 Write-Host "       akari.cmd --help" -ForegroundColor DarkGray

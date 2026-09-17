@@ -446,6 +446,11 @@ elif [[ -z "$SHELL_CONFIG" ]]; then
   warn "    $INSTALL_DIR"
 fi
 
+# 入口スキルだけをユーザー領域へ配置する（失敗しても本体導入は成功）。
+if ! node "$INSTALL_DIR/packages/akari-launcher/bin/akari.mjs" skills install --entry >/dev/null 2>&1; then
+  warn "入口スキルの配置に失敗しました。akari skills install --entry で再試行できます。"
+fi
+
 # Quick start の手順 0 で使う「反映」コマンド（shell config を特定できない場合は汎用文言）
 if [[ -n "$SHELL_CONFIG" ]]; then
   PATH_REFRESH_HINT="source $SHELL_CONFIG"
@@ -464,6 +469,7 @@ fi
 
 echo ""
 echo -e "  ${BOLD}Quick start:${NC}"
+echo "    どのフォルダでも AI エージェントに『動画を作りたい』と言えば始まります。"
 echo ""
 echo -e "    0. 新しいターミナルを開く（または今のターミナルで PATH を反映する）"
 echo -e "       ${MUTED}${PATH_REFRESH_HINT}${NC}"

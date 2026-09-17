@@ -2,7 +2,7 @@
 
 # Skills Catalog
 
-The agent-side workflow of AKARI Video is split into **25 skills** (one per production stage, plus cross-cutting skills). This page is the single map: what each skill owns, when it triggers, and which external tools and runtimes it connects to.
+The agent-side workflow of AKARI Video is split into **26 skills** (one per production stage, plus cross-cutting skills). This page is the single map: what each skill owns, when it triggers, and which external tools and runtimes it connects to.
 
 The canonical source for each skill is its `skills/<name>/SKILL.md`. This page is an index; for procedures and hard rules, follow each SKILL.md and the related contracts ([Reference](./README.md#reference)).
 
@@ -18,6 +18,7 @@ The canonical source for each skill is its `skills/<name>/SKILL.md`. This page i
 
 | Skill | Owns | External tools / connections |
 |---|---|---|
+| [akari](../skills/akari/SKILL.md) | Entry point to create, open, or resume a project | akari CLI (init/new/status) |
 | [create-project](../skills/create-project/SKILL.md) | Headless project creation (template copy, creation report) | git (initialized only when safe) |
 | [setup-library](../skills/setup-library/SKILL.md) | First-run setup: tool checks → starter-pack proposal → fetch, place, verify | ffmpeg / whisper-cli |
 | [setup-audio-library](../skills/setup-audio-library/SKILL.md) | Semi-automated BGM / SFX intake (candidate list → manual-download matching → listen and keep/drop) | Free audio sources (humans download) |

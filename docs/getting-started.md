@@ -360,6 +360,16 @@ Extract the zip using Finder or `ditto -x -k shell-mac.zip extracted`. Extractio
 
 ---
 
+### E. From an empty folder (entry skill)
+
+Run `akari skills install --entry` once to install the entry skill for your AI agents. In any folder, tell Claude Code, Codex, opencode, or Cursor: “I want to make a video.”
+
+- **Create:** choose the workspace (`~/Akari/`, created with `akari init` if needed) or this folder in one question; then `akari new <target>` creates the project.
+- **Open:** choose a project from the workspace’s `channels/*/videos/*`.
+- **Resume:** an existing project uses `akari status` to show the next skill or waiting action.
+
+The agent reads `<project>/.claude/skills/<name>/SKILL.md` directly in the current session; discovery picks it up on the next project session.
+
 ## Create a project
 
 Once you've chosen an entrance, create a project first.
