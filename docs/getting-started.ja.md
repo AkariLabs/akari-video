@@ -367,6 +367,16 @@ zip は Finder または `ditto -x -k shell-mac.zip extracted` で展開して�
 
 ---
 
+### E. 何も無いフォルダから（入口スキル）
+
+`akari skills install --entry` を一度実行すると、AI エージェント向けの入口スキルが入ります。どのフォルダでも Claude Code / Codex / opencode / Cursor に「動画を作りたい」と伝えれば始まります。
+
+- **作る:** 作業場（`~/Akari/`、無ければ `akari init`）かこのフォルダかを 1 問で選び、`akari new <target>` で作成します。
+- **開く:** 作業場の `channels/*/videos/*` からプロジェクトを選びます。
+- **続きから:** 既存プロジェクトでは `akari status` から次のスキルや待っている操作を案内します。
+
+今のセッションでは `<project>/.claude/skills/<name>/SKILL.md` を直接読み、次回そのプロジェクトで起動するとスキル一覧に載ります。
+
 ## プロジェクトを作る
 
 入口を選んだら、まずプロジェクトを作ります。
