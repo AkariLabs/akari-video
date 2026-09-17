@@ -33,8 +33,32 @@ test('install is idempotent and copies only the entry skill into the two HOME lo
     assert.equal(readFileSync(join(target, ENTRY_VERSION_FILE), 'utf8'), `${version}\n`);
     assert.equal(readFileSync(join(target, 'SKILL.md'), 'utf8'), readFileSync(join(repo, 'skills/akari/SKILL.md'), 'utf8'));
     assert.equal(existsSync(join(dirname(target), 'edit-plan')), false);
+    assert.equal(existsSync(join(target, 'test')), false);
   }
   for (const name of ['.codex', '.cursor', '.config']) assert.equal(existsSync(join(f.env.HOME, name)), false);
+});
+
+test('install excludes test and hidden entries relative to the source root', async t => {
+  const f = fixture(t);
+  const app = join(f.env.AKARI_HOME, 'app');
+  const source = join(app, 'skills/akari');
+  const excluded = ['test/entry.test.mjs', '.scratch/draft.md', '.temporary', 'references/.cache/draft.md', 'references/.temporary'];
+  for (const name of ['SKILL.md', 'references/guide.md', ...excluded]) {
+    mkdirSync(dirname(join(source, name)), { recursive: true });
+    writeFileSync(join(source, name), name);
+  }
+  mkdirSync(join(app, 'packages/akari-launcher'), { recursive: true });
+  writeFileSync(join(app, 'packages/akari-launcher/package.json'), '{"version":"9.8.7"}');
+  const extra = join(f.scratch, 'extra');
+  assert.equal((await runSkillsCommand(['install', '--entry', '--target', extra], f.options)).exitCode, 0);
+  for (const target of [...f.targets, extra]) {
+    assert.equal(readFileSync(join(target, 'SKILL.md'), 'utf8'), 'SKILL.md');
+    assert.equal(readFileSync(join(target, ENTRY_VERSION_FILE), 'utf8'), '9.8.7\n');
+    assert.equal(readFileSync(join(target, 'references/guide.md'), 'utf8'), 'references/guide.md');
+    for (const name of ['test', '.scratch', 'references/.cache', ...excluded]) {
+      assert.equal(existsSync(join(target, name)), false, `${name} must not be installed`);
+    }
+  }
 });
 
 test('remove preserves unmarked directories, deletes marked defaults and explicit targets only', async t => {

@@ -1,6 +1,6 @@
 import { cpSync, lstatSync, mkdirSync, readFileSync, readdirSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { dirname, join, resolve } from 'node:path';
+import { dirname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
@@ -82,7 +82,15 @@ function installTarget(path, source, version, warn) {
     return false;
   }
   mkdirSync(path, { recursive: true });
-  cpSync(source, path, { recursive: true });
+  cpSync(source, path, {
+    recursive: true,
+    filter: entry => {
+      const relativePath = relative(source, entry);
+      if (!relativePath) return true;
+      const parts = relativePath.split(sep);
+      return parts[0] !== 'test' && !parts.some(part => part.startsWith('.'));
+    },
+  });
   // コピーに失敗した場合は旧版印を維持して次の起動で再試行する。
   writeFileSync(join(path, ENTRY_VERSION_FILE), `${version}\n`);
   return true;
