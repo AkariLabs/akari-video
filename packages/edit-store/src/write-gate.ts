@@ -60,6 +60,47 @@ interface EditLintModule {
     }>;
 }
 
+/** 影プロジェクトの 1 エントリをどう実体化したか。 */
+export type ShadowEntryStrategy = 'symlink' | 'copy' | 'skip';
+
+/**
+ * 影プロジェクト構築の決定論テスト用シーム。本番呼び出しは既定（fs.symlink）のままで、
+ * 何も渡さなければ挙動は従来と同一。
+ */
+export interface ShadowLintHooks {
+    /** symlink の差し替え口。権限のある環境／無い環境をテストから作り分けるためだけに使う。 */
+    symlink?: (target: string, path: string, type: 'junction' | 'file') => Promise<void>;
+    /** エントリ 1 件ごとに実体化の手段を通知する観測口。 */
+    onShadowEntry?: (name: string, strategy: ShadowEntryStrategy) => void;
+    /** 影プロジェクトを作れず候補のメモリ検証へ退避したことを通知する観測口。 */
+    onShadowUnavailable?: (reason: string) => void;
+}
+
+/**
+ * 「OS / ファイルシステムがリンク作成自体を拒んだ」エラーコード。入力が誤っている系
+ * （EEXIST・ENOENT・ENOTDIR 等）は含めない — それらは従来どおり throw して原因を隠さない。
+ *
+ * Windows ではディレクトリ junction は権限不要だが、ファイル symlink は管理者権限か
+ * 開発者モードが必要。そのため一般の Windows 機では `.gitignore` 等のファイルリンクが
+ * 必ず EPERM になり、保存前の検証ステージングが本番の書き込みより先に落ちていた。
+ */
+const LINK_UNSUPPORTED_CODES = new Set([
+    'EPERM', 'EACCES', 'EINVAL', 'ENOSYS', 'ENOTSUP', 'EOPNOTSUPP', 'UNKNOWN'
+]);
+
+/** ディレクトリをリンクできなかったことを示す内部シグナル（素材の実体コピーは選ばない）。 */
+class ShadowLinkUnavailable extends Error {
+    constructor(entryPath: string, cause: NodeJS.ErrnoException) {
+        super(`影プロジェクトへ ${entryPath} をリンクできませんでした（${cause.code ?? cause.message}）`);
+        this.name = 'ShadowLinkUnavailable';
+    }
+}
+
+function isLinkUnsupported(error: unknown): boolean {
+    const code = (error as NodeJS.ErrnoException | null | undefined)?.code;
+    return typeof code === 'string' && LINK_UNSUPPORTED_CODES.has(code);
+}
+
 const DEFAULT_LINT_DEBOUNCE_MS = 400;
 const lintTimers = new Map<string, ReturnType<typeof setTimeout>>();
 const lintRevisions = new Map<string, number>();
@@ -82,31 +123,93 @@ export async function lintProjectCandidates(
  * 実ディスクを直接読む lint check（motion 袋参照等）を含め、候補一式を保存前に検証する。
  * 元プロジェクトの直下エントリは影プロジェクトへ symlink し、候補の祖先だけを実体化する。
  * 既存 lintProjectCandidates の inputOverrides 契約は変更せず、Project API だけがこの入口を使う。
+ *
+ * リンクが使えない環境（Windows の非特権ユーザー等）では**ファイルだけコピーへ倒す**。
+ * 影プロジェクトは lint の読み取り専用ステージングなので、ファイルはコピーで等価であり、
+ * かつ影側への書き込みが元プロジェクトへ伝播しない（symlink 経路と同じ安全性）。
+ * ディレクトリはコピーしない: プロジェクト直下には assets/（4K 原本が何十 GB）が来るため、
+ * junction も作れない環境では影プロジェクトの構築自体を諦め、候補のメモリ差し替えだけで
+ * 検証する（実ディスクを読む check は落ちるが、保存は止めない — 冒頭の fail-open 裁定）。
  */
 export async function lintProjectCandidatesOnDisk(
     projectRoot: string,
-    candidates: LintCandidates
+    candidates: LintCandidates,
+    hooks: ShadowLintHooks = {}
 ): Promise<EditLintGateResult> {
     const shadowRoot = await fs.mkdtemp(join(tmpdir(), 'akari-edit-store-lint-'));
     try {
         for (const entry of await fs.readdir(projectRoot, { withFileTypes: true })) {
-            await fs.symlink(
+            await materializeShadowEntry(
                 resolve(projectRoot, entry.name),
                 join(shadowRoot, entry.name),
-                entry.isDirectory() ? 'junction' : 'file'
+                entry.isDirectory(),
+                entry.name,
+                hooks
             );
         }
         for (const [relativePath, text] of Object.entries(candidates)) {
             const segments = candidateSegments(relativePath);
             const destination = join(shadowRoot, ...segments);
-            await materializeShadowDirectory(shadowRoot, dirname(destination));
+            await materializeShadowDirectory(shadowRoot, dirname(destination), hooks);
             await fs.rm(destination, { recursive: true, force: true });
             if (text !== null) await fs.writeFile(destination, text, 'utf8');
         }
         return await runEditLint(shadowRoot, undefined, false);
+    } catch (error) {
+        if (!(error instanceof ShadowLinkUnavailable)) throw error;
+        warnShadowUnavailableOnce(error);
+        hooks.onShadowUnavailable?.(error.message);
+        return await lintProjectCandidates(projectRoot, candidates);
     } finally {
         await fs.rm(shadowRoot, { recursive: true, force: true });
     }
+}
+
+/**
+ * 影プロジェクトへ 1 エントリを写す。まず従来どおり symlink / junction を試し、
+ * OS がリンク作成を拒んだときだけファイルコピーへ倒す（権限のある環境の挙動は変えない）。
+ */
+async function materializeShadowEntry(
+    source: string,
+    destination: string,
+    preferDirectory: boolean,
+    label: string,
+    hooks: ShadowLintHooks
+): Promise<void> {
+    const symlink = hooks.symlink
+        ?? ((target: string, path: string, type: 'junction' | 'file') => fs.symlink(target, path, type));
+    try {
+        await symlink(source, destination, preferDirectory ? 'junction' : 'file');
+        hooks.onShadowEntry?.(label, 'symlink');
+        return;
+    } catch (error) {
+        if (!isLinkUnsupported(error)) throw error;
+        if (preferDirectory) throw new ShadowLinkUnavailable(source, error as NodeJS.ErrnoException);
+        // symlink エントリはリンク先を辿って種別を決める（リンクの実体がディレクトリなら
+        // コピーしない）。辿れない壊れたリンクは lint も読めないので影へは作らない。
+        const stats = await fs.stat(source).catch(() => null);
+        if (stats === null) {
+            hooks.onShadowEntry?.(label, 'skip');
+            return;
+        }
+        if (stats.isDirectory()) throw new ShadowLinkUnavailable(source, error as NodeJS.ErrnoException);
+        await fs.copyFile(source, destination);
+        hooks.onShadowEntry?.(label, 'copy');
+    }
+}
+
+let shadowUnavailableWarned = false;
+
+function warnShadowUnavailableOnce(error: Error): void {
+    if (shadowUnavailableWarned) {
+        return;
+    }
+    shadowUnavailableWarned = true;
+    console.warn(
+        '[edit-store] 影プロジェクトを作れないため、実ディスクを読む lint check を省いて'
+        + '候補のメモリ検証だけで保存しています。',
+        error.message
+    );
 }
 
 function candidateSegments(relativePath: string): string[] {
@@ -118,9 +221,13 @@ function candidateSegments(relativePath: string): string[] {
     return segments;
 }
 
-async function materializeShadowDirectory(shadowRoot: string, directory: string): Promise<void> {
+async function materializeShadowDirectory(
+    shadowRoot: string,
+    directory: string,
+    hooks: ShadowLintHooks
+): Promise<void> {
     if (directory === shadowRoot) return;
-    await materializeShadowDirectory(shadowRoot, dirname(directory));
+    await materializeShadowDirectory(shadowRoot, dirname(directory), hooks);
     try {
         const stat = await fs.lstat(directory);
         if (!stat.isSymbolicLink()) {
@@ -131,10 +238,12 @@ async function materializeShadowDirectory(shadowRoot: string, directory: string)
         await fs.unlink(directory);
         await fs.mkdir(directory);
         for (const entry of await fs.readdir(source, { withFileTypes: true })) {
-            await fs.symlink(
+            await materializeShadowEntry(
                 resolve(source, entry.name),
                 join(directory, entry.name),
-                entry.isDirectory() ? 'junction' : 'file'
+                entry.isDirectory(),
+                entry.name,
+                hooks
             );
         }
     } catch (error) {

@@ -234,3 +234,154 @@ test('保存後 lint は同一プロジェクトで直列化され、古い fail
     fs.rmSync(root, { recursive: true, force: true });
   }
 });
+
+// 不具合メモ 第8項: Windows の非特権ユーザーではファイル symlink が EPERM になり、
+// 影プロジェクト（保存前検証のステージング）の構築が本番の書き込みより先に落ちていた。
+// ディレクトリ junction は権限不要なので、倒すのはファイルだけ。素材（assets/ の 4K 原本）を
+// 実体コピーしないこと・影側の書き込みが元へ伝播しないことを固定する。
+function shadowFixture() {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'edit-store-shadow-fallback-'));
+  const edit = {
+    version: 2,
+    output: { width: 640, height: 360, fps: 30 },
+    sources: [{ id: 'unused', path: 'assets/unused.bin' }],
+    tracks: [{ id: 'v1', lane: 'visual', items: [{
+      id: 'bag', at: 0, duration: 30,
+      source: { kind: 'html', path: 'overlays/bag.html', exclude: ['title'] },
+      items: [{
+        id: 'title', at: 0, duration: 30,
+        keyframes: { path: 'motion/bag.json', count: 2 },
+        source: { kind: 'html', path: 'overlays/bag.html', part: 'title' }
+      }]
+    }] }]
+  };
+  fs.mkdirSync(path.join(root, 'assets'));
+  fs.mkdirSync(path.join(root, 'overlays'));
+  fs.mkdirSync(path.join(root, 'motion'));
+  fs.writeFileSync(path.join(root, 'assets/unused.bin'), 'asset');
+  fs.writeFileSync(path.join(root, 'overlays/bag.html'), '<div data-akari-part="title"></div>');
+  fs.writeFileSync(path.join(root, 'motion/other.json'), '{"keep":true}');
+  // 権限の要るファイル symlink に必ず当たる直下ファイル（実機の .gitignore と同じ立場）。
+  fs.writeFileSync(path.join(root, '.gitignore'), 'exports/\n');
+  fs.writeFileSync(path.join(root, 'edit.json'), JSON.stringify({ ...edit, tracks: [] }));
+  const motion = JSON.stringify({ version: 0, group: 'bag', items: { title: [{ t: 0 }, { t: 29 }] } });
+  return { root, edit, motion };
+}
+
+const eperm = () => Object.assign(
+  new Error('EPERM: operation not permitted, symlink'), { code: 'EPERM', syscall: 'symlink' }
+);
+
+test('lintProjectCandidatesOnDisk はファイル symlink が EPERM の環境でもコピーで影を作る', async () => {
+  const { root, edit, motion } = shadowFixture();
+  const strategies = [];
+  let unavailable = null;
+  try {
+    const result = await lintProjectCandidatesOnDisk(root, {
+      'edit.json': JSON.stringify(edit),
+      'motion/bag.json': motion
+    }, {
+      // ディレクトリ junction は通し、ファイル symlink だけを実機どおり拒否する。
+      symlink: (target, link, type) => type === 'junction'
+        ? fs.promises.symlink(target, link, 'junction')
+        : Promise.reject(eperm()),
+      onShadowEntry: (name, strategy) => strategies.push(`${name}:${strategy}`),
+      onShadowUnavailable: reason => { unavailable = reason; }
+    });
+    assert.equal(result.pass, true, JSON.stringify(result.findings, null, 2));
+    assert.equal(unavailable, null, '素材をコピーせずに影を作れたのでメモリ退避は起きない');
+    // 影の片付け（fs.rm）が junction を辿って元の素材を消していないこと。
+    assert.equal(fs.readFileSync(path.join(root, 'assets/unused.bin'), 'utf8'), 'asset');
+    assert.equal(fs.existsSync(path.join(root, 'overlays/bag.html')), true);
+    // ファイルはコピー、ディレクトリは従来どおり junction（= 素材の実体コピーなし）。
+    assert.deepEqual(strategies.slice().sort(), [
+      '.gitignore:copy',
+      'assets:symlink',
+      'edit.json:copy',
+      'motion:symlink',
+      'other.json:copy',
+      'overlays:symlink'
+    ]);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('影側への書き込みは元プロジェクトへ伝播しない（コピー経路でも symlink と同じ安全性）', async () => {
+  const { root, edit, motion } = shadowFixture();
+  const before = {
+    edit: fs.readFileSync(path.join(root, 'edit.json'), 'utf8'),
+    gitignore: fs.readFileSync(path.join(root, '.gitignore'), 'utf8'),
+    other: fs.readFileSync(path.join(root, 'motion/other.json'), 'utf8')
+  };
+  try {
+    await lintProjectCandidatesOnDisk(root, {
+      'edit.json': JSON.stringify(edit),
+      '.gitignore': 'exports/\n.akari/\n',
+      'motion/bag.json': motion
+    }, {
+      symlink: (target, link, type) => type === 'junction'
+        ? fs.promises.symlink(target, link, 'junction')
+        : Promise.reject(eperm())
+    });
+    assert.equal(fs.readFileSync(path.join(root, 'edit.json'), 'utf8'), before.edit);
+    assert.equal(fs.readFileSync(path.join(root, '.gitignore'), 'utf8'), before.gitignore);
+    assert.equal(fs.readFileSync(path.join(root, 'motion/other.json'), 'utf8'), before.other);
+    assert.equal(fs.existsSync(path.join(root, 'motion/bag.json')), false);
+    assert.equal(fs.readFileSync(path.join(root, 'assets/unused.bin'), 'utf8'), 'asset');
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('symlink が使える環境ではコピーへ倒さず従来のリンク経路を使う', async () => {
+  const { root, edit, motion } = shadowFixture();
+  const strategies = [];
+  const requested = [];
+  try {
+    const result = await lintProjectCandidatesOnDisk(root, {
+      'edit.json': JSON.stringify(edit),
+      'motion/bag.json': motion
+    }, {
+      // 権限のある環境の代役。呼び出し側からは symlink の成功と区別できない。
+      symlink: async (target, link, type) => {
+        requested.push(type);
+        if (type === 'junction') await fs.promises.symlink(target, link, 'junction');
+        else await fs.promises.copyFile(target, link);
+      },
+      onShadowEntry: (name, strategy) => strategies.push(strategy)
+    });
+    assert.equal(result.pass, true, JSON.stringify(result.findings, null, 2));
+    assert.deepEqual([...new Set(strategies)], ['symlink'], strategies.join(', '));
+    assert.ok(requested.includes('file') && requested.includes('junction'), requested.join(', '));
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('ディレクトリもリンクできない環境では素材をコピーせず候補のメモリ検証へ退避する', async () => {
+  const { root, edit, motion } = shadowFixture();
+  const strategies = [];
+  let unavailable = null;
+  try {
+    const candidates = { 'edit.json': JSON.stringify(edit), 'motion/bag.json': motion };
+    const result = await lintProjectCandidatesOnDisk(root, candidates, {
+      symlink: () => Promise.reject(eperm()),
+      onShadowEntry: (name, strategy) => strategies.push(`${name}:${strategy}`),
+      onShadowUnavailable: reason => { unavailable = reason; }
+    });
+    assert.match(String(unavailable), /リンクできませんでした/);
+    // 素材ディレクトリは 1 件もコピーしない（assets/ が何十 GB になり得るため）。
+    assert.deepEqual(strategies.filter(entry => /^(assets|overlays|motion):/u.test(entry)), []);
+    // 退避先は既存のメモリ差し替え検証そのもの。実ディスクを読む check は落ちるが保存は止めない。
+    const inMemory = await lintProjectCandidates(root, candidates);
+    assert.deepEqual(
+      { pass: result.pass, errors: result.errors },
+      { pass: inMemory.pass, errors: inMemory.errors }
+    );
+    assert.equal(fs.existsSync(path.join(root, 'motion/bag.json')), false);
+    assert.equal(fs.readFileSync(path.join(root, 'assets/unused.bin'), 'utf8'), 'asset');
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
