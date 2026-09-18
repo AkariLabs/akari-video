@@ -978,6 +978,31 @@ test('cross-track media promotion preserves a trimmed source clock after resizin
   assert.equal(front.declaration.duration, 17);
 });
 
+// 不具合メモ 第17項: layers 経路の宣言だけが尺合わせ由来の speed を落としていた（cuts 経路の
+// EditCut / declaration には以前から乗っている）。source.speed の明示が無い追加映像では
+// 「34s の素材窓を 17s で見せる = 2 倍速」という情報が消え、素材が等倍のまま再生されて
+// 見た目が「速度が落ちた」状態になる。1 フレーム以内の差は速度変更ではなく尺合わせなので
+// speed は付かない（buildV2VisualItem の alignsDuration）。
+test('layers 経路の宣言にも out - in と duration のずれ由来の再生速度が乗る', () => {
+  const editWith = out => ({
+    version: 2, output: { width: 1920, height: 1080, fps: 30 },
+    sources: [{ id: 'grid', path: 'source-grid.mp4' }], tracks: [
+      { id: 'v1', lane: 'visual', items: [{ id: 'back', at: 0, duration: 2160, source: { kind: 'media', src: 'grid', in: 0, out: 72 } }] },
+      { id: 'v5', lane: 'visual', items: [{ id: 'front', at: 180, duration: 510, transform: { scale: 0.45 }, source: { kind: 'media', src: 'grid', in: 38, out } }] },
+    ],
+  });
+  // out 72 - in 38 = 34s の素材窓を duration 510 フレーム = 17s で見せる → 2 倍速。
+  const sped = readInternalEdit(editWith(72)).tracks[1].items[0];
+  assert.equal(sped.legacy.collection, 'layers');
+  assert.equal(sped.declaration.speed, 2);
+  assert.equal(sped.legacy.value.speed, 2);
+  // out 55 - in 38 = 17s は duration と一致 → 尺合わせなので speed は付かない。
+  const aligned = readInternalEdit(editWith(55)).tracks[1].items[0];
+  assert.equal(aligned.legacy.collection, 'layers');
+  assert.equal(aligned.declaration.speed, undefined);
+  assert.equal('speed' in aligned.declaration, false);
+});
+
 test('v2 media captions switch is copied to internal, declaration, and cut/layer legacy projections', () => {
   const edit = base();
   edit.tracks[0].items[0].captions = 'off';
