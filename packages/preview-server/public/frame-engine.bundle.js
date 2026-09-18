@@ -7178,6 +7178,10 @@ var require_internal_model = __commonJS({
               track: ref,
               ...common,
               ...copyMediaSourceFields(item.source, captionSwitch),
+              // cuts 側（下の EditCut / declaration）と同じく、素材窓が出力尺と 1 フレーム超ずれた
+              // ときの再生速度をレイヤー宣言にも渡す。落とすと out - in ≠ duration の追加映像が
+              // 等倍のまま伸びて（= 速度が落ちて）書き出される。
+              ...speed !== void 0 ? { speed } : {},
               ..."audio" in item && item.audio === false ? { audio: false } : {}
             };
             const value2 = declaration;
@@ -7445,6 +7449,11 @@ var require_internal_model = __commonJS({
           t: at2,
           path: resolvedPath,
           track: ref,
+          // fade_in / fade_out は render-cut の resolveSfxFadeSeconds が snake_case で読む
+          // （sfx 宣言と同じ綴り。bgm だけが camelCase の fadeIn / fadeOut）。
+          // 落とすと afade が生成コマンドから丸ごと消え、会話音声のフェードが書き出しに乗らない。
+          ...item.fade_in !== void 0 ? { fade_in: item.fade_in } : {},
+          ...item.fade_out !== void 0 ? { fade_out: item.fade_out } : {},
           ...item.gain_db !== void 0 ? { gainDb: item.gain_db } : {},
           ...sourceClipFx,
           ...itemClipFx,
@@ -7472,6 +7481,8 @@ var require_internal_model = __commonJS({
               id: item.id,
               t: at2,
               path: resolvedPath,
+              ...item.fade_in !== void 0 ? { fade_in: item.fade_in } : {},
+              ...item.fade_out !== void 0 ? { fade_out: item.fade_out } : {},
               ...item.gain_db !== void 0 ? { gain_db: item.gain_db } : {},
               ...sourceClipFx,
               ...itemClipFx,
@@ -19780,6 +19791,13 @@ function rotationQuarterTurns(frame) {
 function logicalSize(width, height, rotation) {
   return rotation === 1 || rotation === 3 ? { width: height, height: width } : { width, height };
 }
+function compositionSourceSize(layer, decoded) {
+  const declared = (layer && "source" in layer ? layer.source : void 0)?.logicalSize;
+  if (!declared) return decoded;
+  const width = Number(declared.width);
+  const height = Number(declared.height);
+  return Number.isFinite(width) && width > 0 && Number.isFinite(height) && height > 0 ? { width, height } : decoded;
+}
 var WebGL2Compositor = class {
   constructor(canvas = document.createElement("canvas"), options = {}) {
     this.options = options;
@@ -20163,7 +20181,10 @@ var WebGL2Compositor = class {
     for (let i2 = 0; i2 < 3; i2++) this.bind(unitBase + i2, textures[i2]);
     return logical;
   }
-  setCut(u2, v2, source, adjustLutUnit) {
+  // sourceLogical は復号フレームの寸法ではなく、構図の基準になるソースの論理寸法
+  // （compositionSourceSize / 不具合メモ 第10項）。shader の sourceSize uniform（fit 経路と
+  // 半テクセルの inset）だけが復号寸法で、そちらは upload* が書く。
+  setCut(u2, v2, sourceLogical, adjustLutUnit) {
     this.gl.uniform4f(
       u2.framing,
       v2.framing.x,
@@ -20182,7 +20203,7 @@ var WebGL2Compositor = class {
     this.configureAdjustLut(v2.adjustLut, adjustLutUnit, u2);
     this.configureFxResult(null, u2);
     if (v2.layerStyle) {
-      const box2 = cutLayerStyleBox(v2, source.width, source.height);
+      const box2 = cutLayerStyleBox(v2, sourceLogical.width, sourceLogical.height);
       this.gl.uniform1i(u2.layerStyle, 1);
       this.gl.uniform4f(
         u2.crop,
@@ -20535,10 +20556,11 @@ var WebGL2Compositor = class {
     const started = performance.now();
     const sizes = [];
     frames.forEach((frame, index) => {
+      let decoded;
       if ("bitmap" in frame) {
-        sizes[index] = this.uploadStillBaseTexture(frame, BASE_RGBA_UNITS[index], baseProgram.cutUniforms[index]);
+        decoded = this.uploadStillBaseTexture(frame, BASE_RGBA_UNITS[index], baseProgram.cutUniforms[index]);
       } else if (isVideoFrame(frame)) {
-        sizes[index] = this.uploadVideoFrameTexture(
+        decoded = this.uploadVideoFrameTexture(
           this.baseRgbaTextures[index],
           BASE_RGBA_UNITS[index],
           frame,
@@ -20546,7 +20568,7 @@ var WebGL2Compositor = class {
         );
       } else {
         this.bind(BASE_RGBA_UNITS[index], this.baseRgbaTextures[index]);
-        sizes[index] = this.uploadYuv(
+        decoded = this.uploadYuv(
           frame,
           this.baseTextures.slice(index * 3, index * 3 + 3),
           index * 3,
@@ -20554,6 +20576,7 @@ var WebGL2Compositor = class {
           baseProgram.cutUniforms[index]
         );
       }
+      sizes[index] = compositionSourceSize(plan.base[index], decoded);
     });
     if (frames.length === 1 && !baseProgram.secondary) {
       const frame = frames[0];
@@ -20636,7 +20659,8 @@ var WebGL2Compositor = class {
       const x3 = axis(framing.x, framing.width, size.width, output.width);
       const y2 = axis(framing.y, framing.height, size.height, output.height);
       const crop = visual.layerStyle?.crop ?? { x: x3[0], y: y2[0], width: x3[1], height: y2[1] };
-      const displayed = visual.layerStyle ? cutLayerStyleBox(visual, size.width, size.height) : {
+      const sourceLogical = compositionSourceSize(plan.base[index], size);
+      const displayed = visual.layerStyle ? cutLayerStyleBox(visual, sourceLogical.width, sourceLogical.height) : {
         width: crop.width * size.width * fit * visual.transform.scale / framing.width,
         height: crop.height * size.height * fit * visual.transform.scale / framing.height
       };
@@ -20842,7 +20866,14 @@ var WebGL2Compositor = class {
         gl.uniform1i(maskRotationLoc, 0);
       }
       uploadElapsedMs += performance.now() - uploadStarted;
-      const geometry = layer.cutVisual ? compositeCutGeometry(layer.cutVisual, width, height, output.width, output.height) : { visual: layer.visual, width, height };
+      const sourceLogical = compositionSourceSize(layer, { width, height });
+      const geometry = layer.cutVisual ? compositeCutGeometry(
+        layer.cutVisual,
+        sourceLogical.width,
+        sourceLogical.height,
+        output.width,
+        output.height
+      ) : { visual: layer.visual, width: sourceLogical.width, height: sourceLogical.height };
       const visual = geometry.visual;
       gl.uniform2f(outLoc, output.width, output.height);
       gl.uniformMatrix3fv(
@@ -25036,6 +25067,65 @@ function createDecoderErrorGuard(options = {}) {
 
 // ../frame-engine/src/decode/keyframe-index.ts
 var MP4BoxNamespace = __toESM(require_mp4box_all(), 1);
+
+// ../frame-engine/src/decode/mp4-boxes.ts
+function uint322(bytes, offset) {
+  return new DataView(bytes.buffer, bytes.byteOffset + offset, 4).getUint32(0);
+}
+function uint642(bytes, offset) {
+  const value = new DataView(bytes.buffer, bytes.byteOffset + offset, 8).getBigUint64(0);
+  if (value > BigInt(Number.MAX_SAFE_INTEGER)) throw new Error("MP4 box exceeds safe integer range");
+  return Number(value);
+}
+function typeAt2(bytes, offset) {
+  return String.fromCharCode(...bytes.subarray(offset, offset + 4));
+}
+function readBoxAt(bytes, start, parentEnd = bytes.byteLength) {
+  if (start < 0 || start + 8 > parentEnd || parentEnd > bytes.byteLength) return null;
+  let size = uint322(bytes, start);
+  const type = typeAt2(bytes, start + 4);
+  let headerSize = 8;
+  if (size === 1) {
+    if (start + 16 > parentEnd) return null;
+    size = uint642(bytes, start + 8);
+    headerSize = 16;
+  } else if (size === 0) {
+    size = parentEnd - start;
+  }
+  if (size < headerSize || start + size > parentEnd) return null;
+  return { type, start, end: start + size, size, headerSize, dataStart: start + headerSize };
+}
+function childBoxes2(bytes, start, end) {
+  const boxes = [];
+  let cursor = start;
+  while (cursor + 8 <= end) {
+    const box2 = readBoxAt(bytes, cursor, end);
+    if (!box2) throw new Error(`invalid MP4 box at byte ${cursor}`);
+    boxes.push(box2);
+    cursor = box2.end;
+  }
+  return boxes;
+}
+var FREE_BOX_TYPE = Uint8Array.from([102, 114, 101, 101]);
+function videoOnlyIndexHeader(header) {
+  try {
+    const bytes = new Uint8Array(header.slice(0));
+    const moov = childBoxes2(bytes, 0, bytes.byteLength).find((box2) => box2.type === "moov");
+    if (!moov) return header;
+    for (const trak of childBoxes2(bytes, moov.dataStart, moov.end).filter((box2) => box2.type === "trak")) {
+      const mdia = childBoxes2(bytes, trak.dataStart, trak.end).find((box2) => box2.type === "mdia");
+      if (!mdia) continue;
+      const hdlr = childBoxes2(bytes, mdia.dataStart, mdia.end).find((box2) => box2.type === "hdlr");
+      if (!hdlr || hdlr.dataStart + 12 > hdlr.end) continue;
+      if (typeAt2(bytes, hdlr.dataStart + 8) !== "vide") bytes.set(FREE_BOX_TYPE, trak.start + 4);
+    }
+    return bytes.buffer;
+  } catch {
+    return header;
+  }
+}
+
+// ../frame-engine/src/decode/keyframe-index.ts
 var MP4Box = MP4BoxNamespace.default ?? MP4BoxNamespace;
 function createIndex(values, frameEnds = /* @__PURE__ */ new Map(), nextFrameStarts = /* @__PURE__ */ new Map(), lastFrameStartUs = null, decoderTimestampOffsetUs = 0, presentationDurationUs = null) {
   const times = [...values].sort((left, right) => left - right);
@@ -25089,7 +25179,8 @@ function calculateDecoderTimestampOffsetUs(firstDts, trackTimescale, edits) {
 function presentationMediaEdit(edits) {
   return edits?.find((edit) => edit.media_time >= 0 && edit.media_rate_integer === 1 && edit.media_rate_fraction === 0);
 }
-async function buildKeyframeIndexFromHeader(header) {
+async function buildKeyframeIndexFromHeader(rawHeader) {
+  const header = videoOnlyIndexHeader(rawHeader);
   return new Promise((resolve, reject) => {
     const file = MP4Box.createFile();
     file.onError = (message) => reject(new Error(`mp4box parse error: ${message}`));
@@ -25346,43 +25437,6 @@ function summarizeSampleTiming(samples) {
   }
   return { maxReorderFrames, sampleDurationUs };
 }
-function uint322(bytes, offset) {
-  return new DataView(bytes.buffer, bytes.byteOffset + offset, 4).getUint32(0);
-}
-function uint642(bytes, offset) {
-  const value = new DataView(bytes.buffer, bytes.byteOffset + offset, 8).getBigUint64(0);
-  if (value > BigInt(Number.MAX_SAFE_INTEGER)) throw new Error("MP4 box exceeds safe integer range");
-  return Number(value);
-}
-function typeAt2(bytes, offset) {
-  return String.fromCharCode(...bytes.subarray(offset, offset + 4));
-}
-function readBoxAt(bytes, start, parentEnd = bytes.byteLength) {
-  if (start < 0 || start + 8 > parentEnd || parentEnd > bytes.byteLength) return null;
-  let size = uint322(bytes, start);
-  const type = typeAt2(bytes, start + 4);
-  let headerSize = 8;
-  if (size === 1) {
-    if (start + 16 > parentEnd) return null;
-    size = uint642(bytes, start + 8);
-    headerSize = 16;
-  } else if (size === 0) {
-    size = parentEnd - start;
-  }
-  if (size < headerSize || start + size > parentEnd) return null;
-  return { type, start, end: start + size, size, headerSize, dataStart: start + headerSize };
-}
-function childBoxes2(bytes, start, end) {
-  const boxes = [];
-  let cursor = start;
-  while (cursor + 8 <= end) {
-    const box2 = readBoxAt(bytes, cursor, end);
-    if (!box2) throw new Error(`invalid MP4 box at byte ${cursor}`);
-    boxes.push(box2);
-    cursor = box2.end;
-  }
-  return boxes;
-}
 function reverseBits322(value) {
   let source = value >>> 0;
   let reversed = 0;
@@ -25458,7 +25512,8 @@ function videoDescription(bytes) {
 function presentationMediaTime(edits, firstDts) {
   return edits?.find((edit) => edit.media_time >= 0 && edit.media_rate_integer === 1 && edit.media_rate_fraction === 0)?.media_time ?? firstDts;
 }
-function buildVideoSampleTable(header) {
+function buildVideoSampleTable(rawHeader) {
+  const header = videoOnlyIndexHeader(rawHeader);
   return new Promise((resolve, reject) => {
     const bytes = new Uint8Array(header);
     let description;

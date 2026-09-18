@@ -706,6 +706,10 @@ function buildV2VisualItem(item, fps, ref, pathOf, chromaKeyOf, legacyIndexCount
                     id: item.id, t: at, duration, kind: 'video', src: path ?? item.source.src,
                     in: item.source.in,
                     track: ref, ...common, ...copyMediaSourceFields(item.source, captionSwitch),
+                    // cuts 側（下の EditCut / declaration）と同じく、素材窓が出力尺と 1 フレーム超ずれた
+                    // ときの再生速度をレイヤー宣言にも渡す。落とすと out - in ≠ duration の追加映像が
+                    // 等倍のまま伸びて（= 速度が落ちて）書き出される。
+                    ...(speed !== undefined ? { speed } : {}),
                     ...('audio' in item && item.audio === false ? { audio: false } : {})
                 };
                 const value = declaration;
@@ -898,6 +902,11 @@ function buildV2AudioItem(item, fps, ref, pathOf, legacyIndexCounters) {
             t: at,
             path: resolvedPath,
             track: ref,
+            // fade_in / fade_out は render-cut の resolveSfxFadeSeconds が snake_case で読む
+            // （sfx 宣言と同じ綴り。bgm だけが camelCase の fadeIn / fadeOut）。
+            // 落とすと afade が生成コマンドから丸ごと消え、会話音声のフェードが書き出しに乗らない。
+            ...(item.fade_in !== undefined ? { fade_in: item.fade_in } : {}),
+            ...(item.fade_out !== undefined ? { fade_out: item.fade_out } : {}),
             ...(item.gain_db !== undefined ? { gainDb: item.gain_db } : {}),
             ...sourceClipFx,
             ...itemClipFx,
@@ -917,6 +926,8 @@ function buildV2AudioItem(item, fps, ref, pathOf, legacyIndexCounters) {
                 id: item.id, atFrames, durationFrames, at, duration, children: [], source,
                 declaration: {
                     id: item.id, t: at, path: resolvedPath,
+                    ...(item.fade_in !== undefined ? { fade_in: item.fade_in } : {}),
+                    ...(item.fade_out !== undefined ? { fade_out: item.fade_out } : {}),
                     ...(item.gain_db !== undefined ? { gain_db: item.gain_db } : {}),
                     ...sourceClipFx,
                     ...itemClipFx,
