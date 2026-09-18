@@ -684,6 +684,9 @@ export class RangeMp4Source {
       this.options.loadTimeoutMs ?? 10_000,
       `Range header ${this.id}`,
     );
+    // 原本の長い PCM は 1 サンプル = 1 音声サンプルなので、音声の stsz まで展開すると配列長が
+    // Array の上限を超えて RangeError になる（不具合メモ 第19項）。非映像 trak を隠す処理は
+    // 両関数の内側にあるので、ここでは素のヘッダーを渡す。
     const [table, keyframes] = await Promise.all([
       buildVideoSampleTable(opened.header.slice(0)),
       buildKeyframeIndexFromHeader(opened.header.slice(0)),

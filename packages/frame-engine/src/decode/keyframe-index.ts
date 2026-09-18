@@ -1,5 +1,6 @@
 // Adapted from packages/preview-engine/src/keyframeIndex.ts.
 import * as MP4BoxNamespace from '@webav/mp4box.js';
+import { videoOnlyIndexHeader } from './mp4-boxes.js';
 
 const MP4Box: typeof MP4BoxNamespace =
   (MP4BoxNamespace as unknown as { default?: typeof MP4BoxNamespace }).default ?? MP4BoxNamespace;
@@ -99,7 +100,11 @@ function presentationMediaEdit(edits: readonly MediaEdit[] | undefined): MediaEd
     && edit.media_rate_fraction === 0);
 }
 
-export async function buildKeyframeIndexFromHeader(header: ArrayBuffer): Promise<KeyframeIndex> {
+export async function buildKeyframeIndexFromHeader(rawHeader: ArrayBuffer): Promise<KeyframeIndex> {
+  // 索引に要るのは映像 trak だけ。非映像 trak はここで隠す（呼び出し側に任せると経路が
+  // 1 本抜ける。不具合メモ 第19項の再発防止）。隠すのはヘッダーのコピーだけなので、映像の
+  // バイトオフセット・原本・音声ミックス経路は変わらない。
+  const header = videoOnlyIndexHeader(rawHeader);
   return new Promise((resolve, reject) => {
     const file = MP4Box.createFile();
     file.onError = message => reject(new Error(`mp4box parse error: ${message}`));
