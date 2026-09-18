@@ -693,6 +693,7 @@ export class AkariQuickExportServiceImpl implements AkariQuickExportService, Bac
             progressElapsedMs: elapsedMs,
             progressRemainingMs: remainingMs,
             progressStage: snapshot.stage,
+            progressVerifyCheck: snapshot.verifyCheck,
             progressFrame: snapshot.frame,
             progressTotalFrames: snapshot.totalFrames,
             progressEngine: snapshot.engine,
