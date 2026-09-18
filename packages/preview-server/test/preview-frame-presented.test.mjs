@@ -144,7 +144,13 @@ test('seek は要求フレームを記録し、提示待ちの印を立てる', 
     // 実ソースの配線を固定する（再発防止）。
     assert.match(source, /this\.requestedFrame = frameNumber;[\s\S]{0,400}?this\.scrub\.requestScrub\(frameNumber\);/u);
     assert.match(source, /this\.ui\.root\.dataset\.framePresentationPending = "true";/u);
-    assert.match(source, /if \(!this\.presentationPending\(\)\) this\.ui\.root\.dataset\.framePresentationPending = "false";/u);
+    // renderFrame からは presentationPending() を呼ばず同じ条件を直接書く（render-state /
+    // boundary-metrics のテストが renderFrame をソースから切り出して stub 上で走らせる契約なので、
+    // ここから新しいメソッドを呼ぶと stub の接触面が増える）。意味は presentationPending() と同一。
+    assert.match(
+        source,
+        /if \(this\.requestedFrame === null \|\| this\.requestedFrame === this\.presentedFrame\) \{\s*this\.ui\.root\.dataset\.framePresentationPending = "false";/u
+    );
     // 初期値が false であること。
     assert.match(source, /root\.dataset\.framePresentationPending = 'false';/u);
 });

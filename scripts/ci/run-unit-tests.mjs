@@ -154,6 +154,7 @@ export const PREVIEW_SERVER_PURE_TESTS = [
   'test/mp4-audio-track.test.mjs',
   'test/preview-audio-pcm-range.test.mjs',
   'test/preview-end-frame-request.test.mjs',
+  'test/preview-frame-presented.test.mjs',
   'test/preview-layer-proxies.test.mjs',
   'test/preview-logical-size-declaration.test.mjs',
   'test/proxy-moov-quarantine.test.mjs',
@@ -161,6 +162,7 @@ export const PREVIEW_SERVER_PURE_TESTS = [
   'test/still-image-display.test.mjs',
   'test/transition-recipe-supply-chain.test.mjs',
   'test/transition-visual.test.mjs',
+  'test/v2-object-tree-put.test.mjs',
   'test/vgpu-preview-scale.test.mjs',
   'test/viewport-units.test.mjs',
   'test/web-ui-parity-2026-09.test.mjs',
@@ -170,11 +172,6 @@ export const PREVIEW_SERVER_PURE_TESTS = [
 // 基準 1・2 は満たすが required に載せていない preview-server テストと理由（1 対 1 の帳尻）。
 // media レーンの `npm test` 側では全件走るので、取り落としではなく「required に入れない」だけ。
 export const PREVIEW_SERVER_PURE_EXCLUSIONS = [
-  {
-    file: 'test/v2-object-tree-put.test.mjs',
-    why: 'Windows で EPERM（ファイル symlink は管理者権限か開発者モードが必要 — edit-store/src/write-gate.ts が明記）。'
-      + ' OS で結果が変わるので required には載せない'
-  },
   {
     file: 'test/frame-engine-layers.test.mjs',
     why: 'src/frame-engine-client.ts の本文を正規表現で照合するテスト。2026-09-18 現在 preview-parity レーンの'
