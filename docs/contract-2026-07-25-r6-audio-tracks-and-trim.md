@@ -99,6 +99,15 @@ BGM をクリップ化する裁定（内部リポ `akari-video-internal` の該�
   bgm の毎 tick 再計算（fadeMultiplier）ではなく、schedule 時点で
   `gain.gain.setValueAtTime`/`linearRampToValueAtTime` によるブレークポイント列を組む
   （`sfxFadeGainSchedule`、シーク再開時は経過秒からブレークポイントを再構成）
+- 同・会話音声（narration / 音声レーンの `role:'speech'`）: 2026-09-18 追記。上と同じ
+  ブレークポイント列の仕組みに乗せる（`buildWebAudioSchedule` は kind に依らず
+  `fadeGainEvents` を通す）。**窓の取り方だけが sfx と非対称**で、sfx は item の実効尺を
+  そのまま使う一方、narration は `min(track.durationSec, max(0, duration − track.t))` と
+  タイムライン末尾で切る。これは `render-cut/src/plan.mjs` の実際の扱いに合わせたもので、
+  揃えると sfx が書き出しと食い違う。クランプ規則（実効尺の半分まで独立に）は共通
+- なお cuts / layers の撮影素材音声（プレビューの kind `'speech'`）は宣言にフェード項目を
+  持たず、書き出し側も cut 音声に afade を掛けない。ここにフェードを足すと逆に
+  書き出しとの食い違いを作るため、**意図的に対象外**とする
 - Web UI（preview-server）: bgm と同じ毎 tick 再計算方式。ただしこの層は現状 sfx の
   `in`/`out` トリム自体を未実装のため、フェードの実効尺は常にデコード済み素材全長を使う
   （トリム実装時に合わせて見直す）
