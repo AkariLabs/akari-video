@@ -13,6 +13,9 @@ const checks = [
 ];
 const failed = [];
 
+// 下請けはいずれも .mjs なので process.execPath で起動する（shebang / .cmd シムを経由しないので
+// Windows でも spawn できる。ここは元から node 起動だが、下請け側が esbuild の shebang スクリプトを
+// 直接 spawn していて Windows で「検査の起動失敗」を drift として報告していた — 2026-09-19 修正）。
 for (const [name, script] of checks) {
   process.stdout.write(`[frame-engine-drift] checking ${name}\n`);
   const result = spawnSync(process.execPath, [path.join(repoRoot, script), '--check'], {
@@ -21,7 +24,11 @@ for (const [name, script] of checks) {
   });
   if (result.stdout) process.stdout.write(result.stdout);
   if (result.stderr) process.stderr.write(result.stderr);
-  if (result.status !== 0) {
+  if (result.error) {
+    // 「検査が起動できなかった」と「drift があった」を混同しない
+    failed.push(name);
+    process.stderr.write(`[frame-engine-drift] could not start: ${name}: ${result.error.message}\n`);
+  } else if (result.status !== 0) {
     failed.push(name);
     process.stderr.write(`[frame-engine-drift] failed: ${name} (exit ${result.status ?? 'unknown'})\n`);
   }

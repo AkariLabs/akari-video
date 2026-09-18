@@ -24,6 +24,11 @@ const expectedOutputs = new Set([
   'public/frame-engine.bundle.js'
 ]);
 const require = createRequire(packageJsonPath);
+// esbuild/bin/esbuild は shebang 付きの JS（実体のネイティブ実行ファイルを起こすラッパ）。
+// Windows では実行可能ファイルではないので直接 spawn すると status: null になり、
+// 「drift 検出」ではなく「検査の起動失敗」で落ちていた（2026-09-19 Windows 実測）。
+// node で明示的に読ませれば OS 非依存（macOS / Linux でも同じ JS を同じ node で動かすだけ）。
+// .cmd / .bat シムを経由しないので shell: true も不要。
 const esbuildBin = require.resolve('esbuild/bin/esbuild');
 const temporaryRoot = await mkdtemp(path.join(tmpdir(), 'akari-preview-server-drift-'));
 const generatedOutputs = new Map();
@@ -47,12 +52,16 @@ try {
 
     const temporaryOutput = path.join(temporaryRoot, relativeOutput);
     args[outfileIndex] = `--outfile=${temporaryOutput}`;
-    const result = spawnSync(esbuildBin, args, {
+    const result = spawnSync(process.execPath, [esbuildBin, ...args], {
       cwd: packageRoot,
       encoding: 'utf8'
     });
     if (result.stdout) process.stdout.write(result.stdout);
     if (result.stderr) process.stderr.write(result.stderr);
+    if (result.error) {
+      // 「検査が起動できなかった」を drift と混同させない（Windows で status: null になっていた頃の教訓）
+      throw new Error(`preview-server bundle generation could not start for ${relativeOutput}: ${result.error.message}`);
+    }
     if (result.status !== 0) {
       throw new Error(`preview-server bundle generation failed for ${relativeOutput} (exit ${result.status ?? 'unknown'})`);
     }
