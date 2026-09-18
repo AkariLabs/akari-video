@@ -12,11 +12,14 @@ import {
   probeRaw,
   resolveTarget,
   resolveTools,
-  runChecked,
   sheetTimecode,
   validateTime,
 } from "./common.mjs";
+import { grabFrames } from "./frame-grab.mjs";
 import { recordObservation } from "./record.mjs";
+
+// --separate の 1 枚あたりの画質設定（720p 高さ・アスペクト維持）。契約 §2.2 の値で、変更しない。
+export const SEPARATE_FRAME_FILTER = "scale=-2:720:force_original_aspect_ratio=decrease";
 
 export async function grabMedia(targetArgument, options = {}) {
   const target = resolveTarget(targetArgument, options);
@@ -73,20 +76,31 @@ export async function renderSheets({ ffmpeg, target, times, outputDirectory, gen
 }
 
 async function renderSeparate({ ffmpeg, target, times, outputDirectory, generated_at, options }) {
-  const results = [];
-  for (const time of times) {
+  // 出力ファイル名（タイムコード）と JSON の並び順は -t の指定順のまま。
+  // ffmpeg の呼び方だけ frame-grab.mjs の入力側シーク + 近接時刻の一括抽出へ替える。
+  const requests = times.map((time) => {
     const timecode = formatTimecode(time);
-    const outputPath = path.join(outputDirectory, `${timecode}.png`);
-    runChecked(ffmpeg, [
-      "-hide_banner", "-loglevel", "error", "-nostdin", "-y",
-      "-i", target.inputPath,
-      "-ss", Number(time).toFixed(6),
-      "-frames:v", "1",
-      "-vf", "scale=-2:720:force_original_aspect_ratio=decrease",
-      outputPath,
-    ], options);
-    results.push({ kind: "frame", timecode, times_s: [formatNumber(time)], path: outputPathForJson(outputPath, target), generated_at });
-  }
-  return results;
+    return { time, timecode, outputPath: path.join(outputDirectory, `${timecode}.png`) };
+  });
+  grabFrames({
+    ffmpeg,
+    inputPath: target.inputPath,
+    requests,
+    filter: SEPARATE_FRAME_FILTER,
+    options,
+    onWarning: (line) => writeWarning(line, options),
+  });
+  return requests.map((request) => ({
+    kind: "frame",
+    timecode: request.timecode,
+    times_s: [formatNumber(request.time)],
+    path: outputPathForJson(request.outputPath, target),
+    generated_at,
+  }));
+}
+
+// 契約 §1「stderr は人間向けの進捗・警告」。CLI と同じ既定（process.stderr）に合わせる。
+function writeWarning(line, options = {}) {
+  (options.stderr ?? ((text) => process.stderr.write(`${text}\n`)))(line);
 }
 
