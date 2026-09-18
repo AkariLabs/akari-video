@@ -128,6 +128,21 @@ function percentile(values: readonly number[], fraction = 0.5): number | null {
  * 一致するレイヤーは終端位置の要求でちょうど外れる（ベース映像は最後の画を保持するので
  * 「追加映像だけが消える」に見える）。尺は変えず、要求を最後の有効フレームへ丸める。
  */
+/**
+ * 1 コマの提示記録（不具合メモ 第6項）。requestedAtMs / presentedAtMs を分けて持つのが要点で、
+ * 「要求は届いたが描画は終わっていない」区間を外から観測できるようにする。
+ */
+export interface FramePresentedRecord {
+  readonly seq: number;
+  readonly reason: 'playback' | 'seek';
+  readonly requestedFrame: number | null;
+  readonly presentedFrame: number;
+  readonly presentedSec: number;
+  readonly requestedAtMs: number;
+  readonly presentedAtMs: number;
+  readonly elapsedMs: number;
+}
+
 function renderableSeconds(seconds: number, totalDuration: number, fps: number): number {
   const clamped = Math.max(0, Math.min(seconds, totalDuration));
   if (!(fps > 0) || !(totalDuration > 0)) return clamped;
@@ -648,6 +663,8 @@ function createUi(stage: HTMLElement): {
   const root = document.createElement('div');
   root.id = 'frame-engine-preview';
   root.dataset.frameEngineReady = 'false';
+  // 第6項: 提示待ちの印。要求を出していないうちは false。
+  root.dataset.framePresentationPending = 'false';
   Object.assign(root.style, { position: 'absolute', inset: '0', background: '#000' });
 
   const canvas = document.createElement('canvas');
@@ -721,6 +738,15 @@ class FrameEngineRuntime {
     boundaryBefore: { total: 0, late: 0, hit: 0 }, boundaryAfter: { total: 0, late: 0, hit: 0 }, warmupMs: [],
   };
   private rendering: Promise<void> | null = null;
+  // 不具合メモ 第6項: seek() は要求を投げた時点で返り、実際の描画は非同期に終わる。UI の時刻
+  // 表示だけが先に動くため、自動検証が 450ms 待ちで「前の位置の映像」を撮ってしまうことがあった
+  // （1.6 秒待つと写った）。**待ち時間を伸ばすのではなく、提示が終わったことを知れるようにする**。
+  // 要求（requestedFrame）と提示（presentedFrame）を分けて持ち、提示のたびに待ち手を起こす。
+  private requestedFrame: number | null = null;
+  private presentedFrame: number | null = null;
+  private presentedSeq = 0;
+  private lastPresentedRecord: FramePresentedRecord | null = null;
+  private readonly presentedWaiters = new Set<() => void>();
   private lastPlaybackFrame = -1;
   private lastPresentedSec = 0;
   private lastCutIndex: number | null = null;
@@ -952,8 +978,62 @@ class FrameEngineRuntime {
     const clamped = Math.max(0, Math.min(seconds, this.totalDuration));
     this.audio.seek(clamped);
     const frameNumber = Math.round(clamped * this.fps);
+    this.requestedFrame = frameNumber;
+    // 第6項: 要求済みで未提示の間だけ印を立てる。CSS からロード中表示に使え、QA からも
+    // 固定待ちなしで観測できる（waitForPresentation が本筋の待ち手段）。
+    this.ui.root.dataset.framePresentationPending = "true";
     this.scrub.requestScrub(frameNumber);
     return frameNumber / this.fps;
+  }
+
+  /** 第6項: 要求済みのコマがまだ提示されていないか（ロード中表示と QA の待ちに使う）。 */
+  presentationPending(): boolean {
+    return this.requestedFrame !== null && this.requestedFrame !== this.presentedFrame;
+  }
+
+  /** 直近の提示の記録。要求時刻と描画完了時刻を分けて持つ。 */
+  lastPresented(): FramePresentedRecord | null {
+    return this.lastPresentedRecord;
+  }
+
+  /**
+   * 第6項: 要求したコマが実際に提示されるまで待つ。QA が固定の待ち時間を置く代わりに使う。
+   * 既に提示済みなら即解決する。timeoutMs を過ぎたら解決せず reject する（黙って古い画を
+   * 撮らせないため — 待ちが足りなかったのか描画が止まったのかを呼び出し側が区別できる）。
+   */
+  async waitForPresentation(timeoutMs = 10_000): Promise<FramePresentedRecord> {
+    if (!this.presentationPending()) {
+      if (this.lastPresentedRecord) return this.lastPresentedRecord;
+    }
+    const deadline = performance.now() + Math.max(0, timeoutMs);
+    // 提示のたびに起こされ、要求と一致するまで待ち直す（シーク連打で要求が進む場合がある）。
+    while (this.presentationPending()) {
+      const remaining = deadline - performance.now();
+      if (remaining <= 0) {
+        throw new Error(
+          `frame not presented within ${timeoutMs}ms `
+          + `(requested frame ${this.requestedFrame}, presented ${this.presentedFrame})`
+        );
+      }
+      await new Promise<void>((resolve, reject) => {
+        let timer: ReturnType<typeof setTimeout> | null = null;
+        const waiter = (): void => {
+          if (timer) clearTimeout(timer);
+          this.presentedWaiters.delete(waiter);
+          resolve();
+        };
+        timer = setTimeout(() => {
+          this.presentedWaiters.delete(waiter);
+          reject(new Error(
+            `frame not presented within ${timeoutMs}ms `
+            + `(requested frame ${this.requestedFrame}, presented ${this.presentedFrame})`
+          ));
+        }, remaining);
+        this.presentedWaiters.add(waiter);
+      });
+    }
+    if (!this.lastPresentedRecord) throw new Error('no frame has been presented yet');
+    return this.lastPresentedRecord;
   }
 
   renderPlayback(seconds: number): number {
@@ -1066,6 +1146,27 @@ class FrameEngineRuntime {
     }
     const presented = performance.now();
     this.lastPresentedSec = timeUs / 1e6;
+    // 第6項: 要求と提示を分けて記録し、待っている側を起こす。UI 時刻だけが進んで canvas が
+    // 前の画のまま、という状態を外から観測できるようにする。
+    this.presentedFrame = Math.round(this.lastPresentedSec * this.fps);
+    this.presentedSeq += 1;
+    this.lastPresentedRecord = {
+      seq: this.presentedSeq,
+      reason,
+      requestedFrame: this.requestedFrame,
+      presentedFrame: this.presentedFrame,
+      presentedSec: this.lastPresentedSec,
+      requestedAtMs: requestedAt,
+      presentedAtMs: presented,
+      elapsedMs: presented - requestedAt,
+    };
+    // presentationPending() を呼ばずに条件を直接書く。frame-engine-render-state のテストは
+    // renderFrame をソースから切り出して stub 上で走らせる契約なので、ここから新しいメソッドを
+    // 呼ぶと stub の接触面が増えてしまう（意味は presentationPending() と同一）。
+    if (this.requestedFrame === null || this.requestedFrame === this.presentedFrame) {
+      this.ui.root.dataset.framePresentationPending = "false";
+    }
+    for (const waiter of [...this.presentedWaiters]) waiter();
     this.measurements.presentedAt.push(presented);
     this.measurements.presentedAt = this.measurements.presentedAt.filter(value => value >= presented - 1000);
     this.scheduler.notePresented(timeUs, { reason });
@@ -1143,6 +1244,12 @@ export async function createFrameEnginePreview(options: PreviewOptions): Promise
   snapshot(): PreviewSnapshot;
   seek(seconds: number): number;
   renderPlayback(seconds: number): number;
+  /** 第6項: 要求済みのコマがまだ提示されていないか。 */
+  presentationPending(): boolean;
+  /** 第6項: 直近の提示記録（要求時刻と描画完了時刻を分けて持つ）。 */
+  lastPresented(): FramePresentedRecord | null;
+  /** 第6項: 要求したコマが提示されるまで待つ（QA が固定待ちを置く代わりに使う）。 */
+  waitForPresentation(timeoutMs?: number): Promise<FramePresentedRecord>;
   rebuild(edit: any, timelineData: any, fps: number): Promise<void>;
   updateAudio(edit: any): void;
   dispose(): void;
@@ -1220,6 +1327,10 @@ export async function createFrameEnginePreview(options: PreviewOptions): Promise
     snapshot: () => runtime.snapshot(),
     seek: seconds => runtime.seek(seconds),
     renderPlayback: seconds => runtime.renderPlayback(seconds),
+    // 第6項。rebuild で runtime が差し替わるので、そのつど現行の runtime へ委譲する。
+    presentationPending: () => runtime.presentationPending(),
+    lastPresented: () => runtime.lastPresented(),
+    waitForPresentation: timeoutMs => runtime.waitForPresentation(timeoutMs),
     async rebuild(edit, timelineData, fps) {
       if (disposed) return;
       const start = runtime.currentTime();

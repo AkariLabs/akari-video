@@ -30539,6 +30539,7 @@ function createUi(stage) {
   const root = document.createElement("div");
   root.id = "frame-engine-preview";
   root.dataset.frameEngineReady = "false";
+  root.dataset.framePresentationPending = "false";
   Object.assign(root.style, { position: "absolute", inset: "0", background: "#000" });
   const canvas = document.createElement("canvas");
   canvas.id = "frame-engine-canvas";
@@ -30738,6 +30739,15 @@ var FrameEngineRuntime = class {
     warmupMs: []
   };
   rendering = null;
+  // 不具合メモ 第6項: seek() は要求を投げた時点で返り、実際の描画は非同期に終わる。UI の時刻
+  // 表示だけが先に動くため、自動検証が 450ms 待ちで「前の位置の映像」を撮ってしまうことがあった
+  // （1.6 秒待つと写った）。**待ち時間を伸ばすのではなく、提示が終わったことを知れるようにする**。
+  // 要求（requestedFrame）と提示（presentedFrame）を分けて持ち、提示のたびに待ち手を起こす。
+  requestedFrame = null;
+  presentedFrame = null;
+  presentedSeq = 0;
+  lastPresentedRecord = null;
+  presentedWaiters = /* @__PURE__ */ new Set();
   lastPlaybackFrame = -1;
   lastPresentedSec = 0;
   lastCutIndex = null;
@@ -30827,8 +30837,54 @@ var FrameEngineRuntime = class {
     const clamped = Math.max(0, Math.min(seconds, this.totalDuration));
     this.audio.seek(clamped);
     const frameNumber = Math.round(clamped * this.fps);
+    this.requestedFrame = frameNumber;
+    this.ui.root.dataset.framePresentationPending = "true";
     this.scrub.requestScrub(frameNumber);
     return frameNumber / this.fps;
+  }
+  /** 第6項: 要求済みのコマがまだ提示されていないか（ロード中表示と QA の待ちに使う）。 */
+  presentationPending() {
+    return this.requestedFrame !== null && this.requestedFrame !== this.presentedFrame;
+  }
+  /** 直近の提示の記録。要求時刻と描画完了時刻を分けて持つ。 */
+  lastPresented() {
+    return this.lastPresentedRecord;
+  }
+  /**
+   * 第6項: 要求したコマが実際に提示されるまで待つ。QA が固定の待ち時間を置く代わりに使う。
+   * 既に提示済みなら即解決する。timeoutMs を過ぎたら解決せず reject する（黙って古い画を
+   * 撮らせないため — 待ちが足りなかったのか描画が止まったのかを呼び出し側が区別できる）。
+   */
+  async waitForPresentation(timeoutMs = 1e4) {
+    if (!this.presentationPending()) {
+      if (this.lastPresentedRecord) return this.lastPresentedRecord;
+    }
+    const deadline = performance.now() + Math.max(0, timeoutMs);
+    while (this.presentationPending()) {
+      const remaining = deadline - performance.now();
+      if (remaining <= 0) {
+        throw new Error(
+          `frame not presented within ${timeoutMs}ms (requested frame ${this.requestedFrame}, presented ${this.presentedFrame})`
+        );
+      }
+      await new Promise((resolve, reject) => {
+        let timer = null;
+        const waiter = () => {
+          if (timer) clearTimeout(timer);
+          this.presentedWaiters.delete(waiter);
+          resolve();
+        };
+        timer = setTimeout(() => {
+          this.presentedWaiters.delete(waiter);
+          reject(new Error(
+            `frame not presented within ${timeoutMs}ms (requested frame ${this.requestedFrame}, presented ${this.presentedFrame})`
+          ));
+        }, remaining);
+        this.presentedWaiters.add(waiter);
+      });
+    }
+    if (!this.lastPresentedRecord) throw new Error("no frame has been presented yet");
+    return this.lastPresentedRecord;
   }
   renderPlayback(seconds) {
     const audioClockSeconds = this.audio.playbackTime(seconds);
@@ -30929,6 +30985,22 @@ var FrameEngineRuntime = class {
     }
     const presented = performance.now();
     this.lastPresentedSec = timeUs / 1e6;
+    this.presentedFrame = Math.round(this.lastPresentedSec * this.fps);
+    this.presentedSeq += 1;
+    this.lastPresentedRecord = {
+      seq: this.presentedSeq,
+      reason,
+      requestedFrame: this.requestedFrame,
+      presentedFrame: this.presentedFrame,
+      presentedSec: this.lastPresentedSec,
+      requestedAtMs: requestedAt,
+      presentedAtMs: presented,
+      elapsedMs: presented - requestedAt
+    };
+    if (this.requestedFrame === null || this.requestedFrame === this.presentedFrame) {
+      this.ui.root.dataset.framePresentationPending = "false";
+    }
+    for (const waiter of [...this.presentedWaiters]) waiter();
     this.measurements.presentedAt.push(presented);
     this.measurements.presentedAt = this.measurements.presentedAt.filter((value) => value >= presented - 1e3);
     this.scheduler.notePresented(timeUs, { reason });
@@ -31057,6 +31129,10 @@ async function createFrameEnginePreview(options) {
     snapshot: () => runtime.snapshot(),
     seek: (seconds) => runtime.seek(seconds),
     renderPlayback: (seconds) => runtime.renderPlayback(seconds),
+    // 第6項。rebuild で runtime が差し替わるので、そのつど現行の runtime へ委譲する。
+    presentationPending: () => runtime.presentationPending(),
+    lastPresented: () => runtime.lastPresented(),
+    waitForPresentation: (timeoutMs) => runtime.waitForPresentation(timeoutMs),
     async rebuild(edit, timelineData, fps) {
       if (disposed) return;
       const start = runtime.currentTime();
