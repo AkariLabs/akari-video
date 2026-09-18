@@ -73,7 +73,8 @@
       const urls = new Map();
       if (Array.isArray(config.edit.sources)) {
         for (const source of config.edit.sources) {
-          if (source && source.id && (source.proxy || source.path)) urls.set(String(source.id), mediaUrl(source.proxy || source.path));
+          // Final export and export QA must decode the original, never the preview proxy.
+          if (source && source.id && source.path) urls.set(String(source.id), mediaUrl(source.path));
         }
       } else if (config.edit.source && config.edit.source.path) {
         urls.set("default", mediaUrl(config.edit.source.path));

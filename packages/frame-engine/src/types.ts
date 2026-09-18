@@ -64,6 +64,19 @@ export function cloneWithRotation<T extends { clone(): T }>(frame: T): T {
 }
 
 export interface NativeFrameSource {
+  /**
+   * 原本（プロキシではない）の表示回転後の画素寸法 = このソースの論理寸法。構図の基準はここで、
+   * 復号したフレームの寸法ではない（不具合メモ 第10項）。crop / transform.scale は
+   * 「crop × 論理寸法 × scale」で出力画素の窓を決めるため、復号フレームを基準にすると
+   * プロキシの解像度がそのまま構図に漏れ、ベースカット（プロキシ復号）と追加レイヤー
+   * （原本復号）で寸法基準が食い違う。
+   *
+   * プロキシや自動プロキシを復号し得る呼び出し側（プレビュー）は必ず原本のメタデータから
+   * 宣言する（decode/codec-probe の VideoCodecInfo.codedWidth/codedHeight を rotationDeg で
+   * 入れ替えた値）。原本をそのまま復号する経路（GPU / OSR 書き出し）は両者が一致するので
+   * 省略してよい — 省略時は復号フレームの寸法へ退避する。
+   */
+  readonly logicalSize?: { readonly width: number; readonly height: number } | null;
   decode(
     timeUs: TimelineTimeUs,
     metrics?: FrameMetricsRecorder,

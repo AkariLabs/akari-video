@@ -119,7 +119,9 @@ test('layer compositor path matches the source-space fx pass revision', () => {
   );
   // r1 replaces inline fx uniforms with conditional prep/effect draws, then restores the
   // composite framebuffer and viewport. The no-fx base draw hash above stays unchanged.
-  assert.equal(sha256(section), '791ca46e625d97f613b6be28db04c7fd83270065cfd0f3f57bada0deacec781e');
+  // r2 (不具合メモ 第10項) takes the layer geometry from compositionSourceSize（= ソースの論理寸法）
+  // instead of the decoded texture size; width / height stay as the fx sampling size only.
+  assert.equal(sha256(section), '3a14b8b0b0dcd448a7a4ba6e360b7f8ab2a14c9149564ebc6cb948f741a10de6');
 });
 
 test('FX program cache and pass dispatch match the compile-time specialization revision', () => {
