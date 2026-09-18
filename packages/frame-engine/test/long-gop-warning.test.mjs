@@ -17,7 +17,11 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 
-import { LONG_GOP_WARNING_SECONDS, maxKeyframeIntervalSeconds } from '../dist/index.js';
+import {
+    describeIndexParseFailure,
+    LONG_GOP_WARNING_SECONDS,
+    maxKeyframeIntervalSeconds,
+} from '../dist/index.js';
 
 // KeyframeIndex のうち、最大間隔の算出が読むものだけを持つ最小形。
 function indexOf(keyframeSeconds, { durationSec, lastFrameStartSec } = {}) {
@@ -96,4 +100,65 @@ test('索引の構築自体は警告の有無で変わらない（判定は読�
     const before = JSON.stringify(index);
     maxKeyframeIntervalSeconds(index);
     assert.equal(JSON.stringify(index), before);
+});
+
+// ---- 不具合メモ 第1項（診断）----
+// 「edit.json を開くと Invalid array length」は例外スタックも最小再現も採取できないまま原因
+// 未確定になった。確定している 1 つの機構（音声トラックの長い PCM サンプル表・第19項）は
+// videoOnlyIndexHeader で全経路から閉じたが、それが第1項の UI エラーと同一だったとまでは
+// 確定していない。だから次に同じ症状が出たときに段と素材が分かる必要がある。
+
+test('索引構築の失敗は段とヘッダー長を名乗る（第1項: 素の RangeError を出さない）', () => {
+    const wrapped = describeIndexParseFailure(
+        new RangeError('Invalid array length'),
+        'video sample table',
+        4096
+    );
+    assert.match(wrapped.message, /video sample table の構築に失敗しました/u);
+    assert.match(wrapped.message, /ヘッダー 4096 バイト/u);
+    assert.match(wrapped.message, /Invalid array length/u, '元の理由を落とさない');
+});
+
+test('配列長の失敗には次に疑う場所の手がかりを付ける', () => {
+    const wrapped = describeIndexParseFailure(
+        new RangeError('Invalid array length'), 'keyframe index', 1
+    );
+    assert.match(wrapped.message, /巨大なサンプル表を配列へ展開できていない/u);
+    assert.match(wrapped.message, /videoOnlyIndexHeader/u, '既に閉じた経路を再び疑わせない');
+    // 配列長と無関係な失敗に的外れな手がかりを付けない。
+    const other = describeIndexParseFailure(new Error('moov not found'), 'keyframe index', 1);
+    assert.doesNotMatch(other.message, /巨大なサンプル表/u);
+    assert.match(other.message, /moov not found/u);
+});
+
+test('元のスタックと cause を失わない（第1項でスタックが採れず調査が止まった）', () => {
+    const cause = new RangeError('Invalid array length');
+    const wrapped = describeIndexParseFailure(cause, 'keyframe index', 1);
+    assert.equal(wrapped.cause, cause);
+    assert.match(wrapped.stack ?? '', /caused by:/u);
+});
+
+test('Error 以外が投げられても包める', () => {
+    const wrapped = describeIndexParseFailure('boom', 'keyframe index', 1);
+    assert.ok(wrapped instanceof Error);
+    assert.match(wrapped.message, /boom/u);
+});
+
+test('MP4Box の同期 throw を両方の索引経路で受けている（再発防止）', () => {
+    for (const [file, stage] of [
+        ['../src/decode/sample-table.ts', 'video sample table'],
+        ['../src/decode/keyframe-index.ts', 'keyframe index'],
+    ]) {
+        const text = readFileSync(fileURLToPath(new URL(file, import.meta.url)), 'utf8');
+        // appendBuffer / flush が try の中にあること（外だと素の throw がそのまま伝播する）。
+        assert.match(
+            text,
+            /try \{\s*file\.appendBuffer\(buffer\);\s*file\.flush\(\);\s*\} catch \(error\) \{/u,
+            `${file} は appendBuffer を try で囲む`
+        );
+        assert.ok(
+            text.includes(`describeIndexParseFailure(error, '${stage}'`),
+            `${file} は段名 ${stage} を渡す`
+        );
+    }
 });

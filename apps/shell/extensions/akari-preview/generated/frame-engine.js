@@ -18639,6 +18639,7 @@ ${indent}`);
     cutLayerStyleBox: () => cutLayerStyleBox,
     cutLayerStyleSourceUv: () => cutLayerStyleSourceUv,
     decodeEndForPresentationSample: () => decodeEndForPresentationSample,
+    describeIndexParseFailure: () => describeIndexParseFailure,
     describeMissingFrames: () => describeMissingFrames,
     describeUnusableDecoder: () => describeUnusableDecoder,
     dissolveNoiseField: () => dissolveNoiseField,
@@ -25349,6 +25350,18 @@ void main() {
     }
     return boxes;
   }
+  function describeIndexParseFailure(error, stage, headerByteLength) {
+    const cause = error instanceof Error ? error : new Error(String(error));
+    const isArrayLength = cause instanceof RangeError || /invalid array length|invalid typed array length/iu.test(cause.message);
+    const hint = isArrayLength ? " \u5DE8\u5927\u306A\u30B5\u30F3\u30D7\u30EB\u8868\u3092\u914D\u5217\u3078\u5C55\u958B\u3067\u304D\u3066\u3044\u306A\u3044\u53EF\u80FD\u6027\u304C\u3042\u308B\uFF08\u975E\u6620\u50CF trak \u306F videoOnlyIndexHeader \u3067\u96A0\u3057\u3066\u3044\u308B\u306E\u3067\u3001\u6620\u50CF trak \u81EA\u4F53\u306E\u30B5\u30F3\u30D7\u30EB\u6570\u304B \u30D8\u30C3\u30C0\u30FC\u306E\u7834\u640D\u3092\u7591\u3046\uFF09\u3002" : "";
+    const wrapped = new Error(
+      `${stage} \u306E\u69CB\u7BC9\u306B\u5931\u6557\u3057\u307E\u3057\u305F\uFF08\u30D8\u30C3\u30C0\u30FC ${headerByteLength} \u30D0\u30A4\u30C8\uFF09: ${cause.message}.${hint}`,
+      { cause }
+    );
+    if (cause.stack) wrapped.stack = `${wrapped.stack ?? wrapped.message}
+caused by: ${cause.stack}`;
+    return wrapped;
+  }
   var FREE_BOX_TYPE = Uint8Array.from([102, 114, 101, 101]);
   function videoOnlyIndexHeader(header) {
     try {
@@ -25498,8 +25511,12 @@ void main() {
       };
       const buffer = header;
       buffer.fileStart = 0;
-      file.appendBuffer(buffer);
-      file.flush();
+      try {
+        file.appendBuffer(buffer);
+        file.flush();
+      } catch (error) {
+        reject(describeIndexParseFailure(error, "keyframe index", header.byteLength));
+      }
     });
   }
 
@@ -25853,8 +25870,12 @@ void main() {
       };
       const buffer = header;
       buffer.fileStart = 0;
-      file.appendBuffer(buffer);
-      file.flush();
+      try {
+        file.appendBuffer(buffer);
+        file.flush();
+      } catch (error) {
+        reject(describeIndexParseFailure(error, "video sample table", header.byteLength));
+      }
     });
   }
   function sampleAtPresentationTime(table, targetUs) {

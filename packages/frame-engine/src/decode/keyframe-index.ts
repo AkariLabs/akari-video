@@ -1,6 +1,6 @@
 // Adapted from packages/preview-engine/src/keyframeIndex.ts.
 import * as MP4BoxNamespace from '@webav/mp4box.js';
-import { videoOnlyIndexHeader } from './mp4-boxes.js';
+import { describeIndexParseFailure, videoOnlyIndexHeader } from './mp4-boxes.js';
 
 const MP4Box: typeof MP4BoxNamespace =
   (MP4BoxNamespace as unknown as { default?: typeof MP4BoxNamespace }).default ?? MP4BoxNamespace;
@@ -76,11 +76,6 @@ export interface MediaEdit {
 }
 
 /**
- * Returns the difference between av-cliper's decoder timestamps and the MP4
- * presentation timeline. av-cliper subtracts the first DTS, while an edit list
- * maps the first presented CTS to time zero.
- */
-/**
  * 索引済みのキーフレーム時刻から最大キーフレーム間隔（秒）を出す。長い GOP はシークのたびに
  * 直前のキーフレームから復号し直すことになり、プレビューのカット切り替えとスクラブが遅くなる
  * （不具合メモ 第3項: 原本のまま再生していた区間が約 1fps になった）。
@@ -109,6 +104,11 @@ export function maxKeyframeIntervalSeconds(index: KeyframeIndex): number | undef
   return maxUs / 1e6;
 }
 
+/**
+ * Returns the difference between av-cliper's decoder timestamps and the MP4
+ * presentation timeline. av-cliper subtracts the first DTS, while an edit list
+ * maps the first presented CTS to time zero.
+ */
 export function calculateDecoderTimestampOffsetUs(
   firstDts: number,
   trackTimescale: number,
@@ -197,7 +197,14 @@ export async function buildKeyframeIndexFromHeader(rawHeader: ArrayBuffer): Prom
     };
     const buffer = header as ArrayBuffer & { fileStart: number };
     buffer.fileStart = 0;
-    file.appendBuffer(buffer);
-    file.flush();
+    try {
+      file.appendBuffer(buffer);
+      file.flush();
+    } catch (error) {
+      // MP4Box は appendBuffer の中で同期 throw する。ここで受けないと素の
+      // `RangeError: Invalid array length` がそのまま利用者へ出て、どの素材のどの段で
+      // 失敗したのか分からない（不具合メモ 第1項: 例外スタック・最小再現が採取できなかった）。
+      reject(describeIndexParseFailure(error, 'keyframe index', header.byteLength));
+    }
   });
 }
