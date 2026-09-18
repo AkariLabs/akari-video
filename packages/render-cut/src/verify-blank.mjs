@@ -1,4 +1,4 @@
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 
 export const BLANK_FRAME_MIN_DURATION_SECONDS = 0.3;
 export const BLANK_FRAME_YMAX_TOLERANCE = 8;
@@ -213,48 +213,49 @@ export function blankFramesFromLuma({
   };
 }
 
-export function scanBlankFrames({
-  outputPath,
-  fps,
-  edit = null,
-  spreadTolerance = BLANK_FRAME_SPREAD_TOLERANCE,
-  ffmpegCommand = "ffmpeg",
-  spawnSyncImpl = spawnSync,
-}) {
-  // No -skip_frame or scale is used: signalstats sees every decoded frame, so the minimum
-  // detectable/reported run remains exactly BLANK_FRAME_MIN_DURATION_SECONDS (subject to fps).
-  // Print only YMIN and YMAX: all signalstats keys inflate capture by about 13x per frame and
-  // can exhaust CAPTURE_LIMIT_BYTES on long artifacts.
-  const result = spawnSyncImpl(
-    ffmpegCommand,
-    [
-      "-hide_banner",
-      "-nostats",
-      "-nostdin",
-      "-i",
-      outputPath,
-      "-map",
-      "0:v:0",
-      "-vf",
-      "signalstats,metadata=print:key=lavfi.signalstats.YMIN,metadata=print:key=lavfi.signalstats.YMAX",
-      "-an",
-      "-sn",
-      "-dn",
-      "-f",
-      "null",
-      "-",
-    ],
-    { encoding: "utf8", maxBuffer: CAPTURE_LIMIT_BYTES },
-  );
-  const metadata = `${textOf(result?.stdout)}\n${textOf(result?.stderr)}`;
+// No -skip_frame or scale is used: signalstats sees every decoded frame, so the minimum
+// detectable/reported run remains exactly BLANK_FRAME_MIN_DURATION_SECONDS (subject to fps).
+// Print only YMIN and YMAX: all signalstats keys inflate capture by about 13x per frame and
+// can exhaust CAPTURE_LIMIT_BYTES on long artifacts.
+//
+// 不具合メモ第22項（2026-09-18）の検討記録: この走査自体は軽くできなかった。
+//   - signalstats は既定で slice threading が効いている（実測: 4K 600 フレームで
+//     -filter_threads 1 が 36.9s、既定（16 コア）が 15.1s）ので、並列化の余地は残っていない。
+//   - 画素を減らす（scale で縮小）・別フィルタに替える（blackdetect 等）・フレームを飛ばす
+//     （-skip_frame）はいずれも「測っているもの」が変わる = 証拠の強度が下がるので採らない。
+// よって速くする手は「同じ証拠をより少ない走査で得る」= GPU 段が同じ canvas から集計した
+// 全フレーム luma を、映像ストリームの同一性を実証できたときに引き継ぐことだけ
+// （render-cut.mjs の resolveVideoEvidenceReuse / blankFramesFromLuma）。
+export function blankFrameScanArgs(outputPath) {
+  return [
+    "-hide_banner",
+    "-nostats",
+    "-nostdin",
+    "-i",
+    outputPath,
+    "-map",
+    "0:v:0",
+    "-vf",
+    "signalstats,metadata=print:key=lavfi.signalstats.YMIN,metadata=print:key=lavfi.signalstats.YMAX",
+    "-an",
+    "-sn",
+    "-dn",
+    "-f",
+    "null",
+    "-",
+  ];
+}
+
+// 同期版・ストリーミング版が同じ判定器を通って同じ結果を返すための共有部。
+function buildBlankFrameScanResult({ metadata, failed, stderr, error, fps, edit, spreadTolerance }) {
   const samples = parseSignalstatsMetadata(metadata);
-  if (result?.error || result?.status !== 0 || samples.length === 0) {
+  if (failed || samples.length === 0) {
     return {
       ok: false,
       background_ymax: estimateBackgroundYmax(samples),
       intervals: [],
       findings: [],
-      error: lastMeaningfulLine(result?.stderr) || messageOf(result?.error) || "signalstats did not report YMAX",
+      error: lastMeaningfulLine(stderr) || messageOf(error) || "signalstats did not report YMAX",
     };
   }
   const backgroundYmax = estimateBackgroundYmax(samples);
@@ -269,6 +270,136 @@ export function scanBlankFrames({
     findings: blankFrameFindings(intervals, { backgroundYmax, spreadTolerance }),
     error: null,
   };
+}
+
+export function scanBlankFrames({
+  outputPath,
+  fps,
+  edit = null,
+  spreadTolerance = BLANK_FRAME_SPREAD_TOLERANCE,
+  ffmpegCommand = "ffmpeg",
+  spawnSyncImpl = spawnSync,
+}) {
+  const result = spawnSyncImpl(
+    ffmpegCommand,
+    blankFrameScanArgs(outputPath),
+    { encoding: "utf8", maxBuffer: CAPTURE_LIMIT_BYTES },
+  );
+  return buildBlankFrameScanResult({
+    metadata: `${textOf(result?.stdout)}\n${textOf(result?.stderr)}`,
+    failed: Boolean(result?.error) || result?.status !== 0,
+    stderr: result?.stderr,
+    error: result?.error,
+    fps,
+    edit,
+    spreadTolerance,
+  });
+}
+
+/**
+ * scanBlankFrames と同じ引数列・同じ判定器を使い、同じ結果を返す非同期版。
+ * 違いは出力を逐次読むことだけなので、進み具合（何フレームまで測ったか）を走査中に通知できる。
+ * spawnSync では子プロセスが終わるまで 1 バイトも読めず、88 分 4K では約 57 分間まったく
+ * 音沙汰が無いため「レンダーが停止した」ように見えていた（不具合メモ第22項の 3 点目）。
+ */
+export function scanBlankFramesStreaming({
+  outputPath,
+  fps,
+  edit = null,
+  spreadTolerance = BLANK_FRAME_SPREAD_TOLERANCE,
+  ffmpegCommand = "ffmpeg",
+  spawnImpl = spawn,
+  onProgress = null,
+  totalFrames = 0,
+  progressIntervalFrames = 300,
+}) {
+  return new Promise((resolvePromise) => {
+    let child;
+    try {
+      child = spawnImpl(ffmpegCommand, blankFrameScanArgs(outputPath), {
+        stdio: ["ignore", "pipe", "pipe"],
+      });
+    } catch (error) {
+      resolvePromise(buildBlankFrameScanResult({
+        metadata: "", failed: true, stderr: "", error, fps, edit, spreadTolerance,
+      }));
+      return;
+    }
+    let stdout = "";
+    let stderr = "";
+    let captured = 0;
+    let overflowed = false;
+    let highestFrame = -1;
+    let reportedFrame = -1;
+    let settled = false;
+    // 行境界をまたぐチャンク分割で frame: 見出しを取りこぼさないための持ち越し。
+    const carry = { stdout: "", stderr: "" };
+
+    // 通知は必ず単調増加。同じフレーム位置を二度通知しない。
+    const notify = (force) => {
+      if (typeof onProgress !== "function" || highestFrame < 0) return;
+      if (highestFrame === reportedFrame) return;
+      if (!force && highestFrame - reportedFrame < progressIntervalFrames) return;
+      reportedFrame = highestFrame;
+      onProgress({ frames: highestFrame + 1, totalFrames });
+    };
+
+    // 2 つの metadata フィルタが 1 フレームにつき 2 本の見出しを出すので、本数ではなく
+    // frame: の最大値（フレーム索引）を進み具合として使う。
+    const absorbFrameHeadings = (text) => {
+      for (const match of text.matchAll(/frame:\s*(\d+)/gu)) {
+        const value = Number(match[1]);
+        if (Number.isInteger(value) && value > highestFrame) highestFrame = value;
+      }
+    };
+
+    const scanForProgress = (which, chunk) => {
+      const text = carry[which] + chunk;
+      const lastBreak = text.lastIndexOf("\n");
+      carry[which] = lastBreak === -1 ? text : text.slice(lastBreak + 1);
+      if (lastBreak !== -1) absorbFrameHeadings(text.slice(0, lastBreak));
+      notify(false);
+    };
+
+    const absorb = (which, chunk) => {
+      const text = chunk.toString();
+      captured += Buffer.byteLength(text);
+      if (captured > CAPTURE_LIMIT_BYTES) {
+        // spawnSync の maxBuffer 超過（ENOBUFS）と同じ扱いにする。
+        overflowed = true;
+        child.kill();
+        return;
+      }
+      if (which === "stdout") stdout += text; else stderr += text;
+      scanForProgress(which, text);
+    };
+
+    child.stdout?.setEncoding("utf8");
+    child.stderr?.setEncoding("utf8");
+    child.stdout?.on("data", (chunk) => absorb("stdout", chunk));
+    child.stderr?.on("data", (chunk) => absorb("stderr", chunk));
+
+    const finish = (failed, error) => {
+      if (settled) return;
+      settled = true;
+      // 改行で終わっていない最後の一行も進捗の対象にする。
+      absorbFrameHeadings(carry.stdout);
+      absorbFrameHeadings(carry.stderr);
+      notify(true);
+      resolvePromise(buildBlankFrameScanResult({
+        metadata: `${stdout}\n${stderr}`,
+        failed,
+        stderr,
+        error: error ?? (overflowed ? new Error("signalstats output exceeded bounded capture") : null),
+        fps,
+        edit,
+        spreadTolerance,
+      }));
+    };
+
+    child.on("error", (error) => finish(true, error));
+    child.on("close", (code) => finish(overflowed || code !== 0, null));
+  });
 }
 
 function cutOutputDuration(cut) {
