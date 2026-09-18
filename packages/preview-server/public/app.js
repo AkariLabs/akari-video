@@ -38,7 +38,9 @@ import { cropAnchorCorrectedTransform } from '/layer-crop-anchor.js';
 import { computeLayerKeyframesVisual } from '/layer-keyframes-visual.js';
 import { createCutFxController } from '/cut-fx.js';
 import { markLayerUnplayable, syncLayerLazyLoad } from '/layer-lazy-load.js';
-// layers[] の再生元を宣言済み proxy へ解決する（不具合メモ 第15項。再生用コピーだけ差し替える）。
+// layers[] の再生元を宣言済み proxy へ解決する（不具合メモ 第15項。再生用コピーの src だけ
+// 差し替える。構図の基準は frame-engine-client.ts が宣言する原本の論理寸法なので、ここでは
+// 倍率を触らない = 第10項）。
 import { preparePreviewLayerProxies } from '/preview-layer-proxies.mjs';
 import { ensureMediaPlaying } from '/media-playback-resume.js';
 import { syncMediaCurrentTime } from '/media-time-sync.js';
@@ -68,13 +70,6 @@ const savedSettings = loadSettings();
 const isOutputMode = new URLSearchParams(location.search).get('mode') === 'output';
 // frame-engine が製品プレビューの既定。明示 off は従来 DOM プレビューをバイト等価で保つ。
 const frameEngineEnabled = new URLSearchParams(location.search).get('frameEngine') !== '0';
-// 第10項（本編 cut の crop 計算が proxy 寸法基準）の暫定補償は既定 OFF — 保存側が proxy 基準の
-// ままここで掛けると二重補正になる。検証時だけ ?cutCropProxyCompensation=1 で入れ、第10項の
-// 根本修正が入ったらこの定義と引数ごと外せる（第15項の layers[] の proxy 解決は既定で働く。
-// preview-layer-proxies.mjs 末尾のブロック参照）。
-const previewLayerProxyOptions = {
-  compensateCroppedCuts: new URLSearchParams(location.search).get('cutCropProxyCompensation') === '1',
-};
 const api = {
   timeline: isOutputMode ? '/api/output/timeline' : '/api/timeline',
   summary: isOutputMode ? '/api/output/summary' : '/api/summary',
@@ -356,7 +351,7 @@ async function init() {
       const { createFrameEnginePreview } = await frameEngineModule;
       // 追加映像（layers[]）も宣言済み proxy で再生する（不具合メモ 第15項）。編集・書き戻しに使う
       // summary は触らず、engine へ渡す再生用コピーにだけ反映する。
-      const playbackEdit = await preparePreviewLayerProxies(summary, previewLayerProxyOptions);
+      const playbackEdit = await preparePreviewLayerProxies(summary);
       frameEnginePreview = await createFrameEnginePreview({ edit: playbackEdit, timelineData, stage: previewStage, fps });
       applyFrameEngineSnapshot();
       window.akariFrameEngine = frameEnginePreview;
@@ -365,7 +360,8 @@ async function init() {
       if (audioRefreshNeeded || frameEnginePreview.audioDebug().supply.pendingSidecar.length > 0) {
         requestAudioRefresh();
       }
-      outputTime = frameEnginePreview.seek(outputTime);
+      // 終端位置ではなく最後の有効フレームを要求する（第16項。engineRenderTime の注記参照）。
+      outputTime = frameEnginePreview.seek(engineRenderTime(outputTime));
     }
     await window.__akariCaptionFontReady;
     captionFontsReady = true;
@@ -398,13 +394,33 @@ async function init() {
   }
 }
 
+// 不具合メモ 第16項（最終フレームの次の終端位置で追加映像だけ消える）。
+// 総尺（totalDuration）は「最後の有効フレームの **次**」= 終端位置で、そこに有効なフレームは無い。
+// frame-engine の追加映像（layers[]）は `frame >= startFrame && frame < endFrame` の半開区間で
+// 可視判定する（packages/frame-engine/src/timeline/plan.ts の isLayerActiveAt）ため、終了位置が
+// 総尺と一致するレイヤーは終端位置の描画要求でちょうど外れる。一方ベース映像は最後の画を保持する
+// ので「左（ベース）は残って右（追加映像）だけ黒くなる」に見えた（実機: 総尺 158682 フレーム・
+// 30fps・bookend-outro-right が 158401 開始 / 281 フレームで終了位置 158682）。
+// 半開区間の判定は frame-engine の正本なので触らず、**要求側でフレームを揃える**:
+// 描画要求は必ず最後の有効フレームまでに丸める（総尺そのものは要求しない）。
+// 総尺の表示・シークバーの上限は従来どおり totalDuration のまま（尺は 1 フレームも変えない）。
+function lastRenderableFrame() {
+  // フレーム数は frame-engine の可視判定と同じ切り上げ規律（`ceil(sec * fps - 1e-6)`）で数える。
+  return Math.max(0, Math.ceil(totalDuration * fps - 1e-6) - 1);
+}
+function engineRenderTime(t) {
+  const clamped = Math.max(0, Math.min(Number.isFinite(t) ? t : 0, totalDuration));
+  if (!(fps > 0) || !(totalDuration > 0)) return clamped;
+  return Math.min(clamped, lastRenderableFrame() / fps);
+}
+
 function applyFrameEngineSnapshot() {
   const snapshot = frameEnginePreview?.snapshot();
   if (!snapshot) return;
   totalDuration = snapshot.totalDuration;
   segments = snapshot.segments;
   seek.max = totalDuration;
-  outputTime = Math.max(0, Math.min(outputTime, totalDuration));
+  outputTime = engineRenderTime(outputTime);
   frameEngineRequestedTime = outputTime;
   seek.value = outputTime;
   updateTimeLabel();
@@ -687,6 +703,14 @@ function cropOf(el) {
 function layerIntrinsicSize(el) {
   // 配置の正本は媒体メタデータの実寸。person-matte 等の intake 出力寸法はプロジェクトの
   // output 寸法と一致する保証がないため、frame-engine の成否から寸法を推定しない。
+  //
+  // これは frame-engine の構図の基準（原本の論理寸法 = NativeFrameSource.logicalSize。
+  // 不具合メモ 第10項）と一致している: この要素が読むのは `summary.layers[].src`
+  // （= 原本。setupLayers → layerPlaybackPath → syncLayerLazyLoad）で、再生用コピーの
+  // proxy 差し替え（preview-layer-proxies.mjs）は frame-engine へ渡す edit にだけ効き、
+  // サーバも素材要求を横取りして proxy を返したりしない（server.mjs は常に原本を返す）。
+  // ハンドル位置・crop 窓・perspective 箱をキャンバスと一致させるため、**この要素へ proxy を
+  // 読ませないこと**（読ませるなら、ここも原本の宣言寸法を引くように直す必要がある）。
   return { width: Number(el.videoWidth) || 0, height: Number(el.videoHeight) || 0 };
 }
 
@@ -2683,7 +2707,9 @@ function seekTo(t) {
   outputTime = Math.max(0, Math.min(t, totalDuration));
   if (Math.abs(outputTime - prev) > 0.05) logReviewEvent('seek', { from: +prev.toFixed(3), to: +outputTime.toFixed(3) });
   if (frameEngineEnabled) {
-    frameEngineRequestedTime = outputTime;
+    // 終端へのシーク（End キー・シークバー右端・波形の末尾クリック・再構築後の位置復元）も
+    // 最後の有効フレームへ揃える（第16項。engineRenderTime の注記参照）。
+    frameEngineRequestedTime = engineRenderTime(outputTime);
     outputTime = frameEnginePreview?.seek(frameEngineRequestedTime) ?? frameEngineRequestedTime;
     updateAudioStatus();
     requestAudioPriority(outputTime);
@@ -2812,8 +2838,12 @@ function playbackLoop() {
     const dt = lastWallMs > 0 ? (now - lastWallMs) / 1000 : 0;
     lastWallMs = now;
     frameEngineRequestedTime += dt;
-    if (frameEngineRequestedTime >= totalDuration) { outputTime = totalDuration; pause(); return; }
-    outputTime = frameEnginePreview?.renderPlayback(frameEngineRequestedTime) ?? frameEngineRequestedTime;
+    // 停止判定は素の壁時計で行う（尺は変えない）。描画要求だけを最後の有効フレームへ丸める
+    // -- renderPlayback は `Math.round(sec * fps)` で要求フレームを決めるため、丸めずに渡すと
+    // 末尾の半フレーム手前（158681.5）で終端フレームを要求し、追加映像だけが消える（第16項）。
+    if (frameEngineRequestedTime >= totalDuration) { outputTime = engineRenderTime(totalDuration); pause(); return; }
+    const frameEngineRenderTime = engineRenderTime(frameEngineRequestedTime);
+    outputTime = frameEnginePreview?.renderPlayback(frameEngineRenderTime) ?? frameEngineRenderTime;
     // 音声の最初の窓が揃うまでは絵の時計も開始位置に留める（frame-engine 側のゲート）。
     const held = frameEnginePreview?.heldStartSec() ?? null;
     if (held !== null) {
@@ -3119,7 +3149,7 @@ async function applySoftReload() {
 
   if (frameEngineEnabled) {
     // 再構築も再生用コピー（layers[] の proxy 解決済み）を渡す。第15項。
-    await frameEnginePreview.rebuild(await preparePreviewLayerProxies(summary, previewLayerProxyOptions), timelineData, fps);
+    await frameEnginePreview.rebuild(await preparePreviewLayerProxies(summary), timelineData, fps);
     applyFrameEngineSnapshot();
     updateStageScale();
     setupPenCanvas();

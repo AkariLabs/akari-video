@@ -8753,7 +8753,8 @@ var require_audio_schedule = __commonJS({
         return null;
       const timelineStartSec = startAtSec + delaySec;
       const baseGain = dbToLinear(item.gainDb);
-      const gainEvents = item.kind === "sfx" ? fadeGainEvents(item.spec.fade_in ?? item.spec.fadeIn, item.spec.fade_out ?? item.spec.fadeOut, item.itemDurationSec, elapsedIntoItemSec, durationSec, baseGain) : [{ offsetSec: 0, value: baseGain, method: "set" }];
+      const fadeWindowSec = item.kind === "sfx" ? item.itemDurationSec : Math.min(item.itemDurationSec, Math.max(0, timelineDurationSec - item.t));
+      const gainEvents = fadeGainEvents(item.spec.fade_in ?? item.spec.fadeIn, item.spec.fade_out ?? item.spec.fadeOut, fadeWindowSec, elapsedIntoItemSec, durationSec, baseGain);
       return {
         kind: item.kind,
         id: item.id,
@@ -30131,6 +30132,11 @@ function percentile2(values, fraction = 0.5) {
   const sorted = [...values].sort((a, b) => a - b);
   return sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * fraction))] ?? null;
 }
+function renderableSeconds(seconds, totalDuration, fps) {
+  const clamped = Math.max(0, Math.min(seconds, totalDuration));
+  if (!(fps > 0) || !(totalDuration > 0)) return clamped;
+  return Math.min(clamped, Math.max(0, Math.ceil(totalDuration * fps - 1e-6) - 1) / fps);
+}
 function mediaUrl(value) {
   const source = String(value ?? "");
   if (/^(https?:|blob:|\/)/u.test(source)) return source;
@@ -30238,24 +30244,43 @@ function resolvedEngineLayers(edit) {
     };
   }).filter(Boolean);
 }
+function originalByProxyUrl(edit) {
+  const map = /* @__PURE__ */ new Map();
+  for (const source of Array.isArray(edit?.sources) ? edit.sources : []) {
+    if (!source?.path || typeof source.proxy !== "string" || !source.proxy) continue;
+    const width = Number(source.logicalSize?.width);
+    const height = Number(source.logicalSize?.height);
+    const declared = Number.isFinite(width) && width > 0 && Number.isFinite(height) && height > 0 ? { width, height } : void 0;
+    map.set(mediaUrl(source.proxy), {
+      url: mediaUrl(source.path),
+      ...declared ? { logicalSize: declared } : {}
+    });
+  }
+  return map;
+}
 function sourceCandidates(edit, timelineData, cuts, engineLayers = []) {
   const candidates = /* @__PURE__ */ new Map();
+  const originalByProxy = originalByProxyUrl(edit);
   if (Array.isArray(edit?.sources)) {
     for (const source of edit.sources) {
       if (source?.id && source.path) {
         const id = String(source.id);
+        const originalUrl = mediaUrl(source.path);
         candidates.set(id, {
           id,
-          originalUrl: mediaUrl(source.path),
-          proxyUrl: source.proxy ? mediaUrl(source.proxy) : null
+          originalUrl,
+          proxyUrl: source.proxy ? mediaUrl(source.proxy) : null,
+          logicalUrl: originalUrl
         });
       }
     }
   } else if (edit?.source?.path) {
+    const originalUrl = mediaUrl(edit.source.path);
     candidates.set("default", {
       id: "default",
-      originalUrl: mediaUrl(edit.source.path),
-      proxyUrl: null
+      originalUrl,
+      proxyUrl: null,
+      logicalUrl: originalUrl
     });
   }
   for (let index = 0; index < cuts.length; index += 1) {
@@ -30265,17 +30290,39 @@ function sourceCandidates(edit, timelineData, cuts, engineLayers = []) {
       const clipUrl = mediaUrl(clip.src);
       const declared = candidates.get(sourceId);
       if (!declared || clipUrl !== declared.originalUrl && clipUrl !== declared.proxyUrl) {
-        candidates.set(sourceId, { id: sourceId, originalUrl: clipUrl, proxyUrl: null });
+        candidates.set(sourceId, {
+          id: sourceId,
+          originalUrl: clipUrl,
+          proxyUrl: null,
+          logicalUrl: originalByProxy.get(clipUrl)?.url ?? clipUrl
+        });
       }
     }
   }
   for (const layer of engineLayers) {
     for (const value of [layer?.src, layer?.mask]) {
       if (typeof value !== "string" || !value) continue;
-      candidates.set(value, { id: value, originalUrl: mediaUrl(value), proxyUrl: null });
+      const url = mediaUrl(value);
+      const original = originalByProxy.get(url);
+      candidates.set(value, {
+        id: value,
+        originalUrl: url,
+        proxyUrl: null,
+        logicalUrl: original?.url ?? url,
+        ...original?.logicalSize ? { logicalSize: original.logicalSize } : {}
+      });
     }
   }
   return candidates;
+}
+function logicalSizeFromCodecInfo(info) {
+  if (!info) return void 0;
+  const codedWidth = Number(info.codedWidth);
+  const codedHeight = Number(info.codedHeight);
+  if (!(Number.isFinite(codedWidth) && codedWidth > 0)) return void 0;
+  if (!(Number.isFinite(codedHeight) && codedHeight > 0)) return void 0;
+  const swapsDimensions = info.rotationDeg === 90 || info.rotationDeg === 270;
+  return swapsDimensions ? { width: codedHeight, height: codedWidth } : { width: codedWidth, height: codedHeight };
 }
 function autoProxyPath(url) {
   const parsed = new URL(url, window.location.href);
@@ -30357,15 +30404,19 @@ async function resolveSourceChoices(candidates, context) {
     else if (pending) context.ui.showNotice(`\u30D7\u30ED\u30AD\u30B7\u751F\u6210\u4E2D\u2026\uFF08${pending}\uFF09`);
     else context.ui.clearNotice();
   };
+  const withLogicalSize = (candidate, choice, size = candidate.logicalSize) => {
+    const { logicalSize: _replaced, ...rest } = choice;
+    return size && choice.url !== candidate.logicalUrl ? { ...rest, logicalSize: size } : rest;
+  };
   const resolveCandidate = async (candidate) => {
     if (!context.cutSourceIds.has(candidate.id)) {
-      return {
+      return withLogicalSize(candidate, {
         id: candidate.id,
         url: candidate.originalUrl,
         chosen: "original",
         reason: "not-a-cut-source",
         support: null
-      };
+      });
     }
     const isImage = /\.(png|jpe?g|webp|bmp|gif)(?:$|[?#])/iu.test(candidate.originalUrl);
     if (isImage) {
@@ -30379,57 +30430,57 @@ async function resolveSourceChoices(candidates, context) {
     const hasProxy = candidate.proxyUrl != null;
     if (!needsCodecProbe(context.mode, hasProxy)) {
       const decision2 = chooseSource({ mode: context.mode, hasProxy, support: null });
-      return {
+      return withLogicalSize(candidate, {
         id: candidate.id,
         url: decision2.chosen === "proxy" ? candidate.proxyUrl : candidate.originalUrl,
         chosen: decision2.chosen,
         reason: decision2.reason,
         support: null
-      };
+      });
     }
     const probe = await probeSourceCodec(candidate.originalUrl, { query: { akariNoProxy: "1" } });
     const codec = probe.info?.codec;
     const decision = chooseSource({ mode: context.mode, hasProxy, support: probe.support });
     if (decision.chosen === "original") {
-      return {
+      return withLogicalSize(candidate, {
         id: candidate.id,
         url: candidate.originalUrl,
         chosen: "original",
         reason: decision.reason,
         ...codec ? { codec } : {},
         support: probe.support
-      };
+      });
     } else if (decision.chosen === "proxy") {
-      return {
+      return withLogicalSize(candidate, {
         id: candidate.id,
         url: candidate.proxyUrl,
         chosen: "proxy",
         reason: decision.reason,
         ...codec ? { codec } : {},
         support: null
-      };
+      });
     } else {
-      const provisional = {
+      const provisional = withLogicalSize(candidate, {
         id: candidate.id,
         url: candidate.originalUrl,
         chosen: "original",
         reason: "auto-proxy-pending",
         ...codec ? { codec } : {},
         support: probe.support
-      };
+      });
       if (context.isCurrent()) {
         pendingProxies.add(candidate.id);
         void requestAutoProxy(candidate, context.ui, context.isCurrent).then(async (proxyUrl) => {
           if (!context.isCurrent()) return;
           pendingProxies.delete(candidate.id);
           if (!proxyUrl) failedProxies.add(candidate.id);
-          const choice = {
+          const choice = withLogicalSize(candidate, {
             ...provisional,
             url: proxyUrl ?? candidate.originalUrl,
             chosen: proxyUrl ? "auto-proxy" : "original",
             reason: proxyUrl ? "auto-proxy" : "auto-proxy-failed",
             support: proxyUrl ? null : probe.support
-          };
+          }, logicalSizeFromCodecInfo(probe.info));
           completedProxies.set(candidate.id, choice);
           updateNotice();
           await apply(choice);
@@ -30713,6 +30764,12 @@ var FrameEngineRuntime = class {
       onAccess: (access) => this.currentAccesses?.push(access)
     });
     const observedSource = {
+      // 構図の基準になる原本の論理寸法（不具合メモ 第10項）。proxy / 自動 proxy を復号していても
+      // `crop × 論理寸法 × transform.scale` は原本基準で決まるため、プレビューでも書き出しでも
+      // 同じ構図になる（宣言が無いソースだけ frame-engine が復号寸法へ退避する）。
+      // これが宣言されている前提で、preview-layer-proxies.mjs は倍率を一切補正しない
+      // （補正を戻すと二重補正 = proxy の寸法比ぶん構図が膨らむ）。
+      ...choice?.logicalSize ? { logicalSize: choice.logicalSize } : {},
       decode: async (timeUs, metrics, request) => {
         const frame = await source.decode(timeUs, metrics, request);
         this.currentDecodedFrames?.push({
@@ -30744,7 +30801,8 @@ var FrameEngineRuntime = class {
     if (this.disposed) return;
     const current = this.sourceChoices.get(id);
     const sameSupport = (current?.support ?? null) === (choice.support ?? null) || current?.support != null && choice.support != null && current.support.codec === choice.support.codec && current.support.hw === choice.support.hw && current.support.sw === choice.support.sw && current.support.any === choice.support.any;
-    if (current?.url === choice.url && sameSupport) return;
+    const sameLogicalSize = (current?.logicalSize?.width ?? 0) === (choice.logicalSize?.width ?? 0) && (current?.logicalSize?.height ?? 0) === (choice.logicalSize?.height ?? 0);
+    if (current?.url === choice.url && sameSupport && sameLogicalSize) return;
     while (this.rendering && !this.disposed) await this.waitForRender();
     if (this.disposed) return;
     this.lookahead.get(id)?.clear();
@@ -30957,7 +31015,7 @@ async function createFrameEnginePreview(options) {
     const layers = resolvedEngineLayers(edit);
     const candidates = sourceCandidates(edit, timelineData, cuts, layers);
     const timeline = buildResolvedTimelinePlan(cuts, { fps, layers, overlays: edit?.overlays ?? [] });
-    start = Math.max(0, Math.min(start, timeline.totalDuration));
+    start = renderableSeconds(start, timeline.totalDuration, fps);
     const firstUses = /* @__PURE__ */ new Map();
     const noteUse = (id, seconds) => {
       if (id) firstUses.set(id, Math.min(firstUses.get(id) ?? Infinity, seconds));

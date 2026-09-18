@@ -1319,14 +1319,15 @@ function scheduleTimed(item, timelineDurationSec, startAtSec, duckIntervals) {
   if (!(durationSec > 0)) return null;
   const timelineStartSec = startAtSec + delaySec;
   const baseGain = dbToLinear2(item.gainDb);
-  const gainEvents = item.kind === "sfx" ? fadeGainEvents(
+  const fadeWindowSec = item.kind === "sfx" ? item.itemDurationSec : Math.min(item.itemDurationSec, Math.max(0, timelineDurationSec - item.t));
+  const gainEvents = fadeGainEvents(
     item.spec.fade_in ?? item.spec.fadeIn,
     item.spec.fade_out ?? item.spec.fadeOut,
-    item.itemDurationSec,
+    fadeWindowSec,
     elapsedIntoItemSec,
     durationSec,
     baseGain
-  ) : [{ offsetSec: 0, value: baseGain, method: "set" }];
+  );
   return {
     kind: item.kind,
     id: item.id,

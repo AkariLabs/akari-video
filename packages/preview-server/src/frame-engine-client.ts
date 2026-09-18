@@ -64,6 +64,19 @@ interface SourceCandidate {
   id: string;
   originalUrl: string;
   proxyUrl: string | null;
+  /**
+   * 構図の基準になる **原本** の URL（不具合メモ 第10項）。宣言済み proxy を持つソースは
+   * `originalUrl` と同じで、`layers[].src` が proxy へ解決済みの候補
+   * （preview-layer-proxies.mjs）だけが異なる。復号 URL がこれと違うときだけ論理寸法を宣言する。
+   */
+  logicalUrl: string;
+  /**
+   * 原本の論理寸法（`sources[].logicalSize` の宣言）。プレビューが自分で軽量版へ差し替えた
+   * `layers[]` のソースにだけ載る（preview-layer-proxies.mjs が実測して宣言する）。
+   * 本編 cut の候補には載せない — 編集 UI も宣言済み proxy を見て倍率を焼くため、
+   * そちらを原本基準へ移すのは保存側の修正と同じ作業単位でなければならない。
+   */
+  logicalSize?: { width: number; height: number };
 }
 
 interface SourceChoice {
@@ -73,6 +86,11 @@ interface SourceChoice {
   reason: string;
   codec?: string;
   support?: CodecSupport | null;
+  /**
+   * 原本の論理寸法（`NativeFrameSource.logicalSize`）。復号 URL が原本そのもののときは
+   * 復号フレームの寸法と一致するので宣言しない（frame-engine 側が復号寸法へ退避する）。
+   */
+  logicalSize?: { width: number; height: number };
 }
 
 const requestedUploadPath = new URLSearchParams(window.location.search).get('uploadPath') === 'copyTo'
@@ -101,6 +119,20 @@ function percentile(values: readonly number[], fraction = 0.5): number | null {
   if (values.length === 0) return null;
   const sorted = [...values].sort((a, b) => a - b);
   return sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * fraction))] ?? null;
+}
+
+/**
+ * 描画要求に出せる時刻（不具合メモ 第16項）。総尺（totalDuration）は「最後の有効フレームの
+ * 次」= 終端位置で、そこに有効なフレームは無い。追加映像（layers[]）は
+ * `frame >= startFrame && frame < endFrame` の半開区間で可視判定するため、終了位置が総尺と
+ * 一致するレイヤーは終端位置の要求でちょうど外れる（ベース映像は最後の画を保持するので
+ * 「追加映像だけが消える」に見える）。尺は変えず、要求を最後の有効フレームへ丸める。
+ */
+function renderableSeconds(seconds: number, totalDuration: number, fps: number): number {
+  const clamped = Math.max(0, Math.min(seconds, totalDuration));
+  if (!(fps > 0) || !(totalDuration > 0)) return clamped;
+  // フレーム数の数え方は frame-engine の可視判定と同じ切り上げ規律（`ceil(sec * fps - 1e-6)`）。
+  return Math.min(clamped, Math.max(0, Math.ceil(totalDuration * fps - 1e-6) - 1) / fps);
 }
 
 function mediaUrl(value: unknown): string {
@@ -237,6 +269,29 @@ function resolvedEngineLayers(edit: any): any[] {
     .filter(Boolean);
 }
 
+/**
+ * 宣言済み proxy の URL → その原本の URL と、宣言された原本の論理寸法
+ * （`sources[].logicalSize`。preview-layer-proxies.mjs が実測して載せる）。
+ * `layers[].src` が proxy へ解決済みでも、構図の基準にする原本をここから引き戻す。
+ */
+function originalByProxyUrl(edit: any): Map<string, {
+  url: string; logicalSize?: { width: number; height: number };
+}> {
+  const map = new Map<string, { url: string; logicalSize?: { width: number; height: number } }>();
+  for (const source of Array.isArray(edit?.sources) ? edit.sources : []) {
+    if (!source?.path || typeof source.proxy !== 'string' || !source.proxy) continue;
+    const width = Number(source.logicalSize?.width);
+    const height = Number(source.logicalSize?.height);
+    const declared = Number.isFinite(width) && width > 0 && Number.isFinite(height) && height > 0
+      ? { width, height } : undefined;
+    map.set(mediaUrl(source.proxy), {
+      url: mediaUrl(source.path),
+      ...(declared ? { logicalSize: declared } : {}),
+    });
+  }
+  return map;
+}
+
 function sourceCandidates(
   edit: any,
   timelineData: any,
@@ -244,20 +299,24 @@ function sourceCandidates(
   engineLayers: readonly any[] = [],
 ): Map<string, SourceCandidate> {
   const candidates = new Map<string, SourceCandidate>();
+  const originalByProxy = originalByProxyUrl(edit);
   if (Array.isArray(edit?.sources)) {
     for (const source of edit.sources) {
       if (source?.id && source.path) {
         const id = String(source.id);
+        const originalUrl = mediaUrl(source.path);
         candidates.set(id, {
           id,
-          originalUrl: mediaUrl(source.path),
+          originalUrl,
           proxyUrl: source.proxy ? mediaUrl(source.proxy) : null,
+          logicalUrl: originalUrl,
         });
       }
     }
   } else if (edit?.source?.path) {
+    const originalUrl = mediaUrl(edit.source.path);
     candidates.set('default', {
-      id: 'default', originalUrl: mediaUrl(edit.source.path), proxyUrl: null,
+      id: 'default', originalUrl, proxyUrl: null, logicalUrl: originalUrl,
     });
   }
   for (let index = 0; index < cuts.length; index += 1) {
@@ -269,17 +328,52 @@ function sourceCandidates(
       // edit-to-timeline projects a declared proxy into clips[].src. That is not an override:
       // keep the original/proxy pair so capability selection can still choose the original.
       if (!declared || (clipUrl !== declared.originalUrl && clipUrl !== declared.proxyUrl)) {
-        candidates.set(sourceId, { id: sourceId, originalUrl: clipUrl, proxyUrl: null });
+        // 本編 cut の候補に logicalSize は載せない（SourceCandidate の注記参照）。
+        candidates.set(sourceId, {
+          id: sourceId,
+          originalUrl: clipUrl,
+          proxyUrl: null,
+          logicalUrl: originalByProxy.get(clipUrl)?.url ?? clipUrl,
+        });
       }
     }
   }
   for (const layer of engineLayers) {
     for (const value of [layer?.src, layer?.mask]) {
       if (typeof value !== 'string' || !value) continue;
-      candidates.set(value, { id: value, originalUrl: mediaUrl(value), proxyUrl: null });
+      const url = mediaUrl(value);
+      // プレビューが軽量版へ解決した layers[] のソースだけ、原本の論理寸法の宣言を引き継ぐ。
+      const original = originalByProxy.get(url);
+      candidates.set(value, {
+        id: value,
+        originalUrl: url,
+        proxyUrl: null,
+        logicalUrl: original?.url ?? url,
+        ...(original?.logicalSize ? { logicalSize: original.logicalSize } : {}),
+      });
     }
   }
   return candidates;
+}
+
+/**
+ * 原本メタデータから構図の基準になる論理寸法を作る（不具合メモ 第10項）。回転 90 / 270 度で
+ * 幅と高さを入れ替える規律は decode/sample-table.ts（`swapsDimensions`）と同一 --
+ * 復号フレームの寸法も同じ規則で表示寸法になっているため、ここを変えると proxy 復号時だけ
+ * 縦横が入れ替わる。
+ */
+function logicalSizeFromCodecInfo(
+  info: { codedWidth: number; codedHeight: number; rotationDeg: number } | null | undefined,
+): { width: number; height: number } | undefined {
+  if (!info) return undefined;
+  const codedWidth = Number(info.codedWidth);
+  const codedHeight = Number(info.codedHeight);
+  if (!(Number.isFinite(codedWidth) && codedWidth > 0)) return undefined;
+  if (!(Number.isFinite(codedHeight) && codedHeight > 0)) return undefined;
+  const swapsDimensions = info.rotationDeg === 90 || info.rotationDeg === 270;
+  return swapsDimensions
+    ? { width: codedHeight, height: codedWidth }
+    : { width: codedWidth, height: codedHeight };
 }
 
 function autoProxyPath(url: string): string {
@@ -391,15 +485,36 @@ async function resolveSourceChoices(
     else if (pending) context.ui.showNotice(`プロキシ生成中…（${pending}）`);
     else context.ui.clearNotice();
   };
+  // 構図の基準（不具合メモ 第10項）。復号する URL が原本と違う（軽量版へ解決済みの
+  // layers[].src・自動 proxy）ときだけ原本の論理寸法を宣言する。原本を復号するときは復号フレーム
+  // の寸法と一致するので宣言しない（frame-engine が復号寸法へ退避する）。
+  //
+  // 寸法の出どころは **すでに読んでいるもの** だけに限る: layers[] は
+  // preview-layer-proxies.mjs が proxy 判定で測った原本の実測（`sources[].logicalSize`）、
+  // 自動 proxy は原本/proxy 選択のために取った probe.info。ここで新たに原本の moov を読みに
+  // 行ってはいけない（非 cut ソースと宣言済み proxy の probe 禁止 =
+  // test/frame-engine-flag.test.mjs「codec probing is limited to cut-referenced sources」
+  // /「declared proxies are selected by default without codec probing」）。
+  //
+  // 宣言は url ごとに引き直す（元の choice に載っていた宣言は必ず捨てる）。復号 URL が
+  // 差し替わったときに古い寸法が残ると、そこだけ構図が狂う。
+  const withLogicalSize = (
+    candidate: SourceCandidate,
+    choice: SourceChoice,
+    size: { width: number; height: number } | undefined = candidate.logicalSize,
+  ): SourceChoice => {
+    const { logicalSize: _replaced, ...rest } = choice;
+    return size && choice.url !== candidate.logicalUrl ? { ...rest, logicalSize: size } : rest;
+  };
   const resolveCandidate = async (candidate: SourceCandidate): Promise<SourceChoice> => {
     if (!context.cutSourceIds.has(candidate.id)) {
-      return {
+      return withLogicalSize(candidate, {
         id: candidate.id,
         url: candidate.originalUrl,
         chosen: 'original',
         reason: 'not-a-cut-source',
         support: null,
-      };
+      });
     }
     const isImage = /\.(png|jpe?g|webp|bmp|gif)(?:$|[?#])/iu.test(candidate.originalUrl);
     if (isImage) {
@@ -410,57 +525,60 @@ async function resolveSourceChoices(
     const hasProxy = candidate.proxyUrl != null;
     if (!needsCodecProbe(context.mode, hasProxy)) {
       const decision = chooseSource({ mode: context.mode, hasProxy, support: null });
-      return {
+      return withLogicalSize(candidate, {
         id: candidate.id,
         url: decision.chosen === 'proxy' ? candidate.proxyUrl! : candidate.originalUrl,
         chosen: decision.chosen,
         reason: decision.reason,
         support: null,
-      };
+      });
     }
     const probe = await probeSourceCodec(candidate.originalUrl, { query: { akariNoProxy: '1' } });
     const codec = probe.info?.codec;
     const decision = chooseSource({ mode: context.mode, hasProxy, support: probe.support });
     if (decision.chosen === 'original') {
-      return {
+      return withLogicalSize(candidate, {
         id: candidate.id,
         url: candidate.originalUrl,
         chosen: 'original',
         reason: decision.reason,
         ...(codec ? { codec } : {}),
         support: probe.support,
-      };
+      });
     } else if (decision.chosen === 'proxy') {
-      return {
+      return withLogicalSize(candidate, {
         id: candidate.id,
         url: candidate.proxyUrl!,
         chosen: 'proxy',
         reason: decision.reason,
         ...(codec ? { codec } : {}),
         support: null,
-      };
+      });
     } else {
-      const provisional: SourceChoice = {
+      // 暫定は原本を復号するので宣言は付かない（withLogicalSize が url で判定する）。
+      const provisional: SourceChoice = withLogicalSize(candidate, {
         id: candidate.id,
         url: candidate.originalUrl,
         chosen: 'original',
         reason: 'auto-proxy-pending',
         ...(codec ? { codec } : {}),
         support: probe.support,
-      };
+      });
       if (context.isCurrent()) {
         pendingProxies.add(candidate.id);
         void requestAutoProxy(candidate, context.ui, context.isCurrent).then(async proxyUrl => {
           if (!context.isCurrent()) return;
           pendingProxies.delete(candidate.id);
           if (!proxyUrl) failedProxies.add(candidate.id);
-          const choice: SourceChoice = {
+          // 自動 proxy を復号するときも構図の基準は原本（編集 UI が見ていたのは原本）。
+          // 原本 / proxy の選択で取った probe.info をそのまま論理寸法にする（追加の読み取り無し）。
+          const choice: SourceChoice = withLogicalSize(candidate, {
             ...provisional,
             url: proxyUrl ?? candidate.originalUrl,
             chosen: proxyUrl ? 'auto-proxy' : 'original',
             reason: proxyUrl ? 'auto-proxy' : 'auto-proxy-failed',
             support: proxyUrl ? null : probe.support,
-          };
+          }, logicalSizeFromCodecInfo(probe.info));
           completedProxies.set(candidate.id, choice);
           updateNotice();
           await apply(choice);
@@ -479,6 +597,8 @@ async function resolveSourceChoices(
       choices.set(candidate.id, await resolveCandidate(candidate));
       if (!context.isCurrent()) break;
     } else {
+      // 暫定は必ず原本を復号するので、構図の基準（logicalSize）は宣言しない = 復号寸法と一致する。
+      // ここで原本のメタデータを読みに行くと、初回描画の前に全ソース分の moov 取得が挟まる。
       choices.set(candidate.id, {
         id: candidate.id, url: candidate.originalUrl, chosen: 'original',
         reason: 'pending-probe', support: null,
@@ -748,6 +868,12 @@ class FrameEngineRuntime {
       onAccess: access => this.currentAccesses?.push(access),
     });
     const observedSource: NativeFrameSource = {
+      // 構図の基準になる原本の論理寸法（不具合メモ 第10項）。proxy / 自動 proxy を復号していても
+      // `crop × 論理寸法 × transform.scale` は原本基準で決まるため、プレビューでも書き出しでも
+      // 同じ構図になる（宣言が無いソースだけ frame-engine が復号寸法へ退避する）。
+      // これが宣言されている前提で、preview-layer-proxies.mjs は倍率を一切補正しない
+      // （補正を戻すと二重補正 = proxy の寸法比ぶん構図が膨らむ）。
+      ...(choice?.logicalSize ? { logicalSize: choice.logicalSize } : {}),
       decode: async (timeUs, metrics, request) => {
         const frame = await source.decode(timeUs, metrics, request);
         this.currentDecodedFrames?.push({
@@ -793,7 +919,11 @@ class FrameEngineRuntime {
         && current.support.hw === choice.support.hw
         && current.support.sw === choice.support.sw
         && current.support.any === choice.support.any);
-    if (current?.url === choice.url && sameSupport) return;
+    // 構図の基準（logicalSize）が変わったときも作り直す — NativeFrameSource の宣言はソースを
+    // 作るときに固定するため、ここで弾くと古い基準のまま描き続ける。
+    const sameLogicalSize = (current?.logicalSize?.width ?? 0) === (choice.logicalSize?.width ?? 0)
+      && (current?.logicalSize?.height ?? 0) === (choice.logicalSize?.height ?? 0);
+    if (current?.url === choice.url && sameSupport && sameLogicalSize) return;
     // Wait for every active render, including a newly requested seek. This also protects sources
     // entering the next frame, beyond those used by the last presented base/layer/mask.
     while (this.rendering && !this.disposed) await this.waitForRender();
@@ -1043,7 +1173,11 @@ export async function createFrameEnginePreview(options: PreviewOptions): Promise
     const layers = resolvedEngineLayers(edit);
     const candidates = sourceCandidates(edit, timelineData, cuts, layers);
     const timeline = buildResolvedTimelinePlan(cuts, { fps, layers, overlays: edit?.overlays ?? [] });
-    start = Math.max(0, Math.min(start, timeline.totalDuration));
+    // 総尺は「最後の有効フレームの次」= 終端位置で、そこでは終了位置が総尺と一致する layers[]
+    // が半開区間（frame < endFrame）から外れる（不具合メモ 第16項）。編集適用で尺が縮んだとき、
+    // 素のクランプだと prime() が終端位置を 1 枚描いて追加映像だけ欠けた絵を出すため、
+    // 描画要求は最後の有効フレームへ揃える（app.js の engineRenderTime と同じ規律）。
+    start = renderableSeconds(start, timeline.totalDuration, fps);
     const firstUses = new Map<string, number>();
     const noteUse = (id: string | undefined, seconds: number) => {
       if (id) firstUses.set(id, Math.min(firstUses.get(id) ?? Infinity, seconds));
