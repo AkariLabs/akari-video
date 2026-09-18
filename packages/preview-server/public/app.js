@@ -38,6 +38,8 @@ import { cropAnchorCorrectedTransform } from '/layer-crop-anchor.js';
 import { computeLayerKeyframesVisual } from '/layer-keyframes-visual.js';
 import { createCutFxController } from '/cut-fx.js';
 import { markLayerUnplayable, syncLayerLazyLoad } from '/layer-lazy-load.js';
+// layers[] の再生元を宣言済み proxy へ解決する（不具合メモ 第15項。再生用コピーだけ差し替える）。
+import { preparePreviewLayerProxies } from '/preview-layer-proxies.mjs';
 import { ensureMediaPlaying } from '/media-playback-resume.js';
 import { syncMediaCurrentTime } from '/media-time-sync.js';
 import {
@@ -66,6 +68,13 @@ const savedSettings = loadSettings();
 const isOutputMode = new URLSearchParams(location.search).get('mode') === 'output';
 // frame-engine が製品プレビューの既定。明示 off は従来 DOM プレビューをバイト等価で保つ。
 const frameEngineEnabled = new URLSearchParams(location.search).get('frameEngine') !== '0';
+// 第10項（本編 cut の crop 計算が proxy 寸法基準）の暫定補償は既定 OFF — 保存側が proxy 基準の
+// ままここで掛けると二重補正になる。検証時だけ ?cutCropProxyCompensation=1 で入れ、第10項の
+// 根本修正が入ったらこの定義と引数ごと外せる（第15項の layers[] の proxy 解決は既定で働く。
+// preview-layer-proxies.mjs 末尾のブロック参照）。
+const previewLayerProxyOptions = {
+  compensateCroppedCuts: new URLSearchParams(location.search).get('cutCropProxyCompensation') === '1',
+};
 const api = {
   timeline: isOutputMode ? '/api/output/timeline' : '/api/timeline',
   summary: isOutputMode ? '/api/output/summary' : '/api/summary',
@@ -345,7 +354,10 @@ async function init() {
 
     if (frameEngineEnabled) {
       const { createFrameEnginePreview } = await frameEngineModule;
-      frameEnginePreview = await createFrameEnginePreview({ edit: summary, timelineData, stage: previewStage, fps });
+      // 追加映像（layers[]）も宣言済み proxy で再生する（不具合メモ 第15項）。編集・書き戻しに使う
+      // summary は触らず、engine へ渡す再生用コピーにだけ反映する。
+      const playbackEdit = await preparePreviewLayerProxies(summary, previewLayerProxyOptions);
+      frameEnginePreview = await createFrameEnginePreview({ edit: playbackEdit, timelineData, stage: previewStage, fps });
       applyFrameEngineSnapshot();
       window.akariFrameEngine = frameEnginePreview;
       updateAudioStatus();
@@ -3106,7 +3118,8 @@ async function applySoftReload() {
   }
 
   if (frameEngineEnabled) {
-    await frameEnginePreview.rebuild(summary, timelineData, fps);
+    // 再構築も再生用コピー（layers[] の proxy 解決済み）を渡す。第15項。
+    await frameEnginePreview.rebuild(await preparePreviewLayerProxies(summary, previewLayerProxyOptions), timelineData, fps);
     applyFrameEngineSnapshot();
     updateStageScale();
     setupPenCanvas();
