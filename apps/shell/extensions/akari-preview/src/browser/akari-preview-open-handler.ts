@@ -9253,14 +9253,27 @@ body { display: grid; place-items: center; padding: 32px; }
                         if (rendering === operation) rendering = null;
                     }
                 });
+                // 追加映像の表示判定は frame-engine の isLayerActiveAt が半開区間（frame < endFrame）
+                // なので、総尺ぶんのフレーム番号（= 最後の有効フレームの次）を要求すると、ベース映像の
+                // 最後の画だけが残って追加レイヤーが消える（不具合メモ 第16項）。要求側を最後の有効
+                // フレームへ揃える。尺（totalDuration・停止判定・時刻表示）は 1 フレームも変えない。
+                // フレーム数の数え方は可視判定と同じ切り上げ規律 ceil(sec * fps - 1e-6)。
+                // preview-server 側の renderableSeconds / engineRenderTime と同一の規律。
+                // 注: ここは webview へ注入されるテンプレートリテラル内なので、コメントでも
+                // バックティックとテンプレート置換の記法は使えない（文字列が終端する）。
+                const renderableFrame = () => Math.max(0, Math.ceil(totalDuration * fps - 1e-6) - 1);
+                const renderableSeconds = seconds => {
+                    const clamped = Math.max(0, Math.min(Number.isFinite(seconds) ? seconds : 0, totalDuration));
+                    if (!(fps > 0) || !(totalDuration > 0)) return clamped;
+                    return Math.min(clamped, renderableFrame() / fps);
+                };
                 const requestSeek = seconds => {
-                    const clamped = Math.max(0, Math.min(seconds, totalDuration));
-                    const frameNumber = Math.round(clamped * fps);
+                    const frameNumber = Math.round(renderableSeconds(seconds) * fps);
                     scrub.requestScrub(frameNumber);
                     return frameNumber / fps;
                 };
                 const renderPlayback = seconds => {
-                    const frameNumber = Math.round(seconds * fps);
+                    const frameNumber = Math.round(renderableSeconds(seconds) * fps);
                     if (frameNumber === lastPlaybackFrame) return lastPresentedSec;
                     lastPlaybackFrame = frameNumber;
                     if (rendering) {
@@ -9355,8 +9368,12 @@ body { display: grid; place-items: center; padding: 32px; }
                             playAnchorPosition = position;
                             playAnchorMs = performance.now();
                         }
+                        // 停止判定は「時計が末尾へ達したか」なので**要求時刻**で見る。提示時刻
+                        // （renderPlayback の戻り値）は第16項のクランプで必ず totalDuration 未満に
+                        // なるため、そちらで判定すると再生が止まらなくなる。
+                        const requestedPosition = position;
                         position = renderPlayback(position);
-                        if (position >= totalDuration) setPlaying(false, totalDuration);
+                        if (requestedPosition >= totalDuration) setPlaying(false, totalDuration);
                         return position;
                     },
                     updateModel(nextSummary) {
@@ -9466,7 +9483,9 @@ body { display: grid; place-items: center; padding: 32px; }
                         timeline = nextTimeline;
                         visualDuration = nextVisualDuration;
                         totalDuration = nextDuration;
-                        position = Math.round(Math.max(0, Math.min(position, totalDuration)) * fps) / fps;
+                        // 尺が縮む編集のあとに終端フレームへ寄せると、復元描画が「追加映像だけ欠けた
+                        // 絵」を 1 枚出す（第16項と同じ半開区間の縁）。最後の有効フレームへ揃える。
+                        position = Math.round(renderableSeconds(position) * fps) / fps;
                         playAnchorMs = performance.now();
                         playAnchorPosition = position;
                         lastPlaybackFrame = -1;
