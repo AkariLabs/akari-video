@@ -80,6 +80,35 @@ export interface MediaEdit {
  * presentation timeline. av-cliper subtracts the first DTS, while an edit list
  * maps the first presented CTS to time zero.
  */
+/**
+ * 索引済みのキーフレーム時刻から最大キーフレーム間隔（秒）を出す。長い GOP はシークのたびに
+ * 直前のキーフレームから復号し直すことになり、プレビューのカット切り替えとスクラブが遅くなる
+ * （不具合メモ 第3項: 原本のまま再生していた区間が約 1fps になった）。
+ *
+ * 索引は全ソースで既に作っているので追加の読み取りは発生しない。末尾の扱いは
+ * edit-lint の source.proxy-long-gop と同じく「最後のキーフレームから素材末尾まで」も
+ * 1 区間として数える（末尾に長い GOP がある素材を見逃さないため）。
+ * キーフレームが 1 枚も無い / 素材尺が不明なときは undefined（判定しない）。
+ */
+export function maxKeyframeIntervalSeconds(index: KeyframeIndex): number | undefined {
+  const times = index.keyframeTimesUs;
+  if (!Array.isArray(times) || times.length === 0) return undefined;
+  let maxUs = 0;
+  for (let position = 1; position < times.length; position += 1) {
+    const gap = times[position]! - times[position - 1]!;
+    if (gap > maxUs) maxUs = gap;
+  }
+  const endUs = index.presentationDurationUs ?? index.lastFrameStartUs;
+  if (endUs != null && Number.isFinite(endUs)) {
+    const tailGap = endUs - times[times.length - 1]!;
+    if (tailGap > maxUs) maxUs = tailGap;
+  } else if (times.length < 2) {
+    // キーフレーム 1 枚で末尾も分からなければ間隔は測れない。
+    return undefined;
+  }
+  return maxUs / 1e6;
+}
+
 export function calculateDecoderTimestampOffsetUs(
   firstDts: number,
   trackTimescale: number,
