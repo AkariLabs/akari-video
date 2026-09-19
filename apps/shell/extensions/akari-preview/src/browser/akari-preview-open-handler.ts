@@ -9867,6 +9867,8 @@ body { display: grid; place-items: center; padding: 32px; }
             // 素材の実尺だけで、挿入ごとの [in, out) 切り出し計算は従来どおり item ごとに行う。
             const SFX_PROBE_TIMEOUT_MS = 8000;
             let sfxProbeTimeoutWarned = false;
+            // 打ち切られた素材の URL（重複なし・上限 12）。診断の「メディア供給」段に添える。
+            const sfxProbeTimeouts = [];
             let audioDurationProbeRevision = 0;
             const probeSfxDurations = async () => {
                 const revision = ++audioDurationProbeRevision;
@@ -9878,10 +9880,22 @@ body { display: grid; place-items: center; padding: 32px; }
                     maxInFlight: 4,
                     timeoutMs: SFX_PROBE_TIMEOUT_MS,
                     onTimeout: src => {
+                        // 打ち切った素材は全件を診断へ残す（Console の警告は 1 回だけ）。
+                        // 2026-09-19: 灰色プレビューの調査で、打ち切りが起きているのに「どの素材か」が
+                        // 1 件ぶんしか分からず切り分けが止まった。上の 2026-09-02 の注記のとおり、
+                        // loadedmetadata が返らないプローブは初回描画を待たせる側の要因なので、
+                        // 止まった段が「メディア供給」のときに素材名が並んでいる必要がある。
+                        if (sfxProbeTimeouts.length < 12 && !sfxProbeTimeouts.includes(src)) {
+                            sfxProbeTimeouts.push(src);
+                            if (window.__akariPreviewDiag) {
+                                window.__akariPreviewDiag.note('尺プローブ打ち切り（' + (SFX_PROBE_TIMEOUT_MS / 1000)
+                                    + ' s 超）: ' + src);
+                            }
+                        }
                         if (sfxProbeTimeoutWarned) return;
                         sfxProbeTimeoutWarned = true;
                         console.warn('[akari-preview] sfx の尺プローブが ' + (SFX_PROBE_TIMEOUT_MS / 1000)
-                            + ' s 以内に終わらないため尺不明として続行します（以降の同種警告は省略）', src);
+                            + ' s 以内に終わらないため尺不明として続行します（以降は診断ログへ記録）', src);
                     }
                 });
                 const results = await Promise.all(items.map(async item => {
