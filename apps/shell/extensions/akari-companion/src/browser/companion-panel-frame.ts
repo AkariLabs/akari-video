@@ -23,6 +23,9 @@ interface DragState {
 
 const PANEL_PLACEMENT_STORAGE_KEY = 'akari.companion.panel.placement';
 const DRAG_THRESHOLD_PX = 4;
+/** これより小さい枠では「しまう」を出さない（32px の角が枠をほぼ覆ってしまうため）。 */
+const CORNER_MIN_WIDTH = 140;
+const CORNER_MIN_HEIGHT = 72;
 
 /** 利用者が動かしたときだけ覚える。動かしていなければ既定（ボタンの真下）へ戻す。 */
 interface StoredPlacement { x: number; y: number; }
@@ -33,6 +36,7 @@ export class CompanionPanelFrame {
     protected readonly rootEl: HTMLDivElement;
     protected panelEl: HTMLDivElement | undefined;
     protected iframeEl: HTMLIFrameElement | undefined;
+    protected cornerEl: HTMLButtonElement | undefined;
     protected size: PanelSize = clampPanelSize(undefined, undefined);
     protected x = 0;
     protected y = 0;
@@ -74,7 +78,7 @@ export class CompanionPanelFrame {
         iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin');
         iframe.setAttribute('tabindex', '-1');
         iframe.src = `http://127.0.0.1:${port}${panelPath}`;
-        const corner = this.doc.createElement('button');
+        const corner = this.cornerEl = this.doc.createElement('button');
         corner.type = 'button';
         corner.className = 'akari-companion-panel-corner';
         corner.tabIndex = -1;
@@ -104,6 +108,7 @@ export class CompanionPanelFrame {
         this.panelEl?.remove();
         this.panelEl = undefined;
         this.iframeEl = undefined;
+        this.cornerEl = undefined;
     }
 
     applyInstruction(args: CompanionPanelArgs): void {
@@ -197,6 +202,11 @@ export class CompanionPanelFrame {
         this.panelEl.style.height = `${this.size.height}px`;
         this.panelEl.dataset.mode = this.mode;
         this.panelEl.style.display = this.hidden ? 'none' : '';
+        if (this.cornerEl) {
+            // 小さい枠では「しまう」を出さない。閉じるのはタブ帯のボタン、動かすのは枠の中身。
+            const roomy = this.size.width >= CORNER_MIN_WIDTH && this.size.height >= CORNER_MIN_HEIGHT;
+            this.cornerEl.style.display = roomy ? '' : 'none';
+        }
     }
 
     protected readonly handleWindowBlur = (): void => {
