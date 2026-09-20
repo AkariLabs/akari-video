@@ -1,3 +1,5 @@
+import { DaihonOpenTarget, isValidDaihonWordRange, resolveDaihonFocusRowId } from '../../common/daihon-focus-target';
+import { installDaihonFocusPulseStyle, triggerFocusPulse } from '../../common/daihon-focus-pulse-style';
 import { AkariProjectService, type TranscribeCuts } from 'akari-project/lib/common/akari-project-protocol';
 import { QuickPickService } from '@theia/core/lib/common/quick-pick-service';
 import { PreferenceScope, PreferenceService } from '@theia/core/lib/common/preferences';
@@ -491,6 +493,7 @@ export class AkariDaihonWidget extends BaseWidget {
         this.node.setAttribute('data-akari-ui', 'panel:daihon');
         this.node.setAttribute('data-akari-ui-label', '台本');
         installStyle();
+        installDaihonFocusPulseStyle();
 
         const header = document.createElement('div');
         header.className = 'akari-daihon-head';
@@ -669,6 +672,82 @@ export class AkariDaihonWidget extends BaseWidget {
                 });
             }));
         }
+    }
+
+    async focusTarget(target?: DaihonOpenTarget): Promise<boolean> {
+        if (!target || [target.captionId, target.atSeconds, target.wordRange, target.open,
+            target.speaker, target.pulse].every(value => value === undefined)) return true;
+        if (!this.configured) await this.configure().catch(() => undefined);
+        else await this.reloadTail.catch(() => undefined);
+
+        const hasRowTarget = target.captionId !== undefined || target.atSeconds !== undefined;
+        const timeRowId = target.captionId === undefined && target.atSeconds !== undefined
+            ? resolveCurrent(this.rows, target.atSeconds).rowId : null;
+        const rowId = resolveDaihonFocusRowId(this.rows.map(row => row.id), timeRowId, target);
+        const row = this.rows.find(candidate => candidate.id === rowId);
+        let success = true;
+        if (hasRowTarget && !row) {
+            this.notify(target.captionId !== undefined
+                ? '台本に指定の行が見つかりませんでした。' : '台本にその時刻を含む行が見つかりませんでした。');
+            success = false;
+        }
+        const validWordRange = !!row && isValidDaihonWordRange(row.words?.length ?? 0, target.wordRange);
+        if (row) {
+            // A resolved row takes priority over filters left by earlier interactions.
+            if (this.speakerFilter !== null && this.speakerFilter !== row.speaker) this.speakerFilter = null;
+            this.qcFilter = false;
+            this.applyQcFilter();
+            this.elements.get(row.id)?.root.scrollIntoView({ block: 'center' });
+            this.setSelection({ selected: [row.id], anchorId: row.id });
+            if (validWordRange && target.wordRange) {
+                this.wordRanges = [{ row: row.id, a: target.wordRange.from, b: target.wordRange.to }];
+                this.renderWordSelection();
+                this.openWordBar();
+            }
+        }
+        if (target.wordRange !== undefined && !validWordRange) {
+            this.notify('台本に指定の語の範囲が見つかりませんでした。');
+            success = false;
+        }
+        switch (target.open) {
+            case 'display': this.openDisplayPop(this.displayButton); break;
+            case 'history': void this.openHistoryPop(this.historyButton); break;
+            case 'silenceBatch': this.openSilenceBatch(this.silenceButton); break;
+            case 'qc': this.qcFilter = true; this.applyQcFilter(); break;
+            case 'template': {
+                if (validWordRange && target.wordRange && row) {
+                    const anchor = this.elements.get(row.id)?.words[target.wordRange.from];
+                    if (anchor) this.openWordPresetPicker(anchor);
+                } else if (row) this.openTplPicker(this.tplButton);
+                break;
+            }
+            case 'gear': {
+                const gear = row && this.elements.get(row.id)?.root.querySelector<HTMLButtonElement>('.akari-daihon-gear');
+                if (gear && row) this.openGearPop(gear, row);
+                else {
+                    this.notify('字幕設定を開く行が見つかりませんでした。');
+                    success = false;
+                }
+                break;
+            }
+            case 'cutRange': {
+                if (validWordRange) this.openCutRangeEditorForSelection();
+                else {
+                    this.notify('カット範囲エディタは語の範囲を選ぶと開けます。');
+                    success = false;
+                }
+                break;
+            }
+        }
+        if (target.speaker !== undefined && !hasRowTarget) {
+            this.speakerFilter = target.speaker;
+            this.applyQcFilter();
+        }
+        if (target.pulse && rowId !== undefined) {
+            const root = this.elements.get(rowId)?.root;
+            if (root) triggerFocusPulse(root);
+        }
+        return success;
     }
 
     showError(error: unknown): void {
