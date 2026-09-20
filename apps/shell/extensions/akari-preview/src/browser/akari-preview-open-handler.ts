@@ -6437,6 +6437,7 @@ ${captionFontFaceCss(assets.captionFontUrl)}
   font-family: "${CAPTION_FONT_FAMILY}", sans-serif;
   --akari-preview-pasteboard: #2b2d30;
   --akari-accent: #4da3ff;
+  --akari-focus-pulse: #f97316;
   --akari-transport-bg: #121212;
   --akari-transport-fg: #fff;
   --akari-seek-track: rgba(255,255,255,0.22);
@@ -6456,6 +6457,7 @@ body.vscode-light {
   color-scheme: light;
   --akari-preview-pasteboard: #d5d7da;
   --akari-accent: #4da3ff;
+  --akari-focus-pulse: #f97316;
   --akari-transport-bg: #f2f2f2;
   --akari-transport-fg: #242424;
   --akari-seek-track: rgba(0,0,0,0.18);

@@ -912,6 +912,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected reviewSessionRefreshTimer: number | undefined;
     protected reviewSessionRefreshRetries = 0;
     protected reviewSessionFocusTimer: number | undefined;
+    protected focusPulseTimer: number | undefined;
     protected timelineEmpty = false;
     protected createEditPromise?: Promise<void>;
     protected refreshLocationEditUri?: (uri: URI) => Promise<ProjectLocation | undefined>;
@@ -1223,6 +1224,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             if (this.visualThumbnailRetryTimer) clearTimeout(this.visualThumbnailRetryTimer);
             if (this.reviewSessionRefreshTimer !== undefined) window.clearTimeout(this.reviewSessionRefreshTimer);
             if (this.reviewSessionFocusTimer !== undefined) window.clearTimeout(this.reviewSessionFocusTimer);
+            if (this.focusPulseTimer !== undefined) window.clearTimeout(this.focusPulseTimer);
             this.failedVisualThumbnails.clear();
             this.visualThumbnails.dispose(); this.visualHover?.remove();
         }));
@@ -2723,10 +2725,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected focusPulseUntil = 0;
 
     protected pulseFocusedItem(selection: TimelineSelectionItem): void {
+        if (this.focusPulseTimer !== undefined) window.clearTimeout(this.focusPulseTimer);
         this.focusPulseKeys = this.selectionRenderKeys(selection);
         this.focusPulseUntil = Date.now() + FOCUS_PULSE_DURATION_MS;
         this.applyFocusPulseClass();
-        setTimeout(() => {
+        this.focusPulseTimer = window.setTimeout(() => {
+            this.focusPulseTimer = undefined;
             this.focusPulseUntil = 0;
             this.applyFocusPulseClass();
         }, FOCUS_PULSE_DURATION_MS);

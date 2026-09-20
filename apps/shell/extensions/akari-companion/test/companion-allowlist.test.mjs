@@ -25,6 +25,7 @@ const valid = {
   'akari.timeline.setView': { startSeconds: 0, durationSeconds: 10, fit: false },
   'akari.timeline.setTool': { tool: 'razor' },
   'akari.timeline.setSnap': { enabled: true },
+  'akari.timeline.reveal': undefined,
   'akari.inspector.open': { attachOnly: true, tabId: 'tab', sectionId: 'section', fieldName: 'field' },
   'akari.daihon.open': { captionId: 'c-1', wordRange: { from: 0, to: 2 }, atSeconds: 1, open: 'qc', speaker: 'A', pulse: true },
   'akari.cuts.open': { candidateId: 'candidate-1' },
@@ -34,7 +35,6 @@ const valid = {
   'akari.menu.focus': { section: 'skills', pulse: true, skill: 'edit-plan' },
   'akari.menu.listSkills': {},
   'akari.menu.listOpenTargets': undefined,
-  'akari.annotations.open': undefined,
   'akari.review.open': {},
   'akari.review.board.open': undefined,
   'akari.partner.open': {}
@@ -52,6 +52,7 @@ test('固定一覧に無い副作用コマンドを拒む', () => {
     'akari.partner.send',
     'akari.partner.injectPrompt',
     'akari.timeline.addMaterialAtPlayhead',
+    'akari.annotations.open',
     ['akari.preview.open', 'AudioMeter'].join('')
   ]) {
     assert.equal(isAllowedCommandId(id), false, id);

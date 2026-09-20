@@ -10,6 +10,11 @@ const dispatch = source.slice(start, end);
 function run(message, context) {
     return vm.runInNewContext(`(function () { ${dispatch} })()`, { message, ...context });
 }
+test('focus pulse color is defined for both themes and used by pulse and zone hints', () => {
+    assert.equal(source.match(/--akari-focus-pulse: #f97316/g)?.length, 2);
+    assert.match(source, /\.akari-focus-pulse[\s\S]*?var\(--akari-focus-pulse/);
+    assert.match(source, /\.zone-hint-box[\s\S]*?var\(--akari-focus-pulse/);
+});
 test('webview playback requests toggle only when the requested state differs', () => {
     for (const isPlaying of [true, false]) {
         for (const playing of [true, false, undefined, 'true']) {

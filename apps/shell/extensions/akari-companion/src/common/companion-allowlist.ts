@@ -5,11 +5,11 @@ export const ALLOWED_COMMAND_IDS = [
     'akari.preview.setLoopRange', 'akari.preview.enterCropMode', 'akari.preview.openPerspectivePanel',
     'akari.preview.pulseItem', 'akari.preview.showZoneHint',
     'akari.timeline.focusItem', 'akari.timeline.seek', 'akari.timeline.setView',
-    'akari.timeline.setTool', 'akari.timeline.setSnap',
+    'akari.timeline.setTool', 'akari.timeline.setSnap', 'akari.timeline.reveal',
     'akari.inspector.open', 'akari.daihon.open', 'akari.cuts.open', 'akari.transcribe.openDialog',
     'akari.catalog.open', 'akari.catalog.listCategories',
     'akari.menu.focus', 'akari.menu.listSkills', 'akari.menu.listOpenTargets',
-    'akari.annotations.open', 'akari.review.open', 'akari.review.board.open', 'akari.partner.open'
+    'akari.review.open', 'akari.review.board.open', 'akari.partner.open'
 ] as const;
 
 export type AllowedCommandId = typeof ALLOWED_COMMAND_IDS[number];
@@ -122,6 +122,8 @@ export function validateCommandArgs(id: AllowedCommandId, value: unknown): ArgVa
             return objectResult(value, ['tool'], args => args.tool === 'select' || args.tool === 'razor');
         case 'akari.timeline.setSnap':
             return objectResult(value, ['enabled'], args => required(args, 'enabled', boolean));
+        case 'akari.timeline.reveal':
+            return noArgs(value);
         case 'akari.inspector.open':
             return objectResult(value, ['attachOnly', 'tabId', 'sectionId', 'fieldName'], args =>
                 optional(args, 'attachOnly', boolean)
@@ -156,7 +158,6 @@ export function validateCommandArgs(id: AllowedCommandId, value: unknown): ArgVa
         case 'akari.catalog.listCategories':
         case 'akari.menu.listSkills':
         case 'akari.menu.listOpenTargets':
-        case 'akari.annotations.open':
         case 'akari.review.open':
         case 'akari.review.board.open':
         case 'akari.partner.open':
