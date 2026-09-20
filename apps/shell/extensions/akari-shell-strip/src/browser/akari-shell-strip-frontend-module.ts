@@ -1,3 +1,4 @@
+import { CommandContribution } from '@theia/core/lib/common';
 import { ContainerModule } from '@theia/core/shared/inversify';
 import { TabBarToolbarRegistry } from '@theia/core/lib/browser/shell/tab-bar-toolbar';
 import { AkariTabBarToolbarRegistry } from './akari-tab-bar-toolbar-registry';
@@ -11,6 +12,7 @@ import { AkariActivityBarCuration } from './akari-activity-bar-curation';
 import { AkariSettingsContribution, AkariSettingsOpener } from './akari-settings-contribution';
 import { AkariMenuWidget } from './akari-menu-widget';
 import { AkariMenuContribution } from './akari-menu-contribution';
+import { AkariMenuFocusCommandContribution } from './akari-menu-command-contribution';
 import { AkariMenuCuration } from './akari-menu-curation';
 import { AkariFrontendApplication } from './akari-frontend-application';
 import { AkariDeveloperModeService } from './akari-developer-mode-service';
@@ -77,6 +79,8 @@ export default new ContainerModule((bind, unbind, isBound, rebind) => {
     })).inSingletonScope();
     bind(AkariMenuContribution).toSelf().inSingletonScope();
     bind(FrontendApplicationContribution).toService(AkariMenuContribution);
+    bind(AkariMenuFocusCommandContribution).toSelf().inSingletonScope();
+    bind(CommandContribution).toService(AkariMenuFocusCommandContribution);
 
     // S17: メニューバー消し込み
     bind(AkariMenuCuration).toSelf().inSingletonScope();

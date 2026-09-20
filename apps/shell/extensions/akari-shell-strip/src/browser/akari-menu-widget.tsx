@@ -18,7 +18,10 @@ import { AkariExportDialog } from './export-dialog/akari-export-dialog';
 import { AkariProjectCleanService, ProjectCleanInspection } from '../common/project-clean-protocol';
 import { formatBytes } from './export-dialog/export-view-shared';
 import { akariMenuRows } from '../common/menu-rows';
+import { AkariMenuFocusArgs, AKARI_MENU_PULSE_MS } from '../common/menu-focus';
 import { AkariScopeService } from './akari-scope-service';
+
+try { require('../../src/browser/style/menu-focus-pulse.css'); } catch { /* node 単体テスト環境 */ }
 
 interface MenuAction {
     id: string;
@@ -29,7 +32,7 @@ interface MenuAction {
     title?: string;
 }
 
-interface SkillEntry {
+export interface SkillEntry {
     name: string;
     description: string;
 }
@@ -168,6 +171,58 @@ export class AkariMenuWidget extends ReactWidget {
         this.commands.executeCommand(commandId).catch(error => {
             console.warn(`[akari-shell-strip] menu action failed (${commandId}):`, error);
         });
+    }
+
+    /** 外部コマンド `akari.menu.focus` から呼ばれる。widget が表示済みであることは呼び出し側の責務。 */
+    async focusSection(args?: AkariMenuFocusArgs): Promise<boolean> {
+        const section = args?.section;
+        if (section === undefined) {
+            return true;
+        }
+        if (section === 'skills') {
+            await this.loadSkills();
+        }
+        this.update();
+        await this.waitForRender();
+        const sectionEl = this.node.querySelector<HTMLElement>(`[data-akari-menu-section="${section}"]`);
+        if (!sectionEl) {
+            return false;
+        }
+        let pulseTarget: HTMLElement | null = sectionEl.querySelector('[data-akari-menu-section-heading]');
+        if (section === 'skills' && args?.skill !== undefined) {
+            const rows = Array.from(sectionEl.querySelectorAll<HTMLElement>('[data-akari-menu-skill]'));
+            pulseTarget = rows.find(row => row.getAttribute('data-akari-menu-skill') === args.skill) ?? null;
+            if (!pulseTarget) {
+                sectionEl.scrollIntoView({ block: 'nearest' });
+                return false;
+            }
+        }
+        sectionEl.scrollIntoView({ block: 'nearest' });
+        if (args?.pulse && pulseTarget) {
+            this.pulseElement(pulseTarget);
+        }
+        return true;
+    }
+
+    /** 外部コマンド `akari.menu.listSkills` から呼ばれる。呼ぶたびに最新化する。 */
+    async listSkills(): Promise<SkillEntry[]> {
+        await this.loadSkills();
+        return this.skills.slice();
+    }
+
+    protected async waitForRender(): Promise<void> {
+        await new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+    }
+
+    protected pulseElement(el: HTMLElement): void {
+        el.classList.remove('akari-menu-focus-pulse');
+        void el.offsetWidth; // 連続フォーカス時にアニメーションを再トリガーするための強制 reflow
+        el.classList.add('akari-menu-focus-pulse');
+        window.setTimeout(() => {
+            if (!this.isDisposed) {
+                el.classList.remove('akari-menu-focus-pulse');
+            }
+        }, AKARI_MENU_PULSE_MS);
     }
 
     /**
@@ -699,8 +754,8 @@ export class AkariMenuWidget extends ReactWidget {
     protected override render(): React.ReactNode {
         return (
             <div style={{ padding: '14px', overflow: 'auto', height: '100%', boxSizing: 'border-box' }}>
-                <section style={{ marginBottom: '22px' }}>
-                    <h3 style={{ margin: '0 0 8px', fontSize: '0.85em', opacity: 0.6, letterSpacing: '0.05em' }}>ひらく</h3>
+                <section data-akari-menu-section='open' style={{ marginBottom: '22px' }}>
+                    <h3 data-akari-menu-section-heading style={{ margin: '0 0 8px', fontSize: '0.85em', opacity: 0.6, letterSpacing: '0.05em' }}>ひらく</h3>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                         {this.actions.map(action => (
                             <button
@@ -719,8 +774,8 @@ export class AkariMenuWidget extends ReactWidget {
                     {this.renderPreviewServerStatus()}
                 </section>
                 {this.renderExportSection()}
-                <section>
-                    <h3 style={{ margin: '0 0 8px', fontSize: '0.85em', opacity: 0.6, letterSpacing: '0.05em' }}>やらせる（スキル）</h3>
+                <section data-akari-menu-section='skills'>
+                    <h3 data-akari-menu-section-heading style={{ margin: '0 0 8px', fontSize: '0.85em', opacity: 0.6, letterSpacing: '0.05em' }}>やらせる（スキル）</h3>
                     {this.skillsNotice && <p style={{ opacity: 0.7, margin: '0 0 8px' }}>{this.skillsNotice}</p>}
                     {this.skills.length > 0 && (
                         <>
@@ -729,7 +784,7 @@ export class AkariMenuWidget extends ReactWidget {
                             </p>
                             <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: '8px' }}>
                                 {this.skills.map(skill => (
-                                    <li key={skill.name} style={{
+                                    <li key={skill.name} data-akari-menu-skill={skill.name} style={{
                                         border: '1px solid var(--theia-widget-border)', borderRadius: '6px', padding: '8px 10px'
                                     }}>
                                         <div style={{ fontWeight: 600 }}>{skill.name}</div>

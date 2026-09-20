@@ -1,0 +1,19 @@
+.akari-menu-focus-pulse {
+    animation: akari-menu-focus-pulse 0.4s ease-in-out 4;
+}
+
+@keyframes akari-menu-focus-pulse {
+    0%, 100% {
+        box-shadow: 0 0 0 0 transparent;
+    }
+    50% {
+        box-shadow: 0 0 0 3px var(--akari-focus-pulse, var(--akari-accent, #f97316));
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .akari-menu-focus-pulse {
+        animation: none;
+        outline: 2px solid var(--akari-focus-pulse, var(--akari-accent, #f97316));
+    }
+}
