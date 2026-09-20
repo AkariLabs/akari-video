@@ -254,14 +254,19 @@ export class AkariCompanionContribution implements FrontendApplicationContributi
         if (!isAllowedCommandId(command?.commandId)) {
             return { id: instruction.id, ok: false, error: 'not-allowed' };
         }
-        const validated = validateCommandArgs(command.commandId, command.args);
-        if (!validated.ok) return { id: instruction.id, ok: false, error: 'invalid-args' };
-        let args = validated.args ? { ...validated.args } : undefined;
+        // `editUri` は橋が今のプロジェクトから入れる（係からは受け取らない）。
+        // 検査より **先** に入れないと、editUri が必須のコマンド（play / pause など）が
+        // 「係が渡していない」という理由で invalid-args に落ちる（2026-09-20 実機で観測）。
+        let incoming = command.args;
         if (command.commandId.startsWith('akari.preview.')) {
             const editUri = this.currentEditUri();
             if (!editUri) return { id: instruction.id, ok: false, error: 'not-found' };
-            args = { ...(args ?? {}), editUri };
+            const { editUri: _ignored, ...rest } = (incoming ?? {}) as Record<string, unknown>;
+            incoming = { ...rest, editUri };
         }
+        const validated = validateCommandArgs(command.commandId, incoming);
+        if (!validated.ok) return { id: instruction.id, ok: false, error: 'invalid-args' };
+        const args = validated.args ? { ...validated.args } : undefined;
         const returned = args
             ? await this.commands.executeCommand(command.commandId, args)
             : await this.commands.executeCommand(command.commandId);

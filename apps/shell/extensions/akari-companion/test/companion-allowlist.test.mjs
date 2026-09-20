@@ -82,3 +82,13 @@ test('型違い・未知のキー・不完全な union を拒む', () => {
   assert.equal(validateCommandArgs('akari.menu.focus', { section: 'open', skill: 'edit-plan' }).ok, true);
   assert.equal(validateCommandArgs('akari.catalog.listCategories', { extra: true }).ok, false);
 });
+
+test('editUri は橋が入れる — 必須のコマンドでも係は渡さなくてよい', () => {
+  // 橋が入れたあとの形で検査が通ること（入れる前に検査すると invalid-args に落ちる）。
+  const withUri = { editUri: 'file:///p/edit.json' };
+  for (const id of ['akari.preview.play', 'akari.preview.pause', 'akari.preview.pulseItem']) {
+    const args = id === 'akari.preview.pulseItem' ? { ...withUri, itemId: 'a' } : withUri;
+    assert.equal(validateCommandArgs(id, args).ok, true, id);
+    assert.equal(validateCommandArgs(id, id === 'akari.preview.pulseItem' ? { itemId: 'a' } : {}).ok, false, id + ' without editUri');
+  }
+});
