@@ -332,4 +332,34 @@ export class ReviewModel {
         this.onChangedEmitter.fire();
         return result.annotation;
     }
+
+    async deleteAnnotation(annotationId: string): Promise<Annotation> {
+        const location = this._location;
+        if (!location) {
+            throw new Error('プロジェクトを特定できません。');
+        }
+        const result = await this.annotationsService.deleteAnnotation({
+            reviewUri: location.reviewUri.toString(),
+            annotationId
+        });
+        this._annotations = this._annotations.filter(annotation => annotation.id !== annotationId);
+        this.onChangedEmitter.fire();
+        return result.annotation;
+    }
+
+    async restoreAnnotation(annotation: Annotation): Promise<Annotation> {
+        const location = this._location;
+        if (!location) {
+            throw new Error('プロジェクトを特定できません。');
+        }
+        const result = await this.annotationsService.restoreAnnotation({
+            reviewUri: location.reviewUri.toString(),
+            annotation
+        });
+        if (!this._annotations.some(existing => existing.id === result.annotation.id)) {
+            this._annotations = [...this._annotations, result.annotation];
+            this.onChangedEmitter.fire();
+        }
+        return result.annotation;
+    }
 }

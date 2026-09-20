@@ -5,6 +5,7 @@ import {
   emptyReviewSource,
   appendAnnotationLine,
   parseReview,
+  removeAnnotationLine,
   updateStatusLine,
   isDocOrImageTarget,
 } from "../lib/common/annotation-store.js";
@@ -250,6 +251,44 @@ test("updateStatusLine は同一 id が複数あるとき安全側に倒して�
     annotations: [baseAnnotation({ id: "a-0001", status: "addressed" }), baseAnnotation({ id: "a-0001", status: "open" })],
   });
   assert.throws(() => updateStatusLine(duplicated, "a-0001", ["addressed"], "resolved"), /複数/);
+});
+
+test("removeAnnotationLine は先頭・中間・末尾・唯一の注釈を削除して読み直せる", () => {
+  const cases = [
+    { ids: ["a-0001", "a-0002", "a-0003"], remove: "a-0001", remains: ["a-0002", "a-0003"] },
+    { ids: ["a-0001", "a-0002", "a-0003"], remove: "a-0002", remains: ["a-0001", "a-0003"] },
+    { ids: ["a-0001", "a-0002", "a-0003"], remove: "a-0003", remains: ["a-0001", "a-0002"] },
+    { ids: ["a-0001"], remove: "a-0001", remains: [] },
+  ];
+  for (const fixture of cases) {
+    const source = fixture.ids.reduce(
+      (current, id) => appendAnnotationLine(current, baseAnnotation({ id })),
+      emptyReviewSource()
+    );
+    const result = removeAnnotationLine(source, fixture.remove);
+    assert.equal(result.removed.id, fixture.remove);
+    assert.deepEqual(parseReview(result.source).annotations.map(annotation => annotation.id), fixture.remains);
+    if (fixture.remains.length === 0) assert.equal(result.source, emptyReviewSource());
+  }
+});
+
+test("removeAnnotationLine は整形済み review.json から対象だけを削除する", () => {
+  const prettySource = JSON.stringify({
+    version: 0,
+    annotations: [
+      baseAnnotation({ id: "a-0001" }),
+      baseAnnotation({ id: "a-0002", text: "対象" }),
+      baseAnnotation({ id: "a-0003" }),
+    ],
+  }, null, 2) + "\n";
+  const result = removeAnnotationLine(prettySource, "a-0002");
+  assert.equal(result.removed.text, "対象");
+  assert.deepEqual(parseReview(result.source).annotations.map(annotation => annotation.id), ["a-0001", "a-0003"]);
+});
+
+test("removeAnnotationLine は存在しない id を拒否する", () => {
+  const source = appendAnnotationLine(emptyReviewSource(), baseAnnotation());
+  assert.throws(() => removeAnnotationLine(source, "a-9999"), /ありません/);
 });
 
 // contract-2026-07-26-doc-image-annotations §1/§2: doc:<path>#<block-id> / image:<path> target は

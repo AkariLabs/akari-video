@@ -487,6 +487,46 @@ function escapeForRegExp(value: string): string {
     return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
+export function removeAnnotationLine(
+    source: string,
+    annotationId: string
+): { source: string; removed: Annotation } {
+    const idPattern = new RegExp(`"id"\\s*:\\s*"${escapeForRegExp(annotationId)}"`, 'g');
+    const occurrences = source.match(idPattern)?.length ?? 0;
+    if (occurrences > 1) {
+        throw new Error(`注釈 ${annotationId} がレビューデータに複数あります。`);
+    }
+    const { start, end } = findAnnotationObjectSpan(source, annotationId);
+    const objectText = source.slice(start, end + 1);
+    const warnings: string[] = [];
+    let removed: Annotation | undefined;
+    try {
+        removed = normalizeAnnotation(JSON.parse(objectText), warnings, 0);
+    } catch {
+        throw new Error(`注釈 ${annotationId} を読み取れません。`);
+    }
+    if (!removed) {
+        throw new Error(`注釈 ${annotationId} を読み取れません。`);
+    }
+
+    const review = JSON.parse(source) as { annotations?: unknown[] };
+    if (Array.isArray(review.annotations) && review.annotations.length === 1) {
+        return { source: emptyReviewSource(), removed };
+    }
+
+    const before = source.slice(0, start);
+    const precedingDelimiter = /(?:\r?\n[ \t]*)?,\s*$/.exec(before);
+    if (precedingDelimiter) {
+        return {
+            source: before.slice(0, precedingDelimiter.index) + source.slice(end + 1),
+            removed
+        };
+    }
+
+    const after = source.slice(end + 1).replace(/^\s*,\s*/, '');
+    return { source: before + after, removed };
+}
+
 export function updateStatusLine(source: string, annotationId: string, fromStatuses: readonly string[], toStatus: string): string {
     const idPattern = new RegExp(`"id"\\s*:\\s*"${escapeForRegExp(annotationId)}"`, 'g');
     const occurrences = source.match(idPattern)?.length ?? 0;

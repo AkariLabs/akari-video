@@ -1,12 +1,13 @@
 import URI from '@theia/core/lib/common/uri';
-import { MessageService } from '@theia/core/lib/common';
-import { BaseWidget, OpenerService, open } from '@theia/core/lib/browser';
+import { CommandService, MessageService } from '@theia/core/lib/common';
+import { BaseWidget, OpenerService, StorageService, open } from '@theia/core/lib/browser';
 import { FileDialogService } from '@theia/filesystem/lib/browser';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
 import { WebviewWidget } from '@theia/plugin-ext/lib/main/browser/webview/webview';
 import { inject, injectable, postConstruct } from '@theia/core/shared/inversify';
 import { Message } from '@theia/core/shared/@lumino/messaging';
 import { AkariAnnotationsService, Annotation } from '../common/akari-annotations-protocol';
+import { composeAnnotationAgentPacket } from '../common/annotation-agent-packet';
 import { AnnotationStroke, parseReview } from '../common/annotation-store';
 import { readInternalSources } from '../common/edit-store';
 import {
@@ -52,6 +53,7 @@ type CanvasTargetHealth = 'ok' | 'dir-missing';
 const REVIEW_ANNOTATION_SHOW_STROKES_EVENT = 'akari.review.annotation.showStrokes';
 const REVIEW_SESSION_REFRESH_EVENT = 'akari.review.session.refresh';
 const REVIEW_SESSION_STATE_EVENT = 'akari.review.session.state';
+const ANNOTATION_UNDO_TIMEOUT_MS = 6000;
 
 type BoardColumn = 'open' | 'addressed' | 'resolved';
 
@@ -101,6 +103,12 @@ export class AkariReviewBoardWidget extends BaseWidget {
     @inject(MessageService)
     protected readonly messages!: MessageService;
 
+    @inject(CommandService)
+    protected readonly commands!: CommandService;
+
+    @inject(StorageService)
+    protected readonly storage!: StorageService;
+
     @inject(OpenerService)
     protected readonly openerService!: OpenerService;
 
@@ -122,6 +130,10 @@ export class AkariReviewBoardWidget extends BaseWidget {
     protected lastReviewSessionDispatchAnnotationIds = '';
     protected uiTargetLabels: Record<string, string> = {};
     protected lastUiTargetLabelsRequest = '';
+    protected sentAnnotationIds = new Set<string>();
+    protected sentAnnotationsReviewUri = '';
+    protected sentAnnotationsLoadSequence = 0;
+    protected pendingUndo = new Map<string, { annotation: Annotation; timer: ReturnType<typeof setTimeout> }>();
 
     @postConstruct()
     protected init(): void {
@@ -185,7 +197,16 @@ export class AkariReviewBoardWidget extends BaseWidget {
         this.toDispose.push(this.notice);
         this.node.append(this.notice.node, this.sessionBand, this.board);
 
+        const style = document.createElement('style');
+        style.textContent = `
+    .akari-review-board-widget .akari-review-board-card-undo {
+        background: var(--theia-list-inactiveSelectionBackground);
+    }
+`;
+        this.node.appendChild(style);
+
         this.toDispose.push(this.model.onChanged(() => {
+            this.syncSentAnnotationsForLocation();
             this.refresh();
             this.refreshReviewSessions();
         }));
@@ -217,6 +238,7 @@ export class AkariReviewBoardWidget extends BaseWidget {
         this.toDispose.push({
             dispose: () => window.removeEventListener(CLIP_ANNOTATION_LABELS_EVENT, onClipAnnotationLabels)
         });
+        this.syncSentAnnotationsForLocation();
         this.refresh();
         this.refreshReviewSessions();
     }
@@ -357,7 +379,11 @@ export class AkariReviewBoardWidget extends BaseWidget {
         for (const def of COLUMN_DEFS) {
             byStatus.set(def.status, []);
         }
-        for (const annotation of [...this.model.annotations].sort(
+        const annotationsById = new Map(this.model.annotations.map(annotation => [annotation.id, annotation]));
+        for (const { annotation } of this.pendingUndo.values()) {
+            annotationsById.set(annotation.id, annotation);
+        }
+        for (const annotation of [...annotationsById.values()].sort(
             (left, right) => (left.sourceT ?? Infinity) - (right.sourceT ?? Infinity)
         )) {
             byStatus.get(annotation.status)?.push(annotation);
@@ -379,9 +405,33 @@ export class AkariReviewBoardWidget extends BaseWidget {
                 continue;
             }
             for (const annotation of annotations) {
-                elements.list.appendChild(this.renderCard(annotation));
+                elements.list.appendChild(this.pendingUndo.has(annotation.id)
+                    ? this.renderUndoCard(annotation)
+                    : this.renderCard(annotation));
             }
         }
+    }
+
+    protected renderUndoCard(annotation: Annotation): HTMLDivElement {
+        const card = document.createElement('div');
+        card.className = 'akari-review-board-card akari-review-board-card-undo';
+        card.setAttribute('data-board-undo', annotation.id);
+        Object.assign(card.style, {
+            display: 'flex', alignItems: 'center', gap: '8px', padding: '8px', marginBottom: '8px',
+            border: '1px solid var(--theia-widget-border)', borderRadius: '4px'
+        });
+        const message = document.createElement('span');
+        message.textContent = '消しました';
+        const undoButton = document.createElement('button');
+        undoButton.type = 'button';
+        undoButton.className = 'theia-button secondary';
+        undoButton.textContent = '元に戻す';
+        undoButton.addEventListener('click', event => {
+            event.stopPropagation();
+            void this.undoDeleteAnnotation(annotation.id);
+        });
+        card.append(message, undoButton);
+        return card;
     }
 
     protected renderCard(annotation: Annotation): HTMLDivElement {
@@ -412,6 +462,17 @@ export class AkariReviewBoardWidget extends BaseWidget {
             border: '1px solid var(--theia-widget-border)', borderRadius: '999px', padding: '0 7px'
         });
         head.appendChild(inputTag);
+
+        if (this.sentAnnotationIds.has(annotation.id)) {
+            const sentBadge = document.createElement('span');
+            sentBadge.textContent = '送信済み';
+            sentBadge.setAttribute('data-sent-annotation', annotation.id);
+            Object.assign(sentBadge.style, {
+                fontSize: '11px', color: 'var(--theia-descriptionForeground)',
+                border: '1px solid var(--theia-widget-border)', borderRadius: '999px', padding: '0 7px'
+            });
+            head.appendChild(sentBadge);
+        }
 
         const originSessionId = sessionIdForAnnotation(annotation, this.reviewSessions);
         if (originSessionId) {
@@ -457,19 +518,41 @@ export class AkariReviewBoardWidget extends BaseWidget {
             strokesBadge.title = 'ペン描画あり（カードクリックで静止表示）';
             head.appendChild(strokesBadge);
         }
+        const actions = document.createElement('div');
+        Object.assign(actions.style, { display: 'flex', gap: '6px', marginLeft: 'auto' });
         if (annotation.status === 'addressed') {
             const resolveButton = document.createElement('button');
             resolveButton.type = 'button';
             resolveButton.className = 'theia-button secondary';
             resolveButton.textContent = '完了にする';
             resolveButton.setAttribute('data-board-resolve', annotation.id);
-            resolveButton.style.marginLeft = 'auto';
             resolveButton.addEventListener('click', event => {
                 event.stopPropagation();
                 void this.resolveAnnotationById(annotation.id);
             });
-            head.appendChild(resolveButton);
+            actions.appendChild(resolveButton);
         }
+        const deleteButton = document.createElement('button');
+        deleteButton.type = 'button';
+        deleteButton.className = 'theia-button secondary';
+        deleteButton.textContent = '消す';
+        deleteButton.setAttribute('data-delete-button', annotation.id);
+        deleteButton.addEventListener('click', event => {
+            event.stopPropagation();
+            void this.deleteAnnotationById(annotation.id);
+        });
+        actions.appendChild(deleteButton);
+        const sendButton = document.createElement('button');
+        sendButton.type = 'button';
+        sendButton.className = 'theia-button secondary';
+        sendButton.textContent = 'AI に送る';
+        sendButton.setAttribute('data-send-button', annotation.id);
+        sendButton.addEventListener('click', event => {
+            event.stopPropagation();
+            void this.sendAnnotationToAgent(annotation);
+        });
+        actions.appendChild(sendButton);
+        head.appendChild(actions);
         card.appendChild(head);
 
         const docTarget = parseDocTarget(annotation.target);
@@ -834,6 +917,111 @@ export class AkariReviewBoardWidget extends BaseWidget {
         } catch (error) {
             const detail = this.errorMessage(error);
             this.messages.error(`完了にできません: ${detail}`);
+        }
+    }
+
+    protected async deleteAnnotationById(id: string): Promise<void> {
+        const existing = this.model.annotations.find(annotation => annotation.id === id);
+        if (!existing) {
+            return;
+        }
+        const timer = setTimeout(() => {
+            this.pendingUndo.delete(id);
+            this.renderColumns();
+        }, ANNOTATION_UNDO_TIMEOUT_MS);
+        this.pendingUndo.set(id, { annotation: existing, timer });
+        try {
+            await this.model.deleteAnnotation(id);
+        } catch (error) {
+            clearTimeout(timer);
+            this.pendingUndo.delete(id);
+            this.renderColumns();
+            const detail = this.errorMessage(error);
+            this.messages.error(`削除できません: ${detail}`);
+        }
+    }
+
+    protected async undoDeleteAnnotation(id: string): Promise<void> {
+        const entry = this.pendingUndo.get(id);
+        if (!entry) {
+            return;
+        }
+        clearTimeout(entry.timer);
+        this.pendingUndo.delete(id);
+        try {
+            await this.model.restoreAnnotation(entry.annotation);
+        } catch (error) {
+            const timer = setTimeout(() => {
+                this.pendingUndo.delete(id);
+                this.renderColumns();
+            }, ANNOTATION_UNDO_TIMEOUT_MS);
+            this.pendingUndo.set(id, { annotation: entry.annotation, timer });
+            const detail = this.errorMessage(error);
+            this.messages.error(`元に戻せません: ${detail}`);
+        } finally {
+            this.renderColumns();
+        }
+    }
+
+    protected syncSentAnnotationsForLocation(): void {
+        const reviewUri = this.model.location?.reviewUri.toString() ?? '';
+        if (reviewUri === this.sentAnnotationsReviewUri) {
+            return;
+        }
+        for (const { timer } of this.pendingUndo.values()) {
+            clearTimeout(timer);
+        }
+        this.pendingUndo.clear();
+        this.sentAnnotationsReviewUri = reviewUri;
+        this.sentAnnotationIds = new Set();
+        const sequence = ++this.sentAnnotationsLoadSequence;
+        if (!reviewUri) {
+            return;
+        }
+        void this.storage.getData<string[]>(`akari-review-sent-annotations:${reviewUri}`, []).then(ids => {
+            if (sequence !== this.sentAnnotationsLoadSequence || reviewUri !== this.sentAnnotationsReviewUri) {
+                return;
+            }
+            this.sentAnnotationIds = new Set(Array.isArray(ids) ? ids.filter(id => typeof id === 'string') : []);
+            this.renderColumns();
+        });
+    }
+
+    protected async markAnnotationSent(id: string): Promise<void> {
+        const reviewUri = this.model.location?.reviewUri.toString();
+        if (!reviewUri) {
+            return;
+        }
+        this.sentAnnotationIds.add(id);
+        await this.storage.setData(
+            `akari-review-sent-annotations:${reviewUri}`,
+            [...this.sentAnnotationIds]
+        );
+        this.renderColumns();
+    }
+
+    protected async sendAnnotationToAgent(annotation: Annotation): Promise<void> {
+        const uiTarget = parseUiTarget(annotation.target);
+        const targetLabel = uiTarget ? buildUiTargetRow(uiTarget.id, this.uiTargetLabels).label : null;
+        const packet = composeAnnotationAgentPacket({
+            id: annotation.id,
+            sourceT: annotation.sourceT,
+            sourceRange: annotation.sourceRange,
+            target: annotation.target,
+            targetLabel,
+            text: annotation.text,
+            hasStrokes: Array.isArray(annotation.strokes) && annotation.strokes.length > 0
+        });
+        let sent: boolean | undefined;
+        try {
+            sent = await this.commands.executeCommand<boolean>('akari.partner.injectPrompt', packet);
+        } catch {
+            sent = undefined;
+        }
+        if (sent === true) {
+            await this.markAnnotationSent(annotation.id);
+        } else if (sent === undefined) {
+            this.messages.warn('パートナーを開いてから送ってください。');
         }
     }
 
