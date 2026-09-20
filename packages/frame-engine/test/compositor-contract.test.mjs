@@ -4,8 +4,8 @@ import path from 'node:path';
 import test from 'node:test';
 import { TRANSITION_TYPE_IDS } from '@akari-video/edit-store';
 import {
-  applyHomography, buildBaseFragment, cutLayerStyleBox, cutLayerStyleSourceUv, forwardInverse,
-  invertMat3, isDirectUploadableFormat, WebGL2Compositor
+  applyHomography, buildBaseFragment, compositionSourceSize, cutLayerStyleBox, cutLayerStyleSourceUv,
+  forwardInverse, invertMat3, isDirectUploadableFormat, WebGL2Compositor
 } from '../dist/index.js';
 import { FX_PASS_FRAGMENT } from '../dist/compositor/fx-passes.js';
 
@@ -221,11 +221,23 @@ test('base shader samples layer-style cuts through crop / box per input and leav
   assert.match(source, /vec2 inverseBox\(vec2 p, vec4 transform, vec2 box\) \{[\s\S]+?return pixel \/ box \+ 0\.5;\s+\}/u);
   // the fit path's arithmetic is byte-identical to before: same statements, same order
   assert.match(source, /vec2 inverseVisual\(vec2 p, vec4 transform, vec4 framing\) \{\s+vec2 pixel = \(p - 0\.5\) \* outputSize - transform\.xy;\s+float angle = transform\.w;\s+pixel = mat2\(cos\(angle\), -sin\(angle\), sin\(angle\), cos\(angle\)\) \* pixel;\s+pixel \/= transform\.z;\s+vec2 local = pixel \/ outputSize \+ 0\.5;\s+return framing\.xy \+ local \* framing\.zw;\s+\}/u);
-  assert.match(source, /private setCut\(\s+u: CutUniforms,\s+v: ResolvedCutVisual,\s+source: \{ width: number; height: number \},\s+adjustLutUnit: number,\s+\)/u);
-  assert.match(source, /if \(v\.layerStyle\) \{\s+const box = cutLayerStyleBox\(v, source\.width, source\.height\);\s+this\.gl\.uniform1i\(u\.layerStyle, 1\);/u);
+  // box の基準は「復号したフレームの寸法」ではなく「ソースの論理寸法」であることを名前で固定する
+  // （不具合メモ 第10項。sourceSize uniform = 復号寸法とは別物なので、取り違えを型と名前で止める）。
+  assert.match(source, /private setCut\(\s+u: CutUniforms,\s+v: ResolvedCutVisual,\s+sourceLogical: \{ width: number; height: number \},\s+adjustLutUnit: number,\s+\)/u);
+  assert.match(source, /if \(v\.layerStyle\) \{\s+const box = cutLayerStyleBox\(v, sourceLogical\.width, sourceLogical\.height\);\s+this\.gl\.uniform1i\(u\.layerStyle, 1\);/u);
   assert.match(source, /this\.gl\.uniform1i\(u\.layerStyle, 0\);/u);
-  assert.match(source, /sizes\[index\] = this\.uploadStillBaseTexture\(/u);
+  // base 経路の 3 分岐（静止画 / VideoFrame / YUV）はどれも復号寸法を decoded に受け、setCut へ渡す
+  // 寸法は必ず compositionSourceSize を通す（1 分岐でも素通しすると、その素材だけ構図が崩れる）。
+  assert.match(source, /decoded = this\.uploadStillBaseTexture\(/u);
+  assert.match(source, /decoded = this\.uploadVideoFrameTexture\(/u);
+  assert.match(source, /decoded = this\.uploadYuv\(/u);
+  assert.match(source, /sizes\[index\] = compositionSourceSize\(plan\.base\[index\], decoded\);/u);
+  assert.doesNotMatch(source, /sizes\[index\] = this\.upload/u);
   assert.match(source, /this\.setCut\(\s+baseProgram\.cutUniforms\[1\]!, plan\.base\[0\]!\.visual, sizes\[0\]!, BASE_ADJUST_LUT_UNITS\[1\],\s+\)/u);
+  // 合成層（追加レイヤー・積んだカット）も同じ基準に揃える。復号寸法（width / height）は
+  // fx のサンプリング寸法だけに残る。
+  assert.match(source, /const sourceLogical = compositionSourceSize\(layer, \{ width, height \}\);\s+const geometry = layer\.cutVisual\s+\? compositeCutGeometry\(\s+layer\.cutVisual, sourceLogical\.width, sourceLogical\.height, output\.width, output\.height,\s+\)\s+: \{ visual: layer\.visual, width: sourceLogical\.width, height: sourceLogical\.height \};/u);
+  assert.match(source, /const displayed = visual\.layerStyle \? cutLayerStyleBox\(visual, sourceLogical\.width, sourceLogical\.height\)/u);
   for (const type of ['hard-cut', 'dissolve', 'reveal-down']) {
     const fragment = buildBaseFragment(type);
     assert.match(fragment, /if \(layerStyle0 == 1\)/u, type);
@@ -400,6 +412,101 @@ test('layer-style cut box matches the layer program forwardInverse on identical 
       }
     }
     assert.ok(inside > 0, `case ${caseIndex} sampled no pixel inside the box`);
+  }
+});
+
+// ---- 不具合メモ 第10項: 構図の基準はソースの論理寸法（原本メタデータ）で、復号したプロキシの寸法ではない ----
+
+const FULL_FRAMING = Object.freeze({ x: 0, y: 0, width: 1, height: 1, scale: 1, centerX: 0.5, centerY: 0.5 });
+
+/** plan.base / plan.layers に載る形の最小の層。compositionSourceSize は source.logicalSize だけを見る。 */
+function planEntry(logicalSize) {
+  return {
+    id: 'cut-0',
+    sourceTimeUs: 0,
+    source: {
+      decode: async () => { throw new Error('この検査はデコードしない'); },
+      ...(logicalSize === undefined ? {} : { logicalSize }),
+    },
+  };
+}
+
+test('layer-style geometry follows the declared original size, not the decoded proxy (不具合メモ 第10項)', () => {
+  const original = { width: 1920, height: 1080 };
+  // 第10項の再現条件そのまま: 1920×1080 原本・crop 幅 0.5・scale 1 → 期待する窓は 960×1080
+  const cutVisual = {
+    framing: FULL_FRAMING,
+    opacity: 1,
+    transform: { x: 0, y: 0, scale: 1, rotateDegrees: 0 },
+    layerStyle: { crop: { x: 0.25, y: 0, width: 0.5, height: 1 } },
+  };
+  const entry = planEntry(original);
+  // プロキシの解像度を振っても構図（表示される矩形）は動かない
+  for (const proxy of [{ width: 960, height: 540 }, { width: 640, height: 360 }, { width: 480, height: 270 }, original]) {
+    const basis = compositionSourceSize(entry, proxy);
+    assert.deepEqual(basis, original, `proxy ${proxy.width}x${proxy.height}`);
+    assert.deepEqual(cutLayerStyleBox(cutVisual, basis.width, basis.height), { width: 960, height: 1080 });
+  }
+  // 症状の記録: 復号フレーム（960×540 プロキシ）を基準にすると 480×540 の小窓になる
+  assert.deepEqual(cutLayerStyleBox(cutVisual, 960, 540), { width: 480, height: 540 });
+  // 宣言が無い経路（原本をそのまま復号する GPU / OSR 書き出し）は復号寸法へ退避する
+  assert.deepEqual(compositionSourceSize(planEntry(undefined), original), original);
+  assert.deepEqual(compositionSourceSize(undefined, original), original);
+  // 静止画 base 層（source を持たない）も退避する
+  assert.deepEqual(
+    compositionSourceSize({ kind: 'image', image: {}, sourceTimeUs: 0 }, { width: 800, height: 600 }),
+    { width: 800, height: 600 },
+  );
+  // 壊れた宣言（0 / 負 / 非有限 / null）は無視して復号寸法へ退避する
+  const proxy = { width: 960, height: 540 };
+  for (const bad of [null, { width: 0, height: 1080 }, { width: 1920, height: -1 },
+    { width: Number.NaN, height: 1080 }, { width: 1920, height: Number.POSITIVE_INFINITY }]) {
+    assert.deepEqual(compositionSourceSize(planEntry(bad), proxy), proxy, JSON.stringify(bad));
+  }
+});
+
+test('a base cut and an additional layer with the same placement get the same composition (不具合メモ 第10項)', () => {
+  const original = { width: 1920, height: 1080 };
+  const proxy = { width: 960, height: 540 };
+  const outW = 1920, outH = 1080;
+  const cases = [
+    // 半々配置: 左半分（crop 幅 0.5・scale 1・x = -480）
+    {
+      crop: { x: 0.25, y: 0, width: 0.5, height: 1 },
+      transform: { x: -480, y: 0, scale: 1, rotateDegrees: 0 },
+      box: { width: 960, height: 1080 },
+    },
+    { crop: { x: 0, y: 0.1, width: 0.5, height: 0.8 }, transform: { x: 120, y: -60, scale: 1.25, rotateDegrees: 17 } },
+  ];
+  for (const [caseIndex, entry] of cases.entries()) {
+    // ベースカットはプロキシ（960×540）を復号しつつ原本寸法を宣言、追加レイヤーは原本（1920×1080）を
+    // 復号して宣言を持たない。どちらの経路も同じ基準に落ちること。
+    const baseBasis = compositionSourceSize(planEntry(original), proxy);
+    const layerBasis = compositionSourceSize(planEntry(undefined), original);
+    assert.deepEqual(layerBasis, baseBasis);
+    const cutVisual = { framing: FULL_FRAMING, opacity: 1, transform: entry.transform, layerStyle: { crop: entry.crop } };
+    const box = cutLayerStyleBox(cutVisual, baseBasis.width, baseBasis.height);
+    if (entry.box) assert.deepEqual(box, entry.box);
+    const layerVisual = { crop: entry.crop, perspective: null, transform: entry.transform };
+    const columnMajor = forwardInverse(layerVisual, layerBasis.width, layerBasis.height, outW, outH);
+    const forward = invertMat3([
+      columnMajor[0], columnMajor[3], columnMajor[6],
+      columnMajor[1], columnMajor[4], columnMajor[7],
+      columnMajor[2], columnMajor[5], columnMajor[8],
+    ]);
+    const angle = entry.transform.rotateDegrees * Math.PI / 180;
+    const c = Math.cos(angle), s = Math.sin(angle);
+    const centre = [outW / 2 + entry.transform.x, outH / 2 + entry.transform.y];
+    for (const [u, v] of [[0, 0], [1, 0], [0, 1], [1, 1], [0.5, 0.5]]) {
+      const layerCorner = applyHomography(forward, u, v);
+      const bx = (u - 0.5) * box.width, by = (v - 0.5) * box.height;
+      const baseCorner = [centre[0] + c * bx - s * by, centre[1] + s * bx + c * by];
+      assert.ok(Math.abs(layerCorner[0] - baseCorner[0]) < 1e-2 && Math.abs(layerCorner[1] - baseCorner[1]) < 1e-2,
+        `case ${caseIndex} corner (${u},${v}): layer ${layerCorner} vs base cut ${baseCorner}`);
+    }
+    // 症状の記録: 基準を復号フレームへ戻すと、同じ配置指定でベースカットだけが半分の窓になる
+    const shrunk = cutLayerStyleBox(cutVisual, proxy.width, proxy.height);
+    assert.ok(Math.abs(shrunk.width - box.width / 2) < 1e-9 && Math.abs(shrunk.height - box.height / 2) < 1e-9);
   }
 });
 

@@ -62,6 +62,35 @@ test('runtime-warning ignored rows have explicit perspective/animator or generic
   }
 });
 
+// 「consumed と書いた行」だけを検査していたので、実装が消費しているのに "ignored" と書かれた
+// 行は空振りで通り続けていた（不具合メモ 第17項: layers の source.in が plan.ts で消費されて
+// いるのに ignored のまま。表を見た書き出し前検査が「効かない」と誤って案内していた）。
+// エンジンの許可キーに載っている = そのキーを認識しているということなので、"ignored" を名乗る
+// なら warnUnknownFields に届く未知キーか、意図的無視として runtime_warning を立てた行のどちらか
+// でなければならない。
+test('ignored cuts/layers rows are either unknown to the engine or declared as a deliberate ignore', () => {
+  for (const row of table.fields) {
+    const kinds = row.applies_to.filter((value) => value === 'cuts' || value === 'layers');
+    if (kinds.length === 0) continue;
+    if (row.runtime_warning === true) continue;
+    const key = trailingKey(row.path);
+    const isKeyframe = row.path.includes('.keyframes[].');
+    for (const engine of table.engines) {
+      if (row[engine] !== 'ignored') continue;
+      for (const appliesTo of kinds) {
+        const known = isKeyframe ? KNOWN_KEYFRAME_KEYS
+          : appliesTo === 'cuts' ? KNOWN_CUT_KEYS : KNOWN_LAYER_KEYS;
+        assert.equal(
+          known.has(key),
+          false,
+          `${engine} ${row.path} (${appliesTo}): エンジンが知っているキーを ignored と書いている。`
+          + ' 消費しているなら consumed / partial へ、意図的に無視するなら runtime_warning: true へ',
+        );
+      }
+    }
+  }
+});
+
 test('consumed cuts/layers rows never claim runtime_warning', () => {
   for (const row of table.fields) {
     if (!row.applies_to.some((value) => value === 'cuts' || value === 'layers')) continue;

@@ -202,3 +202,48 @@ test('v2 audio keyframe のフレーム時刻を legacy view の秒へ変換す�
     { t: 2, gain_db: -12 },
   ]);
 });
+
+// 不具合メモ 第20項: bgm（camelCase の fadeIn / fadeOut）と sfx（snake_case）は fade を射影して
+// いたが、narration / speech 分岐だけが両フィールドを落としていた。
+// packages/schemas/engine-capabilities.json は tracks[].items[].fade_in / fade_out を
+// 「buildV2AudioItem が射影し render-cut audio mix が消費する」と宣言済みなので、射影の欠落は
+// そのまま契約違反（生成コマンドから afade が丸ごと消える）。
+test('audio track の narration / speech は fade_in / fade_out を sfx と同じ綴りで射影する', () => {
+  for (const role of ['narration', 'speech']) {
+    const internal = readInternalEdit({
+      version: 2,
+      output: { width: 1280, height: 720, fps: 30 },
+      sources: [{ id: 'voice', path: 'voice.wav', proxy: null }],
+      tracks: [{ id: `audio-${role}`, lane: 'audio', items: [{
+        id: 'n-0001', at: 60, duration: 120, role, gain_db: -2,
+        fade_in: 1, fade_out: 0.25,
+        source: { kind: 'media', src: 'voice', in: 0, out: 4 },
+      }] }],
+    });
+    const view = projectLegacyAudioView(internal);
+    const projected = role === 'narration' ? view.narration[0] : view.speech[0];
+    assert.deepEqual(
+      { fade_in: projected.fade_in, fade_out: projected.fade_out },
+      { fade_in: 1, fade_out: 0.25 },
+      role,
+    );
+    // camelCase は bgm 専用。narration 側に混ぜると render-cut が読めない。
+    assert.equal('fadeIn' in projected, false, role);
+    assert.equal('fadeOut' in projected, false, role);
+  }
+});
+
+test('fade を宣言しない narration には fade_in / fade_out が生えない', () => {
+  const internal = readInternalEdit({
+    version: 2,
+    output: { width: 1280, height: 720, fps: 30 },
+    sources: [{ id: 'voice', path: 'voice.wav', proxy: null }],
+    tracks: [{ id: 'audio-narration', lane: 'audio', items: [{
+      id: 'n-0001', at: 60, duration: 120, role: 'narration',
+      source: { kind: 'media', src: 'voice', in: 0, out: 4 },
+    }] }],
+  });
+  const projected = projectLegacyAudioView(internal).narration[0];
+  assert.equal('fade_in' in projected, false);
+  assert.equal('fade_out' in projected, false);
+});

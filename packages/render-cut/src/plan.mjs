@@ -36,7 +36,12 @@ const {
 
 const GAIN_DB_MIN = -60;
 const GAIN_DB_MAX = 12;
-export const MAX_AUDIO_INPUTS_PER_COMMAND = 200;
+// Windows CreateProcess limits the complete command line to 32767 UTF-16 units. A long absolute
+// project path is repeated once per input (-ss/-i) and again inside the filter graph, so a
+// full-length project blows past that limit well before 200 audio cuts fit in one command
+// (spawnSync ffmpeg ENAMETOOLONG during the audio-cut stage). Only the chunking changes: the
+// per-chunk commands are concatenated exactly as before, so the rendered audio is unaffected.
+export const MAX_AUDIO_INPUTS_PER_COMMAND = process.platform === "win32" ? 25 : 200;
 export const AUDIO_SEEK_PREROLL_SECONDS = 0.5;
 
 export function buildPlan({
@@ -289,17 +294,29 @@ export function buildAudioMixCommand({
       const delay = Math.max(0, Math.round(track.t * 1000));
       const rawLabel = `${prefix}_raw${index}`;
       const baseLabel = `${prefix}_base${index}`;
-      const narrationClipFx = clipFxPrefix(track.declaration, track.id, { narration: true });
+      // narration/speech fade_in/fade_out reuse resolveSfxFadeSeconds' clip-window clamp: each
+      // fade is independently capped at half the clip's own visible window
+      // [t, min(t + durationSec, duration)) -- resolveNarrationTrim always resolves a real
+      // effectiveDuration (it probes the material), so unlike sfx there is no "unknown window"
+      // path that skips fades. The afade pair is chained as a PREFIX here -- onto the clip's own
+      // content start, before adelay -- for the same reason sfx appends it before its adelay:
+      // afade's st=0 must land on the first narration sample, not on adelay's leading silence.
+      const narrationDuration = Math.min(track.durationSec, Math.max(0, duration - track.t));
+      const narrationFade = resolveSfxFadeSeconds(track.declaration, narrationDuration, `audio.${kind}[${index}]`);
+      warnings.push(...narrationFade.warnings);
+      const narrationFadeFilters = audioFadeFilters(narrationFade, narrationDuration);
+      const narrationClipFx = clipFxPrefix(track.declaration, track.id, { narration: true })
+        + (narrationFadeFilters.length > 0 ? `${narrationFadeFilters.join(",")},` : "");
       const envelope = createClipEnvelope({
         item: track.declaration,
         intervals: [],
         clipStartSec: track.t,
-        clipDurationSec: Math.min(track.durationSec, Math.max(0, duration - track.t)),
+        clipDurationSec: narrationDuration,
       });
       if (envelope) {
         const envelopeInput = appendEnvelopeInput({
           args, workDirectory, label: `${kind}-${index}`, envelope,
-          durationSec: Math.min(track.durationSec, Math.max(0, duration - track.t)), envelopes,
+          durationSec: narrationDuration, envelopes,
           inputIndex,
         });
         inputIndex += 1;
@@ -896,14 +913,23 @@ function resolveSfxFadeSeconds(sfx, effectiveDuration, label) {
   return { fadeIn: resolveField("fade_in"), fadeOut: resolveField("fade_out"), warnings };
 }
 
-function buildSfxFadeSuffix({ fadeIn, fadeOut }, effectiveDuration) {
+function buildSfxFadeSuffix(fade, effectiveDuration) {
+  const parts = audioFadeFilters(fade, effectiveDuration);
+  return parts.length > 0 ? `,${parts.join(",")}` : "";
+}
+
+// The afade pair (order, and where t=out starts) for one audio clip whose own window is
+// effectiveDuration long. sfx chains it as a suffix after volume (buildSfxFadeSuffix above);
+// narration/speech chain the same pair as a prefix before adelay. One definition so the two
+// placements can never drift apart.
+function audioFadeFilters({ fadeIn, fadeOut }, effectiveDuration) {
   const parts = [];
   if (fadeIn > 0) parts.push(`afade=t=in:st=0:d=${formatNumber(fadeIn)}`);
   if (fadeOut > 0) {
     const start = Math.max(0, effectiveDuration - fadeOut);
     parts.push(`afade=t=out:st=${formatNumber(start)}:d=${formatNumber(fadeOut)}`);
   }
-  return parts.length > 0 ? `,${parts.join(",")}` : "";
+  return parts;
 }
 
 export function buildMultiSourceAudioCutCommand({
