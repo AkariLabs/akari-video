@@ -56,7 +56,7 @@ import {
   judgeMotion,
   measureAudioLevel,
 } from "./verify-declared.mjs";
-import { blankFramesFromLuma, scanBlankFrames } from "./verify-blank.mjs";
+import { blankFramesFromLuma, scanBlankFrames, scanBlankFramesStreaming } from "./verify-blank.mjs";
 
 const VERSION = 1;
 const packageRequire = createRequire(import.meta.url);
@@ -594,6 +594,36 @@ export async function renderProject(input, options = {}, io = console) {
     emitTiming("audio_mix", audioMixStarted);
     reporter.stageStart("verify");
     const verifyStarted = performance.now();
+    // 不具合メモ第22項: 再利用判定をここで 1 回だけ解決する。判定結果は verifyArtifact へ渡すほか、
+    // 黒画面検査を先行実行するかどうかの判断にも使う（先行実行は進捗を出せる非同期版）。
+    // GPU 段の検査値は copy 経路に限らず渡す。音声が作り直されていても、映像ストリームの
+    // 同一性を実証できたときだけ映像の証拠を引き継ぐ判定は resolveVideoEvidenceReuse が行う。
+    const videoEvidence = codec === "png"
+      ? null
+      : resolveVideoEvidenceReuse({
+          plan,
+          gpuVerification: reusableGpuVerification,
+          outputPath,
+          ffprobeCommand: capabilities.ffprobeCommand,
+          ffmpegCommand: capabilities.ffmpegCommand,
+          onTiming: recordParentTiming,
+          onCheck: (check, status) => reporter.verifyCheck(check, status),
+        });
+    if (videoEvidence?.scope === "video") {
+      state.provenance.verify_evidence_reuse = videoEvidence.record;
+    }
+    const blankFrameScan = await prescanBlankFramesWithProgress({
+      // verifyArtifact の既定（省略時 true）と揃える。--no-verify-blank のときだけ走らせない。
+      enabled: options.verifyBlank !== false && codec !== "png",
+      evidence: videoEvidence,
+      outputPath,
+      fps: plan.preset.fps,
+      edit,
+      ffmpegCommand: capabilities.ffmpegCommand,
+      expectedFrames: Math.round(plan.predicted_duration_seconds * plan.preset.fps),
+      reporter,
+      onTiming: recordParentTiming,
+    });
     const verification = verifyArtifact({
       outputPath,
       plan,
@@ -602,8 +632,11 @@ export async function renderProject(input, options = {}, io = console) {
       ffprobeCommand: capabilities.ffprobeCommand,
       ffmpegCommand: capabilities.ffmpegCommand,
       verifyBlank: options.verifyBlank,
-      gpuVerification: plan.commands.audio_mix.operation === "copy" ? reusableGpuVerification : null,
+      gpuVerification: reusableGpuVerification,
+      videoEvidence,
+      blankFrameScan,
       onTiming: recordParentTiming,
+      onCheck: (check, status) => reporter.verifyCheck(check, status),
     });
     state.verify = verification;
     reporter.stageEnd("verify");
@@ -1336,17 +1369,21 @@ export function verifyArtifact({
   spawnSyncImpl = spawnSync,
   verifyBlank = true,
   gpuVerification = null,
+  // 事前に解決済みの再利用判定。render パスは 1 回だけ解決して黒画面検査の先行実行にも使う。
+  videoEvidence = null,
+  // 進捗付きで先行実行した signalstats 走査の結果（scanBlankFramesStreaming の戻り値）。
+  blankFrameScan = null,
   onTiming = null,
+  onCheck = null,
 }) {
   if (plan.preset?.video_codec === "png") {
     return verifyPngArtifact({ outputPath, plan, ffprobeCommand, spawnSyncImpl });
   }
-  const reusable = plan.commands.audio_mix?.operation === "copy"
-    ? reusableGpuVerificationResult(gpuVerification)
-    : null;
-  const probeStarted = performance.now();
-  const measured = reusable?.measured ?? probeMedia(ffprobeCommand, outputPath, spawnSyncImpl);
-  reportTiming(onTiming, "verify_probe", probeStarted);
+  const evidence = videoEvidence ?? resolveVideoEvidenceReuse({
+    plan, gpuVerification, outputPath, ffprobeCommand, ffmpegCommand, spawnSyncImpl, onTiming, onCheck,
+  });
+  const reusable = evidence.scope === "none" ? null : evidence;
+  const measured = evidence.measured;
   const video = measured.streams.find((stream) => stream.codec_type === "video");
   const audio = measured.streams.find((stream) => stream.codec_type === "audio");
   const actualDuration = Number(measured.format?.duration ?? video?.duration);
@@ -1370,13 +1407,11 @@ export function verifyArtifact({
   // (a) 実フレーム数と (b) デコードエラーの有無を同時に測る。ffprobe -count_frames も同じだけ
   // デコードが要るので、長尺で二重にコストを払わないよう ffmpeg 側 1 回に統合する。
   const decodeStarted = performance.now();
+  notifyVerifyCheck(onCheck, "decode", reusable ? "reused" : "start");
   const decodePass = reusable
-    ? {
-        ok: reusable.decodeStderr.trim() === "",
-        frameCount: finiteFrameCount(video?.nb_read_frames),
-        errorExcerpt: reusable.decodeStderr.trim() || "ffprobe exited successfully",
-      }
+    ? reusedDecodePass({ evidence, video, audio, outputPath, ffmpegCommand, spawnSyncImpl, onCheck })
     : decodeAllFramesAndCount(ffmpegCommand, outputPath, spawnSyncImpl);
+  notifyVerifyCheck(onCheck, "decode", "end");
   reportTiming(onTiming, "verify_decode", decodeStarted);
   const expectedFrameCount = Math.round(plan.predicted_duration_seconds * expected.fps);
   const frameTolerance = Math.round(plan.duration_tolerance_seconds * expected.fps);
@@ -1435,20 +1470,27 @@ export function verifyArtifact({
   const audioReasons = declaredAudioReasons({ plan, inputs, edit });
   const declaredAudio = plan.commands.audio_mix?.hasAudibleAudio === true
     || inputs.some((input) => input?.has_audio === true || input?.hasAudio === true);
+  // 音圧測定は成果物そのものを毎回測る。GPU 段が測ったのは音声合成**前**の composite なので、
+  // 映像ストリームが同一と実証できても音声側の測定値は決して引き継がない。
   const audioMeasurement = audio
     ? (() => {
         const started = performance.now();
+        notifyVerifyCheck(onCheck, "audio-level", "start");
         const result = measureAudioLevel({
           outputPath,
           durationSeconds: actualDuration,
           ffmpegCommand,
           spawnSyncImpl,
         });
+        notifyVerifyCheck(onCheck, "audio-level", "end");
         reportTiming(onTiming, "verify_audio", started);
         return result;
       })()
     : null;
-  if (!audio) reportTiming(onTiming, "verify_audio", performance.now());
+  if (!audio) {
+    notifyVerifyCheck(onCheck, "audio-level", "skipped");
+    reportTiming(onTiming, "verify_audio", performance.now());
+  }
   const audioLevel = judgeAudioLevel({
     declared: declaredAudio,
     reasons: audioReasons,
@@ -1458,6 +1500,7 @@ export function verifyArtifact({
   if (audioLevel.finding) findings.push(audioLevel.finding);
 
   const motionStarted = performance.now();
+  notifyVerifyCheck(onCheck, "motion", "start");
   const motion = judgeMotion({
     outputPath,
     cuts: edit?.cuts ?? [],
@@ -1466,11 +1509,21 @@ export function verifyArtifact({
     ffmpegCommand,
     spawnSyncImpl,
   });
+  notifyVerifyCheck(onCheck, "motion", "end");
   reportTiming(onTiming, "verify_motion", motionStarted);
   findings.push(...motion.findings);
   const blankStarted = performance.now();
+  // 走査の優先順位: (1) 映像が同一と実証できたときの GPU 段 luma、(2) 呼び出し側が進捗付きで
+  // 先行実行した走査結果、(3) この場での同期走査。いずれも同じ判定器を通るので結果は同じ。
+  const reusedLuma = verifyBlank
+    ? blankFramesFromLuma({ luma: reusable?.luma, fps: expected.fps, edit })
+    : null;
+  if (!verifyBlank) notifyVerifyCheck(onCheck, "blank-frames", "skipped");
+  else if (reusedLuma) notifyVerifyCheck(onCheck, "blank-frames", "reused");
+  else if (!blankFrameScan) notifyVerifyCheck(onCheck, "blank-frames", "start");
   const blankFrames = verifyBlank
-    ? (blankFramesFromLuma({ luma: reusable?.luma, fps: expected.fps, edit })
+    ? (reusedLuma
+      ?? blankFrameScan
       ?? scanBlankFrames({
           outputPath,
           fps: expected.fps,
@@ -1479,11 +1532,14 @@ export function verifyArtifact({
           spawnSyncImpl,
         }))
     : { intervals: [], findings: [] };
-  reportTiming(onTiming, "verify_blank", blankStarted);
+  if (verifyBlank && !reusedLuma && !blankFrameScan) notifyVerifyCheck(onCheck, "blank-frames", "end");
+  // 先行実行された走査の所要時間は呼び出し側が verify_blank として記録済み（0ms で上書きしない）。
+  if (!blankFrameScan) reportTiming(onTiming, "verify_blank", blankStarted);
   findings.push(...blankFrames.findings);
   return {
     verdict: findings.some((finding) => finding.severity === "error") ? "fail" : "pass",
     findings,
+    ...(evidence.scope === "video" ? { evidence_reuse: evidence.record } : {}),
     measured: {
       duration_seconds: actualDuration,
       width: video?.width ?? null,
@@ -1512,6 +1568,283 @@ export function reusableGpuVerificationResult(gpuVerification) {
   if (!measured || !Array.isArray(measured.streams) || !measured.format
     || typeof decodeStderr !== "string" || !video || finiteFrameCount(video.nb_read_frames) === null) return null;
   return { measured, decodeStderr, luma: gpuVerification?.luma ?? null };
+}
+
+// 引き継ぎの前に「同じ映像か」を確かめる項目。復号後の画の性質を決めるものだけを並べる。
+// 時刻系（avg_frame_rate / duration）は `-t` の末尾サンプル丸めで数桁だけ動くことがあり、
+// しかも成果物側で verify.duration / verify.fps が毎回測り直すので同一性の条件には入れない。
+export const VIDEO_STREAM_IDENTITY_FIELDS = Object.freeze([
+  "codec_name",
+  "profile",
+  "width",
+  "height",
+  "pix_fmt",
+  "color_range",
+  "r_frame_rate",
+]);
+
+/**
+ * 映像ストリームのパケットペイロードだけを demux して sha256 を取る（`-c copy` なのでデコードしない）。
+ * 実測（4K 600 フレーム・157MB・本機 16 コア）: 全デコード 1.24s / signalstats 走査 16.7s に対し
+ * このパスは 0.47s。streamhash muxer を持たない ffmpeg では非 0 終了するので null を返し、
+ * 呼び出し側は「同一性を実証できない」= 再走査へ倒れる。
+ */
+export function hashVideoBitstream({ path, ffmpegCommand = resolveFfmpeg(), spawnSyncImpl = spawnSync }) {
+  const result = spawnSyncImpl(
+    ffmpegCommand,
+    [
+      "-hide_banner", "-v", "error", "-nostdin",
+      "-i", path,
+      "-map", "0:v:0",
+      "-c", "copy",
+      "-f", "streamhash",
+      "-hash", "sha256",
+      "-",
+    ],
+    { encoding: "utf8", maxBuffer: 1024 * 1024 },
+  );
+  if (result?.error || result?.status !== 0) return null;
+  const match = /,v,SHA256=([0-9a-f]{64})/iu.exec(String(result?.stdout ?? ""));
+  return match ? match[1].toLowerCase() : null;
+}
+
+/**
+ * audio_mix の入力（GPU 段が測った composite）と成果物の映像ストリームが同一であることを実証する。
+ * 「plan が `-c:v copy` だったのだから同じはず」という前提では判定しない。実際に
+ *   1. 復号後の画の性質（コーデック / プロファイル / 解像度 / pix_fmt / color_range / 公称 fps）
+ *   2. フレーム数（GPU 段が数えた nb_read_frames と、成果物コンテナの nb_frames）
+ *   3. 映像パケットのペイロードの sha256（= ビットストリームそのもの）
+ * の 3 つが全て一致したときだけ identical を返す。どれか 1 つでも確かめられなければ
+ * 安全側（再走査）へ倒すため identical:false を返す。
+ */
+export function proveVideoStreamIdentity({
+  referencePath,
+  referenceStream,
+  referenceFrames,
+  candidatePath,
+  candidateStream,
+  ffmpegCommand = resolveFfmpeg(),
+  spawnSyncImpl = spawnSync,
+}) {
+  const unproven = (reason) => ({ identical: false, reason, frames: null, sha256: null });
+  if (typeof referencePath !== "string" || referencePath === "") {
+    return unproven("audio_mix の入力パスが plan に無い");
+  }
+  if (!referenceStream || !candidateStream) return unproven("映像ストリームの測定値が揃っていない");
+  for (const field of VIDEO_STREAM_IDENTITY_FIELDS) {
+    const left = referenceStream[field] ?? null;
+    const right = candidateStream[field] ?? null;
+    if (String(left) !== String(right)) {
+      return unproven(`映像ストリームの ${field} が違う（${String(left)} → ${String(right)}）`);
+    }
+  }
+  if (finiteFrameCount(referenceFrames) === null) return unproven("GPU 段の数えたフレーム数が読めない");
+  const candidateFrames = finiteFrameCount(candidateStream.nb_frames);
+  if (candidateFrames === null) return unproven("成果物のフレーム数（nb_frames）がコンテナから読めない");
+  if (candidateFrames !== Number(referenceFrames)) {
+    return unproven(`フレーム数が違う（${referenceFrames} → ${candidateFrames}）`);
+  }
+  const referenceHash = hashVideoBitstream({ path: referencePath, ffmpegCommand, spawnSyncImpl });
+  if (referenceHash === null) return unproven("audio_mix 入力の映像ビットストリームを読めない");
+  const candidateHash = hashVideoBitstream({ path: candidatePath, ffmpegCommand, spawnSyncImpl });
+  if (candidateHash === null) return unproven("成果物の映像ビットストリームを読めない");
+  if (referenceHash !== candidateHash) return unproven("映像ビットストリームが一致しない");
+  return { identical: true, reason: null, frames: candidateFrames, sha256: candidateHash };
+}
+
+/**
+ * 不具合メモ第22項（2026-09-18）: 書き出し後検査が映像を何度も走査していた問題への対処。
+ *
+ * GPU 段は composite に対して既に「全フレームを数える ffprobe」と「エンコード対象 canvas から
+ * 集めた全フレーム luma」を持っている。audio_mix が音声だけを作り直す（映像は `-c:v copy`）
+ * 書き出しでは、映像の証拠だけは同じものを使い回せる余地がある。ただし
+ *
+ *   - 引き継ぎの前に映像ストリームの同一性を実証する（proveVideoStreamIdentity）。
+ *   - **音声の証拠は決して引き継がない**。GPU 段が測ったのは音声合成前の composite なので、
+ *     最終音声の証拠にはならない。scope "video" では ffprobe の測定値は成果物を測り直し、
+ *     音声のデコード検査も音圧測定も成果物に対して毎回実行する。
+ *
+ * 返す scope の意味:
+ *   full  … audio_mix が composite のバイト単位コピー。最終ファイル = GPU 段が測ったファイル。
+ *   video … 映像ビットストリームの同一性を実証できた。映像の証拠だけ引き継ぐ。
+ *   none  … 実証できなかった / GPU 段の検査値が無い。従来どおり全部測り直す。
+ */
+export function resolveVideoEvidenceReuse({
+  plan,
+  gpuVerification = null,
+  outputPath,
+  ffprobeCommand = resolveFfprobe(),
+  ffmpegCommand = resolveFfmpeg(),
+  spawnSyncImpl = spawnSync,
+  onTiming = null,
+  onCheck = null,
+}) {
+  const audioPlan = plan?.commands?.audio_mix ?? {};
+  const reusable = reusableGpuVerificationResult(gpuVerification);
+  const probeStarted = performance.now();
+  if (reusable !== null && audioPlan.operation === "copy") {
+    notifyVerifyCheck(onCheck, "probe", "reused");
+    reportTiming(onTiming, "verify_probe", probeStarted);
+    const video = reusable.measured.streams.find((stream) => stream?.codec_type === "video");
+    return {
+      scope: "full",
+      reason: "audio_mix は composite のバイトコピーなので最終ファイルは GPU 段が測ったファイルそのもの",
+      measured: reusable.measured,
+      decodeStderr: reusable.decodeStderr,
+      frameCount: finiteFrameCount(video?.nb_read_frames),
+      luma: reusable.luma,
+      identity: null,
+      record: null,
+    };
+  }
+  notifyVerifyCheck(onCheck, "probe", "start");
+  const measured = probeMedia(ffprobeCommand, outputPath, spawnSyncImpl);
+  notifyVerifyCheck(onCheck, "probe", "end");
+  reportTiming(onTiming, "verify_probe", probeStarted);
+  const unreusable = (reason, identity = null) => ({
+    scope: "none",
+    reason,
+    measured,
+    decodeStderr: null,
+    frameCount: null,
+    luma: null,
+    identity,
+    record: null,
+  });
+  if (reusable === null) {
+    return unreusable(gpuVerification === null
+      ? "GPU 段の映像検査値が無い（OSR 経路など）"
+      : "GPU 段の映像検査値が引き継げる形をしていない");
+  }
+  const referenceStream = reusable.measured.streams.find((stream) => stream?.codec_type === "video");
+  const candidateStream = measured.streams?.find((stream) => stream?.codec_type === "video");
+  notifyVerifyCheck(onCheck, "video-identity", "start");
+  const identityStarted = performance.now();
+  const identity = proveVideoStreamIdentity({
+    referencePath: audioPlan.input,
+    referenceStream,
+    referenceFrames: referenceStream?.nb_read_frames,
+    candidatePath: outputPath,
+    candidateStream,
+    ffmpegCommand,
+    spawnSyncImpl,
+  });
+  reportTiming(onTiming, "verify_video_identity", identityStarted);
+  notifyVerifyCheck(onCheck, "video-identity", "end");
+  if (!identity.identical) {
+    return unreusable(`映像ストリームの同一性を実証できない: ${identity.reason}`, identity);
+  }
+  return {
+    scope: "video",
+    reason: "映像ビットストリームが audio_mix 入力と同一",
+    measured,
+    decodeStderr: reusable.decodeStderr,
+    frameCount: identity.frames,
+    luma: reusable.luma,
+    identity,
+    record: {
+      scope: "video-only",
+      audio_mix_operation: audioPlan.operation ?? null,
+      video_bitstream_sha256: identity.sha256,
+      video_frames: identity.frames,
+      video_luma_reused: Boolean(reusable.luma),
+      // 音声の証拠は成果物を毎回測り直す（GPU 段の音声検査は最終音声の証拠にならない）。
+      audio_evidence_reused: false,
+    },
+  };
+}
+
+function reusedDecodePass({ evidence, video, audio, outputPath, ffmpegCommand, spawnSyncImpl, onCheck }) {
+  const videoDecode = evidence.decodeStderr.trim();
+  const frameCount = evidence.frameCount ?? finiteFrameCount(video?.nb_read_frames);
+  if (evidence.scope === "full") {
+    return {
+      ok: videoDecode === "",
+      frameCount,
+      errorExcerpt: videoDecode || "ffprobe exited successfully",
+    };
+  }
+  // scope "video": 映像は同一と実証済みなので GPU 段のデコード結果を引き継ぐが、
+  // 音声は audio_mix が作り直しているため、音声のデコード検査だけは必ず成果物に対して実行する。
+  notifyVerifyCheck(onCheck, "audio-decode", audio ? "start" : "skipped");
+  const audioDecode = audio
+    ? decodeAudioStreamOnly(ffmpegCommand, outputPath, spawnSyncImpl)
+    : { ok: true, errorExcerpt: "no audio stream to decode" };
+  if (audio) notifyVerifyCheck(onCheck, "audio-decode", "end");
+  const failures = [
+    ...(videoDecode === "" ? [] : [`video(reused): ${videoDecode}`]),
+    ...(audioDecode.ok ? [] : [`audio: ${audioDecode.errorExcerpt}`]),
+  ];
+  return {
+    ok: failures.length === 0,
+    frameCount,
+    errorExcerpt: failures.join(" / ") || "video decode reused from the identical bitstream; audio decoded without error",
+  };
+}
+
+// 音声だけをデコードする（`-vn`）。映像を一切触らないので 4K でも数秒で終わる。
+function decodeAudioStreamOnly(ffmpegCommand, outputPath, spawnSyncImpl = spawnSync) {
+  const result = spawnSyncImpl(
+    ffmpegCommand,
+    [
+      "-hide_banner", "-v", "error", "-nostdin",
+      "-i", outputPath,
+      "-vn", "-sn", "-dn",
+      "-f", "null", "-",
+    ],
+    { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 },
+  );
+  const stderr = String(result?.stderr ?? "");
+  const spawnFailed = Boolean(result?.error);
+  return {
+    ok: !spawnFailed && result?.status === 0 && stderr.trim() === "",
+    errorExcerpt: spawnFailed
+      ? messageOf(result.error)
+      : (stderr.trim() || `ffmpeg exited ${result?.status ?? "unknown"} with no stderr output`)
+          .split(/\r?\n/u)
+          .slice(0, 5)
+          .join(" / "),
+  };
+}
+
+function notifyVerifyCheck(callback, check, status) {
+  if (typeof callback === "function") callback(check, status);
+}
+
+/**
+ * 不具合メモ第22項の 3 点目: 黒画面検査を進捗付きで先行実行する。
+ * 88 分 4K では走査に約 57 分かかるため、spawnSync のまま（= 終わるまで 1 バイトも読めない）だと
+ * 親の進捗ログが無音になり「レンダーが停止した」ように見えていた。走査の引数列と判定器は
+ * 同期版とまったく同じなので、出す結果は変わらない。
+ * 映像の同一性が実証できて luma を引き継げるときは走査そのものを行わない（null を返し、
+ * verifyArtifact 側が luma から同じ判定器で結果を作る）。
+ */
+async function prescanBlankFramesWithProgress({
+  enabled,
+  evidence,
+  outputPath,
+  fps,
+  edit,
+  ffmpegCommand,
+  expectedFrames,
+  reporter,
+  onTiming,
+}) {
+  if (enabled !== true) return null;
+  if (blankFramesFromLuma({ luma: evidence?.luma ?? null, fps, edit }) !== null) return null;
+  const started = performance.now();
+  reporter.verifyCheck("blank-frames", "start");
+  const result = await scanBlankFramesStreaming({
+    outputPath,
+    fps,
+    edit,
+    ffmpegCommand,
+    totalFrames: expectedFrames,
+    onProgress: ({ frames, totalFrames }) => reporter.verifyCheckFrames("blank-frames", frames, totalFrames),
+  });
+  reporter.verifyCheck("blank-frames", "end");
+  reportTiming(onTiming, "verify_blank", started);
+  return result;
 }
 
 function finiteFrameCount(value) {

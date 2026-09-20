@@ -53,6 +53,12 @@ item. Each source is probed once, and media finding paths include the source ID.
   past the container duration are reported by `media.source-range` instead.
 - `media.caption-silence-coverage`: warns when more than 30% of caption display time overlaps a
   silence interval of at least one second. `--caption-silence-warn-percent` changes the threshold.
+- `media.crop-scale-proxy-ratio`: warns when a cropped media item's `transform.scale` equals its
+  source's original-to-proxy dimension ratio. That value was the workaround while preview decoded
+  the proxy and export preferred it; now that both decode the original it enlarges the framing by
+  the ratio. Needs the dimensions of both files, so it only runs under `--media`; sources without a
+  `proxy`, items without a `crop` or a declared `scale`, equal-size proxies (a ratio of 1 cannot be
+  told apart from the default `scale`), and files whose dimensions cannot be read are all skipped.
 - `audio.narration.trim`: warns when a narration media item's `in` is at or beyond its audio-stream
   duration but still inside the container duration. Invalid or reversed narration `in`/`out` values
   are errors even without `--media`; an `in` past the container duration is a `media.source-range`

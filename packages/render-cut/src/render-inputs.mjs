@@ -145,7 +145,43 @@ function addBoundCaptionFontInput(inputs, asset) {
   });
 }
 
-export async function hashDeclaredRenderInputs(inputs, { useConsumedText = false } = {}) {
+/**
+ * 宣言済み入力 1 件の実体を 1 回読み、バイト数と sha256 を返す。
+ * hashDeclaredRenderInputs の既定実装。テストが読み込み回数を数えるための差し替え口でもある。
+ */
+export async function measureDeclaredInputFile(path) {
+  const info = await stat(path);
+  return { bytes: info.size, sha256: await sha256File(path) };
+}
+
+/**
+ * 不具合メモ第23項（2026-09-18）: 参照用途ごとに入力項目を列挙する設計はそのままで、
+ * 「用途別の結果行を残す必要」と「同じ実体を何度も読み直す必要」を切り離す。
+ * 88 分 4K の保存記録では入力 115 項目に対して一意の実体は 7 件しかなく、
+ * 4K 原本を 1 件読むだけで数十秒級なので、同じ実体の再読み込みがそのまま無駄になっていた。
+ *
+ * **キャッシュの寿命はこの関数呼び出し 1 回（= 1 スナップショット）の内部だけ**。
+ * measurements は呼び出しごとに新しく作られ、戻り値と一緒に捨てられるのでモジュール外へ出ない。
+ * render-receipt.mjs の照合は「レンダ中に素材が差し替わっていないか」を見るための
+ * **別スナップショット**なので、そこでは必ず再計測が走る（= 差し替えを見逃さない）。
+ * スナップショットを跨いで共有すると検証が無意味になるため、ここを跨がせてはならない。
+ */
+export async function hashDeclaredRenderInputs(inputs, {
+  useConsumedText = false,
+  measureFileImpl = measureDeclaredInputFile,
+} = {}) {
+  const measurements = new Map();
+  // 同じ実体を指す項目は 1 回だけ読む。realpath 済みの absolute_path を鍵にするので、
+  // シンボリックリンク経由の別名で宣言された項目も同じ実体として 1 回に収まる。
+  const measureOnce = (currentPath, identity) => {
+    const key = identity ?? currentPath;
+    let pending = measurements.get(key);
+    if (pending === undefined) {
+      pending = measureFileImpl(currentPath);
+      measurements.set(key, pending);
+    }
+    return pending;
+  };
   const result = [];
   for (const input of inputs) {
     if (input.missing === true) {
@@ -159,15 +195,19 @@ export async function hashDeclaredRenderInputs(inputs, { useConsumedText = false
       });
       continue;
     }
+    // 束縛の検証は共有しない: 項目ごとに毎回 realpath/lstat で確認する（読み込みだけを共有する）。
     const currentPath = assertCurrentInputBinding(input);
-    const info = await stat(currentPath);
     const consumedText = useConsumedText && typeof input.text === "string" ? input.text : null;
+    // 消費済みテキストを持つ項目は実体ではなくそのテキストが証拠なので、実体読み込みは行わない。
+    const measurement = consumedText === null
+      ? await measureOnce(currentPath, input.absolute_path)
+      : null;
     result.push({
       role: input.role,
       path: input.path,
       ...(input.scope === "akari" || input.scope === "library" ? { scope: input.scope } : {}),
-      bytes: consumedText === null ? info.size : Buffer.byteLength(consumedText),
-      sha256: consumedText === null ? await sha256File(currentPath) : sha256(consumedText),
+      bytes: consumedText === null ? measurement.bytes : Buffer.byteLength(consumedText),
+      sha256: consumedText === null ? measurement.sha256 : sha256(consumedText),
     });
   }
   return result;

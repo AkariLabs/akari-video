@@ -104,6 +104,9 @@ function createFullscreenRuntime() {
             Disposable: {
                 create: dispose => ({ dispose })
             }
+        },
+        preview_init_diagnostics_1: {
+            guardedKeyHandler: handler => handler
         }
     };
     return {

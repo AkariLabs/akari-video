@@ -32,6 +32,28 @@ const fs_1 = require("fs");
 const path_1 = require("path");
 const url_1 = require("url");
 const os_1 = require("os");
+/**
+ * 「OS / ファイルシステムがリンク作成自体を拒んだ」エラーコード。入力が誤っている系
+ * （EEXIST・ENOENT・ENOTDIR 等）は含めない — それらは従来どおり throw して原因を隠さない。
+ *
+ * Windows ではディレクトリ junction は権限不要だが、ファイル symlink は管理者権限か
+ * 開発者モードが必要。そのため一般の Windows 機では `.gitignore` 等のファイルリンクが
+ * 必ず EPERM になり、保存前の検証ステージングが本番の書き込みより先に落ちていた。
+ */
+const LINK_UNSUPPORTED_CODES = new Set([
+    'EPERM', 'EACCES', 'EINVAL', 'ENOSYS', 'ENOTSUP', 'EOPNOTSUPP', 'UNKNOWN'
+]);
+/** ディレクトリをリンクできなかったことを示す内部シグナル（素材の実体コピーは選ばない）。 */
+class ShadowLinkUnavailable extends Error {
+    constructor(entryPath, cause) {
+        super(`影プロジェクトへ ${entryPath} をリンクできませんでした（${cause.code ?? cause.message}）`);
+        this.name = 'ShadowLinkUnavailable';
+    }
+}
+function isLinkUnsupported(error) {
+    const code = error?.code;
+    return typeof code === 'string' && LINK_UNSUPPORTED_CODES.has(code);
+}
 const DEFAULT_LINT_DEBOUNCE_MS = 400;
 const lintTimers = new Map();
 const lintRevisions = new Map();
@@ -48,26 +70,79 @@ async function lintProjectCandidates(projectRoot, candidates) {
  * 実ディスクを直接読む lint check（motion 袋参照等）を含め、候補一式を保存前に検証する。
  * 元プロジェクトの直下エントリは影プロジェクトへ symlink し、候補の祖先だけを実体化する。
  * 既存 lintProjectCandidates の inputOverrides 契約は変更せず、Project API だけがこの入口を使う。
+ *
+ * リンクが使えない環境（Windows の非特権ユーザー等）では**ファイルだけコピーへ倒す**。
+ * 影プロジェクトは lint の読み取り専用ステージングなので、ファイルはコピーで等価であり、
+ * かつ影側への書き込みが元プロジェクトへ伝播しない（symlink 経路と同じ安全性）。
+ * ディレクトリはコピーしない: プロジェクト直下には assets/（4K 原本が何十 GB）が来るため、
+ * junction も作れない環境では影プロジェクトの構築自体を諦め、候補のメモリ差し替えだけで
+ * 検証する（実ディスクを読む check は落ちるが、保存は止めない — 冒頭の fail-open 裁定）。
  */
-async function lintProjectCandidatesOnDisk(projectRoot, candidates) {
+async function lintProjectCandidatesOnDisk(projectRoot, candidates, hooks = {}) {
     const shadowRoot = await fs_1.promises.mkdtemp((0, path_1.join)((0, os_1.tmpdir)(), 'akari-edit-store-lint-'));
     try {
         for (const entry of await fs_1.promises.readdir(projectRoot, { withFileTypes: true })) {
-            await fs_1.promises.symlink((0, path_1.resolve)(projectRoot, entry.name), (0, path_1.join)(shadowRoot, entry.name), entry.isDirectory() ? 'junction' : 'file');
+            await materializeShadowEntry((0, path_1.resolve)(projectRoot, entry.name), (0, path_1.join)(shadowRoot, entry.name), entry.isDirectory(), entry.name, hooks);
         }
         for (const [relativePath, text] of Object.entries(candidates)) {
             const segments = candidateSegments(relativePath);
             const destination = (0, path_1.join)(shadowRoot, ...segments);
-            await materializeShadowDirectory(shadowRoot, (0, path_1.dirname)(destination));
+            await materializeShadowDirectory(shadowRoot, (0, path_1.dirname)(destination), hooks);
             await fs_1.promises.rm(destination, { recursive: true, force: true });
             if (text !== null)
                 await fs_1.promises.writeFile(destination, text, 'utf8');
         }
         return await runEditLint(shadowRoot, undefined, false);
     }
+    catch (error) {
+        if (!(error instanceof ShadowLinkUnavailable))
+            throw error;
+        warnShadowUnavailableOnce(error);
+        hooks.onShadowUnavailable?.(error.message);
+        return await lintProjectCandidates(projectRoot, candidates);
+    }
     finally {
         await fs_1.promises.rm(shadowRoot, { recursive: true, force: true });
     }
+}
+/**
+ * 影プロジェクトへ 1 エントリを写す。まず従来どおり symlink / junction を試し、
+ * OS がリンク作成を拒んだときだけファイルコピーへ倒す（権限のある環境の挙動は変えない）。
+ */
+async function materializeShadowEntry(source, destination, preferDirectory, label, hooks) {
+    const symlink = hooks.symlink
+        ?? ((target, path, type) => fs_1.promises.symlink(target, path, type));
+    try {
+        await symlink(source, destination, preferDirectory ? 'junction' : 'file');
+        hooks.onShadowEntry?.(label, 'symlink');
+        return;
+    }
+    catch (error) {
+        if (!isLinkUnsupported(error))
+            throw error;
+        if (preferDirectory)
+            throw new ShadowLinkUnavailable(source, error);
+        // symlink エントリはリンク先を辿って種別を決める（リンクの実体がディレクトリなら
+        // コピーしない）。辿れない壊れたリンクは lint も読めないので影へは作らない。
+        const stats = await fs_1.promises.stat(source).catch(() => null);
+        if (stats === null) {
+            hooks.onShadowEntry?.(label, 'skip');
+            return;
+        }
+        if (stats.isDirectory())
+            throw new ShadowLinkUnavailable(source, error);
+        await fs_1.promises.copyFile(source, destination);
+        hooks.onShadowEntry?.(label, 'copy');
+    }
+}
+let shadowUnavailableWarned = false;
+function warnShadowUnavailableOnce(error) {
+    if (shadowUnavailableWarned) {
+        return;
+    }
+    shadowUnavailableWarned = true;
+    console.warn('[edit-store] 影プロジェクトを作れないため、実ディスクを読む lint check を省いて'
+        + '候補のメモリ検証だけで保存しています。', error.message);
 }
 function candidateSegments(relativePath) {
     const segments = relativePath.split('/');
@@ -77,10 +152,10 @@ function candidateSegments(relativePath) {
     }
     return segments;
 }
-async function materializeShadowDirectory(shadowRoot, directory) {
+async function materializeShadowDirectory(shadowRoot, directory, hooks) {
     if (directory === shadowRoot)
         return;
-    await materializeShadowDirectory(shadowRoot, (0, path_1.dirname)(directory));
+    await materializeShadowDirectory(shadowRoot, (0, path_1.dirname)(directory), hooks);
     try {
         const stat = await fs_1.promises.lstat(directory);
         if (!stat.isSymbolicLink()) {
@@ -92,7 +167,7 @@ async function materializeShadowDirectory(shadowRoot, directory) {
         await fs_1.promises.unlink(directory);
         await fs_1.promises.mkdir(directory);
         for (const entry of await fs_1.promises.readdir(source, { withFileTypes: true })) {
-            await fs_1.promises.symlink((0, path_1.resolve)(source, entry.name), (0, path_1.join)(directory, entry.name), entry.isDirectory() ? 'junction' : 'file');
+            await materializeShadowEntry((0, path_1.resolve)(source, entry.name), (0, path_1.join)(directory, entry.name), entry.isDirectory(), entry.name, hooks);
         }
     }
     catch (error) {

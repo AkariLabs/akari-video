@@ -38,7 +38,9 @@ test('Web UI は描画後のゲート位置を要求時計と表示時計に戻�
   const loop = section(app, 'function playbackLoop()', '\nfunction updateWaveformPlayhead()');
   const branch = section(loop, '  if (frameEngineEnabled) {', '\n    return;\n  }');
   assert.match(branch, /const dt = lastWallMs > 0 \? \(now - lastWallMs\) \/ 1000 : 0;\s*lastWallMs = now;\s*frameEngineRequestedTime \+= dt;/u);
-  assert.match(branch, /outputTime = frameEnginePreview\?\.renderPlayback\(frameEngineRequestedTime\) \?\? frameEngineRequestedTime;\s*(?:\/\/[^\n]*\n\s*)*const held = frameEnginePreview\?\.heldStartSec\(\) \?\? null;\s*if \(held !== null\) \{\s*frameEngineRequestedTime = held;\s*outputTime = held;\s*\}\s*seek\.value = outputTime;/u);
+  // 描画要求は最後の有効フレームへ丸めた時刻（frameEngineRenderTime）で出す（不具合メモ 第16項）。
+  // 壁時計（frameEngineRequestedTime）の進みとゲート位置の戻し方はここでは変えない。
+  assert.match(branch, /outputTime = frameEnginePreview\?\.renderPlayback\(frameEngineRenderTime\) \?\? frameEngineRenderTime;\s*(?:\/\/[^\n]*\n\s*)*const held = frameEnginePreview\?\.heldStartSec\(\) \?\? null;\s*if \(held !== null\) \{\s*frameEngineRequestedTime = held;\s*outputTime = held;\s*\}\s*seek\.value = outputTime;/u);
   assert.equal([...branch.matchAll(/lastWallMs = now;/gu)].length, 1);
 });
 

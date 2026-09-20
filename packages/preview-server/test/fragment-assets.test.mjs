@@ -69,7 +69,10 @@ test('summary rewrites fragment URLs and PUT preserves the declared fragment pat
   const { base, summary } = await startServer(t, project);
   assert.equal(summary.overlays[0].html, '<div><img src="/assets/logo.png"></div>');
   assert.equal(summary.overlays[0].htmlPath, htmlPath);
-  assert.deepEqual(summary.frameEngine?.warnings ?? [], []);
+  assert.deepEqual(
+    (summary.frameEngine?.warnings ?? []).filter(warning => warning.startsWith('overlay:')),
+    [],
+  );
   assert.equal(await (await fetch(`${base}/assets/logo.png`)).text(), 'image');
   summary.overlays[0].transform = { x: 12, y: 0, scale: 1, rotate: 0 };
   const response = await fetch(`${base}/api/edit.json`, {

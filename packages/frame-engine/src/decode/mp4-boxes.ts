@@ -56,6 +56,40 @@ export function childBoxes(bytes: Uint8Array, start: number, end: number): Mp4Bo
   return boxes;
 }
 
+/**
+ * 索引構築の失敗を、どの段で何が起きたか分かる形へ包む（不具合メモ 第1項）。
+ *
+ * 第1項は「edit.json を開くと Invalid array length」という報告で、例外スタックも最小再現も
+ * 採取できないまま原因未確定になった。MP4Box は appendBuffer の中で同期 throw するので、
+ * 受けずに素の `RangeError: Invalid array length` を出すと、どの素材・どの段で失敗したのかが
+ * 利用者にもログにも残らない。
+ *
+ * 確定している 1 つの機構（音声トラックの長い PCM サンプル表。第19項）は videoOnlyIndexHeader で
+ * 全経路から閉じたが、それが第1項の UI エラーと同一だったとまでは確定していない。だからこそ
+ * 次に同じ症状が出たときに段と素材が分かる必要がある。
+ */
+export function describeIndexParseFailure(
+  error: unknown,
+  stage: string,
+  headerByteLength: number,
+): Error {
+  const cause = error instanceof Error ? error : new Error(String(error));
+  const isArrayLength = cause instanceof RangeError
+    || /invalid array length|invalid typed array length/iu.test(cause.message);
+  const hint = isArrayLength
+    ? ' 巨大なサンプル表を配列へ展開できていない可能性がある'
+      + '（非映像 trak は videoOnlyIndexHeader で隠しているので、映像 trak 自体のサンプル数か'
+      + ' ヘッダーの破損を疑う）。'
+    : '';
+  const wrapped = new Error(
+    `${stage} の構築に失敗しました（ヘッダー ${headerByteLength} バイト）: ${cause.message}.${hint}`,
+    { cause },
+  );
+  // 元のスタックを失わない（第1項でスタックが採れなかったことが調査を止めた）。
+  if (cause.stack) wrapped.stack = `${wrapped.stack ?? wrapped.message}\ncaused by: ${cause.stack}`;
+  return wrapped;
+}
+
 const FREE_BOX_TYPE = Uint8Array.from([0x66, 0x72, 0x65, 0x65]); // 'free'
 
 /**

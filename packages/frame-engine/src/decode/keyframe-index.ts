@@ -1,6 +1,6 @@
 // Adapted from packages/preview-engine/src/keyframeIndex.ts.
 import * as MP4BoxNamespace from '@webav/mp4box.js';
-import { videoOnlyIndexHeader } from './mp4-boxes.js';
+import { describeIndexParseFailure, videoOnlyIndexHeader } from './mp4-boxes.js';
 
 const MP4Box: typeof MP4BoxNamespace =
   (MP4BoxNamespace as unknown as { default?: typeof MP4BoxNamespace }).default ?? MP4BoxNamespace;
@@ -73,6 +73,35 @@ export interface MediaEdit {
   media_time: number;
   media_rate_integer: number;
   media_rate_fraction: number;
+}
+
+/**
+ * 索引済みのキーフレーム時刻から最大キーフレーム間隔（秒）を出す。長い GOP はシークのたびに
+ * 直前のキーフレームから復号し直すことになり、プレビューのカット切り替えとスクラブが遅くなる
+ * （不具合メモ 第3項: 原本のまま再生していた区間が約 1fps になった）。
+ *
+ * 索引は全ソースで既に作っているので追加の読み取りは発生しない。末尾の扱いは
+ * edit-lint の source.proxy-long-gop と同じく「最後のキーフレームから素材末尾まで」も
+ * 1 区間として数える（末尾に長い GOP がある素材を見逃さないため）。
+ * キーフレームが 1 枚も無い / 素材尺が不明なときは undefined（判定しない）。
+ */
+export function maxKeyframeIntervalSeconds(index: KeyframeIndex): number | undefined {
+  const times = index.keyframeTimesUs;
+  if (!Array.isArray(times) || times.length === 0) return undefined;
+  let maxUs = 0;
+  for (let position = 1; position < times.length; position += 1) {
+    const gap = times[position]! - times[position - 1]!;
+    if (gap > maxUs) maxUs = gap;
+  }
+  const endUs = index.presentationDurationUs ?? index.lastFrameStartUs;
+  if (endUs != null && Number.isFinite(endUs)) {
+    const tailGap = endUs - times[times.length - 1]!;
+    if (tailGap > maxUs) maxUs = tailGap;
+  } else if (times.length < 2) {
+    // キーフレーム 1 枚で末尾も分からなければ間隔は測れない。
+    return undefined;
+  }
+  return maxUs / 1e6;
 }
 
 /**
@@ -168,7 +197,14 @@ export async function buildKeyframeIndexFromHeader(rawHeader: ArrayBuffer): Prom
     };
     const buffer = header as ArrayBuffer & { fileStart: number };
     buffer.fileStart = 0;
-    file.appendBuffer(buffer);
-    file.flush();
+    try {
+      file.appendBuffer(buffer);
+      file.flush();
+    } catch (error) {
+      // MP4Box は appendBuffer の中で同期 throw する。ここで受けないと素の
+      // `RangeError: Invalid array length` がそのまま利用者へ出て、どの素材のどの段で
+      // 失敗したのか分からない（不具合メモ 第1項: 例外スタック・最小再現が採取できなかった）。
+      reject(describeIndexParseFailure(error, 'keyframe index', header.byteLength));
+    }
   });
 }

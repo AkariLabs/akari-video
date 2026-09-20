@@ -1,7 +1,15 @@
 import * as MP4BoxNamespace from '@webav/mp4box.js';
 import { readVideoCodecFromMoov } from './codec-probe.js';
 import { calculateDecoderTimestampOffsetUs, type MediaEdit } from './keyframe-index.js';
-import { childBoxes, readBoxAt, typeAt, uint32, videoOnlyIndexHeader, type Mp4BoxLocation } from './mp4-boxes.js';
+import {
+  childBoxes,
+  describeIndexParseFailure,
+  readBoxAt,
+  typeAt,
+  uint32,
+  videoOnlyIndexHeader,
+  type Mp4BoxLocation,
+} from './mp4-boxes.js';
 
 const MP4Box: typeof MP4BoxNamespace =
   (MP4BoxNamespace as unknown as { default?: typeof MP4BoxNamespace }).default ?? MP4BoxNamespace;
@@ -248,8 +256,15 @@ export function buildVideoSampleTable(rawHeader: ArrayBuffer): Promise<Mp4VideoS
     };
     const buffer = header as ArrayBuffer & { fileStart: number };
     buffer.fileStart = 0;
-    file.appendBuffer(buffer);
-    file.flush();
+    try {
+      file.appendBuffer(buffer);
+      file.flush();
+    } catch (error) {
+      // MP4Box は appendBuffer の中で同期 throw する。ここで受けないと素の
+      // `RangeError: Invalid array length` がそのまま利用者へ出て、どの素材のどの段で
+      // 失敗したのか分からない（不具合メモ 第1項: 例外スタック・最小再現が採取できなかった）。
+      reject(describeIndexParseFailure(error, 'video sample table', header.byteLength));
+    }
   });
 }
 

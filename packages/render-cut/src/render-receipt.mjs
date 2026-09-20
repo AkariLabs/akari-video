@@ -87,6 +87,10 @@ export async function createImmutableRenderReceipt({
   const bytes = `${JSON.stringify(payload, null, 2)}\n`;
   const digest = sha256(bytes);
   const receiptDirectory = await prepareContainedReportDirectory(root, "render-receipts");
+  // 不具合メモ第23項（2026-09-18）: ここは inputSnapshot の写しではなく **別スナップショット**。
+  // レンダ中に素材が差し替わっていないことを確かめるのが目的なので、実体は必ず読み直す
+  // （hashDeclaredRenderInputs の読み込み共有は 1 呼び出しの内部限定。この呼び出しは
+  // 直前のスナップショットとは別の Map を使うため、差し替えを見逃さない）。
   const currentSnapshot = await hashDeclaredRenderInputs(declaredInputs);
   const changes = findSnapshotDifferences(inputSnapshot, currentSnapshot);
   if (changes.length > 0 && !await isOnlyUnreferencedSourceDifference({

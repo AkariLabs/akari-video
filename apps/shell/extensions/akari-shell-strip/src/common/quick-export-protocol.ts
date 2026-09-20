@@ -6,7 +6,7 @@
  * 更新する（task.md 「自前の進捗テキスト + 不確定バーで可」）。
  */
 
-import { QuickExportStage } from './quick-export-progress';
+import { QuickExportStage, QuickExportVerifyCheck } from './quick-export-progress';
 
 export const AKARI_QUICK_EXPORT_SERVICE_PATH = '/services/akari-quick-export';
 export const AkariQuickExportService = Symbol('AkariQuickExportService');
@@ -113,6 +113,8 @@ export interface QuickExportStatus {
     readonly progressFrame?: number;
     /** render 工程の総コマ数。 */
     readonly progressTotalFrames?: number;
+    /** verify 工程で今走っている検査（不具合メモ 第22項。黒画面検査だけで約 57 分かかる）。 */
+    readonly progressVerifyCheck?: QuickExportVerifyCheck;
     /** render 工程を実行しているエンジン。 */
     readonly progressEngine?: 'gpu' | 'osr';
     /** GPU 直結の書き出しが最後に書いた実フレーム JPEG のコマ番号。 */

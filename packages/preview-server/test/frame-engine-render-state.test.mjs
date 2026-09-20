@@ -19,6 +19,11 @@ function harness() {
   const runtime = {
     disposed: false, totalDuration: 10, fps: 30, lastCutIndex: null,
     currentAccesses: null, currentDecodedFrames: null,
+    // 不具合メモ 第6項: renderFrame は提示のたびに要求／提示を記録し、待ち手を起こす。
+    // このハーネスは renderFrame が触るフィールドを明示列挙する契約なので、実装が持つ
+    // ものをここにも置く。
+    requestedFrame: null, presentedFrame: null, presentedSeq: 0,
+    lastPresentedRecord: null, presentedWaiters: new Set(),
     measurements: {
       lateFrames: 0, presentedAt: [], seekBeforeMs: [], seekAfterMs: [],
       boundaryBefore: { total: 0, late: 0, hit: 0 },
@@ -27,7 +32,11 @@ function harness() {
     audio: { noteRendered() {} },
     scheduler: { isWarmed: () => false, notePresented() {} },
     updateMetrics() {},
-    ui: { error: { hidden: false, textContent: 'Frame engine: previous failure' } },
+    ui: {
+      error: { hidden: false, textContent: 'Frame engine: previous failure' },
+      // 第6項の「提示待ち」の印を置く先。
+      root: { dataset: {} },
+    },
   };
   const render = runInNewContext(`(${declaration})`, {
     performance: { now: () => 100 },

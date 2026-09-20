@@ -8761,7 +8761,8 @@ ${indent}`);
           return null;
         const timelineStartSec = startAtSec + delaySec;
         const baseGain = dbToLinear(item.gainDb);
-        const gainEvents = item.kind === "sfx" ? fadeGainEvents(item.spec.fade_in ?? item.spec.fadeIn, item.spec.fade_out ?? item.spec.fadeOut, item.itemDurationSec, elapsedIntoItemSec, durationSec, baseGain) : [{ offsetSec: 0, value: baseGain, method: "set" }];
+        const fadeWindowSec = item.kind === "sfx" ? item.itemDurationSec : Math.min(item.itemDurationSec, Math.max(0, timelineDurationSec - item.t));
+        const gainEvents = fadeGainEvents(item.spec.fade_in ?? item.spec.fadeIn, item.spec.fade_out ?? item.spec.fadeOut, fadeWindowSec, elapsedIntoItemSec, durationSec, baseGain);
         return {
           kind: item.kind,
           id: item.id,
@@ -18578,6 +18579,7 @@ ${indent}`);
     KNOWN_CUT_KEYS: () => KNOWN_CUT_KEYS,
     KNOWN_KEYFRAME_KEYS: () => KNOWN_KEYFRAME_KEYS,
     KNOWN_LAYER_KEYS: () => KNOWN_LAYER_KEYS,
+    LONG_GOP_WARNING_SECONDS: () => LONG_GOP_WARNING_SECONDS,
     LookaheadCache: () => LookaheadCache,
     LookaheadFrameSource: () => LookaheadFrameSource,
     MOTION_IN_OUT_PRESETS: () => MOTION_IN_OUT_PRESETS,
@@ -18637,6 +18639,7 @@ ${indent}`);
     cutLayerStyleBox: () => cutLayerStyleBox,
     cutLayerStyleSourceUv: () => cutLayerStyleSourceUv,
     decodeEndForPresentationSample: () => decodeEndForPresentationSample,
+    describeIndexParseFailure: () => describeIndexParseFailure,
     describeMissingFrames: () => describeMissingFrames,
     describeUnusableDecoder: () => describeUnusableDecoder,
     dissolveNoiseField: () => dissolveNoiseField,
@@ -18673,6 +18676,7 @@ ${indent}`);
     isForceSoftwareDecode: () => isForceSoftwareDecode,
     isItemAdjustIdentity: () => isItemAdjustIdentity,
     isLayerActiveAt: () => isLayerActiveAt,
+    maxKeyframeIntervalSeconds: () => maxKeyframeIntervalSeconds,
     mergeByteRanges: () => mergeByteRanges,
     motionVisualAt: () => motionVisualAt,
     needsCodecProbe: () => needsCodecProbe,
@@ -25346,6 +25350,18 @@ void main() {
     }
     return boxes;
   }
+  function describeIndexParseFailure(error, stage, headerByteLength) {
+    const cause = error instanceof Error ? error : new Error(String(error));
+    const isArrayLength = cause instanceof RangeError || /invalid array length|invalid typed array length/iu.test(cause.message);
+    const hint = isArrayLength ? " \u5DE8\u5927\u306A\u30B5\u30F3\u30D7\u30EB\u8868\u3092\u914D\u5217\u3078\u5C55\u958B\u3067\u304D\u3066\u3044\u306A\u3044\u53EF\u80FD\u6027\u304C\u3042\u308B\uFF08\u975E\u6620\u50CF trak \u306F videoOnlyIndexHeader \u3067\u96A0\u3057\u3066\u3044\u308B\u306E\u3067\u3001\u6620\u50CF trak \u81EA\u4F53\u306E\u30B5\u30F3\u30D7\u30EB\u6570\u304B \u30D8\u30C3\u30C0\u30FC\u306E\u7834\u640D\u3092\u7591\u3046\uFF09\u3002" : "";
+    const wrapped = new Error(
+      `${stage} \u306E\u69CB\u7BC9\u306B\u5931\u6557\u3057\u307E\u3057\u305F\uFF08\u30D8\u30C3\u30C0\u30FC ${headerByteLength} \u30D0\u30A4\u30C8\uFF09: ${cause.message}.${hint}`,
+      { cause }
+    );
+    if (cause.stack) wrapped.stack = `${wrapped.stack ?? wrapped.message}
+caused by: ${cause.stack}`;
+    return wrapped;
+  }
   var FREE_BOX_TYPE = Uint8Array.from([102, 114, 101, 101]);
   function videoOnlyIndexHeader(header) {
     try {
@@ -25406,6 +25422,23 @@ void main() {
         return Math.abs(candidate - targetUs) <= toleranceUs ? candidate : null;
       }
     };
+  }
+  function maxKeyframeIntervalSeconds(index) {
+    const times = index.keyframeTimesUs;
+    if (!Array.isArray(times) || times.length === 0) return void 0;
+    let maxUs = 0;
+    for (let position = 1; position < times.length; position += 1) {
+      const gap = times[position] - times[position - 1];
+      if (gap > maxUs) maxUs = gap;
+    }
+    const endUs = index.presentationDurationUs ?? index.lastFrameStartUs;
+    if (endUs != null && Number.isFinite(endUs)) {
+      const tailGap = endUs - times[times.length - 1];
+      if (tailGap > maxUs) maxUs = tailGap;
+    } else if (times.length < 2) {
+      return void 0;
+    }
+    return maxUs / 1e6;
   }
   function calculateDecoderTimestampOffsetUs(firstDts, trackTimescale, edits) {
     if (!Number.isFinite(firstDts) || !(trackTimescale > 0)) return 0;
@@ -25478,8 +25511,12 @@ void main() {
       };
       const buffer = header;
       buffer.fileStart = 0;
-      file.appendBuffer(buffer);
-      file.flush();
+      try {
+        file.appendBuffer(buffer);
+        file.flush();
+      } catch (error) {
+        reject(describeIndexParseFailure(error, "keyframe index", header.byteLength));
+      }
     });
   }
 
@@ -25833,8 +25870,12 @@ void main() {
       };
       const buffer = header;
       buffer.fileStart = 0;
-      file.appendBuffer(buffer);
-      file.flush();
+      try {
+        file.appendBuffer(buffer);
+        file.flush();
+      } catch (error) {
+        reject(describeIndexParseFailure(error, "video sample table", header.byteLength));
+      }
     });
   }
   function sampleAtPresentationTime(table, targetUs) {
@@ -25870,6 +25911,7 @@ void main() {
 
   // packages/frame-engine/src/decode/range-mp4-source.ts
   var DEFAULT_RANGE_CACHE_BYTES = 64 * 1024 * 1024;
+  var LONG_GOP_WARNING_SECONDS = 2;
   var INITIAL_HEADER_BYTES = 16;
   var MAX_TOP_LEVEL_BOXES = 64;
   var OUTPUT_GRACE_MS = 250;
@@ -26351,6 +26393,12 @@ void main() {
         buildVideoSampleTable(opened.header.slice(0)),
         buildKeyframeIndexFromHeader(opened.header.slice(0))
       ]);
+      const gopSeconds = maxKeyframeIntervalSeconds(keyframes);
+      if (gopSeconds !== void 0 && gopSeconds > LONG_GOP_WARNING_SECONDS) {
+        this.options.onWarning?.(
+          `${this.id}: \u6700\u5927\u30AD\u30FC\u30D5\u30EC\u30FC\u30E0\u9593\u9694\u304C ${gopSeconds.toFixed(3)} \u79D2\u306E\u305F\u3081\u3001\u30B7\u30FC\u30AF\u3068\u30AB\u30C3\u30C8\u5207\u308A\u66FF\u3048\u304C\u9045\u304F\u306A\u308A\u307E\u3059\u3002GOP 1 \u79D2\u4EE5\u4E0B\u306E\u8EFD\u91CF\u7248\u3092\u7528\u610F\u3057\u3066\u304F\u3060\u3055\u3044\uFF08ffmpeg -i <input> \u2026 -g <fps> -keyint_min <fps> -sc_threshold 0 -bf 0 <output>\uFF09`
+        );
+      }
       this.prepared = { table, keyframes, totalBytes: opened.totalBytes };
     }
     async load() {

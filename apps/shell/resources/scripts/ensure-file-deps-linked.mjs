@@ -17,6 +17,22 @@ for (const [name, specification] of Object.entries(dependencies)) {
     continue;
   }
   await mkdir(path.dirname(link), { recursive: true });
-  await symlink(path.relative(path.dirname(link), target), link, 'dir');
+  // Windows のディレクトリ symlink（type 'dir'）は管理者権限か開発者モードが必要で、
+  // 一般の Windows 機では EPERM になり **シェルのビルドが prebuild で止まる**。
+  // junction は同じ「ディレクトリへの参照」を権限なしで作れるので、リンクを拒まれた
+  // ときだけそちらへ倒す（packages/edit-store/src/write-gate.ts と同じ規律。不具合メモ 第8項）。
+  // 既に通っている環境の挙動は変えない（相対パスの 'dir' リンクのまま）。
+  try {
+    await symlink(path.relative(path.dirname(link), target), link, 'dir');
+  } catch (error) {
+    const code = error?.code;
+    if (!['EPERM', 'EACCES', 'EINVAL', 'ENOSYS', 'ENOTSUP', 'EOPNOTSUPP', 'UNKNOWN'].includes(code)) {
+      throw error;
+    }
+    // junction は絶対パスでなければ解決先がずれる。
+    await symlink(target, link, 'junction');
+    console.log(`linked (junction): ${name} -> ${path.relative(shellRoot, target)}`);
+    continue;
+  }
   console.log(`linked: ${name} -> ${path.relative(shellRoot, target)}`);
 }

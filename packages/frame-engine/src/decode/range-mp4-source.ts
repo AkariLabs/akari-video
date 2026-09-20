@@ -1,6 +1,10 @@
 import { withTimeout } from './guard.js';
 import { evaluateCodecSupport, type CodecSupport } from './codec-probe.js';
-import { buildKeyframeIndexFromHeader, type KeyframeIndex } from './keyframe-index.js';
+import {
+  buildKeyframeIndexFromHeader,
+  maxKeyframeIntervalSeconds,
+  type KeyframeIndex,
+} from './keyframe-index.js';
 import {
   buildVideoSampleTable,
   decodeEndForPresentationSample,
@@ -12,6 +16,8 @@ import {
 } from './sample-table.js';
 
 export const DEFAULT_RANGE_CACHE_BYTES = 64 * 1024 * 1024;
+// edit-lint の source.proxy-long-gop と同じ閾値。プレビューのカット切り替えが体感で遅くなる境目。
+export const LONG_GOP_WARNING_SECONDS = 2;
 const INITIAL_HEADER_BYTES = 16;
 const MAX_TOP_LEVEL_BOXES = 64;
 const OUTPUT_GRACE_MS = 250;
@@ -691,6 +697,19 @@ export class RangeMp4Source {
       buildVideoSampleTable(opened.header.slice(0)),
       buildKeyframeIndexFromHeader(opened.header.slice(0)),
     ]);
+    // 長い GOP はシークのたびに直前のキーフレームから復号し直すので、カット切り替えと
+    // スクラブが遅くなる（不具合メモ 第3項: 原本のまま再生していた区間が約 1fps になった）。
+    // 閾値 2 秒と直し方は edit-lint の source.proxy-long-gop と同じものを使う（あちらは宣言済み
+    // プロキシだけを見ており、原本を復号している経路は誰も見ていなかった）。索引は既に
+    // 作っているので追加の読み取りは発生しない。
+    const gopSeconds = maxKeyframeIntervalSeconds(keyframes);
+    if (gopSeconds !== undefined && gopSeconds > LONG_GOP_WARNING_SECONDS) {
+      this.options.onWarning?.(
+        `${this.id}: 最大キーフレーム間隔が ${gopSeconds.toFixed(3)} 秒のため、`
+        + 'シークとカット切り替えが遅くなります。GOP 1 秒以下の軽量版を用意してください'
+        + '（ffmpeg -i <input> … -g <fps> -keyint_min <fps> -sc_threshold 0 -bf 0 <output>）'
+      );
+    }
     this.prepared = { table, keyframes, totalBytes: opened.totalBytes };
   }
 

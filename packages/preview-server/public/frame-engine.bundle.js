@@ -8753,7 +8753,8 @@ var require_audio_schedule = __commonJS({
         return null;
       const timelineStartSec = startAtSec + delaySec;
       const baseGain = dbToLinear(item.gainDb);
-      const gainEvents = item.kind === "sfx" ? fadeGainEvents(item.spec.fade_in ?? item.spec.fadeIn, item.spec.fade_out ?? item.spec.fadeOut, item.itemDurationSec, elapsedIntoItemSec, durationSec, baseGain) : [{ offsetSec: 0, value: baseGain, method: "set" }];
+      const fadeWindowSec = item.kind === "sfx" ? item.itemDurationSec : Math.min(item.itemDurationSec, Math.max(0, timelineDurationSec - item.t));
+      const gainEvents = fadeGainEvents(item.spec.fade_in ?? item.spec.fadeIn, item.spec.fade_out ?? item.spec.fadeOut, fadeWindowSec, elapsedIntoItemSec, durationSec, baseGain);
       return {
         kind: item.kind,
         id: item.id,
@@ -25106,6 +25107,18 @@ function childBoxes2(bytes, start, end) {
   }
   return boxes;
 }
+function describeIndexParseFailure(error, stage, headerByteLength) {
+  const cause = error instanceof Error ? error : new Error(String(error));
+  const isArrayLength = cause instanceof RangeError || /invalid array length|invalid typed array length/iu.test(cause.message);
+  const hint = isArrayLength ? " \u5DE8\u5927\u306A\u30B5\u30F3\u30D7\u30EB\u8868\u3092\u914D\u5217\u3078\u5C55\u958B\u3067\u304D\u3066\u3044\u306A\u3044\u53EF\u80FD\u6027\u304C\u3042\u308B\uFF08\u975E\u6620\u50CF trak \u306F videoOnlyIndexHeader \u3067\u96A0\u3057\u3066\u3044\u308B\u306E\u3067\u3001\u6620\u50CF trak \u81EA\u4F53\u306E\u30B5\u30F3\u30D7\u30EB\u6570\u304B \u30D8\u30C3\u30C0\u30FC\u306E\u7834\u640D\u3092\u7591\u3046\uFF09\u3002" : "";
+  const wrapped = new Error(
+    `${stage} \u306E\u69CB\u7BC9\u306B\u5931\u6557\u3057\u307E\u3057\u305F\uFF08\u30D8\u30C3\u30C0\u30FC ${headerByteLength} \u30D0\u30A4\u30C8\uFF09: ${cause.message}.${hint}`,
+    { cause }
+  );
+  if (cause.stack) wrapped.stack = `${wrapped.stack ?? wrapped.message}
+caused by: ${cause.stack}`;
+  return wrapped;
+}
 var FREE_BOX_TYPE = Uint8Array.from([102, 114, 101, 101]);
 function videoOnlyIndexHeader(header) {
   try {
@@ -25166,6 +25179,23 @@ function createIndex(values, frameEnds = /* @__PURE__ */ new Map(), nextFrameSta
       return Math.abs(candidate - targetUs) <= toleranceUs ? candidate : null;
     }
   };
+}
+function maxKeyframeIntervalSeconds(index) {
+  const times = index.keyframeTimesUs;
+  if (!Array.isArray(times) || times.length === 0) return void 0;
+  let maxUs = 0;
+  for (let position = 1; position < times.length; position += 1) {
+    const gap = times[position] - times[position - 1];
+    if (gap > maxUs) maxUs = gap;
+  }
+  const endUs = index.presentationDurationUs ?? index.lastFrameStartUs;
+  if (endUs != null && Number.isFinite(endUs)) {
+    const tailGap = endUs - times[times.length - 1];
+    if (tailGap > maxUs) maxUs = tailGap;
+  } else if (times.length < 2) {
+    return void 0;
+  }
+  return maxUs / 1e6;
 }
 function calculateDecoderTimestampOffsetUs(firstDts, trackTimescale, edits) {
   if (!Number.isFinite(firstDts) || !(trackTimescale > 0)) return 0;
@@ -25238,8 +25268,12 @@ async function buildKeyframeIndexFromHeader(rawHeader) {
     };
     const buffer = header;
     buffer.fileStart = 0;
-    file.appendBuffer(buffer);
-    file.flush();
+    try {
+      file.appendBuffer(buffer);
+      file.flush();
+    } catch (error) {
+      reject(describeIndexParseFailure(error, "keyframe index", header.byteLength));
+    }
   });
 }
 
@@ -25593,8 +25627,12 @@ function buildVideoSampleTable(rawHeader) {
     };
     const buffer = header;
     buffer.fileStart = 0;
-    file.appendBuffer(buffer);
-    file.flush();
+    try {
+      file.appendBuffer(buffer);
+      file.flush();
+    } catch (error) {
+      reject(describeIndexParseFailure(error, "video sample table", header.byteLength));
+    }
   });
 }
 function sampleAtPresentationTime(table, targetUs) {
@@ -25630,6 +25668,7 @@ function precedingSyncSample(table, decodeIndex) {
 
 // ../frame-engine/src/decode/range-mp4-source.ts
 var DEFAULT_RANGE_CACHE_BYTES = 64 * 1024 * 1024;
+var LONG_GOP_WARNING_SECONDS = 2;
 var INITIAL_HEADER_BYTES = 16;
 var MAX_TOP_LEVEL_BOXES = 64;
 var OUTPUT_GRACE_MS = 250;
@@ -26071,6 +26110,12 @@ var RangeMp4Source = class _RangeMp4Source {
       buildVideoSampleTable(opened.header.slice(0)),
       buildKeyframeIndexFromHeader(opened.header.slice(0))
     ]);
+    const gopSeconds = maxKeyframeIntervalSeconds(keyframes);
+    if (gopSeconds !== void 0 && gopSeconds > LONG_GOP_WARNING_SECONDS) {
+      this.options.onWarning?.(
+        `${this.id}: \u6700\u5927\u30AD\u30FC\u30D5\u30EC\u30FC\u30E0\u9593\u9694\u304C ${gopSeconds.toFixed(3)} \u79D2\u306E\u305F\u3081\u3001\u30B7\u30FC\u30AF\u3068\u30AB\u30C3\u30C8\u5207\u308A\u66FF\u3048\u304C\u9045\u304F\u306A\u308A\u307E\u3059\u3002GOP 1 \u79D2\u4EE5\u4E0B\u306E\u8EFD\u91CF\u7248\u3092\u7528\u610F\u3057\u3066\u304F\u3060\u3055\u3044\uFF08ffmpeg -i <input> \u2026 -g <fps> -keyint_min <fps> -sc_threshold 0 -bf 0 <output>\uFF09`
+      );
+    }
     this.prepared = { table, keyframes, totalBytes: opened.totalBytes };
   }
   async load() {
@@ -30131,6 +30176,11 @@ function percentile2(values, fraction = 0.5) {
   const sorted = [...values].sort((a, b) => a - b);
   return sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * fraction))] ?? null;
 }
+function renderableSeconds(seconds, totalDuration, fps) {
+  const clamped = Math.max(0, Math.min(seconds, totalDuration));
+  if (!(fps > 0) || !(totalDuration > 0)) return clamped;
+  return Math.min(clamped, Math.max(0, Math.ceil(totalDuration * fps - 1e-6) - 1) / fps);
+}
 function mediaUrl(value) {
   const source = String(value ?? "");
   if (/^(https?:|blob:|\/)/u.test(source)) return source;
@@ -30238,24 +30288,43 @@ function resolvedEngineLayers(edit) {
     };
   }).filter(Boolean);
 }
+function originalByProxyUrl(edit) {
+  const map = /* @__PURE__ */ new Map();
+  for (const source of Array.isArray(edit?.sources) ? edit.sources : []) {
+    if (!source?.path || typeof source.proxy !== "string" || !source.proxy) continue;
+    const width = Number(source.logicalSize?.width);
+    const height = Number(source.logicalSize?.height);
+    const declared = Number.isFinite(width) && width > 0 && Number.isFinite(height) && height > 0 ? { width, height } : void 0;
+    map.set(mediaUrl(source.proxy), {
+      url: mediaUrl(source.path),
+      ...declared ? { logicalSize: declared } : {}
+    });
+  }
+  return map;
+}
 function sourceCandidates(edit, timelineData, cuts, engineLayers = []) {
   const candidates = /* @__PURE__ */ new Map();
+  const originalByProxy = originalByProxyUrl(edit);
   if (Array.isArray(edit?.sources)) {
     for (const source of edit.sources) {
       if (source?.id && source.path) {
         const id = String(source.id);
+        const originalUrl = mediaUrl(source.path);
         candidates.set(id, {
           id,
-          originalUrl: mediaUrl(source.path),
-          proxyUrl: source.proxy ? mediaUrl(source.proxy) : null
+          originalUrl,
+          proxyUrl: source.proxy ? mediaUrl(source.proxy) : null,
+          logicalUrl: originalUrl
         });
       }
     }
   } else if (edit?.source?.path) {
+    const originalUrl = mediaUrl(edit.source.path);
     candidates.set("default", {
       id: "default",
-      originalUrl: mediaUrl(edit.source.path),
-      proxyUrl: null
+      originalUrl,
+      proxyUrl: null,
+      logicalUrl: originalUrl
     });
   }
   for (let index = 0; index < cuts.length; index += 1) {
@@ -30265,17 +30334,39 @@ function sourceCandidates(edit, timelineData, cuts, engineLayers = []) {
       const clipUrl = mediaUrl(clip.src);
       const declared = candidates.get(sourceId);
       if (!declared || clipUrl !== declared.originalUrl && clipUrl !== declared.proxyUrl) {
-        candidates.set(sourceId, { id: sourceId, originalUrl: clipUrl, proxyUrl: null });
+        candidates.set(sourceId, {
+          id: sourceId,
+          originalUrl: clipUrl,
+          proxyUrl: null,
+          logicalUrl: originalByProxy.get(clipUrl)?.url ?? clipUrl
+        });
       }
     }
   }
   for (const layer of engineLayers) {
     for (const value of [layer?.src, layer?.mask]) {
       if (typeof value !== "string" || !value) continue;
-      candidates.set(value, { id: value, originalUrl: mediaUrl(value), proxyUrl: null });
+      const url = mediaUrl(value);
+      const original = originalByProxy.get(url);
+      candidates.set(value, {
+        id: value,
+        originalUrl: url,
+        proxyUrl: null,
+        logicalUrl: original?.url ?? url,
+        ...original?.logicalSize ? { logicalSize: original.logicalSize } : {}
+      });
     }
   }
   return candidates;
+}
+function logicalSizeFromCodecInfo(info) {
+  if (!info) return void 0;
+  const codedWidth = Number(info.codedWidth);
+  const codedHeight = Number(info.codedHeight);
+  if (!(Number.isFinite(codedWidth) && codedWidth > 0)) return void 0;
+  if (!(Number.isFinite(codedHeight) && codedHeight > 0)) return void 0;
+  const swapsDimensions = info.rotationDeg === 90 || info.rotationDeg === 270;
+  return swapsDimensions ? { width: codedHeight, height: codedWidth } : { width: codedWidth, height: codedHeight };
 }
 function autoProxyPath(url) {
   const parsed = new URL(url, window.location.href);
@@ -30357,15 +30448,19 @@ async function resolveSourceChoices(candidates, context) {
     else if (pending) context.ui.showNotice(`\u30D7\u30ED\u30AD\u30B7\u751F\u6210\u4E2D\u2026\uFF08${pending}\uFF09`);
     else context.ui.clearNotice();
   };
+  const withLogicalSize = (candidate, choice, size = candidate.logicalSize) => {
+    const { logicalSize: _replaced, ...rest } = choice;
+    return size && choice.url !== candidate.logicalUrl ? { ...rest, logicalSize: size } : rest;
+  };
   const resolveCandidate = async (candidate) => {
     if (!context.cutSourceIds.has(candidate.id)) {
-      return {
+      return withLogicalSize(candidate, {
         id: candidate.id,
         url: candidate.originalUrl,
         chosen: "original",
         reason: "not-a-cut-source",
         support: null
-      };
+      });
     }
     const isImage = /\.(png|jpe?g|webp|bmp|gif)(?:$|[?#])/iu.test(candidate.originalUrl);
     if (isImage) {
@@ -30379,57 +30474,57 @@ async function resolveSourceChoices(candidates, context) {
     const hasProxy = candidate.proxyUrl != null;
     if (!needsCodecProbe(context.mode, hasProxy)) {
       const decision2 = chooseSource({ mode: context.mode, hasProxy, support: null });
-      return {
+      return withLogicalSize(candidate, {
         id: candidate.id,
         url: decision2.chosen === "proxy" ? candidate.proxyUrl : candidate.originalUrl,
         chosen: decision2.chosen,
         reason: decision2.reason,
         support: null
-      };
+      });
     }
     const probe = await probeSourceCodec(candidate.originalUrl, { query: { akariNoProxy: "1" } });
     const codec = probe.info?.codec;
     const decision = chooseSource({ mode: context.mode, hasProxy, support: probe.support });
     if (decision.chosen === "original") {
-      return {
+      return withLogicalSize(candidate, {
         id: candidate.id,
         url: candidate.originalUrl,
         chosen: "original",
         reason: decision.reason,
         ...codec ? { codec } : {},
         support: probe.support
-      };
+      });
     } else if (decision.chosen === "proxy") {
-      return {
+      return withLogicalSize(candidate, {
         id: candidate.id,
         url: candidate.proxyUrl,
         chosen: "proxy",
         reason: decision.reason,
         ...codec ? { codec } : {},
         support: null
-      };
+      });
     } else {
-      const provisional = {
+      const provisional = withLogicalSize(candidate, {
         id: candidate.id,
         url: candidate.originalUrl,
         chosen: "original",
         reason: "auto-proxy-pending",
         ...codec ? { codec } : {},
         support: probe.support
-      };
+      });
       if (context.isCurrent()) {
         pendingProxies.add(candidate.id);
         void requestAutoProxy(candidate, context.ui, context.isCurrent).then(async (proxyUrl) => {
           if (!context.isCurrent()) return;
           pendingProxies.delete(candidate.id);
           if (!proxyUrl) failedProxies.add(candidate.id);
-          const choice = {
+          const choice = withLogicalSize(candidate, {
             ...provisional,
             url: proxyUrl ?? candidate.originalUrl,
             chosen: proxyUrl ? "auto-proxy" : "original",
             reason: proxyUrl ? "auto-proxy" : "auto-proxy-failed",
             support: proxyUrl ? null : probe.support
-          };
+          }, logicalSizeFromCodecInfo(probe.info));
           completedProxies.set(candidate.id, choice);
           updateNotice();
           await apply(choice);
@@ -30488,6 +30583,7 @@ function createUi(stage) {
   const root = document.createElement("div");
   root.id = "frame-engine-preview";
   root.dataset.frameEngineReady = "false";
+  root.dataset.framePresentationPending = "false";
   Object.assign(root.style, { position: "absolute", inset: "0", background: "#000" });
   const canvas = document.createElement("canvas");
   canvas.id = "frame-engine-canvas";
@@ -30687,6 +30783,15 @@ var FrameEngineRuntime = class {
     warmupMs: []
   };
   rendering = null;
+  // 不具合メモ 第6項: seek() は要求を投げた時点で返り、実際の描画は非同期に終わる。UI の時刻
+  // 表示だけが先に動くため、自動検証が 450ms 待ちで「前の位置の映像」を撮ってしまうことがあった
+  // （1.6 秒待つと写った）。**待ち時間を伸ばすのではなく、提示が終わったことを知れるようにする**。
+  // 要求（requestedFrame）と提示（presentedFrame）を分けて持ち、提示のたびに待ち手を起こす。
+  requestedFrame = null;
+  presentedFrame = null;
+  presentedSeq = 0;
+  lastPresentedRecord = null;
+  presentedWaiters = /* @__PURE__ */ new Set();
   lastPlaybackFrame = -1;
   lastPresentedSec = 0;
   lastCutIndex = null;
@@ -30713,6 +30818,12 @@ var FrameEngineRuntime = class {
       onAccess: (access) => this.currentAccesses?.push(access)
     });
     const observedSource = {
+      // 構図の基準になる原本の論理寸法（不具合メモ 第10項）。proxy / 自動 proxy を復号していても
+      // `crop × 論理寸法 × transform.scale` は原本基準で決まるため、プレビューでも書き出しでも
+      // 同じ構図になる（宣言が無いソースだけ frame-engine が復号寸法へ退避する）。
+      // これが宣言されている前提で、preview-layer-proxies.mjs は倍率を一切補正しない
+      // （補正を戻すと二重補正 = proxy の寸法比ぶん構図が膨らむ）。
+      ...choice?.logicalSize ? { logicalSize: choice.logicalSize } : {},
       decode: async (timeUs, metrics, request) => {
         const frame = await source.decode(timeUs, metrics, request);
         this.currentDecodedFrames?.push({
@@ -30744,7 +30855,8 @@ var FrameEngineRuntime = class {
     if (this.disposed) return;
     const current = this.sourceChoices.get(id);
     const sameSupport = (current?.support ?? null) === (choice.support ?? null) || current?.support != null && choice.support != null && current.support.codec === choice.support.codec && current.support.hw === choice.support.hw && current.support.sw === choice.support.sw && current.support.any === choice.support.any;
-    if (current?.url === choice.url && sameSupport) return;
+    const sameLogicalSize = (current?.logicalSize?.width ?? 0) === (choice.logicalSize?.width ?? 0) && (current?.logicalSize?.height ?? 0) === (choice.logicalSize?.height ?? 0);
+    if (current?.url === choice.url && sameSupport && sameLogicalSize) return;
     while (this.rendering && !this.disposed) await this.waitForRender();
     if (this.disposed) return;
     this.lookahead.get(id)?.clear();
@@ -30769,8 +30881,54 @@ var FrameEngineRuntime = class {
     const clamped = Math.max(0, Math.min(seconds, this.totalDuration));
     this.audio.seek(clamped);
     const frameNumber = Math.round(clamped * this.fps);
+    this.requestedFrame = frameNumber;
+    this.ui.root.dataset.framePresentationPending = "true";
     this.scrub.requestScrub(frameNumber);
     return frameNumber / this.fps;
+  }
+  /** 第6項: 要求済みのコマがまだ提示されていないか（ロード中表示と QA の待ちに使う）。 */
+  presentationPending() {
+    return this.requestedFrame !== null && this.requestedFrame !== this.presentedFrame;
+  }
+  /** 直近の提示の記録。要求時刻と描画完了時刻を分けて持つ。 */
+  lastPresented() {
+    return this.lastPresentedRecord;
+  }
+  /**
+   * 第6項: 要求したコマが実際に提示されるまで待つ。QA が固定の待ち時間を置く代わりに使う。
+   * 既に提示済みなら即解決する。timeoutMs を過ぎたら解決せず reject する（黙って古い画を
+   * 撮らせないため — 待ちが足りなかったのか描画が止まったのかを呼び出し側が区別できる）。
+   */
+  async waitForPresentation(timeoutMs = 1e4) {
+    if (!this.presentationPending()) {
+      if (this.lastPresentedRecord) return this.lastPresentedRecord;
+    }
+    const deadline = performance.now() + Math.max(0, timeoutMs);
+    while (this.presentationPending()) {
+      const remaining = deadline - performance.now();
+      if (remaining <= 0) {
+        throw new Error(
+          `frame not presented within ${timeoutMs}ms (requested frame ${this.requestedFrame}, presented ${this.presentedFrame})`
+        );
+      }
+      await new Promise((resolve, reject) => {
+        let timer = null;
+        const waiter = () => {
+          if (timer) clearTimeout(timer);
+          this.presentedWaiters.delete(waiter);
+          resolve();
+        };
+        timer = setTimeout(() => {
+          this.presentedWaiters.delete(waiter);
+          reject(new Error(
+            `frame not presented within ${timeoutMs}ms (requested frame ${this.requestedFrame}, presented ${this.presentedFrame})`
+          ));
+        }, remaining);
+        this.presentedWaiters.add(waiter);
+      });
+    }
+    if (!this.lastPresentedRecord) throw new Error("no frame has been presented yet");
+    return this.lastPresentedRecord;
   }
   renderPlayback(seconds) {
     const audioClockSeconds = this.audio.playbackTime(seconds);
@@ -30871,6 +31029,22 @@ var FrameEngineRuntime = class {
     }
     const presented = performance.now();
     this.lastPresentedSec = timeUs / 1e6;
+    this.presentedFrame = Math.round(this.lastPresentedSec * this.fps);
+    this.presentedSeq += 1;
+    this.lastPresentedRecord = {
+      seq: this.presentedSeq,
+      reason,
+      requestedFrame: this.requestedFrame,
+      presentedFrame: this.presentedFrame,
+      presentedSec: this.lastPresentedSec,
+      requestedAtMs: requestedAt,
+      presentedAtMs: presented,
+      elapsedMs: presented - requestedAt
+    };
+    if (this.requestedFrame === null || this.requestedFrame === this.presentedFrame) {
+      this.ui.root.dataset.framePresentationPending = "false";
+    }
+    for (const waiter of [...this.presentedWaiters]) waiter();
     this.measurements.presentedAt.push(presented);
     this.measurements.presentedAt = this.measurements.presentedAt.filter((value) => value >= presented - 1e3);
     this.scheduler.notePresented(timeUs, { reason });
@@ -30957,7 +31131,7 @@ async function createFrameEnginePreview(options) {
     const layers = resolvedEngineLayers(edit);
     const candidates = sourceCandidates(edit, timelineData, cuts, layers);
     const timeline = buildResolvedTimelinePlan(cuts, { fps, layers, overlays: edit?.overlays ?? [] });
-    start = Math.max(0, Math.min(start, timeline.totalDuration));
+    start = renderableSeconds(start, timeline.totalDuration, fps);
     const firstUses = /* @__PURE__ */ new Map();
     const noteUse = (id, seconds) => {
       if (id) firstUses.set(id, Math.min(firstUses.get(id) ?? Infinity, seconds));
@@ -30999,6 +31173,10 @@ async function createFrameEnginePreview(options) {
     snapshot: () => runtime.snapshot(),
     seek: (seconds) => runtime.seek(seconds),
     renderPlayback: (seconds) => runtime.renderPlayback(seconds),
+    // 第6項。rebuild で runtime が差し替わるので、そのつど現行の runtime へ委譲する。
+    presentationPending: () => runtime.presentationPending(),
+    lastPresented: () => runtime.lastPresented(),
+    waitForPresentation: (timeoutMs) => runtime.waitForPresentation(timeoutMs),
     async rebuild(edit, timelineData, fps) {
       if (disposed) return;
       const start = runtime.currentTime();
