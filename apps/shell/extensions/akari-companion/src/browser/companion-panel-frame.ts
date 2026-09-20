@@ -50,6 +50,8 @@ export class CompanionPanelFrame {
     protected onHiddenChanged: ((hidden: boolean) => void) | undefined;
     protected anchorWatch: unknown;
     protected lastAnchorKey = '';
+    protected dragSurface: HTMLDivElement | undefined;
+    protected dragLast: { x: number; y: number } | undefined;
 
     constructor(deps: CompanionPanelFrameDeps) {
         this.doc = deps.doc;
@@ -104,6 +106,7 @@ export class CompanionPanelFrame {
     }
 
     unmount(): void {
+        this.endDrag();
         this.stopAnchorWatch();
         this.win.removeEventListener('blur', this.handleWindowBlur);
         this.win.removeEventListener('message', this.handleMessage);
@@ -163,6 +166,42 @@ export class CompanionPanelFrame {
         this.applyLayout();
         this.onHiddenChanged?.(this.hidden);
     }
+
+    /**
+     * 中身から「つかんだ」と言われたら、画面いっぱいの透明な面を敷いて、
+     * 離すまでの動きを枠が直接受ける（iframe が指の下から逃げても切れない）。
+     */
+    protected beginDrag(): void {
+        if (!this.panelEl || this.dragSurface) return;
+        const surface = this.doc.createElement('div');
+        surface.className = 'akari-companion-drag-surface';
+        surface.setAttribute('style', 'position:fixed; inset:0; pointer-events:auto; cursor:move; z-index:1;');
+        this.rootEl.append(surface);
+        this.dragSurface = surface;
+        this.dragLast = undefined;
+        this.win.addEventListener('mousemove', this.handleDragMove, true);
+        this.win.addEventListener('mouseup', this.handleDragEnd, true);
+    }
+
+    protected endDrag(): void {
+        if (!this.dragSurface) return;
+        this.win.removeEventListener('mousemove', this.handleDragMove, true);
+        this.win.removeEventListener('mouseup', this.handleDragEnd, true);
+        this.dragSurface.remove();
+        this.dragSurface = undefined;
+        this.dragLast = undefined;
+    }
+
+    protected readonly handleDragMove = (event: MouseEvent): void => {
+        if (!this.dragSurface) return;
+        // 画面の座標で測る。枠が動いても基準が動かない。
+        if (this.dragLast) this.moveBy(event.screenX - this.dragLast.x, event.screenY - this.dragLast.y);
+        this.dragLast = { x: event.screenX, y: event.screenY };
+    };
+
+    protected readonly handleDragEnd = (): void => {
+        this.endDrag();
+    };
 
     /** つかんで動かしたぶんだけ動かす。動かした時点で「自由に浮いている」扱いになる。 */
     moveBy(dx: unknown, dy: unknown): void {
@@ -262,14 +301,18 @@ export class CompanionPanelFrame {
             x?: number;
             mode?: unknown;
             placement?: unknown;
-            drag?: { dx?: unknown; dy?: unknown };
+            drag?: { phase?: unknown; dx?: unknown; dy?: unknown };
         } | null;
         if (!data || data.type !== 'akari-companion-panel') return;
         // 中身が「既定の置き場所へ戻して」と言ってきたら、覚えている位置を捨てる。
         if (data.placement === 'default') this.resetPlacement();
-        // 中身の帯をつかんで動かしたぶん。位置は枠が持っているので、動いた差だけ受け取る
-        // （中身に絶対位置を持たせると、つかんだ瞬間に画面の左端へ飛ぶ）。
-        if (data.drag) { this.moveBy(data.drag.dx, data.drag.dy); return; }
+        // 中身の帯をつかんだら、そこから先は枠が引き受ける。枠が動くと iframe は
+        // 指の下から逃げてしまい、中身には入力が届かなくなるため（実機で観測）。
+        if (data.drag) {
+            if (data.drag.phase === 'start') this.beginDrag();
+            else this.moveBy(data.drag.dx, data.drag.dy);
+            return;
+        }
         this.applyInstruction({
             width: data.width,
             height: data.height,
