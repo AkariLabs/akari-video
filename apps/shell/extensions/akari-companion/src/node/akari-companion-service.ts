@@ -32,7 +32,7 @@ export class AkariCompanionServiceImpl implements AkariCompanionService {
             this.link = new CompanionLink({
                 readAddress: () => readCompanionAddress(companionConfigPath()),
                 execute: instruction => this.executeGated(instruction),
-                onConnectionState: connected => this.client?.onConnectionState(connected)
+                onConnectionState: (connected, panel) => this.client?.onConnectionState(connected, panel)
             });
         }
         this.link.start();

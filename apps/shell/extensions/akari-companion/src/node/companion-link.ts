@@ -7,6 +7,7 @@ import type {
     CompanionStateDocs,
     CompanionStateLight
 } from '../common/akari-companion-protocol';
+import { CompanionManifestPanel, parseManifestPanel } from '../common/companion-panel-geometry';
 
 export interface CompanionLinkDeps {
     readAddress(): Promise<{ port: number; token: string } | undefined>;
@@ -15,7 +16,7 @@ export interface CompanionLinkDeps {
     setTimeout?(fn: () => void, ms: number): unknown;
     clearTimeout?(handle: unknown): void;
     log?(message: string): void;
-    onConnectionState?(connected: boolean): void;
+    onConnectionState?(connected: boolean, panel?: CompanionManifestPanel): void;
 }
 
 interface SseFrame {
@@ -39,6 +40,7 @@ export class CompanionLink {
     protected eventsRequest: ClientRequest | undefined;
     protected eventsResponse: IncomingMessage | undefined;
     protected address: { port: number; token: string } | undefined;
+    protected manifestPanel: CompanionManifestPanel | undefined;
     protected readonly queue: CompanionInstruction[] = [];
     protected processing = false;
     protected readonly recentResults = new Map<string, CompanionResultMessage>();
@@ -143,6 +145,7 @@ export class CompanionLink {
                 this.failRound(generation);
                 return;
             }
+            this.manifestPanel = { ...parseManifestPanel(manifest), port: address.port };
             this.openEvents(address, generation);
         });
     }
@@ -327,8 +330,9 @@ export class CompanionLink {
     }
 
     protected setConnected(connected: boolean): void {
+        if (!connected) this.manifestPanel = undefined;
         if (this.connected === connected) return;
         this.connected = connected;
-        this.deps.onConnectionState?.(connected);
+        this.deps.onConnectionState?.(connected, connected ? this.manifestPanel : undefined);
     }
 }

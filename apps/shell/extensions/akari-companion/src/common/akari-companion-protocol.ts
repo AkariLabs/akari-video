@@ -1,3 +1,8 @@
+import type { FlyToTargetKind } from './companion-fly-to-targets';
+import type { CompanionManifestPanel } from './companion-panel-geometry';
+
+export type { CompanionManifestPanel };
+
 export const AkariCompanionService = Symbol('AkariCompanionService');
 export const AKARI_COMPANION_SERVICE_PATH = '/services/akari-companion';
 
@@ -19,7 +24,7 @@ export interface CompanionAnnotateArgs {
     sourceRange?: [number, number] | null;
     target?: string | null;
 }
-export interface CompanionFlyToArgs { target: { kind: string; id: string }; }
+export interface CompanionFlyToArgs { target: { kind: FlyToTargetKind; id: string }; }
 export interface CompanionPanelArgs { width?: number; height?: number; x?: number; mode?: 'tab' | 'pill'; }
 
 export interface CompanionInstruction {
@@ -86,5 +91,5 @@ export interface AkariCompanionService {
 
 export interface AkariCompanionClient {
     executeInstruction(instruction: CompanionInstruction): Promise<CompanionResultMessage>;
-    onConnectionState(connected: boolean): void;
+    onConnectionState(connected: boolean, panel?: CompanionManifestPanel): void;
 }

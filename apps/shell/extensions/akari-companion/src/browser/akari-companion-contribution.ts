@@ -13,14 +13,19 @@ import { ReviewModel } from 'akari-annotations/lib/browser/review-model';
 import {
     AkariCompanionService,
     CompanionInstruction,
+    CompanionManifestPanel,
     CompanionProjectLocation,
     CompanionResultMessage
 } from '../common/akari-companion-protocol';
 import { isAllowedCommandId, validateCommandArgs } from '../common/companion-allowlist';
+import { isFlyToTargetKind } from '../common/companion-fly-to-targets';
 import { AkariCompanionClientImpl } from './akari-companion-client';
 import { AKARI_COMPANION_ENABLED } from './akari-companion-preferences';
 import { applyCompanionAnnotation } from './companion-annotate';
 import { applyCompanionEdit } from './companion-apply-edit';
+import { resolveFlyTo } from './companion-fly-to';
+import { CompanionPanelFrame } from './companion-panel-frame';
+import { installCompanionPanelPulseStyle } from './companion-panel-pulse-style';
 import { CompanionStateCollector } from './companion-state-collector';
 
 @injectable()
@@ -51,9 +56,11 @@ export class AkariCompanionContribution implements FrontendApplicationContributi
     protected projectSessionId: string | undefined;
     protected notifiedProjectKey = '';
     protected collector: CompanionStateCollector | undefined;
+    protected panel: CompanionPanelFrame | undefined;
     protected readonly disposables: Disposable[] = [];
 
     async onStart(): Promise<void> {
+        installCompanionPanelPulseStyle(document);
         this.client.setHandler(instruction => this.dispatch(instruction));
         this.collector = new CompanionStateCollector({
             events: window,
@@ -66,6 +73,12 @@ export class AkariCompanionContribution implements FrontendApplicationContributi
             pushStateDocs: state => this.service.pushStateDocs(state)
         });
         this.collector.start();
+        this.panel = new CompanionPanelFrame({ doc: document, win: window });
+        this.client.setPanelHandler((connected, manifest) => this.applyPanelManifest(connected, manifest));
+        this.disposables.push(this.commands.registerCommand(
+            { id: 'akari.companion.togglePanel', label: '外部の操作盤を表示/非表示' },
+            { execute: () => { this.panel?.toggleHidden(); } }
+        ));
         this.disposables.push(this.preferences.onPreferenceChanged(event => {
             if (event.preferenceName === AKARI_COMPANION_ENABLED) void this.applyEnabled();
         }));
@@ -81,9 +94,19 @@ export class AkariCompanionContribution implements FrontendApplicationContributi
 
     onStop(): void {
         this.collector?.stop();
+        this.panel?.unmount();
         for (const disposable of this.disposables.splice(0)) disposable.dispose();
         this.client.setHandler(undefined);
+        this.client.setPanelHandler(undefined);
         void this.service.setEnabled(false);
+    }
+
+    protected applyPanelManifest(connected: boolean, manifest?: CompanionManifestPanel): void {
+        if (!connected || !manifest?.panelPath) {
+            this.panel?.unmount();
+            return;
+        }
+        this.panel?.mount(manifest.panelPath, manifest.port, manifest.panel);
     }
 
     protected async applyEnabled(): Promise<void> {
@@ -129,8 +152,27 @@ export class AkariCompanionContribution implements FrontendApplicationContributi
 
     protected async dispatch(instruction: CompanionInstruction): Promise<CompanionResultMessage> {
         try {
-            if (instruction.kind === 'flyTo' || instruction.kind === 'panel') {
-                return { id: instruction.id, ok: false, error: 'not-supported' };
+            if (instruction.kind === 'flyTo') {
+                if (!instruction.flyTo
+                    || !isFlyToTargetKind(instruction.flyTo.target?.kind)
+                    || typeof instruction.flyTo.target.id !== 'string') {
+                    return { id: instruction.id, ok: false, error: 'invalid-args' };
+                }
+                if (!this.panel?.isMounted()) {
+                    return { id: instruction.id, ok: false, error: 'not-supported' };
+                }
+                const ok = await resolveFlyTo(this.panel, instruction.flyTo.target, {
+                    doc: document, win: window, shell: this.shell
+                });
+                return { id: instruction.id, ok, error: ok ? undefined : 'not-found' };
+            }
+            if (instruction.kind === 'panel') {
+                if (!instruction.panel) return { id: instruction.id, ok: false, error: 'invalid-args' };
+                if (!this.panel?.isMounted()) {
+                    return { id: instruction.id, ok: false, error: 'not-supported' };
+                }
+                this.panel.applyInstruction(instruction.panel);
+                return { id: instruction.id, ok: true };
             }
             if (instruction.kind === 'getState') {
                 return { id: instruction.id, ok: true, value: this.collector?.snapshot() };
