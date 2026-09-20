@@ -192,6 +192,8 @@ export class CompanionPanelFrame {
         if (!this.panelEl) return;
         const anchor = this.userMoved ? undefined : this.anchorProvider?.();
         this.lastAnchorKey = anchor ? `${anchor.left}|${anchor.right}|${anchor.bottom}` : '';
+        // どの決め方で置いたかを枠に残す（困ったときに 1 回の問い合わせで分かるように）。
+        this.panelEl.dataset.placement = anchor ? 'anchored' : this.userMoved ? 'free' : 'no-anchor';
         if (anchor) {
             const placement = anchoredPanelPosition(anchor, this.size,
                 { width: this.win.innerWidth, height: this.win.innerHeight });
