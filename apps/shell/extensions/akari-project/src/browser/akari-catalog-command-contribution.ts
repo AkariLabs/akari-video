@@ -1,7 +1,7 @@
 import { inject, injectable } from '@theia/core/shared/inversify';
 import { Command, CommandContribution, CommandRegistry } from '@theia/core/lib/common';
 import { ApplicationShell, WidgetManager } from '@theia/core/lib/browser';
-import { AkariRoleBucketsWidget } from './akari-role-buckets-widget';
+import { AkariCatalogCategorySummary, AkariCatalogFocusOptions, AkariRoleBucketsWidget } from './akari-role-buckets-widget';
 import { AkariProjectModeService } from './akari-project-mode-service';
 
 /**
@@ -30,6 +30,9 @@ export const AkariCatalogCommands = {
     OPEN_CATALOG: {
         id: 'akari.catalog.open',
         label: 'カタログを開く'
+    } as Command,
+    LIST_CATEGORIES: {
+        id: 'akari.catalog.listCategories'
     } as Command
 };
 
@@ -47,7 +50,7 @@ export class AkariCatalogCommandContribution implements CommandContribution {
 
     registerCommands(registry: CommandRegistry): void {
         registry.registerCommand(AkariCatalogCommands.OPEN_CATALOG, {
-            execute: async () => {
+            execute: async (options?: AkariCatalogFocusOptions): Promise<boolean> => {
                 const widget = await this.widgetManager.getOrCreateWidget<AkariRoleBucketsWidget>(AkariRoleBucketsWidget.ID);
                 if (!widget.isAttached) {
                     if (this.modeService.developerMode) {
@@ -65,7 +68,14 @@ export class AkariCatalogCommandContribution implements CommandContribution {
                     }
                 }
                 await this.shell.activateWidget(widget.id);
-                widget.openCatalogView();
+                return widget.openCatalogView(options);
+            }
+        });
+        registry.registerCommand(AkariCatalogCommands.LIST_CATEGORIES, {
+            execute: async (): Promise<AkariCatalogCategorySummary[]> => {
+                const widget = await this.widgetManager.getOrCreateWidget<AkariRoleBucketsWidget>(AkariRoleBucketsWidget.ID);
+                await widget.loadAssetCatalogView();
+                return widget.catalogCategorySummaries();
             }
         });
     }
