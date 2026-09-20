@@ -109,7 +109,7 @@ function createHostHarness({ watchdogMs = 20000 } = {}) {
     const shown = [];
     let hidden = 0;
     const log = new host.PreviewDiagnosticsLog({
-        resolveLogUri: async () => 'file:///home/u/.akari/logs/akari-preview-diagnostics.log',
+        resolveLogUri: async () => 'file:///tmp/akari-preview-diagnostics.log',
         readText: async () => undefined,
         writeText: async (uri, text) => { writes.push({ uri, text }); },
         warn: () => {}

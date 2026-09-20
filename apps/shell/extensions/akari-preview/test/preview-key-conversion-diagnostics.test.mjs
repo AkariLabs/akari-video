@@ -84,7 +84,7 @@ test('疑わしいキーイベントの形を広く拾う（断定ではなく�
 test('ホスト側: キー変換失敗はログへ残り、上限で止まる', async () => {
     const writes = [];
     const log = new host.PreviewDiagnosticsLog({
-        resolveLogUri: async () => 'file:///home/u/.akari/logs/akari-preview-diagnostics.log',
+        resolveLogUri: async () => 'file:///tmp/akari-preview-diagnostics.log',
         readText: async () => undefined,
         writeText: async (uri, text) => { writes.push(text); },
         warn: () => {}
@@ -111,7 +111,7 @@ test('ホスト側: キー変換失敗はログへ残り、上限で止まる', 
 test('ホスト側: 疑わしい形だけを観測して記録する', async () => {
     const writes = [];
     const log = new host.PreviewDiagnosticsLog({
-        resolveLogUri: async () => 'file:///home/u/.akari/logs/akari-preview-diagnostics.log',
+        resolveLogUri: async () => 'file:///tmp/akari-preview-diagnostics.log',
         readText: async () => undefined,
         writeText: async (uri, text) => { writes.push(text); },
         warn: () => {}
