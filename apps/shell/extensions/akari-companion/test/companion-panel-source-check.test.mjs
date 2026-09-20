@@ -19,9 +19,10 @@ test('呼び出しボタンは「変更を見る」より左に出て、枠の�
   const toolbar = await source('browser/companion-toolbar-contribution.ts');
   const frame = await source('browser/companion-panel-frame.ts');
   const contribution = await source('browser/akari-companion-contribution.ts');
-  // 「変更を見る」は同じ group の priority 100。昇順なので 100 未満なら左に出る。
+  // 「変更を見る」は同じ group の priority 100。Theia は sort().reverse() で
+  // priority の降順に左から並べるので、100 より大きい値でないと左に出ない。
   const priority = Number(toolbar.match(/COMPANION_TOGGLE_PRIORITY = (\d+)/)?.[1]);
-  assert.ok(Number.isInteger(priority) && priority < 100, `priority=${priority}`);
+  assert.ok(Number.isInteger(priority) && priority > 100, `priority=${priority}`);
   assert.match(toolbar, /group: 'navigation'/);
   assert.match(toolbar, /toolbarAnchorRect/);
   // 既定の置き場所はボタンの真下。利用者が動かしたときだけ自由な位置を覚える。
