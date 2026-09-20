@@ -386,6 +386,7 @@ const REVIEW_SESSION_REFRESH_EVENT = 'akari.review.session.refresh';
 const REVIEW_SESSION_FOCUS_EVENT = 'akari.review.session.focus';
 const SELECTION_ALT_ALL_EVENT = 'akari.selection.altAll';
 const REVIEW_SESSION_RANGES_STORAGE_KEY = 'akari.annotations.reviewSessionRanges.visible';
+const FOCUS_PULSE_DURATION_MS = 1600;
 const REVIEW_SESSION_REFRESH_RETRY_INTERVAL_MS = 1_000;
 const REVIEW_SESSION_REFRESH_RETRY_LIMIT = 3;
 const REVIEW_SESSION_FOCUS_RETRY_DELAY_MS = 150;
@@ -2192,6 +2193,14 @@ export class AkariAnnotationsWidget extends BaseWidget {
         opacity: .35;
         pointer-events: none;
     }
+    @keyframes akari-annotations-focus-pulse {
+        0%, 100% { box-shadow: 0 0 0 0 transparent; }
+        15%, 55% { box-shadow: 0 0 0 3px var(--akari-focus-pulse, var(--akari-accent, #f97316)); }
+        35%, 75% { box-shadow: 0 0 0 0 transparent; }
+    }
+    .akari-annotations-widget .akari-annotations-focus-pulse {
+        animation: akari-annotations-focus-pulse 1.6s ease-in-out;
+    }
 `;
         this.node.appendChild(style);
 
@@ -2599,6 +2608,139 @@ export class AkariAnnotationsWidget extends BaseWidget {
             background: 'var(--theia-widget-border)'
         });
         return separator;
+    }
+
+    protected resolveFocusSelection(itemId: string): TimelineSelectionItem | undefined {
+        const index = this.cutItemIds.indexOf(itemId);
+        if (index >= 0) return { kind: 'cut', index };
+        const row = this.expandedTimelineTreeRows.find(candidate => candidate.id === itemId);
+        if (row) return {
+            kind: 'item', id: row.id, itemKind: row.itemKind, trackId: row.trackId,
+            ...(row.parentId ? { parentId: row.parentId } : {})
+        };
+        if (this.overlays.some(item => item.id === itemId)) return { kind: 'overlay', id: itemId };
+        if (this.layers.some(item => item.id === itemId)) return { kind: 'layer', id: itemId };
+        if (this.captions.some(item => item.id === itemId)) return { kind: 'caption', id: itemId };
+        if (this.audioBgm?.id === itemId || this.audioNarration.some(item => item.id === itemId)
+            || this.audioSfx.some(item => item.id === itemId)) return { kind: 'audio', id: itemId };
+        return undefined;
+    }
+
+    protected focusRangeFor(selection: TimelineSelectionItem): [number, number] | undefined {
+        switch (selection.kind) {
+            case 'cut': {
+                const segment = this.segments.find(item => item.index === selection.index);
+                return segment ? [segment.tlStart, segment.tlEnd] : undefined;
+            }
+            case 'caption': {
+                const caption = this.captions.find(item => item.id === selection.id);
+                if (!caption) return undefined;
+                const ranges = this.captionRangeToOutputRanges(caption.id, caption.start, caption.end);
+                return ranges.find(([start, end]) => start <= this.playheadT && this.playheadT < end) ?? ranges[0];
+            }
+            case 'overlay': {
+                const overlay = this.overlays.find(item => item.id === selection.id);
+                return overlay ? [overlay.start, overlay.start + overlay.duration] : undefined;
+            }
+            case 'layer': {
+                const layer = this.layers.find(item => item.id === selection.id);
+                return layer ? [layer.t, layer.t + layer.duration] : undefined;
+            }
+            case 'audio': {
+                if (this.audioBgm?.id === selection.id) {
+                    const start = this.audioBgm.t ?? 0;
+                    return [start, start + (this.audioBgm.duration ?? 0)];
+                }
+                const narration = this.audioNarration.find(item => item.id === selection.id);
+                if (narration) return [narration.t, narration.t];
+                const sfx = this.audioSfx.find(item => item.id === selection.id);
+                return sfx ? [sfx.t, sfx.t + sfx.duration] : undefined;
+            }
+            case 'item': {
+                const row = this.expandedTimelineTreeRows.find(item => item.id === selection.id);
+                return row ? [row.at, row.at + row.duration] : undefined;
+            }
+        }
+    }
+
+    async focusTimelineItem(itemId: string, options: {
+        seek?: boolean; reveal?: boolean; pulse?: boolean;
+    } = {}): Promise<boolean> {
+        const selection = this.resolveFocusSelection(itemId);
+        if (!selection) return false;
+        this.applySelection(selection);
+        const range = this.focusRangeFor(selection);
+        if (options.seek && range) {
+            await this.requestSeek(range[0], { domain: 'output' });
+        }
+        if (options.reveal) {
+            if (range && range[1] - range[0] > this.visibleDuration()) {
+                const targetDuration = Math.min(
+                    this.totalDuration(),
+                    Math.max(this.minViewDurationSeconds(), (range[1] - range[0]) * 1.2)
+                );
+                this.applyViewDuration(targetDuration, (range[0] + range[1]) / 2, 0.5);
+            }
+            this.revealPreviewSelection();
+        }
+        if (options.pulse) {
+            this.pulseFocusedItem(selection);
+        }
+        return true;
+    }
+
+    async seekTimelineOutput(seconds: number): Promise<void> {
+        if (!Number.isFinite(seconds)) return;
+        await this.requestSeek(seconds, { domain: 'output' });
+    }
+
+    setTimelineView(options: { startSeconds?: number; durationSeconds?: number; fit?: boolean }): void {
+        if (options.fit) {
+            this.applyViewDuration(this.totalDuration(), 0, 0);
+            return;
+        }
+        if (typeof options.durationSeconds === 'number' && Number.isFinite(options.durationSeconds) && options.durationSeconds > 0) {
+            const anchor = typeof options.startSeconds === 'number' && Number.isFinite(options.startSeconds)
+                ? options.startSeconds
+                : this.viewStart + this.visibleDuration() / 2 - options.durationSeconds / 2;
+            this.applyViewDuration(options.durationSeconds, anchor, 0);
+            return;
+        }
+        if (typeof options.startSeconds === 'number' && Number.isFinite(options.startSeconds)) {
+            this.setViewStart(options.startSeconds);
+        }
+    }
+
+    setTimelineToolMode(tool: ToolMode): void {
+        this.setToolMode(tool);
+    }
+
+    setTimelineSnapEnabled(enabled: boolean): void {
+        this.setSnapEnabled(enabled);
+    }
+
+    protected focusPulseKeys: readonly string[] = [];
+    protected focusPulseUntil = 0;
+
+    protected pulseFocusedItem(selection: TimelineSelectionItem): void {
+        this.focusPulseKeys = this.selectionRenderKeys(selection);
+        this.focusPulseUntil = Date.now() + FOCUS_PULSE_DURATION_MS;
+        this.applyFocusPulseClass();
+        setTimeout(() => {
+            this.focusPulseUntil = 0;
+            this.applyFocusPulseClass();
+        }, FOCUS_PULSE_DURATION_MS);
+    }
+
+    protected applyFocusPulseClass(): void {
+        const active = Date.now() < this.focusPulseUntil;
+        const keys = new Set(this.focusPulseKeys);
+        for (const element of Array.from(this.strip.querySelectorAll<HTMLElement>('[data-akari-item-kind]'))) {
+            const kind = element.dataset.akariItemKind;
+            const id = element.dataset.akariItemId;
+            const itemKey = kind && id !== undefined ? `${kind}:${id}` : '';
+            element.classList.toggle('akari-annotations-focus-pulse', active && keys.has(itemKey));
+        }
     }
 
     protected setToolMode(mode: ToolMode): void {
@@ -8681,6 +8823,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.rulerBar.style.marginRight = `${scrollbarWidth}px`;
         this.timelineOverlay.style.right = `${scrollbarWidth}px`;
         this.applySelectionClass();
+        this.applyFocusPulseClass();
         this.applyKeyframePropertySelectionClass();
         this.updateZoomHud();
         this.updateScrollbar();

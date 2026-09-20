@@ -6,6 +6,7 @@ import {
     WidgetFactory
 } from '@theia/core/lib/browser';
 import { AkariAnnotationsService, AKARI_ANNOTATIONS_SERVICE_PATH } from '../common/akari-annotations-protocol';
+import { AkariTimelineFocusContribution } from './akari-timeline-focus-contribution';
 import { AkariAnnotationsContribution } from './akari-annotations-contribution';
 import { AkariAnnotationsWidget } from './akari-annotations-widget';
 import { AkariInspectorWidget } from './akari-inspector-widget';
@@ -69,4 +70,6 @@ export default new ContainerModule(bind => {
     bind(CommandContribution).toService(AkariAnnotationsContribution);
     bind(MenuContribution).toService(AkariAnnotationsContribution);
     bind(FrontendApplicationContribution).toService(AkariAnnotationsContribution);
+    bind(AkariTimelineFocusContribution).toSelf().inSingletonScope();
+    bind(CommandContribution).toService(AkariTimelineFocusContribution);
 });
