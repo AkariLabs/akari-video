@@ -74,7 +74,7 @@ export class AkariCompanionContribution implements FrontendApplicationContributi
         });
         this.collector.start();
         this.panel = new CompanionPanelFrame({ doc: document, win: window });
-        this.client.setPanelHandler((connected, manifest) => this.applyPanelManifest(connected, manifest));
+        this.client.setPanelHandler((connected, manifest) => this.onConnectionState(connected, manifest));
         this.disposables.push(this.commands.registerCommand(
             { id: 'akari.companion.togglePanel', label: '外部の操作盤を表示/非表示' },
             { execute: () => { this.panel?.toggleHidden(); } }
@@ -99,6 +99,15 @@ export class AkariCompanionContribution implements FrontendApplicationContributi
         this.client.setHandler(undefined);
         this.client.setPanelHandler(undefined);
         void this.service.setEnabled(false);
+    }
+
+    /**
+     * つながった / 切れたときの入口。つながった直後は相手が本文を持っていないので、
+     * ハッシュが変わっていなくても状態を送り直す（契約 §4 の「接続直後」）。
+     */
+    protected onConnectionState(connected: boolean, manifest?: CompanionManifestPanel): void {
+        this.applyPanelManifest(connected, manifest);
+        if (connected) void this.collector?.resendDocuments();
     }
 
     protected applyPanelManifest(connected: boolean, manifest?: CompanionManifestPanel): void {

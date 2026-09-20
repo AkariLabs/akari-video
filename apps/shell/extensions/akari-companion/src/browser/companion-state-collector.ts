@@ -95,6 +95,16 @@ export class CompanionStateCollector {
         this.checkLocation();
     }
 
+    /**
+     * つなぎ直した直後に呼ぶ。相手は前の接続で受け取った本文を持っていないので、
+     * ハッシュが変わっていなくても docs を送り直す（送らないと相手は状態を待ったまま止まる）。
+     */
+    async resendDocuments(): Promise<void> {
+        this.docs = undefined;
+        this.queueLight();
+        await this.refreshDocuments();
+    }
+
     async refreshDocuments(): Promise<void> {
         const location = this.deps.currentLocation();
         const projectSessionId = this.deps.currentProjectSessionId();

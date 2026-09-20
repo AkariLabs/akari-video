@@ -131,3 +131,22 @@ test('文書ハッシュが変わったときだけ docs を送り大きい本�
   assert.equal('text' in f.docs[2].captions, false);
   f.collector.stop();
 });
+
+test('つなぎ直したら、ハッシュが変わっていなくても docs を送り直す', async () => {
+  const f = fixture();
+  f.collector.start();
+  await waitFor(() => f.docs.length === 1);
+  const first = f.docs[0];
+  // ファイルは 1 バイトも変わっていない状態での再送。
+  await f.collector.resendDocuments();
+  assert.equal(f.docs.length, 2);
+  const second = f.docs[1];
+  assert.equal(second.type, 'docs');
+  assert.equal(second.edit.sha256, first.edit.sha256);
+  assert.equal(second.captions.sha256, first.captions.sha256);
+  assert.equal(second.edit.text, '{}');
+  assert.equal(second.projectSessionId, first.projectSessionId);
+  // seq は単調増加（係は古い seq を捨てるため、再送は必ず新しい番号でなければならない）。
+  assert.ok(second.seq > first.seq);
+  f.collector.stop();
+});
