@@ -73,7 +73,10 @@ test('boundary aggregation uses nonempty base accesses, their maximum decode, an
         audio: { noteRendered() {} },
         scheduler: { isWarmed: () => warmed, notePresented() {} },
         updateMetrics() {},
-        ui: { error: { hidden: true, textContent: '' } },
+        ui: { error: { hidden: true, textContent: '' }, root: { dataset: {} } },
+        // 不具合メモ 第6項: renderFrame は提示のたびに要求／提示を記録し、待ち手を起こす。
+        requestedFrame: null, presentedFrame: null, presentedSeq: 0,
+        lastPresentedRecord: null, presentedWaiters: new Set(),
       };
       const render = method('private async renderFrame(', 'private updateMetrics(', 'async function renderFrame(', {
         performance: { now: () => clock },

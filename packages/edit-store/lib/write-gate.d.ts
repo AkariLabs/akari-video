@@ -43,6 +43,20 @@ export interface DeferredLintOptions {
      */
     onDidWrite?: (filePath: string, content: string) => void;
 }
+/** 影プロジェクトの 1 エントリをどう実体化したか。 */
+export type ShadowEntryStrategy = 'symlink' | 'copy' | 'skip';
+/**
+ * 影プロジェクト構築の決定論テスト用シーム。本番呼び出しは既定（fs.symlink）のままで、
+ * 何も渡さなければ挙動は従来と同一。
+ */
+export interface ShadowLintHooks {
+    /** symlink の差し替え口。権限のある環境／無い環境をテストから作り分けるためだけに使う。 */
+    symlink?: (target: string, path: string, type: 'junction' | 'file') => Promise<void>;
+    /** エントリ 1 件ごとに実体化の手段を通知する観測口。 */
+    onShadowEntry?: (name: string, strategy: ShadowEntryStrategy) => void;
+    /** 影プロジェクトを作れず候補のメモリ検証へ退避したことを通知する観測口。 */
+    onShadowUnavailable?: (reason: string) => void;
+}
 /**
  * 実ファイルは変更せず、候補全文だけを options.inputOverrides で差し替えて検証する。
  * 既存 export のシグネチャは維持し、preview-server の保存前検査にも使える。
@@ -52,8 +66,15 @@ export declare function lintProjectCandidates(projectRoot: string, candidates: L
  * 実ディスクを直接読む lint check（motion 袋参照等）を含め、候補一式を保存前に検証する。
  * 元プロジェクトの直下エントリは影プロジェクトへ symlink し、候補の祖先だけを実体化する。
  * 既存 lintProjectCandidates の inputOverrides 契約は変更せず、Project API だけがこの入口を使う。
+ *
+ * リンクが使えない環境（Windows の非特権ユーザー等）では**ファイルだけコピーへ倒す**。
+ * 影プロジェクトは lint の読み取り専用ステージングなので、ファイルはコピーで等価であり、
+ * かつ影側への書き込みが元プロジェクトへ伝播しない（symlink 経路と同じ安全性）。
+ * ディレクトリはコピーしない: プロジェクト直下には assets/（4K 原本が何十 GB）が来るため、
+ * junction も作れない環境では影プロジェクトの構築自体を諦め、候補のメモリ差し替えだけで
+ * 検証する（実ディスクを読む check は落ちるが、保存は止めない — 冒頭の fail-open 裁定）。
  */
-export declare function lintProjectCandidatesOnDisk(projectRoot: string, candidates: LintCandidates): Promise<EditLintGateResult>;
+export declare function lintProjectCandidatesOnDisk(projectRoot: string, candidates: LintCandidates, hooks?: ShadowLintHooks): Promise<EditLintGateResult>;
 /** 互換 API。保存後 lint への移行後も、明示的に検証したい呼び出し側向けに残す。 */
 export declare function assertLintPasses(projectRoot: string, candidates: LintCandidates): Promise<void>;
 /** atomic 保存を即時完了し、lint は末尾 debounce で非同期に実行する。 */

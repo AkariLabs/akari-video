@@ -145,9 +145,20 @@ function scheduleTimed(item, timelineDurationSec, startAtSec, duckIntervals) {
         return null;
     const timelineStartSec = startAtSec + delaySec;
     const baseGain = dbToLinear(item.gainDb);
-    const gainEvents = item.kind === 'sfx'
-        ? fadeGainEvents(item.spec.fade_in ?? item.spec.fadeIn, item.spec.fade_out ?? item.spec.fadeOut, item.itemDurationSec, elapsedIntoItemSec, durationSec, baseGain)
-        : [{ offsetSec: 0, value: baseGain, method: 'set' }];
+    // 会話音声（audio.narration と、音声レーンの role:'speech' — プレビューは後者も kind
+    // 'narration' として流す）も sfx と同じクリップフェードを持つ。フェード窓の取り方だけ
+    // kind ごとに render-cut へ合わせる（クランプ規則は fadeGainEvents が両者共通で持つ）:
+    //   sfx       -> trim の実効尺そのまま。plan.mjs は
+    //                resolveSfxFadeSeconds(sfx, trim.effectiveDuration) をタイムライン末尾で
+    //                切らずに使う（envelope 用の別変数だけが clamp される）
+    //   narration -> タイムライン末尾で切った尺。plan.mjs の
+    //                narrationDuration = Math.min(track.durationSec, Math.max(0, duration - track.t))
+    //                と同一。これは elapsedIntoItemSec + durationSec（fadeGainEvents の windowEnd）
+    //                と恒等だが、対応先が読めるよう plan.mjs と同じ式で書く
+    const fadeWindowSec = item.kind === 'sfx'
+        ? item.itemDurationSec
+        : Math.min(item.itemDurationSec, Math.max(0, timelineDurationSec - item.t));
+    const gainEvents = fadeGainEvents(item.spec.fade_in ?? item.spec.fadeIn, item.spec.fade_out ?? item.spec.fadeOut, fadeWindowSec, elapsedIntoItemSec, durationSec, baseGain);
     return {
         kind: item.kind,
         id: item.id,
@@ -273,6 +284,9 @@ function scheduleSpeech(spec, timelineDurationSec, startAtSec, warnings) {
     if (!(durationSec > 0))
         return null;
     const baseGain = dbToLinear(gainDb);
+    // kind 'speech' は cuts / layers の撮影素材音声（projectSpeechDeclarations の産物）で、
+    // クリップフェード宣言を持たない（render-cut 側も cut 音声に afade を掛けない）。
+    // 音声レーンの role:'speech' アイテムは kind 'narration' 側へ流れ、そこでフェードが掛かる。
     const gainEvents = speechCrossfadeGainEvents(effectiveDurationSec, elapsedIntoItemSec, durationSec, crossfadeInSec, crossfadeOutSec, baseGain);
     return {
         kind: 'speech',
@@ -498,6 +512,20 @@ function normalizedGainDb(spec, label, warnings) {
         warnings.push(`${label}: gain_db clamped to [-60, 12]`);
     return clamped;
 }
+/**
+ * クリップフェード（`audio.sfx[]` / `audio.narration[]` / 音声レーンの role:'speech' の
+ * `fade_in` / `fade_out`）のブレークポイント列。
+ *
+ * render-cut の `resolveSfxFadeSeconds` + `audioFadeFilters`（`packages/render-cut/src/plan.mjs`）
+ * と同じ意味論を持つ:
+ * - `fade_in` / `fade_out` はそれぞれ独立に実効尺（`itemDurationSec`）の半分までクランプ
+ * - 未指定・非有限・負値は「フェードなし」として 0 扱い
+ * - フェードインは窓頭（`afade=t=in:st=0:d=fade_in`）、フェードアウトは
+ *   `itemDurationSec - fade_out`（`afade=t=out:st=…:d=fade_out`）から線形
+ *
+ * 契約: `docs/contract-2026-07-25-r6-audio-tracks-and-trim.md` §2 追記（audio-clip-fades）。
+ * シーク再開時は `elapsedIntoItemSec` から窓を切り直すだけで、掛かり方は変えない。
+ */
 function fadeGainEvents(rawFadeIn, rawFadeOut, itemDurationSec, elapsedIntoItemSec, availableSec, baseGain) {
     const ceiling = itemDurationSec / 2;
     const fadeIn = finitePositive(rawFadeIn) ? Math.min(rawFadeIn, ceiling) : 0;

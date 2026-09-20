@@ -5754,6 +5754,7 @@ function runReferencedMediaChecks(rawEdit, projectedEdit, findings, skipped, pat
   );
   validateMediaSourceRange(rangeItems, probeBySourceId, sourcesById, findings, skipped, fps);
   validateNarrationMediaStart(narrationItems, probeBySourceId, findings, skipped);
+  validateCropScaleProxyRatio(rangeItems, sourcesById, findings, skipped, paths, options);
 
   if (Array.isArray(rawEdit?.audio?.narration)) {
     for (const [index, item] of rawEdit.audio.narration.entries()) {
@@ -6256,6 +6257,130 @@ function probeMediaAudio(sourcePath, configuredCommand) {
     reason: isPositiveNumber(duration) ? null : "audio stream duration is unavailable",
     ...container,
   };
+}
+
+// 原本 / プロキシの寸法比と scale の一致判定に使う相対許容差。回避策期間の値は
+// 「原本 ÷ プロキシ」をそのまま書いた比なので、浮動小数の丸め分だけ見ればよい。
+const CROP_SCALE_PROXY_RATIO_TOLERANCE = 1e-3;
+
+/**
+ * 回避策期間（プレビューがプロキシを復号し、書き出しもプレビュー用プロキシを優先していた頃）に
+ * 保存された `transform.scale` を拾う。当時は crop を持つ item の scale へ「原本 ÷ プロキシ」の
+ * 寸法比を入れて自己整合させていたため、書き出しが原本を復号する現在はその値がそのまま効いて
+ * 構図が寸法比の分だけ膨らむ（不具合メモ 第10項 / 第18項の根本修正後に残る実害）。
+ *
+ * 寸法比と偶然一致する正当なズームもあり得るので warning に留める（止めずに知らせる）。
+ * 判定は静的な `transform.scale` だけを見る。proxy 宣言の無い source・crop の無い item・
+ * 寸法が読めない素材は対象外にして誤検知を出さない。
+ */
+export function findCropScaleProxyRatioFindings(items, ratioOf) {
+  // 半々配置の案件では同じ素材の cropped item が 100 件近く並ぶ（実機 2026-09-15: 95 件）。
+  // 直せる値は素材ごとに 1 つなので、素材 × scale 単位で 1 件へまとめて件数を添える
+  // （geometry.fit-compat が移行案内を 1 件で出すのと同じ方針）。
+  const groups = new Map();
+  for (const entry of items) {
+    const item = entry?.item;
+    if (!isRecord(item) || !isRecord(item.crop) || !isRecord(item.transform)) continue;
+    const scale = item.transform.scale;
+    if (!isPositiveNumber(scale)) continue;
+    const measured = ratioOf(entry.sourceId);
+    if (!isRecord(measured) || !isPositiveNumber(measured.ratio)) continue;
+    const ratio = measured.ratio;
+    // 等寸プロキシ（比 1）は既定値 scale=1 と区別できないため見ない。
+    if (ratio <= 1 + CROP_SCALE_PROXY_RATIO_TOLERANCE) continue;
+    if (Math.abs(scale - ratio) > CROP_SCALE_PROXY_RATIO_TOLERANCE * ratio) continue;
+    const key = `${entry.sourceId} ${scale}`;
+    const group = groups.get(key);
+    if (group === undefined) groups.set(key, { entry, scale, measured, count: 1 });
+    else group.count += 1;
+  }
+  return [...groups.values()].map(({ entry, scale, measured, count }) => {
+    const { ratio, original, proxy } = measured;
+    return {
+      severity: "warning",
+      check: "media.crop-scale-proxy-ratio",
+      message: `素材 ${entry.sourceId} の crop を持つ item ${count} 件の transform.scale ${formatNumber(scale)} が、`
+        + `原本 ÷ プロキシの寸法比（${original.width}x${original.height} ÷ ${proxy.width}x${proxy.height}`
+        + ` = ${formatNumber(ratio)}）と一致します。プレビューがプロキシを復号していた時期の回避策の値`
+        + `である可能性が高く、原本を復号する現在は構図が約 ${formatNumber(ratio)} 倍に拡大します。`
+        + `意図したズームでなければ transform.scale を原本基準（通常 1）へ戻してください。`,
+      path: `${entry.itemPath}.transform.scale`,
+    };
+  });
+}
+
+function validateCropScaleProxyRatio(items, sourcesById, findings, skipped, paths, options) {
+  const candidates = items.filter((entry) => isRecord(entry?.item)
+    && isRecord(entry.item.crop)
+    && isRecord(entry.item.transform)
+    && isPositiveNumber(entry.item.transform.scale)
+    && isNonEmptyString(sourcesById.get(entry.sourceId)?.proxy));
+  if (candidates.length === 0) return;
+
+  let command;
+  try {
+    command = options.ffprobeCommand ?? process.env.FFPROBE ?? resolveFfprobe();
+  } catch (error) {
+    addSkipped(skipped, "media.crop-scale-proxy-ratio",
+      `source dimensions unavailable: ${messageOf(error)}`);
+    return;
+  }
+
+  const ratioBySourceId = new Map();
+  const ratioOf = (sourceId) => {
+    if (!ratioBySourceId.has(sourceId)) {
+      ratioBySourceId.set(sourceId, proxyDimensionRatio(sourcesById.get(sourceId), paths, command));
+    }
+    return ratioBySourceId.get(sourceId);
+  };
+  for (const finding of findCropScaleProxyRatioFindings(candidates, ratioOf)) {
+    addFinding(findings, finding);
+  }
+  for (const [sourceId, measured] of ratioBySourceId) {
+    if (measured === null) {
+      addSkipped(skipped, "media.crop-scale-proxy-ratio",
+        `source ${sourceId}: original / proxy dimensions are unavailable`);
+    }
+  }
+}
+
+/** 原本とプロキシの寸法比。片方でも読めない・縦横で比が違う場合は null（対象外）。 */
+function proxyDimensionRatio(source, paths, command) {
+  if (!isRecord(source) || !isNonEmptyString(source.path) || !isNonEmptyString(source.proxy)) {
+    return null;
+  }
+  const original = probeVideoDimensions(resolveReference(paths.editPath, source.path, paths), command);
+  const proxy = probeVideoDimensions(resolveReference(paths.editPath, source.proxy, paths), command);
+  if (original === null || proxy === null) return null;
+  const widthRatio = original.width / proxy.width;
+  const heightRatio = original.height / proxy.height;
+  // アスペクト比を変えたプロキシでは「寸法比」が一意に決まらないので判定しない。
+  if (Math.abs(widthRatio - heightRatio) > CROP_SCALE_PROXY_RATIO_TOLERANCE * widthRatio) {
+    return null;
+  }
+  return { ratio: widthRatio, original, proxy };
+}
+
+function probeVideoDimensions(filePath, command) {
+  const result = spawnSync(command, [
+    "-v", "error",
+    "-select_streams", "v:0",
+    "-show_entries", "stream=width,height",
+    "-of", "json",
+    filePath,
+  ], { encoding: "utf8", maxBuffer: 16 * 1024 * 1024 });
+  if (result.error || result.status !== 0) return null;
+  let parsed;
+  try {
+    parsed = JSON.parse(String(result.stdout ?? ""));
+  } catch {
+    return null;
+  }
+  const stream = Array.isArray(parsed?.streams) ? parsed.streams[0] : undefined;
+  const width = Number(stream?.width);
+  const height = Number(stream?.height);
+  if (!isPositiveNumber(width) || !isPositiveNumber(height)) return null;
+  return { width, height };
 }
 
 async function validateProxyGops(rawEdit, findings, paths, options) {

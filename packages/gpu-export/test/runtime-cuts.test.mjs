@@ -49,4 +49,16 @@ for (const [name, url] of RUNTIMES) {
     assert.deepEqual(cuts[3].transition_out, { type: "dissolve", duration: 0.5 });
     assert.equal("track" in cuts[3], false);
   });
+
+  // 不具合メモ 第18項: 最終出力と書き出し QA はプレビュー用プロキシ（低解像度）を掴んではいけない。
+  // source.proxy への退避が 1 箇所でも残ると、その素材だけ低解像度で焼き付いた成果物が出る。
+  test(`${name} は書き出しで原本 source.path だけを復号する（第18項）`, async () => {
+    const runtime = await readFile(url, "utf8");
+    assert.match(
+      runtime,
+      /if \(source && source\.id && source\.path\) urls\.set\(String\(source\.id\), mediaUrl\(source\.path\)\);/u,
+    );
+    assert.doesNotMatch(runtime, /source\.proxy \|\| source\.path/u);
+    assert.doesNotMatch(runtime, /mediaUrl\(source\.proxy/u);
+  });
 }

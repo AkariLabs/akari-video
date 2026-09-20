@@ -1393,14 +1393,15 @@ var AkariEditKernel = (() => {
     if (!(durationSec > 0)) return null;
     const timelineStartSec = startAtSec + delaySec;
     const baseGain = dbToLinear2(item.gainDb);
-    const gainEvents = item.kind === "sfx" ? fadeGainEvents(
+    const fadeWindowSec = item.kind === "sfx" ? item.itemDurationSec : Math.min(item.itemDurationSec, Math.max(0, timelineDurationSec - item.t));
+    const gainEvents = fadeGainEvents(
       item.spec.fade_in ?? item.spec.fadeIn,
       item.spec.fade_out ?? item.spec.fadeOut,
-      item.itemDurationSec,
+      fadeWindowSec,
       elapsedIntoItemSec,
       durationSec,
       baseGain
-    ) : [{ offsetSec: 0, value: baseGain, method: "set" }];
+    );
     return {
       kind: item.kind,
       id: item.id,
@@ -3105,6 +3106,10 @@ var AkariEditKernel = (() => {
             track: ref,
             ...common,
             ...copyMediaSourceFields(item.source, captionSwitch),
+            // cuts 側（下の EditCut / declaration）と同じく、素材窓が出力尺と 1 フレーム超ずれた
+            // ときの再生速度をレイヤー宣言にも渡す。落とすと out - in ≠ duration の追加映像が
+            // 等倍のまま伸びて（= 速度が落ちて）書き出される。
+            ...speed !== void 0 ? { speed } : {},
             ..."audio" in item && item.audio === false ? { audio: false } : {}
           };
           const value2 = declaration;
@@ -3372,6 +3377,11 @@ var AkariEditKernel = (() => {
         t: at,
         path: resolvedPath,
         track: ref,
+        // fade_in / fade_out は render-cut の resolveSfxFadeSeconds が snake_case で読む
+        // （sfx 宣言と同じ綴り。bgm だけが camelCase の fadeIn / fadeOut）。
+        // 落とすと afade が生成コマンドから丸ごと消え、会話音声のフェードが書き出しに乗らない。
+        ...item.fade_in !== void 0 ? { fade_in: item.fade_in } : {},
+        ...item.fade_out !== void 0 ? { fade_out: item.fade_out } : {},
         ...item.gain_db !== void 0 ? { gainDb: item.gain_db } : {},
         ...sourceClipFx,
         ...itemClipFx,
@@ -3399,6 +3409,8 @@ var AkariEditKernel = (() => {
             id: item.id,
             t: at,
             path: resolvedPath,
+            ...item.fade_in !== void 0 ? { fade_in: item.fade_in } : {},
+            ...item.fade_out !== void 0 ? { fade_out: item.fade_out } : {},
             ...item.gain_db !== void 0 ? { gain_db: item.gain_db } : {},
             ...sourceClipFx,
             ...itemClipFx,

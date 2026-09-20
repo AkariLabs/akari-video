@@ -13,7 +13,20 @@ const section = (text, start, end) => {
 test('clock.tick は音声時計を読んだ直後にゲート中の壁時計を再アンカーし描画する', () => {
     const clock = section(source, '                const clock = {', '                const summaryWithLivePreview =');
     const tick = section(clock, '                    tick(legacyPosition, legacyPlaying) {', '                    updateModel(nextSummary) {');
-    assert.match(tick, /position = audioSupply\.playbackTime\(fallbackPosition\);\s*(?:\/\/[^\n]*\n\s*)*if \(audioSupply\.debug\(\)\.supply\.gate\.holding\) \{\s*playAnchorPosition = position;\s*playAnchorMs = performance\.now\(\);\s*\}\s*position = renderPlayback\(position\);/u);
+    // 守っている不変条件は「音声時計を読む → ゲート中なら壁時計を再アンカー → 描画」の順序。
+    // 第16項（終端フレームで追加映像だけ消える）の修正で、描画の直前に停止判定用の要求時刻を
+    // 捕捉する 1 行が入るため、ゲート節と描画の間にローカル宣言とコメントを許す。順序そのものは
+    // 引き続き固定する。
+    assert.match(tick, /position = audioSupply\.playbackTime\(fallbackPosition\);\s*(?:\/\/[^\n]*\n\s*)*if \(audioSupply\.debug\(\)\.supply\.gate\.holding\) \{\s*playAnchorPosition = position;\s*playAnchorMs = performance\.now\(\);\s*\}\s*(?:(?:\/\/[^\n]*|const \w+ = position;)\n\s*)*position = renderPlayback\(position\);/u);
+});
+
+test('clock.tick の停止判定は提示時刻ではなく要求時刻で行う（第16項のクランプで止まらなくならないこと）', () => {
+    const clock = section(source, '                const clock = {', '                const summaryWithLivePreview =');
+    const tick = section(clock, '                    tick(legacyPosition, legacyPlaying) {', '                    updateModel(nextSummary) {');
+    // renderPlayback は最後の有効フレームへクランプするので、その戻り値は必ず totalDuration 未満に
+    // なる。停止判定をそちらで行うと再生が終わらない。
+    assert.doesNotMatch(tick, /position = renderPlayback\(position\);\s*if \(position >= totalDuration\)/u);
+    assert.match(tick, /const (\w+) = position;\s*position = renderPlayback\(position\);\s*if \(\1 >= totalDuration\) setPlaying\(false, totalDuration\);/u);
 });
 
 test('webview の音声表示は degraded、gate、preparing の順で文字列連結を使う', () => {

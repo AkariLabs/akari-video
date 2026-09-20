@@ -78,7 +78,10 @@ test('フラグ off の注入は空文字で既存 HTML 末尾を変えない', 
         compiledHandler,
         /frameEngineEnabled && assets\.frameEngineJavaScript[\s\S]*?\? `[\s\S]*?`[\s\S]*?: '';/
     );
-    assert.match(compiledHandler, /\$\{frameEngineScripts\}<\/body>/);
+    assert.match(
+        compiledHandler,
+        /\$\{frameEngineScripts\}<script>\$\{this\.previewDiagnosticsTailScript\(\)\}<\/script>\s*<\/body>/
+    );
 });
 
 test('worker CSP は frame-engine 有効時だけ blob と data を許可する', () => {

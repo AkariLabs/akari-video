@@ -1,18 +1,18 @@
 import * as MP4BoxNamespace from '@webav/mp4box.js';
 import { readVideoCodecFromMoov } from './codec-probe.js';
 import { calculateDecoderTimestampOffsetUs, type MediaEdit } from './keyframe-index.js';
+import {
+  childBoxes,
+  describeIndexParseFailure,
+  readBoxAt,
+  typeAt,
+  uint32,
+  videoOnlyIndexHeader,
+  type Mp4BoxLocation,
+} from './mp4-boxes.js';
 
 const MP4Box: typeof MP4BoxNamespace =
   (MP4BoxNamespace as unknown as { default?: typeof MP4BoxNamespace }).default ?? MP4BoxNamespace;
-
-export interface Mp4BoxLocation {
-  type: string;
-  start: number;
-  end: number;
-  size: number;
-  headerSize: number;
-  dataStart: number;
-}
 
 export interface Mp4VideoSample {
   offset: number;
@@ -83,52 +83,6 @@ interface ParsedTrack {
 interface ParsedInfo {
   timescale: number;
   videoTracks: ParsedTrack[];
-}
-
-function uint32(bytes: Uint8Array, offset: number): number {
-  return new DataView(bytes.buffer, bytes.byteOffset + offset, 4).getUint32(0);
-}
-
-function uint64(bytes: Uint8Array, offset: number): number {
-  const value = new DataView(bytes.buffer, bytes.byteOffset + offset, 8).getBigUint64(0);
-  if (value > BigInt(Number.MAX_SAFE_INTEGER)) throw new Error('MP4 box exceeds safe integer range');
-  return Number(value);
-}
-
-function typeAt(bytes: Uint8Array, offset: number): string {
-  return String.fromCharCode(...bytes.subarray(offset, offset + 4));
-}
-
-export function readBoxAt(
-  bytes: Uint8Array,
-  start: number,
-  parentEnd = bytes.byteLength,
-): Mp4BoxLocation | null {
-  if (start < 0 || start + 8 > parentEnd || parentEnd > bytes.byteLength) return null;
-  let size = uint32(bytes, start);
-  const type = typeAt(bytes, start + 4);
-  let headerSize = 8;
-  if (size === 1) {
-    if (start + 16 > parentEnd) return null;
-    size = uint64(bytes, start + 8);
-    headerSize = 16;
-  } else if (size === 0) {
-    size = parentEnd - start;
-  }
-  if (size < headerSize || start + size > parentEnd) return null;
-  return { type, start, end: start + size, size, headerSize, dataStart: start + headerSize };
-}
-
-export function childBoxes(bytes: Uint8Array, start: number, end: number): Mp4BoxLocation[] {
-  const boxes: Mp4BoxLocation[] = [];
-  let cursor = start;
-  while (cursor + 8 <= end) {
-    const box = readBoxAt(bytes, cursor, end);
-    if (!box) throw new Error(`invalid MP4 box at byte ${cursor}`);
-    boxes.push(box);
-    cursor = box.end;
-  }
-  return boxes;
 }
 
 function reverseBits32(value: number): number {
@@ -221,7 +175,8 @@ function presentationMediaTime(edits: readonly MediaEdit[] | undefined, firstDts
     && edit.media_rate_fraction === 0)?.media_time ?? firstDts;
 }
 
-export function buildVideoSampleTable(header: ArrayBuffer): Promise<Mp4VideoSampleTable> {
+export function buildVideoSampleTable(rawHeader: ArrayBuffer): Promise<Mp4VideoSampleTable> {
+  const header = videoOnlyIndexHeader(rawHeader);
   return new Promise((resolve, reject) => {
     const bytes = new Uint8Array(header);
     let description: ReturnType<typeof videoDescription>;
@@ -301,8 +256,15 @@ export function buildVideoSampleTable(header: ArrayBuffer): Promise<Mp4VideoSamp
     };
     const buffer = header as ArrayBuffer & { fileStart: number };
     buffer.fileStart = 0;
-    file.appendBuffer(buffer);
-    file.flush();
+    try {
+      file.appendBuffer(buffer);
+      file.flush();
+    } catch (error) {
+      // MP4Box は appendBuffer の中で同期 throw する。ここで受けないと素の
+      // `RangeError: Invalid array length` がそのまま利用者へ出て、どの素材のどの段で
+      // 失敗したのか分からない（不具合メモ 第1項: 例外スタック・最小再現が採取できなかった）。
+      reject(describeIndexParseFailure(error, 'video sample table', header.byteLength));
+    }
   });
 }
 

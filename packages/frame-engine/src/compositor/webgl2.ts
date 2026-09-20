@@ -5,6 +5,8 @@ import type {
   FrameMetricsRecorder,
   GPUFrameSurface,
   NativeYuvFrame,
+  ResolvedBaseLayer,
+  ResolvedCompositeLayer,
   ResolvedCutVisual,
   ResolvedFilterLayer,
   ResolvedLayerVisual,
@@ -1055,6 +1057,30 @@ function logicalSize(width: number, height: number, rotation: number): { width: 
     : { width, height };
 }
 
+/**
+ * 構図の基準になるソース寸法（不具合メモ 第10項）。layer-style cut の box（issue #39）と合成層の
+ * forwardInverse は「crop × ソースの論理寸法 × transform.scale」で出力画素の窓を決めるので、基準は
+ * 原本メタデータで宣言された論理寸法（NativeFrameSource.logicalSize）でなければならない。復号した
+ * フレームの寸法を基準にすると、プレビューがプロキシを復号した瞬間に構図がプロキシの解像度ぶん縮み、
+ * さらにベースカット（プロキシ復号）と追加レイヤー（原本復号）で寸法基準が食い違う
+ * （1920×1080 原本 / 960×540 プロキシ・crop 幅 0.5・scale 1 が 960×1080 ではなく 480×540 になる）。
+ *
+ * 宣言が無い、または壊れている（0 / 負 / 非有限）ときだけ復号フレームの寸法へ退避する。原本を
+ * そのまま復号する書き出し経路では両者が一致するため、退避しても構図は変わらない。
+ */
+export function compositionSourceSize(
+  layer: ResolvedBaseLayer | ResolvedCompositeLayer | undefined,
+  decoded: { width: number; height: number },
+): { width: number; height: number } {
+  const declared = (layer && 'source' in layer ? layer.source : undefined)?.logicalSize;
+  if (!declared) return decoded;
+  const width = Number(declared.width);
+  const height = Number(declared.height);
+  return Number.isFinite(width) && width > 0 && Number.isFinite(height) && height > 0
+    ? { width, height }
+    : decoded;
+}
+
 /** WebGL2 limited-range BT.709 compositor for cuts, transitions, and an arbitrary layer stack. */
 export class WebGL2Compositor implements CompositorBackend {
   readonly kind = 'webgl2' as const;
@@ -1488,10 +1514,13 @@ export class WebGL2Compositor implements CompositorBackend {
     for (let i = 0; i < 3; i++) this.bind(unitBase + i, textures[i]!);
     return logical;
   }
+  // sourceLogical は復号フレームの寸法ではなく、構図の基準になるソースの論理寸法
+  // （compositionSourceSize / 不具合メモ 第10項）。shader の sourceSize uniform（fit 経路と
+  // 半テクセルの inset）だけが復号寸法で、そちらは upload* が書く。
   private setCut(
     u: CutUniforms,
     v: ResolvedCutVisual,
-    source: { width: number; height: number },
+    sourceLogical: { width: number; height: number },
     adjustLutUnit: number,
   ) {
     this.gl.uniform4f(
@@ -1514,7 +1543,7 @@ export class WebGL2Compositor implements CompositorBackend {
     // issue #39: layer-style cuts sample through crop / box (layer program geometry); others keep
     // framing / fit untouched. The extra uniforms are inert when layerStyle is 0.
     if (v.layerStyle) {
-      const box = cutLayerStyleBox(v, source.width, source.height);
+      const box = cutLayerStyleBox(v, sourceLogical.width, sourceLogical.height);
       this.gl.uniform1i(u.layerStyle, 1);
       this.gl.uniform4f(
         u.crop,
@@ -1852,13 +1881,16 @@ export class WebGL2Compositor implements CompositorBackend {
     gl.useProgram(baseProgram.program);
     gl.uniform2f(baseProgram.output, output.width, output.height);
     const started = performance.now();
-    // Logical (display-rotated) source sizes per slot: the layer-style box (issue #39) is crop × size × scale.
+    // Composition basis per slot: the layer-style box (issue #39) is crop × this × scale. It is the
+    // source's declared logical size — never the decoded frame's pixel size — so decoding a proxy of
+    // any resolution leaves the composition where the editor put it (不具合メモ 第10項).
     const sizes: { width: number; height: number }[] = [];
     frames.forEach((frame, index) => {
+      let decoded: { width: number; height: number };
       if ('bitmap' in frame) {
-        sizes[index] = this.uploadStillBaseTexture(frame, BASE_RGBA_UNITS[index]!, baseProgram.cutUniforms[index]);
+        decoded = this.uploadStillBaseTexture(frame, BASE_RGBA_UNITS[index]!, baseProgram.cutUniforms[index]);
       } else if (isVideoFrame(frame)) {
-        sizes[index] = this.uploadVideoFrameTexture(
+        decoded = this.uploadVideoFrameTexture(
           this.baseRgbaTextures[index]!,
           BASE_RGBA_UNITS[index]!,
           frame,
@@ -1868,7 +1900,7 @@ export class WebGL2Compositor implements CompositorBackend {
         // RGBA is an active sampler even in the YUV branch. A prior layer may have
         // left a shared fx attachment on this unit; never let prep sample its target.
         this.bind(BASE_RGBA_UNITS[index]!, this.baseRgbaTextures[index]!);
-        sizes[index] = this.uploadYuv(
+        decoded = this.uploadYuv(
           frame,
           this.baseTextures.slice(index * 3, index * 3 + 3),
           index * 3,
@@ -1876,6 +1908,7 @@ export class WebGL2Compositor implements CompositorBackend {
           baseProgram.cutUniforms[index],
         );
       }
+      sizes[index] = compositionSourceSize(plan.base[index], decoded);
     });
     if (frames.length === 1 && !baseProgram.secondary) {
       const frame = frames[0]!;
@@ -1964,7 +1997,10 @@ export class WebGL2Compositor implements CompositorBackend {
       const x = axis(framing.x, framing.width, size.width, output.width);
       const y = axis(framing.y, framing.height, size.height, output.height);
       const crop = visual.layerStyle?.crop ?? { x: x[0]!, y: y[0]!, width: x[1]!, height: y[1]! };
-      const displayed = visual.layerStyle ? cutLayerStyleBox(visual, size.width, size.height) : {
+      // fx のサンプリングは復号テクスチャの寸法（size）だが、画面に出る box は構図の基準寸法で決まる
+      // （fit 経路の displayed は size × fit が解像度不変なのでそのまま）。
+      const sourceLogical = compositionSourceSize(plan.base[index], size);
+      const displayed = visual.layerStyle ? cutLayerStyleBox(visual, sourceLogical.width, sourceLogical.height) : {
         width: crop.width * size.width * fit * visual.transform.scale / framing.width,
         height: crop.height * size.height * fit * visual.transform.scale / framing.height,
       };
@@ -2194,9 +2230,14 @@ export class WebGL2Compositor implements CompositorBackend {
         gl.uniform1i(maskRotationLoc, 0);
       }
       uploadElapsedMs += performance.now() - uploadStarted;
+      // 合成層の幾何もベースカットと同じ基準（ソースの論理寸法）で決める。width / height は
+      // 復号テクスチャの寸法なので、サンプリング（fx の size）にだけ使う（不具合メモ 第10項）。
+      const sourceLogical = compositionSourceSize(layer, { width, height });
       const geometry = layer.cutVisual
-        ? compositeCutGeometry(layer.cutVisual, width, height, output.width, output.height)
-        : { visual: layer.visual, width, height };
+        ? compositeCutGeometry(
+          layer.cutVisual, sourceLogical.width, sourceLogical.height, output.width, output.height,
+        )
+        : { visual: layer.visual, width: sourceLogical.width, height: sourceLogical.height };
       const visual = geometry.visual;
       gl.uniform2f(outLoc, output.width, output.height);
       gl.uniformMatrix3fv(

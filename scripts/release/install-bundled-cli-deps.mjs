@@ -19,6 +19,8 @@ import { spawnSync } from 'node:child_process';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { childEnv, resolveNpmCli } from '../ci/run-unit-tests.mjs';
+
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const { BUNDLED_CLI_NPM_ENTRIES } = await import(
     new URL('file://' + join(REPO_ROOT, 'apps/shell/resources/scripts/bundled-cli-npm-entries.mjs').replaceAll('\\', '/'))
@@ -41,10 +43,17 @@ const specs = BUNDLED_CLI_NPM_ENTRIES.map(name => {
 });
 
 console.log('install-bundled-cli-deps:', specs.join(' '));
+// npm.cmd は shell 無しで spawn できず（Node 20 以降の Windows・CVE-2024-27980 対応）、
+// shell: true は引数の注入面を広げる。run-unit-tests.mjs と同じく npm の実体 JS を
+// node で直接叩く（`shell` を使わずに argv をそのまま渡せる）。
+const npmCli = resolveNpmCli();
 const result = spawnSync(
-    process.platform === 'win32' ? 'npm.cmd' : 'npm',
-    ['install', '--no-workspaces', '--ignore-scripts', '--no-save', '--no-audit', '--no-fund', ...specs],
-    { cwd: REPO_ROOT, stdio: 'inherit', shell: process.platform === 'win32' },
+    npmCli ? process.execPath : 'npm',
+    [
+        ...(npmCli ? [npmCli] : []),
+        'install', '--no-workspaces', '--ignore-scripts', '--no-save', '--no-audit', '--no-fund', ...specs,
+    ],
+    { cwd: REPO_ROOT, stdio: 'inherit', env: childEnv() },
 );
 if (result.status !== 0) {
     throw new Error(`npm install が失敗しました（exit ${result.status}）`);

@@ -136,6 +136,12 @@ const flush = () => new Promise(resolve => setImmediate(resolve));
 const supported = { codec: 'hvc1', hw: true, sw: false, any: true };
 const probeResult = { info: { codec: 'hvc1' }, support: supported };
 
+// 構図の基準（原本の論理寸法）を作るモジュール関数。resolveSourceChoices が自動 proxy の
+// 確定時に呼ぶため、スタブではなく実体を渡す（不具合メモ 第10項）。
+const logicalSizeFromCodecInfo = runInNewContext(`(${stripTypeScriptTypes(
+  extract(source, 'function logicalSizeFromCodecInfo('),
+)})`);
+
 function resolverHarness(ids, globals = {}) {
   let current = true;
   const applied = [];
@@ -147,6 +153,7 @@ function resolverHarness(ids, globals = {}) {
     needsCodecProbe: () => true,
     chooseSource: () => ({ chosen: 'original', reason: 'hardware-ok' }),
     probeSourceCodec: async () => probeResult,
+    logicalSizeFromCodecInfo,
     ...globals,
   });
   const candidates = new Map(ids.map(id => [id, { id, originalUrl: `/${id}`, proxyUrl: null }]));

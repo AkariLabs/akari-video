@@ -1,5 +1,5 @@
 import { QuickExportPhase } from './quick-export-protocol';
-import { QuickExportStage } from './quick-export-progress';
+import { QuickExportStage, QuickExportVerifyCheck } from './quick-export-progress';
 import { quickExportStageLabel } from './quick-export-ui';
 
 export type ExportChipState =
@@ -12,6 +12,7 @@ export interface ExportChipSnapshot {
         readonly phase: QuickExportPhase;
         readonly progressPercent?: number;
         readonly progressStage?: QuickExportStage;
+        readonly progressVerifyCheck?: QuickExportVerifyCheck;
         readonly progressRemainingMs?: number;
     };
     readonly outputName: string;
@@ -31,7 +32,7 @@ export function computeExportChipState(
     if (status.phase === 'linting' || status.phase === 'rendering') {
         return {
             kind: 'running',
-            stageLabel: quickExportStageLabel(status.progressStage)
+            stageLabel: quickExportStageLabel(status.progressStage, status.progressVerifyCheck)
                 ?? (status.phase === 'linting' ? 'lint 確認中' : '準備'),
             percent: Math.min(100, Math.max(0, Math.round(status.progressPercent ?? 0))),
             remainingMs: status.progressRemainingMs,

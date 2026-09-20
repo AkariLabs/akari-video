@@ -4,16 +4,36 @@ import {
     UiLintFinding
 } from 'akari-annotations/lib/common/lint-message-ja';
 import { QuickExportLintFinding, QuickExportPhase, QuickExportStatus } from './quick-export-protocol';
-import { QuickExportStage } from './quick-export-progress';
+import { QuickExportStage, QuickExportVerifyCheck } from './quick-export-progress';
 
-export function quickExportStageLabel(stage: QuickExportStage | undefined): string | undefined {
+export function quickExportStageLabel(
+    stage: QuickExportStage | undefined,
+    verifyCheck?: QuickExportVerifyCheck
+): string | undefined {
     switch (stage) {
         case 'prepare': return '準備';
         case 'audio-cut': return '音を切り出す';
         case 'render': return '映像を描いて圧縮する';
         case 'audio-mix': return '音と合わせて仕上げる';
-        case 'verify': return '確認';
+        // 88 分 4K では確認だけで約 63 分かかり、そのうち黒画面検査が約 57 分を占める
+        // （不具合メモ 第22項）。「確認」の 1 語だけでは止まったように見えるので、
+        // 今どの工程かを添える。
+        case 'verify': return verifyCheck
+            ? `確認（${quickExportVerifyCheckLabel(verifyCheck)}）`
+            : '確認';
         default: return undefined;
+    }
+}
+
+export function quickExportVerifyCheckLabel(check: QuickExportVerifyCheck): string {
+    switch (check) {
+        case 'probe': return '仕様を読む';
+        case 'video-identity': return '映像が同じか照合';
+        case 'decode': return '全編を復号';
+        case 'audio-decode': return '音声を復号';
+        case 'audio-level': return '音量を測る';
+        case 'motion': return '動きを測る';
+        case 'blank-frames': return '黒画面を探す';
     }
 }
 

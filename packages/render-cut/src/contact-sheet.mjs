@@ -175,11 +175,16 @@ export async function renderLabeledContactSheet({
     const framePath = join(framesDirectory, `frame-${String(index + 1).padStart(3, "0")}.png`);
     const labelPath = join(framesDirectory, `label-${String(index + 1).padStart(3, "0")}.png`);
     await writeFile(labelPath, renderLabelPng(labels?.[index] ?? ""));
+    // -ss は適用したい入力の直前に置く必要があるので、入力側は videoPath の前だけ。
+    // ラベル PNG は静止画 1 枚で overlay が最後のフレームを保持するため、出力側 -ss の
+    // 影響を受けない（実 ffmpeg で従来出力とのバイト一致を確認済み）。
+    const seek = contactSheetSeekArguments(Math.max(0, seconds));
     runChecked(ffmpegCommand, [
       "-hide_banner", "-loglevel", "error", "-nostdin", "-y",
+      "-ss", seek.input,
       "-i", videoPath,
       "-i", labelPath,
-      "-ss", formatNumber(Math.max(0, seconds)),
+      "-ss", seek.output,
       "-frames:v", "1",
       "-filter_complex", [
         `[0:v]scale=${dimensions.width}:${dimensions.height}:force_original_aspect_ratio=decrease`,
@@ -200,6 +205,26 @@ export async function renderLabeledContactSheet({
 
 function formatNumber(value) {
   return Number(value).toFixed(6);
+}
+
+// 入力側の高速シークで手前まで飛び、残りを出力側で精密に詰める（不具合メモ 第9項と同じ規律）。
+// 入力側だけだとコーデック次第でキーフレーム境界へ丸められて別のフレームが出るため、残りは必須。
+// ffmpeg 内部の時刻比較は AV_TIME_BASE = µs 整数なので、µs 整数で分割すれば
+// 入力側 + 出力側 = 従来の出力側単独 と同じ閾値になり、選択されるフレームが変わらない。
+//
+// 一括抽出（akari-tools/src/media/frame-grab.mjs）はここでは使わない。シートの時刻は素材全体へ
+// 散らばるので、まとめると隙間のデコードが丸損になる。同モジュールを import できない事情も
+// ある（akari-tools が render-cut に依存しているので逆向きは循環になる）。
+export const CONTACT_SHEET_PREROLL_SECONDS = 1;
+
+export function contactSheetSeekArguments(seconds, prerollSeconds = CONTACT_SHEET_PREROLL_SECONDS) {
+  const micros = Math.max(0, Math.round(Number(seconds) * 1e6));
+  const prerollMicros = Math.max(0, Math.round(Number(prerollSeconds) * 1e6));
+  const inputMicros = Math.max(0, micros - prerollMicros);
+  return {
+    input: (inputMicros / 1e6).toFixed(6),
+    output: ((micros - inputMicros) / 1e6).toFixed(6),
+  };
 }
 
 const LABEL_GLYPHS = {
