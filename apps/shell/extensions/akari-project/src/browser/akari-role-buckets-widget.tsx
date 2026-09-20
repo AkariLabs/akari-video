@@ -78,7 +78,9 @@ import {
     LIBRARY_GROUPS,
     LibraryCategoryDefinition,
     LibraryCategoryKey,
+    LibraryCategoryStatus,
     LibraryGroupDefinition,
+    resolveOpenableLibraryCategory,
     searchLibraryHome
 } from '../common/library-home-view';
 import { AKARI_REVEAL_IN_FILE_MANAGER, AKARI_SHOW_ASSET_INFO, revealInFileManagerActionLabel } from './akari-reveal-commands';
@@ -106,6 +108,27 @@ const MATERIAL_DRAG_END_EVENT = 'akari.material.dragEnd';
 const LIBRARY_DRAG_MIME = 'application/x-akari-library-item';
 const LIBRARY_DRAG_START_EVENT = 'akari.library.dragStart';
 const LIBRARY_DRAG_END_EVENT = 'akari.library.dragEnd';
+
+const AKARI_CATALOG_FOCUS_PULSE_CLASS = 'akari-catalog-focus-pulse';
+const AKARI_CATALOG_FOCUS_PULSE_STYLE_ID = 'akari-catalog-focus-pulse-style';
+
+function installCatalogFocusPulseStyle(): void {
+    if (document.getElementById(AKARI_CATALOG_FOCUS_PULSE_STYLE_ID)) {
+        return;
+    }
+    const style = document.createElement('style');
+    style.id = AKARI_CATALOG_FOCUS_PULSE_STYLE_ID;
+    style.textContent = `
+.${AKARI_CATALOG_FOCUS_PULSE_CLASS} {
+    animation: akari-catalog-focus-pulse 1.6s ease-out 1;
+}
+@keyframes akari-catalog-focus-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 transparent; }
+    15%, 55% { box-shadow: 0 0 0 3px var(--akari-focus-pulse, var(--akari-accent)); }
+}
+`;
+    document.head.appendChild(style);
+}
 
 const AKARI_CATALOG_ROOT_PREFERENCE = 'akari.catalog.root';
 const AKARI_CATALOG_VIEW_MODE_STORAGE_KEY = 'akari.catalog.viewMode';
@@ -135,6 +158,30 @@ const CATALOG_GRID_COLUMNS =
 
 /** 上段（素材）の内部遷移先。タブではなく widget 内遷移 — U6 裁定。 */
 type TopView = 'materials' | 'catalog';
+
+/** `akari.catalog.open` の引数。外から「このタブ・このカテゴリ・この言葉で開く」ための契約。 */
+export interface AkariCatalogFocusOptions {
+    /** 省略時・'project' 以外の値は 'library' 扱い。 */
+    readonly tab?: 'project' | 'library';
+    /** tab='library' のときだけ効く。未知/soon のキーは無視してホームを開く。tab='project' では無視する。 */
+    readonly category?: string;
+    /** 省略時は空文字（前回の検索語を引きずらない）。 */
+    readonly query?: string;
+    /** 見つかったカードまでスクロールする。形は §1 の表のとおり。 */
+    readonly assetId?: string;
+    /** true のとき assetId のカードを約 1.6 秒発光させる。 */
+    readonly pulse?: boolean;
+}
+
+/** `akari.catalog.listCategories` の戻り値 1 件。 */
+export interface AkariCatalogCategorySummary {
+    readonly key: string;
+    readonly label: string;
+    readonly status: LibraryCategoryStatus;
+    /** status='soon' のときは undefined。 */
+    readonly count?: number;
+}
+
 type MaterialKind = 'video' | 'audio' | 'image' | 'other';
 type OutputEntryKind = 'data' | 'plan' | 'export' | 'report';
 
@@ -349,6 +396,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
 
     @postConstruct()
     protected init(): void {
+        installCatalogFocusPulseStyle();
         this.id = AkariRoleBucketsWidget.ID;
         this.title.label = '素材';
         this.title.caption = 'ドメインオブジェクトのカード棚';
@@ -465,8 +513,37 @@ export class AkariRoleBucketsWidget extends ReactWidget {
      * developer mode の出し分けとの衝突回避）は呼び出し側
      * （AkariCatalogCommandContribution）の責務にする。
      */
-    openCatalogView(): void {
-        this.selectTopView('catalog');
+    async openCatalogView(options?: AkariCatalogFocusOptions): Promise<boolean> {
+        if (!options) {
+            this.selectTopView('catalog');
+            return true;
+        }
+        const tab: TopView = options.tab === 'project' ? 'materials' : 'catalog';
+        this.selectTopView(tab);
+        let matched = true;
+        if (tab === 'materials') {
+            // プロジェクト面には「役割のバケツ」的なカテゴリ絞り込みが無い（検索のみ、司令塔への問い参照）。
+            if (options.category) {
+                matched = false;
+            }
+            this.setMaterialQuery(options.query ?? '');
+        } else {
+            const resolved = resolveOpenableLibraryCategory(options.category);
+            if (options.category && !resolved) {
+                matched = false;
+            }
+            if (resolved) {
+                this.selectLibraryCategory(resolved);
+            } else {
+                this.showLibraryHome();
+            }
+            this.setCatalogQuery(options.query ?? '');
+        }
+        if (options.assetId) {
+            const focused = await this.focusAssetCard(tab, options.assetId, options.pulse === true);
+            matched = matched && focused;
+        }
+        return matched;
     }
 
     // --- 素材カード ---------------------------------------------------------
@@ -1385,7 +1462,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
      * 既にマージ済みで返すため、ここでは preference を渡して結果をそのまま保持するだけ。
      * 空配列（=完全に何も無い）のときだけ従来の「フォルダを選ぶ」空状態を出す。
      */
-    protected async loadAssetCatalogView(): Promise<void> {
+    public async loadAssetCatalogView(): Promise<void> {
         this.catalogLoading = true;
         this.update();
         const preferenceRoot = this.preferences.get<string>(AKARI_CATALOG_ROOT_PREFERENCE, '');
@@ -1535,6 +1612,43 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         }
         return [...this.catalogCategoryChips(), ...derivePresetShowcaseChips(this.presetShowcase)]
             .find(chip => chip.category === category.chipKey)?.count ?? 0;
+    }
+
+    /** `akari.catalog.listCategories` の実体。UI 状態は変えない読み取り専用メソッド。 */
+    public catalogCategorySummaries(): AkariCatalogCategorySummary[] {
+        return LIBRARY_GROUPS.flatMap(group => group.categories.map(category => ({
+            key: category.key,
+            label: category.label,
+            status: category.status,
+            count: this.libraryCategoryCount(category)
+        })));
+    }
+
+    /**
+     * assetId に一致するカードまでスクロールし、pulse なら発光させる。this.update() は
+     * Lumino 経由で非同期に反映されるため、React の再描画完了を 2 回連続の
+     * requestAnimationFrame で待つ（packages/edit-store 配下 visual-thumbnail.ts:96 と同型）。
+     */
+    protected async focusAssetCard(tab: TopView, assetId: string, pulse: boolean): Promise<boolean> {
+        await new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+        const escaped = CSS.escape(assetId);
+        const target = this.node.querySelector<HTMLElement>(
+            tab === 'materials'
+                ? `[data-akari-material-path="${escaped}"]`
+                : `[data-akari-catalog-item="${escaped}"], [data-akari-catalog-preset-item="${escaped}"], `
+                  + `[data-akari-library-transition="${escaped}"], [data-akari-catalog-pack="${escaped}"]`
+        );
+        if (!target) {
+            return false;
+        }
+        target.scrollIntoView({ block: 'nearest' });
+        if (pulse) {
+            target.classList.remove(AKARI_CATALOG_FOCUS_PULSE_CLASS);
+            void target.offsetWidth; // 連続で光らせ直せるように reflow を挟む
+            target.classList.add(AKARI_CATALOG_FOCUS_PULSE_CLASS);
+            target.addEventListener('animationend', () => target.classList.remove(AKARI_CATALOG_FOCUS_PULSE_CLASS), { once: true });
+        }
+        return true;
     }
 
     protected readCatalogViewMode(): CatalogViewMode {

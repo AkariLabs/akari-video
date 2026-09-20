@@ -2881,6 +2881,18 @@ export class AkariInspectorWidget extends BaseWidget {
         color: var(--theia-descriptionForeground);
         font-size: 11px;
     }
+    @keyframes akari-inspector-focus-pulse {
+        0%, 100% { box-shadow: 0 0 0 0 var(--akari-focus-pulse, var(--akari-accent)); }
+        50% { box-shadow: 0 0 0 4px var(--akari-focus-pulse, var(--akari-accent)); }
+    }
+    .akari-inspector-widget .akari-inspector-focus-pulse {
+        animation: akari-inspector-focus-pulse 0.4s ease-in-out 4;
+        border-radius: 3px;
+    }
+    .akari-inspector-widget .akari-inspector-focus-pulse-reduced {
+        outline: 2px solid var(--akari-focus-pulse, var(--akari-accent));
+        outline-offset: 1px;
+    }
 `;
         this.node.appendChild(style);
 
@@ -2897,6 +2909,49 @@ export class AkariInspectorWidget extends BaseWidget {
             void this.loadGeneration(current);
         }));
         this.render();
+    }
+
+    focusField(options: { tabId?: string; sectionId?: string; fieldName?: string }): boolean {
+        if (!options.tabId && !options.sectionId && !options.fieldName) return false;
+        const snapshot = this.model.snapshot;
+        if (!snapshot || snapshot.kind === 'world') return false;
+        const kind = snapshot.kind === 'multi' ? 'caption' : snapshot.kind;
+        if (options.tabId) this.tabState.setActiveTab(kind, options.tabId);
+        if (options.sectionId) this.sectionState.setCollapsed(kind, options.sectionId, false);
+        this.render();
+        let ok = true;
+        if (options.tabId) {
+            ok = ok && !!this.body.querySelector(`[data-akari-ui="tab:inspector-${options.tabId}"].is-active`);
+        }
+        let sectionElement: Element | null = null;
+        if (options.sectionId) {
+            sectionElement = this.body.querySelector(`[data-akari-ui="section:inspector-${options.sectionId}"]`);
+            ok = ok && !!sectionElement;
+        }
+        let fieldElement: Element | null = null;
+        if (options.fieldName) {
+            fieldElement = this.body.querySelector(`[data-akari-field="${options.fieldName}"]`);
+            ok = ok && !!fieldElement;
+        }
+        if (!ok) return false;
+        const target = fieldElement ?? sectionElement;
+        if (target) this.pulse(target as HTMLElement);
+        return true;
+    }
+
+    pulseField(fieldName: string): boolean {
+        const fieldElement = this.body.querySelector(`[data-akari-field="${fieldName}"]`);
+        if (!fieldElement) return false;
+        this.pulse(fieldElement as HTMLElement);
+        return true;
+    }
+
+    protected pulse(element: HTMLElement): void {
+        const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true;
+        element.scrollIntoView({ block: 'center', behavior: reduced ? 'auto' : 'smooth' });
+        const className = reduced ? 'akari-inspector-focus-pulse-reduced' : 'akari-inspector-focus-pulse';
+        element.classList.add(className);
+        window.setTimeout(() => element.classList.remove(className), 1600);
     }
 
     protected render(): void {
@@ -3312,6 +3367,7 @@ export class AkariInspectorWidget extends BaseWidget {
             checkbox.checked = enable.checked;
             checkbox.setAttribute('aria-label', enable.label);
             checkbox.setAttribute('data-akari-ui', `field:inspector-${enable.name}`);
+            checkbox.setAttribute('data-akari-field', enable.name);
             const caption = document.createElement('span');
             caption.textContent = '有効';
             checkbox.addEventListener('change', () => {
@@ -3747,6 +3803,7 @@ export class AkariInspectorWidget extends BaseWidget {
         if (field.className) row.classList.add(field.className);
         if (field.title) row.title = field.title;
         const fieldName = field.name ?? field.label.toLowerCase().replace(/[^a-z0-9_-]+/giu, '-');
+        row.setAttribute('data-akari-field', fieldName);
         const labelElement = document.createElement('div');
         labelElement.className = 'akari-inspector-row-label';
         labelElement.textContent = field.label;

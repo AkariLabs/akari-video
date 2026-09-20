@@ -18,6 +18,7 @@ import { AkariCutsWidget } from './akari-cuts-widget';
 import { AkariDaihonWidget } from './akari-daihon-widget';
 import { AkariTranscribeDialog, listenTranscribeRange } from './akari-transcribe-dialog';
 import { AkariEditHistoryService } from 'akari-annotations/lib/browser/akari-edit-history-service';
+import { DaihonOpenTarget } from '../../common/daihon-focus-target';
 import { setDaihonHistoryService } from '../../common/captions-button';
 
 const DAIHON_PANEL_RANK = 190;
@@ -58,8 +59,8 @@ export class AkariDaihonContribution implements CommandContribution, FrontendApp
 
     registerCommands(commands: CommandRegistry): void {
         setDaihonHistoryService(this.history);
-        commands.registerCommand(OPEN_AKARI_DAIHON, { execute: () => this.open() });
-        commands.registerCommand(OPEN_AKARI_CUTS, { execute: () => this.openCuts() });
+        commands.registerCommand(OPEN_AKARI_DAIHON, { execute: (target?: DaihonOpenTarget) => this.open(target) });
+        commands.registerCommand(OPEN_AKARI_CUTS, { execute: (request?: { candidateId?: string }) => this.openCuts(request) });
         commands.registerCommand(AKARI_TRANSCRIBE_OPEN_DIALOG, {
             execute: (request: { projectRoot: string; relativePath: string }) => this.openTranscribeDialog(commands, request)
         });
@@ -112,10 +113,10 @@ export class AkariDaihonContribution implements CommandContribution, FrontendApp
         });
     }
 
-    async openCuts(): Promise<AkariCutsWidget> {
+    async openCuts(request?: { candidateId?: string }): Promise<boolean> {
         const widget = await this.ensureCutsWidget();
         await this.shell.activateWidget(widget.id);
-        return widget;
+        return request?.candidateId ? widget.focusCandidate(request.candidateId) : true;
     }
 
     protected async ensureCutsWidget(): Promise<AkariCutsWidget> {
@@ -124,10 +125,10 @@ export class AkariDaihonContribution implements CommandContribution, FrontendApp
         return cuts;
     }
 
-    async open(): Promise<AkariDaihonWidget> {
+    async open(target?: DaihonOpenTarget): Promise<boolean> {
         const widget = await this.ensureWidget();
         await this.shell.activateWidget(widget.id);
-        return widget;
+        return target ? widget.focusTarget(target) : true;
     }
 
     protected async ensureWidget(): Promise<AkariDaihonWidget> {

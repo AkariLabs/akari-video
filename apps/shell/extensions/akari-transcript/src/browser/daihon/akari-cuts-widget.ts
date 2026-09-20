@@ -5,6 +5,7 @@ import { inject, injectable, postConstruct } from '@theia/core/shared/inversify'
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
 import { WorkspaceService } from '@theia/workspace/lib/browser/workspace-service';
 import { AkariProjectService, TranscribeCuts } from 'akari-project/lib/common/akari-project-protocol';
+import { installDaihonFocusPulseStyle, triggerFocusPulse } from '../../common/daihon-focus-pulse-style';
 import { CUT_KIND_LABELS, cutsSummary, cutsViewNotice, isHandEditedCandidate } from '../../common/cuts-view';
 import { listenTranscribeRange, transcribeButton, transcribeElement } from './akari-transcribe-dialog';
 
@@ -32,6 +33,7 @@ export class AkariCutsWidget extends BaseWidget {
     protected loading = 0;
 
     @postConstruct() protected init(): void {
+        installDaihonFocusPulseStyle();
         this.id = AkariCutsWidget.FACTORY_ID; this.title.label = 'カット'; this.title.caption = '文字起こしのカット候補'; this.title.closable = false;
         this.title.iconClass = 'codicon codicon-checklist';
         this.node.dataset.akariCuts = 'true';
@@ -42,6 +44,18 @@ export class AkariCutsWidget extends BaseWidget {
         this.picker.onchange = () => { this.source = this.picker.value; this.queueReload(); };
         this.notice.setAttribute('role', 'status'); this.node.append(this.picker, this.band, this.list, this.foot, this.notice);
     }
+    async focusCandidate(candidateId: string): Promise<boolean> {
+        await this.tail.catch(() => undefined);
+        const row = this.list.querySelector<HTMLElement>(`[data-candidate-id="${CSS.escape(candidateId)}"]`);
+        if (!row) {
+            this.notice.textContent = `候補 ${candidateId} が見つかりませんでした。`;
+            return false;
+        }
+        row.scrollIntoView({ block: 'center' });
+        triggerFocusPulse(row);
+        return true;
+    }
+
     showError(error: unknown): void {
         this.notice.textContent = cutsViewNotice(!!this.root, error);
     }
