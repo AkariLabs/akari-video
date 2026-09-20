@@ -31,6 +31,9 @@ test('呼び出しボタンは「変更を見る」より左に出て、枠の�
   assert.match(frame, /resetPlacement/);
   assert.match(frame, /userMoved/);
   assert.match(contribution, /setAnchorProvider\(\(\) => toolbarAnchorRect\(document\)\)/);
+  // つかんで動かすのは「動いた差」で受ける（中身に絶対位置を持たせると左端へ飛ぶ）。
+  assert.match(frame, /moveBy\(data\.drag\.dx, data\.drag\.dy\)/);
+  assert.match(frame, /moveBy\(dx: unknown, dy: unknown\)/);
 });
 
 test('枠は安全な iframe と局所的な操作面だけを持つ', async () => {

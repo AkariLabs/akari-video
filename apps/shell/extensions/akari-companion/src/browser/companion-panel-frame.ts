@@ -164,6 +164,17 @@ export class CompanionPanelFrame {
         this.onHiddenChanged?.(this.hidden);
     }
 
+    /** つかんで動かしたぶんだけ動かす。動かした時点で「自由に浮いている」扱いになる。 */
+    moveBy(dx: unknown, dy: unknown): void {
+        if (!this.panelEl || !Number.isFinite(dx) || !Number.isFinite(dy)) return;
+        if (dx === 0 && dy === 0) return;
+        this.userMoved = true;
+        this.x = clampPanelX(this.x + (dx as number), this.win.innerWidth, this.size.width);
+        this.y = clampPanelY(this.y + (dy as number), this.win.innerHeight, this.size.height);
+        this.writeStoredPlacement();
+        this.applyLayout();
+    }
+
     /** 既定の置き場所へ戻す（利用者が動かした位置は捨てる）。 */
     resetPlacement(): void {
         this.userMoved = false;
@@ -251,10 +262,14 @@ export class CompanionPanelFrame {
             x?: number;
             mode?: unknown;
             placement?: unknown;
+            drag?: { dx?: unknown; dy?: unknown };
         } | null;
         if (!data || data.type !== 'akari-companion-panel') return;
         // 中身が「既定の置き場所へ戻して」と言ってきたら、覚えている位置を捨てる。
         if (data.placement === 'default') this.resetPlacement();
+        // 中身の帯をつかんで動かしたぶん。位置は枠が持っているので、動いた差だけ受け取る
+        // （中身に絶対位置を持たせると、つかんだ瞬間に画面の左端へ飛ぶ）。
+        if (data.drag) { this.moveBy(data.drag.dx, data.drag.dy); return; }
         this.applyInstruction({
             width: data.width,
             height: data.height,
