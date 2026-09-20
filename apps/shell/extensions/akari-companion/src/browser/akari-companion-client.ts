@@ -1,6 +1,7 @@
 import { injectable } from '@theia/core/shared/inversify';
 import {
     AkariCompanionClient,
+    CompanionManifestPanel,
     CompanionInstruction,
     CompanionResultMessage
 } from '../common/akari-companion-protocol';
@@ -8,9 +9,14 @@ import {
 @injectable()
 export class AkariCompanionClientImpl implements AkariCompanionClient {
     protected handler: ((instruction: CompanionInstruction) => Promise<CompanionResultMessage>) | undefined;
+    protected panelHandler: ((connected: boolean, panel?: CompanionManifestPanel) => void) | undefined;
 
     setHandler(handler: typeof this.handler): void {
         this.handler = handler;
+    }
+
+    setPanelHandler(handler: typeof this.panelHandler): void {
+        this.panelHandler = handler;
     }
 
     async executeInstruction(instruction: CompanionInstruction): Promise<CompanionResultMessage> {
@@ -18,7 +24,7 @@ export class AkariCompanionClientImpl implements AkariCompanionClient {
         return this.handler(instruction);
     }
 
-    onConnectionState(): void {
-        // 次の拡張段階が接続表示に使うための受け口。
+    onConnectionState(connected: boolean, panel?: CompanionManifestPanel): void {
+        this.panelHandler?.(connected, panel);
     }
 }
