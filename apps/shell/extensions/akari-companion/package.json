@@ -1,0 +1,27 @@
+{
+  "name": "akari-companion",
+  "version": "0.0.1",
+  "description": "AKARI Video shell — akari-companion extension (external control-surface bridge).",
+  "private": true,
+  "main": "lib/browser/akari-companion-frontend-module.js",
+  "theiaExtensions": [
+    { "frontend": "lib/browser/akari-companion-frontend-module" },
+    { "backend": "lib/node/akari-companion-backend-module" }
+  ],
+  "scripts": {
+    "build": "tsc -b",
+    "clean": "rimraf lib",
+    "test": "tsc -b && node --test test/*.test.mjs"
+  },
+  "dependencies": {
+    "@theia/core": "1.73.1",
+    "@theia/filesystem": "1.73.1",
+    "@theia/workspace": "1.73.1",
+    "akari-annotations": "file:../akari-annotations",
+    "@akari-video/edit-store": "file:../../../../packages/edit-store"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0",
+    "rimraf": "^5.0.0"
+  }
+}

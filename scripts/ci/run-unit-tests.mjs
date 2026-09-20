@@ -81,6 +81,7 @@ export const LANES = {
     entries: [
       { id: 'apps/shell/test', cwd: 'apps/shell', files: ['test/*.test.mjs'] },
       ext('akari-annotations'),
+      ext('akari-companion'),
       ext('akari-partner'),
       ext('akari-project'),
       ext('akari-shell-strip'),
