@@ -26,6 +26,8 @@ const DRAG_THRESHOLD_PX = 4;
 /** これより小さい枠では「しまう」を出さない（32px の角が枠をほぼ覆ってしまうため）。 */
 const CORNER_MIN_WIDTH = 140;
 const CORNER_MIN_HEIGHT = 72;
+/** ツールバーは起動のあとも動く（タブが増える・帯の高さが決まる）ので、位置を見張る間隔。 */
+const ANCHOR_WATCH_MS = 500;
 
 /** 利用者が動かしたときだけ覚える。動かしていなければ既定（ボタンの真下）へ戻す。 */
 interface StoredPlacement { x: number; y: number; }
@@ -46,6 +48,8 @@ export class CompanionPanelFrame {
     protected anchorProvider: (() => AnchorRect | undefined) | undefined;
     protected drag: DragState | undefined;
     protected onHiddenChanged: ((hidden: boolean) => void) | undefined;
+    protected anchorWatch: unknown;
+    protected lastAnchorKey = '';
 
     constructor(deps: CompanionPanelFrameDeps) {
         this.doc = deps.doc;
@@ -93,12 +97,14 @@ export class CompanionPanelFrame {
         this.iframeEl = iframe;
         this.applyLayout();
         this.placeByAnchor();
+        this.startAnchorWatch();
         this.win.addEventListener('blur', this.handleWindowBlur);
         this.win.addEventListener('message', this.handleMessage);
         this.win.addEventListener('resize', this.handleWindowResize);
     }
 
     unmount(): void {
+        this.stopAnchorWatch();
         this.win.removeEventListener('blur', this.handleWindowBlur);
         this.win.removeEventListener('message', this.handleMessage);
         this.win.removeEventListener('resize', this.handleWindowResize);
@@ -165,9 +171,27 @@ export class CompanionPanelFrame {
         this.placeByAnchor();
     }
 
+    protected startAnchorWatch(): void {
+        this.stopAnchorWatch();
+        this.anchorWatch = this.win.setInterval(() => {
+            if (this.userMoved || this.hidden || !this.panelEl) return;
+            const anchor = this.anchorProvider?.();
+            const key = anchor ? `${anchor.left}|${anchor.right}|${anchor.bottom}` : '';
+            if (key === this.lastAnchorKey) return;
+            this.placeByAnchor();
+        }, ANCHOR_WATCH_MS);
+    }
+
+    protected stopAnchorWatch(): void {
+        if (this.anchorWatch === undefined) return;
+        this.win.clearInterval(this.anchorWatch as number);
+        this.anchorWatch = undefined;
+    }
+
     protected placeByAnchor(): void {
         if (!this.panelEl) return;
         const anchor = this.userMoved ? undefined : this.anchorProvider?.();
+        this.lastAnchorKey = anchor ? `${anchor.left}|${anchor.right}|${anchor.bottom}` : '';
         if (anchor) {
             const placement = anchoredPanelPosition(anchor, this.size,
                 { width: this.win.innerWidth, height: this.win.innerHeight });
