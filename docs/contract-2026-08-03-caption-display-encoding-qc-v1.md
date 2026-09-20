@@ -17,11 +17,23 @@ Every consumer reaches that kernel through one shared entry point,
 `packages/render-cut/src/caption-resolve.mjs` (`resolveCaptionPlan`), which also owns the steps in
 front of it: style-preset resolution, excluded-cue filtering, word-book protected terms, and cut
 normalization. The consumers are render-cut's internal render path, preview-server, gpu-export,
-osr-export, and the shell backend. Naming the kernel alone was not enough: until 2026-09-20 each
-consumer assembled that front half itself, so preview-server handed the kernel a v2 edit with no
-derived `cuts` and resolved zero display cues, while gpu-export and osr-export never consulted
-`display_policy` at all and re-split captions through the legacy overlay generator. A consumer that
-calls the kernel directly, or rebuilds any of those front-half steps, is a deviation.
+and osr-export. Naming the kernel alone was not enough: until 2026-09-20 each consumer assembled
+that front half itself, so preview-server handed the kernel a v2 edit with no derived `cuts` and
+resolved zero display cues, while gpu-export and osr-export never consulted `display_policy` at all
+and re-split captions through the legacy overlay generator. A consumer that calls the kernel
+directly, or rebuilds any of those front-half steps, is a deviation.
+
+**Known remaining deviation — the shell backend.** `AkariPreviewService.resolveCaptionDisplay`
+(`apps/shell/extensions/akari-preview/src/node/akari-preview-service.ts`) still calls the kernel
+directly and rebuilds the front half on its own: its own preset resolution, its own cut
+normalization (`captionCompatibleCuts`, computed in frames off `internal.tracks` rather than the
+shared `captionDisplayEdit`), and its own word-book lookup that walks up from `__dirname` and
+silently degrades to no protected terms on any failure. **It never applies excluded-cue
+filtering**, so a cue excluded through `tracks[].items[].source.exclude` still appears in the
+in-app preview while the other four paths drop it. This is a preview-parity hazard of the same
+class as the two defects above. It is listed here rather than silently tolerated; the shell is
+bundled by Theia and cannot assume `packages/` sits next to it, so routing it through
+`resolveCaptionPlan` is a packaging question, not a one-line import.
 
 The policy rejects unsupported `at`, `track`, transition, and timeline winner semantics; caption
 style/emphasis conflicts; non-NFC or trimmed text; invalid manual fragments; unresolved long text;
