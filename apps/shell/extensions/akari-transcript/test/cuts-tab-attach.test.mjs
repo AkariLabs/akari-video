@@ -29,6 +29,7 @@ function load(path, modules) {
     }, exports, { createElement: element, getElementById: () => true, addEventListener() {} }, { addEventListener() {} });
     return exports;
 }
+const focusPulse = load('../lib/common/daihon-focus-pulse-style.js', {});
 const inversify = { inject: decorator, injectable: decorator, postConstruct: decorator };
 const { AkariCutsWidget } = load('../lib/browser/daihon/akari-cuts-widget.js', {
     '@theia/core/lib/browser': { BaseWidget },
@@ -39,6 +40,7 @@ const { AkariCutsWidget } = load('../lib/browser/daihon/akari-cuts-widget.js', {
     '@theia/workspace/lib/browser/workspace-service': {},
     'akari-project/lib/common/akari-project-protocol': {},
     '../../common/cuts-view': view,
+    '../../common/daihon-focus-pulse-style': focusPulse,
     './akari-transcribe-dialog': { transcribeElement: element, transcribeButton: () => element('button') }
 });
 const daihonPath = '../lib/browser/daihon/akari-daihon-widget.js';
@@ -47,6 +49,7 @@ const daihonModules = Object.fromEntries(
     [...readFileSync(new URL(daihonPath, import.meta.url), 'utf8').matchAll(/require\("([^"]+)"\)/g)]
         .map(([, id]) => [id, id.startsWith('../../common/') || id === '../caption-store' ? daihonRequire(id) : {}])
 );
+daihonModules['../../common/daihon-focus-pulse-style'] = focusPulse;
 daihonModules['@theia/core/lib/browser'] = { BaseWidget };
 daihonModules['@theia/core/shared/inversify'] = inversify;
 const { AkariDaihonWidget } = load(daihonPath, daihonModules);
