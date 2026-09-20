@@ -70,6 +70,23 @@ export const LIBRARY_GROUPS = [
 
 export type LibraryCategoryKey = typeof LIBRARY_GROUPS[number]['categories'][number]['key'];
 
+/**
+ * 外部呼び出し（コマンド引数等）の任意文字列を、実際に開けるカテゴリキーへ解決する。
+ * 未知のキー・status='soon' のキーは undefined（呼び出し側はホームへフォールバックする）。
+ */
+export function resolveOpenableLibraryCategory(key: string | undefined): LibraryCategoryKey | undefined {
+    if (!key) {
+        return undefined;
+    }
+    for (const group of LIBRARY_GROUPS as readonly LibraryGroupDefinition[]) {
+        const category = group.categories.find(candidate => candidate.key === key);
+        if (category && category.status === 'live') {
+            return category.key as LibraryCategoryKey;
+        }
+    }
+    return undefined;
+}
+
 export interface LibraryTransitionSearchItem {
     readonly id: string;
     readonly labelJa: string;
