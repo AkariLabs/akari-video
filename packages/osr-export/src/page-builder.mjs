@@ -4,7 +4,7 @@ import { createRequire } from "node:module";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { generateCaptionOverlays } from "../../render-cut/src/captions.mjs";
+import { resolveCaptionPlan } from "../../render-cut/src/caption-resolve.mjs";
 import { renderOverlaySheet } from "../../render-cut/src/rasterize.mjs";
 import { embedFragmentAssets } from "../../render-cut/src/fragment-assets.mjs";
 import { resolveLutPath } from "../../render-cut/src/render-inputs.mjs";
@@ -57,12 +57,19 @@ export function buildOsrPage({
   const captionRoot = Array.isArray(animated.captions) ? animated.captions : animated.captions?.captions ?? [];
   const cuesById = new Map(captionRoot.map(cue => [cue.id, cue]));
   const captionAnimators = {};
-  const captionOverlays = generateCaptionOverlays(captionRoot, edit.cuts ?? [], {
+  // 字幕は display_policy の単一解決経路（render-cut/caption-resolve）で作る。
+  // 旧 generateCaptionOverlays を直に呼ぶと display_policy を見ないまま焼き直すので、
+  // 読点で必ず割られた 2 行字幕・別名フォントがプレビューと食い違う（プレビュー parity 違反）。
+  // 順序は「animator 射影 → display 解決」。宣言はタイムライン item が元 cue の id で選ぶものなので、
+  // 射影を先に済ませれば解決後も generatedFrom（= 元 cue の id）で宣言を引き直せる。
+  // output は引数で上書きされた実効解像度を渡す（edit.output に任せると scale 指定で食い違う）。
+  const captionPlan = resolveCaptionPlan({
+    captionsRoot: animated.captions,
+    edit,
+    projectRoot,
     output: { width, height },
-    sourceCount: Array.isArray(edit.sources) ? edit.sources.length : 1,
-    defaultTextStyle: Array.isArray(captions) ? undefined : captions?.default_text_style,
-    emphasisWords: Array.isArray(captions) ? edit.emphasis_words : captions?.emphasis_words ?? edit.emphasis_words,
-  }).map((overlay) => {
+  });
+  const captionOverlays = captionPlan.overlays.map((overlay) => {
     const cue = cuesById.get(overlay.generatedFrom);
     if (!cue?.animator?.length) return { ...overlay, z: captionZ };
     captionAnimators[overlay.id] = {
@@ -142,6 +149,8 @@ export function buildOsrPage({
       adjustApplication: hasEffectiveItemAdjust(projectedEdit) ? "engine-item-source" : "none",
       stampRow,
     },
+    // 字幕解決の警告（未知の style_preset・単語帳の保護語を外した行）は render-cut と同じ文面で届ける。
+    warnings: captionPlan.warnings,
   };
 }
 
@@ -165,6 +174,8 @@ export async function loadAndBuildOsrPage({
   const prepared = await prepareAlphaLayers(projectedEdit, { projectRoot });
   const edit = prepared.edit;
   const trackZByItemId = collectTrackZByItemId(renderEdit.internal.tracks);
+  // プリセット適用と除外フィルタは animator 射影の入力に要るのでここでも通す。
+  // buildOsrPage 側の resolveCaptionPlan が同じ前段をもう一度かけるが、どちらも冪等。
   const styledCaptions = applyCaptionStylePresets(captionsRoot ?? [], TEXTSTYLE_CATALOG).root;
   const captions = filterCaptionRootByExcludedIds(
     styledCaptions,
@@ -210,7 +221,7 @@ export async function loadAndBuildOsrPage({
     layerLutCubeTexts,
     adjustLutCubeTexts,
   });
-  return { ...page, warnings: prepared.warnings };
+  return { ...page, warnings: [...prepared.warnings, ...(page.warnings ?? [])] };
 }
 
 // GPU 出口と同じ内部宣言の投影。袋は含まれる全 cue、分離 item は参照 cue のみ。

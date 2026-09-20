@@ -4,7 +4,7 @@ import { createRequire } from "node:module";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { generateCaptionOverlays } from "../../render-cut/src/captions.mjs";
+import { resolveCaptionPlan } from "../../render-cut/src/caption-resolve.mjs";
 import { renderOverlaySheet } from "../../render-cut/src/rasterize.mjs";
 import { embedFragmentAssets } from "../../render-cut/src/fragment-assets.mjs";
 import { resolveLutPath } from "../../render-cut/src/render-inputs.mjs";
@@ -68,12 +68,18 @@ export function buildGpuPage({
   };
   const captionRoot = Array.isArray(captions) ? captions : captions?.captions ?? [];
   const defaultTextStyle = Array.isArray(captions) ? null : captions?.default_text_style ?? null;
-  const captionOverlays = generateCaptionOverlays(captionRoot, edit.cuts ?? [], {
+  // 字幕は display_policy の単一解決経路（render-cut/caption-resolve）で作る。
+  // 旧 generateCaptionOverlays を直に呼ぶと display_policy を見ないまま焼き直すので、
+  // 読点で必ず割られた 2 行字幕・別名フォントがプレビューと食い違う（プレビュー parity 違反）。
+  // display_policy 未宣言のプロジェクトは resolveCaptionPlan が旧経路へ落ちるので互換。
+  // output は引数で上書きされた実効解像度を渡す（edit.output に任せると scale 指定で食い違う）。
+  const captionPlan = resolveCaptionPlan({
+    captionsRoot: captions,
+    edit,
+    projectRoot,
     output: { width, height },
-    sourceCount: Array.isArray(edit.sources) ? edit.sources.length : 1,
-    defaultTextStyle: defaultTextStyle ?? undefined,
-    emphasisWords: Array.isArray(captions) ? edit.emphasis_words : captions?.emphasis_words ?? edit.emphasis_words,
   });
+  const captionOverlays = captionPlan.overlays;
   const resultEligibility = eligibility ?? evaluateGpuEligibility({
     edit: projectedEdit,
     captions: captionRoot,
@@ -103,14 +109,20 @@ export function buildGpuPage({
     : captions?.emphasis_words ?? edit.emphasis_words ?? [];
   const spriteManifest = {
     captions: captionOverlays.map((overlay, index) => {
+      // generatedFrom は解決経路でも元 cue の id。animator 宣言と段（animatorZ）は元 cue から引く。
       const cue = cueById.get(String(overlay.generatedFrom)) ?? {};
-      const textStyle = mergeTextStyle(defaultTextStyle, cue.text_style);
-      const word = classifyCaptionWordMode({
-        cue,
-        output: { width, height },
-        inheritedTextStyle: defaultTextStyle,
-        emphasisWords: resolvedEmphasisWords,
-      });
+      const displayCue = overlay.displayCue ?? null;
+      // 解決経路では text_style / style_vars はカーネルが畳んだ display cue が正本。
+      const textStyle = displayCue?.text_style ?? mergeTextStyle(defaultTextStyle, cue.text_style);
+      // 語モードの判定も解決経路では display cue を見る。display_policy 下では cue.style（karaoke 等）も
+      // edit.emphasis_words もカーネルが拒否し、captions.json 側の強調は display cue の
+      // words / word_styles として HTML に畳み込まれているので、語タイルの仕事は残らない。
+      // ここで元 cue を見ると、断片ではなく cue 全体の words / テキストで判定してしまい、
+      // 焼いた HTML に無い語モードを manifest が名乗る（縦長の reveal 自動判定が特に当たる）。
+      const word = classifyCaptionWordMode(displayCue
+        ? { cue: { text: displayCue.text, start: displayCue.start, end: displayCue.end, text_style: textStyle },
+          output: { width, height }, inheritedTextStyle: null, emphasisWords: [] }
+        : { cue, output: { width, height }, inheritedTextStyle: defaultTextStyle, emphasisWords: resolvedEmphasisWords });
       return {
         id: String(overlay.id),
         z: cue.animatorZ ?? captionZ,
@@ -247,7 +259,8 @@ export function buildGpuPage({
       adjustApplication: hasEffectiveItemAdjust(projectedEdit) ? "engine-item-source" : "none",
       stampRow: false,
     },
-    warnings: [],
+    // 字幕解決の警告（未知の style_preset・単語帳の保護語を外した行）は render-cut と同じ文面で届ける。
+    warnings: captionPlan.warnings,
   };
 }
 
@@ -348,6 +361,8 @@ export async function loadAndBuildGpuPage({
   const projectedEdit = renderEdit.edit;
   const prepared = await prepareAlphaLayers(projectedEdit, { projectRoot });
   const trackZByItemId = collectTrackZByItemId(renderEdit.internal.tracks);
+  // プリセット適用と除外フィルタは animator 射影の入力に要るのでここでも通す。
+  // buildGpuPage 側の resolveCaptionPlan が同じ前段をもう一度かけるが、どちらも冪等。
   const styledCaptions = applyCaptionStylePresets(captionsRoot ?? [], TEXTSTYLE_CATALOG).root;
   const filteredCaptions = filterCaptionRootByExcludedIds(
     styledCaptions,

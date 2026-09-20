@@ -89,7 +89,8 @@ test('legacy display_fragments reach page-builder as separate caption sprites', 
   ]);
 });
 
-test('display-policy overflow stays one unbroken caption sprite on the legacy GPU path', () => {
+// 1 行に収まらない字幕は、解決経路でも断片に割らず 1 枚のまま焼く（カーネルの overflow 扱い）。
+test('display-policy overflow stays one unbroken caption sprite', () => {
   const captions = {
     display_policy: {
       mode: 'single_line_sequential', algorithm: 'a4-ja-two-fragment-v1',

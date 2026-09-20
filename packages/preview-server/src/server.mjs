@@ -500,12 +500,55 @@ function addOutputRoutes(routes) {
     try { respond(res, 200, editToTimeline(r.data, projectRoot)); }
     catch (e) { respond(res, 500, { error: e.message }); }
   };
+  // output モードの解決にも cuts 導出済み edit が要る。edit.output.json は raw v2 の
+  // ことも、書き出し途中の中間文書（raw v2 に overlays 等の互換フィールドを足した形）の
+  // ことも、cuts を持つ v0/v1 のこともある。v2 として読めなければ cuts を持つ raw を
+  // そのまま使い、どちらも駄目なら呼び出し元へ投げる（editToTimeline の output 経路と同じ流儀）。
+  function outputRenderEdit() {
+    const text = fs.readFileSync(editFile(), 'utf-8');
+    const raw = JSON.parse(text);
+    let captions;
+    try {
+      const cf = captionsFile();
+      captions = fs.existsSync(cf)
+        ? toAnchorCaptions(JSON.parse(fs.readFileSync(cf, 'utf-8'))) : undefined;
+    } catch {
+      captions = undefined;
+    }
+    try {
+      return projectPreviewEdit(
+        text, path.join(projectRoot, '.akari', 'preview-projection-output'), projectRoot, captions,
+      );
+    } catch (error) {
+      if (Array.isArray(raw?.cuts)) return raw;
+      throw error;
+    }
+  }
+
   routes['GET /api/output/captions.json'] = (req, res) => {
     if (!hasEdit()) return respond(res, 404, { error: 'edit.output.json not found' });
     const cf = captionsFile();
     const r = outReadJson(fs.existsSync(cf) ? cf : null);
     if (!r || r.error) return respond(res, 200, []);
-    respond(res, 200, applyCaptionStylePresets(r.data, TEXTSTYLE_CATALOG).root);
+    const captionsRoot = applyCaptionStylePresets(r.data, TEXTSTYLE_CATALOG).root;
+    if (Array.isArray(captionsRoot) || !captionsRoot || typeof captionsRoot !== 'object'
+      || captionsRoot.display_policy === undefined) {
+      return respond(res, 200, captionsRoot);
+    }
+    // 編集中の経路と同じ解決を通す（ここを素通りさせていたので output プレビューだけ
+    // display_policy を無視していた）。ただし output は「書き出し済みの見え方の確認」で、
+    // 入力が中間文書のこともあるため fail-safe: 解決できなければ未解決 root を返し、
+    // プレビューを 500 で落とさない（クライアントは未解決 root を旧経路で描ける）。
+    try {
+      const wordBook = resolveWordBookSync({ projectRoot });
+      respond(res, 200, resolveCaptionApiPayload(captionsRoot, outputRenderEdit(), {
+        extra_protected_terms: protectedTermsFrom(wordBook.entries),
+      }));
+    } catch (error) {
+      console.warn('[preview] output captions display_policy could not be resolved; '
+        + `serving the unresolved captions.output.json: ${error instanceof Error ? error.message : String(error)}`);
+      respond(res, 200, captionsRoot);
+    }
   };
 }
 
@@ -644,7 +687,12 @@ const router = {
     if (Array.isArray(captionsRoot) || !captionsRoot || typeof captionsRoot !== 'object' || captionsRoot.display_policy === undefined) {
       return respond(res, 200, captionsRoot);
     }
-    const edit = readJson(path.join(projectRoot, 'edit.json'));
+    // display_policy の射影は cuts（= 素材時間で連続するカット列）を入力に取る。v2 の
+    // edit.json に cuts は無く tracks[].items[] から導出するので、生の JSON を渡すと
+    // cuts = [] → occurrence 0 → display_cues 0 件になり、字幕が「静かに 1 件も出ない」
+    // （実測: 49 件の captions.json で 0 件 / 導出済みなら 67 件）。render / timeline と
+    // 同じ front door（readPreviewEdit = readRenderEdit 経由）を通して導出済みを渡す。
+    const edit = readPreviewEdit(path.join(projectRoot, 'edit.json'));
     if (edit.error) return respond(res, 422, { error: 'edit.json is required to resolve caption display policy' });
     try {
       const wordBook = resolveWordBookSync({ projectRoot });

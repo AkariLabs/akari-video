@@ -131,6 +131,7 @@ export const PREVIEW_SERVER_PURE_TESTS = [
   'test/audio-declick.test.mjs',
   'test/audio-lane-projection-put.test.mjs',
   'test/audio-scrub.test.mjs',
+  'test/caption-display-route.test.mjs',
   'test/caption-display.test.mjs',
   'test/caption-line-budget.test.mjs',
   'test/clip-adjust-dom-preview.test.mjs',

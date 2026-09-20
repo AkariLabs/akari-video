@@ -19,7 +19,7 @@ import {
 import { createRequire } from "node:module";
 import { basename, dirname, extname, isAbsolute, join, relative, resolve } from "node:path";
 
-import { generateCaptionOverlays, generateResolvedCaptionOverlays } from "./captions.mjs";
+import { resolveCaptionPlan } from "./caption-resolve.mjs";
 import { deriveContactSheetTimestamps, renderContactSheet } from "./contact-sheet.mjs";
 import {
   ENCODER_CHOICES,
@@ -61,9 +61,6 @@ import { blankFramesFromLuma, scanBlankFrames, scanBlankFramesStreaming } from "
 const VERSION = 1;
 const packageRequire = createRequire(import.meta.url);
 const {
-  collectExcludedCaptionIds,
-  filterCaptionRootByExcludedIds,
-  resolveCaptionDisplay,
   timelineDurationSeconds,
   toAnchorCaptions,
 } = packageRequire("../../edit-store/lib/index.js");
@@ -1097,59 +1094,31 @@ export async function loadOverlays(projectRoot, edit) {
 
 /** 袋 id の stage 宣言を、展開後の写し（parentId = 袋 id）まで含めて解決する。 */
 export async function loadCaptions(projectRoot, edit) {
-  const { applyCaptionStylePresets, TEXTSTYLE_CATALOG } = packageRequire("../../edit-store/lib/index.js");
-  const { protectedTermsFrom, resolveWordBookSync } = await import("../../word-book/src/index.mjs");
   const captionsPath = join(projectRoot, "captions.json");
   if (!(await isRegularFile(captionsPath))) {
     return { overlays: [], warnings: [], layout: null, captions: [], defaultTextStyle: null, emphasisWords: [] };
   }
   const parsedCaptionsRoot = parseJson(await readFile(captionsPath, "utf8"), "captions.json");
-  const presetResolution = applyCaptionStylePresets(parsedCaptionsRoot, TEXTSTYLE_CATALOG);
-  const captionsRoot = filterCaptionRootByExcludedIds(
-    presetResolution.root,
-    collectExcludedCaptionIds(edit),
-  );
-  const captions = Array.isArray(captionsRoot)
-    ? captionsRoot
-    : captionsRoot && typeof captionsRoot === "object" && Array.isArray(captionsRoot.captions)
-      ? captionsRoot.captions
-      : null;
-  if (!captions) {
-    throw new ExecutionError("captions.json root must be an array or an object with captions[]");
+  let plan;
+  try {
+    plan = resolveCaptionPlan({ captionsRoot: parsedCaptionsRoot, edit, projectRoot, output: edit.output });
+  } catch (error) {
+    // 解決経路の入力不備（ルート形状など）は従来どおり ExecutionError として扱う。
+    // display_policy 自体の違反はカーネルが専用の code 付きで投げるので、そのまま通す。
+    if (error instanceof ExecutionError || error?.code) throw error;
+    throw new ExecutionError(error instanceof Error ? error.message : String(error));
   }
-  const wordBook = resolveWordBookSync({ projectRoot });
-  const resolved = resolveCaptionDisplay(captionsRoot, captionDisplayEdit(edit), {
-    output: edit.output,
-    extra_protected_terms: protectedTermsFrom(wordBook.entries),
-  });
-  if (resolved) {
-    if (resolved.word_book_fallbacks.length > 0) {
-      console.error(`単語帳: ${resolved.word_book_fallbacks.length} 行で行分割保護を外しました`);
-    }
-    return {
-      overlays: generateResolvedCaptionOverlays(resolved),
-      warnings: presetResolution.unresolved.map(id => `unknown caption style_preset ignored: ${id}`),
-      layout: resolved,
-      captions, defaultTextStyle: Array.isArray(captionsRoot) ? null : captionsRoot.default_text_style ?? null,
-      emphasisWords: Array.isArray(captionsRoot) ? edit.emphasis_words ?? [] : captionsRoot.emphasis_words ?? edit.emphasis_words ?? [],
-    };
+  if (plan.layout && plan.layout.word_book_fallbacks.length > 0) {
+    console.error(`単語帳: ${plan.layout.word_book_fallbacks.length} 行で行分割保護を外しました`);
   }
-  const defaultTextStyle = Array.isArray(captionsRoot)
-    ? undefined
-    : captionsRoot.default_text_style;
-  const emphasisWords = !Array.isArray(captionsRoot)
-    && Object.prototype.hasOwnProperty.call(captionsRoot, "emphasis_words")
-    ? captionsRoot.emphasis_words
-    : edit.emphasis_words;
-  const warnings = presetResolution.unresolved.map(id => `unknown caption style_preset ignored: ${id}`);
-  const overlays = generateCaptionOverlays(captions, edit.cuts, {
-    emphasisWords,
-    defaultTextStyle,
-    output: edit.output,
-    sourceCount: edit.sources.length,
-    onWarning: (warning) => warnings.push(warning),
-  });
-  return { overlays, warnings, layout: null, captions, defaultTextStyle: defaultTextStyle ?? null, emphasisWords: emphasisWords ?? [] };
+  return {
+    overlays: plan.overlays,
+    warnings: plan.warnings,
+    layout: plan.layout,
+    captions: plan.captions,
+    defaultTextStyle: plan.defaultTextStyle,
+    emphasisWords: plan.emphasisWords,
+  };
 }
 
 async function readJsonIfPresent(path) {
@@ -1160,24 +1129,6 @@ async function readJsonIfPresent(path) {
     if (error?.code === "ENOENT") return undefined;
     throw error;
   }
-}
-
-function captionDisplayEdit(edit) {
-  if (!Array.isArray(edit?.cuts)) return edit;
-  let cursor = 0;
-  for (const cut of edit.cuts) {
-    if (!cut || typeof cut !== "object" || (cut.track ?? 0) !== 0
-      || !Number.isFinite(cut.at) || Math.abs(cut.at - cursor) > 1e-6) return edit;
-    const speed = positive(cut.speed) ? cut.speed : 1;
-    const freeze = positive(cut.freeze?.duration_sec) ? cut.freeze.duration_sec : 0;
-    const overlap = positive(cut.transition_out?.duration) ? cut.transition_out.duration : 0;
-    cursor = cut.at + (cut.out - cut.in) / speed + freeze - overlap;
-  }
-  const { timeline: _timeline, ...withoutTimeline } = edit;
-  return {
-    ...withoutTimeline,
-    cuts: edit.cuts.map(({ at: _at, track: _track, ...cut }) => cut),
-  };
 }
 
 async function persistCaptionLayout(projectRoot, result, capabilities) {

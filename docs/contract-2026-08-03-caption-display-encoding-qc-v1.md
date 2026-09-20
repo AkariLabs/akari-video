@@ -10,9 +10,18 @@
 `packages/edit-store/src/caption-display.ts` is the only resolver for the opt-in
 `display_policy.mode: "single_line_sequential"` contract. It projects source captions through a
 linear cut/speed/multi-source timeline, then resolves one or two fragments, timing, source
-provenance, merged style variables, and reference-pixel geometry. Render-cut, preview-server, and
-the shell backend consume that result. Browser code only selects already-resolved timeline cues; it
-must not call `Intl.Segmenter` or implement the split algorithm.
+provenance, merged style variables, and reference-pixel geometry. Browser code only selects
+already-resolved timeline cues; it must not call `Intl.Segmenter` or implement the split algorithm.
+
+Every consumer reaches that kernel through one shared entry point,
+`packages/render-cut/src/caption-resolve.mjs` (`resolveCaptionPlan`), which also owns the steps in
+front of it: style-preset resolution, excluded-cue filtering, word-book protected terms, and cut
+normalization. The consumers are render-cut's internal render path, preview-server, gpu-export,
+osr-export, and the shell backend. Naming the kernel alone was not enough: until 2026-09-20 each
+consumer assembled that front half itself, so preview-server handed the kernel a v2 edit with no
+derived `cuts` and resolved zero display cues, while gpu-export and osr-export never consulted
+`display_policy` at all and re-split captions through the legacy overlay generator. A consumer that
+calls the kernel directly, or rebuilds any of those front-half steps, is a deviation.
 
 The policy rejects unsupported `at`, `track`, transition, and timeline winner semantics; caption
 style/emphasis conflicts; non-NFC or trimmed text; invalid manual fragments; unresolved long text;
