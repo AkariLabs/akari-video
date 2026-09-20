@@ -105,7 +105,11 @@ test('bundle starts with fetches and fonts wait after runtime creation before ei
   assert.ok(join);
   assert.match(join[1], /fetch\(api\.timeline\)/u);
   assert.match(join[1], /fetch\(api\.summary\)/u);
-  assert.match(join[1], /fetch\(api\.captions\)/u);
+  // 字幕は loadCaptionApiPayload() 経由で startup の Promise.all に入る（解決済み payload を
+  // 受けるため fetch を直接置かない）。名前を変えただけで直列化していないことまで見るため、
+  // 定義側が api.captions を引いていることも併せて押さえる。
+  assert.match(join[1], /loadCaptionApiPayload\(\)/u);
+  assert.match(app, /async function loadCaptionApiPayload\(\)[\s\S]*?fetch\(api\.captions\)/u);
   assert.doesNotMatch(join[1], /window\.__akariCaptionFontReady/u);
   assert.match(init, /const frameEngineModule = frameEngineEnabled\s*\? \(async \(\) => await import\('\/frame-engine\.bundle\.js'\)\)\(\) : null/u);
   assert.ok(init.indexOf("import('/frame-engine.bundle.js')") < init.indexOf(join[0]));

@@ -20,7 +20,10 @@ test('frame engine evaluation table supplies edit layers without an unsupported 
   assert.match(source, /edit\?\.frameEngine\?\.warnings/u);
   assert.doesNotMatch(source, /engine_src|engine_skip|frameEngineWarnings/u);
   assert.doesNotMatch(source, /frame-engine-unsupported-banner|未対応: layers/u);
-  assert.match(source, /plan\.base\.length === 0 && plan\.layers\.length === 0/u);
+  // 空プランの早期 return は 87ea140b（HTML と音声だけの構成を再生できるようにする）で
+  // 意図的に削除された。空フレームでも描画時計を進める必要があるため、戻してはいけない。
+  // 挙動そのものは akari-preview の composition-only-preview.test.mjs が押さえている。
+  assert.doesNotMatch(source, /plan\.base\.length === 0 && plan\.layers\.length === 0/u);
   assert.match(source, /CachedStillImageSource/u);
   assert.match(source, /get\('uploadPath'\) === 'copyTo'/u);
   assert.match(source, /uploadPath: requestedUploadPath/u);

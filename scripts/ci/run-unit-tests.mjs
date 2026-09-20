@@ -145,8 +145,10 @@ export const PREVIEW_SERVER_PURE_TESTS = [
   'test/frame-engine-adjust.test.mjs',
   'test/frame-engine-boundary-metrics.test.mjs',
   'test/frame-engine-flag.test.mjs',
+  'test/frame-engine-layers.test.mjs',
   'test/frame-engine-play-gate.test.mjs',
   'test/frame-engine-render-state.test.mjs',
+  'test/frame-engine-startup-order.test.mjs',
   'test/image-layer-source.test.mjs',
   'test/layer-crop-anchor.test.mjs',
   'test/layer-lazy-load.test.mjs',
@@ -172,18 +174,7 @@ export const PREVIEW_SERVER_PURE_TESTS = [
 
 // 基準 1・2 は満たすが required に載せていない preview-server テストと理由（1 対 1 の帳尻）。
 // media レーンの `npm test` 側では全件走るので、取り落としではなく「required に入れない」だけ。
-export const PREVIEW_SERVER_PURE_EXCLUSIONS = [
-  {
-    file: 'test/frame-engine-layers.test.mjs',
-    why: 'src/frame-engine-client.ts の本文を正規表現で照合するテスト。2026-09-18 現在 preview-parity レーンの'
-      + ' 編集中の本文と食い違って赤（環境要因ではない）。合流後に実測して緑なら pure へ移す'
-  },
-  {
-    file: 'test/frame-engine-startup-order.test.mjs',
-    why: '同上（public/app.js と frame-engine-client.ts の本文照合。fetch(api.captions) →'
-      + ' loadCaptionApiPayload() の書き換えに未追随で 3 件赤）。合流後に実測して緑なら pure へ移す'
-  }
-];
+export const PREVIEW_SERVER_PURE_EXCLUSIONS = [];
 
 export const LANES = {
   // 外部ツール（ffmpeg / Chrome / Electron / ネイティブモジュール）を一切要さず、どの OS でも同じ結果になるもの。
