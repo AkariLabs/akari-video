@@ -117,6 +117,13 @@ interface PreviewCaptionSelection {
     captionId?: string | null;
 }
 
+interface AkariInspectorOpenOptions {
+    attachOnly?: boolean;
+    tabId?: string;
+    sectionId?: string;
+    fieldName?: string;
+}
+
 @injectable()
 export class AkariAnnotationsContribution implements CommandContribution, FrontendApplicationContribution, MenuContribution {
 
@@ -267,7 +274,7 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
             execute: () => this.openReviewPanel()
         });
         commands.registerCommand(OPEN_AKARI_INSPECTOR, {
-            execute: (options?: { attachOnly?: boolean }) => this.openInspectorPanel(options)
+            execute: (options?: AkariInspectorOpenOptions) => this.openInspectorPanel(options)
         });
         commands.registerCommand(OPEN_AKARI_REVIEW_BOARD, {
             execute: () => this.openBoard()
@@ -826,7 +833,7 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
      * インスペクターを右サイドへ開く。選択のたびタイムライン側から呼ばれる想定のため、
      * フォーカスは奪わず reveal のみに留める（一度開けば常駐し、内容だけが更新される）。
      */
-    async openInspectorPanel(options?: { attachOnly?: boolean }): Promise<AkariInspectorWidget | undefined> {
+    async openInspectorPanel(options?: AkariInspectorOpenOptions): Promise<AkariInspectorWidget | undefined> {
         const timeline = this.timelineWidget?.isAttached ? this.timelineWidget : await this.attach();
         if (!timeline) {
             return undefined;
@@ -839,6 +846,9 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
         // reveal（タブ切替 = 焦点強奪）はしない（right-pane-sync の 'attach-inspector'）。
         if (!options?.attachOnly) {
             await this.shell.revealWidget(widget.id);
+        }
+        if (options?.tabId || options?.sectionId || options?.fieldName) {
+            widget.focusField({ tabId: options.tabId, sectionId: options.sectionId, fieldName: options.fieldName });
         }
         return widget;
     }
