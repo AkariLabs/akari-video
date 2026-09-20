@@ -10,6 +10,7 @@ const code = ts.transpileModule(text, {
 }).outputText;
 class AkariAnnotationsWidget {
   static FACTORY_ID = 'test-timeline';
+  id = `timeline-${Math.random()}`;
   isAttached = true;
   isDisposed = false;
   calls = [];
@@ -24,6 +25,7 @@ new Function('require', 'exports', code)(name => {
   if (name === '@theia/core/shared/inversify') return { inject: () => () => {}, injectable: () => target => target };
   if (name === '@theia/core/lib/common') return {};
   if (name === '@theia/core/lib/browser') return { ApplicationShell: class {}, WidgetManager: class {} };
+  if (name === '@theia/workspace/lib/browser/workspace-service') return { WorkspaceService: class {} };
   if (name === './akari-annotations-widget') return { AkariAnnotationsWidget };
   throw new Error(`Unexpected import: ${name}`);
 }, exports);
@@ -35,17 +37,32 @@ const commands = [
   ['TIMELINE_SET_TOOL', 'akari.timeline.setTool', 'setTimelineToolMode', { tool: 'razor' }],
   ['TIMELINE_SET_SNAP', 'akari.timeline.setSnap', 'setTimelineSnapEnabled', { enabled: false }],
 ];
-function fixture(widgets = [new AkariAnnotationsWidget()], activeWidget = undefined) {
+function fixture(widgets = [new AkariAnnotationsWidget()], activeWidget = undefined, opened = true) {
   const contribution = new AkariTimelineFocusContribution();
-  contribution.widgetManager = { getWidgets: id => { assert.equal(id, AkariAnnotationsWidget.FACTORY_ID); return widgets; } };
-  contribution.shell = { activeWidget };
+  const calls = [];
+  contribution.widgetManager = {
+    getWidgets: id => { assert.equal(id, AkariAnnotationsWidget.FACTORY_ID); return widgets; },
+    getOrCreateWidget: async id => {
+      assert.equal(id, AkariAnnotationsWidget.FACTORY_ID);
+      calls.push(['create', id]);
+      const widget = new AkariAnnotationsWidget();
+      widgets.push(widget);
+      return widget;
+    },
+  };
+  contribution.shell = {
+    activeWidget,
+    addWidget: (widget, options) => calls.push(['add', widget.id, options]),
+    activateWidget: async id => calls.push(['activate', id]),
+  };
+  contribution.workspaceService = { opened };
   const handlers = new Map();
   contribution.registerCommands({ registerCommand: (command, handler) => {
     assert.equal(command.label, undefined);
     assert.equal(handlers.has(command.id), false);
     handlers.set(command.id, handler.execute);
   } });
-  return { contribution, handlers, widgets };
+  return { contribution, handlers, widgets, calls };
 }
 const callsNamed = (root, name) => {
   const calls = [];
@@ -57,9 +74,9 @@ const callsNamed = (root, name) => {
   return calls;
 };
 
-test('all five internal commands delegate to their corresponding widget methods', async () => {
+test('all internal commands delegate to their corresponding widget methods', async () => {
   const { handlers, widgets } = fixture();
-  assert.equal(handlers.size, 5);
+  assert.equal(handlers.size, 6);
   for (const [constant, id, method, args] of commands) {
     assert.equal(exports[constant].id, id);
     const registration = callsNamed(source, 'commands.registerCommand')
@@ -74,6 +91,36 @@ test('all five internal commands delegate to their corresponding widget methods'
     ['focus', 'clip', { seek: true, reveal: true, pulse: true }], ['seek', 3],
     ['view', { startSeconds: 4, durationSeconds: 8, fit: true }], ['tool', 'razor'], ['snap', false],
   ]);
+});
+
+test('reveal command is registered without a label and activates an attached widget', async () => {
+  const widget = new AkariAnnotationsWidget();
+  const { handlers, calls } = fixture([widget]);
+  assert.equal(exports.REVEAL_TIMELINE.id, 'akari.timeline.reveal');
+  assert.equal(exports.REVEAL_TIMELINE.label, undefined);
+  assert.equal(await handlers.get('akari.timeline.reveal')(), true);
+  assert.deepEqual(calls, [['activate', widget.id]]);
+});
+
+test('reveal attaches an existing detached widget before activating it', async () => {
+  const widget = Object.assign(new AkariAnnotationsWidget(), { isAttached: false });
+  const { handlers, calls } = fixture([widget]);
+  assert.equal(await handlers.get('akari.timeline.reveal')(), true);
+  assert.deepEqual(calls, [['add', widget.id, { area: 'bottom' }], ['activate', widget.id]]);
+});
+
+test('reveal creates the default widget without invoking the creation dialog command', async () => {
+  const { handlers, calls } = fixture([]);
+  assert.equal(text.includes('akari.annotations.open'), false);
+  assert.equal(await handlers.get('akari.timeline.reveal')(), true);
+  assert.equal(calls[0][0], 'create');
+  assert.deepEqual(calls.slice(1).map(call => call[0]), ['add', 'activate']);
+});
+
+test('reveal does nothing without an open workspace or an existing widget', async () => {
+  const { handlers, calls } = fixture([], undefined, false);
+  assert.equal(await handlers.get('akari.timeline.reveal')(), false);
+  assert.deepEqual(calls, []);
 });
 
 test('invalid arguments never call guarded widget methods', async () => {

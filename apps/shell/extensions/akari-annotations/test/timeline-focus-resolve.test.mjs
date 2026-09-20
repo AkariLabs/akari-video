@@ -23,8 +23,21 @@ const duration = Number(durationDeclaration.initializer.getText(source));
 function fixture() {
   let now = 100;
   const timers = [];
-  const Handler = new Function('FOCUS_PULSE_DURATION_MS', 'Date', 'setTimeout', `${code}\nreturn Handler;`)(
-    duration, { now: () => now }, (callback, delay) => timers.push({ callback, delay }));
+  const cleared = [];
+  const fakeWindow = {
+    setTimeout: (callback, delay) => {
+      const timer = { id: timers.length + 1, callback, delay, cancelled: false };
+      timers.push(timer);
+      return timer.id;
+    },
+    clearTimeout: id => {
+      cleared.push(id);
+      const timer = timers.find(candidate => candidate.id === id);
+      if (timer) timer.cancelled = true;
+    },
+  };
+  const Handler = new Function('FOCUS_PULSE_DURATION_MS', 'Date', 'window', `${code}\nreturn Handler;`)(
+    duration, { now: () => now }, fakeWindow);
   const context = new Handler();
   const calls = [];
   Object.assign(context, {
@@ -44,7 +57,7 @@ function fixture() {
     setToolMode: value => calls.push(['tool', value]), setSnapEnabled: value => calls.push(['snap', value]),
     selectionRenderKeys: selection => [`${selection.kind}:${selection.kind === 'cut' ? selection.index : selection.id}`],
   });
-  return { context, calls, timers, advance: ms => { now += ms; } };
+  return { context, calls, timers, cleared, advance: ms => { now += ms; } };
 }
 
 const cases = [
@@ -125,9 +138,39 @@ test('pulse marks only matching chips and expires after the configured duration'
   assert.deepEqual(elements.map(element => element.classList['akari-annotations-focus-pulse']), [true, false]);
   assert.equal(timers[0].delay, duration);
   advance(duration);
-  timers[0].callback();
+  if (!timers[0].cancelled) timers[0].callback();
   assert.equal(context.focusPulseUntil, 0);
   assert.deepEqual(elements.map(element => element.classList['akari-annotations-focus-pulse']), [false, false]);
+});
+
+test('a repeated pulse cancels the prior timer and gives the new item the full duration', () => {
+  const { context, timers, cleared, advance } = fixture();
+  const elements = ['0', '1'].map(id => ({
+    dataset: { akariItemKind: 'cut', akariItemId: id },
+    classList: { toggle(name, enabled) { this[name] = enabled; } },
+  }));
+  context.strip = { querySelectorAll: () => elements };
+  context.pulseFocusedItem({ kind: 'cut', index: 0 });
+  advance(500);
+  context.pulseFocusedItem({ kind: 'cut', index: 1 });
+  assert.deepEqual(cleared, [timers[0].id]);
+  assert.equal(context.focusPulseUntil, 100 + 500 + duration);
+  assert.deepEqual(elements.map(element => element.classList['akari-annotations-focus-pulse']), [false, true]);
+  advance(duration - 500);
+  if (!timers[0].cancelled) timers[0].callback();
+  assert.deepEqual(elements.map(element => element.classList['akari-annotations-focus-pulse']), [false, true]);
+  advance(500);
+  if (!timers[1].cancelled) timers[1].callback();
+  assert.equal(context.focusPulseUntil, 0);
+  assert.deepEqual(elements.map(element => element.classList['akari-annotations-focus-pulse']), [false, false]);
+});
+
+test('widget disposal clears the active focus pulse timer', () => {
+  const start = text.indexOf('if (this.visualThumbnailRetryTimer)');
+  const end = text.indexOf('this.failedVisualThumbnails.clear();', start);
+  assert.ok(start >= 0 && end > start);
+  const disposal = text.slice(start, end);
+  assert.match(disposal, /if \(this\.focusPulseTimer !== undefined\) window\.clearTimeout\(this\.focusPulseTimer\);/);
 });
 
 test('public wrappers preserve view anchors and validate seek timing', async () => {

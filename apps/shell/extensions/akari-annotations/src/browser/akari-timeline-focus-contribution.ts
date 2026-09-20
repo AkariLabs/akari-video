@@ -1,6 +1,7 @@
 import { inject, injectable } from '@theia/core/shared/inversify';
 import { Command, CommandContribution, CommandRegistry } from '@theia/core/lib/common';
 import { ApplicationShell, WidgetManager } from '@theia/core/lib/browser';
+import { WorkspaceService } from '@theia/workspace/lib/browser/workspace-service';
 import { AkariAnnotationsWidget } from './akari-annotations-widget';
 
 // 外から要素を選択・シーク・可視化・強調するための一般的な受け口。
@@ -26,6 +27,8 @@ export const TIMELINE_SET_TOOL: Command = { id: 'akari.timeline.setTool' };
 export interface TimelineSetSnapArgs { enabled: boolean; }
 export const TIMELINE_SET_SNAP: Command = { id: 'akari.timeline.setSnap' };
 
+export const REVEAL_TIMELINE: Command = { id: 'akari.timeline.reveal' };
+
 @injectable()
 export class AkariTimelineFocusContribution implements CommandContribution {
 
@@ -34,6 +37,9 @@ export class AkariTimelineFocusContribution implements CommandContribution {
 
     @inject(ApplicationShell)
     protected readonly shell!: ApplicationShell;
+
+    @inject(WorkspaceService)
+    protected readonly workspaceService!: WorkspaceService;
 
     registerCommands(commands: CommandRegistry): void {
         commands.registerCommand(FOCUS_TIMELINE_ITEM, {
@@ -78,6 +84,29 @@ export class AkariTimelineFocusContribution implements CommandContribution {
                 const args = request as Partial<TimelineSetSnapArgs> | undefined;
                 if (typeof args?.enabled !== 'boolean') return;
                 this.resolveWidget()?.setTimelineSnapEnabled(args.enabled);
+            }
+        });
+        commands.registerCommand(REVEAL_TIMELINE, {
+            execute: async (): Promise<boolean> => {
+                const attached = this.resolveWidget();
+                if (attached) {
+                    await this.shell.activateWidget(attached.id);
+                    return true;
+                }
+                const existing = this.widgetManager.getWidgets(AkariAnnotationsWidget.FACTORY_ID)
+                    .find((candidate): candidate is AkariAnnotationsWidget =>
+                        candidate instanceof AkariAnnotationsWidget && !candidate.isDisposed);
+                if (existing) {
+                    this.shell.addWidget(existing, { area: 'bottom' });
+                    await this.shell.activateWidget(existing.id);
+                    return true;
+                }
+                if (!this.workspaceService.opened) return false;
+                const created = await this.widgetManager.getOrCreateWidget<AkariAnnotationsWidget>(
+                    AkariAnnotationsWidget.FACTORY_ID);
+                this.shell.addWidget(created, { area: 'bottom' });
+                await this.shell.activateWidget(created.id);
+                return true;
             }
         });
     }
