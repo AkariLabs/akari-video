@@ -11,7 +11,15 @@ function modelWithRequestCapture() {
         createAnnotation: async request => {
             requests.push(request);
             return { annotation: { id: `a-${requests.length}` }, committed: false };
-        }
+        },
+        deleteAnnotation: async request => {
+            requests.push(request);
+            return { annotation: model.annotations.find(annotation => annotation.id === request.annotationId) };
+        },
+        restoreAnnotation: async request => {
+            requests.push(request);
+            return { annotation: request.annotation };
+        },
     };
     model.location = {
         root: new URI('file:///tmp/akari-project'),
@@ -49,4 +57,31 @@ test('BGM overlay の UI 注釈は既存 ui:timeline:overlay:<id> をそのま�
     const { model, requests } = modelWithRequestCapture();
     await model.addUiAnnotation('BGM を下げる', 2, 'timeline:overlay:bgm-main');
     assert.equal(requests[0].target, 'ui:timeline:overlay:bgm-main');
+});
+
+test('deleteAnnotation は対象 id をサービスへ渡してモデルから除く', async () => {
+    const { model, requests } = modelWithRequestCapture();
+    const first = { id: 'a-0001', text: '残す' };
+    const second = { id: 'a-0002', text: '消す' };
+    model.annotations = [first, second];
+    const removed = await model.deleteAnnotation(second.id);
+    assert.deepEqual(requests[0], {
+        reviewUri: 'file:///tmp/akari-project/review.json',
+        annotationId: 'a-0002'
+    });
+    assert.equal(removed, second);
+    assert.deepEqual(model.annotations, [first]);
+});
+
+test('restoreAnnotation は全内容を渡して同じ id を一度だけモデルへ戻す', async () => {
+    const { model, requests } = modelWithRequestCapture();
+    const annotation = { id: 'a-0004', text: '戻す' };
+    const restored = await model.restoreAnnotation(annotation);
+    await model.restoreAnnotation(annotation);
+    assert.deepEqual(requests[0], {
+        reviewUri: 'file:///tmp/akari-project/review.json',
+        annotation
+    });
+    assert.equal(restored, annotation);
+    assert.deepEqual(model.annotations, [annotation]);
 });

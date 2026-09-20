@@ -229,6 +229,26 @@ export interface ResolveAnnotationRequest {
     annotationId: string;
 }
 
+export interface DeleteAnnotationRequest {
+    reviewUri: string;
+    annotationId: string;
+}
+
+export interface DeleteAnnotationResult {
+    /** 削除前の全内容。「元に戻す」ボタンから restoreAnnotation にそのまま渡す。 */
+    annotation: Annotation;
+}
+
+export interface RestoreAnnotationRequest {
+    reviewUri: string;
+    /** deleteAnnotation が返した annotation をそのまま渡す（id を保ったまま復元する）。 */
+    annotation: Annotation;
+}
+
+export interface RestoreAnnotationResult {
+    annotation: Annotation;
+}
+
 /** キャンバス面（contract-2026-07-26-canvas-surface）1 ストローク分の入力。space/tool は固定のため送らない。 */
 export interface SaveCanvasStrokeInput {
     /** 正規化 0〜1・キャンバス矩形基準の点列（記録原本は間引かない）。 */
@@ -801,6 +821,8 @@ export interface AkariAnnotationsService {
     probeSourceHasAudio(request: ProbeSourceHasAudioRequest): Promise<ProbeSourceHasAudioResult>;
     createAnnotation(request: CreateAnnotationRequest): Promise<CreateAnnotationResult>;
     resolveAnnotation(request: ResolveAnnotationRequest): Promise<{ annotation: Annotation }>;
+    deleteAnnotation(request: DeleteAnnotationRequest): Promise<DeleteAnnotationResult>;
+    restoreAnnotation(request: RestoreAnnotationRequest): Promise<RestoreAnnotationResult>;
     saveCanvas(request: SaveCanvasRequest): Promise<SaveCanvasResult>;
     trimCut(request: TrimCutRequest): Promise<WriteBackResult>;
     slipCut(request: SlipCutRequest): Promise<WriteBackResult>;

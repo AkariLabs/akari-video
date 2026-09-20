@@ -27,6 +27,8 @@ import {
     Annotation,
     CreateAnnotationRequest,
     CreateAnnotationResult,
+    DeleteAnnotationRequest,
+    DeleteAnnotationResult,
     DeleteCutRequest,
     DeleteCutResult,
     EditMigrationPlanResult,
@@ -81,6 +83,8 @@ import {
     ReorderCutsRequest,
     ResizeOverlayRequest,
     ResolveAnnotationRequest,
+    RestoreAnnotationRequest,
+    RestoreAnnotationResult,
     SaveCanvasRequest,
     SaveCanvasResult,
     ShiftCaptionRequest,
@@ -132,6 +136,7 @@ import {
     normalizeStrokes,
     normalizeTargetKind,
     parseReview,
+    removeAnnotationLine,
     updateStatusLine
 } from '../common/annotation-store';
 import {
@@ -689,6 +694,37 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
             throw new Error('更新後の注釈を読み取れません。');
         }
         return { annotation };
+    }
+
+    async deleteAnnotation(request: DeleteAnnotationRequest): Promise<DeleteAnnotationResult> {
+        if (!request?.reviewUri || !request?.annotationId) {
+            throw new Error('対象の注釈を特定できません。');
+        }
+        const reviewPath = this.fsPath(request.reviewUri);
+        const source = await fs.readFile(reviewPath, 'utf8');
+        const { source: updated, removed } = removeAnnotationLine(source, request.annotationId);
+        await this.writeAtomic(reviewPath, updated);
+        return { annotation: removed };
+    }
+
+    async restoreAnnotation(request: RestoreAnnotationRequest): Promise<RestoreAnnotationResult> {
+        if (!request?.reviewUri || !request?.annotation?.id) {
+            throw new Error('対象の注釈を特定できません。');
+        }
+        const reviewPath = this.fsPath(request.reviewUri);
+        let baseSource: string;
+        try {
+            baseSource = await fs.readFile(reviewPath, 'utf8');
+        } catch {
+            baseSource = emptyReviewSource();
+        }
+        const { annotations } = parseReview(baseSource);
+        if (annotations.some(existing => existing.id === request.annotation.id)) {
+            throw new Error(`注釈 ${request.annotation.id} は既に存在します。`);
+        }
+        const updated = appendAnnotationLine(baseSource, request.annotation);
+        await this.writeAtomic(reviewPath, updated);
+        return { annotation: request.annotation };
     }
 
     /**
