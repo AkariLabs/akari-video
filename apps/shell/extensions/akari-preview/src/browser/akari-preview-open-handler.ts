@@ -678,6 +678,41 @@ interface PreviewModel {
     };
 }
 
+interface PreviewSetZoomMessage {
+    type: 'akari-preview-set-zoom';
+    scale?: number; fit?: boolean;
+}
+
+interface PreviewSetRateMessage {
+    type: 'akari-preview-set-rate';
+    rate: number;
+}
+
+interface PreviewSetPlaybackMessage {
+    type: 'akari-preview-set-playback';
+    playing: boolean;
+}
+
+interface PreviewSetCropModeMessage {
+    type: 'akari-preview-set-crop-mode';
+    itemId?: string; on?: boolean;
+}
+
+interface PreviewSetPerspectivePanelMessage {
+    type: 'akari-preview-set-perspective-panel';
+    itemId?: string; on?: boolean;
+}
+
+interface PreviewPulseItemMessage {
+    type: 'akari-preview-pulse-item';
+    itemId: string;
+}
+
+interface PreviewZoneHintMessage {
+    type: 'akari-preview-zone-hint';
+    zones: string[]; durationMs: number;
+}
+
 interface OverlayWriteRequest {
     type: 'akari-preview-overlay-write';
     requestId: string;
@@ -956,6 +991,16 @@ const SEEK_OUTPUT_PREVIEW_COMMAND: Command = { id: 'akari.preview.seekOutput' };
 const TOGGLE_OUTPUT_PREVIEW_PLAYBACK_COMMAND: Command = { id: 'akari.preview.togglePlayback' };
 const COMPACT_TRACKS_COMMAND: Command = { id: 'akari.preview.compactTracks' };
 const ANNOTATE_PREVIEW_AT_POINT_COMMAND: Command = { id: 'akari.preview.annotateAtPoint' };
+const SET_PREVIEW_FULLSCREEN_COMMAND: Command = { id: 'akari.preview.setFullscreen' };
+const SET_PREVIEW_VIEW_ZOOM_COMMAND: Command = { id: 'akari.preview.setViewZoom' };
+const SET_PREVIEW_PLAYBACK_RATE_COMMAND: Command = { id: 'akari.preview.setPlaybackRate' };
+const SET_PREVIEW_LOOP_RANGE_COMMAND: Command = { id: 'akari.preview.setLoopRange' };
+const PREVIEW_PLAY_COMMAND: Command = { id: 'akari.preview.play' };
+const PREVIEW_PAUSE_COMMAND: Command = { id: 'akari.preview.pause' };
+const PREVIEW_CROP_MODE_COMMAND: Command = { id: 'akari.preview.enterCropMode' };
+const PREVIEW_PERSPECTIVE_PANEL_COMMAND: Command = { id: 'akari.preview.openPerspectivePanel' };
+const PULSE_PREVIEW_ITEM_COMMAND: Command = { id: 'akari.preview.pulseItem' };
+const SHOW_PREVIEW_ZONE_HINT_COMMAND: Command = { id: 'akari.preview.showZoneHint' };
 // akari-annotations の OPEN_AKARI_REVIEW_PANEL_ID とミラー（逆向き npm 依存を作らない）。
 const OPEN_AKARI_REVIEW_PANEL_COMMAND_ID = 'akari.review.open';
 // akari-annotations の CLIP_ANNOTATION_REQUEST_EVENT とミラー（逆向き npm 依存を作らない）。
@@ -993,6 +1038,18 @@ interface TogglePlaybackRequest {
 interface CompactTracksRequest {
     editUri?: string;
 }
+
+interface SetPreviewFullscreenRequest { editUri: string; on?: boolean; }
+interface SetPreviewViewZoomRequest { editUri: string; scale?: number; fit?: boolean; }
+interface SetPreviewPlaybackRateExternalRequest { editUri: string; rate: number; }
+type SetPreviewLoopRangeRequest =
+    | { editUri: string; startSeconds: number; endSeconds: number }
+    | { editUri: string; clear: true };
+interface PreviewPlaybackControlRequest { editUri: string; }
+interface PreviewCropModeRequest { editUri: string; itemId?: string; on?: boolean; }
+interface PreviewPerspectivePanelRequest { editUri: string; itemId?: string; on?: boolean; }
+interface PulsePreviewItemRequest { editUri: string; itemId: string; }
+interface ShowPreviewZoneHintRequest { editUri: string; zones: string[]; durationMs?: number; }
 
 interface PreviewPlaybackTickRequest {
     type: 'akari-preview-playback-tick';
@@ -1264,6 +1321,16 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         this.registerOutputSeekCommand();
         this.registerTogglePlaybackCommand();
         this.registerCompactTracksCommand();
+        this.registerSetPreviewFullscreenCommand();
+        this.registerSetPreviewViewZoomCommand();
+        this.registerSetPreviewPlaybackRateCommand();
+        this.registerSetPreviewLoopRangeCommand();
+        this.registerPreviewPlayCommand();
+        this.registerPreviewPauseCommand();
+        this.registerPreviewCropModeCommand();
+        this.registerPreviewPerspectivePanelCommand();
+        this.registerPulsePreviewItemCommand();
+        this.registerShowPreviewZoneHintCommand();
         this.lifecycleDisposables.push(this.preferences.onPreferenceChanged(event => {
             if (event.preferenceName === 'akari.preview.scrubAudio') {
                 // Theia の PreferenceChange は newValue を公開しないため、変更後の実効値を取得する。
@@ -2226,6 +2293,208 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         this.commandRegistry.registerCommand(COMPACT_TRACKS_COMMAND, {
             execute: (request?: CompactTracksRequest) => this.compactTracks(request)
         });
+    }
+
+    protected registerSetPreviewFullscreenCommand(): void {
+        this.commandRegistry.registerCommand(SET_PREVIEW_FULLSCREEN_COMMAND, {
+            execute: (request?: SetPreviewFullscreenRequest) => this.setPreviewFullscreen(request)
+        });
+    }
+
+    protected registerSetPreviewViewZoomCommand(): void {
+        this.commandRegistry.registerCommand(SET_PREVIEW_VIEW_ZOOM_COMMAND, {
+            execute: (request?: SetPreviewViewZoomRequest) => this.setPreviewViewZoom(request)
+        });
+    }
+
+    protected registerSetPreviewPlaybackRateCommand(): void {
+        this.commandRegistry.registerCommand(SET_PREVIEW_PLAYBACK_RATE_COMMAND, {
+            execute: (request?: SetPreviewPlaybackRateExternalRequest) => this.setPreviewPlaybackRateExternal(request)
+        });
+    }
+
+    protected registerSetPreviewLoopRangeCommand(): void {
+        this.commandRegistry.registerCommand(SET_PREVIEW_LOOP_RANGE_COMMAND, {
+            execute: (request?: SetPreviewLoopRangeRequest) => this.setPreviewLoopRange(request)
+        });
+    }
+
+    protected registerPreviewPlayCommand(): void {
+        this.commandRegistry.registerCommand(PREVIEW_PLAY_COMMAND, {
+            execute: (request?: PreviewPlaybackControlRequest) => this.playOutputPreview(request)
+        });
+    }
+
+    protected registerPreviewPauseCommand(): void {
+        this.commandRegistry.registerCommand(PREVIEW_PAUSE_COMMAND, {
+            execute: (request?: PreviewPlaybackControlRequest) => this.pauseOutputPreview(request)
+        });
+    }
+
+    protected registerPreviewCropModeCommand(): void {
+        this.commandRegistry.registerCommand(PREVIEW_CROP_MODE_COMMAND, {
+            execute: (request?: PreviewCropModeRequest) => this.enterPreviewCropMode(request)
+        });
+    }
+
+    protected registerPreviewPerspectivePanelCommand(): void {
+        this.commandRegistry.registerCommand(PREVIEW_PERSPECTIVE_PANEL_COMMAND, {
+            execute: (request?: PreviewPerspectivePanelRequest) => this.openPreviewPerspectivePanel(request)
+        });
+    }
+
+    protected registerPulsePreviewItemCommand(): void {
+        this.commandRegistry.registerCommand(PULSE_PREVIEW_ITEM_COMMAND, {
+            execute: (request?: PulsePreviewItemRequest) => this.pulsePreviewItem(request)
+        });
+    }
+
+    protected registerShowPreviewZoneHintCommand(): void {
+        this.commandRegistry.registerCommand(SHOW_PREVIEW_ZONE_HINT_COMMAND, {
+            execute: (request?: ShowPreviewZoneHintRequest) => this.showPreviewZoneHint(request)
+        });
+    }
+
+    protected getExternalPreviewWidget(editUri: string | undefined): PreviewWidgetMarker | undefined {
+        if (typeof editUri !== 'string' || !editUri) {
+            return undefined;
+        }
+        try {
+            const widget = this.openOutputPreviews.get(new URI(editUri).normalizePath().toString());
+            return widget?.akariPreviewConfigured && widget.isAttached && !widget.isDisposed ? widget : undefined;
+        } catch {
+            return undefined;
+        }
+    }
+
+    protected nearestPreviewRatePreset(rate: number): number {
+        return PREVIEW_RATE_PRESETS.reduce((closest, preset) =>
+            Math.abs(preset - rate) < Math.abs(closest - rate) ? preset : closest
+        );
+    }
+
+    protected async setPreviewFullscreen(request: SetPreviewFullscreenRequest | undefined): Promise<boolean> {
+        const widget = this.getExternalPreviewWidget(request?.editUri);
+        if (!widget || !request) return false;
+        if (request.on !== undefined && typeof request.on !== 'boolean') return false;
+        if (request.on === undefined) {
+            this.togglePreviewFullscreen(widget);
+        } else if (request.on && this.fullscreenPreviewWidget !== widget) {
+            this.exitPreviewFullscreen();
+            this.enterPreviewFullscreen(widget);
+        } else if (!request.on && this.fullscreenPreviewWidget === widget) {
+            this.exitPreviewFullscreen();
+        }
+        return true;
+    }
+
+    protected async setPreviewViewZoom(request: SetPreviewViewZoomRequest | undefined): Promise<boolean> {
+        const widget = this.getExternalPreviewWidget(request?.editUri);
+        if (!widget || !request) return false;
+        let message: PreviewSetZoomMessage;
+        if (typeof request.scale === 'number' && Number.isFinite(request.scale) && request.scale > 0) {
+            message = { type: 'akari-preview-set-zoom', scale: request.scale };
+        } else if (request.fit === true) {
+            message = { type: 'akari-preview-set-zoom', fit: true };
+        } else {
+            return false;
+        }
+        widget.sendMessage(message);
+        return true;
+    }
+
+    protected async setPreviewPlaybackRateExternal(request: SetPreviewPlaybackRateExternalRequest | undefined): Promise<boolean> {
+        const widget = this.getExternalPreviewWidget(request?.editUri);
+        if (!widget || !request) return false;
+        if (!Number.isFinite(request.rate) || request.rate <= 0) return false;
+        const message: PreviewSetRateMessage = {
+            type: 'akari-preview-set-rate', rate: this.nearestPreviewRatePreset(request.rate)
+        };
+        widget.sendMessage(message);
+        return true;
+    }
+
+    protected async setPreviewLoopRange(request: SetPreviewLoopRangeRequest | undefined): Promise<boolean> {
+        const widget = this.getExternalPreviewWidget(request?.editUri);
+        if (!widget || !request) return false;
+        if ('clear' in request && request.clear === true) {
+            widget.sendMessage({ type: 'akari-preview-loop-range', range: null });
+        } else if ('startSeconds' in request && 'endSeconds' in request
+            && Number.isFinite(request.startSeconds) && Number.isFinite(request.endSeconds)
+            && request.endSeconds > request.startSeconds) {
+            widget.sendMessage({
+                type: 'akari-preview-loop-range', range: { start: request.startSeconds, end: request.endSeconds }
+            });
+        } else {
+            return false;
+        }
+        return true;
+    }
+
+    protected async playOutputPreview(request: PreviewPlaybackControlRequest | undefined): Promise<boolean> {
+        const widget = this.getExternalPreviewWidget(request?.editUri);
+        if (!widget || !request) return false;
+        const message: PreviewSetPlaybackMessage = { type: 'akari-preview-set-playback', playing: true };
+        widget.sendMessage(message);
+        return true;
+    }
+
+    protected async pauseOutputPreview(request: PreviewPlaybackControlRequest | undefined): Promise<boolean> {
+        const widget = this.getExternalPreviewWidget(request?.editUri);
+        if (!widget || !request) return false;
+        const message: PreviewSetPlaybackMessage = { type: 'akari-preview-set-playback', playing: false };
+        widget.sendMessage(message);
+        return true;
+    }
+
+    protected async enterPreviewCropMode(request: PreviewCropModeRequest | undefined): Promise<boolean> {
+        const widget = this.getExternalPreviewWidget(request?.editUri);
+        if (!widget || !request) return false;
+        if (request.on !== undefined && typeof request.on !== 'boolean') return false;
+        if (request.itemId !== undefined
+            && !widget.akariPreviewSummary?.layers?.some(layer => layer.id === request.itemId)) return false;
+        const message: PreviewSetCropModeMessage = {
+            type: 'akari-preview-set-crop-mode', itemId: request.itemId, on: request.on
+        };
+        widget.sendMessage(message);
+        return true;
+    }
+
+    protected async openPreviewPerspectivePanel(request: PreviewPerspectivePanelRequest | undefined): Promise<boolean> {
+        const widget = this.getExternalPreviewWidget(request?.editUri);
+        if (!widget || !request) return false;
+        if (request.on !== undefined && typeof request.on !== 'boolean') return false;
+        if (request.itemId !== undefined
+            && !widget.akariPreviewSummary?.layers?.some(layer => layer.id === request.itemId)) return false;
+        const message: PreviewSetPerspectivePanelMessage = {
+            type: 'akari-preview-set-perspective-panel', itemId: request.itemId, on: request.on
+        };
+        widget.sendMessage(message);
+        return true;
+    }
+
+    protected async pulsePreviewItem(request: PulsePreviewItemRequest | undefined): Promise<boolean> {
+        const widget = this.getExternalPreviewWidget(request?.editUri);
+        if (!widget || !request) return false;
+        if (typeof request.itemId !== 'string'
+            || !(widget.akariPreviewSummary?.overlays?.some(overlay => overlay.id === request.itemId)
+                || widget.akariPreviewSummary?.layers?.some(layer => layer.id === request.itemId))) return false;
+        const message: PreviewPulseItemMessage = { type: 'akari-preview-pulse-item', itemId: request.itemId };
+        widget.sendMessage(message);
+        return true;
+    }
+
+    protected async showPreviewZoneHint(request: ShowPreviewZoneHintRequest | undefined): Promise<boolean> {
+        const widget = this.getExternalPreviewWidget(request?.editUri);
+        if (!widget || !request) return false;
+        if (!Array.isArray(request.zones)) return false;
+        const zones = request.zones.filter(zone => (CAPTION_ZONES as readonly string[]).includes(zone));
+        if (!zones.length) return false;
+        const durationMs = typeof request.durationMs === 'number' && Number.isFinite(request.durationMs)
+            ? Math.min(8000, Math.max(300, request.durationMs)) : 2000;
+        const message: PreviewZoneHintMessage = { type: 'akari-preview-zone-hint', zones, durationMs };
+        widget.sendMessage(message);
+        return true;
     }
 
     protected async compactTracks(
@@ -6235,6 +6504,12 @@ ${kind === 'raw' ? '.akari-material-chip { position: absolute; top: 8px; left: 8
 .akari-deferred-telop-placeholder__label::before { content: ''; width: 13px; height: 13px; border: 2px solid rgba(255,255,255,0.35); border-top-color: #fff; border-radius: 50%; animation: akari-deferred-telop-spin 0.8s linear infinite; }
 @keyframes akari-deferred-telop-spin { to { transform: rotate(360deg); } }
 #preview-layers > [data-akari-filter-id] { position: absolute; inset: 0; display: none; pointer-events: none; }
+.akari-focus-pulse { animation: akari-focus-pulse-anim 1.6s ease-out; }
+@keyframes akari-focus-pulse-anim {
+    0% { box-shadow: 0 0 0 0 var(--akari-focus-pulse, var(--akari-accent)); }
+    60% { box-shadow: 0 0 0 10px transparent; }
+    100% { box-shadow: 0 0 0 0 transparent; }
+}
 #layer-select-box { position: absolute; z-index: 1900; box-sizing: border-box; border: 1.5px solid #4da3ff; box-shadow: 0 0 0 1px rgba(0,0,0,0.35); pointer-events: none; display: none; }
 #layer-select-box.is-active { display: block; pointer-events: auto; cursor: move; }
 #layer-select-box .akari-layer-handle { position: absolute; width: 12px; height: 12px; margin: -6px; border: 1.5px solid #4da3ff; border-radius: 3px; background: #fff; pointer-events: auto; }
@@ -6325,6 +6600,8 @@ ${kind === 'raw' ? '.akari-material-chip { position: absolute; top: 8px; left: 8
 .akari-caption-drag-guide__label { position: absolute; padding: 1px 4px; border-radius: 3px; background: var(--vscode-editor-background, rgba(20,20,20,.92)); font-size: 9px; line-height: 1.3; white-space: nowrap; }
 .akari-caption-drag-guide--center .akari-caption-drag-guide__label { top: 2px; left: 4px; }
 .akari-caption-drag-guide--bottom .akari-caption-drag-guide__label { right: 2px; bottom: 4px; }
+#zone-hint-layer { position: absolute; inset: 0; pointer-events: none; z-index: 1870; }
+.zone-hint-box { position: absolute; box-sizing: border-box; border: 1px dashed var(--akari-focus-pulse, var(--akari-accent)); background: var(--akari-focus-pulse, var(--akari-accent)); opacity: .18; }
 #caption-zone-highlight { position: absolute; z-index: 1880; display: none; box-sizing: border-box; border: 1px dashed #4da3ff; background: rgba(77,163,255,.14); pointer-events: none; }
 #caption-zone-highlight.is-active { display: block; }
 #overlay-stage { position: absolute; top: 0; left: 0; width: ${width}px; height: ${height}px; overflow: hidden; pointer-events: none; }
@@ -6492,6 +6769,7 @@ ${kind === 'raw' ? '.akari-material-chip { position: absolute; top: 8px; left: 8
           </div>
           <div id="cut-select-box"><div class="akari-cut-rotate-stem"></div><div class="akari-cut-handle akari-cut-handle-nw" data-akari-handle="nw"></div><div class="akari-cut-handle akari-cut-handle-ne" data-akari-handle="ne"></div><div class="akari-cut-handle akari-cut-handle-sw" data-akari-handle="sw"></div><div class="akari-cut-handle akari-cut-handle-se" data-akari-handle="se"></div><div class="akari-cut-handle akari-cut-handle-rotate" data-akari-handle="rotate"></div><div class="akari-crop-edge akari-crop-edge-n" data-akari-crop-edge="n"></div><div class="akari-crop-edge akari-crop-edge-e" data-akari-crop-edge="e"></div><div class="akari-crop-edge akari-crop-edge-s" data-akari-crop-edge="s"></div><div class="akari-crop-edge akari-crop-edge-w" data-akari-crop-edge="w"></div></div>
           <div id="caption-zone-highlight"></div>
+          <div id="zone-hint-layer"></div>
           <div id="caption-drag-guide-center" class="akari-caption-drag-guide akari-caption-drag-guide--center"><span class="akari-caption-drag-guide__label">中央</span></div>
           <div id="caption-drag-guide-bottom" class="akari-caption-drag-guide akari-caption-drag-guide--bottom"><span class="akari-caption-drag-guide__label">下段 7%</span></div>
           <div id="caption-select-box"><div class="akari-caption-select-tools"><div class="akari-caption-group-badge">この字幕だけ動く — ⌥ドラッグで全字幕</div><button type="button" class="akari-caption-clamp-chip on">🧲 はみ出し防止 ON</button><button type="button" class="akari-caption-position-reset" hidden>↺ 既定に戻す</button></div></div>
@@ -12040,6 +12318,34 @@ body { display: grid; place-items: center; padding: 32px; }
                 const [row, col] = zone.split('-');
                 return { row, col };
             };
+            const zoneHintLayer = document.getElementById('zone-hint-layer');
+            let zoneHintTimeoutId;
+            const clearZoneHints = () => { zoneHintLayer.replaceChildren(); };
+            const showZoneHints = (zones, durationMs) => {
+                clearZoneHints();
+                const frameRect = window.akari.computeOutputFrameRect();
+                for (const zone of zones) {
+                    const { row, col } = zoneParts(zone);
+                    const rowRange = ZONE_ROW_RANGES[row] || ZONE_ROW_RANGES.bottom;
+                    const colRange = ZONE_COL_RANGES[col] || ZONE_COL_RANGES.center;
+                    const box = document.createElement('div');
+                    box.className = 'zone-hint-box';
+                    Object.assign(box.style, {
+                        left: (frameRect.x + frameRect.width * colRange[0]) + 'px',
+                        top: (frameRect.y + frameRect.height * rowRange[0]) + 'px',
+                        width: (frameRect.width * (colRange[1] - colRange[0])) + 'px',
+                        height: (frameRect.height * (rowRange[1] - rowRange[0])) + 'px'
+                    });
+                    zoneHintLayer.appendChild(box);
+                }
+                clearTimeout(zoneHintTimeoutId);
+                zoneHintTimeoutId = setTimeout(clearZoneHints, durationMs);
+            };
+            layersStage.addEventListener('animationend', event => {
+                if (event.animationName === 'akari-focus-pulse-anim') {
+                    event.target.classList.remove('akari-focus-pulse');
+                }
+            });
             const captionOutputFrame = () => ({
                 x: 0,
                 y: 0,
@@ -15883,6 +16189,43 @@ body { display: grid; place-items: center; padding: 32px; }
                 }
                 if (message && message.type === 'akari-preview-toggle-playback') {
                     togglePlayback();
+                    return;
+                }
+                if (message?.type === 'akari-preview-set-zoom') {
+                    if (message.fit === true) setZoom(1);
+                    else if (Number.isFinite(message.scale)) setZoom(message.scale);
+                    return;
+                }
+                if (message?.type === 'akari-preview-set-rate' && Number.isFinite(message.rate)) {
+                    setPreviewPlaybackRate(message.rate);
+                    return;
+                }
+                if (message?.type === 'akari-preview-set-playback' && typeof message.playing === 'boolean') {
+                    if (message.playing !== isPlaying) togglePlayback();
+                    return;
+                }
+                if (message?.type === 'akari-preview-set-crop-mode') {
+                    if (typeof message.itemId === 'string' && message.itemId) selectLayer(message.itemId);
+                    setCropMode(typeof message.on === 'boolean' ? message.on : !cropModeActive);
+                    return;
+                }
+                if (message?.type === 'akari-preview-set-perspective-panel') {
+                    if (typeof message.itemId === 'string' && message.itemId) selectLayer(message.itemId);
+                    setPerspectivePanelOpen(typeof message.on === 'boolean' ? message.on : !perspectivePanelOpen);
+                    return;
+                }
+                if (message?.type === 'akari-preview-pulse-item' && typeof message.itemId === 'string') {
+                    const el = Array.from(layersStage.querySelectorAll('[data-overlay-id], [data-akari-layer-id]'))
+                        .find(node => (node.getAttribute('data-overlay-id') || node.getAttribute('data-akari-layer-id')) === message.itemId);
+                    if (el) {
+                        el.classList.remove('akari-focus-pulse');
+                        void el.offsetWidth;
+                        el.classList.add('akari-focus-pulse');
+                    }
+                    return;
+                }
+                if (message?.type === 'akari-preview-zone-hint' && Array.isArray(message.zones)) {
+                    showZoneHints(message.zones, Number.isFinite(message.durationMs) ? message.durationMs : 2000);
                     return;
                 }
                 if (message?.type === 'akari-preview-select-primary') {
