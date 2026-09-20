@@ -10,7 +10,26 @@ test('指示の分岐と表示切替コマンドを配線する', async () => {
   assert.match(contribution, /instruction\.kind === 'panel'/);
   assert.match(contribution, /isFlyToTargetKind\(/);
   assert.match(contribution, /error: 'not-supported'/);
-  assert.match(contribution, /akari\.companion\.togglePanel/);
+  assert.match(contribution, /COMPANION_TOGGLE_COMMAND_ID/);
+  const toolbar = await source('browser/companion-toolbar-contribution.ts');
+  assert.match(toolbar, /COMPANION_TOGGLE_COMMAND_ID = 'akari\.companion\.togglePanel'/);
+});
+
+test('呼び出しボタンは「変更を見る」より左に出て、枠の既定位置になる', async () => {
+  const toolbar = await source('browser/companion-toolbar-contribution.ts');
+  const frame = await source('browser/companion-panel-frame.ts');
+  const contribution = await source('browser/akari-companion-contribution.ts');
+  // 「変更を見る」は同じ group の priority 100。昇順なので 100 未満なら左に出る。
+  const priority = Number(toolbar.match(/COMPANION_TOGGLE_PRIORITY = (\d+)/)?.[1]);
+  assert.ok(Number.isInteger(priority) && priority < 100, `priority=${priority}`);
+  assert.match(toolbar, /group: 'navigation'/);
+  assert.match(toolbar, /toolbarAnchorRect/);
+  // 既定の置き場所はボタンの真下。利用者が動かしたときだけ自由な位置を覚える。
+  assert.match(frame, /anchoredPanelPosition/);
+  assert.match(frame, /setAnchorProvider/);
+  assert.match(frame, /resetPlacement/);
+  assert.match(frame, /userMoved/);
+  assert.match(contribution, /setAnchorProvider\(\(\) => toolbarAnchorRect\(document\)\)/);
 });
 
 test('枠は安全な iframe と局所的な操作面だけを持つ', async () => {

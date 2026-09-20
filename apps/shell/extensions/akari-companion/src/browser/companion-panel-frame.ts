@@ -1,7 +1,10 @@
 import { CompanionPanelArgs } from '../common/akari-companion-protocol';
 import {
+    AnchorRect,
+    anchoredPanelPosition,
     clampPanelSize,
     clampPanelX,
+    clampPanelY,
     isSameOriginPanelPath,
     normalizePanelMode,
     PanelMode,
@@ -14,11 +17,15 @@ interface DragState {
     startClientX: number;
     startClientY: number;
     startPanelX: number;
+    startPanelY: number;
     moved: boolean;
 }
 
-const PANEL_X_STORAGE_KEY = 'akari.companion.panel.x';
+const PANEL_PLACEMENT_STORAGE_KEY = 'akari.companion.panel.placement';
 const DRAG_THRESHOLD_PX = 4;
+
+/** 利用者が動かしたときだけ覚える。動かしていなければ既定（ボタンの真下）へ戻す。 */
+interface StoredPlacement { x: number; y: number; }
 
 export class CompanionPanelFrame {
     protected readonly doc: Document;
@@ -28,10 +35,13 @@ export class CompanionPanelFrame {
     protected iframeEl: HTMLIFrameElement | undefined;
     protected size: PanelSize = clampPanelSize(undefined, undefined);
     protected x = 0;
+    protected y = 0;
     protected mode: PanelMode = 'tab';
     protected hidden = false;
-    protected userDraggedX = false;
+    protected userMoved = false;
+    protected anchorProvider: (() => AnchorRect | undefined) | undefined;
     protected drag: DragState | undefined;
+    protected onHiddenChanged: ((hidden: boolean) => void) | undefined;
 
     constructor(deps: CompanionPanelFrameDeps) {
         this.doc = deps.doc;
@@ -50,15 +60,16 @@ export class CompanionPanelFrame {
             || !Number.isInteger(port) || port <= 0 || port > 65535) return;
 
         this.size = clampPanelSize(initialSize?.width, initialSize?.height);
-        const storedX = this.readStoredX();
-        this.userDraggedX = false;
-        this.x = clampPanelX(storedX, this.win.innerWidth, this.size.width);
+        const stored = this.readStoredPlacement();
+        this.userMoved = Boolean(stored);
+        this.x = clampPanelX(stored?.x, this.win.innerWidth, this.size.width);
+        this.y = clampPanelY(stored?.y, this.win.innerHeight, this.size.height);
         this.mode = 'tab';
         this.hidden = false;
 
         const panel = this.doc.createElement('div');
         panel.className = 'akari-companion-panel';
-        panel.setAttribute('style', 'position:absolute; top:0; pointer-events:auto;');
+        panel.setAttribute('style', 'position:absolute; pointer-events:auto;');
         const iframe = this.doc.createElement('iframe');
         iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin');
         iframe.setAttribute('tabindex', '-1');
@@ -77,13 +88,16 @@ export class CompanionPanelFrame {
         this.panelEl = panel;
         this.iframeEl = iframe;
         this.applyLayout();
+        this.placeByAnchor();
         this.win.addEventListener('blur', this.handleWindowBlur);
         this.win.addEventListener('message', this.handleMessage);
+        this.win.addEventListener('resize', this.handleWindowResize);
     }
 
     unmount(): void {
         this.win.removeEventListener('blur', this.handleWindowBlur);
         this.win.removeEventListener('message', this.handleMessage);
+        this.win.removeEventListener('resize', this.handleWindowResize);
         this.win.removeEventListener('mousemove', this.handleWindowMouseMove);
         this.win.removeEventListener('mouseup', this.handleWindowMouseUp);
         this.drag = undefined;
@@ -96,16 +110,69 @@ export class CompanionPanelFrame {
         if (!this.panelEl) return;
         this.size = clampPanelSize(args.width, args.height, this.size);
         this.mode = normalizePanelMode(args.mode, this.mode);
-        const requestedX = this.userDraggedX ? this.x : args.x;
-        this.x = clampPanelX(requestedX, this.win.innerWidth, this.size.width);
-        this.writeStoredX(this.x);
-        this.applyLayout();
+        if (typeof args.x === 'number' && Number.isFinite(args.x) && !this.userMoved) {
+            this.userMoved = true;
+            this.x = args.x;
+        }
+        if (this.userMoved) {
+            this.x = clampPanelX(this.x, this.win.innerWidth, this.size.width);
+            this.y = clampPanelY(this.y, this.win.innerHeight, this.size.height);
+            this.writeStoredPlacement();
+            this.applyLayout();
+        } else {
+            this.placeByAnchor();
+        }
+    }
+
+    /**
+     * 呼び出しボタンの位置を返す関数。利用者が動かしていなければ、ここを基準に置き直す。
+     * 呼ぶたびに取り直すので、ツールバーが組み直されても古い位置に残らない。
+     */
+    setAnchorProvider(provider: (() => AnchorRect | undefined) | undefined): void {
+        this.anchorProvider = provider;
+        this.placeByAnchor();
+    }
+
+    setHiddenListener(listener: ((hidden: boolean) => void) | undefined): void {
+        this.onHiddenChanged = listener;
+    }
+
+    isHidden(): boolean {
+        return this.hidden;
     }
 
     toggleHidden(): void {
+        this.setHidden(!this.hidden);
+    }
+
+    setHidden(hidden: boolean): void {
+        if (!this.panelEl || this.hidden === hidden) return;
+        this.hidden = hidden;
+        if (!hidden) this.placeByAnchor();
+        this.applyLayout();
+        this.onHiddenChanged?.(this.hidden);
+    }
+
+    /** 既定の置き場所へ戻す（利用者が動かした位置は捨てる）。 */
+    resetPlacement(): void {
+        this.userMoved = false;
+        this.clearStoredPlacement();
+        this.placeByAnchor();
+    }
+
+    protected placeByAnchor(): void {
         if (!this.panelEl) return;
-        this.hidden = !this.hidden;
-        this.panelEl.style.display = this.hidden ? 'none' : '';
+        const anchor = this.userMoved ? undefined : this.anchorProvider?.();
+        if (anchor) {
+            const placement = anchoredPanelPosition(anchor, this.size,
+                { width: this.win.innerWidth, height: this.win.innerHeight });
+            this.x = placement.x;
+            this.y = placement.y;
+        } else {
+            this.x = clampPanelX(this.x, this.win.innerWidth, this.size.width);
+            this.y = clampPanelY(this.y, this.win.innerHeight, this.size.height);
+        }
+        this.applyLayout();
     }
 
     isMounted(): boolean {
@@ -125,6 +192,7 @@ export class CompanionPanelFrame {
     protected applyLayout(): void {
         if (!this.panelEl) return;
         this.panelEl.style.left = `${this.x}px`;
+        this.panelEl.style.top = `${this.y}px`;
         this.panelEl.style.width = `${this.size.width}px`;
         this.panelEl.style.height = `${this.size.height}px`;
         this.panelEl.dataset.mode = this.mode;
@@ -163,6 +231,7 @@ export class CompanionPanelFrame {
             startClientX: event.clientX,
             startClientY: event.clientY,
             startPanelX: this.x,
+            startPanelY: this.y,
             moved: false
         };
         this.win.addEventListener('mousemove', this.handleWindowMouseMove);
@@ -175,10 +244,11 @@ export class CompanionPanelFrame {
         const dy = event.clientY - this.drag.startClientY;
         if (!this.drag.moved && Math.hypot(dx, dy) >= DRAG_THRESHOLD_PX) {
             this.drag.moved = true;
-            this.userDraggedX = true;
+            this.userMoved = true;
         }
         if (!this.drag.moved) return;
         this.x = clampPanelX(this.drag.startPanelX + dx, this.win.innerWidth, this.size.width);
+        this.y = clampPanelY(this.drag.startPanelY + dy, this.win.innerHeight, this.size.height);
         this.applyLayout();
     };
 
@@ -188,24 +258,38 @@ export class CompanionPanelFrame {
         this.drag = undefined;
         this.win.removeEventListener('mousemove', this.handleWindowMouseMove);
         this.win.removeEventListener('mouseup', this.handleWindowMouseUp);
-        if (drag.moved) this.writeStoredX(this.x);
-        else this.toggleHidden();
+        if (drag.moved) this.writeStoredPlacement();
+        else this.setHidden(true);
     };
 
-    protected readStoredX(): number | undefined {
+    protected readonly handleWindowResize = (): void => {
+        this.placeByAnchor();
+    };
+
+    protected readStoredPlacement(): StoredPlacement | undefined {
         try {
-            const raw = this.win.localStorage.getItem(PANEL_X_STORAGE_KEY);
+            const raw = this.win.localStorage.getItem(PANEL_PLACEMENT_STORAGE_KEY);
             if (raw === null) return undefined;
-            const parsed = Number(raw);
-            return Number.isFinite(parsed) ? parsed : undefined;
+            const parsed = JSON.parse(raw) as { x?: unknown; y?: unknown };
+            if (!Number.isFinite(parsed?.x) || !Number.isFinite(parsed?.y)) return undefined;
+            return { x: parsed.x as number, y: parsed.y as number };
         } catch {
             return undefined;
         }
     }
 
-    protected writeStoredX(x: number): void {
+    protected writeStoredPlacement(): void {
         try {
-            this.win.localStorage.setItem(PANEL_X_STORAGE_KEY, String(x));
+            this.win.localStorage.setItem(PANEL_PLACEMENT_STORAGE_KEY,
+                JSON.stringify({ x: this.x, y: this.y }));
+        } catch {
+            // 保存できない環境では現在の表示だけを維持する。
+        }
+    }
+
+    protected clearStoredPlacement(): void {
+        try {
+            this.win.localStorage.removeItem(PANEL_PLACEMENT_STORAGE_KEY);
         } catch {
             // 保存できない環境では現在の表示だけを維持する。
         }

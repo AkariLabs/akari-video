@@ -1,8 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
+  anchoredPanelPosition,
   clampPanelSize,
   clampPanelX,
+  clampPanelY,
   isSameOriginPanelPath,
   normalizePanelMode,
   parseManifestPanel
@@ -47,4 +49,22 @@ test('manifest の有効な枠情報だけを取り出す', () => {
   assert.deepEqual(parseManifestPanel({ panelPath: '//evil/x', panel: { width: '500', height: 240 } }), {});
   assert.deepEqual(parseManifestPanel({ panel: { width: Number.NaN, height: 240 } }), {});
   assert.deepEqual(parseManifestPanel(undefined), {});
+});
+
+test('既定の置き場所は呼び出しボタンの真下・右端そろえ', () => {
+  const size = { width: 360, height: 200 };
+  const viewport = { width: 1440, height: 900 };
+  const anchor = { left: 1100, right: 1140, bottom: 40 };
+  assert.deepEqual(anchoredPanelPosition(anchor, size, viewport), { x: 780, y: 46 });
+  // 画面の右端に寄っていても、はみ出さないところへ丸める。
+  assert.deepEqual(anchoredPanelPosition({ left: 200, right: 240, bottom: 40 }, size, viewport), { x: 0, y: 46 });
+  // 画面が低いときは下端に収まるところまで上げる。
+  assert.deepEqual(anchoredPanelPosition(anchor, size, { width: 1440, height: 180 }), { x: 780, y: 0 });
+});
+
+test('縦位置は画面の中に丸める', () => {
+  assert.equal(clampPanelY(undefined, 900, 200), 0);
+  assert.equal(clampPanelY(-40, 900, 200), 0);
+  assert.equal(clampPanelY(880, 900, 200), 700);
+  assert.equal(clampPanelY(123.4, 900, 200), 123);
 });

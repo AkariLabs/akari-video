@@ -1,5 +1,6 @@
 import { ContainerModule } from '@theia/core/shared/inversify';
 import { FrontendApplicationContribution, WebSocketConnectionProvider } from '@theia/core/lib/browser';
+import { TabBarToolbarContribution } from '@theia/core/lib/browser/shell/tab-bar-toolbar';
 import { PreferenceContribution } from '@theia/core/lib/common/preferences';
 import {
     AkariCompanionService,
@@ -8,6 +9,7 @@ import {
 import { AkariCompanionClientImpl } from './akari-companion-client';
 import { AkariCompanionContribution } from './akari-companion-contribution';
 import { AkariCompanionPreferenceContribution } from './akari-companion-preferences';
+import { CompanionToolbarContribution } from './companion-toolbar-contribution';
 
 export default new ContainerModule(bind => {
     bind(AkariCompanionClientImpl).toSelf().inSingletonScope();
@@ -21,6 +23,9 @@ export default new ContainerModule(bind => {
 
     bind(AkariCompanionPreferenceContribution).toSelf().inSingletonScope();
     bind(PreferenceContribution).toService(AkariCompanionPreferenceContribution);
+
+    bind(CompanionToolbarContribution).toSelf().inSingletonScope();
+    bind(TabBarToolbarContribution).toService(CompanionToolbarContribution);
 
     bind(AkariCompanionContribution).toSelf().inSingletonScope();
     bind(FrontendApplicationContribution).toService(AkariCompanionContribution);

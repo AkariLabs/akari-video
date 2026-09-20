@@ -7,13 +7,12 @@ export function installCompanionPanelPulseStyle(doc: Document = document): void 
     box-sizing: border-box;
     overflow: hidden;
     border: 1px solid var(--theia-contrastBorder, rgba(255, 255, 255, 0.18));
-    border-top: 0;
-    border-radius: 0 0 10px 10px;
+    border-radius: 10px;
     background: var(--theia-editor-background, #1e1e1e);
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
 }
 .akari-companion-panel[data-mode='pill'] {
-    border-radius: 0 0 22px 22px;
+    border-radius: 22px;
 }
 .akari-companion-panel iframe {
     display: block;
@@ -31,17 +30,25 @@ export function installCompanionPanelPulseStyle(doc: Document = document): void 
     height: 32px;
     padding: 0;
     border: 0;
-    border-radius: 0 0 0 8px;
+    border-radius: 0 10px 0 8px;
     color: var(--theia-foreground, #f2f2f2);
     background: color-mix(in srgb, var(--theia-editor-background, #1e1e1e) 82%, transparent);
     font: inherit;
     line-height: 32px;
     text-align: center;
-    cursor: ew-resize;
+    cursor: move;
     user-select: none;
 }
 .akari-companion-panel-corner:hover {
     background: var(--theia-toolbar-hoverBackground, rgba(255, 255, 255, 0.12));
+}
+/* タブ帯のボタン。待機中は灰色の丸、枠が出ているあいだは基調色で灯る。 */
+.akari-companion-toggle-dot {
+    color: var(--theia-descriptionForeground, rgba(255, 255, 255, 0.55));
+    font-size: 12px;
+}
+.akari-companion-toggle[data-open='true'] .akari-companion-toggle-dot {
+    color: var(--akari-focus-pulse, var(--akari-accent, #f97316));
 }
 .akari-companion-fly-dot,
 .akari-companion-fly-ring {

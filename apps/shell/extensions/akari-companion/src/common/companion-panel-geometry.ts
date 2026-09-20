@@ -28,6 +28,32 @@ export function clampPanelX(x: number | undefined, viewportWidth: number, width:
     return Math.min(max, Math.max(0, raw));
 }
 
+/** y が無ければ上の縁。あれば画面内に収まるよう丸める。 */
+export function clampPanelY(y: number | undefined, viewportHeight: number, height: number): number {
+    const max = Math.max(0, viewportHeight - height);
+    const raw = typeof y === 'number' && Number.isFinite(y) ? Math.round(y) : 0;
+    return Math.min(max, Math.max(0, raw));
+}
+
+export interface AnchorRect { left: number; right: number; bottom: number; }
+export interface PanelPosition { x: number; y: number; }
+
+/**
+ * 既定の置き場所 = 呼び出しボタンの真下・右端そろえ。
+ * 利用者が動かしていないあいだはここへ戻るので、位置が毎回変わらない。
+ */
+export function anchoredPanelPosition(
+    anchor: AnchorRect,
+    size: PanelSize,
+    viewport: { width: number; height: number },
+    gap = 6
+): PanelPosition {
+    return {
+        x: clampPanelX(Math.round(anchor.right - size.width), viewport.width, size.width),
+        y: clampPanelY(Math.round(anchor.bottom + gap), viewport.height, size.height)
+    };
+}
+
 export type PanelMode = 'tab' | 'pill';
 
 export function normalizePanelMode(mode: unknown, fallback: PanelMode = 'tab'): PanelMode {

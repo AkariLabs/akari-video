@@ -27,6 +27,12 @@ import { resolveFlyTo } from './companion-fly-to';
 import { CompanionPanelFrame } from './companion-panel-frame';
 import { installCompanionPanelPulseStyle } from './companion-panel-pulse-style';
 import { CompanionStateCollector } from './companion-state-collector';
+import {
+    COMPANION_TOGGLE_COMMAND_ID,
+    COMPANION_TOGGLE_LABEL,
+    CompanionToolbarContribution,
+    toolbarAnchorRect
+} from './companion-toolbar-contribution';
 
 @injectable()
 export class AkariCompanionContribution implements FrontendApplicationContribution {
@@ -52,11 +58,14 @@ export class AkariCompanionContribution implements FrontendApplicationContributi
     protected readonly commands!: CommandRegistry;
     @inject(MessageService)
     protected readonly messages!: MessageService;
+    @inject(CompanionToolbarContribution)
+    protected readonly toolbar!: CompanionToolbarContribution;
 
     protected projectSessionId: string | undefined;
     protected notifiedProjectKey = '';
     protected collector: CompanionStateCollector | undefined;
     protected panel: CompanionPanelFrame | undefined;
+    protected connected = false;
     protected readonly disposables: Disposable[] = [];
 
     async onStart(): Promise<void> {
@@ -74,10 +83,17 @@ export class AkariCompanionContribution implements FrontendApplicationContributi
         });
         this.collector.start();
         this.panel = new CompanionPanelFrame({ doc: document, win: window });
+        this.panel.setAnchorProvider(() => toolbarAnchorRect(document));
+        this.panel.setHiddenListener(() => this.toolbar.refresh(document));
+        this.toolbar.setState({ connected: () => this.connected, open: () => this.isPanelOpen() });
         this.client.setPanelHandler((connected, manifest) => this.onConnectionState(connected, manifest));
         this.disposables.push(this.commands.registerCommand(
-            { id: 'akari.companion.togglePanel', label: '外部の操作盤を表示/非表示' },
+            { id: COMPANION_TOGGLE_COMMAND_ID, label: `${COMPANION_TOGGLE_LABEL}を表示/非表示` },
             { execute: () => { this.panel?.toggleHidden(); } }
+        ));
+        this.disposables.push(this.commands.registerCommand(
+            { id: 'akari.companion.resetPanelPlacement', label: `${COMPANION_TOGGLE_LABEL}を既定の位置へ戻す` },
+            { execute: () => { this.panel?.resetPlacement(); } }
         ));
         this.disposables.push(this.preferences.onPreferenceChanged(event => {
             if (event.preferenceName === AKARI_COMPANION_ENABLED) void this.applyEnabled();
@@ -93,6 +109,7 @@ export class AkariCompanionContribution implements FrontendApplicationContributi
     }
 
     onStop(): void {
+        this.toolbar.setState(undefined);
         this.collector?.stop();
         this.panel?.unmount();
         for (const disposable of this.disposables.splice(0)) disposable.dispose();
@@ -106,8 +123,14 @@ export class AkariCompanionContribution implements FrontendApplicationContributi
      * ハッシュが変わっていなくても状態を送り直す（契約 §4 の「接続直後」）。
      */
     protected onConnectionState(connected: boolean, manifest?: CompanionManifestPanel): void {
+        this.connected = connected && Boolean(manifest?.panelPath);
         this.applyPanelManifest(connected, manifest);
+        this.toolbar.refresh(document);
         if (connected) void this.collector?.resendDocuments();
+    }
+
+    protected isPanelOpen(): boolean {
+        return Boolean(this.panel?.isMounted()) && !this.panel?.isHidden();
     }
 
     protected applyPanelManifest(connected: boolean, manifest?: CompanionManifestPanel): void {
