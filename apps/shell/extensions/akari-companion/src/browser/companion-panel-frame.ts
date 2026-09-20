@@ -214,8 +214,11 @@ export class CompanionPanelFrame {
             height?: number;
             x?: number;
             mode?: unknown;
+            placement?: unknown;
         } | null;
         if (!data || data.type !== 'akari-companion-panel') return;
+        // 中身が「既定の置き場所へ戻して」と言ってきたら、覚えている位置を捨てる。
+        if (data.placement === 'default') this.resetPlacement();
         this.applyInstruction({
             width: data.width,
             height: data.height,

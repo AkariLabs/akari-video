@@ -13,10 +13,11 @@ export const COMPANION_TOGGLE_ATTRIBUTE = 'data-akari-companion-toggle';
 export const COMPANION_TOGGLE_LABEL = '外部の操作盤';
 /**
  * 「変更を見る」は同じ group の priority 100。Theia のツールバーは
- * `items.sort(PRIORITY_COMPARATOR).reverse()` で並べる = **priority の降順で左から**なので、
- * それより大きい値にすると すぐ左 に出る（契約 v0.5 の既定の置き場所）。
+ * `items.sort(PRIORITY_COMPARATOR).reverse()` で DOM に並べたうえで、
+ * 帯そのものが `flex-direction: row-reverse` なので、**priority が小さいほど左**に出る
+ * （2026-09-20 実機の CDP で実測）。それより小さい値にして すぐ左 へ置く。
  */
-export const COMPANION_TOGGLE_PRIORITY = 101;
+export const COMPANION_TOGGLE_PRIORITY = 99;
 
 /** 画面に出ているボタン（タブ帯ごとに複数ありうる）。 */
 export function toolbarButtons(doc: Document): HTMLElement[] {
