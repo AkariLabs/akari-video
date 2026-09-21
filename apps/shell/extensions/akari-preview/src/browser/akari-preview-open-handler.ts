@@ -2913,7 +2913,38 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             playing: false, channels: lastAudioMeterFrame?.channels ?? 2,
             engine: lastAudioMeterFrame?.engine ?? 'frame-engine', t: lastAudioMeterFrame?.t ?? 0
         }));
+        let collapsedBagSummary: EditSummary | undefined;
+        let projectedBagSummary: EditSummary | undefined;
         disposables.push(widget.onMessage(message => {
+            if (message?.type === 'akari-preview-expand-bag' && kind === 'output'
+                && (message.bagId === null || typeof message.bagId === 'string')
+                && Number.isSafeInteger(message.requestId)) {
+                const current = widget.akariPreviewSummary;
+                if (!current) return;
+                if (current !== projectedBagSummary) collapsedBagSummary = current;
+                const base = collapsedBagSummary ?? current;
+                const bagId: string | null = message.bagId;
+                const bagNode = base.tree?.find(node => node.id === bagId && node.kind === 'bag'
+                    && 'lazy' in node && node.lazy === true);
+                if (bagId !== null && !bagNode) return;
+                // Only an untouched, all-scanned bag reaches here. Its renderer
+                // record already contains group composition, clipping and assets.
+                // Keep those fields and use the shared projector for the masks.
+                const overlays = base.overlays.flatMap(overlay => {
+                    if (overlay.id !== bagId) return [overlay];
+                    const bag = { id: overlay.id, at: overlay.start, duration: overlay.duration,
+                        source: { kind: 'html', html: overlay.html }, declaration: overlay };
+                    const children = projectBagChildren(bag, scanHtmlParts(overlay.html));
+                    return expandBagOverlays({ tracks: [{ items: [{ ...bag, children }] }] })
+                        .map(part => ({ ...overlay, id: part.id, html: part.html,
+                            parentId: overlay.id, part: part.part }));
+                });
+                projectedBagSummary = { ...base, overlays };
+                widget.akariPreviewSummary = projectedBagSummary;
+                widget.sendMessage({ type: 'akari-preview-expand-bag', bagId,
+                    requestId: message.requestId, summary: projectedBagSummary });
+                return;
+            }
             // 診断（第11・12項）: ページ側の段の報告。届かないこと自体も証跡になる
             // （ホスト側の監視が「報告なし」として記録する）。
             if (isPreviewDiagnosticsReport(message)) {
@@ -4764,24 +4795,10 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             });
             // BEGIN preview selection tree (overlays only, before flattening loses ancestry)
             type TreeItem = typeof internal.tracks[number]['items'][number];
-            // All-scanned HTML bags normally collapse to one renderer record.
-            // Materialize their projections in this derived summary only so the
-            // preview can address each part without changing edit.json or exports.
-            const selectionProjectionItem = (item: TreeItem): TreeItem => {
-                const children = item.children.map(selectionProjectionItem);
-                if (rawVersion === 2 && item.source.kind === 'html' && !item.source.part
-                    && children.length === 0 && !item.source.exclude?.length) {
-                    const reference = String(item.source.html ?? '');
-                    const parts = scanHtmlParts(overlayHtml.get(reference) ?? reference);
-                    if (parts.length) return { ...item, children: projectBagChildren(item, parts) };
-                }
-                return { ...item, children };
-            };
-            const projectedOverlays = expandBagOverlays(
-                rawVersion === 2 ? { ...internal, tracks: internal.tracks.map(track => ({ ...track,
-                    items: track.items.map(selectionProjectionItem) })) } : internal,
-                reference => overlayHtml.get(reference) ?? reference
-            );
+            // Preserve the shared renderer's single mount for all-scanned bags.
+            // Their selectable parts exist in the tree before any DOM clones do.
+            const projectedOverlays = expandBagOverlays(internal,
+                reference => overlayHtml.get(reference) ?? reference);
             const tree: PreviewSelectionNode[] = [];
             if (rawVersion === 2) {
                 const rendered = new Map<string, { transform?: OverlayTransform }>(projectedOverlays.map(overlay => [overlay.id, overlay]));
@@ -4801,10 +4818,22 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                             label: String(item.declaration.name ?? item.id), transform: world }, ...children] : [];
                     }
                     if (kind !== 'html') return [];
+                    const reference = String(item.source.html ?? '');
+                    const parts = scanHtmlParts(overlayHtml.get(reference) ?? reference);
+                    const lazy = !item.source.part && item.children.length === 0
+                        && !item.source.exclude?.length && parts.length > 0;
+                    if (lazy && rendered.has(item.id)) {
+                        const transform = { ...rendered.get(item.id)?.transform };
+                        return [{ id: item.id, parentId, kind: 'bag', lazy: true,
+                            label: String(item.declaration.name ?? item.id), transform },
+                        ...projectBagChildren(item, parts).map(child => ({
+                            id: String(child.id), parentId: item.id, kind: 'leaf' as const, lazy: true,
+                            label: String(child.source.part), transform
+                        }))] as (PreviewSelectionNode & { lazy: boolean })[];
+                    }
                     const bagParts = projectedOverlays.filter(overlay => overlay.parentId === item.id);
                     if (!item.source.part && bagParts.length) {
-                        const reference = String(item.source.html ?? '');
-                        const projected = projectBagChildren(item, scanHtmlParts(overlayHtml.get(reference) ?? reference));
+                        const projected = projectBagChildren(item, parts);
                         const children = projected.flatMap(child => visit(child as TreeItem, item.id, parentTransform));
                         return children.length ? [{ id: item.id, parentId, kind: 'bag',
                             label: String(item.declaration.name ?? item.id), transform: world }, ...children] : [];
@@ -8330,6 +8359,11 @@ body { display: grid; place-items: center; padding: 32px; }
             window.akari.reportGesture = phase => {
                 vscode.postMessage({ type: 'akari-preview-gesture', phase });
             };
+            let bagExpansionRequest = 0;
+            window.akari.requestBagExpansion = bagId => {
+                vscode.postMessage({ type: 'akari-preview-expand-bag', bagId, requestId: ++bagExpansionRequest });
+            };
+            window.akari.isCurrentBagExpansion = requestId => requestId === bagExpansionRequest;
             window.akari.reportOverlaySelection = (overlayId, scopeId) => {
                 if (overlayId) selectedPrimary = null;
                 vscode.postMessage({ type: 'akari-preview-overlay-selected', overlayId, ...(scopeId !== undefined ? { scopeId } : {}) });
@@ -16641,6 +16675,24 @@ body { display: grid; place-items: center; padding: 32px; }
                 tick(true);
                 window.akari.requestGenerationUpdate?.();
             };
+            // BEGIN preview bag response (bootstrap owns summary and persistent plates)
+            let bagMountTail = Promise.resolve();
+            window.addEventListener('message', event => {
+                const message = event.data;
+                if (message?.type !== 'akari-preview-expand-bag' || !message.summary
+                    || !window.akari.isCurrentBagExpansion(message.requestId)) return;
+                // Serialize mounts; discard replies superseded by a later scope.
+                bagMountTail = bagMountTail.then(async () => {
+                    if (!window.akari.isCurrentBagExpansion(message.requestId)) return;
+                    summary = message.summary;
+                    window.akari.state.summary = summary;
+                    await window.akari.runtime.mount(summary);
+                    // mount owns the stage; restore the shell's persistent plates.
+                    stage.append(transitionPlate, transitionFallbackLabel, captionPlate);
+                    applyIncrementalModel(summary);
+                }).catch(error => console.warn('[akari-preview] bag expansion failed', error));
+            });
+            // END preview bag response
             window.addEventListener('message', event => {
                 const message = event.data;
                 // 2026-09-02 preview-perf: host からの seek は rAF で間引く（下の akari-preview-seek）。

@@ -57,3 +57,21 @@ test('classic interaction copy exactly matches canonical pure functions', () => 
   assert.ok(block(canonical).length > 100);
   assert.equal(block(classic), block(canonical));
 });
+
+test('idle floor Esc passes through; selection or deeper scope still handles it', async () => {
+  const { shouldHandleScopeEscape } = await import('../src/selection-scope.mjs');
+  assert.equal(shouldHandleScopeEscape(null, null, null), false);
+  assert.equal(shouldHandleScopeEscape(null, 'g', 'g'), false);
+  assert.equal(shouldHandleScopeEscape('a', 'g', 'g'), true);
+  assert.equal(shouldHandleScopeEscape(null, 'g', null), true);
+});
+test('only the lazy bag matching the current scope requests expansion', async () => {
+  const { lazyBagForScope } = await import('../src/selection-scope.mjs');
+  const lazyTree = [...tree, { id: 'lazy', parentId: null, kind: 'bag', lazy: true },
+    { id: 'lazy#A', parentId: 'lazy', kind: 'leaf', lazy: true }];
+  assert.equal(lazyBagForScope(lazyTree, null), null);
+  assert.equal(lazyBagForScope(lazyTree, 'bag'), null);
+  assert.equal(lazyBagForScope(lazyTree, 'lazy'), 'lazy');
+  assert.equal(lazyBagForScope(lazyTree, 'lazy#A'), null);
+  assert.equal(lazyBagForScope(lazyTree, 'missing'), null);
+});

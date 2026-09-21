@@ -4203,6 +4203,19 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.applyCaptionStateClasses();
     }
 
+    protected previewSelectionAncestorIds(rows: readonly TimelineTreeRow[], id: string): string[] {
+        const nodes = new Map(rows.map(row => [row.id, row]));
+        const ancestors = [];
+        const visited = new Set([id]);
+        let parentId = nodes.get(id)?.parentId;
+        while (parentId && nodes.has(parentId) && !visited.has(parentId)) {
+            visited.add(parentId);
+            ancestors.unshift(parentId);
+            parentId = nodes.get(parentId)?.parentId;
+        }
+        return ancestors;
+    }
+
     handleOverlaySelection(editUri: string, overlayId: string | null): void {
         if (!this.canHandlePlaybackTick(editUri)) {
             return;
@@ -4214,7 +4227,20 @@ export class AkariAnnotationsWidget extends BaseWidget {
             }
             return;
         }
-        const treeRow = this.timelineTreeRows.find(row => row.id === overlayId);
+        let treeRow = this.timelineTreeRows.find(row => row.id === overlayId);
+        if (!treeRow) {
+            const scopedRows = this.focusScope.rootId === null ? this.expandedTimelineTreeRows
+                : rowsInFocusScope(this.expandedTimelineTreeRows, this.focusScope);
+            if (scopedRows.some(row => row.id === overlayId)) {
+                for (const id of this.previewSelectionAncestorIds(scopedRows, overlayId)) {
+                    if (!this.timelineCollapsedIds.has(id)) continue;
+                    this.timelineCollapsedState?.set(id, true);
+                    this.timelineCollapsedIds.delete(id);
+                }
+                this.refreshTimelineTreeRows();
+                treeRow = this.timelineTreeRows.find(row => row.id === overlayId);
+            }
+        }
         if (treeRow) {
             this.applySelection({
                 kind: 'item', id: treeRow.id, itemKind: treeRow.itemKind,

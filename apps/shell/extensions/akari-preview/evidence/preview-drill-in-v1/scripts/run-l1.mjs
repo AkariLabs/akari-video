@@ -752,7 +752,7 @@ try {
       out.preview = await deepSelect('g1.first');
       check(out.preview.scopeId === 'g1' && out.preview.floorScopeId === null, 'deep click scope is leaf parent', out.preview);
     });
-    await sampleRecord(10, 'timeline group double-click sets floor; repeated preview Esc never escapes floor', async out => {
+    await sampleRecord(10, 'timeline group double-click sets floor; idle preview Esc exits one timeline level', async out => {
       await resetPreview();
       // prepareStep expanded outer/g1 through real toggle clicks; production
       // auto-expansion is outside this task's widget editing boundary.
@@ -771,8 +771,10 @@ try {
         const focusBeforeKey = await press('Escape');
         out.keys.push({ key: i + 1, focusBeforeKey, preview: await state(), timeline: await timeline() });
       }
-      check(out.keys.every(k => k.preview.floorScopeId === 'g1' && k.preview.scopeId === 'g1'
-        && k.timeline.rootId === 'g1'), 'Esc never leaves timeline floor', out.keys);
+      const expectedRoots = ['g1', 'outer', null, null];
+      check(out.keys.every((k, i) => k.preview.floorScopeId === expectedRoots[i]
+        && k.preview.scopeId === expectedRoots[i] && k.timeline.rootId === expectedRoots[i]),
+        'selection clears first; idle floor Esc exits exactly one timeline level', out.keys);
       await shot('10-timeline-floor');
     });
     await sampleRecord(11, 'masked part A bounds exclude sibling parts and differ from bag union', async out => {
