@@ -291,10 +291,15 @@ export async function runVideoCommand(argv, dependencies = {}) {
       suppliedInputs.reference_audios = [];
     }
     const suppliedOutput = supplied.output ?? {};
+    const catalog = await (dependencies.loadCatalogImpl ?? loadCatalog)();
+    const modelId = options.modelId ?? supplied.model?.id ?? modelDefault(options.projectDir);
+    const model = findModel(catalog, modelId);
+    if (!model) throw new CliError(`生成モデルがカタログにありません: ${modelId}`);
     const hasSuppliedFirst = Object.hasOwn(suppliedInputs, "first_frame");
-    const usesDefaultFirst = options.firstFrame === undefined && !hasSuppliedFirst;
+    const usesDefaultFirst = framesOrRefs !== "references" && model.inputs.first_frame !== "none"
+      && options.firstFrame === undefined && !hasSuppliedFirst;
     const firstValue = framesOrRefs === "references" ? null : options.firstFrame !== undefined
-      ? options.firstFrame : hasSuppliedFirst ? suppliedInputs.first_frame : sourceEntry.path;
+      ? options.firstFrame : hasSuppliedFirst ? suppliedInputs.first_frame : usesDefaultFirst ? sourceEntry.path : null;
     if (usesDefaultFirst && !STILL_EXTENSIONS.has(path.extname(sourceEntry.path).toLowerCase())) {
       throw new CliError("既定の first_frame は静止画 source の item だけで使えます");
     }
@@ -323,10 +328,6 @@ export async function runVideoCommand(argv, dependencies = {}) {
       aspect: options.aspect ?? suppliedOutput.aspect ?? null,
       audio_out: options.audioOut ?? suppliedOutput.audio_out ?? null,
     };
-    const catalog = await (dependencies.loadCatalogImpl ?? loadCatalog)();
-    const modelId = options.modelId ?? supplied.model?.id ?? modelDefault(options.projectDir);
-    const model = findModel(catalog, modelId);
-    if (!model) throw new CliError(`生成モデルがカタログにありません: ${modelId}`);
     const validation = validateInputs({ inputs: rawInputs, output: rawOutput, model });
     for (const message of validation.messages) (message.level === "error" ? errorLog : log)(`${message.level}: ${message.text}`);
     if (!validation.ok) return { exitCode: 1 };

@@ -1,6 +1,7 @@
 import { adapter as h3Adapter } from "./fal-h3-i2v.mjs";
 import { adapter as klingAdapter, proAdapter as klingProAdapter } from "./fal-kling-v3-i2v.mjs";
 import { adapter as seedanceAdapter } from "./fal-seedance-2-i2v.mjs";
+import { adapter as seedanceRefAdapter } from "./fal-seedance-2-ref.mjs";
 import { adapter as veoAdapter } from "./fal-veo-3.1-flf.mjs";
 
 export {
@@ -22,6 +23,7 @@ export const ADAPTERS = Object.freeze({
   [klingAdapter.id]: klingAdapter,
   [klingProAdapter.id]: klingProAdapter,
   [seedanceAdapter.id]: seedanceAdapter,
+  [seedanceRefAdapter.id]: seedanceRefAdapter,
   [veoAdapter.id]: veoAdapter,
 });
 

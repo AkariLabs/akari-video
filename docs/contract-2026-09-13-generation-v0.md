@@ -148,6 +148,8 @@ mp4 がまだ無い「動画予定」は、**仮枠の素材の meta**（静止�
 
 Kling v3 standard i2v / Kling v3 pro i2v / Veo 3.1 first-last / Veo 3.1 reference / Seedance 2.0 i2v / Seedance 2.0 reference / Seedance 2.5 i2v / H3 i2v / H3 reference / Wan 2.7 i2v / Grok Imagine i2v / Vidu Q3 i2v。画像: codex-image / nano-banana-pro edit。Sora は OpenAI 直アダプタが出来るまで入れない。
 
+動画の登録済みアダプタ（2026-09-22）は `fal:h3-i2v`・`fal:kling-v3-standard-i2v`・`fal:kling-v3-pro-i2v`・`fal:seedance-2.0-i2v`・`fal:seedance-2.0-ref`・`fal:veo-3.1-flf` の 6 行。カタログ収載だけでは送信できない。`fal:h3-ref` は OpenAPI の参照記法（`Image 1` / `Video 1` / `Audio 1`）がカタログの tag（`@Image` / `@Video` / `@Audio`）と食い違うため **BLOCKED・未対応**。アダプタ未登録のまま送信を拒否する。
+
 ### 4-4. 鮮度とドリフト
 
 - `as_of` 必須。UI の費用表示に日付を添える
@@ -160,6 +162,8 @@ Kling v3 standard i2v / Kling v3 pro i2v / Veo 3.1 first-last / Veo 3.1 referenc
 
 各アダプタは 9 スロット × 出力ノブの**全セル**に「引数名 + 書式」か「拒否」を持つ。テストは全セルを網羅する。
 
+対応一覧は §4-3 の 6 行。Seedance 2.0 reference は画像・動画・音声参照を写し、`first_frame` / `last_frame` / `seed` は拒否する。参照用の OpenAPI 根拠は `packages/generate/test/fixtures/openapi/`（2026-09-22 取得・URL と SHA-256 は同 README）に保存する。H3 reference は記法の不一致が解消するまで登録しない。
+
 ### 5-2. 尺の書式（スパイク実測）
 
 | モデル | 送る形 |
@@ -171,9 +175,9 @@ Kling v3 standard i2v / Kling v3 pro i2v / Veo 3.1 first-last / Veo 3.1 referenc
 
 ### 5-3. 参照の渡し方
 
-- 画像は data URI で送ってよい（5.2 MB で 24 秒）。**20 MB 超は fal storage へ先にアップロード**（後日）
-- 順序タグ（@Image1 …）はアダプタが配列順から生成して prompt に付ける。名前 + 役割（PixVerse）は要素の `name` / `role` から
-- 参照音声は `range_s` で切り出してから送る（クリップ範囲だけ）
+- Seedance 2.0 reference の画像・動画・音声は配列順のまま data URI で送る。**20 MB 超は送らず error**（fal storage へのアップロードは後日）。OpenAPI の上限は画像 9・動画 3・音声 3、全種合計 12 ファイル。音声参照には画像か動画が 1 本以上必要
+- 順序タグはカタログ行の `tag` + 配列順の番号（1 始まり）。prompt の `@画像N` / `@動画N` / `@音声N` を `@ImageN` / `@VideoN` / `@AudioN` へ置換する。該当種別の本数を超える番号や 0 以下は送らず error。provider 記法で直接書いた番号も検査する。名指しが無ければ prompt に何も足さない。名前 + 役割（PixVerse）は要素の `name` / `role` から
+- 参照音声は `range_s` があれば media-bin の ffmpeg で切り出してから送る（クリップ範囲だけ）。指定が無ければ元の音声をそのまま送る。切り出しの一時ファイルは成功・失敗ともに削除する
 
 ## 6. 状態と見え方
 
