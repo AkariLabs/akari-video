@@ -1,6 +1,7 @@
 import URI from '@theia/core/lib/common/uri';
 import type {
     CompanionDocumentState,
+    CompanionProjectLocation,
     CompanionSelectionEntry,
     CompanionStateDocs,
     CompanionStateLight
@@ -17,6 +18,55 @@ interface EventSourceLike {
     removeEventListener(type: string, listener: EventListener): void;
 }
 
+interface ParsedFsPath {
+    root: string;
+    segments: string[];
+    caseInsensitive: boolean;
+}
+
+function normalizedSegments(parts: string[]): string[] {
+    const result: string[] = [];
+    for (const part of parts) {
+        if (!part || part === '.') continue;
+        if (part === '..') result.pop();
+        else result.push(part);
+    }
+    return result;
+}
+
+function parseAbsoluteFsPath(value: string): ParsedFsPath | undefined {
+    const windows = /^([A-Za-z]):[\\/]/.exec(value);
+    if (windows) {
+        return {
+            root: `${windows[1].toLowerCase()}:`,
+            segments: normalizedSegments(value.slice(3).split(/[\\/]+/)),
+            caseInsensitive: true
+        };
+    }
+    if (!value.startsWith('/')) return undefined;
+    return { root: '/', segments: normalizedSegments(value.slice(1).split('/')), caseInsensitive: false };
+}
+
+function relativeFsPath(rootFsPath: string, targetFsPath: string): string | undefined {
+    const root = parseAbsoluteFsPath(rootFsPath);
+    const target = parseAbsoluteFsPath(targetFsPath);
+    if (!root || !target || root.root !== target.root || root.caseInsensitive !== target.caseInsensitive) return undefined;
+    let common = 0;
+    while (common < root.segments.length && common < target.segments.length) {
+        const rootPart = root.segments[common];
+        const targetPart = target.segments[common];
+        if (root.caseInsensitive ? rootPart.toLowerCase() !== targetPart.toLowerCase() : rootPart !== targetPart) break;
+        common++;
+    }
+    const relative = [
+        ...Array.from({ length: root.segments.length - common }, () => '..'),
+        ...target.segments.slice(common)
+    ].join('/');
+    if (!relative || relative.split('/').includes('..') || relative.startsWith('/')
+        || /^[A-Za-z]:[\\/]/.test(relative)) return undefined;
+    return relative;
+}
+
 export interface CompanionStateCollectorDeps {
     events: EventSourceLike;
     shell: { widgets: ReadonlyArray<{ id: string }>; currentWidget?: { id: string } };
@@ -27,6 +77,7 @@ export interface CompanionStateCollectorDeps {
         watch(uri: URI, options: { recursive: boolean; excludes: string[] }): DisposableLike;
     };
     currentLocation(): CollectorLocation | undefined;
+    currentProjectLocation(): CompanionProjectLocation | undefined;
     currentProjectSessionId(): string | undefined;
     onLocationChanged(listener: () => void): DisposableLike;
     pushStateLight(state: CompanionStateLight): Promise<void>;
@@ -87,7 +138,12 @@ export class CompanionStateCollector {
     snapshot(): unknown {
         const light = this.buildLight(false);
         return this.docs
-            ? { ...light, edit: this.docs.edit, captions: this.docs.captions }
+            ? {
+                ...light,
+                edit: this.docs.edit,
+                captions: this.docs.captions,
+                ...(this.docs.location ? { location: { ...this.docs.location } } : {})
+            }
             : light;
     }
 
@@ -130,6 +186,8 @@ export class CompanionStateCollector {
             edit: this.documentState(editBytes, editSha256),
             captions: this.documentState(captionsBytes, captionsSha256)
         };
+        const docsLocation = this.docsLocation(projectSessionId);
+        if (docsLocation) state.location = docsLocation;
         this.docs = state;
         await this.deps.pushStateDocs(state);
         this.queueLight();
@@ -137,10 +195,16 @@ export class CompanionStateCollector {
 
     protected checkLocation(): void {
         const location = this.deps.currentLocation();
+        const projectLocation = this.deps.currentProjectLocation();
         const projectSessionId = this.deps.currentProjectSessionId() ?? '';
+        const projectLocationKey = projectLocation
+            ? `\n${projectLocation.projectSessionId}\n${projectLocation.rootFsPath}`
+                + `\n${projectLocation.editFsPath}\n${projectLocation.captionsFsPath}`
+            : '\n';
         const key = location
-            ? `${projectSessionId}\n${location.root.toString()}\n${location.editUri?.toString() ?? ''}\n${location.captionsUri.toString()}`
-            : `${projectSessionId}\n`;
+            ? `${projectSessionId}\n${location.root.toString()}\n${location.editUri?.toString() ?? ''}`
+                + `\n${location.captionsUri.toString()}${projectLocationKey}`
+            : `${projectSessionId}${projectLocationKey}`;
         if (key === this.locationKey) return;
         this.locationKey = key;
         this.watcher?.dispose();
@@ -149,6 +213,15 @@ export class CompanionStateCollector {
         this.docs = undefined;
         void this.refreshDocuments();
         this.queueLight();
+    }
+
+    protected docsLocation(projectSessionId: string): CompanionStateDocs['location'] {
+        const location = this.deps.currentProjectLocation();
+        if (!location || location.projectSessionId !== projectSessionId) return undefined;
+        const editPath = relativeFsPath(location.rootFsPath, location.editFsPath);
+        const captionsPath = relativeFsPath(location.rootFsPath, location.captionsFsPath);
+        if (!editPath || !captionsPath) return undefined;
+        return { rootFsPath: location.rootFsPath, editPath, captionsPath };
     }
 
     protected readonly onPrimarySelected: EventListener = event => {

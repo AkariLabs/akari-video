@@ -21,11 +21,18 @@ function detailEvent(type, detail) {
   return event;
 }
 
-function fixture() {
+function fixture(options = {}) {
   const events = new EventTarget();
-  const root = new URI('file:///project');
-  const editUri = root.resolve('edit.json');
-  const captionsUri = root.resolve('captions.json');
+  let root = new URI(options.rootUri ?? 'file:///work/proj');
+  let editUri = root.resolve(options.editRelative ?? 'edit.json');
+  let captionsUri = root.resolve(options.captionsRelative ?? 'captions.json');
+  let projectSessionId = options.projectSessionId ?? 'session-1';
+  let projectLocation = options.projectLocation ?? {
+    projectSessionId,
+    rootFsPath: '/work/proj',
+    editFsPath: `/work/proj/${options.editRelative ?? 'edit.json'}`,
+    captionsFsPath: `/work/proj/${options.captionsRelative ?? 'captions.json'}`
+  };
   const content = new Map([
     [editUri.toString(), encoder.encode('{}')],
     [captionsUri.toString(), encoder.encode('[]')]
@@ -55,7 +62,8 @@ function fixture() {
     shell,
     files,
     currentLocation: () => ({ root, editUri, captionsUri }),
-    currentProjectSessionId: () => 'session-1',
+    currentProjectLocation: () => projectLocation,
+    currentProjectSessionId: () => projectSessionId,
     onLocationChanged: listener => {
       locationListeners.push(listener);
       return { dispose() {} };
@@ -71,7 +79,17 @@ function fixture() {
     collector, events, content, fileListeners, light, docs, timers,
     setNow(value) { now = value; },
     setWidgets(value) { widgets = value; },
-    editUri, captionsUri
+    setProject(value) {
+      root = new URI(value.rootUri);
+      editUri = root.resolve(value.editRelative ?? 'edit.json');
+      captionsUri = root.resolve(value.captionsRelative ?? 'captions.json');
+      projectSessionId = value.projectSessionId;
+      projectLocation = value.projectLocation;
+      content.set(editUri.toString(), encoder.encode(value.editText ?? '{}'));
+      content.set(captionsUri.toString(), encoder.encode(value.captionsText ?? '[]'));
+    },
+    get editUri() { return editUri; },
+    get captionsUri() { return captionsUri; }
   };
 }
 
@@ -129,6 +147,86 @@ test('文書ハッシュが変わったときだけ docs を送り大きい本�
   await waitFor(() => f.docs.length === 3);
   assert.equal(f.docs[2].captions.tooLarge, true);
   assert.equal('text' in f.docs[2].captions, false);
+  f.collector.stop();
+});
+
+test('docs と snapshot にプロジェクト内の相対パスを載せる', async () => {
+  const f = fixture();
+  f.collector.start();
+  await waitFor(() => f.docs.length === 1);
+  assert.deepEqual(f.docs[0].location, {
+    rootFsPath: '/work/proj',
+    editPath: 'edit.json',
+    captionsPath: 'captions.json'
+  });
+  assert.deepEqual(f.collector.snapshot().location, f.docs[0].location);
+  f.collector.stop();
+
+  const nested = fixture({ editRelative: 'project/edit.json' });
+  nested.collector.start();
+  await waitFor(() => nested.docs.length === 1);
+  assert.equal(nested.docs[0].location.editPath, 'project/edit.json');
+  nested.collector.stop();
+});
+
+test('プロジェクト外の文書パスでは location を省く', async () => {
+  const f = fixture({
+    projectLocation: {
+      projectSessionId: 'session-1',
+      rootFsPath: '/work/proj',
+      editFsPath: '/work/other/edit.json',
+      captionsFsPath: '/work/proj/captions.json'
+    }
+  });
+  f.collector.start();
+  await waitFor(() => f.docs.length === 1);
+  assert.equal('location' in f.docs[0], false);
+  assert.equal('location' in f.collector.snapshot(), false);
+  f.collector.stop();
+});
+
+test('Windows パスを大文字小文字と区切りの違いを含めて相対化する', async () => {
+  const f = fixture({
+    projectLocation: {
+      projectSessionId: 'session-1',
+      rootFsPath: 'C:\\work\\proj',
+      editFsPath: 'c:/WORK/proj/project/edit.json',
+      captionsFsPath: 'C:\\work\\PROJ\\captions.json'
+    }
+  });
+  f.collector.start();
+  await waitFor(() => f.docs.length === 1);
+  assert.deepEqual(f.docs[0].location, {
+    rootFsPath: 'C:\\work\\proj',
+    editPath: 'project/edit.json',
+    captionsPath: 'captions.json'
+  });
+  f.collector.stop();
+});
+
+test('プロジェクト切り替えで新しい location の docs を送り直す', async () => {
+  const f = fixture();
+  f.collector.start();
+  await waitFor(() => f.docs.length === 1);
+  f.setProject({
+    rootUri: 'file:///work/next',
+    editRelative: 'project/edit.json',
+    projectSessionId: 'session-2',
+    projectLocation: {
+      projectSessionId: 'session-2',
+      rootFsPath: '/work/next',
+      editFsPath: '/work/next/project/edit.json',
+      captionsFsPath: '/work/next/captions.json'
+    }
+  });
+  f.collector.projectChanged();
+  await waitFor(() => f.docs.length === 2);
+  assert.equal(f.docs[1].projectSessionId, 'session-2');
+  assert.deepEqual(f.docs[1].location, {
+    rootFsPath: '/work/next',
+    editPath: 'project/edit.json',
+    captionsPath: 'captions.json'
+  });
   f.collector.stop();
 });
 

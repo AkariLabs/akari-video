@@ -76,6 +76,7 @@ export class AkariCompanionContribution implements FrontendApplicationContributi
             shell: this.shell,
             files: this.files,
             currentLocation: () => this.reviewModel.location,
+            currentProjectLocation: () => this.currentProjectLocation(),
             currentProjectSessionId: () => this.projectSessionId,
             onLocationChanged: listener => this.reviewModel.onChanged(listener),
             pushStateLight: state => this.service.pushStateLight(state),

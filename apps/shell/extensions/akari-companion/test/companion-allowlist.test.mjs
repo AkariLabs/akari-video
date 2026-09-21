@@ -26,11 +26,12 @@ const valid = {
   'akari.timeline.setTool': { tool: 'razor' },
   'akari.timeline.setSnap': { enabled: true },
   'akari.timeline.reveal': undefined,
-  'akari.inspector.open': { attachOnly: true, tabId: 'tab', sectionId: 'section', fieldName: 'field' },
+  'akari.inspector.open': { attachOnly: true, tabId: 'tab', sectionId: 'section', fieldName: 'field', solo: true },
   'akari.daihon.open': { captionId: 'c-1', wordRange: { from: 0, to: 2 }, atSeconds: 1, open: 'qc', speaker: 'A', pulse: true },
   'akari.cuts.open': { candidateId: 'candidate-1' },
   'akari.transcribe.openDialog': { projectRoot: 'file:///project', relativePath: 'media/a.mp4' },
   'akari.catalog.open': { tab: 'library', category: 'video', query: 'q', assetId: 'a-1', pulse: true },
+  'akari.catalog.importAsset': { assetId: 'x' },
   'akari.catalog.listCategories': undefined,
   'akari.menu.focus': { section: 'skills', pulse: true, skill: 'edit-plan' },
   'akari.menu.listSkills': {},
@@ -81,6 +82,20 @@ test('型違い・未知のキー・不完全な union を拒む', () => {
   assert.equal(validateCommandArgs('akari.menu.focus', { skill: 'edit-plan' }).ok, true);
   assert.equal(validateCommandArgs('akari.menu.focus', { section: 'open', skill: 'edit-plan' }).ok, true);
   assert.equal(validateCommandArgs('akari.catalog.listCategories', { extra: true }).ok, false);
+});
+
+test('素材取り込みの引数を厳密に検査する', () => {
+  assert.equal(validateCommandArgs('akari.catalog.importAsset', { assetId: 'x' }).ok, true);
+  assert.equal(validateCommandArgs('akari.catalog.importAsset', { assetId: 'x', path: '/etc' }).ok, false);
+  assert.equal(validateCommandArgs('akari.catalog.importAsset', {}).ok, false);
+  assert.equal(validateCommandArgs('akari.catalog.importAsset', undefined).ok, false);
+  assert.equal(validateCommandArgs('akari.catalog.importAsset', { assetId: 'x'.repeat(513) }).ok, false);
+  assert.equal(validateCommandArgs('akari.catalog.importAsset', { assetId: 1 }).ok, false);
+});
+
+test('インスペクターの単独表示指定を検査する', () => {
+  assert.equal(validateCommandArgs('akari.inspector.open', { solo: true }).ok, true);
+  assert.equal(validateCommandArgs('akari.inspector.open', { solo: 'yes' }).ok, false);
 });
 
 test('editUri は橋が入れる — 必須のコマンドでも係は渡さなくてよい', () => {
