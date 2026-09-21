@@ -1,7 +1,8 @@
-import { createReadStream } from "node:fs";
-import { stat } from "node:fs/promises";
+import { timingSafeEqual } from "node:crypto";
+import { createReadStream, readFileSync } from "node:fs";
+import { lstat, realpath, stat } from "node:fs/promises";
 import { createServer } from "node:http";
-import { extname, relative, resolve, sep } from "node:path";
+import { extname, isAbsolute, join, relative, resolve, sep } from "node:path";
 
 const MIME = new Map([
   [".html", "text/html; charset=utf-8"], [".js", "text/javascript; charset=utf-8"],
@@ -13,8 +14,30 @@ const MIME = new Map([
 // close() を待てる上限。書き出しは既に終わっているので、ここで待ち続けるより打ち切って終了させる方がよい。
 export const STATIC_SERVER_CLOSE_TIMEOUT_MS = 5_000;
 
-export async function startStaticServer({ pageHtml, overlaySheetHtml, projectRoot, captionFontPath = null }) {
-  const server = createServer(createStaticRequestHandler({ pageHtml, overlaySheetHtml, projectRoot, captionFontPath }));
+// Electron は render-cut の直接の子。プロセスごとに分け、並行 CLI の表を混ぜない。
+export function renderMediaReferencesPath(projectRoot, parentPid = process.ppid) {
+  return join(projectRoot, ".akari", "render-tmp", `media-references-${parentPid}.json`);
+}
+
+function readMediaReferences(projectRoot, env) {
+  const token = env.AKARI_RENDER_MEDIA_REFERENCES_TOKEN;
+  if (typeof token !== "string" || !token) return {};
+  try {
+    const table = JSON.parse(readFileSync(renderMediaReferencesPath(projectRoot), "utf8"));
+    if (typeof table?.token !== "string") return {};
+    const expected = Buffer.from(token), actual = Buffer.from(table.token);
+    if (expected.length !== actual.length || !timingSafeEqual(expected, actual)) return {};
+    return table.references && typeof table.references === "object" && !Array.isArray(table.references)
+      ? table.references : {};
+  } catch (error) {
+    // JSON の構文エラーには入力の一部（合言葉）が含まれ得るため外へ出さない。
+    if (error?.code === "ENOENT" || error instanceof SyntaxError) return {};
+    throw error;
+  }
+}
+
+export async function startStaticServer({ pageHtml, overlaySheetHtml, projectRoot, captionFontPath = null, mediaReferences, env = process.env }) {
+  const server = createServer(createStaticRequestHandler({ pageHtml, overlaySheetHtml, projectRoot, captionFontPath, mediaReferences, env }));
   await new Promise((resolvePromise, rejectPromise) => {
     server.once("error", rejectPromise);
     server.listen(0, "127.0.0.1", resolvePromise);
@@ -48,39 +71,63 @@ export function closeStaticServer(server, timeoutMs = STATIC_SERVER_CLOSE_TIMEOU
   });
 }
 
-export function createStaticRequestHandler({ pageHtml, overlaySheetHtml, projectRoot, captionFontPath = null }) {
+export function createStaticRequestHandler({ pageHtml, overlaySheetHtml, projectRoot, captionFontPath = null, mediaReferences, env = process.env }) {
   const root = resolve(projectRoot);
+  const references = mediaReferences ?? readMediaReferences(root, env);
   return async (request, response) => {
     try {
       response.setHeader("Cache-Control", "no-store");
-      const url = new URL(request.url ?? "/", "http://127.0.0.1");
-      if (url.pathname === "/" || url.pathname === "/page.html") {
+      // URL() の dot-segment 正規化より前のパスで検査する。
+      const rawPathname = String(request.url ?? "/").split("?", 1)[0];
+      if (rawPathname === "/" || rawPathname === "/page.html") {
         return sendText(response, pageHtml, "text/html; charset=utf-8");
       }
-      if (url.pathname === "/overlay-sheet.html") {
+      if (rawPathname === "/overlay-sheet.html") {
         return sendText(response, overlaySheetHtml, "text/html; charset=utf-8");
       }
-      if (url.pathname === "/caption-font.ttf" && captionFontPath) {
+      if (rawPathname === "/caption-font.ttf" && captionFontPath) {
         const info = await stat(captionFontPath);
         if (!info.isFile()) return sendStatus(response, 404);
         return sendFile(request, response, captionFontPath, info.size);
       }
-      const rawPathname = String(request.url ?? "/").split("?", 1)[0];
       if (!rawPathname.startsWith("/media/")) return sendStatus(response, 404);
       let decoded;
       try { decoded = decodeURIComponent(rawPathname.slice("/media/".length)); } catch { return sendStatus(response, 400); }
+      if (decoded.split(/[\\/]/u).includes("..")) return sendStatus(response, 403);
       const path = resolve(root, decoded);
-      const within = path === root || (!relative(root, path).startsWith(`..${sep}`) && relative(root, path) !== "..");
-      if (!within) return sendStatus(response, 403);
-      const info = await stat(path);
+      if (!isWithin(root, path)) return sendStatus(response, 403);
+      // lstat で既存の実体（壊れた symlink を含む）を優先し、表への迂回を防ぐ。
+      const local = await lstat(path).catch((error) => {
+        if (error?.code === "ENOENT") return null;
+        throw error;
+      });
+      let actual;
+      if (local !== null) {
+        actual = await realpath(path);
+        if (!isWithin(await realpath(root), actual)) return sendStatus(response, 403);
+      } else {
+        const entry = Object.hasOwn(references, decoded) ? references[decoded] : null;
+        if (!entry) return sendStatus(response, 404);
+        if (typeof entry.absolute !== "string" || !isAbsolute(entry.absolute)
+            || typeof entry.library_root !== "string" || !isAbsolute(entry.library_root)
+            || !isWithin(entry.library_root, entry.absolute)) return sendStatus(response, 403);
+        actual = await realpath(entry.absolute);
+        if (!isWithin(await realpath(entry.library_root), actual)) return sendStatus(response, 403);
+      }
+      const info = await stat(actual);
       if (!info.isFile()) return sendStatus(response, 404);
-      return sendFile(request, response, path, info.size);
+      return sendFile(request, response, actual, info.size);
     } catch (error) {
-      if (error?.code === "ENOENT") return sendStatus(response, 404);
+      if (error?.code === "ENOENT" || error?.code === "ENOTDIR") return sendStatus(response, 404);
       response.statusCode = 500;
       response.end(String(error?.message ?? error));
     }
   };
+}
+
+function isWithin(root, target) {
+  const path = relative(root, target);
+  return path !== ".." && !path.startsWith(`..${sep}`) && !isAbsolute(path);
 }
 
 function sendText(response, text, type) {
