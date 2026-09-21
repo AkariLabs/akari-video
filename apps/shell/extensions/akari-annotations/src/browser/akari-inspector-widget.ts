@@ -120,6 +120,10 @@ import {
     tabsForKind
 } from './inspector/tab-model';
 import {
+    filterInspectorSoloSections,
+    type InspectorSoloState
+} from './inspector/solo-model';
+import {
     findKnobForVar,
     InspectorKnob,
     knobControlKind,
@@ -2355,6 +2359,8 @@ export class AkariInspectorWidget extends BaseWidget {
     protected lutGeneration = 0;
     protected lutRequestedGeneration = -1;
     protected adjustCompare?: AdjustCompareState;
+    protected solo?: InspectorSoloState;
+    protected soloSelectionKey?: string;
 
     protected readonly body = document.createElement('div');
     protected readonly fieldNotice = document.createElement('div');
@@ -2464,6 +2470,22 @@ export class AkariInspectorWidget extends BaseWidget {
     }
     .akari-inspector-widget .akari-inspector-tab:disabled {
         color: var(--theia-disabledForeground);
+    }
+    .akari-inspector-widget .akari-inspector-solo-banner {
+        display: flex;
+        align-items: center;
+        min-width: 0;
+        padding: 5px 6px;
+        border: 1px solid var(--akari-focus-pulse, var(--akari-accent));
+        border-radius: 3px;
+        color: var(--akari-focus-pulse, var(--akari-accent));
+        font-size: 12px;
+        white-space: nowrap;
+    }
+    .akari-inspector-widget .akari-inspector-solo-reset {
+        padding: 0 2px;
+        color: inherit;
+        text-decoration: underline;
     }
     .akari-inspector-widget .akari-inspector-row {
         display: grid;
@@ -2896,7 +2918,14 @@ export class AkariInspectorWidget extends BaseWidget {
 `;
         this.node.appendChild(style);
 
+        this.node.addEventListener('keydown', event => {
+            if (event.key !== 'Escape' || !this.clearSolo()) return;
+            event.preventDefault();
+            event.stopPropagation();
+            this.render();
+        });
         this.toDispose.push(this.model.onChanged(() => {
+            this.clearSoloForSelectionChange();
             this.lutGeneration++;
             this.projectLutRefs = [];
             this.render();
@@ -2911,10 +2940,21 @@ export class AkariInspectorWidget extends BaseWidget {
         this.render();
     }
 
-    focusField(options: { tabId?: string; sectionId?: string; fieldName?: string }): boolean {
-        if (!options.tabId && !options.sectionId && !options.fieldName) return false;
+    focusField(options: { tabId?: string; sectionId?: string; fieldName?: string; solo?: boolean }): boolean {
+        const clearedSolo = this.solo !== undefined;
+        if (clearedSolo) {
+            this.solo = undefined;
+            this.soloSelectionKey = undefined;
+        }
+        if (!options.tabId && !options.sectionId && !options.fieldName) {
+            if (clearedSolo) this.render();
+            return false;
+        }
         const snapshot = this.model.snapshot;
-        if (!snapshot || snapshot.kind === 'world') return false;
+        if (!snapshot || snapshot.kind === 'world') {
+            if (clearedSolo) this.render();
+            return false;
+        }
         const kind = snapshot.kind === 'multi' ? 'caption' : snapshot.kind;
         if (options.tabId) this.tabState.setActiveTab(kind, options.tabId);
         if (options.sectionId) this.sectionState.setCollapsed(kind, options.sectionId, false);
@@ -2933,10 +2973,66 @@ export class AkariInspectorWidget extends BaseWidget {
             fieldElement = this.body.querySelector(`[data-akari-field="${options.fieldName}"]`);
             ok = ok && !!fieldElement;
         }
+        if (options.solo && sectionElement && fieldElement) {
+            ok = ok && sectionElement.contains(fieldElement);
+        }
         if (!ok) return false;
+        if (options.solo && (options.sectionId || options.fieldName)) {
+            const tabId = options.tabId ?? this.activeTabId();
+            if (tabId) {
+                this.solo = {
+                    kind,
+                    tabId,
+                    ...(options.sectionId ? { sectionId: options.sectionId } : {}),
+                    ...(options.fieldName ? { fieldName: options.fieldName } : {})
+                };
+                this.soloSelectionKey = this.currentSelectionKey();
+                this.render();
+                sectionElement = options.sectionId
+                    ? this.body.querySelector(`[data-akari-ui="section:inspector-${options.sectionId}"]`)
+                    : null;
+                fieldElement = options.fieldName
+                    ? this.body.querySelector(`[data-akari-field="${options.fieldName}"]`)
+                    : null;
+            }
+        }
         const target = fieldElement ?? sectionElement;
         if (target) this.pulse(target as HTMLElement);
         return true;
+    }
+
+    protected activeTabId(): string | undefined {
+        const active = this.body.querySelector<HTMLElement>('.akari-inspector-tab.is-active');
+        const marker = active?.getAttribute('data-akari-ui');
+        const prefix = 'tab:inspector-';
+        return marker?.startsWith(prefix) ? marker.slice(prefix.length) : undefined;
+    }
+
+    protected clearSolo(): boolean {
+        if (!this.solo) return false;
+        this.solo = undefined;
+        this.soloSelectionKey = undefined;
+        return true;
+    }
+
+    protected clearSoloForSelectionChange(): void {
+        if (this.solo && this.soloSelectionKey !== this.currentSelectionKey()) this.clearSolo();
+    }
+
+    protected currentSelectionKey(): string | undefined {
+        const snapshot = this.model.snapshot;
+        if (!snapshot) return undefined;
+        const itemKey = (item: InspectorSnapshot): string => item.kind === 'cut'
+            ? `cut:${item.itemId ?? item.index}` : `${item.kind}:${item.id}`;
+        const selectionKey = snapshot.kind === 'multi'
+            ? `multi:${snapshot.items.map(itemKey).join('|')}`
+            : snapshot.kind === 'world'
+                ? snapshot.stop ? `world-stop:${snapshot.stop.id}` : snapshot.edge ? `world-edge:${snapshot.edge.id}` : 'world'
+                : itemKey(snapshot);
+        const keyframe = this.model.keyframeSelection;
+        return keyframe
+            ? `${selectionKey}:keyframe:${keyframe.itemId}:${keyframe.property}:${keyframe.times.join(',')}`
+            : selectionKey;
     }
 
     pulseField(fieldName: string): boolean {
@@ -3113,6 +3209,7 @@ export class AkariInspectorWidget extends BaseWidget {
             const button = document.createElement('button');
             button.type = 'button';
             button.className = 'akari-inspector-adjust-compare';
+            button.hidden = this.solo !== undefined;
             button.setAttribute('data-akari-ui', 'toggle:inspector-adjust-compare');
             button.setAttribute('aria-pressed', String(this.adjustCompare?.enabled === true));
             button.textContent = 'A/B 比較';
@@ -3134,25 +3231,62 @@ export class AkariInspectorWidget extends BaseWidget {
             })
                 .filter(section => assignSectionToTab(sectionKind, section.id) === activeTab)
                 .forEach(section => this.appendSection(section, rowSnapshot, sectionKind));
-            ADJUST_PREVIEW_SECTIONS.forEach(section => this.appendAdjustPreviewSection(section, sectionKind));
+            if (!this.solo) {
+                ADJUST_PREVIEW_SECTIONS.forEach(section => this.appendAdjustPreviewSection(section, sectionKind));
+            }
+            this.appendSoloBanner();
             return;
         }
         if (activeTab === 'audio' && sectionKind !== 'audio') {
-            AUDIO_PREVIEW_SECTIONS.forEach(section =>
-                this.appendAdjustPreviewSection(section, sectionKind, 'audio')
-            );
+            if (!this.solo) {
+                AUDIO_PREVIEW_SECTIONS.forEach(section =>
+                    this.appendAdjustPreviewSection(section, sectionKind, 'audio')
+                );
+            }
             this.appendSection(AUDIO_MASTER_SECTION(this.model.audioMaster, requestWrite), rowSnapshot, sectionKind);
+            this.appendSoloBanner();
             return;
         }
         sections
             .filter(section => assignSectionToTab(sectionKind, section.id) === activeTab)
             .forEach(section => this.appendSection(section, rowSnapshot, sectionKind));
         if (activeTab === 'audio' && sectionKind === 'audio') {
-            AUDIO_ITEM_PREVIEW_SECTIONS.forEach(section =>
-                this.appendAdjustPreviewSection(section, sectionKind, 'audio-item')
-            );
+            if (!this.solo) {
+                AUDIO_ITEM_PREVIEW_SECTIONS.forEach(section =>
+                    this.appendAdjustPreviewSection(section, sectionKind, 'audio-item')
+                );
+            }
             this.appendSection(AUDIO_MASTER_SECTION(this.model.audioMaster, requestWrite), rowSnapshot, sectionKind);
         }
+        this.appendSoloBanner();
+    }
+
+    protected appendSoloBanner(): void {
+        if (!this.solo) return;
+        const field = this.solo.fieldName
+            ? this.body.querySelector(`[data-akari-field="${this.solo.fieldName}"]`)
+            : null;
+        const section = this.solo.sectionId
+            ? this.body.querySelector(`[data-akari-ui="section:inspector-${this.solo.sectionId}"]`)
+            : null;
+        const fieldLabel = field?.querySelector('.akari-inspector-row-label')?.textContent?.trim();
+        const sectionLabel = section?.querySelector('.akari-inspector-section-toggle')?.textContent
+            ?.replace(/^[▸▾]\s*/u, '').trim();
+        const label = fieldLabel || sectionLabel || this.solo.fieldName || this.solo.sectionId || 'この項目';
+        const banner = document.createElement('div');
+        banner.className = 'akari-inspector-solo-banner';
+        banner.setAttribute('data-akari-ui', 'notice:inspector-solo');
+        banner.appendChild(document.createTextNode(`${label} だけを表示中 — `));
+        const reset = document.createElement('button');
+        reset.type = 'button';
+        reset.className = 'akari-inspector-solo-reset';
+        reset.textContent = 'すべて表示';
+        reset.addEventListener('click', () => {
+            this.clearSolo();
+            this.render();
+        });
+        banner.appendChild(reset);
+        this.body.insertBefore(banner, this.body.firstChild);
     }
 
     protected renderWorldSelection(snapshot: TimelineWorldSelection): void {
@@ -3335,6 +3469,11 @@ export class AkariInspectorWidget extends BaseWidget {
         snapshot: InspectorSnapshot,
         kind: 'cut' | 'layer' | 'caption' | 'audio' | 'overlay' | 'item'
     ): void {
+        if (this.solo) {
+            const [filteredSection] = filterInspectorSoloSections(kind, [section], this.solo);
+            if (!filteredSection) return;
+            section = filteredSection;
+        }
         const container = document.createElement('section');
         container.className = 'akari-inspector-section';
         container.setAttribute('data-akari-ui', `section:inspector-${section.id}`);
@@ -3394,42 +3533,44 @@ export class AkariInspectorWidget extends BaseWidget {
         if (section.optionalFields) {
             const visible = section.optionalFields.filter(field => this.isOptionalFieldVisible(kind, field, snapshot));
             fields.push(...visible);
-            const add = document.createElement('button');
-            add.type = 'button';
-            add.className = 'akari-inspector-section-add';
-            add.textContent = '+';
-            add.title = '変形の行を追加';
-            add.setAttribute('data-akari-ui', 'menu:inspector-transform-add');
-            add.addEventListener('click', event => {
-                const hidden = section.optionalFields!.filter(field => !this.isOptionalFieldVisible(kind, field, snapshot));
-                if (hidden.length === 0) return;
-                const menu = document.createElement('div');
-                menu.className = 'akari-inspector-popover-menu';
-                Object.assign(menu.style, {
-                    position: 'fixed', left: `${event.clientX}px`, top: `${event.clientY}px`, zIndex: '10000',
-                    display: 'grid', padding: '4px', background: 'var(--theia-menu-background)',
-                    border: '1px solid var(--theia-menu-border, #454545)'
-                });
-                hidden.forEach(field => {
-                    const choice = document.createElement('button');
-                    choice.type = 'button';
-                    choice.textContent = field.label;
-                    choice.addEventListener('click', () => {
-                        menu.remove();
-                        this.setOptionalFieldVisible(kind, field.name, true);
-                        this.render();
+            if (!this.solo) {
+                const add = document.createElement('button');
+                add.type = 'button';
+                add.className = 'akari-inspector-section-add';
+                add.textContent = '+';
+                add.title = '変形の行を追加';
+                add.setAttribute('data-akari-ui', 'menu:inspector-transform-add');
+                add.addEventListener('click', event => {
+                    const hidden = section.optionalFields!.filter(field => !this.isOptionalFieldVisible(kind, field, snapshot));
+                    if (hidden.length === 0) return;
+                    const menu = document.createElement('div');
+                    menu.className = 'akari-inspector-popover-menu';
+                    Object.assign(menu.style, {
+                        position: 'fixed', left: `${event.clientX}px`, top: `${event.clientY}px`, zIndex: '10000',
+                        display: 'grid', padding: '4px', background: 'var(--theia-menu-background)',
+                        border: '1px solid var(--theia-menu-border, #454545)'
                     });
-                    menu.appendChild(choice);
+                    hidden.forEach(field => {
+                        const choice = document.createElement('button');
+                        choice.type = 'button';
+                        choice.textContent = field.label;
+                        choice.addEventListener('click', () => {
+                            menu.remove();
+                            this.setOptionalFieldVisible(kind, field.name, true);
+                            this.render();
+                        });
+                        menu.appendChild(choice);
+                    });
+                    const dismiss = (pointerEvent: PointerEvent): void => {
+                        if (pointerEvent.target instanceof Node && menu.contains(pointerEvent.target)) return;
+                        menu.remove();
+                        window.removeEventListener('pointerdown', dismiss, true);
+                    };
+                    window.setTimeout(() => window.addEventListener('pointerdown', dismiss, true), 0);
+                    document.body.appendChild(menu);
                 });
-                const dismiss = (pointerEvent: PointerEvent): void => {
-                    if (pointerEvent.target instanceof Node && menu.contains(pointerEvent.target)) return;
-                    menu.remove();
-                    window.removeEventListener('pointerdown', dismiss, true);
-                };
-                window.setTimeout(() => window.addEventListener('pointerdown', dismiss, true), 0);
-                document.body.appendChild(menu);
-            });
-            header.appendChild(add);
+                header.appendChild(add);
+            }
         }
         fields.forEach(field => this.appendRow(body, field, snapshot, kind));
         if (section.body) {

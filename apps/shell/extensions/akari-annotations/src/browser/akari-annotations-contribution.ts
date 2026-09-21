@@ -122,6 +122,7 @@ interface AkariInspectorOpenOptions {
     tabId?: string;
     sectionId?: string;
     fieldName?: string;
+    solo?: boolean;
 }
 
 @injectable()
@@ -847,9 +848,12 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
         if (!options?.attachOnly) {
             await this.shell.revealWidget(widget.id);
         }
-        if (options?.tabId || options?.sectionId || options?.fieldName) {
-            widget.focusField({ tabId: options.tabId, sectionId: options.sectionId, fieldName: options.fieldName });
-        }
+        widget.focusField({
+            tabId: options?.tabId,
+            sectionId: options?.sectionId,
+            fieldName: options?.fieldName,
+            solo: options?.solo
+        });
         return widget;
     }
 
