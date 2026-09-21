@@ -45,6 +45,13 @@
     function descendantLeafIds(tree, id) {
       return tree.filter((node) => node.kind === "leaf" && lineage(tree, node.id).includes(id)).map((node) => node.id);
     }
+    function shouldHandleScopeEscape(selectedId2, scopeId2, floorScopeId2) {
+      return selectedId2 !== null || scopeId2 !== floorScopeId2;
+    }
+    function lazyBagForScope(tree, scopeId2) {
+      const node = tree.find((candidate) => candidate.id === scopeId2);
+      return node?.kind === "bag" && node.lazy === true ? node.id : null;
+    }
     const stage = document.getElementById("overlay-stage");
     const dragStartDistance = 3;
     const SNAP_DISTANCE = 8;
@@ -690,7 +697,12 @@
       return Array.from(stage?.children ?? []).find((element) => element.dataset?.overlayId === id) ?? null;
     }
     function visibleMembers(id = selectedId) {
-      return descendantLeafIds(selectionTree(), id).map(containerById).filter((container) => {
+      const ids = new Set(descendantLeafIds(selectionTree(), id).map((leafId) => {
+        const parent = treeNode(treeNode(leafId)?.parentId);
+        return parent?.lazy && containerById(parent.id) ? parent.id : leafId;
+      }));
+      if (containerById(id)) ids.add(id);
+      return [...ids].map(containerById).filter((container) => {
         if (!isSelectable(container)) return false;
         const style = getComputedStyle(container);
         return style.display !== "none" && Number(style.opacity) !== 0;
@@ -745,8 +757,25 @@
       });
     }
     function publishScopedSelection(notify = true) {
+      syncLazyBag();
       renderScopeBreadcrumb();
       window.dispatchEvent(new CustomEvent("akari-preview-scope-selection", { detail: { notify } }));
+    }
+    let requestedBagId = null;
+    function syncLazyBag() {
+      const bagId = lazyBagForScope(selectionTree(), scopeId);
+      if (bagId === requestedBagId || !window.akari.requestBagExpansion) return;
+      requestedBagId = bagId;
+      window.akari.requestBagExpansion(bagId);
+    }
+    function scopedHitId(container, event) {
+      const id = container?.dataset.overlayId;
+      if (!treeNode(id)?.lazy) return id;
+      const candidates = [event.target, ...document.elementsFromPoint(event.clientX, event.clientY)];
+      const part = candidates.map((element) => element instanceof Element ? element.closest("[data-akari-part]") : null).find((element) => element && container.contains(element));
+      const partId = part?.getAttribute("data-akari-part") ?? null;
+      const childId = partId === null ? null : id + "#" + partId;
+      return treeNode(childId) ? childId : id;
     }
     function applyScopedSelection(next, { notify = true } = {}) {
       const tree = selectionTree();
@@ -761,12 +790,17 @@
         refreshSelectionFrame();
         startSelectionTracking();
       } else if (next.selectId === null) clearSelection();
-      else if (!selectOverlay(containerById(next.selectId))) return false;
+      else if (!selectOverlay(containerById(next.selectId))) {
+        if (!node?.lazy || lazyBagForScope(tree, scopeId) !== node.parentId) return false;
+        clearSelection();
+        selectedId = node.id;
+        startSelectionTracking();
+      }
       publishScopedSelection(notify);
       return true;
     }
     function selectScopedHit(container, event) {
-      const id = container?.dataset.overlayId;
+      const id = scopedHitId(container, event);
       if (!id) return false;
       return applyScopedSelection(resolveScopedSelection(
         selectionTree(),
@@ -1357,8 +1391,11 @@
           const r = stage?.getBoundingClientRect();
           if (r && event.clientX >= r.left && event.clientX <= r.right && event.clientY >= r.top && event.clientY <= r.bottom) {
             if (activeEdit) void commitEdit();
-            clearSelection();
-            publishScopedSelection();
+            const bag = treeNode(scopeId);
+            applyScopedSelection({
+              selectId: null,
+              scopeId: bag?.kind === "bag" && bag.lazy && scopeId !== floorScopeId ? bag.parentId : scopeId
+            });
           }
           return;
         }
@@ -1369,6 +1406,7 @@
           beginGroupDrag(event, hit);
           return;
         }
+        if (!selectedOverlay || selectedOverlay !== hit) return;
       }
       const handleEl = findHandleElement(event.target);
       if (handleEl) {
@@ -1747,7 +1785,7 @@
       if (selectionTree().length && groupSelection) {
         const hit = overlayForEvent(event);
         if (!isSelectable(hit)) return;
-        applyScopedSelection(enterScope(selectionTree(), selectedId, hit.dataset.overlayId));
+        applyScopedSelection(enterScope(selectionTree(), selectedId, scopedHitId(hit, event)));
         event.preventDefault();
         event.stopPropagation();
         return;
@@ -1799,12 +1837,11 @@
             handled();
             return;
           }
-          if (selectedId !== null || scopeId !== floorScopeId) {
+          if (shouldHandleScopeEscape(selectedId, scopeId, floorScopeId)) {
             applyScopedSelection(exitScope(selectionTree(), selectedId, scopeId, floorScopeId), { notify: false });
             handled();
             return;
           }
-          if (floorScopeId !== null) handled();
           return;
         }
         if (event.key === "Enter") {
