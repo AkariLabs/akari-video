@@ -2617,6 +2617,9 @@ export class AkariInspectorWidget extends BaseWidget {
         display: grid;
         gap: 5px;
     }
+    .akari-inspector-widget .akari-inspector-section-body[hidden] {
+        display: none;
+    }
     .akari-inspector-widget .akari-inspector-section-caption {
         margin: 0;
         color: var(--theia-descriptionForeground);

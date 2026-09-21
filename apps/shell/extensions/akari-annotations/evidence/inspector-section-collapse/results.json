@@ -1,0 +1,464 @@
+{
+  "status": "pass",
+  "measurements": [
+    {
+      "stage": "info-tab-initial",
+      "sections": [
+        {
+          "heading": "▸ 情報",
+          "label": "情報",
+          "hidden": true,
+          "display": "none",
+          "height": 0,
+          "expanded": "false"
+        }
+      ]
+    },
+    {
+      "stage": "initial-clip-a",
+      "sections": [
+        {
+          "heading": "▾ 時間",
+          "label": "時間",
+          "hidden": false,
+          "display": "grid",
+          "height": 109,
+          "expanded": "true"
+        },
+        {
+          "heading": "▾ 変形",
+          "label": "変形",
+          "hidden": false,
+          "display": "grid",
+          "height": 103,
+          "expanded": "true"
+        },
+        {
+          "heading": "▾ フレーミング",
+          "label": "フレーミング",
+          "hidden": false,
+          "display": "grid",
+          "height": 132,
+          "expanded": "true"
+        },
+        {
+          "heading": "▾ フリーズ",
+          "label": "フリーズ",
+          "hidden": false,
+          "display": "grid",
+          "height": 49,
+          "expanded": "true"
+        },
+        {
+          "heading": "▾ 外観",
+          "label": "外観",
+          "hidden": false,
+          "display": "grid",
+          "height": 22,
+          "expanded": "true"
+        },
+        {
+          "heading": "▾ 再生",
+          "label": "再生",
+          "hidden": false,
+          "display": "grid",
+          "height": 22,
+          "expanded": "true"
+        },
+        {
+          "heading": "▾ 埋め込み音声",
+          "label": "埋め込み音声",
+          "hidden": false,
+          "display": "grid",
+          "height": 49,
+          "expanded": "true"
+        }
+      ]
+    },
+    {
+      "stage": "collapsed-clip-a",
+      "sections": [
+        {
+          "heading": "▾ 時間",
+          "label": "時間",
+          "hidden": false,
+          "display": "grid",
+          "height": 109,
+          "expanded": "true"
+        },
+        {
+          "heading": "▸ 変形",
+          "label": "変形",
+          "hidden": true,
+          "display": "none",
+          "height": 0,
+          "expanded": "false"
+        },
+        {
+          "heading": "▾ フレーミング",
+          "label": "フレーミング",
+          "hidden": false,
+          "display": "grid",
+          "height": 132,
+          "expanded": "true"
+        },
+        {
+          "heading": "▾ フリーズ",
+          "label": "フリーズ",
+          "hidden": false,
+          "display": "grid",
+          "height": 49,
+          "expanded": "true"
+        },
+        {
+          "heading": "▾ 外観",
+          "label": "外観",
+          "hidden": false,
+          "display": "grid",
+          "height": 22,
+          "expanded": "true"
+        },
+        {
+          "heading": "▾ 再生",
+          "label": "再生",
+          "hidden": false,
+          "display": "grid",
+          "height": 22,
+          "expanded": "true"
+        },
+        {
+          "heading": "▾ 埋め込み音声",
+          "label": "埋め込み音声",
+          "hidden": false,
+          "display": "grid",
+          "height": 49,
+          "expanded": "true"
+        }
+      ]
+    },
+    {
+      "stage": "reopened-clip-a",
+      "sections": [
+        {
+          "heading": "▾ 時間",
+          "label": "時間",
+          "hidden": false,
+          "display": "grid",
+          "height": 109,
+          "expanded": "true"
+        },
+        {
+          "heading": "▾ 変形",
+          "label": "変形",
+          "hidden": false,
+          "display": "grid",
+          "height": 103,
+          "expanded": "true"
+        },
+        {
+          "heading": "▾ フレーミング",
+          "label": "フレーミング",
+          "hidden": false,
+          "display": "grid",
+          "height": 132,
+          "expanded": "true"
+        },
+        {
+          "heading": "▾ フリーズ",
+          "label": "フリーズ",
+          "hidden": false,
+          "display": "grid",
+          "height": 49,
+          "expanded": "true"
+        },
+        {
+          "heading": "▾ 外観",
+          "label": "外観",
+          "hidden": false,
+          "display": "grid",
+          "height": 22,
+          "expanded": "true"
+        },
+        {
+          "heading": "▾ 再生",
+          "label": "再生",
+          "hidden": false,
+          "display": "grid",
+          "height": 22,
+          "expanded": "true"
+        },
+        {
+          "heading": "▾ 埋め込み音声",
+          "label": "埋め込み音声",
+          "hidden": false,
+          "display": "grid",
+          "height": 49,
+          "expanded": "true"
+        }
+      ]
+    },
+    {
+      "stage": "closed-before-reselection",
+      "sections": [
+        {
+          "heading": "▾ 時間",
+          "label": "時間",
+          "hidden": false,
+          "display": "grid",
+          "height": 109,
+          "expanded": "true"
+        },
+        {
+          "heading": "▸ 変形",
+          "label": "変形",
+          "hidden": true,
+          "display": "none",
+          "height": 0,
+          "expanded": "false"
+        },
+        {
+          "heading": "▾ フレーミング",
+          "label": "フレーミング",
+          "hidden": false,
+          "display": "grid",
+          "height": 132,
+          "expanded": "true"
+        },
+        {
+          "heading": "▾ フリーズ",
+          "label": "フリーズ",
+          "hidden": false,
+          "display": "grid",
+          "height": 49,
+          "expanded": "true"
+        },
+        {
+          "heading": "▾ 外観",
+          "label": "外観",
+          "hidden": false,
+          "display": "grid",
+          "height": 22,
+          "expanded": "true"
+        },
+        {
+          "heading": "▾ 再生",
+          "label": "再生",
+          "hidden": false,
+          "display": "grid",
+          "height": 22,
+          "expanded": "true"
+        },
+        {
+          "heading": "▾ 埋め込み音声",
+          "label": "埋め込み音声",
+          "hidden": false,
+          "display": "grid",
+          "height": 49,
+          "expanded": "true"
+        }
+      ]
+    },
+    {
+      "stage": "selected-clip-b",
+      "sections": [
+        {
+          "heading": "▾ 時間",
+          "label": "時間",
+          "hidden": false,
+          "display": "grid",
+          "height": 109,
+          "expanded": "true"
+        },
+        {
+          "heading": "▸ 変形",
+          "label": "変形",
+          "hidden": true,
+          "display": "none",
+          "height": 0,
+          "expanded": "false"
+        },
+        {
+          "heading": "▾ フレーミング",
+          "label": "フレーミング",
+          "hidden": false,
+          "display": "grid",
+          "height": 132,
+          "expanded": "true"
+        },
+        {
+          "heading": "▾ フリーズ",
+          "label": "フリーズ",
+          "hidden": false,
+          "display": "grid",
+          "height": 49,
+          "expanded": "true"
+        },
+        {
+          "heading": "▾ 外観",
+          "label": "外観",
+          "hidden": false,
+          "display": "grid",
+          "height": 22,
+          "expanded": "true"
+        },
+        {
+          "heading": "▾ 再生",
+          "label": "再生",
+          "hidden": false,
+          "display": "grid",
+          "height": 22,
+          "expanded": "true"
+        },
+        {
+          "heading": "▾ 埋め込み音声",
+          "label": "埋め込み音声",
+          "hidden": false,
+          "display": "grid",
+          "height": 49,
+          "expanded": "true"
+        }
+      ]
+    },
+    {
+      "stage": "reselected-clip-a",
+      "sections": [
+        {
+          "heading": "▾ 時間",
+          "label": "時間",
+          "hidden": false,
+          "display": "grid",
+          "height": 109,
+          "expanded": "true"
+        },
+        {
+          "heading": "▸ 変形",
+          "label": "変形",
+          "hidden": true,
+          "display": "none",
+          "height": 0,
+          "expanded": "false"
+        },
+        {
+          "heading": "▾ フレーミング",
+          "label": "フレーミング",
+          "hidden": false,
+          "display": "grid",
+          "height": 132,
+          "expanded": "true"
+        },
+        {
+          "heading": "▾ フリーズ",
+          "label": "フリーズ",
+          "hidden": false,
+          "display": "grid",
+          "height": 49,
+          "expanded": "true"
+        },
+        {
+          "heading": "▾ 外観",
+          "label": "外観",
+          "hidden": false,
+          "display": "grid",
+          "height": 22,
+          "expanded": "true"
+        },
+        {
+          "heading": "▾ 再生",
+          "label": "再生",
+          "hidden": false,
+          "display": "grid",
+          "height": 22,
+          "expanded": "true"
+        },
+        {
+          "heading": "▾ 埋め込み音声",
+          "label": "埋め込み音声",
+          "hidden": false,
+          "display": "grid",
+          "height": 49,
+          "expanded": "true"
+        }
+      ]
+    },
+    {
+      "stage": "restored-open-clip-a",
+      "sections": [
+        {
+          "heading": "▾ 時間",
+          "label": "時間",
+          "hidden": false,
+          "display": "grid",
+          "height": 109,
+          "expanded": "true"
+        },
+        {
+          "heading": "▾ 変形",
+          "label": "変形",
+          "hidden": false,
+          "display": "grid",
+          "height": 103,
+          "expanded": "true"
+        },
+        {
+          "heading": "▾ フレーミング",
+          "label": "フレーミング",
+          "hidden": false,
+          "display": "grid",
+          "height": 132,
+          "expanded": "true"
+        },
+        {
+          "heading": "▾ フリーズ",
+          "label": "フリーズ",
+          "hidden": false,
+          "display": "grid",
+          "height": 49,
+          "expanded": "true"
+        },
+        {
+          "heading": "▾ 外観",
+          "label": "外観",
+          "hidden": false,
+          "display": "grid",
+          "height": 22,
+          "expanded": "true"
+        },
+        {
+          "heading": "▾ 再生",
+          "label": "再生",
+          "hidden": false,
+          "display": "grid",
+          "height": 22,
+          "expanded": "true"
+        },
+        {
+          "heading": "▾ 埋め込み音声",
+          "label": "埋め込み音声",
+          "hidden": false,
+          "display": "grid",
+          "height": 49,
+          "expanded": "true"
+        }
+      ]
+    }
+  ],
+  "screenshots": [
+    "before.png",
+    "after-collapsed.png"
+  ],
+  "cleanup": {
+    "pid": 66461,
+    "alive": false,
+    "isolatedDirectory": "<TMP>",
+    "removed": true
+  },
+  "fixture": {
+    "project": "<TMP>/project",
+    "clips": [
+      "clip-a",
+      "clip-b"
+    ],
+    "ffmpeg": "<WORKTREE>/packages/media-bin/vendor/darwin-arm64/ffmpeg"
+  },
+  "preloadOverlay": "removed"
+}
