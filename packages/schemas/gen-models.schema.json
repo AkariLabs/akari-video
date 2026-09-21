@@ -20,6 +20,7 @@
       "properties": {
         "max": { "type": ["integer", "null"], "minimum": 0 },
         "tag": { "type": "string", "minLength": 1 },
+        "tag_joiner": { "enum": ["", " "], "default": "", "description": "Separator between tag prefix and 1-based reference number; omitted means empty string." },
         "seconds_each": { "type": ["number", "null"], "exclusiveMinimum": 0 },
         "seconds_total": { "type": ["number", "null"], "exclusiveMinimum": 0 }
       }

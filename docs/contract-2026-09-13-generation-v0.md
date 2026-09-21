@@ -129,6 +129,7 @@ mp4 がまだ無い「動画予定」は、**仮枠の素材の meta**（静止�
 }
 ```
 
+- 参照の順序記法は行ごとの `tag`（接頭辞）+ `tag_joiner`（省略時は空文字）+ 1 始まりの番号。Seedance は `@Image` + 空文字 → `@Image1`、H3 は `Image` + 空白 → `Image 1`。動画・音声も同様。`tag` の末尾に空白は入れない
 - `inputs.first_frame` / `last_frame` は `"required"` / `"optional"` / `"none"` の 3 値
 - `duration.format` は `{type: "integer"}` / `{type: "string"}` / `{type: "string", suffix: "s"}` / `{type: "string", auto: true}`
 - `audio_out` は `true`（切替可）/ `"always"`（欄なしで付く）/ `false`
@@ -148,7 +149,7 @@ mp4 がまだ無い「動画予定」は、**仮枠の素材の meta**（静止�
 
 Kling v3 standard i2v / Kling v3 pro i2v / Veo 3.1 first-last / Veo 3.1 reference / Seedance 2.0 i2v / Seedance 2.0 reference / Seedance 2.5 i2v / H3 i2v / H3 reference / Wan 2.7 i2v / Grok Imagine i2v / Vidu Q3 i2v。画像: codex-image / nano-banana-pro edit。Sora は OpenAI 直アダプタが出来るまで入れない。
 
-動画の登録済みアダプタ（2026-09-22）は `fal:h3-i2v`・`fal:kling-v3-standard-i2v`・`fal:kling-v3-pro-i2v`・`fal:seedance-2.0-i2v`・`fal:seedance-2.0-ref`・`fal:veo-3.1-flf` の 6 行。カタログ収載だけでは送信できない。`fal:h3-ref` は OpenAPI の参照記法（`Image 1` / `Video 1` / `Audio 1`）がカタログの tag（`@Image` / `@Video` / `@Audio`）と食い違うため **BLOCKED・未対応**。アダプタ未登録のまま送信を拒否する。
+動画の登録済みアダプタ（2026-09-22）は `fal:h3-i2v`・`fal:h3-ref`・`fal:kling-v3-standard-i2v`・`fal:kling-v3-pro-i2v`・`fal:seedance-2.0-i2v`・`fal:seedance-2.0-ref`・`fal:veo-3.1-flf` の 7 行。カタログ収載だけでは送信できない。H3 reference は OpenAPI に従い `Image 1` / `Video 1` / `Audio 1` で参照を名指しする。`first_frame` / `last_frame` は拒否する。
 
 ### 4-4. 鮮度とドリフト
 
@@ -175,8 +176,9 @@ Kling v3 standard i2v / Kling v3 pro i2v / Veo 3.1 first-last / Veo 3.1 referenc
 
 ### 5-3. 参照の渡し方
 
-- Seedance 2.0 reference の画像・動画・音声は配列順のまま data URI で送る。**20 MB 超は送らず error**（fal storage へのアップロードは後日）。OpenAPI の上限は画像 9・動画 3・音声 3、全種合計 12 ファイル。音声参照には画像か動画が 1 本以上必要
-- 順序タグはカタログ行の `tag` + 配列順の番号（1 始まり）。prompt の `@画像N` / `@動画N` / `@音声N` を `@ImageN` / `@VideoN` / `@AudioN` へ置換する。該当種別の本数を超える番号や 0 以下は送らず error。provider 記法で直接書いた番号も検査する。名指しが無ければ prompt に何も足さない。名前 + 役割（PixVerse）は要素の `name` / `role` から
+- Seedance 2.0 reference と H3 reference の画像・動画・音声は配列順のまま data URI で送る。**20 MB 超は送らず error**（fal storage へのアップロードは後日）。OpenAPI の上限は画像 9・動画 3・音声 3、全種合計 12 ファイル。Seedance の音声参照には画像か動画が 1 本以上必要。H3 は 2026-09-22 取得の OpenAPI に従い音声単独も可
+- 引数名は Seedance が `image_urls` / `video_urls` / `audio_urls`、H3 が `reference_image_urls` / `reference_video_urls` / `reference_audio_urls`。OpenAPI の正本は `packages/schemas/fixtures/gen-models/openapi/`。generate のテストも相対 URL でこの正本を直接読む。`packages/generate/test/fixtures/openapi/` は取得記録の README のみ（取得日・出典・変換方法を記録）
+- 順序タグはカタログ行の `tag` + `tag_joiner`（省略時は空文字）+ 配列順の番号（1 始まり）。prompt の `@画像N` / `@動画N` / `@音声N` を、Seedance では `@ImageN` / `@VideoN` / `@AudioN`、H3 では `Image N` / `Video N` / `Audio N` へ置換する。該当種別の本数を超える番号や 0 以下・非整数は送らず error。provider 記法の直書きは `@` 付きだけ番号を検査する。H3 の素の英語は検査・置換せず、通常文の `Image 1 of 3` や `Image 3` を誤って拒否しない。名指しが無ければ prompt に何も足さない。名前 + 役割（PixVerse）は要素の `name` / `role` から
 - 参照音声は `range_s` があれば media-bin の ffmpeg で切り出してから送る（クリップ範囲だけ）。指定が無ければ元の音声をそのまま送る。切り出しの一時ファイルは成功・失敗ともに削除する
 
 ## 6. 状態と見え方

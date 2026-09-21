@@ -131,7 +131,7 @@
             "items": {
               "type": "string"
             },
-            "description": "URLs of reference audio clips (2-15 seconds each, combined duration at most 15 seconds), referenced in the prompt as Audio 1, Audio 2, and so on. Audio cannot be the only reference input; provide at least one reference image or video with it. Reference images, videos, and audio clips must add up to at most 12 files."
+            "description": "URLs of reference audio clips (2-15 seconds each, combined duration at most 15 seconds), referenced in the prompt as Audio 1, Audio 2, and so on. Images, videos, and audio can be provided individually or together. Reference images, videos, and audio clips must add up to at most 12 files."
           },
           "seed": {
             "title": "Seed",
@@ -175,7 +175,7 @@
                 "type": "null"
               }
             ],
-            "description": "How much effort to spend rewriting the prompt before generation. 'fast' returns in about a second. 'balanced' picks per request. 'quality' spends up to ~30s on a richer prompt."
+            "description": "How much effort to spend rewriting the prompt before generation. 'disabled' skips prompt expansion. 'fast' returns in about a second. 'balanced' picks per request. 'quality' spends up to ~30s on a richer prompt."
           }
         },
         "x-fal-order-properties": [

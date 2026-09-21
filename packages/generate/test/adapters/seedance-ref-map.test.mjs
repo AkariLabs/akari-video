@@ -21,8 +21,8 @@ after(() => {
   assert.deepEqual(unexpectedFetchUrls, [], "adapter mapping must not call globalThis.fetch");
 });
 
-const fixture = (name) => readFileSync(new URL(`../fixtures/openapi/${name}.json`, import.meta.url));
-const schema = JSON.parse(fixture("bytedance_seedance-2.0_reference-to-video"))
+const fixture = (name) => readFileSync(new URL(`../../../schemas/fixtures/gen-models/openapi/${name}.json`, import.meta.url));
+const schema = JSON.parse(fixture("fal_seedance-2.0-ref"))
   .components.schemas.Seedance20ReferenceToVideoInput;
 const catalog = JSON.parse(readFileSync(new URL("../../../schemas/gen-models.json", import.meta.url)))
   .models.find((model) => model.id === adapter.id);
@@ -159,12 +159,12 @@ test("不正な出力ノブ・extra・camera を拒否する", () => {
   }
 });
 
-test("取得済み OpenAPI は指定 SHA-256 と同一 / H3 記法の不一致を保持する", () => {
+test("サニタイズ済み OpenAPI 正本の SHA-256・H3 記法・登録を確認する", () => {
   for (const [name, sha] of [
-    ["bytedance_seedance-2.0_reference-to-video", "7ea18e4b80cbcabdb015f43c1ce83bce6ddcb7e1868f0a93d863169ddcea24dd"],
-    ["minimax_h3_reference-to-video", "e4daee0d35bfa8f8e486efaccec463898896dc245a11ed3d9c1bb880215b22f3"],
+    ["fal_seedance-2.0-ref", "6c5ded413e577389847b14896135622e352810fbea5f487f76db1670ca1b6fea"],
+    ["fal_h3-ref", "030f1458e449e96f46aaeaf35c20447486c29a81e759f0da7ee6b04fc8912579"],
   ]) assert.equal(createHash("sha256").update(fixture(name)).digest("hex"), sha);
-  const h3 = JSON.parse(fixture("minimax_h3_reference-to-video")).components.schemas.H3ReferenceToVideoInput;
+  const h3 = JSON.parse(fixture("fal_h3-ref")).components.schemas.H3ReferenceToVideoInput;
   assert.match(h3.properties.prompt.description, /Image 1, Image 2, Video 1, Audio 1/u);
-  assert.equal(getAdapter("fal:h3-ref"), undefined);
+  assert.equal(getAdapter("fal:h3-ref")?.id, "fal:h3-ref");
 });

@@ -213,11 +213,3 @@ test("first_frame / last_frame の明示入力は fetch 0 回で拒否する", a
     assert.equal(value.requests.length, 0);
   }
 });
-
-test("BLOCKED の fal:h3-ref はアダプタ未登録のため fetch 0 回で拒否する", async (t) => {
-  const root = await fixture(t);
-  const value = await run(root, inputs(), { model: "fal:h3-ref" });
-  assert.equal(value.result.exitCode, 1);
-  assert.match(value.logs.join("\n"), /アダプタがありません: fal:h3-ref/u);
-  assert.equal(value.requests.length, 0);
-});
