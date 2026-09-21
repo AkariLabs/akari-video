@@ -71,6 +71,7 @@ import {
     summarizeCatalogPackDistribution
 } from '../common/asset-catalog-view';
 import { AssetBinChildNode, isAssetBinGroupDirectory } from '../common/asset-bin-grouping';
+import { classifyMaterialKind, MaterialKind, resolveAssetGroupMedia } from '../common/asset-group-media';
 import { materialCardLayout } from '../common/material-card-layout';
 import { CatalogPack } from '../common/catalog-packs';
 import { derivePresetShowcaseChips, filterPresetShowcaseItems } from '../common/preset-showcase';
@@ -182,7 +183,6 @@ export interface AkariCatalogCategorySummary {
     readonly count?: number;
 }
 
-type MaterialKind = 'video' | 'audio' | 'image' | 'other';
 type OutputEntryKind = 'data' | 'plan' | 'export' | 'report';
 
 const SUPPORTED_DROP_EXTENSIONS = /\.(mp4|mov|m4v|webm|mkv|avi|wav|mp3|m4a|aac|flac|ogg|png|jpg|jpeg|gif|webp)$/i;
@@ -229,6 +229,8 @@ const OUTPUT_GROUPS: ReadonlyArray<{ readonly kind: OutputEntryKind; readonly la
 interface MaterialCardEntry {
     uri: URI;
     relativePath: string;
+    /** グループの主メディア。ドラッグとタイムライン追加だけに使う。 */
+    mediaRelativePath?: string;
     name: string;
     kind: MaterialKind;
     analyzed: boolean;
@@ -574,7 +576,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         const states = await this.projectService.transcriptStates({
             projectRoot: root.toString(),
             relativePaths: [...fileMaterials, ...groupMaterials, ...unorganizedMaterials]
-                .filter(entry => entry.kind === 'video' || entry.kind === 'audio').map(entry => entry.relativePath)
+                .filter(entry => !entry.assetGroup && (entry.kind === 'video' || entry.kind === 'audio')).map(entry => entry.relativePath)
         });
         if (generation !== this.materialsGeneration) {
             return; // A newer load superseded this one (e.g. rapid watch events); discard stale results.
@@ -696,6 +698,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         const relativePath = this.workflow.relativePath(dirStat.resource) ?? dirStat.resource.path.base;
         const dirName = dirStat.resource.path.base;
         const meta = await this.readAssetGroupMeta(dirStat);
+        const media = resolveAssetGroupMedia(meta?.category, this.toAssetBinChildren(dirStat));
         const children = dirStat.children ?? [];
         const previewChild = children.find(child => !child.isDirectory && child.resource.path.base === 'preview.png');
         const metaChild = children.find(child => !child.isDirectory && child.resource.path.base === 'meta.json');
@@ -704,8 +707,9 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         return {
             uri: openUri,
             relativePath,
+            mediaRelativePath: media.mediaName ? `${relativePath}/${media.mediaName}` : undefined,
             name: meta?.title || dirName,
-            kind: 'other',
+            kind: media.kind,
             analyzed: false,
             thumbnailUri: previewChild?.resource,
             unorganized: false,
@@ -735,7 +739,8 @@ export class AkariRoleBucketsWidget extends ReactWidget {
      * 音声は波形を生成し、分析済みは対象外。generation が古くなっていれば結果を捨てる（stale ガード）。
      */
     protected async hydrateCachedThumbnails(root: URI, generation: number, entries: MaterialCardEntry[]): Promise<void> {
-        const candidates = entries.filter(entry => !entry.analyzed && (entry.kind === 'video' || entry.kind === 'image' || entry.kind === 'audio'));
+        const candidates = entries.filter(entry => !entry.assetGroup && !entry.analyzed
+            && (entry.kind === 'video' || entry.kind === 'image' || entry.kind === 'audio'));
         await Promise.all(candidates.map(async entry => {
             let outcome;
             try {
@@ -856,17 +861,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     }
 
     protected classifyKind(name: string): MaterialKind {
-        const lower = name.toLowerCase();
-        if (/\.(mp4|mov|m4v|webm|mkv|avi)$/.test(lower)) {
-            return 'video';
-        }
-        if (/\.(wav|mp3|m4a|aac|flac|ogg)$/.test(lower)) {
-            return 'audio';
-        }
-        if (/\.(png|jpg|jpeg|gif|webp)$/.test(lower)) {
-            return 'image';
-        }
-        return 'other';
+        return classifyMaterialKind(name);
     }
 
     protected placeholderIcon(kind: MaterialKind): string {
@@ -917,7 +912,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         event.preventDefault();
         event.stopPropagation();
         const target: MaterialContextMenuTarget = entry.unorganized ? 'unorganized' : 'material';
-        const items = buildMaterialContextMenuItems(target, isOSX, { materialKind: entry.kind });
+        const items = buildMaterialContextMenuItems(target, isOSX, { materialKind: entry.kind, assetGroup: !!entry.assetGroup });
         if (entry.assetGroup && entry.thumbnailUri) {
             items.push(OPEN_PREVIEW_IMAGE_ITEM);
         }
@@ -986,7 +981,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     protected async addMaterialToTimeline(entry: MaterialCardEntry): Promise<void> {
         try {
             await this.commandService.executeCommand(TIMELINE_ADD_MATERIAL_AT_PLAYHEAD_COMMAND_ID, {
-                relativePath: entry.relativePath,
+                relativePath: entry.mediaRelativePath ?? entry.relativePath,
                 kind: entry.kind
             });
         } catch {
@@ -2195,7 +2190,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
      */
     protected handleMaterialDragStart(event: React.DragEvent<HTMLDivElement>, entry: MaterialCardEntry): void {
         const payload: { relativePath: string; kind: MaterialKind; durationSeconds?: number } = {
-            relativePath: entry.relativePath,
+            relativePath: entry.mediaRelativePath ?? entry.relativePath,
             kind: entry.kind,
             ...(typeof entry.durationSeconds === 'number' ? { durationSeconds: entry.durationSeconds } : {})
         };
@@ -2232,7 +2227,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
 
     protected async transcribeMaterial(entry: MaterialCardEntry): Promise<void> {
         const root = this.workflow.workspaceRoot;
-        if (!root || (entry.kind !== 'video' && entry.kind !== 'audio')) return;
+        if (!root || entry.assetGroup || (entry.kind !== 'video' && entry.kind !== 'audio')) return;
         if (this.transcriptStateByPath[entry.relativePath] === 'running') return;
         try {
             const result = await this.commandService.executeCommand<string>('akari.transcribe.openDialog', {
@@ -2265,7 +2260,8 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     protected readonly materialPreviewService!: AkariPreviewService;
 
     protected renderMaterialCard(entry: MaterialCardEntry): React.ReactNode {
-        const layout = materialCardLayout({ kind: entry.kind, name: entry.name, assetGroupCategory: entry.assetGroup?.category });
+        const displayKind = entry.assetGroup ? 'other' : entry.kind;
+        const layout = materialCardLayout({ kind: displayKind, name: entry.name, assetGroupCategory: entry.assetGroup?.category });
         const transcriptState = this.transcriptStateByPath[entry.relativePath] ?? 'none';
         const transcriptStatus = { none: '未', running: '実行中', done: '済' }[transcriptState];
         const transcriptLabel = `文字起こし ${transcriptStatus}`;
@@ -2323,10 +2319,10 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                         />
                         : /\.html?$/i.test(entry.uri.path.base) || ['overlay', 'still'].includes(entry.assetGroup?.category ?? '')
                             ? <MaterialCardHoverPreview assetUri={entry.uri.toString()} service={this.materialPreviewService}
-                                files={this.files} icon={this.placeholderIcon(entry.kind)} />
-                            : <span className={this.placeholderIcon(entry.kind)} aria-hidden='true' draggable={false}
+                                files={this.files} icon={this.placeholderIcon(displayKind)} />
+                            : <span className={this.placeholderIcon(displayKind)} aria-hidden='true' draggable={false}
                                 style={{ fontSize: '1.8em', opacity: 0.5 }} />}
-                    {(entry.kind === 'video' || entry.kind === 'audio') && (
+                    {!entry.assetGroup && (entry.kind === 'video' || entry.kind === 'audio') && (
                         <span data-akari-transcript-state={transcriptState}
                             title={transcriptLabel} aria-label={transcriptLabel}
                             style={{ position: 'absolute', bottom: '28px', right: '4px', padding: '0 6px',

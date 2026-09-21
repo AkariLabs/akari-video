@@ -1,0 +1,69 @@
+{
+ "card": "assets/audio/bgm-jazzhop-piano-086/bgm-jazzhop-piano-086.mp3",
+ "playheadNotice": "00:00:04.667 にプレビューをシークしました。",
+ "menu": {
+  "labels": [
+   "開く",
+   "タイムラインに追加",
+   "Finder で表示",
+   "ファイルをコピー",
+   "パスをコピー",
+   "素材の情報を表示",
+   "文字起こし",
+   "名前を変更…",
+   "削除…",
+   "エージェントに頼む…"
+  ],
+  "clicked": true
+ },
+ "editChanged": true,
+ "addMs": 2413,
+ "addedDiff": {
+  "tracks": [
+   {
+    "id": "v1",
+    "lane": "visual",
+    "items": [
+     {
+      "id": "cut-1",
+      "at": 0,
+      "duration": 180,
+      "source": {
+       "kind": "media",
+       "src": "base",
+       "in": 0,
+       "out": 6
+      }
+     }
+    ]
+   },
+   {
+    "id": "a1",
+    "lane": "audio",
+    "items": []
+   }
+  ],
+  "sources": [
+   {
+    "id": "base",
+    "path": "base.mp4",
+    "proxy": null
+   }
+  ],
+  "audio": {
+   "sfx": [
+    {
+     "id": "audio-1",
+     "path": "assets/audio/bgm-jazzhop-piano-086/bgm-jazzhop-piano-086.mp3",
+     "t": 4.666666666666667,
+     "track": 0,
+     "gain_db": -7.1,
+     "fade_in": 0.2,
+     "fade_out": 1
+    }
+   ]
+  }
+ },
+ "baseItemCount": 1,
+ "undoRestoredSemantically": true
+}

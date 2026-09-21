@@ -1,0 +1,52 @@
+{
+ "card": "assets/audio/dova-syndrome-cheerleaders-bgm",
+ "drop": {
+  "x": 520,
+  "y": 561
+ },
+ "at": "2026-09-21T09:55:56.380Z",
+ "cardDraggable": "true",
+ "dragIntercepted": true,
+ "mimeTypes": [
+  "application/x-akari-material"
+ ],
+ "payload": {
+  "relativePath": "assets/audio/dova-syndrome-cheerleaders-bgm/Cheerleaders.mp3",
+  "kind": "audio"
+ },
+ "itemsBefore": 1,
+ "itemsAfter": 2,
+ "tracksBefore": [
+  "v1:visual",
+  "a1:audio"
+ ],
+ "tracksAfter": [
+  "v1:visual",
+  "a1:audio"
+ ],
+ "newItems": [
+  {
+   "track": "a1",
+   "lane": "audio",
+   "id": "audio-1",
+   "at": 136,
+   "duration": 904,
+   "source": {
+    "kind": "media",
+    "src": "src-1",
+    "in": 0,
+    "out": 30.144229
+   },
+   "gain_db": -12.8,
+   "fade_in": 0.2,
+   "fade_out": 1
+  }
+ ],
+ "newSources": [
+  {
+   "id": "src-1",
+   "path": "assets/audio/dova-syndrome-cheerleaders-bgm/Cheerleaders.mp3"
+  }
+ ],
+ "footer": ""
+}
