@@ -17,7 +17,7 @@
         ],
         "view": {
           "hidden": false,
-          "text": "▾ 生成モデルMiniMax H3 · $0.05/秒 · as_of 2026-09-12（fal:h3-i2v）MiniMax H3 · $0.05/秒 · as_of 2026-09-22（fal:h3-ref）Kling Video v3 Standard · 見積不可 · as_of 2026-09-12（fal:kling-v3-standard-i2v）Kling Video v3 Pro · $0.112/秒 · as_of 2026-09-12（fal:kling-v3-pro-i2v）Veo 3.1 · $0.2/秒 · as_of 2026-09-12（fal:veo-3.1-flf）Veo 3.1 · $0.2/秒 · as_of 2026-09-12（fal:veo-3.1-ref）Seedance 2.0 · $0.3034/秒 · as_of 2026-09-12（fal:seedance-2.0-i2v）Seedance 2.0 · $0.3034/秒 · as_of 2026-09-12（fal:seedance-2.0-ref）Seedance 2.5 · 見積不可 · as_of 2026-09-12（fal:seedance-2.5-i2v）Wan 2.7 · $0.1/秒 · as_of 2026-09-12（fal:wan-2.7-i2v）Grok Imagine Video · 見積不可 · as_of 2026-09-12（fal:grok-imagine-i2v）Vidu Q3 · 見積不可 · as_of 2026-09-12（fal:vidu-q3-i2v）指示文（prompt）最初の絵差し替えこのクリップの絵外す最後の絵差し替え次のクリップの最初外す種類最初→最後送る絵は素材のまま（色・サイズは送りません）カメラの動きなし寄る引く左へ振る右へ振る追いかける固定長さ6 秒（cuts）解像度480P768P2K4K音声常に付く・既定は消音詳細シード（seed）隣から取る見積$0.36（as_of 2026-09-12）動画にする",
+          "text": "▾ 生成モデルMiniMax H3 · $0.05/秒 · as_of 2026-09-12（fal:h3-i2v）MiniMax H3 · $0.05/秒 · as_of 2026-09-22（fal:h3-ref）Kling Video v3 Standard · 見積不可 · as_of 2026-09-12（fal:kling-v3-standard-i2v）Kling Video v3 Pro · $0.112/秒 · as_of 2026-09-12（fal:kling-v3-pro-i2v）Veo 3.1 · $0.2/秒 · as_of 2026-09-12（fal:veo-3.1-flf）Veo 3.1 · $0.2/秒 · as_of 2026-09-12（fal:veo-3.1-ref）Seedance 2.0 · $0.3034/秒 · as_of 2026-09-12（fal:seedance-2.0-i2v）Seedance 2.0 · $0.3034/秒 · as_of 2026-09-12（fal:seedance-2.0-ref）Seedance 2.5 · 見積不可 · as_of 2026-09-12（fal:seedance-2.5-i2v）Wan 2.7 · $0.1/秒 · as_of 2026-09-12（fal:wan-2.7-i2v）Grok Imagine Video · 見積不可 · as_of 2026-09-12（fal:grok-imagine-i2v）Vidu Q3 · 見積不可 · as_of 2026-09-12（fal:vidu-q3-i2v）指示文（prompt）最初 / 最後参照MiniMax H3 は同時に使えません。切り替えても中身は残り、送るのは選んだ方だけです。最初の絵差し替えこのクリップの絵外す最後の絵差し替え次のクリップの最初外す種類最初→最後送る絵は素材のまま（色・サイズは送りません）カメラの動きなし寄る引く左へ振る右へ振る追いかける固定長さ6 秒（cuts）解像度480P768P2K4K音声常に付く・既定は消音詳細シード（seed）隣から取る見積$0.36（as_of 2026-09-12）動画にする",
           "rows": [
             {
               "label": "モデル",
@@ -29,6 +29,12 @@
               "label": "指示文（prompt）",
               "value": "",
               "input": "A garden.",
+              "className": "akari-inspector-row"
+            },
+            {
+              "label": "",
+              "value": "MiniMax H3 は同時に使えません。切り替えても中身は残り、送るのは選んだ方だけです。",
+              "input": "",
               "className": "akari-inspector-row"
             },
             {
@@ -82,7 +88,7 @@
       "pass": true,
       "detail": {
         "hidden": false,
-        "text": "▾ 生成モデルMiniMax H3 · $0.05/秒 · as_of 2026-09-12（fal:h3-i2v）MiniMax H3 · $0.05/秒 · as_of 2026-09-22（fal:h3-ref）Kling Video v3 Standard · 見積不可 · as_of 2026-09-12（fal:kling-v3-standard-i2v）Kling Video v3 Pro · $0.112/秒 · as_of 2026-09-12（fal:kling-v3-pro-i2v）Veo 3.1 · $0.2/秒 · as_of 2026-09-12（fal:veo-3.1-flf）Veo 3.1 · $0.2/秒 · as_of 2026-09-12（fal:veo-3.1-ref）Seedance 2.0 · $0.3034/秒 · as_of 2026-09-12（fal:seedance-2.0-i2v）Seedance 2.0 · $0.3034/秒 · as_of 2026-09-12（fal:seedance-2.0-ref）Seedance 2.5 · 見積不可 · as_of 2026-09-12（fal:seedance-2.5-i2v）Wan 2.7 · $0.1/秒 · as_of 2026-09-12（fal:wan-2.7-i2v）Grok Imagine Video · 見積不可 · as_of 2026-09-12（fal:grok-imagine-i2v）Vidu Q3 · 見積不可 · as_of 2026-09-12（fal:vidu-q3-i2v）指示文（prompt）最初の絵＋ 画像を選ぶ空なら入れなくてよいこのクリップの絵最後の絵＋ 画像を選ぶ空なら入れなくてよい次のクリップの最初種類プロンプトだけ送る絵は素材のまま（色・サイズは送りません）カメラの動きなし寄る引く左へ振る右へ振る追いかける固定長さ6 秒（cuts）解像度480P768P2K4K音声常に付く・既定は消音詳細シード（seed）隣から取る見積$0.36（as_of 2026-09-12）動画にする",
+        "text": "▾ 生成モデルMiniMax H3 · $0.05/秒 · as_of 2026-09-12（fal:h3-i2v）MiniMax H3 · $0.05/秒 · as_of 2026-09-22（fal:h3-ref）Kling Video v3 Standard · 見積不可 · as_of 2026-09-12（fal:kling-v3-standard-i2v）Kling Video v3 Pro · $0.112/秒 · as_of 2026-09-12（fal:kling-v3-pro-i2v）Veo 3.1 · $0.2/秒 · as_of 2026-09-12（fal:veo-3.1-flf）Veo 3.1 · $0.2/秒 · as_of 2026-09-12（fal:veo-3.1-ref）Seedance 2.0 · $0.3034/秒 · as_of 2026-09-12（fal:seedance-2.0-i2v）Seedance 2.0 · $0.3034/秒 · as_of 2026-09-12（fal:seedance-2.0-ref）Seedance 2.5 · 見積不可 · as_of 2026-09-12（fal:seedance-2.5-i2v）Wan 2.7 · $0.1/秒 · as_of 2026-09-12（fal:wan-2.7-i2v）Grok Imagine Video · 見積不可 · as_of 2026-09-12（fal:grok-imagine-i2v）Vidu Q3 · 見積不可 · as_of 2026-09-12（fal:vidu-q3-i2v）指示文（prompt）最初 / 最後参照MiniMax H3 は同時に使えません。切り替えても中身は残り、送るのは選んだ方だけです。最初の絵＋ 画像を選ぶ空なら入れなくてよいこのクリップの絵最後の絵＋ 画像を選ぶ空なら入れなくてよい次のクリップの最初種類プロンプトだけ送る絵は素材のまま（色・サイズは送りません）カメラの動きなし寄る引く左へ振る右へ振る追いかける固定長さ6 秒（cuts）解像度480P768P2K4K音声常に付く・既定は消音詳細シード（seed）隣から取る見積$0.36（as_of 2026-09-12）動画にする",
         "rows": [
           {
             "label": "モデル",
@@ -94,6 +100,12 @@
             "label": "指示文（prompt）",
             "value": "",
             "input": "A garden.",
+            "className": "akari-inspector-row"
+          },
+          {
+            "label": "",
+            "value": "MiniMax H3 は同時に使えません。切り替えても中身は残り、送るのは選んだ方だけです。",
+            "input": "",
             "className": "akari-inspector-row"
           },
           {
@@ -208,7 +220,7 @@
             "resolution": "768P",
             "audio_out": true
           },
-          "updated_at": "2026-09-21T17:41:49.759Z"
+          "updated_at": "2026-09-21T18:14:49.137Z"
         }
       }
     },
@@ -250,12 +262,12 @@
       "pass": true,
       "detail": {
         "before": {
-          "edit": 1790012432083.2102,
-          "captions": 1790012433629.1328
+          "edit": 1790014410945.7854,
+          "captions": 1790014412400.9614
         },
         "after": {
-          "edit": 1790012432083.2102,
-          "captions": 1790012433629.1328
+          "edit": 1790014410945.7854,
+          "captions": 1790014412400.9614
         }
       }
     },
@@ -280,8 +292,8 @@
             "rect": {
               "left": 645,
               "right": 841,
-              "top": 230,
-              "bottom": 326,
+              "top": 292.5,
+              "bottom": 388.5,
               "width": 196,
               "height": 96
             },
@@ -291,8 +303,8 @@
                 "rect": {
                   "left": 645,
                   "right": 770.2265625,
-                  "top": 337,
-                  "bottom": 368.5,
+                  "top": 399.5,
+                  "bottom": 431,
                   "width": 125.2265625,
                   "height": 31.5
                 },
@@ -316,8 +328,8 @@
             "rect": {
               "left": 851,
               "right": 1047,
-              "top": 230,
-              "bottom": 326,
+              "top": 292.5,
+              "bottom": 388.5,
               "width": 196,
               "height": 96
             },
@@ -327,8 +339,8 @@
                 "rect": {
                   "left": 851,
                   "right": 989.2265625,
-                  "top": 337,
-                  "bottom": 368.5,
+                  "top": 399.5,
+                  "bottom": 431,
                   "width": 138.2265625,
                   "height": 31.5
                 },
@@ -354,8 +366,8 @@
             "rect": {
               "left": 645,
               "right": 841,
-              "top": 230,
-              "bottom": 326,
+              "top": 292.5,
+              "bottom": 388.5,
               "width": 196,
               "height": 96
             },
@@ -365,8 +377,8 @@
                 "rect": {
                   "left": 645,
                   "right": 770.2265625,
-                  "top": 337,
-                  "bottom": 368.5,
+                  "top": 399.5,
+                  "bottom": 431,
                   "width": 125.2265625,
                   "height": 31.5
                 },
@@ -390,8 +402,8 @@
             "rect": {
               "left": 851,
               "right": 1047,
-              "top": 230,
-              "bottom": 326,
+              "top": 292.5,
+              "bottom": 388.5,
               "width": 196,
               "height": 96
             },
@@ -401,8 +413,8 @@
                 "rect": {
                   "left": 851,
                   "right": 989.2265625,
-                  "top": 337,
-                  "bottom": 368.5,
+                  "top": 399.5,
+                  "bottom": 431,
                   "width": 138.2265625,
                   "height": 31.5
                 },
@@ -432,8 +444,8 @@
             "rect": {
               "left": 645,
               "right": 841,
-              "top": 230,
-              "bottom": 326,
+              "top": 292.5,
+              "bottom": 388.5,
               "width": 196,
               "height": 96
             },
@@ -443,8 +455,8 @@
                 "rect": {
                   "left": 645,
                   "right": 770.2265625,
-                  "top": 337,
-                  "bottom": 368.5,
+                  "top": 399.5,
+                  "bottom": 431,
                   "width": 125.2265625,
                   "height": 31.5
                 },
@@ -455,8 +467,8 @@
                 "rect": {
                   "left": 773.2265625,
                   "right": 809.2265625,
-                  "top": 342.5,
-                  "bottom": 365,
+                  "top": 405,
+                  "bottom": 427.5,
                   "width": 36,
                   "height": 22.5
                 },
@@ -480,8 +492,8 @@
             "rect": {
               "left": 851,
               "right": 1047,
-              "top": 230,
-              "bottom": 326,
+              "top": 292.5,
+              "bottom": 388.5,
               "width": 196,
               "height": 96
             },
@@ -491,8 +503,8 @@
                 "rect": {
                   "left": 851,
                   "right": 989.2265625,
-                  "top": 337,
-                  "bottom": 368.5,
+                  "top": 399.5,
+                  "bottom": 431,
                   "width": 138.2265625,
                   "height": 31.5
                 },
@@ -528,8 +540,8 @@
             "rect": {
               "left": 645,
               "right": 841,
-              "top": 230,
-              "bottom": 326,
+              "top": 292.5,
+              "bottom": 388.5,
               "width": 196,
               "height": 96
             },
@@ -539,8 +551,8 @@
                 "rect": {
                   "left": 645,
                   "right": 770.2265625,
-                  "top": 337,
-                  "bottom": 368.5,
+                  "top": 399.5,
+                  "bottom": 431,
                   "width": 125.2265625,
                   "height": 31.5
                 },
@@ -551,8 +563,8 @@
                 "rect": {
                   "left": 773.2265625,
                   "right": 809.2265625,
-                  "top": 342.5,
-                  "bottom": 365,
+                  "top": 405,
+                  "bottom": 427.5,
                   "width": 36,
                   "height": 22.5
                 },
@@ -576,8 +588,8 @@
             "rect": {
               "left": 851,
               "right": 1047,
-              "top": 230,
-              "bottom": 326,
+              "top": 292.5,
+              "bottom": 388.5,
               "width": 196,
               "height": 96
             },
@@ -587,8 +599,8 @@
                 "rect": {
                   "left": 851,
                   "right": 989.2265625,
-                  "top": 337,
-                  "bottom": 368.5,
+                  "top": 399.5,
+                  "bottom": 431,
                   "width": 138.2265625,
                   "height": 31.5
                 },
@@ -599,8 +611,8 @@
                 "rect": {
                   "left": 992.2265625,
                   "right": 1028.2265625,
-                  "top": 342.5,
-                  "bottom": 365,
+                  "top": 405,
+                  "bottom": 427.5,
                   "width": 36,
                   "height": 22.5
                 },
@@ -630,8 +642,8 @@
             "rect": {
               "left": 645,
               "right": 841,
-              "top": 230,
-              "bottom": 326,
+              "top": 292.5,
+              "bottom": 388.5,
               "width": 196,
               "height": 96
             },
@@ -641,8 +653,8 @@
                 "rect": {
                   "left": 645,
                   "right": 770.2265625,
-                  "top": 337,
-                  "bottom": 368.5,
+                  "top": 399.5,
+                  "bottom": 431,
                   "width": 125.2265625,
                   "height": 31.5
                 },
@@ -653,8 +665,8 @@
                 "rect": {
                   "left": 773.2265625,
                   "right": 809.2265625,
-                  "top": 342.5,
-                  "bottom": 365,
+                  "top": 405,
+                  "bottom": 427.5,
                   "width": 36,
                   "height": 22.5
                 },
@@ -678,8 +690,8 @@
             "rect": {
               "left": 851,
               "right": 1047,
-              "top": 230,
-              "bottom": 326,
+              "top": 292.5,
+              "bottom": 388.5,
               "width": 196,
               "height": 96
             },
@@ -689,8 +701,8 @@
                 "rect": {
                   "left": 851,
                   "right": 989.2265625,
-                  "top": 337,
-                  "bottom": 368.5,
+                  "top": 399.5,
+                  "bottom": 431,
                   "width": 138.2265625,
                   "height": 31.5
                 },
@@ -701,8 +713,8 @@
                 "rect": {
                   "left": 992.2265625,
                   "right": 1028.2265625,
-                  "top": 342.5,
-                  "bottom": 365,
+                  "top": 405,
+                  "bottom": 427.5,
                   "width": 36,
                   "height": 22.5
                 },
@@ -734,8 +746,8 @@
             "rect": {
               "left": 645,
               "right": 841,
-              "top": 230,
-              "bottom": 326,
+              "top": 292.5,
+              "bottom": 388.5,
               "width": 196,
               "height": 96
             },
@@ -745,8 +757,8 @@
                 "rect": {
                   "left": 645,
                   "right": 770.2265625,
-                  "top": 337,
-                  "bottom": 368.5,
+                  "top": 399.5,
+                  "bottom": 431,
                   "width": 125.2265625,
                   "height": 31.5
                 },
@@ -757,8 +769,8 @@
                 "rect": {
                   "left": 773.2265625,
                   "right": 809.2265625,
-                  "top": 342.5,
-                  "bottom": 365,
+                  "top": 405,
+                  "bottom": 427.5,
                   "width": 36,
                   "height": 22.5
                 },
@@ -782,8 +794,8 @@
             "rect": {
               "left": 851,
               "right": 1047,
-              "top": 230,
-              "bottom": 326,
+              "top": 292.5,
+              "bottom": 388.5,
               "width": 196,
               "height": 96
             },
@@ -793,8 +805,8 @@
                 "rect": {
                   "left": 851,
                   "right": 989.2265625,
-                  "top": 337,
-                  "bottom": 368.5,
+                  "top": 399.5,
+                  "bottom": 431,
                   "width": 138.2265625,
                   "height": 31.5
                 },
@@ -805,8 +817,8 @@
                 "rect": {
                   "left": 992.2265625,
                   "right": 1028.2265625,
-                  "top": 342.5,
-                  "bottom": 365,
+                  "top": 405,
+                  "bottom": 427.5,
                   "width": 36,
                   "height": 22.5
                 },
@@ -832,8 +844,8 @@
             "rect": {
               "left": 645,
               "right": 841,
-              "top": 230,
-              "bottom": 326,
+              "top": 292.5,
+              "bottom": 388.5,
               "width": 196,
               "height": 96
             },
@@ -843,8 +855,8 @@
                 "rect": {
                   "left": 645,
                   "right": 770.2265625,
-                  "top": 337,
-                  "bottom": 368.5,
+                  "top": 399.5,
+                  "bottom": 431,
                   "width": 125.2265625,
                   "height": 31.5
                 },
@@ -855,8 +867,8 @@
                 "rect": {
                   "left": 773.2265625,
                   "right": 809.2265625,
-                  "top": 342.5,
-                  "bottom": 365,
+                  "top": 405,
+                  "bottom": 427.5,
                   "width": 36,
                   "height": 22.5
                 },
@@ -880,8 +892,8 @@
             "rect": {
               "left": 851,
               "right": 1047,
-              "top": 230,
-              "bottom": 326,
+              "top": 292.5,
+              "bottom": 388.5,
               "width": 196,
               "height": 96
             },
@@ -891,8 +903,8 @@
                 "rect": {
                   "left": 851,
                   "right": 989.2265625,
-                  "top": 337,
-                  "bottom": 368.5,
+                  "top": 399.5,
+                  "bottom": 431,
                   "width": 138.2265625,
                   "height": 31.5
                 },
@@ -903,8 +915,8 @@
                 "rect": {
                   "left": 992.2265625,
                   "right": 1028.2265625,
-                  "top": 342.5,
-                  "bottom": 365,
+                  "top": 405,
+                  "bottom": 427.5,
                   "width": 36,
                   "height": 22.5
                 },
@@ -930,8 +942,8 @@
             "rect": {
               "left": 645,
               "right": 841,
-              "top": 230,
-              "bottom": 326,
+              "top": 292.5,
+              "bottom": 388.5,
               "width": 196,
               "height": 96
             },
@@ -941,8 +953,8 @@
                 "rect": {
                   "left": 645,
                   "right": 770.2265625,
-                  "top": 337,
-                  "bottom": 368.5,
+                  "top": 399.5,
+                  "bottom": 431,
                   "width": 125.2265625,
                   "height": 31.5
                 },
@@ -953,8 +965,8 @@
                 "rect": {
                   "left": 773.2265625,
                   "right": 809.2265625,
-                  "top": 342.5,
-                  "bottom": 365,
+                  "top": 405,
+                  "bottom": 427.5,
                   "width": 36,
                   "height": 22.5
                 },
@@ -978,8 +990,8 @@
             "rect": {
               "left": 851,
               "right": 1047,
-              "top": 230,
-              "bottom": 326,
+              "top": 292.5,
+              "bottom": 388.5,
               "width": 196,
               "height": 96
             },
@@ -989,8 +1001,8 @@
                 "rect": {
                   "left": 851,
                   "right": 989.2265625,
-                  "top": 337,
-                  "bottom": 368.5,
+                  "top": 399.5,
+                  "bottom": 431,
                   "width": 138.2265625,
                   "height": 31.5
                 },
@@ -1001,8 +1013,8 @@
                 "rect": {
                   "left": 992.2265625,
                   "right": 1028.2265625,
-                  "top": 342.5,
-                  "bottom": 365,
+                  "top": 405,
+                  "bottom": 427.5,
                   "width": 36,
                   "height": 22.5
                 },
@@ -1014,8 +1026,651 @@
         ],
         "metaUnchanged": true,
         "mtimesAfter": {
-          "edit": 1790012432083.2102,
-          "captions": 1790012433629.1328
+          "edit": 1790014410945.7854,
+          "captions": 1790014412400.9614
+        }
+      }
+    },
+    {
+      "name": "10. H3 動画予定 → 参照を実クリック → 枠が消えてグリッドと＋追加",
+      "pass": true,
+      "detail": {
+        "next": {
+          "kind": "video",
+          "status": "planned",
+          "model": {
+            "id": "fal:h3-ref"
+          },
+          "inputs": {
+            "prompt": "A garden.",
+            "first_frame": {
+              "path": "assets/stills/c.png"
+            },
+            "last_frame": {
+              "path": "assets/stills/a.png"
+            },
+            "reference_images": [],
+            "reference_audios": [],
+            "camera": null,
+            "frames_or_refs": "references",
+            "negative_prompt": null
+          },
+          "output": {
+            "duration_s": 6,
+            "resolution": "768P",
+            "audio_out": true
+          },
+          "updated_at": "2026-09-21T18:15:05.858Z"
+        },
+        "measurements": {
+          "cards": [],
+          "buttons": [
+            {
+              "text": "最初 / 最後",
+              "disabled": false,
+              "pressed": "false",
+              "rect": {
+                "left": 645,
+                "right": 726.046875,
+                "top": 116.5,
+                "bottom": 144,
+                "width": 81.046875,
+                "height": 27.5
+              },
+              "background": "rgb(20, 20, 20)",
+              "borderWidth": "1px",
+              "borderStyle": "solid",
+              "borderColor": "rgb(27, 27, 27)"
+            },
+            {
+              "text": "参照",
+              "disabled": false,
+              "pressed": "true",
+              "rect": {
+                "left": 729.046875,
+                "right": 773.046875,
+                "top": 116.5,
+                "bottom": 144,
+                "width": 44,
+                "height": 27.5
+              },
+              "background": "rgb(249, 115, 22)",
+              "borderWidth": "1px",
+              "borderStyle": "solid",
+              "borderColor": "rgb(251, 146, 60)"
+            },
+            {
+              "text": "＋ 追加",
+              "disabled": false,
+              "pressed": null,
+              "rect": {
+                "left": 645,
+                "right": 773.6640625,
+                "top": 324.75,
+                "bottom": 356.25,
+                "width": 128.6640625,
+                "height": 31.5
+              },
+              "background": "rgb(20, 20, 20)",
+              "borderWidth": "1px",
+              "borderStyle": "solid",
+              "borderColor": "rgb(27, 27, 27)"
+            }
+          ],
+          "counter": "画像 0 / 9 · 動画 0 / 3 · 音声 0 / 3",
+          "frames": 0
+        }
+      }
+    },
+    {
+      "name": "11. ＋追加 → 素材パネルで画像2枚を実クリック → 完了 → 札とカウンタ",
+      "pass": true,
+      "detail": {
+        "next": {
+          "kind": "video",
+          "status": "planned",
+          "model": {
+            "id": "fal:h3-ref"
+          },
+          "inputs": {
+            "prompt": "A garden.",
+            "first_frame": {
+              "path": "assets/stills/c.png"
+            },
+            "last_frame": {
+              "path": "assets/stills/a.png"
+            },
+            "reference_images": [
+              {
+                "path": "assets/stills/a.png"
+              },
+              {
+                "path": "assets/stills/b.png"
+              }
+            ],
+            "reference_audios": [],
+            "camera": null,
+            "frames_or_refs": "references",
+            "negative_prompt": null
+          },
+          "output": {
+            "duration_s": 6,
+            "resolution": "768P",
+            "audio_out": true
+          },
+          "updated_at": "2026-09-21T18:15:09.164Z"
+        },
+        "measurements": {
+          "cards": [
+            {
+              "badge": "@画像1",
+              "path": "assets/stills/a.png",
+              "rectangles": {
+                "badge": {
+                  "left": 651,
+                  "right": 688.3359375,
+                  "top": 280.75,
+                  "bottom": 297.25,
+                  "width": 37.3359375,
+                  "height": 16.5
+                },
+                "remove": {
+                  "left": 746.6640625,
+                  "right": 767.6640625,
+                  "top": 279.5,
+                  "bottom": 298.5,
+                  "width": 21,
+                  "height": 19
+                },
+                "thumbnail": {
+                  "left": 651,
+                  "right": 767.6640625,
+                  "top": 303.5,
+                  "bottom": 361.5,
+                  "width": 116.6640625,
+                  "height": 58
+                }
+              },
+              "intersections": {
+                "badgeRemove": false,
+                "badgeThumbnail": false,
+                "removeThumbnail": false
+              }
+            },
+            {
+              "badge": "@画像2",
+              "path": "assets/stills/b.png",
+              "rectangles": {
+                "badge": {
+                  "left": 787.6640625,
+                  "right": 826.53125,
+                  "top": 280.75,
+                  "bottom": 297.25,
+                  "width": 38.8671875,
+                  "height": 16.5
+                },
+                "remove": {
+                  "left": 883.328125,
+                  "right": 904.328125,
+                  "top": 279.5,
+                  "bottom": 298.5,
+                  "width": 21,
+                  "height": 19
+                },
+                "thumbnail": {
+                  "left": 787.6640625,
+                  "right": 904.328125,
+                  "top": 303.5,
+                  "bottom": 361.5,
+                  "width": 116.6640625,
+                  "height": 58
+                }
+              },
+              "intersections": {
+                "badgeRemove": false,
+                "badgeThumbnail": false,
+                "removeThumbnail": false
+              }
+            }
+          ],
+          "buttons": [
+            {
+              "text": "最初 / 最後",
+              "disabled": false,
+              "pressed": "false",
+              "rect": {
+                "left": 645,
+                "right": 726.046875,
+                "top": 108.5,
+                "bottom": 136,
+                "width": 81.046875,
+                "height": 27.5
+              },
+              "background": "rgb(20, 20, 20)",
+              "borderWidth": "1px",
+              "borderStyle": "solid",
+              "borderColor": "rgb(27, 27, 27)"
+            },
+            {
+              "text": "参照",
+              "disabled": false,
+              "pressed": "true",
+              "rect": {
+                "left": 729.046875,
+                "right": 773.046875,
+                "top": 108.5,
+                "bottom": 136,
+                "width": 44,
+                "height": 27.5
+              },
+              "background": "rgb(249, 115, 22)",
+              "borderWidth": "1px",
+              "borderStyle": "solid",
+              "borderColor": "rgb(251, 146, 60)"
+            },
+            {
+              "text": "×",
+              "disabled": false,
+              "pressed": null,
+              "rect": {
+                "left": 746.6640625,
+                "right": 767.6640625,
+                "top": 279.5,
+                "bottom": 298.5,
+                "width": 21,
+                "height": 19
+              },
+              "background": "rgb(10, 10, 10)",
+              "borderWidth": "1px",
+              "borderStyle": "solid",
+              "borderColor": "rgb(27, 27, 27)"
+            },
+            {
+              "text": "×",
+              "disabled": false,
+              "pressed": null,
+              "rect": {
+                "left": 883.328125,
+                "right": 904.328125,
+                "top": 279.5,
+                "bottom": 298.5,
+                "width": 21,
+                "height": 19
+              },
+              "background": "rgb(10, 10, 10)",
+              "borderWidth": "1px",
+              "borderStyle": "solid",
+              "borderColor": "rgb(27, 27, 27)"
+            },
+            {
+              "text": "＋ 追加",
+              "disabled": false,
+              "pressed": null,
+              "rect": {
+                "left": 918.328125,
+                "right": 1047,
+                "top": 324.5,
+                "bottom": 356,
+                "width": 128.671875,
+                "height": 31.5
+              },
+              "background": "rgb(20, 20, 20)",
+              "borderWidth": "1px",
+              "borderStyle": "solid",
+              "borderColor": "rgb(27, 27, 27)"
+            }
+          ],
+          "counter": "画像 2 / 9 · 動画 0 / 3 · 音声 0 / 3",
+          "frames": 0
+        }
+      }
+    },
+    {
+      "name": "12. 最初 / 最後に実クリックで戻すと元の絵が残る",
+      "pass": true,
+      "detail": {
+        "next": {
+          "kind": "video",
+          "status": "planned",
+          "model": {
+            "id": "fal:h3-i2v"
+          },
+          "inputs": {
+            "prompt": "A garden.",
+            "first_frame": {
+              "path": "assets/stills/c.png"
+            },
+            "last_frame": {
+              "path": "assets/stills/a.png"
+            },
+            "reference_images": [
+              {
+                "path": "assets/stills/a.png"
+              },
+              {
+                "path": "assets/stills/b.png"
+              }
+            ],
+            "reference_audios": [],
+            "camera": null,
+            "frames_or_refs": "frames",
+            "negative_prompt": null
+          },
+          "output": {
+            "duration_s": 6,
+            "resolution": "768P",
+            "audio_out": true
+          },
+          "updated_at": "2026-09-21T18:15:09.872Z"
+        },
+        "frames": [
+          {
+            "slot": "first_frame",
+            "role": "button",
+            "tabindex": 0,
+            "pressed": "false",
+            "disabled": "false",
+            "cursor": "pointer",
+            "borderWidth": "1px",
+            "borderStyle": "solid",
+            "background": "rgba(167, 139, 250, 0.08)",
+            "boxShadow": "none",
+            "outline": "rgb(204, 204, 204) none 0px",
+            "rect": {
+              "left": 645,
+              "right": 841,
+              "top": 292.5,
+              "bottom": 388.5,
+              "width": 196,
+              "height": 96
+            },
+            "buttons": [
+              {
+                "text": "このクリップの絵",
+                "rect": {
+                  "left": 645,
+                  "right": 770.2265625,
+                  "top": 399.5,
+                  "bottom": 431,
+                  "width": 125.2265625,
+                  "height": 31.5
+                },
+                "intersects": false
+              },
+              {
+                "text": "外す",
+                "rect": {
+                  "left": 773.2265625,
+                  "right": 809.2265625,
+                  "top": 405,
+                  "bottom": 427.5,
+                  "width": 36,
+                  "height": 22.5
+                },
+                "intersects": false
+              }
+            ],
+            "src": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAgAAAQABAAD//gAQTGF2YzYyLjI4LjEwMQD/2wBDAAgICAkICQsLCwsLCw0MDQ0NDQ0NDQ0NDQ0ODg4REREODg4NDQ4OEBARERITEhERERETExQUFBgYFxccHB0iIin/xABNAAEBAAAAAAAAAAAAAAAAAAAABQEBAQEAAAAAAAAAAAAAAAAAAAQGEAEAAAAAAAAAAAAAAAAAAAAAEQEAAAAAAAAAAAAAAAAAAAAA/8AAEQgAWgCgAwESAAISAAMSAP/aAAwDAQACEQMRAD8AjiQZQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAf/9k="
+          },
+          {
+            "slot": "last_frame",
+            "role": "button",
+            "tabindex": 0,
+            "pressed": "false",
+            "disabled": "false",
+            "cursor": "pointer",
+            "borderWidth": "1px",
+            "borderStyle": "solid",
+            "background": "rgba(167, 139, 250, 0.08)",
+            "boxShadow": "none",
+            "outline": "rgb(204, 204, 204) none 0px",
+            "rect": {
+              "left": 851,
+              "right": 1047,
+              "top": 292.5,
+              "bottom": 388.5,
+              "width": 196,
+              "height": 96
+            },
+            "buttons": [
+              {
+                "text": "次のクリップの最初",
+                "rect": {
+                  "left": 851,
+                  "right": 989.2265625,
+                  "top": 399.5,
+                  "bottom": 431,
+                  "width": 138.2265625,
+                  "height": 31.5
+                },
+                "intersects": false
+              },
+              {
+                "text": "外す",
+                "rect": {
+                  "left": 992.2265625,
+                  "right": 1028.2265625,
+                  "top": 405,
+                  "bottom": 427.5,
+                  "width": 36,
+                  "height": 22.5
+                },
+                "intersects": false
+              }
+            ],
+            "src": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAgAAAQABAAD//gAQTGF2YzYyLjI4LjEwMQD/2wBDAAgICAkICQsLCwsLCw0MDQ0NDQ0NDQ0NDQ0ODg4REREODg4NDQ4OEBARERITEhERERETExQUFBgYFxccHB0iIin/xABNAAEBAAAAAAAAAAAAAAAAAAAABQEBAQEAAAAAAAAAAAAAAAAAAAYHEAEAAAAAAAAAAAAAAAAAAAAAEQEAAAAAAAAAAAAAAAAAAAAA/8AAEQgAWgCgAwESAAISAAMSAP/aAAwDAQACEQMRAD8AkCbGmAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD/9k="
+          }
+        ]
+      }
+    },
+    {
+      "name": "13. もう一度参照へ実クリック → 画像2枚と両側の next.inputs を保持",
+      "pass": true,
+      "detail": {
+        "next": {
+          "kind": "video",
+          "status": "planned",
+          "model": {
+            "id": "fal:h3-ref"
+          },
+          "inputs": {
+            "prompt": "A garden.",
+            "first_frame": {
+              "path": "assets/stills/c.png"
+            },
+            "last_frame": {
+              "path": "assets/stills/a.png"
+            },
+            "reference_images": [
+              {
+                "path": "assets/stills/a.png"
+              },
+              {
+                "path": "assets/stills/b.png"
+              }
+            ],
+            "reference_audios": [],
+            "camera": null,
+            "frames_or_refs": "references",
+            "negative_prompt": null
+          },
+          "output": {
+            "duration_s": 6,
+            "resolution": "768P",
+            "audio_out": true
+          },
+          "updated_at": "2026-09-21T18:15:10.472Z"
+        },
+        "measurements": {
+          "cards": [
+            {
+              "badge": "@画像1",
+              "path": "assets/stills/a.png",
+              "rectangles": {
+                "badge": {
+                  "left": 651,
+                  "right": 688.3359375,
+                  "top": 280.75,
+                  "bottom": 297.25,
+                  "width": 37.3359375,
+                  "height": 16.5
+                },
+                "remove": {
+                  "left": 746.6640625,
+                  "right": 767.6640625,
+                  "top": 279.5,
+                  "bottom": 298.5,
+                  "width": 21,
+                  "height": 19
+                },
+                "thumbnail": {
+                  "left": 651,
+                  "right": 767.6640625,
+                  "top": 303.5,
+                  "bottom": 361.5,
+                  "width": 116.6640625,
+                  "height": 58
+                }
+              },
+              "intersections": {
+                "badgeRemove": false,
+                "badgeThumbnail": false,
+                "removeThumbnail": false
+              }
+            },
+            {
+              "badge": "@画像2",
+              "path": "assets/stills/b.png",
+              "rectangles": {
+                "badge": {
+                  "left": 787.6640625,
+                  "right": 826.53125,
+                  "top": 280.75,
+                  "bottom": 297.25,
+                  "width": 38.8671875,
+                  "height": 16.5
+                },
+                "remove": {
+                  "left": 883.328125,
+                  "right": 904.328125,
+                  "top": 279.5,
+                  "bottom": 298.5,
+                  "width": 21,
+                  "height": 19
+                },
+                "thumbnail": {
+                  "left": 787.6640625,
+                  "right": 904.328125,
+                  "top": 303.5,
+                  "bottom": 361.5,
+                  "width": 116.6640625,
+                  "height": 58
+                }
+              },
+              "intersections": {
+                "badgeRemove": false,
+                "badgeThumbnail": false,
+                "removeThumbnail": false
+              }
+            }
+          ],
+          "buttons": [
+            {
+              "text": "最初 / 最後",
+              "disabled": false,
+              "pressed": "false",
+              "rect": {
+                "left": 645,
+                "right": 726.046875,
+                "top": 108.5,
+                "bottom": 136,
+                "width": 81.046875,
+                "height": 27.5
+              },
+              "background": "rgb(20, 20, 20)",
+              "borderWidth": "1px",
+              "borderStyle": "solid",
+              "borderColor": "rgb(27, 27, 27)"
+            },
+            {
+              "text": "参照",
+              "disabled": false,
+              "pressed": "true",
+              "rect": {
+                "left": 729.046875,
+                "right": 773.046875,
+                "top": 108.5,
+                "bottom": 136,
+                "width": 44,
+                "height": 27.5
+              },
+              "background": "rgb(249, 115, 22)",
+              "borderWidth": "1px",
+              "borderStyle": "solid",
+              "borderColor": "rgb(251, 146, 60)"
+            },
+            {
+              "text": "×",
+              "disabled": false,
+              "pressed": null,
+              "rect": {
+                "left": 746.6640625,
+                "right": 767.6640625,
+                "top": 279.5,
+                "bottom": 298.5,
+                "width": 21,
+                "height": 19
+              },
+              "background": "rgb(10, 10, 10)",
+              "borderWidth": "1px",
+              "borderStyle": "solid",
+              "borderColor": "rgb(27, 27, 27)"
+            },
+            {
+              "text": "×",
+              "disabled": false,
+              "pressed": null,
+              "rect": {
+                "left": 883.328125,
+                "right": 904.328125,
+                "top": 279.5,
+                "bottom": 298.5,
+                "width": 21,
+                "height": 19
+              },
+              "background": "rgb(10, 10, 10)",
+              "borderWidth": "1px",
+              "borderStyle": "solid",
+              "borderColor": "rgb(27, 27, 27)"
+            },
+            {
+              "text": "＋ 追加",
+              "disabled": false,
+              "pressed": null,
+              "rect": {
+                "left": 918.328125,
+                "right": 1047,
+                "top": 324.5,
+                "bottom": 356,
+                "width": 128.671875,
+                "height": 31.5
+              },
+              "background": "rgb(20, 20, 20)",
+              "borderWidth": "1px",
+              "borderStyle": "solid",
+              "borderColor": "rgb(27, 27, 27)"
+            }
+          ],
+          "counter": "画像 2 / 9 · 動画 0 / 3 · 音声 0 / 3",
+          "frames": 0
+        },
+        "mtimesBefore": {
+          "edit": 1790014410945.7854,
+          "captions": 1790014412400.9614
+        },
+        "after": {
+          "edit": 1790014410945.7854,
+          "captions": 1790014412400.9614
         }
       }
     }
@@ -1030,26 +1685,31 @@
     "09-frame-picking.png",
     "10-frame-picked.png",
     "11-frame-replaced.png",
-    "12-frame-cancelled.png"
+    "12-frame-cancelled.png",
+    "13-reference-empty.png",
+    "14-reference-picking-two.png",
+    "15-reference-two.png",
+    "16-reference-frames-restored.png",
+    "17-reference-restored.png"
   ],
   "screenshotDetails": [
     {
       "name": "01-h3-first-to-last.png",
-      "sha256": "b3808feb4ec54dadc6e4bc176376d8f669437a99fb588575928390e8913f8898",
+      "sha256": "7beeadf81fa0bf10cd3505f085533db1f878c0e942a953361b7f8b98ef358aa0",
       "inspectorFront": true,
       "sectionVisible": true,
       "modelRow": "MiniMax H3 · $0.05/秒 · as_of 2026-09-12（fal:h3-i2v）"
     },
     {
       "name": "02-prompt-only.png",
-      "sha256": "226507c2ed4aa1671d92dc1d31d42932bb46388d20224e3f6400464d8361d33d",
+      "sha256": "c315d04e684bb471ec1674d0b5823b4ba02b9a0f366d1fc3c692d0335a7e88aa",
       "inspectorFront": true,
       "sectionVisible": true,
       "modelRow": "MiniMax H3 · $0.05/秒 · as_of 2026-09-12（fal:h3-i2v）"
     },
     {
       "name": "04-failed-retry.png",
-      "sha256": "0cb15aba368ead01b5dd42ad22a8f2e9de3447745a0517c5f9f554a518baf1be",
+      "sha256": "c0e3d92c02694882b4e2aa6e5a1f6c18acc0786dfc497da2123577702170245a",
       "inspectorFront": true,
       "sectionVisible": true,
       "modelRow": "MiniMax H3 · $0.05/秒 · as_of 2026-09-12（fal:h3-i2v）",
@@ -1082,13 +1742,13 @@
     },
     {
       "name": "07-sticky-tab-strip.png",
-      "sha256": "0cb15aba368ead01b5dd42ad22a8f2e9de3447745a0517c5f9f554a518baf1be",
+      "sha256": "c0e3d92c02694882b4e2aa6e5a1f6c18acc0786dfc497da2123577702170245a",
       "inspectorFront": true,
       "sectionVisible": true,
       "modelRow": "MiniMax H3 · $0.05/秒 · as_of 2026-09-12（fal:h3-i2v）",
       "stickyTabStrip": {
-        "scrollTop": 127,
-        "scrollHeight": 730,
+        "scrollTop": 223.5,
+        "scrollHeight": 827,
         "clientHeight": 603,
         "tabStripTop": 39,
         "containerTop": 39,
@@ -1098,7 +1758,7 @@
     },
     {
       "name": "08-frame-empty.png",
-      "sha256": "c6f46608a6361ba18f0676d4428c14e49d7a8b005f6ba9af1b4764f232adc9c8",
+      "sha256": "1829969daeb8220c15d7fdd516df01fd3d353f48a82f33638eac6f4b27935bf9",
       "inspectorFront": true,
       "sectionVisible": true,
       "modelRow": "MiniMax H3 · $0.05/秒 · as_of 2026-09-12（fal:h3-i2v）",
@@ -1106,9 +1766,9 @@
         "selector": "[data-akari-generation-pick-slot=\"first_frame\"]",
         "buttonRect": {
           "left": 645,
-          "top": 230,
+          "top": 292.5,
           "right": 841,
-          "bottom": 326,
+          "bottom": 388.5,
           "width": 196,
           "height": 96
         },
@@ -1131,7 +1791,7 @@
     },
     {
       "name": "09-frame-picking.png",
-      "sha256": "c491e98293b743865b87e04df520951b3b0c7aed0e8a990e7f46bd45c06bac47",
+      "sha256": "25a5f057bf269be751a6cdd339c73fc5c19274bbb41e602fcd234c5314f5fe57",
       "inspectorFront": true,
       "sectionVisible": true,
       "modelRow": "MiniMax H3 · $0.05/秒 · as_of 2026-09-12（fal:h3-i2v）",
@@ -1139,9 +1799,9 @@
         "selector": "[data-akari-generation-pick-slot=\"first_frame\"]",
         "buttonRect": {
           "left": 645,
-          "top": 230,
+          "top": 292.5,
           "right": 841,
-          "bottom": 326,
+          "bottom": 388.5,
           "width": 196,
           "height": 96
         },
@@ -1164,7 +1824,7 @@
     },
     {
       "name": "10-frame-picked.png",
-      "sha256": "2deebcc08441eded3be2799d00a97dd69462918a4bb2b69bea357fb40ca9700b",
+      "sha256": "bd265b5a012dd9c53c443e017f901d8ec43bde40a1a04401415702e6c9bf3ca0",
       "inspectorFront": true,
       "sectionVisible": true,
       "modelRow": "MiniMax H3 · $0.05/秒 · as_of 2026-09-12（fal:h3-i2v）",
@@ -1172,9 +1832,9 @@
         "selector": "[data-akari-generation-pick-slot=\"first_frame\"]",
         "buttonRect": {
           "left": 645,
-          "top": 230,
+          "top": 292.5,
           "right": 841,
-          "bottom": 326,
+          "bottom": 388.5,
           "width": 196,
           "height": 96
         },
@@ -1197,7 +1857,7 @@
     },
     {
       "name": "11-frame-replaced.png",
-      "sha256": "20db7de00eef5ae3b30995a9d91c74568d6ecea2318236b177ebca8be2a24920",
+      "sha256": "24efb57ca0fe8b63443f630e64efd9ef56710658c5eb56b4d08b2c6998500893",
       "inspectorFront": true,
       "sectionVisible": true,
       "modelRow": "MiniMax H3 · $0.05/秒 · as_of 2026-09-12（fal:h3-i2v）",
@@ -1205,9 +1865,9 @@
         "selector": "[data-akari-generation-pick-slot=\"last_frame\"]",
         "buttonRect": {
           "left": 851,
-          "top": 230,
+          "top": 292.5,
           "right": 1047,
-          "bottom": 326,
+          "bottom": 388.5,
           "width": 196,
           "height": 96
         },
@@ -1230,7 +1890,7 @@
     },
     {
       "name": "12-frame-cancelled.png",
-      "sha256": "20db7de00eef5ae3b30995a9d91c74568d6ecea2318236b177ebca8be2a24920",
+      "sha256": "24efb57ca0fe8b63443f630e64efd9ef56710658c5eb56b4d08b2c6998500893",
       "inspectorFront": true,
       "sectionVisible": true,
       "modelRow": "MiniMax H3 · $0.05/秒 · as_of 2026-09-12（fal:h3-i2v）",
@@ -1238,11 +1898,176 @@
         "selector": "[data-akari-generation-pick-slot=\"last_frame\"]",
         "buttonRect": {
           "left": 851,
-          "top": 230,
+          "top": 292.5,
           "right": 1047,
-          "bottom": 326,
+          "bottom": 388.5,
           "width": 196,
           "height": 96
+        },
+        "inspectorRect": {
+          "left": 635,
+          "top": 39,
+          "right": 1072,
+          "bottom": 642,
+          "width": 437,
+          "height": 603
+        },
+        "visibleRect": {
+          "left": 635,
+          "top": 39,
+          "right": 1057,
+          "bottom": 642
+        },
+        "fullyVisible": true
+      }
+    },
+    {
+      "name": "13-reference-empty.png",
+      "sha256": "f4021595af53c9471872797c3e7820b84ab7274d3aab6b585ce22a78c4bcee97",
+      "inspectorFront": true,
+      "sectionVisible": true,
+      "modelRow": "MiniMax H3 · $0.05/秒 · as_of 2026-09-22（fal:h3-ref）",
+      "actionVisibility": {
+        "selector": "[data-akari-generation-reference-add]",
+        "buttonRect": {
+          "left": 645,
+          "top": 324.75,
+          "right": 773.6640625,
+          "bottom": 356.25,
+          "width": 128.6640625,
+          "height": 31.5
+        },
+        "inspectorRect": {
+          "left": 635,
+          "top": 39,
+          "right": 1072,
+          "bottom": 642,
+          "width": 437,
+          "height": 603
+        },
+        "visibleRect": {
+          "left": 635,
+          "top": 39,
+          "right": 1057,
+          "bottom": 642
+        },
+        "fullyVisible": true
+      }
+    },
+    {
+      "name": "14-reference-picking-two.png",
+      "sha256": "4291d025d81c161a8b0134c7f150152771ac0500902b894002a3132d06cd0722",
+      "inspectorFront": true,
+      "sectionVisible": true,
+      "modelRow": "MiniMax H3 · $0.05/秒 · as_of 2026-09-22（fal:h3-ref）",
+      "actionVisibility": {
+        "selector": "[data-akari-generation-reference-add]",
+        "buttonRect": {
+          "left": 645,
+          "top": 324.75,
+          "right": 773.6640625,
+          "bottom": 356.25,
+          "width": 128.6640625,
+          "height": 31.5
+        },
+        "inspectorRect": {
+          "left": 635,
+          "top": 39,
+          "right": 1072,
+          "bottom": 642,
+          "width": 437,
+          "height": 603
+        },
+        "visibleRect": {
+          "left": 635,
+          "top": 39,
+          "right": 1057,
+          "bottom": 642
+        },
+        "fullyVisible": true
+      }
+    },
+    {
+      "name": "15-reference-two.png",
+      "sha256": "0f7057efc167cb10b6d201a8caeae677f4641c097749d068dee5aa3041654ab8",
+      "inspectorFront": true,
+      "sectionVisible": true,
+      "modelRow": "MiniMax H3 · $0.05/秒 · as_of 2026-09-22（fal:h3-ref）",
+      "actionVisibility": {
+        "selector": "[data-akari-generation-reference-add]",
+        "buttonRect": {
+          "left": 918.328125,
+          "top": 324.5,
+          "right": 1047,
+          "bottom": 356,
+          "width": 128.671875,
+          "height": 31.5
+        },
+        "inspectorRect": {
+          "left": 635,
+          "top": 39,
+          "right": 1072,
+          "bottom": 642,
+          "width": 437,
+          "height": 603
+        },
+        "visibleRect": {
+          "left": 635,
+          "top": 39,
+          "right": 1057,
+          "bottom": 642
+        },
+        "fullyVisible": true
+      }
+    },
+    {
+      "name": "16-reference-frames-restored.png",
+      "sha256": "284290eb1617fc26f50421be2ec4194d6378e72f8da09a4a7cab5161d2aad526",
+      "inspectorFront": true,
+      "sectionVisible": true,
+      "modelRow": "MiniMax H3 · $0.05/秒 · as_of 2026-09-12（fal:h3-i2v）",
+      "actionVisibility": {
+        "selector": "[data-akari-generation-pick-slot=\"first_frame\"]",
+        "buttonRect": {
+          "left": 645,
+          "top": 292.5,
+          "right": 841,
+          "bottom": 388.5,
+          "width": 196,
+          "height": 96
+        },
+        "inspectorRect": {
+          "left": 635,
+          "top": 39,
+          "right": 1072,
+          "bottom": 642,
+          "width": 437,
+          "height": 603
+        },
+        "visibleRect": {
+          "left": 635,
+          "top": 39,
+          "right": 1057,
+          "bottom": 642
+        },
+        "fullyVisible": true
+      }
+    },
+    {
+      "name": "17-reference-restored.png",
+      "sha256": "0f7057efc167cb10b6d201a8caeae677f4641c097749d068dee5aa3041654ab8",
+      "inspectorFront": true,
+      "sectionVisible": true,
+      "modelRow": "MiniMax H3 · $0.05/秒 · as_of 2026-09-22（fal:h3-ref）",
+      "actionVisibility": {
+        "selector": "[data-akari-generation-reference-add]",
+        "buttonRect": {
+          "left": 918.328125,
+          "top": 324.5,
+          "right": 1047,
+          "bottom": 356,
+          "width": 128.671875,
+          "height": 31.5
         },
         "inspectorRect": {
           "left": 635,
@@ -1263,7 +2088,7 @@
     }
   ],
   "cleanup": {
-    "killedPid": 69104,
+    "killedPid": 79648,
     "survivingProcesses": 0,
     "survivingBackendMain": 0,
     "alive": 0,
@@ -1357,8 +2182,8 @@
       }
     },
     "stickyTabStrip": {
-      "scrollTop": 127,
-      "scrollHeight": 730,
+      "scrollTop": 223.5,
+      "scrollHeight": 827,
       "clientHeight": 603,
       "tabStripTop": 39,
       "containerTop": 39,

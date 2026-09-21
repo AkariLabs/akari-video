@@ -62,3 +62,31 @@ Esc 前後の meta のバイト列とサムネの不変性、edit/captions の m
 受け側には取り消しコマンドがない。再押下・クリップ変更・生成タブ以外への移動・dispose 時は
 送信側が結果を捨てて輪を外し、素材パネルの帯は Esc または「やめる」で閉じる。
 L1 の実行と証跡更新は Electron を起動できるラッパー側で行う。
+
+### 複数参照と両側の下書き（step 10–13）
+
+既存 step 1–9 を維持し、先の偽 CLI の failed meta を隔離 fixture 内で取り除いて
+H3 の動画予定から検証する。切替・＋追加・素材カード2枚・完了をすべて CDP の実クリックで操作する。
+
+- `13-reference-empty.png`: 「参照」への切替で枠が消え、グリッドと「＋ 追加」が出る。
+- `14-reference-picking-two.png`: 素材パネルで画像2枚を選択した状態。
+- `15-reference-two.png`: `@画像1` / `@画像2` と「画像 2 / 9」。
+- `16-reference-frames-restored.png`: 「最初 / 最後」へ戻り、元のサムネが残る。
+- `17-reference-restored.png`: 再び「参照」へ戻り、2枚と札が残る。
+
+追加 step の `results.json` に、各切替後の `next`、カードの札・×・サムネの矩形と
+全3組の交差判定、切替・＋追加・×の計算後背景色・枠幅・枠種・枠色・disabled を記録する。
+非交差、面積が正、押せるボタンに背景か可視の枠線があることを assert する。
+モデル ID と `frames_or_refs`、両側の `next.inputs`、選択順、元の枠のサムネ、
+edit/captions の mtime も検証する。L1 はラッパーで実行し、既存 PNG / results.json は実行まで更新しない。
+
+素材選択は受け側の単一 slot 契約に合わせた種類別の複数選択。
+「追加する参照の種類」で画像・動画・音声を選び、「＋ 追加」で開く。
+`selected` はその種類の現在の全パス、`max` は validator の総上限（既存選択込み）。
+参照を送る側に非対応の種類があれば validator が error とし「動画にする」を無効にする。
+`send_side=frames` では参照全体が送信から除外されるが、下書きは消さない。
+実カタログには Veo 3.1 にも flf/ref の同 family があるため、ID の接尾辞によらず切替を表示する。
+Veo reference のアダプタ未実装、および Kling の参照アダプタ拒否は既存送信層の制限のまま。
+
+種類をまたぐ追加順は workspace URI と item ID ごとのローカル UI 状態として保持し、
+meta の監視による再読込とアプリ再起動で復元する。生成 inputs / provider body に UI 用の欄は加えない。

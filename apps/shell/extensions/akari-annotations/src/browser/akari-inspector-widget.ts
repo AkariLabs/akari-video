@@ -2951,6 +2951,20 @@ export class AkariInspectorWidget extends BaseWidget {
         color: var(--theia-descriptionForeground);
         padding: 4px 0;
     }
+    .akari-inspector-widget .akari-inspector-generation-references { margin: 10px 0; }
+    .akari-inspector-widget .akari-inspector-generation-reference-heading { display: flex; gap: 8px; justify-content: space-between; flex-wrap: wrap; margin-bottom: 6px; }
+    .akari-inspector-widget .akari-inspector-generation-reference-counter { font-size: 11px; }
+    .akari-inspector-widget .akari-inspector-generation-reference-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: 8px; }
+    .akari-inspector-widget .akari-inspector-generation-reference-card { min-width: 0; border: 1px solid var(--theia-panel-border); border-radius: 4px; padding: 5px; }
+    .akari-inspector-widget .akari-inspector-generation-reference-top { display: flex; align-items: center; justify-content: space-between; gap: 5px; margin-bottom: 5px; }
+    .akari-inspector-widget .akari-inspector-generation-reference-badge { font-size: 11px; white-space: nowrap; }
+    .akari-inspector-widget .akari-inspector-generation-reference-unsupported .akari-inspector-generation-reference-badge { opacity: 0.45; }
+    .akari-inspector-widget .akari-inspector-generation-reference-thumbnail { height: 58px; display: flex; align-items: center; justify-content: center; background: var(--theia-editor-background); overflow: hidden; font-size: 11px; }
+    .akari-inspector-widget .akari-inspector-generation-reference-thumbnail img { width: 100%; height: 100%; object-fit: cover; }
+    .akari-inspector-widget .akari-inspector-generation-reference-filename { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 10px; margin-top: 4px; }
+    .akari-inspector-widget .akari-inspector-generation-reference-add { display: flex; flex-direction: column; align-items: stretch; justify-content: center; gap: 5px; min-height: 94px; }
+    .akari-inspector-widget .akari-inspector-generation-reference-add select { min-width: 0; color: var(--theia-foreground); background: var(--theia-dropdown-background); border: 1px solid var(--theia-panel-border); }
+    .akari-inspector-widget .akari-inspector-generation-references button:disabled { opacity: 0.5; cursor: default; }
     .akari-inspector-widget .akari-inspector-generation-frames { display: flex; gap: 10px; margin: 10px 0; }
     .akari-inspector-widget .akari-inspector-generation-cell { flex: 1; min-width: 0; }
     .akari-inspector-widget .akari-inspector-generation-frame { position: relative; box-sizing: border-box; width: 100%; aspect-ratio: 16 / 9; max-height: 96px; border: 1px solid #a78bfa; background: rgba(167, 139, 250, 0.08); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; margin: 4px 0 8px; overflow: hidden; font-size: 11px; color: var(--theia-foreground); cursor: pointer; }
@@ -4113,10 +4127,10 @@ export class AkariInspectorWidget extends BaseWidget {
                     audio_out: model.audio_out === false ? false : true
                 }
             };
-            if (!draft.inputs.frames_or_refs) {
-                if (model.inputs.first_frame === 'none' && model.inputs.last_frame === 'none') draft.inputs.frames_or_refs = 'references';
-                else if (model.inputs.reference_images?.max === 0) draft.inputs.frames_or_refs = 'frames';
-            }
+            generationFields.rememberReferences(draft.inputs, this.generationDrafts.get(identity.key)?.inputs, `${root.toString()}#${identity.itemId}`);
+            const side = generationFields.modelSide(model);
+            if (side) draft.inputs.frames_or_refs = side;
+            else delete draft.inputs.frames_or_refs;
             draft.output.duration_s = identity.duration;
             this.generationDrafts.set(identity.key, draft);
             // render()'s legacy observer sees the same revision, so it never starts a second read.
@@ -4312,12 +4326,20 @@ export class AkariInspectorWidget extends BaseWidget {
         const next: GenerationDraft = {
             modelId: current.modelId, inputs: { ...current.inputs }, output: { ...current.output }
         };
+        if (path === 'inputs.frames_or_refs') {
+            const row = this.generationCatalog.find(candidate => candidate.id === current.modelId);
+            const pair = row && generationFields.pairedModels(row, this.generationCatalog);
+            if (!pair || (value !== 'frames' && value !== 'references')) return { ok: false, message: '切り替え先がありません。' };
+            path = 'modelId';
+            value = pair[value].id;
+        }
         if (path === 'modelId') {
+            this.cancelGenerationFramePick?.();
             next.modelId = String(value);
             const model = this.generationCatalog.find(row => row.id === next.modelId);
             if (model) {
-                if (model.inputs.first_frame === 'none' && model.inputs.last_frame === 'none') next.inputs.frames_or_refs = 'references';
-                else if (model.inputs.frames_and_refs_exclusive || model.inputs.reference_images?.max === 0) next.inputs.frames_or_refs = 'frames';
+                const side = generationFields.modelSide(model);
+                if (side) next.inputs.frames_or_refs = side;
                 else delete next.inputs.frames_or_refs;
                 if (!model.inputs.negative_prompt) next.inputs.negative_prompt = null;
                 const camera = current.inputs.camera as { value?: string } | undefined;
@@ -4331,6 +4353,7 @@ export class AkariInspectorWidget extends BaseWidget {
             const [group, field] = path.split('.');
             if ((group === 'inputs' || group === 'output') && field) next[group][field] = value;
         }
+        generationFields.rememberReferences(next.inputs, current.inputs);
         next.output.duration_s = identity.duration;
         this.generationDrafts.set(identity.key, next);
         this.generationTabDrafts.set(identity.key, next);
@@ -4570,6 +4593,154 @@ export class AkariInspectorWidget extends BaseWidget {
             this.appendRow(details, { ...field, generationDetail: false } as InspectorFieldDef, snapshot, kind);
             return;
         }
+        if (generationField.generationReferences) {
+            const references = generationField.generationReferences;
+            const identity = this.generationIdentity(snapshot);
+            const disabled = !!field.disabled || !identity || this.generationFramePickDisabled(identity.key);
+            const section = document.createElement('div');
+            section.className = 'akari-inspector-generation-references';
+            const heading = document.createElement('div');
+            heading.className = 'akari-inspector-generation-reference-heading';
+            const label = document.createElement('strong');
+            label.textContent = field.label;
+            const counter = document.createElement('span');
+            counter.className = 'akari-inspector-generation-reference-counter';
+            counter.textContent = references.counter;
+            heading.appendChild(label);
+            heading.appendChild(counter);
+            section.appendChild(heading);
+            const grid = document.createElement('div');
+            grid.className = 'akari-inspector-generation-reference-grid';
+            section.appendChild(grid);
+            for (const entry of references.entries) {
+                const card = document.createElement('div');
+                card.className = 'akari-inspector-generation-reference-card';
+                card.setAttribute('data-akari-generation-reference-path', entry.reference.path);
+                const top = document.createElement('div');
+                top.className = 'akari-inspector-generation-reference-top';
+                const badge = document.createElement('span');
+                badge.className = 'akari-inspector-generation-reference-badge';
+                badge.textContent = entry.badge;
+                if (entry.unsupported) card.className += ' akari-inspector-generation-reference-unsupported';
+                top.appendChild(badge);
+                const remove = document.createElement('button');
+                remove.type = 'button';
+                remove.className = 'akari-inspector-generation-small';
+                remove.textContent = '×';
+                remove.setAttribute('aria-label', `${entry.badge} を外す`);
+                remove.setAttribute('data-akari-generation-reference-remove', entry.badge);
+                remove.disabled = disabled;
+                remove.addEventListener('click', () => {
+                    if (disabled || !identity || this.generationFramePickDisabled(identity.key)) return;
+                    this.cancelGenerationFramePick();
+                    void generationField.write!(snapshot, JSON.stringify({ slot: entry.slot, index: entry.index }))
+                        .then(result => { if (!result.ok) this.showFieldNotice(result.message ?? '変更できませんでした。'); });
+                });
+                top.appendChild(remove);
+                card.appendChild(top);
+                const preview = document.createElement('div');
+                preview.className = 'akari-inspector-generation-reference-thumbnail';
+                preview.textContent = entry.slot === 'reference_audios' ? '♫' : '読み込み中…';
+                if (entry.slot !== 'reference_audios') void this.generationThumbnail(entry.reference.path).then(uri => {
+                    if (!preview.isConnected) return;
+                    if (uri) {
+                        const image = document.createElement('img');
+                        image.src = uri; image.alt = entry.badge;
+                        preview.textContent = ''; preview.appendChild(image);
+                    } else preview.textContent = 'プレビューなし';
+                });
+                card.appendChild(preview);
+                const filename = document.createElement('div');
+                filename.className = 'akari-inspector-generation-reference-filename';
+                filename.textContent = entry.reference.path.split('/').pop()!;
+                filename.title = entry.reference.path;
+                card.appendChild(filename);
+                grid.appendChild(card);
+            }
+            if (references.kinds.length) {
+                const tail = document.createElement('div');
+                tail.className = 'akari-inspector-generation-reference-add';
+                const select = document.createElement('select');
+                select.setAttribute('aria-label', '追加する参照の種類');
+                select.disabled = disabled;
+                for (const kind of references.kinds) {
+                    const option = document.createElement('option');
+                    option.value = kind.slot; option.textContent = kind.label;
+                    select.appendChild(option);
+                }
+                if (references.kinds.length > 1) tail.appendChild(select);
+                const add = document.createElement('button');
+                add.type = 'button'; add.textContent = '＋ 追加';
+                add.className = 'akari-inspector-generation-secondary';
+                add.setAttribute('data-akari-generation-reference-add', 'true');
+                add.disabled = disabled;
+                const pick = async (): Promise<void> => {
+                    if (disabled || !identity || this.isDisposed || this.currentTab !== 'generation'
+                        || this.generationIdentity(this.model.snapshot)?.key !== identity.key
+                        || this.generationFramePickDisabled(identity.key)) return;
+                    const kind = references.kinds.find(kind => kind.slot === select.value) ?? references.kinds[0];
+                    const current = this.generationDrafts.get(identity.key)!;
+                    const selectedRevision = JSON.stringify(current.inputs[kind.slot] ?? []);
+                    const pending = { key: identity.key, slot: kind.slot };
+                    this.generationFramePick = pending;
+                    this.generationFramePickMessage = undefined;
+                    const isCurrent = (): boolean => this.generationFramePick === pending && !this.isDisposed
+                        && this.currentTab === 'generation' && this.generationIdentity(this.model.snapshot)?.key === identity.key
+                        && this.generationDrafts.get(identity.key)?.modelId === current.modelId
+                        && JSON.stringify(this.generationDrafts.get(identity.key)?.inputs[kind.slot] ?? []) === selectedRevision
+                        && !this.generationFramePickDisabled(identity.key);
+                    const selected = references.entries.filter(entry => entry.slot === kind.slot).map(entry => entry.reference.path);
+                    const request: GenerationPickRequest = {
+                        slot: kind.slot, label: `参照${kind.label}`, accepts: [kind.kind], multi: true, selected, max: kind.max
+                    };
+                    try {
+                        if (!this.commandRegistry.getCommand(GENERATION_PICK_INTO_COMMAND_ID)) throw new Error('素材パネルを開けません。');
+                        const result = await this.commandRegistry.executeCommand<GenerationPickResult>(GENERATION_PICK_INTO_COMMAND_ID, request);
+                        if (!isCurrent() || result.status !== 'picked') return;
+                        if (result.paths.some(path => generationFields.referenceSlot(path) !== kind.slot)) throw new Error('この種類には選べない素材です。');
+                        const values = await Promise.all(result.paths.map(async path => {
+                            const existing = references.entries.find(entry => entry.slot === kind.slot && entry.reference.path === path)?.reference;
+                            if (existing) return existing;
+                            const reference: { path: string; range_s?: [number, number] } = { path };
+                            const root = this.workspaceService.tryGetRoots()[0]?.resource;
+                            if (root && kind.kind !== 'image') {
+                                try {
+                                    const duration = await this.layerAudioService.getAudioDuration({
+                                        projectRootUri: root.toString(), audioUri: root.resolve(path).toString()
+                                    });
+                                    if (duration.status === 'ready' && Number.isFinite(duration.durationSeconds) && duration.durationSeconds! > 0)
+                                        reference.range_s = [0, duration.durationSeconds!];
+                                } catch { /* Missing duration is allowed; range editing is a later task. */ }
+                            }
+                            return reference;
+                        }));
+                        if (!isCurrent()) return;
+                        generationFields.rememberReferences(current.inputs);
+                        generationFields.rememberReferences({ [kind.slot]: values });
+                        const updated = await this.updateGenerationDraft(identity, `inputs.${kind.slot}`, values);
+                        if (!updated.ok) throw new Error(updated.message ?? '変更できませんでした。');
+                    } catch (error) {
+                        if (this.generationFramePick === pending) {
+                            this.generationFramePickMessage = { key: identity.key, text: error instanceof Error ? error.message : String(error) };
+                            this.render();
+                        }
+                    } finally {
+                        if (this.generationFramePick === pending) this.cancelGenerationFramePick();
+                    }
+                };
+                add.addEventListener('click', () => { void pick(); });
+                tail.appendChild(add);
+                grid.appendChild(tail);
+            }
+            for (const text of [...references.notes, ...(references.entries.length ? ['指示文の中で @画像1 のように名指しできます'] : [])]) {
+                const note = document.createElement('div');
+                note.className = 'akari-inspector-generation-note';
+                note.textContent = text;
+                section.appendChild(note);
+            }
+            parent.appendChild(section);
+            return;
+        }
         if (generationField.generationFrame || generationField.generationButtons) {
             const groupClass = generationField.generationFrame ? 'akari-inspector-generation-frames' : 'akari-inspector-generation-camera';
             let group = generationField.generationFrame ? parent.querySelector<HTMLElement>(`:scope > .${groupClass}`) : undefined;
@@ -4647,7 +4818,8 @@ export class AkariInspectorWidget extends BaseWidget {
                     button.className = 'akari-inspector-generation-camera-button';
                     button.textContent = value;
                     button.setAttribute('aria-pressed', String(value === field.getValue(snapshot)));
-                    button.setAttribute('data-akari-generation-camera', value);
+                    button.disabled = !!generationField.disabled;
+                    button.setAttribute(generationField.generationMode ? 'data-akari-generation-mode' : 'data-akari-generation-camera', value);
                     button.addEventListener('click', () => invoke(field.write!(snapshot, value)));
                     cell.appendChild(button);
                 }

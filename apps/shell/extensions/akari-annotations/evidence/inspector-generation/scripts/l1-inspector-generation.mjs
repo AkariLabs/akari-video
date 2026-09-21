@@ -355,6 +355,56 @@ async function waitFrameSaved(cdp, slot, expected) {
   return { path: next.inputs[slot].path, src };
 }
 
+const referenceGrid = '.akari-inspector-generation-reference-grid';
+const referenceAdd = '[data-akari-generation-reference-add]';
+const modeSelector = label => `[data-akari-generation-mode="${label}"]`;
+const referenceMetaPath = path.join(PROJECT, 'assets/stills/a.png.meta.json');
+
+async function waitReferenceDraft(predicate, label) {
+  const deadline = Date.now() + 15_000;
+  while (Date.now() < deadline) {
+    const next = JSON.parse(await readFile(referenceMetaPath, 'utf8')).next;
+    if (predicate(next)) return next;
+    await sleep(100);
+  }
+  throw new Error(`next not saved: ${label}`);
+}
+
+async function measureReferences(cdp) {
+  const measured = await evalOn(cdp, `(()=>{
+    const rect=e=>{const r=e.getBoundingClientRect();return{left:r.left,right:r.right,top:r.top,bottom:r.bottom,width:r.width,height:r.height}};
+    const intersects=(a,b)=>a.left<b.right&&a.right>b.left&&a.top<b.bottom&&a.bottom>b.top;
+    const cards=[...document.querySelectorAll('.akari-inspector-generation-reference-card')].map(card=>{
+      const badge=card.querySelector('.akari-inspector-generation-reference-badge');
+      const remove=card.querySelector('[data-akari-generation-reference-remove]');
+      const thumbnail=card.querySelector('.akari-inspector-generation-reference-thumbnail');
+      const rectangles={badge:rect(badge),remove:rect(remove),thumbnail:rect(thumbnail)};
+      return{badge:badge.textContent,path:card.getAttribute('data-akari-generation-reference-path'),rectangles,
+        intersections:{badgeRemove:intersects(rectangles.badge,rectangles.remove),badgeThumbnail:intersects(rectangles.badge,rectangles.thumbnail),removeThumbnail:intersects(rectangles.remove,rectangles.thumbnail)}};
+    });
+    const buttons=[...document.querySelectorAll('[data-akari-generation-mode],[data-akari-generation-reference-add],[data-akari-generation-reference-remove]')].map(button=>{
+      const style=getComputedStyle(button);
+      return{text:button.textContent,disabled:button.disabled,pressed:button.getAttribute('aria-pressed'),rect:rect(button),
+        background:style.backgroundColor,borderWidth:style.borderTopWidth,borderStyle:style.borderTopStyle,borderColor:style.borderTopColor};
+    });
+    return{cards,buttons,counter:document.querySelector('.akari-inspector-generation-reference-counter')?.textContent,
+      frames:document.querySelectorAll('[data-akari-generation-pick-slot]').length};
+  })()`);
+  for (const card of measured.cards) {
+    assert(Object.values(card.rectangles).every(rect => rect.width > 0 && rect.height > 0), `参照カードの矩形が空: ${JSON.stringify(card)}`);
+    assert(Object.values(card.intersections).every(value => value === false), `札・×・サムネが交差: ${JSON.stringify(card)}`);
+  }
+  assert(measured.buttons.some(button => button.text === '＋ 追加'), '＋追加がない');
+  assert(measured.buttons.filter(button => ['参照', '最初 / 最後'].includes(button.text)).length === 2, '切替が揃わない');
+  for (const button of measured.buttons) {
+    const transparent = color => ['transparent', 'rgba(0, 0, 0, 0)'].includes(color);
+    assert(!button.disabled && button.rect.width > 0 && button.rect.height > 0, `押せないボタン: ${JSON.stringify(button)}`);
+    assert(!transparent(button.background) || (Number.parseFloat(button.borderWidth) > 0
+      && !['none','hidden'].includes(button.borderStyle) && !transparent(button.borderColor)), `背景も枠もないボタン: ${JSON.stringify(button)}`);
+  }
+  return measured;
+}
+
 let spawnedChild;
 async function launch() {
   await mkdir(path.join(ISO, 'akari-home'), { recursive: true });
@@ -603,6 +653,74 @@ try {
     const mtimesAfter = { edit: (await stat(editPath)).mtimeMs, captions: (await stat(captionsPath)).mtimeMs };
     assert(mtimesAfter.edit === mtimesBefore.edit && mtimesAfter.captions === mtimesBefore.captions, '枠の選択で edit/captions が変化');
     return { before, pending, after, metaUnchanged: true, mtimesAfter };
+  });
+
+  // End the earlier fake failed job so this scenario starts from a planned H3 draft.
+  await rm(path.join(PROJECT, 'assets/generated/gen-clip-a.mp4.meta.json'));
+  await waitEval(cdp, `!document.querySelector(${S(action('retry'))})`, { label: 'H3 動画予定へ戻る' });
+  await waitEval(cdp, `(()=>{const imgs=[...document.querySelectorAll('.akari-inspector-generation-frame img')];return imgs.length===2&&imgs.every(img=>img.complete&&img.naturalWidth>0)})()`, { label: 'H3 動画予定の元の枠サムネ' });
+  const originalReferenceFrames = await measureFrames(cdp);
+  const originalReferenceNext = JSON.parse(await readFile(referenceMetaPath, 'utf8')).next;
+  assert(originalReferenceNext.kind === 'video' && originalReferenceNext.status === 'planned', 'H3 の動画予定でない');
+
+  await step('10. H3 動画予定 → 参照を実クリック → 枠が消えてグリッドと＋追加', async () => {
+    await clickElement(cdp, modeSelector('参照'));
+    await waitEval(cdp, `document.querySelector(${S(referenceGrid)})&&!document.querySelector('[data-akari-generation-pick-slot]')`, { label: '参照グリッドへ切替' });
+    const next = await waitReferenceDraft(next => next.model.id === 'fal:h3-ref' && next.inputs.frames_or_refs === 'references', 'H3 ref');
+    assert(next.inputs.first_frame.path === originalReferenceNext.inputs.first_frame.path, '切替で最初の絵が消えた');
+    await shot(cdp, '13-reference-empty.png', referenceAdd);
+    const measurements = await measureReferences(cdp);
+    assert(measurements.cards.length === 0 && measurements.frames === 0, '参照の初期状態が不正');
+    return { next, measurements };
+  });
+
+  await step('11. ＋追加 → 素材パネルで画像2枚を実クリック → 完了 → 札とカウンタ', async () => {
+    await clickElement(cdp, referenceAdd);
+    await waitEval(cdp, `document.querySelector(${S(pickBand)})?.textContent.includes('参照画像')`, { label: '参照画像の素材選択帯' });
+    await clickElement(cdp, materialCard('a'));
+    await waitEval(cdp, `document.querySelector(${S(materialCard('a'))})?.textContent.includes('@画像1')`, { label: '素材1の札' });
+    await clickElement(cdp, materialCard('b'));
+    await waitEval(cdp, `document.querySelector(${S(materialCard('b'))})?.textContent.includes('@画像2')`, { label: '素材2の札' });
+    await shot(cdp, '14-reference-picking-two.png', referenceAdd);
+    await clickElement(cdp, `${pickBand} .akari-gen-pick-complete`);
+    await waitEval(cdp, `!document.querySelector(${S(pickBand)})&&document.querySelectorAll('.akari-inspector-generation-reference-card').length===2`, { label: '参照選択完了' });
+    const next = await waitReferenceDraft(next => next.inputs.reference_images?.length === 2, '画像2枚');
+    assert(JSON.stringify(next.inputs.reference_images.map(ref => ref.path)) === JSON.stringify(['assets/stills/a.png','assets/stills/b.png']), '選択順が違う');
+    await waitEval(cdp, `(()=>{const imgs=[...document.querySelectorAll('.akari-inspector-generation-reference-thumbnail img')];return imgs.length===2&&imgs.every(img=>img.complete&&img.naturalWidth>0)})()`, { label: '参照サムネ2枚' });
+    await shot(cdp, '15-reference-two.png', referenceAdd);
+    const measurements = await measureReferences(cdp);
+    assert(JSON.stringify(measurements.cards.map(card => card.badge)) === JSON.stringify(['@画像1','@画像2']), '札の通し番号が違う');
+    assert(measurements.counter.includes('画像 2 / 9'), '画像 2 / 9 がない');
+    return { next, measurements };
+  });
+
+  await step('12. 最初 / 最後に実クリックで戻すと元の絵が残る', async () => {
+    await clickElement(cdp, modeSelector('最初 / 最後'));
+    await waitEval(cdp, `document.querySelectorAll('[data-akari-generation-pick-slot]').length===2&&!document.querySelector(${S(referenceGrid)})`, { label: '最初・最後の枠へ戻る' });
+    const next = await waitReferenceDraft(next => next.model.id === 'fal:h3-i2v' && next.inputs.frames_or_refs === 'frames', 'H3 frames');
+    for (const slot of ['first_frame','last_frame']) assert(JSON.stringify(next.inputs[slot]) === JSON.stringify(originalReferenceNext.inputs[slot]), `${slot} が変化`);
+    assert(next.inputs.reference_images.length === 2, '最初 / 最後への切替で参照が消えた');
+    await waitEval(cdp, `document.querySelector(${S(frameSelector('first_frame'))})?.querySelector('img')?.src===${S(originalReferenceFrames[0].src)}`, { label: '元の最初のサムネ' });
+    await waitEval(cdp, `(()=>{const imgs=[...document.querySelectorAll('.akari-inspector-generation-frame img')];return imgs.length===2&&imgs.every((img,index)=>img.src===${S(originalReferenceFrames.map(frame => frame.src))}[index]&&img.complete&&img.naturalWidth>0)})()`, { label: '元の両枠のサムネ' });
+    await shot(cdp, '16-reference-frames-restored.png', frameSelector('first_frame'));
+    const frames = await measureFrames(cdp);
+    assert(frames.every((frame,index) => frame.src === originalReferenceFrames[index].src), '元の最初・最後のサムネが変化');
+    return { next, frames };
+  });
+
+  await step('13. もう一度参照へ実クリック → 画像2枚と両側の next.inputs を保持', async () => {
+    await clickElement(cdp, modeSelector('参照'));
+    await waitEval(cdp, `document.querySelectorAll('.akari-inspector-generation-reference-card').length===2`, { label: '参照2枚復元' });
+    const next = await waitReferenceDraft(next => next.inputs.frames_or_refs === 'references' && next.model.id === 'fal:h3-ref', 'H3 ref restored');
+    assert(next.inputs.first_frame.path === originalReferenceNext.inputs.first_frame.path && next.inputs.last_frame.path === originalReferenceNext.inputs.last_frame.path, 'meta で枠側が消えた');
+    assert(JSON.stringify(next.inputs.reference_images.map(ref => ref.path)) === JSON.stringify(['assets/stills/a.png','assets/stills/b.png']), 'meta で参照側が消えた');
+    await shot(cdp, '17-reference-restored.png', referenceAdd);
+    const measurements = await measureReferences(cdp);
+    assert(measurements.frames === 0 && measurements.counter.includes('画像 2 / 9'), '復元後のグリッドが不正');
+    assert(JSON.stringify(measurements.cards.map(card => card.badge)) === JSON.stringify(['@画像1','@画像2']), '復元後の札が不正');
+    const after = { edit: (await stat(editPath)).mtimeMs, captions: (await stat(captionsPath)).mtimeMs };
+    assert(after.edit === mtimesBefore.edit && after.captions === mtimesBefore.captions, '参照選択で edit/captions が変化');
+    return { next, measurements, mtimesBefore, after };
   });
 
   out.status = 'pass';
