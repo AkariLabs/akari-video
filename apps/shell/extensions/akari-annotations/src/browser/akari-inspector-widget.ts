@@ -672,7 +672,19 @@ function CUT_SECTIONS(
         {
             id: 'time', label: '時間', fields: [
                 { name: 'output-start', label: '出力位置', getValue: () => formatTimestamp(snapshot.outputStart) },
-                { name: 'duration', label: '尺', getValue: () => formatDurationSeconds(snapshot.outputEnd - snapshot.outputStart) },
+                // Same source extensions as isStillImageCut; empty/planned frames are PNG cards.
+                /\.(png|jpe?g|webp|bmp|gif)$/iu.test(snapshot.sourcePath ?? '') ? {
+                    name: 'duration', label: '長さ', unit: '秒',
+                    getValue: () => String(snapshot.outputEnd - snapshot.outputStart),
+                    getEditValue: () => String(snapshot.outputEnd - snapshot.outputStart),
+                    inputKind: 'scrub-number', scrubStep: 0.5, displayPrecision: 1, min: 0.5,
+                    write: async (_snapshot, nextValue) => {
+                        const parsed = Number(nextValue);
+                        if (!Number.isFinite(parsed)) return { ok: false, message: '長さは有限数で入力してください。' };
+                        return requestWrite({ kind: 'cut-source-out', index: snapshot.index,
+                            value: Math.round(parsed * 10) / 10 });
+                    }
+                } : { name: 'duration', label: '尺', getValue: () => formatDurationSeconds(snapshot.outputEnd - snapshot.outputStart) },
                 ...cutTransitionFields(snapshot, requestWrite)
             ]
         },

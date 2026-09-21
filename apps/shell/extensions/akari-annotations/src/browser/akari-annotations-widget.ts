@@ -32,6 +32,7 @@ import 'akari-preview/lib/electron-common/electron-api';
 import { VisualThumbnailCache } from './visual-thumbnail-cache';
 import type { VisualThumbnailCapture } from 'akari-preview/lib/common/visual-thumbnail';
 import { visualThumbnailRetryPlan } from '../common/visual-thumbnail-retry';
+import { clampStillCutLength, planStillCutTrim } from '../common/still-cut-length';
 import { isVisualThumbnailDiskEntry, pruneThumbnailIndex, visualThumbnailCacheFileName,
     VisualThumbnailDiskEntry } from '../common/visual-thumbnail-disk-cache';
 import { visualThumbnailSnapshot, visualThumbnailKey } from './visual-thumbnail-key';
@@ -784,6 +785,7 @@ type DragPreview =
         output: number;
         rejected: boolean;
         maxOutSeconds?: number;
+        at?: number;
     }
     | { kind: 'cut-move'; index: number; at: number; track: number; rejected: boolean; altKey?: boolean;
         insertTrack?: number; targetTrackId?: string; insertIndex?: number }
@@ -4057,10 +4059,26 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 } else if (request.kind === 'cut-source-in' || request.kind === 'cut-source-out') {
                     const input = request.kind === 'cut-source-in' ? request.value : cut.in;
                     const output = request.kind === 'cut-source-out' ? request.value : cut.out;
-                    patch = {
-                        duration: Math.max(1, this.frameAt((output - input) / (cut.speed ?? 1))),
-                        source: { in: input, out: output }
-                    };
+                    if (this.isStillImageCut(cut)) {
+                        const segment = this.segments[indexed.index];
+                        if (!segment) throw new Error('クリップが見つかりません。');
+                        const available = Math.min(Infinity, ...this.segments
+                            .filter(other => other.index !== indexed.index && other.track === segment.track
+                                && other.tlEnd > segment.tlStart)
+                            .map(other => other.tlStart - segment.tlStart));
+                        const duration = clampStillCutLength(
+                            request.kind === 'cut-source-out' ? output : output - input, this.fps, available
+                        );
+                        if (duration === undefined || this.cutWouldOverlap(
+                            indexed.index, segment.tlStart, duration, segment.track
+                        )) throw new Error('隣のクリップとの間に 0.5 秒以上の長さを確保できません。');
+                        patch = { duration: this.frameAt(duration), source: { in: 0, out: duration } };
+                    } else {
+                        patch = {
+                            duration: Math.max(1, this.frameAt((output - input) / (cut.speed ?? 1))),
+                            source: { in: input, out: output }
+                        };
+                    }
                     label = '素材の範囲を変更';
                 } else {
                     const field = request.kind === 'cut-transform-x' ? 'x'
@@ -12464,7 +12482,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             this.updateTrimAffordance(element, state);
             element.style.cursor = state.kind === 'cut-slip' ? 'grabbing' : 'ew-resize';
             element.style.opacity = state.duplicateFragment ? '1' : '.5';
-            if (state.kind === 'cut-trim' && state.edge === 'right') {
+            if (state.kind === 'cut-trim' && state.edge === 'right' && !this.isStillImageCut(this.cuts[state.index])) {
                 const cut = this.cuts[state.index];
                 const videoUri = cut ? this.cutVideoUri(cut) : '';
                 if (videoUri) {
@@ -13701,7 +13719,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             this.updateTrimAffordance(element, state);
             if (!element.dataset.trimEdge) { element.style.cursor = 'grabbing'; }
             element.style.opacity = state.duplicateFragment ? '1' : '.5';
-            if (state.kind === 'cut-trim' && state.edge === 'right') {
+            if (state.kind === 'cut-trim' && state.edge === 'right' && !this.isStillImageCut(this.cuts[state.index])) {
                 // Out 側トリムの開始と同時に実尺フェッチを先行キックする。初回ドラッグが
                 // pointerup まで到達する前にキャッシュが温まっているようにするための保険
                 // （「初回だけ素通し」対策。本体のクランプは commitDrag 側の保留処理が担保する）。
@@ -13838,6 +13856,35 @@ export class AkariAnnotationsWidget extends BaseWidget {
         if (state.kind === 'cut-trim') {
             const cut = this.cuts[state.index];
             const segment = this.segments[state.index];
+            // Empty frames and planned videos use PNG cards too (frame tool contract §1-7).
+            if (this.isStillImageCut(cut)) {
+                if (!segment) return { kind: 'cut-trim', index: state.index, edge: state.edge,
+                    input: 0, output: state.originalOut - state.originalIn, rejected: true };
+                const movingEdge = (state.edge === 'left' ? segment.tlStart : segment.tlEnd) + delta;
+                const snap = this.snapTimeInOutputSpaceWithResult(
+                    movingEdge, showGuide,
+                    [{ time: segment.tlStart }, { time: segment.tlEnd }],
+                    { kind: 'cut', id: String(state.index) },
+                    time => {
+                        const range = planStillCutTrim(segment.tlStart, segment.tlEnd, state.edge, time, this.fps);
+                        return !range || this.cutWouldOverlap(state.index, range.at, range.duration, segment.track);
+                    }
+                );
+                const range = planStillCutTrim(segment.tlStart, segment.tlEnd, state.edge, snap.time, this.fps);
+                const at = range?.at ?? segment.tlStart;
+                const duration = range?.duration ?? segment.tlEnd - segment.tlStart;
+                const rejected = !range || this.cutWouldOverlap(state.index, at, duration, segment.track);
+                const snapped = snap.snapped && Math.abs((state.edge === 'left' ? at : at + duration) - snap.time) < 1e-4;
+                if (!snapped) this.hideSnapGuide();
+                this.setGhostRange(state.ghost, at, at + duration);
+                this.setGhostRejected(state.ghost, rejected);
+                this.setGhostSnapped(state.ghost, snapped && !rejected);
+                this.setGhostDurationWarning(state.ghost, false);
+                this.updateDragFeedback(state, rejected ? '⚠ 重なるためトリムできません' : `長さ ${duration.toFixed(2)} 秒`);
+                this.updateGhostHeaderDuration(state.ghost, duration);
+                return { kind: 'cut-trim', index: state.index, edge: state.edge,
+                    input: 0, output: duration, at, rejected };
+            }
             const videoUri = cut ? this.cutVideoUri(cut) : '';
             let maxOutSeconds: number | undefined;
             let durationUnavailable = false;
@@ -14944,6 +14991,20 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     const original = this.cuts[preview.index];
                     const segment = this.segments[preview.index];
                     if (!original || !segment) throw new Error('クリップが見つかりません。');
+                    if (this.isStillImageCut(original)) {
+                        const duration = clampStillCutLength(preview.output, this.fps);
+                        const at = preview.at ?? segment.tlStart;
+                        if (duration === undefined || this.cutWouldOverlap(preview.index, at, duration, segment.track)) {
+                            throw new Error('隣のクリップと重なるためトリムできません。');
+                        }
+                        const itemId = this.cutItemId(preview.index);
+                        mutate = doc => updateV2Item(doc, { itemId, patch: {
+                            at: this.frameAt(at), duration: this.frameAt(duration), source: { in: 0, out: duration }
+                        } });
+                        label = 'クリップのトリム';
+                        message = 'クリップをトリムしました。';
+                        break;
+                    }
                     const speed = typeof original.speed === 'number' && original.speed > 0 ? original.speed : 1;
                     const out = preview.maxOutSeconds === undefined
                         ? preview.output : Math.min(preview.output, preview.maxOutSeconds);

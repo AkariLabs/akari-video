@@ -1,0 +1,568 @@
+{
+  "status": "pass",
+  "phase": "after-fix",
+  "driver": "Electron + CDP Input.dispatchMouseEvent",
+  "steps": [
+    {
+      "name": "real right-edge drag of the still clip by 1.2 s",
+      "pass": true,
+      "measurements": {
+        "rect": {
+          "left": 144,
+          "right": 213.8125,
+          "top": 329,
+          "bottom": 377,
+          "width": 69.8125,
+          "height": 48
+        },
+        "pxPerSecond": 34.981818181818184,
+        "x0": 211.8125,
+        "x1": 253.7906818181818,
+        "y": 353,
+        "footers": [
+          "長さ 2.10 秒",
+          "長さ 2.20 秒",
+          "長さ 2.30 秒",
+          "長さ 2.40 秒",
+          "長さ 2.50 秒",
+          "長さ 2.60 秒",
+          "長さ 2.70 秒",
+          "長さ 2.80 秒",
+          "長さ 2.90 秒",
+          "長さ 3.00 秒",
+          "長さ 3.10 秒",
+          "長さ 3.20 秒",
+          "長さ 3.20 秒"
+        ],
+        "noticeDuringDrag": "×",
+        "fetchesDuringDrag": 0,
+        "ensureVideoDurationFetchCallsDuringDrag": 0,
+        "stillDurationCacheAfterDrag": [],
+        "noticeCallsDuringDrag": 0
+      },
+      "elapsedMs": 1087
+    },
+    {
+      "name": "release commits the new duration",
+      "pass": true,
+      "measurements": {
+        "item": {
+          "id": "still",
+          "at": 0,
+          "duration": 96,
+          "source": {
+            "kind": "media",
+            "src": "still",
+            "in": 0,
+            "out": 3.2
+          }
+        },
+        "fetches": 0,
+        "ensureVideoDurationFetchCalls": 0,
+        "stillDurationCache": [],
+        "noticeCalls": 0,
+        "noticeText": "×",
+        "warningFooters": []
+      },
+      "elapsedMs": 960
+    },
+    {
+      "name": "edit lint passes after the drag",
+      "pass": true,
+      "measurements": {
+        "code": 0,
+        "verdict": "pass"
+      },
+      "elapsedMs": 663
+    },
+    {
+      "name": "undo once restores the still clip",
+      "pass": true,
+      "measurements": {
+        "still": {
+          "id": "still",
+          "at": 0,
+          "duration": 60,
+          "source": {
+            "kind": "media",
+            "src": "still",
+            "in": 0,
+            "out": 2
+          }
+        },
+        "undoClicks": 1
+      },
+      "elapsedMs": 238
+    },
+    {
+      "name": "dragging a still clip (n1, 10 s) left edge 3 s right stops at 0.5 s",
+      "pass": true,
+      "measurements": {
+        "still": {
+          "id": "n1",
+          "at": 345,
+          "duration": 15,
+          "source": {
+            "kind": "media",
+            "src": "neighbor",
+            "in": 0,
+            "out": 0.5
+          }
+        },
+        "restoredByOneUndo": true
+      },
+      "elapsedMs": 2116
+    },
+    {
+      "name": "generation tab shows 5 s and an estimate before the change",
+      "pass": true,
+      "measurements": {
+        "duration": "長さ5 秒（cuts）",
+        "estimate": "見積$0.50（as_of 2026-09-12）",
+        "fields": [
+          "generation-model=モデルMiniMax H3 · $0.05/秒 · as_of 2026-09-12（fal:h3-i2v）MiniMax H3 · $0.05/秒 · as_of 2026-09-22（fal:h3-ref）Kling Video v3 ",
+          "generation-variety=種類画像から",
+          "generation-material-note=送る絵は素材のまま（色・サイズは送りません）",
+          "generation-duration=長さ5 秒（cuts）",
+          "generation-resolution=解像度720p1080p",
+          "generation-estimate=見積$0.50（as_of 2026-09-12）"
+        ]
+      },
+      "elapsedMs": 668
+    },
+    {
+      "name": "cut section shows an editable 長さ field for the planned video clip",
+      "pass": true,
+      "measurements": {
+        "field": "duration",
+        "value": "5.0",
+        "input": {
+          "left": 764,
+          "right": 1011,
+          "top": 139.5,
+          "bottom": 161.5,
+          "width": 247,
+          "height": 22,
+          "painted": true,
+          "background": "rgb(20, 20, 20)",
+          "border": "rgb(27, 27, 27) 1px solid"
+        },
+        "label": {
+          "role": "akari-inspector-row-label",
+          "text": "長さ",
+          "left": 645,
+          "right": 729,
+          "top": 139.5,
+          "bottom": 161.5,
+          "width": 84,
+          "height": 22
+        },
+        "texts": [
+          {
+            "role": "akari-inspector-number-handle",
+            "text": "↔",
+            "left": 737,
+            "right": 761,
+            "top": 140.5,
+            "bottom": 160.5,
+            "width": 24,
+            "height": 20
+          },
+          {
+            "role": "akari-inspector-number-unit",
+            "text": "秒",
+            "left": 1014,
+            "right": 1026,
+            "top": 141.5,
+            "bottom": 159.5,
+            "width": 12,
+            "height": 18
+          },
+          {
+            "role": "",
+            "text": "▲",
+            "left": 1029,
+            "right": 1047,
+            "top": 140,
+            "bottom": 150.5,
+            "width": 18,
+            "height": 10.5
+          },
+          {
+            "role": "",
+            "text": "▼",
+            "left": 1029,
+            "right": 1047,
+            "top": 150.5,
+            "bottom": 161,
+            "width": 18,
+            "height": 10.5
+          }
+        ]
+      },
+      "elapsedMs": 465
+    },
+    {
+      "name": "typing 3.5 into 長さ writes duration and source.out together",
+      "pass": true,
+      "measurements": {
+        "focused": "INPUT",
+        "item": {
+          "id": "plan",
+          "at": 450,
+          "duration": 105,
+          "source": {
+            "kind": "media",
+            "src": "plan",
+            "in": 0,
+            "out": 3.5
+          }
+        },
+        "widthBefore": 44.7265625,
+        "widthAfter": 31.3046875,
+        "field": {
+          "field": "duration",
+          "value": "3.5",
+          "input": {
+            "left": 764,
+            "right": 1011,
+            "top": 139.5,
+            "bottom": 161.5,
+            "width": 247,
+            "height": 22,
+            "painted": true,
+            "background": "rgb(20, 20, 20)",
+            "border": "rgb(27, 27, 27) 1px solid"
+          },
+          "label": {
+            "role": "akari-inspector-row-label",
+            "text": "長さ",
+            "left": 645,
+            "right": 729,
+            "top": 139.5,
+            "bottom": 161.5,
+            "width": 84,
+            "height": 22
+          },
+          "texts": [
+            {
+              "role": "akari-inspector-number-handle",
+              "text": "↔",
+              "left": 737,
+              "right": 761,
+              "top": 140.5,
+              "bottom": 160.5,
+              "width": 24,
+              "height": 20
+            },
+            {
+              "role": "akari-inspector-number-unit",
+              "text": "秒",
+              "left": 1014,
+              "right": 1026,
+              "top": 141.5,
+              "bottom": 159.5,
+              "width": 12,
+              "height": 18
+            },
+            {
+              "role": "",
+              "text": "▲",
+              "left": 1029,
+              "right": 1047,
+              "top": 140,
+              "bottom": 150.5,
+              "width": 18,
+              "height": 10.5
+            },
+            {
+              "role": "",
+              "text": "▼",
+              "left": 1029,
+              "right": 1047,
+              "top": 150.5,
+              "bottom": 161,
+              "width": 18,
+              "height": 10.5
+            }
+          ]
+        }
+      },
+      "elapsedMs": 1330
+    },
+    {
+      "name": "generation tab length and estimate follow",
+      "pass": true,
+      "measurements": {
+        "before": {
+          "duration": "長さ5 秒（cuts）",
+          "estimate": "見積$0.50（as_of 2026-09-12）",
+          "fields": [
+            "generation-model=モデルMiniMax H3 · $0.05/秒 · as_of 2026-09-12（fal:h3-i2v）MiniMax H3 · $0.05/秒 · as_of 2026-09-22（fal:h3-ref）Kling Video v3 ",
+            "generation-variety=種類画像から",
+            "generation-material-note=送る絵は素材のまま（色・サイズは送りません）",
+            "generation-duration=長さ5 秒（cuts）",
+            "generation-resolution=解像度720p1080p",
+            "generation-estimate=見積$0.50（as_of 2026-09-12）"
+          ]
+        },
+        "after": {
+          "duration": "長さ3.5 秒 → 3 秒",
+          "estimate": "見積$0.30（as_of 2026-09-12）",
+          "fields": [
+            "generation-model=モデルMiniMax H3 · $0.05/秒 · as_of 2026-09-12（fal:h3-i2v）MiniMax H3 · $0.05/秒 · as_of 2026-09-22（fal:h3-ref）Kling Video v3 ",
+            "generation-variety=種類画像から",
+            "generation-material-note=送る絵は素材のまま（色・サイズは送りません）",
+            "generation-duration=長さ3.5 秒 → 3 秒",
+            "generation-resolution=解像度720p1080p",
+            "generation-estimate=見積$0.30（as_of 2026-09-12）",
+            "generation-message=注記尺 3.5 秒 → 3 秒に丸めました（Wan 2.7 は 2〜15 秒）"
+          ]
+        }
+      },
+      "elapsedMs": 592
+    },
+    {
+      "name": "edit lint passes after the length change",
+      "pass": true,
+      "measurements": {
+        "code": 0,
+        "verdict": "pass"
+      },
+      "elapsedMs": 1307
+    },
+    {
+      "name": "timeline clip labels and badges do not intersect",
+      "pass": true,
+      "measurements": {
+        "planRects": 1,
+        "stillRects": 2,
+        "overlaps": 0
+      },
+      "elapsedMs": 6
+    },
+    {
+      "name": "one undo restores duration 150 / source.out 5",
+      "pass": true,
+      "measurements": {
+        "plan": {
+          "id": "plan",
+          "at": 450,
+          "duration": 150,
+          "source": {
+            "kind": "media",
+            "src": "plan",
+            "in": 0,
+            "out": 5
+          }
+        },
+        "undoClicks": 1,
+        "width": 44.7265625
+      },
+      "elapsedMs": 1101
+    },
+    {
+      "name": "typing 9 into 長さ next to a neighbor rounds to the largest fit (8 s)",
+      "pass": true,
+      "measurements": {
+        "plan": {
+          "id": "plan",
+          "at": 450,
+          "duration": 240,
+          "source": {
+            "kind": "media",
+            "src": "plan",
+            "in": 0,
+            "out": 8
+          }
+        },
+        "neighborAt": 690
+      },
+      "elapsedMs": 926
+    }
+  ],
+  "screenshots": [
+    "01-still-right-edge-drag.png",
+    "02-generation-tab-before.png",
+    "03-length-field-before.png",
+    "04-length-3.5.png",
+    "05-generation-tab-after.png",
+    "06-after-undo.png"
+  ],
+  "falRequests": [],
+  "initialStillCache": [],
+  "drag": {
+    "rect": {
+      "left": 144,
+      "right": 213.8125,
+      "top": 329,
+      "bottom": 377,
+      "width": 69.8125,
+      "height": 48
+    },
+    "pxPerSecond": 34.981818181818184,
+    "x0": 211.8125,
+    "x1": 253.7906818181818,
+    "y": 353,
+    "footers": [
+      "長さ 2.10 秒",
+      "長さ 2.20 秒",
+      "長さ 2.30 秒",
+      "長さ 2.40 秒",
+      "長さ 2.50 秒",
+      "長さ 2.60 秒",
+      "長さ 2.70 秒",
+      "長さ 2.80 秒",
+      "長さ 2.90 秒",
+      "長さ 3.00 秒",
+      "長さ 3.10 秒",
+      "長さ 3.20 秒",
+      "長さ 3.20 秒"
+    ],
+    "noticeDuringDrag": "×",
+    "fetchesDuringDrag": 0,
+    "ensureVideoDurationFetchCallsDuringDrag": 0,
+    "stillDurationCacheAfterDrag": [],
+    "noticeCallsDuringDrag": 0
+  },
+  "commit": {
+    "item": {
+      "id": "still",
+      "at": 0,
+      "duration": 96,
+      "source": {
+        "kind": "media",
+        "src": "still",
+        "in": 0,
+        "out": 3.2
+      }
+    },
+    "fetches": 0,
+    "ensureVideoDurationFetchCalls": 0,
+    "stillDurationCache": [],
+    "noticeCalls": 0,
+    "noticeText": "×",
+    "warningFooters": []
+  },
+  "inspectorTabs": [
+    "映像",
+    "色",
+    "音声",
+    "生成",
+    "情報"
+  ],
+  "lengthField": {
+    "field": "duration",
+    "value": "5.0",
+    "input": {
+      "left": 764,
+      "right": 1011,
+      "top": 139.5,
+      "bottom": 161.5,
+      "width": 247,
+      "height": 22,
+      "painted": true,
+      "background": "rgb(20, 20, 20)",
+      "border": "rgb(27, 27, 27) 1px solid"
+    },
+    "label": {
+      "role": "akari-inspector-row-label",
+      "text": "長さ",
+      "left": 645,
+      "right": 729,
+      "top": 139.5,
+      "bottom": 161.5,
+      "width": 84,
+      "height": 22
+    },
+    "texts": [
+      {
+        "role": "akari-inspector-number-handle",
+        "text": "↔",
+        "left": 737,
+        "right": 761,
+        "top": 140.5,
+        "bottom": 160.5,
+        "width": 24,
+        "height": 20
+      },
+      {
+        "role": "akari-inspector-number-unit",
+        "text": "秒",
+        "left": 1014,
+        "right": 1026,
+        "top": 141.5,
+        "bottom": 159.5,
+        "width": 12,
+        "height": 18
+      },
+      {
+        "role": "",
+        "text": "▲",
+        "left": 1029,
+        "right": 1047,
+        "top": 140,
+        "bottom": 150.5,
+        "width": 18,
+        "height": 10.5
+      },
+      {
+        "role": "",
+        "text": "▼",
+        "left": 1029,
+        "right": 1047,
+        "top": 150.5,
+        "bottom": 161,
+        "width": 18,
+        "height": 10.5
+      }
+    ]
+  },
+  "chipText": {
+    "plan": [
+      {
+        "role": "akari-generation-badge",
+        "text": "▶",
+        "left": 502.09375,
+        "right": 517.4765625,
+        "top": 522.515625,
+        "bottom": 536.515625,
+        "width": 15.3828125,
+        "height": 14
+      }
+    ],
+    "still": [
+      {
+        "role": "akari-annotations-strip-clip-header-duration",
+        "text": "00:02:00",
+        "left": 413.9140625,
+        "right": 457.9140625,
+        "top": 521.515625,
+        "bottom": 533.515625,
+        "width": 44,
+        "height": 12
+      },
+      {
+        "role": "akari-generation-badge",
+        "text": "静止画",
+        "left": 370.9140625,
+        "right": 375.8046875,
+        "top": 523.515625,
+        "bottom": 537.515625,
+        "width": 4.890625,
+        "height": 14
+      }
+    ],
+    "overlaps": []
+  },
+  "cleanup": {
+    "pid": 11752,
+    "signals": 6,
+    "survivors": [],
+    "isolatedAkariHome": true,
+    "isolatedUserData": true,
+    "before": 7,
+    "exited": true
+  },
+  "elapsedMs": 34403
+}
