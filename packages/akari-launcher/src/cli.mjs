@@ -7,7 +7,7 @@ import { detectProjectState } from './project-state.mjs';
 import { findClaudeExecutable, findExecutable, findOpencodeExecutable } from './path-lookup.mjs';
 import { loadTaskLabels } from './task-labels.mjs';
 import { describeForceReinstall, describeInstalledVersions, describeIntake, claudeMissingGuidance, opencodeMissingGuidance, describeUpdateCacheFallback, describeUpdateCommand, describeVersionStatus, formatUpdateNotice } from './messages.mjs';
-import { resolveEffectiveProjectRoot } from './first-run.mjs';
+import { defaultLoadCreatorRootModule, resolveEffectiveProjectRoot } from './first-run.mjs';
 import { maybeShowAssetIntroNotice } from './sounds-setup.mjs';
 import {
   checkForUpdateSync,
@@ -80,6 +80,14 @@ export async function run(args, options = {}) {
   // （現行動作）のため丸ごとスキップする（契約 §9・非 TTY と同じ現行動作互換の扱い）。
   if (!hereOnly) {
     projectRoot = await resolveEffectiveProjectRoot({ projectRoot, env, platform, now, log, assets, autoConfirm, options });
+  }
+
+  try {
+    const creatorRoot = await defaultLoadCreatorRootModule(assets);
+    const migration = await creatorRoot?.migrateAssetLibrary({ env, platform, automatic: true, notify: log });
+    for (const failure of migration?.failures ?? []) log(`素材の移行を再試行します: ${failure.message}`);
+  } catch (error) {
+    log(`素材の移行を再試行します: ${error.message}`);
   }
 
   let state = detectProjectState(projectRoot);

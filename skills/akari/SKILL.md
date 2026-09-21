@@ -7,6 +7,11 @@ description: AKARI Video のプロジェクトを作る・開く・続きから�
 
 > **Language**: Respond in the user's language — 対話・質問・承認確認・レポートはユーザーの使用言語に合わせる（例: 英語で話しかけられたら英語で応答する）。
 
+ライブラリの置き場は既定で作業場の `library/`。作業場が無いときは従来の `~/.akari/assets/` を使う。
+`akari-assets list`（または `akari assets list`）の先頭行で実際の置き場を確認する。
+以下の `<ライブラリの置き場>` はその表示先を指し、音源はその下の `audio/` に入る。
+
+
 この入口は次の 3 分岐だけを担当する。本体スキルの手順はここに複製しない。
 以下の `akari` は PATH 上の CLI を使う。無ければ
 `node "${AKARI_HOME:-$HOME/.akari}/app/packages/akari-launcher/bin/akari.mjs"`、

@@ -1,5 +1,9 @@
 # AKARI Video プロジェクトの進め方
 
+ライブラリの置き場は既定で作業場の `library/`。作業場が無いときは従来の `~/.akari/assets/` を使う。
+`akari-assets list`（または `akari assets list`）の先頭行で実際の置き場を確認する。
+以下の `<ライブラリの置き場>` はその表示先を指し、音源はその下の `audio/` に入る。
+
 > **Language**: Respond in the user's language — 対話・質問・承認確認・レポートはユーザーの使用言語に合わせる（例: 英語で話しかけられたら英語で応答する）。
 
 - `assets/` は元動画と音声を置く素材の場所。英語の名前は変えず、原本を書き換えたり削除したりしない。
@@ -38,7 +42,7 @@
 - `~/.akari/app` … `install.sh` 経路で入れた本体。デスクトップアプリだけを使っている場合は存在しなくてよい。
 - アプリ同梱の `<App>/Contents/Resources/packages/` … render-cut・edit-lint などの CLI 実体。Windows は `<install dir>\resources\packages\`。
 - アプリ同梱の `<App>/Contents/Resources/media-bin/` … ffmpeg・ffprobe。whisper-cli はビルドにより同梱されないことがある。Windows は `<install dir>\resources\media-bin\`。
-- `~/.akari/assets` … 素材ライブラリの実体。
+- `<ライブラリの置き場>` … 素材ライブラリの実体。
 
 どれも PATH には無い前提とする。パートナー PTY 以外の端末では
 `~/.akari/cli/bin/akari` をフルパスで実行する。
@@ -49,7 +53,7 @@
 - `akari assets fetch <id> --project .` でこのプロジェクトへ取り込む（sha256 検証込み）。
 - 有料素材は `akari store connect` 接続済みのアカウントで購入していれば使える。未購入は
   `locked` と価格が表示される。
-- ライブラリの実体は `~/.akari/assets/` に置かれる。直接編集せず、上記コマンド経由で操作する。
+- ライブラリの実体は `<ライブラリの置き場>/` に置かれる。直接編集せず、上記コマンド経由で操作する。
 
 ## プロジェクト内のスキル
 

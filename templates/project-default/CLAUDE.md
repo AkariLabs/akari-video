@@ -1,5 +1,9 @@
 # AKARI Video プロジェクト
 
+ライブラリの置き場は既定で作業場の `library/`。作業場が無いときは従来の `~/.akari/assets/` を使う。
+`akari-assets list`（または `akari assets list`）の先頭行で実際の置き場を確認する。
+以下の `<ライブラリの置き場>` はその表示先を指し、音源はその下の `audio/` に入る。
+
 > **Language**: Respond in the user's language — 対話・質問・承認確認・レポートはユーザーの使用言語に合わせる（例: 英語で話しかけられたら英語で応答する）。
 
 このプロジェクトでは、次の役割に沿って編集を進めます。
@@ -21,7 +25,7 @@
 確認できます。使いたい素材が見つかったら `akari assets fetch <id> --project .` でこのプロジェクトへ
 取り込みます（sha256 検証込み）。有料素材は `akari store connect` で接続済みのアカウントで
 購入していれば使え、未購入のものは価格付きの `locked` と表示されます。ライブラリの実体は
-`~/.akari/assets/` に置かれますが、直接編集せず上記コマンド経由で操作してください。
+`<ライブラリの置き場>/` に置かれますが、直接編集せず上記コマンド経由で操作してください。
 
 ## プレビューの確認
 
@@ -40,7 +44,7 @@
 - `~/.akari/app` … `install.sh` から入れた AKARI Video 本体です。デスクトップアプリだけを使っている場合は、存在しなくて構いません。
 - アプリ同梱の `<App>/Contents/Resources/packages/` … render-cut・edit-lint など、編集や検査を実行するコマンドの実体です。Windows では `<install dir>\resources\packages\` にあります。
 - アプリ同梱の `<App>/Contents/Resources/media-bin/` … ffmpeg・ffprobe があります。whisper-cli はビルドによって同梱されないことがあります。Windows では `<install dir>\resources\media-bin\` にあります。
-- `~/.akari/assets` … 素材ライブラリの実体です。
+- `<ライブラリの置き場>` … 素材ライブラリの実体です。
 
 どれも PATH には無い前提です。パートナー PTY 以外の端末では、
 `~/.akari/cli/bin/akari` をフルパスで実行してください。

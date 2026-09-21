@@ -17,15 +17,16 @@
 //   --declarations <path>  宣言 JSON（既定: <ライブラリ>/declarations.json / env AKARI_SOUNDS_DECLARATIONS）
 //   --json                 機械可読出力
 
+import { audioReadPath, readAudioDeclarations } from '../shared/library-roots.mjs';
+import { resolveAssetLibraryRoots } from '../../creator-root/src/index.mjs';
 import { existsSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { spawnSync } from 'node:child_process';
-import os from 'node:os';
 import path from 'node:path';
 import { cutCandidates, musicGrid, snapToGrid, toFrameGrid } from '../shared/beat-grid.mjs';
 
 function libraryRoot(env = process.env) {
-    return path.join(env.AKARI_HOME || path.join(os.homedir(), '.akari'), 'assets', 'audio');
+    return path.join(resolveAssetLibraryRoots(env).write, 'audio');
 }
 
 function parseArguments(argv, env = process.env) {
@@ -55,7 +56,7 @@ function parseArguments(argv, env = process.env) {
 async function loadDeclarations(options) {
     const candidate = options.declarations
         ? path.resolve(options.declarations)
-        : path.join(libraryRoot(), 'declarations.json');
+        : audioReadPath(libraryRoot(), 'declarations.json');
     if (!existsSync(candidate)) {
         throw new Error(
             `宣言データが見つかりません: ${candidate}\n` +
@@ -63,7 +64,7 @@ async function loadDeclarations(options) {
             '購入済みなら akari store install sounds-declaration-pack で入ります。',
         );
     }
-    return { declarations: JSON.parse(await readFile(candidate, 'utf8')), source: candidate };
+    return { declarations: (options.declarations ? JSON.parse(await readFile(candidate, 'utf8')) : readAudioDeclarations(libraryRoot())), source: candidate };
 }
 
 /** edit.json から BGM の id / in / タイムライン長（cuts の合計）を読む。 */
@@ -152,7 +153,7 @@ async function main() {
 
     if (!Number.isFinite(trackDuration)) {
         if (!bgmFile) {
-            const guess = path.join(libraryRoot(), 'akari-sounds-bgm', `${trackId}.mp3`);
+            const guess = audioReadPath(libraryRoot(), 'akari-sounds-bgm', `${trackId}.mp3`);
             bgmFile = existsSync(guess) ? guess : null;
         }
         trackDuration = bgmFile ? probeDuration(bgmFile) : null;

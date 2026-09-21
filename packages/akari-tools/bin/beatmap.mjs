@@ -8,7 +8,7 @@
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { homedir } from 'node:os';
+import { resolveAssetLibraryRoots } from '../../creator-root/src/index.mjs';
 
 const args = process.argv.slice(2);
 const flag = (name, fallback = null) => {
@@ -23,17 +23,28 @@ if (!projectArg || !trackId) {
 }
 const projectRoot = resolve(projectArg);
 
-const declPath = flag('declarations') ?? [
+const declarationCandidates = flag('declarations') ? [flag('declarations')] : [
   join(projectRoot, 'assets', 'audio', 'declarations.json'),
-  join(homedir(), '.akari', 'assets', 'audio', 'declarations.json'),
-].find(existsSync);
-if (!declPath || !existsSync(declPath)) {
-  console.error('declarations.json が見つかりません。--declarations で指定するか、declare-audio で宣言を付けてください。');
-  process.exit(1);
+  ...resolveAssetLibraryRoots().read.map(root => join(root, 'audio', 'declarations.json')),
+];
+let declPath;
+let decl;
+for (const candidate of declarationCandidates) {
+  try {
+    const declarations = JSON.parse(readFileSync(candidate, 'utf8'));
+    if (!declarations || typeof declarations !== 'object' || Array.isArray(declarations)
+        || !Object.hasOwn(declarations, trackId)) continue;
+    const entry = declarations[trackId];
+    if (!entry || typeof entry !== 'object' || Array.isArray(entry)) continue;
+    declPath = candidate;
+    decl = entry;
+    break;
+  } catch {
+    // Missing, unreadable or malformed candidates must not hide a valid later root.
+  }
 }
-const decl = JSON.parse(readFileSync(declPath, 'utf8'))[trackId];
-if (!decl) {
-  console.error(`宣言に "${trackId}" がありません（${declPath}）。declare-audio で付けてください。`);
+if (!declPath) {
+  console.error('読み取れる declarations.json に対象トラックが見つかりません。--declarations で指定するか、declare-audio で宣言を付けてください。');
   process.exit(1);
 }
 if (!Number.isFinite(decl.bpm) || !Number.isFinite(decl.beat_offset_s)) {
@@ -44,7 +55,7 @@ if (!Number.isFinite(decl.bpm) || !Number.isFinite(decl.beat_offset_s)) {
 const trackPath = flag('track') ?? [
   join(projectRoot, 'assets', 'bgm', `${trackId}.wav`),
   join(projectRoot, 'assets', 'audio', trackId, 'track.wav'),
-  join(homedir(), '.akari', 'assets', 'audio', trackId, 'track.wav'),
+  ...resolveAssetLibraryRoots().read.map(root => join(root, 'audio', trackId, 'track.wav')),
 ].find(existsSync);
 if (!trackPath || !existsSync(trackPath)) {
   console.error('音源が見つかりません。--track で wav を指定してください。');

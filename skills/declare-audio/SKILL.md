@@ -7,6 +7,11 @@ description: 手元の音源に「サビはどこか・キメはどこか・拍�
 
 > **Language**: Respond in the user's language — 対話・質問・承認確認・レポートはユーザーの使用言語に合わせる。
 
+ライブラリの置き場は既定で作業場の `library/`。作業場が無いときは従来の `~/.akari/assets/` を使う。
+`akari-assets list`（または `akari assets list`）の先頭行で実際の置き場を確認する。
+以下の `<ライブラリの置き場>` はその表示先を指し、音源はその下の `audio/` に入る。
+
+
 次のいずれかに違反する形で宣言づけを進めない。詳細リーフより常に優先する。
 
 1. **宣言はエージェントが打たない。人が耳で決める。** このスキルの仕事は「画面を起動して、
@@ -16,7 +21,7 @@ description: 手元の音源に「サビはどこか・キメはどこか・拍�
 2. **推定値を実測と偽らない。** 自動推定は ±1〜2 BPM ずれる（打点の弱い曲・AI 生成曲の
    テンポ揺れでは特に）。レポートに書くときは「推定」「本人が耳で確認済み」を区別して書く。
 3. **音声実体を本リポにコミットしない。** 対象はユーザーのライブラリ（既定
-   `~/.akari/assets/audio/`）であり、リポジトリには宣言も音声も置かない。
+   `<ライブラリの置き場>/audio/`）であり、リポジトリには宣言も音声も置かない。
 4. **他所由来の宣言を黙って上書きしない。** 購入した宣言パック等（`source` が
    `declare-audio` 以外）を上書きするときは、画面の「パック由来」バッジをユーザーに
    知らせてから進める（保存時は `replaced_source` に記録が残る）。
@@ -42,12 +47,12 @@ description: 手元の音源に「サビはどこか・キメはどこか・拍�
 |---|---|
 | 手元の曲に「サビはここ」を教えて、BGM 提案とサビ頭出しを賢くしたい | **本スキル** |
 | 音源そのものを増やしたい（公式ライブラリの一括取得・外部の補完） | [setup-audio-library](../setup-audio-library/SKILL.md) |
-| AKARI Sounds の曲に、自分で打たずに検証済みの宣言が欲しい | AKARI Store の宣言パック（耳検証済みデータの版ごと買い切り。導入は zip 内の `declarations.json` を `~/.akari/assets/audio/` に置くだけ） |
+| AKARI Sounds の曲に、自分で打たずに検証済みの宣言が欲しい | AKARI Store の宣言パック（耳検証済みデータの版ごと買い切り。導入は zip 内の `declarations.json` を `<ライブラリの置き場>/audio/` に置くだけ） |
 | 宣言を使って BGM を選びたい（宣言づけではなく利用側） | `packages/audio-library-setup/bin/suggest-bgm.mjs` / [edit-plan](../edit-plan/SKILL.md) の素材計画 |
 
 ## 宣言の形（保存先と契約）
 
-保存先は **`<ライブラリ>/declarations.json`**（既定 `~/.akari/assets/audio/declarations.json`）。
+保存先は **`<ライブラリ>/declarations.json`**（既定 `<ライブラリの置き場>/audio/declarations.json`）。
 `suggest-bgm` が既定パスとして自動検出する場所であり、キーはトラック id。
 
 ```json

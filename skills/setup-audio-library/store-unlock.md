@@ -1,5 +1,9 @@
 # store-unlock — 購入済み宣言パックの導入
 
+ライブラリの置き場は既定で作業場の `library/`。作業場が無いときは従来の `~/.akari/assets/` を使う。
+`akari-assets list`（または `akari assets list`）の先頭行で実際の置き場を確認する。
+以下の `<ライブラリの置き場>` はその表示先を指し、音源はその下の `audio/` に入る。
+
 ユーザーが「購入した素材をセットアップして」「宣言パックを入れて」と言ったとき、
 または AKARI Store で音源系の購入がある状態でライブラリ整備を頼まれたときの工程。
 機械的な部分はすべて `akari store` CLI が持っている — このリーフは配線と検証だけを行う。
@@ -12,7 +16,7 @@
    - 接続済みなら購入済み一覧が出る。`sounds-declaration-pack` が無ければ
      ストアの商品ページを案内して終了（勝手に購入させない）
 2. **導入**: `akari store install sounds-declaration-pack`
-   - `~/.akari/assets/audio/declarations.json` に置かれる（既存があれば自動退避される）
+   - `<ライブラリの置き場>/audio/declarations.json` に置かれる（既存があれば自動退避される）
 3. **検証**（完了主張の前に必ず）:
    - `declarations.json` が JSON として読めること
    - 収録トラック数がパックの表示と一致すること（`node -e` で `Object.keys(...).length`）

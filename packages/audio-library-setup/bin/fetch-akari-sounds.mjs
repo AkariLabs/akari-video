@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // AKARI Sounds（自社 first-party 音源ライブラリ）を GitHub Release から一括取得し、
-// user スコープ（~/.akari/assets/audio/akari-sounds-<kind>/）へ登録する。
+// user スコープ（<ライブラリの置き場>/audio/akari-sounds-<kind>/）へ登録する。
 //
 // 第三者配布元と違い AKARI Sounds は自社が配布主体のため、一括ダウンロードを許可する
 // （2026-08-03 オーナー裁定。規律の境界は skills/setup-audio-library/first-party.md）。
@@ -11,7 +11,7 @@
 // Usage: node bin/fetch-akari-sounds.mjs [options]
 //   --variant mp3|wav   取得する形式（既定: mp3）
 //   --tag <tag>         Release タグ（既定: v0）
-//   --dest <dir>        登録先ライブラリルート（既定: ~/.akari/assets/audio）
+//   --dest <dir>        登録先ライブラリルート（既定: <ライブラリの置き場>/audio）
 //   --catalog <path>    catalog.json をローカルファイルから読む（オフライン・検証用）
 //   --zips-dir <path>   Release zip をローカルディレクトリから読む（オフライン・検証用）
 //   --dry-run           取得せずプランだけ表示する
@@ -19,6 +19,7 @@
 //   -y, --yes           受理する（対話プロンプトがないため動作は変わらない）
 //   -h, --help          このヘルプを表示する
 
+import { resolveAssetLibraryRoots } from '../../creator-root/src/index.mjs';
 import { spawnSync } from 'node:child_process';
 import { createWriteStream, realpathSync } from 'node:fs';
 import { copyFile, mkdir, mkdtemp, readdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
@@ -44,7 +45,7 @@ const validateAssetScript = path.join(repoRoot, 'packages', 'schemas', 'bin', 'v
 export const usage = `Usage: node bin/fetch-akari-sounds.mjs [options]
   --variant mp3|wav   取得する形式（既定: mp3）
   --tag <tag>         Release タグ（既定: v0）
-  --dest <dir>        登録先ライブラリルート（既定: ~/.akari/assets/audio）
+  --dest <dir>        登録先ライブラリルート（既定: <ライブラリの置き場>/audio）
   --catalog <path>    catalog.json をローカルファイルから読む（オフライン・検証用）
   --zips-dir <path>   Release zip をローカルディレクトリから読む（オフライン・検証用）
   --dry-run           取得せずプランだけ表示する
@@ -57,7 +58,7 @@ export function parseArguments(argv) {
         variant: 'mp3',
         tag: AKARI_SOUNDS_DEFAULT_TAG,
         // AKARI_HOME はテスト・隔離実行用の差し替え規約（launcher の update-check / sounds-setup と同じ）
-        dest: path.join(process.env.AKARI_HOME || path.join(os.homedir(), '.akari'), 'assets', 'audio'),
+        dest: path.join(resolveAssetLibraryRoots().write, 'audio'),
         catalog: null,
         zipsDir: null,
         dryRun: false,

@@ -120,7 +120,7 @@ for (const indexState of ['missing', 'empty']) {
     const list = runCli(['list'], env);
     assert.equal(list.status, 0, list.stderr);
     assert.equal(list.stdout,
-      `使える素材 2 件（ライブラリ: ${home}）\n`
+      `使える素材 2 件（ライブラリ: ${path.join(home, 'assets')}）\n`
       + '  ☁  mini-still\t[still]\tフィクスチャ素材 mini-still\n'
       + '  ¥500  mini-paid\t[still]\tフィクスチャ素材 mini-paid（有料）\n');
 

@@ -4,7 +4,7 @@
 //
 // Usage: node bin/gallery-helper.mjs [--library-root path] [--port N]
 
-import os from 'node:os';
+import { resolveAssetLibraryRoots } from '../../creator-root/src/index.mjs';
 import path from 'node:path';
 import { createGalleryServer } from '../gallery-server.mjs';
 
@@ -12,7 +12,7 @@ const HOST = '127.0.0.1';
 
 function parseArguments(argv) {
     const options = {
-        libraryRoot: path.join(os.homedir(), '.akari', 'assets', 'audio'),
+        libraryRoot: path.join(resolveAssetLibraryRoots().write, 'audio'),
         port: 0,
     };
     for (let i = 0; i < argv.length; i += 1) {

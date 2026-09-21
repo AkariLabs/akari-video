@@ -14,6 +14,7 @@
 // 保存前にサーバ側で妥当性を検査する（fail closed）。壊れた宣言を書くと編集側の自動提案が
 // 壊れるため、UI の入力ミス・古い版のクライアントからの POST をここで止める。
 
+import { audioDirectories, audioReadPath, audioReadRoots, readAudioDeclarations } from './shared/library-roots.mjs';
 import { createServer } from 'node:http';
 import { createReadStream } from 'node:fs';
 import { mkdir, readdir, readFile, rename, stat, unlink, writeFile } from 'node:fs/promises';
@@ -62,18 +63,10 @@ async function pathExists(candidate) {
  * 複数 → id は各ファイルの stem（パック形式。suggest-bgm のトラック id と一致する）。
  */
 export async function listTracks(libraryRoot) {
-    let dirEntries;
-    try {
-        dirEntries = await readdir(libraryRoot, { withFileTypes: true });
-    } catch (error) {
-        if (error.code === 'ENOENT') return [];
-        throw error;
-    }
-
     const tracks = [];
-    for (const dirEntry of dirEntries) {
+    for (const { entry: dirEntry, root } of audioDirectories(libraryRoot)) {
         if (!dirEntry.isDirectory() || dirEntry.name.startsWith('.') || dirEntry.name.startsWith('_')) continue;
-        const entryDir = path.join(libraryRoot, dirEntry.name);
+        const entryDir = path.join(root, dirEntry.name);
         let meta = {};
         try {
             meta = JSON.parse(await readFile(path.join(entryDir, 'meta.json'), 'utf8'));
@@ -104,13 +97,7 @@ export async function listTracks(libraryRoot) {
 }
 
 export async function loadDeclarations(libraryRoot) {
-    try {
-        const parsed = JSON.parse(await readFile(declarationsPathFor(libraryRoot), 'utf8'));
-        return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
-    } catch (error) {
-        if (error.code === 'ENOENT') return {};
-        throw error;
-    }
+    return readAudioDeclarations(libraryRoot);
 }
 
 async function writeDeclarations(libraryRoot, declarations) {
@@ -221,7 +208,7 @@ function sendJson(res, status, body) {
 }
 
 /**
- * @param {string} libraryRoot 宣言対象の実体ライブラリ（例: ~/.akari/assets/audio）
+ * @param {string} libraryRoot 宣言対象の実体ライブラリ（例: <ライブラリの置き場>/audio）
  */
 export function createDeclareServer(libraryRoot) {
     let mutationQueue = Promise.resolve();
@@ -311,8 +298,8 @@ export function createDeclareServer(libraryRoot) {
                     sendJson(res, 403, { error: 'forbidden' });
                     return;
                 }
-                const filePath = path.resolve(libraryRoot, relative);
-                if (!isInside(path.resolve(libraryRoot), filePath)) {
+                const filePath = audioReadPath(libraryRoot, relative);
+                if (!audioReadRoots(libraryRoot).some(root => isInside(path.resolve(root), filePath))) {
                     sendJson(res, 403, { error: 'forbidden' });
                     return;
                 }

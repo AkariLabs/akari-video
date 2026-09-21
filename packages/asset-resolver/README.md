@@ -1,9 +1,13 @@
 # @akari-video/asset-resolver
 
+ライブラリの置き場は既定で作業場の `library/`。作業場が無いときは従来の `~/.akari/assets/` を使う。
+`akari-assets list`（または `akari assets list`）の先頭行で実際の置き場を確認する。
+以下の `<ライブラリの置き場>` はその表示先を指し、音源はその下の `audio/` に入る。
+
 無料素材の参照配布 + オンデマンド取得 resolver v0。
 
 「このアカウントで使える素材（無料 + 購入済み）」をカタログ + entitlements + ローカル取得状態から
-1 リストに合成し、**使った素材だけ**を `~/.akari/assets/<category>/<id>/` へ取得・検証して登録する。
+1 リストに合成し、**使った素材だけ**を `<ライブラリの置き場>/<category>/<id>/` へ取得・検証して登録する。
 「全部ダウンロード」を既定にしない、という設計契約（内部リポ
 `planning/notes-2026-08-04-asset-reference-distribution.md`）の本体側実装。
 
@@ -17,6 +21,7 @@
 ```sh
 akari-assets list [--category <c>] [--json]          # 合成カタログ一覧（取得状態バッジ込み）
 akari-assets fetch <id> [--project <dir>] [--force]   # 素材を解決してローカルへ登録
+akari-assets migrate [--dry-run]                      # 旧置き場を再移行（dry-run は変更しない）
 akari-assets sync                                      # カタログを取得してローカルにキャッシュ
 akari-assets browse [--port <n>]                       # ローカル HTTP サーバでカタログを閲覧・投入
 ```
@@ -25,14 +30,14 @@ akari-assets browse [--port <n>]                       # ローカル HTTP サ�
 `[installed]` `akari store install` で導入済み。
 
 `akari store install <productId> [--from <zip>]` が `PACK.json` を持つ購入パックを展開すると、
-収載素材は `~/.akari/assets/installed.json` に登録される。resolver はこの索引をリモートカタログへ
+収載素材は `<ライブラリの置き場>/installed.json` に登録される。resolver はこの索引をリモートカタログへ
 マージし、同じ id があれば導入済みのローカル実体を優先する。`fetch` はネットワークや entitlement
 照会を使わずパックからコピーし、`PACK.json` 記載の sha256 と照合してから通常の素材ライブラリへ
 原子的に登録する。
 
 `fetch` はキャッシュヒットなら即座にそのパスを返す。未取得なら、カタログの `files[]` を全部
 一時ディレクトリへ実体化 → sha256 検証 → （`meta.json` を含む素材は）`validate-asset.mjs` で
-契約検証 → 全部通ってから `~/.akari/assets/<category>/<id>/` へ原子的に登録する。
+契約検証 → 全部通ってから `<ライブラリの置き場>/<category>/<id>/` へ原子的に登録する。
 途中で失敗したら一時ディレクトリを破棄し、登録先には一切書き込まない（fail-closed。部分状態を
 残さない）。有料で未購入（`price > 0` かつ entitlements に無い）は `fetch` を拒否する
 （一度取得済みのキャッシュはそのまま使える — ゲートは「新規取得」だけにかかる）。
@@ -54,7 +59,7 @@ BSD `cp -Rc`（`clonefile(2)` 直呼び）を試し、失敗時のみ上記 `fs.
    直下）で全ファイルの sha256 を検証
 3. `README.md` / `LICENSE.md` / `checksums.txt` を除く素材ペイロードを一時ディレクトリへコピー
 4. （`meta.json` を含む素材は）`validate-asset.mjs` で契約検証
-5. 全部通ってから `~/.akari/assets/<category>/<id>/` へ原子的に登録
+5. 全部通ってから `<ライブラリの置き場>/<category>/<id>/` へ原子的に登録
 
 無料経路と同じ fail-closed の規律（1 件でも失敗したら一時ディレクトリを破棄し、登録先には
 一切書き込まない）を踏襲する。ダウンロード失敗（オフライン・トークン失効）・zip 構成不正・
@@ -101,7 +106,8 @@ checksums 不一致は、いずれも `AssetResolverError`（`code: 'download_fa
 
 | 変数 | 既定値 | 用途 |
 | --- | --- | --- |
-| `AKARI_HOME` | `~/.akari` | ライブラリ（`assets/`）・カタログキャッシュ・`store-credentials.json` の置き場 |
+| `AKARI_HOME` | `~/.akari` | マシン状態（library-location.json・カタログキャッシュ・store-credentials.json）。作業場なしでは旧 assets/ もここに置く |
+| `AKARI_LIBRARY_ROOT` | 未設定 | ライブラリの書き込み先の明示上書き（読みは旧置き場にもフォールバック） |
 | `AKARI_ASSETS_CATALOG` | `https://akari-oss.app/assets/catalog.json` | カタログの取得元。**URL** ならリモート fetch、それ以外はローカルファイルパスとして読む（未デプロイの開発時は store リポのローカル出力を指す） |
 | `AKARI_ASSETS_BASE` | カタログの `base` フィールド | 素材実体の配信ベースの上書き（ローカル開発でディレクトリを直接指すときに使う） |
 | `AKARI_STORE_API` | `https://akari-oss.app` | entitlements API のホスト上書き。未設定時は `~/.akari/store-credentials.json` の `url`（`akari store connect` が書き込む値）から組み立てる |
@@ -145,3 +151,22 @@ node --test
 - `packages/akari-launcher/src/store-command.mjs` の `akari store connect` が書く
   `~/.akari/store-credentials.json`（`{ url, token, email }`）をそのまま読む
   （依存追加を避けるため import はせず、同じファイル規約だけを踏襲）
+
+## ライブラリの解決と移行
+
+`resolveAssetLibraryRoots(env, { platform })` の正本は `packages/creator-root/src/index.mjs`。
+書き込みは `AKARI_LIBRARY_ROOT` → `<AKARI_HOME>/library-location.json` → 従来の `assets/` の順で 1 か所に決まる。
+location が有効なのは migrating / done のときだけ。pending / declined では旧置き場への読み書きを維持し、同期フォルダへは書き込まない。
+明示の AKARI_LIBRARY_ROOT は最優先。読み取りは有効な置き場と従来の置き場を重複なく見る（新しい方を優先）。cwd の上方探索はしない。
+`list --json` は互換性のため従来どおり素材配列のみを返す。置き場表示は通常の `list` の先頭行。
+
+シェルと launcher の起動時に共通の移行実装を呼ぶ。`library-location.json` は version 0、
+root（絶対パス）、state（pending / migrating / done / declined）、decidedAt、migratedAt、notifiedAt を持ち、
+一時ファイル + rename で原子的に更新する。不在・壊れは従来の置き場へフォールバックする。
+移行先を初めて決めるときだけ `AKARI_CREATOR_ROOT` とマシンポインタの `lastRoot` を使う。
+
+同一ディスクは rename、EXDEV は複製・サイズと sha256 照合・旧側削除。同名素材は上書きせず旧側に残し、
+結果の skipped に記録する。カテゴリの中の新規素材は再移行できる。付随ファイルとキットの参照も追随する。
+途中失敗は migrating のまま再開可能。done 後に旧 CLI が追加した素材は `akari-assets migrate` で寄せる。
+作業場なしは何もしない。OneDrive / Dropbox / iCloud Drive / Google Drive 配下は pending に留め、
+結果に同期先と総容量を返す。ドロップフォルダと reviews はマシン状態として元の場所に残す。

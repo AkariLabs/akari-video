@@ -12,6 +12,8 @@
 //
 // Usage: node bin/review-sfx-mapping.mjs [--out <path>] [--catalog <path>]
 
+import { audioReadPath } from '../shared/library-roots.mjs';
+import { resolveAssetLibraryRoots } from '../../creator-root/src/index.mjs';
 import { existsSync } from 'node:fs';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import os from 'node:os';
@@ -20,7 +22,7 @@ import { pathToFileURL } from 'node:url';
 import { MEANING_VOCABULARY, suggestSfx } from '../shared/sfx-suggest.mjs';
 
 function resolveLibraryRoot(env = process.env) {
-  return path.join(env.AKARI_HOME || path.join(os.homedir(), '.akari'), 'assets', 'audio');
+  return path.join(resolveAssetLibraryRoots(env).write, 'audio');
 }
 
 function parseArguments(argv, env = process.env) {
@@ -45,10 +47,9 @@ function renderCandidate(candidate, libraryRoot) {
   if (candidate.absent) {
     return `<li class="cand missing"><code>${escapeHtml(candidate.id)}</code> — カタログに見当たらず</li>`;
   }
-  const packDir = path.join(libraryRoot, `akari-sounds-${candidate.kind}`);
   const players = candidate.takes.map((take) => {
     if (!take.mp3) return '';
-    const localPath = path.join(packDir, take.mp3);
+    const localPath = audioReadPath(libraryRoot, `akari-sounds-${candidate.kind}`, take.mp3);
     if (!existsSync(localPath)) {
       return `<span class="missing">未取得: ${escapeHtml(take.mp3)}</span>`;
     }
@@ -85,7 +86,7 @@ async function main() {
   if (options.catalog) {
     catalog = JSON.parse(await readFile(options.catalog, 'utf8'));
   } else {
-    const snapshotPath = path.join(libraryRoot, 'akari-sounds-sfx', '.origin-catalog.json');
+    const snapshotPath = audioReadPath(libraryRoot, 'akari-sounds-sfx', '.origin-catalog.json');
     if (!existsSync(snapshotPath)) {
       throw new Error('AKARI Sounds が未導入です。先に `akari sounds` を実行してください（または --catalog）');
     }
@@ -97,7 +98,7 @@ async function main() {
       const result = suggestSfx(catalog, { meaning, count: 99 });
       const external = result.external.map((entry) => ({
         ...entry,
-        owned: existsSync(path.join(libraryRoot, entry.id, 'meta.json')),
+        owned: existsSync(audioReadPath(libraryRoot, entry.id, 'meta.json')),
       }));
       return renderMeaning({ ...result, external }, libraryRoot);
     })

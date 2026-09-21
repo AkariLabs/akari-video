@@ -113,12 +113,12 @@ test("render inputs use a declared library reference and record scope library", 
 
     assert.equal(
       resolveDeclaredProjectInput(projectRoot, "assets/broll/intro/clip.mp4", "source", env),
-      source,
+      await realpath(source),
     );
     const inputs = await enumerateDeclaredRenderInputs({ projectRoot, edit, editText, env });
     const sourceInput = inputs.find((input) => input.role === "source:clip");
     assert.equal(sourceInput?.scope, "library");
-    assert.equal(sourceInput?.absolute_path, source);
+    assert.equal(sourceInput?.absolute_path, await realpath(source));
     const hashed = await hashDeclaredRenderInputs(inputs, { useConsumedText: true });
     assert.equal(hashed.find((input) => input.role === "source:clip")?.scope, "library");
 
@@ -138,7 +138,7 @@ test("render inputs use a declared library reference and record scope library", 
     const projectInputs = await enumerateDeclaredRenderInputs({ projectRoot, edit, editText, env });
     const projectSourceInput = projectInputs.find((input) => input.role === "source:clip");
     assert.equal(projectSourceInput?.scope, "project");
-    assert.equal(projectSourceInput?.absolute_path, projectSource);
+    assert.equal(projectSourceInput?.absolute_path, await realpath(projectSource));
   } finally {
     await rm(root, { recursive: true, force: true });
   }
@@ -259,5 +259,27 @@ test("plan-only resolves a v2 source through the library for capabilities, comma
     assert.equal(Object.hasOwn(projectRecordedSource ?? {}, "scope"), false);
   } finally {
     await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('render input provenance records the actual winning root before, during and after migration', async t => {
+  const temp = await mkdtemp(join(tmpdir(), 'render-migration-states-'));
+  t.after(() => rm(temp, { recursive: true, force: true }));
+  const projectRoot = join(temp,'project'), home = join(temp,'home'), library = join(temp,'library');
+  const declared = 'assets/broll/intro/clip.mp4';
+  await mkdir(join(projectRoot,'.akari'),{recursive:true});
+  await writeFile(join(projectRoot,'.akari/asset-references.json'),JSON.stringify({version:0,references:[{category:'broll',id:'intro'}]}));
+  const old = join(home,'assets/broll/intro/clip.mp4'), next = join(library,'broll/intro/clip.mp4');
+  await mkdir(dirname(old),{recursive:true}); await writeFile(old,'old clip');
+  const edit={version:1,output:{width:320,height:180,fps:30},sources:[{id:'clip',path:declared}],cuts:[{src:'clip',in:0,out:1}],overlays:[]};
+  await writeFile(join(projectRoot,'edit.json'),JSON.stringify(edit));
+  for (const phase of ['before','during','after']) {
+    if (phase !== 'before') await writeFile(join(home,'library-location.json'),JSON.stringify({version:0,root:library,state:phase==='during'?'migrating':'done'}));
+    if (phase==='after') { await mkdir(dirname(next),{recursive:true}); await cp(old,next); }
+    const inputs=await enumerateDeclaredRenderInputs({projectRoot,edit,editText:JSON.stringify(edit),env:{AKARI_HOME:home}});
+    const source=inputs.find(x=>x.role==='source:clip');
+    const expected=phase==='after'?library:join(home,'assets');
+    assert.equal(source.scope,'library'); assert.equal(source.library_root,await realpath(expected));
+    await hashDeclaredRenderInputs(inputs,{useConsumedText:true});
   }
 });

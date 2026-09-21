@@ -1,5 +1,9 @@
 # ドロップフォルダ監視・登録
 
+ライブラリの置き場は既定で作業場の `library/`。作業場が無いときは従来の `~/.akari/assets/` を使う。
+`akari-assets list`（または `akari assets list`）の先頭行で実際の置き場を確認する。
+以下の `<ライブラリの置き場>` はその表示先を指し、音源はその下の `audio/` に入る。
+
 [candidate-list.md](candidate-list.md) でユーザーが実際にダウンロードしたあと、
 このリーフでファイル単位の照合・登録を行う。
 
@@ -31,7 +35,7 @@ node packages/audio-library-setup/bin/register-drop-folder.mjs \
   --drop-dir ~/.akari/audio-drop --apply
 ```
 
-- **一致したファイル**: `~/.akari/assets/audio/<candidate-id>/` （user スコープ、
+- **一致したファイル**: `<ライブラリの置き場>/audio/<candidate-id>/` （user スコープ、
   [setup-library/fetch-and-validate.md](../setup-library/fetch-and-validate.md) と同じ
   スコープ階層）へ実体を移動し、`meta.json`（実体あり・`remote` キーなし）を書く。
   同時に `catalog/audio/<candidate-id>/meta.json`（`remote: true` の参照 SSOT）が
@@ -59,7 +63,7 @@ OtoLogic の一部）だけ。DOVA-SYNDROME・Pixabay・Freesound のタグ/検�
 ## 5. 検証
 
 ```sh
-node packages/schemas/bin/validate-asset.mjs ~/.akari/assets/audio/<candidate-id>
+node packages/schemas/bin/validate-asset.mjs <ライブラリの置き場>/audio/<candidate-id>
 ```
 
 失敗したら理由（大抵は `preview.png` 未生成 = ffmpeg 不在）をそのまま報告する。

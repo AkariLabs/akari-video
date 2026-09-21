@@ -9,16 +9,17 @@
 //   node bin/suggest-sfx.mjs --meaning <値> [--count N] [--catalog path] [--json]
 //   node bin/suggest-sfx.mjs --list          # 意味の語彙一覧
 
+import { audioReadPath } from '../shared/library-roots.mjs';
+import { resolveAssetLibraryRoots } from '../../creator-root/src/index.mjs';
 import { existsSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
-import os from 'node:os';
 import path from 'node:path';
 import { MEANING_VOCABULARY, suggestSfx } from '../shared/sfx-suggest.mjs';
 
 const SNAPSHOT_PACKS = ['akari-sounds-sfx', 'akari-sounds-jingle', 'akari-sounds-bgm'];
 
 function resolveLibraryRoot(env = process.env) {
-  return path.join(env.AKARI_HOME || path.join(os.homedir(), '.akari'), 'assets', 'audio');
+  return path.join(resolveAssetLibraryRoots(env).write, 'audio');
 }
 
 function parseArguments(argv) {
@@ -40,7 +41,7 @@ async function loadCatalog(options, libraryRoot) {
     return { catalog: JSON.parse(await readFile(options.catalog, 'utf8')), source: options.catalog };
   }
   for (const pack of SNAPSHOT_PACKS) {
-    const snapshotPath = path.join(libraryRoot, pack, '.origin-catalog.json');
+    const snapshotPath = audioReadPath(libraryRoot, pack, '.origin-catalog.json');
     if (existsSync(snapshotPath)) {
       return { catalog: JSON.parse(await readFile(snapshotPath, 'utf8')), source: snapshotPath };
     }
@@ -56,15 +57,14 @@ function attachPaths(result, libraryRoot) {
     if (candidate.absent) {
       return candidate;
     }
-    const packDir = path.join(libraryRoot, `akari-sounds-${candidate.kind}`);
     const takes = candidate.takes.map((take) => {
-      const localPath = take.mp3 ? path.join(packDir, take.mp3) : null;
+      const localPath = take.mp3 ? audioReadPath(libraryRoot, `akari-sounds-${candidate.kind}`, take.mp3) : null;
       return { ...take, path: localPath, exists: localPath ? existsSync(localPath) : false };
     });
     return { ...candidate, takes };
   });
   const external = result.external.map((entry) => {
-    const libraryDir = path.join(libraryRoot, entry.id);
+    const libraryDir = audioReadPath(libraryRoot, entry.id);
     const owned = existsSync(path.join(libraryDir, 'meta.json'));
     return { ...entry, owned, library_dir: owned ? libraryDir : null };
   });
