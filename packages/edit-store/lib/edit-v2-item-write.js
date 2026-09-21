@@ -85,6 +85,17 @@ function resolveV2Write(parsed, command) {
         throw new Error(`アイテムが見つかりません: ${itemId}`);
     const item = target.item;
     if (command.kind === 'overlay') {
+        if ('text' in command.patch) {
+            if (typeof command.patch.text !== 'string') {
+                throw new Error('部品の text は文字列である必要があります');
+            }
+            if (item.source.kind !== 'html' || !item.source.part) {
+                throw new Error(`部品でないアイテムには text を書き戻せません: ${itemId}`);
+            }
+        }
+        if (item.source.kind === 'html' && item.source.part && 'html' in command.patch) {
+            throw new Error(`部品の文字は source.text に保存します: ${itemId}`);
+        }
         // parts.mjs composes groups, but a bag supplies per-key defaults that
         // its part overrides. Only group ancestors form an invertible parent.
         // Preserve the original top-level merge/serialization byte for byte.
@@ -139,6 +150,10 @@ function resolveV2Write(parsed, command) {
         }
         if (item.source.kind === 'html') {
             const source = item.source;
+            if (typeof command.patch.text === 'string') {
+                source.text = command.patch.text;
+                editChanged = true;
+            }
             if (typeof command.patch.html === 'string') {
                 htmlPath = source.path;
             }

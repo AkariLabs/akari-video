@@ -6275,27 +6275,124 @@ var require_edit_v2_item_write = __commonJS({
       if (!itemId) {
         throw new Error("v2 \u30A2\u30A4\u30C6\u30E0\u306E id \u3092\u7279\u5B9A\u3067\u304D\u307E\u305B\u3093");
       }
-      let item;
-      for (const track of edit.tracks) {
-        if (track.lane !== "visual" || !("items" in track))
-          continue;
-        const found = track.items.find((candidate) => candidate.id === itemId);
-        if (found) {
-          item = found;
-          break;
+      const children = (item2) => item2.items ?? (Array.isArray(item2.children) ? item2.children : []);
+      const find = (items, id, ancestors = []) => {
+        for (const candidate of items) {
+          if (candidate.id === id)
+            return { item: candidate, ancestors };
+          const nested = find(children(candidate), id, [...ancestors, candidate]);
+          if (nested)
+            return nested;
+        }
+        return void 0;
+      };
+      const roots = edit.tracks.flatMap((track) => track.lane === "visual" && "items" in track ? track.items : []);
+      let target = command.kind === "overlay" ? find(roots, itemId) : roots.filter((candidate) => candidate.id === itemId).map((item2) => ({ item: item2, ancestors: [] }))[0];
+      let materialized = false;
+      if (!target && command.kind === "overlay" && itemId.includes("#")) {
+        const separator = itemId.lastIndexOf("#");
+        const bag = find(roots, itemId.slice(0, separator));
+        const part = itemId.slice(separator + 1);
+        if (bag?.item.source.kind === "html" && !bag.item.source.part && part && !bag.item.source.exclude?.includes(part)) {
+          const existing = children(bag.item).find((child) => child.source.kind === "html" && child.source.part === part);
+          if (existing)
+            target = { item: existing, ancestors: [...bag.ancestors, bag.item] };
+          else {
+            const ids = /* @__PURE__ */ new Set();
+            const collect = (items) => {
+              for (const entry of items) {
+                ids.add(entry.id);
+                collect(children(entry));
+              }
+            };
+            for (const track of edit.tracks)
+              if ("items" in track)
+                collect(track.items);
+            const base = `${bag.item.id}.${part}`;
+            let id = base;
+            for (let suffix = 2; ids.has(id); suffix++)
+              id = `${base}-${suffix}`;
+            const child = {
+              id,
+              at: 0,
+              duration: bag.item.duration,
+              source: { kind: "html", path: bag.item.source.path, part }
+            };
+            (bag.item.items ??= []).push(child);
+            target = { item: child, ancestors: [...bag.ancestors, bag.item] };
+            materialized = true;
+          }
         }
       }
-      if (!item) {
+      if (!target)
         throw new Error(`\u30A2\u30A4\u30C6\u30E0\u304C\u898B\u3064\u304B\u308A\u307E\u305B\u3093: ${itemId}`);
+      const item = target.item;
+      if (command.kind === "overlay") {
+        if ("text" in command.patch) {
+          if (typeof command.patch.text !== "string") {
+            throw new Error("\u90E8\u54C1\u306E text \u306F\u6587\u5B57\u5217\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
+          }
+          if (item.source.kind !== "html" || !item.source.part) {
+            throw new Error(`\u90E8\u54C1\u3067\u306A\u3044\u30A2\u30A4\u30C6\u30E0\u306B\u306F text \u3092\u66F8\u304D\u623B\u305B\u307E\u305B\u3093: ${itemId}`);
+          }
+        }
+        if (item.source.kind === "html" && item.source.part && "html" in command.patch) {
+          throw new Error(`\u90E8\u54C1\u306E\u6587\u5B57\u306F source.text \u306B\u4FDD\u5B58\u3057\u307E\u3059: ${itemId}`);
+        }
+        if (command.patch.transform && target.ancestors.length) {
+          const compose2 = (parent2, child = {}) => {
+            const angle = parent2.rotate * Math.PI / 180;
+            const x3 = child.x ?? 0, y2 = child.y ?? 0;
+            return {
+              x: parent2.x + parent2.scale * (Math.cos(angle) * x3 - Math.sin(angle) * y2),
+              y: parent2.y + parent2.scale * (Math.sin(angle) * x3 + Math.cos(angle) * y2),
+              scale: parent2.scale * (child.scale ?? 1),
+              rotate: parent2.rotate + (child.rotate ?? 0)
+            };
+          };
+          const parent = target.ancestors.filter((ancestor) => ancestor.source.kind === "group").reduce((world2, ancestor) => compose2(world2, ancestor.transform), { x: 0, y: 0, scale: 1, rotate: 0 });
+          if (!Number.isFinite(parent.scale) || parent.scale === 0) {
+            throw new Error(`\u89AA\u306E\u5909\u5F62\u3092\u9006\u5909\u63DB\u3067\u304D\u307E\u305B\u3093: ${itemId}`);
+          }
+          const patch = command.patch.transform;
+          const bag = target.ancestors.at(-1);
+          const bagDefaults = item.source.kind === "html" && item.source.part && bag?.source.kind === "html" ? bag.transform : void 0;
+          const world = { ...compose2(parent, { ...bagDefaults, ...item.transform }), ...patch };
+          const local = {};
+          if (patch.x !== void 0 || patch.y !== void 0) {
+            const angle = -parent.rotate * Math.PI / 180;
+            const dx = world.x - parent.x, dy = world.y - parent.y;
+            local.x = (Math.cos(angle) * dx - Math.sin(angle) * dy) / parent.scale;
+            local.y = (Math.sin(angle) * dx + Math.cos(angle) * dy) / parent.scale;
+          }
+          if (patch.scale !== void 0)
+            local.scale = world.scale / parent.scale;
+          if (patch.rotate !== void 0)
+            local.rotate = world.rotate - parent.rotate;
+          command = { ...command, patch: { ...command.patch, transform: local } };
+        }
+        if (item.source.kind === "group") {
+          if (command.patch.html !== void 0 || command.patch.vars !== void 0 || command.patch.params !== void 0) {
+            throw new Error(`\u30B0\u30EB\u30FC\u30D7\u30A2\u30A4\u30C6\u30E0\u306B\u306F HTML \u672C\u6587\u30FBvars\u30FBHTML params \u3092\u66F8\u304D\u623B\u305B\u307E\u305B\u3093: ${itemId}`);
+          }
+          if (!command.patch.transform)
+            return {};
+          item.transform = { ...recordOf(item.transform), ...command.patch.transform };
+          return { candidateText: stringifyEdit(edit) };
+        }
       }
       let htmlPath;
-      let editChanged = false;
+      let editChanged = materialized;
       if (command.kind === "overlay") {
         if (item.source.kind !== "html" && item.source.kind !== "shape") {
           throw new Error(`HTML/\u56F3\u5F62\u30A2\u30A4\u30C6\u30E0\u3067\u306F\u3042\u308A\u307E\u305B\u3093: ${itemId}`);
         }
         if (item.source.kind === "html") {
           const source = item.source;
+          if (typeof command.patch.text === "string") {
+            source.text = command.patch.text;
+            editChanged = true;
+          }
           if (typeof command.patch.html === "string") {
             htmlPath = source.path;
           }

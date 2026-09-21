@@ -2,6 +2,49 @@
   // ../overlay-runtime/src/interaction.js
   window.akari = window.akari || {};
   window.akari.interaction = (() => {
+    function lineage(tree, id) {
+      const nodes = new Map(tree.map((node) => [node.id, node]));
+      const result = [], visited = /* @__PURE__ */ new Set();
+      while (id != null && nodes.has(id) && !visited.has(id)) {
+        visited.add(id);
+        result.unshift(id);
+        id = nodes.get(id).parentId;
+      }
+      return result;
+    }
+    function resolveScopedSelection(tree, scopeId2, hitLeafId, { deep = false } = {}) {
+      const path = lineage(tree, hitLeafId);
+      if (!path.length) return { selectId: hitLeafId, scopeId: scopeId2 };
+      if (deep) return { selectId: hitLeafId, scopeId: path.at(-2) ?? null };
+      const scopes = lineage(tree, scopeId2);
+      while (scopeId2 !== null && (!path.includes(scopeId2) || scopeId2 === hitLeafId)) {
+        scopes.pop();
+        scopeId2 = scopes.at(-1) ?? null;
+      }
+      return { selectId: path[path.indexOf(scopeId2) + 1], scopeId: scopeId2 };
+    }
+    function enterScope(tree, selectedId2, hitLeafId) {
+      const node = tree.find((candidate) => candidate.id === selectedId2);
+      if (!node || node.kind === "leaf") {
+        return { selectId: selectedId2, scopeId: node?.parentId ?? null };
+      }
+      const path = lineage(tree, hitLeafId);
+      const selectId = path.includes(selectedId2) && hitLeafId !== selectedId2 ? path[path.indexOf(selectedId2) + 1] : tree.find((candidate) => candidate.parentId === selectedId2)?.id ?? null;
+      return { selectId, scopeId: selectedId2 };
+    }
+    function exitScope(tree, selectedId2, scopeId2, floorScopeId2 = null) {
+      if (scopeId2 === floorScopeId2 || scopeId2 === null) {
+        return { selectId: null, scopeId: floorScopeId2 };
+      }
+      const path = lineage(tree, scopeId2);
+      if (floorScopeId2 !== null && !path.includes(floorScopeId2)) {
+        return { selectId: null, scopeId: floorScopeId2 };
+      }
+      return { selectId: scopeId2, scopeId: path.at(-2) ?? floorScopeId2 };
+    }
+    function descendantLeafIds(tree, id) {
+      return tree.filter((node) => node.kind === "leaf" && lineage(tree, node.id).includes(id)).map((node) => node.id);
+    }
     const stage = document.getElementById("overlay-stage");
     const dragStartDistance = 3;
     const SNAP_DISTANCE = 8;
@@ -38,6 +81,11 @@
     const SCALE_MAX = 4;
     const SCALE_SNAP_TOLERANCE = 0.035;
     let selectedOverlay = null;
+    let selectedId = null;
+    let scopeId = null;
+    let floorScopeId = window.akari.state?.selectionFloor ?? null;
+    scopeId = floorScopeId;
+    let groupSelection = false;
     let selectionFrame = null;
     let selectionTrackingFrame = null;
     let activeDrag = null;
@@ -535,6 +583,10 @@
       return frame;
     }
     function refreshSelectionFrame() {
+      if (groupSelection) {
+        refreshGroupFrame();
+        return;
+      }
       if (!stage || !isSelectable(selectedOverlay)) return;
       const rect = fragmentBounds(selectedOverlay);
       if (!rect) {
@@ -556,6 +608,26 @@
     }
     function trackSelectionFrame() {
       selectionTrackingFrame = null;
+      if (groupSelection) {
+        refreshGroupFrame();
+        selectionTrackingFrame = requestAnimationFrame(trackSelectionFrame);
+        return;
+      }
+      if (!selectedOverlay && selectedId && selectionTree().length) {
+        if (!treeNode(selectedId)) {
+          clearSelection();
+          publishScopedSelection(false);
+          return;
+        }
+        const replacement = containerById(selectedId);
+        if (replacement) {
+          selectedOverlay = replacement;
+          replacement.setAttribute("data-akari-interaction-selected", "true");
+        } else {
+          selectionTrackingFrame = requestAnimationFrame(trackSelectionFrame);
+          return;
+        }
+      }
       if (!selectedOverlay) return;
       if (!isSelectable(selectedOverlay)) {
         handleSelectedOverlayUnavailable(selectedOverlay);
@@ -576,12 +648,20 @@
       }
       selectedOverlay?.removeAttribute("data-akari-interaction-selected");
       selectedOverlay = null;
+      selectedId = null;
+      groupSelection = false;
       selectionFrame?.remove();
       selectionFrame = null;
       hideSnapGuides();
     }
     function handleSelectedOverlayUnavailable(container) {
       if (selectedOverlay !== container) return;
+      if (selectionTree().length && !container.isConnected && treeNode(selectedId)) {
+        selectedOverlay = null;
+        if (selectionFrame) selectionFrame.hidden = true;
+        startSelectionTracking();
+        return;
+      }
       if (activeDrag?.container === container) cancelDrag();
       if (activeResize?.container === container) cancelResize();
       if (activeEdit?.container === container) void commitEdit();
@@ -592,11 +672,213 @@
       if (selectedOverlay !== container) {
         clearSelection();
         selectedOverlay = container;
+        selectedId = container.dataset.overlayId ?? null;
         selectedOverlay.setAttribute("data-akari-interaction-selected", "true");
       }
       refreshSelectionFrame();
       startSelectionTracking();
       return true;
+    }
+    function selectionTree() {
+      const tree = window.akari.state?.summary?.tree;
+      return Array.isArray(tree) ? tree : [];
+    }
+    function treeNode(id) {
+      return selectionTree().find((node) => node.id === id);
+    }
+    function containerById(id) {
+      return Array.from(stage?.children ?? []).find((element) => element.dataset?.overlayId === id) ?? null;
+    }
+    function visibleMembers(id = selectedId) {
+      return descendantLeafIds(selectionTree(), id).map(containerById).filter((container) => {
+        if (!isSelectable(container)) return false;
+        const style = getComputedStyle(container);
+        return style.display !== "none" && Number(style.opacity) !== 0;
+      });
+    }
+    function unionBounds(containers) {
+      const boxes = containers.map(fragmentBounds).filter((rect) => rect?.width > 0 && rect?.height > 0);
+      if (!boxes.length) return null;
+      const left = Math.min(...boxes.map((rect) => rect.left)), top = Math.min(...boxes.map((rect) => rect.top));
+      const right = Math.max(...boxes.map((rect) => rect.right)), bottom = Math.max(...boxes.map((rect) => rect.bottom));
+      return { left, top, right, bottom, width: right - left, height: bottom - top };
+    }
+    function refreshGroupFrame() {
+      const rect = unionBounds(visibleMembers());
+      if (!rect) {
+        if (selectionFrame) selectionFrame.hidden = true;
+        return;
+      }
+      if (!selectionFrame?.isConnected) {
+        selectionFrame = createSelectionFrame();
+        document.body.appendChild(selectionFrame);
+      }
+      selectionFrame.dataset.akariSelectionKind = "group";
+      for (const handle of selectionFrame.querySelectorAll('[data-akari-interaction="selection-handle"]')) handle.remove();
+      selectionFrame.hidden = false;
+      Object.assign(selectionFrame.style, {
+        left: `${rect.left}px`,
+        top: `${rect.top}px`,
+        width: `${rect.width}px`,
+        height: `${rect.height}px`
+      });
+    }
+    function renderScopeBreadcrumb() {
+      const nav = document.querySelector('[data-akari-ui="preview-scope-breadcrumb"]');
+      if (!nav) return;
+      nav.hidden = scopeId === floorScopeId || !selectionTree().length;
+      nav.replaceChildren();
+      if (nav.hidden) return;
+      const path = lineage(selectionTree(), scopeId);
+      const ids = floorScopeId === null ? [null, ...path] : path.slice(path.indexOf(floorScopeId));
+      ids.forEach((id, index) => {
+        if (index) nav.append(" \u203A ");
+        const button = document.createElement("button");
+        button.type = "button";
+        button.textContent = id === null ? "\u5168\u4F53" : treeNode(id)?.label ?? id;
+        button.addEventListener("click", () => {
+          const hit = descendantLeafIds(selectionTree(), selectedId)[0] ?? selectedId;
+          const next = resolveScopedSelection(selectionTree(), id, hit);
+          applyScopedSelection({ scopeId: id, selectId: next.scopeId === id ? next.selectId : null });
+        });
+        nav.appendChild(button);
+      });
+    }
+    function publishScopedSelection(notify = true) {
+      renderScopeBreadcrumb();
+      window.dispatchEvent(new CustomEvent("akari-preview-scope-selection", { detail: { notify } }));
+    }
+    function applyScopedSelection(next, { notify = true } = {}) {
+      const tree = selectionTree();
+      if (floorScopeId !== null && next.selectId !== null && !lineage(tree, next.selectId).includes(floorScopeId)) return false;
+      if (floorScopeId !== null && next.scopeId !== floorScopeId && !lineage(tree, next.scopeId).includes(floorScopeId)) next = { ...next, scopeId: floorScopeId };
+      const node = treeNode(next.selectId);
+      scopeId = next.scopeId;
+      if (node && node.kind !== "leaf") {
+        clearSelection();
+        selectedId = node.id;
+        groupSelection = true;
+        refreshSelectionFrame();
+        startSelectionTracking();
+      } else if (next.selectId === null) clearSelection();
+      else if (!selectOverlay(containerById(next.selectId))) return false;
+      publishScopedSelection(notify);
+      return true;
+    }
+    function selectScopedHit(container, event) {
+      const id = container?.dataset.overlayId;
+      if (!id) return false;
+      return applyScopedSelection(resolveScopedSelection(
+        selectionTree(),
+        scopeId,
+        id,
+        { deep: Boolean(event.metaKey || event.ctrlKey) }
+      ));
+    }
+    function selectFromTimeline(id) {
+      if (!selectionTree().length) return false;
+      if (id === selectedId) return true;
+      if (id === null) return applyScopedSelection({ selectId: null, scopeId }, { notify: false });
+      const node = treeNode(id);
+      if (!node) return false;
+      return applyScopedSelection({ selectId: id, scopeId: node.parentId }, { notify: false });
+    }
+    function setSelectionFloor(id) {
+      if (!selectionTree().length) {
+        floorScopeId = null;
+        scopeId = null;
+        return;
+      }
+      if (id !== null && typeof id !== "string") return;
+      if (activeDrag) cancelDrag();
+      if (activeResize) cancelResize();
+      if (activeEdit) void commitEdit();
+      floorScopeId = id;
+      scopeId = id;
+      clearSelection();
+      publishScopedSelection(false);
+    }
+    function beginGroupDrag(event, container) {
+      const members = visibleMembers().map((element) => ({ element, transform: readTransform(element) }));
+      if (!members.length) return;
+      const world = treeNode(selectedId)?.transform ?? {};
+      activeDrag = {
+        group: true,
+        container,
+        members,
+        overlayId: selectedId,
+        pointerId: event.pointerId,
+        startClientX: event.clientX,
+        startClientY: event.clientY,
+        startStagePoint: stageLocalPoint(event.clientX, event.clientY),
+        startX: world.x ?? 0,
+        startY: world.y ?? 0,
+        dx: 0,
+        dy: 0,
+        snapX: null,
+        snapY: null,
+        moved: false,
+        writeContext: captureWriteContext()
+      };
+      try {
+        container.setPointerCapture?.(event.pointerId);
+      } catch {
+      }
+    }
+    function moveGroupMembers(drag, dx, dy) {
+      drag.dx = dx;
+      drag.dy = dy;
+      for (const { element, transform } of drag.members) {
+        element.style.setProperty("--x", `${transform.x + dx}px`);
+        element.style.setProperty("--y", `${transform.y + dy}px`);
+      }
+      refreshGroupFrame();
+    }
+    function moveGroupDrag(drag, dx, dy, disabled) {
+      moveGroupMembers(drag, dx, dy);
+      const rect = unionBounds(drag.members.map((member) => member.element).filter(isSelectable));
+      const tl = rect && stageLocalPoint(rect.left, rect.top), br = rect && stageLocalPoint(rect.right, rect.bottom);
+      if (disabled || !tl || !br) {
+        drag.snapX = null;
+        drag.snapY = null;
+        hideSnapGuides();
+        return;
+      }
+      const bounds = {
+        left: tl.x,
+        top: tl.y,
+        right: br.x,
+        bottom: br.y,
+        centerX: (tl.x + br.x) / 2,
+        centerY: (tl.y + br.y) / 2
+      };
+      const snap = computeSnapCorrection(bounds, { x: drag.snapX, y: drag.snapY });
+      drag.snapX = snap.x;
+      drag.snapY = snap.y;
+      moveGroupMembers(drag, dx + (snap.x?.correction ?? 0), dy + (snap.y?.correction ?? 0));
+      showSnapGuides(snap.x, snap.y);
+    }
+    function finishGroupDrag(drag) {
+      if (!drag.moved || Math.abs(drag.dx) < 0.5 && Math.abs(drag.dy) < 0.5) {
+        moveGroupMembers(drag, 0, 0);
+        return null;
+      }
+      const node = treeNode(drag.overlayId), previousTransform = node?.transform;
+      const transform = { ...previousTransform, x: drag.startX + drag.dx, y: drag.startY + drag.dy };
+      if (node) node.transform = transform;
+      const record = enqueueWrite(
+        drag.writeContext,
+        drag.overlayId,
+        { transform: { x: transform.x, y: transform.y } },
+        "transform"
+      );
+      record.promise.catch((error) => {
+        if (node?.transform === transform) node.transform = previousTransform;
+        moveGroupMembers(drag, 0, 0);
+        reportWriteError("transform", drag.overlayId, error);
+      });
+      lastTransformWrite = record;
+      return record;
     }
     function releasePointer(drag) {
       try {
@@ -610,6 +892,12 @@
       if (!activeDrag) return;
       const drag = activeDrag;
       activeDrag = null;
+      if (drag.group) {
+        moveGroupMembers(drag, 0, 0);
+        releasePointer(drag);
+        hideSnapGuides();
+        return;
+      }
       drag.container.style.setProperty("--x", `${drag.startX}px`);
       drag.container.style.setProperty("--y", `${drag.startY}px`);
       releasePointer(drag);
@@ -622,6 +910,7 @@
       activeDrag = null;
       releasePointer(drag);
       hideSnapGuides();
+      if (drag.group) return finishGroupDrag(drag);
       if (!drag.moved) return null;
       const transform = readTransform(drag.container);
       const WRITE_EPSILON_PX = 0.5;
@@ -1056,6 +1345,31 @@
     function onPointerDown(event) {
       if (!interactionEnabled) return;
       if (event.button !== 0 || activeDrag || activeResize) return;
+      if (selectionTree().length) {
+        if (event.target instanceof Element && event.target.closest('[data-akari-ui="preview-scope-breadcrumb"]')) return;
+        const handle = findHandleElement(event.target);
+        if (handle) {
+          if (!groupSelection && isMovable(selectedOverlay)) beginResize(event, selectedOverlay, handle);
+          return;
+        }
+        const hit = overlayForEvent(event);
+        if (!isSelectable(hit)) {
+          const r = stage?.getBoundingClientRect();
+          if (r && event.clientX >= r.left && event.clientX <= r.right && event.clientY >= r.top && event.clientY <= r.bottom) {
+            if (activeEdit) void commitEdit();
+            clearSelection();
+            publishScopedSelection();
+          }
+          return;
+        }
+        if (activeEdit?.container === hit && eventHitsElement(event, activeEdit.element)) return;
+        if (activeEdit) void commitEdit();
+        if (!selectScopedHit(hit, event)) return;
+        if (groupSelection) {
+          beginGroupDrag(event, hit);
+          return;
+        }
+      }
       const handleEl = findHandleElement(event.target);
       if (handleEl) {
         if (!isMovable(selectedOverlay)) return;
@@ -1118,6 +1432,11 @@
       const scale = stageScaleFactor();
       const videoDeltaX = drag.startStagePoint && currentStagePoint ? currentStagePoint.x - drag.startStagePoint.x : deltaX / scale;
       const videoDeltaY = drag.startStagePoint && currentStagePoint ? currentStagePoint.y - drag.startStagePoint.y : deltaY / scale;
+      if (drag.group) {
+        moveGroupDrag(drag, videoDeltaX, videoDeltaY, event.shiftKey);
+        if (event.cancelable) event.preventDefault();
+        return;
+      }
       applyDragSnapping(
         drag,
         drag.startX + videoDeltaX,
@@ -1242,6 +1561,18 @@
       if (!activeEdit) return Promise.resolve(void 0);
       const edit = activeEdit;
       activeEdit = null;
+      if (edit.part && !edit.slotName && edit.element !== edit.partElement) {
+        edit.fragment.replaceWith(edit.originalFragment);
+        invalidateOverlayHitPolicy(edit.container);
+        applyOverlayHitPolicy(edit.container);
+        syncOverlayHitRegion(edit.container);
+        const error = new Error("\u3053\u306E\u90E8\u54C1\u306F\u6587\u5B57\u3092 1 \u3064\u3060\u3051\u6301\u3064\u5F62\u306B\u3057\u3066\u304F\u3060\u3055\u3044");
+        reportWriteError("text", edit.overlayId, error);
+        window.akari.showWriteError?.(error);
+        const failure = Promise.reject(error);
+        failure.catch(() => void 0);
+        return failure;
+      }
       syncMirrorLayers(edit.container, edit.element);
       if (edit.splitHost) window.akari.textSplit?.apply?.(edit.splitHost);
       restoreAttribute(
@@ -1272,6 +1603,15 @@
           edit.overlayId,
           { params: { [edit.slotName]: edit.element.textContent ?? "" } },
           "params"
+        );
+        return record2.promise;
+      }
+      if (edit.part) {
+        const record2 = enqueueWrite(
+          edit.writeContext,
+          edit.overlayId,
+          { text: edit.element.textContent ?? "" },
+          "text"
         );
         return record2.promise;
       }
@@ -1320,6 +1660,17 @@
         slotName: slotNameForElement(element),
         writeContext: captureWriteContext()
       };
+      const part = window.akari.state?.summary?.overlays?.find(
+        (overlay) => overlay.id === activeEdit.overlayId
+      )?.part;
+      if (typeof part === "string" && part && !activeEdit.slotName) {
+        const fragment = fragmentRoot(container);
+        activeEdit.part = part;
+        activeEdit.partElement = [fragment, ...fragment.querySelectorAll("[data-akari-part]")].find((candidate) => candidate.getAttribute("data-akari-part") === part);
+        activeEdit.fragment = fragment;
+        activeEdit.originalFragment = fragment.cloneNode(true);
+        restoreHitPolicyStyles(activeEdit.originalFragment, fragment);
+      }
       const splitHost = window.akari.textSplit?.closestHost?.(element);
       if (splitHost) {
         activeEdit.splitHost = splitHost;
@@ -1333,11 +1684,24 @@
     }
     function onClick(event) {
       if (!interactionEnabled) return;
+      if (selectionTree().length) {
+        const hit = overlayForEvent(event);
+        if (isSelectable(hit)) selectScopedHit(hit, event);
+        return;
+      }
       const container = overlayForEvent(event);
       if (isSelectable(container)) selectOverlay(container);
     }
     function onDoubleClick(event) {
       if (!interactionEnabled) return;
+      if (selectionTree().length && groupSelection) {
+        const hit = overlayForEvent(event);
+        if (!isSelectable(hit)) return;
+        applyScopedSelection(enterScope(selectionTree(), selectedId, hit.dataset.overlayId));
+        event.preventDefault();
+        event.stopPropagation();
+        return;
+      }
       const container = overlayForEvent(event);
       if (!isSelectable(container)) return;
       const element = textElementAt(container, event);
@@ -1361,6 +1725,67 @@
       );
     }
     function onKeyDown(event) {
+      if (selectionTree().length) {
+        if (event.isComposing) return;
+        if (event.key === "Enter" && event.target instanceof Element && event.target.closest('[data-akari-ui="preview-scope-breadcrumb"]')) return;
+        const handled = () => {
+          event.preventDefault();
+          event.stopPropagation();
+          event.stopImmediatePropagation();
+        };
+        if (event.key === "Escape") {
+          if (activeDrag) {
+            cancelDrag();
+            handled();
+            return;
+          }
+          if (activeResize) {
+            cancelResize();
+            handled();
+            return;
+          }
+          if (activeEdit) {
+            void commitEdit();
+            handled();
+            return;
+          }
+          if (selectedId !== null || scopeId !== floorScopeId) {
+            applyScopedSelection(exitScope(selectionTree(), selectedId, scopeId, floorScopeId), { notify: false });
+            handled();
+            return;
+          }
+          if (floorScopeId !== null) handled();
+          return;
+        }
+        if (event.key === "Enter") {
+          if (activeEdit) {
+            if (event.target === activeEdit.element) {
+              void commitEdit();
+              handled();
+            }
+            return;
+          }
+          if (event.shiftKey && (selectedId !== null || scopeId !== floorScopeId)) {
+            applyScopedSelection(exitScope(selectionTree(), selectedId, scopeId, floorScopeId));
+            handled();
+            return;
+          }
+          if (groupSelection) {
+            applyScopedSelection(enterScope(selectionTree(), selectedId));
+            handled();
+            return;
+          }
+          if (selectedOverlay) {
+            const root = fragmentRoot(selectedOverlay);
+            const text = root && [root, ...root.querySelectorAll("*")].find(canEditText);
+            if (text) {
+              beginEdit(selectedOverlay, text);
+              handled();
+            }
+          }
+          return;
+        }
+      }
       if (event.key === "Enter" && activeEdit && event.target === activeEdit.element && !event.isComposing) {
         event.preventDefault();
         event.stopPropagation();
@@ -1633,6 +2058,23 @@
     window.addEventListener("pointercancel", onPointerCancel, true);
     window.addEventListener("keydown", onKeyDown, true);
     return {
+      get selectedId() {
+        return selectedId;
+      },
+      get scopeId() {
+        return scopeId;
+      },
+      get floorScopeId() {
+        return floorScopeId;
+      },
+      get activeEdit() {
+        return Boolean(activeEdit);
+      },
+      get hasSelectionTree() {
+        return selectionTree().length > 0;
+      },
+      selectFromTimeline,
+      setSelectionFloor,
       selftest,
       fragmentBounds,
       canvasAlphaAtPoint,

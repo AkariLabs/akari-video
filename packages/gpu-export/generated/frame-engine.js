@@ -6336,6 +6336,17 @@ ${indent}`);
           throw new Error(`\u30A2\u30A4\u30C6\u30E0\u304C\u898B\u3064\u304B\u308A\u307E\u305B\u3093: ${itemId}`);
         const item = target.item;
         if (command.kind === "overlay") {
+          if ("text" in command.patch) {
+            if (typeof command.patch.text !== "string") {
+              throw new Error("\u90E8\u54C1\u306E text \u306F\u6587\u5B57\u5217\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
+            }
+            if (item.source.kind !== "html" || !item.source.part) {
+              throw new Error(`\u90E8\u54C1\u3067\u306A\u3044\u30A2\u30A4\u30C6\u30E0\u306B\u306F text \u3092\u66F8\u304D\u623B\u305B\u307E\u305B\u3093: ${itemId}`);
+            }
+          }
+          if (item.source.kind === "html" && item.source.part && "html" in command.patch) {
+            throw new Error(`\u90E8\u54C1\u306E\u6587\u5B57\u306F source.text \u306B\u4FDD\u5B58\u3057\u307E\u3059: ${itemId}`);
+          }
           if (command.patch.transform && target.ancestors.length) {
             const compose2 = (parent2, child = {}) => {
               const angle = parent2.rotate * Math.PI / 180;
@@ -6386,6 +6397,10 @@ ${indent}`);
           }
           if (item.source.kind === "html") {
             const source = item.source;
+            if (typeof command.patch.text === "string") {
+              source.text = command.patch.text;
+              editChanged = true;
+            }
             if (typeof command.patch.html === "string") {
               htmlPath = source.path;
             }
