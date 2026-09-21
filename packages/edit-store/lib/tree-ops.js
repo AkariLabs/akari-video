@@ -1,6 +1,5 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.DEFAULT_CAPTION_TELOP_PRESET = void 0;
 exports.attachEditHelpers = attachEditHelpers;
 exports.updateItem = updateItem;
 exports.setItemAnchor = setItemAnchor;
@@ -16,7 +15,6 @@ exports.insertItem = insertItem;
 exports.removeItem = removeItem;
 exports.detachItem = detachItem;
 exports.materializeProjectedPart = materializeProjectedPart;
-exports.convertCaptionToTelop = convertCaptionToTelop;
 exports.collectExcludedCaptionIds = collectExcludedCaptionIds;
 exports.filterCaptionRootByExcludedIds = filterCaptionRootByExcludedIds;
 exports.groupItems = groupItems;
@@ -44,8 +42,6 @@ const SEGMENT_EASINGS = new Set([
     'in-expo', 'out-expo', 'in-out-expo', 'in-back', 'out-back', 'in-out-back',
     'out-bounce', 'out-elastic', 'hold'
 ]);
-// 助詞ミニマは通常字幕に近く、ワードスナップほど演出を強くしないため変換の既定にする。
-exports.DEFAULT_CAPTION_TELOP_PRESET = 'ref3_particle_min';
 function attachEditHelpers(edit) {
     Object.defineProperties(edit, {
         find: { enumerable: false, value: (id) => locate(edit, id)?.item },
@@ -309,26 +305,6 @@ function materializeProjectedPart(edit, id, projected) {
     };
     ensureChildren(bag.item).push(child);
     return requireLocation(edit, id);
-}
-/** captions.json は不変のまま、参照行を独立した未ベイク telop へ置き換える。 */
-function convertCaptionToTelop(edit, id, options) {
-    const projected = options.at !== undefined && options.duration !== undefined
-        ? { at: options.at, duration: options.duration } : undefined;
-    let location = locate(edit, id) ?? materializeProjectedPart(edit, id, projected);
-    if (location.item.source.kind !== 'caption')
-        throw new Error(`字幕行ではありません: ${id}`);
-    const captionId = location.item.source.id;
-    if (location.parent) {
-        const detached = detachItem(edit, location.item.id, { track: 'above' }, projected);
-        location = requireLocation(edit, detached.id);
-    }
-    location.item.source = {
-        kind: 'telop',
-        preset: options.preset ?? exports.DEFAULT_CAPTION_TELOP_PRESET,
-        params: { text: options.text },
-        from: `captions.json#${captionId}`,
-    };
-    return location.item;
 }
 /** tracks[].items[] / internal children のどちらからでも captions 袋の exclude を集める。 */
 function collectExcludedCaptionIds(edit) {

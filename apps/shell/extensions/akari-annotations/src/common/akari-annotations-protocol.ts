@@ -808,6 +808,9 @@ export interface AkariAnnotationsService {
     readGenerationSidecars(request: ReadGenerationSidecarsRequest): Promise<ReadGenerationSidecarsResult>;
     readGenerationCatalog(): Promise<ReadGenerationCatalogResult>;
     readGenerationDefaults(request: { projectRootUri: string }): Promise<ReadGenerationDefaultsResult>;
+    createEmptyGenerationFrame(request: { projectRootUri: string; durationSeconds: number }): Promise<{
+        relativePath: string; sha256: string; width: number; height: number; renderer: string;
+    }>;
     validateGenerationInputs(request: ValidateGenerationInputsRequest): Promise<GenerationValidationResult>;
     writeGenerationDraft(request: WriteGenerationDraftRequest): Promise<{ ok: true; path: string }>;
     startGenerateVideo(request: StartGenerateVideoRequest): Promise<GenerationProcessResult>;

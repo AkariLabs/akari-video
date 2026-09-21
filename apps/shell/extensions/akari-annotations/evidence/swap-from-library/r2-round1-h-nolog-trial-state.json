@@ -1,0 +1,62 @@
+{
+ "mode": "state",
+ "at": "2026-09-21T16:35:40.829Z",
+ "shaBefore": "643c67d52fc88d5d2d167b9096f211b81ef644c1b005e39f8d48cab276470129",
+ "itemBefore": {
+  "track": "v2",
+  "id": "img-1",
+  "at": 0,
+  "duration": 60,
+  "source": {
+   "kind": "media",
+   "src": "src-1",
+   "in": 0,
+   "out": 2
+  },
+  "path": "assets/still/bg-silk-waves/bg.png",
+  "transform": {
+   "scale": 0.5,
+   "x": 0.2,
+   "y": 0
+  }
+ },
+ "shaAfter": "643c67d52fc88d5d2d167b9096f211b81ef644c1b005e39f8d48cab276470129",
+ "itemAfter": {
+  "track": "v2",
+  "id": "img-1",
+  "at": 0,
+  "duration": 60,
+  "source": {
+   "kind": "media",
+   "src": "src-1",
+   "in": 0,
+   "out": 2
+  },
+  "path": "assets/still/bg-silk-waves/bg.png",
+  "transform": {
+   "scale": 0.5,
+   "x": 0.2,
+   "y": 0
+  }
+ },
+ "sameTrack": [
+  "img-1@0+60",
+  "broll-1@90+1260"
+ ],
+ "ui": {
+  "trialBar": [
+   {
+    "text": "お試し中: オーロラメッシュ背景 → シルク波背景▶ もう一度差し替えるやめる",
+    "visible": true
+   }
+  ],
+  "inspectorSwapRow": false,
+  "leftPanel": "swap-shelf",
+  "toasts": []
+ },
+ "lint": {
+  "verdict": "pass",
+  "errors": [],
+  "sourceRange": 0
+ }
+}

@@ -1,0 +1,174 @@
+{
+  "status": "observed",
+  "phase": "before-fix",
+  "driver": "Electron + CDP Input.dispatchMouseEvent",
+  "steps": [
+    {
+      "name": "real right-edge drag of the still clip by 1.2 s",
+      "pass": true,
+      "measurements": {
+        "rect": {
+          "left": 144,
+          "right": 213.8125,
+          "top": 329,
+          "bottom": 377,
+          "width": 69.8125,
+          "height": 48
+        },
+        "pxPerSecond": 34.981818181818184,
+        "x0": 211.8125,
+        "x1": 253.7906818181818,
+        "y": 353,
+        "footers": [
+          "Out 00:00:02.100 / 尺 2.10 秒 (実尺確認中…)",
+          "Out 00:00:02.200 / 尺 2.20 秒 ⚠ 実尺不明のため無制限",
+          "Out 00:00:02.300 / 尺 2.30 秒 ⚠ 実尺不明のため無制限",
+          "Out 00:00:02.400 / 尺 2.40 秒 ⚠ 実尺不明のため無制限",
+          "Out 00:00:02.500 / 尺 2.50 秒 ⚠ 実尺不明のため無制限",
+          "Out 00:00:02.600 / 尺 2.60 秒 ⚠ 実尺不明のため無制限",
+          "Out 00:00:02.700 / 尺 2.70 秒 ⚠ 実尺不明のため無制限",
+          "Out 00:00:02.800 / 尺 2.80 秒 ⚠ 実尺不明のため無制限",
+          "Out 00:00:02.900 / 尺 2.90 秒 ⚠ 実尺不明のため無制限",
+          "Out 00:00:03.000 / 尺 3.00 秒 ⚠ 実尺不明のため無制限",
+          "Out 00:00:03.100 / 尺 3.10 秒 ⚠ 実尺不明のため無制限",
+          "Out 00:00:03.200 / 尺 3.20 秒 ⚠ 実尺不明のため無制限",
+          "Out 00:00:03.200 / 尺 3.20 秒 ⚠ 実尺不明のため無制限"
+        ],
+        "noticeDuringDrag": "素材の実尺が取得できないため、Out のクランプは無効です。×",
+        "fetchesDuringDrag": 0,
+        "ensureVideoDurationFetchCallsDuringDrag": 2,
+        "stillDurationCacheAfterDrag": [
+          "unavailable"
+        ],
+        "noticeCallsDuringDrag": 12
+      },
+      "elapsedMs": 1023
+    },
+    {
+      "name": "release commits the new duration",
+      "pass": true,
+      "measurements": {
+        "item": {
+          "id": "still",
+          "at": 0,
+          "duration": 96,
+          "source": {
+            "kind": "media",
+            "src": "still",
+            "in": 0,
+            "out": 3.199999946070808
+          }
+        },
+        "fetches": 0,
+        "ensureVideoDurationFetchCalls": 2,
+        "stillDurationCache": [
+          "unavailable"
+        ],
+        "noticeCalls": 13,
+        "noticeText": "×",
+        "warningFooters": [
+          "Out 00:00:02.100 / 尺 2.10 秒 (実尺確認中…)",
+          "Out 00:00:02.200 / 尺 2.20 秒 ⚠ 実尺不明のため無制限",
+          "Out 00:00:02.300 / 尺 2.30 秒 ⚠ 実尺不明のため無制限",
+          "Out 00:00:02.400 / 尺 2.40 秒 ⚠ 実尺不明のため無制限",
+          "Out 00:00:02.500 / 尺 2.50 秒 ⚠ 実尺不明のため無制限",
+          "Out 00:00:02.600 / 尺 2.60 秒 ⚠ 実尺不明のため無制限",
+          "Out 00:00:02.700 / 尺 2.70 秒 ⚠ 実尺不明のため無制限",
+          "Out 00:00:02.800 / 尺 2.80 秒 ⚠ 実尺不明のため無制限",
+          "Out 00:00:02.900 / 尺 2.90 秒 ⚠ 実尺不明のため無制限",
+          "Out 00:00:03.000 / 尺 3.00 秒 ⚠ 実尺不明のため無制限",
+          "Out 00:00:03.100 / 尺 3.10 秒 ⚠ 実尺不明のため無制限",
+          "Out 00:00:03.200 / 尺 3.20 秒 ⚠ 実尺不明のため無制限",
+          "Out 00:00:03.200 / 尺 3.20 秒 ⚠ 実尺不明のため無制限"
+        ]
+      },
+      "elapsedMs": 961
+    }
+  ],
+  "screenshots": [
+    "before-01-still-drag-warning.png"
+  ],
+  "falRequests": [],
+  "initialStillCache": [],
+  "drag": {
+    "rect": {
+      "left": 144,
+      "right": 213.8125,
+      "top": 329,
+      "bottom": 377,
+      "width": 69.8125,
+      "height": 48
+    },
+    "pxPerSecond": 34.981818181818184,
+    "x0": 211.8125,
+    "x1": 253.7906818181818,
+    "y": 353,
+    "footers": [
+      "Out 00:00:02.100 / 尺 2.10 秒 (実尺確認中…)",
+      "Out 00:00:02.200 / 尺 2.20 秒 ⚠ 実尺不明のため無制限",
+      "Out 00:00:02.300 / 尺 2.30 秒 ⚠ 実尺不明のため無制限",
+      "Out 00:00:02.400 / 尺 2.40 秒 ⚠ 実尺不明のため無制限",
+      "Out 00:00:02.500 / 尺 2.50 秒 ⚠ 実尺不明のため無制限",
+      "Out 00:00:02.600 / 尺 2.60 秒 ⚠ 実尺不明のため無制限",
+      "Out 00:00:02.700 / 尺 2.70 秒 ⚠ 実尺不明のため無制限",
+      "Out 00:00:02.800 / 尺 2.80 秒 ⚠ 実尺不明のため無制限",
+      "Out 00:00:02.900 / 尺 2.90 秒 ⚠ 実尺不明のため無制限",
+      "Out 00:00:03.000 / 尺 3.00 秒 ⚠ 実尺不明のため無制限",
+      "Out 00:00:03.100 / 尺 3.10 秒 ⚠ 実尺不明のため無制限",
+      "Out 00:00:03.200 / 尺 3.20 秒 ⚠ 実尺不明のため無制限",
+      "Out 00:00:03.200 / 尺 3.20 秒 ⚠ 実尺不明のため無制限"
+    ],
+    "noticeDuringDrag": "素材の実尺が取得できないため、Out のクランプは無効です。×",
+    "fetchesDuringDrag": 0,
+    "ensureVideoDurationFetchCallsDuringDrag": 2,
+    "stillDurationCacheAfterDrag": [
+      "unavailable"
+    ],
+    "noticeCallsDuringDrag": 12
+  },
+  "commit": {
+    "item": {
+      "id": "still",
+      "at": 0,
+      "duration": 96,
+      "source": {
+        "kind": "media",
+        "src": "still",
+        "in": 0,
+        "out": 3.199999946070808
+      }
+    },
+    "fetches": 0,
+    "ensureVideoDurationFetchCalls": 2,
+    "stillDurationCache": [
+      "unavailable"
+    ],
+    "noticeCalls": 13,
+    "noticeText": "×",
+    "warningFooters": [
+      "Out 00:00:02.100 / 尺 2.10 秒 (実尺確認中…)",
+      "Out 00:00:02.200 / 尺 2.20 秒 ⚠ 実尺不明のため無制限",
+      "Out 00:00:02.300 / 尺 2.30 秒 ⚠ 実尺不明のため無制限",
+      "Out 00:00:02.400 / 尺 2.40 秒 ⚠ 実尺不明のため無制限",
+      "Out 00:00:02.500 / 尺 2.50 秒 ⚠ 実尺不明のため無制限",
+      "Out 00:00:02.600 / 尺 2.60 秒 ⚠ 実尺不明のため無制限",
+      "Out 00:00:02.700 / 尺 2.70 秒 ⚠ 実尺不明のため無制限",
+      "Out 00:00:02.800 / 尺 2.80 秒 ⚠ 実尺不明のため無制限",
+      "Out 00:00:02.900 / 尺 2.90 秒 ⚠ 実尺不明のため無制限",
+      "Out 00:00:03.000 / 尺 3.00 秒 ⚠ 実尺不明のため無制限",
+      "Out 00:00:03.100 / 尺 3.10 秒 ⚠ 実尺不明のため無制限",
+      "Out 00:00:03.200 / 尺 3.20 秒 ⚠ 実尺不明のため無制限",
+      "Out 00:00:03.200 / 尺 3.20 秒 ⚠ 実尺不明のため無制限"
+    ]
+  },
+  "cleanup": {
+    "pid": 59338,
+    "signals": 9,
+    "survivors": [],
+    "isolatedAkariHome": true,
+    "isolatedUserData": true,
+    "before": 5,
+    "exited": true
+  },
+  "elapsedMs": 16138
+}

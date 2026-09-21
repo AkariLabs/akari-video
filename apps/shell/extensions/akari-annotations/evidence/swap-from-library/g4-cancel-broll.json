@@ -1,0 +1,72 @@
+{
+ "mode": "bar",
+ "arg": "やめる",
+ "at": "2026-09-21T14:17:04.070Z",
+ "shaBefore": "adf4205657588335d9355083cefbbc24b74ae5344b2e91d4cc63e6bd980a873b",
+ "itemBefore": {
+  "track": "v2",
+  "id": "broll-1",
+  "at": 90,
+  "duration": 1260,
+  "source": {
+   "kind": "media",
+   "src": "src-1",
+   "in": 0,
+   "out": 37.6,
+   "mute": true,
+   "freeze": {
+    "at_sec": 37.6,
+    "duration_sec": 4.4
+   }
+  },
+  "path": "assets/broll/talkinghead-desk-ja-01/clip.mp4"
+ },
+ "click": [
+  715.4921875,
+  76.25
+ ],
+ "settleMs": 2568,
+ "previewTimeSamples": [
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0
+ ],
+ "shaAfter": "0b6ccf6c363685d94a5a44f54f8d132ab1d99b8c22e5c838669849559e5356fc",
+ "itemAfter": {
+  "track": "v2",
+  "id": "broll-1",
+  "at": 90,
+  "duration": 1260,
+  "source": {
+   "kind": "media",
+   "src": "city",
+   "in": 0,
+   "out": 42,
+   "mute": true
+  },
+  "path": "assets/broll/br-city-walk-long/clip.mp4"
+ },
+ "sameTrack": [
+  "img-1@0+60",
+  "broll-1@90+1260"
+ ],
+ "ui": {
+  "trialBar": [],
+  "inspectorSwapRow": false,
+  "leftPanel": "other",
+  "toasts": [
+   "出力プレビューの準備を確認できなかったため通常の再生を試みました（▶ もう一度 で再試行できます）。",
+   "出力プレビューの準備を確認できなかったため通常の再生を試みました（▶ もう一度 で再試行できます）。"
+  ]
+ },
+ "lint": {
+  "verdict": "pass",
+  "errors": [],
+  "sourceRange": 0
+ }
+}

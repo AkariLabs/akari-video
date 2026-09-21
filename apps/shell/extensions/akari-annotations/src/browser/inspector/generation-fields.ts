@@ -15,6 +15,15 @@ export interface GenerationDraft {
     output: Record<string, unknown>;
 }
 
+export type GenerationReferenceSlot = 'reference_images' | 'reference_videos' | 'reference_audios';
+export interface GenerationReferenceCapability {
+    max?: number | null;
+    tag?: string;
+    tag_joiner?: string;
+    seconds_each?: number | null;
+    seconds_total?: number | null;
+}
+
 export interface GenerationCatalogRow {
     id: string;
     kind: string;
@@ -22,8 +31,9 @@ export interface GenerationCatalogRow {
     inputs: {
         first_frame: 'required' | 'optional' | 'none';
         last_frame: 'required' | 'optional' | 'none';
-        reference_images?: { max?: number | null };
-        reference_audios?: { max?: number | null };
+        reference_images?: GenerationReferenceCapability;
+        reference_videos?: GenerationReferenceCapability;
+        reference_audios?: GenerationReferenceCapability;
         negative_prompt?: boolean;
         camera?: string;
         frames_and_refs_exclusive?: boolean;
@@ -39,6 +49,10 @@ export interface GenerationCatalogRow {
 export interface GenerationValidation {
     ok: boolean;
     normalized?: { inputs?: Record<string, unknown>; output?: Record<string, unknown> };
+    send_side?: 'frames' | 'references' | null;
+    references?: Partial<Record<GenerationReferenceSlot, {
+        count: number; max: number | null; seconds_total: number; max_seconds_total: number | null;
+    }>>;
     rounded?: { duration_s?: { from: number; to: number } } | null;
     messages?: Array<{ level: 'error' | 'warn' | 'info'; text: string }>;
     cost?: { estimate_usd?: number | null; as_of?: string | null; needs_explicit_confirm?: boolean };
@@ -48,6 +62,12 @@ export interface GenerationFieldDef<TSnapshot = unknown> {
     generationChildren?: GenerationFieldDef<TSnapshot>[];
     generationDetail?: boolean;
     generationFrame?: boolean;
+    generationMode?: boolean;
+    generationReferences?: {
+        entries: Array<{ slot: GenerationReferenceSlot; reference: GenerationReference; index: number; badge: string; unsupported: boolean }>;
+        kinds: Array<{ slot: GenerationReferenceSlot; label: string; kind: 'image' | 'video' | 'audio'; max: number | null }>;
+        counter: string; notes: string[];
+    };
     generationButtons?: boolean;
     generationThumbnail?: () => Promise<string | undefined>;
     name?: string;
@@ -124,8 +144,79 @@ const refs = (value: unknown): GenerationReference[] => Array.isArray(value)
     ? value.filter((entry): entry is GenerationReference => !!entry && typeof entry === 'object'
         && typeof (entry as GenerationReference).path === 'string') : [];
 
-const parsePaths = (value: string): GenerationReference[] => value.split(',')
-    .map(path => path.trim()).filter(Boolean).map(path => ({ path }));
+const referenceKinds = [
+    { slot: 'reference_images', label: '画像', kind: 'image' },
+    { slot: 'reference_videos', label: '動画', kind: 'video' },
+    { slot: 'reference_audios', label: '音声', kind: 'audio' }
+] as const;
+
+function modelSide(row: GenerationCatalogRow): 'frames' | 'references' | undefined {
+    if (row.inputs.first_frame === 'none' && row.inputs.last_frame === 'none') return 'references';
+    if (referenceKinds.every(({ slot }) => row.inputs[slot]?.max === 0)) return 'frames';
+    return undefined;
+}
+
+function pairedModels(row: GenerationCatalogRow, catalog: readonly GenerationCatalogRow[]):
+    { frames: GenerationCatalogRow; references: GenerationCatalogRow } | undefined {
+    if (!row.family) return undefined;
+    const family = catalog.filter(candidate => candidate.kind === 'video' && candidate.family === row.family);
+    const frames = family.find(candidate => modelSide(candidate) === 'frames');
+    const references = family.find(candidate => modelSide(candidate) === 'references');
+    return frames && references ? { frames, references } : undefined;
+}
+
+// UI-only insertion order, scoped to the workspace/item and stored locally.
+// No private UI metadata is added to the nine-slot provider contract.
+const referenceOrder = new WeakMap<GenerationReference, number>();
+const referenceOrderKeys = new WeakMap<Record<string, unknown>, string>();
+let referenceSequence = 0;
+function rememberReferences(inputs: Record<string, unknown>, previous?: Record<string, unknown>, key?: string): void {
+    key ??= referenceOrderKeys.get(inputs) ?? (previous && referenceOrderKeys.get(previous));
+    let storage: Storage | undefined;
+    const storageKey = key && `akari-generation-reference-order:${key}`;
+    if (key) {
+        referenceOrderKeys.set(inputs, key);
+        try { if (typeof window !== 'undefined') storage = window.localStorage; } catch { /* In-memory order still works. */ }
+    }
+    if (storage && storageKey && !previous) {
+        try {
+            const saved: unknown = JSON.parse(storage.getItem(storageKey) ?? '[]');
+            if (Array.isArray(saved)) for (const entry of saved) {
+                const kind = referenceKinds.find(kind => kind.slot === entry?.slot);
+                const ref = kind && refs(inputs[kind.slot]).find(ref => ref.path === entry.path);
+                if (ref) referenceOrder.set(ref, referenceSequence++);
+            }
+        } catch { /* Ignore obsolete or unavailable local UI state. */ }
+    }
+    if (previous) {
+        rememberReferences(previous);
+        for (const { slot } of referenceKinds) for (const ref of refs(inputs[slot])) {
+            const old = refs(previous[slot]).find(candidate => candidate.path === ref.path);
+            if (old) referenceOrder.set(ref, referenceOrder.get(old)!);
+        }
+    }
+    for (const { slot } of referenceKinds) {
+        let last = -1;
+        for (const ref of refs(inputs[slot])) {
+            if (!referenceOrder.has(ref) || referenceOrder.get(ref)! <= last) referenceOrder.set(ref, referenceSequence++);
+            last = referenceOrder.get(ref)!;
+        }
+    }
+    if (storage && storageKey) {
+        const ordered = referenceKinds.flatMap(({ slot }) => refs(inputs[slot]).map(ref => ({ slot, ref })))
+            .sort((a, b) => referenceOrder.get(a.ref)! - referenceOrder.get(b.ref)!);
+        try { storage.setItem(storageKey, JSON.stringify(ordered.map(({ slot, ref }) => ({ slot, path: ref.path })))); }
+        catch { /* Storage quota/private browsing must not block draft editing. */ }
+    }
+}
+
+/** Mirrors akari-project classifyMaterialKind; unknown extensions are never accepted. */
+function referenceSlot(path: string): GenerationReferenceSlot | undefined {
+    if (/\.(mp4|mov|m4v|webm|mkv|avi)$/iu.test(path)) return 'reference_videos';
+    if (/\.(wav|mp3|m4a|aac|flac|ogg)$/iu.test(path)) return 'reference_audios';
+    if (/\.(png|jpg|jpeg|gif|webp)$/iu.test(path)) return 'reference_images';
+    return undefined;
+}
 
 const pricePerSecond = (row: GenerationCatalogRow): number | null => {
     const prices = Object.values(row.price?.by_resolution ?? {}).filter(Number.isFinite);
@@ -135,25 +226,6 @@ const pricePerSecond = (row: GenerationCatalogRow): number | null => {
 export function generationFactLabel(row: GenerationCatalogRow): string {
     const price = pricePerSecond(row);
     return `${row.family ?? row.id} · ${price === null ? '見積不可' : `$${price}/秒`} · as_of ${row.as_of ?? '不明'}（${row.id}）`;
-}
-
-function refField<T>(
-    name: string, label: string, value: unknown, actions: GenerationFieldActions,
-    options: { max?: number | null; note?: string; single?: boolean } = {}
-): GenerationFieldDef<T> {
-    const values = options.single
-        ? (value && typeof value === 'object' && !Array.isArray(value) ? [value as GenerationReference] : [])
-        : refs(value);
-    const count = values.length;
-    const counter = options.max === null || options.max === undefined ? '' : ` ${count} / ${options.max}`;
-    return {
-        name, label: `${label}${counter}`, inputKind: 'media', generationDetail: true,
-        getValue: () => values.map(reference => reference.path).join(', '),
-        getEditValue: () => values.map(reference => reference.path).join(', '), title: options.note,
-        write: (_snapshot, next) => actions.update(
-            `inputs.${name}`, options.single ? (parsePaths(next)[0] ?? null) : parsePaths(next)
-        )
-    };
 }
 
 export const generationFields = Object.assign(function generationFields<TSnapshot>({
@@ -182,10 +254,21 @@ export const generationFields = Object.assign(function generationFields<TSnapsho
         getValue: () => String(inputs.negative_prompt ?? ''), getEditValue: () => String(inputs.negative_prompt ?? ''),
         write: (_snapshot, value) => actions.update('inputs.negative_prompt', value || null)
     });
+    const pair = pairedModels(catalogRow, defaults.catalog);
+    const side = modelSide(catalogRow);
+    const locked = ['generating', 'stale'].includes(defaults.state ?? '');
+    if (pair) {
+        fields.push({ name: 'generation-mode', label: '', generationButtons: true, generationMode: true,
+            disabled: locked, options: ['最初 / 最後', '参照'],
+            getValue: () => side === 'references' ? '参照' : '最初 / 最後',
+            write: (_snapshot, value) => actions.update('inputs.frames_or_refs', value === '参照' ? 'references' : 'frames') });
+        fields.push({ name: 'generation-mode-note', label: '',
+            getValue: () => `${catalogRow.family} は同時に使えません。切り替えても中身は残り、送るのは選んだ方だけです。` });
+    }
     for (const [slot, name, label] of [
         ['first_frame', 'first-frame', '最初の絵'], ['last_frame', 'last_frame', '最後の絵']
     ] as const) {
-        if (catalogRow.inputs[slot] === 'none') continue;
+        if (catalogRow.inputs[slot] === 'none' || (pair && side === 'references')) continue;
         const reference = inputs[slot] as GenerationReference | null;
         const path = reference?.path ?? '';
         const shortcuts: NonNullable<GenerationFieldDef<TSnapshot>['actions']>[number][] = [];
@@ -206,16 +289,36 @@ export const generationFields = Object.assign(function generationFields<TSnapsho
     fields.push({ name: 'generation-variety', label: '種類', getValue: () => generationVariety(draft) });
     fields.push({ name: 'generation-material-note', label: '',
         getValue: () => '送る絵は素材のまま（色・サイズは送りません）' });
-    const imageMax = catalogRow.inputs.reference_images?.max;
-    if (imageMax === null || (typeof imageMax === 'number' && imageMax > 0)) {
-        fields.push(refField('reference_images', '参照画像', inputs.reference_images, actions, { max: imageMax }));
+    rememberReferences(inputs);
+    const entries = referenceKinds.flatMap(({ slot, label }) => refs(inputs[slot]).map((reference, index) => ({
+        slot, reference, index, badge: `@${label}${index + 1}`, unsupported: catalogRow.inputs[slot]?.max === 0
+    }))).sort((a, b) => referenceOrder.get(a.reference)! - referenceOrder.get(b.reference)!);
+    const kinds = referenceKinds.filter(({ slot }) => catalogRow.inputs[slot]
+        && catalogRow.inputs[slot]?.max !== 0).map(kind => ({ ...kind,
+        max: validation?.references?.[kind.slot] ? validation.references[kind.slot]!.max : catalogRow.inputs[kind.slot]?.max ?? null }));
+    const notes: string[] = [];
+    if (side === 'references' && kinds.length > 0 && kinds.every(({ slot }) => !catalogRow.inputs[slot]?.tag)) {
+        notes.push('このモデルの参照の送り方はまだ用意されていません。送ると止まります。');
     }
-    const audioMax = catalogRow.inputs.reference_audios?.max;
-    if (typeof audioMax === 'number' && audioMax > 0) {
-        fields.push(refField('reference_audios', '参照音声', inputs.reference_audios, actions, {
-            max: audioMax, note: '効き目は未較正'
-        }));
+    const counter = kinds.map(({ slot, label }) => {
+        const stats = validation?.references?.[slot];
+        if (!stats) return `${label} 確認中`;
+        if (stats.max === null) notes.push(`${label}: 上限はモデル側に記載なし`);
+        if (stats.max_seconds_total !== null) notes.push(`${label} ${stats.seconds_total} / ${stats.max_seconds_total} 秒`);
+        return `${label} ${stats.count}${stats.max === null ? '' : ` / ${stats.max}`}`;
+    }).join(' · ');
+    for (const { slot, label } of referenceKinds) if (entries.some(entry => entry.slot === slot && entry.unsupported)) {
+        notes.push(`このモデルは${label}の参照を使えません。送るときは外します（中身は残す）。`);
+        if (validation?.send_side !== 'frames') notes.push('入力エラーを解消するまで送信できません。');
     }
+    if ((!pair || side === 'references') && (kinds.length || entries.length)) fields.push({
+        name: 'generation-references', label: '参照', disabled: locked, getValue: () => '',
+        generationReferences: { entries, kinds, counter, notes },
+        write: (_snapshot, value) => {
+            const { slot, index } = JSON.parse(value) as { slot: GenerationReferenceSlot; index: number };
+            return actions.update(`inputs.${slot}`, refs(inputs[slot]).filter((_ref, ordinal) => ordinal !== index));
+        }
+    });
     if (catalogRow.inputs.camera) fields.push({
         name: 'camera', label: 'カメラの動き', generationButtons: true,
         options: ['なし', ...GENERATION_CAMERA_MOVES.map(move => move.label)],
@@ -293,6 +396,7 @@ export const generationFields = Object.assign(function generationFields<TSnapsho
     return visible;
 }, {
     fromMeta: generationDraftFromMeta,
+    modelSide, pairedModels, referenceSlot, rememberReferences,
     cameraValue: generationCameraValue,
     cameraMoves: GENERATION_CAMERA_MOVES
 });

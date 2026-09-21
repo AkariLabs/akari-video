@@ -1,0 +1,3236 @@
+{
+ "at": "2026-09-21T16:45:28.560Z",
+ "rows": [
+  {
+   "n": 1,
+   "key": "still/br-3d-printer",
+   "token": "akari-annotations-widget:1790009031218:1",
+   "clickWall": 1790009031127,
+   "reloads": 1,
+   "playRequests": 1,
+   "retries": 0,
+   "readyFallback": 0,
+   "result": "playing",
+   "appliedMs": 495,
+   "playbackStartMs": null,
+   "logPlayingMs": 2956,
+   "cachedBefore": true,
+   "startAfterAppliedMs": null,
+   "firstPlayRequestMs": 2929,
+   "toasts": [],
+   "samples": [
+    [
+     135,
+     0
+    ],
+    [
+     362,
+     0
+    ],
+    [
+     516,
+     0
+    ],
+    [
+     681,
+     0
+    ],
+    [
+     836,
+     0
+    ],
+    [
+     997,
+     0
+    ],
+    [
+     1150,
+     0
+    ],
+    [
+     1330,
+     0
+    ],
+    [
+     1498,
+     0
+    ],
+    [
+     1658,
+     0
+    ],
+    [
+     1818,
+     0
+    ],
+    [
+     1972,
+     0
+    ],
+    [
+     2142,
+     0
+    ],
+    [
+     2303,
+     0
+    ],
+    [
+     2461,
+     0
+    ],
+    [
+     2743,
+     4.84848
+    ],
+    [
+     2934,
+     4.84848
+    ],
+    [
+     3095,
+     0
+    ],
+    [
+     3312,
+     0
+    ],
+    [
+     3474,
+     0
+    ],
+    [
+     3680,
+     0
+    ],
+    [
+     3845,
+     0
+    ],
+    [
+     4012,
+     0
+    ],
+    [
+     4178,
+     0
+    ],
+    [
+     4331,
+     0
+    ],
+    [
+     4484,
+     0
+    ],
+    [
+     4637,
+     0
+    ],
+    [
+     4797,
+     4.84848
+    ],
+    [
+     4969,
+     4.84848
+    ],
+    [
+     5123,
+     8.08081
+    ],
+    [
+     5289,
+     8.08081
+    ],
+    [
+     5446,
+     8.08081
+    ],
+    [
+     5612,
+     8.08081
+    ],
+    [
+     5782,
+     8.08081
+    ],
+    [
+     5964,
+     8.08081
+    ],
+    [
+     6137,
+     8.08081
+    ],
+    [
+     6320,
+     8.08081
+    ],
+    [
+     6472,
+     9.09091
+    ],
+    [
+     6631,
+     9.09091
+    ],
+    [
+     6793,
+     9.09091
+    ],
+    [
+     6952,
+     9.09091
+    ]
+   ],
+   "log": [
+    {
+     "wall": 1790009031239,
+     "token": "akari-annotations-widget:1790009031218:1",
+     "event": "trial_start",
+     "t": 1
+    },
+    {
+     "wall": 1790009031283,
+     "token": "akari-annotations-widget:1790009031218:1",
+     "event": "preview_trial_begin",
+     "t": 5,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:1"
+    },
+    {
+     "wall": 1790009031284,
+     "token": "akari-annotations-widget:1790009031218:1",
+     "event": "resolve_start",
+     "t": 5,
+     "candidate": "still/br-3d-printer"
+    },
+    {
+     "wall": 1790009031309,
+     "token": "akari-annotations-widget:1790009031218:1",
+     "event": "resolve_done",
+     "t": 80,
+     "cached": true,
+     "ok": true
+    },
+    {
+     "wall": 1790009031333,
+     "token": "akari-annotations-widget:1790009031218:1",
+     "event": "refresh_queued",
+     "t": 111
+    },
+    {
+     "wall": 1790009031333,
+     "token": "akari-annotations-widget:1790009031218:1",
+     "event": "refresh_started",
+     "t": 112
+    },
+    {
+     "wall": 1790009031622,
+     "token": "akari-annotations-widget:1790009031218:1",
+     "event": "trial_applied",
+     "t": 388,
+     "itemId": "broll-1",
+     "candidate": "still/br-3d-printer"
+    },
+    {
+     "wall": 1790009032861,
+     "token": "akari-annotations-widget:1790009031218:1",
+     "event": "reload_start",
+     "t": 1614,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:2"
+    },
+    {
+     "wall": 1790009033051,
+     "token": "akari-annotations-widget:1790009031218:1",
+     "event": "reload_complete",
+     "t": 1831,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:2"
+    },
+    {
+     "wall": 1790009033933,
+     "token": "akari-annotations-widget:1790009031218:1",
+     "event": "ready_seek_response",
+     "t": 2487,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:2",
+     "seek": true
+    },
+    {
+     "wall": 1790009034055,
+     "token": "akari-annotations-widget:1790009031218:1",
+     "event": "ready_seek_response",
+     "t": 2821,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:2",
+     "seek": true
+    },
+    {
+     "wall": 1790009034056,
+     "token": "akari-annotations-widget:1790009031218:1",
+     "event": "play_request",
+     "t": 2821,
+     "attempt": 1,
+     "revision": 2,
+     "quietForMs": 990
+    },
+    {
+     "wall": 1790009034083,
+     "token": "akari-annotations-widget:1790009031218:1",
+     "event": "playback_state",
+     "t": 2863,
+     "playing": true,
+     "userStopped": false,
+     "source": "renderer"
+    },
+    {
+     "wall": 1790009034153,
+     "token": "akari-annotations-widget:1790009031218:1",
+     "event": "trial_playback_result",
+     "t": 2872,
+     "result": "playing"
+    },
+    {
+     "wall": 1790009038143,
+     "token": "akari-annotations-widget:1790009031218:1",
+     "event": "playback_pause",
+     "t": 6924,
+     "reason": "window_end"
+    }
+   ]
+  },
+  {
+   "n": 2,
+   "key": "still/br-airport-hall",
+   "token": "akari-annotations-widget:1790009039708:2",
+   "clickWall": 1790009039667,
+   "reloads": 1,
+   "playRequests": 1,
+   "retries": 0,
+   "readyFallback": 0,
+   "result": "playing",
+   "appliedMs": 934,
+   "playbackStartMs": 4091,
+   "logPlayingMs": 2490,
+   "cachedBefore": true,
+   "startAfterAppliedMs": 3157,
+   "firstPlayRequestMs": 2489,
+   "toasts": [],
+   "samples": [
+    [
+     78,
+     12.9501
+    ],
+    [
+     281,
+     12.9501
+    ],
+    [
+     451,
+     12.9501
+    ],
+    [
+     606,
+     12.9501
+    ],
+    [
+     765,
+     12.9501
+    ],
+    [
+     930,
+     12.9501
+    ],
+    [
+     1087,
+     12.9501
+    ],
+    [
+     1254,
+     12.9501
+    ],
+    [
+     1423,
+     12.9501
+    ],
+    [
+     1576,
+     12.9501
+    ],
+    [
+     1737,
+     12.9501
+    ],
+    [
+     1890,
+     12.9293
+    ],
+    [
+     2053,
+     12.9293
+    ],
+    [
+     2224,
+     4.84848
+    ],
+    [
+     2489,
+     4.84848
+    ],
+    [
+     2666,
+     12.9293
+    ],
+    [
+     2820,
+     12.9293
+    ],
+    [
+     2981,
+     12.9293
+    ],
+    [
+     3146,
+     12.9293
+    ],
+    [
+     3306,
+     12.9293
+    ],
+    [
+     3458,
+     12.9293
+    ],
+    [
+     3628,
+     4.84848
+    ],
+    [
+     3781,
+     4.84848
+    ],
+    [
+     3936,
+     4.84848
+    ],
+    [
+     4091,
+     7.34007
+    ],
+    [
+     4244,
+     7.67677
+    ],
+    [
+     4406,
+     7.94613
+    ]
+   ],
+   "log": [
+    {
+     "wall": 1790009039722,
+     "token": "akari-annotations-widget:1790009039708:2",
+     "event": "trial_start",
+     "t": 0
+    },
+    {
+     "wall": 1790009039722,
+     "token": "akari-annotations-widget:1790009039708:2",
+     "event": "rollback_skipped_refresh",
+     "t": 3
+    },
+    {
+     "wall": 1790009039723,
+     "token": "akari-annotations-widget:1790009039708:2",
+     "event": "preview_trial_begin",
+     "t": 3,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:2"
+    },
+    {
+     "wall": 1790009039729,
+     "token": "akari-annotations-widget:1790009039708:2",
+     "event": "resolve_start",
+     "t": 4,
+     "candidate": "still/br-airport-hall"
+    },
+    {
+     "wall": 1790009039757,
+     "token": "akari-annotations-widget:1790009039708:2",
+     "event": "resolve_done",
+     "t": 42,
+     "cached": true,
+     "ok": true
+    },
+    {
+     "wall": 1790009039780,
+     "token": "akari-annotations-widget:1790009039708:2",
+     "event": "refresh_queued",
+     "t": 70
+    },
+    {
+     "wall": 1790009039781,
+     "token": "akari-annotations-widget:1790009039708:2",
+     "event": "refresh_started",
+     "t": 70
+    },
+    {
+     "wall": 1790009040601,
+     "token": "akari-annotations-widget:1790009039708:2",
+     "event": "trial_applied",
+     "t": 879,
+     "itemId": "broll-1",
+     "candidate": "still/br-airport-hall"
+    },
+    {
+     "wall": 1790009041053,
+     "token": "akari-annotations-widget:1790009039708:2",
+     "event": "reload_start",
+     "t": 1321,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:3"
+    },
+    {
+     "wall": 1790009041462,
+     "token": "akari-annotations-widget:1790009039708:2",
+     "event": "reload_complete",
+     "t": 1743,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:3"
+    },
+    {
+     "wall": 1790009041817,
+     "token": "akari-annotations-widget:1790009039708:2",
+     "event": "ready_seek_response",
+     "t": 2084,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:3",
+     "seek": true
+    },
+    {
+     "wall": 1790009042149,
+     "token": "akari-annotations-widget:1790009039708:2",
+     "event": "ready_seek_response",
+     "t": 2307,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:3",
+     "seek": true
+    },
+    {
+     "wall": 1790009042156,
+     "token": "akari-annotations-widget:1790009039708:2",
+     "event": "play_request",
+     "t": 2307,
+     "attempt": 1,
+     "revision": 2,
+     "quietForMs": 564
+    },
+    {
+     "wall": 1790009042157,
+     "token": "akari-annotations-widget:1790009039708:2",
+     "event": "playback_state",
+     "t": 2314,
+     "playing": true,
+     "userStopped": false,
+     "source": "renderer"
+    },
+    {
+     "wall": 1790009042163,
+     "token": "akari-annotations-widget:1790009039708:2",
+     "event": "trial_playback_result",
+     "t": 2358,
+     "result": "playing"
+    }
+   ]
+  },
+  {
+   "n": 3,
+   "key": "still/br-bar-bokeh",
+   "token": "akari-annotations-widget:1790009045772:3",
+   "clickWall": 1790009045670,
+   "reloads": 1,
+   "playRequests": 1,
+   "retries": 0,
+   "readyFallback": 0,
+   "result": "playing",
+   "appliedMs": 811,
+   "playbackStartMs": 5684,
+   "logPlayingMs": 3733,
+   "cachedBefore": true,
+   "startAfterAppliedMs": 4873,
+   "firstPlayRequestMs": 3728,
+   "toasts": [],
+   "samples": [
+    [
+     177,
+     11.5925
+    ],
+    [
+     360,
+     11.5925
+    ],
+    [
+     519,
+     11.5925
+    ],
+    [
+     677,
+     11.5925
+    ],
+    [
+     841,
+     11.5925
+    ],
+    [
+     1001,
+     11.5925
+    ],
+    [
+     1155,
+     11.5925
+    ],
+    [
+     1310,
+     11.5925
+    ],
+    [
+     1472,
+     11.5925
+    ],
+    [
+     1642,
+     11.5925
+    ],
+    [
+     1811,
+     11.5925
+    ],
+    [
+     2001,
+     11.5925
+    ],
+    [
+     2168,
+     11.5925
+    ],
+    [
+     2370,
+     6.06061
+    ],
+    [
+     2538,
+     0
+    ],
+    [
+     2696,
+     0
+    ],
+    [
+     2866,
+     0
+    ],
+    [
+     3022,
+     0
+    ],
+    [
+     3175,
+     0
+    ],
+    [
+     3335,
+     0
+    ],
+    [
+     3490,
+     0
+    ],
+    [
+     3683,
+     4.84848
+    ],
+    [
+     3904,
+     11.5825
+    ],
+    [
+     4062,
+     11.5825
+    ],
+    [
+     4228,
+     11.5825
+    ],
+    [
+     4386,
+     4.84848
+    ],
+    [
+     4555,
+     4.84848
+    ],
+    [
+     4726,
+     5.85859
+    ],
+    [
+     4890,
+     6.39731
+    ],
+    [
+     5043,
+     6.39731
+    ],
+    [
+     5203,
+     6.39731
+    ],
+    [
+     5357,
+     6.80135
+    ],
+    [
+     5512,
+     7.81145
+    ],
+    [
+     5684,
+     7.81145
+    ],
+    [
+     5882,
+     8.14815
+    ],
+    [
+     6055,
+     8.68687
+    ]
+   ],
+   "log": [
+    {
+     "wall": 1790009045781,
+     "token": "akari-annotations-widget:1790009045772:3",
+     "event": "trial_start",
+     "t": 0
+    },
+    {
+     "wall": 1790009045804,
+     "token": "akari-annotations-widget:1790009045772:3",
+     "event": "rollback_skipped_refresh",
+     "t": 1
+    },
+    {
+     "wall": 1790009045816,
+     "token": "akari-annotations-widget:1790009045772:3",
+     "event": "preview_trial_begin",
+     "t": 2,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:3"
+    },
+    {
+     "wall": 1790009045816,
+     "token": "akari-annotations-widget:1790009045772:3",
+     "event": "resolve_start",
+     "t": 2,
+     "candidate": "still/br-bar-bokeh"
+    },
+    {
+     "wall": 1790009045845,
+     "token": "akari-annotations-widget:1790009045772:3",
+     "event": "resolve_done",
+     "t": 68,
+     "cached": true,
+     "ok": true
+    },
+    {
+     "wall": 1790009045872,
+     "token": "akari-annotations-widget:1790009045772:3",
+     "event": "refresh_queued",
+     "t": 97
+    },
+    {
+     "wall": 1790009045872,
+     "token": "akari-annotations-widget:1790009045772:3",
+     "event": "refresh_started",
+     "t": 97
+    },
+    {
+     "wall": 1790009046481,
+     "token": "akari-annotations-widget:1790009045772:3",
+     "event": "trial_applied",
+     "t": 463,
+     "itemId": "broll-1",
+     "candidate": "still/br-bar-bokeh"
+    },
+    {
+     "wall": 1790009047391,
+     "token": "akari-annotations-widget:1790009045772:3",
+     "event": "reload_start",
+     "t": 1576,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:4"
+    },
+    {
+     "wall": 1790009048009,
+     "token": "akari-annotations-widget:1790009045772:3",
+     "event": "reload_complete",
+     "t": 2198,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:4"
+    },
+    {
+     "wall": 1790009049341,
+     "token": "akari-annotations-widget:1790009045772:3",
+     "event": "ready_seek_response",
+     "t": 3555,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:4",
+     "seek": true
+    },
+    {
+     "wall": 1790009049397,
+     "token": "akari-annotations-widget:1790009045772:3",
+     "event": "ready_seek_response",
+     "t": 3623,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:4",
+     "seek": true
+    },
+    {
+     "wall": 1790009049398,
+     "token": "akari-annotations-widget:1790009045772:3",
+     "event": "play_request",
+     "t": 3623,
+     "attempt": 1,
+     "revision": 2,
+     "quietForMs": 1425
+    },
+    {
+     "wall": 1790009049403,
+     "token": "akari-annotations-widget:1790009045772:3",
+     "event": "playback_state",
+     "t": 3630,
+     "playing": true,
+     "userStopped": false,
+     "source": "renderer"
+    },
+    {
+     "wall": 1790009049610,
+     "token": "akari-annotations-widget:1790009045772:3",
+     "event": "trial_playback_result",
+     "t": 3674,
+     "result": "playing"
+    }
+   ]
+  },
+  {
+   "n": 4,
+   "key": "still/br-camera-gear",
+   "token": "akari-annotations-widget:1790009053378:4",
+   "clickWall": 1790009053322,
+   "reloads": 1,
+   "playRequests": 1,
+   "retries": 0,
+   "readyFallback": 0,
+   "result": "playing",
+   "appliedMs": 4884,
+   "playbackStartMs": 9324,
+   "logPlayingMs": 6750,
+   "cachedBefore": false,
+   "startAfterAppliedMs": 4440,
+   "firstPlayRequestMs": 6750,
+   "toasts": [],
+   "samples": [
+    [
+     102,
+     12.5622
+    ],
+    [
+     256,
+     12.5622
+    ],
+    [
+     416,
+     12.5622
+    ],
+    [
+     586,
+     12.5622
+    ],
+    [
+     749,
+     12.5622
+    ],
+    [
+     902,
+     12.5622
+    ],
+    [
+     1056,
+     12.5622
+    ],
+    [
+     1209,
+     12.5622
+    ],
+    [
+     1365,
+     12.5622
+    ],
+    [
+     1516,
+     12.5622
+    ],
+    [
+     1670,
+     12.5622
+    ],
+    [
+     1823,
+     12.5622
+    ],
+    [
+     1991,
+     12.5622
+    ],
+    [
+     2143,
+     12.5622
+    ],
+    [
+     2314,
+     12.5622
+    ],
+    [
+     2473,
+     12.5622
+    ],
+    [
+     2633,
+     12.5622
+    ],
+    [
+     2816,
+     12.5622
+    ],
+    [
+     2967,
+     12.5622
+    ],
+    [
+     3146,
+     12.5622
+    ],
+    [
+     3315,
+     12.5622
+    ],
+    [
+     3470,
+     12.5622
+    ],
+    [
+     3634,
+     12.5622
+    ],
+    [
+     3787,
+     12.5622
+    ],
+    [
+     3940,
+     12.5622
+    ],
+    [
+     4097,
+     12.5622
+    ],
+    [
+     4272,
+     12.5622
+    ],
+    [
+     4470,
+     12.5622
+    ],
+    [
+     4715,
+     12.5622
+    ],
+    [
+     4868,
+     12.5622
+    ],
+    [
+     5026,
+     12.5622
+    ],
+    [
+     5183,
+     12.5622
+    ],
+    [
+     5335,
+     12.5622
+    ],
+    [
+     5488,
+     12.5622
+    ],
+    [
+     5644,
+     12.5622
+    ],
+    [
+     5807,
+     12.5622
+    ],
+    [
+     5969,
+     12.5622
+    ],
+    [
+     6125,
+     12.5622
+    ],
+    [
+     6285,
+     12.5926
+    ],
+    [
+     6454,
+     12.5926
+    ],
+    [
+     6611,
+     4.84848
+    ],
+    [
+     6791,
+     12.5926
+    ],
+    [
+     6950,
+     12.5926
+    ],
+    [
+     7108,
+     12.5926
+    ],
+    [
+     7284,
+     12.5926
+    ],
+    [
+     7452,
+     12.5926
+    ],
+    [
+     7618,
+     12.5926
+    ],
+    [
+     7777,
+     12.5926
+    ],
+    [
+     7944,
+     12.5926
+    ],
+    [
+     8102,
+     12.5926
+    ],
+    [
+     8257,
+     12.5926
+    ],
+    [
+     8553,
+     12.5926
+    ],
+    [
+     8706,
+     4.84848
+    ],
+    [
+     8863,
+     4.84848
+    ],
+    [
+     9018,
+     4.84848
+    ],
+    [
+     9171,
+     4.84848
+    ],
+    [
+     9324,
+     8.28283
+    ],
+    [
+     9478,
+     8.61953
+    ],
+    [
+     9657,
+     8.82155
+    ]
+   ],
+   "log": [
+    {
+     "wall": 1790009053380,
+     "token": "akari-annotations-widget:1790009053378:4",
+     "event": "trial_start",
+     "t": 0
+    },
+    {
+     "wall": 1790009053381,
+     "token": "akari-annotations-widget:1790009053378:4",
+     "event": "rollback_skipped_refresh",
+     "t": 1
+    },
+    {
+     "wall": 1790009053394,
+     "token": "akari-annotations-widget:1790009053378:4",
+     "event": "preview_trial_begin",
+     "t": 2,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:4"
+    },
+    {
+     "wall": 1790009053403,
+     "token": "akari-annotations-widget:1790009053378:4",
+     "event": "resolve_start",
+     "t": 2,
+     "candidate": "still/br-camera-gear"
+    },
+    {
+     "wall": 1790009057926,
+     "token": "akari-annotations-widget:1790009053378:4",
+     "event": "resolve_done",
+     "t": 4538,
+     "cached": false,
+     "ok": true
+    },
+    {
+     "wall": 1790009058039,
+     "token": "akari-annotations-widget:1790009053378:4",
+     "event": "refresh_queued",
+     "t": 4657
+    },
+    {
+     "wall": 1790009058040,
+     "token": "akari-annotations-widget:1790009053378:4",
+     "event": "refresh_started",
+     "t": 4657
+    },
+    {
+     "wall": 1790009058206,
+     "token": "akari-annotations-widget:1790009053378:4",
+     "event": "trial_applied",
+     "t": 4815,
+     "itemId": "broll-1",
+     "candidate": "still/br-camera-gear"
+    },
+    {
+     "wall": 1790009059253,
+     "token": "akari-annotations-widget:1790009053378:4",
+     "event": "reload_start",
+     "t": 5848,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:5"
+    },
+    {
+     "wall": 1790009059532,
+     "token": "akari-annotations-widget:1790009053378:4",
+     "event": "reload_complete",
+     "t": 6152,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:5"
+    },
+    {
+     "wall": 1790009060014,
+     "token": "akari-annotations-widget:1790009053378:4",
+     "event": "ready_seek_response",
+     "t": 6521,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:5",
+     "seek": true
+    },
+    {
+     "wall": 1790009060072,
+     "token": "akari-annotations-widget:1790009053378:4",
+     "event": "ready_seek_response",
+     "t": 6666,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:5",
+     "seek": true
+    },
+    {
+     "wall": 1790009060072,
+     "token": "akari-annotations-widget:1790009053378:4",
+     "event": "play_request",
+     "t": 6666,
+     "attempt": 1,
+     "revision": 2,
+     "quietForMs": 514
+    },
+    {
+     "wall": 1790009060072,
+     "token": "akari-annotations-widget:1790009053378:4",
+     "event": "playback_state",
+     "t": 6681,
+     "playing": true,
+     "userStopped": false,
+     "source": "renderer"
+    },
+    {
+     "wall": 1790009060190,
+     "token": "akari-annotations-widget:1790009053378:4",
+     "event": "trial_playback_result",
+     "t": 6718,
+     "result": "playing"
+    }
+   ]
+  },
+  {
+   "n": 5,
+   "key": "still/br-candle-glow",
+   "token": "akari-annotations-widget:1790009064640:5",
+   "clickWall": 1790009064580,
+   "reloads": 1,
+   "playRequests": 1,
+   "retries": 0,
+   "readyFallback": 0,
+   "result": "playing",
+   "appliedMs": 5055,
+   "playbackStartMs": null,
+   "logPlayingMs": 6992,
+   "cachedBefore": false,
+   "startAfterAppliedMs": null,
+   "firstPlayRequestMs": 6992,
+   "toasts": [],
+   "samples": [
+    [
+     129,
+     12.4545
+    ],
+    [
+     290,
+     12.4545
+    ],
+    [
+     445,
+     12.4545
+    ],
+    [
+     601,
+     12.4545
+    ],
+    [
+     761,
+     12.4545
+    ],
+    [
+     913,
+     12.4545
+    ],
+    [
+     1074,
+     12.4545
+    ],
+    [
+     1227,
+     12.4545
+    ],
+    [
+     1398,
+     12.4545
+    ],
+    [
+     1557,
+     12.4545
+    ],
+    [
+     1710,
+     12.4545
+    ],
+    [
+     1866,
+     12.4545
+    ],
+    [
+     2020,
+     12.4545
+    ],
+    [
+     2175,
+     12.4545
+    ],
+    [
+     2331,
+     12.4545
+    ],
+    [
+     2485,
+     12.4545
+    ],
+    [
+     2676,
+     12.4545
+    ],
+    [
+     2841,
+     12.4545
+    ],
+    [
+     2997,
+     12.4545
+    ],
+    [
+     3150,
+     12.4545
+    ],
+    [
+     3305,
+     12.4545
+    ],
+    [
+     3464,
+     12.4545
+    ],
+    [
+     3618,
+     12.4545
+    ],
+    [
+     3777,
+     12.4545
+    ],
+    [
+     3931,
+     12.4545
+    ],
+    [
+     4127,
+     12.4545
+    ],
+    [
+     4280,
+     12.4545
+    ],
+    [
+     4449,
+     12.4545
+    ],
+    [
+     4620,
+     12.4545
+    ],
+    [
+     4774,
+     12.4545
+    ],
+    [
+     4932,
+     12.4545
+    ],
+    [
+     5095,
+     12.4545
+    ],
+    [
+     5256,
+     12.4545
+    ],
+    [
+     5437,
+     12.4545
+    ],
+    [
+     5606,
+     12.4545
+    ],
+    [
+     5760,
+     12.4545
+    ],
+    [
+     5914,
+     12.4545
+    ],
+    [
+     6079,
+     12.4545
+    ],
+    [
+     6278,
+     12.4545
+    ],
+    [
+     6431,
+     12.4545
+    ],
+    [
+     6627,
+     12.4579
+    ],
+    [
+     6794,
+     12.4579
+    ],
+    [
+     6972,
+     4.84848
+    ],
+    [
+     7145,
+     12.4579
+    ],
+    [
+     7300,
+     12.4579
+    ],
+    [
+     7464,
+     12.4579
+    ],
+    [
+     7638,
+     12.4579
+    ],
+    [
+     7804,
+     12.4579
+    ],
+    [
+     7959,
+     12.4579
+    ],
+    [
+     8112,
+     12.4579
+    ],
+    [
+     8272,
+     12.4579
+    ],
+    [
+     8428,
+     12.4579
+    ],
+    [
+     8589,
+     12.4579
+    ],
+    [
+     8836,
+     12.4579
+    ],
+    [
+     9000,
+     4.84848
+    ],
+    [
+     9158,
+     4.84848
+    ],
+    [
+     9313,
+     4.84848
+    ],
+    [
+     9466,
+     4.84848
+    ],
+    [
+     9619,
+     4.84848
+    ],
+    [
+     9775,
+     4.84848
+    ],
+    [
+     9936,
+     4.84848
+    ],
+    [
+     10093,
+     4.84848
+    ],
+    [
+     10258,
+     4.84848
+    ],
+    [
+     10415,
+     4.84848
+    ],
+    [
+     10568,
+     9.29293
+    ],
+    [
+     10760,
+     10.5724
+    ],
+    [
+     10916,
+     10.5724
+    ],
+    [
+     11079,
+     10.5724
+    ],
+    [
+     11242,
+     10.5724
+    ]
+   ],
+   "log": [
+    {
+     "wall": 1790009064642,
+     "token": "akari-annotations-widget:1790009064640:5",
+     "event": "trial_start",
+     "t": 0
+    },
+    {
+     "wall": 1790009064649,
+     "token": "akari-annotations-widget:1790009064640:5",
+     "event": "rollback_skipped_refresh",
+     "t": 1
+    },
+    {
+     "wall": 1790009064649,
+     "token": "akari-annotations-widget:1790009064640:5",
+     "event": "preview_trial_begin",
+     "t": 1,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:5"
+    },
+    {
+     "wall": 1790009064658,
+     "token": "akari-annotations-widget:1790009064640:5",
+     "event": "resolve_start",
+     "t": 1,
+     "candidate": "still/br-candle-glow"
+    },
+    {
+     "wall": 1790009068564,
+     "token": "akari-annotations-widget:1790009064640:5",
+     "event": "resolve_done",
+     "t": 3922,
+     "cached": false,
+     "ok": true
+    },
+    {
+     "wall": 1790009068627,
+     "token": "akari-annotations-widget:1790009064640:5",
+     "event": "refresh_queued",
+     "t": 3952
+    },
+    {
+     "wall": 1790009068627,
+     "token": "akari-annotations-widget:1790009064640:5",
+     "event": "refresh_started",
+     "t": 3952
+    },
+    {
+     "wall": 1790009069635,
+     "token": "akari-annotations-widget:1790009064640:5",
+     "event": "trial_applied",
+     "t": 4973,
+     "itemId": "broll-1",
+     "candidate": "still/br-candle-glow"
+    },
+    {
+     "wall": 1790009070615,
+     "token": "akari-annotations-widget:1790009064640:5",
+     "event": "reload_start",
+     "t": 5929,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:6"
+    },
+    {
+     "wall": 1790009071155,
+     "token": "akari-annotations-widget:1790009064640:5",
+     "event": "reload_complete",
+     "t": 6513,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:6"
+    },
+    {
+     "wall": 1790009071528,
+     "token": "akari-annotations-widget:1790009064640:5",
+     "event": "ready_seek_response",
+     "t": 6878,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:6",
+     "seek": true
+    },
+    {
+     "wall": 1790009071572,
+     "token": "akari-annotations-widget:1790009064640:5",
+     "event": "ready_seek_response",
+     "t": 6920,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:6",
+     "seek": true
+    },
+    {
+     "wall": 1790009071572,
+     "token": "akari-annotations-widget:1790009064640:5",
+     "event": "play_request",
+     "t": 6921,
+     "attempt": 1,
+     "revision": 2,
+     "quietForMs": 408
+    },
+    {
+     "wall": 1790009071572,
+     "token": "akari-annotations-widget:1790009064640:5",
+     "event": "playback_state",
+     "t": 6927,
+     "playing": true,
+     "userStopped": false,
+     "source": "renderer"
+    },
+    {
+     "wall": 1790009071757,
+     "token": "akari-annotations-widget:1790009064640:5",
+     "event": "trial_playback_result",
+     "t": 6973,
+     "result": "playing"
+    },
+    {
+     "wall": 1790009076104,
+     "token": "akari-annotations-widget:1790009064640:5",
+     "event": "playback_pause",
+     "t": 11439,
+     "reason": "window_end"
+    }
+   ]
+  },
+  {
+   "n": 6,
+   "key": "still/br-card-tap",
+   "token": "akari-annotations-widget:1790009077478:6",
+   "clickWall": 1790009077429,
+   "reloads": 1,
+   "playRequests": 1,
+   "retries": 0,
+   "readyFallback": 0,
+   "result": "playing",
+   "appliedMs": 7850,
+   "playbackStartMs": 14012,
+   "logPlayingMs": 11233,
+   "cachedBefore": false,
+   "startAfterAppliedMs": 6162,
+   "firstPlayRequestMs": 11233,
+   "toasts": [],
+   "samples": [
+    [
+     86,
+     12.6807
+    ],
+    [
+     254,
+     12.6807
+    ],
+    [
+     410,
+     12.6807
+    ],
+    [
+     563,
+     12.6807
+    ],
+    [
+     716,
+     12.6807
+    ],
+    [
+     875,
+     12.6807
+    ],
+    [
+     1028,
+     12.6807
+    ],
+    [
+     1187,
+     12.6807
+    ],
+    [
+     1428,
+     12.6807
+    ],
+    [
+     1615,
+     12.6807
+    ],
+    [
+     1781,
+     12.6807
+    ],
+    [
+     1953,
+     12.6807
+    ],
+    [
+     2138,
+     12.6807
+    ],
+    [
+     2294,
+     12.6807
+    ],
+    [
+     2460,
+     12.6807
+    ],
+    [
+     2629,
+     12.6807
+    ],
+    [
+     2799,
+     12.6807
+    ],
+    [
+     2963,
+     12.6807
+    ],
+    [
+     3127,
+     12.6807
+    ],
+    [
+     3299,
+     12.6807
+    ],
+    [
+     3458,
+     12.6807
+    ],
+    [
+     3616,
+     12.6807
+    ],
+    [
+     3794,
+     12.6807
+    ],
+    [
+     3949,
+     12.6807
+    ],
+    [
+     4110,
+     12.6807
+    ],
+    [
+     4266,
+     12.6807
+    ],
+    [
+     4424,
+     12.6807
+    ],
+    [
+     4580,
+     12.6807
+    ],
+    [
+     4746,
+     12.6807
+    ],
+    [
+     4911,
+     12.6807
+    ],
+    [
+     5065,
+     12.6807
+    ],
+    [
+     5224,
+     12.6807
+    ],
+    [
+     5377,
+     12.6807
+    ],
+    [
+     5528,
+     12.6807
+    ],
+    [
+     5684,
+     12.6807
+    ],
+    [
+     5836,
+     12.6807
+    ],
+    [
+     5991,
+     12.6807
+    ],
+    [
+     6145,
+     12.6807
+    ],
+    [
+     6301,
+     12.6807
+    ],
+    [
+     6477,
+     12.6807
+    ],
+    [
+     6642,
+     12.6807
+    ],
+    [
+     6800,
+     12.6807
+    ],
+    [
+     6953,
+     12.6807
+    ],
+    [
+     7111,
+     12.6807
+    ],
+    [
+     7264,
+     12.6807
+    ],
+    [
+     7425,
+     12.6807
+    ],
+    [
+     7583,
+     12.6807
+    ],
+    [
+     7747,
+     12.6807
+    ],
+    [
+     7907,
+     12.6807
+    ],
+    [
+     8061,
+     12.6807
+    ],
+    [
+     8245,
+     12.6807
+    ],
+    [
+     8427,
+     12.6807
+    ],
+    [
+     8584,
+     12.6807
+    ],
+    [
+     8764,
+     12.6807
+    ],
+    [
+     8926,
+     12.6807
+    ],
+    [
+     9078,
+     12.6807
+    ],
+    [
+     9277,
+     12.6807
+    ],
+    [
+     9437,
+     12.6807
+    ],
+    [
+     9591,
+     12.6807
+    ],
+    [
+     9747,
+     12.6807
+    ],
+    [
+     9910,
+     12.6807
+    ],
+    [
+     10086,
+     12.6807
+    ],
+    [
+     10256,
+     12.6807
+    ],
+    [
+     10417,
+     12.6807
+    ],
+    [
+     10569,
+     12.6807
+    ],
+    [
+     10747,
+     12.6599
+    ],
+    [
+     10906,
+     12.6599
+    ],
+    [
+     11092,
+     4.84848
+    ],
+    [
+     11245,
+     12.6599
+    ],
+    [
+     11427,
+     12.6599
+    ],
+    [
+     11599,
+     12.6599
+    ],
+    [
+     11754,
+     12.6599
+    ],
+    [
+     11913,
+     12.6599
+    ],
+    [
+     12068,
+     12.6599
+    ],
+    [
+     12222,
+     12.6599
+    ],
+    [
+     12381,
+     12.6599
+    ],
+    [
+     12533,
+     12.6599
+    ],
+    [
+     12749,
+     12.6599
+    ],
+    [
+     12902,
+     12.6599
+    ],
+    [
+     13056,
+     4.84848
+    ],
+    [
+     13209,
+     4.84848
+    ],
+    [
+     13363,
+     4.84848
+    ],
+    [
+     13521,
+     4.84848
+    ],
+    [
+     13674,
+     4.84848
+    ],
+    [
+     13860,
+     4.84848
+    ],
+    [
+     14012,
+     7.60943
+    ],
+    [
+     14179,
+     8.55219
+    ],
+    [
+     14332,
+     9.42761
+    ]
+   ],
+   "log": [
+    {
+     "wall": 1790009077496,
+     "token": "akari-annotations-widget:1790009077478:6",
+     "event": "trial_start",
+     "t": 0
+    },
+    {
+     "wall": 1790009077496,
+     "token": "akari-annotations-widget:1790009077478:6",
+     "event": "rollback_skipped_refresh",
+     "t": 3
+    },
+    {
+     "wall": 1790009077496,
+     "token": "akari-annotations-widget:1790009077478:6",
+     "event": "preview_trial_begin",
+     "t": 4,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:6"
+    },
+    {
+     "wall": 1790009077505,
+     "token": "akari-annotations-widget:1790009077478:6",
+     "event": "resolve_start",
+     "t": 4,
+     "candidate": "still/br-card-tap"
+    },
+    {
+     "wall": 1790009083508,
+     "token": "akari-annotations-widget:1790009077478:6",
+     "event": "resolve_done",
+     "t": 6029,
+     "cached": false,
+     "ok": true
+    },
+    {
+     "wall": 1790009083546,
+     "token": "akari-annotations-widget:1790009077478:6",
+     "event": "refresh_queued",
+     "t": 6065
+    },
+    {
+     "wall": 1790009083546,
+     "token": "akari-annotations-widget:1790009077478:6",
+     "event": "refresh_started",
+     "t": 6065
+    },
+    {
+     "wall": 1790009085279,
+     "token": "akari-annotations-widget:1790009077478:6",
+     "event": "trial_applied",
+     "t": 7627,
+     "itemId": "broll-1",
+     "candidate": "still/br-card-tap"
+    },
+    {
+     "wall": 1790009087437,
+     "token": "akari-annotations-widget:1790009077478:6",
+     "event": "reload_start",
+     "t": 9934,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:7"
+    },
+    {
+     "wall": 1790009088138,
+     "token": "akari-annotations-widget:1790009077478:6",
+     "event": "reload_complete",
+     "t": 10631,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:7"
+    },
+    {
+     "wall": 1790009088525,
+     "token": "akari-annotations-widget:1790009077478:6",
+     "event": "ready_seek_response",
+     "t": 11030,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:7",
+     "seek": true
+    },
+    {
+     "wall": 1790009088662,
+     "token": "akari-annotations-widget:1790009077478:6",
+     "event": "ready_seek_response",
+     "t": 11073,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:7",
+     "seek": true
+    },
+    {
+     "wall": 1790009088662,
+     "token": "akari-annotations-widget:1790009077478:6",
+     "event": "play_request",
+     "t": 11073,
+     "attempt": 1,
+     "revision": 2,
+     "quietForMs": 442
+    },
+    {
+     "wall": 1790009088662,
+     "token": "akari-annotations-widget:1790009077478:6",
+     "event": "playback_state",
+     "t": 11090,
+     "playing": true,
+     "userStopped": false,
+     "source": "renderer"
+    },
+    {
+     "wall": 1790009088662,
+     "token": "akari-annotations-widget:1790009077478:6",
+     "event": "trial_playback_result",
+     "t": 11125,
+     "result": "playing"
+    }
+   ]
+  },
+  {
+   "n": 7,
+   "key": "still/br-circuit-macro",
+   "token": "akari-annotations-widget:1790009093402:7",
+   "clickWall": 1790009093342,
+   "reloads": 1,
+   "playRequests": 1,
+   "retries": 0,
+   "readyFallback": 0,
+   "result": "playing",
+   "appliedMs": 7688,
+   "playbackStartMs": 13484,
+   "logPlayingMs": 10683,
+   "cachedBefore": false,
+   "startAfterAppliedMs": 5796,
+   "firstPlayRequestMs": 10668,
+   "toasts": [],
+   "samples": [
+    [
+     110,
+     12.5622
+    ],
+    [
+     265,
+     12.5622
+    ],
+    [
+     433,
+     12.5622
+    ],
+    [
+     587,
+     12.5622
+    ],
+    [
+     749,
+     12.5622
+    ],
+    [
+     910,
+     12.5622
+    ],
+    [
+     1126,
+     12.5622
+    ],
+    [
+     1279,
+     12.5622
+    ],
+    [
+     1467,
+     12.5622
+    ],
+    [
+     1621,
+     12.5622
+    ],
+    [
+     1775,
+     12.5622
+    ],
+    [
+     1932,
+     12.5622
+    ],
+    [
+     2109,
+     12.5622
+    ],
+    [
+     2265,
+     12.5622
+    ],
+    [
+     2428,
+     12.5622
+    ],
+    [
+     2587,
+     12.5622
+    ],
+    [
+     2744,
+     12.5622
+    ],
+    [
+     2899,
+     12.5622
+    ],
+    [
+     3052,
+     12.5622
+    ],
+    [
+     3206,
+     12.5622
+    ],
+    [
+     3361,
+     12.5622
+    ],
+    [
+     3522,
+     12.5622
+    ],
+    [
+     3717,
+     12.5622
+    ],
+    [
+     3884,
+     12.5622
+    ],
+    [
+     4039,
+     12.5622
+    ],
+    [
+     4244,
+     12.5622
+    ],
+    [
+     4398,
+     12.5622
+    ],
+    [
+     4572,
+     12.5622
+    ],
+    [
+     4726,
+     12.5622
+    ],
+    [
+     4889,
+     12.5622
+    ],
+    [
+     5051,
+     12.5622
+    ],
+    [
+     5206,
+     12.5622
+    ],
+    [
+     5360,
+     12.5622
+    ],
+    [
+     5516,
+     12.5622
+    ],
+    [
+     5697,
+     12.5622
+    ],
+    [
+     5861,
+     12.5622
+    ],
+    [
+     6015,
+     12.5622
+    ],
+    [
+     6171,
+     12.5622
+    ],
+    [
+     6332,
+     12.5622
+    ],
+    [
+     6513,
+     12.5622
+    ],
+    [
+     6837,
+     12.5622
+    ],
+    [
+     7016,
+     12.5622
+    ],
+    [
+     7171,
+     12.5622
+    ],
+    [
+     7367,
+     12.5622
+    ],
+    [
+     7527,
+     12.5622
+    ],
+    [
+     7681,
+     12.5622
+    ],
+    [
+     7833,
+     12.5622
+    ],
+    [
+     7988,
+     12.5622
+    ],
+    [
+     8142,
+     12.5622
+    ],
+    [
+     8296,
+     12.5622
+    ],
+    [
+     8453,
+     12.5622
+    ],
+    [
+     8606,
+     12.5622
+    ],
+    [
+     8765,
+     12.5622
+    ],
+    [
+     8918,
+     12.5622
+    ],
+    [
+     9070,
+     12.5622
+    ],
+    [
+     9222,
+     12.5622
+    ],
+    [
+     9407,
+     12.5622
+    ],
+    [
+     9572,
+     12.5622
+    ],
+    [
+     9727,
+     12.5622
+    ],
+    [
+     9890,
+     12.5622
+    ],
+    [
+     10046,
+     12.5622
+    ],
+    [
+     10200,
+     12.5926
+    ],
+    [
+     10369,
+     12.5926
+    ],
+    [
+     10522,
+     12.5926
+    ],
+    [
+     10682,
+     4.84848
+    ],
+    [
+     10842,
+     12.5926
+    ],
+    [
+     10996,
+     12.5926
+    ],
+    [
+     11149,
+     12.5926
+    ],
+    [
+     11306,
+     12.5926
+    ],
+    [
+     11460,
+     12.5926
+    ],
+    [
+     11615,
+     12.5926
+    ],
+    [
+     11768,
+     12.5926
+    ],
+    [
+     11921,
+     4.84848
+    ],
+    [
+     12164,
+     4.84848
+    ],
+    [
+     12397,
+     4.84848
+    ],
+    [
+     12551,
+     4.84848
+    ],
+    [
+     12702,
+     4.84848
+    ],
+    [
+     12866,
+     4.84848
+    ],
+    [
+     13020,
+     7.27273
+    ],
+    [
+     13172,
+     7.27273
+    ],
+    [
+     13325,
+     8.08081
+    ],
+    [
+     13484,
+     9.15825
+    ],
+    [
+     13648,
+     9.42761
+    ],
+    [
+     13803,
+     9.76431
+    ]
+   ],
+   "log": [
+    {
+     "wall": 1790009093424,
+     "token": "akari-annotations-widget:1790009093402:7",
+     "event": "trial_start",
+     "t": 0
+    },
+    {
+     "wall": 1790009093424,
+     "token": "akari-annotations-widget:1790009093402:7",
+     "event": "rollback_skipped_refresh",
+     "t": 5
+    },
+    {
+     "wall": 1790009093426,
+     "token": "akari-annotations-widget:1790009093402:7",
+     "event": "preview_trial_begin",
+     "t": 8,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:7"
+    },
+    {
+     "wall": 1790009093437,
+     "token": "akari-annotations-widget:1790009093402:7",
+     "event": "resolve_start",
+     "t": 9,
+     "candidate": "still/br-circuit-macro"
+    },
+    {
+     "wall": 1790009099657,
+     "token": "akari-annotations-widget:1790009093402:7",
+     "event": "resolve_done",
+     "t": 6246,
+     "cached": false,
+     "ok": true
+    },
+    {
+     "wall": 1790009099729,
+     "token": "akari-annotations-widget:1790009093402:7",
+     "event": "refresh_queued",
+     "t": 6321
+    },
+    {
+     "wall": 1790009099729,
+     "token": "akari-annotations-widget:1790009093402:7",
+     "event": "refresh_started",
+     "t": 6321
+    },
+    {
+     "wall": 1790009101030,
+     "token": "akari-annotations-widget:1790009093402:7",
+     "event": "trial_applied",
+     "t": 7076,
+     "itemId": "broll-1",
+     "candidate": "still/br-circuit-macro"
+    },
+    {
+     "wall": 1790009103173,
+     "token": "akari-annotations-widget:1790009093402:7",
+     "event": "reload_start",
+     "t": 9745,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:8"
+    },
+    {
+     "wall": 1790009103610,
+     "token": "akari-annotations-widget:1790009093402:7",
+     "event": "reload_complete",
+     "t": 10206,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:8"
+    },
+    {
+     "wall": 1790009103990,
+     "token": "akari-annotations-widget:1790009093402:7",
+     "event": "ready_seek_response",
+     "t": 10580,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:8",
+     "seek": true
+    },
+    {
+     "wall": 1790009104010,
+     "token": "akari-annotations-widget:1790009093402:7",
+     "event": "ready_seek_response",
+     "t": 10604,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:8",
+     "seek": true
+    },
+    {
+     "wall": 1790009104010,
+     "token": "akari-annotations-widget:1790009093402:7",
+     "event": "play_request",
+     "t": 10604,
+     "attempt": 1,
+     "revision": 2,
+     "quietForMs": 398
+    },
+    {
+     "wall": 1790009104025,
+     "token": "akari-annotations-widget:1790009093402:7",
+     "event": "playback_state",
+     "t": 10612,
+     "playing": true,
+     "userStopped": false,
+     "source": "renderer"
+    },
+    {
+     "wall": 1790009104063,
+     "token": "akari-annotations-widget:1790009093402:7",
+     "event": "trial_playback_result",
+     "t": 10656,
+     "result": "playing"
+    }
+   ]
+  },
+  {
+   "n": 8,
+   "key": "still/br-code-bokeh",
+   "token": "akari-annotations-widget:1790009108806:8",
+   "clickWall": 1790009108742,
+   "reloads": 1,
+   "playRequests": 1,
+   "retries": 0,
+   "readyFallback": 0,
+   "result": "playing",
+   "appliedMs": 2859,
+   "playbackStartMs": 7483,
+   "logPlayingMs": 5202,
+   "cachedBefore": false,
+   "startAfterAppliedMs": 4624,
+   "firstPlayRequestMs": 5202,
+   "toasts": [],
+   "samples": [
+    [
+     107,
+     12.6269
+    ],
+    [
+     259,
+     12.6269
+    ],
+    [
+     413,
+     12.6269
+    ],
+    [
+     569,
+     12.6269
+    ],
+    [
+     724,
+     12.6269
+    ],
+    [
+     880,
+     12.6269
+    ],
+    [
+     1031,
+     12.6269
+    ],
+    [
+     1185,
+     12.6269
+    ],
+    [
+     1339,
+     12.6269
+    ],
+    [
+     1492,
+     12.6269
+    ],
+    [
+     1646,
+     12.6269
+    ],
+    [
+     1799,
+     12.6269
+    ],
+    [
+     1951,
+     12.6269
+    ],
+    [
+     2104,
+     12.6269
+    ],
+    [
+     2256,
+     12.6269
+    ],
+    [
+     2412,
+     12.6269
+    ],
+    [
+     2565,
+     12.6269
+    ],
+    [
+     2746,
+     12.6269
+    ],
+    [
+     2899,
+     12.6269
+    ],
+    [
+     3050,
+     12.6269
+    ],
+    [
+     3202,
+     12.6269
+    ],
+    [
+     3354,
+     12.6269
+    ],
+    [
+     3511,
+     12.6269
+    ],
+    [
+     3665,
+     12.6269
+    ],
+    [
+     3819,
+     12.6269
+    ],
+    [
+     3973,
+     12.6269
+    ],
+    [
+     4126,
+     12.6269
+    ],
+    [
+     4316,
+     12.6269
+    ],
+    [
+     4479,
+     12.6269
+    ],
+    [
+     4636,
+     12.6269
+    ],
+    [
+     4791,
+     12.6599
+    ],
+    [
+     4951,
+     12.6599
+    ],
+    [
+     5164,
+     4.84848
+    ],
+    [
+     5325,
+     12.6599
+    ],
+    [
+     5483,
+     12.6599
+    ],
+    [
+     5644,
+     12.6599
+    ],
+    [
+     5812,
+     12.6599
+    ],
+    [
+     5977,
+     12.6599
+    ],
+    [
+     6130,
+     12.6599
+    ],
+    [
+     6288,
+     12.6599
+    ],
+    [
+     6441,
+     12.6599
+    ],
+    [
+     6628,
+     12.6599
+    ],
+    [
+     6782,
+     12.6599
+    ],
+    [
+     7021,
+     12.6599
+    ],
+    [
+     7176,
+     4.84848
+    ],
+    [
+     7329,
+     4.84848
+    ],
+    [
+     7483,
+     7.54209
+    ],
+    [
+     7635,
+     7.81145
+    ],
+    [
+     7795,
+     8.21549
+    ]
+   ],
+   "log": [
+    {
+     "wall": 1790009108841,
+     "token": "akari-annotations-widget:1790009108806:8",
+     "event": "trial_start",
+     "t": 0
+    },
+    {
+     "wall": 1790009108846,
+     "token": "akari-annotations-widget:1790009108806:8",
+     "event": "rollback_skipped_refresh",
+     "t": 1
+    },
+    {
+     "wall": 1790009108846,
+     "token": "akari-annotations-widget:1790009108806:8",
+     "event": "preview_trial_begin",
+     "t": 2,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:8"
+    },
+    {
+     "wall": 1790009108846,
+     "token": "akari-annotations-widget:1790009108806:8",
+     "event": "resolve_start",
+     "t": 2,
+     "candidate": "still/br-code-bokeh"
+    },
+    {
+     "wall": 1790009111346,
+     "token": "akari-annotations-widget:1790009108806:8",
+     "event": "resolve_done",
+     "t": 2538,
+     "cached": false,
+     "ok": true
+    },
+    {
+     "wall": 1790009111362,
+     "token": "akari-annotations-widget:1790009108806:8",
+     "event": "refresh_queued",
+     "t": 2555
+    },
+    {
+     "wall": 1790009111362,
+     "token": "akari-annotations-widget:1790009108806:8",
+     "event": "refresh_started",
+     "t": 2555
+    },
+    {
+     "wall": 1790009111601,
+     "token": "akari-annotations-widget:1790009108806:8",
+     "event": "trial_applied",
+     "t": 2783,
+     "itemId": "broll-1",
+     "candidate": "still/br-code-bokeh"
+    },
+    {
+     "wall": 1790009112903,
+     "token": "akari-annotations-widget:1790009108806:8",
+     "event": "reload_start",
+     "t": 4066,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:9"
+    },
+    {
+     "wall": 1790009113523,
+     "token": "akari-annotations-widget:1790009108806:8",
+     "event": "reload_complete",
+     "t": 4698,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:9"
+    },
+    {
+     "wall": 1790009113885,
+     "token": "akari-annotations-widget:1790009108806:8",
+     "event": "ready_seek_response",
+     "t": 5061,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:9",
+     "seek": true
+    },
+    {
+     "wall": 1790009113944,
+     "token": "akari-annotations-widget:1790009108806:8",
+     "event": "ready_seek_response",
+     "t": 5126,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:9",
+     "seek": true
+    },
+    {
+     "wall": 1790009113944,
+     "token": "akari-annotations-widget:1790009108806:8",
+     "event": "play_request",
+     "t": 5126,
+     "attempt": 1,
+     "revision": 2,
+     "quietForMs": 428
+    },
+    {
+     "wall": 1790009113944,
+     "token": "akari-annotations-widget:1790009108806:8",
+     "event": "playback_state",
+     "t": 5133,
+     "playing": true,
+     "userStopped": false,
+     "source": "renderer"
+    },
+    {
+     "wall": 1790009114057,
+     "token": "akari-annotations-widget:1790009108806:8",
+     "event": "trial_playback_result",
+     "t": 5177,
+     "result": "playing"
+    }
+   ]
+  },
+  {
+   "n": 9,
+   "key": "still/br-coffee-beans",
+   "token": "akari-annotations-widget:1790009118358:9",
+   "clickWall": 1790009118289,
+   "reloads": 1,
+   "playRequests": 1,
+   "retries": 0,
+   "readyFallback": 0,
+   "result": "playing",
+   "appliedMs": 4540,
+   "playbackStartMs": 8023,
+   "logPlayingMs": 7622,
+   "cachedBefore": false,
+   "startAfterAppliedMs": 3483,
+   "firstPlayRequestMs": 7622,
+   "toasts": [],
+   "samples": [
+    [
+     153,
+     11.9912
+    ],
+    [
+     307,
+     11.9912
+    ],
+    [
+     464,
+     11.9912
+    ],
+    [
+     621,
+     11.9912
+    ],
+    [
+     782,
+     11.9912
+    ],
+    [
+     934,
+     11.9912
+    ],
+    [
+     1086,
+     11.9912
+    ],
+    [
+     1240,
+     11.9912
+    ],
+    [
+     1400,
+     11.9912
+    ],
+    [
+     1553,
+     11.9912
+    ],
+    [
+     1705,
+     11.9912
+    ],
+    [
+     1857,
+     11.9912
+    ],
+    [
+     2024,
+     11.9912
+    ],
+    [
+     2177,
+     11.9912
+    ],
+    [
+     2330,
+     11.9912
+    ],
+    [
+     2485,
+     11.9912
+    ],
+    [
+     2637,
+     11.9912
+    ],
+    [
+     2789,
+     11.9912
+    ],
+    [
+     2942,
+     11.9912
+    ],
+    [
+     3094,
+     11.9912
+    ],
+    [
+     3248,
+     11.9912
+    ],
+    [
+     3422,
+     11.9912
+    ],
+    [
+     3578,
+     11.9912
+    ],
+    [
+     3733,
+     11.9912
+    ],
+    [
+     3903,
+     11.9912
+    ],
+    [
+     4071,
+     11.9912
+    ],
+    [
+     4274,
+     11.9912
+    ],
+    [
+     4426,
+     11.9912
+    ],
+    [
+     4580,
+     11.9912
+    ],
+    [
+     4735,
+     11.9912
+    ],
+    [
+     4887,
+     11.9912
+    ],
+    [
+     5040,
+     11.9912
+    ],
+    [
+     5196,
+     11.9912
+    ],
+    [
+     5348,
+     11.9912
+    ],
+    [
+     5500,
+     11.9912
+    ],
+    [
+     5666,
+     11.9912
+    ],
+    [
+     5818,
+     11.9912
+    ],
+    [
+     5976,
+     0
+    ],
+    [
+     6146,
+     0
+    ],
+    [
+     6298,
+     0
+    ],
+    [
+     6450,
+     0
+    ],
+    [
+     6602,
+     0
+    ],
+    [
+     6755,
+     0
+    ],
+    [
+     6924,
+     0
+    ],
+    [
+     7078,
+     0
+    ],
+    [
+     7246,
+     0
+    ],
+    [
+     7399,
+     0
+    ],
+    [
+     7553,
+     4.84848
+    ],
+    [
+     7706,
+     11.9865
+    ],
+    [
+     7869,
+     4.84848
+    ],
+    [
+     8023,
+     4.84848
+    ],
+    [
+     8175,
+     5.79125
+    ],
+    [
+     8328,
+     6.06061
+    ],
+    [
+     8481,
+     6.46465
+    ],
+    [
+     8633,
+     6.80135
+    ],
+    [
+     8786,
+     7.13805
+    ],
+    [
+     8941,
+     7.34007
+    ],
+    [
+     9097,
+     7.67677
+    ]
+   ],
+   "log": [
+    {
+     "wall": 1790009118396,
+     "token": "akari-annotations-widget:1790009118358:9",
+     "event": "trial_start",
+     "t": 0
+    },
+    {
+     "wall": 1790009118396,
+     "token": "akari-annotations-widget:1790009118358:9",
+     "event": "rollback_skipped_refresh",
+     "t": 2
+    },
+    {
+     "wall": 1790009118396,
+     "token": "akari-annotations-widget:1790009118358:9",
+     "event": "preview_trial_begin",
+     "t": 2,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:9"
+    },
+    {
+     "wall": 1790009118409,
+     "token": "akari-annotations-widget:1790009118358:9",
+     "event": "resolve_start",
+     "t": 2,
+     "candidate": "still/br-coffee-beans"
+    },
+    {
+     "wall": 1790009122344,
+     "token": "akari-annotations-widget:1790009118358:9",
+     "event": "resolve_done",
+     "t": 3983,
+     "cached": false,
+     "ok": true
+    },
+    {
+     "wall": 1790009122378,
+     "token": "akari-annotations-widget:1790009118358:9",
+     "event": "refresh_queued",
+     "t": 4015
+    },
+    {
+     "wall": 1790009122379,
+     "token": "akari-annotations-widget:1790009118358:9",
+     "event": "refresh_started",
+     "t": 4015
+    },
+    {
+     "wall": 1790009122829,
+     "token": "akari-annotations-widget:1790009118358:9",
+     "event": "trial_applied",
+     "t": 4368,
+     "itemId": "broll-1",
+     "candidate": "still/br-coffee-beans"
+    },
+    {
+     "wall": 1790009123952,
+     "token": "akari-annotations-widget:1790009118358:9",
+     "event": "reload_start",
+     "t": 5570,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:10"
+    },
+    {
+     "wall": 1790009124223,
+     "token": "akari-annotations-widget:1790009118358:9",
+     "event": "reload_complete",
+     "t": 5862,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:10"
+    },
+    {
+     "wall": 1790009125848,
+     "token": "akari-annotations-widget:1790009118358:9",
+     "event": "ready_seek_response",
+     "t": 7405,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:10",
+     "seek": true
+    },
+    {
+     "wall": 1790009125875,
+     "token": "akari-annotations-widget:1790009118358:9",
+     "event": "ready_seek_response",
+     "t": 7515,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:10",
+     "seek": true
+    },
+    {
+     "wall": 1790009125911,
+     "token": "akari-annotations-widget:1790009118358:9",
+     "event": "play_request",
+     "t": 7515,
+     "attempt": 1,
+     "revision": 2,
+     "quietForMs": 1653
+    },
+    {
+     "wall": 1790009125911,
+     "token": "akari-annotations-widget:1790009118358:9",
+     "event": "playback_state",
+     "t": 7524,
+     "playing": true,
+     "userStopped": false,
+     "source": "renderer"
+    },
+    {
+     "wall": 1790009125936,
+     "token": "akari-annotations-widget:1790009118358:9",
+     "event": "trial_playback_result",
+     "t": 7567,
+     "result": "playing"
+    }
+   ]
+  }
+ ]
+}

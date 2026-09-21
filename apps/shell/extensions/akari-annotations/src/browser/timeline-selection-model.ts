@@ -1,3 +1,4 @@
+import type { MaterialSwapTarget } from '../common/material-replacement';
 import { Emitter, Event } from '@theia/core/lib/common';
 import { injectable } from '@theia/core/shared/inversify';
 import type { EditAudioKeyframe, ReadableTransitionType, TransitionType } from '@akari-video/edit-store';
@@ -426,6 +427,9 @@ export class TimelineSelectionModel {
 
     protected readonly onChangedEmitter = new Emitter<void>();
     readonly onChanged: Event<void> = this.onChangedEmitter.event;
+
+    materialSwapTarget?: MaterialSwapTarget;
+    requestMaterialSwap?: () => void;
 
     protected _snapshot: TimelineSelectionSnapshot;
     protected _audioMaster: TimelineAudioMasterSnapshot = { enabled: false };

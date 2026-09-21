@@ -48,7 +48,7 @@ function writeInstalled({ home, id = 'installed-one', title = 'Installed One', c
 function runCli(args, env) {
   return spawnSync(process.execPath, [bin, ...args], {
     encoding: 'utf8',
-    env: { ...process.env, ...env },
+    env: { ...process.env, ...env, AKARI_LIBRARY_ROOT: env.AKARI_LIBRARY_ROOT || path.join(env.AKARI_HOME, 'assets') },
   });
 }
 
@@ -121,8 +121,8 @@ for (const indexState of ['missing', 'empty']) {
     assert.equal(list.status, 0, list.stderr);
     assert.equal(list.stdout,
       `使える素材 2 件（ライブラリ: ${path.join(home, 'assets')}）\n`
-      + '  ☁  mini-still\t[still]\tフィクスチャ素材 mini-still\n'
-      + '  ¥500  mini-paid\t[still]\tフィクスチャ素材 mini-paid（有料）\n');
+      + '  ☁  mini-still\tlab\t[still]\tフィクスチャ素材 mini-still\n'
+      + '  ¥500  mini-paid\tlab\t[still]\tフィクスチャ素材 mini-paid（有料）\n');
 
     const fetchResult = runCli(['fetch', 'mini-still'], env);
     assert.equal(fetchResult.status, 0, fetchResult.stderr);

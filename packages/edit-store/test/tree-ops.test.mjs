@@ -4,7 +4,6 @@ import test from 'node:test';
 import {
   attachEditHelpers,
   collectExcludedCaptionIds,
-  convertCaptionToTelop,
   detachItem,
   filterCaptionRootByExcludedIds,
   groupItems,
@@ -75,40 +74,6 @@ test('captions の写しを出すと行 id を exclude へ積み、必ず新し�
   assert.deepEqual(value.find('captions-bag').source.exclude, ['c-0001']);
   assert.equal(value.tracks.length, 2);
   assert.equal(value.tracks[1].items[0], detached);
-});
-
-test('captions の写しをテロップへ変換すると来歴・本文・exclude を保つ', () => {
-  const value = edit([{ id: 'v1', lane: 'visual', items: [{
-    id: 'captions-bag', at: 0, duration: 300,
-    source: { kind: 'captions', path: 'captions.json', exclude: [] }, items: [],
-  }] }]);
-  const converted = convertCaptionToTelop(value, 'captions-bag#c-0002', {
-    at: 69, duration: 48, text: '同じ文字をテロップにする'
-  });
-  assert.deepEqual(converted.source, {
-    kind: 'telop', preset: 'ref3_particle_min',
-    params: { text: '同じ文字をテロップにする' }, from: 'captions.json#c-0002'
-  });
-  assert.deepEqual(value.find('captions-bag').source.exclude, ['c-0002']);
-  assert.equal('baked' in converted.source, false);
-});
-
-test('すでに出した caption は同じ段のまま telop へ置換する', () => {
-  const value = edit([
-    { id: 'v1', lane: 'visual', items: [{
-      id: 'captions-bag', at: 0, duration: 300,
-      source: { kind: 'captions', path: 'captions.json', exclude: ['c-0001'] }, items: [],
-    }] },
-    { id: 'v2', lane: 'visual', items: [{
-      id: 'cap-c-0001', at: 42, duration: 18,
-      source: { kind: 'caption', path: 'captions.json', id: 'c-0001' },
-    }] },
-  ]);
-  const converted = convertCaptionToTelop(value, 'cap-c-0001', { text: '出した字幕' });
-  assert.equal(value.tracks.length, 2);
-  assert.equal(value.tracks[1].items[0], converted);
-  assert.equal(converted.source.from, 'captions.json#c-0001');
-  assert.deepEqual(value.find('captions-bag').source.exclude, ['c-0001']);
 });
 
 test('字幕除外は items / children を再帰し array / object root の形を保つ', () => {

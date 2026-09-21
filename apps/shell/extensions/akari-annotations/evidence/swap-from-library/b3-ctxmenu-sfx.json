@@ -1,0 +1,21 @@
+{
+ "at": "2026-09-21T14:07:46.887Z",
+ "point": [
+  390,
+  734
+ ],
+ "labels": [
+  "コピー",
+  "切り取り",
+  "貼り付け",
+  "複製",
+  "分割",
+  "注釈…",
+  "トリム（in/out）",
+  "削除",
+  "入れ替え…"
+ ],
+ "hasSwap": true,
+ "picked": true,
+ "activation": "element.click() (item y=1007 > viewport 927)"
+}

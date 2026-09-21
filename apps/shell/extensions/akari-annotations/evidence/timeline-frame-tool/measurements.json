@@ -1,0 +1,1526 @@
+{
+  "status": "pass",
+  "driver": "Electron + CDP Input.dispatchMouseEvent",
+  "steps": [
+    {
+      "name": "F selects the frame tool; buttons have a painted background or border",
+      "pass": true,
+      "measurements": [
+        {
+          "label": "選択ツール",
+          "pressed": "false",
+          "width": 24,
+          "height": 24,
+          "left": 7,
+          "right": 31,
+          "top": 38.5,
+          "bottom": 62.5,
+          "background": "rgb(20, 20, 20)",
+          "border": "rgb(229, 229, 229)",
+          "borderWidth": "0px",
+          "painted": true
+        },
+        {
+          "label": "分割ツール",
+          "pressed": "false",
+          "width": 24,
+          "height": 24,
+          "left": 33,
+          "right": 57,
+          "top": 38.5,
+          "bottom": 62.5,
+          "background": "rgb(20, 20, 20)",
+          "border": "rgb(229, 229, 229)",
+          "borderWidth": "0px",
+          "painted": true
+        },
+        {
+          "label": "仮枠ツール",
+          "pressed": "true",
+          "width": 24,
+          "height": 24,
+          "left": 59,
+          "right": 83,
+          "top": 38.5,
+          "bottom": 62.5,
+          "background": "rgb(20, 20, 20)",
+          "border": "rgb(229, 229, 229)",
+          "borderWidth": "0px",
+          "painted": true
+        },
+        {
+          "label": "元に戻す",
+          "pressed": null,
+          "width": 24,
+          "height": 24,
+          "left": 129,
+          "right": 153,
+          "top": 38.5,
+          "bottom": 62.5,
+          "background": "rgb(20, 20, 20)",
+          "border": "rgb(229, 229, 229)",
+          "borderWidth": "0px",
+          "painted": true
+        }
+      ],
+      "elapsedMs": 27
+    },
+    {
+      "name": "2.3-second real drag paints a dashed 2.5-second rectangle",
+      "pass": true,
+      "measurements": {
+        "origin": {
+          "x": 317.9090909090909,
+          "y": 352,
+          "pxPerSecond": 87.45454545454545,
+          "trackHeight": 48
+        },
+        "rawDragSeconds": 2.3,
+        "drawing": {
+          "text": "2.5 秒",
+          "rect": {
+            "left": 317.90625,
+            "right": 536.5390625,
+            "top": 328,
+            "bottom": 376,
+            "width": 218.6328125,
+            "height": 48
+          },
+          "display": "flex",
+          "borderStyle": "dashed",
+          "borderColor": "rgb(182, 154, 255)",
+          "background": "rgba(151, 104, 235, 0.18)"
+        }
+      },
+      "elapsedMs": 410
+    },
+    {
+      "name": "new drawing text and toolbar buttons do not intersect badges or each other",
+      "pass": true,
+      "measurements": {
+        "drawing": {
+          "text": {
+            "text": "2.5 秒",
+            "left": 410.6953125,
+            "right": 443.7421875,
+            "top": 345,
+            "bottom": 359,
+            "width": 33.046875,
+            "height": 14
+          },
+          "frame": {
+            "left": 317.90625,
+            "right": 536.5390625,
+            "top": 328,
+            "bottom": 376,
+            "width": 218.6328125,
+            "height": 48
+          },
+          "obstacles": [
+            {
+              "role": "theia-button secondary akari-annotations-icon-button",
+              "text": "",
+              "left": 7,
+              "right": 31,
+              "top": 38.5,
+              "bottom": 62.5,
+              "width": 24,
+              "height": 24
+            },
+            {
+              "role": "theia-button secondary akari-annotations-icon-button",
+              "text": "",
+              "left": 33,
+              "right": 57,
+              "top": 38.5,
+              "bottom": 62.5,
+              "width": 24,
+              "height": 24
+            },
+            {
+              "role": "theia-button secondary akari-annotations-icon-button",
+              "text": "",
+              "left": 59,
+              "right": 83,
+              "top": 38.5,
+              "bottom": 62.5,
+              "width": 24,
+              "height": 24
+            },
+            {
+              "role": "theia-button secondary akari-annotations-icon-button",
+              "text": "",
+              "left": 94,
+              "right": 118,
+              "top": 38.5,
+              "bottom": 62.5,
+              "width": 24,
+              "height": 24
+            },
+            {
+              "role": "theia-button secondary akari-annotations-icon-button",
+              "text": "",
+              "left": 129,
+              "right": 153,
+              "top": 38.5,
+              "bottom": 62.5,
+              "width": 24,
+              "height": 24
+            },
+            {
+              "role": "theia-button secondary akari-annotations-icon-button",
+              "text": "",
+              "left": 155,
+              "right": 179,
+              "top": 38.5,
+              "bottom": 62.5,
+              "width": 24,
+              "height": 24
+            },
+            {
+              "role": "theia-button secondary akari-annotations-icon-button",
+              "text": "",
+              "left": 181,
+              "right": 205,
+              "top": 38.5,
+              "bottom": 62.5,
+              "width": 24,
+              "height": 24
+            },
+            {
+              "role": "",
+              "text": "100%",
+              "left": 884.34375,
+              "right": 922.34375,
+              "top": 44,
+              "bottom": 57,
+              "width": 38,
+              "height": 13
+            },
+            {
+              "role": "theia-button main akari-annotations-text-button",
+              "text": "録音帯",
+              "left": 1012.34375,
+              "right": 1068.3359375,
+              "top": 38.5,
+              "bottom": 62.5,
+              "width": 55.9921875,
+              "height": 24
+            },
+            {
+              "role": "theia-button secondary akari-annotations-text-button",
+              "text": "注釈",
+              "left": 1070.3359375,
+              "right": 1113,
+              "top": 38.5,
+              "bottom": 62.5,
+              "width": 42.6640625,
+              "height": 24
+            },
+            {
+              "role": "",
+              "text": "",
+              "left": 69,
+              "right": 81,
+              "top": 347.5,
+              "bottom": 359.5,
+              "width": 12,
+              "height": 12
+            },
+            {
+              "role": "akari-track-header-button",
+              "text": "",
+              "left": 83,
+              "right": 101,
+              "top": 344.5,
+              "bottom": 362.5,
+              "width": 18,
+              "height": 18
+            },
+            {
+              "role": "akari-track-header-button",
+              "text": "",
+              "left": 103,
+              "right": 121,
+              "top": 344.5,
+              "bottom": 362.5,
+              "width": 18,
+              "height": 18
+            },
+            {
+              "role": "akari-track-header-button",
+              "text": "",
+              "left": 123,
+              "right": 141,
+              "top": 344.5,
+              "bottom": 362.5,
+              "width": 18,
+              "height": 18
+            },
+            {
+              "role": "akari-clip-kind-badge",
+              "text": "画像",
+              "left": 147,
+              "right": 177,
+              "top": 332,
+              "bottom": 348,
+              "width": 30,
+              "height": 16
+            },
+            {
+              "role": "akari-generation-badge",
+              "text": "静止画",
+              "left": 197.265625,
+              "right": 224.265625,
+              "top": 333,
+              "bottom": 347,
+              "width": 27,
+              "height": 14
+            },
+            {
+              "role": "akari-clip-kind-badge",
+              "text": "画像",
+              "left": 845.1796875,
+              "right": 875.1796875,
+              "top": 332,
+              "bottom": 348,
+              "width": 30,
+              "height": 16
+            },
+            {
+              "role": "akari-generation-badge",
+              "text": "静止画",
+              "left": 982.71875,
+              "right": 1009.71875,
+              "top": 333,
+              "bottom": 347,
+              "width": 27,
+              "height": 14
+            }
+          ]
+        },
+        "buttons": [
+          {
+            "label": "選択ツール",
+            "pressed": "false",
+            "width": 24,
+            "height": 24,
+            "left": 7,
+            "right": 31,
+            "top": 38.5,
+            "bottom": 62.5,
+            "background": "rgb(20, 20, 20)",
+            "border": "rgb(229, 229, 229)",
+            "borderWidth": "0px",
+            "painted": true
+          },
+          {
+            "label": "分割ツール",
+            "pressed": "false",
+            "width": 24,
+            "height": 24,
+            "left": 33,
+            "right": 57,
+            "top": 38.5,
+            "bottom": 62.5,
+            "background": "rgb(20, 20, 20)",
+            "border": "rgb(229, 229, 229)",
+            "borderWidth": "0px",
+            "painted": true
+          },
+          {
+            "label": "仮枠ツール",
+            "pressed": "true",
+            "width": 24,
+            "height": 24,
+            "left": 59,
+            "right": 83,
+            "top": 38.5,
+            "bottom": 62.5,
+            "background": "rgb(20, 20, 20)",
+            "border": "rgb(229, 229, 229)",
+            "borderWidth": "0px",
+            "painted": true
+          },
+          {
+            "label": "元に戻す",
+            "pressed": null,
+            "width": 24,
+            "height": 24,
+            "left": 129,
+            "right": 153,
+            "top": 38.5,
+            "bottom": 62.5,
+            "background": "rgb(20, 20, 20)",
+            "border": "rgb(229, 229, 229)",
+            "borderWidth": "0px",
+            "painted": true
+          }
+        ],
+        "buttonOverlaps": [],
+        "textOverlaps": []
+      },
+      "elapsedMs": 7
+    },
+    {
+      "name": "release adds one item and one real PNG source with valid empty metadata",
+      "pass": true,
+      "measurements": {
+        "item": {
+          "id": "frame-1",
+          "name": "空の枠",
+          "at": 60,
+          "duration": 75,
+          "source": {
+            "kind": "media",
+            "src": "frame-src-1",
+            "in": 0,
+            "out": 2.5
+          }
+        },
+        "source": {
+          "id": "frame-src-1",
+          "path": "assets/generated/frame-1790013093894-k8UVRm.png"
+        },
+        "pngBytes": 18672,
+        "meta": {
+          "version": 1,
+          "kind": "still",
+          "status": "planned",
+          "model": {
+            "id": "codex:image",
+            "as_of": "2026-09-12"
+          },
+          "inputs": {
+            "prompt": "",
+            "negative_prompt": null,
+            "first_frame": null,
+            "last_frame": null,
+            "reference_images": [],
+            "reference_videos": [],
+            "reference_audios": [],
+            "source_video": null,
+            "mode": null,
+            "camera": null,
+            "seed": null,
+            "extra": {}
+          },
+          "output": {
+            "duration_s": 2.5,
+            "resolution": "640x360",
+            "aspect": null,
+            "audio_out": null
+          },
+          "cost": {
+            "estimate_usd": 0,
+            "actual_usd": null,
+            "unit": "usd_per_image",
+            "source": "estimate"
+          },
+          "job": {
+            "provider": "codex",
+            "started_at": "2026-09-21T17:51:34.818Z",
+            "stale_after_s": 900
+          },
+          "provenance": {
+            "created_at": "2026-09-21T17:51:34.818Z",
+            "tool": "akari generate still --placeholder (chrome)",
+            "key_source": "login:codex"
+          },
+          "history": [
+            {
+              "at": "2026-09-21T17:51:34.818Z",
+              "status": "planned",
+              "reason": null
+            }
+          ]
+        },
+        "badge": "planned"
+      },
+      "elapsedMs": 1259
+    },
+    {
+      "name": "existing initialTabFor opens generation tab",
+      "pass": true,
+      "measurements": {
+        "panel": {
+          "visible": true,
+          "left": 635,
+          "right": 1072,
+          "top": 39,
+          "bottom": 642,
+          "width": 437,
+          "height": 603
+        },
+        "text": "生成",
+        "selected": "true",
+        "left": 886.1953125,
+        "right": 966.59375,
+        "top": 49,
+        "bottom": 81.5,
+        "width": 80.3984375,
+        "height": 32.5,
+        "usedInitialTabFor": true
+      },
+      "elapsedMs": 204
+    },
+    {
+      "name": "edit lint passes with the inserted frame",
+      "pass": true,
+      "measurements": {
+        "version": 1,
+        "checked_at": "2026-09-21T17:51:35.809Z",
+        "inputs": {
+          "captions_json_sha256": "83a6fc4db60a62ad889db7adf3d492333df8de26c3563b997ee108739dea7bf1",
+          "edit_json_sha256": "d4d5969f6158ba51c4f1ddf48e98ea4c42f06be720f52d34b7de69fb4ea6253c"
+        },
+        "verdict": "pass",
+        "findings": [
+          {
+            "id": "F001",
+            "severity": "warning",
+            "check": "geometry.fit-compat",
+            "message": "fit 互換モードで描画中。`normalize-geometry` で実寸基準へ移行できます",
+            "path": "edit.json#output.geometry"
+          },
+          {
+            "id": "F002",
+            "severity": "warning",
+            "check": "timeline.items.order",
+            "message": "item frame-1 at array position 2 has at=60, before item right at position 1 (at=240)",
+            "path": "edit.json#tracks[0].items[2]"
+          }
+        ],
+        "skipped": [
+          {
+            "check": "analysis.json",
+            "reason": "analysis.json is absent"
+          },
+          {
+            "check": "audio.music-grid",
+            "reason": "audio.bgm is absent; music grid checks require audio.bgm.path"
+          },
+          {
+            "check": "intake",
+            "reason": ".akari/intake.json is absent"
+          },
+          {
+            "check": "media",
+            "reason": "media checks require --media"
+          },
+          {
+            "check": "review",
+            "reason": "review.json is absent"
+          }
+        ]
+      },
+      "elapsedMs": 343
+    },
+    {
+      "name": "one undo removes both item and source",
+      "pass": true,
+      "measurements": {
+        "itemCount": 2,
+        "sourceCount": 1,
+        "undoClicks": 1
+      },
+      "elapsedMs": 223
+    },
+    {
+      "name": "real drag toward adjacent clip stops exactly at its edge",
+      "pass": true,
+      "measurements": {
+        "origin": {
+          "x": 667.7272727272727,
+          "y": 352,
+          "pxPerSecond": 87.45454545454545,
+          "trackHeight": 48
+        },
+        "drawing": {
+          "text": "2.0 秒",
+          "rect": {
+            "left": 667.7265625,
+            "right": 842.6328125,
+            "top": 328,
+            "bottom": 376,
+            "width": 174.90625,
+            "height": 48
+          },
+          "display": "flex",
+          "borderStyle": "dashed",
+          "borderColor": "rgb(182, 154, 255)",
+          "background": "rgba(151, 104, 235, 0.18)"
+        },
+        "neighborEdgeX": 842.6363636363636,
+        "item": {
+          "id": "frame-1",
+          "name": "空の枠",
+          "at": 180,
+          "duration": 60,
+          "source": {
+            "kind": "media",
+            "src": "frame-src-1",
+            "in": 0,
+            "out": 2
+          }
+        }
+      },
+      "elapsedMs": 1882
+    },
+    {
+      "name": "edit lint passes after neighbor clamp",
+      "pass": true,
+      "measurements": {
+        "version": 1,
+        "checked_at": "2026-09-21T17:51:38.589Z",
+        "inputs": {
+          "captions_json_sha256": "83a6fc4db60a62ad889db7adf3d492333df8de26c3563b997ee108739dea7bf1",
+          "edit_json_sha256": "700373854fbecd9584ac4e55c8070ecde82265b24e35e130ec319cdcd13b9d2c"
+        },
+        "verdict": "pass",
+        "findings": [
+          {
+            "id": "F001",
+            "severity": "warning",
+            "check": "geometry.fit-compat",
+            "message": "fit 互換モードで描画中。`normalize-geometry` で実寸基準へ移行できます",
+            "path": "edit.json#output.geometry"
+          },
+          {
+            "id": "F002",
+            "severity": "warning",
+            "check": "timeline.items.order",
+            "message": "item frame-1 at array position 2 has at=180, before item right at position 1 (at=240)",
+            "path": "edit.json#tracks[0].items[2]"
+          }
+        ],
+        "skipped": [
+          {
+            "check": "analysis.json",
+            "reason": "analysis.json is absent"
+          },
+          {
+            "check": "audio.music-grid",
+            "reason": "audio.bgm is absent; music grid checks require audio.bgm.path"
+          },
+          {
+            "check": "intake",
+            "reason": ".akari/intake.json is absent"
+          },
+          {
+            "check": "media",
+            "reason": "media checks require --media"
+          },
+          {
+            "check": "review",
+            "reason": "review.json is absent"
+          }
+        ]
+      },
+      "elapsedMs": 569
+    }
+  ],
+  "screenshots": [
+    "01-frame-tool.png",
+    "02-drawing-2.5-seconds.png",
+    "03-created-frame.png",
+    "04-generation-tab.png",
+    "05-after-undo.png",
+    "06-stopped-at-neighbor.png"
+  ],
+  "falRequests": [],
+  "buttons": [
+    {
+      "label": "選択ツール",
+      "pressed": "false",
+      "width": 24,
+      "height": 24,
+      "left": 7,
+      "right": 31,
+      "top": 38.5,
+      "bottom": 62.5,
+      "background": "rgb(20, 20, 20)",
+      "border": "rgb(229, 229, 229)",
+      "borderWidth": "0px",
+      "painted": true
+    },
+    {
+      "label": "分割ツール",
+      "pressed": "false",
+      "width": 24,
+      "height": 24,
+      "left": 33,
+      "right": 57,
+      "top": 38.5,
+      "bottom": 62.5,
+      "background": "rgb(20, 20, 20)",
+      "border": "rgb(229, 229, 229)",
+      "borderWidth": "0px",
+      "painted": true
+    },
+    {
+      "label": "仮枠ツール",
+      "pressed": "true",
+      "width": 24,
+      "height": 24,
+      "left": 59,
+      "right": 83,
+      "top": 38.5,
+      "bottom": 62.5,
+      "background": "rgb(20, 20, 20)",
+      "border": "rgb(229, 229, 229)",
+      "borderWidth": "0px",
+      "painted": true
+    },
+    {
+      "label": "元に戻す",
+      "pressed": null,
+      "width": 24,
+      "height": 24,
+      "left": 129,
+      "right": 153,
+      "top": 38.5,
+      "bottom": 62.5,
+      "background": "rgb(20, 20, 20)",
+      "border": "rgb(229, 229, 229)",
+      "borderWidth": "0px",
+      "painted": true
+    }
+  ],
+  "drawing": {
+    "text": "2.5 秒",
+    "rect": {
+      "left": 317.90625,
+      "right": 536.5390625,
+      "top": 328,
+      "bottom": 376,
+      "width": 218.6328125,
+      "height": 48
+    },
+    "display": "flex",
+    "borderStyle": "dashed",
+    "borderColor": "rgb(182, 154, 255)",
+    "background": "rgba(151, 104, 235, 0.18)"
+  },
+  "frameToolLayout": [
+    {
+      "drawing": {
+        "text": {
+          "text": "2.5 秒",
+          "left": 410.6953125,
+          "right": 443.7421875,
+          "top": 345,
+          "bottom": 359,
+          "width": 33.046875,
+          "height": 14
+        },
+        "frame": {
+          "left": 317.90625,
+          "right": 536.5390625,
+          "top": 328,
+          "bottom": 376,
+          "width": 218.6328125,
+          "height": 48
+        },
+        "obstacles": [
+          {
+            "role": "theia-button secondary akari-annotations-icon-button",
+            "text": "",
+            "left": 7,
+            "right": 31,
+            "top": 38.5,
+            "bottom": 62.5,
+            "width": 24,
+            "height": 24
+          },
+          {
+            "role": "theia-button secondary akari-annotations-icon-button",
+            "text": "",
+            "left": 33,
+            "right": 57,
+            "top": 38.5,
+            "bottom": 62.5,
+            "width": 24,
+            "height": 24
+          },
+          {
+            "role": "theia-button secondary akari-annotations-icon-button",
+            "text": "",
+            "left": 59,
+            "right": 83,
+            "top": 38.5,
+            "bottom": 62.5,
+            "width": 24,
+            "height": 24
+          },
+          {
+            "role": "theia-button secondary akari-annotations-icon-button",
+            "text": "",
+            "left": 94,
+            "right": 118,
+            "top": 38.5,
+            "bottom": 62.5,
+            "width": 24,
+            "height": 24
+          },
+          {
+            "role": "theia-button secondary akari-annotations-icon-button",
+            "text": "",
+            "left": 129,
+            "right": 153,
+            "top": 38.5,
+            "bottom": 62.5,
+            "width": 24,
+            "height": 24
+          },
+          {
+            "role": "theia-button secondary akari-annotations-icon-button",
+            "text": "",
+            "left": 155,
+            "right": 179,
+            "top": 38.5,
+            "bottom": 62.5,
+            "width": 24,
+            "height": 24
+          },
+          {
+            "role": "theia-button secondary akari-annotations-icon-button",
+            "text": "",
+            "left": 181,
+            "right": 205,
+            "top": 38.5,
+            "bottom": 62.5,
+            "width": 24,
+            "height": 24
+          },
+          {
+            "role": "",
+            "text": "100%",
+            "left": 884.34375,
+            "right": 922.34375,
+            "top": 44,
+            "bottom": 57,
+            "width": 38,
+            "height": 13
+          },
+          {
+            "role": "theia-button main akari-annotations-text-button",
+            "text": "録音帯",
+            "left": 1012.34375,
+            "right": 1068.3359375,
+            "top": 38.5,
+            "bottom": 62.5,
+            "width": 55.9921875,
+            "height": 24
+          },
+          {
+            "role": "theia-button secondary akari-annotations-text-button",
+            "text": "注釈",
+            "left": 1070.3359375,
+            "right": 1113,
+            "top": 38.5,
+            "bottom": 62.5,
+            "width": 42.6640625,
+            "height": 24
+          },
+          {
+            "role": "",
+            "text": "",
+            "left": 69,
+            "right": 81,
+            "top": 347.5,
+            "bottom": 359.5,
+            "width": 12,
+            "height": 12
+          },
+          {
+            "role": "akari-track-header-button",
+            "text": "",
+            "left": 83,
+            "right": 101,
+            "top": 344.5,
+            "bottom": 362.5,
+            "width": 18,
+            "height": 18
+          },
+          {
+            "role": "akari-track-header-button",
+            "text": "",
+            "left": 103,
+            "right": 121,
+            "top": 344.5,
+            "bottom": 362.5,
+            "width": 18,
+            "height": 18
+          },
+          {
+            "role": "akari-track-header-button",
+            "text": "",
+            "left": 123,
+            "right": 141,
+            "top": 344.5,
+            "bottom": 362.5,
+            "width": 18,
+            "height": 18
+          },
+          {
+            "role": "akari-clip-kind-badge",
+            "text": "画像",
+            "left": 147,
+            "right": 177,
+            "top": 332,
+            "bottom": 348,
+            "width": 30,
+            "height": 16
+          },
+          {
+            "role": "akari-generation-badge",
+            "text": "静止画",
+            "left": 197.265625,
+            "right": 224.265625,
+            "top": 333,
+            "bottom": 347,
+            "width": 27,
+            "height": 14
+          },
+          {
+            "role": "akari-clip-kind-badge",
+            "text": "画像",
+            "left": 845.1796875,
+            "right": 875.1796875,
+            "top": 332,
+            "bottom": 348,
+            "width": 30,
+            "height": 16
+          },
+          {
+            "role": "akari-generation-badge",
+            "text": "静止画",
+            "left": 982.71875,
+            "right": 1009.71875,
+            "top": 333,
+            "bottom": 347,
+            "width": 27,
+            "height": 14
+          }
+        ]
+      },
+      "buttons": [
+        {
+          "label": "選択ツール",
+          "pressed": "false",
+          "width": 24,
+          "height": 24,
+          "left": 7,
+          "right": 31,
+          "top": 38.5,
+          "bottom": 62.5,
+          "background": "rgb(20, 20, 20)",
+          "border": "rgb(229, 229, 229)",
+          "borderWidth": "0px",
+          "painted": true
+        },
+        {
+          "label": "分割ツール",
+          "pressed": "false",
+          "width": 24,
+          "height": 24,
+          "left": 33,
+          "right": 57,
+          "top": 38.5,
+          "bottom": 62.5,
+          "background": "rgb(20, 20, 20)",
+          "border": "rgb(229, 229, 229)",
+          "borderWidth": "0px",
+          "painted": true
+        },
+        {
+          "label": "仮枠ツール",
+          "pressed": "true",
+          "width": 24,
+          "height": 24,
+          "left": 59,
+          "right": 83,
+          "top": 38.5,
+          "bottom": 62.5,
+          "background": "rgb(20, 20, 20)",
+          "border": "rgb(229, 229, 229)",
+          "borderWidth": "0px",
+          "painted": true
+        },
+        {
+          "label": "元に戻す",
+          "pressed": null,
+          "width": 24,
+          "height": 24,
+          "left": 129,
+          "right": 153,
+          "top": 38.5,
+          "bottom": 62.5,
+          "background": "rgb(20, 20, 20)",
+          "border": "rgb(229, 229, 229)",
+          "borderWidth": "0px",
+          "painted": true
+        }
+      ],
+      "buttonOverlaps": [],
+      "textOverlaps": []
+    },
+    {
+      "drawing": {
+        "text": {
+          "text": "2.0 秒",
+          "left": 738.6328125,
+          "right": 771.7265625,
+          "top": 345,
+          "bottom": 359,
+          "width": 33.09375,
+          "height": 14
+        },
+        "frame": {
+          "left": 667.7265625,
+          "right": 842.6328125,
+          "top": 328,
+          "bottom": 376,
+          "width": 174.90625,
+          "height": 48
+        },
+        "obstacles": [
+          {
+            "role": "theia-button secondary akari-annotations-icon-button",
+            "text": "",
+            "left": 7,
+            "right": 31,
+            "top": 38.5,
+            "bottom": 62.5,
+            "width": 24,
+            "height": 24
+          },
+          {
+            "role": "theia-button secondary akari-annotations-icon-button",
+            "text": "",
+            "left": 33,
+            "right": 57,
+            "top": 38.5,
+            "bottom": 62.5,
+            "width": 24,
+            "height": 24
+          },
+          {
+            "role": "theia-button secondary akari-annotations-icon-button",
+            "text": "",
+            "left": 59,
+            "right": 83,
+            "top": 38.5,
+            "bottom": 62.5,
+            "width": 24,
+            "height": 24
+          },
+          {
+            "role": "theia-button secondary akari-annotations-icon-button",
+            "text": "",
+            "left": 94,
+            "right": 118,
+            "top": 38.5,
+            "bottom": 62.5,
+            "width": 24,
+            "height": 24
+          },
+          {
+            "role": "theia-button secondary akari-annotations-icon-button",
+            "text": "",
+            "left": 129,
+            "right": 153,
+            "top": 38.5,
+            "bottom": 62.5,
+            "width": 24,
+            "height": 24
+          },
+          {
+            "role": "theia-button secondary akari-annotations-icon-button",
+            "text": "",
+            "left": 155,
+            "right": 179,
+            "top": 38.5,
+            "bottom": 62.5,
+            "width": 24,
+            "height": 24
+          },
+          {
+            "role": "theia-button secondary akari-annotations-icon-button",
+            "text": "",
+            "left": 181,
+            "right": 205,
+            "top": 38.5,
+            "bottom": 62.5,
+            "width": 24,
+            "height": 24
+          },
+          {
+            "role": "",
+            "text": "100%",
+            "left": 884.34375,
+            "right": 922.34375,
+            "top": 44,
+            "bottom": 57,
+            "width": 38,
+            "height": 13
+          },
+          {
+            "role": "theia-button main akari-annotations-text-button",
+            "text": "録音帯",
+            "left": 1012.34375,
+            "right": 1068.3359375,
+            "top": 38.5,
+            "bottom": 62.5,
+            "width": 55.9921875,
+            "height": 24
+          },
+          {
+            "role": "theia-button secondary akari-annotations-text-button",
+            "text": "注釈",
+            "left": 1070.3359375,
+            "right": 1113,
+            "top": 38.5,
+            "bottom": 62.5,
+            "width": 42.6640625,
+            "height": 24
+          },
+          {
+            "role": "",
+            "text": "",
+            "left": 69,
+            "right": 81,
+            "top": 347.5,
+            "bottom": 359.5,
+            "width": 12,
+            "height": 12
+          },
+          {
+            "role": "akari-track-header-button",
+            "text": "",
+            "left": 83,
+            "right": 101,
+            "top": 344.5,
+            "bottom": 362.5,
+            "width": 18,
+            "height": 18
+          },
+          {
+            "role": "akari-track-header-button",
+            "text": "",
+            "left": 103,
+            "right": 121,
+            "top": 344.5,
+            "bottom": 362.5,
+            "width": 18,
+            "height": 18
+          },
+          {
+            "role": "akari-track-header-button",
+            "text": "",
+            "left": 123,
+            "right": 141,
+            "top": 344.5,
+            "bottom": 362.5,
+            "width": 18,
+            "height": 18
+          },
+          {
+            "role": "akari-clip-kind-badge",
+            "text": "画像",
+            "left": 147,
+            "right": 177,
+            "top": 332,
+            "bottom": 348,
+            "width": 30,
+            "height": 16
+          },
+          {
+            "role": "akari-generation-badge",
+            "text": "静止画",
+            "left": 197.265625,
+            "right": 224.265625,
+            "top": 333,
+            "bottom": 347,
+            "width": 27,
+            "height": 14
+          },
+          {
+            "role": "akari-clip-kind-badge",
+            "text": "画像",
+            "left": 845.1796875,
+            "right": 875.1796875,
+            "top": 332,
+            "bottom": 348,
+            "width": 30,
+            "height": 16
+          },
+          {
+            "role": "akari-generation-badge",
+            "text": "静止画",
+            "left": 982.71875,
+            "right": 1009.71875,
+            "top": 333,
+            "bottom": 347,
+            "width": 27,
+            "height": 14
+          }
+        ]
+      },
+      "buttons": [
+        {
+          "label": "選択ツール",
+          "pressed": "false",
+          "width": 24,
+          "height": 24,
+          "left": 7,
+          "right": 31,
+          "top": 38.5,
+          "bottom": 62.5,
+          "background": "rgb(20, 20, 20)",
+          "border": "rgb(229, 229, 229)",
+          "borderWidth": "0px",
+          "painted": true
+        },
+        {
+          "label": "分割ツール",
+          "pressed": "false",
+          "width": 24,
+          "height": 24,
+          "left": 33,
+          "right": 57,
+          "top": 38.5,
+          "bottom": 62.5,
+          "background": "rgb(20, 20, 20)",
+          "border": "rgb(229, 229, 229)",
+          "borderWidth": "0px",
+          "painted": true
+        },
+        {
+          "label": "仮枠ツール",
+          "pressed": "true",
+          "width": 24,
+          "height": 24,
+          "left": 59,
+          "right": 83,
+          "top": 38.5,
+          "bottom": 62.5,
+          "background": "rgb(20, 20, 20)",
+          "border": "rgb(229, 229, 229)",
+          "borderWidth": "0px",
+          "painted": true
+        },
+        {
+          "label": "元に戻す",
+          "pressed": null,
+          "width": 24,
+          "height": 24,
+          "left": 129,
+          "right": 153,
+          "top": 38.5,
+          "bottom": 62.5,
+          "background": "rgb(20, 20, 20)",
+          "border": "rgb(229, 229, 229)",
+          "borderWidth": "0px",
+          "painted": true
+        }
+      ],
+      "buttonOverlaps": [],
+      "textOverlaps": []
+    }
+  ],
+  "preExistingChipOverlap": {
+    "affectsVerdict": false,
+    "chips": [
+      {
+        "state": "none",
+        "itemId": "0",
+        "label": "neighbor.png",
+        "rects": [
+          {
+            "role": "akari-annotations-strip-clip-header-duration",
+            "text": "00:01:00",
+            "left": 193,
+            "right": 237,
+            "top": 331,
+            "bottom": 343,
+            "width": 44,
+            "height": 12
+          },
+          {
+            "role": "akari-clip-kind-badge",
+            "text": "画像",
+            "left": 147,
+            "right": 177,
+            "top": 332,
+            "bottom": 348,
+            "width": 30,
+            "height": 16
+          },
+          {
+            "role": "akari-generation-badge",
+            "text": "静止画",
+            "left": 197.265625,
+            "right": 224.265625,
+            "top": 333,
+            "bottom": 347,
+            "width": 27,
+            "height": 14
+          }
+        ],
+        "overlaps": [
+          {
+            "a": {
+              "role": "akari-annotations-strip-clip-header-duration",
+              "text": "00:01:00",
+              "left": 193,
+              "right": 237,
+              "top": 331,
+              "bottom": 343,
+              "width": 44,
+              "height": 12
+            },
+            "b": {
+              "role": "akari-generation-badge",
+              "text": "静止画",
+              "left": 197.265625,
+              "right": 224.265625,
+              "top": 333,
+              "bottom": 347,
+              "width": 27,
+              "height": 14
+            }
+          }
+        ]
+      },
+      {
+        "state": "none",
+        "itemId": "1",
+        "label": "neighbor.png",
+        "rects": [
+          {
+            "role": "akari-annotations-strip-clip-header-label",
+            "text": "neighbor.png",
+            "left": 887.1796875,
+            "right": 953.1796875,
+            "top": 331,
+            "bottom": 343,
+            "width": 66,
+            "height": 12
+          },
+          {
+            "role": "akari-annotations-strip-clip-header-duration",
+            "text": "00:02:00",
+            "left": 967.71875,
+            "right": 1011.71875,
+            "top": 331,
+            "bottom": 343,
+            "width": 44,
+            "height": 12
+          },
+          {
+            "role": "akari-clip-kind-badge",
+            "text": "画像",
+            "left": 845.1796875,
+            "right": 875.1796875,
+            "top": 332,
+            "bottom": 348,
+            "width": 30,
+            "height": 16
+          },
+          {
+            "role": "akari-generation-badge",
+            "text": "静止画",
+            "left": 982.71875,
+            "right": 1009.71875,
+            "top": 333,
+            "bottom": 347,
+            "width": 27,
+            "height": 14
+          }
+        ],
+        "overlaps": [
+          {
+            "a": {
+              "role": "akari-annotations-strip-clip-header-duration",
+              "text": "00:02:00",
+              "left": 967.71875,
+              "right": 1011.71875,
+              "top": 331,
+              "bottom": 343,
+              "width": 44,
+              "height": 12
+            },
+            "b": {
+              "role": "akari-generation-badge",
+              "text": "静止画",
+              "left": 982.71875,
+              "right": 1009.71875,
+              "top": 333,
+              "bottom": 347,
+              "width": 27,
+              "height": 14
+            }
+          }
+        ]
+      },
+      {
+        "state": "planned",
+        "itemId": "2",
+        "label": "空の枠",
+        "rects": [
+          {
+            "role": "akari-annotations-strip-clip-header-label",
+            "text": "空の枠",
+            "left": 364.5390625,
+            "right": 397.5390625,
+            "top": 332,
+            "bottom": 344,
+            "width": 33,
+            "height": 12
+          },
+          {
+            "role": "akari-annotations-strip-clip-header-duration",
+            "text": "00:02:15",
+            "left": 487.71875,
+            "right": 531.71875,
+            "top": 332,
+            "bottom": 344,
+            "width": 44,
+            "height": 12
+          },
+          {
+            "role": "akari-clip-kind-badge",
+            "text": "画像",
+            "left": 322.5390625,
+            "right": 352.5390625,
+            "top": 333,
+            "bottom": 349,
+            "width": 30,
+            "height": 16
+          },
+          {
+            "role": "akari-generation-badge",
+            "text": "planned",
+            "left": 494.640625,
+            "right": 529.71875,
+            "top": 334,
+            "bottom": 348,
+            "width": 35.078125,
+            "height": 14
+          }
+        ],
+        "overlaps": [
+          {
+            "a": {
+              "role": "akari-annotations-strip-clip-header-duration",
+              "text": "00:02:15",
+              "left": 487.71875,
+              "right": 531.71875,
+              "top": 332,
+              "bottom": 344,
+              "width": 44,
+              "height": 12
+            },
+            "b": {
+              "role": "akari-generation-badge",
+              "text": "planned",
+              "left": 494.640625,
+              "right": 529.71875,
+              "top": 334,
+              "bottom": 348,
+              "width": 35.078125,
+              "height": 14
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "lint": {
+    "code": 0,
+    "stdout": "{\n  \"version\": 1,\n  \"checked_at\": \"2026-09-21T17:51:38.589Z\",\n  \"inputs\": {\n    \"captions_json_sha256\": \"83a6fc4db60a62ad889db7adf3d492333df8de26c3563b997ee108739dea7bf1\",\n    \"edit_json_sha256\": \"700373854fbecd9584ac4e55c8070ecde82265b24e35e130ec319cdcd13b9d2c\"\n  },\n  \"verdict\": \"pass\",\n  \"findings\": [\n    {\n      \"id\": \"F001\",\n      \"severity\": \"warning\",\n      \"check\": \"geometry.fit-compat\",\n      \"message\": \"fit 互換モードで描画中。`normalize-geometry` で実寸基準へ移行できます\",\n      \"path\": \"edit.json#output.geometry\"\n    },\n    {\n      \"id\": \"F002\",\n      \"severity\": \"warning\",\n      \"check\": \"timeline.items.order\",\n      \"message\": \"item frame-1 at array position 2 has at=180, before item right at position 1 (at=240)\",\n      \"path\": \"edit.json#tracks[0].items[2]\"\n    }\n  ],\n  \"skipped\": [\n    {\n      \"check\": \"analysis.json\",\n      \"reason\": \"analysis.json is absent\"\n    },\n    {\n      \"check\": \"audio.music-grid\",\n      \"reason\": \"audio.bgm is absent; music grid checks require audio.bgm.path\"\n    },\n    {\n      \"check\": \"intake\",\n      \"reason\": \".akari/intake.json is absent\"\n    },\n    {\n      \"check\": \"media\",\n      \"reason\": \"media checks require --media\"\n    },\n    {\n      \"check\": \"review\",\n      \"reason\": \"review.json is absent\"\n    }\n  ]\n}\n",
+    "stderr": ""
+  },
+  "cleanup": {
+    "pid": 2186,
+    "signals": [
+      {
+        "pid": 2186,
+        "signal": "SIGTERM"
+      },
+      {
+        "pid": 2232,
+        "signal": "SIGTERM"
+      },
+      {
+        "pid": 2233,
+        "signal": "SIGTERM"
+      },
+      {
+        "pid": 2235,
+        "signal": "SIGTERM"
+      },
+      {
+        "pid": 2262,
+        "signal": "SIGTERM"
+      },
+      {
+        "pid": 2729,
+        "signal": "SIGTERM"
+      },
+      {
+        "pid": 2769,
+        "signal": "SIGTERM"
+      },
+      {
+        "pid": 2186,
+        "signal": "SIGKILL"
+      },
+      {
+        "pid": 2998,
+        "signal": "SIGKILL"
+      },
+      {
+        "pid": 2999,
+        "signal": "SIGKILL"
+      }
+    ],
+    "survivors": [],
+    "isolatedAkariHome": true,
+    "isolatedUserData": true,
+    "before": [
+      {
+        "pid": 2186,
+        "command": "<WORKTREE>/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron <WORKTREE>/apps/shell <TEMP>/project --remote-debugging-port=22217 --user-data-dir=<TEMP>/userdata --no-sandbox"
+      },
+      {
+        "pid": 2232,
+        "command": "<WORKTREE>/node_modules/electron/dist/Electron.app/Contents/Frameworks/Electron Helper.app/Contents/MacOS/Electron Helper <WORKTREE>/apps/shell/lib/backend/main.js <TEMP>/project --remote-debugging-port=22217 --user-data-dir=<TEMP>/userdata --no-sandbox"
+      },
+      {
+        "pid": 2233,
+        "command": "<WORKTREE>/node_modules/electron/dist/Electron.app/Contents/Frameworks/Electron Helper (GPU).app/Contents/MacOS/Electron Helper (GPU) --type=gpu-process --no-sandbox --user-data-dir=/private<TEMP>/userdata --gpu-preferences=SAAAAAAAAAAgAAAEAAAAAAAAAAAAAGAAAwAAAAAAAAAAAAAAAAAAAAIAAAAAAAAAAAAAAAAAAAAQAAAAAAAAABAAAAAAAAAACAAAAAAAAAAIAAAAAAAAAA== --shared-files --field-trial-handle=1718379636,r,4926362685954856352,8419098078570800648,262144 --enable-features=PdfUseShowSaveFilePicker,ScreenCaptureKitPickerScreen,ScreenCaptureKitStreamPickerSonoma --disable-features=LocalNetworkAccessChecks,MacWebContentsOcclusion,ScreenAIOCREnabled,SpareRendererForSitePerProcess,TimeoutHangingVideoCaptureStarts,TraceSiteInstanceGetProcessCreation --variations-seed-version --trace-process-track-uuid=3190708988185955192"
+      },
+      {
+        "pid": 2235,
+        "command": "<WORKTREE>/node_modules/electron/dist/Electron.app/Contents/Frameworks/Electron Helper.app/Contents/MacOS/Electron Helper --type=utility --utility-sub-type=network.mojom.NetworkService --lang=ja --service-sandbox-type=network --no-sandbox --user-data-dir=/private<TEMP>/userdata --shared-files --field-trial-handle=1718379636,r,4926362685954856352,8419098078570800648,262144 --enable-features=PdfUseShowSaveFilePicker,ScreenCaptureKitPickerScreen,ScreenCaptureKitStreamPickerSonoma --disable-features=LocalNetworkAccessChecks,MacWebContentsOcclusion,ScreenAIOCREnabled,SpareRendererForSitePerProcess,TimeoutHangingVideoCaptureStarts,TraceSiteInstanceGetProcessCreation --variations-seed-version --trace-process-track-uuid=3190708989122997041"
+      },
+      {
+        "pid": 2262,
+        "command": "<WORKTREE>/node_modules/electron/dist/Electron.app/Contents/Frameworks/Electron Helper (Renderer).app/Contents/MacOS/Electron Helper (Renderer) --type=renderer --user-data-dir=/private<TEMP>/userdata --app-path=<WORKTREE>/apps/shell --no-sandbox --no-zygote --no-sandbox --remote-debugging-port=22217 --lang=ja --num-raster-threads=4 --enable-zero-copy --enable-gpu-memory-buffer-compositor-resources --enable-main-frame-before-activation --renderer-client-id=4 --time-ticks-at-unix-epoch=-1788919145479584 --launch-time-ticks=1093944861785 --shared-files --field-trial-handle=1718379636,r,4926362685954856352,8419098078570800648,262144 --enable-features=PdfUseShowSaveFilePicker,ScreenCaptureKitPickerScreen,ScreenCaptureKitStreamPickerSonoma --disable-features=LocalNetworkAccessChecks,MacWebContentsOcclusion,ScreenAIOCREnabled,SpareRendererForSitePerProcess,TimeoutHangingVideoCaptureStarts,TraceSiteInstanceGetProcessCreation --variations-seed-version --trace-process-track-uuid=3190708990060038890"
+      },
+      {
+        "pid": 2729,
+        "command": "<WORKTREE>/node_modules/electron/dist/Electron.app/Contents/Frameworks/Electron Helper (Renderer).app/Contents/MacOS/Electron Helper (Renderer) --type=renderer --user-data-dir=/private<TEMP>/userdata --app-path=<WORKTREE>/apps/shell --enable-sandbox --no-sandbox --remote-debugging-port=22217 --lang=ja --num-raster-threads=4 --enable-zero-copy --enable-gpu-memory-buffer-compositor-resources --enable-main-frame-before-activation --renderer-client-id=5 --time-ticks-at-unix-epoch=-1788919145479584 --launch-time-ticks=1093950114230 --shared-files --field-trial-handle=1718379636,r,4926362685954856352,8419098078570800648,262144 --enable-features=PdfUseShowSaveFilePicker,ScreenCaptureKitPickerScreen,ScreenCaptureKitStreamPickerSonoma --disable-features=LocalNetworkAccessChecks,MacWebContentsOcclusion,ScreenAIOCREnabled,SpareRendererForSitePerProcess,TimeoutHangingVideoCaptureStarts,TraceSiteInstanceGetProcessCreation --variations-seed-version --trace-process-track-uuid=3190708990997080739"
+      },
+      {
+        "pid": 2769,
+        "command": "<WORKTREE>/node_modules/electron/dist/Electron.app/Contents/Frameworks/Electron Helper.app/Contents/MacOS/Electron Helper --type=utility --utility-sub-type=audio.mojom.AudioService --lang=ja --service-sandbox-type=audio --no-sandbox --message-loop-type-ui --user-data-dir=/private<TEMP>/userdata --shared-files --field-trial-handle=1718379636,r,4926362685954856352,8419098078570800648,262144 --enable-features=PdfUseShowSaveFilePicker,ScreenCaptureKitPickerScreen,ScreenCaptureKitStreamPickerSonoma --disable-features=LocalNetworkAccessChecks,MacWebContentsOcclusion,ScreenAIOCREnabled,SpareRendererForSitePerProcess,TimeoutHangingVideoCaptureStarts,TraceSiteInstanceGetProcessCreation --variations-seed-version --trace-process-track-uuid=3190708991934122588"
+      }
+    ],
+    "exited": true
+  },
+  "elapsedMs": 14227
+}

@@ -11,6 +11,7 @@ import { snapshot } from "../../../edit-store/lib/history-store.js";
 import { resolveFfprobe } from "../../../media-bin/src/index.mjs";
 
 import { validateInputs } from "../validate-inputs.mjs";
+import { resolveSendSide } from "../send-side.mjs";
 import { getAdapter } from "../adapters/index.mjs";
 import { loadCatalog, findModel } from "./catalog.mjs";
 import { resolveFalKey } from "./credentials.mjs";
@@ -280,35 +281,36 @@ export async function runVideoCommand(argv, dependencies = {}) {
     if (framesOrRefs !== undefined && !["frames", "references"].includes(framesOrRefs)) {
       throw new CliError("frames_or_refs は frames または references で指定してください");
     }
-    delete suppliedInputs.frames_or_refs;
-    // 非選択側は hydration 前に除く。下書き上の未完成・消失した参照は送信に使わない。
-    if (framesOrRefs === "references") {
-      suppliedInputs.first_frame = null;
-      suppliedInputs.last_frame = null;
-    } else if (framesOrRefs === "frames") {
-      suppliedInputs.reference_images = [];
-      suppliedInputs.reference_videos = [];
-      suppliedInputs.reference_audios = [];
-    }
     const suppliedOutput = supplied.output ?? {};
+    const catalog = await (dependencies.loadCatalogImpl ?? loadCatalog)();
+    const modelId = options.modelId ?? supplied.model?.id ?? modelDefault(options.projectDir);
+    const model = findModel(catalog, modelId);
+    if (!model) throw new CliError(`生成モデルがカタログにありません: ${modelId}`);
     const hasSuppliedFirst = Object.hasOwn(suppliedInputs, "first_frame");
-    const usesDefaultFirst = options.firstFrame === undefined && !hasSuppliedFirst;
-    const firstValue = framesOrRefs === "references" ? null : options.firstFrame !== undefined
-      ? options.firstFrame : hasSuppliedFirst ? suppliedInputs.first_frame : sourceEntry.path;
-    if (usesDefaultFirst && !STILL_EXTENSIONS.has(path.extname(sourceEntry.path).toLowerCase())) {
+    // first_frame を受けない行（参照から作る行）には、既定の絵を入れない。
+    const usesDefaultFirst = model.inputs.first_frame !== "none"
+      && options.firstFrame === undefined && !hasSuppliedFirst;
+    // CLI の上書きと既定値も含め、非選択側は hydration 前に除く。
+    const { inputs: selectedInputs } = resolveSendSide({
+      ...suppliedInputs,
+      first_frame: options.firstFrame !== undefined
+        ? options.firstFrame : hasSuppliedFirst ? suppliedInputs.first_frame : usesDefaultFirst ? sourceEntry.path : null,
+      last_frame: options.lastFrame ?? suppliedInputs.last_frame,
+      reference_images: options.referenceImages.length ? options.referenceImages : suppliedInputs.reference_images,
+      reference_audios: options.referenceAudios.length ? options.referenceAudios : suppliedInputs.reference_audios,
+    });
+    if (usesDefaultFirst && selectedInputs.first_frame !== null && !STILL_EXTENSIONS.has(path.extname(sourceEntry.path).toLowerCase())) {
       throw new CliError("既定の first_frame は静止画 source の item だけで使えます");
     }
     const rawInputs = {
-      ...suppliedInputs,
+      ...selectedInputs,
       prompt: options.prompt ?? suppliedInputs.prompt ?? null,
       negative_prompt: options.negativePrompt ?? suppliedInputs.negative_prompt ?? null,
-      first_frame: hydrateReference(options.projectDir, firstValue, { source_id: sourceEntry.id }),
-      last_frame: hydrateReference(options.projectDir, framesOrRefs === "references" ? null : options.lastFrame ?? suppliedInputs.last_frame),
-      reference_images: framesOrRefs === "frames" ? [] : options.referenceImages.length
-        ? hydrateList(options.projectDir, options.referenceImages) : hydrateList(options.projectDir, suppliedInputs.reference_images),
-      reference_videos: hydrateList(options.projectDir, suppliedInputs.reference_videos),
-      reference_audios: framesOrRefs === "frames" ? [] : options.referenceAudios.length
-        ? hydrateList(options.projectDir, options.referenceAudios) : hydrateList(options.projectDir, suppliedInputs.reference_audios),
+      first_frame: hydrateReference(options.projectDir, selectedInputs.first_frame, { source_id: sourceEntry.id }),
+      last_frame: hydrateReference(options.projectDir, selectedInputs.last_frame),
+      reference_images: hydrateList(options.projectDir, selectedInputs.reference_images),
+      reference_videos: hydrateList(options.projectDir, selectedInputs.reference_videos),
+      reference_audios: hydrateList(options.projectDir, selectedInputs.reference_audios),
       source_video: hydrateReference(options.projectDir, suppliedInputs.source_video),
       camera: options.camera !== undefined
         ? { notation: options.camera.trim().startsWith("[") ? "bracket" : "prose", value: options.camera, from_annotation: null }
@@ -323,10 +325,6 @@ export async function runVideoCommand(argv, dependencies = {}) {
       aspect: options.aspect ?? suppliedOutput.aspect ?? null,
       audio_out: options.audioOut ?? suppliedOutput.audio_out ?? null,
     };
-    const catalog = await (dependencies.loadCatalogImpl ?? loadCatalog)();
-    const modelId = options.modelId ?? supplied.model?.id ?? modelDefault(options.projectDir);
-    const model = findModel(catalog, modelId);
-    if (!model) throw new CliError(`生成モデルがカタログにありません: ${modelId}`);
     const validation = validateInputs({ inputs: rawInputs, output: rawOutput, model });
     for (const message of validation.messages) (message.level === "error" ? errorLog : log)(`${message.level}: ${message.text}`);
     if (!validation.ok) return { exitCode: 1 };

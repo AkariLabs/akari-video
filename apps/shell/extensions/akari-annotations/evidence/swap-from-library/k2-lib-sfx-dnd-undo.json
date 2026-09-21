@@ -1,0 +1,177 @@
+{
+ "src": "lib:audio/sfx-click-bottlecap",
+ "points": [
+  [
+   620,
+   734
+  ]
+ ],
+ "at": "2026-09-21T14:23:12.090Z",
+ "shaBefore": "0b6ccf6c363685d94a5a44f54f8d132ab1d99b8c22e5c838669849559e5356fc",
+ "tracksBefore": [
+  {
+   "id": "a2",
+   "lane": "audio",
+   "items": [
+    "bgm-1@0+1350"
+   ]
+  },
+  {
+   "id": "a1",
+   "lane": "audio",
+   "items": [
+    "bell-1@60+76",
+    "pop-1@150+54"
+   ]
+  },
+  {
+   "id": "v1",
+   "lane": "visual",
+   "items": [
+    "cut-1@0+90",
+    "cut-2@90+90"
+   ]
+  },
+  {
+   "id": "v2",
+   "lane": "visual",
+   "items": [
+    "img-1@0+60",
+    "broll-1@90+1260"
+   ]
+  },
+  {
+   "id": "v3",
+   "lane": "visual",
+   "items": [
+    "telop-1@0+240"
+   ]
+  }
+ ],
+ "hovers": [
+  {
+   "x": 620,
+   "y": 734,
+   "ghost": {
+    "x": 620,
+    "y": 719,
+    "w": 23,
+    "h": 28,
+    "insertionPreview": false,
+    "border": "1px dashed rgb(77, 208, 200)"
+   },
+   "insertLine": null,
+   "footer": "音声クリップの設定を変更を元に戻しました。"
+  }
+ ],
+ "card": {
+  "x": 122.953125,
+  "y": 398.859375,
+  "draggable": "true"
+ },
+ "dragIntercepted": true,
+ "mimeTypes": [
+  "application/x-akari-library-item"
+ ],
+ "waitMs": 1504,
+ "editChanged": true,
+ "tracksAfter": [
+  {
+   "id": "a2",
+   "lane": "audio",
+   "items": [
+    "bgm-1@0+1350"
+   ]
+  },
+  {
+   "id": "a1",
+   "lane": "audio",
+   "items": [
+    "bell-1@60+76",
+    "pop-1@150+54",
+    "audio-1@1006+54"
+   ]
+  },
+  {
+   "id": "v1",
+   "lane": "visual",
+   "items": [
+    "cut-1@0+90",
+    "cut-2@90+90"
+   ]
+  },
+  {
+   "id": "v2",
+   "lane": "visual",
+   "items": [
+    "img-1@0+60",
+    "broll-1@90+1260"
+   ]
+  },
+  {
+   "id": "v3",
+   "lane": "visual",
+   "items": [
+    "telop-1@0+240"
+   ]
+  }
+ ],
+ "afterDrop": {
+  "ghost": null,
+  "insertLine": null,
+  "footer": "自動レベル: -0.3 dB（lufs・sfx）"
+ },
+ "toasts": [
+  "出力プレビューの準備を確認できなかったため通常の再生を試みました（▶ もう一度 で再試行できます）。",
+  "出力プレビューの準備を確認できなかったため通常の再生を試みました（▶ もう一度 で再試行できます）。"
+ ],
+ "lint": {
+  "verdict": "pass",
+  "overlap": []
+ },
+ "undo": {
+  "presses": 1,
+  "shaAfterUndo": "0b6ccf6c363685d94a5a44f54f8d132ab1d99b8c22e5c838669849559e5356fc",
+  "byteIdentical": true,
+  "tracksAfterUndo": [
+   {
+    "id": "a2",
+    "lane": "audio",
+    "items": [
+     "bgm-1@0+1350"
+    ]
+   },
+   {
+    "id": "a1",
+    "lane": "audio",
+    "items": [
+     "bell-1@60+76",
+     "pop-1@150+54"
+    ]
+   },
+   {
+    "id": "v1",
+    "lane": "visual",
+    "items": [
+     "cut-1@0+90",
+     "cut-2@90+90"
+    ]
+   },
+   {
+    "id": "v2",
+    "lane": "visual",
+    "items": [
+     "img-1@0+60",
+     "broll-1@90+1260"
+    ]
+   },
+   {
+    "id": "v3",
+    "lane": "visual",
+    "items": [
+     "telop-1@0+240"
+    ]
+   }
+  ]
+ }
+}

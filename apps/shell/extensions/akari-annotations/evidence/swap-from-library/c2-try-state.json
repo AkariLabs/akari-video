@@ -1,0 +1,58 @@
+{
+ "mode": "state",
+ "at": "2026-09-21T14:08:30.251Z",
+ "shaBefore": "881253c316bc0b145d8b182470661d4343eab7b331b8e13fe3667ba41d90c52e",
+ "itemBefore": {
+  "track": "a1",
+  "id": "bell-1",
+  "at": 60,
+  "duration": 54,
+  "source": {
+   "kind": "media",
+   "src": "src-1",
+   "in": 0,
+   "out": 1.8
+  },
+  "path": "assets/audio/sfx-blip-beep/sfx-blip-beep.mp3",
+  "gain_db": -3,
+  "fade_in": 0.1,
+  "fade_out": 0.2
+ },
+ "shaAfter": "881253c316bc0b145d8b182470661d4343eab7b331b8e13fe3667ba41d90c52e",
+ "itemAfter": {
+  "track": "a1",
+  "id": "bell-1",
+  "at": 60,
+  "duration": 54,
+  "source": {
+   "kind": "media",
+   "src": "src-1",
+   "in": 0,
+   "out": 1.8
+  },
+  "path": "assets/audio/sfx-blip-beep/sfx-blip-beep.mp3",
+  "gain_db": -3,
+  "fade_in": 0.1,
+  "fade_out": 0.2
+ },
+ "sameTrack": [
+  "bell-1@60+54",
+  "pop-1@150+54"
+ ],
+ "ui": {
+  "trialBar": [
+   {
+    "text": "お試し中: Bell Tree Sweep Upward, Sparkling Cascade, Isola → Short Friendly Digital Beep, Single Tone, Isolat▶ もう一度差し替えるやめる",
+    "visible": true
+   }
+  ],
+  "inspectorSwapRow": true,
+  "leftPanel": "swap-shelf",
+  "toasts": []
+ },
+ "lint": {
+  "verdict": "pass",
+  "errors": [],
+  "sourceRange": 0
+ }
+}

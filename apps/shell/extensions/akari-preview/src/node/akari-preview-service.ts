@@ -1292,8 +1292,7 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
                             expected: expected.sha256,
                             actual,
                             matches: actual === expected.sha256,
-                            // common の表示型は後続票で拡張する。実値は placeholder を保持する。
-                            source: expected.source as ReadGenerationSidecarsResult['entries'][number]['binding']['source']
+                            source: expected.source
                         }
                     };
                 } catch {

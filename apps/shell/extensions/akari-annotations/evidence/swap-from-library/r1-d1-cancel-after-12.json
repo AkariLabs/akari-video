@@ -1,0 +1,72 @@
+{
+ "mode": "bar",
+ "arg": "やめる",
+ "at": "2026-09-21T15:07:15.732Z",
+ "shaBefore": "92aeedbf7fe15541f41b3aa9d3a31855a2631e1d137796fe849a74c8b18035c1",
+ "itemBefore": {
+  "track": "a1",
+  "id": "bell-1",
+  "at": 60,
+  "duration": 54,
+  "source": {
+   "kind": "media",
+   "src": "src-1",
+   "in": 0,
+   "out": 1.8
+  },
+  "path": "assets/audio/sfx-pop-cork/sfx-pop-cork.mp3",
+  "gain_db": -3,
+  "fade_in": 0.1,
+  "fade_out": 0.2
+ },
+ "click": [
+  855.4921875,
+  64.25
+ ],
+ "settleMs": 2594,
+ "previewTimeSamples": [
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0
+ ],
+ "shaAfter": "0b6ccf6c363685d94a5a44f54f8d132ab1d99b8c22e5c838669849559e5356fc",
+ "itemAfter": {
+  "track": "a1",
+  "id": "bell-1",
+  "at": 60,
+  "duration": 76,
+  "source": {
+   "kind": "media",
+   "src": "bell",
+   "in": 0,
+   "out": 2.520979
+  },
+  "path": "assets/audio/sfx-bell-tree/sfx-bell-tree.mp3",
+  "gain_db": -3,
+  "fade_in": 0.1,
+  "fade_out": 0.2
+ },
+ "sameTrack": [
+  "bell-1@60+76",
+  "pop-1@150+54"
+ ],
+ "ui": {
+  "trialBar": [],
+  "inspectorSwapRow": false,
+  "leftPanel": "other",
+  "toasts": [
+   "素材を取得できませんでした: ダウンロード失敗: https://github.com/AkariLabs/akari-sounds/releases/download/v0/sfx-comedy-boing.mp3 → HTTP 504",
+   "素材を取得できませんでした: ダウンロード失敗: https://github.com/AkariLabs/akari-sounds/releases/download/v0/sfx-glitch-zap.mp3 → HTTP 504"
+  ]
+ },
+ "lint": {
+  "verdict": "pass",
+  "errors": [],
+  "sourceRange": 0
+ }
+}

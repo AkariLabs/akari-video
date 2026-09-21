@@ -1,0 +1,11 @@
+{
+ "swapShelf": false,
+ "leftText": "プロジェクト\nライブラリ\nstill\n3Dプリンター\n--:--\n文字起こし\n未\n音声\nbgm-breakbeat-134-a.mp3\n--:--\n文字起こし\n未\n音声\nbgm-breakbeat-134-b.mp3\n--:--\n文字起こし\n未\n動画\nlong-clip.mp4\n--:--\n文字起こし\n未\n動画\nraw-clip.mp4\n--:--\n文字起こし\n未\n音声\nsfx-bell-tree.mp3\n--:--\n文字起こし\n未\n音声\nsfx-blip-beep.mp3\n--:--\n文字起こし\n未\n音声\nsfx-chime-success.mp3\n--:--\n文字起こし\n未\n音声\nsfx-click-bottlecap.mp3\n--:--\n文字起こし\n未\n音声\nsfx-impact-echo.mp3\n--:--\n文字起こし\n未\n音声\nsfx-pop-bubble-big.mp3\n--:",
+ "inspectorTabs": [
+  "音声",
+  "情報"
+ ],
+ "inspectorSwapRows": 1,
+ "inspectorLines": 13,
+ "inspectorText": "音声\n情報\n入れ替え\n⇄ 候補を見る\n▸ 情報\n種別\n音声クリップ\npath\nsfx-bell-tree.mp3\nトラック\nA2\nクリップ\nsfx-bell-tree.mp3"
+}

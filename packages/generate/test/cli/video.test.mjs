@@ -275,3 +275,43 @@ test('生成失敗でも placeholder を残し、next の入力と元クリッ�
   assert.equal(await readFile(sidecarPath, 'utf8'), original);
   assert.equal(await readFile(path.join(root, 'edit.json'), 'utf8'), before);
 });
+
+for (const selection of ["frames", "references"]) {
+  test(`送信側 ${selection} は CLI オプションの非選択側も hydration 前に除く`, async (t) => {
+    const root = await fixture(t);
+    const discardedOptions = selection === "frames"
+      ? ["--reference-image", "missing-image.png", "--reference-audio", "missing-audio.wav"]
+      : ["--first-frame", "missing-first.png", "--last-frame", "missing-last.png"];
+    const inputs = {
+      frames_or_refs: selection,
+      reference_videos: selection === "frames" ? [{ path: "missing-video.mp4" }] : [],
+    };
+    const logs = [];
+    const result = await runVideoCommand([
+      ...baseArgs(root), "--inputs", JSON.stringify({ inputs }), ...discardedOptions, "--dry-run",
+    ], {
+      fetchImpl: () => { throw new Error("network must not run"); },
+      log: line => logs.push(line), errorLog: line => logs.push(line),
+    });
+    assert.equal(result.exitCode, 0, logs.join("\n"));
+    assert.equal(Object.hasOwn(result.result.body, "image_url"), selection === "frames");
+    assert.equal(Object.hasOwn(result.result.body, "end_image_url"), false);
+  });
+}
+
+test("不正な frames_or_refs は hydration 前に CliError で拒否する", async (t) => {
+  const root = await fixture(t);
+  for (const selection of ["invalid", null]) {
+    const logs = [];
+    const result = await runVideoCommand([
+      ...baseArgs(root), "--inputs", JSON.stringify({
+        frames_or_refs: selection, first_frame: { path: "missing-first.png" },
+      }), "--dry-run",
+    ], {
+      fetchImpl: () => { throw new Error("network must not run"); },
+      log: line => logs.push(line), errorLog: line => logs.push(line),
+    });
+    assert.equal(result.exitCode, 2);
+    assert.deepEqual(logs, ["frames_or_refs は frames または references で指定してください"]);
+  }
+});

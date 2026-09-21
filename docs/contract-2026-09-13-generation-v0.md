@@ -12,6 +12,7 @@
 5. 絵コンテはタイムラインの印刷（9/6 §5）。生成の入力にしない
 6. plan.json の仮枠役（`confidence` / `fill`）は退役。`plan-comments.json` の `pass: "scaffold"` の対象は `slot` から **clip id** へ
 7. **空の枠**（2026-09-21）: 仮枠ツール（F）で空いているところに描いた枠は、prompt 未記入の**文字カード png** を素材に持つ media item（絵のないクリップを文字カード png で表す規則の延長）。0.5 秒刻み・端に吸着・隣に食い込まない・0.5 秒未満にしない。専用トラックは作らない（どのトラックにも置ける）
+   実装: 選択 V / 分割 C / 仮枠 F（従来の A / B も有効）。仮枠はスナップ OFF でも近い可視端・再生ヘッドを 0.5 秒格子より優先し、`assets/generated/frame-<時刻>-<一意接尾辞>.png` と隣の `.meta.json` に保存する。
 8. **すき間から作る枠**（2026-09-21）: すき間をクリック →「あいだを生成」で、すき間の位置と長さの枠を置く。前のクリップの最後のコマ・次のクリップの最初のコマを抽出して両端（②③）に入れる。動画からの抽出は 1 コマを `assets/captures/` へ書き出す（§10）
 9. 枠は**生成前から尺と場所を持ち、生成物は同じ item に入る**（4 の延長）。メディアパネルは経由しない（タイムライン正本）
 
@@ -96,6 +97,7 @@ mp4 がまだ無い「動画予定」は、**仮枠の素材の meta**（静止�
 1. **読み手の判定**: `next.kind === "video"` かつ `next.status === "planned"` = 「動画予定」。`next` が無い静止画 = 「画像のまま」= 完成品。文字カード（meta 自体が `planned`）で `next` が無いか prompt が空 = 「空の枠」
 2. `next.inputs` は §2 の 9 スロットの下書き。`first_frame` は**そのクリップの絵とは限らない**（前のクリップの最後のコマ・キャプチャ・空 = プロンプトだけ）
 3. **`inputs.frames_or_refs`** = `"frames"` / `"references"`（`next` の下書きだけが持つ欄。§2 ⑦ の `mode` = 元動画のモードとは別物）。最初 / 最後と参照が排他のとき（`frames_and_refs_exclusive: true` の行、または同じ family の i2v 行と ref 行の切替）、**下書きは両側を保持し、送るのは `frames_or_refs` の側だけ**。切り替えで中身を消さない。バリデータはこの欄を見て反対側を送信 body から外し、生成物 meta の `inputs` にはこの欄を書かない（送った側だけが残る）
+   右パネルは同じ family のフレーム行 / 参照行を「最初 / 最後｜参照」で切り替え、model ID も相方に替える。参照は種類別の札・カウンタ付きグリッドで、素材パネルから複数選択する。
 4. **送るとき**: CLI は `next`（または `--inputs`）を読み、従来どおり**生成物の隣**に video meta（`generating`）を書く。このとき **`placeholder: { path, sha256, item_id }`** = その item が今指している素材（静止画 / 文字カード）を必ず書く。item への逆引きは `placeholder` が正、`inputs.first_frame.path` は 9/13 時点の meta のための後方互換。`next` は消さない（「同じ入力でもう一度」の元）
 5. **状態の優先**: `placeholder` で結線された生成物 meta が `generating` / stale / `failed` ならそれを描く。無ければ `next` の `planned` を描く。`done` で差し替わった後は mp4 の meta が直接当たる（§7）
 6. `next` の更新は undo に入れない（§3 規則 3 と同じ）。右パネルの編集は即保存
@@ -129,6 +131,7 @@ mp4 がまだ無い「動画予定」は、**仮枠の素材の meta**（静止�
 }
 ```
 
+- 参照の順序記法は行ごとの `tag`（接頭辞）+ `tag_joiner`（省略時は空文字）+ 1 始まりの番号。Seedance は `@Image` + 空文字 → `@Image1`、H3 は `Image` + 空白 → `Image 1`。動画・音声も同様。`tag` の末尾に空白は入れない
 - `inputs.first_frame` / `last_frame` は `"required"` / `"optional"` / `"none"` の 3 値
 - `duration.format` は `{type: "integer"}` / `{type: "string"}` / `{type: "string", suffix: "s"}` / `{type: "string", auto: true}`
 - `audio_out` は `true`（切替可）/ `"always"`（欄なしで付く）/ `false`
@@ -148,6 +151,8 @@ mp4 がまだ無い「動画予定」は、**仮枠の素材の meta**（静止�
 
 Kling v3 standard i2v / Kling v3 pro i2v / Veo 3.1 first-last / Veo 3.1 reference / Seedance 2.0 i2v / Seedance 2.0 reference / Seedance 2.5 i2v / H3 i2v / H3 reference / Wan 2.7 i2v / Grok Imagine i2v / Vidu Q3 i2v。画像: codex-image / nano-banana-pro edit。Sora は OpenAI 直アダプタが出来るまで入れない。
 
+動画の登録済みアダプタ（2026-09-22）は `fal:h3-i2v`・`fal:h3-ref`・`fal:kling-v3-standard-i2v`・`fal:kling-v3-pro-i2v`・`fal:seedance-2.0-i2v`・`fal:seedance-2.0-ref`・`fal:veo-3.1-flf` の 7 行。カタログ収載だけでは送信できない。H3 reference は OpenAPI に従い `Image 1` / `Video 1` / `Audio 1` で参照を名指しする。`first_frame` / `last_frame` は拒否する。
+
 ### 4-4. 鮮度とドリフト
 
 - `as_of` 必須。UI の費用表示に日付を添える
@@ -160,6 +165,8 @@ Kling v3 standard i2v / Kling v3 pro i2v / Veo 3.1 first-last / Veo 3.1 referenc
 
 各アダプタは 9 スロット × 出力ノブの**全セル**に「引数名 + 書式」か「拒否」を持つ。テストは全セルを網羅する。
 
+対応一覧は §4-3 の 6 行。Seedance 2.0 reference は画像・動画・音声参照を写し、`first_frame` / `last_frame` / `seed` は拒否する。参照用の OpenAPI 根拠は `packages/generate/test/fixtures/openapi/`（2026-09-22 取得・URL と SHA-256 は同 README）に保存する。H3 reference は記法の不一致が解消するまで登録しない。
+
 ### 5-2. 尺の書式（スパイク実測）
 
 | モデル | 送る形 |
@@ -171,9 +178,10 @@ Kling v3 standard i2v / Kling v3 pro i2v / Veo 3.1 first-last / Veo 3.1 referenc
 
 ### 5-3. 参照の渡し方
 
-- 画像は data URI で送ってよい（5.2 MB で 24 秒）。**20 MB 超は fal storage へ先にアップロード**（後日）
-- 順序タグ（@Image1 …）はアダプタが配列順から生成して prompt に付ける。名前 + 役割（PixVerse）は要素の `name` / `role` から
-- 参照音声は `range_s` で切り出してから送る（クリップ範囲だけ）
+- Seedance 2.0 reference と H3 reference の画像・動画・音声は配列順のまま data URI で送る。**20 MB 超は送らず error**（fal storage へのアップロードは後日）。OpenAPI の上限は画像 9・動画 3・音声 3、全種合計 12 ファイル。Seedance の音声参照には画像か動画が 1 本以上必要。H3 は 2026-09-22 取得の OpenAPI に従い音声単独も可
+- 引数名は Seedance が `image_urls` / `video_urls` / `audio_urls`、H3 が `reference_image_urls` / `reference_video_urls` / `reference_audio_urls`。OpenAPI の正本は `packages/schemas/fixtures/gen-models/openapi/`。generate のテストも相対 URL でこの正本を直接読む。`packages/generate/test/fixtures/openapi/` は取得記録の README のみ（取得日・出典・変換方法を記録）
+- 順序タグはカタログ行の `tag` + `tag_joiner`（省略時は空文字）+ 配列順の番号（1 始まり）。prompt の `@画像N` / `@動画N` / `@音声N` を、Seedance では `@ImageN` / `@VideoN` / `@AudioN`、H3 では `Image N` / `Video N` / `Audio N` へ置換する。該当種別の本数を超える番号や 0 以下・非整数は送らず error。provider 記法の直書きは `@` 付きだけ番号を検査する。H3 の素の英語は検査・置換せず、通常文の `Image 1 of 3` や `Image 3` を誤って拒否しない。名指しが無ければ prompt に何も足さない。名前 + 役割（PixVerse）は要素の `name` / `role` から
+- 参照音声は `range_s` があれば media-bin の ffmpeg で切り出してから送る（クリップ範囲だけ）。指定が無ければ元の音声をそのまま送る。切り出しの一時ファイルは成功・失敗ともに削除する
 
 ## 6. 状態と見え方
 

@@ -1,0 +1,5086 @@
+{
+ "at": "2026-09-21T15:30:07.891Z",
+ "rows": [
+  {
+   "n": 1,
+   "key": "audio/sfx-click-mouse-double",
+   "token": "akari-annotations-widget:1790004439298:1",
+   "clickWall": 1790004439094,
+   "reloads": 1,
+   "playRequests": 1,
+   "retries": 0,
+   "readyFallback": 0,
+   "result": "cancelled",
+   "appliedMs": 7106,
+   "playbackStartMs": null,
+   "logPlayingMs": 11642,
+   "cachedBefore": false,
+   "startAfterAppliedMs": null,
+   "firstPlayRequestMs": 11631,
+   "toasts": [],
+   "samples": [
+    [
+     356,
+     22.6936
+    ],
+    [
+     554,
+     22.6936
+    ],
+    [
+     710,
+     22.6936
+    ],
+    [
+     887,
+     22.6936
+    ],
+    [
+     1051,
+     22.6936
+    ],
+    [
+     1220,
+     22.6936
+    ],
+    [
+     1478,
+     22.6936
+    ],
+    [
+     1634,
+     22.6936
+    ],
+    [
+     1804,
+     22.6936
+    ],
+    [
+     1988,
+     22.6936
+    ],
+    [
+     2228,
+     22.6936
+    ],
+    [
+     2394,
+     22.6936
+    ],
+    [
+     2603,
+     22.6936
+    ],
+    [
+     2760,
+     22.6936
+    ],
+    [
+     2924,
+     22.6936
+    ],
+    [
+     3088,
+     22.6936
+    ],
+    [
+     3254,
+     22.6936
+    ],
+    [
+     3407,
+     22.6936
+    ],
+    [
+     3560,
+     22.6936
+    ],
+    [
+     3726,
+     22.6936
+    ],
+    [
+     3905,
+     22.6936
+    ],
+    [
+     4061,
+     22.6936
+    ],
+    [
+     4228,
+     22.6936
+    ],
+    [
+     4388,
+     22.6936
+    ],
+    [
+     4544,
+     22.6936
+    ],
+    [
+     4709,
+     22.6936
+    ],
+    [
+     4881,
+     22.6936
+    ],
+    [
+     5034,
+     22.6936
+    ],
+    [
+     5199,
+     22.6936
+    ],
+    [
+     5354,
+     22.6936
+    ],
+    [
+     5515,
+     22.6936
+    ],
+    [
+     5667,
+     22.6936
+    ],
+    [
+     5829,
+     22.6936
+    ],
+    [
+     5982,
+     22.6936
+    ],
+    [
+     6137,
+     22.6936
+    ],
+    [
+     6297,
+     22.6936
+    ],
+    [
+     6498,
+     22.6936
+    ],
+    [
+     6655,
+     22.6936
+    ],
+    [
+     6846,
+     22.6936
+    ],
+    [
+     7012,
+     22.6936
+    ],
+    [
+     7164,
+     22.6936
+    ],
+    [
+     7355,
+     22.6936
+    ],
+    [
+     7507,
+     22.6936
+    ],
+    [
+     7670,
+     22.6936
+    ],
+    [
+     7825,
+     22.6936
+    ],
+    [
+     7990,
+     22.6936
+    ],
+    [
+     8200,
+     22.6936
+    ],
+    [
+     8358,
+     22.6936
+    ],
+    [
+     8510,
+     22.6936
+    ],
+    [
+     8665,
+     22.6936
+    ],
+    [
+     8829,
+     22.6936
+    ],
+    [
+     8981,
+     22.6936
+    ],
+    [
+     9140,
+     22.6936
+    ],
+    [
+     9293,
+     22.6936
+    ],
+    [
+     9446,
+     22.6936
+    ],
+    [
+     9604,
+     6.06061
+    ],
+    [
+     9759,
+     6.06061
+    ],
+    [
+     9919,
+     6.06061
+    ],
+    [
+     10104,
+     6.06061
+    ],
+    [
+     10259,
+     6.06061
+    ],
+    [
+     10418,
+     6.06061
+    ],
+    [
+     10579,
+     6.06061
+    ],
+    [
+     10744,
+     6.06061
+    ],
+    [
+     11044,
+     6.06061
+    ],
+    [
+     11211,
+     6.06061
+    ],
+    [
+     11368,
+     6.06061
+    ],
+    [
+     11532,
+     2.82828
+    ],
+    [
+     11728,
+     2.82828
+    ],
+    [
+     11901,
+     2.82828
+    ],
+    [
+     12064,
+     2.82828
+    ],
+    [
+     12220,
+     2.82828
+    ],
+    [
+     12376,
+     2.82828
+    ],
+    [
+     12529,
+     2.82828
+    ],
+    [
+     12684,
+     2.82828
+    ],
+    [
+     12837,
+     2.82828
+    ],
+    [
+     12990,
+     2.82828
+    ],
+    [
+     13142,
+     2.82828
+    ],
+    [
+     13302,
+     2.82828
+    ],
+    [
+     13458,
+     2.82828
+    ],
+    [
+     13610,
+     2.82828
+    ],
+    [
+     13776,
+     2.82828
+    ],
+    [
+     13929,
+     2.82828
+    ],
+    [
+     14087,
+     2.82828
+    ],
+    [
+     14239,
+     2.82828
+    ],
+    [
+     14393,
+     2.82828
+    ],
+    [
+     14545,
+     2.82828
+    ],
+    [
+     14700,
+     2.82828
+    ],
+    [
+     14857,
+     2.82828
+    ],
+    [
+     15008,
+     2.82828
+    ],
+    [
+     15167,
+     2.82828
+    ],
+    [
+     15331,
+     2.82828
+    ],
+    [
+     15483,
+     2.82828
+    ],
+    [
+     15644,
+     2.82828
+    ]
+   ],
+   "log": [
+    {
+     "wall": 1790004439303,
+     "token": "akari-annotations-widget:1790004439298:1",
+     "event": "trial_start",
+     "t": 0
+    },
+    {
+     "wall": 1790004439322,
+     "token": "akari-annotations-widget:1790004439298:1",
+     "event": "preview_trial_begin",
+     "t": 2,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:1"
+    },
+    {
+     "wall": 1790004439326,
+     "token": "akari-annotations-widget:1790004439298:1",
+     "event": "resolve_start",
+     "t": 2,
+     "candidate": "audio/sfx-click-mouse-double"
+    },
+    {
+     "wall": 1790004443918,
+     "token": "akari-annotations-widget:1790004439298:1",
+     "event": "resolve_done",
+     "t": 4616,
+     "cached": false,
+     "ok": true
+    },
+    {
+     "wall": 1790004444163,
+     "token": "akari-annotations-widget:1790004439298:1",
+     "event": "refresh_queued",
+     "t": 4864
+    },
+    {
+     "wall": 1790004444165,
+     "token": "akari-annotations-widget:1790004439298:1",
+     "event": "refresh_started",
+     "t": 4865
+    },
+    {
+     "wall": 1790004446200,
+     "token": "akari-annotations-widget:1790004439298:1",
+     "event": "trial_applied",
+     "t": 6708,
+     "itemId": "bell-1",
+     "candidate": "audio/sfx-click-mouse-double"
+    },
+    {
+     "wall": 1790004448337,
+     "token": "akari-annotations-widget:1790004439298:1",
+     "event": "reload_start",
+     "t": 8988,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:2"
+    },
+    {
+     "wall": 1790004448645,
+     "token": "akari-annotations-widget:1790004439298:1",
+     "event": "reload_complete",
+     "t": 9315,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:2"
+    },
+    {
+     "wall": 1790004450580,
+     "token": "akari-annotations-widget:1790004439298:1",
+     "event": "ready_seek_response",
+     "t": 11235,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:2",
+     "seek": true
+    },
+    {
+     "wall": 1790004450724,
+     "token": "akari-annotations-widget:1790004439298:1",
+     "event": "ready_seek_response",
+     "t": 11420,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:2",
+     "seek": true
+    },
+    {
+     "wall": 1790004450725,
+     "token": "akari-annotations-widget:1790004439298:1",
+     "event": "play_request",
+     "t": 11420,
+     "attempt": 1,
+     "revision": 2,
+     "quietForMs": 2105
+    },
+    {
+     "wall": 1790004450736,
+     "token": "akari-annotations-widget:1790004439298:1",
+     "event": "playback_state",
+     "t": 11432,
+     "playing": true,
+     "userStopped": false,
+     "source": "renderer"
+    },
+    {
+     "wall": 1790004450772,
+     "token": "akari-annotations-widget:1790004439298:1",
+     "event": "playback_cancel",
+     "t": 11471,
+     "reason": "trial_end"
+    },
+    {
+     "wall": 1790004450772,
+     "token": "akari-annotations-widget:1790004439298:1",
+     "event": "trial_playback_result",
+     "t": 11472,
+     "result": "cancelled"
+    }
+   ]
+  },
+  {
+   "n": 2,
+   "key": "audio/sfx-blip-beep",
+   "token": "akari-annotations-widget:1790004456063:2",
+   "clickWall": 1790004455967,
+   "reloads": 1,
+   "playRequests": 1,
+   "retries": 0,
+   "readyFallback": 0,
+   "result": "playing",
+   "appliedMs": 1171,
+   "playbackStartMs": 4253,
+   "logPlayingMs": 4269,
+   "cachedBefore": true,
+   "startAfterAppliedMs": 3082,
+   "firstPlayRequestMs": 4255,
+   "toasts": [],
+   "samples": [
+    [
+     136,
+     2.82828
+    ],
+    [
+     310,
+     2.82828
+    ],
+    [
+     462,
+     2.82828
+    ],
+    [
+     615,
+     2.82828
+    ],
+    [
+     783,
+     2.82828
+    ],
+    [
+     948,
+     2.82828
+    ],
+    [
+     1103,
+     2.82828
+    ],
+    [
+     1262,
+     2.82828
+    ],
+    [
+     1415,
+     2.82828
+    ],
+    [
+     1579,
+     2.82828
+    ],
+    [
+     1734,
+     2.82828
+    ],
+    [
+     1892,
+     2.82828
+    ],
+    [
+     2045,
+     2.82828
+    ],
+    [
+     2211,
+     2.82828
+    ],
+    [
+     2384,
+     2.82828
+    ],
+    [
+     2538,
+     0
+    ],
+    [
+     2697,
+     0
+    ],
+    [
+     2862,
+     0
+    ],
+    [
+     3019,
+     0
+    ],
+    [
+     3201,
+     0
+    ],
+    [
+     3355,
+     0
+    ],
+    [
+     3518,
+     0
+    ],
+    [
+     3676,
+     0
+    ],
+    [
+     3918,
+     0
+    ],
+    [
+     4094,
+     2.82828
+    ],
+    [
+     4253,
+     2.82828
+    ],
+    [
+     4486,
+     2.89562
+    ],
+    [
+     4640,
+     2.96296
+    ],
+    [
+     4820,
+     2.96296
+    ],
+    [
+     4977,
+     3.29966
+    ],
+    [
+     5130,
+     3.29966
+    ],
+    [
+     5283,
+     3.29966
+    ],
+    [
+     5435,
+     3.29966
+    ],
+    [
+     5593,
+     3.29966
+    ],
+    [
+     5745,
+     4.10774
+    ],
+    [
+     5899,
+     4.10774
+    ]
+   ],
+   "log": [
+    {
+     "wall": 1790004456080,
+     "token": "akari-annotations-widget:1790004456063:2",
+     "event": "trial_start",
+     "t": 0
+    },
+    {
+     "wall": 1790004456081,
+     "token": "akari-annotations-widget:1790004456063:2",
+     "event": "rollback_skipped_refresh",
+     "t": 5
+    },
+    {
+     "wall": 1790004456082,
+     "token": "akari-annotations-widget:1790004456063:2",
+     "event": "preview_trial_begin",
+     "t": 9,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:2"
+    },
+    {
+     "wall": 1790004456090,
+     "token": "akari-annotations-widget:1790004456063:2",
+     "event": "resolve_start",
+     "t": 9,
+     "candidate": "audio/sfx-blip-beep"
+    },
+    {
+     "wall": 1790004456131,
+     "token": "akari-annotations-widget:1790004456063:2",
+     "event": "resolve_done",
+     "t": 52,
+     "cached": true,
+     "ok": true
+    },
+    {
+     "wall": 1790004456195,
+     "token": "akari-annotations-widget:1790004456063:2",
+     "event": "refresh_queued",
+     "t": 114
+    },
+    {
+     "wall": 1790004456196,
+     "token": "akari-annotations-widget:1790004456063:2",
+     "event": "refresh_started",
+     "t": 115
+    },
+    {
+     "wall": 1790004457138,
+     "token": "akari-annotations-widget:1790004456063:2",
+     "event": "trial_applied",
+     "t": 1072,
+     "itemId": "bell-1",
+     "candidate": "audio/sfx-blip-beep"
+    },
+    {
+     "wall": 1790004458282,
+     "token": "akari-annotations-widget:1790004456063:2",
+     "event": "reload_start",
+     "t": 2188,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:3"
+    },
+    {
+     "wall": 1790004458514,
+     "token": "akari-annotations-widget:1790004456063:2",
+     "event": "reload_complete",
+     "t": 2434,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:3"
+    },
+    {
+     "wall": 1790004459988,
+     "token": "akari-annotations-widget:1790004456063:2",
+     "event": "ready_seek_response",
+     "t": 3786,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:3",
+     "seek": true
+    },
+    {
+     "wall": 1790004460218,
+     "token": "akari-annotations-widget:1790004456063:2",
+     "event": "ready_seek_response",
+     "t": 4149,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:3",
+     "seek": true
+    },
+    {
+     "wall": 1790004460222,
+     "token": "akari-annotations-widget:1790004456063:2",
+     "event": "play_request",
+     "t": 4150,
+     "attempt": 1,
+     "revision": 2,
+     "quietForMs": 1716
+    },
+    {
+     "wall": 1790004460236,
+     "token": "akari-annotations-widget:1790004456063:2",
+     "event": "playback_state",
+     "t": 4166,
+     "playing": true,
+     "userStopped": false,
+     "source": "renderer"
+    },
+    {
+     "wall": 1790004460270,
+     "token": "akari-annotations-widget:1790004456063:2",
+     "event": "trial_playback_result",
+     "t": 4201,
+     "result": "playing"
+    }
+   ]
+  },
+  {
+   "n": 3,
+   "key": "audio/sfx-click-soft-ui",
+   "token": "akari-annotations-widget:1790004463175:3",
+   "clickWall": 1790004463061,
+   "reloads": 1,
+   "playRequests": 1,
+   "retries": 0,
+   "readyFallback": 0,
+   "result": "playing",
+   "appliedMs": 5269,
+   "playbackStartMs": null,
+   "logPlayingMs": 9561,
+   "cachedBefore": false,
+   "startAfterAppliedMs": null,
+   "firstPlayRequestMs": 9561,
+   "toasts": [],
+   "samples": [
+    [
+     151,
+     7.77299
+    ],
+    [
+     326,
+     7.77299
+    ],
+    [
+     482,
+     7.77299
+    ],
+    [
+     639,
+     7.77299
+    ],
+    [
+     795,
+     7.77299
+    ],
+    [
+     951,
+     7.77299
+    ],
+    [
+     1110,
+     7.77299
+    ],
+    [
+     1269,
+     7.77299
+    ],
+    [
+     1436,
+     7.77299
+    ],
+    [
+     1591,
+     7.77299
+    ],
+    [
+     1751,
+     7.77299
+    ],
+    [
+     1903,
+     7.77299
+    ],
+    [
+     2057,
+     7.77299
+    ],
+    [
+     2220,
+     7.77299
+    ],
+    [
+     2373,
+     7.77299
+    ],
+    [
+     2538,
+     7.77299
+    ],
+    [
+     2696,
+     7.77299
+    ],
+    [
+     2868,
+     7.77299
+    ],
+    [
+     3022,
+     7.77299
+    ],
+    [
+     3201,
+     7.77299
+    ],
+    [
+     3390,
+     7.77299
+    ],
+    [
+     3549,
+     7.77299
+    ],
+    [
+     3708,
+     7.77299
+    ],
+    [
+     3866,
+     7.77299
+    ],
+    [
+     4028,
+     7.77299
+    ],
+    [
+     4181,
+     7.77299
+    ],
+    [
+     4337,
+     7.77299
+    ],
+    [
+     4501,
+     7.77299
+    ],
+    [
+     4658,
+     7.77299
+    ],
+    [
+     4815,
+     7.77299
+    ],
+    [
+     4968,
+     7.77299
+    ],
+    [
+     5144,
+     7.77299
+    ],
+    [
+     5298,
+     7.77299
+    ],
+    [
+     5452,
+     7.77299
+    ],
+    [
+     5616,
+     7.77299
+    ],
+    [
+     5768,
+     7.77299
+    ],
+    [
+     5938,
+     7.77299
+    ],
+    [
+     6101,
+     7.77299
+    ],
+    [
+     6255,
+     7.77299
+    ],
+    [
+     6411,
+     7.77299
+    ],
+    [
+     6568,
+     7.77299
+    ],
+    [
+     6722,
+     7.77299
+    ],
+    [
+     6878,
+     7.77299
+    ],
+    [
+     7032,
+     7.77299
+    ],
+    [
+     7184,
+     7.77299
+    ],
+    [
+     7342,
+     6.06061
+    ],
+    [
+     7497,
+     6.06061
+    ],
+    [
+     7650,
+     6.06061
+    ],
+    [
+     7806,
+     6.06061
+    ],
+    [
+     7967,
+     6.06061
+    ],
+    [
+     8120,
+     6.06061
+    ],
+    [
+     8273,
+     6.06061
+    ],
+    [
+     8435,
+     6.06061
+    ],
+    [
+     8587,
+     6.06061
+    ],
+    [
+     8803,
+     6.06061
+    ],
+    [
+     8960,
+     6.06061
+    ],
+    [
+     9123,
+     6.06061
+    ],
+    [
+     9275,
+     6.06061
+    ],
+    [
+     9440,
+     2.82828
+    ],
+    [
+     9634,
+     2.82828
+    ],
+    [
+     9967,
+     2.82828
+    ],
+    [
+     10143,
+     2.82828
+    ],
+    [
+     10302,
+     2.82828
+    ],
+    [
+     10473,
+     2.82828
+    ],
+    [
+     10637,
+     2.82828
+    ],
+    [
+     11001,
+     2.82828
+    ],
+    [
+     11157,
+     2.82828
+    ],
+    [
+     11347,
+     2.82828
+    ],
+    [
+     11512,
+     2.82828
+    ],
+    [
+     11670,
+     2.82828
+    ],
+    [
+     11837,
+     2.82828
+    ],
+    [
+     12242,
+     2.82828
+    ],
+    [
+     12777,
+     2.82828
+    ],
+    [
+     12969,
+     2.82828
+    ],
+    [
+     13146,
+     2.82828
+    ],
+    [
+     13375,
+     2.82828
+    ],
+    [
+     13527,
+     2.82828
+    ],
+    [
+     13686,
+     2.82828
+    ]
+   ],
+   "log": [
+    {
+     "wall": 1790004463191,
+     "token": "akari-annotations-widget:1790004463175:3",
+     "event": "trial_start",
+     "t": 0
+    },
+    {
+     "wall": 1790004463191,
+     "token": "akari-annotations-widget:1790004463175:3",
+     "event": "rollback_skipped_refresh",
+     "t": 0
+    },
+    {
+     "wall": 1790004463195,
+     "token": "akari-annotations-widget:1790004463175:3",
+     "event": "preview_trial_begin",
+     "t": 1,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:3"
+    },
+    {
+     "wall": 1790004463195,
+     "token": "akari-annotations-widget:1790004463175:3",
+     "event": "resolve_start",
+     "t": 1,
+     "candidate": "audio/sfx-click-soft-ui"
+    },
+    {
+     "wall": 1790004467467,
+     "token": "akari-annotations-widget:1790004463175:3",
+     "event": "resolve_done",
+     "t": 4290,
+     "cached": false,
+     "ok": true
+    },
+    {
+     "wall": 1790004467757,
+     "token": "akari-annotations-widget:1790004463175:3",
+     "event": "refresh_queued",
+     "t": 4580
+    },
+    {
+     "wall": 1790004467758,
+     "token": "akari-annotations-widget:1790004463175:3",
+     "event": "refresh_started",
+     "t": 4580
+    },
+    {
+     "wall": 1790004468330,
+     "token": "akari-annotations-widget:1790004463175:3",
+     "event": "trial_applied",
+     "t": 5147,
+     "itemId": "bell-1",
+     "candidate": "audio/sfx-click-soft-ui"
+    },
+    {
+     "wall": 1790004470197,
+     "token": "akari-annotations-widget:1790004463175:3",
+     "event": "reload_start",
+     "t": 6997,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:4"
+    },
+    {
+     "wall": 1790004470402,
+     "token": "akari-annotations-widget:1790004463175:3",
+     "event": "reload_complete",
+     "t": 7207,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:4"
+    },
+    {
+     "wall": 1790004472415,
+     "token": "akari-annotations-widget:1790004463175:3",
+     "event": "ready_seek_response",
+     "t": 9225,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:4",
+     "seek": true
+    },
+    {
+     "wall": 1790004472617,
+     "token": "akari-annotations-widget:1790004463175:3",
+     "event": "ready_seek_response",
+     "t": 9440,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:4",
+     "seek": true
+    },
+    {
+     "wall": 1790004472622,
+     "token": "akari-annotations-widget:1790004463175:3",
+     "event": "play_request",
+     "t": 9440,
+     "attempt": 1,
+     "revision": 2,
+     "quietForMs": 2233
+    },
+    {
+     "wall": 1790004472622,
+     "token": "akari-annotations-widget:1790004463175:3",
+     "event": "playback_state",
+     "t": 9445,
+     "playing": true,
+     "userStopped": false,
+     "source": "renderer"
+    },
+    {
+     "wall": 1790004472684,
+     "token": "akari-annotations-widget:1790004463175:3",
+     "event": "trial_playback_result",
+     "t": 9491,
+     "result": "playing"
+    },
+    {
+     "wall": 1790004472686,
+     "token": "akari-annotations-widget:1790004463175:3",
+     "event": "playback_cancel",
+     "t": 9495,
+     "reason": "trial_end"
+    }
+   ]
+  },
+  {
+   "n": 4,
+   "key": "audio/sfx-blip-marimba",
+   "token": "akari-annotations-widget:1790004478245:4",
+   "clickWall": 1790004478137,
+   "reloads": 1,
+   "playRequests": 1,
+   "retries": 0,
+   "readyFallback": 0,
+   "result": "playing",
+   "appliedMs": 4976,
+   "playbackStartMs": 11246,
+   "logPlayingMs": 9755,
+   "cachedBefore": true,
+   "startAfterAppliedMs": 6270,
+   "firstPlayRequestMs": 9755,
+   "toasts": [],
+   "samples": [
+    [
+     399,
+     2.82828
+    ],
+    [
+     581,
+     2.82828
+    ],
+    [
+     800,
+     2.82828
+    ],
+    [
+     973,
+     2.82828
+    ],
+    [
+     1159,
+     2.82828
+    ],
+    [
+     1325,
+     2.82828
+    ],
+    [
+     1504,
+     2.82828
+    ],
+    [
+     1677,
+     2.82828
+    ],
+    [
+     1830,
+     2.82828
+    ],
+    [
+     1996,
+     2.82828
+    ],
+    [
+     2274,
+     2.82828
+    ],
+    [
+     2447,
+     2.82828
+    ],
+    [
+     2608,
+     2.82828
+    ],
+    [
+     2789,
+     2.82828
+    ],
+    [
+     2997,
+     2.82828
+    ],
+    [
+     3166,
+     2.82828
+    ],
+    [
+     3327,
+     2.82828
+    ],
+    [
+     3529,
+     2.82828
+    ],
+    [
+     3792,
+     2.82828
+    ],
+    [
+     4001,
+     2.82828
+    ],
+    [
+     4159,
+     2.82828
+    ],
+    [
+     4313,
+     2.82828
+    ],
+    [
+     4478,
+     2.82828
+    ],
+    [
+     4642,
+     2.82828
+    ],
+    [
+     4837,
+     2.82828
+    ],
+    [
+     5016,
+     2.82828
+    ],
+    [
+     5200,
+     2.82828
+    ],
+    [
+     5384,
+     2.82828
+    ],
+    [
+     5602,
+     2.82828
+    ],
+    [
+     5768,
+     2.82828
+    ],
+    [
+     5949,
+     2.82828
+    ],
+    [
+     6123,
+     2.82828
+    ],
+    [
+     6307,
+     2.82828
+    ],
+    [
+     6471,
+     2.82828
+    ],
+    [
+     6631,
+     2.82828
+    ],
+    [
+     6790,
+     2.82828
+    ],
+    [
+     6949,
+     2.82828
+    ],
+    [
+     7102,
+     2.82828
+    ],
+    [
+     7259,
+     2.82828
+    ],
+    [
+     7415,
+     2.82828
+    ],
+    [
+     7567,
+     2.82828
+    ],
+    [
+     7727,
+     2.82828
+    ],
+    [
+     7883,
+     2.82828
+    ],
+    [
+     8050,
+     2.82828
+    ],
+    [
+     8208,
+     2.82828
+    ],
+    [
+     8377,
+     0
+    ],
+    [
+     8529,
+     0
+    ],
+    [
+     8682,
+     0
+    ],
+    [
+     8844,
+     0
+    ],
+    [
+     9000,
+     0
+    ],
+    [
+     9164,
+     0
+    ],
+    [
+     9318,
+     0
+    ],
+    [
+     9480,
+     2.82828
+    ],
+    [
+     9641,
+     2.82828
+    ],
+    [
+     9797,
+     2.82828
+    ],
+    [
+     9954,
+     2.89562
+    ],
+    [
+     10108,
+     2.89562
+    ],
+    [
+     10269,
+     2.96296
+    ],
+    [
+     10421,
+     2.96296
+    ],
+    [
+     10574,
+     2.96296
+    ],
+    [
+     10727,
+     2.96296
+    ],
+    [
+     10884,
+     3.43434
+    ],
+    [
+     11054,
+     3.43434
+    ],
+    [
+     11246,
+     4.78115
+    ],
+    [
+     11408,
+     5.65657
+    ],
+    [
+     11561,
+     6.26263
+    ]
+   ],
+   "log": [
+    {
+     "wall": 1790004478469,
+     "token": "akari-annotations-widget:1790004478245:4",
+     "event": "trial_start",
+     "t": 0
+    },
+    {
+     "wall": 1790004478470,
+     "token": "akari-annotations-widget:1790004478245:4",
+     "event": "rollback_skipped_refresh",
+     "t": 1
+    },
+    {
+     "wall": 1790004478470,
+     "token": "akari-annotations-widget:1790004478245:4",
+     "event": "preview_trial_begin",
+     "t": 1,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:4"
+    },
+    {
+     "wall": 1790004478470,
+     "token": "akari-annotations-widget:1790004478245:4",
+     "event": "resolve_start",
+     "t": 2,
+     "candidate": "audio/sfx-blip-marimba"
+    },
+    {
+     "wall": 1790004478978,
+     "token": "akari-annotations-widget:1790004478245:4",
+     "event": "resolve_done",
+     "t": 327,
+     "cached": true,
+     "ok": true
+    },
+    {
+     "wall": 1790004479544,
+     "token": "akari-annotations-widget:1790004478245:4",
+     "event": "refresh_queued",
+     "t": 1290
+    },
+    {
+     "wall": 1790004479545,
+     "token": "akari-annotations-widget:1790004478245:4",
+     "event": "refresh_started",
+     "t": 1291
+    },
+    {
+     "wall": 1790004483113,
+     "token": "akari-annotations-widget:1790004478245:4",
+     "event": "trial_applied",
+     "t": 4663,
+     "itemId": "bell-1",
+     "candidate": "audio/sfx-blip-marimba"
+    },
+    {
+     "wall": 1790004485983,
+     "token": "akari-annotations-widget:1790004478245:4",
+     "event": "reload_start",
+     "t": 7611,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:5"
+    },
+    {
+     "wall": 1790004486474,
+     "token": "akari-annotations-widget:1790004478245:4",
+     "event": "reload_complete",
+     "t": 8183,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:5"
+    },
+    {
+     "wall": 1790004487710,
+     "token": "akari-annotations-widget:1790004478245:4",
+     "event": "ready_seek_response",
+     "t": 9285,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:5",
+     "seek": true
+    },
+    {
+     "wall": 1790004487884,
+     "token": "akari-annotations-widget:1790004478245:4",
+     "event": "ready_seek_response",
+     "t": 9637,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:5",
+     "seek": true
+    },
+    {
+     "wall": 1790004487892,
+     "token": "akari-annotations-widget:1790004478245:4",
+     "event": "play_request",
+     "t": 9637,
+     "attempt": 1,
+     "revision": 2,
+     "quietForMs": 1454
+    },
+    {
+     "wall": 1790004487892,
+     "token": "akari-annotations-widget:1790004478245:4",
+     "event": "playback_state",
+     "t": 9644,
+     "playing": true,
+     "userStopped": false,
+     "source": "renderer"
+    },
+    {
+     "wall": 1790004487937,
+     "token": "akari-annotations-widget:1790004478245:4",
+     "event": "trial_playback_result",
+     "t": 9688,
+     "result": "playing"
+    }
+   ]
+  },
+  {
+   "n": 5,
+   "key": "audio/sfx-click-thock",
+   "token": "akari-annotations-widget:1790004490939:5",
+   "clickWall": 1790004490868,
+   "reloads": 1,
+   "playRequests": 1,
+   "retries": 0,
+   "readyFallback": 1,
+   "result": "cancelled",
+   "appliedMs": 6639,
+   "playbackStartMs": null,
+   "logPlayingMs": 16978,
+   "cachedBefore": false,
+   "startAfterAppliedMs": null,
+   "firstPlayRequestMs": 16978,
+   "toasts": [],
+   "samples": [
+    [
+     105,
+     7.7622
+    ],
+    [
+     275,
+     7.7622
+    ],
+    [
+     445,
+     7.7622
+    ],
+    [
+     597,
+     7.7622
+    ],
+    [
+     760,
+     7.7622
+    ],
+    [
+     913,
+     7.7622
+    ],
+    [
+     1066,
+     7.7622
+    ],
+    [
+     1219,
+     7.7622
+    ],
+    [
+     1386,
+     7.7622
+    ],
+    [
+     1568,
+     7.7622
+    ],
+    [
+     1725,
+     7.7622
+    ],
+    [
+     1879,
+     7.7622
+    ],
+    [
+     2032,
+     7.7622
+    ],
+    [
+     2226,
+     7.7622
+    ],
+    [
+     2379,
+     7.7622
+    ],
+    [
+     2602,
+     7.7622
+    ],
+    [
+     2787,
+     7.7622
+    ],
+    [
+     2968,
+     7.7622
+    ],
+    [
+     3149,
+     7.7622
+    ],
+    [
+     3378,
+     7.7622
+    ],
+    [
+     3580,
+     7.7622
+    ],
+    [
+     3761,
+     7.7622
+    ],
+    [
+     3933,
+     7.7622
+    ],
+    [
+     4087,
+     7.7622
+    ],
+    [
+     4816,
+     7.7622
+    ],
+    [
+     4981,
+     7.7622
+    ],
+    [
+     5150,
+     7.7622
+    ],
+    [
+     5307,
+     7.7622
+    ],
+    [
+     5473,
+     7.7622
+    ],
+    [
+     5681,
+     7.7622
+    ],
+    [
+     5845,
+     7.7622
+    ],
+    [
+     6002,
+     7.7622
+    ],
+    [
+     6167,
+     7.7622
+    ],
+    [
+     6325,
+     7.7622
+    ],
+    [
+     6478,
+     7.7622
+    ],
+    [
+     6630,
+     7.7622
+    ],
+    [
+     6799,
+     7.7622
+    ],
+    [
+     7002,
+     7.7622
+    ],
+    [
+     7218,
+     7.7622
+    ],
+    [
+     7385,
+     7.7622
+    ],
+    [
+     7692,
+     7.7622
+    ],
+    [
+     7881,
+     7.7622
+    ],
+    [
+     8083,
+     7.7622
+    ],
+    [
+     8246,
+     7.7622
+    ],
+    [
+     8402,
+     7.7622
+    ],
+    [
+     8561,
+     7.7622
+    ],
+    [
+     8718,
+     7.7622
+    ],
+    [
+     8878,
+     7.7622
+    ],
+    [
+     9084,
+     7.7622
+    ],
+    [
+     9241,
+     7.7622
+    ],
+    [
+     9397,
+     7.7622
+    ],
+    [
+     9550,
+     7.7622
+    ],
+    [
+     9708,
+     7.7622
+    ],
+    [
+     9867,
+     7.7622
+    ],
+    [
+     10065,
+     7.7622
+    ],
+    [
+     10220,
+     7.7622
+    ],
+    [
+     10394,
+     7.7622
+    ],
+    [
+     10561,
+     6.06061
+    ],
+    [
+     10728,
+     6.06061
+    ],
+    [
+     10911,
+     6.06061
+    ],
+    [
+     11083,
+     6.06061
+    ],
+    [
+     11244,
+     6.06061
+    ],
+    [
+     11415,
+     6.06061
+    ],
+    [
+     11576,
+     6.06061
+    ],
+    [
+     11733,
+     6.06061
+    ],
+    [
+     11916,
+     6.06061
+    ],
+    [
+     12070,
+     6.06061
+    ],
+    [
+     12228,
+     6.06061
+    ],
+    [
+     12386,
+     6.06061
+    ],
+    [
+     12545,
+     6.06061
+    ],
+    [
+     12716,
+     6.06061
+    ],
+    [
+     12883,
+     6.06061
+    ],
+    [
+     13124,
+     6.06061
+    ],
+    [
+     13314,
+     6.06061
+    ],
+    [
+     13490,
+     6.06061
+    ],
+    [
+     13665,
+     6.06061
+    ],
+    [
+     13949,
+     6.06061
+    ],
+    [
+     14106,
+     6.06061
+    ],
+    [
+     14267,
+     6.06061
+    ],
+    [
+     14453,
+     6.06061
+    ],
+    [
+     14618,
+     6.06061
+    ],
+    [
+     14774,
+     6.06061
+    ],
+    [
+     15345,
+     2.82828
+    ],
+    [
+     15652,
+     2.82828
+    ],
+    [
+     15869,
+     2.82828
+    ],
+    [
+     16061,
+     2.82828
+    ],
+    [
+     16231,
+     2.82828
+    ],
+    [
+     16564,
+     2.82828
+    ],
+    [
+     16720,
+     2.82828
+    ],
+    [
+     16969,
+     2.82828
+    ],
+    [
+     17129,
+     2.82828
+    ],
+    [
+     17303,
+     2.82828
+    ],
+    [
+     17463,
+     2.82828
+    ],
+    [
+     17629,
+     2.82828
+    ],
+    [
+     17782,
+     2.82828
+    ],
+    [
+     17947,
+     2.82828
+    ],
+    [
+     18119,
+     2.82828
+    ],
+    [
+     18282,
+     2.82828
+    ],
+    [
+     18449,
+     2.82828
+    ],
+    [
+     18602,
+     2.82828
+    ],
+    [
+     18761,
+     2.82828
+    ],
+    [
+     18970,
+     2.82828
+    ],
+    [
+     19135,
+     2.82828
+    ],
+    [
+     19300,
+     2.82828
+    ],
+    [
+     19468,
+     2.82828
+    ],
+    [
+     19633,
+     2.82828
+    ],
+    [
+     19800,
+     2.82828
+    ],
+    [
+     19973,
+     2.82828
+    ],
+    [
+     20135,
+     2.82828
+    ],
+    [
+     20301,
+     2.82828
+    ],
+    [
+     20470,
+     2.82828
+    ],
+    [
+     20628,
+     2.82828
+    ],
+    [
+     20786,
+     2.82828
+    ],
+    [
+     20945,
+     2.82828
+    ],
+    [
+     21101,
+     2.82828
+    ]
+   ],
+   "log": [
+    {
+     "wall": 1790004490945,
+     "token": "akari-annotations-widget:1790004490939:5",
+     "event": "trial_start",
+     "t": 1
+    },
+    {
+     "wall": 1790004490945,
+     "token": "akari-annotations-widget:1790004490939:5",
+     "event": "rollback_skipped_refresh",
+     "t": 3
+    },
+    {
+     "wall": 1790004490960,
+     "token": "akari-annotations-widget:1790004490939:5",
+     "event": "preview_trial_begin",
+     "t": 4,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:5"
+    },
+    {
+     "wall": 1790004490969,
+     "token": "akari-annotations-widget:1790004490939:5",
+     "event": "resolve_start",
+     "t": 4,
+     "candidate": "audio/sfx-click-thock"
+    },
+    {
+     "wall": 1790004493622,
+     "token": "akari-annotations-widget:1790004490939:5",
+     "event": "resolve_done",
+     "t": 2671,
+     "cached": false,
+     "ok": true
+    },
+    {
+     "wall": 1790004494417,
+     "token": "akari-annotations-widget:1790004490939:5",
+     "event": "refresh_queued",
+     "t": 3475
+    },
+    {
+     "wall": 1790004494417,
+     "token": "akari-annotations-widget:1790004490939:5",
+     "event": "refresh_started",
+     "t": 3475
+    },
+    {
+     "wall": 1790004497507,
+     "token": "akari-annotations-widget:1790004490939:5",
+     "event": "trial_applied",
+     "t": 6481,
+     "itemId": "bell-1",
+     "candidate": "audio/sfx-click-thock"
+    },
+    {
+     "wall": 1790004500921,
+     "token": "akari-annotations-widget:1790004490939:5",
+     "event": "reload_start",
+     "t": 9830,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:6"
+    },
+    {
+     "wall": 1790004501403,
+     "token": "akari-annotations-widget:1790004490939:5",
+     "event": "reload_complete",
+     "t": 10459,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:6"
+    },
+    {
+     "wall": 1790004506228,
+     "token": "akari-annotations-widget:1790004490939:5",
+     "event": "ready_fallback",
+     "t": 14863,
+     "reason": "Error: 出力プレビューの再生準備が完了しませんでした。"
+    },
+    {
+     "wall": 1790004506434,
+     "token": "akari-annotations-widget:1790004490939:5",
+     "event": "seek_fallback",
+     "t": 14863
+    },
+    {
+     "wall": 1790004507841,
+     "token": "akari-annotations-widget:1790004490939:5",
+     "event": "ready_seek_response",
+     "t": 16778,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:6",
+     "seek": true
+    },
+    {
+     "wall": 1790004507846,
+     "token": "akari-annotations-widget:1790004490939:5",
+     "event": "play_request",
+     "t": 16778,
+     "attempt": 1,
+     "revision": 2,
+     "quietForMs": 6319
+    },
+    {
+     "wall": 1790004507846,
+     "token": "akari-annotations-widget:1790004490939:5",
+     "event": "playback_state",
+     "t": 16790,
+     "playing": true,
+     "userStopped": false,
+     "source": "renderer"
+    },
+    {
+     "wall": 1790004507846,
+     "token": "akari-annotations-widget:1790004490939:5",
+     "event": "playback_cancel",
+     "t": 16794,
+     "reason": "trial_end"
+    },
+    {
+     "wall": 1790004507846,
+     "token": "akari-annotations-widget:1790004490939:5",
+     "event": "trial_playback_result",
+     "t": 16796,
+     "result": "cancelled"
+    }
+   ]
+  },
+  {
+   "n": 6,
+   "key": "audio/sfx-chime-success",
+   "token": "akari-annotations-widget:1790004513554:6",
+   "clickWall": 1790004513377,
+   "reloads": 1,
+   "playRequests": 1,
+   "retries": 0,
+   "readyFallback": 0,
+   "result": "playing",
+   "appliedMs": 4297,
+   "playbackStartMs": null,
+   "logPlayingMs": 11418,
+   "cachedBefore": true,
+   "startAfterAppliedMs": null,
+   "firstPlayRequestMs": 11418,
+   "toasts": [],
+   "samples": [
+    [
+     727,
+     2.82828
+    ],
+    [
+     901,
+     2.82828
+    ],
+    [
+     1069,
+     2.82828
+    ],
+    [
+     1223,
+     2.82828
+    ],
+    [
+     1390,
+     2.82828
+    ],
+    [
+     1577,
+     2.82828
+    ],
+    [
+     1759,
+     2.82828
+    ],
+    [
+     1925,
+     2.82828
+    ],
+    [
+     2088,
+     2.82828
+    ],
+    [
+     2338,
+     2.82828
+    ],
+    [
+     2502,
+     2.82828
+    ],
+    [
+     2672,
+     2.82828
+    ],
+    [
+     2844,
+     2.82828
+    ],
+    [
+     3036,
+     2.82828
+    ],
+    [
+     3204,
+     2.82828
+    ],
+    [
+     3366,
+     2.82828
+    ],
+    [
+     3525,
+     2.82828
+    ],
+    [
+     3755,
+     2.82828
+    ],
+    [
+     3917,
+     2.82828
+    ],
+    [
+     4075,
+     2.82828
+    ],
+    [
+     4226,
+     2.82828
+    ],
+    [
+     4382,
+     2.82828
+    ],
+    [
+     4544,
+     2.82828
+    ],
+    [
+     4708,
+     2.82828
+    ],
+    [
+     4861,
+     2.82828
+    ],
+    [
+     5025,
+     2.82828
+    ],
+    [
+     5185,
+     2.82828
+    ],
+    [
+     5339,
+     2.82828
+    ],
+    [
+     5493,
+     2.82828
+    ],
+    [
+     5673,
+     2.82828
+    ],
+    [
+     5837,
+     2.82828
+    ],
+    [
+     6003,
+     2.82828
+    ],
+    [
+     6169,
+     2.82828
+    ],
+    [
+     6349,
+     2.82828
+    ],
+    [
+     6533,
+     2.82828
+    ],
+    [
+     6693,
+     2.82828
+    ],
+    [
+     6849,
+     0
+    ],
+    [
+     7008,
+     0
+    ],
+    [
+     7172,
+     0
+    ],
+    [
+     7361,
+     0
+    ],
+    [
+     7623,
+     0
+    ],
+    [
+     7788,
+     0
+    ],
+    [
+     7974,
+     0
+    ],
+    [
+     8128,
+     0
+    ],
+    [
+     8286,
+     0
+    ],
+    [
+     8441,
+     0
+    ],
+    [
+     8643,
+     0
+    ],
+    [
+     8804,
+     0
+    ],
+    [
+     8977,
+     0
+    ],
+    [
+     9150,
+     0
+    ],
+    [
+     9323,
+     0
+    ],
+    [
+     9477,
+     0
+    ],
+    [
+     9678,
+     0
+    ],
+    [
+     9873,
+     0
+    ],
+    [
+     10050,
+     0
+    ],
+    [
+     10241,
+     0
+    ],
+    [
+     10422,
+     0
+    ],
+    [
+     10641,
+     0
+    ],
+    [
+     10840,
+     0
+    ],
+    [
+     11077,
+     0
+    ],
+    [
+     11257,
+     2.82828
+    ],
+    [
+     11458,
+     2.82828
+    ],
+    [
+     11625,
+     2.89562
+    ],
+    [
+     11841,
+     2.89562
+    ],
+    [
+     12027,
+     2.89562
+    ],
+    [
+     12190,
+     2.89562
+    ],
+    [
+     12343,
+     2.89562
+    ],
+    [
+     12520,
+     2.96296
+    ],
+    [
+     12673,
+     2.96296
+    ],
+    [
+     12838,
+     2.96296
+    ],
+    [
+     12992,
+     2.96296
+    ],
+    [
+     13158,
+     2.96296
+    ],
+    [
+     13327,
+     2.96296
+    ],
+    [
+     13486,
+     2.96296
+    ],
+    [
+     13644,
+     2.96296
+    ],
+    [
+     13801,
+     2.96296
+    ],
+    [
+     13964,
+     2.96296
+    ],
+    [
+     14331,
+     2.96296
+    ],
+    [
+     14490,
+     2.96296
+    ],
+    [
+     14666,
+     2.96296
+    ],
+    [
+     14850,
+     2.96296
+    ],
+    [
+     15016,
+     4.64646
+    ],
+    [
+     15193,
+     4.64646
+    ],
+    [
+     15490,
+     4.64646
+    ],
+    [
+     15690,
+     4.64646
+    ]
+   ],
+   "log": [
+    {
+     "wall": 1790004513628,
+     "token": "akari-annotations-widget:1790004513554:6",
+     "event": "trial_start",
+     "t": 0
+    },
+    {
+     "wall": 1790004513628,
+     "token": "akari-annotations-widget:1790004513554:6",
+     "event": "rollback_skipped_refresh",
+     "t": 7
+    },
+    {
+     "wall": 1790004513628,
+     "token": "akari-annotations-widget:1790004513554:6",
+     "event": "preview_trial_begin",
+     "t": 8,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:6"
+    },
+    {
+     "wall": 1790004513628,
+     "token": "akari-annotations-widget:1790004513554:6",
+     "event": "resolve_start",
+     "t": 8,
+     "candidate": "audio/sfx-chime-success"
+    },
+    {
+     "wall": 1790004513894,
+     "token": "akari-annotations-widget:1790004513554:6",
+     "event": "resolve_done",
+     "t": 105,
+     "cached": true,
+     "ok": true
+    },
+    {
+     "wall": 1790004514346,
+     "token": "akari-annotations-widget:1790004513554:6",
+     "event": "refresh_queued",
+     "t": 738
+    },
+    {
+     "wall": 1790004514346,
+     "token": "akari-annotations-widget:1790004513554:6",
+     "event": "refresh_started",
+     "t": 738
+    },
+    {
+     "wall": 1790004517674,
+     "token": "akari-annotations-widget:1790004513554:6",
+     "event": "trial_applied",
+     "t": 3847,
+     "itemId": "bell-1",
+     "candidate": "audio/sfx-chime-success"
+    },
+    {
+     "wall": 1790004519624,
+     "token": "akari-annotations-widget:1790004513554:6",
+     "event": "reload_start",
+     "t": 5864,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:7"
+    },
+    {
+     "wall": 1790004520200,
+     "token": "akari-annotations-widget:1790004513554:6",
+     "event": "reload_complete",
+     "t": 6633,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:7"
+    },
+    {
+     "wall": 1790004524586,
+     "token": "akari-annotations-widget:1790004513554:6",
+     "event": "ready_seek_response",
+     "t": 10862,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:7",
+     "seek": true
+    },
+    {
+     "wall": 1790004524785,
+     "token": "akari-annotations-widget:1790004513554:6",
+     "event": "ready_seek_response",
+     "t": 11218,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:7",
+     "seek": true
+    },
+    {
+     "wall": 1790004524795,
+     "token": "akari-annotations-widget:1790004513554:6",
+     "event": "play_request",
+     "t": 11218,
+     "attempt": 1,
+     "revision": 2,
+     "quietForMs": 4585
+    },
+    {
+     "wall": 1790004524795,
+     "token": "akari-annotations-widget:1790004513554:6",
+     "event": "playback_state",
+     "t": 11226,
+     "playing": true,
+     "userStopped": false,
+     "source": "renderer"
+    },
+    {
+     "wall": 1790004525102,
+     "token": "akari-annotations-widget:1790004513554:6",
+     "event": "trial_playback_result",
+     "t": 11270,
+     "result": "playing"
+    }
+   ]
+  },
+  {
+   "n": 7,
+   "key": "audio/sfx-click-wood-knock",
+   "token": "akari-annotations-widget:1790004530495:7",
+   "clickWall": 1790004530394,
+   "reloads": 1,
+   "playRequests": 1,
+   "retries": 0,
+   "readyFallback": 0,
+   "result": "cancelled",
+   "appliedMs": 5623,
+   "playbackStartMs": null,
+   "logPlayingMs": 9509,
+   "cachedBefore": false,
+   "startAfterAppliedMs": null,
+   "firstPlayRequestMs": 9507,
+   "toasts": [],
+   "samples": [
+    [
+     183,
+     14.3131
+    ],
+    [
+     337,
+     14.3131
+    ],
+    [
+     490,
+     14.3131
+    ],
+    [
+     649,
+     14.3131
+    ],
+    [
+     806,
+     14.3131
+    ],
+    [
+     959,
+     14.3131
+    ],
+    [
+     1114,
+     14.3131
+    ],
+    [
+     1267,
+     14.3131
+    ],
+    [
+     1420,
+     14.3131
+    ],
+    [
+     1574,
+     14.3131
+    ],
+    [
+     1821,
+     14.3131
+    ],
+    [
+     2090,
+     14.3131
+    ],
+    [
+     2253,
+     14.3131
+    ],
+    [
+     2410,
+     14.3131
+    ],
+    [
+     2566,
+     14.3131
+    ],
+    [
+     2721,
+     14.3131
+    ],
+    [
+     2875,
+     14.3131
+    ],
+    [
+     3028,
+     14.3131
+    ],
+    [
+     3187,
+     14.3131
+    ],
+    [
+     3342,
+     14.3131
+    ],
+    [
+     3493,
+     14.3131
+    ],
+    [
+     3646,
+     14.3131
+    ],
+    [
+     3801,
+     14.3131
+    ],
+    [
+     3953,
+     14.3131
+    ],
+    [
+     4106,
+     14.3131
+    ],
+    [
+     4301,
+     14.3131
+    ],
+    [
+     4454,
+     14.3131
+    ],
+    [
+     4619,
+     14.3131
+    ],
+    [
+     4776,
+     14.3131
+    ],
+    [
+     4935,
+     14.3131
+    ],
+    [
+     5087,
+     14.3131
+    ],
+    [
+     5244,
+     14.3131
+    ],
+    [
+     5401,
+     14.3131
+    ],
+    [
+     5556,
+     14.3131
+    ],
+    [
+     5710,
+     14.3131
+    ],
+    [
+     5872,
+     14.3131
+    ],
+    [
+     6024,
+     14.3131
+    ],
+    [
+     6198,
+     14.3131
+    ],
+    [
+     6355,
+     14.3131
+    ],
+    [
+     6508,
+     14.3131
+    ],
+    [
+     6661,
+     14.3131
+    ],
+    [
+     6816,
+     14.3131
+    ],
+    [
+     6990,
+     14.3131
+    ],
+    [
+     7172,
+     14.3131
+    ],
+    [
+     7326,
+     14.3131
+    ],
+    [
+     7520,
+     14.3131
+    ],
+    [
+     7675,
+     14.3131
+    ],
+    [
+     7830,
+     6.06061
+    ],
+    [
+     8018,
+     6.06061
+    ],
+    [
+     8192,
+     6.06061
+    ],
+    [
+     8351,
+     6.06061
+    ],
+    [
+     8507,
+     6.06061
+    ],
+    [
+     8660,
+     6.06061
+    ],
+    [
+     8818,
+     6.06061
+    ],
+    [
+     8989,
+     6.06061
+    ],
+    [
+     9177,
+     6.06061
+    ],
+    [
+     9337,
+     6.06061
+    ],
+    [
+     9539,
+     2.82828
+    ],
+    [
+     9768,
+     2.82828
+    ],
+    [
+     9924,
+     2.82828
+    ],
+    [
+     10102,
+     2.82828
+    ],
+    [
+     10256,
+     2.82828
+    ],
+    [
+     10409,
+     2.82828
+    ],
+    [
+     10575,
+     2.82828
+    ],
+    [
+     10730,
+     2.82828
+    ],
+    [
+     10883,
+     2.82828
+    ],
+    [
+     11038,
+     2.82828
+    ],
+    [
+     11200,
+     2.82828
+    ],
+    [
+     11357,
+     2.82828
+    ],
+    [
+     11510,
+     2.82828
+    ],
+    [
+     11671,
+     2.82828
+    ],
+    [
+     11829,
+     2.82828
+    ],
+    [
+     11989,
+     2.82828
+    ],
+    [
+     12175,
+     2.82828
+    ],
+    [
+     12336,
+     2.82828
+    ],
+    [
+     12490,
+     2.82828
+    ],
+    [
+     12643,
+     2.82828
+    ],
+    [
+     12803,
+     2.82828
+    ],
+    [
+     12959,
+     2.82828
+    ],
+    [
+     13142,
+     2.82828
+    ],
+    [
+     13309,
+     2.82828
+    ],
+    [
+     13465,
+     2.82828
+    ],
+    [
+     13622,
+     2.82828
+    ]
+   ],
+   "log": [
+    {
+     "wall": 1790004530511,
+     "token": "akari-annotations-widget:1790004530495:7",
+     "event": "trial_start",
+     "t": 0
+    },
+    {
+     "wall": 1790004530511,
+     "token": "akari-annotations-widget:1790004530495:7",
+     "event": "rollback_skipped_refresh",
+     "t": 1
+    },
+    {
+     "wall": 1790004530512,
+     "token": "akari-annotations-widget:1790004530495:7",
+     "event": "preview_trial_begin",
+     "t": 2,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:7"
+    },
+    {
+     "wall": 1790004530515,
+     "token": "akari-annotations-widget:1790004530495:7",
+     "event": "resolve_start",
+     "t": 2,
+     "candidate": "audio/sfx-click-wood-knock"
+    },
+    {
+     "wall": 1790004534228,
+     "token": "akari-annotations-widget:1790004530495:7",
+     "event": "resolve_done",
+     "t": 3727,
+     "cached": false,
+     "ok": true
+    },
+    {
+     "wall": 1790004534443,
+     "token": "akari-annotations-widget:1790004530495:7",
+     "event": "refresh_queued",
+     "t": 3947
+    },
+    {
+     "wall": 1790004534443,
+     "token": "akari-annotations-widget:1790004530495:7",
+     "event": "refresh_started",
+     "t": 3947
+    },
+    {
+     "wall": 1790004536017,
+     "token": "akari-annotations-widget:1790004530495:7",
+     "event": "trial_applied",
+     "t": 5482,
+     "itemId": "bell-1",
+     "candidate": "audio/sfx-click-wood-knock"
+    },
+    {
+     "wall": 1790004537968,
+     "token": "akari-annotations-widget:1790004530495:7",
+     "event": "reload_start",
+     "t": 7322,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:8"
+    },
+    {
+     "wall": 1790004538211,
+     "token": "akari-annotations-widget:1790004530495:7",
+     "event": "reload_complete",
+     "t": 7691,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:8"
+    },
+    {
+     "wall": 1790004539837,
+     "token": "akari-annotations-widget:1790004530495:7",
+     "event": "ready_seek_response",
+     "t": 9287,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:8",
+     "seek": true
+    },
+    {
+     "wall": 1790004539896,
+     "token": "akari-annotations-widget:1790004530495:7",
+     "event": "ready_seek_response",
+     "t": 9391,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:8",
+     "seek": true
+    },
+    {
+     "wall": 1790004539901,
+     "token": "akari-annotations-widget:1790004530495:7",
+     "event": "play_request",
+     "t": 9391,
+     "attempt": 1,
+     "revision": 2,
+     "quietForMs": 1700
+    },
+    {
+     "wall": 1790004539903,
+     "token": "akari-annotations-widget:1790004530495:7",
+     "event": "playback_state",
+     "t": 9397,
+     "playing": true,
+     "userStopped": false,
+     "source": "renderer"
+    },
+    {
+     "wall": 1790004539948,
+     "token": "akari-annotations-widget:1790004530495:7",
+     "event": "playback_cancel",
+     "t": 9441,
+     "reason": "trial_end"
+    },
+    {
+     "wall": 1790004539948,
+     "token": "akari-annotations-widget:1790004530495:7",
+     "event": "trial_playback_result",
+     "t": 9441,
+     "result": "cancelled"
+    }
+   ]
+  },
+  {
+   "n": 8,
+   "key": "audio/sfx-harp-gliss",
+   "token": "akari-annotations-widget:1790004545434:8",
+   "clickWall": 1790004545285,
+   "reloads": 1,
+   "playRequests": 1,
+   "retries": 0,
+   "readyFallback": 0,
+   "result": "playing",
+   "appliedMs": 797,
+   "playbackStartMs": null,
+   "logPlayingMs": 3399,
+   "cachedBefore": true,
+   "startAfterAppliedMs": null,
+   "firstPlayRequestMs": 3399,
+   "toasts": [],
+   "samples": [
+    [
+     275,
+     2.82828
+    ],
+    [
+     435,
+     2.82828
+    ],
+    [
+     592,
+     2.82828
+    ],
+    [
+     776,
+     2.82828
+    ],
+    [
+     982,
+     2.82828
+    ],
+    [
+     1134,
+     2.82828
+    ],
+    [
+     1293,
+     2.82828
+    ],
+    [
+     1667,
+     2.82828
+    ],
+    [
+     1832,
+     2.82828
+    ],
+    [
+     1993,
+     2.82828
+    ],
+    [
+     2147,
+     2.82828
+    ],
+    [
+     2312,
+     0
+    ],
+    [
+     2503,
+     0
+    ],
+    [
+     2664,
+     0
+    ],
+    [
+     2824,
+     0
+    ],
+    [
+     3065,
+     2.82828
+    ],
+    [
+     3234,
+     2.82828
+    ],
+    [
+     3402,
+     2.82828
+    ],
+    [
+     3577,
+     2.82828
+    ],
+    [
+     3764,
+     2.96296
+    ],
+    [
+     3952,
+     2.96296
+    ],
+    [
+     4141,
+     2.96296
+    ],
+    [
+     4326,
+     2.96296
+    ],
+    [
+     4502,
+     2.96296
+    ],
+    [
+     4676,
+     2.96296
+    ],
+    [
+     4865,
+     3.16498
+    ],
+    [
+     5047,
+     3.16498
+    ],
+    [
+     5201,
+     3.16498
+    ],
+    [
+     5375,
+     3.16498
+    ],
+    [
+     5557,
+     3.16498
+    ],
+    [
+     5718,
+     3.16498
+    ],
+    [
+     5878,
+     3.16498
+    ],
+    [
+     6058,
+     3.16498
+    ],
+    [
+     6228,
+     5.05051
+    ],
+    [
+     6435,
+     5.05051
+    ],
+    [
+     6635,
+     5.05051
+    ],
+    [
+     6809,
+     5.05051
+    ],
+    [
+     7166,
+     5.05051
+    ],
+    [
+     7333,
+     5.05051
+    ],
+    [
+     7683,
+     5.05051
+    ]
+   ],
+   "log": [
+    {
+     "wall": 1790004545577,
+     "token": "akari-annotations-widget:1790004545434:8",
+     "event": "trial_start",
+     "t": 0
+    },
+    {
+     "wall": 1790004545578,
+     "token": "akari-annotations-widget:1790004545434:8",
+     "event": "rollback_skipped_refresh",
+     "t": 8
+    },
+    {
+     "wall": 1790004545578,
+     "token": "akari-annotations-widget:1790004545434:8",
+     "event": "preview_trial_begin",
+     "t": 10,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:8"
+    },
+    {
+     "wall": 1790004545578,
+     "token": "akari-annotations-widget:1790004545434:8",
+     "event": "resolve_start",
+     "t": 10,
+     "candidate": "audio/sfx-harp-gliss"
+    },
+    {
+     "wall": 1790004545681,
+     "token": "akari-annotations-widget:1790004545434:8",
+     "event": "resolve_done",
+     "t": 232,
+     "cached": true,
+     "ok": true
+    },
+    {
+     "wall": 1790004545829,
+     "token": "akari-annotations-widget:1790004545434:8",
+     "event": "refresh_queued",
+     "t": 391
+    },
+    {
+     "wall": 1790004545829,
+     "token": "akari-annotations-widget:1790004545434:8",
+     "event": "refresh_started",
+     "t": 392
+    },
+    {
+     "wall": 1790004546082,
+     "token": "akari-annotations-widget:1790004545434:8",
+     "event": "trial_applied",
+     "t": 601,
+     "itemId": "bell-1",
+     "candidate": "audio/sfx-harp-gliss"
+    },
+    {
+     "wall": 1790004547354,
+     "token": "akari-annotations-widget:1790004545434:8",
+     "event": "reload_start",
+     "t": 1870,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:9"
+    },
+    {
+     "wall": 1790004547558,
+     "token": "akari-annotations-widget:1790004545434:8",
+     "event": "reload_complete",
+     "t": 2121,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:9"
+    },
+    {
+     "wall": 1790004548397,
+     "token": "akari-annotations-widget:1790004545434:8",
+     "event": "ready_seek_response",
+     "t": 2818,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:9",
+     "seek": true
+    },
+    {
+     "wall": 1790004548684,
+     "token": "akari-annotations-widget:1790004545434:8",
+     "event": "ready_seek_response",
+     "t": 3105,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:9",
+     "seek": true
+    },
+    {
+     "wall": 1790004548684,
+     "token": "akari-annotations-widget:1790004545434:8",
+     "event": "play_request",
+     "t": 3105,
+     "attempt": 1,
+     "revision": 2,
+     "quietForMs": 984
+    },
+    {
+     "wall": 1790004548684,
+     "token": "akari-annotations-widget:1790004545434:8",
+     "event": "playback_state",
+     "t": 3114,
+     "playing": true,
+     "userStopped": false,
+     "source": "renderer"
+    },
+    {
+     "wall": 1790004548684,
+     "token": "akari-annotations-widget:1790004545434:8",
+     "event": "trial_playback_result",
+     "t": 3158,
+     "result": "playing"
+    }
+   ]
+  },
+  {
+   "n": 9,
+   "key": "audio/sfx-click-button-deep",
+   "token": "akari-annotations-widget:1790004554327:9",
+   "clickWall": 1790004554242,
+   "reloads": 1,
+   "playRequests": 1,
+   "retries": 0,
+   "readyFallback": 0,
+   "result": "cancelled",
+   "appliedMs": 11158,
+   "playbackStartMs": null,
+   "logPlayingMs": 16563,
+   "cachedBefore": false,
+   "startAfterAppliedMs": null,
+   "firstPlayRequestMs": 16548,
+   "toasts": [],
+   "samples": [
+    [
+     149,
+     13.9898
+    ],
+    [
+     310,
+     13.9898
+    ],
+    [
+     500,
+     13.9898
+    ],
+    [
+     654,
+     13.9898
+    ],
+    [
+     932,
+     13.9898
+    ],
+    [
+     1103,
+     13.9898
+    ],
+    [
+     1288,
+     13.9898
+    ],
+    [
+     1477,
+     13.9898
+    ],
+    [
+     1642,
+     13.9898
+    ],
+    [
+     1809,
+     13.9898
+    ],
+    [
+     1981,
+     13.9898
+    ],
+    [
+     2139,
+     13.9898
+    ],
+    [
+     2305,
+     13.9898
+    ],
+    [
+     2457,
+     13.9898
+    ],
+    [
+     2622,
+     13.9898
+    ],
+    [
+     2789,
+     13.9898
+    ],
+    [
+     2942,
+     13.9898
+    ],
+    [
+     3110,
+     13.9898
+    ],
+    [
+     3269,
+     13.9898
+    ],
+    [
+     3441,
+     13.9898
+    ],
+    [
+     3667,
+     13.9898
+    ],
+    [
+     3894,
+     13.9898
+    ],
+    [
+     4068,
+     13.9898
+    ],
+    [
+     4235,
+     13.9898
+    ],
+    [
+     4539,
+     13.9898
+    ],
+    [
+     4715,
+     13.9898
+    ],
+    [
+     4887,
+     13.9898
+    ],
+    [
+     5043,
+     13.9898
+    ],
+    [
+     5336,
+     13.9898
+    ],
+    [
+     5491,
+     13.9898
+    ],
+    [
+     5648,
+     13.9898
+    ],
+    [
+     5801,
+     13.9898
+    ],
+    [
+     5971,
+     13.9898
+    ],
+    [
+     6127,
+     13.9898
+    ],
+    [
+     6284,
+     13.9898
+    ],
+    [
+     6456,
+     13.9898
+    ],
+    [
+     6636,
+     13.9898
+    ],
+    [
+     6803,
+     13.9898
+    ],
+    [
+     7060,
+     13.9898
+    ],
+    [
+     7227,
+     13.9898
+    ],
+    [
+     7414,
+     13.9898
+    ],
+    [
+     7576,
+     13.9898
+    ],
+    [
+     7742,
+     13.9898
+    ],
+    [
+     7911,
+     13.9898
+    ],
+    [
+     8067,
+     13.9898
+    ],
+    [
+     8225,
+     13.9898
+    ],
+    [
+     8386,
+     13.9898
+    ],
+    [
+     8715,
+     13.9898
+    ],
+    [
+     8871,
+     13.9898
+    ],
+    [
+     9072,
+     13.9898
+    ],
+    [
+     9224,
+     13.9898
+    ],
+    [
+     9396,
+     13.9898
+    ],
+    [
+     9588,
+     13.9898
+    ],
+    [
+     9744,
+     13.9898
+    ],
+    [
+     9910,
+     13.9898
+    ],
+    [
+     10104,
+     13.9898
+    ],
+    [
+     10256,
+     13.9898
+    ],
+    [
+     10426,
+     13.9898
+    ],
+    [
+     10585,
+     13.9898
+    ],
+    [
+     10738,
+     13.9898
+    ],
+    [
+     10891,
+     13.9898
+    ],
+    [
+     11111,
+     13.9898
+    ],
+    [
+     11272,
+     13.9898
+    ],
+    [
+     11436,
+     13.9898
+    ],
+    [
+     11589,
+     13.9898
+    ],
+    [
+     11742,
+     13.9898
+    ],
+    [
+     11904,
+     13.9898
+    ],
+    [
+     12092,
+     13.9898
+    ],
+    [
+     12270,
+     13.9898
+    ],
+    [
+     12426,
+     13.9898
+    ],
+    [
+     12579,
+     13.9898
+    ],
+    [
+     12732,
+     13.9898
+    ],
+    [
+     12908,
+     13.9898
+    ],
+    [
+     13212,
+     13.9898
+    ],
+    [
+     13424,
+     6.06061
+    ],
+    [
+     13728,
+     6.06061
+    ],
+    [
+     13935,
+     6.06061
+    ],
+    [
+     14106,
+     6.06061
+    ],
+    [
+     14275,
+     6.06061
+    ],
+    [
+     14475,
+     6.06061
+    ],
+    [
+     14692,
+     6.06061
+    ],
+    [
+     14877,
+     6.06061
+    ],
+    [
+     15034,
+     6.06061
+    ],
+    [
+     15220,
+     6.06061
+    ],
+    [
+     15395,
+     6.06061
+    ],
+    [
+     15556,
+     6.06061
+    ],
+    [
+     15776,
+     2.82828
+    ],
+    [
+     16439,
+     2.82828
+    ],
+    [
+     16737,
+     14.0067
+    ],
+    [
+     16910,
+     2.82828
+    ],
+    [
+     17076,
+     2.82828
+    ],
+    [
+     17237,
+     2.82828
+    ],
+    [
+     17393,
+     2.82828
+    ],
+    [
+     17561,
+     2.82828
+    ],
+    [
+     17718,
+     2.82828
+    ],
+    [
+     17878,
+     2.82828
+    ],
+    [
+     18085,
+     2.82828
+    ],
+    [
+     18240,
+     2.82828
+    ],
+    [
+     18402,
+     2.82828
+    ],
+    [
+     18572,
+     2.82828
+    ],
+    [
+     18725,
+     2.82828
+    ],
+    [
+     18877,
+     2.82828
+    ],
+    [
+     19061,
+     2.82828
+    ],
+    [
+     19222,
+     2.82828
+    ],
+    [
+     19376,
+     2.82828
+    ],
+    [
+     19529,
+     2.82828
+    ],
+    [
+     19692,
+     2.82828
+    ],
+    [
+     19845,
+     2.82828
+    ],
+    [
+     20011,
+     2.82828
+    ],
+    [
+     20171,
+     2.82828
+    ],
+    [
+     20335,
+     2.82828
+    ],
+    [
+     20490,
+     2.82828
+    ],
+    [
+     20643,
+     2.82828
+    ],
+    [
+     20798,
+     2.82828
+    ]
+   ],
+   "log": [
+    {
+     "wall": 1790004554380,
+     "token": "akari-annotations-widget:1790004554327:9",
+     "event": "trial_start",
+     "t": 0
+    },
+    {
+     "wall": 1790004554400,
+     "token": "akari-annotations-widget:1790004554327:9",
+     "event": "rollback_skipped_refresh",
+     "t": 2
+    },
+    {
+     "wall": 1790004554403,
+     "token": "akari-annotations-widget:1790004554327:9",
+     "event": "preview_trial_begin",
+     "t": 3,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:9"
+    },
+    {
+     "wall": 1790004554404,
+     "token": "akari-annotations-widget:1790004554327:9",
+     "event": "resolve_start",
+     "t": 3,
+     "candidate": "audio/sfx-click-button-deep"
+    },
+    {
+     "wall": 1790004560928,
+     "token": "akari-annotations-widget:1790004554327:9",
+     "event": "resolve_done",
+     "t": 6509,
+     "cached": false,
+     "ok": true
+    },
+    {
+     "wall": 1790004562629,
+     "token": "akari-annotations-widget:1790004554327:9",
+     "event": "refresh_queued",
+     "t": 8291
+    },
+    {
+     "wall": 1790004562631,
+     "token": "akari-annotations-widget:1790004554327:9",
+     "event": "refresh_started",
+     "t": 8291
+    },
+    {
+     "wall": 1790004565400,
+     "token": "akari-annotations-widget:1790004554327:9",
+     "event": "trial_applied",
+     "t": 10876,
+     "itemId": "bell-1",
+     "candidate": "audio/sfx-click-button-deep"
+    },
+    {
+     "wall": 1790004567109,
+     "token": "akari-annotations-widget:1790004554327:9",
+     "event": "reload_start",
+     "t": 12674,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:10"
+    },
+    {
+     "wall": 1790004567718,
+     "token": "akari-annotations-widget:1790004554327:9",
+     "event": "reload_complete",
+     "t": 13280,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:10"
+    },
+    {
+     "wall": 1790004570065,
+     "token": "akari-annotations-widget:1790004554327:9",
+     "event": "ready_seek_response",
+     "t": 15588,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:10",
+     "seek": true
+    },
+    {
+     "wall": 1790004570789,
+     "token": "akari-annotations-widget:1790004554327:9",
+     "event": "ready_seek_response",
+     "t": 16456,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:10",
+     "seek": true
+    },
+    {
+     "wall": 1790004570790,
+     "token": "akari-annotations-widget:1790004554327:9",
+     "event": "play_request",
+     "t": 16457,
+     "attempt": 1,
+     "revision": 2,
+     "quietForMs": 3177
+    },
+    {
+     "wall": 1790004570805,
+     "token": "akari-annotations-widget:1790004554327:9",
+     "event": "playback_state",
+     "t": 16467,
+     "playing": true,
+     "userStopped": false,
+     "source": "renderer"
+    },
+    {
+     "wall": 1790004571029,
+     "token": "akari-annotations-widget:1790004554327:9",
+     "event": "playback_cancel",
+     "t": 16508,
+     "reason": "trial_end"
+    },
+    {
+     "wall": 1790004571029,
+     "token": "akari-annotations-widget:1790004554327:9",
+     "event": "trial_playback_result",
+     "t": 16509,
+     "result": "cancelled"
+    }
+   ]
+  },
+  {
+   "n": 10,
+   "key": "audio/sfx-impact-echo",
+   "token": "akari-annotations-widget:1790004576363:10",
+   "clickWall": 1790004576254,
+   "reloads": 1,
+   "playRequests": 1,
+   "retries": 0,
+   "readyFallback": 0,
+   "result": "playing",
+   "appliedMs": 2187,
+   "playbackStartMs": 7207,
+   "logPlayingMs": 7134,
+   "cachedBefore": true,
+   "startAfterAppliedMs": 5020,
+   "firstPlayRequestMs": 7090,
+   "toasts": [],
+   "samples": [
+    [
+     221,
+     2.82828
+    ],
+    [
+     393,
+     2.82828
+    ],
+    [
+     566,
+     2.82828
+    ],
+    [
+     761,
+     2.82828
+    ],
+    [
+     928,
+     2.82828
+    ],
+    [
+     1090,
+     2.82828
+    ],
+    [
+     1328,
+     2.82828
+    ],
+    [
+     1484,
+     2.82828
+    ],
+    [
+     1643,
+     2.82828
+    ],
+    [
+     1810,
+     2.82828
+    ],
+    [
+     1963,
+     2.82828
+    ],
+    [
+     2117,
+     2.82828
+    ],
+    [
+     2270,
+     2.82828
+    ],
+    [
+     2427,
+     2.82828
+    ],
+    [
+     2587,
+     2.82828
+    ],
+    [
+     2743,
+     2.82828
+    ],
+    [
+     2916,
+     2.82828
+    ],
+    [
+     3073,
+     2.82828
+    ],
+    [
+     3237,
+     2.82828
+    ],
+    [
+     3399,
+     2.82828
+    ],
+    [
+     3556,
+     2.82828
+    ],
+    [
+     3729,
+     2.82828
+    ],
+    [
+     3886,
+     2.82828
+    ],
+    [
+     4065,
+     0
+    ],
+    [
+     4260,
+     0
+    ],
+    [
+     4438,
+     0
+    ],
+    [
+     4595,
+     0
+    ],
+    [
+     4810,
+     0
+    ],
+    [
+     4987,
+     0
+    ],
+    [
+     5399,
+     0
+    ],
+    [
+     5566,
+     0
+    ],
+    [
+     5728,
+     0
+    ],
+    [
+     6000,
+     0
+    ],
+    [
+     6189,
+     0
+    ],
+    [
+     6494,
+     2.82828
+    ],
+    [
+     6708,
+     2.82828
+    ],
+    [
+     6885,
+     2.82828
+    ],
+    [
+     7042,
+     2.82828
+    ],
+    [
+     7207,
+     2.82828
+    ],
+    [
+     7384,
+     2.89562
+    ],
+    [
+     7540,
+     2.96296
+    ],
+    [
+     7697,
+     2.96296
+    ],
+    [
+     7862,
+     2.96296
+    ],
+    [
+     8032,
+     2.96296
+    ],
+    [
+     8197,
+     2.96296
+    ],
+    [
+     8359,
+     2.96296
+    ],
+    [
+     8532,
+     2.96296
+    ],
+    [
+     8692,
+     2.96296
+    ]
+   ],
+   "log": [
+    {
+     "wall": 1790004576469,
+     "token": "akari-annotations-widget:1790004576363:10",
+     "event": "trial_start",
+     "t": 0
+    },
+    {
+     "wall": 1790004576478,
+     "token": "akari-annotations-widget:1790004576363:10",
+     "event": "rollback_skipped_refresh",
+     "t": 4
+    },
+    {
+     "wall": 1790004576511,
+     "token": "akari-annotations-widget:1790004576363:10",
+     "event": "preview_trial_begin",
+     "t": 5,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:10"
+    },
+    {
+     "wall": 1790004576512,
+     "token": "akari-annotations-widget:1790004576363:10",
+     "event": "resolve_start",
+     "t": 5,
+     "candidate": "audio/sfx-impact-echo"
+    },
+    {
+     "wall": 1790004576637,
+     "token": "akari-annotations-widget:1790004576363:10",
+     "event": "resolve_done",
+     "t": 226,
+     "cached": true,
+     "ok": true
+    },
+    {
+     "wall": 1790004576982,
+     "token": "akari-annotations-widget:1790004576363:10",
+     "event": "refresh_queued",
+     "t": 605
+    },
+    {
+     "wall": 1790004576982,
+     "token": "akari-annotations-widget:1790004576363:10",
+     "event": "refresh_started",
+     "t": 606
+    },
+    {
+     "wall": 1790004578441,
+     "token": "akari-annotations-widget:1790004576363:10",
+     "event": "trial_applied",
+     "t": 2073,
+     "itemId": "bell-1",
+     "candidate": "audio/sfx-impact-echo"
+    },
+    {
+     "wall": 1790004579934,
+     "token": "akari-annotations-widget:1790004576363:10",
+     "event": "reload_start",
+     "t": 3528,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:11"
+    },
+    {
+     "wall": 1790004580227,
+     "token": "akari-annotations-widget:1790004576363:10",
+     "event": "reload_complete",
+     "t": 3830,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:11"
+    },
+    {
+     "wall": 1790004582995,
+     "token": "akari-annotations-widget:1790004576363:10",
+     "event": "ready_seek_response",
+     "t": 6215,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:11",
+     "seek": true
+    },
+    {
+     "wall": 1790004583344,
+     "token": "akari-annotations-widget:1790004576363:10",
+     "event": "ready_seek_response",
+     "t": 6970,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:11",
+     "seek": true
+    },
+    {
+     "wall": 1790004583344,
+     "token": "akari-annotations-widget:1790004576363:10",
+     "event": "play_request",
+     "t": 6970,
+     "attempt": 1,
+     "revision": 2,
+     "quietForMs": 3140
+    },
+    {
+     "wall": 1790004583388,
+     "token": "akari-annotations-widget:1790004576363:10",
+     "event": "playback_state",
+     "t": 6980,
+     "playing": true,
+     "userStopped": false,
+     "source": "renderer"
+    },
+    {
+     "wall": 1790004583392,
+     "token": "akari-annotations-widget:1790004576363:10",
+     "event": "trial_playback_result",
+     "t": 7022,
+     "result": "playing"
+    }
+   ]
+  },
+  {
+   "n": 11,
+   "key": "audio/sfx-click-mouse-single",
+   "token": "akari-annotations-widget:1790004586332:11",
+   "clickWall": 1790004586236,
+   "reloads": 1,
+   "playRequests": 1,
+   "retries": 0,
+   "readyFallback": 0,
+   "result": "playing",
+   "appliedMs": 8126,
+   "playbackStartMs": null,
+   "logPlayingMs": 10887,
+   "cachedBefore": false,
+   "startAfterAppliedMs": null,
+   "firstPlayRequestMs": 10882,
+   "toasts": [],
+   "samples": [
+    [
+     202,
+     8.83965
+    ],
+    [
+     357,
+     8.83965
+    ],
+    [
+     521,
+     8.83965
+    ],
+    [
+     725,
+     8.83965
+    ],
+    [
+     913,
+     8.83965
+    ],
+    [
+     1079,
+     8.83965
+    ],
+    [
+     1261,
+     8.83965
+    ],
+    [
+     1632,
+     8.83965
+    ],
+    [
+     1805,
+     8.83965
+    ],
+    [
+     1971,
+     8.83965
+    ],
+    [
+     2218,
+     8.83965
+    ],
+    [
+     2549,
+     8.83965
+    ],
+    [
+     2715,
+     8.83965
+    ],
+    [
+     2874,
+     8.83965
+    ],
+    [
+     3034,
+     8.83965
+    ],
+    [
+     3197,
+     8.83965
+    ],
+    [
+     3350,
+     8.83965
+    ],
+    [
+     3513,
+     8.83965
+    ],
+    [
+     3666,
+     8.83965
+    ],
+    [
+     3824,
+     8.83965
+    ],
+    [
+     3984,
+     8.83965
+    ],
+    [
+     4151,
+     8.83965
+    ],
+    [
+     4314,
+     8.83965
+    ],
+    [
+     4504,
+     8.83965
+    ],
+    [
+     4666,
+     8.83965
+    ],
+    [
+     4839,
+     8.83965
+    ],
+    [
+     5006,
+     8.83965
+    ],
+    [
+     5218,
+     8.83965
+    ],
+    [
+     5383,
+     8.83965
+    ],
+    [
+     5538,
+     8.83965
+    ],
+    [
+     5746,
+     8.83965
+    ],
+    [
+     5942,
+     8.83965
+    ],
+    [
+     6117,
+     8.83965
+    ],
+    [
+     6278,
+     8.83965
+    ],
+    [
+     6766,
+     8.83965
+    ],
+    [
+     7486,
+     8.83965
+    ],
+    [
+     7651,
+     8.83965
+    ],
+    [
+     7821,
+     8.83965
+    ],
+    [
+     7974,
+     8.83965
+    ],
+    [
+     8127,
+     8.83965
+    ],
+    [
+     8284,
+     8.83965
+    ],
+    [
+     8490,
+     8.83965
+    ],
+    [
+     8663,
+     8.83965
+    ],
+    [
+     8878,
+     8.83965
+    ],
+    [
+     9059,
+     8.83965
+    ],
+    [
+     9212,
+     6.06061
+    ],
+    [
+     9365,
+     6.06061
+    ],
+    [
+     9533,
+     6.06061
+    ],
+    [
+     9695,
+     6.06061
+    ],
+    [
+     9856,
+     6.06061
+    ],
+    [
+     10013,
+     6.06061
+    ],
+    [
+     10243,
+     6.06061
+    ],
+    [
+     10403,
+     6.06061
+    ],
+    [
+     10556,
+     6.06061
+    ],
+    [
+     10714,
+     6.06061
+    ],
+    [
+     10879,
+     2.82828
+    ],
+    [
+     11033,
+     2.83832
+    ],
+    [
+     11187,
+     2.83832
+    ],
+    [
+     11341,
+     2.83832
+    ],
+    [
+     11494,
+     2.83832
+    ],
+    [
+     11646,
+     2.83832
+    ],
+    [
+     11801,
+     2.83832
+    ],
+    [
+     11956,
+     2.83832
+    ],
+    [
+     12147,
+     2.83832
+    ],
+    [
+     12301,
+     2.83832
+    ],
+    [
+     12459,
+     2.83832
+    ],
+    [
+     12614,
+     2.83832
+    ],
+    [
+     12766,
+     2.83832
+    ],
+    [
+     12917,
+     2.83832
+    ],
+    [
+     13084,
+     2.83832
+    ],
+    [
+     13242,
+     2.83832
+    ],
+    [
+     13395,
+     2.83832
+    ],
+    [
+     13550,
+     2.83832
+    ],
+    [
+     13703,
+     2.83832
+    ],
+    [
+     13858,
+     2.83832
+    ],
+    [
+     14010,
+     2.83832
+    ],
+    [
+     14165,
+     2.83832
+    ],
+    [
+     14320,
+     2.83832
+    ],
+    [
+     14481,
+     2.83832
+    ],
+    [
+     14641,
+     2.83832
+    ],
+    [
+     14796,
+     2.83832
+    ],
+    [
+     14966,
+     2.83832
+    ]
+   ],
+   "log": [
+    {
+     "wall": 1790004586453,
+     "token": "akari-annotations-widget:1790004586332:11",
+     "event": "trial_start",
+     "t": 0
+    },
+    {
+     "wall": 1790004586453,
+     "token": "akari-annotations-widget:1790004586332:11",
+     "event": "rollback_skipped_refresh",
+     "t": 2
+    },
+    {
+     "wall": 1790004586453,
+     "token": "akari-annotations-widget:1790004586332:11",
+     "event": "preview_trial_begin",
+     "t": 2,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:11"
+    },
+    {
+     "wall": 1790004586453,
+     "token": "akari-annotations-widget:1790004586332:11",
+     "event": "resolve_start",
+     "t": 2,
+     "candidate": "audio/sfx-click-mouse-single"
+    },
+    {
+     "wall": 1790004590616,
+     "token": "akari-annotations-widget:1790004586332:11",
+     "event": "resolve_done",
+     "t": 4280,
+     "cached": false,
+     "ok": true
+    },
+    {
+     "wall": 1790004592056,
+     "token": "akari-annotations-widget:1790004586332:11",
+     "event": "refresh_queued",
+     "t": 5719
+    },
+    {
+     "wall": 1790004592061,
+     "token": "akari-annotations-widget:1790004586332:11",
+     "event": "refresh_started",
+     "t": 5720
+    },
+    {
+     "wall": 1790004594362,
+     "token": "akari-annotations-widget:1790004586332:11",
+     "event": "trial_applied",
+     "t": 7977,
+     "itemId": "bell-1",
+     "candidate": "audio/sfx-click-mouse-single"
+    },
+    {
+     "wall": 1790004595244,
+     "token": "akari-annotations-widget:1790004586332:11",
+     "event": "reload_start",
+     "t": 8871,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:12"
+    },
+    {
+     "wall": 1790004595428,
+     "token": "akari-annotations-widget:1790004586332:11",
+     "event": "reload_complete",
+     "t": 9090,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:12"
+    },
+    {
+     "wall": 1790004597085,
+     "token": "akari-annotations-widget:1790004586332:11",
+     "event": "ready_seek_response",
+     "t": 10728,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:12",
+     "seek": true
+    },
+    {
+     "wall": 1790004597112,
+     "token": "akari-annotations-widget:1790004586332:11",
+     "event": "ready_seek_response",
+     "t": 10774,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:12",
+     "seek": true
+    },
+    {
+     "wall": 1790004597118,
+     "token": "akari-annotations-widget:1790004586332:11",
+     "event": "play_request",
+     "t": 10774,
+     "attempt": 1,
+     "revision": 2,
+     "quietForMs": 1684
+    },
+    {
+     "wall": 1790004597123,
+     "token": "akari-annotations-widget:1790004586332:11",
+     "event": "playback_state",
+     "t": 10781,
+     "playing": true,
+     "userStopped": false,
+     "source": "renderer"
+    },
+    {
+     "wall": 1790004597160,
+     "token": "akari-annotations-widget:1790004586332:11",
+     "event": "trial_playback_result",
+     "t": 10826,
+     "result": "playing"
+    },
+    {
+     "wall": 1790004597169,
+     "token": "akari-annotations-widget:1790004586332:11",
+     "event": "playback_cancel",
+     "t": 10836,
+     "reason": "trial_end"
+    }
+   ]
+  },
+  {
+   "n": 12,
+   "key": "audio/sfx-levelup-arp",
+   "token": "akari-annotations-widget:1790004602504:12",
+   "clickWall": 1790004602380,
+   "reloads": 1,
+   "playRequests": 1,
+   "retries": 0,
+   "readyFallback": 0,
+   "result": "playing",
+   "appliedMs": 341,
+   "playbackStartMs": 3216,
+   "logPlayingMs": 2854,
+   "cachedBefore": true,
+   "startAfterAppliedMs": 2875,
+   "firstPlayRequestMs": 2854,
+   "toasts": [],
+   "samples": [
+    [
+     164,
+     2.83832
+    ],
+    [
+     378,
+     2.83832
+    ],
+    [
+     536,
+     2.83832
+    ],
+    [
+     694,
+     2.83832
+    ],
+    [
+     846,
+     2.83832
+    ],
+    [
+     1001,
+     2.83832
+    ],
+    [
+     1153,
+     2.83832
+    ],
+    [
+     1313,
+     2.83832
+    ],
+    [
+     1465,
+     2.83832
+    ],
+    [
+     1628,
+     2.83832
+    ],
+    [
+     1790,
+     0
+    ],
+    [
+     1944,
+     0
+    ],
+    [
+     2099,
+     0
+    ],
+    [
+     2252,
+     0
+    ],
+    [
+     2404,
+     0
+    ],
+    [
+     2586,
+     2.82828
+    ],
+    [
+     2739,
+     2.82828
+    ],
+    [
+     2896,
+     2.82828
+    ],
+    [
+     3064,
+     2.96296
+    ],
+    [
+     3216,
+     2.96296
+    ],
+    [
+     3377,
+     3.7037
+    ],
+    [
+     3533,
+     3.90572
+    ],
+    [
+     3700,
+     3.90572
+    ],
+    [
+     3855,
+     3.90572
+    ],
+    [
+     4013,
+     3.97306
+    ],
+    [
+     4178,
+     4.84848
+    ],
+    [
+     4332,
+     5.65657
+    ]
+   ],
+   "log": [
+    {
+     "wall": 1790004602518,
+     "token": "akari-annotations-widget:1790004602504:12",
+     "event": "trial_start",
+     "t": 0
+    },
+    {
+     "wall": 1790004602523,
+     "token": "akari-annotations-widget:1790004602504:12",
+     "event": "rollback_skipped_refresh",
+     "t": 3
+    },
+    {
+     "wall": 1790004602536,
+     "token": "akari-annotations-widget:1790004602504:12",
+     "event": "preview_trial_begin",
+     "t": 4,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:12"
+    },
+    {
+     "wall": 1790004602536,
+     "token": "akari-annotations-widget:1790004602504:12",
+     "event": "resolve_start",
+     "t": 4,
+     "candidate": "audio/sfx-levelup-arp"
+    },
+    {
+     "wall": 1790004602560,
+     "token": "akari-annotations-widget:1790004602504:12",
+     "event": "resolve_done",
+     "t": 49,
+     "cached": true,
+     "ok": true
+    },
+    {
+     "wall": 1790004602614,
+     "token": "akari-annotations-widget:1790004602504:12",
+     "event": "refresh_queued",
+     "t": 98
+    },
+    {
+     "wall": 1790004602614,
+     "token": "akari-annotations-widget:1790004602504:12",
+     "event": "refresh_started",
+     "t": 99
+    },
+    {
+     "wall": 1790004602721,
+     "token": "akari-annotations-widget:1790004602504:12",
+     "event": "trial_applied",
+     "t": 212,
+     "itemId": "bell-1",
+     "candidate": "audio/sfx-levelup-arp"
+    },
+    {
+     "wall": 1790004603898,
+     "token": "akari-annotations-widget:1790004602504:12",
+     "event": "reload_start",
+     "t": 1368,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:13"
+    },
+    {
+     "wall": 1790004604065,
+     "token": "akari-annotations-widget:1790004602504:12",
+     "event": "reload_complete",
+     "t": 1550,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:13"
+    },
+    {
+     "wall": 1790004604928,
+     "token": "akari-annotations-widget:1790004602504:12",
+     "event": "ready_seek_response",
+     "t": 2405,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:13",
+     "seek": true
+    },
+    {
+     "wall": 1790004605234,
+     "token": "akari-annotations-widget:1790004602504:12",
+     "event": "ready_seek_response",
+     "t": 2681,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:13",
+     "seek": true
+    },
+    {
+     "wall": 1790004605234,
+     "token": "akari-annotations-widget:1790004602504:12",
+     "event": "play_request",
+     "t": 2681,
+     "attempt": 1,
+     "revision": 2,
+     "quietForMs": 1131
+    },
+    {
+     "wall": 1790004605234,
+     "token": "akari-annotations-widget:1790004602504:12",
+     "event": "playback_state",
+     "t": 2713,
+     "playing": true,
+     "userStopped": false,
+     "source": "renderer"
+    },
+    {
+     "wall": 1790004605247,
+     "token": "akari-annotations-widget:1790004602504:12",
+     "event": "trial_playback_result",
+     "t": 2732,
+     "result": "playing"
+    }
+   ]
+  }
+ ]
+}

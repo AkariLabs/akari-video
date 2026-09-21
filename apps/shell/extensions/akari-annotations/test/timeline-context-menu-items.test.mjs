@@ -42,11 +42,17 @@ test('木アイテムには出す・まとめる・ばらす・折りたたみ�
     ]);
 });
 
-test('字幕の木アイテムだけにテロップ変換を既存項目順を崩さず足す', () => {
-    const items = buildTimelineClipMenuItems('overlay', false, {
-        canDetach: true, canConvertToTelop: true
-    });
-    assert.deepEqual(items.map(item => item.id), ['copy', 'cut', 'paste', 'duplicate', 'detach', 'convert-to-telop', 'annotate', 'delete']);
+test('字幕の木アイテムは未焼成テロップを作る操作を出さず、出す・まとめる・親選択を保つ', () => {
+    // widget は v2 の字幕も overlay として渡す。袋の写しと分離済み字幕の両方を確認する。
+    for (const hasParent of [true, false]) {
+        const items = buildTimelineClipMenuItems('overlay', false, {
+            canSplit: false, canDetach: hasParent, canGroup: true, hasParent
+        });
+        assert.deepEqual(items.map(item => item.id), [
+            'copy', 'cut', 'paste', 'duplicate', ...(hasParent ? ['detach'] : []),
+            'group', ...(hasParent ? ['select-parent'] : []), 'annotate', 'delete'
+        ]);
+    }
 });
 
 test('司令塔裁定3: 並びは常にコピー → ペースト → 分割 → 削除の順序を守る', () => {

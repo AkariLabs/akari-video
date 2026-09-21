@@ -1,0 +1,3582 @@
+{
+ "at": "2026-09-21T15:11:28.794Z",
+ "rows": [
+  {
+   "n": 1,
+   "key": "audio/sfx-click-glass-tap",
+   "token": "akari-annotations-widget:1790003389859:25",
+   "clickWall": 1790003389671,
+   "reloads": 1,
+   "playRequests": 1,
+   "retries": 0,
+   "readyFallback": 0,
+   "result": "playing",
+   "appliedMs": 2857,
+   "playbackStartMs": null,
+   "logPlayingMs": 6568,
+   "cachedBefore": false,
+   "startAfterAppliedMs": null,
+   "firstPlayRequestMs": 6568,
+   "toasts": [
+    "素材を取得できませんでした: ダウンロード失敗: https://github.com/AkariLabs/akari-sounds/releases/download/v0/sfx-comedy-boing.mp3 → HTTP 504",
+    "素材を取得できませんでした: ダウンロード失敗: https://github.com/AkariLabs/akari-sounds/releases/download/v0/sfx-comedy-boing.mp3 → HTTP 504",
+    "素材を取得できませんでした: ダウンロード失敗: https://github.com/AkariLabs/akari-sounds/releases/download/v0/sfx-glitch-zap.mp3 → HTTP 504"
+   ],
+   "samples": [
+    [
+     225,
+     0
+    ],
+    [
+     392,
+     0
+    ],
+    [
+     545,
+     0
+    ],
+    [
+     701,
+     0
+    ],
+    [
+     854,
+     0
+    ],
+    [
+     1008,
+     0
+    ],
+    [
+     1160,
+     0
+    ],
+    [
+     1324,
+     0
+    ],
+    [
+     1479,
+     0
+    ],
+    [
+     1632,
+     0
+    ],
+    [
+     1785,
+     0
+    ],
+    [
+     1937,
+     0
+    ],
+    [
+     2091,
+     0
+    ],
+    [
+     2244,
+     0
+    ],
+    [
+     2396,
+     0
+    ],
+    [
+     2604,
+     0
+    ],
+    [
+     2757,
+     7.67677
+    ],
+    [
+     2910,
+     7.67677
+    ],
+    [
+     3067,
+     7.67677
+    ],
+    [
+     3220,
+     7.67677
+    ],
+    [
+     3374,
+     7.67677
+    ],
+    [
+     3528,
+     7.67677
+    ],
+    [
+     3687,
+     7.67677
+    ],
+    [
+     3862,
+     7.67677
+    ],
+    [
+     4016,
+     7.67677
+    ],
+    [
+     4173,
+     7.67677
+    ],
+    [
+     4325,
+     7.67677
+    ],
+    [
+     4479,
+     7.67677
+    ],
+    [
+     4648,
+     7.67677
+    ],
+    [
+     4808,
+     7.67677
+    ],
+    [
+     4980,
+     6.06061
+    ],
+    [
+     5141,
+     6.06061
+    ],
+    [
+     5294,
+     6.06061
+    ],
+    [
+     5471,
+     6.06061
+    ],
+    [
+     5625,
+     6.06061
+    ],
+    [
+     5785,
+     6.06061
+    ],
+    [
+     6014,
+     6.06061
+    ],
+    [
+     6171,
+     6.06061
+    ],
+    [
+     6341,
+     6.06061
+    ],
+    [
+     6512,
+     6.06061
+    ],
+    [
+     6669,
+     2.82828
+    ],
+    [
+     6824,
+     2.82828
+    ],
+    [
+     6986,
+     2.82828
+    ],
+    [
+     7138,
+     2.82828
+    ],
+    [
+     7291,
+     2.82828
+    ],
+    [
+     7444,
+     2.82828
+    ],
+    [
+     7608,
+     2.82828
+    ],
+    [
+     7767,
+     2.82828
+    ],
+    [
+     7921,
+     2.82828
+    ],
+    [
+     8079,
+     2.82828
+    ],
+    [
+     8235,
+     2.82828
+    ],
+    [
+     8390,
+     2.82828
+    ],
+    [
+     8542,
+     2.82828
+    ],
+    [
+     8709,
+     2.82828
+    ],
+    [
+     8890,
+     2.82828
+    ],
+    [
+     9043,
+     2.82828
+    ],
+    [
+     9206,
+     2.82828
+    ],
+    [
+     9358,
+     2.82828
+    ],
+    [
+     9510,
+     2.82828
+    ],
+    [
+     9667,
+     2.82828
+    ],
+    [
+     9819,
+     2.82828
+    ],
+    [
+     9990,
+     2.82828
+    ],
+    [
+     10142,
+     2.82828
+    ],
+    [
+     10295,
+     2.82828
+    ],
+    [
+     10448,
+     2.82828
+    ],
+    [
+     10601,
+     2.82828
+    ]
+   ],
+   "log": [
+    {
+     "wall": 1790003389895,
+     "token": "akari-annotations-widget:1790003389859:25",
+     "event": "trial_start",
+     "t": 0
+    },
+    {
+     "wall": 1790003389902,
+     "token": "akari-annotations-widget:1790003389859:25",
+     "event": "preview_trial_begin",
+     "t": 1,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:35"
+    },
+    {
+     "wall": 1790003392326,
+     "token": "akari-annotations-widget:1790003389859:25",
+     "event": "refresh_queued",
+     "t": 2463
+    },
+    {
+     "wall": 1790003392528,
+     "token": "akari-annotations-widget:1790003389859:25",
+     "event": "trial_applied",
+     "t": 2503,
+     "itemId": "bell-1",
+     "candidate": "audio/sfx-click-glass-tap"
+    },
+    {
+     "wall": 1790003394276,
+     "token": "akari-annotations-widget:1790003389859:25",
+     "event": "reload_start",
+     "t": 4382,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:36"
+    },
+    {
+     "wall": 1790003394577,
+     "token": "akari-annotations-widget:1790003389859:25",
+     "event": "reload_complete",
+     "t": 4673,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:36"
+    },
+    {
+     "wall": 1790003396192,
+     "token": "akari-annotations-widget:1790003389859:25",
+     "event": "ready_seek_response",
+     "t": 6329,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:36",
+     "seek": true
+    },
+    {
+     "wall": 1790003396238,
+     "token": "akari-annotations-widget:1790003389859:25",
+     "event": "ready_seek_response",
+     "t": 6346,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:36",
+     "seek": true
+    },
+    {
+     "wall": 1790003396239,
+     "token": "akari-annotations-widget:1790003389859:25",
+     "event": "play_request",
+     "t": 6347,
+     "attempt": 1,
+     "revision": 2,
+     "quietForMs": 1673
+    },
+    {
+     "wall": 1790003396239,
+     "token": "akari-annotations-widget:1790003389859:25",
+     "event": "playback_state",
+     "t": 6354,
+     "playing": true,
+     "userStopped": false,
+     "source": "renderer"
+    },
+    {
+     "wall": 1790003396265,
+     "token": "akari-annotations-widget:1790003389859:25",
+     "event": "trial_playback_result",
+     "t": 6398,
+     "result": "playing"
+    },
+    {
+     "wall": 1790003396276,
+     "token": "akari-annotations-widget:1790003389859:25",
+     "event": "playback_cancel",
+     "t": 6406,
+     "reason": "trial_end"
+    }
+   ]
+  },
+  {
+   "n": 2,
+   "key": "audio/sfx-blip-beep",
+   "token": "akari-annotations-widget:1790003401535:26",
+   "clickWall": 1790003401443,
+   "reloads": 2,
+   "playRequests": 1,
+   "retries": 0,
+   "readyFallback": 0,
+   "result": "playing",
+   "appliedMs": 6680,
+   "playbackStartMs": 8866,
+   "logPlayingMs": 8277,
+   "cachedBefore": true,
+   "startAfterAppliedMs": 2186,
+   "firstPlayRequestMs": 8277,
+   "toasts": [
+    "素材を取得できませんでした: ダウンロード失敗: https://github.com/AkariLabs/akari-sounds/releases/download/v0/sfx-comedy-boing.mp3 → HTTP 504",
+    "素材を取得できませんでした: ダウンロード失敗: https://github.com/AkariLabs/akari-sounds/releases/download/v0/sfx-comedy-boing.mp3 → HTTP 504",
+    "素材を取得できませんでした: ダウンロード失敗: https://github.com/AkariLabs/akari-sounds/releases/download/v0/sfx-glitch-zap.mp3 → HTTP 504"
+   ],
+   "samples": [
+    [
+     124,
+     2.82828
+    ],
+    [
+     282,
+     2.82828
+    ],
+    [
+     435,
+     2.82828
+    ],
+    [
+     599,
+     2.82828
+    ],
+    [
+     756,
+     2.82828
+    ],
+    [
+     914,
+     2.82828
+    ],
+    [
+     1067,
+     2.82828
+    ],
+    [
+     1220,
+     2.82828
+    ],
+    [
+     1380,
+     2.82828
+    ],
+    [
+     1535,
+     2.82828
+    ],
+    [
+     1701,
+     2.82828
+    ],
+    [
+     1875,
+     2.82828
+    ],
+    [
+     2028,
+     2.82828
+    ],
+    [
+     2181,
+     2.82828
+    ],
+    [
+     2335,
+     2.82828
+    ],
+    [
+     2517,
+     2.82828
+    ],
+    [
+     2669,
+     0
+    ],
+    [
+     2823,
+     0
+    ],
+    [
+     2986,
+     0
+    ],
+    [
+     3140,
+     0
+    ],
+    [
+     3294,
+     0
+    ],
+    [
+     3450,
+     0
+    ],
+    [
+     3688,
+     0
+    ],
+    [
+     3871,
+     0
+    ],
+    [
+     4025,
+     0
+    ],
+    [
+     4217,
+     0
+    ],
+    [
+     4376,
+     0
+    ],
+    [
+     4536,
+     0
+    ],
+    [
+     4695,
+     0
+    ],
+    [
+     4848,
+     0
+    ],
+    [
+     5002,
+     0
+    ],
+    [
+     5162,
+     0
+    ],
+    [
+     5437,
+     2.82828
+    ],
+    [
+     5616,
+     2.82828
+    ],
+    [
+     5772,
+     2.82828
+    ],
+    [
+     5948,
+     2.82828
+    ],
+    [
+     6117,
+     2.82828
+    ],
+    [
+     6279,
+     2.82828
+    ],
+    [
+     6434,
+     2.82828
+    ],
+    [
+     6586,
+     2.82828
+    ],
+    [
+     6760,
+     2.82828
+    ],
+    [
+     6912,
+     2.82828
+    ],
+    [
+     7070,
+     2.82828
+    ],
+    [
+     7230,
+     2.82828
+    ],
+    [
+     7382,
+     2.82828
+    ],
+    [
+     7536,
+     2.82828
+    ],
+    [
+     7690,
+     2.82828
+    ],
+    [
+     7848,
+     0
+    ],
+    [
+     8001,
+     0
+    ],
+    [
+     8162,
+     0
+    ],
+    [
+     8315,
+     2.82828
+    ],
+    [
+     8553,
+     0
+    ],
+    [
+     8707,
+     0
+    ],
+    [
+     8866,
+     2.82828
+    ],
+    [
+     9020,
+     3.50168
+    ],
+    [
+     9180,
+     3.90572
+    ],
+    [
+     9333,
+     4.10774
+    ],
+    [
+     9487,
+     4.44444
+    ],
+    [
+     9642,
+     4.78115
+    ],
+    [
+     9795,
+     5.11784
+    ]
+   ],
+   "log": [
+    {
+     "wall": 1790003401548,
+     "token": "akari-annotations-widget:1790003401535:26",
+     "event": "trial_start",
+     "t": 1
+    },
+    {
+     "wall": 1790003403014,
+     "token": "akari-annotations-widget:1790003401535:26",
+     "event": "preview_trial_begin",
+     "t": 1469,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:36"
+    },
+    {
+     "wall": 1790003403822,
+     "token": "akari-annotations-widget:1790003401535:26",
+     "event": "reload_start",
+     "t": 2254,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:37"
+    },
+    {
+     "wall": 1790003404110,
+     "token": "akari-annotations-widget:1790003401535:26",
+     "event": "reload_complete",
+     "t": 2534,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:37"
+    },
+    {
+     "wall": 1790003406592,
+     "token": "akari-annotations-widget:1790003401535:26",
+     "event": "refresh_queued",
+     "t": 5055
+    },
+    {
+     "wall": 1790003408123,
+     "token": "akari-annotations-widget:1790003401535:26",
+     "event": "trial_applied",
+     "t": 6579,
+     "itemId": "bell-1",
+     "candidate": "audio/sfx-blip-beep"
+    },
+    {
+     "wall": 1790003409064,
+     "token": "akari-annotations-widget:1790003401535:26",
+     "event": "reload_start",
+     "t": 7457,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:38"
+    },
+    {
+     "wall": 1790003409273,
+     "token": "akari-annotations-widget:1790003401535:26",
+     "event": "reload_complete",
+     "t": 7736,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:38"
+    },
+    {
+     "wall": 1790003409651,
+     "token": "akari-annotations-widget:1790003401535:26",
+     "event": "ready_seek_response",
+     "t": 8110,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:38",
+     "seek": true
+    },
+    {
+     "wall": 1790003409720,
+     "token": "akari-annotations-widget:1790003401535:26",
+     "event": "ready_seek_response",
+     "t": 8137,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:38",
+     "seek": true
+    },
+    {
+     "wall": 1790003409720,
+     "token": "akari-annotations-widget:1790003401535:26",
+     "event": "play_request",
+     "t": 8137,
+     "attempt": 1,
+     "revision": 3,
+     "quietForMs": 401
+    },
+    {
+     "wall": 1790003409720,
+     "token": "akari-annotations-widget:1790003401535:26",
+     "event": "playback_state",
+     "t": 8143,
+     "playing": true,
+     "userStopped": false,
+     "source": "renderer"
+    },
+    {
+     "wall": 1790003409725,
+     "token": "akari-annotations-widget:1790003401535:26",
+     "event": "trial_playback_result",
+     "t": 8188,
+     "result": "playing"
+    }
+   ]
+  },
+  {
+   "n": 3,
+   "key": "audio/sfx-click-hollow",
+   "token": "akari-annotations-widget:1790003412495:27",
+   "clickWall": 1790003412410,
+   "reloads": 2,
+   "playRequests": 1,
+   "retries": 0,
+   "readyFallback": 0,
+   "result": "playing",
+   "appliedMs": 2414,
+   "playbackStartMs": 5597,
+   "logPlayingMs": 4756,
+   "cachedBefore": false,
+   "startAfterAppliedMs": 3183,
+   "firstPlayRequestMs": 4756,
+   "toasts": [
+    "素材を取得できませんでした: ダウンロード失敗: https://github.com/AkariLabs/akari-sounds/releases/download/v0/sfx-comedy-boing.mp3 → HTTP 504",
+    "素材を取得できませんでした: ダウンロード失敗: https://github.com/AkariLabs/akari-sounds/releases/download/v0/sfx-comedy-boing.mp3 → HTTP 504",
+    "素材を取得できませんでした: ダウンロード失敗: https://github.com/AkariLabs/akari-sounds/releases/download/v0/sfx-glitch-zap.mp3 → HTTP 504"
+   ],
+   "samples": [
+    [
+     91,
+     7.67677
+    ],
+    [
+     247,
+     7.71912
+    ],
+    [
+     398,
+     7.71912
+    ],
+    [
+     552,
+     7.71912
+    ],
+    [
+     704,
+     7.71912
+    ],
+    [
+     856,
+     7.71912
+    ],
+    [
+     1010,
+     7.71912
+    ],
+    [
+     1181,
+     6.06061
+    ],
+    [
+     1335,
+     6.06061
+    ],
+    [
+     1505,
+     6.06061
+    ],
+    [
+     1665,
+     6.06061
+    ],
+    [
+     1818,
+     6.06061
+    ],
+    [
+     1970,
+     6.06061
+    ],
+    [
+     2127,
+     6.06061
+    ],
+    [
+     2280,
+     6.06061
+    ],
+    [
+     2432,
+     7.74411
+    ],
+    [
+     2585,
+     7.74411
+    ],
+    [
+     2737,
+     7.74411
+    ],
+    [
+     2896,
+     7.74411
+    ],
+    [
+     3049,
+     7.74411
+    ],
+    [
+     3202,
+     7.74411
+    ],
+    [
+     3362,
+     7.74411
+    ],
+    [
+     3605,
+     7.74411
+    ],
+    [
+     3769,
+     6.06061
+    ],
+    [
+     3920,
+     6.06061
+    ],
+    [
+     4077,
+     6.06061
+    ],
+    [
+     4246,
+     6.06061
+    ],
+    [
+     4435,
+     6.06061
+    ],
+    [
+     4600,
+     6.06061
+    ],
+    [
+     4754,
+     2.82828
+    ],
+    [
+     4919,
+     6.06061
+    ],
+    [
+     5135,
+     6.06061
+    ],
+    [
+     5288,
+     6.06061
+    ],
+    [
+     5440,
+     2.82828
+    ],
+    [
+     5597,
+     3.83838
+    ],
+    [
+     5751,
+     4.17508
+    ],
+    [
+     5905,
+     4.37711
+    ],
+    [
+     6060,
+     4.84848
+    ],
+    [
+     6213,
+     4.98317
+    ],
+    [
+     6366,
+     5.38721
+    ]
+   ],
+   "log": [
+    {
+     "wall": 1790003412497,
+     "token": "akari-annotations-widget:1790003412495:27",
+     "event": "trial_start",
+     "t": 0
+    },
+    {
+     "wall": 1790003412581,
+     "token": "akari-annotations-widget:1790003412495:27",
+     "event": "preview_trial_begin",
+     "t": 82,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:38"
+    },
+    {
+     "wall": 1790003413404,
+     "token": "akari-annotations-widget:1790003412495:27",
+     "event": "reload_start",
+     "t": 887,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:39"
+    },
+    {
+     "wall": 1790003413544,
+     "token": "akari-annotations-widget:1790003412495:27",
+     "event": "reload_complete",
+     "t": 1045,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:39"
+    },
+    {
+     "wall": 1790003414772,
+     "token": "akari-annotations-widget:1790003412495:27",
+     "event": "refresh_queued",
+     "t": 2275
+    },
+    {
+     "wall": 1790003414824,
+     "token": "akari-annotations-widget:1790003412495:27",
+     "event": "trial_applied",
+     "t": 2328,
+     "itemId": "bell-1",
+     "candidate": "audio/sfx-click-hollow"
+    },
+    {
+     "wall": 1790003415992,
+     "token": "akari-annotations-widget:1790003412495:27",
+     "event": "reload_start",
+     "t": 3457,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:40"
+    },
+    {
+     "wall": 1790003416140,
+     "token": "akari-annotations-widget:1790003412495:27",
+     "event": "reload_complete",
+     "t": 3638,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:40"
+    },
+    {
+     "wall": 1790003417088,
+     "token": "akari-annotations-widget:1790003412495:27",
+     "event": "ready_seek_response",
+     "t": 4528,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:40",
+     "seek": true
+    },
+    {
+     "wall": 1790003417166,
+     "token": "akari-annotations-widget:1790003412495:27",
+     "event": "ready_seek_response",
+     "t": 4649,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:40",
+     "seek": true
+    },
+    {
+     "wall": 1790003417166,
+     "token": "akari-annotations-widget:1790003412495:27",
+     "event": "play_request",
+     "t": 4649,
+     "attempt": 1,
+     "revision": 3,
+     "quietForMs": 1011
+    },
+    {
+     "wall": 1790003417166,
+     "token": "akari-annotations-widget:1790003412495:27",
+     "event": "playback_state",
+     "t": 4655,
+     "playing": true,
+     "userStopped": false,
+     "source": "renderer"
+    },
+    {
+     "wall": 1790003417198,
+     "token": "akari-annotations-widget:1790003412495:27",
+     "event": "trial_playback_result",
+     "t": 4700,
+     "result": "playing"
+    }
+   ]
+  },
+  {
+   "n": 4,
+   "key": "audio/sfx-blip-marimba",
+   "token": "akari-annotations-widget:1790003420009:28",
+   "clickWall": 1790003419944,
+   "reloads": 2,
+   "playRequests": 1,
+   "retries": 0,
+   "readyFallback": 0,
+   "result": "playing",
+   "appliedMs": 2173,
+   "playbackStartMs": 5280,
+   "logPlayingMs": 4718,
+   "cachedBefore": true,
+   "startAfterAppliedMs": 3107,
+   "firstPlayRequestMs": 4713,
+   "toasts": [
+    "素材を取得できませんでした: ダウンロード失敗: https://github.com/AkariLabs/akari-sounds/releases/download/v0/sfx-comedy-boing.mp3 → HTTP 504",
+    "素材を取得できませんでした: ダウンロード失敗: https://github.com/AkariLabs/akari-sounds/releases/download/v0/sfx-comedy-boing.mp3 → HTTP 504",
+    "素材を取得できませんでした: ダウンロード失敗: https://github.com/AkariLabs/akari-sounds/releases/download/v0/sfx-glitch-zap.mp3 → HTTP 504"
+   ],
+   "samples": [
+    [
+     83,
+     7.71912
+    ],
+    [
+     244,
+     7.71912
+    ],
+    [
+     416,
+     7.71912
+    ],
+    [
+     570,
+     7.71912
+    ],
+    [
+     723,
+     7.71912
+    ],
+    [
+     877,
+     7.71912
+    ],
+    [
+     1029,
+     7.71912
+    ],
+    [
+     1204,
+     7.71912
+    ],
+    [
+     1358,
+     6.06061
+    ],
+    [
+     1527,
+     6.06061
+    ],
+    [
+     1680,
+     6.06061
+    ],
+    [
+     1832,
+     6.06061
+    ],
+    [
+     1992,
+     6.06061
+    ],
+    [
+     2151,
+     7.74411
+    ],
+    [
+     2305,
+     7.74411
+    ],
+    [
+     2461,
+     7.74411
+    ],
+    [
+     2614,
+     7.74411
+    ],
+    [
+     2934,
+     7.74411
+    ],
+    [
+     3092,
+     7.74411
+    ],
+    [
+     3246,
+     7.74411
+    ],
+    [
+     3405,
+     7.74411
+    ],
+    [
+     3560,
+     7.74411
+    ],
+    [
+     3713,
+     7.74411
+    ],
+    [
+     3866,
+     7.74411
+    ],
+    [
+     4021,
+     6.06061
+    ],
+    [
+     4175,
+     6.06061
+    ],
+    [
+     4331,
+     6.06061
+    ],
+    [
+     4484,
+     6.06061
+    ],
+    [
+     4636,
+     6.06061
+    ],
+    [
+     4795,
+     6.06061
+    ],
+    [
+     4953,
+     6.06061
+    ],
+    [
+     5128,
+     6.06061
+    ],
+    [
+     5280,
+     3.0303
+    ],
+    [
+     5434,
+     3.43434
+    ],
+    [
+     5611,
+     3.77104
+    ],
+    [
+     5764,
+     4.10774
+    ],
+    [
+     5918,
+     4.37711
+    ],
+    [
+     6070,
+     4.78115
+    ],
+    [
+     6225,
+     5.11784
+    ]
+   ],
+   "log": [
+    {
+     "wall": 1790003420012,
+     "token": "akari-annotations-widget:1790003420009:28",
+     "event": "trial_start",
+     "t": 0
+    },
+    {
+     "wall": 1790003420505,
+     "token": "akari-annotations-widget:1790003420009:28",
+     "event": "preview_trial_begin",
+     "t": 101,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:40"
+    },
+    {
+     "wall": 1790003421077,
+     "token": "akari-annotations-widget:1790003420009:28",
+     "event": "reload_start",
+     "t": 1014,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:41"
+    },
+    {
+     "wall": 1790003421230,
+     "token": "akari-annotations-widget:1790003420009:28",
+     "event": "reload_complete",
+     "t": 1204,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:41"
+    },
+    {
+     "wall": 1790003422041,
+     "token": "akari-annotations-widget:1790003420009:28",
+     "event": "refresh_queued",
+     "t": 2030
+    },
+    {
+     "wall": 1790003422117,
+     "token": "akari-annotations-widget:1790003420009:28",
+     "event": "trial_applied",
+     "t": 2106,
+     "itemId": "bell-1",
+     "candidate": "audio/sfx-blip-marimba"
+    },
+    {
+     "wall": 1790003423710,
+     "token": "akari-annotations-widget:1790003420009:28",
+     "event": "reload_start",
+     "t": 3670,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:42"
+    },
+    {
+     "wall": 1790003423929,
+     "token": "akari-annotations-widget:1790003420009:28",
+     "event": "reload_complete",
+     "t": 3916,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:42"
+    },
+    {
+     "wall": 1790003424633,
+     "token": "akari-annotations-widget:1790003420009:28",
+     "event": "ready_seek_response",
+     "t": 4622,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:42",
+     "seek": true
+    },
+    {
+     "wall": 1790003424657,
+     "token": "akari-annotations-widget:1790003420009:28",
+     "event": "ready_seek_response",
+     "t": 4643,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:42",
+     "seek": true
+    },
+    {
+     "wall": 1790003424657,
+     "token": "akari-annotations-widget:1790003420009:28",
+     "event": "play_request",
+     "t": 4643,
+     "attempt": 1,
+     "revision": 3,
+     "quietForMs": 727
+    },
+    {
+     "wall": 1790003424662,
+     "token": "akari-annotations-widget:1790003420009:28",
+     "event": "playback_state",
+     "t": 4650,
+     "playing": true,
+     "userStopped": false,
+     "source": "renderer"
+    },
+    {
+     "wall": 1790003424711,
+     "token": "akari-annotations-widget:1790003420009:28",
+     "event": "trial_playback_result",
+     "t": 4694,
+     "result": "playing"
+    }
+   ]
+  },
+  {
+   "n": 5,
+   "key": "audio/sfx-click-latch",
+   "token": "akari-annotations-widget:1790003427368:29",
+   "clickWall": 1790003427325,
+   "reloads": 2,
+   "playRequests": 1,
+   "retries": 0,
+   "readyFallback": 0,
+   "result": "playing",
+   "appliedMs": 9433,
+   "playbackStartMs": 11166,
+   "logPlayingMs": 10880,
+   "cachedBefore": false,
+   "startAfterAppliedMs": 1733,
+   "firstPlayRequestMs": 10877,
+   "toasts": [
+    "素材を取得できませんでした: ダウンロード失敗: https://github.com/AkariLabs/akari-sounds/releases/download/v0/sfx-comedy-boing.mp3 → HTTP 504",
+    "素材を取得できませんでした: ダウンロード失敗: https://github.com/AkariLabs/akari-sounds/releases/download/v0/sfx-comedy-boing.mp3 → HTTP 504",
+    "素材を取得できませんでした: ダウンロード失敗: https://github.com/AkariLabs/akari-sounds/releases/download/v0/sfx-glitch-zap.mp3 → HTTP 504"
+   ],
+   "samples": [
+    [
+     49,
+     7.61135
+    ],
+    [
+     212,
+     7.61135
+    ],
+    [
+     372,
+     7.61135
+    ],
+    [
+     524,
+     0
+    ],
+    [
+     676,
+     0
+    ],
+    [
+     831,
+     0
+    ],
+    [
+     983,
+     0
+    ],
+    [
+     1134,
+     0
+    ],
+    [
+     1286,
+     0
+    ],
+    [
+     1439,
+     0
+    ],
+    [
+     1592,
+     0
+    ],
+    [
+     1745,
+     0
+    ],
+    [
+     1918,
+     0
+    ],
+    [
+     2071,
+     0
+    ],
+    [
+     2223,
+     0
+    ],
+    [
+     2376,
+     0
+    ],
+    [
+     2529,
+     0
+    ],
+    [
+     2682,
+     0
+    ],
+    [
+     2834,
+     0
+    ],
+    [
+     2989,
+     0
+    ],
+    [
+     3144,
+     0
+    ],
+    [
+     3298,
+     0
+    ],
+    [
+     3452,
+     0
+    ],
+    [
+     3603,
+     0
+    ],
+    [
+     3757,
+     0
+    ],
+    [
+     3910,
+     0
+    ],
+    [
+     4064,
+     0
+    ],
+    [
+     4218,
+     0
+    ],
+    [
+     4370,
+     0
+    ],
+    [
+     4522,
+     0
+    ],
+    [
+     4675,
+     0
+    ],
+    [
+     4828,
+     0
+    ],
+    [
+     4982,
+     0
+    ],
+    [
+     5136,
+     0
+    ],
+    [
+     5289,
+     0
+    ],
+    [
+     5445,
+     0
+    ],
+    [
+     5597,
+     0
+    ],
+    [
+     5749,
+     0
+    ],
+    [
+     5901,
+     0
+    ],
+    [
+     6054,
+     0
+    ],
+    [
+     6206,
+     0
+    ],
+    [
+     6358,
+     0
+    ],
+    [
+     6510,
+     0
+    ],
+    [
+     6662,
+     0
+    ],
+    [
+     6814,
+     0
+    ],
+    [
+     6966,
+     0
+    ],
+    [
+     7131,
+     0
+    ],
+    [
+     7284,
+     0
+    ],
+    [
+     7436,
+     0
+    ],
+    [
+     7588,
+     0
+    ],
+    [
+     7741,
+     0
+    ],
+    [
+     7897,
+     0
+    ],
+    [
+     8049,
+     0
+    ],
+    [
+     8201,
+     0
+    ],
+    [
+     8384,
+     0
+    ],
+    [
+     8536,
+     0
+    ],
+    [
+     8688,
+     0
+    ],
+    [
+     8840,
+     0
+    ],
+    [
+     9000,
+     0
+    ],
+    [
+     9152,
+     0
+    ],
+    [
+     9305,
+     0
+    ],
+    [
+     9469,
+     7.60943
+    ],
+    [
+     9629,
+     7.60943
+    ],
+    [
+     9822,
+     7.60943
+    ],
+    [
+     9979,
+     7.60943
+    ],
+    [
+     10148,
+     6.06061
+    ],
+    [
+     10301,
+     6.06061
+    ],
+    [
+     10457,
+     6.06061
+    ],
+    [
+     10695,
+     6.06061
+    ],
+    [
+     10858,
+     2.82828
+    ],
+    [
+     11012,
+     7.60943
+    ],
+    [
+     11166,
+     3.0303
+    ],
+    [
+     11319,
+     3.367
+    ],
+    [
+     11473,
+     3.77104
+    ],
+    [
+     11625,
+     3.97306
+    ],
+    [
+     11779,
+     4.37711
+    ],
+    [
+     11930,
+     4.57913
+    ],
+    [
+     12082,
+     4.91582
+    ],
+    [
+     12236,
+     5.25253
+    ],
+    [
+     12388,
+     5.45455
+    ]
+   ],
+   "log": [
+    {
+     "wall": 1790003427368,
+     "token": "akari-annotations-widget:1790003427368:29",
+     "event": "trial_start",
+     "t": 0
+    },
+    {
+     "wall": 1790003427421,
+     "token": "akari-annotations-widget:1790003427368:29",
+     "event": "preview_trial_begin",
+     "t": 51,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:42"
+    },
+    {
+     "wall": 1790003427614,
+     "token": "akari-annotations-widget:1790003427368:29",
+     "event": "reload_start",
+     "t": 233,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:43"
+    },
+    {
+     "wall": 1790003427755,
+     "token": "akari-annotations-widget:1790003427368:29",
+     "event": "reload_complete",
+     "t": 384,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:43"
+    },
+    {
+     "wall": 1790003436694,
+     "token": "akari-annotations-widget:1790003427368:29",
+     "event": "refresh_queued",
+     "t": 9326
+    },
+    {
+     "wall": 1790003436758,
+     "token": "akari-annotations-widget:1790003427368:29",
+     "event": "trial_applied",
+     "t": 9376,
+     "itemId": "bell-1",
+     "candidate": "audio/sfx-click-latch"
+    },
+    {
+     "wall": 1790003437273,
+     "token": "akari-annotations-widget:1790003427368:29",
+     "event": "reload_start",
+     "t": 9897,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:44"
+    },
+    {
+     "wall": 1790003437389,
+     "token": "akari-annotations-widget:1790003427368:29",
+     "event": "reload_complete",
+     "t": 10018,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:44"
+    },
+    {
+     "wall": 1790003438185,
+     "token": "akari-annotations-widget:1790003427368:29",
+     "event": "ready_seek_response",
+     "t": 10808,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:44",
+     "seek": true
+    },
+    {
+     "wall": 1790003438202,
+     "token": "akari-annotations-widget:1790003427368:29",
+     "event": "ready_seek_response",
+     "t": 10828,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:44",
+     "seek": true
+    },
+    {
+     "wall": 1790003438202,
+     "token": "akari-annotations-widget:1790003427368:29",
+     "event": "play_request",
+     "t": 10828,
+     "attempt": 1,
+     "revision": 3,
+     "quietForMs": 810
+    },
+    {
+     "wall": 1790003438205,
+     "token": "akari-annotations-widget:1790003427368:29",
+     "event": "playback_state",
+     "t": 10836,
+     "playing": true,
+     "userStopped": false,
+     "source": "renderer"
+    },
+    {
+     "wall": 1790003438257,
+     "token": "akari-annotations-widget:1790003427368:29",
+     "event": "trial_playback_result",
+     "t": 10885,
+     "result": "playing"
+    }
+   ]
+  },
+  {
+   "n": 6,
+   "key": "audio/sfx-chime-success",
+   "token": "akari-annotations-widget:1790003440915:30",
+   "clickWall": 1790003440869,
+   "reloads": 2,
+   "playRequests": 1,
+   "retries": 0,
+   "readyFallback": 0,
+   "result": "playing",
+   "appliedMs": 1327,
+   "playbackStartMs": 2842,
+   "logPlayingMs": 2390,
+   "cachedBefore": true,
+   "startAfterAppliedMs": 1515,
+   "firstPlayRequestMs": 2387,
+   "toasts": [
+    "素材を取得できませんでした: ダウンロード失敗: https://github.com/AkariLabs/akari-sounds/releases/download/v0/sfx-comedy-boing.mp3 → HTTP 504",
+    "素材を取得できませんでした: ダウンロード失敗: https://github.com/AkariLabs/akari-sounds/releases/download/v0/sfx-comedy-boing.mp3 → HTTP 504",
+    "素材を取得できませんでした: ダウンロード失敗: https://github.com/AkariLabs/akari-sounds/releases/download/v0/sfx-glitch-zap.mp3 → HTTP 504"
+   ],
+   "samples": [
+    [
+     48,
+     7.71908
+    ],
+    [
+     207,
+     7.71908
+    ],
+    [
+     359,
+     7.71908
+    ],
+    [
+     512,
+     6.06061
+    ],
+    [
+     664,
+     6.06061
+    ],
+    [
+     818,
+     6.06061
+    ],
+    [
+     975,
+     7.74411
+    ],
+    [
+     1127,
+     7.74411
+    ],
+    [
+     1293,
+     7.74411
+    ],
+    [
+     1446,
+     7.74411
+    ],
+    [
+     1600,
+     7.74411
+    ],
+    [
+     1755,
+     7.74411
+    ],
+    [
+     1911,
+     6.06061
+    ],
+    [
+     2063,
+     6.06061
+    ],
+    [
+     2221,
+     6.06061
+    ],
+    [
+     2375,
+     2.82828
+    ],
+    [
+     2528,
+     6.06061
+    ],
+    [
+     2682,
+     2.82828
+    ],
+    [
+     2842,
+     2.82828
+    ],
+    [
+     2995,
+     3.23232
+    ],
+    [
+     3147,
+     3.43434
+    ],
+    [
+     3304,
+     3.83838
+    ],
+    [
+     3459,
+     4.17508
+    ],
+    [
+     3612,
+     4.44444
+    ],
+    [
+     3767,
+     4.78115
+    ],
+    [
+     3919,
+     5.11784
+    ]
+   ],
+   "log": [
+    {
+     "wall": 1790003440915,
+     "token": "akari-annotations-widget:1790003440915:30",
+     "event": "trial_start",
+     "t": 0
+    },
+    {
+     "wall": 1790003440966,
+     "token": "akari-annotations-widget:1790003440915:30",
+     "event": "preview_trial_begin",
+     "t": 48,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:44"
+    },
+    {
+     "wall": 1790003441195,
+     "token": "akari-annotations-widget:1790003440915:30",
+     "event": "reload_start",
+     "t": 264,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:45"
+    },
+    {
+     "wall": 1790003441313,
+     "token": "akari-annotations-widget:1790003440915:30",
+     "event": "reload_complete",
+     "t": 397,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:45"
+    },
+    {
+     "wall": 1790003441746,
+     "token": "akari-annotations-widget:1790003440915:30",
+     "event": "refresh_queued",
+     "t": 830
+    },
+    {
+     "wall": 1790003442196,
+     "token": "akari-annotations-widget:1790003440915:30",
+     "event": "trial_applied",
+     "t": 1274,
+     "itemId": "bell-1",
+     "candidate": "audio/sfx-chime-success"
+    },
+    {
+     "wall": 1790003442578,
+     "token": "akari-annotations-widget:1790003440915:30",
+     "event": "reload_start",
+     "t": 1644,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:46"
+    },
+    {
+     "wall": 1790003442759,
+     "token": "akari-annotations-widget:1790003440915:30",
+     "event": "reload_complete",
+     "t": 1809,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:46"
+    },
+    {
+     "wall": 1790003443229,
+     "token": "akari-annotations-widget:1790003440915:30",
+     "event": "ready_seek_response",
+     "t": 2312,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:46",
+     "seek": true
+    },
+    {
+     "wall": 1790003443255,
+     "token": "akari-annotations-widget:1790003440915:30",
+     "event": "ready_seek_response",
+     "t": 2336,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:46",
+     "seek": true
+    },
+    {
+     "wall": 1790003443256,
+     "token": "akari-annotations-widget:1790003440915:30",
+     "event": "play_request",
+     "t": 2336,
+     "attempt": 1,
+     "revision": 3,
+     "quietForMs": 527
+    },
+    {
+     "wall": 1790003443259,
+     "token": "akari-annotations-widget:1790003440915:30",
+     "event": "playback_state",
+     "t": 2342,
+     "playing": true,
+     "userStopped": false,
+     "source": "renderer"
+    },
+    {
+     "wall": 1790003443305,
+     "token": "akari-annotations-widget:1790003440915:30",
+     "event": "trial_playback_result",
+     "t": 2388,
+     "result": "playing"
+    }
+   ]
+  },
+  {
+   "n": 7,
+   "key": "audio/sfx-comedy-slide-up",
+   "token": "akari-annotations-widget:1790003446016:31",
+   "clickWall": 1790003445948,
+   "reloads": 2,
+   "playRequests": 1,
+   "retries": 0,
+   "readyFallback": 0,
+   "result": "playing",
+   "appliedMs": 2298,
+   "playbackStartMs": 3526,
+   "logPlayingMs": 3146,
+   "cachedBefore": false,
+   "startAfterAppliedMs": 1228,
+   "firstPlayRequestMs": 3127,
+   "toasts": [
+    "素材を取得できませんでした: ダウンロード失敗: https://github.com/AkariLabs/akari-sounds/releases/download/v0/sfx-comedy-boing.mp3 → HTTP 504",
+    "素材を取得できませんでした: ダウンロード失敗: https://github.com/AkariLabs/akari-sounds/releases/download/v0/sfx-comedy-boing.mp3 → HTTP 504",
+    "素材を取得できませんでした: ダウンロード失敗: https://github.com/AkariLabs/akari-sounds/releases/download/v0/sfx-glitch-zap.mp3 → HTTP 504"
+   ],
+   "samples": [
+    [
+     83,
+     7.60943
+    ],
+    [
+     246,
+     7.70838
+    ],
+    [
+     408,
+     7.70838
+    ],
+    [
+     561,
+     7.70838
+    ],
+    [
+     712,
+     7.70838
+    ],
+    [
+     866,
+     0
+    ],
+    [
+     1021,
+     0
+    ],
+    [
+     1176,
+     0
+    ],
+    [
+     1330,
+     0
+    ],
+    [
+     1483,
+     0
+    ],
+    [
+     1636,
+     0
+    ],
+    [
+     1789,
+     0
+    ],
+    [
+     1941,
+     0
+    ],
+    [
+     2094,
+     0
+    ],
+    [
+     2261,
+     0
+    ],
+    [
+     2424,
+     7.60943
+    ],
+    [
+     2598,
+     6.06061
+    ],
+    [
+     2753,
+     6.06061
+    ],
+    [
+     2905,
+     6.06061
+    ],
+    [
+     3062,
+     6.06061
+    ],
+    [
+     3215,
+     7.60943
+    ],
+    [
+     3373,
+     7.60943
+    ],
+    [
+     3526,
+     2.82828
+    ],
+    [
+     3678,
+     3.0303
+    ],
+    [
+     3832,
+     3.367
+    ],
+    [
+     3986,
+     3.7037
+    ],
+    [
+     4139,
+     3.90572
+    ],
+    [
+     4291,
+     4.24242
+    ],
+    [
+     4458,
+     4.64646
+    ],
+    [
+     4610,
+     4.84848
+    ]
+   ],
+   "log": [
+    {
+     "wall": 1790003446024,
+     "token": "akari-annotations-widget:1790003446016:31",
+     "event": "trial_start",
+     "t": 0
+    },
+    {
+     "wall": 1790003446107,
+     "token": "akari-annotations-widget:1790003446016:31",
+     "event": "preview_trial_begin",
+     "t": 82,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:46"
+    },
+    {
+     "wall": 1790003446558,
+     "token": "akari-annotations-widget:1790003446016:31",
+     "event": "reload_start",
+     "t": 513,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:47"
+    },
+    {
+     "wall": 1790003446728,
+     "token": "akari-annotations-widget:1790003446016:31",
+     "event": "reload_complete",
+     "t": 699,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:47"
+    },
+    {
+     "wall": 1790003448213,
+     "token": "akari-annotations-widget:1790003446016:31",
+     "event": "refresh_queued",
+     "t": 2196
+    },
+    {
+     "wall": 1790003448246,
+     "token": "akari-annotations-widget:1790003446016:31",
+     "event": "trial_applied",
+     "t": 2229,
+     "itemId": "bell-1",
+     "candidate": "audio/sfx-comedy-slide-up"
+    },
+    {
+     "wall": 1790003448394,
+     "token": "akari-annotations-widget:1790003446016:31",
+     "event": "reload_start",
+     "t": 2361,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:48"
+    },
+    {
+     "wall": 1790003448524,
+     "token": "akari-annotations-widget:1790003446016:31",
+     "event": "reload_complete",
+     "t": 2505,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:48"
+    },
+    {
+     "wall": 1790003449075,
+     "token": "akari-annotations-widget:1790003446016:31",
+     "event": "ready_seek_response",
+     "t": 3058,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:48",
+     "seek": true
+    },
+    {
+     "wall": 1790003449075,
+     "token": "akari-annotations-widget:1790003446016:31",
+     "event": "play_request",
+     "t": 3058,
+     "attempt": 1,
+     "revision": 3,
+     "quietForMs": 553
+    },
+    {
+     "wall": 1790003449094,
+     "token": "akari-annotations-widget:1790003446016:31",
+     "event": "playback_state",
+     "t": 3065,
+     "playing": true,
+     "userStopped": false,
+     "source": "renderer"
+    },
+    {
+     "wall": 1790003449126,
+     "token": "akari-annotations-widget:1790003446016:31",
+     "event": "trial_playback_result",
+     "t": 3108,
+     "result": "playing"
+    }
+   ]
+  },
+  {
+   "n": 8,
+   "key": "audio/sfx-harp-gliss",
+   "token": "akari-annotations-widget:1790003451769:32",
+   "clickWall": 1790003451716,
+   "reloads": 2,
+   "playRequests": 1,
+   "retries": 0,
+   "readyFallback": 0,
+   "result": "playing",
+   "appliedMs": 1890,
+   "playbackStartMs": 4097,
+   "logPlayingMs": 3607,
+   "cachedBefore": true,
+   "startAfterAppliedMs": 2207,
+   "firstPlayRequestMs": 3599,
+   "toasts": [
+    "素材を取得できませんでした: ダウンロード失敗: https://github.com/AkariLabs/akari-sounds/releases/download/v0/sfx-comedy-boing.mp3 → HTTP 504",
+    "素材を取得できませんでした: ダウンロード失敗: https://github.com/AkariLabs/akari-sounds/releases/download/v0/sfx-comedy-boing.mp3 → HTTP 504",
+    "素材を取得できませんでした: ダウンロード失敗: https://github.com/AkariLabs/akari-sounds/releases/download/v0/sfx-glitch-zap.mp3 → HTTP 504"
+   ],
+   "samples": [
+    [
+     64,
+     7.46048
+    ],
+    [
+     221,
+     7.46048
+    ],
+    [
+     378,
+     7.46048
+    ],
+    [
+     534,
+     7.46048
+    ],
+    [
+     715,
+     7.46048
+    ],
+    [
+     870,
+     7.46048
+    ],
+    [
+     1030,
+     6.06061
+    ],
+    [
+     1188,
+     6.06061
+    ],
+    [
+     1342,
+     6.06061
+    ],
+    [
+     1522,
+     6.06061
+    ],
+    [
+     1676,
+     6.06061
+    ],
+    [
+     1842,
+     6.06061
+    ],
+    [
+     1995,
+     7.47475
+    ],
+    [
+     2150,
+     7.47475
+    ],
+    [
+     2309,
+     7.47475
+    ],
+    [
+     2481,
+     7.47475
+    ],
+    [
+     2641,
+     7.47475
+    ],
+    [
+     2796,
+     7.47475
+    ],
+    [
+     2973,
+     7.47475
+    ],
+    [
+     3128,
+     6.06061
+    ],
+    [
+     3293,
+     6.06061
+    ],
+    [
+     3450,
+     6.06061
+    ],
+    [
+     3616,
+     2.82828
+    ],
+    [
+     3769,
+     6.06061
+    ],
+    [
+     3932,
+     6.06061
+    ],
+    [
+     4097,
+     2.96296
+    ],
+    [
+     4263,
+     3.23232
+    ],
+    [
+     4417,
+     3.56902
+    ],
+    [
+     4569,
+     3.97306
+    ],
+    [
+     4722,
+     4.24242
+    ],
+    [
+     4880,
+     4.51178
+    ],
+    [
+     5032,
+     4.84848
+    ],
+    [
+     5188,
+     5.18519
+    ]
+   ],
+   "log": [
+    {
+     "wall": 1790003451771,
+     "token": "akari-annotations-widget:1790003451769:32",
+     "event": "trial_start",
+     "t": 1
+    },
+    {
+     "wall": 1790003451828,
+     "token": "akari-annotations-widget:1790003451769:32",
+     "event": "preview_trial_begin",
+     "t": 55,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:48"
+    },
+    {
+     "wall": 1790003452445,
+     "token": "akari-annotations-widget:1790003451769:32",
+     "event": "reload_start",
+     "t": 648,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:49"
+    },
+    {
+     "wall": 1790003452711,
+     "token": "akari-annotations-widget:1790003451769:32",
+     "event": "reload_complete",
+     "t": 934,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:49"
+    },
+    {
+     "wall": 1790003453544,
+     "token": "akari-annotations-widget:1790003451769:32",
+     "event": "refresh_queued",
+     "t": 1772
+    },
+    {
+     "wall": 1790003453606,
+     "token": "akari-annotations-widget:1790003451769:32",
+     "event": "trial_applied",
+     "t": 1835,
+     "itemId": "bell-1",
+     "candidate": "audio/sfx-harp-gliss"
+    },
+    {
+     "wall": 1790003454577,
+     "token": "akari-annotations-widget:1790003451769:32",
+     "event": "reload_start",
+     "t": 2785,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:50"
+    },
+    {
+     "wall": 1790003454740,
+     "token": "akari-annotations-widget:1790003451769:32",
+     "event": "reload_complete",
+     "t": 2960,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:50"
+    },
+    {
+     "wall": 1790003455293,
+     "token": "akari-annotations-widget:1790003451769:32",
+     "event": "ready_seek_response",
+     "t": 3517,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:50",
+     "seek": true
+    },
+    {
+     "wall": 1790003455315,
+     "token": "akari-annotations-widget:1790003451769:32",
+     "event": "ready_seek_response",
+     "t": 3541,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:50",
+     "seek": true
+    },
+    {
+     "wall": 1790003455315,
+     "token": "akari-annotations-widget:1790003451769:32",
+     "event": "play_request",
+     "t": 3541,
+     "attempt": 1,
+     "revision": 3,
+     "quietForMs": 581
+    },
+    {
+     "wall": 1790003455323,
+     "token": "akari-annotations-widget:1790003451769:32",
+     "event": "playback_state",
+     "t": 3551,
+     "playing": true,
+     "userStopped": false,
+     "source": "renderer"
+    },
+    {
+     "wall": 1790003455364,
+     "token": "akari-annotations-widget:1790003451769:32",
+     "event": "trial_playback_result",
+     "t": 3592,
+     "result": "playing"
+    }
+   ]
+  },
+  {
+   "n": 9,
+   "key": "audio/sfx-glitch-stutter-001",
+   "token": "akari-annotations-widget:1790003458168:33",
+   "clickWall": 1790003458095,
+   "reloads": 2,
+   "playRequests": 1,
+   "retries": 0,
+   "readyFallback": 0,
+   "result": "playing",
+   "appliedMs": 5470,
+   "playbackStartMs": 8342,
+   "logPlayingMs": 7420,
+   "cachedBefore": false,
+   "startAfterAppliedMs": 2872,
+   "firstPlayRequestMs": 7418,
+   "toasts": [
+    "素材を取得できませんでした: ダウンロード失敗: https://github.com/AkariLabs/akari-sounds/releases/download/v0/sfx-comedy-boing.mp3 → HTTP 504",
+    "素材を取得できませんでした: ダウンロード失敗: https://github.com/AkariLabs/akari-sounds/releases/download/v0/sfx-comedy-boing.mp3 → HTTP 504",
+    "素材を取得できませんでした: ダウンロード失敗: https://github.com/AkariLabs/akari-sounds/releases/download/v0/sfx-glitch-zap.mp3 → HTTP 504"
+   ],
+   "samples": [
+    [
+     145,
+     7.90229
+    ],
+    [
+     299,
+     7.90229
+    ],
+    [
+     452,
+     7.90229
+    ],
+    [
+     611,
+     7.90229
+    ],
+    [
+     787,
+     7.90229
+    ],
+    [
+     968,
+     7.90229
+    ],
+    [
+     1120,
+     7.90229
+    ],
+    [
+     1283,
+     7.90229
+    ],
+    [
+     1516,
+     7.90229
+    ],
+    [
+     1669,
+     7.90229
+    ],
+    [
+     1824,
+     7.90229
+    ],
+    [
+     1989,
+     7.90229
+    ],
+    [
+     2176,
+     7.90229
+    ],
+    [
+     2339,
+     6.06061
+    ],
+    [
+     2499,
+     6.06061
+    ],
+    [
+     2660,
+     6.06061
+    ],
+    [
+     2818,
+     6.06061
+    ],
+    [
+     2983,
+     6.06061
+    ],
+    [
+     3136,
+     6.06061
+    ],
+    [
+     3302,
+     6.06061
+    ],
+    [
+     3473,
+     6.06061
+    ],
+    [
+     3690,
+     6.06061
+    ],
+    [
+     3852,
+     6.06061
+    ],
+    [
+     4014,
+     6.06061
+    ],
+    [
+     4176,
+     6.06061
+    ],
+    [
+     4335,
+     6.06061
+    ],
+    [
+     4490,
+     6.06061
+    ],
+    [
+     4694,
+     6.06061
+    ],
+    [
+     4874,
+     7.87879
+    ],
+    [
+     5028,
+     7.87879
+    ],
+    [
+     5182,
+     7.87879
+    ],
+    [
+     5336,
+     7.87879
+    ],
+    [
+     5493,
+     7.87879
+    ],
+    [
+     5646,
+     7.87879
+    ],
+    [
+     5801,
+     7.87879
+    ],
+    [
+     5978,
+     7.87879
+    ],
+    [
+     6135,
+     7.87879
+    ],
+    [
+     6310,
+     7.87879
+    ],
+    [
+     6478,
+     6.06061
+    ],
+    [
+     6649,
+     6.06061
+    ],
+    [
+     6803,
+     6.06061
+    ],
+    [
+     6973,
+     6.06061
+    ],
+    [
+     7165,
+     6.06061
+    ],
+    [
+     7353,
+     2.82828
+    ],
+    [
+     7520,
+     6.06061
+    ],
+    [
+     7678,
+     6.06061
+    ],
+    [
+     7832,
+     6.06061
+    ],
+    [
+     8012,
+     2.82828
+    ],
+    [
+     8188,
+     2.82828
+    ],
+    [
+     8342,
+     4.0404
+    ],
+    [
+     8495,
+     4.37711
+    ],
+    [
+     8653,
+     4.64646
+    ],
+    [
+     8819,
+     4.98317
+    ],
+    [
+     9014,
+     5.31986
+    ]
+   ],
+   "log": [
+    {
+     "wall": 1790003458219,
+     "token": "akari-annotations-widget:1790003458168:33",
+     "event": "trial_start",
+     "t": 0
+    },
+    {
+     "wall": 1790003458359,
+     "token": "akari-annotations-widget:1790003458168:33",
+     "event": "preview_trial_begin",
+     "t": 162,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:50"
+    },
+    {
+     "wall": 1790003460195,
+     "token": "akari-annotations-widget:1790003458168:33",
+     "event": "reload_start",
+     "t": 1997,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:51"
+    },
+    {
+     "wall": 1790003460396,
+     "token": "akari-annotations-widget:1790003458168:33",
+     "event": "reload_complete",
+     "t": 2224,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:51"
+    },
+    {
+     "wall": 1790003462811,
+     "token": "akari-annotations-widget:1790003458168:33",
+     "event": "refresh_queued",
+     "t": 4641
+    },
+    {
+     "wall": 1790003463565,
+     "token": "akari-annotations-widget:1790003458168:33",
+     "event": "trial_applied",
+     "t": 5267,
+     "itemId": "bell-1",
+     "candidate": "audio/sfx-glitch-stutter-001"
+    },
+    {
+     "wall": 1790003464291,
+     "token": "akari-annotations-widget:1790003458168:33",
+     "event": "reload_start",
+     "t": 6087,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:52"
+    },
+    {
+     "wall": 1790003464460,
+     "token": "akari-annotations-widget:1790003458168:33",
+     "event": "reload_complete",
+     "t": 6291,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:52"
+    },
+    {
+     "wall": 1790003465472,
+     "token": "akari-annotations-widget:1790003458168:33",
+     "event": "ready_seek_response",
+     "t": 7260,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:52",
+     "seek": true
+    },
+    {
+     "wall": 1790003465503,
+     "token": "akari-annotations-widget:1790003458168:33",
+     "event": "ready_seek_response",
+     "t": 7329,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:52",
+     "seek": true
+    },
+    {
+     "wall": 1790003465513,
+     "token": "akari-annotations-widget:1790003458168:33",
+     "event": "play_request",
+     "t": 7329,
+     "attempt": 1,
+     "revision": 3,
+     "quietForMs": 1038
+    },
+    {
+     "wall": 1790003465515,
+     "token": "akari-annotations-widget:1790003458168:33",
+     "event": "playback_state",
+     "t": 7335,
+     "playing": true,
+     "userStopped": false,
+     "source": "renderer"
+    },
+    {
+     "wall": 1790003465589,
+     "token": "akari-annotations-widget:1790003458168:33",
+     "event": "trial_playback_result",
+     "t": 7382,
+     "result": "playing"
+    }
+   ]
+  },
+  {
+   "n": 10,
+   "key": "audio/sfx-impact-echo",
+   "token": "akari-annotations-widget:1790003468345:34",
+   "clickWall": 1790003468293,
+   "reloads": 2,
+   "playRequests": 1,
+   "retries": 0,
+   "readyFallback": 0,
+   "result": "playing",
+   "appliedMs": 2969,
+   "playbackStartMs": 5521,
+   "logPlayingMs": 5006,
+   "cachedBefore": true,
+   "startAfterAppliedMs": 2552,
+   "firstPlayRequestMs": 5000,
+   "toasts": [
+    "素材を取得できませんでした: ダウンロード失敗: https://github.com/AkariLabs/akari-sounds/releases/download/v0/sfx-comedy-boing.mp3 → HTTP 504",
+    "素材を取得できませんでした: ダウンロード失敗: https://github.com/AkariLabs/akari-sounds/releases/download/v0/sfx-comedy-boing.mp3 → HTTP 504",
+    "素材を取得できませんでした: ダウンロード失敗: https://github.com/AkariLabs/akari-sounds/releases/download/v0/sfx-glitch-zap.mp3 → HTTP 504"
+   ],
+   "samples": [
+    [
+     65,
+     7.76221
+    ],
+    [
+     226,
+     7.76221
+    ],
+    [
+     385,
+     7.76221
+    ],
+    [
+     550,
+     7.76221
+    ],
+    [
+     703,
+     7.76221
+    ],
+    [
+     855,
+     7.76221
+    ],
+    [
+     1056,
+     7.76221
+    ],
+    [
+     1209,
+     7.76221
+    ],
+    [
+     1363,
+     7.76221
+    ],
+    [
+     1518,
+     6.06061
+    ],
+    [
+     1670,
+     6.06061
+    ],
+    [
+     1826,
+     6.06061
+    ],
+    [
+     1982,
+     6.06061
+    ],
+    [
+     2138,
+     6.06061
+    ],
+    [
+     2307,
+     6.06061
+    ],
+    [
+     2465,
+     6.06061
+    ],
+    [
+     2636,
+     6.06061
+    ],
+    [
+     2804,
+     6.06061
+    ],
+    [
+     2958,
+     7.74411
+    ],
+    [
+     3116,
+     7.74411
+    ],
+    [
+     3269,
+     7.74411
+    ],
+    [
+     3421,
+     7.74411
+    ],
+    [
+     3578,
+     7.74411
+    ],
+    [
+     3731,
+     7.74411
+    ],
+    [
+     3884,
+     7.74411
+    ],
+    [
+     4067,
+     7.74411
+    ],
+    [
+     4250,
+     7.74411
+    ],
+    [
+     4403,
+     6.06061
+    ],
+    [
+     4560,
+     6.06061
+    ],
+    [
+     4716,
+     6.06061
+    ],
+    [
+     4880,
+     6.06061
+    ],
+    [
+     5034,
+     2.82828
+    ],
+    [
+     5193,
+     6.06061
+    ],
+    [
+     5367,
+     6.06061
+    ],
+    [
+     5521,
+     2.96296
+    ],
+    [
+     5675,
+     3.29966
+    ],
+    [
+     5828,
+     3.7037
+    ],
+    [
+     5980,
+     3.90572
+    ],
+    [
+     6133,
+     4.17508
+    ],
+    [
+     6286,
+     4.57913
+    ],
+    [
+     6451,
+     4.91582
+    ],
+    [
+     6630,
+     5.05051
+    ]
+   ],
+   "log": [
+    {
+     "wall": 1790003468348,
+     "token": "akari-annotations-widget:1790003468345:34",
+     "event": "trial_start",
+     "t": 0
+    },
+    {
+     "wall": 1790003469238,
+     "token": "akari-annotations-widget:1790003468345:34",
+     "event": "preview_trial_begin",
+     "t": 878,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:52"
+    },
+    {
+     "wall": 1790003469499,
+     "token": "akari-annotations-widget:1790003468345:34",
+     "event": "reload_start",
+     "t": 1134,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:53"
+    },
+    {
+     "wall": 1790003469714,
+     "token": "akari-annotations-widget:1790003468345:34",
+     "event": "reload_complete",
+     "t": 1365,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:53"
+    },
+    {
+     "wall": 1790003471107,
+     "token": "akari-annotations-widget:1790003468345:34",
+     "event": "refresh_queued",
+     "t": 2760
+    },
+    {
+     "wall": 1790003471262,
+     "token": "akari-annotations-widget:1790003468345:34",
+     "event": "trial_applied",
+     "t": 2840,
+     "itemId": "bell-1",
+     "candidate": "audio/sfx-impact-echo"
+    },
+    {
+     "wall": 1790003472408,
+     "token": "akari-annotations-widget:1790003468345:34",
+     "event": "reload_start",
+     "t": 4013,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:54"
+    },
+    {
+     "wall": 1790003472579,
+     "token": "akari-annotations-widget:1790003468345:34",
+     "event": "reload_complete",
+     "t": 4233,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:54"
+    },
+    {
+     "wall": 1790003473254,
+     "token": "akari-annotations-widget:1790003468345:34",
+     "event": "ready_seek_response",
+     "t": 4883,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:54",
+     "seek": true
+    },
+    {
+     "wall": 1790003473291,
+     "token": "akari-annotations-widget:1790003468345:34",
+     "event": "ready_seek_response",
+     "t": 4943,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:54",
+     "seek": true
+    },
+    {
+     "wall": 1790003473293,
+     "token": "akari-annotations-widget:1790003468345:34",
+     "event": "play_request",
+     "t": 4943,
+     "attempt": 1,
+     "revision": 3,
+     "quietForMs": 710
+    },
+    {
+     "wall": 1790003473299,
+     "token": "akari-annotations-widget:1790003468345:34",
+     "event": "playback_state",
+     "t": 4949,
+     "playing": true,
+     "userStopped": false,
+     "source": "renderer"
+    },
+    {
+     "wall": 1790003473356,
+     "token": "akari-annotations-widget:1790003468345:34",
+     "event": "trial_playback_result",
+     "t": 4995,
+     "result": "playing"
+    }
+   ]
+  },
+  {
+   "n": 11,
+   "key": "audio/sfx-impact-boom-001",
+   "token": "akari-annotations-widget:1790003476717:35",
+   "clickWall": 1790003476596,
+   "reloads": 2,
+   "playRequests": 1,
+   "retries": 0,
+   "readyFallback": 0,
+   "result": "playing",
+   "appliedMs": 2395,
+   "playbackStartMs": 4358,
+   "logPlayingMs": 3970,
+   "cachedBefore": false,
+   "startAfterAppliedMs": 1963,
+   "firstPlayRequestMs": 3970,
+   "toasts": [
+    "素材を取得できませんでした: ダウンロード失敗: https://github.com/AkariLabs/akari-sounds/releases/download/v0/sfx-comedy-boing.mp3 → HTTP 504",
+    "素材を取得できませんでした: ダウンロード失敗: https://github.com/AkariLabs/akari-sounds/releases/download/v0/sfx-comedy-boing.mp3 → HTTP 504",
+    "素材を取得できませんでした: ダウンロード失敗: https://github.com/AkariLabs/akari-sounds/releases/download/v0/sfx-glitch-zap.mp3 → HTTP 504"
+   ],
+   "samples": [
+    [
+     191,
+     8.99049
+    ],
+    [
+     347,
+     8.99049
+    ],
+    [
+     500,
+     8.99049
+    ],
+    [
+     653,
+     8.99049
+    ],
+    [
+     810,
+     8.99049
+    ],
+    [
+     962,
+     8.99049
+    ],
+    [
+     1145,
+     6.06061
+    ],
+    [
+     1297,
+     6.06061
+    ],
+    [
+     1451,
+     6.06061
+    ],
+    [
+     1610,
+     6.06061
+    ],
+    [
+     1764,
+     6.06061
+    ],
+    [
+     1932,
+     6.06061
+    ],
+    [
+     2086,
+     6.06061
+    ],
+    [
+     2241,
+     6.06061
+    ],
+    [
+     2445,
+     9.02357
+    ],
+    [
+     2641,
+     9.02357
+    ],
+    [
+     2801,
+     9.02357
+    ],
+    [
+     2969,
+     9.02357
+    ],
+    [
+     3124,
+     9.02357
+    ],
+    [
+     3278,
+     9.02357
+    ],
+    [
+     3431,
+     9.02357
+    ],
+    [
+     3585,
+     0
+    ],
+    [
+     3742,
+     0
+    ],
+    [
+     3898,
+     0
+    ],
+    [
+     4053,
+     6.06061
+    ],
+    [
+     4206,
+     2.82828
+    ],
+    [
+     4358,
+     2.82828
+    ],
+    [
+     4510,
+     2.89562
+    ],
+    [
+     4663,
+     3.16498
+    ],
+    [
+     4815,
+     3.56902
+    ],
+    [
+     4970,
+     3.90572
+    ],
+    [
+     5122,
+     4.17508
+    ],
+    [
+     5276,
+     4.51178
+    ],
+    [
+     5431,
+     4.78115
+    ]
+   ],
+   "log": [
+    {
+     "wall": 1790003476757,
+     "token": "akari-annotations-widget:1790003476717:35",
+     "event": "trial_start",
+     "t": 0
+    },
+    {
+     "wall": 1790003476885,
+     "token": "akari-annotations-widget:1790003476717:35",
+     "event": "preview_trial_begin",
+     "t": 140,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:54"
+    },
+    {
+     "wall": 1790003477537,
+     "token": "akari-annotations-widget:1790003476717:35",
+     "event": "reload_start",
+     "t": 781,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:55"
+    },
+    {
+     "wall": 1790003477756,
+     "token": "akari-annotations-widget:1790003476717:35",
+     "event": "reload_complete",
+     "t": 1009,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:55"
+    },
+    {
+     "wall": 1790003478906,
+     "token": "akari-annotations-widget:1790003476717:35",
+     "event": "refresh_queued",
+     "t": 2188
+    },
+    {
+     "wall": 1790003478991,
+     "token": "akari-annotations-widget:1790003476717:35",
+     "event": "trial_applied",
+     "t": 2266,
+     "itemId": "bell-1",
+     "candidate": "audio/sfx-impact-boom-001"
+    },
+    {
+     "wall": 1790003479979,
+     "token": "akari-annotations-widget:1790003476717:35",
+     "event": "reload_start",
+     "t": 3245,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:56"
+    },
+    {
+     "wall": 1790003480140,
+     "token": "akari-annotations-widget:1790003476717:35",
+     "event": "reload_complete",
+     "t": 3418,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:56"
+    },
+    {
+     "wall": 1790003480532,
+     "token": "akari-annotations-widget:1790003476717:35",
+     "event": "ready_seek_response",
+     "t": 3812,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:56",
+     "seek": true
+    },
+    {
+     "wall": 1790003480556,
+     "token": "akari-annotations-widget:1790003476717:35",
+     "event": "ready_seek_response",
+     "t": 3838,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:56",
+     "seek": true
+    },
+    {
+     "wall": 1790003480566,
+     "token": "akari-annotations-widget:1790003476717:35",
+     "event": "play_request",
+     "t": 3838,
+     "attempt": 1,
+     "revision": 3,
+     "quietForMs": 420
+    },
+    {
+     "wall": 1790003480566,
+     "token": "akari-annotations-widget:1790003476717:35",
+     "event": "playback_state",
+     "t": 3842,
+     "playing": true,
+     "userStopped": false,
+     "source": "renderer"
+    },
+    {
+     "wall": 1790003480606,
+     "token": "akari-annotations-widget:1790003476717:35",
+     "event": "trial_playback_result",
+     "t": 3888,
+     "result": "playing"
+    }
+   ]
+  },
+  {
+   "n": 12,
+   "key": "audio/sfx-levelup-arp",
+   "token": "akari-annotations-widget:1790003483244:36",
+   "clickWall": 1790003483186,
+   "reloads": 2,
+   "playRequests": 1,
+   "retries": 0,
+   "readyFallback": 0,
+   "result": "playing",
+   "appliedMs": 1688,
+   "playbackStartMs": 3346,
+   "logPlayingMs": 2859,
+   "cachedBefore": true,
+   "startAfterAppliedMs": 1658,
+   "firstPlayRequestMs": 2859,
+   "toasts": [
+    "素材を取得できませんでした: ダウンロード失敗: https://github.com/AkariLabs/akari-sounds/releases/download/v0/sfx-comedy-boing.mp3 → HTTP 504",
+    "素材を取得できませんでした: ダウンロード失敗: https://github.com/AkariLabs/akari-sounds/releases/download/v0/sfx-comedy-boing.mp3 → HTTP 504",
+    "素材を取得できませんでした: ダウンロード失敗: https://github.com/AkariLabs/akari-sounds/releases/download/v0/sfx-glitch-zap.mp3 → HTTP 504"
+   ],
+   "samples": [
+    [
+     89,
+     7.37437
+    ],
+    [
+     243,
+     7.37437
+    ],
+    [
+     395,
+     7.37437
+    ],
+    [
+     548,
+     7.37437
+    ],
+    [
+     701,
+     7.37437
+    ],
+    [
+     865,
+     6.06061
+    ],
+    [
+     1019,
+     6.06061
+    ],
+    [
+     1171,
+     6.06061
+    ],
+    [
+     1336,
+     6.06061
+    ],
+    [
+     1489,
+     6.06061
+    ],
+    [
+     1653,
+     6.06061
+    ],
+    [
+     1805,
+     7.40741
+    ],
+    [
+     1957,
+     7.40741
+    ],
+    [
+     2111,
+     7.40741
+    ],
+    [
+     2276,
+     7.40741
+    ],
+    [
+     2493,
+     6.06061
+    ],
+    [
+     2655,
+     6.06061
+    ],
+    [
+     2838,
+     2.82828
+    ],
+    [
+     2991,
+     6.06061
+    ],
+    [
+     3160,
+     6.06061
+    ],
+    [
+     3346,
+     2.82828
+    ],
+    [
+     3502,
+     3.23232
+    ],
+    [
+     3654,
+     3.50168
+    ],
+    [
+     3806,
+     3.77104
+    ],
+    [
+     3979,
+     4.10774
+    ],
+    [
+     4132,
+     4.44444
+    ],
+    [
+     4286,
+     4.78115
+    ],
+    [
+     4443,
+     5.11784
+    ]
+   ],
+   "log": [
+    {
+     "wall": 1790003483249,
+     "token": "akari-annotations-widget:1790003483244:36",
+     "event": "trial_start",
+     "t": 0
+    },
+    {
+     "wall": 1790003483313,
+     "token": "akari-annotations-widget:1790003483244:36",
+     "event": "preview_trial_begin",
+     "t": 65,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:56"
+    },
+    {
+     "wall": 1790003483854,
+     "token": "akari-annotations-widget:1790003483244:36",
+     "event": "reload_start",
+     "t": 587,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:57"
+    },
+    {
+     "wall": 1790003484013,
+     "token": "akari-annotations-widget:1790003483244:36",
+     "event": "reload_complete",
+     "t": 759,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:57"
+    },
+    {
+     "wall": 1790003484822,
+     "token": "akari-annotations-widget:1790003483244:36",
+     "event": "refresh_queued",
+     "t": 1577
+    },
+    {
+     "wall": 1790003484874,
+     "token": "akari-annotations-widget:1790003483244:36",
+     "event": "trial_applied",
+     "t": 1629,
+     "itemId": "bell-1",
+     "candidate": "audio/sfx-levelup-arp"
+    },
+    {
+     "wall": 1790003485344,
+     "token": "akari-annotations-widget:1790003483244:36",
+     "event": "reload_start",
+     "t": 2073,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:58"
+    },
+    {
+     "wall": 1790003485509,
+     "token": "akari-annotations-widget:1790003483244:36",
+     "event": "reload_complete",
+     "t": 2250,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:58"
+    },
+    {
+     "wall": 1790003486023,
+     "token": "akari-annotations-widget:1790003483244:36",
+     "event": "ready_seek_response",
+     "t": 2755,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:58",
+     "seek": true
+    },
+    {
+     "wall": 1790003486045,
+     "token": "akari-annotations-widget:1790003483244:36",
+     "event": "ready_seek_response",
+     "t": 2794,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:58",
+     "seek": true
+    },
+    {
+     "wall": 1790003486045,
+     "token": "akari-annotations-widget:1790003483244:36",
+     "event": "play_request",
+     "t": 2794,
+     "attempt": 1,
+     "revision": 3,
+     "quietForMs": 544
+    },
+    {
+     "wall": 1790003486045,
+     "token": "akari-annotations-widget:1790003483244:36",
+     "event": "playback_state",
+     "t": 2800,
+     "playing": true,
+     "userStopped": false,
+     "source": "renderer"
+    },
+    {
+     "wall": 1790003486090,
+     "token": "akari-annotations-widget:1790003483244:36",
+     "event": "trial_playback_result",
+     "t": 2845,
+     "result": "playing"
+    }
+   ]
+  }
+ ]
+}
