@@ -1,0 +1,72 @@
+{
+ "card": "assets/broll/talkinghead-desk-ja-01",
+ "playheadNotice": "00:00:04.667 にプレビューをシークしました。",
+ "menu": {
+  "labels": [
+   "開く",
+   "タイムラインに追加",
+   "Finder で表示",
+   "ファイルをコピー",
+   "パスをコピー",
+   "素材の情報を表示",
+   "名前を変更…",
+   "削除…",
+   "エージェントに頼む…",
+   "見本画像を開く"
+  ],
+  "clicked": true
+ },
+ "editChanged": true,
+ "addMs": 2420,
+ "addedDiff": {
+  "tracks": [
+   {
+    "id": "v1",
+    "lane": "visual",
+    "items": [
+     {
+      "id": "cut-1",
+      "at": 0,
+      "duration": 180,
+      "source": {
+       "kind": "media",
+       "src": "base",
+       "in": 0,
+       "out": 6
+      }
+     },
+     {
+      "id": "clip-1",
+      "at": 140,
+      "duration": 1128,
+      "source": {
+       "kind": "media",
+       "src": "src-1",
+       "in": 0,
+       "out": 37.6
+      }
+     }
+    ]
+   },
+   {
+    "id": "a1",
+    "lane": "audio",
+    "items": []
+   }
+  ],
+  "sources": [
+   {
+    "id": "base",
+    "path": "base.mp4",
+    "proxy": null
+   },
+   {
+    "id": "src-1",
+    "path": "assets/broll/talkinghead-desk-ja-01/clip.mp4"
+   }
+  ],
+  "audio": null
+ },
+ "baseItemCount": 1,
+ "undoRestoredSemantically": true
+}

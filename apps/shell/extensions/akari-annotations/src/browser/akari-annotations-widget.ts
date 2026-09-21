@@ -153,6 +153,7 @@ import {
     projectLegacyEdit,
     readInternalEdit
 } from '../common/edit-store';
+import { materialOverlapInsertIndex } from '../common/material-drop-overlap';
 import {
     EditV2Document,
     ItemLocation,
@@ -284,6 +285,9 @@ import {
     filterSupportedTransitionBoundaries,
     hitTestTransitionBoundary,
     LibraryTransitionDragPayload,
+    LibraryAssetDragPayload,
+    parseLibraryDragPayload,
+    libraryAssetGhostPayload,
     parseLibraryTransitionDragPayload,
     TransitionBoundaryHitCandidate
 } from './library-drop-model';
@@ -1003,6 +1007,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected materialDragPayload: MaterialDragPayload | undefined;
     /** ライブラリの transition D&D 中だけ保持し、適用可能なカット境界の受け皿描画を有効にする。 */
     protected libraryDragPayload: LibraryTransitionDragPayload | undefined;
+    protected libraryAssetDragPayload: LibraryAssetDragPayload | undefined;
     protected materialDragLastClientX = 0;
     protected materialDragLastClientY = 0;
     protected materialDragAutoScrollPointerY: number | undefined;
@@ -2554,23 +2559,25 @@ export class AkariAnnotationsWidget extends BaseWidget {
         ));
 
         // ライブラリ D&D のミラー受信。未知 kind / 未知 transition id は純ロジック側で fail-soft に拒否し、
-        // 以前の有効ドラッグ状態も残さない。受理時だけ境界受け皿を keyed 描画へ加える。
+        // 以前の有効ドラッグ状態も残さない。素材は既存の素材ゴースト、transition は境界受け皿へ渡す。
         const onLibraryDragStart = (event: Event): void => {
-            const payload = parseLibraryTransitionDragPayload((event as CustomEvent<unknown>).detail);
-            this.setHoveredTransitionDropTarget(undefined);
-            if (!payload) {
-                this.clearLibraryTransitionDragState();
+            const payload = parseLibraryDragPayload((event as CustomEvent<unknown>).detail);
+            this.clearLibraryTransitionDragState();
+            if (payload?.kind === 'asset') {
+                this.libraryAssetDragPayload = payload;
+                this.materialDragPayload = libraryAssetGhostPayload(payload);
                 return;
             }
+            if (!payload) return;
             this.libraryDragPayload = payload;
             this.renderStrip();
         };
         const onLibraryDragEnd = (): void => this.clearLibraryTransitionDragState();
         const onWindowLibraryDrop = (): void => {
-            if (this.libraryDragPayload) queueMicrotask(() => this.clearLibraryTransitionDragState());
+            if (this.libraryDragPayload || this.libraryAssetDragPayload) queueMicrotask(() => this.clearLibraryTransitionDragState());
         };
         const onWindowLibraryDragLeave = (event: DragEvent): void => {
-            if (!this.libraryDragPayload || event.relatedTarget !== null) return;
+            if ((!this.libraryDragPayload && !this.libraryAssetDragPayload) || event.relatedTarget !== null) return;
             const outsideViewport = event.clientX <= 0 || event.clientY <= 0
                 || event.clientX >= window.innerWidth || event.clientY >= window.innerHeight;
             if (outsideViewport) this.clearLibraryTransitionDragState();
@@ -2925,6 +2932,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
 
     protected applyFocusScope(scope: FocusScopeState): void {
         this.focusScope = scope;
+        this.dispatchPreviewEvent('akari.timeline.selectionFloor', { scopeId: scope.rootId });
         if (scope.rootId === null) {
             this.viewStart = 0;
             this.viewDuration = undefined;
@@ -5036,6 +5044,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             let value = JSON.parse(editBefore) as EditV2Document;
             const successNote = 'タイムラインに素材を追加しました。';
             let beyondNote = '';
+            let overlapNote = '';
             if (kind === 'audio') {
                 const audio = value.audio && typeof value.audio === 'object' && !Array.isArray(value.audio)
                     ? value.audio as Record<string, unknown> : {};
@@ -5049,9 +5058,16 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 while (ids.has(`audio-${serial}`)) serial++;
                 const itemId = `audio-${serial}`;
                 let targetTrackId = options?.targetTrackId;
-                if (options?.createAudioTrack) {
-                    value = insertV2Track(value, { index: 0, lane: 'audio' });
-                    targetTrackId = String((value.tracks as Array<Record<string, unknown>>)[0].id);
+                // 実尺と読み直した文書で再判定する。プレイヘッド追加の legacy sfx は対象外。
+                const overlapIndex = options?.createAudioTrack ? undefined : materialOverlapInsertIndex(
+                    value.tracks as Array<Record<string, unknown>>, targetTrackId,
+                    { at: this.frameAt(Math.max(0, t)), duration: Math.max(1, this.frameAt(durationSeconds)) }
+                );
+                if (options?.createAudioTrack || overlapIndex !== undefined) {
+                    const index = overlapIndex ?? 0;
+                    value = insertV2Track(value, { index, lane: 'audio' });
+                    targetTrackId = String((value.tracks as Array<Record<string, unknown>>)[index].id);
+                    if (overlapIndex !== undefined) overlapNote = '重なりを避けて新しいトラックに置きました。';
                 }
                 const targetTrack = targetTrackId === undefined ? undefined
                     : (value.tracks as Array<Record<string, unknown>>)
@@ -5148,7 +5164,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     }
                 });
                 this.hideNotice();
-                this.footer.textContent = autoLevelNotice || `${successNote}${fallbackNote}`;
+                this.footer.textContent = `${overlapNote}${autoLevelNotice || `${successNote}${fallbackNote}`}`;
                 this.revealOutputPreview();
                 return;
             }
@@ -5191,6 +5207,15 @@ export class AkariAnnotationsWidget extends BaseWidget {
                         targetTrackId = String(target.id);
                     }
                 }
+                const overlapIndex = options?.zone === 'cuts' ? undefined : materialOverlapInsertIndex(
+                    value.tracks as Array<Record<string, unknown>>, targetTrackId,
+                    { at: item.at as number, duration }
+                );
+                if (overlapIndex !== undefined) {
+                    value = insertV2Track(value, { index: overlapIndex, lane });
+                    targetTrackId = String((value.tracks as Array<Record<string, unknown>>)[overlapIndex].id);
+                    overlapNote = '重なりを避けて新しいトラックに置きました。';
+                }
                 value = insertV2Item(value, targetTrackId, item);
             }
             beyondNote = this.beyondCutsEndNote(t);
@@ -5210,7 +5235,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 }
             });
             this.hideNotice();
-            this.footer.textContent = `${successNote}${beyondNote}${fallbackNote}`;
+            this.footer.textContent = `${successNote}${overlapNote}${beyondNote}${fallbackNote}`;
             this.revealOutputPreview();
         } catch (error) {
             const detail = this.errorMessage(error);
@@ -5260,7 +5285,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected isMaterialDragTransfer(transfer: DataTransfer | null): boolean {
-        return !!transfer && transfer.types.includes(MATERIAL_DRAG_MIME);
+        return !!transfer && (transfer.types.includes(MATERIAL_DRAG_MIME)
+            || (transfer.types.includes(LIBRARY_DRAG_MIME) && this.readLibraryAssetDropPayload(transfer) !== undefined));
     }
 
     protected materialPanelDropPoint(pointerX: number, pointerY: number): TimelinePanelDropPoint {
@@ -5400,7 +5426,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
         }
         event.preventDefault();
         event.stopPropagation();
-        const payload = this.readMaterialDropPayload(event.dataTransfer) ?? this.materialDragPayload;
+        const libraryAsset = this.readLibraryAssetDropPayload(event.dataTransfer);
+        const payload = libraryAsset ? libraryAssetGhostPayload(libraryAsset)
+            : this.readMaterialDropPayload(event.dataTransfer) ?? this.materialDragPayload;
         this.hideMaterialGhost();
         this.materialDragPayload = undefined;
         if (!payload) {
@@ -5411,6 +5439,16 @@ export class AkariAnnotationsWidget extends BaseWidget {
         const lockedTrackId = target.targetTrackId;
         if (this.isTrackLocked(lockedTrackId)) {
             this.showLockedTrack(lockedTrackId, event);
+            return;
+        }
+        if (libraryAsset) {
+            this.clearLibraryTransitionDragState();
+            if (target.rejected) {
+                this.footer.textContent = target.reason || '素材をここには置けません。';
+                this.messages.warn(this.footer.textContent);
+                return;
+            }
+            void this.placeLibraryAssetAtTarget(libraryAsset, target, point.x, point.zone);
             return;
         }
         void this.placeMaterialAtTarget(payload, target, point.x, point.zone);
@@ -5479,8 +5517,46 @@ export class AkariAnnotationsWidget extends BaseWidget {
         }
     }
 
+    protected readLibraryAssetDropPayload(transfer: DataTransfer | null): LibraryAssetDragPayload | undefined {
+        if (!transfer?.types.includes(LIBRARY_DRAG_MIME)) return undefined;
+        const raw = transfer.getData(LIBRARY_DRAG_MIME);
+        const payload = raw ? parseLibraryDragPayload(raw) : this.libraryAssetDragPayload;
+        return payload?.kind === 'asset' ? payload : undefined;
+    }
+
+    protected async placeLibraryAssetAtTarget(
+        asset: LibraryAssetDragPayload,
+        target: ReturnType<AkariAnnotationsWidget['resolveMaterialDropTarget']>,
+        clientX: number,
+        panelZone: TimelinePanelDropZone
+    ): Promise<void> {
+        const editUri = this.location?.editUri?.toString();
+        try {
+            const resolved = await this.commands.executeCommand<unknown>('akari.catalog.resolveMaterial', asset.key);
+            // 解決側は取得失敗・配置不可の理由をトーストに出す。
+            if (!resolved) return;
+            const payload = parseMaterialDragPayload(resolved);
+            if (!payload || payload.kind !== libraryAssetGhostPayload(asset).kind) {
+                this.messages.warn('この素材は直接置けません');
+                return;
+            }
+            if (this.location?.editUri?.toString() !== editUri) {
+                this.messages.warn('プロジェクトが切り替わったため、素材を追加しませんでした。');
+                return;
+            }
+            if (this.isTrackLocked(target.targetTrackId)) {
+                this.showLockedTrack(target.targetTrackId);
+                return;
+            }
+            await this.placeMaterialAtTarget(payload, target, clientX, panelZone);
+        } catch (error) {
+            this.messages.error(`素材を追加できません: ${this.errorMessage(error)}`);
+        }
+    }
+
     protected isLibraryTransitionDragTransfer(transfer: DataTransfer | null): boolean {
-        return !!transfer && transfer.types.includes(LIBRARY_DRAG_MIME);
+        return !!transfer && transfer.types.includes(LIBRARY_DRAG_MIME)
+            && !this.readLibraryAssetDropPayload(transfer);
     }
 
     protected handleLibraryTransitionDragEnter(event: DragEvent): void {
@@ -5586,6 +5662,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected clearLibraryTransitionDragState(): void {
+        if (this.libraryAssetDragPayload) {
+            this.libraryAssetDragPayload = undefined;
+            this.materialDragPayload = undefined;
+            this.stopMaterialDragAutoScroll();
+            this.hideMaterialGhost();
+        }
         const hadPayload = this.libraryDragPayload !== undefined;
         this.libraryDragPayload = undefined;
         this.setHoveredTransitionDropTarget(undefined);
@@ -5622,7 +5704,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     ): {
         zone: MaterialDropZone; track: number; top: number; height: number; rejected: boolean;
         insertTrack?: number; insertIndex?: number; targetTrackId?: string;
-        createAudioTrack?: boolean; reason?: string;
+        createAudioTrack?: boolean; reason?: string; overlapInsert?: boolean;
     } {
         const localY = clientY - this.strip.getBoundingClientRect().top;
         const lockedLayout = this.laneLayout.tracks.find(layout =>
@@ -5708,6 +5790,25 @@ export class AkariAnnotationsWidget extends BaseWidget {
         return MATERIAL_INSERT_FALLBACK_DURATION_SECONDS;
     }
 
+    /** ゴーストだけを挿入先へ切り替える。確定時は addMaterialAt が実尺で再判定する。 */
+    protected materialDropTargetWithoutOverlap(
+        target: ReturnType<AkariAnnotationsWidget['resolveMaterialDropTarget']>,
+        t: number, durationSeconds: number
+    ): ReturnType<AkariAnnotationsWidget['resolveMaterialDropTarget']> {
+        if (target.rejected || target.zone === 'cuts' || target.insertIndex !== undefined
+            || this.isTrackLocked(target.targetTrackId)) return target;
+        const tracks = Array.isArray(this.editDocument?.tracks)
+            ? this.editDocument!.tracks as Array<Record<string, unknown>> : [];
+        const insertIndex = materialOverlapInsertIndex(tracks, target.targetTrackId, {
+            at: this.frameAt(Math.max(0, t)), duration: Math.max(1, this.frameAt(durationSeconds))
+        });
+        if (insertIndex === undefined) return target;
+        return {
+            ...target, insertIndex, insertTrack: insertIndex, overlapInsert: true,
+            top: target.zone === 'audio' ? target.top + target.height : target.top
+        };
+    }
+
     protected updateMaterialGhost(clientX: number, clientY: number): void {
         const payload = this.materialDragPayload;
         if (!payload) {
@@ -5716,11 +5817,14 @@ export class AkariAnnotationsWidget extends BaseWidget {
         }
         this.materialDragLastClientX = clientX;
         this.materialDragLastClientY = clientY;
-        const target = this.resolveMaterialDropTarget(payload.kind, clientY);
-        if (this.isTrackLocked(target.targetTrackId)) {
+        const rowTarget = this.resolveMaterialDropTarget(payload.kind, clientY);
+        if (this.isTrackLocked(rowTarget.targetTrackId) || rowTarget.rejected) {
             this.hideMaterialGhost();
             return;
         }
+        const durationSeconds = this.materialGhostDurationSeconds(payload);
+        const t = this.materialDropTime(clientX, rowTarget.zone, rowTarget.track, durationSeconds);
+        const target = this.materialDropTargetWithoutOverlap(rowTarget, t, durationSeconds);
         const visibility = materialGhostVisibility(payload.kind, target);
         if (!visibility.showGhost) {
             // rejected（対象外の帯）: 本体ゴーストを表示しない（司令塔裁定1）。trackAtClientY の
@@ -5729,13 +5833,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
             this.hideMaterialGhost();
             return;
         }
-        const durationSeconds = this.materialGhostDurationSeconds(payload);
         // task 2026-08-18-timeline-dnd-p0p1 / P1-b: 総尺でのクランプをやめる。総尺より後ろに
         // 置けるし、素材が黙って短く切られることもない（置けば総尺のほうが伸びる）。
         // 本編帯だけは重なりが許されない（cuts.track-overlap は error）ので、着地位置を
         // 空きへ寄せた結果をそのままゴーストに出す（見えている場所 = 入る場所）。
         const range = computeMaterialGhostRange(
-            this.materialDropTime(clientX, target.zone, target.track, durationSeconds),
+            t,
             durationSeconds
         );
         this.setGhostRange(this.materialGhost, range.start, range.end);
@@ -5744,11 +5847,19 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.materialGhost.style.top = `${viewportTop}px`;
         this.materialGhost.style.height = `${target.height}px`;
         this.materialGhost.style.display = 'block';
+        if (target.overlapInsert) {
+            this.footer.textContent = '重なるので新しいトラックに置きます';
+        } else if (this.footer.textContent === '重なるので新しいトラックに置きます') {
+            this.footer.textContent = '';
+        }
         if (visibility.showInsertIndicator) {
             this.showTrackInsertIndicatorAt(target.top);
             this.positionInsertionGhost(this.materialGhost, target.top, target.height);
         } else {
             delete this.materialGhost.dataset.akariInsertionPreview;
+            Object.assign(this.materialGhost.style, {
+                border: '1px dashed #4dd0c8', opacity: '', zIndex: '10'
+            });
             this.hideTrackInsertIndicator();
         }
     }
@@ -5756,6 +5867,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected hideMaterialGhost(): void {
         this.materialGhost.style.display = 'none';
         this.hideTrackInsertIndicator();
+        if (this.footer.textContent === '重なるので新しいトラックに置きます') {
+            this.footer.textContent = '';
+        }
     }
 
     protected async performCompactCuts(): Promise<void> {
@@ -15053,7 +15167,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     /**
-     * 行き先を織り込んだドロップ時刻。レイヤー・音源は重ねてよいので落とした位置のまま
+     * 行き先を織り込んだドロップ時刻。レイヤー・音源は落とした時刻を保ち、重なりは新しい行で避ける
      * （P1-b: 総尺より後ろも可）。本編だけは planCutDrop が決めた着地時刻を使う。
      */
     protected materialDropTime(

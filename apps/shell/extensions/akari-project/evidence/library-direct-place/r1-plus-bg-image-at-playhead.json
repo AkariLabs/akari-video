@@ -1,0 +1,41 @@
+{
+ "key": "still/bg-isometric-grid",
+ "mode": "plus",
+ "target": {
+  "x": 288.59375,
+  "y": 220.1953125,
+  "label": "＋",
+  "aria": "アイソメグリッド背景 をプレイヘッド位置に追加"
+ },
+ "at": "2026-09-21T11:16:04.481Z",
+ "playheadBefore": null,
+ "waitMs": 3008,
+ "editChanged": true,
+ "newItems": [
+  {
+   "track": "v2",
+   "id": "image-1",
+   "at": 61,
+   "duration": 150,
+   "source": {
+    "kind": "media",
+    "src": "src-1",
+    "in": 0,
+    "out": 5
+   }
+  }
+ ],
+ "newSfx": [],
+ "newSources": [
+  {
+   "id": "src-1",
+   "path": "assets/still/bg-isometric-grid/bg.png"
+  }
+ ],
+ "tracksAfter": [
+  "v2:visual",
+  "v1:visual",
+  "a1:audio"
+ ],
+ "toasts": []
+}

@@ -30,6 +30,9 @@ and you pick the target track while dragging. Depending on the row you drop onto
 and image assets land either in `layers[]` (stacked visuals) or in `cuts` (the main
 cut track); audio lands in `audio.sfx[]`.
 
+If an asset overlaps an existing clip on the target row, it goes onto a new track immediately above that row for video or images, or below it for audio; an insertion line and a message preview this while dragging.
+Placement checks again using the actual duration, and one Undo removes both the new track and the added asset.
+
 You can also **drop files straight from Finder onto the timeline**. Video files are
 imported into `assets/` first and then placed at the position and row you dropped them
 on. Dropping outside the timeline (asset panel, home) only imports them; place them

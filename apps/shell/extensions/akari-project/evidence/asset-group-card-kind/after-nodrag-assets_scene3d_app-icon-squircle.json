@@ -1,0 +1,23 @@
+{
+ "card": "assets/scene3d/app-icon-squircle",
+ "drop": {
+  "x": 590,
+  "y": 521
+ },
+ "at": "2026-09-21T09:58:26.807Z",
+ "cardDraggable": "false",
+ "dragIntercepted": false,
+ "itemsBefore": 1,
+ "itemsAfter": 1,
+ "tracksBefore": [
+  "v1:visual",
+  "a1:audio"
+ ],
+ "tracksAfter": [
+  "v1:visual",
+  "a1:audio"
+ ],
+ "newItems": [],
+ "newSources": [],
+ "footer": ""
+}

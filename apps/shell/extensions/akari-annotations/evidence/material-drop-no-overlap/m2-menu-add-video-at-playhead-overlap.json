@@ -1,0 +1,97 @@
+{
+ "src": "menu:assets/video/raw-clip.mp4",
+ "points": [],
+ "at": "2026-09-21T11:40:30.256Z",
+ "shaBefore": "d8411d057ec94c0419eb2aab22ef06e4e4b827cd7d2ef233b7b0f54c2eea174b",
+ "tracksBefore": [
+  {
+   "id": "v1",
+   "lane": "visual",
+   "items": [
+    "cut-1@0+60",
+    "cut-2@180+60"
+   ]
+  },
+  {
+   "id": "a1",
+   "lane": "audio",
+   "items": [
+    "bell-1@60+76"
+   ]
+  }
+ ],
+ "hovers": [],
+ "menu": {
+  "labels": [
+   "開く",
+   "タイムラインに追加",
+   "Finder で表示",
+   "ファイルをコピー",
+   "パスをコピー",
+   "素材の情報を表示",
+   "文字起こし",
+   "名前を変更…",
+   "削除…",
+   "エージェントに頼む…"
+  ],
+  "clicked": true
+ },
+ "waitMs": 2509,
+ "editChanged": true,
+ "tracksAfter": [
+  {
+   "id": "v1",
+   "lane": "visual",
+   "items": [
+    "cut-1@0+60",
+    "cut-2@180+60"
+   ]
+  },
+  {
+   "id": "v2",
+   "lane": "visual",
+   "items": [
+    "clip-1@170+120"
+   ]
+  },
+  {
+   "id": "a1",
+   "lane": "audio",
+   "items": [
+    "bell-1@60+76"
+   ]
+  }
+ ],
+ "afterDrop": {
+  "ghost": null,
+  "insertLine": null,
+  "footer": "タイムラインに素材を追加しました。重なりを避けて新しいトラックに置きました。"
+ },
+ "toasts": [],
+ "lint": {
+  "verdict": "pass",
+  "overlap": []
+ },
+ "undo": {
+  "presses": 1,
+  "shaAfterUndo": "d8411d057ec94c0419eb2aab22ef06e4e4b827cd7d2ef233b7b0f54c2eea174b",
+  "byteIdentical": true,
+  "tracksAfterUndo": [
+   {
+    "id": "v1",
+    "lane": "visual",
+    "items": [
+     "cut-1@0+60",
+     "cut-2@180+60"
+    ]
+   },
+   {
+    "id": "a1",
+    "lane": "audio",
+    "items": [
+     "bell-1@60+76"
+    ]
+   }
+  ]
+ }
+}

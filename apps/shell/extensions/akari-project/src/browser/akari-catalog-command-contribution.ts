@@ -1,3 +1,4 @@
+import { RESOLVE_LIBRARY_MATERIAL_COMMAND_ID } from '../common/library-asset-placement';
 import { inject, injectable } from '@theia/core/shared/inversify';
 import { Command, CommandContribution, CommandRegistry } from '@theia/core/lib/common';
 import URI from '@theia/core/lib/common/uri';
@@ -91,6 +92,12 @@ export class AkariCatalogCommandContribution implements CommandContribution {
     });
 
     registerCommands(registry: CommandRegistry): void {
+        registry.registerCommand({ id: RESOLVE_LIBRARY_MATERIAL_COMMAND_ID }, {
+            execute: async (key: string) => {
+                const widget = await this.widgetManager.getOrCreateWidget<AkariRoleBucketsWidget>(AkariRoleBucketsWidget.ID);
+                return widget.resolveCatalogMaterial(key);
+            }
+        });
         registry.registerCommand(AkariCatalogCommands.OPEN_CATALOG, {
             execute: async (options?: AkariCatalogFocusOptions): Promise<boolean> => {
                 const widget = await this.widgetManager.getOrCreateWidget<AkariRoleBucketsWidget>(AkariRoleBucketsWidget.ID);

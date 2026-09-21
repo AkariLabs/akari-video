@@ -103,7 +103,7 @@ import { collectItems, hasInlineCaptions, readPreviewInternalEdit } from '../com
 import { filterRenderableFrameEngineLayers } from '../common/frame-engine-layer-supply';
 import { parseRenderScaleMode, resolveRenderScale, scaledOutputSize, scaleEvaluationPlan, RenderScaleMode } from '../common/frame-engine-render-scale';
 import { isAlphaIntakeSource } from '../common/alpha-intake-routing';
-import { expandBagOverlays } from '../common/preview-parts';
+import { expandBagOverlays, projectBagChildren, scanHtmlParts } from '../common/preview-parts';
 import {
     buildItemKeyframeSummaryFields,
     ItemKeyframe,
@@ -638,7 +638,17 @@ interface EditSummaryTimelineTrack {
     z: number;
 }
 
+interface PreviewSelectionNode {
+    id: string;
+    parentId: string | null;
+    kind: 'group' | 'bag' | 'leaf';
+    label: string;
+    /** Composed output-space transform, used for a group translation write. */
+    transform: OverlayTransform;
+}
+
 interface EditSummary {
+    tree?: PreviewSelectionNode[];
     /** geometry は幾何統一（別票）が入れる出力座標系マーカー。'source' = ソース実寸基準へ移行済み。 */
     output: { width: number; height: number; fps?: number; geometry?: string };
     /** 生 edit.json の version。cuts[].crop の書き戻しは v2 のみ（legacy schema に席が無い）。 */
@@ -1089,6 +1099,7 @@ interface PreviewPlaybackRateRequest {
 interface PreviewOverlaySelectedRequest {
     type: 'akari-preview-overlay-selected';
     overlayId: string | null;
+    scopeId?: string | null;
 }
 
 // CF-select: overlay 選択同期チャンネルの layers 版。
@@ -1129,6 +1140,7 @@ interface ReviewToolModeSetRequest extends ReviewSessionControlRequest {
 }
 
 interface PreviewSessionSettings {
+    selectionFloor?: string | null;
     muted: boolean;
     captionsVisible: boolean;
     hiddenTracks: Set<number>;
@@ -1149,6 +1161,7 @@ interface TrackVisibilityV2Request {
 const EMPTY_SUMMARY: EditSummary = {
     output: { width: 1280, height: 720, fps: 30 },
     overlays: [],
+    tree: [],
     layers: [],
     filters: [],
     cuts: [],
@@ -1769,6 +1782,13 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 const range = Number.isFinite(detail.start) && Number.isFinite(detail.end)
                     && detail.end! > detail.start! ? { start: detail.start!, end: detail.end! } : null;
                 widget?.sendMessage({ type: 'akari-preview-loop-range', range });
+            }
+        );
+        registerTimelineSetting<{ editUri?: string; scopeId: string | null }>(
+            'akari.timeline.selectionFloor', (widget, detail, settings) => {
+                if (detail.scopeId !== null && typeof detail.scopeId !== 'string') return;
+                settings.selectionFloor = detail.scopeId;
+                widget?.sendMessage({ type: 'akari-preview-selection-floor', scopeId: detail.scopeId });
             }
         );
         this.registerReviewSessionEvents();
@@ -3405,7 +3425,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
 
     protected isOverlaySelectedRequest(message: any): message is PreviewOverlaySelectedRequest {
         return message?.type === 'akari-preview-overlay-selected'
-            && (typeof message.overlayId === 'string' || message.overlayId === null);
+            && (typeof message.overlayId === 'string' || message.overlayId === null)
+            && (message.scopeId === undefined || message.scopeId === null || typeof message.scopeId === 'string');
     }
 
     protected forwardOverlaySelection(widget: PreviewWidgetMarker, message: PreviewOverlaySelectedRequest): void {
@@ -3416,7 +3437,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         window.dispatchEvent(new CustomEvent(PREVIEW_OVERLAY_SELECTED_EVENT, {
             detail: {
                 videoUri: editUri.normalizePath().toString(),
-                overlayId: message.overlayId
+                overlayId: message.overlayId,
+                ...(message.scopeId !== undefined ? { scopeId: message.scopeId } : {})
             }
         }));
     }
@@ -4738,10 +4760,66 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 },
                 onWarning: (message, error) => console.warn(message, error)
             });
+            // BEGIN preview selection tree (overlays only, before flattening loses ancestry)
+            type TreeItem = typeof internal.tracks[number]['items'][number];
+            // All-scanned HTML bags normally collapse to one renderer record.
+            // Materialize their projections in this derived summary only so the
+            // preview can address each part without changing edit.json or exports.
+            const selectionProjectionItem = (item: TreeItem): TreeItem => {
+                const children = item.children.map(selectionProjectionItem);
+                if (rawVersion === 2 && item.source.kind === 'html' && !item.source.part
+                    && children.length === 0 && !item.source.exclude?.length) {
+                    const reference = String(item.source.html ?? '');
+                    const parts = scanHtmlParts(overlayHtml.get(reference) ?? reference);
+                    if (parts.length) return { ...item, children: projectBagChildren(item, parts) };
+                }
+                return { ...item, children };
+            };
             const projectedOverlays = expandBagOverlays(
-                internal,
+                rawVersion === 2 ? { ...internal, tracks: internal.tracks.map(track => ({ ...track,
+                    items: track.items.map(selectionProjectionItem) })) } : internal,
                 reference => overlayHtml.get(reference) ?? reference
             );
+            const tree: PreviewSelectionNode[] = [];
+            if (rawVersion === 2) {
+                const rendered = new Map<string, { transform?: OverlayTransform }>(projectedOverlays.map(overlay => [overlay.id, overlay]));
+                const compose = (parent: OverlayTransform, child: OverlayTransform = {}): OverlayTransform => {
+                    const angle = (parent.rotate ?? 0) * Math.PI / 180;
+                    const scale = parent.scale ?? 1, x = child.x ?? 0, y = child.y ?? 0;
+                    return { x: (parent.x ?? 0) + scale * (Math.cos(angle) * x - Math.sin(angle) * y),
+                        y: (parent.y ?? 0) + scale * (Math.sin(angle) * x + Math.cos(angle) * y),
+                        scale: scale * (child.scale ?? 1), rotate: (parent.rotate ?? 0) + (child.rotate ?? 0) };
+                };
+                const visit = (item: TreeItem, parentId: string | null, parentTransform: OverlayTransform): PreviewSelectionNode[] => {
+                    const world = compose(parentTransform, item.declaration?.transform as OverlayTransform | undefined);
+                    const kind = item.source.kind;
+                    if (kind === 'group') {
+                        const children = item.children.flatMap(child => visit(child, item.id, world));
+                        return children.length ? [{ id: item.id, parentId, kind: 'group',
+                            label: String(item.declaration.name ?? item.id), transform: world }, ...children] : [];
+                    }
+                    if (kind !== 'html') return [];
+                    const bagParts = projectedOverlays.filter(overlay => overlay.parentId === item.id);
+                    if (!item.source.part && bagParts.length) {
+                        const reference = String(item.source.html ?? '');
+                        const projected = projectBagChildren(item, scanHtmlParts(overlayHtml.get(reference) ?? reference));
+                        const children = projected.flatMap(child => visit(child as TreeItem, item.id, parentTransform));
+                        return children.length ? [{ id: item.id, parentId, kind: 'bag',
+                            label: String(item.declaration.name ?? item.id), transform: world }, ...children] : [];
+                    }
+                    const overlay = rendered.get(item.id);
+                    if (!overlay) return [];
+                    // The renderer is the geometry oracle: group composition and
+                    // bag per-key overrides must remain identical in all outputs.
+                    return [{ id: item.id, parentId, kind: 'leaf',
+                        label: String(item.declaration?.name ?? item.id), transform: { ...overlay.transform } }];
+                };
+                for (const track of internal.tracks) {
+                    tree.push(...track.items.flatMap(item => visit(item, null, {})));
+                }
+                if (!tree.some(node => node.kind !== 'leaf')) tree.length = 0;
+            }
+            // END preview selection tree
             // 断片ごとの 3D 資産解決（モデル・環境マップ・フォントのストリーム化 + GLB ヘッダ検査）は
             // 互いに独立なので並列に走らせ、overlays には宣言順で積む。
             const resolvedOverlayHtml = await Promise.all(projectedOverlays.map(value => {
@@ -5124,6 +5202,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     },
                     ...(rawVersion === 2 ? { editVersion: 2 } : {}),
                     overlays,
+                    tree,
                     layers,
                     filters,
                     cuts,
@@ -6526,6 +6605,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             captions: model.captions,
             emphasisWords: model.emphasisWords ?? [],
             editPath: model.editUri?.toString() ?? null,
+            selectionFloor: model.editUri
+                ? this.previewSessionSettings.get(model.editUri.normalizePath().toString())?.selectionFloor ?? null : null,
             relatedEditUri: model.relatedEditUri?.toString() ?? null,
             videoUri: videoUri.toString(),
             // v1 マルチソース: ソース id → ストリーム URL。webview は cuts[].src が
@@ -6631,6 +6712,12 @@ body { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
    ペイン全面の変換層、preview-stage だけが output 比の黒い 100% フィット箱を担う。 */
 ${kind === 'raw' ? '.akari-material-chip { position: absolute; top: 8px; left: 8px; font-size: 11px; padding: 2px 6px; border-radius: 4px; background: rgba(0,0,0,.55); color: #fff; pointer-events: none; z-index: 10 }' : ''}
 #preview-wrapper { position: relative; width: 100%; height: 100%; container-type: size; }
+[data-akari-ui="preview-scope-breadcrumb"] { position: absolute; left: 10px; top: 10px; z-index: 100;
+  display: flex; gap: 5px; align-items: center; padding: 4px 8px; border-radius: 4px;
+  background: var(--theia-editor-background); color: var(--theia-editor-foreground); font-size: 11px; }
+[data-akari-ui="preview-scope-breadcrumb"][hidden] { display: none; }
+[data-akari-ui="preview-scope-breadcrumb"] button { color: inherit; background: transparent; border: 0; cursor: pointer; }
+.akari-interaction-selection-frame[data-akari-selection-kind="group"] .akari-interaction-handle { display: none; }
 .preview-pane.is-draggable { cursor: grab; touch-action: none; }
 .preview-pane.is-dragging { cursor: grabbing; }
 #zoom-layer { position: absolute; inset: 0; transform-origin: 50% 50%; will-change: transform; }
@@ -6886,6 +6973,7 @@ ${kind === 'raw' ? '.akari-material-chip { position: absolute; top: 8px; left: 8
 <body>
 <main class="workspace">
   <section class="preview-pane" aria-label="動画プレビュー">
+    <nav data-akari-ui="preview-scope-breadcrumb" aria-label="プレビューの階層" hidden></nav>
     <div id="preview-wrapper">${kind === 'raw' ? `<div class="akari-material-chip" id="material-chip"><span id="material-chip-name">${this.escapeHtml(videoUri.path.base)}</span><span id="material-chip-duration" hidden></span></div>` : ''}
       <div id="indicator-popup" class="zoom-popup transport-left" hidden></div>
       <button id="indicator-toggle" class="icon-button transport-left" type="button" aria-label="プレビュー未対応の項目" title="プレビュー未対応の項目" aria-expanded="false" hidden>ⓘ</button>
@@ -7520,7 +7608,7 @@ body { display: grid; place-items: center; padding: 32px; }
 
             window.akari = window.akari || {};
             window.akari.previewPlaybackRate = clampPreviewPlaybackRateFn(initial.initialPlaybackRate);
-            window.akari.state = { editPath: initial.editPath, summary: initial.summary };
+            window.akari.state = { editPath: initial.editPath, summary: initial.summary, selectionFloor: initial.selectionFloor };
             window.akari.showWriteError = error => {
                 const reason = error instanceof Error ? error.message : String(error || '書き込みに失敗しました');
                 writeErrorMessage.textContent = reason;
@@ -8236,9 +8324,9 @@ body { display: grid; place-items: center; padding: 32px; }
             window.akari.reportGesture = phase => {
                 vscode.postMessage({ type: 'akari-preview-gesture', phase });
             };
-            window.akari.reportOverlaySelection = overlayId => {
+            window.akari.reportOverlaySelection = (overlayId, scopeId) => {
                 if (overlayId) selectedPrimary = null;
-                vscode.postMessage({ type: 'akari-preview-overlay-selected', overlayId });
+                vscode.postMessage({ type: 'akari-preview-overlay-selected', overlayId, ...(scopeId !== undefined ? { scopeId } : {}) });
             };
             window.akari.reportLayerSelection = layerId => {
                 if (layerId) selectedPrimary = null;
@@ -16234,6 +16322,10 @@ body { display: grid; place-items: center; padding: 32px; }
             let applyingOverlaySelection;
             const applyRequestedOverlaySelection = () => {
                 if (requestedOverlayId === undefined) return;
+                if (window.akari.interaction?.hasSelectionTree) {
+                    window.akari.interaction.selectFromTimeline(requestedOverlayId);
+                    return;
+                }
                 const selected = stage.querySelector('[data-overlay-id][data-akari-interaction-selected="true"]');
                 const selectedId = selected?.getAttribute('data-overlay-id') || null;
                 if (selectedId === requestedOverlayId
@@ -16725,6 +16817,11 @@ body { display: grid; place-items: center; padding: 32px; }
                     requestScrub(message.time);
                     return;
                 }
+                if (message && message.type === 'akari-preview-selection-floor') {
+                    window.akari.state.selectionFloor = message.scopeId;
+                    window.akari.interaction?.setSelectionFloor(message.scopeId);
+                    return;
+                }
                 if (message && message.type === 'akari-preview-loop-range') {
                     const range = message.range;
                     loopRange = range && Number.isFinite(range.start) && Number.isFinite(range.end)
@@ -16867,9 +16964,11 @@ body { display: grid; place-items: center; padding: 32px; }
             });
 
             let lastReportedOverlayId = null;
-            const reportOverlaySelectionChange = (force = false) => {
+            const reportOverlaySelectionChange = (force = false, notify = true) => {
                 const selected = stage.querySelector('[data-overlay-id][data-akari-interaction-selected="true"]');
-                const selectedOverlayId = selected?.getAttribute('data-overlay-id') || null;
+                const interaction = window.akari.interaction;
+                const selectedOverlayId = interaction?.hasSelectionTree ? interaction.selectedId
+                    : selected?.getAttribute('data-overlay-id') || null;
                 if (selectedOverlayId !== lastReportedOverlayId || force === true) {
                     lastReportedOverlayId = selectedOverlayId;
                     if (!selectedOverlayId && requestedOverlayId) {
@@ -16883,9 +16982,15 @@ body { display: grid; place-items: center; padding: 32px; }
                         deselectCaption({ report: false });
                     }
                     requestedOverlayId = selectedOverlayId || undefined;
-                    if (selectedOverlayId !== applyingOverlaySelection) window.akari.reportOverlaySelection(selectedOverlayId);
+                    if (notify && selectedOverlayId !== applyingOverlaySelection) {
+                        if (interaction?.hasSelectionTree) window.akari.reportOverlaySelection(selectedOverlayId, interaction.scopeId);
+                        else window.akari.reportOverlaySelection(selectedOverlayId);
+                    }
                 }
             };
+            window.addEventListener('akari-preview-scope-selection', event => {
+                reportOverlaySelectionChange(true, event.detail?.notify !== false);
+            });
             stage.addEventListener('click', event => {
                 if (event.isTrusted && event.target.closest?.('[data-overlay-id]')) {
                     queueMicrotask(() => reportOverlaySelectionChange(true));

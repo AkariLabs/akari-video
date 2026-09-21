@@ -1,0 +1,52 @@
+{
+ "card": "assets/audio/bgm-jazzhop-piano-086/bgm-jazzhop-piano-086.mp3",
+ "drop": {
+  "x": 520,
+  "y": 561
+ },
+ "at": "2026-09-21T09:56:00.926Z",
+ "cardDraggable": "true",
+ "dragIntercepted": true,
+ "mimeTypes": [
+  "application/x-akari-material"
+ ],
+ "payload": {
+  "relativePath": "assets/audio/bgm-jazzhop-piano-086/bgm-jazzhop-piano-086.mp3",
+  "kind": "audio"
+ },
+ "itemsBefore": 1,
+ "itemsAfter": 2,
+ "tracksBefore": [
+  "v1:visual",
+  "a1:audio"
+ ],
+ "tracksAfter": [
+  "v1:visual",
+  "a1:audio"
+ ],
+ "newItems": [
+  {
+   "track": "a1",
+   "lane": "audio",
+   "id": "audio-1",
+   "at": 136,
+   "duration": 4631,
+   "source": {
+    "kind": "media",
+    "src": "src-1",
+    "in": 0,
+    "out": 154.360167
+   },
+   "gain_db": -7.1,
+   "fade_in": 0.2,
+   "fade_out": 1
+  }
+ ],
+ "newSources": [
+  {
+   "id": "src-1",
+   "path": "assets/audio/bgm-jazzhop-piano-086/bgm-jazzhop-piano-086.mp3"
+  }
+ ],
+ "footer": ""
+}

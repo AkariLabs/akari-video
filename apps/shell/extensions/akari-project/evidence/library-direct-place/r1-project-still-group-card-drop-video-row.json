@@ -1,0 +1,51 @@
+{
+ "card": "assets/still/bg-aurora-mesh",
+ "drop": {
+  "x": 705,
+  "y": 424
+ },
+ "at": "2026-09-21T11:19:10.835Z",
+ "cardDraggable": "true",
+ "dragIntercepted": true,
+ "mimeTypes": [
+  "application/x-akari-material"
+ ],
+ "payload": {
+  "relativePath": "assets/still/bg-aurora-mesh/bg.png",
+  "kind": "image"
+ },
+ "itemsBefore": 1,
+ "itemsAfter": 2,
+ "tracksBefore": [
+  "v2:visual",
+  "v1:visual",
+  "a1:audio"
+ ],
+ "tracksAfter": [
+  "v2:visual",
+  "v1:visual",
+  "a1:audio"
+ ],
+ "newItems": [
+  {
+   "track": "v2",
+   "lane": "visual",
+   "id": "image-1",
+   "at": 91,
+   "duration": 150,
+   "source": {
+    "kind": "media",
+    "src": "src-1",
+    "in": 0,
+    "out": 5
+   }
+  }
+ ],
+ "newSources": [
+  {
+   "id": "src-1",
+   "path": "assets/still/bg-aurora-mesh/bg.png"
+  }
+ ],
+ "footer": "タイムラインに素材を追加しました。"
+}

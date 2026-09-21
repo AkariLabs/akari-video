@@ -1,0 +1,158 @@
+{
+ "label": "before",
+ "at": "2026-09-21T09:49:26.744Z",
+ "cards": [
+  {
+   "path": "assets/still/br-3d-printer",
+   "assetGroup": true,
+   "unorganized": false,
+   "draggable": false,
+   "title": "3Dプリンター",
+   "contextMenu": [
+    "開く",
+    "Finder で表示",
+    "ファイルをコピー",
+    "パスをコピー",
+    "素材の情報を表示",
+    "名前を変更…",
+    "削除…",
+    "エージェントに頼む…",
+    "見本画像を開く"
+   ],
+   "hasAddToTimeline": false
+  },
+  {
+   "path": "assets/audio/bgm-jazzhop-piano-086/bgm-jazzhop-piano-086.mp3",
+   "assetGroup": false,
+   "unorganized": false,
+   "draggable": true,
+   "title": "bgm-jazzhop-piano-086.mp3",
+   "contextMenu": [
+    "開く",
+    "タイムラインに追加",
+    "Finder で表示",
+    "ファイルをコピー",
+    "パスをコピー",
+    "素材の情報を表示",
+    "文字起こし",
+    "名前を変更…",
+    "削除…",
+    "エージェントに頼む…"
+   ],
+   "hasAddToTimeline": true
+  },
+  {
+   "path": "assets/audio/dova-syndrome-cheerleaders-bgm",
+   "assetGroup": true,
+   "unorganized": false,
+   "draggable": false,
+   "title": "DOVA-SYNDROME Cheerleaders（BGM）",
+   "contextMenu": [
+    "開く",
+    "Finder で表示",
+    "ファイルをコピー",
+    "パスをコピー",
+    "素材の情報を表示",
+    "名前を変更…",
+    "削除…",
+    "エージェントに頼む…"
+   ],
+   "hasAddToTimeline": false
+  },
+  {
+   "path": "assets/scene3d/app-icon-squircle",
+   "assetGroup": true,
+   "unorganized": false,
+   "draggable": false,
+   "title": "macOS 風 squircle アプリアイコン実体（アイコン差し込み・ターンテーブル）",
+   "contextMenu": [
+    "開く",
+    "Finder で表示",
+    "ファイルをコピー",
+    "パスをコピー",
+    "素材の情報を表示",
+    "名前を変更…",
+    "削除…",
+    "エージェントに頼む…",
+    "見本画像を開く"
+   ],
+   "hasAddToTimeline": false
+  },
+  {
+   "path": "assets/video/raw-clip.mp4",
+   "assetGroup": false,
+   "unorganized": false,
+   "draggable": true,
+   "title": "raw-clip.mp4",
+   "contextMenu": [
+    "開く",
+    "タイムラインに追加",
+    "Finder で表示",
+    "ファイルをコピー",
+    "パスをコピー",
+    "素材の情報を表示",
+    "文字起こし",
+    "名前を変更…",
+    "削除…",
+    "エージェントに頼む…"
+   ],
+   "hasAddToTimeline": true
+  },
+  {
+   "path": "assets/broll/talkinghead-desk-ja-01",
+   "assetGroup": true,
+   "unorganized": false,
+   "draggable": false,
+   "title": "自宅デスクのトーキングヘッド（日本語・37.6 秒）",
+   "contextMenu": [
+    "開く",
+    "Finder で表示",
+    "ファイルをコピー",
+    "パスをコピー",
+    "素材の情報を表示",
+    "名前を変更…",
+    "削除…",
+    "エージェントに頼む…",
+    "見本画像を開く"
+   ],
+   "hasAddToTimeline": false
+  },
+  {
+   "path": "assets/audio/maoudamashii-bgm-piano",
+   "assetGroup": true,
+   "unorganized": false,
+   "draggable": false,
+   "title": "魔王魂 ピアノ（静寂の世界へ / 見渡す街へ）",
+   "contextMenu": [
+    "開く",
+    "Finder で表示",
+    "ファイルをコピー",
+    "パスをコピー",
+    "素材の情報を表示",
+    "名前を変更…",
+    "削除…",
+    "エージェントに頼む…",
+    "見本画像を開く"
+   ],
+   "hasAddToTimeline": false
+  },
+  {
+   "path": "base.mp4",
+   "assetGroup": false,
+   "unorganized": true,
+   "draggable": false,
+   "title": "base.mp4",
+   "contextMenu": [
+    "開く",
+    "Finder で表示",
+    "ファイルをコピー",
+    "パスをコピー",
+    "名前を変更…",
+    "削除…",
+    "エージェントに頼む…",
+    "assets へ移動"
+   ],
+   "hasAddToTimeline": false
+  }
+ ]
+}

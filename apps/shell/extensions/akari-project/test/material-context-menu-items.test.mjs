@@ -143,3 +143,16 @@ test('文字起こしを追加しても両プラットフォームの既存メ�
         assert.deepEqual(ids('material', isOSX, { materialKind: 'video' }).filter(id => id !== 'transcribe'), before);
     }
 });
+
+test('グループカードは主メディアのタイムライン追加だけを増やし、文字起こしを出さない', () => {
+    for (const isOSX of [true, false]) {
+        const before = ids('material', isOSX, { materialKind: 'other', assetGroup: true });
+        for (const materialKind of ['video', 'audio', 'image']) {
+            const actual = ids('material', isOSX, { materialKind, assetGroup: true });
+            assert.equal(actual[1], 'add-to-timeline');
+            assert.deepEqual(actual.filter(id => id !== 'add-to-timeline'), before);
+        }
+        assert.ok(!before.includes('add-to-timeline'));
+        assert.ok(!before.includes('transcribe'));
+    }
+});

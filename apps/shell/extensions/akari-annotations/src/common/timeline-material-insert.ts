@@ -89,6 +89,7 @@ export function computeMaterialGhostRange(
 export interface MaterialDropTargetLike {
     readonly rejected: boolean;
     readonly insertTrack?: number;
+    readonly overlapInsert?: boolean;
 }
 
 export interface MaterialGhostVisibility {
@@ -102,7 +103,7 @@ export interface MaterialGhostVisibility {
  * 両方非表示にする — trackAtClientY の最終 fallthrough が rejected でも top に最上段レイヤー行を
  * 返すため、本体ゴーストを描いてしまうと「関係ない行に点線」に見える不具合を断つ。
  * 非rejectedで insertTrack があり audio 以外なら、本体ゴースト（新行が入る位置）+
- * 挿入インジケータを併用する。
+ * 挿入インジケータを併用する。音も重なり回避の新規行なら同じ表示を使う。
  */
 export function materialGhostVisibility(
     kind: MaterialDragKind, target: MaterialDropTargetLike
@@ -110,7 +111,8 @@ export function materialGhostVisibility(
     if (target.rejected) {
         return { showGhost: false, showInsertIndicator: false };
     }
-    return { showGhost: true, showInsertIndicator: kind !== 'audio' && target.insertTrack !== undefined };
+    return { showGhost: true,
+        showInsertIndicator: target.insertTrack !== undefined && (kind !== 'audio' || target.overlapInsert === true) };
 }
 
 /** cuts[] の out - in が 0 になると validate-edit の `out > in` に落ちるため、最小尺を敷く。 */

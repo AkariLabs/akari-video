@@ -71,6 +71,8 @@ import {
     summarizeCatalogPackDistribution
 } from '../common/asset-catalog-view';
 import { AssetBinChildNode, isAssetBinGroupDirectory } from '../common/asset-bin-grouping';
+import { canPlaceLibraryAsset, resolveLibraryAssetMedia, RESOLVE_LIBRARY_MATERIAL_COMMAND_ID } from '../common/library-asset-placement';
+import { classifyMaterialKind, MaterialKind, resolveAssetGroupMedia } from '../common/asset-group-media';
 import { materialCardLayout } from '../common/material-card-layout';
 import { CatalogPack } from '../common/catalog-packs';
 import { derivePresetShowcaseChips, filterPresetShowcaseItems } from '../common/preset-showcase';
@@ -182,7 +184,6 @@ export interface AkariCatalogCategorySummary {
     readonly count?: number;
 }
 
-type MaterialKind = 'video' | 'audio' | 'image' | 'other';
 type OutputEntryKind = 'data' | 'plan' | 'export' | 'report';
 
 const SUPPORTED_DROP_EXTENSIONS = /\.(mp4|mov|m4v|webm|mkv|avi|wav|mp3|m4a|aac|flac|ogg|png|jpg|jpeg|gif|webp)$/i;
@@ -229,6 +230,8 @@ const OUTPUT_GROUPS: ReadonlyArray<{ readonly kind: OutputEntryKind; readonly la
 interface MaterialCardEntry {
     uri: URI;
     relativePath: string;
+    /** グループの主メディア。ドラッグとタイムライン追加だけに使う。 */
+    mediaRelativePath?: string;
     name: string;
     kind: MaterialKind;
     analyzed: boolean;
@@ -574,7 +577,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         const states = await this.projectService.transcriptStates({
             projectRoot: root.toString(),
             relativePaths: [...fileMaterials, ...groupMaterials, ...unorganizedMaterials]
-                .filter(entry => entry.kind === 'video' || entry.kind === 'audio').map(entry => entry.relativePath)
+                .filter(entry => !entry.assetGroup && (entry.kind === 'video' || entry.kind === 'audio')).map(entry => entry.relativePath)
         });
         if (generation !== this.materialsGeneration) {
             return; // A newer load superseded this one (e.g. rapid watch events); discard stale results.
@@ -696,6 +699,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         const relativePath = this.workflow.relativePath(dirStat.resource) ?? dirStat.resource.path.base;
         const dirName = dirStat.resource.path.base;
         const meta = await this.readAssetGroupMeta(dirStat);
+        const media = resolveAssetGroupMedia(meta?.category, this.toAssetBinChildren(dirStat));
         const children = dirStat.children ?? [];
         const previewChild = children.find(child => !child.isDirectory && child.resource.path.base === 'preview.png');
         const metaChild = children.find(child => !child.isDirectory && child.resource.path.base === 'meta.json');
@@ -704,8 +708,9 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         return {
             uri: openUri,
             relativePath,
+            mediaRelativePath: media.mediaName ? `${relativePath}/${media.mediaName}` : undefined,
             name: meta?.title || dirName,
-            kind: 'other',
+            kind: media.kind,
             analyzed: false,
             thumbnailUri: previewChild?.resource,
             unorganized: false,
@@ -735,7 +740,8 @@ export class AkariRoleBucketsWidget extends ReactWidget {
      * 音声は波形を生成し、分析済みは対象外。generation が古くなっていれば結果を捨てる（stale ガード）。
      */
     protected async hydrateCachedThumbnails(root: URI, generation: number, entries: MaterialCardEntry[]): Promise<void> {
-        const candidates = entries.filter(entry => !entry.analyzed && (entry.kind === 'video' || entry.kind === 'image' || entry.kind === 'audio'));
+        const candidates = entries.filter(entry => !entry.assetGroup && !entry.analyzed
+            && (entry.kind === 'video' || entry.kind === 'image' || entry.kind === 'audio'));
         await Promise.all(candidates.map(async entry => {
             let outcome;
             try {
@@ -856,17 +862,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     }
 
     protected classifyKind(name: string): MaterialKind {
-        const lower = name.toLowerCase();
-        if (/\.(mp4|mov|m4v|webm|mkv|avi)$/.test(lower)) {
-            return 'video';
-        }
-        if (/\.(wav|mp3|m4a|aac|flac|ogg)$/.test(lower)) {
-            return 'audio';
-        }
-        if (/\.(png|jpg|jpeg|gif|webp)$/.test(lower)) {
-            return 'image';
-        }
-        return 'other';
+        return classifyMaterialKind(name);
     }
 
     protected placeholderIcon(kind: MaterialKind): string {
@@ -917,7 +913,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         event.preventDefault();
         event.stopPropagation();
         const target: MaterialContextMenuTarget = entry.unorganized ? 'unorganized' : 'material';
-        const items = buildMaterialContextMenuItems(target, isOSX, { materialKind: entry.kind });
+        const items = buildMaterialContextMenuItems(target, isOSX, { materialKind: entry.kind, assetGroup: !!entry.assetGroup });
         if (entry.assetGroup && entry.thumbnailUri) {
             items.push(OPEN_PREVIEW_IMAGE_ITEM);
         }
@@ -986,7 +982,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     protected async addMaterialToTimeline(entry: MaterialCardEntry): Promise<void> {
         try {
             await this.commandService.executeCommand(TIMELINE_ADD_MATERIAL_AT_PLAYHEAD_COMMAND_ID, {
-                relativePath: entry.relativePath,
+                relativePath: entry.mediaRelativePath ?? entry.relativePath,
                 kind: entry.kind
             });
         } catch {
@@ -1832,6 +1828,87 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         void this.loadMaterials();
     }
 
+    /** カタログ key を既存 resolver で取り込み、配置可能な主メディアだけ返す。 */
+    async resolveCatalogMaterial(key: string): Promise<{ relativePath: string; kind: MaterialKind } | undefined> {
+        const root = this.workflow.workspaceRoot;
+        if (!root) {
+            this.messages.warn('先にプロジェクトを開いてください。');
+            return undefined;
+        }
+        const item = this.assetCatalogItems.find(entry => entry.key === key);
+        if (!item || !canPlaceLibraryAsset(item)) {
+            this.messages.warn(item?.state === 'locked' ? '未購入の素材は直接置けません。' : 'この素材は直接置けません');
+            return undefined;
+        }
+        if (this.resolvingAssetKeys.has(key)) {
+            this.messages.warn('素材を取得中です。完了してからもう一度追加してください。');
+            return undefined;
+        }
+        this.resolvingAssetKeys.add(key);
+        this.update();
+        try {
+            const outcome = await this.projectService.resolveAsset(item.id, root.toString());
+            if (outcome.success === false) {
+                this.messages.error(`素材を取得できませんでした: ${outcome.error}`);
+                return undefined;
+            }
+            if (this.workflow.workspaceRoot?.toString() !== root.toString()) {
+                this.messages.warn('プロジェクトが切り替わったため、素材を追加しませんでした。');
+                return undefined;
+            }
+            const directory = URI.fromFilePath(outcome.projectAssetPath);
+            const stat = await this.files.resolve(directory);
+            const media = resolveLibraryAssetMedia(item, this.toAssetBinChildren(stat));
+            this.assetCatalogItems = this.assetCatalogItems.map(entry =>
+                entry.key === key ? { ...entry, state: 'cached' } : entry
+            );
+            void this.loadMaterials();
+            if (media.kind === 'other' || !media.mediaName) {
+                this.messages.warn('この素材は直接置けません');
+                return undefined;
+            }
+            const relativePath = root.relative(directory.resolve(media.mediaName))?.toString();
+            if (!relativePath) {
+                this.messages.error('素材のプロジェクト内パスを解決できませんでした。');
+                return undefined;
+            }
+            return { relativePath, kind: media.kind };
+        } catch (error) {
+            this.messages.error(`素材を取得できませんでした: ${error instanceof Error ? error.message : String(error)}`);
+            return undefined;
+        } finally {
+            this.resolvingAssetKeys.delete(key);
+            this.update();
+        }
+    }
+
+    protected canDragCatalogAsset(item: AssetCatalogViewItem): boolean {
+        return this.libraryCategory !== 'pack' && canPlaceLibraryAsset(item);
+    }
+
+    protected handleCatalogAssetDragStart(event: React.DragEvent<HTMLElement>, item: AssetCatalogViewItem): void {
+        if (!this.canDragCatalogAsset(item)) {
+            event.preventDefault();
+            return;
+        }
+        const { key, id, category, title } = item;
+        const payload = { kind: 'asset', key, id, category, title };
+        event.dataTransfer.setData(LIBRARY_DRAG_MIME, JSON.stringify(payload));
+        event.dataTransfer.effectAllowed = 'copy';
+        window.dispatchEvent(new CustomEvent(LIBRARY_DRAG_START_EVENT, { detail: payload }));
+    }
+
+    protected async addCatalogAssetAtPlayhead(item: AssetCatalogViewItem): Promise<void> {
+        try {
+            const material = await this.commandService.executeCommand<{ relativePath: string; kind: MaterialKind } | undefined>(
+                RESOLVE_LIBRARY_MATERIAL_COMMAND_ID, item.key
+            );
+            if (material) await this.commandService.executeCommand(TIMELINE_ADD_MATERIAL_AT_PLAYHEAD_COMMAND_ID, material);
+        } catch (error) {
+            this.messages.error(`素材を追加できません: ${error instanceof Error ? error.message : String(error)}`);
+        }
+    }
+
     // --- ドロップ振り分け -----------------------------------------------------
 
     /**
@@ -2199,7 +2276,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
      */
     protected handleMaterialDragStart(event: React.DragEvent<HTMLDivElement>, entry: MaterialCardEntry): void {
         const payload: { relativePath: string; kind: MaterialKind; durationSeconds?: number } = {
-            relativePath: entry.relativePath,
+            relativePath: entry.mediaRelativePath ?? entry.relativePath,
             kind: entry.kind,
             ...(typeof entry.durationSeconds === 'number' ? { durationSeconds: entry.durationSeconds } : {})
         };
@@ -2236,7 +2313,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
 
     protected async transcribeMaterial(entry: MaterialCardEntry): Promise<void> {
         const root = this.workflow.workspaceRoot;
-        if (!root || (entry.kind !== 'video' && entry.kind !== 'audio')) return;
+        if (!root || entry.assetGroup || (entry.kind !== 'video' && entry.kind !== 'audio')) return;
         if (this.transcriptStateByPath[entry.relativePath] === 'running') return;
         try {
             const result = await this.commandService.executeCommand<string>('akari.transcribe.openDialog', {
@@ -2269,7 +2346,8 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     protected readonly materialPreviewService!: AkariPreviewService;
 
     protected renderMaterialCard(entry: MaterialCardEntry): React.ReactNode {
-        const layout = materialCardLayout({ kind: entry.kind, name: entry.name, assetGroupCategory: entry.assetGroup?.category });
+        const displayKind = entry.assetGroup ? 'other' : entry.kind;
+        const layout = materialCardLayout({ kind: displayKind, name: entry.name, assetGroupCategory: entry.assetGroup?.category });
         const transcriptState = this.transcriptStateByPath[entry.relativePath] ?? 'none';
         const transcriptStatus = { none: '未', running: '実行中', done: '済' }[transcriptState];
         const transcriptLabel = `文字起こし ${transcriptStatus}`;
@@ -2327,10 +2405,10 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                         />
                         : /\.html?$/i.test(entry.uri.path.base) || ['overlay', 'still'].includes(entry.assetGroup?.category ?? '')
                             ? <MaterialCardHoverPreview assetUri={entry.uri.toString()} service={this.materialPreviewService}
-                                files={this.files} icon={this.placeholderIcon(entry.kind)} />
-                            : <span className={this.placeholderIcon(entry.kind)} aria-hidden='true' draggable={false}
+                                files={this.files} icon={this.placeholderIcon(displayKind)} />
+                            : <span className={this.placeholderIcon(displayKind)} aria-hidden='true' draggable={false}
                                 style={{ fontSize: '1.8em', opacity: 0.5 }} />}
-                    {(entry.kind === 'video' || entry.kind === 'audio') && (
+                    {!entry.assetGroup && (entry.kind === 'video' || entry.kind === 'audio') && (
                         <span data-akari-transcript-state={transcriptState}
                             title={transcriptLabel} aria-label={transcriptLabel}
                             style={{ position: 'absolute', bottom: '28px', right: '4px', padding: '0 6px',
@@ -3157,9 +3235,19 @@ export class AkariRoleBucketsWidget extends ReactWidget {
             fontSize: '0.78em',
             padding: '2px 4px'
         };
+        const addButton = this.canDragCatalogAsset(item) ? (
+            <button type='button' className='theia-button secondary'
+                data-akari-catalog-action='add' aria-label={`${item.title} をプレイヘッド位置に追加`}
+                title='プレイヘッド位置に追加' disabled={this.resolvingAssetKeys.has(item.key)}
+                style={buttonStyle}
+                onClick={event => { event.stopPropagation(); void this.addCatalogAssetAtPlayhead(item); }}>
+                ＋
+            </button>
+        ) : undefined;
         if (item.origin === 'local') {
             return (
                 <div data-akari-catalog-actions style={actionRowStyle}>
+                    {addButton}
                     {!item.installed && (
                         <button
                             type='button'
@@ -3210,6 +3298,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         const resolving = this.resolvingAssetKeys.has(item.key);
         return (
             <div data-akari-catalog-actions style={actionRowStyle}>
+                {addButton}
                 <button
                     type='button'
                     className='theia-button'
@@ -3352,6 +3441,9 @@ export class AkariRoleBucketsWidget extends ReactWidget {
             <div
                 key={item.key}
                 title={item.title}
+                draggable={this.canDragCatalogAsset(item)}
+                onDragStart={event => this.handleCatalogAssetDragStart(event, item)}
+                onDragEnd={() => this.handleLibraryTransitionDragEnd()}
                 data-akari-catalog-item={item.key}
                 data-akari-catalog-item-state={item.state ?? 'local'}
                 data-akari-catalog-list-row
@@ -3428,6 +3520,9 @@ export class AkariRoleBucketsWidget extends ReactWidget {
             <div
                 key={item.key}
                 title={item.title}
+                draggable={this.canDragCatalogAsset(item)}
+                onDragStart={event => this.handleCatalogAssetDragStart(event, item)}
+                onDragEnd={() => this.handleLibraryTransitionDragEnd()}
                 data-akari-catalog-item={item.key}
                 data-akari-catalog-item-state={item.state ?? 'local'}
                 // docs/contract-2026-08-11-review-session-ui-events.md #2: asset:<catalog key> opt-in target.

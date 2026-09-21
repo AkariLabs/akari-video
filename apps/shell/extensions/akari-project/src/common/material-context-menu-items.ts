@@ -23,6 +23,8 @@ export interface MaterialContextMenuItem {
  */
 export interface MaterialContextMenuContext {
     readonly materialKind?: 'video' | 'audio' | 'image' | 'other';
+    /** グループカードにはファイル単位の文字起こしを出さない。 */
+    readonly assetGroup?: boolean;
 }
 
 /** rename / delete / ask-agent を出す対象（司令塔裁定1）。 */
@@ -58,7 +60,7 @@ export function buildMaterialContextMenuItems(
         // assets/ 配下の素材カード全部（素材グループ含む）。未整理・できたもの行には出さない
         // （task 2026-08-10-material-menu-r2 司令塔裁定3）。
         items.push({ id: 'show-info', label: '素材の情報を表示' });
-        if (context.materialKind === 'video' || context.materialKind === 'audio') {
+        if (!context.assetGroup && (context.materialKind === 'video' || context.materialKind === 'audio')) {
             items.push({ id: 'transcribe', label: '文字起こし' });
         }
     }

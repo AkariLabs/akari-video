@@ -1,0 +1,116 @@
+{
+ "src": "lib:audio/sfx-pop-bubble-big",
+ "points": [
+  [
+   449,
+   466
+  ]
+ ],
+ "at": "2026-09-21T11:40:16.820Z",
+ "shaBefore": "d8411d057ec94c0419eb2aab22ef06e4e4b827cd7d2ef233b7b0f54c2eea174b",
+ "tracksBefore": [
+  {
+   "id": "v1",
+   "lane": "visual",
+   "items": [
+    "cut-1@0+60",
+    "cut-2@180+60"
+   ]
+  },
+  {
+   "id": "a1",
+   "lane": "audio",
+   "items": [
+    "bell-1@60+76"
+   ]
+  }
+ ],
+ "hovers": [
+  {
+   "x": 449,
+   "y": 466,
+   "ghost": {
+    "x": 449,
+    "y": 479,
+    "w": 83,
+    "h": 28,
+    "insertionPreview": true,
+    "border": "2px solid rgb(249, 115, 22)"
+   },
+   "insertLine": {
+    "x": 364,
+    "y": 479,
+    "w": 248,
+    "h": 2
+   },
+   "footer": "重なるので新しいトラックに置きます"
+  }
+ ],
+ "card": {
+  "x": 168.92578125,
+  "y": 197.390625,
+  "draggable": "true"
+ },
+ "dragIntercepted": true,
+ "mimeTypes": [
+  "application/x-akari-library-item"
+ ],
+ "waitMs": 1006,
+ "editChanged": true,
+ "tracksAfter": [
+  {
+   "id": "v1",
+   "lane": "visual",
+   "items": [
+    "cut-1@0+60",
+    "cut-2@180+60"
+   ]
+  },
+  {
+   "id": "a2",
+   "lane": "audio",
+   "items": [
+    "audio-1@93+54"
+   ]
+  },
+  {
+   "id": "a1",
+   "lane": "audio",
+   "items": [
+    "bell-1@60+76"
+   ]
+  }
+ ],
+ "afterDrop": {
+  "ghost": null,
+  "insertLine": null,
+  "footer": "重なりを避けて新しいトラックに置きました。自動レベル: 0.7 dB（lufs・sfx）"
+ },
+ "toasts": [],
+ "lint": {
+  "verdict": "pass",
+  "overlap": []
+ },
+ "undo": {
+  "presses": 1,
+  "shaAfterUndo": "d8411d057ec94c0419eb2aab22ef06e4e4b827cd7d2ef233b7b0f54c2eea174b",
+  "byteIdentical": true,
+  "tracksAfterUndo": [
+   {
+    "id": "v1",
+    "lane": "visual",
+    "items": [
+     "cut-1@0+60",
+     "cut-2@180+60"
+    ]
+   },
+   {
+    "id": "a1",
+    "lane": "audio",
+    "items": [
+     "bell-1@60+76"
+    ]
+   }
+  ]
+ }
+}

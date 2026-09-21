@@ -1,0 +1,79 @@
+{
+ "src": "proj:assets/video/raw-clip.mp4",
+ "points": [
+  [
+   472,
+   493
+  ]
+ ],
+ "at": "2026-09-21T11:37:13.654Z",
+ "shaBefore": "8c75f5b4d674940994b933147dfd9673a594594c1628fdb7faea42e0a8303111",
+ "tracksBefore": [
+  {
+   "id": "v2",
+   "lane": "visual",
+   "items": []
+  },
+  {
+   "id": "v1",
+   "lane": "visual",
+   "items": [
+    "cut-1@0+180"
+   ]
+  },
+  {
+   "id": "a1",
+   "lane": "audio",
+   "items": []
+  }
+ ],
+ "hovers": [
+  {
+   "x": 472,
+   "y": 493,
+   "ghost": null,
+   "insertLine": null,
+   "footer": "音のレーンには映像を置けません。"
+  }
+ ],
+ "card": {
+  "x": 86.4765625,
+  "y": 198.921875,
+  "draggable": "true"
+ },
+ "dragIntercepted": true,
+ "mimeTypes": [
+  "application/x-akari-material"
+ ],
+ "waitMs": 30251,
+ "editChanged": false,
+ "tracksAfter": [
+  {
+   "id": "v2",
+   "lane": "visual",
+   "items": []
+  },
+  {
+   "id": "v1",
+   "lane": "visual",
+   "items": [
+    "cut-1@0+180"
+   ]
+  },
+  {
+   "id": "a1",
+   "lane": "audio",
+   "items": []
+  }
+ ],
+ "afterDrop": {
+  "ghost": null,
+  "insertLine": null,
+  "footer": "音のレーンには映像を置けません。"
+ },
+ "toasts": [],
+ "lint": {
+  "verdict": "pass",
+  "overlap": []
+ }
+}

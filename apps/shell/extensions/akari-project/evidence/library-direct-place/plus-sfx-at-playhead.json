@@ -1,0 +1,35 @@
+{
+ "key": "audio/sfx-pop-bubble-big",
+ "mode": "plus",
+ "target": {
+  "x": 283.61328125,
+  "y": 334.3828125,
+  "label": "＋",
+  "aria": "Big Bubble Pop, Round Juicy Burst, Isolated Soun をプレイヘッド位置に追加"
+ },
+ "at": "2026-09-21T10:35:27.281Z",
+ "playheadBefore": null,
+ "waitMs": 4030,
+ "editChanged": true,
+ "newItems": [],
+ "newSfx": [
+  {
+   "id": "audio-1",
+   "path": "assets/audio/sfx-pop-bubble-big/sfx-pop-bubble-big.mp3",
+   "t": 2.033333333333333,
+   "track": 0,
+   "gain_db": 0.7,
+   "fade_in": 0,
+   "fade_out": 0
+  }
+ ],
+ "newSources": [],
+ "tracksAfter": [
+  "v2:visual",
+  "v1:visual",
+  "a1:audio"
+ ],
+ "toasts": [
+  "この素材は直接置けません"
+ ]
+}

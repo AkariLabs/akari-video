@@ -1,0 +1,20 @@
+{
+ "focusClick": {
+  "x": 1200,
+  "y": 1000
+ },
+ "before": {
+  "items": 3,
+  "sfx": 0,
+  "sources": 2,
+  "tracks": 2,
+  "sha": 601
+ },
+ "after": {
+  "items": 2,
+  "sfx": 0,
+  "sources": 1,
+  "tracks": 2,
+  "sha": 386
+ }
+}

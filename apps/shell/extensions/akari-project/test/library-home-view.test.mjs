@@ -37,8 +37,11 @@ test('LIBRARY_GROUPS: ラベル・soon・chipKey 対応を固定する', () => {
 
 test('LIBRARY_GROUPS: 操作導線の文言を固定する', () => {
     const categories = Object.fromEntries(LIBRARY_GROUPS.flatMap(group => group.categories.map(category => [category.key, category])));
-    for (const key of ['bgm', 'sfx', 'broll', 'image', 'overlay', 'scene3d']) {
+    for (const key of ['bgm', 'sfx', 'broll', 'image']) {
         assert.equal(categories[key].hint, 'タイムラインへドラッグ、＋でプレイヘッド位置に追加');
+    }
+    for (const key of ['overlay', 'scene3d']) {
+        assert.equal(categories[key].hint, '「使う」でプロジェクトに追加');
     }
     assert.equal(categories.textstyle.hint, 'プレビューへドラッグ、＋でプレイヘッド位置に追加');
     assert.equal(categories.textanim.hint, '選択中のテロップに適用（次のラウンドで有効化）');

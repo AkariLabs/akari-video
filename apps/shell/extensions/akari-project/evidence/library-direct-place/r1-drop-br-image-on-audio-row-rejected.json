@@ -1,0 +1,58 @@
+{
+ "key": "still/br-elevator-hall",
+ "drop": {
+  "x": 705,
+  "y": 465
+ },
+ "at": "2026-09-21T11:15:26.934Z",
+ "card": {
+  "x": 205,
+  "y": 277.6953125,
+  "draggable": "true",
+  "state": "available"
+ },
+ "assetDirBefore": false,
+ "dragIntercepted": true,
+ "mimeTypes": [
+  "application/x-akari-library-item"
+ ],
+ "payload": {
+  "kind": "asset",
+  "key": "still/br-elevator-hall",
+  "id": "br-elevator-hall",
+  "category": "still",
+  "title": "エレベーターホール"
+ },
+ "duringDrag": {
+  "ghosts": [],
+  "footer": [
+   "音のレーンには映像を置けません。"
+  ]
+ },
+ "waitMs": 30073,
+ "editChanged": false,
+ "itemsBefore": 1,
+ "itemsAfter": 1,
+ "tracksBefore": [
+  "v2:visual",
+  "v1:visual",
+  "a1:audio"
+ ],
+ "tracksAfter": [
+  "v2:visual",
+  "v1:visual",
+  "a1:audio"
+ ],
+ "newItems": [],
+ "newSources": [],
+ "sfxBefore": 0,
+ "sfxAfter": 0,
+ "assetDirAfter": null,
+ "afterDrop": {
+  "ghosts": [],
+  "footer": [
+   "音のレーンには映像を置けません。"
+  ]
+ },
+ "toasts": []
+}
