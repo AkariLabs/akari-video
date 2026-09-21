@@ -1631,7 +1631,7 @@ function descendantLeafIds(tree, id) {
 
     if (!applyResizeTransformAt(resize, nextScale)) return;
 
-    if (event.shiftKey) {
+    if (event.altKey) {
       resize.snapX = null;
       resize.snapY = null;
       hideSnapGuides();
@@ -1817,7 +1817,7 @@ function descendantLeafIds(tree, id) {
         ? currentStagePoint.y - drag.startStagePoint.y
         : deltaY / scale;
     if (drag.group) {
-      moveGroupDrag(drag, videoDeltaX, videoDeltaY, event.shiftKey);
+      moveGroupDrag(drag, videoDeltaX, videoDeltaY, event.altKey);
       if (event.cancelable) event.preventDefault();
       return;
     }
@@ -1825,7 +1825,7 @@ function descendantLeafIds(tree, id) {
       drag,
       drag.startX + videoDeltaX,
       drag.startY + videoDeltaY,
-      event.shiftKey
+      event.altKey
     );
 
     if (event.cancelable) event.preventDefault();
@@ -1983,6 +1983,28 @@ function descendantLeafIds(tree, id) {
     return clone.outerHTML;
   }
 
+  function cancelEdit() {
+    if (!activeEdit) return;
+    const edit = activeEdit;
+    // Clear before blur: cancellation must never enter the commit/write path.
+    activeEdit = null;
+    for (const snapshot of edit.originalContents) {
+      snapshot.element.innerHTML = snapshot.html;
+      restoreAttribute(snapshot.element, "data-akari-split-units",
+        snapshot.hadSplitUnits, snapshot.splitUnits);
+    }
+    restoreAttribute(edit.element, "contenteditable",
+      edit.hadContentEditable, edit.contentEditableValue);
+    restoreAttribute(edit.element, "spellcheck", edit.hadSpellcheck, edit.spellcheckValue);
+    restoreAttribute(edit.element, "data-akari-interaction-editing",
+      edit.hadEditingMarker, edit.editingMarkerValue);
+    if (document.activeElement === edit.element) edit.element.blur();
+    invalidateOverlayHitPolicy(edit.container);
+    applyOverlayHitPolicy(edit.container);
+    syncOverlayHitRegion(edit.container);
+    refreshSelectionFrame();
+  }
+
   function commitEdit({ blur = true } = {}) {
     if (!activeEdit) return Promise.resolve(undefined);
 
@@ -2096,7 +2118,25 @@ function descendantLeafIds(tree, id) {
     }
     if (activeEdit) void commitEdit();
 
+    // Capture before split collapse or input synchronization. Keep each mirror
+    // and slot's own markup, even when its initial text differs from the editor.
+    const splitHost = window.akari.textSplit?.closestHost?.(element);
+    const slotName = slotNameForElement(element);
+    const affected = new Set([element, ...(splitHost ? [splitHost] : []),
+      ...(mirrorSyncScope(container, element)?.querySelectorAll('[data-mirror="text"]') ?? []),
+      ...[...container.querySelectorAll('[data-akari-slot]')]
+        .filter(slot => slotName && slot.getAttribute('data-akari-slot') === slotName)]);
+    const originalContents = [...affected]
+      .filter(candidate => ![...affected].some(parent => parent !== candidate && parent.contains(candidate)))
+      .map(candidate => {
+        const clone = candidate.cloneNode(true);
+        restoreHitPolicyStyles(clone, candidate);
+        return { element: candidate, html: clone.innerHTML,
+          hadSplitUnits: candidate.hasAttribute('data-akari-split-units'),
+          splitUnits: candidate.getAttribute('data-akari-split-units') ?? '' };
+      });
     activeEdit = {
+      originalContents,
       container,
       element,
       overlayId: container.dataset.overlayId ?? "",
@@ -2131,7 +2171,6 @@ function descendantLeafIds(tree, id) {
     // <span class="akari-u"> のまま contenteditable にすると、打鍵で span が
     // 割れる・消える・キャレットが単位境界で飛ぶ、といった壊れ方をするため。
     // 確定時（commitEdit）に分割し直す（contract-2026-08-15-telop-motion-grammar-v0 §4）。
-    const splitHost = window.akari.textSplit?.closestHost?.(element);
     if (splitHost) {
       activeEdit.splitHost = splitHost;
       window.akari.textSplit.collapse(splitHost);
@@ -2195,8 +2234,8 @@ function descendantLeafIds(tree, id) {
   }
 
   function onKeyDown(event) {
+    if (event.isComposing) return;
     if (selectionTree().length) {
-      if (event.isComposing) return;
       if (event.key === 'Enter' && event.target instanceof Element
         && event.target.closest('[data-akari-ui="preview-scope-breadcrumb"]')) return;
       const handled = () => {
@@ -2209,7 +2248,7 @@ function descendantLeafIds(tree, id) {
       if (event.key === 'Escape') {
         if (activeDrag) { cancelDrag(); handled(); return; }
         if (activeResize) { cancelResize(); handled(); return; }
-        if (activeEdit) { void commitEdit(); handled(); return; }
+        if (activeEdit) { cancelEdit(); handled(); return; }
         if (selectedId !== null || scopeId !== floorScopeId) {
           applyScopedSelection(exitScope(selectionTree(), selectedId, scopeId, floorScopeId), { notify: false });
           handled(); return;
@@ -2262,7 +2301,7 @@ function descendantLeafIds(tree, id) {
     event.stopPropagation();
     if (activeDrag) cancelDrag();
     if (activeResize) cancelResize();
-    if (activeEdit) void commitEdit();
+    if (activeEdit) { cancelEdit(); event.stopImmediatePropagation(); return; }
     clearSelection();
   }
 
@@ -2319,7 +2358,7 @@ function descendantLeafIds(tree, id) {
         pointerType: "mouse",
         isPrimary: true,
         button: 0,
-        shiftKey: true,
+        altKey: true,
       };
 
       selftestOverlayOverride = container;

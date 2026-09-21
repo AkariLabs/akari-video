@@ -74,9 +74,9 @@ async function drag(page, id, dx = 25, dy = 18) {
   const p = await point(page, id);
   await page.mouse.move(p.x, p.y); await page.mouse.down();
   // Disable snapping to make the expected pixel displacement deterministic.
-  await page.keyboard.down('Shift');
+  await page.keyboard.down('Alt');
   await page.mouse.move(p.x + dx, p.y + dy, { steps: 6 });
-  await page.mouse.up(); await page.keyboard.up('Shift');
+  await page.mouse.up(); await page.keyboard.up('Alt');
   await page.evaluate(() => new Promise(resolve => setTimeout(resolve, 30)));
 }
 async function bounds(page) {
@@ -126,7 +126,7 @@ test('hierarchical interaction gestures in the classic browser runtime', async t
       assert.ok(near((await bounds(page)).union, before.union));
     } finally { await page.close(); }
   });
-  await t.test('deep selection then text edit: Esc commits, parent, parent, clear; no forwarded Escape', async () => {
+  await t.test('deep selection then text edit: Esc cancels, parent, parent, clear; no forwarded Escape', async () => {
     const page = await fixture(browser); try {
       await deep(page, 'a'); await click(page, 'a', 2);
       assert.equal((await state(page)).activeEdit, true);
@@ -137,7 +137,7 @@ test('hierarchical interaction gestures in the classic browser runtime', async t
         assert.deepEqual(await state(page), { selectedId, scopeId, floorScopeId: null, activeEdit: false });
       }
       assert.equal(await page.evaluate(() => window.forwarded.filter(k => k === 'Escape').length), 0);
-      assert.match(await page.evaluate(() => window.writes[0].patch.html), /edited/u);
+      assert.deepEqual(await page.evaluate(() => window.writes), []);
       await page.keyboard.press('Escape');
       assert.equal(await page.evaluate(() => window.forwarded.filter(k => k === 'Escape').length), 1, 'idle root Esc is unhandled');
     } finally { await page.close(); }
@@ -177,7 +177,7 @@ test('hierarchical interaction gestures in the classic browser runtime', async t
   await t.test('scope survives remount after text commit and preserves the selected leaf', async () => {
     const page = await fixture(browser); try {
       await deep(page, 'a'); await click(page, 'a', 2); await page.keyboard.type(' remount');
-      await page.keyboard.press('Escape');
+      await page.keyboard.press('Enter');
       await page.evaluate(async () => {
         await window.akari.runtime.mount(window.akari.state.summary); window.akari.runtime.tick(1, true);
         await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
@@ -214,8 +214,8 @@ test('hierarchical interaction gestures in the classic browser runtime', async t
         await page.keyboard.type(' legacy'); await page.keyboard.press('Escape');
         const after = await state(page);
         const writes = await page.evaluate(() => window.writes);
-        assert.equal(after.selectedId, null); assert.equal(after.activeEdit, false); assert.equal(handles, 4);
-        assert.equal(writes.length, 3); assert.notEqual(writes[1].patch.transform.scale, 1);
+        assert.equal(after.selectedId, 'plain'); assert.equal(after.activeEdit, false); assert.equal(handles, 4);
+        assert.equal(writes.length, 2); assert.notEqual(writes[1].patch.transform.scale, 1);
         traces.push({ selected, after, writes, handles });
       } finally { await page.close(); }
     }

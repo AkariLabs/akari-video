@@ -12103,7 +12103,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     const movement = translate(moveEvent);
                     let nextX = original.x + movement.x;
                     let nextY = original.y + movement.y;
-                    if (moveEvent.shiftKey || !window.akari.interaction) {
+                    if (moveEvent.altKey || !window.akari.interaction) {
                         dragSnap = { x: null, y: null };
                         window.akari.interaction?.hideSnapGuides?.();
                     } else {
@@ -12208,7 +12208,7 @@ body { display: grid; place-items: center; padding: 32px; }
                         const movement = translate(moveEvent);
                         let nextX = original.x + movement.x;
                         let nextY = original.y + movement.y;
-                        if (moveEvent.shiftKey || !window.akari.interaction) {
+                        if (moveEvent.altKey || !window.akari.interaction) {
                             dragSnap = { x: null, y: null };
                             window.akari.interaction?.hideSnapGuides?.();
                         } else {
@@ -12262,7 +12262,8 @@ body { display: grid; place-items: center; padding: 32px; }
                         const startAngle = Math.atan2(event.clientY - center.y, event.clientX - center.x) * 180 / Math.PI;
                         beginMediaTransformDrag(layerDragTarget(entry), event, (moveEvent, original) => {
                             const angle = Math.atan2(moveEvent.clientY - center.y, moveEvent.clientX - center.x) * 180 / Math.PI;
-                            return { ...original, rotate: original.rotate + (angle - startAngle) };
+                            const rotate = original.rotate + (angle - startAngle);
+                            return { ...original, rotate: moveEvent.shiftKey ? Math.round(rotate / 15) * 15 : rotate };
                         });
                     } else {
                         const oppositeKind = { nw: 'se', ne: 'sw', se: 'nw', sw: 'ne' }[kind];
@@ -12287,7 +12288,7 @@ body { display: grid; place-items: center; padding: 32px; }
                             const distance = Math.hypot(point.x - anchor.x, point.y - anchor.y);
                             const factor = distance / startDistance;
                             let nextScale = Math.max(0.01, original.scale * factor);
-                            if (moveEvent.shiftKey || !window.akari.interaction.computeAnchorResizeSnap) {
+                            if (moveEvent.altKey || !window.akari.interaction.computeAnchorResizeSnap) {
                                 dragSnap = { x: null, y: null };
                                 window.akari.interaction?.hideSnapGuides?.();
                             } else {
@@ -12884,7 +12885,7 @@ body { display: grid; place-items: center; padding: 32px; }
                         const distance = Math.hypot(moveEvent.clientX - center.x, moveEvent.clientY - center.y);
                         const factor = distance / startDistance;
                         let nextScale = Math.max(0.01, original.scale * factor);
-                        if (moveEvent.shiftKey || !window.akari.interaction?.computeAnchorResizeSnap) {
+                        if (moveEvent.altKey || !window.akari.interaction?.computeAnchorResizeSnap) {
                             dragSnap = { x: null, y: null };
                             window.akari.interaction?.hideSnapGuides?.();
                         } else {
@@ -13432,27 +13433,21 @@ body { display: grid; place-items: center; padding: 32px; }
                         handle.releasePointerCapture(pointerId);
                     }
                 };
-                const currentPatch = () => kind === 'rot'
-                    ? { rotate: captionHandleRotateValue(
-                        baseRotate, center, start,
-                        captionOutputPoint(lastClientX, lastClientY)
-                    ) }
-                    : { scale: captionHandleScaleValue(
-                        baseScale, center, start,
-                        captionOutputPoint(lastClientX, lastClientY)
-                    ) };
-                let lastClientX = event.clientX;
-                let lastClientY = event.clientY;
+                // Persist the same patch displayed by the latest pointermove,
+                // including Shift pressed/released after the drag began.
+                let lastPatch;
                 const onMove = moveEvent => {
                     if (moveEvent.pointerId !== pointerId) return;
-                    lastClientX = moveEvent.clientX;
-                    lastClientY = moveEvent.clientY;
-                    const now = captionOutputPoint(lastClientX, lastClientY);
+                    const now = captionOutputPoint(moveEvent.clientX, moveEvent.clientY);
                     if (!moved && Math.hypot(now.x - start.x, now.y - start.y) > CLICK_THRESHOLD_PX) moved = true;
                     if (!moved) return;
                     const patch = kind === 'rot'
                         ? { rotate: captionHandleRotateValue(baseRotate, center, start, now) }
                         : { scale: captionHandleScaleValue(baseScale, center, start, now) };
+                    if (patch.rotate !== undefined && moveEvent.shiftKey) {
+                        patch.rotate = Math.round(patch.rotate / 15) * 15;
+                    }
+                    lastPatch = patch;
                     if (patch.scale !== undefined) {
                         captionPlate.style.setProperty('--caption-scale', String(patch.scale));
                     }
@@ -13468,7 +13463,7 @@ body { display: grid; place-items: center; padding: 32px; }
                         updateCaptionSelectBox();
                         return;
                     }
-                    const patch = currentPatch();
+                    const patch = lastPatch;
                     pendingCaptionDragReload = true;
                     try {
                         await window.akari.engine.captionWrite(cueId, {
