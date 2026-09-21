@@ -2401,6 +2401,11 @@ export class AkariInspectorWidget extends BaseWidget {
     protected generationCatalog: GenerationCatalogRow[] = [];
     protected generationDefaultModel = 'fal:h3-i2v';
     protected readonly generationDrafts = new Map<string, GenerationDraft>();
+    protected readonly generationQuality = new Map<string, { modelId: string; enabled: boolean; previousResolution: string | null }>();
+    protected readonly generationDone = new Map<string, { sourcePath: string; meta: unknown; originalMeta?: unknown }>();
+    protected readonly generationFinal = new Set<string>();
+    protected readonly generationVideoPaths = new Map<string, string>();
+    protected generationRetryPending = false;
     protected readonly generationValidations = new Map<string, GenerationValidation>();
     protected readonly generationStates = new Map<string, string>();
     protected readonly generationLoads = new Set<string>();
@@ -3127,6 +3132,10 @@ export class AkariInspectorWidget extends BaseWidget {
     }
 
     focusField(options: { tabId?: string; sectionId?: string; fieldName?: string; solo?: boolean }): boolean {
+        if (options.tabId === 'generation' && options.fieldName === 'akari-generation-retry') {
+            void this.retryGenerationFromTimeline();
+            return true;
+        }
         const clearedSolo = this.solo !== undefined;
         if (clearedSolo) {
             this.solo = undefined;
@@ -3189,6 +3198,41 @@ export class AkariInspectorWidget extends BaseWidget {
         if (target) this.pulse(target as HTMLElement);
         return true;
     }
+
+    protected async retryGenerationFromTimeline(): Promise<void> {
+        if (this.generationRetryPending || this.isDisposed) return;
+        this.generationRetryPending = true;
+        try {
+            // Selection can arrive after openInspectorPanel, or a generated video's
+            // identity may still be resolving from its sidecar. Keep this request pending.
+            const deadline = Date.now() + 2000;
+            let identity = this.generationIdentity(this.model.snapshot);
+            while (!identity && !this.isDisposed && Date.now() < deadline) {
+                this.focusField({ tabId: 'generation', sectionId: 'generation' });
+                await new Promise<void>(resolve => window.setTimeout(resolve, 20));
+                identity = this.generationIdentity(this.model.snapshot);
+            }
+            if (this.isDisposed) return;
+            if (!identity) { this.showFieldNotice('再試行するクリップの生成情報を読み込めませんでした。'); return; }
+            this.focusField({ tabId: 'generation', sectionId: 'generation' });
+            await this.loadGeneration(identity);
+            if (this.isDisposed) return;
+            if (this.generationIdentity(this.model.snapshot)?.key !== identity.key) {
+                this.showFieldNotice('選択が変わったため再試行を取り消しました。');
+                return;
+            }
+            this.focusField({ tabId: 'generation', sectionId: 'generation' });
+            if (this.generationStates.get(identity.key) !== 'failed') {
+                this.showFieldNotice('このクリップは再試行できる失敗状態ではありません。');
+                return;
+            }
+            const result = await this.confirmAndStartGeneration(identity);
+            if (!result.ok) this.showFieldNotice(result.message ?? '再試行できませんでした。');
+        } catch (error) {
+            this.showFieldNotice(`再試行を開けませんでした: ${String(error)}`);
+        } finally { this.generationRetryPending = false; }
+    }
+
 
     protected activeTabId(): string | undefined {
         const active = this.body.querySelector<HTMLElement>('.akari-inspector-tab.is-active');
@@ -3321,6 +3365,7 @@ export class AkariInspectorWidget extends BaseWidget {
             return;
         }
 
+        if (this.generationVideoPaths) this.observeGenerationVideo(snapshot);
         const generationIdentity = this.generationIdentity(snapshot);
         if (generationIdentity && !this.generationLoads.has(generationIdentity.key)) {
             void this.loadGeneration(generationIdentity);
@@ -4148,19 +4193,33 @@ export class AkariInspectorWidget extends BaseWidget {
         }
     }
 
+    protected observeGenerationVideo(snapshot: TimelineSelectionModel['snapshot']): void {
+        if (!snapshot || (snapshot.kind !== 'cut' && snapshot.kind !== 'layer')) return;
+        const itemId = snapshot.kind === 'cut' ? snapshot.itemId : snapshot.id;
+        const sourcePath = snapshot.kind === 'cut' ? snapshot.sourcePath : snapshot.sourceKind === 'media' ? snapshot.src : undefined;
+        if (!itemId || !sourcePath || !/\.(?:mp4|mov|webm|m4v)$/iu.test(sourcePath)) return;
+        if (this.generationVideoPaths.get(itemId) === sourcePath) return;
+        this.generationVideoPaths.set(itemId, sourcePath);
+        this.generationFinal.delete(itemId);
+        this.generationDone.delete(itemId);
+        this.generationDrafts.delete(itemId);
+        void this.loadGeneration({ key: itemId, itemId, sourcePath,
+            duration: snapshot.kind === 'cut' ? snapshot.outputEnd - snapshot.outputStart : snapshot.duration });
+    }
+
     protected generationIdentity(snapshot: TimelineSelectionModel['snapshot']): {
         key: string; itemId: string; sourcePath: string; duration: number; sourceId?: string;
     } | undefined {
         if (!snapshot || snapshot.kind === 'multi') return undefined;
         if (snapshot.kind === 'cut') {
-            if (!snapshot.itemId || !snapshot.sourcePath || !/\.(?:png|jpe?g|webp|gif|bmp|tiff?)$/iu.test(snapshot.sourcePath)) return undefined;
+            if (!snapshot.itemId || !snapshot.sourcePath || (this.generationDone?.get(snapshot.itemId)?.sourcePath !== snapshot.sourcePath && !/\.(?:png|jpe?g|webp|gif|bmp|tiff?)$/iu.test(snapshot.sourcePath))) return undefined;
             return {
                 key: snapshot.itemId, itemId: snapshot.itemId, sourcePath: snapshot.sourcePath,
                 duration: Math.max(0, snapshot.outputEnd - snapshot.outputStart), sourceId: snapshot.src
             };
         }
         if (snapshot.kind === 'layer' && snapshot.sourceKind === 'media' && snapshot.src
-            && /\.(?:png|jpe?g|webp|gif|bmp|tiff?)$/iu.test(snapshot.src)) {
+            && (this.generationDone?.get(snapshot.id)?.sourcePath === snapshot.src || /\.(?:png|jpe?g|webp|gif|bmp|tiff?)$/iu.test(snapshot.src))) {
             return { key: snapshot.id, itemId: snapshot.id, sourcePath: snapshot.src, duration: snapshot.duration };
         }
         return undefined;
@@ -4183,10 +4242,30 @@ export class AkariInspectorWidget extends BaseWidget {
             const sidecars = await this.layerAudioService.readGenerationSidecars({
                 projectRootUri: root.toString(), sourcePaths: [identity.sourcePath]
             });
+            const snapshot = this.model.snapshot;
+            const selectedId = snapshot?.kind === 'cut' ? snapshot.itemId : snapshot?.kind === 'layer' ? snapshot.id : undefined;
+            const selectedPath = snapshot?.kind === 'cut' ? snapshot.sourcePath : snapshot?.kind === 'layer' ? snapshot.src : undefined;
+            if (selectedId === identity.itemId && selectedPath !== identity.sourcePath) return;
             const normalize = (path: string): string => path.trim().replace(/\\/gu, '/').replace(/^(?:\.\/)+/u, '');
             const sourceMeta = sidecars.entries.find(entry => normalize(entry.sourcePath) === normalize(identity.sourcePath))?.meta;
             this.generationTabMeta.set(identity.key, sourceMeta ?? {});
             let draft = generationFields.fromMeta(sourceMeta);
+            if (/\.(?:mp4|mov|webm|m4v)$/iu.test(identity.sourcePath)) {
+                const originalMeta = await this.readGenerationOriginalNext(sourceMeta, identity.itemId);
+                if (sourceMeta?.kind === 'video') this.generationDone.set(identity.key, { sourcePath: identity.sourcePath, meta: sourceMeta, originalMeta });
+                else this.generationDone.delete(identity.key);
+                const original = generationFields.fromMeta(originalMeta);
+                draft ??= original;
+                if (!draft || sourceMeta?.kind !== 'video') {
+                    this.generationDrafts.delete(identity.key);
+                    this.generationStates.set(identity.key, 'done');
+                    if (this.generationIdentity(this.model.snapshot)?.key === identity.key) this.render();
+                    return;
+                }
+            } else {
+                this.generationDone?.delete(identity.key);
+                this.generationFinal?.delete(identity.key);
+            }
             if (!draft) {
                 try {
                     const uri = root.resolve(`.akari/generation/${identity.itemId}.inputs.json`);
@@ -4233,6 +4312,52 @@ export class AkariInspectorWidget extends BaseWidget {
             this.showFieldNotice(error instanceof Error ? error.message : String(error));
         }
         if (this.generationIdentity(this.model.snapshot)?.key === identity.key) this.render();
+    }
+
+    /** Follow placeholder provenance, never first_frame (which may be an unrelated reference). */
+    protected async readGenerationOriginalNext(meta: unknown, itemId: string): Promise<unknown> {
+        const root = this.workspaceService.tryGetRoots()[0]?.resource;
+        if (!root) return undefined;
+        const visited = new Set<string>();
+        let current = meta as { placeholder?: { path?: string; item_id?: string } } | undefined;
+        for (let depth = 0; depth < 32; depth++) {
+            const placeholder = current?.placeholder;
+            const path = placeholder?.path?.replace(/\\/gu, '/');
+            if (!path || placeholder?.item_id !== itemId || visited.has(path)
+                || path.startsWith('/') || path.includes(':') || path.split('/').includes('..')) return undefined;
+            visited.add(path);
+            if (!await this.fileService.exists(root.resolve(path))) return undefined;
+            const result = await this.layerAudioService.readGenerationSidecars({ projectRootUri: root.toString(), sourcePaths: [path] });
+            const original = result.entries.find(entry => entry.sourcePath === path)?.meta;
+            if (/\.(?:png|jpe?g|webp|gif|bmp|tiff?)$/iu.test(path)) return generationFields.fromMeta(original) ? original : undefined;
+            current = original;
+        }
+        return undefined;
+    }
+
+    protected async prepareGenerationFinal(identity: { key: string; itemId: string; sourcePath: string; duration: number }): Promise<InspectorWriteResult> {
+        const done = this.generationDone.get(identity.key);
+        const original = generationFields.fromMeta(done?.originalMeta);
+        const row = this.generationCatalog.find(candidate => candidate.id === original?.modelId);
+        if (!row || !original || !generationFields.canFinalize(done?.meta, done?.originalMeta, row)) {
+            return { ok: false, message: '元の静止画の入力が見つかりません。' };
+        }
+        const previous = this.generationQuality.get(identity.key);
+        const originalResolution = typeof original.output.resolution === 'string' && row.resolutions?.includes(original.output.resolution)
+            ? original.output.resolution : generationFields.defaultResolution(row);
+        const resolution = previous?.modelId === row.id && previous.previousResolution
+            && row.resolutions?.includes(previous.previousResolution) ? previous.previousResolution : originalResolution;
+        const seed = (done?.meta as { inputs?: { seed?: unknown } })?.inputs?.seed;
+        const draft = { modelId: original.modelId, inputs: { ...original.inputs },
+            output: { ...original.output, duration_s: identity.duration, resolution } };
+        if (row.seed && Number.isInteger(seed)) draft.inputs.seed = seed;
+        this.generationFinal.add(identity.key);
+        this.generationQuality.set(identity.key, { modelId: row.id, enabled: false, previousResolution: resolution });
+        this.generationDrafts.set(identity.key, draft);
+        this.generationTabDrafts.set(identity.key, draft);
+        await this.validateGenerationDraft(identity.key);
+        this.render();
+        return { ok: true };
     }
 
     protected async loadGenerationNeighbors(identity: { key: string; itemId: string }): Promise<void> {
@@ -4377,16 +4502,30 @@ export class AkariInspectorWidget extends BaseWidget {
             defaults: {
                 catalog: this.generationCatalog, currentImage: identity.sourcePath,
                 ...this.generationNeighbors?.get(identity.key), thumbnail: path => this.generationThumbnail(path),
-                state: this.generationStates.get(identity.key)
+                state: this.generationStates.get(identity.key),
+                cheapDraft: this.generationQuality?.get(identity.key)?.modelId === row.id && this.generationQuality.get(identity.key)?.enabled,
+                finalQuality: this.generationFinal?.has(identity.key),
+                doneMeta: this.generationDone?.get(identity.key)?.meta, originalNext: this.generationDone?.get(identity.key)?.originalMeta
             },
             actions: {
                 update: (path, value) => this.updateGenerationDraft(identity, path, value),
                 copyAdjacent: () => this.copyAdjacentGenerationDraft(identity),
                 generate: () => this.confirmAndStartGeneration(identity),
                 resume: () => this.resumeGeneration(identity),
-                retry: () => this.confirmAndStartGeneration(identity)
+                retry: () => this.confirmAndStartGeneration(identity),
+                finalQuality: () => this.prepareGenerationFinal(identity)
             }
         });
+        if (this.generationFinal?.has(identity.key)) {
+            for (const field of fields) {
+                if (field.name !== 'generation-resolution' && field.name !== 'generation-actions') {
+                    field.disabled = true;
+                    delete field.write;
+                    field.actions = undefined;
+                }
+                if (field.name === 'generation-actions') field.actions = field.actions?.filter(action => action.name === 'generate');
+            }
+        }
         if (this.generationFramePickMessage?.key === identity.key) {
             const message = { name: 'generation-message', label: 'エラー',
                 className: 'akari-inspector-generation-error', getValue: () => this.generationFramePickMessage!.text };
@@ -4396,7 +4535,7 @@ export class AkariInspectorWidget extends BaseWidget {
         }
         // Keep each paired visual unit together in the section model.
         const pairs = [['first-frame', 'last_frame'], ['generation-variety', 'generation-material-note'],
-            ['generation-estimate', 'generation-actions']];
+            ['generation-estimate', 'generation-actions'], ['generation-resolution', 'generation-cheap-draft']];
         for (const [first, second] of pairs) {
             const index = fields.findIndex(field => field.name === first);
             const other = fields.findIndex(field => field.name === second);
@@ -4414,9 +4553,23 @@ export class AkariInspectorWidget extends BaseWidget {
     ): Promise<InspectorWriteResult> {
         const current = this.generationDrafts.get(identity.key);
         if (!current) return { ok: false, message: '生成下書きを読み込み中です。' };
+        if (this.generationFinal?.has(identity.key) && path !== 'output.resolution') {
+            return { ok: false, message: '本番の画質では解像度だけを変更できます。' };
+        }
         const next: GenerationDraft = {
             modelId: current.modelId, inputs: { ...current.inputs }, output: { ...current.output }
         };
+        if (path === 'cheapDraft') {
+            const row = this.generationCatalog.find(candidate => candidate.id === current.modelId);
+            if (!row || !generationFields.draftQuality(row)) return { ok: false, message: 'このモデルは下書きに対応していません。' };
+            const previous = this.generationQuality.get(identity.key);
+            const enabled = value === true;
+            if (previous?.modelId === row.id && previous.enabled === enabled) return { ok: true };
+            const toggled = generationFields.toggleDraft(row, current.output, enabled,
+                previous?.modelId === row.id ? previous.previousResolution : undefined);
+            next.output = toggled.output;
+            this.generationQuality.set(identity.key, { modelId: row.id, enabled, previousResolution: toggled.previousResolution });
+        }
         if (path === 'inputs.frames_or_refs') {
             const row = this.generationCatalog.find(candidate => candidate.id === current.modelId);
             const pair = row && generationFields.pairedModels(row, this.generationCatalog);
@@ -4427,6 +4580,7 @@ export class AkariInspectorWidget extends BaseWidget {
         if (path === 'modelId') {
             this.cancelGenerationFramePick?.();
             next.modelId = String(value);
+            this.generationQuality?.delete(identity.key);
             const model = this.generationCatalog.find(row => row.id === next.modelId);
             if (model) {
                 const side = generationFields.modelSide(model);
@@ -4521,6 +4675,16 @@ export class AkariInspectorWidget extends BaseWidget {
 
     protected async confirmAndStartGeneration(identity: { key: string; itemId: string; sourcePath: string; duration: number; sourceId?: string }): Promise<InspectorWriteResult> {
         try {
+            const selected = this.generationDrafts.get(identity.key);
+            if (!selected) return { ok: false, message: '生成下書きを読み込み中です。' };
+            if (this.generationFinal?.has(identity.key)) {
+                const row = this.generationCatalog.find(candidate => candidate.id === selected.modelId);
+                const quality = row && generationFields.draftQuality(row);
+                const price = row?.price?.by_resolution?.[String(selected.output.resolution)];
+                if (!quality || typeof price !== 'number' || price <= quality.unitPrice) {
+                    return { ok: false, message: '下書きより高い画質の解像度を選んでください。' };
+                }
+            }
             await this.persistGenerationDraft(identity);
             const draft = this.generationDrafts.get(identity.key)!;
             const validation = this.generationValidations.get(identity.key);
@@ -4834,6 +4998,25 @@ export class AkariInspectorWidget extends BaseWidget {
                 section.appendChild(note);
             }
             parent.appendChild(section);
+            return;
+        }
+        if (generationField.generationCheckbox) {
+            const label = document.createElement('label');
+            label.className = 'akari-inspector-generation-draft';
+            label.setAttribute('data-akari-generation-field', field.name!);
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.checked = field.getValue(snapshot) === 'true';
+            checkbox.disabled = !!field.disabled;
+            checkbox.addEventListener('change', () => {
+                checkbox.disabled = true;
+                void field.write!(snapshot, String(checkbox.checked)).then(result => {
+                    if (!result.ok) { checkbox.checked = !checkbox.checked; this.showFieldNotice(result.message ?? '変更できませんでした。'); }
+                }).finally(() => { checkbox.disabled = !!field.disabled; });
+            });
+            label.appendChild(checkbox);
+            label.appendChild(document.createTextNode(field.label));
+            parent.appendChild(label);
             return;
         }
         if (generationField.generationFrame || generationField.generationButtons) {

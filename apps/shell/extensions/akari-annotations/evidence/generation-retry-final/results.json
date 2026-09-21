@@ -1,0 +1,471 @@
+{
+  "status": "pass",
+  "steps": [
+    {
+      "name": "1. 失敗チップのもう一度・札・名前・時刻の6組の非交差と背景/枠線、狭いクリップの非表示",
+      "pass": true,
+      "detail": {
+        "measured": {
+          "rectangles": {
+            "chip": {
+              "left": 456.59375,
+              "right": 670.2265625,
+              "top": 869.4921875,
+              "bottom": 917.4921875,
+              "width": 213.6328125,
+              "height": 48
+            },
+            "button": {
+              "left": 487.59375,
+              "right": 537.59375,
+              "top": 871.4921875,
+              "bottom": 883.4921875,
+              "width": 50,
+              "height": 12
+            },
+            "badge": {
+              "left": 459.59375,
+              "right": 485.59375,
+              "top": 871.4921875,
+              "bottom": 883.4921875,
+              "width": 26,
+              "height": 12
+            },
+            "name": {
+              "left": 539.59375,
+              "right": 620.2265625,
+              "top": 871.4921875,
+              "bottom": 883.4921875,
+              "width": 80.6328125,
+              "height": 12
+            },
+            "time": {
+              "left": 622.2265625,
+              "right": 666.2265625,
+              "top": 871.4921875,
+              "bottom": 883.4921875,
+              "width": 44,
+              "height": 12
+            }
+          },
+          "intersections": {
+            "buttonBadge": false,
+            "buttonName": false,
+            "buttonTime": false,
+            "badgeName": false,
+            "badgeTime": false,
+            "nameTime": false
+          },
+          "nameText": "a.png",
+          "style": {
+            "background": "rgb(10, 10, 10)",
+            "borderWidth": "1px",
+            "borderStyle": "solid",
+            "borderColor": "rgb(229, 229, 229)",
+            "pointerEvents": "auto"
+          },
+          "text": "もう一度"
+        },
+        "narrow": {
+          "width": 14.2421875,
+          "retry": false,
+          "title": "C2\n失敗 — 生成に失敗しました · もう一度（右パネルで費用承認）\nb.png\n00:01:00"
+        }
+      }
+    },
+    {
+      "name": "2. チップのもう一度をCDP実クリック → 生成タブ → 費用承認、未承認0件",
+      "pass": true,
+      "detail": {
+        "activeTab": "generation",
+        "invocationsBeforeApproval": 0
+      }
+    },
+    {
+      "name": "3. 費用承認を実クリック → 偽 CLI 起動記録ちょうど1件",
+      "pass": true,
+      "detail": [
+        {
+          "args": [
+            "generate",
+            "video",
+            "/private<TMP>/project",
+            "--item",
+            "clip-a",
+            "--yes",
+            "--json"
+          ],
+          "next": {
+            "kind": "video",
+            "status": "planned",
+            "model": {
+              "id": "fal:h3-i2v"
+            },
+            "inputs": {
+              "prompt": "A garden.",
+              "negative_prompt": null,
+              "first_frame": {
+                "path": "assets/stills/a.png",
+                "sha256": "76a70be0c59c47aaf783b8ab7af99016761b0f92fe483e91f2b26cdeba0adb83"
+              },
+              "last_frame": {
+                "path": "assets/stills/b.png",
+                "sha256": "18e7d02ac6a216a8bdc5a09cd6d9913e17279d28f01cc368ed139e5963d1d30b"
+              },
+              "reference_images": [],
+              "reference_videos": [],
+              "reference_audios": [],
+              "source_video": null,
+              "camera": null,
+              "seed": null,
+              "extra": {},
+              "frames_or_refs": "frames"
+            },
+            "output": {
+              "duration_s": 15,
+              "resolution": "768P",
+              "audio_out": true
+            },
+            "updated_at": "2026-09-21T20:44:26.161Z"
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. 下書きONは解像度固定・見積低下、OFFで解像度と見積復元",
+      "pass": true,
+      "detail": {
+        "before": {
+          "estimate": 0.9,
+          "resolution": "768P"
+        },
+        "on": {
+          "estimate": 0.75,
+          "resolution": "480P"
+        },
+        "off": {
+          "estimate": 0.9,
+          "resolution": "768P"
+        },
+        "invocations": 1,
+        "editUnchanged": true
+      }
+    },
+    {
+      "name": "5. done 下書きのクリップを実クリック → 本番の画質にする…と注記",
+      "pass": true,
+      "detail": {
+        "itemId": "clip-final",
+        "note": "同じ入力でもう一度、高い画質で生成します（絵は変わることがあります）",
+        "invocations": 0
+      }
+    },
+    {
+      "name": "6. 本番画質の初期解像度・見積 → 費用承認1つ → キャンセルで起動0件",
+      "pass": true,
+      "detail": {
+        "initialResolution": "768P",
+        "selectedResolution": "768P",
+        "estimate": 0.3,
+        "dialogCount": 1,
+        "invocationsAfterCancel": 0,
+        "originalMetaSha256": "ef6ef349b1a8ae7eda91dc26e37fb4b4ca85f3d1514410976e1cd6acf907fe4c"
+      }
+    },
+    {
+      "name": "7. 本番画質を再度承認 → 対象itemの偽CLI1件・mp4 next・元静止画metaのバイト列不変",
+      "pass": true,
+      "detail": {
+        "itemId": "clip-final",
+        "draftResolution": "480P",
+        "originalMetaSha256": {
+          "before": "ef6ef349b1a8ae7eda91dc26e37fb4b4ca85f3d1514410976e1cd6acf907fe4c",
+          "afterCancel": "ef6ef349b1a8ae7eda91dc26e37fb4b4ca85f3d1514410976e1cd6acf907fe4c",
+          "afterApproval": "ef6ef349b1a8ae7eda91dc26e37fb4b4ca85f3d1514410976e1cd6acf907fe4c"
+        },
+        "invocationsBefore": 1,
+        "initialResolution": "768P",
+        "estimate": 0.3,
+        "selectedResolution": "768P",
+        "cancelDialogCount": 1,
+        "invocationsAfterCancel": 0,
+        "totalInvocationsAfterCancel": 1,
+        "approveDialogCount": 1,
+        "invocationsAfterApproval": 1,
+        "calls": [
+          {
+            "args": [
+              "generate",
+              "video",
+              "/private<TMP>/project",
+              "--item",
+              "clip-final",
+              "--yes",
+              "--json"
+            ],
+            "next": {
+              "kind": "video",
+              "status": "planned",
+              "model": {
+                "id": "fal:h3-i2v"
+              },
+              "inputs": {
+                "prompt": "A garden in the wind.",
+                "negative_prompt": null,
+                "first_frame": {
+                  "path": "assets/stills/final.png",
+                  "sha256": "68414dc4d431220fde072338d03e259dd7993c0092ca65a04acb14bf109142ce"
+                },
+                "last_frame": null,
+                "reference_images": [],
+                "reference_videos": [],
+                "reference_audios": [],
+                "source_video": null,
+                "camera": null,
+                "seed": 42,
+                "extra": {},
+                "frames_or_refs": "frames"
+              },
+              "output": {
+                "duration_s": 5,
+                "resolution": "768P",
+                "audio_out": true
+              },
+              "updated_at": "2026-09-21T20:44:31.835Z"
+            }
+          }
+        ],
+        "mp4NextResolution": "768P",
+        "originalMetaBytesUnchanged": true,
+        "fakeCliMode": "record-only"
+      }
+    }
+  ],
+  "screenshots": [
+    "01-failed-timeline.png",
+    "02-generation-approval.png",
+    "03-failed-after-retry.png",
+    "04-draft-on.png",
+    "05-draft-off.png",
+    "06-final-quality-note.png",
+    "07-final-quality-approval.png",
+    "08-final-quality-after.png"
+  ],
+  "measurements": {
+    "before": {
+      "rectangles": {
+        "chip": {
+          "left": 456.59375,
+          "right": 670.2265625,
+          "top": 869.4921875,
+          "bottom": 917.4921875,
+          "width": 213.6328125,
+          "height": 48
+        },
+        "button": {
+          "left": 487.59375,
+          "right": 537.59375,
+          "top": 871.4921875,
+          "bottom": 883.4921875,
+          "width": 50,
+          "height": 12
+        },
+        "badge": {
+          "left": 459.59375,
+          "right": 485.59375,
+          "top": 871.4921875,
+          "bottom": 883.4921875,
+          "width": 26,
+          "height": 12
+        },
+        "name": {
+          "left": 539.59375,
+          "right": 620.2265625,
+          "top": 871.4921875,
+          "bottom": 883.4921875,
+          "width": 80.6328125,
+          "height": 12
+        },
+        "time": {
+          "left": 622.2265625,
+          "right": 666.2265625,
+          "top": 871.4921875,
+          "bottom": 883.4921875,
+          "width": 44,
+          "height": 12
+        }
+      },
+      "intersections": {
+        "buttonBadge": false,
+        "buttonName": false,
+        "buttonTime": false,
+        "badgeName": false,
+        "badgeTime": false,
+        "nameTime": false
+      },
+      "nameText": "a.png",
+      "style": {
+        "background": "rgb(10, 10, 10)",
+        "borderWidth": "1px",
+        "borderStyle": "solid",
+        "borderColor": "rgb(229, 229, 229)",
+        "pointerEvents": "auto"
+      },
+      "text": "もう一度"
+    },
+    "after": {
+      "rectangles": {
+        "chip": {
+          "left": 456.59375,
+          "right": 670.2265625,
+          "top": 869.4921875,
+          "bottom": 917.4921875,
+          "width": 213.6328125,
+          "height": 48
+        },
+        "button": {
+          "left": 488.59375,
+          "right": 538.59375,
+          "top": 872.4921875,
+          "bottom": 884.4921875,
+          "width": 50,
+          "height": 12
+        },
+        "badge": {
+          "left": 460.59375,
+          "right": 486.59375,
+          "top": 872.4921875,
+          "bottom": 884.4921875,
+          "width": 26,
+          "height": 12
+        },
+        "name": {
+          "left": 540.59375,
+          "right": 620.2265625,
+          "top": 872.4921875,
+          "bottom": 884.4921875,
+          "width": 79.6328125,
+          "height": 12
+        },
+        "time": {
+          "left": 622.2265625,
+          "right": 666.2265625,
+          "top": 872.4921875,
+          "bottom": 884.4921875,
+          "width": 44,
+          "height": 12
+        }
+      },
+      "intersections": {
+        "buttonBadge": false,
+        "buttonName": false,
+        "buttonTime": false,
+        "badgeName": false,
+        "badgeTime": false,
+        "nameTime": false
+      },
+      "nameText": "a.png",
+      "style": {
+        "background": "rgb(10, 10, 10)",
+        "borderWidth": "1px",
+        "borderStyle": "solid",
+        "borderColor": "rgb(229, 229, 229)",
+        "pointerEvents": "auto"
+      },
+      "text": "もう一度"
+    },
+    "finalQuality": {
+      "itemId": "clip-final",
+      "draftResolution": "480P",
+      "originalMetaSha256": {
+        "before": "ef6ef349b1a8ae7eda91dc26e37fb4b4ca85f3d1514410976e1cd6acf907fe4c",
+        "afterCancel": "ef6ef349b1a8ae7eda91dc26e37fb4b4ca85f3d1514410976e1cd6acf907fe4c",
+        "afterApproval": "ef6ef349b1a8ae7eda91dc26e37fb4b4ca85f3d1514410976e1cd6acf907fe4c"
+      },
+      "invocationsBefore": 1,
+      "initialResolution": "768P",
+      "estimate": 0.3,
+      "selectedResolution": "768P",
+      "cancelDialogCount": 1,
+      "invocationsAfterCancel": 0,
+      "totalInvocationsAfterCancel": 1,
+      "approveDialogCount": 1,
+      "invocationsAfterApproval": 1,
+      "calls": [
+        {
+          "args": [
+            "generate",
+            "video",
+            "/private<TMP>/project",
+            "--item",
+            "clip-final",
+            "--yes",
+            "--json"
+          ],
+          "next": {
+            "kind": "video",
+            "status": "planned",
+            "model": {
+              "id": "fal:h3-i2v"
+            },
+            "inputs": {
+              "prompt": "A garden in the wind.",
+              "negative_prompt": null,
+              "first_frame": {
+                "path": "assets/stills/final.png",
+                "sha256": "68414dc4d431220fde072338d03e259dd7993c0092ca65a04acb14bf109142ce"
+              },
+              "last_frame": null,
+              "reference_images": [],
+              "reference_videos": [],
+              "reference_audios": [],
+              "source_video": null,
+              "camera": null,
+              "seed": 42,
+              "extra": {},
+              "frames_or_refs": "frames"
+            },
+            "output": {
+              "duration_s": 5,
+              "resolution": "768P",
+              "audio_out": true
+            },
+            "updated_at": "2026-09-21T20:44:31.835Z"
+          }
+        }
+      ],
+      "mp4NextResolution": "768P",
+      "originalMetaBytesUnchanged": true,
+      "fakeCliMode": "record-only"
+    }
+  },
+  "fixture": {
+    "ok": true,
+    "project": "<TMP>/project",
+    "clips": [
+      "clip-a",
+      "clip-b",
+      "clip-c",
+      "clip-final"
+    ],
+    "sidecars": [
+      "assets/stills/a.png.meta.json",
+      "assets/stills/b.png.meta.json",
+      "assets/stills/c.png.meta.json"
+    ],
+    "captions": true,
+    "finalQuality": {
+      "itemId": "clip-final",
+      "sourcePath": "assets/generated/gen-clip-final.mp4",
+      "originalPath": "assets/stills/final.png",
+      "draftResolution": "480P",
+      "selectedResolution": "768P",
+      "modelId": "fal:h3-i2v"
+    }
+  },
+  "cleanup": {
+    "electronStopped": true,
+    "temporaryHome": true,
+    "temporaryUserData": true
+  }
+}

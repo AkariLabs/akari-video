@@ -102,6 +102,7 @@ mp4 がまだ無い「動画予定」は、**仮枠の素材の meta**（静止�
    右パネルは同じ family のフレーム行 / 参照行を「最初 / 最後｜参照」で切り替え、model ID も相方に替える。参照は種類別の札・カウンタ付きグリッドで、素材パネルから複数選択する。
 4. **送るとき**: CLI は `next`（または `--inputs`）を読み、従来どおり**生成物の隣**に video meta（`generating`）を書く。このとき **`placeholder: { path, sha256, item_id }`** = その item が今指している素材（静止画 / 文字カード）を必ず書く。item への逆引きは `placeholder` が正、`inputs.first_frame.path` は 9/13 時点の meta のための後方互換。`next` は消さない（「同じ入力でもう一度」の元）
 5. **状態の優先**: `placeholder` で結線された生成物 meta が `generating` / stale / `failed` ならそれを描く。無ければ `next` の `planned` を描く。`done` で差し替わった後は mp4 の meta が直接当たる（§7）
+   done で差し替わった後の作り直し（本番の画質・同じ入力でもう一度）の下書きは、mp4 の meta の `next` に持つ。元の静止画の `next` は変えない。
 6. `next` の更新は undo に入れない（§3 規則 3 と同じ）。右パネルの編集は即保存
 7. 移行: `.akari/generation/<itemId>.inputs.json` があり `next` が無いときだけ読み、次の保存で `next` へ移す。新規の書き込みはしない
 8. ビート表（`akari generate still --spec`）はビートごとに動画予定（最初だけ / 最初→最後）を指定でき、指定があれば CLI が `next` を書く。指定が無ければ「画像のまま」
@@ -243,6 +244,7 @@ Kling v3 standard i2v / Kling v3 pro i2v / Veo 3.1 first-last / Veo 3.1 referenc
 | 費用承認 | 有償生成の実行前ゲート |
 | 判子 | 書き出しの 1 回（9/6） |
 | 事実帯 | モデル選択の 1 行（価格・尺・入力・音声・較正）。レーダーの代わり |
+| 下書き → 本番の画質 | `price.by_resolution` に異なる単価が 2 つ以上ある video 行だけ対応。下書きは最安解像度。チェック ON は `next.output.resolution` を最安にして解像度を固定、OFF は直前の選択（無ければカタログ順の既定）へ戻し、見積を再計算する。生成物の `output.resolution` が最安なら下書きと判定し、カタログ・meta に判定用の欄は追加しない。done の `placeholder` を辿った元静止画が存在し `next` を保持している場合だけ「本番の画質にする…」を表示。解像度の初期値は下書き前の選択かカタログの既定で、価格順の 2 番目は使わない。より高い画質を選択 → 見積 → 既存の費用承認 → 同じ `next.inputs`（対応モデルで meta に seed があれば再使用）で生成する。既存の `writeGenerationDraft` で現在の mp4 meta の既存 `next` 欄へ送信下書きを保存し、CLI の `--item` 経路を再利用する。元静止画の `next` は消さず、同じ item の素材だけを §7 に従って差し替え、映像・色の設定を保持する。placeholder が過去の mp4 を指す場合も元静止画まで辿る。表示文言は「同じ入力でもう一度、高い画質で生成します（絵は変わることがあります）」。 |
 
 ## 10. コマ保存（キャプチャ）（2026-09-21）
 
