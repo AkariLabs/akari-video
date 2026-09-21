@@ -1,5 +1,5 @@
 import fs from 'node:fs/promises';
-import { readFileSync, createReadStream } from 'node:fs';
+import { readFileSync, realpathSync, createReadStream } from 'node:fs';
 import { createHash, randomUUID } from 'node:crypto';
 import os from 'node:os';
 import path from 'node:path';
@@ -694,7 +694,15 @@ export function resolveAssetLibraryRoots(env = process.env, { platform = process
     const location = readLibraryLocation(env, { platform });
     const write = env.AKARI_LIBRARY_ROOT ? path.resolve(env.AKARI_LIBRARY_ROOT)
         : location && ['migrating', 'done'].includes(location.state) ? path.resolve(location.root) : legacy;
-    return { write, read: [...new Set([write, legacy])],
+    const seen = new Set();
+    const read = [write, legacy].filter(root => {
+        let actual;
+        try { actual = realpathSync(root); } catch { actual = root; }
+        if (seen.has(actual)) return false;
+        seen.add(actual);
+        return true;
+    });
+    return { write, read,
         source: env.AKARI_LIBRARY_ROOT ? 'env' : location && ['migrating', 'done'].includes(location.state) ? 'location' : 'legacy' };
 }
 
@@ -815,13 +823,14 @@ async function prepareLibraryAliases(legacy, root, current = legacy) {
     }
 }
 
-async function repairLibraryLinks(legacy, root, home) {
+async function repairLibraryLinks(legacy, root, home, preserved = new Set()) {
     const rebase = value => typeof value === 'string' && withinLibrary(legacy, value)
         ? path.join(root, path.relative(legacy, value)) : value;
     async function walk(dir, oldDir) {
         if (!(await lstatOrNull(dir))?.isDirectory()) return;
         for (const name of await fs.readdir(dir)) {
             const file = path.join(dir, name);
+            if (preserved.has(file)) continue;
             const st = await fs.lstat(file);
             if (st.isSymbolicLink()) {
                 const target = await fs.readlink(file);
@@ -844,6 +853,7 @@ async function repairLibraryLinks(legacy, root, home) {
     await walk(root, legacy);
     await walk(path.join(home, 'kits', 'plugin', 'skills'), path.join(home, 'kits', 'plugin', 'skills'));
     for (const [file, field] of [[path.join(root, 'installed.json'), 'packs'], [path.join(home, 'kits', 'installed.json'), 'kits']]) {
+        if (preserved.has(file)) continue;
         if (!(await lstatOrNull(file))) continue;
         const data = JSON.parse(await fs.readFile(file, 'utf8'));
         let changed = false;
@@ -872,10 +882,30 @@ export async function migrateAssetLibrary({ env = process.env, platform = proces
         root ??= path.resolve(creator, 'library');
     }
     result.root = root;
-    if (root === legacy) return result;
-    if (withinLibrary(legacy, root) || withinLibrary(root, legacy)) {
-        result.failures.push({ path: root, message: 'Library roots must not contain each other' });
-        return result;
+    // Resolve existing ancestors too: the destination may not have been created yet.
+    // An unresolved existing link or an unreadable root must fail closed.
+    async function canonicalRoot(dir) {
+        try { return await fs.realpath(dir); }
+        catch (error) {
+            if (error.code !== 'ENOENT' || await lstatOrNull(dir)) throw error;
+            const parent = path.dirname(dir);
+            if (parent === dir) throw error;
+            return path.join(await canonicalRoot(parent), path.basename(dir));
+        }
+    }
+    const contains = (parent, child) => {
+        const rel = path.relative(parent, child);
+        return rel === '' || (rel !== '..' && !rel.startsWith(`..${path.sep}`) && !path.isAbsolute(rel));
+    };
+    let actualRoot, actualLegacy;
+    try { [actualRoot, actualLegacy] = await Promise.all([canonicalRoot(root), canonicalRoot(legacy)]); }
+    catch (error) { return { ...result, skippedReason: `Cannot resolve library roots: ${error.message}` }; }
+    if (actualRoot === actualLegacy) {
+        return { ...result, skippedReason: 'Library roots resolve to the same location' };
+    }
+    if (contains(actualLegacy, actualRoot) || contains(actualRoot, actualLegacy)
+        || contains(legacy, root) || contains(root, legacy)) {
+        return { ...result, skippedReason: 'Library roots must not contain each other' };
     }
     result.totalBytes = await treeBytes(legacy);
     result.cloud = cloudSyncKind(await fs.realpath(root).catch(async () =>
@@ -897,9 +927,23 @@ export async function migrateAssetLibrary({ env = process.env, platform = proces
             await fs.mkdir(root, { recursive: true });
             await prepareLibraryAliases(legacy, root);
             const duplicateAliases = [];
+            const preserved = new Set();
             async function moveEntry(source, dest, depth = 0) {
                 const existing = await lstatOrNull(dest);
                 if (existing) {
+                    const [sourceReal, destReal] = await Promise.all([source, dest].map(file =>
+                        fs.realpath(file).catch(error => { if (error.code === 'ENOENT') return null; throw error; })));
+                    if (sourceReal && sourceReal === destReal) {
+                        // Only unlink an alias itself, never a real directory/file reached via an alias.
+                        if ((await fs.lstat(source)).isSymbolicLink() && contains(actualRoot, sourceReal)) {
+                            await fs.unlink(source);
+                            result.moved++;
+                        } else {
+                            result.skipped.push(path.relative(legacy, source));
+                            preserved.add(dest);
+                        }
+                        return;
+                    }
                     const alias = await equivalentKitAlias(source, dest, legacy, root);
                     if (alias) { duplicateAliases.push(alias); return; }
                     // Merge category containers, but never merge/overwrite an existing asset or pack.
@@ -929,7 +973,7 @@ export async function migrateAssetLibrary({ env = process.env, platform = proces
                 try { await moveEntry(path.join(legacy, name), path.join(root, name)); }
                 catch (error) { result.failures.push({ path: name, message: error.message }); }
             }
-            try { await repairLibraryLinks(legacy, root, home); }
+            try { await repairLibraryLinks(legacy, root, home, preserved); }
             catch (error) { result.failures.push({ path: root, message: error.message }); }
             for (const alias of duplicateAliases) {
                 try {

@@ -5,7 +5,8 @@ import { resolveAssetLibraryRoots } from '../../creator-root/src/index.mjs';
 import { loadCatalog } from './catalog.mjs';
 import { resolveAkariHome, resolveEffectiveBase, resolveEntitlementsUrl } from './env.mjs';
 import { fetchEntitlements, readStoreCredentials } from './entitlements.mjs';
-import { scanLocalLibrary } from './library.mjs';
+import { scanLocalLibrary, readLocalLibraryItem, sourceFields } from './library.mjs';
+import { loadInstalledItems, mergeInstalledItems } from './installed.mjs';
 
 async function fetchEntitledProducts({ env, fetchImpl }) {
   const credentials = await readStoreCredentials(env);
@@ -40,9 +41,24 @@ async function fetchEntitledProducts({ env, fetchImpl }) {
  */
 export async function composeState({ env = process.env, fetchImpl = fetch } = {}) {
   const home = resolveAkariHome(env);
-  const catalog = await loadCatalog({ env, fetchImpl });
+  const warnings = [];
+  let remoteCatalog;
+  try { remoteCatalog = await loadCatalog({ env, fetchImpl, includeInstalled: false }); }
+  catch (error) {
+    warnings.push(error.message);
+    remoteCatalog = { items: [], version: null };
+  }
+  const catalogKeys = new Set(remoteCatalog.items.map(item => `${item.category}/${item.id}`));
+  let installedItems = [];
+  try { installedItems = await loadInstalledItems(env); }
+  catch (error) { warnings.push(error.message); }
+  const catalog = mergeInstalledItems(remoteCatalog, installedItems);
   const hasCatalogItems = catalog.items.some((item) => item.source !== 'installed');
-  const base = hasCatalogItems ? resolveEffectiveBase(env, catalog) : null;
+  let base = null;
+  if (hasCatalogItems) {
+    try { base = resolveEffectiveBase(env, catalog); }
+    catch (error) { warnings.push(error.message); }
+  }
   const installed = scanLocalLibrary(env);
 
   // entitlements API は有料商品が無ければ叩く必要がない（無駄な認証リクエストを避ける）
@@ -54,14 +70,28 @@ export async function composeState({ env = process.env, fetchImpl = fetch } = {}
   // 同じ API への 2 回目の fail-soft 取得で補う。
   const entitledProducts = await fetchEntitledProducts({ env, fetchImpl });
 
-  const items = catalog.items.map((item) => {
+  const localItems = new Map([...installed].map(key => {
+    const [category, id] = key.split('/');
+    return [key, readLocalLibraryItem(env, category, id)];
+  }));
+  const merged = catalog.items.map(item => {
+    const key = `${item.category}/${item.id}`;
+    const local = localItems.get(key);
+    localItems.delete(key);
+    // Preserve remote download descriptors/preview keys for existing consumers.
+    // Local-only assets use the actual directory listing assembled above.
+    return local ? { ...item, ...local, files: item.files ?? local.files, preview: item.preview ?? local.preview,
+      ...(item.source === 'installed' ? { source: item.source } : {}) } : item;
+  });
+  merged.push(...[...localItems.values()].filter(Boolean));
+  const items = merged.map((item) => {
     const key = `${item.category}/${item.id}`;
     const price = item.price ?? 0;
     let state;
     if (installed.has(key)) state = 'cached';
     else if (price > 0 && !entitlementsResult.ids.has(item.id)) state = 'locked';
     else state = 'available';
-    return { ...item, state };
+    return { ...item, state, ...sourceFields(item, catalogKeys.has(key) || item.source === 'installed') };
   });
 
   return {
@@ -71,6 +101,7 @@ export async function composeState({ env = process.env, fetchImpl = fetch } = {}
     catalogVersion: catalog.version ?? null,
     entitlementsStatus: entitlementsResult.status,
     entitledProducts,
+    warnings,
     items,
   };
 }

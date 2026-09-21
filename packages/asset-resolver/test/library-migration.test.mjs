@@ -25,7 +25,8 @@ test('CLI migrate/list, interrupted reads, late old CLI writes, reference bundle
   assert.equal(partial.state, 'migrating');
   assert.equal((await composeState({ env })).items.find(x => x.id === 'mini-still').state, 'cached');
   assert.equal((await fetchAsset('mini-still', { env })).dir, original.dir);
-  const run = args => spawnSync(process.execPath, [cli, ...args], { env: { ...process.env, ...env }, encoding: 'utf8' });
+  const run = args => spawnSync(process.execPath, [cli, ...args], {
+    env: { ...process.env, ...env, HOME: f.root, AKARI_LIBRARY_ROOT: library }, encoding: 'utf8' });
   const migrate = run(['migrate']); assert.equal(migrate.status, 0, migrate.stderr);
   assert.equal(JSON.parse(migrate.stdout).state, 'done');
   const list = run(['list']); assert.equal(list.status, 0, list.stderr);
