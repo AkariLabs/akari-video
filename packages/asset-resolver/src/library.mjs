@@ -1,44 +1,33 @@
-// ローカルライブラリ（~/.akari/assets/<category>/<id>/）の取得状態スキャン。
-
-import { existsSync, readdirSync, statSync } from 'node:fs';
+// Library writes have one destination; reads also cover the previous location.
+import { readdirSync, statSync } from 'node:fs';
 import path from 'node:path';
+import { resolveAssetLibraryRoots } from '../../creator-root/src/index.mjs';
 
-export function localAssetDir(home, category, id) {
-  return path.join(home, 'assets', category, id);
+function roots(env) {
+  return resolveAssetLibraryRoots(typeof env === 'string' ? { AKARI_HOME: env } : env);
 }
-
-/** ディレクトリが存在し、かつ中身が 1 つ以上あれば「取得済み」とみなす */
-export function isAssetCached(home, category, id) {
-  const dir = localAssetDir(home, category, id);
-  try {
-    return statSync(dir).isDirectory() && readdirSync(dir).length > 0;
-  } catch {
-    return false;
+export function localAssetDir(env, category, id) {
+  return path.join(roots(env).write, category, id);
+}
+export function cachedAssetDir(env, category, id) {
+  for (const root of roots(env).read) {
+    const dir = path.join(root, category, id);
+    try { if (statSync(dir).isDirectory() && readdirSync(dir).length) return dir; } catch { /* next root */ }
   }
+  return null;
 }
-
-/** `<category>/<id>` キーの Set で、取得済み素材を一括列挙する（composeState 用） */
-export function scanLocalLibrary(home) {
+export function isAssetCached(env, category, id) {
+  return cachedAssetDir(env, category, id) !== null;
+}
+export function scanLocalLibrary(env) {
   const installed = new Set();
-  const assetsDir = path.join(home, 'assets');
-  if (!existsSync(assetsDir)) return installed;
-
-  for (const categoryEntry of readdirSync(assetsDir, { withFileTypes: true })) {
-    const categoryDir = path.join(assetsDir, categoryEntry.name);
-    try {
-      if (!statSync(categoryDir).isDirectory()) continue;
-      for (const idEntry of readdirSync(categoryDir, { withFileTypes: true })) {
-        const dir = path.join(categoryDir, idEntry.name);
-        try {
-          if (statSync(dir).isDirectory() && readdirSync(dir).length > 0) {
-            installed.add(`${categoryEntry.name}/${idEntry.name}`);
-          }
-        } catch {
-          // 壊れた symlink や読めない素材は取得済みとして数えない。
-        }
-      }
-    } catch {
-      // ファイルや壊れた category symlink は対象外。
+  for (const root of roots(env).read) {
+    let categories;
+    try { categories = readdirSync(root); } catch { continue; }
+    for (const category of categories) {
+      let ids;
+      try { ids = readdirSync(path.join(root, category)); } catch { continue; }
+      for (const id of ids) if (isAssetCached(env, category, id)) installed.add(`${category}/${id}`);
     }
   }
   return installed;

@@ -1,3 +1,4 @@
+import { pathToFileURL } from 'node:url';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import {
@@ -7,6 +8,12 @@ import {
 import path from 'node:path';
 
 import { resolveLauncherAssets } from './repo-assets.mjs';
+const creatorRootModulePath = resolveLauncherAssets().creatorRootModulePath;
+const creatorRoot = creatorRootModulePath ? await import(pathToFileURL(creatorRootModulePath).href) : null;
+function resolveAssetLibraryRoots(env) {
+  if (!creatorRoot) throw new Error('creator-root が見つからないため素材の置き場を解決できません。AKARI Video を再インストールしてください。');
+  return creatorRoot.resolveAssetLibraryRoots(env);
+}
 
 const KITS_SCHEMA = 'akari-installed-kits/v0';
 const INSTALLED_ASSETS_SCHEMA = 'akari-installed-assets/v0';
@@ -152,16 +159,8 @@ export function linkKitAssets(kitDir, manifest, home, options = {}) {
     } else {
       warnings.push(`素材 ${asset.category}/${asset.id} の検査ツールが見つからないため検査をスキップしました。`);
     }
-    const destination = path.join(home, 'assets', asset.category, asset.id);
-    const productRoot = path.join(home, 'assets', 'store', manifest.id);
-    const kitSubdir = path.relative(productRoot, kitDir);
-    const result = replaceSymlink(source, destination, {
-      ...options,
-      relativeTarget: path.join(
-        '..', '..', 'assets', 'store', manifest.id, kitSubdir,
-        'assets', asset.category, asset.id
-      )
-    });
+    const destination = path.join(resolveAssetLibraryRoots({ ...(options.env ?? process.env), AKARI_HOME: home }).write, asset.category, asset.id);
+    const result = replaceSymlink(source, destination, options);
     if (result.status === 'occupied') {
       warnings.push(`既存の実ディレクトリを保持しました: ${destination}`);
     } else if (result.status === 'permission-denied') {
@@ -174,8 +173,8 @@ export function linkKitAssets(kitDir, manifest, home, options = {}) {
   return { linked, items, warnings };
 }
 
-function readInstalledAssetsIndex(home) {
-  const indexPath = path.join(home, 'assets', 'installed.json');
+function readInstalledAssetsIndex(home, env = process.env) {
+  const indexPath = path.join(resolveAssetLibraryRoots({ ...env, AKARI_HOME: home }).write, 'installed.json');
   if (!existsSync(indexPath)) return { schema: INSTALLED_ASSETS_SCHEMA, packs: {} };
   const index = JSON.parse(readFileSync(indexPath, 'utf8'));
   if (index?.schema !== INSTALLED_ASSETS_SCHEMA
@@ -185,38 +184,38 @@ function readInstalledAssetsIndex(home) {
   return index;
 }
 
-function writeInstalledAssetsIndex(home, index) {
-  const indexPath = path.join(home, 'assets', 'installed.json');
+function writeInstalledAssetsIndex(home, index, env = process.env) {
+  const indexPath = path.join(resolveAssetLibraryRoots({ ...env, AKARI_HOME: home }).write, 'installed.json');
   mkdirSync(path.dirname(indexPath), { recursive: true });
   const temporary = `${indexPath}.tmp-${process.pid}`;
   writeFileSync(temporary, `${JSON.stringify(index, null, 2)}\n`, { mode: 0o600 });
   renameSync(temporary, indexPath);
 }
 
-export function registerKitAssets(home, manifest, kitDir, items) {
+export function registerKitAssets(home, manifest, kitDir, items, env = process.env) {
   const root = path.resolve(kitDir);
-  const storeRoot = path.join(path.resolve(home), 'assets', 'store', manifest.id);
+  const storeRoot = path.join(resolveAssetLibraryRoots({ ...env, AKARI_HOME: home }).write, 'store', manifest.id);
   if (root !== storeRoot && !root.startsWith(`${storeRoot}${path.sep}`)) {
     throw new Error(`キット素材の root が展開先の外を指しています: ${root}`);
   }
-  const index = readInstalledAssetsIndex(home);
+  const index = readInstalledAssetsIndex(home, env);
   index.packs[manifest.id] = {
     version: manifest.version,
     installedAt: new Date().toISOString(),
     root,
     items
   };
-  writeInstalledAssetsIndex(home, index);
+  writeInstalledAssetsIndex(home, index, env);
   return items;
 }
 
-function unregisterKitAssets(home, productId) {
-  const indexPath = path.join(home, 'assets', 'installed.json');
+function unregisterKitAssets(home, productId, env = process.env) {
+  const indexPath = path.join(resolveAssetLibraryRoots({ ...env, AKARI_HOME: home }).write, 'installed.json');
   if (!existsSync(indexPath)) return;
-  const index = readInstalledAssetsIndex(home);
+  const index = readInstalledAssetsIndex(home, env);
   if (!Object.hasOwn(index.packs, productId)) return;
   delete index.packs[productId];
-  writeInstalledAssetsIndex(home, index);
+  writeInstalledAssetsIndex(home, index, env);
 }
 
 export function linkKitSkills(kitDir, manifest, home, options = {}) {
@@ -276,20 +275,20 @@ export function writeKitsLedger(home, entry) {
   return ledger;
 }
 
-export function removeKit(home, productId) {
+export function removeKit(home, productId, env = process.env) {
   const ledger = readKitsLedger(home);
   const entry = ledger.kits.find((kit) => kit.id === productId);
   if (!entry) return false;
   for (const name of entry.skills ?? []) removeOwnedSymlink(path.join(home, 'kits', 'plugin', 'skills', name), entry.kitDir);
   for (const asset of entry.assets ?? []) {
-    removeOwnedSymlink(path.join(home, 'assets', asset.category, asset.id), entry.kitDir);
+    for (const root of resolveAssetLibraryRoots({ ...env, AKARI_HOME: home }).read) removeOwnedSymlink(path.join(root, asset.category, asset.id), entry.kitDir);
   }
   ledger.kits = ledger.kits.filter((kit) => kit.id !== productId);
   const ledgerPath = path.join(home, 'kits', 'installed.json');
   const temporary = `${ledgerPath}.tmp-${process.pid}`;
   writeFileSync(temporary, `${JSON.stringify(ledger, null, 2)}\n`, { mode: 0o600 });
   renameSync(temporary, ledgerPath);
-  unregisterKitAssets(home, productId);
+  unregisterKitAssets(home, productId, env);
   return true;
 }
 

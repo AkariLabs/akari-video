@@ -1,16 +1,20 @@
 # 宣言づけ画面の起動
 
+ライブラリの置き場は既定で作業場の `library/`。作業場が無いときは従来の `~/.akari/assets/` を使う。
+`akari-assets list`（または `akari assets list`）の先頭行で実際の置き場を確認する。
+以下の `<ライブラリの置き場>` はその表示先を指し、音源はその下の `audio/` に入る。
+
 ## 1. 起動する
 
 ```sh
 node packages/audio-library-setup/bin/declare-helper.mjs
 ```
 
-既定のライブラリは `~/.akari/assets/audio`。別の場所を見るときだけ上書きする。
+既定のライブラリは `<ライブラリの置き場>/audio`。別の場所を見るときだけ上書きする。
 
 ```sh
 node packages/audio-library-setup/bin/declare-helper.mjs \
-  --library-root ~/.akari/assets/audio --port 0
+  --port 0
 ```
 
 起動すると次の 3 行を標準出力に出す。**`HELPER:` の URL をユーザーにそのまま提示して
@@ -18,8 +22,8 @@ node packages/audio-library-setup/bin/declare-helper.mjs \
 
 ```
 HELPER: http://localhost:<port>/
-library-root: /Users/<user>/.akari/assets/audio
-保存先: /Users/<user>/.akari/assets/audio/declarations.json
+library-root: <ライブラリの置き場>/audio
+保存先: <ライブラリの置き場>/audio/declarations.json
 ```
 
 ## 2. 一覧に何が出るか

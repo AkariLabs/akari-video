@@ -1,4 +1,6 @@
 import fs from 'node:fs/promises';
+import { readFileSync, createReadStream } from 'node:fs';
+import { createHash, randomUUID } from 'node:crypto';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -361,7 +363,7 @@ async function writeFileIfMissing(filePath, content) {
 async function atomicWriteJson(filePath, data) {
     const dir = path.dirname(filePath);
     await fs.mkdir(dir, { recursive: true });
-    const tmpPath = path.join(dir, `.${path.basename(filePath)}.${process.pid}.${Date.now()}.tmp`);
+    const tmpPath = path.join(dir, `.${path.basename(filePath)}.${process.pid}.${randomUUID()}.tmp`);
     const json = `${JSON.stringify(data, null, 2)}\n`;
     await fs.writeFile(tmpPath, json, 'utf8');
     await fs.rename(tmpPath, filePath);
@@ -671,4 +673,296 @@ export async function updateMachinePointer(rootDir, env = process.env, { platfor
     };
     await atomicWriteJson(machinePointerPath(env, platform), pointer);
     return pointer;
+}
+
+
+// Machine-wide asset location: never consult cwd or an ancestor project.
+export const LIBRARY_LOCATION_VERSION = 0;
+const LIBRARY_STATES = new Set(['pending', 'migrating', 'done', 'declined']);
+
+export function readLibraryLocation(env = process.env, { platform = process.platform } = {}) {
+    try {
+        const value = JSON.parse(readFileSync(path.join(resolveAkariHome(env, { platform }), 'library-location.json'), 'utf8'));
+        if (value?.version !== LIBRARY_LOCATION_VERSION || typeof value.root !== 'string'
+            || !path.isAbsolute(value.root) || !LIBRARY_STATES.has(value.state)) return null;
+        return value;
+    } catch { return null; }
+}
+
+export function resolveAssetLibraryRoots(env = process.env, { platform = process.platform } = {}) {
+    const legacy = path.resolve(resolveAkariHome(env, { platform }), 'assets');
+    const location = readLibraryLocation(env, { platform });
+    const write = env.AKARI_LIBRARY_ROOT ? path.resolve(env.AKARI_LIBRARY_ROOT)
+        : location && ['migrating', 'done'].includes(location.state) ? path.resolve(location.root) : legacy;
+    return { write, read: [...new Set([write, legacy])],
+        source: env.AKARI_LIBRARY_ROOT ? 'env' : location && ['migrating', 'done'].includes(location.state) ? 'location' : 'legacy' };
+}
+
+export async function writeLibraryLocation(value, env = process.env, { platform = process.platform } = {}) {
+    if (!path.isAbsolute(value.root) || !LIBRARY_STATES.has(value.state)) throw new Error('Invalid library location');
+    await atomicWriteJson(path.join(resolveAkariHome(env, { platform }), 'library-location.json'),
+        { ...value, version: LIBRARY_LOCATION_VERSION });
+}
+
+export function cloudSyncKind(root) {
+    // CloudStorage also covers provider-specific GoogleDrive-* paths on macOS.
+    if (/onedrive/i.test(root)) return 'OneDrive';
+    if (/dropbox/i.test(root)) return 'Dropbox';
+    if (/mobile documents|icloud[ -]?drive/i.test(root)) return 'iCloud Drive';
+    if (/cloudstorage|google[ -]?drive/i.test(root)) return 'Google Drive';
+    return null;
+}
+
+function withinLibrary(root, target) {
+    const rel = path.relative(root, target);
+    return rel === '' || (!rel.startsWith('..') && !path.isAbsolute(rel));
+}
+
+async function lstatOrNull(file) {
+    try { return await fs.lstat(file); }
+    catch (error) { if (error.code === 'ENOENT') return null; throw error; }
+}
+
+// Do not follow symlinks (including dangling kit links) when measuring or verifying a copy.
+async function treeManifest(root, current = root, result = []) {
+    const st = await fs.lstat(current);
+    const name = path.relative(root, current);
+    if (st.isSymbolicLink()) result.push([name, 'link', await fs.readlink(current)]);
+    else if (st.isDirectory()) {
+        result.push([name, 'directory']);
+        for (const child of (await fs.readdir(current)).sort()) await treeManifest(root, path.join(current, child), result);
+    } else if (st.isFile()) {
+        const hash = createHash('sha256');
+        for await (const chunk of createReadStream(current)) hash.update(chunk);
+        result.push([name, 'file', st.size, hash.digest('hex')]);
+    } else throw new Error(`Unsupported library entry: ${current}`);
+    return result;
+}
+
+async function treeBytes(root) {
+    const st = await lstatOrNull(root);
+    if (!st || st.isSymbolicLink()) return 0;
+    if (st.isFile()) return st.size;
+    let size = 0;
+    for (const child of await fs.readdir(root)) size += await treeBytes(path.join(root, child));
+    return size;
+}
+
+// A lock shared by CLI and shell; a killed owner is recoverable on the next launch.
+async function acquireLibraryLock(home) {
+    await fs.mkdir(home, { recursive: true });
+    const lock = path.join(home, 'library-migration.lock');
+    for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+            // Publish a fully written owner record atomically: a killed process must
+            // never leave an empty lock that cannot be attributed or recovered.
+            const owner = path.join(home, `.library-lock-${randomUUID()}`);
+            try {
+                await fs.writeFile(owner, String(process.pid), { flag: 'wx' });
+                await fs.link(owner, lock);
+            } finally { await fs.rm(owner, { force: true }); }
+            return async () => fs.rm(lock, { force: true });
+        } catch (error) {
+            if (error.code !== 'EEXIST') throw error;
+            const pid = Number(await fs.readFile(lock, 'utf8').catch(() => ''));
+            if (!Number.isInteger(pid) || pid <= 0) return null;
+            try { process.kill(pid, 0); return null; }
+            catch (probe) { if (probe.code !== 'ESRCH') return null; }
+            await fs.rm(lock, { force: true });
+        }
+    }
+    return null;
+}
+
+// Only kit aliases whose rebased destination agrees are migration duplicates.
+// Their old link stays until store has actually moved and the new target is verified.
+async function equivalentKitAlias(source, dest, legacy, root) {
+    const parts = path.relative(legacy, source).split(path.sep);
+    if (parts.length !== 2 || parts[0] === 'store'
+        || !(await lstatOrNull(source))?.isSymbolicLink()
+        || !(await lstatOrNull(dest))?.isSymbolicLink()) return null;
+    const originalLink = await fs.readlink(source);
+    let target = path.resolve(path.dirname(source), originalLink);
+    const duplicated = path.join(legacy, 'assets', 'store');
+    if (withinLibrary(duplicated, target)) target = path.join(legacy, 'store', path.relative(duplicated, target));
+    if (!withinLibrary(path.join(legacy, 'store'), target)) return null;
+    const expected = path.join(root, path.relative(legacy, target));
+    const actual = path.resolve(path.dirname(dest), await fs.readlink(dest));
+    return actual === expected ? { source, dest, expected, originalLink } : null;
+}
+
+// Publish new aliases before moving store/: either the old alias or the new alias
+// then resolves even if the process is killed between moving store and categories.
+async function prepareLibraryAliases(legacy, root, current = legacy) {
+    if (!(await lstatOrNull(current))?.isDirectory()) return;
+    for (const name of await fs.readdir(current)) {
+        const source = path.join(current, name);
+        const st = await fs.lstat(source);
+        if (st.isDirectory()) await prepareLibraryAliases(legacy, root, source);
+        else if (st.isSymbolicLink()) {
+            const parts = path.relative(legacy, source).split(path.sep);
+            if (parts.length !== 2 || parts[0] === 'store') continue;
+            let target = path.resolve(current, await fs.readlink(source));
+            const duplicated = path.join(legacy, 'assets', 'store');
+            if (withinLibrary(duplicated, target)) target = path.join(legacy, 'store', path.relative(duplicated, target));
+            if (!withinLibrary(path.join(legacy, 'store'), target)) continue;
+            const destination = path.join(root, path.relative(legacy, source));
+            if (await lstatOrNull(destination)) continue;
+            await fs.mkdir(path.dirname(destination), { recursive: true });
+            const rebased = path.join(root, path.relative(legacy, target));
+            await fs.symlink(path.relative(path.dirname(destination), rebased), destination, 'dir');
+        }
+    }
+}
+
+async function repairLibraryLinks(legacy, root, home) {
+    const rebase = value => typeof value === 'string' && withinLibrary(legacy, value)
+        ? path.join(root, path.relative(legacy, value)) : value;
+    async function walk(dir, oldDir) {
+        if (!(await lstatOrNull(dir))?.isDirectory()) return;
+        for (const name of await fs.readdir(dir)) {
+            const file = path.join(dir, name);
+            const st = await fs.lstat(file);
+            if (st.isSymbolicLink()) {
+                const target = await fs.readlink(file);
+                let oldTarget = path.resolve(oldDir, target);
+                // Older kits emitted ../../assets/store/... from <assets>/<category>.
+                const duplicated = path.join(legacy, 'assets', 'store');
+                if (withinLibrary(duplicated, oldTarget)) oldTarget = path.join(legacy, 'store', path.relative(duplicated, oldTarget));
+                const destination = rebase(oldTarget);
+                if (destination !== oldTarget && await lstatOrNull(destination)) {
+                    const relative = path.relative(path.dirname(file), destination);
+                    if (relative !== target) {
+                        const tmp = `${file}.link-${randomUUID()}`;
+                        await fs.symlink(relative, tmp, 'dir');
+                        await fs.rename(tmp, file);
+                    }
+                }
+            } else if (st.isDirectory()) await walk(file, path.join(oldDir, name));
+        }
+    }
+    await walk(root, legacy);
+    await walk(path.join(home, 'kits', 'plugin', 'skills'), path.join(home, 'kits', 'plugin', 'skills'));
+    for (const [file, field] of [[path.join(root, 'installed.json'), 'packs'], [path.join(home, 'kits', 'installed.json'), 'kits']]) {
+        if (!(await lstatOrNull(file))) continue;
+        const data = JSON.parse(await fs.readFile(file, 'utf8'));
+        let changed = false;
+        for (const entry of Object.values(data[field] ?? {})) {
+            const key = field === 'packs' ? 'root' : 'kitDir';
+            const next = rebase(entry[key]);
+            if (next !== entry[key] && await lstatOrNull(next)) { entry[key] = next; changed = true; }
+        }
+        if (changed) await atomicWriteJson(file, data);
+    }
+}
+
+/** Explicit migrate rechecks late writes by old CLI versions; startup only resumes undecided work. */
+export async function migrateAssetLibrary({ env = process.env, platform = process.platform,
+    dryRun = false, automatic = false, notify, fsOps = {} } = {}) {
+    const home = path.resolve(resolveAkariHome(env, { platform }));
+    const legacy = path.join(home, 'assets');
+    let location = readLibraryLocation(env, { platform });
+    const result = { state: location?.state ?? null, root: null, moved: 0, bytes: 0, totalBytes: 0,
+        skipped: [], failures: [], cloud: null, notified: false };
+    if (location?.state === 'declined') return result;
+    let root = env.AKARI_LIBRARY_ROOT ? path.resolve(env.AKARI_LIBRARY_ROOT) : location?.root;
+    if (!location?.root) {
+        const creator = env.AKARI_CREATOR_ROOT || await tryMachinePointer(env, platform);
+        if (!creator || !(await tryReadRootManifest(creator)).ok) return result;
+        root ??= path.resolve(creator, 'library');
+    }
+    result.root = root;
+    if (root === legacy) return result;
+    if (withinLibrary(legacy, root) || withinLibrary(root, legacy)) {
+        result.failures.push({ path: root, message: 'Library roots must not contain each other' });
+        return result;
+    }
+    result.totalBytes = await treeBytes(legacy);
+    result.cloud = cloudSyncKind(await fs.realpath(root).catch(async () =>
+        path.join(await fs.realpath(path.dirname(root)).catch(() => path.dirname(root)), path.basename(root))));
+    if (dryRun) return { ...result, state: result.cloud ? 'pending' : result.state, dryRun: true };
+    const release = await acquireLibraryLock(home);
+    if (!release) return { ...result, busy: true };
+    try {
+        location = readLibraryLocation(env, { platform });
+        if (location?.state === 'declined') return { ...result, state: 'declined' };
+        location = { ...location, version: LIBRARY_LOCATION_VERSION, root,
+            decidedAt: location?.decidedAt ?? new Date().toISOString() };
+        const save = () => writeLibraryLocation(location, env, { platform });
+        if (result.cloud) {
+            location.state = 'pending'; await save(); return { ...result, state: 'pending' };
+        }
+        if (!(automatic && location.state === 'done')) {
+            location.state = 'migrating'; await save();
+            await fs.mkdir(root, { recursive: true });
+            await prepareLibraryAliases(legacy, root);
+            const duplicateAliases = [];
+            async function moveEntry(source, dest, depth = 0) {
+                const existing = await lstatOrNull(dest);
+                if (existing) {
+                    const alias = await equivalentKitAlias(source, dest, legacy, root);
+                    if (alias) { duplicateAliases.push(alias); return; }
+                    // Merge category containers, but never merge/overwrite an existing asset or pack.
+                    if (depth === 0 && existing.isDirectory() && (await fs.lstat(source)).isDirectory()) {
+                        for (const name of await fs.readdir(source)) await moveEntry(path.join(source, name), path.join(dest, name), depth + 1);
+                        if ((await fs.readdir(source)).length === 0) await fs.rmdir(source);
+                    } else result.skipped.push(path.relative(legacy, source));
+                    return;
+                }
+                const bytes = await treeBytes(source);
+                try { await (fsOps.rename ?? fs.rename)(source, dest); }
+                catch (error) {
+                    if (error.code !== 'EXDEV') throw error;
+                    const stage = await fs.mkdtemp(path.join(root, '.migration-'));
+                    try {
+                        const copy = path.join(stage, 'entry');
+                        await (fsOps.cp ?? fs.cp)(source, copy, { recursive: true, dereference: false, verbatimSymlinks: true, errorOnExist: true, force: false });
+                        if (JSON.stringify(await treeManifest(source)) !== JSON.stringify(await treeManifest(copy))) throw new Error('Library copy size/sha256 verification failed');
+                        if (await lstatOrNull(dest)) { result.skipped.push(path.relative(legacy, source)); return; }
+                        await fs.rename(copy, dest);
+                        await fs.rm(source, { recursive: true });
+                    } finally { await fs.rm(stage, { recursive: true, force: true }); }
+                }
+                result.moved++; result.bytes += bytes;
+            }
+            for (const name of (await fs.readdir(legacy).catch(error => { if (error.code === 'ENOENT') return []; throw error; })).sort()) {
+                try { await moveEntry(path.join(legacy, name), path.join(root, name)); }
+                catch (error) { result.failures.push({ path: name, message: error.message }); }
+            }
+            try { await repairLibraryLinks(legacy, root, home); }
+            catch (error) { result.failures.push({ path: root, message: error.message }); }
+            for (const alias of duplicateAliases) {
+                try {
+                    const stillEquivalent = await equivalentKitAlias(alias.source, alias.dest, legacy, root);
+                    const actualRoot = await fs.realpath(root);
+                    const actualTarget = await fs.realpath(alias.dest);
+                    if (!stillEquivalent || stillEquivalent.originalLink !== alias.originalLink
+                        || actualTarget !== await fs.realpath(alias.expected)
+                        || !withinLibrary(actualRoot, actualTarget)) {
+                        result.skipped.push(path.relative(legacy, alias.source));
+                        continue;
+                    }
+                    await fs.unlink(alias.source);
+                    result.moved++;
+                    // Category containers can now be empty after deferred alias cleanup.
+                    await fs.rmdir(path.dirname(alias.source)).catch(error => {
+                        if (!['ENOTEMPTY', 'EEXIST', 'ENOENT'].includes(error.code)) throw error;
+                    });
+                } catch (error) {
+                    result.failures.push({ path: path.relative(legacy, alias.source), message: error.message });
+                }
+            }
+            location.state = result.failures.length ? 'migrating' : 'done';
+            if (location.state === 'done') location.migratedAt ??= new Date().toISOString();
+            await save();
+        }
+        if (location.state === 'done' && !location.notifiedAt && notify) {
+            await notify('素材の置き場を見える場所に移しました: ' + root);
+            location.notifiedAt = new Date().toISOString(); await save(); result.notified = true;
+        }
+        return { ...result, state: location.state };
+    } catch (error) {
+        result.failures.push({ path: root, message: error.message });
+        return { ...result, state: readLibraryLocation(env, { platform })?.state ?? result.state };
+    } finally { await release(); }
 }

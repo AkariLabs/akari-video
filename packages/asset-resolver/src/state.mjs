@@ -1,6 +1,7 @@
 // 合成ビュー: カタログ + ローカル取得状態 + entitlements を 1 リストにする。
 // 「このアカウントで使える素材 = 無料全部 + 購入済み」の 1 ビュー（設計契約 §8）の核。
 
+import { resolveAssetLibraryRoots } from '../../creator-root/src/index.mjs';
 import { loadCatalog } from './catalog.mjs';
 import { resolveAkariHome, resolveEffectiveBase, resolveEntitlementsUrl } from './env.mjs';
 import { fetchEntitlements, readStoreCredentials } from './entitlements.mjs';
@@ -42,7 +43,7 @@ export async function composeState({ env = process.env, fetchImpl = fetch } = {}
   const catalog = await loadCatalog({ env, fetchImpl });
   const hasCatalogItems = catalog.items.some((item) => item.source !== 'installed');
   const base = hasCatalogItems ? resolveEffectiveBase(env, catalog) : null;
-  const installed = scanLocalLibrary(home);
+  const installed = scanLocalLibrary(env);
 
   // entitlements API は有料商品が無ければ叩く必要がない（無駄な認証リクエストを避ける）
   const hasPaidItems = catalog.items.some((item) => (item.price ?? 0) > 0);
@@ -65,6 +66,7 @@ export async function composeState({ env = process.env, fetchImpl = fetch } = {}
 
   return {
     home,
+    libraryRoots: resolveAssetLibraryRoots(env),
     base,
     catalogVersion: catalog.version ?? null,
     entitlementsStatus: entitlementsResult.status,

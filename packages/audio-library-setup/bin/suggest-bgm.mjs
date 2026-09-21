@@ -23,9 +23,10 @@
 //                    推奨値）が提案に付く
 //   --json           機械可読 JSON で出力（エージェント向け）
 
+import { audioReadPath, readAudioDeclarations } from '../shared/library-roots.mjs';
+import { resolveAssetLibraryRoots } from '../../creator-root/src/index.mjs';
 import { existsSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
-import os from 'node:os';
 import path from 'node:path';
 import {
   suggestBgm,
@@ -37,7 +38,7 @@ import { readToneDecision } from '../shared/decision-log.mjs';
 const BGM_PACK_ID = 'akari-sounds-bgm';
 
 function resolveLibraryRoot(env = process.env) {
-  return path.join(env.AKARI_HOME || path.join(os.homedir(), '.akari'), 'assets', 'audio');
+  return path.join(resolveAssetLibraryRoots(env).write, 'audio');
 }
 
 function parseArguments(argv, env = process.env) {
@@ -63,7 +64,7 @@ async function loadDeclarations(options, libraryRoot) {
   let resolved = options.declarations ? path.resolve(options.declarations) : null;
   if (!resolved) {
     // 宣言パック購入者の既定導入先（zip 内の declarations.json をここへ置くだけ）
-    const defaultPath = path.join(libraryRoot, 'declarations.json');
+    const defaultPath = audioReadPath(libraryRoot, 'declarations.json');
     if (existsSync(defaultPath)) {
       resolved = defaultPath;
     }
@@ -72,7 +73,7 @@ async function loadDeclarations(options, libraryRoot) {
     return { declarations: null, declarationsSource: null };
   }
   try {
-    return { declarations: JSON.parse(await readFile(resolved, 'utf8')), declarationsSource: resolved };
+    return { declarations: options.declarations ? JSON.parse(await readFile(resolved, 'utf8')) : readAudioDeclarations(libraryRoot), declarationsSource: resolved };
   } catch (error) {
     throw new Error(`宣言データを読めません: ${resolved}（${error.message}）`);
   }
@@ -82,7 +83,7 @@ async function loadCatalog(options, libraryRoot) {
   if (options.catalog) {
     return { catalog: JSON.parse(await readFile(options.catalog, 'utf8')), source: options.catalog };
   }
-  const snapshotPath = path.join(libraryRoot, BGM_PACK_ID, '.origin-catalog.json');
+  const snapshotPath = audioReadPath(libraryRoot, BGM_PACK_ID, '.origin-catalog.json');
   if (!existsSync(snapshotPath)) {
     throw new Error(
       `AKARI Sounds が未導入です（${snapshotPath} が見つかりません）。\n` +
@@ -95,7 +96,7 @@ async function loadCatalog(options, libraryRoot) {
 /** 提案行に、edit.json の audio.bgm.path へそのまま書けるローカル実体パスを添える。 */
 function attachLocalPaths(suggestion, libraryRoot) {
   const takes = suggestion.takes.map((take) => {
-    const localPath = take.mp3 ? path.join(libraryRoot, BGM_PACK_ID, take.mp3) : null;
+    const localPath = take.mp3 ? audioReadPath(libraryRoot, BGM_PACK_ID, take.mp3) : null;
     return { ...take, path: localPath, exists: localPath ? existsSync(localPath) : false };
   });
   return { ...suggestion, takes };

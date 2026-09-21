@@ -1,5 +1,9 @@
 # first-party 一括取得（AKARI Sounds・既定フロー）
 
+ライブラリの置き場は既定で作業場の `library/`。作業場が無いときは従来の `~/.akari/assets/` を使う。
+`akari-assets list`（または `akari assets list`）の先頭行で実際の置き場を確認する。
+以下の `<ライブラリの置き場>` はその表示先を指し、音源はその下の `audio/` に入る。
+
 ## 0. これは何か・なぜ第三者ルールと違うのか
 
 [AKARI Sounds](https://github.com/AkariLabs/akari-sounds) は AKARI Video と同じ運営による
@@ -44,7 +48,7 @@ node packages/audio-library-setup/bin/fetch-akari-sounds.mjs --variant wav
 
 - `catalog.json` を取得 → kind ごとの 3 パック（`akari-sounds-bgm` / `akari-sounds-sfx` /
   `akari-sounds-jingle`）に分けて Release zip をダウンロード・展開し、
-  `~/.akari/assets/audio/<パックid>/` （user スコープ、drop-folder 登録と同じ置き場）へ配置する
+  `<ライブラリの置き場>/audio/<パックid>/` （user スコープ、drop-folder 登録と同じ置き場）へ配置する
 - 各パックに `meta.json`（schema v0・実体エントリ）+ `preview.png`（実波形。ffmpeg 必須）+
   `.origin-catalog.json`（取得時点の catalog.json スナップショット = プロンプト原文・生成日時・
   生成元 URL・sha256 の来歴）を書く
@@ -63,5 +67,5 @@ AS-IS 無保証。AI 学習利用は明示許可が無いため安全側で `ai_
 - 第三者配布元（効果音ラボ等）をこの一括フローに混ぜる（第三者は従来どおり
   candidate-list → drop-folder / assisted-fetch）
 - Release zip を catalog/ や本リポ配下へ展開する（実体は常に user スコープ
-  `~/.akari/assets/audio/` へ。音声実体を本リポにコミットしない規律は first-party でも同じ）
+  `<ライブラリの置き場>/audio/` へ。音声実体を本リポにコミットしない規律は first-party でも同じ）
 - `catalog.json` に無いファイル名を当て推量で組み立てて取得する

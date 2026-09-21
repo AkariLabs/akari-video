@@ -1,5 +1,9 @@
 # akari-launcher（`akari` コマンド）
 
+ライブラリの置き場は既定で作業場の `library/`。作業場が無いときは従来の `~/.akari/assets/` を使う。
+`akari-assets list`（または `akari assets list`）の先頭行で実際の置き場を確認する。
+以下の `<ライブラリの置き場>` はその表示先を指し、音源はその下の `audio/` に入る。
+
 「UI に依存したくない。opencode 単体でも、どんなディレクトリでも始められるように」を
 実現する薄いラッパー CLI。npm パッケージ名は `akari-video`、提供するコマンド名は `akari`
 （npm の `akari` は別プロダクトが取得済みのため。オーナー裁定 2026-07-21 §8-2）。
@@ -24,7 +28,7 @@ akari
   ├─ 4. 公式音源ライブラリ（AKARI Sounds）の初回セットアップ（src/sounds-setup.mjs）:
   │     未導入かつ TTY のとき生涯 1 回だけ [Y/n]（既定 Yes）を聞き、Yes なら
   │     packages/audio-library-setup/bin/fetch-akari-sounds.mjs で一括ダウンロード。
-  │     n は marker（~/.akari/assets/audio/.akari-sounds-declined.json）を書いて以後
+  │     n は marker（<ライブラリの置き場>/audio/.akari-sounds-declined.json）を書いて以後
   │     聞かない。再入口は `akari sounds`。失敗しても起動は止めない
   │
   └─ 5. 最後に opencode を exec する
@@ -48,7 +52,7 @@ DL・sha256 検証・適用まで実行。それ以外（npm グローバル / g
 `akari store <connect|status|install|download|disconnect>`（AKARI Store 連携。マイページで発行した
 接続トークンを `~/.akari/store-credentials.json`（0600）に保存し、購入済み一覧の確認と
 配布物の取得ができる。`install <productId> [--from <zip>]` は購入パックを展開し、`PACK.json` の
-収載素材を `~/.akari/assets/installed.json` へ登録する。`--from` は開発・オフライン導入時に手元の
+収載素材を `<ライブラリの置き場>/installed.json` へ登録する。`--from` は開発・オフライン導入時に手元の
 zip を使う。`src/store-command.mjs`）/
 `akari assets <list|fetch|sync|...>`（素材カタログの一覧・取得・同期。
 `packages/asset-resolver` の CLI への薄い委譲で、カタログ合成・entitlements 判定・

@@ -66,7 +66,7 @@ test('skills / assets を所定位置へ相対 symlink で合成する', () => {
     assert.deepEqual(skills.blockers, []);
     assert.deepEqual(assets.linked, [{ category: 'still', id: 'sample-still' }]);
     assert.equal(readlinkSync(path.join(ctx.home, 'kits', 'plugin', 'skills', 'sample-skill')), '../../../assets/store/sample-kit/skills/sample-skill');
-    assert.equal(readlinkSync(path.join(ctx.home, 'assets', 'still', 'sample-still')), '../../assets/store/sample-kit/assets/still/sample-still');
+    assert.equal(readlinkSync(path.join(ctx.home, 'assets', 'still', 'sample-still')), '../store/sample-kit/assets/still/sample-still');
   } finally { ctx.cleanup(); }
 });
 

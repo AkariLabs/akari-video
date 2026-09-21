@@ -25,7 +25,7 @@ import { resolveWordBookSync, scanRecord } from "../../word-book/src/index.mjs";
 import { validateWorldSceneDeclaration } from "./world-scene-declaration.mjs";
 import {
   readProjectReferences,
-  resolveAkariAssetsDir,
+  resolveAssetLibraryRoots,
   resolveLibraryFallback,
 } from "./library-reference.mjs";
 
@@ -971,7 +971,7 @@ async function resolveInput(input, options = {}) {
     reviewPath: join(projectRoot, "review.json"),
     intakePath: join(projectRoot, ".akari", "intake.json"),
     assetReferences: readProjectReferences(projectRoot),
-    akariAssetsDir: resolveAkariAssetsDir(options.env ?? process.env),
+    libraryRoots: resolveAssetLibraryRoots(options.env ?? process.env).read,
   };
 }
 
@@ -2635,7 +2635,7 @@ function validateOverlayFragmentAssets(html, overlay, paths, findings) {
     if (isRegularFileSync(target)) continue;
     const fallback = resolveLibraryFallback({
       projectRoot: paths.projectRoot, declaredPath: reference.path,
-      references: paths.assetReferences, akariAssetsDir: paths.akariAssetsDir,
+      references: paths.assetReferences, libraryRoots: paths.libraryRoots,
     });
     if (fallback.path !== null) continue;
     finding(reference, "missing", "が見つからない。" + describeFragmentAssetHint({
@@ -6778,7 +6778,7 @@ function resolveReferenceBinding(editPath, reference, paths = null) {
     projectRoot: paths.projectRoot,
     declaredPath: reference,
     references: paths.assetReferences,
-    akariAssetsDir: paths.akariAssetsDir,
+    libraryRoots: paths.libraryRoots,
   });
   if (fallback.path !== null) {
     return { path: fallback.path, libraryReference: true, scope: "library" };

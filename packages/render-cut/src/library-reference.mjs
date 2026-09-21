@@ -25,8 +25,27 @@ export function readProjectReferences(projectRoot) {
   }
 }
 
+// Mirrored from creator-root; keep both consumers covered by the same case table.
+const LIBRARY_LOCATION_VERSION = 0;
+export function resolveAssetLibraryRoots(env = process.env, { platform = process.platform } = {}) {
+  const homeDir = platform === 'win32'
+    ? env.USERPROFILE || (env.HOMEDRIVE && env.HOMEPATH ? `${env.HOMEDRIVE}${env.HOMEPATH}` : os.homedir())
+    : env.HOME || os.homedir();
+  const home = env.AKARI_HOME || join(homeDir, '.akari');
+  const legacy = resolve(home, 'assets');
+  let location;
+  try {
+    const parsed = JSON.parse(readFileSync(join(home, 'library-location.json'), 'utf8'));
+    if (parsed?.version === LIBRARY_LOCATION_VERSION && typeof parsed.root === 'string'
+      && isAbsolute(parsed.root) && ['pending', 'migrating', 'done', 'declined'].includes(parsed.state)) location = parsed;
+  } catch { /* undecided */ }
+  const write = env.AKARI_LIBRARY_ROOT ? resolve(env.AKARI_LIBRARY_ROOT)
+    : location && ['migrating', 'done'].includes(location.state) ? resolve(location.root) : legacy;
+  return { write, read: [...new Set([write, legacy])],
+    source: env.AKARI_LIBRARY_ROOT ? 'env' : location && ['migrating', 'done'].includes(location.state) ? 'location' : 'legacy' };
+}
 export function resolveAkariAssetsDir(env = process.env) {
-  return resolve(env.AKARI_HOME || join(os.homedir(), ".akari"), "assets");
+  return resolveAssetLibraryRoots(env).write;
 }
 
 function declaredAssetParts(projectRoot, declaredPath) {
@@ -50,28 +69,26 @@ export function resolveLibraryFallback({
   projectRoot,
   declaredPath,
   references = readProjectReferences(projectRoot),
-  akariAssetsDir = resolveAkariAssetsDir(),
+  akariAssetsDir,
+  libraryRoots = akariAssetsDir ? [akariAssetsDir] : resolveAssetLibraryRoots().read,
 }) {
   const parts = declaredAssetParts(projectRoot, declaredPath);
   if (!parts || !references.some(
     (entry) => entry.category === parts.category && entry.id === parts.id,
   )) return { matched: false, path: null, libraryRoot: null };
 
-  const lexicalRoot = resolve(akariAssetsDir);
-  const lexicalTarget = resolve(lexicalRoot, parts.category, parts.id, ...parts.rest);
-  if (!isWithin(lexicalRoot, lexicalTarget)) {
-    return { matched: true, path: null, libraryRoot: null };
+  for (const root of libraryRoots) {
+    const lexicalRoot = resolve(root);
+    const lexicalTarget = resolve(lexicalRoot, parts.category, parts.id, ...parts.rest);
+    if (!isWithin(lexicalRoot, lexicalTarget)) continue;
+    try {
+      const actualRoot = realpathSync(lexicalRoot);
+      const actualTarget = realpathSync(lexicalTarget);
+      if (!isWithin(actualRoot, actualTarget) || !lstatSync(actualTarget).isFile()) continue;
+      return { matched: true, path: actualTarget, libraryRoot: actualRoot };
+    } catch { /* Try the previous location during migration. */ }
   }
-  try {
-    const actualRoot = realpathSync(lexicalRoot);
-    const actualTarget = realpathSync(lexicalTarget);
-    if (!isWithin(actualRoot, actualTarget) || !lstatSync(actualTarget).isFile()) {
-      return { matched: true, path: null, libraryRoot: actualRoot };
-    }
-    return { matched: true, path: actualTarget, libraryRoot: actualRoot };
-  } catch {
-    return { matched: true, path: null, libraryRoot: null };
-  }
+  return { matched: true, path: null, libraryRoot: null };
 }
 
 function isWithin(root, target) {

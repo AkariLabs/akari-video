@@ -124,3 +124,22 @@ test("edit-lint resolves a declared library file and identifies an unfetched ref
     await rm(root, { recursive: true, force: true });
   }
 });
+
+test('edit-lint uses both roots while migrating and identifies an unfetched reference after migration', async t => {
+  const temp=await mkdtemp(join(tmpdir(),'lint-migration-states-'));
+  t.after(()=>rm(temp,{recursive:true,force:true}));
+  const project=join(temp,'project'),home=join(temp,'home'),library=join(temp,'library');
+  const old=join(home,'assets/broll/intro/clip.mp4'),next=join(library,'broll/intro/clip.mp4');
+  await mkdir(join(project,'.akari'),{recursive:true}); await mkdir(join(old,'..'),{recursive:true});
+  await writeFile(old,'clip');
+  await writeFile(join(project,'.akari/asset-references.json'),JSON.stringify({version:0,references:[{category:'broll',id:'intro'}]}));
+  await writeFile(join(project,'edit.json'),JSON.stringify({version:2,output:{width:320,height:180,fps:30},sources:[{id:'clip',path:'assets/broll/intro/clip.mp4'}],tracks:[{id:'video',lane:'visual',items:[{id:'cut',at:0,duration:30,source:{kind:'media',src:'clip',in:0,out:1}}]}]}));
+  const options={env:{AKARI_HOME:home},writeReports:false};
+  for (const phase of ['before','during','after']) {
+    if (phase !== 'before') await writeFile(join(home,'library-location.json'),JSON.stringify({version:0,root:library,state:phase==='during'?'migrating':'done'}));
+    if (phase==='after') { await mkdir(join(next,'..'),{recursive:true});await writeFile(next,'clip');await rm(old); }
+    assert.equal((await lintProject(project,options)).findings.some(x=>x.check==='references.files'),false,phase);
+  }
+  await rm(next);
+  assert.match((await lintProject(project,options)).findings.find(x=>x.check==='references.files').message,/共有ライブラリ参照（未取得）/);
+});

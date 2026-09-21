@@ -7,6 +7,7 @@
 //   akari-assets sync
 //   akari-assets browse [--port <n>]
 
+import { migrateAssetLibrary } from '../../creator-root/src/index.mjs';
 import { startBrowseServer } from '../src/browse-server.mjs';
 import { bundleProjectReferences } from '../src/bundle.mjs';
 import { cacheCatalog, loadCatalog } from '../src/catalog.mjs';
@@ -29,7 +30,7 @@ function badgeOf(item) {
 async function cmdList(args, env) {
   const category = flagValue(args, '--category');
   const asJson = args.includes('--json');
-  const { home, items } = await composeState({ env });
+  const { libraryRoots, items } = await composeState({ env });
   const filtered = category ? items.filter((item) => item.category === category) : items;
 
   if (asJson) {
@@ -37,7 +38,7 @@ async function cmdList(args, env) {
     return;
   }
 
-  console.log(`使える素材 ${filtered.length} 件（ライブラリ: ${home}）`);
+  console.log(`使える素材 ${filtered.length} 件（ライブラリ: ${libraryRoots.write}）`);
   for (const item of filtered) {
     console.log(`  ${badgeOf(item)}  ${item.id}\t[${item.category}]\t${item.title}`);
   }
@@ -119,17 +120,19 @@ async function cmdBrowse(args, env) {
 }
 
 function printUsage() {
-  console.log(`使い方: akari-assets <list|fetch|bundle|sync|browse> [options]
+  console.log(`使い方: akari-assets <list|fetch|bundle|migrate|sync|browse> [options]
 
   list [--category <c>] [--json]          合成カタログ一覧（取得状態バッジ込み）
   fetch <id> [--project <dir>] [--reference] [--force]
                                           素材を解決して登録（--reference はコピーせず参照を記帳）
   bundle --project <dir> [--dry-run]      参照素材をプロジェクトへ実体化（素材をまとめる）
+  migrate [--dry-run]                     ライブラリを作業場へ移行
   sync                                    カタログを取得してローカルにキャッシュ（オフライン用）
   browse [--port <n>]                     ローカル HTTP サーバでカタログを閲覧・投入（既定 8910）
 
 環境変数:
-  AKARI_HOME             ライブラリの置き場（既定: ~/.akari）
+  AKARI_HOME             マシン設定の置き場（既定: ~/.akari）
+  AKARI_LIBRARY_ROOT     ライブラリの置き場の上書き
   AKARI_ASSETS_CATALOG   カタログの取得元。URL またはローカルパス（既定: akari-oss.app/assets/catalog.json）
   AKARI_ASSETS_BASE      素材実体の配信ベースの上書き（既定はカタログの "base" フィールド）
   AKARI_STORE_API        entitlements API のホスト上書き（既定: akari-oss.app）`);
@@ -139,6 +142,12 @@ async function main() {
   const [sub, ...rest] = process.argv.slice(2);
   const env = process.env;
 
+  if (sub === 'migrate') {
+    const result = await migrateAssetLibrary({ env, dryRun: rest.includes('--dry-run') });
+    console.log(JSON.stringify(result, null, 2));
+    if (result.failures.length) process.exitCode = 1;
+    return;
+  }
   if (sub === 'list') return cmdList(rest, env);
   if (sub === 'fetch') return cmdFetch(rest, env);
   if (sub === 'bundle') return cmdBundle(rest, env);

@@ -1,5 +1,9 @@
 # contract — 素材の参照モデル v0（共有ライブラリ参照の台帳と解決規則）
 
+ライブラリの置き場は既定で作業場の `library/`。作業場が無いときは従来の `~/.akari/assets/` を使う。
+`akari-assets list`（または `akari assets list`）の先頭行で実際の置き場を確認する。
+以下の `<ライブラリの置き場>` はその表示先を指し、音源はその下の `audio/` に入る。
+
 - 状態: 実装済み（機械層のみ。シェル UI の採用は後続）
 - 決定日: 2026-09-02
 - 実装: `packages/asset-resolver`（記帳・実体化）/ `packages/render-cut`・`packages/edit-lint`（解決）
@@ -7,7 +11,7 @@
 ## 1. 目的
 
 カタログ素材をプロジェクトごとに実体コピーすると、同じ素材が何度もダウンロード・複製されて
-プロジェクトが肥大する。実体は**マシン単位の共有ライブラリ**（`~/.akari/assets/<category>/<id>/`）に
+プロジェクトが肥大する。実体は**マシン単位の共有ライブラリ**（`<ライブラリの置き場>/<category>/<id>/`）に
 1 部だけ置き、プロジェクトには**参照だけを記録**できるようにする。
 
 ## 2. 設計の要点
@@ -25,11 +29,11 @@
   edit.json の version とは無関係。
 - **解決規則**: 宣言されたプロジェクト相対パスが `assets/<category>/<id>/<rest>` の形で、
   (1) プロジェクト実体が存在せず、(2) 台帳に `{category, id}` があるとき、
-  `<AKARI_HOME>/assets/<category>/<id>/<rest>`（AKARI_HOME 既定 `~/.akari`・env で上書き可）へ
-  フォールバックする。解決先は realpath 後も `<AKARI_HOME>/assets` 配下に収まる正規ファイルで
+  `resolveAssetLibraryRoots().read` の順（新しい置き場 → 従来の置き場）にフォールバックする。
+  解決先は各ルートで字句・realpath containment を満たす正規ファイルで
   あること（`..` 等の脱出は fail-closed で拒否）。
 - render-cut は解決した入力を render inputs 記録に `scope: "library"` として残す
-  （既存 `scope: "akari"` と同列の additive 記録）。edit-lint は解決できる参照を欠落と報告せず、
+  （既存 `scope: "akari"` と同列の additive 記録）。採用した実ルートを `library_root` に保存して後段でも検査する。edit-lint は解決できる参照を欠落と報告せず、
   台帳にあるが実体が無い参照は「共有ライブラリ参照（未取得）」として欠落報告する。
 - render-cut / edit-lint は依存ゼロ CLI のため、解決ロジックは各パッケージ内に**同一実装を重複**して
   持つ（`src/library-reference.mjs`）。挙動同一性は両テストの同一ケース表で担保する。

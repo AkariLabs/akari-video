@@ -1,8 +1,9 @@
+import { resolveAssetLibraryRoots } from '../../creator-root/src/index.mjs';
 // resolve(id): 「使った素材だけをオンデマンドで取得する」の核。
 //
 // キャッシュヒット → 即パスを返す。未取得 → 全ファイルを一時ディレクトリへ実体化 →
 // sha256 検証 → validate-asset で契約検証（無料経路は meta.json を持つ素材のみ・有料経路は必須）→
-// 全部通ってから ~/.akari/assets/<category>/<id>/ へ原子的に move する。
+// 全部通ってから <ライブラリの置き場>/<category>/<id>/ へ原子的に move する。
 // 失敗は fail-closed（一時ディレクトリを破棄し、登録先には部分状態を残さない）。
 // 有料未購入（locked）は resolve を拒否する。
 //
@@ -16,12 +17,12 @@ import { cp, mkdir, mkdtemp, rename, rm } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadCatalog } from './catalog.mjs';
-import { resolveAkariHome, resolveEffectiveBase } from './env.mjs';
+import { resolveEffectiveBase } from './env.mjs';
 import { AssetResolverError } from './errors.mjs';
 import { fetchEntitlements, readStoreCredentials } from './entitlements.mjs';
 import { materialize, resolveFileLocation } from './fetch-file.mjs';
 import { sha256File } from './hash.mjs';
-import { isAssetCached, localAssetDir } from './library.mjs';
+import { cachedAssetDir, localAssetDir } from './library.mjs';
 import { downloadPaidZip, extractZip, verifyPaidZipContents } from './paid-zip.mjs';
 import { recordProjectReference } from './project-references.mjs';
 
@@ -34,7 +35,7 @@ const VALIDATE_ASSET_SCRIPT = path.join(repoRoot, 'packages', 'schemas', 'bin', 
 export { AssetResolverError };
 
 export async function copyIntoProject(sourceDir, projectDir, category, id) {
-  // ライブラリ（~/.akari/assets/<category>/<id>/）と同型に揃える（2026-08-04 決定）。
+  // ライブラリ（<ライブラリの置き場>/<category>/<id>/）と同型に揃える（2026-08-04 決定）。
   // 素材箱側が「meta.json を含むディレクトリ = 1 カード」でグルーピングする際、
   // 深さではなくディレクトリ形で判定するため、置き場の形をライブラリと合わせておく必要はないが、
   // カテゴリ別に整理された配置の方が人間が見ても分かりやすいのでライブラリ型に統一する。
@@ -88,24 +89,25 @@ export async function resolve(
   id,
   { env = process.env, fetchImpl = fetch, project = null, force = false, reference = false } = {},
 ) {
-  const home = resolveAkariHome(env);
+  const home = resolveAssetLibraryRoots(env).write;
   const catalog = await loadCatalog({ env, fetchImpl });
   const item = catalog.items.find((entry) => entry.id === id);
   if (!item) {
     throw new AssetResolverError(`未知の素材 id です: ${id}`, 'not_found');
   }
 
-  const destDir = localAssetDir(home, item.category, item.id);
+  const destDir = localAssetDir(env, item.category, item.id);
 
   // キャッシュヒット → 即返す（未購入だったとしても、一度取得済みなら手元にある実体をそのまま使う。
   // ゲートは「新規に取得するとき」だけにかける）
-  if (!force && isAssetCached(home, item.category, item.id)) {
-    const result = { id: item.id, category: item.category, dir: destDir, cached: true };
+  const cachedDir = cachedAssetDir(env, item.category, item.id);
+  if (!force && cachedDir) {
+    const result = { id: item.id, category: item.category, dir: cachedDir, cached: true };
     if (project && reference) {
       await recordProjectReference(project, item);
       result.referenced = true;
     } else if (project) {
-      result.projectDir = await copyIntoProject(destDir, project, item.category, item.id);
+      result.projectDir = await copyIntoProject(cachedDir, project, item.category, item.id);
     }
     return result;
   }

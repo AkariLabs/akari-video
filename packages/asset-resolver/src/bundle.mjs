@@ -1,5 +1,4 @@
-import { resolveAkariHome } from './env.mjs';
-import { isAssetCached, localAssetDir } from './library.mjs';
+import { isAssetCached, cachedAssetDir } from './library.mjs';
 import { readProjectReferences, removeProjectReference } from './project-references.mjs';
 import { copyIntoProject, resolve as resolveAsset } from './resolve.mjs';
 
@@ -12,10 +11,9 @@ export async function bundleProjectReferences({
   const result = { planned, materialized: [], failures: [] };
   if (dryRun) return result;
 
-  const home = resolveAkariHome(env);
   for (const reference of planned) {
     try {
-      if (!isAssetCached(home, reference.category, reference.id)) {
+      if (!isAssetCached(env, reference.category, reference.id)) {
         const resolved = await resolveAsset(reference.id, { env });
         if (resolved.category !== reference.category) {
           throw new Error(
@@ -23,7 +21,7 @@ export async function bundleProjectReferences({
           );
         }
       }
-      const sourceDir = localAssetDir(home, reference.category, reference.id);
+      const sourceDir = cachedAssetDir(env, reference.category, reference.id);
       const projectDir = await copyIntoProject(
         sourceDir,
         project,

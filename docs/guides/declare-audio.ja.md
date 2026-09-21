@@ -2,9 +2,13 @@
 
 # 音源に宣言を付ける（サビ・キメ・拍）
 
+ライブラリの置き場は既定で作業場の `library/`。作業場が無いときは従来の `~/.akari/assets/` を使う。
+`akari-assets list`（または `akari assets list`）の先頭行で実際の置き場を確認する。
+以下の `<ライブラリの置き場>` はその表示先を指し、音源はその下の `audio/` に入る。
+
 手元の音源の「サビはどこか・キメはどこか・拍はどこか」を、自分の耳で
 AKARI Video に教えます。スキルは `declare-audio`。結果はライブラリ
-（既定 `~/.akari/assets/audio/`）の音源の隣に `declarations.json` として残ります。
+（既定 `<ライブラリの置き場>/audio/`）の音源の隣に `declarations.json` として残ります。
 
 ## いつ使う
 

@@ -2,9 +2,11 @@
 
 # Declare your audio (chorus, hits, beats)
 
+The library location defaults to the creator root’s `library/`; without a creator root it remains `~/.akari/assets/`. Run `akari-assets list` (or `akari assets list`) and use the location on the first line. `<library>` below means that location; audio lives in its `audio/` subdirectory.
+
 Teach AKARI Video where the chorus, the hits, and the beats of your music are — by
 ear. The skill is `declare-audio`; the result is a `declarations.json` sidecar next
-to the audio file in your library (default `~/.akari/assets/audio/`).
+to the audio file in your library (default `<library>/audio/`).
 
 ## When to use it
 

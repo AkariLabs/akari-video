@@ -9,6 +9,7 @@
 // 音声そのものは /media/<id>/<filename> 経由でのみ配信し、library-root の
 // 外へは一切出ない（パストラバーサル対策は decision-cards と同じ isInside 方式）。
 
+import { audioDirectories, audioReadPath, audioReadRoots } from './shared/library-roots.mjs';
 import { createServer } from 'node:http';
 import { createReadStream } from 'node:fs';
 import { mkdir, readdir, readFile, rename, stat, unlink, writeFile } from 'node:fs/promises';
@@ -47,18 +48,10 @@ async function pathExists(candidate) {
 }
 
 async function listEntries(libraryRoot) {
-    let dirEntries;
-    try {
-        dirEntries = await readdir(libraryRoot, { withFileTypes: true });
-    } catch (error) {
-        if (error.code === 'ENOENT') return [];
-        throw error;
-    }
-
     const entries = [];
-    for (const dirEntry of dirEntries) {
+    for (const { entry: dirEntry, root } of audioDirectories(libraryRoot)) {
         if (!dirEntry.isDirectory()) continue;
-        const entryDir = path.join(libraryRoot, dirEntry.name);
+        const entryDir = path.join(root, dirEntry.name);
         const metaPath = path.join(entryDir, 'meta.json');
         let meta;
         try {
@@ -87,7 +80,7 @@ async function listEntries(libraryRoot) {
 }
 
 async function loadState(libraryRoot) {
-    const statePath = statePathFor(libraryRoot);
+    const statePath = audioReadPath(libraryRoot, '_gallery-state.json');
     try {
         return JSON.parse(await readFile(statePath, 'utf8'));
     } catch (error) {
@@ -130,7 +123,7 @@ function sendJson(res, status, body) {
 }
 
 /**
- * @param {string} libraryRoot 試聴対象の実体ライブラリ（例: ~/.akari/assets/audio）
+ * @param {string} libraryRoot 試聴対象の実体ライブラリ（例: <ライブラリの置き場>/audio）
  */
 export function createGalleryServer(libraryRoot) {
     let mutationQueue = Promise.resolve();
@@ -188,8 +181,8 @@ export function createGalleryServer(libraryRoot) {
                     sendJson(res, 403, { error: 'forbidden' });
                     return;
                 }
-                const filePath = path.resolve(libraryRoot, relative);
-                if (!isInside(path.resolve(libraryRoot), filePath)) {
+                const filePath = audioReadPath(libraryRoot, relative);
+                if (!audioReadRoots(libraryRoot).some(root => isInside(path.resolve(root), filePath))) {
                     sendJson(res, 403, { error: 'forbidden' });
                     return;
                 }

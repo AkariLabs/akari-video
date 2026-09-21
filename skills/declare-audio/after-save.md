@@ -1,11 +1,16 @@
 # 保存後の検証（宣言が効いていることの確かめ方）
 
+ライブラリの置き場は既定で作業場の `library/`。作業場が無いときは従来の `~/.akari/assets/` を使う。
+`akari-assets list`（または `akari assets list`）の先頭行で実際の置き場を確認する。
+以下の `<ライブラリの置き場>` はその表示先を指し、音源はその下の `audio/` に入る。
+
 「宣言済み」と報告する前に、**保存されたファイルを読んで**次を確認する。
 
 ## 1. 保存内容を読む
 
 ```sh
-node -e "const d=require(require('os').homedir()+'/.akari/assets/audio/declarations.json');
+# LIBRARY_ROOT に list の先頭行で確認した置き場を設定してから実行する
+node -e "const d=require(process.env.LIBRARY_ROOT+'/audio/declarations.json');
 for (const [id, v] of Object.entries(d)) {
   const drop = (v.sections ?? []).find((s) => s.label === 'drop');
   console.log(id, '| bpm', v.bpm, '| 区間', (v.sections ?? []).length, '| ピン', (v.hit_points ?? []).length,
@@ -52,7 +57,7 @@ node packages/audio-library-setup/bin/suggest-bgm.mjs --tone 勢い --count 3
 ## レポートの書き方（ハードルール 2 の適用）
 
 ```text
-宣言を保存しました: 3 曲（~/.akari/assets/audio/declarations.json）
+宣言を保存しました: 3 曲（<ライブラリの置き場>/audio/declarations.json）
 - bgm-lofi-085-001: ♩86.1（耳で確認済み）/ サビ 11.2s〜 / キメ 2 点
 - my-song: ♩120（自動推定のまま・未確認）/ サビ 未指定
 suggest-bgm で確認したところ、bgm-lofi-085-001 はサビ頭 11.2s 付きで提案に出ています。

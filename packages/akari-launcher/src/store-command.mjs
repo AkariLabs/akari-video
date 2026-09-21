@@ -20,6 +20,12 @@ import {
 } from './store-device-connect.mjs';
 import { readOwnVersion } from './update-check.mjs';
 import { resolveLauncherAssets } from './repo-assets.mjs';
+const creatorRootModulePath = resolveLauncherAssets().creatorRootModulePath;
+const creatorRoot = creatorRootModulePath ? await import(pathToFileURL(creatorRootModulePath).href) : null;
+function resolveAssetLibraryRoots(env) {
+  if (!creatorRoot) throw new Error('creator-root が見つからないため素材の置き場を解決できません。AKARI Video を再インストールしてください。');
+  return creatorRoot.resolveAssetLibraryRoots(env);
+}
 import {
   checkRequires,
   enableHint,
@@ -154,8 +160,7 @@ function flattenPackContents(pack, packRoot) {
 }
 
 function registerInstalledPack(env, productId, packPath) {
-  const home = resolveAkariHome(env);
-  const indexPath = path.join(home, 'assets', 'installed.json');
+  const indexPath = path.join(resolveAssetLibraryRoots(env).write, 'installed.json');
   const packRoot = path.dirname(packPath);
   const pack = readJsonFile(packPath);
   if ((typeof pack?.version !== 'string' && typeof pack?.version !== 'number')) {
@@ -319,7 +324,7 @@ export async function runStoreCommand(args, options = {}) {
       log('使い方: akari store uninstall <productId>');
       return { exitCode: 1 };
     }
-    if (!removeKit(resolveAkariHome(env), productId)) {
+    if (!removeKit(resolveAkariHome(env), productId, env)) {
       log(`導入済みの拡張キットが見つかりません: ${productId}`);
       return { exitCode: 1 };
     }
@@ -430,7 +435,7 @@ export async function runStoreCommand(args, options = {}) {
           log('パック内に declarations.json が見つかりませんでした。zip の中身を確認してください。');
           return { exitCode: 1 };
         }
-        const destDir = path.join(resolveAkariHome(env), 'assets', 'audio');
+        const destDir = path.join(resolveAssetLibraryRoots(env).write, 'audio');
         mkdirSync(destDir, { recursive: true });
         const dest = path.join(destDir, 'declarations.json');
         if (existsSync(dest)) {
@@ -445,7 +450,7 @@ export async function runStoreCommand(args, options = {}) {
       }
 
       // 既知の導入手順が無い商品は素材置き場に展開して README を案内
-      const destDir = path.join(resolveAkariHome(env), 'assets', 'store', productId);
+      const destDir = path.join(resolveAssetLibraryRoots(env).write, 'store', productId);
       rmSync(destDir, { recursive: true, force: true });
       cpSync(extractDir, destDir, { recursive: true });
       const readme = findFile(destDir, 'README.md');
@@ -531,6 +536,7 @@ export async function runStoreCommand(args, options = {}) {
 
         const hadInstalledKit = readKitsLedger(home).kits.length > 0;
         const assetLinks = linkKitAssets(kitDir, manifest, home, {
+          env,
           assets: options.assets,
           spawnSyncImpl: options.spawnSync,
           platform: options.platform
@@ -541,7 +547,7 @@ export async function runStoreCommand(args, options = {}) {
           for (const blocker of skillLinks.blockers) log(`導入できません: ${blocker}`);
           return { exitCode: 1 };
         }
-        registerKitAssets(home, manifest, kitDir, assetLinks.items);
+        registerKitAssets(home, manifest, kitDir, assetLinks.items, env);
         writeKitsLedger(home, {
           id: manifest.id,
           version: manifest.version,

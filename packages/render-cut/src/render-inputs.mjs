@@ -8,7 +8,7 @@ import { CAPTION_FONT_REPOSITORY_RELATIVE_PATH, CAPTION_FONT_ROLE } from "./capt
 import { extractFragmentAssetReferences } from "./fragment-assets.mjs";
 import { stripHtmlComments } from "./html-scan.mjs";
 import {
-  resolveAkariAssetsDir,
+  resolveAssetLibraryRoots,
   resolveLibraryFallback,
 } from "./library-reference.mjs";
 
@@ -235,7 +235,7 @@ function resolveDeclaredProjectInputBinding(projectRoot, value, label, env) {
       const fallback = resolveLibraryFallback({
         projectRoot: root,
         declaredPath: lexical,
-        akariAssetsDir: resolveAkariAssetsDir(env),
+        libraryRoots: resolveAssetLibraryRoots(env).read,
       });
       if (fallback.path !== null) {
         return {
@@ -286,7 +286,7 @@ function addOptionalProjectInput(inputs, root, role, value, env = process.env) {
   const fallback = resolveLibraryFallback({
     projectRoot: root,
     declaredPath: value,
-    akariAssetsDir: resolveAkariAssetsDir(env),
+    libraryRoots: resolveAssetLibraryRoots(env).read,
   });
   if (fallback.path !== null) return addProjectInput(inputs, root, role, lexical, { env });
   const parentBinding = resolveNearestExistingParentBinding(root, lexical, role);

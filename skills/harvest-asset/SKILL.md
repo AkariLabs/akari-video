@@ -7,6 +7,11 @@ description: 案件で作った高コスト・再利用価値の高いオーバ�
 
 > **Language**: Respond in the user's language — 対話・質問・承認確認・レポートはユーザーの使用言語に合わせる（例: 英語で話しかけられたら英語で応答する）。
 
+ライブラリの置き場は既定で作業場の `library/`。作業場が無いときは従来の `~/.akari/assets/` を使う。
+`akari-assets list`（または `akari assets list`）の先頭行で実際の置き場を確認する。
+以下の `<ライブラリの置き場>` はその表示先を指し、音源はその下の `audio/` に入る。
+
+
 順序を変えず、導出できる情報を人へ質問しない。
 
 ## 1. 入庫基準を判定する
@@ -61,7 +66,7 @@ source fragment と同階層の依存 asset を読み、作業用一時ディレ
 1. **when_use** → `when_to_use`: どの scene / 目的で使うか。
 2. **ai_usage**: AI が変えてよい部分、守る部分、禁止する改変。
 3. **license**: SPDX、commercial scope、attribution 要否、AI training 可否。license 不明を既定許可にしない。
-4. **登録先スコープ**: `local`（そのプロジェクトのみ）/ `shared`（上位ディレクトリの `.akari/assets/`、事業・組織単位）/ `user`（`~/.akari/assets/`、全プロジェクト共通の定番）/ `builtin`（製品リポ。昇格は PR 経路）。目安を添えて聞く: プロジェクト固有の文言・素材が残るなら `local`、汎用化できたなら `user`。黙って `builtin` に入れない。
+4. **登録先スコープ**: `local`（そのプロジェクトのみ）/ `shared`（上位ディレクトリの `.akari/assets/`、事業・組織単位）/ `user`（`<ライブラリの置き場>/`、全プロジェクト共通の定番）/ `builtin`（製品リポ。昇格は PR 経路）。目安を添えて聞く: プロジェクト固有の文言・素材が残るなら `local`、汎用化できたなら `user`。黙って `builtin` に入れない。
 
 回答を `meta.json` に反映する。license が確定しない asset はどの層にも入れない。
 
@@ -77,7 +82,7 @@ preview は中身を識別するためのものとし、source と違う架空�
 
 ## 5. 選ばれたスコープの `assets/<category>/` へ配置する
 
-配置先は**登録先スコープ（手順 3 で確定）の** `assets/<category>/<id>/` とし、階層を増やさない。スコープの実ディレクトリ（`local` = プロジェクト内 / `shared` = 上位の `.akari/assets/` / `user` = `~/.akari/assets/`）が無ければ category と INDEX.md ごと新設する。層が違っても構造・meta.json v0・validator は同一。最低限、次をそろえる。
+配置先は**登録先スコープ（手順 3 で確定）の** `assets/<category>/<id>/` とし、階層を増やさない。スコープの実ディレクトリ（`local` = プロジェクト内 / `shared` = 上位の `.akari/assets/` / `user` = `<ライブラリの置き場>/`）が無ければ category と INDEX.md ごと新設する。層が違っても構造・meta.json v0・validator は同一。最低限、次をそろえる。
 
 - `meta.json`
 - `preview.png`

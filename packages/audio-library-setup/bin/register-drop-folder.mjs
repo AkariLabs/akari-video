@@ -18,6 +18,7 @@
 //   node bin/register-drop-folder.mjs --drop-dir <path> [--apply]
 //     [--library-root <path>] [--catalog-dir <path>] [--candidates <path>]
 
+import { resolveAssetLibraryRoots } from '../../creator-root/src/index.mjs';
 import { mkdir, readdir, readFile, rename, stat, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -38,8 +39,8 @@ const AUDIO_EXTENSIONS = new Set(['.mp3', '.wav', '.m4a', '.ogg', '.flac', '.aac
 
 function parseArguments(argv) {
     const options = {
-        dropDir: path.join(os.homedir(), '.akari', 'audio-drop'),
-        libraryRoot: path.join(os.homedir(), '.akari', 'assets', 'audio'),
+        dropDir: path.join(process.env.AKARI_HOME || path.join(os.homedir(), '.akari'), 'audio-drop'),
+        libraryRoot: path.join(resolveAssetLibraryRoots().write, 'audio'),
         catalogDir: path.join(repoRoot, 'catalog', 'audio'),
         candidatesPath: path.join(repoRoot, 'catalog', 'audio', 'candidates.json'),
         apply: false,

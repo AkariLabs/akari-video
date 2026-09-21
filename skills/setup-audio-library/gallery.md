@@ -1,5 +1,9 @@
 # 試聴ギャラリー（keep / drop）
 
+ライブラリの置き場は既定で作業場の `library/`。作業場が無いときは従来の `~/.akari/assets/` を使う。
+`akari-assets list`（または `akari assets list`）の先頭行で実際の置き場を確認する。
+以下の `<ライブラリの置き場>` はその表示先を指し、音源はその下の `audio/` に入る。
+
 [drop-folder.md](drop-folder.md) で登録された音源を、実際に聴きながら keep/drop を
 決めるためのローカルギャラリー。decision-cards / intake-form と同じ流儀（`127.0.0.1`
 のみ・外部 npm 依存ゼロ・状態は JSON サイドカーへ atomic 書き込み）。
@@ -7,8 +11,7 @@
 ## 1. 起動する
 
 ```sh
-node packages/audio-library-setup/bin/gallery-helper.mjs \
-  --library-root ~/.akari/assets/audio
+node packages/audio-library-setup/bin/gallery-helper.mjs
 ```
 
 起動すると `HELPER: http://localhost:<port>/` を標準出力に出す。ユーザーへそのまま
@@ -16,7 +19,7 @@ node packages/audio-library-setup/bin/gallery-helper.mjs \
 
 ## 2. 画面で分かること
 
-- `~/.akari/assets/audio/<id>/meta.json` を持つ登録済みエントリを一覧表示する
+- `<ライブラリの置き場>/audio/<id>/meta.json` を持つ登録済みエントリを一覧表示する
   （`meta.json` はあるが再生可能な音声実体が無いエントリは表示しない）
 - 各エントリの音声ファイルを `<audio controls>` でその場再生できる
   （`/media/<id>/<filename>` 経由でのみ配信。ライブラリ外のファイルは配信しない）
@@ -25,7 +28,7 @@ node packages/audio-library-setup/bin/gallery-helper.mjs \
 - 画面上部の入力欄で id / タイトルを絞り込み検索できる
 - 「keep 一覧をコピー」ボタンで、現在 keep 判定済みの id を JSON 配列としてクリップボードへ
   コピーできる（オーナーがフィードバックとして他ツールへ貼り付ける用途）
-- keep / drop ボタンで決定を記録する。決定は `~/.akari/assets/audio/_gallery-state.json`
+- keep / drop ボタンで決定を記録する。決定は `<ライブラリの置き場>/audio/_gallery-state.json`
   へ即時保存される（ページを閉じても消えない）。もう一度同じボタンを押すと決定を解除する
 
 ## 3. keep したあとの一歩（宣言づけ）
