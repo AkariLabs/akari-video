@@ -165,7 +165,6 @@ import {
     insertAudioSfxPreferV2,
     insertItem as insertV2Item,
     insertTrack as insertV2Track,
-    convertCaptionToTelopV2,
     detachTreeV2Item,
     groupTreeV2Items,
     moveAudioSfxPreferV2,
@@ -16023,7 +16022,6 @@ export class AkariAnnotationsWidget extends BaseWidget {
             row ? {
                 canSplit: this.splittableItemId(item) !== undefined,
                 canDetach: row.parentId !== undefined,
-                canConvertToTelop: row.itemKind === 'caption',
                 canGroup: this.multiSelection.length >= 2,
                 canUngroup: row.sourceKind === 'group',
                 canToggleCollapse: row.sourceKind === 'group' && row.hasChildren,
@@ -16148,23 +16146,6 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     ? this.computeTrackAutoNames().get(createdTrackId) ?? createdTrackId : '新しい段';
                 this.showNotice(`${name} を追加しました`);
             }).catch(error => this.showNotice(`出せません: ${this.errorMessage(error)}`));
-            return;
-        }
-        if (id === 'convert-to-telop' && item.kind === 'item' && item.itemKind === 'caption') {
-            const row = this.expandedTimelineTreeRows.find(candidate => candidate.id === item.id);
-            const raw = this.rawV2Item(item.id);
-            const captionId = captionIdForTreeSelection(
-                { kind: 'item', id: item.id, itemKind: item.itemKind,
-                    ...(item.parentId === undefined ? {} : { parentId: item.parentId }), trackId: item.trackId },
-                raw?.source?.kind === 'caption' ? raw.source.id : undefined
-            );
-            const caption = this.captions.find(candidate => candidate.id === captionId);
-            if (!caption || !row) return;
-            void this.commitEditMutation('テロップに変換', doc => convertCaptionToTelopV2(doc, item.id, {
-                text: caption.text,
-                at: Math.round(row.at * this.fps),
-                duration: Math.round(row.duration * this.fps)
-            }).document).catch(error => this.showNotice(`テロップに変換できません: ${this.errorMessage(error)}`));
             return;
         }
         if (id === 'group') {

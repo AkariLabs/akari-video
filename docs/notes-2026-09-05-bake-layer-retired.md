@@ -88,3 +88,5 @@ ATF の 36 種に相当する文字演出は、**HTML 素材版として内部�
 
 `apps/shell/extensions/akari-annotations/evidence/` 配下の観測記録に残る `akari:presets/telop/…`
 参照は**書き換えない**。evidence は不変の一次情報であり、当時そう観測されたという事実を保つ。
+
+「テロップに変換」は GUI の操作としては 2026-09-21 に撤去。`kind:"telop"` の器と `baked` の再生は後方互換で残す。
