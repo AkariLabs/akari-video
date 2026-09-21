@@ -19,6 +19,43 @@ export const ABSENT_DECLARED_INPUT_SENTINEL = "AKARI_DECLARED_INPUT_ABSENT/v1";
 import { extractRuntimeAssetReferences, RenderInputError } from "../../overlay-runtime/runtimes.mjs";
 export * from "../../overlay-runtime/runtimes.mjs";
 
+// 解決規則は enumerator に集約する。用途によらず library として解決した全入力を渡す。
+export function buildRenderMediaReferences(inputs) {
+  return Object.fromEntries(inputs.filter((input) => input.scope === "library").map((input) => [
+    input.path.replaceAll("\\", "/"),
+    { absolute: input.absolute_path, library_root: input.library_root },
+  ]));
+}
+
+// ffmpeg の計画だけが消費する写し。宣言・receipt・ページの /media/ URL は変更しない。
+// パス欄だけを書き換え、同じ文字列を持つ ID・テキスト・HTML には触れない。
+export function projectResolvedMediaPaths({ projectRoot, edit, inputs }) {
+  const bindings = new Map(inputs.filter(input => input.scope === "library").map(input => [
+    resolve(projectRoot, input.path), input.absolute_path,
+  ]));
+  const path = value => typeof value === "string"
+    ? bindings.get(resolve(projectRoot, value)) ?? value
+    : value;
+  const copy = structuredClone(edit);
+  for (const source of copy.sources ?? []) {
+    source.path = path(source.path);
+    if (source.chroma_key?.background) source.chroma_key.background = path(source.chroma_key.background);
+  }
+  for (const layer of copy.layers ?? []) layer.src = path(layer.src);
+  const audioItem = item => {
+    if (typeof item === "string") return path(item);
+    if (item && typeof item === "object" && typeof item.path === "string") item.path = path(item.path);
+    return item;
+  };
+  if (copy.audio) {
+    if (copy.audio.bgm !== undefined) copy.audio.bgm = audioItem(copy.audio.bgm);
+    for (const role of ["sfx", "narration", "speech"]) {
+      if (Array.isArray(copy.audio[role])) copy.audio[role] = copy.audio[role].map(audioItem);
+    }
+  }
+  return copy;
+}
+
 export async function enumerateDeclaredRenderInputs({
   projectRoot,
   edit,
@@ -88,6 +125,10 @@ export async function enumerateDeclaredRenderInputs({
   for (const [index, narration] of (edit.audio?.narration ?? []).entries()) {
     const path = audioPath(narration);
     if (path) addOptionalInput(`audio:narration:${narration?.id ?? index}`, path);
+  }
+  for (const [index, speech] of (edit.audio?.speech ?? []).entries()) {
+    const path = audioPath(speech);
+    if (path) addOptionalInput(`audio:speech:${speech?.id ?? index}`, path);
   }
   for (const [index, layer] of (edit.layers ?? []).entries()) {
     if (typeof layer?.src !== "string" || layer.src === "") continue;

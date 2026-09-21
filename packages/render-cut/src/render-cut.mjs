@@ -8,6 +8,7 @@ import {
   lstat,
   mkdir,
   mkdtemp,
+  open,
   readdir,
   readFile,
   realpath,
@@ -33,8 +34,10 @@ import { runChecked, runCheckedWithProgress } from "./rasterize.mjs";
 import { renderReport } from "./report.mjs";
 import { createProgressReporter } from "./progress.mjs";
 import {
+  buildRenderMediaReferences,
   enumerateDeclaredRenderInputs,
   hashDeclaredRenderInputs,
+  projectResolvedMediaPaths,
   RenderInputError,
   resolveDeclaredProjectInput,
 } from "./render-inputs.mjs";
@@ -44,6 +47,7 @@ import { resolveFfmpeg, resolveFfprobe } from "../../media-bin/src/index.mjs";
 import { prepareAlphaLayers } from "../../media-bin/src/alpha-intake.mjs";
 import { resolveCanonicalCaptionFontAsset } from "./caption-font.mjs";
 import { exportWithOsr, resolveOsrLauncher } from "../../osr-export/src/index.mjs";
+import { renderMediaReferencesPath } from "../../osr-export/src/static-server.mjs";
 import { FALLBACK_REASONS, exportWithGpu, gpuRuntimeFallbackReason } from "../../gpu-export/src/index.mjs";
 import { evaluateGpuEligibility } from "../../gpu-export/src/eligibility.mjs";
 import { resolveGpuLauncher, isVgpuFailure } from "../../gpu-export/src/runner.mjs";
@@ -67,6 +71,7 @@ const {
 // owner.json lets the next run reclaim a crashed process immediately. Directories created before
 // owner tracking retain the 24h fallback, while a live owner is never touched.
 const STALE_RUN_DIRECTORY_MS = 24 * 60 * 60 * 1000;
+const activeMediaReferencePaths = new Set();
 const RETIRED_ENGINE = "legacy";
 const ENGINE_CHOICES = ["auto", "gpu", "osr"];
 const RETIRED_ENGINE_MESSAGE = "--engine legacy は廃止されました（書き出しは gpu / osr の 2 出口。ffmpeg フィルタグラフ合成は v0.1.3x で終了）";
@@ -284,9 +289,12 @@ export async function renderProject(input, options = {}, io = console) {
       ? renderTmpRoot
       : await createRunTemporaryDirectory(renderTmpRoot);
   edit = projectRendererCompatibilityEdit(parsedEdit, internalEdit, temporaryDirectory);
+  const planningEdit = projectResolvedMediaPaths({ projectRoot, edit, inputs: declaredInputs });
+  ensureOutputDoesNotReplaceInput(projectRoot, planningEdit, outputPath);
 
   const plan = buildPlan({
-    edit,
+    edit: planningEdit,
+    // buildPlan が internalEdit から読むのは総尺とトラックの mute。宣言パスは保持する。
     internalEdit,
     projectRoot,
     outputPath,
@@ -423,7 +431,7 @@ export async function renderProject(input, options = {}, io = console) {
     const audioSourcePath = plan.commands.tail_pad_audio ? tailPaddedAudioPath : cutAudioPath;
     reporter.stageEnd("audio-cut");
     const compositePath = join(temporaryDirectory, container.kind === "directory" ? "composite" : `composite.${container.ext}`);
-    const alphaLayers = await prepareAlphaLayers(edit, { projectRoot });
+    const alphaLayers = await prepareAlphaLayers(planningEdit, { projectRoot });
     for (const warning of alphaLayers.warnings) addWarning(state, warning);
     const commonV2Options = {
       projectRoot,
@@ -446,62 +454,64 @@ export async function renderProject(input, options = {}, io = console) {
     };
 
     reporter.stageStart("render", { engine: resolvedEngine });
-    if (resolvedEngine === "gpu") {
-      const execution = await runGpuWithRuntimeFallback({
-        engineRequested,
-        runGpu: () => exportWithGpu({
-          ...commonV2Options,
-          eligibility: gpuEligibility,
-          force: forceGpu,
-          launcher: gpuLauncher,
-          preview: options.preview ?? "auto",
-          previewOutputDirectory: join(projectRoot, ".akari", "cache", "export-preview"),
-          collectLuma: options.verifyBlank,
-          progress: progressEnabled,
-        }),
-        runOsr: async () => {
-          osrLauncher = await resolveOsrLauncher();
-          assertOsrLauncherAvailable(osrLauncher);
-          reporter.stageStart("render", { engine: "osr" });
-          return exportWithOsr({
+    await withRenderMediaReferences(projectRoot, declaredInputs, async () => {
+      if (resolvedEngine === "gpu") {
+        const execution = await runGpuWithRuntimeFallback({
+          engineRequested,
+          runGpu: () => exportWithGpu({
             ...commonV2Options,
-            encoder: options.encoder ?? encodingPolicy?.effective.encoder.value ?? "x264",
-            launcher: osrLauncher,
-          });
-        },
-      });
-      if (execution.engine === "gpu") {
-        state.provenance.gpu = {
-          ...execution.result.receipt,
-          timing: execution.result.run?.timing ?? null,
-        };
-        reusableGpuVerification = {
-          finalVerify: execution.result.run?.finalVerify ?? null,
-          luma: execution.result.run?.luma ?? null,
-        };
-        state.provenance.rasterizer.adopted = "gpu";
-        state.provenance.rasterizer.attempts.push({ method: "gpu", status: "adopted", reason: null });
+            eligibility: gpuEligibility,
+            force: forceGpu,
+            launcher: gpuLauncher,
+            preview: options.preview ?? "auto",
+            previewOutputDirectory: join(projectRoot, ".akari", "cache", "export-preview"),
+            collectLuma: options.verifyBlank,
+            progress: progressEnabled,
+          }),
+          runOsr: async () => {
+            osrLauncher = await resolveOsrLauncher();
+            assertOsrLauncherAvailable(osrLauncher);
+            reporter.stageStart("render", { engine: "osr" });
+            return exportWithOsr({
+              ...commonV2Options,
+              encoder: options.encoder ?? encodingPolicy?.effective.encoder.value ?? "x264",
+              launcher: osrLauncher,
+            });
+          },
+        });
+        if (execution.engine === "gpu") {
+          state.provenance.gpu = {
+            ...execution.result.receipt,
+            timing: execution.result.run?.timing ?? null,
+          };
+          reusableGpuVerification = {
+            finalVerify: execution.result.run?.finalVerify ?? null,
+            luma: execution.result.run?.luma ?? null,
+          };
+          state.provenance.rasterizer.adopted = "gpu";
+          state.provenance.rasterizer.attempts.push({ method: "gpu", status: "adopted", reason: null });
+        } else {
+          resolvedEngine = "osr";
+          state.provenance.engine = "osr";
+          state.provenance.engine_fallback = execution.fallback;
+          if (execution.gpuFailureRunPath) state.provenance.gpu_failure_run = execution.gpuFailureRunPath;
+          state.provenance.osr = execution.result.receipt;
+          state.provenance.rasterizer.adopted = "osr";
+          state.provenance.rasterizer.attempts.push({ method: "gpu", status: "failed", reason: execution.fallback.reason });
+          state.provenance.rasterizer.attempts.push({ method: "osr", status: "adopted", reason: null });
+          addWarning(state, `GPU export failed closed; using OSR: ${execution.fallback.reason}`);
+        }
       } else {
-        resolvedEngine = "osr";
-        state.provenance.engine = "osr";
-        state.provenance.engine_fallback = execution.fallback;
-        if (execution.gpuFailureRunPath) state.provenance.gpu_failure_run = execution.gpuFailureRunPath;
-        state.provenance.osr = execution.result.receipt;
+        const osr = await exportWithOsr({
+          ...commonV2Options,
+          encoder: options.encoder ?? encodingPolicy?.effective.encoder.value ?? "x264",
+          launcher: osrLauncher,
+        });
+        state.provenance.osr = osr.receipt;
         state.provenance.rasterizer.adopted = "osr";
-        state.provenance.rasterizer.attempts.push({ method: "gpu", status: "failed", reason: execution.fallback.reason });
         state.provenance.rasterizer.attempts.push({ method: "osr", status: "adopted", reason: null });
-        addWarning(state, `GPU export failed closed; using OSR: ${execution.fallback.reason}`);
       }
-    } else {
-      const osr = await exportWithOsr({
-        ...commonV2Options,
-        encoder: options.encoder ?? encodingPolicy?.effective.encoder.value ?? "x264",
-        launcher: osrLauncher,
-      });
-      state.provenance.osr = osr.receipt;
-      state.provenance.rasterizer.adopted = "osr";
-      state.provenance.rasterizer.attempts.push({ method: "osr", status: "adopted", reason: null });
-    }
+    });
     reporter.stageEnd("render");
 
     reporter.stageStart("audio-mix");
@@ -741,6 +751,37 @@ export async function renderProject(input, options = {}, io = console) {
       await cleanupFailedRunTemporaryDirectory(temporaryDirectory);
     }
     throw error;
+  }
+}
+
+// 表は子の起動前に閉じ、両出口と GPU→OSR 再試行が終了したら必ず消す。
+// 使用中の表だけを保護し、PID 再利用で残った自分の表は回収する。
+export async function withRenderMediaReferences(projectRoot, inputs, run) {
+  const path = renderMediaReferencesPath(await realpath(projectRoot), process.pid);
+  if (activeMediaReferencePaths.has(path)) {
+    throw Object.assign(new Error(`render media references already in use: ${path}`), { code: "EEXIST" });
+  }
+  // await より前に確保する。同時呼び出しが作成途中の表を残存表と誤認しないため。
+  activeMediaReferencePaths.add(path);
+  let created = false;
+  try {
+    await mkdir(dirname(path), { recursive: true });
+    // この PID の別プロセスは同時に存在しない。他 PID の表には触れない。
+    await rm(path, { force: true });
+    const file = await open(path, "wx", 0o600);
+    created = true;
+    try {
+      await file.writeFile(JSON.stringify(buildRenderMediaReferences(inputs)), "utf8");
+    } finally {
+      await file.close();
+    }
+    return await run();
+  } finally {
+    try {
+      if (created) await rm(path, { force: true });
+    } finally {
+      activeMediaReferencePaths.delete(path);
+    }
   }
 }
 
