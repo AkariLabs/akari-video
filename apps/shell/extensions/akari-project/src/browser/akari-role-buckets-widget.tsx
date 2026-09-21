@@ -1,3 +1,4 @@
+import { MaterialSwapRequest, SwapCandidates, rankSwapCandidates } from '../common/material-swap-candidates';
 import { AkariPreviewService } from 'akari-preview/lib/common/akari-preview-protocol';
 import { MaterialCardHoverPreview } from './material-card-hover-preview';
 import type { TranscriptState } from '../common/akari-project-protocol';
@@ -347,6 +348,72 @@ export class AkariRoleBucketsWidget extends ReactWidget {
 
     /** カタログ面「1 ビュー」= resolver 合成 + ローカル catalog/ のマージ済み一覧。 */
     protected assetCatalogItems: AssetCatalogViewItem[] = [];
+    protected materialSwap?: { request: MaterialSwapRequest; title: string; candidates: SwapCandidates; root: string };
+    protected swapLoadGeneration = 0;
+
+    async openMaterialSwap(request: MaterialSwapRequest): Promise<boolean> {
+        const generation = ++this.swapLoadGeneration;
+        const root = this.workflow.workspaceRoot;
+        if (!root || !request?.itemId || !['audio', 'visual'].includes(request.kind)) return false;
+        await this.loadAssetCatalogView();
+        const match = request.currentRelativePath.match(/^assets\/([^/]+)\/([^/]+)\//);
+        let current: { id: string; tags: string[]; title?: string } | undefined;
+        if (match) {
+            const catalog = this.assetCatalogItems.find(item => item.key === `${match[1]}/${match[2]}`);
+            if (catalog) current = { id: catalog.id, tags: catalog.tags, title: catalog.title };
+            try {
+                const meta = JSON.parse((await this.files.readFile(root.resolve(`assets/${match[1]}/${match[2]}/meta.json`))).value.toString());
+                current = { id: match[2], tags: Array.isArray(meta.tags) ? meta.tags : catalog?.tags ?? [], title: meta.title ?? catalog?.title };
+            } catch { /* AKARI Sounds は meta.json を持たないためカタログの情報を使う。 */ }
+        }
+        if (!await this.commandService.executeCommand('akari.timeline.isMaterialSwapActive', request)) return false;
+        if (generation !== this.swapLoadGeneration || this.workflow.workspaceRoot?.toString() !== root.toString()) return false;
+        this.materialSwap = { request, title: current?.title ?? request.currentRelativePath.split('/').pop(),
+            candidates: rankSwapCandidates(this.assetCatalogItems, request.kind, current, request.currentRelativePath), root: root.toString() };
+        this.selectTopView('catalog');
+        return true;
+    }
+
+    clearMaterialSwap(): void {
+        ++this.swapLoadGeneration;
+        this.materialSwap = undefined;
+        this.update();
+    }
+
+    protected closeMaterialSwap(): void {
+        this.clearMaterialSwap();
+        void this.commandService.executeCommand('akari.timeline.finishMaterialSwap', false);
+    }
+
+    protected renderMaterialSwap(): React.ReactNode {
+        const shelf = this.materialSwap;
+        if (!shelf) return undefined;
+        const section = (label: string, rows: SwapCandidates['rest']): React.ReactNode => <section>
+            <h4 style={{ margin: '12px 0 6px' }}>{label}</h4>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: '8px' }}>
+                {rows.map(({ item, canTry }) => <div key={item.key} data-akari-swap-candidate={item.key}
+                    role={canTry ? 'button' : undefined} tabIndex={canTry ? 0 : undefined} aria-disabled={!canTry}
+                    onClick={event => {
+                        if (!canTry || (event.target as HTMLElement).closest('button,a')) return;
+                        void this.commandService.executeCommand('akari.timeline.tryMaterialSwap', { key: item.key, title: item.title, originalTitle: shelf.title });
+                    }} onKeyDown={event => {
+                        if (canTry && event.target === event.currentTarget && (event.key === 'Enter' || event.key === ' ')) {
+                            event.preventDefault();
+                            void this.commandService.executeCommand('akari.timeline.tryMaterialSwap', { key: item.key, title: item.title, originalTitle: shelf.title });
+                        }
+                    }}>{this.renderCatalogCard(item)}</div>)}
+            </div>
+        </section>;
+        return <div data-akari-swap-shelf style={{ padding: '8px 10px' }}>
+            <div style={{ borderBottom: AKARI_BORDER.hairline, paddingBottom: '8px' }}>
+                <strong>⇄ 入れ替え候補</strong><div>{shelf.title}</div>
+                <button className='theia-button secondary' onClick={() => this.closeMaterialSwap()}>通常のライブラリに戻る ✕</button>
+            </div>
+            {shelf.candidates.near !== undefined && section('近い系統', shelf.candidates.near)}
+            {section(`それ以外の${shelf.request.kind === 'audio' ? '音源' : '画像・B-roll'}`, shelf.candidates.rest)}
+        </div>;
+    }
+
     /** 素材カタログとは別系統で読む、テロップ / LUT の読み取り専用参照表。 */
     protected presetShowcase: PresetShowcase = EMPTY_PRESET_SHOWCASE;
     /** `catalog/packs.json`（無ければ空）。パック棚のグループ化はフロント側で行う。 */
@@ -438,6 +505,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         this.node.addEventListener('dragleave', event => this.handleDragLeave(event));
         this.node.addEventListener('drop', event => this.handleDrop(event));
         this.toDispose.push(this.workflow.onDidChange(() => {
+            if (this.materialSwap && this.materialSwap.root !== this.workflow.workspaceRoot?.toString()) this.closeMaterialSwap();
             this.ensureMaterialsWatch();
             this.ensureOutputsWatch();
             this.refresh();
@@ -499,6 +567,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     }
 
     protected selectTopView(view: TopView): void {
+        if (view !== 'catalog' && this.materialSwap) this.closeMaterialSwap();
         if (this.topView === 'catalog' && view !== 'catalog') {
             // 「← 素材にもどる」でカタログ面を離れるとき（task.md 指示3「離脱で停止」）。
             this.stopCatalogAudio();
@@ -2605,6 +2674,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
 
     /** widget 内遷移したライブラリ面。セグメントと検索は親側で固定表示する。 */
     protected renderCatalogTab(): React.ReactNode {
+        if (this.materialSwap) return this.renderMaterialSwap();
         return (
             <div
                 style={{ minHeight: '100%' }}
@@ -3293,6 +3363,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
 
     /** カード下部のアクション行。origin で「使う」（resolver）か「取り込む/頼む」（local）かを切り替える。 */
     protected renderCatalogCardActions(item: AssetCatalogViewItem): React.ReactNode {
+        if (this.materialSwap && canPlaceLibraryAsset(item)) return undefined;
         const actionRowStyle: React.CSSProperties = {
             display: 'flex',
             justifyContent: 'center',
@@ -3312,7 +3383,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
             fontSize: '0.78em',
             padding: '2px 4px'
         };
-        const addButton = this.canDragCatalogAsset(item) ? (
+        const addButton = !this.materialSwap && this.canDragCatalogAsset(item) ? (
             <button type='button' className='theia-button secondary'
                 data-akari-catalog-action='add' aria-label={`${item.title} をプレイヘッド位置に追加`}
                 title='プレイヘッド位置に追加' disabled={this.resolvingAssetKeys.has(item.key)}

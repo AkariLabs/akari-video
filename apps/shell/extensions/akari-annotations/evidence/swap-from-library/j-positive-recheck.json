@@ -1,0 +1,5 @@
+{
+ "note": "j-summary の broll / sfx 行の inspectorRow=false は、直前の右クリックメニュー（[data-akari-context-menu]）が残ってクリックを受けていたための計測漏れ。メニューを除去して再計測した結果",
+ "broll-1 (data-akari-item-id=2)": { "infoTab": true, "inspectorSwapRowVisible": true },
+ "bell-1": { "infoTab": true, "inspectorSwapRowVisible": true }
+}

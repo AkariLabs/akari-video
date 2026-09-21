@@ -1,3 +1,5 @@
+import type { MaterialSwapTarget } from '../common/material-replacement';
+import type { OnWillStopAction } from '@theia/core/lib/browser/frontend-application-contribution';
 import { guardInitLayout } from 'akari-theme/lib/browser/init-layout-guard';
 import URI from '@theia/core/lib/common/uri';
 import { BinaryBuffer } from '@theia/core/lib/common/buffer';
@@ -156,6 +158,7 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
 
     /** 自動アタッチの重複判定・dispose 監視の対象として追跡中のタイムライン widget インスタンス。 */
     protected timelineWidget?: AkariAnnotationsWidget;
+    protected materialSwapOwner?: AkariAnnotationsWidget;
     /** ワークスペースと edit.json の配置はセッション中不変として、再帰探索結果を共有する。 */
     protected projectLocationsPromise?: Promise<ProjectLocation[]>;
     protected readonly timelineWidgets = new Set<AkariAnnotationsWidget>();
@@ -174,10 +177,25 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
     /** ReviewModel.annotations の直近プッシュ済み参照（不要な再送を避ける差分検知に使う）。 */
     protected lastPushedAnnotations?: readonly Annotation[];
 
+    onWillStop(): OnWillStopAction | undefined {
+        const owner = this.materialSwapOwner;
+        if (!owner?.hasMaterialSwap) return undefined;
+        return { reason: 'お試し中の素材を元に戻す', action: async () => {
+            await owner.finishMaterialSwap(false);
+            return true;
+        } };
+    }
+
     async onStart(): Promise<void> {
         installRightPanelTabStyle(this.shell.rightPanelHandler.tabBar);
         this.toDispose.push(this.shell.onDidChangeCurrentWidget(({ newValue }) => {
+            const previewEdit = (newValue as { akariPreviewEditUri?: URI } | undefined)?.akariPreviewEditUri;
+            if (previewEdit && this.materialSwapOwner?.hasMaterialSwap
+                && previewEdit.toString() !== this.materialSwapOwner.timelineLocation?.editUri?.toString()) {
+                void this.materialSwapOwner.finishMaterialSwap(false);
+            }
             if (newValue instanceof AkariAnnotationsWidget) {
+                if (this.materialSwapOwner && this.materialSwapOwner !== newValue) void this.materialSwapOwner.finishMaterialSwap(false);
                 this.trackTimelineWidget(newValue);
                 this.timelineWidget = newValue;
                 this.review.location = newValue.timelineLocation;
@@ -306,6 +324,29 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
         });
         commands.registerCommand(ADD_MATERIAL_AT_PLAYHEAD, {
             execute: (request: unknown) => this.addMaterialAtPlayhead(request)
+        });
+        commands.registerCommand({ id: 'akari.timeline.beginMaterialSwap' }, {
+            execute: async (request: MaterialSwapTarget) => {
+                await this.materialSwapOwner?.finishMaterialSwap(false);
+                const widget = this.timelineWidget;
+                if (!widget) return false;
+                const target = await widget.beginMaterialSwap(request);
+                if (!target) return false;
+                this.materialSwapOwner = widget;
+                return target;
+            }
+        });
+        commands.registerCommand({ id: 'akari.timeline.isMaterialSwapActive' }, {
+            execute: (target: MaterialSwapTarget) => this.materialSwapOwner?.isMaterialSwapActive(target) === true
+        });
+        commands.registerCommand({ id: 'akari.timeline.tryMaterialSwap' }, {
+            execute: (candidate: { key: string; title: string; originalTitle: string }) => this.materialSwapOwner?.tryMaterialSwap(candidate)
+        });
+        commands.registerCommand({ id: 'akari.timeline.finishMaterialSwap' }, {
+            execute: (confirm = false) => this.materialSwapOwner?.finishMaterialSwap(confirm)
+        });
+        commands.registerCommand({ id: 'akari.timeline.replayMaterialSwap' }, {
+            execute: () => this.materialSwapOwner?.replayMaterialSwap()
         });
         commands.registerCommand(ADD_MATERIAL_AT_POINT, {
             execute: (request: unknown) => this.addMaterialAtPoint(request)

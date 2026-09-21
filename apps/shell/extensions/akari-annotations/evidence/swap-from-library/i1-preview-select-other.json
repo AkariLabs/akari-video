@@ -1,0 +1,59 @@
+{
+ "mode": "state",
+ "at": "2026-09-21T14:18:29.030Z",
+ "shaBefore": "0b6ccf6c363685d94a5a44f54f8d132ab1d99b8c22e5c838669849559e5356fc",
+ "itemBefore": {
+  "track": "v2",
+  "id": "img-1",
+  "at": 0,
+  "duration": 60,
+  "source": {
+   "kind": "media",
+   "src": "aurora",
+   "in": 0,
+   "out": 2
+  },
+  "path": "assets/still/bg-aurora-mesh/bg.png",
+  "transform": {
+   "scale": 0.5,
+   "x": 0.2,
+   "y": 0
+  }
+ },
+ "shaAfter": "0b6ccf6c363685d94a5a44f54f8d132ab1d99b8c22e5c838669849559e5356fc",
+ "itemAfter": {
+  "track": "v2",
+  "id": "img-1",
+  "at": 0,
+  "duration": 60,
+  "source": {
+   "kind": "media",
+   "src": "aurora",
+   "in": 0,
+   "out": 2
+  },
+  "path": "assets/still/bg-aurora-mesh/bg.png",
+  "transform": {
+   "scale": 0.5,
+   "x": 0.2,
+   "y": 0
+  }
+ },
+ "sameTrack": [
+  "img-1@0+60",
+  "broll-1@90+1260"
+ ],
+ "ui": {
+  "trialBar": [],
+  "inspectorSwapRow": false,
+  "leftPanel": "other",
+  "toasts": [
+   "出力プレビューの準備を確認できなかったため通常の再生を試みました（▶ もう一度 で再試行できます）。"
+  ]
+ },
+ "lint": {
+  "verdict": "pass",
+  "errors": [],
+  "sourceRange": 0
+ }
+}

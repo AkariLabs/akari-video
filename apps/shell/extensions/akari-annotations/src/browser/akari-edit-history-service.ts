@@ -1,3 +1,4 @@
+import { MaterialTrialHistory } from '../common/material-trial-history';
 import { Emitter, Event } from '@theia/core/lib/common';
 import { injectable, postConstruct } from '@theia/core/shared/inversify';
 import { isEditableEventTarget } from 'akari-preview/lib/common/review-tool-mode';
@@ -18,6 +19,22 @@ export interface HistoryExecution {
 
 @injectable()
 export class AkariEditHistoryService {
+
+    readonly materialTrial = new MaterialTrialHistory();
+    protected trialUndo?: () => Promise<void>;
+
+    setMaterialTrial(entry: HistoryEntry, cancel: () => Promise<void>): void {
+        this.materialTrial.set(entry);
+        this.trialUndo = cancel;
+        this.onDidChangeEmitter.fire();
+    }
+
+    async finishMaterialTrial(confirm: boolean): Promise<void> {
+        if (confirm) this.materialTrial.confirm(entry => this.push(entry));
+        else await this.materialTrial.cancel();
+        this.trialUndo = undefined;
+        this.onDidChangeEmitter.fire();
+    }
 
     protected past: HistoryEntry[] = [];
     protected future: HistoryEntry[] = [];
@@ -68,6 +85,7 @@ export class AkariEditHistoryService {
     }
 
     async undo(): Promise<void> {
+        if (this.materialTrial.entry && this.trialUndo) { await this.trialUndo(); return; }
         const entry = this.past.pop();
         if (!entry) {
             return;
@@ -86,6 +104,7 @@ export class AkariEditHistoryService {
     }
 
     async redo(): Promise<void> {
+        if (this.materialTrial.entry) return;
         const entry = this.future.pop();
         if (!entry) {
             return;
@@ -108,10 +127,10 @@ export class AkariEditHistoryService {
     }
 
     get canUndo(): boolean {
-        return this.past.length > 0;
+        return !!this.materialTrial.entry || this.past.length > 0;
     }
 
     get canRedo(): boolean {
-        return this.future.length > 0;
+        return !this.materialTrial.entry && this.future.length > 0;
     }
 }

@@ -1,0 +1,69 @@
+{
+  "version": 2,
+  "output": {
+    "width": 1280,
+    "height": 720,
+    "fps": 30
+  },
+  "sources": [
+    {
+      "id": "base",
+      "path": "base.mp4",
+      "proxy": null
+    },
+    {
+      "id": "bell",
+      "path": "assets/audio/sfx-bell-tree/sfx-bell-tree.mp3"
+    }
+  ],
+  "tracks": [
+    {
+      "id": "a1",
+      "lane": "audio",
+      "items": [
+        {
+          "id": "bell-1",
+          "at": 60,
+          "duration": 76,
+          "source": {
+            "kind": "media",
+            "src": "bell",
+            "in": 0,
+            "out": 2.520979
+          },
+          "gain_db": -3,
+          "fade_in": 0.1,
+          "fade_out": 0.2
+        }
+      ]
+    },
+    {
+      "id": "v1",
+      "lane": "visual",
+      "items": [
+        {
+          "id": "cut-1",
+          "at": 0,
+          "duration": 90,
+          "source": {
+            "kind": "media",
+            "src": "base",
+            "in": 0,
+            "out": 3
+          }
+        },
+        {
+          "id": "cut-2",
+          "at": 90,
+          "duration": 90,
+          "source": {
+            "kind": "media",
+            "src": "base",
+            "in": 3,
+            "out": 6
+          }
+        }
+      ]
+    }
+  ]
+}

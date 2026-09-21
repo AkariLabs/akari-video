@@ -30,11 +30,12 @@ const names = [
     'trackIdOfItem', 'trackIdOfSelection', 'trackIdOfDrag', 'isTrackLocked', 'showLockedTrack',
     'updateLinkedDragGhost', 'updateDragAltKey', 'withNarrationEnvelope', 'snapshotForSelection',
     'audioEnvelopeFieldsForSnapshot', 'handleInspectorWriteV2', 'handleAudioClipFxWrite',
-    'openTimelineClipContextMenu', 'selectionKey'
+    'openTimelineClipContextMenu', 'selectionKey', 'selectedMaterialSwapTarget'
 ];
 const menuEvents = new Map();
 let openedMenu;
 const dependencies = {
+    ...require('../lib/common/material-replacement.js'),
     ...kernel, ...mutations, isTrackLocked, lockedTrackMessage, audioClipFxFieldsForSnapshot, updateAudioClipFxDocument,
     removeV2Item: mutations.removeItem, updateV2Item: mutations.updateItem,
     moveV2ItemToNewTrack: mutations.moveItemToNewTrack, MINIMUM_ITEM_DURATION: 0.15,

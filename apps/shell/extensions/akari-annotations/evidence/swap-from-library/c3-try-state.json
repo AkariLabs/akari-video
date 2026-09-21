@@ -1,0 +1,58 @@
+{
+ "mode": "state",
+ "at": "2026-09-21T14:08:45.896Z",
+ "shaBefore": "4f509632d6946508fec5bdde3b2538b26429ba706da55740151cc633f76db29d",
+ "itemBefore": {
+  "track": "a1",
+  "id": "bell-1",
+  "at": 60,
+  "duration": 90,
+  "source": {
+   "kind": "media",
+   "src": "src-1",
+   "in": 0,
+   "out": 3
+  },
+  "path": "assets/audio/sfx-impact-echo/sfx-impact-echo.mp3",
+  "gain_db": -3,
+  "fade_in": 0.1,
+  "fade_out": 0.2
+ },
+ "shaAfter": "4f509632d6946508fec5bdde3b2538b26429ba706da55740151cc633f76db29d",
+ "itemAfter": {
+  "track": "a1",
+  "id": "bell-1",
+  "at": 60,
+  "duration": 90,
+  "source": {
+   "kind": "media",
+   "src": "src-1",
+   "in": 0,
+   "out": 3
+  },
+  "path": "assets/audio/sfx-impact-echo/sfx-impact-echo.mp3",
+  "gain_db": -3,
+  "fade_in": 0.1,
+  "fade_out": 0.2
+ },
+ "sameTrack": [
+  "bell-1@60+90",
+  "pop-1@150+54"
+ ],
+ "ui": {
+  "trialBar": [
+   {
+    "text": "お試し中: Bell Tree Sweep Upward, Sparkling Cascade, Isola → Big Hit With A Long Echoing Tail, Canyon Slam, I▶ もう一度差し替えるやめる",
+    "visible": true
+   }
+  ],
+  "inspectorSwapRow": true,
+  "leftPanel": "swap-shelf",
+  "toasts": []
+ },
+ "lint": {
+  "verdict": "pass",
+  "errors": [],
+  "sourceRange": 0
+ }
+}

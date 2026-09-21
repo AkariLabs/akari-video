@@ -1,0 +1,69 @@
+{
+ "mode": "bar",
+ "arg": "差し替える",
+ "at": "2026-09-21T14:15:38.164Z",
+ "shaBefore": "4f509632d6946508fec5bdde3b2538b26429ba706da55740151cc633f76db29d",
+ "itemBefore": {
+  "track": "a1",
+  "id": "bell-1",
+  "at": 60,
+  "duration": 90,
+  "source": {
+   "kind": "media",
+   "src": "src-1",
+   "in": 0,
+   "out": 3
+  },
+  "path": "assets/audio/sfx-impact-echo/sfx-impact-echo.mp3",
+  "gain_db": -3,
+  "fade_in": 0.1,
+  "fade_out": 0.2
+ },
+ "click": [
+  620.86328125,
+  79.25
+ ],
+ "settleMs": 5719,
+ "previewTimeSamples": [
+  5.07,
+  5.07,
+  5.07,
+  5.07,
+  5.07,
+  5.07,
+  5.07,
+  5.07
+ ],
+ "shaAfter": "4f509632d6946508fec5bdde3b2538b26429ba706da55740151cc633f76db29d",
+ "itemAfter": {
+  "track": "a1",
+  "id": "bell-1",
+  "at": 60,
+  "duration": 90,
+  "source": {
+   "kind": "media",
+   "src": "src-1",
+   "in": 0,
+   "out": 3
+  },
+  "path": "assets/audio/sfx-impact-echo/sfx-impact-echo.mp3",
+  "gain_db": -3,
+  "fade_in": 0.1,
+  "fade_out": 0.2
+ },
+ "sameTrack": [
+  "bell-1@60+90",
+  "pop-1@150+54"
+ ],
+ "ui": {
+  "trialBar": [],
+  "inspectorSwapRow": true,
+  "leftPanel": "other",
+  "toasts": []
+ },
+ "lint": {
+  "verdict": "pass",
+  "errors": [],
+  "sourceRange": 0
+ }
+}

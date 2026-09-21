@@ -3411,7 +3411,22 @@ export class AkariInspectorWidget extends BaseWidget {
         }
         sections
             .filter(section => assignSectionToTab(sectionKind, section.id) === activeTab)
-            .forEach(section => this.appendSection(section, rowSnapshot, sectionKind));
+            .forEach(section => {
+                if (section.id === 'info' && this.model.materialSwapTarget) {
+                    const row = document.createElement('div');
+                    row.dataset.akariMaterialSwap = 'entry';
+                    row.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:6px 10px';
+                    const label = document.createElement('span');
+                    label.textContent = '入れ替え';
+                    const button = document.createElement('button');
+                    button.className = 'theia-button secondary';
+                    button.textContent = '⇄ 候補を見る';
+                    button.onclick = () => this.model.requestMaterialSwap?.();
+                    row.append(label, button);
+                    this.body.appendChild(row);
+                }
+                this.appendSection(section, rowSnapshot, sectionKind);
+            });
         if (activeTab === 'audio' && sectionKind === 'audio') {
             if (!this.solo) {
                 AUDIO_ITEM_PREVIEW_SECTIONS.forEach(section =>

@@ -1,3 +1,4 @@
+import { materialSwapTarget, locateSwapItem, replaceMaterial, MaterialSwapTarget } from '../common/material-replacement';
 import URI from '@theia/core/lib/common/uri';
 import { ClipboardKind, PasteTrack, TimelineFragment, TimelineClipboardSnapshot,
     fragmentForSelection, cutTimelineFragment, pasteTimelineFragment, planPaste, serializeTimelineFragment } from '../common/timeline-clipboard';
@@ -1184,6 +1185,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
 
     @postConstruct()
     protected init(): void {
+        this.toDispose.push(this.workspaceService.onWorkspaceChanged(() => { void this.finishMaterialSwap(false); }));
+        this.toDispose.push({ dispose: () => { void this.finishMaterialSwap(false); } });
         if (!this.commandRegistry.getCommand(GET_TIMELINE_PLAYHEAD.id)) {
             this.toDispose.push(this.commandRegistry.registerCommand(GET_TIMELINE_PLAYHEAD, {
                 execute: () => this.playheadT
@@ -3195,6 +3198,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected async handleInspectorWrite(request: InspectorWriteRequest): Promise<InspectorWriteResult> {
+        if (this.materialSwap) await this.finishMaterialSwap(false);
         if (request.kind === 'audio-keyframes'
             && audioKeyframeWriteGuard(request.value) === 'too-few') {
             return { ok: false, message: AUDIO_KEYFRAME_MIN_POINTS_NOTICE };
@@ -4348,8 +4352,151 @@ export class AkariAnnotationsWidget extends BaseWidget {
         }
     }
 
+    /** 候補棚と、確定前の素材差し替え 1 手のセッション。 */
+    protected materialSwap?: { target: MaterialSwapTarget; editUri: string };
+    protected materialSwapGeneration = 0;
+    protected materialSwapTail: Promise<unknown> = Promise.resolve();
+    protected materialSwapPlaybackEnd?: number;
+    protected materialSwapLabels?: { originalTitle: string; title: string };
+
+    get hasMaterialSwap(): boolean { return this.materialSwap !== undefined; }
+
+    isMaterialSwapActive(target: MaterialSwapTarget): boolean {
+        return !!this.materialSwap && this.materialSwap.target.itemId === target?.itemId
+            && this.materialSwap.target.currentRelativePath === target.currentRelativePath;
+    }
+
+    async beginMaterialSwap(target: MaterialSwapTarget): Promise<MaterialSwapTarget | false> {
+        await this.finishMaterialSwap(false);
+        const actual = this.selectedMaterialSwapTarget();
+        if (!actual || actual.itemId !== target?.itemId || actual.kind !== target.kind || !this.location?.editUri) return false;
+        this.materialSwap = { target: actual, editUri: this.location.editUri.toString() };
+        return actual;
+    }
+
+    tryMaterialSwap(candidate: { key: string; title: string; originalTitle: string }): Promise<void> {
+        const generation = ++this.materialSwapGeneration;
+        const session = this.materialSwap;
+        if (!session) return Promise.resolve();
+        const operation = this.materialSwapTail.then(async () => {
+            if (generation !== this.materialSwapGeneration || session !== this.materialSwap) return;
+            await this.stopMaterialSwapPlayback();
+            await this.historyService.finishMaterialTrial(false);
+            await this.commandRegistry.executeCommand('akari.preview.materialTrial', { editUri: session.editUri });
+            const material = await this.commandRegistry.executeCommand<{ relativePath: string; kind: 'audio' | 'video' | 'image' } | undefined>(
+                'akari.catalog.resolveMaterial', candidate.key);
+            if (!material || generation !== this.materialSwapGeneration || session !== this.materialSwap) return;
+            const location = this.location;
+            if (!location?.editUri || location.editUri.toString() !== session.editUri) return;
+            const mediaUri = location.root.resolve(material.relativePath);
+            const relativePath = relativeTimelineMaterialPath(location.editUri.parent.path.toString(), mediaUri.path.toString());
+            let actualDurationS: number | undefined;
+            if (material.kind !== 'image') {
+                const result = await this.annotationsService.getAudioDuration({ projectRootUri: location.root.toString(), audioUri: mediaUri.toString() });
+                if (result.status !== 'ready') throw new Error('素材の実尺を取得できません。');
+                actualDurationS = result.durationSeconds;
+            }
+            if (generation !== this.materialSwapGeneration || session !== this.materialSwap) return;
+            await this.commitEditMutation('お試し中', doc => replaceMaterial(doc, {
+                itemId: session.target.itemId, relativePath, kind: material.kind, actualDurationS
+            }), { trial: true });
+            if (generation !== this.materialSwapGeneration || session !== this.materialSwap) {
+                await this.historyService.finishMaterialTrial(false);
+                return;
+            }
+            this.materialSwapLabels = candidate;
+            await this.replayMaterialSwap();
+        });
+        this.materialSwapTail = operation.catch(error => {
+            this.messages.error(`お試しできません: ${this.errorMessage(error)}`);
+        });
+        return this.materialSwapTail as Promise<void>;
+    }
+
+    async replayMaterialSwap(): Promise<void> {
+        const generation = this.materialSwapGeneration;
+        const session = this.materialSwap;
+        if (!session || !this.historyService.materialTrial.entry) return;
+        const active = (): boolean => session === this.materialSwap && generation === this.materialSwapGeneration;
+        try {
+            // 書き込み済みのお試しは、再生準備の成否にかかわらず確定・取消できる。
+            await this.commandRegistry.executeCommand('akari.preview.materialTrial', { editUri: session.editUri, ...this.materialSwapLabels });
+            await this.stopMaterialSwapPlayback();
+            const found = locateSwapItem(this.editDocument, session.target.itemId);
+            if (!found || !active()) return;
+            const time = Math.max(0, found.at / this.fps - 0.6);
+            const end = found.at / this.fps + Math.min(found.item.duration / this.fps, 3.2);
+            let readyFailed = false;
+            try {
+                const seeked = await this.commandRegistry.executeCommand('akari.preview.seekOutput', { editUri: session.editUri, time, waitForReady: true });
+                if (seeked !== 'seeked') throw new Error('出力プレビューへシークできませんでした。');
+            } catch {
+                if (!active()) return;
+                readyFailed = true;
+                // ready 応答だけが失われた場合も、通常シーク → 再生を最後に 1 回試す。
+                const seeked = await this.commandRegistry.executeCommand('akari.preview.seekOutput', { editUri: session.editUri, time });
+                if (seeked !== 'seeked') throw new Error('出力プレビューへシークできませんでした。');
+            }
+            if (!active()) return;
+            if (this.commandRegistry.getCommand('akari.preview.play')) {
+                this.materialSwapPlaybackEnd = end;
+                const playing = await this.commandRegistry.executeCommand('akari.preview.play', { editUri: session.editUri });
+                if (!active()) { await this.stopMaterialSwapPlayback(); return; }
+                if (playing === false) throw new Error('再生を開始できませんでした。');
+            }
+            if (readyFailed) this.messages.warn('出力プレビューの準備を確認できなかったため通常の再生を試みました（▶ もう一度 で再試行できます）。');
+        } catch {
+            if (!active()) return;
+            this.materialSwapPlaybackEnd = undefined;
+            this.messages.error('出力プレビューの準備ができなかったため再生できませんでした（▶ もう一度 で再試行できます）。');
+        }
+    }
+
+    protected async stopMaterialSwapPlayback(): Promise<void> {
+        this.materialSwapPlaybackEnd = undefined;
+        if (this.materialSwap && this.commandRegistry.getCommand('akari.preview.pause')) {
+            await this.commandRegistry.executeCommand('akari.preview.pause', { editUri: this.materialSwap.editUri });
+        }
+    }
+
+    /** 棚・選択・プロジェクト・やめる・確定の全終了経路。進行中の resolve も失効させる。 */
+    finishMaterialSwap(confirm: boolean): Promise<void> {
+        ++this.materialSwapGeneration;
+        const session = this.materialSwap;
+        const operation = this.materialSwapTail.then(async () => {
+            if (!session || session !== this.materialSwap) return;
+            await this.stopMaterialSwapPlayback();
+            await this.historyService.finishMaterialTrial(confirm);
+            this.materialSwap = undefined;
+            this.materialSwapLabels = undefined;
+            await this.commandRegistry.executeCommand('akari.preview.materialTrial', { editUri: session.editUri });
+            await this.commandRegistry.executeCommand('akari.catalog.closeSwap');
+        });
+        this.materialSwapTail = operation.catch(error => {
+            this.messages.error(`お試しを終了できません: ${this.errorMessage(error)}`);
+        });
+        return operation;
+    }
+
+    protected selectedMaterialSwapTarget(selection = this.selection): MaterialSwapTarget | undefined {
+        if (!selection || this.multiSelection.length) return undefined;
+        const id = selection.kind === 'cut' ? this.cutItemIds[selection.index]
+            : 'id' in selection ? selection.id : undefined;
+        const target = materialSwapTarget(this.editDocument, id);
+        if (!target || !this.location?.editUri || !this.location.root.relative) return target;
+        const path = this.location.root.relative(this.resolveEditMediaUri(target.currentRelativePath, this.location.editUri))?.toString();
+        return path ? { ...target, currentRelativePath: path } : target;
+    }
+
     /** 選択の実体を TimelineSelectionModel へ反映する。対象が消えていれば選択解除する。 */
     protected pushSelectionSnapshot(): void {
+        const target = this.selectedMaterialSwapTarget();
+        if (this.materialSwap && target?.itemId !== this.materialSwap.target.itemId) void this.finishMaterialSwap(false);
+        this.selectionModel.materialSwapTarget = target;
+        this.selectionModel.requestMaterialSwap = () => {
+            const target = this.selectedMaterialSwapTarget();
+            if (target) void this.commandRegistry.executeCommand('akari.catalog.openSwap', target);
+        };
         if (this.multiSelection.length > 0) {
             const treeItems = this.multiSelection.filter(selection => selection.kind === 'item');
             if (treeItems.length > 0) {
@@ -5003,6 +5150,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             zone?: MaterialDropZone; createAudioTrack?: boolean; targetTrackId?: string;
         }
     ): Promise<void> {
+        if (this.materialSwap) await this.finishMaterialSwap(false);
         if (kind !== 'video' && kind !== 'audio' && kind !== 'image') {
             this.messages.warn('素材を追加できません（種別が不正です）。');
             return;
@@ -11122,8 +11270,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected commitEditMutation(
         label: string,
         mutate: (doc: EditV2Document) => EditV2Document,
-        options?: { reload?: boolean; history?: boolean; optimistic?: boolean; captions?: { before: string; after: string } }
+        options?: { trial?: boolean; reload?: boolean; history?: boolean; optimistic?: boolean; captions?: { before: string; after: string } }
     ): Promise<{ before: string; after: string; result: WriteBackResult }> {
+        if (!options?.trial && this.materialSwap) {
+            return this.finishMaterialSwap(false).then(() => this.commitEditMutation(label, mutate, options));
+        }
         const operation = this.editMutationTail.then(() => this.performEditMutation(label, mutate, options));
         this.editMutationTail = operation.catch(() => undefined);
         return operation;
@@ -11132,14 +11283,15 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected async performEditMutation(
         label: string,
         mutate: (doc: EditV2Document) => EditV2Document,
-        options?: { reload?: boolean; history?: boolean; optimistic?: boolean; captions?: { before: string; after: string } }
+        options?: { trial?: boolean; reload?: boolean; history?: boolean; optimistic?: boolean; captions?: { before: string; after: string } }
     ): Promise<{ before: string; after: string; result: WriteBackResult }> {
         const editUri = this.location?.editUri;
         if (!editUri) throw new Error('edit.json がありません。');
         const before = (await this.fileService.readFile(editUri)).value.toString();
         const raw = JSON.parse(before) as EditV2Document;
         if (raw.version !== 2) throw new Error('v2 へ変換してから編集してください。');
-        const distribution = prepareV2KeyframeDistribution(mutate(pinAutomaticBgmDuration(raw, this.frameAt(this.contentEndDuration()))));
+        const distribution = options?.trial ? { document: mutate(raw), writes: [] }
+            : prepareV2KeyframeDistribution(mutate(pinAutomaticBgmDuration(raw, this.frameAt(this.contentEndDuration()))));
         const after = stringifyEditV2(distribution.document);
         if (after === before && (!options?.captions || options.captions.before === options.captions.after)) {
             return { before, after, result: { committed: false } };
@@ -11154,7 +11306,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             throw error;
         }
         if (options?.history !== false) {
-            this.pushHistory({
+            const entry: HistoryEntry = {
                 label,
                 undo: async () => {
                     await this.writeMotionChanges(motionChanges, 'before');
@@ -11168,7 +11320,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     await this.reloadEdit();
                     if (options?.captions) await this.reloadCaptions();
                 }
-            });
+            };
+            if (options?.trial) this.historyService.setMaterialTrial(entry, () => this.finishMaterialSwap(false));
+            else this.pushHistory(entry);
         }
         if (options?.reload !== false && !options?.optimistic) await this.reloadEdit();
         if (options?.reload !== false && options?.captions) await this.reloadCaptions();
@@ -14580,6 +14734,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected async commitDrag(preview: DragPreview): Promise<void> {
+        if (this.materialSwap) await this.finishMaterialSwap(false);
         const lockedTrackId = this.trackIdOfDrag(preview);
         if (this.isTrackLocked(lockedTrackId)) {
             this.showLockedTrack(lockedTrackId);
@@ -15594,6 +15749,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             || typeof request.playing !== 'boolean') {
             return;
         }
+        if (this.materialSwapPlaybackEnd !== undefined && request.time >= this.materialSwapPlaybackEnd) void this.stopMaterialSwapPlayback();
         this.visualPlaying = request.playing;
         this.visualThumbnails.setPaused(this.visualPlaying || this.visualPointerDown);
         this.playheadT = Math.max(0, request.time!);
@@ -15810,6 +15966,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
             item.kind === 'audio' && (this.audioSfx.some(candidate => candidate.id === item.id)
                 || this.audioSpeech.some(candidate => candidate.id === item.id))
         );
+        const swapTarget = this.selectedMaterialSwapTarget(item);
+        if (swapTarget) items.push({ id: 'material-swap', label: '入れ替え…' });
         const clientX = event.clientX;
         openTimelineContextMenu({
             x: event.clientX,
@@ -15829,6 +15987,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected dispatchTimelineClipMenuAction(
         id: string, item: TimelineSelectionItem, clientX: number, hasAudio?: boolean, altKey = false
     ): void {
+        if (id === 'material-swap') {
+            const target = this.selectedMaterialSwapTarget(item);
+            if (target) void this.commandRegistry.executeCommand('akari.catalog.openSwap', target);
+            return;
+        }
         if (id === 'annotate') {
             void this.requestClipAnnotation(item, clientX);
             return;

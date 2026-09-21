@@ -1,0 +1,169 @@
+{
+  "version": 2,
+  "output": {
+    "width": 1280,
+    "height": 720,
+    "fps": 30
+  },
+  "sources": [
+    {
+      "id": "base",
+      "path": "base.mp4",
+      "proxy": null
+    },
+    {
+      "id": "bell",
+      "path": "assets/audio/sfx-bell-tree/sfx-bell-tree.mp3"
+    },
+    {
+      "id": "pop",
+      "path": "assets/audio/sfx-pop-bubble-big/sfx-pop-bubble-big.mp3"
+    },
+    {
+      "id": "aurora",
+      "path": "assets/still/bg-aurora-mesh/bg.png"
+    },
+    {
+      "id": "long",
+      "path": "assets/video/long-clip.mp4"
+    },
+    {
+      "id": "bgm",
+      "path": "assets/audio/bgm-breakbeat-134/bgm-breakbeat-134-a.mp3"
+    },
+    {
+      "id": "city",
+      "path": "assets/broll/br-city-walk-long/clip.mp4"
+    }
+  ],
+  "tracks": [
+    {
+      "id": "a2",
+      "lane": "audio",
+      "items": [
+        {
+          "id": "bgm-1",
+          "at": 0,
+          "duration": 1350,
+          "role": "bgm",
+          "source": {
+            "kind": "media",
+            "src": "bgm",
+            "in": 0,
+            "out": 45
+          },
+          "gain_db": -12
+        }
+      ]
+    },
+    {
+      "id": "a1",
+      "lane": "audio",
+      "items": [
+        {
+          "id": "bell-1",
+          "at": 60,
+          "duration": 76,
+          "source": {
+            "kind": "media",
+            "src": "bell",
+            "in": 0,
+            "out": 2.520979
+          },
+          "gain_db": -3,
+          "fade_in": 0.1,
+          "fade_out": 0.2
+        },
+        {
+          "id": "pop-1",
+          "at": 150,
+          "duration": 54,
+          "source": {
+            "kind": "media",
+            "src": "pop",
+            "in": 0,
+            "out": 1.8
+          }
+        }
+      ]
+    },
+    {
+      "id": "v1",
+      "lane": "visual",
+      "items": [
+        {
+          "id": "cut-1",
+          "at": 0,
+          "duration": 90,
+          "source": {
+            "kind": "media",
+            "src": "base",
+            "in": 0,
+            "out": 3
+          }
+        },
+        {
+          "id": "cut-2",
+          "at": 90,
+          "duration": 90,
+          "source": {
+            "kind": "media",
+            "src": "base",
+            "in": 3,
+            "out": 6
+          }
+        }
+      ]
+    },
+    {
+      "id": "v2",
+      "lane": "visual",
+      "items": [
+        {
+          "id": "img-1",
+          "at": 0,
+          "duration": 60,
+          "source": {
+            "kind": "media",
+            "src": "aurora",
+            "in": 0,
+            "out": 2
+          },
+          "transform": {
+            "scale": 0.5,
+            "x": 0.2,
+            "y": 0
+          }
+        },
+        {
+          "id": "broll-1",
+          "at": 90,
+          "duration": 1260,
+          "source": {
+            "kind": "media",
+            "src": "city",
+            "in": 0,
+            "out": 42,
+            "mute": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "v3",
+      "lane": "visual",
+      "items": [
+        {
+          "id": "telop-1",
+          "at": 0,
+          "duration": 240,
+          "source": {
+            "kind": "html",
+            "path": "assets/overlay/whiteboard/fragment.html",
+            "text": "テロップ"
+          }
+        }
+      ]
+    }
+  ]
+}
