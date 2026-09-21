@@ -110,6 +110,17 @@
             "borderColor": "rgb(167, 139, 250)",
             "opacity": "1",
             "progress": null
+          },
+          {
+            "id": "9",
+            "label": "next-narrow.png",
+            "state": "planned-video",
+            "badge": "▶",
+            "badgeColor": "rgb(167, 139, 250)",
+            "borderStyle": "dashed",
+            "borderColor": "rgb(167, 139, 250)",
+            "opacity": "1",
+            "progress": null
           }
         ]
       }
@@ -247,7 +258,7 @@
             "className": "akari-annotations-strip-clip akari-generation-planned-video akari-annotations-strip-hit-target",
             "imageCellCount": 2,
             "linked": true,
-            "prompt": null,
+            "prompt": "next-first-last.png",
             "title": "動画予定（最初→最後）",
             "badge": "▶ 動画予定",
             "badgeColor": "rgb(167, 139, 250)",
@@ -260,13 +271,13 @@
               {
                 "side": "first",
                 "left": "0px",
-                "width": "32.3232px",
+                "width": "61.4597px",
                 "ready": true
               },
               {
                 "side": "last",
-                "left": "64.6465px",
-                "width": "32.3232px",
+                "left": "92.1895px",
+                "width": "61.4597px",
                 "ready": true
               }
             ]
@@ -279,7 +290,7 @@
             "className": "akari-annotations-strip-clip akari-generation-planned-video akari-annotations-strip-hit-target",
             "imageCellCount": 1,
             "linked": false,
-            "prompt": null,
+            "prompt": "next-first.png",
             "title": "動画予定（画像から）",
             "badge": "▶ 動画予定",
             "badgeColor": "rgb(167, 139, 250)",
@@ -292,7 +303,7 @@
               {
                 "side": "first",
                 "left": "0px",
-                "width": "32.3232px",
+                "width": "61.4597px",
                 "ready": true
               }
             ]
@@ -315,8 +326,1046 @@
             "backgroundImage": "none",
             "progress": null,
             "imageCells": []
+          },
+          {
+            "id": "9",
+            "label": "next-narrow.png",
+            "ui": "timeline:cut:9",
+            "state": "planned-video",
+            "className": "akari-annotations-strip-clip akari-generation-planned-video akari-annotations-strip-hit-target",
+            "imageCellCount": 1,
+            "linked": false,
+            "prompt": "next-narrow.png",
+            "title": "動画予定（画像から）",
+            "badge": "▶",
+            "badgeColor": "rgb(167, 139, 250)",
+            "borderStyle": "dashed",
+            "borderColor": "rgb(167, 139, 250)",
+            "opacity": "1",
+            "backgroundImage": "none",
+            "progress": null,
+            "imageCells": [
+              {
+                "side": "first",
+                "left": "0px",
+                "width": "17.2087px",
+                "ready": true
+              }
+            ]
           }
         ]
+      }
+    },
+    {
+      "name": "動画予定の実寸・文字の非交差・上下2列の穴・狭幅の札",
+      "pass": true,
+      "detail": {
+        "holeMeasurement": "child rects + computed gradient/opacity + frontmost ellipse-center samples",
+        "clips": [
+          {
+            "label": "next-first-last.png",
+            "rect": {
+              "x": 512.7578125,
+              "y": 329,
+              "left": 512.7578125,
+              "top": 329,
+              "right": 666.40625,
+              "bottom": 377,
+              "width": 153.6484375,
+              "height": 48
+            },
+            "texts": [
+              {
+                "role": "badge",
+                "text": "▶ 動画予定",
+                "visible": true,
+                "rect": {
+                  "x": 515.7578125,
+                  "y": 332,
+                  "left": 515.7578125,
+                  "top": 332,
+                  "right": 569.8359375,
+                  "bottom": 346,
+                  "width": 54.078125,
+                  "height": 14
+                },
+                "zIndex": "4",
+                "color": "rgb(167, 139, 250)",
+                "frontmost": true
+              },
+              {
+                "role": "duration",
+                "text": "00:05:00",
+                "visible": true,
+                "rect": {
+                  "x": 618.40625,
+                  "y": 331,
+                  "left": 618.40625,
+                  "top": 331,
+                  "right": 662.40625,
+                  "bottom": 343,
+                  "width": 44,
+                  "height": 12
+                },
+                "zIndex": "4",
+                "color": "rgb(229, 229, 229)",
+                "frontmost": true
+              },
+              {
+                "role": "frame-label-0",
+                "text": "最初",
+                "visible": true,
+                "rect": {
+                  "x": 515.7578125,
+                  "y": 361,
+                  "left": 515.7578125,
+                  "top": 361,
+                  "right": 535.7578125,
+                  "bottom": 371,
+                  "width": 20,
+                  "height": 10
+                },
+                "zIndex": "auto",
+                "color": "rgb(255, 255, 255)",
+                "frontmost": true
+              },
+              {
+                "role": "frame-label-1",
+                "text": "最後",
+                "visible": true,
+                "rect": {
+                  "x": 645.3984375,
+                  "y": 361,
+                  "left": 645.3984375,
+                  "top": 361,
+                  "right": 665.3984375,
+                  "bottom": 371,
+                  "width": 20,
+                  "height": 10
+                },
+                "zIndex": "auto",
+                "color": "rgb(255, 255, 255)",
+                "frontmost": true
+              },
+              {
+                "role": "name-or-prompt",
+                "text": "next-first-last.png",
+                "visible": true,
+                "rect": {
+                  "x": 579.2109375,
+                  "y": 347,
+                  "left": 579.2109375,
+                  "top": 347,
+                  "right": 599.953125,
+                  "bottom": 359,
+                  "width": 20.7421875,
+                  "height": 12
+                },
+                "zIndex": "1",
+                "color": "rgb(204, 204, 204)",
+                "frontmost": true
+              },
+              {
+                "role": "link",
+                "text": "",
+                "visible": true,
+                "rect": {
+                  "x": 651.40625,
+                  "y": 347,
+                  "left": 651.40625,
+                  "top": 347,
+                  "right": 665.40625,
+                  "bottom": 359,
+                  "width": 14,
+                  "height": 12
+                },
+                "zIndex": "5",
+                "color": "rgb(229, 229, 229)",
+                "frontmost": false
+              }
+            ],
+            "holes": [
+              {
+                "edge": "top",
+                "rect": {
+                  "x": 513.7578125,
+                  "y": 330,
+                  "left": 513.7578125,
+                  "top": 330,
+                  "right": 665.40625,
+                  "bottom": 335,
+                  "width": 151.6484375,
+                  "height": 5
+                },
+                "visible": true,
+                "background": "radial-gradient(2px 1.5px at 4px 2.5px, rgb(167, 139, 250) 95%, rgba(0, 0, 0, 0))",
+                "opacity": "0.75",
+                "zIndex": "3",
+                "paintedSamples": [
+                  {
+                    "x": 573.7578125,
+                    "y": 332.5
+                  },
+                  {
+                    "x": 581.7578125,
+                    "y": 332.5
+                  },
+                  {
+                    "x": 589.7578125,
+                    "y": 332.5
+                  },
+                  {
+                    "x": 597.7578125,
+                    "y": 332.5
+                  },
+                  {
+                    "x": 605.7578125,
+                    "y": 332.5
+                  },
+                  {
+                    "x": 613.7578125,
+                    "y": 332.5
+                  }
+                ]
+              },
+              {
+                "edge": "bottom",
+                "rect": {
+                  "x": 513.7578125,
+                  "y": 371,
+                  "left": 513.7578125,
+                  "top": 371,
+                  "right": 665.40625,
+                  "bottom": 376,
+                  "width": 151.6484375,
+                  "height": 5
+                },
+                "visible": true,
+                "background": "radial-gradient(2px 1.5px at 4px 2.5px, rgb(167, 139, 250) 95%, rgba(0, 0, 0, 0))",
+                "opacity": "0.75",
+                "zIndex": "3",
+                "paintedSamples": [
+                  {
+                    "x": 517.7578125,
+                    "y": 373.5
+                  },
+                  {
+                    "x": 525.7578125,
+                    "y": 373.5
+                  },
+                  {
+                    "x": 533.7578125,
+                    "y": 373.5
+                  },
+                  {
+                    "x": 541.7578125,
+                    "y": 373.5
+                  },
+                  {
+                    "x": 549.7578125,
+                    "y": 373.5
+                  },
+                  {
+                    "x": 557.7578125,
+                    "y": 373.5
+                  },
+                  {
+                    "x": 565.7578125,
+                    "y": 373.5
+                  },
+                  {
+                    "x": 573.7578125,
+                    "y": 373.5
+                  },
+                  {
+                    "x": 581.7578125,
+                    "y": 373.5
+                  },
+                  {
+                    "x": 589.7578125,
+                    "y": 373.5
+                  },
+                  {
+                    "x": 597.7578125,
+                    "y": 373.5
+                  },
+                  {
+                    "x": 605.7578125,
+                    "y": 373.5
+                  },
+                  {
+                    "x": 613.7578125,
+                    "y": 373.5
+                  },
+                  {
+                    "x": 621.7578125,
+                    "y": 373.5
+                  },
+                  {
+                    "x": 629.7578125,
+                    "y": 373.5
+                  },
+                  {
+                    "x": 637.7578125,
+                    "y": 373.5
+                  },
+                  {
+                    "x": 645.7578125,
+                    "y": 373.5
+                  },
+                  {
+                    "x": 653.7578125,
+                    "y": 373.5
+                  },
+                  {
+                    "x": 661.7578125,
+                    "y": 373.5
+                  }
+                ]
+              }
+            ],
+            "kindBadge": {
+              "exists": true,
+              "visible": false,
+              "display": "none"
+            },
+            "header": {
+              "x": 513.7578125,
+              "y": 330,
+              "left": 513.7578125,
+              "top": 330,
+              "right": 665.40625,
+              "bottom": 344,
+              "width": 151.6484375,
+              "height": 14
+            },
+            "cells": [
+              {
+                "side": "first",
+                "rect": {
+                  "x": 513.7578125,
+                  "y": 335,
+                  "left": 513.7578125,
+                  "top": 335,
+                  "right": 575.2109375,
+                  "bottom": 371,
+                  "width": 61.453125,
+                  "height": 36
+                },
+                "cover": "cover"
+              },
+              {
+                "side": "last",
+                "rect": {
+                  "x": 605.9453125,
+                  "y": 335,
+                  "left": 605.9453125,
+                  "top": 335,
+                  "right": 667.3984375,
+                  "bottom": 371,
+                  "width": 61.453125,
+                  "height": 36
+                },
+                "cover": "cover"
+              }
+            ]
+          },
+          {
+            "label": "next-first.png",
+            "rect": {
+              "x": 666.40625,
+              "y": 329,
+              "left": 666.40625,
+              "top": 329,
+              "right": 820.0546875,
+              "bottom": 377,
+              "width": 153.6484375,
+              "height": 48
+            },
+            "texts": [
+              {
+                "role": "badge",
+                "text": "▶ 動画予定",
+                "visible": true,
+                "rect": {
+                  "x": 669.40625,
+                  "y": 332,
+                  "left": 669.40625,
+                  "top": 332,
+                  "right": 723.484375,
+                  "bottom": 346,
+                  "width": 54.078125,
+                  "height": 14
+                },
+                "zIndex": "4",
+                "color": "rgb(167, 139, 250)",
+                "frontmost": true
+              },
+              {
+                "role": "duration",
+                "text": "00:05:00",
+                "visible": true,
+                "rect": {
+                  "x": 772.0546875,
+                  "y": 331,
+                  "left": 772.0546875,
+                  "top": 331,
+                  "right": 816.0546875,
+                  "bottom": 343,
+                  "width": 44,
+                  "height": 12
+                },
+                "zIndex": "4",
+                "color": "rgb(229, 229, 229)",
+                "frontmost": true
+              },
+              {
+                "role": "frame-label-0",
+                "text": "最初",
+                "visible": true,
+                "rect": {
+                  "x": 669.40625,
+                  "y": 361,
+                  "left": 669.40625,
+                  "top": 361,
+                  "right": 689.40625,
+                  "bottom": 371,
+                  "width": 20,
+                  "height": 10
+                },
+                "zIndex": "auto",
+                "color": "rgb(255, 255, 255)",
+                "frontmost": true
+              },
+              {
+                "role": "name-or-prompt",
+                "text": "next-first.png",
+                "visible": true,
+                "rect": {
+                  "x": 732.859375,
+                  "y": 347,
+                  "left": 732.859375,
+                  "top": 347,
+                  "right": 815.0546875,
+                  "bottom": 359,
+                  "width": 82.1953125,
+                  "height": 12
+                },
+                "zIndex": "1",
+                "color": "rgb(204, 204, 204)",
+                "frontmost": true
+              },
+              {
+                "role": "link",
+                "visible": false,
+                "rect": null
+              }
+            ],
+            "holes": [
+              {
+                "edge": "top",
+                "rect": {
+                  "x": 667.40625,
+                  "y": 330,
+                  "left": 667.40625,
+                  "top": 330,
+                  "right": 819.0546875,
+                  "bottom": 335,
+                  "width": 151.6484375,
+                  "height": 5
+                },
+                "visible": true,
+                "background": "radial-gradient(2px 1.5px at 4px 2.5px, rgb(167, 139, 250) 95%, rgba(0, 0, 0, 0))",
+                "opacity": "0.75",
+                "zIndex": "3",
+                "paintedSamples": [
+                  {
+                    "x": 727.40625,
+                    "y": 332.5
+                  },
+                  {
+                    "x": 735.40625,
+                    "y": 332.5
+                  },
+                  {
+                    "x": 743.40625,
+                    "y": 332.5
+                  },
+                  {
+                    "x": 751.40625,
+                    "y": 332.5
+                  },
+                  {
+                    "x": 759.40625,
+                    "y": 332.5
+                  },
+                  {
+                    "x": 767.40625,
+                    "y": 332.5
+                  }
+                ]
+              },
+              {
+                "edge": "bottom",
+                "rect": {
+                  "x": 667.40625,
+                  "y": 371,
+                  "left": 667.40625,
+                  "top": 371,
+                  "right": 819.0546875,
+                  "bottom": 376,
+                  "width": 151.6484375,
+                  "height": 5
+                },
+                "visible": true,
+                "background": "radial-gradient(2px 1.5px at 4px 2.5px, rgb(167, 139, 250) 95%, rgba(0, 0, 0, 0))",
+                "opacity": "0.75",
+                "zIndex": "3",
+                "paintedSamples": [
+                  {
+                    "x": 671.40625,
+                    "y": 373.5
+                  },
+                  {
+                    "x": 679.40625,
+                    "y": 373.5
+                  },
+                  {
+                    "x": 687.40625,
+                    "y": 373.5
+                  },
+                  {
+                    "x": 695.40625,
+                    "y": 373.5
+                  },
+                  {
+                    "x": 703.40625,
+                    "y": 373.5
+                  },
+                  {
+                    "x": 711.40625,
+                    "y": 373.5
+                  },
+                  {
+                    "x": 719.40625,
+                    "y": 373.5
+                  },
+                  {
+                    "x": 727.40625,
+                    "y": 373.5
+                  },
+                  {
+                    "x": 735.40625,
+                    "y": 373.5
+                  },
+                  {
+                    "x": 743.40625,
+                    "y": 373.5
+                  },
+                  {
+                    "x": 751.40625,
+                    "y": 373.5
+                  },
+                  {
+                    "x": 759.40625,
+                    "y": 373.5
+                  },
+                  {
+                    "x": 767.40625,
+                    "y": 373.5
+                  },
+                  {
+                    "x": 775.40625,
+                    "y": 373.5
+                  },
+                  {
+                    "x": 783.40625,
+                    "y": 373.5
+                  },
+                  {
+                    "x": 791.40625,
+                    "y": 373.5
+                  },
+                  {
+                    "x": 799.40625,
+                    "y": 373.5
+                  },
+                  {
+                    "x": 807.40625,
+                    "y": 373.5
+                  },
+                  {
+                    "x": 815.40625,
+                    "y": 373.5
+                  }
+                ]
+              }
+            ],
+            "kindBadge": {
+              "exists": true,
+              "visible": false,
+              "display": "none"
+            },
+            "header": {
+              "x": 667.40625,
+              "y": 330,
+              "left": 667.40625,
+              "top": 330,
+              "right": 819.0546875,
+              "bottom": 344,
+              "width": 151.6484375,
+              "height": 14
+            },
+            "cells": [
+              {
+                "side": "first",
+                "rect": {
+                  "x": 667.40625,
+                  "y": 335,
+                  "left": 667.40625,
+                  "top": 335,
+                  "right": 728.859375,
+                  "bottom": 371,
+                  "width": 61.453125,
+                  "height": 36
+                },
+                "cover": "cover"
+              }
+            ]
+          },
+          {
+            "label": "next-prompt.png",
+            "rect": {
+              "x": 820.0546875,
+              "y": 329,
+              "left": 820.0546875,
+              "top": 329,
+              "right": 973.703125,
+              "bottom": 377,
+              "width": 153.6484375,
+              "height": 48
+            },
+            "texts": [
+              {
+                "role": "badge",
+                "text": "▶ 動画予定",
+                "visible": true,
+                "rect": {
+                  "x": 823.0546875,
+                  "y": 332,
+                  "left": 823.0546875,
+                  "top": 332,
+                  "right": 877.1328125,
+                  "bottom": 346,
+                  "width": 54.078125,
+                  "height": 14
+                },
+                "zIndex": "4",
+                "color": "rgb(167, 139, 250)",
+                "frontmost": true
+              },
+              {
+                "role": "duration",
+                "text": "00:05:00",
+                "visible": true,
+                "rect": {
+                  "x": 925.703125,
+                  "y": 331,
+                  "left": 925.703125,
+                  "top": 331,
+                  "right": 969.703125,
+                  "bottom": 343,
+                  "width": 44,
+                  "height": 12
+                },
+                "zIndex": "4",
+                "color": "rgb(229, 229, 229)",
+                "frontmost": true
+              },
+              {
+                "role": "name-or-prompt",
+                "text": "窓へ歩いて庭を見る",
+                "visible": true,
+                "rect": {
+                  "x": 825.0546875,
+                  "y": 347,
+                  "left": 825.0546875,
+                  "top": 347,
+                  "right": 968.703125,
+                  "bottom": 359,
+                  "width": 143.6484375,
+                  "height": 12
+                },
+                "zIndex": "1",
+                "color": "rgb(204, 204, 204)",
+                "frontmost": true
+              },
+              {
+                "role": "link",
+                "visible": false,
+                "rect": null
+              }
+            ],
+            "holes": [
+              {
+                "edge": "top",
+                "rect": {
+                  "x": 821.0546875,
+                  "y": 330,
+                  "left": 821.0546875,
+                  "top": 330,
+                  "right": 972.703125,
+                  "bottom": 335,
+                  "width": 151.6484375,
+                  "height": 5
+                },
+                "visible": true,
+                "background": "radial-gradient(2px 1.5px at 4px 2.5px, rgb(167, 139, 250) 95%, rgba(0, 0, 0, 0))",
+                "opacity": "0.75",
+                "zIndex": "3",
+                "paintedSamples": [
+                  {
+                    "x": 881.0546875,
+                    "y": 332.5
+                  },
+                  {
+                    "x": 889.0546875,
+                    "y": 332.5
+                  },
+                  {
+                    "x": 897.0546875,
+                    "y": 332.5
+                  },
+                  {
+                    "x": 905.0546875,
+                    "y": 332.5
+                  },
+                  {
+                    "x": 913.0546875,
+                    "y": 332.5
+                  },
+                  {
+                    "x": 921.0546875,
+                    "y": 332.5
+                  }
+                ]
+              },
+              {
+                "edge": "bottom",
+                "rect": {
+                  "x": 821.0546875,
+                  "y": 371,
+                  "left": 821.0546875,
+                  "top": 371,
+                  "right": 972.703125,
+                  "bottom": 376,
+                  "width": 151.6484375,
+                  "height": 5
+                },
+                "visible": true,
+                "background": "radial-gradient(2px 1.5px at 4px 2.5px, rgb(167, 139, 250) 95%, rgba(0, 0, 0, 0))",
+                "opacity": "0.75",
+                "zIndex": "3",
+                "paintedSamples": [
+                  {
+                    "x": 825.0546875,
+                    "y": 373.5
+                  },
+                  {
+                    "x": 833.0546875,
+                    "y": 373.5
+                  },
+                  {
+                    "x": 841.0546875,
+                    "y": 373.5
+                  },
+                  {
+                    "x": 849.0546875,
+                    "y": 373.5
+                  },
+                  {
+                    "x": 857.0546875,
+                    "y": 373.5
+                  },
+                  {
+                    "x": 865.0546875,
+                    "y": 373.5
+                  },
+                  {
+                    "x": 873.0546875,
+                    "y": 373.5
+                  },
+                  {
+                    "x": 881.0546875,
+                    "y": 373.5
+                  },
+                  {
+                    "x": 889.0546875,
+                    "y": 373.5
+                  },
+                  {
+                    "x": 897.0546875,
+                    "y": 373.5
+                  },
+                  {
+                    "x": 905.0546875,
+                    "y": 373.5
+                  },
+                  {
+                    "x": 913.0546875,
+                    "y": 373.5
+                  },
+                  {
+                    "x": 921.0546875,
+                    "y": 373.5
+                  },
+                  {
+                    "x": 929.0546875,
+                    "y": 373.5
+                  },
+                  {
+                    "x": 937.0546875,
+                    "y": 373.5
+                  },
+                  {
+                    "x": 945.0546875,
+                    "y": 373.5
+                  },
+                  {
+                    "x": 953.0546875,
+                    "y": 373.5
+                  },
+                  {
+                    "x": 961.0546875,
+                    "y": 373.5
+                  },
+                  {
+                    "x": 969.0546875,
+                    "y": 373.5
+                  }
+                ]
+              }
+            ],
+            "kindBadge": {
+              "exists": true,
+              "visible": false,
+              "display": "none"
+            },
+            "header": {
+              "x": 821.0546875,
+              "y": 330,
+              "left": 821.0546875,
+              "top": 330,
+              "right": 972.703125,
+              "bottom": 344,
+              "width": 151.6484375,
+              "height": 14
+            },
+            "cells": []
+          },
+          {
+            "label": "next-narrow.png",
+            "rect": {
+              "x": 973.703125,
+              "y": 329,
+              "left": 973.703125,
+              "top": 329,
+              "right": 1016.71875,
+              "bottom": 377,
+              "width": 43.015625,
+              "height": 48
+            },
+            "texts": [
+              {
+                "role": "badge",
+                "text": "▶",
+                "visible": true,
+                "rect": {
+                  "x": 976.703125,
+                  "y": 332,
+                  "left": 976.703125,
+                  "top": 332,
+                  "right": 992.0859375,
+                  "bottom": 346,
+                  "width": 15.3828125,
+                  "height": 14
+                },
+                "zIndex": "4",
+                "color": "rgb(167, 139, 250)",
+                "frontmost": true
+              },
+              {
+                "role": "duration",
+                "text": "00:01:12",
+                "visible": false,
+                "rect": {
+                  "x": 0,
+                  "y": 0,
+                  "left": 0,
+                  "top": 0,
+                  "right": 0,
+                  "bottom": 0,
+                  "width": 0,
+                  "height": 0
+                },
+                "zIndex": "4",
+                "color": "rgb(229, 229, 229)",
+                "frontmost": false
+              },
+              {
+                "role": "frame-label-0",
+                "text": "最初",
+                "visible": false,
+                "rect": {
+                  "x": 0,
+                  "y": 0,
+                  "left": 0,
+                  "top": 0,
+                  "right": 0,
+                  "bottom": 0,
+                  "width": 0,
+                  "height": 0
+                },
+                "zIndex": "auto",
+                "color": "rgb(255, 255, 255)",
+                "frontmost": false
+              },
+              {
+                "role": "name-or-prompt",
+                "text": "next-narrow.png",
+                "visible": true,
+                "rect": {
+                  "x": 995.90625,
+                  "y": 347,
+                  "left": 995.90625,
+                  "top": 347,
+                  "right": 1011.71875,
+                  "bottom": 359,
+                  "width": 15.8125,
+                  "height": 12
+                },
+                "zIndex": "1",
+                "color": "rgb(204, 204, 204)",
+                "frontmost": true
+              },
+              {
+                "role": "link",
+                "visible": false,
+                "rect": null
+              }
+            ],
+            "holes": [
+              {
+                "edge": "top",
+                "rect": {
+                  "x": 974.703125,
+                  "y": 330,
+                  "left": 974.703125,
+                  "top": 330,
+                  "right": 1015.71875,
+                  "bottom": 335,
+                  "width": 41.015625,
+                  "height": 5
+                },
+                "visible": true,
+                "background": "radial-gradient(2px 1.5px at 4px 2.5px, rgb(167, 139, 250) 95%, rgba(0, 0, 0, 0))",
+                "opacity": "0.75",
+                "zIndex": "3",
+                "paintedSamples": [
+                  {
+                    "x": 994.703125,
+                    "y": 332.5
+                  },
+                  {
+                    "x": 1002.703125,
+                    "y": 332.5
+                  },
+                  {
+                    "x": 1010.703125,
+                    "y": 332.5
+                  }
+                ]
+              },
+              {
+                "edge": "bottom",
+                "rect": {
+                  "x": 974.703125,
+                  "y": 371,
+                  "left": 974.703125,
+                  "top": 371,
+                  "right": 1015.71875,
+                  "bottom": 376,
+                  "width": 41.015625,
+                  "height": 5
+                },
+                "visible": true,
+                "background": "radial-gradient(2px 1.5px at 4px 2.5px, rgb(167, 139, 250) 95%, rgba(0, 0, 0, 0))",
+                "opacity": "0.75",
+                "zIndex": "3",
+                "paintedSamples": [
+                  {
+                    "x": 978.703125,
+                    "y": 373.5
+                  },
+                  {
+                    "x": 986.703125,
+                    "y": 373.5
+                  },
+                  {
+                    "x": 994.703125,
+                    "y": 373.5
+                  },
+                  {
+                    "x": 1002.703125,
+                    "y": 373.5
+                  },
+                  {
+                    "x": 1010.703125,
+                    "y": 373.5
+                  }
+                ]
+              }
+            ],
+            "kindBadge": {
+              "exists": true,
+              "visible": false,
+              "display": "none"
+            },
+            "header": {
+              "x": 974.703125,
+              "y": 330,
+              "left": 974.703125,
+              "top": 330,
+              "right": 1015.71875,
+              "bottom": 344,
+              "width": 41.015625,
+              "height": 14
+            },
+            "cells": [
+              {
+                "side": "first",
+                "rect": {
+                  "x": 974.703125,
+                  "y": 335,
+                  "left": 974.703125,
+                  "top": 335,
+                  "right": 991.90625,
+                  "bottom": 371,
+                  "width": 17.203125,
+                  "height": 36
+                },
+                "cover": "cover"
+              }
+            ]
+          }
+        ],
+        "screenshotClip": {
+          "x": 508.7578125,
+          "y": 325,
+          "width": 511.9609375,
+          "height": 56,
+          "scale": 3
+        }
       }
     },
     {
@@ -331,7 +1380,7 @@
           "className": "akari-annotations-strip-clip akari-generation-planned-video akari-annotations-strip-hit-target",
           "imageCellCount": 2,
           "linked": true,
-          "prompt": null,
+          "prompt": "next-first-last.png",
           "title": "動画予定（最初→最後）",
           "badge": "▶ 動画予定",
           "badgeColor": "rgb(167, 139, 250)",
@@ -344,13 +1393,13 @@
             {
               "side": "first",
               "left": "0px",
-              "width": "32.3232px",
+              "width": "61.4597px",
               "ready": true
             },
             {
               "side": "last",
-              "left": "64.6465px",
-              "width": "32.3232px",
+              "left": "92.1895px",
+              "width": "61.4597px",
               "ready": true
             }
           ]
@@ -375,7 +1424,7 @@
           "imageCells": []
         },
         "nodeReplaced": true,
-        "elapsedMs": 628
+        "elapsedMs": 390
       }
     },
     {
@@ -386,10 +1435,10 @@
         "during": {
           "playing": true,
           "requests": 0,
-          "elapsedMs": 1417
+          "elapsedMs": 1256
         },
         "after": {
-          "requests": 1,
+          "requests": 2,
           "playing": false
         }
       }
@@ -414,7 +1463,7 @@
             "badge": "失敗",
             "className": "akari-annotations-strip-clip akari-generation-failed akari-annotations-strip-hit-target"
           },
-          "msFromWrite": 38.8,
+          "msFromWrite": 16.2,
           "changes": [
             {
               "state": "failed",
@@ -467,6 +1516,11 @@
             "label": "next-prompt.png",
             "state": "planned-video",
             "badge": "▶ 動画予定"
+          },
+          {
+            "label": "next-narrow.png",
+            "state": "planned-video",
+            "badge": "▶"
           }
         ]
       }
@@ -476,12 +1530,12 @@
       "pass": true,
       "detail": {
         "mtimesBefore": {
-          "edit": 1790003451290.1304,
-          "captions": 1790003451291.9302
+          "edit": 1790005374837.5122,
+          "captions": 1790005374838.0347
         },
         "mtimesAfter": {
-          "edit": 1790003451290.1304,
-          "captions": 1790003451291.9302
+          "edit": 1790005374837.5122,
+          "captions": 1790005374838.0347
         }
       }
     }
@@ -489,13 +1543,14 @@
   "screenshots": [
     "01-six-generation-states.png",
     "04-planned-video-and-generation-states.png",
+    "07-planned-video-zoom.png",
     "05-before-next-rewrite.png",
     "06-after-next-rewrite.png",
     "02-before-sidecar-rewrite.png",
     "03-after-sidecar-rewrite.png"
   ],
   "cleanup": {
-    "killedPid": 70452,
+    "killedPid": 65704,
     "survivingProcesses": 0,
     "survivingBackendMain": 0
   },
@@ -510,7 +1565,8 @@
       "failed",
       "next-first-last",
       "next-first",
-      "next-prompt"
+      "next-prompt",
+      "next-narrow"
     ],
     "sidecars": [
       "planned.png",
@@ -520,13 +1576,1022 @@
       "failed.png",
       "next-first-last.png",
       "next-first.png",
-      "next-prompt.png"
+      "next-prompt.png",
+      "next-narrow.png"
     ],
     "stillWithoutSidecar": "still.png",
     "clipFrames": 60,
     "fps": 30
   },
   "preloadOverlay": "removed",
+  "plannedLayout": {
+    "holeMeasurement": "child rects + computed gradient/opacity + frontmost ellipse-center samples",
+    "clips": [
+      {
+        "label": "next-first-last.png",
+        "rect": {
+          "x": 512.7578125,
+          "y": 329,
+          "left": 512.7578125,
+          "top": 329,
+          "right": 666.40625,
+          "bottom": 377,
+          "width": 153.6484375,
+          "height": 48
+        },
+        "texts": [
+          {
+            "role": "badge",
+            "text": "▶ 動画予定",
+            "visible": true,
+            "rect": {
+              "x": 515.7578125,
+              "y": 332,
+              "left": 515.7578125,
+              "top": 332,
+              "right": 569.8359375,
+              "bottom": 346,
+              "width": 54.078125,
+              "height": 14
+            },
+            "zIndex": "4",
+            "color": "rgb(167, 139, 250)",
+            "frontmost": true
+          },
+          {
+            "role": "duration",
+            "text": "00:05:00",
+            "visible": true,
+            "rect": {
+              "x": 618.40625,
+              "y": 331,
+              "left": 618.40625,
+              "top": 331,
+              "right": 662.40625,
+              "bottom": 343,
+              "width": 44,
+              "height": 12
+            },
+            "zIndex": "4",
+            "color": "rgb(229, 229, 229)",
+            "frontmost": true
+          },
+          {
+            "role": "frame-label-0",
+            "text": "最初",
+            "visible": true,
+            "rect": {
+              "x": 515.7578125,
+              "y": 361,
+              "left": 515.7578125,
+              "top": 361,
+              "right": 535.7578125,
+              "bottom": 371,
+              "width": 20,
+              "height": 10
+            },
+            "zIndex": "auto",
+            "color": "rgb(255, 255, 255)",
+            "frontmost": true
+          },
+          {
+            "role": "frame-label-1",
+            "text": "最後",
+            "visible": true,
+            "rect": {
+              "x": 645.3984375,
+              "y": 361,
+              "left": 645.3984375,
+              "top": 361,
+              "right": 665.3984375,
+              "bottom": 371,
+              "width": 20,
+              "height": 10
+            },
+            "zIndex": "auto",
+            "color": "rgb(255, 255, 255)",
+            "frontmost": true
+          },
+          {
+            "role": "name-or-prompt",
+            "text": "next-first-last.png",
+            "visible": true,
+            "rect": {
+              "x": 579.2109375,
+              "y": 347,
+              "left": 579.2109375,
+              "top": 347,
+              "right": 599.953125,
+              "bottom": 359,
+              "width": 20.7421875,
+              "height": 12
+            },
+            "zIndex": "1",
+            "color": "rgb(204, 204, 204)",
+            "frontmost": true
+          },
+          {
+            "role": "link",
+            "text": "",
+            "visible": true,
+            "rect": {
+              "x": 651.40625,
+              "y": 347,
+              "left": 651.40625,
+              "top": 347,
+              "right": 665.40625,
+              "bottom": 359,
+              "width": 14,
+              "height": 12
+            },
+            "zIndex": "5",
+            "color": "rgb(229, 229, 229)",
+            "frontmost": false
+          }
+        ],
+        "holes": [
+          {
+            "edge": "top",
+            "rect": {
+              "x": 513.7578125,
+              "y": 330,
+              "left": 513.7578125,
+              "top": 330,
+              "right": 665.40625,
+              "bottom": 335,
+              "width": 151.6484375,
+              "height": 5
+            },
+            "visible": true,
+            "background": "radial-gradient(2px 1.5px at 4px 2.5px, rgb(167, 139, 250) 95%, rgba(0, 0, 0, 0))",
+            "opacity": "0.75",
+            "zIndex": "3",
+            "paintedSamples": [
+              {
+                "x": 573.7578125,
+                "y": 332.5
+              },
+              {
+                "x": 581.7578125,
+                "y": 332.5
+              },
+              {
+                "x": 589.7578125,
+                "y": 332.5
+              },
+              {
+                "x": 597.7578125,
+                "y": 332.5
+              },
+              {
+                "x": 605.7578125,
+                "y": 332.5
+              },
+              {
+                "x": 613.7578125,
+                "y": 332.5
+              }
+            ]
+          },
+          {
+            "edge": "bottom",
+            "rect": {
+              "x": 513.7578125,
+              "y": 371,
+              "left": 513.7578125,
+              "top": 371,
+              "right": 665.40625,
+              "bottom": 376,
+              "width": 151.6484375,
+              "height": 5
+            },
+            "visible": true,
+            "background": "radial-gradient(2px 1.5px at 4px 2.5px, rgb(167, 139, 250) 95%, rgba(0, 0, 0, 0))",
+            "opacity": "0.75",
+            "zIndex": "3",
+            "paintedSamples": [
+              {
+                "x": 517.7578125,
+                "y": 373.5
+              },
+              {
+                "x": 525.7578125,
+                "y": 373.5
+              },
+              {
+                "x": 533.7578125,
+                "y": 373.5
+              },
+              {
+                "x": 541.7578125,
+                "y": 373.5
+              },
+              {
+                "x": 549.7578125,
+                "y": 373.5
+              },
+              {
+                "x": 557.7578125,
+                "y": 373.5
+              },
+              {
+                "x": 565.7578125,
+                "y": 373.5
+              },
+              {
+                "x": 573.7578125,
+                "y": 373.5
+              },
+              {
+                "x": 581.7578125,
+                "y": 373.5
+              },
+              {
+                "x": 589.7578125,
+                "y": 373.5
+              },
+              {
+                "x": 597.7578125,
+                "y": 373.5
+              },
+              {
+                "x": 605.7578125,
+                "y": 373.5
+              },
+              {
+                "x": 613.7578125,
+                "y": 373.5
+              },
+              {
+                "x": 621.7578125,
+                "y": 373.5
+              },
+              {
+                "x": 629.7578125,
+                "y": 373.5
+              },
+              {
+                "x": 637.7578125,
+                "y": 373.5
+              },
+              {
+                "x": 645.7578125,
+                "y": 373.5
+              },
+              {
+                "x": 653.7578125,
+                "y": 373.5
+              },
+              {
+                "x": 661.7578125,
+                "y": 373.5
+              }
+            ]
+          }
+        ],
+        "kindBadge": {
+          "exists": true,
+          "visible": false,
+          "display": "none"
+        },
+        "header": {
+          "x": 513.7578125,
+          "y": 330,
+          "left": 513.7578125,
+          "top": 330,
+          "right": 665.40625,
+          "bottom": 344,
+          "width": 151.6484375,
+          "height": 14
+        },
+        "cells": [
+          {
+            "side": "first",
+            "rect": {
+              "x": 513.7578125,
+              "y": 335,
+              "left": 513.7578125,
+              "top": 335,
+              "right": 575.2109375,
+              "bottom": 371,
+              "width": 61.453125,
+              "height": 36
+            },
+            "cover": "cover"
+          },
+          {
+            "side": "last",
+            "rect": {
+              "x": 605.9453125,
+              "y": 335,
+              "left": 605.9453125,
+              "top": 335,
+              "right": 667.3984375,
+              "bottom": 371,
+              "width": 61.453125,
+              "height": 36
+            },
+            "cover": "cover"
+          }
+        ]
+      },
+      {
+        "label": "next-first.png",
+        "rect": {
+          "x": 666.40625,
+          "y": 329,
+          "left": 666.40625,
+          "top": 329,
+          "right": 820.0546875,
+          "bottom": 377,
+          "width": 153.6484375,
+          "height": 48
+        },
+        "texts": [
+          {
+            "role": "badge",
+            "text": "▶ 動画予定",
+            "visible": true,
+            "rect": {
+              "x": 669.40625,
+              "y": 332,
+              "left": 669.40625,
+              "top": 332,
+              "right": 723.484375,
+              "bottom": 346,
+              "width": 54.078125,
+              "height": 14
+            },
+            "zIndex": "4",
+            "color": "rgb(167, 139, 250)",
+            "frontmost": true
+          },
+          {
+            "role": "duration",
+            "text": "00:05:00",
+            "visible": true,
+            "rect": {
+              "x": 772.0546875,
+              "y": 331,
+              "left": 772.0546875,
+              "top": 331,
+              "right": 816.0546875,
+              "bottom": 343,
+              "width": 44,
+              "height": 12
+            },
+            "zIndex": "4",
+            "color": "rgb(229, 229, 229)",
+            "frontmost": true
+          },
+          {
+            "role": "frame-label-0",
+            "text": "最初",
+            "visible": true,
+            "rect": {
+              "x": 669.40625,
+              "y": 361,
+              "left": 669.40625,
+              "top": 361,
+              "right": 689.40625,
+              "bottom": 371,
+              "width": 20,
+              "height": 10
+            },
+            "zIndex": "auto",
+            "color": "rgb(255, 255, 255)",
+            "frontmost": true
+          },
+          {
+            "role": "name-or-prompt",
+            "text": "next-first.png",
+            "visible": true,
+            "rect": {
+              "x": 732.859375,
+              "y": 347,
+              "left": 732.859375,
+              "top": 347,
+              "right": 815.0546875,
+              "bottom": 359,
+              "width": 82.1953125,
+              "height": 12
+            },
+            "zIndex": "1",
+            "color": "rgb(204, 204, 204)",
+            "frontmost": true
+          },
+          {
+            "role": "link",
+            "visible": false,
+            "rect": null
+          }
+        ],
+        "holes": [
+          {
+            "edge": "top",
+            "rect": {
+              "x": 667.40625,
+              "y": 330,
+              "left": 667.40625,
+              "top": 330,
+              "right": 819.0546875,
+              "bottom": 335,
+              "width": 151.6484375,
+              "height": 5
+            },
+            "visible": true,
+            "background": "radial-gradient(2px 1.5px at 4px 2.5px, rgb(167, 139, 250) 95%, rgba(0, 0, 0, 0))",
+            "opacity": "0.75",
+            "zIndex": "3",
+            "paintedSamples": [
+              {
+                "x": 727.40625,
+                "y": 332.5
+              },
+              {
+                "x": 735.40625,
+                "y": 332.5
+              },
+              {
+                "x": 743.40625,
+                "y": 332.5
+              },
+              {
+                "x": 751.40625,
+                "y": 332.5
+              },
+              {
+                "x": 759.40625,
+                "y": 332.5
+              },
+              {
+                "x": 767.40625,
+                "y": 332.5
+              }
+            ]
+          },
+          {
+            "edge": "bottom",
+            "rect": {
+              "x": 667.40625,
+              "y": 371,
+              "left": 667.40625,
+              "top": 371,
+              "right": 819.0546875,
+              "bottom": 376,
+              "width": 151.6484375,
+              "height": 5
+            },
+            "visible": true,
+            "background": "radial-gradient(2px 1.5px at 4px 2.5px, rgb(167, 139, 250) 95%, rgba(0, 0, 0, 0))",
+            "opacity": "0.75",
+            "zIndex": "3",
+            "paintedSamples": [
+              {
+                "x": 671.40625,
+                "y": 373.5
+              },
+              {
+                "x": 679.40625,
+                "y": 373.5
+              },
+              {
+                "x": 687.40625,
+                "y": 373.5
+              },
+              {
+                "x": 695.40625,
+                "y": 373.5
+              },
+              {
+                "x": 703.40625,
+                "y": 373.5
+              },
+              {
+                "x": 711.40625,
+                "y": 373.5
+              },
+              {
+                "x": 719.40625,
+                "y": 373.5
+              },
+              {
+                "x": 727.40625,
+                "y": 373.5
+              },
+              {
+                "x": 735.40625,
+                "y": 373.5
+              },
+              {
+                "x": 743.40625,
+                "y": 373.5
+              },
+              {
+                "x": 751.40625,
+                "y": 373.5
+              },
+              {
+                "x": 759.40625,
+                "y": 373.5
+              },
+              {
+                "x": 767.40625,
+                "y": 373.5
+              },
+              {
+                "x": 775.40625,
+                "y": 373.5
+              },
+              {
+                "x": 783.40625,
+                "y": 373.5
+              },
+              {
+                "x": 791.40625,
+                "y": 373.5
+              },
+              {
+                "x": 799.40625,
+                "y": 373.5
+              },
+              {
+                "x": 807.40625,
+                "y": 373.5
+              },
+              {
+                "x": 815.40625,
+                "y": 373.5
+              }
+            ]
+          }
+        ],
+        "kindBadge": {
+          "exists": true,
+          "visible": false,
+          "display": "none"
+        },
+        "header": {
+          "x": 667.40625,
+          "y": 330,
+          "left": 667.40625,
+          "top": 330,
+          "right": 819.0546875,
+          "bottom": 344,
+          "width": 151.6484375,
+          "height": 14
+        },
+        "cells": [
+          {
+            "side": "first",
+            "rect": {
+              "x": 667.40625,
+              "y": 335,
+              "left": 667.40625,
+              "top": 335,
+              "right": 728.859375,
+              "bottom": 371,
+              "width": 61.453125,
+              "height": 36
+            },
+            "cover": "cover"
+          }
+        ]
+      },
+      {
+        "label": "next-prompt.png",
+        "rect": {
+          "x": 820.0546875,
+          "y": 329,
+          "left": 820.0546875,
+          "top": 329,
+          "right": 973.703125,
+          "bottom": 377,
+          "width": 153.6484375,
+          "height": 48
+        },
+        "texts": [
+          {
+            "role": "badge",
+            "text": "▶ 動画予定",
+            "visible": true,
+            "rect": {
+              "x": 823.0546875,
+              "y": 332,
+              "left": 823.0546875,
+              "top": 332,
+              "right": 877.1328125,
+              "bottom": 346,
+              "width": 54.078125,
+              "height": 14
+            },
+            "zIndex": "4",
+            "color": "rgb(167, 139, 250)",
+            "frontmost": true
+          },
+          {
+            "role": "duration",
+            "text": "00:05:00",
+            "visible": true,
+            "rect": {
+              "x": 925.703125,
+              "y": 331,
+              "left": 925.703125,
+              "top": 331,
+              "right": 969.703125,
+              "bottom": 343,
+              "width": 44,
+              "height": 12
+            },
+            "zIndex": "4",
+            "color": "rgb(229, 229, 229)",
+            "frontmost": true
+          },
+          {
+            "role": "name-or-prompt",
+            "text": "窓へ歩いて庭を見る",
+            "visible": true,
+            "rect": {
+              "x": 825.0546875,
+              "y": 347,
+              "left": 825.0546875,
+              "top": 347,
+              "right": 968.703125,
+              "bottom": 359,
+              "width": 143.6484375,
+              "height": 12
+            },
+            "zIndex": "1",
+            "color": "rgb(204, 204, 204)",
+            "frontmost": true
+          },
+          {
+            "role": "link",
+            "visible": false,
+            "rect": null
+          }
+        ],
+        "holes": [
+          {
+            "edge": "top",
+            "rect": {
+              "x": 821.0546875,
+              "y": 330,
+              "left": 821.0546875,
+              "top": 330,
+              "right": 972.703125,
+              "bottom": 335,
+              "width": 151.6484375,
+              "height": 5
+            },
+            "visible": true,
+            "background": "radial-gradient(2px 1.5px at 4px 2.5px, rgb(167, 139, 250) 95%, rgba(0, 0, 0, 0))",
+            "opacity": "0.75",
+            "zIndex": "3",
+            "paintedSamples": [
+              {
+                "x": 881.0546875,
+                "y": 332.5
+              },
+              {
+                "x": 889.0546875,
+                "y": 332.5
+              },
+              {
+                "x": 897.0546875,
+                "y": 332.5
+              },
+              {
+                "x": 905.0546875,
+                "y": 332.5
+              },
+              {
+                "x": 913.0546875,
+                "y": 332.5
+              },
+              {
+                "x": 921.0546875,
+                "y": 332.5
+              }
+            ]
+          },
+          {
+            "edge": "bottom",
+            "rect": {
+              "x": 821.0546875,
+              "y": 371,
+              "left": 821.0546875,
+              "top": 371,
+              "right": 972.703125,
+              "bottom": 376,
+              "width": 151.6484375,
+              "height": 5
+            },
+            "visible": true,
+            "background": "radial-gradient(2px 1.5px at 4px 2.5px, rgb(167, 139, 250) 95%, rgba(0, 0, 0, 0))",
+            "opacity": "0.75",
+            "zIndex": "3",
+            "paintedSamples": [
+              {
+                "x": 825.0546875,
+                "y": 373.5
+              },
+              {
+                "x": 833.0546875,
+                "y": 373.5
+              },
+              {
+                "x": 841.0546875,
+                "y": 373.5
+              },
+              {
+                "x": 849.0546875,
+                "y": 373.5
+              },
+              {
+                "x": 857.0546875,
+                "y": 373.5
+              },
+              {
+                "x": 865.0546875,
+                "y": 373.5
+              },
+              {
+                "x": 873.0546875,
+                "y": 373.5
+              },
+              {
+                "x": 881.0546875,
+                "y": 373.5
+              },
+              {
+                "x": 889.0546875,
+                "y": 373.5
+              },
+              {
+                "x": 897.0546875,
+                "y": 373.5
+              },
+              {
+                "x": 905.0546875,
+                "y": 373.5
+              },
+              {
+                "x": 913.0546875,
+                "y": 373.5
+              },
+              {
+                "x": 921.0546875,
+                "y": 373.5
+              },
+              {
+                "x": 929.0546875,
+                "y": 373.5
+              },
+              {
+                "x": 937.0546875,
+                "y": 373.5
+              },
+              {
+                "x": 945.0546875,
+                "y": 373.5
+              },
+              {
+                "x": 953.0546875,
+                "y": 373.5
+              },
+              {
+                "x": 961.0546875,
+                "y": 373.5
+              },
+              {
+                "x": 969.0546875,
+                "y": 373.5
+              }
+            ]
+          }
+        ],
+        "kindBadge": {
+          "exists": true,
+          "visible": false,
+          "display": "none"
+        },
+        "header": {
+          "x": 821.0546875,
+          "y": 330,
+          "left": 821.0546875,
+          "top": 330,
+          "right": 972.703125,
+          "bottom": 344,
+          "width": 151.6484375,
+          "height": 14
+        },
+        "cells": []
+      },
+      {
+        "label": "next-narrow.png",
+        "rect": {
+          "x": 973.703125,
+          "y": 329,
+          "left": 973.703125,
+          "top": 329,
+          "right": 1016.71875,
+          "bottom": 377,
+          "width": 43.015625,
+          "height": 48
+        },
+        "texts": [
+          {
+            "role": "badge",
+            "text": "▶",
+            "visible": true,
+            "rect": {
+              "x": 976.703125,
+              "y": 332,
+              "left": 976.703125,
+              "top": 332,
+              "right": 992.0859375,
+              "bottom": 346,
+              "width": 15.3828125,
+              "height": 14
+            },
+            "zIndex": "4",
+            "color": "rgb(167, 139, 250)",
+            "frontmost": true
+          },
+          {
+            "role": "duration",
+            "text": "00:01:12",
+            "visible": false,
+            "rect": {
+              "x": 0,
+              "y": 0,
+              "left": 0,
+              "top": 0,
+              "right": 0,
+              "bottom": 0,
+              "width": 0,
+              "height": 0
+            },
+            "zIndex": "4",
+            "color": "rgb(229, 229, 229)",
+            "frontmost": false
+          },
+          {
+            "role": "frame-label-0",
+            "text": "最初",
+            "visible": false,
+            "rect": {
+              "x": 0,
+              "y": 0,
+              "left": 0,
+              "top": 0,
+              "right": 0,
+              "bottom": 0,
+              "width": 0,
+              "height": 0
+            },
+            "zIndex": "auto",
+            "color": "rgb(255, 255, 255)",
+            "frontmost": false
+          },
+          {
+            "role": "name-or-prompt",
+            "text": "next-narrow.png",
+            "visible": true,
+            "rect": {
+              "x": 995.90625,
+              "y": 347,
+              "left": 995.90625,
+              "top": 347,
+              "right": 1011.71875,
+              "bottom": 359,
+              "width": 15.8125,
+              "height": 12
+            },
+            "zIndex": "1",
+            "color": "rgb(204, 204, 204)",
+            "frontmost": true
+          },
+          {
+            "role": "link",
+            "visible": false,
+            "rect": null
+          }
+        ],
+        "holes": [
+          {
+            "edge": "top",
+            "rect": {
+              "x": 974.703125,
+              "y": 330,
+              "left": 974.703125,
+              "top": 330,
+              "right": 1015.71875,
+              "bottom": 335,
+              "width": 41.015625,
+              "height": 5
+            },
+            "visible": true,
+            "background": "radial-gradient(2px 1.5px at 4px 2.5px, rgb(167, 139, 250) 95%, rgba(0, 0, 0, 0))",
+            "opacity": "0.75",
+            "zIndex": "3",
+            "paintedSamples": [
+              {
+                "x": 994.703125,
+                "y": 332.5
+              },
+              {
+                "x": 1002.703125,
+                "y": 332.5
+              },
+              {
+                "x": 1010.703125,
+                "y": 332.5
+              }
+            ]
+          },
+          {
+            "edge": "bottom",
+            "rect": {
+              "x": 974.703125,
+              "y": 371,
+              "left": 974.703125,
+              "top": 371,
+              "right": 1015.71875,
+              "bottom": 376,
+              "width": 41.015625,
+              "height": 5
+            },
+            "visible": true,
+            "background": "radial-gradient(2px 1.5px at 4px 2.5px, rgb(167, 139, 250) 95%, rgba(0, 0, 0, 0))",
+            "opacity": "0.75",
+            "zIndex": "3",
+            "paintedSamples": [
+              {
+                "x": 978.703125,
+                "y": 373.5
+              },
+              {
+                "x": 986.703125,
+                "y": 373.5
+              },
+              {
+                "x": 994.703125,
+                "y": 373.5
+              },
+              {
+                "x": 1002.703125,
+                "y": 373.5
+              },
+              {
+                "x": 1010.703125,
+                "y": 373.5
+              }
+            ]
+          }
+        ],
+        "kindBadge": {
+          "exists": true,
+          "visible": false,
+          "display": "none"
+        },
+        "header": {
+          "x": 974.703125,
+          "y": 330,
+          "left": 974.703125,
+          "top": 330,
+          "right": 1015.71875,
+          "bottom": 344,
+          "width": 41.015625,
+          "height": 14
+        },
+        "cells": [
+          {
+            "side": "first",
+            "rect": {
+              "x": 974.703125,
+              "y": 335,
+              "left": 974.703125,
+              "top": 335,
+              "right": 991.90625,
+              "bottom": 371,
+              "width": 17.203125,
+              "height": 36
+            },
+            "cover": "cover"
+          }
+        ]
+      }
+    ],
+    "screenshotClip": {
+      "x": 508.7578125,
+      "y": 325,
+      "width": 511.9609375,
+      "height": 56,
+      "scale": 3
+    }
+  },
   "expected": [
     {
       "label": "still.png",
@@ -572,6 +2637,11 @@
       "label": "next-prompt.png",
       "state": "planned-video",
       "badge": "▶ 動画予定"
+    },
+    {
+      "label": "next-narrow.png",
+      "state": "planned-video",
+      "badge": "▶"
     }
   ],
   "sixStates": [
@@ -674,6 +2744,17 @@
       "label": "next-prompt.png",
       "state": "planned-video",
       "badge": "▶ 動画予定",
+      "badgeColor": "rgb(167, 139, 250)",
+      "borderStyle": "dashed",
+      "borderColor": "rgb(167, 139, 250)",
+      "opacity": "1",
+      "progress": null
+    },
+    {
+      "id": "9",
+      "label": "next-narrow.png",
+      "state": "planned-video",
+      "badge": "▶",
       "badgeColor": "rgb(167, 139, 250)",
       "borderStyle": "dashed",
       "borderColor": "rgb(167, 139, 250)",

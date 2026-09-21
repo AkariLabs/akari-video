@@ -80,7 +80,7 @@ test('orphan は専用の見た目になり none とは異なる', () => {
   assert.notDeepEqual(description, describeGenerationChip('none'));
 });
 
-for (const [name, variety] of [['next-first-last', '最初→最後'], ['next-first', '画像から'], ['next-prompt', 'プロンプトだけ']]) {
+for (const [name, variety] of [['next-first-last', '最初→最後'], ['next-first', '画像から'], ['next-prompt', 'プロンプトだけ'], ['next-narrow', '画像から']]) {
   test(`${name}: 動画予定の class / badge / title`, async () => {
     const meta = JSON.parse(await readFile(new URL(`./fixtures/generation-states/assets/generated/${name}.png.meta.json`, import.meta.url)));
     const state = resolveGenerationState(meta, startedAt);

@@ -45,9 +45,10 @@ const STATES = [
   { id: 'stale', file: 'stale.png', color: '#6a5a2a' },
   { id: 'done', file: 'done.mp4', color: '#2e4a5e' },
   { id: 'failed', file: 'failed.png', color: '#7a2f24' },
-  { id: 'next-first-last', file: 'next-first-last.png', color: '#24789a' },
-  { id: 'next-first', file: 'next-first.png', color: '#a07020' },
-  { id: 'next-prompt', file: 'next-prompt.png', color: '#34304a' }
+  { id: 'next-first-last', file: 'next-first-last.png', color: '#24789a', frames: 150 },
+  { id: 'next-first', file: 'next-first.png', color: '#a07020', frames: 150 },
+  { id: 'next-prompt', file: 'next-prompt.png', color: '#34304a', frames: 150 },
+  { id: 'next-narrow', file: 'next-narrow.png', color: '#24789a', frames: 42 }
 ];
 
 await rm(FIXTURE_ROOT, { recursive: true, force: true });
@@ -109,7 +110,7 @@ doneMeta.result.expanded_prompt = '(省略)';
 await writeJson(path.join(GENERATED, 'done.mp4.meta.json'), doneMeta);
 
 // 単体テストと同じ next 3 種。L1 の実画像に合わせて hash を実測し直す。
-for (const name of ['next-first-last', 'next-first', 'next-prompt']) {
+for (const name of ['next-first-last', 'next-first', 'next-prompt', 'next-narrow']) {
   const meta = JSON.parse(await readFile(path.join(path.dirname(DONE_META_SOURCE), `${name}.png.meta.json`), 'utf8'));
   if (name === 'next-first-last') meta.next.inputs.first_frame.path = 'assets/generated/next-first-last.png';
   if (name === 'next-first') meta.next.inputs.first_frame.path = 'assets/generated/next-first.png';
@@ -120,17 +121,22 @@ for (const name of ['next-first-last', 'next-first', 'next-prompt']) {
   await writeJson(path.join(GENERATED, `${name}.png.meta.json`), meta);
 }
 
+let nextFrame = 0;
 const edit = {
   version: 2,
   output: { width: 640, height: 360, fps: FPS },
   sources: STATES.map(state => ({ id: state.id, path: `assets/generated/${state.file}` })),
   tracks: [{
     id: 'video', lane: 'visual', name: '生成状態',
-    items: STATES.map((state, index) => ({
-      id: `clip-${state.id}`, name: state.file,
-      at: index * CLIP_FRAMES, duration: CLIP_FRAMES,
-      source: { kind: 'media', src: state.id, in: 0, out: CLIP_FRAMES / FPS }
-    }))
+    items: STATES.map(state => {
+      const at = nextFrame;
+      const duration = state.frames ?? CLIP_FRAMES;
+      nextFrame += duration;
+      return {
+        id: `clip-${state.id}`, name: state.file, at, duration,
+        source: { kind: 'media', src: state.id, in: 0, out: duration / FPS }
+      };
+    })
   }]
 };
 await writeJson(path.join(FIXTURE, 'edit.json'), edit);

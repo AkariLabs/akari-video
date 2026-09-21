@@ -46,7 +46,8 @@ class DummyElement {
     };
   }
   appendChild(child) { child.parent = this; this.children.push(child); }
-  getBoundingClientRect() { return { width: this.width ?? 180 }; }
+  setAttribute(name, value) { this[name] = value; }
+  getBoundingClientRect() { return { width: this.width ?? 180, height: this.height ?? 48 }; }
   querySelector(selector) {
     const frame = selector.match(/data-akari-generation-frame="(.*?)"/);
     if (frame) return this.children.find(child => child.dataset.akariGenerationFrame === frame[1]);
@@ -90,7 +91,7 @@ test('node reader は generated を再帰走査し既存 6 状態と next 3 種�
     projectRootUri: uri(root), sourcePaths: [...paths, 'assets/generated/missing.mp4']
   });
   const entries = new Map(result.entries.map(entry => [entry.sourcePath, entry.meta]));
-  assert.equal(entries.size, 9);
+  assert.equal(entries.size, 10);
   const nowByName = new Map([
     ['generating.png', Date.parse('2026-09-13T00:00:01.000Z')],
     ['stale.png', Date.parse('2026-09-13T00:15:01.000Z')]
@@ -242,6 +243,7 @@ function plannedContext(meta) {
     location: { editUri: 'file:///fixture/edit.json' },
     resolveEditMediaUri: path => `file:///fixture/${path}`,
     clipLocalGeometry: () => undefined,
+    rawV2Item: () => undefined, cutItemId: index => String(index),
     fetchThumbnail: (...args) => calls.push(args), calls,
     renderPlannedVideoMedia, plannedVideoConnects
   };
@@ -359,9 +361,138 @@ test('未接続の新規 keyed ノードでも描画幅を使い 2 セルと完�
   element.width = 0;
   element.dataset = { akariItemKind: 'cut', akariItemId: '0' };
   applyGenerationChip.call(context, element, { state: 'planned-video', meta });
-  assert.equal(element.querySelector('.akari-generation-frames').children.length, 2);
+  assert.equal(element.querySelector('.akari-generation-frames').children.filter(c => c.dataset.akariGenerationFrame).length, 2);
   assert.equal(element.querySelector('[data-akari-generation-badge]').textContent, '▶ 動画予定');
   applyGenerationChip.call(context, element, { state: 'none' });
   assert.ok(!element.querySelector('.akari-generation-frames'));
   assert.ok(!element.querySelector('.akari-generation-link'));
+});
+
+
+test('セル幅は穴の内側の高さ×16/9 とクリップ幅40%の小さい方。名前を中央へ、札と穴は重複しない', async () => {
+  const meta = await plannedFixture('next-first-last');
+  const context = plannedContext(meta);
+  context.rawV2Item = () => ({ name: '窓の外を見る' });
+  const element = new DummyElement();
+  element.dataset = { akariItemKind: 'cut', akariItemId: '0' };
+  for (const [width, height] of [[400, 48], [100, 80], [63, 48], [64, 48], [300, 120]]) {
+    element.width = width;
+    // Detached keyed nodes already have this height; their rect may be empty.
+    element.style.height = `${height}px`;
+    applyGenerationChip.call(context, element, { state: 'planned-video', meta });
+    applyGenerationChip.call(context, element, { state: 'planned-video', meta });
+    const wrapper = element.querySelector('.akari-generation-frames');
+    const cells = wrapper.children.filter(c => c.dataset.akariGenerationFrame);
+    const expectedWidth = Math.min((height - 12) * 16 / 9, width * .4);
+    assert.equal(cells.length, width < 64 ? 1 : 2);
+    for (const cell of cells) {
+      assert.equal(parseFloat(cell.style.width), expectedWidth);
+      assert.equal(cell.style.top, '5px');
+      assert.equal(cell.style.bottom, '5px');
+      assert.equal(cell.style.backgroundSize, 'cover');
+      const label = cell.querySelector('.akari-generation-frame-label');
+      assert.equal(label.textContent, cell.dataset.akariGenerationFrame === 'first' ? '最初' : '最後');
+      assert.equal(label.style.display, width >= 64 && expectedWidth >= 44 ? '' : 'none');
+    }
+    const prompt = wrapper.querySelector('.akari-generation-prompt');
+    assert.equal(prompt.textContent, '窓の外を見る');
+    assert.equal(parseFloat(prompt.style.left), expectedWidth + 4);
+    assert.equal(parseFloat(prompt.style.right), width < 64 ? 18 : expectedWidth + 4);
+    assert.equal(element.children.filter(c => Object.hasOwn(c.dataset, 'akariGenerationBadge')).length, 1);
+    assert.equal(element.querySelector('[data-akari-generation-badge]').textContent, width < 64 ? '▶' : '▶ 動画予定');
+    assert.equal(element.children.filter(c => c.className.includes('akari-generation-perforations ')).length, 2);
+  }
+  context.rawV2Item = () => ({ name: '' });
+  applyGenerationChip.call(context, element, { state: 'planned-video', meta });
+  assert.equal(element.querySelector('.akari-generation-frames').querySelector('.akari-generation-prompt').textContent, meta.next.inputs.prompt);
+  applyGenerationChip.call(context, element, { state: 'none' });
+  assert.ok(!element.querySelector('.akari-generation-perforations-top'));
+  assert.ok(!element.querySelector('.akari-generation-perforations-bottom'));
+});
+
+test('prompt-only はクリップ名より指示文を優先する', async () => {
+  const meta = await plannedFixture('next-prompt');
+  const context = plannedContext(meta);
+  context.rawV2Item = () => ({ name: '表示しない素材名.png' });
+  const element = new DummyElement();
+  element.dataset.akariItemId = '0';
+  renderPlannedVideoMedia.call(context, element, meta);
+  assert.equal(element.querySelector('.akari-generation-frames').querySelector('.akari-generation-prompt').textContent, meta.next.inputs.prompt);
+});
+
+test('fixture は既存6本の尺を維持し、5秒の動画予定3本と1.4秒の狭幅1本を連続配置する', async () => {
+  const edit = JSON.parse(await readFile(new URL('edit.json', fixture)));
+  const items = edit.tracks[0].items;
+  assert.deepEqual(items.slice(0, 6).map(c => [c.at, c.duration]), [[0,30],[30,30],[60,30],[90,30],[120,30],[150,30]]);
+  assert.deepEqual(items.slice(6).map(c => [c.at, c.duration]), [[180,150],[330,150],[480,150],[630,42]]);
+  assert.equal(items.at(-1).source.out, 1.4);
+  assert.equal((await plannedFixture('next-narrow')).next.output.duration_s, 1.4);
+  const generator = await readFile(new URL('../evidence/generation-states/scripts/gen-fixture.mjs', import.meta.url), 'utf8');
+  const ast = ts.createSourceFile('gen-fixture.mjs', generator, ts.ScriptTarget.Latest, true);
+  const declaration = ast.statements.filter(ts.isVariableStatement).flatMap(s => s.declarationList.declarations)
+    .find(d => d.name.getText(ast) === 'STATES');
+  const states = new Function(`return ${declaration.initializer.getText(ast)}`)();
+  assert.deepEqual(states.slice(6).map(s => s.frames), items.slice(6).map(c => c.duration));
+});
+
+
+test('40〜63px の狭幅クリップでも名前に正の表示幅を確保し、札は▶だけ', async () => {
+  const meta = await plannedFixture('next-narrow');
+  const context = plannedContext(meta);
+  context.rawV2Item = () => ({ name: '窓の外を見る' });
+  const element = new DummyElement();
+  element.dataset = { akariItemKind: 'cut', akariItemId: '0' };
+  for (const width of [40, 44, 58, 63]) {
+    element.width = width;
+    applyGenerationChip.call(context, element, { state: 'planned-video', meta });
+    const prompt = element.querySelector('.akari-generation-frames').querySelector('.akari-generation-prompt');
+    const available = width - 2 - parseFloat(prompt.style.left) - parseFloat(prompt.style.right);
+    assert.ok(available > 0, `${width}px: name width ${available}`);
+    assert.equal(prompt.textContent, '窓の外を見る');
+    assert.equal(element.querySelector('[data-akari-generation-badge]').textContent, '▶');
+  }
+});
+
+test('L1 は時刻の非表示・背面、名前の0px幅、headerのはみ出しを拒否する', async () => {
+  const source = await readFile(new URL('../evidence/generation-states/scripts/l1-generation-states.mjs', import.meta.url), 'utf8');
+  const ast = ts.createSourceFile('l1.mjs', source, ts.ScriptTarget.Latest, true);
+  const fn = ast.statements.find(s => ts.isFunctionDeclaration(s) && s.name?.text === 'assertPlannedLayout');
+  const check = new Function('assert', `return (${fn.getText(ast)});`)((condition, message) => assert.ok(condition, message));
+  const rect = (left, top, width, height) => ({ left, top, right: left + width, bottom: top + height, width, height });
+  const clips = ['next-first-last.png', 'next-first.png', 'next-prompt.png', 'next-narrow.png'].map((label, i) => {
+    const narrow = i === 3, x = i * 200, width = narrow ? 44 : 158.67;
+    const text = (role, value, r) => ({ role, text: value, rect: r, visible: true, zIndex: '4', frontmost: true });
+    return {
+      label, rect: rect(x, 0, width, 48), header: rect(x + 1, 1, width - 2, 14), cells: [],
+      kindBadge: { exists: true, display: 'none' },
+      texts: [text('badge', narrow ? '▶' : '▶ 動画予定', rect(x + 3, 3, narrow ? 16 : 54, 14)),
+        text('name-or-prompt', '窓の外を見る', rect(x + 8, 18, width - 16, 12)),
+        ...(!narrow ? [{ ...text('duration', '00:05:00', rect(x + width - 57, 2, 53, 12)), color: 'rgb(229, 229, 229)' }] : [])],
+      holes: ['top', 'bottom'].map(edge => ({ edge, rect: rect(x + 1, edge === 'top' ? 1 : 42, width - 2, 5),
+        visible: true, opacity: '.75', background: 'radial-gradient(...)', zIndex: '3', paintedSamples: [{ x: x + 70, y: 3 }] }))
+    };
+  });
+  check(clips);
+  for (const index of [0, 3]) {
+    for (const [edge, value] of [['left', clips[index].rect.left - 1],
+      ['right', clips[index].rect.right + 5], ['top', clips[index].rect.top - 1]]) {
+      const bad = structuredClone(clips);
+      bad[index].header[edge] = value;
+      assert.throws(() => check(bad), /header outside clip/, `${index}: ${edge}`);
+    }
+  }
+  for (const mode of ['hidden', 'covered', 'absent']) {
+    const bad = structuredClone(clips);
+    const duration = bad[0].texts.find(t => t.role === 'duration');
+    if (mode === 'hidden') duration.visible = false;
+    if (mode === 'covered') duration.frontmost = false;
+    if (mode === 'absent') bad[0].texts = bad[0].texts.filter(t => t.role !== 'duration');
+    assert.throws(() => check(bad), /duration (missing|not in front)/, mode);
+  }
+  const badName = structuredClone(clips);
+  badName[3].texts.find(t => t.role === 'name-or-prompt').rect.width = 0;
+  assert.throws(() => check(badName), /name has no display width/);
+  const tooNarrow = structuredClone(clips);
+  tooNarrow[3].rect.width = 39;
+  assert.throws(() => check(tooNarrow), /unexpected actual width/);
 });

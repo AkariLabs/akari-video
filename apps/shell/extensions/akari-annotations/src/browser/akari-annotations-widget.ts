@@ -7239,6 +7239,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
         if (generation?.state !== 'planned-video') {
             element.querySelector(':scope > .akari-generation-frames')?.remove();
             element.querySelector(':scope > .akari-generation-link')?.remove();
+            element.querySelector(':scope > .akari-generation-perforations-top')?.remove();
+            element.querySelector(':scope > .akari-generation-perforations-bottom')?.remove();
         }
         let badge = element.querySelector<HTMLElement>(':scope > [data-akari-generation-badge]');
         let progress = element.querySelector<HTMLElement>(':scope > [data-akari-generation-progress]');
@@ -7323,7 +7325,20 @@ export class AkariAnnotationsWidget extends BaseWidget {
         const geometry = this.clipLocalGeometry(segment);
         const fullWidth = geometry?.fullClipWidthPx ?? width;
         const offset = geometry?.clipLocalOffsetPx ?? 0;
-        const cellWidth = Math.min(48, fullWidth / (narrow ? 1 : 3));
+        // keyed ノードの高さも接続前から style に設定されている。穴の内側まで絵を使う。
+        const height = parseFloat(element.style.height) || element.getBoundingClientRect().height;
+        const cellHeight = Math.max(0, height - 2 - 10); // 上下の border 1px + 穴 5px
+        const cellWidth = Math.min(cellHeight * 16 / 9, fullWidth * 0.4);
+        // hit-target::before はポインタ領域の拡張用。穴には独立した子要素を使う。
+        for (const edge of ['top', 'bottom']) {
+            const className = `akari-generation-perforations-${edge}`;
+            if (!element.querySelector(`:scope > .${className}`)) {
+                const row = document.createElement('span');
+                row.className = `akari-generation-perforations ${className}`;
+                row.setAttribute('aria-hidden', 'true');
+                element.appendChild(row);
+            }
+        }
         const frames = [draft.inputs.first_frame, ...(narrow ? [] : [draft.inputs.last_frame])];
         for (const side of ['first', 'last'] as const) {
             const frame = frames[side === 'first' ? 0 : 1];
@@ -7340,25 +7355,40 @@ export class AkariAnnotationsWidget extends BaseWidget {
             const thumbnail = this.thumbnailCache.get(key);
             Object.assign(cell.style, {
                 position: 'absolute', left: `${(side === 'first' ? 0 : fullWidth - cellWidth) - offset}px`,
-                width: `${cellWidth}px`, top: '6px', bottom: '6px',
+                width: `${cellWidth}px`, top: '5px', bottom: '5px',
                 backgroundImage: typeof thumbnail === 'string' && thumbnail !== 'pending' ? `url(${thumbnail})` : '',
                 backgroundSize: 'cover', backgroundPosition: 'center', backgroundRepeat: 'no-repeat'
             });
+            let label = cell.querySelector<HTMLElement>('.akari-generation-frame-label');
+            if (!label) {
+                label = document.createElement('span');
+                label.className = 'akari-generation-frame-label';
+                cell.appendChild(label);
+            }
+            label.textContent = side === 'first' ? '最初' : '最後';
+            label.style.display = !narrow && cellWidth >= 44 ? '' : 'none';
             if (!this.visualPlaying && !this.visualPointerDown && !this.dragState) {
                 this.fetchThumbnail(key, { src: frame.path, in: 0, out: 1 }, uri);
             }
         }
+        const linked = this.plannedVideoConnects(segment, meta);
         let prompt = wrapper.querySelector<HTMLElement>('.akari-generation-prompt');
-        if (!draft.inputs.first_frame && !draft.inputs.last_frame) {
-            if (!prompt) {
-                prompt = document.createElement('span');
-                prompt.className = 'akari-generation-prompt';
-                wrapper.appendChild(prompt);
-            }
-            prompt.textContent = draft.inputs.prompt ?? '';
-        } else prompt?.remove();
+        if (!prompt) {
+            prompt = document.createElement('span');
+            prompt.className = 'akari-generation-prompt';
+            wrapper.appendChild(prompt);
+        }
+        const promptOnly = !draft.inputs.first_frame && !draft.inputs.last_frame;
+        const name = this.rawV2Item(this.cutItemId(segment.index))?.name;
+        prompt.textContent = !promptOnly && typeof name === 'string' && name.trim()
+            ? name : draft.inputs.prompt ?? '';
+        // 中央の文字は絵と鎖の領域に入れない。狭幅でも 1 行の名前を残す。
+        Object.assign(prompt.style, {
+            left: `${Math.max(0, (frames[0]?.path ? cellWidth : 0) - offset) + 4}px`,
+            right: `${Math.max(frames[1]?.path ? cellWidth + 4 : 4, linked ? 18 : 4)}px`
+        });
         let link = element.querySelector<HTMLElement>('.akari-generation-link');
-        if (this.plannedVideoConnects(segment, meta)) {
+        if (linked) {
             if (!link) {
                 link = document.createElement('span');
                 link.className = 'akari-generation-link';
