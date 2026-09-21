@@ -2925,6 +2925,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
 
     protected applyFocusScope(scope: FocusScopeState): void {
         this.focusScope = scope;
+        this.dispatchPreviewEvent('akari.timeline.selectionFloor', { scopeId: scope.rootId });
         if (scope.rootId === null) {
             this.viewStart = 0;
             this.viewDuration = undefined;

@@ -1,0 +1,964 @@
+{
+  "status": "PASS",
+  "mode": "before",
+  "startedAt": "2026-09-21T08:01:01.114Z",
+  "finishedAt": "2026-09-21T08:01:09.104Z",
+  "expectedStateAPI": {
+    "object": "window.akari.interaction",
+    "getters": [
+      "selectedId",
+      "scopeId",
+      "floorScopeId",
+      "activeEdit"
+    ]
+  },
+  "baseline": {
+    "commit": "497ef4c8ec17abc36d9ae0120e137c338c7022ea",
+    "editSha256": "4dc61015ec59b47762bf0ae480ababdbc09153c041bae6a87eca5baccdcd614f",
+    "edit": {
+      "version": 2,
+      "output": {
+        "width": 640,
+        "height": 360,
+        "fps": 30
+      },
+      "sources": [],
+      "tracks": [
+        {
+          "id": "v1",
+          "lane": "visual",
+          "items": [
+            {
+              "id": "s01",
+              "at": 0,
+              "duration": 120,
+              "source": {
+                "kind": "html",
+                "path": "overlays/card.html",
+                "exclude": [
+                  "C"
+                ]
+              },
+              "items": [
+                {
+                  "id": "s01.B",
+                  "at": 6,
+                  "duration": 114,
+                  "transform": {
+                    "y": -40
+                  },
+                  "source": {
+                    "kind": "html",
+                    "path": "overlays/card.html",
+                    "part": "B",
+                    "style": {
+                      "color": "red"
+                    },
+                    "text": "差し替え",
+                    "derivedFrom": "overlays/card.html#B"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "v2",
+          "lane": "visual",
+          "items": [
+            {
+              "id": "outer",
+              "at": 0,
+              "duration": 120,
+              "transform": {
+                "x": 0,
+                "y": 0
+              },
+              "source": {
+                "kind": "group"
+              },
+              "items": [
+                {
+                  "id": "g1",
+                  "at": 30,
+                  "duration": 90,
+                  "transform": {
+                    "x": 270,
+                    "y": -110,
+                    "scale": 1,
+                    "rotate": 0
+                  },
+                  "opacity": 0.5,
+                  "blend": "screen",
+                  "source": {
+                    "kind": "group"
+                  },
+                  "items": [
+                    {
+                      "id": "g1.first",
+                      "at": 0,
+                      "duration": 45,
+                      "transform": {
+                        "x": 10,
+                        "y": 5,
+                        "scale": 1,
+                        "rotate": 0
+                      },
+                      "opacity": 0.8,
+                      "source": {
+                        "kind": "html",
+                        "path": "overlays/plain.html"
+                      }
+                    },
+                    {
+                      "id": "g1.second",
+                      "at": 0,
+                      "duration": 45,
+                      "transform": {
+                        "x": 110,
+                        "y": -45,
+                        "scale": 1,
+                        "rotate": 0
+                      },
+                      "source": {
+                        "kind": "html",
+                        "path": "overlays/plain.html"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "v3",
+          "lane": "visual",
+          "items": [
+            {
+              "id": "plain",
+              "at": 0,
+              "duration": 120,
+              "source": {
+                "kind": "html",
+                "path": "overlays/plain.html"
+              }
+            }
+          ]
+        },
+        {
+          "id": "v4",
+          "lane": "visual",
+          "items": [
+            {
+              "id": "s01.C",
+              "at": 0,
+              "duration": 120,
+              "source": {
+                "kind": "html",
+                "path": "overlays/card.html",
+                "part": "C",
+                "derivedFrom": "overlays/card.html#C"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "beforeStatus": null,
+  "records": [
+    {
+      "step": 1,
+      "title": "instruction 0: nested HTML and scanned bag part drag/write observation",
+      "status": "ok",
+      "observations": {
+        "cases": [
+          {
+            "id": "g1.first",
+            "status": "ok",
+            "selection": {
+              "selectedIds": [
+                "g1.first"
+              ],
+              "activeEdit": false
+            },
+            "timeline": {
+              "rootId": null,
+              "selectedId": null,
+              "selection": null,
+              "selectedRows": [],
+              "breadcrumbs": [
+                "全体"
+              ],
+              "zoom": "100%"
+            },
+            "drag": {
+              "id": "g1.first",
+              "from": {
+                "x": 444.53749084472656,
+                "y": 438.9859161376953,
+                "id": "g1.first",
+                "tag": "DIV",
+                "text": "名札なし"
+              },
+              "delta": {
+                "x": 24,
+                "y": 18
+              },
+              "before": {
+                "version": 2,
+                "output": {
+                  "width": 640,
+                  "height": 360,
+                  "fps": 30
+                },
+                "sources": [],
+                "tracks": [
+                  {
+                    "id": "v1",
+                    "lane": "visual",
+                    "items": [
+                      {
+                        "id": "s01",
+                        "at": 0,
+                        "duration": 120,
+                        "source": {
+                          "kind": "html",
+                          "path": "overlays/card.html",
+                          "exclude": [
+                            "C"
+                          ]
+                        },
+                        "items": [
+                          {
+                            "id": "s01.B",
+                            "at": 6,
+                            "duration": 114,
+                            "transform": {
+                              "y": -40
+                            },
+                            "source": {
+                              "kind": "html",
+                              "path": "overlays/card.html",
+                              "part": "B",
+                              "style": {
+                                "color": "red"
+                              },
+                              "text": "差し替え",
+                              "derivedFrom": "overlays/card.html#B"
+                            }
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "id": "v2",
+                    "lane": "visual",
+                    "items": [
+                      {
+                        "id": "outer",
+                        "at": 0,
+                        "duration": 120,
+                        "transform": {
+                          "x": 0,
+                          "y": 0
+                        },
+                        "source": {
+                          "kind": "group"
+                        },
+                        "items": [
+                          {
+                            "id": "g1",
+                            "at": 30,
+                            "duration": 90,
+                            "transform": {
+                              "x": 270,
+                              "y": -110,
+                              "scale": 1,
+                              "rotate": 0
+                            },
+                            "opacity": 0.5,
+                            "blend": "screen",
+                            "source": {
+                              "kind": "group"
+                            },
+                            "items": [
+                              {
+                                "id": "g1.first",
+                                "at": 0,
+                                "duration": 45,
+                                "transform": {
+                                  "x": 10,
+                                  "y": 5,
+                                  "scale": 1,
+                                  "rotate": 0
+                                },
+                                "opacity": 0.8,
+                                "source": {
+                                  "kind": "html",
+                                  "path": "overlays/plain.html"
+                                }
+                              },
+                              {
+                                "id": "g1.second",
+                                "at": 0,
+                                "duration": 45,
+                                "transform": {
+                                  "x": 110,
+                                  "y": -45,
+                                  "scale": 1,
+                                  "rotate": 0
+                                },
+                                "source": {
+                                  "kind": "html",
+                                  "path": "overlays/plain.html"
+                                }
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "id": "v3",
+                    "lane": "visual",
+                    "items": [
+                      {
+                        "id": "plain",
+                        "at": 0,
+                        "duration": 120,
+                        "source": {
+                          "kind": "html",
+                          "path": "overlays/plain.html"
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "id": "v4",
+                    "lane": "visual",
+                    "items": [
+                      {
+                        "id": "s01.C",
+                        "at": 0,
+                        "duration": 120,
+                        "source": {
+                          "kind": "html",
+                          "path": "overlays/card.html",
+                          "part": "C",
+                          "derivedFrom": "overlays/card.html#C"
+                        }
+                      }
+                    ]
+                  }
+                ]
+              },
+              "after": {
+                "version": 2,
+                "output": {
+                  "width": 640,
+                  "height": 360,
+                  "fps": 30
+                },
+                "sources": [],
+                "tracks": [
+                  {
+                    "id": "v1",
+                    "lane": "visual",
+                    "items": [
+                      {
+                        "id": "s01",
+                        "at": 0,
+                        "duration": 120,
+                        "source": {
+                          "kind": "html",
+                          "path": "overlays/card.html",
+                          "exclude": [
+                            "C"
+                          ]
+                        },
+                        "items": [
+                          {
+                            "id": "s01.B",
+                            "at": 6,
+                            "duration": 114,
+                            "transform": {
+                              "y": -40
+                            },
+                            "source": {
+                              "kind": "html",
+                              "path": "overlays/card.html",
+                              "part": "B",
+                              "style": {
+                                "color": "red"
+                              },
+                              "text": "差し替え",
+                              "derivedFrom": "overlays/card.html#B"
+                            }
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "id": "v2",
+                    "lane": "visual",
+                    "items": [
+                      {
+                        "id": "outer",
+                        "at": 0,
+                        "duration": 120,
+                        "transform": {
+                          "x": 0,
+                          "y": 0
+                        },
+                        "source": {
+                          "kind": "group"
+                        },
+                        "items": [
+                          {
+                            "id": "g1",
+                            "at": 30,
+                            "duration": 90,
+                            "transform": {
+                              "x": 270,
+                              "y": -110,
+                              "scale": 1,
+                              "rotate": 0
+                            },
+                            "opacity": 0.5,
+                            "blend": "screen",
+                            "source": {
+                              "kind": "group"
+                            },
+                            "items": [
+                              {
+                                "id": "g1.first",
+                                "at": 0,
+                                "duration": 45,
+                                "transform": {
+                                  "x": 10,
+                                  "y": 5,
+                                  "scale": 1,
+                                  "rotate": 0
+                                },
+                                "opacity": 0.8,
+                                "source": {
+                                  "kind": "html",
+                                  "path": "overlays/plain.html"
+                                }
+                              },
+                              {
+                                "id": "g1.second",
+                                "at": 0,
+                                "duration": 45,
+                                "transform": {
+                                  "x": 110,
+                                  "y": -45,
+                                  "scale": 1,
+                                  "rotate": 0
+                                },
+                                "source": {
+                                  "kind": "html",
+                                  "path": "overlays/plain.html"
+                                }
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "id": "v3",
+                    "lane": "visual",
+                    "items": [
+                      {
+                        "id": "plain",
+                        "at": 0,
+                        "duration": 120,
+                        "source": {
+                          "kind": "html",
+                          "path": "overlays/plain.html"
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "id": "v4",
+                    "lane": "visual",
+                    "items": [
+                      {
+                        "id": "s01.C",
+                        "at": 0,
+                        "duration": 120,
+                        "source": {
+                          "kind": "html",
+                          "path": "overlays/card.html",
+                          "part": "C",
+                          "derivedFrom": "overlays/card.html#C"
+                        }
+                      }
+                    ]
+                  }
+                ]
+              },
+              "diffBefore": "",
+              "diffAfter": "",
+              "changed": false,
+              "writes": [
+                {
+                  "overlayId": "g1.first",
+                  "patch": {
+                    "transform": {
+                      "x": 304.0000096213054,
+                      "y": -90.81280788177338,
+                      "scale": 1,
+                      "rotate": 0
+                    }
+                  }
+                }
+              ],
+              "responses": [
+                {
+                  "type": "akari-preview-overlay-write-response",
+                  "requestId": "akari-preview-1",
+                  "ok": false,
+                  "error": "アイテムが見つかりません: g1.first"
+                }
+              ]
+            },
+            "directLeafObserved": true
+          },
+          {
+            "id": "s01#A",
+            "status": "ok",
+            "selection": {
+              "selectedIds": [
+                "s01#A"
+              ],
+              "activeEdit": false
+            },
+            "timeline": {
+              "rootId": null,
+              "selectedId": "s01#A",
+              "selection": {
+                "kind": "item",
+                "id": "s01#A",
+                "itemKind": "part",
+                "parentId": "s01",
+                "trackId": "v1"
+              },
+              "selectedRows": [],
+              "breadcrumbs": [
+                "全体"
+              ],
+              "zoom": "100%"
+            },
+            "drag": {
+              "id": "s01#A",
+              "from": {
+                "x": 206.0124969482422,
+                "y": 314.4799346923828,
+                "id": "s01#A",
+                "tag": "H1",
+                "text": "見出し"
+              },
+              "delta": {
+                "x": 24,
+                "y": 18
+              },
+              "before": {
+                "version": 2,
+                "output": {
+                  "width": 640,
+                  "height": 360,
+                  "fps": 30
+                },
+                "sources": [],
+                "tracks": [
+                  {
+                    "id": "v1",
+                    "lane": "visual",
+                    "items": [
+                      {
+                        "id": "s01",
+                        "at": 0,
+                        "duration": 120,
+                        "source": {
+                          "kind": "html",
+                          "path": "overlays/card.html",
+                          "exclude": [
+                            "C"
+                          ]
+                        },
+                        "items": [
+                          {
+                            "id": "s01.B",
+                            "at": 6,
+                            "duration": 114,
+                            "transform": {
+                              "y": -40
+                            },
+                            "source": {
+                              "kind": "html",
+                              "path": "overlays/card.html",
+                              "part": "B",
+                              "style": {
+                                "color": "red"
+                              },
+                              "text": "差し替え",
+                              "derivedFrom": "overlays/card.html#B"
+                            }
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "id": "v2",
+                    "lane": "visual",
+                    "items": [
+                      {
+                        "id": "outer",
+                        "at": 0,
+                        "duration": 120,
+                        "transform": {
+                          "x": 0,
+                          "y": 0
+                        },
+                        "source": {
+                          "kind": "group"
+                        },
+                        "items": [
+                          {
+                            "id": "g1",
+                            "at": 30,
+                            "duration": 90,
+                            "transform": {
+                              "x": 270,
+                              "y": -110,
+                              "scale": 1,
+                              "rotate": 0
+                            },
+                            "opacity": 0.5,
+                            "blend": "screen",
+                            "source": {
+                              "kind": "group"
+                            },
+                            "items": [
+                              {
+                                "id": "g1.first",
+                                "at": 0,
+                                "duration": 45,
+                                "transform": {
+                                  "x": 10,
+                                  "y": 5,
+                                  "scale": 1,
+                                  "rotate": 0
+                                },
+                                "opacity": 0.8,
+                                "source": {
+                                  "kind": "html",
+                                  "path": "overlays/plain.html"
+                                }
+                              },
+                              {
+                                "id": "g1.second",
+                                "at": 0,
+                                "duration": 45,
+                                "transform": {
+                                  "x": 110,
+                                  "y": -45,
+                                  "scale": 1,
+                                  "rotate": 0
+                                },
+                                "source": {
+                                  "kind": "html",
+                                  "path": "overlays/plain.html"
+                                }
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "id": "v3",
+                    "lane": "visual",
+                    "items": [
+                      {
+                        "id": "plain",
+                        "at": 0,
+                        "duration": 120,
+                        "source": {
+                          "kind": "html",
+                          "path": "overlays/plain.html"
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "id": "v4",
+                    "lane": "visual",
+                    "items": [
+                      {
+                        "id": "s01.C",
+                        "at": 0,
+                        "duration": 120,
+                        "source": {
+                          "kind": "html",
+                          "path": "overlays/card.html",
+                          "part": "C",
+                          "derivedFrom": "overlays/card.html#C"
+                        }
+                      }
+                    ]
+                  }
+                ]
+              },
+              "after": {
+                "version": 2,
+                "output": {
+                  "width": 640,
+                  "height": 360,
+                  "fps": 30
+                },
+                "sources": [],
+                "tracks": [
+                  {
+                    "id": "v1",
+                    "lane": "visual",
+                    "items": [
+                      {
+                        "id": "s01",
+                        "at": 0,
+                        "duration": 120,
+                        "source": {
+                          "kind": "html",
+                          "path": "overlays/card.html",
+                          "exclude": [
+                            "C"
+                          ]
+                        },
+                        "items": [
+                          {
+                            "id": "s01.B",
+                            "at": 6,
+                            "duration": 114,
+                            "transform": {
+                              "y": -40
+                            },
+                            "source": {
+                              "kind": "html",
+                              "path": "overlays/card.html",
+                              "part": "B",
+                              "style": {
+                                "color": "red"
+                              },
+                              "text": "差し替え",
+                              "derivedFrom": "overlays/card.html#B"
+                            }
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "id": "v2",
+                    "lane": "visual",
+                    "items": [
+                      {
+                        "id": "outer",
+                        "at": 0,
+                        "duration": 120,
+                        "transform": {
+                          "x": 0,
+                          "y": 0
+                        },
+                        "source": {
+                          "kind": "group"
+                        },
+                        "items": [
+                          {
+                            "id": "g1",
+                            "at": 30,
+                            "duration": 90,
+                            "transform": {
+                              "x": 270,
+                              "y": -110,
+                              "scale": 1,
+                              "rotate": 0
+                            },
+                            "opacity": 0.5,
+                            "blend": "screen",
+                            "source": {
+                              "kind": "group"
+                            },
+                            "items": [
+                              {
+                                "id": "g1.first",
+                                "at": 0,
+                                "duration": 45,
+                                "transform": {
+                                  "x": 10,
+                                  "y": 5,
+                                  "scale": 1,
+                                  "rotate": 0
+                                },
+                                "opacity": 0.8,
+                                "source": {
+                                  "kind": "html",
+                                  "path": "overlays/plain.html"
+                                }
+                              },
+                              {
+                                "id": "g1.second",
+                                "at": 0,
+                                "duration": 45,
+                                "transform": {
+                                  "x": 110,
+                                  "y": -45,
+                                  "scale": 1,
+                                  "rotate": 0
+                                },
+                                "source": {
+                                  "kind": "html",
+                                  "path": "overlays/plain.html"
+                                }
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "id": "v3",
+                    "lane": "visual",
+                    "items": [
+                      {
+                        "id": "plain",
+                        "at": 0,
+                        "duration": 120,
+                        "source": {
+                          "kind": "html",
+                          "path": "overlays/plain.html"
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "id": "v4",
+                    "lane": "visual",
+                    "items": [
+                      {
+                        "id": "s01.C",
+                        "at": 0,
+                        "duration": 120,
+                        "source": {
+                          "kind": "html",
+                          "path": "overlays/card.html",
+                          "part": "C",
+                          "derivedFrom": "overlays/card.html#C"
+                        }
+                      }
+                    ]
+                  }
+                ]
+              },
+              "diffBefore": "",
+              "diffAfter": "",
+              "changed": false,
+              "writes": [
+                {
+                  "overlayId": "s01#A",
+                  "patch": {
+                    "transform": {
+                      "x": 18.916256157635473,
+                      "y": 14.18719211822659,
+                      "scale": 1,
+                      "rotate": 0
+                    }
+                  }
+                }
+              ],
+              "responses": [
+                {
+                  "type": "akari-preview-overlay-write-response",
+                  "requestId": "akari-preview-2",
+                  "ok": false,
+                  "error": "アイテムが見つかりません: s01#A"
+                }
+              ]
+            },
+            "directLeafObserved": true
+          }
+        ],
+        "gitDiff": ""
+      },
+      "startedAt": "2026-09-21T08:01:04.838Z"
+    }
+  ],
+  "events": [
+    {
+      "kind": "write",
+      "data": {
+        "overlayId": "g1.first",
+        "patch": {
+          "transform": {
+            "x": 304.0000096213054,
+            "y": -90.81280788177338,
+            "scale": 1,
+            "rotate": 0
+          }
+        }
+      },
+      "at": 1789977665865,
+      "contextId": 2
+    },
+    {
+      "kind": "response",
+      "data": {
+        "type": "akari-preview-overlay-write-response",
+        "requestId": "akari-preview-1",
+        "ok": false,
+        "error": "アイテムが見つかりません: g1.first"
+      },
+      "at": 1789977665874,
+      "contextId": 2
+    },
+    {
+      "kind": "write",
+      "data": {
+        "overlayId": "s01#A",
+        "patch": {
+          "transform": {
+            "x": 18.916256157635473,
+            "y": 14.18719211822659,
+            "scale": 1,
+            "rotate": 0
+          }
+        }
+      },
+      "at": 1789977667954,
+      "contextId": 2
+    },
+    {
+      "kind": "response",
+      "data": {
+        "type": "akari-preview-overlay-write-response",
+        "requestId": "akari-preview-2",
+        "ok": false,
+        "error": "アイテムが見つかりません: s01#A"
+      },
+      "at": 1789977667969,
+      "contextId": 2
+    }
+  ],
+  "finalDiff": ""
+}
