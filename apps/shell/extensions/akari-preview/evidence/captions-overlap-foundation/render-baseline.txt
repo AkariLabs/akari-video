@@ -1,0 +1,25 @@
+✖ sfx.in at/beyond the material's real duration is silently skipped with a warning (4555.752625ms)
+✖ glass-free 2D and 3D sheets match pre-glass baseline bytes (28.6675ms)
+✖ bundled ffmpeg: delayed layer mixes two tones, gain/mute and silent inputs preserve timing and AAC duration (3.699083ms)
+✖ sheet injects vgpu only for declarations and preserves existing static/three sheets byte-for-byte (32.171417ms)
+ℹ tests 4
+ℹ pass 0
+ℹ fail 4
+ℹ duration_ms 5116.300625
+✖ failing tests:
+✖ sfx.in at/beyond the material's real duration is silently skipped with a warning (4555.752625ms)
+  AssertionError [ERR_ASSERTION]: sysctlbyname for kern.hv_vmm_present failed with status -1
+    actual: 1,
+    expected: 0,
+✖ glass-free 2D and 3D sheets match pre-glass baseline bytes (28.6675ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+    actual: '8354f0f73ceec7da39d203c01205b4156279c573f74256fb071a19b2146ecb9f',
+    expected: '9728065552852f09333fad24d920dba82809fc5cc8f05382910b3e1217022904',
+✖ bundled ffmpeg: delayed layer mixes two tones, gain/mute and silent inputs preserve timing and AAC duration (3.699083ms)
+  AssertionError [ERR_ASSERTION]: Error: spawnSync <repo>/packages/media-bin/vendor/darwin-arm64/ffmpeg ENOENTundefined
+    actual: null,
+    expected: 0,
+✖ sheet injects vgpu only for declarations and preserves existing static/three sheets byte-for-byte (32.171417ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+    actual: '0eb935f1cb0f6e0b560a2184fbbda2fd6da05e684efd096df0cce561040d411d',
+    expected: 'c72534526be3c88b210f321d1db3a72eed36470845f415f99207665ccf180d57',

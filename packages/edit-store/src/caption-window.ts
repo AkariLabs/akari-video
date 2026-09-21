@@ -182,3 +182,14 @@ export function findActiveCaption<T extends CaptionWindowLike>(
         return window.start <= sourceSeconds && sourceSeconds < window.end;
     });
 }
+
+/** Active captions in input order, using the same half-open window as findActiveCaption. */
+export function findActiveCaptions<T extends CaptionWindowLike>(
+    captions: readonly T[],
+    seconds: number
+): T[] {
+    return captions.filter(caption => {
+        const window = captionWindowSeconds(caption);
+        return window.start <= seconds && seconds < window.end;
+    });
+}

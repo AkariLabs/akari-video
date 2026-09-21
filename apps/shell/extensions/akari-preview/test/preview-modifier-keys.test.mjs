@@ -33,7 +33,7 @@ test('layer rotation rounds the absolute angle only while move Shift is held', (
 });
 
 test('caption rotation previews and persists the same Shift-rounded patch; Alt targeting stays intact', () => {
-  const drag = between(source, /const\s+beginCaptionHandleDrag\s*=/, /captionPlate\.addEventListener\s*\(\s*'pointerdown'/);
+  const drag = between(source, /const\s+beginCaptionHandleDrag\s*=/, /captionLayer\.addEventListener\s*\(\s*'pointerdown'/);
   const onMove = between(drag, /const\s+onMove\s*=\s*moveEvent\s*=>\s*\{/, /\}\s*;\s*const\s+finish\s*=/);
   assert.match(onMove, /if\s*\(\s*patch\.rotate\s*!==\s*undefined\s*&&\s*moveEvent\.shiftKey\s*\)\s*\{\s*patch\.rotate\s*=\s*Math\.round\s*\(\s*patch\.rotate\s*\/\s*15\s*\)\s*\*\s*15\s*;\s*\}\s*lastPatch\s*=\s*patch\s*;[\s\S]*?captionPlate\.style\.setProperty\s*\(\s*'--caption-rotate'\s*,\s*patch\.rotate\s*\+\s*'deg'\s*\)/);
 
@@ -48,7 +48,7 @@ test('caption Escape cancels without writes or deselection, ignores IME; Enter a
   assert.match(cancel, /^\s*if\s*\(\s*!activeCaptionEdit\s*\)\s*return\s*;\s*const\s+edit\s*=\s*activeCaptionEdit\s*;\s*activeCaptionEdit\s*=\s*null\s*;\s*restoreCaptionEditElement\s*\(\s*edit\s*\)\s*;\s*rerenderCaptionAfterEdit\s*\(\s*\)\s*;\s*$/);
   assert.doesNotMatch(cancel, /captionWrite|deselectCaption/);
 
-  const keydown = between(edit, /captionPlate\.addEventListener\s*\(\s*'keydown'\s*,\s*event\s*=>\s*\{/, /\}\s*\)\s*;/);
+  const keydown = between(edit, /captionLayer\.addEventListener\s*\(\s*'keydown'\s*,\s*event\s*=>\s*\{/, /\}\s*\)\s*;/);
   assert.match(keydown, /^\s*if\s*\(\s*!activeCaptionEdit\s*\|\|\s*event\.target\s*!==\s*activeCaptionEdit\.element\s*\|\|\s*event\.isComposing\s*\)\s*return\s*;/);
   const escape = between(keydown, /if\s*\(\s*event\.key\s*===\s*'Escape'\s*\)\s*\{/, /\}/);
   assert.match(escape, /\bcancelCaptionEdit\s*\(\s*\)\s*;/);
@@ -56,6 +56,6 @@ test('caption Escape cancels without writes or deselection, ignores IME; Enter a
   const enter = between(keydown, /if\s*\(\s*event\.key\s*===\s*'Enter'\s*\)\s*\{/, /\}/);
   assert.match(enter, /\bcommitCaptionEdit\s*\(\s*\)\s*;/);
 
-  const blur = between(edit, /captionPlate\.addEventListener\s*\(\s*'blur'\s*,\s*event\s*=>\s*\{/, /\}\s*,\s*true\s*\)\s*;/);
+  const blur = between(edit, /captionLayer\.addEventListener\s*\(\s*'blur'\s*,\s*event\s*=>\s*\{/, /\}\s*,\s*true\s*\)\s*;/);
   assert.match(blur, /^\s*if\s*\(\s*activeCaptionEdit\s*&&\s*event\.target\s*===\s*activeCaptionEdit\.element\s*\)\s*\{\s*void\s+commitCaptionEdit\s*\(\s*\)\s*;\s*\}\s*$/);
 });

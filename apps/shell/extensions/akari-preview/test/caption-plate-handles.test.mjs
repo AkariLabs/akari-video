@@ -140,7 +140,7 @@ test('selected captions create one handle box with five handles and deselection 
 });
 
 test('handle box follows the text bounds for styled captions and fills a plain plate', () => {
-  assert.match(handlerSource, /const syncCaptionHandleBox = \(\) => \{/u);
+  assert.match(handlerSource, /const syncCaptionHandleBox = \(captionPlate = selectedCaptionPlate\(\)\) => \{/u);
   assert.match(handlerSource, /querySelector\('\.akari-caption-handle-box'\)/u);
   assert.match(handlerSource, /if \(!captionPlate\.classList\.contains\('akari-caption-host--styled'\)\) \{[\s\S]*box\.style\.inset = '0'[\s\S]*return;/u);
   assert.match(handlerSource, /const hostRect = captionPlate\.getBoundingClientRect\(\)/u);

@@ -36,7 +36,14 @@ export function harness({ text = source, cues = [], engine = true, available = t
     const listeners = new Map();
     const animations = [{ pause() {}, currentTime: 0, effect: { getComputedTiming: () => ({ endTime: 0 }) } }];
     const escape = value => String(value).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
+    const layer = { children: [], insertBefore(child, before) {
+        child.parentElement = this; const at = this.children.indexOf(child);
+        if (at >= 0) this.children.splice(at, 1);
+        const index = before ? this.children.indexOf(before) : this.children.length;
+        this.children.splice(index, 0, child);
+    } };
     const createElement = tagName => {
+        if (tagName === 'div' && !layer.children.includes(plate)) return plate;
         const attributes = new Map();
         const children = [];
         return {
@@ -53,7 +60,8 @@ export function harness({ text = source, cues = [], engine = true, available = t
         };
     };
     const plate = {
-        id: 'caption-plate',
+        id: 'caption-plate', dataset: {},
+        remove() { const i = layer.children.indexOf(this); if (i >= 0) layer.children.splice(i, 1); },
         setAttribute(name) { plateAttributes.add(name); },
         removeAttribute(name) { plateAttributes.delete(name); },
         hasAttribute(name) { return plateAttributes.has(name); },
@@ -105,11 +113,11 @@ export function harness({ text = source, cues = [], engine = true, available = t
     const clock = { tick: time => time, seek: time => time, totalDuration: 60 };
     const context = vm.createContext({
         console: { warn: (...values) => warnings.push(values) },
-        document: { getElementById: id => id === 'caption-plate' ? plate : null, createElement },
+        document: { getElementById: id => id === 'caption-plate' ? layer : null, createElement },
         window: {
             addEventListener: (type, listener) => listeners.set(type, listener),
             dispatchEvent: event => { listeners.get(event.type)?.(event); },
-            AkariEditKernel: { findActiveCaption: (values, time) => values.find(cue => time >= cue.start && time < cue.end) },
+            AkariEditKernel: { findActiveCaptions: (values, time) => values.filter(cue => time >= cue.start && time < cue.end) },
             ...(available ? { AkariFrameEngine: { applyCaptionAnimatorDom: (root, declaration) => {
                 calls.push({ root, declaration, animationTime: animations[0].currentTime });
                 applyAnimator?.(root, declaration);
@@ -140,7 +148,7 @@ export function harness({ text = source, cues = [], engine = true, available = t
         fps: 30, totalTimelineDuration: 60, videoDuration: () => 60,
         timelineToSource: time => ({ index: 0, kind: 'src', time }), enterSegment: noop, frameEngineMediaIdle: false
     });
-    vm.runInContext("const captionPlate = document.getElementById('caption-plate');", context);
+    vm.runInContext("const captionLayer = document.getElementById('caption-plate'); const captionRows = new Map();", context);
     vm.runInContext(section(text, 'const escapeCaptionHtml =', 'const renderTransitionPlate ='), context);
     vm.runInContext('const renderTransitionPlate = () => {};', context);
     vm.runInContext(section(text, 'let requestedOverlayId;', 'const onMainVideoLoadedMetadata ='), context);

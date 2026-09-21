@@ -48,6 +48,7 @@ var AkariEditKernel = (() => {
     evaluateEnvelopeDb: () => evaluateEnvelopeDb,
     expandCaptionDisplayFragments: () => expandCaptionDisplayFragments,
     findActiveCaption: () => findActiveCaption,
+    findActiveCaptions: () => findActiveCaptions,
     findActiveResolvedCaption: () => findActiveResolvedCaption,
     isAudioItemAudible: () => isAudioItemAudible,
     isCutAudioAudible: () => isCutAudioAudible,
@@ -501,6 +502,12 @@ var AkariEditKernel = (() => {
     return captions.find((caption) => {
       const window = captionWindowSeconds(caption);
       return window.start <= sourceSeconds && sourceSeconds < window.end;
+    });
+  }
+  function findActiveCaptions(captions, seconds) {
+    return captions.filter((caption) => {
+      const window = captionWindowSeconds(caption);
+      return window.start <= seconds && seconds < window.end;
     });
   }
 

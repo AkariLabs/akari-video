@@ -18,6 +18,7 @@ exports.captionWindowSeconds = captionWindowSeconds;
 exports.captionFragmentWindows = captionFragmentWindows;
 exports.expandCaptionDisplayFragments = expandCaptionDisplayFragments;
 exports.findActiveCaption = findActiveCaption;
+exports.findActiveCaptions = findActiveCaptions;
 function baseCaptionWindowSeconds(caption) {
     const start = typeof caption.start === 'number' && Number.isFinite(caption.start) ? caption.start : 0;
     const duration = typeof caption.duration === 'number' && Number.isFinite(caption.duration) ? caption.duration : 0;
@@ -157,5 +158,12 @@ function findActiveCaption(captions, sourceSeconds) {
     return captions.find(caption => {
         const window = captionWindowSeconds(caption);
         return window.start <= sourceSeconds && sourceSeconds < window.end;
+    });
+}
+/** Active captions in input order, using the same half-open window as findActiveCaption. */
+function findActiveCaptions(captions, seconds) {
+    return captions.filter(caption => {
+        const window = captionWindowSeconds(caption);
+        return window.start <= seconds && seconds < window.end;
     });
 }

@@ -1,0 +1,194 @@
+{
+  "default_text_style": {
+    "zone": "bottom"
+  },
+  "captions": [
+    {
+      "id": "c-0001",
+      "start": 0,
+      "end": 2,
+      "text": "一行目の字幕",
+      "speaker": null,
+      "sourceRef": null,
+      "edited": false,
+      "src": "a",
+      "words": [
+        {
+          "start": 0,
+          "end": 0.333,
+          "text": "一"
+        },
+        {
+          "start": 0.333,
+          "end": 0.667,
+          "text": "行"
+        },
+        {
+          "start": 0.667,
+          "end": 1,
+          "text": "目"
+        },
+        {
+          "start": 1,
+          "end": 1.333,
+          "text": "の"
+        },
+        {
+          "start": 1.333,
+          "end": 1.667,
+          "text": "字"
+        },
+        {
+          "start": 1.667,
+          "end": 2,
+          "text": "幕"
+        }
+      ]
+    },
+    {
+      "id": "c-0002",
+      "start": 2,
+      "end": 4,
+      "text": "二行目の字幕を編集",
+      "speaker": null,
+      "sourceRef": null,
+      "edited": true,
+      "src": "a",
+      "words": [
+        {
+          "start": 2,
+          "end": 2.333,
+          "text": "二"
+        },
+        {
+          "start": 2.333,
+          "end": 2.667,
+          "text": "行"
+        },
+        {
+          "start": 2.667,
+          "end": 3,
+          "text": "目"
+        },
+        {
+          "start": 3,
+          "end": 3.333,
+          "text": "の"
+        },
+        {
+          "start": 3.333,
+          "end": 3.667,
+          "text": "字幕"
+        },
+        {
+          "start": 3.667,
+          "end": 3.778,
+          "text": "を"
+        },
+        {
+          "start": 3.778,
+          "end": 4,
+          "text": "編集"
+        }
+      ]
+    },
+    {
+      "id": "c-0003",
+      "start": 4,
+      "end": 6,
+      "text": "三行目の字幕",
+      "speaker": null,
+      "sourceRef": null,
+      "edited": false,
+      "src": "a",
+      "words": [
+        {
+          "start": 4,
+          "end": 4.333,
+          "text": "三"
+        },
+        {
+          "start": 4.333,
+          "end": 4.667,
+          "text": "行"
+        },
+        {
+          "start": 4.667,
+          "end": 5,
+          "text": "目"
+        },
+        {
+          "start": 5,
+          "end": 5.333,
+          "text": "の"
+        },
+        {
+          "start": 5.333,
+          "end": 5.667,
+          "text": "字"
+        },
+        {
+          "start": 5.667,
+          "end": 6,
+          "text": "幕"
+        }
+      ]
+    },
+    {
+      "id": "c-0004",
+      "start": 0,
+      "end": 6,
+      "text": "上に置いた文字",
+      "speaker": null,
+      "sourceRef": null,
+      "edited": false,
+      "src": "a",
+      "words": [
+        {
+          "start": 0,
+          "end": 0.857,
+          "text": "上"
+        },
+        {
+          "start": 0.857,
+          "end": 1.714,
+          "text": "に"
+        },
+        {
+          "start": 1.714,
+          "end": 2.571,
+          "text": "置"
+        },
+        {
+          "start": 2.571,
+          "end": 3.429,
+          "text": "い"
+        },
+        {
+          "start": 3.429,
+          "end": 4.286,
+          "text": "た"
+        },
+        {
+          "start": 4.286,
+          "end": 5.143,
+          "text": "文"
+        },
+        {
+          "start": 5.143,
+          "end": 6,
+          "text": "字"
+        }
+      ],
+      "time_domain": "output",
+      "text_style": {
+        "size_px": 48,
+        "text_anchor": "tc",
+        "position": {
+          "x": 0.4202,
+          "y": 0.1517
+        }
+      }
+    }
+  ]
+}

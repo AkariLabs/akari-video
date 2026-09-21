@@ -105,16 +105,16 @@ test('real Chrome applies the manifest geometry oracle and complete kernel style
     }, { seekTime: previewCue.start + 0.001, width: oracle.output.width_px, height: oracle.output.height_px });
     await previewPage.waitForFunction(({ text, width, height }) => {
       const stage = document.getElementById('overlay-stage');
-      const plate = document.getElementById('caption-plate');
-      const line = plate.querySelector('.akari-caption__resolved-line');
+      const plate = document.querySelector('.caption-row-plate');
+      const line = plate?.querySelector('.akari-caption__resolved-line');
       const rect = stage.getBoundingClientRect();
-      return plate.classList.contains('akari-caption-resolved')
+      return plate?.classList.contains('akari-caption-resolved')
         && plate.classList.contains('akari-caption-styled')
         && line?.textContent === text
         && Math.abs(rect.width - width) <= 1
         && Math.abs(rect.height - height) <= 1;
     }, { text: previewCue.text, width: oracle.output.width_px, height: oracle.output.height_px });
-    const previewMetrics = await measure(previewPage, '#overlay-stage', '#caption-plate', '#caption-plate', '.akari-caption__resolved-line');
+    const previewMetrics = await measure(previewPage, '#overlay-stage', '.caption-row-plate', '.caption-row-plate', '.akari-caption__resolved-line');
 
     const renderPath = join(temporary, 'render-caption.html');
     await writeFile(renderPath, visualDocument(renderOverlay.html, renderOverlay.vars, oracle.output));

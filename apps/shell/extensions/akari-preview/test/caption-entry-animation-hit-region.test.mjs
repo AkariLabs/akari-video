@@ -82,7 +82,7 @@ function extractWebviewSection(startMarker, endMarker) {
 }
 
 const renderCaptionSource = extractWebviewSection(
-    'const renderCaption = () => {', 'const renderTransitionPlate = timelineTime =>'
+    'const renderCaptionRow = (caption, row) => {', 'const renderTransitionPlate = timelineTime =>'
 );
 // renderCaption and its engine-seek listener share the webview's selection state.
 // Keep the actual initial declarations and overlay-selection implementation together.
@@ -100,12 +100,12 @@ function harnessHtml() {
     return `<!doctype html>
 <html><head><meta charset="utf-8"><style>
 html,body{margin:0;width:${width}px;height:${height}px;overflow:hidden}
-#caption-plate{position:absolute;inset:0;pointer-events:auto}
+#caption-plate,.caption-row-plate{position:absolute;inset:0;pointer-events:auto}
 .fixture-caption__anchor{position:absolute;left:90px;top:960px;width:900px;height:240px;display:grid;place-items:center;opacity:0;color:#fff;background:#e74420;font:900 120px/1 sans-serif;transform-origin:center}
 .fixture-caption__anchor{animation:fixture-caption-in 800ms ease-out both paused}
 @keyframes fixture-caption-in{0%{opacity:0;transform:translate3d(1400px,-500px,0) scale(.62)}100%{opacity:1;transform:translate3d(0,0,0) scale(1)}}
 </style></head><body><div id="caption-plate"></div><script>
-const captionPlate=document.getElementById('caption-plate');
+const captionLayer=document.getElementById('caption-plate'); const captionRows=new Map();
 const stage=document.body;
 ${inlineScript(selectionSource)}
 const captions=[{id:'caption-fixture',start:10,end:14,text:'字幕',style:'pop',textStyle:{color:'#fff'},words:[{start:10,end:11,text:'字幕'}]}];
@@ -121,12 +121,12 @@ const clamp=(value,min,max)=>Math.max(min,Math.min(max,value));
 const splitCaptionLines=value=>[value];
 const findMatchingEmphasis=()=>null;
 const applyCaptionStyleVars=()=>undefined;
-const applyCaptionSelectionAttrs=()=>undefined;
+const applyCaptionRowSelectionAttrs=()=>undefined;
 const renderPlainCaptionFragment=()=>'';
 const renderStyledCaptionFragment=()=>'<div class="akari-caption"><div class="fixture-caption__anchor"><span>字幕</span></div></div>';
 const updateCaptionSelectBox=()=>undefined;
 const captionEntryAnimationsSettledFn=(${captionEntryAnimationsSettled.toString()});
-window.AkariEditKernel={findActiveCaption(items,time){return items.find(item=>item.start<=time&&time<item.end)||null}};
+window.AkariEditKernel={findActiveCaptions(items,time){return items.filter(item=>item.start<=time&&time<item.end)}};
 function syncOverlayHitRegion(container){
   syncCalls+=1;
   const containerRect=container.getBoundingClientRect();
@@ -148,7 +148,7 @@ window.readSyncCalls=()=>syncCalls;
 
 function clipMeasurementScript() {
     return () => {
-        const container = document.getElementById('caption-plate');
+        const container = document.querySelector('.caption-row-plate');
         const anchor = container.querySelector('.fixture-caption__anchor');
         if (!anchor) return { missingAnchor: true, html: container.innerHTML, clipPath: container.style.clipPath };
         const bbox = anchor.getBoundingClientRect();

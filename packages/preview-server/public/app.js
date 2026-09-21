@@ -10,7 +10,7 @@ import {
   computeTransitionVisual,
   evaluateEnvelopeDb,
   expandCaptionDisplayFragments,
-  findActiveCaption,
+  findActiveCaptions,
   mergeCaptionLineTextStyles,
   normalizeCaptionClock,
   outputToSource,
@@ -3194,7 +3194,7 @@ async function applySoftReload() {
   window.akari.state = { editPath: 'edit.json', summary };
 
   cutInfoPopup.hidden = true;
-  _lastCaptionId = null;
+  for (const row of captionRows.values()) row.caption = null;
 
   // 再生位置と状態を復元（新しい総尺にクランプ）
   seekTo(Math.min(keep.t, totalDuration));
@@ -4196,7 +4196,7 @@ const CAPTION_STYLE_VARS = [
   '--caption-line-margin', '--caption-line-max-width', '--caption-line-width', '--caption-text-align'
 ];
 
-function applyCaptionStyle(caption) {
+function applyCaptionStyle(caption, captionPlate) {
   for (const name of CAPTION_STYLE_VARS) captionPlate.style.removeProperty(name);
   let vars = {};
   if (captionsResolvedTimeline) {
@@ -4532,20 +4532,36 @@ function renderResolvedWordTokens(active) {
     return `<span class="akari-caption__tok akari-caption__tok--preset" data-emphasis-preset="${esc(style.preset_id)}" style="${esc(vars)}">${esc(word.text)}</span>`;
   }).join('');
 }
-let _lastCaptionId = null;
-// 字幕ウィンドウ判定（start/end はソース秒・duration は end 不在時のみ）は
-// 共有カーネル findActiveCaption（edit-kernel.bundle.js — packages/edit-store/src/caption-window.ts）
+const captionRows = new Map();
 function updateCaption() {
   if (!captionFontsReady) return;
-  const caps = captionsOutputClock;
-  if (!caps.length) { captionPlate.textContent = ''; _lastCaptionId = null; return; }
-  // 判定は出力秒だけ（refreshCaptionClock 参照）。source 秒への写像はここでは行わない。
-  const active = findActiveCaption(caps, outputTime);
-  if (!active) { captionPlate.textContent = ''; _lastCaptionId = null; return; }
-  const activeKey = active.fragmentKey ?? active.id;
-  if (activeKey === _lastCaptionId) return;
-  _lastCaptionId = activeKey;
-  applyCaptionStyle(active);
+  const active = findActiveCaptions(captionsOutputClock, outputTime);
+  const keys = new Set(active.map(caption => caption.fragmentKey ?? caption.id));
+  for (const [key, row] of captionRows) {
+    if (!keys.has(key)) { row.plate.remove(); captionRows.delete(key); }
+  }
+  for (const caption of active) {
+    const key = caption.fragmentKey ?? caption.id;
+    let row = captionRows.get(key);
+    if (!row) {
+      const plate = document.createElement('div');
+      plate.id = 'caption-plate-' + encodeURIComponent(key);
+      plate.className = 'caption-row-plate';
+      row = { plate, caption: null };
+      captionRows.set(key, row);
+    }
+    const index = active.indexOf(caption);
+    if (captionPlate.children[index] !== row.plate) {
+      captionPlate.insertBefore(row.plate, captionPlate.children[index] || null);
+    }
+    if (row.caption !== caption) {
+      row.caption = caption;
+      renderCaptionRow(caption, row.plate);
+    }
+  }
+}
+function renderCaptionRow(active, captionPlate) {
+  applyCaptionStyle(active, captionPlate);
   const words = normalizeWords(active.words);
   const emphasisWords = summary?.emphasis_words;
   const hasWords = words.length > 0;
@@ -4609,13 +4625,14 @@ function updateCaption() {
   }
 }
 function syncCaptionAnimations() {
-  const start = Number(captionPlate.dataset.captionStart);
-  if (!Number.isFinite(start)) return;
-  // cue の start は出力秒（normalizeCaptionClock 済み）なので、アニメ時刻も出力秒で取る。
-  const localMs = Math.max(0, (outputTime - start) * 1000);
-  for (const a of captionPlate.getAnimations({ subtree: true })) {
-    a.pause();
-    a.currentTime = localMs;
+  for (const { plate } of captionRows.values()) {
+    const start = Number(plate.dataset.captionStart);
+    if (!Number.isFinite(start)) continue;
+    const localMs = Math.max(0, (outputTime - start) * 1000);
+    for (const animation of plate.getAnimations({ subtree: true })) {
+      animation.pause();
+      animation.currentTime = localMs;
+    }
   }
 }
 function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
@@ -4659,7 +4676,7 @@ function connectWs() {
           if (summaryResponse.ok) summary = await summaryResponse.json();
           if (captionsBody !== null) {
             applyCaptionApiPayload(captionsBody);
-            _lastCaptionId = null;
+            for (const row of captionRows.values()) row.caption = null;
             updateCaption();
           }
         }).catch(() => {});

@@ -26,7 +26,7 @@ test('webview sends a generation with each scope request and serializes current 
   assert.ok(source.indexOf('// BEGIN preview bag response') > source.indexOf('protected previewBootstrapScript()'),
     'response must share lexical scope with summary, plates and applyIncrementalModel');
   assert.match(bridge, /bagMountTail = bagMountTail\.then\(async \(\) =>/u);
-  assert.match(bridge, /window\.akari\.state\.summary = summary;\s*await window\.akari\.runtime\.mount\(summary\);[\s\S]*stage\.append\(transitionPlate, transitionFallbackLabel, captionPlate\);\s*applyIncrementalModel\(summary\)/u);
+  assert.match(bridge, /window\.akari\.state\.summary = summary;\s*await window\.akari\.runtime\.mount\(summary\);[\s\S]*stage\.append\(transitionPlate, transitionFallbackLabel, captionLayer\);\s*applyIncrementalModel\(summary\)/u);
 });
 test('shared projector masks an untouched summary record without recomposing its world geometry', () => {
   const html = '<div data-akari-part="A">Alpha</div><div data-akari-part="B">Beta</div>';

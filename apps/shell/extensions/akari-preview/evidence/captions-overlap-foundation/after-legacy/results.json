@@ -1,0 +1,54 @@
+{
+  "status": "observed",
+  "label": "after-legacy",
+  "startedAt": "2026-09-21T18:30:08.355Z",
+  "steps": [
+    {
+      "step": "collapse-side-panels",
+      "collapsed": "left,right,bottom"
+    },
+    {
+      "step": "overlap-at-3s",
+      "plates": [
+        {
+          "id": "caption-plate",
+          "text": "上に置いた文字二行目の字幕"
+        },
+        {
+          "id": "caption-plate-c-0004",
+          "text": "上に置いた文字"
+        },
+        {
+          "id": "caption-plate-c-0002-output-1",
+          "text": "二行目の字幕"
+        }
+      ]
+    },
+    {
+      "step": "placed-position",
+      "size_px": 48,
+      "text_anchor": "tc",
+      "position": {
+        "x": 0.4202,
+        "y": 0.1517
+      }
+    },
+    {
+      "step": "lower-edited",
+      "id": "c-0002",
+      "text": "二行目の字幕を編集"
+    }
+  ],
+  "checks": [
+    {
+      "ok": true,
+      "message": "drag changes only placed row"
+    },
+    {
+      "ok": true,
+      "message": "lower text edit preserves placed row"
+    }
+  ],
+  "failures": [],
+  "notes": []
+}
