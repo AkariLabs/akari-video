@@ -3,7 +3,7 @@ import { CommandRegistry } from '@theia/core/lib/common';
 import { GENERATION_PICK_INTO_COMMAND_ID, type GenerationPickRequest, type GenerationPickResult } from '../common/generation-pick-mirror';
 import { AkariAnnotationsService } from '../common/akari-annotations-protocol';
 import type { GenerationValidationResult } from '../common/akari-annotations-protocol';
-import { selectGenerationSidecarForSource, TRANSITION_VOCABULARY } from '@akari-video/edit-store';
+import { resolveGenerationState, selectGenerationSidecarForSource, TRANSITION_VOCABULARY } from '@akari-video/edit-store';
 import { BaseWidget } from '@theia/core/lib/browser';
 import { ConfirmDialog } from '@theia/core/lib/browser/dialogs';
 import { FileDialogService } from '@theia/filesystem/lib/browser';
@@ -79,6 +79,7 @@ import {
     type GenerationFieldDef,
     type GenerationValidation
 } from './inspector/generation-fields';
+import { buildGenerationBatch, executeGenerationBatch, type GenerationBatchItem, type GenerationBatchProgress } from './inspector/generation-batch';
 import { buildRgbCurveEditor, buildHueCurveEditor, buildColorWheelEditor, type AdjustEditorWrite } from './inspector/adjust-editors';
 import { INSPECTOR_LOOK_PRESETS, matchLookPreset } from './inspector/look-presets';
 import { buildLutOptions } from './inspector/lut-options';
@@ -2396,6 +2397,15 @@ export class AkariInspectorWidget extends BaseWidget {
     protected generationDetailsOpen = false;
     protected readonly generationDraftTimers = new Map<string, number>();
 
+    protected batchSelectionKey?: string;
+    protected batchItems: GenerationBatchItem[] = [];
+    protected batchLoading = false;
+    protected batchLoadRevision = 0;
+    protected batchWatching = false;
+    protected batchRun?: { projectRootUri: string; stopped: boolean; active: boolean;
+        progress: Map<string, { state: GenerationBatchProgress; reason?: string }> };
+    protected batchConfirming = false;
+
     @postConstruct()
     protected init(): void {
         this.id = AkariInspectorWidget.FACTORY_ID;
@@ -2430,6 +2440,27 @@ export class AkariInspectorWidget extends BaseWidget {
 
         const style = document.createElement('style');
         style.textContent = `
+    .akari-generation-batch { padding: 12px; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+    .akari-generation-batch h3, .akari-generation-batch p { margin: 0; }
+    .akari-generation-batch-list { display: flex; flex-direction: column; gap: 8px; }
+    .akari-generation-batch-row { display: grid; grid-template-columns: 48px minmax(0, 1fr); gap: 6px 10px;
+        padding: 8px; border: 1px solid var(--theia-panel-border, #555); border-radius: 4px; }
+    .akari-generation-batch-thumbnail { width: 48px; height: 32px; object-fit: cover;
+        background: var(--theia-editor-inactiveSelectionBackground, #333); grid-row: 1 / 3; }
+    .akari-generation-batch-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .akari-generation-batch-duration { font-size: 11px; opacity: .8; }
+    .akari-generation-batch-badge { grid-column: 1 / -1; min-width: 0; overflow: hidden;
+        white-space: nowrap; text-overflow: ellipsis; border-radius: 3px; padding: 4px 6px;
+        background: var(--theia-editor-inactiveSelectionBackground, #333); }
+    .akari-generation-batch-note { font-size: 11px; line-height: 1.6; overflow-wrap: anywhere; }
+    .akari-generation-batch button.akari-generation-batch-submit,
+    .akari-generation-batch button.akari-generation-batch-stop {
+        border: 1px solid var(--theia-button-background, #777); padding: 8px 10px;
+        background: var(--theia-button-background, #365e92); color: var(--theia-button-foreground, #fff); }
+    .akari-generation-batch button.akari-generation-batch-stop { background: var(--theia-editor-background, #222);
+        color: var(--theia-foreground, #eee); }
+    .akari-generation-batch button:disabled { opacity: .5; cursor: default; }
+
     .akari-inspector-widget .akari-inspector-adjust-compare { padding: 6px; border: 1px solid var(--theia-panel-border); }
     .akari-inspector-widget .akari-inspector-adjust-compare[aria-pressed="true"] {
         background: var(--theia-button-background); color: var(--theia-button-foreground);
@@ -3240,6 +3271,7 @@ export class AkariInspectorWidget extends BaseWidget {
                 this.tabSelectionKey = undefined;
                 this.currentTab = undefined;
                 this.explicitTabId = undefined;
+                this.renderGenerationBatch?.(snapshot.items);
                 return;
             }
             sections = MULTI_CAPTION_SECTIONS(captions, requestWrite, {
@@ -3808,6 +3840,212 @@ export class AkariInspectorWidget extends BaseWidget {
 
     protected setOptionalFieldVisible(kind: string, fieldName: string, visible: boolean): void {
         window.localStorage.setItem(`akari.inspector.optional.v1:${kind}:${fieldName}`, String(visible));
+    }
+
+    protected batchBaseItem(item: InspectorSnapshot): GenerationBatchItem {
+        const identity = this.generationIdentity(item);
+        const sourcePath = item.kind === 'cut' ? item.sourcePath
+            : item.kind === 'layer' ? item.src : undefined;
+        return {
+            itemId: item.kind === 'cut' ? item.itemId ?? `cut:${item.index}` : item.id,
+            name: item.kind === 'caption' ? item.text : item.clipName,
+            duration: item.kind === 'cut' || item.kind === 'caption'
+                ? Math.max(0, (item.outputEnd ?? 0) - (item.outputStart ?? 0)) : item.duration,
+            start: item.outputStart ?? 0,
+            track: 'track' in item ? item.track : undefined,
+            visual: !!identity || (item.kind === 'cut' || item.kind === 'layer') && !!sourcePath,
+            sourcePath
+        };
+    }
+
+    protected watchGenerationBatch(): void {
+        if (this.batchWatching) return;
+        this.batchWatching = true;
+        let timer: number | undefined;
+        this.toDispose.push(this.fileService.onDidFilesChange(event => {
+            if (!event.changes.some(change => /(?:edit\.json|\.inputs\.json|\.meta\.json)$/u.test(change.resource.path.toString()))) return;
+            window.clearTimeout(timer);
+            timer = window.setTimeout(() => {
+                this.batchSelectionKey = undefined;
+                if (!this.isDisposed && this.model.snapshot?.kind === 'multi') this.render();
+            }, 150);
+        }));
+        this.toDispose.push({ dispose: () => window.clearTimeout(timer) });
+    }
+
+    protected async loadGenerationBatch(items: readonly InspectorSnapshot[], revision: number): Promise<void> {
+        const loaded: GenerationBatchItem[] = [];
+        try {
+            await this.workspaceService.ready;
+            const root = this.workspaceService.tryGetRoots()[0]?.resource;
+            if (!root) throw new Error('プロジェクトが開かれていません。');
+            for (const item of items) {
+                if (revision !== this.batchLoadRevision || this.isDisposed) return;
+                const row = this.batchBaseItem(item);
+                const identity = this.generationIdentity(item);
+                if (identity) {
+                    // The single-selection loader owns duration and RPC validation/rounding.
+                    this.generationValidations.delete(identity.key);
+                    await this.loadGeneration(identity);
+                    row.draft = this.generationDrafts.get(identity.key);
+                    row.validation = this.generationValidations.get(identity.key) ?? {
+                        ok: false, messages: [{ level: 'error', text: '入力・見積を読み込めませんでした' }]
+                    };
+                }
+                if (row.sourcePath && row.visual) {
+                    const sidecars = await this.layerAudioService.readGenerationSidecars({
+                        projectRootUri: root.toString(), sourcePaths: [row.sourcePath]
+                    });
+                    const normalize = (value: string): string => value.replace(/\\/gu, '/').replace(/^(?:\.\/)+/u, '');
+                    const direct = sidecars.entries.find(entry => normalize(entry.sourcePath) === normalize(row.sourcePath!));
+                    const selected = selectGenerationSidecarForSource(row.sourcePath, sidecars.entries, Date.now());
+                    row.meta = direct?.meta ?? selected?.meta;
+                    row.state = selected?.binding?.matches === false ? 'orphan'
+                        : selected?.meta?.kind === 'video' ? resolveGenerationState(selected.meta, Date.now()) : 'none';
+                }
+                loaded.push(row);
+            }
+        } catch (error) {
+            // Unread rows remain excluded; successfully validated rows retain their estimates.
+            for (const item of items.slice(loaded.length)) loaded.push({ ...this.batchBaseItem(item), state: 'orphan' });
+            if (revision === this.batchLoadRevision) this.showFieldNotice(String(error));
+        }
+        if (revision !== this.batchLoadRevision || this.isDisposed) return;
+        this.batchItems = loaded;
+        this.batchLoading = false;
+        if (this.model.snapshot?.kind === 'multi') this.render();
+    }
+
+    protected renderGenerationBatch(items: readonly InspectorSnapshot[]): void {
+        this.watchGenerationBatch();
+        const projectRootUri = this.workspaceService.tryGetRoots()[0]?.resource.toString() ?? '';
+        const key = `${projectRootUri}:${JSON.stringify(items.map(item => this.batchBaseItem(item)))}`;
+        if (this.batchSelectionKey !== key) {
+            this.batchSelectionKey = key;
+            this.batchItems = items.map(item => this.batchBaseItem(item));
+            this.batchLoading = true;
+            void this.loadGenerationBatch(items, ++this.batchLoadRevision);
+        }
+        const run = this.batchRun?.projectRootUri === projectRootUri ? this.batchRun : undefined;
+        const batch = buildGenerationBatch(this.batchItems.map(item => {
+            const progress = run?.progress.get(item.itemId)?.state;
+            return progress === '完了' ? { ...item, state: 'done' }
+                : progress === '生成中' ? { ...item, state: 'generating' } : item;
+        }));
+        const panel = document.createElement('section');
+        panel.className = 'akari-generation-batch';
+        panel.setAttribute('aria-label', '複数選択');
+        const heading = document.createElement('h3');
+        heading.textContent = `${items.length} 個を選択中`;
+        panel.appendChild(heading);
+        const list = document.createElement('div');
+        list.className = 'akari-generation-batch-list';
+        for (const row of batch.rows) {
+            const element = document.createElement('div');
+            element.className = 'akari-generation-batch-row';
+            element.setAttribute('data-akari-generation-item', row.itemId);
+            const thumbnail = document.createElement('img');
+            thumbnail.className = 'akari-generation-batch-thumbnail';
+            thumbnail.alt = '';
+            if (row.sourcePath) void this.generationThumbnail(row.sourcePath).then(src => {
+                if (src && element.isConnected) thumbnail.src = src;
+            });
+            const name = document.createElement('div');
+            name.className = 'akari-generation-batch-name';
+            name.textContent = row.name || row.itemId;
+            name.title = `${row.name || row.itemId} (${row.itemId})`;
+            const duration = document.createElement('span');
+            duration.className = 'akari-generation-batch-duration';
+            duration.textContent = `${row.duration.toFixed(2)} 秒`;
+            const badge = document.createElement('div');
+            badge.className = 'akari-generation-batch-badge';
+            const progress = run?.progress.get(row.itemId);
+            badge.textContent = progress?.state ?? (this.batchLoading && row.visual ? '見積を確認中' : row.badge);
+            badge.title = progress?.reason ?? badge.textContent;
+            element.append(thumbnail, name, duration, badge);
+            list.appendChild(element);
+        }
+        panel.appendChild(list);
+        const summary = document.createElement('p');
+        summary.className = 'akari-generation-batch-summary';
+        summary.textContent = this.batchLoading ? '見積を確認中…' : batch.summary;
+        panel.appendChild(summary);
+        const note = (text: string): void => {
+            const p = document.createElement('p');
+            p.className = 'akari-generation-batch-note';
+            p.textContent = text;
+            panel.appendChild(p);
+        };
+        note('1 本ずつの見積の合計 · 承認は 1 回');
+        note(`as_of ${batch.asOf}`);
+        const submit = document.createElement('button');
+        submit.className = 'akari-generation-batch-submit';
+        submit.textContent = 'まとめて動画にする…';
+        submit.disabled = this.batchLoading || batch.count === 0 || this.batchConfirming || !!this.batchRun?.active;
+        submit.onclick = () => { void this.confirmGenerationBatch(batch, projectRootUri); };
+        panel.appendChild(submit);
+        if (this.batchRun?.active) {
+            const stop = document.createElement('button');
+            stop.className = 'akari-generation-batch-stop';
+            stop.textContent = this.batchRun.stopped ? '残りを中止しました' : '残りをやめる';
+            stop.disabled = this.batchRun.stopped;
+            stop.onclick = () => {
+                if (this.batchRun) this.batchRun.stopped = true;
+                this.render();
+            };
+            panel.appendChild(stop);
+        }
+        note('画像のまま・空の枠・生成済みは対象外。全部を自動で動画にするボタンはありません');
+        this.body.appendChild(panel);
+    }
+
+    protected async confirmGenerationBatch(batch: ReturnType<typeof buildGenerationBatch>, projectRootUri: string): Promise<void> {
+        if (this.batchConfirming || this.batchRun?.active || !batch.count || !projectRootUri) return;
+        const drafts = new Map(batch.rows.filter(row => row.eligible && row.draft)
+            .map(row => [row.itemId, structuredClone(row.draft!)]));
+        this.batchConfirming = true;
+        this.render();
+        try {
+            const amount = batch.unknown ? `一部見積不可（見積可能分 $${batch.total.toFixed(2)}）` : `合計 $${batch.total.toFixed(2)}`;
+            const approved = await new ConfirmDialog({ title: '費用承認',
+                msg: `${batch.count} 本を${amount}（as_of ${batch.asOf}）で送ります。費用承認しますか`,
+                ok: '費用承認する', cancel: 'キャンセル' }).open();
+            if (!approved) return;
+            const run = { projectRootUri, stopped: false, active: true,
+                progress: new Map<string, { state: GenerationBatchProgress; reason?: string }>() };
+            this.batchRun = run;
+            try {
+                await executeGenerationBatch({ rows: batch.rows, projectRootUri, approved: true,
+                    start: async request => {
+                        // The CLI reads next.output.duration_s. Persist the approved cuts-based
+                        // draft so the submitted input and the displayed estimate agree.
+                        const draft = drafts.get(request.itemId)!;
+                        await this.layerAudioService.writeGenerationDraft({ projectRootUri, itemId: request.itemId, ...draft });
+                        if (run.stopped) throw new Error('送信前に中止しました');
+                        // This RPC resolves on CLI process close, not on submission.
+                        return { completion: this.layerAudioService.startGenerateVideo(request) };
+                    },
+                    wait: handle => handle.completion,
+                    stopped: () => run.stopped,
+                    progress: (itemId, state, reason) => {
+                        run.progress.set(itemId, { state, reason });
+                        if (state === '生成中' || state === '完了' || state === '失敗') {
+                            this.generationStates.set(itemId, state === '生成中' ? 'generating' : state === '完了' ? 'done' : 'failed');
+                            this.generationLoads.delete(itemId);
+                        }
+                        if (!this.isDisposed) this.render();
+                    }
+                });
+            } finally {
+                run.active = false;
+                this.batchSelectionKey = undefined;
+            }
+        } catch (error) {
+            this.showFieldNotice(String(error));
+        } finally {
+            this.batchConfirming = false;
+            if (!this.isDisposed) this.render();
+        }
     }
 
     protected generationIdentity(snapshot: TimelineSelectionModel['snapshot']): {
