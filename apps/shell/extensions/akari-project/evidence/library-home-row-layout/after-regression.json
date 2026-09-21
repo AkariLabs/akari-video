@@ -1,0 +1,117 @@
+{
+ "myTiles": [
+  {
+   "key": "fav",
+   "disabled": true,
+   "left": 56,
+   "width": 89,
+   "height": 71,
+   "text": [
+    "★",
+    "お気に入り",
+    "近日"
+   ]
+  },
+  {
+   "key": "brandkit",
+   "disabled": true,
+   "left": 151,
+   "width": 89,
+   "height": 71,
+   "text": [
+    "◈",
+    "ブランドキット",
+    "近日"
+   ]
+  },
+  {
+   "key": "mypresets",
+   "disabled": true,
+   "left": 247,
+   "width": 89,
+   "height": 71,
+   "text": [
+    "✎",
+    "保存したプリセット",
+    "近日"
+   ]
+  }
+ ],
+ "rowClick": {
+  "clicked": "sfx",
+  "homeVisible": false,
+  "back": true,
+  "pageKey": "sfx",
+  "count": "96"
+ },
+ "search": {
+  "results": "108",
+  "homePadding": "8px 10px 12px",
+  "rows": [
+   {
+    "kind": "catalog",
+    "category": "bgm",
+    "label": "After the Rain",
+    "order": true,
+    "rowNoOverflow": true,
+    "padding": "7px 9px"
+   },
+   {
+    "kind": "catalog",
+    "category": "bgm",
+    "label": "AKARI Sounds BGM（v0）",
+    "order": true,
+    "rowNoOverflow": true,
+    "padding": "7px 9px"
+   },
+   {
+    "kind": "catalog",
+    "category": "bgm",
+    "label": "Bar One Hit",
+    "order": true,
+    "rowNoOverflow": true,
+    "padding": "7px 9px"
+   },
+   {
+    "kind": "catalog",
+    "category": "bgm",
+    "label": "Beehive Turnaround",
+    "order": true,
+    "rowNoOverflow": true,
+    "padding": "7px 9px"
+   },
+   {
+    "kind": "catalog",
+    "category": "bgm",
+    "label": "bgm-organichouse-110",
+    "order": true,
+    "rowNoOverflow": true,
+    "padding": "7px 9px"
+   },
+   {
+    "kind": "catalog",
+    "category": "bgm",
+    "label": "bgm-techhouse-clicky-112",
+    "order": true,
+    "rowNoOverflow": true,
+    "padding": "7px 9px"
+   },
+   {
+    "kind": "catalog",
+    "category": "bgm",
+    "label": "Blacktop Pursuit",
+    "order": true,
+    "rowNoOverflow": true,
+    "padding": "7px 9px"
+   },
+   {
+    "kind": "catalog",
+    "category": "bgm",
+    "label": "Blue Room Drift",
+    "order": true,
+    "rowNoOverflow": true,
+    "padding": "7px 9px"
+   }
+  ]
+ }
+}
