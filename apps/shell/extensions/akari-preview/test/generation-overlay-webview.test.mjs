@@ -286,3 +286,56 @@ test('webview の全ラッパー呼び出しは minify された既定値に頼�
         assert.equal(previewBootstrapMethod.split(name + '(').length - 1, count, `${name}: 検査外の呼び出しが無い`);
     }
 });
+
+
+test('生成 overlay の文字と札は逆倍率で補正し、絵に重なる部分の比率は維持する', () => {
+    for (const id of ['tag', 'pip-label', 'band', 'mask-label']) {
+        const rule = prepareHtmlMethod.match(new RegExp(`#akari-gen-${id}\\s*\\{([^}]+)`, 'u'))?.[1];
+        assert.ok(rule, id);
+        assert.match(rule, /font: calc\(12px \* var\(--akari-gen-inv-scale\)\)/u, id);
+    }
+    assert.match(prepareHtmlMethod, /#akari-gen-tag \{[^}]*min-height: calc\(22px \* var\(--akari-gen-inv-scale\)\)/u);
+    assert.match(prepareHtmlMethod, /#akari-gen-band \{[^}]*height: calc\(26px \* var\(--akari-gen-inv-scale\)\)/u);
+    assert.match(prepareHtmlMethod, /#akari-gen-band-bar \{[^}]*height: calc\(3px \* var\(--akari-gen-inv-scale\)\)/u);
+    assert.match(prepareHtmlMethod, /#akari-gen-pip \{[^}]*width: 22%/u);
+    assert.match(prepareHtmlMethod, /#akari-gen-blur-image \{[^}]*filter: blur\(18px\)/u);
+    assert.match(prepareHtmlMethod, /#akari-gen-mask \{[^}]*border: 2px dashed/u);
+    assert.match(methods.get('hostAdapterScript'), /layersStage\.style\.transform = stageTransform;\s*window\.akari\.updateGenerationOverlayLayout\?\.\(\);/u);
+    const zoom = previewBootstrapMethod.slice(previewBootstrapMethod.indexOf('const renderZoom ='), previewBootstrapMethod.indexOf('const setZoom ='));
+    assert.match(zoom, /globalThis\.window\?\.akari\?\.updateGenerationOverlayLayout\?\.\(\);/u);
+    assert.match(previewBootstrapMethod, /window\.akari\.updateGenerationOverlayLayout = updateGenerationOverlayLayout/u);
+    assert.match(previewBootstrapMethod, /generationMask\.style\.height[^;]+;\s*\}\s*updateGenerationOverlayLayout\(\);/u);
+});
+
+test('生成 overlay のレイアウトは実効倍率を使い、収まらない動画予定だけを省略して再拡大で復元する', () => {
+    const start = previewBootstrapMethod.indexOf('const updateGenerationOverlayLayout = () => {');
+    const end = previewBootstrapMethod.indexOf('if (generationOverlay) window.akari.updateGenerationOverlayLayout =', start);
+    assert.ok(start >= 0 && end > start);
+    const run = new Function('layersStage', 'generationOverlay', 'generationBand', 'generationTag', 'generationTagText',
+        previewBootstrapMethod.slice(start, end) + '\nupdateGenerationOverlayLayout();');
+    let screenWidth = 810;
+    const stage = { offsetWidth: 1920, getBoundingClientRect: () => ({ width: screenWidth }) };
+    const properties = new Map();
+    const overlay = { hidden: false, style: { setProperty: (name, value) => properties.set(name, value) } };
+    const band = { hidden: true };
+    const tag = { textContent: '', clientWidth: 300, get scrollWidth() { return this.textContent.length * 12; } };
+    const full = '▶ 動画予定 · 最初→最後';
+    for (screenWidth of [810, 400, 1920, 3840]) {
+        run(stage, overlay, band, tag, full);
+        assert.equal(Number(properties.get('--akari-gen-inv-scale')), 1920 / screenWidth);
+        assert.equal(properties.get('--akari-gen-band-space'), '0px');
+        assert.equal(tag.textContent, full);
+    }
+    tag.clientWidth = 100;
+    run(stage, overlay, band, tag, full);
+    assert.equal(tag.textContent, '▶ 動画予定');
+    tag.clientWidth = 300;
+    band.hidden = false;
+    run(stage, overlay, band, tag, full);
+    assert.equal(tag.textContent, full);
+    assert.equal(properties.get('--akari-gen-band-space'), '26px');
+    screenWidth = 0;
+    properties.clear();
+    run(stage, overlay, band, tag, full);
+    assert.equal(properties.size, 0, '非表示寸法から Infinity を CSS に流さない');
+});

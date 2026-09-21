@@ -7114,26 +7114,27 @@ ${kind === 'raw' ? '.akari-material-chip { position: absolute; top: 8px; left: 8
 #caption-zone-highlight { position: absolute; z-index: 1880; display: none; box-sizing: border-box; border: 1px dashed #4da3ff; background: rgba(77,163,255,.14); pointer-events: none; }
 #caption-zone-highlight.is-active { display: block; }
 #overlay-stage { position: absolute; top: 0; left: 0; width: ${width}px; height: ${height}px; overflow: hidden; pointer-events: none; }
-#akari-gen-overlay { position: absolute; inset: 0; pointer-events: none; z-index: 2100; }
+#akari-gen-overlay { --akari-gen-inv-scale: 1; --akari-gen-band-space: 0px; position: absolute; inset: 0; pointer-events: none; z-index: 2100; }
 #akari-gen-overlay *, #akari-gen-overlay *::before, #akari-gen-overlay *::after { pointer-events: none; }
 #akari-gen-blur { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
 #akari-gen-blur-image { width: 100%; height: 100%; object-fit: cover; filter: blur(18px) brightness(.65); transform: scale(1.06); pointer-events: none; }
-#akari-gen-pip { position: absolute; right: 10px; bottom: 10px; width: 22%; pointer-events: none; }
+#akari-gen-pip { position: absolute; right: calc(10px * var(--akari-gen-inv-scale)); bottom: calc((10px + var(--akari-gen-band-space)) * var(--akari-gen-inv-scale)); width: 22%; pointer-events: none; }
 #akari-gen-pip-image { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: contain; background: rgba(0,0,0,.6); border-radius: 6px; border: 1px solid #A99AF2; box-sizing: border-box; pointer-events: none; }
-#akari-gen-pip-label { display: block; margin-bottom: 4px; font: 10.5px/1.4 ui-monospace, Menlo, monospace; color: #E6DFFF; text-shadow: 0 1px 3px #000; }
+#akari-gen-pip-label { display: block; margin-bottom: calc(4px * var(--akari-gen-inv-scale)); font: calc(12px * var(--akari-gen-inv-scale))/1.4 ui-monospace, Menlo, monospace; white-space: nowrap; color: #E6DFFF; text-shadow: 0 calc(1px * var(--akari-gen-inv-scale)) calc(3px * var(--akari-gen-inv-scale)) #000; }
 #akari-gen-tag[data-akari-gen-severity="planned-video"] { border-color: #A99AF2; color: #E6DFFF; background: rgba(42,28,72,.8); }
-#akari-gen-tag { position: absolute; left: 10px; top: 10px; font: 10.5px/1.4 ui-monospace, Menlo, monospace; padding: 2px 8px; border-radius: 4px; background: rgba(0,0,0,.6); color: #DCE6EE; border: 1px dashed #8FA3B4; }
+#akari-gen-tag { position: absolute; left: calc(10px * var(--akari-gen-inv-scale)); top: calc(10px * var(--akari-gen-inv-scale)); font: calc(12px * var(--akari-gen-inv-scale))/1.4 ui-monospace, Menlo, monospace; padding: calc(2px * var(--akari-gen-inv-scale)) calc(8px * var(--akari-gen-inv-scale)); border-radius: calc(4px * var(--akari-gen-inv-scale)); background: rgba(0,0,0,.6); color: #DCE6EE; border: calc(1px * var(--akari-gen-inv-scale)) dashed #8FA3B4; box-sizing: border-box; min-height: calc(22px * var(--akari-gen-inv-scale)); max-width: calc(100% - 20px * var(--akari-gen-inv-scale)); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 #akari-gen-tag[data-akari-gen-severity="generating"] { border-color: #F5C842; color: #F5C842; }
 #akari-gen-tag[data-akari-gen-severity="error"] { border-color: #D6402B; color: #D6402B; border-style: solid; }
 #akari-gen-tag[data-akari-gen-severity="frames"] { border-color: #1F6F8B; color: #1F6F8B; }
-#akari-gen-band { position: absolute; left: 0; right: 0; bottom: 0; height: 26px; box-sizing: border-box; background: rgba(0,0,0,.55); display: flex; align-items: center; gap: 8px; padding: 0 10px; font: 10.5px ui-monospace, Menlo, monospace; color: #F5C842; }
-#akari-gen-band-bar { flex: 1; height: 3px; background: rgba(255,255,255,.2); border-radius: 2px; overflow: hidden; }
+#akari-gen-band { position: absolute; left: 0; right: 0; bottom: 0; height: calc(26px * var(--akari-gen-inv-scale)); box-sizing: border-box; background: rgba(0,0,0,.55); display: flex; align-items: center; gap: calc(8px * var(--akari-gen-inv-scale)); padding: 0 calc(10px * var(--akari-gen-inv-scale)); font: calc(12px * var(--akari-gen-inv-scale))/1.4 ui-monospace, Menlo, monospace; color: #F5C842; }
+#akari-gen-band-text { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#akari-gen-band-bar { flex: 1; min-width: calc(20px * var(--akari-gen-inv-scale)); height: calc(3px * var(--akari-gen-inv-scale)); background: rgba(255,255,255,.2); border-radius: calc(2px * var(--akari-gen-inv-scale)); overflow: hidden; }
 #akari-gen-band-fill { display: block; height: 100%; background: #F5C842; }
 #akari-gen-shimmer { position: absolute; inset: 0; background: linear-gradient(100deg, transparent 35%, rgba(255,255,255,.14) 50%, transparent 65%); background-size: 250% 100%; }
 @media (prefers-reduced-motion: no-preference) { #akari-gen-shimmer { animation: akari-gen-sh 1.6s linear infinite; } }
 @keyframes akari-gen-sh { from { background-position: 120% 0; } to { background-position: -120% 0; } }
 #akari-gen-mask { position: absolute; box-sizing: border-box; border: 2px dashed #D6402B; border-radius: 3px; }
-#akari-gen-mask-label { position: absolute; left: 0; top: -16px; font: 9.5px ui-monospace, Menlo, monospace; color: #D6402B; }
+#akari-gen-mask-label { position: absolute; left: 0; top: calc(-18px * var(--akari-gen-inv-scale)); font: calc(12px * var(--akari-gen-inv-scale))/1.4 ui-monospace, Menlo, monospace; white-space: nowrap; color: #D6402B; }
 #akari-gen-overlay[hidden], #akari-gen-overlay [hidden] { display: none; }
 #pen-layer { position: absolute; top: 0; left: 0; z-index: 2; pointer-events: none; }
 #pen-layer.is-active { pointer-events: auto; cursor: crosshair; touch-action: none; }
@@ -8831,6 +8832,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 layersStage.style.width = outputWidth + 'px';
                 layersStage.style.height = outputHeight + 'px';
                 layersStage.style.transform = stageTransform;
+                window.akari.updateGenerationOverlayLayout?.();
                 for (const layerVideo of layersStage.querySelectorAll('[data-akari-layer-id]')) {
                     applyLayerStyleMediaLayout(layerVideo, outputWidth, outputHeight);
                 }
@@ -14605,6 +14607,7 @@ body { display: grid; place-items: center; padding: 32px; }
             const renderZoom = () => {
                 zoomLayer.style.transform = 'translate(' + pan.x.toFixed(3) + 'px, '
                     + pan.y.toFixed(3) + 'px) scale(' + zoom + ')';
+                globalThis.window?.akari?.updateGenerationOverlayLayout?.();
                 zoomValue.textContent = Math.round(zoom * 100) + '%';
                 zoomSlider.value = String(zoomToSlider(zoom));
                 const isZoomed = zoom > 1.05;
@@ -16658,6 +16661,21 @@ body { display: grid; place-items: center; padding: 32px; }
             const generationBandText = document.getElementById('akari-gen-band-text');
             const generationBandBar = document.getElementById('akari-gen-band-bar');
             const generationBandFill = document.getElementById('akari-gen-band-fill');
+            let generationTagText = '';
+            // 出力座標系は維持し、札と文字だけを画面 px に戻す。layersStage の実測は
+            // updateStageScale の frameScale と外側 zoom-layer の倍率の両方を含む。
+            const updateGenerationOverlayLayout = () => {
+                if (!generationOverlay || generationOverlay.hidden) return;
+                const scale = layersStage.getBoundingClientRect().width / layersStage.offsetWidth;
+                if (!Number.isFinite(scale) || scale <= 0) return;
+                generationOverlay.style.setProperty('--akari-gen-inv-scale', String(1 / scale));
+                generationOverlay.style.setProperty('--akari-gen-band-space', generationBand.hidden ? '0px' : '26px');
+                generationTag.textContent = generationTagText;
+                if (generationTagText.startsWith('▶ 動画予定') && generationTag.scrollWidth > generationTag.clientWidth) {
+                    generationTag.textContent = '▶ 動画予定';
+                }
+            };
+            if (generationOverlay) window.akari.updateGenerationOverlayLayout = updateGenerationOverlayLayout;
             let generationClips = [];
             let generationExportLook = typeof initial !== 'undefined' && initial.exportLook === true;
             const hideGenerationOverlay = () => {
@@ -16704,7 +16722,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 setGenerationImage(generationPip, generationPipImage, description.pip, clip.pipUri);
                 setGenerationImage(generationBlur, generationBlurImage, description.blurBackground, clip.blurBackgroundUri);
                 generationTag.hidden = description.tag === null;
-                generationTag.textContent = description.tag || '';
+                generationTagText = description.tag || '';
                 if (state === 'failed') generationTag.dataset.akariGenSeverity = 'error';
                 else if (clip.meta && clip.meta.kind === 'frames') generationTag.dataset.akariGenSeverity = 'frames';
                 else if (state === 'generating') generationTag.dataset.akariGenSeverity = 'generating';
@@ -16724,6 +16742,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     generationMask.style.width = (description.maskRect.w * 100) + '%';
                     generationMask.style.height = (description.maskRect.h * 100) + '%';
                 }
+                updateGenerationOverlayLayout();
             };
             const onMainVideoLoadedMetadata = event => {
                 if (event.currentTarget !== video) return;

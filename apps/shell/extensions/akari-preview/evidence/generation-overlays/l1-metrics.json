@@ -1,5 +1,5 @@
 {
-  "assertionCount": 37,
+  "assertionCount": 91,
   "measurements": {
     "still": {
       "layerPresent": true,
@@ -16,6 +16,9 @@
         "pointerEvents": "none",
         "display": "none",
         "position": "absolute",
+        "fontSize": 13,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
         "filter": "none",
         "width": "22%",
         "borderRadius": "0px",
@@ -33,6 +36,9 @@
         "pointerEvents": "none",
         "display": "block",
         "position": "static",
+        "fontSize": 13,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
         "filter": "none",
         "width": "100%",
         "borderRadius": "6px",
@@ -47,6 +53,27 @@
         }
       },
       "pipLabel": "最後の絵",
+      "pipLabelVisible": false,
+      "pipLabelStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "static",
+        "fontSize": 12,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
       "blurVisible": false,
       "blurImage": {
         "src": null,
@@ -58,6 +85,9 @@
         "pointerEvents": "none",
         "display": "none",
         "position": "absolute",
+        "fontSize": 13,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
         "filter": "none",
         "width": "auto",
         "borderRadius": "0px",
@@ -75,6 +105,9 @@
         "pointerEvents": "none",
         "display": "inline",
         "position": "static",
+        "fontSize": 13,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
         "filter": "blur(18px) brightness(0.65)",
         "width": "100%",
         "borderRadius": "0px",
@@ -98,6 +131,9 @@
         "pointerEvents": "none",
         "display": "none",
         "position": "absolute",
+        "fontSize": 12,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
         "filter": "none",
         "width": "auto",
         "borderRadius": "4px",
@@ -116,6 +152,66 @@
       "tagSeverity": null,
       "tagColor": null,
       "bandVisible": false,
+      "bandStyle": {
+        "pointerEvents": "none",
+        "display": "none",
+        "position": "absolute",
+        "fontSize": 12,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "0px",
+        "bottom": "0px",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "bandTextStyle": {
+        "pointerEvents": "none",
+        "display": "inline",
+        "position": "static",
+        "fontSize": 12,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "maskLabelStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "absolute",
+        "fontSize": 12,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
       "bandText": "",
       "bandFillWidth": "",
       "shimmerVisible": false,
@@ -144,12 +240,15 @@
         "pointerEvents": "none",
         "display": "none",
         "position": "absolute",
+        "fontSize": 13,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
         "filter": "none",
         "width": "22%",
         "borderRadius": "0px",
         "borderWidth": "0px",
-        "right": "10px",
-        "bottom": "10px",
+        "right": "23.6453px",
+        "bottom": "23.6453px",
         "rect": {
           "x": 0,
           "y": 0,
@@ -161,6 +260,9 @@
         "pointerEvents": "none",
         "display": "block",
         "position": "static",
+        "fontSize": 13,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
         "filter": "none",
         "width": "100%",
         "borderRadius": "6px",
@@ -175,6 +277,27 @@
         }
       },
       "pipLabel": "最後の絵",
+      "pipLabelVisible": false,
+      "pipLabelStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "static",
+        "fontSize": 28.3744,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
       "blurVisible": false,
       "blurImage": {
         "src": null,
@@ -186,6 +309,9 @@
         "pointerEvents": "none",
         "display": "none",
         "position": "absolute",
+        "fontSize": 13,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
         "filter": "none",
         "width": "auto",
         "borderRadius": "0px",
@@ -203,6 +329,9 @@
         "pointerEvents": "none",
         "display": "inline",
         "position": "static",
+        "fontSize": 13,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
         "filter": "blur(18px) brightness(0.65)",
         "width": "100%",
         "borderRadius": "0px",
@@ -226,17 +355,20 @@
         "pointerEvents": "none",
         "display": "block",
         "position": "absolute",
+        "fontSize": 28.3744,
+        "effectiveScale": 0.4242881918853184,
+        "screenFontSize": 12.03892287183078,
         "filter": "none",
-        "width": "152.688px",
-        "borderRadius": "4px",
-        "borderWidth": "1px",
-        "right": "1757.31px",
-        "bottom": "1049.3px",
+        "width": "405.727px",
+        "borderRadius": "9.45813px",
+        "borderWidth": "2px",
+        "right": "1490.63px",
+        "bottom": "1003.19px",
         "rect": {
-          "x": 40.22916793823242,
-          "y": 264.3541564941406,
-          "width": 64.5740966796875,
-          "height": 8.752410888671875
+          "x": 45.998016357421875,
+          "y": 270.1230163574219,
+          "width": 171.58853149414062,
+          "height": 22.487274169921875
         }
       },
       "tagVisible": true,
@@ -244,6 +376,66 @@
       "tagSeverity": null,
       "tagColor": "rgb(220, 230, 238)",
       "bandVisible": false,
+      "bandStyle": {
+        "pointerEvents": "none",
+        "display": "none",
+        "position": "absolute",
+        "fontSize": 28.3744,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "0px",
+        "bottom": "0px",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "bandTextStyle": {
+        "pointerEvents": "none",
+        "display": "inline",
+        "position": "static",
+        "fontSize": 28.3744,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "maskLabelStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "absolute",
+        "fontSize": 28.3744,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
       "bandText": "",
       "bandFillWidth": "0%",
       "shimmerVisible": false,
@@ -272,12 +464,15 @@
         "pointerEvents": "none",
         "display": "none",
         "position": "absolute",
+        "fontSize": 13,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
         "filter": "none",
         "width": "22%",
         "borderRadius": "0px",
         "borderWidth": "0px",
-        "right": "10px",
-        "bottom": "10px",
+        "right": "23.6453px",
+        "bottom": "85.1232px",
         "rect": {
           "x": 0,
           "y": 0,
@@ -289,6 +484,9 @@
         "pointerEvents": "none",
         "display": "block",
         "position": "static",
+        "fontSize": 13,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
         "filter": "none",
         "width": "100%",
         "borderRadius": "6px",
@@ -303,9 +501,30 @@
         }
       },
       "pipLabel": "最後の絵",
+      "pipLabelVisible": false,
+      "pipLabelStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "static",
+        "fontSize": 28.3744,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
       "blurVisible": true,
       "blurImage": {
-        "src": "http://127.0.0.1:54235/asset/408961225f91d39a69e27301298de8033efddd3d11d366914d96660e23af4560.png",
+        "src": "http://127.0.0.1:56778/asset/83cd9d7af8f22b53b3c790461a2915d30ce12e4d1ee7ccec80c4d28e4355f4df.png",
         "loaded": true,
         "naturalWidth": 1920,
         "naturalHeight": 1080
@@ -314,6 +533,9 @@
         "pointerEvents": "none",
         "display": "block",
         "position": "absolute",
+        "fontSize": 13,
+        "effectiveScale": 0.42291666666666666,
+        "screenFontSize": 5.497916666666667,
         "filter": "none",
         "width": "1920px",
         "borderRadius": "0px",
@@ -331,6 +553,9 @@
         "pointerEvents": "none",
         "display": "inline",
         "position": "static",
+        "fontSize": 13,
+        "effectiveScale": 0.448291665536386,
+        "screenFontSize": 5.827791651973018,
         "filter": "blur(18px) brightness(0.65)",
         "width": "1920px",
         "borderRadius": "0px",
@@ -354,17 +579,20 @@
         "pointerEvents": "none",
         "display": "block",
         "position": "absolute",
+        "fontSize": 28.3744,
+        "effectiveScale": 0.4242881918853184,
+        "screenFontSize": 12.03892287183078,
         "filter": "none",
-        "width": "139.93px",
-        "borderRadius": "4px",
-        "borderWidth": "1px",
-        "right": "1770.07px",
-        "bottom": "1049.3px",
+        "width": "371.273px",
+        "borderRadius": "9.45813px",
+        "borderWidth": "2px",
+        "right": "1525.09px",
+        "bottom": "1003.19px",
         "rect": {
-          "x": 40.22916793823242,
-          "y": 264.3541564941406,
-          "width": 59.178592681884766,
-          "height": 8.752410888671875
+          "x": 45.998016357421875,
+          "y": 270.1230163574219,
+          "width": 157.01773071289062,
+          "height": 22.487274169921875
         }
       },
       "tagVisible": true,
@@ -372,6 +600,66 @@
       "tagSeverity": "generating",
       "tagColor": "rgb(245, 200, 66)",
       "bandVisible": true,
+      "bandStyle": {
+        "pointerEvents": "none",
+        "display": "flex",
+        "position": "absolute",
+        "fontSize": 28.3744,
+        "effectiveScale": 0.42622050300973363,
+        "screenFontSize": 12.093751040599386,
+        "filter": "none",
+        "width": "1920px",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "0px",
+        "bottom": "0px",
+        "rect": {
+          "x": 36,
+          "y": 690.8755493164062,
+          "width": 812,
+          "height": 25.99945068359375
+        }
+      },
+      "bandTextStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "static",
+        "fontSize": 28.3744,
+        "effectiveScale": 0.4199432373046875,
+        "screenFontSize": 11.915637392578127,
+        "filter": "none",
+        "width": "386.477px",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 45.998016357421875,
+          "y": 695.4747314453125,
+          "width": 163.4473876953125,
+          "height": 16.7977294921875
+        }
+      },
+      "maskLabelStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "absolute",
+        "fontSize": 28.3744,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
       "bandText": "生成中 62% · 残り約 40 秒",
       "bandFillWidth": "62%",
       "shimmerVisible": true,
@@ -400,12 +688,15 @@
         "pointerEvents": "none",
         "display": "none",
         "position": "absolute",
+        "fontSize": 13,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
         "filter": "none",
         "width": "22%",
         "borderRadius": "0px",
         "borderWidth": "0px",
-        "right": "10px",
-        "bottom": "10px",
+        "right": "23.6453px",
+        "bottom": "85.1232px",
         "rect": {
           "x": 0,
           "y": 0,
@@ -417,6 +708,9 @@
         "pointerEvents": "none",
         "display": "block",
         "position": "static",
+        "fontSize": 13,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
         "filter": "none",
         "width": "100%",
         "borderRadius": "6px",
@@ -431,6 +725,27 @@
         }
       },
       "pipLabel": "最後の絵",
+      "pipLabelVisible": false,
+      "pipLabelStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "static",
+        "fontSize": 28.3744,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
       "blurVisible": false,
       "blurImage": {
         "src": null,
@@ -442,6 +757,9 @@
         "pointerEvents": "none",
         "display": "none",
         "position": "absolute",
+        "fontSize": 13,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
         "filter": "none",
         "width": "auto",
         "borderRadius": "0px",
@@ -459,6 +777,9 @@
         "pointerEvents": "none",
         "display": "inline",
         "position": "static",
+        "fontSize": 13,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
         "filter": "blur(18px) brightness(0.65)",
         "width": "100%",
         "borderRadius": "0px",
@@ -482,17 +803,20 @@
         "pointerEvents": "none",
         "display": "block",
         "position": "absolute",
+        "fontSize": 28.3744,
+        "effectiveScale": 0.4242881918853184,
+        "screenFontSize": 12.03892287183078,
         "filter": "none",
-        "width": "162.969px",
-        "borderRadius": "4px",
-        "borderWidth": "1px",
-        "right": "1747.03px",
-        "bottom": "1049.3px",
+        "width": "433.516px",
+        "borderRadius": "9.45813px",
+        "borderWidth": "2px",
+        "right": "1462.84px",
+        "bottom": "1003.19px",
         "rect": {
-          "x": 40.22916793823242,
-          "y": 264.3541564941406,
-          "width": 68.92219543457031,
-          "height": 8.752410888671875
+          "x": 45.998016357421875,
+          "y": 270.1230163574219,
+          "width": 183.3409881591797,
+          "height": 22.487274169921875
         }
       },
       "tagVisible": true,
@@ -500,6 +824,66 @@
       "tagSeverity": null,
       "tagColor": "rgb(220, 230, 238)",
       "bandVisible": true,
+      "bandStyle": {
+        "pointerEvents": "none",
+        "display": "flex",
+        "position": "absolute",
+        "fontSize": 28.3744,
+        "effectiveScale": 0.42622050300973363,
+        "screenFontSize": 12.093751040599386,
+        "filter": "none",
+        "width": "1920px",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "0px",
+        "bottom": "0px",
+        "rect": {
+          "x": 36,
+          "y": 690.8755493164062,
+          "width": 812,
+          "height": 25.99945068359375
+        }
+      },
+      "bandTextStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "static",
+        "fontSize": 28.3744,
+        "effectiveScale": 0.4199432373046875,
+        "screenFontSize": 11.915637392578127,
+        "filter": "none",
+        "width": "113.484px",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 45.998016357421875,
+          "y": 695.4747314453125,
+          "width": 47.99443054199219,
+          "height": 16.7977294921875
+        }
+      },
+      "maskLabelStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "absolute",
+        "fontSize": 28.3744,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
       "bandText": "応答なし",
       "bandFillWidth": "0%",
       "shimmerVisible": false,
@@ -528,12 +912,15 @@
         "pointerEvents": "none",
         "display": "none",
         "position": "absolute",
+        "fontSize": 13,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
         "filter": "none",
         "width": "22%",
         "borderRadius": "0px",
         "borderWidth": "0px",
-        "right": "10px",
-        "bottom": "10px",
+        "right": "23.6453px",
+        "bottom": "85.1232px",
         "rect": {
           "x": 0,
           "y": 0,
@@ -545,6 +932,9 @@
         "pointerEvents": "none",
         "display": "block",
         "position": "static",
+        "fontSize": 13,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
         "filter": "none",
         "width": "100%",
         "borderRadius": "6px",
@@ -559,6 +949,27 @@
         }
       },
       "pipLabel": "最後の絵",
+      "pipLabelVisible": false,
+      "pipLabelStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "static",
+        "fontSize": 28.3744,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
       "blurVisible": false,
       "blurImage": {
         "src": null,
@@ -570,6 +981,9 @@
         "pointerEvents": "none",
         "display": "none",
         "position": "absolute",
+        "fontSize": 13,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
         "filter": "none",
         "width": "auto",
         "borderRadius": "0px",
@@ -587,6 +1001,9 @@
         "pointerEvents": "none",
         "display": "inline",
         "position": "static",
+        "fontSize": 13,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
         "filter": "blur(18px) brightness(0.65)",
         "width": "100%",
         "borderRadius": "0px",
@@ -610,10 +1027,13 @@
         "pointerEvents": "none",
         "display": "none",
         "position": "absolute",
+        "fontSize": 28.3744,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
         "filter": "none",
         "width": "auto",
-        "borderRadius": "4px",
-        "borderWidth": "1px",
+        "borderRadius": "9.45813px",
+        "borderWidth": "2px",
         "right": "auto",
         "bottom": "auto",
         "rect": {
@@ -628,6 +1048,66 @@
       "tagSeverity": null,
       "tagColor": null,
       "bandVisible": false,
+      "bandStyle": {
+        "pointerEvents": "none",
+        "display": "none",
+        "position": "absolute",
+        "fontSize": 28.3744,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "0px",
+        "bottom": "0px",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "bandTextStyle": {
+        "pointerEvents": "none",
+        "display": "inline",
+        "position": "static",
+        "fontSize": 28.3744,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "maskLabelStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "absolute",
+        "fontSize": 28.3744,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
       "bandText": "応答なし",
       "bandFillWidth": "0%",
       "shimmerVisible": false,
@@ -656,12 +1136,15 @@
         "pointerEvents": "none",
         "display": "none",
         "position": "absolute",
+        "fontSize": 13,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
         "filter": "none",
         "width": "22%",
         "borderRadius": "0px",
         "borderWidth": "0px",
-        "right": "10px",
-        "bottom": "10px",
+        "right": "23.6453px",
+        "bottom": "23.6453px",
         "rect": {
           "x": 0,
           "y": 0,
@@ -673,6 +1156,9 @@
         "pointerEvents": "none",
         "display": "block",
         "position": "static",
+        "fontSize": 13,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
         "filter": "none",
         "width": "100%",
         "borderRadius": "6px",
@@ -687,6 +1173,27 @@
         }
       },
       "pipLabel": "最後の絵",
+      "pipLabelVisible": false,
+      "pipLabelStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "static",
+        "fontSize": 28.3744,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
       "blurVisible": false,
       "blurImage": {
         "src": null,
@@ -698,6 +1205,9 @@
         "pointerEvents": "none",
         "display": "none",
         "position": "absolute",
+        "fontSize": 13,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
         "filter": "none",
         "width": "auto",
         "borderRadius": "0px",
@@ -715,6 +1225,9 @@
         "pointerEvents": "none",
         "display": "inline",
         "position": "static",
+        "fontSize": 13,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
         "filter": "blur(18px) brightness(0.65)",
         "width": "100%",
         "borderRadius": "0px",
@@ -738,17 +1251,20 @@
         "pointerEvents": "none",
         "display": "block",
         "position": "absolute",
+        "fontSize": 28.3744,
+        "effectiveScale": 0.4242881918853184,
+        "screenFontSize": 12.03892287183078,
         "filter": "none",
-        "width": "205.188px",
-        "borderRadius": "4px",
-        "borderWidth": "1px",
-        "right": "1704.81px",
-        "bottom": "1049.3px",
+        "width": "547.578px",
+        "borderRadius": "9.45813px",
+        "borderWidth": "2px",
+        "right": "1348.78px",
+        "bottom": "1003.19px",
         "rect": {
-          "x": 40.22916793823242,
-          "y": 264.3541564941406,
-          "width": 86.7772216796875,
-          "height": 8.752410888671875
+          "x": 45.998016357421875,
+          "y": 270.1230163574219,
+          "width": 231.57992553710938,
+          "height": 22.487274169921875
         }
       },
       "tagVisible": true,
@@ -756,6 +1272,66 @@
       "tagSeverity": "error",
       "tagColor": "rgb(214, 64, 43)",
       "bandVisible": false,
+      "bandStyle": {
+        "pointerEvents": "none",
+        "display": "none",
+        "position": "absolute",
+        "fontSize": 28.3744,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "0px",
+        "bottom": "0px",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "bandTextStyle": {
+        "pointerEvents": "none",
+        "display": "inline",
+        "position": "static",
+        "fontSize": 28.3744,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "maskLabelStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "absolute",
+        "fontSize": 28.3744,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
       "bandText": "",
       "bandFillWidth": "0%",
       "shimmerVisible": false,
@@ -784,12 +1360,15 @@
         "pointerEvents": "none",
         "display": "none",
         "position": "absolute",
+        "fontSize": 13,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
         "filter": "none",
         "width": "22%",
         "borderRadius": "0px",
         "borderWidth": "0px",
-        "right": "10px",
-        "bottom": "10px",
+        "right": "23.6453px",
+        "bottom": "23.6453px",
         "rect": {
           "x": 0,
           "y": 0,
@@ -801,6 +1380,9 @@
         "pointerEvents": "none",
         "display": "block",
         "position": "static",
+        "fontSize": 13,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
         "filter": "none",
         "width": "100%",
         "borderRadius": "6px",
@@ -815,6 +1397,27 @@
         }
       },
       "pipLabel": "最後の絵",
+      "pipLabelVisible": false,
+      "pipLabelStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "static",
+        "fontSize": 28.3744,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
       "blurVisible": false,
       "blurImage": {
         "src": null,
@@ -826,6 +1429,9 @@
         "pointerEvents": "none",
         "display": "none",
         "position": "absolute",
+        "fontSize": 13,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
         "filter": "none",
         "width": "auto",
         "borderRadius": "0px",
@@ -843,6 +1449,9 @@
         "pointerEvents": "none",
         "display": "inline",
         "position": "static",
+        "fontSize": 13,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
         "filter": "blur(18px) brightness(0.65)",
         "width": "100%",
         "borderRadius": "0px",
@@ -866,17 +1475,20 @@
         "pointerEvents": "none",
         "display": "block",
         "position": "absolute",
+        "fontSize": 28.3744,
+        "effectiveScale": 0.4242881918853184,
+        "screenFontSize": 12.03892287183078,
         "filter": "none",
-        "width": "169.508px",
-        "borderRadius": "4px",
-        "borderWidth": "1px",
-        "right": "1740.49px",
-        "bottom": "1049.3px",
+        "width": "451.172px",
+        "borderRadius": "9.45813px",
+        "borderWidth": "2px",
+        "right": "1445.19px",
+        "bottom": "1003.19px",
         "rect": {
-          "x": 40.22916793823242,
-          "y": 264.3541564941406,
-          "width": 71.68768310546875,
-          "height": 8.752410888671875
+          "x": 45.998016357421875,
+          "y": 270.1230163574219,
+          "width": 190.80810546875,
+          "height": 22.487274169921875
         }
       },
       "tagVisible": true,
@@ -884,6 +1496,66 @@
       "tagSeverity": "frames",
       "tagColor": "rgb(31, 111, 139)",
       "bandVisible": false,
+      "bandStyle": {
+        "pointerEvents": "none",
+        "display": "none",
+        "position": "absolute",
+        "fontSize": 28.3744,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "0px",
+        "bottom": "0px",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "bandTextStyle": {
+        "pointerEvents": "none",
+        "display": "inline",
+        "position": "static",
+        "fontSize": 28.3744,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "maskLabelStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "absolute",
+        "fontSize": 28.3744,
+        "effectiveScale": 0.4199432373046875,
+        "screenFontSize": 11.915637392578127,
+        "filter": "none",
+        "width": "113.484px",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "304.914px",
+        "bottom": "236.43px",
+        "rect": {
+          "x": 158.64584350585938,
+          "y": 517.0237426757812,
+          "width": 47.99443054199219,
+          "height": 16.7977294921875
+        }
+      },
       "bandText": "",
       "bandFillWidth": "0%",
       "shimmerVisible": false,
@@ -903,7 +1575,7 @@
       "layerPointerEvents": "none",
       "pipVisible": true,
       "pipImage": {
-        "src": "http://127.0.0.1:54235/asset/055b1759f85dbe5084222bb3e801cca98c2aed498b3831ed8961675708504140.png",
+        "src": "http://127.0.0.1:56778/asset/e09a168f3d2fe198ac5d597d7ddcc8c6cbb59efe423ea016491090c074a1f60d.png",
         "loaded": true,
         "naturalWidth": 1920,
         "naturalHeight": 1080
@@ -912,23 +1584,29 @@
         "pointerEvents": "none",
         "display": "block",
         "position": "absolute",
+        "fontSize": 13,
+        "effectiveScale": 0.4225714813126089,
+        "screenFontSize": 5.493429257063916,
         "filter": "none",
         "width": "422.398px",
         "borderRadius": "0px",
         "borderWidth": "0px",
-        "right": "10px",
-        "bottom": "10px",
+        "right": "23.6453px",
+        "bottom": "23.6453px",
         "rect": {
-          "x": 665.1315307617188,
-          "y": 604.2569580078125,
+          "x": 659.3626708984375,
+          "y": 585.5989990234375,
           "width": 178.63934326171875,
-          "height": 108.388916015625
+          "height": 121.27801513671875
         }
       },
       "pipImageStyle": {
         "pointerEvents": "none",
         "display": "block",
         "position": "static",
+        "fontSize": 13,
+        "effectiveScale": 0.42219479344472166,
+        "screenFontSize": 5.488532314781382,
         "filter": "none",
         "width": "422.398px",
         "borderRadius": "6px",
@@ -936,13 +1614,34 @@
         "right": "auto",
         "bottom": "auto",
         "rect": {
-          "x": 665.1315307617188,
-          "y": 612.1634521484375,
+          "x": 659.3626708984375,
+          "y": 606.3946533203125,
           "width": 178.63934326171875,
-          "height": 100.482421875
+          "height": 100.48236083984375
         }
       },
       "pipLabel": "最後の絵",
+      "pipLabelVisible": true,
+      "pipLabelStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "static",
+        "fontSize": 28.3744,
+        "effectiveScale": 0.4199432373046875,
+        "screenFontSize": 11.915637392578127,
+        "filter": "none",
+        "width": "422.398px",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 659.3626708984375,
+          "y": 585.5989990234375,
+          "width": 178.63934326171875,
+          "height": 16.7977294921875
+        }
+      },
       "blurVisible": false,
       "blurImage": {
         "src": null,
@@ -954,6 +1653,9 @@
         "pointerEvents": "none",
         "display": "none",
         "position": "absolute",
+        "fontSize": 13,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
         "filter": "none",
         "width": "auto",
         "borderRadius": "0px",
@@ -971,6 +1673,9 @@
         "pointerEvents": "none",
         "display": "inline",
         "position": "static",
+        "fontSize": 13,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
         "filter": "blur(18px) brightness(0.65)",
         "width": "100%",
         "borderRadius": "0px",
@@ -994,17 +1699,20 @@
         "pointerEvents": "none",
         "display": "block",
         "position": "absolute",
+        "fontSize": 28.3744,
+        "effectiveScale": 0.4242881918853184,
+        "screenFontSize": 12.03892287183078,
         "filter": "none",
-        "width": "139.93px",
-        "borderRadius": "4px",
-        "borderWidth": "1px",
-        "right": "1770.07px",
-        "bottom": "1049.3px",
+        "width": "371.273px",
+        "borderRadius": "9.45813px",
+        "borderWidth": "2px",
+        "right": "1525.09px",
+        "bottom": "1003.19px",
         "rect": {
-          "x": 40.22916793823242,
-          "y": 264.3541564941406,
-          "width": 59.178592681884766,
-          "height": 8.752410888671875
+          "x": 45.998016357421875,
+          "y": 270.1230163574219,
+          "width": 157.01773071289062,
+          "height": 22.487274169921875
         }
       },
       "tagVisible": true,
@@ -1012,6 +1720,66 @@
       "tagSeverity": "planned-video",
       "tagColor": "rgb(230, 223, 255)",
       "bandVisible": false,
+      "bandStyle": {
+        "pointerEvents": "none",
+        "display": "none",
+        "position": "absolute",
+        "fontSize": 28.3744,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "0px",
+        "bottom": "0px",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "bandTextStyle": {
+        "pointerEvents": "none",
+        "display": "inline",
+        "position": "static",
+        "fontSize": 28.3744,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "maskLabelStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "absolute",
+        "fontSize": 28.3744,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
       "bandText": "",
       "bandFillWidth": "0%",
       "shimmerVisible": false,
@@ -1040,12 +1808,15 @@
         "pointerEvents": "none",
         "display": "none",
         "position": "absolute",
+        "fontSize": 13,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
         "filter": "none",
         "width": "22%",
         "borderRadius": "0px",
         "borderWidth": "0px",
-        "right": "10px",
-        "bottom": "10px",
+        "right": "23.6453px",
+        "bottom": "23.6453px",
         "rect": {
           "x": 0,
           "y": 0,
@@ -1057,6 +1828,9 @@
         "pointerEvents": "none",
         "display": "block",
         "position": "static",
+        "fontSize": 13,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
         "filter": "none",
         "width": "100%",
         "borderRadius": "6px",
@@ -1071,6 +1845,27 @@
         }
       },
       "pipLabel": "最後の絵",
+      "pipLabelVisible": false,
+      "pipLabelStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "static",
+        "fontSize": 28.3744,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
       "blurVisible": false,
       "blurImage": {
         "src": null,
@@ -1082,6 +1877,9 @@
         "pointerEvents": "none",
         "display": "none",
         "position": "absolute",
+        "fontSize": 13,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
         "filter": "none",
         "width": "auto",
         "borderRadius": "0px",
@@ -1099,6 +1897,9 @@
         "pointerEvents": "none",
         "display": "inline",
         "position": "static",
+        "fontSize": 13,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
         "filter": "blur(18px) brightness(0.65)",
         "width": "100%",
         "borderRadius": "0px",
@@ -1122,10 +1923,13 @@
         "pointerEvents": "none",
         "display": "none",
         "position": "absolute",
+        "fontSize": 28.3744,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
         "filter": "none",
         "width": "auto",
-        "borderRadius": "4px",
-        "borderWidth": "1px",
+        "borderRadius": "9.45813px",
+        "borderWidth": "2px",
         "right": "auto",
         "bottom": "auto",
         "rect": {
@@ -1140,6 +1944,66 @@
       "tagSeverity": "planned-video",
       "tagColor": null,
       "bandVisible": false,
+      "bandStyle": {
+        "pointerEvents": "none",
+        "display": "none",
+        "position": "absolute",
+        "fontSize": 28.3744,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "0px",
+        "bottom": "0px",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "bandTextStyle": {
+        "pointerEvents": "none",
+        "display": "inline",
+        "position": "static",
+        "fontSize": 28.3744,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "maskLabelStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "absolute",
+        "fontSize": 28.3744,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
       "bandText": "",
       "bandFillWidth": "0%",
       "shimmerVisible": false,
@@ -1168,12 +2032,15 @@
         "pointerEvents": "none",
         "display": "none",
         "position": "absolute",
+        "fontSize": 13,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
         "filter": "none",
         "width": "22%",
         "borderRadius": "0px",
         "borderWidth": "0px",
-        "right": "10px",
-        "bottom": "10px",
+        "right": "23.6453px",
+        "bottom": "85.1232px",
         "rect": {
           "x": 0,
           "y": 0,
@@ -1185,6 +2052,9 @@
         "pointerEvents": "none",
         "display": "block",
         "position": "static",
+        "fontSize": 13,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
         "filter": "none",
         "width": "100%",
         "borderRadius": "6px",
@@ -1199,6 +2069,27 @@
         }
       },
       "pipLabel": "最後の絵",
+      "pipLabelVisible": false,
+      "pipLabelStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "static",
+        "fontSize": 28.3744,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
       "blurVisible": false,
       "blurImage": {
         "src": null,
@@ -1210,6 +2101,9 @@
         "pointerEvents": "none",
         "display": "none",
         "position": "absolute",
+        "fontSize": 13,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
         "filter": "none",
         "width": "auto",
         "borderRadius": "0px",
@@ -1227,6 +2121,9 @@
         "pointerEvents": "none",
         "display": "inline",
         "position": "static",
+        "fontSize": 13,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
         "filter": "blur(18px) brightness(0.65)",
         "width": "100%",
         "borderRadius": "0px",
@@ -1250,10 +2147,13 @@
         "pointerEvents": "none",
         "display": "none",
         "position": "absolute",
+        "fontSize": 28.3744,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
         "filter": "none",
         "width": "auto",
-        "borderRadius": "4px",
-        "borderWidth": "1px",
+        "borderRadius": "9.45813px",
+        "borderWidth": "2px",
         "right": "auto",
         "bottom": "auto",
         "rect": {
@@ -1268,6 +2168,66 @@
       "tagSeverity": "generating",
       "tagColor": null,
       "bandVisible": false,
+      "bandStyle": {
+        "pointerEvents": "none",
+        "display": "none",
+        "position": "absolute",
+        "fontSize": 28.3744,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "0px",
+        "bottom": "0px",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "bandTextStyle": {
+        "pointerEvents": "none",
+        "display": "inline",
+        "position": "static",
+        "fontSize": 28.3744,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "maskLabelStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "absolute",
+        "fontSize": 28.3744,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
       "bandText": "生成中 62% · 残り約 40 秒",
       "bandFillWidth": "62%",
       "shimmerVisible": false,
@@ -1296,12 +2256,15 @@
         "pointerEvents": "none",
         "display": "none",
         "position": "absolute",
+        "fontSize": 13,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
         "filter": "none",
         "width": "22%",
         "borderRadius": "0px",
         "borderWidth": "0px",
-        "right": "10px",
-        "bottom": "10px",
+        "right": "23.6453px",
+        "bottom": "85.1232px",
         "rect": {
           "x": 0,
           "y": 0,
@@ -1313,6 +2276,9 @@
         "pointerEvents": "none",
         "display": "block",
         "position": "static",
+        "fontSize": 13,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
         "filter": "none",
         "width": "100%",
         "borderRadius": "6px",
@@ -1327,6 +2293,27 @@
         }
       },
       "pipLabel": "最後の絵",
+      "pipLabelVisible": false,
+      "pipLabelStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "static",
+        "fontSize": 28.3744,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
       "blurVisible": false,
       "blurImage": {
         "src": null,
@@ -1338,6 +2325,9 @@
         "pointerEvents": "none",
         "display": "none",
         "position": "absolute",
+        "fontSize": 13,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
         "filter": "none",
         "width": "auto",
         "borderRadius": "0px",
@@ -1355,6 +2345,9 @@
         "pointerEvents": "none",
         "display": "inline",
         "position": "static",
+        "fontSize": 13,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
         "filter": "blur(18px) brightness(0.65)",
         "width": "100%",
         "borderRadius": "0px",
@@ -1378,10 +2371,13 @@
         "pointerEvents": "none",
         "display": "none",
         "position": "absolute",
+        "fontSize": 28.3744,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
         "filter": "none",
         "width": "auto",
-        "borderRadius": "4px",
-        "borderWidth": "1px",
+        "borderRadius": "9.45813px",
+        "borderWidth": "2px",
         "right": "auto",
         "bottom": "auto",
         "rect": {
@@ -1396,8 +2392,1412 @@
       "tagSeverity": "generating",
       "tagColor": null,
       "bandVisible": false,
+      "bandStyle": {
+        "pointerEvents": "none",
+        "display": "none",
+        "position": "absolute",
+        "fontSize": 28.3744,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "0px",
+        "bottom": "0px",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "bandTextStyle": {
+        "pointerEvents": "none",
+        "display": "inline",
+        "position": "static",
+        "fontSize": 28.3744,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "maskLabelStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "absolute",
+        "fontSize": 28.3744,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
       "bandText": "生成中 62% · 残り約 40 秒",
       "bandFillWidth": "62%",
+      "shimmerVisible": false,
+      "maskVisible": false,
+      "maskRect": {
+        "left": "15%",
+        "top": "60%",
+        "width": "22%",
+        "height": "22%"
+      },
+      "clickableCount": 0,
+      "pointerEventsAutoCount": 0
+    },
+    "planned-narrow": {
+      "layerPresent": true,
+      "layerVisible": true,
+      "layerPointerEvents": "none",
+      "pipVisible": false,
+      "pipImage": {
+        "src": null,
+        "loaded": false,
+        "naturalWidth": 0,
+        "naturalHeight": 0
+      },
+      "pipStyle": {
+        "pointerEvents": "none",
+        "display": "none",
+        "position": "absolute",
+        "fontSize": 13,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "22%",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "48px",
+        "bottom": "48px",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "pipImageStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "static",
+        "fontSize": 13,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "100%",
+        "borderRadius": "6px",
+        "borderWidth": "1px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "pipLabel": "最後の絵",
+      "pipLabelVisible": false,
+      "pipLabelStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "static",
+        "fontSize": 57.6,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "blurVisible": false,
+      "blurImage": {
+        "src": null,
+        "loaded": false,
+        "naturalWidth": 0,
+        "naturalHeight": 0
+      },
+      "blurStyle": {
+        "pointerEvents": "none",
+        "display": "none",
+        "position": "absolute",
+        "fontSize": 13,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "0px",
+        "bottom": "0px",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "blurImageStyle": {
+        "pointerEvents": "none",
+        "display": "inline",
+        "position": "static",
+        "fontSize": 13,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "blur(18px) brightness(0.65)",
+        "width": "100%",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "layerRect": {
+        "x": 36,
+        "y": 376,
+        "width": 400,
+        "height": 225
+      },
+      "tagStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "absolute",
+        "fontSize": 57.6,
+        "effectiveScale": 0.2080047327444094,
+        "screenFontSize": 11.981072606077982,
+        "filter": "none",
+        "width": "824.617px",
+        "borderRadius": "19.2px",
+        "borderWidth": "4.5px",
+        "right": "1047.38px",
+        "bottom": "923.172px",
+        "rect": {
+          "x": 46,
+          "y": 386,
+          "width": 171.7952423095703,
+          "height": 22.672515869140625
+        }
+      },
+      "tagVisible": true,
+      "tagText": "planned · ビート 2 課題",
+      "tagSeverity": null,
+      "tagColor": "rgb(220, 230, 238)",
+      "bandVisible": false,
+      "bandStyle": {
+        "pointerEvents": "none",
+        "display": "none",
+        "position": "absolute",
+        "fontSize": 57.6,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "0px",
+        "bottom": "0px",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "bandTextStyle": {
+        "pointerEvents": "none",
+        "display": "inline",
+        "position": "static",
+        "fontSize": 57.6,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "maskLabelStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "absolute",
+        "fontSize": 57.6,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "bandText": "",
+      "bandFillWidth": "0%",
+      "shimmerVisible": false,
+      "maskVisible": false,
+      "maskRect": {
+        "left": "15%",
+        "top": "60%",
+        "width": "22%",
+        "height": "22%"
+      },
+      "clickableCount": 0,
+      "pointerEventsAutoCount": 0
+    },
+    "generating-narrow": {
+      "layerPresent": true,
+      "layerVisible": true,
+      "layerPointerEvents": "none",
+      "pipVisible": false,
+      "pipImage": {
+        "src": null,
+        "loaded": false,
+        "naturalWidth": 0,
+        "naturalHeight": 0
+      },
+      "pipStyle": {
+        "pointerEvents": "none",
+        "display": "none",
+        "position": "absolute",
+        "fontSize": 13,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "22%",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "48px",
+        "bottom": "172.8px",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "pipImageStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "static",
+        "fontSize": 13,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "100%",
+        "borderRadius": "6px",
+        "borderWidth": "1px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "pipLabel": "最後の絵",
+      "pipLabelVisible": false,
+      "pipLabelStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "static",
+        "fontSize": 57.6,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "blurVisible": true,
+      "blurImage": {
+        "src": "http://127.0.0.1:56778/asset/83cd9d7af8f22b53b3c790461a2915d30ce12e4d1ee7ccec80c4d28e4355f4df.png",
+        "loaded": true,
+        "naturalWidth": 1920,
+        "naturalHeight": 1080
+      },
+      "blurStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "absolute",
+        "fontSize": 13,
+        "effectiveScale": 0.20833333333333334,
+        "screenFontSize": 2.7083333333333335,
+        "filter": "none",
+        "width": "1920px",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "0px",
+        "bottom": "0px",
+        "rect": {
+          "x": 36,
+          "y": 376,
+          "width": 400,
+          "height": 225
+        }
+      },
+      "blurImageStyle": {
+        "pointerEvents": "none",
+        "display": "inline",
+        "position": "static",
+        "fontSize": 13,
+        "effectiveScale": 0.22083333333333333,
+        "screenFontSize": 2.870833333333333,
+        "filter": "blur(18px) brightness(0.65)",
+        "width": "1920px",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 24.0000057220459,
+          "y": 369.25,
+          "width": 424,
+          "height": 238.5
+        }
+      },
+      "layerRect": {
+        "x": 36,
+        "y": 376,
+        "width": 400,
+        "height": 225
+      },
+      "tagStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "absolute",
+        "fontSize": 57.6,
+        "effectiveScale": 0.2080047327444094,
+        "screenFontSize": 11.981072606077982,
+        "filter": "none",
+        "width": "754.672px",
+        "borderRadius": "19.2px",
+        "borderWidth": "4.5px",
+        "right": "1117.33px",
+        "bottom": "923.172px",
+        "rect": {
+          "x": 46,
+          "y": 386,
+          "width": 157.22329711914062,
+          "height": 22.672515869140625
+        }
+      },
+      "tagVisible": true,
+      "tagText": "生成中 · ビート 3 解決",
+      "tagSeverity": "generating",
+      "tagColor": "rgb(245, 200, 66)",
+      "bandVisible": true,
+      "bandStyle": {
+        "pointerEvents": "none",
+        "display": "flex",
+        "position": "absolute",
+        "fontSize": 57.6,
+        "effectiveScale": 0.2079951171875,
+        "screenFontSize": 11.98051875,
+        "filter": "none",
+        "width": "1920px",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "0px",
+        "bottom": "0px",
+        "rect": {
+          "x": 36,
+          "y": 575.0006103515625,
+          "width": 400,
+          "height": 25.9993896484375
+        }
+      },
+      "bandTextStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "static",
+        "fontSize": 57.6,
+        "effectiveScale": 0.2074095172646605,
+        "screenFontSize": 11.946788194444446,
+        "filter": "none",
+        "width": "784.664px",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 46,
+          "y": 579.6002197265625,
+          "width": 163.4716796875,
+          "height": 16.8001708984375
+        }
+      },
+      "maskLabelStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "absolute",
+        "fontSize": 57.6,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "bandText": "生成中 62% · 残り約 40 秒",
+      "bandFillWidth": "62%",
+      "shimmerVisible": true,
+      "maskVisible": false,
+      "maskRect": {
+        "left": "15%",
+        "top": "60%",
+        "width": "22%",
+        "height": "22%"
+      },
+      "clickableCount": 0,
+      "pointerEventsAutoCount": 0
+    },
+    "stale-narrow": {
+      "layerPresent": true,
+      "layerVisible": true,
+      "layerPointerEvents": "none",
+      "pipVisible": false,
+      "pipImage": {
+        "src": null,
+        "loaded": false,
+        "naturalWidth": 0,
+        "naturalHeight": 0
+      },
+      "pipStyle": {
+        "pointerEvents": "none",
+        "display": "none",
+        "position": "absolute",
+        "fontSize": 13,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "22%",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "48px",
+        "bottom": "172.8px",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "pipImageStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "static",
+        "fontSize": 13,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "100%",
+        "borderRadius": "6px",
+        "borderWidth": "1px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "pipLabel": "最後の絵",
+      "pipLabelVisible": false,
+      "pipLabelStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "static",
+        "fontSize": 57.6,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "blurVisible": false,
+      "blurImage": {
+        "src": null,
+        "loaded": false,
+        "naturalWidth": 0,
+        "naturalHeight": 0
+      },
+      "blurStyle": {
+        "pointerEvents": "none",
+        "display": "none",
+        "position": "absolute",
+        "fontSize": 13,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "0px",
+        "bottom": "0px",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "blurImageStyle": {
+        "pointerEvents": "none",
+        "display": "inline",
+        "position": "static",
+        "fontSize": 13,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "blur(18px) brightness(0.65)",
+        "width": "100%",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "layerRect": {
+        "x": 36,
+        "y": 376,
+        "width": 400,
+        "height": 225
+      },
+      "tagStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "absolute",
+        "fontSize": 57.6,
+        "effectiveScale": 0.2080047327444094,
+        "screenFontSize": 11.981072606077982,
+        "filter": "none",
+        "width": "881.031px",
+        "borderRadius": "19.2px",
+        "borderWidth": "4.5px",
+        "right": "990.969px",
+        "bottom": "923.172px",
+        "rect": {
+          "x": 46,
+          "y": 386,
+          "width": 183.5481719970703,
+          "height": 22.672515869140625
+        }
+      },
+      "tagVisible": true,
+      "tagText": "応答なし · 再取得は右パネル",
+      "tagSeverity": null,
+      "tagColor": "rgb(220, 230, 238)",
+      "bandVisible": true,
+      "bandStyle": {
+        "pointerEvents": "none",
+        "display": "flex",
+        "position": "absolute",
+        "fontSize": 57.6,
+        "effectiveScale": 0.2079951171875,
+        "screenFontSize": 11.98051875,
+        "filter": "none",
+        "width": "1920px",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "0px",
+        "bottom": "0px",
+        "rect": {
+          "x": 36,
+          "y": 575.0006103515625,
+          "width": 400,
+          "height": 25.9993896484375
+        }
+      },
+      "bandTextStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "static",
+        "fontSize": 57.6,
+        "effectiveScale": 0.2074095172646605,
+        "screenFontSize": 11.946788194444446,
+        "filter": "none",
+        "width": "230.406px",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 46,
+          "y": 579.6002197265625,
+          "width": 48.00129699707031,
+          "height": 16.8001708984375
+        }
+      },
+      "maskLabelStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "absolute",
+        "fontSize": 57.6,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "bandText": "応答なし",
+      "bandFillWidth": "0%",
+      "shimmerVisible": false,
+      "maskVisible": false,
+      "maskRect": {
+        "left": "15%",
+        "top": "60%",
+        "width": "22%",
+        "height": "22%"
+      },
+      "clickableCount": 0,
+      "pointerEventsAutoCount": 0
+    },
+    "failed-narrow": {
+      "layerPresent": true,
+      "layerVisible": true,
+      "layerPointerEvents": "none",
+      "pipVisible": false,
+      "pipImage": {
+        "src": null,
+        "loaded": false,
+        "naturalWidth": 0,
+        "naturalHeight": 0
+      },
+      "pipStyle": {
+        "pointerEvents": "none",
+        "display": "none",
+        "position": "absolute",
+        "fontSize": 13,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "22%",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "48px",
+        "bottom": "48px",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "pipImageStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "static",
+        "fontSize": 13,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "100%",
+        "borderRadius": "6px",
+        "borderWidth": "1px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "pipLabel": "最後の絵",
+      "pipLabelVisible": false,
+      "pipLabelStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "static",
+        "fontSize": 57.6,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "blurVisible": false,
+      "blurImage": {
+        "src": null,
+        "loaded": false,
+        "naturalWidth": 0,
+        "naturalHeight": 0
+      },
+      "blurStyle": {
+        "pointerEvents": "none",
+        "display": "none",
+        "position": "absolute",
+        "fontSize": 13,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "0px",
+        "bottom": "0px",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "blurImageStyle": {
+        "pointerEvents": "none",
+        "display": "inline",
+        "position": "static",
+        "fontSize": 13,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "blur(18px) brightness(0.65)",
+        "width": "100%",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "layerRect": {
+        "x": 36,
+        "y": 376,
+        "width": 400,
+        "height": 225
+      },
+      "tagStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "absolute",
+        "fontSize": 57.6,
+        "effectiveScale": 0.2080047327444094,
+        "screenFontSize": 11.981072606077982,
+        "filter": "none",
+        "width": "1112.62px",
+        "borderRadius": "19.2px",
+        "borderWidth": "4.5px",
+        "right": "759.383px",
+        "bottom": "923.172px",
+        "rect": {
+          "x": 46,
+          "y": 386,
+          "width": 231.79522705078125,
+          "height": 22.672515869140625
+        }
+      },
+      "tagVisible": true,
+      "tagText": "失敗 · timeout · 再試行は右パネル",
+      "tagSeverity": "error",
+      "tagColor": "rgb(214, 64, 43)",
+      "bandVisible": false,
+      "bandStyle": {
+        "pointerEvents": "none",
+        "display": "none",
+        "position": "absolute",
+        "fontSize": 57.6,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "0px",
+        "bottom": "0px",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "bandTextStyle": {
+        "pointerEvents": "none",
+        "display": "inline",
+        "position": "static",
+        "fontSize": 57.6,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "maskLabelStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "absolute",
+        "fontSize": 57.6,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "bandText": "",
+      "bandFillWidth": "0%",
+      "shimmerVisible": false,
+      "maskVisible": false,
+      "maskRect": {
+        "left": "15%",
+        "top": "60%",
+        "width": "22%",
+        "height": "22%"
+      },
+      "clickableCount": 0,
+      "pointerEventsAutoCount": 0
+    },
+    "frames-narrow": {
+      "layerPresent": true,
+      "layerVisible": true,
+      "layerPointerEvents": "none",
+      "pipVisible": false,
+      "pipImage": {
+        "src": null,
+        "loaded": false,
+        "naturalWidth": 0,
+        "naturalHeight": 0
+      },
+      "pipStyle": {
+        "pointerEvents": "none",
+        "display": "none",
+        "position": "absolute",
+        "fontSize": 13,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "22%",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "48px",
+        "bottom": "48px",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "pipImageStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "static",
+        "fontSize": 13,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "100%",
+        "borderRadius": "6px",
+        "borderWidth": "1px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "pipLabel": "最後の絵",
+      "pipLabelVisible": false,
+      "pipLabelStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "static",
+        "fontSize": 57.6,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "blurVisible": false,
+      "blurImage": {
+        "src": null,
+        "loaded": false,
+        "naturalWidth": 0,
+        "naturalHeight": 0
+      },
+      "blurStyle": {
+        "pointerEvents": "none",
+        "display": "none",
+        "position": "absolute",
+        "fontSize": 13,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "0px",
+        "bottom": "0px",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "blurImageStyle": {
+        "pointerEvents": "none",
+        "display": "inline",
+        "position": "static",
+        "fontSize": 13,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "blur(18px) brightness(0.65)",
+        "width": "100%",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "layerRect": {
+        "x": 36,
+        "y": 376,
+        "width": 400,
+        "height": 225
+      },
+      "tagStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "absolute",
+        "fontSize": 57.6,
+        "effectiveScale": 0.2080047327444094,
+        "screenFontSize": 11.981072606077982,
+        "filter": "none",
+        "width": "916.891px",
+        "borderRadius": "19.2px",
+        "borderWidth": "4.5px",
+        "right": "955.109px",
+        "bottom": "923.172px",
+        "rect": {
+          "x": 46,
+          "y": 386,
+          "width": 191.0188751220703,
+          "height": 22.672515869140625
+        }
+      },
+      "tagVisible": true,
+      "tagText": "パラパラ 8fps · コマ 17/32",
+      "tagSeverity": "frames",
+      "tagColor": "rgb(31, 111, 139)",
+      "bandVisible": false,
+      "bandStyle": {
+        "pointerEvents": "none",
+        "display": "none",
+        "position": "absolute",
+        "fontSize": 57.6,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "0px",
+        "bottom": "0px",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "bandTextStyle": {
+        "pointerEvents": "none",
+        "display": "inline",
+        "position": "static",
+        "fontSize": 57.6,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "maskLabelStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "absolute",
+        "fontSize": 57.6,
+        "effectiveScale": 0.20740876374421297,
+        "screenFontSize": 11.946744791666667,
+        "filter": "none",
+        "width": "230.406px",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "187.992px",
+        "bottom": "239.352px",
+        "rect": {
+          "x": 96.41666412353516,
+          "y": 493.4169921875,
+          "width": 48.001304626464844,
+          "height": 16.80010986328125
+        }
+      },
+      "bandText": "",
+      "bandFillWidth": "0%",
+      "shimmerVisible": false,
+      "maskVisible": true,
+      "maskRect": {
+        "left": "15%",
+        "top": "60%",
+        "width": "22%",
+        "height": "22%"
+      },
+      "clickableCount": 0,
+      "pointerEventsAutoCount": 0
+    },
+    "planned-video-narrow": {
+      "layerPresent": true,
+      "layerVisible": true,
+      "layerPointerEvents": "none",
+      "pipVisible": true,
+      "pipImage": {
+        "src": "http://127.0.0.1:56778/asset/e09a168f3d2fe198ac5d597d7ddcc8c6cbb59efe423ea016491090c074a1f60d.png",
+        "loaded": true,
+        "naturalWidth": 1920,
+        "naturalHeight": 1080
+      },
+      "pipStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "absolute",
+        "fontSize": 13,
+        "effectiveScale": 0.20859896606083086,
+        "screenFontSize": 2.711786558790801,
+        "filter": "none",
+        "width": "422.398px",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "48px",
+        "bottom": "48px",
+        "rect": {
+          "x": 338.00030517578125,
+          "y": 520.7021484375,
+          "width": 87.99969482421875,
+          "height": 70.2978515625
+        }
+      },
+      "pipImageStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "static",
+        "fontSize": 13,
+        "effectiveScale": 0.20797780782234768,
+        "screenFontSize": 2.70371150169052,
+        "filter": "none",
+        "width": "422.398px",
+        "borderRadius": "6px",
+        "borderWidth": "1px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 338.00030517578125,
+          "y": 541.5012817382812,
+          "width": 87.99969482421875,
+          "height": 49.49871826171875
+        }
+      },
+      "pipLabel": "最後の絵",
+      "pipLabelVisible": true,
+      "pipLabelStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "static",
+        "fontSize": 57.6,
+        "effectiveScale": 0.20740876374421297,
+        "screenFontSize": 11.946744791666667,
+        "filter": "none",
+        "width": "422.398px",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 338.00030517578125,
+          "y": 520.7021484375,
+          "width": 87.99969482421875,
+          "height": 16.80010986328125
+        }
+      },
+      "blurVisible": false,
+      "blurImage": {
+        "src": null,
+        "loaded": false,
+        "naturalWidth": 0,
+        "naturalHeight": 0
+      },
+      "blurStyle": {
+        "pointerEvents": "none",
+        "display": "none",
+        "position": "absolute",
+        "fontSize": 13,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "0px",
+        "bottom": "0px",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "blurImageStyle": {
+        "pointerEvents": "none",
+        "display": "inline",
+        "position": "static",
+        "fontSize": 13,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "blur(18px) brightness(0.65)",
+        "width": "100%",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "layerRect": {
+        "x": 36,
+        "y": 376,
+        "width": 400,
+        "height": 225
+      },
+      "tagStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "absolute",
+        "fontSize": 57.6,
+        "effectiveScale": 0.2080047327444094,
+        "screenFontSize": 11.981072606077982,
+        "filter": "none",
+        "width": "754.672px",
+        "borderRadius": "19.2px",
+        "borderWidth": "4.5px",
+        "right": "1117.33px",
+        "bottom": "923.172px",
+        "rect": {
+          "x": 46,
+          "y": 386,
+          "width": 157.22329711914062,
+          "height": 22.672515869140625
+        }
+      },
+      "tagVisible": true,
+      "tagText": "▶ 動画予定 · 最初→最後",
+      "tagSeverity": "planned-video",
+      "tagColor": "rgb(230, 223, 255)",
+      "bandVisible": false,
+      "bandStyle": {
+        "pointerEvents": "none",
+        "display": "none",
+        "position": "absolute",
+        "fontSize": 57.6,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "0px",
+        "bottom": "0px",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "bandTextStyle": {
+        "pointerEvents": "none",
+        "display": "inline",
+        "position": "static",
+        "fontSize": 57.6,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "maskLabelStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "absolute",
+        "fontSize": 57.6,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "bandText": "",
+      "bandFillWidth": "0%",
       "shimmerVisible": false,
       "maskVisible": false,
       "maskRect": {
@@ -1436,6 +3836,9 @@
         "pointerEvents": "none",
         "display": "none",
         "position": "absolute",
+        "fontSize": 13,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
         "filter": "none",
         "width": "22%",
         "borderRadius": "0px",
@@ -1453,6 +3856,9 @@
         "pointerEvents": "none",
         "display": "block",
         "position": "static",
+        "fontSize": 13,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
         "filter": "none",
         "width": "100%",
         "borderRadius": "6px",
@@ -1467,6 +3873,27 @@
         }
       },
       "pipLabel": "最後の絵",
+      "pipLabelVisible": false,
+      "pipLabelStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "static",
+        "fontSize": 12,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
       "blurVisible": false,
       "blurImage": {
         "src": null,
@@ -1478,6 +3905,9 @@
         "pointerEvents": "none",
         "display": "none",
         "position": "absolute",
+        "fontSize": 13,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
         "filter": "none",
         "width": "auto",
         "borderRadius": "0px",
@@ -1495,6 +3925,9 @@
         "pointerEvents": "none",
         "display": "inline",
         "position": "static",
+        "fontSize": 13,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
         "filter": "blur(18px) brightness(0.65)",
         "width": "100%",
         "borderRadius": "0px",
@@ -1518,6 +3951,9 @@
         "pointerEvents": "none",
         "display": "none",
         "position": "absolute",
+        "fontSize": 12,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
         "filter": "none",
         "width": "auto",
         "borderRadius": "4px",
@@ -1536,6 +3972,66 @@
       "tagSeverity": null,
       "tagColor": null,
       "bandVisible": false,
+      "bandStyle": {
+        "pointerEvents": "none",
+        "display": "none",
+        "position": "absolute",
+        "fontSize": 12,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "0px",
+        "bottom": "0px",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "bandTextStyle": {
+        "pointerEvents": "none",
+        "display": "inline",
+        "position": "static",
+        "fontSize": 12,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "maskLabelStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "absolute",
+        "fontSize": 12,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
       "bandText": "",
       "bandFillWidth": "",
       "shimmerVisible": false,
@@ -1570,12 +4066,15 @@
         "pointerEvents": "none",
         "display": "none",
         "position": "absolute",
+        "fontSize": 13,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
         "filter": "none",
         "width": "22%",
         "borderRadius": "0px",
         "borderWidth": "0px",
-        "right": "10px",
-        "bottom": "10px",
+        "right": "23.6453px",
+        "bottom": "23.6453px",
         "rect": {
           "x": 0,
           "y": 0,
@@ -1587,6 +4086,9 @@
         "pointerEvents": "none",
         "display": "block",
         "position": "static",
+        "fontSize": 13,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
         "filter": "none",
         "width": "100%",
         "borderRadius": "6px",
@@ -1601,6 +4103,27 @@
         }
       },
       "pipLabel": "最後の絵",
+      "pipLabelVisible": false,
+      "pipLabelStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "static",
+        "fontSize": 28.3744,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
       "blurVisible": false,
       "blurImage": {
         "src": null,
@@ -1612,6 +4135,9 @@
         "pointerEvents": "none",
         "display": "none",
         "position": "absolute",
+        "fontSize": 13,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
         "filter": "none",
         "width": "auto",
         "borderRadius": "0px",
@@ -1629,6 +4155,9 @@
         "pointerEvents": "none",
         "display": "inline",
         "position": "static",
+        "fontSize": 13,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
         "filter": "blur(18px) brightness(0.65)",
         "width": "100%",
         "borderRadius": "0px",
@@ -1652,17 +4181,20 @@
         "pointerEvents": "none",
         "display": "block",
         "position": "absolute",
+        "fontSize": 28.3744,
+        "effectiveScale": 0.4242881918853184,
+        "screenFontSize": 12.03892287183078,
         "filter": "none",
-        "width": "152.688px",
-        "borderRadius": "4px",
-        "borderWidth": "1px",
-        "right": "1757.31px",
-        "bottom": "1049.3px",
+        "width": "405.727px",
+        "borderRadius": "9.45813px",
+        "borderWidth": "2px",
+        "right": "1490.63px",
+        "bottom": "1003.19px",
         "rect": {
-          "x": 40.22916793823242,
-          "y": 264.3541564941406,
-          "width": 64.5740966796875,
-          "height": 8.752410888671875
+          "x": 45.998016357421875,
+          "y": 270.1230163574219,
+          "width": 171.58853149414062,
+          "height": 22.487274169921875
         }
       },
       "tagVisible": true,
@@ -1670,6 +4202,66 @@
       "tagSeverity": null,
       "tagColor": "rgb(220, 230, 238)",
       "bandVisible": false,
+      "bandStyle": {
+        "pointerEvents": "none",
+        "display": "none",
+        "position": "absolute",
+        "fontSize": 28.3744,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "0px",
+        "bottom": "0px",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "bandTextStyle": {
+        "pointerEvents": "none",
+        "display": "inline",
+        "position": "static",
+        "fontSize": 28.3744,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "maskLabelStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "absolute",
+        "fontSize": 28.3744,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
       "bandText": "",
       "bandFillWidth": "0%",
       "shimmerVisible": false,
@@ -1704,12 +4296,15 @@
         "pointerEvents": "none",
         "display": "none",
         "position": "absolute",
+        "fontSize": 13,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
         "filter": "none",
         "width": "22%",
         "borderRadius": "0px",
         "borderWidth": "0px",
-        "right": "10px",
-        "bottom": "10px",
+        "right": "23.6453px",
+        "bottom": "85.1232px",
         "rect": {
           "x": 0,
           "y": 0,
@@ -1721,6 +4316,9 @@
         "pointerEvents": "none",
         "display": "block",
         "position": "static",
+        "fontSize": 13,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
         "filter": "none",
         "width": "100%",
         "borderRadius": "6px",
@@ -1735,9 +4333,30 @@
         }
       },
       "pipLabel": "最後の絵",
+      "pipLabelVisible": false,
+      "pipLabelStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "static",
+        "fontSize": 28.3744,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
       "blurVisible": true,
       "blurImage": {
-        "src": "http://127.0.0.1:54235/asset/408961225f91d39a69e27301298de8033efddd3d11d366914d96660e23af4560.png",
+        "src": "http://127.0.0.1:56778/asset/83cd9d7af8f22b53b3c790461a2915d30ce12e4d1ee7ccec80c4d28e4355f4df.png",
         "loaded": true,
         "naturalWidth": 1920,
         "naturalHeight": 1080
@@ -1746,6 +4365,9 @@
         "pointerEvents": "none",
         "display": "block",
         "position": "absolute",
+        "fontSize": 13,
+        "effectiveScale": 0.42291666666666666,
+        "screenFontSize": 5.497916666666667,
         "filter": "none",
         "width": "1920px",
         "borderRadius": "0px",
@@ -1763,6 +4385,9 @@
         "pointerEvents": "none",
         "display": "inline",
         "position": "static",
+        "fontSize": 13,
+        "effectiveScale": 0.448291665536386,
+        "screenFontSize": 5.827791651973018,
         "filter": "blur(18px) brightness(0.65)",
         "width": "1920px",
         "borderRadius": "0px",
@@ -1786,17 +4411,20 @@
         "pointerEvents": "none",
         "display": "block",
         "position": "absolute",
+        "fontSize": 28.3744,
+        "effectiveScale": 0.4242881918853184,
+        "screenFontSize": 12.03892287183078,
         "filter": "none",
-        "width": "139.93px",
-        "borderRadius": "4px",
-        "borderWidth": "1px",
-        "right": "1770.07px",
-        "bottom": "1049.3px",
+        "width": "371.273px",
+        "borderRadius": "9.45813px",
+        "borderWidth": "2px",
+        "right": "1525.09px",
+        "bottom": "1003.19px",
         "rect": {
-          "x": 40.22916793823242,
-          "y": 264.3541564941406,
-          "width": 59.178592681884766,
-          "height": 8.752410888671875
+          "x": 45.998016357421875,
+          "y": 270.1230163574219,
+          "width": 157.01773071289062,
+          "height": 22.487274169921875
         }
       },
       "tagVisible": true,
@@ -1804,6 +4432,66 @@
       "tagSeverity": "generating",
       "tagColor": "rgb(245, 200, 66)",
       "bandVisible": true,
+      "bandStyle": {
+        "pointerEvents": "none",
+        "display": "flex",
+        "position": "absolute",
+        "fontSize": 28.3744,
+        "effectiveScale": 0.42622050300973363,
+        "screenFontSize": 12.093751040599386,
+        "filter": "none",
+        "width": "1920px",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "0px",
+        "bottom": "0px",
+        "rect": {
+          "x": 36,
+          "y": 690.8755493164062,
+          "width": 812,
+          "height": 25.99945068359375
+        }
+      },
+      "bandTextStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "static",
+        "fontSize": 28.3744,
+        "effectiveScale": 0.4199432373046875,
+        "screenFontSize": 11.915637392578127,
+        "filter": "none",
+        "width": "386.477px",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 45.998016357421875,
+          "y": 695.4747314453125,
+          "width": 163.4473876953125,
+          "height": 16.7977294921875
+        }
+      },
+      "maskLabelStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "absolute",
+        "fontSize": 28.3744,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
       "bandText": "生成中 62% · 残り約 40 秒",
       "bandFillWidth": "62%",
       "shimmerVisible": true,
@@ -1838,12 +4526,15 @@
         "pointerEvents": "none",
         "display": "none",
         "position": "absolute",
+        "fontSize": 13,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
         "filter": "none",
         "width": "22%",
         "borderRadius": "0px",
         "borderWidth": "0px",
-        "right": "10px",
-        "bottom": "10px",
+        "right": "23.6453px",
+        "bottom": "85.1232px",
         "rect": {
           "x": 0,
           "y": 0,
@@ -1855,6 +4546,9 @@
         "pointerEvents": "none",
         "display": "block",
         "position": "static",
+        "fontSize": 13,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
         "filter": "none",
         "width": "100%",
         "borderRadius": "6px",
@@ -1869,6 +4563,27 @@
         }
       },
       "pipLabel": "最後の絵",
+      "pipLabelVisible": false,
+      "pipLabelStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "static",
+        "fontSize": 28.3744,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
       "blurVisible": false,
       "blurImage": {
         "src": null,
@@ -1880,6 +4595,9 @@
         "pointerEvents": "none",
         "display": "none",
         "position": "absolute",
+        "fontSize": 13,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
         "filter": "none",
         "width": "auto",
         "borderRadius": "0px",
@@ -1897,6 +4615,9 @@
         "pointerEvents": "none",
         "display": "inline",
         "position": "static",
+        "fontSize": 13,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
         "filter": "blur(18px) brightness(0.65)",
         "width": "100%",
         "borderRadius": "0px",
@@ -1920,17 +4641,20 @@
         "pointerEvents": "none",
         "display": "block",
         "position": "absolute",
+        "fontSize": 28.3744,
+        "effectiveScale": 0.4242881918853184,
+        "screenFontSize": 12.03892287183078,
         "filter": "none",
-        "width": "162.969px",
-        "borderRadius": "4px",
-        "borderWidth": "1px",
-        "right": "1747.03px",
-        "bottom": "1049.3px",
+        "width": "433.516px",
+        "borderRadius": "9.45813px",
+        "borderWidth": "2px",
+        "right": "1462.84px",
+        "bottom": "1003.19px",
         "rect": {
-          "x": 40.22916793823242,
-          "y": 264.3541564941406,
-          "width": 68.92219543457031,
-          "height": 8.752410888671875
+          "x": 45.998016357421875,
+          "y": 270.1230163574219,
+          "width": 183.3409881591797,
+          "height": 22.487274169921875
         }
       },
       "tagVisible": true,
@@ -1938,6 +4662,66 @@
       "tagSeverity": null,
       "tagColor": "rgb(220, 230, 238)",
       "bandVisible": true,
+      "bandStyle": {
+        "pointerEvents": "none",
+        "display": "flex",
+        "position": "absolute",
+        "fontSize": 28.3744,
+        "effectiveScale": 0.42622050300973363,
+        "screenFontSize": 12.093751040599386,
+        "filter": "none",
+        "width": "1920px",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "0px",
+        "bottom": "0px",
+        "rect": {
+          "x": 36,
+          "y": 690.8755493164062,
+          "width": 812,
+          "height": 25.99945068359375
+        }
+      },
+      "bandTextStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "static",
+        "fontSize": 28.3744,
+        "effectiveScale": 0.4199432373046875,
+        "screenFontSize": 11.915637392578127,
+        "filter": "none",
+        "width": "113.484px",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 45.998016357421875,
+          "y": 695.4747314453125,
+          "width": 47.99443054199219,
+          "height": 16.7977294921875
+        }
+      },
+      "maskLabelStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "absolute",
+        "fontSize": 28.3744,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
       "bandText": "応答なし",
       "bandFillWidth": "0%",
       "shimmerVisible": false,
@@ -1972,12 +4756,15 @@
         "pointerEvents": "none",
         "display": "none",
         "position": "absolute",
+        "fontSize": 13,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
         "filter": "none",
         "width": "22%",
         "borderRadius": "0px",
         "borderWidth": "0px",
-        "right": "10px",
-        "bottom": "10px",
+        "right": "23.6453px",
+        "bottom": "85.1232px",
         "rect": {
           "x": 0,
           "y": 0,
@@ -1989,6 +4776,9 @@
         "pointerEvents": "none",
         "display": "block",
         "position": "static",
+        "fontSize": 13,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
         "filter": "none",
         "width": "100%",
         "borderRadius": "6px",
@@ -2003,6 +4793,27 @@
         }
       },
       "pipLabel": "最後の絵",
+      "pipLabelVisible": false,
+      "pipLabelStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "static",
+        "fontSize": 28.3744,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
       "blurVisible": false,
       "blurImage": {
         "src": null,
@@ -2014,6 +4825,9 @@
         "pointerEvents": "none",
         "display": "none",
         "position": "absolute",
+        "fontSize": 13,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
         "filter": "none",
         "width": "auto",
         "borderRadius": "0px",
@@ -2031,6 +4845,9 @@
         "pointerEvents": "none",
         "display": "inline",
         "position": "static",
+        "fontSize": 13,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
         "filter": "blur(18px) brightness(0.65)",
         "width": "100%",
         "borderRadius": "0px",
@@ -2054,10 +4871,13 @@
         "pointerEvents": "none",
         "display": "none",
         "position": "absolute",
+        "fontSize": 28.3744,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
         "filter": "none",
         "width": "auto",
-        "borderRadius": "4px",
-        "borderWidth": "1px",
+        "borderRadius": "9.45813px",
+        "borderWidth": "2px",
         "right": "auto",
         "bottom": "auto",
         "rect": {
@@ -2072,6 +4892,66 @@
       "tagSeverity": null,
       "tagColor": null,
       "bandVisible": false,
+      "bandStyle": {
+        "pointerEvents": "none",
+        "display": "none",
+        "position": "absolute",
+        "fontSize": 28.3744,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "0px",
+        "bottom": "0px",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "bandTextStyle": {
+        "pointerEvents": "none",
+        "display": "inline",
+        "position": "static",
+        "fontSize": 28.3744,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "maskLabelStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "absolute",
+        "fontSize": 28.3744,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
       "bandText": "応答なし",
       "bandFillWidth": "0%",
       "shimmerVisible": false,
@@ -2106,12 +4986,15 @@
         "pointerEvents": "none",
         "display": "none",
         "position": "absolute",
+        "fontSize": 13,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
         "filter": "none",
         "width": "22%",
         "borderRadius": "0px",
         "borderWidth": "0px",
-        "right": "10px",
-        "bottom": "10px",
+        "right": "23.6453px",
+        "bottom": "23.6453px",
         "rect": {
           "x": 0,
           "y": 0,
@@ -2123,6 +5006,9 @@
         "pointerEvents": "none",
         "display": "block",
         "position": "static",
+        "fontSize": 13,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
         "filter": "none",
         "width": "100%",
         "borderRadius": "6px",
@@ -2137,6 +5023,27 @@
         }
       },
       "pipLabel": "最後の絵",
+      "pipLabelVisible": false,
+      "pipLabelStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "static",
+        "fontSize": 28.3744,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
       "blurVisible": false,
       "blurImage": {
         "src": null,
@@ -2148,6 +5055,9 @@
         "pointerEvents": "none",
         "display": "none",
         "position": "absolute",
+        "fontSize": 13,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
         "filter": "none",
         "width": "auto",
         "borderRadius": "0px",
@@ -2165,6 +5075,9 @@
         "pointerEvents": "none",
         "display": "inline",
         "position": "static",
+        "fontSize": 13,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
         "filter": "blur(18px) brightness(0.65)",
         "width": "100%",
         "borderRadius": "0px",
@@ -2188,17 +5101,20 @@
         "pointerEvents": "none",
         "display": "block",
         "position": "absolute",
+        "fontSize": 28.3744,
+        "effectiveScale": 0.4242881918853184,
+        "screenFontSize": 12.03892287183078,
         "filter": "none",
-        "width": "205.188px",
-        "borderRadius": "4px",
-        "borderWidth": "1px",
-        "right": "1704.81px",
-        "bottom": "1049.3px",
+        "width": "547.578px",
+        "borderRadius": "9.45813px",
+        "borderWidth": "2px",
+        "right": "1348.78px",
+        "bottom": "1003.19px",
         "rect": {
-          "x": 40.22916793823242,
-          "y": 264.3541564941406,
-          "width": 86.7772216796875,
-          "height": 8.752410888671875
+          "x": 45.998016357421875,
+          "y": 270.1230163574219,
+          "width": 231.57992553710938,
+          "height": 22.487274169921875
         }
       },
       "tagVisible": true,
@@ -2206,6 +5122,66 @@
       "tagSeverity": "error",
       "tagColor": "rgb(214, 64, 43)",
       "bandVisible": false,
+      "bandStyle": {
+        "pointerEvents": "none",
+        "display": "none",
+        "position": "absolute",
+        "fontSize": 28.3744,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "0px",
+        "bottom": "0px",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "bandTextStyle": {
+        "pointerEvents": "none",
+        "display": "inline",
+        "position": "static",
+        "fontSize": 28.3744,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "maskLabelStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "absolute",
+        "fontSize": 28.3744,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
       "bandText": "",
       "bandFillWidth": "0%",
       "shimmerVisible": false,
@@ -2240,12 +5216,15 @@
         "pointerEvents": "none",
         "display": "none",
         "position": "absolute",
+        "fontSize": 13,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
         "filter": "none",
         "width": "22%",
         "borderRadius": "0px",
         "borderWidth": "0px",
-        "right": "10px",
-        "bottom": "10px",
+        "right": "23.6453px",
+        "bottom": "23.6453px",
         "rect": {
           "x": 0,
           "y": 0,
@@ -2257,6 +5236,9 @@
         "pointerEvents": "none",
         "display": "block",
         "position": "static",
+        "fontSize": 13,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
         "filter": "none",
         "width": "100%",
         "borderRadius": "6px",
@@ -2271,6 +5253,27 @@
         }
       },
       "pipLabel": "最後の絵",
+      "pipLabelVisible": false,
+      "pipLabelStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "static",
+        "fontSize": 28.3744,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
       "blurVisible": false,
       "blurImage": {
         "src": null,
@@ -2282,6 +5285,9 @@
         "pointerEvents": "none",
         "display": "none",
         "position": "absolute",
+        "fontSize": 13,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
         "filter": "none",
         "width": "auto",
         "borderRadius": "0px",
@@ -2299,6 +5305,9 @@
         "pointerEvents": "none",
         "display": "inline",
         "position": "static",
+        "fontSize": 13,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
         "filter": "blur(18px) brightness(0.65)",
         "width": "100%",
         "borderRadius": "0px",
@@ -2322,17 +5331,20 @@
         "pointerEvents": "none",
         "display": "block",
         "position": "absolute",
+        "fontSize": 28.3744,
+        "effectiveScale": 0.4242881918853184,
+        "screenFontSize": 12.03892287183078,
         "filter": "none",
-        "width": "169.508px",
-        "borderRadius": "4px",
-        "borderWidth": "1px",
-        "right": "1740.49px",
-        "bottom": "1049.3px",
+        "width": "451.172px",
+        "borderRadius": "9.45813px",
+        "borderWidth": "2px",
+        "right": "1445.19px",
+        "bottom": "1003.19px",
         "rect": {
-          "x": 40.22916793823242,
-          "y": 264.3541564941406,
-          "width": 71.68768310546875,
-          "height": 8.752410888671875
+          "x": 45.998016357421875,
+          "y": 270.1230163574219,
+          "width": 190.80810546875,
+          "height": 22.487274169921875
         }
       },
       "tagVisible": true,
@@ -2340,6 +5352,66 @@
       "tagSeverity": "frames",
       "tagColor": "rgb(31, 111, 139)",
       "bandVisible": false,
+      "bandStyle": {
+        "pointerEvents": "none",
+        "display": "none",
+        "position": "absolute",
+        "fontSize": 28.3744,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "0px",
+        "bottom": "0px",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "bandTextStyle": {
+        "pointerEvents": "none",
+        "display": "inline",
+        "position": "static",
+        "fontSize": 28.3744,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "maskLabelStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "absolute",
+        "fontSize": 28.3744,
+        "effectiveScale": 0.4199432373046875,
+        "screenFontSize": 11.915637392578127,
+        "filter": "none",
+        "width": "113.484px",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "304.914px",
+        "bottom": "236.43px",
+        "rect": {
+          "x": 158.64584350585938,
+          "y": 517.0237426757812,
+          "width": 47.99443054199219,
+          "height": 16.7977294921875
+        }
+      },
       "bandText": "",
       "bandFillWidth": "0%",
       "shimmerVisible": false,
@@ -2365,7 +5437,7 @@
       "layerPointerEvents": "none",
       "pipVisible": true,
       "pipImage": {
-        "src": "http://127.0.0.1:54235/asset/055b1759f85dbe5084222bb3e801cca98c2aed498b3831ed8961675708504140.png",
+        "src": "http://127.0.0.1:56778/asset/e09a168f3d2fe198ac5d597d7ddcc8c6cbb59efe423ea016491090c074a1f60d.png",
         "loaded": true,
         "naturalWidth": 1920,
         "naturalHeight": 1080
@@ -2374,23 +5446,29 @@
         "pointerEvents": "none",
         "display": "block",
         "position": "absolute",
+        "fontSize": 13,
+        "effectiveScale": 0.4225714813126089,
+        "screenFontSize": 5.493429257063916,
         "filter": "none",
         "width": "422.398px",
         "borderRadius": "0px",
         "borderWidth": "0px",
-        "right": "10px",
-        "bottom": "10px",
+        "right": "23.6453px",
+        "bottom": "23.6453px",
         "rect": {
-          "x": 665.1315307617188,
-          "y": 604.2569580078125,
+          "x": 659.3626708984375,
+          "y": 585.5989990234375,
           "width": 178.63934326171875,
-          "height": 108.388916015625
+          "height": 121.27801513671875
         }
       },
       "pipImageStyle": {
         "pointerEvents": "none",
         "display": "block",
         "position": "static",
+        "fontSize": 13,
+        "effectiveScale": 0.42219479344472166,
+        "screenFontSize": 5.488532314781382,
         "filter": "none",
         "width": "422.398px",
         "borderRadius": "6px",
@@ -2398,13 +5476,34 @@
         "right": "auto",
         "bottom": "auto",
         "rect": {
-          "x": 665.1315307617188,
-          "y": 612.1634521484375,
+          "x": 659.3626708984375,
+          "y": 606.3946533203125,
           "width": 178.63934326171875,
-          "height": 100.482421875
+          "height": 100.48236083984375
         }
       },
       "pipLabel": "最後の絵",
+      "pipLabelVisible": true,
+      "pipLabelStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "static",
+        "fontSize": 28.3744,
+        "effectiveScale": 0.4199432373046875,
+        "screenFontSize": 11.915637392578127,
+        "filter": "none",
+        "width": "422.398px",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 659.3626708984375,
+          "y": 585.5989990234375,
+          "width": 178.63934326171875,
+          "height": 16.7977294921875
+        }
+      },
       "blurVisible": false,
       "blurImage": {
         "src": null,
@@ -2416,6 +5515,9 @@
         "pointerEvents": "none",
         "display": "none",
         "position": "absolute",
+        "fontSize": 13,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
         "filter": "none",
         "width": "auto",
         "borderRadius": "0px",
@@ -2433,6 +5535,9 @@
         "pointerEvents": "none",
         "display": "inline",
         "position": "static",
+        "fontSize": 13,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
         "filter": "blur(18px) brightness(0.65)",
         "width": "100%",
         "borderRadius": "0px",
@@ -2456,17 +5561,20 @@
         "pointerEvents": "none",
         "display": "block",
         "position": "absolute",
+        "fontSize": 28.3744,
+        "effectiveScale": 0.4242881918853184,
+        "screenFontSize": 12.03892287183078,
         "filter": "none",
-        "width": "139.93px",
-        "borderRadius": "4px",
-        "borderWidth": "1px",
-        "right": "1770.07px",
-        "bottom": "1049.3px",
+        "width": "371.273px",
+        "borderRadius": "9.45813px",
+        "borderWidth": "2px",
+        "right": "1525.09px",
+        "bottom": "1003.19px",
         "rect": {
-          "x": 40.22916793823242,
-          "y": 264.3541564941406,
-          "width": 59.178592681884766,
-          "height": 8.752410888671875
+          "x": 45.998016357421875,
+          "y": 270.1230163574219,
+          "width": 157.01773071289062,
+          "height": 22.487274169921875
         }
       },
       "tagVisible": true,
@@ -2474,6 +5582,66 @@
       "tagSeverity": "planned-video",
       "tagColor": "rgb(230, 223, 255)",
       "bandVisible": false,
+      "bandStyle": {
+        "pointerEvents": "none",
+        "display": "none",
+        "position": "absolute",
+        "fontSize": 28.3744,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "0px",
+        "bottom": "0px",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "bandTextStyle": {
+        "pointerEvents": "none",
+        "display": "inline",
+        "position": "static",
+        "fontSize": 28.3744,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "maskLabelStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "absolute",
+        "fontSize": 28.3744,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
       "bandText": "",
       "bandFillWidth": "0%",
       "shimmerVisible": false,
@@ -2508,12 +5676,15 @@
         "pointerEvents": "none",
         "display": "none",
         "position": "absolute",
+        "fontSize": 13,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
         "filter": "none",
         "width": "22%",
         "borderRadius": "0px",
         "borderWidth": "0px",
-        "right": "10px",
-        "bottom": "10px",
+        "right": "23.6453px",
+        "bottom": "23.6453px",
         "rect": {
           "x": 0,
           "y": 0,
@@ -2525,6 +5696,9 @@
         "pointerEvents": "none",
         "display": "block",
         "position": "static",
+        "fontSize": 13,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
         "filter": "none",
         "width": "100%",
         "borderRadius": "6px",
@@ -2539,6 +5713,27 @@
         }
       },
       "pipLabel": "最後の絵",
+      "pipLabelVisible": false,
+      "pipLabelStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "static",
+        "fontSize": 28.3744,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
       "blurVisible": false,
       "blurImage": {
         "src": null,
@@ -2550,6 +5745,9 @@
         "pointerEvents": "none",
         "display": "none",
         "position": "absolute",
+        "fontSize": 13,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
         "filter": "none",
         "width": "auto",
         "borderRadius": "0px",
@@ -2567,6 +5765,9 @@
         "pointerEvents": "none",
         "display": "inline",
         "position": "static",
+        "fontSize": 13,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
         "filter": "blur(18px) brightness(0.65)",
         "width": "100%",
         "borderRadius": "0px",
@@ -2590,10 +5791,13 @@
         "pointerEvents": "none",
         "display": "none",
         "position": "absolute",
+        "fontSize": 28.3744,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
         "filter": "none",
         "width": "auto",
-        "borderRadius": "4px",
-        "borderWidth": "1px",
+        "borderRadius": "9.45813px",
+        "borderWidth": "2px",
         "right": "auto",
         "bottom": "auto",
         "rect": {
@@ -2608,6 +5812,66 @@
       "tagSeverity": "planned-video",
       "tagColor": null,
       "bandVisible": false,
+      "bandStyle": {
+        "pointerEvents": "none",
+        "display": "none",
+        "position": "absolute",
+        "fontSize": 28.3744,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "0px",
+        "bottom": "0px",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "bandTextStyle": {
+        "pointerEvents": "none",
+        "display": "inline",
+        "position": "static",
+        "fontSize": 28.3744,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "maskLabelStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "absolute",
+        "fontSize": 28.3744,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
       "bandText": "",
       "bandFillWidth": "0%",
       "shimmerVisible": false,
@@ -2745,7 +6009,7 @@
     },
     {
       "step": "PASS",
-      "message": "小窓は右下"
+      "message": "小窓は右下（画面上の余白 10px）"
     },
     {
       "step": "PASS",
@@ -2778,6 +6042,9 @@
         "pointerEvents": "none",
         "display": "inline",
         "position": "static",
+        "fontSize": 13,
+        "effectiveScale": 0.448291665536386,
+        "screenFontSize": 5.827791651973018,
         "filter": "blur(18px) brightness(0.65)",
         "width": "1920px",
         "borderRadius": "0px",
@@ -2821,12 +6088,15 @@
         "pointerEvents": "none",
         "display": "none",
         "position": "absolute",
+        "fontSize": 13,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
         "filter": "none",
         "width": "22%",
         "borderRadius": "0px",
         "borderWidth": "0px",
-        "right": "10px",
-        "bottom": "10px",
+        "right": "23.6453px",
+        "bottom": "85.1232px",
         "rect": {
           "x": 0,
           "y": 0,
@@ -2838,6 +6108,9 @@
         "pointerEvents": "none",
         "display": "block",
         "position": "static",
+        "fontSize": 13,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
         "filter": "none",
         "width": "100%",
         "borderRadius": "6px",
@@ -2852,6 +6125,27 @@
         }
       },
       "pipLabel": "最後の絵",
+      "pipLabelVisible": false,
+      "pipLabelStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "static",
+        "fontSize": 28.3744,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
       "blurVisible": false,
       "blurImage": {
         "src": null,
@@ -2863,6 +6157,9 @@
         "pointerEvents": "none",
         "display": "none",
         "position": "absolute",
+        "fontSize": 13,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
         "filter": "none",
         "width": "auto",
         "borderRadius": "0px",
@@ -2880,6 +6177,9 @@
         "pointerEvents": "none",
         "display": "inline",
         "position": "static",
+        "fontSize": 13,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
         "filter": "blur(18px) brightness(0.65)",
         "width": "100%",
         "borderRadius": "0px",
@@ -2903,10 +6203,13 @@
         "pointerEvents": "none",
         "display": "none",
         "position": "absolute",
+        "fontSize": 28.3744,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
         "filter": "none",
         "width": "auto",
-        "borderRadius": "4px",
-        "borderWidth": "1px",
+        "borderRadius": "9.45813px",
+        "borderWidth": "2px",
         "right": "auto",
         "bottom": "auto",
         "rect": {
@@ -2921,6 +6224,66 @@
       "tagSeverity": "generating",
       "tagColor": null,
       "bandVisible": false,
+      "bandStyle": {
+        "pointerEvents": "none",
+        "display": "none",
+        "position": "absolute",
+        "fontSize": 28.3744,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "0px",
+        "bottom": "0px",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "bandTextStyle": {
+        "pointerEvents": "none",
+        "display": "inline",
+        "position": "static",
+        "fontSize": 28.3744,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "maskLabelStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "absolute",
+        "fontSize": 28.3744,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
       "bandText": "生成中 62% · 残り約 40 秒",
       "bandFillWidth": "62%",
       "shimmerVisible": false,
@@ -2961,6 +6324,2245 @@
       "step": "PASS",
       "message": "OFF に戻すとオーバーレイと小窓が戻る",
       "layerVisible": true
+    },
+    {
+      "step": "PASS",
+      "message": "default/planned: 小札の画面上の文字 >= 11px",
+      "tagStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "absolute",
+        "fontSize": 28.3744,
+        "effectiveScale": 0.4242881918853184,
+        "screenFontSize": 12.03892287183078,
+        "filter": "none",
+        "width": "405.727px",
+        "borderRadius": "9.45813px",
+        "borderWidth": "2px",
+        "right": "1490.63px",
+        "bottom": "1003.19px",
+        "rect": {
+          "x": 45.998016357421875,
+          "y": 270.1230163574219,
+          "width": 171.58853149414062,
+          "height": 22.487274169921875
+        }
+      }
+    },
+    {
+      "step": "PASS",
+      "message": "default/planned: 小札の画面上の高さ >= 16px",
+      "rect": {
+        "x": 45.998016357421875,
+        "y": 270.1230163574219,
+        "width": 171.58853149414062,
+        "height": 22.487274169921875
+      }
+    },
+    {
+      "step": "PASS",
+      "message": "default/planned: tag はステージ内",
+      "rect": {
+        "x": 45.998016357421875,
+        "y": 270.1230163574219,
+        "width": 171.58853149414062,
+        "height": 22.487274169921875
+      },
+      "layerRect": {
+        "x": 36,
+        "y": 260.125,
+        "width": 812,
+        "height": 456.75
+      }
+    },
+    {
+      "step": "PASS",
+      "message": "default/generating: 小札の画面上の文字 >= 11px",
+      "tagStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "absolute",
+        "fontSize": 28.3744,
+        "effectiveScale": 0.4242881918853184,
+        "screenFontSize": 12.03892287183078,
+        "filter": "none",
+        "width": "371.273px",
+        "borderRadius": "9.45813px",
+        "borderWidth": "2px",
+        "right": "1525.09px",
+        "bottom": "1003.19px",
+        "rect": {
+          "x": 45.998016357421875,
+          "y": 270.1230163574219,
+          "width": 157.01773071289062,
+          "height": 22.487274169921875
+        }
+      }
+    },
+    {
+      "step": "PASS",
+      "message": "default/generating: 小札の画面上の高さ >= 16px",
+      "rect": {
+        "x": 45.998016357421875,
+        "y": 270.1230163574219,
+        "width": 157.01773071289062,
+        "height": 22.487274169921875
+      }
+    },
+    {
+      "step": "PASS",
+      "message": "default/generating: tag はステージ内",
+      "rect": {
+        "x": 45.998016357421875,
+        "y": 270.1230163574219,
+        "width": 157.01773071289062,
+        "height": 22.487274169921875
+      },
+      "layerRect": {
+        "x": 36,
+        "y": 260.125,
+        "width": 812,
+        "height": 456.75
+      }
+    },
+    {
+      "step": "PASS",
+      "message": "default/generating: band はステージ内",
+      "rect": {
+        "x": 36,
+        "y": 690.8755493164062,
+        "width": 812,
+        "height": 25.99945068359375
+      },
+      "layerRect": {
+        "x": 36,
+        "y": 260.125,
+        "width": 812,
+        "height": 456.75
+      }
+    },
+    {
+      "step": "PASS",
+      "message": "default/generating: tag と band は非交差",
+      "first": {
+        "x": 45.998016357421875,
+        "y": 270.1230163574219,
+        "width": 157.01773071289062,
+        "height": 22.487274169921875
+      },
+      "second": {
+        "x": 36,
+        "y": 690.8755493164062,
+        "width": 812,
+        "height": 25.99945068359375
+      }
+    },
+    {
+      "step": "PASS",
+      "message": "default/stale: 小札の画面上の文字 >= 11px",
+      "tagStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "absolute",
+        "fontSize": 28.3744,
+        "effectiveScale": 0.4242881918853184,
+        "screenFontSize": 12.03892287183078,
+        "filter": "none",
+        "width": "433.516px",
+        "borderRadius": "9.45813px",
+        "borderWidth": "2px",
+        "right": "1462.84px",
+        "bottom": "1003.19px",
+        "rect": {
+          "x": 45.998016357421875,
+          "y": 270.1230163574219,
+          "width": 183.3409881591797,
+          "height": 22.487274169921875
+        }
+      }
+    },
+    {
+      "step": "PASS",
+      "message": "default/stale: 小札の画面上の高さ >= 16px",
+      "rect": {
+        "x": 45.998016357421875,
+        "y": 270.1230163574219,
+        "width": 183.3409881591797,
+        "height": 22.487274169921875
+      }
+    },
+    {
+      "step": "PASS",
+      "message": "default/stale: tag はステージ内",
+      "rect": {
+        "x": 45.998016357421875,
+        "y": 270.1230163574219,
+        "width": 183.3409881591797,
+        "height": 22.487274169921875
+      },
+      "layerRect": {
+        "x": 36,
+        "y": 260.125,
+        "width": 812,
+        "height": 456.75
+      }
+    },
+    {
+      "step": "PASS",
+      "message": "default/stale: band はステージ内",
+      "rect": {
+        "x": 36,
+        "y": 690.8755493164062,
+        "width": 812,
+        "height": 25.99945068359375
+      },
+      "layerRect": {
+        "x": 36,
+        "y": 260.125,
+        "width": 812,
+        "height": 456.75
+      }
+    },
+    {
+      "step": "PASS",
+      "message": "default/stale: tag と band は非交差",
+      "first": {
+        "x": 45.998016357421875,
+        "y": 270.1230163574219,
+        "width": 183.3409881591797,
+        "height": 22.487274169921875
+      },
+      "second": {
+        "x": 36,
+        "y": 690.8755493164062,
+        "width": 812,
+        "height": 25.99945068359375
+      }
+    },
+    {
+      "step": "PASS",
+      "message": "default/failed: 小札の画面上の文字 >= 11px",
+      "tagStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "absolute",
+        "fontSize": 28.3744,
+        "effectiveScale": 0.4242881918853184,
+        "screenFontSize": 12.03892287183078,
+        "filter": "none",
+        "width": "547.578px",
+        "borderRadius": "9.45813px",
+        "borderWidth": "2px",
+        "right": "1348.78px",
+        "bottom": "1003.19px",
+        "rect": {
+          "x": 45.998016357421875,
+          "y": 270.1230163574219,
+          "width": 231.57992553710938,
+          "height": 22.487274169921875
+        }
+      }
+    },
+    {
+      "step": "PASS",
+      "message": "default/failed: 小札の画面上の高さ >= 16px",
+      "rect": {
+        "x": 45.998016357421875,
+        "y": 270.1230163574219,
+        "width": 231.57992553710938,
+        "height": 22.487274169921875
+      }
+    },
+    {
+      "step": "PASS",
+      "message": "default/failed: tag はステージ内",
+      "rect": {
+        "x": 45.998016357421875,
+        "y": 270.1230163574219,
+        "width": 231.57992553710938,
+        "height": 22.487274169921875
+      },
+      "layerRect": {
+        "x": 36,
+        "y": 260.125,
+        "width": 812,
+        "height": 456.75
+      }
+    },
+    {
+      "step": "PASS",
+      "message": "default/frames: 小札の画面上の文字 >= 11px",
+      "tagStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "absolute",
+        "fontSize": 28.3744,
+        "effectiveScale": 0.4242881918853184,
+        "screenFontSize": 12.03892287183078,
+        "filter": "none",
+        "width": "451.172px",
+        "borderRadius": "9.45813px",
+        "borderWidth": "2px",
+        "right": "1445.19px",
+        "bottom": "1003.19px",
+        "rect": {
+          "x": 45.998016357421875,
+          "y": 270.1230163574219,
+          "width": 190.80810546875,
+          "height": 22.487274169921875
+        }
+      }
+    },
+    {
+      "step": "PASS",
+      "message": "default/frames: 小札の画面上の高さ >= 16px",
+      "rect": {
+        "x": 45.998016357421875,
+        "y": 270.1230163574219,
+        "width": 190.80810546875,
+        "height": 22.487274169921875
+      }
+    },
+    {
+      "step": "PASS",
+      "message": "default/frames: tag はステージ内",
+      "rect": {
+        "x": 45.998016357421875,
+        "y": 270.1230163574219,
+        "width": 190.80810546875,
+        "height": 22.487274169921875
+      },
+      "layerRect": {
+        "x": 36,
+        "y": 260.125,
+        "width": 812,
+        "height": 456.75
+      }
+    },
+    {
+      "step": "PASS",
+      "message": "default/planned-video: 小札の画面上の文字 >= 11px",
+      "tagStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "absolute",
+        "fontSize": 28.3744,
+        "effectiveScale": 0.4242881918853184,
+        "screenFontSize": 12.03892287183078,
+        "filter": "none",
+        "width": "371.273px",
+        "borderRadius": "9.45813px",
+        "borderWidth": "2px",
+        "right": "1525.09px",
+        "bottom": "1003.19px",
+        "rect": {
+          "x": 45.998016357421875,
+          "y": 270.1230163574219,
+          "width": 157.01773071289062,
+          "height": 22.487274169921875
+        }
+      }
+    },
+    {
+      "step": "PASS",
+      "message": "default/planned-video: 小札の画面上の高さ >= 16px",
+      "rect": {
+        "x": 45.998016357421875,
+        "y": 270.1230163574219,
+        "width": 157.01773071289062,
+        "height": 22.487274169921875
+      }
+    },
+    {
+      "step": "PASS",
+      "message": "default/planned-video: tag はステージ内",
+      "rect": {
+        "x": 45.998016357421875,
+        "y": 270.1230163574219,
+        "width": 157.01773071289062,
+        "height": 22.487274169921875
+      },
+      "layerRect": {
+        "x": 36,
+        "y": 260.125,
+        "width": 812,
+        "height": 456.75
+      }
+    },
+    {
+      "step": "PASS",
+      "message": "default/planned-video: pip-label はステージ内",
+      "rect": {
+        "x": 659.3626708984375,
+        "y": 585.5989990234375,
+        "width": 178.63934326171875,
+        "height": 16.7977294921875
+      },
+      "layerRect": {
+        "x": 36,
+        "y": 260.125,
+        "width": 812,
+        "height": 456.75
+      }
+    },
+    {
+      "step": "PASS",
+      "message": "default/planned-video: tag と pip-label は非交差",
+      "first": {
+        "x": 45.998016357421875,
+        "y": 270.1230163574219,
+        "width": 157.01773071289062,
+        "height": 22.487274169921875
+      },
+      "second": {
+        "x": 659.3626708984375,
+        "y": 585.5989990234375,
+        "width": 178.63934326171875,
+        "height": 16.7977294921875
+      }
+    },
+    {
+      "step": "PASS",
+      "message": "default/planned-video: ラベルを含む小窓全体がステージ内",
+      "pipRect": {
+        "x": 659.3626708984375,
+        "y": 585.5989990234375,
+        "width": 178.63934326171875,
+        "height": 121.27801513671875
+      },
+      "layerRect": {
+        "x": 36,
+        "y": 260.125,
+        "width": 812,
+        "height": 456.75
+      }
+    },
+    {
+      "step": "PASS",
+      "message": "default/planned-video: 小窓幅は 22% のまま"
+    },
+    {
+      "step": "narrow-viewport",
+      "windowWidth": 1188,
+      "windowHeight": 1100,
+      "layerRect": {
+        "x": 36,
+        "y": 376,
+        "width": 400,
+        "height": 225
+      }
+    },
+    {
+      "step": "PASS",
+      "message": "狭い幅のステージは 400px ± 20px",
+      "layerRect": {
+        "x": 36,
+        "y": 376,
+        "width": 400,
+        "height": 225
+      }
+    },
+    {
+      "step": "PASS",
+      "message": "既定と狭い幅は異なる表示倍率で計測",
+      "defaultWidth": 812,
+      "narrowWidth": 400
+    },
+    {
+      "step": "measure",
+      "key": "planned-narrow",
+      "layerPresent": true,
+      "layerVisible": true,
+      "layerPointerEvents": "none",
+      "pipVisible": false,
+      "pipImage": {
+        "src": null,
+        "loaded": false,
+        "naturalWidth": 0,
+        "naturalHeight": 0
+      },
+      "pipStyle": {
+        "pointerEvents": "none",
+        "display": "none",
+        "position": "absolute",
+        "fontSize": 13,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "22%",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "48px",
+        "bottom": "48px",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "pipImageStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "static",
+        "fontSize": 13,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "100%",
+        "borderRadius": "6px",
+        "borderWidth": "1px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "pipLabel": "最後の絵",
+      "pipLabelVisible": false,
+      "pipLabelStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "static",
+        "fontSize": 57.6,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "blurVisible": false,
+      "blurImage": {
+        "src": null,
+        "loaded": false,
+        "naturalWidth": 0,
+        "naturalHeight": 0
+      },
+      "blurStyle": {
+        "pointerEvents": "none",
+        "display": "none",
+        "position": "absolute",
+        "fontSize": 13,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "0px",
+        "bottom": "0px",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "blurImageStyle": {
+        "pointerEvents": "none",
+        "display": "inline",
+        "position": "static",
+        "fontSize": 13,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "blur(18px) brightness(0.65)",
+        "width": "100%",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "layerRect": {
+        "x": 36,
+        "y": 376,
+        "width": 400,
+        "height": 225
+      },
+      "tagStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "absolute",
+        "fontSize": 57.6,
+        "effectiveScale": 0.2080047327444094,
+        "screenFontSize": 11.981072606077982,
+        "filter": "none",
+        "width": "824.617px",
+        "borderRadius": "19.2px",
+        "borderWidth": "4.5px",
+        "right": "1047.38px",
+        "bottom": "923.172px",
+        "rect": {
+          "x": 46,
+          "y": 386,
+          "width": 171.7952423095703,
+          "height": 22.672515869140625
+        }
+      },
+      "tagVisible": true,
+      "tagText": "planned · ビート 2 課題",
+      "tagSeverity": null,
+      "tagColor": "rgb(220, 230, 238)",
+      "bandVisible": false,
+      "bandStyle": {
+        "pointerEvents": "none",
+        "display": "none",
+        "position": "absolute",
+        "fontSize": 57.6,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "0px",
+        "bottom": "0px",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "bandTextStyle": {
+        "pointerEvents": "none",
+        "display": "inline",
+        "position": "static",
+        "fontSize": 57.6,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "maskLabelStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "absolute",
+        "fontSize": 57.6,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "bandText": "",
+      "bandFillWidth": "0%",
+      "shimmerVisible": false,
+      "maskVisible": false,
+      "maskRect": {
+        "left": "15%",
+        "top": "60%",
+        "width": "22%",
+        "height": "22%"
+      },
+      "clickableCount": 0,
+      "pointerEventsAutoCount": 0
+    },
+    {
+      "step": "PASS",
+      "message": "narrow/planned: 小札の画面上の文字 >= 11px",
+      "tagStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "absolute",
+        "fontSize": 57.6,
+        "effectiveScale": 0.2080047327444094,
+        "screenFontSize": 11.981072606077982,
+        "filter": "none",
+        "width": "824.617px",
+        "borderRadius": "19.2px",
+        "borderWidth": "4.5px",
+        "right": "1047.38px",
+        "bottom": "923.172px",
+        "rect": {
+          "x": 46,
+          "y": 386,
+          "width": 171.7952423095703,
+          "height": 22.672515869140625
+        }
+      }
+    },
+    {
+      "step": "PASS",
+      "message": "narrow/planned: 小札の画面上の高さ >= 16px",
+      "rect": {
+        "x": 46,
+        "y": 386,
+        "width": 171.7952423095703,
+        "height": 22.672515869140625
+      }
+    },
+    {
+      "step": "PASS",
+      "message": "narrow/planned: tag はステージ内",
+      "rect": {
+        "x": 46,
+        "y": 386,
+        "width": 171.7952423095703,
+        "height": 22.672515869140625
+      },
+      "layerRect": {
+        "x": 36,
+        "y": 376,
+        "width": 400,
+        "height": 225
+      }
+    },
+    {
+      "step": "screenshot",
+      "name": "15-planned-narrow.png"
+    },
+    {
+      "step": "measure",
+      "key": "generating-narrow",
+      "layerPresent": true,
+      "layerVisible": true,
+      "layerPointerEvents": "none",
+      "pipVisible": false,
+      "pipImage": {
+        "src": null,
+        "loaded": false,
+        "naturalWidth": 0,
+        "naturalHeight": 0
+      },
+      "pipStyle": {
+        "pointerEvents": "none",
+        "display": "none",
+        "position": "absolute",
+        "fontSize": 13,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "22%",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "48px",
+        "bottom": "172.8px",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "pipImageStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "static",
+        "fontSize": 13,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "100%",
+        "borderRadius": "6px",
+        "borderWidth": "1px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "pipLabel": "最後の絵",
+      "pipLabelVisible": false,
+      "pipLabelStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "static",
+        "fontSize": 57.6,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "blurVisible": true,
+      "blurImage": {
+        "src": "http://127.0.0.1:56778/asset/83cd9d7af8f22b53b3c790461a2915d30ce12e4d1ee7ccec80c4d28e4355f4df.png",
+        "loaded": true,
+        "naturalWidth": 1920,
+        "naturalHeight": 1080
+      },
+      "blurStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "absolute",
+        "fontSize": 13,
+        "effectiveScale": 0.20833333333333334,
+        "screenFontSize": 2.7083333333333335,
+        "filter": "none",
+        "width": "1920px",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "0px",
+        "bottom": "0px",
+        "rect": {
+          "x": 36,
+          "y": 376,
+          "width": 400,
+          "height": 225
+        }
+      },
+      "blurImageStyle": {
+        "pointerEvents": "none",
+        "display": "inline",
+        "position": "static",
+        "fontSize": 13,
+        "effectiveScale": 0.22083333333333333,
+        "screenFontSize": 2.870833333333333,
+        "filter": "blur(18px) brightness(0.65)",
+        "width": "1920px",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 24.0000057220459,
+          "y": 369.25,
+          "width": 424,
+          "height": 238.5
+        }
+      },
+      "layerRect": {
+        "x": 36,
+        "y": 376,
+        "width": 400,
+        "height": 225
+      },
+      "tagStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "absolute",
+        "fontSize": 57.6,
+        "effectiveScale": 0.2080047327444094,
+        "screenFontSize": 11.981072606077982,
+        "filter": "none",
+        "width": "754.672px",
+        "borderRadius": "19.2px",
+        "borderWidth": "4.5px",
+        "right": "1117.33px",
+        "bottom": "923.172px",
+        "rect": {
+          "x": 46,
+          "y": 386,
+          "width": 157.22329711914062,
+          "height": 22.672515869140625
+        }
+      },
+      "tagVisible": true,
+      "tagText": "生成中 · ビート 3 解決",
+      "tagSeverity": "generating",
+      "tagColor": "rgb(245, 200, 66)",
+      "bandVisible": true,
+      "bandStyle": {
+        "pointerEvents": "none",
+        "display": "flex",
+        "position": "absolute",
+        "fontSize": 57.6,
+        "effectiveScale": 0.2079951171875,
+        "screenFontSize": 11.98051875,
+        "filter": "none",
+        "width": "1920px",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "0px",
+        "bottom": "0px",
+        "rect": {
+          "x": 36,
+          "y": 575.0006103515625,
+          "width": 400,
+          "height": 25.9993896484375
+        }
+      },
+      "bandTextStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "static",
+        "fontSize": 57.6,
+        "effectiveScale": 0.2074095172646605,
+        "screenFontSize": 11.946788194444446,
+        "filter": "none",
+        "width": "784.664px",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 46,
+          "y": 579.6002197265625,
+          "width": 163.4716796875,
+          "height": 16.8001708984375
+        }
+      },
+      "maskLabelStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "absolute",
+        "fontSize": 57.6,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "bandText": "生成中 62% · 残り約 40 秒",
+      "bandFillWidth": "62%",
+      "shimmerVisible": true,
+      "maskVisible": false,
+      "maskRect": {
+        "left": "15%",
+        "top": "60%",
+        "width": "22%",
+        "height": "22%"
+      },
+      "clickableCount": 0,
+      "pointerEventsAutoCount": 0
+    },
+    {
+      "step": "PASS",
+      "message": "narrow/generating: 小札の画面上の文字 >= 11px",
+      "tagStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "absolute",
+        "fontSize": 57.6,
+        "effectiveScale": 0.2080047327444094,
+        "screenFontSize": 11.981072606077982,
+        "filter": "none",
+        "width": "754.672px",
+        "borderRadius": "19.2px",
+        "borderWidth": "4.5px",
+        "right": "1117.33px",
+        "bottom": "923.172px",
+        "rect": {
+          "x": 46,
+          "y": 386,
+          "width": 157.22329711914062,
+          "height": 22.672515869140625
+        }
+      }
+    },
+    {
+      "step": "PASS",
+      "message": "narrow/generating: 小札の画面上の高さ >= 16px",
+      "rect": {
+        "x": 46,
+        "y": 386,
+        "width": 157.22329711914062,
+        "height": 22.672515869140625
+      }
+    },
+    {
+      "step": "PASS",
+      "message": "narrow/generating: tag はステージ内",
+      "rect": {
+        "x": 46,
+        "y": 386,
+        "width": 157.22329711914062,
+        "height": 22.672515869140625
+      },
+      "layerRect": {
+        "x": 36,
+        "y": 376,
+        "width": 400,
+        "height": 225
+      }
+    },
+    {
+      "step": "PASS",
+      "message": "narrow/generating: band はステージ内",
+      "rect": {
+        "x": 36,
+        "y": 575.0006103515625,
+        "width": 400,
+        "height": 25.9993896484375
+      },
+      "layerRect": {
+        "x": 36,
+        "y": 376,
+        "width": 400,
+        "height": 225
+      }
+    },
+    {
+      "step": "PASS",
+      "message": "narrow/generating: tag と band は非交差",
+      "first": {
+        "x": 46,
+        "y": 386,
+        "width": 157.22329711914062,
+        "height": 22.672515869140625
+      },
+      "second": {
+        "x": 36,
+        "y": 575.0006103515625,
+        "width": 400,
+        "height": 25.9993896484375
+      }
+    },
+    {
+      "step": "screenshot",
+      "name": "13-generating-narrow.png"
+    },
+    {
+      "step": "measure",
+      "key": "stale-narrow",
+      "layerPresent": true,
+      "layerVisible": true,
+      "layerPointerEvents": "none",
+      "pipVisible": false,
+      "pipImage": {
+        "src": null,
+        "loaded": false,
+        "naturalWidth": 0,
+        "naturalHeight": 0
+      },
+      "pipStyle": {
+        "pointerEvents": "none",
+        "display": "none",
+        "position": "absolute",
+        "fontSize": 13,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "22%",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "48px",
+        "bottom": "172.8px",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "pipImageStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "static",
+        "fontSize": 13,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "100%",
+        "borderRadius": "6px",
+        "borderWidth": "1px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "pipLabel": "最後の絵",
+      "pipLabelVisible": false,
+      "pipLabelStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "static",
+        "fontSize": 57.6,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "blurVisible": false,
+      "blurImage": {
+        "src": null,
+        "loaded": false,
+        "naturalWidth": 0,
+        "naturalHeight": 0
+      },
+      "blurStyle": {
+        "pointerEvents": "none",
+        "display": "none",
+        "position": "absolute",
+        "fontSize": 13,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "0px",
+        "bottom": "0px",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "blurImageStyle": {
+        "pointerEvents": "none",
+        "display": "inline",
+        "position": "static",
+        "fontSize": 13,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "blur(18px) brightness(0.65)",
+        "width": "100%",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "layerRect": {
+        "x": 36,
+        "y": 376,
+        "width": 400,
+        "height": 225
+      },
+      "tagStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "absolute",
+        "fontSize": 57.6,
+        "effectiveScale": 0.2080047327444094,
+        "screenFontSize": 11.981072606077982,
+        "filter": "none",
+        "width": "881.031px",
+        "borderRadius": "19.2px",
+        "borderWidth": "4.5px",
+        "right": "990.969px",
+        "bottom": "923.172px",
+        "rect": {
+          "x": 46,
+          "y": 386,
+          "width": 183.5481719970703,
+          "height": 22.672515869140625
+        }
+      },
+      "tagVisible": true,
+      "tagText": "応答なし · 再取得は右パネル",
+      "tagSeverity": null,
+      "tagColor": "rgb(220, 230, 238)",
+      "bandVisible": true,
+      "bandStyle": {
+        "pointerEvents": "none",
+        "display": "flex",
+        "position": "absolute",
+        "fontSize": 57.6,
+        "effectiveScale": 0.2079951171875,
+        "screenFontSize": 11.98051875,
+        "filter": "none",
+        "width": "1920px",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "0px",
+        "bottom": "0px",
+        "rect": {
+          "x": 36,
+          "y": 575.0006103515625,
+          "width": 400,
+          "height": 25.9993896484375
+        }
+      },
+      "bandTextStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "static",
+        "fontSize": 57.6,
+        "effectiveScale": 0.2074095172646605,
+        "screenFontSize": 11.946788194444446,
+        "filter": "none",
+        "width": "230.406px",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 46,
+          "y": 579.6002197265625,
+          "width": 48.00129699707031,
+          "height": 16.8001708984375
+        }
+      },
+      "maskLabelStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "absolute",
+        "fontSize": 57.6,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "bandText": "応答なし",
+      "bandFillWidth": "0%",
+      "shimmerVisible": false,
+      "maskVisible": false,
+      "maskRect": {
+        "left": "15%",
+        "top": "60%",
+        "width": "22%",
+        "height": "22%"
+      },
+      "clickableCount": 0,
+      "pointerEventsAutoCount": 0
+    },
+    {
+      "step": "PASS",
+      "message": "narrow/stale: 小札の画面上の文字 >= 11px",
+      "tagStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "absolute",
+        "fontSize": 57.6,
+        "effectiveScale": 0.2080047327444094,
+        "screenFontSize": 11.981072606077982,
+        "filter": "none",
+        "width": "881.031px",
+        "borderRadius": "19.2px",
+        "borderWidth": "4.5px",
+        "right": "990.969px",
+        "bottom": "923.172px",
+        "rect": {
+          "x": 46,
+          "y": 386,
+          "width": 183.5481719970703,
+          "height": 22.672515869140625
+        }
+      }
+    },
+    {
+      "step": "PASS",
+      "message": "narrow/stale: 小札の画面上の高さ >= 16px",
+      "rect": {
+        "x": 46,
+        "y": 386,
+        "width": 183.5481719970703,
+        "height": 22.672515869140625
+      }
+    },
+    {
+      "step": "PASS",
+      "message": "narrow/stale: tag はステージ内",
+      "rect": {
+        "x": 46,
+        "y": 386,
+        "width": 183.5481719970703,
+        "height": 22.672515869140625
+      },
+      "layerRect": {
+        "x": 36,
+        "y": 376,
+        "width": 400,
+        "height": 225
+      }
+    },
+    {
+      "step": "PASS",
+      "message": "narrow/stale: band はステージ内",
+      "rect": {
+        "x": 36,
+        "y": 575.0006103515625,
+        "width": 400,
+        "height": 25.9993896484375
+      },
+      "layerRect": {
+        "x": 36,
+        "y": 376,
+        "width": 400,
+        "height": 225
+      }
+    },
+    {
+      "step": "PASS",
+      "message": "narrow/stale: tag と band は非交差",
+      "first": {
+        "x": 46,
+        "y": 386,
+        "width": 183.5481719970703,
+        "height": 22.672515869140625
+      },
+      "second": {
+        "x": 36,
+        "y": 575.0006103515625,
+        "width": 400,
+        "height": 25.9993896484375
+      }
+    },
+    {
+      "step": "screenshot",
+      "name": "16-stale-narrow.png"
+    },
+    {
+      "step": "measure",
+      "key": "failed-narrow",
+      "layerPresent": true,
+      "layerVisible": true,
+      "layerPointerEvents": "none",
+      "pipVisible": false,
+      "pipImage": {
+        "src": null,
+        "loaded": false,
+        "naturalWidth": 0,
+        "naturalHeight": 0
+      },
+      "pipStyle": {
+        "pointerEvents": "none",
+        "display": "none",
+        "position": "absolute",
+        "fontSize": 13,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "22%",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "48px",
+        "bottom": "48px",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "pipImageStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "static",
+        "fontSize": 13,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "100%",
+        "borderRadius": "6px",
+        "borderWidth": "1px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "pipLabel": "最後の絵",
+      "pipLabelVisible": false,
+      "pipLabelStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "static",
+        "fontSize": 57.6,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "blurVisible": false,
+      "blurImage": {
+        "src": null,
+        "loaded": false,
+        "naturalWidth": 0,
+        "naturalHeight": 0
+      },
+      "blurStyle": {
+        "pointerEvents": "none",
+        "display": "none",
+        "position": "absolute",
+        "fontSize": 13,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "0px",
+        "bottom": "0px",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "blurImageStyle": {
+        "pointerEvents": "none",
+        "display": "inline",
+        "position": "static",
+        "fontSize": 13,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "blur(18px) brightness(0.65)",
+        "width": "100%",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "layerRect": {
+        "x": 36,
+        "y": 376,
+        "width": 400,
+        "height": 225
+      },
+      "tagStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "absolute",
+        "fontSize": 57.6,
+        "effectiveScale": 0.2080047327444094,
+        "screenFontSize": 11.981072606077982,
+        "filter": "none",
+        "width": "1112.62px",
+        "borderRadius": "19.2px",
+        "borderWidth": "4.5px",
+        "right": "759.383px",
+        "bottom": "923.172px",
+        "rect": {
+          "x": 46,
+          "y": 386,
+          "width": 231.79522705078125,
+          "height": 22.672515869140625
+        }
+      },
+      "tagVisible": true,
+      "tagText": "失敗 · timeout · 再試行は右パネル",
+      "tagSeverity": "error",
+      "tagColor": "rgb(214, 64, 43)",
+      "bandVisible": false,
+      "bandStyle": {
+        "pointerEvents": "none",
+        "display": "none",
+        "position": "absolute",
+        "fontSize": 57.6,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "0px",
+        "bottom": "0px",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "bandTextStyle": {
+        "pointerEvents": "none",
+        "display": "inline",
+        "position": "static",
+        "fontSize": 57.6,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "maskLabelStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "absolute",
+        "fontSize": 57.6,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "bandText": "",
+      "bandFillWidth": "0%",
+      "shimmerVisible": false,
+      "maskVisible": false,
+      "maskRect": {
+        "left": "15%",
+        "top": "60%",
+        "width": "22%",
+        "height": "22%"
+      },
+      "clickableCount": 0,
+      "pointerEventsAutoCount": 0
+    },
+    {
+      "step": "PASS",
+      "message": "narrow/failed: 小札の画面上の文字 >= 11px",
+      "tagStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "absolute",
+        "fontSize": 57.6,
+        "effectiveScale": 0.2080047327444094,
+        "screenFontSize": 11.981072606077982,
+        "filter": "none",
+        "width": "1112.62px",
+        "borderRadius": "19.2px",
+        "borderWidth": "4.5px",
+        "right": "759.383px",
+        "bottom": "923.172px",
+        "rect": {
+          "x": 46,
+          "y": 386,
+          "width": 231.79522705078125,
+          "height": 22.672515869140625
+        }
+      }
+    },
+    {
+      "step": "PASS",
+      "message": "narrow/failed: 小札の画面上の高さ >= 16px",
+      "rect": {
+        "x": 46,
+        "y": 386,
+        "width": 231.79522705078125,
+        "height": 22.672515869140625
+      }
+    },
+    {
+      "step": "PASS",
+      "message": "narrow/failed: tag はステージ内",
+      "rect": {
+        "x": 46,
+        "y": 386,
+        "width": 231.79522705078125,
+        "height": 22.672515869140625
+      },
+      "layerRect": {
+        "x": 36,
+        "y": 376,
+        "width": 400,
+        "height": 225
+      }
+    },
+    {
+      "step": "screenshot",
+      "name": "14-failed-narrow.png"
+    },
+    {
+      "step": "measure",
+      "key": "frames-narrow",
+      "layerPresent": true,
+      "layerVisible": true,
+      "layerPointerEvents": "none",
+      "pipVisible": false,
+      "pipImage": {
+        "src": null,
+        "loaded": false,
+        "naturalWidth": 0,
+        "naturalHeight": 0
+      },
+      "pipStyle": {
+        "pointerEvents": "none",
+        "display": "none",
+        "position": "absolute",
+        "fontSize": 13,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "22%",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "48px",
+        "bottom": "48px",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "pipImageStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "static",
+        "fontSize": 13,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "100%",
+        "borderRadius": "6px",
+        "borderWidth": "1px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "pipLabel": "最後の絵",
+      "pipLabelVisible": false,
+      "pipLabelStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "static",
+        "fontSize": 57.6,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "blurVisible": false,
+      "blurImage": {
+        "src": null,
+        "loaded": false,
+        "naturalWidth": 0,
+        "naturalHeight": 0
+      },
+      "blurStyle": {
+        "pointerEvents": "none",
+        "display": "none",
+        "position": "absolute",
+        "fontSize": 13,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "0px",
+        "bottom": "0px",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "blurImageStyle": {
+        "pointerEvents": "none",
+        "display": "inline",
+        "position": "static",
+        "fontSize": 13,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "blur(18px) brightness(0.65)",
+        "width": "100%",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "layerRect": {
+        "x": 36,
+        "y": 376,
+        "width": 400,
+        "height": 225
+      },
+      "tagStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "absolute",
+        "fontSize": 57.6,
+        "effectiveScale": 0.2080047327444094,
+        "screenFontSize": 11.981072606077982,
+        "filter": "none",
+        "width": "916.891px",
+        "borderRadius": "19.2px",
+        "borderWidth": "4.5px",
+        "right": "955.109px",
+        "bottom": "923.172px",
+        "rect": {
+          "x": 46,
+          "y": 386,
+          "width": 191.0188751220703,
+          "height": 22.672515869140625
+        }
+      },
+      "tagVisible": true,
+      "tagText": "パラパラ 8fps · コマ 17/32",
+      "tagSeverity": "frames",
+      "tagColor": "rgb(31, 111, 139)",
+      "bandVisible": false,
+      "bandStyle": {
+        "pointerEvents": "none",
+        "display": "none",
+        "position": "absolute",
+        "fontSize": 57.6,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "0px",
+        "bottom": "0px",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "bandTextStyle": {
+        "pointerEvents": "none",
+        "display": "inline",
+        "position": "static",
+        "fontSize": 57.6,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "maskLabelStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "absolute",
+        "fontSize": 57.6,
+        "effectiveScale": 0.20740876374421297,
+        "screenFontSize": 11.946744791666667,
+        "filter": "none",
+        "width": "230.406px",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "187.992px",
+        "bottom": "239.352px",
+        "rect": {
+          "x": 96.41666412353516,
+          "y": 493.4169921875,
+          "width": 48.001304626464844,
+          "height": 16.80010986328125
+        }
+      },
+      "bandText": "",
+      "bandFillWidth": "0%",
+      "shimmerVisible": false,
+      "maskVisible": true,
+      "maskRect": {
+        "left": "15%",
+        "top": "60%",
+        "width": "22%",
+        "height": "22%"
+      },
+      "clickableCount": 0,
+      "pointerEventsAutoCount": 0
+    },
+    {
+      "step": "PASS",
+      "message": "narrow/frames: 小札の画面上の文字 >= 11px",
+      "tagStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "absolute",
+        "fontSize": 57.6,
+        "effectiveScale": 0.2080047327444094,
+        "screenFontSize": 11.981072606077982,
+        "filter": "none",
+        "width": "916.891px",
+        "borderRadius": "19.2px",
+        "borderWidth": "4.5px",
+        "right": "955.109px",
+        "bottom": "923.172px",
+        "rect": {
+          "x": 46,
+          "y": 386,
+          "width": 191.0188751220703,
+          "height": 22.672515869140625
+        }
+      }
+    },
+    {
+      "step": "PASS",
+      "message": "narrow/frames: 小札の画面上の高さ >= 16px",
+      "rect": {
+        "x": 46,
+        "y": 386,
+        "width": 191.0188751220703,
+        "height": 22.672515869140625
+      }
+    },
+    {
+      "step": "PASS",
+      "message": "narrow/frames: tag はステージ内",
+      "rect": {
+        "x": 46,
+        "y": 386,
+        "width": 191.0188751220703,
+        "height": 22.672515869140625
+      },
+      "layerRect": {
+        "x": 36,
+        "y": 376,
+        "width": 400,
+        "height": 225
+      }
+    },
+    {
+      "step": "screenshot",
+      "name": "17-frames-narrow.png"
+    },
+    {
+      "step": "measure",
+      "key": "planned-video-narrow",
+      "layerPresent": true,
+      "layerVisible": true,
+      "layerPointerEvents": "none",
+      "pipVisible": true,
+      "pipImage": {
+        "src": "http://127.0.0.1:56778/asset/e09a168f3d2fe198ac5d597d7ddcc8c6cbb59efe423ea016491090c074a1f60d.png",
+        "loaded": true,
+        "naturalWidth": 1920,
+        "naturalHeight": 1080
+      },
+      "pipStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "absolute",
+        "fontSize": 13,
+        "effectiveScale": 0.20859896606083086,
+        "screenFontSize": 2.711786558790801,
+        "filter": "none",
+        "width": "422.398px",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "48px",
+        "bottom": "48px",
+        "rect": {
+          "x": 338.00030517578125,
+          "y": 520.7021484375,
+          "width": 87.99969482421875,
+          "height": 70.2978515625
+        }
+      },
+      "pipImageStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "static",
+        "fontSize": 13,
+        "effectiveScale": 0.20797780782234768,
+        "screenFontSize": 2.70371150169052,
+        "filter": "none",
+        "width": "422.398px",
+        "borderRadius": "6px",
+        "borderWidth": "1px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 338.00030517578125,
+          "y": 541.5012817382812,
+          "width": 87.99969482421875,
+          "height": 49.49871826171875
+        }
+      },
+      "pipLabel": "最後の絵",
+      "pipLabelVisible": true,
+      "pipLabelStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "static",
+        "fontSize": 57.6,
+        "effectiveScale": 0.20740876374421297,
+        "screenFontSize": 11.946744791666667,
+        "filter": "none",
+        "width": "422.398px",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 338.00030517578125,
+          "y": 520.7021484375,
+          "width": 87.99969482421875,
+          "height": 16.80010986328125
+        }
+      },
+      "blurVisible": false,
+      "blurImage": {
+        "src": null,
+        "loaded": false,
+        "naturalWidth": 0,
+        "naturalHeight": 0
+      },
+      "blurStyle": {
+        "pointerEvents": "none",
+        "display": "none",
+        "position": "absolute",
+        "fontSize": 13,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "0px",
+        "bottom": "0px",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "blurImageStyle": {
+        "pointerEvents": "none",
+        "display": "inline",
+        "position": "static",
+        "fontSize": 13,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "blur(18px) brightness(0.65)",
+        "width": "100%",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "layerRect": {
+        "x": 36,
+        "y": 376,
+        "width": 400,
+        "height": 225
+      },
+      "tagStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "absolute",
+        "fontSize": 57.6,
+        "effectiveScale": 0.2080047327444094,
+        "screenFontSize": 11.981072606077982,
+        "filter": "none",
+        "width": "754.672px",
+        "borderRadius": "19.2px",
+        "borderWidth": "4.5px",
+        "right": "1117.33px",
+        "bottom": "923.172px",
+        "rect": {
+          "x": 46,
+          "y": 386,
+          "width": 157.22329711914062,
+          "height": 22.672515869140625
+        }
+      },
+      "tagVisible": true,
+      "tagText": "▶ 動画予定 · 最初→最後",
+      "tagSeverity": "planned-video",
+      "tagColor": "rgb(230, 223, 255)",
+      "bandVisible": false,
+      "bandStyle": {
+        "pointerEvents": "none",
+        "display": "none",
+        "position": "absolute",
+        "fontSize": 57.6,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "0px",
+        "bottom": "0px",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "bandTextStyle": {
+        "pointerEvents": "none",
+        "display": "inline",
+        "position": "static",
+        "fontSize": 57.6,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "maskLabelStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "absolute",
+        "fontSize": 57.6,
+        "effectiveScale": 0,
+        "screenFontSize": 0,
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "bandText": "",
+      "bandFillWidth": "0%",
+      "shimmerVisible": false,
+      "maskVisible": false,
+      "maskRect": {
+        "left": "15%",
+        "top": "60%",
+        "width": "22%",
+        "height": "22%"
+      },
+      "clickableCount": 0,
+      "pointerEventsAutoCount": 0
+    },
+    {
+      "step": "PASS",
+      "message": "narrow/planned-video: 小札の画面上の文字 >= 11px",
+      "tagStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "absolute",
+        "fontSize": 57.6,
+        "effectiveScale": 0.2080047327444094,
+        "screenFontSize": 11.981072606077982,
+        "filter": "none",
+        "width": "754.672px",
+        "borderRadius": "19.2px",
+        "borderWidth": "4.5px",
+        "right": "1117.33px",
+        "bottom": "923.172px",
+        "rect": {
+          "x": 46,
+          "y": 386,
+          "width": 157.22329711914062,
+          "height": 22.672515869140625
+        }
+      }
+    },
+    {
+      "step": "PASS",
+      "message": "narrow/planned-video: 小札の画面上の高さ >= 16px",
+      "rect": {
+        "x": 46,
+        "y": 386,
+        "width": 157.22329711914062,
+        "height": 22.672515869140625
+      }
+    },
+    {
+      "step": "PASS",
+      "message": "narrow/planned-video: tag はステージ内",
+      "rect": {
+        "x": 46,
+        "y": 386,
+        "width": 157.22329711914062,
+        "height": 22.672515869140625
+      },
+      "layerRect": {
+        "x": 36,
+        "y": 376,
+        "width": 400,
+        "height": 225
+      }
+    },
+    {
+      "step": "PASS",
+      "message": "narrow/planned-video: pip-label はステージ内",
+      "rect": {
+        "x": 338.00030517578125,
+        "y": 520.7021484375,
+        "width": 87.99969482421875,
+        "height": 16.80010986328125
+      },
+      "layerRect": {
+        "x": 36,
+        "y": 376,
+        "width": 400,
+        "height": 225
+      }
+    },
+    {
+      "step": "PASS",
+      "message": "narrow/planned-video: tag と pip-label は非交差",
+      "first": {
+        "x": 46,
+        "y": 386,
+        "width": 157.22329711914062,
+        "height": 22.672515869140625
+      },
+      "second": {
+        "x": 338.00030517578125,
+        "y": 520.7021484375,
+        "width": 87.99969482421875,
+        "height": 16.80010986328125
+      }
+    },
+    {
+      "step": "PASS",
+      "message": "narrow/planned-video: ラベルを含む小窓全体がステージ内",
+      "pipRect": {
+        "x": 338.00030517578125,
+        "y": 520.7021484375,
+        "width": 87.99969482421875,
+        "height": 70.2978515625
+      },
+      "layerRect": {
+        "x": 36,
+        "y": 376,
+        "width": 400,
+        "height": 225
+      }
+    },
+    {
+      "step": "PASS",
+      "message": "narrow/planned-video: 小窓幅は 22% のまま"
+    },
+    {
+      "step": "screenshot",
+      "name": "12-planned-video-narrow.png"
     }
   ],
   "failures": []
