@@ -19,7 +19,9 @@
 ## CLI
 
 ```sh
-akari-assets list [--category <c>] [--json]          # 合成カタログ一覧（取得状態バッジ込み）
+akari-assets list [--category <c>] [--source <lab|site|own>] [--json]          # 合成カタログ一覧（取得状態バッジ込み）
+akari-assets add <path...> --plan [--json]            # ファイル・フォルダの取り込み計画
+akari-assets add --apply <plan.json> [--json]         # 確認済み計画を複製して登録
 akari-assets fetch <id> [--project <dir>] [--force]   # 素材を解決してローカルへ登録
 akari-assets migrate [--dry-run]                      # 旧置き場を再移行（dry-run は変更しない）
 akari-assets sync                                      # カタログを取得してローカルにキャッシュ
@@ -120,9 +122,9 @@ checksums 不一致は、いずれも `AssetResolverError`（`code: 'download_fa
 
 `AKARI_ASSETS_CATALOG` がリモート URL のとき、`loadCatalog` は取得成功のたびに
 `~/.akari/catalog-cache.json` へ自動キャッシュする。オフライン時（fetch 失敗）はこのキャッシュへ
-フォールバックする。キャッシュも無い場合は「取得できていない」ことを明示するエラーで止まる
-（黙って空のカタログを返したりしない）。ただし `installed.json` に導入済み素材がある場合は、
-キャッシュが無くてもその素材だけを `list` / `fetch` できる。`akari-assets sync` はオンライン環境で
+フォールバックする。キャッシュも無い場合、`list` は警告を stderr に出し、置き場の素材と `installed.json` の導入済み素材を返す。
+`AKARI_ASSETS_CATALOG` に指定したローカルファイルが読めない場合も同様。
+`fetch` / `sync` の取得エラーの扱いは従来どおり。`akari-assets sync` はオンライン環境で
 明示的にキャッシュを温めておくためのコマンド。
 
 ## テスト
@@ -170,3 +172,111 @@ root（絶対パス）、state（pending / migrating / done / declined）、deci
 途中失敗は migrating のまま再開可能。done 後に旧 CLI が追加した素材は `akari-assets migrate` で寄せる。
 作業場なしは何もしない。OneDrive / Dropbox / iCloud Drive / Google Drive 配下は pending に留め、
 結果に同期先と総容量を返す。ドロップフォルダと reviews はマシン状態として元の場所に残す。
+
+
+## カタログ外の素材と出どころ
+
+`list --json` は素材配列を返す。リモートカタログにない `<category>/<id>` も含め、
+新しい置き場を優先し、従来の置き場も読む。カタログ側に同じ key がある場合は 1 件にまとめる。
+ローカルの表示情報は meta.json、`files: [{name, bytes}]` は実ディレクトリから得る。
+壊れた meta.json も id を title にした item として残し、`warnings[]` に理由を付ける。
+
+追加フィールド:
+
+| フィールド | 意味 |
+| --- | --- |
+| `sourceKind` | カタログ収載・ストア導入は `lab`。それ以外は `origin:site` / `origin:own`、既存の `source.url`（site）、既定 own の順 |
+| `tags` / `machineTags` | 人向けタグ / `origin:*`・`site:*`・`folder:*`・`pack:*`・`license:subscription` |
+| `folder` / `site` / `subscription` | 機械用タグの値（無ければ null / null / false） |
+| `creditText` | CREDIT.txt の先頭 1 行。無ければ null |
+| `libraryDir` / `addedAt` | ローカル素材の絶対パス / ディレクトリ birthtime（無効なら mtime）の ISO 時刻 |
+| `preview` / `mediaFile` | ローカル素材では `preview.png` / 直下で一意な主メディアのファイル名。無ければ null |
+
+主メディアはシェルと同じ一意解決の規則で、複数テイクから勝手に選ばない。
+still の `preview.png` は主メディア候補から除く。音・映像・画像に加え、取り込み対象の
+AIFF・SVG・フォント・glTF も判定する（シェルでの配置可否とは別）。
+`composeState()` は一覧に加え取得エラー等の `warnings[]` を返す。
+
+## ローカル取り込みの JSON 契約
+
+```sh
+akari-assets add /path/to/track.wav /path/to/folder --plan --json > plan.json
+# plan.json の items[].kind / selected と任意の credit / pack を編集
+akari-assets add --apply plan.json --json
+```
+
+plan は置き場に書き込まない。隠しファイル・Thumbs.db・シンボリックリンクを除いて再帰し、
+5,000 ファイルで打ち切った場合は `truncated: true` と `warnings[]` を返す。
+
+```jsonc
+{
+  "schema": "akari-assets-add-plan/v0",
+  "items": [{
+    "path": "/absolute/path/track.wav", "name": "track.wav", "bytes": 2000000,
+    "category": "audio", "kind": "sfx", "durationSec": 14,
+    "durationSource": "ffprobe", "ambiguous": true, "proposedId": "track",
+    "mtimeMs": 1790000000000, "folder": "Tracks"
+  }],
+  "duplicates": [], "rejected": [], "truncated": false, "limit": 5000, "warnings": []
+}
+```
+
+- 音: 10 秒未満 = `kind: "sfx"`、30 秒以上 = `"bgm"`、間は `ambiguous: true` + 既定 `"sfx"`。
+  利用者の選択は `items[].kind` を `"bgm"` に変えて反映する。`ambiguous` は判定時の情報として残せる。
+- ffprobe 不在だけはサイズで推定する（1,200,000 bytes 未満 = sfx、4,000,000 bytes 超 = bgm、間は ambiguous）。
+  `durationSec: null` / `durationSource: "size"`。ffprobe が動いてエラーを返した音は rejected。
+- 画像 = still、映像 = broll、フォント = font、GLB/glTF = scene3d。これらの kind は category と同じ、
+  durationSec / durationSource は null。cube は presets 管轄のため rejected。0 バイト・対応外形式も理由つきで rejected。
+- `duplicates[]` は元ファイル情報 + `status: "duplicate"` + 既存の `category` / `id` / `libraryDir`。
+  同じバイト数の既存ペイロードがある場合だけ、取り込み元とその候補の sha256 を計算・比較する。
+  候補がなければ先頭 512 bytes の読み取り確認のみ行い、hash は計算しない。計算した場合だけ `sha256` を plan に含める。`rejected[]` は元ファイル情報 + `reason`。
+- `folder` は渡されたフォルダ名。単独ファイルには付けない。`selected: false` の item は apply で除外する。
+- `credit` は plan 全体または item に指定でき、改行を空白にして CREDIT.txt へ保存する。
+- `pack: {id, title}` は plan 全体で任意指定。全追加素材に pack タグを付け、ライブラリ直下の
+  `packs.json` に `akari-catalog-packs/v0` の行を追加する。混在セットの category は最初に登録した素材のもの。
+- サイト取り込みは plan または item に `origin: "site"`, `site`, `sourceUrl`, `licenseAtSource`,
+  `subscription` を指定する。source の acquisition は subscription=true なら login、ほかは direct。
+  `sourceUrl` と `licenseAtSource` は必須。既定の own には source を作らない。
+
+apply の結果は `{added: [{category,id,libraryDir,warnings?}], duplicates, rejected, failures}`。
+failures は `{path?, reason}`。1 件でも失敗した CLI は exit 1 と結果 JSON を返すが、残りの素材は続ける。
+id は proposedId を使い、衝突時だけ `-2` 以降を足す。元ファイルのサイズ・mtime を再確認し（plan に sha256 があればそれも照合）、
+apply 時に計算した hash と複製後の hash を比較して、
+同じディスクの一時ディレクトリへ CoW 複製 → 検証 → rename する。コピー元は消さない。
+失敗した素材の一時ファイルと配置済みファイルは削除する。並行 apply は `.add-lock` で排他し、
+実行中なら failures を返す（強制終了で残った lock は、実行がないことを確認して除去する）。
+
+### プレビュー・表示用ファイルと厳密な検証
+
+apply は全カテゴリで `preview.png` を置く。音は register-drop-folder と同じ関数で波形を生成し、
+映像は ffmpeg で先頭フレームをサムネイルにする。ffmpeg 不在・実行失敗時は、Node 組み込みの
+zlib で作る決定的なプレースホルダ PNG に置き換え、`added[].warnings` にその旨を返す。
+PNG の still は元画像を複製して preview にする。font / scene3d / PNG 以外の still もプレースホルダを使う。
+
+still には実体画像を相対参照する最小の `fragment.html`、scene3d には canvas と
+`data-akari-3d-scene` の model 宣言を持つ最小の `fragment.html` を生成する。
+生成した素材を既存 `validate-asset.mjs` に渡し、exit 0 の場合だけ登録する。
+非 0 の診断を警告として許容する例外は設けず、`failures[]` に記録して素材を残さない。
+
+### apply が作る meta.json の既定値
+
+| 必須項目 | 既定値 |
+| --- | --- |
+| id | ファイル名由来の proposedId（非 ASCII は短いハッシュ、衝突時は接尾辞） |
+| category | 拡張子で決めた audio / still / broll / font / scene3d |
+| title | 元ファイル名（拡張子を除く。例: mid.wav → mid） |
+| description | 利用者がローカルから取り込んだ素材 |
+| when_to_use | 利用者のプロジェクトでこの素材を使うとき |
+| tags | origin:own。必要時に folder:* / sfx / pack:*。site 由来は origin:site / site:* / license:subscription |
+| knobs | [] |
+| ai_usage | 利用者の利用条件の範囲で使用する。再配布・AI 学習には使用しない。 |
+| requires | [] |
+| provenance | {origin: "利用者がローカルから取り込み", generator: null} |
+| author | user |
+| license | {spdx: "LicenseRef-user-owned", scope: "private-owned", attribution_required: false, ai_training_allowed: false}（credit 指定時だけ attribution_required=true） |
+| price | 0 |
+
+`planAdd` の `probe(path, {env})` 注入口は秒数か null（不在）を返し、壊れた音なら throw する。
+追加テストはこの注入口を使うため、ffprobe / ffmpeg は不要。
+
+`planAdd` の `hashFile(path)` 注入口は、同サイズ候補がない場合に呼ばれないことを検証するために使える。

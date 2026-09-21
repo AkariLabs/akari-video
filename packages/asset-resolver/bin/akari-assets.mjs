@@ -1,12 +1,16 @@
 #!/usr/bin/env node
-// akari-assets — 素材 resolver v0 の CLI（list / fetch / bundle / sync / browse）。
+// akari-assets — 素材 resolver v0 の CLI（list / add / fetch / bundle / migrate / sync / browse）。
 //
-//   akari-assets list [--category <c>] [--json]
+//   akari-assets list [--category <c>] [--source <lab|site|own>] [--json]
+//   akari-assets add <path...> --plan [--json]
+//   akari-assets add --apply <plan.json> [--json]
 //   akari-assets fetch <id> [--project <dir>] [--reference] [--force]
 //   akari-assets bundle --project <dir> [--dry-run]
 //   akari-assets sync
 //   akari-assets browse [--port <n>]
 
+import { readFile } from 'node:fs/promises';
+import { planAdd, applyAdd } from '../src/add.mjs';
 import { migrateAssetLibrary } from '../../creator-root/src/index.mjs';
 import { startBrowseServer } from '../src/browse-server.mjs';
 import { bundleProjectReferences } from '../src/bundle.mjs';
@@ -30,8 +34,11 @@ function badgeOf(item) {
 async function cmdList(args, env) {
   const category = flagValue(args, '--category');
   const asJson = args.includes('--json');
-  const { libraryRoots, items } = await composeState({ env });
-  const filtered = category ? items.filter((item) => item.category === category) : items;
+  const source = flagValue(args, '--source');
+  if (args.includes('--source') && !['lab', 'site', 'own'].includes(source)) throw new Error('--source は lab / site / own で指定してください');
+  const { libraryRoots, items, warnings } = await composeState({ env });
+  for (const warning of warnings) console.error(`警告: ${warning}`);
+  const filtered = items.filter(item => (!category || item.category === category) && (!source || item.sourceKind === source));
 
   if (asJson) {
     console.log(JSON.stringify(filtered, null, 2));
@@ -40,8 +47,23 @@ async function cmdList(args, env) {
 
   console.log(`使える素材 ${filtered.length} 件（ライブラリ: ${libraryRoots.write}）`);
   for (const item of filtered) {
-    console.log(`  ${badgeOf(item)}  ${item.id}\t[${item.category}]\t${item.title}`);
+    console.log(`  ${badgeOf(item)}  ${item.id}\t${item.sourceKind}\t[${item.category}]\t${item.title}`);
   }
+}
+
+async function cmdAdd(args, env) {
+  const apply = flagValue(args, '--apply');
+  if (args.includes('--plan') === args.includes('--apply')) throw new Error('add は --plan または --apply <plan.json> のどちらかを指定してください');
+  let result;
+  if (args.includes('--apply')) {
+    if (!apply || args.some((arg, index) => !['--apply', '--json'].includes(arg) && index !== args.indexOf('--apply') + 1)) throw new Error('使い方: akari-assets add --apply <plan.json> [--json]');
+    result = await applyAdd(JSON.parse(await readFile(apply, 'utf8')), { env });
+    if (result.failures.length) process.exitCode = 1;
+  } else {
+    if (args.some(arg => arg.startsWith('--') && !['--plan', '--json'].includes(arg))) throw new Error('使い方: akari-assets add <path...> --plan [--json]');
+    result = await planAdd(args.filter(arg => !['--plan', '--json'].includes(arg)), { env });
+  }
+  console.log(JSON.stringify(result, null, 2));
 }
 
 async function cmdFetch(args, env) {
@@ -120,9 +142,12 @@ async function cmdBrowse(args, env) {
 }
 
 function printUsage() {
-  console.log(`使い方: akari-assets <list|fetch|bundle|migrate|sync|browse> [options]
+  console.log(`使い方: akari-assets <list|add|fetch|bundle|migrate|sync|browse> [options]
 
-  list [--category <c>] [--json]          合成カタログ一覧（取得状態バッジ込み）
+  list [--category <c>] [--source <lab|site|own>] [--json]
+                                          出どころ・取得状態つき素材一覧
+  add <path...> --plan [--json]           ローカル素材の取り込み計画（書き込みなし）
+  add --apply <plan.json> [--json]        計画で選択した素材を複製して登録
   fetch <id> [--project <dir>] [--reference] [--force]
                                           素材を解決して登録（--reference はコピーせず参照を記帳）
   bundle --project <dir> [--dry-run]      参照素材をプロジェクトへ実体化（素材をまとめる）
@@ -149,6 +174,7 @@ async function main() {
     return;
   }
   if (sub === 'list') return cmdList(rest, env);
+  if (sub === 'add') return cmdAdd(rest, env);
   if (sub === 'fetch') return cmdFetch(rest, env);
   if (sub === 'bundle') return cmdBundle(rest, env);
   if (sub === 'sync') return cmdSync(rest, env);

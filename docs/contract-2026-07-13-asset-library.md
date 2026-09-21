@@ -423,3 +423,34 @@ catalog に載せる素材は、取得元のライセンスが CC0 相当（帰�
 **人が選んでコピーするか / コードが id で引くか**で置き場を決める。前者は `assets/` か `catalog/`、
 後者は `presets/`。後者をここへ足すときは、解決するコードのパスと 1:1 で対応させ、その参照箇所を
 表の INDEX.md に明記する。
+
+
+## 手持ち素材の登録（2026-09-22）
+
+`akari-assets add --plan / --apply` は利用者の生ファイルを置き場へ複製する。
+出どころは meta.json の既存 tags に記録し、スキーマは増やさない。
+
+| 機械用タグ | 意味 |
+| --- | --- |
+| `origin:own` / `origin:site` | ローカル取り込み / サイトからの取り込み |
+| `site:<id>` | サイト識別子 |
+| `folder:<名前>` | 取り込み元として渡されたフォルダ名 |
+| `license:subscription` | サブスクリプション由来 |
+| `pack:<id>` | 素材セット。置き場直下の packs.json は catalog/packs.json と同型 |
+
+一覧ではこれらを `machineTags` に分け、表示・検索用の `tags` に残さない。
+カタログ掲載は lab、明示 origin タグがない既存の source.url つき素材は site、それ以外は own とする。
+素材ディレクトリの `CREDIT.txt` はクレジット文面 1 行。文面がある場合は
+`license.attribution_required: true`、source がある場合はその attribution_required も true にする。
+
+取り込みの既定は `license.scope: "private-owned"`、`spdx: "LicenseRef-user-owned"`、
+`ai_training_allowed: false`、`price: 0`。利用者の手持ち素材として保管するための値であり、
+素材そのものの著作権帰属・商用可否・再配布権を認定するものではない。
+サイト由来は source ブロックに配布ページと元の利用条件を残す。
+
+ローカル取り込みは全カテゴリに preview.png を置く。音は ffmpeg の波形、映像は先頭フレームを使い、
+ffmpeg 不在・失敗時は Node 組み込みの zlib で生成した決定的なプレースホルダ PNG にする。
+PNG の画像は元画像を複製し、その他の画像・font・scene3d はプレースホルダを使う。
+still は画像を相対参照する fragment.html、scene3d はモデルを参照する data-akari-3d-scene 宣言の
+fragment.html を生成する。これらを含む素材全体が validate-asset の exit 0 を通った場合だけ登録し、
+非 0 の場合は failures に記録して素材を残さない。title は元ファイル名から拡張子を除いたものにする。
