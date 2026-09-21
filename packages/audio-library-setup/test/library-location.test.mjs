@@ -19,10 +19,11 @@ test('offline sounds fetch, BGM suggestion and beat grid use the pinned location
   const id = 'bgm-beatslide-124-001';
   const catalog = { library: 'fixture', version: 'v0', tracks: [{ id, title: 'Fixture', kind: 'bgm', tags: ['bgm','bpm-124'], files: [{ mp3: `${id}.mp3`, duration_sec: 1 }] }] };
   await fs.writeFile(path.join(temp, 'catalog.json'), JSON.stringify(catalog));
-  const ffmpeg = spawnSync('ffmpeg', ['-v','error','-f','lavfi','-i','sine=frequency=440:duration=1',path.join(temp, `${id}.mp3`)], { encoding: 'utf8' });
-  assert.equal(ffmpeg.status, 0, ffmpeg.stderr);
+  // 中身は音として再生しない（置き場の解決だけを見る）。ffmpeg に頼らず、外部ツール不要のレーンでも走るようにする
+  await fs.writeFile(path.join(temp, `${id}.mp3`), Buffer.from('ID3fixture-not-real-audio'));
   const zip = spawnSync('zip', ['-q', 'akari-sounds-mp3.zip', `${id}.mp3`], { cwd: temp, encoding: 'utf8' });
-  assert.equal(zip.status, 0, zip.stderr);
+  if (zip.error?.code === 'ENOENT') { t.skip('この環境に zip がない'); return; }
+  assert.equal(zip.status, 0, String(zip.stderr));
   const run = (script, args) => {
     const result = spawnSync(process.execPath, [path.join(bin, script), ...args], { env, encoding: 'utf8' });
     assert.equal(result.status, 0, result.stderr + result.stdout); return result.stdout;
