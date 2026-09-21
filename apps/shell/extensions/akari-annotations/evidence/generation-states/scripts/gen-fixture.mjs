@@ -51,15 +51,31 @@ const STATES = [
   { id: 'next-narrow', file: 'next-narrow.png', color: '#24789a', frames: 42 }
 ];
 
+// Layout clips follow the original ten clips on the first visual track (the cut renderer).
+const EXTRA_SOURCES = [
+  { id: 'planned-prompt', file: 'planned-prompt.png', color: '#3a3f4a' },
+  { id: 'orphan', file: 'orphan.png', color: '#555555' }
+];
+const LAYOUT_STATES = [
+  { id: 'empty', src: 'planned', state: 'planned', badge: '空の枠' },
+  { id: 'planned', src: 'planned-prompt', state: 'planned', badge: '予定' },
+  { id: 'generating', src: 'generating', state: 'generating', badge: '生成中 62%' },
+  { id: 'stale', src: 'stale', state: 'stale', badge: '応答なし・再取得' },
+  { id: 'failed', src: 'failed', state: 'failed', badge: '失敗' },
+  { id: 'orphan', src: 'orphan', state: 'orphan', badge: '孤児' },
+  { id: 'done', src: 'done', state: 'done', badge: '生成' },
+  { id: 'still', src: 'still', state: 'none', badge: '静止画' }
+];
+
 await rm(FIXTURE_ROOT, { recursive: true, force: true });
 await mkdir(GENERATED, { recursive: true });
 
-for (const state of STATES) {
+for (const state of [...STATES, ...EXTRA_SOURCES]) {
   const target = path.join(GENERATED, state.file);
   if (state.file.endsWith('.mp4')) {
     await run(FFMPEG, [
       '-hide_banner', '-loglevel', 'error', '-f', 'lavfi', '-i', `color=c=${state.color}:s=320x180:r=${FPS}`,
-      '-t', '2', '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '42',
+      '-t', '6', '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '42',
       '-pix_fmt', 'yuv420p', '-movflags', '+faststart', target
     ], GENERATED);
   } else {
@@ -76,6 +92,13 @@ const iso = ms => new Date(ms).toISOString();
 await writeJson(path.join(GENERATED, 'planned.png.meta.json'), {
   version: 1, kind: 'still', status: 'planned',
   provenance: { created_at: iso(now), tool: 'l1-fixture' }
+});
+await writeJson(path.join(GENERATED, 'planned-prompt.png.meta.json'), {
+  version: 1, kind: 'still', status: 'planned', inputs: { prompt: '朝の海をゆっくり進む' }
+});
+await writeJson(path.join(GENERATED, 'orphan.png.meta.json'), {
+  version: 1, kind: 'still', status: 'done',
+  result: { path: 'assets/generated/orphan.png', sha256: '0'.repeat(64) }
 });
 await writeJson(path.join(GENERATED, 'generating.png.meta.json'), {
   version: 1, kind: 'still', status: 'generating', progress: 62,
@@ -121,24 +144,47 @@ for (const name of ['next-first-last', 'next-first', 'next-prompt', 'next-narrow
   await writeJson(path.join(GENERATED, `${name}.png.meta.json`), meta);
 }
 
-let nextFrame = 0;
-const edit = {
-  version: 2,
-  output: { width: 640, height: 360, fps: FPS },
-  sources: STATES.map(state => ({ id: state.id, path: `assets/generated/${state.file}` })),
-  tracks: [{
-    id: 'video', lane: 'visual', name: '生成状態',
-    items: STATES.map(state => {
+// Pure timeline builder: extra visual tracks use the layer renderer, which has no generation chip.
+function buildTimelineFixture({ states, extraSources, layoutStates, fps, clipFrames }) {
+  let nextFrame = 0;
+  const items = states.map(state => {
+    const at = nextFrame;
+    const duration = state.frames ?? clipFrames;
+    nextFrame += duration;
+    return {
+      id: `clip-${state.id}`, name: state.file, at, duration,
+      source: { kind: 'media', src: state.id, in: 0, out: duration / fps }
+    };
+  });
+  const originalDurationSeconds = nextFrame / fps;
+  const layoutCases = [];
+  for (const [mode, seconds] of [['normal', 6], ['narrow', 1.4]]) {
+    for (const state of layoutStates) {
+      const name = `${mode}-${state.id}-長いクリップ名の省略を確認`;
       const at = nextFrame;
-      const duration = state.frames ?? CLIP_FRAMES;
+      const duration = Math.round(seconds * fps);
       nextFrame += duration;
-      return {
-        id: `clip-${state.id}`, name: state.file, at, duration,
-        source: { kind: 'media', src: state.id, in: 0, out: duration / FPS }
-      };
-    })
-  }]
-};
+      layoutCases.push({ label: name, state: state.state, badge: state.badge, mode,
+        atSeconds: at / fps, durationSeconds: duration / fps });
+      items.push({
+        id: `layout-${mode}-${state.id}`, name, at, duration,
+        source: { kind: 'media', src: state.src, in: 0, out: duration / fps }
+      });
+    }
+  }
+  return {
+    edit: {
+      version: 2,
+      output: { width: 640, height: 360, fps },
+      sources: [...states, ...extraSources].map(state => ({ id: state.id, path: `assets/generated/${state.file}` })),
+      tracks: [{ id: 'video', lane: 'visual', name: '生成状態', items }]
+    },
+    layoutCases, originalDurationSeconds, totalDurationSeconds: nextFrame / fps
+  };
+}
+const { edit, layoutCases, originalDurationSeconds, totalDurationSeconds } = buildTimelineFixture({
+  states: STATES, extraSources: EXTRA_SOURCES, layoutStates: LAYOUT_STATES, fps: FPS, clipFrames: CLIP_FRAMES
+});
 await writeJson(path.join(FIXTURE, 'edit.json'), edit);
 await writeJson(path.join(FIXTURE, 'captions.json'), { captions: [] });
 await run('/usr/bin/git', ['init'], FIXTURE);
@@ -153,5 +199,6 @@ process.stdout.write(`${JSON.stringify({
   sidecars: STATES.filter(state => state.id !== 'still').map(state => state.file),
   stillWithoutSidecar: 'still.png',
   clipFrames: CLIP_FRAMES,
-  fps: FPS
+  fps: FPS,
+  layoutCases, originalDurationSeconds, totalDurationSeconds
 })}\n`);

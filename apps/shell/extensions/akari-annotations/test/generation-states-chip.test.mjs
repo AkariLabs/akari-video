@@ -6,13 +6,16 @@ import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import test from 'node:test';
 import ts from 'typescript';
+import postcss from 'postcss';
 
 import { AkariAnnotationsServiceImpl } from '../lib/node/akari-annotations-service.js';
 import { describeGenerationChip, resolveGenerationState } from '../lib/common/generation-sidecar.js';
 import { selectGenerationSidecarForSource } from '../../../../../packages/edit-store/lib/generation-meta.js';
+import { assertChipLayout, selectClipsByLabel, layoutCapturePlan } from '../evidence/generation-states/scripts/cdp-lib.mjs';
 
 const fixture = new URL('./fixtures/generation-states/', import.meta.url);
 const widgetSource = await readFile(new URL('../src/browser/akari-annotations-widget.ts', import.meta.url), 'utf8');
+const chipLayoutFixture = JSON.parse(await readFile(new URL('chip-layout.json', fixture), 'utf8'));
 
 function widgetMethod(name, dependencies) {
   const ast = ts.createSourceFile('widget.ts', widgetSource, ts.ScriptTarget.Latest, true);
@@ -32,6 +35,8 @@ class DummyElement {
     this.dataset = {};
     this.style = {};
     this.className = '';
+    this.title = '';
+    this._text = '';
     this.parent = undefined;
     this.classList = {
       add: (...values) => {
@@ -45,7 +50,11 @@ class DummyElement {
       }
     };
   }
-  appendChild(child) { child.parent = this; this.children.push(child); }
+  get parentElement() { return this.parent; }
+  get textContent() { return this._text + this.children.map(child => child.textContent).join(''); }
+  set textContent(text) { this._text = text; this.children.forEach(child => { child.parent = undefined; }); this.children = []; }
+  appendChild(child) { child.remove(); child.parent = this; this.children.push(child); }
+  prepend(child) { child.remove(); child.parent = this; this.children.unshift(child); }
   setAttribute(name, value) { this[name] = value; }
   getBoundingClientRect() { return { width: this.width ?? 180, height: this.height ?? 48 }; }
   querySelector(selector) {
@@ -55,7 +64,8 @@ class DummyElement {
     if (cls) return this.children.find(child => child.className.split(' ').includes(cls[1]));
     const key = selector.includes('generation-badge') ? 'akariGenerationBadge'
       : selector.includes('generation-progress') ? 'akariGenerationProgress' : undefined;
-    return key ? this.children.find(child => Object.hasOwn(child.dataset, key)) : undefined;
+    return key ? this.children.find(child => Object.hasOwn(child.dataset, key))
+      ?? (selector.startsWith(':scope') ? undefined : this.children.map(child => child.querySelector(selector)).find(Boolean)) : undefined;
   }
   remove() {
     if (this.parent) this.parent.children = this.parent.children.filter(child => child !== this);
@@ -154,7 +164,7 @@ test('meta watcher は 1 秒以内に className / badge を差分更新し edit/
   };
   await render();
   assert.match(current.className, /akari-generation-planned/);
-  assert.equal(current.children[0].textContent, 'planned');
+  assert.equal(current.children[0].textContent, '空の枠');
 
   let renderTail = Promise.resolve();
   let sidecarMtime = (await stat(sidecarPath)).mtimeMs;
@@ -224,6 +234,111 @@ test('orphan の generation chip は孤児クラスとバッジを表示する',
   });
   assert.match(element.className, /akari-generation-orphan/);
   assert.equal(element.children.find(child => Object.hasOwn(child.dataset, 'akariGenerationBadge'))?.textContent, '孤児');
+});
+
+test('全8状態は札1枚をヘッダに置き、名前・時刻と省略前の札を title で読める', () => {
+  const element = new DummyElement();
+  element.title = 'C1';
+  const header = new DummyElement();
+  header.className = 'akari-annotations-strip-clip-header';
+  const name = new DummyElement();
+  name.className = 'akari-annotations-strip-clip-header-label';
+  name.textContent = 'とても長いクリップ名.png';
+  const duration = new DummyElement();
+  duration.className = 'akari-annotations-strip-clip-header-duration';
+  duration.textContent = '00:02:15';
+  header.appendChild(name);
+  header.appendChild(duration);
+  element.appendChild(header);
+  for (const { state, meta, badge: expected } of chipLayoutFixture.cases) {
+    for (let repeat = 0; repeat < 2; repeat++) {
+      applyGenerationChip.call({}, element, { state, meta });
+      assert.equal(header.children.length, 3);
+      const badge = header.children[0];
+      assert.equal(badge.textContent, expected);
+      assert.equal(badge.dataset.akariGenerationCompact, Array.from(expected)[0]);
+      assert.deepEqual(header.children.slice(1), [name, duration]);
+      assert.match(element.className, /akari-generation-chip-layout/);
+      assert.ok(element.title.includes(expected));
+      assert.ok(element.title.includes(name.textContent));
+      assert.ok(element.title.includes(duration.textContent));
+      assert.equal(element.title.split('\n').length, 4, 'no repeated tooltip suffix');
+      assert.equal(name.title, name.textContent);
+      assert.equal(duration.title, duration.textContent);
+    }
+  }
+  applyGenerationChip.call({}, element, { state: 'planned-video' });
+  assert.equal(header.children.length, 2, 'r1 badge returns to direct-child position');
+  assert.equal(element.querySelector('[data-akari-generation-badge]').parentElement, element);
+  assert.ok(!element.className.includes('akari-generation-chip-layout'));
+  assert.equal(element.title, 'C1');
+  applyGenerationChip.call({}, element, { state: 'failed' });
+  applyGenerationChip.call({}, element, undefined);
+  assert.equal(header.children.length, 2);
+  assert.equal(element.title, 'C1');
+  assert.ok(!element.querySelector('[data-akari-generation-badge]'));
+});
+
+test('CSS の実際の幅条件は時刻128 → 名前96 → 札64の順で隠す（境界を含む）', async () => {
+  const css = postcss.parse(await readFile(new URL('../src/browser/style/generation-chip.css', import.meta.url), 'utf8'));
+  const queries = [];
+  css.walkAtRules('container', rule => {
+    const match = rule.params.match(/^akari-generation-chip \(width < (\d+)px\)$/u);
+    if (match) queries.push({ width: Number(match[1]), rule });
+  });
+  assert.deepEqual(queries.map(query => query.width), [128, 96, 64]);
+  const selectors = { duration: '.akari-annotations-strip-clip-header-duration',
+    name: '.akari-annotations-strip-clip-header-label', fullBadge: '.akari-generation-badge-label' };
+  for (const expected of chipLayoutFixture.widths) {
+    for (const [role, selector] of Object.entries(selectors)) {
+      let visible = true;
+      for (const query of queries.filter(q => expected.width < q.width)) {
+        query.rule.walkRules(rule => {
+          if (rule.selectors.some(s => s.endsWith(selector))) {
+            rule.walkDecls('display', declaration => { visible = declaration.value !== 'none'; });
+          }
+        });
+      }
+      assert.equal(visible, expected[role], `${expected.width}px ${role}`);
+    }
+  }
+});
+
+test('L1 全状態検査は札の重複・透明背景・交差・非表示順違反・title欠落を拒否する', () => {
+  const rect = (left, top, width, height) => ({ left, top, width, height, right: left + width, bottom: top + height });
+  for (const sample of chipLayoutFixture.cases) for (const widthCase of chipLayoutFixture.widths) {
+    const { width, name, duration, fullBadge } = widthCase;
+    const label = `clip-${sample.state}`;
+    const clip = {
+      label, state: sample.state, contentWidth: width, title: `${sample.badge}\n${label}\n00:02:15`,
+      rect: rect(0, 0, width, 48), header: rect(0, 0, width, 14), badgeCount: 1, kindBadgeVisible: false,
+      compact: !fullBadge, fullBadgeVisible: fullBadge, displayedBadge: fullBadge ? sample.badge : Array.from(sample.badge)[0],
+      compactContent: JSON.stringify(Array.from(sample.badge)[0]), intersections: [],
+      texts: [
+        { role: 'badge', text: sample.badge, title: sample.badge, visible: true, rect: rect(2, 1, 20, 12), background: 'rgb(30, 30, 30)' },
+        { role: 'name', text: label, title: label, visible: name, rect: rect(24, 1, 20, 12), textOverflow: 'ellipsis', clientWidth: 20, scrollWidth: 200 },
+        { role: 'duration', text: '00:02:15', title: '00:02:15', visible: duration, rect: rect(width - 56, 1, 53, 12) }
+      ]
+    };
+    const mode = width === 390 ? 'normal' : width < 64 ? 'narrow' : undefined;
+    const expected = [{ label, state: sample.state, badge: sample.badge, mode }];
+    assert.doesNotThrow(() => assertChipLayout([clip], expected));
+    for (const [mutate, message] of [
+      [c => { c.badgeCount = 2; }, /badge count/],
+      [c => { c.kindBadgeVisible = true; }, /extra kind badge/],
+      [c => { c.texts[0].background = 'rgba(0, 0, 0, 0)'; }, /background missing/],
+      [c => { c.texts[2].visible = !duration; }, /duration visibility/],
+      [c => { c.texts[1].visible = !name; }, /name visibility/],
+      [c => { c.texts[0].title = ''; }, /title missing/],
+      [c => { c.compact = !c.compact; }, /compact threshold/],
+      ...(mode === 'normal' ? [[c => { c.texts[1].scrollWidth = 20; }, /long name must ellipsize/]] : []),
+      ...(name ? [[c => { c.texts[1].rect = c.texts[0].rect; }, /intersection/]] : [])
+    ]) {
+      const broken = structuredClone(clip);
+      mutate(broken);
+      assert.throws(() => assertChipLayout([broken], expected), message);
+    }
+  }
 });
 
 const renderPlannedVideoMedia = widgetMethod('renderPlannedVideoMedia', {});
@@ -420,7 +535,7 @@ test('prompt-only はクリップ名より指示文を優先する', async () =>
   assert.equal(element.querySelector('.akari-generation-frames').querySelector('.akari-generation-prompt').textContent, meta.next.inputs.prompt);
 });
 
-test('fixture は既存6本の尺を維持し、5秒の動画予定3本と1.4秒の狭幅1本を連続配置する', async () => {
+test('fixture は既存10本を維持し、通常6秒×8本・狭幅1.4秒×8本を先頭videoトラックの末尾に連続配置する', async () => {
   const edit = JSON.parse(await readFile(new URL('edit.json', fixture)));
   const items = edit.tracks[0].items;
   assert.deepEqual(items.slice(0, 6).map(c => [c.at, c.duration]), [[0,30],[30,30],[60,30],[90,30],[120,30],[150,30]]);
@@ -429,10 +544,55 @@ test('fixture は既存6本の尺を維持し、5秒の動画予定3本と1.4秒
   assert.equal((await plannedFixture('next-narrow')).next.output.duration_s, 1.4);
   const generator = await readFile(new URL('../evidence/generation-states/scripts/gen-fixture.mjs', import.meta.url), 'utf8');
   const ast = ts.createSourceFile('gen-fixture.mjs', generator, ts.ScriptTarget.Latest, true);
-  const declaration = ast.statements.filter(ts.isVariableStatement).flatMap(s => s.declarationList.declarations)
-    .find(d => d.name.getText(ast) === 'STATES');
-  const states = new Function(`return ${declaration.initializer.getText(ast)}`)();
+  const declarations = ast.statements.filter(ts.isVariableStatement).flatMap(s => s.declarationList.declarations);
+  const constant = name => new Function(`return ${declarations.find(d => d.name.getText(ast) === name).initializer.getText(ast)}`)();
+  const states = constant('STATES');
   assert.deepEqual(states.slice(6).map(s => s.frames), items.slice(6).map(c => c.duration));
+  const fn = ast.statements.find(s => ts.isFunctionDeclaration(s) && s.name?.text === 'buildTimelineFixture');
+  assert.ok(fn, 'L1 uses a pure fixture builder');
+  const build = new Function(`return (${fn.getText(ast)});`)();
+  const result = build({ states, extraSources: constant('EXTRA_SOURCES'), layoutStates: constant('LAYOUT_STATES'),
+    fps: constant('FPS'), clipFrames: constant('CLIP_FRAMES') });
+  assert.equal(result.edit.tracks.length, 1, 'layer tracks cannot display generation chips');
+  assert.equal(result.edit.tracks[0].id, 'video');
+  const generated = result.edit.tracks[0].items;
+  assert.equal(generated.length, 26);
+  assert.deepEqual(generated.slice(0, 10).map(c => [c.at, c.duration]),
+    [[0,60],[60,60],[120,60],[180,60],[240,60],[300,60],[360,150],[510,150],[660,150],[810,42]]);
+  assert.deepEqual(generated.slice(0, 10).map(c => c.name), states.map(s => s.file));
+  assert.equal(result.originalDurationSeconds, 28.4);
+  assert.equal(result.totalDurationSeconds, 87.6);
+  for (let i = 1; i < generated.length; i++) {
+    assert.equal(generated[i].at, generated[i - 1].at + generated[i - 1].duration, `contiguous clip ${i}`);
+  }
+  assert.deepEqual(generated.slice(10, 18).map(c => c.duration), Array(8).fill(180));
+  assert.deepEqual(generated.slice(18).map(c => c.duration), Array(8).fill(42));
+  assert.deepEqual(result.layoutCases.map(c => c.label), generated.slice(10).map(c => c.name));
+  for (const [i, c] of result.layoutCases.entries()) {
+    assert.equal(c.atSeconds, generated[i + 10].at / 30);
+    assert.equal(c.durationSeconds, generated[i + 10].duration / 30);
+    assert.equal(c.state, chipLayoutFixture.cases[i % 8].state);
+    assert.equal(c.badge, chipLayoutFixture.cases[i % 8].badge);
+  }
+  const baseline = { stripWidth: 866.2, pxPerSecond: 30.5,
+    viewport: { width: 1024, height: 768, deviceScaleFactor: 2 } };
+  const plan = layoutCapturePlan(result.layoutCases.filter(c => c.mode === 'normal'), baseline);
+  assert.equal(plan.start, 27.9);
+  assert.ok(Math.abs(plan.duration - 49) < 1e-9);
+  assert.equal(plan.viewport.height, 768);
+  assert.equal(plan.viewport.deviceScaleFactor, 2);
+  const pxPerSecond = (plan.viewport.width - (baseline.viewport.width - baseline.stripWidth)) / plan.duration;
+  assert.ok(Math.abs(pxPerSecond - baseline.pxPerSecond) < .03);
+  assert.ok(6 * pxPerSecond >= 130);
+  assert.ok(1.4 * baseline.pxPerSecond >= 40 && 1.4 * baseline.pxPerSecond < 64);
+});
+
+test('L1 は可視範囲をラベルで照合し、仮想化された画面外16本やcut番号を必要としない', () => {
+  const clips = [{ id: '11', label: 'a' }, { id: '0', label: 'b' }, { id: '12', label: 'overscan' }];
+  assert.deepEqual(selectClipsByLabel(clips, ['b', 'a']), [clips[1], clips[0]]);
+  assert.throws(() => selectClipsByLabel(clips, ['missing']), /expected one mounted clip/);
+  assert.throws(() => selectClipsByLabel([...clips, { id: '20', label: 'a' }], ['a']), /expected one mounted clip/);
+  assert.throws(() => selectClipsByLabel(clips, ['a', 'a']), /duplicate expected labels/);
 });
 
 

@@ -9,7 +9,8 @@ import {
 const startedAt = Date.parse('2026-09-13T00:00:00.000Z');
 const cases = [
   ['none', undefined, startedAt, 'none', '静止画'],
-  ['planned', { kind: 'still', status: 'planned' }, startedAt, 'planned', 'planned'],
+  ['empty', { kind: 'still', status: 'planned' }, startedAt, 'planned', '空の枠'],
+  ['planned', { kind: 'still', status: 'planned', inputs: { prompt: '朝の海' } }, startedAt, 'planned', '予定'],
   ['generating', { kind: 'still', status: 'generating', progress: 62,
     job: { started_at: '2026-09-13T00:00:00.000Z', stale_after_s: 900 } }, startedAt + 1000,
   'generating', '生成中 62%'],
@@ -42,6 +43,13 @@ test('progress が無い generating は不定バー用に undefined を返す', 
   const description = describeGenerationChip('generating', { status: 'generating' });
   assert.equal(description.badge, '生成中');
   assert.equal(description.progress, undefined);
+});
+
+test('planned は空白だけ・欠落・不正型の prompt でも空の枠、文字があれば予定', () => {
+  for (const prompt of [undefined, null, '', ' \n\t　', 42, {}, ' 朝の海 ']) {
+    const meta = { kind: 'still', status: 'planned', inputs: { prompt } };
+    assert.equal(describeGenerationChip('planned', meta).badge, prompt === ' 朝の海 ' ? '予定' : '空の枠');
+  }
 });
 
 test('stale_after_s 未指定では helper の既定 900 秒を使う', () => {

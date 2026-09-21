@@ -52,7 +52,9 @@ export function describeGenerationChip(
             title: `動画予定（${variety[draft?.variety ?? 'prompt']}）` };
     }
     if (state === 'planned') {
-        return { badge: 'planned', className: 'akari-generation-planned', title: '生成予定（絵なし）' };
+        const prompt = meta?.inputs?.prompt;
+        return { badge: typeof prompt === 'string' && prompt.trim() ? '予定' : '空の枠',
+            className: 'akari-generation-planned', title: '生成予定（絵なし）' };
     }
     if (state === 'generating') {
         const badge = progress === undefined ? '生成中' : `生成中 ${Math.round(progress)}%`;

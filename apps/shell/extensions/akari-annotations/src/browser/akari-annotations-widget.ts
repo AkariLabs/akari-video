@@ -7516,7 +7516,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         element.classList.remove(
             'akari-generation-none', 'akari-generation-planned', 'akari-generation-generating',
             'akari-generation-stale', 'akari-generation-done', 'akari-generation-failed',
-            'akari-generation-orphan', 'akari-generation-planned-video'
+            'akari-generation-orphan', 'akari-generation-planned-video', 'akari-generation-chip-layout'
         );
         element.dataset.akariGenerationState = generation?.state ?? 'none';
         if (generation?.state !== 'planned-video') {
@@ -7525,8 +7525,15 @@ export class AkariAnnotationsWidget extends BaseWidget {
             element.querySelector(':scope > .akari-generation-perforations-top')?.remove();
             element.querySelector(':scope > .akari-generation-perforations-bottom')?.remove();
         }
-        let badge = element.querySelector<HTMLElement>(':scope > [data-akari-generation-badge]');
+        let badge = element.querySelector<HTMLElement>('[data-akari-generation-badge]');
         let progress = element.querySelector<HTMLElement>(':scope > [data-akari-generation-progress]');
+        const header = element.querySelector<HTMLElement>(':scope > .akari-annotations-strip-clip-header');
+        // keyedStripSegment restores the base title on each render. Also allow repeated application.
+        if (element.title === element.dataset.akariGenerationTitle) {
+            element.title = element.dataset.akariGenerationBaseTitle ?? '';
+        }
+        delete element.dataset.akariGenerationTitle;
+        delete element.dataset.akariGenerationBaseTitle;
         if (!generation) {
             badge?.remove();
             progress?.remove();
@@ -7544,6 +7551,28 @@ export class AkariAnnotationsWidget extends BaseWidget {
         badge.className = 'akari-generation-badge';
         badge.textContent = narrow ? '▶' : description.badge;
         badge.title = description.title;
+        if (generation.state !== 'planned-video') {
+            element.classList.add('akari-generation-chip-layout');
+            // One flex row: badge, optional future retry action, name, duration. No reserved button width.
+            if (header) header.prepend(badge);
+            const label = document.createElement('span');
+            label.className = 'akari-generation-badge-label';
+            label.textContent = description.badge;
+            badge.textContent = '';
+            badge.appendChild(label);
+            badge.dataset.akariGenerationCompact = Array.from(description.badge)[0];
+            badge.title = `${description.badge} — ${description.title}`;
+            const name = header?.querySelector<HTMLElement>('.akari-annotations-strip-clip-header-label');
+            const duration = header?.querySelector<HTMLElement>('.akari-annotations-strip-clip-header-duration');
+            if (name) name.title = name.textContent ?? '';
+            if (duration) duration.title = duration.textContent ?? '';
+            element.dataset.akariGenerationBaseTitle = element.title;
+            element.title = [element.title, badge.title, name?.title, duration?.title].filter(Boolean).join('\n');
+            element.dataset.akariGenerationTitle = element.title;
+        } else if (badge.parentElement !== element) {
+            // planned-video keeps its original direct-child badge and r1 layout.
+            element.appendChild(badge);
+        }
         if (generation.state === 'generating') {
             if (!progress) {
                 progress = document.createElement('span');

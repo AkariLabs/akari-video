@@ -21,7 +21,7 @@
             "id": "1",
             "label": "planned.png",
             "state": "planned",
-            "badge": "planned",
+            "badge": "空の枠",
             "badgeColor": "rgba(204, 204, 204, 0.7)",
             "borderStyle": "dashed",
             "borderColor": "rgb(63, 63, 70)",
@@ -135,11 +135,11 @@
             "label": "still.png",
             "ui": "timeline:cut:0",
             "state": "none",
-            "className": "akari-annotations-strip-clip akari-generation-none akari-annotations-strip-hit-target",
+            "className": "akari-annotations-strip-clip akari-generation-none akari-generation-chip-layout akari-annotations-strip-hit-target",
             "imageCellCount": 0,
             "linked": false,
             "prompt": null,
-            "title": "静止画",
+            "title": "静止画 — 静止画",
             "badge": "静止画",
             "badgeColor": "rgb(89, 164, 249)",
             "borderStyle": "solid",
@@ -154,12 +154,12 @@
             "label": "planned.png",
             "ui": "timeline:cut:1",
             "state": "planned",
-            "className": "akari-annotations-strip-clip akari-generation-planned akari-annotations-strip-hit-target",
+            "className": "akari-annotations-strip-clip akari-generation-planned akari-generation-chip-layout akari-annotations-strip-hit-target",
             "imageCellCount": 0,
             "linked": false,
             "prompt": null,
-            "title": "生成予定（絵なし）",
-            "badge": "planned",
+            "title": "空の枠 — 生成予定（絵なし）",
+            "badge": "空の枠",
             "badgeColor": "rgba(204, 204, 204, 0.7)",
             "borderStyle": "dashed",
             "borderColor": "rgb(63, 63, 70)",
@@ -173,11 +173,11 @@
             "label": "generating.png",
             "ui": "timeline:cut:2",
             "state": "generating",
-            "className": "akari-annotations-strip-clip akari-generation-generating akari-annotations-strip-hit-target",
+            "className": "akari-annotations-strip-clip akari-generation-generating akari-generation-chip-layout akari-annotations-strip-hit-target",
             "imageCellCount": 0,
             "linked": false,
             "prompt": null,
-            "title": "生成中 62%",
+            "title": "生成中 62% — 生成中 62%",
             "badge": "生成中 62%",
             "badgeColor": "rgb(204, 167, 0)",
             "borderStyle": "solid",
@@ -198,11 +198,11 @@
             "label": "stale.png",
             "ui": "timeline:cut:3",
             "state": "stale",
-            "className": "akari-annotations-strip-clip akari-generation-stale akari-annotations-strip-hit-target",
+            "className": "akari-annotations-strip-clip akari-generation-stale akari-generation-chip-layout akari-annotations-strip-hit-target",
             "imageCellCount": 0,
             "linked": false,
             "prompt": null,
-            "title": "生成処理から応答がありません",
+            "title": "応答なし・再取得 — 生成処理から応答がありません",
             "badge": "応答なし・再取得",
             "badgeColor": "rgb(204, 167, 0)",
             "borderStyle": "solid",
@@ -217,11 +217,11 @@
             "label": "done.mp4",
             "ui": "timeline:cut:4",
             "state": "done",
-            "className": "akari-annotations-strip-clip akari-generation-done akari-annotations-strip-hit-target",
+            "className": "akari-annotations-strip-clip akari-generation-done akari-generation-chip-layout akari-annotations-strip-hit-target",
             "imageCellCount": 0,
             "linked": false,
             "prompt": null,
-            "title": "生成された動画",
+            "title": "生成 — 生成された動画",
             "badge": "生成",
             "badgeColor": "rgba(204, 204, 204, 0.7)",
             "borderStyle": "solid",
@@ -236,11 +236,11 @@
             "label": "failed.png",
             "ui": "timeline:cut:5",
             "state": "failed",
-            "className": "akari-annotations-strip-clip akari-generation-failed akari-annotations-strip-hit-target",
+            "className": "akari-annotations-strip-clip akari-generation-failed akari-generation-chip-layout akari-annotations-strip-hit-target",
             "imageCellCount": 0,
             "linked": false,
             "prompt": null,
-            "title": "生成に失敗しました",
+            "title": "失敗 — 生成に失敗しました",
             "badge": "失敗",
             "badgeColor": "rgb(241, 76, 76)",
             "borderStyle": "solid",
@@ -271,13 +271,13 @@
               {
                 "side": "first",
                 "left": "0px",
-                "width": "61.4597px",
+                "width": "64px",
                 "ready": true
               },
               {
                 "side": "last",
-                "left": "92.1895px",
-                "width": "61.4597px",
+                "left": "105.014px",
+                "width": "64px",
                 "ready": true
               }
             ]
@@ -303,7 +303,7 @@
               {
                 "side": "first",
                 "left": "0px",
-                "width": "61.4597px",
+                "width": "64px",
                 "ready": true
               }
             ]
@@ -348,10 +348,73 @@
               {
                 "side": "first",
                 "left": "0px",
-                "width": "17.2087px",
+                "width": "18.9296px",
                 "ready": true
               }
             ]
+          },
+          {
+            "id": "10",
+            "label": "normal-empty-長いクリップ名の省略を確認",
+            "ui": "timeline:cut:10",
+            "state": "planned",
+            "className": "akari-annotations-strip-clip akari-generation-planned akari-generation-chip-layout akari-annotations-strip-hit-target",
+            "imageCellCount": 0,
+            "linked": false,
+            "prompt": null,
+            "title": "空の枠 — 生成予定（絵なし）",
+            "badge": "空の枠",
+            "badgeColor": "rgba(204, 204, 204, 0.7)",
+            "borderStyle": "dashed",
+            "borderColor": "rgb(63, 63, 70)",
+            "opacity": "0.58",
+            "backgroundImage": "none",
+            "progress": null,
+            "imageCells": []
+          },
+          {
+            "id": "11",
+            "label": "normal-planned-長いクリップ名の省略を確認",
+            "ui": "timeline:cut:11",
+            "state": "planned",
+            "className": "akari-annotations-strip-clip akari-generation-planned akari-generation-chip-layout akari-annotations-strip-hit-target",
+            "imageCellCount": 0,
+            "linked": false,
+            "prompt": null,
+            "title": "予定 — 生成予定（絵なし）",
+            "badge": "予定",
+            "badgeColor": "rgba(204, 204, 204, 0.7)",
+            "borderStyle": "dashed",
+            "borderColor": "rgb(63, 63, 70)",
+            "opacity": "0.58",
+            "backgroundImage": "none",
+            "progress": null,
+            "imageCells": []
+          },
+          {
+            "id": "12",
+            "label": "normal-generating-長いクリップ名の省略を確認",
+            "ui": "timeline:cut:12",
+            "state": "generating",
+            "className": "akari-annotations-strip-clip akari-generation-generating akari-generation-chip-layout akari-annotations-strip-hit-target",
+            "imageCellCount": 0,
+            "linked": false,
+            "prompt": null,
+            "title": "生成中 62% — 生成中 62%",
+            "badge": "生成中 62%",
+            "badgeColor": "rgb(204, 167, 0)",
+            "borderStyle": "solid",
+            "borderColor": "rgb(204, 167, 0)",
+            "opacity": "1",
+            "backgroundImage": "repeating-linear-gradient(135deg, color(srgb 0.8 0.654902 0 / 0.",
+            "progress": {
+              "width": "62%",
+              "value": "62",
+              "className": "akari-generation-progress",
+              "background": "rgb(204, 167, 0)",
+              "height": "3px"
+            },
+            "imageCells": []
           }
         ]
       }
@@ -365,13 +428,13 @@
           {
             "label": "next-first-last.png",
             "rect": {
-              "x": 512.7578125,
+              "x": 549.6328125,
               "y": 329,
-              "left": 512.7578125,
+              "left": 549.6328125,
               "top": 329,
-              "right": 666.40625,
+              "right": 718.640625,
               "bottom": 377,
-              "width": 153.6484375,
+              "width": 169.0078125,
               "height": 48
             },
             "texts": [
@@ -380,11 +443,11 @@
                 "text": "▶ 動画予定",
                 "visible": true,
                 "rect": {
-                  "x": 515.7578125,
+                  "x": 552.6328125,
                   "y": 332,
-                  "left": 515.7578125,
+                  "left": 552.6328125,
                   "top": 332,
-                  "right": 569.8359375,
+                  "right": 606.7109375,
                   "bottom": 346,
                   "width": 54.078125,
                   "height": 14
@@ -398,11 +461,11 @@
                 "text": "00:05:00",
                 "visible": true,
                 "rect": {
-                  "x": 618.40625,
+                  "x": 670.640625,
                   "y": 331,
-                  "left": 618.40625,
+                  "left": 670.640625,
                   "top": 331,
-                  "right": 662.40625,
+                  "right": 714.640625,
                   "bottom": 343,
                   "width": 44,
                   "height": 12
@@ -416,11 +479,11 @@
                 "text": "最初",
                 "visible": true,
                 "rect": {
-                  "x": 515.7578125,
+                  "x": 552.6328125,
                   "y": 361,
-                  "left": 515.7578125,
+                  "left": 552.6328125,
                   "top": 361,
-                  "right": 535.7578125,
+                  "right": 572.6328125,
                   "bottom": 371,
                   "width": 20,
                   "height": 10
@@ -434,11 +497,11 @@
                 "text": "最後",
                 "visible": true,
                 "rect": {
-                  "x": 645.3984375,
+                  "x": 697.640625,
                   "y": 361,
-                  "left": 645.3984375,
+                  "left": 697.640625,
                   "top": 361,
-                  "right": 665.3984375,
+                  "right": 717.640625,
                   "bottom": 371,
                   "width": 20,
                   "height": 10
@@ -452,13 +515,13 @@
                 "text": "next-first-last.png",
                 "visible": true,
                 "rect": {
-                  "x": 579.2109375,
+                  "x": 618.6328125,
                   "y": 347,
-                  "left": 579.2109375,
+                  "left": 618.6328125,
                   "top": 347,
-                  "right": 599.953125,
+                  "right": 649.640625,
                   "bottom": 359,
-                  "width": 20.7421875,
+                  "width": 31.0078125,
                   "height": 12
                 },
                 "zIndex": "1",
@@ -470,11 +533,11 @@
                 "text": "",
                 "visible": true,
                 "rect": {
-                  "x": 651.40625,
+                  "x": 703.640625,
                   "y": 347,
-                  "left": 651.40625,
+                  "left": 703.640625,
                   "top": 347,
-                  "right": 665.40625,
+                  "right": 717.640625,
                   "bottom": 359,
                   "width": 14,
                   "height": 12
@@ -488,13 +551,13 @@
               {
                 "edge": "top",
                 "rect": {
-                  "x": 513.7578125,
+                  "x": 550.6328125,
                   "y": 330,
-                  "left": 513.7578125,
+                  "left": 550.6328125,
                   "top": 330,
-                  "right": 665.40625,
+                  "right": 717.640625,
                   "bottom": 335,
-                  "width": 151.6484375,
+                  "width": 167.0078125,
                   "height": 5
                 },
                 "visible": true,
@@ -503,27 +566,35 @@
                 "zIndex": "3",
                 "paintedSamples": [
                   {
-                    "x": 573.7578125,
+                    "x": 610.6328125,
                     "y": 332.5
                   },
                   {
-                    "x": 581.7578125,
+                    "x": 618.6328125,
                     "y": 332.5
                   },
                   {
-                    "x": 589.7578125,
+                    "x": 626.6328125,
                     "y": 332.5
                   },
                   {
-                    "x": 597.7578125,
+                    "x": 634.6328125,
                     "y": 332.5
                   },
                   {
-                    "x": 605.7578125,
+                    "x": 642.6328125,
                     "y": 332.5
                   },
                   {
-                    "x": 613.7578125,
+                    "x": 650.6328125,
+                    "y": 332.5
+                  },
+                  {
+                    "x": 658.6328125,
+                    "y": 332.5
+                  },
+                  {
+                    "x": 666.6328125,
                     "y": 332.5
                   }
                 ]
@@ -531,13 +602,13 @@
               {
                 "edge": "bottom",
                 "rect": {
-                  "x": 513.7578125,
+                  "x": 550.6328125,
                   "y": 371,
-                  "left": 513.7578125,
+                  "left": 550.6328125,
                   "top": 371,
-                  "right": 665.40625,
+                  "right": 717.640625,
                   "bottom": 376,
-                  "width": 151.6484375,
+                  "width": 167.0078125,
                   "height": 5
                 },
                 "visible": true,
@@ -546,79 +617,87 @@
                 "zIndex": "3",
                 "paintedSamples": [
                   {
-                    "x": 517.7578125,
+                    "x": 554.6328125,
                     "y": 373.5
                   },
                   {
-                    "x": 525.7578125,
+                    "x": 562.6328125,
                     "y": 373.5
                   },
                   {
-                    "x": 533.7578125,
+                    "x": 570.6328125,
                     "y": 373.5
                   },
                   {
-                    "x": 541.7578125,
+                    "x": 578.6328125,
                     "y": 373.5
                   },
                   {
-                    "x": 549.7578125,
+                    "x": 586.6328125,
                     "y": 373.5
                   },
                   {
-                    "x": 557.7578125,
+                    "x": 594.6328125,
                     "y": 373.5
                   },
                   {
-                    "x": 565.7578125,
+                    "x": 602.6328125,
                     "y": 373.5
                   },
                   {
-                    "x": 573.7578125,
+                    "x": 610.6328125,
                     "y": 373.5
                   },
                   {
-                    "x": 581.7578125,
+                    "x": 618.6328125,
                     "y": 373.5
                   },
                   {
-                    "x": 589.7578125,
+                    "x": 626.6328125,
                     "y": 373.5
                   },
                   {
-                    "x": 597.7578125,
+                    "x": 634.6328125,
                     "y": 373.5
                   },
                   {
-                    "x": 605.7578125,
+                    "x": 642.6328125,
                     "y": 373.5
                   },
                   {
-                    "x": 613.7578125,
+                    "x": 650.6328125,
                     "y": 373.5
                   },
                   {
-                    "x": 621.7578125,
+                    "x": 658.6328125,
                     "y": 373.5
                   },
                   {
-                    "x": 629.7578125,
+                    "x": 666.6328125,
                     "y": 373.5
                   },
                   {
-                    "x": 637.7578125,
+                    "x": 674.6328125,
                     "y": 373.5
                   },
                   {
-                    "x": 645.7578125,
+                    "x": 682.6328125,
                     "y": 373.5
                   },
                   {
-                    "x": 653.7578125,
+                    "x": 690.6328125,
                     "y": 373.5
                   },
                   {
-                    "x": 661.7578125,
+                    "x": 698.6328125,
+                    "y": 373.5
+                  },
+                  {
+                    "x": 706.6328125,
+                    "y": 373.5
+                  },
+                  {
+                    "x": 714.6328125,
                     "y": 373.5
                   }
                 ]
@@ -630,26 +709,26 @@
               "display": "none"
             },
             "header": {
-              "x": 513.7578125,
+              "x": 550.6328125,
               "y": 330,
-              "left": 513.7578125,
+              "left": 550.6328125,
               "top": 330,
-              "right": 665.40625,
+              "right": 717.640625,
               "bottom": 344,
-              "width": 151.6484375,
+              "width": 167.0078125,
               "height": 14
             },
             "cells": [
               {
                 "side": "first",
                 "rect": {
-                  "x": 513.7578125,
+                  "x": 550.6328125,
                   "y": 335,
-                  "left": 513.7578125,
+                  "left": 550.6328125,
                   "top": 335,
-                  "right": 575.2109375,
+                  "right": 614.6328125,
                   "bottom": 371,
-                  "width": 61.453125,
+                  "width": 64,
                   "height": 36
                 },
                 "cover": "cover"
@@ -657,13 +736,13 @@
               {
                 "side": "last",
                 "rect": {
-                  "x": 605.9453125,
+                  "x": 655.640625,
                   "y": 335,
-                  "left": 605.9453125,
+                  "left": 655.640625,
                   "top": 335,
-                  "right": 667.3984375,
+                  "right": 719.640625,
                   "bottom": 371,
-                  "width": 61.453125,
+                  "width": 64,
                   "height": 36
                 },
                 "cover": "cover"
@@ -673,13 +752,13 @@
           {
             "label": "next-first.png",
             "rect": {
-              "x": 666.40625,
+              "x": 718.640625,
               "y": 329,
-              "left": 666.40625,
+              "left": 718.640625,
               "top": 329,
-              "right": 820.0546875,
+              "right": 887.6484375,
               "bottom": 377,
-              "width": 153.6484375,
+              "width": 169.0078125,
               "height": 48
             },
             "texts": [
@@ -688,11 +767,11 @@
                 "text": "▶ 動画予定",
                 "visible": true,
                 "rect": {
-                  "x": 669.40625,
+                  "x": 721.640625,
                   "y": 332,
-                  "left": 669.40625,
+                  "left": 721.640625,
                   "top": 332,
-                  "right": 723.484375,
+                  "right": 775.71875,
                   "bottom": 346,
                   "width": 54.078125,
                   "height": 14
@@ -706,11 +785,11 @@
                 "text": "00:05:00",
                 "visible": true,
                 "rect": {
-                  "x": 772.0546875,
+                  "x": 839.6484375,
                   "y": 331,
-                  "left": 772.0546875,
+                  "left": 839.6484375,
                   "top": 331,
-                  "right": 816.0546875,
+                  "right": 883.6484375,
                   "bottom": 343,
                   "width": 44,
                   "height": 12
@@ -724,11 +803,11 @@
                 "text": "最初",
                 "visible": true,
                 "rect": {
-                  "x": 669.40625,
+                  "x": 721.640625,
                   "y": 361,
-                  "left": 669.40625,
+                  "left": 721.640625,
                   "top": 361,
-                  "right": 689.40625,
+                  "right": 741.640625,
                   "bottom": 371,
                   "width": 20,
                   "height": 10
@@ -742,13 +821,13 @@
                 "text": "next-first.png",
                 "visible": true,
                 "rect": {
-                  "x": 732.859375,
+                  "x": 787.640625,
                   "y": 347,
-                  "left": 732.859375,
+                  "left": 787.640625,
                   "top": 347,
-                  "right": 815.0546875,
+                  "right": 882.6484375,
                   "bottom": 359,
-                  "width": 82.1953125,
+                  "width": 95.0078125,
                   "height": 12
                 },
                 "zIndex": "1",
@@ -765,13 +844,13 @@
               {
                 "edge": "top",
                 "rect": {
-                  "x": 667.40625,
+                  "x": 719.640625,
                   "y": 330,
-                  "left": 667.40625,
+                  "left": 719.640625,
                   "top": 330,
-                  "right": 819.0546875,
+                  "right": 886.6484375,
                   "bottom": 335,
-                  "width": 151.6484375,
+                  "width": 167.0078125,
                   "height": 5
                 },
                 "visible": true,
@@ -780,27 +859,35 @@
                 "zIndex": "3",
                 "paintedSamples": [
                   {
-                    "x": 727.40625,
+                    "x": 779.640625,
                     "y": 332.5
                   },
                   {
-                    "x": 735.40625,
+                    "x": 787.640625,
                     "y": 332.5
                   },
                   {
-                    "x": 743.40625,
+                    "x": 795.640625,
                     "y": 332.5
                   },
                   {
-                    "x": 751.40625,
+                    "x": 803.640625,
                     "y": 332.5
                   },
                   {
-                    "x": 759.40625,
+                    "x": 811.640625,
                     "y": 332.5
                   },
                   {
-                    "x": 767.40625,
+                    "x": 819.640625,
+                    "y": 332.5
+                  },
+                  {
+                    "x": 827.640625,
+                    "y": 332.5
+                  },
+                  {
+                    "x": 835.640625,
                     "y": 332.5
                   }
                 ]
@@ -808,13 +895,13 @@
               {
                 "edge": "bottom",
                 "rect": {
-                  "x": 667.40625,
+                  "x": 719.640625,
                   "y": 371,
-                  "left": 667.40625,
+                  "left": 719.640625,
                   "top": 371,
-                  "right": 819.0546875,
+                  "right": 886.6484375,
                   "bottom": 376,
-                  "width": 151.6484375,
+                  "width": 167.0078125,
                   "height": 5
                 },
                 "visible": true,
@@ -823,79 +910,87 @@
                 "zIndex": "3",
                 "paintedSamples": [
                   {
-                    "x": 671.40625,
+                    "x": 723.640625,
                     "y": 373.5
                   },
                   {
-                    "x": 679.40625,
+                    "x": 731.640625,
                     "y": 373.5
                   },
                   {
-                    "x": 687.40625,
+                    "x": 739.640625,
                     "y": 373.5
                   },
                   {
-                    "x": 695.40625,
+                    "x": 747.640625,
                     "y": 373.5
                   },
                   {
-                    "x": 703.40625,
+                    "x": 755.640625,
                     "y": 373.5
                   },
                   {
-                    "x": 711.40625,
+                    "x": 763.640625,
                     "y": 373.5
                   },
                   {
-                    "x": 719.40625,
+                    "x": 771.640625,
                     "y": 373.5
                   },
                   {
-                    "x": 727.40625,
+                    "x": 779.640625,
                     "y": 373.5
                   },
                   {
-                    "x": 735.40625,
+                    "x": 787.640625,
                     "y": 373.5
                   },
                   {
-                    "x": 743.40625,
+                    "x": 795.640625,
                     "y": 373.5
                   },
                   {
-                    "x": 751.40625,
+                    "x": 803.640625,
                     "y": 373.5
                   },
                   {
-                    "x": 759.40625,
+                    "x": 811.640625,
                     "y": 373.5
                   },
                   {
-                    "x": 767.40625,
+                    "x": 819.640625,
                     "y": 373.5
                   },
                   {
-                    "x": 775.40625,
+                    "x": 827.640625,
                     "y": 373.5
                   },
                   {
-                    "x": 783.40625,
+                    "x": 835.640625,
                     "y": 373.5
                   },
                   {
-                    "x": 791.40625,
+                    "x": 843.640625,
                     "y": 373.5
                   },
                   {
-                    "x": 799.40625,
+                    "x": 851.640625,
                     "y": 373.5
                   },
                   {
-                    "x": 807.40625,
+                    "x": 859.640625,
                     "y": 373.5
                   },
                   {
-                    "x": 815.40625,
+                    "x": 867.640625,
+                    "y": 373.5
+                  },
+                  {
+                    "x": 875.640625,
+                    "y": 373.5
+                  },
+                  {
+                    "x": 883.640625,
                     "y": 373.5
                   }
                 ]
@@ -907,26 +1002,26 @@
               "display": "none"
             },
             "header": {
-              "x": 667.40625,
+              "x": 719.640625,
               "y": 330,
-              "left": 667.40625,
+              "left": 719.640625,
               "top": 330,
-              "right": 819.0546875,
+              "right": 886.6484375,
               "bottom": 344,
-              "width": 151.6484375,
+              "width": 167.0078125,
               "height": 14
             },
             "cells": [
               {
                 "side": "first",
                 "rect": {
-                  "x": 667.40625,
+                  "x": 719.640625,
                   "y": 335,
-                  "left": 667.40625,
+                  "left": 719.640625,
                   "top": 335,
-                  "right": 728.859375,
+                  "right": 783.640625,
                   "bottom": 371,
-                  "width": 61.453125,
+                  "width": 64,
                   "height": 36
                 },
                 "cover": "cover"
@@ -936,13 +1031,13 @@
           {
             "label": "next-prompt.png",
             "rect": {
-              "x": 820.0546875,
+              "x": 887.65625,
               "y": 329,
-              "left": 820.0546875,
+              "left": 887.65625,
               "top": 329,
-              "right": 973.703125,
+              "right": 1056.6640625,
               "bottom": 377,
-              "width": 153.6484375,
+              "width": 169.0078125,
               "height": 48
             },
             "texts": [
@@ -951,11 +1046,11 @@
                 "text": "▶ 動画予定",
                 "visible": true,
                 "rect": {
-                  "x": 823.0546875,
+                  "x": 890.65625,
                   "y": 332,
-                  "left": 823.0546875,
+                  "left": 890.65625,
                   "top": 332,
-                  "right": 877.1328125,
+                  "right": 944.734375,
                   "bottom": 346,
                   "width": 54.078125,
                   "height": 14
@@ -969,11 +1064,11 @@
                 "text": "00:05:00",
                 "visible": true,
                 "rect": {
-                  "x": 925.703125,
+                  "x": 1008.6640625,
                   "y": 331,
-                  "left": 925.703125,
+                  "left": 1008.6640625,
                   "top": 331,
-                  "right": 969.703125,
+                  "right": 1052.6640625,
                   "bottom": 343,
                   "width": 44,
                   "height": 12
@@ -987,13 +1082,13 @@
                 "text": "窓へ歩いて庭を見る",
                 "visible": true,
                 "rect": {
-                  "x": 825.0546875,
+                  "x": 892.65625,
                   "y": 347,
-                  "left": 825.0546875,
+                  "left": 892.65625,
                   "top": 347,
-                  "right": 968.703125,
+                  "right": 1051.6640625,
                   "bottom": 359,
-                  "width": 143.6484375,
+                  "width": 159.0078125,
                   "height": 12
                 },
                 "zIndex": "1",
@@ -1010,13 +1105,13 @@
               {
                 "edge": "top",
                 "rect": {
-                  "x": 821.0546875,
+                  "x": 888.65625,
                   "y": 330,
-                  "left": 821.0546875,
+                  "left": 888.65625,
                   "top": 330,
-                  "right": 972.703125,
+                  "right": 1055.6640625,
                   "bottom": 335,
-                  "width": 151.6484375,
+                  "width": 167.0078125,
                   "height": 5
                 },
                 "visible": true,
@@ -1025,27 +1120,35 @@
                 "zIndex": "3",
                 "paintedSamples": [
                   {
-                    "x": 881.0546875,
+                    "x": 948.65625,
                     "y": 332.5
                   },
                   {
-                    "x": 889.0546875,
+                    "x": 956.65625,
                     "y": 332.5
                   },
                   {
-                    "x": 897.0546875,
+                    "x": 964.65625,
                     "y": 332.5
                   },
                   {
-                    "x": 905.0546875,
+                    "x": 972.65625,
                     "y": 332.5
                   },
                   {
-                    "x": 913.0546875,
+                    "x": 980.65625,
                     "y": 332.5
                   },
                   {
-                    "x": 921.0546875,
+                    "x": 988.65625,
+                    "y": 332.5
+                  },
+                  {
+                    "x": 996.65625,
+                    "y": 332.5
+                  },
+                  {
+                    "x": 1004.65625,
                     "y": 332.5
                   }
                 ]
@@ -1053,13 +1156,13 @@
               {
                 "edge": "bottom",
                 "rect": {
-                  "x": 821.0546875,
+                  "x": 888.65625,
                   "y": 371,
-                  "left": 821.0546875,
+                  "left": 888.65625,
                   "top": 371,
-                  "right": 972.703125,
+                  "right": 1055.6640625,
                   "bottom": 376,
-                  "width": 151.6484375,
+                  "width": 167.0078125,
                   "height": 5
                 },
                 "visible": true,
@@ -1068,79 +1171,87 @@
                 "zIndex": "3",
                 "paintedSamples": [
                   {
-                    "x": 825.0546875,
+                    "x": 892.65625,
                     "y": 373.5
                   },
                   {
-                    "x": 833.0546875,
+                    "x": 900.65625,
                     "y": 373.5
                   },
                   {
-                    "x": 841.0546875,
+                    "x": 908.65625,
                     "y": 373.5
                   },
                   {
-                    "x": 849.0546875,
+                    "x": 916.65625,
                     "y": 373.5
                   },
                   {
-                    "x": 857.0546875,
+                    "x": 924.65625,
                     "y": 373.5
                   },
                   {
-                    "x": 865.0546875,
+                    "x": 932.65625,
                     "y": 373.5
                   },
                   {
-                    "x": 873.0546875,
+                    "x": 940.65625,
                     "y": 373.5
                   },
                   {
-                    "x": 881.0546875,
+                    "x": 948.65625,
                     "y": 373.5
                   },
                   {
-                    "x": 889.0546875,
+                    "x": 956.65625,
                     "y": 373.5
                   },
                   {
-                    "x": 897.0546875,
+                    "x": 964.65625,
                     "y": 373.5
                   },
                   {
-                    "x": 905.0546875,
+                    "x": 972.65625,
                     "y": 373.5
                   },
                   {
-                    "x": 913.0546875,
+                    "x": 980.65625,
                     "y": 373.5
                   },
                   {
-                    "x": 921.0546875,
+                    "x": 988.65625,
                     "y": 373.5
                   },
                   {
-                    "x": 929.0546875,
+                    "x": 996.65625,
                     "y": 373.5
                   },
                   {
-                    "x": 937.0546875,
+                    "x": 1004.65625,
                     "y": 373.5
                   },
                   {
-                    "x": 945.0546875,
+                    "x": 1012.65625,
                     "y": 373.5
                   },
                   {
-                    "x": 953.0546875,
+                    "x": 1020.65625,
                     "y": 373.5
                   },
                   {
-                    "x": 961.0546875,
+                    "x": 1028.65625,
                     "y": 373.5
                   },
                   {
-                    "x": 969.0546875,
+                    "x": 1036.65625,
+                    "y": 373.5
+                  },
+                  {
+                    "x": 1044.65625,
+                    "y": 373.5
+                  },
+                  {
+                    "x": 1052.65625,
                     "y": 373.5
                   }
                 ]
@@ -1152,13 +1263,13 @@
               "display": "none"
             },
             "header": {
-              "x": 821.0546875,
+              "x": 888.65625,
               "y": 330,
-              "left": 821.0546875,
+              "left": 888.65625,
               "top": 330,
-              "right": 972.703125,
+              "right": 1055.6640625,
               "bottom": 344,
-              "width": 151.6484375,
+              "width": 167.0078125,
               "height": 14
             },
             "cells": []
@@ -1166,13 +1277,13 @@
           {
             "label": "next-narrow.png",
             "rect": {
-              "x": 973.703125,
+              "x": 1056.671875,
               "y": 329,
-              "left": 973.703125,
+              "left": 1056.671875,
               "top": 329,
-              "right": 1016.71875,
+              "right": 1103.9921875,
               "bottom": 377,
-              "width": 43.015625,
+              "width": 47.3203125,
               "height": 48
             },
             "texts": [
@@ -1181,11 +1292,11 @@
                 "text": "▶",
                 "visible": true,
                 "rect": {
-                  "x": 976.703125,
+                  "x": 1059.671875,
                   "y": 332,
-                  "left": 976.703125,
+                  "left": 1059.671875,
                   "top": 332,
-                  "right": 992.0859375,
+                  "right": 1075.0546875,
                   "bottom": 346,
                   "width": 15.3828125,
                   "height": 14
@@ -1235,13 +1346,13 @@
                 "text": "next-narrow.png",
                 "visible": true,
                 "rect": {
-                  "x": 995.90625,
+                  "x": 1080.59375,
                   "y": 347,
-                  "left": 995.90625,
+                  "left": 1080.59375,
                   "top": 347,
-                  "right": 1011.71875,
+                  "right": 1098.9921875,
                   "bottom": 359,
-                  "width": 15.8125,
+                  "width": 18.3984375,
                   "height": 12
                 },
                 "zIndex": "1",
@@ -1258,13 +1369,13 @@
               {
                 "edge": "top",
                 "rect": {
-                  "x": 974.703125,
+                  "x": 1057.671875,
                   "y": 330,
-                  "left": 974.703125,
+                  "left": 1057.671875,
                   "top": 330,
-                  "right": 1015.71875,
+                  "right": 1102.9921875,
                   "bottom": 335,
-                  "width": 41.015625,
+                  "width": 45.3203125,
                   "height": 5
                 },
                 "visible": true,
@@ -1273,15 +1384,19 @@
                 "zIndex": "3",
                 "paintedSamples": [
                   {
-                    "x": 994.703125,
+                    "x": 1077.671875,
                     "y": 332.5
                   },
                   {
-                    "x": 1002.703125,
+                    "x": 1085.671875,
                     "y": 332.5
                   },
                   {
-                    "x": 1010.703125,
+                    "x": 1093.671875,
+                    "y": 332.5
+                  },
+                  {
+                    "x": 1101.671875,
                     "y": 332.5
                   }
                 ]
@@ -1289,13 +1404,13 @@
               {
                 "edge": "bottom",
                 "rect": {
-                  "x": 974.703125,
+                  "x": 1057.671875,
                   "y": 371,
-                  "left": 974.703125,
+                  "left": 1057.671875,
                   "top": 371,
-                  "right": 1015.71875,
+                  "right": 1102.9921875,
                   "bottom": 376,
-                  "width": 41.015625,
+                  "width": 45.3203125,
                   "height": 5
                 },
                 "visible": true,
@@ -1304,23 +1419,27 @@
                 "zIndex": "3",
                 "paintedSamples": [
                   {
-                    "x": 978.703125,
+                    "x": 1061.671875,
                     "y": 373.5
                   },
                   {
-                    "x": 986.703125,
+                    "x": 1069.671875,
                     "y": 373.5
                   },
                   {
-                    "x": 994.703125,
+                    "x": 1077.671875,
                     "y": 373.5
                   },
                   {
-                    "x": 1002.703125,
+                    "x": 1085.671875,
                     "y": 373.5
                   },
                   {
-                    "x": 1010.703125,
+                    "x": 1093.671875,
+                    "y": 373.5
+                  },
+                  {
+                    "x": 1101.671875,
                     "y": 373.5
                   }
                 ]
@@ -1332,26 +1451,26 @@
               "display": "none"
             },
             "header": {
-              "x": 974.703125,
+              "x": 1057.671875,
               "y": 330,
-              "left": 974.703125,
+              "left": 1057.671875,
               "top": 330,
-              "right": 1015.71875,
+              "right": 1102.9921875,
               "bottom": 344,
-              "width": 41.015625,
+              "width": 45.3203125,
               "height": 14
             },
             "cells": [
               {
                 "side": "first",
                 "rect": {
-                  "x": 974.703125,
+                  "x": 1057.671875,
                   "y": 335,
-                  "left": 974.703125,
+                  "left": 1057.671875,
                   "top": 335,
-                  "right": 991.90625,
+                  "right": 1076.59375,
                   "bottom": 371,
-                  "width": 17.203125,
+                  "width": 18.921875,
                   "height": 36
                 },
                 "cover": "cover"
@@ -1360,11 +1479,1718 @@
           }
         ],
         "screenshotClip": {
-          "x": 508.7578125,
+          "x": 545.6328125,
           "y": 325,
-          "width": 511.9609375,
+          "width": 562.359375,
           "height": 56,
           "scale": 3
+        }
+      }
+    },
+    {
+      "name": "全8状態の札・名前・時刻は通常幅と狭幅の両方で交差しない",
+      "pass": true,
+      "detail": {
+        "measurement": "getBoundingClientRect; all visible text pairs; computed badge background",
+        "normal": [
+          {
+            "label": "normal-empty-長いクリップ名の省略を確認",
+            "state": "planned",
+            "title": "C11\n空の枠 — 生成予定（絵なし）\nnormal-empty-長いクリップ名の省略を確認\n00:06:00",
+            "rect": {
+              "left": 160.90625,
+              "top": 329,
+              "right": 363.796875,
+              "bottom": 377,
+              "width": 202.890625,
+              "height": 48
+            },
+            "contentWidth": 199.891,
+            "header": {
+              "left": 161.90625,
+              "top": 330,
+              "right": 361.796875,
+              "bottom": 344,
+              "width": 199.890625,
+              "height": 14
+            },
+            "badgeCount": 1,
+            "kindBadgeVisible": false,
+            "compact": false,
+            "fullBadgeVisible": true,
+            "displayedBadge": "空の枠",
+            "compactContent": "none",
+            "texts": [
+              {
+                "role": "badge",
+                "text": "空の枠",
+                "title": "空の枠 — 生成予定（絵なし）",
+                "rect": {
+                  "left": 163.90625,
+                  "top": 331,
+                  "right": 198.90625,
+                  "bottom": 343,
+                  "width": 35,
+                  "height": 12
+                },
+                "visible": true,
+                "background": "rgb(10, 10, 10)",
+                "color": "rgba(204, 204, 204, 0.7)",
+                "overflow": "hidden",
+                "textOverflow": "ellipsis",
+                "clientWidth": 35,
+                "scrollWidth": 35
+              },
+              {
+                "role": "name",
+                "text": "normal-empty-長いクリップ名の省略を確認",
+                "title": "normal-empty-長いクリップ名の省略を確認",
+                "rect": {
+                  "left": 200.90625,
+                  "top": 331,
+                  "right": 313.796875,
+                  "bottom": 343,
+                  "width": 112.890625,
+                  "height": 12
+                },
+                "visible": true,
+                "background": "rgba(0, 0, 0, 0)",
+                "color": "rgb(229, 229, 229)",
+                "overflow": "hidden",
+                "textOverflow": "ellipsis",
+                "clientWidth": 113,
+                "scrollWidth": 215
+              },
+              {
+                "role": "duration",
+                "text": "00:06:00",
+                "title": "00:06:00",
+                "rect": {
+                  "left": 315.796875,
+                  "top": 331,
+                  "right": 359.796875,
+                  "bottom": 343,
+                  "width": 44,
+                  "height": 12
+                },
+                "visible": true,
+                "background": "rgba(0, 0, 0, 0)",
+                "color": "rgb(229, 229, 229)",
+                "overflow": "hidden",
+                "textOverflow": "ellipsis",
+                "clientWidth": 44,
+                "scrollWidth": 44
+              }
+            ],
+            "pairs": [
+              {
+                "roles": [
+                  "badge",
+                  "name"
+                ],
+                "intersectionWidth": 0,
+                "intersectionHeight": 12
+              },
+              {
+                "roles": [
+                  "badge",
+                  "duration"
+                ],
+                "intersectionWidth": 0,
+                "intersectionHeight": 12
+              },
+              {
+                "roles": [
+                  "name",
+                  "duration"
+                ],
+                "intersectionWidth": 0,
+                "intersectionHeight": 12
+              }
+            ],
+            "intersections": []
+          },
+          {
+            "label": "normal-planned-長いクリップ名の省略を確認",
+            "state": "planned",
+            "title": "C12\n予定 — 生成予定（絵なし）\nnormal-planned-長いクリップ名の省略を確認\n00:06:00",
+            "rect": {
+              "left": 363.8046875,
+              "top": 329,
+              "right": 566.6953125,
+              "bottom": 377,
+              "width": 202.890625,
+              "height": 48
+            },
+            "contentWidth": 199.891,
+            "header": {
+              "left": 364.8046875,
+              "top": 330,
+              "right": 564.6953125,
+              "bottom": 344,
+              "width": 199.890625,
+              "height": 14
+            },
+            "badgeCount": 1,
+            "kindBadgeVisible": false,
+            "compact": false,
+            "fullBadgeVisible": true,
+            "displayedBadge": "予定",
+            "compactContent": "none",
+            "texts": [
+              {
+                "role": "badge",
+                "text": "予定",
+                "title": "予定 — 生成予定（絵なし）",
+                "rect": {
+                  "left": 366.8046875,
+                  "top": 331,
+                  "right": 392.8046875,
+                  "bottom": 343,
+                  "width": 26,
+                  "height": 12
+                },
+                "visible": true,
+                "background": "rgb(10, 10, 10)",
+                "color": "rgba(204, 204, 204, 0.7)",
+                "overflow": "hidden",
+                "textOverflow": "ellipsis",
+                "clientWidth": 26,
+                "scrollWidth": 26
+              },
+              {
+                "role": "name",
+                "text": "normal-planned-長いクリップ名の省略を確認",
+                "title": "normal-planned-長いクリップ名の省略を確認",
+                "rect": {
+                  "left": 394.8046875,
+                  "top": 331,
+                  "right": 516.6953125,
+                  "bottom": 343,
+                  "width": 121.890625,
+                  "height": 12
+                },
+                "visible": true,
+                "background": "rgba(0, 0, 0, 0)",
+                "color": "rgb(229, 229, 229)",
+                "overflow": "hidden",
+                "textOverflow": "ellipsis",
+                "clientWidth": 122,
+                "scrollWidth": 226
+              },
+              {
+                "role": "duration",
+                "text": "00:06:00",
+                "title": "00:06:00",
+                "rect": {
+                  "left": 518.6953125,
+                  "top": 331,
+                  "right": 562.6953125,
+                  "bottom": 343,
+                  "width": 44,
+                  "height": 12
+                },
+                "visible": true,
+                "background": "rgba(0, 0, 0, 0)",
+                "color": "rgb(229, 229, 229)",
+                "overflow": "hidden",
+                "textOverflow": "ellipsis",
+                "clientWidth": 44,
+                "scrollWidth": 44
+              }
+            ],
+            "pairs": [
+              {
+                "roles": [
+                  "badge",
+                  "name"
+                ],
+                "intersectionWidth": 0,
+                "intersectionHeight": 12
+              },
+              {
+                "roles": [
+                  "badge",
+                  "duration"
+                ],
+                "intersectionWidth": 0,
+                "intersectionHeight": 12
+              },
+              {
+                "roles": [
+                  "name",
+                  "duration"
+                ],
+                "intersectionWidth": 0,
+                "intersectionHeight": 12
+              }
+            ],
+            "intersections": []
+          },
+          {
+            "label": "normal-generating-長いクリップ名の省略を確認",
+            "state": "generating",
+            "title": "C13\n生成中 62% — 生成中 62%\nnormal-generating-長いクリップ名の省略を確認\n00:06:00",
+            "rect": {
+              "left": 566.703125,
+              "top": 329,
+              "right": 769.59375,
+              "bottom": 377,
+              "width": 202.890625,
+              "height": 48
+            },
+            "contentWidth": 199.891,
+            "header": {
+              "left": 567.703125,
+              "top": 330,
+              "right": 767.59375,
+              "bottom": 344,
+              "width": 199.890625,
+              "height": 14
+            },
+            "badgeCount": 1,
+            "kindBadgeVisible": false,
+            "compact": false,
+            "fullBadgeVisible": true,
+            "displayedBadge": "生成中 62%",
+            "compactContent": "none",
+            "texts": [
+              {
+                "role": "badge",
+                "text": "生成中 62%",
+                "title": "生成中 62% — 生成中 62%",
+                "rect": {
+                  "left": 569.703125,
+                  "top": 331,
+                  "right": 622.703125,
+                  "bottom": 343,
+                  "width": 53,
+                  "height": 12
+                },
+                "visible": true,
+                "background": "rgb(10, 10, 10)",
+                "color": "rgb(204, 167, 0)",
+                "overflow": "hidden",
+                "textOverflow": "ellipsis",
+                "clientWidth": 53,
+                "scrollWidth": 53
+              },
+              {
+                "role": "name",
+                "text": "normal-generating-長いクリップ名の省略を確認",
+                "title": "normal-generating-長いクリップ名の省略を確認",
+                "rect": {
+                  "left": 624.703125,
+                  "top": 331,
+                  "right": 719.59375,
+                  "bottom": 343,
+                  "width": 94.890625,
+                  "height": 12
+                },
+                "visible": true,
+                "background": "rgba(0, 0, 0, 0)",
+                "color": "rgb(229, 229, 229)",
+                "overflow": "hidden",
+                "textOverflow": "ellipsis",
+                "clientWidth": 95,
+                "scrollWidth": 242
+              },
+              {
+                "role": "duration",
+                "text": "00:06:00",
+                "title": "00:06:00",
+                "rect": {
+                  "left": 721.59375,
+                  "top": 331,
+                  "right": 765.59375,
+                  "bottom": 343,
+                  "width": 44,
+                  "height": 12
+                },
+                "visible": true,
+                "background": "rgba(0, 0, 0, 0)",
+                "color": "rgb(229, 229, 229)",
+                "overflow": "hidden",
+                "textOverflow": "ellipsis",
+                "clientWidth": 44,
+                "scrollWidth": 44
+              }
+            ],
+            "pairs": [
+              {
+                "roles": [
+                  "badge",
+                  "name"
+                ],
+                "intersectionWidth": 0,
+                "intersectionHeight": 12
+              },
+              {
+                "roles": [
+                  "badge",
+                  "duration"
+                ],
+                "intersectionWidth": 0,
+                "intersectionHeight": 12
+              },
+              {
+                "roles": [
+                  "name",
+                  "duration"
+                ],
+                "intersectionWidth": 0,
+                "intersectionHeight": 12
+              }
+            ],
+            "intersections": []
+          },
+          {
+            "label": "normal-stale-長いクリップ名の省略を確認",
+            "state": "stale",
+            "title": "C14\n応答なし・再取得 — 生成処理から応答がありません\nnormal-stale-長いクリップ名の省略を確認\n00:06:00",
+            "rect": {
+              "left": 769.6015625,
+              "top": 329,
+              "right": 972.4921875,
+              "bottom": 377,
+              "width": 202.890625,
+              "height": 48
+            },
+            "contentWidth": 199.891,
+            "header": {
+              "left": 770.6015625,
+              "top": 330,
+              "right": 970.4921875,
+              "bottom": 344,
+              "width": 199.890625,
+              "height": 14
+            },
+            "badgeCount": 1,
+            "kindBadgeVisible": false,
+            "compact": false,
+            "fullBadgeVisible": true,
+            "displayedBadge": "応答なし・再取得",
+            "compactContent": "none",
+            "texts": [
+              {
+                "role": "badge",
+                "text": "応答なし・再取得",
+                "title": "応答なし・再取得 — 生成処理から応答がありません",
+                "rect": {
+                  "left": 772.6015625,
+                  "top": 331,
+                  "right": 852.6015625,
+                  "bottom": 343,
+                  "width": 80,
+                  "height": 12
+                },
+                "visible": true,
+                "background": "rgb(10, 10, 10)",
+                "color": "rgb(204, 167, 0)",
+                "overflow": "hidden",
+                "textOverflow": "ellipsis",
+                "clientWidth": 80,
+                "scrollWidth": 80
+              },
+              {
+                "role": "name",
+                "text": "normal-stale-長いクリップ名の省略を確認",
+                "title": "normal-stale-長いクリップ名の省略を確認",
+                "rect": {
+                  "left": 854.6015625,
+                  "top": 331,
+                  "right": 922.4921875,
+                  "bottom": 343,
+                  "width": 67.890625,
+                  "height": 12
+                },
+                "visible": true,
+                "background": "rgba(0, 0, 0, 0)",
+                "color": "rgb(229, 229, 229)",
+                "overflow": "hidden",
+                "textOverflow": "ellipsis",
+                "clientWidth": 68,
+                "scrollWidth": 215
+              },
+              {
+                "role": "duration",
+                "text": "00:06:00",
+                "title": "00:06:00",
+                "rect": {
+                  "left": 924.4921875,
+                  "top": 331,
+                  "right": 968.4921875,
+                  "bottom": 343,
+                  "width": 44,
+                  "height": 12
+                },
+                "visible": true,
+                "background": "rgba(0, 0, 0, 0)",
+                "color": "rgb(229, 229, 229)",
+                "overflow": "hidden",
+                "textOverflow": "ellipsis",
+                "clientWidth": 44,
+                "scrollWidth": 44
+              }
+            ],
+            "pairs": [
+              {
+                "roles": [
+                  "badge",
+                  "name"
+                ],
+                "intersectionWidth": 0,
+                "intersectionHeight": 12
+              },
+              {
+                "roles": [
+                  "badge",
+                  "duration"
+                ],
+                "intersectionWidth": 0,
+                "intersectionHeight": 12
+              },
+              {
+                "roles": [
+                  "name",
+                  "duration"
+                ],
+                "intersectionWidth": 0,
+                "intersectionHeight": 12
+              }
+            ],
+            "intersections": []
+          },
+          {
+            "label": "normal-failed-長いクリップ名の省略を確認",
+            "state": "failed",
+            "title": "C15\n失敗 — 生成に失敗しました\nnormal-failed-長いクリップ名の省略を確認\n00:06:00",
+            "rect": {
+              "left": 972.5,
+              "top": 329,
+              "right": 1175.390625,
+              "bottom": 377,
+              "width": 202.890625,
+              "height": 48
+            },
+            "contentWidth": 199.891,
+            "header": {
+              "left": 973.5,
+              "top": 330,
+              "right": 1173.390625,
+              "bottom": 344,
+              "width": 199.890625,
+              "height": 14
+            },
+            "badgeCount": 1,
+            "kindBadgeVisible": false,
+            "compact": false,
+            "fullBadgeVisible": true,
+            "displayedBadge": "失敗",
+            "compactContent": "none",
+            "texts": [
+              {
+                "role": "badge",
+                "text": "失敗",
+                "title": "失敗 — 生成に失敗しました",
+                "rect": {
+                  "left": 975.5,
+                  "top": 331,
+                  "right": 1001.5,
+                  "bottom": 343,
+                  "width": 26,
+                  "height": 12
+                },
+                "visible": true,
+                "background": "rgb(10, 10, 10)",
+                "color": "rgb(241, 76, 76)",
+                "overflow": "hidden",
+                "textOverflow": "ellipsis",
+                "clientWidth": 26,
+                "scrollWidth": 26
+              },
+              {
+                "role": "name",
+                "text": "normal-failed-長いクリップ名の省略を確認",
+                "title": "normal-failed-長いクリップ名の省略を確認",
+                "rect": {
+                  "left": 1003.5,
+                  "top": 331,
+                  "right": 1125.390625,
+                  "bottom": 343,
+                  "width": 121.890625,
+                  "height": 12
+                },
+                "visible": true,
+                "background": "rgba(0, 0, 0, 0)",
+                "color": "rgb(229, 229, 229)",
+                "overflow": "hidden",
+                "textOverflow": "ellipsis",
+                "clientWidth": 122,
+                "scrollWidth": 220
+              },
+              {
+                "role": "duration",
+                "text": "00:06:00",
+                "title": "00:06:00",
+                "rect": {
+                  "left": 1127.390625,
+                  "top": 331,
+                  "right": 1171.390625,
+                  "bottom": 343,
+                  "width": 44,
+                  "height": 12
+                },
+                "visible": true,
+                "background": "rgba(0, 0, 0, 0)",
+                "color": "rgb(229, 229, 229)",
+                "overflow": "hidden",
+                "textOverflow": "ellipsis",
+                "clientWidth": 44,
+                "scrollWidth": 44
+              }
+            ],
+            "pairs": [
+              {
+                "roles": [
+                  "badge",
+                  "name"
+                ],
+                "intersectionWidth": 0,
+                "intersectionHeight": 12
+              },
+              {
+                "roles": [
+                  "badge",
+                  "duration"
+                ],
+                "intersectionWidth": 0,
+                "intersectionHeight": 12
+              },
+              {
+                "roles": [
+                  "name",
+                  "duration"
+                ],
+                "intersectionWidth": 0,
+                "intersectionHeight": 12
+              }
+            ],
+            "intersections": []
+          },
+          {
+            "label": "normal-orphan-長いクリップ名の省略を確認",
+            "state": "orphan",
+            "title": "C16\n孤児 — 素材が変わりました（meta の sha256 と一致しません）\nnormal-orphan-長いクリップ名の省略を確認\n00:06:00",
+            "rect": {
+              "left": 1175.390625,
+              "top": 329,
+              "right": 1378.28125,
+              "bottom": 377,
+              "width": 202.890625,
+              "height": 48
+            },
+            "contentWidth": 199.891,
+            "header": {
+              "left": 1176.390625,
+              "top": 330,
+              "right": 1376.28125,
+              "bottom": 344,
+              "width": 199.890625,
+              "height": 14
+            },
+            "badgeCount": 1,
+            "kindBadgeVisible": false,
+            "compact": false,
+            "fullBadgeVisible": true,
+            "displayedBadge": "孤児",
+            "compactContent": "none",
+            "texts": [
+              {
+                "role": "badge",
+                "text": "孤児",
+                "title": "孤児 — 素材が変わりました（meta の sha256 と一致しません）",
+                "rect": {
+                  "left": 1178.390625,
+                  "top": 331,
+                  "right": 1204.390625,
+                  "bottom": 343,
+                  "width": 26,
+                  "height": 12
+                },
+                "visible": true,
+                "background": "rgb(10, 10, 10)",
+                "color": "rgba(204, 204, 204, 0.7)",
+                "overflow": "hidden",
+                "textOverflow": "ellipsis",
+                "clientWidth": 26,
+                "scrollWidth": 26
+              },
+              {
+                "role": "name",
+                "text": "normal-orphan-長いクリップ名の省略を確認",
+                "title": "normal-orphan-長いクリップ名の省略を確認",
+                "rect": {
+                  "left": 1206.390625,
+                  "top": 331,
+                  "right": 1328.28125,
+                  "bottom": 343,
+                  "width": 121.890625,
+                  "height": 12
+                },
+                "visible": true,
+                "background": "rgba(0, 0, 0, 0)",
+                "color": "rgb(229, 229, 229)",
+                "overflow": "hidden",
+                "textOverflow": "ellipsis",
+                "clientWidth": 122,
+                "scrollWidth": 220
+              },
+              {
+                "role": "duration",
+                "text": "00:06:00",
+                "title": "00:06:00",
+                "rect": {
+                  "left": 1330.28125,
+                  "top": 331,
+                  "right": 1374.28125,
+                  "bottom": 343,
+                  "width": 44,
+                  "height": 12
+                },
+                "visible": true,
+                "background": "rgba(0, 0, 0, 0)",
+                "color": "rgb(229, 229, 229)",
+                "overflow": "hidden",
+                "textOverflow": "ellipsis",
+                "clientWidth": 44,
+                "scrollWidth": 44
+              }
+            ],
+            "pairs": [
+              {
+                "roles": [
+                  "badge",
+                  "name"
+                ],
+                "intersectionWidth": 0,
+                "intersectionHeight": 12
+              },
+              {
+                "roles": [
+                  "badge",
+                  "duration"
+                ],
+                "intersectionWidth": 0,
+                "intersectionHeight": 12
+              },
+              {
+                "roles": [
+                  "name",
+                  "duration"
+                ],
+                "intersectionWidth": 0,
+                "intersectionHeight": 12
+              }
+            ],
+            "intersections": []
+          },
+          {
+            "label": "normal-done-長いクリップ名の省略を確認",
+            "state": "done",
+            "title": "C17\n生成 — 生成された動画\nnormal-done-長いクリップ名の省略を確認\n00:06:00",
+            "rect": {
+              "left": 1378.2890625,
+              "top": 329,
+              "right": 1581.1796875,
+              "bottom": 377,
+              "width": 202.890625,
+              "height": 48
+            },
+            "contentWidth": 199.891,
+            "header": {
+              "left": 1379.2890625,
+              "top": 330,
+              "right": 1579.1796875,
+              "bottom": 344,
+              "width": 199.890625,
+              "height": 14
+            },
+            "badgeCount": 1,
+            "kindBadgeVisible": false,
+            "compact": false,
+            "fullBadgeVisible": true,
+            "displayedBadge": "生成",
+            "compactContent": "none",
+            "texts": [
+              {
+                "role": "badge",
+                "text": "生成",
+                "title": "生成 — 生成された動画",
+                "rect": {
+                  "left": 1381.2890625,
+                  "top": 331,
+                  "right": 1407.2890625,
+                  "bottom": 343,
+                  "width": 26,
+                  "height": 12
+                },
+                "visible": true,
+                "background": "rgb(10, 10, 10)",
+                "color": "rgba(204, 204, 204, 0.7)",
+                "overflow": "hidden",
+                "textOverflow": "ellipsis",
+                "clientWidth": 26,
+                "scrollWidth": 26
+              },
+              {
+                "role": "name",
+                "text": "normal-done-長いクリップ名の省略を確認",
+                "title": "normal-done-長いクリップ名の省略を確認",
+                "rect": {
+                  "left": 1409.2890625,
+                  "top": 331,
+                  "right": 1531.1796875,
+                  "bottom": 343,
+                  "width": 121.890625,
+                  "height": 12
+                },
+                "visible": true,
+                "background": "rgba(0, 0, 0, 0)",
+                "color": "rgb(229, 229, 229)",
+                "overflow": "hidden",
+                "textOverflow": "ellipsis",
+                "clientWidth": 122,
+                "scrollWidth": 209
+              },
+              {
+                "role": "duration",
+                "text": "00:06:00",
+                "title": "00:06:00",
+                "rect": {
+                  "left": 1533.1796875,
+                  "top": 331,
+                  "right": 1577.1796875,
+                  "bottom": 343,
+                  "width": 44,
+                  "height": 12
+                },
+                "visible": true,
+                "background": "rgba(0, 0, 0, 0)",
+                "color": "rgb(229, 229, 229)",
+                "overflow": "hidden",
+                "textOverflow": "ellipsis",
+                "clientWidth": 44,
+                "scrollWidth": 44
+              }
+            ],
+            "pairs": [
+              {
+                "roles": [
+                  "badge",
+                  "name"
+                ],
+                "intersectionWidth": 0,
+                "intersectionHeight": 12
+              },
+              {
+                "roles": [
+                  "badge",
+                  "duration"
+                ],
+                "intersectionWidth": 0,
+                "intersectionHeight": 12
+              },
+              {
+                "roles": [
+                  "name",
+                  "duration"
+                ],
+                "intersectionWidth": 0,
+                "intersectionHeight": 12
+              }
+            ],
+            "intersections": []
+          },
+          {
+            "label": "normal-still-長いクリップ名の省略を確認",
+            "state": "none",
+            "title": "C18\n静止画 — 静止画\nnormal-still-長いクリップ名の省略を確認\n00:06:00",
+            "rect": {
+              "left": 1581.1875,
+              "top": 329,
+              "right": 1784.078125,
+              "bottom": 377,
+              "width": 202.890625,
+              "height": 48
+            },
+            "contentWidth": 199.891,
+            "header": {
+              "left": 1582.1875,
+              "top": 330,
+              "right": 1782.078125,
+              "bottom": 344,
+              "width": 199.890625,
+              "height": 14
+            },
+            "badgeCount": 1,
+            "kindBadgeVisible": false,
+            "compact": false,
+            "fullBadgeVisible": true,
+            "displayedBadge": "静止画",
+            "compactContent": "none",
+            "texts": [
+              {
+                "role": "badge",
+                "text": "静止画",
+                "title": "静止画 — 静止画",
+                "rect": {
+                  "left": 1584.1875,
+                  "top": 331,
+                  "right": 1619.1875,
+                  "bottom": 343,
+                  "width": 35,
+                  "height": 12
+                },
+                "visible": true,
+                "background": "rgb(10, 10, 10)",
+                "color": "rgb(89, 164, 249)",
+                "overflow": "hidden",
+                "textOverflow": "ellipsis",
+                "clientWidth": 35,
+                "scrollWidth": 35
+              },
+              {
+                "role": "name",
+                "text": "normal-still-長いクリップ名の省略を確認",
+                "title": "normal-still-長いクリップ名の省略を確認",
+                "rect": {
+                  "left": 1621.1875,
+                  "top": 331,
+                  "right": 1734.078125,
+                  "bottom": 343,
+                  "width": 112.890625,
+                  "height": 12
+                },
+                "visible": true,
+                "background": "rgba(0, 0, 0, 0)",
+                "color": "rgb(229, 229, 229)",
+                "overflow": "hidden",
+                "textOverflow": "ellipsis",
+                "clientWidth": 113,
+                "scrollWidth": 215
+              },
+              {
+                "role": "duration",
+                "text": "00:06:00",
+                "title": "00:06:00",
+                "rect": {
+                  "left": 1736.078125,
+                  "top": 331,
+                  "right": 1780.078125,
+                  "bottom": 343,
+                  "width": 44,
+                  "height": 12
+                },
+                "visible": true,
+                "background": "rgba(0, 0, 0, 0)",
+                "color": "rgb(229, 229, 229)",
+                "overflow": "hidden",
+                "textOverflow": "ellipsis",
+                "clientWidth": 44,
+                "scrollWidth": 44
+              }
+            ],
+            "pairs": [
+              {
+                "roles": [
+                  "badge",
+                  "name"
+                ],
+                "intersectionWidth": 0,
+                "intersectionHeight": 12
+              },
+              {
+                "roles": [
+                  "badge",
+                  "duration"
+                ],
+                "intersectionWidth": 0,
+                "intersectionHeight": 12
+              },
+              {
+                "roles": [
+                  "name",
+                  "duration"
+                ],
+                "intersectionWidth": 0,
+                "intersectionHeight": 12
+              }
+            ],
+            "intersections": []
+          }
+        ],
+        "narrow": [
+          {
+            "label": "narrow-empty-長いクリップ名の省略を確認",
+            "state": "planned",
+            "title": "C19\n空の枠 — 生成予定（絵なし）\nnarrow-empty-長いクリップ名の省略を確認\n00:01:12",
+            "rect": {
+              "left": 245.40625,
+              "top": 329,
+              "right": 292.7265625,
+              "bottom": 377,
+              "width": 47.3203125,
+              "height": 48
+            },
+            "contentWidth": 44.3203,
+            "header": {
+              "left": 246.40625,
+              "top": 330,
+              "right": 290.7265625,
+              "bottom": 344,
+              "width": 44.3203125,
+              "height": 14
+            },
+            "badgeCount": 1,
+            "kindBadgeVisible": false,
+            "compact": true,
+            "fullBadgeVisible": false,
+            "displayedBadge": "空",
+            "compactContent": "\"空\"",
+            "texts": [
+              {
+                "role": "badge",
+                "text": "空の枠",
+                "title": "空の枠 — 生成予定（絵なし）",
+                "rect": {
+                  "left": 248.40625,
+                  "top": 331,
+                  "right": 265.40625,
+                  "bottom": 343,
+                  "width": 17,
+                  "height": 12
+                },
+                "visible": true,
+                "background": "rgb(10, 10, 10)",
+                "color": "rgba(204, 204, 204, 0.7)",
+                "overflow": "hidden",
+                "textOverflow": "ellipsis",
+                "clientWidth": 17,
+                "scrollWidth": 17
+              },
+              {
+                "role": "name",
+                "text": "narrow-empty-長いクリップ名の省略を確認",
+                "title": "narrow-empty-長いクリップ名の省略を確認",
+                "rect": {
+                  "left": 0,
+                  "top": 0,
+                  "right": 0,
+                  "bottom": 0,
+                  "width": 0,
+                  "height": 0
+                },
+                "visible": false,
+                "background": "rgba(0, 0, 0, 0)",
+                "color": "rgb(229, 229, 229)",
+                "overflow": "hidden",
+                "textOverflow": "ellipsis",
+                "clientWidth": 0,
+                "scrollWidth": 0
+              },
+              {
+                "role": "duration",
+                "text": "00:01:12",
+                "title": "00:01:12",
+                "rect": {
+                  "left": 0,
+                  "top": 0,
+                  "right": 0,
+                  "bottom": 0,
+                  "width": 0,
+                  "height": 0
+                },
+                "visible": false,
+                "background": "rgba(0, 0, 0, 0)",
+                "color": "rgb(229, 229, 229)",
+                "overflow": "hidden",
+                "textOverflow": "ellipsis",
+                "clientWidth": 0,
+                "scrollWidth": 0
+              }
+            ],
+            "pairs": [],
+            "intersections": []
+          },
+          {
+            "label": "narrow-planned-長いクリップ名の省略を確認",
+            "state": "planned",
+            "title": "C20\n予定 — 生成予定（絵なし）\nnarrow-planned-長いクリップ名の省略を確認\n00:01:12",
+            "rect": {
+              "left": 292.7265625,
+              "top": 329,
+              "right": 340.046875,
+              "bottom": 377,
+              "width": 47.3203125,
+              "height": 48
+            },
+            "contentWidth": 44.3203,
+            "header": {
+              "left": 293.7265625,
+              "top": 330,
+              "right": 338.046875,
+              "bottom": 344,
+              "width": 44.3203125,
+              "height": 14
+            },
+            "badgeCount": 1,
+            "kindBadgeVisible": false,
+            "compact": true,
+            "fullBadgeVisible": false,
+            "displayedBadge": "予",
+            "compactContent": "\"予\"",
+            "texts": [
+              {
+                "role": "badge",
+                "text": "予定",
+                "title": "予定 — 生成予定（絵なし）",
+                "rect": {
+                  "left": 295.7265625,
+                  "top": 331,
+                  "right": 312.7265625,
+                  "bottom": 343,
+                  "width": 17,
+                  "height": 12
+                },
+                "visible": true,
+                "background": "rgb(10, 10, 10)",
+                "color": "rgba(204, 204, 204, 0.7)",
+                "overflow": "hidden",
+                "textOverflow": "ellipsis",
+                "clientWidth": 17,
+                "scrollWidth": 17
+              },
+              {
+                "role": "name",
+                "text": "narrow-planned-長いクリップ名の省略を確認",
+                "title": "narrow-planned-長いクリップ名の省略を確認",
+                "rect": {
+                  "left": 0,
+                  "top": 0,
+                  "right": 0,
+                  "bottom": 0,
+                  "width": 0,
+                  "height": 0
+                },
+                "visible": false,
+                "background": "rgba(0, 0, 0, 0)",
+                "color": "rgb(229, 229, 229)",
+                "overflow": "hidden",
+                "textOverflow": "ellipsis",
+                "clientWidth": 0,
+                "scrollWidth": 0
+              },
+              {
+                "role": "duration",
+                "text": "00:01:12",
+                "title": "00:01:12",
+                "rect": {
+                  "left": 0,
+                  "top": 0,
+                  "right": 0,
+                  "bottom": 0,
+                  "width": 0,
+                  "height": 0
+                },
+                "visible": false,
+                "background": "rgba(0, 0, 0, 0)",
+                "color": "rgb(229, 229, 229)",
+                "overflow": "hidden",
+                "textOverflow": "ellipsis",
+                "clientWidth": 0,
+                "scrollWidth": 0
+              }
+            ],
+            "pairs": [],
+            "intersections": []
+          },
+          {
+            "label": "narrow-generating-長いクリップ名の省略を確認",
+            "state": "generating",
+            "title": "C21\n生成中 62% — 生成中 62%\nnarrow-generating-長いクリップ名の省略を確認\n00:01:12",
+            "rect": {
+              "left": 340.0546875,
+              "top": 329,
+              "right": 387.375,
+              "bottom": 377,
+              "width": 47.3203125,
+              "height": 48
+            },
+            "contentWidth": 44.3203,
+            "header": {
+              "left": 341.0546875,
+              "top": 330,
+              "right": 385.375,
+              "bottom": 344,
+              "width": 44.3203125,
+              "height": 14
+            },
+            "badgeCount": 1,
+            "kindBadgeVisible": false,
+            "compact": true,
+            "fullBadgeVisible": false,
+            "displayedBadge": "生",
+            "compactContent": "\"生\"",
+            "texts": [
+              {
+                "role": "badge",
+                "text": "生成中 62%",
+                "title": "生成中 62% — 生成中 62%",
+                "rect": {
+                  "left": 343.0546875,
+                  "top": 331,
+                  "right": 360.0546875,
+                  "bottom": 343,
+                  "width": 17,
+                  "height": 12
+                },
+                "visible": true,
+                "background": "rgb(10, 10, 10)",
+                "color": "rgb(204, 167, 0)",
+                "overflow": "hidden",
+                "textOverflow": "ellipsis",
+                "clientWidth": 17,
+                "scrollWidth": 17
+              },
+              {
+                "role": "name",
+                "text": "narrow-generating-長いクリップ名の省略を確認",
+                "title": "narrow-generating-長いクリップ名の省略を確認",
+                "rect": {
+                  "left": 0,
+                  "top": 0,
+                  "right": 0,
+                  "bottom": 0,
+                  "width": 0,
+                  "height": 0
+                },
+                "visible": false,
+                "background": "rgba(0, 0, 0, 0)",
+                "color": "rgb(229, 229, 229)",
+                "overflow": "hidden",
+                "textOverflow": "ellipsis",
+                "clientWidth": 0,
+                "scrollWidth": 0
+              },
+              {
+                "role": "duration",
+                "text": "00:01:12",
+                "title": "00:01:12",
+                "rect": {
+                  "left": 0,
+                  "top": 0,
+                  "right": 0,
+                  "bottom": 0,
+                  "width": 0,
+                  "height": 0
+                },
+                "visible": false,
+                "background": "rgba(0, 0, 0, 0)",
+                "color": "rgb(229, 229, 229)",
+                "overflow": "hidden",
+                "textOverflow": "ellipsis",
+                "clientWidth": 0,
+                "scrollWidth": 0
+              }
+            ],
+            "pairs": [],
+            "intersections": []
+          },
+          {
+            "label": "narrow-stale-長いクリップ名の省略を確認",
+            "state": "stale",
+            "title": "C22\n応答なし・再取得 — 生成処理から応答がありません\nnarrow-stale-長いクリップ名の省略を確認\n00:01:12",
+            "rect": {
+              "left": 387.375,
+              "top": 329,
+              "right": 434.6953125,
+              "bottom": 377,
+              "width": 47.3203125,
+              "height": 48
+            },
+            "contentWidth": 44.3203,
+            "header": {
+              "left": 388.375,
+              "top": 330,
+              "right": 432.6953125,
+              "bottom": 344,
+              "width": 44.3203125,
+              "height": 14
+            },
+            "badgeCount": 1,
+            "kindBadgeVisible": false,
+            "compact": true,
+            "fullBadgeVisible": false,
+            "displayedBadge": "応",
+            "compactContent": "\"応\"",
+            "texts": [
+              {
+                "role": "badge",
+                "text": "応答なし・再取得",
+                "title": "応答なし・再取得 — 生成処理から応答がありません",
+                "rect": {
+                  "left": 390.375,
+                  "top": 331,
+                  "right": 407.375,
+                  "bottom": 343,
+                  "width": 17,
+                  "height": 12
+                },
+                "visible": true,
+                "background": "rgb(10, 10, 10)",
+                "color": "rgb(204, 167, 0)",
+                "overflow": "hidden",
+                "textOverflow": "ellipsis",
+                "clientWidth": 17,
+                "scrollWidth": 17
+              },
+              {
+                "role": "name",
+                "text": "narrow-stale-長いクリップ名の省略を確認",
+                "title": "narrow-stale-長いクリップ名の省略を確認",
+                "rect": {
+                  "left": 0,
+                  "top": 0,
+                  "right": 0,
+                  "bottom": 0,
+                  "width": 0,
+                  "height": 0
+                },
+                "visible": false,
+                "background": "rgba(0, 0, 0, 0)",
+                "color": "rgb(229, 229, 229)",
+                "overflow": "hidden",
+                "textOverflow": "ellipsis",
+                "clientWidth": 0,
+                "scrollWidth": 0
+              },
+              {
+                "role": "duration",
+                "text": "00:01:12",
+                "title": "00:01:12",
+                "rect": {
+                  "left": 0,
+                  "top": 0,
+                  "right": 0,
+                  "bottom": 0,
+                  "width": 0,
+                  "height": 0
+                },
+                "visible": false,
+                "background": "rgba(0, 0, 0, 0)",
+                "color": "rgb(229, 229, 229)",
+                "overflow": "hidden",
+                "textOverflow": "ellipsis",
+                "clientWidth": 0,
+                "scrollWidth": 0
+              }
+            ],
+            "pairs": [],
+            "intersections": []
+          },
+          {
+            "label": "narrow-failed-長いクリップ名の省略を確認",
+            "state": "failed",
+            "title": "C23\n失敗 — 生成に失敗しました\nnarrow-failed-長いクリップ名の省略を確認\n00:01:12",
+            "rect": {
+              "left": 434.703125,
+              "top": 329,
+              "right": 482.0234375,
+              "bottom": 377,
+              "width": 47.3203125,
+              "height": 48
+            },
+            "contentWidth": 44.3203,
+            "header": {
+              "left": 435.703125,
+              "top": 330,
+              "right": 480.0234375,
+              "bottom": 344,
+              "width": 44.3203125,
+              "height": 14
+            },
+            "badgeCount": 1,
+            "kindBadgeVisible": false,
+            "compact": true,
+            "fullBadgeVisible": false,
+            "displayedBadge": "失",
+            "compactContent": "\"失\"",
+            "texts": [
+              {
+                "role": "badge",
+                "text": "失敗",
+                "title": "失敗 — 生成に失敗しました",
+                "rect": {
+                  "left": 437.703125,
+                  "top": 331,
+                  "right": 454.703125,
+                  "bottom": 343,
+                  "width": 17,
+                  "height": 12
+                },
+                "visible": true,
+                "background": "rgb(10, 10, 10)",
+                "color": "rgb(241, 76, 76)",
+                "overflow": "hidden",
+                "textOverflow": "ellipsis",
+                "clientWidth": 17,
+                "scrollWidth": 17
+              },
+              {
+                "role": "name",
+                "text": "narrow-failed-長いクリップ名の省略を確認",
+                "title": "narrow-failed-長いクリップ名の省略を確認",
+                "rect": {
+                  "left": 0,
+                  "top": 0,
+                  "right": 0,
+                  "bottom": 0,
+                  "width": 0,
+                  "height": 0
+                },
+                "visible": false,
+                "background": "rgba(0, 0, 0, 0)",
+                "color": "rgb(229, 229, 229)",
+                "overflow": "hidden",
+                "textOverflow": "ellipsis",
+                "clientWidth": 0,
+                "scrollWidth": 0
+              },
+              {
+                "role": "duration",
+                "text": "00:01:12",
+                "title": "00:01:12",
+                "rect": {
+                  "left": 0,
+                  "top": 0,
+                  "right": 0,
+                  "bottom": 0,
+                  "width": 0,
+                  "height": 0
+                },
+                "visible": false,
+                "background": "rgba(0, 0, 0, 0)",
+                "color": "rgb(229, 229, 229)",
+                "overflow": "hidden",
+                "textOverflow": "ellipsis",
+                "clientWidth": 0,
+                "scrollWidth": 0
+              }
+            ],
+            "pairs": [],
+            "intersections": []
+          },
+          {
+            "label": "narrow-orphan-長いクリップ名の省略を確認",
+            "state": "orphan",
+            "title": "C24\n孤児 — 素材が変わりました（meta の sha256 と一致しません）\nnarrow-orphan-長いクリップ名の省略を確認\n00:01:12",
+            "rect": {
+              "left": 482.0234375,
+              "top": 329,
+              "right": 529.34375,
+              "bottom": 377,
+              "width": 47.3203125,
+              "height": 48
+            },
+            "contentWidth": 44.3203,
+            "header": {
+              "left": 483.0234375,
+              "top": 330,
+              "right": 527.34375,
+              "bottom": 344,
+              "width": 44.3203125,
+              "height": 14
+            },
+            "badgeCount": 1,
+            "kindBadgeVisible": false,
+            "compact": true,
+            "fullBadgeVisible": false,
+            "displayedBadge": "孤",
+            "compactContent": "\"孤\"",
+            "texts": [
+              {
+                "role": "badge",
+                "text": "孤児",
+                "title": "孤児 — 素材が変わりました（meta の sha256 と一致しません）",
+                "rect": {
+                  "left": 485.0234375,
+                  "top": 331,
+                  "right": 502.0234375,
+                  "bottom": 343,
+                  "width": 17,
+                  "height": 12
+                },
+                "visible": true,
+                "background": "rgb(10, 10, 10)",
+                "color": "rgba(204, 204, 204, 0.7)",
+                "overflow": "hidden",
+                "textOverflow": "ellipsis",
+                "clientWidth": 17,
+                "scrollWidth": 17
+              },
+              {
+                "role": "name",
+                "text": "narrow-orphan-長いクリップ名の省略を確認",
+                "title": "narrow-orphan-長いクリップ名の省略を確認",
+                "rect": {
+                  "left": 0,
+                  "top": 0,
+                  "right": 0,
+                  "bottom": 0,
+                  "width": 0,
+                  "height": 0
+                },
+                "visible": false,
+                "background": "rgba(0, 0, 0, 0)",
+                "color": "rgb(229, 229, 229)",
+                "overflow": "hidden",
+                "textOverflow": "ellipsis",
+                "clientWidth": 0,
+                "scrollWidth": 0
+              },
+              {
+                "role": "duration",
+                "text": "00:01:12",
+                "title": "00:01:12",
+                "rect": {
+                  "left": 0,
+                  "top": 0,
+                  "right": 0,
+                  "bottom": 0,
+                  "width": 0,
+                  "height": 0
+                },
+                "visible": false,
+                "background": "rgba(0, 0, 0, 0)",
+                "color": "rgb(229, 229, 229)",
+                "overflow": "hidden",
+                "textOverflow": "ellipsis",
+                "clientWidth": 0,
+                "scrollWidth": 0
+              }
+            ],
+            "pairs": [],
+            "intersections": []
+          },
+          {
+            "label": "narrow-done-長いクリップ名の省略を確認",
+            "state": "done",
+            "title": "C25\n生成 — 生成された動画\nnarrow-done-長いクリップ名の省略を確認\n00:01:12",
+            "rect": {
+              "left": 529.3515625,
+              "top": 329,
+              "right": 576.671875,
+              "bottom": 377,
+              "width": 47.3203125,
+              "height": 48
+            },
+            "contentWidth": 44.3203,
+            "header": {
+              "left": 530.3515625,
+              "top": 330,
+              "right": 574.671875,
+              "bottom": 344,
+              "width": 44.3203125,
+              "height": 14
+            },
+            "badgeCount": 1,
+            "kindBadgeVisible": false,
+            "compact": true,
+            "fullBadgeVisible": false,
+            "displayedBadge": "生",
+            "compactContent": "\"生\"",
+            "texts": [
+              {
+                "role": "badge",
+                "text": "生成",
+                "title": "生成 — 生成された動画",
+                "rect": {
+                  "left": 532.3515625,
+                  "top": 331,
+                  "right": 549.3515625,
+                  "bottom": 343,
+                  "width": 17,
+                  "height": 12
+                },
+                "visible": true,
+                "background": "rgb(10, 10, 10)",
+                "color": "rgba(204, 204, 204, 0.7)",
+                "overflow": "hidden",
+                "textOverflow": "ellipsis",
+                "clientWidth": 17,
+                "scrollWidth": 17
+              },
+              {
+                "role": "name",
+                "text": "narrow-done-長いクリップ名の省略を確認",
+                "title": "narrow-done-長いクリップ名の省略を確認",
+                "rect": {
+                  "left": 0,
+                  "top": 0,
+                  "right": 0,
+                  "bottom": 0,
+                  "width": 0,
+                  "height": 0
+                },
+                "visible": false,
+                "background": "rgba(0, 0, 0, 0)",
+                "color": "rgb(229, 229, 229)",
+                "overflow": "hidden",
+                "textOverflow": "ellipsis",
+                "clientWidth": 0,
+                "scrollWidth": 0
+              },
+              {
+                "role": "duration",
+                "text": "00:01:12",
+                "title": "00:01:12",
+                "rect": {
+                  "left": 0,
+                  "top": 0,
+                  "right": 0,
+                  "bottom": 0,
+                  "width": 0,
+                  "height": 0
+                },
+                "visible": false,
+                "background": "rgba(0, 0, 0, 0)",
+                "color": "rgb(229, 229, 229)",
+                "overflow": "hidden",
+                "textOverflow": "ellipsis",
+                "clientWidth": 0,
+                "scrollWidth": 0
+              }
+            ],
+            "pairs": [],
+            "intersections": []
+          },
+          {
+            "label": "narrow-still-長いクリップ名の省略を確認",
+            "state": "none",
+            "title": "C26\n静止画 — 静止画\nnarrow-still-長いクリップ名の省略を確認\n00:01:12",
+            "rect": {
+              "left": 576.671875,
+              "top": 329,
+              "right": 623.9921875,
+              "bottom": 377,
+              "width": 47.3203125,
+              "height": 48
+            },
+            "contentWidth": 44.3203,
+            "header": {
+              "left": 577.671875,
+              "top": 330,
+              "right": 621.9921875,
+              "bottom": 344,
+              "width": 44.3203125,
+              "height": 14
+            },
+            "badgeCount": 1,
+            "kindBadgeVisible": false,
+            "compact": true,
+            "fullBadgeVisible": false,
+            "displayedBadge": "静",
+            "compactContent": "\"静\"",
+            "texts": [
+              {
+                "role": "badge",
+                "text": "静止画",
+                "title": "静止画 — 静止画",
+                "rect": {
+                  "left": 579.671875,
+                  "top": 331,
+                  "right": 596.671875,
+                  "bottom": 343,
+                  "width": 17,
+                  "height": 12
+                },
+                "visible": true,
+                "background": "rgb(10, 10, 10)",
+                "color": "rgb(89, 164, 249)",
+                "overflow": "hidden",
+                "textOverflow": "ellipsis",
+                "clientWidth": 17,
+                "scrollWidth": 17
+              },
+              {
+                "role": "name",
+                "text": "narrow-still-長いクリップ名の省略を確認",
+                "title": "narrow-still-長いクリップ名の省略を確認",
+                "rect": {
+                  "left": 0,
+                  "top": 0,
+                  "right": 0,
+                  "bottom": 0,
+                  "width": 0,
+                  "height": 0
+                },
+                "visible": false,
+                "background": "rgba(0, 0, 0, 0)",
+                "color": "rgb(229, 229, 229)",
+                "overflow": "hidden",
+                "textOverflow": "ellipsis",
+                "clientWidth": 0,
+                "scrollWidth": 0
+              },
+              {
+                "role": "duration",
+                "text": "00:01:12",
+                "title": "00:01:12",
+                "rect": {
+                  "left": 0,
+                  "top": 0,
+                  "right": 0,
+                  "bottom": 0,
+                  "width": 0,
+                  "height": 0
+                },
+                "visible": false,
+                "background": "rgba(0, 0, 0, 0)",
+                "color": "rgb(229, 229, 229)",
+                "overflow": "hidden",
+                "textOverflow": "ellipsis",
+                "clientWidth": 0,
+                "scrollWidth": 0
+              }
+            ],
+            "pairs": [],
+            "intersections": []
+          }
+        ],
+        "visualReview": "pending: wrapper must open screenshots before accepting L1",
+        "screenshotClips": {
+          "08-all-generation-chip-states.png": {
+            "x": 156.90625,
+            "y": 325,
+            "width": 1631.171875,
+            "height": 56,
+            "scale": 2
+          },
+          "09-empty-frame-zoom.png": {
+            "x": 156.90625,
+            "y": 325,
+            "width": 210.890625,
+            "height": 56,
+            "scale": 3
+          },
+          "10-narrow-generation-chip-states.png": {
+            "x": 241.40625,
+            "y": 325,
+            "width": 386.5859375,
+            "height": 56,
+            "scale": 3
+          }
         }
       }
     },
@@ -1393,13 +3219,13 @@
             {
               "side": "first",
               "left": "0px",
-              "width": "61.4597px",
+              "width": "64px",
               "ready": true
             },
             {
               "side": "last",
-              "left": "92.1895px",
-              "width": "61.4597px",
+              "left": "105.014px",
+              "width": "64px",
               "ready": true
             }
           ]
@@ -1424,7 +3250,7 @@
           "imageCells": []
         },
         "nodeReplaced": true,
-        "elapsedMs": 390
+        "elapsedMs": 332
       }
     },
     {
@@ -1435,7 +3261,7 @@
         "during": {
           "playing": true,
           "requests": 0,
-          "elapsedMs": 1256
+          "elapsedMs": 1315
         },
         "after": {
           "requests": 2,
@@ -1450,20 +3276,20 @@
         "watch": {
           "baseline": {
             "state": "planned",
-            "className": "akari-annotations-strip-clip akari-generation-planned akari-annotations-strip-hit-target",
+            "className": "akari-annotations-strip-clip akari-generation-planned akari-generation-chip-layout akari-annotations-strip-hit-target",
             "imageCellCount": 0,
             "imageCells": [],
             "linked": false,
             "prompt": null,
-            "title": "生成予定（絵なし）",
-            "badge": "planned"
+            "title": "空の枠 — 生成予定（絵なし）",
+            "badge": "空の枠"
           },
           "reached": {
             "state": "failed",
             "badge": "失敗",
-            "className": "akari-annotations-strip-clip akari-generation-failed akari-annotations-strip-hit-target"
+            "className": "akari-annotations-strip-clip akari-generation-failed akari-generation-chip-layout akari-annotations-strip-hit-target"
           },
-          "msFromWrite": 16.2,
+          "msFromWrite": 21.7,
           "changes": [
             {
               "state": "failed",
@@ -1530,12 +3356,12 @@
       "pass": true,
       "detail": {
         "mtimesBefore": {
-          "edit": 1790005374837.5122,
-          "captions": 1790005374838.0347
+          "edit": 1790018371048.0774,
+          "captions": 1790018371048.3896
         },
         "mtimesAfter": {
-          "edit": 1790005374837.5122,
-          "captions": 1790005374838.0347
+          "edit": 1790018371048.0774,
+          "captions": 1790018371048.3896
         }
       }
     }
@@ -1544,13 +3370,16 @@
     "01-six-generation-states.png",
     "04-planned-video-and-generation-states.png",
     "07-planned-video-zoom.png",
+    "08-all-generation-chip-states.png",
+    "09-empty-frame-zoom.png",
+    "10-narrow-generation-chip-states.png",
     "05-before-next-rewrite.png",
     "06-after-next-rewrite.png",
     "02-before-sidecar-rewrite.png",
     "03-after-sidecar-rewrite.png"
   ],
   "cleanup": {
-    "killedPid": 65704,
+    "killedPid": 30319,
     "survivingProcesses": 0,
     "survivingBackendMain": 0
   },
@@ -1581,22 +3410,200 @@
     ],
     "stillWithoutSidecar": "still.png",
     "clipFrames": 60,
-    "fps": 30
+    "fps": 30,
+    "layoutCases": [
+      {
+        "label": "normal-empty-長いクリップ名の省略を確認",
+        "state": "planned",
+        "badge": "空の枠",
+        "mode": "normal",
+        "atSeconds": 28.4,
+        "durationSeconds": 6
+      },
+      {
+        "label": "normal-planned-長いクリップ名の省略を確認",
+        "state": "planned",
+        "badge": "予定",
+        "mode": "normal",
+        "atSeconds": 34.4,
+        "durationSeconds": 6
+      },
+      {
+        "label": "normal-generating-長いクリップ名の省略を確認",
+        "state": "generating",
+        "badge": "生成中 62%",
+        "mode": "normal",
+        "atSeconds": 40.4,
+        "durationSeconds": 6
+      },
+      {
+        "label": "normal-stale-長いクリップ名の省略を確認",
+        "state": "stale",
+        "badge": "応答なし・再取得",
+        "mode": "normal",
+        "atSeconds": 46.4,
+        "durationSeconds": 6
+      },
+      {
+        "label": "normal-failed-長いクリップ名の省略を確認",
+        "state": "failed",
+        "badge": "失敗",
+        "mode": "normal",
+        "atSeconds": 52.4,
+        "durationSeconds": 6
+      },
+      {
+        "label": "normal-orphan-長いクリップ名の省略を確認",
+        "state": "orphan",
+        "badge": "孤児",
+        "mode": "normal",
+        "atSeconds": 58.4,
+        "durationSeconds": 6
+      },
+      {
+        "label": "normal-done-長いクリップ名の省略を確認",
+        "state": "done",
+        "badge": "生成",
+        "mode": "normal",
+        "atSeconds": 64.4,
+        "durationSeconds": 6
+      },
+      {
+        "label": "normal-still-長いクリップ名の省略を確認",
+        "state": "none",
+        "badge": "静止画",
+        "mode": "normal",
+        "atSeconds": 70.4,
+        "durationSeconds": 6
+      },
+      {
+        "label": "narrow-empty-長いクリップ名の省略を確認",
+        "state": "planned",
+        "badge": "空の枠",
+        "mode": "narrow",
+        "atSeconds": 76.4,
+        "durationSeconds": 1.4
+      },
+      {
+        "label": "narrow-planned-長いクリップ名の省略を確認",
+        "state": "planned",
+        "badge": "予定",
+        "mode": "narrow",
+        "atSeconds": 77.8,
+        "durationSeconds": 1.4
+      },
+      {
+        "label": "narrow-generating-長いクリップ名の省略を確認",
+        "state": "generating",
+        "badge": "生成中 62%",
+        "mode": "narrow",
+        "atSeconds": 79.2,
+        "durationSeconds": 1.4
+      },
+      {
+        "label": "narrow-stale-長いクリップ名の省略を確認",
+        "state": "stale",
+        "badge": "応答なし・再取得",
+        "mode": "narrow",
+        "atSeconds": 80.6,
+        "durationSeconds": 1.4
+      },
+      {
+        "label": "narrow-failed-長いクリップ名の省略を確認",
+        "state": "failed",
+        "badge": "失敗",
+        "mode": "narrow",
+        "atSeconds": 82,
+        "durationSeconds": 1.4
+      },
+      {
+        "label": "narrow-orphan-長いクリップ名の省略を確認",
+        "state": "orphan",
+        "badge": "孤児",
+        "mode": "narrow",
+        "atSeconds": 83.4,
+        "durationSeconds": 1.4
+      },
+      {
+        "label": "narrow-done-長いクリップ名の省略を確認",
+        "state": "done",
+        "badge": "生成",
+        "mode": "narrow",
+        "atSeconds": 84.8,
+        "durationSeconds": 1.4
+      },
+      {
+        "label": "narrow-still-長いクリップ名の省略を確認",
+        "state": "none",
+        "badge": "静止画",
+        "mode": "narrow",
+        "atSeconds": 86.2,
+        "durationSeconds": 1.4
+      }
+    ],
+    "originalDurationSeconds": 28.4,
+    "totalDurationSeconds": 87.6
   },
   "preloadOverlay": "removed",
+  "timelineViews": {
+    "original": {
+      "start": 0,
+      "duration": 28.4,
+      "stripWidth": 960,
+      "pxPerSecond": 33.802816901408455,
+      "viewport": {
+        "width": 1120,
+        "height": 668,
+        "deviceScaleFactor": 2
+      }
+    },
+    "normal": {
+      "start": 27.9,
+      "duration": 49.00000000000001,
+      "stripWidth": 1657,
+      "pxPerSecond": 33.81632653061224,
+      "viewport": {
+        "width": 1817,
+        "height": 668,
+        "deviceScaleFactor": 2
+      }
+    },
+    "narrow": {
+      "start": 73.4,
+      "duration": 28.4,
+      "stripWidth": 960,
+      "pxPerSecond": 33.802816901408455,
+      "viewport": {
+        "width": 1120,
+        "height": 668,
+        "deviceScaleFactor": 2
+      }
+    },
+    "restored": {
+      "start": 0,
+      "duration": 28.4,
+      "stripWidth": 960,
+      "pxPerSecond": 33.802816901408455,
+      "viewport": {
+        "width": 1120,
+        "height": 668,
+        "deviceScaleFactor": 2
+      }
+    }
+  },
   "plannedLayout": {
     "holeMeasurement": "child rects + computed gradient/opacity + frontmost ellipse-center samples",
     "clips": [
       {
         "label": "next-first-last.png",
         "rect": {
-          "x": 512.7578125,
+          "x": 549.6328125,
           "y": 329,
-          "left": 512.7578125,
+          "left": 549.6328125,
           "top": 329,
-          "right": 666.40625,
+          "right": 718.640625,
           "bottom": 377,
-          "width": 153.6484375,
+          "width": 169.0078125,
           "height": 48
         },
         "texts": [
@@ -1605,11 +3612,11 @@
             "text": "▶ 動画予定",
             "visible": true,
             "rect": {
-              "x": 515.7578125,
+              "x": 552.6328125,
               "y": 332,
-              "left": 515.7578125,
+              "left": 552.6328125,
               "top": 332,
-              "right": 569.8359375,
+              "right": 606.7109375,
               "bottom": 346,
               "width": 54.078125,
               "height": 14
@@ -1623,11 +3630,11 @@
             "text": "00:05:00",
             "visible": true,
             "rect": {
-              "x": 618.40625,
+              "x": 670.640625,
               "y": 331,
-              "left": 618.40625,
+              "left": 670.640625,
               "top": 331,
-              "right": 662.40625,
+              "right": 714.640625,
               "bottom": 343,
               "width": 44,
               "height": 12
@@ -1641,11 +3648,11 @@
             "text": "最初",
             "visible": true,
             "rect": {
-              "x": 515.7578125,
+              "x": 552.6328125,
               "y": 361,
-              "left": 515.7578125,
+              "left": 552.6328125,
               "top": 361,
-              "right": 535.7578125,
+              "right": 572.6328125,
               "bottom": 371,
               "width": 20,
               "height": 10
@@ -1659,11 +3666,11 @@
             "text": "最後",
             "visible": true,
             "rect": {
-              "x": 645.3984375,
+              "x": 697.640625,
               "y": 361,
-              "left": 645.3984375,
+              "left": 697.640625,
               "top": 361,
-              "right": 665.3984375,
+              "right": 717.640625,
               "bottom": 371,
               "width": 20,
               "height": 10
@@ -1677,13 +3684,13 @@
             "text": "next-first-last.png",
             "visible": true,
             "rect": {
-              "x": 579.2109375,
+              "x": 618.6328125,
               "y": 347,
-              "left": 579.2109375,
+              "left": 618.6328125,
               "top": 347,
-              "right": 599.953125,
+              "right": 649.640625,
               "bottom": 359,
-              "width": 20.7421875,
+              "width": 31.0078125,
               "height": 12
             },
             "zIndex": "1",
@@ -1695,11 +3702,11 @@
             "text": "",
             "visible": true,
             "rect": {
-              "x": 651.40625,
+              "x": 703.640625,
               "y": 347,
-              "left": 651.40625,
+              "left": 703.640625,
               "top": 347,
-              "right": 665.40625,
+              "right": 717.640625,
               "bottom": 359,
               "width": 14,
               "height": 12
@@ -1713,13 +3720,13 @@
           {
             "edge": "top",
             "rect": {
-              "x": 513.7578125,
+              "x": 550.6328125,
               "y": 330,
-              "left": 513.7578125,
+              "left": 550.6328125,
               "top": 330,
-              "right": 665.40625,
+              "right": 717.640625,
               "bottom": 335,
-              "width": 151.6484375,
+              "width": 167.0078125,
               "height": 5
             },
             "visible": true,
@@ -1728,27 +3735,35 @@
             "zIndex": "3",
             "paintedSamples": [
               {
-                "x": 573.7578125,
+                "x": 610.6328125,
                 "y": 332.5
               },
               {
-                "x": 581.7578125,
+                "x": 618.6328125,
                 "y": 332.5
               },
               {
-                "x": 589.7578125,
+                "x": 626.6328125,
                 "y": 332.5
               },
               {
-                "x": 597.7578125,
+                "x": 634.6328125,
                 "y": 332.5
               },
               {
-                "x": 605.7578125,
+                "x": 642.6328125,
                 "y": 332.5
               },
               {
-                "x": 613.7578125,
+                "x": 650.6328125,
+                "y": 332.5
+              },
+              {
+                "x": 658.6328125,
+                "y": 332.5
+              },
+              {
+                "x": 666.6328125,
                 "y": 332.5
               }
             ]
@@ -1756,13 +3771,13 @@
           {
             "edge": "bottom",
             "rect": {
-              "x": 513.7578125,
+              "x": 550.6328125,
               "y": 371,
-              "left": 513.7578125,
+              "left": 550.6328125,
               "top": 371,
-              "right": 665.40625,
+              "right": 717.640625,
               "bottom": 376,
-              "width": 151.6484375,
+              "width": 167.0078125,
               "height": 5
             },
             "visible": true,
@@ -1771,79 +3786,87 @@
             "zIndex": "3",
             "paintedSamples": [
               {
-                "x": 517.7578125,
+                "x": 554.6328125,
                 "y": 373.5
               },
               {
-                "x": 525.7578125,
+                "x": 562.6328125,
                 "y": 373.5
               },
               {
-                "x": 533.7578125,
+                "x": 570.6328125,
                 "y": 373.5
               },
               {
-                "x": 541.7578125,
+                "x": 578.6328125,
                 "y": 373.5
               },
               {
-                "x": 549.7578125,
+                "x": 586.6328125,
                 "y": 373.5
               },
               {
-                "x": 557.7578125,
+                "x": 594.6328125,
                 "y": 373.5
               },
               {
-                "x": 565.7578125,
+                "x": 602.6328125,
                 "y": 373.5
               },
               {
-                "x": 573.7578125,
+                "x": 610.6328125,
                 "y": 373.5
               },
               {
-                "x": 581.7578125,
+                "x": 618.6328125,
                 "y": 373.5
               },
               {
-                "x": 589.7578125,
+                "x": 626.6328125,
                 "y": 373.5
               },
               {
-                "x": 597.7578125,
+                "x": 634.6328125,
                 "y": 373.5
               },
               {
-                "x": 605.7578125,
+                "x": 642.6328125,
                 "y": 373.5
               },
               {
-                "x": 613.7578125,
+                "x": 650.6328125,
                 "y": 373.5
               },
               {
-                "x": 621.7578125,
+                "x": 658.6328125,
                 "y": 373.5
               },
               {
-                "x": 629.7578125,
+                "x": 666.6328125,
                 "y": 373.5
               },
               {
-                "x": 637.7578125,
+                "x": 674.6328125,
                 "y": 373.5
               },
               {
-                "x": 645.7578125,
+                "x": 682.6328125,
                 "y": 373.5
               },
               {
-                "x": 653.7578125,
+                "x": 690.6328125,
                 "y": 373.5
               },
               {
-                "x": 661.7578125,
+                "x": 698.6328125,
+                "y": 373.5
+              },
+              {
+                "x": 706.6328125,
+                "y": 373.5
+              },
+              {
+                "x": 714.6328125,
                 "y": 373.5
               }
             ]
@@ -1855,26 +3878,26 @@
           "display": "none"
         },
         "header": {
-          "x": 513.7578125,
+          "x": 550.6328125,
           "y": 330,
-          "left": 513.7578125,
+          "left": 550.6328125,
           "top": 330,
-          "right": 665.40625,
+          "right": 717.640625,
           "bottom": 344,
-          "width": 151.6484375,
+          "width": 167.0078125,
           "height": 14
         },
         "cells": [
           {
             "side": "first",
             "rect": {
-              "x": 513.7578125,
+              "x": 550.6328125,
               "y": 335,
-              "left": 513.7578125,
+              "left": 550.6328125,
               "top": 335,
-              "right": 575.2109375,
+              "right": 614.6328125,
               "bottom": 371,
-              "width": 61.453125,
+              "width": 64,
               "height": 36
             },
             "cover": "cover"
@@ -1882,13 +3905,13 @@
           {
             "side": "last",
             "rect": {
-              "x": 605.9453125,
+              "x": 655.640625,
               "y": 335,
-              "left": 605.9453125,
+              "left": 655.640625,
               "top": 335,
-              "right": 667.3984375,
+              "right": 719.640625,
               "bottom": 371,
-              "width": 61.453125,
+              "width": 64,
               "height": 36
             },
             "cover": "cover"
@@ -1898,13 +3921,13 @@
       {
         "label": "next-first.png",
         "rect": {
-          "x": 666.40625,
+          "x": 718.640625,
           "y": 329,
-          "left": 666.40625,
+          "left": 718.640625,
           "top": 329,
-          "right": 820.0546875,
+          "right": 887.6484375,
           "bottom": 377,
-          "width": 153.6484375,
+          "width": 169.0078125,
           "height": 48
         },
         "texts": [
@@ -1913,11 +3936,11 @@
             "text": "▶ 動画予定",
             "visible": true,
             "rect": {
-              "x": 669.40625,
+              "x": 721.640625,
               "y": 332,
-              "left": 669.40625,
+              "left": 721.640625,
               "top": 332,
-              "right": 723.484375,
+              "right": 775.71875,
               "bottom": 346,
               "width": 54.078125,
               "height": 14
@@ -1931,11 +3954,11 @@
             "text": "00:05:00",
             "visible": true,
             "rect": {
-              "x": 772.0546875,
+              "x": 839.6484375,
               "y": 331,
-              "left": 772.0546875,
+              "left": 839.6484375,
               "top": 331,
-              "right": 816.0546875,
+              "right": 883.6484375,
               "bottom": 343,
               "width": 44,
               "height": 12
@@ -1949,11 +3972,11 @@
             "text": "最初",
             "visible": true,
             "rect": {
-              "x": 669.40625,
+              "x": 721.640625,
               "y": 361,
-              "left": 669.40625,
+              "left": 721.640625,
               "top": 361,
-              "right": 689.40625,
+              "right": 741.640625,
               "bottom": 371,
               "width": 20,
               "height": 10
@@ -1967,13 +3990,13 @@
             "text": "next-first.png",
             "visible": true,
             "rect": {
-              "x": 732.859375,
+              "x": 787.640625,
               "y": 347,
-              "left": 732.859375,
+              "left": 787.640625,
               "top": 347,
-              "right": 815.0546875,
+              "right": 882.6484375,
               "bottom": 359,
-              "width": 82.1953125,
+              "width": 95.0078125,
               "height": 12
             },
             "zIndex": "1",
@@ -1990,13 +4013,13 @@
           {
             "edge": "top",
             "rect": {
-              "x": 667.40625,
+              "x": 719.640625,
               "y": 330,
-              "left": 667.40625,
+              "left": 719.640625,
               "top": 330,
-              "right": 819.0546875,
+              "right": 886.6484375,
               "bottom": 335,
-              "width": 151.6484375,
+              "width": 167.0078125,
               "height": 5
             },
             "visible": true,
@@ -2005,27 +4028,35 @@
             "zIndex": "3",
             "paintedSamples": [
               {
-                "x": 727.40625,
+                "x": 779.640625,
                 "y": 332.5
               },
               {
-                "x": 735.40625,
+                "x": 787.640625,
                 "y": 332.5
               },
               {
-                "x": 743.40625,
+                "x": 795.640625,
                 "y": 332.5
               },
               {
-                "x": 751.40625,
+                "x": 803.640625,
                 "y": 332.5
               },
               {
-                "x": 759.40625,
+                "x": 811.640625,
                 "y": 332.5
               },
               {
-                "x": 767.40625,
+                "x": 819.640625,
+                "y": 332.5
+              },
+              {
+                "x": 827.640625,
+                "y": 332.5
+              },
+              {
+                "x": 835.640625,
                 "y": 332.5
               }
             ]
@@ -2033,13 +4064,13 @@
           {
             "edge": "bottom",
             "rect": {
-              "x": 667.40625,
+              "x": 719.640625,
               "y": 371,
-              "left": 667.40625,
+              "left": 719.640625,
               "top": 371,
-              "right": 819.0546875,
+              "right": 886.6484375,
               "bottom": 376,
-              "width": 151.6484375,
+              "width": 167.0078125,
               "height": 5
             },
             "visible": true,
@@ -2048,79 +4079,87 @@
             "zIndex": "3",
             "paintedSamples": [
               {
-                "x": 671.40625,
+                "x": 723.640625,
                 "y": 373.5
               },
               {
-                "x": 679.40625,
+                "x": 731.640625,
                 "y": 373.5
               },
               {
-                "x": 687.40625,
+                "x": 739.640625,
                 "y": 373.5
               },
               {
-                "x": 695.40625,
+                "x": 747.640625,
                 "y": 373.5
               },
               {
-                "x": 703.40625,
+                "x": 755.640625,
                 "y": 373.5
               },
               {
-                "x": 711.40625,
+                "x": 763.640625,
                 "y": 373.5
               },
               {
-                "x": 719.40625,
+                "x": 771.640625,
                 "y": 373.5
               },
               {
-                "x": 727.40625,
+                "x": 779.640625,
                 "y": 373.5
               },
               {
-                "x": 735.40625,
+                "x": 787.640625,
                 "y": 373.5
               },
               {
-                "x": 743.40625,
+                "x": 795.640625,
                 "y": 373.5
               },
               {
-                "x": 751.40625,
+                "x": 803.640625,
                 "y": 373.5
               },
               {
-                "x": 759.40625,
+                "x": 811.640625,
                 "y": 373.5
               },
               {
-                "x": 767.40625,
+                "x": 819.640625,
                 "y": 373.5
               },
               {
-                "x": 775.40625,
+                "x": 827.640625,
                 "y": 373.5
               },
               {
-                "x": 783.40625,
+                "x": 835.640625,
                 "y": 373.5
               },
               {
-                "x": 791.40625,
+                "x": 843.640625,
                 "y": 373.5
               },
               {
-                "x": 799.40625,
+                "x": 851.640625,
                 "y": 373.5
               },
               {
-                "x": 807.40625,
+                "x": 859.640625,
                 "y": 373.5
               },
               {
-                "x": 815.40625,
+                "x": 867.640625,
+                "y": 373.5
+              },
+              {
+                "x": 875.640625,
+                "y": 373.5
+              },
+              {
+                "x": 883.640625,
                 "y": 373.5
               }
             ]
@@ -2132,26 +4171,26 @@
           "display": "none"
         },
         "header": {
-          "x": 667.40625,
+          "x": 719.640625,
           "y": 330,
-          "left": 667.40625,
+          "left": 719.640625,
           "top": 330,
-          "right": 819.0546875,
+          "right": 886.6484375,
           "bottom": 344,
-          "width": 151.6484375,
+          "width": 167.0078125,
           "height": 14
         },
         "cells": [
           {
             "side": "first",
             "rect": {
-              "x": 667.40625,
+              "x": 719.640625,
               "y": 335,
-              "left": 667.40625,
+              "left": 719.640625,
               "top": 335,
-              "right": 728.859375,
+              "right": 783.640625,
               "bottom": 371,
-              "width": 61.453125,
+              "width": 64,
               "height": 36
             },
             "cover": "cover"
@@ -2161,13 +4200,13 @@
       {
         "label": "next-prompt.png",
         "rect": {
-          "x": 820.0546875,
+          "x": 887.65625,
           "y": 329,
-          "left": 820.0546875,
+          "left": 887.65625,
           "top": 329,
-          "right": 973.703125,
+          "right": 1056.6640625,
           "bottom": 377,
-          "width": 153.6484375,
+          "width": 169.0078125,
           "height": 48
         },
         "texts": [
@@ -2176,11 +4215,11 @@
             "text": "▶ 動画予定",
             "visible": true,
             "rect": {
-              "x": 823.0546875,
+              "x": 890.65625,
               "y": 332,
-              "left": 823.0546875,
+              "left": 890.65625,
               "top": 332,
-              "right": 877.1328125,
+              "right": 944.734375,
               "bottom": 346,
               "width": 54.078125,
               "height": 14
@@ -2194,11 +4233,11 @@
             "text": "00:05:00",
             "visible": true,
             "rect": {
-              "x": 925.703125,
+              "x": 1008.6640625,
               "y": 331,
-              "left": 925.703125,
+              "left": 1008.6640625,
               "top": 331,
-              "right": 969.703125,
+              "right": 1052.6640625,
               "bottom": 343,
               "width": 44,
               "height": 12
@@ -2212,13 +4251,13 @@
             "text": "窓へ歩いて庭を見る",
             "visible": true,
             "rect": {
-              "x": 825.0546875,
+              "x": 892.65625,
               "y": 347,
-              "left": 825.0546875,
+              "left": 892.65625,
               "top": 347,
-              "right": 968.703125,
+              "right": 1051.6640625,
               "bottom": 359,
-              "width": 143.6484375,
+              "width": 159.0078125,
               "height": 12
             },
             "zIndex": "1",
@@ -2235,13 +4274,13 @@
           {
             "edge": "top",
             "rect": {
-              "x": 821.0546875,
+              "x": 888.65625,
               "y": 330,
-              "left": 821.0546875,
+              "left": 888.65625,
               "top": 330,
-              "right": 972.703125,
+              "right": 1055.6640625,
               "bottom": 335,
-              "width": 151.6484375,
+              "width": 167.0078125,
               "height": 5
             },
             "visible": true,
@@ -2250,27 +4289,35 @@
             "zIndex": "3",
             "paintedSamples": [
               {
-                "x": 881.0546875,
+                "x": 948.65625,
                 "y": 332.5
               },
               {
-                "x": 889.0546875,
+                "x": 956.65625,
                 "y": 332.5
               },
               {
-                "x": 897.0546875,
+                "x": 964.65625,
                 "y": 332.5
               },
               {
-                "x": 905.0546875,
+                "x": 972.65625,
                 "y": 332.5
               },
               {
-                "x": 913.0546875,
+                "x": 980.65625,
                 "y": 332.5
               },
               {
-                "x": 921.0546875,
+                "x": 988.65625,
+                "y": 332.5
+              },
+              {
+                "x": 996.65625,
+                "y": 332.5
+              },
+              {
+                "x": 1004.65625,
                 "y": 332.5
               }
             ]
@@ -2278,13 +4325,13 @@
           {
             "edge": "bottom",
             "rect": {
-              "x": 821.0546875,
+              "x": 888.65625,
               "y": 371,
-              "left": 821.0546875,
+              "left": 888.65625,
               "top": 371,
-              "right": 972.703125,
+              "right": 1055.6640625,
               "bottom": 376,
-              "width": 151.6484375,
+              "width": 167.0078125,
               "height": 5
             },
             "visible": true,
@@ -2293,79 +4340,87 @@
             "zIndex": "3",
             "paintedSamples": [
               {
-                "x": 825.0546875,
+                "x": 892.65625,
                 "y": 373.5
               },
               {
-                "x": 833.0546875,
+                "x": 900.65625,
                 "y": 373.5
               },
               {
-                "x": 841.0546875,
+                "x": 908.65625,
                 "y": 373.5
               },
               {
-                "x": 849.0546875,
+                "x": 916.65625,
                 "y": 373.5
               },
               {
-                "x": 857.0546875,
+                "x": 924.65625,
                 "y": 373.5
               },
               {
-                "x": 865.0546875,
+                "x": 932.65625,
                 "y": 373.5
               },
               {
-                "x": 873.0546875,
+                "x": 940.65625,
                 "y": 373.5
               },
               {
-                "x": 881.0546875,
+                "x": 948.65625,
                 "y": 373.5
               },
               {
-                "x": 889.0546875,
+                "x": 956.65625,
                 "y": 373.5
               },
               {
-                "x": 897.0546875,
+                "x": 964.65625,
                 "y": 373.5
               },
               {
-                "x": 905.0546875,
+                "x": 972.65625,
                 "y": 373.5
               },
               {
-                "x": 913.0546875,
+                "x": 980.65625,
                 "y": 373.5
               },
               {
-                "x": 921.0546875,
+                "x": 988.65625,
                 "y": 373.5
               },
               {
-                "x": 929.0546875,
+                "x": 996.65625,
                 "y": 373.5
               },
               {
-                "x": 937.0546875,
+                "x": 1004.65625,
                 "y": 373.5
               },
               {
-                "x": 945.0546875,
+                "x": 1012.65625,
                 "y": 373.5
               },
               {
-                "x": 953.0546875,
+                "x": 1020.65625,
                 "y": 373.5
               },
               {
-                "x": 961.0546875,
+                "x": 1028.65625,
                 "y": 373.5
               },
               {
-                "x": 969.0546875,
+                "x": 1036.65625,
+                "y": 373.5
+              },
+              {
+                "x": 1044.65625,
+                "y": 373.5
+              },
+              {
+                "x": 1052.65625,
                 "y": 373.5
               }
             ]
@@ -2377,13 +4432,13 @@
           "display": "none"
         },
         "header": {
-          "x": 821.0546875,
+          "x": 888.65625,
           "y": 330,
-          "left": 821.0546875,
+          "left": 888.65625,
           "top": 330,
-          "right": 972.703125,
+          "right": 1055.6640625,
           "bottom": 344,
-          "width": 151.6484375,
+          "width": 167.0078125,
           "height": 14
         },
         "cells": []
@@ -2391,13 +4446,13 @@
       {
         "label": "next-narrow.png",
         "rect": {
-          "x": 973.703125,
+          "x": 1056.671875,
           "y": 329,
-          "left": 973.703125,
+          "left": 1056.671875,
           "top": 329,
-          "right": 1016.71875,
+          "right": 1103.9921875,
           "bottom": 377,
-          "width": 43.015625,
+          "width": 47.3203125,
           "height": 48
         },
         "texts": [
@@ -2406,11 +4461,11 @@
             "text": "▶",
             "visible": true,
             "rect": {
-              "x": 976.703125,
+              "x": 1059.671875,
               "y": 332,
-              "left": 976.703125,
+              "left": 1059.671875,
               "top": 332,
-              "right": 992.0859375,
+              "right": 1075.0546875,
               "bottom": 346,
               "width": 15.3828125,
               "height": 14
@@ -2460,13 +4515,13 @@
             "text": "next-narrow.png",
             "visible": true,
             "rect": {
-              "x": 995.90625,
+              "x": 1080.59375,
               "y": 347,
-              "left": 995.90625,
+              "left": 1080.59375,
               "top": 347,
-              "right": 1011.71875,
+              "right": 1098.9921875,
               "bottom": 359,
-              "width": 15.8125,
+              "width": 18.3984375,
               "height": 12
             },
             "zIndex": "1",
@@ -2483,13 +4538,13 @@
           {
             "edge": "top",
             "rect": {
-              "x": 974.703125,
+              "x": 1057.671875,
               "y": 330,
-              "left": 974.703125,
+              "left": 1057.671875,
               "top": 330,
-              "right": 1015.71875,
+              "right": 1102.9921875,
               "bottom": 335,
-              "width": 41.015625,
+              "width": 45.3203125,
               "height": 5
             },
             "visible": true,
@@ -2498,15 +4553,19 @@
             "zIndex": "3",
             "paintedSamples": [
               {
-                "x": 994.703125,
+                "x": 1077.671875,
                 "y": 332.5
               },
               {
-                "x": 1002.703125,
+                "x": 1085.671875,
                 "y": 332.5
               },
               {
-                "x": 1010.703125,
+                "x": 1093.671875,
+                "y": 332.5
+              },
+              {
+                "x": 1101.671875,
                 "y": 332.5
               }
             ]
@@ -2514,13 +4573,13 @@
           {
             "edge": "bottom",
             "rect": {
-              "x": 974.703125,
+              "x": 1057.671875,
               "y": 371,
-              "left": 974.703125,
+              "left": 1057.671875,
               "top": 371,
-              "right": 1015.71875,
+              "right": 1102.9921875,
               "bottom": 376,
-              "width": 41.015625,
+              "width": 45.3203125,
               "height": 5
             },
             "visible": true,
@@ -2529,23 +4588,27 @@
             "zIndex": "3",
             "paintedSamples": [
               {
-                "x": 978.703125,
+                "x": 1061.671875,
                 "y": 373.5
               },
               {
-                "x": 986.703125,
+                "x": 1069.671875,
                 "y": 373.5
               },
               {
-                "x": 994.703125,
+                "x": 1077.671875,
                 "y": 373.5
               },
               {
-                "x": 1002.703125,
+                "x": 1085.671875,
                 "y": 373.5
               },
               {
-                "x": 1010.703125,
+                "x": 1093.671875,
+                "y": 373.5
+              },
+              {
+                "x": 1101.671875,
                 "y": 373.5
               }
             ]
@@ -2557,26 +4620,26 @@
           "display": "none"
         },
         "header": {
-          "x": 974.703125,
+          "x": 1057.671875,
           "y": 330,
-          "left": 974.703125,
+          "left": 1057.671875,
           "top": 330,
-          "right": 1015.71875,
+          "right": 1102.9921875,
           "bottom": 344,
-          "width": 41.015625,
+          "width": 45.3203125,
           "height": 14
         },
         "cells": [
           {
             "side": "first",
             "rect": {
-              "x": 974.703125,
+              "x": 1057.671875,
               "y": 335,
-              "left": 974.703125,
+              "left": 1057.671875,
               "top": 335,
-              "right": 991.90625,
+              "right": 1076.59375,
               "bottom": 371,
-              "width": 17.203125,
+              "width": 18.921875,
               "height": 36
             },
             "cover": "cover"
@@ -2585,11 +4648,1714 @@
       }
     ],
     "screenshotClip": {
-      "x": 508.7578125,
+      "x": 545.6328125,
       "y": 325,
-      "width": 511.9609375,
+      "width": 562.359375,
       "height": 56,
       "scale": 3
+    }
+  },
+  "chipLayout": {
+    "measurement": "getBoundingClientRect; all visible text pairs; computed badge background",
+    "normal": [
+      {
+        "label": "normal-empty-長いクリップ名の省略を確認",
+        "state": "planned",
+        "title": "C11\n空の枠 — 生成予定（絵なし）\nnormal-empty-長いクリップ名の省略を確認\n00:06:00",
+        "rect": {
+          "left": 160.90625,
+          "top": 329,
+          "right": 363.796875,
+          "bottom": 377,
+          "width": 202.890625,
+          "height": 48
+        },
+        "contentWidth": 199.891,
+        "header": {
+          "left": 161.90625,
+          "top": 330,
+          "right": 361.796875,
+          "bottom": 344,
+          "width": 199.890625,
+          "height": 14
+        },
+        "badgeCount": 1,
+        "kindBadgeVisible": false,
+        "compact": false,
+        "fullBadgeVisible": true,
+        "displayedBadge": "空の枠",
+        "compactContent": "none",
+        "texts": [
+          {
+            "role": "badge",
+            "text": "空の枠",
+            "title": "空の枠 — 生成予定（絵なし）",
+            "rect": {
+              "left": 163.90625,
+              "top": 331,
+              "right": 198.90625,
+              "bottom": 343,
+              "width": 35,
+              "height": 12
+            },
+            "visible": true,
+            "background": "rgb(10, 10, 10)",
+            "color": "rgba(204, 204, 204, 0.7)",
+            "overflow": "hidden",
+            "textOverflow": "ellipsis",
+            "clientWidth": 35,
+            "scrollWidth": 35
+          },
+          {
+            "role": "name",
+            "text": "normal-empty-長いクリップ名の省略を確認",
+            "title": "normal-empty-長いクリップ名の省略を確認",
+            "rect": {
+              "left": 200.90625,
+              "top": 331,
+              "right": 313.796875,
+              "bottom": 343,
+              "width": 112.890625,
+              "height": 12
+            },
+            "visible": true,
+            "background": "rgba(0, 0, 0, 0)",
+            "color": "rgb(229, 229, 229)",
+            "overflow": "hidden",
+            "textOverflow": "ellipsis",
+            "clientWidth": 113,
+            "scrollWidth": 215
+          },
+          {
+            "role": "duration",
+            "text": "00:06:00",
+            "title": "00:06:00",
+            "rect": {
+              "left": 315.796875,
+              "top": 331,
+              "right": 359.796875,
+              "bottom": 343,
+              "width": 44,
+              "height": 12
+            },
+            "visible": true,
+            "background": "rgba(0, 0, 0, 0)",
+            "color": "rgb(229, 229, 229)",
+            "overflow": "hidden",
+            "textOverflow": "ellipsis",
+            "clientWidth": 44,
+            "scrollWidth": 44
+          }
+        ],
+        "pairs": [
+          {
+            "roles": [
+              "badge",
+              "name"
+            ],
+            "intersectionWidth": 0,
+            "intersectionHeight": 12
+          },
+          {
+            "roles": [
+              "badge",
+              "duration"
+            ],
+            "intersectionWidth": 0,
+            "intersectionHeight": 12
+          },
+          {
+            "roles": [
+              "name",
+              "duration"
+            ],
+            "intersectionWidth": 0,
+            "intersectionHeight": 12
+          }
+        ],
+        "intersections": []
+      },
+      {
+        "label": "normal-planned-長いクリップ名の省略を確認",
+        "state": "planned",
+        "title": "C12\n予定 — 生成予定（絵なし）\nnormal-planned-長いクリップ名の省略を確認\n00:06:00",
+        "rect": {
+          "left": 363.8046875,
+          "top": 329,
+          "right": 566.6953125,
+          "bottom": 377,
+          "width": 202.890625,
+          "height": 48
+        },
+        "contentWidth": 199.891,
+        "header": {
+          "left": 364.8046875,
+          "top": 330,
+          "right": 564.6953125,
+          "bottom": 344,
+          "width": 199.890625,
+          "height": 14
+        },
+        "badgeCount": 1,
+        "kindBadgeVisible": false,
+        "compact": false,
+        "fullBadgeVisible": true,
+        "displayedBadge": "予定",
+        "compactContent": "none",
+        "texts": [
+          {
+            "role": "badge",
+            "text": "予定",
+            "title": "予定 — 生成予定（絵なし）",
+            "rect": {
+              "left": 366.8046875,
+              "top": 331,
+              "right": 392.8046875,
+              "bottom": 343,
+              "width": 26,
+              "height": 12
+            },
+            "visible": true,
+            "background": "rgb(10, 10, 10)",
+            "color": "rgba(204, 204, 204, 0.7)",
+            "overflow": "hidden",
+            "textOverflow": "ellipsis",
+            "clientWidth": 26,
+            "scrollWidth": 26
+          },
+          {
+            "role": "name",
+            "text": "normal-planned-長いクリップ名の省略を確認",
+            "title": "normal-planned-長いクリップ名の省略を確認",
+            "rect": {
+              "left": 394.8046875,
+              "top": 331,
+              "right": 516.6953125,
+              "bottom": 343,
+              "width": 121.890625,
+              "height": 12
+            },
+            "visible": true,
+            "background": "rgba(0, 0, 0, 0)",
+            "color": "rgb(229, 229, 229)",
+            "overflow": "hidden",
+            "textOverflow": "ellipsis",
+            "clientWidth": 122,
+            "scrollWidth": 226
+          },
+          {
+            "role": "duration",
+            "text": "00:06:00",
+            "title": "00:06:00",
+            "rect": {
+              "left": 518.6953125,
+              "top": 331,
+              "right": 562.6953125,
+              "bottom": 343,
+              "width": 44,
+              "height": 12
+            },
+            "visible": true,
+            "background": "rgba(0, 0, 0, 0)",
+            "color": "rgb(229, 229, 229)",
+            "overflow": "hidden",
+            "textOverflow": "ellipsis",
+            "clientWidth": 44,
+            "scrollWidth": 44
+          }
+        ],
+        "pairs": [
+          {
+            "roles": [
+              "badge",
+              "name"
+            ],
+            "intersectionWidth": 0,
+            "intersectionHeight": 12
+          },
+          {
+            "roles": [
+              "badge",
+              "duration"
+            ],
+            "intersectionWidth": 0,
+            "intersectionHeight": 12
+          },
+          {
+            "roles": [
+              "name",
+              "duration"
+            ],
+            "intersectionWidth": 0,
+            "intersectionHeight": 12
+          }
+        ],
+        "intersections": []
+      },
+      {
+        "label": "normal-generating-長いクリップ名の省略を確認",
+        "state": "generating",
+        "title": "C13\n生成中 62% — 生成中 62%\nnormal-generating-長いクリップ名の省略を確認\n00:06:00",
+        "rect": {
+          "left": 566.703125,
+          "top": 329,
+          "right": 769.59375,
+          "bottom": 377,
+          "width": 202.890625,
+          "height": 48
+        },
+        "contentWidth": 199.891,
+        "header": {
+          "left": 567.703125,
+          "top": 330,
+          "right": 767.59375,
+          "bottom": 344,
+          "width": 199.890625,
+          "height": 14
+        },
+        "badgeCount": 1,
+        "kindBadgeVisible": false,
+        "compact": false,
+        "fullBadgeVisible": true,
+        "displayedBadge": "生成中 62%",
+        "compactContent": "none",
+        "texts": [
+          {
+            "role": "badge",
+            "text": "生成中 62%",
+            "title": "生成中 62% — 生成中 62%",
+            "rect": {
+              "left": 569.703125,
+              "top": 331,
+              "right": 622.703125,
+              "bottom": 343,
+              "width": 53,
+              "height": 12
+            },
+            "visible": true,
+            "background": "rgb(10, 10, 10)",
+            "color": "rgb(204, 167, 0)",
+            "overflow": "hidden",
+            "textOverflow": "ellipsis",
+            "clientWidth": 53,
+            "scrollWidth": 53
+          },
+          {
+            "role": "name",
+            "text": "normal-generating-長いクリップ名の省略を確認",
+            "title": "normal-generating-長いクリップ名の省略を確認",
+            "rect": {
+              "left": 624.703125,
+              "top": 331,
+              "right": 719.59375,
+              "bottom": 343,
+              "width": 94.890625,
+              "height": 12
+            },
+            "visible": true,
+            "background": "rgba(0, 0, 0, 0)",
+            "color": "rgb(229, 229, 229)",
+            "overflow": "hidden",
+            "textOverflow": "ellipsis",
+            "clientWidth": 95,
+            "scrollWidth": 242
+          },
+          {
+            "role": "duration",
+            "text": "00:06:00",
+            "title": "00:06:00",
+            "rect": {
+              "left": 721.59375,
+              "top": 331,
+              "right": 765.59375,
+              "bottom": 343,
+              "width": 44,
+              "height": 12
+            },
+            "visible": true,
+            "background": "rgba(0, 0, 0, 0)",
+            "color": "rgb(229, 229, 229)",
+            "overflow": "hidden",
+            "textOverflow": "ellipsis",
+            "clientWidth": 44,
+            "scrollWidth": 44
+          }
+        ],
+        "pairs": [
+          {
+            "roles": [
+              "badge",
+              "name"
+            ],
+            "intersectionWidth": 0,
+            "intersectionHeight": 12
+          },
+          {
+            "roles": [
+              "badge",
+              "duration"
+            ],
+            "intersectionWidth": 0,
+            "intersectionHeight": 12
+          },
+          {
+            "roles": [
+              "name",
+              "duration"
+            ],
+            "intersectionWidth": 0,
+            "intersectionHeight": 12
+          }
+        ],
+        "intersections": []
+      },
+      {
+        "label": "normal-stale-長いクリップ名の省略を確認",
+        "state": "stale",
+        "title": "C14\n応答なし・再取得 — 生成処理から応答がありません\nnormal-stale-長いクリップ名の省略を確認\n00:06:00",
+        "rect": {
+          "left": 769.6015625,
+          "top": 329,
+          "right": 972.4921875,
+          "bottom": 377,
+          "width": 202.890625,
+          "height": 48
+        },
+        "contentWidth": 199.891,
+        "header": {
+          "left": 770.6015625,
+          "top": 330,
+          "right": 970.4921875,
+          "bottom": 344,
+          "width": 199.890625,
+          "height": 14
+        },
+        "badgeCount": 1,
+        "kindBadgeVisible": false,
+        "compact": false,
+        "fullBadgeVisible": true,
+        "displayedBadge": "応答なし・再取得",
+        "compactContent": "none",
+        "texts": [
+          {
+            "role": "badge",
+            "text": "応答なし・再取得",
+            "title": "応答なし・再取得 — 生成処理から応答がありません",
+            "rect": {
+              "left": 772.6015625,
+              "top": 331,
+              "right": 852.6015625,
+              "bottom": 343,
+              "width": 80,
+              "height": 12
+            },
+            "visible": true,
+            "background": "rgb(10, 10, 10)",
+            "color": "rgb(204, 167, 0)",
+            "overflow": "hidden",
+            "textOverflow": "ellipsis",
+            "clientWidth": 80,
+            "scrollWidth": 80
+          },
+          {
+            "role": "name",
+            "text": "normal-stale-長いクリップ名の省略を確認",
+            "title": "normal-stale-長いクリップ名の省略を確認",
+            "rect": {
+              "left": 854.6015625,
+              "top": 331,
+              "right": 922.4921875,
+              "bottom": 343,
+              "width": 67.890625,
+              "height": 12
+            },
+            "visible": true,
+            "background": "rgba(0, 0, 0, 0)",
+            "color": "rgb(229, 229, 229)",
+            "overflow": "hidden",
+            "textOverflow": "ellipsis",
+            "clientWidth": 68,
+            "scrollWidth": 215
+          },
+          {
+            "role": "duration",
+            "text": "00:06:00",
+            "title": "00:06:00",
+            "rect": {
+              "left": 924.4921875,
+              "top": 331,
+              "right": 968.4921875,
+              "bottom": 343,
+              "width": 44,
+              "height": 12
+            },
+            "visible": true,
+            "background": "rgba(0, 0, 0, 0)",
+            "color": "rgb(229, 229, 229)",
+            "overflow": "hidden",
+            "textOverflow": "ellipsis",
+            "clientWidth": 44,
+            "scrollWidth": 44
+          }
+        ],
+        "pairs": [
+          {
+            "roles": [
+              "badge",
+              "name"
+            ],
+            "intersectionWidth": 0,
+            "intersectionHeight": 12
+          },
+          {
+            "roles": [
+              "badge",
+              "duration"
+            ],
+            "intersectionWidth": 0,
+            "intersectionHeight": 12
+          },
+          {
+            "roles": [
+              "name",
+              "duration"
+            ],
+            "intersectionWidth": 0,
+            "intersectionHeight": 12
+          }
+        ],
+        "intersections": []
+      },
+      {
+        "label": "normal-failed-長いクリップ名の省略を確認",
+        "state": "failed",
+        "title": "C15\n失敗 — 生成に失敗しました\nnormal-failed-長いクリップ名の省略を確認\n00:06:00",
+        "rect": {
+          "left": 972.5,
+          "top": 329,
+          "right": 1175.390625,
+          "bottom": 377,
+          "width": 202.890625,
+          "height": 48
+        },
+        "contentWidth": 199.891,
+        "header": {
+          "left": 973.5,
+          "top": 330,
+          "right": 1173.390625,
+          "bottom": 344,
+          "width": 199.890625,
+          "height": 14
+        },
+        "badgeCount": 1,
+        "kindBadgeVisible": false,
+        "compact": false,
+        "fullBadgeVisible": true,
+        "displayedBadge": "失敗",
+        "compactContent": "none",
+        "texts": [
+          {
+            "role": "badge",
+            "text": "失敗",
+            "title": "失敗 — 生成に失敗しました",
+            "rect": {
+              "left": 975.5,
+              "top": 331,
+              "right": 1001.5,
+              "bottom": 343,
+              "width": 26,
+              "height": 12
+            },
+            "visible": true,
+            "background": "rgb(10, 10, 10)",
+            "color": "rgb(241, 76, 76)",
+            "overflow": "hidden",
+            "textOverflow": "ellipsis",
+            "clientWidth": 26,
+            "scrollWidth": 26
+          },
+          {
+            "role": "name",
+            "text": "normal-failed-長いクリップ名の省略を確認",
+            "title": "normal-failed-長いクリップ名の省略を確認",
+            "rect": {
+              "left": 1003.5,
+              "top": 331,
+              "right": 1125.390625,
+              "bottom": 343,
+              "width": 121.890625,
+              "height": 12
+            },
+            "visible": true,
+            "background": "rgba(0, 0, 0, 0)",
+            "color": "rgb(229, 229, 229)",
+            "overflow": "hidden",
+            "textOverflow": "ellipsis",
+            "clientWidth": 122,
+            "scrollWidth": 220
+          },
+          {
+            "role": "duration",
+            "text": "00:06:00",
+            "title": "00:06:00",
+            "rect": {
+              "left": 1127.390625,
+              "top": 331,
+              "right": 1171.390625,
+              "bottom": 343,
+              "width": 44,
+              "height": 12
+            },
+            "visible": true,
+            "background": "rgba(0, 0, 0, 0)",
+            "color": "rgb(229, 229, 229)",
+            "overflow": "hidden",
+            "textOverflow": "ellipsis",
+            "clientWidth": 44,
+            "scrollWidth": 44
+          }
+        ],
+        "pairs": [
+          {
+            "roles": [
+              "badge",
+              "name"
+            ],
+            "intersectionWidth": 0,
+            "intersectionHeight": 12
+          },
+          {
+            "roles": [
+              "badge",
+              "duration"
+            ],
+            "intersectionWidth": 0,
+            "intersectionHeight": 12
+          },
+          {
+            "roles": [
+              "name",
+              "duration"
+            ],
+            "intersectionWidth": 0,
+            "intersectionHeight": 12
+          }
+        ],
+        "intersections": []
+      },
+      {
+        "label": "normal-orphan-長いクリップ名の省略を確認",
+        "state": "orphan",
+        "title": "C16\n孤児 — 素材が変わりました（meta の sha256 と一致しません）\nnormal-orphan-長いクリップ名の省略を確認\n00:06:00",
+        "rect": {
+          "left": 1175.390625,
+          "top": 329,
+          "right": 1378.28125,
+          "bottom": 377,
+          "width": 202.890625,
+          "height": 48
+        },
+        "contentWidth": 199.891,
+        "header": {
+          "left": 1176.390625,
+          "top": 330,
+          "right": 1376.28125,
+          "bottom": 344,
+          "width": 199.890625,
+          "height": 14
+        },
+        "badgeCount": 1,
+        "kindBadgeVisible": false,
+        "compact": false,
+        "fullBadgeVisible": true,
+        "displayedBadge": "孤児",
+        "compactContent": "none",
+        "texts": [
+          {
+            "role": "badge",
+            "text": "孤児",
+            "title": "孤児 — 素材が変わりました（meta の sha256 と一致しません）",
+            "rect": {
+              "left": 1178.390625,
+              "top": 331,
+              "right": 1204.390625,
+              "bottom": 343,
+              "width": 26,
+              "height": 12
+            },
+            "visible": true,
+            "background": "rgb(10, 10, 10)",
+            "color": "rgba(204, 204, 204, 0.7)",
+            "overflow": "hidden",
+            "textOverflow": "ellipsis",
+            "clientWidth": 26,
+            "scrollWidth": 26
+          },
+          {
+            "role": "name",
+            "text": "normal-orphan-長いクリップ名の省略を確認",
+            "title": "normal-orphan-長いクリップ名の省略を確認",
+            "rect": {
+              "left": 1206.390625,
+              "top": 331,
+              "right": 1328.28125,
+              "bottom": 343,
+              "width": 121.890625,
+              "height": 12
+            },
+            "visible": true,
+            "background": "rgba(0, 0, 0, 0)",
+            "color": "rgb(229, 229, 229)",
+            "overflow": "hidden",
+            "textOverflow": "ellipsis",
+            "clientWidth": 122,
+            "scrollWidth": 220
+          },
+          {
+            "role": "duration",
+            "text": "00:06:00",
+            "title": "00:06:00",
+            "rect": {
+              "left": 1330.28125,
+              "top": 331,
+              "right": 1374.28125,
+              "bottom": 343,
+              "width": 44,
+              "height": 12
+            },
+            "visible": true,
+            "background": "rgba(0, 0, 0, 0)",
+            "color": "rgb(229, 229, 229)",
+            "overflow": "hidden",
+            "textOverflow": "ellipsis",
+            "clientWidth": 44,
+            "scrollWidth": 44
+          }
+        ],
+        "pairs": [
+          {
+            "roles": [
+              "badge",
+              "name"
+            ],
+            "intersectionWidth": 0,
+            "intersectionHeight": 12
+          },
+          {
+            "roles": [
+              "badge",
+              "duration"
+            ],
+            "intersectionWidth": 0,
+            "intersectionHeight": 12
+          },
+          {
+            "roles": [
+              "name",
+              "duration"
+            ],
+            "intersectionWidth": 0,
+            "intersectionHeight": 12
+          }
+        ],
+        "intersections": []
+      },
+      {
+        "label": "normal-done-長いクリップ名の省略を確認",
+        "state": "done",
+        "title": "C17\n生成 — 生成された動画\nnormal-done-長いクリップ名の省略を確認\n00:06:00",
+        "rect": {
+          "left": 1378.2890625,
+          "top": 329,
+          "right": 1581.1796875,
+          "bottom": 377,
+          "width": 202.890625,
+          "height": 48
+        },
+        "contentWidth": 199.891,
+        "header": {
+          "left": 1379.2890625,
+          "top": 330,
+          "right": 1579.1796875,
+          "bottom": 344,
+          "width": 199.890625,
+          "height": 14
+        },
+        "badgeCount": 1,
+        "kindBadgeVisible": false,
+        "compact": false,
+        "fullBadgeVisible": true,
+        "displayedBadge": "生成",
+        "compactContent": "none",
+        "texts": [
+          {
+            "role": "badge",
+            "text": "生成",
+            "title": "生成 — 生成された動画",
+            "rect": {
+              "left": 1381.2890625,
+              "top": 331,
+              "right": 1407.2890625,
+              "bottom": 343,
+              "width": 26,
+              "height": 12
+            },
+            "visible": true,
+            "background": "rgb(10, 10, 10)",
+            "color": "rgba(204, 204, 204, 0.7)",
+            "overflow": "hidden",
+            "textOverflow": "ellipsis",
+            "clientWidth": 26,
+            "scrollWidth": 26
+          },
+          {
+            "role": "name",
+            "text": "normal-done-長いクリップ名の省略を確認",
+            "title": "normal-done-長いクリップ名の省略を確認",
+            "rect": {
+              "left": 1409.2890625,
+              "top": 331,
+              "right": 1531.1796875,
+              "bottom": 343,
+              "width": 121.890625,
+              "height": 12
+            },
+            "visible": true,
+            "background": "rgba(0, 0, 0, 0)",
+            "color": "rgb(229, 229, 229)",
+            "overflow": "hidden",
+            "textOverflow": "ellipsis",
+            "clientWidth": 122,
+            "scrollWidth": 209
+          },
+          {
+            "role": "duration",
+            "text": "00:06:00",
+            "title": "00:06:00",
+            "rect": {
+              "left": 1533.1796875,
+              "top": 331,
+              "right": 1577.1796875,
+              "bottom": 343,
+              "width": 44,
+              "height": 12
+            },
+            "visible": true,
+            "background": "rgba(0, 0, 0, 0)",
+            "color": "rgb(229, 229, 229)",
+            "overflow": "hidden",
+            "textOverflow": "ellipsis",
+            "clientWidth": 44,
+            "scrollWidth": 44
+          }
+        ],
+        "pairs": [
+          {
+            "roles": [
+              "badge",
+              "name"
+            ],
+            "intersectionWidth": 0,
+            "intersectionHeight": 12
+          },
+          {
+            "roles": [
+              "badge",
+              "duration"
+            ],
+            "intersectionWidth": 0,
+            "intersectionHeight": 12
+          },
+          {
+            "roles": [
+              "name",
+              "duration"
+            ],
+            "intersectionWidth": 0,
+            "intersectionHeight": 12
+          }
+        ],
+        "intersections": []
+      },
+      {
+        "label": "normal-still-長いクリップ名の省略を確認",
+        "state": "none",
+        "title": "C18\n静止画 — 静止画\nnormal-still-長いクリップ名の省略を確認\n00:06:00",
+        "rect": {
+          "left": 1581.1875,
+          "top": 329,
+          "right": 1784.078125,
+          "bottom": 377,
+          "width": 202.890625,
+          "height": 48
+        },
+        "contentWidth": 199.891,
+        "header": {
+          "left": 1582.1875,
+          "top": 330,
+          "right": 1782.078125,
+          "bottom": 344,
+          "width": 199.890625,
+          "height": 14
+        },
+        "badgeCount": 1,
+        "kindBadgeVisible": false,
+        "compact": false,
+        "fullBadgeVisible": true,
+        "displayedBadge": "静止画",
+        "compactContent": "none",
+        "texts": [
+          {
+            "role": "badge",
+            "text": "静止画",
+            "title": "静止画 — 静止画",
+            "rect": {
+              "left": 1584.1875,
+              "top": 331,
+              "right": 1619.1875,
+              "bottom": 343,
+              "width": 35,
+              "height": 12
+            },
+            "visible": true,
+            "background": "rgb(10, 10, 10)",
+            "color": "rgb(89, 164, 249)",
+            "overflow": "hidden",
+            "textOverflow": "ellipsis",
+            "clientWidth": 35,
+            "scrollWidth": 35
+          },
+          {
+            "role": "name",
+            "text": "normal-still-長いクリップ名の省略を確認",
+            "title": "normal-still-長いクリップ名の省略を確認",
+            "rect": {
+              "left": 1621.1875,
+              "top": 331,
+              "right": 1734.078125,
+              "bottom": 343,
+              "width": 112.890625,
+              "height": 12
+            },
+            "visible": true,
+            "background": "rgba(0, 0, 0, 0)",
+            "color": "rgb(229, 229, 229)",
+            "overflow": "hidden",
+            "textOverflow": "ellipsis",
+            "clientWidth": 113,
+            "scrollWidth": 215
+          },
+          {
+            "role": "duration",
+            "text": "00:06:00",
+            "title": "00:06:00",
+            "rect": {
+              "left": 1736.078125,
+              "top": 331,
+              "right": 1780.078125,
+              "bottom": 343,
+              "width": 44,
+              "height": 12
+            },
+            "visible": true,
+            "background": "rgba(0, 0, 0, 0)",
+            "color": "rgb(229, 229, 229)",
+            "overflow": "hidden",
+            "textOverflow": "ellipsis",
+            "clientWidth": 44,
+            "scrollWidth": 44
+          }
+        ],
+        "pairs": [
+          {
+            "roles": [
+              "badge",
+              "name"
+            ],
+            "intersectionWidth": 0,
+            "intersectionHeight": 12
+          },
+          {
+            "roles": [
+              "badge",
+              "duration"
+            ],
+            "intersectionWidth": 0,
+            "intersectionHeight": 12
+          },
+          {
+            "roles": [
+              "name",
+              "duration"
+            ],
+            "intersectionWidth": 0,
+            "intersectionHeight": 12
+          }
+        ],
+        "intersections": []
+      }
+    ],
+    "narrow": [
+      {
+        "label": "narrow-empty-長いクリップ名の省略を確認",
+        "state": "planned",
+        "title": "C19\n空の枠 — 生成予定（絵なし）\nnarrow-empty-長いクリップ名の省略を確認\n00:01:12",
+        "rect": {
+          "left": 245.40625,
+          "top": 329,
+          "right": 292.7265625,
+          "bottom": 377,
+          "width": 47.3203125,
+          "height": 48
+        },
+        "contentWidth": 44.3203,
+        "header": {
+          "left": 246.40625,
+          "top": 330,
+          "right": 290.7265625,
+          "bottom": 344,
+          "width": 44.3203125,
+          "height": 14
+        },
+        "badgeCount": 1,
+        "kindBadgeVisible": false,
+        "compact": true,
+        "fullBadgeVisible": false,
+        "displayedBadge": "空",
+        "compactContent": "\"空\"",
+        "texts": [
+          {
+            "role": "badge",
+            "text": "空の枠",
+            "title": "空の枠 — 生成予定（絵なし）",
+            "rect": {
+              "left": 248.40625,
+              "top": 331,
+              "right": 265.40625,
+              "bottom": 343,
+              "width": 17,
+              "height": 12
+            },
+            "visible": true,
+            "background": "rgb(10, 10, 10)",
+            "color": "rgba(204, 204, 204, 0.7)",
+            "overflow": "hidden",
+            "textOverflow": "ellipsis",
+            "clientWidth": 17,
+            "scrollWidth": 17
+          },
+          {
+            "role": "name",
+            "text": "narrow-empty-長いクリップ名の省略を確認",
+            "title": "narrow-empty-長いクリップ名の省略を確認",
+            "rect": {
+              "left": 0,
+              "top": 0,
+              "right": 0,
+              "bottom": 0,
+              "width": 0,
+              "height": 0
+            },
+            "visible": false,
+            "background": "rgba(0, 0, 0, 0)",
+            "color": "rgb(229, 229, 229)",
+            "overflow": "hidden",
+            "textOverflow": "ellipsis",
+            "clientWidth": 0,
+            "scrollWidth": 0
+          },
+          {
+            "role": "duration",
+            "text": "00:01:12",
+            "title": "00:01:12",
+            "rect": {
+              "left": 0,
+              "top": 0,
+              "right": 0,
+              "bottom": 0,
+              "width": 0,
+              "height": 0
+            },
+            "visible": false,
+            "background": "rgba(0, 0, 0, 0)",
+            "color": "rgb(229, 229, 229)",
+            "overflow": "hidden",
+            "textOverflow": "ellipsis",
+            "clientWidth": 0,
+            "scrollWidth": 0
+          }
+        ],
+        "pairs": [],
+        "intersections": []
+      },
+      {
+        "label": "narrow-planned-長いクリップ名の省略を確認",
+        "state": "planned",
+        "title": "C20\n予定 — 生成予定（絵なし）\nnarrow-planned-長いクリップ名の省略を確認\n00:01:12",
+        "rect": {
+          "left": 292.7265625,
+          "top": 329,
+          "right": 340.046875,
+          "bottom": 377,
+          "width": 47.3203125,
+          "height": 48
+        },
+        "contentWidth": 44.3203,
+        "header": {
+          "left": 293.7265625,
+          "top": 330,
+          "right": 338.046875,
+          "bottom": 344,
+          "width": 44.3203125,
+          "height": 14
+        },
+        "badgeCount": 1,
+        "kindBadgeVisible": false,
+        "compact": true,
+        "fullBadgeVisible": false,
+        "displayedBadge": "予",
+        "compactContent": "\"予\"",
+        "texts": [
+          {
+            "role": "badge",
+            "text": "予定",
+            "title": "予定 — 生成予定（絵なし）",
+            "rect": {
+              "left": 295.7265625,
+              "top": 331,
+              "right": 312.7265625,
+              "bottom": 343,
+              "width": 17,
+              "height": 12
+            },
+            "visible": true,
+            "background": "rgb(10, 10, 10)",
+            "color": "rgba(204, 204, 204, 0.7)",
+            "overflow": "hidden",
+            "textOverflow": "ellipsis",
+            "clientWidth": 17,
+            "scrollWidth": 17
+          },
+          {
+            "role": "name",
+            "text": "narrow-planned-長いクリップ名の省略を確認",
+            "title": "narrow-planned-長いクリップ名の省略を確認",
+            "rect": {
+              "left": 0,
+              "top": 0,
+              "right": 0,
+              "bottom": 0,
+              "width": 0,
+              "height": 0
+            },
+            "visible": false,
+            "background": "rgba(0, 0, 0, 0)",
+            "color": "rgb(229, 229, 229)",
+            "overflow": "hidden",
+            "textOverflow": "ellipsis",
+            "clientWidth": 0,
+            "scrollWidth": 0
+          },
+          {
+            "role": "duration",
+            "text": "00:01:12",
+            "title": "00:01:12",
+            "rect": {
+              "left": 0,
+              "top": 0,
+              "right": 0,
+              "bottom": 0,
+              "width": 0,
+              "height": 0
+            },
+            "visible": false,
+            "background": "rgba(0, 0, 0, 0)",
+            "color": "rgb(229, 229, 229)",
+            "overflow": "hidden",
+            "textOverflow": "ellipsis",
+            "clientWidth": 0,
+            "scrollWidth": 0
+          }
+        ],
+        "pairs": [],
+        "intersections": []
+      },
+      {
+        "label": "narrow-generating-長いクリップ名の省略を確認",
+        "state": "generating",
+        "title": "C21\n生成中 62% — 生成中 62%\nnarrow-generating-長いクリップ名の省略を確認\n00:01:12",
+        "rect": {
+          "left": 340.0546875,
+          "top": 329,
+          "right": 387.375,
+          "bottom": 377,
+          "width": 47.3203125,
+          "height": 48
+        },
+        "contentWidth": 44.3203,
+        "header": {
+          "left": 341.0546875,
+          "top": 330,
+          "right": 385.375,
+          "bottom": 344,
+          "width": 44.3203125,
+          "height": 14
+        },
+        "badgeCount": 1,
+        "kindBadgeVisible": false,
+        "compact": true,
+        "fullBadgeVisible": false,
+        "displayedBadge": "生",
+        "compactContent": "\"生\"",
+        "texts": [
+          {
+            "role": "badge",
+            "text": "生成中 62%",
+            "title": "生成中 62% — 生成中 62%",
+            "rect": {
+              "left": 343.0546875,
+              "top": 331,
+              "right": 360.0546875,
+              "bottom": 343,
+              "width": 17,
+              "height": 12
+            },
+            "visible": true,
+            "background": "rgb(10, 10, 10)",
+            "color": "rgb(204, 167, 0)",
+            "overflow": "hidden",
+            "textOverflow": "ellipsis",
+            "clientWidth": 17,
+            "scrollWidth": 17
+          },
+          {
+            "role": "name",
+            "text": "narrow-generating-長いクリップ名の省略を確認",
+            "title": "narrow-generating-長いクリップ名の省略を確認",
+            "rect": {
+              "left": 0,
+              "top": 0,
+              "right": 0,
+              "bottom": 0,
+              "width": 0,
+              "height": 0
+            },
+            "visible": false,
+            "background": "rgba(0, 0, 0, 0)",
+            "color": "rgb(229, 229, 229)",
+            "overflow": "hidden",
+            "textOverflow": "ellipsis",
+            "clientWidth": 0,
+            "scrollWidth": 0
+          },
+          {
+            "role": "duration",
+            "text": "00:01:12",
+            "title": "00:01:12",
+            "rect": {
+              "left": 0,
+              "top": 0,
+              "right": 0,
+              "bottom": 0,
+              "width": 0,
+              "height": 0
+            },
+            "visible": false,
+            "background": "rgba(0, 0, 0, 0)",
+            "color": "rgb(229, 229, 229)",
+            "overflow": "hidden",
+            "textOverflow": "ellipsis",
+            "clientWidth": 0,
+            "scrollWidth": 0
+          }
+        ],
+        "pairs": [],
+        "intersections": []
+      },
+      {
+        "label": "narrow-stale-長いクリップ名の省略を確認",
+        "state": "stale",
+        "title": "C22\n応答なし・再取得 — 生成処理から応答がありません\nnarrow-stale-長いクリップ名の省略を確認\n00:01:12",
+        "rect": {
+          "left": 387.375,
+          "top": 329,
+          "right": 434.6953125,
+          "bottom": 377,
+          "width": 47.3203125,
+          "height": 48
+        },
+        "contentWidth": 44.3203,
+        "header": {
+          "left": 388.375,
+          "top": 330,
+          "right": 432.6953125,
+          "bottom": 344,
+          "width": 44.3203125,
+          "height": 14
+        },
+        "badgeCount": 1,
+        "kindBadgeVisible": false,
+        "compact": true,
+        "fullBadgeVisible": false,
+        "displayedBadge": "応",
+        "compactContent": "\"応\"",
+        "texts": [
+          {
+            "role": "badge",
+            "text": "応答なし・再取得",
+            "title": "応答なし・再取得 — 生成処理から応答がありません",
+            "rect": {
+              "left": 390.375,
+              "top": 331,
+              "right": 407.375,
+              "bottom": 343,
+              "width": 17,
+              "height": 12
+            },
+            "visible": true,
+            "background": "rgb(10, 10, 10)",
+            "color": "rgb(204, 167, 0)",
+            "overflow": "hidden",
+            "textOverflow": "ellipsis",
+            "clientWidth": 17,
+            "scrollWidth": 17
+          },
+          {
+            "role": "name",
+            "text": "narrow-stale-長いクリップ名の省略を確認",
+            "title": "narrow-stale-長いクリップ名の省略を確認",
+            "rect": {
+              "left": 0,
+              "top": 0,
+              "right": 0,
+              "bottom": 0,
+              "width": 0,
+              "height": 0
+            },
+            "visible": false,
+            "background": "rgba(0, 0, 0, 0)",
+            "color": "rgb(229, 229, 229)",
+            "overflow": "hidden",
+            "textOverflow": "ellipsis",
+            "clientWidth": 0,
+            "scrollWidth": 0
+          },
+          {
+            "role": "duration",
+            "text": "00:01:12",
+            "title": "00:01:12",
+            "rect": {
+              "left": 0,
+              "top": 0,
+              "right": 0,
+              "bottom": 0,
+              "width": 0,
+              "height": 0
+            },
+            "visible": false,
+            "background": "rgba(0, 0, 0, 0)",
+            "color": "rgb(229, 229, 229)",
+            "overflow": "hidden",
+            "textOverflow": "ellipsis",
+            "clientWidth": 0,
+            "scrollWidth": 0
+          }
+        ],
+        "pairs": [],
+        "intersections": []
+      },
+      {
+        "label": "narrow-failed-長いクリップ名の省略を確認",
+        "state": "failed",
+        "title": "C23\n失敗 — 生成に失敗しました\nnarrow-failed-長いクリップ名の省略を確認\n00:01:12",
+        "rect": {
+          "left": 434.703125,
+          "top": 329,
+          "right": 482.0234375,
+          "bottom": 377,
+          "width": 47.3203125,
+          "height": 48
+        },
+        "contentWidth": 44.3203,
+        "header": {
+          "left": 435.703125,
+          "top": 330,
+          "right": 480.0234375,
+          "bottom": 344,
+          "width": 44.3203125,
+          "height": 14
+        },
+        "badgeCount": 1,
+        "kindBadgeVisible": false,
+        "compact": true,
+        "fullBadgeVisible": false,
+        "displayedBadge": "失",
+        "compactContent": "\"失\"",
+        "texts": [
+          {
+            "role": "badge",
+            "text": "失敗",
+            "title": "失敗 — 生成に失敗しました",
+            "rect": {
+              "left": 437.703125,
+              "top": 331,
+              "right": 454.703125,
+              "bottom": 343,
+              "width": 17,
+              "height": 12
+            },
+            "visible": true,
+            "background": "rgb(10, 10, 10)",
+            "color": "rgb(241, 76, 76)",
+            "overflow": "hidden",
+            "textOverflow": "ellipsis",
+            "clientWidth": 17,
+            "scrollWidth": 17
+          },
+          {
+            "role": "name",
+            "text": "narrow-failed-長いクリップ名の省略を確認",
+            "title": "narrow-failed-長いクリップ名の省略を確認",
+            "rect": {
+              "left": 0,
+              "top": 0,
+              "right": 0,
+              "bottom": 0,
+              "width": 0,
+              "height": 0
+            },
+            "visible": false,
+            "background": "rgba(0, 0, 0, 0)",
+            "color": "rgb(229, 229, 229)",
+            "overflow": "hidden",
+            "textOverflow": "ellipsis",
+            "clientWidth": 0,
+            "scrollWidth": 0
+          },
+          {
+            "role": "duration",
+            "text": "00:01:12",
+            "title": "00:01:12",
+            "rect": {
+              "left": 0,
+              "top": 0,
+              "right": 0,
+              "bottom": 0,
+              "width": 0,
+              "height": 0
+            },
+            "visible": false,
+            "background": "rgba(0, 0, 0, 0)",
+            "color": "rgb(229, 229, 229)",
+            "overflow": "hidden",
+            "textOverflow": "ellipsis",
+            "clientWidth": 0,
+            "scrollWidth": 0
+          }
+        ],
+        "pairs": [],
+        "intersections": []
+      },
+      {
+        "label": "narrow-orphan-長いクリップ名の省略を確認",
+        "state": "orphan",
+        "title": "C24\n孤児 — 素材が変わりました（meta の sha256 と一致しません）\nnarrow-orphan-長いクリップ名の省略を確認\n00:01:12",
+        "rect": {
+          "left": 482.0234375,
+          "top": 329,
+          "right": 529.34375,
+          "bottom": 377,
+          "width": 47.3203125,
+          "height": 48
+        },
+        "contentWidth": 44.3203,
+        "header": {
+          "left": 483.0234375,
+          "top": 330,
+          "right": 527.34375,
+          "bottom": 344,
+          "width": 44.3203125,
+          "height": 14
+        },
+        "badgeCount": 1,
+        "kindBadgeVisible": false,
+        "compact": true,
+        "fullBadgeVisible": false,
+        "displayedBadge": "孤",
+        "compactContent": "\"孤\"",
+        "texts": [
+          {
+            "role": "badge",
+            "text": "孤児",
+            "title": "孤児 — 素材が変わりました（meta の sha256 と一致しません）",
+            "rect": {
+              "left": 485.0234375,
+              "top": 331,
+              "right": 502.0234375,
+              "bottom": 343,
+              "width": 17,
+              "height": 12
+            },
+            "visible": true,
+            "background": "rgb(10, 10, 10)",
+            "color": "rgba(204, 204, 204, 0.7)",
+            "overflow": "hidden",
+            "textOverflow": "ellipsis",
+            "clientWidth": 17,
+            "scrollWidth": 17
+          },
+          {
+            "role": "name",
+            "text": "narrow-orphan-長いクリップ名の省略を確認",
+            "title": "narrow-orphan-長いクリップ名の省略を確認",
+            "rect": {
+              "left": 0,
+              "top": 0,
+              "right": 0,
+              "bottom": 0,
+              "width": 0,
+              "height": 0
+            },
+            "visible": false,
+            "background": "rgba(0, 0, 0, 0)",
+            "color": "rgb(229, 229, 229)",
+            "overflow": "hidden",
+            "textOverflow": "ellipsis",
+            "clientWidth": 0,
+            "scrollWidth": 0
+          },
+          {
+            "role": "duration",
+            "text": "00:01:12",
+            "title": "00:01:12",
+            "rect": {
+              "left": 0,
+              "top": 0,
+              "right": 0,
+              "bottom": 0,
+              "width": 0,
+              "height": 0
+            },
+            "visible": false,
+            "background": "rgba(0, 0, 0, 0)",
+            "color": "rgb(229, 229, 229)",
+            "overflow": "hidden",
+            "textOverflow": "ellipsis",
+            "clientWidth": 0,
+            "scrollWidth": 0
+          }
+        ],
+        "pairs": [],
+        "intersections": []
+      },
+      {
+        "label": "narrow-done-長いクリップ名の省略を確認",
+        "state": "done",
+        "title": "C25\n生成 — 生成された動画\nnarrow-done-長いクリップ名の省略を確認\n00:01:12",
+        "rect": {
+          "left": 529.3515625,
+          "top": 329,
+          "right": 576.671875,
+          "bottom": 377,
+          "width": 47.3203125,
+          "height": 48
+        },
+        "contentWidth": 44.3203,
+        "header": {
+          "left": 530.3515625,
+          "top": 330,
+          "right": 574.671875,
+          "bottom": 344,
+          "width": 44.3203125,
+          "height": 14
+        },
+        "badgeCount": 1,
+        "kindBadgeVisible": false,
+        "compact": true,
+        "fullBadgeVisible": false,
+        "displayedBadge": "生",
+        "compactContent": "\"生\"",
+        "texts": [
+          {
+            "role": "badge",
+            "text": "生成",
+            "title": "生成 — 生成された動画",
+            "rect": {
+              "left": 532.3515625,
+              "top": 331,
+              "right": 549.3515625,
+              "bottom": 343,
+              "width": 17,
+              "height": 12
+            },
+            "visible": true,
+            "background": "rgb(10, 10, 10)",
+            "color": "rgba(204, 204, 204, 0.7)",
+            "overflow": "hidden",
+            "textOverflow": "ellipsis",
+            "clientWidth": 17,
+            "scrollWidth": 17
+          },
+          {
+            "role": "name",
+            "text": "narrow-done-長いクリップ名の省略を確認",
+            "title": "narrow-done-長いクリップ名の省略を確認",
+            "rect": {
+              "left": 0,
+              "top": 0,
+              "right": 0,
+              "bottom": 0,
+              "width": 0,
+              "height": 0
+            },
+            "visible": false,
+            "background": "rgba(0, 0, 0, 0)",
+            "color": "rgb(229, 229, 229)",
+            "overflow": "hidden",
+            "textOverflow": "ellipsis",
+            "clientWidth": 0,
+            "scrollWidth": 0
+          },
+          {
+            "role": "duration",
+            "text": "00:01:12",
+            "title": "00:01:12",
+            "rect": {
+              "left": 0,
+              "top": 0,
+              "right": 0,
+              "bottom": 0,
+              "width": 0,
+              "height": 0
+            },
+            "visible": false,
+            "background": "rgba(0, 0, 0, 0)",
+            "color": "rgb(229, 229, 229)",
+            "overflow": "hidden",
+            "textOverflow": "ellipsis",
+            "clientWidth": 0,
+            "scrollWidth": 0
+          }
+        ],
+        "pairs": [],
+        "intersections": []
+      },
+      {
+        "label": "narrow-still-長いクリップ名の省略を確認",
+        "state": "none",
+        "title": "C26\n静止画 — 静止画\nnarrow-still-長いクリップ名の省略を確認\n00:01:12",
+        "rect": {
+          "left": 576.671875,
+          "top": 329,
+          "right": 623.9921875,
+          "bottom": 377,
+          "width": 47.3203125,
+          "height": 48
+        },
+        "contentWidth": 44.3203,
+        "header": {
+          "left": 577.671875,
+          "top": 330,
+          "right": 621.9921875,
+          "bottom": 344,
+          "width": 44.3203125,
+          "height": 14
+        },
+        "badgeCount": 1,
+        "kindBadgeVisible": false,
+        "compact": true,
+        "fullBadgeVisible": false,
+        "displayedBadge": "静",
+        "compactContent": "\"静\"",
+        "texts": [
+          {
+            "role": "badge",
+            "text": "静止画",
+            "title": "静止画 — 静止画",
+            "rect": {
+              "left": 579.671875,
+              "top": 331,
+              "right": 596.671875,
+              "bottom": 343,
+              "width": 17,
+              "height": 12
+            },
+            "visible": true,
+            "background": "rgb(10, 10, 10)",
+            "color": "rgb(89, 164, 249)",
+            "overflow": "hidden",
+            "textOverflow": "ellipsis",
+            "clientWidth": 17,
+            "scrollWidth": 17
+          },
+          {
+            "role": "name",
+            "text": "narrow-still-長いクリップ名の省略を確認",
+            "title": "narrow-still-長いクリップ名の省略を確認",
+            "rect": {
+              "left": 0,
+              "top": 0,
+              "right": 0,
+              "bottom": 0,
+              "width": 0,
+              "height": 0
+            },
+            "visible": false,
+            "background": "rgba(0, 0, 0, 0)",
+            "color": "rgb(229, 229, 229)",
+            "overflow": "hidden",
+            "textOverflow": "ellipsis",
+            "clientWidth": 0,
+            "scrollWidth": 0
+          },
+          {
+            "role": "duration",
+            "text": "00:01:12",
+            "title": "00:01:12",
+            "rect": {
+              "left": 0,
+              "top": 0,
+              "right": 0,
+              "bottom": 0,
+              "width": 0,
+              "height": 0
+            },
+            "visible": false,
+            "background": "rgba(0, 0, 0, 0)",
+            "color": "rgb(229, 229, 229)",
+            "overflow": "hidden",
+            "textOverflow": "ellipsis",
+            "clientWidth": 0,
+            "scrollWidth": 0
+          }
+        ],
+        "pairs": [],
+        "intersections": []
+      }
+    ],
+    "visualReview": "pending: wrapper must open screenshots before accepting L1",
+    "screenshotClips": {
+      "08-all-generation-chip-states.png": {
+        "x": 156.90625,
+        "y": 325,
+        "width": 1631.171875,
+        "height": 56,
+        "scale": 2
+      },
+      "09-empty-frame-zoom.png": {
+        "x": 156.90625,
+        "y": 325,
+        "width": 210.890625,
+        "height": 56,
+        "scale": 3
+      },
+      "10-narrow-generation-chip-states.png": {
+        "x": 241.40625,
+        "y": 325,
+        "width": 386.5859375,
+        "height": 56,
+        "scale": 3
+      }
     }
   },
   "expected": [
@@ -2601,7 +6367,7 @@
     {
       "label": "planned.png",
       "state": "planned",
-      "badge": "planned"
+      "badge": "空の枠"
     },
     {
       "label": "generating.png",
@@ -2660,7 +6426,7 @@
       "id": "1",
       "label": "planned.png",
       "state": "planned",
-      "badge": "planned",
+      "badge": "空の枠",
       "badgeColor": "rgba(204, 204, 204, 0.7)",
       "borderStyle": "dashed",
       "borderColor": "rgb(63, 63, 70)",

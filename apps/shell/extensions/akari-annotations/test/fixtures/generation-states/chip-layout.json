@@ -1,0 +1,22 @@
+{
+  "cases": [
+    { "state": "planned", "meta": { "kind": "still", "status": "planned", "inputs": { "prompt": "" } }, "badge": "空の枠" },
+    { "state": "planned", "meta": { "kind": "still", "status": "planned", "inputs": { "prompt": "朝の海" } }, "badge": "予定" },
+    { "state": "generating", "meta": { "kind": "still", "status": "generating", "progress": 62 }, "badge": "生成中 62%" },
+    { "state": "stale", "meta": { "kind": "still", "status": "generating" }, "badge": "応答なし・再取得" },
+    { "state": "failed", "meta": { "kind": "still", "status": "failed" }, "badge": "失敗" },
+    { "state": "orphan", "meta": { "kind": "still", "status": "done" }, "badge": "孤児" },
+    { "state": "done", "meta": { "kind": "video", "status": "done" }, "badge": "生成" },
+    { "state": "none", "badge": "静止画" }
+  ],
+  "widths": [
+    { "width": 390, "duration": true, "name": true, "fullBadge": true },
+    { "width": 128, "duration": true, "name": true, "fullBadge": true },
+    { "width": 127, "duration": false, "name": true, "fullBadge": true },
+    { "width": 96, "duration": false, "name": true, "fullBadge": true },
+    { "width": 95, "duration": false, "name": false, "fullBadge": true },
+    { "width": 64, "duration": false, "name": false, "fullBadge": true },
+    { "width": 63, "duration": false, "name": false, "fullBadge": false },
+    { "width": 40, "duration": false, "name": false, "fullBadge": false }
+  ]
+}
