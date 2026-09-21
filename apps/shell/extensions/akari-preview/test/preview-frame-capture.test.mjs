@@ -68,6 +68,7 @@ const noCamera = html => {
     if (typeof html !== 'string') return;
     assert.equal(html.includes('akari-gen-capture-frame'), false);
     assert.equal(html.includes('akari-gen-captur'), false);
+    assert.equal(html.includes('akari-gen-capture-flash'), false);
 };
 test('GPU and OSR export HTML contain zero camera ids/classes', async t => {
     const projectRoot = await scratch(t);

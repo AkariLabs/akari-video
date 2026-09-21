@@ -42,7 +42,7 @@ test('host restores the webview before starting phase-two PNG conversion', () =>
     const start = source.indexOf('protected async capturePreviewFrame(');
     const handler = source.slice(start, source.indexOf('protected previewDiagnosticsGuardScript', start));
     const snapshot = handler.indexOf('const snapshot = await Promise.race(');
-    const restore = handler.indexOf("send('akari-preview-capture-restore');", snapshot);
+    const restore = handler.indexOf("send('akari-preview-capture-restore', { keepFrozen: true });", snapshot);
     const encode = handler.indexOf('const captured = await window.electronAkariPreview.finishPreviewFrame(captureId)');
     assert(snapshot >= 0 && restore > snapshot && encode > restore);
     assert(handler.slice(snapshot, encode).includes("message?.type !== 'akari-preview-capture-restored'"));

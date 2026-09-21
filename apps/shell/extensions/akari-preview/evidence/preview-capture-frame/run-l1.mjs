@@ -2,7 +2,7 @@
 // L1 driver for preview-capture-frame (コマ保存). Raw CDP, modelled on
 // ../preview-transport-polish-v1/run-l1.mjs (CDP helper + double-iframe piercing reused).
 //
-//   node run-l1.mjs <cdpPort> <workspaceDir> <outDir>
+//   RUNS=5 node run-l1.mjs <cdpPort> <workspaceDir> <outDir>   (r1: RUNS runs x 4 captures, exit 2 unless every capture passes)
 //
 // Requires an apps/shell Electron already running with --remote-debugging-port on the
 // fixture workspace (see run-l1.sh). The workspace must contain edit.json (LUT + captions).
@@ -247,6 +247,7 @@ async function main() {
         w: btn.getBoundingClientRect().width, h: btn.getBoundingClientRect().height, hasSvg: !!btn.querySelector('svg'), text: btn.textContent.trim() } : null,
       playLabel: play ? play.getAttribute('aria-label') : null,
       visibleInteractionHandles: handles,
+      genRects: Array.from(document.querySelectorAll('[id^="akari-gen-"]')).filter(e => e.id !== 'akari-gen-capture-frame' && e.getBoundingClientRect().width > 0 && getComputedStyle(e).visibility !== 'hidden' && getComputedStyle(e).display !== 'none' && e.children.length === 0).map(e => { const b = e.getBoundingClientRect(); return { id: e.id, x: b.x - r.x, y: b.y - r.y, w: b.width, h: b.height }; }),
       genVisible: Array.from(document.querySelectorAll('[id^="akari-gen-"]')).filter(e => e.id !== 'akari-gen-capture-frame' && e.getBoundingClientRect().width > 0 && getComputedStyle(e).visibility !== 'hidden' && getComputedStyle(e).display !== 'none').map(e => e.id + ':' + (e.textContent || '').trim().slice(0, 30)),
       captionSelectionChrome: Array.from(document.querySelectorAll('*')).filter(e => e.children.length === 0 && /この字幕だけ動く|はみ出し防止/.test(e.textContent || '') && e.getBoundingClientRect().width > 0).length,
       transportVisibility: transport ? getComputedStyle(transport).visibility : null,
@@ -262,6 +263,7 @@ async function main() {
     requestAnimationFrame(loop);
     new MutationObserver(() => {
       const c = document.documentElement.classList.contains('akari-gen-capturing');
+      if (c && document.documentElement.classList.contains('akari-gen-capture-fit')) window.__pcf.curFit = true;
       if (c && !on) { on = performance.now(); frames = 0;
         const cap = document.getElementById('caption-plate');
         const chain = []; for (let e = cap; e && e !== document.documentElement; e = e.parentElement) { const cs = getComputedStyle(e); chain.push((e.id || e.tagName) + ':' + cs.visibility + '/' + cs.display + '/' + cs.opacity); }
@@ -270,7 +272,7 @@ async function main() {
           lineDeep: Array.from(document.querySelectorAll('#caption-plate, #caption-plate *')).map(e => { const cs = getComputedStyle(e); const r = e.getBoundingClientRect(); return (e.className || e.tagName).toString().slice(0, 30) + ' op=' + cs.opacity + ' anim=' + cs.animationName + ' tr=' + cs.transform.slice(0, 30) + ' clip=' + cs.clipPath + ' color=' + cs.color + ' r=' + Math.round(r.x) + ',' + Math.round(r.y) + ',' + Math.round(r.width) + 'x' + Math.round(r.height); }).slice(0, 8),
           canvasZ: (() => { const c = document.getElementById('frame-engine-preview'); return c ? getComputedStyle(c).zIndex + '/' + getComputedStyle(document.getElementById('preview-layers')).zIndex : null; })(), chain, fit: document.documentElement.classList.contains('akari-gen-capture-fit') }; window.__pcf.captionAtCapture.push(rec);
         requestAnimationFrame(() => { rec.nextFrame = Array.from(document.querySelectorAll('#caption-plate *')).map(e => getComputedStyle(e).opacity + '/' + getComputedStyle(e).animationName).slice(0, 6); }); }
-      else if (!c && on) { window.__pcf.spans.push({ ms: performance.now() - on, frames, fit: false }); on = null; }
+      else if (!c && on) { window.__pcf.spans.push({ ms: performance.now() - on, frames, fit: !!window.__pcf.curFit }); window.__pcf.curFit = false; on = null; }
     }).observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
     return true;
   })()`);
@@ -282,6 +284,8 @@ async function main() {
     const before = await state();
     const beforeFiles = await listCaptures();
     const btn = await toMain('#akari-gen-capture-frame');
+    await evalMain(`(() => { for (const b of document.querySelectorAll('.theia-notification-list-item .codicon-close, .theia-notification-list-item-close, .theia-notification-list .codicon-close')) b.click(); return true; })()`);
+    await sleep(300);
     const t0 = Date.now();
     await evalActive(`(() => { const l = window.__pcf.spans.length; window.__pcf.mark = l; return true; })()`);
     await realClick(main, btn.x, btn.y);
@@ -290,80 +294,137 @@ async function main() {
       await sleep(100);
       files = await listCaptures();
       toast = await toastTexts();
-      if (files.length > beforeFiles.length && toast.some(t => /コマを保存/.test(t))) break;
+      if ((files.length > beforeFiles.length && toast.some(t => /コマを保存しました/.test(t))) || toast.some(t => /コマを保存できませんでした/.test(t))) break;
     }
     const elapsedMs = Date.now() - t0;
     await sleep(600);
     const after = await state();
     const added = files.filter(f => !beforeFiles.includes(f));
-    const spans = await evalActive('window.__pcf.spans.slice()');
+    const spans = await evalActive('window.__pcf.spans.slice(window.__pcf.mark)');
     const shot = await screenshot(main, path.join(OUT_DIR, `${label}-window.png`));
-    const entry = { label, before, after, added, toast, elapsedMs, lastCaptureSpan: spans[spans.length - 1] || null, windowScreenshot: path.basename(shot) };
-    record(label, { added, toast, elapsedMs, span: entry.lastCaptureSpan, restoredZoom: before.zoomLayerTransform === after.zoomLayerTransform, htmlClassAfter: after.htmlClass });
+    const entry = { label, before, after, added, toast, elapsedMs, spans, lastCaptureSpan: spans[spans.length - 1] || null, windowScreenshot: path.basename(shot) };
+    record(label, { added, toast, elapsedMs, spans, restoredZoom: before.zoomLayerTransform === after.zoomLayerTransform, htmlClassAfter: after.htmlClass });
     return entry;
   };
 
   const initial = await state();
   results.initial = initial;
   record('initial', initial);
+  const out = initial.output;
+  const RUNS = Number(process.env.RUNS || 5);
+  const toOut = (rect, stage) => ({ x: rect.x / stage.w * out.width, y: rect.y / stage.h * out.height,
+    w: rect.w / stage.w * out.width, h: rect.h / stage.h * out.height, outW: out.width, outH: out.height });
+  // r1: leak checks beyond the r0 analyzer — selection outline colour (#f5c451) anywhere,
+  // and any pixel deviating from the flat clip colour inside the generation chip rects.
+  const leakCheck = (file, genRectsOut) => {
+    const img = decodePng(file);
+    const { width: W, height: H } = img;
+    const center = img.px(Math.floor(W / 2), Math.floor(H / 2));
+    let outlineYellow = 0, chipDeviating = 0;
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      const p = img.px(x, y);
+      if (Math.abs(p[0] - 245) < 20 && Math.abs(p[1] - 196) < 20 && Math.abs(p[2] - 81) < 30) outlineYellow++;
+    }
+    for (const g of genRectsOut) {
+      const sx = W / g.outW, sy = H / g.outH;
+      const x0 = Math.max(0, Math.floor(g.x * sx)), y0 = Math.max(0, Math.floor(g.y * sy));
+      const x1 = Math.min(W, Math.ceil((g.x + g.w) * sx)), y1 = Math.min(H, Math.ceil((g.y + g.h) * sy));
+      for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) {
+        const p = img.px(x, y);
+        if (Math.max(...p.map((v, i) => Math.abs(v - center[i]))) > 12) chipDeviating++;
+      }
+    }
+    return { outlineYellow, chipDeviating };
+  };
 
-  // 1) select the clip on the timeline strip (selection handles in the preview), capture at 200 % zoom
-  const clip = await evalMain(`(() => { const e = document.querySelector('.akari-annotations-strip-clip'); if (!e) return null; const r = e.getBoundingClientRect(); return { x: r.x + Math.min(20, r.width / 2), y: r.y + r.height / 2 }; })()`);
-  if (clip) { await realClick(main, clip.x, clip.y); await sleep(1000); }
-  results.maximized = await state();
-  record('after-timeline-select', { clip, handles: results.maximized.visibleInteractionHandles, stage: results.maximized.stageRect });
-  const unzoomed = results.maximized;
-  await evalActive(`(() => { document.getElementById('zoom-toggle').click(); const b = document.querySelector('.zoom-preset[data-zoom="2"]'); b.click(); document.getElementById('zoom-toggle').click(); return true; })()`);
-  await sleep(1200);
-  const shot1 = await shoot('01-zoom200-selected-paused');
-  // 2) same time again -> "-2"
-  const shot2 = await shoot('02-same-time-again');
-  // 3) back to 100 %, play, capture while playing
-  await evalActive(`(() => { document.getElementById('zoom-toggle').click(); document.querySelector('.zoom-preset[data-zoom="1"]').click(); document.getElementById('zoom-toggle').click(); return true; })()`);
-  await sleep(800);
-  // 3b) select the caption (click its line) and capture: the selection outline must not be captured
-  const capLine = await toMain('#caption-plate .akari-caption__line');
-  if (capLine) { await realClick(main, capLine.x, capLine.y); await sleep(800); }
-  const shot4 = await shoot('04-caption-selected');
-  await evalActive(`document.getElementById('play-toggle').click(), true`);
-  await sleep(1500);
-  const playingBefore = (await state()).playLabel;
-  const shot3 = await shoot('03-while-playing');
-  await sleep(700);
-  const playingAfter = (await state()).playLabel;
-  await evalActive(`document.getElementById('play-toggle').click(), true`);
-  results.shots = [shot1, shot2, shot4, shot3];
-  results.playing = { labelBeforeCapture: playingBefore, labelAfterCapture: playingAfter };
+  results.runs = [];
+  for (let run = 1; run <= RUNS; run++) {
+    const prefix = `run${run}`;
+    // rewind to 0 and make sure we are paused at 100 %
+    await evalActive(`(() => { const p = document.getElementById('play-toggle'); if (p.getAttribute('aria-label') === '一時停止') p.click();
+      document.getElementById('skip-back').click(); return true; })()`);
+    await sleep(800);
+    // 1) select the clip on the timeline strip, capture at 200 % zoom
+    const clip = await evalMain(`(() => { const e = document.querySelector('.akari-annotations-strip-clip'); if (!e) return null; const r = e.getBoundingClientRect(); return { x: r.x + Math.min(20, r.width / 2), y: r.y + r.height / 2 }; })()`);
+    if (clip) { await realClick(main, clip.x, clip.y); await sleep(1000); }
+    const unzoomed = await state();
+    await evalActive(`(() => { document.getElementById('zoom-toggle').click(); const b = document.querySelector('.zoom-preset[data-zoom="2"]'); b.click(); document.getElementById('zoom-toggle').click(); return true; })()`);
+    await sleep(1200);
+    const shot1 = await shoot(`${prefix}-01-zoom200`);
+    // 2) same time again -> "-N"
+    const shot2 = await shoot(`${prefix}-02-same-time-again`);
+    await evalActive(`(() => { document.getElementById('zoom-toggle').click(); document.querySelector('.zoom-preset[data-zoom="1"]').click(); document.getElementById('zoom-toggle').click(); return true; })()`);
+    await sleep(800);
+    // 3) select the caption, capture
+    const capLine = await toMain('#caption-plate .akari-caption__line');
+    if (capLine) { await realClick(main, capLine.x, capLine.y); await sleep(800); }
+    const shot3 = await shoot(`${prefix}-03-caption-selected`);
+    // 4) capture while playing
+    await evalActive(`document.getElementById('play-toggle').click(), true`);
+    await sleep(1500);
+    const playingBefore = (await state()).playLabel;
+    const shot4 = await shoot(`${prefix}-04-while-playing`);
+    await sleep(700);
+    const playingAfter = (await state()).playLabel;
+    await evalActive(`(() => { const p = document.getElementById('play-toggle'); if (p.getAttribute('aria-label') === '一時停止') p.click(); return true; })()`);
+    await sleep(500);
+
+    const shots = [shot1, shot2, shot3, shot4];
+    const verdicts = [];
+    for (const shot of shots) {
+      const zoomed = /-0[12]-/.test(shot.label);
+      const ref = zoomed ? unzoomed : shot.before; // at 200 % the fit layout equals the 100 % layout
+      const captionExpected = !!(shot.before.captionText && shot.before.captionText.trim() && ref.captionRectInStage && ref.captionRectInStage.w > 0);
+      const flickerLimit = (sp) => sp.fit ? 300 : 100;
+      const flickerOk = shot.spans.length > 0 && shot.spans.every(sp => sp.ms <= flickerLimit(sp));
+      const failedToast = shot.toast.some(t => /コマを保存できませんでした/.test(t));
+      const v = { run, shot: shot.label, added: shot.added, toast: shot.toast, spans: shot.spans, attempts: shot.spans.length,
+        captionExpected, flickerOk, failedToast, restoredClass: shot.after.htmlClass === '' };
+      if (shot.added.length === 1) {
+        const f = shot.added[0];
+        const a = analyze(path.join(WS, 'assets/captures', f), toOut(ref.captionRectInStage, ref.stageRect));
+        const l = leakCheck(path.join(WS, 'assets/captures', f), (ref.genRects || []).map(g => toOut(g, ref.stageRect)));
+        await copyFile(path.join(WS, 'assets/captures', f), path.join(OUT_DIR, `${shot.label}--${f}`));
+        Object.assign(v, { file: f, width: a.width, height: a.height, center: a.center, centerDiffersFromSource: a.centerDiffersFromSource,
+          yellowPixelsInCaptionBox: a.yellowPixelsInCaptionBox, bluishPixels: a.bluishPixels, ...l });
+        v.captionOk = !captionExpected || a.yellowPixelsInCaptionBox >= 200;
+        v.leakOk = a.bluishPixels === 0 && l.outlineYellow === 0 && l.chipDeviating === 0;
+        v.pass = v.captionOk && v.leakOk && flickerOk && v.restoredClass;
+      } else {
+        v.pass = false; // every capture in the fixture must save (no retries exhausted)
+      }
+      verdicts.push(v);
+      record('verdict', v);
+    }
+    const sameTimeOk = shot2.added.length === 1 && shot1.added.length === 1
+      && shot2.added[0].startsWith(shot1.added[0].replace(/(-\d+)?\.png$/, '')) && /-\d+\.png$/.test(shot2.added[0]);
+    results.runs.push({ run, verdicts, sameTimeOk, playing: { before: playingBefore, after: playingAfter }, genRectsAtStart: unzoomed.genRects,
+      shots: shots.map(s => ({ label: s.label, before: s.before, after: s.after, elapsedMs: s.elapsedMs, windowScreenshot: s.windowScreenshot })) });
+  }
 
   // project panel: does the png show up?
   await sleep(2500);
   results.projectPanel = await evalMain(`Array.from(document.querySelectorAll('*')).filter(e => e.children.length === 0 && /frame-\\d\\dm\\d\\ds\\d{3}/.test(e.textContent || '') && e.getBoundingClientRect().width > 0).map(e => e.textContent.trim()).slice(0, 10)`);
   await screenshot(main, path.join(OUT_DIR, '05-project-panel.png'));
-
-  // pixel analysis of every saved png
-  const out = initial.output;
-  results.analysis = [];
-  for (const shot of results.shots) {
-    for (const f of shot.added) {
-      const cr = shot.before.captionRectInStage; const sr = shot.before.stageRect;
-      // captionRect is measured in the pre-capture layout; normalise to output space via stage size
-      const rectOut = { x: cr.x / sr.w * out.width, y: cr.y / sr.h * out.height, w: cr.w / sr.w * out.width, h: cr.h / sr.h * out.height, outW: out.width, outH: out.height };
-      if (shot.label.startsWith('01') || shot.label.startsWith('02')) {
-        // at 200 % the stage is clipped; the caption box is taken from the 100 % layout instead
-        const ir = unzoomed.captionRectInStage, is = unzoomed.stageRect;
-        Object.assign(rectOut, { x: ir.x / is.w * out.width, y: ir.y / is.h * out.height, w: ir.w / is.w * out.width, h: ir.h / is.h * out.height });
-      }
-      const a = analyze(path.join(WS, 'assets/captures', f), rectOut);
-      await copyFile(path.join(WS, 'assets/captures', f), path.join(OUT_DIR, `${shot.label}--${f}`));
-      results.analysis.push({ shot: shot.label, ...a });
-      record('analysis', a);
-    }
-  }
   results.captionAtCapture = await evalActive('window.__pcf.captionAtCapture');
   results.metaJsonInCaptures = (await listCaptures()).includes('meta.json');
+  const all = results.runs.flatMap(r => r.verdicts);
+  const spans = all.flatMap(v => v.spans);
+  results.summary = {
+    runs: RUNS, captures: all.length, passed: all.filter(v => v.pass).length,
+    captionExpected: all.filter(v => v.captionExpected).length, captionOk: all.filter(v => v.captionOk).length,
+    leakOk: all.filter(v => v.leakOk).length, maxBluish: Math.max(...all.map(v => v.bluishPixels ?? -1)),
+    retries: all.filter(v => v.attempts > 1).length, failedToasts: all.filter(v => v.failedToast).length,
+    sameTimeOk: results.runs.every(r => r.sameTimeOk),
+    flicker: { normalMaxMs: Math.max(0, ...spans.filter(s => !s.fit).map(s => s.ms)), fitMaxMs: Math.max(0, ...spans.filter(s => s.fit).map(s => s.ms)),
+      normalCount: spans.filter(s => !s.fit).length, fitCount: spans.filter(s => s.fit).length },
+    allPass: all.every(v => v.pass) && results.runs.every(r => r.sameTimeOk) && !results.metaJsonInCaptures
+  };
+  record('summary', results.summary);
   await writeFile(path.join(OUT_DIR, 'results.json'), JSON.stringify(results, null, 2));
   await writeFile(path.join(OUT_DIR, 'log.json'), JSON.stringify(log, null, 2));
   main.close(); outer.close();
+  if (!results.summary.allPass) process.exitCode = 2;
 }
 
 main().catch(async e => { console.error('FAILED', e); try { await writeFile(path.join(OUT_DIR, 'log.json'), JSON.stringify(log, null, 2)); } catch {} process.exit(1); });
