@@ -227,3 +227,87 @@ test('different kit alias targets remain real conflicts', async t => {
   assert.ok((await fs.lstat(path.join(f.old, 'still/card'))).isSymbolicLink());
   assert.equal(await fs.readFile(path.join(f.root, 'still/card/frame.png'), 'utf8'), 'new');
 });
+
+async function snapshot(root, dir = root) {
+  const { createHash } = await import('node:crypto');
+  const rows = [];
+  for (const name of (await fs.readdir(dir)).sort()) {
+    const file = path.join(dir, name), stat = await fs.lstat(file);
+    const relative = path.relative(root, file);
+    if (stat.isSymbolicLink()) rows.push([relative, 'link', await fs.readlink(file)]);
+    else if (stat.isDirectory()) rows.push([relative, 'directory'], ...await snapshot(root, file));
+    else rows.push([relative, 'file', createHash('sha256').update(await fs.readFile(file)).digest('hex')]);
+  }
+  return rows;
+}
+
+for (const layout of ['same', 'legacy-link', 'root-link', 'nested-root', 'nested-legacy', 'linked-parent', 'missing-nested-root']) {
+  for (const state of [null, 'migrating', 'done']) {
+    test(`overlapping roots preserve state and all bytes twice: ${layout}, ${state}`, async t => {
+      const f = await fixture(t);
+      let root = f.root;
+      if (layout === 'same') root = f.old;
+      else if (layout === 'legacy-link') {
+        await fs.mkdir(root, { recursive: true });
+        await fs.mkdir(f.home, { recursive: true });
+        await fs.symlink(root, f.old, 'dir');
+      } else if (layout === 'root-link') {
+        await fs.mkdir(f.old, { recursive: true });
+        await fs.rmdir(root);
+        await fs.symlink(f.old, root, 'dir');
+      } else if (layout === 'nested-root') root = path.join(f.old, 'nested');
+      else if (layout === 'nested-legacy') root = f.home;
+      else if (layout === 'linked-parent' || layout === 'missing-nested-root') {
+        await fs.mkdir(f.old, { recursive: true });
+        const alias = path.join(f.temp, 'alias');
+        await fs.symlink(f.old, alias, 'dir');
+        root = path.join(alias, 'one/two');
+      }
+      await put(path.join(f.old, 'audio/theme/file'), 'preserve this');
+      if (layout !== 'missing-nested-root') await fs.mkdir(root, { recursive: true });
+      const env = { ...f.env, AKARI_LIBRARY_ROOT: root };
+      if (state) await writeLibraryLocation({ root, state }, env);
+      const before = await snapshot(f.temp);
+      for (let i = 0; i < 2; i++) {
+        const result = await migrateAssetLibrary({ env });
+        assert.match(result.skippedReason, /same location|contain each other/);
+        assert.equal(result.state, state);
+        assert.equal(result.moved, 0);
+        assert.deepEqual(result.failures, []);
+        assert.deepEqual(await snapshot(f.temp), before);
+      }
+      if (['same', 'legacy-link', 'root-link'].includes(layout)) {
+        assert.deepEqual(resolveAssetLibraryRoots(env).read, [root]);
+      }
+    });
+  }
+}
+
+for (const kind of ['file', 'directory', 'category', 'external-alias', 'internal-alias']) {
+  test(`same-realpath entry never deletes real data: ${kind}`, async t => {
+    const f = await fixture(t);
+    const relative = kind === 'category' ? 'audio' : 'audio/theme';
+    const source = path.join(f.old, relative), dest = path.join(f.root, relative);
+    await fs.mkdir(path.dirname(source), { recursive: true });
+    await fs.mkdir(path.dirname(dest), { recursive: true });
+    let payload;
+    if (kind.endsWith('alias')) {
+      payload = path.join(kind === 'internal-alias' ? f.root : f.temp, 'target/file');
+      await put(payload, 'original');
+      await fs.symlink(path.dirname(payload), source, 'dir');
+      await fs.symlink(path.dirname(payload), dest, 'dir');
+    } else {
+      payload = kind === 'file' ? source : path.join(source, 'file');
+      await put(payload, 'original');
+      await fs.symlink(source, dest, kind === 'file' ? 'file' : 'dir');
+    }
+    for (let run = 0; run < 2; run++) {
+      const result = await migrateAssetLibrary({ env: f.env });
+      assert.deepEqual(result.failures, []);
+      assert.equal(await fs.readFile(payload, 'utf8'), 'original');
+      assert.equal(await fs.readFile(kind === 'file' ? dest : path.join(dest, 'file'), 'utf8'), 'original');
+      if (kind === 'internal-alias') await assert.rejects(fs.lstat(source), { code: 'ENOENT' });
+      else assert.ok(await fs.lstat(source));
+    }
+  });
+}

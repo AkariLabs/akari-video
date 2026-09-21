@@ -48,7 +48,7 @@ function writeInstalled({ home, id = 'installed-one', title = 'Installed One', c
 function runCli(args, env) {
   return spawnSync(process.execPath, [bin, ...args], {
     encoding: 'utf8',
-    env: { ...process.env, ...env },
+    env: { ...process.env, ...env, AKARI_LIBRARY_ROOT: env.AKARI_LIBRARY_ROOT || path.join(env.AKARI_HOME, 'assets') },
   });
 }
 

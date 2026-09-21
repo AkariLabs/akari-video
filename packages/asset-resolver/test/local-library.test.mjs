@@ -156,7 +156,7 @@ test('list CLI filters --source and prints origin in human output', t => {
   }
   assert.match(run(['--source', 'own']).stdout, /mine\town\t/);
   assert.equal(run(['--source', 'invalid']).status, 1);
-  assert.equal(run(['--source']).status, 1);
+  assert.equal(run(['--source']).status, 2);
 });
 
 test('cached Lab items retain remote preview and file descriptors', async t => {

@@ -18,7 +18,7 @@ const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQ
 const validator = fileURLToPath(new URL('../../schemas/bin/validate-asset.mjs', import.meta.url));
 function fixture(t) {
   const root = mkdtempSync(path.join(tmpdir(), 'asset-add-test-'));
-  const env = { ...process.env, AKARI_HOME: path.join(root, 'home'), AKARI_LIBRARY_ROOT: path.join(root, 'library'),
+  const env = { ...process.env, HOME: root, AKARI_HOME: path.join(root, 'home'), AKARI_LIBRARY_ROOT: path.join(root, 'library'),
     AKARI_CREATOR_ROOT: path.join(root, 'creator'), AKARI_ASSETS_CATALOG: path.join(root, 'missing-catalog.json') };
   const input = path.join(root, 'input');
   mkdirSync(input);
@@ -271,8 +271,8 @@ test('CLI plan/apply JSON round trip, without external media binaries', t => {
   const added = run(['--apply', planPath, '--json']);
   assert.equal(added.status, 0, added.stderr);
   assert.equal(JSON.parse(added.stdout).added.length, 1);
-  assert.equal(run(['--plan', '--apply', planPath]).status, 1);
-  assert.equal(run(['--apply']).status, 1);
+  assert.equal(run(['--plan', '--apply', planPath]).status, 2);
+  assert.equal(run(['--apply']).status, 2);
 });
 
 test('duplicate lookup reads legacy root but prefers new root for the same key', async t => {

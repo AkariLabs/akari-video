@@ -19,6 +19,8 @@ export function setupFixtureEnv(extraEnv = {}) {
   writeFileSync(catalogPath, `${JSON.stringify(catalog, null, 2)}\n`);
 
   const env = {
+    HOME: root,
+    AKARI_CREATOR_ROOT: path.join(root, 'creator'),
     AKARI_HOME: home,
     AKARI_ASSETS_CATALOG: catalogPath,
     ...extraEnv,

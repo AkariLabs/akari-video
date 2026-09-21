@@ -23,6 +23,41 @@ function flagValue(args, name) {
   return i >= 0 && i + 1 < args.length ? args[i + 1] : null;
 }
 
+// Validate the entire command before any handler can read or mutate user data.
+function validateArgs(sub, args) {
+  const specs = {
+    list: { values: ['--category', '--source'], flags: ['--json'], max: 0 },
+    add: { values: ['--apply'], flags: ['--plan', '--json'], max: Infinity },
+    fetch: { values: ['--project'], flags: ['--reference', '--force'], min: 1, max: 1 },
+    bundle: { values: ['--project'], flags: ['--dry-run'], max: 0 },
+    migrate: { values: [], flags: ['--dry-run'], max: 0 },
+    sync: { values: [], flags: [], max: 0 },
+    browse: { values: ['--port'], flags: [], max: 0 },
+  };
+  const spec = specs[sub];
+  if (!spec) throw new Error(`不明なコマンド: ${sub}`);
+  const seen = new Set();
+  const positional = [];
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i];
+    if (!arg.startsWith('-')) { positional.push(arg); continue; }
+    if (!spec.values.includes(arg) && !spec.flags.includes(arg)) throw new Error(`不明なオプション: ${arg}`);
+    if (seen.has(arg)) throw new Error(`重複したオプション: ${arg}`);
+    seen.add(arg);
+    if (spec.values.includes(arg) && (!args[++i] || args[i].startsWith('-'))) throw new Error(`${arg} には値が必要です`);
+  }
+  if (positional.length < (spec.min ?? 0) || positional.length > spec.max) throw new Error('引数の数が正しくありません');
+  if (sub === 'add' && (seen.has('--plan') === seen.has('--apply')
+    || (seen.has('--apply') ? positional.length !== 0 : positional.length === 0))) {
+    throw new Error('add は <path...> --plan または --apply <plan.json> を指定してください');
+  }
+  if (sub === 'bundle' && !seen.has('--project')) throw new Error('--project <dir> が必要です');
+  if (sub === 'fetch') {
+    if (args[0] !== positional[0]) throw new Error('fetch の先頭には素材 ID を指定してください');
+    if (seen.has('--reference') && !seen.has('--project')) throw new Error('--reference には --project <dir> が必要です');
+  }
+}
+
 const STATE_BADGE = { cached: '✓', locked: '¥', available: '☁' };
 
 function badgeOf(item) {
@@ -166,6 +201,18 @@ function printUsage() {
 async function main() {
   const [sub, ...rest] = process.argv.slice(2);
   const env = process.env;
+
+  if (!sub || process.argv.slice(2).some(arg => arg === '--help' || arg === '-h')) {
+    printUsage();
+    return;
+  }
+  try { validateArgs(sub, rest); }
+  catch (error) {
+    console.error(error.message);
+    printUsage();
+    process.exitCode = 2;
+    return;
+  }
 
   if (sub === 'migrate') {
     const result = await migrateAssetLibrary({ env, dryRun: rest.includes('--dry-run') });
