@@ -1,0 +1,88 @@
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
+import test from 'node:test';
+import ts from 'typescript';
+import { canPlaceLibraryAsset, resolveLibraryAssetMedia, RESOLVE_LIBRARY_MATERIAL_COMMAND_ID } from '../lib/common/library-asset-placement.js';
+const require = createRequire(import.meta.url);
+const URI = require('@theia/core/lib/common/uri').default;
+const source = ts.createSourceFile('widget.tsx', readFileSync(new URL('../src/browser/akari-role-buckets-widget.tsx', import.meta.url), 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+const widget = source.statements.find(node => ts.isClassDeclaration(node) && node.name?.text === 'AkariRoleBucketsWidget');
+const names = ['resolveCatalogMaterial', 'canDragCatalogAsset', 'handleCatalogAssetDragStart', 'addCatalogAssetAtPlayhead'];
+const code = ts.transpileModule(`class Handler { ${names.map(name => widget.members.find(member => member.name?.getText(source) === name).getText(source)).join('\n')} }`, { compilerOptions: { target: ts.ScriptTarget.ES2021 } }).outputText;
+const events = [];
+const Handler = new Function('URI', 'canPlaceLibraryAsset', 'resolveLibraryAssetMedia', 'RESOLVE_LIBRARY_MATERIAL_COMMAND_ID', 'TIMELINE_ADD_MATERIAL_AT_PLAYHEAD_COMMAND_ID', 'LIBRARY_DRAG_MIME', 'LIBRARY_DRAG_START_EVENT', 'window', 'CustomEvent', `${code}\nreturn Handler;`)(URI, canPlaceLibraryAsset, resolveLibraryAssetMedia, RESOLVE_LIBRARY_MATERIAL_COMMAND_ID, 'akari.timeline.addMaterialAtPlayhead', 'application/x-akari-library-item', 'akari.library.dragStart', { dispatchEvent: event => events.push(event) }, class { constructor(type, init) { this.type = type; this.detail = init.detail; } });
+const item = { origin: 'resolver', key: 'audio/sample', id: 'sample', category: 'audio', title: '素材', state: 'available', mediaUrl: 'https://example.test/b.mp3' };
+function fixture() {
+    const handler = new Handler(), calls = [], messages = [];
+    handler.workflow = { workspaceRoot: URI.fromFilePath('/project') };
+    handler.assetCatalogItems = [item];
+    handler.resolvingAssetKeys = new Set();
+    handler.update = () => {};
+    handler.loadMaterials = async () => {};
+    handler.messages = { warn: message => messages.push(message), error: message => messages.push(message) };
+    handler.projectService = { resolveAsset: async (...args) => { calls.push(args); return { success: true, projectAssetPath: '/project/assets/audio/sample' }; } };
+    handler.files = { resolve: async () => ({ children: ['a.mp3', 'b.mp3'].map(name => ({ name, isDirectory: false })) }) };
+    handler.toAssetBinChildren = stat => stat.children;
+    return { handler, calls, messages };
+}
+
+test('取得後は試聴ファイルをプロジェクト相対パスで返し、cached を更新する', async () => {
+    const { handler, calls } = fixture();
+    assert.deepEqual(await handler.resolveCatalogMaterial(item.key), { relativePath: 'assets/audio/sample/b.mp3', kind: 'audio' });
+    assert.deepEqual(calls, [['sample', 'file:///project']]);
+    assert.equal(handler.assetCatalogItems[0].state, 'cached');
+    assert.equal(handler.resolvingAssetKeys.size, 0);
+});
+
+for (const state of ['locked', 'missing', 'busy', 'failed', 'ambiguous']) {
+    test(`解決不可 (${state}) は配置用結果を返さず理由を表示する`, async () => {
+        const { handler, calls, messages } = fixture();
+        if (state === 'locked') handler.assetCatalogItems = [{ ...item, state: 'locked' }];
+        if (state === 'missing') handler.assetCatalogItems = [];
+        if (state === 'busy') handler.resolvingAssetKeys.add(item.key);
+        if (state === 'failed') handler.projectService.resolveAsset = async () => ({ success: false, error: 'offline' });
+        if (state === 'ambiguous') handler.assetCatalogItems = [{ ...item, mediaUrl: 'https://example.test/missing.mp3' }];
+        assert.equal(await handler.resolveCatalogMaterial(item.key), undefined);
+        assert.equal(messages.length, 1);
+        if (['locked', 'missing', 'busy'].includes(state)) assert.equal(calls.length, 0);
+    });
+}
+
+test('＋ は解決コマンドの結果を既存のプレイヘッド追加コマンドへ渡す', async () => {
+    const { handler } = fixture(), calls = [];
+    const material = { relativePath: 'assets/audio/sample/b.mp3', kind: 'audio' };
+    handler.commandService = { executeCommand: async (...args) => { calls.push(args); return material; } };
+    await handler.addCatalogAssetAtPlayhead(item);
+    assert.deepEqual(calls, [[RESOLVE_LIBRARY_MATERIAL_COMMAND_ID, item.key], ['akari.timeline.addMaterialAtPlayhead', material]]);
+});
+
+test('local はドラッグ不可で、コマンド直叩きも resolver を呼ばず拒否する', async () => {
+    const { handler, calls, messages } = fixture();
+    const localItem = { ...item, origin: 'local', state: undefined };
+    handler.assetCatalogItems = [localItem];
+    assert.equal(handler.canDragCatalogAsset(localItem), false);
+    let prevented = false;
+    handler.handleCatalogAssetDragStart({
+        preventDefault: () => { prevented = true; },
+        dataTransfer: { setData: () => assert.fail('local の payload は送信しない') }
+    }, localItem);
+    assert.equal(prevented, true);
+    assert.equal(await handler.resolveCatalogMaterial(localItem.key), undefined);
+    assert.deepEqual(calls, []);
+    assert.deepEqual(messages, ['この素材は直接置けません']);
+});
+
+test('カードのドラッグは同じ payload を MIME とミラーへ送り、locked・パック棚は拒否する', () => {
+    const { handler } = fixture();
+    let raw, prevented = false;
+    const event = { dataTransfer: { setData: (mime, value) => { assert.equal(mime, 'application/x-akari-library-item'); raw = value; } }, preventDefault: () => { prevented = true; } };
+    handler.handleCatalogAssetDragStart(event, item);
+    assert.deepEqual(JSON.parse(raw), { kind: 'asset', key: item.key, id: item.id, category: item.category, title: item.title });
+    assert.deepEqual(events.at(-1).detail, JSON.parse(raw));
+    assert.equal(event.dataTransfer.effectAllowed, 'copy');
+    handler.handleCatalogAssetDragStart(event, { ...item, state: 'locked' });
+    assert.equal(prevented, true);
+    handler.libraryCategory = 'pack';
+    assert.equal(handler.canDragCatalogAsset(item), false);
+});

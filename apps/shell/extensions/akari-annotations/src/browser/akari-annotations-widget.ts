@@ -284,6 +284,9 @@ import {
     filterSupportedTransitionBoundaries,
     hitTestTransitionBoundary,
     LibraryTransitionDragPayload,
+    LibraryAssetDragPayload,
+    parseLibraryDragPayload,
+    libraryAssetGhostPayload,
     parseLibraryTransitionDragPayload,
     TransitionBoundaryHitCandidate
 } from './library-drop-model';
@@ -1003,6 +1006,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected materialDragPayload: MaterialDragPayload | undefined;
     /** ライブラリの transition D&D 中だけ保持し、適用可能なカット境界の受け皿描画を有効にする。 */
     protected libraryDragPayload: LibraryTransitionDragPayload | undefined;
+    protected libraryAssetDragPayload: LibraryAssetDragPayload | undefined;
     protected materialDragLastClientX = 0;
     protected materialDragLastClientY = 0;
     protected materialDragAutoScrollPointerY: number | undefined;
@@ -2554,23 +2558,25 @@ export class AkariAnnotationsWidget extends BaseWidget {
         ));
 
         // ライブラリ D&D のミラー受信。未知 kind / 未知 transition id は純ロジック側で fail-soft に拒否し、
-        // 以前の有効ドラッグ状態も残さない。受理時だけ境界受け皿を keyed 描画へ加える。
+        // 以前の有効ドラッグ状態も残さない。素材は既存の素材ゴースト、transition は境界受け皿へ渡す。
         const onLibraryDragStart = (event: Event): void => {
-            const payload = parseLibraryTransitionDragPayload((event as CustomEvent<unknown>).detail);
-            this.setHoveredTransitionDropTarget(undefined);
-            if (!payload) {
-                this.clearLibraryTransitionDragState();
+            const payload = parseLibraryDragPayload((event as CustomEvent<unknown>).detail);
+            this.clearLibraryTransitionDragState();
+            if (payload?.kind === 'asset') {
+                this.libraryAssetDragPayload = payload;
+                this.materialDragPayload = libraryAssetGhostPayload(payload);
                 return;
             }
+            if (!payload) return;
             this.libraryDragPayload = payload;
             this.renderStrip();
         };
         const onLibraryDragEnd = (): void => this.clearLibraryTransitionDragState();
         const onWindowLibraryDrop = (): void => {
-            if (this.libraryDragPayload) queueMicrotask(() => this.clearLibraryTransitionDragState());
+            if (this.libraryDragPayload || this.libraryAssetDragPayload) queueMicrotask(() => this.clearLibraryTransitionDragState());
         };
         const onWindowLibraryDragLeave = (event: DragEvent): void => {
-            if (!this.libraryDragPayload || event.relatedTarget !== null) return;
+            if ((!this.libraryDragPayload && !this.libraryAssetDragPayload) || event.relatedTarget !== null) return;
             const outsideViewport = event.clientX <= 0 || event.clientY <= 0
                 || event.clientX >= window.innerWidth || event.clientY >= window.innerHeight;
             if (outsideViewport) this.clearLibraryTransitionDragState();
@@ -5261,7 +5267,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected isMaterialDragTransfer(transfer: DataTransfer | null): boolean {
-        return !!transfer && transfer.types.includes(MATERIAL_DRAG_MIME);
+        return !!transfer && (transfer.types.includes(MATERIAL_DRAG_MIME)
+            || (transfer.types.includes(LIBRARY_DRAG_MIME) && this.readLibraryAssetDropPayload(transfer) !== undefined));
     }
 
     protected materialPanelDropPoint(pointerX: number, pointerY: number): TimelinePanelDropPoint {
@@ -5401,7 +5408,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
         }
         event.preventDefault();
         event.stopPropagation();
-        const payload = this.readMaterialDropPayload(event.dataTransfer) ?? this.materialDragPayload;
+        const libraryAsset = this.readLibraryAssetDropPayload(event.dataTransfer);
+        const payload = libraryAsset ? libraryAssetGhostPayload(libraryAsset)
+            : this.readMaterialDropPayload(event.dataTransfer) ?? this.materialDragPayload;
         this.hideMaterialGhost();
         this.materialDragPayload = undefined;
         if (!payload) {
@@ -5412,6 +5421,16 @@ export class AkariAnnotationsWidget extends BaseWidget {
         const lockedTrackId = target.targetTrackId;
         if (this.isTrackLocked(lockedTrackId)) {
             this.showLockedTrack(lockedTrackId, event);
+            return;
+        }
+        if (libraryAsset) {
+            this.clearLibraryTransitionDragState();
+            if (target.rejected) {
+                this.footer.textContent = target.reason || '素材をここには置けません。';
+                this.messages.warn(this.footer.textContent);
+                return;
+            }
+            void this.placeLibraryAssetAtTarget(libraryAsset, target, point.x, point.zone);
             return;
         }
         void this.placeMaterialAtTarget(payload, target, point.x, point.zone);
@@ -5480,8 +5499,46 @@ export class AkariAnnotationsWidget extends BaseWidget {
         }
     }
 
+    protected readLibraryAssetDropPayload(transfer: DataTransfer | null): LibraryAssetDragPayload | undefined {
+        if (!transfer?.types.includes(LIBRARY_DRAG_MIME)) return undefined;
+        const raw = transfer.getData(LIBRARY_DRAG_MIME);
+        const payload = raw ? parseLibraryDragPayload(raw) : this.libraryAssetDragPayload;
+        return payload?.kind === 'asset' ? payload : undefined;
+    }
+
+    protected async placeLibraryAssetAtTarget(
+        asset: LibraryAssetDragPayload,
+        target: ReturnType<AkariAnnotationsWidget['resolveMaterialDropTarget']>,
+        clientX: number,
+        panelZone: TimelinePanelDropZone
+    ): Promise<void> {
+        const editUri = this.location?.editUri?.toString();
+        try {
+            const resolved = await this.commands.executeCommand<unknown>('akari.catalog.resolveMaterial', asset.key);
+            // 解決側は取得失敗・配置不可の理由をトーストに出す。
+            if (!resolved) return;
+            const payload = parseMaterialDragPayload(resolved);
+            if (!payload || payload.kind !== libraryAssetGhostPayload(asset).kind) {
+                this.messages.warn('この素材は直接置けません');
+                return;
+            }
+            if (this.location?.editUri?.toString() !== editUri) {
+                this.messages.warn('プロジェクトが切り替わったため、素材を追加しませんでした。');
+                return;
+            }
+            if (this.isTrackLocked(target.targetTrackId)) {
+                this.showLockedTrack(target.targetTrackId);
+                return;
+            }
+            await this.placeMaterialAtTarget(payload, target, clientX, panelZone);
+        } catch (error) {
+            this.messages.error(`素材を追加できません: ${this.errorMessage(error)}`);
+        }
+    }
+
     protected isLibraryTransitionDragTransfer(transfer: DataTransfer | null): boolean {
-        return !!transfer && transfer.types.includes(LIBRARY_DRAG_MIME);
+        return !!transfer && transfer.types.includes(LIBRARY_DRAG_MIME)
+            && !this.readLibraryAssetDropPayload(transfer);
     }
 
     protected handleLibraryTransitionDragEnter(event: DragEvent): void {
@@ -5587,6 +5644,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected clearLibraryTransitionDragState(): void {
+        if (this.libraryAssetDragPayload) {
+            this.libraryAssetDragPayload = undefined;
+            this.materialDragPayload = undefined;
+            this.stopMaterialDragAutoScroll();
+            this.hideMaterialGhost();
+        }
         const hadPayload = this.libraryDragPayload !== undefined;
         this.libraryDragPayload = undefined;
         this.setHoveredTransitionDropTarget(undefined);

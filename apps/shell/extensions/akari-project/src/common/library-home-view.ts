@@ -36,8 +36,8 @@ export const LIBRARY_GROUPS = [
             { key: 'sfx', label: 'SFX', icon: '♫', hint: TIMELINE_ADD_HINT, status: 'live', chipKey: 'audio:sfx' },
             { key: 'broll', label: 'B-roll', icon: '▶', hint: TIMELINE_ADD_HINT, status: 'live', chipKey: 'broll' },
             { key: 'image', label: '画像', icon: '▦', hint: TIMELINE_ADD_HINT, status: 'live', chipKey: 'still' },
-            { key: 'overlay', label: 'オーバーレイ', icon: '✦', hint: TIMELINE_ADD_HINT, status: 'live', chipKey: 'overlay' },
-            { key: 'scene3d', label: '3D・アバター', icon: '⬡', hint: TIMELINE_ADD_HINT, status: 'live', chipKey: 'scene3d' },
+            { key: 'overlay', label: 'オーバーレイ', icon: '✦', hint: '「使う」でプロジェクトに追加', status: 'live', chipKey: 'overlay' },
+            { key: 'scene3d', label: '3D・アバター', icon: '⬡', hint: '「使う」でプロジェクトに追加', status: 'live', chipKey: 'scene3d' },
             { key: 'pack', label: 'パック', icon: '▤', hint: 'パック内の素材をまとめて取り込み', status: 'live' }
         ]
     },

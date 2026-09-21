@@ -21,7 +21,7 @@ const names = [
   'moveTimelineKeyframe', 'removeSelectedKeyframes', 'moveAggregateKeyframes', 'deleteTimelineTrack',
   'commitDrag', 'commitEditV2Drag', 'installDragListeners', 'installTrimmerDrag',
   'installAudioTrimmerDrag', 'installTreeRowDrag', 'selectionFromDragState',
-  'handleMaterialDrop', 'resolveMaterialDropTarget', 'updateMaterialGhost',
+  'handleMaterialDrop', 'readLibraryAssetDropPayload', 'resolveMaterialDropTarget', 'updateMaterialGhost',
   'handleLibraryTransitionDrop', 'handleLibraryTransitionDragOver', 'applyTrackLockAppearance',
   'timelineSelectionFromElement',
   'visualTrack',

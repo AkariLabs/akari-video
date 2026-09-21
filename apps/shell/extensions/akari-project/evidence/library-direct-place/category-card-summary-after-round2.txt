@@ -1,0 +1,4 @@
+BGM {"cards":121,"summary":{"draggable=true add=1 state=available":110,"draggable=false add=0 state=local":10,"draggable=true add=1 state=cached":1},"hint":"タイムラインへドラッグ、＋でプレイヘッド位置に追加"}
+SFX {"cards":96,"summary":{"draggable=false add=0 state=local":19,"draggable=true add=1 state=cached":2,"draggable=true add=1 state=available":75},"hint":"タイムラインへドラッグ、＋でプレイヘッド位置に追加"}
+B-roll {"cards":2,"summary":{"draggable=false add=0 state=local":1,"draggable=true add=1 state=cached":1},"hint":"タイムラインへドラッグ、＋でプレイヘッド位置に追加"}
+画像 {"cards":161,"summary":{"draggable=true add=1 state=available":160,"draggable=true add=1 state=cached":1},"hint":"タイムラインへドラッグ、＋でプレイヘッド位置に追加"}

@@ -5,6 +5,9 @@ import {
   filterSupportedTransitionBoundaries,
   hitTestTransitionBoundary,
   parseLibraryTransitionDragPayload,
+  parseLibraryDragPayload,
+  libraryAssetMaterialKind,
+  libraryAssetGhostPayload,
 } from '../lib/browser/library-drop-model.js';
 
 test('ライブラリの transition payload は正準語彙だけを受理する', () => {
@@ -64,4 +67,27 @@ test('unsupported 集合に含まれる境界を適用候補から除外する',
     filterSupportedTransitionBoundaries(boundaries, new Set([2, 4])),
     [boundaries[0]],
   );
+});
+
+for (const [category, kind] of [['audio', 'audio'], ['broll', 'video'], ['still', 'image']]) {
+  test(`asset payload: ${category} を ${kind} の既定尺ゴーストへ変換`, () => {
+    const payload = { kind: 'asset', key: `${category}/sample`, id: 'sample', category, title: '素材' };
+    assert.equal(libraryAssetMaterialKind(category), kind);
+    for (const input of [payload, JSON.stringify(payload)]) assert.deepEqual(parseLibraryDragPayload(input), payload);
+    assert.deepEqual(libraryAssetGhostPayload(payload), { kind, relativePath: `library:${category}/sample`, name: '素材' });
+  });
+}
+
+test('直和パーサは transition を引き続き受理する', () => {
+  const payload = { kind: 'transition', id: 'dissolve', name: 'ディゾルブ' };
+  assert.deepEqual(parseLibraryDragPayload(JSON.stringify(payload)), payload);
+});
+
+test('asset payload の未知 kind・対象外・locked・不正な必須値を拒否する', () => {
+  const payload = { kind: 'asset', key: 'audio/sample', id: 'sample', category: 'audio', title: '素材' };
+  const invalid = [null, [], 1, '{', { ...payload, kind: 'unknown' }, { ...payload, state: 'locked' },
+    { ...payload, key: 'broll/sample' }, { ...payload, id: '' }, { ...payload, title: ' ' },
+    { ...payload, key: 4 }, { ...payload, category: 'overlay' }, { ...payload, category: 'font' }];
+  for (const input of invalid) assert.equal(parseLibraryDragPayload(input), undefined);
+  for (const category of ['overlay', 'scene3d', 'font', 'pack', 'unknown']) assert.equal(libraryAssetMaterialKind(category), undefined);
 });

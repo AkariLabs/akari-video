@@ -1,0 +1,25 @@
+{
+ "key": "audio/sfx-pop-bubble-big",
+ "mode": "body",
+ "target": {
+  "x": 290.3671875,
+  "y": 180.6953125,
+  "label": "☁",
+  "aria": null
+ },
+ "at": "2026-09-21T10:35:20.229Z",
+ "playheadBefore": null,
+ "waitMs": 6016,
+ "editChanged": false,
+ "newItems": [],
+ "newSfx": [],
+ "newSources": [],
+ "tracksAfter": [
+  "v2:visual",
+  "v1:visual",
+  "a1:audio"
+ ],
+ "toasts": [
+  "この素材は直接置けません"
+ ]
+}

@@ -1,0 +1,68 @@
+{
+ "key": "broll/laptop-typing-closeup",
+ "drop": {
+  "x": 709,
+  "y": 399
+ },
+ "at": "2026-09-21T10:46:08.472Z",
+ "card": {
+  "x": 212.52734375,
+  "y": 179.6953125,
+  "draggable": "true",
+  "state": "local"
+ },
+ "assetDirBefore": false,
+ "dragIntercepted": true,
+ "mimeTypes": [
+  "application/x-akari-library-item"
+ ],
+ "payload": {
+  "kind": "asset",
+  "key": "broll/laptop-typing-closeup",
+  "id": "laptop-typing-closeup",
+  "category": "broll",
+  "title": "ノート PC タイピング クローズアップ"
+ },
+ "duringDrag": {
+  "ghosts": [
+   {
+    "x": 709,
+    "y": 374,
+    "w": 140,
+    "h": 48,
+    "rejected": false,
+    "insertion": null
+   }
+  ],
+  "footer": []
+ },
+ "waitMs": 10022,
+ "editChanged": false,
+ "itemsBefore": 2,
+ "itemsAfter": 2,
+ "tracksBefore": [
+  "v1:visual",
+  "a1:audio"
+ ],
+ "tracksAfter": [
+  "v1:visual",
+  "a1:audio"
+ ],
+ "newItems": [],
+ "newSources": [],
+ "sfxBefore": 0,
+ "sfxAfter": 0,
+ "assetDirAfter": null,
+ "afterDrop": {
+  "ghosts": [],
+  "footer": [
+   "素材を取得できませんでした: 未知の素材 id です: laptop-typing-closeup"
+  ]
+ },
+ "toasts": [
+  "素材を取得できませんでした: 未知の素材 id です: akari-sounds-sfx",
+  "素材を取得できませんでした: 未知の素材 id です: akari-sounds-sfx",
+  "素材を取得できませんでした: 未知の素材 id です: laptop-typing-closeup",
+  "素材を取得できませんでした: 未知の素材 id です: laptop-typing-closeup"
+ ]
+}

@@ -71,6 +71,7 @@ import {
     summarizeCatalogPackDistribution
 } from '../common/asset-catalog-view';
 import { AssetBinChildNode, isAssetBinGroupDirectory } from '../common/asset-bin-grouping';
+import { canPlaceLibraryAsset, resolveLibraryAssetMedia, RESOLVE_LIBRARY_MATERIAL_COMMAND_ID } from '../common/library-asset-placement';
 import { classifyMaterialKind, MaterialKind, resolveAssetGroupMedia } from '../common/asset-group-media';
 import { materialCardLayout } from '../common/material-card-layout';
 import { CatalogPack } from '../common/catalog-packs';
@@ -1823,6 +1824,87 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         }
     }
 
+    /** カタログ key を既存 resolver で取り込み、配置可能な主メディアだけ返す。 */
+    async resolveCatalogMaterial(key: string): Promise<{ relativePath: string; kind: MaterialKind } | undefined> {
+        const root = this.workflow.workspaceRoot;
+        if (!root) {
+            this.messages.warn('先にプロジェクトを開いてください。');
+            return undefined;
+        }
+        const item = this.assetCatalogItems.find(entry => entry.key === key);
+        if (!item || !canPlaceLibraryAsset(item)) {
+            this.messages.warn(item?.state === 'locked' ? '未購入の素材は直接置けません。' : 'この素材は直接置けません');
+            return undefined;
+        }
+        if (this.resolvingAssetKeys.has(key)) {
+            this.messages.warn('素材を取得中です。完了してからもう一度追加してください。');
+            return undefined;
+        }
+        this.resolvingAssetKeys.add(key);
+        this.update();
+        try {
+            const outcome = await this.projectService.resolveAsset(item.id, root.toString());
+            if (outcome.success === false) {
+                this.messages.error(`素材を取得できませんでした: ${outcome.error}`);
+                return undefined;
+            }
+            if (this.workflow.workspaceRoot?.toString() !== root.toString()) {
+                this.messages.warn('プロジェクトが切り替わったため、素材を追加しませんでした。');
+                return undefined;
+            }
+            const directory = URI.fromFilePath(outcome.projectAssetPath);
+            const stat = await this.files.resolve(directory);
+            const media = resolveLibraryAssetMedia(item, this.toAssetBinChildren(stat));
+            this.assetCatalogItems = this.assetCatalogItems.map(entry =>
+                entry.key === key ? { ...entry, state: 'cached' } : entry
+            );
+            void this.loadMaterials();
+            if (media.kind === 'other' || !media.mediaName) {
+                this.messages.warn('この素材は直接置けません');
+                return undefined;
+            }
+            const relativePath = root.relative(directory.resolve(media.mediaName))?.toString();
+            if (!relativePath) {
+                this.messages.error('素材のプロジェクト内パスを解決できませんでした。');
+                return undefined;
+            }
+            return { relativePath, kind: media.kind };
+        } catch (error) {
+            this.messages.error(`素材を取得できませんでした: ${error instanceof Error ? error.message : String(error)}`);
+            return undefined;
+        } finally {
+            this.resolvingAssetKeys.delete(key);
+            this.update();
+        }
+    }
+
+    protected canDragCatalogAsset(item: AssetCatalogViewItem): boolean {
+        return this.libraryCategory !== 'pack' && canPlaceLibraryAsset(item);
+    }
+
+    protected handleCatalogAssetDragStart(event: React.DragEvent<HTMLElement>, item: AssetCatalogViewItem): void {
+        if (!this.canDragCatalogAsset(item)) {
+            event.preventDefault();
+            return;
+        }
+        const { key, id, category, title } = item;
+        const payload = { kind: 'asset', key, id, category, title };
+        event.dataTransfer.setData(LIBRARY_DRAG_MIME, JSON.stringify(payload));
+        event.dataTransfer.effectAllowed = 'copy';
+        window.dispatchEvent(new CustomEvent(LIBRARY_DRAG_START_EVENT, { detail: payload }));
+    }
+
+    protected async addCatalogAssetAtPlayhead(item: AssetCatalogViewItem): Promise<void> {
+        try {
+            const material = await this.commandService.executeCommand<{ relativePath: string; kind: MaterialKind } | undefined>(
+                RESOLVE_LIBRARY_MATERIAL_COMMAND_ID, item.key
+            );
+            if (material) await this.commandService.executeCommand(TIMELINE_ADD_MATERIAL_AT_PLAYHEAD_COMMAND_ID, material);
+        } catch (error) {
+            this.messages.error(`素材を追加できません: ${error instanceof Error ? error.message : String(error)}`);
+        }
+    }
+
     // --- ドロップ振り分け -----------------------------------------------------
 
     /**
@@ -3149,9 +3231,19 @@ export class AkariRoleBucketsWidget extends ReactWidget {
             fontSize: '0.78em',
             padding: '2px 4px'
         };
+        const addButton = this.canDragCatalogAsset(item) ? (
+            <button type='button' className='theia-button secondary'
+                data-akari-catalog-action='add' aria-label={`${item.title} をプレイヘッド位置に追加`}
+                title='プレイヘッド位置に追加' disabled={this.resolvingAssetKeys.has(item.key)}
+                style={buttonStyle}
+                onClick={event => { event.stopPropagation(); void this.addCatalogAssetAtPlayhead(item); }}>
+                ＋
+            </button>
+        ) : undefined;
         if (item.origin === 'local') {
             return (
                 <div data-akari-catalog-actions style={actionRowStyle}>
+                    {addButton}
                     {!item.installed && (
                         <button
                             type='button'
@@ -3202,6 +3294,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         const resolving = this.resolvingAssetKeys.has(item.key);
         return (
             <div data-akari-catalog-actions style={actionRowStyle}>
+                {addButton}
                 <button
                     type='button'
                     className='theia-button'
@@ -3344,6 +3437,9 @@ export class AkariRoleBucketsWidget extends ReactWidget {
             <div
                 key={item.key}
                 title={item.title}
+                draggable={this.canDragCatalogAsset(item)}
+                onDragStart={event => this.handleCatalogAssetDragStart(event, item)}
+                onDragEnd={() => this.handleLibraryTransitionDragEnd()}
                 data-akari-catalog-item={item.key}
                 data-akari-catalog-item-state={item.state ?? 'local'}
                 data-akari-catalog-list-row
@@ -3420,6 +3516,9 @@ export class AkariRoleBucketsWidget extends ReactWidget {
             <div
                 key={item.key}
                 title={item.title}
+                draggable={this.canDragCatalogAsset(item)}
+                onDragStart={event => this.handleCatalogAssetDragStart(event, item)}
+                onDragEnd={() => this.handleLibraryTransitionDragEnd()}
                 data-akari-catalog-item={item.key}
                 data-akari-catalog-item-state={item.state ?? 'local'}
                 // docs/contract-2026-08-11-review-session-ui-events.md #2: asset:<catalog key> opt-in target.

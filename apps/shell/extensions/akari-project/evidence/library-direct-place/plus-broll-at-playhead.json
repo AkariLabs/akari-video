@@ -1,0 +1,43 @@
+{
+ "key": "broll/talkinghead-desk-ja-01",
+ "mode": "plus",
+ "target": {
+  "x": 188.0859375,
+  "y": 303.515625,
+  "label": "＋",
+  "aria": "自宅デスクのトーキングヘッド（日本語・37.6 秒） をプレイヘッド位置に追加"
+ },
+ "at": "2026-09-21T10:35:54.441Z",
+ "playheadBefore": null,
+ "waitMs": 3008,
+ "editChanged": true,
+ "newItems": [
+  {
+   "track": "v2",
+   "id": "clip-1",
+   "at": 61,
+   "duration": 1128,
+   "source": {
+    "kind": "media",
+    "src": "src-1",
+    "in": 0,
+    "out": 37.6
+   }
+  }
+ ],
+ "newSfx": [],
+ "newSources": [
+  {
+   "id": "src-1",
+   "path": "assets/broll/talkinghead-desk-ja-01/clip.mp4"
+  }
+ ],
+ "tracksAfter": [
+  "v2:visual",
+  "v1:visual",
+  "a1:audio"
+ ],
+ "toasts": [
+  "この素材は直接置けません"
+ ]
+}

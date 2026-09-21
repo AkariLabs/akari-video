@@ -1,0 +1,51 @@
+{
+ "card": "assets/video/raw-clip.mp4",
+ "drop": {
+  "x": 709,
+  "y": 424
+ },
+ "at": "2026-09-21T10:36:12.890Z",
+ "cardDraggable": "true",
+ "dragIntercepted": true,
+ "mimeTypes": [
+  "application/x-akari-material"
+ ],
+ "payload": {
+  "relativePath": "assets/video/raw-clip.mp4",
+  "kind": "video"
+ },
+ "itemsBefore": 1,
+ "itemsAfter": 2,
+ "tracksBefore": [
+  "v2:visual",
+  "v1:visual",
+  "a1:audio"
+ ],
+ "tracksAfter": [
+  "v2:visual",
+  "v1:visual",
+  "a1:audio"
+ ],
+ "newItems": [
+  {
+   "track": "v2",
+   "lane": "visual",
+   "id": "clip-1",
+   "at": 90,
+   "duration": 120,
+   "source": {
+    "kind": "media",
+    "src": "src-1",
+    "in": 0,
+    "out": 4
+   }
+  }
+ ],
+ "newSources": [
+  {
+   "id": "src-1",
+   "path": "assets/video/raw-clip.mp4"
+  }
+ ],
+ "footer": "タイムラインに素材を追加しました。"
+}

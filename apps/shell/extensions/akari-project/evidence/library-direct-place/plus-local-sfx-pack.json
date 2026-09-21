@@ -1,0 +1,26 @@
+{
+ "key": "audio/akari-sounds-sfx",
+ "mode": "plus",
+ "target": {
+  "x": 85.0703125,
+  "y": 324.6953125,
+  "label": "＋",
+  "aria": "AKARI Sounds 効果音（v0） をプレイヘッド位置に追加"
+ },
+ "at": "2026-09-21T10:44:41.344Z",
+ "playheadBefore": null,
+ "waitMs": 10028,
+ "editChanged": false,
+ "newItems": [],
+ "newSfx": [],
+ "newSources": [],
+ "tracksAfter": [
+  "v1:visual",
+  "a1:audio"
+ ],
+ "toasts": [
+  "保存後の検証で問題が見つかりました: [v2.track-no-overlap] item overlaps 0 on the same track",
+  "1 本の動画をタイムラインに置きました。",
+  "素材を取得できませんでした: 未知の素材 id です: akari-sounds-sfx"
+ ]
+}

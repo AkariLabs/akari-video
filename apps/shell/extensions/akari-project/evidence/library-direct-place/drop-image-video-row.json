@@ -1,0 +1,80 @@
+{
+ "key": "still/bg-aurora-mesh",
+ "drop": {
+  "x": 709,
+  "y": 424
+ },
+ "at": "2026-09-21T10:33:23.019Z",
+ "card": {
+  "x": 104.33984375,
+  "y": 313.203125,
+  "draggable": "true",
+  "state": "available"
+ },
+ "assetDirBefore": false,
+ "dragIntercepted": true,
+ "mimeTypes": [
+  "text/uri-list",
+  "text/html",
+  "application/x-akari-library-item"
+ ],
+ "payload": {
+  "kind": "asset",
+  "key": "still/bg-aurora-mesh",
+  "id": "bg-aurora-mesh",
+  "category": "still",
+  "title": "オーロラメッシュ背景"
+ },
+ "duringDrag": {
+  "ghosts": [
+   {
+    "x": 709,
+    "y": 398,
+    "w": 240,
+    "h": 50,
+    "rejected": false,
+    "insertion": null
+   }
+  ],
+  "footer": [
+   "音のレーンには映像を置けません。"
+  ]
+ },
+ "waitMs": 30082,
+ "editChanged": false,
+ "itemsBefore": 1,
+ "itemsAfter": 1,
+ "tracksBefore": [
+  "v2:visual",
+  "v1:visual",
+  "a1:audio"
+ ],
+ "tracksAfter": [
+  "v2:visual",
+  "v1:visual",
+  "a1:audio"
+ ],
+ "newItems": [],
+ "newSources": [],
+ "sfxBefore": 0,
+ "sfxAfter": 0,
+ "assetDirAfter": [
+  "bg.png",
+  "fragment.html",
+  "meta.json",
+  "preview.png"
+ ],
+ "afterDrop": {
+  "ghosts": [],
+  "footer": [
+   "音のレーンには映像を置けません。",
+   "この素材は直接置けません"
+  ]
+ },
+ "toasts": [
+  "この素材は直接置けません",
+  "この素材は直接置けません",
+  "この素材は直接置けません",
+  "この素材は直接置けません"
+ ]
+}

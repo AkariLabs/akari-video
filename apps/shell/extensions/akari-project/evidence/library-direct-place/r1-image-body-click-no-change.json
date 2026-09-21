@@ -1,0 +1,23 @@
+{
+ "key": "still/br-camera-gear",
+ "mode": "body",
+ "target": {
+  "x": 86,
+  "y": 338.6953125,
+  "label": "",
+  "aria": null
+ },
+ "at": "2026-09-21T11:16:17.026Z",
+ "playheadBefore": null,
+ "waitMs": 6013,
+ "editChanged": false,
+ "newItems": [],
+ "newSfx": [],
+ "newSources": [],
+ "tracksAfter": [
+  "v2:visual",
+  "v1:visual",
+  "a1:audio"
+ ],
+ "toasts": []
+}
