@@ -1,0 +1,34 @@
+{
+ "file": "/tmp/mdno-l1/os-drop-overlap.mp4",
+ "drop": {
+  "x": 395,
+  "y": 427
+ },
+ "waitMs": 3324,
+ "newItems": [
+  {
+   "track": "v2",
+   "id": "clip-1",
+   "at": 34,
+   "duration": 60,
+   "source": {
+    "kind": "media",
+    "src": "src-1",
+    "in": 0,
+    "out": 2
+   }
+  }
+ ],
+ "newSources": [
+  {
+   "id": "src-1",
+   "path": "assets/os-drop-overlap.mp4"
+  }
+ ],
+ "tracksAfter": [
+  "v1:visual",
+  "v2:visual",
+  "a1:audio"
+ ],
+ "footer": "タイムラインに素材を追加しました。重なりを避けて新しいトラックに置きました。"
+}

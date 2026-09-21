@@ -1,0 +1,163 @@
+{
+ "src": "proj:assets/video/raw-clip.mp4",
+ "points": [
+  [
+   472,
+   400
+  ],
+  [
+   600,
+   400
+  ],
+  [
+   472,
+   400
+  ]
+ ],
+ "at": "2026-09-21T11:36:07.306Z",
+ "shaBefore": "8c75f5b4d674940994b933147dfd9673a594594c1628fdb7faea42e0a8303111",
+ "tracksBefore": [
+  {
+   "id": "v2",
+   "lane": "visual",
+   "items": []
+  },
+  {
+   "id": "v1",
+   "lane": "visual",
+   "items": [
+    "cut-1@0+180"
+   ]
+  },
+  {
+   "id": "a1",
+   "lane": "audio",
+   "items": []
+  }
+ ],
+ "hovers": [
+  {
+   "x": 472,
+   "y": 400,
+   "ghost": {
+    "x": 472,
+    "y": 375,
+    "w": 140,
+    "h": 48,
+    "insertionPreview": true,
+    "border": "2px solid rgb(249, 115, 22)"
+   },
+   "insertLine": {
+    "x": 364,
+    "y": 375,
+    "w": 248,
+    "h": 2
+   },
+   "footer": "重なるので新しいトラックに置きます"
+  },
+  {
+   "x": 600,
+   "y": 400,
+   "ghost": {
+    "x": 600,
+    "y": 375,
+    "w": 12,
+    "h": 48,
+    "insertionPreview": false,
+    "border": "1px dashed rgb(77, 208, 200)"
+   },
+   "insertLine": null,
+   "footer": ""
+  },
+  {
+   "x": 472,
+   "y": 400,
+   "ghost": {
+    "x": 472,
+    "y": 375,
+    "w": 140,
+    "h": 48,
+    "insertionPreview": true,
+    "border": "2px solid rgb(249, 115, 22)"
+   },
+   "insertLine": {
+    "x": 364,
+    "y": 375,
+    "w": 248,
+    "h": 2
+   },
+   "footer": "重なるので新しいトラックに置きます"
+  }
+ ],
+ "card": {
+  "x": 86.4765625,
+  "y": 198.921875,
+  "draggable": "true"
+ },
+ "dragIntercepted": true,
+ "mimeTypes": [
+  "application/x-akari-material"
+ ],
+ "waitMs": 500,
+ "editChanged": true,
+ "tracksAfter": [
+  {
+   "id": "v2",
+   "lane": "visual",
+   "items": []
+  },
+  {
+   "id": "v1",
+   "lane": "visual",
+   "items": [
+    "cut-1@0+180"
+   ]
+  },
+  {
+   "id": "v3",
+   "lane": "visual",
+   "items": [
+    "clip-1@92+120"
+   ]
+  },
+  {
+   "id": "a1",
+   "lane": "audio",
+   "items": []
+  }
+ ],
+ "afterDrop": {
+  "ghost": null,
+  "insertLine": null,
+  "footer": "タイムラインに素材を追加しました。重なりを避けて新しいトラックに置きました。"
+ },
+ "toasts": [],
+ "lint": {
+  "verdict": "pass",
+  "overlap": []
+ },
+ "undo": {
+  "presses": 1,
+  "shaAfterUndo": "8c75f5b4d674940994b933147dfd9673a594594c1628fdb7faea42e0a8303111",
+  "byteIdentical": true,
+  "tracksAfterUndo": [
+   {
+    "id": "v2",
+    "lane": "visual",
+    "items": []
+   },
+   {
+    "id": "v1",
+    "lane": "visual",
+    "items": [
+     "cut-1@0+180"
+    ]
+   },
+   {
+    "id": "a1",
+    "lane": "audio",
+    "items": []
+   }
+  ]
+ }
+}

@@ -1,0 +1,111 @@
+{
+ "src": "lib:broll/talkinghead-desk-ja-01",
+ "points": [
+  [
+   435,
+   427
+  ]
+ ],
+ "at": "2026-09-21T11:39:49.373Z",
+ "shaBefore": "d8411d057ec94c0419eb2aab22ef06e4e4b827cd7d2ef233b7b0f54c2eea174b",
+ "tracksBefore": [
+  {
+   "id": "v1",
+   "lane": "visual",
+   "items": [
+    "cut-1@0+60",
+    "cut-2@180+60"
+   ]
+  },
+  {
+   "id": "a1",
+   "lane": "audio",
+   "items": [
+    "bell-1@60+76"
+   ]
+  }
+ ],
+ "hovers": [
+  {
+   "x": 435,
+   "y": 427,
+   "ghost": {
+    "x": 435,
+    "y": 401,
+    "w": 83,
+    "h": 48,
+    "insertionPreview": false,
+    "border": "1px dashed rgb(77, 208, 200)"
+   },
+   "insertLine": null,
+   "footer": "音声素材を追加を元に戻しました。"
+  }
+ ],
+ "card": {
+  "x": 130.453125,
+  "y": 197.390625,
+  "draggable": "true"
+ },
+ "dragIntercepted": true,
+ "mimeTypes": [
+  "application/x-akari-library-item"
+ ],
+ "waitMs": 504,
+ "editChanged": true,
+ "tracksAfter": [
+  {
+   "id": "v1",
+   "lane": "visual",
+   "items": [
+    "cut-1@0+60",
+    "cut-2@180+60"
+   ]
+  },
+  {
+   "id": "v2",
+   "lane": "visual",
+   "items": [
+    "clip-1@77+1128"
+   ]
+  },
+  {
+   "id": "a1",
+   "lane": "audio",
+   "items": [
+    "bell-1@60+76"
+   ]
+  }
+ ],
+ "afterDrop": {
+  "ghost": null,
+  "insertLine": null,
+  "footer": "タイムラインに素材を追加しました。重なりを避けて新しいトラックに置きました。"
+ },
+ "toasts": [],
+ "lint": {
+  "verdict": "pass",
+  "overlap": []
+ },
+ "undo": {
+  "presses": 1,
+  "shaAfterUndo": "d8411d057ec94c0419eb2aab22ef06e4e4b827cd7d2ef233b7b0f54c2eea174b",
+  "byteIdentical": true,
+  "tracksAfterUndo": [
+   {
+    "id": "v1",
+    "lane": "visual",
+    "items": [
+     "cut-1@0+60",
+     "cut-2@180+60"
+    ]
+   },
+   {
+    "id": "a1",
+    "lane": "audio",
+    "items": [
+     "bell-1@60+76"
+    ]
+   }
+  ]
+ }
+}

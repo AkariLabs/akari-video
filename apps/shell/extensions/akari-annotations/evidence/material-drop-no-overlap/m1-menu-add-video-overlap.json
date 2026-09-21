@@ -1,0 +1,98 @@
+{
+ "src": "menu:assets/video/raw-clip.mp4",
+ "points": [],
+ "at": "2026-09-21T11:38:42.895Z",
+ "shaBefore": "8c75f5b4d674940994b933147dfd9673a594594c1628fdb7faea42e0a8303111",
+ "tracksBefore": [
+  {
+   "id": "v2",
+   "lane": "visual",
+   "items": []
+  },
+  {
+   "id": "v1",
+   "lane": "visual",
+   "items": [
+    "cut-1@0+180"
+   ]
+  },
+  {
+   "id": "a1",
+   "lane": "audio",
+   "items": []
+  }
+ ],
+ "hovers": [],
+ "menu": {
+  "labels": [
+   "開く",
+   "タイムラインに追加",
+   "Finder で表示",
+   "ファイルをコピー",
+   "パスをコピー",
+   "素材の情報を表示",
+   "文字起こし",
+   "名前を変更…",
+   "削除…",
+   "エージェントに頼む…"
+  ],
+  "clicked": true
+ },
+ "waitMs": 2507,
+ "editChanged": true,
+ "tracksAfter": [
+  {
+   "id": "v2",
+   "lane": "visual",
+   "items": [
+    "clip-1@0+120"
+   ]
+  },
+  {
+   "id": "v1",
+   "lane": "visual",
+   "items": [
+    "cut-1@0+180"
+   ]
+  },
+  {
+   "id": "a1",
+   "lane": "audio",
+   "items": []
+  }
+ ],
+ "afterDrop": {
+  "ghost": null,
+  "insertLine": null,
+  "footer": "タイムラインに素材を追加しました。"
+ },
+ "toasts": [],
+ "lint": {
+  "verdict": "pass",
+  "overlap": []
+ },
+ "undo": {
+  "presses": 1,
+  "shaAfterUndo": "8c75f5b4d674940994b933147dfd9673a594594c1628fdb7faea42e0a8303111",
+  "byteIdentical": true,
+  "tracksAfterUndo": [
+   {
+    "id": "v2",
+    "lane": "visual",
+    "items": []
+   },
+   {
+    "id": "v1",
+    "lane": "visual",
+    "items": [
+     "cut-1@0+180"
+    ]
+   },
+   {
+    "id": "a1",
+    "lane": "audio",
+    "items": []
+   }
+  ]
+ }
+}
