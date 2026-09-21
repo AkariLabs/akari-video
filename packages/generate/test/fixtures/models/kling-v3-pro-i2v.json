@@ -7,9 +7,9 @@
   "inputs": {
     "first_frame": "required",
     "last_frame": "optional",
-    "reference_images": { "max": null, "max_seconds_each": null, "max_seconds_total": null },
-    "reference_videos": { "max": null, "max_seconds_each": null, "max_seconds_total": null },
-    "reference_audios": { "max": 0, "max_seconds_each": null, "max_seconds_total": null },
+    "reference_images": { "max": null, "seconds_each": null, "seconds_total": null },
+    "reference_videos": { "max": null, "seconds_each": null, "seconds_total": null },
+    "reference_audios": { "max": 0, "seconds_each": null, "seconds_total": null },
     "source_video": [],
     "frames_and_refs_exclusive": false,
     "negative_prompt": true,

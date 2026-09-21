@@ -1,8 +1,10 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import test from 'node:test';
+import Ajv2020 from 'ajv/dist/2020.js';
 
 import { SlotInputError, validateInputs } from '../src/index.mjs';
+import { resolveSendSide } from '../src/send-side.mjs';
 
 function loadModel(filename) {
   return JSON.parse(readFileSync(new URL(`fixtures/models/${filename}`, import.meta.url), 'utf8'));
@@ -16,6 +18,25 @@ const MODELS = {
   grok: loadModel('grok-imagine-i2v.json'),
 };
 
+const CATALOG = JSON.parse(readFileSync(new URL('../../schemas/gen-models.json', import.meta.url), 'utf8'));
+
+test('全モデル fixture は実 schema の行定義に準拠し、旧秒数欄は拒否する', () => {
+  const schema = JSON.parse(readFileSync(new URL('../../schemas/gen-models.schema.json', import.meta.url), 'utf8'));
+  const ajv = new Ajv2020({ allErrors: true });
+  ajv.addSchema(schema);
+  const validate = ajv.compile({ $ref: `${schema.$id}#/$defs/model` });
+  for (const filename of readdirSync(new URL('fixtures/models/', import.meta.url)).filter(name => name.endsWith('.json'))) {
+    assert.equal(validate(loadModel(filename)), true, `${filename}: ${JSON.stringify(validate.errors)}`);
+  }
+  for (const field of ['max_seconds_each', 'max_seconds_total']) {
+    const invalid = structuredClone(MODELS.seedance);
+    invalid.inputs.reference_videos[field] = 15;
+    assert.equal(validate(invalid), false);
+    assert.ok(validate.errors.some(error => error.keyword === 'additionalProperties'
+      && error.instancePath === '/inputs/reference_videos' && error.params.additionalProperty === field));
+  }
+});
+
 const ref = (path, range_s) => range_s ? { path, range_s } : { path };
 const many = (count, prefix, range_s) => Array.from(
   { length: count },
@@ -24,6 +45,74 @@ const many = (count, prefix, range_s) => Array.from(
 const veoInputs = { first_frame: ref('first.png'), last_frame: ref('last.png') };
 const klingInputs = { first_frame: ref('first.png') };
 const grokInputs = { first_frame: ref('first.png') };
+
+for (const id of ['fal:h3-ref', 'fal:seedance-2.0-ref']) {
+  const cases = [
+    ['合計 16 秒', { reference_videos: many(2, 'video.mp4', [0, 8]) }, 'reference_videos.seconds_total'],
+    ['参照画像 10 枚', { reference_images: many(10, 'image.png') }, 'reference_images.max'],
+  ];
+  if (id === 'fal:h3-ref') cases.push(['単体 16 秒', { reference_videos: [ref('video.mp4', [0, 16])] }, 'reference_videos.seconds_each']);
+  for (const [name, inputs, code] of cases) test(`実カタログ ${id}: ${name} を拒否する`, () => {
+    const model = CATALOG.models.find(row => row.id === id);
+    assert.ok(model);
+    const result = validateInputs({ inputs, output: {}, model });
+    assert.equal(result.ok, false);
+    assert.ok(result.messages.some(message => message.code === code && message.level === 'error'));
+  });
+}
+
+for (const selection of ['frames', 'references', undefined]) {
+  for (const content of ['both', 'frames', 'references']) {
+    test(`resolveSendSide: 選択 ${selection ?? '未指定'} / 入力 ${content}`, () => {
+      const inputs = {
+        prompt: 'A garden.', extra: { task: 'test' },
+        ...(content !== 'references' ? { first_frame: ref('first.png'), last_frame: ref('last.png') } : {}),
+        ...(content !== 'frames' ? {
+          reference_images: [ref('ref.png')], reference_videos: [ref('ref.mp4', [2, 10])],
+          reference_audios: [ref('ref.wav', [1, 4])],
+        } : {}),
+        ...(selection === undefined ? {} : { frames_or_refs: selection }),
+      };
+      const before = structuredClone(inputs);
+      const { inputs: selected, side } = resolveSendSide(inputs);
+      const expected = { ...before };
+      delete expected.frames_or_refs;
+      if (selection === 'frames') Object.assign(expected, { reference_images: [], reference_videos: [], reference_audios: [] });
+      if (selection === 'references') Object.assign(expected, { first_frame: null, last_frame: null });
+      assert.deepEqual(selected, expected);
+      assert.notEqual(selected, inputs);
+      assert.equal(side, selection ?? null);
+      assert.deepEqual(inputs, before);
+
+      const result = validateInputs({ inputs, output: {}, model: MODELS.seedance });
+      assert.equal(result.send_side, side);
+      const hasReferences = selection !== 'frames' && content !== 'frames';
+      assert.deepEqual(result.references, {
+        reference_images: { count: hasReferences ? 1 : 0, max: 9, seconds_total: 0, max_seconds_total: null },
+        reference_videos: { count: hasReferences ? 1 : 0, max: 3, seconds_total: hasReferences ? 8 : 0, max_seconds_total: 15 },
+        reference_audios: { count: hasReferences ? 1 : 0, max: 3, seconds_total: hasReferences ? 3 : 0, max_seconds_total: 15 },
+      });
+      assert.deepEqual(inputs, before);
+    });
+  }
+}
+
+for (const capability of [{ max: null, seconds_each: null, seconds_total: null }, {}]) {
+  test(`参照上限 ${Object.keys(capability).length ? 'null' : '未記載'} は検査せず集計だけ返す`, () => {
+    const model = structuredClone(MODELS.seedance);
+    const inputs = {};
+    for (const slot of ['reference_images', 'reference_videos', 'reference_audios']) {
+      model.inputs[slot] = capability;
+      inputs[slot] = [ref('unknown'), ref('first', [2, 18]), ref('second', [10, 30])];
+    }
+    const result = validateInputs({ inputs, output: {}, model });
+    assert.equal(result.ok, true);
+    assert.equal(result.send_side, null);
+    for (const summary of Object.values(result.references)) {
+      assert.deepEqual(summary, { count: 3, max: null, seconds_total: 36, max_seconds_total: null });
+    }
+  });
+}
 
 const CASES = [
   {
@@ -79,17 +168,17 @@ const CASES = [
   {
     name: 'Seedance の参照動画 20 秒は単体と合計の両上限を超える', model: MODELS.seedance,
     inputs: { reference_videos: [ref('video.mp4', [0, 20])] }, output: { resolution: '720p' },
-    expect: { ok: false, codes: ['reference_videos.max_seconds_each', 'reference_videos.max_seconds_total'], texts: { 'reference_videos.max_seconds_each': '参照動画は 1 本あたり 15 秒までです（20 秒）', 'reference_videos.max_seconds_total': '参照動画は合計 15 秒までです（20 秒）' } },
+    expect: { ok: false, codes: ['reference_videos.seconds_each', 'reference_videos.seconds_total'], texts: { 'reference_videos.seconds_each': '参照動画は 1 本あたり 15 秒までです（20 秒）', 'reference_videos.seconds_total': '参照動画は合計 15 秒までです（20 秒）' } },
   },
   {
     name: 'Seedance の参照動画 10 秒二本は合計だけ上限を超える', model: MODELS.seedance,
     inputs: { reference_videos: many(2, 'video.mp4', [0, 10]) }, output: { resolution: '720p' },
-    expect: { ok: false, codes: ['reference_videos.max_seconds_total'] },
+    expect: { ok: false, codes: ['reference_videos.seconds_total'] },
   },
   {
     name: 'Seedance の参照音声は合計 20 秒だけを検査する', model: MODELS.seedance,
     inputs: { reference_audios: many(2, 'audio.wav', [0, 10]) }, output: { resolution: '720p' },
-    expect: { ok: false, codes: ['reference_audios.max_seconds_total'] },
+    expect: { ok: false, codes: ['reference_audios.seconds_total'] },
   },
   {
     name: 'Kling の未知上限は多数の参照画像を拒否しない', model: MODELS.kling,
@@ -97,6 +186,8 @@ const CASES = [
     expect: { ok: true, codes: [] },
   },
   {
+    // 実カタログ gen-models.json には frames_and_refs_exclusive: true の行が 1 つも無い
+    // （排他は同じ family の i2v 行と ref 行で表現）。この fixture は排他処理の検証用。
     name: 'Seedance はフレームと参照画像の併用を拒否する', model: MODELS.seedance,
     inputs: { first_frame: ref('first.png'), reference_images: [ref('reference.png')] }, output: { resolution: '720p' },
     expect: { ok: false, codes: ['frames_refs.exclusive'], texts: { 'frames_refs.exclusive': 'このモデルはフレーム指定と参照を同時に使えません。どちらかにしてください' } },
