@@ -5,6 +5,8 @@ import {
   referenceSeconds,
 } from './slots.mjs';
 
+import { resolveSendSide } from './send-side.mjs';
+
 const EPSILON = 1e-9;
 
 function fmt(value) {
@@ -22,24 +24,24 @@ function addReferenceMessages(messages, references, capability, slot, label, uni
   }
 
   const seconds = references.map(referenceSeconds).filter((value) => value !== null);
-  if (Number.isFinite(capability?.max_seconds_each) && seconds.length > 0) {
+  if (Number.isFinite(capability?.seconds_each) && seconds.length > 0) {
     const maximum = Math.max(...seconds);
-    if (maximum > capability.max_seconds_each) {
+    if (maximum > capability.seconds_each) {
       messages.push({
         level: 'error',
-        code: `${slot}.max_seconds_each`,
-        text: `${label}は 1 ${unit}あたり ${fmt(capability.max_seconds_each)} 秒までです（${fmt(maximum)} 秒）`,
+        code: `${slot}.seconds_each`,
+        text: `${label}は 1 ${unit}あたり ${fmt(capability.seconds_each)} 秒までです（${fmt(maximum)} 秒）`,
       });
     }
   }
 
-  if (Number.isFinite(capability?.max_seconds_total)) {
+  if (Number.isFinite(capability?.seconds_total)) {
     const total = seconds.reduce((sum, value) => sum + value, 0);
-    if (total > capability.max_seconds_total) {
+    if (total > capability.seconds_total) {
       messages.push({
         level: 'error',
-        code: `${slot}.max_seconds_total`,
-        text: `${label}は合計 ${fmt(capability.max_seconds_total)} 秒までです（${fmt(total)} 秒）`,
+        code: `${slot}.seconds_total`,
+        text: `${label}は合計 ${fmt(capability.seconds_total)} 秒までです（${fmt(total)} 秒）`,
       });
     }
   }
@@ -91,17 +93,7 @@ export function validateInputs({ inputs, output, model }) {
     throw new SlotInputError('model.required', 'model（カタログ行）が必要です');
   }
 
-  const selectedInputs = { ...inputs };
-  const selection = selectedInputs.frames_or_refs;
-  delete selectedInputs.frames_or_refs;
-  if (selection === 'references') {
-    selectedInputs.first_frame = null;
-    selectedInputs.last_frame = null;
-  } else if (selection === 'frames') {
-    selectedInputs.reference_images = [];
-    selectedInputs.reference_videos = [];
-    selectedInputs.reference_audios = [];
-  }
+  const { inputs: selectedInputs, side } = resolveSendSide(inputs);
   const normalizedInputs = normalizeInputs(selectedInputs);
   const requestedOutput = normalizeOutput(output);
   const usedDefaultDuration = requestedOutput.duration_s === null;
@@ -273,6 +265,13 @@ export function validateInputs({ inputs, output, model }) {
   return {
     ok: !messages.some((message) => message.level === 'error'),
     normalized: { inputs: normalizedInputs, output: normalizedOutput },
+    send_side: side,
+    references: Object.fromEntries(['reference_images', 'reference_videos', 'reference_audios'].map((slot) => [slot, {
+      count: normalizedInputs[slot].length,
+      max: modelInputs[slot]?.max ?? null,
+      seconds_total: normalizedInputs[slot].reduce((sum, reference) => sum + (referenceSeconds(reference) ?? 0), 0),
+      max_seconds_total: modelInputs[slot]?.seconds_total ?? null,
+    }])),
     rounded,
     messages,
     cost,
