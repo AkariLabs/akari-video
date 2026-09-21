@@ -102,7 +102,7 @@ test('hierarchical interaction gestures in the classic browser runtime', async t
       assert.ok(near(geometry.frame, geometry.union), JSON.stringify(geometry)); assert.equal(geometry.handles, 0);
       await click(page, 'a', 2);
       assert.deepEqual(await state(page), { selectedId: 'g', scopeId: 'outer', floorScopeId: null, activeEdit: false }, JSON.stringify(await page.evaluate(() => window.pointerTrace)));
-      assert.match(await page.$eval('[data-akari-ui="preview-scope-breadcrumb"]', e => e.textContent), /全体.*Outer/u);
+      assert.match(await (await page.$('[data-akari-ui="preview-scope-breadcrumb"]')).evaluate(e => e.textContent), /全体.*Outer/u);
       await page.click('[data-akari-ui="preview-scope-breadcrumb"] button');
       assert.equal((await state(page)).scopeId, null);
       assert.equal((await state(page)).selectedId, 'outer', 'breadcrumb preserves the selected subtree');
@@ -168,9 +168,9 @@ test('hierarchical interaction gestures in the classic browser runtime', async t
   await t.test('masked part selection bounds are smaller than bag union and exclude hidden siblings', async () => {
     const page = await fixture(browser); try {
       await click(page, 'bag#A'); assert.equal((await state(page)).selectedId, 'bag');
-      const bagRect = await page.$eval('.akari-interaction-selection-frame', e => ({ width: e.offsetWidth, height: e.offsetHeight }));
+      const bagRect = await (await page.$('.akari-interaction-selection-frame')).evaluate(e => ({ width: e.offsetWidth, height: e.offsetHeight }));
       await click(page, 'bag#A', 2); assert.equal((await state(page)).selectedId, 'bag#A');
-      const partRect = await page.$eval('.akari-interaction-selection-frame', e => ({ width: e.offsetWidth, height: e.offsetHeight }));
+      const partRect = await (await page.$('.akari-interaction-selection-frame')).evaluate(e => ({ width: e.offsetWidth, height: e.offsetHeight }));
       assert.ok(partRect.height < bagRect.height / 2);
     } finally { await page.close(); }
   });
@@ -204,7 +204,7 @@ test('hierarchical interaction gestures in the classic browser runtime', async t
         await click(page, 'plain'); const selected = await state(page);
         await page.evaluate(() => window.akari.interaction.setSelectionFloor('plain'));
         assert.deepEqual(await state(page), selected, 'timeline focus cannot change a legacy selection');
-        const handles = await page.$$eval('.akari-interaction-handle', e => e.length);
+        const handles = (await page.$$('.akari-interaction-handle')).length;
         await drag(page, 'plain');
         const handle = await page.$('.akari-interaction-handle.is-se');
         const r = await handle.boundingBox();
