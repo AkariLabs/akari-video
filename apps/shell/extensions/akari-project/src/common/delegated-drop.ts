@@ -22,6 +22,12 @@
 export const MATERIAL_DRAG_MIME = 'application/x-akari-material';
 export const LIBRARY_DRAG_MIME = 'application/x-akari-library-item';
 
+/** 画像由来の Files が混ざっても、内部 MIME があれば素材取り込みの対象にはしない。 */
+export function isOsFileDropInput(types: readonly string[]): boolean {
+    return types.includes('Files')
+        && !types.some(type => type === MATERIAL_DRAG_MIME || type === LIBRARY_DRAG_MIME);
+}
+
 /** `isDelegatedDropInput` の入力（DOM 非依存に落とした drop / dragover の状態）。 */
 export interface DelegatedDropInput {
     /** `data-akari-dropzone` を持つ要素の内側で起きたイベントか。 */

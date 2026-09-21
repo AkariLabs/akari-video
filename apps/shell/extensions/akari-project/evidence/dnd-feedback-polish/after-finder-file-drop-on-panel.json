@@ -1,0 +1,24 @@
+{
+ "file": "/tmp/dfp-l1/finder-photo.jpeg",
+ "point": {
+  "x": 130.5,
+  "y": 386.8
+ },
+ "duringDrag": {
+  "importOverlayShown": false,
+  "overlayTexts": []
+ },
+ "assetsAdded": [
+  "finder-photo.jpeg"
+ ],
+ "afterDrop": {
+  "importOverlayShown": false,
+  "overlayTexts": []
+ },
+ "toasts": [
+  "1 件を素材に取り込みました。",
+  "1 件を素材に取り込みました。",
+  "1 件を素材に取り込みました。",
+  "1 件を素材に取り込みました。"
+ ]
+}

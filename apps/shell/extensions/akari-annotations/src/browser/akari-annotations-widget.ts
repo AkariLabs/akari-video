@@ -5817,19 +5817,26 @@ export class AkariAnnotationsWidget extends BaseWidget {
         }
         this.materialDragLastClientX = clientX;
         this.materialDragLastClientY = clientY;
-        const rowTarget = this.resolveMaterialDropTarget(payload.kind, clientY);
+        let rowTarget = this.resolveMaterialDropTarget(payload.kind, clientY);
         if (this.isTrackLocked(rowTarget.targetTrackId) || rowTarget.rejected) {
-            this.hideMaterialGhost();
-            return;
+            // 拒否ターゲットの fallback 座標ではなく、実際にポインタが乗っている行へ描く。
+            const localY = clientY - this.strip.getBoundingClientRect().top;
+            const hoveredRow = this.laneLayout.tracks.find(row =>
+                localY >= row.top && localY < row.top + row.height);
+            if (!hoveredRow) {
+                this.hideMaterialGhost();
+                return;
+            }
+            rowTarget = {
+                ...rowTarget, rejected: true,
+                top: hoveredRow.top, height: hoveredRow.height
+            };
         }
         const durationSeconds = this.materialGhostDurationSeconds(payload);
         const t = this.materialDropTime(clientX, rowTarget.zone, rowTarget.track, durationSeconds);
         const target = this.materialDropTargetWithoutOverlap(rowTarget, t, durationSeconds);
         const visibility = materialGhostVisibility(payload.kind, target);
         if (!visibility.showGhost) {
-            // rejected（対象外の帯）: 本体ゴーストを表示しない（司令塔裁定1）。trackAtClientY の
-            // fallthrough は rejected でも top に最上段レイヤー行を返すため、ここで描くと
-            // 「関係ない行に点線」に見えてしまう。
             this.hideMaterialGhost();
             return;
         }
@@ -5842,7 +5849,20 @@ export class AkariAnnotationsWidget extends BaseWidget {
             durationSeconds
         );
         this.setGhostRange(this.materialGhost, range.start, range.end);
-        this.setGhostRejected(this.materialGhost, false);
+        this.setGhostRejected(this.materialGhost, visibility.rejected);
+        this.materialGhost.textContent = visibility.rejected ? target.reason || '素材をここには置けません。' : '';
+        const rejectedColor = '#f14c4c';
+        Object.assign(this.materialGhost.style, {
+            background: visibility.rejected
+                ? 'rgba(241, 76, 76, .25)' : 'rgba(77, 208, 200, .22)',
+            color: visibility.rejected ? rejectedColor : '',
+            fontSize: visibility.rejected ? '11px' : '',
+            whiteSpace: visibility.rejected ? 'normal' : '',
+            overflow: visibility.rejected ? 'hidden' : '',
+            wordBreak: visibility.rejected ? 'break-all' : '',
+            lineHeight: visibility.rejected ? '1.2' : '',
+            padding: visibility.rejected ? '2px 4px' : ''
+        });
         const viewportTop = this.rulerRowHeightPx() + target.top - this.stripScroll.scrollTop;
         this.materialGhost.style.top = `${viewportTop}px`;
         this.materialGhost.style.height = `${target.height}px`;
@@ -5858,14 +5878,22 @@ export class AkariAnnotationsWidget extends BaseWidget {
         } else {
             delete this.materialGhost.dataset.akariInsertionPreview;
             Object.assign(this.materialGhost.style, {
-                border: '1px dashed #4dd0c8', opacity: '', zIndex: '10'
+                border: visibility.rejected ? `2px solid ${rejectedColor}` : '1px dashed #4dd0c8',
+                opacity: '', zIndex: '10'
             });
             this.hideTrackInsertIndicator();
         }
     }
 
     protected hideMaterialGhost(): void {
-        this.materialGhost.style.display = 'none';
+        this.setGhostRejected(this.materialGhost, false);
+        this.materialGhost.textContent = '';
+        delete this.materialGhost.dataset.akariInsertionPreview;
+        Object.assign(this.materialGhost.style, {
+            display: 'none', border: '1px dashed #4dd0c8', background: 'rgba(77, 208, 200, .22)',
+            color: '', fontSize: '', whiteSpace: '', overflow: '', wordBreak: '',
+            lineHeight: '', padding: '', opacity: '', zIndex: '10'
+        });
         this.hideTrackInsertIndicator();
         if (this.footer.textContent === '重なるので新しいトラックに置きます') {
             this.footer.textContent = '';

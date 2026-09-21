@@ -69,39 +69,39 @@ test('computeMaterialGhostRange: 負値は 0 で下限を切る（防御）', ()
 
 // --- materialGhostVisibility ---
 
-test('materialGhostVisibility: rejected なら本体ゴースト・挿入インジケータとも非表示（司令塔裁定1）', () => {
+test('materialGhostVisibility: rejected でも本体を表示し、拒否フラグを付けて挿入線を隠す', () => {
     assert.deepEqual(
         materialGhostVisibility('video', { rejected: true }),
-        { showGhost: false, showInsertIndicator: false }
+        { showGhost: true, showInsertIndicator: false, rejected: true }
     );
     assert.deepEqual(
         materialGhostVisibility('video', { rejected: true, insertTrack: 1 }),
-        { showGhost: false, showInsertIndicator: false }
+        { showGhost: true, showInsertIndicator: false, rejected: true }
     );
 });
 
 test('materialGhostVisibility: 非rejected・insertTrack ありの video/image は本体 + 挿入インジケータ', () => {
     assert.deepEqual(
         materialGhostVisibility('video', { rejected: false, insertTrack: 1 }),
-        { showGhost: true, showInsertIndicator: true }
+        { showGhost: true, showInsertIndicator: true, rejected: false }
     );
     assert.deepEqual(
         materialGhostVisibility('image', { rejected: false, insertTrack: 0 }),
-        { showGhost: true, showInsertIndicator: true }
+        { showGhost: true, showInsertIndicator: true, rejected: false }
     );
 });
 
 test('materialGhostVisibility: 非rejected・insertTrack 無しは本体ゴーストのみ', () => {
     assert.deepEqual(
         materialGhostVisibility('video', { rejected: false }),
-        { showGhost: true, showInsertIndicator: false }
+        { showGhost: true, showInsertIndicator: false, rejected: false }
     );
 });
 
 test('materialGhostVisibility: audio は insertTrack があっても挿入インジケータを出さない（裁定4）', () => {
     assert.deepEqual(
         materialGhostVisibility('audio', { rejected: false, insertTrack: 1 }),
-        { showGhost: true, showInsertIndicator: false }
+        { showGhost: true, showInsertIndicator: false, rejected: false }
     );
 });
 

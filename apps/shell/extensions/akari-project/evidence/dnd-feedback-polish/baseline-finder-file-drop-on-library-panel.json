@@ -1,0 +1,24 @@
+{
+ "file": "/tmp/dfp-l1/finder-photo-b.jpeg",
+ "point": {
+  "x": 130.45703125,
+  "y": 386.8
+ },
+ "duringDrag": {
+  "importOverlayShown": false,
+  "overlayTexts": []
+ },
+ "assetsAdded": [
+  "finder-photo-b.jpeg"
+ ],
+ "afterDrop": {
+  "importOverlayShown": false,
+  "overlayTexts": []
+ },
+ "toasts": [
+  "AKARI Video を v0.1.73 に更新しました変更点を見る",
+  "AKARI Video を v0.1.73 に更新しました",
+  "1 件を素材に取り込みました。",
+  "1 件を素材に取り込みました。"
+ ]
+}

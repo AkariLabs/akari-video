@@ -95,23 +95,21 @@ export interface MaterialDropTargetLike {
 export interface MaterialGhostVisibility {
     readonly showGhost: boolean;
     readonly showInsertIndicator: boolean;
+    readonly rejected: boolean;
 }
 
 /**
- * ドロップ先帯に応じたゴースト本体・行間挿入インジケータの表示可否（task
- * 2026-08-10-dnd-ghost-and-insert-fix 司令塔裁定1・2）。rejected（対象外の帯）のときは
- * 両方非表示にする — trackAtClientY の最終 fallthrough が rejected でも top に最上段レイヤー行を
- * 返すため、本体ゴーストを描いてしまうと「関係ない行に点線」に見える不具合を断つ。
- * 非rejectedで insertTrack があり audio 以外なら、本体ゴースト（新行が入る位置）+
+ * 拒否時も本体を表示し、拒否フラグで赤い枠と理由へ切り替える（挿入線は出さない）。
+ * 受理時に insertTrack があり audio 以外なら、本体ゴースト（新行が入る位置）+
  * 挿入インジケータを併用する。音も重なり回避の新規行なら同じ表示を使う。
  */
 export function materialGhostVisibility(
     kind: MaterialDragKind, target: MaterialDropTargetLike
 ): MaterialGhostVisibility {
     if (target.rejected) {
-        return { showGhost: false, showInsertIndicator: false };
+        return { showGhost: true, showInsertIndicator: false, rejected: true };
     }
-    return { showGhost: true,
+    return { showGhost: true, rejected: false,
         showInsertIndicator: target.insertTrack !== undefined && (kind !== 'audio' || target.overlapInsert === true) };
 }
 

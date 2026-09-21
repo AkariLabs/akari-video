@@ -6,6 +6,7 @@ import * as mutations from '../lib/common/edit-v2-mutations.js';
 import { materialOverlapInsertIndex } from '../lib/common/material-drop-overlap.js';
 import { computeMaterialGhostRange, materialGhostVisibility } from '../lib/common/timeline-material-insert.js';
 import { hitTestTimelineTrackDrop } from '../lib/common/timeline-track-drop.js';
+import { libraryAssetGhostPayload } from '../lib/browser/library-drop-model.js';
 
 // 既存 library-asset-placement と同じく実メソッドを実行し、DOM と I/O だけを差し替える。
 const source = ts.createSourceFile('widget.ts', readFileSync(new URL('../src/browser/akari-annotations-widget.ts', import.meta.url), 'utf8'), ts.ScriptTarget.Latest, true);
@@ -13,7 +14,7 @@ const widget = source.statements.find(node => ts.isClassDeclaration(node) && nod
 const names = ['addMaterialAt', 'addMaterialAtPlayhead', 'addMaterialAtPoint', 'placeMaterialAtTarget',
     'resolveMaterialDropTarget', 'timelineTrackDropLayouts', 'materialDropTargetWithoutOverlap',
     'materialGhostDurationSeconds', 'updateMaterialGhost', 'hideMaterialGhost', 'handleMaterialDragOver',
-    'positionInsertionGhost', 'showTrackInsertIndicatorAt', 'hideTrackInsertIndicator'];
+    'positionInsertionGhost', 'showTrackInsertIndicatorAt', 'hideTrackInsertIndicator', 'handleMaterialDrop', 'setGhostRejected'];
 const methods = names.map(name => widget.members.find(member => member.name?.getText(source) === name).getText(source));
 const parser = source.statements.find(node => ts.isFunctionDeclaration(node) && node.name?.text === 'parseMaterialDragPayload').getText(source);
 const code = ts.transpileModule(`${parser}\nclass Handler { ${methods.join('\n')} }`, { compilerOptions: { target: ts.ScriptTarget.ES2021 } }).outputText;
@@ -22,7 +23,7 @@ const bindings = {
     insertAudioSfxPreferV2: mutations.insertAudioSfxPreferV2,
     insertV2Track: mutations.insertTrack, insertV2Item: mutations.insertItem,
     updateV2Item: mutations.updateItem, materialOverlapInsertIndex, computeMaterialGhostRange,
-    materialGhostVisibility, hitTestTimelineTrackDrop, lockedTrackMessage: id => `locked: ${id}`,
+    materialGhostVisibility, hitTestTimelineTrackDrop, libraryAssetGhostPayload, lockedTrackMessage: id => `locked: ${id}`,
     IMAGE_LAYER_DEFAULT_DURATION_SECONDS: 5, MATERIAL_INSERT_FALLBACK_DURATION_SECONDS: 3,
     SUBROW_STRIDE: 32, LANE_GAP: 4
 };
@@ -59,9 +60,13 @@ function fixture(tracks = [track('v1', 'visual', [item('base-clip')]), track('v2
         strip: { getBoundingClientRect: () => ({ top: 0 }) },
         stripScroll: { scrollTop: 0, clientHeight: 400 }, rulerRowHeightPx: () => 14,
         materialDropTime: x => x / 10,
-        materialGhost: { style: {}, dataset: {} }, trackInsertIndicator: { style: {} },
+        materialGhost: { style: { boxSizing: 'border-box' }, dataset: {}, classList: {
+            names: new Set(),
+            toggle(name, on) { if (on) this.names.add(name); else this.names.delete(name); },
+            contains(name) { return this.names.has(name); }
+        } }, trackInsertIndicator: { style: {} },
         setGhostRange: (ghost, start, end) => { ghost.range = [start, end]; },
-        setGhostRejected() {}, isMaterialDragTransfer: () => true,
+        hideSnapGuide() {}, isMaterialDragTransfer: () => true,
         materialPanelDropPoint: (x, y) => ({ x, y, zone: 'strip' }), updateMaterialDragAutoScroll() {}
     });
     handler.displayTimelineTracks = tracks;
@@ -112,7 +117,8 @@ test('ロック行・レーン違いの拒否と本編・行間・音0本のタ�
     const f = fixture([track('a1', 'audio', [item('sound')]), track('v1', 'visual', [item('clip')]), track('v2', 'visual')]);
     f.handler.lockedId = 'v1';
     assert.equal(drag(f, 'video', 3, 'v1').dataTransfer.dropEffect, 'none');
-    assert.equal(f.handler.materialGhost.style.display, 'none');
+    assert.equal(f.handler.materialGhost.style.display, 'block');
+    assert.equal(f.handler.materialGhost.textContent, 'locked: v1');
     f.handler.lockedId = undefined;
     assert.equal(drag(f, 'audio', 3, 'v1').dataTransfer.dropEffect, 'none');
     assert.equal(drag(f, 'video', 3, 'a1').dataTransfer.dropEffect, 'none');
@@ -203,3 +209,152 @@ test('仮尺では重なっていても実尺が短ければ不要なトラッ�
     assert.equal(f.doc().tracks[0].items[1].duration, 60);
     await assertOneUndo(f);
 });
+
+test('hideMaterialGhost は拒否クラスを外し、オレンジの outline と初期スタイルへ戻す', () => {
+    const f = fixture([track('a1', 'audio'), track('v1', 'visual')]);
+    const h = f.handler;
+    drag(f, 'audio', 3, 'v1');
+    assert.equal(h.materialGhost.classList.contains('akari-annotations-ghost-rejected'), true);
+    assert.equal(h.materialGhost.style.outline, '2px solid #f14c4c');
+    h.hideMaterialGhost();
+    assert.equal(h.materialGhost.classList.contains('akari-annotations-ghost-rejected'), false);
+    assert.equal(h.materialGhost.textContent, '');
+    assert.equal(h.materialGhost.dataset.akariInsertionPreview, undefined);
+    for (const [key, value] of Object.entries({
+        display: 'none', outline: '2px solid #f97316', border: '1px dashed #4dd0c8',
+        background: 'rgba(77, 208, 200, .22)', opacity: '', zIndex: '10', color: '', fontSize: '', whiteSpace: ''
+    })) assert.equal(h.materialGhost.style[key], value, key);
+    assert.equal(h.trackInsertIndicator.style.display, 'none');
+});
+
+test('拒否理由は枠内で折り返し、受理時と hide 後は whiteSpace / overflow / padding を含む文字スタイルを消す', () => {
+    const f = fixture([track('a1', 'audio'), track('v1', 'visual')]);
+    const h = f.handler;
+    const rejectedStyles = {
+        whiteSpace: 'normal', overflow: 'hidden', wordBreak: 'break-all', lineHeight: '1.2',
+        padding: '2px 4px', fontSize: '11px'
+    };
+    for (const reset of [() => drag(f, 'audio', 3, 'a1'), () => h.hideMaterialGhost()]) {
+        drag(f, 'audio', 3, 'v1');
+        for (const [key, value] of Object.entries(rejectedStyles)) {
+            assert.equal(h.materialGhost.style[key], value, `拒否中: ${key}`);
+        }
+        assert.equal(h.materialGhost.style.boxSizing, 'border-box', '拒否中も初期値を維持');
+        reset();
+        for (const key of Object.keys(rejectedStyles)) {
+            assert.equal(h.materialGhost.style[key], '', `リセット後: ${key}`);
+        }
+        assert.equal(h.materialGhost.style.boxSizing, 'border-box', '受理時・hide 後も初期値を維持');
+    }
+});
+
+for (const y of [-10, 36, 200]) {
+    test(`拒否された行外位置 y=${y} では fallback の行に描かずゴーストを隠す`, () => {
+        const f = fixture([track('a1', 'audio'), track('v1', 'visual')]);
+        const h = f.handler;
+        drag(f, 'audio', 3, 'v1');
+        assert.equal(h.materialGhost.style.display, 'block');
+        const target = h.resolveMaterialDropTarget('audio', y);
+        assert.equal(target.rejected, true);
+        assert.equal(target.top, 0, '最上段を指す fallback は表示に使わない');
+        h.materialDropTime = () => assert.fail('行が無ければ描画計算へ進まない');
+        h.updateMaterialGhost(30, y);
+        assert.equal(h.materialGhost.style.display, 'none');
+        assert.equal(h.materialGhost.classList.contains('akari-annotations-ghost-rejected'), false);
+        assert.equal(h.materialGhost.style.outline, '2px solid #f97316');
+        assert.equal(h.materialGhost.textContent, '');
+        assert.equal(f.text(), f.before);
+    });
+}
+
+for (const kind of ['video', 'image', 'audio']) {
+    test(`拒否表示の純関数: ${kind} は挿入指定が残っていても赤い本体だけを表示`, () => {
+        assert.deepEqual(materialGhostVisibility(kind, { rejected: true, insertTrack: 2, overlapInsert: true }),
+            { showGhost: true, showInsertIndicator: false, rejected: true });
+    });
+    for (const origin of ['material', 'asset']) {
+        for (const locked of [false, true]) {
+            test(`${origin} / ${kind}: ${locked ? 'ロック行' : '異種レーン'}の赤い枠・理由から通常表示へ戻り、拒否 drop は保存しない`, () => {
+                const lane = kind === 'audio' ? 'audio' : 'visual';
+                const otherLane = lane === 'audio' ? 'visual' : 'audio';
+                const f = fixture([track('valid', lane, [item('existing')]),
+                    track('reject', locked ? lane : otherLane), track('top', otherLane)]);
+                const h = f.handler;
+                h.lockedId = locked ? 'reject' : undefined;
+                h.stripScroll.scrollTop = 7;
+                const asset = { kind: 'asset', key: 'sample', id: 'sample', title: '素材',
+                    category: kind === 'audio' ? 'audio' : kind === 'image' ? 'still' : 'broll' };
+                const payload = origin === 'asset' ? libraryAssetGhostPayload(asset)
+                    : { kind, relativePath: `assets/new.${kind === 'audio' ? 'mp3' : 'mp4'}` };
+                const hover = id => {
+                    h.materialDragPayload = payload;
+                    const row = h.laneLayout.tracks.find(row => row.id === id);
+                    const event = { clientX: 30, clientY: row.top + row.height / 2,
+                        dataTransfer: {}, preventDefault() {}, stopPropagation() {} };
+                    h.handleMaterialDragOver(event);
+                    return event;
+                };
+                hover('valid');
+                assert.equal(h.trackInsertIndicator.style.display, 'block');
+                const rejectedEvent = hover('reject');
+                const reason = locked ? 'locked: reject' : kind === 'audio'
+                    ? '映像のレーンには音を置けません。' : '音のレーンには映像を置けません。';
+                assert.equal(rejectedEvent.dataTransfer.dropEffect, 'none');
+                assert.equal(h.materialGhost.style.display, 'block');
+                assert.equal(h.materialGhost.style.top, '47px', '最上段への fallback ではなく実際の行に描く');
+                assert.equal(h.materialGhost.style.height, '32px');
+                assert.deepEqual(h.materialGhost.range, [3, kind === 'image' ? 8 : 6]);
+                assert.equal(h.materialGhost.classList.contains('akari-annotations-ghost-rejected'), true);
+                assert.equal(h.materialGhost.style.border, '2px solid #f14c4c');
+                assert.equal(h.materialGhost.style.outline, '2px solid #f14c4c');
+                assert.equal(h.materialGhost.style.color, '#f14c4c');
+                assert.equal(h.materialGhost.style.background, 'rgba(241, 76, 76, .25)');
+                assert.equal(h.materialGhost.textContent, reason);
+                assert.equal(h.footer.textContent, reason);
+                assert.equal(h.materialGhost.dataset.akariInsertionPreview, undefined);
+                assert.equal(h.trackInsertIndicator.style.display, 'none');
+
+                hover('valid');
+                assert.equal(h.materialGhost.classList.contains('akari-annotations-ghost-rejected'), false);
+                assert.equal(h.materialGhost.textContent, '');
+                assert.equal(h.materialGhost.style.background, 'rgba(77, 208, 200, .22)');
+                assert.equal(h.trackInsertIndicator.style.display, 'block');
+                assert.equal(h.materialGhost.style.border, '2px solid #f97316');
+                h.materialDropTime = () => 9;
+                hover('valid');
+                assert.equal(h.trackInsertIndicator.style.display, 'none');
+                assert.equal(h.materialGhost.style.border, '1px dashed #4dd0c8');
+                assert.equal(h.materialGhost.style.outline, '2px solid #f97316');
+
+                hover('reject');
+                h.stopMaterialDragAutoScroll = () => {};
+                h.readLibraryAssetDropPayload = () => origin === 'asset' ? asset : undefined;
+                h.readMaterialDropPayload = () => payload;
+                h.clearLibraryTransitionDragState = () => {};
+                h.placeLibraryAssetAtTarget = () => assert.fail('拒否時はライブラリから取り込まない');
+                f.errors.length = 0;
+                h.handleMaterialDrop(rejectedEvent);
+                assert.equal(h.materialGhost.style.display, 'none');
+                assert.equal(h.materialGhost.classList.contains('akari-annotations-ghost-rejected'), false);
+                assert.equal(h.materialGhost.textContent, '');
+                assert.equal(h.materialGhost.style.border, '1px dashed #4dd0c8');
+                assert.equal(h.materialGhost.style.outline, '2px solid #f97316');
+                assert.equal(h.materialGhost.style.background, 'rgba(77, 208, 200, .22)');
+                assert.equal(f.text(), f.before);
+                assert.equal(f.writes.length, 0);
+                assert.equal(f.probes(), 0);
+                assert.deepEqual(f.errors, locked || origin === 'asset' ? [reason] : []);
+                hover('valid');
+                assert.equal(h.materialGhost.classList.contains('akari-annotations-ghost-rejected'), false);
+                assert.equal(h.materialGhost.style.border, '1px dashed #4dd0c8');
+                assert.equal(h.materialGhost.style.outline, '2px solid #f97316');
+                hover('reject');
+                h.materialDragPayload = undefined;
+                h.updateMaterialGhost(30, 56);
+                assert.equal(h.materialGhost.style.display, 'none');
+                assert.equal(h.materialGhost.classList.contains('akari-annotations-ghost-rejected'), false);
+                assert.equal(h.materialGhost.textContent, '');
+            });
+        }
+    }
+}

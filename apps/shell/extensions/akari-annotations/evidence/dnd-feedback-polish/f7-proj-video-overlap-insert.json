@@ -1,0 +1,193 @@
+{
+ "src": "proj:assets/video/raw-clip.mp4",
+ "points": [
+  [
+   480,
+   383
+  ],
+  [
+   570,
+   383
+  ],
+  [
+   480,
+   383
+  ]
+ ],
+ "at": "2026-09-21T14:02:59.329Z",
+ "shaBefore": "8c75f5b4d674940994b933147dfd9673a594594c1628fdb7faea42e0a8303111",
+ "tracksBefore": [
+  {
+   "id": "v2",
+   "lane": "visual",
+   "items": []
+  },
+  {
+   "id": "v1",
+   "lane": "visual",
+   "items": [
+    "cut-1@0+180"
+   ]
+  },
+  {
+   "id": "a1",
+   "lane": "audio",
+   "items": []
+  }
+ ],
+ "hovers": [
+  {
+   "x": 480,
+   "y": 383,
+   "ghost": {
+    "x": 480,
+    "y": 357,
+    "w": 104,
+    "h": 48,
+    "rejected": false,
+    "insertionPreview": true,
+    "border": "2px solid rgb(249, 115, 22)",
+    "outline": "none",
+    "background": "rgba(77, 208, 200, 0.22)",
+    "color": "rgb(204, 204, 204)",
+    "text": ""
+   },
+   "insertLine": {
+    "x": 364,
+    "y": 357,
+    "w": 220,
+    "h": 2
+   },
+   "footer": "重なるので新しいトラックに置きます",
+   "lastDragOverAccepted": true,
+   "lastDropEffect": "copy"
+  },
+  {
+   "x": 570,
+   "y": 383,
+   "ghost": {
+    "x": 570,
+    "y": 357,
+    "w": 14,
+    "h": 48,
+    "rejected": false,
+    "insertionPreview": false,
+    "border": "1px dashed rgb(77, 208, 200)",
+    "outline": "rgb(249, 115, 22) solid 2px",
+    "background": "rgba(77, 208, 200, 0.22)",
+    "color": "rgb(204, 204, 204)",
+    "text": ""
+   },
+   "insertLine": null,
+   "footer": "",
+   "lastDragOverAccepted": true,
+   "lastDropEffect": "copy"
+  },
+  {
+   "x": 480,
+   "y": 383,
+   "ghost": {
+    "x": 480,
+    "y": 357,
+    "w": 104,
+    "h": 48,
+    "rejected": false,
+    "insertionPreview": true,
+    "border": "2px solid rgb(249, 115, 22)",
+    "outline": "none",
+    "background": "rgba(77, 208, 200, 0.22)",
+    "color": "rgb(204, 204, 204)",
+    "text": ""
+   },
+   "insertLine": {
+    "x": 364,
+    "y": 357,
+    "w": 220,
+    "h": 2
+   },
+   "footer": "重なるので新しいトラックに置きます",
+   "lastDragOverAccepted": true,
+   "lastDropEffect": "copy"
+  }
+ ],
+ "card": {
+  "x": 159.5,
+  "y": 199,
+  "draggable": "true"
+ },
+ "dragIntercepted": true,
+ "mimeTypes": [
+  "application/x-akari-material"
+ ],
+ "waitMs": 502,
+ "editChanged": true,
+ "tracksAfter": [
+  {
+   "id": "v2",
+   "lane": "visual",
+   "items": []
+  },
+  {
+   "id": "v1",
+   "lane": "visual",
+   "items": [
+    "cut-1@0+180"
+   ]
+  },
+  {
+   "id": "v3",
+   "lane": "visual",
+   "items": [
+    "clip-1@111+120"
+   ]
+  },
+  {
+   "id": "a1",
+   "lane": "audio",
+   "items": []
+  }
+ ],
+ "afterDrop": {
+  "ghost": null,
+  "ghostHiddenStyle": {
+   "rejected": false,
+   "border": "1px dashed rgb(77, 208, 200)",
+   "outline": "rgb(249, 115, 22) solid 2px",
+   "background": "rgba(77, 208, 200, 0.22)",
+   "text": ""
+  },
+  "insertLine": null,
+  "footer": "タイムラインに素材を追加しました。重なりを避けて新しいトラックに置きました。",
+  "lastDragOverAccepted": true,
+  "lastDropEffect": "copy"
+ },
+ "toasts": [],
+ "lint": {
+  "verdict": "pass",
+  "overlap": []
+ },
+ "undo": {
+  "presses": 1,
+  "shaAfterUndo": "8c75f5b4d674940994b933147dfd9673a594594c1628fdb7faea42e0a8303111",
+  "byteIdentical": true,
+  "tracksAfterUndo": [
+   {
+    "id": "v2",
+    "lane": "visual",
+    "items": []
+   },
+   {
+    "id": "v1",
+    "lane": "visual",
+    "items": [
+     "cut-1@0+180"
+    ]
+   },
+   {
+    "id": "a1",
+    "lane": "audio",
+    "items": []
+   }
+  ]
+ }
+}

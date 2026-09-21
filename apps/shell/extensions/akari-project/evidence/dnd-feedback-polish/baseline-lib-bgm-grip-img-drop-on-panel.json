@@ -1,0 +1,150 @@
+{
+ "src": "lib:audio/bgm-jazzhop-piano-086",
+ "grip": "img",
+ "mode": "drop",
+ "at": "2026-09-21T13:42:04.850Z",
+ "card": {
+  "rect": {
+   "x": 58,
+   "y": 167.390625,
+   "w": 37.96875,
+   "h": 193.46875
+  },
+  "draggable": "true",
+  "hasImg": true,
+  "imgDraggableAttr": null,
+  "imgDraggableProp": true,
+  "imgPt": {
+   "x": 62.596875,
+   "y": 173.7859375
+  },
+  "titlePt": {
+   "x": 67.4921875,
+   "y": 354.859375
+  },
+  "hitImg": "IMG",
+  "hitTitle": "DIV"
+ },
+ "grip_point": {
+  "x": 62.596875,
+  "y": 173.7859375
+ },
+ "dragIntercepted": true,
+ "injectedImageFile": {
+  "src": "https://raw.githubusercontent.com/AkariLabs/akari-sounds/v0/previews/bgm-jazzhop-piano-086.jpeg",
+  "file": "/tmp/dfp-l1/dragged-thumb.jpeg"
+ },
+ "dragData": {
+  "types": [
+   "text/uri-list",
+   "text/html",
+   "application/x-akari-library-item"
+  ],
+  "files": [
+   "/tmp/dfp-l1/dragged-thumb.jpeg"
+  ],
+  "itemsPreview": [
+   {
+    "mimeType": "text/uri-list",
+    "title": "",
+    "data": "https://raw.githubusercontent.com/AkariLabs/akari-sounds/v0/previews/bgm-jazzhop-piano-086.jpeg"
+   },
+   {
+    "mimeType": "text/html",
+    "data": "<img alt=\"\" src=\"https://raw.githubusercontent.com/AkariLabs/akari-sounds/v0/previews/bgm-jazzhop-piano-086.jpeg\" style=\"width: 100%; height: 100%; object-fit: "
+   },
+   {
+    "mimeType": "application/x-akari-library-item",
+    "data": "{\"kind\":\"asset\",\"key\":\"audio/bgm-jazzhop-piano-086\",\"id\":\"bgm-jazzhop-piano-086\",\"category\":\"audio\",\"title\":\"After the Rain\"}"
+   }
+  ],
+  "dragOperationsMask": 1
+ },
+ "hoverPoint": {
+  "x": 130.45703125,
+  "y": 386.8
+ },
+ "duringDrag": {
+  "importOverlayShown": true,
+  "overlayTexts": [
+   "ここに落とすと素材に取り込みます"
+  ]
+ },
+ "pageDataTransfer": {
+  "dragstart": {
+   "types": [
+    "text/uri-list",
+    "text/html",
+    "Files"
+   ],
+   "files": 1,
+   "items": [
+    "string:text/uri-list",
+    "file:image/jpeg",
+    "string:text/html"
+   ],
+   "target": "IMG"
+  },
+  "dragover": [
+   {
+    "types": [
+     "text/uri-list",
+     "text/html",
+     "application/x-akari-library-item",
+     "Files"
+    ],
+    "files": 0,
+    "items": [
+     "string:text/uri-list",
+     "string:text/html",
+     "file:image/jpeg",
+     "string:application/x-akari-library-item"
+    ]
+   },
+   {
+    "types": [
+     "text/uri-list",
+     "text/html",
+     "application/x-akari-library-item",
+     "Files"
+    ],
+    "files": 0,
+    "items": [
+     "string:text/uri-list",
+     "string:text/html",
+     "file:image/jpeg",
+     "string:application/x-akari-library-item"
+    ]
+   },
+   {
+    "types": [
+     "text/uri-list",
+     "text/html",
+     "application/x-akari-library-item",
+     "Files"
+    ],
+    "files": 0,
+    "items": [
+     "string:text/uri-list",
+     "string:text/html",
+     "file:image/jpeg",
+     "string:application/x-akari-library-item"
+    ]
+   }
+  ]
+ },
+ "afterDrag": {
+  "importOverlayShown": false,
+  "overlayTexts": []
+ },
+ "editChanged": false,
+ "assetsAdded": [
+  "dragged-thumb.jpeg"
+ ],
+ "toasts": [
+  "AKARI Video を v0.1.73 に更新しました変更点を見る",
+  "AKARI Video を v0.1.73 に更新しました",
+  "1 件を素材に取り込みました。",
+  "1 件を素材に取り込みました。"
+ ]
+}

@@ -9,6 +9,7 @@ const { isTrackLocked, lockedTrackMessage } = require('../lib/common/track-lock-
 const { indexEditV2Items } = require('../lib/common/edit-v2-mutations.js');
 const { linkedCutIdOf, linkedAudioItemIdOf } = require('@akari-video/edit-store');
 const { withCaptionsDisplaySupplement } = require('../lib/common/derive-timeline-tracks.js');
+const { computeMaterialGhostRange, materialGhostVisibility } = require('../lib/common/timeline-material-insert.js');
 const source = ts.createSourceFile('widget.ts', readFileSync(
   new URL('../src/browser/akari-annotations-widget.ts', import.meta.url), 'utf8'
 ), ts.ScriptTarget.Latest, true);
@@ -24,7 +25,7 @@ const names = [
   'handleMaterialDrop', 'readLibraryAssetDropPayload', 'resolveMaterialDropTarget', 'updateMaterialGhost',
   'handleLibraryTransitionDrop', 'handleLibraryTransitionDragOver', 'applyTrackLockAppearance',
   'timelineSelectionFromElement',
-  'visualTrack',
+  'visualTrack', 'setGhostRejected',
 ];
 const methodText = name => {
   const method = widget.members.find(member => member.name?.getText(source) === name);
@@ -36,9 +37,10 @@ const code = ts.transpileModule(`class Handler { ${names.map(methodText).join('\
 }).outputText;
 class Element {}
 const Handler = new Function('isTrackLocked', 'lockedTrackMessage', 'TRACK_FLAG_STORAGE_PREFIX', 'Element',
-  'withCaptionsDisplaySupplement', 'linkedCutIdOf', 'linkedAudioItemIdOf', 'indexEditV2Items', `${code}\nreturn Handler;`)(
+  'withCaptionsDisplaySupplement', 'linkedCutIdOf', 'linkedAudioItemIdOf', 'indexEditV2Items',
+  'computeMaterialGhostRange', 'materialGhostVisibility', `${code}\nreturn Handler;`)(
   isTrackLocked, lockedTrackMessage, 'test-track-flags', Element, withCaptionsDisplaySupplement,
-  linkedCutIdOf, linkedAudioItemIdOf, indexEditV2Items
+  linkedCutIdOf, linkedAudioItemIdOf, indexEditV2Items, computeMaterialGhostRange, materialGhostVisibility
 );
 
 test('a reused clip remains interactive after keyed geometry resets pointer events', () => {
@@ -303,7 +305,7 @@ test('tree row cannot start reordering a locked track', () => {
   assert.match(context.footer.textContent, /本編/);
 });
 
-test('material drop rejects a locked target and hides its ghost', () => {
+test('material hover shows a rejected ghost on a locked target, then drop rejects and hides it', () => {
   const { context } = fixture();
   context.strip = { getBoundingClientRect: () => ({ top: 0 }) };
   context.laneLayout = { tracks: [{ id: 'visual', track: 0, top: 0, height: 48 }] };
@@ -314,9 +316,24 @@ test('material drop rejects a locked target and hides its ghost', () => {
   context.readMaterialDropPayload = () => payload;
   context.hideMaterialGhost = () => { context.ghostHidden = true; };
   context.materialDragPayload = payload;
-  context.updateMaterialGhost(10, 10);
-  assert.equal(context.ghostHidden, true);
   context.ghostHidden = false;
+  const classes = new Set();
+  context.materialGhost = { style: {}, dataset: {}, classList: {
+    toggle(name, on) { if (on) classes.add(name); else classes.delete(name); }
+  } };
+  context.materialGhostDurationSeconds = () => 3;
+  context.materialDropTime = () => 1;
+  context.materialDropTargetWithoutOverlap = target => target;
+  context.setGhostRange = () => {};
+  context.hideSnapGuide = context.hideTrackInsertIndicator = () => {};
+  context.stripScroll = { scrollTop: 0 };
+  context.rulerRowHeightPx = () => 14;
+  context.updateMaterialGhost(10, 10);
+  assert.equal(context.ghostHidden, false);
+  assert.equal(context.materialGhost.style.display, 'block');
+  assert.equal(classes.has('akari-annotations-ghost-rejected'), true);
+  assert.equal(context.materialGhost.textContent, lockedTrackMessage('本編'));
+  assert.equal(context.materialGhost.style.outline, '2px solid #f14c4c');
   const target = context.resolveMaterialDropTarget('video', 10);
   assert.equal(target.rejected, true);
   assert.equal(target.targetTrackId, 'visual');

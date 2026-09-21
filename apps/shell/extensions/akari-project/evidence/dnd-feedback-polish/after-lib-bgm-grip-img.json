@@ -1,0 +1,102 @@
+{
+ "src": "lib:audio/bgm-jazzhop-piano-086",
+ "grip": "img",
+ "mode": "cancel",
+ "at": "2026-09-21T13:29:58.660Z",
+ "card": {
+  "rect": {
+   "x": 58,
+   "y": 167.390625,
+   "w": 38,
+   "h": 193.5
+  },
+  "draggable": "true",
+  "hasImg": true,
+  "imgDraggableAttr": "false",
+  "imgDraggableProp": false,
+  "imgPt": {
+   "x": 62.6,
+   "y": 173.790625
+  },
+  "titlePt": {
+   "x": 67.5,
+   "y": 354.890625
+  },
+  "hitImg": "IMG",
+  "hitTitle": "DIV"
+ },
+ "grip_point": {
+  "x": 62.6,
+  "y": 173.790625
+ },
+ "dragIntercepted": true,
+ "dragData": {
+  "types": [
+   "application/x-akari-library-item"
+  ],
+  "files": [],
+  "itemsPreview": [
+   {
+    "mimeType": "application/x-akari-library-item",
+    "data": "{\"kind\":\"asset\",\"key\":\"audio/bgm-jazzhop-piano-086\",\"id\":\"bgm-jazzhop-piano-086\",\"category\":\"audio\",\"title\":\"After the Rain\"}"
+   }
+  ],
+  "dragOperationsMask": 1
+ },
+ "hoverPoint": {
+  "x": 130.5,
+  "y": 386.8
+ },
+ "duringDrag": {
+  "importOverlayShown": false,
+  "overlayTexts": []
+ },
+ "pageDataTransfer": {
+  "dragstart": {
+   "types": [],
+   "files": 0,
+   "items": [],
+   "target": "DIV"
+  },
+  "dragover": [
+   {
+    "types": [
+     "application/x-akari-library-item"
+    ],
+    "files": 0,
+    "items": [
+     "string:application/x-akari-library-item"
+    ]
+   },
+   {
+    "types": [
+     "application/x-akari-library-item"
+    ],
+    "files": 0,
+    "items": [
+     "string:application/x-akari-library-item"
+    ]
+   },
+   {
+    "types": [
+     "application/x-akari-library-item"
+    ],
+    "files": 0,
+    "items": [
+     "string:application/x-akari-library-item"
+    ]
+   }
+  ]
+ },
+ "outsidePanel": {
+  "importOverlayShown": false,
+  "overlayTexts": []
+ },
+ "afterDrag": {
+  "importOverlayShown": false,
+  "overlayTexts": []
+ },
+ "editChanged": false,
+ "assetsAdded": [],
+ "toasts": []
+}

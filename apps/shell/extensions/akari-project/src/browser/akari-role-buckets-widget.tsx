@@ -91,6 +91,7 @@ import { openAkariContextMenu, OPEN_PREVIEW_IMAGE_ITEM } from './akari-context-m
 import { assetGroupOpenTarget } from '../common/asset-group-open-target';
 import { countReferences } from '../common/project-reference-check';
 import { ElectronAkariProjectApi } from '../electron-common/electron-api';
+import { isOsFileDropInput } from '../common/delegated-drop';
 
 // パートナー拡張の公開コマンド ID とミラー（extension 間の npm 依存を作らない。
 // akari-partner-command-contribution.ts の AkariPartnerCommands.INJECT_PROMPT と同一）。
@@ -1918,7 +1919,8 @@ export class AkariRoleBucketsWidget extends ReactWidget {
      */
     protected handleDragOver(event: DragEvent): void {
         const transfer = event.dataTransfer;
-        if (!transfer || !transfer.types.includes('Files')) {
+        if (!transfer || !isOsFileDropInput(transfer.types)) {
+            this.setDragActive(false);
             return;
         }
         event.preventDefault();
@@ -1953,7 +1955,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         event.stopPropagation();
         this.setDragActive(false);
         const transfer = event.dataTransfer;
-        if (!transfer) {
+        if (!transfer || !isOsFileDropInput(transfer.types)) {
             return;
         }
         const { accepted, rejectedCount } = this.classifyDropped(transfer);
@@ -3551,6 +3553,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                         ? <img
                             src={previewUrl}
                             alt=''
+                            draggable={false}
                             onError={() => this.handleCatalogThumbnailError(item)}
                             style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                         />
@@ -3627,6 +3630,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                         ? <img
                             src={previewUrl}
                             alt=''
+                            draggable={false}
                             onError={() => this.handleCatalogThumbnailError(item)}
                             style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                         />

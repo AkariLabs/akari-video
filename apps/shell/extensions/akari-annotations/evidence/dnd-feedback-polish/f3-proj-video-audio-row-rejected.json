@@ -1,0 +1,152 @@
+{
+ "src": "proj:assets/video/raw-clip.mp4",
+ "points": [
+  [
+   480,
+   475
+  ],
+  [
+   480,
+   434
+  ],
+  [
+   480,
+   475
+  ]
+ ],
+ "at": "2026-09-21T14:00:31.337Z",
+ "shaBefore": "8c75f5b4d674940994b933147dfd9673a594594c1628fdb7faea42e0a8303111",
+ "tracksBefore": [
+  {
+   "id": "v2",
+   "lane": "visual",
+   "items": []
+  },
+  {
+   "id": "v1",
+   "lane": "visual",
+   "items": [
+    "cut-1@0+180"
+   ]
+  },
+  {
+   "id": "a1",
+   "lane": "audio",
+   "items": []
+  }
+ ],
+ "hovers": [
+  {
+   "x": 480,
+   "y": 475,
+   "ghost": {
+    "x": 480,
+    "y": 459,
+    "w": 104,
+    "h": 28,
+    "rejected": true,
+    "insertionPreview": false,
+    "border": "2px solid rgb(241, 76, 76)",
+    "outline": "rgb(241, 76, 76) solid 2px",
+    "background": "rgba(241, 76, 76, 0.25)",
+    "color": "rgb(241, 76, 76)",
+    "text": "音のレーンには映像を置けません。"
+   },
+   "insertLine": null,
+   "footer": "音のレーンには映像を置けません。",
+   "lastDragOverAccepted": true,
+   "lastDropEffect": "none"
+  },
+  {
+   "x": 480,
+   "y": 434,
+   "ghost": {
+    "x": 480,
+    "y": 407,
+    "w": 104,
+    "h": 50,
+    "rejected": false,
+    "insertionPreview": false,
+    "border": "1px dashed rgb(77, 208, 200)",
+    "outline": "rgb(249, 115, 22) solid 2px",
+    "background": "rgba(77, 208, 200, 0.22)",
+    "color": "rgb(204, 204, 204)",
+    "text": ""
+   },
+   "insertLine": null,
+   "footer": "音のレーンには映像を置けません。",
+   "lastDragOverAccepted": true,
+   "lastDropEffect": "copy"
+  },
+  {
+   "x": 480,
+   "y": 475,
+   "ghost": {
+    "x": 480,
+    "y": 459,
+    "w": 104,
+    "h": 28,
+    "rejected": true,
+    "insertionPreview": false,
+    "border": "2px solid rgb(241, 76, 76)",
+    "outline": "rgb(241, 76, 76) solid 2px",
+    "background": "rgba(241, 76, 76, 0.25)",
+    "color": "rgb(241, 76, 76)",
+    "text": "音のレーンには映像を置けません。"
+   },
+   "insertLine": null,
+   "footer": "音のレーンには映像を置けません。",
+   "lastDragOverAccepted": true,
+   "lastDropEffect": "none"
+  }
+ ],
+ "card": {
+  "x": 159.5,
+  "y": 199,
+  "draggable": "true"
+ },
+ "dragIntercepted": true,
+ "mimeTypes": [
+  "application/x-akari-material"
+ ],
+ "waitMs": 30223,
+ "editChanged": false,
+ "tracksAfter": [
+  {
+   "id": "v2",
+   "lane": "visual",
+   "items": []
+  },
+  {
+   "id": "v1",
+   "lane": "visual",
+   "items": [
+    "cut-1@0+180"
+   ]
+  },
+  {
+   "id": "a1",
+   "lane": "audio",
+   "items": []
+  }
+ ],
+ "afterDrop": {
+  "ghost": null,
+  "ghostHiddenStyle": {
+   "rejected": false,
+   "border": "1px dashed rgb(77, 208, 200)",
+   "outline": "rgb(249, 115, 22) solid 2px",
+   "background": "rgba(77, 208, 200, 0.22)",
+   "text": ""
+  },
+  "insertLine": null,
+  "footer": "音のレーンには映像を置けません。",
+  "lastDragOverAccepted": true,
+  "lastDropEffect": "none"
+ },
+ "toasts": [],
+ "lint": {
+  "verdict": "pass",
+  "overlap": []
+ }
+}
