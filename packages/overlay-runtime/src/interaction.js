@@ -64,6 +64,11 @@ function lazyBagForScope(tree, scopeId) {
   return node?.kind === "bag" && node.lazy === true ? node.id : null;
 }
 
+function nextCycleCandidate(candidates, currentId) {
+  if (!candidates.length) return null;
+  return candidates[(candidates.indexOf(currentId) + 1) % candidates.length];
+}
+
 // END selection-scope
 
   const stage = document.getElementById("overlay-stage");
@@ -124,6 +129,13 @@ function lazyBagForScope(tree, scopeId) {
   let selftestOverlayOverride = null;
   let verticalSnapGuide = null;
   let horizontalSnapGuide = null;
+  let nudge = null;
+  let nudgeTimer = null;
+  let lastClick = null;
+  let clickOrigin = null;
+  let hoverFrame = null;
+  let hoverTick = null;
+  let hoverEvent = null;
 
   // 当たり判定規約は断片の inline style へ一時的に pointer-events を置く。
   // テキスト編集で断片 HTML を保存するときに作者の元指定へ戻せるよう、初回値だけ保持する。
@@ -871,6 +883,8 @@ function lazyBagForScope(tree, scopeId) {
   }
 
   function clearSelection() {
+    flushNudge();
+    hideHover();
     if (selectionTrackingFrame !== null) {
       cancelAnimationFrame(selectionTrackingFrame);
       selectionTrackingFrame = null;
@@ -1102,6 +1116,110 @@ function lazyBagForScope(tree, scopeId) {
     });
     lastTransformWrite = record;
     return record;
+  }
+
+  function flushNudge() {
+    clearTimeout(nudgeTimer);
+    nudgeTimer = null;
+    const session = nudge;
+    nudge = null;
+    if (!session || (!session.dx && !session.dy)) return;
+    if (session.group) { finishGroupDrag(session); return; }
+    const transform = { ...session.transform,
+      x: session.startX + session.dx, y: session.startY + session.dy };
+    const record = enqueueWrite(session.writeContext, session.overlayId, { transform }, 'transform');
+    lastTransformWrite = record;
+    record.promise.catch(() => {
+      const current = readTransform(session.container);
+      if (current.x !== transform.x || current.y !== transform.y) return;
+      session.container.style.setProperty('--x', `${session.startX}px`);
+      session.container.style.setProperty('--y', `${session.startY}px`);
+      refreshSelectionFrame();
+    });
+  }
+
+  function handleNudge(event) {
+    const delta = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[event.key];
+    if (!delta || !interactionEnabled || !selectedId || activeEdit || activeDrag || activeResize
+      || event.metaKey || event.ctrlKey || event.altKey || !document.hasFocus()) return false;
+    const isControl = target => target instanceof Element
+      && (target.isContentEditable || target.closest('input, textarea, select, button, [role="textbox"]'));
+    if (isControl(event.target) || isControl(document.activeElement)) return false;
+    const members = groupSelection ? visibleMembers() : [selectedOverlay];
+    if (!members.length || members.some(element => !isMovable(element))) return false;
+    if (nudge && nudge.overlayId !== selectedId) flushNudge();
+    if (!nudge) {
+      const transform = groupSelection ? treeNode(selectedId)?.transform ?? {} : readTransform(selectedOverlay);
+      nudge = { group: groupSelection, overlayId: selectedId, container: selectedOverlay,
+        members: members.map(element => ({ element, transform: readTransform(element) })),
+        transform, startX: transform.x ?? 0, startY: transform.y ?? 0, dx: 0, dy: 0,
+        moved: true, writeContext: captureWriteContext() };
+    }
+    const step = event.shiftKey ? 10 : 1;
+    nudge.dx += delta[0] * step; nudge.dy += delta[1] * step;
+    for (const { element, transform } of nudge.members) {
+      element.style.setProperty('--x', `${transform.x + nudge.dx}px`);
+      element.style.setProperty('--y', `${transform.y + nudge.dy}px`);
+    }
+    hideHover();
+    refreshSelectionFrame();
+    clearTimeout(nudgeTimer);
+    nudgeTimer = setTimeout(flushNudge, 400);
+    event.preventDefault(); event.stopPropagation(); event.stopImmediatePropagation();
+    return true;
+  }
+
+  function cycleCandidates(event) {
+    const candidates = [];
+    for (const element of document.elementsFromPoint(event.clientX, event.clientY)) {
+      const container = findOverlayContainer(element);
+      if (!isSelectable(container)) continue;
+      const next = resolveScopedSelection(selectionTree(), scopeId, scopedHitId(container, { clientX: event.clientX, clientY: event.clientY, target: element }));
+      if (next.scopeId !== scopeId || !next.selectId || candidates.includes(next.selectId)) continue;
+      if (floorScopeId !== null && !lineage(selectionTree(), next.selectId).includes(floorScopeId)) continue;
+      candidates.push(next.selectId);
+    }
+    return candidates;
+  }
+
+  function hideHover() {
+    hoverEvent = null;
+    if (hoverTick !== null) cancelAnimationFrame(hoverTick);
+    hoverTick = null;
+    if (hoverFrame) hoverFrame.hidden = true;
+  }
+  function scheduleHover(event) {
+    if (!interactionEnabled || activeDrag || activeResize || activeEdit || event.buttons) { hideHover(); return; }
+    hoverEvent = event;
+    if (hoverTick !== null) return;
+    hoverTick = requestAnimationFrame(() => {
+      hoverTick = null;
+      const event = hoverEvent;
+      if (!event || activeDrag || activeResize || activeEdit) { hideHover(); return; }
+      const container = overlayForEvent(event);
+      const next = isSelectable(container) && resolveScopedSelection(selectionTree(), scopeId,
+        scopedHitId(container, event), { deep: Boolean(event.metaKey || event.ctrlKey) });
+      if (!next || next.selectId === selectedId || (floorScopeId !== null
+        && !lineage(selectionTree(), next.selectId).includes(floorScopeId))) { hideHover(); return; }
+      const node = treeNode(next.selectId);
+      const leaf = containerById(next.selectId);
+      const rect = node && node.kind !== 'leaf' ? unionBounds(visibleMembers(next.selectId))
+        : leaf ? fragmentBounds(leaf) : null;
+      if (!rect) { hideHover(); return; }
+      if (!hoverFrame) {
+        hoverFrame = document.createElement('div');
+        hoverFrame.setAttribute('data-akari-ui', 'preview-hover-frame');
+        hoverFrame.setAttribute('aria-hidden', 'true');
+        // Standalone hosts also get a non-interactive, viewport-based frame.
+        Object.assign(hoverFrame.style, { position: 'fixed', pointerEvents: 'none',
+          boxSizing: 'border-box', border: '1px solid var(--akari-accent, #4da3ff)', opacity: '0.45', zIndex: '90' });
+        document.body.appendChild(hoverFrame);
+      }
+      hoverFrame.dataset.overlayId = next.selectId;
+      hoverFrame.hidden = false;
+      Object.assign(hoverFrame.style, { left: `${rect.left}px`, top: `${rect.top}px`,
+        width: `${rect.width}px`, height: `${rect.height}px` });
+    });
   }
 
   function releasePointer(drag) {
@@ -1738,6 +1856,9 @@ function lazyBagForScope(tree, scopeId) {
   function onPointerDown(event) {
     if (!interactionEnabled) return;
     if (event.button !== 0 || activeDrag || activeResize) return;
+    flushNudge();
+    hideHover();
+    clickOrigin = { selectedId, scopeId, moved: false };
 
     if (selectionTree().length) {
       if (event.target instanceof Element && event.target.closest('[data-akari-ui="preview-scope-breadcrumb"]')) return;
@@ -1826,6 +1947,7 @@ function lazyBagForScope(tree, scopeId) {
   }
 
   function onPointerMove(event) {
+    scheduleHover(event);
     if (activeResize && event.pointerId === activeResize.pointerId) {
       updateResize(event);
       return;
@@ -1846,6 +1968,7 @@ function lazyBagForScope(tree, scopeId) {
     }
 
     drag.moved = true;
+    if (clickOrigin) clickOrigin.moved = true;
     // 始点と現在点をその時点の舞台矩形で動画座標へ戻す。ズーム・全画面切替が
     // ドラッグ中に入っても、stale な倍率で --x/--y を計算しない。
     const currentStagePoint = stageLocalPoint(event.clientX, event.clientY);
@@ -2154,6 +2277,8 @@ function lazyBagForScope(tree, scopeId) {
   }
 
   function beginEdit(container, element) {
+    flushNudge();
+    hideHover();
     if (activeEdit?.element === element) {
       element.focus({ preventScroll: true });
       return;
@@ -2226,18 +2351,28 @@ function lazyBagForScope(tree, scopeId) {
   }
 
   function onClick(event) {
-    if (!interactionEnabled) return;
-    if (selectionTree().length) {
-      const hit = overlayForEvent(event);
-      if (isSelectable(hit)) selectScopedHit(hit, event);
-      return;
-    }
-    const container = overlayForEvent(event);
-    if (isSelectable(container)) selectOverlay(container);
+    if (!interactionEnabled || activeEdit) return;
+    const hit = overlayForEvent(event);
+    if (!isSelectable(hit)) { lastClick = null; return; }
+    const now = performance.now();
+    const origin = clickOrigin ?? { selectedId, scopeId };
+    const canCycle = event.detail === 1 && !event.shiftKey && !event.metaKey && !event.ctrlKey
+      && !event.altKey && !origin.moved && lastClick && lastClick.scopeId === scopeId
+      && origin.scopeId === scopeId && now - lastClick.time <= 600
+      && Math.hypot(event.clientX - lastClick.x, event.clientY - lastClick.y) <= 6;
+    const nextId = canCycle ? nextCycleCandidate(cycleCandidates(event), origin.selectedId) : null;
+    if (nextId) applyScopedSelection({ selectId: nextId, scopeId });
+    else if (selectionTree().length) selectScopedHit(hit, event);
+    else selectOverlay(hit);
+    lastClick = event.detail === 1 && !origin.moved && !event.shiftKey && !event.metaKey && !event.ctrlKey && !event.altKey
+      ? { x: event.clientX, y: event.clientY, scopeId, time: now } : null;
+    clickOrigin = null;
   }
 
   function onDoubleClick(event) {
     if (!interactionEnabled) return;
+    lastClick = null;
+    hideHover();
     if (selectionTree().length && groupSelection) {
       const hit = overlayForEvent(event);
       if (!isSelectable(hit)) return;
@@ -2277,6 +2412,7 @@ function lazyBagForScope(tree, scopeId) {
 
   function onKeyDown(event) {
     if (event.isComposing) return;
+    if (handleNudge(event)) return;
     if (selectionTree().length) {
       if (event.key === 'Enter' && event.target instanceof Element
         && event.target.closest('[data-akari-ui="preview-scope-breadcrumb"]')) return;
@@ -2677,6 +2813,8 @@ function lazyBagForScope(tree, scopeId) {
   window.addEventListener("pointerup", onPointerUp, true);
   window.addEventListener("pointercancel", onPointerCancel, true);
   window.addEventListener("keydown", onKeyDown, true);
+  window.addEventListener('blur', () => { flushNudge(); hideHover(); lastClick = null; });
+  document.addEventListener('pointerleave', hideHover);
 
   return {
     get selectedId() { return selectedId; },
