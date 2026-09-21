@@ -7550,6 +7550,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             element.querySelector(':scope > .akari-generation-perforations-top')?.remove();
             element.querySelector(':scope > .akari-generation-perforations-bottom')?.remove();
         }
+        if (generation?.state !== 'failed') element.querySelector('.akari-generation-action')?.remove();
         let badge = element.querySelector<HTMLElement>('[data-akari-generation-badge]');
         let progress = element.querySelector<HTMLElement>(':scope > [data-akari-generation-progress]');
         const header = element.querySelector<HTMLElement>(':scope > .akari-annotations-strip-clip-header');
@@ -7591,6 +7592,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
             const duration = header?.querySelector<HTMLElement>('.akari-annotations-strip-clip-header-duration');
             if (name) name.title = name.textContent ?? '';
             if (duration) duration.title = duration.textContent ?? '';
+            if (generation.state === 'failed' && header && element.dataset.akariItemId) {
+                this.appendGenerationRetry(element, header, badge, duration);
+            }
             element.dataset.akariGenerationBaseTitle = element.title;
             element.title = [element.title, badge.title, name?.title, duration?.title].filter(Boolean).join('\n');
             element.dataset.akariGenerationTitle = element.title;
@@ -7610,6 +7614,109 @@ export class AkariAnnotationsWidget extends BaseWidget {
             progress.style.width = description.progress === undefined ? '' : `${description.progress}%`;
         } else {
             progress?.remove();
+        }
+    }
+
+    protected appendGenerationRetry(element: HTMLElement, header: HTMLElement, badge: HTMLElement, duration?: HTMLElement | null): void {
+        const update = (): void => {
+            // Reserve the complete badge/time and a name ellipsis before adding an action.
+            const width = element.getBoundingClientRect().width;
+            const timeWidth = Math.max(duration?.getBoundingClientRect().width ?? 0, (duration?.textContent?.length ?? 0) * 8);
+            const badgeWidth = Math.max(badge.getBoundingClientRect().width, 32);
+            const existing = header.querySelector('.akari-generation-action');
+            if (!Number.isFinite(width) || width < Math.max(200, badgeWidth + timeWidth + 100)) {
+                existing?.remove();
+                return;
+            }
+            if (existing) return;
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'akari-generation-action';
+            button.textContent = 'もう一度';
+            button.title = '同じ入力でもう一度（費用承認）';
+            Object.assign(button.style, { fontSize: '10px', lineHeight: '10px', padding: '0 4px', pointerEvents: 'auto',
+                border: '1px solid currentColor', borderRadius: '3px', color: 'inherit',
+                background: 'var(--theia-editor-background, #1e1e1e)', cursor: 'pointer', whiteSpace: 'nowrap' });
+            const itemId = (): string | undefined => element.dataset.akariItemKind === 'cut'
+                ? this.cutItemId(Number(element.dataset.akariItemId)) : element.dataset.akariItemId;
+            let pressed: { pointerId: number; itemId: string } | undefined;
+            let opening = false;
+            const activate = (): void => {
+                const id = itemId();
+                if (!id || opening || this.isDisposed || element.dataset.akariGenerationState !== 'failed'
+                    || header.querySelector('.akari-generation-action') !== button) return;
+                opening = true;
+                void this.openGenerationRetry(id).finally(() => { opening = false; });
+            };
+            button.addEventListener('pointerdown', event => {
+                event.stopPropagation();
+                const id = itemId();
+                pressed = event.button === 0 && event.isPrimary !== false && id
+                    ? { pointerId: event.pointerId, itemId: id } : undefined;
+            });
+            button.addEventListener('pointerup', event => {
+                event.stopPropagation();
+                const down = pressed;
+                pressed = undefined;
+                if (event.button !== 0 || !down || down.pointerId !== event.pointerId || down.itemId !== itemId()) return;
+                event.preventDefault();
+                activate();
+            });
+            button.addEventListener('pointercancel', () => { pressed = undefined; });
+            // Compatibility mouse events must not select/drag the enclosing clip.
+            // The contextmenu event remains untouched for right-click actions.
+            button.addEventListener('mousedown', event => event.stopPropagation());
+            button.addEventListener('mouseup', event => event.stopPropagation());
+            button.addEventListener('dblclick', event => event.stopPropagation());
+            button.addEventListener('click', event => {
+                event.stopPropagation();
+                event.preventDefault();
+                // Pointer activation belongs to pointerup. Native Enter/Space and
+                // assistive-technology clicks have detail 0 and use the same route.
+                if (event.detail === 0) activate();
+            });
+            header.appendChild(button);
+        };
+        update();
+        // keyedStripSegment uses percentages and may not be attached until finishKeyedRender.
+        // renderStrip already runs for zoom/pan re-layout and the strip's ResizeObserver.
+        // Recheck after its final geometry, even when the immediate rect was zero.
+        window.requestAnimationFrame(() => {
+            if (this.isDisposed || !element.isConnected || element.dataset.akariGenerationState !== 'failed'
+                || header.parentElement !== element || badge.parentElement !== header) return;
+            update();
+        });
+    }
+
+    protected async openGenerationRetry(itemId: string): Promise<void> {
+        try {
+            const selection = this.resolveFocusSelection(itemId);
+            if (!selection) return;
+            this.applySelection(selection);
+            const selected = (): boolean => {
+                const snapshot = this.selectionModel.snapshot;
+                return (snapshot?.kind === 'cut' ? snapshot.itemId
+                    : snapshot?.kind === 'layer' || snapshot?.kind === 'item' ? snapshot.id : undefined) === itemId;
+            };
+            if (!selected()) await new Promise<void>(resolve => {
+                let timer: number | undefined;
+                const finish = (): void => {
+                    subscription.dispose();
+                    if (timer !== undefined) window.clearTimeout(timer);
+                    resolve();
+                };
+                const subscription = this.selectionModel.onChanged(() => { if (selected()) finish(); });
+                timer = window.setTimeout(finish, 2000);
+                if (selected()) finish();
+            });
+            if (this.isDisposed) return;
+            if (!selected()) { this.showNotice('再試行するクリップの選択を反映できませんでした。'); return; }
+            // fieldName is forwarded unchanged by the existing open command.
+            await this.commands.executeCommand(OPEN_AKARI_INSPECTOR_ID, {
+                tabId: 'generation', sectionId: 'generation', fieldName: 'akari-generation-retry'
+            });
+        } catch (error) {
+            this.showNotice(`再試行を開けませんでした: ${String(error)}`);
         }
     }
 

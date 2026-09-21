@@ -64,7 +64,7 @@ export function describeGenerationChip(
         return { badge: '応答なし・再取得', className: 'akari-generation-stale', title: '生成処理から応答がありません' };
     }
     if (state === 'failed') {
-        return { badge: '失敗', className: 'akari-generation-failed', title: '生成に失敗しました' };
+        return { badge: '失敗', className: 'akari-generation-failed', title: '生成に失敗しました · もう一度（右パネルで費用承認）' };
     }
     if (state === 'orphan') {
         return {

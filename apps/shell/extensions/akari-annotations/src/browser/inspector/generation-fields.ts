@@ -69,6 +69,7 @@ export interface GenerationFieldDef<TSnapshot = unknown> {
         counter: string; notes: string[];
     };
     generationButtons?: boolean;
+    generationCheckbox?: boolean;
     generationThumbnail?: () => Promise<string | undefined>;
     name?: string;
     label: string;
@@ -95,6 +96,7 @@ export interface GenerationFieldActions {
     generate: () => Promise<{ ok: boolean; message?: string }>;
     resume: () => Promise<{ ok: boolean; message?: string }>;
     retry: () => Promise<{ ok: boolean; message?: string }>;
+    finalQuality?: () => Promise<{ ok: boolean; message?: string }>;
 }
 
 export interface GenerationFieldsOptions<TSnapshot> {
@@ -104,10 +106,45 @@ export interface GenerationFieldsOptions<TSnapshot> {
     validation?: GenerationValidation;
     defaults: {
         catalog: readonly GenerationCatalogRow[]; state?: string;
+        cheapDraft?: boolean; finalQuality?: boolean; doneMeta?: unknown; originalNext?: unknown;
         currentImage?: string; previousImage?: string; nextImage?: string;
         thumbnail?: (path: string) => Promise<string | undefined>;
     };
     actions: GenerationFieldActions;
+}
+
+/** Catalog order is the existing resolution default; never substitute price rank #2. */
+export function generationDefaultResolution(row: GenerationCatalogRow): string | null {
+    return row.resolutions?.[0] ?? null;
+}
+
+export function generationDraftQuality(row: GenerationCatalogRow): { resolution: string; unitPrice: number } | undefined {
+    const prices = Object.entries(row.price?.by_resolution ?? {})
+        .filter(([resolution, price]) => !!resolution && Number.isFinite(price) && price >= 0);
+    if (row.kind !== 'video' || new Set(prices.map(([, price]) => price)).size < 2) return undefined;
+    const [resolution, unitPrice] = prices.reduce((lowest, entry) => entry[1] < lowest[1] ? entry : lowest);
+    return { resolution, unitPrice };
+}
+
+export function generationIsDraftMeta(meta: unknown, row: GenerationCatalogRow): boolean {
+    const value = meta as GenerationMetaV1 | undefined;
+    const quality = generationDraftQuality(row);
+    return !!quality && value?.kind === 'video' && value.status === 'done'
+        && (value.model as { id?: string })?.id === row.id && (value.output as { resolution?: string })?.resolution === quality.resolution;
+}
+
+export function generationCanFinalize(meta: unknown, originalMeta: unknown, row: GenerationCatalogRow): boolean {
+    return generationIsDraftMeta(meta, row) && generationDraftFromMeta(originalMeta)?.modelId === row.id;
+}
+
+export function generationToggleDraft(row: GenerationCatalogRow, output: Record<string, unknown>, enabled: boolean,
+    previousResolution?: string | null): { output: Record<string, unknown>; previousResolution: string | null } {
+    const quality = generationDraftQuality(row);
+    if (!quality) return { output: { ...output }, previousResolution: previousResolution ?? null };
+    const previous = enabled ? (typeof output.resolution === 'string' ? output.resolution : generationDefaultResolution(row))
+        : previousResolution ?? generationDefaultResolution(row);
+    return { output: { ...output, resolution: enabled ? quality.resolution
+        : previous && row.resolutions?.includes(previous) ? previous : generationDefaultResolution(row) }, previousResolution: previous };
 }
 
 /** UI labels never become provider prompt text. */
@@ -231,6 +268,15 @@ export function generationFactLabel(row: GenerationCatalogRow): string {
 export const generationFields = Object.assign(function generationFields<TSnapshot>({
     catalogRow, draft, validation, defaults, actions
 }: GenerationFieldsOptions<TSnapshot>): GenerationFieldDef<TSnapshot>[] {
+    const canFinalize = generationCanFinalize(defaults.doneMeta, defaults.originalNext, catalogRow);
+    if (defaults.state === 'done' && !defaults.finalQuality) return canFinalize ? [{
+        name: 'generation-actions', label: '操作', getValue: () => '', actions: [{
+            name: 'final-quality', label: '本番の画質にする…', title: '本番の画質にする…',
+            action: () => actions.finalQuality!()
+        }]
+    }, { name: 'generation-final-note', label: '',
+        getValue: () => '同じ入力でもう一度、高い画質で生成します（絵は変わることがあります）'
+    }] : [{ name: 'generation-done', label: '生成', getValue: () => '生成済み' }];
     const inputs = draft.inputs ?? {};
     const output = draft.output ?? {};
     const videoRows = defaults.catalog.filter(row => row.kind === 'video');
@@ -347,9 +393,17 @@ export const generationFields = Object.assign(function generationFields<TSnapsho
     });
     if (catalogRow.resolutions?.length) fields.push({
         name: 'generation-resolution', label: '解像度', inputKind: 'select', options: catalogRow.resolutions,
+        disabled: defaults.cheapDraft === true || locked,
         getValue: () => String(output.resolution ?? catalogRow.resolutions![0]),
         getEditValue: () => String(output.resolution ?? catalogRow.resolutions![0]),
         write: (_snapshot, value) => actions.update('output.resolution', value)
+    });
+    const quality = generationDraftQuality(catalogRow);
+    if (quality && !defaults.finalQuality) fields.push({
+        name: 'generation-cheap-draft', label: `下書き（安い・$${quality.unitPrice}/秒）· あとで本番の画質にできる`,
+        generationCheckbox: true, disabled: locked,
+        getValue: () => String(defaults.cheapDraft === true),
+        write: (_snapshot, value) => actions.update('cheapDraft', value === 'true')
     });
     if (catalogRow.audio_out === true) fields.push({
         name: 'generation-audio', label: '音声', inputKind: 'boolean-select',
@@ -385,10 +439,13 @@ export const generationFields = Object.assign(function generationFields<TSnapsho
         action: actions.copyAdjacent
     }, {
         name: 'generate', label: runLabel, title: runLabel,
-        disabled: generating || validation?.ok === false, action: actions.generate
+        disabled: generating || validation?.ok === false || (defaults.finalQuality === true
+            && (!quality || Number(catalogRow.price?.by_resolution?.[String(output.resolution)]) <= quality.unitPrice)), action: actions.generate
     }];
     if (state === 'stale') actionRows.push({ name: 'resume', label: '再取得', title: '生成結果を再取得', action: actions.resume });
     if (state === 'failed' || state === 'stale') actionRows.push({ name: 'retry', label: '同じ入力でもう一度', title: '同じ入力でもう一度', action: actions.retry });
+    if (defaults.finalQuality) fields.push({ name: 'generation-final-note', label: '',
+        getValue: () => '解像度を選んでください。同じ入力でもう一度、高い画質で生成します（絵は変わることがあります）' });
     fields.push({ name: 'generation-actions', label: '操作', getValue: () => '', actions: actionRows });
     const details = fields.filter(field => field.generationDetail);
     const visible = fields.filter(field => !field.generationDetail);
@@ -396,6 +453,8 @@ export const generationFields = Object.assign(function generationFields<TSnapsho
     return visible;
 }, {
     fromMeta: generationDraftFromMeta,
+    draftQuality: generationDraftQuality, isDraftMeta: generationIsDraftMeta, canFinalize: generationCanFinalize,
+    toggleDraft: generationToggleDraft, defaultResolution: generationDefaultResolution,
     modelSide, pairedModels, referenceSlot, rememberReferences,
     cameraValue: generationCameraValue,
     cameraMoves: GENERATION_CAMERA_MOVES

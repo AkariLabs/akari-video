@@ -1,0 +1,263 @@
+{
+  "status": "pass",
+  "steps": [
+    {
+      "name": "1. 失敗チップのもう一度・札・時刻の非交差と背景/枠線、狭いクリップの非表示",
+      "pass": true,
+      "detail": {
+        "measured": {
+          "rectangles": {
+            "chip": {
+              "left": 456.59375,
+              "right": 682.796875,
+              "top": 869.4921875,
+              "bottom": 917.4921875,
+              "width": 226.203125,
+              "height": 48
+            },
+            "button": {
+              "left": 487.59375,
+              "right": 537.59375,
+              "top": 871.4921875,
+              "bottom": 883.4921875,
+              "width": 50,
+              "height": 12
+            },
+            "badge": {
+              "left": 459.59375,
+              "right": 485.59375,
+              "top": 871.4921875,
+              "bottom": 883.4921875,
+              "width": 26,
+              "height": 12
+            },
+            "time": {
+              "left": 634.796875,
+              "right": 678.796875,
+              "top": 871.4921875,
+              "bottom": 883.4921875,
+              "width": 44,
+              "height": 12
+            }
+          },
+          "intersections": {
+            "buttonBadge": false,
+            "buttonTime": false,
+            "badgeTime": false
+          },
+          "style": {
+            "background": "rgb(10, 10, 10)",
+            "borderWidth": "1px",
+            "borderStyle": "solid",
+            "borderColor": "rgb(229, 229, 229)",
+            "pointerEvents": "auto"
+          },
+          "text": "もう一度"
+        },
+        "narrow": {
+          "width": 22.6171875,
+          "retry": false,
+          "title": "C2\n失敗 — 生成に失敗しました · もう一度（右パネルで費用承認）\nb.png\n00:01:00"
+        }
+      }
+    },
+    {
+      "name": "2. チップのもう一度をCDP実クリック → 生成タブ → 費用承認、未承認0件",
+      "pass": true,
+      "detail": {
+        "activeTab": "generation",
+        "invocationsBeforeApproval": 0
+      }
+    },
+    {
+      "name": "3. 費用承認を実クリック → 偽 CLI 起動記録ちょうど1件",
+      "pass": true,
+      "detail": [
+        {
+          "args": [
+            "generate",
+            "video",
+            "/private<TMP>/project",
+            "--item",
+            "clip-a",
+            "--yes",
+            "--json"
+          ],
+          "next": {
+            "kind": "video",
+            "status": "planned",
+            "model": {
+              "id": "fal:h3-i2v"
+            },
+            "inputs": {
+              "prompt": "A garden.",
+              "first_frame": {
+                "path": "assets/stills/a.png"
+              },
+              "last_frame": {
+                "path": "assets/stills/b.png"
+              },
+              "reference_images": [],
+              "reference_audios": [],
+              "camera": null,
+              "frames_or_refs": "frames"
+            },
+            "output": {
+              "duration_s": 10,
+              "resolution": "768P",
+              "audio_out": true
+            },
+            "updated_at": "2026-09-21T20:22:04.795Z"
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. 下書きONは解像度固定・見積低下、OFFで解像度と見積復元",
+      "pass": true,
+      "detail": {
+        "before": {
+          "estimate": 0.6,
+          "resolution": "768P"
+        },
+        "on": {
+          "estimate": 0.5,
+          "resolution": "480P"
+        },
+        "off": {
+          "estimate": 0.6,
+          "resolution": "768P"
+        },
+        "invocations": 1,
+        "editUnchanged": true
+      }
+    }
+  ],
+  "screenshots": [
+    "01-failed-timeline.png",
+    "02-generation-approval.png",
+    "03-failed-after-retry.png",
+    "04-draft-on.png",
+    "05-draft-off.png"
+  ],
+  "measurements": {
+    "before": {
+      "rectangles": {
+        "chip": {
+          "left": 456.59375,
+          "right": 682.796875,
+          "top": 869.4921875,
+          "bottom": 917.4921875,
+          "width": 226.203125,
+          "height": 48
+        },
+        "button": {
+          "left": 487.59375,
+          "right": 537.59375,
+          "top": 871.4921875,
+          "bottom": 883.4921875,
+          "width": 50,
+          "height": 12
+        },
+        "badge": {
+          "left": 459.59375,
+          "right": 485.59375,
+          "top": 871.4921875,
+          "bottom": 883.4921875,
+          "width": 26,
+          "height": 12
+        },
+        "time": {
+          "left": 634.796875,
+          "right": 678.796875,
+          "top": 871.4921875,
+          "bottom": 883.4921875,
+          "width": 44,
+          "height": 12
+        }
+      },
+      "intersections": {
+        "buttonBadge": false,
+        "buttonTime": false,
+        "badgeTime": false
+      },
+      "style": {
+        "background": "rgb(10, 10, 10)",
+        "borderWidth": "1px",
+        "borderStyle": "solid",
+        "borderColor": "rgb(229, 229, 229)",
+        "pointerEvents": "auto"
+      },
+      "text": "もう一度"
+    },
+    "after": {
+      "rectangles": {
+        "chip": {
+          "left": 456.59375,
+          "right": 682.796875,
+          "top": 869.4921875,
+          "bottom": 917.4921875,
+          "width": 226.203125,
+          "height": 48
+        },
+        "button": {
+          "left": 488.59375,
+          "right": 538.59375,
+          "top": 872.4921875,
+          "bottom": 884.4921875,
+          "width": 50,
+          "height": 12
+        },
+        "badge": {
+          "left": 460.59375,
+          "right": 486.59375,
+          "top": 872.4921875,
+          "bottom": 884.4921875,
+          "width": 26,
+          "height": 12
+        },
+        "time": {
+          "left": 634.796875,
+          "right": 678.796875,
+          "top": 872.4921875,
+          "bottom": 884.4921875,
+          "width": 44,
+          "height": 12
+        }
+      },
+      "intersections": {
+        "buttonBadge": false,
+        "buttonTime": false,
+        "badgeTime": false
+      },
+      "style": {
+        "background": "rgb(10, 10, 10)",
+        "borderWidth": "1px",
+        "borderStyle": "solid",
+        "borderColor": "rgb(229, 229, 229)",
+        "pointerEvents": "auto"
+      },
+      "text": "もう一度"
+    }
+  },
+  "fixture": {
+    "ok": true,
+    "project": "<TMP>/project",
+    "clips": [
+      "clip-a",
+      "clip-b",
+      "clip-c"
+    ],
+    "sidecars": [
+      "assets/stills/a.png.meta.json",
+      "assets/stills/b.png.meta.json",
+      "assets/stills/c.png.meta.json"
+    ],
+    "captions": true
+  },
+  "cleanup": {
+    "electronStopped": true,
+    "temporaryHome": true,
+    "temporaryUserData": true
+  }
+}
