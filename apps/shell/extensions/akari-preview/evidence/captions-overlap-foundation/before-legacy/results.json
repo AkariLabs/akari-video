@@ -1,0 +1,23 @@
+{
+  "status": "observed",
+  "label": "before-legacy",
+  "startedAt": "2026-09-21T18:23:33.912Z",
+  "steps": [
+    {
+      "step": "collapse-side-panels",
+      "collapsed": "left,right,bottom"
+    },
+    {
+      "step": "overlap-at-3s",
+      "plates": [
+        {
+          "id": "caption-plate",
+          "text": "上に置いた文字"
+        }
+      ]
+    }
+  ],
+  "checks": [],
+  "failures": [],
+  "notes": []
+}

@@ -118,7 +118,7 @@ async function captionPositionVarsAt(page, seconds, expectedText) {
     return plate.textContent.trim() === text;
   }, { value: seconds, text: expectedText }, { timeout: 60_000 });
   return page.evaluate(names => {
-    const style = document.getElementById('caption-plate').style;
+    const style = document.querySelector('.caption-row-plate').style;
     return Object.fromEntries(names.flatMap(name => {
       const value = style.getPropertyValue(name);
       return value === '' ? [] : [[name, value]];

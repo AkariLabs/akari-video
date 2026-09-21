@@ -135,3 +135,17 @@ test("単語帳の保護語は extra_protected_terms として解決へ届く", 
     "不正な保護語はカーネルまで届いて弾かれる",
   );
 });
+
+test('source speech and output text both become concurrent overlays with or without display_policy', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const fixture = JSON.parse(await readFile(new URL('./fixtures/captions-overlap.json', import.meta.url), 'utf8'));
+  const edit = { ...projectedEdit([{ src: 'a', in: 0, out: 6, at: 0, track: 0 }]), sources: [{ id: 'a', path: 'assets/base.mp4' }] };
+  for (const display_policy of [undefined, POLICY]) {
+    const plan = resolveCaptionPlan({ captionsRoot: { ...fixture, display_policy }, edit });
+    const visible = plan.overlays.filter(row => row.start <= 3 && 3 < row.start + row.duration);
+    assert.equal(visible.length, 2);
+    assert.deepEqual(visible.map(row => row.generatedFrom).sort(), ['c-0002', 'c-0004']);
+    assert.match(visible.find(row => row.generatedFrom === 'c-0004').html, /上に置いた文字/u);
+    assert.match(visible.find(row => row.generatedFrom === 'c-0002').html, /二行目の字幕/u);
+  }
+});

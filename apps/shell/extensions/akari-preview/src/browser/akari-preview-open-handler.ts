@@ -7153,28 +7153,29 @@ ${kind === 'raw' ? '.akari-material-chip { position: absolute; top: 8px; left: 8
 #transition-fallback-label { position: absolute; left: 50%; bottom: 7%; display: none; transform: translateX(-50%); padding: 6px 10px; border: 1px solid rgba(255,255,255,.45); border-radius: 999px; background: rgba(20,20,20,.82); color: #fff; font-size: 12px; font-weight: 600; white-space: nowrap; pointer-events: none; }
 /* プレーン字幕 host の見た目は焼き込み既定（captions.mjs）とパリティ: 透明座布団 + 実ストローク縁取り。
    shrink-to-fit の形状と cursor: move はドラッグ当たり判定のため維持する。 */
-#caption-plate { position: absolute; left: 50%; bottom: 7%; max-width: 92%; transform: translateX(-50%) rotate(var(--caption-rotate, 0deg)) scale(var(--caption-scale, 1)); transform-origin: center; padding: 0.08em 0.42em; border-radius: 10px; background: transparent; color: #fff; font-size: ${captionFontSize}px; font-weight: 700; line-height: 1.42; text-align: center; -webkit-text-stroke: 0.14em rgba(0,0,0,.9); paint-order: stroke fill; text-shadow: 0 2px 8px rgba(0,0,0,.35); white-space: pre-wrap; pointer-events: auto; cursor: move; user-select: none; }
-#caption-plate:empty { display: none; }
-#caption-plate.akari-caption-host--editing:empty { display: block; min-width: 1em; min-height: 1.42em; }
-#caption-plate.akari-caption-host--styled { pointer-events: none; inset: 0; max-width: none; transform: none; padding: 0; border-radius: 0; background: none; text-shadow: none; white-space: normal; --caption-font-size: ${captionFontSize}px; }
-#caption-plate[data-selected] { outline: 1.5px solid #f5c451; outline-offset: 4px; }
-#caption-plate[data-alt-all] { outline-style: dashed; outline-color: #53d1bc; }
-#caption-plate.akari-caption-host--styled[data-selected] { outline: none; }
-#caption-plate.akari-caption-host--styled[data-selected] .akari-caption__plate { outline: 1.5px solid #f5c451; outline-offset: 4px; }
-#caption-plate.akari-caption-host--styled[data-alt-all] .akari-caption__plate { outline-style: dashed; outline-color: #53d1bc; }
-#caption-plate .akari-caption-handle-box { position:absolute;pointer-events:none; }
-#caption-plate .akari-caption-handle { position:absolute;width:11px;height:11px;border-radius:50%;background:#fff;border:2px solid #f5c451;box-shadow:0 1px 4px rgba(0,0,0,.6);pointer-events:auto; }
-#caption-plate .akari-caption-handle[data-h="nw"] { left:-10px;top:-10px;cursor:nwse-resize; }
-#caption-plate .akari-caption-handle[data-h="ne"] { right:-10px;top:-10px;cursor:nesw-resize; }
-#caption-plate .akari-caption-handle[data-h="sw"] { left:-10px;bottom:-10px;cursor:nesw-resize; }
-#caption-plate .akari-caption-handle[data-h="se"] { right:-10px;bottom:-10px;cursor:nwse-resize; }
-#caption-plate .akari-caption-handle[data-h="rot"] { left:50%;top:-34px;transform:translateX(-50%);width:14px;height:14px;border-radius:50%;background:#f5c451;border:2px solid #fff;cursor:grab; }
-#caption-plate .akari-caption-handle[data-h="rot"]::before { content:"";position:absolute;left:50%;top:12px;width:1.5px;height:18px;background:#f5c451;transform:translateX(-50%); }
-#caption-plate[data-alt-all] .akari-caption-handle { border-color:#53d1bc; }
-#caption-plate[data-alt-all] .akari-caption-handle[data-h="rot"] { background:#53d1bc; }
-#caption-plate.akari-caption-host--editing, #caption-plate.akari-caption-host--editing * { cursor: text; user-select: text; }
-#caption-plate.akari-caption-host--styled .akari-caption__line, #caption-plate.akari-caption-host--styled .akari-caption__block { pointer-events: auto; }
-#caption-plate [data-akari-caption-editing="true"], #caption-plate[data-akari-caption-editing="true"] { pointer-events: auto; outline: 1px solid rgba(255,255,255,0.9); outline-offset: 3px; caret-color: currentColor; }
+#caption-plate { position:absolute; inset:0; pointer-events:none; }
+.caption-row-plate { position: absolute; left: 50%; bottom: 7%; max-width: 92%; transform: translateX(-50%) rotate(var(--caption-rotate, 0deg)) scale(var(--caption-scale, 1)); transform-origin: center; padding: 0.08em 0.42em; border-radius: 10px; background: transparent; color: #fff; font-size: ${captionFontSize}px; font-weight: 700; line-height: 1.42; text-align: center; -webkit-text-stroke: 0.14em rgba(0,0,0,.9); paint-order: stroke fill; text-shadow: 0 2px 8px rgba(0,0,0,.35); white-space: pre-wrap; pointer-events: auto; cursor: move; user-select: none; }
+.caption-row-plate:empty { display: none; }
+.caption-row-plate.akari-caption-host--editing:empty { display: block; min-width: 1em; min-height: 1.42em; }
+.caption-row-plate.akari-caption-host--styled { pointer-events: none; inset: 0; max-width: none; transform: none; padding: 0; border-radius: 0; background: none; text-shadow: none; white-space: normal; --caption-font-size: ${captionFontSize}px; }
+.caption-row-plate[data-selected] { outline: 1.5px solid #f5c451; outline-offset: 4px; }
+.caption-row-plate[data-alt-all] { outline-style: dashed; outline-color: #53d1bc; }
+.caption-row-plate.akari-caption-host--styled[data-selected] { outline: none; }
+.caption-row-plate.akari-caption-host--styled[data-selected] .akari-caption__plate { outline: 1.5px solid #f5c451; outline-offset: 4px; }
+.caption-row-plate.akari-caption-host--styled[data-alt-all] .akari-caption__plate { outline-style: dashed; outline-color: #53d1bc; }
+.caption-row-plate .akari-caption-handle-box { position:absolute;pointer-events:none; }
+.caption-row-plate .akari-caption-handle { position:absolute;width:11px;height:11px;border-radius:50%;background:#fff;border:2px solid #f5c451;box-shadow:0 1px 4px rgba(0,0,0,.6);pointer-events:auto; }
+.caption-row-plate .akari-caption-handle[data-h="nw"] { left:-10px;top:-10px;cursor:nwse-resize; }
+.caption-row-plate .akari-caption-handle[data-h="ne"] { right:-10px;top:-10px;cursor:nesw-resize; }
+.caption-row-plate .akari-caption-handle[data-h="sw"] { left:-10px;bottom:-10px;cursor:nesw-resize; }
+.caption-row-plate .akari-caption-handle[data-h="se"] { right:-10px;bottom:-10px;cursor:nwse-resize; }
+.caption-row-plate .akari-caption-handle[data-h="rot"] { left:50%;top:-34px;transform:translateX(-50%);width:14px;height:14px;border-radius:50%;background:#f5c451;border:2px solid #fff;cursor:grab; }
+.caption-row-plate .akari-caption-handle[data-h="rot"]::before { content:"";position:absolute;left:50%;top:12px;width:1.5px;height:18px;background:#f5c451;transform:translateX(-50%); }
+.caption-row-plate[data-alt-all] .akari-caption-handle { border-color:#53d1bc; }
+.caption-row-plate[data-alt-all] .akari-caption-handle[data-h="rot"] { background:#53d1bc; }
+.caption-row-plate.akari-caption-host--editing, .caption-row-plate.akari-caption-host--editing * { cursor: text; user-select: text; }
+.caption-row-plate.akari-caption-host--styled .akari-caption__line, .caption-row-plate.akari-caption-host--styled .akari-caption__block { pointer-events: auto; }
+.caption-row-plate [data-akari-caption-editing="true"], .caption-row-plate[data-akari-caption-editing="true"] { pointer-events: auto; outline: 1px solid rgba(255,255,255,0.9); outline-offset: 3px; caret-color: currentColor; }
 .output-preview-link { position: absolute; top: 8px; left: 8px; z-index: 5; border: 1px solid rgba(255,255,255,0.2); border-radius: 5px; padding: 5px 9px; background: rgba(20,20,20,0.78); color: #d8e9ff; font-size: 11px; line-height: 1.35; cursor: pointer; }
 .output-preview-link:hover { color: #fff; background: rgba(45,45,45,0.9); }
 .output-preview-link[hidden] { display: none; }
@@ -10525,7 +10526,14 @@ body { display: grid; place-items: center; padding: 32px; }
             const penLayer = document.getElementById('pen-layer');
             const transitionPlate = document.getElementById('transition-plate');
             const transitionFallbackLabel = document.getElementById('transition-fallback-label');
-            const captionPlate = document.getElementById('caption-plate');
+            const captionLayer = document.getElementById('caption-plate');
+            const captionRows = new Map();
+            const selectedCaptionPlate = () => [...captionRows.values()].find(row =>
+                (row.caption.sourceCueId || row.caption.id) === selectedCaptionId)?.plate || captionLayer;
+            const captionForEvent = event => {
+                const plate = event.target.closest?.('.caption-row-plate');
+                return plate ? captionRows.get(plate.dataset.captionKey)?.caption : undefined;
+            };
             const previewMessage = document.getElementById('preview-message');
             const previewMessageText = document.getElementById('preview-message-text');
             const previewMessageReload = document.getElementById('preview-message-reload');
@@ -10605,7 +10613,7 @@ body { display: grid; place-items: center; padding: 32px; }
             video.dataset.akariGlobalMuted = String(globalMuted);
             video.muted = globalMuted;
             standbyVideo.muted = true;
-            captionPlate.style.visibility = initial.captionsVisible === false ? 'hidden' : 'visible';
+            captionLayer.style.visibility = initial.captionsVisible === false ? 'hidden' : 'visible';
             let animationFrame = 0;
             let animationWatchdogTimer = 0;
             let lastTickAtMs = 0;
@@ -10801,11 +10809,11 @@ body { display: grid; place-items: center; padding: 32px; }
             const hevcFallbackQueue = [];
             let hevcFallbackInFlight = false;
             let audioNoticeShown = false;
-            let activeCaption = null;
+
             let selectedCaptionIds = new Set();
             let captionAltAll = false;
-            let styledCaptionActive = false;
-            let captionHitRegionPending = false;
+
+
             let activeCaptionEdit = null;
             let reviewRecordingActive = false;
             let reviewRecordingStartedAt = 0;
@@ -13447,7 +13455,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     y: (clientY - stageRect.top) / displayScale
                 };
             };
-            const captionVisualRect = () => {
+            const captionVisualRect = (captionPlate = selectedCaptionPlate()) => {
                 const block = captionPlate.querySelector('.akari-caption__block');
                 const elements = block ? [block] : [...captionPlate.querySelectorAll('.akari-caption__line')];
                 const rects = (elements.length > 0 ? elements : [captionPlate])
@@ -13467,7 +13475,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     bottom: bottomRight.y
                 };
             };
-            const syncCaptionHandleBox = () => {
+            const syncCaptionHandleBox = (captionPlate = selectedCaptionPlate()) => {
                 const box = captionPlate.querySelector('.akari-caption-handle-box');
                 if (!box) return;
                 if (!captionPlate.classList.contains('akari-caption-host--styled')) {
@@ -13674,7 +13682,8 @@ body { display: grid; place-items: center; padding: 32px; }
                     return;
                 }
                 const caption = selectedCaption();
-                const active = window.AkariEditKernel.findActiveCaption(captions, outputTime);
+                const active = window.AkariEditKernel.findActiveCaptions(captions, outputTime)
+                    .find(row => (row.sourceCueId || row.id) === selectedCaptionId);
                 if (!caption || !active || (active.sourceCueId || active.id) !== selectedCaptionId) {
                     captionSelectBox.classList.remove('is-active');
                     updateCaptionSelectTools();
@@ -13730,10 +13739,10 @@ body { display: grid; place-items: center; padding: 32px; }
                 restoreCaptionEditAttribute(edit.element, 'spellcheck', edit.spellcheck);
                 restoreCaptionEditAttribute(edit.element, 'style', edit.style);
                 edit.element.removeAttribute('data-akari-caption-editing');
-                captionPlate.classList.remove('akari-caption-host--editing');
+                edit.element.closest('.caption-row-plate')?.classList.remove('akari-caption-host--editing');
             };
             const rerenderCaptionAfterEdit = () => {
-                activeCaption = null;
+                for (const row of captionRows.values()) row.renderedCaption = null;
                 renderCaption();
             };
             const cancelCaptionEdit = () => {
@@ -13782,6 +13791,8 @@ body { display: grid; place-items: center; padding: 32px; }
                 selection.addRange(range);
             };
             const beginCaptionEdit = caption => {
+                const captionPlate = captionRows.get(caption.id)?.plate;
+                if (!captionPlate) return;
                 const captionId = caption && (caption.sourceCueId || caption.id);
                 if (!captionId) return;
                 if (activeCaptionEdit) {
@@ -13811,19 +13822,19 @@ body { display: grid; place-items: center; padding: 32px; }
                 element.focus({ preventScroll: true });
                 placeCaptionCaretAtEnd(element);
             };
-            captionPlate.addEventListener('dblclick', event => {
-                const caption = window.AkariEditKernel.findActiveCaption(captions, outputTime);
+            captionLayer.addEventListener('dblclick', event => {
+                const caption = captionForEvent(event);
                 if (!caption || !(caption.sourceCueId || caption.id)) return;
                 event.preventDefault();
                 event.stopPropagation();
                 beginCaptionEdit(caption);
             });
-            captionPlate.addEventListener('blur', event => {
+            captionLayer.addEventListener('blur', event => {
                 if (activeCaptionEdit && event.target === activeCaptionEdit.element) {
                     void commitCaptionEdit();
                 }
             }, true);
-            captionPlate.addEventListener('keydown', event => {
+            captionLayer.addEventListener('keydown', event => {
                 if (!activeCaptionEdit || event.target !== activeCaptionEdit.element || event.isComposing) return;
                 if (event.key === 'Enter') {
                     event.preventDefault();
@@ -13836,6 +13847,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 }
             });
             const beginCaptionHandleDrag = (event, handle, caption, cueId) => {
+                const captionPlate = handle.closest('.caption-row-plate');
                 const kind = handle.getAttribute('data-h');
                 if (!['nw', 'ne', 'sw', 'se', 'rot'].includes(kind)) return false;
                 event.preventDefault();
@@ -13936,13 +13948,14 @@ body { display: grid; place-items: center; padding: 32px; }
                 window.addEventListener('keydown', onKeyDown, true);
                 return true;
             };
-            captionPlate.addEventListener('pointerdown', event => {
+            captionLayer.addEventListener('pointerdown', event => {
                 if (activeCaptionEdit) return;
                 if (event.button !== 0) return;
                 // 字幕ウィンドウ判定は共有カーネル（webview-kernel.js / caption-window.ts）
-                const caption = window.AkariEditKernel.findActiveCaption(captions, outputTime);
+                const caption = captionForEvent(event);
                 if (!caption || !caption.id) return;
                 const cueId = caption.sourceCueId || caption.id;
+                const captionPlate = event.target.closest('.caption-row-plate');
                 const handle = event.target.closest?.('.akari-caption-handle');
                 if (handle && beginCaptionHandleDrag(event, handle, caption, cueId)) return;
                 event.preventDefault();
@@ -14084,7 +14097,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 }
                 const captionZ = typeof summary.captionTrackId === 'string' && summary.captionTrackId
                     ? zForTrack(summary.captionTrackId) : -1;
-                captionPlate.style.zIndex = captionZ >= 0 ? String(captionZ) : '';
+                captionLayer.style.zIndex = captionZ >= 0 ? String(captionZ) : '';
             };
             // source↔output 写像の正本は packages/edit-store/src/timeline-map.ts。webview は
             // sandbox 制約で import できないため、共有カーネル webview-kernel.js（IIFE バンドル、
@@ -15194,7 +15207,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     + '</style><div class="akari-caption__plate">' + plateMarkup + '</div></div>';
             };
             const captionStyleVariableNames = ${JSON.stringify(RESOLVED_CAPTION_STYLE_VARIABLE_NAMES)};
-            const applyCaptionStyleVars = caption => {
+            const applyCaptionStyleVars = (caption, captionPlate) => {
                 for (const name of captionStyleVariableNames) {
                     captionPlate.style.removeProperty(name);
                 }
@@ -15211,8 +15224,8 @@ body { display: grid; place-items: center; padding: 32px; }
                 }
             };
             let captionAnimatorUnavailableWarned = false;
-            const applyCaptionSelectionAttrs = () => {
-                const id = activeCaption && (activeCaption.sourceCueId || activeCaption.id);
+            const applyCaptionRowSelectionAttrs = (captionPlate, caption) => {
+                const id = caption && (caption.sourceCueId || caption.id);
                 if (id && selectedCaptionIds.has(id)) captionPlate.setAttribute('data-selected', '');
                 else captionPlate.removeAttribute('data-selected');
                 if (captionAltAll) captionPlate.setAttribute('data-alt-all', '');
@@ -15229,7 +15242,10 @@ body { display: grid; place-items: center; padding: 32px; }
                     handleBox.appendChild(handle);
                 }
                 captionPlate.appendChild(handleBox);
-                syncCaptionHandleBox();
+                syncCaptionHandleBox(captionPlate);
+            };
+            const applyCaptionSelectionAttrs = () => {
+                for (const row of captionRows.values()) applyCaptionRowSelectionAttrs(row.plate, row.caption);
             };
             const setCaptionAltAll = on => {
                 if (captionAltAll === on) return;
@@ -15244,14 +15260,12 @@ body { display: grid; place-items: center; padding: 32px; }
                 if (event.key === 'Alt' || !event.altKey) setCaptionAltAll(false);
             });
             window.addEventListener('blur', () => setCaptionAltAll(false));
-            const renderCaption = () => {
-                if (activeCaptionEdit) return;
-                // captions は host 読込層で全件 output-domain へ正規化済み。gap も同じ時計で
-                // 検索し、保持された video.currentTime や active segment kind は参照しない。
-                const caption = window.AkariEditKernel.findActiveCaption(captions, outputTime) || null;
-                if (caption !== activeCaption) {
-                    activeCaption = caption;
-                    applyCaptionStyleVars(caption);
+            const renderCaptionRow = (caption, row) => {
+                const captionPlate = row.plate;
+                if (activeCaptionEdit?.element.closest('.caption-row-plate') === captionPlate) return;
+                if (caption !== row.renderedCaption) {
+                    row.renderedCaption = caption;
+                    applyCaptionStyleVars(caption, captionPlate);
                     const hasEmphasis = Boolean(caption && Array.isArray(caption.words)
                         && caption.words.some(word => findMatchingEmphasis(word)));
                     const hasCaptionWords = Boolean(caption && Array.isArray(caption.words)
@@ -15261,8 +15275,8 @@ body { display: grid; place-items: center; padding: 32px; }
                         && (caption.style === 'reveal'
                             || (!caption.style && captionPortrait
                                 && splitCaptionLines(caption.text || '', captionLineBudget).length > 1));
-                    styledCaptionActive = Boolean(caption);
-                    captionPlate.classList.toggle('akari-caption-host--styled', styledCaptionActive);
+                    row.styledCaptionActive = Boolean(caption);
+                    captionPlate.classList.toggle('akari-caption-host--styled', row.styledCaptionActive);
                     if (caption) {
                         const usesWords = hasCaptionWords
                             && ((caption.style === 'karaoke' || caption.style === 'pop')
@@ -15275,11 +15289,11 @@ body { display: grid; place-items: center; padding: 32px; }
                         captionPlate.innerHTML = '';
                     }
                     // renderCaption は innerHTML/textContent を置き換えるため、選択ハンドルは描画後に付け直す。
-                    applyCaptionSelectionAttrs();
-                    captionHitRegionPending = true;
+                    applyCaptionRowSelectionAttrs(captionPlate, caption);
+                    row.captionHitRegionPending = true;
                 }
                 let captionAnimations = [];
-                if (caption && styledCaptionActive) {
+                if (caption && row.styledCaptionActive) {
                     const localMs = (clamp(outputTime, caption.start, caption.end) - caption.start) * 1000;
                     captionAnimations = captionPlate.getAnimations({ subtree: true });
                     for (const animation of captionAnimations) {
@@ -15310,15 +15324,40 @@ body { display: grid; place-items: center; padding: 32px; }
                 // 1 tick だけで確定すると、通常再生では 0% の画面外姿勢が焼き付くため、有限な
                 // 入場アニメが終わるまでは毎 tick 測り直す。終端の無い装飾アニメは無視し、
                 // 完了後は pending を落として追加の bbox 測定を止める。
-                if (requestedCutId !== undefined) updateCutSelectBox();
-                if (selectedCaptionId) updateCaptionSelectBox();
-                if (captionHitRegionPending) {
+                if (row.captionHitRegionPending) {
                     window.akari.interaction?.syncOverlayHitRegion?.(captionPlate);
-                    if (typeof updateCaptionSelectBox === 'function') updateCaptionSelectBox();
                     if (captionEntryAnimationsSettledFn(captionAnimations)) {
-                        captionHitRegionPending = false;
+                        row.captionHitRegionPending = false;
                     }
                 }
+            };
+            const renderCaption = () => {
+                // All preview cues are normalized to output time by the host.
+                const active = window.AkariEditKernel.findActiveCaptions(captions, outputTime);
+                const keys = new Set(active.map(caption => caption.id));
+                for (const [key, row] of captionRows) {
+                    if (!keys.has(key)) { row.plate.remove(); captionRows.delete(key); }
+                }
+                for (const caption of active) {
+                    let row = captionRows.get(caption.id);
+                    if (!row) {
+                        const plate = document.createElement('div');
+                        plate.id = 'caption-plate-' + encodeURIComponent(caption.id);
+                        plate.className = 'caption-row-plate';
+                        plate.dataset.captionKey = caption.id;
+                        row = { plate, caption, renderedCaption: null, captionHitRegionPending: false };
+                        captionRows.set(caption.id, row);
+                    }
+                    row.caption = caption;
+                    // Reconcile order without moving a focused editor or captured pointer.
+                    const index = active.indexOf(caption);
+                    if (captionLayer.children[index] !== row.plate) {
+                        captionLayer.insertBefore(row.plate, captionLayer.children[index] || null);
+                    }
+                    renderCaptionRow(caption, row);
+                }
+                if (requestedCutId !== undefined) updateCutSelectBox();
+                if (selectedCaptionId) updateCaptionSelectBox();
             };
             window.addEventListener('akari-frame-engine-seek', event => {
                 const time = event.detail?.time;
@@ -16244,7 +16283,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 hideStillImage();
                 layersStage.hidden = true;
                 stage.hidden = true;
-                captionPlate.textContent = '';
+                captionLayer.textContent = ''; captionRows.clear();
                 previewMessageText.textContent = '動画を再生できませんでした。再読み込みを試してください。';
                 previewMessageReload.hidden = false;
                 previewMessage.hidden = false;
@@ -17189,7 +17228,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     window.akari.state.summary = summary;
                     await window.akari.runtime.mount(summary);
                     // mount owns the stage; restore the shell's persistent plates.
-                    stage.append(transitionPlate, transitionFallbackLabel, captionPlate);
+                    stage.append(transitionPlate, transitionFallbackLabel, captionLayer);
                     applyIncrementalModel(summary);
                 }).catch(error => console.warn('[akari-preview] bag expansion failed', error));
             });
@@ -17308,9 +17347,11 @@ body { display: grid; place-items: center; padding: 32px; }
                     if (!window.akari.frameEngineClock) rebuildSegments();
                     if (pendingCaptionDragReload) {
                         pendingCaptionDragReload = false;
-                        captionPlate.style.translate = '';
-                        captionPlate.style.removeProperty('--caption-scale');
-                        captionPlate.style.removeProperty('--caption-rotate');
+                        for (const { plate } of captionRows.values()) {
+                            plate.style.translate = '';
+                            plate.style.removeProperty('--caption-scale');
+                            plate.style.removeProperty('--caption-rotate');
+                        }
                     }
                     renderCaption();
                     updateCaptionSelectBox();
@@ -17385,7 +17426,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 }
                 if (message && message.type === 'akari-preview-set-captions-visibility'
                     && typeof message.visible === 'boolean') {
-                    captionPlate.style.visibility = message.visible ? 'visible' : 'hidden';
+                    captionLayer.style.visibility = message.visible ? 'visible' : 'hidden';
                     return;
                 }
                 if (message && message.type === 'akari-preview-seek' && Number.isFinite(message.time)) {
@@ -17592,7 +17633,7 @@ body { display: grid; place-items: center; padding: 32px; }
 
             Promise.all([window.__akariCaptionFontReady, window.akari.runtime.mount(summary), sfxDurationsReady]).then(() => {
                 applyOverlayTracks();
-                stage.append(transitionPlate, transitionFallbackLabel, captionPlate);
+                stage.append(transitionPlate, transitionFallbackLabel, captionLayer);
                 refreshIndicators();
                 rebuildSegments();
                 prepareScrubAudioSources();

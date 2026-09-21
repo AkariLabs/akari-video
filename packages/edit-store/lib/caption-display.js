@@ -324,10 +324,19 @@ function resolveCaptionDisplay(captionsRoot, edit, options = {}) {
         });
     }
     displayCues.sort(compareDisplayCue);
-    for (let index = 1; index < displayCues.length; index++) {
-        if (displayCues[index - 1].end - displayCues[index].start > 0.000001) {
-            fail('OVERLAPPING_DISPLAY_CUES', `single_line_sequential display cues overlap: ${displayCues[index - 1].id} and ${displayCues[index].id}`);
+    // Match lint's time groups. Fragment scheduling above is per occurrence and
+    // therefore independent of cues in another source/output time domain.
+    const groupByCaption = new Map(captions.map(caption => [caption.id,
+        caption.time_domain === 'output' ? 'output' : 'source:' + (caption.src ?? '')]));
+    const previousByGroup = new Map();
+    for (const cue of displayCues) {
+        const group = groupByCaption.get(cue.source_cue_id);
+        const previous = previousByGroup.get(group);
+        if (previous && previous.end - cue.start > 0.000001) {
+            fail('OVERLAPPING_DISPLAY_CUES', `single_line_sequential display cues overlap: ${previous.id} and ${cue.id}`);
         }
+        if (!previous || cue.end > previous.end)
+            previousByGroup.set(group, cue);
     }
     return {
         schema: exports.CAPTION_DISPLAY_SCHEMA,

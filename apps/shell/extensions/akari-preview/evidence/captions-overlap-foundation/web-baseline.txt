@@ -1,0 +1,13 @@
+  ❌ overlay-html write: HTTP 422 content=<div class="tf__root">元テキスト</div>
+  ❌ Background select: {"id":null,"role":null,"frameLocked":null,"handleHidden":null}
+  ❌ Selection frame not locked: {"id":null,"role":null,"frameLocked":null,"handleHidden":null}
+  ❌ Resize handles visible on background: {"id":null,"role":null,"frameLocked":null,"handleHidden":null}
+  ❌ Delete overlay: domPresent=true summary=[{"id":"bg-test","html":"<div class=\"bg-test-root\" style=\"position:absolute;inset:0;background:#3a6ea5;\"></div>\n","start":0,"duration":10,"track":0,"vars":{"role":"background"},"role":"background","htmlPath":"overlays/bg-test.html"}]
+  ❌ Role-less overlay drag regressed: {"id":"fg-test","html":"<div class=\"fg-test-root\" style=\"position:absolute;inset:0;background:#a53a3a;\"></div>\n","start":0,"duration":10,"track":0,"htmlPath":"overlays/bg-test.html"}
+✖ packages/preview-server/test/preview.test.mjs (74638.302458ms)
+ℹ tests 3
+ℹ pass 2
+ℹ fail 1
+ℹ duration_ms 85326.871625
+✖ failing tests:
+✖ packages/preview-server/test/preview.test.mjs (74638.302458ms)

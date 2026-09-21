@@ -106,7 +106,7 @@ test('caption plate uses auto for missing tracks and preserves the shared z-orde
     const blockStart = compiled.indexOf('const applyOverlayTracks = () => {');
     const blockEnd = compiled.indexOf('\n            };', blockStart);
     assert.ok(blockStart >= 0 && blockEnd > blockStart);
-    const apply = vm.runInNewContext(`(summary, captionPlate, zForTrack) => {
+    const apply = vm.runInNewContext(`(summary, captionLayer, zForTrack) => {
         const stage = { querySelectorAll: () => [] };
         ${compiled.slice(blockStart, blockEnd + '\n            };'.length)}
         applyOverlayTracks();

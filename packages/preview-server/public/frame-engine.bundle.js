@@ -3203,6 +3203,7 @@ var require_caption_window = __commonJS({
     exports.captionFragmentWindows = captionFragmentWindows;
     exports.expandCaptionDisplayFragments = expandCaptionDisplayFragments;
     exports.findActiveCaption = findActiveCaption;
+    exports.findActiveCaptions = findActiveCaptions;
     function baseCaptionWindowSeconds(caption) {
       const start = typeof caption.start === "number" && Number.isFinite(caption.start) ? caption.start : 0;
       const duration = typeof caption.duration === "number" && Number.isFinite(caption.duration) ? caption.duration : 0;
@@ -3326,6 +3327,12 @@ var require_caption_window = __commonJS({
       return captions.find((caption) => {
         const window2 = captionWindowSeconds(caption);
         return window2.start <= sourceSeconds && sourceSeconds < window2.end;
+      });
+    }
+    function findActiveCaptions(captions, seconds) {
+      return captions.filter((caption) => {
+        const window2 = captionWindowSeconds(caption);
+        return window2.start <= seconds && seconds < window2.end;
       });
     }
   }
@@ -4029,10 +4036,19 @@ var require_caption_display = __commonJS({
         });
       }
       displayCues.sort(compareDisplayCue);
-      for (let index = 1; index < displayCues.length; index++) {
-        if (displayCues[index - 1].end - displayCues[index].start > 1e-6) {
-          fail("OVERLAPPING_DISPLAY_CUES", `single_line_sequential display cues overlap: ${displayCues[index - 1].id} and ${displayCues[index].id}`);
+      const groupByCaption = new Map(captions.map((caption) => [
+        caption.id,
+        caption.time_domain === "output" ? "output" : "source:" + (caption.src ?? "")
+      ]));
+      const previousByGroup = /* @__PURE__ */ new Map();
+      for (const cue of displayCues) {
+        const group = groupByCaption.get(cue.source_cue_id);
+        const previous = previousByGroup.get(group);
+        if (previous && previous.end - cue.start > 1e-6) {
+          fail("OVERLAPPING_DISPLAY_CUES", `single_line_sequential display cues overlap: ${previous.id} and ${cue.id}`);
         }
+        if (!previous || cue.end > previous.end)
+          previousByGroup.set(group, cue);
       }
       return {
         schema: exports.CAPTION_DISPLAY_SCHEMA,
@@ -6373,7 +6389,7 @@ var require_edit_v2_item_write = __commonJS({
             throw new Error(`\u89AA\u306E\u5909\u5F62\u3092\u9006\u5909\u63DB\u3067\u304D\u307E\u305B\u3093: ${itemId}`);
           }
           const patch = command.patch.transform;
-          const bag = target.ancestors.at(-1);
+          const bag = target.ancestors[target.ancestors.length - 1];
           const bagDefaults = item.source.kind === "html" && item.source.part && bag?.source.kind === "html" ? bag.transform : void 0;
           const world = { ...compose2(parent, { ...bagDefaults, ...item.transform }), ...patch };
           const local = {};

@@ -17,7 +17,7 @@ test('台本選択と ⌥ 全体モードを caption plate まで配線する', 
   ]) {
     assert.match(source, new RegExp(token.replaceAll('.', '\\.')));
   }
-  assert.match(source, /activeCaption\.sourceCueId \|\| activeCaption\.id/);
+  assert.match(source, /caption\.sourceCueId \|\| caption\.id/);
   assert.match(source, /window\.akari\.reportAltAll = on => vscode\.postMessage\(\{ type: 'akari-preview-alt-all', on \}\)/);
   assert.match(source, /window\.akari\.reportAltAll\?\.\(on\)/);
   assert.match(source, /window\.addEventListener\('blur', \(\) => setCaptionAltAll\(false\)\)/);

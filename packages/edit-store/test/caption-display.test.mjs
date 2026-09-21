@@ -1071,3 +1071,25 @@ test('max_characters rejects non-positive integers and invalid types', () => {
       && /max_characters must be an integer greater than zero/u.test(error.message), String(value));
   }
 });
+
+test('display overlap is checked independently for source ids and output domain', () => {
+  const edit = {
+    output: { width: 1280, height: 720, fps: 30 },
+    sources: [{ id: 'a' }, { id: 'b' }],
+    cuts: [
+      { src: 'a', in: 0, out: 6, at: 0, track: 0 },
+      { src: 'b', in: 0, out: 6, at: 0, track: 1 },
+    ],
+  };
+  const sourceA = caption('a', 0, 4, '前半です後半です', { src: 'a' });
+  const sourceB = caption('b', 0, 4, '別素材です', { src: 'b' });
+  const output = caption('placed', 0, 6, '置いた文字', { time_domain: 'output', src: 'a' });
+  const resolve = cues => resolveCaptionDisplay({ display_policy: { ...policy, max_line_units: 4 }, captions: cues }, edit);
+  const combined = resolve([sourceA, sourceB, output]);
+  for (const cue of [sourceA, sourceB, output]) {
+    assert.deepEqual(combined.display_cues.filter(row => row.source_cue_id === cue.id), resolve([cue]).display_cues);
+  }
+  assert.throws(() => resolve([sourceA, { ...sourceA, id: 'overlap', start: 1 }]), { code: 'OVERLAPPING_DISPLAY_CUES' });
+  assert.throws(() => resolve([output, { ...output, id: 'overlap', src: 'b' }]), { code: 'OVERLAPPING_DISPLAY_CUES' });
+  assert.doesNotThrow(() => resolve([sourceA, { ...sourceA, id: 'touch', start: 4, end: 6 }]));
+});

@@ -1,0 +1,16 @@
+{
+  "time": 3,
+  "plates": [
+    {
+      "id": "caption-plate-c-0004",
+      "text": "上に置いた文字",
+      "top": 59
+    },
+    {
+      "id": "caption-plate-c-0002-output-1",
+      "text": "二行目の字幕を編集",
+      "top": 59
+    }
+  ],
+  "errors": []
+}

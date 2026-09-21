@@ -247,7 +247,7 @@ test('Escape leaves existing crop, perspective, drag, and inline edit cancellati
         assert.match(body, /finally \{[\s\S]*endSelectionGesture\(gesture\)/);
         assert.match(body, /const cleanup = \(\) => \{\s*selectionDragActive = false/);
     }
-    const captionDrag = between("captionPlate.addEventListener('pointerdown', event =>", '            new ResizeObserver(() => updateCaptionSelectBox())');
+    const captionDrag = between("captionLayer.addEventListener('pointerdown', event =>", '            new ResizeObserver(() => updateCaptionSelectBox())');
     assert.match(captionDrag, /selectionDragActive = true/);
     assert.match(captionDrag, /const cleanup = \(\) => \{\s*selectionDragActive = false/);
 });
@@ -280,7 +280,7 @@ test('caption and layer coordinates use the measured frame with gutters, zoom, a
         vm.runInContext([
             declaration('computeOutputFrameRect'),
             'window.akari.computeOutputFrameRect = computeOutputFrameRect;',
-            declaration('captionOutputPoint'), declaration('captionVisualRect'), declaration('setRectStyle'),
+            'const selectedCaptionPlate = () => captionPlate;', declaration('captionOutputPoint'), declaration('captionVisualRect'), declaration('setRectStyle'),
             declaration('syncCaptionHandleBox'),
             declaration('updateCaptionSelectBoxForRect'), declaration('layerScreenRectForVideoRect'),
             'globalThis.frame = computeOutputFrameRect();',

@@ -429,6 +429,12 @@ function findActiveCaption(captions, sourceSeconds) {
     return window.start <= sourceSeconds && sourceSeconds < window.end;
   });
 }
+function findActiveCaptions(captions, seconds) {
+  return captions.filter((caption) => {
+    const window = captionWindowSeconds(caption);
+    return window.start <= seconds && seconds < window.end;
+  });
+}
 
 // ../edit-store/src/caption-clock.ts
 var EPSILON = 1e-6;
@@ -4217,6 +4223,7 @@ export {
   evaluateEnvelopeDb,
   expandCaptionDisplayFragments,
   findActiveCaption,
+  findActiveCaptions,
   findActiveResolvedCaption,
   isAudioItemAudible,
   isCutAudioAudible,

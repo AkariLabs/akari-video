@@ -52,3 +52,5 @@ export declare function expandCaptionDisplayFragments<T extends CaptionFragmentL
 }>;
 /** source 秒 t に表示すべき字幕（最初にヒットしたもの）。無ければ undefined */
 export declare function findActiveCaption<T extends CaptionWindowLike>(captions: readonly T[], sourceSeconds: number): T | undefined;
+/** Active captions in input order, using the same half-open window as findActiveCaption. */
+export declare function findActiveCaptions<T extends CaptionWindowLike>(captions: readonly T[], seconds: number): T[];

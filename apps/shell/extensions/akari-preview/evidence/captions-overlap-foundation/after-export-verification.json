@@ -1,0 +1,44 @@
+{
+  "tier": 2,
+  "verification": {
+    "matched": true,
+    "checks": {
+      "frames": true,
+      "duration": true,
+      "dimensions": true,
+      "codec": true,
+      "audioPresence": true,
+      "audioDuration": true
+    },
+    "expected": {
+      "frames": 120,
+      "fps": 30,
+      "width": 1280,
+      "height": 720,
+      "duration": 4,
+      "requireAudio": false,
+      "audioPacketSeconds": 0.021333333333333333,
+      "audioMaxDuration": 4.035333333333333
+    },
+    "measured": {
+      "programs": [],
+      "stream_groups": [],
+      "streams": [
+        {
+          "codec_name": "h264",
+          "profile": "High",
+          "codec_type": "video",
+          "width": 1280,
+          "height": 720,
+          "pix_fmt": "yuv420p",
+          "r_frame_rate": "30/1",
+          "duration": "4.000000",
+          "nb_read_frames": "120"
+        }
+      ],
+      "format": {
+        "duration": "4.000000"
+      }
+    }
+  }
+}

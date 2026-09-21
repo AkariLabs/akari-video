@@ -344,7 +344,7 @@ test('caption drag keeps Alt group movement and batches ordinary cue movement wi
     assert.match(handlerSource, /await window\.akari\.engine\.captionWrite\(cueId, \{ groupPosition \}\)/);
     assert.match(handlerSource, /plateTransform: \{[\s\S]*captionIds: \[cueId\][\s\S]*cuePosition: \{ captionId: cueId, value: cuePosition \}/);
     assert.match(handlerSource, /pendingCaptionDragReload = true/);
-    assert.match(handlerSource, /akari-preview-captions-update'[\s\S]*captionPlate\.style\.translate = ''/);
+    assert.match(handlerSource, /akari-preview-captions-update'[\s\S]*plate\.style\.translate = ''/);
     assert.doesNotMatch(handlerSource, /zoneFromFraction/);
 });
 
@@ -375,15 +375,15 @@ test('caption cue drag clamp, reset, and Alt group mode are wired', () => {
 });
 
 test('caption inline edit wiring pauses playback, supports commit/cancel, and guards rerender', () => {
-    assert.match(handlerSource, /captionPlate\.addEventListener\('dblclick'/);
+    assert.match(handlerSource, /captionLayer\.addEventListener\('dblclick'/);
     assert.match(handlerSource, /element\.setAttribute\('contenteditable', 'true'\)/);
     assert.match(handlerSource, /if \(isPlaying\) togglePlayback\(\)/);
     assert.match(handlerSource, /event\.key === 'Enter'[\s\S]*commitCaptionEdit\(\)/);
     assert.match(handlerSource, /event\.key === 'Escape'[\s\S]*cancelCaptionEdit\(\)/);
-    const renderStart = handlerSource.indexOf('const renderCaption = () => {');
+    const renderStart = handlerSource.indexOf('const renderCaptionRow = (caption, row) => {');
     const renderEnd = handlerSource.indexOf('const renderTransitionPlate =', renderStart);
     const renderCaption = handlerSource.slice(renderStart, renderEnd);
-    assert.match(renderCaption, /if \(activeCaptionEdit\) return/);
+    assert.match(renderCaption, /activeCaptionEdit\?\.element\.closest\('\.caption-row-plate'\) === captionPlate/);
     assert.match(renderCaption, /caption\.words\.length > 0/);
     assert.doesNotMatch(renderCaption, /caption\.words\.map\([\s\S]*\.join\(/);
 });

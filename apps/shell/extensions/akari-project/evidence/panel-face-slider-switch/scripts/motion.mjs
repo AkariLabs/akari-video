@@ -8,6 +8,8 @@
 // usage: CDP_PORT=9434 node motion.mjs ; writes ../motion.json と ../motion-*.png
 import { connectMain, evalMain, realClick } from '../../materials-tab-hardening/cdp-lib.mjs';
 import { writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
 const PORT = Number(process.env.CDP_PORT || 9434);
 let cdp = await connectMain(PORT);
@@ -125,10 +127,10 @@ const reloadCase = async (name, action) => {
     await shot(`motion-5-${name}`);
 };
 await reloadCase('afterReload', () => cdp.send('Page.reload', {}).catch(() => {}));
-// 別プロジェクトを開き直す: クエリを変えた URL へ遷移（ハッシュだけの変更は同一文書のまま）。/tmp/pfss-l1/ws2 → 戻りで ws
+// 別プロジェクトを開き直す: クエリを変えた URL へ遷移（ハッシュだけの変更は同一文書のまま）。一時ディレクトリの ws2 → 戻りで ws
 const reopenTo = ws => reloadCase(`afterReopenProject_${ws}`, async () => {
     const href = await evalMain(cdp, 'location.href');
-    const u = new URL(href); u.searchParams.set('pfss', String(Date.now())); u.hash = `/private/tmp/pfss-l1/${ws}`;
+    const u = new URL(href); u.searchParams.set('pfss', String(Date.now())); u.hash = join(process.env.PFSS_WORKSPACE_ROOT || join(tmpdir(), 'pfss-l1'), ws);
     await cdp.send('Page.navigate', { url: u.toString() }).catch(() => {});
 });
 await reopenTo('ws2');

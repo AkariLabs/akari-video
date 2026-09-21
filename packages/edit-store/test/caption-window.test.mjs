@@ -146,3 +146,20 @@ test('expandCaptionDisplayFragments: display_text と id を保ち疑似 caption
         { id: 'same', text: '本文', display_text: '本文', fragmentIndex: 2, fragmentCount: 2 }
     ]);
 });
+
+test('findActiveCaptions preserves input order and half-open boundaries', async () => {
+    const { findActiveCaptions } = await import('../lib/caption-window.js');
+    const first = { id: 'source', start: 1, end: 3 };
+    const second = { id: 'output', start: 2, end: 4 };
+    const next = { id: 'next', start: 3, end: 5 };
+    const cues = [first, second, next];
+    assert.deepEqual(findActiveCaptions([], 2), []);
+    assert.deepEqual(findActiveCaptions(cues, 0), []);
+    assert.deepEqual(findActiveCaptions(cues, 1), [first]);
+    assert.deepEqual(findActiveCaptions(cues, 2), [first, second]);
+    assert.deepEqual(findActiveCaptions(cues, 3), [second, next]);
+    assert.deepEqual(findActiveCaptions([next, second], 3), [next, second]);
+    assert.equal(findActiveCaption(cues, 2), first);
+    assert.deepEqual(findActiveCaptions([{ start: 2, duration: 1 }], 3), []);
+    assert.deepEqual(findActiveCaptions([{ ...first, display_timing: 'speech-tight', words: [{ start: 2, end: 2.5 }] }], 1), []);
+});

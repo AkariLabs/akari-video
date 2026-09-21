@@ -100,16 +100,16 @@ test('legacy gap heuristic applies only when time_domain is undeclared', () => {
 });
 
 test('render, caption selection, and styled animation consume outputTime only', () => {
-    const renderStart = compiled.indexOf('const renderCaption = () => {');
+    const renderStart = compiled.indexOf('const renderCaptionRow = (caption, row) => {');
     const renderEnd = compiled.indexOf('const renderTransitionPlate =', renderStart);
     const renderCaption = compiled.slice(renderStart, renderEnd);
-    assert.match(renderCaption, /findActiveCaption\(captions, outputTime\)/u);
+    assert.match(renderCaption, /findActiveCaptions\(captions, outputTime\)/u);
     assert.match(renderCaption, /clamp\(outputTime, caption\.start, caption\.end\)/u);
     assert.doesNotMatch(renderCaption, /const time = video\.currentTime|activeSegment &&|resolvedTimeline \?/u);
 
-    const pointerStart = compiled.indexOf("captionPlate.addEventListener('pointerdown'");
+    const pointerStart = compiled.indexOf("captionLayer.addEventListener('pointerdown'");
     const pointerEnd = compiled.indexOf("wrapper.addEventListener('click'", pointerStart);
     const pointerHandler = compiled.slice(pointerStart, pointerEnd);
-    assert.match(pointerHandler, /findActiveCaption\(captions, outputTime\)/u);
+    assert.match(pointerHandler, /captionForEvent\(event\)/u);
     assert.doesNotMatch(pointerHandler, /const time = video\.currentTime|resolvedTimeline \?/u);
 });

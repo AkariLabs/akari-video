@@ -19,7 +19,7 @@ test('字幕時計: 共有カーネルで出力秒へ正規化し、判定は ou
   assert.match(app, /captionsOutputClock = normalizeCaptionClock\(/u);
   assert.match(app, /timelineMap = built;\n  refreshCaptionClock\(\);/u);
   const updateCaption = app.slice(app.indexOf('function updateCaption()'), app.indexOf('function syncCaptionAnimations()'));
-  assert.match(updateCaption, /const active = findActiveCaption\(caps, outputTime\);/u);
+  assert.match(updateCaption, /const active = findActiveCaptions\(captionsOutputClock, outputTime\);/u);
   assert.doesNotMatch(updateCaption, /getVideoTimeForOutput|srcT/u);
   const sync = app.slice(app.indexOf('function syncCaptionAnimations()'), app.indexOf('function esc('));
   assert.match(sync, /\(outputTime - start\) \* 1000/u);

@@ -175,7 +175,7 @@ function resolveV2Write(
                 throw new Error(`親の変形を逆変換できません: ${itemId}`);
             }
             const patch = command.patch.transform;
-            const bag = target.ancestors.at(-1);
+            const bag = target.ancestors[target.ancestors.length - 1];
             const bagDefaults = item.source.kind === 'html' && item.source.part && bag?.source.kind === 'html'
                 ? bag.transform : undefined;
             const world = { ...compose(parent, { ...bagDefaults, ...item.transform }), ...patch };

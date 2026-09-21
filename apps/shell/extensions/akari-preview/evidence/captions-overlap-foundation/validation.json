@@ -1,0 +1,117 @@
+{
+  "tests": {
+    "edit_store": {
+      "tests": 869,
+      "pass": 869,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "duration_ms": 19821.944167
+    },
+    "preview_server": {
+      "tests": 375,
+      "pass": 373,
+      "fail": 1,
+      "cancelled": 0,
+      "skipped": 1,
+      "duration_ms": 202157.807708
+    },
+    "akari_preview": {
+      "tests": 1301,
+      "pass": 1301,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "duration_ms": 113462.723541
+    },
+    "render_cut_hardware": {
+      "tests": 611,
+      "pass": 607,
+      "fail": 4,
+      "cancelled": 0,
+      "skipped": 0,
+      "duration_ms": 369640.256375
+    },
+    "new_tests_without_tools": {
+      "tests": 91,
+      "pass": 91,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "duration_ms": 733.630292
+    },
+    "preview_server_baseline_subset": {
+      "tests": 3,
+      "pass": 2,
+      "fail": 1,
+      "cancelled": 0,
+      "skipped": 0,
+      "duration_ms": 85326.871625
+    },
+    "render_cut_baseline_subset": {
+      "tests": 4,
+      "pass": 0,
+      "fail": 4,
+      "cancelled": 0,
+      "skipped": 0,
+      "duration_ms": 5116.300625
+    }
+  },
+  "shell_build": "exit 0",
+  "shell_lint": {
+    "exit": 0,
+    "errors": 0,
+    "warnings": 1,
+    "note": "existing unused variable in companion extension"
+  },
+  "software_osr": "H.264 decoder configuration unsupported; final render suite uses AKARI_OSR_SOFT=0",
+  "baseline_failures": {
+    "preview_server": {
+      "suite": "preview.test.mjs",
+      "baseline_reproduced": true,
+      "checks": [
+        "overlay HTML PUT returns HTTP 422",
+        "background selection missing",
+        "background selection frame missing",
+        "background resize-handle state missing",
+        "background deletion fails",
+        "role-less overlay drag fails"
+      ]
+    },
+    "render_cut": {
+      "baseline_reproduced": true,
+      "checks": [
+        "SFX input at material end: CLI exits 1 despite emitting skip warning",
+        "glass-free 3D sheet hash differs from stored baseline",
+        "bundled platform ffmpeg executable is absent",
+        "vgpu-free 3D sheet hash differs from stored baseline"
+      ]
+    }
+  },
+  "governance_checks": [
+    {
+      "check": 1,
+      "matches": 0
+    },
+    {
+      "check": 2,
+      "matches": 0
+    },
+    {
+      "check": 3,
+      "matches": 0
+    },
+    {
+      "check": 4,
+      "matches": 0
+    },
+    {
+      "check": 5,
+      "matches": 0
+    }
+  ],
+  "frame_engine_drift": "all bundle drift checks passed",
+  "webview_kernel": "IIFE",
+  "file_boundary": "all changes within owned paths; pre-existing marker unchanged",
+  "cleanup": "own Electron PIDs stopped; isolated project, generated video and profile directories removed"
+}

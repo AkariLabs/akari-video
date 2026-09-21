@@ -87,7 +87,7 @@ test('runtime mount 後も fallback label を transition plate と caption plate
     assert.ok(append, 'runtime mount 後の stage.append が存在する');
     assert.deepEqual(
         append[1].split(',').map(value => value.trim()),
-        ['transitionPlate', 'transitionFallbackLabel', 'captionPlate']
+        ['transitionPlate', 'transitionFallbackLabel', 'captionLayer']
     );
 });
 

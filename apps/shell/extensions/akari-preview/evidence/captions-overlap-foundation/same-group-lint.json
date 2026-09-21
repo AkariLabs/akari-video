@@ -1,0 +1,16 @@
+{
+  "verdict": "fail",
+  "findings": [
+    {
+      "id": "F002",
+      "severity": "error",
+      "check": "captions.overlap",
+      "message": "caption overlaps c-0003 on the same track",
+      "path": "captions.json#[3]",
+      "range": {
+        "start": 0,
+        "end": 6
+      }
+    }
+  ]
+}
