@@ -2,8 +2,9 @@
 // L1（CDP）— 生成インスペクターのモデル別欄・費用承認・生成中チップを実機観測する。
 import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { mkdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+import os from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { CDP, evalOn, listTargets, realClick, screenshot } from './cdp-lib.mjs';
@@ -11,13 +12,16 @@ import { CDP, evalOn, listTargets, realClick, screenshot } from './cdp-lib.mjs';
 const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const REPO = path.resolve(ROOT, '..', '..', '..', '..', '..', '..');
 const SHELL_DIR = path.join(REPO, 'apps', 'shell');
-const ELECTRON = path.join(SHELL_DIR, 'node_modules/electron/dist/Electron.app/Contents/MacOS/Electron');
+const electronRelativePath = 'node_modules/electron/dist/Electron.app/Contents/MacOS/Electron';
+const shellElectron = path.join(SHELL_DIR, electronRelativePath);
+const ELECTRON = await stat(shellElectron).then(entry => entry.isFile()).catch(() => false)
+  ? shellElectron : path.join(REPO, electronRelativePath);
 const PROJECT = path.join(ROOT, 'fixture', 'project');
 const RESULTS = path.join(ROOT, 'results.json');
 const PORT = Number(process.argv.find(value => value.startsWith('--port='))?.slice(7) ?? 22213);
-const ISO = path.join(ROOT, 'runs', 'l1');
+const ISO = await mkdtemp(path.join(os.tmpdir(), 'akari-generation-l1-'));
 const LOG = path.join(ROOT, 'runs', 'l1.log');
-const FAKE_CLI = path.join(REPO, 'apps', 'shell', 'extensions', 'akari-annotations', 'test', 'fixtures', 'inspector-generation', 'fake-generate.mjs');
+const FAKE_CLI = path.join(ROOT, 'scripts', 'fake-generate.mjs');
 const S = value => JSON.stringify(value);
 const out = { status: 'running', steps: [], screenshots: [], screenshotDetails: [], cleanup: null };
 
@@ -124,7 +128,7 @@ async function settlePreloadOverlay(cdp) {
 const command = id => `(async()=>{const d=window.theia.container._bindingDictionary;const C=[...d._map.keys()].find(k=>typeof k==='function'&&typeof k.prototype?.executeCommand==='function');if(!C)throw new Error('CommandService binding unavailable');const r=await window.theia.container.get(C).executeCommand(${S(id)});return r!==null&&typeof r==='object'?'[object]':r??null})()`;
 const SECTION = '[data-akari-ui="section:inspector-generation"]';
 const field = name => `[data-akari-ui="field:inspector-${name}"]`;
-const action = name => `[data-akari-ui="action:inspector-generation-actions-${name}"]`;
+const action = name => `[data-akari-generation-action="${name}"]`;
 const sectionSnapshot = `(()=>{const s=document.querySelector(${S(SECTION)});if(!s)return null;
 const rows=[...s.querySelectorAll('.akari-inspector-row')].map(r=>({
 label:r.querySelector('.akari-inspector-row-label')?.textContent?.trim()||'',
@@ -176,6 +180,7 @@ const target=candidates.find(e=>e instanceof HTMLElement&&e.offsetParent!==null)
 }
 
 async function ensureSection(cdp) {
+  await evalOn(cdp, `(()=>{const b=[...document.querySelectorAll('[role=tab]')].find(e=>e.textContent.includes('生成'));if(b&&b.getAttribute('aria-selected')!=='true')b.click()})()`);
   const section = await waitEval(cdp, sectionSnapshot, { label: '生成セクション', timeoutMs: 600_000 });
   if (section.hidden) {
     const toggled = await evalOn(cdp, `(()=>{const s=document.querySelector(${S(SECTION)});const body=s?.querySelector('.akari-inspector-section-body');if(!s||!body)return false;if(!body.hidden)return true;const toggle=s.querySelector('.akari-inspector-section-toggle');if(!toggle)return false;toggle.click();return true})()`);
@@ -196,11 +201,43 @@ e.value=o.value;e.dispatchEvent(new Event('change',{bubbles:true}));return{value
   return changed.value;
 }
 
-async function shot(cdp, name) {
+async function ensureActionVisible(cdp, selector) {
+  const visibility = await evalOn(cdp, `(async()=>{
+    const panel=document.querySelector('[data-akari-ui="panel:inspector"]');
+    const button=panel?.querySelector(${S(selector)});
+    if(!panel||!button)throw new Error('Inspector action not found');
+    button.scrollIntoView({block:'center',inline:'nearest',behavior:'instant'});
+    await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+    const rect=element=>{const r=element.getBoundingClientRect();return{left:r.left,top:r.top,right:r.right,bottom:r.bottom,width:r.width,height:r.height}};
+    const buttonRect=rect(button), inspectorRect=rect(panel);
+    const visibleRect={left:0,top:0,right:innerWidth,bottom:innerHeight};
+    // Intersect client boxes, excluding borders and scrollbars, for every clipping ancestor.
+    for(let element=button.parentElement;element;element=element.parentElement){
+      const r=element.getBoundingClientRect(), style=getComputedStyle(element);
+      if(element===panel||/auto|scroll|hidden|clip/.test(style.overflowX)){
+        visibleRect.left=Math.max(visibleRect.left,r.left+element.clientLeft);
+        visibleRect.right=Math.min(visibleRect.right,r.left+element.clientLeft+element.clientWidth);
+      }
+      if(element===panel||/auto|scroll|hidden|clip/.test(style.overflowY)){
+        visibleRect.top=Math.max(visibleRect.top,r.top+element.clientTop);
+        visibleRect.bottom=Math.min(visibleRect.bottom,r.top+element.clientTop+element.clientHeight);
+      }
+    }
+    const fullyVisible=buttonRect.width>0&&buttonRect.height>0&&getComputedStyle(button).visibility==='visible'
+      &&buttonRect.left>=visibleRect.left&&buttonRect.right<=visibleRect.right
+      &&buttonRect.top>=visibleRect.top&&buttonRect.bottom<=visibleRect.bottom;
+    return{selector:${S(selector)},buttonRect,inspectorRect,visibleRect,fullyVisible};
+  })()`);
+  assert(visibility.fullyVisible, `操作ボタンがインスペクターの可視範囲に収まらない: ${JSON.stringify(visibility)}`);
+  return visibility;
+}
+
+async function shot(cdp, name, actionSelector) {
   const destination = path.join(ROOT, name);
   for (let attempt = 1; attempt <= 3; attempt++) {
     await ensureInspectorVisible(cdp);
     await ensureSection(cdp);
+    const actionVisibility = actionSelector ? await ensureActionVisible(cdp, actionSelector) : undefined;
     await screenshot(cdp, destination);
     const state = await evalOn(cdp, `(()=>{const panel=document.querySelector('[data-akari-ui="panel:inspector"]');const section=${sectionSnapshot};const body=document.querySelector(${S(SECTION)})?.querySelector('.akari-inspector-section-body');return{
 inspectorFront:Boolean(panel&&panel.offsetParent!==null),
@@ -214,10 +251,11 @@ modelRow:section?.rows.find(row=>row.label==='モデル')?.input||''}})()`);
         sha256,
         inspectorFront: true,
         sectionVisible: true,
-        modelRow: state.modelRow
+        modelRow: state.modelRow,
+        ...(actionVisibility ? { actionVisibility } : {})
       });
       await save();
-      return;
+      return actionVisibility;
     }
   }
   throw new Error(`${name}: インスペクター前面・生成セクション可視の状態で 3 回撮影できなかった`);
@@ -225,7 +263,6 @@ modelRow:section?.rows.find(row=>row.label==='モデル')?.input||''}})()`);
 
 let spawnedChild;
 async function launch() {
-  await rm(ISO, { recursive: true, force: true });
   await mkdir(path.join(ISO, 'akari-home'), { recursive: true });
   await mkdir(path.join(ISO, 'theia-config'), { recursive: true });
   await mkdir(path.join(ISO, 'user-data'), { recursive: true });
@@ -295,7 +332,10 @@ async function stop(session) {
     survivingBackendMain: backendSurvivors,
     alive: pid ? (() => { try { process.kill(pid, 0); return 1; } catch { return 0; } })() : 0
   };
+  await rm(path.join(ROOT, 'fixture'), { recursive: true, force: true });
+  out.cleanup.fixtureRemoved = true;
   await save();
+  await rm(ISO, { recursive: true, force: true });
   return survivors + out.cleanup.alive;
 }
 
@@ -327,87 +367,60 @@ try {
   await ensureInspectorVisible(cdp);
   await ensureSection(cdp);
 
-  await step('1. H3 は受ける欄だけ・常時音声・見積を表示する', async () => {
+  await step('1. H3 の最初→最後に 2 枚のサムネと種類を表示', async () => {
     await chooseModel(cdp, 'fal:h3-i2v');
-    const view = await waitEval(cdp, `(()=>{const v=${sectionSnapshot};return v&&v.rows.some(r=>r.label==='音声'&&r.value==='常に付く・既定 mute')?v:null})()`, { label: 'H3 fields', timeoutMs: 600_000 });
-    assert(!view.rows.some(row => row.label === 'negative prompt'), 'H3 に negative prompt 欄がある');
-    assert(!view.rows.some(row => row.label.startsWith('参照画像')), 'H3 に参照画像欄がある');
-    assert(view.rows.some(row => row.label === '音声' && row.value === '常に付く・既定 mute'), 'H3 の常時音声表示がない');
-    assert(view.rows.some(row => row.className.includes('akari-inspector-generation-estimate') && /\$/.test(row.value) && /as_of/.test(row.value)), 'H3 の見積に $ / as_of がない');
+    const frames = await waitEval(cdp, `(()=>{const images=[...document.querySelectorAll('.akari-inspector-generation-frame img')];return images.length===2&&images.every(image=>image.complete&&image.naturalWidth>0)?images.map(image=>({alt:image.alt,width:image.naturalWidth})):null})()`, { label: 'two frame thumbnails' });
+    const view = await evalOn(cdp, sectionSnapshot);
+    assert(view.text.includes('最初→最後'), '種類が最初→最後でない');
+    assert(view.text.includes('常に付く・既定は消音'), '常時音声表示がない');
+    assert(view.text.includes('送る絵は素材のまま（色・サイズは送りません）'), '素材の説明がない');
+    return { frames, view };
+  });
+  await shot(cdp, '01-h3-first-to-last.png');
+
+  await step('2. 両枠を外すとプロンプトだけ・空枠に外すはない', async () => {
+    for (const slot of ['first-frame', 'last_frame']) {
+      await evalOn(cdp, `document.querySelector('[data-akari-generation-action="${slot}-remove"]').click()`);
+      await waitEval(cdp, `!document.querySelector('[data-akari-generation-action="${slot}-remove"]')`, { label: `${slot} cleared` });
+    }
+    const view = await evalOn(cdp, sectionSnapshot);
+    assert(view.text.includes('プロンプトだけ'), '種類がプロンプトだけでない');
+    assert(!await evalOn(cdp, `Boolean(document.querySelector('.akari-inspector-generation-frame img'))`), '空枠にサムネが残る');
     return view;
   });
-  await dismissTransientUi(cdp, 2);
-  await shot(cdp, '01-model-h3.png');
+  await shot(cdp, '02-prompt-only.png');
 
-  await step('2. Kling standard は negative prompt・上限なし参照画像・見積不可を表示する', async () => {
-    await chooseModel(cdp, 'fal:kling-v3-standard-i2v');
-    const view = await waitEval(cdp, `(()=>{const v=${sectionSnapshot};return v&&Boolean(document.querySelector(${S(field('negative-prompt'))}))&&Boolean(document.querySelector(${S(field('reference_images'))}))?v:null})()`, { label: 'Kling fields', timeoutMs: 600_000 });
-    assert(view.rows.some(row => row.label === 'negative prompt'), 'Kling に negative prompt 欄がない');
-    const references = view.rows.find(row => row.label.startsWith('参照画像'));
-    assert(references && references.label === '参照画像', `Kling 参照画像に N / max が付いた: ${references?.label}`);
-    assert(view.rows.some(row => row.className.includes('akari-inspector-generation-estimate') && row.value.includes('見積不可')), 'Kling が見積不可でない');
-    return view;
-  });
-  await dismissTransientUi(cdp, 2);
-  await shot(cdp, '02-model-kling.png');
-
-  await step('3. Veo FLF は最後のフレームと 6 秒 → 8 秒の正規化を表示する', async () => {
-    await chooseModel(cdp, 'fal:veo-3.1-flf');
-    const view = await waitEval(cdp, `(()=>{const v=${sectionSnapshot};return v&&Boolean(document.querySelector(${S(field('last_frame'))}))&&v.rows.some(r=>r.value==='6 秒 → 8 秒')?v:null})()`, { label: 'Veo fields and duration', timeoutMs: 600_000 });
-    assert(view.rows.some(row => row.label === '最後のフレーム'), 'Veo に最後のフレーム欄がない');
-    assert(view.rows.some(row => row.className.includes('akari-inspector-generation-warning') && row.value === '6 秒 → 8 秒'), 'Veo の尺丸め表示がない');
-    return view;
-  });
-  await dismissTransientUi(cdp, 2);
-  await shot(cdp, '03-model-veo.png');
-
-  await step('4. 動画にするは金額・as_of・model id 付き費用承認を開く', async () => {
-    await chooseModel(cdp, 'fal:h3-i2v');
+  await step('3. 見積の横から送信すると費用承認が 1 回開く', async () => {
+    const sendButtonVisibility = await ensureActionVisible(cdp, action('generate'));
     const clicked = await evalOn(cdp, `(()=>{const b=document.querySelector(${S(action('generate'))});if(!b||b.disabled)return false;b.click();return true})()`);
     assert(clicked, '動画にするボタンを押せない');
-    const dialog = await waitEval(cdp, `(()=>{const dialogs=[...document.querySelectorAll('.dialogBlock,.p-Widget.dialogOverlay')];const d=dialogs.find(e=>(e.textContent||'').includes('費用承認'));return d?{text:String(d.textContent||''),title:String(d.querySelector('.dialogTitle,.p-Dialog-title')?.textContent||'')}:null})()`, { label: '費用承認 dialog', timeoutMs: 600_000 });
-    assert(dialog.title.includes('費用承認') || dialog.text.includes('費用承認'), 'ダイアログタイトルが費用承認でない');
-    assert(/\$\d/.test(dialog.text), '費用承認本文に金額がない');
-    assert(dialog.text.includes('as_of 2026-09-12'), '費用承認本文に as_of がない');
-    assert(dialog.text.includes('fal:h3-i2v'), '費用承認本文に model id がない');
-    return dialog;
+    const dialog = await waitEval(cdp, `(()=>{const dialogs=[...document.querySelectorAll('.dialogBlock')].filter(e=>e.textContent.includes('費用承認'));return dialogs.length===1?{text:dialogs[0].textContent,count:dialogs.length}:null})()`, { label: '費用承認 dialog' });
+    assert(/\$\d/.test(dialog.text) && dialog.text.includes('as_of') && dialog.text.includes('fal:h3-i2v'), '金額・日付・モデルが不足');
+    return { ...dialog, sendButtonVisibility };
   });
-  await shot(cdp, '04-cost-approval-dialog.png');
+  // Do not refocus the inspector while a modal is open.
+  await screenshot(cdp, path.join(ROOT, '03-cost-approval-dialog.png'));
+  out.screenshots.push('03-cost-approval-dialog.png');
 
-  await step('5. 費用承認後に偽 CLI が走りタイムラインチップが generating になる', async () => {
-    const approved = await evalOn(cdp, `(()=>{const dialogs=[...document.querySelectorAll('.dialogBlock,.p-Widget.dialogOverlay')];const d=dialogs.find(e=>(e.textContent||'').includes('費用承認'));const b=d&&[...d.querySelectorAll('button')].find(x=>(x.textContent||'').includes('費用承認する'));if(!b)return false;b.click();return true})()`);
-    assert(approved, '費用承認ボタンが見つからない');
-    const state = await waitEval(cdp, `(()=>{const e=document.querySelector('[data-akari-ui="timeline:cut:0"]');return e?.dataset.akariGenerationState==='generating'?{state:String(e.dataset.akariGenerationState),badge:String(e.querySelector('[data-akari-generation-badge]')?.textContent||'')}:null})()`, { label: 'clip-a generating', timeoutMs: 600_000 });
-    assert(state.state === 'generating', `生成状態が generating でない: ${state.state}`);
-    return state;
-  });
-  await dismissTransientUi(cdp, 2);
-  await shot(cdp, '05-timeline-chip-generating.png');
-
-  await step('6. 偽 CLI の mp4 サイドカーが done になると png チップは静止画へ戻る', async () => {
-    const generatedMetaPath = path.join(PROJECT, 'assets', 'generated', 'gen-clip-a.mp4.meta.json');
-    const stillMetaPath = path.join(PROJECT, 'assets', 'stills', 'a.png.meta.json');
-    await waitForJsonStatus(generatedMetaPath, 'done');
-    const stillSidecarExists = await stat(stillMetaPath).then(() => true).catch(() => false);
-    assert(!stillSidecarExists, 'still 側にサイドカーが作られた');
-    const state = await waitEval(cdp, `(()=>{const e=document.querySelector('[data-akari-ui="timeline:cut:0"]');return e?.dataset.akariGenerationState==='none'&&String(e.querySelector('[data-akari-generation-badge]')?.textContent||'')==='静止画'?{state:String(e.dataset.akariGenerationState),badge:'静止画'}:null})()`, { label: 'clip-a returns to still', timeoutMs: 60_000 });
-    return { state, generatedSidecar: 'assets/generated/gen-clip-a.mp4.meta.json', stillSidecarExists };
-  });
-  await dismissTransientUi(cdp, 2);
-  await shot(cdp, '06-timeline-chip-after-done.png');
-
-  await step('7. edit.json / captions.json の mtime は全手順で不変', async () => {
-    const mtimesAfter = { edit: (await stat(editPath)).mtimeMs, captions: (await stat(captionsPath)).mtimeMs };
-    assert(mtimesAfter.edit === mtimesBefore.edit, `edit.json mtime changed: ${mtimesBefore.edit} -> ${mtimesAfter.edit}`);
-    assert(mtimesAfter.captions === mtimesBefore.captions, `captions.json mtime changed: ${mtimesBefore.captions} -> ${mtimesAfter.captions}`);
-    return { mtimesBefore, mtimesAfter };
+  await step('4. 偽 CLI の起動引数に --inputs がない', async () => {
+    await evalOn(cdp, `(()=>{const d=[...document.querySelectorAll('.dialogBlock')].find(e=>e.textContent.includes('費用承認'));[...d.querySelectorAll('button')].find(b=>b.textContent.includes('費用承認する')).click()})()`);
+    await waitForJsonStatus(path.join(PROJECT, 'assets/generated/gen-clip-a.mp4.meta.json'), 'failed');
+    const invocation = JSON.parse(await readFile(path.join(PROJECT, 'fake-invocation.json'), 'utf8'));
+    assert(!invocation.args.includes('--inputs'), '--inputs が残っている');
+    assert(invocation.next.inputs.first_frame === null && invocation.next.inputs.last_frame === null, 'next の入力を使っていない');
+    return invocation;
   });
 
-  await step('8. SS 6 枚の SHA256 が相異なる', async () => {
-    const sha256s = out.screenshotDetails.map(detail => detail.sha256);
-    const distinct = sha256s.length === 6 && new Set(sha256s).size === 6;
-    assert(distinct, `SS 6 枚の SHA256 が相異ならない: count=${sha256s.length}, distinct=${new Set(sha256s).size}`);
-    return { count: sha256s.length, sha256s, distinct: true };
+  await step('5. 失敗に同じ入力でもう一度を表示', async () => {
+    const retry = await waitEval(cdp, `(()=>{const b=document.querySelector(${S(action('retry'))});return b&&b.textContent==='同じ入力でもう一度'?b.textContent:null})()`, { label: 'retry after failure' });
+    const retryButtonVisibility = await shot(cdp, '04-failed-retry.png', action('retry'));
+    return { retry, retryButtonVisibility };
+  });
+
+  await step('6. edit.json / captions.json は不変', async () => {
+    const after = { edit: (await stat(editPath)).mtimeMs, captions: (await stat(captionsPath)).mtimeMs };
+    assert(after.edit === mtimesBefore.edit && after.captions === mtimesBefore.captions, 'edit/captions の mtime が変化');
+    return { before: mtimesBefore, after };
   });
 
   out.status = 'pass';

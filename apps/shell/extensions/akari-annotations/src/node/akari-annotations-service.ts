@@ -406,12 +406,67 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
             throw new Error('projectRootUri / itemId / modelId が必要です。');
         }
         const projectRoot = resolve(this.fsPath(request.projectRootUri));
-        const path = generationDraftPath(projectRoot, request.itemId);
-        await fs.mkdir(dirname(path), { recursive: true });
-        const temp = `${path}.${process.pid}.${Date.now()}.tmp`;
-        const content = `${JSON.stringify({ modelId: request.modelId, inputs: request.inputs ?? {}, output: request.output ?? {} }, null, 2)}\n`;
-        await fs.writeFile(temp, content, 'utf8');
-        await fs.rename(temp, path);
+        // Keep the item-id guard used by legacy drafts, but resolve the current source from edit.json.
+        generationDraftPath(projectRoot, request.itemId);
+        const edit = JSON.parse(await fs.readFile(join(projectRoot, 'edit.json'), 'utf8'));
+        const item = (edit.tracks ?? []).flatMap(track => track.items ?? [])
+            .find(candidate => candidate.id === request.itemId);
+        const source = item?.source?.kind === 'media'
+            ? (edit.sources ?? []).find(candidate => candidate.id === item.source.src) : undefined;
+        if (!source?.path) throw new Error('生成対象の素材が見つかりません。');
+        const path = resolve(projectRoot, `${source.path}.meta.json`);
+        const within = (target: string, root: string): boolean => {
+            const rel = relative(root, target);
+            return rel !== '..' && !rel.startsWith(`..${sep}`) && !isAbsolute(rel);
+        };
+        if (!within(path, projectRoot)) throw new Error('素材はプロジェクト内で指定してください。');
+        let original: string;
+        try {
+            if (!within(await fs.realpath(path), await fs.realpath(projectRoot))) {
+                throw new Error('素材はプロジェクト内で指定してください。');
+            }
+            original = await fs.readFile(path, 'utf8');
+        } catch (error) {
+            if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+            throw new Error('この画像には生成の記録がありません。`akari generate still` で作った仮枠か、空の枠で使えます');
+        }
+        const meta = JSON.parse(original);
+        if (!meta || typeof meta !== 'object' || Array.isArray(meta)) throw new Error('素材の meta が不正です。');
+        const next = JSON.stringify({
+            kind: 'video', status: 'planned', model: { id: request.modelId },
+            inputs: request.inputs ?? {}, output: request.output ?? {}, updated_at: new Date().toISOString()
+        });
+        // Scan JSON tokens so every byte outside the top-level next value survives.
+        // A stringify of the whole meta would change whitespace, escapes and numeric spellings.
+        const tokens = [...original.matchAll(/"(?:\\.|[^"\\])*"|[{}[\]:,]|[^\s{}[\]:,]+/gu)];
+        let depth = 0;
+        let start = -1;
+        let end = -1;
+        for (let index = 0; index < tokens.length; index++) {
+            const token = tokens[index][0];
+            if (depth === 1 && token.startsWith('"') && tokens[index + 1]?.[0] === ':'
+                && JSON.parse(token) === 'next') {
+                if (start !== -1) throw new Error('meta に next が重複しています。');
+                start = tokens[index + 2].index!;
+                let nested = 0;
+                for (let j = index + 2; j < tokens.length; j++) {
+                    const value = tokens[j][0];
+                    if (value === '{' || value === '[') nested++;
+                    if (value === '}' || value === ']') nested--;
+                    if (nested === 0) { end = tokens[j].index! + value.length; break; }
+                }
+            }
+            if (token === '{' || token === '[') depth++;
+            if (token === '}' || token === ']') depth--;
+        }
+        const closing = original.lastIndexOf('}');
+        const content = start >= 0 ? original.slice(0, start) + next + original.slice(end)
+            : original.slice(0, closing) + `${Object.keys(meta).length ? ',' : ''}"next":${next}` + original.slice(closing);
+        const temp = `${path}.${process.pid}.${Date.now()}.${Math.random().toString(36).slice(2)}.tmp`;
+        try {
+            await fs.writeFile(temp, content, 'utf8');
+            await fs.rename(temp, path);
+        } finally { await fs.unlink(temp).catch(() => undefined); }
         return { ok: true, path: relative(projectRoot, path).split(sep).join('/') };
     }
 

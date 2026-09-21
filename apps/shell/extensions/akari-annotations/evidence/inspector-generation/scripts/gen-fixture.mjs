@@ -45,29 +45,22 @@ for (const [name, color] of [['a', '#d6402b'], ['b', '#1f6f8b'], ['c', '#2e8b57'
   ], PROJECT);
 }
 
-await atomicJson(path.join(PROJECT, 'assets', 'stills', 'c.png.meta.json'), {
-  version: 1, kind: 'video', status: 'planned',
-  provenance: { created_at: new Date().toISOString(), tool: 'l1-inspector-generation-fixture' }
+for (const name of ['a', 'b', 'c']) await atomicJson(path.join(PROJECT, 'assets', 'stills', `${name}.png.meta.json`), {
+  version: 1, kind: 'still', status: 'done',
+  provenance: { created_at: new Date().toISOString(), tool: 'l1-inspector-generation-fixture' },
+  ...(name === 'a' ? { next: {
+    kind: 'video', status: 'planned', model: { id: 'fal:h3-i2v' },
+    inputs: { prompt: 'A garden.', first_frame: { path: 'assets/stills/a.png' }, last_frame: { path: 'assets/stills/b.png' }, reference_images: [], reference_audios: [], camera: null },
+    output: { duration_s: 6, resolution: '768P', audio_out: true }, updated_at: new Date().toISOString()
+  } } : {})
 });
 await atomicJson(path.join(PROJECT, 'captions.json'), { captions: [] });
-
-// 実カタログの正規化結果を UI で観測する。文字列 "6" は validator が Veo の既定 8 秒へ
-// 正規化するため、03 で「6 秒 → 8 秒」を再現できる。
-await atomicJson(path.join(PROJECT, '.akari', 'generation', 'clip-a.inputs.json'), {
-  modelId: 'fal:h3-i2v',
-  inputs: {
-    prompt: '看板へゆっくり寄る', negative_prompt: null,
-    first_frame: { path: 'assets/stills/a.png', source_id: 'still-a' },
-    last_frame: null, reference_images: [], reference_audios: [], camera: null
-  },
-  output: { duration_s: '6', resolution: '768P', audio_out: true }
-});
 
 const edit = JSON.parse(await readFile(path.join(PROJECT, 'edit.json'), 'utf8'));
 process.stdout.write(`${JSON.stringify({
   ok: true,
   project: 'evidence/inspector-generation/fixture/project',
   clips: edit.tracks?.[0]?.items?.map(item => item.id) ?? [],
-  sidecars: ['assets/stills/c.png.meta.json'],
+  sidecars: ['a', 'b', 'c'].map(name => `assets/stills/${name}.png.meta.json`),
   captions: true
 })}\n`);

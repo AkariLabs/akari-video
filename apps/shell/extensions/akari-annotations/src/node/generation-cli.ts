@@ -40,11 +40,8 @@ export class GenerationCliManager {
     }
 
     async start(projectRoot: string, itemId: string): Promise<GenerationCliResult> {
-        const draftPath = generationDraftPath(projectRoot, itemId);
-        const draft = JSON.parse(await fs.readFile(draftPath, 'utf8')) as { modelId?: string };
-        if (!draft.modelId) return { ok: false, reason: '生成モデルが下書きにありません。', stdout: '' };
-        return this.run(itemId, ['generate', 'video', projectRoot, '--item', itemId,
-            '--inputs', draftPath, '--model', draft.modelId, '--yes', '--json']);
+        safeItemId(itemId);
+        return this.run(itemId, ['generate', 'video', projectRoot, '--item', itemId, '--yes', '--json']);
     }
 
     async resume(projectRoot: string, itemId: string): Promise<GenerationCliResult> {

@@ -126,3 +126,70 @@ test('generating は「動画にする」を disabled、stale は「再取得」
   const stale = fieldsFor('stale').find(field => field.name === 'generation-actions').actions;
   assert.equal(stale.find(action => action.name === 'resume').label, '再取得');
 });
+
+import { GENERATION_CAMERA_MOVES, generationCameraValue, generationVariety } from '../lib/browser/inspector/generation-fields.js';
+
+test('実カタログ 5 モデル × 最初・最後・参照・カメラ・音声・入れたくないもの', () => {
+  const columns = ['first-frame', 'last_frame', 'reference_images', 'reference_audios', 'camera', 'generation-audio', 'generation-audio-always', 'negative-prompt'];
+  const rows = [
+    ['fal:h3-i2v',                   [1, 1, 0, 0, 1, 0, 1, 0]],
+    ['fal:h3-ref',             [0, 0, 1, 1, 1, 0, 1, 0]],
+    ['fal:kling-v3-standard-i2v',     [1, 1, 1, 0, 1, 1, 0, 1]],
+    ['fal:veo-3.1-flf',              [1, 1, 0, 0, 1, 1, 0, 1]],
+    ['fal:seedance-2.0-i2v',         [1, 1, 0, 0, 1, 1, 0, 0]],
+  ];
+  for (const [id, expected] of rows) {
+    const model = actualVideoModels.find(row => row.id === id);
+    assert.ok(model, id);
+    const fields = generationFields({ snapshot: {}, catalogRow: model, draft: draft(id), defaults: { catalog: actualVideoModels }, actions });
+    assert.deepEqual(columns.map(name => Number(names(fields).includes(name))), expected, id);
+    for (const field of fields.filter(row => ['seed', 'negative-prompt', 'reference_images', 'reference_audios'].includes(row.name))) assert.equal(field.generationDetail, true, field.name);
+  }
+});
+
+test('種類 1 行と外すは枠の実入力から決まる・近道は利用可能な画像だけ', async () => {
+  const model = actualVideoModels.find(row => row.id === 'fal:h3-i2v');
+  for (const [first, last, label] of [[null, null, 'プロンプトだけ'], [{ path: 'a.png' }, null, '画像から'], [{ path: 'a.png' }, { path: 'b.png' }, '最初→最後']]) {
+    const current = draft(model.id); current.inputs.first_frame = first; current.inputs.last_frame = last;
+    const updates = [];
+    const fields = generationFields({ snapshot: {}, catalogRow: model, draft: current, defaults: { catalog: actualVideoModels, currentImage: 'self.png', nextImage: 'next.png' }, actions: { ...actions, update: async (...args) => { updates.push(args); return { ok: true }; } } });
+    assert.equal(fields.find(row => row.name === 'generation-variety').getValue({}), label);
+    for (const [name, value] of [['first-frame', first], ['last_frame', last]]) {
+      const frame = fields.find(row => row.name === name);
+      assert.equal(frame.disabled, undefined);
+      assert.equal(frame.actions.some(action => action.name === 'remove'), !!value);
+    }
+    const firstActions = fields.find(row => row.name === 'first-frame').actions;
+    assert.equal(firstActions.some(action => action.name === 'previous'), false);
+    await firstActions.find(action => action.name === 'current').action({});
+    assert.deepEqual(updates[0], ['inputs.first_frame', { path: 'self.png' }]);
+    const lastActions = fields.find(row => row.name === 'last_frame').actions;
+    await lastActions.find(action => action.name === 'next').action({});
+    assert.deepEqual(updates[1], ['inputs.last_frame', { path: 'next.png' }]);
+  }
+  assert.equal(generationVariety({ ...draft(model.id), inputs: { frames_or_refs: 'references' } }), '参照から');
+});
+
+test('カメラ 6 ボタン × bracket/prose 対応表のスナップショット', () => {
+  assert.deepEqual(GENERATION_CAMERA_MOVES, [
+    { label: '寄る', bracket: '[Push in]', prose: 'The camera pushes in.' },
+    { label: '引く', bracket: '[Pull out]', prose: 'The camera pulls out.' },
+    { label: '左へ振る', bracket: '[Pan left]', prose: 'The camera pans left.' },
+    { label: '右へ振る', bracket: '[Pan right]', prose: 'The camera pans right.' },
+    { label: '追いかける', bracket: '[Tracking shot]', prose: 'The camera tracks the subject.' },
+    { label: '固定', bracket: '[Static shot]', prose: 'The camera stays static.' },
+  ]);
+  for (const move of GENERATION_CAMERA_MOVES) for (const notation of ['bracket', 'prose']) {
+    assert.deepEqual(generationCameraValue(move.label, notation), { notation, value: move[notation], from_annotation: null });
+  }
+  assert.equal(generationCameraValue('なし', 'bracket'), null);
+  const model = { ...models[0], inputs: { ...models[0].inputs, camera: null } };
+  assert.equal(names(generationFields({ snapshot: {}, catalogRow: model, draft: draft(model.id), defaults: { catalog: [model] }, actions })).includes('camera'), false);
+});
+
+test('失敗と応答なしの操作は同じ入力でもう一度', () => {
+  for (const state of ['failed', 'stale']) {
+    const fields = generationFields({ snapshot: {}, catalogRow: models[0], draft: draft(models[0].id), defaults: { catalog: models, state }, actions });
+    assert.equal(fields.find(row => row.name === 'generation-actions').actions.find(action => action.name === 'retry').label, '同じ入力でもう一度');
+  }
+});

@@ -2382,6 +2382,10 @@ export class AkariInspectorWidget extends BaseWidget {
     protected readonly generationValidations = new Map<string, GenerationValidation>();
     protected readonly generationStates = new Map<string, string>();
     protected readonly generationLoads = new Set<string>();
+    protected readonly generationThumbnails = new Map<string, Promise<string | undefined>>();
+    protected readonly generationNeighbors = new Map<string, { previousImage?: string; nextImage?: string; previousId?: string; previousPath?: string }>();
+    protected readonly generationWrites = new Map<string, Promise<void>>();
+    protected generationDetailsOpen = false;
     protected readonly generationDraftTimers = new Map<string, number>();
 
     @postConstruct()
@@ -2902,6 +2906,16 @@ export class AkariInspectorWidget extends BaseWidget {
         color: var(--theia-descriptionForeground);
         padding: 4px 0;
     }
+    .akari-inspector-widget .akari-inspector-generation-frames { display: flex; gap: 10px; margin: 10px 0; }
+    .akari-inspector-widget .akari-inspector-generation-cell { flex: 1; min-width: 0; }
+    .akari-inspector-widget .akari-inspector-generation-frame { aspect-ratio: 16 / 9; border: 1px dashed var(--theia-focusBorder); display: flex; align-items: center; justify-content: center; margin: 4px 0; overflow: hidden; }
+    .akari-inspector-widget .akari-inspector-generation-frame img { width: 100%; height: 100%; object-fit: contain; }
+    .akari-inspector-widget .akari-inspector-generation-cell button { margin: 3px 3px 0 0; white-space: normal; }
+    .akari-inspector-widget .akari-inspector-generation-camera { margin: 10px 0; }
+    .akari-inspector-widget .akari-inspector-generation-camera button[aria-pressed="true"] { outline: 1px solid var(--theia-focusBorder); }
+    .akari-inspector-widget .akari-inspector-generation-details { margin: 10px 0; padding: 6px; border: 1px solid var(--theia-panel-border); }
+    .akari-inspector-widget .akari-inspector-generation-footer { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+    .akari-inspector-widget .akari-inspector-generation-footer > .akari-inspector-generation-estimate { flex: 1 0 max-content; }
     .akari-inspector-widget .akari-inspector-generation-facts {
         padding: 5px 0;
         border-top: 1px solid var(--theia-panel-border);
@@ -2909,6 +2923,10 @@ export class AkariInspectorWidget extends BaseWidget {
         font-variant-numeric: tabular-nums;
     }
     .akari-inspector-widget .akari-inspector-generation-estimate {
+        display: flex;
+        align-items: baseline;
+        gap: 6px;
+        white-space: nowrap;
         color: var(--theia-textLink-foreground);
         font-variant-numeric: tabular-nums;
     }
@@ -3731,12 +3749,21 @@ export class AkariInspectorWidget extends BaseWidget {
                 this.generationCatalog = catalog.models.filter(row => row.kind === 'video') as unknown as GenerationCatalogRow[];
                 this.generationDefaultModel = defaults.video || 'fal:h3-i2v';
             }
-            let draft: GenerationDraft | undefined;
-            try {
-                const uri = root.resolve(`.akari/generation/${identity.itemId}.inputs.json`);
-                const parsed = JSON.parse((await this.fileService.read(uri)).value.toString()) as GenerationDraft;
-                if (parsed && typeof parsed === 'object' && typeof parsed.modelId === 'string') draft = parsed;
-            } catch { /* A missing draft is the normal first-open state. */ }
+            const sidecars = await this.layerAudioService.readGenerationSidecars({
+                projectRootUri: root.toString(), sourcePaths: [identity.sourcePath]
+            });
+            const normalize = (path: string): string => path.trim().replace(/\\/gu, '/').replace(/^(?:\.\/)+/u, '');
+            const sourceMeta = sidecars.entries.find(entry => normalize(entry.sourcePath) === normalize(identity.sourcePath))?.meta;
+            this.generationTabMeta.set(identity.key, sourceMeta ?? {});
+            let draft = generationFields.fromMeta(sourceMeta);
+            if (!draft) {
+                try {
+                    const uri = root.resolve(`.akari/generation/${identity.itemId}.inputs.json`);
+                    const parsed = JSON.parse((await this.fileService.read(uri)).value.toString()) as GenerationDraft;
+                    if (parsed && typeof parsed === 'object' && typeof parsed.modelId === 'string') draft = parsed;
+                } catch { /* A missing legacy draft is the normal first-open state. */ }
+            }
+            await this.loadGenerationNeighbors(identity);
             const model = this.generationCatalog.find(row => row.id === draft?.modelId)
                 ?? this.generationCatalog.find(row => row.id === this.generationDefaultModel)
                 ?? this.generationCatalog[0];
@@ -3745,8 +3772,9 @@ export class AkariInspectorWidget extends BaseWidget {
                 modelId: model.id,
                 inputs: {
                     prompt: null, negative_prompt: null,
-                    first_frame: { path: identity.sourcePath, source_id: identity.sourceId ?? null },
-                    last_frame: null, reference_images: [], reference_audios: [], camera: null
+                    first_frame: sourceMeta?.status === 'planned' || model.inputs.first_frame === 'none'
+                        ? null : { path: identity.sourcePath, source_id: identity.sourceId ?? null },
+                    last_frame: null, reference_images: [], reference_videos: [], reference_audios: [], source_video: null, camera: null, seed: null, extra: {}
                 },
                 output: {
                     duration_s: identity.duration,
@@ -3754,11 +3782,16 @@ export class AkariInspectorWidget extends BaseWidget {
                     audio_out: model.audio_out === false ? false : true
                 }
             };
+            if (!draft.inputs.frames_or_refs) {
+                if (model.inputs.first_frame === 'none' && model.inputs.last_frame === 'none') draft.inputs.frames_or_refs = 'references';
+                else if (model.inputs.reference_images?.max === 0) draft.inputs.frames_or_refs = 'frames';
+            }
+            draft.output.duration_s = identity.duration;
             this.generationDrafts.set(identity.key, draft);
+            // render()'s legacy observer sees the same revision, so it never starts a second read.
+            this.generationTabDrafts.set(identity.key, draft);
+            this.generationTabLoads.delete(identity.key);
             await this.validateGenerationDraft(identity.key);
-            const sidecars = await this.layerAudioService.readGenerationSidecars({
-                projectRootUri: root.toString(), sourcePaths: [identity.sourcePath]
-            });
             const meta = selectGenerationSidecarForSource(identity.sourcePath, sidecars.entries, Date.now())?.meta;
             let state = typeof meta?.status === 'string' ? meta.status : 'none';
             const job = meta?.job as { started_at?: string; stale_after_s?: number } | undefined;
@@ -3769,6 +3802,37 @@ export class AkariInspectorWidget extends BaseWidget {
             this.showFieldNotice(error instanceof Error ? error.message : String(error));
         }
         if (this.generationIdentity(this.model.snapshot)?.key === identity.key) this.render();
+    }
+
+    protected async loadGenerationNeighbors(identity: { key: string; itemId: string }): Promise<void> {
+        const root = this.workspaceService.tryGetRoots()[0]?.resource;
+        if (!root) return;
+        const edit = JSON.parse((await this.fileService.read(root.resolve('edit.json'))).value.toString()) as {
+            sources?: Array<{ id: string; path: string }>;
+            tracks?: Array<{ items?: Array<{ id: string; at?: number; source?: { kind?: string; src?: string } }> }>;
+        };
+        const track = edit.tracks?.find(candidate => candidate.items?.some(item => item.id === identity.itemId));
+        const items = [...(track?.items ?? [])].sort((a, b) => (a.at ?? 0) - (b.at ?? 0));
+        const index = items.findIndex(item => item.id === identity.itemId);
+        const sourcePath = (item: typeof items[number] | undefined): string | undefined => item?.source?.kind === 'media'
+            ? edit.sources?.find(source => source.id === item.source!.src)?.path : undefined;
+        const still = (path: string | undefined): string | undefined => path && /\.(?:png|jpe?g|webp|gif|bmp|tiff?)$/iu.test(path) ? path : undefined;
+        this.generationNeighbors.set(identity.key, {
+            previousImage: still(sourcePath(items[index - 1])), nextImage: still(sourcePath(items[index + 1])),
+            previousId: items[index - 1]?.id, previousPath: sourcePath(items[index - 1])
+        });
+    }
+
+    protected async generationThumbnail(path: string): Promise<string | undefined> {
+        const root = this.workspaceService.tryGetRoots()[0]?.resource;
+        if (!root) return undefined;
+        const uri = root.resolve(path.replace(/\\/gu, '/')).toString();
+        if (!this.generationThumbnails.has(uri)) {
+            this.generationThumbnails.set(uri, this.layerAudioService.getClipThumbnail({
+                projectRootUri: root.toString(), videoUri: uri, atSeconds: 0
+            }).then(result => result.status === 'ready' ? result.dataUri : undefined).catch(() => undefined));
+        }
+        return this.generationThumbnails.get(uri);
     }
 
     protected async validateGenerationDraft(key: string): Promise<void> {
@@ -3785,12 +3849,19 @@ export class AkariInspectorWidget extends BaseWidget {
         if (!identity || this.generationCatalog.length === 0) return undefined;
         const draft = this.generationDrafts.get(identity.key);
         if (!draft) return undefined;
+        if (draft.output.duration_s !== identity.duration) {
+            draft.output.duration_s = identity.duration;
+            void this.validateGenerationDraft?.(identity.key).then(() => {
+                if (this.generationIdentity(this.model.snapshot)?.key === identity.key) this.render();
+            }).catch(error => this.showFieldNotice(String(error.message ?? error)));
+        }
         const row = this.generationCatalog.find(candidate => candidate.id === draft.modelId);
         if (!row) return undefined;
         const fields = generationFields({
             snapshot, catalogRow: row, draft, validation: this.generationValidations.get(identity.key),
             defaults: {
-                catalog: this.generationCatalog, firstFrameLabel: `${identity.sourcePath}（変更不可）`,
+                catalog: this.generationCatalog, currentImage: identity.sourcePath,
+                ...this.generationNeighbors?.get(identity.key), thumbnail: path => this.generationThumbnail(path),
                 state: this.generationStates.get(identity.key)
             },
             actions: {
@@ -3801,6 +3872,17 @@ export class AkariInspectorWidget extends BaseWidget {
                 retry: () => this.confirmAndStartGeneration(identity)
             }
         });
+        // Keep each paired visual unit together in the section model.
+        const pairs = [['first-frame', 'last_frame'], ['generation-variety', 'generation-material-note'],
+            ['generation-estimate', 'generation-actions']];
+        for (const [first, second] of pairs) {
+            const index = fields.findIndex(field => field.name === first);
+            const other = fields.findIndex(field => field.name === second);
+            if (index < 0 || other < 0) continue;
+            const children = [fields[index], fields[other]];
+            fields[index] = { name: `generation-group-${first}`, label: '', getValue: () => '', generationChildren: children };
+            fields.splice(other, 1);
+        }
         return fields as GenerationFieldDef<T>[] as InspectorFieldDef<T>[];
     }
 
@@ -3816,6 +3898,15 @@ export class AkariInspectorWidget extends BaseWidget {
         if (path === 'modelId') {
             next.modelId = String(value);
             const model = this.generationCatalog.find(row => row.id === next.modelId);
+            if (model) {
+                if (model.inputs.first_frame === 'none' && model.inputs.last_frame === 'none') next.inputs.frames_or_refs = 'references';
+                else if (model.inputs.frames_and_refs_exclusive || model.inputs.reference_images?.max === 0) next.inputs.frames_or_refs = 'frames';
+                else delete next.inputs.frames_or_refs;
+                if (!model.inputs.negative_prompt) next.inputs.negative_prompt = null;
+                const camera = current.inputs.camera as { value?: string } | undefined;
+                const move = generationFields.cameraMoves.find(entry => entry.bracket === camera?.value || entry.prose === camera?.value);
+                next.inputs.camera = model.inputs.camera && move ? generationFields.cameraValue(move.label, model.inputs.camera) : null;
+            }
             if (model && (!model.resolutions?.includes(String(next.output.resolution)))) {
                 next.output.resolution = model.resolutions?.[0] ?? null;
             }
@@ -3823,7 +3914,9 @@ export class AkariInspectorWidget extends BaseWidget {
             const [group, field] = path.split('.');
             if ((group === 'inputs' || group === 'output') && field) next[group][field] = value;
         }
+        next.output.duration_s = identity.duration;
         this.generationDrafts.set(identity.key, next);
+        this.generationTabDrafts.set(identity.key, next);
         try {
             await this.validateGenerationDraft(identity.key);
             this.scheduleGenerationDraftWrite(identity);
@@ -3839,7 +3932,7 @@ export class AkariInspectorWidget extends BaseWidget {
         if (previous !== undefined) window.clearTimeout(previous);
         this.generationDraftTimers.set(identity.key, window.setTimeout(() => {
             this.generationDraftTimers.delete(identity.key);
-            void this.persistGenerationDraft(identity);
+            void this.persistGenerationDraft(identity).catch(error => this.showFieldNotice(String(error.message ?? error)));
         }, 300));
     }
 
@@ -3848,10 +3941,17 @@ export class AkariInspectorWidget extends BaseWidget {
         const root = this.workspaceService.tryGetRoots()[0]?.resource;
         const draft = this.generationDrafts.get(identity.key);
         if (!root || !draft) return;
-        await this.layerAudioService.writeGenerationDraft({
-            projectRootUri: root.toString(), itemId: identity.itemId,
-            modelId: draft.modelId, inputs: draft.inputs, output: draft.output
+        const previous = this.generationWrites.get(identity.key) ?? Promise.resolve();
+        const write = previous.catch(() => undefined).then(async () => {
+            await this.layerAudioService.writeGenerationDraft({
+                projectRootUri: root.toString(), itemId: identity.itemId,
+                modelId: draft.modelId, inputs: draft.inputs, output: { ...draft.output, duration_s: identity.duration }
+            });
+            this.generationTabMeta.set(identity.key, { next: { status: 'planned' } });
         });
+        this.generationWrites.set(identity.key, write);
+        await write;
+        if (this.generationIdentity(this.model.snapshot)?.key === identity.key) this.render();
     }
 
     protected async copyAdjacentGenerationDraft(identity: { key: string; itemId: string; sourcePath: string; duration: number; sourceId?: string }): Promise<InspectorWriteResult> {
@@ -3859,25 +3959,26 @@ export class AkariInspectorWidget extends BaseWidget {
             await this.workspaceService.ready;
             const root = this.workspaceService.tryGetRoots()[0]?.resource;
             if (!root) throw new Error('プロジェクトが開かれていません。');
-            const edit = JSON.parse((await this.fileService.read(root.resolve('edit.json'))).value.toString()) as {
-                tracks?: Array<{ lane?: string; items?: Array<{ id?: string; source?: { kind?: string } }> }>;
-            };
-            const visual = (edit.tracks ?? []).filter(track => track.lane === 'visual')
-                .flatMap(track => track.items ?? []).filter(item => item.source?.kind === 'media' && item.id);
-            const index = visual.findIndex(item => item.id === identity.itemId);
-            const previousId = index > 0 ? visual[index - 1].id : undefined;
-            if (!previousId) return { ok: false, message: '直前の映像 item がありません。' };
-            const parsed = JSON.parse((await this.fileService.read(
-                root.resolve(`.akari/generation/${previousId}.inputs.json`)
+            await this.loadGenerationNeighbors(identity);
+            const neighbor = this.generationNeighbors.get(identity.key);
+            if (!neighbor?.previousId || !neighbor.previousPath) return { ok: false, message: '直前の映像 item がありません。' };
+            let parsed: GenerationDraft | undefined;
+            try {
+                parsed = generationFields.fromMeta(JSON.parse((await this.fileService.read(
+                    root.resolve(`${neighbor.previousPath}.meta.json`)
+                )).value.toString()));
+            } catch { /* Fall back to the legacy draft only when next is absent. */ }
+            if (!parsed) parsed = JSON.parse((await this.fileService.read(
+                root.resolve(`.akari/generation/${neighbor.previousId}.inputs.json`)
             )).value.toString()) as GenerationDraft;
             const current = this.generationDrafts.get(identity.key);
-            this.generationDrafts.set(identity.key, {
+            const copied = {
                 modelId: parsed.modelId, inputs: {
                     ...parsed.inputs, first_frame: current?.inputs.first_frame ?? null
-                }, output: {
-                    ...parsed.output, duration_s: identity.duration
-                }
-            });
+                }, output: { ...parsed.output, duration_s: identity.duration }
+            };
+            this.generationDrafts.set(identity.key, copied);
+            this.generationTabDrafts.set(identity.key, copied);
             await this.validateGenerationDraft(identity.key);
             await this.persistGenerationDraft(identity);
             this.render();
@@ -4032,6 +4133,100 @@ export class AkariInspectorWidget extends BaseWidget {
         snapshot: InspectorSnapshot,
         kind: 'cut' | 'layer' | 'caption' | 'audio' | 'overlay' | 'item'
     ): void {
+        const generationField = field as unknown as GenerationFieldDef<InspectorSnapshot>;
+        if (generationField.generationChildren) {
+            for (const child of generationField.generationChildren) this.appendRow(parent, child as InspectorFieldDef, snapshot, kind);
+            return;
+        }
+        if (generationField.generationDetail) {
+            let details = parent.querySelector<HTMLDetailsElement>(':scope > .akari-inspector-generation-details');
+            if (!details) {
+                details = document.createElement('details');
+                details.className = 'akari-inspector-generation-details';
+                details.open = this.generationDetailsOpen;
+                const summary = document.createElement('summary');
+                summary.textContent = '詳細';
+                details.appendChild(summary);
+                details.addEventListener('toggle', () => { this.generationDetailsOpen = details!.open; });
+                parent.appendChild(details);
+            }
+            this.appendRow(details, { ...field, generationDetail: false } as InspectorFieldDef, snapshot, kind);
+            return;
+        }
+        if (generationField.generationFrame || generationField.generationButtons) {
+            const groupClass = generationField.generationFrame ? 'akari-inspector-generation-frames' : 'akari-inspector-generation-camera';
+            let group = generationField.generationFrame ? parent.querySelector<HTMLElement>(`:scope > .${groupClass}`) : undefined;
+            if (!group) {
+                group = document.createElement('div');
+                group.className = groupClass;
+                parent.appendChild(group);
+            }
+            const cell = document.createElement('div');
+            cell.className = 'akari-inspector-generation-cell';
+            cell.setAttribute('data-akari-generation-field', field.name!);
+            group.appendChild(cell);
+            const label = document.createElement('div');
+            label.textContent = field.label;
+            cell.appendChild(label);
+            const invoke = (operation: Promise<InspectorWriteResult>): void => {
+                void operation.then(result => { if (!result.ok) this.showFieldNotice(result.message ?? '変更できませんでした。'); });
+            };
+            if (generationField.generationFrame) {
+                const preview = document.createElement('div');
+                preview.className = 'akari-inspector-generation-frame';
+                const path = field.getValue(snapshot);
+                preview.textContent = path ? '読み込み中…' : field.label;
+                preview.title = path;
+                cell.appendChild(preview);
+                if (generationField.generationThumbnail) void generationField.generationThumbnail().then(uri => {
+                    if (!preview.isConnected) return;
+                    if (uri) {
+                        const image = document.createElement('img');
+                        image.src = uri;
+                        image.alt = field.label;
+                        preview.replaceChildren(image);
+                    } else preview.textContent = '画像を表示できません';
+                });
+                for (const action of generationField.actions ?? []) {
+                    const button = document.createElement('button');
+                    button.type = 'button';
+                    button.textContent = action.label;
+                    button.setAttribute('data-akari-generation-action', `${field.name}-${action.name}`);
+                    button.addEventListener('click', () => invoke(action.action(snapshot)));
+                    cell.appendChild(button);
+                }
+            } else {
+                for (const value of generationField.options ?? []) {
+                    const button = document.createElement('button');
+                    button.type = 'button';
+                    button.textContent = value;
+                    button.setAttribute('aria-pressed', String(value === field.getValue(snapshot)));
+                    button.setAttribute('data-akari-generation-camera', value);
+                    button.addEventListener('click', () => invoke(field.write!(snapshot, value)));
+                    cell.appendChild(button);
+                }
+            }
+            return;
+        }
+        if (field.name === 'generation-actions') {
+            const footer = document.createElement('div');
+            footer.className = 'akari-inspector-generation-footer';
+            const estimate = parent.querySelector('.akari-inspector-generation-estimate');
+            for (const action of field.actions ?? []) {
+                if (action.name === 'generate' && estimate) footer.appendChild(estimate);
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.textContent = action.label;
+                button.disabled = !!action.disabled;
+                button.setAttribute('data-akari-generation-action', action.name);
+                button.addEventListener('click', () => void action.action(snapshot).then(result => {
+                    if (!result.ok) this.showFieldNotice(result.message ?? '操作に失敗しました。');
+                }));
+                footer.appendChild(button);
+            }
+            parent.appendChild(footer);
+            return;
+        }
         const row = document.createElement('div');
         row.className = 'akari-inspector-row';
         if (field.className) row.classList.add(field.className);

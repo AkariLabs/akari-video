@@ -1,25 +1,28 @@
-# インスペクター生成パネル L1 証跡
+# インスペクター生成パネル L1
 
-3 枚の静止画クリップを持つ隔離プロジェクトで、カタログ駆動の生成欄、費用承認、偽 CLI による
-生成中チップを CDP から検証する。実 API への送信は行わない。
+既存の PNG / results.json は旧 UI の記録。更新スクリプトは次の 4 枚を撮影する。
 
-撮影内容:
+- `01-h3-first-to-last.png`: H3 の最初・最後に別々のサムネ、種類「最初→最後」
+- `02-prompt-only.png`: 両枠が空、種類「プロンプトだけ」、外すボタンなし
+- `03-cost-approval-dialog.png`: 金額・as_of・モデルを含む費用承認 1 回
+- `04-failed-retry.png`: 失敗後の「同じ入力でもう一度」
 
-- `01-model-h3.png`: H3 の欄、常時音声、as_of 付き見積
-- `02-model-kling.png`: Kling standard の negative prompt、上限なし参照画像、見積不可
-- `03-model-veo.png`: Veo FLF の最後のフレームと尺の正規化
-- `04-cost-approval-dialog.png`: 金額・as_of・model id を含む費用承認
-- `05-timeline-chip-generating.png`: 費用承認後、偽 CLI 実行中のタイムラインチップ
-- `06-timeline-chip-after-done.png`: mp4 サイドカー完了後、差し替え前の png が「静止画」へ戻ったチップ
-
-再現コマンド（先に `apps/shell` の production build を作る）:
+先に shell のビルドを用意し、リポジトリルートで実行する（依存の install は不要）。
 
 ```sh
-cd apps/shell
-npm run build
-node extensions/akari-annotations/evidence/inspector-generation/scripts/l1-inspector-generation.mjs
+node apps/shell/extensions/akari-annotations/evidence/inspector-generation/scripts/l1-inspector-generation.mjs
 ```
 
-ffmpeg を差し替える場合は `FFMPEG=/path/to/ffmpeg` を指定する。実行結果は `results.json`、隔離した
-AKARI_HOME / THEIA_CONFIG_DIR / user-data は `runs/l1/` に保存される。スクリプトは Electron を
-detached にせず起動し、終了時は自分が起動した PID だけを停止して生存数を記録する。
+`FFMPEG=/path/to/ffmpeg`、`--port=22213` で実行環境を指定できる。
+AKARI_HOME / THEIA_CONFIG_DIR / --user-data-dir は os.tmpdir() の専用一時ディレクトリ。
+Electron は apps/shell/node_modules を優先し、無ければリポジトリ root の node_modules を使う。
+終了時に自分が起動した Electron の PID・一時設定・fixture/ を片付ける。
+素材は `fixture/project/` に毎回作り直す。実ユーザー設定・ライブラリを使わない。
+
+同ディレクトリの `scripts/fake-generate.mjs` はネットワークを使わず、素材 meta の `next` と
+起動引数を `fixture/project/fake-invocation.json` に記録して failed の生成物 meta を書く。
+`--inputs` があれば失敗する。L1 はその引数と next の内容を `results.json` に記録する。
+
+送信前と再試行の撮影直前にボタンを中央へスクロールし、矩形がインスペクターの可視範囲に
+完全に収まることを assert する。results.json の step 3 / 5 にボタン矩形・可視範囲・判定を残す。
+fixture/ を削除した後も、偽 CLI の引数と next は step 4 の記録に残る。

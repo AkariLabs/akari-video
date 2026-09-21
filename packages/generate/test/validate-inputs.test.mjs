@@ -32,17 +32,17 @@ const CASES = [
     expect: { ok: true, codes: ['duration.rounded'], rounded: { duration_s: { from: 7.2, to: 8, reason: 'enum' } }, texts: { 'duration.rounded': '尺 7.2 秒 → 8 秒に丸めました（Veo 3.1 first-last は 4 / 6 / 8 秒のみ）。差 0.8 秒' } },
   },
   {
-    name: 'Veo の 6.2 秒を 6 秒へ丸め差の句は出さない', model: MODELS.veo, inputs: veoInputs,
+    name: 'Veo の 6.2 秒を cuts 以上の 8 秒へ丸める', model: MODELS.veo, inputs: veoInputs,
     output: { duration_s: 6.2, resolution: '1080p' },
-    expect: { ok: true, codes: ['duration.rounded'], rounded: { duration_s: { from: 6.2, to: 6, reason: 'enum' } }, texts: { 'duration.rounded': '尺 6.2 秒 → 6 秒に丸めました（Veo 3.1 first-last は 4 / 6 / 8 秒のみ）' } },
+    expect: { ok: true, codes: ['duration.rounded'], rounded: { duration_s: { from: 6.2, to: 8, reason: 'enum' } }, texts: { 'duration.rounded': '尺 6.2 秒 → 8 秒に丸めました（Veo 3.1 first-last は 4 / 6 / 8 秒のみ）。差 1.8 秒' } },
   },
   {
-    name: 'Veo の同距離 5 秒は短い 4 秒へ丸める', model: MODELS.veo, inputs: veoInputs,
+    name: 'Veo の5 秒は cuts 以上の 6 秒へ丸める', model: MODELS.veo, inputs: veoInputs,
     output: { duration_s: 5, resolution: '720p' },
-    expect: { ok: true, codes: ['duration.rounded'], rounded: { duration_s: { from: 5, to: 4, reason: 'enum' } } },
+    expect: { ok: true, codes: ['duration.rounded'], rounded: { duration_s: { from: 5, to: 6, reason: 'enum' } } },
   },
   {
-    name: 'H3 の上限外 20 秒を 15 秒へ clamp する', model: MODELS.h3, inputs: {},
+    name: 'H3 の上限外 20 秒を 15 秒へ clamp する', model: MODELS.h3, inputs: { prompt: 'A garden.' },
     output: { duration_s: 20, resolution: '768P' },
     expect: { ok: true, codes: ['duration.rounded'], rounded: { duration_s: { from: 20, to: 15, reason: 'clamp' } }, texts: { 'duration.rounded': '尺 20 秒 → 15 秒に丸めました（MiniMax H3 は 5〜15 秒）。差 5 秒' } },
   },
@@ -52,12 +52,12 @@ const CASES = [
     expect: { ok: true, codes: ['duration.rounded'], rounded: { duration_s: { from: 2.4, to: 3, reason: 'clamp' } }, texts: { 'duration.rounded': '尺 2.4 秒 → 3 秒に丸めました（Kling v3 pro は 3〜15 秒）。差 0.6 秒' } },
   },
   {
-    name: 'H3 の 6.592 秒を step で 7 秒へ丸める', model: MODELS.h3, inputs: {},
+    name: 'H3 の 6.592 秒を step で 7 秒へ丸める', model: MODELS.h3, inputs: { prompt: 'A garden.' },
     output: { duration_s: 6.592, resolution: '768P' },
     expect: { ok: true, codes: ['duration.rounded'], rounded: { duration_s: { from: 6.592, to: 7, reason: 'step' } }, texts: { 'duration.rounded': '尺 6.592 秒 → 7 秒に丸めました（MiniMax H3 は 5〜15 秒）' } },
   },
   {
-    name: 'H3 の許容値 6 秒は丸めない', model: MODELS.h3, inputs: {},
+    name: 'H3 の許容値 6 秒は丸めない', model: MODELS.h3, inputs: { prompt: 'A garden.' },
     output: { duration_s: 6, resolution: '768P' },
     expect: { ok: true, codes: [], rounded: null },
   },
@@ -118,17 +118,17 @@ const CASES = [
   },
   {
     name: 'Seedance 480p の未記録価格は確認要求を返すが ok を落とさない', model: MODELS.seedance,
-    inputs: {}, output: { duration_s: 5, resolution: '480p' },
+    inputs: { prompt: 'A garden.' }, output: { duration_s: 5, resolution: '480p' },
     expect: { ok: true, codes: ['price.unknown'], cost: { estimate_usd: null, needs_explicit_confirm: true } },
   },
   {
     name: 'H3 は許可された extra を保持する', model: MODELS.h3,
-    inputs: { extra: { prompt_expansion_mode: 'fast' } }, output: { resolution: '768P' },
+    inputs: { prompt: 'A garden.', extra: { prompt_expansion_mode: 'fast' } }, output: { resolution: '768P' },
     expect: { ok: true, codes: [], extra: { prompt_expansion_mode: 'fast' } },
   },
   {
     name: 'H3 は許可外 extra を拒否して正規化結果から落とす', model: MODELS.h3,
-    inputs: { extra: { foo: 1 } }, output: { resolution: '768P' },
+    inputs: { prompt: 'A garden.', extra: { foo: 1 } }, output: { resolution: '768P' },
     expect: { ok: false, codes: ['extra.not_allowed'], texts: { 'extra.not_allowed': 'このモデルは extra.foo を受けません' }, extra: {} },
   },
   {
@@ -163,7 +163,7 @@ const CASES = [
   },
   {
     name: 'H3 は trajectory カメラ記法を prose に落とす', model: MODELS.h3,
-    inputs: { camera: { notation: 'trajectory', value: [[0, 0, 0]] } }, output: { resolution: '768P' },
+    inputs: { prompt: 'A garden.', camera: { notation: 'trajectory', value: [[0, 0, 0]] } }, output: { resolution: '768P' },
     expect: { ok: true, codes: ['camera.notation_fallback'], cameraNotation: 'prose' },
   },
   {
@@ -173,12 +173,12 @@ const CASES = [
   },
   {
     name: 'H3 は一致する bracket カメラ記法を保つ', model: MODELS.h3,
-    inputs: { camera: { notation: 'bracket', value: '[pan left]' } }, output: { resolution: '768P' },
+    inputs: { prompt: 'A garden.', camera: { notation: 'bracket', value: '[pan left]' } }, output: { resolution: '768P' },
     expect: { ok: true, codes: [], cameraNotation: 'bracket' },
   },
   {
     name: 'H3 は prose カメラ記法をそのまま通す', model: MODELS.h3,
-    inputs: { camera: { notation: 'prose', value: 'ゆっくり寄る' } }, output: { resolution: '768P' },
+    inputs: { prompt: 'A garden.', camera: { notation: 'prose', value: 'ゆっくり寄る' } }, output: { resolution: '768P' },
     expect: { ok: true, codes: [], cameraNotation: 'prose' },
   },
   {
@@ -193,12 +193,12 @@ const CASES = [
   },
   {
     name: 'H3 は対応する seed を保持する', model: MODELS.h3,
-    inputs: { seed: 42 }, output: { resolution: '768P' },
+    inputs: { prompt: 'A garden.', seed: 42 }, output: { resolution: '768P' },
     expect: { ok: true, codes: [], seed: 42 },
   },
   {
     name: 'H3 は列挙外の解像度を拒否して候補を示す', model: MODELS.h3,
-    inputs: {}, output: { resolution: '1080p' },
+    inputs: { prompt: 'A garden.' }, output: { resolution: '1080p' },
     expect: { ok: false, codes: ['resolution.invalid', 'price.unknown'], texts: { 'resolution.invalid': '解像度 1080p はこのモデルにありません（480P / 768P / 2K / 4K）' } },
   },
   {
@@ -218,7 +218,7 @@ const CASES = [
   },
   {
     name: 'H3 768P 6 秒の費用は 0.36 ドルになる', model: MODELS.h3,
-    inputs: {}, output: { duration_s: 6, resolution: '768P' },
+    inputs: { prompt: 'A garden.' }, output: { duration_s: 6, resolution: '768P' },
     expect: { ok: true, codes: [], cost: { estimate_usd: 0.36, as_of: '2026-09-12', source: 'estimate' } },
   },
   {
@@ -233,7 +233,7 @@ const CASES = [
   },
   {
     name: 'H3 は audio_out 指定なしでも必ず true にする', model: MODELS.h3,
-    inputs: {}, output: { resolution: '768P' },
+    inputs: { prompt: 'A garden.' }, output: { resolution: '768P' },
     expect: { ok: true, codes: [], audioOut: true },
   },
   {
@@ -243,7 +243,7 @@ const CASES = [
   },
   {
     name: 'エラーがある結果では ok が false になる', model: MODELS.veo,
-    inputs: {}, output: { resolution: '720p' },
+    inputs: { prompt: 'A garden.' }, output: { resolution: '720p' },
     expect: { ok: false, codes: ['first_frame.required', 'last_frame.required'], hasError: true },
   },
 ];
@@ -271,7 +271,34 @@ for (const c of CASES) {
 
 test('model がなければ fail closed の専用エラーになる', () => {
   assert.throws(
-    () => validateInputs({ inputs: {}, output: {}, model: null }),
+    () => validateInputs({ inputs: { prompt: 'A garden.' }, output: {}, model: null }),
     (error) => error instanceof SlotInputError && error.code === 'model.required',
   );
+});
+
+for (const [name, inputs, model, code] of [
+  ['H3: first 空 + prompt ありは通る', { first_frame: null, prompt: 'A garden.' }, MODELS.h3, null],
+  ['H3: 全部空 + prompt 空は prompt.required', { first_frame: null, prompt: '  ' }, MODELS.h3, 'prompt.required'],
+  ['required 行は first 空を従来どおり拒否', { first_frame: null, prompt: 'A garden.', last_frame: ref('last.png') }, MODELS.veo, 'first_frame.required'],
+]) test(name, () => {
+  const result = validateInputs({ inputs, output: { resolution: model.resolutions[0] }, model });
+  assert.equal(result.ok, code === null);
+  if (code) assert.ok(result.messages.some(message => message.code === code));
+  if (code === 'prompt.required') assert.equal(result.messages.find(message => message.code === code).text, '指示文か絵のどちらかが必要です');
+});
+
+test('非選択側を保持する下書きは送信側だけ検証する', () => {
+  const inputs = { prompt: 'A garden.', first_frame: ref('first.png'), reference_images: [ref('ref.png')], frames_or_refs: 'frames' };
+  const result = validateInputs({ inputs, output: { resolution: '768P' }, model: MODELS.h3 });
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.normalized.inputs.reference_images, []);
+  assert.equal(inputs.reference_images.length, 1);
+  assert.equal('frames_or_refs' in result.normalized.inputs, false);
+});
+
+test('音声倍率は音声を作る場合だけ見積に掛ける', () => {
+  const model = { ...MODELS.h3, audio_out: true, price: { by_resolution: { '768P': 0.1 }, audio_multiplier: 2 } };
+  for (const [audio_out, estimate] of [[true, 1.2], [false, 0.6]]) {
+    assert.equal(validateInputs({ inputs: { prompt: 'A garden.' }, output: { duration_s: 6, resolution: '768P', audio_out }, model }).cost.estimate_usd, estimate);
+  }
 });

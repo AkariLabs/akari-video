@@ -45,8 +45,9 @@ function addReferenceMessages(messages, references, capability, slot, label, uni
   }
 }
 
-function nearestEnum(value, values) {
-  return [...values].sort((a, b) => Math.abs(a - value) - Math.abs(b - value) || a - b)[0];
+function coveringEnum(value, values) {
+  const ordered = [...values].sort((a, b) => a - b);
+  return ordered.find(candidate => candidate >= value) ?? ordered.at(-1);
 }
 
 function roundHalfDown(value) {
@@ -56,7 +57,7 @@ function roundHalfDown(value) {
 
 function roundedDuration(value, duration) {
   if (duration.kind === 'enum') {
-    return { value: nearestEnum(value, duration.values), reason: 'enum' };
+    return { value: coveringEnum(value, duration.values), reason: 'enum' };
   }
 
   if (duration.kind === 'range') {
@@ -90,7 +91,18 @@ export function validateInputs({ inputs, output, model }) {
     throw new SlotInputError('model.required', 'model（カタログ行）が必要です');
   }
 
-  const normalizedInputs = normalizeInputs(inputs);
+  const selectedInputs = { ...inputs };
+  const selection = selectedInputs.frames_or_refs;
+  delete selectedInputs.frames_or_refs;
+  if (selection === 'references') {
+    selectedInputs.first_frame = null;
+    selectedInputs.last_frame = null;
+  } else if (selection === 'frames') {
+    selectedInputs.reference_images = [];
+    selectedInputs.reference_videos = [];
+    selectedInputs.reference_audios = [];
+  }
+  const normalizedInputs = normalizeInputs(selectedInputs);
   const requestedOutput = normalizeOutput(output);
   const usedDefaultDuration = requestedOutput.duration_s === null;
   const normalizedOutput = {
@@ -129,6 +141,9 @@ export function validateInputs({ inputs, output, model }) {
   const hasReferences = normalizedInputs.reference_images.length > 0
     || normalizedInputs.reference_videos.length > 0
     || normalizedInputs.reference_audios.length > 0;
+  if (!hasFrames && !hasReferences && !normalizedInputs.prompt?.trim()) {
+    messages.push({ level: 'error', code: 'prompt.required', text: '指示文か絵のどちらかが必要です' });
+  }
   if (modelInputs.frames_and_refs_exclusive === true && hasFrames && hasReferences) {
     messages.push({
       level: 'error',
