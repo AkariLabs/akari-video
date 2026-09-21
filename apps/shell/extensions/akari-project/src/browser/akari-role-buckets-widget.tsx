@@ -2136,6 +2136,48 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         );
     }
 
+    protected disposePanelSegmentMotion?: () => void;
+    /** Stable ref: reset motion on every DOM mount, including panel recreation. */
+    protected readonly mountPanelSegmentTrack = (node: HTMLDivElement | null): void => {
+        this.disposePanelSegmentMotion?.();
+        this.disposePanelSegmentMotion = undefined;
+        if (!node) { return; }
+        const media = window.matchMedia('(prefers-reduced-motion: reduce)');
+        let painted = false;
+        const syncMotion = (): void => {
+            const animate = painted && !media.matches;
+            node.style.setProperty('--akari-panel-segment-transition', animate
+                ? 'transform 280ms cubic-bezier(0.32, 0.72, 0, 1)' : 'none');
+            node.style.setProperty('--akari-panel-label-transition', animate
+                ? 'color 160ms ease, font-weight 160ms ease, opacity 160ms ease' : 'none');
+        };
+        let frame: number | undefined;
+        // Resize (including reopening a hidden panel) changes percentage transforms.
+        // Paint the new position before allowing tab-switch motion again.
+        const resetMotion = (): void => {
+            if (frame !== undefined) { window.cancelAnimationFrame(frame); }
+            painted = false;
+            syncMotion();
+            frame = window.requestAnimationFrame(() => {
+                frame = window.requestAnimationFrame(() => {
+                    frame = undefined;
+                    painted = true;
+                    syncMotion();
+                });
+            });
+        };
+        resetMotion();
+        media.addEventListener('change', syncMotion);
+        const observer = typeof window.ResizeObserver === 'function'
+            ? new window.ResizeObserver(resetMotion) : undefined;
+        observer?.observe(node);
+        this.disposePanelSegmentMotion = () => {
+            observer?.disconnect();
+            if (frame !== undefined) { window.cancelAnimationFrame(frame); }
+            media.removeEventListener('change', syncMotion);
+        };
+    };
+
     protected renderTopControls(): React.ReactNode {
         const query = this.topView === 'materials' ? this.materialQuery : this.catalogQuery;
         return (
@@ -2143,7 +2185,35 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                 data-akari-catalog-controls={this.topView === 'catalog' ? 'true' : undefined}
                 style={{ flex: '0 0 auto', padding: '8px 6px', display: 'flex', flexDirection: 'column', gap: '7px', borderBottom: AKARI_BORDER.hairline }}
             >
-                <div role='tablist' aria-label='素材パネルの表示' style={{ display: 'flex', gap: '4px' }}>
+                <div
+                    role='tablist'
+                    aria-label='素材パネルの表示'
+                    ref={this.mountPanelSegmentTrack}
+                    onKeyDown={event => {
+                        if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') { return; }
+                        event.preventDefault();
+                        const view = this.topView === 'materials' ? 'catalog' : 'materials';
+                        this.selectTopView(view);
+                        event.currentTarget.querySelector<HTMLButtonElement>(`[data-akari-panel-segment="${view}"]`)?.focus();
+                    }}
+                    style={{
+                        display: 'flex', position: 'relative', gap: 0, padding: '2px',
+                        background: AKARI_SURFACE.raised, border: AKARI_BORDER.ghost, borderRadius: '999px'
+                    }}
+                >
+                    <div
+                        aria-hidden='true'
+                        data-akari-panel-segment-thumb='true'
+                        style={{
+                            position: 'absolute', left: '2px', top: '2px', bottom: '2px',
+                            width: 'calc((100% - 4px) / 2)', boxSizing: 'border-box',
+                            background: AKARI_SURFACE.elevated, border: AKARI_BORDER.accent,
+                            borderRadius: '999px', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.12)',
+                            pointerEvents: 'none',
+                            transform: this.topView === 'materials' ? 'translateX(0)' : 'translateX(100%)',
+                            transition: 'var(--akari-panel-segment-transition, none)'
+                        }}
+                    />
                     {([
                         { view: 'materials' as const, label: 'プロジェクト' },
                         { view: 'catalog' as const, label: 'ライブラリ' }
@@ -2158,31 +2228,36 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                                 data-akari-panel-segment={item.view}
                                 data-akari-open-catalog={item.view === 'catalog' ? 'true' : undefined}
                                 data-akari-back-to-materials={item.view === 'materials' ? 'true' : undefined}
-                                className='theia-button secondary'
+                                tabIndex={active ? 0 : -1}
                                 onClick={() => this.selectTopView(item.view)}
-                                // spec §4: アクティブだけを線で浮かせる。面と文字色は
-                                // akari-theme の `.theia-button.secondary`（!important）が
-                                // raised / ink に固定するのでここでは争わず、枠と字の太さで
-                                // 差をつける。`border` は shorthand で書くこと —
-                                // Theia の `.theia-button { border: none }` があるため
-                                // `borderColor` だけ指定しても線は描かれない（実機で確認）。
+                                onFocus={event => {
+                                    event.currentTarget.style.outline = event.currentTarget.matches(':focus-visible')
+                                        ? `2px solid ${AKARI_LINE.accent}` : 'none';
+                                }}
+                                onBlur={event => { event.currentTarget.style.outline = 'none'; }}
+                                // theia-button の面・文字色 !important と margin-left: 12px を避ける。
                                 // パネル幅 164px でも「プロジェクト」が 2 行に折れないよう詰める。
                                 style={{
                                     flex: '1 1 0',
                                     minWidth: 0,
-                                    // `.theia-button` の margin-left: 12px を打ち消す。
-                                    // 残すとパネル幅 164px で 1 枚 60px まで痩せ、
-                                    // 「プロジェクト」が枠からはみ出す（実機で確認）。
-                                    marginLeft: 0,
-                                    padding: '4px 5px',
+                                    position: 'relative',
+                                    zIndex: 1,
+                                    margin: 0,
+                                    padding: '4px 2px',
+                                    fontFamily: 'inherit',
                                     fontSize: '0.75em',
                                     whiteSpace: 'nowrap',
                                     overflow: 'hidden',
                                     textOverflow: 'ellipsis',
-                                    borderRadius: `${AKARI_RADIUS.chip}px`,
+                                    borderRadius: '999px',
                                     fontWeight: active ? 700 : 400,
                                     opacity: active ? 1 : 0.66,
-                                    border: active ? AKARI_BORDER.accent : AKARI_BORDER.ghost
+                                    border: 'none',
+                                    background: 'transparent',
+                                    color: AKARI_INK,
+                                    cursor: 'pointer',
+                                    outlineOffset: '-2px',
+                                    transition: 'var(--akari-panel-label-transition, none)'
                                 }}
                             >
                                 {item.label}

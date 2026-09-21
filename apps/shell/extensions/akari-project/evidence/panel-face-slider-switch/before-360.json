@@ -1,0 +1,283 @@
+{
+ "label": "before-360",
+ "faces": {
+  "materials": {
+   "topView": "materials",
+   "panelWidth": 360.2,
+   "widgetWidth": 311.2,
+   "track": {
+    "rect": {
+     "left": 54,
+     "right": 353.2,
+     "top": 12,
+     "bottom": 36.5,
+     "width": 299.2,
+     "height": 24.5
+    },
+    "position": "static",
+    "padding": "0px",
+    "gap": "4px",
+    "background": "rgba(0, 0, 0, 0)",
+    "border": "0px none rgb(229, 229, 229)",
+    "borderRadius": "0px",
+    "display": "flex"
+   },
+   "thumb": null,
+   "buttons": [
+    {
+     "view": "materials",
+     "text": "プロジェクト",
+     "ariaSelected": "true",
+     "className": "theia-button secondary",
+     "rect": {
+      "left": 54,
+      "right": 201.6,
+      "top": 12,
+      "bottom": 36.5,
+      "width": 147.6,
+      "height": 24.5
+     },
+     "scrollWidth": 146,
+     "clientWidth": 146,
+     "textRectWidth": 58.21,
+     "textLines": 1,
+     "fontWeight": "700",
+     "opacity": "1",
+     "background": "rgb(20, 20, 20)",
+     "border": "1px solid",
+     "zIndex": "auto",
+     "position": "static",
+     "transition": "all",
+     "attrs": {
+      "openCatalog": null,
+      "backToMaterials": "true",
+      "role": "tab",
+      "tabIndex": 0
+     }
+    },
+    {
+     "view": "catalog",
+     "text": "ライブラリ",
+     "ariaSelected": "false",
+     "className": "theia-button secondary",
+     "rect": {
+      "left": 205.6,
+      "right": 353.2,
+      "top": 12,
+      "bottom": 36.5,
+      "width": 147.6,
+      "height": 24.5
+     },
+     "scrollWidth": 146,
+     "clientWidth": 146,
+     "textRectWidth": 48.75,
+     "textLines": 1,
+     "fontWeight": "400",
+     "opacity": "0.66",
+     "background": "rgb(20, 20, 20)",
+     "border": "1px solid",
+     "zIndex": "auto",
+     "position": "static",
+     "transition": "all",
+     "attrs": {
+      "openCatalog": "true",
+      "backToMaterials": null,
+      "role": "tab",
+      "tabIndex": 0
+     }
+    }
+   ],
+   "scrollers": [
+    {
+     "tag": "DIV",
+     "id": "",
+     "scrollWidth": 299,
+     "clientWidth": 299,
+     "ok": true
+    },
+    {
+     "tag": "DIV",
+     "id": "",
+     "scrollWidth": 311,
+     "clientWidth": 311,
+     "ok": true
+    },
+    {
+     "tag": "DIV",
+     "id": "",
+     "scrollWidth": 311,
+     "clientWidth": 311,
+     "ok": true
+    },
+    {
+     "tag": "DIV",
+     "id": "",
+     "scrollWidth": 311,
+     "clientWidth": 311,
+     "ok": true
+    },
+    {
+     "tag": "DIV",
+     "id": "",
+     "scrollWidth": 311,
+     "clientWidth": 311,
+     "ok": true
+    },
+    {
+     "tag": "DIV",
+     "id": "akari-role-buckets-widget",
+     "scrollWidth": 311,
+     "clientWidth": 311,
+     "ok": true
+    }
+   ],
+   "checks": {
+    "gapBetweenButtons": 4,
+    "buttonsInsideTrack": true,
+    "thumbUnderActive": null,
+    "noWrap": true,
+    "noClip": true,
+    "noHorizontalScroll": true
+   }
+  },
+  "catalog": {
+   "topView": "catalog",
+   "panelWidth": 360.2,
+   "widgetWidth": 311.2,
+   "track": {
+    "rect": {
+     "left": 54,
+     "right": 353.2,
+     "top": 12,
+     "bottom": 36.5,
+     "width": 299.2,
+     "height": 24.5
+    },
+    "position": "static",
+    "padding": "0px",
+    "gap": "4px",
+    "background": "rgba(0, 0, 0, 0)",
+    "border": "0px none rgb(229, 229, 229)",
+    "borderRadius": "0px",
+    "display": "flex"
+   },
+   "thumb": null,
+   "buttons": [
+    {
+     "view": "materials",
+     "text": "プロジェクト",
+     "ariaSelected": "false",
+     "className": "theia-button secondary",
+     "rect": {
+      "left": 54,
+      "right": 201.6,
+      "top": 12,
+      "bottom": 36.5,
+      "width": 147.6,
+      "height": 24.5
+     },
+     "scrollWidth": 146,
+     "clientWidth": 146,
+     "textRectWidth": 58.12,
+     "textLines": 1,
+     "fontWeight": "400",
+     "opacity": "0.66",
+     "background": "rgb(20, 20, 20)",
+     "border": "1px solid",
+     "zIndex": "auto",
+     "position": "static",
+     "transition": "all",
+     "attrs": {
+      "openCatalog": null,
+      "backToMaterials": "true",
+      "role": "tab",
+      "tabIndex": 0
+     }
+    },
+    {
+     "view": "catalog",
+     "text": "ライブラリ",
+     "ariaSelected": "true",
+     "className": "theia-button secondary",
+     "rect": {
+      "left": 205.6,
+      "right": 353.2,
+      "top": 12,
+      "bottom": 36.5,
+      "width": 147.6,
+      "height": 24.5
+     },
+     "scrollWidth": 146,
+     "clientWidth": 146,
+     "textRectWidth": 48.75,
+     "textLines": 1,
+     "fontWeight": "700",
+     "opacity": "1",
+     "background": "rgb(20, 20, 20)",
+     "border": "1px solid",
+     "zIndex": "auto",
+     "position": "static",
+     "transition": "all",
+     "attrs": {
+      "openCatalog": "true",
+      "backToMaterials": null,
+      "role": "tab",
+      "tabIndex": 0
+     }
+    }
+   ],
+   "scrollers": [
+    {
+     "tag": "DIV",
+     "id": "",
+     "scrollWidth": 299,
+     "clientWidth": 299,
+     "ok": true
+    },
+    {
+     "tag": "DIV",
+     "id": "",
+     "scrollWidth": 311,
+     "clientWidth": 311,
+     "ok": true
+    },
+    {
+     "tag": "DIV",
+     "id": "",
+     "scrollWidth": 311,
+     "clientWidth": 311,
+     "ok": true
+    },
+    {
+     "tag": "DIV",
+     "id": "",
+     "scrollWidth": 311,
+     "clientWidth": 311,
+     "ok": true
+    },
+    {
+     "tag": "DIV",
+     "id": "",
+     "scrollWidth": 311,
+     "clientWidth": 311,
+     "ok": true
+    },
+    {
+     "tag": "DIV",
+     "id": "akari-role-buckets-widget",
+     "scrollWidth": 311,
+     "clientWidth": 311,
+     "ok": true
+    }
+   ],
+   "checks": {
+    "gapBetweenButtons": 4,
+    "buttonsInsideTrack": true,
+    "thumbUnderActive": null,
+    "noWrap": true,
+    "noClip": true,
+    "noHorizontalScroll": true
+   }
+  }
+ }
+}

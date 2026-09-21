@@ -1,0 +1,321 @@
+{
+ "label": "after-164",
+ "faces": {
+  "materials": {
+   "topView": "materials",
+   "panelWidth": 164,
+   "widgetWidth": 115,
+   "track": {
+    "rect": {
+     "left": 54,
+     "right": 157,
+     "top": 12,
+     "bottom": 40.5,
+     "width": 103,
+     "height": 28.5
+    },
+    "position": "relative",
+    "padding": "2px",
+    "gap": "0px",
+    "background": "rgb(20, 20, 20)",
+    "border": "1px solid rgba(0, 0, 0, 0)",
+    "borderRadius": "999px",
+    "display": "flex"
+   },
+   "thumb": {
+    "rect": {
+     "left": 57,
+     "right": 105.5,
+     "top": 15,
+     "bottom": 37.5,
+     "width": 48.5,
+     "height": 22.5
+    },
+    "ariaHidden": "true",
+    "transformInline": "translateX(0px)",
+    "transformComputed": "matrix(1, 0, 0, 1, 0, 0)",
+    "transitionProperty": "transform",
+    "transitionDuration": "0.28s",
+    "transitionTimingFunction": "cubic-bezier(0.32, 0.72, 0, 1)",
+    "background": "rgb(26, 26, 26)",
+    "border": "1px solid rgb(249, 115, 22)",
+    "boxShadow": "rgba(0, 0, 0, 0.12) 0px 1px 3px 0px",
+    "borderRadius": "999px"
+   },
+   "buttons": [
+    {
+     "view": "materials",
+     "text": "プロジェクト",
+     "ariaSelected": "true",
+     "className": "",
+     "rect": {
+      "left": 57,
+      "right": 105.5,
+      "top": 15,
+      "bottom": 37.5,
+      "width": 48.5,
+      "height": 22.5
+     },
+     "scrollWidth": 62,
+     "clientWidth": 49,
+     "textRectWidth": 58.21,
+     "textLines": 1,
+     "fontWeight": "700",
+     "opacity": "1",
+     "background": "rgba(0, 0, 0, 0)",
+     "border": "0px none",
+     "zIndex": "1",
+     "position": "relative",
+     "transition": "color 0.16s, font-weight 0.16s, opacity 0.16s",
+     "attrs": {
+      "openCatalog": null,
+      "backToMaterials": "true",
+      "role": "tab",
+      "tabIndex": 0
+     }
+    },
+    {
+     "view": "catalog",
+     "text": "ライブラリ",
+     "ariaSelected": "false",
+     "className": "",
+     "rect": {
+      "left": 105.5,
+      "right": 154,
+      "top": 15,
+      "bottom": 37.5,
+      "width": 48.5,
+      "height": 22.5
+     },
+     "scrollWidth": 53,
+     "clientWidth": 49,
+     "textRectWidth": 48.75,
+     "textLines": 1,
+     "fontWeight": "400",
+     "opacity": "0.66",
+     "background": "rgba(0, 0, 0, 0)",
+     "border": "0px none",
+     "zIndex": "1",
+     "position": "relative",
+     "transition": "color 0.16s, font-weight 0.16s, opacity 0.16s",
+     "attrs": {
+      "openCatalog": "true",
+      "backToMaterials": null,
+      "role": "tab",
+      "tabIndex": -1
+     }
+    }
+   ],
+   "scrollers": [
+    {
+     "tag": "DIV",
+     "id": "",
+     "scrollWidth": 101,
+     "clientWidth": 101,
+     "ok": true
+    },
+    {
+     "tag": "DIV",
+     "id": "",
+     "scrollWidth": 115,
+     "clientWidth": 115,
+     "ok": true
+    },
+    {
+     "tag": "DIV",
+     "id": "",
+     "scrollWidth": 115,
+     "clientWidth": 115,
+     "ok": true
+    },
+    {
+     "tag": "DIV",
+     "id": "",
+     "scrollWidth": 115,
+     "clientWidth": 115,
+     "ok": true
+    },
+    {
+     "tag": "DIV",
+     "id": "",
+     "scrollWidth": 115,
+     "clientWidth": 115,
+     "ok": true
+    },
+    {
+     "tag": "DIV",
+     "id": "akari-role-buckets-widget",
+     "scrollWidth": 115,
+     "clientWidth": 115,
+     "ok": true
+    }
+   ],
+   "checks": {
+    "gapBetweenButtons": 0,
+    "buttonsInsideTrack": true,
+    "thumbUnderActive": true,
+    "noWrap": true,
+    "noClip": false,
+    "noHorizontalScroll": true
+   }
+  },
+  "catalog": {
+   "topView": "catalog",
+   "panelWidth": 164,
+   "widgetWidth": 115,
+   "track": {
+    "rect": {
+     "left": 54,
+     "right": 157,
+     "top": 12,
+     "bottom": 40.5,
+     "width": 103,
+     "height": 28.5
+    },
+    "position": "relative",
+    "padding": "2px",
+    "gap": "0px",
+    "background": "rgb(20, 20, 20)",
+    "border": "1px solid rgba(0, 0, 0, 0)",
+    "borderRadius": "999px",
+    "display": "flex"
+   },
+   "thumb": {
+    "rect": {
+     "left": 105.5,
+     "right": 154,
+     "top": 15,
+     "bottom": 37.5,
+     "width": 48.5,
+     "height": 22.5
+    },
+    "ariaHidden": "true",
+    "transformInline": "translateX(100%)",
+    "transformComputed": "matrix(1, 0, 0, 1, 48.5, 0)",
+    "transitionProperty": "transform",
+    "transitionDuration": "0.28s",
+    "transitionTimingFunction": "cubic-bezier(0.32, 0.72, 0, 1)",
+    "background": "rgb(26, 26, 26)",
+    "border": "1px solid rgb(249, 115, 22)",
+    "boxShadow": "rgba(0, 0, 0, 0.12) 0px 1px 3px 0px",
+    "borderRadius": "999px"
+   },
+   "buttons": [
+    {
+     "view": "materials",
+     "text": "プロジェクト",
+     "ariaSelected": "false",
+     "className": "",
+     "rect": {
+      "left": 57,
+      "right": 105.5,
+      "top": 15,
+      "bottom": 37.5,
+      "width": 48.5,
+      "height": 22.5
+     },
+     "scrollWidth": 62,
+     "clientWidth": 49,
+     "textRectWidth": 58.12,
+     "textLines": 1,
+     "fontWeight": "400",
+     "opacity": "0.66",
+     "background": "rgba(0, 0, 0, 0)",
+     "border": "0px none",
+     "zIndex": "1",
+     "position": "relative",
+     "transition": "color 0.16s, font-weight 0.16s, opacity 0.16s",
+     "attrs": {
+      "openCatalog": null,
+      "backToMaterials": "true",
+      "role": "tab",
+      "tabIndex": -1
+     }
+    },
+    {
+     "view": "catalog",
+     "text": "ライブラリ",
+     "ariaSelected": "true",
+     "className": "",
+     "rect": {
+      "left": 105.5,
+      "right": 154,
+      "top": 15,
+      "bottom": 37.5,
+      "width": 48.5,
+      "height": 22.5
+     },
+     "scrollWidth": 53,
+     "clientWidth": 49,
+     "textRectWidth": 48.75,
+     "textLines": 1,
+     "fontWeight": "700",
+     "opacity": "1",
+     "background": "rgba(0, 0, 0, 0)",
+     "border": "0px none",
+     "zIndex": "1",
+     "position": "relative",
+     "transition": "color 0.16s, font-weight 0.16s, opacity 0.16s",
+     "attrs": {
+      "openCatalog": "true",
+      "backToMaterials": null,
+      "role": "tab",
+      "tabIndex": 0
+     }
+    }
+   ],
+   "scrollers": [
+    {
+     "tag": "DIV",
+     "id": "",
+     "scrollWidth": 101,
+     "clientWidth": 101,
+     "ok": true
+    },
+    {
+     "tag": "DIV",
+     "id": "",
+     "scrollWidth": 115,
+     "clientWidth": 115,
+     "ok": true
+    },
+    {
+     "tag": "DIV",
+     "id": "",
+     "scrollWidth": 115,
+     "clientWidth": 115,
+     "ok": true
+    },
+    {
+     "tag": "DIV",
+     "id": "",
+     "scrollWidth": 115,
+     "clientWidth": 115,
+     "ok": true
+    },
+    {
+     "tag": "DIV",
+     "id": "",
+     "scrollWidth": 115,
+     "clientWidth": 115,
+     "ok": true
+    },
+    {
+     "tag": "DIV",
+     "id": "akari-role-buckets-widget",
+     "scrollWidth": 115,
+     "clientWidth": 115,
+     "ok": true
+    }
+   ],
+   "checks": {
+    "gapBetweenButtons": 0,
+    "buttonsInsideTrack": true,
+    "thumbUnderActive": true,
+    "noWrap": true,
+    "noClip": false,
+    "noHorizontalScroll": true
+   }
+  }
+ }
+}

@@ -1,0 +1,1105 @@
+{
+ "restMaterials": {
+  "topView": "materials",
+  "tx": 0,
+  "width": 73.492,
+  "inline": "translateX(0px)",
+  "transitionProperty": "transform",
+  "transitionDuration": "0.28s",
+  "transitionTimingFunction": "cubic-bezier(0.32, 0.72, 0, 1)",
+  "labelTransition": "color 0.16s, font-weight 0.16s, opacity 0.16s",
+  "focused": null
+ },
+ "clickToLibrary": {
+  "mid": {
+   "topView": "catalog",
+   "tx": 62.335,
+   "width": 73.492,
+   "inline": "translateX(100%)",
+   "transitionProperty": "transform",
+   "transitionDuration": "0.28s",
+   "transitionTimingFunction": "cubic-bezier(0.32, 0.72, 0, 1)",
+   "labelTransition": "color 0.16s, font-weight 0.16s, opacity 0.16s",
+   "focused": "catalog"
+  },
+  "end": {
+   "topView": "catalog",
+   "tx": 73.492,
+   "width": 73.492,
+   "inline": "translateX(100%)",
+   "transitionProperty": "transform",
+   "transitionDuration": "0.28s",
+   "transitionTimingFunction": "cubic-bezier(0.32, 0.72, 0, 1)",
+   "labelTransition": "color 0.16s, font-weight 0.16s, opacity 0.16s",
+   "focused": "catalog"
+  },
+  "samples": [
+   [
+    8,
+    0
+   ],
+   [
+    22,
+    0
+   ],
+   [
+    37.4,
+    0
+   ],
+   [
+    53.6,
+    0
+   ],
+   [
+    70.3,
+    0
+   ],
+   [
+    89.1,
+    0
+   ],
+   [
+    103.7,
+    10.86
+   ],
+   [
+    124.6,
+    25.61
+   ],
+   [
+    137.7,
+    43.39
+   ],
+   [
+    154.3,
+    56.12
+   ],
+   [
+    171,
+    62.34
+   ],
+   [
+    194.8,
+    65.89
+   ],
+   [
+    204.4,
+    68.17
+   ],
+   [
+    221.5,
+    69.74
+   ],
+   [
+    237.5,
+    70.87
+   ],
+   [
+    259.8,
+    71.7
+   ],
+   [
+    270.8,
+    72.31
+   ],
+   [
+    287.1,
+    72.75
+   ],
+   [
+    303.7,
+    73.06
+   ],
+   [
+    320.3,
+    73.28
+   ],
+   [
+    337,
+    73.41
+   ],
+   [
+    353.6,
+    73.48
+   ],
+   [
+    370.4,
+    73.49
+   ],
+   [
+    386.9,
+    73.49
+   ],
+   [
+    403.5,
+    73.49
+   ],
+   [
+    421.1,
+    73.49
+   ],
+   [
+    436.8,
+    73.49
+   ],
+   [
+    453.5,
+    73.49
+   ],
+   [
+    470.3,
+    73.49
+   ],
+   [
+    486.9,
+    73.49
+   ],
+   [
+    503.6,
+    73.49
+   ],
+   [
+    520.9,
+    73.49
+   ],
+   [
+    537,
+    73.49
+   ],
+   [
+    553.5,
+    73.49
+   ],
+   [
+    571.1,
+    73.49
+   ],
+   [
+    587.1,
+    73.49
+   ],
+   [
+    603.5,
+    73.49
+   ],
+   [
+    620.2,
+    73.49
+   ],
+   [
+    636.8,
+    73.49
+   ],
+   [
+    653.5,
+    73.49
+   ],
+   [
+    670.2,
+    73.49
+   ],
+   [
+    687,
+    73.49
+   ],
+   [
+    703.6,
+    73.49
+   ]
+  ],
+  "summary": {
+   "frames": 43,
+   "intermediateFrames": 12,
+   "firstMoveMs": 103.7,
+   "settledMs": 303.7,
+   "observedSpanMs": 200
+  }
+ },
+ "clickToProject": {
+  "end": {
+   "topView": "materials",
+   "tx": 0,
+   "width": 73.492,
+   "inline": "translateX(0px)",
+   "transitionProperty": "transform",
+   "transitionDuration": "0.28s",
+   "transitionTimingFunction": "cubic-bezier(0.32, 0.72, 0, 1)",
+   "labelTransition": "color 0.16s, font-weight 0.16s, opacity 0.16s",
+   "focused": "materials"
+  },
+  "samples": [
+   [
+    8.3,
+    73.49
+   ],
+   [
+    24.3,
+    73.49
+   ],
+   [
+    41,
+    73.49
+   ],
+   [
+    58,
+    73.49
+   ],
+   [
+    74.9,
+    62.63
+   ],
+   [
+    91.8,
+    48.75
+   ],
+   [
+    114.5,
+    31.14
+   ],
+   [
+    130.1,
+    17.89
+   ],
+   [
+    141.7,
+    11.43
+   ],
+   [
+    158.5,
+    7.77
+   ],
+   [
+    183.5,
+    5.43
+   ],
+   [
+    191.7,
+    3.82
+   ],
+   [
+    208.4,
+    2.68
+   ],
+   [
+    224.9,
+    1.84
+   ],
+   [
+    241.3,
+    1.22
+   ],
+   [
+    257.7,
+    0.77
+   ],
+   [
+    274.5,
+    0.45
+   ],
+   [
+    291.2,
+    0.23
+   ],
+   [
+    307.7,
+    0.09
+   ],
+   [
+    324.4,
+    0.02
+   ],
+   [
+    341.1,
+    0
+   ],
+   [
+    356.7,
+    0
+   ],
+   [
+    374.2,
+    0
+   ],
+   [
+    390.9,
+    0
+   ],
+   [
+    407.6,
+    0
+   ],
+   [
+    424.3,
+    0
+   ],
+   [
+    440.9,
+    0
+   ],
+   [
+    457.6,
+    0
+   ],
+   [
+    474.2,
+    0
+   ],
+   [
+    490.9,
+    0
+   ],
+   [
+    507.7,
+    0
+   ],
+   [
+    524.3,
+    0
+   ],
+   [
+    541,
+    0
+   ],
+   [
+    557.5,
+    0
+   ],
+   [
+    574.3,
+    0
+   ],
+   [
+    590.9,
+    0
+   ],
+   [
+    607.6,
+    0
+   ],
+   [
+    624.2,
+    0
+   ],
+   [
+    640.9,
+    0
+   ],
+   [
+    657.6,
+    0
+   ],
+   [
+    674.3,
+    0
+   ],
+   [
+    690.8,
+    0
+   ],
+   [
+    707.6,
+    0
+   ]
+  ],
+  "summary": {
+   "frames": 43,
+   "intermediateFrames": 12,
+   "firstMoveMs": 74.9,
+   "settledMs": 274.5,
+   "observedSpanMs": 199.6
+  }
+ },
+ "keyboard": {
+  "start": {
+   "topView": "materials",
+   "tx": 0,
+   "width": 73.492,
+   "inline": "translateX(0px)",
+   "transitionProperty": "transform",
+   "transitionDuration": "0.28s",
+   "transitionTimingFunction": "cubic-bezier(0.32, 0.72, 0, 1)",
+   "labelTransition": "color 0.16s, font-weight 0.16s, opacity 0.16s",
+   "focused": "materials"
+  },
+  "afterRight": {
+   "topView": "catalog",
+   "tx": 73.492,
+   "width": 73.492,
+   "inline": "translateX(100%)",
+   "transitionProperty": "transform",
+   "transitionDuration": "0.28s",
+   "transitionTimingFunction": "cubic-bezier(0.32, 0.72, 0, 1)",
+   "labelTransition": "color 0.16s, font-weight 0.16s, opacity 0.16s",
+   "focused": "catalog"
+  },
+  "afterLeft": {
+   "topView": "materials",
+   "tx": 0,
+   "width": 73.492,
+   "inline": "translateX(0px)",
+   "transitionProperty": "transform",
+   "transitionDuration": "0.28s",
+   "transitionTimingFunction": "cubic-bezier(0.32, 0.72, 0, 1)",
+   "labelTransition": "color 0.16s, font-weight 0.16s, opacity 0.16s",
+   "focused": "materials"
+  },
+  "focusRing": {
+   "view": "materials",
+   "outline": "solid 2px rgb(251, 146, 60)",
+   "focusVisible": true
+  }
+ },
+ "reducedMotion": {
+  "rest": {
+   "topView": "materials",
+   "tx": 0,
+   "width": 73.492,
+   "inline": "translateX(0px)",
+   "transitionProperty": "none",
+   "transitionDuration": "0s",
+   "transitionTimingFunction": "ease",
+   "labelTransition": "none",
+   "focused": "materials"
+  },
+  "end": {
+   "topView": "catalog",
+   "tx": 73.492,
+   "width": 73.492,
+   "inline": "translateX(100%)",
+   "transitionProperty": "none",
+   "transitionDuration": "0s",
+   "transitionTimingFunction": "ease",
+   "labelTransition": "none",
+   "focused": "catalog"
+  },
+  "samples": [
+   [
+    0.4,
+    0
+   ],
+   [
+    1.7,
+    0
+   ],
+   [
+    17.9,
+    0
+   ],
+   [
+    34.2,
+    0
+   ],
+   [
+    60.2,
+    73.49
+   ],
+   [
+    68.7,
+    73.49
+   ],
+   [
+    85.3,
+    73.49
+   ],
+   [
+    101.9,
+    73.49
+   ],
+   [
+    118.4,
+    73.49
+   ],
+   [
+    135.2,
+    73.49
+   ],
+   [
+    151.6,
+    73.49
+   ],
+   [
+    168.4,
+    73.49
+   ],
+   [
+    185.1,
+    73.49
+   ],
+   [
+    201.7,
+    73.49
+   ],
+   [
+    218.3,
+    73.49
+   ],
+   [
+    235,
+    73.49
+   ],
+   [
+    251.8,
+    73.49
+   ],
+   [
+    268.4,
+    73.49
+   ],
+   [
+    285.1,
+    73.49
+   ],
+   [
+    301.9,
+    73.49
+   ],
+   [
+    318.9,
+    73.49
+   ],
+   [
+    334.6,
+    73.49
+   ],
+   [
+    351.7,
+    73.49
+   ],
+   [
+    369.3,
+    73.49
+   ],
+   [
+    385.1,
+    73.49
+   ],
+   [
+    401.7,
+    73.49
+   ],
+   [
+    418.4,
+    73.49
+   ],
+   [
+    435.2,
+    73.49
+   ],
+   [
+    452.4,
+    73.49
+   ],
+   [
+    468.3,
+    73.49
+   ],
+   [
+    485,
+    73.49
+   ],
+   [
+    501.7,
+    73.49
+   ]
+  ],
+  "summary": {
+   "frames": 32,
+   "intermediateFrames": 0,
+   "firstMoveMs": 60.2,
+   "settledMs": 60.2,
+   "observedSpanMs": 0
+  },
+  "restoredAfterClear": {
+   "topView": "materials",
+   "tx": 0,
+   "width": 73.492,
+   "inline": "translateX(0px)",
+   "transitionProperty": "transform",
+   "transitionDuration": "0.28s",
+   "transitionTimingFunction": "cubic-bezier(0.32, 0.72, 0, 1)",
+   "labelTransition": "color 0.16s, font-weight 0.16s, opacity 0.16s",
+   "focused": "materials"
+  }
+ },
+ "panelReopenOnLibrary": {
+  "end": {
+   "topView": "catalog",
+   "tx": 73.5,
+   "width": 73.5,
+   "inline": "translateX(100%)",
+   "transitionProperty": "transform",
+   "transitionDuration": "0.28s",
+   "transitionTimingFunction": "cubic-bezier(0.32, 0.72, 0, 1)",
+   "labelTransition": "color 0.16s, font-weight 0.16s, opacity 0.16s",
+   "focused": null
+  },
+  "samples": [
+   [
+    0.6,
+    0
+   ],
+   [
+    7.9,
+    0
+   ],
+   [
+    24.4,
+    41
+   ],
+   [
+    43.8,
+    73.5
+   ],
+   [
+    57.8,
+    73.5
+   ],
+   [
+    74.7,
+    73.5
+   ],
+   [
+    92.2,
+    73.5
+   ],
+   [
+    110.3,
+    73.5
+   ],
+   [
+    125.8,
+    73.5
+   ],
+   [
+    141.6,
+    73.5
+   ],
+   [
+    157.8,
+    73.5
+   ],
+   [
+    174.4,
+    73.5
+   ],
+   [
+    191,
+    73.5
+   ],
+   [
+    207.7,
+    73.5
+   ],
+   [
+    224.4,
+    73.5
+   ],
+   [
+    241.1,
+    73.5
+   ],
+   [
+    257.7,
+    73.5
+   ],
+   [
+    274.5,
+    73.5
+   ],
+   [
+    291.1,
+    73.5
+   ],
+   [
+    308.1,
+    73.5
+   ],
+   [
+    324.6,
+    73.5
+   ],
+   [
+    341.6,
+    73.5
+   ],
+   [
+    357.3,
+    73.5
+   ],
+   [
+    374.4,
+    73.5
+   ],
+   [
+    391,
+    73.5
+   ],
+   [
+    407.8,
+    73.5
+   ],
+   [
+    424.3,
+    73.5
+   ],
+   [
+    441.1,
+    73.5
+   ],
+   [
+    457.7,
+    73.5
+   ],
+   [
+    474.5,
+    73.5
+   ],
+   [
+    492,
+    73.5
+   ],
+   [
+    507.4,
+    73.5
+   ],
+   [
+    524.4,
+    73.5
+   ],
+   [
+    541.2,
+    73.5
+   ],
+   [
+    557.8,
+    73.5
+   ],
+   [
+    574.7,
+    73.5
+   ],
+   [
+    591.1,
+    73.5
+   ],
+   [
+    607.8,
+    73.5
+   ],
+   [
+    624.6,
+    73.5
+   ],
+   [
+    641,
+    73.5
+   ],
+   [
+    657.6,
+    73.5
+   ],
+   [
+    674.4,
+    73.5
+   ],
+   [
+    691,
+    73.5
+   ],
+   [
+    707.7,
+    73.5
+   ],
+   [
+    724.4,
+    73.5
+   ],
+   [
+    741,
+    73.5
+   ],
+   [
+    758.1,
+    73.5
+   ],
+   [
+    774.5,
+    73.5
+   ],
+   [
+    791.1,
+    73.5
+   ],
+   [
+    807.8,
+    73.5
+   ],
+   [
+    824.4,
+    73.5
+   ],
+   [
+    841.2,
+    73.5
+   ],
+   [
+    858.4,
+    73.5
+   ],
+   [
+    874.6,
+    73.5
+   ],
+   [
+    891,
+    73.5
+   ],
+   [
+    907.7,
+    73.5
+   ],
+   [
+    924.5,
+    73.5
+   ],
+   [
+    941,
+    73.5
+   ],
+   [
+    957.6,
+    73.5
+   ],
+   [
+    974.3,
+    73.5
+   ],
+   [
+    991.2,
+    73.5
+   ],
+   [
+    1007.6,
+    73.5
+   ],
+   [
+    1024.4,
+    73.5
+   ],
+   [
+    1041,
+    73.5
+   ],
+   [
+    1057.7,
+    73.5
+   ],
+   [
+    1074.3,
+    73.5
+   ],
+   [
+    1091,
+    73.5
+   ],
+   [
+    1107.7,
+    73.5
+   ],
+   [
+    1125.3,
+    73.5
+   ],
+   [
+    1141,
+    73.5
+   ],
+   [
+    1157.7,
+    73.5
+   ],
+   [
+    1174.4,
+    73.5
+   ],
+   [
+    1191.2,
+    73.5
+   ],
+   [
+    1207.7,
+    73.5
+   ]
+  ],
+  "summary": {
+   "frames": 74,
+   "intermediateFrames": 1,
+   "firstMoveMs": 24.4,
+   "settledMs": 43.8,
+   "observedSpanMs": 19.4,
+   "distinctTx": [
+    0,
+    41,
+    73.5
+   ]
+  }
+ },
+ "afterReloadBefore": {
+  "topView": "catalog",
+  "tx": 73.5,
+  "width": 73.5,
+  "inline": "translateX(100%)",
+  "transitionProperty": "transform",
+  "transitionDuration": "0.28s",
+  "transitionTimingFunction": "cubic-bezier(0.32, 0.72, 0, 1)",
+  "labelTransition": "color 0.16s, font-weight 0.16s, opacity 0.16s",
+  "focused": null
+ },
+ "afterReload": {
+  "newDocument": true,
+  "end": {
+   "topView": "materials",
+   "tx": 0,
+   "width": 73.5,
+   "inline": "translateX(0px)",
+   "transitionProperty": "transform",
+   "transitionDuration": "0.28s",
+   "transitionTimingFunction": "cubic-bezier(0.32, 0.72, 0, 1)",
+   "labelTransition": "color 0.16s, font-weight 0.16s, opacity 0.16s",
+   "focused": null
+  },
+  "firstSample": [
+   1631.9,
+   0,
+   "0s"
+  ],
+  "frames": 154,
+  "distinctTx": [
+   0
+  ],
+  "firstFrameTransition": "0s"
+ },
+ "afterReopenProject_ws2Before": {
+  "topView": "catalog",
+  "tx": 73.5,
+  "width": 73.5,
+  "inline": "translateX(100%)",
+  "transitionProperty": "transform",
+  "transitionDuration": "0.28s",
+  "transitionTimingFunction": "cubic-bezier(0.32, 0.72, 0, 1)",
+  "labelTransition": "color 0.16s, font-weight 0.16s, opacity 0.16s",
+  "focused": null
+ },
+ "afterReopenProject_ws2": {
+  "newDocument": true,
+  "end": {
+   "topView": "materials",
+   "tx": 0,
+   "width": 73.5,
+   "inline": "translateX(0px)",
+   "transitionProperty": "transform",
+   "transitionDuration": "0.28s",
+   "transitionTimingFunction": "cubic-bezier(0.32, 0.72, 0, 1)",
+   "labelTransition": "color 0.16s, font-weight 0.16s, opacity 0.16s",
+   "focused": null
+  },
+  "firstSample": [
+   2309.2,
+   0,
+   "0s"
+  ],
+  "frames": 127,
+  "distinctTx": [
+   0
+  ],
+  "firstFrameTransition": "0s",
+  "url": "file:///Users/ryoma/_edit/30_products/akari-video-wt/panel-face-slider-switch/apps/shell/lib/frontend/index.html?port=58030&pfss=1789999283401#/private/tmp/pfss-l1/ws2"
+ },
+ "afterReopenProject_wsBefore": {
+  "topView": "catalog",
+  "tx": 73.5,
+  "width": 73.5,
+  "inline": "translateX(100%)",
+  "transitionProperty": "transform",
+  "transitionDuration": "0.28s",
+  "transitionTimingFunction": "cubic-bezier(0.32, 0.72, 0, 1)",
+  "labelTransition": "color 0.16s, font-weight 0.16s, opacity 0.16s",
+  "focused": null
+ },
+ "afterReopenProject_ws": {
+  "newDocument": true,
+  "end": {
+   "topView": "materials",
+   "tx": 0,
+   "width": 73.5,
+   "inline": "translateX(0px)",
+   "transitionProperty": "transform",
+   "transitionDuration": "0.28s",
+   "transitionTimingFunction": "cubic-bezier(0.32, 0.72, 0, 1)",
+   "labelTransition": "color 0.16s, font-weight 0.16s, opacity 0.16s",
+   "focused": null
+  },
+  "firstSample": [
+   1536.8,
+   0,
+   "0s"
+  ],
+  "frames": 163,
+  "distinctTx": [
+   0
+  ],
+  "firstFrameTransition": "0s",
+  "url": "file:///Users/ryoma/_edit/30_products/akari-video-wt/panel-face-slider-switch/apps/shell/lib/frontend/index.html?port=58030&pfss=1789999288634#/private/tmp/pfss-l1/ws"
+ },
+ "regression": {
+  "catalogHome": {
+   "search": "catalog",
+   "placeholder": "ライブラリを検索",
+   "categories": 20,
+   "catalogControls": "true"
+  },
+  "catalogSearch": {
+   "value": "bgm",
+   "resultRows": 9,
+   "bodyHasResults": false
+  },
+  "materials": {
+   "search": "materials",
+   "placeholder": "プロジェクト内を検索",
+   "materialCards": 2,
+   "text": "プロジェクト\nライブラリ\n文字起こし\n未\n動画\nsample-clip.mp4\n--:--\n画像\nsample-still.png\n--:--\nできたもの\n\nまだありません — 編集したり書き出したりするとここに並びます"
+  }
+ },
+ "clickHits": [
+  {
+   "view": "catalog",
+   "x": 167.25,
+   "y": 26.25,
+   "hit": "catalog"
+  },
+  {
+   "view": "materials",
+   "x": 93.75,
+   "y": 26.25,
+   "hit": "materials"
+  },
+  {
+   "view": "catalog",
+   "x": 167.25,
+   "y": 26.25,
+   "hit": "catalog"
+  },
+  {
+   "view": "materials",
+   "x": 93.75,
+   "y": 26.25,
+   "hit": "materials"
+  },
+  {
+   "view": "catalog",
+   "x": 167.25,
+   "y": 26.25,
+   "hit": "catalog"
+  }
+ ]
+}
