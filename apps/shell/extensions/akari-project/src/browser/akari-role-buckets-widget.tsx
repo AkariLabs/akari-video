@@ -1899,7 +1899,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     }
 
     /** カタログ key を既存 resolver で取り込み、配置可能な主メディアだけ返す。 */
-    async resolveCatalogMaterial(key: string): Promise<{ relativePath: string; kind: MaterialKind } | undefined> {
+    async resolveCatalogMaterial(key: string, options?: { preferExisting?: boolean }): Promise<{ relativePath: string; kind: MaterialKind; cached?: boolean } | undefined> {
         const root = this.workflow.workspaceRoot;
         if (!root) {
             this.messages.warn('先にプロジェクトを開いてください。');
@@ -1917,6 +1917,23 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         this.resolvingAssetKeys.add(key);
         this.update();
         try {
+            if (options?.preferExisting && key === `${item.category}/${item.id}`
+                && item.id !== '.' && item.id !== '..' && !/[\\/]/.test(item.id)) {
+                try {
+                    const directory = root.resolve(`assets/${item.category}/${item.id}`);
+                    const stat = await this.files.resolve(directory);
+                    const media = resolveLibraryAssetMedia(item, this.toAssetBinChildren(stat));
+                    if (media.kind !== 'other' && media.mediaName) {
+                        const file = directory.resolve(media.mediaName);
+                        const actual = await this.files.resolve(file);
+                        const relativePath = root.relative(file)?.toString();
+                        if (!actual.isDirectory && relativePath && this.workflow.workspaceRoot?.toString() === root.toString()) {
+                            return { relativePath, kind: media.kind, cached: true };
+                        }
+                    }
+                } catch { /* 未取得・不完全な配置は従来の resolver へ委譲する。 */ }
+                if (this.workflow.workspaceRoot?.toString() !== root.toString()) return undefined;
+            }
             const outcome = await this.projectService.resolveAsset(item.id, root.toString());
             if (outcome.success === false) {
                 this.messages.error(`素材を取得できませんでした: ${outcome.error}`);
@@ -1942,7 +1959,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                 this.messages.error('素材のプロジェクト内パスを解決できませんでした。');
                 return undefined;
             }
-            return { relativePath, kind: media.kind };
+            return { relativePath, kind: media.kind, ...(options?.preferExisting ? { cached: false } : {}) };
         } catch (error) {
             this.messages.error(`素材を取得できませんでした: ${error instanceof Error ? error.message : String(error)}`);
             return undefined;

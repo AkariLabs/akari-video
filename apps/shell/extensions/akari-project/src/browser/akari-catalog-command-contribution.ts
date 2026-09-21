@@ -109,9 +109,9 @@ export class AkariCatalogCommandContribution implements CommandContribution {
             }
         });
         registry.registerCommand({ id: RESOLVE_LIBRARY_MATERIAL_COMMAND_ID }, {
-            execute: async (key: string) => {
+            execute: async (key: string, options?: { preferExisting?: boolean }) => {
                 const widget = await this.widgetManager.getOrCreateWidget<AkariRoleBucketsWidget>(AkariRoleBucketsWidget.ID);
-                return widget.resolveCatalogMaterial(key);
+                return widget.resolveCatalogMaterial(key, options);
             }
         });
         registry.registerCommand(AkariCatalogCommands.OPEN_CATALOG, {

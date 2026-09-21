@@ -5,7 +5,7 @@ export async function requestReadyPreviewSeek(transport: {
     disposed: () => boolean;
     send: (message: unknown) => unknown;
     onMessage: (listener: (message: any) => void) => { dispose(): void };
-}, time: number, timeoutMs = 30000): Promise<void> {
+}, time: number, timeoutMs = 30000, seek = true): Promise<void> {
     const requestId = ++nextSeekRequest;
     await new Promise<void>((resolve, reject) => {
         let finished = false;
@@ -26,7 +26,7 @@ export async function requestReadyPreviewSeek(transport: {
             const pageId = transport.pageId();
             if (!pageId) return;
             try {
-                Promise.resolve(transport.send({ type: 'akari-preview-ready-seek', requestId, pageId, time }))
+                Promise.resolve(transport.send({ type: 'akari-preview-ready-seek', requestId, pageId, time, seek }))
                     .catch(error => finish(error));
             } catch (error) { finish(error as Error); }
         };
@@ -59,7 +59,7 @@ export function createReadySeekResponder(environment: {
             const model = environment.pendingModel();
             await model;
             if (!environment.ready() || model !== environment.pendingModel()) return;
-            environment.seek(message.time);
+            if (message.seek !== false) environment.seek(message.time);
             completed = message.requestId;
             acknowledge();
         } finally { pending = undefined; }

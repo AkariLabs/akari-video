@@ -6,6 +6,8 @@ import { isEditableEventTarget } from 'akari-preview/lib/common/review-tool-mode
 const HISTORY_LIMIT = 50;
 
 export interface HistoryEntry {
+    before?: string;
+    after?: string;
     undo: () => Promise<void>;
     redo: () => Promise<void>;
     label: string;
@@ -23,8 +25,9 @@ export class AkariEditHistoryService {
     readonly materialTrial = new MaterialTrialHistory();
     protected trialUndo?: () => Promise<void>;
 
-    setMaterialTrial(entry: HistoryEntry, cancel: () => Promise<void>): void {
-        this.materialTrial.set(entry);
+    setMaterialTrial(entry: HistoryEntry, cancel: () => Promise<void>, replace = false): void {
+        if (replace) this.materialTrial.replace(entry);
+        else this.materialTrial.set(entry);
         this.trialUndo = cancel;
         this.onDidChangeEmitter.fire();
     }

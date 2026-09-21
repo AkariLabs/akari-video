@@ -1,3 +1,4 @@
+import { SwapTrialPlayback, SwapTrialIdentity, logSwapTrial } from '../common/swap-trial-playback';
 import { requestReadyPreviewSeek, createReadySeekResponder } from '../common/preview-ready-seek';
 import { isMaterialPreviewWidgetId } from '../common/material-preview-slot';
 import { MaterialPreviewSlot } from './material-preview-slot';
@@ -903,6 +904,7 @@ interface PreviewWidgetMarker extends WebviewWidget {
     akariPreviewRefresh?: Promise<void>;
     akariPreviewQueuedEditSource?: string;
     akariPreviewPlaybackPageId?: string;
+    akariSwapReloading?: boolean;
     akariPreviewCaptionsUpdate?: Promise<void>;
     akariPreviewGenerationUpdate?: Promise<void>;
     akariPreviewModelSnapshot?: PreviewModelDiffInput;
@@ -1065,6 +1067,8 @@ interface EnsureVisibleRequest {
 }
 
 interface SeekOutputRequest {
+    swapTrialToken?: string;
+    seek?: boolean;
     waitForReady?: boolean;
     editUri?: string;
     time?: number;
@@ -1084,7 +1088,7 @@ interface SetPreviewPlaybackRateExternalRequest { editUri: string; rate: number;
 type SetPreviewLoopRangeRequest =
     | { editUri: string; startSeconds: number; endSeconds: number }
     | { editUri: string; clear: true };
-interface PreviewPlaybackControlRequest { editUri: string; }
+interface PreviewPlaybackControlRequest { editUri: string; trialToken?: string; reason?: 'window_end'; }
 interface PreviewCropModeRequest { editUri: string; itemId?: string; on?: boolean; }
 interface PreviewPerspectivePanelRequest { editUri: string; itemId?: string; on?: boolean; }
 interface PulsePreviewItemRequest { editUri: string; itemId: string; }
@@ -1092,6 +1096,8 @@ interface ShowPreviewZoneHintRequest { editUri: string; zones: string[]; duratio
 
 interface PreviewPlaybackTickRequest {
     type: 'akari-preview-playback-tick';
+    pageId?: string;
+    trialToken?: string;
     time: number;
     playing: boolean;
     rate?: number;
@@ -1451,6 +1457,18 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         this.registerSetPreviewPlaybackRateCommand();
         this.registerSetPreviewLoopRangeCommand();
         this.registerPreviewPlayCommand();
+        this.commandRegistry.registerCommand({ id: 'akari.preview.beginSwapTrial' }, {
+            execute: (request: SwapTrialIdentity & { editUri: string }) => this.beginSwapTrial(request)
+        });
+        this.commandRegistry.registerCommand({ id: 'akari.preview.refreshSwapTrial' }, {
+            execute: (request: { editUri: string; editSource: string; token: string }) => this.refreshSwapTrial(request)
+        });
+        this.commandRegistry.registerCommand({ id: 'akari.preview.endSwapTrial' }, {
+            execute: (token: string) => this.endSwapTrial(token)
+        });
+        this.commandRegistry.registerCommand({ id: 'akari.preview.playSwapTrial' }, {
+            execute: (request: SwapTrialIdentity & { editUri: string; time: number }) => this.playSwapTrial(request)
+        });
         this.commandRegistry.registerCommand({ id: 'akari.preview.materialTrial' }, {
             execute: (request: { editUri: string; originalTitle?: string; title?: string }) => this.showMaterialTrial(request)
         });
@@ -2609,6 +2627,88 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         return true;
     }
 
+    protected readonly swapTrialPlaybacks = new Map<string, SwapTrialPlayback>();
+
+    protected beginSwapTrial(request: SwapTrialIdentity & { editUri: string }): void {
+        const key = new URI(request.editUri).normalizePath().toString();
+        const previous = this.swapTrialPlaybacks.get(key);
+        if (previous) this.endSwapTrial(previous.identity.token);
+        const trial = new SwapTrialPlayback(request, Date.now());
+        this.swapTrialPlaybacks.set(key, trial);
+        const widget = this.openOutputPreviews.get(key);
+        if (widget?.akariSwapReloading) trial.event({ type: 'reload-start', now: Date.now() });
+        widget?.sendMessage({ type: 'akari-preview-swap-trial-context', token: request.token });
+        logSwapTrial(request, 'preview_trial_begin', { pageId: widget?.akariPreviewPlaybackPageId });
+    }
+
+    /** 保存した本文をその場でキューへ入れる。後着の保存通知は queueRefresh が同内容を共有する。 */
+    protected refreshSwapTrial(request: { editUri: string; editSource: string; token: string }): boolean {
+        const uri = new URI(request.editUri).normalizePath();
+        const trial = this.swapTrialPlaybacks.get(uri.toString());
+        if (!trial || trial.identity.token !== request.token || trial.state.cancelled) return false;
+        const widget = this.openOutputPreviews.get(uri.toString());
+        if (!widget?.akariPreviewConfigured || widget.isDisposed) return false; // 初回は open が最新の保存内容を読む。
+        this.markRecentWrite(uri);
+        this.queueRefresh(widget, uri, 'output', undefined, false, request.editSource);
+        return true;
+    }
+
+    protected endSwapTrial(token: string): void {
+        for (const [key, trial] of this.swapTrialPlaybacks) if (trial.identity.token === token) {
+            logSwapTrial(trial.identity, 'playback_cancel', { reason: 'trial_end' });
+            trial.cancel();
+            this.swapTrialPlaybacks.delete(key);
+        }
+    }
+
+    protected noteSwapReload(widget: PreviewWidgetMarker, event: 'reload_start' | 'reload_complete', pageId?: string): void {
+        if (pageId && pageId !== widget.akariPreviewPlaybackPageId) return;
+        if (event === 'reload_complete' && !widget.akariSwapReloading) return;
+        widget.akariSwapReloading = event === 'reload_start';
+        const trial = this.swapTrialPlaybacks?.get(widget.akariPreviewEditUri?.normalizePath().toString() ?? '');
+        if (!trial) return;
+        trial.event({ type: event === 'reload_start' ? 'reload-start' : 'reload-complete', now: Date.now() });
+        logSwapTrial(trial.identity, event, { pageId: widget.akariPreviewPlaybackPageId });
+    }
+
+    protected async playSwapTrial(request: SwapTrialIdentity & { editUri: string; time: number }): Promise<'playing' | 'cancelled' | 'failed'> {
+        const key = new URI(request.editUri).normalizePath().toString();
+        const trial = this.swapTrialPlaybacks.get(key);
+        if (!trial || trial.identity.token !== request.token) return 'cancelled';
+        const widget = (): PreviewWidgetMarker => {
+            const value = this.openOutputPreviews.get(key);
+            if (trial.state.cancelled || !value || value.isDisposed) throw new Error('preview unavailable');
+            return value;
+        };
+        return trial.run({
+            now: () => Date.now(), wait: ms => new Promise(resolve => setTimeout(resolve, ms)),
+            prepare: async seek => {
+                await this.seekOutputPreview({ editUri: key, time: request.time, waitForReady: true,
+                    swapTrialToken: request.token, seek });
+            },
+            fallbackSeek: async () => {
+                logSwapTrial(trial.identity, 'seek_fallback');
+                widget().sendMessage({ type: 'akari-preview-seek', time: request.time });
+            },
+            play: async () => {
+                widget().sendMessage({ type: 'akari-preview-set-playback', playing: true, trialToken: request.token });
+            },
+            query: () => new Promise(resolve => {
+                const current = widget();
+                const finish = (playing: boolean, userStopped = false): void => {
+                    clearTimeout(timer); listener.dispose(); resolve({ playing, userStopped });
+                };
+                const listener = current.onMessage(message => {
+                    if (message?.type === 'akari-preview-swap-playback-state' && message.token === request.token
+                        && message.pageId === current.akariPreviewPlaybackPageId) finish(message.playing === true, message.userStopped === true);
+                });
+                const timer = setTimeout(() => finish(trial.state.started), 180);
+                current.sendMessage({ type: 'akari-preview-swap-playback-query', token: request.token });
+            }),
+            log: (event, detail) => logSwapTrial(trial.identity, event, detail)
+        });
+    }
+
     protected async playOutputPreview(request: PreviewPlaybackControlRequest | undefined): Promise<boolean> {
         const widget = this.getExternalPreviewWidget(request?.editUri);
         if (!widget || !request) return false;
@@ -2618,6 +2718,14 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
     }
 
     protected async pauseOutputPreview(request: PreviewPlaybackControlRequest | undefined): Promise<boolean> {
+        const trial = request?.editUri && this.swapTrialPlaybacks?.get(new URI(request.editUri).normalizePath().toString());
+        if (request?.reason === 'window_end') {
+            if (!trial || trial.identity.token !== request.trialToken || trial.state.cancelled || !trial.state.started) return false;
+            logSwapTrial(trial.identity, 'playback_pause', { reason: 'window_end' });
+        } else if (trial) {
+            logSwapTrial(trial.identity, 'playback_cancel', { reason: 'pause_command' });
+            trial.cancel();
+        }
         const widget = this.getExternalPreviewWidget(request?.editUri);
         if (!widget || !request) return false;
         const message: PreviewSetPlaybackMessage = { type: 'akari-preview-set-playback', playing: false };
@@ -2737,6 +2845,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         const editUri = new URI(request.editUri).normalizePath();
         const existing = this.openOutputPreviews.get(editUri.toString());
         if (existing?.akariPreviewConfigured && existing.isAttached && !existing.isDisposed) {
+            const trial = this.swapTrialPlaybacks?.get(editUri.toString());
+            if (trial) { logSwapTrial(trial.identity, 'playback_cancel', { reason: 'toggle_command' }); trial.cancel(); }
             existing.sendMessage({ type: 'akari-preview-toggle-playback' });
             return 'toggled';
         }
@@ -2753,6 +2863,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         const key = editUri.toString();
         const existing = this.openOutputPreviews.get(key);
         if (request.waitForReady) {
+            const trial = request.swapTrialToken ? this.swapTrialPlaybacks.get(key) : undefined;
+            if (request.swapTrialToken && (!trial || trial.identity.token !== request.swapTrialToken || trial.state.cancelled)) throw new Error('trial cancelled');
             const alreadyConfigured = existing?.akariPreviewConfigured && !existing.isDisposed;
             const widget = alreadyConfigured ? existing
                 : await this.getOrOpenPreview(editUri, { area: 'main' }, 'output') as PreviewWidgetMarker;
@@ -2771,10 +2883,14 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             } while (refresh !== widget.akariPreviewRefresh);
             await requestReadyPreviewSeek({
                 pageId: () => widget.akariPreviewPlaybackPageId,
-                disposed: () => widget.isDisposed,
+                disposed: () => widget.isDisposed || trial?.state.cancelled === true,
                 send: message => widget.sendMessage(message),
                 onMessage: listener => widget.onMessage(listener)
-            }, request.time);
+            }, request.time, trial ? 5000 : 30000, request.seek !== false);
+            if (trial) {
+                logSwapTrial(trial.identity, 'ready_seek_response', { pageId: widget.akariPreviewPlaybackPageId, seek: request.seek !== false });
+                this.noteSwapReload(widget, 'reload_complete', widget.akariPreviewPlaybackPageId);
+            }
             return 'seeked';
         }
         if (existing?.akariPreviewConfigured && existing.akariPreviewSeekable && !existing.isDisposed) {
@@ -3023,6 +3139,15 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     requestId: message.requestId, summary: projectedBagSummary });
                 return;
             }
+            const trial = this.swapTrialPlaybacks?.get(widget.akariPreviewEditUri?.normalizePath().toString() ?? '');
+            if (trial && message?.type === 'akari-preview-swap-user-control') {
+                logSwapTrial(trial.identity, 'playback_cancel', { reason: 'user_control' }); trial.cancel();
+            } else if (trial && message?.pageId === widget.akariPreviewPlaybackPageId) {
+                if (message.type === 'akari-preview-swap-playback-state' && message.token === trial.identity.token) {
+                    trial.event({ type: 'observed', playing: message.playing === true, userStopped: message.userStopped });
+                    logSwapTrial(trial.identity, 'playback_state', { playing: message.playing, userStopped: message.userStopped, source: 'renderer' });
+                }
+            }
             // 診断（第11・12項）: ページ側の段の報告。届かないこと自体も証跡になる
             // （ホスト側の監視が「報告なし」として記録する）。
             if (isPreviewDiagnosticsReport(message)) {
@@ -3096,6 +3221,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 this.timelineLayerSelections.set(selectionKey, null);
             }
             if (message?.type === 'akari-preview-primary-selection-ready') {
+                this.noteSwapReload(widget, 'reload_complete', message.pageId);
                 const key = widget.akariPreviewEditUri?.normalizePath().toString();
                 if (key && this.timelineOverlaySelections.has(key)) widget.sendMessage({ type: 'akari-preview-select-overlay', overlayId: this.timelineOverlaySelections.get(key) });
                 if (key && this.timelineLayerSelections.has(key)) widget.sendMessage({ type: 'akari-preview-select-layer', layerId: this.timelineLayerSelections.get(key) });
@@ -3345,6 +3471,12 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         // 下の reviewTransportByEdit に乗らないため、これが唯一の position 保持経路になる）。
         widget.akariPreviewLastKnownTime = captured.timelineT;
         widget.akariPreviewLastKnownPlaying = captured.playing;
+        const trial = normalizedEditUri && this.swapTrialPlaybacks?.get(normalizedEditUri);
+        if (trial && captured.playing && !trial.state.started && message.pageId === widget.akariPreviewPlaybackPageId
+            && message.trialToken === trial.identity.token) {
+            trial.event({ type: 'observed', playing: true });
+            if (trial.state.started) logSwapTrial(trial.identity, 'playback_state', { playing: true, source: 'tick' });
+        }
         if (!editUri) {
             if (this.activeRawPreviewWidget === widget) {
                 this.forwardRawPreviewAnnotationState(widget, 'playback');
@@ -3359,7 +3491,9 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             detail: {
                 videoUri: normalizedEditUri,
                 time: captured.timelineT,
-                playing: captured.playing
+                playing: captured.playing,
+                ...(message.trialToken && message.pageId === widget.akariPreviewPlaybackPageId
+                    ? { trialToken: message.trialToken } : {})
             }
         }));
     }
@@ -3628,6 +3762,11 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         if (!forceRebuild && seekTimeOverride === undefined && editSource !== undefined
             && widget.akariPreviewQueuedEditSource === editSource) return;
         widget.akariPreviewQueuedEditSource = editSource;
+        const swapTrial = this.swapTrialPlaybacks?.get(identityUri.normalizePath().toString());
+        if (swapTrial) {
+            swapTrial.event({ type: 'queued', now: Date.now() });
+            logSwapTrial(swapTrial.identity, 'refresh_queued');
+        }
         const queuedWriteRevision = this.previewGestureGuards.get(widget)?.writeRevision;
         const previous = widget.akariPreviewRefresh ?? Promise.resolve();
         const refresh = (): Promise<void> => {
@@ -3645,6 +3784,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 lastKnownTime: widget.akariPreviewLastKnownTime,
                 lastKnownPlaying: widget.akariPreviewLastKnownPlaying
             });
+            const activeSwap = this.swapTrialPlaybacks?.get(identityUri.normalizePath().toString());
+            if (activeSwap) logSwapTrial(activeSwap.identity, 'refresh_started');
             return this.refreshPreview(
                 widget,
                 identityUri,
@@ -4199,6 +4340,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         // setHTML はページを作り直すので、ページ側の段（スクリプト読込以降）はやり直しになる。
         diagnostics?.restartPageStages();
         widget.akariPreviewPlaybackPageId = `${widget.id}:${++this.playbackPageSequence}`;
+        this.noteSwapReload(widget, 'reload_start');
         widget.setHTML(this.prepareHtml(
             videoUri,
             videoStream?.url ?? '',
@@ -8407,7 +8549,8 @@ body { display: grid; place-items: center; padding: 32px; }
                 if (!immediate && now - lastPlaybackTickAt < 50) return;
                 lastPlaybackTickAt = now;
                 vscode.postMessage({
-                    type: 'akari-preview-playback-tick', time, playing,
+                    type: 'akari-preview-playback-tick', time, playing, pageId: initial.playbackPageId,
+                    trialToken: window.akari.swapTrialPlaybackToken,
                     rate: clampPreviewPlaybackRateFn(window.akari.previewPlaybackRate)
                 });
             };
@@ -8438,8 +8581,9 @@ body { display: grid; place-items: center; padding: 32px; }
             window.akari.previewContentEnd = ${previewContentEnd.toString()};
             window.akari.previewCaptions = Array.isArray(initial.captions) ? initial.captions : [];
             window.akari.reportReadySeek = message => vscode.postMessage(message);
+            window.akari.reportSwapPlayback = message => vscode.postMessage({ ...message, pageId: initial.playbackPageId });
             window.akari.reportPrimarySelectionReady = () => {
-                vscode.postMessage({ type: 'akari-preview-primary-selection-ready' });
+                vscode.postMessage({ type: 'akari-preview-primary-selection-ready', pageId: initial.playbackPageId });
                 vscode.postMessage({ type: 'akari-preview-generation-request' });
             };
             window.akari.requestGenerationUpdate = () => {
@@ -15996,6 +16140,17 @@ body { display: grid; place-items: center; padding: 32px; }
             previewMessageReload.addEventListener('click', () => {
                 if (!frameEngineMediaIdle) video.load();
             });
+            let swapTrialToken;
+            let swapTrialUserStopped = false;
+            const reportSwapState = token => window.akari.reportSwapPlayback({
+                type: 'akari-preview-swap-playback-state', token,
+                playing: isPlaying && token === window.akari.swapTrialPlaybackToken, userStopped: swapTrialUserStopped
+            });
+            const stopSwapAutoplay = () => {
+                swapTrialUserStopped = true;
+                window.akari.reportSwapPlayback({ type: 'akari-preview-swap-user-control' });
+            };
+            playToggle.addEventListener('click', event => { if (event.isTrusted) stopSwapAutoplay(); }, true);
             const togglePlayback = () => {
                 if (playToggle.disabled) return;
                 if (!isPlaying) {
@@ -16408,6 +16563,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 event.preventDefault();
                 event.stopImmediatePropagation();
                 clearStaticAnnotationStrokes();
+                if (event.isTrusted) stopSwapAutoplay();
                 togglePlayback();
             }, true);
             // range の input はポインタ押下中にもキー操作でも届くため、pointerdown 〜 pointerup /
@@ -17010,8 +17166,21 @@ body { display: grid; place-items: center; padding: 32px; }
                     setPreviewPlaybackRate(message.rate);
                     return;
                 }
+                if (message?.type === 'akari-preview-swap-trial-context') {
+                    if (swapTrialToken !== message.token) {
+                        swapTrialToken = message.token; swapTrialUserStopped = false;
+                        window.akari.swapTrialPlaybackToken = undefined;
+                    }
+                    return;
+                }
+                if (message?.type === 'akari-preview-swap-playback-query') { reportSwapState(message.token); return; }
                 if (message?.type === 'akari-preview-set-playback' && typeof message.playing === 'boolean') {
+                    if (message.trialToken && swapTrialUserStopped) { reportSwapState(message.trialToken); return; }
                     if (message.playing !== isPlaying) togglePlayback();
+                    if (message.trialToken) {
+                        swapTrialToken = message.trialToken; window.akari.swapTrialPlaybackToken = message.trialToken;
+                        reportSwapState(message.trialToken);
+                    }
                     return;
                 }
                 if (message?.type === 'akari-preview-set-crop-mode') {

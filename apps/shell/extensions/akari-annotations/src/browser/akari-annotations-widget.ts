@@ -1,3 +1,5 @@
+import { advanceMaterialTrialWindow, MaterialTrialWindow } from '../common/material-trial-window';
+import { logSwapTrial, SwapTrialIdentity } from 'akari-preview/lib/common/swap-trial-playback';
 import { materialSwapTarget, locateSwapItem, replaceMaterial, MaterialSwapTarget } from '../common/material-replacement';
 import URI from '@theia/core/lib/common/uri';
 import { ClipboardKind, PasteTrack, TimelineFragment, TimelineClipboardSnapshot,
@@ -623,6 +625,7 @@ type TimelineSelectionItem = Exclude<TimelineSelection, undefined>;
 // SnapCandidate / SnapResult は common/timeline-snap.ts の型を使う（純関数側でテストする）。
 
 export interface PreviewPlaybackTick {
+    trialToken?: string;
     videoUri?: string;
     time?: number;
     playing?: boolean;
@@ -4356,7 +4359,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected materialSwap?: { target: MaterialSwapTarget; editUri: string };
     protected materialSwapGeneration = 0;
     protected materialSwapTail: Promise<unknown> = Promise.resolve();
-    protected materialSwapPlaybackEnd?: number;
+    protected materialSwapPlaybackWindow?: MaterialTrialWindow;
+    protected materialSwapPlayback?: SwapTrialIdentity;
+    protected materialSwapTokenSequence = 0;
     protected materialSwapLabels?: { originalTitle: string; title: string };
 
     get hasMaterialSwap(): boolean { return this.materialSwap !== undefined; }
@@ -4378,14 +4383,23 @@ export class AkariAnnotationsWidget extends BaseWidget {
         const generation = ++this.materialSwapGeneration;
         const session = this.materialSwap;
         if (!session) return Promise.resolve();
+        const playback = this.newMaterialSwapPlayback();
         const operation = this.materialSwapTail.then(async () => {
             if (generation !== this.materialSwapGeneration || session !== this.materialSwap) return;
             await this.stopMaterialSwapPlayback();
-            await this.historyService.finishMaterialTrial(false);
+            if (this.historyService.materialTrial.entry) logSwapTrial(playback, 'rollback_skipped_refresh');
             await this.commandRegistry.executeCommand('akari.preview.materialTrial', { editUri: session.editUri });
-            const material = await this.commandRegistry.executeCommand<{ relativePath: string; kind: 'audio' | 'video' | 'image' } | undefined>(
-                'akari.catalog.resolveMaterial', candidate.key);
-            if (!material || generation !== this.materialSwapGeneration || session !== this.materialSwap) return;
+            await this.commandRegistry.executeCommand('akari.preview.beginSwapTrial', { editUri: session.editUri, ...playback });
+            logSwapTrial(playback, 'resolve_start', { candidate: candidate.key });
+            const material = await this.commandRegistry.executeCommand<{ relativePath: string; kind: 'audio' | 'video' | 'image'; cached?: boolean } | undefined>(
+                'akari.catalog.resolveMaterial', candidate.key, { preferExisting: true });
+            logSwapTrial(playback, 'resolve_done', { cached: material?.cached === true, ok: !!material });
+            if (generation !== this.materialSwapGeneration || session !== this.materialSwap) return;
+            if (!material) {
+                await this.historyService.finishMaterialTrial(false);
+                await this.commandRegistry.executeCommand('akari.preview.endSwapTrial', playback.token);
+                return;
+            }
             const location = this.location;
             if (!location?.editUri || location.editUri.toString() !== session.editUri) return;
             const mediaUri = location.root.resolve(material.relativePath);
@@ -4400,60 +4414,76 @@ export class AkariAnnotationsWidget extends BaseWidget {
             await this.commitEditMutation('お試し中', doc => replaceMaterial(doc, {
                 itemId: session.target.itemId, relativePath, kind: material.kind, actualDurationS
             }), { trial: true });
-            if (generation !== this.materialSwapGeneration || session !== this.materialSwap) {
-                await this.historyService.finishMaterialTrial(false);
-                return;
-            }
+            // 終了要求は finishMaterialSwap が復元する。次候補なら中間保存せず before を引き継ぐ。
+            if (generation !== this.materialSwapGeneration || session !== this.materialSwap) return;
             this.materialSwapLabels = candidate;
-            await this.replayMaterialSwap();
+            logSwapTrial(playback, 'trial_applied', { itemId: session.target.itemId, candidate: candidate.key });
+            await this.replayMaterialSwap(playback);
         });
-        this.materialSwapTail = operation.catch(error => {
-            this.messages.error(`お試しできません: ${this.errorMessage(error)}`);
+        this.materialSwapTail = operation.catch(async error => {
+            try {
+                await this.commandRegistry.executeCommand('akari.preview.endSwapTrial', playback.token);
+                if (generation !== this.materialSwapGeneration || session !== this.materialSwap) return;
+                // 解決・実尺取得・適用に失敗した場合は、以前の候補も含めて元の byte 列へ戻す。
+                await this.historyService.finishMaterialTrial(false);
+                this.messages.error(`お試しできません: ${this.errorMessage(error)}`);
+            } catch (rollbackError) {
+                // 復元用 entry を残し、I/O 回復後の「やめる」を実行できるキューにしておく。
+                this.messages.error(`お試しを巻き戻せません: ${this.errorMessage(rollbackError)}`);
+            }
         });
         return this.materialSwapTail as Promise<void>;
     }
 
-    async replayMaterialSwap(): Promise<void> {
+    protected newMaterialSwapPlayback(): SwapTrialIdentity {
+        if (this.materialSwapPlayback) {
+            void this.commandRegistry.executeCommand('akari.preview.endSwapTrial', this.materialSwapPlayback.token);
+        }
+        const startedAt = Date.now();
+        const playback = { token: `${this.id}:${startedAt}:${++this.materialSwapTokenSequence}`, startedAt };
+        this.materialSwapPlayback = playback;
+        this.materialSwapPlaybackWindow = undefined;
+        logSwapTrial(playback, 'trial_start');
+        return playback;
+    }
+
+    async replayMaterialSwap(playback?: SwapTrialIdentity): Promise<void> {
         const generation = this.materialSwapGeneration;
         const session = this.materialSwap;
         if (!session || !this.historyService.materialTrial.entry) return;
-        const active = (): boolean => session === this.materialSwap && generation === this.materialSwapGeneration;
-        try {
-            // 書き込み済みのお試しは、再生準備の成否にかかわらず確定・取消できる。
-            await this.commandRegistry.executeCommand('akari.preview.materialTrial', { editUri: session.editUri, ...this.materialSwapLabels });
+        if (!playback) {
             await this.stopMaterialSwapPlayback();
+            playback = this.newMaterialSwapPlayback();
+            await this.commandRegistry.executeCommand('akari.preview.beginSwapTrial', { editUri: session.editUri, ...playback });
+        }
+        const active = (): boolean => session === this.materialSwap && generation === this.materialSwapGeneration
+            && playback === this.materialSwapPlayback;
+        try {
+            await this.commandRegistry.executeCommand('akari.preview.materialTrial', { editUri: session.editUri, ...this.materialSwapLabels });
             const found = locateSwapItem(this.editDocument, session.target.itemId);
             if (!found || !active()) return;
             const time = Math.max(0, found.at / this.fps - 0.6);
-            const end = found.at / this.fps + Math.min(found.item.duration / this.fps, 3.2);
-            let readyFailed = false;
-            try {
-                const seeked = await this.commandRegistry.executeCommand('akari.preview.seekOutput', { editUri: session.editUri, time, waitForReady: true });
-                if (seeked !== 'seeked') throw new Error('出力プレビューへシークできませんでした。');
-            } catch {
-                if (!active()) return;
-                readyFailed = true;
-                // ready 応答だけが失われた場合も、通常シーク → 再生を最後に 1 回試す。
-                const seeked = await this.commandRegistry.executeCommand('akari.preview.seekOutput', { editUri: session.editUri, time });
-                if (seeked !== 'seeked') throw new Error('出力プレビューへシークできませんでした。');
-            }
+            this.materialSwapPlaybackWindow = {
+                token: playback.token, start: time,
+                end: found.at / this.fps + Math.min(found.item.duration / this.fps, 3.2),
+                started: false, seenStart: false, stopped: false
+            };
+            const result = await this.commandRegistry.executeCommand('akari.preview.playSwapTrial', {
+                editUri: session.editUri, time, ...playback
+            });
+            logSwapTrial(playback, 'trial_playback_result', { result });
+            if (active() && result === 'failed') throw new Error('playback failed');
+        } catch (error) {
             if (!active()) return;
-            if (this.commandRegistry.getCommand('akari.preview.play')) {
-                this.materialSwapPlaybackEnd = end;
-                const playing = await this.commandRegistry.executeCommand('akari.preview.play', { editUri: session.editUri });
-                if (!active()) { await this.stopMaterialSwapPlayback(); return; }
-                if (playing === false) throw new Error('再生を開始できませんでした。');
-            }
-            if (readyFailed) this.messages.warn('出力プレビューの準備を確認できなかったため通常の再生を試みました（▶ もう一度 で再試行できます）。');
-        } catch {
-            if (!active()) return;
-            this.materialSwapPlaybackEnd = undefined;
-            this.messages.error('出力プレビューの準備ができなかったため再生できませんでした（▶ もう一度 で再試行できます）。');
+            logSwapTrial(playback, 'trial_playback_error', { reason: String(error) });
+            this.materialSwapPlaybackWindow = undefined;
+            this.messages.error('再生できませんでした。▶ もう一度で再試行できます。');
         }
     }
 
     protected async stopMaterialSwapPlayback(): Promise<void> {
-        this.materialSwapPlaybackEnd = undefined;
+        this.materialSwapPlaybackWindow = undefined;
+        if (this.materialSwapPlayback) await this.commandRegistry.executeCommand('akari.preview.endSwapTrial', this.materialSwapPlayback.token);
         if (this.materialSwap && this.commandRegistry.getCommand('akari.preview.pause')) {
             await this.commandRegistry.executeCommand('akari.preview.pause', { editUri: this.materialSwap.editUri });
         }
@@ -4462,6 +4492,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
     /** 棚・選択・プロジェクト・やめる・確定の全終了経路。進行中の resolve も失効させる。 */
     finishMaterialSwap(confirm: boolean): Promise<void> {
         ++this.materialSwapGeneration;
+        this.materialSwapPlaybackWindow = undefined;
+        if (this.materialSwapPlayback) {
+            logSwapTrial(this.materialSwapPlayback, 'trial_end', { confirm });
+            void this.commandRegistry.executeCommand('akari.preview.endSwapTrial', this.materialSwapPlayback.token);
+        }
         const session = this.materialSwap;
         const operation = this.materialSwapTail.then(async () => {
             if (!session || session !== this.materialSwap) return;
@@ -4469,6 +4504,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             await this.historyService.finishMaterialTrial(confirm);
             this.materialSwap = undefined;
             this.materialSwapLabels = undefined;
+            this.materialSwapPlayback = undefined;
             await this.commandRegistry.executeCommand('akari.preview.materialTrial', { editUri: session.editUri });
             await this.commandRegistry.executeCommand('akari.catalog.closeSwap');
         });
@@ -11287,13 +11323,15 @@ export class AkariAnnotationsWidget extends BaseWidget {
     ): Promise<{ before: string; after: string; result: WriteBackResult }> {
         const editUri = this.location?.editUri;
         if (!editUri) throw new Error('edit.json がありません。');
-        const before = (await this.fileService.readFile(editUri)).value.toString();
+        const diskBefore = (await this.fileService.readFile(editUri)).value.toString();
+        const previousTrial = options?.trial ? this.historyService.materialTrial.entry : undefined;
+        const before = previousTrial?.before ?? diskBefore;
         const raw = JSON.parse(before) as EditV2Document;
         if (raw.version !== 2) throw new Error('v2 へ変換してから編集してください。');
         const distribution = options?.trial ? { document: mutate(raw), writes: [] }
             : prepareV2KeyframeDistribution(mutate(pinAutomaticBgmDuration(raw, this.frameAt(this.contentEndDuration()))));
         const after = stringifyEditV2(distribution.document);
-        if (after === before && (!options?.captions || options.captions.before === options.captions.after)) {
+        if (after === diskBefore && (!options?.captions || options.captions.before === options.captions.after)) {
             return { before, after, result: { committed: false } };
         }
         const motionChanges = await this.prepareMotionChanges(distribution.writes);
@@ -11308,6 +11346,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         if (options?.history !== false) {
             const entry: HistoryEntry = {
                 label,
+                ...(options?.trial ? { before, after } : {}),
                 undo: async () => {
                     await this.writeMotionChanges(motionChanges, 'before');
                     await this.writeEditSnapshotGuarded(before, options?.captions?.before);
@@ -11321,8 +11360,14 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     if (options?.captions) await this.reloadCaptions();
                 }
             };
-            if (options?.trial) this.historyService.setMaterialTrial(entry, () => this.finishMaterialSwap(false));
+            if (options?.trial) this.historyService.setMaterialTrial(entry, () => this.finishMaterialSwap(false), !!previousTrial);
             else this.pushHistory(entry);
+        }
+        if (options?.trial && this.materialSwapPlayback) {
+            // UI 再読込や watcher を待たず、保存した全文を即時にプレビューへ渡す。
+            await this.commandRegistry.executeCommand('akari.preview.refreshSwapTrial', {
+                editUri: editUri.toString(), editSource: after, token: this.materialSwapPlayback.token
+            });
         }
         if (options?.reload !== false && !options?.optimistic) await this.reloadEdit();
         if (options?.reload !== false && options?.captions) await this.reloadCaptions();
@@ -15749,7 +15794,18 @@ export class AkariAnnotationsWidget extends BaseWidget {
             || typeof request.playing !== 'boolean') {
             return;
         }
-        if (this.materialSwapPlaybackEnd !== undefined && request.time >= this.materialSwapPlaybackEnd) void this.stopMaterialSwapPlayback();
+        if (this.materialSwapPlaybackWindow) {
+            const trialWindow = advanceMaterialTrialWindow(this.materialSwapPlaybackWindow, this.materialSwapPlayback?.token, {
+                trialToken: request.trialToken, time: request.time!, playing: request.playing
+            });
+            this.materialSwapPlaybackWindow = trialWindow.state;
+            if (trialWindow.pause) {
+                // 終端停止はお試しの終了ではない。帯・仮履歴と再生開始の確認結果を維持する。
+                void this.commandRegistry.executeCommand('akari.preview.pause', {
+                    editUri: this.materialSwap?.editUri, trialToken: trialWindow.state!.token, reason: 'window_end'
+                });
+            }
+        }
         this.visualPlaying = request.playing;
         this.visualThumbnails.setPaused(this.visualPlaying || this.visualPointerDown);
         this.playheadT = Math.max(0, request.time!);

@@ -28,3 +28,10 @@ test('host timeout and closed preview both remove their message subscription', a
   assert.equal(removed, true);
  }
 });
+
+test('readiness checks after a play request do not seek again', async () => {
+ const seeks=[], replies=[];
+ const respond=createReadySeekResponder({pageId:'p',ready:()=>true,pendingModel:()=>undefined,seek:t=>seeks.push(t),reply:r=>replies.push(r)});
+ await respond({type:'akari-preview-ready-seek',pageId:'p',requestId:1,time:1.4,seek:false});
+ assert.deepEqual(seeks,[]);assert.equal(replies.length,1);
+});

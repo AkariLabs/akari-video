@@ -9,13 +9,18 @@ const ts = require('typescript');
 const URI = require('@theia/core/lib/common/uri').default;
 const compiled = readFileSync(new URL('../lib/browser/akari-preview-open-handler.js', import.meta.url), 'utf8');
 const ast = ts.createSourceFile('handler.js', compiled, ts.ScriptTarget.Latest, true, ts.ScriptKind.JS);
-let refreshMethod;
+let refreshMethod, noteSwapReloadMethod;
 function visit(node) {
     if (ts.isMethodDeclaration(node) && node.name.getText(ast) === 'refreshPreview') refreshMethod = node.getText(ast);
+    if (ts.isMethodDeclaration(node) && node.name.getText(ast) === 'noteSwapReload') noteSwapReloadMethod = node.getText(ast);
     ts.forEachChild(node, visit);
 }
 visit(ast);
 assert.ok(refreshMethod);
+assert.ok(noteSwapReloadMethod);
+const noteSwapReload = vm.runInNewContext(`({ ${noteSwapReloadMethod} }).noteSwapReload`, {
+    swap_trial_playback_1: require('../lib/common/swap-trial-playback.js')
+});
 // Execute the actual host method without loading Theia's DOM-dependent application shell.
 const refresh = vm.runInNewContext(`({ ${refreshMethod} }).refreshPreview`, {
     PLAYABLE_VIDEO_MIME_TYPES: new Map([['.mp4', 'video/mp4']]),
@@ -39,6 +44,7 @@ function harness({ source, empty = false, frameEngine = true, inside = true } = 
     const calls = { videos: [], assets: [], probes: [], cards: [], disposed: [] };
     const widget = { title: {}, setContentOptions() {}, setHTML(html) { this.html = html; } };
     const host = {
+        noteSwapReload, playbackPageSequence: 0,
         stopPreviewAudioPolling() {}, resolveFrameEngineEnabled: async () => frameEngine,
         loadPreviewModel: async () => model, loadRawPreviewModel: async () => model,
         getOverlayRuntimeAssets: async () => ({ origin: 'http://127.0.0.1:1234' }),

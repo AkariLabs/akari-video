@@ -42,3 +42,71 @@
 `replay-sample.mjs`（「▶ もう一度」実クリック + 標本化）/ `open-swap.mjs`（クリップ選択 → インスペクター → 情報タブ → ⇄ 候補を見る）/ `ctx.mjs`（右クリックメニュー）/
 `panel.mjs`（左パネル・インスペクターの要約）/ `inspector-edit.mjs`（インスペクター数値入力 + Cmd+Z）/ `undo.mjs` / `mdrop.mjs`・`transdrag.mjs`・`opencat.mjs`・`mdrag.mjs`・`click.mjs`・`ev.mjs`・`cmd.mjs`・`cdp-lib.mjs`
 （`material-drop-no-overlap` / `library-direct-place` の証跡スクリプトをパス・ポートだけ変えて複製したものを含む）。`winsize.mjs` は Electron では使えなかった（`Browser.getWindowForTarget` 非対応）。
+
+---
+
+## r1（差し戻し feedback-r1 への対応）— L1 証跡
+
+### 採取方法（r0 からの差分）
+
+- 同じ fixture（`fixture-edit.json`、sha256 `0b6ccf6c…`）を `/tmp/swap-l1/ws` に再構成（メディアは内部リポの `assets/audio/takes/*-b.mp3` 等。尺は r0 と同じ 2.520979 / 1.800979 秒）。
+  Electron は r1 の各ビルドで再起動（CDP 9395、内寸 1120×927）
+- 計測は `scripts/r1-trials.mjs`: 棚のカードを実クリックし、Electron の stdout ログ（Theia がフロントの console をバックエンドへ転送）から
+  `[akari-swap-trial]` 行を読んで、回ごとに 再読込回数・再生要求回数・送り直し回数・クリック→適用・クリック→`playback_state playing` を記録。
+  併せてタイムラインの再生ヘッド線を約 150 ms ごとに標本化（`clickToPlayheadMoveS` = 2 標本連続で小さく前進し始めた時刻）。
+  ログの全文は `r1-final-swap-trial.txt`、トークン別の要約は `scripts/r1-tokens.mjs`
+- **計測時のマシン負荷**: load average 33〜70（他席の処理。自席では止めていない）。出力プレビューの再生そのものが遅く進む回がある
+
+### 連続お試し（最終ビルド = codex 往復 3 後）— `r1-summary.json` / `r1-t-a-sfx12.json` / `r1-t-b-image9.json`
+
+| # | 対象 | 候補 | 取得済み | 再読込 | 再生要求 | 送り直し | 結果 | クリック→適用 | クリック→再生(ログ) | 適用→再生(ログ) | クリック→再生ヘッド前進 |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 1 | 効果音 bell-1 | sfx-blip-pluck | 未 | 1 | 1 | 0 | playing | 1.47 | 3.94 | 2.47 | 4.54 |
+| 2 | 〃 | sfx-blip-beep | 済 | 1 | 1 | 0 | playing | 0.16 | 2.03 | 1.87 | 2.39 |
+| 3 | 〃 | sfx-blip-sine | 未 | 1 | 1 | 0 | playing | 2.10 | 3.44 | 1.35 | 3.80 |
+| 4 | 〃 | sfx-blip-marimba | 済 | 1 | 1 | 0 | playing | 0.18 | 1.71 | 1.53 | 2.13 |
+| 5 | 〃 | sfx-blip-xylophone | 未 | 1 | 1 | 0 | playing | 1.67 | 3.91 | 2.24 | 4.60 |
+| 6 | 〃 | sfx-chime-success | 済 | 1 | 1 | 0 | playing | 0.26 | 2.30 | 2.05 | 3.29 |
+| 7 | 〃 | sfx-click-bottlecap | 未 | 1 | 1 | 0 | playing | 2.17 | 5.69 | 3.52 | 7.14 |
+| 8 | 〃 | sfx-harp-gliss | 済 | 1 | 1 | 0 | playing | 0.99 | 3.63 | 2.64 | 4.44 |
+| 9 | 〃 | sfx-click-bright-blip | 未 | 1 | 1 | 0 | playing | 1.52 | 3.73 | 2.21 | 4.79 |
+| 10 | 〃 | sfx-impact-echo | 済 | 1 | 1 | 0 | playing | 0.24 | 3.30 | 3.06 | 4.05 |
+| 11 | 〃 | sfx-click-clock-tick | 未 | 1 | 1 | 0 | playing | 1.77 | 3.51 | 1.74 | 4.13 |
+| 12 | 〃 | sfx-levelup-arp | 済 | 1 | 1 | 0 | playing | 0.14 | 1.48 | 1.33 | 2.28 |
+| 13 | 画像 img-1 | bg-aurora-polar | 未 | 1 | 1 | 0 | playing | 3.30 | 4.60 | 1.29 | 4.83 |
+| 14 | 〃 | bg-deep-gradient | 未 | 1 | 1 | 0 | playing | 1.76 | 2.75 | 0.99 | 3.36 |
+| 15 | 〃 | bg-aurora-polar | 済 | 1 | 1 | 0 | playing | 0.14 | 0.78 | 0.64 | 1.32 |
+| 16 | 〃 | bg-fluid-marble | 未 | 1 | 1 | 0 | playing | 1.96 | 2.70 | 0.74 | 3.33 |
+| 17 | 〃 | bg-deep-gradient | 済 | 1 | 1 | 0 | playing | 0.14 | 1.03 | 0.89 | 1.51 |
+| 18 | 〃 | bg-frosted-glass | 未 | 1 | 1 | 0 | playing | 3.01 | 4.98 | 1.97 | 6.06 |
+| 19 | 〃 | bg-fluid-marble | 済 | 1 | 1 | 0 | playing | 0.62 | 2.67 | 2.06 | 3.85 |
+| 20 | 〃 | bg-silk-waves | 未 | 1 | 1 | 0 | playing | 2.62 | 4.26 | 1.65 | （0→0.57→2.42 と飛び飛びに前進） |
+| 21 | 〃 | bg-frosted-glass | 済 | 1 | 1 | 0 | playing | 1.05 | 5.32 | 4.27 | （ログ playing 後も約 5 秒 0 のまま → window_end は 10.8 秒） |
+| 22〜30 | B-roll broll-1 | still/br-*（9 回予定） | — | — | — | — | **実施不能** | — | — | — | — |
+
+- 秒はすべてクリック起点。「取得済み」= クリック前に `assets/<category>/<id>` が既にあった回
+- **確実性**: 21/21 回で再生要求 1 回・送り直し 0・`result=playing`。r0 の「シークのみで止まる」は再発なし。再生開始後の再シークもなし（ログ上 `ready_seek_response` は再生要求より前のみ）
+- **3 秒以内**: 取得済み 10 回中 7 回（ログ基準。超過 3.63 / 3.30 / 5.32 秒）。未取得は適用→再生が 11 回中 10 回 3 秒以内（超過 3.52 秒）。
+  超過した回の内訳は 再読込完了→ready-seek 応答の待ち（1〜3 秒）と、適用（保存）自体の遅れ（〜1 秒）で、高負荷下の出力プレビューの初期化時間
+- **B-roll 枠が実施不能**: カタログの B-roll 動画は `broll/talkinghead-desk-ja-01` の 1 本だけ（出力プレビューが止まる既知の別問題）。棚の近い系統 `still/br-*` を
+  broll-1（動画 item）に当てると、適用の約 10 ms 後に `trial_end` が出てお試しが終わり、棚が閉じる（`r1-t-c-broll-still-aborted.json`、トークン 28・29）。
+  edit.json は `0b6ccf6c` に戻る（巻き戻し自体は正しい）。動画 → 静止画への入れ替えで選択スナップショットの対象判定が変わり、
+  `pushSelectionSnapshot` の「別の item の選択」扱いで終了経路に入っているとみられる（未確定）
+
+### 途中ビルドの計測（原因の確定用）
+
+- `r1-round1-build-sfx12.json`（codex 往復 1 後、効果音 12 回）: 12/12 playing・送り直し 0。ただし取得済みでもクリック→再生 2.4〜8.3 秒。
+  内訳 = 前の候補の巻き戻し保存による再読込 約 1 秒 → 素材解決 0.8〜5 秒 → 適用後に再読込が始まるまで 1〜1.9 秒 → ready-seek（往復 2 で解消）
+- `r1-round2-build-sfx12.json`（往復 2 後）: 12 回中 4 回 `cancelled`。原因 = 終端での自動停止が再生前から有効で、再読込直後の古い再生位置（11.23 / 7.08 / 6.93 秒）の tick を
+  「終端超え」と判定して停止していた（標本 1.40 → 6.93 → 1.40）。往復 3 で「再生開始 + 頭出し位置付近の tick を受けてから有効」に修正し、最終ビルドでは 0 件
+
+### 回帰（各 1 往復）と磨き 2〜4
+
+| 項目 | 記録 | 結果 |
+|---|---|---|
+| やめる で byte 一致（別候補 12 回の後） | `r1-d1-cancel-after-12.json` | 往復 1 ビルド: 12 候補の後の実クリック「やめる」→ `0b6ccf6c`。最終ビルドでも効果音 12 回の後・画像 1 回の後（`r1-f2-cancel.json`）の「やめる」で `0b6ccf6c` |
+| 差し替える → Cmd+Z 1 手で byte 一致 | `r1-e1-try.json` / `r1-e2-confirm.json` / `r1-e3-undo.json` | `sfx-chime-success` を確定 → `b71b7c9a`（r0 と同じ bytes）→ Cmd+Z 1 回で `0b6ccf6c` |
+| お試し中に別クリップを選ぶと巻き戻る | `r1-i4-select-other.png` | 効果音お試し中（`a21a810c`）に img-1 を実クリック → `0b6ccf6c`、棚・帯とも消える |
+| 磨き 3: 履歴の文言 | `r1-e3-undo-footer.png` | フッター「素材の入れ替えを元に戻しました。」（BEFORE = r0 report の「素材を入れ替えを元に戻しました。」） |
+| 磨き 2: トーストのノイズ | `r1-f1-image-trial-no-toast.png` / 全回の `toasts` | 最終ビルドの 22 回（効果音 12・画像 10）で通知 0 件。ただし今回は `ready_fallback` / `seek_fallback` が一度も起きず（ログ 0 件）、「通常シークへ落ちて再生できた」経路そのものは実機で踏めていない（単体テストのみ） |
+| 磨き 4: 右クリックメニューの画面内クランプ | `r1-g1-menu-clamp-broll.png` | broll-1 を y=635 で右クリック → メニュー 9 項目 top 629.5 / bottom 923（内寸 927 の内側）で、「入れ替え…」を実クリックで起動できた。BEFORE = r0 `b3-ctxmenu-sfx.json`（9 項目目 y 1007 が画面外で element.click() に頼った）。項目の並びは r0 と同じ |
