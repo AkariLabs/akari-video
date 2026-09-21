@@ -1,16 +1,123 @@
 {
+  "assertionCount": 37,
   "measurements": {
     "still": {
       "layerPresent": true,
-      "layerVisible": true,
+      "layerVisible": false,
       "layerPointerEvents": "none",
-      "tagVisible": true,
-      "tagText": "静止画（仮枠） · ビート 1 フック",
+      "pipVisible": false,
+      "pipImage": {
+        "src": null,
+        "loaded": false,
+        "naturalWidth": 0,
+        "naturalHeight": 0
+      },
+      "pipStyle": {
+        "pointerEvents": "none",
+        "display": "none",
+        "position": "absolute",
+        "filter": "none",
+        "width": "22%",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "10px",
+        "bottom": "10px",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "pipImageStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "static",
+        "filter": "none",
+        "width": "100%",
+        "borderRadius": "6px",
+        "borderWidth": "1px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "pipLabel": "最後の絵",
+      "blurVisible": false,
+      "blurImage": {
+        "src": null,
+        "loaded": false,
+        "naturalWidth": 0,
+        "naturalHeight": 0
+      },
+      "blurStyle": {
+        "pointerEvents": "none",
+        "display": "none",
+        "position": "absolute",
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "0px",
+        "bottom": "0px",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "blurImageStyle": {
+        "pointerEvents": "none",
+        "display": "inline",
+        "position": "static",
+        "filter": "blur(18px) brightness(0.65)",
+        "width": "100%",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "layerRect": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0
+      },
+      "tagStyle": {
+        "pointerEvents": "none",
+        "display": "none",
+        "position": "absolute",
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "4px",
+        "borderWidth": "1px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "tagVisible": false,
+      "tagText": "",
       "tagSeverity": null,
-      "tagColor": "rgb(220, 230, 238)",
+      "tagColor": null,
       "bandVisible": false,
       "bandText": "",
-      "bandFillWidth": "0%",
+      "bandFillWidth": "",
       "shimmerVisible": false,
       "maskVisible": false,
       "maskRect": {
@@ -26,6 +133,112 @@
       "layerPresent": true,
       "layerVisible": true,
       "layerPointerEvents": "none",
+      "pipVisible": false,
+      "pipImage": {
+        "src": null,
+        "loaded": false,
+        "naturalWidth": 0,
+        "naturalHeight": 0
+      },
+      "pipStyle": {
+        "pointerEvents": "none",
+        "display": "none",
+        "position": "absolute",
+        "filter": "none",
+        "width": "22%",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "10px",
+        "bottom": "10px",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "pipImageStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "static",
+        "filter": "none",
+        "width": "100%",
+        "borderRadius": "6px",
+        "borderWidth": "1px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "pipLabel": "最後の絵",
+      "blurVisible": false,
+      "blurImage": {
+        "src": null,
+        "loaded": false,
+        "naturalWidth": 0,
+        "naturalHeight": 0
+      },
+      "blurStyle": {
+        "pointerEvents": "none",
+        "display": "none",
+        "position": "absolute",
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "0px",
+        "bottom": "0px",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "blurImageStyle": {
+        "pointerEvents": "none",
+        "display": "inline",
+        "position": "static",
+        "filter": "blur(18px) brightness(0.65)",
+        "width": "100%",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "layerRect": {
+        "x": 36,
+        "y": 260.125,
+        "width": 812,
+        "height": 456.75
+      },
+      "tagStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "absolute",
+        "filter": "none",
+        "width": "152.688px",
+        "borderRadius": "4px",
+        "borderWidth": "1px",
+        "right": "1757.31px",
+        "bottom": "1049.3px",
+        "rect": {
+          "x": 40.22916793823242,
+          "y": 264.3541564941406,
+          "width": 64.5740966796875,
+          "height": 8.752410888671875
+        }
+      },
       "tagVisible": true,
       "tagText": "planned · ビート 2 課題",
       "tagSeverity": null,
@@ -48,6 +261,112 @@
       "layerPresent": true,
       "layerVisible": true,
       "layerPointerEvents": "none",
+      "pipVisible": false,
+      "pipImage": {
+        "src": null,
+        "loaded": false,
+        "naturalWidth": 0,
+        "naturalHeight": 0
+      },
+      "pipStyle": {
+        "pointerEvents": "none",
+        "display": "none",
+        "position": "absolute",
+        "filter": "none",
+        "width": "22%",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "10px",
+        "bottom": "10px",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "pipImageStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "static",
+        "filter": "none",
+        "width": "100%",
+        "borderRadius": "6px",
+        "borderWidth": "1px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "pipLabel": "最後の絵",
+      "blurVisible": true,
+      "blurImage": {
+        "src": "http://127.0.0.1:54235/asset/408961225f91d39a69e27301298de8033efddd3d11d366914d96660e23af4560.png",
+        "loaded": true,
+        "naturalWidth": 1920,
+        "naturalHeight": 1080
+      },
+      "blurStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "absolute",
+        "filter": "none",
+        "width": "1920px",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "0px",
+        "bottom": "0px",
+        "rect": {
+          "x": 36,
+          "y": 260.125,
+          "width": 812,
+          "height": 456.75
+        }
+      },
+      "blurImageStyle": {
+        "pointerEvents": "none",
+        "display": "inline",
+        "position": "static",
+        "filter": "blur(18px) brightness(0.65)",
+        "width": "1920px",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 11.640008926391602,
+          "y": 246.42251586914062,
+          "width": 860.7200317382812,
+          "height": 484.1549987792969
+        }
+      },
+      "layerRect": {
+        "x": 36,
+        "y": 260.125,
+        "width": 812,
+        "height": 456.75
+      },
+      "tagStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "absolute",
+        "filter": "none",
+        "width": "139.93px",
+        "borderRadius": "4px",
+        "borderWidth": "1px",
+        "right": "1770.07px",
+        "bottom": "1049.3px",
+        "rect": {
+          "x": 40.22916793823242,
+          "y": 264.3541564941406,
+          "width": 59.178592681884766,
+          "height": 8.752410888671875
+        }
+      },
       "tagVisible": true,
       "tagText": "生成中 · ビート 3 解決",
       "tagSeverity": "generating",
@@ -70,6 +389,112 @@
       "layerPresent": true,
       "layerVisible": true,
       "layerPointerEvents": "none",
+      "pipVisible": false,
+      "pipImage": {
+        "src": null,
+        "loaded": false,
+        "naturalWidth": 0,
+        "naturalHeight": 0
+      },
+      "pipStyle": {
+        "pointerEvents": "none",
+        "display": "none",
+        "position": "absolute",
+        "filter": "none",
+        "width": "22%",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "10px",
+        "bottom": "10px",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "pipImageStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "static",
+        "filter": "none",
+        "width": "100%",
+        "borderRadius": "6px",
+        "borderWidth": "1px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "pipLabel": "最後の絵",
+      "blurVisible": false,
+      "blurImage": {
+        "src": null,
+        "loaded": false,
+        "naturalWidth": 0,
+        "naturalHeight": 0
+      },
+      "blurStyle": {
+        "pointerEvents": "none",
+        "display": "none",
+        "position": "absolute",
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "0px",
+        "bottom": "0px",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "blurImageStyle": {
+        "pointerEvents": "none",
+        "display": "inline",
+        "position": "static",
+        "filter": "blur(18px) brightness(0.65)",
+        "width": "100%",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "layerRect": {
+        "x": 36,
+        "y": 260.125,
+        "width": 812,
+        "height": 456.75
+      },
+      "tagStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "absolute",
+        "filter": "none",
+        "width": "162.969px",
+        "borderRadius": "4px",
+        "borderWidth": "1px",
+        "right": "1747.03px",
+        "bottom": "1049.3px",
+        "rect": {
+          "x": 40.22916793823242,
+          "y": 264.3541564941406,
+          "width": 68.92219543457031,
+          "height": 8.752410888671875
+        }
+      },
       "tagVisible": true,
       "tagText": "応答なし · 再取得は右パネル",
       "tagSeverity": null,
@@ -92,6 +517,112 @@
       "layerPresent": true,
       "layerVisible": false,
       "layerPointerEvents": "none",
+      "pipVisible": false,
+      "pipImage": {
+        "src": null,
+        "loaded": false,
+        "naturalWidth": 0,
+        "naturalHeight": 0
+      },
+      "pipStyle": {
+        "pointerEvents": "none",
+        "display": "none",
+        "position": "absolute",
+        "filter": "none",
+        "width": "22%",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "10px",
+        "bottom": "10px",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "pipImageStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "static",
+        "filter": "none",
+        "width": "100%",
+        "borderRadius": "6px",
+        "borderWidth": "1px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "pipLabel": "最後の絵",
+      "blurVisible": false,
+      "blurImage": {
+        "src": null,
+        "loaded": false,
+        "naturalWidth": 0,
+        "naturalHeight": 0
+      },
+      "blurStyle": {
+        "pointerEvents": "none",
+        "display": "none",
+        "position": "absolute",
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "0px",
+        "bottom": "0px",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "blurImageStyle": {
+        "pointerEvents": "none",
+        "display": "inline",
+        "position": "static",
+        "filter": "blur(18px) brightness(0.65)",
+        "width": "100%",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "layerRect": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0
+      },
+      "tagStyle": {
+        "pointerEvents": "none",
+        "display": "none",
+        "position": "absolute",
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "4px",
+        "borderWidth": "1px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
       "tagVisible": false,
       "tagText": "応答なし · 再取得は右パネル",
       "tagSeverity": null,
@@ -114,6 +645,112 @@
       "layerPresent": true,
       "layerVisible": true,
       "layerPointerEvents": "none",
+      "pipVisible": false,
+      "pipImage": {
+        "src": null,
+        "loaded": false,
+        "naturalWidth": 0,
+        "naturalHeight": 0
+      },
+      "pipStyle": {
+        "pointerEvents": "none",
+        "display": "none",
+        "position": "absolute",
+        "filter": "none",
+        "width": "22%",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "10px",
+        "bottom": "10px",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "pipImageStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "static",
+        "filter": "none",
+        "width": "100%",
+        "borderRadius": "6px",
+        "borderWidth": "1px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "pipLabel": "最後の絵",
+      "blurVisible": false,
+      "blurImage": {
+        "src": null,
+        "loaded": false,
+        "naturalWidth": 0,
+        "naturalHeight": 0
+      },
+      "blurStyle": {
+        "pointerEvents": "none",
+        "display": "none",
+        "position": "absolute",
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "0px",
+        "bottom": "0px",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "blurImageStyle": {
+        "pointerEvents": "none",
+        "display": "inline",
+        "position": "static",
+        "filter": "blur(18px) brightness(0.65)",
+        "width": "100%",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "layerRect": {
+        "x": 36,
+        "y": 260.125,
+        "width": 812,
+        "height": 456.75
+      },
+      "tagStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "absolute",
+        "filter": "none",
+        "width": "205.188px",
+        "borderRadius": "4px",
+        "borderWidth": "1px",
+        "right": "1704.81px",
+        "bottom": "1049.3px",
+        "rect": {
+          "x": 40.22916793823242,
+          "y": 264.3541564941406,
+          "width": 86.7772216796875,
+          "height": 8.752410888671875
+        }
+      },
       "tagVisible": true,
       "tagText": "失敗 · timeout · 再試行は右パネル",
       "tagSeverity": "error",
@@ -136,6 +773,112 @@
       "layerPresent": true,
       "layerVisible": true,
       "layerPointerEvents": "none",
+      "pipVisible": false,
+      "pipImage": {
+        "src": null,
+        "loaded": false,
+        "naturalWidth": 0,
+        "naturalHeight": 0
+      },
+      "pipStyle": {
+        "pointerEvents": "none",
+        "display": "none",
+        "position": "absolute",
+        "filter": "none",
+        "width": "22%",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "10px",
+        "bottom": "10px",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "pipImageStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "static",
+        "filter": "none",
+        "width": "100%",
+        "borderRadius": "6px",
+        "borderWidth": "1px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "pipLabel": "最後の絵",
+      "blurVisible": false,
+      "blurImage": {
+        "src": null,
+        "loaded": false,
+        "naturalWidth": 0,
+        "naturalHeight": 0
+      },
+      "blurStyle": {
+        "pointerEvents": "none",
+        "display": "none",
+        "position": "absolute",
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "0px",
+        "bottom": "0px",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "blurImageStyle": {
+        "pointerEvents": "none",
+        "display": "inline",
+        "position": "static",
+        "filter": "blur(18px) brightness(0.65)",
+        "width": "100%",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "layerRect": {
+        "x": 36,
+        "y": 260.125,
+        "width": 812,
+        "height": 456.75
+      },
+      "tagStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "absolute",
+        "filter": "none",
+        "width": "169.508px",
+        "borderRadius": "4px",
+        "borderWidth": "1px",
+        "right": "1740.49px",
+        "bottom": "1049.3px",
+        "rect": {
+          "x": 40.22916793823242,
+          "y": 264.3541564941406,
+          "width": 71.68768310546875,
+          "height": 8.752410888671875
+        }
+      },
       "tagVisible": true,
       "tagText": "パラパラ 8fps · コマ 17/32",
       "tagSeverity": "frames",
@@ -154,10 +897,500 @@
       "clickableCount": 0,
       "pointerEventsAutoCount": 0
     },
+    "planned-video": {
+      "layerPresent": true,
+      "layerVisible": true,
+      "layerPointerEvents": "none",
+      "pipVisible": true,
+      "pipImage": {
+        "src": "http://127.0.0.1:54235/asset/055b1759f85dbe5084222bb3e801cca98c2aed498b3831ed8961675708504140.png",
+        "loaded": true,
+        "naturalWidth": 1920,
+        "naturalHeight": 1080
+      },
+      "pipStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "absolute",
+        "filter": "none",
+        "width": "422.398px",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "10px",
+        "bottom": "10px",
+        "rect": {
+          "x": 665.1315307617188,
+          "y": 604.2569580078125,
+          "width": 178.63934326171875,
+          "height": 108.388916015625
+        }
+      },
+      "pipImageStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "static",
+        "filter": "none",
+        "width": "422.398px",
+        "borderRadius": "6px",
+        "borderWidth": "1px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 665.1315307617188,
+          "y": 612.1634521484375,
+          "width": 178.63934326171875,
+          "height": 100.482421875
+        }
+      },
+      "pipLabel": "最後の絵",
+      "blurVisible": false,
+      "blurImage": {
+        "src": null,
+        "loaded": false,
+        "naturalWidth": 0,
+        "naturalHeight": 0
+      },
+      "blurStyle": {
+        "pointerEvents": "none",
+        "display": "none",
+        "position": "absolute",
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "0px",
+        "bottom": "0px",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "blurImageStyle": {
+        "pointerEvents": "none",
+        "display": "inline",
+        "position": "static",
+        "filter": "blur(18px) brightness(0.65)",
+        "width": "100%",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "layerRect": {
+        "x": 36,
+        "y": 260.125,
+        "width": 812,
+        "height": 456.75
+      },
+      "tagStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "absolute",
+        "filter": "none",
+        "width": "139.93px",
+        "borderRadius": "4px",
+        "borderWidth": "1px",
+        "right": "1770.07px",
+        "bottom": "1049.3px",
+        "rect": {
+          "x": 40.22916793823242,
+          "y": 264.3541564941406,
+          "width": 59.178592681884766,
+          "height": 8.752410888671875
+        }
+      },
+      "tagVisible": true,
+      "tagText": "▶ 動画予定 · 最初→最後",
+      "tagSeverity": "planned-video",
+      "tagColor": "rgb(230, 223, 255)",
+      "bandVisible": false,
+      "bandText": "",
+      "bandFillWidth": "0%",
+      "shimmerVisible": false,
+      "maskVisible": false,
+      "maskRect": {
+        "left": "15%",
+        "top": "60%",
+        "width": "22%",
+        "height": "22%"
+      },
+      "clickableCount": 0,
+      "pointerEventsAutoCount": 0
+    },
+    "done-still": {
+      "layerPresent": true,
+      "layerVisible": false,
+      "layerPointerEvents": "none",
+      "pipVisible": false,
+      "pipImage": {
+        "src": null,
+        "loaded": false,
+        "naturalWidth": 0,
+        "naturalHeight": 0
+      },
+      "pipStyle": {
+        "pointerEvents": "none",
+        "display": "none",
+        "position": "absolute",
+        "filter": "none",
+        "width": "22%",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "10px",
+        "bottom": "10px",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "pipImageStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "static",
+        "filter": "none",
+        "width": "100%",
+        "borderRadius": "6px",
+        "borderWidth": "1px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "pipLabel": "最後の絵",
+      "blurVisible": false,
+      "blurImage": {
+        "src": null,
+        "loaded": false,
+        "naturalWidth": 0,
+        "naturalHeight": 0
+      },
+      "blurStyle": {
+        "pointerEvents": "none",
+        "display": "none",
+        "position": "absolute",
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "0px",
+        "bottom": "0px",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "blurImageStyle": {
+        "pointerEvents": "none",
+        "display": "inline",
+        "position": "static",
+        "filter": "blur(18px) brightness(0.65)",
+        "width": "100%",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "layerRect": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0
+      },
+      "tagStyle": {
+        "pointerEvents": "none",
+        "display": "none",
+        "position": "absolute",
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "4px",
+        "borderWidth": "1px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "tagVisible": false,
+      "tagText": "▶ 動画予定 · 最初→最後",
+      "tagSeverity": "planned-video",
+      "tagColor": null,
+      "bandVisible": false,
+      "bandText": "",
+      "bandFillWidth": "0%",
+      "shimmerVisible": false,
+      "maskVisible": false,
+      "maskRect": {
+        "left": "15%",
+        "top": "60%",
+        "width": "22%",
+        "height": "22%"
+      },
+      "clickableCount": 0,
+      "pointerEventsAutoCount": 0
+    },
     "export-look": {
       "layerPresent": true,
       "layerVisible": false,
       "layerPointerEvents": "none",
+      "pipVisible": false,
+      "pipImage": {
+        "src": null,
+        "loaded": false,
+        "naturalWidth": 0,
+        "naturalHeight": 0
+      },
+      "pipStyle": {
+        "pointerEvents": "none",
+        "display": "none",
+        "position": "absolute",
+        "filter": "none",
+        "width": "22%",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "10px",
+        "bottom": "10px",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "pipImageStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "static",
+        "filter": "none",
+        "width": "100%",
+        "borderRadius": "6px",
+        "borderWidth": "1px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "pipLabel": "最後の絵",
+      "blurVisible": false,
+      "blurImage": {
+        "src": null,
+        "loaded": false,
+        "naturalWidth": 0,
+        "naturalHeight": 0
+      },
+      "blurStyle": {
+        "pointerEvents": "none",
+        "display": "none",
+        "position": "absolute",
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "0px",
+        "bottom": "0px",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "blurImageStyle": {
+        "pointerEvents": "none",
+        "display": "inline",
+        "position": "static",
+        "filter": "blur(18px) brightness(0.65)",
+        "width": "100%",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "layerRect": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0
+      },
+      "tagStyle": {
+        "pointerEvents": "none",
+        "display": "none",
+        "position": "absolute",
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "4px",
+        "borderWidth": "1px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "tagVisible": false,
+      "tagText": "生成中 · ビート 3 解決",
+      "tagSeverity": "generating",
+      "tagColor": null,
+      "bandVisible": false,
+      "bandText": "生成中 62% · 残り約 40 秒",
+      "bandFillWidth": "62%",
+      "shimmerVisible": false,
+      "maskVisible": false,
+      "maskRect": {
+        "left": "15%",
+        "top": "60%",
+        "width": "22%",
+        "height": "22%"
+      },
+      "clickableCount": 0,
+      "pointerEventsAutoCount": 0
+    },
+    "export-look-planned-video": {
+      "layerPresent": true,
+      "layerVisible": false,
+      "layerPointerEvents": "none",
+      "pipVisible": false,
+      "pipImage": {
+        "src": null,
+        "loaded": false,
+        "naturalWidth": 0,
+        "naturalHeight": 0
+      },
+      "pipStyle": {
+        "pointerEvents": "none",
+        "display": "none",
+        "position": "absolute",
+        "filter": "none",
+        "width": "22%",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "10px",
+        "bottom": "10px",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "pipImageStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "static",
+        "filter": "none",
+        "width": "100%",
+        "borderRadius": "6px",
+        "borderWidth": "1px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "pipLabel": "最後の絵",
+      "blurVisible": false,
+      "blurImage": {
+        "src": null,
+        "loaded": false,
+        "naturalWidth": 0,
+        "naturalHeight": 0
+      },
+      "blurStyle": {
+        "pointerEvents": "none",
+        "display": "none",
+        "position": "absolute",
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "0px",
+        "bottom": "0px",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "blurImageStyle": {
+        "pointerEvents": "none",
+        "display": "inline",
+        "position": "static",
+        "filter": "blur(18px) brightness(0.65)",
+        "width": "100%",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "layerRect": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0
+      },
+      "tagStyle": {
+        "pointerEvents": "none",
+        "display": "none",
+        "position": "absolute",
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "4px",
+        "borderWidth": "1px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
       "tagVisible": false,
       "tagText": "生成中 · ビート 3 解決",
       "tagSeverity": "generating",
@@ -190,15 +1423,121 @@
       "step": "measure",
       "key": "still",
       "layerPresent": true,
-      "layerVisible": true,
+      "layerVisible": false,
       "layerPointerEvents": "none",
-      "tagVisible": true,
-      "tagText": "静止画（仮枠） · ビート 1 フック",
+      "pipVisible": false,
+      "pipImage": {
+        "src": null,
+        "loaded": false,
+        "naturalWidth": 0,
+        "naturalHeight": 0
+      },
+      "pipStyle": {
+        "pointerEvents": "none",
+        "display": "none",
+        "position": "absolute",
+        "filter": "none",
+        "width": "22%",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "10px",
+        "bottom": "10px",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "pipImageStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "static",
+        "filter": "none",
+        "width": "100%",
+        "borderRadius": "6px",
+        "borderWidth": "1px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "pipLabel": "最後の絵",
+      "blurVisible": false,
+      "blurImage": {
+        "src": null,
+        "loaded": false,
+        "naturalWidth": 0,
+        "naturalHeight": 0
+      },
+      "blurStyle": {
+        "pointerEvents": "none",
+        "display": "none",
+        "position": "absolute",
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "0px",
+        "bottom": "0px",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "blurImageStyle": {
+        "pointerEvents": "none",
+        "display": "inline",
+        "position": "static",
+        "filter": "blur(18px) brightness(0.65)",
+        "width": "100%",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "layerRect": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0
+      },
+      "tagStyle": {
+        "pointerEvents": "none",
+        "display": "none",
+        "position": "absolute",
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "4px",
+        "borderWidth": "1px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "tagVisible": false,
+      "tagText": "",
       "tagSeverity": null,
-      "tagColor": "rgb(220, 230, 238)",
+      "tagColor": null,
       "bandVisible": false,
       "bandText": "",
-      "bandFillWidth": "0%",
+      "bandFillWidth": "",
       "shimmerVisible": false,
       "maskVisible": false,
       "maskRect": {
@@ -220,6 +1559,112 @@
       "layerPresent": true,
       "layerVisible": true,
       "layerPointerEvents": "none",
+      "pipVisible": false,
+      "pipImage": {
+        "src": null,
+        "loaded": false,
+        "naturalWidth": 0,
+        "naturalHeight": 0
+      },
+      "pipStyle": {
+        "pointerEvents": "none",
+        "display": "none",
+        "position": "absolute",
+        "filter": "none",
+        "width": "22%",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "10px",
+        "bottom": "10px",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "pipImageStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "static",
+        "filter": "none",
+        "width": "100%",
+        "borderRadius": "6px",
+        "borderWidth": "1px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "pipLabel": "最後の絵",
+      "blurVisible": false,
+      "blurImage": {
+        "src": null,
+        "loaded": false,
+        "naturalWidth": 0,
+        "naturalHeight": 0
+      },
+      "blurStyle": {
+        "pointerEvents": "none",
+        "display": "none",
+        "position": "absolute",
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "0px",
+        "bottom": "0px",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "blurImageStyle": {
+        "pointerEvents": "none",
+        "display": "inline",
+        "position": "static",
+        "filter": "blur(18px) brightness(0.65)",
+        "width": "100%",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "layerRect": {
+        "x": 36,
+        "y": 260.125,
+        "width": 812,
+        "height": 456.75
+      },
+      "tagStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "absolute",
+        "filter": "none",
+        "width": "152.688px",
+        "borderRadius": "4px",
+        "borderWidth": "1px",
+        "right": "1757.31px",
+        "bottom": "1049.3px",
+        "rect": {
+          "x": 40.22916793823242,
+          "y": 264.3541564941406,
+          "width": 64.5740966796875,
+          "height": 8.752410888671875
+        }
+      },
       "tagVisible": true,
       "tagText": "planned · ビート 2 課題",
       "tagSeverity": null,
@@ -248,6 +1693,112 @@
       "layerPresent": true,
       "layerVisible": true,
       "layerPointerEvents": "none",
+      "pipVisible": false,
+      "pipImage": {
+        "src": null,
+        "loaded": false,
+        "naturalWidth": 0,
+        "naturalHeight": 0
+      },
+      "pipStyle": {
+        "pointerEvents": "none",
+        "display": "none",
+        "position": "absolute",
+        "filter": "none",
+        "width": "22%",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "10px",
+        "bottom": "10px",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "pipImageStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "static",
+        "filter": "none",
+        "width": "100%",
+        "borderRadius": "6px",
+        "borderWidth": "1px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "pipLabel": "最後の絵",
+      "blurVisible": true,
+      "blurImage": {
+        "src": "http://127.0.0.1:54235/asset/408961225f91d39a69e27301298de8033efddd3d11d366914d96660e23af4560.png",
+        "loaded": true,
+        "naturalWidth": 1920,
+        "naturalHeight": 1080
+      },
+      "blurStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "absolute",
+        "filter": "none",
+        "width": "1920px",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "0px",
+        "bottom": "0px",
+        "rect": {
+          "x": 36,
+          "y": 260.125,
+          "width": 812,
+          "height": 456.75
+        }
+      },
+      "blurImageStyle": {
+        "pointerEvents": "none",
+        "display": "inline",
+        "position": "static",
+        "filter": "blur(18px) brightness(0.65)",
+        "width": "1920px",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 11.640008926391602,
+          "y": 246.42251586914062,
+          "width": 860.7200317382812,
+          "height": 484.1549987792969
+        }
+      },
+      "layerRect": {
+        "x": 36,
+        "y": 260.125,
+        "width": 812,
+        "height": 456.75
+      },
+      "tagStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "absolute",
+        "filter": "none",
+        "width": "139.93px",
+        "borderRadius": "4px",
+        "borderWidth": "1px",
+        "right": "1770.07px",
+        "bottom": "1049.3px",
+        "rect": {
+          "x": 40.22916793823242,
+          "y": 264.3541564941406,
+          "width": 59.178592681884766,
+          "height": 8.752410888671875
+        }
+      },
       "tagVisible": true,
       "tagText": "生成中 · ビート 3 解決",
       "tagSeverity": "generating",
@@ -276,6 +1827,112 @@
       "layerPresent": true,
       "layerVisible": true,
       "layerPointerEvents": "none",
+      "pipVisible": false,
+      "pipImage": {
+        "src": null,
+        "loaded": false,
+        "naturalWidth": 0,
+        "naturalHeight": 0
+      },
+      "pipStyle": {
+        "pointerEvents": "none",
+        "display": "none",
+        "position": "absolute",
+        "filter": "none",
+        "width": "22%",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "10px",
+        "bottom": "10px",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "pipImageStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "static",
+        "filter": "none",
+        "width": "100%",
+        "borderRadius": "6px",
+        "borderWidth": "1px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "pipLabel": "最後の絵",
+      "blurVisible": false,
+      "blurImage": {
+        "src": null,
+        "loaded": false,
+        "naturalWidth": 0,
+        "naturalHeight": 0
+      },
+      "blurStyle": {
+        "pointerEvents": "none",
+        "display": "none",
+        "position": "absolute",
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "0px",
+        "bottom": "0px",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "blurImageStyle": {
+        "pointerEvents": "none",
+        "display": "inline",
+        "position": "static",
+        "filter": "blur(18px) brightness(0.65)",
+        "width": "100%",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "layerRect": {
+        "x": 36,
+        "y": 260.125,
+        "width": 812,
+        "height": 456.75
+      },
+      "tagStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "absolute",
+        "filter": "none",
+        "width": "162.969px",
+        "borderRadius": "4px",
+        "borderWidth": "1px",
+        "right": "1747.03px",
+        "bottom": "1049.3px",
+        "rect": {
+          "x": 40.22916793823242,
+          "y": 264.3541564941406,
+          "width": 68.92219543457031,
+          "height": 8.752410888671875
+        }
+      },
       "tagVisible": true,
       "tagText": "応答なし · 再取得は右パネル",
       "tagSeverity": null,
@@ -304,6 +1961,112 @@
       "layerPresent": true,
       "layerVisible": false,
       "layerPointerEvents": "none",
+      "pipVisible": false,
+      "pipImage": {
+        "src": null,
+        "loaded": false,
+        "naturalWidth": 0,
+        "naturalHeight": 0
+      },
+      "pipStyle": {
+        "pointerEvents": "none",
+        "display": "none",
+        "position": "absolute",
+        "filter": "none",
+        "width": "22%",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "10px",
+        "bottom": "10px",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "pipImageStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "static",
+        "filter": "none",
+        "width": "100%",
+        "borderRadius": "6px",
+        "borderWidth": "1px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "pipLabel": "最後の絵",
+      "blurVisible": false,
+      "blurImage": {
+        "src": null,
+        "loaded": false,
+        "naturalWidth": 0,
+        "naturalHeight": 0
+      },
+      "blurStyle": {
+        "pointerEvents": "none",
+        "display": "none",
+        "position": "absolute",
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "0px",
+        "bottom": "0px",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "blurImageStyle": {
+        "pointerEvents": "none",
+        "display": "inline",
+        "position": "static",
+        "filter": "blur(18px) brightness(0.65)",
+        "width": "100%",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "layerRect": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0
+      },
+      "tagStyle": {
+        "pointerEvents": "none",
+        "display": "none",
+        "position": "absolute",
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "4px",
+        "borderWidth": "1px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
       "tagVisible": false,
       "tagText": "応答なし · 再取得は右パネル",
       "tagSeverity": null,
@@ -332,6 +2095,112 @@
       "layerPresent": true,
       "layerVisible": true,
       "layerPointerEvents": "none",
+      "pipVisible": false,
+      "pipImage": {
+        "src": null,
+        "loaded": false,
+        "naturalWidth": 0,
+        "naturalHeight": 0
+      },
+      "pipStyle": {
+        "pointerEvents": "none",
+        "display": "none",
+        "position": "absolute",
+        "filter": "none",
+        "width": "22%",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "10px",
+        "bottom": "10px",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "pipImageStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "static",
+        "filter": "none",
+        "width": "100%",
+        "borderRadius": "6px",
+        "borderWidth": "1px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "pipLabel": "最後の絵",
+      "blurVisible": false,
+      "blurImage": {
+        "src": null,
+        "loaded": false,
+        "naturalWidth": 0,
+        "naturalHeight": 0
+      },
+      "blurStyle": {
+        "pointerEvents": "none",
+        "display": "none",
+        "position": "absolute",
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "0px",
+        "bottom": "0px",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "blurImageStyle": {
+        "pointerEvents": "none",
+        "display": "inline",
+        "position": "static",
+        "filter": "blur(18px) brightness(0.65)",
+        "width": "100%",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "layerRect": {
+        "x": 36,
+        "y": 260.125,
+        "width": 812,
+        "height": 456.75
+      },
+      "tagStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "absolute",
+        "filter": "none",
+        "width": "205.188px",
+        "borderRadius": "4px",
+        "borderWidth": "1px",
+        "right": "1704.81px",
+        "bottom": "1049.3px",
+        "rect": {
+          "x": 40.22916793823242,
+          "y": 264.3541564941406,
+          "width": 86.7772216796875,
+          "height": 8.752410888671875
+        }
+      },
       "tagVisible": true,
       "tagText": "失敗 · timeout · 再試行は右パネル",
       "tagSeverity": "error",
@@ -360,6 +2229,112 @@
       "layerPresent": true,
       "layerVisible": true,
       "layerPointerEvents": "none",
+      "pipVisible": false,
+      "pipImage": {
+        "src": null,
+        "loaded": false,
+        "naturalWidth": 0,
+        "naturalHeight": 0
+      },
+      "pipStyle": {
+        "pointerEvents": "none",
+        "display": "none",
+        "position": "absolute",
+        "filter": "none",
+        "width": "22%",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "10px",
+        "bottom": "10px",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "pipImageStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "static",
+        "filter": "none",
+        "width": "100%",
+        "borderRadius": "6px",
+        "borderWidth": "1px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "pipLabel": "最後の絵",
+      "blurVisible": false,
+      "blurImage": {
+        "src": null,
+        "loaded": false,
+        "naturalWidth": 0,
+        "naturalHeight": 0
+      },
+      "blurStyle": {
+        "pointerEvents": "none",
+        "display": "none",
+        "position": "absolute",
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "0px",
+        "bottom": "0px",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "blurImageStyle": {
+        "pointerEvents": "none",
+        "display": "inline",
+        "position": "static",
+        "filter": "blur(18px) brightness(0.65)",
+        "width": "100%",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "layerRect": {
+        "x": 36,
+        "y": 260.125,
+        "width": 812,
+        "height": 456.75
+      },
+      "tagStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "absolute",
+        "filter": "none",
+        "width": "169.508px",
+        "borderRadius": "4px",
+        "borderWidth": "1px",
+        "right": "1740.49px",
+        "bottom": "1049.3px",
+        "rect": {
+          "x": 40.22916793823242,
+          "y": 264.3541564941406,
+          "width": 71.68768310546875,
+          "height": 8.752410888671875
+        }
+      },
       "tagVisible": true,
       "tagText": "パラパラ 8fps · コマ 17/32",
       "tagSeverity": "frames",
@@ -383,6 +2358,274 @@
       "name": "08-frames.png"
     },
     {
+      "step": "measure",
+      "key": "planned-video",
+      "layerPresent": true,
+      "layerVisible": true,
+      "layerPointerEvents": "none",
+      "pipVisible": true,
+      "pipImage": {
+        "src": "http://127.0.0.1:54235/asset/055b1759f85dbe5084222bb3e801cca98c2aed498b3831ed8961675708504140.png",
+        "loaded": true,
+        "naturalWidth": 1920,
+        "naturalHeight": 1080
+      },
+      "pipStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "absolute",
+        "filter": "none",
+        "width": "422.398px",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "10px",
+        "bottom": "10px",
+        "rect": {
+          "x": 665.1315307617188,
+          "y": 604.2569580078125,
+          "width": 178.63934326171875,
+          "height": 108.388916015625
+        }
+      },
+      "pipImageStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "static",
+        "filter": "none",
+        "width": "422.398px",
+        "borderRadius": "6px",
+        "borderWidth": "1px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 665.1315307617188,
+          "y": 612.1634521484375,
+          "width": 178.63934326171875,
+          "height": 100.482421875
+        }
+      },
+      "pipLabel": "最後の絵",
+      "blurVisible": false,
+      "blurImage": {
+        "src": null,
+        "loaded": false,
+        "naturalWidth": 0,
+        "naturalHeight": 0
+      },
+      "blurStyle": {
+        "pointerEvents": "none",
+        "display": "none",
+        "position": "absolute",
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "0px",
+        "bottom": "0px",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "blurImageStyle": {
+        "pointerEvents": "none",
+        "display": "inline",
+        "position": "static",
+        "filter": "blur(18px) brightness(0.65)",
+        "width": "100%",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "layerRect": {
+        "x": 36,
+        "y": 260.125,
+        "width": 812,
+        "height": 456.75
+      },
+      "tagStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "absolute",
+        "filter": "none",
+        "width": "139.93px",
+        "borderRadius": "4px",
+        "borderWidth": "1px",
+        "right": "1770.07px",
+        "bottom": "1049.3px",
+        "rect": {
+          "x": 40.22916793823242,
+          "y": 264.3541564941406,
+          "width": 59.178592681884766,
+          "height": 8.752410888671875
+        }
+      },
+      "tagVisible": true,
+      "tagText": "▶ 動画予定 · 最初→最後",
+      "tagSeverity": "planned-video",
+      "tagColor": "rgb(230, 223, 255)",
+      "bandVisible": false,
+      "bandText": "",
+      "bandFillWidth": "0%",
+      "shimmerVisible": false,
+      "maskVisible": false,
+      "maskRect": {
+        "left": "15%",
+        "top": "60%",
+        "width": "22%",
+        "height": "22%"
+      },
+      "clickableCount": 0,
+      "pointerEventsAutoCount": 0
+    },
+    {
+      "step": "screenshot",
+      "name": "09-planned-video.png"
+    },
+    {
+      "step": "measure",
+      "key": "done-still",
+      "layerPresent": true,
+      "layerVisible": false,
+      "layerPointerEvents": "none",
+      "pipVisible": false,
+      "pipImage": {
+        "src": null,
+        "loaded": false,
+        "naturalWidth": 0,
+        "naturalHeight": 0
+      },
+      "pipStyle": {
+        "pointerEvents": "none",
+        "display": "none",
+        "position": "absolute",
+        "filter": "none",
+        "width": "22%",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "10px",
+        "bottom": "10px",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "pipImageStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "static",
+        "filter": "none",
+        "width": "100%",
+        "borderRadius": "6px",
+        "borderWidth": "1px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "pipLabel": "最後の絵",
+      "blurVisible": false,
+      "blurImage": {
+        "src": null,
+        "loaded": false,
+        "naturalWidth": 0,
+        "naturalHeight": 0
+      },
+      "blurStyle": {
+        "pointerEvents": "none",
+        "display": "none",
+        "position": "absolute",
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "0px",
+        "bottom": "0px",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "blurImageStyle": {
+        "pointerEvents": "none",
+        "display": "inline",
+        "position": "static",
+        "filter": "blur(18px) brightness(0.65)",
+        "width": "100%",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "layerRect": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0
+      },
+      "tagStyle": {
+        "pointerEvents": "none",
+        "display": "none",
+        "position": "absolute",
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "4px",
+        "borderWidth": "1px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "tagVisible": false,
+      "tagText": "▶ 動画予定 · 最初→最後",
+      "tagSeverity": "planned-video",
+      "tagColor": null,
+      "bandVisible": false,
+      "bandText": "",
+      "bandFillWidth": "0%",
+      "shimmerVisible": false,
+      "maskVisible": false,
+      "maskRect": {
+        "left": "15%",
+        "top": "60%",
+        "width": "22%",
+        "height": "22%"
+      },
+      "clickableCount": 0,
+      "pointerEventsAutoCount": 0
+    },
+    {
+      "step": "screenshot",
+      "name": "10-done-still.png"
+    },
+    {
       "step": "PASS",
       "message": "オーバーレイ層 #akari-gen-overlay が webview にある"
     },
@@ -403,8 +2646,8 @@
     },
     {
       "step": "PASS",
-      "message": "静止画（サイドカー無し）の小札に v2 items[].name が出る",
-      "tagText": "静止画（仮枠） · ビート 1 フック"
+      "message": "静止画（サイドカー無し）は小札も層も出さない",
+      "tagVisible": false
     },
     {
       "step": "PASS",
@@ -489,6 +2732,75 @@
       }
     },
     {
+      "step": "PASS",
+      "message": "動画予定の小札（最初→最後）"
+    },
+    {
+      "step": "PASS",
+      "message": "最後の絵の小窓が読み込まれる"
+    },
+    {
+      "step": "PASS",
+      "message": "小窓の幅はステージの約 22%"
+    },
+    {
+      "step": "PASS",
+      "message": "小窓は右下"
+    },
+    {
+      "step": "PASS",
+      "message": "小窓は角丸と細枠"
+    },
+    {
+      "step": "PASS",
+      "message": "小窓・絵・小札はクリックを奪わない"
+    },
+    {
+      "step": "PASS",
+      "message": "動画予定ではぼかしと生成中の帯を出さない"
+    },
+    {
+      "step": "PASS",
+      "message": "done still は小札なし"
+    },
+    {
+      "step": "PASS",
+      "message": "画像のままでは小窓・背景なし"
+    },
+    {
+      "step": "PASS",
+      "message": "生成中は参照のぼかし背景を読み込む"
+    },
+    {
+      "step": "PASS",
+      "message": "生成中の背景に computed blur がある",
+      "style": {
+        "pointerEvents": "none",
+        "display": "inline",
+        "position": "static",
+        "filter": "blur(18px) brightness(0.65)",
+        "width": "1920px",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 11.640008926391602,
+          "y": 246.42251586914062,
+          "width": 860.7200317382812,
+          "height": 484.1549987792969
+        }
+      }
+    },
+    {
+      "step": "PASS",
+      "message": "ぼかし背景はクリックを奪わない"
+    },
+    {
+      "step": "PASS",
+      "message": "生成中は小窓なし、stale はぼかしなし"
+    },
+    {
       "step": "export-look",
       "prefSet": true
     },
@@ -498,6 +2810,112 @@
       "layerPresent": true,
       "layerVisible": false,
       "layerPointerEvents": "none",
+      "pipVisible": false,
+      "pipImage": {
+        "src": null,
+        "loaded": false,
+        "naturalWidth": 0,
+        "naturalHeight": 0
+      },
+      "pipStyle": {
+        "pointerEvents": "none",
+        "display": "none",
+        "position": "absolute",
+        "filter": "none",
+        "width": "22%",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "10px",
+        "bottom": "10px",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "pipImageStyle": {
+        "pointerEvents": "none",
+        "display": "block",
+        "position": "static",
+        "filter": "none",
+        "width": "100%",
+        "borderRadius": "6px",
+        "borderWidth": "1px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "pipLabel": "最後の絵",
+      "blurVisible": false,
+      "blurImage": {
+        "src": null,
+        "loaded": false,
+        "naturalWidth": 0,
+        "naturalHeight": 0
+      },
+      "blurStyle": {
+        "pointerEvents": "none",
+        "display": "none",
+        "position": "absolute",
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "0px",
+        "bottom": "0px",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "blurImageStyle": {
+        "pointerEvents": "none",
+        "display": "inline",
+        "position": "static",
+        "filter": "blur(18px) brightness(0.65)",
+        "width": "100%",
+        "borderRadius": "0px",
+        "borderWidth": "0px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "layerRect": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0
+      },
+      "tagStyle": {
+        "pointerEvents": "none",
+        "display": "none",
+        "position": "absolute",
+        "filter": "none",
+        "width": "auto",
+        "borderRadius": "4px",
+        "borderWidth": "1px",
+        "right": "auto",
+        "bottom": "auto",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
       "tagVisible": false,
       "tagText": "生成中 · ビート 3 解決",
       "tagSeverity": "generating",
@@ -529,7 +2947,19 @@
     },
     {
       "step": "PASS",
-      "message": "OFF に戻すとオーバーレイが戻る",
+      "message": "exportLook ON でぼかし・小窓・シマー・小札・帯が非表示"
+    },
+    {
+      "step": "screenshot",
+      "name": "11-export-look-planned-video.png"
+    },
+    {
+      "step": "PASS",
+      "message": "exportLook ON で動画予定の小札と小窓が消える"
+    },
+    {
+      "step": "PASS",
+      "message": "OFF に戻すとオーバーレイと小窓が戻る",
       "layerVisible": true
     }
   ],

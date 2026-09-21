@@ -1,5 +1,6 @@
 import {
     GenerationMetaV1,
+    describeNextDraft as describeNextDraftHelper,
     resolveGenerationState as resolveGenerationStateHelper
 } from '@akari-video/edit-store';
 
@@ -7,28 +8,33 @@ export interface GenerationBindingView {
     expected: string;
     actual: string | null;
     matches: boolean;
-    source: 'result' | 'first_frame';
+    source: 'result' | 'first_frame' | 'placeholder';
 }
 
 export type GenerationState = 'none' | 'planned' | 'generating' | 'stale' | 'done' | 'failed' | 'orphan';
 
-// webview へ Function.prototype.toString() で流し込むため、helper は module 定数へ束ねる。
-// import 束縛のままだと tsc(commonjs) が `edit_store_1.resolveGenerationState` へ畳み、
-// toString() した関数が webview で ReferenceError になる（隣の isCutAudioAudible と同じ罠）。
+// host の既定引数用。production build はこの名前も minify するため、
+// toString() で webview へ渡した関数には helper を必ず引数で明示する。
 const resolveGenerationStateV1 = resolveGenerationStateHelper;
+const describeNextDraftV1 = describeNextDraftHelper;
 
-/** webview の bootstrap が同名で先に注入するための実体。 */
+/** webview に単体で注入し、ラッパー関数へ引数で渡す自己完結の helper。 */
 export const generationStateHelperV1 = resolveGenerationStateV1;
+export const generationNextDraftHelperV1 = describeNextDraftV1;
 
 export interface GenerationOverlayDescription {
     tag: string | null;
+    /** 動画予定の最後の絵（プロジェクト相対パス）。孤児の旧記述では省略。 */
+    pip?: string | null;
+    /** 生成中にぼかして表示する参照の絵。孤児の旧記述では省略。 */
+    blurBackground?: string | null;
     band: { text: string; progress: number | null } | null;
     shimmer: boolean;
     maskRect: { x: number; y: number; w: number; h: number } | null;
 }
 
 export interface DescribeOverlayOptions {
-    /** クリップのソースパス。サイドカー無しの静止画判定に使う（png/jpg/jpeg/webp）。 */
+    /** クリップのソースパス。生成中の参照画像が無い場合の背景に使う。 */
     sourcePath?: string;
     /** クリップ内のローカル時刻（秒）。kind:"frames" のコマ番号に使う。 */
     localTimeSec?: number;
@@ -36,7 +42,12 @@ export interface DescribeOverlayOptions {
     clipDurationSec?: number;
 }
 
-export function resolveGenerationState(meta: unknown, nowMs: number, binding?: unknown): GenerationState {
+export function resolveGenerationState(
+    meta: unknown,
+    nowMs: number,
+    binding?: unknown,
+    resolveHelper: typeof resolveGenerationStateHelper = resolveGenerationStateV1
+): GenerationState {
     try {
         if (binding && typeof binding === 'object' && !Array.isArray(binding)
             && (binding as { matches?: unknown }).matches === false) return 'orphan';
@@ -45,7 +56,7 @@ export function resolveGenerationState(meta: unknown, nowMs: number, binding?: u
         if (value.version !== undefined && value.version !== 1) return 'none';
         if (value.status !== 'planned' && value.status !== 'generating'
             && value.status !== 'done' && value.status !== 'failed') return 'none';
-        const state = resolveGenerationStateV1(meta as GenerationMetaV1, nowMs);
+        const state = resolveHelper(meta as GenerationMetaV1, nowMs);
         if (state === 'none' || state === 'planned' || state === 'generating'
             || state === 'stale' || state === 'done' || state === 'failed' || state === 'orphan') return state;
         return 'none';
@@ -58,13 +69,16 @@ export function describeOverlay(
     state: GenerationState,
     meta: unknown,
     beatLabel: string,
-    options: DescribeOverlayOptions = {}
+    options: DescribeOverlayOptions = {},
+    nextDraftHelper: typeof describeNextDraftHelper = describeNextDraftV1
 ): GenerationOverlayDescription {
     const empty = (): GenerationOverlayDescription => ({
         tag: null,
         band: null,
         shimmer: false,
-        maskRect: null
+        maskRect: null,
+        pip: null,
+        blurBackground: null
     });
     try {
         const value = meta && typeof meta === 'object' && !Array.isArray(meta)
@@ -92,10 +106,55 @@ export function describeOverlay(
             const reason = typeof reasonValue === 'string' || typeof reasonValue === 'number'
                 ? String(reasonValue) : 'unknown';
             return {
-                tag: `失敗 · ${reason} · 再試行は右パネル`,
-                band: null,
-                shimmer: false,
-                maskRect: null
+                ...empty(),
+                tag: `失敗 · ${reason} · 再試行は右パネル`
+            };
+        }
+
+        if (state === 'generating') {
+            const progress = objectAt(value, 'progress');
+            const job = objectAt(value, 'job');
+            const jobProgress = objectAt(job, 'progress');
+            const percentCandidate = progress.percent ?? jobProgress.percent ?? job.progress_percent;
+            const percentValue = finiteNumber(percentCandidate);
+            const percent = percentValue !== undefined && percentValue >= 0 && percentValue <= 100
+                ? percentValue : undefined;
+            const etaCandidate = progress.eta_s ?? jobProgress.eta_s ?? job.eta_s;
+            const etaValue = finiteNumber(etaCandidate);
+            const eta = etaValue !== undefined && etaValue >= 0 ? Math.round(etaValue) : undefined;
+            const text = percent !== undefined && eta !== undefined
+                ? `生成中 ${percent}% · 残り約 ${eta} 秒`
+                : percent !== undefined
+                    ? `生成中 ${percent}%`
+                    : eta !== undefined
+                        ? `生成中 · 残り約 ${eta} 秒`
+                        : '生成中';
+            const firstFramePath = objectAt(value.inputs, 'first_frame').path;
+            return {
+                ...empty(),
+                tag: `生成中 · ${beatLabel}`,
+                band: { text, progress: percent === undefined ? null : percent / 100 },
+                shimmer: true,
+                blurBackground: typeof firstFramePath === 'string' && firstFramePath.trim()
+                    ? firstFramePath : options.sourcePath || null
+            };
+        }
+        if (state === 'stale') {
+            return {
+                ...empty(),
+                tag: '応答なし · 再取得は右パネル',
+                band: { text: '応答なし', progress: null }
+            };
+        }
+
+        const next = nextDraftHelper(value as unknown as GenerationMetaV1);
+        if (next) {
+            const labels = { prompt: 'プロンプトだけ', first: '画像から', 'first-last': '最初→最後', references: '参照から' };
+            return {
+                ...empty(),
+                tag: `▶ 動画予定 · ${labels[next.variety]}`,
+                pip: typeof next.lastFrame?.path === 'string' && next.lastFrame.path.trim()
+                    ? next.lastFrame.path : null
             };
         }
 
@@ -136,54 +195,14 @@ export function describeOverlay(
                 : totalFrames === undefined
                     ? `パラパラ ${fps}fps · コマ ${frame}`
                     : `パラパラ ${fps}fps · コマ ${frame}/${totalFrames}`;
-            return { tag, band: null, shimmer: false, maskRect };
+            return { ...empty(), tag, maskRect };
         }
 
-        if (state === 'none') {
-            return typeof options.sourcePath === 'string' && /\.(?:png|jpe?g|webp)$/iu.test(options.sourcePath)
-                ? { tag: `静止画（仮枠） · ${beatLabel}`, band: null, shimmer: false, maskRect: null }
-                : empty();
-        }
         if (state === 'planned') {
-            return { tag: `planned · ${beatLabel}`, band: null, shimmer: false, maskRect: null };
-        }
-        if (state === 'generating') {
-            const progress = objectAt(value, 'progress');
-            const job = objectAt(value, 'job');
-            const percentCandidate = progress.percent ?? job.progress_percent;
-            const percentValue = finiteNumber(percentCandidate);
-            const percent = percentValue !== undefined && percentValue >= 0 && percentValue <= 100
-                ? percentValue : undefined;
-            const etaCandidate = progress.eta_s ?? job.eta_s;
-            const etaValue = finiteNumber(etaCandidate);
-            const eta = etaValue !== undefined && etaValue >= 0 ? Math.round(etaValue) : undefined;
-            const text = percent !== undefined && eta !== undefined
-                ? `生成中 ${percent}% · 残り約 ${eta} 秒`
-                : percent !== undefined
-                    ? `生成中 ${percent}%`
-                    : eta !== undefined
-                        ? `生成中 · 残り約 ${eta} 秒`
-                        : '生成中';
-            return {
-                tag: `生成中 · ${beatLabel}`,
-                band: { text, progress: percent === undefined ? null : percent / 100 },
-                shimmer: true,
-                maskRect: null
-            };
-        }
-        if (state === 'stale') {
-            return {
-                tag: '応答なし · 再取得は右パネル',
-                band: { text: '応答なし', progress: null },
-                shimmer: false,
-                maskRect: null
-            };
-        }
-        if (state === 'done' && value.kind === 'still') {
-            return { tag: `静止画（仮枠） · ${beatLabel}`, band: null, shimmer: false, maskRect: null };
+            return { ...empty(), tag: `planned · ${beatLabel}` };
         }
         return empty();
     } catch {
-        return { tag: null, band: null, shimmer: false, maskRect: null };
+        return empty();
     }
 }

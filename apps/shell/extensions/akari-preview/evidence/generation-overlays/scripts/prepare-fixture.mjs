@@ -1,17 +1,20 @@
 #!/usr/bin/env node
 // generation-overlays L1 fixture (wrapper-authored verification script).
 //
-// 7 クリップを 4 秒ずつ並べた出力プレビュー用プロジェクト。各クリップのソースの隣に
+// 9 クリップを 4 秒ずつ並べた出力プレビュー用プロジェクト。各クリップのソースの隣に
 // <path>.meta.json（生成 v0 契約 §3 のサイドカー）を置き、
 // 再生ヘッドをそのクリップへ送ったときの小札・帯・シマー・編集領域の点線を実機で観る。
 //
-//   0- 4s still      サイドカー無しの png              → 「静止画（仮枠） · <名前>」
+//   0- 4s still      サイドカー無しの png              → 小札なし
 //   4- 8s planned    status:"planned"                  → 「planned · <名前>」
 //   8-12s generating status:"generating"（started_at = 実行時刻）→ 小札 + 帯 + シマー
 //  12-16s stale      status:"generating" + 古い started_at + stale_after_s:900 → 「応答なし」
 //  16-20s done       status:"done"（w0 スパイクの実 meta を写す）→ 何も出さない
 //  20-24s failed     status:"failed" / error.reason:"timeout" → 朱の小札
 //  24-28s frames     kind:"frames" / output.fps:8 / inputs.extra.mask_rect → パラパラ + 点線
+//
+//  28-32s planned-video next: video / planned、最初と最後は別の png → 小札 + 右下小窓
+//  32-36s done-still  status:done / kind:still → 小札なし
 //
 // Usage: node prepare-fixture.mjs <workspace> <ffmpeg> <repoRoot>
 import { spawnSync } from 'node:child_process';
@@ -37,6 +40,8 @@ const CLIPS = [
   { key: 'done', name: 'ビート 5 完成', hue: '0x1d4f3a', ext: 'mp4' },
   { key: 'failed', name: 'ビート 6 失敗', hue: '0x4f1d1d', ext: 'png' },
   { key: 'frames', name: 'ビート 7 犬の散歩', hue: '0x1d4f4f', ext: 'png' },
+  { key: 'planned-video', name: 'ビート 8 動画予定', hue: '0x27455f', ext: 'png' },
+  { key: 'done-still', name: 'ビート 9 画像のまま', hue: '0x526238', ext: 'png' },
 ];
 
 for (const clip of CLIPS) {
@@ -44,8 +49,15 @@ for (const clip of CLIPS) {
   if (clip.ext === 'mp4') {
     run(['-f', 'lavfi', '-i', `color=c=${clip.hue}:s=1920x1080:d=6:r=30`, '-c:v', 'libx264', '-pix_fmt', 'yuv420p', out]);
   } else {
-    run(['-f', 'lavfi', '-i', `color=c=${clip.hue}:s=1920x1080:d=1:r=1`, '-frames:v', '1', out]);
+    run(['-f', 'lavfi', '-i', `color=c=${clip.hue}:s=1920x1080:d=1:r=1`, '-vf', 'drawbox=x=250:y=180:w=500:h=700:color=white@0.6:t=fill', '-frames:v', '1', out]);
   }
+}
+
+// 濃淡と輪郭がある別々の絵で、小窓の違いとぼかし効果を観測する。
+for (const [name, hue, x] of [['first-frame', '0x675326', 300], ['last-frame', '0x376943', 1100]]) {
+  run(['-f', 'lavfi', '-i', `color=c=${hue}:s=1920x1080:d=1:r=1`,
+    '-vf', `drawbox=x=${x}:y=240:w=500:h=600:color=white@0.8:t=fill`,
+    '-frames:v', '1', path.join(assets, `${name}.png`)]);
 }
 
 const iso = (ms) => new Date(ms).toISOString();
@@ -62,6 +74,18 @@ const baseInputs = () => ({
 });
 
 const sidecars = {
+  'planned-video': {
+    version: 1, kind: 'still', status: 'done',
+    next: {
+      kind: 'video', status: 'planned', model: baseModel,
+      inputs: { ...baseInputs(), frames_or_refs: 'frames',
+        first_frame: { path: 'assets/planned-video.png', sha256: null },
+        last_frame: { path: 'assets/last-frame.png', sha256: null } },
+      output: { duration_s: 4, resolution: '768P', aspect: null, audio_out: null },
+      updated_at: iso(now),
+    },
+  },
+  'done-still': { version: 1, kind: 'still', status: 'done' },
   planned: {
     version: 1, kind: 'still', status: 'planned', model: baseModel, inputs: baseInputs(),
     output: { duration_s: 4, resolution: '768P', aspect: null, audio_out: null },
@@ -72,7 +96,8 @@ const sidecars = {
     history: [{ at: iso(now), status: 'planned', reason: null }],
   },
   generating: {
-    version: 1, kind: 'video', status: 'generating', model: baseModel, inputs: baseInputs(),
+    version: 1, kind: 'video', status: 'generating', model: baseModel,
+    inputs: { ...baseInputs(), first_frame: { path: 'assets/first-frame.png', sha256: null } },
     output: { duration_s: 4, resolution: '768P', aspect: null, audio_out: null },
     cost: { estimate_usd: 0.24, actual_usd: null, unit: 'usd_per_second', source: 'estimate' },
     progress: { percent: 62, eta_s: 40 },

@@ -39,7 +39,8 @@ test('reduced motion、exportLook、生成更新メッセージを webview HTML 
     assert.match(previewBootstrapMethod, /akari-preview-set-export-look/u);
     assert.match(previewBootstrapMethod, /akari-preview-generation-update/u);
     assert.match(previewBootstrapMethod, /updateGenerationOverlay\(outputTime\)/u);
-    assert.match(previewBootstrapMethod, /resolveGenerationStateFn\(clip\.meta, Date\.now\(\), clip\.binding\)/u);
+    assert.match(previewBootstrapMethod, /describeOverlayFn\(state, clip\.meta, String\(clip\.name \|\| clip\.id \|\| ''\), \{[^}]*clipDurationSec: clip\.end - clip\.start\s*\}, describeNextDraftV1\)/u);
+    assert.match(previewBootstrapMethod, /resolveGenerationStateFn\(clip\.meta, Date\.now\(\), clip\.binding, resolveGenerationStateV1\)/u);
 });
 
 test('sendGenerationUpdate は clip ごとに first frame 逆引きを使う', () => {
@@ -62,4 +63,226 @@ test('bootstrap は状態 helper を状態ラッパーより前に注入する',
     const wrapper = previewBootstrapMethod.indexOf('const resolveGenerationStateFn = (');
     assert.ok(helper >= 0);
     assert.ok(wrapper > helper);
+});
+
+
+test('小窓とぼかし背景は既存 overlay 内でクリックを奪わず、シマーと帯の下に背景を置く', () => {
+    const start = prepareHtmlMethod.indexOf('<div id="akari-gen-overlay"');
+    const end = prepareHtmlMethod.indexOf('\n          </div>', start);
+    const overlay = prepareHtmlMethod.slice(start, end);
+    for (const id of ['akari-gen-pip', 'akari-gen-blur']) {
+        assert.ok(overlay.includes(`id="${id}"`));
+        assert.match(prepareHtmlMethod, new RegExp(`#${id}\\s*\\{[^}]*pointer-events:\\s*none`, 'u'));
+    }
+    assert.match(overlay, /最後の絵/u);
+    assert.ok(overlay.indexOf('id="akari-gen-blur"') < overlay.indexOf('id="akari-gen-shimmer"'));
+    assert.match(prepareHtmlMethod, /#akari-gen-pip\s*\{[^}]*width: 22%/u);
+    assert.match(prepareHtmlMethod, /#akari-gen-blur-image\s*\{[^}]*filter: blur\(/u);
+    assert.match(previewBootstrapMethod, /generationPip.hidden = true/u);
+    assert.match(previewBootstrapMethod, /generationBlur.hidden = true/u);
+    assert.match(previewBootstrapMethod, /setGenerationImage\(generationPip, generationPipImage, description.pip, clip.pipUri\)/u);
+    assert.match(previewBootstrapMethod, /setGenerationImage\(generationBlur, generationBlurImage, description.blurBackground, clip.blurBackgroundUri\)/u);
+});
+
+test('next helper を describeOverlay より前に注入し、画像 URI を既存素材ストリームから同梱する', () => {
+    const helper = previewBootstrapMethod.indexOf('const describeNextDraftV1 = (');
+    const description = previewBootstrapMethod.indexOf('const describeOverlayFn = (');
+    assert.ok(helper >= 0 && description > helper);
+    const send = methods.get('sendGenerationUpdate');
+    assert.match(send, /this.resolveEditAssetUri\(path, editUri\)/u);
+    assert.match(send, /this.createAssetStream\(\{ assetUri \}\)/u);
+    assert.match(send, /akariPreviewAssetStreamIds/u);
+    assert.match(send, /return \{ \.\.\.clip, pipUri, blurBackgroundUri \}/u);
+    assert.match(send, /clips: resolvedClips/u);
+});
+
+// 実メソッドを ESM に隔離し、配信経路だけスタブで観測する（Theia の起動は不要）。
+async function generationSenderFixture() {
+    const modelUrl = new URL('../lib/common/generation-overlay-model.js', import.meta.url).href;
+    const storeUrl = new URL('../../../../../packages/edit-store/lib/generation-meta.js', import.meta.url).href;
+    const code = ts.transpileModule(`
+        import { describeOverlay, resolveGenerationState } from ${JSON.stringify(modelUrl)};
+        import { selectGenerationSidecarForSource } from ${JSON.stringify(storeUrl)};
+        export default class Sender { ${methods.get('queueGenerationUpdate')} ${methods.get('sendGenerationUpdate')} }
+    `, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext } }).outputText;
+    const Sender = (await import(`data:text/javascript;base64,${Buffer.from(code).toString('base64')}`)).default;
+    const sender = new Sender();
+    const calls = [], messages = [], disposed = [];
+    const widget = {
+        isDisposed: false,
+        akariPreviewAssetUrlByUri: new Map(),
+        akariPreviewAssetStreamIds: [],
+        akariPreviewEditUri: new URL('file:///project/edit.json'),
+        akariPreviewSummary: { cuts: [{ id: 'plan', sourcePath: 'assets/still.png' }, { id: 'job', sourcePath: 'assets/job.png' }], output: { fps: 30 } },
+        sendMessage: value => messages.push(value)
+    };
+    sender.currentWorkspaceRoots = async () => ['file:///project'];
+    sender.resolveEditAssetUri = (path, editUri) => new URL(path, editUri);
+    sender.createAssetStream = async request => {
+        calls.push(request.assetUri);
+        return { id: `stream-${calls.length}`, url: `http://127.0.0.1/assets/${calls.length}` };
+    };
+    sender.disposeAssetStreams = async ids => disposed.push(...ids);
+    sender.preferences = { get: () => false };
+    sender.previewCaptionTimelineSegments = () => [0, 1].map(cutIndex => ({ kind: 'src', cutIndex, outStart: cutIndex * 4, outEnd: cutIndex * 4 + 4 }));
+    sender.previewService = { readGenerationSidecars: async () => ({ itemNames: {}, entries: [
+        { sourcePath: 'assets/still.png', meta: { kind: 'still', status: 'done', next: {
+            kind: 'video', status: 'planned', model: { id: 'model' },
+            inputs: { first_frame: { path: 'assets/still.png' }, last_frame: { path: 'assets/last image.png' } }
+        } } },
+        { sourcePath: 'assets/job.png', meta: { kind: 'video', status: 'generating', inputs: { first_frame: { path: 'assets/reference.png' } } } }
+    ] }) };
+    return { sender, widget, calls, messages, disposed };
+}
+
+test('sendGenerationUpdate は小窓・背景の URI を配信し、再更新でストリームを再利用する', async () => {
+    const { sender, widget, calls, messages } = await generationSenderFixture();
+    await sender.sendGenerationUpdate(widget);
+    await sender.sendGenerationUpdate(widget);
+    assert.deepEqual(calls, ['file:///project/assets/last%20image.png', 'file:///project/assets/reference.png']);
+    assert.equal(messages.length, 4);
+    assert.equal(messages[0].type, 'akari-preview-generation-update');
+    assert.deepEqual(messages[1].clips.map(({ pipUri, blurBackgroundUri }) => ({ pipUri, blurBackgroundUri })), [
+        { pipUri: 'http://127.0.0.1/assets/1', blurBackgroundUri: null },
+        { pipUri: null, blurBackgroundUri: 'http://127.0.0.1/assets/2' }
+    ]);
+    assert.deepEqual(widget.akariPreviewAssetStreamIds, ['stream-1', 'stream-2']);
+});
+
+test('画像の解決中にプレビューが閉じたらストリームを破棄し追加更新を送らない', async () => {
+    const { sender, widget, messages, disposed } = await generationSenderFixture();
+    sender.createAssetStream = async () => {
+        widget.isDisposed = true;
+        return { id: 'late-stream', url: 'http://127.0.0.1/assets/late' };
+    };
+    await sender.sendGenerationUpdate(widget);
+    assert.deepEqual(disposed, ['late-stream']);
+    assert.equal(messages.length, 1, '破棄前に状態を送り、破棄後は追加送信しない');
+    assert.ok(messages[0].clips.every(clip => clip.pipUri === null && clip.blurBackgroundUri === null));
+});
+
+test('URI 解決中に summary と素材 Map が置き換わっても状態更新を捨てない', async () => {
+    const { sender, widget, messages, calls, disposed } = await generationSenderFixture();
+    const create = sender.createAssetStream;
+    sender.createAssetStream = async request => {
+        widget.akariPreviewSummary = { ...widget.akariPreviewSummary };
+        widget.akariPreviewAssetUrlByUri = new Map();
+        return create(request);
+    };
+    await sender.sendGenerationUpdate(widget);
+    assert.ok(messages.length > 0, '競合しても generation-update を送る');
+    assert.equal(messages.at(-1).type, 'akari-preview-generation-update');
+    assert.deepEqual(messages.at(-1).clips.map(clip => clip.meta.status), ['done', 'generating']);
+    assert.ok(messages.at(-1).clips.every(clip => clip.pipUri === null && clip.blurBackgroundUri === null));
+    assert.deepEqual(disposed, calls.map((_, index) => `stream-${index + 1}`));
+    assert.deepEqual(widget.akariPreviewAssetStreamIds, []);
+});
+
+
+test('素材 Map が未準備でも Map を作らず、取得ストリームを既存の破棄リストへ渡す', async () => {
+    const { sender, widget, messages, disposed } = await generationSenderFixture();
+    widget.akariPreviewAssetUrlByUri = undefined;
+    await sender.sendGenerationUpdate(widget);
+    assert.equal(widget.akariPreviewAssetUrlByUri, undefined);
+    assert.deepEqual(widget.akariPreviewAssetStreamIds, ['stream-1', 'stream-2']);
+    assert.equal(messages.at(-1).clips[0].pipUri, 'http://127.0.0.1/assets/1');
+    assert.equal(messages.at(-1).clips[1].blurBackgroundUri, 'http://127.0.0.1/assets/2');
+    assert.deepEqual(disposed, []);
+});
+
+test('画像 RPC が未完了でも状態は先に届き、失敗しても小札と帯の meta は届く', async t => {
+    const warnings = [];
+    t.mock.method(console, 'warn', (...args) => warnings.push(args));
+    const { sender, widget, messages } = await generationSenderFixture();
+    let rejectImage;
+    let started;
+    const imageStarted = new Promise(resolve => { started = resolve; });
+    sender.createAssetStream = () => {
+        started();
+        return new Promise((_, reject) => { rejectImage = reject; });
+    };
+    const update = sender.sendGenerationUpdate(widget);
+    await imageStarted;
+    assert.equal(messages.length, 1);
+    assert.deepEqual(messages[0].clips.map(clip => clip.meta.status), ['done', 'generating']);
+    sender.createAssetStream = async () => { throw new Error('missing reference'); };
+    rejectImage(new Error('missing last frame'));
+    await update;
+    assert.ok(messages.at(-1).clips.every(clip => clip.pipUri === null && clip.blurBackgroundUri === null));
+    assert.equal(warnings.length, 2);
+});
+
+test('summary だけの差し替えは画像を捨てず、最新の cuts で更新する', async () => {
+    const { sender, widget, messages, disposed } = await generationSenderFixture();
+    const create = sender.createAssetStream;
+    sender.createAssetStream = async request => {
+        widget.akariPreviewSummary = {
+            ...widget.akariPreviewSummary,
+            cuts: widget.akariPreviewSummary.cuts.map(cut => ({ ...cut, id: cut.id + '-updated' }))
+        };
+        return create(request);
+    };
+    await sender.sendGenerationUpdate(widget);
+    assert.deepEqual(messages.at(-1).clips.map(clip => clip.id), widget.akariPreviewSummary.cuts.map(cut => cut.id));
+    assert.ok(messages.at(-1).clips[0].pipUri);
+    assert.ok(messages.at(-1).clips[1].blurBackgroundUri);
+    assert.deepEqual(disposed, []);
+});
+
+test('取得済み画像がある途中でストリーム所有リストが替われば全取得分を破棄する', async () => {
+    const { sender, widget, messages, disposed } = await generationSenderFixture();
+    const create = sender.createAssetStream;
+    sender.createAssetStream = async request => {
+        const stream = await create(request);
+        if (stream.id === 'stream-2') widget.akariPreviewAssetStreamIds = ['new-preview-stream'];
+        return stream;
+    };
+    await sender.sendGenerationUpdate(widget);
+    assert.deepEqual(disposed, ['stream-1', 'stream-2']);
+    assert.deepEqual(widget.akariPreviewAssetStreamIds, ['new-preview-stream']);
+    assert.ok(messages.at(-1).clips.every(clip => clip.pipUri === null && clip.blurBackgroundUri === null));
+});
+
+test('生成更新キューはプレビュー読み込み完了を待ち、サイドカーの再要求も順に送る', async () => {
+    const { sender, widget, messages } = await generationSenderFixture();
+    let finishRefresh;
+    widget.akariPreviewRefresh = new Promise(resolve => { finishRefresh = resolve; });
+    sender.queueGenerationUpdate(widget);
+    await Promise.resolve();
+    assert.deepEqual(messages, []);
+    widget.akariPreviewAssetUrlByUri = new Map();
+    widget.akariPreviewSummary = { ...widget.akariPreviewSummary };
+    finishRefresh();
+    await widget.akariPreviewGenerationUpdate;
+    assert.equal(messages.length, 2);
+    sender.queueGenerationUpdate(widget);
+    await widget.akariPreviewGenerationUpdate;
+    assert.equal(messages.length, 4);
+});
+
+
+test('webview の全ラッパー呼び出しは minify された既定値に頼らず helper を明示する', () => {
+    const counts = { resolveGenerationStateFn: 0, describeOverlayFn: 0 };
+    // bootstrap は template literal 内なので、呼び出しを含む固定部分を別途 JS として検査する。
+    const start = previewBootstrapMethod.indexOf('const updateGenerationOverlay =');
+    const end = previewBootstrapMethod.indexOf('const onMainVideoLoadedMetadata =', start);
+    assert.ok(start >= 0 && end > start);
+    const update = ts.createSourceFile('generation-update.js', previewBootstrapMethod.slice(start, end), ts.ScriptTarget.Latest, true);
+    const visitCalls = node => {
+        if (ts.isCallExpression(node) && ts.isIdentifier(node.expression)) {
+            const name = node.expression.text;
+            if (Object.hasOwn(counts, name)) {
+                counts[name]++;
+                const state = name === 'resolveGenerationStateFn';
+                assert.equal(node.arguments.length, state ? 4 : 5);
+                assert.equal(node.arguments.at(-1).getText(update), state ? 'resolveGenerationStateV1' : 'describeNextDraftV1');
+            }
+        }
+        ts.forEachChild(node, visitCalls);
+    };
+    visitCalls(update);
+    for (const [name, count] of Object.entries(counts)) {
+        assert.ok(count > 0);
+        assert.equal(previewBootstrapMethod.split(name + '(').length - 1, count, `${name}: 検査外の呼び出しが無い`);
+    }
 });

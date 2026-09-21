@@ -221,6 +221,7 @@ import { ReviewSessionRecordingIndicator } from './review-session-recording-indi
 import {
     describeOverlay,
     generationStateHelperV1,
+    generationNextDraftHelperV1,
     resolveGenerationState
 } from '../common/generation-overlay-model';
 
@@ -7115,6 +7116,12 @@ ${kind === 'raw' ? '.akari-material-chip { position: absolute; top: 8px; left: 8
 #overlay-stage { position: absolute; top: 0; left: 0; width: ${width}px; height: ${height}px; overflow: hidden; pointer-events: none; }
 #akari-gen-overlay { position: absolute; inset: 0; pointer-events: none; z-index: 2100; }
 #akari-gen-overlay *, #akari-gen-overlay *::before, #akari-gen-overlay *::after { pointer-events: none; }
+#akari-gen-blur { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+#akari-gen-blur-image { width: 100%; height: 100%; object-fit: cover; filter: blur(18px) brightness(.65); transform: scale(1.06); pointer-events: none; }
+#akari-gen-pip { position: absolute; right: 10px; bottom: 10px; width: 22%; pointer-events: none; }
+#akari-gen-pip-image { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: contain; background: rgba(0,0,0,.6); border-radius: 6px; border: 1px solid #A99AF2; box-sizing: border-box; pointer-events: none; }
+#akari-gen-pip-label { display: block; margin-bottom: 4px; font: 10.5px/1.4 ui-monospace, Menlo, monospace; color: #E6DFFF; text-shadow: 0 1px 3px #000; }
+#akari-gen-tag[data-akari-gen-severity="planned-video"] { border-color: #A99AF2; color: #E6DFFF; background: rgba(42,28,72,.8); }
 #akari-gen-tag { position: absolute; left: 10px; top: 10px; font: 10.5px/1.4 ui-monospace, Menlo, monospace; padding: 2px 8px; border-radius: 4px; background: rgba(0,0,0,.6); color: #DCE6EE; border: 1px dashed #8FA3B4; }
 #akari-gen-tag[data-akari-gen-severity="generating"] { border-color: #F5C842; color: #F5C842; }
 #akari-gen-tag[data-akari-gen-severity="error"] { border-color: #D6402B; color: #D6402B; border-style: solid; }
@@ -7252,9 +7259,11 @@ ${kind === 'raw' ? '.akari-material-chip { position: absolute; top: 8px; left: 8
             <img id="transition-still" data-akari-transition-role="incoming-still" alt="" draggable="false">
             <div id="overlay-stage"><div id="transition-plate"></div><div id="transition-fallback-label"></div><div id="caption-plate"></div></div>
             <div id="akari-gen-overlay" aria-hidden="true" hidden>
+              <div id="akari-gen-blur" hidden><img id="akari-gen-blur-image" alt=""></div>
               <div id="akari-gen-shimmer" hidden></div>
               <div id="akari-gen-mask" hidden><span id="akari-gen-mask-label">編集領域</span></div>
               <div id="akari-gen-tag" hidden></div>
+              <div id="akari-gen-pip" hidden><span id="akari-gen-pip-label">最後の絵</span><img id="akari-gen-pip-image" alt=""></div>
               <div id="akari-gen-band" hidden><span id="akari-gen-band-text"></span><span id="akari-gen-band-bar"><i id="akari-gen-band-fill"></i></span></div>
             </div>
           </div>
@@ -10261,9 +10270,10 @@ body { display: grid; place-items: center; padding: 32px; }
             const formatPreviewRateLabelFn = (${formatPreviewRateLabel.toString()});
             const freezeHoldMsFn = (${freezeHoldMs.toString()});
             const wallClockOutputTimeFn = (${wallClockOutputTime.toString()});
-            // toString() は import 参照を復元できないため、helper を同名で先に注入する（上の isCutAudioAudible と同じ流儀）。
+            // production minify 後の外部識別子は復元できないため、helper は呼び出し時に引数で渡す。
             const resolveGenerationStateV1 = (${generationStateHelperV1.toString()});
             const resolveGenerationStateFn = (${resolveGenerationState.toString()});
+            const describeNextDraftV1 = (${generationNextDraftHelperV1.toString()});
             const describeOverlayFn = (${describeOverlay.toString()});
             const previewRatePresets = ${JSON.stringify(PREVIEW_RATE_PRESETS)};
             const frameEngineMediaIdle = initial.frameEngineEnabled === true;
@@ -16637,6 +16647,10 @@ body { display: grid; place-items: center; padding: 32px; }
                 queueMicrotask(() => { applyingOverlaySelection = undefined; });
             };
             const generationOverlay = document.getElementById('akari-gen-overlay');
+            const generationPip = document.getElementById('akari-gen-pip');
+            const generationPipImage = document.getElementById('akari-gen-pip-image');
+            const generationBlur = document.getElementById('akari-gen-blur');
+            const generationBlurImage = document.getElementById('akari-gen-blur-image');
             const generationShimmer = document.getElementById('akari-gen-shimmer');
             const generationMask = document.getElementById('akari-gen-mask');
             const generationTag = document.getElementById('akari-gen-tag');
@@ -16649,6 +16663,10 @@ body { display: grid; place-items: center; padding: 32px; }
             const hideGenerationOverlay = () => {
                 if (!generationOverlay) return;
                 generationOverlay.hidden = true;
+                generationPip.hidden = true;
+                generationBlur.hidden = true;
+                generationPipImage.removeAttribute('src');
+                generationBlurImage.removeAttribute('src');
                 generationShimmer.hidden = true;
                 generationMask.hidden = true;
                 generationTag.hidden = true;
@@ -16666,23 +16684,31 @@ body { display: grid; place-items: center; padding: 32px; }
                     hideGenerationOverlay();
                     return;
                 }
-                const state = resolveGenerationStateFn(clip.meta, Date.now(), clip.binding);
+                const state = resolveGenerationStateFn(clip.meta, Date.now(), clip.binding, resolveGenerationStateV1);
                 const description = describeOverlayFn(state, clip.meta, String(clip.name || clip.id || ''), {
                     sourcePath: typeof clip.sourcePath === 'string' ? clip.sourcePath : undefined,
                     localTimeSec: timelineTime - clip.start,
                     clipDurationSec: clip.end - clip.start
-                });
+                }, describeNextDraftV1);
                 if (description.tag === null && description.band === null
-                    && !description.shimmer && !description.maskRect) {
+                    && !description.shimmer && !description.maskRect && !description.pip && !description.blurBackground) {
                     hideGenerationOverlay();
                     return;
                 }
                 generationOverlay.hidden = false;
+                const setGenerationImage = (container, image, path, uri) => {
+                    container.hidden = !path || typeof uri !== 'string' || !uri;
+                    if (container.hidden) image.removeAttribute('src');
+                    else if (image.getAttribute('src') !== uri) image.setAttribute('src', uri);
+                };
+                setGenerationImage(generationPip, generationPipImage, description.pip, clip.pipUri);
+                setGenerationImage(generationBlur, generationBlurImage, description.blurBackground, clip.blurBackgroundUri);
                 generationTag.hidden = description.tag === null;
                 generationTag.textContent = description.tag || '';
                 if (state === 'failed') generationTag.dataset.akariGenSeverity = 'error';
                 else if (clip.meta && clip.meta.kind === 'frames') generationTag.dataset.akariGenSeverity = 'frames';
                 else if (state === 'generating') generationTag.dataset.akariGenSeverity = 'generating';
+                else if (description.tag?.startsWith('▶ 動画予定')) generationTag.dataset.akariGenSeverity = 'planned-video';
                 else delete generationTag.dataset.akariGenSeverity;
                 generationBand.hidden = description.band === null;
                 generationBandText.textContent = description.band?.text || '';
@@ -17589,41 +17615,126 @@ body { display: grid; place-items: center; padding: 32px; }
     protected async sendGenerationUpdate(widget: PreviewWidgetMarker): Promise<void> {
         const editUri = widget.akariPreviewEditUri;
         const summary = widget.akariPreviewSummary;
-        if (!editUri || !summary || widget.isDisposed) return;
+        const disposed = (): boolean => {
+            if (!widget.isDisposed) return false;
+            console.warn('[akari-preview] generation update discarded: widget disposed');
+            return true;
+        };
+        if (disposed()) return;
+        if (!editUri || !summary) {
+            console.warn('[akari-preview] generation update unavailable: edit URI or summary not ready');
+            return;
+        }
         try {
             const sidecars = await this.previewService.readGenerationSidecars({
                 editUri: editUri.toString(),
                 workspaceRoots: await this.currentWorkspaceRoots()
             });
-            if (widget.isDisposed) return;
-            const segments = this.previewCaptionTimelineSegments(summary.cuts, summary.output.fps);
-            const clips = segments.flatMap(segment => {
-                if (segment.kind !== 'src' || segment.cutIndex === null) return [];
-                const cut = summary.cuts[segment.cutIndex];
-                if (!cut) return [];
-                const sourcePath = cut.sourcePath ?? '';
-                const generation = selectGenerationSidecarForSource(sourcePath, sidecars.entries.map(entry => ({
-                    sourcePath: entry.sourcePath,
-                    meta: entry.meta as GenerationMetaV1 | null,
-                    binding: entry.binding
-                })), Date.now());
-                return [{
-                    id: cut.id,
-                    name: sidecars.itemNames[cut.id] ?? cut.id,
-                    start: segment.outStart,
-                    end: segment.outEnd,
-                    sourcePath,
-                    meta: generation?.meta ?? null,
-                    binding: generation?.binding ?? null
-                }];
-            });
+            if (disposed()) return;
+            // summary は音声更新でも置き換わる。参照一致を送信条件にせず、その時点の cuts を使う。
+            const describeClips = () => {
+                const latest = widget.akariPreviewSummary ?? summary;
+                const segments = this.previewCaptionTimelineSegments(latest.cuts, latest.output.fps);
+                return segments.flatMap(segment => {
+                    if (segment.kind !== 'src' || segment.cutIndex === null) return [];
+                    const cut = latest.cuts[segment.cutIndex];
+                    if (!cut) return [];
+                    const sourcePath = cut.sourcePath ?? '';
+                    const generation = selectGenerationSidecarForSource(sourcePath, sidecars.entries.map(entry => ({
+                        sourcePath: entry.sourcePath,
+                        meta: entry.meta as GenerationMetaV1 | null,
+                        binding: entry.binding
+                    })), Date.now());
+                    return [{
+                        id: cut.id,
+                        name: sidecars.itemNames[cut.id] ?? cut.id,
+                        start: segment.outStart,
+                        end: segment.outEnd,
+                        sourcePath,
+                        meta: generation?.meta ?? null,
+                        binding: generation?.binding ?? null
+                    }];
+                });
+            };
+            const clips = describeClips();
+            // 画像の失敗・読み込みとの競合・遅延で既存の小札や帯まで止めない。
             widget.sendMessage({
                 type: 'akari-preview-generation-update',
-                clips,
+                clips: clips.map(clip => ({ ...clip, pipUri: null, blurBackgroundUri: null })),
                 exportLook: this.preferences.get<boolean>('akari.preview.exportLook', false) === true
             });
+
+            // Map の作成と差し替えは読み込み側に任せる。取得した stream は送信直前まで
+            // この呼び出しで所有し、読み込み側の所有リストを跨いだ場合は全て破棄する。
+            const assetUrls = widget.akariPreviewAssetUrlByUri;
+            const assetIds = widget.akariPreviewAssetStreamIds;
+            const refresh = widget.akariPreviewRefresh;
+            const acquired: Array<{ assetUri: string; id: string; url: string }> = [];
+            const images: Array<{ path: string; url: string | null }> = [];
+            const imageContextChanged = (): boolean => widget.akariPreviewAssetUrlByUri !== assetUrls
+                || widget.akariPreviewAssetStreamIds !== assetIds || widget.akariPreviewRefresh !== refresh;
+            const resolveImage = async (path: string | null | undefined): Promise<void> => {
+                if (!path || images.some(image => image.path === path)) return;
+                if (widget.isDisposed || imageContextChanged()) {
+                    console.warn('[akari-preview] generation image unavailable: preview changed or disposed', path);
+                    images.push({ path, url: null });
+                    return;
+                }
+                try {
+                    const assetUri = this.resolveEditAssetUri(path, editUri).toString();
+                    const known = assetUrls?.get(assetUri) ?? acquired.find(stream => stream.assetUri === assetUri)?.url;
+                    if (known) {
+                        images.push({ path, url: known });
+                        return;
+                    }
+                    const stream = await this.createAssetStream({ assetUri });
+                    acquired.push({ assetUri, id: stream.id, url: stream.url });
+                    images.push({ path, url: stream.url });
+                } catch (error) {
+                    console.warn('[akari-preview] generation image could not be resolved', path, error);
+                    images.push({ path, url: null });
+                }
+            };
+            try {
+                for (const clip of clips) {
+                    const state = resolveGenerationState(clip.meta, Date.now(), clip.binding);
+                    const description = describeOverlay(state, clip.meta, clip.name, { sourcePath: clip.sourcePath });
+                    await resolveImage(description.pip);
+                    await resolveImage(description.blurBackground);
+                }
+                if (widget.isDisposed) {
+                    disposed();
+                    return;
+                }
+                const changed = imageContextChanged();
+                if (changed) {
+                    console.warn('[akari-preview] generation images discarded: preview assets replaced; sending state without images');
+                }
+                if (images.length === 0) return; // 状態は送信済み。画像が無ければ追加送信しない。
+                const resolvedClips = describeClips().map(clip => {
+                    const state = resolveGenerationState(clip.meta, Date.now(), clip.binding);
+                    const description = describeOverlay(state, clip.meta, clip.name, { sourcePath: clip.sourcePath });
+                    const pipUri = changed ? null : images.find(image => image.path === description.pip)?.url ?? null;
+                    const blurBackgroundUri = changed ? null : images.find(image => image.path === description.blurBackground)?.url ?? null;
+                    return { ...clip, pipUri, blurBackgroundUri };
+                });
+                widget.sendMessage({
+                    type: 'akari-preview-generation-update',
+                    clips: resolvedClips,
+                    exportLook: this.preferences.get<boolean>('akari.preview.exportLook', false) === true
+                });
+                if (!changed) {
+                    for (const stream of acquired) {
+                        assetUrls?.set(stream.assetUri, stream.url);
+                        (widget.akariPreviewAssetStreamIds ??= []).push(stream.id);
+                    }
+                    acquired.length = 0; // 既存 disposePreviewStreams の所有へ移した。
+                }
+            } finally {
+                await this.disposeAssetStreams(acquired.map(stream => stream.id));
+            }
         } catch (error) {
-            console.error('[akari-preview] failed to read generation sidecars', error);
+            console.warn('[akari-preview] generation update failed', error);
         }
     }
 

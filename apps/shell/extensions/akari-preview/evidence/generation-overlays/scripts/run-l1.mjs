@@ -97,7 +97,7 @@ const visible = node => `(() => { const n = ${node}; if (!n) return false;
 
 const MEASURE = `(() => {
   const layer = document.getElementById('akari-gen-overlay');
-  const vis = n => { if (!n) return false; if (n.hidden) return false; const cs = getComputedStyle(n);
+  const vis = n => { if (!n) return false; if (n.closest('[hidden]')) return false; const cs = getComputedStyle(n);
     return cs.display !== 'none' && cs.visibility !== 'hidden'; };
   const tag = document.getElementById('akari-gen-tag');
   const band = document.getElementById('akari-gen-band');
@@ -105,6 +105,16 @@ const MEASURE = `(() => {
   const shimmer = document.getElementById('akari-gen-shimmer');
   const mask = document.getElementById('akari-gen-mask');
   const fill = document.getElementById('akari-gen-band-fill');
+  const pip = document.getElementById('akari-gen-pip');
+  const pipImage = document.getElementById('akari-gen-pip-image');
+  const blur = document.getElementById('akari-gen-blur');
+  const blurImage = document.getElementById('akari-gen-blur-image');
+  const imageState = n => n ? { src: n.getAttribute('src'), loaded: n.complete && n.naturalWidth > 0,
+    naturalWidth: n.naturalWidth, naturalHeight: n.naturalHeight } : null;
+  const style = n => { if (!n) return null; const c = getComputedStyle(n); const r = n.getBoundingClientRect();
+    return { pointerEvents: c.pointerEvents, display: c.display, position: c.position,
+      filter: c.filter, width: c.width, borderRadius: c.borderRadius, borderWidth: c.borderWidth,
+      right: c.right, bottom: c.bottom, rect: { x: r.x, y: r.y, width: r.width, height: r.height } }; };
   const layerCss = layer ? getComputedStyle(layer) : null;
   const clickable = layer ? layer.querySelectorAll('button, a, input, select, textarea, [tabindex], [onclick], [role="button"]').length : -1;
   const pointerAuto = layer ? [...layer.querySelectorAll('*')].filter(n => getComputedStyle(n).pointerEvents !== 'none').length : -1;
@@ -112,6 +122,11 @@ const MEASURE = `(() => {
     layerPresent: Boolean(layer),
     layerVisible: vis(layer),
     layerPointerEvents: layerCss ? layerCss.pointerEvents : null,
+    pipVisible: vis(pip), pipImage: imageState(pipImage), pipStyle: style(pip), pipImageStyle: style(pipImage),
+    pipLabel: document.getElementById('akari-gen-pip-label')?.textContent,
+    blurVisible: vis(blur), blurImage: imageState(blurImage), blurStyle: style(blur), blurImageStyle: style(blurImage),
+    layerRect: style(layer)?.rect,
+    tagStyle: style(tag),
     tagVisible: vis(tag),
     tagText: tag ? (tag.textContent || '').trim() : null,
     tagSeverity: tag ? tag.getAttribute('data-akari-gen-severity') : null,
@@ -135,6 +150,8 @@ const STEPS = [
   { key: 'done', name: '05-done.png', at: 18 },
   { key: 'failed', name: '06-failed.png', at: 22 },
   { key: 'frames', name: '08-frames.png', at: 26 },
+  { key: 'planned-video', name: '09-planned-video.png', at: 30 },
+  { key: 'done-still', name: '10-done-still.png', at: 34 },
 ];
 
 await shot('00-boot.png');
@@ -142,6 +159,12 @@ const measurements = {};
 for (const step of STEPS) {
   await seek(step.at);
   await sleep(900);
+  if (step.key === 'planned-video' || step.key === 'generating') {
+    await waitFor('generation reference image loaded', async () => {
+      const m = await vEval(MEASURE);
+      return step.key === 'planned-video' ? m.pipVisible && m.pipImage?.loaded : m.blurVisible && m.blurImage?.loaded;
+    }, 15000).catch(() => null);
+  }
   const m = await vEval(MEASURE);
   measurements[step.key] = m;
   record('measure', { key: step.key, ...m });
@@ -154,8 +177,8 @@ check(still.layerPresent, 'オーバーレイ層 #akari-gen-overlay が webview 
 check(still.layerPointerEvents === 'none', 'オーバーレイ層に pointer-events: none', { pointerEvents: still.layerPointerEvents });
 check(still.clickableCount === 0, 'オーバーレイ層にクリック可能な要素が 0', { clickableCount: still.clickableCount });
 check(still.pointerEventsAutoCount === 0, 'オーバーレイ層の子孫に pointer-events:auto が 0', { count: still.pointerEventsAutoCount });
-check(still.tagVisible && still.tagText === '静止画（仮枠） · ビート 1 フック',
-  '静止画（サイドカー無し）の小札に v2 items[].name が出る', { tagText: still.tagText });
+check(!still.tagVisible && !still.layerVisible,
+  '静止画（サイドカー無し）は小札も層も出さない', { tagVisible: still.tagVisible });
 check(!still.bandVisible && !still.shimmerVisible, '静止画では帯もシマーも出ない', { band: still.bandVisible, shimmer: still.shimmerVisible });
 
 const planned = measurements.planned;
@@ -184,6 +207,21 @@ const frames = measurements.frames;
 check(frames.tagVisible && /^パラパラ 8fps · コマ \d+\/32$/u.test(frames.tagText), 'frames の小札（コマ K/N）', { tagText: frames.tagText });
 check(frames.maskVisible, 'frames で編集領域の点線が出る', { maskRect: frames.maskRect });
 
+const videoPlan = measurements['planned-video'];
+check(videoPlan.tagVisible && videoPlan.tagText === '▶ 動画予定 · 最初→最後', '動画予定の小札（最初→最後）');
+check(videoPlan.pipVisible && videoPlan.pipImage?.loaded && videoPlan.pipLabel === '最後の絵', '最後の絵の小窓が読み込まれる');
+check(Math.abs(videoPlan.pipStyle.rect.width / videoPlan.layerRect.width - 0.22) < 0.01, '小窓の幅はステージの約 22%');
+check(videoPlan.pipStyle.position === 'absolute' && videoPlan.pipStyle.right === '10px' && videoPlan.pipStyle.bottom === '10px', '小窓は右下');
+check(parseFloat(videoPlan.pipImageStyle.borderRadius) > 0 && videoPlan.pipImageStyle.borderWidth === '1px', '小窓は角丸と細枠');
+check(videoPlan.pipStyle.pointerEvents === 'none' && videoPlan.pipImageStyle.pointerEvents === 'none' && videoPlan.tagStyle.pointerEvents === 'none', '小窓・絵・小札はクリックを奪わない');
+check(!videoPlan.blurVisible && !videoPlan.bandVisible, '動画予定ではぼかしと生成中の帯を出さない');
+check(!measurements['done-still'].tagVisible && !measurements['done-still'].layerVisible, 'done still は小札なし');
+check(!still.pipVisible && !still.blurVisible && !measurements['done-still'].pipVisible, '画像のままでは小窓・背景なし');
+check(generating.blurVisible && generating.blurImage?.loaded, '生成中は参照のぼかし背景を読み込む');
+check(/blur\(18px\)/u.test(generating.blurImageStyle.filter), '生成中の背景に computed blur がある', { style: generating.blurImageStyle });
+check(generating.blurStyle.pointerEvents === 'none' && generating.blurImageStyle.pointerEvents === 'none', 'ぼかし背景はクリックを奪わない');
+check(!generating.pipVisible && !stale.blurVisible, '生成中は小窓なし、stale はぼかしなし');
+
 // --- 「書き出しの見え方」ON ---
 await seek(10);
 await sleep(600);
@@ -201,12 +239,20 @@ await shot('07-export-look.png');
 check(exportLook.layerVisible === false,
   '「書き出しの見え方」ON で generating のオーバーレイ層が丸ごと消える',
   { layerVisible: exportLook.layerVisible, tagVisible: exportLook.tagVisible, bandVisible: exportLook.bandVisible });
+check(!exportLook.blurVisible && !exportLook.pipVisible && !exportLook.shimmerVisible && !exportLook.tagVisible && !exportLook.bandVisible,
+  'exportLook ON でぼかし・小窓・シマー・小札・帯が非表示');
+await seek(30);
+await sleep(600);
+const exportPlan = await vEval(MEASURE);
+measurements['export-look-planned-video'] = exportPlan;
+await shot('11-export-look-planned-video.png');
+check(!exportPlan.layerVisible && !exportPlan.pipVisible && !exportPlan.tagVisible, 'exportLook ON で動画予定の小札と小窓が消える');
 await setExportLook(false);
 await sleep(600);
 const back = await vEval(MEASURE);
-check(back.layerVisible === true, 'OFF に戻すとオーバーレイが戻る', { layerVisible: back.layerVisible });
+check(back.layerVisible === true && back.pipVisible && back.pipImage?.loaded, 'OFF に戻すとオーバーレイと小窓が戻る', { layerVisible: back.layerVisible });
 
-await writeFile(path.join(outDir, 'l1-metrics.json'), `${JSON.stringify({ measurements, results, failures }, null, 2)}\n`);
+await writeFile(path.join(outDir, 'l1-metrics.json'), `${JSON.stringify({ assertionCount: results.filter(r => r.step === 'PASS' || r.step === 'FAIL').length, measurements, results, failures }, null, 2)}\n`);
 main.close(); view.close();
 console.log(failures.length ? `L1 FAIL ${failures.length}` : `L1 PASS (${results.filter(r => r.step === 'PASS').length} assertions)`);
 process.exit(failures.length ? 1 : 0);
