@@ -7259,9 +7259,15 @@ export class AkariAnnotationsWidget extends BaseWidget {
         element.classList.remove(
             'akari-generation-none', 'akari-generation-planned', 'akari-generation-generating',
             'akari-generation-stale', 'akari-generation-done', 'akari-generation-failed',
-            'akari-generation-orphan'
+            'akari-generation-orphan', 'akari-generation-planned-video'
         );
         element.dataset.akariGenerationState = generation?.state ?? 'none';
+        if (generation?.state !== 'planned-video') {
+            element.querySelector(':scope > .akari-generation-frames')?.remove();
+            element.querySelector(':scope > .akari-generation-link')?.remove();
+            element.querySelector(':scope > .akari-generation-perforations-top')?.remove();
+            element.querySelector(':scope > .akari-generation-perforations-bottom')?.remove();
+        }
         let badge = element.querySelector<HTMLElement>(':scope > [data-akari-generation-badge]');
         let progress = element.querySelector<HTMLElement>(':scope > [data-akari-generation-progress]');
         if (!generation) {
@@ -7269,6 +7275,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
             progress?.remove();
             return;
         }
+        const plannedCut = generation.state === 'planned-video' && element.dataset.akariItemKind === 'cut';
+        const narrow = plannedCut && this.renderPlannedVideoMedia(element, generation.meta);
         const description = describeGenerationChip(generation.state, generation.meta);
         element.classList.add(description.className);
         if (!badge) {
@@ -7277,7 +7285,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             element.appendChild(badge);
         }
         badge.className = 'akari-generation-badge';
-        badge.textContent = description.badge;
+        badge.textContent = narrow ? '▶' : description.badge;
         badge.title = description.title;
         if (generation.state === 'generating') {
             if (!progress) {
@@ -7292,6 +7300,129 @@ export class AkariAnnotationsWidget extends BaseWidget {
         } else {
             progress?.remove();
         }
+    }
+
+    /** 同じトラックで接している次のクリップだけを結線する。既知の hash は path より優先。 */
+    protected plannedVideoConnects(segment: OutputSegment, meta?: GenerationSidecarMeta): boolean {
+        const last = meta?.next?.inputs.last_frame;
+        if (!last) return false;
+        const next = this.segments.find(candidate => candidate.index !== segment.index
+            && candidate.track === segment.track && Math.abs(candidate.tlStart - segment.tlEnd) < 1e-6);
+        const cut = next && this.cuts[next.index];
+        if (!cut) return false;
+        const path = this.sourceMap.get(cut.src)?.path ?? cut.src;
+        const normalize = (value: string): string => {
+            const parts: string[] = [];
+            for (const part of value.trim().replace(/\\/gu, '/').split('/')) {
+                if (part === '..' && parts.length && parts[parts.length - 1] !== '..') parts.pop();
+                else if (part && part !== '.') parts.push(part);
+            }
+            return parts.join('/');
+        };
+        const entry = [...this.generationSidecars].find(([sourcePath]) => normalize(sourcePath) === normalize(path))?.[1];
+        const sha = entry?.binding?.source === 'result' ? entry.binding.actual : entry?.meta?.result?.sha256;
+        if (last.sha256 && sha) return last.sha256 === sha;
+        return !!last.path && normalize(last.path) === normalize(path);
+    }
+
+    /** 通常のコマ帯を両端の絵へ置換する。新しい取得は静止中だけ、既存の単一サムネ RPC に乗せる。 */
+    protected renderPlannedVideoMedia(element: HTMLElement, meta?: GenerationSidecarMeta): boolean {
+        const draft = meta?.next;
+        const segment = this.segments.find(candidate => candidate.index === Number(element.dataset.akariItemId));
+        if (!draft || !segment) return false;
+        // 呼び出し元の通常メディア描画が作ったコマ帯・波形は動画予定には使わない。
+        element.querySelector(':scope > .akari-annotations-strip-clip-filmstrip')?.remove();
+        element.querySelector(':scope > canvas')?.remove();
+        element.style.backgroundImage = '';
+        let wrapper = element.querySelector<HTMLElement>(':scope > .akari-generation-frames');
+        if (!wrapper) {
+            wrapper = document.createElement('div');
+            wrapper.className = 'akari-generation-frames';
+            element.appendChild(wrapper);
+        }
+        Object.assign(wrapper.style, {
+            position: 'absolute', inset: '0', overflow: 'hidden', borderRadius: 'inherit', pointerEvents: 'none'
+        });
+        // 新設した keyed ノードはまだ DOM に接続されていない。幅は描画冒頭の実測値を使う。
+        const width = this.stripLayoutWidthPx > 0
+            ? this.stripLayoutWidthPx * Math.max(this.layoutPercent(segment.tlEnd) - this.layoutPercent(segment.tlStart), 0.3) / 100
+            : element.getBoundingClientRect().width;
+        const narrow = width < 64;
+        const geometry = this.clipLocalGeometry(segment);
+        const fullWidth = geometry?.fullClipWidthPx ?? width;
+        const offset = geometry?.clipLocalOffsetPx ?? 0;
+        // keyed ノードの高さも接続前から style に設定されている。穴の内側まで絵を使う。
+        const height = parseFloat(element.style.height) || element.getBoundingClientRect().height;
+        const cellHeight = Math.max(0, height - 2 - 10); // 上下の border 1px + 穴 5px
+        const cellWidth = Math.min(cellHeight * 16 / 9, fullWidth * 0.4);
+        // hit-target::before はポインタ領域の拡張用。穴には独立した子要素を使う。
+        for (const edge of ['top', 'bottom']) {
+            const className = `akari-generation-perforations-${edge}`;
+            if (!element.querySelector(`:scope > .${className}`)) {
+                const row = document.createElement('span');
+                row.className = `akari-generation-perforations ${className}`;
+                row.setAttribute('aria-hidden', 'true');
+                element.appendChild(row);
+            }
+        }
+        const frames = [draft.inputs.first_frame, ...(narrow ? [] : [draft.inputs.last_frame])];
+        for (const side of ['first', 'last'] as const) {
+            const frame = frames[side === 'first' ? 0 : 1];
+            let cell = wrapper.querySelector<HTMLElement>(`[data-akari-generation-frame="${side}"]`);
+            if (!frame?.path || !this.location) { cell?.remove(); continue; }
+            if (!cell) {
+                cell = document.createElement('div');
+                cell.className = 'akari-generation-frame';
+                cell.dataset.akariGenerationFrame = side;
+                wrapper.appendChild(cell);
+            }
+            const uri = this.resolveEditMediaUri(frame.path, this.location.editUri).toString();
+            const key = `planned-video:${uri}:${frame.sha256 ?? ''}`;
+            const thumbnail = this.thumbnailCache.get(key);
+            Object.assign(cell.style, {
+                position: 'absolute', left: `${(side === 'first' ? 0 : fullWidth - cellWidth) - offset}px`,
+                width: `${cellWidth}px`, top: '5px', bottom: '5px',
+                backgroundImage: typeof thumbnail === 'string' && thumbnail !== 'pending' ? `url(${thumbnail})` : '',
+                backgroundSize: 'cover', backgroundPosition: 'center', backgroundRepeat: 'no-repeat'
+            });
+            let label = cell.querySelector<HTMLElement>('.akari-generation-frame-label');
+            if (!label) {
+                label = document.createElement('span');
+                label.className = 'akari-generation-frame-label';
+                cell.appendChild(label);
+            }
+            label.textContent = side === 'first' ? '最初' : '最後';
+            label.style.display = !narrow && cellWidth >= 44 ? '' : 'none';
+            if (!this.visualPlaying && !this.visualPointerDown && !this.dragState) {
+                this.fetchThumbnail(key, { src: frame.path, in: 0, out: 1 }, uri);
+            }
+        }
+        const linked = this.plannedVideoConnects(segment, meta);
+        let prompt = wrapper.querySelector<HTMLElement>('.akari-generation-prompt');
+        if (!prompt) {
+            prompt = document.createElement('span');
+            prompt.className = 'akari-generation-prompt';
+            wrapper.appendChild(prompt);
+        }
+        const promptOnly = !draft.inputs.first_frame && !draft.inputs.last_frame;
+        const name = this.rawV2Item(this.cutItemId(segment.index))?.name;
+        prompt.textContent = !promptOnly && typeof name === 'string' && name.trim()
+            ? name : draft.inputs.prompt ?? '';
+        // 中央の文字は絵と鎖の領域に入れない。狭幅でも 1 行の名前を残す。
+        Object.assign(prompt.style, {
+            left: `${Math.max(0, (frames[0]?.path ? cellWidth : 0) - offset) + 4}px`,
+            right: `${Math.max(frames[1]?.path ? cellWidth + 4 : 4, linked ? 18 : 4)}px`
+        });
+        let link = element.querySelector<HTMLElement>('.akari-generation-link');
+        if (linked) {
+            if (!link) {
+                link = document.createElement('span');
+                link.className = 'akari-generation-link';
+                link.title = '次のクリップの絵につながる';
+                element.appendChild(link);
+            }
+        } else link?.remove();
+        return narrow;
     }
 
     protected captionReloadGeneration = 0;
@@ -8867,7 +8998,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 cut, segment, this.videoClipLabel(cutItemId, cut), cutLayout.height, cutTrimmerActive,
                 cutTrimmerActive ? [this.layoutViewDuration, stripLayoutWidthPx, this.filmstripContentRevision] : 0,
                 Array.isArray(cutWaveform) ? `ready:${cutWaveform.length}` : cutWaveform,
-                unsupportedDeclaredTransitions.has(segment.index), cutGeneration
+                unsupportedDeclaredTransitions.has(segment.index), cutGeneration,
+                cutGeneration?.state === 'planned-video',
+                cutGeneration?.meta?.next?.inputs.first_frame?.sha256,
+                cutGeneration?.meta?.next?.inputs.last_frame?.sha256,
+                this.plannedVideoConnects(segment, cutGeneration?.meta)
             ]);
             const { element, created } = this.keyedStripSegment(
                 `cut:${segment.index}`, cutSignature, segment.tlStart, segment.tlEnd,

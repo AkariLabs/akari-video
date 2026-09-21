@@ -87,3 +87,112 @@
 @media (prefers-reduced-motion: reduce) {
     .akari-generation-progress-indeterminate { animation: none; }
 }
+
+
+.akari-generation-planned-video {
+    --akari-generation-planned-video: #a78bfa;
+    container-name: akari-generation-planned-video;
+    border: 1px dashed var(--akari-generation-planned-video) !important;
+    background-image: none !important;
+}
+
+/* Dedicated rows avoid the clip hit-target's ::before and trim-edge's ::after. */
+.akari-generation-planned-video .akari-generation-perforations {
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 5px;
+    z-index: 3;
+    pointer-events: none;
+    opacity: .75;
+    background: radial-gradient(ellipse 2px 1.5px at 4px 2.5px,
+        var(--akari-generation-planned-video) 95%, transparent) 0 0 / 8px 5px repeat-x;
+}
+.akari-generation-planned-video .akari-generation-perforations-top { top: 0; }
+.akari-generation-planned-video .akari-generation-perforations-bottom { bottom: 0; }
+.akari-generation-planned-video .akari-generation-badge {
+    top: 2px;
+    left: 2px;
+    right: auto;
+    padding: 0 4px;
+    border-radius: 3px;
+    color: var(--akari-generation-planned-video);
+    background: var(--theia-editor-background, #1e1e1e);
+}
+.akari-annotations-widget .akari-generation-planned-video .akari-clip-kind-badge {
+    display: none;
+}
+/* Keep the shared top header and its time typography; only its text is above the holes.
+   The clip class makes this more specific than the later shared :has(kind-badge) rule:
+   display:none does not remove that badge from :has(), so its 44px padding still matches. */
+.akari-annotations-widget .akari-generation-planned-video.akari-annotations-strip-clip > .akari-annotations-strip-clip-header {
+    z-index: auto;
+    padding-left: 3px; /* The hidden kind badge no longer needs its shared 44px gutter. */
+}
+.akari-annotations-widget .akari-generation-planned-video .akari-annotations-strip-clip-header-label {
+    display: none;
+}
+.akari-generation-planned-video .akari-annotations-strip-clip-header-duration {
+    position: relative;
+    z-index: 4;
+    margin-left: auto;
+}
+/* Badge (~54px) + HH:MM:FF (~53px) + padding/gap fit at 128px.
+   Use the clip itself, not any intervening or outer size container. */
+@container akari-generation-planned-video (width < 128px) {
+    .akari-generation-planned-video .akari-annotations-strip-clip-header-duration { display: none; }
+}
+.akari-generation-planned-video .akari-generation-frames {
+    z-index: 0; /* Keep images below duration (4) and perforations (3). */
+}
+.akari-generation-planned-video .akari-generation-prompt {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    line-height: 12px;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    text-align: center;
+    font-size: 10px;
+    color: var(--theia-foreground);
+    z-index: 1;
+}
+.akari-generation-planned-video .akari-generation-frame-label {
+    position: absolute;
+    bottom: 0;
+    left: 2px;
+    padding: 0 2px;
+    font-size: 8px;
+    line-height: 10px;
+    color: #fff;
+    background: rgba(0, 0, 0, .72);
+}
+.akari-generation-planned-video [data-akari-generation-frame="last"] .akari-generation-frame-label {
+    left: auto;
+    right: 2px;
+}
+.akari-generation-planned-video .akari-generation-link {
+    position: absolute;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 14px;
+    height: 12px;
+    border-radius: 6px;
+    z-index: 5;
+    pointer-events: none;
+    background: var(--theia-editor-background, #1e1e1e);
+}
+.akari-generation-planned-video .akari-generation-link::before,
+.akari-generation-planned-video .akari-generation-link::after {
+    content: '';
+    position: absolute;
+    width: 7px;
+    height: 4px;
+    border: 1px solid var(--akari-generation-planned-video);
+    border-radius: 4px;
+    transform: rotate(-40deg);
+}
+.akari-generation-planned-video .akari-generation-link::before { left: 0; top: 5px; }
+.akari-generation-planned-video .akari-generation-link::after { right: 0; top: 1px; }

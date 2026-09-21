@@ -3,8 +3,9 @@
 //   静止画（サイドカー無し） / planned / generating（progress 62） / stale / done（動画） / failed
 // generating は「今」起動した job、stale は stale_after_s を超えた job として毎回書き直す
 // （固定日付だと実行日によって generating が stale に化けるため）。
+import { createHash } from 'node:crypto';
 import { spawn } from 'node:child_process';
-import { cp, mkdir, rename, rm, stat, writeFile } from 'node:fs/promises';
+import { cp, mkdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -43,7 +44,11 @@ const STATES = [
   { id: 'generating', file: 'generating.png', color: '#7a6a24' },
   { id: 'stale', file: 'stale.png', color: '#6a5a2a' },
   { id: 'done', file: 'done.mp4', color: '#2e4a5e' },
-  { id: 'failed', file: 'failed.png', color: '#7a2f24' }
+  { id: 'failed', file: 'failed.png', color: '#7a2f24' },
+  { id: 'next-first-last', file: 'next-first-last.png', color: '#24789a', frames: 150 },
+  { id: 'next-first', file: 'next-first.png', color: '#a07020', frames: 150 },
+  { id: 'next-prompt', file: 'next-prompt.png', color: '#34304a', frames: 150 },
+  { id: 'next-narrow', file: 'next-narrow.png', color: '#24789a', frames: 42 }
 ];
 
 await rm(FIXTURE_ROOT, { recursive: true, force: true });
@@ -85,30 +90,53 @@ await writeJson(path.join(GENERATED, 'failed.png.meta.json'), {
   history: [{ at: iso(now), status: 'failed', reason: 'timeout' }]
 });
 
-// path だけフィクスチャ内へ直す。
+// path と sha256 を生成したフィクスチャへ合わせる。
 if (!await exists(DONE_META_SOURCE)) throw new Error(`done の meta.json が見つかりません: ${DONE_META_SOURCE}`);
 await cp(DONE_META_SOURCE, path.join(GENERATED, 'done.mp4.meta.json'));
 const doneMeta = JSON.parse(await (await import('node:fs/promises')).readFile(path.join(GENERATED, 'done.mp4.meta.json'), 'utf8'));
 doneMeta.result.path = 'assets/generated/done.mp4';
 doneMeta.inputs.first_frame.path = 'assets/generated/still.png';
 doneMeta.inputs.last_frame.path = 'assets/generated/planned.png';
+doneMeta.result.sha256 = createHash('sha256').update(await readFile(path.join(GENERATED, 'done.mp4'))).digest('hex');
+for (const frame of [doneMeta.inputs.first_frame, doneMeta.inputs.last_frame]) {
+  if (frame.sha256 !== undefined) {
+    frame.sha256 = createHash('sha256').update(await readFile(path.join(FIXTURE, frame.path))).digest('hex');
+  }
+}
 // 証跡に外部 URL・provider の request id を残さない。
 doneMeta.job.status_url = null;
 doneMeta.job.response_url = null;
 doneMeta.result.expanded_prompt = '(省略)';
 await writeJson(path.join(GENERATED, 'done.mp4.meta.json'), doneMeta);
 
+// 単体テストと同じ next 3 種。L1 の実画像に合わせて hash を実測し直す。
+for (const name of ['next-first-last', 'next-first', 'next-prompt', 'next-narrow']) {
+  const meta = JSON.parse(await readFile(path.join(path.dirname(DONE_META_SOURCE), `${name}.png.meta.json`), 'utf8'));
+  if (name === 'next-first-last') meta.next.inputs.first_frame.path = 'assets/generated/next-first-last.png';
+  if (name === 'next-first') meta.next.inputs.first_frame.path = 'assets/generated/next-first.png';
+  for (const frame of [meta.next.inputs.first_frame, meta.next.inputs.last_frame]) {
+    if (frame?.path) frame.sha256 = createHash('sha256').update(await readFile(path.join(FIXTURE, frame.path))).digest('hex');
+  }
+  meta.result.sha256 = createHash('sha256').update(await readFile(path.join(GENERATED, `${name}.png`))).digest('hex');
+  await writeJson(path.join(GENERATED, `${name}.png.meta.json`), meta);
+}
+
+let nextFrame = 0;
 const edit = {
   version: 2,
   output: { width: 640, height: 360, fps: FPS },
   sources: STATES.map(state => ({ id: state.id, path: `assets/generated/${state.file}` })),
   tracks: [{
     id: 'video', lane: 'visual', name: '生成状態',
-    items: STATES.map((state, index) => ({
-      id: `clip-${state.id}`, name: state.file,
-      at: index * CLIP_FRAMES, duration: CLIP_FRAMES,
-      source: { kind: 'media', src: state.id, in: 0, out: CLIP_FRAMES / FPS }
-    }))
+    items: STATES.map(state => {
+      const at = nextFrame;
+      const duration = state.frames ?? CLIP_FRAMES;
+      nextFrame += duration;
+      return {
+        id: `clip-${state.id}`, name: state.file, at, duration,
+        source: { kind: 'media', src: state.id, in: 0, out: duration / FPS }
+      };
+    })
   }]
 };
 await writeJson(path.join(FIXTURE, 'edit.json'), edit);
@@ -122,7 +150,7 @@ await run('/usr/bin/git', ['commit', '-m', '生成状態 L1 fixture'], FIXTURE);
 process.stdout.write(`${JSON.stringify({
   ok: true,
   states: STATES.map(state => state.id),
-  sidecars: ['planned.png', 'generating.png', 'stale.png', 'failed.png', 'done.mp4'],
+  sidecars: STATES.filter(state => state.id !== 'still').map(state => state.file),
   stillWithoutSidecar: 'still.png',
   clipFrames: CLIP_FRAMES,
   fps: FPS

@@ -7,7 +7,11 @@
     { "id": "generating", "path": "assets/generated/generating.png" },
     { "id": "stale", "path": "assets/generated/stale.png" },
     { "id": "done", "path": "assets/generated/done.mp4" },
-    { "id": "failed", "path": "assets/generated/failed.png" }
+    { "id": "failed", "path": "assets/generated/failed.png" },
+    { "id": "next-first-last", "path": "assets/generated/next-first-last.png" },
+    { "id": "next-first", "path": "assets/generated/next-first.png" },
+    { "id": "next-prompt", "path": "assets/generated/next-prompt.png" },
+    { "id": "next-narrow", "path": "assets/generated/next-narrow.png" }
   ],
   "tracks": [
     {
@@ -20,7 +24,11 @@
         { "id": "clip-generating", "at": 60, "duration": 30, "source": { "kind": "media", "src": "generating", "in": 0, "out": 1 } },
         { "id": "clip-stale", "at": 90, "duration": 30, "source": { "kind": "media", "src": "stale", "in": 0, "out": 1 } },
         { "id": "clip-done", "at": 120, "duration": 30, "source": { "kind": "media", "src": "done", "in": 0, "out": 1 } },
-        { "id": "clip-failed", "at": 150, "duration": 30, "source": { "kind": "media", "src": "failed", "in": 0, "out": 1 } }
+        { "id": "clip-failed", "at": 150, "duration": 30, "source": { "kind": "media", "src": "failed", "in": 0, "out": 1 } },
+        { "id": "clip-next-first-last", "at": 180, "duration": 150, "source": { "kind": "media", "src": "next-first-last", "in": 0, "out": 5 } },
+        { "id": "clip-next-first", "at": 330, "duration": 150, "source": { "kind": "media", "src": "next-first", "in": 0, "out": 5 } },
+        { "id": "clip-next-prompt", "at": 480, "duration": 150, "source": { "kind": "media", "src": "next-prompt", "in": 0, "out": 5 } },
+        { "id": "clip-next-narrow", "at": 630, "duration": 42, "source": { "kind": "media", "src": "next-narrow", "in": 0, "out": 1.4 } }
       ]
     }
   ]
