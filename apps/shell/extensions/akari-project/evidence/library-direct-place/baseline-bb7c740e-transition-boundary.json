@@ -1,0 +1,60 @@
+{
+ "card": {
+  "x": 104,
+  "y": 198
+ },
+ "drop": {
+  "x": 761,
+  "y": 399
+ },
+ "dragIntercepted": true,
+ "payload": {
+  "kind": "transition",
+  "id": "dissolve",
+  "name": "ディゾルブ"
+ },
+ "hover": [
+  {
+   "cls": "",
+   "x": 754,
+   "y": 391,
+   "w": 16,
+   "h": 16,
+   "attrs": "type=button title=トランジションを追加 data-akari-transition-boundary=0-1 aria-label=トランジションを追加 style=position: absolute; left: 55.5556%; top: 169px; transform: translate(-50%, -50%); width: 16px; height: 16px;"
+  },
+  {
+   "cls": "akari-annotations-transition-drop-target",
+   "x": 741,
+   "y": 378,
+   "w": 42,
+   "h": 42,
+   "attrs": "class=akari-annotations-transition-drop-target aria-hidden=false data-akari-transition-drop-target=0-1 data-akari-transition-earlier-index=0 data-akari-transition-later-index=1 data-akari-transition-d"
+  }
+ ],
+ "editChanged": false,
+ "cutsAfter": [
+  {
+   "id": "cut-1",
+   "at": 0,
+   "duration": 150,
+   "source": {
+    "kind": "media",
+    "src": "base",
+    "in": 0,
+    "out": 5
+   }
+  },
+  {
+   "id": "cut-2",
+   "at": 150,
+   "duration": 90,
+   "source": {
+    "kind": "media",
+    "src": "base",
+    "in": 1,
+    "out": 4
+   }
+  }
+ ],
+ "transitionsAfter": null
+}

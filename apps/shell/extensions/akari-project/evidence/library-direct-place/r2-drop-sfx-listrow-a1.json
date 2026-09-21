@@ -1,0 +1,85 @@
+{
+ "key": "audio/sfx-impact-echo",
+ "drop": {
+  "x": 760,
+  "y": 440
+ },
+ "at": "2026-09-21T10:50:29.258Z",
+ "card": {
+  "x": 205,
+  "y": 320.6953125,
+  "draggable": "true",
+  "state": "available"
+ },
+ "assetDirBefore": false,
+ "dragIntercepted": true,
+ "mimeTypes": [
+  "application/x-akari-library-item"
+ ],
+ "payload": {
+  "kind": "asset",
+  "key": "audio/sfx-impact-echo",
+  "id": "sfx-impact-echo",
+  "category": "audio",
+  "title": "Big Hit With A Long Echoing Tail, Canyon Slam, I"
+ },
+ "duringDrag": {
+  "ghosts": [
+   {
+    "x": 760,
+    "y": 424,
+    "w": 138,
+    "h": 28,
+    "rejected": false,
+    "insertion": null
+   }
+  ],
+  "footer": []
+ },
+ "waitMs": 1505,
+ "editChanged": true,
+ "itemsBefore": 2,
+ "itemsAfter": 3,
+ "tracksBefore": [
+  "v1:visual",
+  "a1:audio"
+ ],
+ "tracksAfter": [
+  "v1:visual",
+  "a1:audio"
+ ],
+ "newItems": [
+  {
+   "track": "a1",
+   "lane": "audio",
+   "id": "audio-1",
+   "at": 151,
+   "duration": 157,
+   "source": {
+    "kind": "media",
+    "src": "src-1",
+    "in": 0,
+    "out": 5.240167
+   },
+   "gain_db": -1.3,
+   "fade_in": 0,
+   "fade_out": 0
+  }
+ ],
+ "newSources": [
+  {
+   "id": "src-1",
+   "path": "assets/audio/sfx-impact-echo/sfx-impact-echo.mp3"
+  }
+ ],
+ "sfxBefore": 0,
+ "sfxAfter": 0,
+ "assetDirAfter": [
+  "sfx-impact-echo.mp3"
+ ],
+ "afterDrop": {
+  "ghosts": [],
+  "footer": []
+ },
+ "toasts": []
+}

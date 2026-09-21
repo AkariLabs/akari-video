@@ -1,0 +1,60 @@
+{
+ "key": "broll/talkinghead-desk-ja-01",
+ "drop": {
+  "x": 709,
+  "y": 424
+ },
+ "at": "2026-09-21T10:31:43.862Z",
+ "card": {
+  "x": 212.5234375,
+  "y": 179.6953125,
+  "draggable": "true",
+  "state": "available"
+ },
+ "assetDirBefore": false,
+ "dragIntercepted": true,
+ "mimeTypes": [
+  "text/uri-list",
+  "text/html",
+  "application/x-akari-library-item"
+ ],
+ "payload": {
+  "kind": "asset",
+  "key": "broll/talkinghead-desk-ja-01",
+  "id": "talkinghead-desk-ja-01",
+  "category": "broll",
+  "title": "自宅デスクのトーキングヘッド（日本語・37.6 秒）"
+ },
+ "duringDrag": {
+  "ghosts": [],
+  "footer": [
+   "「V1」はロック中です（鍵を外すと編集できます）"
+  ]
+ },
+ "waitMs": 8018,
+ "editChanged": false,
+ "itemsBefore": 1,
+ "itemsAfter": 1,
+ "tracksBefore": [
+  "v2:visual",
+  "v1:visual",
+  "a1:audio"
+ ],
+ "tracksAfter": [
+  "v2:visual",
+  "v1:visual",
+  "a1:audio"
+ ],
+ "newItems": [],
+ "newSources": [],
+ "sfxBefore": 0,
+ "sfxAfter": 0,
+ "assetDirAfter": null,
+ "afterDrop": {
+  "ghosts": [],
+  "footer": [
+   "「V1」はロック中です（鍵を外すと編集できます）"
+  ]
+ },
+ "toasts": []
+}

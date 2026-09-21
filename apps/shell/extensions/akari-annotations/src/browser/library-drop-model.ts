@@ -7,6 +7,51 @@ export interface LibraryTransitionDragPayload {
     name: string;
 }
 
+export interface LibraryAssetDragPayload {
+    kind: 'asset';
+    key: string;
+    id: string;
+    category: 'audio' | 'broll' | 'still';
+    title: string;
+}
+
+export type LibraryDragPayload = LibraryTransitionDragPayload | LibraryAssetDragPayload;
+
+export function libraryAssetMaterialKind(category: string): 'audio' | 'video' | 'image' | undefined {
+    switch (category) {
+        case 'audio': return 'audio';
+        case 'broll': return 'video';
+        case 'still': return 'image';
+        default: return undefined;
+    }
+}
+
+/** MIME 本文と CustomEvent.detail を同じ直和へ絞り込む。 */
+export function parseLibraryDragPayload(value: unknown): LibraryDragPayload | undefined {
+    let decoded = value;
+    if (typeof value === 'string') {
+        try { decoded = JSON.parse(value); } catch { return undefined; }
+    }
+    if (!decoded || typeof decoded !== 'object' || Array.isArray(decoded)) return undefined;
+    const candidate = decoded as Record<string, unknown>;
+    if (candidate.kind === 'transition') return parseLibraryTransitionDragPayload(decoded);
+    if (candidate.kind !== 'asset' || candidate.state === 'locked'
+        || typeof candidate.category !== 'string' || !libraryAssetMaterialKind(candidate.category)
+        || !['key', 'id', 'title'].every(key => typeof candidate[key] === 'string' && (candidate[key] as string).trim().length > 0)
+        || candidate.key !== `${candidate.category}/${candidate.id}`) return undefined;
+    return {
+        kind: 'asset', key: candidate.key as string, id: candidate.id as string,
+        category: candidate.category as LibraryAssetDragPayload['category'], title: candidate.title as string
+    };
+}
+
+/** 未解決素材のゴーストには尺を付けず、既存の既定尺を使わせる。 */
+export function libraryAssetGhostPayload(payload: LibraryAssetDragPayload): {
+    relativePath: string; kind: 'audio' | 'video' | 'image'; name: string;
+} {
+    return { relativePath: `library:${payload.key}`, kind: libraryAssetMaterialKind(payload.category)!, name: payload.title };
+}
+
 export interface TransitionBoundaryHitCandidate {
     earlierIndex: number;
     laterIndex: number;

@@ -1,0 +1,97 @@
+{
+ "key": "audio/bgm-breakbeat-134",
+ "drop": {
+  "x": 709,
+  "y": 440
+ },
+ "at": "2026-09-21T10:43:55.584Z",
+ "card": {
+  "x": 205.0234375,
+  "y": 283.9921875,
+  "draggable": "true",
+  "state": "available"
+ },
+ "assetDirBefore": false,
+ "dragIntercepted": true,
+ "mimeTypes": [
+  "text/uri-list",
+  "text/html",
+  "application/x-akari-library-item"
+ ],
+ "payload": {
+  "kind": "asset",
+  "key": "audio/bgm-breakbeat-134",
+  "id": "bgm-breakbeat-134",
+  "category": "audio",
+  "title": "Plastic Pulse"
+ },
+ "duringDrag": {
+  "ghosts": [
+   {
+    "x": 709,
+    "y": 424,
+    "w": 140,
+    "h": 28,
+    "rejected": false,
+    "insertion": null
+   }
+  ],
+  "footer": [
+   "魔王魂 ネオロック（Burn_Place / Speed_King / Desert_journey）"
+  ]
+ },
+ "waitMs": 4513,
+ "editChanged": true,
+ "itemsBefore": 2,
+ "itemsAfter": 3,
+ "tracksBefore": [
+  "v1:visual",
+  "a1:audio"
+ ],
+ "tracksAfter": [
+  "v1:visual",
+  "a1:audio"
+ ],
+ "newItems": [
+  {
+   "track": "a1",
+   "lane": "audio",
+   "id": "audio-1",
+   "at": 116,
+   "duration": 5084,
+   "source": {
+    "kind": "media",
+    "src": "src-1",
+    "in": 0,
+    "out": 169.480167
+   },
+   "gain_db": -7.2,
+   "fade_in": 0.2,
+   "fade_out": 1
+  }
+ ],
+ "newSources": [
+  {
+   "id": "src-1",
+   "path": "assets/audio/bgm-breakbeat-134/bgm-breakbeat-134-a.mp3"
+  }
+ ],
+ "sfxBefore": 0,
+ "sfxAfter": 0,
+ "assetDirAfter": [
+  "bgm-breakbeat-134-a.mp3",
+  "bgm-breakbeat-134-b.mp3"
+ ],
+ "afterDrop": {
+  "ghosts": [],
+  "footer": [
+   "魔王魂 ネオロック（Burn_Place / Speed_King / Desert_journey）"
+  ]
+ },
+ "toasts": [
+  "保存後の検証で問題が見つかりました: [v2.track-no-overlap] item overlaps 0 on the same track",
+  "保存後の検証で問題が見つかりました: [v2.track-no-overlap] item overlaps 0 on the same track",
+  "1 本の動画をタイムラインに置きました。",
+  "1 本の動画をタイムラインに置きました。"
+ ]
+}
