@@ -26,21 +26,113 @@ function resolveV2Write(parsed, command) {
     if (!itemId) {
         throw new Error('v2 アイテムの id を特定できません');
     }
-    let item;
-    for (const track of edit.tracks) {
-        if (track.lane !== 'visual' || !('items' in track))
-            continue;
-        const found = track.items.find(candidate => candidate.id === itemId);
-        if (found) {
-            item = found;
-            break;
+    const children = (item) => item.items
+        ?? (Array.isArray(item.children)
+            ? item.children : []);
+    const find = (items, id, ancestors = []) => {
+        for (const candidate of items) {
+            if (candidate.id === id)
+                return { item: candidate, ancestors };
+            const nested = find(children(candidate), id, [...ancestors, candidate]);
+            if (nested)
+                return nested;
+        }
+        return undefined;
+    };
+    const roots = edit.tracks.flatMap(track => track.lane === 'visual' && 'items' in track ? track.items : []);
+    // Only overlay writes gain recursive addressing. Other preview systems keep
+    // their existing addressing/coordinate contract.
+    let target = command.kind === 'overlay' ? find(roots, itemId)
+        : roots.filter(candidate => candidate.id === itemId).map(item => ({ item, ancestors: [] }))[0];
+    let materialized = false;
+    if (!target && command.kind === 'overlay' && itemId.includes('#')) {
+        const separator = itemId.lastIndexOf('#');
+        const bag = find(roots, itemId.slice(0, separator));
+        const part = itemId.slice(separator + 1);
+        if (bag?.item.source.kind === 'html' && !bag.item.source.part && part
+            && !bag.item.source.exclude?.includes(part)) {
+            const existing = children(bag.item).find(child => child.source.kind === 'html' && child.source.part === part);
+            if (existing)
+                target = { item: existing, ancestors: [...bag.ancestors, bag.item] };
+            else {
+                // Object-tree contract §1.3: touched projections become explicit
+                // children; §3.1: materialize the projection. Do not exclude it.
+                const ids = new Set();
+                const collect = (items) => {
+                    for (const entry of items) {
+                        ids.add(entry.id);
+                        collect(children(entry));
+                    }
+                };
+                for (const track of edit.tracks)
+                    if ('items' in track)
+                        collect(track.items);
+                const base = `${bag.item.id}.${part}`;
+                let id = base;
+                for (let suffix = 2; ids.has(id); suffix++)
+                    id = `${base}-${suffix}`;
+                const child = {
+                    id, at: 0, duration: bag.item.duration,
+                    source: { kind: 'html', path: bag.item.source.path, part }
+                };
+                (bag.item.items ??= []).push(child);
+                target = { item: child, ancestors: [...bag.ancestors, bag.item] };
+                materialized = true;
+            }
         }
     }
-    if (!item) {
+    if (!target)
         throw new Error(`アイテムが見つかりません: ${itemId}`);
+    const item = target.item;
+    if (command.kind === 'overlay') {
+        // parts.mjs composes groups, but a bag supplies per-key defaults that
+        // its part overrides. Only group ancestors form an invertible parent.
+        // Preserve the original top-level merge/serialization byte for byte.
+        if (command.patch.transform && target.ancestors.length) {
+            const compose = (parent, child = {}) => {
+                const angle = parent.rotate * Math.PI / 180;
+                const x = child.x ?? 0, y = child.y ?? 0;
+                return {
+                    x: parent.x + parent.scale * (Math.cos(angle) * x - Math.sin(angle) * y),
+                    y: parent.y + parent.scale * (Math.sin(angle) * x + Math.cos(angle) * y),
+                    scale: parent.scale * (child.scale ?? 1), rotate: parent.rotate + (child.rotate ?? 0)
+                };
+            };
+            const parent = target.ancestors.filter(ancestor => ancestor.source.kind === 'group')
+                .reduce((world, ancestor) => compose(world, ancestor.transform), { x: 0, y: 0, scale: 1, rotate: 0 });
+            if (!Number.isFinite(parent.scale) || parent.scale === 0) {
+                throw new Error(`親の変形を逆変換できません: ${itemId}`);
+            }
+            const patch = command.patch.transform;
+            const bag = target.ancestors.at(-1);
+            const bagDefaults = item.source.kind === 'html' && item.source.part && bag?.source.kind === 'html'
+                ? bag.transform : undefined;
+            const world = { ...compose(parent, { ...bagDefaults, ...item.transform }), ...patch };
+            const local = {};
+            if (patch.x !== undefined || patch.y !== undefined) {
+                const angle = -parent.rotate * Math.PI / 180;
+                const dx = world.x - parent.x, dy = world.y - parent.y;
+                local.x = (Math.cos(angle) * dx - Math.sin(angle) * dy) / parent.scale;
+                local.y = (Math.sin(angle) * dx + Math.cos(angle) * dy) / parent.scale;
+            }
+            if (patch.scale !== undefined)
+                local.scale = world.scale / parent.scale;
+            if (patch.rotate !== undefined)
+                local.rotate = world.rotate - parent.rotate;
+            command = { ...command, patch: { ...command.patch, transform: local } };
+        }
+        if (item.source.kind === 'group') {
+            if (command.patch.html !== undefined || command.patch.vars !== undefined || command.patch.params !== undefined) {
+                throw new Error(`グループアイテムには HTML 本文・vars・HTML params を書き戻せません: ${itemId}`);
+            }
+            if (!command.patch.transform)
+                return {};
+            item.transform = { ...recordOf(item.transform), ...command.patch.transform };
+            return { candidateText: stringifyEdit(edit) };
+        }
     }
     let htmlPath;
-    let editChanged = false;
+    let editChanged = materialized;
     if (command.kind === 'overlay') {
         if (item.source.kind !== 'html' && item.source.kind !== 'shape') {
             throw new Error(`HTML/図形アイテムではありません: ${itemId}`);
