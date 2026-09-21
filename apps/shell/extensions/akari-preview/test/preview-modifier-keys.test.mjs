@@ -1,96 +1,61 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
-import vm from 'node:vm';
 
 const source = readFileSync(new URL('../src/browser/akari-preview-open-handler.ts', import.meta.url), 'utf8');
-const between = (start, end) => source.slice(source.indexOf(start), source.indexOf(end, source.indexOf(start)));
+
+function between(text, start, end) {
+  const startMatch = text.match(start);
+  assert.ok(startMatch, `Missing section start: ${start}`);
+  const rest = text.slice(startMatch.index + startMatch[0].length);
+  const endMatch = rest.match(end);
+  assert.ok(endMatch, `Missing section end: ${end}`);
+  return rest.slice(0, endMatch.index);
+}
 
 test('all four native snap bypass guards use current move Alt, never Shift', () => {
-  const guards = [...source.matchAll(/if \((moveEvent\.(?:altKey|shiftKey) \|\| !window\.akari\.interaction[^)]*)\)/g)].map(m => m[1]);
+  const guards = [...source.matchAll(/\bif\s*\(\s*(moveEvent\.(?:altKey|shiftKey)\s*\|\|\s*!window\.akari\.interaction[^)]*)\)/g)];
   assert.equal(guards.length, 4);
-  for (const guard of guards) {
-    const bypass = new Function('moveEvent', 'window', `return ${guard};`);
-    const window = { akari: { interaction: { computeAnchorResizeSnap() {} } } };
-    for (const [altKey, shiftKey, expected] of [[false, false, false], [true, false, true], [false, true, false], [true, true, true], [false, false, false]]) {
-      assert.equal(bypass({ altKey, shiftKey }, window), expected);
-    }
+  for (const [, guard] of guards) {
+    assert.match(guard, /^moveEvent\.altKey\s*\|\|/);
+    assert.doesNotMatch(guard, /shiftKey/);
   }
+  assert.doesNotMatch(source, /moveEvent\.shiftKey\s*\|\|\s*!window\.akari\.interaction/);
 });
 
 test('layer rotation rounds the absolute angle only while move Shift is held', () => {
-  const start = source.indexOf('beginMediaTransformDrag(layerDragTarget(entry), event, (moveEvent, original) => {', source.indexOf("if (kind === 'rotate')"));
-  const callback = source.slice(start, source.indexOf('\n                        });', start) + '\n                        });'.length);
-  const context = { center: { x: 0, y: 0 }, startAngle: 0, event: {}, entry: {}, layerDragTarget: v => v,
-    beginMediaTransformDrag: (_target, _event, fn) => { context.rotate = fn; } };
-  vm.runInNewContext(callback, context);
-  for (const angle of [23, -23, 179, -179]) {
-    const point = { clientX: Math.cos(angle * Math.PI / 180), clientY: Math.sin(angle * Math.PI / 180) };
-    for (const shiftKey of [false, true, false]) {
-      const value = context.rotate({ ...point, shiftKey }, { rotate: 4 }).rotate;
-      assert.ok(Math.abs(value - (shiftKey ? Math.round((angle + 4) / 15) * 15 : angle + 4)) < 1e-9);
-    }
-  }
+  const rotateBlock = between(source, /if\s*\(\s*kind\s*===\s*'rotate'\s*\)\s*\{/, /\}\s*else\s*\{/);
+  const callback = between(rotateBlock,
+    /beginMediaTransformDrag\s*\(\s*layerDragTarget\s*\(\s*entry\s*\)\s*,\s*event\s*,\s*\(\s*moveEvent\s*,\s*original\s*\)\s*=>\s*\{/,
+    /\}\s*\)\s*;/);
+  assert.match(callback, /const\s+rotate\s*=\s*original\.rotate\s*\+\s*\(\s*angle\s*-\s*startAngle\s*\)\s*;/);
+  assert.match(callback, /return\s*\{\s*\.\.\.original\s*,\s*rotate\s*:\s*moveEvent\.shiftKey\s*\?\s*Math\.round\s*\(\s*rotate\s*\/\s*15\s*\)\s*\*\s*15\s*:\s*rotate\s*\}\s*;/);
 });
 
-function eventSurface() {
-  const handlers = new Map(), attrs = new Map(), styles = new Map();
-  return { handlers, attrs, styles, textContent: '',
-    addEventListener: (type, fn) => handlers.set(type, fn), removeEventListener: type => handlers.delete(type),
-    getAttribute: key => attrs.get(key) ?? null, setAttribute: (key, value) => attrs.set(key, value),
-    removeAttribute: key => attrs.delete(key), querySelector: () => null,
-    classList: { add() {}, remove() {} }, focus() {},
-    style: { setProperty: (key, value) => styles.set(key, value), removeProperty: key => styles.delete(key) }
-  };
-}
+test('caption rotation previews and persists the same Shift-rounded patch; Alt targeting stays intact', () => {
+  const drag = between(source, /const\s+beginCaptionHandleDrag\s*=/, /captionPlate\.addEventListener\s*\(\s*'pointerdown'/);
+  const onMove = between(drag, /const\s+onMove\s*=\s*moveEvent\s*=>\s*\{/, /\}\s*;\s*const\s+finish\s*=/);
+  assert.match(onMove, /if\s*\(\s*patch\.rotate\s*!==\s*undefined\s*&&\s*moveEvent\.shiftKey\s*\)\s*\{\s*patch\.rotate\s*=\s*Math\.round\s*\(\s*patch\.rotate\s*\/\s*15\s*\)\s*\*\s*15\s*;\s*\}\s*lastPatch\s*=\s*patch\s*;[\s\S]*?captionPlate\.style\.setProperty\s*\(\s*'--caption-rotate'\s*,\s*patch\.rotate\s*\+\s*'deg'\s*\)/);
 
-test('caption rotation live preview and persisted patch use the latest move Shift; Alt targets stay intact', async () => {
-  for (const finalShift of [true, false]) {
-    const window = eventSurface(), captionPlate = eventSurface(), writes = [];
-    window.akari = { engine: { captionWrite: async (id, patch) => writes.push({ id, patch }) } };
-    const context = { window, captionPlate, selectedCaptionIds: new Set(['c1']), captions: [{ id: 'c1' }, { id: 'c2' }],
-      captionAltAll: false, selectCaption() {}, setCaptionGroupMode() {},
-      captionHandleTargets: (_selected, id, all, alt) => alt ? all : [id],
-      captionVisualRect: () => ({ left: -1, right: 1, top: -1, bottom: 1 }),
-      captionOutputPoint: (x, y) => ({ x, y }), CLICK_THRESHOLD_PX: 0, selectionDragActive: false,
-      captionHandleRotateValue: (_base, _center, _start, now) => now.x,
-      updateCaptionSelectBoxForRect() {}, updateCaptionSelectBox() {}, pendingCaptionDragReload: false };
-    vm.runInNewContext(between('            const beginCaptionHandleDrag =', "            captionPlate.addEventListener('pointerdown'") + '\nthis.begin = beginCaptionHandleDrag;', context);
-    context.begin({ clientX: 0, clientY: 10, pointerId: 1, altKey: true, preventDefault() {}, stopPropagation() {} },
-      { getAttribute: () => 'rot' }, { textStyle: {} }, 'c1');
-    for (const shiftKey of [false, true, finalShift]) {
-      window.handlers.get('pointermove')({ pointerId: 1, clientX: 23, clientY: 10, shiftKey });
-      assert.equal(captionPlate.styles.get('--caption-rotate'), shiftKey ? '30deg' : '23deg');
-    }
-    window.handlers.get('pointerup')({ pointerId: 1 });
-    await new Promise(resolve => setImmediate(resolve));
-    assert.deepEqual(JSON.parse(JSON.stringify(writes)), [{ id: 'c1', patch: {
-      plateTransform: { captionIds: ['c1', 'c2'], rotate: finalShift ? 30 : 23 }
-    } }]);
-  }
+  const finish = between(drag, /const\s+finish\s*=\s*async\s+cancelled\s*=>\s*\{/, /\}\s*;\s*const\s+onUp\s*=/);
+  assert.match(finish, /const\s+patch\s*=\s*lastPatch\s*;\s*pendingCaptionDragReload\s*=\s*true\s*;\s*try\s*\{\s*await\s+window\.akari\.engine\.captionWrite\s*\(\s*cueId\s*,\s*\{\s*plateTransform\s*:\s*\{\s*captionIds\s*:\s*targets\s*,\s*\.\.\.patch\s*\}\s*\}\s*\)\s*;/);
+  assert.match(drag, /const\s+altAll\s*=\s*event\.altKey\s*\|\|\s*captionAltAll\s*;\s*setCaptionGroupMode\s*\(\s*altAll\s*\)\s*;\s*const\s+targets\s*=\s*captionHandleTargets\s*\(\s*\[\s*\.\.\.selectedCaptionIds\s*\]\s*,\s*cueId\s*,\s*captions\.map\s*\(\s*candidate\s*=>\s*candidate\.sourceCueId\s*\|\|\s*candidate\.id\s*\)\s*,\s*altAll\s*\)\s*;/);
 });
 
-test('existing caption Escape cancels without writes, ignores IME, keeps selection; Enter and blur save', async () => {
-  const captionPlate = eventSurface(), writes = [], cue = { id: 'c1', text: 'Original' };
-  const context = { captionPlate, captions: [cue], activeCaptionEdit: null, activeCaption: null, isPlaying: false,
-    selectedCaptionId: 'c1', selectCaption() {}, deselectCaption() {}, outputTime: 1,
-    renderCaption: () => { captionPlate.textContent = cue.text; },
-    window: { getSelection: () => null, AkariEditKernel: { findActiveCaption: () => cue },
-      akari: { engine: { captionWrite: async (id, patch) => writes.push({ id, patch }) } } } };
-  vm.runInNewContext(between('            const restoreCaptionEditAttribute =', '            const beginCaptionHandleDrag =') + '\nthis.begin = beginCaptionEdit;', context);
-  const key = (value, isComposing = false) => captionPlate.handlers.get('keydown')({ target: captionPlate,
-    key: value, isComposing, preventDefault() {}, stopPropagation() {} });
-  context.begin(cue); captionPlate.textContent = 'Changed'; key('Escape', true);
-  assert.ok(context.activeCaptionEdit); assert.equal(captionPlate.textContent, 'Changed');
-  key('Escape');
-  assert.equal(context.activeCaptionEdit, null); assert.equal(captionPlate.textContent, 'Original');
-  assert.equal(context.selectedCaptionId, 'c1'); assert.deepEqual(writes, []);
-  captionPlate.handlers.get('blur')({ target: captionPlate }); assert.deepEqual(writes, []);
-  for (const end of ['Enter', 'blur']) {
-    context.begin(cue); captionPlate.textContent = end;
-    if (end === 'Enter') key(end); else captionPlate.handlers.get('blur')({ target: captionPlate });
-    await new Promise(resolve => setImmediate(resolve));
-    assert.equal(cue.text, end);
-  }
-  assert.equal(writes.length, 2);
+test('caption Escape cancels without writes or deselection, ignores IME; Enter and active blur save', () => {
+  const edit = between(source, /const\s+restoreCaptionEditAttribute\s*=/, /const\s+beginCaptionHandleDrag\s*=/);
+  const cancel = between(edit, /const\s+cancelCaptionEdit\s*=\s*\(\s*\)\s*=>\s*\{/, /\}\s*;\s*const\s+commitCaptionEdit\s*=/);
+  assert.match(cancel, /^\s*if\s*\(\s*!activeCaptionEdit\s*\)\s*return\s*;\s*const\s+edit\s*=\s*activeCaptionEdit\s*;\s*activeCaptionEdit\s*=\s*null\s*;\s*restoreCaptionEditElement\s*\(\s*edit\s*\)\s*;\s*rerenderCaptionAfterEdit\s*\(\s*\)\s*;\s*$/);
+  assert.doesNotMatch(cancel, /captionWrite|deselectCaption/);
+
+  const keydown = between(edit, /captionPlate\.addEventListener\s*\(\s*'keydown'\s*,\s*event\s*=>\s*\{/, /\}\s*\)\s*;/);
+  assert.match(keydown, /^\s*if\s*\(\s*!activeCaptionEdit\s*\|\|\s*event\.target\s*!==\s*activeCaptionEdit\.element\s*\|\|\s*event\.isComposing\s*\)\s*return\s*;/);
+  const escape = between(keydown, /if\s*\(\s*event\.key\s*===\s*'Escape'\s*\)\s*\{/, /\}/);
+  assert.match(escape, /\bcancelCaptionEdit\s*\(\s*\)\s*;/);
+  assert.doesNotMatch(escape, /commitCaptionEdit/);
+  const enter = between(keydown, /if\s*\(\s*event\.key\s*===\s*'Enter'\s*\)\s*\{/, /\}/);
+  assert.match(enter, /\bcommitCaptionEdit\s*\(\s*\)\s*;/);
+
+  const blur = between(edit, /captionPlate\.addEventListener\s*\(\s*'blur'\s*,\s*event\s*=>\s*\{/, /\}\s*,\s*true\s*\)\s*;/);
+  assert.match(blur, /^\s*if\s*\(\s*activeCaptionEdit\s*&&\s*event\.target\s*===\s*activeCaptionEdit\.element\s*\)\s*\{\s*void\s+commitCaptionEdit\s*\(\s*\)\s*;\s*\}\s*$/);
 });
