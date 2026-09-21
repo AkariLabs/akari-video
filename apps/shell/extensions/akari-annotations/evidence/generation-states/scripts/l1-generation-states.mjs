@@ -1,12 +1,14 @@
 #!/usr/bin/env node
-// L1（CDP）— task 2026-09-13-timeline-generation-states
+// L1（CDP）— generation-states + 2026-09-21-timeline-planned-video
 //   1. 6 状態（静止画 / planned / 生成中 / 応答なし・再取得 / 生成 / 失敗）が 1 枚のタイムラインに出る
 //   2. サイドカーを書き換える（planned → failed）と 1 秒以内にチップの state / className / badge が変わる
-//   3. その間 edit.json / captions.json は 1 バイトも書かれない（mtime で確認）
-// Electron は detached にせず、隔離 HOME / user-data-dir を runs/ 配下へ向け、自分が起動した PID だけを kill する。
+//   3. 動画予定 3 種のセル数・鎖、next 更新前後、再生通知中の新規サムネ取得数
+//   4. その間 edit.json / captions.json は 1 バイトも書かれない（mtime で確認）
+// Electron の AKARI_HOME / user-data-dir は一時ディレクトリへ向け、自分が起動した PID だけを kill する。
 import { spawn } from 'node:child_process';
-import { mkdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { CDP, evalOn, listTargets, screenshot } from './cdp-lib.mjs';
@@ -14,12 +16,15 @@ import { CDP, evalOn, listTargets, screenshot } from './cdp-lib.mjs';
 const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const REPO = path.resolve(ROOT, '..', '..', '..', '..', '..', '..');
 const SHELL_DIR = path.join(REPO, 'apps', 'shell');
-const ELECTRON = path.join(SHELL_DIR, 'node_modules/electron/dist/Electron.app/Contents/MacOS/Electron');
+const ELECTRON_CANDIDATES = [SHELL_DIR, REPO].map(directory =>
+  path.join(directory, 'node_modules/electron/dist/Electron.app/Contents/MacOS/Electron'));
+const ELECTRON = (await stat(ELECTRON_CANDIDATES[0]).catch(() => null))?.isFile()
+  ? ELECTRON_CANDIDATES[0] : ELECTRON_CANDIDATES[1];
 const PROJECT = path.join(ROOT, 'fixture', 'project');
 const GENERATED = path.join(PROJECT, 'assets', 'generated');
 const RESULTS = path.join(ROOT, 'results.json');
 const PORT = Number(process.argv.find(value => value.startsWith('--port='))?.slice(7) ?? 22197);
-const ISO = path.join(ROOT, 'runs', 'l1');
+const ISO = await mkdtemp(path.join(tmpdir(), 'akari-generation-states-l1-'));
 const LOG = path.join(ROOT, 'runs', 'l1.log');
 const S = value => JSON.stringify(value);
 const out = { status: 'running', steps: [], screenshots: [], cleanup: null };
@@ -135,6 +140,10 @@ const p=e.querySelector('[data-akari-generation-progress]');const cs=getComputed
 const h=e.querySelector('.akari-annotations-strip-clip-header-label');
 return{id:e.dataset.akariItemId,label:h?h.textContent:null,ui:e.dataset.akariUi||e.getAttribute('data-akari-ui'),
 state:e.dataset.akariGenerationState,className:e.className,
+imageCellCount:e.querySelectorAll('[data-akari-generation-frame]').length,
+imageCells:[...e.querySelectorAll('[data-akari-generation-frame]')].map(c=>({side:c.dataset.akariGenerationFrame,left:c.style.left,width:c.style.width,ready:!!c.style.backgroundImage,image:c.style.backgroundImage})),
+linked:!!e.querySelector('.akari-generation-link'),prompt:e.querySelector('.akari-generation-prompt')?.textContent??null,
+title:b?.title??null,
 badge:b?b.textContent:null,badgeColor:b?getComputedStyle(b).color:null,
 borderStyle:cs.borderTopStyle,borderColor:cs.borderTopColor,opacity:cs.opacity,
 backgroundImage:(cs.backgroundImage||'none').slice(0,64),
@@ -146,7 +155,11 @@ const INSTALL_WATCH = label => `(()=>{
 const pick=()=>{const e=[...document.querySelectorAll('[data-akari-generation-state][data-akari-item-id]')]
 .find(x=>x.querySelector('.akari-annotations-strip-clip-header-label')?.textContent===${S(label)});
 if(!e)return null;const b=e.querySelector('[data-akari-generation-badge]');
-return{state:e.dataset.akariGenerationState,className:e.className,badge:b?b.textContent:null}};
+return{state:e.dataset.akariGenerationState,className:e.className,
+imageCellCount:e.querySelectorAll('[data-akari-generation-frame]').length,
+imageCells:[...e.querySelectorAll('[data-akari-generation-frame]')].map(c=>({side:c.dataset.akariGenerationFrame,left:c.style.left,width:c.style.width,ready:!!c.style.backgroundImage,image:c.style.backgroundImage})),
+linked:!!e.querySelector('.akari-generation-link'),prompt:e.querySelector('.akari-generation-prompt')?.textContent??null,
+title:b?.title??null,badge:b?b.textContent:null}};
 const first=pick();if(!first)return null;
 const w={baseline:first,changes:[],startedAt:performance.now(),markedAt:null};
 let last=JSON.stringify(first);
@@ -246,6 +259,7 @@ async function stop(session) {
   } catch {}
   out.cleanup = { killedPid: pid ?? null, survivingProcesses: survivors, survivingBackendMain: backendSurvivors };
   await save();
+  if (survivors === 0) await rm(ISO, { recursive: true, force: true });
   return survivors;
 }
 
@@ -257,7 +271,10 @@ const EXPECTED = [
   ['generating.png', 'generating', '生成中 62%'],
   ['stale.png', 'stale', '応答なし・再取得'],
   ['done.mp4', 'done', '生成'],
-  ['failed.png', 'failed', '失敗']
+  ['failed.png', 'failed', '失敗'],
+  ['next-first-last.png', 'planned-video', '▶ 動画予定'],
+  ['next-first.png', 'planned-video', '▶ 動画予定'],
+  ['next-prompt.png', 'planned-video', '▶ 動画予定']
 ];
 
 let session;
@@ -286,11 +303,24 @@ try {
     await evalOn(cdp, DISMISS_DIALOGS).catch(() => {});
   }
 
+  await evalOn(cdp, `(()=>{
+    const keys=[...window.theia.container._bindingDictionary._map.keys()];
+    const key=keys.find(k=>typeof k==='function'&&typeof k.prototype?.getCurrentWidget==='function'
+      &&typeof k.prototype?.addWidget==='function'&&typeof k.prototype?.activateWidget==='function');
+    const shell=window.theia.container.get(key);
+    window.__akariGenerationWidget=shell.widgets.find(w=>w.node?.classList.contains('akari-annotations-widget'));
+    if(!window.__akariGenerationWidget)throw new Error('timeline widget unavailable');
+    // 既定レイアウトでは 9 クリップが 64px 未満になり動画予定が狭幅表示へ落ちるため、タイムラインを最大化する。
+    shell.toggleMaximized(window.__akariGenerationWidget);
+    document.querySelector('[data-testid="akari-timeline-zoom-percent"]')?.click();
+    return true;
+  })()`);
+
   // ---- 手順 1: 6 状態が 1 枚のタイムラインに出る ----
   const six = await step('1. 映像トラックの 6 クリップが 6 種の生成状態を出す', async () => {
     let view;
     try {
-      view = await waitEval(cdp, `(()=>{const v=${CLIPS};return v.count>=6?v:null})()`,
+      view = await waitEval(cdp, `(()=>{const v=${CLIPS};return v.count>=9?v:null})()`,
         { label: 'タイムラインに映像 6 クリップ', timeoutMs: 600_000 });
     } catch (error) {
       out.diagnostic = await evalOn(cdp, DIAGNOSTIC).catch(() => null);
@@ -340,6 +370,96 @@ try {
     })) };
   });
   await stripShot(cdp, 1, 'six-generation-states');
+  await step('動画予定 3 種は絵 2 / 1 / 0 枚、両端の絵は別で境目に鎖', async () => {
+    const view = await waitEval(cdp, `(()=>{const v=${CLIPS};
+      const clips=v.clips.filter(c=>c.state==='planned-video');
+      return clips.length===3&&clips.every(c=>c.imageCells.every(i=>i.ready))?v:null})()`,
+      {label:'動画予定の絵',timeoutMs:60000});
+    for (const [label,count,linked,variety] of [
+      ['next-first-last.png',2,true,'最初→最後'], ['next-first.png',1,false,'画像から'],
+      ['next-prompt.png',0,false,'プロンプトだけ']
+    ]) {
+      const clip=view.clips.find(c=>c.label===label);
+      assert(clip?.imageCellCount===count, `${label}: expected ${count} cells, got ${clip?.imageCellCount}`);
+      assert(clip.linked===linked, `${label}: chain mismatch`);
+      assert(clip.title===`動画予定（${variety}）`, `${label}: title mismatch`);
+      assert(clip.borderStyle==='dashed', `${label}: dashed border missing`);
+      if(count===2) assert(clip.imageCells[0].image!==clip.imageCells[1].image,'両端が同じ絵');
+      if(count===0) assert(clip.prompt?.length>0,'プロンプトが空');
+    }
+    // data URI 自体は残さず、セル数・左右・取得済みの事実を記録する。
+    return {clips:view.clips.map(({imageCells,...c})=>({...c,imageCells:imageCells.map(({image,...cell})=>cell)}))};
+  });
+  await stripShot(cdp, 4, 'planned-video-and-generation-states');
+
+  await step('next の書き換えで再読込せず両端の絵と鎖が変わる', async () => {
+    const file=path.join(GENERATED,'next-first-last.png.meta.json');
+    const meta=JSON.parse(await readFile(file,'utf8'));
+    const before=(await evalOn(cdp,CLIPS)).clips.find(c=>c.label==='next-first-last.png');
+    await stripShot(cdp,5,'before-next-rewrite');
+    await evalOn(cdp,`window.__akariGenerationBefore=document.querySelector('[data-akari-item-kind="cut"][data-akari-item-id="6"]');true`);
+    meta.next.inputs={prompt:'新しい指示文 — 雲がゆっくり流れる'};
+    meta.next.updated_at=new Date().toISOString();
+    const started=performance.now();
+    await writeFile(file,JSON.stringify(meta,null,2)+'\n');
+    const after=await waitEval(cdp,`(()=>{const c=(${CLIPS}).clips.find(c=>c.label==='next-first-last.png');
+      return c?.imageCellCount===0&&c.prompt===${S(meta.next.inputs.prompt)}&&!c.linked?c:null})()`,
+      {label:'next 書き換えの描画',timeoutMs:30000});
+    const replaced=await evalOn(cdp,`!window.__akariGenerationBefore.isConnected`);
+    assert(replaced,'next 更新で keyed clip が描き直されない');
+    await stripShot(cdp,6,'after-next-rewrite');
+    const compact=({imageCells,...c})=>({...c,imageCells:imageCells.map(({image,...cell})=>cell)});
+    return {before:compact(before),after:compact(after),nodeReplaced:replaced,elapsedMs:Math.round(performance.now()-started)};
+  });
+
+  await step('再生中の cold next サムネ取得回数は 0、停止後に取得する', async () => {
+    await evalOn(cdp,`(()=>{
+      const w=window.__akariGenerationWidget;
+      // RPC プロキシへの代入は横取りできないため、widget の fetchThumbnail を包み、
+      // キャッシュに無い planned-video キー（= 新規取得が始まる呼び出し）だけを数える。
+      const original=w.fetchThumbnail;
+      window.__akariGenerationThumbnailProbe={original,calls:[],startedAt:performance.now()};
+      w.fetchThumbnail=function(key,cut,uri){
+        if(key.startsWith('planned-video:')&&!w.thumbnailCache.has(key))
+          window.__akariGenerationThumbnailProbe.calls.push({playing:w.visualPlaying,uri});
+        return original.call(this,key,cut,uri);
+      };
+      for(const key of w.thumbnailCache.keys())if(key.startsWith('planned-video:'))w.thumbnailCache.delete(key);
+      return true;
+    })()`);
+    // 通常のプレビュー再生通知と同じ受信口へ、時刻を進めながら通知する。
+    try {
+      await evalOn(cdp,`(()=>{const w=window.__akariGenerationWidget;
+        w.handlePlaybackTick({videoUri:w.location.editUri.toString(),time:0,playing:true});return true})()`);
+      for(let tick=0;tick<12;tick++) {
+        await evalOn(cdp,`(()=>{const w=window.__akariGenerationWidget;
+          w.handlePlaybackTick({videoUri:w.location.editUri.toString(),time:${tick/10},playing:true});w.renderStrip();return true})()`);
+        await sleep(100);
+      }
+      const during=await evalOn(cdp,`(()=>{const p=window.__akariGenerationThumbnailProbe;
+        return{playing:window.__akariGenerationWidget.visualPlaying,requests:p.calls.length,
+          elapsedMs:Math.round(performance.now()-p.startedAt)}})()`);
+      assert(during.playing,'再生状態に入っていない');
+      assert(during.requests===0,`再生中にサムネ取得: ${during.requests}`);
+      await evalOn(cdp,`(()=>{const w=window.__akariGenerationWidget;
+        w.handlePlaybackTick({videoUri:w.location.editUri.toString(),time:1.2,playing:false});w.renderStrip();return true})()`);
+      const after=await waitEval(cdp,`(()=>{const p=window.__akariGenerationThumbnailProbe;
+        return p.calls.length?{requests:p.calls.length,playing:window.__akariGenerationWidget.visualPlaying}:null})()`,
+        {label:'停止後のサムネ取得',timeoutMs:10000}).catch(async error=>{
+          out.thumbnailDiagnostic=await evalOn(cdp,`(()=>{const w=window.__akariGenerationWidget;
+            return{playing:w.visualPlaying,pointerDown:w.visualPointerDown,drag:!!w.dragState,
+              cache:[...w.thumbnailCache.entries()].filter(([k])=>k.startsWith('planned-video:')).map(([k,v])=>[k.slice(-40),typeof v==='string'?v.slice(0,20):v]),
+              clips:[...document.querySelectorAll('[data-akari-generation-state="planned-video"]')].map(e=>({id:e.dataset.akariItemId,
+                cells:e.querySelectorAll('[data-akari-generation-frame]').length}))}})()`).catch(e=>String(e));
+          throw error;
+        });
+      return {driver:'handlePlaybackTick',during,after};
+    } finally {
+      await evalOn(cdp,`(()=>{const w=window.__akariGenerationWidget,p=window.__akariGenerationThumbnailProbe;
+        w.handlePlaybackTick({videoUri:w.location.editUri.toString(),time:1.2,playing:false});delete w.fetchThumbnail;
+        delete window.__akariGenerationThumbnailProbe;return true})()`);
+    }
+  });
   await stripShot(cdp, 2, 'before-sidecar-rewrite');
 
   // ---- 手順 2: サイドカー書き換え → 1 秒以内にチップが変わる ----
@@ -360,7 +480,7 @@ try {
       `className が failed でない: ${watch.reached.className}`);
     const after = await evalOn(cdp, CLIPS);
     const others = after.clips.filter(clip => clip.label !== 'planned.png');
-    assert(others.length === 5, `他のクリップが消えた: ${JSON.stringify(after.clips.map(c => c.id))}`);
+    assert(others.length === 8, `他のクリップが消えた: ${JSON.stringify(after.clips.map(c => c.id))}`);
     for (const [label, state] of EXPECTED.filter(([label]) => label !== 'planned.png')) {
       const clip = others.find(candidate => candidate.label === label);
       assert(clip?.state === state, `${label} の state が巻き添えで変わった: ${clip?.state}`);

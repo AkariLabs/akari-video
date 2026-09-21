@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { readFile } from 'node:fs/promises';
 
 import {
   describeGenerationChip, resolveGenerationState, sidecarPathFor
@@ -77,4 +78,23 @@ test('orphan は専用の見た目になり none とは異なる', () => {
     title: '素材が変わりました（meta の sha256 と一致しません）'
   });
   assert.notDeepEqual(description, describeGenerationChip('none'));
+});
+
+for (const [name, variety] of [['next-first-last', '最初→最後'], ['next-first', '画像から'], ['next-prompt', 'プロンプトだけ']]) {
+  test(`${name}: 動画予定の class / badge / title`, async () => {
+    const meta = JSON.parse(await readFile(new URL(`./fixtures/generation-states/assets/generated/${name}.png.meta.json`, import.meta.url)));
+    const state = resolveGenerationState(meta, startedAt);
+    assert.equal(state, 'planned-video');
+    assert.deepEqual(describeGenerationChip(state, meta), {
+      className: 'akari-generation-planned-video', badge: '▶ 動画予定', title: `動画予定（${variety}）`
+    });
+  });
+}
+
+test('next なしの静止画は完成品、title に仮枠を付けない', () => {
+  for (const meta of [undefined, { version: 1, kind: 'still', status: 'done' }]) {
+    const description = describeGenerationChip(resolveGenerationState(meta, startedAt), meta);
+    assert.equal(description.badge, '静止画');
+    assert.equal(description.title, '静止画');
+  }
 });

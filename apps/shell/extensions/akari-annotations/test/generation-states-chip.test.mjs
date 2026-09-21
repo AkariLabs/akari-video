@@ -46,7 +46,12 @@ class DummyElement {
     };
   }
   appendChild(child) { child.parent = this; this.children.push(child); }
+  getBoundingClientRect() { return { width: this.width ?? 180 }; }
   querySelector(selector) {
+    const frame = selector.match(/data-akari-generation-frame="(.*?)"/);
+    if (frame) return this.children.find(child => child.dataset.akariGenerationFrame === frame[1]);
+    const cls = selector.match(/\.([a-z-]+)/);
+    if (cls) return this.children.find(child => child.className.split(' ').includes(cls[1]));
     const key = selector.includes('generation-badge') ? 'akariGenerationBadge'
       : selector.includes('generation-progress') ? 'akariGenerationProgress' : undefined;
     return key ? this.children.find(child => Object.hasOwn(child.dataset, key)) : undefined;
@@ -74,7 +79,7 @@ async function waitFor(predicate, timeoutMs) {
   throw new Error(`${timeoutMs}ms 以内に DOM が更新されませんでした`);
 }
 
-test('node reader は generated を再帰走査し fixture 6 状態を fail soft で返す', async t => {
+test('node reader は generated を再帰走査し既存 6 状態と next 3 種を fail soft で返す', async t => {
   const root = await mkdtemp(join(tmpdir(), 'akari-generation-reader-'));
   await cp(fixture, root, { recursive: true });
   t.after(() => rm(root, { recursive: true, force: true }));
@@ -85,7 +90,7 @@ test('node reader は generated を再帰走査し fixture 6 状態を fail soft
     projectRootUri: uri(root), sourcePaths: [...paths, 'assets/generated/missing.mp4']
   });
   const entries = new Map(result.entries.map(entry => [entry.sourcePath, entry.meta]));
-  assert.equal(entries.size, 6);
+  assert.equal(entries.size, 9);
   const nowByName = new Map([
     ['generating.png', Date.parse('2026-09-13T00:00:01.000Z')],
     ['stale.png', Date.parse('2026-09-13T00:15:01.000Z')]
@@ -218,4 +223,145 @@ test('orphan の generation chip は孤児クラスとバッジを表示する',
   });
   assert.match(element.className, /akari-generation-orphan/);
   assert.equal(element.children.find(child => Object.hasOwn(child.dataset, 'akariGenerationBadge'))?.textContent, '孤児');
+});
+
+const renderPlannedVideoMedia = widgetMethod('renderPlannedVideoMedia', {});
+const plannedVideoConnects = widgetMethod('plannedVideoConnects', {});
+const plannedFixture = async name => JSON.parse(await readFile(new URL(
+  `./fixtures/generation-states/assets/generated/${name}.png.meta.json`, import.meta.url)));
+
+function plannedContext(meta) {
+  const segment = { index: 0, track: 0, tlStart: 0, tlEnd: 1 };
+  const calls = [];
+  return {
+    segments: [segment, { index: 1, track: 0, tlStart: 1, tlEnd: 2 }],
+    cuts: [{ src: 'current' }, { src: 'next' }],
+    sourceMap: new Map([['next', { path: 'assets/generated/next-first.png' }]]),
+    generationSidecars: new Map(),
+    thumbnailCache: new Map(),
+    location: { editUri: 'file:///fixture/edit.json' },
+    resolveEditMediaUri: path => `file:///fixture/${path}`,
+    clipLocalGeometry: () => undefined,
+    fetchThumbnail: (...args) => calls.push(args), calls,
+    renderPlannedVideoMedia, plannedVideoConnects
+  };
+}
+
+for (const [name, count, link] of [['next-first-last', 2, true], ['next-first', 1, false], ['next-prompt', 0, false]]) {
+  test(`${name}: 両端のセル数・鎖・再適用・狭幅`, async () => {
+    const meta = await plannedFixture(name);
+    const context = plannedContext(meta);
+    const element = new DummyElement();
+    element.dataset = { akariItemKind: 'cut', akariItemId: '0' };
+    const generation = { state: resolveGenerationState(meta, Date.now()), meta };
+    applyGenerationChip.call(context, element, generation);
+    applyGenerationChip.call(context, element, generation);
+    const wrapper = element.querySelector('.akari-generation-frames');
+    assert.equal(wrapper.children.filter(c => c.dataset.akariGenerationFrame).length, count);
+    assert.equal(Boolean(element.querySelector('.akari-generation-link')), link);
+    assert.equal(element.dataset.akariGenerationState, 'planned-video');
+    assert.equal(element.querySelector('[data-akari-generation-badge]').textContent, '▶ 動画予定');
+    assert.ok(!element.querySelector('.akari-annotations-strip-clip-filmstrip'));
+    if (!count) assert.equal(wrapper.querySelector('.akari-generation-prompt').textContent, meta.next.inputs.prompt);
+    element.width = 50;
+    applyGenerationChip.call(context, element, generation);
+    assert.equal(wrapper.children.filter(c => c.dataset.akariGenerationFrame).length, Math.min(1, count));
+    assert.equal(element.querySelector('[data-akari-generation-badge]').textContent, '▶');
+    element.width = 180;
+    applyGenerationChip.call(context, element, generation);
+    assert.equal(wrapper.children.filter(c => c.dataset.akariGenerationFrame).length, count);
+  });
+}
+
+test('再生・ポインタ操作・ドラッグ中は未取得の next サムネを要求しない', async () => {
+  const meta = await plannedFixture('next-first-last');
+  for (const guard of ['visualPlaying', 'visualPointerDown', 'dragState']) {
+    const context = plannedContext(meta);
+    context[guard] = true;
+    const element = new DummyElement();
+    element.dataset.akariItemId = '0';
+    renderPlannedVideoMedia.call(context, element, meta);
+    assert.equal(context.calls.length, 0, guard);
+    context[guard] = false;
+    renderPlannedVideoMedia.call(context, element, meta);
+    assert.equal(context.calls.length, 2, `${guard} 解除後`);
+  }
+});
+
+test('鎖は sha を優先し、なければ正規化 path、隙間と別トラックには出さない', async () => {
+  const meta = await plannedFixture('next-first-last');
+  const context = plannedContext(meta);
+  const segment = context.segments[0];
+  const last = meta.next.inputs.last_frame;
+  last.path = './assets\\generated/../generated/next-first.png';
+  assert.equal(plannedVideoConnects.call(context, segment, meta), true);
+  context.generationSidecars.set('assets/generated/next-first.png', { meta: { result: { sha256: 'different' } } });
+  assert.equal(plannedVideoConnects.call(context, segment, meta), false);
+  context.generationSidecars.get('assets/generated/next-first.png').meta.result.sha256 = last.sha256;
+  last.path = 'different-path.png';
+  assert.equal(plannedVideoConnects.call(context, segment, meta), true);
+  context.segments[1].track = 1;
+  assert.equal(plannedVideoConnects.call(context, segment, meta), false);
+  context.segments[1].track = 0;
+  context.segments[1].tlStart = 1.5;
+  assert.equal(plannedVideoConnects.call(context, segment, meta), false);
+});
+
+test('placeholder の generating / stale / failed は first_frame が別でも next より優先', async t => {
+  const root = await mkdtemp(join(tmpdir(), 'akari-generation-placeholder-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  await cp(fixture, root, { recursive: true });
+  const path = 'assets/generated/next-prompt.png';
+  const sha256 = createHash('sha256').update(await readFile(join(root, path))).digest('hex');
+  const service = new AkariAnnotationsServiceImpl();
+  for (const state of ['generating', 'stale', 'failed', 'done']) {
+    await writeFile(join(root, 'assets/generated/placeholder-job.mp4.meta.json'), JSON.stringify({
+      version: 1, kind: 'video', status: state === 'stale' ? 'generating' : state,
+      placeholder: { path, sha256, item_id: 'clip-next-prompt' },
+      inputs: { first_frame: { path: 'assets/generated/none.png' } },
+      job: { started_at: new Date(Date.now() - (state === 'stale' ? 1000000 : 0)).toISOString(), stale_after_s: 900 }
+    }));
+    const result = await service.readGenerationSidecars({ projectRootUri: uri(root), sourcePaths: [path] });
+    const context = { generationSidecars: new Map(result.entries.map(e => [e.sourcePath, e])) };
+    const generation = generationForPath.call(context, path);
+    assert.equal(generation.state, state === 'done' ? 'planned-video' : state);
+    if (state !== 'done') assert.equal(generation.binding.source, 'placeholder');
+  }
+});
+
+test('next の変更は署名に含まれ、絵・prompt・鎖が更新される', async () => {
+  const meta = await plannedFixture('next-first-last');
+  const context = plannedContext(meta);
+  const element = new DummyElement();
+  element.dataset = { akariItemKind: 'cut', akariItemId: '0' };
+  applyGenerationChip.call(context, element, { state: 'planned-video', meta });
+  assert.ok(element.querySelector('.akari-generation-link'));
+  meta.next.inputs = { prompt: '変更した指示文' };
+  applyGenerationChip.call(context, element, { state: 'planned-video', meta });
+  const wrapper = element.querySelector('.akari-generation-frames');
+  assert.equal(wrapper.children.filter(c => c.dataset.akariGenerationFrame).length, 0);
+  assert.equal(wrapper.querySelector('.akari-generation-prompt').textContent, '変更した指示文');
+  assert.ok(!element.querySelector('.akari-generation-link'));
+  const signature = widgetSource.slice(widgetSource.indexOf('const cutSignature ='), widgetSource.indexOf('const { element, created } = this.keyedStripSegment(', widgetSource.indexOf('const cutSignature =')));
+  assert.match(signature, /cutGeneration/);
+  assert.match(signature, /first_frame\?\.sha256/);
+  assert.match(signature, /last_frame\?\.sha256/);
+  assert.match(signature, /plannedVideoConnects/);
+});
+
+
+test('未接続の新規 keyed ノードでも描画幅を使い 2 セルと完全な badge を表示する', async () => {
+  const meta = await plannedFixture('next-first-last');
+  const context = plannedContext(meta);
+  context.stripLayoutWidthPx = 1000;
+  context.layoutPercent = time => time * 10;
+  const element = new DummyElement();
+  element.width = 0;
+  element.dataset = { akariItemKind: 'cut', akariItemId: '0' };
+  applyGenerationChip.call(context, element, { state: 'planned-video', meta });
+  assert.equal(element.querySelector('.akari-generation-frames').children.length, 2);
+  assert.equal(element.querySelector('[data-akari-generation-badge]').textContent, '▶ 動画予定');
+  applyGenerationChip.call(context, element, { state: 'none' });
+  assert.ok(!element.querySelector('.akari-generation-frames'));
+  assert.ok(!element.querySelector('.akari-generation-link'));
 });

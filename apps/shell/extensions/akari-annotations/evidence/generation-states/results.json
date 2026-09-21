@@ -77,8 +77,321 @@
             "borderColor": "rgb(241, 76, 76)",
             "opacity": "1",
             "progress": null
+          },
+          {
+            "id": "6",
+            "label": "next-first-last.png",
+            "state": "planned-video",
+            "badge": "▶ 動画予定",
+            "badgeColor": "rgb(167, 139, 250)",
+            "borderStyle": "dashed",
+            "borderColor": "rgb(167, 139, 250)",
+            "opacity": "1",
+            "progress": null
+          },
+          {
+            "id": "7",
+            "label": "next-first.png",
+            "state": "planned-video",
+            "badge": "▶ 動画予定",
+            "badgeColor": "rgb(167, 139, 250)",
+            "borderStyle": "dashed",
+            "borderColor": "rgb(167, 139, 250)",
+            "opacity": "1",
+            "progress": null
+          },
+          {
+            "id": "8",
+            "label": "next-prompt.png",
+            "state": "planned-video",
+            "badge": "▶ 動画予定",
+            "badgeColor": "rgb(167, 139, 250)",
+            "borderStyle": "dashed",
+            "borderColor": "rgb(167, 139, 250)",
+            "opacity": "1",
+            "progress": null
           }
         ]
+      }
+    },
+    {
+      "name": "動画予定 3 種は絵 2 / 1 / 0 枚、両端の絵は別で境目に鎖",
+      "pass": true,
+      "detail": {
+        "clips": [
+          {
+            "id": "0",
+            "label": "still.png",
+            "ui": "timeline:cut:0",
+            "state": "none",
+            "className": "akari-annotations-strip-clip akari-generation-none akari-annotations-strip-hit-target",
+            "imageCellCount": 0,
+            "linked": false,
+            "prompt": null,
+            "title": "静止画",
+            "badge": "静止画",
+            "badgeColor": "rgb(89, 164, 249)",
+            "borderStyle": "solid",
+            "borderColor": "rgb(89, 164, 249)",
+            "opacity": "1",
+            "backgroundImage": "none",
+            "progress": null,
+            "imageCells": []
+          },
+          {
+            "id": "1",
+            "label": "planned.png",
+            "ui": "timeline:cut:1",
+            "state": "planned",
+            "className": "akari-annotations-strip-clip akari-generation-planned akari-annotations-strip-hit-target",
+            "imageCellCount": 0,
+            "linked": false,
+            "prompt": null,
+            "title": "生成予定（絵なし）",
+            "badge": "planned",
+            "badgeColor": "rgba(204, 204, 204, 0.7)",
+            "borderStyle": "dashed",
+            "borderColor": "rgb(63, 63, 70)",
+            "opacity": "0.58",
+            "backgroundImage": "none",
+            "progress": null,
+            "imageCells": []
+          },
+          {
+            "id": "2",
+            "label": "generating.png",
+            "ui": "timeline:cut:2",
+            "state": "generating",
+            "className": "akari-annotations-strip-clip akari-generation-generating akari-annotations-strip-hit-target",
+            "imageCellCount": 0,
+            "linked": false,
+            "prompt": null,
+            "title": "生成中 62%",
+            "badge": "生成中 62%",
+            "badgeColor": "rgb(204, 167, 0)",
+            "borderStyle": "solid",
+            "borderColor": "rgb(204, 167, 0)",
+            "opacity": "1",
+            "backgroundImage": "repeating-linear-gradient(135deg, color(srgb 0.8 0.654902 0 / 0.",
+            "progress": {
+              "width": "62%",
+              "value": "62",
+              "className": "akari-generation-progress",
+              "background": "rgb(204, 167, 0)",
+              "height": "3px"
+            },
+            "imageCells": []
+          },
+          {
+            "id": "3",
+            "label": "stale.png",
+            "ui": "timeline:cut:3",
+            "state": "stale",
+            "className": "akari-annotations-strip-clip akari-generation-stale akari-annotations-strip-hit-target",
+            "imageCellCount": 0,
+            "linked": false,
+            "prompt": null,
+            "title": "生成処理から応答がありません",
+            "badge": "応答なし・再取得",
+            "badgeColor": "rgb(204, 167, 0)",
+            "borderStyle": "solid",
+            "borderColor": "rgb(204, 167, 0)",
+            "opacity": "1",
+            "backgroundImage": "repeating-linear-gradient(135deg, color(srgb 0.8 0.654902 0 / 0.",
+            "progress": null,
+            "imageCells": []
+          },
+          {
+            "id": "4",
+            "label": "done.mp4",
+            "ui": "timeline:cut:4",
+            "state": "done",
+            "className": "akari-annotations-strip-clip akari-generation-done akari-annotations-strip-hit-target",
+            "imageCellCount": 0,
+            "linked": false,
+            "prompt": null,
+            "title": "生成された動画",
+            "badge": "生成",
+            "badgeColor": "rgba(204, 204, 204, 0.7)",
+            "borderStyle": "solid",
+            "borderColor": "rgb(63, 63, 70)",
+            "opacity": "1",
+            "backgroundImage": "none",
+            "progress": null,
+            "imageCells": []
+          },
+          {
+            "id": "5",
+            "label": "failed.png",
+            "ui": "timeline:cut:5",
+            "state": "failed",
+            "className": "akari-annotations-strip-clip akari-generation-failed akari-annotations-strip-hit-target",
+            "imageCellCount": 0,
+            "linked": false,
+            "prompt": null,
+            "title": "生成に失敗しました",
+            "badge": "失敗",
+            "badgeColor": "rgb(241, 76, 76)",
+            "borderStyle": "solid",
+            "borderColor": "rgb(241, 76, 76)",
+            "opacity": "1",
+            "backgroundImage": "none",
+            "progress": null,
+            "imageCells": []
+          },
+          {
+            "id": "6",
+            "label": "next-first-last.png",
+            "ui": "timeline:cut:6",
+            "state": "planned-video",
+            "className": "akari-annotations-strip-clip akari-generation-planned-video akari-annotations-strip-hit-target",
+            "imageCellCount": 2,
+            "linked": true,
+            "prompt": null,
+            "title": "動画予定（最初→最後）",
+            "badge": "▶ 動画予定",
+            "badgeColor": "rgb(167, 139, 250)",
+            "borderStyle": "dashed",
+            "borderColor": "rgb(167, 139, 250)",
+            "opacity": "1",
+            "backgroundImage": "none",
+            "progress": null,
+            "imageCells": [
+              {
+                "side": "first",
+                "left": "0px",
+                "width": "32.3232px",
+                "ready": true
+              },
+              {
+                "side": "last",
+                "left": "64.6465px",
+                "width": "32.3232px",
+                "ready": true
+              }
+            ]
+          },
+          {
+            "id": "7",
+            "label": "next-first.png",
+            "ui": "timeline:cut:7",
+            "state": "planned-video",
+            "className": "akari-annotations-strip-clip akari-generation-planned-video akari-annotations-strip-hit-target",
+            "imageCellCount": 1,
+            "linked": false,
+            "prompt": null,
+            "title": "動画予定（画像から）",
+            "badge": "▶ 動画予定",
+            "badgeColor": "rgb(167, 139, 250)",
+            "borderStyle": "dashed",
+            "borderColor": "rgb(167, 139, 250)",
+            "opacity": "1",
+            "backgroundImage": "none",
+            "progress": null,
+            "imageCells": [
+              {
+                "side": "first",
+                "left": "0px",
+                "width": "32.3232px",
+                "ready": true
+              }
+            ]
+          },
+          {
+            "id": "8",
+            "label": "next-prompt.png",
+            "ui": "timeline:cut:8",
+            "state": "planned-video",
+            "className": "akari-annotations-strip-clip akari-generation-planned-video akari-annotations-strip-hit-target",
+            "imageCellCount": 0,
+            "linked": false,
+            "prompt": "窓へ歩いて庭を見る",
+            "title": "動画予定（プロンプトだけ）",
+            "badge": "▶ 動画予定",
+            "badgeColor": "rgb(167, 139, 250)",
+            "borderStyle": "dashed",
+            "borderColor": "rgb(167, 139, 250)",
+            "opacity": "1",
+            "backgroundImage": "none",
+            "progress": null,
+            "imageCells": []
+          }
+        ]
+      }
+    },
+    {
+      "name": "next の書き換えで再読込せず両端の絵と鎖が変わる",
+      "pass": true,
+      "detail": {
+        "before": {
+          "id": "6",
+          "label": "next-first-last.png",
+          "ui": "timeline:cut:6",
+          "state": "planned-video",
+          "className": "akari-annotations-strip-clip akari-generation-planned-video akari-annotations-strip-hit-target",
+          "imageCellCount": 2,
+          "linked": true,
+          "prompt": null,
+          "title": "動画予定（最初→最後）",
+          "badge": "▶ 動画予定",
+          "badgeColor": "rgb(167, 139, 250)",
+          "borderStyle": "dashed",
+          "borderColor": "rgb(167, 139, 250)",
+          "opacity": "1",
+          "backgroundImage": "none",
+          "progress": null,
+          "imageCells": [
+            {
+              "side": "first",
+              "left": "0px",
+              "width": "32.3232px",
+              "ready": true
+            },
+            {
+              "side": "last",
+              "left": "64.6465px",
+              "width": "32.3232px",
+              "ready": true
+            }
+          ]
+        },
+        "after": {
+          "id": "6",
+          "label": "next-first-last.png",
+          "ui": "timeline:cut:6",
+          "state": "planned-video",
+          "className": "akari-annotations-strip-clip akari-generation-planned-video akari-annotations-strip-hit-target",
+          "imageCellCount": 0,
+          "linked": false,
+          "prompt": "新しい指示文 — 雲がゆっくり流れる",
+          "title": "動画予定（プロンプトだけ）",
+          "badge": "▶ 動画予定",
+          "badgeColor": "rgb(167, 139, 250)",
+          "borderStyle": "dashed",
+          "borderColor": "rgb(167, 139, 250)",
+          "opacity": "1",
+          "backgroundImage": "none",
+          "progress": null,
+          "imageCells": []
+        },
+        "nodeReplaced": true,
+        "elapsedMs": 628
+      }
+    },
+    {
+      "name": "再生中の cold next サムネ取得回数は 0、停止後に取得する",
+      "pass": true,
+      "detail": {
+        "driver": "handlePlaybackTick",
+        "during": {
+          "playing": true,
+          "requests": 0,
+          "elapsedMs": 1417
+        },
+        "after": {
+          "requests": 1,
+          "playing": false
+        }
       }
     },
     {
@@ -89,6 +402,11 @@
           "baseline": {
             "state": "planned",
             "className": "akari-annotations-strip-clip akari-generation-planned akari-annotations-strip-hit-target",
+            "imageCellCount": 0,
+            "imageCells": [],
+            "linked": false,
+            "prompt": null,
+            "title": "生成予定（絵なし）",
             "badge": "planned"
           },
           "reached": {
@@ -96,7 +414,7 @@
             "badge": "失敗",
             "className": "akari-annotations-strip-clip akari-generation-failed akari-annotations-strip-hit-target"
           },
-          "msFromWrite": 17.6,
+          "msFromWrite": 38.8,
           "changes": [
             {
               "state": "failed",
@@ -134,6 +452,21 @@
             "label": "failed.png",
             "state": "failed",
             "badge": "失敗"
+          },
+          {
+            "label": "next-first-last.png",
+            "state": "planned-video",
+            "badge": "▶ 動画予定"
+          },
+          {
+            "label": "next-first.png",
+            "state": "planned-video",
+            "badge": "▶ 動画予定"
+          },
+          {
+            "label": "next-prompt.png",
+            "state": "planned-video",
+            "badge": "▶ 動画予定"
           }
         ]
       }
@@ -143,23 +476,26 @@
       "pass": true,
       "detail": {
         "mtimesBefore": {
-          "edit": 1789302021787.2056,
-          "captions": 1789302021787.6309
+          "edit": 1790003451290.1304,
+          "captions": 1790003451291.9302
         },
         "mtimesAfter": {
-          "edit": 1789302021787.2056,
-          "captions": 1789302021787.6309
+          "edit": 1790003451290.1304,
+          "captions": 1790003451291.9302
         }
       }
     }
   ],
   "screenshots": [
     "01-six-generation-states.png",
+    "04-planned-video-and-generation-states.png",
+    "05-before-next-rewrite.png",
+    "06-after-next-rewrite.png",
     "02-before-sidecar-rewrite.png",
     "03-after-sidecar-rewrite.png"
   ],
   "cleanup": {
-    "killedPid": 12697,
+    "killedPid": 70452,
     "survivingProcesses": 0,
     "survivingBackendMain": 0
   },
@@ -171,14 +507,20 @@
       "generating",
       "stale",
       "done",
-      "failed"
+      "failed",
+      "next-first-last",
+      "next-first",
+      "next-prompt"
     ],
     "sidecars": [
       "planned.png",
       "generating.png",
       "stale.png",
+      "done.mp4",
       "failed.png",
-      "done.mp4"
+      "next-first-last.png",
+      "next-first.png",
+      "next-prompt.png"
     ],
     "stillWithoutSidecar": "still.png",
     "clipFrames": 60,
@@ -215,6 +557,21 @@
       "label": "failed.png",
       "state": "failed",
       "badge": "失敗"
+    },
+    {
+      "label": "next-first-last.png",
+      "state": "planned-video",
+      "badge": "▶ 動画予定"
+    },
+    {
+      "label": "next-first.png",
+      "state": "planned-video",
+      "badge": "▶ 動画予定"
+    },
+    {
+      "label": "next-prompt.png",
+      "state": "planned-video",
+      "badge": "▶ 動画予定"
     }
   ],
   "sixStates": [
@@ -287,6 +644,39 @@
       "badgeColor": "rgb(241, 76, 76)",
       "borderStyle": "solid",
       "borderColor": "rgb(241, 76, 76)",
+      "opacity": "1",
+      "progress": null
+    },
+    {
+      "id": "6",
+      "label": "next-first-last.png",
+      "state": "planned-video",
+      "badge": "▶ 動画予定",
+      "badgeColor": "rgb(167, 139, 250)",
+      "borderStyle": "dashed",
+      "borderColor": "rgb(167, 139, 250)",
+      "opacity": "1",
+      "progress": null
+    },
+    {
+      "id": "7",
+      "label": "next-first.png",
+      "state": "planned-video",
+      "badge": "▶ 動画予定",
+      "badgeColor": "rgb(167, 139, 250)",
+      "borderStyle": "dashed",
+      "borderColor": "rgb(167, 139, 250)",
+      "opacity": "1",
+      "progress": null
+    },
+    {
+      "id": "8",
+      "label": "next-prompt.png",
+      "state": "planned-video",
+      "badge": "▶ 動画予定",
+      "badgeColor": "rgb(167, 139, 250)",
+      "borderStyle": "dashed",
+      "borderColor": "rgb(167, 139, 250)",
       "opacity": "1",
       "progress": null
     }

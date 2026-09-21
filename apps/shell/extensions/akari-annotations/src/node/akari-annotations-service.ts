@@ -349,8 +349,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
                         expected: expected.sha256,
                         actual,
                         matches: actual === expected.sha256,
-                        // common の表示型は後続票で拡張する。実値は placeholder を保持する。
-                        source: expected.source as GenerationBindingView['source']
+                        source: expected.source
                     };
                 }
                 return { sourcePath, meta, binding };

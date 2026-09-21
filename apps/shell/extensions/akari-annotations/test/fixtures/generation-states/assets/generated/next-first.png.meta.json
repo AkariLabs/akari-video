@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "kind": "still",
+  "status": "done",
+  "result": {
+    "path": "assets/generated/next-first.png",
+    "sha256": "431ced6916a2a21a156e38701afe55bbd7f88969fbbfc56d7fe099d47f265460"
+  },
+  "next": {
+    "kind": "video",
+    "status": "planned",
+    "model": {
+      "id": "fal:h3-i2v"
+    },
+    "inputs": {
+      "prompt": "窓へ歩いて庭を見る",
+      "frames_or_refs": "frames",
+      "first_frame": {
+        "path": "assets/generated/failed.png",
+        "sha256": "431ced6916a2a21a156e38701afe55bbd7f88969fbbfc56d7fe099d47f265460"
+      }
+    },
+    "output": {
+      "duration_s": 1
+    },
+    "updated_at": "2026-09-21T00:00:00.000Z"
+  }
+}

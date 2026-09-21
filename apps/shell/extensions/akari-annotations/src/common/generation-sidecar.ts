@@ -1,4 +1,5 @@
 import {
+    describeNextDraft,
     GenerationMetaV1,
     GenerationState as GenerationStateV1,
     resolveGenerationState as resolveGenerationStateV1,
@@ -6,14 +7,14 @@ import {
 } from '@akari-video/edit-store';
 
 export { sidecarPathFor };
-export type GenerationState = GenerationStateV1;
+export type GenerationState = GenerationStateV1 | 'planned-video';
 export type GenerationSidecarMeta = GenerationMetaV1;
 
 export interface GenerationBindingView {
     expected: string;
     actual: string | null;
     matches: boolean;
-    source: 'result' | 'first_frame';
+    source: 'result' | 'first_frame' | 'placeholder';
 }
 
 export interface GenerationChipDescription {
@@ -29,6 +30,7 @@ export function resolveGenerationState(
 ): GenerationState {
     if (binding && binding.matches === false) return 'orphan';
     const state = resolveGenerationStateV1(meta, nowMs);
+    if (!['generating', 'stale', 'failed'].includes(state) && describeNextDraft(meta)) return 'planned-video';
     // 契約外の status は 'none' に潰す＝従来の最小読み手と同じ見え方にする。
     return (TIMELINE_STATES as readonly string[]).includes(state) ? state : 'none';
 }
@@ -43,6 +45,12 @@ export function describeGenerationChip(
     state: GenerationState, meta?: GenerationSidecarMeta
 ): GenerationChipDescription {
     const progress = state === 'generating' ? generationProgress(meta) : undefined;
+    if (state === 'planned-video') {
+        const draft = describeNextDraft(meta);
+        const variety = { prompt: 'プロンプトだけ', first: '画像から', 'first-last': '最初→最後', references: '参照から' };
+        return { badge: '▶ 動画予定', className: 'akari-generation-planned-video',
+            title: `動画予定（${variety[draft?.variety ?? 'prompt']}）` };
+    }
     if (state === 'planned') {
         return { badge: 'planned', className: 'akari-generation-planned', title: '生成予定（絵なし）' };
     }
@@ -65,6 +73,6 @@ export function describeGenerationChip(
     if (state === 'done' && meta?.kind === 'video') {
         return { badge: '生成', className: 'akari-generation-done', title: '生成された動画' };
     }
-    // none と done の still は静止画（仮枠）として見せる。
-    return { badge: '静止画', className: 'akari-generation-none', title: '静止画（仮枠）' };
+    // none と done の still は完成品の静止画として見せる。
+    return { badge: '静止画', className: 'akari-generation-none', title: '静止画' };
 }
