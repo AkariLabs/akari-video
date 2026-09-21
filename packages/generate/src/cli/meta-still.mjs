@@ -83,3 +83,23 @@ export function doneStillMeta({ prompt, duration_s, at, asOf, path, image, elaps
   };
   return meta;
 }
+
+/** 静止画自身の記録を保ち、動画予定の下書きを付ける。 */
+export function withNextVideoDraft(meta, { firstFrame, lastFrame = null, prompt = "", modelId = "fal:h3-i2v", at }) {
+  return {
+    ...meta,
+    next: {
+      kind: "video",
+      status: "planned",
+      model: { id: modelId },
+      inputs: {
+        prompt, negative_prompt: null,
+        first_frame: firstFrame, last_frame: lastFrame,
+        reference_images: [], reference_videos: [], reference_audios: [],
+        source_video: null, camera: null, seed: null, extra: {}, frames_or_refs: "frames",
+      },
+      output: { duration_s: meta.output.duration_s, resolution: null, aspect: null, audio_out: null },
+      updated_at: at,
+    },
+  };
+}

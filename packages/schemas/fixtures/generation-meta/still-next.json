@@ -1,0 +1,106 @@
+{
+  "version": 1,
+  "kind": "still",
+  "status": "done",
+  "model": {
+    "id": "codex-image",
+    "as_of": "2026-09-13"
+  },
+  "inputs": {
+    "prompt": "参照画像を柔らかな水彩画にする。",
+    "negative_prompt": null,
+    "first_frame": {
+      "path": "assets/generated/reference.png",
+      "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    },
+    "last_frame": null,
+    "reference_images": [
+      {
+        "path": "assets/generated/reference.png",
+        "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "name": "参照 1",
+        "role": "構図"
+      }
+    ],
+    "reference_videos": [],
+    "reference_audios": [],
+    "source_video": null,
+    "mode": null,
+    "camera": null,
+    "seed": null,
+    "extra": {}
+  },
+  "output": {
+    "duration_s": 1,
+    "resolution": "1536x1024",
+    "aspect": "3:2",
+    "audio_out": false
+  },
+  "cost": {
+    "estimate_usd": 0,
+    "actual_usd": 0,
+    "unit": "usd_per_image",
+    "source": "provider"
+  },
+  "job": {
+    "provider": "codex",
+    "started_at": "2026-09-13T10:00:00.000Z",
+    "stale_after_s": 900
+  },
+  "provenance": {
+    "created_at": "2026-09-13T10:00:00.000Z",
+    "tool": "akari generate still"
+  },
+  "result": {
+    "path": "assets/generated/watercolor.png",
+    "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "bytes": 1234,
+    "duration_s_actual": 0,
+    "width": 1536,
+    "height": 1024,
+    "has_audio": false
+  },
+  "history": [
+    {
+      "at": "2026-09-13T10:00:05.000Z",
+      "status": "done",
+      "reason": null
+    }
+  ],
+  "next": {
+    "kind": "video",
+    "status": "planned",
+    "model": {
+      "id": "fal:h3-i2v"
+    },
+    "inputs": {
+      "prompt": "庭へ歩いていく人物を後ろから追う。",
+      "negative_prompt": null,
+      "first_frame": {
+        "path": "assets/stills/start.png",
+        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "last_frame": {
+        "path": "assets/stills/last.png",
+        "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      "reference_images": [],
+      "reference_videos": [],
+      "reference_audios": [],
+      "source_video": null,
+      "mode": null,
+      "camera": {
+        "notation": "bracket",
+        "value": "[Tracking shot]"
+      },
+      "seed": 42,
+      "extra": {},
+      "frames_or_refs": "frames"
+    },
+    "output": {
+      "duration_s": 6,
+      "resolution": "768P"
+    },
+    "updated_at": "2026-09-21T10:00:00.000Z"
+  }
+}

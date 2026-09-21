@@ -7,6 +7,8 @@
   "additionalProperties": false,
   "required": ["version", "kind", "status", "model", "inputs", "output", "cost", "job", "provenance", "history"],
   "properties": {
+    "next": { "$ref": "#/$defs/next" },
+    "placeholder": { "$ref": "#/$defs/placeholder" },
     "version": { "const": 1 },
     "kind": { "enum": ["still", "video", "frames"] },
     "status": { "enum": ["planned", "generating", "done", "failed"] },
@@ -33,6 +35,154 @@
     }
   ],
   "$defs": {
+    "next": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "status",
+        "model",
+        "inputs",
+        "output",
+        "updated_at"
+      ],
+      "properties": {
+        "kind": {
+          "const": "video"
+        },
+        "status": {
+          "const": "planned"
+        },
+        "model": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id"
+          ],
+          "properties": {
+            "id": {
+              "$ref": "#/$defs/nonEmptyString"
+            }
+          }
+        },
+        "inputs": {
+          "$ref": "#/$defs/draftInputs"
+        },
+        "output": {
+          "$ref": "#/$defs/output"
+        },
+        "updated_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "draftInputs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "prompt",
+        "negative_prompt",
+        "first_frame",
+        "last_frame",
+        "reference_images",
+        "reference_videos",
+        "reference_audios",
+        "source_video",
+        "camera",
+        "seed",
+        "extra"
+      ],
+      "properties": {
+        "prompt": {
+          "type": "string"
+        },
+        "negative_prompt": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "first_frame": {
+          "$ref": "#/$defs/nullableReference"
+        },
+        "last_frame": {
+          "$ref": "#/$defs/nullableReference"
+        },
+        "reference_images": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/reference"
+          }
+        },
+        "reference_videos": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/reference"
+          }
+        },
+        "reference_audios": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/reference"
+          }
+        },
+        "source_video": {
+          "$ref": "#/$defs/nullableReference"
+        },
+        "mode": {
+          "enum": [
+            "edit",
+            "extend",
+            "motion",
+            "frame-edit",
+            null
+          ]
+        },
+        "camera": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/camera"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "seed": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "extra": {
+          "type": "object"
+        },
+        "frames_or_refs": {
+          "enum": [
+            "frames",
+            "references"
+          ]
+        }
+      }
+    },
+    "placeholder": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "sha256",
+        "item_id"
+      ],
+      "properties": {
+        "path": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "item_id": {
+          "$ref": "#/$defs/nonEmptyString"
+        }
+      }
+    },
     "nonEmptyString": { "type": "string", "minLength": 1, "pattern": "\\S" },
     "nullableString": { "type": ["string", "null"] },
     "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },

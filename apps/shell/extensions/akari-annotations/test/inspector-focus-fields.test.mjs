@@ -173,3 +173,18 @@ test('appendSection stamps the enable checkbox and preserves its existing marker
     assert.equal(checkbox.checked, true);
     assert.equal(checkbox.attributes.get('data-akari-ui'), 'field:inspector-adjust-basic-enabled');
 }));
+
+test('focusField passes adjust / generation as explicit tab choices before rendering', () => dom(() => {
+    for (const tabId of ['adjust', 'generation']) {
+        const widget = fixture();
+        widget.render = () => {
+            assert.equal(widget.explicitTabId, tabId);
+            const tab = new FakeElement();
+            tab.setAttribute('data-akari-ui', `tab:inspector-${tabId}`);
+            tab.classList.add('is-active');
+            widget.body.appendChild(tab);
+        };
+        assert.equal(widget.focusField({ tabId }), true);
+        assert.deepEqual(widget.writes, [['tab', 'cut', tabId]]);
+    }
+}));

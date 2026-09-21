@@ -175,7 +175,7 @@ function resolveGenerationState(meta, now) {
   return ["planned", "generating", "done", "failed"].includes(meta.status) ? meta.status : "none";
 }
 
-function readSidecars(projectRoot, edit, items, now) {
+export function readSidecars(projectRoot, edit, items, now) {
   const sourceById = new Map((Array.isArray(edit.sources) ? edit.sources : []).map((source) => [source.id, source]));
   const result = {};
   for (const item of items) {

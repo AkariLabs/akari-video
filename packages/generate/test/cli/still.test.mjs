@@ -255,3 +255,63 @@ test("still: 注入した writeMeta の外側で planned / done / failed を検�
   );
   assert.equal(invalidWriterCalls, 0);
 });
+
+for (const placeholder of [false, true]) {
+  test(`still --spec は video 指定のあるビートだけ next を保存する (${placeholder ? '文字カード' : '静止画'})`, async (t) => {
+    const projectDir = await temporaryProject(t, minimalEdit());
+    const spec = await writeSpec(projectDir, [
+      { id: 'one', prompt: '一枚目', duration_s: 6, video: { prompt: '二枚目へ動く', last: 'next' } },
+      { id: 'two', prompt: '二枚目', duration_s: 5 },
+      { id: 'three', prompt: '三枚目', duration_s: 5, video: { last: 'one' } },
+      { id: 'four', prompt: '四枚目', duration_s: 5, video: {} },
+    ]);
+    async function putImage(outPath) {
+      await mkdir(dirname(outPath), { recursive: true });
+      await writeFile(outPath, ONE_PIXEL_PNG);
+    }
+    const logs = [];
+    const result = await runStillCommand([projectDir, '--spec', spec, ...(placeholder ? ['--placeholder'] : [])], {
+      generateImages: async ({ items }) => {
+        for (const item of items) await putImage(join(projectDir, item.path));
+        return items.map(({ id }) => ({ id, ok: true }));
+      },
+      renderTextCard: async ({ outPath }) => { await putImage(outPath); return { renderer: 'solid' }; },
+      insertGeneratedStills: async () => {},
+      log: line => logs.push(line), logError: line => logs.push(line),
+    });
+    assert.equal(result.exitCode, 0, logs.join('\n'));
+    const metas = {};
+    for (const id of ['one', 'two', 'three', 'four']) {
+      const metaPath = join(projectDir, `assets/generated/${id}.png.meta.json`);
+      metas[id] = JSON.parse(await readFile(metaPath, 'utf8'));
+      assert.deepEqual(validateGenerationMeta(metas[id]), { ok: true, errors: [] });
+      assert.equal(spawnSync(process.execPath, [validator, metaPath]).status, 0);
+    }
+    assert.equal(metas.one.status, placeholder ? 'planned' : 'done');
+    assert.equal(metas.one.next.kind, 'video');
+    assert.equal(metas.one.next.status, 'planned');
+    assert.equal(metas.one.next.inputs.first_frame.path, 'assets/generated/one.png');
+    assert.equal(metas.one.next.inputs.last_frame.path, 'assets/generated/two.png');
+    assert.match(metas.one.next.inputs.first_frame.sha256, /^[a-f0-9]{64}$/);
+    assert.equal(metas.one.next.inputs.prompt, '二枚目へ動く');
+    assert.equal(metas.one.next.output.duration_s, 6);
+    assert.equal(Object.hasOwn(metas.two, 'next'), false);
+    assert.equal(metas.three.next.inputs.last_frame.path, 'assets/generated/one.png');
+    assert.equal(metas.four.next.inputs.last_frame, null);
+    assert.equal(metas.four.next.inputs.prompt, '');
+  });
+}
+
+test('still --spec の最後のビートで last: next は非 0 終了と日本語エラー', async (t) => {
+  const projectDir = await temporaryProject(t, minimalEdit());
+  const spec = await writeSpec(projectDir, [{ id: 'last', prompt: '最後', duration_s: 5, video: { last: 'next' } }]);
+  let generated = false;
+  const errors = [];
+  const result = await runStillCommand([projectDir, '--spec', spec], {
+    generateImages: async () => { generated = true; return []; },
+    log: () => {}, logError: line => errors.push(line),
+  });
+  assert.notEqual(result.exitCode, 0);
+  assert.equal(generated, false);
+  assert.match(errors.join('\n'), /最後のビートでは video.last に next を指定できません/);
+});

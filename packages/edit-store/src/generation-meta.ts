@@ -6,10 +6,33 @@
 
 export type GenerationState = 'none' | 'planned' | 'generating' | 'stale' | 'done' | 'failed' | 'orphan';
 
+export interface GenerationFrameReference {
+    sha256?: string;
+    path?: string;
+    source_id?: string | null;
+}
+
+export interface GenerationNextDraft {
+    kind: 'video';
+    status: 'planned';
+    model: { id: string };
+    inputs: {
+        first_frame?: GenerationFrameReference | null;
+        last_frame?: GenerationFrameReference | null;
+        prompt?: string;
+        frames_or_refs?: 'frames' | 'references';
+        [key: string]: unknown;
+    };
+    output: { duration_s: number; [key: string]: unknown };
+    updated_at: string;
+}
+
 export interface GenerationMetaV1 {
     version: 1;
     kind: 'still' | 'video' | 'frames';
     status: 'planned' | 'generating' | 'done' | 'failed';
+    next?: GenerationNextDraft;
+    placeholder?: { path: string; sha256: string; item_id: string };
     inputs?: {
         first_frame?: { sha256?: string; path?: string; source_id?: string | null } | null;
         [key: string]: unknown;
@@ -30,7 +53,7 @@ export interface GenerationBinding {
     expectedSha256: string;
     actualSha256: string | null;
     matches: boolean;
-    source: 'result' | 'first_frame';
+    source: 'result' | 'placeholder' | 'first_frame';
 }
 
 export interface ReadGenerationMetaResult {
@@ -46,9 +69,12 @@ export function sidecarPathFor(sourcePath: string): string {
 
 export function bindingShaFor(
     meta: GenerationMetaV1 | null | undefined
-): { sha256: string; source: 'result' | 'first_frame' } | null {
+): { sha256: string; source: 'result' | 'placeholder' | 'first_frame' } | null {
     if (meta?.status === 'done' && typeof meta.result?.sha256 === 'string') {
         return { sha256: meta.result.sha256, source: 'result' };
+    }
+    if (meta?.status !== 'done' && typeof meta?.placeholder?.sha256 === 'string') {
+        return { sha256: meta.placeholder.sha256, source: 'placeholder' };
     }
     if (typeof meta?.inputs?.first_frame?.sha256 === 'string') {
         return { sha256: meta.inputs.first_frame.sha256, source: 'first_frame' };
@@ -104,7 +130,7 @@ export function selectGenerationSidecarForSource<T extends {
     for (const entry of entries) {
         const meta = entry.meta;
         if (meta?.kind !== 'video' || entry.binding?.matches === false) continue;
-        const firstFramePath = meta.inputs?.first_frame?.path;
+        const firstFramePath = meta.placeholder?.path ?? meta.inputs?.first_frame?.path;
         if (typeof firstFramePath !== 'string' || normalizePath(firstFramePath) !== normalizedSourcePath) continue;
         const state = resolveGenerationState(meta, now);
         if (state !== 'generating' && state !== 'stale' && state !== 'failed') continue;
@@ -116,4 +142,26 @@ export function selectGenerationSidecarForSource<T extends {
         }
     }
     return selected ?? direct;
+}
+
+/** 動画予定の入力を、描画と右パネルで共用する種類へまとめる。 */
+export function describeNextDraft(meta: GenerationMetaV1 | null | undefined): {
+    variety: 'prompt' | 'first' | 'first-last' | 'references';
+    firstFrame: GenerationFrameReference | null;
+    lastFrame: GenerationFrameReference | null;
+    prompt: string;
+    modelId: string;
+} | null {
+    const next = meta?.next;
+    if (next?.kind !== 'video' || next.status !== 'planned') return null;
+    const firstFrame = next.inputs.first_frame ?? null;
+    const lastFrame = next.inputs.last_frame ?? null;
+    return {
+        variety: next.inputs.frames_or_refs === 'references' ? 'references'
+            : lastFrame ? 'first-last' : firstFrame ? 'first' : 'prompt',
+        firstFrame,
+        lastFrame,
+        prompt: next.inputs.prompt ?? '',
+        modelId: next.model.id,
+    };
 }

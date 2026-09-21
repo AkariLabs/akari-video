@@ -1,4 +1,4 @@
-const ROOT_KEYS = ["version", "kind", "status", "model", "inputs", "output", "cost", "job", "provenance", "result", "history"];
+const ROOT_KEYS = ["version", "kind", "status", "model", "inputs", "output", "cost", "job", "provenance", "result", "history", "next", "placeholder"];
 const STATUS_VALUES = ["planned", "generating", "done", "failed"];
 const SHA256_PATTERN = /^[a-f0-9]{64}$/;
 const AS_OF_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
@@ -27,6 +27,8 @@ export function validateGenerationMeta(meta) {
   validateProvenance(meta.provenance, "/provenance", fail);
   if (hasOwn(meta, "result")) validateResult(meta.result, "/result", fail);
   validateHistory(meta.history, "/history", fail);
+  if (hasOwn(meta, "next")) validateNext(meta.next, "/next", fail);
+  if (hasOwn(meta, "placeholder")) validatePlaceholder(meta.placeholder, "/placeholder", fail);
 
   if (meta.status === "generating" && isObject(meta.job) && !hasOwn(meta.job, "request_id")) {
     fail("/job に必須キー request_id がありません");
@@ -83,9 +85,11 @@ function validateCamera(value, path, fail) {
   if (hasOwn(value, "from_annotation")) validateNullableString(value.from_annotation, `${path}/from_annotation`, fail);
 }
 
-function validateInputs(value, path, fail) {
+function validateInputs(value, path, fail, draft = false) {
   if (!validateObject(value, path, fail)) return;
   const keys = ["prompt", "negative_prompt", "first_frame", "last_frame", "reference_images", "reference_videos", "reference_audios", "source_video", "mode", "camera", "seed", "extra"];
+  if (draft) keys.push("frames_or_refs");
+  if (draft && hasOwn(value, "frames_or_refs")) validateEnum(value.frames_or_refs, ["frames", "references"], `${path}/frames_or_refs`, fail);
   rejectUnknown(value, keys, path, fail);
   requireKeys(value, ["prompt", "negative_prompt", "first_frame", "last_frame", "reference_images", "reference_videos", "reference_audios", "source_video", "camera", "seed", "extra"], path, fail);
   if (hasOwn(value, "prompt") && typeof value.prompt !== "string") fail(`${path}/prompt は string である必要があります`);
@@ -250,4 +254,31 @@ function isObject(value) {
 
 function hasOwn(value, key) {
   return Object.prototype.hasOwnProperty.call(value, key);
+}
+
+function validateNext(value, path, fail) {
+  if (!validateObject(value, path, fail)) return;
+  const keys = ["kind", "status", "model", "inputs", "output", "updated_at"];
+  rejectUnknown(value, keys, path, fail);
+  requireKeys(value, keys, path, fail);
+  validateEnum(value.kind, ["video"], `${path}/kind`, fail);
+  validateEnum(value.status, ["planned"], `${path}/status`, fail);
+  if (validateObject(value.model, `${path}/model`, fail)) {
+    rejectUnknown(value.model, ["id"], `${path}/model`, fail);
+    requireKeys(value.model, ["id"], `${path}/model`, fail);
+    validateNonEmptyString(value.model.id, `${path}/model/id`, fail);
+  }
+  validateInputs(value.inputs, `${path}/inputs`, fail, true);
+  validateOutput(value.output, `${path}/output`, fail);
+  validateDateTime(value.updated_at, `${path}/updated_at`, fail);
+}
+
+function validatePlaceholder(value, path, fail) {
+  if (!validateObject(value, path, fail)) return;
+  const keys = ["path", "sha256", "item_id"];
+  rejectUnknown(value, keys, path, fail);
+  requireKeys(value, keys, path, fail);
+  validateNonEmptyString(value.path, `${path}/path`, fail);
+  validateSha256(value.sha256, `${path}/sha256`, fail);
+  validateNonEmptyString(value.item_id, `${path}/item_id`, fail);
 }

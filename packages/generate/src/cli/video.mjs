@@ -26,6 +26,7 @@ export const usage = [
   "  --reference-audio <path> --camera <text> --duration <s> --resolution <res>",
   "  --aspect <a> --audio-out true|false --seed <n> --extra k=v --inputs <json>",
   "  --stale-after <s> --dry-run --yes --json --help",
+  "  --inputs 未指定時は素材 meta の next を使用。--model 等の個別指定は下書きより優先",
 ].join("\n");
 
 class CliError extends Error {
@@ -266,12 +267,33 @@ export async function runVideoCommand(argv, dependencies = {}) {
     if (!item || item.source?.kind !== "media") throw new CliError(`media item が見つかりません: ${options.itemId}`);
     const sourceEntry = findSource(project.edit, item.source.src);
     if (!sourceEntry) throw new CliError(`source が見つかりません: ${item.source.src}`);
-    const supplied = readInputJson(options.projectDir, options.inputJson);
-    const suppliedInputs = supplied.inputs ?? supplied;
+    let supplied;
+    if (options.inputJson !== null) {
+      supplied = readInputJson(options.projectDir, options.inputJson);
+    } else {
+      const sidecarPath = path.resolve(options.projectDir, `${sourceEntry.path}.meta.json`);
+      const sourceMeta = existsSync(sidecarPath) ? JSON.parse(readFileSync(sidecarPath, "utf8")) : null;
+      supplied = sourceMeta?.next?.kind === "video" && sourceMeta.next.status === "planned" ? sourceMeta.next : {};
+    }
+    const suppliedInputs = { ...(supplied.inputs ?? supplied) };
+    const framesOrRefs = suppliedInputs.frames_or_refs;
+    if (framesOrRefs !== undefined && !["frames", "references"].includes(framesOrRefs)) {
+      throw new CliError("frames_or_refs は frames または references で指定してください");
+    }
+    delete suppliedInputs.frames_or_refs;
+    // 非選択側は hydration 前に除く。下書き上の未完成・消失した参照は送信に使わない。
+    if (framesOrRefs === "references") {
+      suppliedInputs.first_frame = null;
+      suppliedInputs.last_frame = null;
+    } else if (framesOrRefs === "frames") {
+      suppliedInputs.reference_images = [];
+      suppliedInputs.reference_videos = [];
+      suppliedInputs.reference_audios = [];
+    }
     const suppliedOutput = supplied.output ?? {};
     const hasSuppliedFirst = Object.hasOwn(suppliedInputs, "first_frame");
     const usesDefaultFirst = options.firstFrame === undefined && !hasSuppliedFirst;
-    const firstValue = options.firstFrame !== undefined
+    const firstValue = framesOrRefs === "references" ? null : options.firstFrame !== undefined
       ? options.firstFrame : hasSuppliedFirst ? suppliedInputs.first_frame : sourceEntry.path;
     if (usesDefaultFirst && !STILL_EXTENSIONS.has(path.extname(sourceEntry.path).toLowerCase())) {
       throw new CliError("既定の first_frame は静止画 source の item だけで使えます");
@@ -281,11 +303,11 @@ export async function runVideoCommand(argv, dependencies = {}) {
       prompt: options.prompt ?? suppliedInputs.prompt ?? null,
       negative_prompt: options.negativePrompt ?? suppliedInputs.negative_prompt ?? null,
       first_frame: hydrateReference(options.projectDir, firstValue, { source_id: sourceEntry.id }),
-      last_frame: hydrateReference(options.projectDir, options.lastFrame ?? suppliedInputs.last_frame),
-      reference_images: options.referenceImages.length
+      last_frame: hydrateReference(options.projectDir, framesOrRefs === "references" ? null : options.lastFrame ?? suppliedInputs.last_frame),
+      reference_images: framesOrRefs === "frames" ? [] : options.referenceImages.length
         ? hydrateList(options.projectDir, options.referenceImages) : hydrateList(options.projectDir, suppliedInputs.reference_images),
       reference_videos: hydrateList(options.projectDir, suppliedInputs.reference_videos),
-      reference_audios: options.referenceAudios.length
+      reference_audios: framesOrRefs === "frames" ? [] : options.referenceAudios.length
         ? hydrateList(options.projectDir, options.referenceAudios) : hydrateList(options.projectDir, suppliedInputs.reference_audios),
       source_video: hydrateReference(options.projectDir, suppliedInputs.source_video),
       camera: options.camera !== undefined
@@ -302,7 +324,7 @@ export async function runVideoCommand(argv, dependencies = {}) {
       audio_out: options.audioOut ?? suppliedOutput.audio_out ?? null,
     };
     const catalog = await (dependencies.loadCatalogImpl ?? loadCatalog)();
-    const modelId = options.modelId ?? modelDefault(options.projectDir);
+    const modelId = options.modelId ?? supplied.model?.id ?? modelDefault(options.projectDir);
     const model = findModel(catalog, modelId);
     if (!model) throw new CliError(`生成モデルがカタログにありません: ${modelId}`);
     const validation = validateInputs({ inputs: rawInputs, output: rawOutput, model });
@@ -347,10 +369,12 @@ export async function runVideoCommand(argv, dependencies = {}) {
     await mkdir(destination.directory, { recursive: true });
     const startedDate = (dependencies.now ?? (() => new Date()))();
     const startedMs = startedDate.getTime();
+    const placeholderReference = makeReference(options.projectDir, sourceEntry.path);
+    const placeholder = { path: placeholderReference.path, sha256: placeholderReference.sha256, item_id: options.itemId };
     const submitted = await submit({ endpoint: mapped.endpoint, body: mapped.body, key: credentials.key, fetchImpl: dependencies.fetchImpl ?? globalThis.fetch });
     metaPath = destination.metaPath;
     writeGenerating({
-      metaPath, model, inputs: schemaInputs(validation.normalized.inputs), output: validation.normalized.output,
+      metaPath, model, placeholder, inputs: schemaInputs(validation.normalized.inputs), output: validation.normalized.output,
       cost: validation.cost, key_source: credentials.key_source, request_id: submitted.request_id,
       status_url: submitted.status_url, response_url: submitted.response_url,
       started_at: startedDate.toISOString(), stale_after_s: options.staleAfterS,

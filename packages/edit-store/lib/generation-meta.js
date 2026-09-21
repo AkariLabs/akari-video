@@ -9,12 +9,16 @@ exports.sidecarPathFor = sidecarPathFor;
 exports.bindingShaFor = bindingShaFor;
 exports.resolveGenerationState = resolveGenerationState;
 exports.selectGenerationSidecarForSource = selectGenerationSidecarForSource;
+exports.describeNextDraft = describeNextDraft;
 function sidecarPathFor(sourcePath) {
     return `${sourcePath}.meta.json`;
 }
 function bindingShaFor(meta) {
     if (meta?.status === 'done' && typeof meta.result?.sha256 === 'string') {
         return { sha256: meta.result.sha256, source: 'result' };
+    }
+    if (meta?.status !== 'done' && typeof meta?.placeholder?.sha256 === 'string') {
+        return { sha256: meta.placeholder.sha256, source: 'placeholder' };
     }
     if (typeof meta?.inputs?.first_frame?.sha256 === 'string') {
         return { sha256: meta.inputs.first_frame.sha256, source: 'first_frame' };
@@ -63,7 +67,7 @@ function selectGenerationSidecarForSource(sourcePath, entries, now) {
         const meta = entry.meta;
         if (meta?.kind !== 'video' || entry.binding?.matches === false)
             continue;
-        const firstFramePath = meta.inputs?.first_frame?.path;
+        const firstFramePath = meta.placeholder?.path ?? meta.inputs?.first_frame?.path;
         if (typeof firstFramePath !== 'string' || normalizePath(firstFramePath) !== normalizedSourcePath)
             continue;
         const state = resolveGenerationState(meta, now);
@@ -77,4 +81,20 @@ function selectGenerationSidecarForSource(sourcePath, entries, now) {
         }
     }
     return selected ?? direct;
+}
+/** 動画予定の入力を、描画と右パネルで共用する種類へまとめる。 */
+function describeNextDraft(meta) {
+    const next = meta?.next;
+    if (next?.kind !== 'video' || next.status !== 'planned')
+        return null;
+    const firstFrame = next.inputs.first_frame ?? null;
+    const lastFrame = next.inputs.last_frame ?? null;
+    return {
+        variety: next.inputs.frames_or_refs === 'references' ? 'references'
+            : lastFrame ? 'first-last' : firstFrame ? 'first' : 'prompt',
+        firstFrame,
+        lastFrame,
+        prompt: next.inputs.prompt ?? '',
+        modelId: next.model.id,
+    };
 }

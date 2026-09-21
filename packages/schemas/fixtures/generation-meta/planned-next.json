@@ -1,0 +1,85 @@
+{
+  "version": 1,
+  "kind": "still",
+  "status": "planned",
+  "model": {
+    "id": "codex-image",
+    "as_of": "2026-09-13"
+  },
+  "inputs": {
+    "prompt": "",
+    "negative_prompt": null,
+    "first_frame": null,
+    "last_frame": null,
+    "reference_images": [
+      {
+        "path": "assets/generated/reference.png",
+        "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "name": "参照 1",
+        "role": "構図"
+      }
+    ],
+    "reference_videos": [],
+    "reference_audios": [],
+    "source_video": null,
+    "mode": null,
+    "camera": null,
+    "seed": null,
+    "extra": {}
+  },
+  "output": {
+    "duration_s": 1,
+    "resolution": "1536x1024",
+    "aspect": "3:2",
+    "audio_out": false
+  },
+  "cost": {
+    "estimate_usd": 0,
+    "actual_usd": 0,
+    "unit": "usd_per_image",
+    "source": "provider"
+  },
+  "job": {
+    "provider": "codex",
+    "started_at": "2026-09-13T10:00:00.000Z",
+    "stale_after_s": 900
+  },
+  "provenance": {
+    "created_at": "2026-09-13T10:00:00.000Z",
+    "tool": "akari generate still --placeholder"
+  },
+  "history": [
+    {
+      "at": "2026-09-21T10:00:00.000Z",
+      "status": "planned",
+      "reason": null
+    }
+  ],
+  "next": {
+    "kind": "video",
+    "status": "planned",
+    "model": {
+      "id": "fal:h3-i2v"
+    },
+    "inputs": {
+      "prompt": "朝の光が差し込む庭で、木々の葉が風にゆっくり揺れる。",
+      "negative_prompt": null,
+      "first_frame": null,
+      "last_frame": null,
+      "reference_images": [],
+      "reference_videos": [],
+      "reference_audios": [],
+      "source_video": null,
+      "mode": null,
+      "camera": null,
+      "seed": 42,
+      "extra": {},
+      "frames_or_refs": "frames"
+    },
+    "output": {
+      "duration_s": 6,
+      "resolution": "768P"
+    },
+    "updated_at": "2026-09-21T10:00:00.000Z"
+  }
+}

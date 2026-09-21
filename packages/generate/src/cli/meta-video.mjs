@@ -22,7 +22,7 @@ export function readVideoMeta(metaPath) {
 }
 
 export function writeGenerating({
-  metaPath, model, inputs, output, cost, key_source, request_id, status_url,
+  metaPath, model, inputs, output, placeholder, cost, key_source, request_id, status_url,
   response_url, started_at, stale_after_s = 900, now,
 }) {
   const at = started_at ?? nowIso(now);
@@ -33,6 +33,8 @@ export function writeGenerating({
     model: { id: model.id, endpoint: model.endpoint, as_of: model.as_of },
     inputs,
     output,
+    // video CLI は必ず渡す。旧 API 呼び出し（9/13 meta の再取得テスト等）は許容する。
+    ...(placeholder === undefined ? {} : { placeholder }),
     cost: {
       estimate_usd: cost.estimate_usd ?? null,
       actual_usd: null,

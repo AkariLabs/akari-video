@@ -5,7 +5,8 @@ import { homedir, tmpdir } from "node:os";
 import { generateCodexImages } from "./codex-image.mjs";
 import { renderTextCard } from "./text-card.mjs";
 import { hasGeneratedId, insertGeneratedStills, readEditForPlan, firstVisualTrack, endOfTrack } from "./edit-insert.mjs";
-import { doneStillMeta, failedStillMeta, inspectPng, plannedStillMeta, readCodexModelAsOf } from "./meta-still.mjs";
+import { doneStillMeta, failedStillMeta, inspectPng, plannedStillMeta, readCodexModelAsOf, withNextVideoDraft } from "./meta-still.mjs";
+import { makeReference } from "./media-ref.mjs";
 import { validateGenerationMeta } from "./meta-validate.mjs";
 import { STILL_USAGE } from "./usage.mjs";
 
@@ -51,7 +52,21 @@ async function loadSpec(path) {
       ids.add(beat.id);
       if (typeof beat.prompt !== "string") throw new Error(`beats[${index}].prompt は文字列が必要です`);
       if (typeof beat.duration_s !== "number" || !Number.isFinite(beat.duration_s) || beat.duration_s <= 0) throw new Error(`beats[${index}].duration_s は正の数が必要です`);
-      return { id: beat.id, prompt: beat.prompt, duration_s: beat.duration_s, ...(typeof beat.name === "string" ? { name: beat.name } : {}) };
+      if (beat.video !== undefined) {
+        const video = beat.video;
+        if (!video || typeof video !== "object" || Array.isArray(video)
+          || Object.keys(video).some((key) => !["prompt", "last"].includes(key))) {
+          throw new Error(`beats[${index}].video は prompt / last の object で指定してください`);
+        }
+        if (video.prompt !== undefined && typeof video.prompt !== "string") throw new Error(`beats[${index}].video.prompt は文字列が必要です`);
+        if (video.last !== undefined && video.last !== null) {
+          if (video.last === "next" && index === beats.length - 1) throw new Error("最後のビートでは video.last に next を指定できません");
+          if (typeof video.last !== "string" || (video.last !== "next" && !beats.some((entry) => entry?.id === video.last))) {
+            throw new Error(`beats[${index}].video.last の参照先ビートがありません`);
+          }
+        }
+      }
+      return { ...(beat.video === undefined ? {} : { video: beat.video }), id: beat.id, prompt: beat.prompt, duration_s: beat.duration_s, ...(typeof beat.name === "string" ? { name: beat.name } : {}) };
     }),
   };
 }
@@ -134,10 +149,12 @@ export async function runStillCommand(argv, options = {}) {
     await mkdir(dirname(path), { recursive: true });
     await writeFile(path, `${JSON.stringify(value, null, 2)}\n`, "utf8");
   });
+  const writtenMetas = new Map();
   const writeMeta = async (path, value) => {
     const checked = validateGenerationMeta(value);
     if (!checked.ok) throw new Error(`generation meta の検証に失敗しました:\n- ${checked.errors.join("\n- ")}`);
     await writeMetaImpl(path, value);
+    writtenMetas.set(path, value);
   };
   const successful = [];
   let failed = 0;
@@ -195,6 +212,30 @@ export async function runStillCommand(argv, options = {}) {
     }
   }
 
+  let draftFailed = false;
+  // 全ビートの生成後に結ぶ。並列生成の順序に依存せず次の絵を参照できる。
+  for (const row of successful) {
+    if (!row.video) continue;
+    try {
+      const lastId = row.video.last === "next"
+        ? spec.beats[spec.beats.findIndex((beat) => beat.id === row.id) + 1].id : row.video.last;
+      const firstFrame = makeReference(args.projectDir, row.path);
+      const lastFrame = lastId ? makeReference(args.projectDir, `assets/generated/${lastId}.png`) : null;
+      let modelId = "fal:h3-i2v";
+      try {
+        const connections = JSON.parse(await readFile(join(args.projectDir, ".akari", "connections.json"), "utf8"));
+        modelId = connections?.defaults?.generate?.video ?? modelId;
+      } catch { /* 接続未設定なら動画 CLI と同じ既定値。 */ }
+      const metaPath = `${join(args.projectDir, row.path)}.meta.json`;
+      await writeMeta(metaPath, withNextVideoDraft(writtenMetas.get(metaPath), {
+        firstFrame, lastFrame, prompt: row.video.prompt ?? "", modelId, at: now().toISOString(),
+      }));
+    } catch (error) {
+      draftFailed = true;
+      logError(`動画予定を保存できません (${row.id}): ${sanitizeEvidenceText(error.message, args.projectDir)}`);
+    }
+  }
+
   if (successful.length > 0) {
     await (options.insertGeneratedStills ?? insertGeneratedStills)({
       projectDir: args.projectDir,
@@ -205,5 +246,5 @@ export async function runStillCommand(argv, options = {}) {
   const summary = { generated: successful.length, failed, skipped: preSkipped + rows.length - successful.length - failed };
   if (args.json) log(JSON.stringify(summary));
   else log(`完了: ${summary.generated} 枚、失敗 ${summary.failed} 枚、スキップ ${summary.skipped} 枚`);
-  return { exitCode: failed > 0 ? 1 : 0, ...summary };
+  return { exitCode: failed > 0 || draftFailed ? 1 : 0, ...summary };
 }

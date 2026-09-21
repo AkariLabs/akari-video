@@ -4,15 +4,17 @@ export interface InspectorTabDef {
     id: string;
     label: string;
     enabled: boolean;
+    disabledTitle?: string;
 }
 
 export type InspectorTabKind = 'cut' | 'layer' | 'overlay' | 'item' | 'caption' | 'audio' | 'world';
 
 export interface InspectorTabSnapshotHints {
     src?: unknown;
+    generationAvailable?: boolean;
 }
 
-const VIDEO_TAB = { id: 'video', label: '動画', enabled: true } as const;
+const VIDEO_TAB = { id: 'video', label: '映像', enabled: true } as const;
 const INFO_TAB = { id: 'info', label: '情報', enabled: true } as const;
 
 export function tabsForKind(
@@ -37,8 +39,10 @@ export function tabsForKind(
     const hasMediaPreview = kind === 'cut' || hasMediaSource;
     return [
         { ...VIDEO_TAB },
-        { id: 'adjust', label: '調整', enabled: hasMediaPreview },
+        { id: 'adjust', label: '色', enabled: hasMediaPreview },
         { id: 'audio', label: '音声', enabled: hasMediaPreview },
+        { id: 'generation', label: '生成', enabled: snapshotHints.generationAvailable === true,
+            disabledTitle: 'このクリップには生成の入力がありません' },
         { ...INFO_TAB }
     ];
 }
@@ -50,7 +54,34 @@ export function assignSectionToTab(kind: InspectorTabKind, sectionId: string): s
     if (kind === 'caption') return 'text';
     if (kind === 'audio') return 'audio';
     if (kind === 'world') return 'world';
+    if (rootId === 'generation') return 'generation';
     return 'video';
+}
+
+export interface InitialInspectorTabOptions {
+    kind: InspectorTabKind;
+    tabs: readonly InspectorTabDef[];
+    persisted?: string | null;
+    generationTodo: boolean;
+    explicitTabId?: string;
+    clipKey?: string;
+    previousClipKey?: string;
+    currentTab?: string;
+}
+
+/** Selection policy only: no storage, DOM or asynchronous state reads. */
+export function initialTabFor(options: InitialInspectorTabOptions): string {
+    const { tabs, persisted, generationTodo, explicitTabId, clipKey, previousClipKey, currentTab } = options;
+    const enabled = (id: string | null | undefined): string | undefined =>
+        tabs.find(tab => tab.id === id && tab.enabled)?.id;
+    const fallback = (): string => enabled(persisted) ?? tabs.find(tab => tab.enabled)?.id ?? '';
+    if (explicitTabId) return enabled(explicitTabId) ?? fallback();
+    if (clipKey !== undefined && clipKey === previousClipKey && currentTab) {
+        return enabled(currentTab) ?? fallback();
+    }
+    if (generationTodo && enabled('generation')) return 'generation';
+    if (!generationTodo && persisted === 'generation') return enabled('video') ?? fallback();
+    return fallback();
 }
 
 export class InspectorTabState {

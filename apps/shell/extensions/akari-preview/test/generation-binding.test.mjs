@@ -90,3 +90,28 @@ test('orphan overlay は孤児タグだけを返す', () => {
     tag: '孤児 · ビート 1', band: null, shimmer: false, maskRect: null
   });
 });
+
+for (const firstFrame of [{ path: 'assets/other.png', sha256: sha256('別クリップ') }, null]) {
+  test(`placeholder の実ファイルで結線する: first_frame ${firstFrame ? '別クリップ' : 'null'}`, async t => {
+    const data = await fixture(t);
+    const root = data.project;
+    const placeholder = { path: 'assets/placeholder.png', sha256: sha256('仮枠'), item_id: 'clip-a' };
+    await writeFile(join(root, placeholder.path), '仮枠');
+    await writeFile(join(root, 'assets/other.png'), '別クリップ');
+    await mkdir(join(root, 'assets/generated'), { recursive: true });
+    await writeFile(join(root, 'assets/generated/new.mp4.meta.json'), JSON.stringify({
+      version: 1, kind: 'video', status: 'generating', placeholder,
+      inputs: { first_frame: firstFrame },
+      job: { started_at: new Date().toISOString(), stale_after_s: 900 }
+    }));
+    const result = await data.service.readGenerationSidecars({
+      editUri: pathToFileURL(join(root, 'edit.json')).toString(), workspaceRoots: [data.rootUri]
+    });
+    const entry = result.entries.find(candidate => candidate.sourcePath === 'assets/generated/new.mp4');
+    assert.equal(entry.binding.source, 'placeholder');
+    assert.equal(entry.binding.actual, placeholder.sha256);
+    assert.equal(entry.binding.matches, true);
+    const { selectGenerationSidecarForSource } = await import('@akari-video/edit-store');
+    assert.equal(selectGenerationSidecarForSource(placeholder.path, result.entries, Date.now()), entry);
+  });
+}

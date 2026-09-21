@@ -4,10 +4,40 @@
  * （ここへ Node 専用依存を戻すと browser バンドルに node builtins が混入するため分離している）。
  */
 export type GenerationState = 'none' | 'planned' | 'generating' | 'stale' | 'done' | 'failed' | 'orphan';
+export interface GenerationFrameReference {
+    sha256?: string;
+    path?: string;
+    source_id?: string | null;
+}
+export interface GenerationNextDraft {
+    kind: 'video';
+    status: 'planned';
+    model: {
+        id: string;
+    };
+    inputs: {
+        first_frame?: GenerationFrameReference | null;
+        last_frame?: GenerationFrameReference | null;
+        prompt?: string;
+        frames_or_refs?: 'frames' | 'references';
+        [key: string]: unknown;
+    };
+    output: {
+        duration_s: number;
+        [key: string]: unknown;
+    };
+    updated_at: string;
+}
 export interface GenerationMetaV1 {
     version: 1;
     kind: 'still' | 'video' | 'frames';
     status: 'planned' | 'generating' | 'done' | 'failed';
+    next?: GenerationNextDraft;
+    placeholder?: {
+        path: string;
+        sha256: string;
+        item_id: string;
+    };
     inputs?: {
         first_frame?: {
             sha256?: string;
@@ -31,7 +61,7 @@ export interface GenerationBinding {
     expectedSha256: string;
     actualSha256: string | null;
     matches: boolean;
-    source: 'result' | 'first_frame';
+    source: 'result' | 'placeholder' | 'first_frame';
 }
 export interface ReadGenerationMetaResult {
     state: GenerationState;
@@ -42,7 +72,7 @@ export interface ReadGenerationMetaResult {
 export declare function sidecarPathFor(sourcePath: string): string;
 export declare function bindingShaFor(meta: GenerationMetaV1 | null | undefined): {
     sha256: string;
-    source: 'result' | 'first_frame';
+    source: 'result' | 'placeholder' | 'first_frame';
 } | null;
 /**
  * fs に触れず、サイドカー自身が表す状態だけを解決する。
@@ -60,3 +90,11 @@ export declare function selectGenerationSidecarForSource<T extends {
         matches?: boolean;
     } | null;
 }>(sourcePath: string | undefined, entries: readonly T[], now: Date | string | number): T | undefined;
+/** 動画予定の入力を、描画と右パネルで共用する種類へまとめる。 */
+export declare function describeNextDraft(meta: GenerationMetaV1 | null | undefined): {
+    variety: 'prompt' | 'first' | 'first-last' | 'references';
+    firstFrame: GenerationFrameReference | null;
+    lastFrame: GenerationFrameReference | null;
+    prompt: string;
+    modelId: string;
+} | null;

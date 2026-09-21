@@ -324,8 +324,9 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
                 const expected = bindingShaFor(meta as GenerationMetaV1);
                 let binding: GenerationBindingView | null = null;
                 if (expected) {
-                    const firstFramePath = meta.inputs?.first_frame?.path;
-                    const bindsFirstFramePath = expected.source === 'first_frame'
+                    const firstFramePath = expected.source === 'placeholder'
+                        ? meta.placeholder?.path : meta.inputs?.first_frame?.path;
+                    const bindsFirstFramePath = expected.source !== 'result'
                         && typeof firstFramePath === 'string' && !!firstFramePath.trim();
                     let actual: string | null;
                     if (bindsFirstFramePath) {
@@ -348,7 +349,8 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
                         expected: expected.sha256,
                         actual,
                         matches: actual === expected.sha256,
-                        source: expected.source
+                        // common の表示型は後続票で拡張する。実値は placeholder を保持する。
+                        source: expected.source as GenerationBindingView['source']
                     };
                 }
                 return { sourcePath, meta, binding };

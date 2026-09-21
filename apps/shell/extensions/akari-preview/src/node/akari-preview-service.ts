@@ -1264,9 +1264,10 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
                     if (!expected) return { sourcePath, meta, mtimeMs, binding: null };
                     let actual: string | null = null;
                     try {
-                        const firstFramePath = (meta as { inputs?: { first_frame?: { path?: unknown } | null } })
-                            .inputs?.first_frame?.path;
-                        const hashSourcePath = expected.source === 'first_frame' && typeof firstFramePath === 'string'
+                        const bindingMeta = meta as { placeholder?: { path?: unknown }; inputs?: { first_frame?: { path?: unknown } | null } };
+                        const firstFramePath = expected.source === 'placeholder'
+                            ? bindingMeta.placeholder?.path : bindingMeta.inputs?.first_frame?.path;
+                        const hashSourcePath = expected.source !== 'result' && typeof firstFramePath === 'string'
                             && firstFramePath.trim() ? firstFramePath : sourcePath;
                         const sourceAbsolutePath = resolve(projectRoot, hashSourcePath);
                         const canonicalSourceParent = await realpath(dirname(sourceAbsolutePath));
@@ -1291,7 +1292,8 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
                             expected: expected.sha256,
                             actual,
                             matches: actual === expected.sha256,
-                            source: expected.source
+                            // common の表示型は後続票で拡張する。実値は placeholder を保持する。
+                            source: expected.source as ReadGenerationSidecarsResult['entries'][number]['binding']['source']
                         }
                     };
                 } catch {
