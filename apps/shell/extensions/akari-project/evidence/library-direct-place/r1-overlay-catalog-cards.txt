@@ -1,0 +1,1 @@
+オーバーレイ {"cards":7,"summary":{"draggable=false add=0 state=available":7},"hint":"「使う」でプロジェクトに追加"}

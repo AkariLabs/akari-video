@@ -27,7 +27,7 @@ for (const [label, item, children, expected] of [
     ['meta 付きパック', { category: 'audio', mediaUrl: 'https://example.test/b.mp3' }, files('meta.json', 'a.mp3', 'b.mp3'), { kind: 'other' }],
     ['同名ディレクトリは選ばない', { category: 'audio', mediaUrl: 'https://example.test/b.mp3' }, [...files('a.mp3', 'c.mp3'), { name: 'b.mp3', isDirectory: true }], { kind: 'other' }],
     ['動画と音声の混在', { category: 'broll' }, files('clip.mp4', 'voice.wav', 'still.png', 'meta.json'), { kind: 'video', mediaName: 'clip.mp4' }],
-    ['HTML シート', { category: 'still' }, files('still.png', 'fragment.html'), { kind: 'other' }],
+    ['HTML を含む画像', { category: 'still' }, files('still.png', 'fragment.html'), { kind: 'image', mediaName: 'still.png' }],
     ['画像', { category: 'still' }, files('still.png', 'preview.png'), { kind: 'image', mediaName: 'still.png' }],
 ]) {
     test(`主メディア: ${label}`, () => assert.deepEqual(resolveLibraryAssetMedia(item, children), expected));

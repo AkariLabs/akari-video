@@ -1,0 +1,89 @@
+{
+ "key": "still/bg-isometric-grid",
+ "drop": {
+  "x": 705,
+  "y": 424
+ },
+ "at": "2026-09-21T11:14:59.040Z",
+ "card": {
+  "x": 205,
+  "y": 228.6953125,
+  "draggable": "true",
+  "state": "available"
+ },
+ "assetDirBefore": false,
+ "dragIntercepted": true,
+ "mimeTypes": [
+  "application/x-akari-library-item"
+ ],
+ "payload": {
+  "kind": "asset",
+  "key": "still/bg-isometric-grid",
+  "id": "bg-isometric-grid",
+  "category": "still",
+  "title": "アイソメグリッド背景"
+ },
+ "duringDrag": {
+  "ghosts": [
+   {
+    "x": 705,
+    "y": 398,
+    "w": 230,
+    "h": 50,
+    "rejected": false,
+    "insertion": null
+   }
+  ],
+  "footer": []
+ },
+ "waitMs": 1503,
+ "editChanged": true,
+ "itemsBefore": 1,
+ "itemsAfter": 2,
+ "tracksBefore": [
+  "v2:visual",
+  "v1:visual",
+  "a1:audio"
+ ],
+ "tracksAfter": [
+  "v2:visual",
+  "v1:visual",
+  "a1:audio"
+ ],
+ "newItems": [
+  {
+   "track": "v2",
+   "lane": "visual",
+   "id": "image-1",
+   "at": 91,
+   "duration": 150,
+   "source": {
+    "kind": "media",
+    "src": "src-1",
+    "in": 0,
+    "out": 5
+   }
+  }
+ ],
+ "newSources": [
+  {
+   "id": "src-1",
+   "path": "assets/still/bg-isometric-grid/bg.png"
+  }
+ ],
+ "sfxBefore": 0,
+ "sfxAfter": 0,
+ "assetDirAfter": [
+  "bg.png",
+  "fragment.html",
+  "meta.json",
+  "preview.png"
+ ],
+ "afterDrop": {
+  "ghosts": [],
+  "footer": [
+   "タイムラインに素材を追加しました。"
+  ]
+ },
+ "toasts": []
+}

@@ -58,3 +58,27 @@ CDP 経由のドロップ特有かどうかは未確認。
 `scripts/` — `libdrag.mjs`（ライブラリカードのドラッグ）/ `plus.mjs`（＋・カード本体クリック）/ `undo.mjs` / `projdrag.mjs`（プロジェクト面、Wave 1 の drag.mjs を流用）/
 `osdrop.mjs` / `transdrag.mjs` / `opencat.mjs` / `click.mjs` / `mdrag.mjs`（スプリッター）/ `at.mjs` / `ev.mjs`。CDP ヘルパーは `../materials-tab-hardening/cdp-lib.mjs`。
 ポートは `CDP_PORT`（既定 9388）。
+
+## r1（差し戻し: 画像 still を映像のトラックへ置く）
+
+規則変更: `resolveAssetGroupMedia` の still は HTML の有無に依らず、`preview.png` を除いた画像がちょうど 1 本なら `image`（0 本 / 2 本以上は `other`。overlay は従来どおり `other`）。
+採取は r0 と同じ方法・同じ一時ディレクトリ（`/tmp/ldp-l1/`、CDP 9388）。fixture は「V（空）/ V（base.mp4 0〜6 秒）/ A1（空）」の 3 行に戻してから採った（fixture の git に `fixture r1` コミット）。
+ドロップ位置は空の映像行の 3 秒付近（705, 424）、A1 は (705, 465)。Cmd+Z 後は毎回 fixture の `git diff -- edit.json` が空。
+
+| 観測 | 記録 | 結果 |
+|---|---|---|
+| 画像 `bg-isometric-grid`（未取得）を映像行へ | `r1-drop-bg-image-video-row.json` / `r1-drag-bg-image-over-video-row.png` / `r1-after-drop-bg-image.png` | ゴースト（受理・5 秒ぶん）→ `image-1` at 91・150 フレーム（5 秒）、source `assets/still/bg-isometric-grid/bg.png`。取り込み先は bg.png / fragment.html / meta.json / preview.png。書き込みまで 1.5 秒 |
+| 同 Cmd+Z | `r1-undo-bg-image.json` | items 2 → 1、sources 2 → 1、`git diff` 空 |
+| 画像 `br-3d-printer`（未取得）を映像行へ | `r1-drop-br-image-video-row.json` / `r1-drag-br-image-over-video-row.png` | `image-1` at 91・150 フレーム、source `assets/still/br-3d-printer/broll.png`。Cmd+Z（`r1-undo-br-image.json`）で `git diff` 空 |
+| 画像 `br-elevator-hall` を A1 へ | `r1-drop-br-image-on-audio-row-rejected.json` / `r1-drag-br-image-over-a1-rejected.png` | ゴーストなし、「音のレーンには映像を置けません。」、edit.json 不変・取り込みなし |
+| 画像の ＋（プレイヘッド 2 秒） | `r1-plus-bg-image-at-playhead.json` / `r1-after-plus-bg-image.png` | `image-1` at 61・150 フレーム、source `bg.png`。Cmd+Z（`r1-undo-plus-bg-image.json`）で戻る |
+| 画像カード本体のクリック | `r1-image-body-click-no-change.json` | 6 秒待って edit.json 不変 |
+| 画像カテゴリのカード状態 | （opencat 出力） | 161 枚すべて draggable=true・＋ あり |
+| オーバーレイのカタログカード | `r1-overlay-catalog-cards.txt` | 7 枚すべて draggable=false・＋ なし、hint「「使う」でプロジェクトに追加」 |
+| プロジェクト面 still グループカード `assets/still/bg-aurora-mesh` | `r1-project-still-group-card-context-menu.json` | draggable=true、右クリックに「タイムラインに追加」あり |
+| 同カードを映像行へドラッグ（素材 D&D） | `r1-project-still-group-card-drop-video-row.json` | `x-akari-material` payload `{ relativePath: assets/still/bg-aurora-mesh/bg.png, kind: image }`、`image-1` at 91。Cmd+Z（`r1-undo-project-still-group-card.json`）で戻る |
+| プロジェクト面 overlay グループカード `assets/overlay/whiteboard`（「使う」で取り込み） | `r1-project-overlay-group-card-context-menu.json` | draggable=false、右クリックに「タイムラインに追加」なし |
+| 回帰: SFX `sfx-click-bottlecap`（未取得）を A1 へ | `r1-regression-drop-sfx-a1.json` / `r1-regression-drag-sfx-over-a1.png` | A1 に `audio-1` at 91・54 フレーム、`assets/audio/sfx-click-bottlecap/sfx-click-bottlecap.mp3` を取り込み。映像行の上ではゴーストなし・「映像のレーンには音を置けません。」（`r1-regression-hover-sfx-over-video-row.json`）。Cmd+Z（`r1-regression-undo-sfx.json`）で戻る |
+| 回帰: B-roll `talkinghead-desk-ja-01` を映像行へ | `r1-regression-drop-broll-video-row.json` / `r1-regression-drag-broll-over-video-row.png` | `clip-1` at 91・1128 フレーム、`clip.mp4`。Cmd+Z（`r1-regression-undo-broll.json`）で戻る |
+
+右クリックの記録は `scripts/ctxmenu.mjs`（r1 で追加。実マウスの右クリック → `[data-akari-context-menu] button` の文言を採る。採る前に残っていたメニューを消す）。

@@ -1,0 +1,87 @@
+{
+ "key": "audio/sfx-click-bottlecap",
+ "drop": {
+  "x": 705,
+  "y": 465
+ },
+ "at": "2026-09-21T11:18:39.695Z",
+ "card": {
+  "x": 205,
+  "y": 348.6953125,
+  "draggable": "true",
+  "state": "available"
+ },
+ "assetDirBefore": false,
+ "dragIntercepted": true,
+ "mimeTypes": [
+  "application/x-akari-library-item"
+ ],
+ "payload": {
+  "kind": "asset",
+  "key": "audio/sfx-click-bottlecap",
+  "id": "sfx-click-bottlecap",
+  "category": "audio",
+  "title": "Bottle Cap Flick, Springy Metallic Click, Isolat"
+ },
+ "duringDrag": {
+  "ghosts": [
+   {
+    "x": 705,
+    "y": 450,
+    "w": 174,
+    "h": 28,
+    "rejected": false,
+    "insertion": null
+   }
+  ],
+  "footer": []
+ },
+ "waitMs": 2005,
+ "editChanged": true,
+ "itemsBefore": 1,
+ "itemsAfter": 2,
+ "tracksBefore": [
+  "v2:visual",
+  "v1:visual",
+  "a1:audio"
+ ],
+ "tracksAfter": [
+  "v2:visual",
+  "v1:visual",
+  "a1:audio"
+ ],
+ "newItems": [
+  {
+   "track": "a1",
+   "lane": "audio",
+   "id": "audio-1",
+   "at": 91,
+   "duration": 54,
+   "source": {
+    "kind": "media",
+    "src": "src-1",
+    "in": 0,
+    "out": 1.800979
+   },
+   "gain_db": -0.3,
+   "fade_in": 0,
+   "fade_out": 0
+  }
+ ],
+ "newSources": [
+  {
+   "id": "src-1",
+   "path": "assets/audio/sfx-click-bottlecap/sfx-click-bottlecap.mp3"
+  }
+ ],
+ "sfxBefore": 0,
+ "sfxAfter": 0,
+ "assetDirAfter": [
+  "sfx-click-bottlecap.mp3"
+ ],
+ "afterDrop": {
+  "ghosts": [],
+  "footer": []
+ },
+ "toasts": []
+}

@@ -29,9 +29,6 @@ export function resolveAssetGroupMedia(category: string | undefined, children: r
         return { kind: 'other' };
     }
     const files = children.filter(child => !child.isDirectory);
-    if (category === 'still' && files.some(child => /\.html?$/i.test(child.name))) {
-        return { kind: 'other' };
-    }
     const media = files.filter(child => classifyMaterialKind(child.name) === kind
         && (category !== 'still' || child.name.toLowerCase() !== 'preview.png'));
     return media.length === 1 ? { kind, mediaName: media[0].name } : { kind: 'other' };

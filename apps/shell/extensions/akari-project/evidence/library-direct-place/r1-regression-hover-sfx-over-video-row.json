@@ -1,0 +1,60 @@
+{
+ "key": "audio/sfx-click-bottlecap",
+ "drop": {
+  "x": 705,
+  "y": 424
+ },
+ "at": "2026-09-21T11:18:51.444Z",
+ "card": {
+  "x": 205,
+  "y": 348.6953125,
+  "draggable": "true",
+  "state": "cached"
+ },
+ "assetDirBefore": true,
+ "dragIntercepted": true,
+ "mimeTypes": [
+  "application/x-akari-library-item"
+ ],
+ "payload": {
+  "kind": "asset",
+  "key": "audio/sfx-click-bottlecap",
+  "id": "sfx-click-bottlecap",
+  "category": "audio",
+  "title": "Bottle Cap Flick, Springy Metallic Click, Isolat"
+ },
+ "duringDrag": {
+  "ghosts": [],
+  "footer": [
+   "映像のレーンには音を置けません。"
+  ]
+ },
+ "waitMs": 1003,
+ "editChanged": false,
+ "itemsBefore": 1,
+ "itemsAfter": 1,
+ "tracksBefore": [
+  "v2:visual",
+  "v1:visual",
+  "a1:audio"
+ ],
+ "tracksAfter": [
+  "v2:visual",
+  "v1:visual",
+  "a1:audio"
+ ],
+ "newItems": [],
+ "newSources": [],
+ "sfxBefore": 0,
+ "sfxAfter": 0,
+ "assetDirAfter": [
+  "sfx-click-bottlecap.mp3"
+ ],
+ "afterDrop": {
+  "ghosts": [],
+  "footer": [
+   "映像のレーンには音を置けません。"
+  ]
+ },
+ "toasts": []
+}
