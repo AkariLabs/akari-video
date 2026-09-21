@@ -1,6 +1,7 @@
 import { classifyMaterialKind, MaterialKind } from './asset-group-media';
 
 export const GENERATION_PICK_INTO_COMMAND_ID = 'akari.generation.pickInto';
+export const GENERATION_CANCEL_PICK_COMMAND_ID = 'akari.generation.cancelPick';
 // akari-annotations-widget.publishPrimaryPreviewSelection emits this window event;
 // akari-preview-open-handler also consumes it. Mirror the literal without an extension dependency.
 export const GENERATION_PICK_PRIMARY_SELECTED_EVENT = 'akari.timeline.primarySelected';

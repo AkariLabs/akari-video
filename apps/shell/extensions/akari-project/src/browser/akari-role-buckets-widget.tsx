@@ -340,12 +340,18 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     /** UI-internal command entry; library and project segments remain available. */
     pickInto(request: GenerationPickRequest): Promise<GenerationPickResult> {
         if (this.isDisposed) { return Promise.resolve({ status: 'cancelled' }); }
+        if (this.materialSwap) this.closeMaterialSwap();
+        else ++this.swapLoadGeneration; // Invalidate a shelf that is still loading.
         this.generationPickRoot = this.workflow.workspaceRoot?.toString();
         this.generationPickSelectionsAtStart = new Map(this.generationTimelineSelections);
         const result = this.generationPick.start(request);
         this.node.tabIndex = -1;
         this.node.focus();
         return result;
+    }
+
+    cancelPick(): void {
+        this.generationPick.cancel();
     }
 
     protected readonly handleGenerationPrimarySelected = (event: Event): void => {
@@ -484,6 +490,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         }
         if (!await this.commandService.executeCommand('akari.timeline.isMaterialSwapActive', request)) return false;
         if (generation !== this.swapLoadGeneration || this.workflow.workspaceRoot?.toString() !== root.toString()) return false;
+        this.generationPick?.cancel();
         this.materialSwap = { request, title: current?.title ?? request.currentRelativePath.split('/').pop(),
             candidates: rankSwapCandidates(this.assetCatalogItems, request.kind, current, request.currentRelativePath), root: root.toString() };
         this.selectTopView('catalog');

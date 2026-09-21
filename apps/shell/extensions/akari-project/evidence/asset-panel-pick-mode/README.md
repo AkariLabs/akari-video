@@ -6,11 +6,12 @@ status: draft
 updated: 2026-09-22
 ---
 
-# asset-panel-pick-mode — L1 手順・証跡の雛形
+# asset-panel-pick-mode — L1 手順・証跡
 
-このディレクトリは実行スクリプトのみを用意した状態。L1 は未実行であり、画像・計測値は実行時に生成する。
+`run-log.json` と PNG 5 枚は 2026-09-22 の実 Electron / CDP 検証の記録（PASS）。
+以下の手順で再実行し、画像・計測値を更新できる。
 `cdp-lib.mjs` は `../left-panel-split/cdp-lib.mjs` の無改変コピー（Node 22 以降の組み込み API のみ）。
-Electron の起動・listen・依存のインストールは行わない。
+`run-l1.mjs` 自体は Electron の起動・listen・依存のインストールを行わない。
 
 ## 実行前提
 
@@ -39,7 +40,7 @@ Inversify の実キーから `Symbol('CommandService')` を探し、未登録な
 `THEIA_CONTAINER_EXPRESSION` へ指定する。存在しない別のグローバルを推測したり、サービスを偽装したりせず、
 取得できなければ失敗と理由を `run-log.json` に記録する。
 
-## 生成される証跡
+## 保存済み証跡（再実行で更新）
 
 | ファイル | 観測・判定 |
 |---|---|
@@ -70,11 +71,23 @@ Inversify の実キーから `Symbol('CommandService')` を探し、未登録な
 CSS は既存のウィジェットと同じ `try { require(...) } catch {}` 形式で読み込み、Node 単体テスト時の
 CSS 読み込みエラーを許容する。
 
-## 検証欄（ラッパー記入用）
+## 保存済み L1 の実測
 
-- L1 実行日時・環境: 未実行
-- L1 実測: `run-log.json` を参照（実行後）
-- スクリーンショットの確認: 未実施
+`run-log.json` の開始時刻は **2026-09-21T17:20:58.063Z**（JST 2026-09-22 02:20:58）。
+macOS の隔離ワークスペースを開いた実 Electron に CDP ポート 9531 で接続し、
+実コンテナの CommandService symbol を解決、コマンド登録済みを確認。全体 **8583 ms / PASS**。
+
+- single: **2706 ms**。実クリック 1 回で `picked` / `assets/a.png`、帯消失。
+- multi: **2811 ms**。`@画像1`・`@画像2`、`完了（2）`、上限で3枚目は無効。
+  完了時のパスは `assets/a.png`、`assets/b.png` の順。
+- accepts: **2837 ms**。動画は `aria-disabled=true`、クリックしても未解決。
+- escape: **169 ms**。`cancelled`、帯消失。
+- スクリーンショットは上表の `01-single-band.png`〜`05-escape-cancelled.png` が保存済み。
+  ログには主観的な目視検収の結果は含まれない。
+
+この記録は既存の single / multi / accepts / Esc の検証結果。
+右インスペクターからの再押下取消は `akari-annotations/evidence/inspector-generation/` の
+追加 step 14–15 で検証する。既存のログを今回の追加実装の実測として扱わない。
 
 ## ローカル L0（2026-09-22）
 
@@ -86,4 +99,4 @@ CSS 読み込みエラーを許容する。
 - 追加修正後の初回全体実行は 451 / 452 pass。既存 `transcribe-cancel.test.mjs` の SIGKILL 後の
   プロセス消滅確認が 1 回失敗した。既存テストは変更せず全体を再実行し、上記 452 件すべて通過。
 - `run-l1.mjs` は `node --check` 通過。`cdp-lib.mjs` は複製元とバイト一致。
-- 既存テスト、lockfile、所有境界外のソースは無変更。L1 は未実行。
+- 上記 L0 は先行実装時の記録。L1 の実測は前節と `run-log.json` を参照。

@@ -220,7 +220,7 @@
             "resolution": "768P",
             "audio_out": true
           },
-          "updated_at": "2026-09-21T18:14:49.137Z"
+          "updated_at": "2026-09-21T18:50:54.962Z"
         }
       }
     },
@@ -262,12 +262,12 @@
       "pass": true,
       "detail": {
         "before": {
-          "edit": 1790014410945.7854,
-          "captions": 1790014412400.9614
+          "edit": 1790016573180.073,
+          "captions": 1790016575007.6206
         },
         "after": {
-          "edit": 1790014410945.7854,
-          "captions": 1790014412400.9614
+          "edit": 1790016573180.073,
+          "captions": 1790016575007.6206
         }
       }
     },
@@ -1026,8 +1026,8 @@
         ],
         "metaUnchanged": true,
         "mtimesAfter": {
-          "edit": 1790014410945.7854,
-          "captions": 1790014412400.9614
+          "edit": 1790016573180.073,
+          "captions": 1790016575007.6206
         }
       }
     },
@@ -1060,7 +1060,7 @@
             "resolution": "768P",
             "audio_out": true
           },
-          "updated_at": "2026-09-21T18:15:05.858Z"
+          "updated_at": "2026-09-21T18:51:10.897Z"
         },
         "measurements": {
           "cards": [],
@@ -1158,7 +1158,7 @@
             "resolution": "768P",
             "audio_out": true
           },
-          "updated_at": "2026-09-21T18:15:09.164Z"
+          "updated_at": "2026-09-21T18:51:14.163Z"
         },
         "measurements": {
           "cards": [
@@ -1361,7 +1361,7 @@
             "resolution": "768P",
             "audio_out": true
           },
-          "updated_at": "2026-09-21T18:15:09.872Z"
+          "updated_at": "2026-09-21T18:51:14.793Z"
         },
         "frames": [
           {
@@ -1499,7 +1499,7 @@
             "resolution": "768P",
             "audio_out": true
           },
-          "updated_at": "2026-09-21T18:15:10.472Z"
+          "updated_at": "2026-09-21T18:51:15.413Z"
         },
         "measurements": {
           "cards": [
@@ -1665,12 +1665,1022 @@
           "frames": 0
         },
         "mtimesBefore": {
-          "edit": 1790014410945.7854,
-          "captions": 1790014412400.9614
+          "edit": 1790016573180.073,
+          "captions": 1790016575007.6206
         },
         "after": {
-          "edit": 1790014410945.7854,
-          "captions": 1790014412400.9614
+          "edit": 1790016573180.073,
+          "captions": 1790016575007.6206
+        }
+      }
+    },
+    {
+      "name": "14. 空枠を実クリック → 同じ枠を再クリック → 帯と輪を消し下書き不変",
+      "pass": true,
+      "detail": {
+        "idle": [
+          {
+            "slot": "first_frame",
+            "role": "button",
+            "tabindex": 0,
+            "pressed": "false",
+            "disabled": "false",
+            "cursor": "pointer",
+            "borderWidth": "1px",
+            "borderStyle": "solid",
+            "background": "rgba(167, 139, 250, 0.18)",
+            "boxShadow": "none",
+            "outline": "rgb(167, 139, 250) solid 1px",
+            "rect": {
+              "left": 645,
+              "right": 841,
+              "top": 256,
+              "bottom": 352,
+              "width": 196,
+              "height": 96
+            },
+            "buttons": [
+              {
+                "text": "このクリップの絵",
+                "rect": {
+                  "left": 645,
+                  "right": 770.2265625,
+                  "top": 363,
+                  "bottom": 394.5,
+                  "width": 125.2265625,
+                  "height": 31.5
+                },
+                "intersects": false
+              }
+            ],
+            "src": null
+          },
+          {
+            "slot": "last_frame",
+            "role": "button",
+            "tabindex": 0,
+            "pressed": "false",
+            "disabled": "false",
+            "cursor": "pointer",
+            "borderWidth": "1px",
+            "borderStyle": "solid",
+            "background": "rgba(167, 139, 250, 0.08)",
+            "boxShadow": "none",
+            "outline": "rgb(204, 204, 204) none 0px",
+            "rect": {
+              "left": 851,
+              "right": 1047,
+              "top": 256,
+              "bottom": 352,
+              "width": 196,
+              "height": 96
+            },
+            "buttons": [
+              {
+                "text": "次のクリップの最初",
+                "rect": {
+                  "left": 851,
+                  "right": 989.2265625,
+                  "top": 363,
+                  "bottom": 394.5,
+                  "width": 138.2265625,
+                  "height": 31.5
+                },
+                "intersects": false
+              },
+              {
+                "text": "外す",
+                "rect": {
+                  "left": 992.2265625,
+                  "right": 1028.2265625,
+                  "top": 368.5,
+                  "bottom": 391,
+                  "width": 36,
+                  "height": 22.5
+                },
+                "intersects": false
+              }
+            ],
+            "src": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAgAAAQABAAD//gAQTGF2YzYyLjI4LjEwMQD/2wBDAAgICAkICQsLCwsLCw0MDQ0NDQ0NDQ0NDQ0ODg4REREODg4NDQ4OEBARERITEhERERETExQUFBgYFxccHB0iIin/xABNAAEBAAAAAAAAAAAAAAAAAAAABQEBAQEAAAAAAAAAAAAAAAAAAAYHEAEAAAAAAAAAAAAAAAAAAAAAEQEAAAAAAAAAAAAAAAAAAAAA/8AAEQgAWgCgAwESAAISAAMSAP/aAAwDAQACEQMRAD8AkCbGmAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD/9k="
+          }
+        ],
+        "pending": {
+          "bandPresent": true,
+          "bandVisible": true,
+          "bandText": "最初の絵 に入れる素材を選ぶやめる",
+          "bandRect": {
+            "left": 48,
+            "right": 212.9140625,
+            "top": 4,
+            "bottom": 87,
+            "width": 164.9140625,
+            "height": 83
+          },
+          "ariaPressed": "true",
+          "boxShadow": "rgb(10, 10, 10) 0px 0px 0px 2px, rgb(167, 139, 250) 0px 0px 0px 4px",
+          "background": "rgba(167, 139, 250, 0.18)",
+          "borderWidth": "1px",
+          "borderStyle": "solid",
+          "borderColor": "rgb(167, 139, 250)",
+          "rect": {
+            "left": 645,
+            "right": 841,
+            "top": 292.5,
+            "bottom": 388.5,
+            "width": 196,
+            "height": 96
+          },
+          "textBadgePairs": [
+            {
+              "kind": "frame",
+              "text": "＋ 画像を選ぶ",
+              "badge": "空なら入れなくてよい",
+              "textRect": {
+                "left": 708.4140625,
+                "right": 777.578125,
+                "top": 323.25,
+                "bottom": 339.75,
+                "width": 69.1640625,
+                "height": 16.5
+              },
+              "badgeRect": {
+                "left": 693,
+                "right": 793,
+                "top": 342.75,
+                "bottom": 357.75,
+                "width": 100,
+                "height": 15
+              },
+              "intersects": false
+            }
+          ]
+        },
+        "pendingFrames": [
+          {
+            "slot": "first_frame",
+            "role": "button",
+            "tabindex": 0,
+            "pressed": "true",
+            "disabled": "false",
+            "cursor": "pointer",
+            "borderWidth": "1px",
+            "borderStyle": "solid",
+            "background": "rgba(167, 139, 250, 0.18)",
+            "boxShadow": "rgb(10, 10, 10) 0px 0px 0px 2px, rgb(167, 139, 250) 0px 0px 0px 4px",
+            "outline": "rgb(167, 139, 250) solid 1px",
+            "rect": {
+              "left": 645,
+              "right": 841,
+              "top": 292.5,
+              "bottom": 388.5,
+              "width": 196,
+              "height": 96
+            },
+            "buttons": [
+              {
+                "text": "このクリップの絵",
+                "rect": {
+                  "left": 645,
+                  "right": 770.2265625,
+                  "top": 399.5,
+                  "bottom": 431,
+                  "width": 125.2265625,
+                  "height": 31.5
+                },
+                "intersects": false
+              }
+            ],
+            "src": null
+          },
+          {
+            "slot": "last_frame",
+            "role": "button",
+            "tabindex": 0,
+            "pressed": "false",
+            "disabled": "false",
+            "cursor": "pointer",
+            "borderWidth": "1px",
+            "borderStyle": "solid",
+            "background": "rgba(167, 139, 250, 0.08)",
+            "boxShadow": "none",
+            "outline": "rgb(204, 204, 204) none 0px",
+            "rect": {
+              "left": 851,
+              "right": 1047,
+              "top": 292.5,
+              "bottom": 388.5,
+              "width": 196,
+              "height": 96
+            },
+            "buttons": [
+              {
+                "text": "次のクリップの最初",
+                "rect": {
+                  "left": 851,
+                  "right": 989.2265625,
+                  "top": 399.5,
+                  "bottom": 431,
+                  "width": 138.2265625,
+                  "height": 31.5
+                },
+                "intersects": false
+              },
+              {
+                "text": "外す",
+                "rect": {
+                  "left": 992.2265625,
+                  "right": 1028.2265625,
+                  "top": 405,
+                  "bottom": 427.5,
+                  "width": 36,
+                  "height": 22.5
+                },
+                "intersects": false
+              }
+            ],
+            "src": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAgAAAQABAAD//gAQTGF2YzYyLjI4LjEwMQD/2wBDAAgICAkICQsLCwsLCw0MDQ0NDQ0NDQ0NDQ0ODg4REREODg4NDQ4OEBARERITEhERERETExQUFBgYFxccHB0iIin/xABNAAEBAAAAAAAAAAAAAAAAAAAABQEBAQEAAAAAAAAAAAAAAAAAAAYHEAEAAAAAAAAAAAAAAAAAAAAAEQEAAAAAAAAAAAAAAAAAAAAA/8AAEQgAWgCgAwESAAISAAMSAP/aAAwDAQACEQMRAD8AkCbGmAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD/9k="
+          }
+        ],
+        "cancelled": {
+          "bandPresent": false,
+          "bandVisible": false,
+          "bandText": null,
+          "bandRect": null,
+          "ariaPressed": "false",
+          "boxShadow": "none",
+          "background": "rgba(167, 139, 250, 0.18)",
+          "borderWidth": "1px",
+          "borderStyle": "solid",
+          "borderColor": "rgb(167, 139, 250)",
+          "rect": {
+            "left": 645,
+            "right": 841,
+            "top": 292.5,
+            "bottom": 388.5,
+            "width": 196,
+            "height": 96
+          },
+          "textBadgePairs": [
+            {
+              "kind": "frame",
+              "text": "＋ 画像を選ぶ",
+              "badge": "空なら入れなくてよい",
+              "textRect": {
+                "left": 708.4140625,
+                "right": 777.578125,
+                "top": 323.25,
+                "bottom": 339.75,
+                "width": 69.1640625,
+                "height": 16.5
+              },
+              "badgeRect": {
+                "left": 693,
+                "right": 793,
+                "top": 342.75,
+                "bottom": 357.75,
+                "width": 100,
+                "height": 15
+              },
+              "intersects": false
+            }
+          ]
+        },
+        "after": [
+          {
+            "slot": "first_frame",
+            "role": "button",
+            "tabindex": 0,
+            "pressed": "false",
+            "disabled": "false",
+            "cursor": "pointer",
+            "borderWidth": "1px",
+            "borderStyle": "solid",
+            "background": "rgba(167, 139, 250, 0.18)",
+            "boxShadow": "none",
+            "outline": "rgb(167, 139, 250) solid 1px",
+            "rect": {
+              "left": 645,
+              "right": 841,
+              "top": 292.5,
+              "bottom": 388.5,
+              "width": 196,
+              "height": 96
+            },
+            "buttons": [
+              {
+                "text": "このクリップの絵",
+                "rect": {
+                  "left": 645,
+                  "right": 770.2265625,
+                  "top": 399.5,
+                  "bottom": 431,
+                  "width": 125.2265625,
+                  "height": 31.5
+                },
+                "intersects": false
+              }
+            ],
+            "src": null
+          },
+          {
+            "slot": "last_frame",
+            "role": "button",
+            "tabindex": 0,
+            "pressed": "false",
+            "disabled": "false",
+            "cursor": "pointer",
+            "borderWidth": "1px",
+            "borderStyle": "solid",
+            "background": "rgba(167, 139, 250, 0.08)",
+            "boxShadow": "none",
+            "outline": "rgb(204, 204, 204) none 0px",
+            "rect": {
+              "left": 851,
+              "right": 1047,
+              "top": 292.5,
+              "bottom": 388.5,
+              "width": 196,
+              "height": 96
+            },
+            "buttons": [
+              {
+                "text": "次のクリップの最初",
+                "rect": {
+                  "left": 851,
+                  "right": 989.2265625,
+                  "top": 399.5,
+                  "bottom": 431,
+                  "width": 138.2265625,
+                  "height": 31.5
+                },
+                "intersects": false
+              },
+              {
+                "text": "外す",
+                "rect": {
+                  "left": 992.2265625,
+                  "right": 1028.2265625,
+                  "top": 405,
+                  "bottom": 427.5,
+                  "width": 36,
+                  "height": 22.5
+                },
+                "intersects": false
+              }
+            ],
+            "src": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAgAAAQABAAD//gAQTGF2YzYyLjI4LjEwMQD/2wBDAAgICAkICQsLCwsLCw0MDQ0NDQ0NDQ0NDQ0ODg4REREODg4NDQ4OEBARERITEhERERETExQUFBgYFxccHB0iIin/xABNAAEBAAAAAAAAAAAAAAAAAAAABQEBAQEAAAAAAAAAAAAAAAAAAAYHEAEAAAAAAAAAAAAAAAAAAAAAEQEAAAAAAAAAAAAAAAAAAAAA/8AAEQgAWgCgAwESAAISAAMSAP/aAAwDAQACEQMRAD8AkCbGmAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD/9k="
+          }
+        ],
+        "drafts": {
+          "files": {
+            "assets/stills/a.png.meta.json": {
+              "beforeBytes": 614,
+              "afterBytes": 614,
+              "beforeSha256": "4eadacbd54e4a4918f1e67e064eebfe8491793a320bd744bace60f2db4d27944",
+              "afterSha256": "4eadacbd54e4a4918f1e67e064eebfe8491793a320bd744bace60f2db4d27944",
+              "bytesUnchanged": true
+            },
+            "edit.json": {
+              "beforeBytes": 782,
+              "afterBytes": 782,
+              "beforeSha256": "30f229e0d3cb5e2bc1fdff3566a22ac984155a659d929ef4d9bb94dc4a2e583a",
+              "afterSha256": "30f229e0d3cb5e2bc1fdff3566a22ac984155a659d929ef4d9bb94dc4a2e583a",
+              "bytesUnchanged": true
+            },
+            "captions.json": {
+              "beforeBytes": 21,
+              "afterBytes": 21,
+              "beforeSha256": "04ddcabb9512ba99210253e478457a6d0d74ccf3ef4b0807d2ebaf940ce2047f",
+              "afterSha256": "04ddcabb9512ba99210253e478457a6d0d74ccf3ef4b0807d2ebaf940ce2047f",
+              "bytesUnchanged": true
+            }
+          },
+          "nextBefore": {
+            "kind": "video",
+            "status": "planned",
+            "model": {
+              "id": "fal:h3-i2v"
+            },
+            "inputs": {
+              "prompt": "A garden.",
+              "first_frame": null,
+              "last_frame": {
+                "path": "assets/stills/a.png"
+              },
+              "reference_images": [
+                {
+                  "path": "assets/stills/a.png"
+                },
+                {
+                  "path": "assets/stills/b.png"
+                }
+              ],
+              "reference_audios": [],
+              "camera": null,
+              "frames_or_refs": "frames",
+              "negative_prompt": null
+            },
+            "output": {
+              "duration_s": 6,
+              "resolution": "768P",
+              "audio_out": true
+            },
+            "updated_at": "2026-09-21T18:51:16.443Z"
+          },
+          "nextAfter": {
+            "kind": "video",
+            "status": "planned",
+            "model": {
+              "id": "fal:h3-i2v"
+            },
+            "inputs": {
+              "prompt": "A garden.",
+              "first_frame": null,
+              "last_frame": {
+                "path": "assets/stills/a.png"
+              },
+              "reference_images": [
+                {
+                  "path": "assets/stills/a.png"
+                },
+                {
+                  "path": "assets/stills/b.png"
+                }
+              ],
+              "reference_audios": [],
+              "camera": null,
+              "frames_or_refs": "frames",
+              "negative_prompt": null
+            },
+            "output": {
+              "duration_s": 6,
+              "resolution": "768P",
+              "audio_out": true
+            },
+            "updated_at": "2026-09-21T18:51:16.443Z"
+          },
+          "nextUnchanged": true
+        }
+      }
+    },
+    {
+      "name": "15. 参照の＋追加を実クリック → 再クリック → 帯を消し下書き不変",
+      "pass": true,
+      "detail": {
+        "pending": {
+          "bandPresent": true,
+          "bandVisible": true,
+          "bandText": "参照画像 に入れる素材を選ぶやめる完了（2）",
+          "bandRect": {
+            "left": 48,
+            "right": 212.9140625,
+            "top": 4,
+            "bottom": 87,
+            "width": 164.9140625,
+            "height": 83
+          },
+          "ariaPressed": null,
+          "boxShadow": "none",
+          "background": "rgb(26, 26, 26)",
+          "borderWidth": "1px",
+          "borderStyle": "solid",
+          "borderColor": "rgb(27, 27, 27)",
+          "rect": {
+            "left": 918.328125,
+            "right": 1047,
+            "top": 324.5,
+            "bottom": 356,
+            "width": 128.671875,
+            "height": 31.5
+          },
+          "textBadgePairs": [
+            {
+              "kind": "reference",
+              "text": "a.png",
+              "badge": "@画像1",
+              "textRect": {
+                "left": 651,
+                "right": 767.6640625,
+                "top": 365.5,
+                "bottom": 377,
+                "width": 116.6640625,
+                "height": 11.5
+              },
+              "badgeRect": {
+                "left": 651,
+                "right": 688.3359375,
+                "top": 280.75,
+                "bottom": 297.25,
+                "width": 37.3359375,
+                "height": 16.5
+              },
+              "intersects": false
+            },
+            {
+              "kind": "reference",
+              "text": "b.png",
+              "badge": "@画像2",
+              "textRect": {
+                "left": 787.6640625,
+                "right": 904.328125,
+                "top": 365.5,
+                "bottom": 377,
+                "width": 116.6640625,
+                "height": 11.5
+              },
+              "badgeRect": {
+                "left": 787.6640625,
+                "right": 826.53125,
+                "top": 280.75,
+                "bottom": 297.25,
+                "width": 38.8671875,
+                "height": 16.5
+              },
+              "intersects": false
+            }
+          ]
+        },
+        "cancelled": {
+          "bandPresent": false,
+          "bandVisible": false,
+          "bandText": null,
+          "bandRect": null,
+          "ariaPressed": null,
+          "boxShadow": "none",
+          "background": "rgb(26, 26, 26)",
+          "borderWidth": "1px",
+          "borderStyle": "solid",
+          "borderColor": "rgb(27, 27, 27)",
+          "rect": {
+            "left": 918.328125,
+            "right": 1047,
+            "top": 324.5,
+            "bottom": 356,
+            "width": 128.671875,
+            "height": 31.5
+          },
+          "textBadgePairs": [
+            {
+              "kind": "reference",
+              "text": "a.png",
+              "badge": "@画像1",
+              "textRect": {
+                "left": 651,
+                "right": 767.6640625,
+                "top": 365.5,
+                "bottom": 377,
+                "width": 116.6640625,
+                "height": 11.5
+              },
+              "badgeRect": {
+                "left": 651,
+                "right": 688.3359375,
+                "top": 280.75,
+                "bottom": 297.25,
+                "width": 37.3359375,
+                "height": 16.5
+              },
+              "intersects": false
+            },
+            {
+              "kind": "reference",
+              "text": "b.png",
+              "badge": "@画像2",
+              "textRect": {
+                "left": 787.6640625,
+                "right": 904.328125,
+                "top": 365.5,
+                "bottom": 377,
+                "width": 116.6640625,
+                "height": 11.5
+              },
+              "badgeRect": {
+                "left": 787.6640625,
+                "right": 826.53125,
+                "top": 280.75,
+                "bottom": 297.25,
+                "width": 38.8671875,
+                "height": 16.5
+              },
+              "intersects": false
+            }
+          ]
+        },
+        "referencesBefore": {
+          "cards": [
+            {
+              "badge": "@画像1",
+              "path": "assets/stills/a.png",
+              "rectangles": {
+                "badge": {
+                  "left": 651,
+                  "right": 688.3359375,
+                  "top": 280.75,
+                  "bottom": 297.25,
+                  "width": 37.3359375,
+                  "height": 16.5
+                },
+                "remove": {
+                  "left": 746.6640625,
+                  "right": 767.6640625,
+                  "top": 279.5,
+                  "bottom": 298.5,
+                  "width": 21,
+                  "height": 19
+                },
+                "thumbnail": {
+                  "left": 651,
+                  "right": 767.6640625,
+                  "top": 303.5,
+                  "bottom": 361.5,
+                  "width": 116.6640625,
+                  "height": 58
+                }
+              },
+              "intersections": {
+                "badgeRemove": false,
+                "badgeThumbnail": false,
+                "removeThumbnail": false
+              }
+            },
+            {
+              "badge": "@画像2",
+              "path": "assets/stills/b.png",
+              "rectangles": {
+                "badge": {
+                  "left": 787.6640625,
+                  "right": 826.53125,
+                  "top": 280.75,
+                  "bottom": 297.25,
+                  "width": 38.8671875,
+                  "height": 16.5
+                },
+                "remove": {
+                  "left": 883.328125,
+                  "right": 904.328125,
+                  "top": 279.5,
+                  "bottom": 298.5,
+                  "width": 21,
+                  "height": 19
+                },
+                "thumbnail": {
+                  "left": 787.6640625,
+                  "right": 904.328125,
+                  "top": 303.5,
+                  "bottom": 361.5,
+                  "width": 116.6640625,
+                  "height": 58
+                }
+              },
+              "intersections": {
+                "badgeRemove": false,
+                "badgeThumbnail": false,
+                "removeThumbnail": false
+              }
+            }
+          ],
+          "buttons": [
+            {
+              "text": "最初 / 最後",
+              "disabled": false,
+              "pressed": "false",
+              "rect": {
+                "left": 645,
+                "right": 726.046875,
+                "top": 108.5,
+                "bottom": 136,
+                "width": 81.046875,
+                "height": 27.5
+              },
+              "background": "rgb(20, 20, 20)",
+              "borderWidth": "1px",
+              "borderStyle": "solid",
+              "borderColor": "rgb(27, 27, 27)"
+            },
+            {
+              "text": "参照",
+              "disabled": false,
+              "pressed": "true",
+              "rect": {
+                "left": 729.046875,
+                "right": 773.046875,
+                "top": 108.5,
+                "bottom": 136,
+                "width": 44,
+                "height": 27.5
+              },
+              "background": "rgb(249, 115, 22)",
+              "borderWidth": "1px",
+              "borderStyle": "solid",
+              "borderColor": "rgb(251, 146, 60)"
+            },
+            {
+              "text": "×",
+              "disabled": false,
+              "pressed": null,
+              "rect": {
+                "left": 746.6640625,
+                "right": 767.6640625,
+                "top": 279.5,
+                "bottom": 298.5,
+                "width": 21,
+                "height": 19
+              },
+              "background": "rgb(10, 10, 10)",
+              "borderWidth": "1px",
+              "borderStyle": "solid",
+              "borderColor": "rgb(27, 27, 27)"
+            },
+            {
+              "text": "×",
+              "disabled": false,
+              "pressed": null,
+              "rect": {
+                "left": 883.328125,
+                "right": 904.328125,
+                "top": 279.5,
+                "bottom": 298.5,
+                "width": 21,
+                "height": 19
+              },
+              "background": "rgb(10, 10, 10)",
+              "borderWidth": "1px",
+              "borderStyle": "solid",
+              "borderColor": "rgb(27, 27, 27)"
+            },
+            {
+              "text": "＋ 追加",
+              "disabled": false,
+              "pressed": null,
+              "rect": {
+                "left": 918.328125,
+                "right": 1047,
+                "top": 324.5,
+                "bottom": 356,
+                "width": 128.671875,
+                "height": 31.5
+              },
+              "background": "rgb(26, 26, 26)",
+              "borderWidth": "1px",
+              "borderStyle": "solid",
+              "borderColor": "rgb(27, 27, 27)"
+            }
+          ],
+          "counter": "画像 2 / 9 · 動画 0 / 3 · 音声 0 / 3",
+          "frames": 0
+        },
+        "referencesAfter": {
+          "cards": [
+            {
+              "badge": "@画像1",
+              "path": "assets/stills/a.png",
+              "rectangles": {
+                "badge": {
+                  "left": 651,
+                  "right": 688.3359375,
+                  "top": 280.75,
+                  "bottom": 297.25,
+                  "width": 37.3359375,
+                  "height": 16.5
+                },
+                "remove": {
+                  "left": 746.6640625,
+                  "right": 767.6640625,
+                  "top": 279.5,
+                  "bottom": 298.5,
+                  "width": 21,
+                  "height": 19
+                },
+                "thumbnail": {
+                  "left": 651,
+                  "right": 767.6640625,
+                  "top": 303.5,
+                  "bottom": 361.5,
+                  "width": 116.6640625,
+                  "height": 58
+                }
+              },
+              "intersections": {
+                "badgeRemove": false,
+                "badgeThumbnail": false,
+                "removeThumbnail": false
+              }
+            },
+            {
+              "badge": "@画像2",
+              "path": "assets/stills/b.png",
+              "rectangles": {
+                "badge": {
+                  "left": 787.6640625,
+                  "right": 826.53125,
+                  "top": 280.75,
+                  "bottom": 297.25,
+                  "width": 38.8671875,
+                  "height": 16.5
+                },
+                "remove": {
+                  "left": 883.328125,
+                  "right": 904.328125,
+                  "top": 279.5,
+                  "bottom": 298.5,
+                  "width": 21,
+                  "height": 19
+                },
+                "thumbnail": {
+                  "left": 787.6640625,
+                  "right": 904.328125,
+                  "top": 303.5,
+                  "bottom": 361.5,
+                  "width": 116.6640625,
+                  "height": 58
+                }
+              },
+              "intersections": {
+                "badgeRemove": false,
+                "badgeThumbnail": false,
+                "removeThumbnail": false
+              }
+            }
+          ],
+          "buttons": [
+            {
+              "text": "最初 / 最後",
+              "disabled": false,
+              "pressed": "false",
+              "rect": {
+                "left": 645,
+                "right": 726.046875,
+                "top": 108.5,
+                "bottom": 136,
+                "width": 81.046875,
+                "height": 27.5
+              },
+              "background": "rgb(20, 20, 20)",
+              "borderWidth": "1px",
+              "borderStyle": "solid",
+              "borderColor": "rgb(27, 27, 27)"
+            },
+            {
+              "text": "参照",
+              "disabled": false,
+              "pressed": "true",
+              "rect": {
+                "left": 729.046875,
+                "right": 773.046875,
+                "top": 108.5,
+                "bottom": 136,
+                "width": 44,
+                "height": 27.5
+              },
+              "background": "rgb(249, 115, 22)",
+              "borderWidth": "1px",
+              "borderStyle": "solid",
+              "borderColor": "rgb(251, 146, 60)"
+            },
+            {
+              "text": "×",
+              "disabled": false,
+              "pressed": null,
+              "rect": {
+                "left": 746.6640625,
+                "right": 767.6640625,
+                "top": 279.5,
+                "bottom": 298.5,
+                "width": 21,
+                "height": 19
+              },
+              "background": "rgb(10, 10, 10)",
+              "borderWidth": "1px",
+              "borderStyle": "solid",
+              "borderColor": "rgb(27, 27, 27)"
+            },
+            {
+              "text": "×",
+              "disabled": false,
+              "pressed": null,
+              "rect": {
+                "left": 883.328125,
+                "right": 904.328125,
+                "top": 279.5,
+                "bottom": 298.5,
+                "width": 21,
+                "height": 19
+              },
+              "background": "rgb(10, 10, 10)",
+              "borderWidth": "1px",
+              "borderStyle": "solid",
+              "borderColor": "rgb(27, 27, 27)"
+            },
+            {
+              "text": "＋ 追加",
+              "disabled": false,
+              "pressed": null,
+              "rect": {
+                "left": 918.328125,
+                "right": 1047,
+                "top": 324.5,
+                "bottom": 356,
+                "width": 128.671875,
+                "height": 31.5
+              },
+              "background": "rgb(26, 26, 26)",
+              "borderWidth": "1px",
+              "borderStyle": "solid",
+              "borderColor": "rgb(27, 27, 27)"
+            }
+          ],
+          "counter": "画像 2 / 9 · 動画 0 / 3 · 音声 0 / 3",
+          "frames": 0
+        },
+        "drafts": {
+          "files": {
+            "assets/stills/a.png.meta.json": {
+              "beforeBytes": 618,
+              "afterBytes": 618,
+              "beforeSha256": "b366aabf04118fdf18d1782b712b9934c50f3179a5f34f8c2818bbac440913a2",
+              "afterSha256": "b366aabf04118fdf18d1782b712b9934c50f3179a5f34f8c2818bbac440913a2",
+              "bytesUnchanged": true
+            },
+            "edit.json": {
+              "beforeBytes": 782,
+              "afterBytes": 782,
+              "beforeSha256": "30f229e0d3cb5e2bc1fdff3566a22ac984155a659d929ef4d9bb94dc4a2e583a",
+              "afterSha256": "30f229e0d3cb5e2bc1fdff3566a22ac984155a659d929ef4d9bb94dc4a2e583a",
+              "bytesUnchanged": true
+            },
+            "captions.json": {
+              "beforeBytes": 21,
+              "afterBytes": 21,
+              "beforeSha256": "04ddcabb9512ba99210253e478457a6d0d74ccf3ef4b0807d2ebaf940ce2047f",
+              "afterSha256": "04ddcabb9512ba99210253e478457a6d0d74ccf3ef4b0807d2ebaf940ce2047f",
+              "bytesUnchanged": true
+            }
+          },
+          "nextBefore": {
+            "kind": "video",
+            "status": "planned",
+            "model": {
+              "id": "fal:h3-ref"
+            },
+            "inputs": {
+              "prompt": "A garden.",
+              "first_frame": null,
+              "last_frame": {
+                "path": "assets/stills/a.png"
+              },
+              "reference_images": [
+                {
+                  "path": "assets/stills/a.png"
+                },
+                {
+                  "path": "assets/stills/b.png"
+                }
+              ],
+              "reference_audios": [],
+              "camera": null,
+              "frames_or_refs": "references",
+              "negative_prompt": null
+            },
+            "output": {
+              "duration_s": 6,
+              "resolution": "768P",
+              "audio_out": true
+            },
+            "updated_at": "2026-09-21T18:51:20.594Z"
+          },
+          "nextAfter": {
+            "kind": "video",
+            "status": "planned",
+            "model": {
+              "id": "fal:h3-ref"
+            },
+            "inputs": {
+              "prompt": "A garden.",
+              "first_frame": null,
+              "last_frame": {
+                "path": "assets/stills/a.png"
+              },
+              "reference_images": [
+                {
+                  "path": "assets/stills/a.png"
+                },
+                {
+                  "path": "assets/stills/b.png"
+                }
+              ],
+              "reference_audios": [],
+              "camera": null,
+              "frames_or_refs": "references",
+              "negative_prompt": null
+            },
+            "output": {
+              "duration_s": 6,
+              "resolution": "768P",
+              "audio_out": true
+            },
+            "updated_at": "2026-09-21T18:51:20.594Z"
+          },
+          "nextUnchanged": true
         }
       }
     }
@@ -1690,26 +2700,30 @@
     "14-reference-picking-two.png",
     "15-reference-two.png",
     "16-reference-frames-restored.png",
-    "17-reference-restored.png"
+    "17-reference-restored.png",
+    "18-frame-reclick-pending.png",
+    "19-frame-reclick-cancelled.png",
+    "20-reference-reclick-pending.png",
+    "21-reference-reclick-cancelled.png"
   ],
   "screenshotDetails": [
     {
       "name": "01-h3-first-to-last.png",
-      "sha256": "7beeadf81fa0bf10cd3505f085533db1f878c0e942a953361b7f8b98ef358aa0",
+      "sha256": "b42090795ed9726acad7fe0f646e517b3fda87f0216d62d1331f08d4f0b7eae1",
       "inspectorFront": true,
       "sectionVisible": true,
       "modelRow": "MiniMax H3 · $0.05/秒 · as_of 2026-09-12（fal:h3-i2v）"
     },
     {
       "name": "02-prompt-only.png",
-      "sha256": "c315d04e684bb471ec1674d0b5823b4ba02b9a0f366d1fc3c692d0335a7e88aa",
+      "sha256": "dd9bf65fb3728a433e558e4ee115f2b1b1665b32ad904434bde09a6637186665",
       "inspectorFront": true,
       "sectionVisible": true,
       "modelRow": "MiniMax H3 · $0.05/秒 · as_of 2026-09-12（fal:h3-i2v）"
     },
     {
       "name": "04-failed-retry.png",
-      "sha256": "c0e3d92c02694882b4e2aa6e5a1f6c18acc0786dfc497da2123577702170245a",
+      "sha256": "f24b053ec60059e0d1422986f284b00c358c9dc496d42c9affa017f1790c14bb",
       "inspectorFront": true,
       "sectionVisible": true,
       "modelRow": "MiniMax H3 · $0.05/秒 · as_of 2026-09-12（fal:h3-i2v）",
@@ -1742,7 +2756,7 @@
     },
     {
       "name": "07-sticky-tab-strip.png",
-      "sha256": "c0e3d92c02694882b4e2aa6e5a1f6c18acc0786dfc497da2123577702170245a",
+      "sha256": "fab0ea6c059858057131e24d68035a24c23cdb79cf51d3cb4a11de55874c5f08",
       "inspectorFront": true,
       "sectionVisible": true,
       "modelRow": "MiniMax H3 · $0.05/秒 · as_of 2026-09-12（fal:h3-i2v）",
@@ -1758,7 +2772,7 @@
     },
     {
       "name": "08-frame-empty.png",
-      "sha256": "1829969daeb8220c15d7fdd516df01fd3d353f48a82f33638eac6f4b27935bf9",
+      "sha256": "d032e123c1167bb19be34360431eb1f7959da168ee7a923756abddbe8c2784a5",
       "inspectorFront": true,
       "sectionVisible": true,
       "modelRow": "MiniMax H3 · $0.05/秒 · as_of 2026-09-12（fal:h3-i2v）",
@@ -1791,7 +2805,7 @@
     },
     {
       "name": "09-frame-picking.png",
-      "sha256": "25a5f057bf269be751a6cdd339c73fc5c19274bbb41e602fcd234c5314f5fe57",
+      "sha256": "8aa55e75466218074d90a8bd09ed06f7ca964536ffb6350bc765b779817ca2c1",
       "inspectorFront": true,
       "sectionVisible": true,
       "modelRow": "MiniMax H3 · $0.05/秒 · as_of 2026-09-12（fal:h3-i2v）",
@@ -1824,7 +2838,7 @@
     },
     {
       "name": "10-frame-picked.png",
-      "sha256": "bd265b5a012dd9c53c443e017f901d8ec43bde40a1a04401415702e6c9bf3ca0",
+      "sha256": "c9639f1f630d646de1d9b31de6cc3e12102586a473ac254846bc69a07214ad52",
       "inspectorFront": true,
       "sectionVisible": true,
       "modelRow": "MiniMax H3 · $0.05/秒 · as_of 2026-09-12（fal:h3-i2v）",
@@ -1857,7 +2871,7 @@
     },
     {
       "name": "11-frame-replaced.png",
-      "sha256": "24efb57ca0fe8b63443f630e64efd9ef56710658c5eb56b4d08b2c6998500893",
+      "sha256": "9be0cf0873481ea6698379ad37bd6aa223d36748003b2ac2ba8dfd3d6f2c7127",
       "inspectorFront": true,
       "sectionVisible": true,
       "modelRow": "MiniMax H3 · $0.05/秒 · as_of 2026-09-12（fal:h3-i2v）",
@@ -1890,7 +2904,7 @@
     },
     {
       "name": "12-frame-cancelled.png",
-      "sha256": "24efb57ca0fe8b63443f630e64efd9ef56710658c5eb56b4d08b2c6998500893",
+      "sha256": "e4225331850ad227b26908d452a40328d0aa2982b4e98a71056a5f2ec9c396ce",
       "inspectorFront": true,
       "sectionVisible": true,
       "modelRow": "MiniMax H3 · $0.05/秒 · as_of 2026-09-12（fal:h3-i2v）",
@@ -1923,7 +2937,7 @@
     },
     {
       "name": "13-reference-empty.png",
-      "sha256": "f4021595af53c9471872797c3e7820b84ab7274d3aab6b585ce22a78c4bcee97",
+      "sha256": "bf70fc0e117898f63ec14651439620ffb4f3766b623966de109a3bd5f1f73300",
       "inspectorFront": true,
       "sectionVisible": true,
       "modelRow": "MiniMax H3 · $0.05/秒 · as_of 2026-09-22（fal:h3-ref）",
@@ -1956,7 +2970,7 @@
     },
     {
       "name": "14-reference-picking-two.png",
-      "sha256": "4291d025d81c161a8b0134c7f150152771ac0500902b894002a3132d06cd0722",
+      "sha256": "71362daa59df9518a41c1e2c5a67cf8df4e47c4e688f22c8b5860cccd008e8ad",
       "inspectorFront": true,
       "sectionVisible": true,
       "modelRow": "MiniMax H3 · $0.05/秒 · as_of 2026-09-22（fal:h3-ref）",
@@ -1989,7 +3003,7 @@
     },
     {
       "name": "15-reference-two.png",
-      "sha256": "0f7057efc167cb10b6d201a8caeae677f4641c097749d068dee5aa3041654ab8",
+      "sha256": "6e37b272976157336c9bce3afbec77892c555cd93703d6cce1a00aba261c4b0a",
       "inspectorFront": true,
       "sectionVisible": true,
       "modelRow": "MiniMax H3 · $0.05/秒 · as_of 2026-09-22（fal:h3-ref）",
@@ -2022,7 +3036,7 @@
     },
     {
       "name": "16-reference-frames-restored.png",
-      "sha256": "284290eb1617fc26f50421be2ec4194d6378e72f8da09a4a7cab5161d2aad526",
+      "sha256": "07fe17b8a5c292f900324391a0e0fdbecd64f5e09abe248b87822411187c1e94",
       "inspectorFront": true,
       "sectionVisible": true,
       "modelRow": "MiniMax H3 · $0.05/秒 · as_of 2026-09-12（fal:h3-i2v）",
@@ -2055,7 +3069,139 @@
     },
     {
       "name": "17-reference-restored.png",
-      "sha256": "0f7057efc167cb10b6d201a8caeae677f4641c097749d068dee5aa3041654ab8",
+      "sha256": "7ca2342da72ea7e3f9ea15269f1214689ea5556f498c87eb15b07ea7127c69ab",
+      "inspectorFront": true,
+      "sectionVisible": true,
+      "modelRow": "MiniMax H3 · $0.05/秒 · as_of 2026-09-22（fal:h3-ref）",
+      "actionVisibility": {
+        "selector": "[data-akari-generation-reference-add]",
+        "buttonRect": {
+          "left": 918.328125,
+          "top": 324.5,
+          "right": 1047,
+          "bottom": 356,
+          "width": 128.671875,
+          "height": 31.5
+        },
+        "inspectorRect": {
+          "left": 635,
+          "top": 39,
+          "right": 1072,
+          "bottom": 642,
+          "width": 437,
+          "height": 603
+        },
+        "visibleRect": {
+          "left": 635,
+          "top": 39,
+          "right": 1057,
+          "bottom": 642
+        },
+        "fullyVisible": true
+      }
+    },
+    {
+      "name": "18-frame-reclick-pending.png",
+      "sha256": "5d18b8b88ae13c6bc299611bfe64b76526930cb843c67ba92e4f148ea68b2673",
+      "inspectorFront": true,
+      "sectionVisible": true,
+      "modelRow": "MiniMax H3 · $0.05/秒 · as_of 2026-09-12（fal:h3-i2v）",
+      "actionVisibility": {
+        "selector": "[data-akari-generation-pick-slot=\"first_frame\"]",
+        "buttonRect": {
+          "left": 645,
+          "top": 292.5,
+          "right": 841,
+          "bottom": 388.5,
+          "width": 196,
+          "height": 96
+        },
+        "inspectorRect": {
+          "left": 635,
+          "top": 39,
+          "right": 1072,
+          "bottom": 642,
+          "width": 437,
+          "height": 603
+        },
+        "visibleRect": {
+          "left": 635,
+          "top": 39,
+          "right": 1057,
+          "bottom": 642
+        },
+        "fullyVisible": true
+      }
+    },
+    {
+      "name": "19-frame-reclick-cancelled.png",
+      "sha256": "d6d99ead01c182d3135a1ea517ae3c98ced0521ed787ca85f38a1c06adb05de1",
+      "inspectorFront": true,
+      "sectionVisible": true,
+      "modelRow": "MiniMax H3 · $0.05/秒 · as_of 2026-09-12（fal:h3-i2v）",
+      "actionVisibility": {
+        "selector": "[data-akari-generation-pick-slot=\"first_frame\"]",
+        "buttonRect": {
+          "left": 645,
+          "top": 292.5,
+          "right": 841,
+          "bottom": 388.5,
+          "width": 196,
+          "height": 96
+        },
+        "inspectorRect": {
+          "left": 635,
+          "top": 39,
+          "right": 1072,
+          "bottom": 642,
+          "width": 437,
+          "height": 603
+        },
+        "visibleRect": {
+          "left": 635,
+          "top": 39,
+          "right": 1057,
+          "bottom": 642
+        },
+        "fullyVisible": true
+      }
+    },
+    {
+      "name": "20-reference-reclick-pending.png",
+      "sha256": "24d7c911fd144193edec596324bb72d05f213ba6cfe66a238a67ae3b05bfb6a3",
+      "inspectorFront": true,
+      "sectionVisible": true,
+      "modelRow": "MiniMax H3 · $0.05/秒 · as_of 2026-09-22（fal:h3-ref）",
+      "actionVisibility": {
+        "selector": "[data-akari-generation-reference-add]",
+        "buttonRect": {
+          "left": 918.328125,
+          "top": 324.5,
+          "right": 1047,
+          "bottom": 356,
+          "width": 128.671875,
+          "height": 31.5
+        },
+        "inspectorRect": {
+          "left": 635,
+          "top": 39,
+          "right": 1072,
+          "bottom": 642,
+          "width": 437,
+          "height": 603
+        },
+        "visibleRect": {
+          "left": 635,
+          "top": 39,
+          "right": 1057,
+          "bottom": 642
+        },
+        "fullyVisible": true
+      }
+    },
+    {
+      "name": "21-reference-reclick-cancelled.png",
+      "sha256": "a815d965ad163a9f17f88f6b525ae63125c71ede08248c481142d2cc559ddcc5",
       "inspectorFront": true,
       "sectionVisible": true,
       "modelRow": "MiniMax H3 · $0.05/秒 · as_of 2026-09-22（fal:h3-ref）",
@@ -2088,7 +3234,7 @@
     }
   ],
   "cleanup": {
-    "killedPid": 79648,
+    "killedPid": 43867,
     "survivingProcesses": 0,
     "survivingBackendMain": 0,
     "alive": 0,
@@ -2189,6 +3335,429 @@
       "containerTop": 39,
       "topDifference": 0,
       "visible": true
+    }
+  },
+  "pickCancellation": {
+    "activeScenario": "references",
+    "frame": {
+      "pending": {
+        "bandPresent": true,
+        "bandVisible": true,
+        "bandText": "最初の絵 に入れる素材を選ぶやめる",
+        "bandRect": {
+          "left": 48,
+          "right": 212.9140625,
+          "top": 4,
+          "bottom": 87,
+          "width": 164.9140625,
+          "height": 83
+        },
+        "ariaPressed": "true",
+        "boxShadow": "rgb(10, 10, 10) 0px 0px 0px 2px, rgb(167, 139, 250) 0px 0px 0px 4px",
+        "background": "rgba(167, 139, 250, 0.18)",
+        "borderWidth": "1px",
+        "borderStyle": "solid",
+        "borderColor": "rgb(167, 139, 250)",
+        "rect": {
+          "left": 645,
+          "right": 841,
+          "top": 292.5,
+          "bottom": 388.5,
+          "width": 196,
+          "height": 96
+        },
+        "textBadgePairs": [
+          {
+            "kind": "frame",
+            "text": "＋ 画像を選ぶ",
+            "badge": "空なら入れなくてよい",
+            "textRect": {
+              "left": 708.4140625,
+              "right": 777.578125,
+              "top": 323.25,
+              "bottom": 339.75,
+              "width": 69.1640625,
+              "height": 16.5
+            },
+            "badgeRect": {
+              "left": 693,
+              "right": 793,
+              "top": 342.75,
+              "bottom": 357.75,
+              "width": 100,
+              "height": 15
+            },
+            "intersects": false
+          }
+        ]
+      },
+      "cancelled": {
+        "bandPresent": false,
+        "bandVisible": false,
+        "bandText": null,
+        "bandRect": null,
+        "ariaPressed": "false",
+        "boxShadow": "none",
+        "background": "rgba(167, 139, 250, 0.18)",
+        "borderWidth": "1px",
+        "borderStyle": "solid",
+        "borderColor": "rgb(167, 139, 250)",
+        "rect": {
+          "left": 645,
+          "right": 841,
+          "top": 292.5,
+          "bottom": 388.5,
+          "width": 196,
+          "height": 96
+        },
+        "textBadgePairs": [
+          {
+            "kind": "frame",
+            "text": "＋ 画像を選ぶ",
+            "badge": "空なら入れなくてよい",
+            "textRect": {
+              "left": 708.4140625,
+              "right": 777.578125,
+              "top": 323.25,
+              "bottom": 339.75,
+              "width": 69.1640625,
+              "height": 16.5
+            },
+            "badgeRect": {
+              "left": 693,
+              "right": 793,
+              "top": 342.75,
+              "bottom": 357.75,
+              "width": 100,
+              "height": 15
+            },
+            "intersects": false
+          }
+        ]
+      }
+    },
+    "drafts": {
+      "frame": {
+        "files": {
+          "assets/stills/a.png.meta.json": {
+            "beforeBytes": 614,
+            "afterBytes": 614,
+            "beforeSha256": "4eadacbd54e4a4918f1e67e064eebfe8491793a320bd744bace60f2db4d27944",
+            "afterSha256": "4eadacbd54e4a4918f1e67e064eebfe8491793a320bd744bace60f2db4d27944",
+            "bytesUnchanged": true
+          },
+          "edit.json": {
+            "beforeBytes": 782,
+            "afterBytes": 782,
+            "beforeSha256": "30f229e0d3cb5e2bc1fdff3566a22ac984155a659d929ef4d9bb94dc4a2e583a",
+            "afterSha256": "30f229e0d3cb5e2bc1fdff3566a22ac984155a659d929ef4d9bb94dc4a2e583a",
+            "bytesUnchanged": true
+          },
+          "captions.json": {
+            "beforeBytes": 21,
+            "afterBytes": 21,
+            "beforeSha256": "04ddcabb9512ba99210253e478457a6d0d74ccf3ef4b0807d2ebaf940ce2047f",
+            "afterSha256": "04ddcabb9512ba99210253e478457a6d0d74ccf3ef4b0807d2ebaf940ce2047f",
+            "bytesUnchanged": true
+          }
+        },
+        "nextBefore": {
+          "kind": "video",
+          "status": "planned",
+          "model": {
+            "id": "fal:h3-i2v"
+          },
+          "inputs": {
+            "prompt": "A garden.",
+            "first_frame": null,
+            "last_frame": {
+              "path": "assets/stills/a.png"
+            },
+            "reference_images": [
+              {
+                "path": "assets/stills/a.png"
+              },
+              {
+                "path": "assets/stills/b.png"
+              }
+            ],
+            "reference_audios": [],
+            "camera": null,
+            "frames_or_refs": "frames",
+            "negative_prompt": null
+          },
+          "output": {
+            "duration_s": 6,
+            "resolution": "768P",
+            "audio_out": true
+          },
+          "updated_at": "2026-09-21T18:51:16.443Z"
+        },
+        "nextAfter": {
+          "kind": "video",
+          "status": "planned",
+          "model": {
+            "id": "fal:h3-i2v"
+          },
+          "inputs": {
+            "prompt": "A garden.",
+            "first_frame": null,
+            "last_frame": {
+              "path": "assets/stills/a.png"
+            },
+            "reference_images": [
+              {
+                "path": "assets/stills/a.png"
+              },
+              {
+                "path": "assets/stills/b.png"
+              }
+            ],
+            "reference_audios": [],
+            "camera": null,
+            "frames_or_refs": "frames",
+            "negative_prompt": null
+          },
+          "output": {
+            "duration_s": 6,
+            "resolution": "768P",
+            "audio_out": true
+          },
+          "updated_at": "2026-09-21T18:51:16.443Z"
+        },
+        "nextUnchanged": true
+      },
+      "references": {
+        "files": {
+          "assets/stills/a.png.meta.json": {
+            "beforeBytes": 618,
+            "afterBytes": 618,
+            "beforeSha256": "b366aabf04118fdf18d1782b712b9934c50f3179a5f34f8c2818bbac440913a2",
+            "afterSha256": "b366aabf04118fdf18d1782b712b9934c50f3179a5f34f8c2818bbac440913a2",
+            "bytesUnchanged": true
+          },
+          "edit.json": {
+            "beforeBytes": 782,
+            "afterBytes": 782,
+            "beforeSha256": "30f229e0d3cb5e2bc1fdff3566a22ac984155a659d929ef4d9bb94dc4a2e583a",
+            "afterSha256": "30f229e0d3cb5e2bc1fdff3566a22ac984155a659d929ef4d9bb94dc4a2e583a",
+            "bytesUnchanged": true
+          },
+          "captions.json": {
+            "beforeBytes": 21,
+            "afterBytes": 21,
+            "beforeSha256": "04ddcabb9512ba99210253e478457a6d0d74ccf3ef4b0807d2ebaf940ce2047f",
+            "afterSha256": "04ddcabb9512ba99210253e478457a6d0d74ccf3ef4b0807d2ebaf940ce2047f",
+            "bytesUnchanged": true
+          }
+        },
+        "nextBefore": {
+          "kind": "video",
+          "status": "planned",
+          "model": {
+            "id": "fal:h3-ref"
+          },
+          "inputs": {
+            "prompt": "A garden.",
+            "first_frame": null,
+            "last_frame": {
+              "path": "assets/stills/a.png"
+            },
+            "reference_images": [
+              {
+                "path": "assets/stills/a.png"
+              },
+              {
+                "path": "assets/stills/b.png"
+              }
+            ],
+            "reference_audios": [],
+            "camera": null,
+            "frames_or_refs": "references",
+            "negative_prompt": null
+          },
+          "output": {
+            "duration_s": 6,
+            "resolution": "768P",
+            "audio_out": true
+          },
+          "updated_at": "2026-09-21T18:51:20.594Z"
+        },
+        "nextAfter": {
+          "kind": "video",
+          "status": "planned",
+          "model": {
+            "id": "fal:h3-ref"
+          },
+          "inputs": {
+            "prompt": "A garden.",
+            "first_frame": null,
+            "last_frame": {
+              "path": "assets/stills/a.png"
+            },
+            "reference_images": [
+              {
+                "path": "assets/stills/a.png"
+              },
+              {
+                "path": "assets/stills/b.png"
+              }
+            ],
+            "reference_audios": [],
+            "camera": null,
+            "frames_or_refs": "references",
+            "negative_prompt": null
+          },
+          "output": {
+            "duration_s": 6,
+            "resolution": "768P",
+            "audio_out": true
+          },
+          "updated_at": "2026-09-21T18:51:20.594Z"
+        },
+        "nextUnchanged": true
+      }
+    },
+    "references": {
+      "pending": {
+        "bandPresent": true,
+        "bandVisible": true,
+        "bandText": "参照画像 に入れる素材を選ぶやめる完了（2）",
+        "bandRect": {
+          "left": 48,
+          "right": 212.9140625,
+          "top": 4,
+          "bottom": 87,
+          "width": 164.9140625,
+          "height": 83
+        },
+        "ariaPressed": null,
+        "boxShadow": "none",
+        "background": "rgb(26, 26, 26)",
+        "borderWidth": "1px",
+        "borderStyle": "solid",
+        "borderColor": "rgb(27, 27, 27)",
+        "rect": {
+          "left": 918.328125,
+          "right": 1047,
+          "top": 324.5,
+          "bottom": 356,
+          "width": 128.671875,
+          "height": 31.5
+        },
+        "textBadgePairs": [
+          {
+            "kind": "reference",
+            "text": "a.png",
+            "badge": "@画像1",
+            "textRect": {
+              "left": 651,
+              "right": 767.6640625,
+              "top": 365.5,
+              "bottom": 377,
+              "width": 116.6640625,
+              "height": 11.5
+            },
+            "badgeRect": {
+              "left": 651,
+              "right": 688.3359375,
+              "top": 280.75,
+              "bottom": 297.25,
+              "width": 37.3359375,
+              "height": 16.5
+            },
+            "intersects": false
+          },
+          {
+            "kind": "reference",
+            "text": "b.png",
+            "badge": "@画像2",
+            "textRect": {
+              "left": 787.6640625,
+              "right": 904.328125,
+              "top": 365.5,
+              "bottom": 377,
+              "width": 116.6640625,
+              "height": 11.5
+            },
+            "badgeRect": {
+              "left": 787.6640625,
+              "right": 826.53125,
+              "top": 280.75,
+              "bottom": 297.25,
+              "width": 38.8671875,
+              "height": 16.5
+            },
+            "intersects": false
+          }
+        ]
+      },
+      "cancelled": {
+        "bandPresent": false,
+        "bandVisible": false,
+        "bandText": null,
+        "bandRect": null,
+        "ariaPressed": null,
+        "boxShadow": "none",
+        "background": "rgb(26, 26, 26)",
+        "borderWidth": "1px",
+        "borderStyle": "solid",
+        "borderColor": "rgb(27, 27, 27)",
+        "rect": {
+          "left": 918.328125,
+          "right": 1047,
+          "top": 324.5,
+          "bottom": 356,
+          "width": 128.671875,
+          "height": 31.5
+        },
+        "textBadgePairs": [
+          {
+            "kind": "reference",
+            "text": "a.png",
+            "badge": "@画像1",
+            "textRect": {
+              "left": 651,
+              "right": 767.6640625,
+              "top": 365.5,
+              "bottom": 377,
+              "width": 116.6640625,
+              "height": 11.5
+            },
+            "badgeRect": {
+              "left": 651,
+              "right": 688.3359375,
+              "top": 280.75,
+              "bottom": 297.25,
+              "width": 37.3359375,
+              "height": 16.5
+            },
+            "intersects": false
+          },
+          {
+            "kind": "reference",
+            "text": "b.png",
+            "badge": "@画像2",
+            "textRect": {
+              "left": 787.6640625,
+              "right": 904.328125,
+              "top": 365.5,
+              "bottom": 377,
+              "width": 116.6640625,
+              "height": 11.5
+            },
+            "badgeRect": {
+              "left": 787.6640625,
+              "right": 826.53125,
+              "top": 280.75,
+              "bottom": 297.25,
+              "width": 38.8671875,
+              "height": 16.5
+            },
+            "intersects": false
+          }
+        ]
+      }
     }
   }
 }

@@ -405,6 +405,74 @@ async function measureReferences(cdp) {
   return measured;
 }
 
+// Keep the exact on-disk bytes as well as hashes: cancelling must not rewrite even
+// an equivalent next draft or edit/captions JSON with different formatting.
+async function cancellationDraftSnapshot() {
+  const files = ['assets/stills/a.png.meta.json', 'edit.json', 'captions.json'];
+  return Object.fromEntries(await Promise.all(files.map(async file => [file, await readFile(path.join(PROJECT, file))])));
+}
+
+async function assertCancellationDraftUnchanged(before) {
+  const after = await cancellationDraftSnapshot();
+  const files = Object.fromEntries(Object.keys(before).map(file => [file, {
+    beforeBytes: before[file].length, afterBytes: after[file].length,
+    beforeSha256: createHash('sha256').update(before[file]).digest('hex'),
+    afterSha256: createHash('sha256').update(after[file]).digest('hex'),
+    bytesUnchanged: before[file].equals(after[file])
+  }]));
+  const nextBefore = JSON.parse(before['assets/stills/a.png.meta.json'].toString()).next;
+  const nextAfter = JSON.parse(after['assets/stills/a.png.meta.json'].toString()).next;
+  const measured = { files, nextBefore, nextAfter, nextUnchanged: JSON.stringify(nextBefore) === JSON.stringify(nextAfter) };
+  out.pickCancellation.drafts = { ...out.pickCancellation.drafts, [out.pickCancellation.activeScenario]: measured };
+  await save();
+  assert(Object.values(files).every(file => file.bytesUnchanged) && measured.nextUnchanged,
+    `取り消しで下書きのバイト列が変化: ${JSON.stringify(measured)}`);
+  return measured;
+}
+
+async function measurePickCancellation(cdp, selector, expectedBand, expectedPressed) {
+  const measured = await evalOn(cdp, `(()=>{
+    const rect=e=>{const r=e.getBoundingClientRect();return{left:r.left,right:r.right,top:r.top,bottom:r.bottom,width:r.width,height:r.height}};
+    const intersects=(a,b)=>a.left<b.right&&a.right>b.left&&a.top<b.bottom&&a.bottom>b.top;
+    const control=document.querySelector(${S(selector)});
+    if(!control)throw new Error('Cancellation control missing');
+    const style=getComputedStyle(control),band=document.querySelector(${S(pickBand)});
+    const textBadgePairs=[];
+    for(const frame of document.querySelectorAll('[data-akari-generation-pick-slot]')){
+      const text=frame.querySelector(':scope > span:first-child');
+      const badge=frame.querySelector('.akari-inspector-generation-frame-hint,.akari-inspector-generation-frame-replace');
+      if(text&&badge){const textRect=rect(text),badgeRect=rect(badge);textBadgePairs.push({kind:'frame',text:text.textContent,badge:badge.textContent,textRect,badgeRect,intersects:intersects(textRect,badgeRect)});}
+    }
+    for(const card of document.querySelectorAll('.akari-inspector-generation-reference-card')){
+      const text=card.querySelector('.akari-inspector-generation-reference-filename');
+      const badge=card.querySelector('.akari-inspector-generation-reference-badge');
+      const textRect=rect(text),badgeRect=rect(badge);
+      textBadgePairs.push({kind:'reference',text:text.textContent,badge:badge.textContent,textRect,badgeRect,intersects:intersects(textRect,badgeRect)});
+    }
+    const bandRect=band?rect(band):null;
+    return{bandPresent:!!band,bandVisible:!!bandRect&&bandRect.width>0&&bandRect.height>0&&getComputedStyle(band).visibility==='visible',
+      bandText:band?.textContent??null,bandRect,ariaPressed:control.getAttribute('aria-pressed'),boxShadow:style.boxShadow,
+      background:style.backgroundColor,borderWidth:style.borderTopWidth,borderStyle:style.borderTopStyle,borderColor:style.borderTopColor,
+      rect:rect(control),textBadgePairs};
+  })()`);
+  const scenario = out.pickCancellation.activeScenario;
+  out.pickCancellation[scenario] = { ...out.pickCancellation[scenario], [expectedBand ? 'pending' : 'cancelled']: measured };
+  await save();
+  assert(measured.bandPresent === expectedBand && measured.bandVisible === expectedBand, `帯の状態が不正: ${JSON.stringify(measured)}`);
+  if (expectedPressed !== undefined) {
+    assert(measured.ariaPressed === String(expectedPressed), '枠の aria-pressed が不正');
+    assert(expectedPressed ? measured.boxShadow !== 'none' : measured.boxShadow === 'none', '枠の輪の状態が不正');
+  }
+  const transparent = color => ['transparent', 'rgba(0, 0, 0, 0)'].includes(color);
+  assert(measured.rect.width > 0 && measured.rect.height > 0, '取り消し対象の矩形が空');
+  assert(!transparent(measured.background) || (Number.parseFloat(measured.borderWidth) > 0
+    && !['none', 'hidden'].includes(measured.borderStyle) && !transparent(measured.borderColor)), '取り消し対象に背景も可視の枠線もない');
+  assert(measured.textBadgePairs.length > 0 && measured.textBadgePairs.every(pair => !pair.intersects
+    && pair.textRect.width > 0 && pair.textRect.height > 0 && pair.badgeRect.width > 0 && pair.badgeRect.height > 0),
+    `文字と札が交差または矩形が空: ${JSON.stringify(measured.textBadgePairs)}`);
+  return measured;
+}
+
 let spawnedChild;
 async function launch() {
   await mkdir(path.join(ISO, 'akari-home'), { recursive: true });
@@ -721,6 +789,56 @@ try {
     const after = { edit: (await stat(editPath)).mtimeMs, captions: (await stat(captionsPath)).mtimeMs };
     assert(after.edit === mtimesBefore.edit && after.captions === mtimesBefore.captions, '参照選択で edit/captions が変化');
     return { next, measurements, mtimesBefore, after };
+  });
+
+  await step('14. 空枠を実クリック → 同じ枠を再クリック → 帯と輪を消し下書き不変', async () => {
+    await clickElement(cdp, modeSelector('最初 / 最後'));
+    await waitReferenceDraft(next => next.model.id === 'fal:h3-i2v' && next.inputs.frames_or_refs === 'frames', 'cancel test frames');
+    await clickElement(cdp, action('first-frame-remove'));
+    await waitEval(cdp, `!document.querySelector(${S(action('first-frame-remove'))})&&document.querySelector(${S(frameSelector('first_frame'))})?.textContent.includes('＋ 画像を選ぶ')`, { label: '取り消し検証用の空枠' });
+    await waitReferenceDraft(next => next.inputs.first_frame === null, 'empty frame saved before cancelling');
+    await sleep(450);
+    const before = await cancellationDraftSnapshot();
+    out.pickCancellation = { activeScenario: 'frame' };
+    const idle = await measureFrames(cdp);
+    await clickElement(cdp, frameSelector('first_frame'));
+    await waitEval(cdp, `document.querySelector(${S(pickBand)})?.textContent.includes('最初の絵 に入れる素材を選ぶ')`, { label: '空枠の帯が表示' });
+    await shot(cdp, '18-frame-reclick-pending.png', frameSelector('first_frame'));
+    const pending = await measurePickCancellation(cdp, frameSelector('first_frame'), true, true);
+    const pendingFrames = await measureFrames(cdp, 'first_frame');
+    await clickElement(cdp, frameSelector('first_frame'));
+    await waitEval(cdp, `!document.querySelector(${S(pickBand)})&&document.querySelector(${S(frameSelector('first_frame'))})?.getAttribute('aria-pressed')==='false'`, { label: '同じ空枠の再押下で帯と輪が消失' });
+    await sleep(450); // Beyond the production 300ms draft-write debounce.
+    await shot(cdp, '19-frame-reclick-cancelled.png', frameSelector('first_frame'));
+    const cancelled = await measurePickCancellation(cdp, frameSelector('first_frame'), false, false);
+    const after = await measureFrames(cdp);
+    assert(idle.every((frame, index) => frame.src === after[index].src), '再押下で絵が変化');
+    const drafts = await assertCancellationDraftUnchanged(before);
+    return { idle, pending, pendingFrames, cancelled, after, drafts };
+  });
+
+  await step('15. 参照の＋追加を実クリック → 再クリック → 帯を消し下書き不変', async () => {
+    await clickElement(cdp, modeSelector('参照'));
+    await waitReferenceDraft(next => next.model.id === 'fal:h3-ref' && next.inputs.frames_or_refs === 'references', 'cancel test references');
+    await waitEval(cdp, `document.querySelectorAll('.akari-inspector-generation-reference-card').length===2`, { label: '取り消し検証用の参照2枚' });
+    await sleep(450);
+    out.pickCancellation.activeScenario = 'references';
+    const before = await cancellationDraftSnapshot();
+    await clickElement(cdp, referenceAdd);
+    await waitEval(cdp, `document.querySelector(${S(pickBand)})?.textContent.includes('参照画像')`, { label: '＋追加の帯が表示' });
+    await shot(cdp, '20-reference-reclick-pending.png', referenceAdd);
+    const pending = await measurePickCancellation(cdp, referenceAdd, true);
+    const referencesBefore = await measureReferences(cdp);
+    await clickElement(cdp, referenceAdd);
+    await waitEval(cdp, `!document.querySelector(${S(pickBand)})`, { label: '＋追加の再押下で帯が消失' });
+    await sleep(450);
+    await shot(cdp, '21-reference-reclick-cancelled.png', referenceAdd);
+    const cancelled = await measurePickCancellation(cdp, referenceAdd, false);
+    const referencesAfter = await measureReferences(cdp);
+    assert(JSON.stringify(referencesBefore.cards.map(card => [card.path, card.badge]))
+      === JSON.stringify(referencesAfter.cards.map(card => [card.path, card.badge])), '再押下で参照または札が変化');
+    const drafts = await assertCancellationDraftUnchanged(before);
+    return { pending, cancelled, referencesBefore, referencesAfter, drafts };
   });
 
   out.status = 'pass';

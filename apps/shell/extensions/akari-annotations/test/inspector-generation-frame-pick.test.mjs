@@ -36,7 +36,7 @@ const Harness = new Function('generation_pick_mirror_1', 'generation_fields_1', 
 const URI = uriModule.default ?? uriModule;
 const identity = { key: 'a', itemId: 'a', sourcePath: 'assets/a.png', duration: 6 };
 const deferred = () => { let resolve; const promise = new Promise(done => { resolve = done; }); return { promise, resolve }; };
-function setup({ registered = true, selected, state } = {}) {
+function setup({ registered = true, cancelRegistered = registered, selected, state } = {}) {
   const w = new Harness();
   for (const name of ['generationDrafts', 'generationTabDrafts', 'generationTabMeta', 'generationStates',
     'generationValidations', 'generationDraftTimers', 'generationWrites']) w[name] = new Map();
@@ -47,8 +47,11 @@ function setup({ registered = true, selected, state } = {}) {
   w.syncAdjustCompare = () => {}; w.lutGeneration = 0;
   w.generationStates.set('a', state);
   const result = deferred(), calls = [], writes = [], dialogs = [];
-  w.commandRegistry = { getCommand: () => registered ? {} : undefined,
-    executeCommand: (...args) => { calls.push(args); return result.promise; } };
+  w.commandRegistry = { getCommand: id => (id === mirror.GENERATION_CANCEL_PICK_COMMAND_ID ? cancelRegistered : registered) ? {} : undefined,
+    executeCommand: (...args) => {
+      calls.push(args);
+      return args[0] === mirror.GENERATION_CANCEL_PICK_COMMAND_ID ? Promise.resolve() : result.promise;
+    } };
   w.workspaceService = { ready: Promise.resolve(), tryGetRoots: () => [{ resource: new URI('file:///project') }] };
   w.fileService = { resolve: async resource => ({ resource }) };
   w.fileDialogService = { showOpenDialog: async (...args) => { dialogs.push(args); return selected ? new URI(selected) : undefined; } };
@@ -114,7 +117,10 @@ for (const trigger of ['other clip', 'away and back', 'tab', 'dispose', 'same fr
     assert.equal(frame.getAttribute('aria-pressed'), 'false');
     result.resolve({ status: 'picked', paths: ['assets/late.png'] }); await picking;
     assert.deepEqual([...w.generationDrafts], before); assert.equal(writes.length, 0);
-    assert.equal(w.generationDraftTimers.size, 0); assert.equal(calls.length, 1);
+    assert.equal(w.generationDraftTimers.size, 0);
+    assert.equal(calls.filter(([id]) => id === mirror.GENERATION_PICK_INTO_COMMAND_ID).length, 1);
+    assert.equal(calls.filter(([id]) => id === mirror.GENERATION_CANCEL_PICK_COMMAND_ID).length,
+      ['tab', 'dispose', 'same frame'].includes(trigger) ? 1 : 0);
   });
 }
 
@@ -165,3 +171,55 @@ for (const key of ['Enter', ' ']) {
     result.resolve({ status: 'cancelled' }); await settle();
   });
 }
+
+for (const cancelRegistered of [true, false]) {
+  test(`same frame re-click: cancel registration=${cancelRegistered}, one cancellation at most and no draft write`, async () => {
+    const { w, frame, calls, result, writes } = setup({ cancelRegistered });
+    const before = JSON.stringify([...w.generationDrafts]);
+    frame.listeners.get('click')();
+    frame.listeners.get('click')();
+    assert.equal(frame.getAttribute('aria-pressed'), 'false');
+    assert.equal(w.generationFramePick, undefined);
+    assert.deepEqual(calls.map(([id]) => id), [mirror.GENERATION_PICK_INTO_COMMAND_ID,
+      ...(cancelRegistered ? [mirror.GENERATION_CANCEL_PICK_COMMAND_ID] : [])]);
+    result.resolve({ status: 'picked', paths: ['assets/late.png'] }); await settle();
+    w.cancelGenerationFramePick();
+    assert.equal(calls.filter(([id]) => id === mirror.GENERATION_CANCEL_PICK_COMMAND_ID).length, Number(cancelRegistered));
+    assert.equal(JSON.stringify([...w.generationDrafts]), before);
+    assert.equal(writes.length, 0); assert.equal(w.generationDraftTimers.size, 0);
+  });
+
+  test(`reference + add re-click: cancel registration=${cancelRegistered}, no second pick or draft write`, async () => {
+    const { w, calls, result, writes } = setup({ cancelRegistered });
+    w.body = new Element('div');
+    w.generationDrafts.get('a').inputs.reference_images = [];
+    const before = JSON.stringify([...w.generationDrafts]);
+    w.appendRow(w.body, {
+      name: 'generation-references', label: '参照', getValue: () => '',
+      generationReferences: { entries: [], counter: '画像 0 / 9', notes: [],
+        kinds: [{ slot: 'reference_images', kind: 'image', label: '画像', max: 9 }] }
+    }, w.model.snapshot, 'cut');
+    const all = element => element.children.flatMap(child => [child, ...all(child)]);
+    const add = all(w.body).find(element => element.getAttribute('data-akari-generation-reference-add'));
+    assert.ok(add);
+    add.listeners.get('click')();
+    assert.equal(w.generationFramePick.slot, 'reference_images');
+    assert.deepEqual(calls[0][1], { slot: 'reference_images', label: '参照画像', accepts: ['image'], multi: true, selected: [], max: 9 });
+    add.listeners.get('click')();
+    assert.equal(w.generationFramePick, undefined);
+    assert.deepEqual(calls.map(([id]) => id), [mirror.GENERATION_PICK_INTO_COMMAND_ID,
+      ...(cancelRegistered ? [mirror.GENERATION_CANCEL_PICK_COMMAND_ID] : [])]);
+    result.resolve({ status: 'picked', paths: ['assets/late.png'] }); await settle();
+    w.cancelGenerationFramePick();
+    assert.equal(calls.filter(([id]) => id === mirror.GENERATION_CANCEL_PICK_COMMAND_ID).length, Number(cancelRegistered));
+    assert.equal(JSON.stringify([...w.generationDrafts]), before);
+    assert.equal(writes.length, 0); assert.equal(w.generationDraftTimers.size, 0);
+  });
+}
+
+test('settled frame pick does not send a cancellation to a later receiver session', async () => {
+  const { w, calls, result } = setup();
+  const picking = w.pickGenerationFrame(identity, 'first_frame', '');
+  result.resolve({ status: 'cancelled' }); await picking;
+  assert.deepEqual(calls.map(([id]) => id), [mirror.GENERATION_PICK_INTO_COMMAND_ID]);
+});

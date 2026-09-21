@@ -1,6 +1,6 @@
 import URI from '@theia/core/lib/common/uri';
 import { CommandRegistry } from '@theia/core/lib/common';
-import { GENERATION_PICK_INTO_COMMAND_ID, type GenerationPickRequest, type GenerationPickResult } from '../common/generation-pick-mirror';
+import { GENERATION_PICK_INTO_COMMAND_ID, GENERATION_CANCEL_PICK_COMMAND_ID, type GenerationPickRequest, type GenerationPickResult } from '../common/generation-pick-mirror';
 import { AkariAnnotationsService } from '../common/akari-annotations-protocol';
 import type { GenerationValidationResult } from '../common/akari-annotations-protocol';
 import { resolveGenerationState, selectGenerationSidecarForSource, TRANSITION_VOCABULARY } from '@akari-video/edit-store';
@@ -4191,17 +4191,22 @@ export class AkariInspectorWidget extends BaseWidget {
         }
     }
 
-    protected cancelGenerationFramePick(): void {
-        // The receiver exposes pickInto only; Esc / やめる closes its band.
-        // Invalidating this token drops late results without touching either draft.
+    protected cancelGenerationFramePick(notifyReceiver = true): void {
+        const pending = this.generationFramePick;
+        // Invalidate first so a cancelled or late picked result cannot change the draft.
         this.generationFramePick = undefined;
         this.paintGenerationFramePick();
+        if (pending && notifyReceiver && this.commandRegistry.getCommand(GENERATION_CANCEL_PICK_COMMAND_ID)) {
+            void this.commandRegistry.executeCommand(GENERATION_CANCEL_PICK_COMMAND_ID).catch(error => {
+                console.warn('素材選択を取り消せませんでした。', error);
+            });
+        }
     }
 
     protected syncGenerationFramePick(tab = this.currentTab): void {
         const key = this.generationIdentity(this.model.snapshot)?.key;
         if (this.generationFramePick && (this.generationFramePick.key !== key || tab !== 'generation'
-            || this.generationFramePickDisabled(key!))) this.cancelGenerationFramePick();
+            || this.generationFramePickDisabled(key!))) this.cancelGenerationFramePick(this.generationFramePick.key === key);
         if (this.generationFramePickMessage?.key !== key) this.generationFramePickMessage = undefined;
     }
 
@@ -4241,7 +4246,7 @@ export class AkariInspectorWidget extends BaseWidget {
                 this.render();
             }
         } finally {
-            if (this.generationFramePick === pending) this.cancelGenerationFramePick();
+            if (this.generationFramePick === pending) this.cancelGenerationFramePick(false);
         }
     }
 
@@ -4691,6 +4696,10 @@ export class AkariInspectorWidget extends BaseWidget {
                         || this.generationIdentity(this.model.snapshot)?.key !== identity.key
                         || this.generationFramePickDisabled(identity.key)) return;
                     const kind = references.kinds.find(kind => kind.slot === select.value) ?? references.kinds[0];
+                    if (this.generationFramePick?.key === identity.key && this.generationFramePick.slot === kind.slot) {
+                        this.cancelGenerationFramePick();
+                        return;
+                    }
                     const current = this.generationDrafts.get(identity.key)!;
                     const selectedRevision = JSON.stringify(current.inputs[kind.slot] ?? []);
                     const pending = { key: identity.key, slot: kind.slot };
@@ -4737,7 +4746,7 @@ export class AkariInspectorWidget extends BaseWidget {
                             this.render();
                         }
                     } finally {
-                        if (this.generationFramePick === pending) this.cancelGenerationFramePick();
+                        if (this.generationFramePick === pending) this.cancelGenerationFramePick(false);
                     }
                 };
                 add.addEventListener('click', () => { void pick(); });

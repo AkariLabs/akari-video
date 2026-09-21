@@ -1,6 +1,6 @@
 # インスペクター生成パネル L1
 
-既存の PNG / results.json は再実行まで旧 UI の記録。更新スクリプトは次の 10 枚を撮影する。
+既存の PNG / results.json は再実行まで旧 UI の記録。更新スクリプトの撮影内容を以下に示す。
 
 - `01-h3-first-to-last.png`: H3 の最初・最後に別々のサムネ、種類「最初→最後」
 - `02-prompt-only.png`: 両枠が空、種類「プロンプトだけ」、外すボタンなし
@@ -59,8 +59,11 @@ fixture の赤・青・緑の画像（`assets/stills/a.png`〜`c.png`）を素�
 選択後の `a.png.meta.json` の `next.inputs.first_frame.path`、最後の絵の変更前後のサムネ src、
 Esc 前後の meta のバイト列とサムネの不変性、edit/captions の mtime 不変も assert する。
 
-受け側には取り消しコマンドがない。再押下・クリップ変更・生成タブ以外への移動・dispose 時は
-送信側が結果を捨てて輪を外し、素材パネルの帯は Esc または「やめる」で閉じる。
+受け側は `akari.generation.cancelPick` を登録し、進行中の要求を `cancelled` にして帯を閉じる。
+同じ枠・参照の「＋ 追加」の再押下、生成タブ以外への移動、dispose 時は、送信側が登録を確認して
+このコマンドを呼ぶ。未登録の場合は結果を捨てる従来の挙動を保つ。
+クリップ選択変更は受け側の選択イベントで帯を閉じ、送信側は輪を外して遅延結果を捨てる。
+進行中の要求が無い取消は何もしない。素材の入れ替えの棚と選ぶモードは互いに閉じてから開く。
 L1 の実行と証跡更新は Electron を起動できるラッパー側で行う。
 
 ### 複数参照と両側の下書き（step 10–13）
@@ -90,3 +93,39 @@ Veo reference のアダプタ未実装、および Kling の参照アダプタ�
 
 種類をまたぐ追加順は workspace URI と item ID ごとのローカル UI 状態として保持し、
 meta の監視による再読込とアプリ再起動で復元する。生成 inputs / provider body に UI 用の欄は加えない。
+
+### 再押下による取消（step 14–15）
+
+既存 step 1–13 を維持し、空の最初の絵と参照の「＋ 追加」の再押下を追加。
+いずれも初回・再押下を CDP `Input.dispatchMouseEvent` で行い、DOM の `.click()` は使わない。
+step 14 は「最初 / 最後」へ戻して最初の絵を外し、保存済みになってからバイト列の基準を取る。
+step 15 は既存の2枚の参照を使う。
+
+- `18-frame-reclick-pending.png`: 空枠を押した後、帯と輪が出ている状態。
+- `19-frame-reclick-cancelled.png`: 同じ空枠の再押下後、帯も輪も消えた状態。
+- `20-reference-reclick-pending.png`: 参照の「＋ 追加」で帯が出ている状態。
+- `21-reference-reclick-cancelled.png`: 同じ「＋ 追加」の再押下で帯が消え、元の参照が残る状態。
+
+`results.json` の step 14–15 と `pickCancellation` に、帯の存在・可視状態・文字・矩形、
+押した対象の `aria-pressed` / box-shadow / 計算後 background・border、文字と札それぞれの矩形・
+交差判定を記録する。枠の `aria-pressed=true → false` と輪の消失、
+押せる対象の背景または可視枠線、文字と札の正の面積と非交差を assert する。
+参照の「＋ 追加」はトグルの aria-pressed を持たないため、その計測値は null のまま記録する。
+
+取消後は保存の debounce（300 ms）より長く待ち、素材 `a.png.meta.json` 全体（`next` を含む）・
+`edit.json`・`captions.json` を Buffer のバイト列で比較する。各ファイルの前後のバイト数・SHA-256・
+一致判定と、`next` の前後の値も残す。サムネ、参照パスと札の不変も assert する。
+今回の追加 step は `node --check` で構文を確認。Electron での実行・SS の視認と
+PNG / results.json の更新はラッパーが行い、既存の証跡はその実行まで保持する。
+
+追加実装の L0（2026-09-22）:
+
+- shell の `npm run build:ext`: exit 0。棚との接続修正後に project の `npm run build` も exit 0。
+- project の `npm test`: **476 / 476 pass**、10039.143125 ms。
+- annotations の `npm test`（`tsc -b` を含む）: **1783 / 1783 pass**、66069.922209 ms。
+- shell の `npm run lint`: error 0、既存の companion `_ignored` 未使用 warning 1 件。
+- この L1 スクリプトと追加テスト2ファイルの `node --check`、`git diff --check`: exit 0。
+
+project の初回全体テストでは既存の棚テスト4件が取消メソッドを持たないハーネスで失敗した。
+棚の開始時に既存 controller の取消を呼ぶ形へ直し、既存テストを変えずに全476件の通過を確認した。
+L1 の新規 step 14–15 の実測は上記 L0 には含まない。
