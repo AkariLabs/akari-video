@@ -1,0 +1,958 @@
+{
+ "panelWidth": 360.42,
+ "homeWidth": 296.42,
+ "homePadding": "2px 10px 12px",
+ "rows": [
+  {
+   "key": "bgm",
+   "soon": false,
+   "label": "BGM",
+   "count": "121",
+   "row": {
+    "left": 58,
+    "right": 334.42,
+    "top": 234,
+    "bottom": 284.5,
+    "width": 276.42
+   },
+   "padding": "7px 9px",
+   "gridTemplateColumns": "30px 0px 210.422px",
+   "icon": {
+    "text": "♪",
+    "left": 68,
+    "right": 98,
+    "top": 250.75,
+    "bottom": 267.75,
+    "width": 30
+   },
+   "title": {
+    "text": "BGM",
+    "left": 114,
+    "right": 324.42,
+    "top": 242,
+    "bottom": 255,
+    "width": 210.42
+   },
+   "hint": {
+    "text": "タイムラインへドラッグ、＋でプレイヘッド位置に追加",
+    "left": 114,
+    "right": 324.42,
+    "top": 263,
+    "bottom": 276.5,
+    "width": 210.42
+   },
+   "countEl": {
+    "text": "121",
+    "left": 106,
+    "right": 106,
+    "top": 253.75,
+    "bottom": 264.75,
+    "width": 0
+   },
+   "checks": {
+    "order": false,
+    "countRightDelta": -218.42,
+    "hintUnderTitle": true,
+    "rowNoOverflow": true
+   }
+  },
+  {
+   "key": "sfx",
+   "soon": false,
+   "label": "SFX",
+   "count": "96",
+   "row": {
+    "left": 58,
+    "right": 334.42,
+    "top": 290.5,
+    "bottom": 341,
+    "width": 276.42
+   },
+   "padding": "7px 9px",
+   "gridTemplateColumns": "30px 0px 210.422px",
+   "icon": {
+    "text": "♫",
+    "left": 68,
+    "right": 98,
+    "top": 307.25,
+    "bottom": 324.25,
+    "width": 30
+   },
+   "title": {
+    "text": "SFX",
+    "left": 114,
+    "right": 324.42,
+    "top": 298.5,
+    "bottom": 311.5,
+    "width": 210.42
+   },
+   "hint": {
+    "text": "タイムラインへドラッグ、＋でプレイヘッド位置に追加",
+    "left": 114,
+    "right": 324.42,
+    "top": 319.5,
+    "bottom": 333,
+    "width": 210.42
+   },
+   "countEl": {
+    "text": "96",
+    "left": 106,
+    "right": 106,
+    "top": 310.25,
+    "bottom": 321.25,
+    "width": 0
+   },
+   "checks": {
+    "order": false,
+    "countRightDelta": -218.42,
+    "hintUnderTitle": true,
+    "rowNoOverflow": true
+   }
+  },
+  {
+   "key": "broll",
+   "soon": false,
+   "label": "B-roll",
+   "count": "2",
+   "row": {
+    "left": 58,
+    "right": 334.42,
+    "top": 347,
+    "bottom": 397.5,
+    "width": 276.42
+   },
+   "padding": "7px 9px",
+   "gridTemplateColumns": "30px 0px 210.422px",
+   "icon": {
+    "text": "▶",
+    "left": 68,
+    "right": 98,
+    "top": 361,
+    "bottom": 383.5,
+    "width": 30
+   },
+   "title": {
+    "text": "B-roll",
+    "left": 114,
+    "right": 324.42,
+    "top": 355,
+    "bottom": 368,
+    "width": 210.42
+   },
+   "hint": {
+    "text": "タイムラインへドラッグ、＋でプレイヘッド位置に追加",
+    "left": 114,
+    "right": 324.42,
+    "top": 376,
+    "bottom": 389.5,
+    "width": 210.42
+   },
+   "countEl": {
+    "text": "2",
+    "left": 106,
+    "right": 106,
+    "top": 366.75,
+    "bottom": 377.75,
+    "width": 0
+   },
+   "checks": {
+    "order": false,
+    "countRightDelta": -218.42,
+    "hintUnderTitle": true,
+    "rowNoOverflow": true
+   }
+  },
+  {
+   "key": "image",
+   "soon": false,
+   "label": "画像",
+   "count": "161",
+   "row": {
+    "left": 58,
+    "right": 334.42,
+    "top": 403.5,
+    "bottom": 457.5,
+    "width": 276.42
+   },
+   "padding": "7px 9px",
+   "gridTemplateColumns": "30px 0px 210.422px",
+   "icon": {
+    "text": "▦",
+    "left": 68,
+    "right": 98,
+    "top": 421.5,
+    "bottom": 439.5,
+    "width": 30
+   },
+   "title": {
+    "text": "画像",
+    "left": 114,
+    "right": 324.42,
+    "top": 411.5,
+    "bottom": 428,
+    "width": 210.42
+   },
+   "hint": {
+    "text": "タイムラインへドラッグ、＋でプレイヘッド位置に追加",
+    "left": 114,
+    "right": 324.42,
+    "top": 436,
+    "bottom": 449.5,
+    "width": 210.42
+   },
+   "countEl": {
+    "text": "161",
+    "left": 106,
+    "right": 106,
+    "top": 425,
+    "bottom": 436,
+    "width": 0
+   },
+   "checks": {
+    "order": false,
+    "countRightDelta": -218.42,
+    "hintUnderTitle": true,
+    "rowNoOverflow": true
+   }
+  },
+  {
+   "key": "overlay",
+   "soon": false,
+   "label": "オーバーレイ",
+   "count": "7",
+   "row": {
+    "left": 58,
+    "right": 334.42,
+    "top": 463.5,
+    "bottom": 517.5,
+    "width": 276.42
+   },
+   "padding": "7px 9px",
+   "gridTemplateColumns": "30px 83.8672px 126.555px",
+   "icon": {
+    "text": "✦",
+    "left": 68,
+    "right": 98,
+    "top": 482,
+    "bottom": 499,
+    "width": 30
+   },
+   "title": {
+    "text": "オーバーレイ",
+    "left": 197.87,
+    "right": 324.42,
+    "top": 471.5,
+    "bottom": 488,
+    "width": 126.55
+   },
+   "hint": {
+    "text": "「使う」でプロジェクトに追加",
+    "left": 197.87,
+    "right": 324.42,
+    "top": 496,
+    "bottom": 509.5,
+    "width": 126.55
+   },
+   "countEl": {
+    "text": "7",
+    "left": 106,
+    "right": 189.87,
+    "top": 485,
+    "bottom": 496,
+    "width": 83.87
+   },
+   "checks": {
+    "order": false,
+    "countRightDelta": -134.55,
+    "hintUnderTitle": true,
+    "rowNoOverflow": true
+   }
+  },
+  {
+   "key": "scene3d",
+   "soon": false,
+   "label": "3D・アバター",
+   "count": "6",
+   "row": {
+    "left": 58,
+    "right": 334.42,
+    "top": 523.5,
+    "bottom": 577.5,
+    "width": 276.42
+   },
+   "padding": "7px 9px",
+   "gridTemplateColumns": "30px 83.8672px 126.555px",
+   "icon": {
+    "text": "⬡",
+    "left": 68,
+    "right": 98,
+    "top": 541.75,
+    "bottom": 559.25,
+    "width": 30
+   },
+   "title": {
+    "text": "3D・アバター",
+    "left": 197.87,
+    "right": 324.42,
+    "top": 531.5,
+    "bottom": 548,
+    "width": 126.55
+   },
+   "hint": {
+    "text": "「使う」でプロジェクトに追加",
+    "left": 197.87,
+    "right": 324.42,
+    "top": 556,
+    "bottom": 569.5,
+    "width": 126.55
+   },
+   "countEl": {
+    "text": "6",
+    "left": 106,
+    "right": 189.87,
+    "top": 545,
+    "bottom": 556,
+    "width": 83.87
+   },
+   "checks": {
+    "order": false,
+    "countRightDelta": -134.55,
+    "hintUnderTitle": true,
+    "rowNoOverflow": true
+   }
+  },
+  {
+   "key": "pack",
+   "soon": false,
+   "label": "パック",
+   "count": "2",
+   "row": {
+    "left": 58,
+    "right": 334.42,
+    "top": 583.5,
+    "bottom": 637.5,
+    "width": 276.42
+   },
+   "padding": "7px 9px",
+   "gridTemplateColumns": "30px 65.6484px 144.773px",
+   "icon": {
+    "text": "▤",
+    "left": 68,
+    "right": 98,
+    "top": 601.5,
+    "bottom": 619.5,
+    "width": 30
+   },
+   "title": {
+    "text": "パック",
+    "left": 179.65,
+    "right": 324.42,
+    "top": 591.5,
+    "bottom": 608,
+    "width": 144.77
+   },
+   "hint": {
+    "text": "パック内の素材をまとめて取り込み",
+    "left": 179.65,
+    "right": 324.42,
+    "top": 616,
+    "bottom": 629.5,
+    "width": 144.77
+   },
+   "countEl": {
+    "text": "2",
+    "left": 106,
+    "right": 171.65,
+    "top": 605,
+    "bottom": 616,
+    "width": 65.65
+   },
+   "checks": {
+    "order": false,
+    "countRightDelta": -152.77,
+    "hintUnderTitle": true,
+    "rowNoOverflow": true
+   }
+  },
+  {
+   "key": "textstyle",
+   "soon": false,
+   "label": "テキストスタイル",
+   "count": "12",
+   "row": {
+    "left": 58,
+    "right": 334.42,
+    "top": 678,
+    "bottom": 732,
+    "width": 276.42
+   },
+   "padding": "7px 9px",
+   "gridTemplateColumns": "30px 0px 210.422px",
+   "icon": {
+    "text": "字",
+    "left": 68,
+    "right": 98,
+    "top": 693.75,
+    "bottom": 716.25,
+    "width": 30
+   },
+   "title": {
+    "text": "テキストスタイル",
+    "left": 114,
+    "right": 324.42,
+    "top": 686,
+    "bottom": 702.5,
+    "width": 210.42
+   },
+   "hint": {
+    "text": "プレビューへドラッグ、＋でプレイヘッド位置に追加",
+    "left": 114,
+    "right": 324.42,
+    "top": 710.5,
+    "bottom": 724,
+    "width": 210.42
+   },
+   "countEl": {
+    "text": "12",
+    "left": 106,
+    "right": 106,
+    "top": 699.5,
+    "bottom": 710.5,
+    "width": 0
+   },
+   "checks": {
+    "order": false,
+    "countRightDelta": -218.42,
+    "hintUnderTitle": true,
+    "rowNoOverflow": true
+   }
+  },
+  {
+   "key": "textanim",
+   "soon": false,
+   "label": "テキストアニメ",
+   "count": "47",
+   "row": {
+    "left": 58,
+    "right": 334.42,
+    "top": 738,
+    "bottom": 792,
+    "width": 276.42
+   },
+   "padding": "7px 9px",
+   "gridTemplateColumns": "30px 2.46875px 207.953px",
+   "icon": {
+    "text": "動",
+    "left": 68,
+    "right": 98,
+    "top": 753.75,
+    "bottom": 776.25,
+    "width": 30
+   },
+   "title": {
+    "text": "テキストアニメ",
+    "left": 116.47,
+    "right": 324.42,
+    "top": 746,
+    "bottom": 762.5,
+    "width": 207.95
+   },
+   "hint": {
+    "text": "選択中のテロップに適用（次のラウンドで有効化）",
+    "left": 116.47,
+    "right": 324.42,
+    "top": 770.5,
+    "bottom": 784,
+    "width": 207.95
+   },
+   "countEl": {
+    "text": "47",
+    "left": 106,
+    "right": 108.47,
+    "top": 759.5,
+    "bottom": 770.5,
+    "width": 2.47
+   },
+   "checks": {
+    "order": false,
+    "countRightDelta": -215.95,
+    "hintUnderTitle": true,
+    "rowNoOverflow": true
+   }
+  },
+  {
+   "key": "font",
+   "soon": false,
+   "label": "フォント",
+   "count": "31",
+   "row": {
+    "left": 58,
+    "right": 334.42,
+    "top": 798,
+    "bottom": 852,
+    "width": 276.42
+   },
+   "padding": "7px 9px",
+   "gridTemplateColumns": "30px 20.9609px 189.461px",
+   "icon": {
+    "text": "Aa",
+    "left": 68,
+    "right": 98,
+    "top": 816.5,
+    "bottom": 833.5,
+    "width": 30
+   },
+   "title": {
+    "text": "フォント",
+    "left": 134.96,
+    "right": 324.42,
+    "top": 806,
+    "bottom": 822.5,
+    "width": 189.46
+   },
+   "hint": {
+    "text": "「使う」でこのプロジェクトのフォントに追加",
+    "left": 134.96,
+    "right": 324.42,
+    "top": 830.5,
+    "bottom": 844,
+    "width": 189.46
+   },
+   "countEl": {
+    "text": "31",
+    "left": 106,
+    "right": 126.96,
+    "top": 819.5,
+    "bottom": 830.5,
+    "width": 20.96
+   },
+   "checks": {
+    "order": false,
+    "countRightDelta": -197.46,
+    "hintUnderTitle": true,
+    "rowNoOverflow": true
+   }
+  },
+  {
+   "key": "shapes",
+   "soon": true,
+   "label": "図形",
+   "count": "近日",
+   "row": {
+    "left": 58,
+    "right": 334.42,
+    "top": 858,
+    "bottom": 912,
+    "width": 276.42
+   },
+   "padding": "7px 9px",
+   "gridTemplateColumns": "30px 38.1797px 172.242px",
+   "icon": {
+    "text": "◇",
+    "left": 68,
+    "right": 98,
+    "top": 873.75,
+    "bottom": 896.25,
+    "width": 30
+   },
+   "title": {
+    "text": "図形",
+    "left": 152.18,
+    "right": 324.42,
+    "top": 866,
+    "bottom": 882.5,
+    "width": 172.24
+   },
+   "hint": {
+    "text": "図形素材は近日利用できるようになります",
+    "left": 152.18,
+    "right": 324.42,
+    "top": 890.5,
+    "bottom": 904,
+    "width": 172.24
+   },
+   "countEl": {
+    "text": "近日",
+    "left": 106,
+    "right": 144.18,
+    "top": 877.75,
+    "bottom": 892.25,
+    "width": 38.18
+   },
+   "checks": {
+    "order": false,
+    "countRightDelta": -180.24,
+    "hintUnderTitle": true,
+    "rowNoOverflow": true
+   }
+  },
+  {
+   "key": "stamps",
+   "soon": true,
+   "label": "スタンプ",
+   "count": "近日",
+   "row": {
+    "left": 58,
+    "right": 334.42,
+    "top": 918,
+    "bottom": 972,
+    "width": 276.42
+   },
+   "padding": "7px 9px",
+   "gridTemplateColumns": "30px 20.0547px 190.367px",
+   "icon": {
+    "text": "✶",
+    "left": 68,
+    "right": 98,
+    "top": 936.5,
+    "bottom": 953.5,
+    "width": 30
+   },
+   "title": {
+    "text": "スタンプ",
+    "left": 134.05,
+    "right": 324.42,
+    "top": 926,
+    "bottom": 942.5,
+    "width": 190.37
+   },
+   "hint": {
+    "text": "スタンプ素材は近日利用できるようになります",
+    "left": 134.05,
+    "right": 324.42,
+    "top": 950.5,
+    "bottom": 964,
+    "width": 190.37
+   },
+   "countEl": {
+    "text": "近日",
+    "left": 106,
+    "right": 126.05,
+    "top": 937.75,
+    "bottom": 952.25,
+    "width": 20.05
+   },
+   "checks": {
+    "order": false,
+    "countRightDelta": -198.37,
+    "hintUnderTitle": true,
+    "rowNoOverflow": true
+   }
+  },
+  {
+   "key": "lut",
+   "soon": false,
+   "label": "LUT",
+   "count": "10",
+   "row": {
+    "left": 58,
+    "right": 334.42,
+    "top": 1012.5,
+    "bottom": 1063,
+    "width": 276.42
+   },
+   "padding": "7px 9px",
+   "gridTemplateColumns": "30px 11.8047px 198.617px",
+   "icon": {
+    "text": "◐",
+    "left": 68,
+    "right": 98,
+    "top": 1026.5,
+    "bottom": 1049,
+    "width": 30
+   },
+   "title": {
+    "text": "LUT",
+    "left": 125.8,
+    "right": 324.42,
+    "top": 1020.5,
+    "bottom": 1033.5,
+    "width": 198.62
+   },
+   "hint": {
+    "text": "選択中のカットに適用（強さはインスペクター）",
+    "left": 125.8,
+    "right": 324.42,
+    "top": 1041.5,
+    "bottom": 1055,
+    "width": 198.62
+   },
+   "countEl": {
+    "text": "10",
+    "left": 106,
+    "right": 117.8,
+    "top": 1032.25,
+    "bottom": 1043.25,
+    "width": 11.8
+   },
+   "checks": {
+    "order": false,
+    "countRightDelta": -206.62,
+    "hintUnderTitle": true,
+    "rowNoOverflow": true
+   }
+  },
+  {
+   "key": "transition",
+   "soon": false,
+   "label": "トランジション",
+   "count": "29",
+   "row": {
+    "left": 58,
+    "right": 334.42,
+    "top": 1069,
+    "bottom": 1123,
+    "width": 276.42
+   },
+   "padding": "7px 9px",
+   "gridTemplateColumns": "30px 21.8672px 188.555px",
+   "icon": {
+    "text": "⇄",
+    "left": 68,
+    "right": 98,
+    "top": 1084.75,
+    "bottom": 1107.25,
+    "width": 30
+   },
+   "title": {
+    "text": "トランジション",
+    "left": 135.87,
+    "right": 324.42,
+    "top": 1077,
+    "bottom": 1093.5,
+    "width": 188.55
+   },
+   "hint": {
+    "text": "タイムラインのカット境界へドラッグして適用",
+    "left": 135.87,
+    "right": 324.42,
+    "top": 1101.5,
+    "bottom": 1115,
+    "width": 188.55
+   },
+   "countEl": {
+    "text": "29",
+    "left": 106,
+    "right": 127.87,
+    "top": 1090.5,
+    "bottom": 1101.5,
+    "width": 21.87
+   },
+   "checks": {
+    "order": false,
+    "countRightDelta": -196.55,
+    "hintUnderTitle": true,
+    "rowNoOverflow": true
+   }
+  },
+  {
+   "key": "fx",
+   "soon": true,
+   "label": "エフェクト",
+   "count": "近日",
+   "row": {
+    "left": 58,
+    "right": 334.42,
+    "top": 1129,
+    "bottom": 1183,
+    "width": 276.42
+   },
+   "padding": "7px 9px",
+   "gridTemplateColumns": "30px 29.1172px 181.305px",
+   "icon": {
+    "text": "✳",
+    "left": 68,
+    "right": 98,
+    "top": 1147.5,
+    "bottom": 1164.5,
+    "width": 30
+   },
+   "title": {
+    "text": "エフェクト",
+    "left": 143.12,
+    "right": 324.42,
+    "top": 1137,
+    "bottom": 1153.5,
+    "width": 181.3
+   },
+   "hint": {
+    "text": "エフェクトは近日利用できるようになります",
+    "left": 143.12,
+    "right": 324.42,
+    "top": 1161.5,
+    "bottom": 1175,
+    "width": 181.3
+   },
+   "countEl": {
+    "text": "近日",
+    "left": 106,
+    "right": 135.12,
+    "top": 1148.75,
+    "bottom": 1163.25,
+    "width": 29.12
+   },
+   "checks": {
+    "order": false,
+    "countRightDelta": -189.3,
+    "hintUnderTitle": true,
+    "rowNoOverflow": true
+   }
+  },
+  {
+   "key": "motion",
+   "soon": true,
+   "label": "モーション",
+   "count": "近日",
+   "row": {
+    "left": 58,
+    "right": 334.42,
+    "top": 1189,
+    "bottom": 1243,
+    "width": 276.42
+   },
+   "padding": "7px 9px",
+   "gridTemplateColumns": "30px 29.1172px 181.305px",
+   "icon": {
+    "text": "∿",
+    "left": 68,
+    "right": 98,
+    "top": 1207.25,
+    "bottom": 1224.75,
+    "width": 30
+   },
+   "title": {
+    "text": "モーション",
+    "left": 143.12,
+    "right": 324.42,
+    "top": 1197,
+    "bottom": 1213.5,
+    "width": 181.3
+   },
+   "hint": {
+    "text": "モーションは近日利用できるようになります",
+    "left": 143.12,
+    "right": 324.42,
+    "top": 1221.5,
+    "bottom": 1235,
+    "width": 181.3
+   },
+   "countEl": {
+    "text": "近日",
+    "left": 106,
+    "right": 135.12,
+    "top": 1208.75,
+    "bottom": 1223.25,
+    "width": 29.12
+   },
+   "checks": {
+    "order": false,
+    "countRightDelta": -189.3,
+    "hintUnderTitle": true,
+    "rowNoOverflow": true
+   }
+  },
+  {
+   "key": "template",
+   "soon": true,
+   "label": "テンプレート",
+   "count": "近日",
+   "row": {
+    "left": 58,
+    "right": 334.42,
+    "top": 1283.5,
+    "bottom": 1337.5,
+    "width": 276.42
+   },
+   "padding": "7px 9px",
+   "gridTemplateColumns": "30px 0px 210.422px",
+   "icon": {
+    "text": "⧉",
+    "left": 68,
+    "right": 98,
+    "top": 1301.75,
+    "bottom": 1319.25,
+    "width": 30
+   },
+   "title": {
+    "text": "テンプレート",
+    "left": 114,
+    "right": 324.42,
+    "top": 1291.5,
+    "bottom": 1308,
+    "width": 210.42
+   },
+   "hint": {
+    "text": "テンプレートからの新規作成は近日利用できるようになります",
+    "left": 114,
+    "right": 324.42,
+    "top": 1316,
+    "bottom": 1329.5,
+    "width": 210.42
+   },
+   "countEl": {
+    "text": "近日",
+    "left": 106,
+    "right": 106,
+    "top": 1296,
+    "bottom": 1325,
+    "width": 0
+   },
+   "checks": {
+    "order": false,
+    "countRightDelta": -218.42,
+    "hintUnderTitle": true,
+    "rowNoOverflow": true
+   }
+  }
+ ],
+ "scrollers": [
+  {
+   "scrollWidth": 296,
+   "clientWidth": 296,
+   "ok": true
+  },
+  {
+   "scrollWidth": 296,
+   "clientWidth": 296,
+   "ok": true
+  },
+  {
+   "scrollWidth": 296,
+   "clientWidth": 296,
+   "ok": true
+  },
+  {
+   "scrollWidth": 311,
+   "clientWidth": 311,
+   "ok": true
+  },
+  {
+   "scrollWidth": 311,
+   "clientWidth": 311,
+   "ok": true
+  },
+  {
+   "scrollWidth": 311,
+   "clientWidth": 311,
+   "ok": true
+  },
+  {
+   "scrollWidth": 311,
+   "clientWidth": 311,
+   "ok": true
+  }
+ ],
+ "summary": {
+  "rows": 17,
+  "liveRows": 12,
+  "soonRows": 5,
+  "allOrder": false,
+  "titleLeftMin": 114,
+  "titleLeftMax": 197.87,
+  "titleLeftSpread": 83.87,
+  "countRightMaxAbsDelta": 218.42,
+  "allHintUnderTitle": true,
+  "allRowsNoOverflow": true,
+  "allScrollersNoOverflow": true
+ }
+}

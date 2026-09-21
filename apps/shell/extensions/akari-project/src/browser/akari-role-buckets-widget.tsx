@@ -2579,11 +2579,11 @@ export class AkariRoleBucketsWidget extends ReactWidget {
             );
         }
         return (
-            <div data-akari-library-home style={{ padding: '2px 10px 12px' }}>
+            <div data-akari-library-home style={{ padding: '2px 8px 12px' }}>
                 {LIBRARY_GROUPS.map(group => (
                     <section key={group.label} style={{ marginTop: '10px' }}>
                         <div style={{
-                            position: 'sticky', top: 0, zIndex: 4, margin: '0 -10px 6px', padding: '6px 10px 4px',
+                            position: 'sticky', top: 0, zIndex: 4, margin: '0 -8px 6px', padding: '6px 8px 4px',
                             background: AKARI_SURFACE.card, fontSize: '0.75em', fontWeight: 700,
                             letterSpacing: '0.08em', opacity: 0.78
                         }}>
@@ -2639,17 +2639,17 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                 data-akari-library-soon={soon ? 'true' : undefined}
                 onClick={soon ? undefined : event => { event.stopPropagation(); this.selectLibraryCategory(category.key as LibraryCategoryKey); }}
                 style={{
-                    display: 'grid', gridTemplateColumns: '30px minmax(0, 1fr) auto', alignItems: 'center', gap: '8px',
-                    width: '100%', padding: '7px 9px', textAlign: 'left', borderRadius: `${AKARI_RADIUS.panel}px`,
+                    display: 'grid', gridTemplateColumns: '28px minmax(0, 1fr) auto', alignItems: 'center', gap: '7px',
+                    width: '100%', padding: '6px 10px 6px 6px', textAlign: 'left', borderRadius: `${AKARI_RADIUS.panel}px`,
                     cursor: soon ? 'default' : 'pointer', opacity: soon ? 0.46 : 1,
                     background: AKARI_SURFACE.raised, color: AKARI_INK,
                     border: AKARI_BORDER.ghost
                 }}
             >
-                <span style={{ gridRow: '1 / span 2', textAlign: 'center', color: soon ? 'inherit' : 'var(--theia-button-background)', fontSize: '1.1em', fontWeight: 700 }}>{category.icon}</span>
-                <span style={{ minWidth: 0, fontSize: '0.82em', fontWeight: 700 }}>{category.label}</span>
-                <span style={{ gridRow: '1 / span 2', fontSize: '0.72em', opacity: 0.65 }}>{soon ? '近日' : count}</span>
-                <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '0.68em', opacity: 0.62 }}>{category.hint}</span>
+                <span style={{ gridColumn: '1', gridRow: '1 / span 2', textAlign: 'center', color: soon ? 'inherit' : 'var(--theia-button-background)', fontSize: '1.35em', fontWeight: 700 }}>{category.icon}</span>
+                <span style={{ gridColumn: '2', gridRow: '1', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '0.95em', fontWeight: 700 }}>{category.label}</span>
+                <span style={{ gridColumn: '2', gridRow: '2', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '0.68em', opacity: 0.62 }}>{category.hint}</span>
+                <span style={{ gridColumn: '3', gridRow: '1 / span 2', justifySelf: 'end', fontVariantNumeric: 'tabular-nums', fontSize: '0.72em', opacity: 0.65 }}>{soon ? '近日' : count}</span>
             </button>
         );
     }
