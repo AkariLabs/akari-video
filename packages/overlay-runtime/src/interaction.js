@@ -55,6 +55,15 @@ function descendantLeafIds(tree, id) {
   return tree.filter(node => node.kind === "leaf" && lineage(tree, node.id).includes(id))
     .map(node => node.id);
 }
+function shouldHandleScopeEscape(selectedId, scopeId, floorScopeId) {
+  return selectedId !== null || scopeId !== floorScopeId;
+}
+
+function lazyBagForScope(tree, scopeId) {
+  const node = tree.find(candidate => candidate.id === scopeId);
+  return node?.kind === "bag" && node.lazy === true ? node.id : null;
+}
+
 // END selection-scope
 
   const stage = document.getElementById("overlay-stage");
@@ -916,7 +925,12 @@ function descendantLeafIds(tree, id) {
     return Array.from(stage?.children ?? []).find(element => element.dataset?.overlayId === id) ?? null;
   }
   function visibleMembers(id = selectedId) {
-    return descendantLeafIds(selectionTree(), id).map(containerById).filter(container => {
+    const ids = new Set(descendantLeafIds(selectionTree(), id).map(leafId => {
+      const parent = treeNode(treeNode(leafId)?.parentId);
+      return parent?.lazy && containerById(parent.id) ? parent.id : leafId;
+    }));
+    if (containerById(id)) ids.add(id);
+    return [...ids].map(containerById).filter(container => {
       if (!isSelectable(container)) return false;
       const style = getComputedStyle(container);
       return style.display !== 'none' && Number(style.opacity) !== 0;
@@ -966,8 +980,28 @@ function descendantLeafIds(tree, id) {
     });
   }
   function publishScopedSelection(notify = true) {
+    syncLazyBag();
     renderScopeBreadcrumb();
     window.dispatchEvent(new CustomEvent('akari-preview-scope-selection', { detail: { notify } }));
+  }
+  let requestedBagId = null;
+  function syncLazyBag() {
+    const bagId = lazyBagForScope(selectionTree(), scopeId);
+    if (bagId === requestedBagId || !window.akari.requestBagExpansion) return;
+    requestedBagId = bagId;
+    window.akari.requestBagExpansion(bagId);
+  }
+  function scopedHitId(container, event) {
+    const id = container?.dataset.overlayId;
+    if (!treeNode(id)?.lazy) return id;
+    // The unexpanded bag still has the original named DOM. Resolve the hit
+    // there before asking the host to replace it with masked part mounts.
+    const candidates = [event.target, ...document.elementsFromPoint(event.clientX, event.clientY)];
+    const part = candidates.map(element => element instanceof Element
+      ? element.closest('[data-akari-part]') : null).find(element => element && container.contains(element));
+    const partId = part?.getAttribute('data-akari-part') ?? null;
+    const childId = partId === null ? null : id + '#' + partId;
+    return treeNode(childId) ? childId : id;
   }
   function applyScopedSelection(next, { notify = true } = {}) {
     const tree = selectionTree();
@@ -984,12 +1018,17 @@ function descendantLeafIds(tree, id) {
       refreshSelectionFrame();
       startSelectionTracking();
     } else if (next.selectId === null) clearSelection();
-    else if (!selectOverlay(containerById(next.selectId))) return false;
+    else if (!selectOverlay(containerById(next.selectId))) {
+      if (!node?.lazy || lazyBagForScope(tree, scopeId) !== node.parentId) return false;
+      clearSelection();
+      selectedId = node.id;
+      startSelectionTracking(); // Rebind to the leaf after the host response mounts it.
+    }
     publishScopedSelection(notify);
     return true;
   }
   function selectScopedHit(container, event) {
-    const id = container?.dataset.overlayId;
+    const id = scopedHitId(container, event);
     if (!id) return false;
     return applyScopedSelection(resolveScopedSelection(selectionTree(), scopeId, id,
       { deep: Boolean(event.metaKey || event.ctrlKey) }));
@@ -1713,7 +1752,9 @@ function descendantLeafIds(tree, id) {
         if (r && event.clientX >= r.left && event.clientX <= r.right
           && event.clientY >= r.top && event.clientY <= r.bottom) {
           if (activeEdit) void commitEdit();
-          clearSelection(); publishScopedSelection();
+          const bag = treeNode(scopeId);
+          applyScopedSelection({ selectId: null,
+            scopeId: bag?.kind === 'bag' && bag.lazy && scopeId !== floorScopeId ? bag.parentId : scopeId });
         }
         return;
       }
@@ -1721,6 +1762,7 @@ function descendantLeafIds(tree, id) {
       if (activeEdit) void commitEdit();
       if (!selectScopedHit(hit, event)) return;
       if (groupSelection) { beginGroupDrag(event, hit); return; }
+      if (!selectedOverlay || selectedOverlay !== hit) return;
       // Continue the existing leaf drag with the already-resolved container.
     }
     const handleEl = findHandleElement(event.target);
@@ -2199,7 +2241,7 @@ function descendantLeafIds(tree, id) {
     if (selectionTree().length && groupSelection) {
       const hit = overlayForEvent(event);
       if (!isSelectable(hit)) return;
-      applyScopedSelection(enterScope(selectionTree(), selectedId, hit.dataset.overlayId));
+      applyScopedSelection(enterScope(selectionTree(), selectedId, scopedHitId(hit, event)));
       event.preventDefault(); event.stopPropagation();
       return;
     }
@@ -2249,13 +2291,12 @@ function descendantLeafIds(tree, id) {
         if (activeDrag) { cancelDrag(); handled(); return; }
         if (activeResize) { cancelResize(); handled(); return; }
         if (activeEdit) { cancelEdit(); handled(); return; }
-        if (selectedId !== null || scopeId !== floorScopeId) {
+        if (shouldHandleScopeEscape(selectedId, scopeId, floorScopeId)) {
           applyScopedSelection(exitScope(selectionTree(), selectedId, scopeId, floorScopeId), { notify: false });
           handled(); return;
         }
-        // A timeline floor is a handled boundary even after deselection: a
-        // preview Esc must not pop the timeline's independent focus scope.
-        if (floorScopeId !== null) handled();
+        // Idle at the floor: let Theia forward this key to the timeline,
+        // which owns the next (focus-mode) step.
         return;
       }
       if (event.key === 'Enter') {

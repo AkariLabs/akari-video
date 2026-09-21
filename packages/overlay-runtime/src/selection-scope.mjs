@@ -52,5 +52,29 @@ function descendantLeafIds(tree, id) {
   return tree.filter(node => node.kind === "leaf" && lineage(tree, node.id).includes(id))
     .map(node => node.id);
 }
+function shouldHandleScopeEscape(selectedId, scopeId, floorScopeId) {
+  return selectedId !== null || scopeId !== floorScopeId;
+}
+
+function lazyBagForScope(tree, scopeId) {
+  const node = tree.find(candidate => candidate.id === scopeId);
+  return node?.kind === "bag" && node.lazy === true ? node.id : null;
+}
+
 // END selection-scope
-export { resolveScopedSelection, enterScope, exitScope, lineage, descendantLeafIds };
+export { resolveScopedSelection, enterScope, exitScope, lineage, descendantLeafIds, shouldHandleScopeEscape, lazyBagForScope, selectionAncestorIds };
+
+// Pure counterpart of the widget helper; a source equality test keeps the copy
+// in sync without importing the Electron widget into Node.
+function selectionAncestorIds(rows, id) {
+    const nodes = new Map(rows.map(row => [row.id, row]));
+    const ancestors = [];
+    const visited = new Set([id]);
+    let parentId = nodes.get(id)?.parentId;
+    while (parentId && nodes.has(parentId) && !visited.has(parentId)) {
+        visited.add(parentId);
+        ancestors.unshift(parentId);
+        parentId = nodes.get(parentId)?.parentId;
+    }
+    return ancestors;
+}

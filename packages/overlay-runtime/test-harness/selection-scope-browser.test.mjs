@@ -155,13 +155,13 @@ test('hierarchical interaction gestures in the classic browser runtime', async t
       assert.equal((await state(page)).selectedId, 'g');
     } finally { await page.close(); }
   });
-  await t.test('floor clamps selection and consumes repeated Escape without forwarding', async () => {
+  await t.test('floor clamps selection; idle Escape forwards to the timeline', async () => {
     const page = await fixture(browser); try {
       await page.evaluate(() => window.akari.interaction.setSelectionFloor('g'));
       await click(page, 'a');
       for (let i = 0; i < 4; i++) await page.keyboard.press('Escape');
       assert.deepEqual(await state(page), { selectedId: null, scopeId: 'g', floorScopeId: 'g', activeEdit: false });
-      assert.equal(await page.evaluate(() => window.forwarded.filter(k => k === 'Escape').length), 0);
+      assert.equal(await page.evaluate(() => window.forwarded.filter(k => k === 'Escape').length), 3);
       await click(page, 'plain'); assert.equal((await state(page)).selectedId, null);
     } finally { await page.close(); }
   });
