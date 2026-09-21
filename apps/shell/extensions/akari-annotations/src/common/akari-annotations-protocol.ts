@@ -26,6 +26,14 @@ export const FILMSTRIP_CHUNK_SECONDS = 120;
 /** 1 チャンクの暴走防止上限（既定パラメータでは 120s × 2fps = 240 コマにちょうど一致し、通常はここに届かない）。 */
 export const FILMSTRIP_MAX_FRAMES_PER_CHUNK = 240;
 
+export interface ExtractSourceFrameRequest {
+    projectRootUri: string;
+    sourcePath: string;
+    atSeconds: number;
+    which: 'first' | 'last';
+}
+export interface ExtractSourceFrameResult { relativePath: string; sha256: string; }
+
 export interface GetClipThumbnailRequest {
     projectRootUri: string;
     videoUri: string;
@@ -804,6 +812,7 @@ export interface RemoveSfxResult extends DeleteArrayItemResult {
 
 export interface AkariAnnotationsService {
     setClient(client: AkariAnnotationsClient | undefined): void;
+    extractSourceFrame(request: ExtractSourceFrameRequest): Promise<ExtractSourceFrameResult>;
     getClipThumbnail(request: GetClipThumbnailRequest): Promise<GetClipThumbnailResult>;
     readGenerationSidecars(request: ReadGenerationSidecarsRequest): Promise<ReadGenerationSidecarsResult>;
     readGenerationCatalog(): Promise<ReadGenerationCatalogResult>;

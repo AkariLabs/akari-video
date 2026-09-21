@@ -1,10 +1,11 @@
 import { execFile } from 'child_process';
 import { createHash } from 'crypto';
 import { existsSync, promises as fs } from 'fs';
-import { dirname, join } from 'path';
+import { basename, dirname, extname, isAbsolute, join, relative, resolve, sep } from 'path';
 import { promisify } from 'util';
 import { pathToFileURL } from 'url';
 import {
+    ExtractSourceFrameResult,
     ClipFilmstripChunk,
     FILMSTRIP_CHUNK_SECONDS,
     FILMSTRIP_COLS,
@@ -205,6 +206,64 @@ export async function getClipThumbnail(
     } catch {
         return { status: 'unavailable', reason: 'extraction-failed' };
     }
+}
+
+/** Source pixels only. Deduplicate in-flight captures as well as disk hits. */
+const sourceFrameExtractions = new Map<string, Promise<ExtractSourceFrameResult>>();
+export async function extractSourceFrame(projectRoot: string, sourcePath: string, atSeconds: number): Promise<ExtractSourceFrameResult> {
+    if (!sourcePath || !Number.isFinite(atSeconds) || atSeconds < 0 || isAbsolute(sourcePath)) {
+        throw new Error('プロジェクト内の素材と有効な時刻が必要です。');
+    }
+    const root = await fs.realpath(projectRoot);
+    const within = (target: string): boolean => {
+        const rel = relative(root, target);
+        return rel !== '..' && !rel.startsWith(`..${sep}`) && !isAbsolute(rel);
+    };
+    const candidate = resolve(root, sourcePath);
+    if (!within(candidate) || !within(await fs.realpath(candidate))) throw new Error('素材はプロジェクト内で指定してください。');
+    const source = await fs.realpath(candidate);
+    const digest = async (path: string): Promise<string> => createHash('sha256').update(await fs.readFile(path)).digest('hex');
+    if (isFilmstripImageSource(source) || /\.gif$/iu.test(source)) {
+        return { relativePath: relative(root, candidate).split(sep).join('/'), sha256: await digest(source) };
+    }
+    if (!/\.(mp4|mov|m4v|webm|mkv|avi|mts|m2ts)$/iu.test(source)) throw new Error('画像または動画の素材が必要です。');
+    // Check each existing ancestor before mkdir: even an assets symlink must not create a directory outside.
+    let directory = root;
+    for (const part of ['assets', 'captures']) {
+        directory = join(directory, part);
+        try { await fs.mkdir(directory); } catch (error) {
+            if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error;
+        }
+        if (!within(await fs.realpath(directory))) throw new Error('保存先はプロジェクト内で指定してください。');
+    }
+    const stat = await fs.stat(source);
+    const hash = cacheHash([source, stat.size, stat.mtimeMs, atSeconds]).slice(0, 12);
+    const name = basename(source, extname(source)).replace(/[^a-zA-Z0-9_-]/gu, '_').slice(0, 60);
+    const relativePath = `assets/captures/frame-${name}-${atSeconds}-${hash}.png`;
+    const destination = join(root, relativePath);
+    const pending = sourceFrameExtractions.get(destination);
+    if (pending) return pending;
+    const extraction = (async (): Promise<ExtractSourceFrameResult> => {
+        try {
+            if (!within(await fs.realpath(destination))) throw new Error('保存先はプロジェクト内で指定してください。');
+            return { relativePath, sha256: await digest(destination) };
+        } catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error; }
+        const ffmpeg = await ffmpegPath();
+        if (!ffmpeg) throw new Error('ffmpeg が見つかりません。');
+        const staging = await fs.mkdtemp(join(directory, '.extract-'));
+        const temporary = join(staging, 'frame.png');
+        try {
+            await videoExtractionSemaphore.run(() => execFileAsync(ffmpeg, [
+                '-v', 'error', '-y', '-ss', String(atSeconds), '-i', source, '-frames:v', '1',
+                '-c:v', 'png', '-f', 'image2', temporary
+            ], { timeout: 30000 }));
+            const sha256 = await digest(temporary);
+            await fs.rename(temporary, destination);
+            return { relativePath, sha256 };
+        } finally { await fs.rm(staging, { recursive: true, force: true }); }
+    })();
+    sourceFrameExtractions.set(destination, extraction);
+    try { return await extraction; } finally { sourceFrameExtractions.delete(destination); }
 }
 
 // ============================================================================

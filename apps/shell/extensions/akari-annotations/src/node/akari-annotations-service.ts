@@ -364,6 +364,13 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         };
     }
 
+    async extractSourceFrame(request: import('../common/akari-annotations-protocol').ExtractSourceFrameRequest): Promise<
+        import('../common/akari-annotations-protocol').ExtractSourceFrameResult
+    > {
+        if (!request?.projectRootUri || !['first', 'last'].includes(request.which)) throw new Error('抽出する端が不正です。');
+        return mediaCache.extractSourceFrame(this.fsPath(request.projectRootUri), request.sourcePath, request.atSeconds);
+    }
+
     async readGenerationCatalog(): Promise<ReadGenerationCatalogResult> {
         const path = await this.findGenerationAsset('packages/schemas/gen-models.json');
         const parsed = JSON.parse(await fs.readFile(path, 'utf8')) as ReadGenerationCatalogResult;

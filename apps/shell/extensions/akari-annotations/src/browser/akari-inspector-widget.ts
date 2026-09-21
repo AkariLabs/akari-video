@@ -27,7 +27,8 @@ import {
     TimelineSelectionModel,
     TimelineSelectionTarget,
     TimelineTreeItemSnapshot,
-    TimelineWorldSelection
+    TimelineWorldSelection,
+    TimelineGapSelection
 } from './timeline-selection-model';
 import { worldInstructionCopy } from '../common/world-instruction-copy';
 import { keyframeRowPropertyOf, keyframeValueAt, type KeyframeSeatProperty } from './timeline/timeline-keyframe-rows';
@@ -2452,6 +2453,22 @@ export class AkariInspectorWidget extends BaseWidget {
 
         const style = document.createElement('style');
         style.textContent = `
+.akari-inspector-generation-gap { display: grid; gap: 12px; padding: 12px; min-width: 0; }
+.akari-inspector-generation-gap h3, .akari-inspector-generation-gap p { margin: 0; line-height: 1.6; overflow-wrap: anywhere; }
+.akari-inspector-generation-gap-ends { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; }
+.akari-inspector-generation-gap-end { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.akari-inspector-generation-gap-end img { width: 100%; height: 72px; object-fit: contain; background: #23212b; border: 1px solid #756388; box-sizing: border-box; }
+.akari-inspector-generation-gap-end span { overflow-wrap: anywhere; line-height: 1.5; }
+.akari-inspector-widget .akari-inspector-generation-gap button,
+.akari-inspector-widget .akari-inspector-generation-gap button:hover,
+.akari-inspector-widget .akari-inspector-generation-gap button:active,
+.akari-inspector-widget .akari-inspector-generation-gap button:disabled,
+.akari-inspector-widget .akari-inspector-generation-gap button:disabled:hover {
+    background: #634398; color: #fff; border: 1px solid #b89aff; border-radius: 4px; padding: 8px 12px; cursor: pointer;
+}
+.akari-inspector-widget .akari-inspector-generation-gap button:disabled,
+.akari-inspector-widget .akari-inspector-generation-gap button:disabled:hover { opacity: .6; cursor: wait; }
+
     .akari-generation-batch { padding: 12px; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
     .akari-generation-batch h3, .akari-generation-batch p { margin: 0; }
     .akari-generation-batch-list { display: flex; flex-direction: column; gap: 8px; }
@@ -3120,7 +3137,7 @@ export class AkariInspectorWidget extends BaseWidget {
             return false;
         }
         const snapshot = this.model.snapshot;
-        if (!snapshot || snapshot.kind === 'world') {
+        if (!snapshot || snapshot.kind === 'world' || snapshot.kind === 'gap') {
             if (clearedSolo) this.render();
             return false;
         }
@@ -3194,6 +3211,7 @@ export class AkariInspectorWidget extends BaseWidget {
     protected currentSelectionKey(): string | undefined {
         const snapshot = this.model.snapshot;
         if (!snapshot) return undefined;
+        if (snapshot.kind === 'gap') return `gap:${snapshot.trackId}:${snapshot.startSeconds}:${snapshot.endSeconds}`;
         const itemKey = (item: InspectorSnapshot): string => item.kind === 'cut'
             ? `cut:${item.itemId ?? item.index}` : `${item.kind}:${item.id}`;
         const selectionKey = snapshot.kind === 'multi'
@@ -3222,6 +3240,54 @@ export class AkariInspectorWidget extends BaseWidget {
         window.setTimeout(() => element.classList.remove(className), 1600);
     }
 
+    protected renderGapSelection(snapshot: TimelineGapSelection): void {
+        const panel = document.createElement('section');
+        panel.className = 'akari-inspector-generation-gap';
+        const title = document.createElement('h3');
+        title.textContent = `すき間 · ${(snapshot.endSeconds - snapshot.startSeconds).toFixed(1)} 秒`;
+        const range = document.createElement('p');
+        range.textContent = `${snapshot.startSeconds.toFixed(2)} → ${snapshot.endSeconds.toFixed(2)} 秒`;
+        const description = document.createElement('p');
+        description.textContent = '前後のクリップのあいだに、つなぎの動画を生成できます。前のクリップの最後のコマと、次のクリップの最初のコマが両端に入ります。';
+        const ends = document.createElement('div');
+        ends.className = 'akari-inspector-generation-gap-ends';
+        for (const [label, endpoint] of [['最初', snapshot.previous], ['最後', snapshot.next]] as const) {
+            const end = document.createElement('div');
+            end.className = 'akari-inspector-generation-gap-end';
+            const name = document.createElement('span');
+            name.textContent = `${label} = ${endpoint?.label ?? '絵なし'}`;
+            end.appendChild(name);
+            if (endpoint) {
+                const img = document.createElement('img');
+                img.alt = `${label}の絵`;
+                end.appendChild(img);
+                const root = this.workspaceService.tryGetRoots()[0]?.resource;
+                if (root) void this.layerAudioService.getClipThumbnail({ projectRootUri: root.toString(),
+                    videoUri: root.resolve(endpoint.sourcePath).toString(), atSeconds: endpoint.atSeconds
+                }).then(result => {
+                    if (this.model.snapshot !== snapshot) return;
+                    if (result.dataUri) img.src = result.dataUri;
+                    else img.alt = 'コマを表示できません';
+                }).catch(() => { img.alt = 'コマを表示できません'; });
+            } else {
+                const note = document.createElement('span');
+                note.textContent = 'この端には画像・動画がないため、枠を空にします。';
+                end.appendChild(note);
+            }
+            ends.appendChild(end);
+        }
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.textContent = 'あいだを生成';
+        button.onclick = async () => {
+            if (button.disabled || this.model.snapshot !== snapshot) return;
+            button.disabled = true;
+            try { await snapshot.createFrame(); } finally { button.disabled = false; }
+        };
+        panel.append(title, range, description, ends, button);
+        this.body.appendChild(panel);
+    }
+
     protected render(): void {
         this.dispatchCaptionZoneEvent(CAPTION_ZONE_HOVER_EVENT, null);
         this.body.replaceChildren();
@@ -3237,6 +3303,14 @@ export class AkariInspectorWidget extends BaseWidget {
             empty.className = 'akari-inspector-empty';
             empty.textContent = 'タイムラインで項目を選択してください。';
             this.body.appendChild(empty);
+            return;
+        }
+        if (snapshot.kind === 'gap') {
+            this.tabSelectionKey = undefined;
+            this.currentTab = undefined;
+            this.explicitTabId = undefined;
+            this.syncAdjustCompare(undefined, '');
+            this.renderGapSelection(snapshot);
             return;
         }
         if (snapshot.kind === 'world') {

@@ -1,3 +1,4 @@
+import { timelineGapAt, type TimelineGap } from '../common/timeline-gap';
 import { calculateFrameDraw, type FrameDrawRange } from '../common/timeline-frame-draw';
 import { advanceMaterialTrialWindow, MaterialTrialWindow } from '../common/material-trial-window';
 import { logSwapTrial, SwapTrialIdentity } from 'akari-preview/lib/common/swap-trial-playback';
@@ -376,6 +377,8 @@ import {
     TimelineCropSnapshot,
     TimelineItemSelectionSnapshot,
     TimelineWorldSelection,
+    TimelineGapSelection,
+    TimelineGapEndpoint,
     TimelineTreeItemSelection,
     TimelineTreeItemSnapshot,
     TimelineSelectionModel,
@@ -819,6 +822,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected visualInputEpoch = 0;
     protected visualPlaying = false;
     protected visualPointerDown = false;
+    protected selectedGap?: TimelineGap;
+    protected gapRoot?: string;
+    protected gapBand?: HTMLDivElement;
+    protected gapCommitting = false;
+
     protected readonly visualThumbnails = new VisualThumbnailCache(() => this.renderStrip());
     protected readonly visualKeys = new WeakMap<HTMLElement, string>();
     protected visualHover: HTMLDivElement | undefined;
@@ -2288,7 +2296,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 this.applyFocusScope(exitFocusScope(this.expandedTimelineTreeRows, this.focusScope));
                 return;
             }
-            if (event.key === 'Escape' && this.isAttached && (this.selection || this.multiSelection.length > 0)
+            if (event.key === 'Escape' && this.isAttached && (this.selection || this.multiSelection.length > 0 || this.selectedGap)
                 && !this.isEditableTarget(event.target) && !this.isEditableTarget(document.activeElement)
                 && !(document.activeElement instanceof HTMLElement
                     && document.activeElement.closest('.akari-inspector-widget'))) {
@@ -2848,12 +2856,16 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected applySelection(selection: TimelineSelection, notifyPreview = true): void {
+        const hadGap = !!this.selectedGap;
+        this.selectedGap = undefined;
+        this.gapBand?.remove();
+        this.gapBand = undefined;
         this.exitTrimmerModeUnlessSelected(selection);
         const previous = this.selection;
         const hadMultiSelection = this.multiSelection.length > 0;
         this.multiSelection = [];
         if (this.selectionKey(previous) === this.selectionKey(selection)) {
-            if (selection || hadMultiSelection) {
+            if (selection || hadMultiSelection || hadGap) {
                 this.pushSelectionSnapshot();
                 this.applySelectionClass();
                 if (notifyPreview) this.publishPrimaryPreviewSelection(selection);
@@ -4596,6 +4608,19 @@ export class AkariAnnotationsWidget extends BaseWidget {
 
     /** 選択の実体を TimelineSelectionModel へ反映する。対象が消えていれば選択解除する。 */
     protected pushSelectionSnapshot(): void {
+        if (this.selectedGap && (this.selection || this.multiSelection.length > 0)) {
+            this.selectedGap = undefined;
+            this.gapBand?.remove();
+        }
+        if (this.selectedGap) {
+            const snapshot = this.gapSnapshot();
+            this.selectionModel.materialSwapTarget = undefined;
+            this.selectionModel.treeSelection = undefined;
+            this.selectionModel.snapshot = snapshot;
+            this.selectionModel.fps = this.fps;
+            if (!snapshot) { this.selectedGap = undefined; this.gapBand?.remove(); }
+            return;
+        }
         const target = this.selectedMaterialSwapTarget();
         if (this.materialSwap && this.selectedMaterialSwapItemId() !== this.materialSwap.target.itemId) void this.finishMaterialSwap(false);
         this.selectionModel.materialSwapTarget = target;
@@ -9408,6 +9433,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         });
         this.renderTransitionBoundaries(unsupportedDeclaredTransitions);
         this.finishKeyedRender('strip');
+        this.renderGapBand();
         this.applyTrackLockAppearance();
         this.updateChipHitAreas();
         this.finishKeyedRender('ruler');
@@ -15786,6 +15812,136 @@ export class AkariAnnotationsWidget extends BaseWidget {
         window.addEventListener('blur', cleanup);
     }
 
+    protected gapSnapshot(): TimelineGapSelection | undefined {
+        const gap = this.selectedGap, doc = this.editDocument;
+        if (!gap || !doc || this.gapRoot !== this.location?.editUri.toString() || this.focusScope.rootId !== null) return undefined;
+        const track = (doc.tracks as Array<Record<string, any>>)?.find(row => row.id === gap.trackId);
+        if (!track || track.locked) return undefined;
+        const current = timelineGapAt({ id: track.id, lane: track.lane, items: track.items ?? [] }, gap.startFrames, this.fps);
+        if (JSON.stringify(current) !== JSON.stringify(gap)) return undefined;
+        const endpoint = (id: string, which: 'first' | 'last'): TimelineGapEndpoint | undefined => {
+            const item = track.items.find(candidate => candidate.id === id);
+            const source = (doc.sources as Array<Record<string, any>>)?.find(row => row.id === item?.source?.src);
+            if (item?.source?.kind !== 'media' || typeof source?.path !== 'string') return undefined;
+            const image = /\.(png|jpe?g|webp|gif|bmp|heic|heif|tiff?)$/iu.test(source.path);
+            if (!image && !/\.(mp4|mov|m4v|webm|mkv|avi|mts|m2ts)$/iu.test(source.path)) return undefined;
+            const sourceIn = Number(item.source.in ?? 0);
+            const sourceOut = Number(item.source.out ?? sourceIn + item.duration / this.fps);
+            return { itemId: id, label: item.name || source.path.split('/').pop(), sourcePath: source.path,
+                kind: image ? 'image' : 'video', atSeconds: image ? 0
+                    : which === 'last' ? Math.max(sourceIn, sourceOut - 1 / this.fps) : sourceIn };
+        };
+        const fps = this.fps;
+        const snapshot: TimelineGapSelection = { kind: 'gap', trackId: gap.trackId,
+            startSeconds: gap.startFrames / this.fps, endSeconds: gap.endFrames / this.fps,
+            previous: endpoint(gap.previousItemId, 'last'), next: endpoint(gap.nextItemId, 'first'),
+            createFrame: () => this.commitGapFrame(gap, snapshot, fps) };
+        return snapshot;
+    }
+
+    protected renderGapBand(): void {
+        this.gapBand?.remove();
+        this.gapBand = undefined;
+        const snapshot = this.gapSnapshot();
+        if (!snapshot) return;
+        const layout = this.laneLayout.tracks.find(row => row.id === snapshot.trackId);
+        if (!layout) return;
+        const band = document.createElement('div');
+        band.className = 'akari-annotations-gap-band';
+        Object.assign(band.style, { position: 'absolute', pointerEvents: 'none', boxSizing: 'border-box',
+            border: '1px dashed #b89aff', background: 'rgba(159, 111, 255, 0.16)', zIndex: '2',
+            left: `${this.percent(snapshot.startSeconds)}%`,
+            width: `${(snapshot.endSeconds - snapshot.startSeconds) / this.visibleDuration() * 100}%`,
+            top: `${layout.top}px`, height: `${layout.height}px` });
+        this.stripContent.appendChild(band);
+        this.gapBand = band;
+    }
+
+    protected selectGapAt(clientX: number, clientY: number): boolean {
+        const doc = this.editDocument;
+        if (!doc || doc.version !== 2 || this.focusScope.rootId !== null) return false;
+        const y = clientY - this.strip.getBoundingClientRect().top;
+        const layout = this.laneLayout.tracks.find(row => y >= row.top && y < row.top + row.height);
+        const track = (doc.tracks as Array<Record<string, any>>)?.find(row => row.id === layout?.id);
+        if (!track || track.locked || this.isTrackLocked(track.id)) return false;
+        const gap = timelineGapAt({ id: track.id, lane: track.lane, items: track.items ?? [] },
+            this.timeAtClientX(clientX) * this.fps, this.fps);
+        if (!gap) return false;
+        this.applySelection(undefined);
+        this.selectedGap = gap;
+        this.gapRoot = this.location?.editUri.toString();
+        this.pushSelectionSnapshot();
+        this.renderGapBand();
+        void this.commands.executeCommand(OPEN_AKARI_INSPECTOR_ID);
+        return true;
+    }
+
+    protected async commitGapFrame(gap: TimelineGap, snapshot: TimelineGapSelection, fps: number): Promise<void> {
+        const location = this.location;
+        if (!location || this.gapCommitting || this.selectedGap !== gap) return;
+        this.gapCommitting = true;
+        try {
+            const projectRootUri = location.root.toString();
+            const capture = async (endpoint: TimelineGapEndpoint | undefined, which: 'first' | 'last') => {
+                if (!endpoint) return null;
+                const frame = await this.annotationsService.extractSourceFrame({ projectRootUri,
+                    sourcePath: endpoint.sourcePath, atSeconds: endpoint.atSeconds, which });
+                return { path: frame.relativePath, sha256: frame.sha256 };
+            };
+            const first = await capture(snapshot.previous, 'last');
+            const last = await capture(snapshot.next, 'first');
+            const duration = (gap.endFrames - gap.startFrames) / fps;
+            const image = await this.annotationsService.createEmptyGenerationFrame({ projectRootUri, durationSeconds: duration });
+            const defaults = await this.annotationsService.readGenerationDefaults({ projectRootUri });
+            // The item does not exist yet. Save next directly on the newly created card before the one edit mutation.
+            const metaUri = location.root.resolve(`${image.relativePath}.meta.json`);
+            const meta = JSON.parse((await this.fileService.readFile(metaUri)).value.toString());
+            // Reuse plannedStillMeta's complete, validated empty slots returned by the card RPC.
+            // Its output resolution is the PNG dimensions, so video output uses empty knobs instead.
+            meta.next = { kind: 'video', status: 'planned', model: { id: defaults.video },
+                inputs: { ...meta.inputs, prompt: '', first_frame: first, last_frame: last, frames_or_refs: 'frames' },
+                output: { duration_s: duration, resolution: null, aspect: null, audio_out: null }, updated_at: new Date().toISOString() };
+            await this.fileService.writeFile(metaUri, BinaryBuffer.fromString(JSON.stringify(meta, null, 2) + '\n'));
+            let itemId: string;
+            await this.commitEditMutation('あいだを生成の枠を置く', doc => {
+                if (this.location?.editUri.toString() !== location.editUri.toString()) throw new Error('プロジェクトが変わりました。');
+                const track = (doc.tracks as Array<Record<string, any>>)?.find(row => row.id === gap.trackId);
+                if (!track || track.locked || (doc.output as { fps: number })?.fps !== fps
+                    || JSON.stringify(timelineGapAt({ id: track.id, lane: track.lane, items: track.items ?? [] }, gap.startFrames, fps)) !== JSON.stringify(gap)) {
+                    throw new Error('すき間またはトラックが変わりました。');
+                }
+                // Reject trimmed/replaced endpoints while extraction was in flight.
+                for (const endpoint of [snapshot.previous, snapshot.next]) {
+                    if (!endpoint) continue;
+                    const item = track.items.find(candidate => candidate.id === endpoint.itemId);
+                    const source = (doc.sources as Array<Record<string, any>>)?.find(row => row.id === item?.source?.src);
+                    const at = endpoint.kind === 'image' ? 0 : endpoint === snapshot.previous
+                        ? Math.max(item?.source?.in ?? 0, (item?.source?.out ?? (item?.source?.in ?? 0) + item?.duration / fps) - 1 / fps)
+                        : item?.source?.in ?? 0;
+                    if (source?.path !== endpoint.sourcePath || at !== endpoint.atSeconds) throw new Error('前後のクリップが変わりました。');
+                }
+                const sources = [...(doc.sources as Array<Record<string, unknown>> ?? [])];
+                const ids = new Set([...sources.map(source => source.id), ...indexEditV2Items(doc).keys()]);
+                let serial = 1;
+                while (ids.has(`gap-${serial}`) || ids.has(`gap-src-${serial}`)) serial++;
+                itemId = `gap-${serial}`;
+                const sourceId = `gap-src-${serial}`;
+                sources.push({ id: sourceId, path: image.relativePath });
+                return insertV2Item({ ...doc, sources }, gap.trackId, { id: itemId, name: 'あいだを生成',
+                    at: gap.startFrames, duration: gap.endFrames - gap.startFrames,
+                    source: { kind: 'media', src: sourceId, in: 0, out: duration } });
+            });
+            const index = this.cutItemIds.indexOf(itemId);
+            const row = this.timelineTreeRows.find(candidate => candidate.id === itemId);
+            if (index >= 0) this.applySelection({ kind: 'cut', index });
+            else if (row) this.applySelection(this.selectionForTreeRow(row));
+            await this.commands.executeCommand(OPEN_AKARI_INSPECTOR_ID, { tabId: 'generation' });
+            this.showNotice('あいだに動画予定を置きました。');
+        } catch (error) {
+            this.showNotice(`あいだに枠を置けません: ${this.errorMessage(error)}`);
+        } finally { this.gapCommitting = false; }
+    }
+
     protected async commitEmptyFrame(trackId: string, range: FrameDrawRange, fps: number): Promise<void> {
         const location = this.location;
         if (!location) return;
@@ -15872,8 +16028,14 @@ export class AkariAnnotationsWidget extends BaseWidget {
             this.strip.removeEventListener('pointercancel', onUp);
             this.selectionMarquee.style.display = 'none';
             if (!dragged) {
+                if (upEvent.type === 'pointerup' && !event.shiftKey && this.selectGapAt(startX, startY)) {
+                    this.suppressNextStripClick = true;
+                    this.selectTimeAtClientX(startX);
+                }
                 return;
             }
+            this.selectedGap = undefined;
+            this.gapBand?.remove();
             this.suppressNextStripClick = true;
             const selectionRect = {
                 left: Math.min(startX, upEvent.clientX),

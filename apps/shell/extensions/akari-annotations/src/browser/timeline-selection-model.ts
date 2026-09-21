@@ -231,9 +231,28 @@ export type TimelineSelectionTarget =
     | { kind: 'world-stop'; id: string }
     | { kind: 'world-edge'; id: string };
 
+export interface TimelineGapEndpoint {
+    itemId: string;
+    label: string;
+    sourcePath: string;
+    kind: 'image' | 'video';
+    atSeconds: number;
+}
+export interface TimelineGapSelection {
+    kind: 'gap';
+    trackId: string;
+    startSeconds: number;
+    endSeconds: number;
+    previous?: TimelineGapEndpoint;
+    next?: TimelineGapEndpoint;
+    /** Bound to this snapshot, so stale asynchronous panels cannot insert a different gap. */
+    createFrame: () => Promise<void>;
+}
+
 export type TimelineSelectionSnapshot =
     | TimelineItemSelectionSnapshot
     | TimelineWorldSelection
+    | TimelineGapSelection
     | TimelineMultiSelectionSnapshot
     | undefined;
 
