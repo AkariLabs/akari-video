@@ -88,8 +88,8 @@ export class CompanionPanelFrame {
         corner.type = 'button';
         corner.className = 'akari-companion-panel-corner';
         corner.tabIndex = -1;
-        corner.setAttribute('title', '外部の操作盤をしまう');
-        corner.setAttribute('aria-label', '外部の操作盤をしまう');
+        corner.setAttribute('title', 'AKARI バイブをしまう');
+        corner.setAttribute('aria-label', 'AKARI バイブをしまう');
         corner.textContent = '×';
         corner.addEventListener('mousedown', this.handleCornerMouseDown);
 

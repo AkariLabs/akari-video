@@ -84,6 +84,7 @@ export interface CompanionProjectLocation {
 
 export interface AkariCompanionService {
     setEnabled(enabled: boolean): Promise<void>;
+    start(): Promise<boolean>;
     setClient(client: AkariCompanionClient | undefined): void;
     notifyProjectChanged(location: CompanionProjectLocation | undefined): Promise<void>;
     pushStateLight(state: CompanionStateLight): Promise<void>;

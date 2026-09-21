@@ -66,6 +66,8 @@ export class AkariCompanionContribution implements FrontendApplicationContributi
     protected collector: CompanionStateCollector | undefined;
     protected panel: CompanionPanelFrame | undefined;
     protected connected = false;
+    protected enabled = true;
+    protected starting = false;
     protected readonly disposables: Disposable[] = [];
 
     async onStart(): Promise<void> {
@@ -86,11 +88,13 @@ export class AkariCompanionContribution implements FrontendApplicationContributi
         this.panel = new CompanionPanelFrame({ doc: document, win: window });
         this.panel.setAnchorProvider(() => toolbarAnchorRect(document));
         this.panel.setHiddenListener(() => this.toolbar.refresh(document));
-        this.toolbar.setState({ connected: () => this.connected, open: () => this.isPanelOpen() });
+        this.toolbar.setState({
+            enabled: () => this.enabled, starting: () => this.starting, open: () => this.isPanelOpen()
+        });
         this.client.setPanelHandler((connected, manifest) => this.onConnectionState(connected, manifest));
         this.disposables.push(this.commands.registerCommand(
             { id: COMPANION_TOGGLE_COMMAND_ID, label: `${COMPANION_TOGGLE_LABEL}を表示/非表示` },
-            { execute: () => { this.panel?.toggleHidden(); } }
+            { execute: () => this.togglePanel() }
         ));
         this.disposables.push(this.commands.registerCommand(
             { id: 'akari.companion.resetPanelPlacement', label: `${COMPANION_TOGGLE_LABEL}を既定の位置へ戻す` },
@@ -110,6 +114,7 @@ export class AkariCompanionContribution implements FrontendApplicationContributi
     }
 
     onStop(): void {
+        this.enabled = false;
         this.toolbar.setState(undefined);
         this.collector?.stop();
         this.panel?.unmount();
@@ -124,6 +129,7 @@ export class AkariCompanionContribution implements FrontendApplicationContributi
      * ハッシュが変わっていなくても状態を送り直す（契約 §4 の「接続直後」）。
      */
     protected onConnectionState(connected: boolean, manifest?: CompanionManifestPanel): void {
+        connected = connected && this.enabled;
         this.connected = connected && Boolean(manifest?.panelPath);
         this.applyPanelManifest(connected, manifest);
         this.toolbar.refresh(document);
@@ -142,11 +148,33 @@ export class AkariCompanionContribution implements FrontendApplicationContributi
         this.panel?.mount(manifest.panelPath, manifest.port, manifest.panel);
     }
 
+    protected async togglePanel(): Promise<void> {
+        if (!this.enabled || this.starting) return;
+        if (this.connected) {
+            this.panel?.toggleHidden();
+            return;
+        }
+        this.starting = true;
+        this.toolbar.refresh(document);
+        try {
+            if (!await this.service.start() && this.enabled) {
+                void this.messages.warn('AKARI バイブを起動できませんでした');
+            }
+        } catch {
+            if (this.enabled) void this.messages.warn('AKARI バイブを起動できませんでした');
+        } finally {
+            this.starting = false;
+            this.toolbar.refresh(document);
+        }
+    }
+
     protected async applyEnabled(): Promise<void> {
         // Theia 1.73.1 の schema 型には利用者限定の文字列 scope が無いので、
         // 実効値ではなく利用者設定だけを直接読むことでワークスペース設定を無視する。
-        const enabled = this.preferences.inspect<boolean>(AKARI_COMPANION_ENABLED)?.globalValue ?? false;
-        await this.service.setEnabled(enabled);
+        this.enabled = this.preferences.inspect<boolean>(AKARI_COMPANION_ENABLED)?.globalValue ?? true;
+        if (!this.enabled) this.onConnectionState(false);
+        this.toolbar.refresh(document);
+        await this.service.setEnabled(this.enabled);
     }
 
     protected async regenerateProjectSession(): Promise<void> {
