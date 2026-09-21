@@ -150,12 +150,12 @@
         "sendButtonVisibility": {
           "selector": "[data-akari-generation-action=\"generate\"]",
           "buttonRect": {
-            "left": 970,
-            "top": 603.625,
+            "left": 960,
+            "top": 593.4921875,
             "right": 1047,
-            "bottom": 625.125,
-            "width": 77,
-            "height": 21.5
+            "bottom": 624.9921875,
+            "width": 87,
+            "height": 31.5
           },
           "inspectorRect": {
             "left": 635,
@@ -208,7 +208,7 @@
             "resolution": "768P",
             "audio_out": true
           },
-          "updated_at": "2026-09-21T15:12:44.495Z"
+          "updated_at": "2026-09-21T16:04:39.460Z"
         }
       }
     },
@@ -220,12 +220,12 @@
         "retryButtonVisibility": {
           "selector": "[data-akari-generation-action=\"retry\"]",
           "buttonRect": {
-            "left": 645,
-            "top": 603.625,
-            "right": 774,
-            "bottom": 625.125,
-            "width": 129,
-            "height": 21.5
+            "left": 815,
+            "top": 591.2421875,
+            "right": 954,
+            "bottom": 622.7421875,
+            "width": 139,
+            "height": 31.5
           },
           "inspectorRect": {
             "left": 635,
@@ -250,12 +250,12 @@
       "pass": true,
       "detail": {
         "before": {
-          "edit": 1790003484760.8643,
-          "captions": 1790003485187.4443
+          "edit": 1790006587353.2627,
+          "captions": 1790006587784.4006
         },
         "after": {
-          "edit": 1790003484760.8643,
-          "captions": 1790003485187.4443
+          "edit": 1790006587353.2627,
+          "captions": 1790006587784.4006
         }
       }
     }
@@ -264,38 +264,39 @@
     "01-h3-first-to-last.png",
     "02-prompt-only.png",
     "03-cost-approval-dialog.png",
-    "04-failed-retry.png"
+    "04-failed-retry.png",
+    "07-sticky-tab-strip.png"
   ],
   "screenshotDetails": [
     {
       "name": "01-h3-first-to-last.png",
-      "sha256": "98310fec2901fd7106790fd22ba3f4fa27f016426f4e550bb120456cc72c23e4",
+      "sha256": "77e6350daf3a626afffc205aec257354534270789ccbc382637b2b5b188638d0",
       "inspectorFront": true,
       "sectionVisible": true,
       "modelRow": "MiniMax H3 · $0.05/秒 · as_of 2026-09-12（fal:h3-i2v）"
     },
     {
       "name": "02-prompt-only.png",
-      "sha256": "9502a8a67136f43ab2cf0bd4f4ec82b5cf0d3a6e6d0c35872ec4e31a7bc9bca8",
+      "sha256": "5fe3c0e67c752899a1e26d1ac7bbf3b46c15ff309733d5ded004cf7f6a4f7d2a",
       "inspectorFront": true,
       "sectionVisible": true,
       "modelRow": "MiniMax H3 · $0.05/秒 · as_of 2026-09-12（fal:h3-i2v）"
     },
     {
       "name": "04-failed-retry.png",
-      "sha256": "9241ea38e040cd0dd9446ca0416df79031653dbe0199803d7b121bf385b764de",
+      "sha256": "175efb29d41fb37630900785bc33c0a3715a7cc811513f1f5fdb8c532119b79c",
       "inspectorFront": true,
       "sectionVisible": true,
       "modelRow": "MiniMax H3 · $0.05/秒 · as_of 2026-09-12（fal:h3-i2v）",
       "actionVisibility": {
         "selector": "[data-akari-generation-action=\"retry\"]",
         "buttonRect": {
-          "left": 645,
-          "top": 603.625,
-          "right": 774,
-          "bottom": 625.125,
-          "width": 129,
-          "height": 21.5
+          "left": 815,
+          "top": 591.2421875,
+          "right": 954,
+          "bottom": 622.7421875,
+          "width": 139,
+          "height": 31.5
         },
         "inspectorRect": {
           "left": 635,
@@ -313,10 +314,26 @@
         },
         "fullyVisible": true
       }
+    },
+    {
+      "name": "07-sticky-tab-strip.png",
+      "sha256": "97da8cbe1e7bb032eab377c66f9d598a997a80941072be39985fd7b35f181257",
+      "inspectorFront": true,
+      "sectionVisible": true,
+      "modelRow": "MiniMax H3 · $0.05/秒 · as_of 2026-09-12（fal:h3-i2v）",
+      "stickyTabStrip": {
+        "scrollTop": 125,
+        "scrollHeight": 728,
+        "clientHeight": 603,
+        "tabStripTop": 39,
+        "containerTop": 39,
+        "topDifference": 0,
+        "visible": true
+      }
     }
   ],
   "cleanup": {
-    "killedPid": 73384,
+    "killedPid": 29520,
     "survivingProcesses": 0,
     "survivingBackendMain": 0,
     "alive": 0,
@@ -342,5 +359,81 @@
     "dialogs": 0,
     "notifications": 0,
     "noticeContainers": 2
+  },
+  "r1": {
+    "controls": {
+      "primaryBackgroundColor": "rgb(249, 115, 22)",
+      "secondaryBorderTopWidth": "1px",
+      "selectedCamera": [
+        {
+          "label": "なし",
+          "ariaPressed": "true"
+        }
+      ],
+      "cameraButtons": [
+        {
+          "label": "なし",
+          "ariaPressed": "true"
+        },
+        {
+          "label": "寄る",
+          "ariaPressed": "false"
+        },
+        {
+          "label": "引く",
+          "ariaPressed": "false"
+        },
+        {
+          "label": "左へ振る",
+          "ariaPressed": "false"
+        },
+        {
+          "label": "右へ振る",
+          "ariaPressed": "false"
+        },
+        {
+          "label": "追いかける",
+          "ariaPressed": "false"
+        },
+        {
+          "label": "固定",
+          "ariaPressed": "false"
+        }
+      ]
+    },
+    "footerRow": {
+      "retry": {
+        "top": 591.2421875,
+        "right": 954,
+        "left": 815,
+        "width": 139,
+        "height": 31.5
+      },
+      "primary": {
+        "top": 591.2421875,
+        "right": 1047,
+        "left": 960,
+        "width": 87,
+        "height": 31.5
+      },
+      "topDifference": 0,
+      "estimateLabel": {
+        "top": 588.9921875,
+        "right": 669,
+        "left": 645,
+        "width": 24,
+        "height": 18,
+        "lineHeight": 18
+      }
+    },
+    "stickyTabStrip": {
+      "scrollTop": 125,
+      "scrollHeight": 728,
+      "clientHeight": 603,
+      "tabStripTop": 39,
+      "containerTop": 39,
+      "topDifference": 0,
+      "visible": true
+    }
   }
 }

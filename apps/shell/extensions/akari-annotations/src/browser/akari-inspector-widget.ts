@@ -2462,6 +2462,12 @@ export class AkariInspectorWidget extends BaseWidget {
         background: transparent;
     }
     .akari-inspector-widget .akari-inspector-tab-strip {
+        /* The grid body spans all sections; its parent is the overflow:auto scrollport. */
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        align-self: start;
+        background: var(--theia-editor-background);
         display: flex;
         min-width: 0;
         border-bottom: 1px solid var(--theia-panel-border);
@@ -2908,14 +2914,67 @@ export class AkariInspectorWidget extends BaseWidget {
     }
     .akari-inspector-widget .akari-inspector-generation-frames { display: flex; gap: 10px; margin: 10px 0; }
     .akari-inspector-widget .akari-inspector-generation-cell { flex: 1; min-width: 0; }
-    .akari-inspector-widget .akari-inspector-generation-frame { aspect-ratio: 16 / 9; border: 1px dashed var(--theia-focusBorder); display: flex; align-items: center; justify-content: center; margin: 4px 0; overflow: hidden; }
-    .akari-inspector-widget .akari-inspector-generation-frame img { width: 100%; height: 100%; object-fit: contain; }
+    .akari-inspector-widget .akari-inspector-generation-frame { aspect-ratio: 16 / 9; max-height: 96px; border: 1px dashed var(--theia-focusBorder); display: flex; align-items: center; justify-content: center; margin: 4px 0; overflow: hidden; font-size: 11px; color: var(--theia-descriptionForeground); }
+    .akari-inspector-widget .akari-inspector-generation-frame img { width: 100%; height: 100%; object-fit: cover; }
     .akari-inspector-widget .akari-inspector-generation-cell button { margin: 3px 3px 0 0; white-space: normal; }
+    .akari-inspector-widget button.akari-inspector-generation-primary,
+    .akari-inspector-widget button.akari-inspector-generation-secondary,
+    .akari-inspector-widget button.akari-inspector-generation-small,
+    .akari-inspector-widget button.akari-inspector-generation-camera-button {
+        border: 1px solid var(--theia-input-border, var(--theia-panel-border));
+        border-radius: 4px;
+        padding: 5px 10px;
+        background: var(--theia-button-secondaryBackground, var(--theia-editor-background));
+        color: var(--theia-button-secondaryForeground, var(--theia-foreground));
+    }
+    .akari-inspector-widget button.akari-inspector-generation-secondary:hover,
+    .akari-inspector-widget button.akari-inspector-generation-small:hover,
+    .akari-inspector-widget button.akari-inspector-generation-camera-button:hover {
+        background: var(--theia-button-secondaryHoverBackground, var(--theia-toolbar-hoverBackground));
+    }
+    .akari-inspector-widget button.akari-inspector-generation-primary {
+        border-color: var(--theia-button-background);
+        background: var(--theia-button-background);
+        color: var(--theia-button-foreground);
+    }
+    .akari-inspector-widget button.akari-inspector-generation-primary:hover {
+        background: var(--theia-button-hoverBackground);
+    }
+    .akari-inspector-widget button.akari-inspector-generation-primary:disabled,
+    .akari-inspector-widget button.akari-inspector-generation-primary:disabled:hover {
+        background: var(--theia-button-secondaryBackground, var(--theia-editor-background));
+        border-color: var(--theia-panel-border);
+        color: var(--theia-disabledForeground);
+        opacity: 0.65;
+        cursor: default;
+    }
+    .akari-inspector-widget button.akari-inspector-generation-small {
+        padding: 2px 6px;
+        font-size: 11px;
+        background: var(--theia-editor-background);
+        color: var(--theia-descriptionForeground);
+    }
+    .akari-inspector-widget button.akari-inspector-generation-camera-button { padding: 3px 8px; }
+    .akari-inspector-widget button.akari-inspector-generation-camera-button[aria-pressed="true"] {
+        border-color: var(--theia-focusBorder);
+        background: var(--theia-button-background);
+        color: var(--theia-button-foreground);
+    }
+    .akari-inspector-widget button.akari-inspector-generation-primary:focus-visible,
+    .akari-inspector-widget button.akari-inspector-generation-secondary:focus-visible,
+    .akari-inspector-widget button.akari-inspector-generation-small:focus-visible,
+    .akari-inspector-widget button.akari-inspector-generation-camera-button:focus-visible {
+        outline: 2px solid var(--theia-focusBorder);
+        outline-offset: 2px;
+    }
     .akari-inspector-widget .akari-inspector-generation-camera { margin: 10px 0; }
-    .akari-inspector-widget .akari-inspector-generation-camera button[aria-pressed="true"] { outline: 1px solid var(--theia-focusBorder); }
     .akari-inspector-widget .akari-inspector-generation-details { margin: 10px 0; padding: 6px; border: 1px solid var(--theia-panel-border); }
     .akari-inspector-widget .akari-inspector-generation-footer { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
-    .akari-inspector-widget .akari-inspector-generation-footer > .akari-inspector-generation-estimate { flex: 1 0 max-content; }
+    .akari-inspector-widget .akari-inspector-generation-submit-group { display: flex; flex: 1 1 auto; align-items: center; justify-content: flex-end; flex-wrap: nowrap; gap: 6px; margin-left: auto; min-width: 0; }
+    .akari-inspector-widget .akari-inspector-generation-submit-group > button { flex-shrink: 0; white-space: nowrap; }
+    .akari-inspector-widget .akari-inspector-generation-submit-group > .akari-inspector-generation-estimate { flex: 0 1 auto; min-width: calc(2em + 6px + 6ch); white-space: normal; text-align: right; justify-content: flex-end; }
+    .akari-inspector-widget .akari-inspector-generation-submit-group > .akari-inspector-generation-estimate > .akari-inspector-row-label { white-space: nowrap; flex-shrink: 0; }
+    .akari-inspector-widget .akari-inspector-generation-submit-group > .akari-inspector-generation-estimate > .akari-inspector-row-value { min-width: 0; white-space: normal; word-break: normal; overflow-wrap: normal; }
     .akari-inspector-widget .akari-inspector-generation-facts {
         padding: 5px 0;
         border-top: 1px solid var(--theia-panel-border);
@@ -4190,6 +4249,8 @@ export class AkariInspectorWidget extends BaseWidget {
                 for (const action of generationField.actions ?? []) {
                     const button = document.createElement('button');
                     button.type = 'button';
+                    button.className = action.name === 'remove'
+                        ? 'akari-inspector-generation-small' : 'akari-inspector-generation-secondary';
                     button.textContent = action.label;
                     button.setAttribute('data-akari-generation-action', `${field.name}-${action.name}`);
                     button.addEventListener('click', () => invoke(action.action(snapshot)));
@@ -4199,6 +4260,7 @@ export class AkariInspectorWidget extends BaseWidget {
                 for (const value of generationField.options ?? []) {
                     const button = document.createElement('button');
                     button.type = 'button';
+                    button.className = 'akari-inspector-generation-camera-button';
                     button.textContent = value;
                     button.setAttribute('aria-pressed', String(value === field.getValue(snapshot)));
                     button.setAttribute('data-akari-generation-camera', value);
@@ -4211,19 +4273,25 @@ export class AkariInspectorWidget extends BaseWidget {
         if (field.name === 'generation-actions') {
             const footer = document.createElement('div');
             footer.className = 'akari-inspector-generation-footer';
+            const submitGroup = document.createElement('div');
+            submitGroup.className = 'akari-inspector-generation-submit-group';
             const estimate = parent.querySelector('.akari-inspector-generation-estimate');
-            for (const action of field.actions ?? []) {
-                if (action.name === 'generate' && estimate) footer.appendChild(estimate);
+            if (estimate) submitGroup.appendChild(estimate);
+            const actions = field.actions ?? [];
+            for (const action of [...actions.filter(action => action.name !== 'generate'), ...actions.filter(action => action.name === 'generate')]) {
                 const button = document.createElement('button');
                 button.type = 'button';
+                button.className = action.name === 'generate'
+                    ? 'akari-inspector-generation-primary' : 'akari-inspector-generation-secondary';
                 button.textContent = action.label;
                 button.disabled = !!action.disabled;
                 button.setAttribute('data-akari-generation-action', action.name);
                 button.addEventListener('click', () => void action.action(snapshot).then(result => {
                     if (!result.ok) this.showFieldNotice(result.message ?? '操作に失敗しました。');
                 }));
-                footer.appendChild(button);
+                (action.name === 'copy-adjacent' ? footer : submitGroup).appendChild(button);
             }
+            footer.appendChild(submitGroup);
             parent.appendChild(footer);
             return;
         }

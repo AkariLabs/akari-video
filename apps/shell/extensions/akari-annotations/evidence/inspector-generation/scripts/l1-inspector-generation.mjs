@@ -232,12 +232,35 @@ async function ensureActionVisible(cdp, selector) {
   return visibility;
 }
 
-async function shot(cdp, name, actionSelector) {
+async function measureStickyTabStrip(cdp) {
+  const measurement = await evalOn(cdp, `(async()=>{
+    const strip=document.querySelector('.akari-inspector-tab-strip');
+    if(!strip)throw new Error('Inspector tab strip not found');
+    let container=strip.parentElement;
+    while(container&&!/auto|scroll/.test(getComputedStyle(container).overflowY))container=container.parentElement;
+    if(!container)throw new Error('Inspector scroll container not found');
+    container.scrollTop=container.scrollHeight;
+    await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+    const stripRect=strip.getBoundingClientRect(), containerRect=container.getBoundingClientRect();
+    return{scrollTop:container.scrollTop,scrollHeight:container.scrollHeight,clientHeight:container.clientHeight,
+      tabStripTop:stripRect.top,containerTop:containerRect.top,topDifference:Math.abs(stripRect.top-containerRect.top),
+      visible:stripRect.height>0&&stripRect.bottom<=containerRect.bottom};
+  })()`);
+  out.r1 = { ...out.r1, stickyTabStrip: measurement };
+  await save();
+  assert(measurement.scrollTop > 0, 'タブ帯の検証でスクロールが発生していない');
+  assert(measurement.topDifference <= 1 && measurement.visible,
+    `スクロール後のタブ帯がパネル上端に留まらない: ${JSON.stringify(measurement)}`);
+  return measurement;
+}
+
+async function shot(cdp, name, actionSelector, { scrollToBottom = false } = {}) {
   const destination = path.join(ROOT, name);
   for (let attempt = 1; attempt <= 3; attempt++) {
     await ensureInspectorVisible(cdp);
     await ensureSection(cdp);
     const actionVisibility = actionSelector ? await ensureActionVisible(cdp, actionSelector) : undefined;
+    const stickyTabStrip = scrollToBottom ? await measureStickyTabStrip(cdp) : undefined;
     await screenshot(cdp, destination);
     const state = await evalOn(cdp, `(()=>{const panel=document.querySelector('[data-akari-ui="panel:inspector"]');const section=${sectionSnapshot};const body=document.querySelector(${S(SECTION)})?.querySelector('.akari-inspector-section-body');return{
 inspectorFront:Boolean(panel&&panel.offsetParent!==null),
@@ -252,6 +275,7 @@ modelRow:section?.rows.find(row=>row.label==='モデル')?.input||''}})()`);
         inspectorFront: true,
         sectionVisible: true,
         modelRow: state.modelRow,
+        ...(stickyTabStrip ? { stickyTabStrip } : {}),
         ...(actionVisibility ? { actionVisibility } : {})
       });
       await save();
@@ -377,6 +401,25 @@ try {
     return { frames, view };
   });
   await shot(cdp, '01-h3-first-to-last.png');
+  out.r1 = { controls: await evalOn(cdp, `(()=>{
+    const primary=document.querySelector(${S(action('generate'))});
+    const secondary=document.querySelector(${S(action('copy-adjacent'))});
+    const cameras=[...document.querySelectorAll('[data-akari-generation-camera]')];
+    const selected=cameras.filter(button=>button.getAttribute('aria-pressed')==='true');
+    return{primaryBackgroundColor:primary?getComputedStyle(primary).backgroundColor:null,
+      secondaryBorderTopWidth:secondary?getComputedStyle(secondary).borderTopWidth:null,
+      selectedCamera:selected.map(button=>({label:button.textContent,ariaPressed:button.getAttribute('aria-pressed')})),
+      cameraButtons:cameras.map(button=>({label:button.textContent,ariaPressed:button.getAttribute('aria-pressed')}))};
+  })()`) };
+  await save();
+  const controls = out.r1.controls;
+  assert(controls.primaryBackgroundColor && !['transparent', 'rgba(0, 0, 0, 0)'].includes(controls.primaryBackgroundColor),
+    `主ボタンの地が透明: ${controls.primaryBackgroundColor}`);
+  assert(Number.parseFloat(controls.secondaryBorderTopWidth) > 0,
+    `副ボタンに枠がない: ${controls.secondaryBorderTopWidth}`);
+  assert(controls.selectedCamera.length === 1 && controls.selectedCamera[0].ariaPressed === 'true'
+    && controls.cameraButtons.every(button => ['true', 'false'].includes(button.ariaPressed)),
+    `カメラの選択状態が不正: ${JSON.stringify(controls.cameraButtons)}`);
 
   await step('2. 両枠を外すとプロンプトだけ・空枠に外すはない', async () => {
     for (const slot of ['first-frame', 'last_frame']) {
@@ -417,11 +460,34 @@ try {
     return { retry, retryButtonVisibility };
   });
 
+  const footerRow = await evalOn(cdp, `(()=>{
+    const retry=document.querySelector(${S(action('retry'))});
+    const primary=document.querySelector(${S(action('generate'))});
+    if(!retry||!primary)throw new Error('Retry or primary button not found');
+    const estimateLabel=document.querySelector('.akari-inspector-generation-submit-group > .akari-inspector-generation-estimate > .akari-inspector-row-label');
+    if(!estimateLabel)throw new Error('Estimate label not found');
+    const rect=element=>{const r=element.getBoundingClientRect();return{top:r.top,right:r.right,left:r.left,width:r.width,height:r.height}};
+    const retryRect=rect(retry),primaryRect=rect(primary);
+    return{retry:retryRect,primary:primaryRect,topDifference:Math.abs(retryRect.top-primaryRect.top),
+      estimateLabel:{...rect(estimateLabel),lineHeight:Number.parseFloat(getComputedStyle(estimateLabel).lineHeight)}};
+  })()`);
+  out.r1.footerRow = footerRow;
+  await save();
+  assert(footerRow.retry.width > 0 && footerRow.retry.height > 0
+    && footerRow.primary.width > 0 && footerRow.primary.height > 0
+    && footerRow.topDifference <= 2 && footerRow.retry.right <= footerRow.primary.left,
+    `再試行と動画にするが同じ行の左右に並んでいない: ${JSON.stringify(footerRow)}`);
+  assert(footerRow.estimateLabel.height > 0 && Number.isFinite(footerRow.estimateLabel.lineHeight)
+    && footerRow.estimateLabel.height <= footerRow.estimateLabel.lineHeight + 2,
+    `見積ラベルが1行に収まっていない: ${JSON.stringify(footerRow.estimateLabel)}`);
+
   await step('6. edit.json / captions.json は不変', async () => {
     const after = { edit: (await stat(editPath)).mtimeMs, captions: (await stat(captionsPath)).mtimeMs };
     assert(after.edit === mtimesBefore.edit && after.captions === mtimesBefore.captions, 'edit/captions の mtime が変化');
     return { before: mtimesBefore, after };
   });
+
+  await shot(cdp, '07-sticky-tab-strip.png', undefined, { scrollToBottom: true });
 
   out.status = 'pass';
   await save();
