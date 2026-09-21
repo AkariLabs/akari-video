@@ -1013,7 +1013,7 @@
    0
   ],
   "firstFrameTransition": "0s",
-  "url": "file:///Users/ryoma/_edit/30_products/akari-video-wt/panel-face-slider-switch/apps/shell/lib/frontend/index.html?port=58030&pfss=1789999283401#/private/tmp/pfss-l1/ws2"
+  "url": "file:///<worktree>/apps/shell/lib/frontend/index.html?port=58030&pfss=1789999283401#<tmpdir>/pfss-l1/ws2"
  },
  "afterReopenProject_wsBefore": {
   "topView": "catalog",
@@ -1049,7 +1049,7 @@
    0
   ],
   "firstFrameTransition": "0s",
-  "url": "file:///Users/ryoma/_edit/30_products/akari-video-wt/panel-face-slider-switch/apps/shell/lib/frontend/index.html?port=58030&pfss=1789999288634#/private/tmp/pfss-l1/ws"
+  "url": "file:///<worktree>/apps/shell/lib/frontend/index.html?port=58030&pfss=1789999288634#<tmpdir>/pfss-l1/ws"
  },
  "regression": {
   "catalogHome": {

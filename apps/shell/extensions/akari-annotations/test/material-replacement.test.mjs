@@ -78,10 +78,37 @@ test('video → still removes video-only window state, and still → short video
  assert.deepEqual(video.tracks[0].items[0].source.freeze,{at_sec:2,duration_sec:4});
 });
 
+test('both visual directions pass edit-lint without external tools',async t=>{
+ const {mkdtemp,mkdir,writeFile,rm}=await import('node:fs/promises');
+ const {tmpdir}=await import('node:os');const {join}=await import('node:path');
+ const {lintProject}=await import('../../../../../packages/edit-lint/src/edit-lint.mjs');
+ const root=await mkdtemp(join(tmpdir(),'akari-swap-no-media-'));
+ t.after(()=>rm(root,{recursive:true,force:true}));
+ const paths=['assets/broll/br-old/clip.mp4','assets/still/br-photo/broll.png','assets/broll/br-short/clip.mp4'];
+ for(const path of paths){
+  await mkdir(join(root,path,'..'),{recursive:true});
+  await writeFile(join(root,path),'');
+ }
+ const doc={version:2,output:{width:320,height:180,fps:30},sources:[{id:'old',path:paths[0]}],tracks:[{id:'v',lane:'visual',items:[
+  {id:'item',at:0,duration:180,source:{kind:'media',src:'old',in:0,out:2,freeze:{at_sec:2,duration_sec:4},mute:false}}
+ ]}]};
+ const still=replaceMaterial(doc,{itemId:'item',relativePath:paths[1],kind:'image'});
+ const video=replaceMaterial(still,{itemId:'item',relativePath:paths[2],kind:'video',actualDurationS:2});
+ for(const value of [still,video]){
+  await writeFile(join(root,'edit.json'),JSON.stringify(value));
+  const result=await lintProject(root,{media:false,writeReports:false});
+  const errors=result.findings.filter(f=>f.severity==='error');
+  assert.deepEqual(errors,[],JSON.stringify(errors));assert.equal(result.verdict,'pass');
+ }
+});
+
 test('both visual directions pass the actual edit-lint media and source-range checks',async t=>{
  const {mkdtemp,mkdir,writeFile,rm}=await import('node:fs/promises');
  const {tmpdir}=await import('node:os');const {join}=await import('node:path');
- const {execFileSync}=await import('node:child_process');
+ const {execFileSync,spawnSync}=await import('node:child_process');
+ if(['ffmpeg','ffprobe'].some(tool=>spawnSync(tool,['-version'],{stdio:'ignore'}).error?.code==='ENOENT')){
+  t.skip('ffmpeg / ffprobe が無い環境');return;
+ }
  const {lintProject}=await import('../../../../../packages/edit-lint/src/edit-lint.mjs');
  const root=await mkdtemp(join(tmpdir(),'akari-swap-cross-media-'));
  t.after(()=>rm(root,{recursive:true,force:true}));
