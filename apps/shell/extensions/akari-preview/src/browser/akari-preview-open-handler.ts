@@ -754,6 +754,8 @@ interface OverlayWriteRequest {
         // 断片テキスト編集（contenteditable）の書き戻し。overlays[].html は契約上ファイル参照
         // なので、この値は edit.json ではなく参照先の断片ファイルへ書く
         html?: string;
+        // 部品の文字は共有 HTML を変更せず、v2 source.text へ書き戻す。
+        text?: string;
         // data-akari-slot の編集は共有テンプレを変更せず、v2 source.params へ書き戻す。
         params?: Record<string, string>;
     };
@@ -5904,6 +5906,9 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             return;
         }
         try {
+            if ('text' in request.patch && typeof request.patch.text !== 'string') {
+                throw new Error('部品の text は文字列である必要があります');
+            }
             const resolved = resolvePreviewItemWrite(await this.readText(editUri), {
                 kind: 'overlay',
                 itemId: request.overlayId,
@@ -5974,7 +5979,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             && typeof message.requestId === 'string'
             && typeof message.overlayId === 'string'
             && message.patch
-            && typeof message.patch === 'object';
+            && typeof message.patch === 'object'
+            && (!('text' in message.patch) || typeof message.patch.text === 'string');
     }
 
     // CF-write: layerTransform の schema 定義（edit.schema.json #layerTransform — x/y/rotate は数値・
