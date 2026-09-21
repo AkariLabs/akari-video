@@ -1,0 +1,1245 @@
+{
+  "screenshots": [
+    "01-empty-frame.png",
+    "02-failed.png",
+    "03-still.png",
+    "04-done-video.png"
+  ],
+  "screenshotDetails": [
+    {
+      "name": "01-empty-frame.png",
+      "bytes": 237661,
+      "format": "png",
+      "clip": null
+    },
+    {
+      "name": "02-failed.png",
+      "bytes": 239447,
+      "format": "png",
+      "clip": null
+    },
+    {
+      "name": "03-still.png",
+      "bytes": 246329,
+      "format": "png",
+      "clip": null
+    },
+    {
+      "name": "04-done-video.png",
+      "bytes": 277800,
+      "format": "png",
+      "clip": null
+    }
+  ],
+  "observations": [
+    {
+      "index": 1,
+      "state": "empty-frame",
+      "visible": true,
+      "empty": false,
+      "selected": "tab:inspector-generation",
+      "selectedIds": [
+        "tab:inspector-generation"
+      ],
+      "tabLabels": [
+        {
+          "id": "tab:inspector-video",
+          "label": "映像"
+        },
+        {
+          "id": "tab:inspector-adjust",
+          "label": "色"
+        },
+        {
+          "id": "tab:inspector-audio",
+          "label": "音声"
+        },
+        {
+          "id": "tab:inspector-generation",
+          "label": "生成"
+        },
+        {
+          "id": "tab:inspector-info",
+          "label": "情報"
+        }
+      ],
+      "tabs": [
+        {
+          "id": "tab:inspector-video",
+          "label": "映像",
+          "disabled": false,
+          "title": "",
+          "selected": "false",
+          "todo": false
+        },
+        {
+          "id": "tab:inspector-adjust",
+          "label": "色",
+          "disabled": false,
+          "title": "",
+          "selected": "false",
+          "todo": false
+        },
+        {
+          "id": "tab:inspector-audio",
+          "label": "音声",
+          "disabled": false,
+          "title": "",
+          "selected": "false",
+          "todo": false
+        },
+        {
+          "id": "tab:inspector-generation",
+          "label": "生成",
+          "disabled": false,
+          "title": "",
+          "selected": "true",
+          "todo": true
+        },
+        {
+          "id": "tab:inspector-info",
+          "label": "情報",
+          "disabled": false,
+          "title": "",
+          "selected": "false",
+          "todo": false
+        }
+      ],
+      "selectedClips": [
+        "timeline:cut:0"
+      ]
+    },
+    {
+      "index": 2,
+      "state": "failed",
+      "visible": true,
+      "empty": false,
+      "selected": "tab:inspector-generation",
+      "selectedIds": [
+        "tab:inspector-generation"
+      ],
+      "tabLabels": [
+        {
+          "id": "tab:inspector-video",
+          "label": "映像"
+        },
+        {
+          "id": "tab:inspector-adjust",
+          "label": "色"
+        },
+        {
+          "id": "tab:inspector-audio",
+          "label": "音声"
+        },
+        {
+          "id": "tab:inspector-generation",
+          "label": "生成"
+        },
+        {
+          "id": "tab:inspector-info",
+          "label": "情報"
+        }
+      ],
+      "tabs": [
+        {
+          "id": "tab:inspector-video",
+          "label": "映像",
+          "disabled": false,
+          "title": "",
+          "selected": "false",
+          "todo": false
+        },
+        {
+          "id": "tab:inspector-adjust",
+          "label": "色",
+          "disabled": false,
+          "title": "",
+          "selected": "false",
+          "todo": false
+        },
+        {
+          "id": "tab:inspector-audio",
+          "label": "音声",
+          "disabled": false,
+          "title": "",
+          "selected": "false",
+          "todo": false
+        },
+        {
+          "id": "tab:inspector-generation",
+          "label": "生成",
+          "disabled": false,
+          "title": "",
+          "selected": "true",
+          "todo": true
+        },
+        {
+          "id": "tab:inspector-info",
+          "label": "情報",
+          "disabled": false,
+          "title": "",
+          "selected": "false",
+          "todo": false
+        }
+      ],
+      "selectedClips": [
+        "timeline:cut:1"
+      ]
+    },
+    {
+      "index": 3,
+      "state": "still",
+      "visible": true,
+      "empty": false,
+      "selected": "tab:inspector-video",
+      "selectedIds": [
+        "tab:inspector-video"
+      ],
+      "tabLabels": [
+        {
+          "id": "tab:inspector-video",
+          "label": "映像"
+        },
+        {
+          "id": "tab:inspector-adjust",
+          "label": "色"
+        },
+        {
+          "id": "tab:inspector-audio",
+          "label": "音声"
+        },
+        {
+          "id": "tab:inspector-generation",
+          "label": "生成"
+        },
+        {
+          "id": "tab:inspector-info",
+          "label": "情報"
+        }
+      ],
+      "tabs": [
+        {
+          "id": "tab:inspector-video",
+          "label": "映像",
+          "disabled": false,
+          "title": "",
+          "selected": "true",
+          "todo": false
+        },
+        {
+          "id": "tab:inspector-adjust",
+          "label": "色",
+          "disabled": false,
+          "title": "",
+          "selected": "false",
+          "todo": false
+        },
+        {
+          "id": "tab:inspector-audio",
+          "label": "音声",
+          "disabled": false,
+          "title": "",
+          "selected": "false",
+          "todo": false
+        },
+        {
+          "id": "tab:inspector-generation",
+          "label": "生成",
+          "disabled": false,
+          "title": "",
+          "selected": "false",
+          "todo": false
+        },
+        {
+          "id": "tab:inspector-info",
+          "label": "情報",
+          "disabled": false,
+          "title": "",
+          "selected": "false",
+          "todo": false
+        }
+      ],
+      "selectedClips": [
+        "timeline:cut:2"
+      ]
+    },
+    {
+      "index": 4,
+      "state": "done-video",
+      "visible": true,
+      "empty": false,
+      "selected": "tab:inspector-video",
+      "selectedIds": [
+        "tab:inspector-video"
+      ],
+      "tabLabels": [
+        {
+          "id": "tab:inspector-video",
+          "label": "映像"
+        },
+        {
+          "id": "tab:inspector-adjust",
+          "label": "色"
+        },
+        {
+          "id": "tab:inspector-audio",
+          "label": "音声"
+        },
+        {
+          "id": "tab:inspector-generation",
+          "label": "生成"
+        },
+        {
+          "id": "tab:inspector-info",
+          "label": "情報"
+        }
+      ],
+      "tabs": [
+        {
+          "id": "tab:inspector-video",
+          "label": "映像",
+          "disabled": false,
+          "title": "",
+          "selected": "true",
+          "todo": false
+        },
+        {
+          "id": "tab:inspector-adjust",
+          "label": "色",
+          "disabled": false,
+          "title": "",
+          "selected": "false",
+          "todo": false
+        },
+        {
+          "id": "tab:inspector-audio",
+          "label": "音声",
+          "disabled": false,
+          "title": "",
+          "selected": "false",
+          "todo": false
+        },
+        {
+          "id": "tab:inspector-generation",
+          "label": "生成",
+          "disabled": true,
+          "title": "このクリップには生成の入力がありません",
+          "selected": "false",
+          "todo": false
+        },
+        {
+          "id": "tab:inspector-info",
+          "label": "情報",
+          "disabled": false,
+          "title": "",
+          "selected": "false",
+          "todo": false
+        }
+      ],
+      "selectedClips": [
+        "timeline:cut:3"
+      ]
+    },
+    {
+      "index": 5,
+      "state": "planned",
+      "visible": true,
+      "empty": false,
+      "selected": "tab:inspector-generation",
+      "selectedIds": [
+        "tab:inspector-generation"
+      ],
+      "tabLabels": [
+        {
+          "id": "tab:inspector-video",
+          "label": "映像"
+        },
+        {
+          "id": "tab:inspector-adjust",
+          "label": "色"
+        },
+        {
+          "id": "tab:inspector-audio",
+          "label": "音声"
+        },
+        {
+          "id": "tab:inspector-generation",
+          "label": "生成"
+        },
+        {
+          "id": "tab:inspector-info",
+          "label": "情報"
+        }
+      ],
+      "tabs": [
+        {
+          "id": "tab:inspector-video",
+          "label": "映像",
+          "disabled": false,
+          "title": "",
+          "selected": "false",
+          "todo": false
+        },
+        {
+          "id": "tab:inspector-adjust",
+          "label": "色",
+          "disabled": false,
+          "title": "",
+          "selected": "false",
+          "todo": false
+        },
+        {
+          "id": "tab:inspector-audio",
+          "label": "音声",
+          "disabled": false,
+          "title": "",
+          "selected": "false",
+          "todo": false
+        },
+        {
+          "id": "tab:inspector-generation",
+          "label": "生成",
+          "disabled": false,
+          "title": "",
+          "selected": "true",
+          "todo": true
+        },
+        {
+          "id": "tab:inspector-info",
+          "label": "情報",
+          "disabled": false,
+          "title": "",
+          "selected": "false",
+          "todo": false
+        }
+      ],
+      "selectedClips": [
+        "timeline:cut:4"
+      ]
+    }
+  ],
+  "commands": [
+    {
+      "command": "akari.inspector.open",
+      "args": {
+        "tabId": "adjust"
+      },
+      "tabId": "adjust",
+      "result": "[object]",
+      "selected": "tab:inspector-adjust",
+      "observation": {
+        "visible": true,
+        "empty": false,
+        "selected": "tab:inspector-adjust",
+        "selectedIds": [
+          "tab:inspector-adjust"
+        ],
+        "tabLabels": [
+          {
+            "id": "tab:inspector-video",
+            "label": "映像"
+          },
+          {
+            "id": "tab:inspector-adjust",
+            "label": "色"
+          },
+          {
+            "id": "tab:inspector-audio",
+            "label": "音声"
+          },
+          {
+            "id": "tab:inspector-generation",
+            "label": "生成"
+          },
+          {
+            "id": "tab:inspector-info",
+            "label": "情報"
+          }
+        ],
+        "tabs": [
+          {
+            "id": "tab:inspector-video",
+            "label": "映像",
+            "disabled": false,
+            "title": "",
+            "selected": "false",
+            "todo": false
+          },
+          {
+            "id": "tab:inspector-adjust",
+            "label": "色",
+            "disabled": false,
+            "title": "",
+            "selected": "true",
+            "todo": false
+          },
+          {
+            "id": "tab:inspector-audio",
+            "label": "音声",
+            "disabled": false,
+            "title": "",
+            "selected": "false",
+            "todo": false
+          },
+          {
+            "id": "tab:inspector-generation",
+            "label": "生成",
+            "disabled": false,
+            "title": "",
+            "selected": "false",
+            "todo": false
+          },
+          {
+            "id": "tab:inspector-info",
+            "label": "情報",
+            "disabled": false,
+            "title": "",
+            "selected": "false",
+            "todo": false
+          }
+        ],
+        "selectedClips": [
+          "timeline:cut:2"
+        ]
+      },
+      "pass": true
+    },
+    {
+      "command": "akari.inspector.open",
+      "args": {
+        "tabId": "generation"
+      },
+      "tabId": "generation",
+      "result": "[object]",
+      "selected": "tab:inspector-generation",
+      "observation": {
+        "visible": true,
+        "empty": false,
+        "selected": "tab:inspector-generation",
+        "selectedIds": [
+          "tab:inspector-generation"
+        ],
+        "tabLabels": [
+          {
+            "id": "tab:inspector-video",
+            "label": "映像"
+          },
+          {
+            "id": "tab:inspector-adjust",
+            "label": "色"
+          },
+          {
+            "id": "tab:inspector-audio",
+            "label": "音声"
+          },
+          {
+            "id": "tab:inspector-generation",
+            "label": "生成"
+          },
+          {
+            "id": "tab:inspector-info",
+            "label": "情報"
+          }
+        ],
+        "tabs": [
+          {
+            "id": "tab:inspector-video",
+            "label": "映像",
+            "disabled": false,
+            "title": "",
+            "selected": "false",
+            "todo": false
+          },
+          {
+            "id": "tab:inspector-adjust",
+            "label": "色",
+            "disabled": false,
+            "title": "",
+            "selected": "false",
+            "todo": false
+          },
+          {
+            "id": "tab:inspector-audio",
+            "label": "音声",
+            "disabled": false,
+            "title": "",
+            "selected": "false",
+            "todo": false
+          },
+          {
+            "id": "tab:inspector-generation",
+            "label": "生成",
+            "disabled": false,
+            "title": "",
+            "selected": "true",
+            "todo": false
+          },
+          {
+            "id": "tab:inspector-info",
+            "label": "情報",
+            "disabled": false,
+            "title": "",
+            "selected": "false",
+            "todo": false
+          }
+        ],
+        "selectedClips": [
+          "timeline:cut:2"
+        ]
+      },
+      "pass": true
+    }
+  ],
+  "clickAttempts": [
+    {
+      "x": 387.27734375,
+      "y": 543.515625,
+      "index": 0,
+      "state": "empty-frame",
+      "attempt": 1,
+      "before": {
+        "x": 387.27734375,
+        "y": 543.515625,
+        "element": {
+          "tag": "DIV",
+          "dataAkariUi": "timeline:cut:0",
+          "className": "akari-annotations-strip-clip akari-generation-planned akari-annotations-strip-hit-target",
+          "pointerEvents": "auto"
+        },
+        "nearestAkariUi": {
+          "tag": "DIV",
+          "dataAkariUi": "timeline:cut:0",
+          "className": "akari-annotations-strip-clip akari-generation-planned akari-annotations-strip-hit-target",
+          "pointerEvents": "auto"
+        }
+      },
+      "observation": {
+        "visible": true,
+        "empty": false,
+        "selected": "tab:inspector-video",
+        "selectedIds": [
+          "tab:inspector-video"
+        ],
+        "tabLabels": [
+          {
+            "id": "tab:inspector-video",
+            "label": "映像"
+          },
+          {
+            "id": "tab:inspector-adjust",
+            "label": "色"
+          },
+          {
+            "id": "tab:inspector-audio",
+            "label": "音声"
+          },
+          {
+            "id": "tab:inspector-generation",
+            "label": "生成"
+          },
+          {
+            "id": "tab:inspector-info",
+            "label": "情報"
+          }
+        ],
+        "tabs": [
+          {
+            "id": "tab:inspector-video",
+            "label": "映像",
+            "disabled": false,
+            "title": "",
+            "selected": "true",
+            "todo": false
+          },
+          {
+            "id": "tab:inspector-adjust",
+            "label": "色",
+            "disabled": false,
+            "title": "",
+            "selected": "false",
+            "todo": false
+          },
+          {
+            "id": "tab:inspector-audio",
+            "label": "音声",
+            "disabled": false,
+            "title": "",
+            "selected": "false",
+            "todo": false
+          },
+          {
+            "id": "tab:inspector-generation",
+            "label": "生成",
+            "disabled": false,
+            "title": "",
+            "selected": "false",
+            "todo": false
+          },
+          {
+            "id": "tab:inspector-info",
+            "label": "情報",
+            "disabled": false,
+            "title": "",
+            "selected": "false",
+            "todo": false
+          }
+        ],
+        "selectedClips": [
+          "timeline:cut:0"
+        ]
+      },
+      "reflected": true
+    },
+    {
+      "x": 432.00390625,
+      "y": 543.515625,
+      "index": 1,
+      "state": "failed",
+      "attempt": 1,
+      "before": {
+        "x": 432.00390625,
+        "y": 543.515625,
+        "element": {
+          "tag": "DIV",
+          "dataAkariUi": "timeline:cut:1",
+          "className": "akari-annotations-strip-clip akari-generation-failed akari-annotations-strip-hit-target",
+          "pointerEvents": "auto"
+        },
+        "nearestAkariUi": {
+          "tag": "DIV",
+          "dataAkariUi": "timeline:cut:1",
+          "className": "akari-annotations-strip-clip akari-generation-failed akari-annotations-strip-hit-target",
+          "pointerEvents": "auto"
+        }
+      },
+      "observation": {
+        "visible": true,
+        "empty": false,
+        "selected": "tab:inspector-video",
+        "selectedIds": [
+          "tab:inspector-video"
+        ],
+        "tabLabels": [
+          {
+            "id": "tab:inspector-video",
+            "label": "映像"
+          },
+          {
+            "id": "tab:inspector-adjust",
+            "label": "色"
+          },
+          {
+            "id": "tab:inspector-audio",
+            "label": "音声"
+          },
+          {
+            "id": "tab:inspector-generation",
+            "label": "生成"
+          },
+          {
+            "id": "tab:inspector-info",
+            "label": "情報"
+          }
+        ],
+        "tabs": [
+          {
+            "id": "tab:inspector-video",
+            "label": "映像",
+            "disabled": false,
+            "title": "",
+            "selected": "true",
+            "todo": false
+          },
+          {
+            "id": "tab:inspector-adjust",
+            "label": "色",
+            "disabled": false,
+            "title": "",
+            "selected": "false",
+            "todo": false
+          },
+          {
+            "id": "tab:inspector-audio",
+            "label": "音声",
+            "disabled": false,
+            "title": "",
+            "selected": "false",
+            "todo": false
+          },
+          {
+            "id": "tab:inspector-generation",
+            "label": "生成",
+            "disabled": false,
+            "title": "",
+            "selected": "false",
+            "todo": false
+          },
+          {
+            "id": "tab:inspector-info",
+            "label": "情報",
+            "disabled": false,
+            "title": "",
+            "selected": "false",
+            "todo": false
+          }
+        ],
+        "selectedClips": [
+          "timeline:cut:1"
+        ]
+      },
+      "reflected": true
+    },
+    {
+      "x": 476.73046875,
+      "y": 543.515625,
+      "index": 2,
+      "state": "still",
+      "attempt": 1,
+      "before": {
+        "x": 476.73046875,
+        "y": 543.515625,
+        "element": {
+          "tag": "DIV",
+          "dataAkariUi": "timeline:cut:2",
+          "className": "akari-annotations-strip-clip akari-generation-none akari-annotations-strip-hit-target",
+          "pointerEvents": "auto"
+        },
+        "nearestAkariUi": {
+          "tag": "DIV",
+          "dataAkariUi": "timeline:cut:2",
+          "className": "akari-annotations-strip-clip akari-generation-none akari-annotations-strip-hit-target",
+          "pointerEvents": "auto"
+        }
+      },
+      "observation": {
+        "visible": true,
+        "empty": false,
+        "selected": "tab:inspector-video",
+        "selectedIds": [
+          "tab:inspector-video"
+        ],
+        "tabLabels": [
+          {
+            "id": "tab:inspector-video",
+            "label": "映像"
+          },
+          {
+            "id": "tab:inspector-adjust",
+            "label": "色"
+          },
+          {
+            "id": "tab:inspector-audio",
+            "label": "音声"
+          },
+          {
+            "id": "tab:inspector-generation",
+            "label": "生成"
+          },
+          {
+            "id": "tab:inspector-info",
+            "label": "情報"
+          }
+        ],
+        "tabs": [
+          {
+            "id": "tab:inspector-video",
+            "label": "映像",
+            "disabled": false,
+            "title": "",
+            "selected": "true",
+            "todo": false
+          },
+          {
+            "id": "tab:inspector-adjust",
+            "label": "色",
+            "disabled": false,
+            "title": "",
+            "selected": "false",
+            "todo": false
+          },
+          {
+            "id": "tab:inspector-audio",
+            "label": "音声",
+            "disabled": false,
+            "title": "",
+            "selected": "false",
+            "todo": false
+          },
+          {
+            "id": "tab:inspector-generation",
+            "label": "生成",
+            "disabled": false,
+            "title": "",
+            "selected": "false",
+            "todo": false
+          },
+          {
+            "id": "tab:inspector-info",
+            "label": "情報",
+            "disabled": false,
+            "title": "",
+            "selected": "false",
+            "todo": false
+          }
+        ],
+        "selectedClips": [
+          "timeline:cut:2"
+        ]
+      },
+      "reflected": true
+    },
+    {
+      "x": 521.45703125,
+      "y": 543.515625,
+      "index": 3,
+      "state": "done-video",
+      "attempt": 1,
+      "before": {
+        "x": 521.45703125,
+        "y": 543.515625,
+        "element": {
+          "tag": "DIV",
+          "dataAkariUi": "timeline:cut:3",
+          "className": "akari-annotations-strip-clip akari-generation-done akari-annotations-strip-hit-target",
+          "pointerEvents": "auto"
+        },
+        "nearestAkariUi": {
+          "tag": "DIV",
+          "dataAkariUi": "timeline:cut:3",
+          "className": "akari-annotations-strip-clip akari-generation-done akari-annotations-strip-hit-target",
+          "pointerEvents": "auto"
+        }
+      },
+      "observation": {
+        "visible": true,
+        "empty": false,
+        "selected": "tab:inspector-video",
+        "selectedIds": [
+          "tab:inspector-video"
+        ],
+        "tabLabels": [
+          {
+            "id": "tab:inspector-video",
+            "label": "映像"
+          },
+          {
+            "id": "tab:inspector-adjust",
+            "label": "色"
+          },
+          {
+            "id": "tab:inspector-audio",
+            "label": "音声"
+          },
+          {
+            "id": "tab:inspector-generation",
+            "label": "生成"
+          },
+          {
+            "id": "tab:inspector-info",
+            "label": "情報"
+          }
+        ],
+        "tabs": [
+          {
+            "id": "tab:inspector-video",
+            "label": "映像",
+            "disabled": false,
+            "title": "",
+            "selected": "true",
+            "todo": false
+          },
+          {
+            "id": "tab:inspector-adjust",
+            "label": "色",
+            "disabled": false,
+            "title": "",
+            "selected": "false",
+            "todo": false
+          },
+          {
+            "id": "tab:inspector-audio",
+            "label": "音声",
+            "disabled": false,
+            "title": "",
+            "selected": "false",
+            "todo": false
+          },
+          {
+            "id": "tab:inspector-generation",
+            "label": "生成",
+            "disabled": true,
+            "title": "このクリップには生成の入力がありません",
+            "selected": "false",
+            "todo": false
+          },
+          {
+            "id": "tab:inspector-info",
+            "label": "情報",
+            "disabled": false,
+            "title": "",
+            "selected": "false",
+            "todo": false
+          }
+        ],
+        "selectedClips": [
+          "timeline:cut:3"
+        ]
+      },
+      "reflected": true
+    },
+    {
+      "x": 566.18359375,
+      "y": 543.515625,
+      "index": 4,
+      "state": "planned",
+      "attempt": 1,
+      "before": {
+        "x": 566.18359375,
+        "y": 543.515625,
+        "element": {
+          "tag": "DIV",
+          "dataAkariUi": "timeline:cut:4",
+          "className": "akari-annotations-strip-clip akari-generation-none akari-annotations-strip-hit-target",
+          "pointerEvents": "auto"
+        },
+        "nearestAkariUi": {
+          "tag": "DIV",
+          "dataAkariUi": "timeline:cut:4",
+          "className": "akari-annotations-strip-clip akari-generation-none akari-annotations-strip-hit-target",
+          "pointerEvents": "auto"
+        }
+      },
+      "observation": {
+        "visible": true,
+        "empty": false,
+        "selected": "tab:inspector-video",
+        "selectedIds": [
+          "tab:inspector-video"
+        ],
+        "tabLabels": [
+          {
+            "id": "tab:inspector-video",
+            "label": "映像"
+          },
+          {
+            "id": "tab:inspector-adjust",
+            "label": "色"
+          },
+          {
+            "id": "tab:inspector-audio",
+            "label": "音声"
+          },
+          {
+            "id": "tab:inspector-generation",
+            "label": "生成"
+          },
+          {
+            "id": "tab:inspector-info",
+            "label": "情報"
+          }
+        ],
+        "tabs": [
+          {
+            "id": "tab:inspector-video",
+            "label": "映像",
+            "disabled": false,
+            "title": "",
+            "selected": "true",
+            "todo": false
+          },
+          {
+            "id": "tab:inspector-adjust",
+            "label": "色",
+            "disabled": false,
+            "title": "",
+            "selected": "false",
+            "todo": false
+          },
+          {
+            "id": "tab:inspector-audio",
+            "label": "音声",
+            "disabled": false,
+            "title": "",
+            "selected": "false",
+            "todo": false
+          },
+          {
+            "id": "tab:inspector-generation",
+            "label": "生成",
+            "disabled": false,
+            "title": "",
+            "selected": "false",
+            "todo": false
+          },
+          {
+            "id": "tab:inspector-info",
+            "label": "情報",
+            "disabled": false,
+            "title": "",
+            "selected": "false",
+            "todo": false
+          }
+        ],
+        "selectedClips": [
+          "timeline:cut:4"
+        ]
+      },
+      "reflected": true
+    },
+    {
+      "x": 476.73046875,
+      "y": 543.515625,
+      "index": 2,
+      "state": "still for commands",
+      "attempt": 1,
+      "before": {
+        "x": 476.73046875,
+        "y": 543.515625,
+        "element": {
+          "tag": "DIV",
+          "dataAkariUi": "timeline:cut:2",
+          "className": "akari-annotations-strip-clip akari-generation-none akari-annotations-strip-hit-target",
+          "pointerEvents": "auto"
+        },
+        "nearestAkariUi": {
+          "tag": "DIV",
+          "dataAkariUi": "timeline:cut:2",
+          "className": "akari-annotations-strip-clip akari-generation-none akari-annotations-strip-hit-target",
+          "pointerEvents": "auto"
+        }
+      },
+      "observation": {
+        "visible": true,
+        "empty": false,
+        "selected": "tab:inspector-video",
+        "selectedIds": [
+          "tab:inspector-video"
+        ],
+        "tabLabels": [
+          {
+            "id": "tab:inspector-video",
+            "label": "映像"
+          },
+          {
+            "id": "tab:inspector-adjust",
+            "label": "色"
+          },
+          {
+            "id": "tab:inspector-audio",
+            "label": "音声"
+          },
+          {
+            "id": "tab:inspector-generation",
+            "label": "生成"
+          },
+          {
+            "id": "tab:inspector-info",
+            "label": "情報"
+          }
+        ],
+        "tabs": [
+          {
+            "id": "tab:inspector-video",
+            "label": "映像",
+            "disabled": false,
+            "title": "",
+            "selected": "true",
+            "todo": false
+          },
+          {
+            "id": "tab:inspector-adjust",
+            "label": "色",
+            "disabled": false,
+            "title": "",
+            "selected": "false",
+            "todo": false
+          },
+          {
+            "id": "tab:inspector-audio",
+            "label": "音声",
+            "disabled": false,
+            "title": "",
+            "selected": "false",
+            "todo": false
+          },
+          {
+            "id": "tab:inspector-generation",
+            "label": "生成",
+            "disabled": false,
+            "title": "",
+            "selected": "false",
+            "todo": false
+          },
+          {
+            "id": "tab:inspector-info",
+            "label": "情報",
+            "disabled": false,
+            "title": "",
+            "selected": "false",
+            "todo": false
+          }
+        ],
+        "selectedClips": [
+          "timeline:cut:2"
+        ]
+      },
+      "reflected": true
+    }
+  ],
+  "observedTabLabels": [
+    {
+      "id": "tab:inspector-video",
+      "label": "映像"
+    },
+    {
+      "id": "tab:inspector-adjust",
+      "label": "色"
+    },
+    {
+      "id": "tab:inspector-audio",
+      "label": "音声"
+    },
+    {
+      "id": "tab:inspector-generation",
+      "label": "生成"
+    },
+    {
+      "id": "tab:inspector-info",
+      "label": "情報"
+    }
+  ],
+  "paidApiCalls": 0,
+  "fixtureSchema": {
+    "base": "packages/schemas/generation-meta.schema.json",
+    "next": "docs/contract-2026-09-13-generation-v0.md §3-2 (not yet defined in the schema)",
+    "validated": [
+      {
+        "state": "empty-frame",
+        "baseValid": true
+      },
+      {
+        "state": "failed",
+        "baseValid": true
+      },
+      {
+        "state": "done-video",
+        "baseValid": true
+      },
+      {
+        "state": "planned",
+        "baseValid": true
+      }
+    ]
+  },
+  "emptyFrameRenderer": "chrome",
+  "preloadReloads": 1,
+  "preloadOverlay": "removed",
+  "dismissedAtStartup": {
+    "dialogs": 0,
+    "notifications": 0,
+    "noticeContainers": 2
+  },
+  "restoredTimeline": false,
+  "result": "pass",
+  "durationMs": 624150
+}

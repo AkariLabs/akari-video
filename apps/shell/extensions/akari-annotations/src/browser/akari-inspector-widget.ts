@@ -116,6 +116,7 @@ import {
     ACTIVE_ADJUST_SECTIONS,
     assignSectionToTab,
     type InspectorTabDef,
+    initialTabFor,
     InspectorTabState,
     tabsForKind
 } from './inspector/tab-model';
@@ -2367,6 +2368,12 @@ export class AkariInspectorWidget extends BaseWidget {
     protected fieldNoticeTimer: number | undefined;
     protected readonly sectionState = new InspectorSectionState(window.localStorage);
     protected readonly tabState = new InspectorTabState(window.localStorage);
+    protected tabSelectionKey?: string;
+    protected currentTab?: string;
+    protected explicitTabId?: string;
+    protected readonly generationTabMeta = new Map<string, { next?: { status?: unknown } }>();
+    protected readonly generationTabLoads = new Set<string>();
+    protected readonly generationTabDrafts = new Map<string, GenerationDraft>();
     protected readonly knobCache = new Map<string, readonly InspectorKnob[] | null>();
     protected lastEasingPreviewAt = -Infinity;
     protected generationCatalog: GenerationCatalogRow[] = [];
@@ -2467,6 +2474,15 @@ export class AkariInspectorWidget extends BaseWidget {
     .akari-inspector-widget .akari-inspector-tab.is-active {
         border-bottom-color: var(--theia-focusBorder);
         color: var(--theia-foreground);
+    }
+    .akari-inspector-widget .akari-inspector-tab [data-akari-generation-todo] {
+        display: inline-block;
+        width: 5px;
+        height: 5px;
+        margin-left: 3px;
+        border-radius: 50%;
+        vertical-align: super;
+        background: var(--theia-focusBorder);
     }
     .akari-inspector-widget .akari-inspector-tab:disabled {
         color: var(--theia-disabledForeground);
@@ -2956,7 +2972,10 @@ export class AkariInspectorWidget extends BaseWidget {
             return false;
         }
         const kind = snapshot.kind === 'multi' ? 'caption' : snapshot.kind;
-        if (options.tabId) this.tabState.setActiveTab(kind, options.tabId);
+        if (options.tabId) {
+            this.explicitTabId = options.tabId;
+            this.tabState.setActiveTab(kind, options.tabId);
+        }
         if (options.sectionId) this.sectionState.setCollapsed(kind, options.sectionId, false);
         this.render();
         let ok = true;
@@ -3057,6 +3076,9 @@ export class AkariInspectorWidget extends BaseWidget {
         const snapshot = this.model.snapshot;
         if (!snapshot || snapshot.kind === 'multi') this.syncAdjustCompare(undefined, '');
         if (!snapshot) {
+            this.tabSelectionKey = undefined;
+            this.currentTab = undefined;
+            this.explicitTabId = undefined;
             const empty = document.createElement('div');
             empty.className = 'akari-inspector-empty';
             empty.textContent = 'タイムラインで項目を選択してください。';
@@ -3064,13 +3086,47 @@ export class AkariInspectorWidget extends BaseWidget {
             return;
         }
         if (snapshot.kind === 'world') {
+            this.tabSelectionKey = undefined;
+            this.currentTab = undefined;
             this.renderWorldSelection(snapshot);
+            this.explicitTabId = undefined;
             return;
         }
 
         const generationIdentity = this.generationIdentity(snapshot);
         if (generationIdentity && !this.generationLoads.has(generationIdentity.key)) {
             void this.loadGeneration(generationIdentity);
+        }
+        const generationDraft = generationIdentity ? this.generationDrafts.get(generationIdentity.key) : undefined;
+        if (generationIdentity && generationDraft && this.generationTabDrafts.get(generationIdentity.key) !== generationDraft) {
+            // The existing loader replaces the draft on sidecar changes. Read next
+            // alongside that revision without changing the generation field methods.
+            this.generationTabDrafts.set(generationIdentity.key, generationDraft);
+            this.generationTabLoads.add(generationIdentity.key);
+            void (async () => {
+                try {
+                    await this.workspaceService.ready;
+                    const root = this.workspaceService.tryGetRoots()[0]?.resource;
+                    if (!root) return;
+                    const sidecars = await this.layerAudioService.readGenerationSidecars({
+                        projectRootUri: root.toString(), sourcePaths: [generationIdentity.sourcePath]
+                    });
+                    // next belongs to the source's own sidecar, including kind: still.
+                    // The generation selector may only return a related video job.
+                    const meta = sidecars.entries.find(entry => entry.sourcePath === generationIdentity.sourcePath)?.meta
+                        ?? selectGenerationSidecarForSource(generationIdentity.sourcePath, sidecars.entries, Date.now())?.meta;
+                    if (this.generationTabDrafts.get(generationIdentity.key) === generationDraft) {
+                        this.generationTabMeta.set(generationIdentity.key, (meta as { next?: { status?: unknown } } | undefined) ?? {});
+                    }
+                } catch (error) {
+                    this.showFieldNotice(String(error));
+                } finally {
+                    if (this.generationTabDrafts.get(generationIdentity.key) === generationDraft) {
+                        this.generationTabLoads.delete(generationIdentity.key);
+                        if (this.generationIdentity(this.model.snapshot)?.key === generationIdentity.key) this.render();
+                    }
+                }
+            })();
         }
 
         const requestWrite = (request: InspectorWriteRequest): Promise<InspectorWriteResult> =>
@@ -3084,6 +3140,9 @@ export class AkariInspectorWidget extends BaseWidget {
                 (item): item is TimelineCaptionSelection => item.kind === 'caption'
             );
             if (captions.length !== snapshot.items.length || captions.length === 0) {
+                this.tabSelectionKey = undefined;
+                this.currentTab = undefined;
+                this.explicitTabId = undefined;
                 return;
             }
             sections = MULTI_CAPTION_SECTIONS(captions, requestWrite, {
@@ -3168,13 +3227,36 @@ export class AkariInspectorWidget extends BaseWidget {
                     break;
             }
         }
-        const tabs = tabsForKind(sectionKind, { src: this.tabSourceHint(rowSnapshot) });
-        const activeTab = this.tabState.activeTab(sectionKind, tabs);
+        const tabs = tabsForKind(sectionKind, {
+            src: this.tabSourceHint(rowSnapshot), generationAvailable: !!generationIdentity
+        });
+        const generationState = generationIdentity ? this.generationStates.get(generationIdentity.key) : undefined;
+        const meta = generationIdentity ? this.generationTabMeta.get(generationIdentity.key) : undefined;
+        const generationTodo = !!generationIdentity && (
+            ['planned', 'generating', 'stale', 'failed'].includes(generationState ?? '') || meta?.next?.status === 'planned'
+        );
+        // Item identity survives source replacement and edits to time/transform.
+        // Include workspace and kind to avoid collisions across projects or selections.
+        const clipKey = JSON.stringify([
+            this.workspaceService.tryGetRoots()[0]?.resource.toString() ?? '', sectionKind,
+            snapshot.kind === 'multi' ? snapshot.items.map(item => item.kind === 'cut' ? item.itemId ?? item.index : item.id)
+                : rowSnapshot.kind === 'cut' ? rowSnapshot.itemId ?? rowSnapshot.index : rowSnapshot.id
+        ]);
+        const activeTab = initialTabFor({
+            kind: sectionKind, tabs, persisted: this.tabState.activeTab(sectionKind, tabs), generationTodo,
+            explicitTabId: this.explicitTabId, clipKey, previousClipKey: this.tabSelectionKey, currentTab: this.currentTab
+        });
+        if (this.explicitTabId || !generationIdentity || (this.generationStates.has(generationIdentity.key)
+            && !this.generationTabLoads.has(generationIdentity.key))) {
+            this.tabSelectionKey = clipKey;
+            this.currentTab = activeTab;
+        }
+        this.explicitTabId = undefined;
         const compareTarget: LivePreviewTarget | undefined = rowSnapshot.kind === 'caption' || rowSnapshot.kind === 'audio'
             ? undefined : rowSnapshot.kind === 'cut' ? { kind: 'cut', index: rowSnapshot.index }
                 : { kind: 'item', id: rowSnapshot.id };
         this.syncAdjustCompare(compareTarget, activeTab);
-        this.appendTabStrip(sectionKind, tabs, activeTab);
+        this.appendTabStrip(sectionKind, tabs, activeTab, generationTodo);
 
         let keyframeSection: InspectorSection | undefined;
         const selectedKeyframe = this.model.keyframeSelection;
@@ -3372,7 +3454,8 @@ export class AkariInspectorWidget extends BaseWidget {
     protected appendTabStrip(
         kind: 'cut' | 'layer' | 'caption' | 'audio' | 'overlay' | 'item' | 'world',
         tabs: readonly InspectorTabDef[],
-        activeTab: string
+        activeTab: string,
+        generationTodo = false
     ): void {
         const strip = document.createElement('div');
         strip.className = 'akari-inspector-tab-strip';
@@ -3390,9 +3473,16 @@ export class AkariInspectorWidget extends BaseWidget {
             button.setAttribute('aria-disabled', String(!tab.enabled));
             button.setAttribute('data-akari-ui', `tab:inspector-${tab.id}`);
             if (tab.id === activeTab) button.classList.add('is-active');
-            if (!tab.enabled) button.title = '近日';
+            if (!tab.enabled) button.title = tab.disabledTitle ?? '近日';
+            if (tab.id === 'generation' && generationTodo) {
+                const todo = document.createElement('span');
+                todo.setAttribute('data-akari-generation-todo', 'true');
+                todo.setAttribute('aria-label', '生成でやることがあります');
+                button.appendChild(todo);
+            }
             button.addEventListener('click', () => {
                 if (!tab.enabled || tab.id === activeTab) return;
+                this.explicitTabId = tab.id;
                 this.tabState.setActiveTab(kind, tab.id);
                 this.render();
             });
