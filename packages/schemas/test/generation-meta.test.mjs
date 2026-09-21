@@ -10,7 +10,7 @@ const packageRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 const cliPath = join(packageRoot, "bin", "validate-generation-meta.mjs");
 const fixtureRoot = join(packageRoot, "fixtures", "generation-meta");
 
-for (const fixture of ["planned", "generating", "stale", "done", "failed", "still"]) {
+for (const fixture of ["planned", "generating", "stale", "done", "failed", "still", "still-next", "planned-next", "generating-placeholder"]) {
   test(`${fixture}.json は generation-meta v1 に適合する`, () => {
     const executed = spawnSync(process.execPath, [cliPath, join(fixtureRoot, `${fixture}.json`)], {
       encoding: "utf8",
@@ -69,4 +69,15 @@ function validateTemporary(value) {
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }
+}
+
+for (const [fixture, mutate] of [
+  ["still-next", (meta) => { meta.next.kind = "still"; }],
+  ["generating-placeholder", (meta) => { meta.placeholder.sha256 = "invalid"; }],
+]) {
+  test(`${fixture} の不正な next / placeholder を拒否する`, () => {
+    const meta = JSON.parse(fs.readFileSync(join(fixtureRoot, `${fixture}.json`), "utf8"));
+    mutate(meta);
+    assert.equal(validateTemporary(meta).status, 1);
+  });
 }

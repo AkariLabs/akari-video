@@ -32,6 +32,16 @@ function mutationDocuments(fixtures) {
   const generating = byName["generating.json"];
   const planned = byName["planned.json"];
   const mutations = [
+    ["next.kind 不正", byName["still-next.json"], (meta) => { meta.next.kind = "still"; }, "kind"],
+    ["placeholder.sha256 不正", byName["generating-placeholder.json"], (meta) => { meta.placeholder.sha256 = "invalid"; }, "sha256"],
+    ["next.status 不正", byName["still-next.json"], (meta) => { meta.next.status = "done"; }, "status"],
+    ["next.model の id 欠け", byName["still-next.json"], (meta) => { delete meta.next.model.id; }, "id"],
+    ["next.inputs 未知キー", byName["still-next.json"], (meta) => { meta.next.inputs.unknown = true; }, "unknown"],
+    ["next.inputs mode 既存 enum", byName["still-next.json"], (meta) => { meta.next.inputs.mode = "frames"; }, "mode"],
+    ["frames_or_refs は下書き限定", done, (meta) => { meta.inputs.frames_or_refs = "frames"; }, "frames_or_refs"],
+    ["next.frames_or_refs 不正", byName["still-next.json"], (meta) => { meta.next.inputs.frames_or_refs = "video"; }, "frames_or_refs"],
+    ["next.updated_at 不正", byName["still-next.json"], (meta) => { meta.next.updated_at = "yesterday"; }, "updated_at"],
+    ["placeholder.item_id 欠け", byName["generating-placeholder.json"], (meta) => { delete meta.placeholder.item_id; }, "item_id"],
     ["version 2", done, (meta) => { meta.version = 2; }, "version"],
     ["kind 不正", done, (meta) => { meta.kind = "audio"; }, "kind"],
     ["generating の request_id 欠け", generating, (meta) => { delete meta.job.request_id; }, "request_id"],
@@ -63,9 +73,9 @@ function mutationDocuments(fixtures) {
   }));
 }
 
-test("generation-meta fixtures 6 本を受理する", async () => {
+test("generation-meta fixtures 9 本を受理する", async () => {
   const fixtures = await fixtureDocuments();
-  assert.equal(fixtures.length, 6);
+  assert.equal(fixtures.length, 9);
   for (const fixture of fixtures) {
     assert.deepEqual(validateGenerationMeta(fixture.value), { ok: true, errors: [] }, fixture.label);
   }

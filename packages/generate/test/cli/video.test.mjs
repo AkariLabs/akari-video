@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { cp, mkdtemp, readFile, readdir, rm } from "node:fs/promises";
+import { cp, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -8,6 +8,7 @@ import { fileURLToPath } from "node:url";
 
 import { resolveFfprobe } from "../../../media-bin/src/index.mjs";
 import { loadCatalog } from "../../src/cli/catalog.mjs";
+import { makeReference } from "../../src/cli/media-ref.mjs";
 import { runVideoCommand } from "../../src/cli/video.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -164,4 +165,113 @@ test("FAILED は meta failed にし edit.json を変更しない", async (t) => 
   assert.equal(meta.status, "failed");
   assert.match(meta.history.at(-1).reason, /provider error/u);
   assert.equal(spawnSync(process.execPath, [VALIDATOR, metaPath]).status, 0);
+});
+
+for (const selection of ["frames", "references"]) {
+  test(`--item は next (${selection}) から生成し placeholder を保持する`, async (t) => {
+    const root = await fixture(t);
+    const sourcePath = "assets/stills/start.png";
+    const sourceMetaPath = path.join(root, `${sourcePath}.meta.json`);
+    const draft = {
+      kind: "video", status: "planned", model: { id: "fal:h3-i2v" },
+      inputs: {
+        prompt: "下書きの動き", first_frame: { path: "assets/stills/other.png" },
+        last_frame: { path: "assets/stills/other.png" }, frames_or_refs: selection,
+        // 非選択側をファイル読込前に落とす。保存済みの下書きはそのまま。
+        reference_images: selection === "frames" ? [{ path: "missing-unused.png" }] : [],
+        reference_videos: [], reference_audios: [],
+      },
+      output: { duration_s: 6, resolution: "768P" }, updated_at: "2026-09-21T10:00:00.000Z",
+    };
+    if (selection === "references") {
+      draft.inputs.first_frame = { path: "missing-first.png" };
+      draft.inputs.last_frame = { path: "missing-last.png" };
+    }
+    const original = JSON.stringify({ version: 1, kind: "still", status: "done", next: draft });
+    await writeFile(sourceMetaPath, original);
+    let sentBody;
+    let generatingMeta;
+    const logs = [];
+    const fetchImpl = async (url, init) => {
+      if (init?.method === "POST") {
+        sentBody = JSON.parse(init.body);
+        return jsonResponse({ request_id: "req-next", status_url: "https://queue.fal.run/fake/status", response_url: "https://queue.fal.run/fake/response" });
+      }
+      if (String(url).includes("/status")) {
+        generatingMeta = JSON.parse(await readFile(path.join(root, "assets/generated/clip-a.mp4.meta.json"), "utf8"));
+        return jsonResponse({ status: "COMPLETED" });
+      }
+      if (String(url).endsWith("/response")) return jsonResponse({ video: { url: "https://queue.fal.run/fake/video.mp4" } });
+      if (String(url).endsWith("/video.mp4")) return new Response(await readFile(DONE_MP4));
+      throw new Error(`unexpected fake URL ${url}`);
+    };
+    const result = await runVideoCommand([root, "--item", "clip-a", "--yes"], {
+      fetchImpl, pollIntervalMs: 0, resolveFalKeyImpl: key,
+      snapshotImpl: async () => {}, probeImpl: () => ({ duration_s_actual: 6, has_audio: false }),
+      log: (line) => logs.push(line), errorLog: (line) => logs.push(line),
+    });
+    assert.equal(result.exitCode, 0, logs.join("\n"));
+    assert.equal(sentBody.prompt, draft.inputs.prompt);
+    assert.equal(sentBody.duration, 6);
+    assert.equal(Object.hasOwn(sentBody, "image_url"), selection === "frames");
+    assert.equal(Object.hasOwn(sentBody, "end_image_url"), selection === "frames");
+    const reference = makeReference(root, sourcePath);
+    assert.deepEqual(generatingMeta.placeholder, { path: sourcePath, sha256: reference.sha256, item_id: "clip-a" });
+    assert.equal(Object.hasOwn(generatingMeta.inputs, "frames_or_refs"), false);
+    assert.deepEqual(generatingMeta.inputs.reference_images, []);
+    if (selection === "references") {
+      assert.equal(generatingMeta.inputs.first_frame, null);
+      assert.equal(generatingMeta.inputs.last_frame, null);
+    } else {
+      assert.equal(generatingMeta.inputs.first_frame.path, "assets/stills/other.png");
+    }
+    const metaPath = path.join(root, result.result.meta);
+    const done = JSON.parse(await readFile(metaPath, "utf8"));
+    assert.deepEqual(done.placeholder, generatingMeta.placeholder);
+    assert.equal(Object.hasOwn(done.inputs, "frames_or_refs"), false);
+    assert.equal(spawnSync(process.execPath, [VALIDATOR, metaPath]).status, 0);
+    assert.equal(await readFile(sourceMetaPath, "utf8"), original);
+  });
+}
+
+test("--inputs は next より優先する", async (t) => {
+  const root = await fixture(t);
+  await writeFile(path.join(root, "assets/stills/start.png.meta.json"), JSON.stringify({
+    next: { kind: "video", status: "planned", model: { id: "missing-model" }, inputs: { prompt: "不使用", first_frame: { path: "missing.png" } } },
+  }));
+  const logs = [];
+  const result = await runVideoCommand([root, "--item", "clip-a", "--inputs", JSON.stringify({
+    inputs: { prompt: "明示入力", first_frame: null }, output: { duration_s: 6, resolution: "768P" },
+  }), "--dry-run"], { log: (line) => logs.push(line), errorLog: (line) => logs.push(line), fetchImpl: () => { throw new Error("network must not run"); } });
+  assert.equal(result.exitCode, 0, logs.join("\n"));
+  assert.equal(result.result.body.prompt, "明示入力");
+  assert.equal(Object.hasOwn(result.result.body, "image_url"), false);
+});
+
+test('生成失敗でも placeholder を残し、next の入力と元クリップを保持する', async (t) => {
+  const root = await fixture(t);
+  const sidecarPath = path.join(root, 'assets/stills/start.png.meta.json');
+  const original = JSON.stringify({ next: {
+    kind: 'video', status: 'planned', model: { id: 'fal:h3-i2v' },
+    inputs: { prompt: '動く', first_frame: null, last_frame: null, frames_or_refs: 'frames' },
+    output: { duration_s: 6, resolution: '768P' },
+  } });
+  await writeFile(sidecarPath, original);
+  const before = await readFile(path.join(root, 'edit.json'), 'utf8');
+  const result = await runVideoCommand([root, '--item', 'clip-a', '--yes'], {
+    fetchImpl: async (_url, init) => init?.method === 'POST'
+      ? jsonResponse({ request_id: 'req-failed-next', status_url: 'https://queue.fal.run/fake/status', response_url: 'https://queue.fal.run/fake/response' })
+      : jsonResponse({ status: 'FAILED', error: 'テスト用の失敗' }),
+    pollIntervalMs: 0, resolveFalKeyImpl: key, log: () => {}, errorLog: () => {},
+  });
+  assert.equal(result.exitCode, 1);
+  const meta = JSON.parse(await readFile(path.join(root, 'assets/generated/clip-a.mp4.meta.json'), 'utf8'));
+  assert.equal(meta.status, 'failed');
+  assert.deepEqual(meta.placeholder, {
+    path: 'assets/stills/start.png', sha256: makeReference(root, 'assets/stills/start.png').sha256, item_id: 'clip-a',
+  });
+  assert.equal(meta.inputs.first_frame, null);
+  assert.equal(Object.hasOwn(meta.inputs, 'frames_or_refs'), false);
+  assert.equal(await readFile(sidecarPath, 'utf8'), original);
+  assert.equal(await readFile(path.join(root, 'edit.json'), 'utf8'), before);
 });

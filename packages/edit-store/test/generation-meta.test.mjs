@@ -11,6 +11,7 @@ import {
 } from '../lib/generation-meta-node.js';
 import {
   bindingShaFor,
+  describeNextDraft,
   resolveGenerationState,
   selectGenerationSidecarForSource,
   sidecarPathFor,
@@ -287,3 +288,35 @@ for (const sourcePath of ['../outside.mp4', path.join(os.tmpdir(), 'outside.mp4'
     );
   });
 }
+
+for (const firstFrame of [{ path: 'assets/other.png', sha256: hash('other') }, null]) {
+  test(`placeholder 優先で結線する: first_frame ${firstFrame ? '別クリップ' : 'null'}`, () => {
+    const placeholder = { path: 'assets/stills/a.png', sha256: hash('still'), item_id: 'a' };
+    const value = meta('generating', 'other', { placeholder, inputs: { first_frame: firstFrame } });
+    assert.deepEqual(bindingShaFor(value), { sha256: placeholder.sha256, source: 'placeholder' });
+    const entry = { sourcePath: 'assets/generated/a.mp4', meta: value, binding: { matches: true } };
+    assert.equal(selectGenerationSidecarForSource(placeholder.path, [entry], NOW), entry);
+    assert.equal(selectGenerationSidecarForSource('assets/other.png', [entry], NOW), undefined);
+    assert.deepEqual(bindingShaFor({ ...value, status: 'done', result: { sha256: hash('video') } }), {
+      sha256: hash('video'), source: 'result'
+    });
+  });
+}
+
+test('describeNextDraft は下書きの 4 種と保持された参照を返し、入力を変えない', () => {
+  assert.equal(describeNextDraft(null), null);
+  assert.equal(describeNextDraft(meta('done')), null);
+  const frame = { path: 'a.png', sha256: hash('still') };
+  for (const [inputs, variety] of [
+    [{ first_frame: null, last_frame: null }, 'prompt'],
+    [{ first_frame: frame, last_frame: null }, 'first'],
+    [{ first_frame: frame, last_frame: frame }, 'first-last'],
+    [{ first_frame: null, last_frame: frame }, 'first-last'],
+    [{ frames_or_refs: 'references', first_frame: frame, last_frame: frame }, 'references'],
+  ]) {
+    const value = { ...meta('done'), next: { kind: 'video', status: 'planned', model: { id: 'fal:h3-i2v' }, inputs: { prompt: '', ...inputs } } };
+    const before = structuredClone(value);
+    assert.deepEqual(describeNextDraft(value), { variety, firstFrame: inputs.first_frame, lastFrame: inputs.last_frame, prompt: '', modelId: 'fal:h3-i2v' });
+    assert.deepEqual(value, before);
+  }
+});
