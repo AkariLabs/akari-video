@@ -35,7 +35,13 @@ export function swapPlaybackDecision(state: SwapPlaybackState, now: number): 'ca
     if (now - state.lastSentAt < 400) return 'wait';
     return state.sends >= 4 ? 'failed' : 'check';
 }
+/** Host-page localStorage flag. INFO is intentional when enabled: Theia forwards it to backend stdout. */
+export function swapTrialLoggingEnabled(): boolean {
+    try { return globalThis.localStorage?.getItem('akari.swapTrial.log') === '1'; }
+    catch { return false; }
+}
 export function logSwapTrial(trial: SwapTrialIdentity, event: string, detail: Record<string, unknown> = {}): void {
+    if (!swapTrialLoggingEnabled()) return;
     console.info('[akari-swap-trial]', JSON.stringify({ token: trial.token, event, t: Math.max(0, Date.now() - trial.startedAt), ...detail }));
 }
 

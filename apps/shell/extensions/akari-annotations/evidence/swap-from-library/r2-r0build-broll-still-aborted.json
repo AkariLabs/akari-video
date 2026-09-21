@@ -1,0 +1,68 @@
+{
+ "mode": "try",
+ "arg": "still/br-3d-printer",
+ "at": "2026-09-21T16:06:45.645Z",
+ "shaBefore": "0b6ccf6c363685d94a5a44f54f8d132ab1d99b8c22e5c838669849559e5356fc",
+ "itemBefore": {
+  "track": "v2",
+  "id": "broll-1",
+  "at": 90,
+  "duration": 1260,
+  "source": {
+   "kind": "media",
+   "src": "city",
+   "in": 0,
+   "out": 42,
+   "mute": true
+  },
+  "path": "assets/broll/br-city-walk-long/clip.mp4"
+ },
+ "click": [
+  123,
+  284
+ ],
+ "settleMs": 5615,
+ "previewTimeSamples": [
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0
+ ],
+ "shaAfter": "0b6ccf6c363685d94a5a44f54f8d132ab1d99b8c22e5c838669849559e5356fc",
+ "itemAfter": {
+  "track": "v2",
+  "id": "broll-1",
+  "at": 90,
+  "duration": 1260,
+  "source": {
+   "kind": "media",
+   "src": "city",
+   "in": 0,
+   "out": 42,
+   "mute": true
+  },
+  "path": "assets/broll/br-city-walk-long/clip.mp4"
+ },
+ "sameTrack": [
+  "img-1@0+60",
+  "broll-1@90+1260"
+ ],
+ "ui": {
+  "trialBar": [],
+  "inspectorSwapRow": false,
+  "leftPanel": "other",
+  "toasts": [
+   "AKARI Video を v0.1.72 に更新しました",
+   "AKARI Video を v0.1.72 に更新しました"
+  ]
+ },
+ "lint": {
+  "verdict": "pass",
+  "errors": [],
+  "sourceRange": 0
+ }
+}

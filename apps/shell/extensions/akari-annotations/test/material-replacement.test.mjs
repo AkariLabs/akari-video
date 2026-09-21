@@ -64,3 +64,43 @@ test('main cuts remain excluded after track reorder', () => {
  doc.tracks.unshift({ id: 'other', lane: 'visual', items: [{ ...doc.tracks[0].items[0], id: 'other' }] });
  assert.equal(materialSwapTarget(doc, 'item'), undefined);
 });
+
+test('video → still removes video-only window state, and still → short video restores a real window plus freeze',()=>{
+ const doc=fixture();Object.assign(doc.tracks[0].items[0].source,{freeze:{at_sec:2,duration_sec:4},speed:1.5});
+ const still=replaceMaterial(doc,{itemId:'item',relativePath:'assets/still/br-photo/broll.png',kind:'image'});
+ const item=still.tracks[0].items[0];assert.equal(item.duration,180);
+ assert.equal(item.source.in,0);assert.equal(item.source.out,6);
+ for(const key of ['freeze','speed','mute'])assert.equal(key in item.source,false,key);
+ assert.deepEqual(item.transform,doc.tracks[0].items[0].transform);
+ const video=replaceMaterial(still,{itemId:'item',relativePath:'assets/broll/br-short/clip.mp4',kind:'video',actualDurationS:2});
+ assert.equal(video.tracks[0].items[0].duration,180);
+ assert.equal(video.tracks[0].items[0].source.out,2);
+ assert.deepEqual(video.tracks[0].items[0].source.freeze,{at_sec:2,duration_sec:4});
+});
+
+test('both visual directions pass the actual edit-lint media and source-range checks',async t=>{
+ const {mkdtemp,mkdir,writeFile,rm}=await import('node:fs/promises');
+ const {tmpdir}=await import('node:os');const {join}=await import('node:path');
+ const {execFileSync}=await import('node:child_process');
+ const {lintProject}=await import('../../../../../packages/edit-lint/src/edit-lint.mjs');
+ const root=await mkdtemp(join(tmpdir(),'akari-swap-cross-media-'));
+ t.after(()=>rm(root,{recursive:true,force:true}));
+ const paths=['assets/broll/br-old/clip.mp4','assets/still/br-photo/broll.png','assets/broll/br-short/clip.mp4'];
+ for(const path of paths)await mkdir(join(root,path,'..'),{recursive:true});
+ for(const [index,path] of paths.entries()){
+  execFileSync('ffmpeg',['-v','error','-y','-filter_threads','1','-f','lavfi','-i','color=c=blue:s=320x180:r=30',
+   ...(index===1?['-frames:v','1']:['-t',index===2?'2':'6','-c:v','libx264','-pix_fmt','yuv420p']),'-threads','1',join(root,path)]);
+ }
+ const doc={version:2,output:{width:320,height:180,fps:30},sources:[{id:'old',path:paths[0]}],tracks:[{id:'v',lane:'visual',items:[
+  {id:'item',at:0,duration:180,source:{kind:'media',src:'old',in:0,out:2,freeze:{at_sec:2,duration_sec:4},mute:false}}
+ ]}]};
+ const still=replaceMaterial(doc,{itemId:'item',relativePath:paths[1],kind:'image'});
+ const video=replaceMaterial(still,{itemId:'item',relativePath:paths[2],kind:'video',actualDurationS:2});
+ for(const value of [still,video]){
+  await writeFile(join(root,'edit.json'),JSON.stringify(value));
+  const result=await lintProject(root,{media:true,writeReports:false});
+  const errors=result.findings.filter(f=>f.severity==='error');
+  assert.deepEqual(errors,[],JSON.stringify(errors));assert.equal(result.verdict,'pass');
+  assert.equal(result.findings.filter(f=>f.check==='media.source-range').length,0);
+ }
+});

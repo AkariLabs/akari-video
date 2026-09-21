@@ -30,7 +30,7 @@ const names = [
     'trackIdOfItem', 'trackIdOfSelection', 'trackIdOfDrag', 'isTrackLocked', 'showLockedTrack',
     'updateLinkedDragGhost', 'updateDragAltKey', 'withNarrationEnvelope', 'snapshotForSelection',
     'audioEnvelopeFieldsForSnapshot', 'handleInspectorWriteV2', 'handleAudioClipFxWrite',
-    'openTimelineClipContextMenu', 'selectionKey', 'selectedMaterialSwapTarget'
+    'openTimelineClipContextMenu', 'selectionKey', 'selectedMaterialSwapTarget', 'selectedMaterialSwapItemId'
 ];
 const menuEvents = new Map();
 let openedMenu;

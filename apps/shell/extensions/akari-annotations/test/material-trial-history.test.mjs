@@ -13,17 +13,19 @@ function method(name) {
  const rest = source.slice(start); return rest.slice(0, rest.indexOf('\n    }') + 6);
 }
 const Widget = new Function('edit_v2_mutations_1', 'material_replacement_1', 'timeline_empty_state_1', 'PLAYHEAD_FOLLOW_THRESHOLD', 'swap_trial_playback_1', 'material_trial_window_1', `return class {
- ${['commitEditMutation','performEditMutation','tryMaterialSwap','finishMaterialSwap','stopMaterialSwapPlayback','replayMaterialSwap','applySelection','pushSelectionSnapshot','selectedMaterialSwapTarget','handlePlaybackTick','handleCutSelection','handleLayerSelection','newMaterialSwapPlayback'].map(method).join('\n')}
+ ${['commitEditMutation','performEditMutation','tryMaterialSwap','finishMaterialSwap','stopMaterialSwapPlayback','replayMaterialSwap','applySelection','pushSelectionSnapshot','selectedMaterialSwapTarget','selectedMaterialSwapItemId','restoreMaterialSwapSelection','handlePlaybackTick','handleCutSelection','handleLayerSelection','newMaterialSwapPlayback'].map(method).join('\n')}
 }`)(mutations, replacement, { relativeTimelineMaterialPath: (_base, path) => path.replace('/project/', '') }, 0.8, playback, trialWindow);
-function fixture(at = 30) {
- const original = JSON.stringify({ version: 2, output: { fps: 30 }, sources: [{ id: 'old', path: 'old.wav' }],
- tracks: [{ id: 'audio', lane: 'audio', items: [{ id: 'item', at, duration: 60, source: { kind: 'media', src: 'old', in: 0, out: 2 } }] }] }, null, 4) + '\n\n';
+function fixture(at = 30, mediaKind = 'audio') {
+ const visual=mediaKind!=='audio';
+ const path=mediaKind==='video'?'assets/broll/br-origin/clip.mp4':mediaKind==='image'?'assets/still/br-origin/broll.png':'old.wav';
+ const original = JSON.stringify({ version: 2, output: { fps: 30 }, sources: [{ id: 'old', path }],
+ tracks: [{ id: 'audio', lane: visual?'visual':'audio', items: [{ id: 'item', at, duration: visual?180:60, source: { kind: 'media', src: 'old', in: 0, out: mediaKind==='image'?6:2, ...(mediaKind==='video'?{mute:false,freeze:{at_sec:2,duration_sec:4}}:{}) } }] }] }, null, 4) + '\n\n';
  let disk = original; const past = [], commands = [], errors = [], warnings = [], writes = [], events = [];
  const trial = new MaterialTrialHistory();
  const uri = { toString: () => 'file:///project/edit.json', parent: { path: { toString: () => '/project' } } };
  const w = Object.assign(new Widget(), {
  id: 'test', materialSwapTokenSequence: 0, fps: 30, materialSwapGeneration: 0, materialSwapTail: Promise.resolve(), editMutationTail: Promise.resolve(),
- materialSwap: { target: { itemId: 'item', kind: 'audio', currentRelativePath: 'old.wav' }, editUri: uri.toString() },
+ materialSwap: { target: { itemId: 'item', kind: visual?'visual':'audio', currentRelativePath: path }, editUri: uri.toString() },
  location: { editUri: uri, root: { toString: () => 'file:///project', resolve: path => ({ toString: () => `file:///project/${path}`, path: { toString: () => `/project/${path}` } }) } },
  editDocument: JSON.parse(disk), fileService: { readFile: async () => ({ value: disk }) },
  prepareMotionChanges: async () => [], writeMotionChanges: async () => {}, reloadCaptions: async () => {},
@@ -219,5 +221,27 @@ test('trying the same candidate again does not write or replace the baseline',as
  const f=fixture();await f.w.tryMaterialSwap(candidate('one'));const entry=f.trial.entry;
  await f.w.tryMaterialSwap(candidate('one'));
  assert.equal(f.writes.length,1);assert.equal(f.trial.entry,entry);assert.equal(entry.before,f.original);
+ await f.w.finishMaterialSwap(false);assert.equal(f.disk(),f.original);
+});
+
+for(const confirm of [false,true])test(`video → still → another still ${confirm?'confirm/undo':'cancel'} restores original bytes`,async()=>{
+ const f=fixture(0,'video'),execute=f.w.commandRegistry.executeCommand;
+ f.w.commandRegistry.executeCommand=async(id,args,...rest)=>id==='akari.catalog.resolveMaterial'
+  ?{relativePath:`assets/still/br-${args}/broll.png`,kind:'image',cached:true}:execute(id,args,...rest);
+ for(const key of ['photo-a','photo-b']){
+  await f.w.tryMaterialSwap(candidate(key));assert.deepEqual(f.errors,[]);assert.ok(f.trial.entry);assert.ok(f.w.materialSwap);
+  const item=JSON.parse(f.disk()).tracks[0].items[0];assert.equal(item.duration,180);assert.equal(item.source.out,6);assert.equal('freeze' in item.source,false);
+ }
+ await f.w.finishMaterialSwap(confirm);
+ if(confirm){assert.equal(f.past.length,1);await f.past[0].undo();}
+ assert.equal(f.disk(),f.original);
+});
+test('still → short video keeps trial alive and cancels back to the still bytes',async()=>{
+ const f=fixture(0,'image'),execute=f.w.commandRegistry.executeCommand;
+ f.w.commandRegistry.executeCommand=async(id,args,...rest)=>id==='akari.catalog.resolveMaterial'
+  ?{relativePath:'assets/broll/br-short/clip.mp4',kind:'video',cached:true}:execute(id,args,...rest);
+ await f.w.tryMaterialSwap(candidate('video'));assert.deepEqual(f.errors,[]);assert.ok(f.trial.entry);
+ const item=JSON.parse(f.disk()).tracks[0].items[0];assert.equal(item.duration,180);assert.equal(item.source.out,3);
+ assert.deepEqual(item.source.freeze,{at_sec:3,duration_sec:3});
  await f.w.finishMaterialSwap(false);assert.equal(f.disk(),f.original);
 });

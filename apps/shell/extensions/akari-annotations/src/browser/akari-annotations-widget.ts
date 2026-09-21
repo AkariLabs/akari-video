@@ -4514,11 +4514,30 @@ export class AkariAnnotationsWidget extends BaseWidget {
         return operation;
     }
 
-    protected selectedMaterialSwapTarget(selection = this.selection): MaterialSwapTarget | undefined {
+    protected selectedMaterialSwapItemId(selection = this.selection): string | undefined {
         if (!selection || this.multiSelection.length) return undefined;
-        const id = selection.kind === 'cut' ? this.cutItemIds[selection.index]
+        return selection.kind === 'cut' ? this.cutItemIds[selection.index]
             : 'id' in selection ? selection.id : undefined;
-        const target = materialSwapTarget(this.editDocument, id);
+    }
+
+    /** cuts の index は表示の都合で変わる。再読込前に確保した item ID で選択を戻す。 */
+    protected restoreMaterialSwapSelection(itemId: string | undefined): void {
+        if (!itemId || itemId !== this.materialSwap?.target.itemId || this.multiSelection.length) return;
+        const found = this.editDocument && locateSwapItem(this.editDocument, itemId);
+        if (!found || this.selection?.kind === 'item') return;
+        const cutIndex = this.cutItemIds.indexOf(itemId);
+        const next: TimelineSelection = found.track.lane === 'audio' ? { kind: 'audio', id: itemId }
+            : this.layers.some(layer => layer.id === itemId) ? { kind: 'layer', id: itemId }
+                : cutIndex >= 0 ? { kind: 'cut', index: cutIndex }
+                    : { kind: 'item', id: itemId, itemKind: 'media', trackId: String(found.track.id) };
+        if (this.selectionKey(next) !== this.selectionKey(this.selection)) {
+            this.selection = next;
+            this.publishPrimaryPreviewSelection(next);
+        }
+    }
+
+    protected selectedMaterialSwapTarget(selection = this.selection): MaterialSwapTarget | undefined {
+        const target = materialSwapTarget(this.editDocument, this.selectedMaterialSwapItemId(selection));
         if (!target || !this.location?.editUri || !this.location.root.relative) return target;
         const path = this.location.root.relative(this.resolveEditMediaUri(target.currentRelativePath, this.location.editUri))?.toString();
         return path ? { ...target, currentRelativePath: path } : target;
@@ -4527,7 +4546,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     /** 選択の実体を TimelineSelectionModel へ反映する。対象が消えていれば選択解除する。 */
     protected pushSelectionSnapshot(): void {
         const target = this.selectedMaterialSwapTarget();
-        if (this.materialSwap && target?.itemId !== this.materialSwap.target.itemId) void this.finishMaterialSwap(false);
+        if (this.materialSwap && this.selectedMaterialSwapItemId() !== this.materialSwap.target.itemId) void this.finishMaterialSwap(false);
         this.selectionModel.materialSwapTarget = target;
         this.selectionModel.requestMaterialSwap = () => {
             const target = this.selectedMaterialSwapTarget();
@@ -6592,6 +6611,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 const document = JSON.parse(source) as EditV2Document;
                 await this.hydrateDocumentMotionReferences(document);
                 if (generation !== this.editReloadGeneration) return;
+                // await が全て終わった時点の選択を採用する。読込中の本当の選択解除を復活させない。
+                const swapSelectionId = this.materialSwap ? this.selectedMaterialSwapItemId() : undefined;
                 this.invalidateContentExtent();
                 this.editDocument = undefined;
                 this.itemLocations.clear();
@@ -6675,6 +6696,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     ?? sortDefaultTimelineTracks(derivedLegacyTracks(internal));
                 this.timelineTracks = this.pinAudioGroupToBottom(this.compatibilityTimelineTracks);
                 this.fps = view.fps;
+                if (swapSelectionId) this.restoreMaterialSwapSelection(swapSelectionId);
                 if (view.warnings.length > 0) {
                     this.showWarnings(view.warnings);
                 }

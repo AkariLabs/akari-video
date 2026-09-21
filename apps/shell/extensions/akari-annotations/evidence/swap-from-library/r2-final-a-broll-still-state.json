@@ -1,0 +1,52 @@
+{
+ "mode": "state",
+ "at": "2026-09-21T16:45:48.284Z",
+ "shaBefore": "0abc8dba6f4b3ed26eddc80106a5b8abb0d2e78b40b339fb3c1d8eeb03f1acc9",
+ "itemBefore": {
+  "track": "v2",
+  "id": "broll-1",
+  "at": 90,
+  "duration": 1260,
+  "source": {
+   "kind": "media",
+   "src": "src-1",
+   "in": 0,
+   "out": 42
+  },
+  "path": "assets/still/br-coffee-beans/broll.png"
+ },
+ "shaAfter": "0abc8dba6f4b3ed26eddc80106a5b8abb0d2e78b40b339fb3c1d8eeb03f1acc9",
+ "itemAfter": {
+  "track": "v2",
+  "id": "broll-1",
+  "at": 90,
+  "duration": 1260,
+  "source": {
+   "kind": "media",
+   "src": "src-1",
+   "in": 0,
+   "out": 42
+  },
+  "path": "assets/still/br-coffee-beans/broll.png"
+ },
+ "sameTrack": [
+  "img-1@0+60",
+  "broll-1@90+1260"
+ ],
+ "ui": {
+  "trialBar": [
+   {
+    "text": "お試し中: 街歩き（検証用 45 秒） → コーヒー豆のマクロ▶ もう一度差し替えるやめる",
+    "visible": true
+   }
+  ],
+  "inspectorSwapRow": false,
+  "leftPanel": "swap-shelf",
+  "toasts": []
+ },
+ "lint": {
+  "verdict": "pass",
+  "errors": [],
+  "sourceRange": 0
+ }
+}

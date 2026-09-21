@@ -110,3 +110,44 @@
 | 磨き 3: 履歴の文言 | `r1-e3-undo-footer.png` | フッター「素材の入れ替えを元に戻しました。」（BEFORE = r0 report の「素材を入れ替えを元に戻しました。」） |
 | 磨き 2: トーストのノイズ | `r1-f1-image-trial-no-toast.png` / 全回の `toasts` | 最終ビルドの 22 回（効果音 12・画像 10）で通知 0 件。ただし今回は `ready_fallback` / `seek_fallback` が一度も起きず（ログ 0 件）、「通常シークへ落ちて再生できた」経路そのものは実機で踏めていない（単体テストのみ） |
 | 磨き 4: 右クリックメニューの画面内クランプ | `r1-g1-menu-clamp-broll.png` | broll-1 を y=635 で右クリック → メニュー 9 項目 top 629.5 / bottom 923（内寸 927 の内側）で、「入れ替え…」を実クリックで起動できた。BEFORE = r0 `b3-ctxmenu-sfx.json`（9 項目目 y 1007 が画面外で element.click() に頼った）。項目の並びは r0 と同じ |
+
+## r2（差し戻し feedback-r2 への対応）— L1 証跡
+
+### 採取方法（r1 からの差分）
+
+- 同じ fixture（`fixture-edit.json`、sha256 `0b6ccf6c…`）・同じ `/tmp/swap-l1/` 構成・CDP 9395・内寸 1120×927。
+  入口は右クリック「入れ替え…」を実クリック（インスペクターが狭く「情報」タブが画面外だったため。r1 で両入口の並び一致は確認済み）
+- `[akari-swap-trial]` ログは r2 から既定で出ない。計測時だけフロントで `localStorage.setItem('akari.swapTrial.log', '1')` を実行して有効化し、
+  `scripts/r1-trials.mjs` はそのまま使用（フラグなしで 1 回お試し → ログ 0 行・お試しは成立、を確認: `r2-round1-h-nolog-trial-state.json`）
+- 出力プレビューの 0〜約 8 秒は fixture の telop-1（全面の HTML オーバーレイ）が最前面にあるため、お試しの再生窓（2.4〜6.2 秒）では静止画が隠れる。
+  静止画が出ていることは、お試し中に出力プレビューのシークバーを 10 秒付近へ実クリックして確認した（シークバーの操作では選択は変わらずお試しが続く）
+- 計測中の load average 30〜67（他席の処理）
+- 変更前比較: r0 のビルド（`addae247`）を `/tmp/swap-r0` の一時 worktree でビルドし、別ポート 9396・別プロファイルで 1 回確認
+
+### 原因
+
+入れ替えで broll-1 の素材が動画 → 画像になると、タイムラインの表示経路が `cuts`（index で選択）→ `layers`（id で選択）に変わる。
+再読込後も選択が旧 cut の index を指したまま item id を失い、`pushSelectionSnapshot` が「別 item の選択」とみなして `finishMaterialSwap(false)` に入っていた。
+r0 のビルドでも同じ操作で即終了する（`r2-r0build-broll-still-aborted.json`: 帯なし・棚が閉じ・edit.json `0b6ccf6c`）ので、**r1 の変更による回帰ではなく r0 からの問題**。
+
+### 実測（最終ビルド = codex 往復 2 後）— `r2-summary.json`
+
+| 受け入れ条件 | 記録 | 結果 |
+|---|---|---|
+| 動画 item に静止画候補を 9 回（候補を替えながら）→ お試しが続く | `r2-final-t-broll-still9.json` | 9/9 で `trial_end` なし・帯「お試し中」表示のまま・`playing`・再生要求 1 回・送り直し 0。未取得 6 / 取得済み 3。適用後の item は `at 90 / duration 1260 / v2 / in 0 / out 42`（freeze・mute なし）、lint pass・`media.source-range` 0 |
+| 出力プレビューにその静止画が出る | `r2-final-a-broll-still-preview.png` / `r2-b-broll-still-trial-preview.png` | お試し中に 10 秒付近へシーク → コーヒー豆 / カフェ店内の静止画が表示、帯は出たまま |
+| うち 1 回を「差し替える」→ Cmd+Z 1 手で byte 一致 | `r2-final-c1-try.json` / `c2-confirm` / `c3-undo` | `bef4466e` で確定 → Cmd+Z 1 回で `0b6ccf6c` |
+| 別の 1 回を「やめる」で byte 一致 | `r2-final-b-cancel-after-9.json` | 9 候補の後 `0abc8dba` → `0b6ccf6c` |
+| 画像 item に動画候補（`broll/talkinghead-desk-ja-01`）→ 即終了しない・やめるで byte 一致 | `r2-final-d1-…` / `d2-…` | 帯が出たまま（`trial_end` なし、`in 0 / out 2`、lint pass）→ やめるで `a8db7eb8` → `0b6ccf6c` |
+| お試し中に本当に別 item を選ぶと巻き戻る | `r2-final-e1-try.json` / `e2-select-other.json` / `r2-final-e-select-other.png` | 静止画お試し中（`7e9d4fbc`）に bell-1 を実クリック → `0b6ccf6c`、帯・棚が消え、フッター「素材の入れ替えを元に戻しました。」 |
+| 自動再生の回帰なし（効果音 3・画像 3） | `r2-final-f-sfx3.json` / `r2-final-g-image3.json` | 6/6 `playing`・送り直し 0。やめるで各 `0b6ccf6c` |
+
+参考値（合否外）: クリック → `playback_state playing` は効果音 1.18〜2.09 秒 / 画像 1.42〜2.84 秒 / 静止画 B-roll 2.49〜11.23 秒（取得済み 2.49〜3.73、未取得はダウンロード込み 5.20〜11.23）。
+
+往復 1 ビルドでも同じ 9 回（`r2-round1-t-broll-still9.json`）が 9/9 継続・`playing`。往復 2 は preview 側の変更を元に戻しただけ（下記）なので、最終ビルドで全項目を取り直した。
+
+### ラッパーの判断で codex へ差し戻した点（往復 2）
+
+往復 1 で codex は preview の `applyCutVisual` の `deselectCut({ report: requestedCutId === undefined })` を常に `report: false` に変えていた。
+お試しと無関係の既存挙動（㉓ cut の無い区間へ移ったときの解除の report）まで変えるため差し戻し、codex は preview の変更を元に戻した
+（widget 側の item id 判定と `restoreMaterialSwapSelection` だけで解消することを単体テストで確認）。最終ビルドの実機で 9/9 継続を確認済み。

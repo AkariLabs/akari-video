@@ -77,7 +77,8 @@ export function replaceMaterial(doc: EditV2Document, options: {
     }
     const patch: Row = { source: { src: source.id, in: 0, freeze: null } };
     if (options.kind === 'image') {
-        patch.source.out = found.item.duration / fps;
+        // media の in/out は画像でも schema 必須。表示尺を窓とし、動画の停止・音声・速度は除く。
+        Object.assign(patch.source, { out: found.item.duration / fps, mute: null, speed: null });
     } else {
         const actual = options.actualDurationS;
         if (!Number.isFinite(actual) || actual! <= 0) throw new Error('素材の実尺を取得できません。');

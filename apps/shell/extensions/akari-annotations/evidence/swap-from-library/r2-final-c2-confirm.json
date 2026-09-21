@@ -1,0 +1,63 @@
+{
+ "mode": "bar",
+ "arg": "差し替える",
+ "at": "2026-09-21T16:46:12.895Z",
+ "shaBefore": "bef4466ee4cc5f400bd13ed38bdc699711a5aa7a93c6d727983310d908179a7b",
+ "itemBefore": {
+  "track": "v2",
+  "id": "broll-1",
+  "at": 90,
+  "duration": 1260,
+  "source": {
+   "kind": "media",
+   "src": "src-1",
+   "in": 0,
+   "out": 42
+  },
+  "path": "assets/still/br-calculator-hand/broll.png"
+ },
+ "click": [
+  732.87109375,
+  62.75
+ ],
+ "settleMs": 5657,
+ "previewTimeSamples": [
+  6.21,
+  6.21,
+  6.21,
+  6.21,
+  6.21,
+  6.21,
+  6.21,
+  6.21
+ ],
+ "shaAfter": "bef4466ee4cc5f400bd13ed38bdc699711a5aa7a93c6d727983310d908179a7b",
+ "itemAfter": {
+  "track": "v2",
+  "id": "broll-1",
+  "at": 90,
+  "duration": 1260,
+  "source": {
+   "kind": "media",
+   "src": "src-1",
+   "in": 0,
+   "out": 42
+  },
+  "path": "assets/still/br-calculator-hand/broll.png"
+ },
+ "sameTrack": [
+  "img-1@0+60",
+  "broll-1@90+1260"
+ ],
+ "ui": {
+  "trialBar": [],
+  "inspectorSwapRow": false,
+  "leftPanel": "other",
+  "toasts": []
+ },
+ "lint": {
+  "verdict": "pass",
+  "errors": [],
+  "sourceRange": 0
+ }
+}

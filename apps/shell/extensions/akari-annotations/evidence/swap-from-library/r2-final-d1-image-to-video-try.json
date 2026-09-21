@@ -1,0 +1,62 @@
+{
+ "mode": "state",
+ "at": "2026-09-21T16:46:59.071Z",
+ "shaBefore": "a8db7eb83fee80060d43fbd1799b70e564ebb65db4ab73eb7ecd140bbc0e6233",
+ "itemBefore": {
+  "track": "v2",
+  "id": "img-1",
+  "at": 0,
+  "duration": 60,
+  "source": {
+   "kind": "media",
+   "src": "src-1",
+   "in": 0,
+   "out": 2
+  },
+  "path": "assets/broll/talkinghead-desk-ja-01/clip.mp4",
+  "transform": {
+   "scale": 0.5,
+   "x": 0.2,
+   "y": 0
+  }
+ },
+ "shaAfter": "a8db7eb83fee80060d43fbd1799b70e564ebb65db4ab73eb7ecd140bbc0e6233",
+ "itemAfter": {
+  "track": "v2",
+  "id": "img-1",
+  "at": 0,
+  "duration": 60,
+  "source": {
+   "kind": "media",
+   "src": "src-1",
+   "in": 0,
+   "out": 2
+  },
+  "path": "assets/broll/talkinghead-desk-ja-01/clip.mp4",
+  "transform": {
+   "scale": 0.5,
+   "x": 0.2,
+   "y": 0
+  }
+ },
+ "sameTrack": [
+  "img-1@0+60",
+  "broll-1@90+1260"
+ ],
+ "ui": {
+  "trialBar": [
+   {
+    "text": "お試し中: オーロラメッシュ背景 → 自宅デスクのトーキングヘッド（日本語・37.6 秒）▶ もう一度差し替えるやめる",
+    "visible": true
+   }
+  ],
+  "inspectorSwapRow": false,
+  "leftPanel": "swap-shelf",
+  "toasts": []
+ },
+ "lint": {
+  "verdict": "pass",
+  "errors": [],
+  "sourceRange": 0
+ }
+}
