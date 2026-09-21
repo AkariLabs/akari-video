@@ -1989,6 +1989,22 @@ function descendantLeafIds(tree, id) {
     const edit = activeEdit;
     activeEdit = null;
 
+    // source.text replaces the whole named part. A nested/ancestor/unrelated
+    // text element must never flatten that structure or serialize its mask.
+    // Slots keep their existing params route, including inside a part overlay.
+    if (edit.part && !edit.slotName && edit.element !== edit.partElement) {
+      edit.fragment.replaceWith(edit.originalFragment);
+      invalidateOverlayHitPolicy(edit.container);
+      applyOverlayHitPolicy(edit.container);
+      syncOverlayHitRegion(edit.container);
+      const error = new Error("この部品は文字を 1 つだけ持つ形にしてください");
+      reportWriteError("text", edit.overlayId, error);
+      window.akari.showWriteError?.(error);
+      const failure = Promise.reject(error);
+      failure.catch(() => undefined);
+      return failure;
+    }
+
     // 保存直前の安全網: input/compositionend を取りこぼした場合でも、確定した
     // 編集層のテキストで全ミラー層を同期してから書き出す（P0-R 契約 §3）。
     syncMirrorLayers(edit.container, edit.element);
@@ -2029,6 +2045,16 @@ function descendantLeafIds(tree, id) {
         edit.overlayId,
         { params: { [edit.slotName]: edit.element.textContent ?? "" } },
         "params"
+      );
+      return record.promise;
+    }
+
+    if (edit.part) {
+      const record = enqueueWrite(
+        edit.writeContext,
+        edit.overlayId,
+        { text: edit.element.textContent ?? "" },
+        "text"
       );
       return record.promise;
     }
@@ -2084,6 +2110,22 @@ function descendantLeafIds(tree, id) {
       slotName: slotNameForElement(element),
       writeContext: captureWriteContext(),
     };
+
+    const part = window.akari.state?.summary?.overlays?.find(
+      overlay => overlay.id === activeEdit.overlayId
+    )?.part;
+    if (typeof part === "string" && part && !activeEdit.slotName) {
+      const fragment = fragmentRoot(container);
+      activeEdit.part = part;
+      activeEdit.partElement = [fragment, ...fragment.querySelectorAll("[data-akari-part]")]
+        .find(candidate => candidate.getAttribute("data-akari-part") === part);
+      activeEdit.fragment = fragment;
+      // Snapshot before split collapse, mirror synchronization, or any typing.
+      // Remove injected hit styles so the restored clone can acquire its own
+      // hit-policy bookkeeping instead of treating them as author CSS.
+      activeEdit.originalFragment = fragment.cloneNode(true);
+      restoreHitPolicyStyles(activeEdit.originalFragment, fragment);
+    }
 
     // テキスト分割断片（data-akari-split）は編集中だけ素のテキストへ畳む。
     // <span class="akari-u"> のまま contenteditable にすると、打鍵で span が
