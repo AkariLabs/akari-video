@@ -1,0 +1,522 @@
+{
+  "phase": "before",
+  "status": "done",
+  "fixtures": {
+    "placed": {
+      "rowCount": 12,
+      "rowIds": [
+        "s-1",
+        "p-a",
+        "s-2",
+        "p-b",
+        "s-3",
+        "s-4",
+        "s-5",
+        "p-c",
+        "s-6",
+        "p-d",
+        "s-7",
+        "s-8"
+      ],
+      "rows": [
+        {
+          "id": "s-1",
+          "text": "今日は朝のルーティンを紹介します",
+          "height": 46.15,
+          "width": 568,
+          "rowText": {
+            "left": 11,
+            "width": 550,
+            "paddingLeft": "0px",
+            "paddingRight": "0px",
+            "marginLeft": "0px",
+            "marginRight": "0px"
+          },
+          "timecode": {
+            "left": 11,
+            "width": 71.37,
+            "paddingLeft": "1px",
+            "paddingRight": "1px",
+            "marginLeft": "0px",
+            "marginRight": "0px"
+          },
+          "rowNumber": null,
+          "rowNumberText": null
+        },
+        {
+          "id": "p-a",
+          "text": "MORNING ROUTINE",
+          "height": 46.15,
+          "width": 568,
+          "rowText": {
+            "left": 11,
+            "width": 550,
+            "paddingLeft": "0px",
+            "paddingRight": "0px",
+            "marginLeft": "0px",
+            "marginRight": "0px"
+          },
+          "timecode": {
+            "left": 11,
+            "width": 71.37,
+            "paddingLeft": "1px",
+            "paddingRight": "1px",
+            "marginLeft": "0px",
+            "marginRight": "0px"
+          },
+          "rowNumber": null,
+          "rowNumberText": null
+        },
+        {
+          "id": "s-2",
+          "text": "まずはコーヒーを淹れるところから··· 32.0",
+          "height": 46.15,
+          "width": 568,
+          "rowText": {
+            "left": 11,
+            "width": 550,
+            "paddingLeft": "0px",
+            "paddingRight": "0px",
+            "marginLeft": "0px",
+            "marginRight": "0px"
+          },
+          "timecode": {
+            "left": 11,
+            "width": 71.37,
+            "paddingLeft": "1px",
+            "paddingRight": "1px",
+            "marginLeft": "0px",
+            "marginRight": "0px"
+          },
+          "rowNumber": null,
+          "rowNumberText": null
+        },
+        {
+          "id": "p-b",
+          "text": "豆: エチオピア 浅煎り··· 32.00",
+          "height": 46.15,
+          "width": 568,
+          "rowText": {
+            "left": 11,
+            "width": 550,
+            "paddingLeft": "0px",
+            "paddingRight": "0px",
+            "marginLeft": "0px",
+            "marginRight": "0px"
+          },
+          "timecode": {
+            "left": 11,
+            "width": 71.37,
+            "paddingLeft": "1px",
+            "paddingRight": "1px",
+            "marginLeft": "0px",
+            "marginRight": "0px"
+          },
+          "rowNumber": null,
+          "rowNumberText": null
+        },
+        {
+          "id": "s-3",
+          "text": "豆は挽きたてが一番おいしい··· 32.00",
+          "height": 46.15,
+          "width": 568,
+          "rowText": {
+            "left": 11,
+            "width": 550,
+            "paddingLeft": "0px",
+            "paddingRight": "0px",
+            "marginLeft": "0px",
+            "marginRight": "0px"
+          },
+          "timecode": {
+            "left": 11,
+            "width": 71.37,
+            "paddingLeft": "1px",
+            "paddingRight": "1px",
+            "marginLeft": "0px",
+            "marginRight": "0px"
+          },
+          "rowNumber": null,
+          "rowNumberText": null
+        },
+        {
+          "id": "s-4",
+          "text": "お湯は少し冷ましてから注ぎます··· 32.00",
+          "height": 46.15,
+          "width": 568,
+          "rowText": {
+            "left": 11,
+            "width": 550,
+            "paddingLeft": "0px",
+            "paddingRight": "0px",
+            "marginLeft": "0px",
+            "marginRight": "0px"
+          },
+          "timecode": {
+            "left": 11,
+            "width": 71.37,
+            "paddingLeft": "1px",
+            "paddingRight": "1px",
+            "marginLeft": "0px",
+            "marginRight": "0px"
+          },
+          "rowNumber": null,
+          "rowNumberText": null
+        },
+        {
+          "id": "s-5",
+          "text": "蒸らしは 30 秒くらい··· 32.00",
+          "height": 46.15,
+          "width": 568,
+          "rowText": {
+            "left": 11,
+            "width": 550,
+            "paddingLeft": "0px",
+            "paddingRight": "0px",
+            "marginLeft": "0px",
+            "marginRight": "0px"
+          },
+          "timecode": {
+            "left": 11,
+            "width": 71.37,
+            "paddingLeft": "1px",
+            "paddingRight": "1px",
+            "marginLeft": "0px",
+            "marginRight": "0px"
+          },
+          "rowNumber": null,
+          "rowNumberText": null
+        },
+        {
+          "id": "p-c",
+          "text": "蒸らし 30 秒··· 32.00",
+          "height": 46.15,
+          "width": 568,
+          "rowText": {
+            "left": 11,
+            "width": 550,
+            "paddingLeft": "0px",
+            "paddingRight": "0px",
+            "marginLeft": "0px",
+            "marginRight": "0px"
+          },
+          "timecode": {
+            "left": 11,
+            "width": 71.37,
+            "paddingLeft": "1px",
+            "paddingRight": "1px",
+            "marginLeft": "0px",
+            "marginRight": "0px"
+          },
+          "rowNumber": null,
+          "rowNumberText": null
+        },
+        {
+          "id": "s-6",
+          "text": "その間にデスクを片付けます··· 32.00",
+          "height": 46.15,
+          "width": 568,
+          "rowText": {
+            "left": 11,
+            "width": 550,
+            "paddingLeft": "0px",
+            "paddingRight": "0px",
+            "marginLeft": "0px",
+            "marginRight": "0px"
+          },
+          "timecode": {
+            "left": 11,
+            "width": 71.37,
+            "paddingLeft": "1px",
+            "paddingRight": "1px",
+            "marginLeft": "0px",
+            "marginRight": "0px"
+          },
+          "rowNumber": null,
+          "rowNumberText": null
+        },
+        {
+          "id": "p-d",
+          "text": "今日の予定··· 32.00",
+          "height": 46.15,
+          "width": 568,
+          "rowText": {
+            "left": 11,
+            "width": 550,
+            "paddingLeft": "0px",
+            "paddingRight": "0px",
+            "marginLeft": "0px",
+            "marginRight": "0px"
+          },
+          "timecode": {
+            "left": 11,
+            "width": 71.37,
+            "paddingLeft": "1px",
+            "paddingRight": "1px",
+            "marginLeft": "0px",
+            "marginRight": "0px"
+          },
+          "rowNumber": null,
+          "rowNumberText": null
+        },
+        {
+          "id": "s-7",
+          "text": "パソコンを開いて今日の予定を確認··· 32.0",
+          "height": 46.15,
+          "width": 568,
+          "rowText": {
+            "left": 11,
+            "width": 550,
+            "paddingLeft": "0px",
+            "paddingRight": "0px",
+            "marginLeft": "0px",
+            "marginRight": "0px"
+          },
+          "timecode": {
+            "left": 11,
+            "width": 71.37,
+            "paddingLeft": "1px",
+            "paddingRight": "1px",
+            "marginLeft": "0px",
+            "marginRight": "0px"
+          },
+          "rowNumber": null,
+          "rowNumberText": null
+        },
+        {
+          "id": "s-8",
+          "text": "最後にチャンネル登録お願いします",
+          "height": 46.15,
+          "width": 568,
+          "rowText": {
+            "left": 11,
+            "width": 550,
+            "paddingLeft": "0px",
+            "paddingRight": "0px",
+            "marginLeft": "0px",
+            "marginRight": "0px"
+          },
+          "timecode": {
+            "left": 11,
+            "width": 71.37,
+            "paddingLeft": "1px",
+            "paddingRight": "1px",
+            "marginLeft": "0px",
+            "marginRight": "0px"
+          },
+          "rowNumber": null,
+          "rowNumberText": null
+        }
+      ],
+      "screenshot": "before-01-placed.png"
+    },
+    "none": {
+      "rowCount": 8,
+      "rowIds": [
+        "s-1",
+        "s-2",
+        "s-3",
+        "s-4",
+        "s-5",
+        "s-6",
+        "s-7",
+        "s-8"
+      ],
+      "rows": [
+        {
+          "id": "s-1",
+          "text": "今日は朝のルーティンを紹介します··· 32.0",
+          "height": 46.15,
+          "width": 568,
+          "rowText": {
+            "left": 11,
+            "width": 550,
+            "paddingLeft": "0px",
+            "paddingRight": "0px",
+            "marginLeft": "0px",
+            "marginRight": "0px"
+          },
+          "timecode": {
+            "left": 11,
+            "width": 71.37,
+            "paddingLeft": "1px",
+            "paddingRight": "1px",
+            "marginLeft": "0px",
+            "marginRight": "0px"
+          },
+          "rowNumber": null,
+          "rowNumberText": null
+        },
+        {
+          "id": "s-2",
+          "text": "まずはコーヒーを淹れるところから··· 32.0",
+          "height": 46.15,
+          "width": 568,
+          "rowText": {
+            "left": 11,
+            "width": 550,
+            "paddingLeft": "0px",
+            "paddingRight": "0px",
+            "marginLeft": "0px",
+            "marginRight": "0px"
+          },
+          "timecode": {
+            "left": 11,
+            "width": 71.37,
+            "paddingLeft": "1px",
+            "paddingRight": "1px",
+            "marginLeft": "0px",
+            "marginRight": "0px"
+          },
+          "rowNumber": null,
+          "rowNumberText": null
+        },
+        {
+          "id": "s-3",
+          "text": "豆は挽きたてが一番おいしい··· 32.00",
+          "height": 46.15,
+          "width": 568,
+          "rowText": {
+            "left": 11,
+            "width": 550,
+            "paddingLeft": "0px",
+            "paddingRight": "0px",
+            "marginLeft": "0px",
+            "marginRight": "0px"
+          },
+          "timecode": {
+            "left": 11,
+            "width": 71.37,
+            "paddingLeft": "1px",
+            "paddingRight": "1px",
+            "marginLeft": "0px",
+            "marginRight": "0px"
+          },
+          "rowNumber": null,
+          "rowNumberText": null
+        },
+        {
+          "id": "s-4",
+          "text": "お湯は少し冷ましてから注ぎます··· 32.00",
+          "height": 46.15,
+          "width": 568,
+          "rowText": {
+            "left": 11,
+            "width": 550,
+            "paddingLeft": "0px",
+            "paddingRight": "0px",
+            "marginLeft": "0px",
+            "marginRight": "0px"
+          },
+          "timecode": {
+            "left": 11,
+            "width": 71.37,
+            "paddingLeft": "1px",
+            "paddingRight": "1px",
+            "marginLeft": "0px",
+            "marginRight": "0px"
+          },
+          "rowNumber": null,
+          "rowNumberText": null
+        },
+        {
+          "id": "s-5",
+          "text": "蒸らしは 30 秒くらい··· 32.00",
+          "height": 46.15,
+          "width": 568,
+          "rowText": {
+            "left": 11,
+            "width": 550,
+            "paddingLeft": "0px",
+            "paddingRight": "0px",
+            "marginLeft": "0px",
+            "marginRight": "0px"
+          },
+          "timecode": {
+            "left": 11,
+            "width": 71.37,
+            "paddingLeft": "1px",
+            "paddingRight": "1px",
+            "marginLeft": "0px",
+            "marginRight": "0px"
+          },
+          "rowNumber": null,
+          "rowNumberText": null
+        },
+        {
+          "id": "s-6",
+          "text": "その間にデスクを片付けます··· 32.00",
+          "height": 46.15,
+          "width": 568,
+          "rowText": {
+            "left": 11,
+            "width": 550,
+            "paddingLeft": "0px",
+            "paddingRight": "0px",
+            "marginLeft": "0px",
+            "marginRight": "0px"
+          },
+          "timecode": {
+            "left": 11,
+            "width": 71.37,
+            "paddingLeft": "1px",
+            "paddingRight": "1px",
+            "marginLeft": "0px",
+            "marginRight": "0px"
+          },
+          "rowNumber": null,
+          "rowNumberText": null
+        },
+        {
+          "id": "s-7",
+          "text": "パソコンを開いて今日の予定を確認··· 32.0",
+          "height": 46.15,
+          "width": 568,
+          "rowText": {
+            "left": 11,
+            "width": 550,
+            "paddingLeft": "0px",
+            "paddingRight": "0px",
+            "marginLeft": "0px",
+            "marginRight": "0px"
+          },
+          "timecode": {
+            "left": 11,
+            "width": 71.37,
+            "paddingLeft": "1px",
+            "paddingRight": "1px",
+            "marginLeft": "0px",
+            "marginRight": "0px"
+          },
+          "rowNumber": null,
+          "rowNumberText": null
+        },
+        {
+          "id": "s-8",
+          "text": "最後にチャンネル登録お願いします",
+          "height": 46.15,
+          "width": 568,
+          "rowText": {
+            "left": 11,
+            "width": 550,
+            "paddingLeft": "0px",
+            "paddingRight": "0px",
+            "marginLeft": "0px",
+            "marginRight": "0px"
+          },
+          "timecode": {
+            "left": 11,
+            "width": 71.37,
+            "paddingLeft": "1px",
+            "paddingRight": "1px",
+            "marginLeft": "0px",
+            "marginRight": "0px"
+          },
+          "rowNumber": null,
+          "rowNumberText": null
+        }
+      ],
+      "screenshot": "before-02-none.png"
+    }
+  }
+}

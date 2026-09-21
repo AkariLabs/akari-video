@@ -1,0 +1,1162 @@
+{
+  "phase": "after",
+  "status": "pass",
+  "checks": [
+    {
+      "name": "台本の行は話した言葉の 8 行だけ",
+      "pass": true,
+      "detail": {
+        "rowCount": 8,
+        "rowIds": [
+          "s-1",
+          "s-2",
+          "s-3",
+          "s-4",
+          "s-5",
+          "s-6",
+          "s-7",
+          "s-8"
+        ]
+      }
+    },
+    {
+      "name": "バーの列は 2 本・列の総幅 10px（4+2+4）・バー幅 4px・余白なし",
+      "pass": true,
+      "detail": {
+        "columnWidth": 10,
+        "laneCount": 2,
+        "barWidths": [
+          "4px"
+        ],
+        "laneLefts": [
+          "0:0",
+          "1:6"
+        ]
+      }
+    },
+    {
+      "name": "全体 = 8 行・3 行と 2 行は同じ列・1 行だけはバー無し",
+      "pass": true,
+      "detail": {
+        "p-a": {
+          "rows": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7
+          ],
+          "lane": "0"
+        },
+        "p-b": {
+          "rows": [
+            1,
+            2,
+            3
+          ],
+          "lane": "1"
+        },
+        "p-c": {
+          "rows": [],
+          "lane": null
+        },
+        "p-d": {
+          "rows": [
+            5,
+            6
+          ],
+          "lane": "1"
+        },
+        "firstBar": {
+          "top": 3,
+          "radius": "2px 2px 0px 0px"
+        },
+        "lastBar": {
+          "bottomGap": 3,
+          "radius": "0px 0px 2px 2px"
+        }
+      }
+    },
+    {
+      "name": "札は先頭行に 4 枚・枠線 0・左の縦線なし・N 行 / 全体の添え書き",
+      "pass": true,
+      "detail": [
+        {
+          "id": "p-a",
+          "row": "s-1",
+          "text": "T MORNING ROUTINE · 全体",
+          "borderTopWidth": "0px",
+          "borderRightWidth": "0px",
+          "borderBottomWidth": "0px",
+          "borderLeftWidth": "0px",
+          "borderLeftStyle": "none",
+          "boxShadow": "none",
+          "background": "color(srgb 0.219608 0.741176 0.972549 / 0.24)",
+          "color": "rgb(56, 189, 248)",
+          "borderRadius": "4px"
+        },
+        {
+          "id": "p-b",
+          "row": "s-2",
+          "text": "T 豆: エチオピア 浅煎り · 3 行",
+          "borderTopWidth": "0px",
+          "borderRightWidth": "0px",
+          "borderBottomWidth": "0px",
+          "borderLeftWidth": "0px",
+          "borderLeftStyle": "none",
+          "boxShadow": "none",
+          "background": "color(srgb 0.654902 0.545098 0.980392 / 0.24)",
+          "color": "rgb(167, 139, 250)",
+          "borderRadius": "4px"
+        },
+        {
+          "id": "p-c",
+          "row": "s-5",
+          "text": "T 蒸らし 30 秒",
+          "borderTopWidth": "0px",
+          "borderRightWidth": "0px",
+          "borderBottomWidth": "0px",
+          "borderLeftWidth": "0px",
+          "borderLeftStyle": "none",
+          "boxShadow": "none",
+          "background": "color(srgb 0.203922 0.827451 0.6 / 0.24)",
+          "color": "rgb(52, 211, 153)",
+          "borderRadius": "4px"
+        },
+        {
+          "id": "p-d",
+          "row": "s-6",
+          "text": "T 今日の予定 · 2 行",
+          "borderTopWidth": "0px",
+          "borderRightWidth": "0px",
+          "borderBottomWidth": "0px",
+          "borderLeftWidth": "0px",
+          "borderLeftStyle": "none",
+          "boxShadow": "none",
+          "background": "color(srgb 0.956863 0.447059 0.713726 / 0.24)",
+          "color": "rgb(244, 114, 182)",
+          "borderRadius": "4px"
+        }
+      ]
+    },
+    {
+      "name": "行の左余白 = 元の 8px + 列 10px",
+      "pass": true,
+      "detail": {
+        "rowPaddingLeft": "18px",
+        "rowTextLeft": 21
+      }
+    },
+    {
+      "name": "選択なしのテンプレ一括適用で置いた文字の style_preset が変わらない",
+      "pass": true,
+      "detail": {
+        "pickerTitle": "字幕テンプレ — 適用先: 全 8 行",
+        "spokenPreset": "subtitle-news",
+        "placedPreset": {
+          "p-a": null,
+          "p-b": null,
+          "p-c": null,
+          "p-d": null
+        }
+      }
+    },
+    {
+      "name": "無音の一括短縮の提案に置いた文字が現れない",
+      "pass": true,
+      "detail": {
+        "gapChips": [
+          {
+            "row": "s-1",
+            "text": "··· 32.00"
+          },
+          {
+            "row": "s-2",
+            "text": "··· 32.00"
+          },
+          {
+            "row": "s-3",
+            "text": "··· 32.00"
+          },
+          {
+            "row": "s-4",
+            "text": "··· 32.00"
+          },
+          {
+            "row": "s-5",
+            "text": "··· 32.00"
+          },
+          {
+            "row": "s-6",
+            "text": "··· 32.00"
+          },
+          {
+            "row": "s-7",
+            "text": "··· 32.00"
+          }
+        ]
+      }
+    },
+    {
+      "name": "札クリック → 選択・範囲編集、「後ろへ 1 行広げる」で end が次の行の終わりへ・バーが 1 行伸びる",
+      "pass": true,
+      "detail": {
+        "editor": {
+          "text": "T 豆: エチオピア 浅煎り\n2 行目 〜 4 行目（0:04.00 〜 0:15.19）\n前へ 1 行広げる\n前を 1 行縮める\n後ろへ 1 行広げる\n後ろを 1 行縮める\n全体\n削除\n文字を編集",
+          "actions": [
+            {
+              "action": "expand-start",
+              "label": "前へ 1 行広げる",
+              "disabled": false
+            },
+            {
+              "action": "shrink-start",
+              "label": "前を 1 行縮める",
+              "disabled": false
+            },
+            {
+              "action": "expand-end",
+              "label": "後ろへ 1 行広げる",
+              "disabled": false
+            },
+            {
+              "action": "shrink-end",
+              "label": "後ろを 1 行縮める",
+              "disabled": false
+            },
+            {
+              "action": "all",
+              "label": "全体",
+              "disabled": false
+            },
+            {
+              "action": "delete",
+              "label": "削除",
+              "disabled": false
+            },
+            {
+              "action": "edit-text",
+              "label": "文字を編集",
+              "disabled": false
+            }
+          ],
+          "tagSelected": true,
+          "tagBorder": "0px",
+          "selectedBars": 3
+        },
+        "captionAfter": {
+          "start": 4,
+          "end": 19.2,
+          "time_domain": "output"
+        },
+        "barRows": [
+          1,
+          2,
+          3,
+          4
+        ],
+        "tag": "T 豆: エチオピア 浅煎り · 4 行",
+        "laneCount": "2"
+      }
+    },
+    {
+      "name": "Cmd+Z の 1 手で戻る",
+      "pass": true,
+      "detail": {
+        "captionAfterUndo": {
+          "start": 4,
+          "end": 15.2,
+          "time_domain": "output"
+        },
+        "barRows": [
+          1,
+          2,
+          3
+        ]
+      }
+    },
+    {
+      "name": "「全体」で最初の行から最後の行まで通る",
+      "pass": true,
+      "detail": {
+        "captionAfter": {
+          "start": 0,
+          "end": 31.2,
+          "time_domain": "output"
+        },
+        "barRows": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7
+        ],
+        "tag": "T 今日の予定 · 全体",
+        "laneCount": "3",
+        "columnWidth": 16
+      }
+    },
+    {
+      "name": "一括短縮を実行しても置いた文字は書き換えられない",
+      "pass": true,
+      "detail": {
+        "footer": "7 件をカットしました（956 フレーム短縮）。",
+        "placedUnchanged": true,
+        "placedIdsInEditJson": 0
+      }
+    },
+    {
+      "name": "置いた文字 0 本: バーの列の幅 0・行の左余白と本文位置は BEFORE と同じ",
+      "pass": true,
+      "detail": {
+        "columnWidths": [
+          0
+        ],
+        "rowPaddingLeft": "8px",
+        "rowTextLeft": {
+          "before": 11,
+          "after": 11
+        },
+        "rowHeight": {
+          "before": 46.15,
+          "after": 46.15
+        }
+      }
+    }
+  ],
+  "screenshots": [
+    "after-01-placed.png",
+    "after-02-selected.png",
+    "after-03-expand-end.png",
+    "after-04-undo.png",
+    "after-05-all.png",
+    "after-06-none.png"
+  ],
+  "measured": {
+    "placed": {
+      "rowCount": 8,
+      "rowIds": [
+        "s-1",
+        "s-2",
+        "s-3",
+        "s-4",
+        "s-5",
+        "s-6",
+        "s-7",
+        "s-8"
+      ],
+      "hasPlacedBars": true,
+      "placedWidthVar": "10px",
+      "columns": [
+        {
+          "width": 10,
+          "computedWidth": "10px",
+          "laneCount": "2",
+          "paddingLeft": "0px",
+          "paddingRight": "0px",
+          "bars": [
+            {
+              "id": "p-a",
+              "lane": "0",
+              "width": 4,
+              "computedWidth": "4px",
+              "left": 0,
+              "top": 3,
+              "bottomGap": 0,
+              "height": 64.95,
+              "borderRadius": "2px 2px 0px 0px",
+              "background": "rgb(56, 189, 248)",
+              "first": true,
+              "last": false
+            }
+          ]
+        },
+        {
+          "width": 10,
+          "computedWidth": "10px",
+          "laneCount": "2",
+          "paddingLeft": "0px",
+          "paddingRight": "0px",
+          "bars": [
+            {
+              "id": "p-a",
+              "lane": "0",
+              "width": 4,
+              "computedWidth": "4px",
+              "left": 0,
+              "top": 0,
+              "bottomGap": 0,
+              "height": 67.95,
+              "borderRadius": "0px",
+              "background": "rgb(56, 189, 248)",
+              "first": false,
+              "last": false
+            },
+            {
+              "id": "p-b",
+              "lane": "1",
+              "width": 4,
+              "computedWidth": "4px",
+              "left": 6,
+              "top": 3,
+              "bottomGap": 0,
+              "height": 64.95,
+              "borderRadius": "2px 2px 0px 0px",
+              "background": "rgb(167, 139, 250)",
+              "first": true,
+              "last": false
+            }
+          ]
+        },
+        {
+          "width": 10,
+          "computedWidth": "10px",
+          "laneCount": "2",
+          "paddingLeft": "0px",
+          "paddingRight": "0px",
+          "bars": [
+            {
+              "id": "p-a",
+              "lane": "0",
+              "width": 4,
+              "computedWidth": "4px",
+              "left": 0,
+              "top": 0,
+              "bottomGap": 0,
+              "height": 46.15,
+              "borderRadius": "0px",
+              "background": "rgb(56, 189, 248)",
+              "first": false,
+              "last": false
+            },
+            {
+              "id": "p-b",
+              "lane": "1",
+              "width": 4,
+              "computedWidth": "4px",
+              "left": 6,
+              "top": 0,
+              "bottomGap": 0,
+              "height": 46.15,
+              "borderRadius": "0px",
+              "background": "rgb(167, 139, 250)",
+              "first": false,
+              "last": false
+            }
+          ]
+        },
+        {
+          "width": 10,
+          "computedWidth": "10px",
+          "laneCount": "2",
+          "paddingLeft": "0px",
+          "paddingRight": "0px",
+          "bars": [
+            {
+              "id": "p-a",
+              "lane": "0",
+              "width": 4,
+              "computedWidth": "4px",
+              "left": 0,
+              "top": 0,
+              "bottomGap": 0,
+              "height": 46.15,
+              "borderRadius": "0px",
+              "background": "rgb(56, 189, 248)",
+              "first": false,
+              "last": false
+            },
+            {
+              "id": "p-b",
+              "lane": "1",
+              "width": 4,
+              "computedWidth": "4px",
+              "left": 6,
+              "top": 0,
+              "bottomGap": 3,
+              "height": 43.15,
+              "borderRadius": "0px 0px 2px 2px",
+              "background": "rgb(167, 139, 250)",
+              "first": false,
+              "last": true
+            }
+          ]
+        },
+        {
+          "width": 10,
+          "computedWidth": "10px",
+          "laneCount": "2",
+          "paddingLeft": "0px",
+          "paddingRight": "0px",
+          "bars": [
+            {
+              "id": "p-a",
+              "lane": "0",
+              "width": 4,
+              "computedWidth": "4px",
+              "left": 0,
+              "top": 0,
+              "bottomGap": 0,
+              "height": 67.95,
+              "borderRadius": "0px",
+              "background": "rgb(56, 189, 248)",
+              "first": false,
+              "last": false
+            }
+          ]
+        },
+        {
+          "width": 10,
+          "computedWidth": "10px",
+          "laneCount": "2",
+          "paddingLeft": "0px",
+          "paddingRight": "0px",
+          "bars": [
+            {
+              "id": "p-a",
+              "lane": "0",
+              "width": 4,
+              "computedWidth": "4px",
+              "left": 0,
+              "top": 0,
+              "bottomGap": 0,
+              "height": 67.95,
+              "borderRadius": "0px",
+              "background": "rgb(56, 189, 248)",
+              "first": false,
+              "last": false
+            },
+            {
+              "id": "p-d",
+              "lane": "1",
+              "width": 4,
+              "computedWidth": "4px",
+              "left": 6,
+              "top": 3,
+              "bottomGap": 0,
+              "height": 64.95,
+              "borderRadius": "2px 2px 0px 0px",
+              "background": "rgb(244, 114, 182)",
+              "first": true,
+              "last": false
+            }
+          ]
+        },
+        {
+          "width": 10,
+          "computedWidth": "10px",
+          "laneCount": "2",
+          "paddingLeft": "0px",
+          "paddingRight": "0px",
+          "bars": [
+            {
+              "id": "p-a",
+              "lane": "0",
+              "width": 4,
+              "computedWidth": "4px",
+              "left": 0,
+              "top": 0,
+              "bottomGap": 0,
+              "height": 46.15,
+              "borderRadius": "0px",
+              "background": "rgb(56, 189, 248)",
+              "first": false,
+              "last": false
+            },
+            {
+              "id": "p-d",
+              "lane": "1",
+              "width": 4,
+              "computedWidth": "4px",
+              "left": 6,
+              "top": 0,
+              "bottomGap": 3,
+              "height": 43.15,
+              "borderRadius": "0px 0px 2px 2px",
+              "background": "rgb(244, 114, 182)",
+              "first": false,
+              "last": true
+            }
+          ]
+        },
+        {
+          "width": 10,
+          "computedWidth": "10px",
+          "laneCount": "2",
+          "paddingLeft": "0px",
+          "paddingRight": "0px",
+          "bars": [
+            {
+              "id": "p-a",
+              "lane": "0",
+              "width": 4,
+              "computedWidth": "4px",
+              "left": 0,
+              "top": 0,
+              "bottomGap": 3,
+              "height": 43.15,
+              "borderRadius": "0px 0px 2px 2px",
+              "background": "rgb(56, 189, 248)",
+              "first": false,
+              "last": true
+            }
+          ]
+        }
+      ],
+      "rowPadding": [
+        "18px",
+        "18px",
+        "18px",
+        "18px",
+        "18px",
+        "18px",
+        "18px",
+        "18px"
+      ],
+      "tags": [
+        {
+          "id": "p-a",
+          "row": "s-1",
+          "text": "T MORNING ROUTINE · 全体",
+          "borderTopWidth": "0px",
+          "borderRightWidth": "0px",
+          "borderBottomWidth": "0px",
+          "borderLeftWidth": "0px",
+          "borderLeftStyle": "none",
+          "boxShadow": "none",
+          "background": "color(srgb 0.219608 0.741176 0.972549 / 0.24)",
+          "color": "rgb(56, 189, 248)",
+          "borderRadius": "4px"
+        },
+        {
+          "id": "p-b",
+          "row": "s-2",
+          "text": "T 豆: エチオピア 浅煎り · 3 行",
+          "borderTopWidth": "0px",
+          "borderRightWidth": "0px",
+          "borderBottomWidth": "0px",
+          "borderLeftWidth": "0px",
+          "borderLeftStyle": "none",
+          "boxShadow": "none",
+          "background": "color(srgb 0.654902 0.545098 0.980392 / 0.24)",
+          "color": "rgb(167, 139, 250)",
+          "borderRadius": "4px"
+        },
+        {
+          "id": "p-c",
+          "row": "s-5",
+          "text": "T 蒸らし 30 秒",
+          "borderTopWidth": "0px",
+          "borderRightWidth": "0px",
+          "borderBottomWidth": "0px",
+          "borderLeftWidth": "0px",
+          "borderLeftStyle": "none",
+          "boxShadow": "none",
+          "background": "color(srgb 0.203922 0.827451 0.6 / 0.24)",
+          "color": "rgb(52, 211, 153)",
+          "borderRadius": "4px"
+        },
+        {
+          "id": "p-d",
+          "row": "s-6",
+          "text": "T 今日の予定 · 2 行",
+          "borderTopWidth": "0px",
+          "borderRightWidth": "0px",
+          "borderBottomWidth": "0px",
+          "borderLeftWidth": "0px",
+          "borderLeftStyle": "none",
+          "boxShadow": "none",
+          "background": "color(srgb 0.956863 0.447059 0.713726 / 0.24)",
+          "color": "rgb(244, 114, 182)",
+          "borderRadius": "4px"
+        }
+      ]
+    },
+    "placedRows": [
+      {
+        "id": "s-1",
+        "text": "今日は朝のルーティンを紹介します··· 32.0",
+        "height": 67.95,
+        "width": 568,
+        "rowText": {
+          "left": 21,
+          "width": 540,
+          "paddingLeft": "0px",
+          "paddingRight": "0px",
+          "marginLeft": "0px",
+          "marginRight": "0px"
+        },
+        "timecode": {
+          "left": 21,
+          "width": 71.37,
+          "paddingLeft": "1px",
+          "paddingRight": "1px",
+          "marginLeft": "0px",
+          "marginRight": "0px"
+        },
+        "rowNumber": null,
+        "rowNumberText": null
+      },
+      {
+        "id": "s-2",
+        "text": "まずはコーヒーを淹れるところから··· 32.0",
+        "height": 67.95,
+        "width": 568,
+        "rowText": {
+          "left": 21,
+          "width": 540,
+          "paddingLeft": "0px",
+          "paddingRight": "0px",
+          "marginLeft": "0px",
+          "marginRight": "0px"
+        },
+        "timecode": {
+          "left": 21,
+          "width": 71.37,
+          "paddingLeft": "1px",
+          "paddingRight": "1px",
+          "marginLeft": "0px",
+          "marginRight": "0px"
+        },
+        "rowNumber": null,
+        "rowNumberText": null
+      },
+      {
+        "id": "s-3",
+        "text": "豆は挽きたてが一番おいしい··· 32.00",
+        "height": 46.15,
+        "width": 568,
+        "rowText": {
+          "left": 21,
+          "width": 540,
+          "paddingLeft": "0px",
+          "paddingRight": "0px",
+          "marginLeft": "0px",
+          "marginRight": "0px"
+        },
+        "timecode": {
+          "left": 21,
+          "width": 71.37,
+          "paddingLeft": "1px",
+          "paddingRight": "1px",
+          "marginLeft": "0px",
+          "marginRight": "0px"
+        },
+        "rowNumber": null,
+        "rowNumberText": null
+      },
+      {
+        "id": "s-4",
+        "text": "お湯は少し冷ましてから注ぎます··· 32.00",
+        "height": 46.15,
+        "width": 568,
+        "rowText": {
+          "left": 21,
+          "width": 540,
+          "paddingLeft": "0px",
+          "paddingRight": "0px",
+          "marginLeft": "0px",
+          "marginRight": "0px"
+        },
+        "timecode": {
+          "left": 21,
+          "width": 71.37,
+          "paddingLeft": "1px",
+          "paddingRight": "1px",
+          "marginLeft": "0px",
+          "marginRight": "0px"
+        },
+        "rowNumber": null,
+        "rowNumberText": null
+      },
+      {
+        "id": "s-5",
+        "text": "蒸らしは 30 秒くらい··· 32.00",
+        "height": 67.95,
+        "width": 568,
+        "rowText": {
+          "left": 21,
+          "width": 540,
+          "paddingLeft": "0px",
+          "paddingRight": "0px",
+          "marginLeft": "0px",
+          "marginRight": "0px"
+        },
+        "timecode": {
+          "left": 21,
+          "width": 71.37,
+          "paddingLeft": "1px",
+          "paddingRight": "1px",
+          "marginLeft": "0px",
+          "marginRight": "0px"
+        },
+        "rowNumber": null,
+        "rowNumberText": null
+      },
+      {
+        "id": "s-6",
+        "text": "その間にデスクを片付けます··· 32.00",
+        "height": 67.95,
+        "width": 568,
+        "rowText": {
+          "left": 21,
+          "width": 540,
+          "paddingLeft": "0px",
+          "paddingRight": "0px",
+          "marginLeft": "0px",
+          "marginRight": "0px"
+        },
+        "timecode": {
+          "left": 21,
+          "width": 71.37,
+          "paddingLeft": "1px",
+          "paddingRight": "1px",
+          "marginLeft": "0px",
+          "marginRight": "0px"
+        },
+        "rowNumber": null,
+        "rowNumberText": null
+      },
+      {
+        "id": "s-7",
+        "text": "パソコンを開いて今日の予定を確認··· 32.0",
+        "height": 46.15,
+        "width": 568,
+        "rowText": {
+          "left": 21,
+          "width": 540,
+          "paddingLeft": "0px",
+          "paddingRight": "0px",
+          "marginLeft": "0px",
+          "marginRight": "0px"
+        },
+        "timecode": {
+          "left": 21,
+          "width": 71.37,
+          "paddingLeft": "1px",
+          "paddingRight": "1px",
+          "marginLeft": "0px",
+          "marginRight": "0px"
+        },
+        "rowNumber": null,
+        "rowNumberText": null
+      },
+      {
+        "id": "s-8",
+        "text": "最後にチャンネル登録お願いします",
+        "height": 46.15,
+        "width": 568,
+        "rowText": {
+          "left": 21,
+          "width": 540,
+          "paddingLeft": "0px",
+          "paddingRight": "0px",
+          "marginLeft": "0px",
+          "marginRight": "0px"
+        },
+        "timecode": {
+          "left": 21,
+          "width": 71.37,
+          "paddingLeft": "1px",
+          "paddingRight": "1px",
+          "marginLeft": "0px",
+          "marginRight": "0px"
+        },
+        "rowNumber": null,
+        "rowNumberText": null
+      }
+    ],
+    "none": {
+      "rowCount": 8,
+      "rowIds": [
+        "s-1",
+        "s-2",
+        "s-3",
+        "s-4",
+        "s-5",
+        "s-6",
+        "s-7",
+        "s-8"
+      ],
+      "hasPlacedBars": false,
+      "placedWidthVar": "0px",
+      "columns": [
+        {
+          "width": 0,
+          "computedWidth": "0px",
+          "laneCount": "0",
+          "paddingLeft": "0px",
+          "paddingRight": "0px",
+          "bars": []
+        },
+        {
+          "width": 0,
+          "computedWidth": "0px",
+          "laneCount": "0",
+          "paddingLeft": "0px",
+          "paddingRight": "0px",
+          "bars": []
+        },
+        {
+          "width": 0,
+          "computedWidth": "0px",
+          "laneCount": "0",
+          "paddingLeft": "0px",
+          "paddingRight": "0px",
+          "bars": []
+        },
+        {
+          "width": 0,
+          "computedWidth": "0px",
+          "laneCount": "0",
+          "paddingLeft": "0px",
+          "paddingRight": "0px",
+          "bars": []
+        },
+        {
+          "width": 0,
+          "computedWidth": "0px",
+          "laneCount": "0",
+          "paddingLeft": "0px",
+          "paddingRight": "0px",
+          "bars": []
+        },
+        {
+          "width": 0,
+          "computedWidth": "0px",
+          "laneCount": "0",
+          "paddingLeft": "0px",
+          "paddingRight": "0px",
+          "bars": []
+        },
+        {
+          "width": 0,
+          "computedWidth": "0px",
+          "laneCount": "0",
+          "paddingLeft": "0px",
+          "paddingRight": "0px",
+          "bars": []
+        },
+        {
+          "width": 0,
+          "computedWidth": "0px",
+          "laneCount": "0",
+          "paddingLeft": "0px",
+          "paddingRight": "0px",
+          "bars": []
+        }
+      ],
+      "rowPadding": [
+        "8px",
+        "8px",
+        "8px",
+        "8px",
+        "8px",
+        "8px",
+        "8px",
+        "8px"
+      ],
+      "tags": []
+    },
+    "noneRows": [
+      {
+        "id": "s-1",
+        "text": "今日は朝のルーティンを紹介します··· 32.0",
+        "height": 46.15,
+        "width": 568,
+        "rowText": {
+          "left": 11,
+          "width": 550,
+          "paddingLeft": "0px",
+          "paddingRight": "0px",
+          "marginLeft": "0px",
+          "marginRight": "0px"
+        },
+        "timecode": {
+          "left": 11,
+          "width": 71.37,
+          "paddingLeft": "1px",
+          "paddingRight": "1px",
+          "marginLeft": "0px",
+          "marginRight": "0px"
+        },
+        "rowNumber": null,
+        "rowNumberText": null
+      },
+      {
+        "id": "s-2",
+        "text": "まずはコーヒーを淹れるところから··· 32.0",
+        "height": 46.15,
+        "width": 568,
+        "rowText": {
+          "left": 11,
+          "width": 550,
+          "paddingLeft": "0px",
+          "paddingRight": "0px",
+          "marginLeft": "0px",
+          "marginRight": "0px"
+        },
+        "timecode": {
+          "left": 11,
+          "width": 71.37,
+          "paddingLeft": "1px",
+          "paddingRight": "1px",
+          "marginLeft": "0px",
+          "marginRight": "0px"
+        },
+        "rowNumber": null,
+        "rowNumberText": null
+      },
+      {
+        "id": "s-3",
+        "text": "豆は挽きたてが一番おいしい··· 32.00",
+        "height": 46.15,
+        "width": 568,
+        "rowText": {
+          "left": 11,
+          "width": 550,
+          "paddingLeft": "0px",
+          "paddingRight": "0px",
+          "marginLeft": "0px",
+          "marginRight": "0px"
+        },
+        "timecode": {
+          "left": 11,
+          "width": 71.37,
+          "paddingLeft": "1px",
+          "paddingRight": "1px",
+          "marginLeft": "0px",
+          "marginRight": "0px"
+        },
+        "rowNumber": null,
+        "rowNumberText": null
+      },
+      {
+        "id": "s-4",
+        "text": "お湯は少し冷ましてから注ぎます··· 32.00",
+        "height": 46.15,
+        "width": 568,
+        "rowText": {
+          "left": 11,
+          "width": 550,
+          "paddingLeft": "0px",
+          "paddingRight": "0px",
+          "marginLeft": "0px",
+          "marginRight": "0px"
+        },
+        "timecode": {
+          "left": 11,
+          "width": 71.37,
+          "paddingLeft": "1px",
+          "paddingRight": "1px",
+          "marginLeft": "0px",
+          "marginRight": "0px"
+        },
+        "rowNumber": null,
+        "rowNumberText": null
+      },
+      {
+        "id": "s-5",
+        "text": "蒸らしは 30 秒くらい··· 32.00",
+        "height": 46.15,
+        "width": 568,
+        "rowText": {
+          "left": 11,
+          "width": 550,
+          "paddingLeft": "0px",
+          "paddingRight": "0px",
+          "marginLeft": "0px",
+          "marginRight": "0px"
+        },
+        "timecode": {
+          "left": 11,
+          "width": 71.37,
+          "paddingLeft": "1px",
+          "paddingRight": "1px",
+          "marginLeft": "0px",
+          "marginRight": "0px"
+        },
+        "rowNumber": null,
+        "rowNumberText": null
+      },
+      {
+        "id": "s-6",
+        "text": "その間にデスクを片付けます··· 32.00",
+        "height": 46.15,
+        "width": 568,
+        "rowText": {
+          "left": 11,
+          "width": 550,
+          "paddingLeft": "0px",
+          "paddingRight": "0px",
+          "marginLeft": "0px",
+          "marginRight": "0px"
+        },
+        "timecode": {
+          "left": 11,
+          "width": 71.37,
+          "paddingLeft": "1px",
+          "paddingRight": "1px",
+          "marginLeft": "0px",
+          "marginRight": "0px"
+        },
+        "rowNumber": null,
+        "rowNumberText": null
+      },
+      {
+        "id": "s-7",
+        "text": "パソコンを開いて今日の予定を確認··· 32.0",
+        "height": 46.15,
+        "width": 568,
+        "rowText": {
+          "left": 11,
+          "width": 550,
+          "paddingLeft": "0px",
+          "paddingRight": "0px",
+          "marginLeft": "0px",
+          "marginRight": "0px"
+        },
+        "timecode": {
+          "left": 11,
+          "width": 71.37,
+          "paddingLeft": "1px",
+          "paddingRight": "1px",
+          "marginLeft": "0px",
+          "marginRight": "0px"
+        },
+        "rowNumber": null,
+        "rowNumberText": null
+      },
+      {
+        "id": "s-8",
+        "text": "最後にチャンネル登録お願いします",
+        "height": 46.15,
+        "width": 568,
+        "rowText": {
+          "left": 11,
+          "width": 550,
+          "paddingLeft": "0px",
+          "paddingRight": "0px",
+          "marginLeft": "0px",
+          "marginRight": "0px"
+        },
+        "timecode": {
+          "left": 11,
+          "width": 71.37,
+          "paddingLeft": "1px",
+          "paddingRight": "1px",
+          "marginLeft": "0px",
+          "marginRight": "0px"
+        },
+        "rowNumber": null,
+        "rowNumberText": null
+      }
+    ]
+  }
+}

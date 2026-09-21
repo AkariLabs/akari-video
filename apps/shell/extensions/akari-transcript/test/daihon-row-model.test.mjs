@@ -91,12 +91,11 @@ test('全区間がカット中の行は出力窓を null にする', () => {
     assert.equal(row.outEnd, null);
 });
 
-test('output 時間の行は timeline map を適用しない', () => {
-    const segments = [{ kind: 'src', outStart: 0, outEnd: 1, cutIndex: 0, in: 5, out: 7, speed: 2 }];
-    const [row] = buildDaihonRows([{ ...base, start: 5, end: 6, time_domain: 'output' }], segments);
-    assert.equal(row.outStart, 5);
-    assert.equal(row.outEnd, 6);
-    assert.equal(row.timeDomain, 'output');
+test('output 時間の字幕は行から外し、手動追加の source 行は残す', () => {
+    const manual = { ...base, id: 'manual', sourceRef: null };
+    const output = { ...base, id: 'placed', time_domain: 'output' };
+    assert.deepEqual(buildDaihonRows([manual, output], null).map(row => row.id), ['manual']);
+    assert.deepEqual(buildDaihonRows([{ ...output, time_domain: undefined, timeDomain: 'output' }], null), []);
 });
 
 test('unrecognized を複製して行モデルへ通す', () => {
@@ -106,13 +105,11 @@ test('unrecognized を複製して行モデルへ通す', () => {
     assert.notEqual(row.unrecognized, spans);
 });
 
-test('output 時間の unrecognized は変換せず保持する', () => {
-    const spans = [{ start: 5.7, end: 5.8 }];
-    const segments = [{ kind: 'src', outStart: 0, outEnd: 1, cutIndex: 0, in: 5, out: 7, speed: 2 }];
-    const [row] = buildDaihonRows([{
-        ...base, start: 5, end: 6, time_domain: 'output', unrecognized: spans
-    }], segments);
-    assert.deepEqual(row.unrecognized, spans);
+test('output の除外で元字幕の unrecognized や時刻を書き換えない', () => {
+    const caption = { ...base, start: 5, end: 6, time_domain: 'output', unrecognized: [{ start: 5.7, end: 5.8 }] };
+    const before = structuredClone(caption);
+    assert.deepEqual(buildDaihonRows([caption], null), []);
+    assert.deepEqual(caption, before);
 });
 
 test('unrecognized 無しは空配列になる', () => {

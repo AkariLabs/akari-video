@@ -1,3 +1,4 @@
+import { placedTextRanges, placedTextLanes, placedTextTiming, type PlacedTextAction, type PlacedTextRange } from '../../common/daihon-placed-text';
 import { DaihonOpenTarget, isValidDaihonWordRange, resolveDaihonFocusRowId } from '../../common/daihon-focus-target';
 import { installDaihonFocusPulseStyle, triggerFocusPulse } from '../../common/daihon-focus-pulse-style';
 import { AkariProjectService, type TranscribeCuts } from 'akari-project/lib/common/akari-project-protocol';
@@ -153,7 +154,7 @@ const TOGGLE_PREVIEW_PLAYBACK_COMMAND_ID = 'akari.preview.togglePlayback';
 const MIN_WORD_INSERT_GAP_SEC = 0.1;
 const DAIHON_WORD_UNIT_PREFERENCE = 'akari.daihon.wordUnit';
 const DAIHON_SHOW_BREAKS_PREFERENCE = 'akari.daihon.showBreaks';
-const INTERACTIVE_SELECTOR = '.akari-daihon-speaker, button.akari-daihon-tc, .akari-daihon-word, .akari-daihon-word-unk, input, .akari-daihon-badge-qc, .akari-daihon-gapchip, button.akari-daihon-cut, button.akari-daihon-split, button.akari-daihon-gear, button.akari-daihon-selgear, .akari-daihon-splitmark, .akari-daihon-gapzone, .akari-daihon-gapdraft, .akari-daihon-word-filler, button.akari-daihon-silence, button.akari-daihon-selcut, button.akari-daihon-selmerge, button.akari-daihon-selmerge-next, button.akari-daihon-tpl, button.akari-daihon-seltpl, .akari-daihon-tplcard, .akari-daihon-cutcell, .akari-daihon-cutrange, .akari-daihon-pop, .akari-daihon-minitl, .akari-daihon-wgap, .akari-daihon-wordbar, .akari-daihon-wordcm, .akari-daihon-slash';
+const INTERACTIVE_SELECTOR = '.akari-daihon-placed-bar, .akari-daihon-placed-tag, .akari-daihon-speaker, button.akari-daihon-tc, .akari-daihon-word, .akari-daihon-word-unk, input, .akari-daihon-badge-qc, .akari-daihon-gapchip, button.akari-daihon-cut, button.akari-daihon-split, button.akari-daihon-gear, button.akari-daihon-selgear, .akari-daihon-splitmark, .akari-daihon-gapzone, .akari-daihon-gapdraft, .akari-daihon-word-filler, button.akari-daihon-silence, button.akari-daihon-selcut, button.akari-daihon-selmerge, button.akari-daihon-selmerge-next, button.akari-daihon-tpl, button.akari-daihon-seltpl, .akari-daihon-tplcard, .akari-daihon-cutcell, .akari-daihon-cutrange, .akari-daihon-pop, .akari-daihon-minitl, .akari-daihon-wgap, .akari-daihon-wordbar, .akari-daihon-wordcm, .akari-daihon-slash';
 
 interface PreviewPlaybackTick {
     videoUri?: string;
@@ -212,6 +213,8 @@ interface CutOperation {
     entries: CutEntry[];
     beforeSource: string;
 }
+
+const PLACED_TEXT_COLORS = ['var(--theia-akariTheme-placedTextBlue, #38bdf8)', 'var(--theia-akariTheme-placedTextViolet, #a78bfa)', 'var(--theia-akariTheme-placedTextGreen, #34d399)', 'var(--theia-akariTheme-placedTextPink, #f472b6)'];
 
 const STYLE_ID = 'akari-daihon-widget-style';
 const STYLE = `
@@ -380,6 +383,20 @@ const STYLE = `
 .akari-daihon-cutrange button { padding:2px 6px; border:1px solid #333b48; border-radius:4px; color:#b9c1cf; background:#262c37; font-size:9.5px; cursor:pointer; }
 .akari-daihon-cutrange button:hover { color:#e9ecf2; border-color:#445068; }
 .akari-daihon-cutrange button.primary { color:#ffb39e; border-color:rgba(255,143,115,.55); }
+.akari-daihon-row { padding-left:calc(8px + var(--placed-width, 0px)); }
+.akari-daihon-placed-columns { position:absolute; left:0; top:0; bottom:0; width:var(--placed-width, 0px); padding:0; display:flex; gap:2px; }
+.akari-daihon-rows.has-placed-bars .akari-daihon-row { margin-top:0; margin-bottom:0; }
+.akari-daihon-rows.has-placed-bars .akari-daihon-gapzone { margin-top:-4px; margin-bottom:-4px; }
+.akari-daihon-widget .akari-daihon-placed-bar { position:absolute; top:0; bottom:0; width:4px; min-width:0; padding:0; margin:0; border:0; border-radius:0; background:var(--placed-color); cursor:pointer; opacity:.9; }
+.akari-daihon-widget .akari-daihon-placed-bar.first { top:3px; border-radius:2px 2px 0 0; }
+.akari-daihon-widget .akari-daihon-placed-bar.last { bottom:3px; border-radius:0 0 2px 2px; }
+.akari-daihon-widget .akari-daihon-placed-tag { display:inline-block; font-family:inherit; font-size:10.5px; line-height:1.6; border:0; border-radius:4px; padding:1px 7px; margin:3px 6px 0 0; color:var(--placed-color); background:color-mix(in srgb, var(--placed-color) 24%, transparent); cursor:pointer; overflow-wrap:anywhere; text-align:left; }
+.akari-daihon-widget .akari-daihon-placed-bar.selected, .akari-daihon-widget .akari-daihon-placed-tag.selected { border:0; box-shadow:0 0 0 1px var(--theia-editor-foreground, #fff); opacity:1; }
+.akari-daihon-placed-editor { padding:8px 11px; background:var(--theia-editorWidget-background, #141414); flex-shrink:0; }
+.akari-daihon-placed-editor[hidden] { display:none; }
+.akari-daihon-placed-actions { display:flex; gap:6px; flex-wrap:wrap; margin-top:7px; }
+.akari-daihon-placed-actions button { border:0; border-radius:6px; background:var(--theia-button-secondaryBackground, #1a1a1a); color:inherit; font-size:11.5px; padding:4px 9px; cursor:pointer; }
+.akari-daihon-placed-actions button:disabled { opacity:.4; cursor:default; }
 @media (prefers-reduced-motion: reduce) { .akari-daihon-rows { scroll-behavior:auto; } }
 `;
 
@@ -431,6 +448,9 @@ export class AkariDaihonWidget extends BaseWidget {
     protected readonly qcButton = document.createElement('button');
     protected readonly silenceButton = document.createElement('button');
     protected readonly cutsButton = document.createElement('button');
+    protected placedSelection: string | undefined;
+    protected placedBusy = false;
+    protected readonly placedEditor = document.createElement('div');
     protected readonly rowsNode = document.createElement('div');
     protected readonly selectionBar = document.createElement('div');
     protected readonly selectionCount = document.createElement('span');
@@ -625,7 +645,23 @@ export class AkariDaihonWidget extends BaseWidget {
 
         this.footer.className = 'akari-daihon-footer';
         this.footer.textContent = '秒数や語をクリックするとプレビューへシークします。';
-        this.node.append(header, this.rowsNode, this.selectionBar, this.footer);
+        this.placedEditor.className = 'akari-daihon-placed-editor';
+        this.placedEditor.hidden = true;
+        this.node.append(header, this.placedEditor, this.rowsNode, this.selectionBar, this.footer);
+        const previewSelection = (event: Event): void => {
+            const detail = (event as CustomEvent<{ editUri?: string; captionId?: string }>).detail;
+            this.receivePlacedSelection(detail?.editUri, detail?.captionId);
+        };
+        const timelineSelection = (event: Event): void => {
+            const detail = (event as CustomEvent<{ editUri?: string; selection?: { kind: string; id: string } }>).detail;
+            this.receivePlacedSelection(detail?.editUri, detail?.selection?.kind === 'caption' ? detail.selection.id : undefined);
+        };
+        window.addEventListener(PREVIEW_CAPTION_SELECTED_EVENT, previewSelection);
+        window.addEventListener('akari.timeline.primarySelected', timelineSelection);
+        this.toDispose.push({ dispose: () => {
+            window.removeEventListener(PREVIEW_CAPTION_SELECTED_EVENT, previewSelection);
+            window.removeEventListener('akari.timeline.primarySelected', timelineSelection);
+        } });
 
         const tick = (event: Event): void => this.handlePlaybackTick(
             (event as CustomEvent<PreviewPlaybackTick>).detail
@@ -968,7 +1004,7 @@ export class AkariDaihonWidget extends BaseWidget {
         const policy = daihonDisplayPolicyForWrite(this.captionsRoot, knobs);
         this.captionOverflowUnitsById.clear();
         this.wordUnitsByRowId.clear();
-        return this.sourceCaptions.map(caption => this.toDaihonCaption(
+        return this.sourceCaptions.filter(caption => caption.timeDomain !== 'output').map(caption => this.toDaihonCaption(
             caption, this.captionExtraById.get(caption.id), policy
         ));
     }
@@ -1289,6 +1325,153 @@ export class AkariDaihonWidget extends BaseWidget {
         this.applyQcFilter();
         this.renderCutCells();
         this.updateSelectionMerge();
+        this.renderPlacedText();
+    }
+
+    protected placedRanges(): PlacedTextRange[] {
+        return placedTextRanges(this.sourceCaptions.map(caption => ({ ...caption, style: caption.style ?? null })), this.rows);
+    }
+
+    protected receivePlacedSelection(editUri: string | undefined, captionId: string | undefined): void {
+        if (!editUri || editUri !== this.editUri?.normalizePath().toString()) return;
+        const id = this.sourceCaptions.some(caption => caption.id === captionId && caption.timeDomain === 'output')
+            ? captionId : undefined;
+        if (id === this.placedSelection) return;
+        if (id) {
+            this.wordRanges = [];
+            this.renderWordSelection();
+            this.setSelection(clearSelection(), false);
+        }
+        this.placedSelection = id;
+        this.renderPlacedText();
+    }
+
+    protected selectPlacedText(captionId: string): void {
+        this.closePop();
+        this.wordRanges = [];
+        this.renderWordSelection();
+        this.setSelection(clearSelection(), false);
+        this.placedSelection = captionId;
+        this.renderPlacedText();
+        const editUri = this.editUri?.normalizePath().toString();
+        if (!editUri) return;
+        const payload = { editUri, captionIds: [captionId] };
+        window.dispatchEvent(new CustomEvent(DAIHON_SELECTION_CHANGED_EVENT, { detail: payload }));
+        void this.commands.executeCommand(TIMELINE_SELECT_CAPTIONS_COMMAND_ID, payload).catch(() => undefined);
+        window.dispatchEvent(new CustomEvent(PREVIEW_CAPTION_SELECTED_EVENT, { detail: { editUri, captionId } }));
+    }
+
+    protected renderPlacedText(): void {
+        const ranges = this.placedRanges();
+        const layout = placedTextLanes(ranges);
+        if (!this.sourceCaptions.some(caption => caption.id === this.placedSelection && caption.timeDomain === 'output')) {
+            this.placedSelection = undefined;
+        }
+        this.rowsNode.style.setProperty('--placed-width', `${layout.width}px`);
+        this.rowsNode.classList.toggle('has-placed-bars', layout.count > 0);
+        this.rows.forEach((row, index) => {
+            const root = this.elements.get(row.id)?.root;
+            if (!root) return;
+            root.querySelectorAll('.akari-daihon-placed-columns, .akari-daihon-placed-tags').forEach(node => node.remove());
+            const columns = document.createElement('div');
+            columns.className = 'akari-daihon-placed-columns';
+            columns.dataset.laneCount = String(layout.count);
+            const tags = document.createElement('div');
+            tags.className = 'akari-daihon-placed-tags';
+            for (const range of ranges) {
+                const color = PLACED_TEXT_COLORS[range.colorIndex % PLACED_TEXT_COLORS.length];
+                const makeButton = (className: string): HTMLButtonElement => {
+                    const button = document.createElement('button');
+                    button.type = 'button';
+                    button.className = className;
+                    button.dataset.captionId = range.captionId;
+                    button.style.setProperty('--placed-color', color);
+                    button.classList.toggle('selected', range.captionId === this.placedSelection);
+                    button.setAttribute('aria-pressed', String(range.captionId === this.placedSelection));
+                    button.title = range.text;
+                    button.addEventListener('click', event => { event.stopPropagation(); this.selectPlacedText(range.captionId); });
+                    return button;
+                };
+                const lane = layout.lanes.get(range.captionId);
+                if (lane !== undefined && index >= range.first && index <= range.last) {
+                    const bar = makeButton('akari-daihon-placed-bar');
+                    bar.dataset.lane = String(lane);
+                    bar.style.left = `${lane * 6}px`;
+                    bar.classList.toggle('first', index === range.first);
+                    bar.classList.toggle('last', index === range.last);
+                    bar.setAttribute('aria-label', `${range.text} · ${range.first + 1}〜${range.last + 1} 行`);
+                    columns.appendChild(bar);
+                }
+                if (index === range.first) {
+                    const tag = makeButton('akari-daihon-placed-tag');
+                    const suffix = range.first === 0 && range.last === this.rows.length - 1 ? ' · 全体'
+                        : range.last > range.first ? ` · ${range.last - range.first + 1} 行` : '';
+                    tag.textContent = `T ${range.text}${suffix}`;
+                    tags.appendChild(tag);
+                }
+            }
+            root.prepend(columns);
+            if (tags.childElementCount) root.appendChild(tags);
+        });
+        this.renderPlacedEditor(ranges.find(range => range.captionId === this.placedSelection));
+    }
+
+    protected renderPlacedEditor(range: PlacedTextRange | undefined): void {
+        this.placedEditor.replaceChildren();
+        this.placedEditor.hidden = !range;
+        if (!range) return;
+        this.placedEditor.dataset.captionId = range.captionId;
+        const title = document.createElement('div');
+        title.textContent = `T ${range.text}`;
+        title.style.color = PLACED_TEXT_COLORS[range.colorIndex % PLACED_TEXT_COLORS.length];
+        const readout = document.createElement('div');
+        readout.textContent = `${range.first + 1} 行目 〜 ${range.last + 1} 行目（${this.formatTime(range.start)} 〜 ${this.formatTime(range.end)}）`;
+        const actions = document.createElement('div');
+        actions.className = 'akari-daihon-placed-actions';
+        const choices: Array<[PlacedTextAction | 'delete' | 'edit-text', string]> = [
+            ['expand-start', '前へ 1 行広げる'], ['shrink-start', '前を 1 行縮める'],
+            ['expand-end', '後ろへ 1 行広げる'], ['shrink-end', '後ろを 1 行縮める'],
+            ['all', '全体'], ['delete', '削除'], ['edit-text', '文字を編集']
+        ];
+        for (const [action, label] of choices) {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.dataset.action = action;
+            button.textContent = label;
+            button.disabled = this.placedBusy || (action !== 'delete' && action !== 'edit-text'
+                && !placedTextTiming(range, this.rows, action));
+            button.addEventListener('click', () => {
+                if (action === 'edit-text') void this.focusCaptionInspector(range.captionId);
+                else void this.editPlacedText(range.captionId, action, label);
+            });
+            actions.appendChild(button);
+        }
+        this.placedEditor.append(title, readout, actions);
+    }
+
+    protected async editPlacedText(captionId: string, action: PlacedTextAction | 'delete', label: string): Promise<void> {
+        if (this.placedBusy || !this.captionsUri || !this.rootUri) return;
+        const range = this.placedRanges().find(candidate => candidate.captionId === captionId);
+        if (!range) return;
+        const timing = action === 'delete' ? null : placedTextTiming(range, this.rows, action);
+        if (action !== 'delete' && !timing) return;
+        this.placedBusy = true;
+        this.renderPlacedEditor(range);
+        try {
+            await this.withHistory(`置いた文字: ${label}`, async () => {
+                const target = { captionsUri: this.captionsUri!.toString(), projectRootUri: this.rootUri!.toString(), captionId };
+                if (action === 'delete') await this.annotationsService.removeCaption(target);
+                else await this.annotationsService.setCaptionTiming({ ...target, ...timing!, edited: true });
+            });
+            await this.reload();
+            this.notify(`置いた文字: ${label}`);
+        } catch (error) {
+            await this.reload();
+            this.notify(this.errorMessage(error));
+        } finally {
+            this.placedBusy = false;
+            this.renderPlacedText();
+        }
     }
 
     protected createRow(row: DaihonRow): RowElements {
@@ -2548,6 +2731,7 @@ export class AkariDaihonWidget extends BaseWidget {
         name: string,
         selected: boolean
     ): Promise<void> {
+        captionIds = captionIds.filter(id => this.rows.some(row => row.id === id));
         if (!this.captionsUri || !this.rootUri || captionIds.length === 0) return;
         try {
             const result = await this.annotationsService.setCaptionStylePreset({
@@ -3402,7 +3586,11 @@ export class AkariDaihonWidget extends BaseWidget {
         this.applyRowSelectionClasses();
     }
 
-    protected setSelection(next: DaihonSelection): void {
+    protected setSelection(next: DaihonSelection, sync = true): void {
+        if (next.selected.length && this.placedSelection) {
+            this.placedSelection = undefined;
+            this.renderPlacedText();
+        }
         const previous = this.selection;
         const plan = planSelectionUpdate(previous, next);
         const changed = previous.anchorId !== next.anchorId || plan.add.length > 0 || plan.remove.length > 0;
@@ -3416,6 +3604,7 @@ export class AkariDaihonWidget extends BaseWidget {
         this.selectionBar.hidden = count === 0;
         this.selectionCount.textContent = `${count} 行選択（Shift=範囲 / ⌘=追加 / ドラッグ=まとめて）`;
         this.updateSelectionMerge();
+        if (!sync) return;
         const payload = selectionSyncPayload(this.editUri?.normalizePath().toString() ?? '', next);
         window.dispatchEvent(new CustomEvent(DAIHON_SELECTION_CHANGED_EVENT, { detail: payload }));
         void this.commands.executeCommand(TIMELINE_SELECT_CAPTIONS_COMMAND_ID, payload).catch(() => undefined);
@@ -3671,10 +3860,13 @@ export class AkariDaihonWidget extends BaseWidget {
         previous?.root.replaceWith(next.root);
         this.elements.set(row.id, next);
         this.renderCutCells();
+        this.renderPlacedText();
     }
 
     protected showEmpty(): void {
         this.closePop();
+        this.placedSelection = undefined;
+        this.placedEditor.hidden = true;
         this.rows = [];
         this.count.textContent = '0 行';
         this.qcButton.className = 'akari-daihon-qc ok';

@@ -27,6 +27,10 @@
 // メニュー・hover ウィジェット・クイックオープン）の輪郭。カード外周と同じ
 // 強さ（= 外周の実効値）を与え、地の上に浮いていることを見せる。
 export const DARK = {
+    placedTextBlue: '#38bdf8',
+    placedTextViolet: '#a78bfa',
+    placedTextGreen: '#34d399',
+    placedTextPink: '#f472b6',
     bgDeep: '#050505',
     bg: '#0a0a0a',
     card: '#141414',
@@ -47,6 +51,10 @@ export const DARK = {
 export type AkariPalette = typeof DARK;
 
 export const LIGHT: AkariPalette = {
+    placedTextBlue: '#0369a1',
+    placedTextViolet: '#7c3aed',
+    placedTextGreen: '#047857',
+    placedTextPink: '#be185d',
     bgDeep: '#ececec',
     bg: '#ffffff',
     card: '#f5f5f5',

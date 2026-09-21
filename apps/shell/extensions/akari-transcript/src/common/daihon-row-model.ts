@@ -85,17 +85,14 @@ function overlapsKeptSource(
 export function buildDaihonRows(
     captions: readonly DaihonCaptionLike[], segments: readonly TimelineSegment[] | null
 ): DaihonRow[] {
-    return captions.map(caption => {
+    return captions.filter(caption => (caption.timeDomain ?? caption.time_domain) !== 'output').map(caption => {
         const words = caption.words?.length ? caption.words.map(word => ({ ...word })) : null;
         const unrecognized = caption.unrecognized?.map(span => ({ ...span })) ?? [];
         const timeDomain = caption.timeDomain ?? caption.time_domain ?? 'source';
         const src = caption.src ?? null;
         let outStart: number | null;
         let outEnd: number | null;
-        if (timeDomain === 'output') {
-            outStart = caption.start;
-            outEnd = caption.end;
-        } else if (!segments) {
+        if (!segments) {
             outStart = caption.start;
             outEnd = caption.end;
         } else if (!overlapsKeptSource(segmentsForSource(segments, src), caption.start, caption.end)) {
