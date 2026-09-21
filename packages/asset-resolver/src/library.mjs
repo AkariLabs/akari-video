@@ -4,6 +4,20 @@ import path from 'node:path';
 import { resolveAssetLibraryRoots } from '../../creator-root/src/index.mjs';
 
 export const ASSET_CATEGORIES = ['overlay', 'still', 'scene3d', 'audio', 'broll', 'font'];
+const FIRST_PARTY_SOURCES = [
+  { hostname: 'github.com', firstPathSegment: 'AkariLabs' },
+  { hostname: 'akari-oss.app', includeSubdomains: true },
+];
+
+function isFirstPartySource(sourceUrl) {
+  let url;
+  try { url = new URL(sourceUrl); } catch { return false; }
+  return FIRST_PARTY_SOURCES.some(source =>
+    (url.hostname === source.hostname
+      || (source.includeSubdomains && url.hostname.endsWith(`.${source.hostname}`)))
+    && (!source.firstPathSegment || url.pathname.split('/')[1] === source.firstPathSegment));
+}
+
 function roots(env) {
   return resolveAssetLibraryRoots(typeof env === 'string' ? { AKARI_HOME: env } : env);
 }
@@ -38,7 +52,8 @@ export function sourceFields(item, inCatalog = false) {
   const value = prefix => allTags.find(tag => tag.startsWith(prefix))?.slice(prefix.length) ?? null;
   return {
     sourceKind: inCatalog ? 'lab' : allTags.includes('origin:site') ? 'site'
-      : allTags.includes('origin:own') ? 'own' : item.source?.url ? 'site' : 'own',
+      : allTags.includes('origin:own') ? 'own' : isFirstPartySource(item.source?.url) ? 'lab'
+      : item.source?.url ? 'site' : 'own',
     tags: allTags.filter(tag => !machine(tag)), machineTags: allTags.filter(machine),
     folder: value('folder:'), site: value('site:'), subscription: allTags.includes('license:subscription'),
     creditText: item.creditText ?? null,

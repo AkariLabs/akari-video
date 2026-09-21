@@ -439,7 +439,10 @@ catalog に載せる素材は、取得元のライセンスが CC0 相当（帰�
 | `pack:<id>` | 素材セット。置き場直下の packs.json は catalog/packs.json と同型 |
 
 一覧ではこれらを `machineTags` に分け、表示・検索用の `tags` に残さない。
-カタログ掲載は lab、明示 origin タグがない既存の source.url つき素材は site、それ以外は own とする。
+出どころはカタログ掲載（lab）、明示 origin タグ（site / own）、AKARI 配布元の source.url（lab）、
+その他の source.url あり（site）、それ以外（own）の順で決める。
+AKARI 配布元は URL を解析し、ホスト github.com かつパスの最初のセグメントが AkariLabs、
+またはホスト akari-oss.app とそのサブドメインで判定する。壊れた URL は site とする。
 素材ディレクトリの `CREDIT.txt` はクレジット文面 1 行。文面がある場合は
 `license.attribution_required: true`、source がある場合はその attribution_required も true にする。
 

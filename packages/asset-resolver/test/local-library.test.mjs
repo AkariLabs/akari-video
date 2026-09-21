@@ -93,6 +93,45 @@ for (const [label, item, inCatalog, expected] of [
   ['unmarked local', {}, false, 'own'],
 ]) test(`sourceKind: ${label}`, () => assert.equal(sourceFields(item, inCatalog).sourceKind, expected));
 
+for (const kind of ['bgm', 'jingle', 'sfx']) {
+  test(`AKARI Sounds ${kind} outside the catalog is lab`, async t => {
+    const { env } = fixture(t);
+    const id = `akari-sounds-${kind}`;
+    asset(env.AKARI_LIBRARY_ROOT, id, {
+      author: 'AKARI Sounds',
+      source: { url: 'https://github.com/AkariLabs/akari-sounds/releases/tag/v0', acquisition: 'direct' },
+    });
+    const item = (await composeState({ env })).items.find(item => item.id === id);
+    assert.equal(item.sourceKind, 'lab');
+    assert.deepEqual(item.machineTags, []);
+  });
+}
+
+for (const [url, expected] of [
+  ['https://github.com/AkariLabs-evil/x', 'site'],
+  ['https://evil.example/github.com/AkariLabs/x', 'site'],
+  ['https://akari-oss.app.evil.example/x', 'site'],
+  ['https://evilakari-oss.app/x', 'site'],
+  ['https://github.com/other/AkariLabs/x', 'site'],
+  ['https://akari-oss.app/x', 'lab'],
+  ['https://assets.akari-oss.app/x', 'lab'],
+  ['https://cdn.assets.akari-oss.app/x', 'lab'],
+  ['https://[broken', 'site'],
+  ['not a URL', 'site'],
+]) {
+  test(`sourceKind URL boundary: ${url}`, () => {
+    assert.equal(sourceFields({ source: { url } }).sourceKind, expected);
+  });
+}
+
+for (const origin of ['site', 'own']) {
+  test(`origin:${origin} takes precedence over first-party source URL`, () => {
+    const item = { tags: [`origin:${origin}`], source: { url: 'https://github.com/AkariLabs/akari-sounds' } };
+    assert.equal(sourceFields(item).sourceKind, origin);
+    assert.equal(sourceFields(item, true).sourceKind, 'lab');
+  });
+}
+
 test('media selection is unique, immediate, and excludes still preview.png', () => {
   const files = names => names.map(name => ({ name, bytes: 1 }));
   assert.equal(primaryMediaFile('audio', files(['a.wav', 'b.mp3'])), null);

@@ -185,12 +185,15 @@ root（絶対パス）、state（pending / migrating / done / declined）、deci
 
 | フィールド | 意味 |
 | --- | --- |
-| `sourceKind` | カタログ収載・ストア導入は `lab`。それ以外は `origin:site` / `origin:own`、既存の `source.url`（site）、既定 own の順 |
+| `sourceKind` | カタログ収載・ストア導入は `lab`。それ以外は `origin:site` / `origin:own`、AKARI 配布元の `source.url`（lab）、その他の `source.url`（site）、既定 own の順 |
 | `tags` / `machineTags` | 人向けタグ / `origin:*`・`site:*`・`folder:*`・`pack:*`・`license:subscription` |
 | `folder` / `site` / `subscription` | 機械用タグの値（無ければ null / null / false） |
 | `creditText` | CREDIT.txt の先頭 1 行。無ければ null |
 | `libraryDir` / `addedAt` | ローカル素材の絶対パス / ディレクトリ birthtime（無効なら mtime）の ISO 時刻 |
 | `preview` / `mediaFile` | ローカル素材では `preview.png` / 直下で一意な主メディアのファイル名。無ければ null |
+
+AKARI 配布元は URL を解析し、ホスト `github.com` かつパスの最初のセグメントが `AkariLabs`、
+またはホスト `akari-oss.app` とそのサブドメインで判定する。壊れた URL は `site` とする。
 
 主メディアはシェルと同じ一意解決の規則で、複数テイクから勝手に選ばない。
 still の `preview.png` は主メディア候補から除く。音・映像・画像に加え、取り込み対象の
