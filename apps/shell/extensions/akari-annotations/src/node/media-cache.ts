@@ -239,7 +239,8 @@ export async function extractSourceFrame(projectRoot: string, sourcePath: string
     const stat = await fs.stat(source);
     const hash = cacheHash([source, stat.size, stat.mtimeMs, atSeconds]).slice(0, 12);
     const name = basename(source, extname(source)).replace(/[^a-zA-Z0-9_-]/gu, '_').slice(0, 60);
-    const relativePath = `assets/captures/frame-${name}-${atSeconds}-${hash}.png`;
+    const secondsLabel = Number(atSeconds.toFixed(3));
+    const relativePath = `assets/captures/frame-${name}-${secondsLabel}-${hash}.png`;
     const destination = join(root, relativePath);
     const pending = sourceFrameExtractions.get(destination);
     if (pending) return pending;

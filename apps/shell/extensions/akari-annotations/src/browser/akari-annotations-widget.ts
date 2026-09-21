@@ -7621,6 +7621,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             && candidate.track === segment.track && Math.abs(candidate.tlStart - segment.tlEnd) < 1e-6);
         const cut = next && this.cuts[next.index];
         if (!cut) return false;
+        if (last.source_id && last.source_id === cut.src) return true;
         const path = this.sourceMap.get(cut.src)?.path ?? cut.src;
         const normalize = (value: string): string => {
             const parts: string[] = [];
@@ -15827,7 +15828,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             if (!image && !/\.(mp4|mov|m4v|webm|mkv|avi|mts|m2ts)$/iu.test(source.path)) return undefined;
             const sourceIn = Number(item.source.in ?? 0);
             const sourceOut = Number(item.source.out ?? sourceIn + item.duration / this.fps);
-            return { itemId: id, label: item.name || source.path.split('/').pop(), sourcePath: source.path,
+            return { itemId: id, sourceId: item.source.src, label: item.name || source.path.split('/').pop(), sourcePath: source.path,
                 kind: image ? 'image' : 'video', atSeconds: image ? 0
                     : which === 'last' ? Math.max(sourceIn, sourceOut - 1 / this.fps) : sourceIn };
         };
@@ -15886,7 +15887,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 if (!endpoint) return null;
                 const frame = await this.annotationsService.extractSourceFrame({ projectRootUri,
                     sourcePath: endpoint.sourcePath, atSeconds: endpoint.atSeconds, which });
-                return { path: frame.relativePath, sha256: frame.sha256 };
+                return { path: frame.relativePath, sha256: frame.sha256, source_id: endpoint.sourceId };
             };
             const first = await capture(snapshot.previous, 'last');
             const last = await capture(snapshot.next, 'first');
@@ -15918,7 +15919,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     const at = endpoint.kind === 'image' ? 0 : endpoint === snapshot.previous
                         ? Math.max(item?.source?.in ?? 0, (item?.source?.out ?? (item?.source?.in ?? 0) + item?.duration / fps) - 1 / fps)
                         : item?.source?.in ?? 0;
-                    if (source?.path !== endpoint.sourcePath || at !== endpoint.atSeconds) throw new Error('前後のクリップが変わりました。');
+                    if (item?.source?.src !== endpoint.sourceId || source?.path !== endpoint.sourcePath
+                        || at !== endpoint.atSeconds) throw new Error('前後のクリップが変わりました。');
                 }
                 const sources = [...(doc.sources as Array<Record<string, unknown>> ?? [])];
                 const ids = new Set([...sources.map(source => source.id), ...indexEditV2Items(doc).keys()]);

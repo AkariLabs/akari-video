@@ -45,9 +45,10 @@ async function step(name, operation, continueOnFailure = false) {
 }
 const LINK_STEP = 'captured last frame link indicator';
 function measurementStatus(measurements) {
-  if (measurements.steps.some(result => !result.pass && result.name !== LINK_STEP)
-      || typeof measurements.linkIndicator?.observed !== 'boolean') return 'fail';
-  return 'pass-except-link';
+  if (measurements.steps.some(result => !result.pass)
+      || measurements.linkIndicator?.observed !== true
+      || measurements.linkIndicator.title !== '次のクリップの絵につながる') return 'fail';
+  return 'pass';
 }
 async function shot(name) {
   await screenshot(cdp, path.join(ROOT, name)); output.screenshots.push(name); await save();
@@ -65,6 +66,15 @@ const GEOMETRY = `
 `;
 const intersects = (a,b) => Math.min(a.right,b.right)-Math.max(a.left,b.left)>.1 && Math.min(a.bottom,b.bottom)-Math.max(a.top,b.top)>.1;
 const overlapPairs = rects => rects.flatMap((a,i)=>rects.slice(i+1).filter(b=>intersects(a,b)).map(b=>({a,b})));
+const measureChipLayout = chip => ({
+  foregroundOverlaps: overlapPairs(chip.foregroundRects),
+  pictureOverlaps: overlapPairs(chip.frames),
+  overlapsOnPictures: chip.foregroundRects.flatMap(a => chip.frames.filter(b => intersects(a,b)).map(b => ({a,b})))
+});
+function assertChipLayout(layout) {
+  assert.deepEqual(layout.foregroundOverlaps,[],'chip foreground labels/symbols overlap');
+  assert.deepEqual(layout.pictureOverlaps,[],'chip endpoint picture cells overlap');
+}
 async function clickSelector(selector) {
   const p=await waitEval(`(()=>{${GEOMETRY} const e=document.querySelector(${JSON.stringify(selector)});if(!visible(e))return null;
     const r=e.getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2};})()`);
@@ -94,6 +104,22 @@ const GENERATION = `(()=>{${GEOMETRY}
    variety:variety?.textContent??'',text:p.textContent,
    rects:[...labels,...frames].map(e=>({role:e.className,text:e.getAttribute('aria-label')??e.textContent,...rect(e)})),
    buttons:[...p.querySelectorAll('button,[role="button"]')].filter(visible).map(e=>({text:e.textContent,...rect(e),...painted(e)}))};})()`;
+const CHIP = itemId => `(()=>{${GEOMETRY}
+ const w=window.__akariGapWidget,index=w.cutItemIds.indexOf(${JSON.stringify(itemId)}),
+   e=document.querySelector('[data-akari-item-kind="cut"][data-akari-item-id="'+index+'"]');
+ if(!visible(e))return null;
+ const frames=[...e.querySelectorAll('[data-akari-generation-frame]')].filter(visible)
+   .map(n=>({side:n.dataset.akariGenerationFrame,background:getComputedStyle(n).backgroundImage,...rect(n)}));
+ if(frames.length!==2||frames.some(n=>n.background==='none'))return null;
+ const link=e.querySelector('.akari-generation-link');
+ const pseudo=Object.fromEntries(['before','after'].map(side=>{
+   const content=link?getComputedStyle(link,'::'+side).content:null;
+   return [side,{content,present:content!==null&&content!==''&&content!=='none'&&content!=='normal'}];
+ }));
+ return {text:e.textContent,linkIndicator:{observed:visible(link)&&(pseudo.before.present||pseudo.after.present),
+   title:link?.title??null,rect:link?rect(link):null,pseudo},frames,
+   foregroundRects:[...e.querySelectorAll('.akari-generation-link,[data-akari-generation-badge],.akari-annotations-strip-clip-header-label,.akari-annotations-strip-clip-header-duration,.akari-clip-kind-badge,.akari-generation-frame-label,.akari-generation-prompt')]
+     .filter(visible).map(n=>({role:n.className,side:n.dataset.akariGenerationFrame??null,text:n.textContent,...rect(n)}))};})()`;
 async function listOwnedProcesses() {
   const { stdout } = await promisify(execFile)('/bin/ps', ['-axo', 'pid=,command='], { timeout: 5000, maxBuffer: 8 * 1024 * 1024 });
   return stdout.split('\n').flatMap(line => {
@@ -210,6 +236,8 @@ try {
     meta=JSON.parse(await readFile(path.join(PROJECT,source.path+'.meta.json'),'utf8'));
     assert.ok(validateGenerationMeta(meta).ok);
     assert.equal(meta.next.inputs.frames_or_refs,'frames');assert.equal(meta.next.output.duration_s,4);
+    assert.equal(meta.next.inputs.first_frame.source_id,initial.tracks[0].items[0].source.src);
+    assert.equal(meta.next.inputs.last_frame.source_id,initial.tracks[0].items[1].source.src);
     const captures=(await readdir(path.join(PROJECT,'assets/captures'))).filter(f=>f.endsWith('.png'));
     assert.equal(captures.length,2);
     for(const slot of ['first_frame','last_frame']) {
@@ -217,24 +245,23 @@ try {
       const png=await readFile(path.join(PROJECT,meta.next.inputs[slot].path));assert.equal(png.subarray(1,4).toString(),'PNG');
     }
     const badge=await waitEval(`(()=>{const e=[...document.querySelectorAll('[data-akari-generation-badge]')].find(e=>e.textContent==='▶ 動画予定');return e?.textContent;})()`);
-    await shot('03-video-draft.png');return {point,item,source,meta,captures,badge};
+    const chip=await waitEval(CHIP(item.id));
+    output.chipLayout={screenshot:'03-video-draft.png',chip,...measureChipLayout(chip)};
+    output.linkIndicator=chip.linkIndicator;await save();
+    await shot('03-video-draft.png');
+    assertChipLayout(output.chipLayout);
+    return {point,item,source,meta,captures,badge};
   });
   await step('generation tab displays both captured endpoint frames and first-last variety',async()=>{
     const generation=await waitEval(GENERATION);output.generation=generation;await save();
     assert.ok(generation.text.includes('最初→最後'));assert.ok(generation.images.every(i=>i.painted));
     const overlaps=overlapPairs(generation.rects);output.generationLayout={overlaps};await save();
     assert.deepEqual(overlaps,[],'generation labels intersect thumbnails');
-    const chip=await evaluate(`(()=>{${GEOMETRY}const w=window.__akariGapWidget,index=w.cutItemIds.indexOf(${JSON.stringify(item.id)}),
-      e=document.querySelector('[data-akari-item-kind="cut"][data-akari-item-id="'+index+'"]');
-      if(!e)return null;return {text:e.textContent,linked:e.textContent.includes('🔗'),frames:[...e.querySelectorAll('[data-akari-generation-frame]')].map(n=>({side:n.dataset.akariGenerationFrame,background:getComputedStyle(n).backgroundImage,...rect(n)})),rects:[...e.querySelectorAll('[data-akari-generation-badge],.akari-annotations-strip-clip-header-label,.akari-annotations-strip-clip-header-duration,.akari-clip-kind-badge')]
-        .filter(visible).map(n=>({role:n.className,text:n.textContent,...rect(n)}))};})()`);
-    output.chipLayout={chip,overlaps:chip?overlapPairs(chip.rects):[]};
-    output.linkIndicator={observed:chip?.linked??false,limitation:'Existing plannedVideoConnects compares the next source path/hash with the captured PNG; that method is outside this task ownership.'};await save();
-    assert.ok(chip);assert.deepEqual(output.chipLayout.overlaps,[],'chip labels/badges overlap');
     await shot('04-generation-frames.png');return generation;
   });
   await step(LINK_STEP,async()=>{
-    assert.equal(output.linkIndicator.observed,true,'動画から抽出した最後の絵の 🔗 判定は既存描画側の対応が必要です。');
+    assert.equal(output.linkIndicator.observed,true,'動画から抽出した最後の絵の 🔗 が表示されていません。');
+    assert.equal(output.linkIndicator.title,'次のクリップの絵につながる');
     return output.linkIndicator;
   },true);
   await step('edit-lint PASS',lint);

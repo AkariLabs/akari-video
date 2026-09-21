@@ -424,6 +424,27 @@ test('鎖は sha を優先し、なければ正規化 path、隙間と別トラ�
   assert.equal(plannedVideoConnects.call(context, segment, meta), false);
 });
 
+for (const [name, sourceId, adjacent, sameTrack, samePath, expected] of [
+  ['次の source は異なる sha/path でも接続', 'next', true, true, false, true],
+  ['別の source は接続しない', 'other', true, true, false, false],
+  ['source_id 無しの既存 path 一致', undefined, true, true, true, true],
+  ['別の source でも既存 path 一致は維持', 'other', true, true, true, true],
+  ['source 一致でもすき間があれば接続しない', 'next', false, true, false, false],
+  ['source 一致でも別トラックには接続しない', 'next', true, false, false, false]
+]) test(`動画予定の source_id 接続: ${name}`, async () => {
+  const meta = await plannedFixture('next-first-last'), context = plannedContext(meta);
+  const last = meta.next.inputs.last_frame;
+  delete last.source_id;
+  if (sourceId !== undefined) last.source_id = sourceId;
+  if (!samePath) {
+    last.path = 'assets/captures/last.png';
+    context.generationSidecars.set('assets/generated/next-first.png', { meta: { result: { sha256: 'different' } } });
+  }
+  if (!adjacent) context.segments[1].tlStart += 0.5;
+  if (!sameTrack) context.segments[1].track = 1;
+  assert.equal(plannedVideoConnects.call(context, context.segments[0], meta), expected);
+});
+
 test('placeholder の generating / stale / failed は first_frame が別でも next より優先', async t => {
   const root = await mkdtemp(join(tmpdir(), 'akari-generation-placeholder-'));
   t.after(() => rm(root, { recursive: true, force: true }));

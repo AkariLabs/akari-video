@@ -37,6 +37,19 @@ test('RPC extracts source-sized PNG, reuses a file sequentially and concurrently
   assert.deepEqual(await readdir(join(f.root, 'assets/captures')), [first.relativePath.split('/').pop()]);
   assert.equal(await readFile(join(f.root, 'edit.json'), 'utf8'), before);
 });
+test('capture seconds round to three decimals while the hash retains the exact source time', async t => {
+  const f = await fixture(t);
+  await exec(ffmpeg, ['-v', 'error', '-f', 'lavfi', '-i', 'testsrc2=size=160x90:rate=30', '-t', '4', '-c:v', 'libx264', join(f.root, f.request.sourcePath)]);
+  const request = { ...f.request, atSeconds: 3 - 1 / 30 };
+  const first = await f.service.extractSourceFrame(request);
+  assert.match(first.relativePath, /^assets\/captures\/frame-source-2\.967-[a-f0-9]+\.png$/);
+  assert.deepEqual(await f.service.extractSourceFrame(request), first);
+  assert.deepEqual(await readdir(join(f.root, 'assets/captures')), [first.relativePath.split('/').pop()]);
+  const roundedTime = await f.service.extractSourceFrame({ ...request, atSeconds: 2.967 });
+  assert.notEqual(roundedTime.relativePath, first.relativePath, 'rounding the label must not merge distinct cache keys');
+  const zero = await f.service.extractSourceFrame({ ...request, atSeconds: 0 });
+  assert.match(zero.relativePath, /frame-source-0-[a-f0-9]+\.png$/);
+});
 test('image returns the original relative path and hash without creating captures', async t => {
   const f = await fixture(t); const relativePath = 'assets/still.png';
   await exec(ffmpeg, ['-v', 'error', '-f', 'lavfi', '-i', 'color=red:s=160x90', '-frames:v', '1', join(f.root, relativePath)]);

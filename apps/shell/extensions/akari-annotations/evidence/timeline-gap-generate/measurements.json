@@ -1,5 +1,5 @@
 {
-  "status": "pass-except-link",
+  "status": "pass",
   "driver": "Electron + CDP Input.dispatchMouseEvent",
   "steps": [
     {
@@ -139,7 +139,7 @@
         ],
         "overlaps": []
       },
-      "elapsedMs": 380
+      "elapsedMs": 401
     },
     {
       "name": "real click creates exactly one four second video draft",
@@ -163,7 +163,7 @@
         },
         "source": {
           "id": "gap-src-1",
-          "path": "assets/generated/frame-1790017759467-scOqIE.png"
+          "path": "assets/generated/frame-1790018667936-WS7aoj.png"
         },
         "meta": {
           "version": 1,
@@ -201,17 +201,17 @@
           },
           "job": {
             "provider": "codex",
-            "started_at": "2026-09-21T19:09:20.275Z",
+            "started_at": "2026-09-21T19:24:29.323Z",
             "stale_after_s": 900
           },
           "provenance": {
-            "created_at": "2026-09-21T19:09:20.275Z",
+            "created_at": "2026-09-21T19:24:29.323Z",
             "tool": "akari generate still --placeholder (chrome)",
             "key_source": "login:codex"
           },
           "history": [
             {
-              "at": "2026-09-21T19:09:20.275Z",
+              "at": "2026-09-21T19:24:29.323Z",
               "status": "planned",
               "reason": null
             }
@@ -226,12 +226,14 @@
               "prompt": "",
               "negative_prompt": null,
               "first_frame": {
-                "path": "assets/captures/frame-a-2.966666666666667-ac40198dfbae.png",
-                "sha256": "89d8ed0d022fbea93de6bd9495167098832494e9c8f2881e907e6f6c2ed8a1d2"
+                "path": "assets/captures/frame-a-2.967-334b7f8256a6.png",
+                "sha256": "89d8ed0d022fbea93de6bd9495167098832494e9c8f2881e907e6f6c2ed8a1d2",
+                "source_id": "a"
               },
               "last_frame": {
-                "path": "assets/captures/frame-b-0-40e1a41f02c5.png",
-                "sha256": "f3b2a75b3f8797b35b52f79ba104c39f96f1987091e050f67b422d8570ad88db"
+                "path": "assets/captures/frame-b-0-52ea7d4454f9.png",
+                "sha256": "f3b2a75b3f8797b35b52f79ba104c39f96f1987091e050f67b422d8570ad88db",
+                "source_id": "b"
               },
               "reference_images": [],
               "reference_videos": [],
@@ -249,16 +251,16 @@
               "aspect": null,
               "audio_out": null
             },
-            "updated_at": "2026-09-21T19:09:20.281Z"
+            "updated_at": "2026-09-21T19:24:29.332Z"
           }
         },
         "captures": [
-          "frame-a-2.966666666666667-ac40198dfbae.png",
-          "frame-b-0-40e1a41f02c5.png"
+          "frame-a-2.967-334b7f8256a6.png",
+          "frame-b-0-52ea7d4454f9.png"
         ],
         "badge": "▶ 動画予定"
       },
-      "elapsedMs": 1268
+      "elapsedMs": 1889
     },
     {
       "name": "generation tab displays both captured endpoint frames and first-last variety",
@@ -613,23 +615,44 @@
           }
         ]
       },
-      "elapsedMs": 233
+      "elapsedMs": 137
     },
     {
       "name": "captured last frame link indicator",
-      "pass": false,
-      "error": "AssertionError [ERR_ASSERTION]: 動画から抽出した最後の絵の 🔗 判定は既存描画側の対応が必要です。\n\nfalse !== true\n\n    at file://<WORKTREE>/apps/shell/extensions/akari-annotations/evidence/timeline-gap-generate/l1-timeline-gap-generate.mjs:237:12\n    at step (file://<WORKTREE>/apps/shell/extensions/akari-annotations/evidence/timeline-gap-generate/l1-timeline-gap-generate.mjs:42:37)\n    at file://<WORKTREE>/apps/shell/extensions/akari-annotations/evidence/timeline-gap-generate/l1-timeline-gap-generate.mjs:236:9",
-      "elapsedMs": 1
+      "pass": true,
+      "measurements": {
+        "observed": true,
+        "title": "次のクリップの絵につながる",
+        "rect": {
+          "left": 506.453125,
+          "right": 520.453125,
+          "top": 537.515625,
+          "bottom": 549.515625,
+          "width": 14,
+          "height": 12
+        },
+        "pseudo": {
+          "before": {
+            "content": "\"\"",
+            "present": true
+          },
+          "after": {
+            "content": "\"\"",
+            "present": true
+          }
+        }
+      },
+      "elapsedMs": 0
     },
     {
       "name": "edit-lint PASS",
       "pass": true,
       "measurements": {
         "version": 1,
-        "checked_at": "2026-09-21T19:09:20.920Z",
+        "checked_at": "2026-09-21T19:24:29.968Z",
         "inputs": {
           "captions_json_sha256": "83a6fc4db60a62ad889db7adf3d492333df8de26c3563b997ee108739dea7bf1",
-          "edit_json_sha256": "319258a0b9c900acb64ad8a42d132d516b189339035311b4dcd561c5b54df8b4"
+          "edit_json_sha256": "6df6f0842d309b39a72a3a75d11f1dedc465242df403cf260c3f740a2c790019"
         },
         "verdict": "pass",
         "findings": [
@@ -671,7 +694,7 @@
           }
         ]
       },
-      "elapsedMs": 143
+      "elapsedMs": 168
     },
     {
       "name": "no generation CLI invocation or paid provider request",
@@ -690,7 +713,7 @@
         "itemCount": 2,
         "sourceCount": 2
       },
-      "elapsedMs": 289
+      "elapsedMs": 301
     }
   ],
   "screenshots": [
@@ -832,6 +855,186 @@
   },
   "gapLayout": {
     "overlaps": []
+  },
+  "chipLayout": {
+    "screenshot": "03-video-draft.png",
+    "chip": {
+      "text": "あいだを生成00:04:00画像最初最後あいだを生成▶ 動画予定",
+      "linkIndicator": {
+        "observed": true,
+        "title": "次のクリップの絵につながる",
+        "rect": {
+          "left": 506.453125,
+          "right": 520.453125,
+          "top": 537.515625,
+          "bottom": 549.515625,
+          "width": 14,
+          "height": 12
+        },
+        "pseudo": {
+          "before": {
+            "content": "\"\"",
+            "present": true
+          },
+          "after": {
+            "content": "\"\"",
+            "present": true
+          }
+        }
+      },
+      "frames": [
+        {
+          "side": "first",
+          "background": "url(\"data:image/jpeg;base64,/9j/4AAQSkZJRgABAgAAAQABAAD//gAQTGF2YzYyLjI4LjEwMgD/2wBDAAgICAkICQsLCwsLCw0MDQ0NDQ0NDQ0NDQ0ODg4REREODg4NDQ4OEBARERITEhERERETExQUFBgYFxccHB0iIin/xABMAAEBAAAAAAAAAAAAAAAAAAAABgEBAQAAAAAAAAAAAAAAAAAAAAYQAQAAAAAAAAAAAAAAAAAAAAARAQAAAAAAAAAAAAAAAAAAAAD/wAARCABaAKADARIAAhIAAxIA/9oADAMBAAIRAxEAPwCTFgJsAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAf/2Q==\")",
+          "left": 433,
+          "right": 468.78125,
+          "top": 525.515625,
+          "bottom": 561.515625,
+          "width": 35.78125,
+          "height": 36
+        },
+        {
+          "side": "last",
+          "background": "url(\"data:image/jpeg;base64,/9j/4AAQSkZJRgABAgAAAQABAAD//gAQTGF2YzYyLjI4LjEwMgD/2wBDAAgICAkICQsLCwsLCw0MDQ0NDQ0NDQ0NDQ0ODg4REREODg4NDQ4OEBARERITEhERERETExQUFBgYFxccHB0iIin/xABMAAEBAAAAAAAAAAAAAAAAAAAABQEBAQAAAAAAAAAAAAAAAAAAAAYQAQAAAAAAAAAAAAAAAAAAAAARAQAAAAAAAAAAAAAAAAAAAAD/wAARCABaAKADARIAAhIAAxIA/9oADAMBAAIRAxEAPwCeJ0WYAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA//2Q==\")",
+          "left": 486.671875,
+          "right": 522.453125,
+          "top": 525.515625,
+          "bottom": 561.515625,
+          "width": 35.78125,
+          "height": 36
+        }
+      ],
+      "foregroundRects": [
+        {
+          "role": "akari-generation-prompt",
+          "side": null,
+          "text": "あいだを生成",
+          "left": 472.78125,
+          "right": 480.671875,
+          "top": 537.515625,
+          "bottom": 549.515625,
+          "width": 7.890625,
+          "height": 12
+        },
+        {
+          "role": "akari-generation-link",
+          "side": null,
+          "text": "",
+          "left": 506.453125,
+          "right": 520.453125,
+          "top": 537.515625,
+          "bottom": 549.515625,
+          "width": 14,
+          "height": 12
+        },
+        {
+          "role": "akari-generation-badge",
+          "side": null,
+          "text": "▶ 動画予定",
+          "left": 435,
+          "right": 489.078125,
+          "top": 522.515625,
+          "bottom": 536.515625,
+          "width": 54.078125,
+          "height": 14
+        }
+      ]
+    },
+    "foregroundOverlaps": [],
+    "pictureOverlaps": [],
+    "overlapsOnPictures": [
+      {
+        "a": {
+          "role": "akari-generation-link",
+          "side": null,
+          "text": "",
+          "left": 506.453125,
+          "right": 520.453125,
+          "top": 537.515625,
+          "bottom": 549.515625,
+          "width": 14,
+          "height": 12
+        },
+        "b": {
+          "side": "last",
+          "background": "url(\"data:image/jpeg;base64,/9j/4AAQSkZJRgABAgAAAQABAAD//gAQTGF2YzYyLjI4LjEwMgD/2wBDAAgICAkICQsLCwsLCw0MDQ0NDQ0NDQ0NDQ0ODg4REREODg4NDQ4OEBARERITEhERERETExQUFBgYFxccHB0iIin/xABMAAEBAAAAAAAAAAAAAAAAAAAABQEBAQAAAAAAAAAAAAAAAAAAAAYQAQAAAAAAAAAAAAAAAAAAAAARAQAAAAAAAAAAAAAAAAAAAAD/wAARCABaAKADARIAAhIAAxIA/9oADAMBAAIRAxEAPwCeJ0WYAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA//2Q==\")",
+          "left": 486.671875,
+          "right": 522.453125,
+          "top": 525.515625,
+          "bottom": 561.515625,
+          "width": 35.78125,
+          "height": 36
+        }
+      },
+      {
+        "a": {
+          "role": "akari-generation-badge",
+          "side": null,
+          "text": "▶ 動画予定",
+          "left": 435,
+          "right": 489.078125,
+          "top": 522.515625,
+          "bottom": 536.515625,
+          "width": 54.078125,
+          "height": 14
+        },
+        "b": {
+          "side": "first",
+          "background": "url(\"data:image/jpeg;base64,/9j/4AAQSkZJRgABAgAAAQABAAD//gAQTGF2YzYyLjI4LjEwMgD/2wBDAAgICAkICQsLCwsLCw0MDQ0NDQ0NDQ0NDQ0ODg4REREODg4NDQ4OEBARERITEhERERETExQUFBgYFxccHB0iIin/xABMAAEBAAAAAAAAAAAAAAAAAAAABgEBAQAAAAAAAAAAAAAAAAAAAAYQAQAAAAAAAAAAAAAAAAAAAAARAQAAAAAAAAAAAAAAAAAAAAD/wAARCABaAKADARIAAhIAAxIA/9oADAMBAAIRAxEAPwCTFgJsAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAf/2Q==\")",
+          "left": 433,
+          "right": 468.78125,
+          "top": 525.515625,
+          "bottom": 561.515625,
+          "width": 35.78125,
+          "height": 36
+        }
+      },
+      {
+        "a": {
+          "role": "akari-generation-badge",
+          "side": null,
+          "text": "▶ 動画予定",
+          "left": 435,
+          "right": 489.078125,
+          "top": 522.515625,
+          "bottom": 536.515625,
+          "width": 54.078125,
+          "height": 14
+        },
+        "b": {
+          "side": "last",
+          "background": "url(\"data:image/jpeg;base64,/9j/4AAQSkZJRgABAgAAAQABAAD//gAQTGF2YzYyLjI4LjEwMgD/2wBDAAgICAkICQsLCwsLCw0MDQ0NDQ0NDQ0NDQ0ODg4REREODg4NDQ4OEBARERITEhERERETExQUFBgYFxccHB0iIin/xABMAAEBAAAAAAAAAAAAAAAAAAAABQEBAQAAAAAAAAAAAAAAAAAAAAYQAQAAAAAAAAAAAAAAAAAAAAARAQAAAAAAAAAAAAAAAAAAAAD/wAARCABaAKADARIAAhIAAxIA/9oADAMBAAIRAxEAPwCeJ0WYAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA//2Q==\")",
+          "left": 486.671875,
+          "right": 522.453125,
+          "top": 525.515625,
+          "bottom": 561.515625,
+          "width": 35.78125,
+          "height": 36
+        }
+      }
+    ]
+  },
+  "linkIndicator": {
+    "observed": true,
+    "title": "次のクリップの絵につながる",
+    "rect": {
+      "left": 506.453125,
+      "right": 520.453125,
+      "top": 537.515625,
+      "bottom": 549.515625,
+      "width": 14,
+      "height": 12
+    },
+    "pseudo": {
+      "before": {
+        "content": "\"\"",
+        "present": true
+      },
+      "after": {
+        "content": "\"\"",
+        "present": true
+      }
+    }
   },
   "generation": {
     "tab": "生成",
@@ -1186,98 +1389,53 @@
   "generationLayout": {
     "overlaps": []
   },
-  "chipLayout": {
-    "chip": {
-      "text": "あいだを生成00:04:00画像最初最後あいだを生成▶ 動画予定",
-      "linked": false,
-      "frames": [
-        {
-          "side": "first",
-          "background": "url(\"data:image/jpeg;base64,/9j/4AAQSkZJRgABAgAAAQABAAD//gAQTGF2YzYyLjI4LjEwMgD/2wBDAAgICAkICQsLCwsLCw0MDQ0NDQ0NDQ0NDQ0ODg4REREODg4NDQ4OEBARERITEhERERETExQUFBgYFxccHB0iIin/xABMAAEBAAAAAAAAAAAAAAAAAAAABgEBAQAAAAAAAAAAAAAAAAAAAAYQAQAAAAAAAAAAAAAAAAAAAAARAQAAAAAAAAAAAAAAAAAAAAD/wAARCABaAKADARIAAhIAAxIA/9oADAMBAAIRAxEAPwCTFgJsAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAf/2Q==\")",
-          "left": 433,
-          "right": 468.78125,
-          "top": 525.515625,
-          "bottom": 561.515625,
-          "width": 35.78125,
-          "height": 36
-        },
-        {
-          "side": "last",
-          "background": "url(\"data:image/jpeg;base64,/9j/4AAQSkZJRgABAgAAAQABAAD//gAQTGF2YzYyLjI4LjEwMgD/2wBDAAgICAkICQsLCwsLCw0MDQ0NDQ0NDQ0NDQ0ODg4REREODg4NDQ4OEBARERITEhERERETExQUFBgYFxccHB0iIin/xABMAAEBAAAAAAAAAAAAAAAAAAAABQEBAQAAAAAAAAAAAAAAAAAAAAYQAQAAAAAAAAAAAAAAAAAAAAARAQAAAAAAAAAAAAAAAAAAAAD/wAARCABaAKADARIAAhIAAxIA/9oADAMBAAIRAxEAPwCeJ0WYAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA//2Q==\")",
-          "left": 486.671875,
-          "right": 522.453125,
-          "top": 525.515625,
-          "bottom": 561.515625,
-          "width": 35.78125,
-          "height": 36
-        }
-      ],
-      "rects": [
-        {
-          "role": "akari-generation-badge",
-          "text": "▶ 動画予定",
-          "left": 435,
-          "right": 489.078125,
-          "top": 522.515625,
-          "bottom": 536.515625,
-          "width": 54.078125,
-          "height": 14
-        }
-      ]
-    },
-    "overlaps": []
-  },
-  "linkIndicator": {
-    "observed": false,
-    "limitation": "Existing plannedVideoConnects compares the next source path/hash with the captured PNG; that method is outside this task ownership."
-  },
   "lint": {
     "code": 0,
-    "stdout": "{\n  \"version\": 1,\n  \"checked_at\": \"2026-09-21T19:09:20.920Z\",\n  \"inputs\": {\n    \"captions_json_sha256\": \"83a6fc4db60a62ad889db7adf3d492333df8de26c3563b997ee108739dea7bf1\",\n    \"edit_json_sha256\": \"319258a0b9c900acb64ad8a42d132d516b189339035311b4dcd561c5b54df8b4\"\n  },\n  \"verdict\": \"pass\",\n  \"findings\": [\n    {\n      \"id\": \"F001\",\n      \"severity\": \"warning\",\n      \"check\": \"geometry.fit-compat\",\n      \"message\": \"fit 互換モードで描画中。`normalize-geometry` で実寸基準へ移行できます\",\n      \"path\": \"edit.json#output.geometry\"\n    },\n    {\n      \"id\": \"F002\",\n      \"severity\": \"warning\",\n      \"check\": \"timeline.items.order\",\n      \"message\": \"item gap-1 at array position 2 has at=90, before item right at position 1 (at=210)\",\n      \"path\": \"edit.json#tracks[0].items[2]\"\n    }\n  ],\n  \"skipped\": [\n    {\n      \"check\": \"analysis.json\",\n      \"reason\": \"analysis.json is absent\"\n    },\n    {\n      \"check\": \"audio.music-grid\",\n      \"reason\": \"audio.bgm is absent; music grid checks require audio.bgm.path\"\n    },\n    {\n      \"check\": \"intake\",\n      \"reason\": \".akari/intake.json is absent\"\n    },\n    {\n      \"check\": \"media\",\n      \"reason\": \"media checks require --media\"\n    },\n    {\n      \"check\": \"review\",\n      \"reason\": \"review.json is absent\"\n    }\n  ]\n}\n",
+    "stdout": "{\n  \"version\": 1,\n  \"checked_at\": \"2026-09-21T19:24:29.968Z\",\n  \"inputs\": {\n    \"captions_json_sha256\": \"83a6fc4db60a62ad889db7adf3d492333df8de26c3563b997ee108739dea7bf1\",\n    \"edit_json_sha256\": \"6df6f0842d309b39a72a3a75d11f1dedc465242df403cf260c3f740a2c790019\"\n  },\n  \"verdict\": \"pass\",\n  \"findings\": [\n    {\n      \"id\": \"F001\",\n      \"severity\": \"warning\",\n      \"check\": \"geometry.fit-compat\",\n      \"message\": \"fit 互換モードで描画中。`normalize-geometry` で実寸基準へ移行できます\",\n      \"path\": \"edit.json#output.geometry\"\n    },\n    {\n      \"id\": \"F002\",\n      \"severity\": \"warning\",\n      \"check\": \"timeline.items.order\",\n      \"message\": \"item gap-1 at array position 2 has at=90, before item right at position 1 (at=210)\",\n      \"path\": \"edit.json#tracks[0].items[2]\"\n    }\n  ],\n  \"skipped\": [\n    {\n      \"check\": \"analysis.json\",\n      \"reason\": \"analysis.json is absent\"\n    },\n    {\n      \"check\": \"audio.music-grid\",\n      \"reason\": \"audio.bgm is absent; music grid checks require audio.bgm.path\"\n    },\n    {\n      \"check\": \"intake\",\n      \"reason\": \".akari/intake.json is absent\"\n    },\n    {\n      \"check\": \"media\",\n      \"reason\": \"media checks require --media\"\n    },\n    {\n      \"check\": \"review\",\n      \"reason\": \"review.json is absent\"\n    }\n  ]\n}\n",
     "stderr": ""
   },
   "fakeCliCalls": [],
   "cleanup": {
-    "pid": 10618,
+    "pid": 46339,
     "signals": [
       {
-        "pid": 10618,
+        "pid": 46339,
         "signal": "SIGTERM"
       },
       {
-        "pid": 10673,
+        "pid": 46394,
         "signal": "SIGTERM"
       },
       {
-        "pid": 10674,
+        "pid": 46395,
         "signal": "SIGTERM"
       },
       {
-        "pid": 10675,
+        "pid": 46396,
         "signal": "SIGTERM"
       },
       {
-        "pid": 10682,
+        "pid": 46457,
         "signal": "SIGTERM"
       },
       {
-        "pid": 10895,
+        "pid": 46662,
         "signal": "SIGTERM"
       },
       {
-        "pid": 10902,
+        "pid": 46667,
         "signal": "SIGTERM"
       },
       {
-        "pid": 10618,
+        "pid": 46339,
         "signal": "SIGKILL"
       },
       {
-        "pid": 11013,
+        "pid": 46780,
         "signal": "SIGKILL"
       },
       {
-        "pid": 11014,
+        "pid": 46781,
         "signal": "SIGKILL"
       }
     ],
@@ -1286,35 +1444,35 @@
     "isolatedUserData": true,
     "before": [
       {
-        "pid": 10618,
+        "pid": 46339,
         "command": "<WORKTREE>/apps/shell/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron <WORKTREE>/apps/shell <TEMP>/project --remote-debugging-port=22219 --user-data-dir=<TEMP>/userdata --no-sandbox"
       },
       {
-        "pid": 10673,
+        "pid": 46394,
         "command": "<WORKTREE>/apps/shell/node_modules/electron/dist/Electron.app/Contents/Frameworks/Electron Helper.app/Contents/MacOS/Electron Helper <WORKTREE>/apps/shell/lib/backend/main.js <TEMP>/project --remote-debugging-port=22219 --user-data-dir=<TEMP>/userdata --no-sandbox"
       },
       {
-        "pid": 10674,
-        "command": "<WORKTREE>/apps/shell/node_modules/electron/dist/Electron.app/Contents/Frameworks/Electron Helper (GPU).app/Contents/MacOS/Electron Helper (GPU) --type=gpu-process --no-sandbox --user-data-dir=/private<TEMP>/userdata --gpu-preferences=SAAAAAAAAAAgAAAEAAAAAAAAAAAAAGAAAwAAAAAAAAAAAAAAAAAAAAIAAAAAAAAAAAAAAAAAAAAQAAAAAAAAABAAAAAAAAAACAAAAAAAAAAIAAAAAAAAAA== --shared-files --field-trial-handle=1718379636,r,8312901496138017348,4970050398326342769,262144 --enable-features=PdfUseShowSaveFilePicker,ScreenCaptureKitPickerScreen,ScreenCaptureKitStreamPickerSonoma --disable-features=LocalNetworkAccessChecks,MacWebContentsOcclusion,ScreenAIOCREnabled,SpareRendererForSitePerProcess,TimeoutHangingVideoCaptureStarts,TraceSiteInstanceGetProcessCreation --variations-seed-version --trace-process-track-uuid=3190708988185955192"
+        "pid": 46395,
+        "command": "<WORKTREE>/apps/shell/node_modules/electron/dist/Electron.app/Contents/Frameworks/Electron Helper (GPU).app/Contents/MacOS/Electron Helper (GPU) --type=gpu-process --no-sandbox --user-data-dir=/private<TEMP>/userdata --gpu-preferences=SAAAAAAAAAAgAAAEAAAAAAAAAAAAAGAAAwAAAAAAAAAAAAAAAAAAAAIAAAAAAAAAAAAAAAAAAAAQAAAAAAAAABAAAAAAAAAACAAAAAAAAAAIAAAAAAAAAA== --shared-files --field-trial-handle=1718379636,r,1974299139970602193,17882079807940574531,262144 --enable-features=PdfUseShowSaveFilePicker,ScreenCaptureKitPickerScreen,ScreenCaptureKitStreamPickerSonoma --disable-features=LocalNetworkAccessChecks,MacWebContentsOcclusion,ScreenAIOCREnabled,SpareRendererForSitePerProcess,TimeoutHangingVideoCaptureStarts,TraceSiteInstanceGetProcessCreation --variations-seed-version --trace-process-track-uuid=3190708988185955192"
       },
       {
-        "pid": 10675,
-        "command": "<WORKTREE>/apps/shell/node_modules/electron/dist/Electron.app/Contents/Frameworks/Electron Helper.app/Contents/MacOS/Electron Helper --type=utility --utility-sub-type=network.mojom.NetworkService --lang=ja --service-sandbox-type=network --no-sandbox --user-data-dir=/private<TEMP>/userdata --shared-files --field-trial-handle=1718379636,r,8312901496138017348,4970050398326342769,262144 --enable-features=PdfUseShowSaveFilePicker,ScreenCaptureKitPickerScreen,ScreenCaptureKitStreamPickerSonoma --disable-features=LocalNetworkAccessChecks,MacWebContentsOcclusion,ScreenAIOCREnabled,SpareRendererForSitePerProcess,TimeoutHangingVideoCaptureStarts,TraceSiteInstanceGetProcessCreation --variations-seed-version --trace-process-track-uuid=3190708989122997041"
+        "pid": 46396,
+        "command": "<WORKTREE>/apps/shell/node_modules/electron/dist/Electron.app/Contents/Frameworks/Electron Helper.app/Contents/MacOS/Electron Helper --type=utility --utility-sub-type=network.mojom.NetworkService --lang=ja --service-sandbox-type=network --no-sandbox --user-data-dir=/private<TEMP>/userdata --shared-files --field-trial-handle=1718379636,r,1974299139970602193,17882079807940574531,262144 --enable-features=PdfUseShowSaveFilePicker,ScreenCaptureKitPickerScreen,ScreenCaptureKitStreamPickerSonoma --disable-features=LocalNetworkAccessChecks,MacWebContentsOcclusion,ScreenAIOCREnabled,SpareRendererForSitePerProcess,TimeoutHangingVideoCaptureStarts,TraceSiteInstanceGetProcessCreation --variations-seed-version --trace-process-track-uuid=3190708989122997041"
       },
       {
-        "pid": 10682,
-        "command": "<WORKTREE>/apps/shell/node_modules/electron/dist/Electron.app/Contents/Frameworks/Electron Helper (Renderer).app/Contents/MacOS/Electron Helper (Renderer) --type=renderer --user-data-dir=/private<TEMP>/userdata --app-path=<WORKTREE>/apps/shell --no-sandbox --no-zygote --no-sandbox --remote-debugging-port=22219 --lang=ja --num-raster-threads=4 --enable-zero-copy --enable-gpu-memory-buffer-compositor-resources --enable-main-frame-before-activation --renderer-client-id=4 --time-ticks-at-unix-epoch=-1788919145693150 --launch-time-ticks=1098610797473 --shared-files --field-trial-handle=1718379636,r,8312901496138017348,4970050398326342769,262144 --enable-features=PdfUseShowSaveFilePicker,ScreenCaptureKitPickerScreen,ScreenCaptureKitStreamPickerSonoma --disable-features=LocalNetworkAccessChecks,MacWebContentsOcclusion,ScreenAIOCREnabled,SpareRendererForSitePerProcess,TimeoutHangingVideoCaptureStarts,TraceSiteInstanceGetProcessCreation --variations-seed-version --trace-process-track-uuid=3190708990060038890"
+        "pid": 46457,
+        "command": "<WORKTREE>/apps/shell/node_modules/electron/dist/Electron.app/Contents/Frameworks/Electron Helper (Renderer).app/Contents/MacOS/Electron Helper (Renderer) --type=renderer --user-data-dir=/private<TEMP>/userdata --app-path=<WORKTREE>/apps/shell --no-sandbox --no-zygote --no-sandbox --remote-debugging-port=22219 --lang=ja --num-raster-threads=4 --enable-zero-copy --enable-gpu-memory-buffer-compositor-resources --enable-main-frame-before-activation --renderer-client-id=4 --time-ticks-at-unix-epoch=-1788919145687225 --launch-time-ticks=1099519118266 --shared-files --field-trial-handle=1718379636,r,1974299139970602193,17882079807940574531,262144 --enable-features=PdfUseShowSaveFilePicker,ScreenCaptureKitPickerScreen,ScreenCaptureKitStreamPickerSonoma --disable-features=LocalNetworkAccessChecks,MacWebContentsOcclusion,ScreenAIOCREnabled,SpareRendererForSitePerProcess,TimeoutHangingVideoCaptureStarts,TraceSiteInstanceGetProcessCreation --variations-seed-version --trace-process-track-uuid=3190708990060038890"
       },
       {
-        "pid": 10895,
-        "command": "<WORKTREE>/apps/shell/node_modules/electron/dist/Electron.app/Contents/Frameworks/Electron Helper (Renderer).app/Contents/MacOS/Electron Helper (Renderer) --type=renderer --user-data-dir=/private<TEMP>/userdata --app-path=<WORKTREE>/apps/shell --enable-sandbox --no-sandbox --remote-debugging-port=22219 --lang=ja --num-raster-threads=4 --enable-zero-copy --enable-gpu-memory-buffer-compositor-resources --enable-main-frame-before-activation --renderer-client-id=5 --time-ticks-at-unix-epoch=-1788919145693150 --launch-time-ticks=1098613461003 --shared-files --field-trial-handle=1718379636,r,8312901496138017348,4970050398326342769,262144 --enable-features=PdfUseShowSaveFilePicker,ScreenCaptureKitPickerScreen,ScreenCaptureKitStreamPickerSonoma --disable-features=LocalNetworkAccessChecks,MacWebContentsOcclusion,ScreenAIOCREnabled,SpareRendererForSitePerProcess,TimeoutHangingVideoCaptureStarts,TraceSiteInstanceGetProcessCreation --variations-seed-version --trace-process-track-uuid=3190708990997080739"
+        "pid": 46662,
+        "command": "<WORKTREE>/apps/shell/node_modules/electron/dist/Electron.app/Contents/Frameworks/Electron Helper (Renderer).app/Contents/MacOS/Electron Helper (Renderer) --type=renderer --user-data-dir=/private<TEMP>/userdata --app-path=<WORKTREE>/apps/shell --enable-sandbox --no-sandbox --remote-debugging-port=22219 --lang=ja --num-raster-threads=4 --enable-zero-copy --enable-gpu-memory-buffer-compositor-resources --enable-main-frame-before-activation --renderer-client-id=5 --time-ticks-at-unix-epoch=-1788919145687225 --launch-time-ticks=1099521971700 --shared-files --field-trial-handle=1718379636,r,1974299139970602193,17882079807940574531,262144 --enable-features=PdfUseShowSaveFilePicker,ScreenCaptureKitPickerScreen,ScreenCaptureKitStreamPickerSonoma --disable-features=LocalNetworkAccessChecks,MacWebContentsOcclusion,ScreenAIOCREnabled,SpareRendererForSitePerProcess,TimeoutHangingVideoCaptureStarts,TraceSiteInstanceGetProcessCreation --variations-seed-version --trace-process-track-uuid=3190708990997080739"
       },
       {
-        "pid": 10902,
-        "command": "<WORKTREE>/apps/shell/node_modules/electron/dist/Electron.app/Contents/Frameworks/Electron Helper.app/Contents/MacOS/Electron Helper --type=utility --utility-sub-type=audio.mojom.AudioService --lang=ja --service-sandbox-type=audio --no-sandbox --message-loop-type-ui --user-data-dir=/private<TEMP>/userdata --shared-files --field-trial-handle=1718379636,r,8312901496138017348,4970050398326342769,262144 --enable-features=PdfUseShowSaveFilePicker,ScreenCaptureKitPickerScreen,ScreenCaptureKitStreamPickerSonoma --disable-features=LocalNetworkAccessChecks,MacWebContentsOcclusion,ScreenAIOCREnabled,SpareRendererForSitePerProcess,TimeoutHangingVideoCaptureStarts,TraceSiteInstanceGetProcessCreation --variations-seed-version --trace-process-track-uuid=3190708991934122588"
+        "pid": 46667,
+        "command": "<WORKTREE>/apps/shell/node_modules/electron/dist/Electron.app/Contents/Frameworks/Electron Helper.app/Contents/MacOS/Electron Helper --type=utility --utility-sub-type=audio.mojom.AudioService --lang=ja --service-sandbox-type=audio --no-sandbox --message-loop-type-ui --user-data-dir=/private<TEMP>/userdata --shared-files --field-trial-handle=1718379636,r,1974299139970602193,17882079807940574531,262144 --enable-features=PdfUseShowSaveFilePicker,ScreenCaptureKitPickerScreen,ScreenCaptureKitStreamPickerSonoma --disable-features=LocalNetworkAccessChecks,MacWebContentsOcclusion,ScreenAIOCREnabled,SpareRendererForSitePerProcess,TimeoutHangingVideoCaptureStarts,TraceSiteInstanceGetProcessCreation --variations-seed-version --trace-process-track-uuid=3190708991934122588"
       }
     ],
     "exited": true
   },
-  "elapsedMs": 9782
+  "elapsedMs": 10559
 }

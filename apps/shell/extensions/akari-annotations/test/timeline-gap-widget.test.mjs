@@ -51,6 +51,7 @@ test('gap snapshot samples trimmed source out minus one frame / next source in',
   assert.equal(snapshot.kind, 'gap'); assert.equal(snapshot.startSeconds, 3); assert.equal(snapshot.endSeconds, 7);
   assert.equal(snapshot.previous.atSeconds, 5 - 1 / 30); assert.equal(snapshot.next.atSeconds, 1);
   assert.equal(snapshot.previous.label, '動画A');
+  assert.equal(snapshot.previous.sourceId, 'a'); assert.equal(snapshot.next.sourceId, 'b');
 });
 test('image endpoints use source path and zero time; unsupported endpoints remain empty', () => {
   const f = fixture(); f.doc.sources[0].path = 'assets/a.png'; f.doc.tracks[0].items[1].source = { kind: 'html', src: 'b' };
@@ -63,6 +64,7 @@ test('gap confirmation stores both paths and first-last next before one mutation
   const meta = f.writes[0].meta;
   assert.equal(meta.next.inputs.first_frame.path, 'assets/captures/last.png');
   assert.equal(meta.next.inputs.last_frame.path, 'assets/captures/first.png');
+  assert.equal(meta.next.inputs.first_frame.source_id, 'a'); assert.equal(meta.next.inputs.last_frame.source_id, 'b');
   assert.equal(meta.next.inputs.frames_or_refs, 'frames'); assert.equal(meta.next.output.duration_s, 4);
   assert.equal(meta.next.model.id, 'fal:h3-i2v'); assert.equal(describeNextDraft(meta).variety, 'first-last');
   assert.ok(f.calls.indexOf('write') < f.calls.indexOf('commit'));
@@ -92,6 +94,7 @@ test('stale/duplicate confirmations do not insert a second frame', async () => {
 });
 for (const mutation of [f => { f.doc.tracks[0].items[1].at = 180; }, f => { f.doc.tracks[0].items[0].source.out = 4; },
   f => { f.doc.sources[0].path = 'assets/changed.mp4'; }, f => { f.doc.tracks[0].locked = true; },
+  f => { f.doc.sources.push({ id: 'replacement', path: 'assets/a.mp4' }); f.doc.tracks[0].items[0].source.src = 'replacement'; },
   f => { f.doc.output.fps = 24; }]) test('revalidate gap and endpoints after asynchronous preparation', async () => {
   const f = fixture(), snapshot = f.widget.gapSnapshot(); mutation(f); const before = JSON.stringify(f.doc);
   await snapshot.createFrame(); assert.equal(JSON.stringify(f.doc), before); assert.equal(f.history.length, 0);
@@ -149,11 +152,13 @@ for (const selection of [undefined, { kind: 'cut', index: 0 }]) test(`normal sel
   widget.applySelection(selection); assert.equal(widget.selectedGap, undefined); assert.equal(removed, 1); assert.equal(pushed, 1);
 });
 
-for (const hasEndpoints of [true, false]) test(`gap draft on actual createEmptyGenerationFrame meta validates: endpoints=${hasEndpoints}`, async t => {
+for (const endpointKind of ['video', 'image', 'unsupported']) test(`gap draft on actual createEmptyGenerationFrame meta validates: endpoints=${endpointKind}`, async t => {
+  const hasEndpoints = endpointKind !== 'unsupported';
   const root = await mkdtemp(join(tmpdir(), 'akari-gap-meta-'));
   t.after(() => rm(root, { recursive: true, force: true }));
   const f = fixture(), service = new AkariAnnotationsServiceImpl();
   Object.assign(f.doc.output, { width: 640, height: 360 });
+  if (endpointKind === 'image') f.doc.sources.forEach(source => { source.path = source.path.replace('.mp4', '.png'); });
   if (!hasEndpoints) f.doc.tracks[0].items.forEach(item => { item.source.kind = 'html'; });
   const before = JSON.stringify(f.doc);
   await writeFile(join(root, 'edit.json'), before);
@@ -175,7 +180,7 @@ for (const hasEndpoints of [true, false]) test(`gap draft on actual createEmptyG
     return result;
   };
   f.widget.annotationsService.extractSourceFrame = async request => ({
-    relativePath: `assets/captures/${request.which}.png`, sha256: (request.which === 'first' ? 'a' : 'b').repeat(64)
+    relativePath: endpointKind === 'image' ? request.sourcePath : `assets/captures/${request.which}.png`, sha256: (request.which === 'first' ? 'a' : 'b').repeat(64)
   });
   f.widget.fileService = {
     async readFile(uri) { return { value: await readFile(join(root, uri)) }; },
@@ -192,6 +197,12 @@ for (const hasEndpoints of [true, false]) test(`gap draft on actual createEmptyG
   assert.equal(next.inputs.negative_prompt, null); assert.equal(next.inputs.source_video, null);
   assert.equal(next.inputs.frames_or_refs, 'frames');
   assert.equal(!!next.inputs.first_frame, hasEndpoints); assert.equal(!!next.inputs.last_frame, hasEndpoints);
+  if (hasEndpoints) {
+    assert.equal(next.inputs.first_frame.source_id, 'a'); assert.equal(next.inputs.last_frame.source_id, 'b');
+    if (endpointKind === 'image') {
+      assert.equal(next.inputs.first_frame.path, 'assets/a.png'); assert.equal(next.inputs.last_frame.path, 'assets/b.png');
+    }
+  }
   assert.deepEqual(next.model, { id: 'fal:h3-i2v' });
   const canonical = withNextVideoDraft(cardMeta, { firstFrame: next.inputs.first_frame,
     lastFrame: next.inputs.last_frame, modelId: next.model.id, at: next.updated_at }).next;

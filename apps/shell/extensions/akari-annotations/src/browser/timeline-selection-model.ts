@@ -233,6 +233,7 @@ export type TimelineSelectionTarget =
 
 export interface TimelineGapEndpoint {
     itemId: string;
+    sourceId: string;
     label: string;
     sourcePath: string;
     kind: 'image' | 'video';
