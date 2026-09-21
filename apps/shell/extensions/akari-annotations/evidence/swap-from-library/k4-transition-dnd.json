@@ -1,0 +1,52 @@
+{
+ "card": {
+  "x": 77,
+  "y": 228
+ },
+ "drop": {
+  "x": 526,
+  "y": 657
+ },
+ "dragIntercepted": true,
+ "payload": {
+  "kind": "transition",
+  "id": "dissolve",
+  "name": "ディゾルブ"
+ },
+ "hover": [
+  {
+   "cls": "",
+   "x": 518,
+   "y": 649,
+   "w": 16,
+   "h": 16,
+   "attrs": "type=button title=トランジションを追加 data-akari-transition-boundary=0-1 aria-label=トランジションを追加 style=position: absolute; left: 42.8571%; top: 170px; transform: translate(-50%, -50%); width: 16px; height: 16px;"
+  }
+ ],
+ "editChanged": false,
+ "cutsAfter": [
+  {
+   "id": "cut-1",
+   "at": 0,
+   "duration": 90,
+   "source": {
+    "kind": "media",
+    "src": "base",
+    "in": 0,
+    "out": 3
+   }
+  },
+  {
+   "id": "cut-2",
+   "at": 90,
+   "duration": 90,
+   "source": {
+    "kind": "media",
+    "src": "base",
+    "in": 3,
+    "out": 6
+   }
+  }
+ ],
+ "transitionsAfter": null
+}

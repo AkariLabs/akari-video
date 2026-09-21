@@ -1,0 +1,73 @@
+{
+ "mode": "bar",
+ "arg": "やめる",
+ "at": "2026-09-21T16:47:00.358Z",
+ "shaBefore": "a8db7eb83fee80060d43fbd1799b70e564ebb65db4ab73eb7ecd140bbc0e6233",
+ "itemBefore": {
+  "track": "v2",
+  "id": "img-1",
+  "at": 0,
+  "duration": 60,
+  "source": {
+   "kind": "media",
+   "src": "src-1",
+   "in": 0,
+   "out": 2
+  },
+  "path": "assets/broll/talkinghead-desk-ja-01/clip.mp4",
+  "transform": {
+   "scale": 0.5,
+   "x": 0.2,
+   "y": 0
+  }
+ },
+ "click": [
+  827.5,
+  66.5
+ ],
+ "settleMs": 2594,
+ "previewTimeSamples": [
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0
+ ],
+ "shaAfter": "0b6ccf6c363685d94a5a44f54f8d132ab1d99b8c22e5c838669849559e5356fc",
+ "itemAfter": {
+  "track": "v2",
+  "id": "img-1",
+  "at": 0,
+  "duration": 60,
+  "source": {
+   "kind": "media",
+   "src": "aurora",
+   "in": 0,
+   "out": 2
+  },
+  "path": "assets/still/bg-aurora-mesh/bg.png",
+  "transform": {
+   "scale": 0.5,
+   "x": 0.2,
+   "y": 0
+  }
+ },
+ "sameTrack": [
+  "img-1@0+60",
+  "broll-1@90+1260"
+ ],
+ "ui": {
+  "trialBar": [],
+  "inspectorSwapRow": false,
+  "leftPanel": "other",
+  "toasts": []
+ },
+ "lint": {
+  "verdict": "pass",
+  "errors": [],
+  "sourceRange": 0
+ }
+}

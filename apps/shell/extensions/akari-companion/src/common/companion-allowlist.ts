@@ -9,7 +9,7 @@ export const ALLOWED_COMMAND_IDS = [
     'akari.inspector.open', 'akari.daihon.open', 'akari.cuts.open', 'akari.transcribe.openDialog',
     'akari.catalog.open', 'akari.catalog.importAsset', 'akari.catalog.listCategories',
     'akari.menu.focus', 'akari.menu.listSkills', 'akari.menu.listOpenTargets',
-    'akari.review.open', 'akari.review.board.open', 'akari.partner.open'
+    'akari.review.open', 'akari.review.board.open', 'akari.partner.open', 'akari.settings.open'
 ] as const;
 
 export type AllowedCommandId = typeof ALLOWED_COMMAND_IDS[number];
@@ -71,6 +71,8 @@ const positive = (value: unknown): boolean => isFiniteNumber(value) && value > 0
 
 export function validateCommandArgs(id: AllowedCommandId, value: unknown): ArgValidation {
     switch (id) {
+        case 'akari.settings.open':
+            return objectResult(value, ['section'], args => args.section === 'connections');
         case 'akari.preview.ensureVisible':
         case 'akari.preview.togglePlayback':
             return objectResult(value, ['editUri'], args => optional(args, 'editUri', bounded), true);

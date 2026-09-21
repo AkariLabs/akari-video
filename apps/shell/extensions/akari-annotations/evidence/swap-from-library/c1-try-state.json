@@ -1,0 +1,58 @@
+{
+ "mode": "state",
+ "at": "2026-09-21T14:08:14.601Z",
+ "shaBefore": "b71b7c9ac99ba25bccfc2fb7d35190ca67a374cec7c6cfaa3403ddb9334c512f",
+ "itemBefore": {
+  "track": "a1",
+  "id": "bell-1",
+  "at": 60,
+  "duration": 63,
+  "source": {
+   "kind": "media",
+   "src": "src-1",
+   "in": 0,
+   "out": 2.1
+  },
+  "path": "assets/audio/sfx-chime-success/sfx-chime-success.mp3",
+  "gain_db": -3,
+  "fade_in": 0.1,
+  "fade_out": 0.2
+ },
+ "shaAfter": "b71b7c9ac99ba25bccfc2fb7d35190ca67a374cec7c6cfaa3403ddb9334c512f",
+ "itemAfter": {
+  "track": "a1",
+  "id": "bell-1",
+  "at": 60,
+  "duration": 63,
+  "source": {
+   "kind": "media",
+   "src": "src-1",
+   "in": 0,
+   "out": 2.1
+  },
+  "path": "assets/audio/sfx-chime-success/sfx-chime-success.mp3",
+  "gain_db": -3,
+  "fade_in": 0.1,
+  "fade_out": 0.2
+ },
+ "sameTrack": [
+  "bell-1@60+63",
+  "pop-1@150+54"
+ ],
+ "ui": {
+  "trialBar": [
+   {
+    "text": "お試し中: Bell Tree Sweep Upward, Sparkling Cascade, Isola → Warm Two Note Success Chime, Gentle And Positive▶ もう一度差し替えるやめる",
+    "visible": true
+   }
+  ],
+  "inspectorSwapRow": true,
+  "leftPanel": "swap-shelf",
+  "toasts": []
+ },
+ "lint": {
+  "verdict": "pass",
+  "errors": [],
+  "sourceRange": 0
+ }
+}

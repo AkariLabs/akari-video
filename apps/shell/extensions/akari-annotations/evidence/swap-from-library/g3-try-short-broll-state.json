@@ -1,0 +1,65 @@
+{
+ "mode": "state",
+ "at": "2026-09-21T14:16:49.774Z",
+ "shaBefore": "adf4205657588335d9355083cefbbc24b74ae5344b2e91d4cc63e6bd980a873b",
+ "itemBefore": {
+  "track": "v2",
+  "id": "broll-1",
+  "at": 90,
+  "duration": 1260,
+  "source": {
+   "kind": "media",
+   "src": "src-1",
+   "in": 0,
+   "out": 37.6,
+   "mute": true,
+   "freeze": {
+    "at_sec": 37.6,
+    "duration_sec": 4.4
+   }
+  },
+  "path": "assets/broll/talkinghead-desk-ja-01/clip.mp4"
+ },
+ "shaAfter": "adf4205657588335d9355083cefbbc24b74ae5344b2e91d4cc63e6bd980a873b",
+ "itemAfter": {
+  "track": "v2",
+  "id": "broll-1",
+  "at": 90,
+  "duration": 1260,
+  "source": {
+   "kind": "media",
+   "src": "src-1",
+   "in": 0,
+   "out": 37.6,
+   "mute": true,
+   "freeze": {
+    "at_sec": 37.6,
+    "duration_sec": 4.4
+   }
+  },
+  "path": "assets/broll/talkinghead-desk-ja-01/clip.mp4"
+ },
+ "sameTrack": [
+  "img-1@0+60",
+  "broll-1@90+1260"
+ ],
+ "ui": {
+  "trialBar": [
+   {
+    "text": "お試し中: 街歩き（検証用 45 秒） → 自宅デスクのトーキングヘッド（日本語・37.6 秒）▶ もう一度差し替えるやめる",
+    "visible": true
+   }
+  ],
+  "inspectorSwapRow": false,
+  "leftPanel": "swap-shelf",
+  "toasts": [
+   "出力プレビューの準備を確認できなかったため通常の再生を試みました（▶ もう一度 で再試行できます）。",
+   "出力プレビューの準備を確認できなかったため通常の再生を試みました（▶ もう一度 で再試行できます）。"
+  ]
+ },
+ "lint": {
+  "verdict": "pass",
+  "errors": [],
+  "sourceRange": 0
+ }
+}

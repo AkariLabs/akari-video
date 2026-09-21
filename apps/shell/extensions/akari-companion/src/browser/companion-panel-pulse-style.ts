@@ -50,6 +50,16 @@ export function installCompanionPanelPulseStyle(doc: Document = document): void 
 .akari-companion-toggle[data-open='true'] .akari-companion-toggle-dot {
     color: var(--akari-focus-pulse, var(--akari-accent, #f97316));
 }
+.akari-companion-toggle[data-starting='true'] .akari-companion-toggle-dot {
+    animation: akariCompanionStarting 900ms ease-in-out infinite alternate;
+}
+@keyframes akariCompanionStarting {
+    from { opacity: 0.3; }
+    to { opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .akari-companion-toggle[data-starting='true'] .akari-companion-toggle-dot { animation: none; }
+}
 .akari-companion-fly-dot,
 .akari-companion-fly-ring {
     position: absolute;

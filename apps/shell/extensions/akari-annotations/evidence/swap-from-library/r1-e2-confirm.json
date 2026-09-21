@@ -1,0 +1,69 @@
+{
+ "mode": "bar",
+ "arg": "差し替える",
+ "at": "2026-09-21T15:54:41.924Z",
+ "shaBefore": "b71b7c9ac99ba25bccfc2fb7d35190ca67a374cec7c6cfaa3403ddb9334c512f",
+ "itemBefore": {
+  "track": "a1",
+  "id": "bell-1",
+  "at": 60,
+  "duration": 63,
+  "source": {
+   "kind": "media",
+   "src": "src-1",
+   "in": 0,
+   "out": 2.1
+  },
+  "path": "assets/audio/sfx-chime-success/sfx-chime-success.mp3",
+  "gain_db": -3,
+  "fade_in": 0.1,
+  "fade_out": 0.2
+ },
+ "click": [
+  746.87109375,
+  71.75
+ ],
+ "settleMs": 5669,
+ "previewTimeSamples": [
+  4.18,
+  4.18,
+  4.18,
+  4.18,
+  4.18,
+  4.18,
+  4.18,
+  4.18
+ ],
+ "shaAfter": "b71b7c9ac99ba25bccfc2fb7d35190ca67a374cec7c6cfaa3403ddb9334c512f",
+ "itemAfter": {
+  "track": "a1",
+  "id": "bell-1",
+  "at": 60,
+  "duration": 63,
+  "source": {
+   "kind": "media",
+   "src": "src-1",
+   "in": 0,
+   "out": 2.1
+  },
+  "path": "assets/audio/sfx-chime-success/sfx-chime-success.mp3",
+  "gain_db": -3,
+  "fade_in": 0.1,
+  "fade_out": 0.2
+ },
+ "sameTrack": [
+  "bell-1@60+63",
+  "pop-1@150+54"
+ ],
+ "ui": {
+  "trialBar": [],
+  "inspectorSwapRow": false,
+  "leftPanel": "other",
+  "toasts": []
+ },
+ "lint": {
+  "verdict": "pass",
+  "errors": [],
+  "sourceRange": 0
+ }
+}

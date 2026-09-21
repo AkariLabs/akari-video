@@ -364,6 +364,13 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         };
     }
 
+    async extractSourceFrame(request: import('../common/akari-annotations-protocol').ExtractSourceFrameRequest): Promise<
+        import('../common/akari-annotations-protocol').ExtractSourceFrameResult
+    > {
+        if (!request?.projectRootUri || !['first', 'last'].includes(request.which)) throw new Error('抽出する端が不正です。');
+        return mediaCache.extractSourceFrame(this.fsPath(request.projectRootUri), request.sourcePath, request.atSeconds);
+    }
+
     async readGenerationCatalog(): Promise<ReadGenerationCatalogResult> {
         const path = await this.findGenerationAsset('packages/schemas/gen-models.json');
         const parsed = JSON.parse(await fs.readFile(path, 'utf8')) as ReadGenerationCatalogResult;
@@ -384,6 +391,58 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
             projectRoot: this.fsPath(request.projectRootUri), env: process.env
         });
         return { video: resolved.effective?.defaults?.generate?.video || 'fal:h3-i2v' };
+    }
+
+    async createEmptyGenerationFrame(request: { projectRootUri: string; durationSeconds: number }): Promise<{
+        relativePath: string; sha256: string; width: number; height: number; renderer: string;
+    }> {
+        if (!request?.projectRootUri || !Number.isFinite(request.durationSeconds) || request.durationSeconds < 0.5) {
+            throw new Error('projectRootUri と 0.5 秒以上の尺が必要です。');
+        }
+        const root = await fs.realpath(this.fsPath(request.projectRootUri));
+        const edit = JSON.parse(await fs.readFile(join(root, 'edit.json'), 'utf8'));
+        if (edit.version !== 2) throw new Error('v2 へ変換してから編集してください。');
+        const { width, height } = edit.output ?? {};
+        if (![width, height].every(value => Number.isInteger(value) && value > 0 && value <= 16384)) {
+            throw new Error('edit.json のキャンバス寸法が不正です。');
+        }
+        const importEsm = new Function('specifier', 'return import(specifier)') as (specifier: string) => Promise<any>;
+        const load = async (file: string): Promise<any> => importEsm(pathToFileURL(
+            await this.findGenerationAsset(`packages/generate/src/cli/${file}.mjs`)).toString());
+        const [cards, metas, validator] = await Promise.all([load('text-card'), load('meta-still'), load('meta-validate')]);
+        const directory = join(root, 'assets', 'generated');
+        await fs.mkdir(directory, { recursive: true });
+        const rel = relative(root, await fs.realpath(directory));
+        if (rel === '..' || rel.startsWith(`..${sep}`) || isAbsolute(rel)) {
+            throw new Error('生成先はプロジェクト内で指定してください。');
+        }
+        // Render in an isolated staging directory; expose the PNG only after its validated sidecar exists.
+        const staging = await fs.mkdtemp(join(directory, '.frame-'));
+        const id = `frame-${Date.now()}-${basename(staging).slice(7)}`;
+        const relativePath = `assets/generated/${id}.png`;
+        const target = join(root, relativePath);
+        let publishedMeta = false;
+        try {
+            const card = await cards.renderTextCard({ id, name: '空の枠', prompt: '',
+                outPath: join(staging, 'card.png'), width, height });
+            const image = await metas.inspectPng(card.path);
+            if (image.width !== width || image.height !== height) throw new Error('文字カードの寸法が一致しません。');
+            const meta = metas.plannedStillMeta({ prompt: '', duration_s: request.durationSeconds,
+                at: new Date().toISOString(), asOf: await metas.readCodexModelAsOf(), width, height });
+            meta.provenance.tool = `akari generate still --placeholder (${card.renderer})`;
+            const checked = validator.validateGenerationMeta(meta);
+            if (!checked.ok) throw new Error(checked.errors.join('\n'));
+            await fs.writeFile(join(staging, 'meta.json'), JSON.stringify(meta, null, 2) + '\n');
+            await fs.rename(join(staging, 'meta.json'), `${target}.meta.json`);
+            publishedMeta = true;
+            await fs.rename(card.path, target);
+            return { relativePath, sha256: image.sha256, width, height, renderer: card.renderer };
+        } catch (error) {
+            if (publishedMeta) await fs.rm(`${target}.meta.json`, { force: true });
+            throw error;
+        } finally {
+            await fs.rm(staging, { recursive: true, force: true });
+        }
     }
 
     async validateGenerationInputs(request: ValidateGenerationInputsRequest): Promise<GenerationValidationResult> {

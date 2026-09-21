@@ -88,6 +88,69 @@
     .akari-generation-progress-indeterminate { animation: none; }
 }
 
+/* Non-video generation states share one header row. Keep the r1 video layout below isolated. */
+.akari-generation-chip-layout {
+    container-type: inline-size;
+    container-name: akari-generation-chip;
+}
+.akari-annotations-widget .akari-generation-chip-layout .akari-clip-kind-badge {
+    display: none;
+}
+.akari-generation-chip-layout .akari-generation-badge {
+    left: 2px;
+    right: auto;
+    top: 2px;
+    padding: 0 4px;
+    box-sizing: border-box;
+    border-radius: 3px;
+    background: var(--theia-editor-background, #1e1e1e);
+    line-height: 12px;
+}
+/* Override the shared :has(kind-badge) gutter even when that badge is display:none. */
+.akari-annotations-widget .akari-generation-chip-layout.akari-annotations-strip-clip > .akari-annotations-strip-clip-header {
+    padding: 1px 2px 0;
+    gap: 2px;
+    z-index: 4;
+}
+.akari-generation-chip-layout .akari-annotations-strip-clip-header > .akari-generation-badge {
+    position: static;
+    order: 0;
+    flex: 0 1 auto;
+    min-width: 0;
+    max-width: 100%;
+}
+/* A later retry action can join this row without reserving any space today. */
+.akari-generation-chip-layout .akari-annotations-strip-clip-header > .akari-generation-action {
+    order: 1;
+    flex: none;
+}
+.akari-annotations-widget .akari-generation-chip-layout .akari-annotations-strip-clip-header-label {
+    order: 2;
+    flex: 1 1 0;
+    min-width: 8px; /* Keep an ellipsis slot until the name's own hiding threshold. */
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.akari-generation-chip-layout .akari-annotations-strip-clip-header-duration {
+    order: 3;
+    margin-left: auto;
+}
+.akari-generation-chip-layout .akari-generation-badge::before { display: none; }
+@container akari-generation-chip (width < 128px) {
+    .akari-generation-chip-layout .akari-annotations-strip-clip-header-duration { display: none; }
+}
+@container akari-generation-chip (width < 96px) {
+    .akari-generation-chip-layout .akari-annotations-strip-clip-header-label,
+    .akari-generation-chip-layout > .akari-annotations-segment-label { display: none; }
+}
+@container akari-generation-chip (width < 64px) {
+    .akari-generation-chip-layout .akari-generation-badge-label { display: none; }
+    .akari-generation-chip-layout .akari-generation-badge::before {
+        display: inline;
+        content: attr(data-akari-generation-compact);
+    }
+}
 
 .akari-generation-planned-video {
     --akari-generation-planned-video: #a78bfa;

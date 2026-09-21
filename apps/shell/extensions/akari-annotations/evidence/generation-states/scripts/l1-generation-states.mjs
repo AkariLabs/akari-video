@@ -11,7 +11,8 @@ import path from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { setTimeout as sleep } from 'node:timers/promises';
-import { CDP, evalOn, listTargets, screenshot } from './cdp-lib.mjs';
+import { CDP, evalOn, listTargets, screenshot, CHIP_LAYOUT, assertChipLayout, captureClipRects,
+  selectClipsByLabel, setTimelineView, layoutCapturePlan } from './cdp-lib.mjs';
 
 const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const REPO = path.resolve(ROOT, '..', '..', '..', '..', '..', '..');
@@ -134,7 +135,7 @@ return closed})()`;
 const command = id => `(async()=>{const d=window.theia.container._bindingDictionary;const C=[...d._map.keys()].find(k=>typeof k==='function'&&typeof k.prototype?.executeCommand==='function');if(!C)throw new Error('CommandService binding unavailable');const r=await window.theia.container.get(C).executeCommand(${S(id)});return r!==null&&typeof r==='object'?'[object]':r??null})()`;
 
 // 生成状態チップの観測点（指示 3 の data 属性）。
-const CLIPS = `(()=>{const els=[...document.querySelectorAll('[data-akari-generation-state][data-akari-item-id]')].filter(e=>e.closest('.akari-annotations-widget'));
+const CLIPS = `(()=>{const els=[...document.querySelectorAll('[data-akari-generation-state][data-akari-item-kind="cut"]')].filter(e=>e.closest('.akari-annotations-widget'));
 return{count:els.length,clips:els.map(e=>{const b=e.querySelector('[data-akari-generation-badge]');
 const p=e.querySelector('[data-akari-generation-progress]');const cs=getComputedStyle(e);
 const h=e.querySelector('.akari-annotations-strip-clip-header-label');
@@ -149,6 +150,14 @@ borderStyle:cs.borderTopStyle,borderColor:cs.borderTopColor,opacity:cs.opacity,
 backgroundImage:(cs.backgroundImage||'none').slice(0,64),
 progress:p?{width:p.style.width,value:p.dataset.akariGenerationProgress,className:p.className,
 background:getComputedStyle(p).backgroundColor,height:getComputedStyle(p).height}:null}})}})()`;
+
+async function waitForClips(cdp, labels, expression = CLIPS) {
+  const clips = await waitEval(cdp, `(()=>{
+    const value=${expression};const clips=Array.isArray(value)?value:value.clips;
+    return ${S(labels)}.every(label=>clips.some(c=>c.label===label))?clips:null;
+  })()`, { label: `表示範囲内のクリップ: ${labels.join(', ')}`, timeoutMs: 60_000 });
+  return selectClipsByLabel(clips, labels);
+}
 
 // Geometry is measured from the actual mounted DOM, including ancestor clipping/visibility.
 // Perforations: two child rects at top/bottom + nontransparent gradient + visible hole samples.
@@ -398,7 +407,7 @@ async function stop(session) {
 // data-akari-item-id はカット番号（0..5）になるため、ファイル名で束ねるほうが読み違えない。
 const EXPECTED = [
   ['still.png', 'none', '静止画'],
-  ['planned.png', 'planned', 'planned'],
+  ['planned.png', 'planned', '空の枠'],
   ['generating.png', 'generating', '生成中 62%'],
   ['stale.png', 'stale', '応答なし・再取得'],
   ['done.mp4', 'done', '生成'],
@@ -444,16 +453,20 @@ try {
     if(!window.__akariGenerationWidget)throw new Error('timeline widget unavailable');
     // 既定レイアウトでは 10 クリップが 64px 未満になり動画予定が狭幅表示へ落ちるため、タイムラインを最大化する。
     shell.toggleMaximized(window.__akariGenerationWidget);
-    document.querySelector('[data-testid="akari-timeline-zoom-percent"]')?.click();
     return true;
   })()`);
+  await waitEval(cdp, `window.__akariGenerationWidget.totalDuration()>=${out.fixture.totalDurationSeconds - .01}`,
+    { label: '末尾の追加16本を含む edit の読込', timeoutMs: 60_000 });
+  // Fitting the new 87.6s total would shrink r1's chips. Keep its original 0..28.4s viewport.
+  const originalView = { start: 0, duration: out.fixture.originalDurationSeconds };
+  out.timelineViews = { original: await setTimelineView(cdp, originalView) };
+  await save();
 
   // ---- 手順 1: 6 状態が 1 枚のタイムラインに出る ----
   const six = await step('1. 映像トラックの 6 クリップが 6 種の生成状態を出す', async () => {
     let view;
     try {
-      view = await waitEval(cdp, `(()=>{const v=${CLIPS};return v.count>=10?v:null})()`,
-        { label: 'タイムラインに映像 6 クリップ', timeoutMs: 600_000 });
+      view = { clips: await waitForClips(cdp, EXPECTED.map(([label]) => label)) };
     } catch (error) {
       out.diagnostic = await evalOn(cdp, DIAGNOSTIC).catch(() => null);
       await save();
@@ -545,12 +558,59 @@ try {
     return out.plannedLayout;
   });
 
+  await step('全8状態の札・名前・時刻は通常幅と狭幅の両方で交差しない', async () => {
+    out.chipLayout = {
+      measurement: 'getBoundingClientRect; all visible text pairs; computed badge background',
+      normal: [], narrow: [],
+      visualReview: 'pending: wrapper must open screenshots before accepting L1',
+      screenshotClips: {}
+    };
+    const normal = out.fixture.layoutCases.filter(c => c.mode === 'normal');
+    const narrow = out.fixture.layoutCases.filter(c => c.mode === 'narrow');
+    const plan = layoutCapturePlan(normal, out.timelineViews.original);
+    const capture = async (name, clips, scale) => {
+      out.chipLayout.screenshotClips[name] = await captureClipRects(cdp, path.join(ROOT, name), clips.map(c => c.rect), scale);
+      out.screenshots.push(name); await save();
+    };
+    try {
+      await cdp.send('Emulation.setDeviceMetricsOverride', plan.viewport);
+      out.timelineViews.normal = await setTimelineView(cdp, plan);
+      assert(Math.abs(out.timelineViews.normal.pxPerSecond - out.timelineViews.original.pxPerSecond) < .1,
+        `通常幅の撮影倍率が変わった: ${JSON.stringify(out.timelineViews)}`);
+      out.chipLayout.normal = await waitForClips(cdp, normal.map(c => c.label), CHIP_LAYOUT);
+      // Save rectangles even on failure, independently of the unchanged plannedLayout record.
+      await save();
+      await capture('08-all-generation-chip-states.png', out.chipLayout.normal, 2);
+      await capture('09-empty-frame-zoom.png', out.chipLayout.normal.filter(c => c.label.startsWith('normal-empty-')), 3);
+      assertChipLayout(out.chipLayout.normal, normal);
+
+      await cdp.send('Emulation.clearDeviceMetricsOverride');
+      out.timelineViews.narrow = await setTimelineView(cdp, {
+        start: narrow[0].atSeconds - .5, duration: originalView.duration
+      });
+      out.chipLayout.narrow = await waitForClips(cdp, narrow.map(c => c.label), CHIP_LAYOUT);
+      await save();
+      await capture('10-narrow-generation-chip-states.png', out.chipLayout.narrow, 3);
+      assertChipLayout([...out.chipLayout.normal, ...out.chipLayout.narrow], out.fixture.layoutCases);
+    } finally {
+      await cdp.send('Emulation.clearDeviceMetricsOverride');
+      out.timelineViews.restored = await setTimelineView(cdp, originalView);
+      assert(Math.abs(out.timelineViews.restored.pxPerSecond - out.timelineViews.original.pxPerSecond) < .1,
+        `元の撮影倍率に戻らない: ${JSON.stringify(out.timelineViews)}`);
+      await waitForClips(cdp, EXPECTED.map(([label]) => label));
+      await save();
+    }
+    return out.chipLayout;
+  });
+
   await step('next の書き換えで再読込せず両端の絵と鎖が変わる', async () => {
     const file=path.join(GENERATED,'next-first-last.png.meta.json');
     const meta=JSON.parse(await readFile(file,'utf8'));
     const before=(await evalOn(cdp,CLIPS)).clips.find(c=>c.label==='next-first-last.png');
     await stripShot(cdp,5,'before-next-rewrite');
-    await evalOn(cdp,`window.__akariGenerationBefore=document.querySelector('[data-akari-item-kind="cut"][data-akari-item-id="6"]');true`);
+    await evalOn(cdp,`window.__akariGenerationBefore=[...document.querySelectorAll('[data-akari-item-kind="cut"]')]
+      .find(e=>e.querySelector('.akari-annotations-strip-clip-header-label')?.textContent==='next-first-last.png');
+      if(!window.__akariGenerationBefore)throw new Error('next-first-last clip missing');true`);
     meta.next.inputs={prompt:'新しい指示文 — 雲がゆっくり流れる'};
     meta.next.updated_at=new Date().toISOString();
     const started=performance.now();
@@ -631,9 +691,9 @@ try {
     assert(watch.reached.badge === '失敗', `バッジが「失敗」でない: ${JSON.stringify(watch.reached.badge)}`);
     assert(watch.reached.className.includes('akari-generation-failed'),
       `className が failed でない: ${watch.reached.className}`);
-    const after = await evalOn(cdp, CLIPS);
-    const others = after.clips.filter(clip => clip.label !== 'planned.png');
-    assert(others.length === 9, `他のクリップが消えた: ${JSON.stringify(after.clips.map(c => c.id))}`);
+    const after = { clips: await waitForClips(cdp, EXPECTED.map(([label]) => label)) };
+    // Layout copies intentionally share the same sources; only compare the original ten here.
+    const others = selectClipsByLabel(after.clips, EXPECTED.filter(([label]) => label !== 'planned.png').map(([label]) => label));
     for (const [label, state] of EXPECTED.filter(([label]) => label !== 'planned.png')) {
       const clip = others.find(candidate => candidate.label === label);
       assert(clip?.state === state, `${label} の state が巻き添えで変わった: ${clip?.state}`);

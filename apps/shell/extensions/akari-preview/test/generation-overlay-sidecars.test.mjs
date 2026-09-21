@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { mkdir, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -143,4 +144,29 @@ test('v0 / v1 / v2 の edit.json を例外なく扱う', async t => {
             editUri: pathToFileURL(editPath).toString(), workspaceRoots: [data.rootUri]
         }));
     }
+});
+
+
+test('placeholder binding は first_frame が別の絵でも仮枠の SHA を照合し source を保持する', async t => {
+    const data = await fixture(t);
+    const content = 'placeholder image';
+    const sha256 = createHash('sha256').update(content).digest('hex');
+    await mkdir(join(data.project, 'assets/generated'), { recursive: true });
+    await Promise.all([
+        writeFile(join(data.project, 'edit.json'), JSON.stringify({
+            version: 2, sources: [{ id: 'still', path: 'assets/still.png' }], tracks: []
+        })),
+        writeFile(join(data.project, 'assets/still.png'), content),
+        writeFile(join(data.project, 'assets/generated/video.mp4.meta.json'), JSON.stringify({
+            version: 1, kind: 'video', status: 'generating',
+            placeholder: { path: 'assets/still.png', sha256, item_id: 'still' },
+            inputs: { first_frame: { path: 'assets/other.png', sha256: 'different' } }
+        }))
+    ]);
+    const result = await data.service.readGenerationSidecars({
+        editUri: pathToFileURL(join(data.project, 'edit.json')).toString(), workspaceRoots: [data.rootUri]
+    });
+    assert.deepEqual(result.entries.find(entry => entry.sourcePath.endsWith('video.mp4')).binding, {
+        expected: sha256, actual: sha256, matches: true, source: 'placeholder'
+    });
 });

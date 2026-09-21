@@ -1,0 +1,52 @@
+{
+ "mode": "state",
+ "at": "2026-09-21T16:46:11.752Z",
+ "shaBefore": "bef4466ee4cc5f400bd13ed38bdc699711a5aa7a93c6d727983310d908179a7b",
+ "itemBefore": {
+  "track": "v2",
+  "id": "broll-1",
+  "at": 90,
+  "duration": 1260,
+  "source": {
+   "kind": "media",
+   "src": "src-1",
+   "in": 0,
+   "out": 42
+  },
+  "path": "assets/still/br-calculator-hand/broll.png"
+ },
+ "shaAfter": "bef4466ee4cc5f400bd13ed38bdc699711a5aa7a93c6d727983310d908179a7b",
+ "itemAfter": {
+  "track": "v2",
+  "id": "broll-1",
+  "at": 90,
+  "duration": 1260,
+  "source": {
+   "kind": "media",
+   "src": "src-1",
+   "in": 0,
+   "out": 42
+  },
+  "path": "assets/still/br-calculator-hand/broll.png"
+ },
+ "sameTrack": [
+  "img-1@0+60",
+  "broll-1@90+1260"
+ ],
+ "ui": {
+  "trialBar": [
+   {
+    "text": "お試し中: 街歩き（検証用 45 秒） → 電卓を叩く手元▶ もう一度差し替えるやめる",
+    "visible": true
+   }
+  ],
+  "inspectorSwapRow": false,
+  "leftPanel": "swap-shelf",
+  "toasts": []
+ },
+ "lint": {
+  "verdict": "pass",
+  "errors": [],
+  "sourceRange": 0
+ }
+}

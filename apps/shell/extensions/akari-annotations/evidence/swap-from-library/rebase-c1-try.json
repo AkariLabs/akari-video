@@ -1,0 +1,194 @@
+{
+ "at": "2026-09-21T17:04:01.580Z",
+ "rows": [
+  {
+   "n": 1,
+   "key": "still/br-camera-gear",
+   "token": "akari-annotations-widget:1790010238045:3",
+   "clickWall": 1790010237988,
+   "reloads": 1,
+   "playRequests": 1,
+   "retries": 0,
+   "readyFallback": 0,
+   "result": "playing",
+   "appliedMs": 189,
+   "playbackStartMs": 1347,
+   "logPlayingMs": 942,
+   "cachedBefore": true,
+   "startAfterAppliedMs": 1158,
+   "firstPlayRequestMs": 942,
+   "toasts": [],
+   "samples": [
+    [
+     64,
+     0
+    ],
+    [
+     221,
+     90.7744
+    ],
+    [
+     399,
+     90.7744
+    ],
+    [
+     556,
+     90.7744
+    ],
+    [
+     709,
+     90.7744
+    ],
+    [
+     876,
+     4.84848
+    ],
+    [
+     1044,
+     4.84848
+    ],
+    [
+     1195,
+     4.84848
+    ],
+    [
+     1347,
+     4.84848
+    ],
+    [
+     1498,
+     5.11784
+    ],
+    [
+     1653,
+     5.38721
+    ],
+    [
+     1806,
+     5.72391
+    ],
+    [
+     1961,
+     6.06061
+    ],
+    [
+     2113,
+     6.39731
+    ],
+    [
+     2274,
+     6.59933
+    ],
+    [
+     2430,
+     7.00337
+    ]
+   ],
+   "log": [
+    {
+     "wall": 1790010238047,
+     "token": "akari-annotations-widget:1790010238045:3",
+     "event": "trial_start",
+     "t": 0
+    },
+    {
+     "wall": 1790010238048,
+     "token": "akari-annotations-widget:1790010238045:3",
+     "event": "preview_trial_begin",
+     "t": 1,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:5"
+    },
+    {
+     "wall": 1790010238050,
+     "token": "akari-annotations-widget:1790010238045:3",
+     "event": "resolve_start",
+     "t": 1,
+     "candidate": "still/br-camera-gear"
+    },
+    {
+     "wall": 1790010238097,
+     "token": "akari-annotations-widget:1790010238045:3",
+     "event": "resolve_done",
+     "t": 50,
+     "cached": true,
+     "ok": true
+    },
+    {
+     "wall": 1790010238109,
+     "token": "akari-annotations-widget:1790010238045:3",
+     "event": "refresh_queued",
+     "t": 63
+    },
+    {
+     "wall": 1790010238109,
+     "token": "akari-annotations-widget:1790010238045:3",
+     "event": "refresh_started",
+     "t": 63
+    },
+    {
+     "wall": 1790010238177,
+     "token": "akari-annotations-widget:1790010238045:3",
+     "event": "trial_applied",
+     "t": 127,
+     "itemId": "broll-1",
+     "candidate": "still/br-camera-gear"
+    },
+    {
+     "wall": 1790010238468,
+     "token": "akari-annotations-widget:1790010238045:3",
+     "event": "reload_start",
+     "t": 402,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:6"
+    },
+    {
+     "wall": 1790010238663,
+     "token": "akari-annotations-widget:1790010238045:3",
+     "event": "reload_complete",
+     "t": 609,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:6"
+    },
+    {
+     "wall": 1790010238781,
+     "token": "akari-annotations-widget:1790010238045:3",
+     "event": "ready_seek_response",
+     "t": 735,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:6",
+     "seek": true
+    },
+    {
+     "wall": 1790010238929,
+     "token": "akari-annotations-widget:1790010238045:3",
+     "event": "ready_seek_response",
+     "t": 865,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:6",
+     "seek": true
+    },
+    {
+     "wall": 1790010238930,
+     "token": "akari-annotations-widget:1790010238045:3",
+     "event": "play_request",
+     "t": 865,
+     "attempt": 1,
+     "revision": 2,
+     "quietForMs": 256
+    },
+    {
+     "wall": 1790010238930,
+     "token": "akari-annotations-widget:1790010238045:3",
+     "event": "playback_state",
+     "t": 873,
+     "playing": true,
+     "userStopped": false,
+     "source": "renderer"
+    },
+    {
+     "wall": 1790010238967,
+     "token": "akari-annotations-widget:1790010238045:3",
+     "event": "trial_playback_result",
+     "t": 920,
+     "result": "playing"
+    }
+   ]
+  }
+ ]
+}

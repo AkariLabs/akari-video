@@ -1,3 +1,4 @@
+import type { MaterialSwapRequest } from '../common/material-swap-candidates';
 import { RESOLVE_LIBRARY_MATERIAL_COMMAND_ID } from '../common/library-asset-placement';
 import { inject, injectable } from '@theia/core/shared/inversify';
 import { Command, CommandContribution, CommandRegistry } from '@theia/core/lib/common';
@@ -92,10 +93,25 @@ export class AkariCatalogCommandContribution implements CommandContribution {
     });
 
     registerCommands(registry: CommandRegistry): void {
-        registry.registerCommand({ id: RESOLVE_LIBRARY_MATERIAL_COMMAND_ID }, {
-            execute: async (key: string) => {
+        registry.registerCommand({ id: 'akari.catalog.openSwap' }, {
+            execute: async (request: MaterialSwapRequest) => {
+                const target = await registry.executeCommand<MaterialSwapRequest | false>('akari.timeline.beginMaterialSwap', request);
+                if (!target) return false;
+                await registry.executeCommand(AkariCatalogCommands.OPEN_CATALOG.id);
                 const widget = await this.widgetManager.getOrCreateWidget<AkariRoleBucketsWidget>(AkariRoleBucketsWidget.ID);
-                return widget.resolveCatalogMaterial(key);
+                return widget.openMaterialSwap(target);
+            }
+        });
+        registry.registerCommand({ id: 'akari.catalog.closeSwap' }, {
+            execute: async () => {
+                const widget = await this.widgetManager.getOrCreateWidget<AkariRoleBucketsWidget>(AkariRoleBucketsWidget.ID);
+                widget.clearMaterialSwap();
+            }
+        });
+        registry.registerCommand({ id: RESOLVE_LIBRARY_MATERIAL_COMMAND_ID }, {
+            execute: async (key: string, options?: { preferExisting?: boolean }) => {
+                const widget = await this.widgetManager.getOrCreateWidget<AkariRoleBucketsWidget>(AkariRoleBucketsWidget.ID);
+                return widget.resolveCatalogMaterial(key, options);
             }
         });
         registry.registerCommand(AkariCatalogCommands.OPEN_CATALOG, {

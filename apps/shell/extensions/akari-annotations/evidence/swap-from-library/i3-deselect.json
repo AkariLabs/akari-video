@@ -1,0 +1,55 @@
+{
+ "mode": "state",
+ "at": "2026-09-21T14:19:17.084Z",
+ "shaBefore": "0b6ccf6c363685d94a5a44f54f8d132ab1d99b8c22e5c838669849559e5356fc",
+ "itemBefore": {
+  "track": "a1",
+  "id": "bell-1",
+  "at": 60,
+  "duration": 76,
+  "source": {
+   "kind": "media",
+   "src": "bell",
+   "in": 0,
+   "out": 2.520979
+  },
+  "path": "assets/audio/sfx-bell-tree/sfx-bell-tree.mp3",
+  "gain_db": -3,
+  "fade_in": 0.1,
+  "fade_out": 0.2
+ },
+ "shaAfter": "0b6ccf6c363685d94a5a44f54f8d132ab1d99b8c22e5c838669849559e5356fc",
+ "itemAfter": {
+  "track": "a1",
+  "id": "bell-1",
+  "at": 60,
+  "duration": 76,
+  "source": {
+   "kind": "media",
+   "src": "bell",
+   "in": 0,
+   "out": 2.520979
+  },
+  "path": "assets/audio/sfx-bell-tree/sfx-bell-tree.mp3",
+  "gain_db": -3,
+  "fade_in": 0.1,
+  "fade_out": 0.2
+ },
+ "sameTrack": [
+  "bell-1@60+76",
+  "pop-1@150+54"
+ ],
+ "ui": {
+  "trialBar": [],
+  "inspectorSwapRow": false,
+  "leftPanel": "other",
+  "toasts": [
+   "出力プレビューの準備を確認できなかったため通常の再生を試みました（▶ もう一度 で再試行できます）。"
+  ]
+ },
+ "lint": {
+  "verdict": "pass",
+  "errors": [],
+  "sourceRange": 0
+ }
+}

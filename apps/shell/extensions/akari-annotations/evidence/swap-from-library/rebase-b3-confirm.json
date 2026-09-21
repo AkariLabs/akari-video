@@ -1,0 +1,63 @@
+{
+ "mode": "bar",
+ "arg": "差し替える",
+ "at": "2026-09-21T17:03:25.911Z",
+ "shaBefore": "0abc8dba6f4b3ed26eddc80106a5b8abb0d2e78b40b339fb3c1d8eeb03f1acc9",
+ "itemBefore": {
+  "track": "v2",
+  "id": "broll-1",
+  "at": 90,
+  "duration": 1260,
+  "source": {
+   "kind": "media",
+   "src": "src-1",
+   "in": 0,
+   "out": 42
+  },
+  "path": "assets/still/br-coffee-beans/broll.png"
+ },
+ "click": [
+  725.87109375,
+  66.5
+ ],
+ "settleMs": 5638,
+ "previewTimeSamples": [
+  6.22,
+  6.22,
+  6.22,
+  6.22,
+  6.22,
+  6.22,
+  6.22,
+  6.22
+ ],
+ "shaAfter": "0abc8dba6f4b3ed26eddc80106a5b8abb0d2e78b40b339fb3c1d8eeb03f1acc9",
+ "itemAfter": {
+  "track": "v2",
+  "id": "broll-1",
+  "at": 90,
+  "duration": 1260,
+  "source": {
+   "kind": "media",
+   "src": "src-1",
+   "in": 0,
+   "out": 42
+  },
+  "path": "assets/still/br-coffee-beans/broll.png"
+ },
+ "sameTrack": [
+  "img-1@0+60",
+  "broll-1@90+1260"
+ ],
+ "ui": {
+  "trialBar": [],
+  "inspectorSwapRow": false,
+  "leftPanel": "other",
+  "toasts": []
+ },
+ "lint": {
+  "verdict": "pass",
+  "errors": [],
+  "sourceRange": 0
+ }
+}

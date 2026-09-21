@@ -1,3 +1,8 @@
+import { timelineGapAt, type TimelineGap } from '../common/timeline-gap';
+import { calculateFrameDraw, type FrameDrawRange } from '../common/timeline-frame-draw';
+import { advanceMaterialTrialWindow, MaterialTrialWindow } from '../common/material-trial-window';
+import { logSwapTrial, SwapTrialIdentity } from 'akari-preview/lib/common/swap-trial-playback';
+import { materialSwapTarget, locateSwapItem, replaceMaterial, MaterialSwapTarget } from '../common/material-replacement';
 import URI from '@theia/core/lib/common/uri';
 import { ClipboardKind, PasteTrack, TimelineFragment, TimelineClipboardSnapshot,
     fragmentForSelection, cutTimelineFragment, pasteTimelineFragment, planPaste, serializeTimelineFragment } from '../common/timeline-clipboard';
@@ -28,6 +33,7 @@ import 'akari-preview/lib/electron-common/electron-api';
 import { VisualThumbnailCache } from './visual-thumbnail-cache';
 import type { VisualThumbnailCapture } from 'akari-preview/lib/common/visual-thumbnail';
 import { visualThumbnailRetryPlan } from '../common/visual-thumbnail-retry';
+import { clampStillCutLength, planStillCutTrim } from '../common/still-cut-length';
 import { isVisualThumbnailDiskEntry, pruneThumbnailIndex, visualThumbnailCacheFileName,
     VisualThumbnailDiskEntry } from '../common/visual-thumbnail-disk-cache';
 import { visualThumbnailSnapshot, visualThumbnailKey } from './visual-thumbnail-key';
@@ -162,7 +168,6 @@ import {
     insertAudioSfxPreferV2,
     insertItem as insertV2Item,
     insertTrack as insertV2Track,
-    convertCaptionToTelopV2,
     detachTreeV2Item,
     groupTreeV2Items,
     moveAudioSfxPreferV2,
@@ -372,6 +377,8 @@ import {
     TimelineCropSnapshot,
     TimelineItemSelectionSnapshot,
     TimelineWorldSelection,
+    TimelineGapSelection,
+    TimelineGapEndpoint,
     TimelineTreeItemSelection,
     TimelineTreeItemSnapshot,
     TimelineSelectionModel,
@@ -604,7 +611,7 @@ type AudioSelectionSnapshot = TimelineAudioSelection & AudioEnvelopeFields & {
     playheadSeconds?: number;
 };
 
-type ToolMode = 'select' | 'razor';
+type ToolMode = 'select' | 'razor' | 'frame';
 
 type TimelineSelection =
     | { kind: 'cut'; index: number }
@@ -622,6 +629,7 @@ type TimelineSelectionItem = Exclude<TimelineSelection, undefined>;
 // SnapCandidate / SnapResult は common/timeline-snap.ts の型を使う（純関数側でテストする）。
 
 export interface PreviewPlaybackTick {
+    trialToken?: string;
     videoUri?: string;
     time?: number;
     playing?: boolean;
@@ -780,6 +788,7 @@ type DragPreview =
         output: number;
         rejected: boolean;
         maxOutSeconds?: number;
+        at?: number;
     }
     | { kind: 'cut-move'; index: number; at: number; track: number; rejected: boolean; altKey?: boolean;
         insertTrack?: number; targetTrackId?: string; insertIndex?: number }
@@ -813,6 +822,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected visualInputEpoch = 0;
     protected visualPlaying = false;
     protected visualPointerDown = false;
+    protected selectedGap?: TimelineGap;
+    protected gapRoot?: string;
+    protected gapBand?: HTMLDivElement;
+    protected gapCommitting = false;
+
     protected readonly visualThumbnails = new VisualThumbnailCache(() => this.renderStrip());
     protected readonly visualKeys = new WeakMap<HTMLElement, string>();
     protected visualHover: HTMLDivElement | undefined;
@@ -849,6 +863,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected readonly preferences!: PreferenceService;
 
     protected readonly toolbar = document.createElement('div');
+    protected readonly frameToolButton = document.createElement('button');
+    protected cancelFrameDraw: (() => void) | undefined;
     protected readonly selectToolButton = document.createElement('button');
     protected readonly razorToolButton = document.createElement('button');
     protected readonly snapToggleButton = document.createElement('button');
@@ -1184,6 +1200,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
 
     @postConstruct()
     protected init(): void {
+        this.toDispose.push(this.workspaceService.onWorkspaceChanged(() => { void this.finishMaterialSwap(false); }));
+        this.toDispose.push({ dispose: () => { void this.finishMaterialSwap(false); } });
         if (!this.commandRegistry.getCommand(GET_TIMELINE_PLAYHEAD.id)) {
             this.toDispose.push(this.commandRegistry.registerCommand(GET_TIMELINE_PLAYHEAD, {
                 execute: () => this.playheadT
@@ -1346,10 +1364,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
             alignItems: 'center', display: 'flex', gap: '2px', minHeight: '30px',
             padding: '2px 6px', borderBottom: '1px solid var(--theia-widget-border)', boxSizing: 'border-box'
         });
-        this.configureIconButton(this.selectToolButton, 'codicon-cursor', '選択ツール', '選択 (A)');
+        this.configureIconButton(this.selectToolButton, 'codicon-cursor', '選択ツール', '選択 (V)');
         this.selectToolButton.addEventListener('click', () => this.setToolMode('select'));
-        this.configureIconButton(this.razorToolButton, 'codicon-screen-cut', '分割ツール', '分割 (B)');
+        this.configureIconButton(this.razorToolButton, 'codicon-screen-cut', '分割ツール', '分割 (C)');
         this.razorToolButton.addEventListener('click', () => this.setToolMode('razor'));
+        this.configureIconButton(this.frameToolButton, 'codicon-preview', '仮枠ツール', '仮枠 (F)');
+        this.frameToolButton.addEventListener('click', () => this.setToolMode('frame'));
         this.configureIconButton(this.snapToggleButton, 'codicon-magnet', 'マグネット', 'マグネット（スナップ）切替 (M / N)');
         this.snapToggleButton.addEventListener('click', () => this.setSnapEnabled(!this.snapEnabled));
         this.configureIconButton(this.undoButton, 'codicon-discard', '元に戻す', '元に戻す (⌘Z)');
@@ -1361,7 +1381,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.configureIconButton(this.compactButton, 'codicon-collapse-all', '詰める', 'クリップ間の空白を詰める');
         this.compactButton.addEventListener('click', () => void this.performCompactCuts());
         this.toolbar.append(
-            this.selectToolButton, this.razorToolButton,
+            this.selectToolButton, this.razorToolButton, this.frameToolButton,
             this.createToolbarSeparator(),
             this.snapToggleButton,
             this.createToolbarSeparator(),
@@ -1562,6 +1582,14 @@ export class AkariAnnotationsWidget extends BaseWidget {
             this.flushStripRender();
             this.settlePan();
         }, true);
+        // Capture only the frame tool: existing clip/marquee listeners remain unchanged.
+        this.strip.addEventListener('pointerdown', event => {
+            if (this.toolMode === 'frame') this.onStripPointerDown(event);
+        }, true);
+        this.strip.addEventListener('click', event => {
+            if (this.toolMode === 'frame') { event.preventDefault(); event.stopImmediatePropagation(); }
+        }, true);
+        this.toDispose.push({ dispose: () => this.cancelFrameDraw?.() });
         this.strip.addEventListener('pointerdown', event => this.onStripPointerDown(event));
         this.strip.addEventListener('wheel', event => this.onWheelZoom(event), { passive: false });
         this.strip.addEventListener('contextmenu', event => {
@@ -2054,6 +2082,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
         background: transparent;
         pointer-events: auto;
     }
+    .akari-annotations-tool-frame [data-akari-item-kind] { cursor: crosshair !important; }
+    .akari-annotations-frame-draw {
+        position: absolute; box-sizing: border-box; pointer-events: none; z-index: 50;
+        border: 2px dashed #b69aff; background: rgba(151, 104, 235, .18);
+        color: #eee5ff; display: flex; align-items: center; justify-content: center;
+        font-size: 12px; white-space: nowrap;
+    }
     .akari-annotations-widget:not(.akari-annotations-tool-razor) [data-trim-edge]:not([data-akari-locked="true"])::after {
         content: '';
         position: absolute;
@@ -2236,6 +2271,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
             if (isImeCompositionKeydown(event)) return;
             // キー操作は確定済みの幾何（選択・再生ヘッド位置）を前提にするため、保留中のズーム描画を先に流す。
             this.flushStripRender();
+            if (event.key === 'Escape' && this.cancelFrameDraw) {
+                event.preventDefault();
+                event.stopPropagation();
+                this.cancelFrameDraw();
+                return;
+            }
             if (event.key === 'Escape' && this.dragState) {
                 event.preventDefault();
                 this.cancelDrag(this.dragState);
@@ -2255,7 +2296,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 this.applyFocusScope(exitFocusScope(this.expandedTimelineTreeRows, this.focusScope));
                 return;
             }
-            if (event.key === 'Escape' && this.isAttached && (this.selection || this.multiSelection.length > 0)
+            if (event.key === 'Escape' && this.isAttached && (this.selection || this.multiSelection.length > 0 || this.selectedGap)
                 && !this.isEditableTarget(event.target) && !this.isEditableTarget(document.activeElement)
                 && !(document.activeElement instanceof HTMLElement
                     && document.activeElement.closest('.akari-inspector-widget'))) {
@@ -2413,14 +2454,19 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     this.togglePreviewPlayback();
                     return;
                 }
-                if (key === 'a') {
+                if (key === 'a' || key === 'v') {
                     event.preventDefault();
                     this.setToolMode('select');
                     return;
                 }
-                if (key === 'b') {
+                if (key === 'b' || key === 'c') {
                     event.preventDefault();
                     this.setToolMode('razor');
+                    return;
+                }
+                if (key === 'f') {
+                    event.preventDefault();
+                    this.setToolMode('frame');
                     return;
                 }
                 if (key === 'n' || key === 'm') {
@@ -2758,14 +2804,17 @@ export class AkariAnnotationsWidget extends BaseWidget {
         if (this.toolMode === mode) {
             return;
         }
+        this.cancelFrameDraw?.();
         this.toolMode = mode;
         this.updateToolModeButtons();
         this.node.classList.toggle('akari-annotations-tool-razor', mode === 'razor');
-        this.strip.style.cursor = mode === 'razor' ? 'crosshair' : 'pointer';
+        this.node.classList.toggle('akari-annotations-tool-frame', mode === 'frame');
+        this.strip.style.cursor = mode !== 'select' ? 'crosshair' : 'pointer';
         this.renderStrip();
     }
 
     protected updateToolModeButtons(): void {
+        this.frameToolButton.setAttribute('aria-pressed', String(this.toolMode === 'frame'));
         this.selectToolButton.setAttribute('aria-pressed', String(this.toolMode === 'select'));
         this.razorToolButton.setAttribute('aria-pressed', String(this.toolMode === 'razor'));
     }
@@ -2807,12 +2856,16 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected applySelection(selection: TimelineSelection, notifyPreview = true): void {
+        const hadGap = !!this.selectedGap;
+        this.selectedGap = undefined;
+        this.gapBand?.remove();
+        this.gapBand = undefined;
         this.exitTrimmerModeUnlessSelected(selection);
         const previous = this.selection;
         const hadMultiSelection = this.multiSelection.length > 0;
         this.multiSelection = [];
         if (this.selectionKey(previous) === this.selectionKey(selection)) {
-            if (selection || hadMultiSelection) {
+            if (selection || hadMultiSelection || hadGap) {
                 this.pushSelectionSnapshot();
                 this.applySelectionClass();
                 if (notifyPreview) this.publishPrimaryPreviewSelection(selection);
@@ -3195,6 +3248,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected async handleInspectorWrite(request: InspectorWriteRequest): Promise<InspectorWriteResult> {
+        if (this.materialSwap) await this.finishMaterialSwap(false);
         if (request.kind === 'audio-keyframes'
             && audioKeyframeWriteGuard(request.value) === 'too-few') {
             return { ok: false, message: AUDIO_KEYFRAME_MIN_POINTS_NOTICE };
@@ -4017,10 +4071,26 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 } else if (request.kind === 'cut-source-in' || request.kind === 'cut-source-out') {
                     const input = request.kind === 'cut-source-in' ? request.value : cut.in;
                     const output = request.kind === 'cut-source-out' ? request.value : cut.out;
-                    patch = {
-                        duration: Math.max(1, this.frameAt((output - input) / (cut.speed ?? 1))),
-                        source: { in: input, out: output }
-                    };
+                    if (this.isStillImageCut(cut)) {
+                        const segment = this.segments[indexed.index];
+                        if (!segment) throw new Error('クリップが見つかりません。');
+                        const available = Math.min(Infinity, ...this.segments
+                            .filter(other => other.index !== indexed.index && other.track === segment.track
+                                && other.tlEnd > segment.tlStart)
+                            .map(other => other.tlStart - segment.tlStart));
+                        const duration = clampStillCutLength(
+                            request.kind === 'cut-source-out' ? output : output - input, this.fps, available
+                        );
+                        if (duration === undefined || this.cutWouldOverlap(
+                            indexed.index, segment.tlStart, duration, segment.track
+                        )) throw new Error('隣のクリップとの間に 0.5 秒以上の長さを確保できません。');
+                        patch = { duration: this.frameAt(duration), source: { in: 0, out: duration } };
+                    } else {
+                        patch = {
+                            duration: Math.max(1, this.frameAt((output - input) / (cut.speed ?? 1))),
+                            source: { in: input, out: output }
+                        };
+                    }
                     label = '素材の範囲を変更';
                 } else {
                     const field = request.kind === 'cut-transform-x' ? 'x'
@@ -4348,8 +4418,216 @@ export class AkariAnnotationsWidget extends BaseWidget {
         }
     }
 
+    /** 候補棚と、確定前の素材差し替え 1 手のセッション。 */
+    protected materialSwap?: { target: MaterialSwapTarget; editUri: string };
+    protected materialSwapGeneration = 0;
+    protected materialSwapTail: Promise<unknown> = Promise.resolve();
+    protected materialSwapPlaybackWindow?: MaterialTrialWindow;
+    protected materialSwapPlayback?: SwapTrialIdentity;
+    protected materialSwapTokenSequence = 0;
+    protected materialSwapLabels?: { originalTitle: string; title: string };
+
+    get hasMaterialSwap(): boolean { return this.materialSwap !== undefined; }
+
+    isMaterialSwapActive(target: MaterialSwapTarget): boolean {
+        return !!this.materialSwap && this.materialSwap.target.itemId === target?.itemId
+            && this.materialSwap.target.currentRelativePath === target.currentRelativePath;
+    }
+
+    async beginMaterialSwap(target: MaterialSwapTarget): Promise<MaterialSwapTarget | false> {
+        await this.finishMaterialSwap(false);
+        const actual = this.selectedMaterialSwapTarget();
+        if (!actual || actual.itemId !== target?.itemId || actual.kind !== target.kind || !this.location?.editUri) return false;
+        this.materialSwap = { target: actual, editUri: this.location.editUri.toString() };
+        return actual;
+    }
+
+    tryMaterialSwap(candidate: { key: string; title: string; originalTitle: string }): Promise<void> {
+        const generation = ++this.materialSwapGeneration;
+        const session = this.materialSwap;
+        if (!session) return Promise.resolve();
+        const playback = this.newMaterialSwapPlayback();
+        const operation = this.materialSwapTail.then(async () => {
+            if (generation !== this.materialSwapGeneration || session !== this.materialSwap) return;
+            await this.stopMaterialSwapPlayback();
+            if (this.historyService.materialTrial.entry) logSwapTrial(playback, 'rollback_skipped_refresh');
+            await this.commandRegistry.executeCommand('akari.preview.materialTrial', { editUri: session.editUri });
+            await this.commandRegistry.executeCommand('akari.preview.beginSwapTrial', { editUri: session.editUri, ...playback });
+            logSwapTrial(playback, 'resolve_start', { candidate: candidate.key });
+            const material = await this.commandRegistry.executeCommand<{ relativePath: string; kind: 'audio' | 'video' | 'image'; cached?: boolean } | undefined>(
+                'akari.catalog.resolveMaterial', candidate.key, { preferExisting: true });
+            logSwapTrial(playback, 'resolve_done', { cached: material?.cached === true, ok: !!material });
+            if (generation !== this.materialSwapGeneration || session !== this.materialSwap) return;
+            if (!material) {
+                await this.historyService.finishMaterialTrial(false);
+                await this.commandRegistry.executeCommand('akari.preview.endSwapTrial', playback.token);
+                return;
+            }
+            const location = this.location;
+            if (!location?.editUri || location.editUri.toString() !== session.editUri) return;
+            const mediaUri = location.root.resolve(material.relativePath);
+            const relativePath = relativeTimelineMaterialPath(location.editUri.parent.path.toString(), mediaUri.path.toString());
+            let actualDurationS: number | undefined;
+            if (material.kind !== 'image') {
+                const result = await this.annotationsService.getAudioDuration({ projectRootUri: location.root.toString(), audioUri: mediaUri.toString() });
+                if (result.status !== 'ready') throw new Error('素材の実尺を取得できません。');
+                actualDurationS = result.durationSeconds;
+            }
+            if (generation !== this.materialSwapGeneration || session !== this.materialSwap) return;
+            await this.commitEditMutation('お試し中', doc => replaceMaterial(doc, {
+                itemId: session.target.itemId, relativePath, kind: material.kind, actualDurationS
+            }), { trial: true });
+            // 終了要求は finishMaterialSwap が復元する。次候補なら中間保存せず before を引き継ぐ。
+            if (generation !== this.materialSwapGeneration || session !== this.materialSwap) return;
+            this.materialSwapLabels = candidate;
+            logSwapTrial(playback, 'trial_applied', { itemId: session.target.itemId, candidate: candidate.key });
+            await this.replayMaterialSwap(playback);
+        });
+        this.materialSwapTail = operation.catch(async error => {
+            try {
+                await this.commandRegistry.executeCommand('akari.preview.endSwapTrial', playback.token);
+                if (generation !== this.materialSwapGeneration || session !== this.materialSwap) return;
+                // 解決・実尺取得・適用に失敗した場合は、以前の候補も含めて元の byte 列へ戻す。
+                await this.historyService.finishMaterialTrial(false);
+                this.messages.error(`お試しできません: ${this.errorMessage(error)}`);
+            } catch (rollbackError) {
+                // 復元用 entry を残し、I/O 回復後の「やめる」を実行できるキューにしておく。
+                this.messages.error(`お試しを巻き戻せません: ${this.errorMessage(rollbackError)}`);
+            }
+        });
+        return this.materialSwapTail as Promise<void>;
+    }
+
+    protected newMaterialSwapPlayback(): SwapTrialIdentity {
+        if (this.materialSwapPlayback) {
+            void this.commandRegistry.executeCommand('akari.preview.endSwapTrial', this.materialSwapPlayback.token);
+        }
+        const startedAt = Date.now();
+        const playback = { token: `${this.id}:${startedAt}:${++this.materialSwapTokenSequence}`, startedAt };
+        this.materialSwapPlayback = playback;
+        this.materialSwapPlaybackWindow = undefined;
+        logSwapTrial(playback, 'trial_start');
+        return playback;
+    }
+
+    async replayMaterialSwap(playback?: SwapTrialIdentity): Promise<void> {
+        const generation = this.materialSwapGeneration;
+        const session = this.materialSwap;
+        if (!session || !this.historyService.materialTrial.entry) return;
+        if (!playback) {
+            await this.stopMaterialSwapPlayback();
+            playback = this.newMaterialSwapPlayback();
+            await this.commandRegistry.executeCommand('akari.preview.beginSwapTrial', { editUri: session.editUri, ...playback });
+        }
+        const active = (): boolean => session === this.materialSwap && generation === this.materialSwapGeneration
+            && playback === this.materialSwapPlayback;
+        try {
+            await this.commandRegistry.executeCommand('akari.preview.materialTrial', { editUri: session.editUri, ...this.materialSwapLabels });
+            const found = locateSwapItem(this.editDocument, session.target.itemId);
+            if (!found || !active()) return;
+            const time = Math.max(0, found.at / this.fps - 0.6);
+            this.materialSwapPlaybackWindow = {
+                token: playback.token, start: time,
+                end: found.at / this.fps + Math.min(found.item.duration / this.fps, 3.2),
+                started: false, seenStart: false, stopped: false
+            };
+            const result = await this.commandRegistry.executeCommand('akari.preview.playSwapTrial', {
+                editUri: session.editUri, time, ...playback
+            });
+            logSwapTrial(playback, 'trial_playback_result', { result });
+            if (active() && result === 'failed') throw new Error('playback failed');
+        } catch (error) {
+            if (!active()) return;
+            logSwapTrial(playback, 'trial_playback_error', { reason: String(error) });
+            this.materialSwapPlaybackWindow = undefined;
+            this.messages.error('再生できませんでした。▶ もう一度で再試行できます。');
+        }
+    }
+
+    protected async stopMaterialSwapPlayback(): Promise<void> {
+        this.materialSwapPlaybackWindow = undefined;
+        if (this.materialSwapPlayback) await this.commandRegistry.executeCommand('akari.preview.endSwapTrial', this.materialSwapPlayback.token);
+        if (this.materialSwap && this.commandRegistry.getCommand('akari.preview.pause')) {
+            await this.commandRegistry.executeCommand('akari.preview.pause', { editUri: this.materialSwap.editUri });
+        }
+    }
+
+    /** 棚・選択・プロジェクト・やめる・確定の全終了経路。進行中の resolve も失効させる。 */
+    finishMaterialSwap(confirm: boolean): Promise<void> {
+        ++this.materialSwapGeneration;
+        this.materialSwapPlaybackWindow = undefined;
+        if (this.materialSwapPlayback) {
+            logSwapTrial(this.materialSwapPlayback, 'trial_end', { confirm });
+            void this.commandRegistry.executeCommand('akari.preview.endSwapTrial', this.materialSwapPlayback.token);
+        }
+        const session = this.materialSwap;
+        const operation = this.materialSwapTail.then(async () => {
+            if (!session || session !== this.materialSwap) return;
+            await this.stopMaterialSwapPlayback();
+            await this.historyService.finishMaterialTrial(confirm);
+            this.materialSwap = undefined;
+            this.materialSwapLabels = undefined;
+            this.materialSwapPlayback = undefined;
+            await this.commandRegistry.executeCommand('akari.preview.materialTrial', { editUri: session.editUri });
+            await this.commandRegistry.executeCommand('akari.catalog.closeSwap');
+        });
+        this.materialSwapTail = operation.catch(error => {
+            this.messages.error(`お試しを終了できません: ${this.errorMessage(error)}`);
+        });
+        return operation;
+    }
+
+    protected selectedMaterialSwapItemId(selection = this.selection): string | undefined {
+        if (!selection || this.multiSelection.length) return undefined;
+        return selection.kind === 'cut' ? this.cutItemIds[selection.index]
+            : 'id' in selection ? selection.id : undefined;
+    }
+
+    /** cuts の index は表示の都合で変わる。再読込前に確保した item ID で選択を戻す。 */
+    protected restoreMaterialSwapSelection(itemId: string | undefined): void {
+        if (!itemId || itemId !== this.materialSwap?.target.itemId || this.multiSelection.length) return;
+        const found = this.editDocument && locateSwapItem(this.editDocument, itemId);
+        if (!found || this.selection?.kind === 'item') return;
+        const cutIndex = this.cutItemIds.indexOf(itemId);
+        const next: TimelineSelection = found.track.lane === 'audio' ? { kind: 'audio', id: itemId }
+            : this.layers.some(layer => layer.id === itemId) ? { kind: 'layer', id: itemId }
+                : cutIndex >= 0 ? { kind: 'cut', index: cutIndex }
+                    : { kind: 'item', id: itemId, itemKind: 'media', trackId: String(found.track.id) };
+        if (this.selectionKey(next) !== this.selectionKey(this.selection)) {
+            this.selection = next;
+            this.publishPrimaryPreviewSelection(next);
+        }
+    }
+
+    protected selectedMaterialSwapTarget(selection = this.selection): MaterialSwapTarget | undefined {
+        const target = materialSwapTarget(this.editDocument, this.selectedMaterialSwapItemId(selection));
+        if (!target || !this.location?.editUri || !this.location.root.relative) return target;
+        const path = this.location.root.relative(this.resolveEditMediaUri(target.currentRelativePath, this.location.editUri))?.toString();
+        return path ? { ...target, currentRelativePath: path } : target;
+    }
+
     /** 選択の実体を TimelineSelectionModel へ反映する。対象が消えていれば選択解除する。 */
     protected pushSelectionSnapshot(): void {
+        if (this.selectedGap && (this.selection || this.multiSelection.length > 0)) {
+            this.selectedGap = undefined;
+            this.gapBand?.remove();
+        }
+        if (this.selectedGap) {
+            const snapshot = this.gapSnapshot();
+            this.selectionModel.materialSwapTarget = undefined;
+            this.selectionModel.treeSelection = undefined;
+            this.selectionModel.snapshot = snapshot;
+            this.selectionModel.fps = this.fps;
+            if (!snapshot) { this.selectedGap = undefined; this.gapBand?.remove(); }
+            return;
+        }
+        const target = this.selectedMaterialSwapTarget();
+        if (this.materialSwap && this.selectedMaterialSwapItemId() !== this.materialSwap.target.itemId) void this.finishMaterialSwap(false);
+        this.selectionModel.materialSwapTarget = target;
+        this.selectionModel.requestMaterialSwap = () => {
+            const target = this.selectedMaterialSwapTarget();
+            if (target) void this.commandRegistry.executeCommand('akari.catalog.openSwap', target);
+        };
         if (this.multiSelection.length > 0) {
             const treeItems = this.multiSelection.filter(selection => selection.kind === 'item');
             if (treeItems.length > 0) {
@@ -5003,6 +5281,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             zone?: MaterialDropZone; createAudioTrack?: boolean; targetTrackId?: string;
         }
     ): Promise<void> {
+        if (this.materialSwap) await this.finishMaterialSwap(false);
         if (kind !== 'video' && kind !== 'audio' && kind !== 'image') {
             this.messages.warn('素材を追加できません（種別が不正です）。');
             return;
@@ -6408,6 +6687,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 const document = JSON.parse(source) as EditV2Document;
                 await this.hydrateDocumentMotionReferences(document);
                 if (generation !== this.editReloadGeneration) return;
+                // await が全て終わった時点の選択を採用する。読込中の本当の選択解除を復活させない。
+                const swapSelectionId = this.materialSwap ? this.selectedMaterialSwapItemId() : undefined;
                 this.invalidateContentExtent();
                 this.editDocument = undefined;
                 this.itemLocations.clear();
@@ -6491,6 +6772,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     ?? sortDefaultTimelineTracks(derivedLegacyTracks(internal));
                 this.timelineTracks = this.pinAudioGroupToBottom(this.compatibilityTimelineTracks);
                 this.fps = view.fps;
+                if (swapSelectionId) this.restoreMaterialSwapSelection(swapSelectionId);
                 if (view.warnings.length > 0) {
                     this.showWarnings(view.warnings);
                 }
@@ -7259,7 +7541,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         element.classList.remove(
             'akari-generation-none', 'akari-generation-planned', 'akari-generation-generating',
             'akari-generation-stale', 'akari-generation-done', 'akari-generation-failed',
-            'akari-generation-orphan', 'akari-generation-planned-video'
+            'akari-generation-orphan', 'akari-generation-planned-video', 'akari-generation-chip-layout'
         );
         element.dataset.akariGenerationState = generation?.state ?? 'none';
         if (generation?.state !== 'planned-video') {
@@ -7268,8 +7550,15 @@ export class AkariAnnotationsWidget extends BaseWidget {
             element.querySelector(':scope > .akari-generation-perforations-top')?.remove();
             element.querySelector(':scope > .akari-generation-perforations-bottom')?.remove();
         }
-        let badge = element.querySelector<HTMLElement>(':scope > [data-akari-generation-badge]');
+        let badge = element.querySelector<HTMLElement>('[data-akari-generation-badge]');
         let progress = element.querySelector<HTMLElement>(':scope > [data-akari-generation-progress]');
+        const header = element.querySelector<HTMLElement>(':scope > .akari-annotations-strip-clip-header');
+        // keyedStripSegment restores the base title on each render. Also allow repeated application.
+        if (element.title === element.dataset.akariGenerationTitle) {
+            element.title = element.dataset.akariGenerationBaseTitle ?? '';
+        }
+        delete element.dataset.akariGenerationTitle;
+        delete element.dataset.akariGenerationBaseTitle;
         if (!generation) {
             badge?.remove();
             progress?.remove();
@@ -7287,6 +7576,28 @@ export class AkariAnnotationsWidget extends BaseWidget {
         badge.className = 'akari-generation-badge';
         badge.textContent = narrow ? '▶' : description.badge;
         badge.title = description.title;
+        if (generation.state !== 'planned-video') {
+            element.classList.add('akari-generation-chip-layout');
+            // One flex row: badge, optional future retry action, name, duration. No reserved button width.
+            if (header) header.prepend(badge);
+            const label = document.createElement('span');
+            label.className = 'akari-generation-badge-label';
+            label.textContent = description.badge;
+            badge.textContent = '';
+            badge.appendChild(label);
+            badge.dataset.akariGenerationCompact = Array.from(description.badge)[0];
+            badge.title = `${description.badge} — ${description.title}`;
+            const name = header?.querySelector<HTMLElement>('.akari-annotations-strip-clip-header-label');
+            const duration = header?.querySelector<HTMLElement>('.akari-annotations-strip-clip-header-duration');
+            if (name) name.title = name.textContent ?? '';
+            if (duration) duration.title = duration.textContent ?? '';
+            element.dataset.akariGenerationBaseTitle = element.title;
+            element.title = [element.title, badge.title, name?.title, duration?.title].filter(Boolean).join('\n');
+            element.dataset.akariGenerationTitle = element.title;
+        } else if (badge.parentElement !== element) {
+            // planned-video keeps its original direct-child badge and r1 layout.
+            element.appendChild(badge);
+        }
         if (generation.state === 'generating') {
             if (!progress) {
                 progress = document.createElement('span');
@@ -7310,6 +7621,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             && candidate.track === segment.track && Math.abs(candidate.tlStart - segment.tlEnd) < 1e-6);
         const cut = next && this.cuts[next.index];
         if (!cut) return false;
+        if (last.source_id && last.source_id === cut.src) return true;
         const path = this.sourceMap.get(cut.src)?.path ?? cut.src;
         const normalize = (value: string): string => {
             const parts: string[] = [];
@@ -9122,6 +9434,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         });
         this.renderTransitionBoundaries(unsupportedDeclaredTransitions);
         this.finishKeyedRender('strip');
+        this.renderGapBand();
         this.applyTrackLockAppearance();
         this.updateChipHitAreas();
         this.finishKeyedRender('ruler');
@@ -11122,8 +11435,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected commitEditMutation(
         label: string,
         mutate: (doc: EditV2Document) => EditV2Document,
-        options?: { reload?: boolean; history?: boolean; optimistic?: boolean; captions?: { before: string; after: string } }
+        options?: { trial?: boolean; reload?: boolean; history?: boolean; optimistic?: boolean; captions?: { before: string; after: string } }
     ): Promise<{ before: string; after: string; result: WriteBackResult }> {
+        if (!options?.trial && this.materialSwap) {
+            return this.finishMaterialSwap(false).then(() => this.commitEditMutation(label, mutate, options));
+        }
         const operation = this.editMutationTail.then(() => this.performEditMutation(label, mutate, options));
         this.editMutationTail = operation.catch(() => undefined);
         return operation;
@@ -11132,16 +11448,19 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected async performEditMutation(
         label: string,
         mutate: (doc: EditV2Document) => EditV2Document,
-        options?: { reload?: boolean; history?: boolean; optimistic?: boolean; captions?: { before: string; after: string } }
+        options?: { trial?: boolean; reload?: boolean; history?: boolean; optimistic?: boolean; captions?: { before: string; after: string } }
     ): Promise<{ before: string; after: string; result: WriteBackResult }> {
         const editUri = this.location?.editUri;
         if (!editUri) throw new Error('edit.json がありません。');
-        const before = (await this.fileService.readFile(editUri)).value.toString();
+        const diskBefore = (await this.fileService.readFile(editUri)).value.toString();
+        const previousTrial = options?.trial ? this.historyService.materialTrial.entry : undefined;
+        const before = previousTrial?.before ?? diskBefore;
         const raw = JSON.parse(before) as EditV2Document;
         if (raw.version !== 2) throw new Error('v2 へ変換してから編集してください。');
-        const distribution = prepareV2KeyframeDistribution(mutate(pinAutomaticBgmDuration(raw, this.frameAt(this.contentEndDuration()))));
+        const distribution = options?.trial ? { document: mutate(raw), writes: [] }
+            : prepareV2KeyframeDistribution(mutate(pinAutomaticBgmDuration(raw, this.frameAt(this.contentEndDuration()))));
         const after = stringifyEditV2(distribution.document);
-        if (after === before && (!options?.captions || options.captions.before === options.captions.after)) {
+        if (after === diskBefore && (!options?.captions || options.captions.before === options.captions.after)) {
             return { before, after, result: { committed: false } };
         }
         const motionChanges = await this.prepareMotionChanges(distribution.writes);
@@ -11154,8 +11473,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
             throw error;
         }
         if (options?.history !== false) {
-            this.pushHistory({
+            const entry: HistoryEntry = {
                 label,
+                ...(options?.trial ? { before, after } : {}),
                 undo: async () => {
                     await this.writeMotionChanges(motionChanges, 'before');
                     await this.writeEditSnapshotGuarded(before, options?.captions?.before);
@@ -11168,6 +11488,14 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     await this.reloadEdit();
                     if (options?.captions) await this.reloadCaptions();
                 }
+            };
+            if (options?.trial) this.historyService.setMaterialTrial(entry, () => this.finishMaterialSwap(false), !!previousTrial);
+            else this.pushHistory(entry);
+        }
+        if (options?.trial && this.materialSwapPlayback) {
+            // UI 再読込や watcher を待たず、保存した全文を即時にプレビューへ渡す。
+            await this.commandRegistry.executeCommand('akari.preview.refreshSwapTrial', {
+                editUri: editUri.toString(), editSource: after, token: this.materialSwapPlayback.token
             });
         }
         if (options?.reload !== false && !options?.optimistic) await this.reloadEdit();
@@ -12210,7 +12538,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             this.updateTrimAffordance(element, state);
             element.style.cursor = state.kind === 'cut-slip' ? 'grabbing' : 'ew-resize';
             element.style.opacity = state.duplicateFragment ? '1' : '.5';
-            if (state.kind === 'cut-trim' && state.edge === 'right') {
+            if (state.kind === 'cut-trim' && state.edge === 'right' && !this.isStillImageCut(this.cuts[state.index])) {
                 const cut = this.cuts[state.index];
                 const videoUri = cut ? this.cutVideoUri(cut) : '';
                 if (videoUri) {
@@ -13447,7 +13775,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             this.updateTrimAffordance(element, state);
             if (!element.dataset.trimEdge) { element.style.cursor = 'grabbing'; }
             element.style.opacity = state.duplicateFragment ? '1' : '.5';
-            if (state.kind === 'cut-trim' && state.edge === 'right') {
+            if (state.kind === 'cut-trim' && state.edge === 'right' && !this.isStillImageCut(this.cuts[state.index])) {
                 // Out 側トリムの開始と同時に実尺フェッチを先行キックする。初回ドラッグが
                 // pointerup まで到達する前にキャッシュが温まっているようにするための保険
                 // （「初回だけ素通し」対策。本体のクランプは commitDrag 側の保留処理が担保する）。
@@ -13584,6 +13912,35 @@ export class AkariAnnotationsWidget extends BaseWidget {
         if (state.kind === 'cut-trim') {
             const cut = this.cuts[state.index];
             const segment = this.segments[state.index];
+            // Empty frames and planned videos use PNG cards too (frame tool contract §1-7).
+            if (this.isStillImageCut(cut)) {
+                if (!segment) return { kind: 'cut-trim', index: state.index, edge: state.edge,
+                    input: 0, output: state.originalOut - state.originalIn, rejected: true };
+                const movingEdge = (state.edge === 'left' ? segment.tlStart : segment.tlEnd) + delta;
+                const snap = this.snapTimeInOutputSpaceWithResult(
+                    movingEdge, showGuide,
+                    [{ time: segment.tlStart }, { time: segment.tlEnd }],
+                    { kind: 'cut', id: String(state.index) },
+                    time => {
+                        const range = planStillCutTrim(segment.tlStart, segment.tlEnd, state.edge, time, this.fps);
+                        return !range || this.cutWouldOverlap(state.index, range.at, range.duration, segment.track);
+                    }
+                );
+                const range = planStillCutTrim(segment.tlStart, segment.tlEnd, state.edge, snap.time, this.fps);
+                const at = range?.at ?? segment.tlStart;
+                const duration = range?.duration ?? segment.tlEnd - segment.tlStart;
+                const rejected = !range || this.cutWouldOverlap(state.index, at, duration, segment.track);
+                const snapped = snap.snapped && Math.abs((state.edge === 'left' ? at : at + duration) - snap.time) < 1e-4;
+                if (!snapped) this.hideSnapGuide();
+                this.setGhostRange(state.ghost, at, at + duration);
+                this.setGhostRejected(state.ghost, rejected);
+                this.setGhostSnapped(state.ghost, snapped && !rejected);
+                this.setGhostDurationWarning(state.ghost, false);
+                this.updateDragFeedback(state, rejected ? '⚠ 重なるためトリムできません' : `長さ ${duration.toFixed(2)} 秒`);
+                this.updateGhostHeaderDuration(state.ghost, duration);
+                return { kind: 'cut-trim', index: state.index, edge: state.edge,
+                    input: 0, output: duration, at, rejected };
+            }
             const videoUri = cut ? this.cutVideoUri(cut) : '';
             let maxOutSeconds: number | undefined;
             let durationUnavailable = false;
@@ -14580,6 +14937,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected async commitDrag(preview: DragPreview): Promise<void> {
+        if (this.materialSwap) await this.finishMaterialSwap(false);
         const lockedTrackId = this.trackIdOfDrag(preview);
         if (this.isTrackLocked(lockedTrackId)) {
             this.showLockedTrack(lockedTrackId);
@@ -14689,6 +15047,20 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     const original = this.cuts[preview.index];
                     const segment = this.segments[preview.index];
                     if (!original || !segment) throw new Error('クリップが見つかりません。');
+                    if (this.isStillImageCut(original)) {
+                        const duration = clampStillCutLength(preview.output, this.fps);
+                        const at = preview.at ?? segment.tlStart;
+                        if (duration === undefined || this.cutWouldOverlap(preview.index, at, duration, segment.track)) {
+                            throw new Error('隣のクリップと重なるためトリムできません。');
+                        }
+                        const itemId = this.cutItemId(preview.index);
+                        mutate = doc => updateV2Item(doc, { itemId, patch: {
+                            at: this.frameAt(at), duration: this.frameAt(duration), source: { in: 0, out: duration }
+                        } });
+                        label = 'クリップのトリム';
+                        message = 'クリップをトリムしました。';
+                        break;
+                    }
                     const speed = typeof original.speed === 'number' && original.speed > 0 ? original.speed : 1;
                     const out = preview.maxOutSeconds === undefined
                         ? preview.output : Math.min(preview.output, preview.maxOutSeconds);
@@ -15376,7 +15748,251 @@ export class AkariAnnotationsWidget extends BaseWidget {
         void this.requestSeek(outputT, { domain: 'output' });
     }
 
+    protected beginFrameDraw(event: PointerEvent): void {
+        this.cancelFrameDraw?.();
+        const target = event.target instanceof Element ? event.target : undefined;
+        if (target?.closest('[data-akari-item-kind], .akari-track-header-row, .akari-annotations-pin')) return;
+        const doc = this.editDocument;
+        if (!doc || doc.version !== 2 || this.focusScope.rootId !== null) return;
+        const stripRect = this.strip.getBoundingClientRect();
+        const y = event.clientY - stripRect.top;
+        const layout = this.laneLayout.tracks.find(row => y >= row.top && y < row.top + row.height);
+        const track = (doc.tracks as Array<Record<string, any>>)?.find(row => row.id === layout?.id);
+        if (!layout || !track || track.lane !== 'visual' || this.isTrackLocked(track.id)) return;
+        const start = this.timeAtClientX(event.clientX);
+        const fps = this.fps;
+        const occupied = (track.items ?? []).map(item => ({ at: item.at, duration: item.duration }));
+        if (occupied.some(item => start * fps >= item.at && start * fps < item.at + item.duration)) return;
+        const candidates = this.outputSnapCandidates().filter(candidate =>
+            candidate.time >= this.viewStart && candidate.time <= this.viewStart + this.visibleDuration());
+        const thresholdSeconds = snapThresholdSecondsFor(SNAP_THRESHOLD_PX, stripRect.width, this.visibleDuration()) ?? 0;
+        const rectangle = document.createElement('div');
+        rectangle.className = 'akari-annotations-frame-draw';
+        rectangle.style.display = 'none';
+        this.timelineOverlay.appendChild(rectangle);
+        let range: FrameDrawRange | null = null;
+        const update = (pointer: PointerEvent): void => {
+            if (pointer.pointerId !== event.pointerId) return;
+            range = calculateFrameDraw({ start, end: this.timeAtClientX(pointer.clientX), fps,
+                distancePx: Math.abs(pointer.clientX - event.clientX), thresholdSeconds, candidates, occupied });
+            rectangle.style.display = range ? 'flex' : 'none';
+            if (!range) return;
+            const overlay = this.timelineOverlay.getBoundingClientRect();
+            const rect = this.strip.getBoundingClientRect();
+            const scale = rect.width / this.visibleDuration();
+            Object.assign(rectangle.style, {
+                left: `${rect.left - overlay.left + (range.at / fps - this.viewStart) * scale}px`,
+                top: `${rect.top - overlay.top + layout.top}px`,
+                width: `${range.duration / fps * scale}px`, height: `${layout.height}px`
+            });
+            rectangle.textContent = `${(range.duration / fps).toFixed(1)} 秒`;
+        };
+        const cleanup = (): void => {
+            this.strip.removeEventListener('pointermove', update);
+            this.strip.removeEventListener('pointerup', finish);
+            this.strip.removeEventListener('pointercancel', cancel);
+            this.strip.removeEventListener('lostpointercapture', cancel);
+            window.removeEventListener('blur', cleanup);
+            rectangle.remove();
+            this.cancelFrameDraw = undefined;
+            if (this.strip.hasPointerCapture(event.pointerId)) this.strip.releasePointerCapture(event.pointerId);
+        };
+        const cancel = (pointer: PointerEvent): void => { if (pointer.pointerId === event.pointerId) cleanup(); };
+        const finish = (pointer: PointerEvent): void => {
+            if (pointer.pointerId !== event.pointerId) return;
+            update(pointer);
+            cleanup();
+            if (range) void this.commitEmptyFrame(track.id, range, fps);
+        };
+        this.cancelFrameDraw = cleanup;
+        this.strip.setPointerCapture(event.pointerId);
+        this.strip.addEventListener('pointermove', update);
+        this.strip.addEventListener('pointerup', finish);
+        this.strip.addEventListener('pointercancel', cancel);
+        this.strip.addEventListener('lostpointercapture', cancel);
+        window.addEventListener('blur', cleanup);
+    }
+
+    protected gapSnapshot(): TimelineGapSelection | undefined {
+        const gap = this.selectedGap, doc = this.editDocument;
+        if (!gap || !doc || this.gapRoot !== this.location?.editUri.toString() || this.focusScope.rootId !== null) return undefined;
+        const track = (doc.tracks as Array<Record<string, any>>)?.find(row => row.id === gap.trackId);
+        if (!track || track.locked) return undefined;
+        const current = timelineGapAt({ id: track.id, lane: track.lane, items: track.items ?? [] }, gap.startFrames, this.fps);
+        if (JSON.stringify(current) !== JSON.stringify(gap)) return undefined;
+        const endpoint = (id: string, which: 'first' | 'last'): TimelineGapEndpoint | undefined => {
+            const item = track.items.find(candidate => candidate.id === id);
+            const source = (doc.sources as Array<Record<string, any>>)?.find(row => row.id === item?.source?.src);
+            if (item?.source?.kind !== 'media' || typeof source?.path !== 'string') return undefined;
+            const image = /\.(png|jpe?g|webp|gif|bmp|heic|heif|tiff?)$/iu.test(source.path);
+            if (!image && !/\.(mp4|mov|m4v|webm|mkv|avi|mts|m2ts)$/iu.test(source.path)) return undefined;
+            const sourceIn = Number(item.source.in ?? 0);
+            const sourceOut = Number(item.source.out ?? sourceIn + item.duration / this.fps);
+            return { itemId: id, sourceId: item.source.src, label: item.name || source.path.split('/').pop(), sourcePath: source.path,
+                kind: image ? 'image' : 'video', atSeconds: image ? 0
+                    : which === 'last' ? Math.max(sourceIn, sourceOut - 1 / this.fps) : sourceIn };
+        };
+        const fps = this.fps;
+        const snapshot: TimelineGapSelection = { kind: 'gap', trackId: gap.trackId,
+            startSeconds: gap.startFrames / this.fps, endSeconds: gap.endFrames / this.fps,
+            previous: endpoint(gap.previousItemId, 'last'), next: endpoint(gap.nextItemId, 'first'),
+            createFrame: () => this.commitGapFrame(gap, snapshot, fps) };
+        return snapshot;
+    }
+
+    protected renderGapBand(): void {
+        this.gapBand?.remove();
+        this.gapBand = undefined;
+        const snapshot = this.gapSnapshot();
+        if (!snapshot) return;
+        const layout = this.laneLayout.tracks.find(row => row.id === snapshot.trackId);
+        if (!layout) return;
+        const band = document.createElement('div');
+        band.className = 'akari-annotations-gap-band';
+        Object.assign(band.style, { position: 'absolute', pointerEvents: 'none', boxSizing: 'border-box',
+            border: '1px dashed #b89aff', background: 'rgba(159, 111, 255, 0.16)', zIndex: '2',
+            left: `${this.percent(snapshot.startSeconds)}%`,
+            width: `${(snapshot.endSeconds - snapshot.startSeconds) / this.visibleDuration() * 100}%`,
+            top: `${layout.top}px`, height: `${layout.height}px` });
+        this.stripContent.appendChild(band);
+        this.gapBand = band;
+    }
+
+    protected selectGapAt(clientX: number, clientY: number): boolean {
+        const doc = this.editDocument;
+        if (!doc || doc.version !== 2 || this.focusScope.rootId !== null) return false;
+        const y = clientY - this.strip.getBoundingClientRect().top;
+        const layout = this.laneLayout.tracks.find(row => y >= row.top && y < row.top + row.height);
+        const track = (doc.tracks as Array<Record<string, any>>)?.find(row => row.id === layout?.id);
+        if (!track || track.locked || this.isTrackLocked(track.id)) return false;
+        const gap = timelineGapAt({ id: track.id, lane: track.lane, items: track.items ?? [] },
+            this.timeAtClientX(clientX) * this.fps, this.fps);
+        if (!gap) return false;
+        this.applySelection(undefined);
+        this.selectedGap = gap;
+        this.gapRoot = this.location?.editUri.toString();
+        this.pushSelectionSnapshot();
+        this.renderGapBand();
+        void this.commands.executeCommand(OPEN_AKARI_INSPECTOR_ID);
+        return true;
+    }
+
+    protected async commitGapFrame(gap: TimelineGap, snapshot: TimelineGapSelection, fps: number): Promise<void> {
+        const location = this.location;
+        if (!location || this.gapCommitting || this.selectedGap !== gap) return;
+        this.gapCommitting = true;
+        try {
+            const projectRootUri = location.root.toString();
+            const capture = async (endpoint: TimelineGapEndpoint | undefined, which: 'first' | 'last') => {
+                if (!endpoint) return null;
+                const frame = await this.annotationsService.extractSourceFrame({ projectRootUri,
+                    sourcePath: endpoint.sourcePath, atSeconds: endpoint.atSeconds, which });
+                return { path: frame.relativePath, sha256: frame.sha256, source_id: endpoint.sourceId };
+            };
+            const first = await capture(snapshot.previous, 'last');
+            const last = await capture(snapshot.next, 'first');
+            const duration = (gap.endFrames - gap.startFrames) / fps;
+            const image = await this.annotationsService.createEmptyGenerationFrame({ projectRootUri, durationSeconds: duration });
+            const defaults = await this.annotationsService.readGenerationDefaults({ projectRootUri });
+            // The item does not exist yet. Save next directly on the newly created card before the one edit mutation.
+            const metaUri = location.root.resolve(`${image.relativePath}.meta.json`);
+            const meta = JSON.parse((await this.fileService.readFile(metaUri)).value.toString());
+            // Reuse plannedStillMeta's complete, validated empty slots returned by the card RPC.
+            // Its output resolution is the PNG dimensions, so video output uses empty knobs instead.
+            meta.next = { kind: 'video', status: 'planned', model: { id: defaults.video },
+                inputs: { ...meta.inputs, prompt: '', first_frame: first, last_frame: last, frames_or_refs: 'frames' },
+                output: { duration_s: duration, resolution: null, aspect: null, audio_out: null }, updated_at: new Date().toISOString() };
+            await this.fileService.writeFile(metaUri, BinaryBuffer.fromString(JSON.stringify(meta, null, 2) + '\n'));
+            let itemId: string;
+            await this.commitEditMutation('あいだを生成の枠を置く', doc => {
+                if (this.location?.editUri.toString() !== location.editUri.toString()) throw new Error('プロジェクトが変わりました。');
+                const track = (doc.tracks as Array<Record<string, any>>)?.find(row => row.id === gap.trackId);
+                if (!track || track.locked || (doc.output as { fps: number })?.fps !== fps
+                    || JSON.stringify(timelineGapAt({ id: track.id, lane: track.lane, items: track.items ?? [] }, gap.startFrames, fps)) !== JSON.stringify(gap)) {
+                    throw new Error('すき間またはトラックが変わりました。');
+                }
+                // Reject trimmed/replaced endpoints while extraction was in flight.
+                for (const endpoint of [snapshot.previous, snapshot.next]) {
+                    if (!endpoint) continue;
+                    const item = track.items.find(candidate => candidate.id === endpoint.itemId);
+                    const source = (doc.sources as Array<Record<string, any>>)?.find(row => row.id === item?.source?.src);
+                    const at = endpoint.kind === 'image' ? 0 : endpoint === snapshot.previous
+                        ? Math.max(item?.source?.in ?? 0, (item?.source?.out ?? (item?.source?.in ?? 0) + item?.duration / fps) - 1 / fps)
+                        : item?.source?.in ?? 0;
+                    if (item?.source?.src !== endpoint.sourceId || source?.path !== endpoint.sourcePath
+                        || at !== endpoint.atSeconds) throw new Error('前後のクリップが変わりました。');
+                }
+                const sources = [...(doc.sources as Array<Record<string, unknown>> ?? [])];
+                const ids = new Set([...sources.map(source => source.id), ...indexEditV2Items(doc).keys()]);
+                let serial = 1;
+                while (ids.has(`gap-${serial}`) || ids.has(`gap-src-${serial}`)) serial++;
+                itemId = `gap-${serial}`;
+                const sourceId = `gap-src-${serial}`;
+                sources.push({ id: sourceId, path: image.relativePath });
+                return insertV2Item({ ...doc, sources }, gap.trackId, { id: itemId, name: 'あいだを生成',
+                    at: gap.startFrames, duration: gap.endFrames - gap.startFrames,
+                    source: { kind: 'media', src: sourceId, in: 0, out: duration } });
+            });
+            const index = this.cutItemIds.indexOf(itemId);
+            const row = this.timelineTreeRows.find(candidate => candidate.id === itemId);
+            if (index >= 0) this.applySelection({ kind: 'cut', index });
+            else if (row) this.applySelection(this.selectionForTreeRow(row));
+            await this.commands.executeCommand(OPEN_AKARI_INSPECTOR_ID, { tabId: 'generation' });
+            this.showNotice('あいだに動画予定を置きました。');
+        } catch (error) {
+            this.showNotice(`あいだに枠を置けません: ${this.errorMessage(error)}`);
+        } finally { this.gapCommitting = false; }
+    }
+
+    protected async commitEmptyFrame(trackId: string, range: FrameDrawRange, fps: number): Promise<void> {
+        const location = this.location;
+        if (!location) return;
+        try {
+            const image = await this.annotationsService.createEmptyGenerationFrame({
+                projectRootUri: location.root.toString(), durationSeconds: range.duration / fps
+            });
+            if (this.location?.editUri.toString() !== location.editUri.toString()) return;
+            let itemId: string;
+            await this.commitEditMutation('空の枠を置く', doc => {
+                if (this.location?.editUri.toString() !== location.editUri.toString()) throw new Error('プロジェクトが変わりました。');
+                const track = (doc.tracks as Array<Record<string, any>>)?.find(row => row.id === trackId);
+                if (!track || track.lane !== 'visual' || track.locked || (doc.output as { fps: number })?.fps !== fps) {
+                    throw new Error('トラックまたはフレームレートが変わりました。');
+                }
+                if ((track.items ?? []).some(item => item.at < range.at + range.duration && item.at + item.duration > range.at)) {
+                    throw new Error('枠を置く場所に別のクリップがあります。');
+                }
+                const sources = [...(doc.sources as Array<Record<string, unknown>> ?? [])];
+                const ids = new Set([...sources.map(source => source.id), ...indexEditV2Items(doc).keys()]);
+                let serial = 1;
+                while (ids.has(`frame-${serial}`) || ids.has(`frame-src-${serial}`)) serial++;
+                itemId = `frame-${serial}`;
+                const sourceId = `frame-src-${serial}`;
+                sources.push({ id: sourceId, path: image.relativePath });
+                return insertV2Item({ ...doc, sources }, trackId, {
+                    id: itemId, name: '空の枠', at: range.at, duration: range.duration,
+                    source: { kind: 'media', src: sourceId, in: 0, out: range.duration / fps }
+                });
+            });
+            const index = this.cutItemIds.indexOf(itemId);
+            const row = this.timelineTreeRows.find(candidate => candidate.id === itemId);
+            if (index >= 0) this.applySelection({ kind: 'cut', index });
+            else if (row) this.applySelection(this.selectionForTreeRow(row));
+            // Drawing a frame explicitly requests its inspector; passive selection sync only attaches it.
+            await this.commands.executeCommand(OPEN_AKARI_INSPECTOR_ID);
+            this.showNotice('空の枠を置きました。');
+        } catch (error) {
+            this.showNotice(`空の枠を置けません: ${this.errorMessage(error)}`);
+        }
+    }
+
     protected onStripPointerDown(event: PointerEvent): void {
+        if (this.toolMode === 'frame') {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            if (event.button === 0) this.beginFrameDraw(event);
+            return;
+        }
         if (event.button !== 0 || this.toolMode !== 'select') {
             return;
         }
@@ -15414,8 +16030,14 @@ export class AkariAnnotationsWidget extends BaseWidget {
             this.strip.removeEventListener('pointercancel', onUp);
             this.selectionMarquee.style.display = 'none';
             if (!dragged) {
+                if (upEvent.type === 'pointerup' && !event.shiftKey && this.selectGapAt(startX, startY)) {
+                    this.suppressNextStripClick = true;
+                    this.selectTimeAtClientX(startX);
+                }
                 return;
             }
+            this.selectedGap = undefined;
+            this.gapBand?.remove();
             this.suppressNextStripClick = true;
             const selectionRect = {
                 left: Math.min(startX, upEvent.clientX),
@@ -15593,6 +16215,18 @@ export class AkariAnnotationsWidget extends BaseWidget {
             || !Number.isFinite(request.time)
             || typeof request.playing !== 'boolean') {
             return;
+        }
+        if (this.materialSwapPlaybackWindow) {
+            const trialWindow = advanceMaterialTrialWindow(this.materialSwapPlaybackWindow, this.materialSwapPlayback?.token, {
+                trialToken: request.trialToken, time: request.time!, playing: request.playing
+            });
+            this.materialSwapPlaybackWindow = trialWindow.state;
+            if (trialWindow.pause) {
+                // 終端停止はお試しの終了ではない。帯・仮履歴と再生開始の確認結果を維持する。
+                void this.commandRegistry.executeCommand('akari.preview.pause', {
+                    editUri: this.materialSwap?.editUri, trialToken: trialWindow.state!.token, reason: 'window_end'
+                });
+            }
         }
         this.visualPlaying = request.playing;
         this.visualThumbnails.setPaused(this.visualPlaying || this.visualPointerDown);
@@ -15789,7 +16423,6 @@ export class AkariAnnotationsWidget extends BaseWidget {
             row ? {
                 canSplit: this.splittableItemId(item) !== undefined,
                 canDetach: row.parentId !== undefined,
-                canConvertToTelop: row.itemKind === 'caption',
                 canGroup: this.multiSelection.length >= 2,
                 canUngroup: row.sourceKind === 'group',
                 canToggleCollapse: row.sourceKind === 'group' && row.hasChildren,
@@ -15810,6 +16443,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
             item.kind === 'audio' && (this.audioSfx.some(candidate => candidate.id === item.id)
                 || this.audioSpeech.some(candidate => candidate.id === item.id))
         );
+        const swapTarget = this.selectedMaterialSwapTarget(item);
+        if (swapTarget) items.push({ id: 'material-swap', label: '入れ替え…' });
         const clientX = event.clientX;
         openTimelineContextMenu({
             x: event.clientX,
@@ -15829,6 +16464,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected dispatchTimelineClipMenuAction(
         id: string, item: TimelineSelectionItem, clientX: number, hasAudio?: boolean, altKey = false
     ): void {
+        if (id === 'material-swap') {
+            const target = this.selectedMaterialSwapTarget(item);
+            if (target) void this.commandRegistry.executeCommand('akari.catalog.openSwap', target);
+            return;
+        }
         if (id === 'annotate') {
             void this.requestClipAnnotation(item, clientX);
             return;
@@ -15907,23 +16547,6 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     ? this.computeTrackAutoNames().get(createdTrackId) ?? createdTrackId : '新しい段';
                 this.showNotice(`${name} を追加しました`);
             }).catch(error => this.showNotice(`出せません: ${this.errorMessage(error)}`));
-            return;
-        }
-        if (id === 'convert-to-telop' && item.kind === 'item' && item.itemKind === 'caption') {
-            const row = this.expandedTimelineTreeRows.find(candidate => candidate.id === item.id);
-            const raw = this.rawV2Item(item.id);
-            const captionId = captionIdForTreeSelection(
-                { kind: 'item', id: item.id, itemKind: item.itemKind,
-                    ...(item.parentId === undefined ? {} : { parentId: item.parentId }), trackId: item.trackId },
-                raw?.source?.kind === 'caption' ? raw.source.id : undefined
-            );
-            const caption = this.captions.find(candidate => candidate.id === captionId);
-            if (!caption || !row) return;
-            void this.commitEditMutation('テロップに変換', doc => convertCaptionToTelopV2(doc, item.id, {
-                text: caption.text,
-                at: Math.round(row.at * this.fps),
-                duration: Math.round(row.duration * this.fps)
-            }).document).catch(error => this.showNotice(`テロップに変換できません: ${this.errorMessage(error)}`));
             return;
         }
         if (id === 'group') {

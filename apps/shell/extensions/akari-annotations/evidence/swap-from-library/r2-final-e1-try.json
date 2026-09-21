@@ -1,0 +1,52 @@
+{
+ "mode": "state",
+ "at": "2026-09-21T16:47:21.623Z",
+ "shaBefore": "7e9d4fbcf18f48533384a30ac00605b44f72655e4696979cdc07a1a8856f6ebb",
+ "itemBefore": {
+  "track": "v2",
+  "id": "broll-1",
+  "at": 90,
+  "duration": 1260,
+  "source": {
+   "kind": "media",
+   "src": "src-1",
+   "in": 0,
+   "out": 42
+  },
+  "path": "assets/still/br-cables-patch/broll.png"
+ },
+ "shaAfter": "7e9d4fbcf18f48533384a30ac00605b44f72655e4696979cdc07a1a8856f6ebb",
+ "itemAfter": {
+  "track": "v2",
+  "id": "broll-1",
+  "at": 90,
+  "duration": 1260,
+  "source": {
+   "kind": "media",
+   "src": "src-1",
+   "in": 0,
+   "out": 42
+  },
+  "path": "assets/still/br-cables-patch/broll.png"
+ },
+ "sameTrack": [
+  "img-1@0+60",
+  "broll-1@90+1260"
+ ],
+ "ui": {
+  "trialBar": [
+   {
+    "text": "お試し中: 街歩き（検証用 45 秒） → 配線パネルのケーブル▶ もう一度差し替えるやめる",
+    "visible": true
+   }
+  ],
+  "inspectorSwapRow": false,
+  "leftPanel": "swap-shelf",
+  "toasts": []
+ },
+ "lint": {
+  "verdict": "pass",
+  "errors": [],
+  "sourceRange": 0
+ }
+}

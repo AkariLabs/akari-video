@@ -1,0 +1,8 @@
+{
+  "name": "@akari-video/akari-vibe",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "bin": { "akari-vibe": "bin/akari-vibe.mjs" },
+  "scripts": { "test": "node --test test/*.test.mjs" }
+}

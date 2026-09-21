@@ -1,3 +1,4 @@
+import { contextMenuPosition } from '../common/context-menu-position';
 import { TimelineClipMenuItem } from '../common/timeline-context-menu-items';
 
 /**
@@ -42,12 +43,17 @@ export function openTimelineContextMenu(options: OpenTimelineContextMenuOptions)
     popup.setAttribute('data-akari-context-menu', 'true');
     Object.assign(popup.style, {
         position: 'fixed',
+        visibility: 'hidden',
+        boxSizing: 'border-box',
+        maxHeight: 'calc(100vh - 8px)',
+        maxWidth: 'calc(100vw - 8px)',
+        overflow: 'auto',
         left: `${options.x}px`,
         top: `${options.y}px`,
         zIndex: '10000',
         display: 'flex',
         flexDirection: 'column',
-        minWidth: '156px',
+        minWidth: 'min(156px, calc(100vw - 8px))',
         padding: '4px',
         borderRadius: '4px',
         border: '1px solid var(--theia-widget-border)',
@@ -79,6 +85,11 @@ export function openTimelineContextMenu(options: OpenTimelineContextMenuOptions)
     }
     popup.addEventListener('contextmenu', event => event.preventDefault());
     document.body.appendChild(popup);
+    const bounds = popup.getBoundingClientRect();
+    const position = contextMenuPosition(options, bounds, { width: window.innerWidth, height: window.innerHeight });
+    popup.style.left = `${position.left}px`;
+    popup.style.top = `${position.top}px`;
+    popup.style.visibility = 'visible';
     activePopup = popup;
     const close = (event: PointerEvent): void => {
         if (!popup.contains(event.target as Node)) {

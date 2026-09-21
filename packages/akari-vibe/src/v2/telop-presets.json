@@ -1,0 +1,22 @@
+{
+  "ref3_particle_min": {
+    "provenance": "DEFAULT_CAPTION_TELOP_PRESET / convertCaptionToTelop: text is authoritative; color/size are lab fallback declarations (template unavailable in public main).",
+    "variables": [
+      {
+        "key": "text",
+        "role": "text",
+        "default": ""
+      },
+      {
+        "key": "color_text",
+        "role": "color",
+        "default": "#ffffff"
+      },
+      {
+        "key": "font_size",
+        "role": "size",
+        "default": 72
+      }
+    ]
+  }
+}

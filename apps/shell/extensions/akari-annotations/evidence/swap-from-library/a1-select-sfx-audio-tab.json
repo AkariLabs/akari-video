@@ -1,0 +1,11 @@
+{
+ "swapShelf": false,
+ "leftText": "プロジェクト\nライブラリ\nstill\n3Dプリンター\n--:--\n文字起こし\n未\n音声\nbgm-breakbeat-134-a.mp3\n--:--\n文字起こし\n未\n音声\nbgm-breakbeat-134-b.mp3\n--:--\n文字起こし\n未\n動画\nlong-clip.mp4\n--:--\n文字起こし\n未\n動画\nraw-clip.mp4\n--:--\n文字起こし\n未\n音声\nsfx-bell-tree.mp3\n--:--\n文字起こし\n未\n音声\nsfx-blip-beep.mp3\n--:--\n文字起こし\n未\n音声\nsfx-chime-success.mp3\n--:--\n文字起こし\n未\n音声\nsfx-click-bottlecap.mp3\n--:--\n文字起こし\n未\n音声\nsfx-impact-echo.mp3\n--:--\n文字起こし\n未\n音声\nsfx-pop-bubble-big.mp3\n--:",
+ "inspectorTabs": [
+  "音声",
+  "情報"
+ ],
+ "inspectorSwapRows": 0,
+ "inspectorLines": 102,
+ "inspectorText": "音声\n情報\n▾ 音声\ngain_db\n↔\ndB\n▲\n▼\n▾ 時間\n出力位置\n00:00:02.000\n尺\n2.53 秒\n▾ フェード・ダッキング\nレベル\n自動レベル\nfadeIn\n↔\ns\n▲\n▼\nfadeOut\n↔\ns\n▲\n▼\nducking\nON\nOFF\nduck_db\n↔\ndB\n▲\n▼\nプリセット\n-3\n-6\n-12\nduck_attack（詳細）\n↔\ns\n▲\n▼\nduck_release（詳細）\n↔\ns\n▲\n▼\n▾ 音量キーフレーム\n追加\n再生ヘッド位置に追加\n▾ ピッチ・タイム\n\n速度はピッチを保ったまま変わります（タイムライン上の開始位置は不変・実効尺 = 素材尺 ÷ 速度）\n\n速度\n↔\n×\n▲\n▼\nピッチ\n↔\nst\n▲\n▼\nフォルマント\n保持\n移動\n▾ 音声強調\nノイズ除去\nオフ\nFFT\nNLM\n強さ\n↔\n%\n▲\n▼\nローカット\n↔\nHz\n▲\n▼\nボイス分離\n近日\n▾ マスター（書き出し全体）\n\nプロジェクト全体に適用・プレビューは未対応（書き出し時のみ）\n\nマスタリング\nオフ\nオン\nノイズ除去\nオフ\n標準\n強\nラウドネス目標\n↔\nLUFS\n▲\n▼\nTrue Peak 上限\n↔\ndBTP\n▲\n▼"
+}

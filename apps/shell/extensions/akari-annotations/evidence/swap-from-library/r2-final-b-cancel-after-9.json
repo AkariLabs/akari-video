@@ -1,0 +1,64 @@
+{
+ "mode": "bar",
+ "arg": "やめる",
+ "at": "2026-09-21T16:45:49.299Z",
+ "shaBefore": "0abc8dba6f4b3ed26eddc80106a5b8abb0d2e78b40b339fb3c1d8eeb03f1acc9",
+ "itemBefore": {
+  "track": "v2",
+  "id": "broll-1",
+  "at": 90,
+  "duration": 1260,
+  "source": {
+   "kind": "media",
+   "src": "src-1",
+   "in": 0,
+   "out": 42
+  },
+  "path": "assets/still/br-coffee-beans/broll.png"
+ },
+ "click": [
+  827.5,
+  66.5
+ ],
+ "settleMs": 2597,
+ "previewTimeSamples": [
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0
+ ],
+ "shaAfter": "0b6ccf6c363685d94a5a44f54f8d132ab1d99b8c22e5c838669849559e5356fc",
+ "itemAfter": {
+  "track": "v2",
+  "id": "broll-1",
+  "at": 90,
+  "duration": 1260,
+  "source": {
+   "kind": "media",
+   "src": "city",
+   "in": 0,
+   "out": 42,
+   "mute": true
+  },
+  "path": "assets/broll/br-city-walk-long/clip.mp4"
+ },
+ "sameTrack": [
+  "img-1@0+60",
+  "broll-1@90+1260"
+ ],
+ "ui": {
+  "trialBar": [],
+  "inspectorSwapRow": false,
+  "leftPanel": "other",
+  "toasts": []
+ },
+ "lint": {
+  "verdict": "pass",
+  "errors": [],
+  "sourceRange": 0
+ }
+}

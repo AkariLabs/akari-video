@@ -1,3 +1,8 @@
+import { runPreviewFrameCaptureAttempts } from '../common/preview-frame-check';
+import { installPreviewFrameCapture } from '../common/preview-frame-controller';
+import { PreviewFrameRequestMessage, PreviewFrameReadyMessage, PreviewFrameCommand } from '../common/preview-frame-capture';
+import { SwapTrialPlayback, SwapTrialIdentity, logSwapTrial } from '../common/swap-trial-playback';
+import { requestReadyPreviewSeek, createReadySeekResponder } from '../common/preview-ready-seek';
 import { isMaterialPreviewWidgetId } from '../common/material-preview-slot';
 import { MaterialPreviewSlot } from './material-preview-slot';
 import URI from '@theia/core/lib/common/uri';
@@ -219,6 +224,7 @@ import { ReviewSessionRecordingIndicator } from './review-session-recording-indi
 import {
     describeOverlay,
     generationStateHelperV1,
+    generationNextDraftHelperV1,
     resolveGenerationState
 } from '../common/generation-overlay-model';
 
@@ -889,6 +895,7 @@ interface ReviewAnnotationStrokeRequest {
 }
 
 interface PreviewWidgetMarker extends WebviewWidget {
+    akariPreviewFrameCaptureRequest?: string;
     akariPreviewAudioKeepKeys?: Set<string>;
     akariPreviewAudioKeepProbes?: Set<string>;
     akariPreviewAudioProjectRootUri?: string;
@@ -900,6 +907,9 @@ interface PreviewWidgetMarker extends WebviewWidget {
     akariPreviewConfigured?: boolean;
     akariPreviewConfiguration?: Promise<void>;
     akariPreviewRefresh?: Promise<void>;
+    akariPreviewQueuedEditSource?: string;
+    akariPreviewPlaybackPageId?: string;
+    akariSwapReloading?: boolean;
     akariPreviewCaptionsUpdate?: Promise<void>;
     akariPreviewGenerationUpdate?: Promise<void>;
     akariPreviewModelSnapshot?: PreviewModelDiffInput;
@@ -1062,6 +1072,9 @@ interface EnsureVisibleRequest {
 }
 
 interface SeekOutputRequest {
+    swapTrialToken?: string;
+    seek?: boolean;
+    waitForReady?: boolean;
     editUri?: string;
     time?: number;
 }
@@ -1080,7 +1093,7 @@ interface SetPreviewPlaybackRateExternalRequest { editUri: string; rate: number;
 type SetPreviewLoopRangeRequest =
     | { editUri: string; startSeconds: number; endSeconds: number }
     | { editUri: string; clear: true };
-interface PreviewPlaybackControlRequest { editUri: string; }
+interface PreviewPlaybackControlRequest { editUri: string; trialToken?: string; reason?: 'window_end'; }
 interface PreviewCropModeRequest { editUri: string; itemId?: string; on?: boolean; }
 interface PreviewPerspectivePanelRequest { editUri: string; itemId?: string; on?: boolean; }
 interface PulsePreviewItemRequest { editUri: string; itemId: string; }
@@ -1088,6 +1101,8 @@ interface ShowPreviewZoneHintRequest { editUri: string; zones: string[]; duratio
 
 interface PreviewPlaybackTickRequest {
     type: 'akari-preview-playback-tick';
+    pageId?: string;
+    trialToken?: string;
     time: number;
     playing: boolean;
     rate?: number;
@@ -1447,6 +1462,21 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         this.registerSetPreviewPlaybackRateCommand();
         this.registerSetPreviewLoopRangeCommand();
         this.registerPreviewPlayCommand();
+        this.commandRegistry.registerCommand({ id: 'akari.preview.beginSwapTrial' }, {
+            execute: (request: SwapTrialIdentity & { editUri: string }) => this.beginSwapTrial(request)
+        });
+        this.commandRegistry.registerCommand({ id: 'akari.preview.refreshSwapTrial' }, {
+            execute: (request: { editUri: string; editSource: string; token: string }) => this.refreshSwapTrial(request)
+        });
+        this.commandRegistry.registerCommand({ id: 'akari.preview.endSwapTrial' }, {
+            execute: (token: string) => this.endSwapTrial(token)
+        });
+        this.commandRegistry.registerCommand({ id: 'akari.preview.playSwapTrial' }, {
+            execute: (request: SwapTrialIdentity & { editUri: string; time: number }) => this.playSwapTrial(request)
+        });
+        this.commandRegistry.registerCommand({ id: 'akari.preview.materialTrial' }, {
+            execute: (request: { editUri: string; originalTitle?: string; title?: string }) => this.showMaterialTrial(request)
+        });
         this.registerPreviewPauseCommand();
         this.registerPreviewCropModeCommand();
         this.registerPreviewPerspectivePanelCommand();
@@ -2447,6 +2477,49 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         });
     }
 
+    /** 出力 Webview の上にだけ表示する。素材プレビューには追加しない。 */
+    protected async showMaterialTrial(request: { editUri: string; originalTitle?: string; title?: string }): Promise<void> {
+        if (!request?.editUri) return;
+        const uri = new URI(request.editUri).normalizePath();
+        const key = uri.toString();
+        let widget = this.openOutputPreviews.get(key);
+        if (!widget || widget.isDisposed) {
+            if (!request.title) return;
+            // メディアの configure を待たず、まず操作できる帯と出力タブを用意する。
+            widget = await this.widgetManager.getOrCreateWidget<WebviewWidget>(WebviewWidget.FACTORY_ID, {
+                id: `akari-output-preview-${this.hash(key)}`, viewId: key
+            });
+            this.openOutputPreviews.set(key, widget);
+            widget.title.label = '出力プレビュー';
+        }
+        if (request.title) {
+            if (!widget.isAttached) this.shell.addWidget(widget, { area: 'main' });
+            this.shell.revealWidget(widget.id);
+        }
+        widget.node.querySelector('[data-akari-material-trial]')?.remove();
+        if (!request.title) return;
+        const bar = document.createElement('div');
+        bar.dataset.akariMaterialTrial = 'true';
+        // Theia の mousedown 用透明面は z-index:999。実マウスの mouseup/click も帯へ届ける。
+        bar.style.cssText = 'position:absolute;top:0;left:0;right:0;z-index:1000;display:flex;align-items:center;flex-wrap:wrap;gap:8px;padding:8px;background:var(--theia-editorWidget-background);color:var(--theia-foreground);border-bottom:1px solid var(--theia-focusBorder)';
+        const text = document.createElement('span');
+        text.textContent = `お試し中: ${request.originalTitle ?? ''} → ${request.title}`;
+        text.style.flex = '1';
+        bar.appendChild(text);
+        for (const [label, command, argument] of [
+            ['▶ もう一度', 'akari.timeline.replayMaterialSwap', undefined],
+            ['差し替える', 'akari.timeline.finishMaterialSwap', true],
+            ['やめる', 'akari.timeline.finishMaterialSwap', false]
+        ] as const) {
+            const button = document.createElement('button');
+            button.className = 'theia-button secondary';
+            button.textContent = label;
+            button.onclick = () => { void this.commandRegistry.executeCommand(command, argument); };
+            bar.appendChild(button);
+        }
+        widget.node.appendChild(bar);
+    }
+
     protected registerPreviewPlayCommand(): void {
         this.commandRegistry.registerCommand(PREVIEW_PLAY_COMMAND, {
             execute: (request?: PreviewPlaybackControlRequest) => this.playOutputPreview(request)
@@ -2559,6 +2632,88 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         return true;
     }
 
+    protected readonly swapTrialPlaybacks = new Map<string, SwapTrialPlayback>();
+
+    protected beginSwapTrial(request: SwapTrialIdentity & { editUri: string }): void {
+        const key = new URI(request.editUri).normalizePath().toString();
+        const previous = this.swapTrialPlaybacks.get(key);
+        if (previous) this.endSwapTrial(previous.identity.token);
+        const trial = new SwapTrialPlayback(request, Date.now());
+        this.swapTrialPlaybacks.set(key, trial);
+        const widget = this.openOutputPreviews.get(key);
+        if (widget?.akariSwapReloading) trial.event({ type: 'reload-start', now: Date.now() });
+        widget?.sendMessage({ type: 'akari-preview-swap-trial-context', token: request.token });
+        logSwapTrial(request, 'preview_trial_begin', { pageId: widget?.akariPreviewPlaybackPageId });
+    }
+
+    /** 保存した本文をその場でキューへ入れる。後着の保存通知は queueRefresh が同内容を共有する。 */
+    protected refreshSwapTrial(request: { editUri: string; editSource: string; token: string }): boolean {
+        const uri = new URI(request.editUri).normalizePath();
+        const trial = this.swapTrialPlaybacks.get(uri.toString());
+        if (!trial || trial.identity.token !== request.token || trial.state.cancelled) return false;
+        const widget = this.openOutputPreviews.get(uri.toString());
+        if (!widget?.akariPreviewConfigured || widget.isDisposed) return false; // 初回は open が最新の保存内容を読む。
+        this.markRecentWrite(uri);
+        this.queueRefresh(widget, uri, 'output', undefined, false, request.editSource);
+        return true;
+    }
+
+    protected endSwapTrial(token: string): void {
+        for (const [key, trial] of this.swapTrialPlaybacks) if (trial.identity.token === token) {
+            logSwapTrial(trial.identity, 'playback_cancel', { reason: 'trial_end' });
+            trial.cancel();
+            this.swapTrialPlaybacks.delete(key);
+        }
+    }
+
+    protected noteSwapReload(widget: PreviewWidgetMarker, event: 'reload_start' | 'reload_complete', pageId?: string): void {
+        if (pageId && pageId !== widget.akariPreviewPlaybackPageId) return;
+        if (event === 'reload_complete' && !widget.akariSwapReloading) return;
+        widget.akariSwapReloading = event === 'reload_start';
+        const trial = this.swapTrialPlaybacks?.get(widget.akariPreviewEditUri?.normalizePath().toString() ?? '');
+        if (!trial) return;
+        trial.event({ type: event === 'reload_start' ? 'reload-start' : 'reload-complete', now: Date.now() });
+        logSwapTrial(trial.identity, event, { pageId: widget.akariPreviewPlaybackPageId });
+    }
+
+    protected async playSwapTrial(request: SwapTrialIdentity & { editUri: string; time: number }): Promise<'playing' | 'cancelled' | 'failed'> {
+        const key = new URI(request.editUri).normalizePath().toString();
+        const trial = this.swapTrialPlaybacks.get(key);
+        if (!trial || trial.identity.token !== request.token) return 'cancelled';
+        const widget = (): PreviewWidgetMarker => {
+            const value = this.openOutputPreviews.get(key);
+            if (trial.state.cancelled || !value || value.isDisposed) throw new Error('preview unavailable');
+            return value;
+        };
+        return trial.run({
+            now: () => Date.now(), wait: ms => new Promise(resolve => setTimeout(resolve, ms)),
+            prepare: async seek => {
+                await this.seekOutputPreview({ editUri: key, time: request.time, waitForReady: true,
+                    swapTrialToken: request.token, seek });
+            },
+            fallbackSeek: async () => {
+                logSwapTrial(trial.identity, 'seek_fallback');
+                widget().sendMessage({ type: 'akari-preview-seek', time: request.time });
+            },
+            play: async () => {
+                widget().sendMessage({ type: 'akari-preview-set-playback', playing: true, trialToken: request.token });
+            },
+            query: () => new Promise(resolve => {
+                const current = widget();
+                const finish = (playing: boolean, userStopped = false): void => {
+                    clearTimeout(timer); listener.dispose(); resolve({ playing, userStopped });
+                };
+                const listener = current.onMessage(message => {
+                    if (message?.type === 'akari-preview-swap-playback-state' && message.token === request.token
+                        && message.pageId === current.akariPreviewPlaybackPageId) finish(message.playing === true, message.userStopped === true);
+                });
+                const timer = setTimeout(() => finish(trial.state.started), 180);
+                current.sendMessage({ type: 'akari-preview-swap-playback-query', token: request.token });
+            }),
+            log: (event, detail) => logSwapTrial(trial.identity, event, detail)
+        });
+    }
+
     protected async playOutputPreview(request: PreviewPlaybackControlRequest | undefined): Promise<boolean> {
         const widget = this.getExternalPreviewWidget(request?.editUri);
         if (!widget || !request) return false;
@@ -2568,6 +2723,14 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
     }
 
     protected async pauseOutputPreview(request: PreviewPlaybackControlRequest | undefined): Promise<boolean> {
+        const trial = request?.editUri && this.swapTrialPlaybacks?.get(new URI(request.editUri).normalizePath().toString());
+        if (request?.reason === 'window_end') {
+            if (!trial || trial.identity.token !== request.trialToken || trial.state.cancelled || !trial.state.started) return false;
+            logSwapTrial(trial.identity, 'playback_pause', { reason: 'window_end' });
+        } else if (trial) {
+            logSwapTrial(trial.identity, 'playback_cancel', { reason: 'pause_command' });
+            trial.cancel();
+        }
         const widget = this.getExternalPreviewWidget(request?.editUri);
         if (!widget || !request) return false;
         const message: PreviewSetPlaybackMessage = { type: 'akari-preview-set-playback', playing: false };
@@ -2687,6 +2850,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         const editUri = new URI(request.editUri).normalizePath();
         const existing = this.openOutputPreviews.get(editUri.toString());
         if (existing?.akariPreviewConfigured && existing.isAttached && !existing.isDisposed) {
+            const trial = this.swapTrialPlaybacks?.get(editUri.toString());
+            if (trial) { logSwapTrial(trial.identity, 'playback_cancel', { reason: 'toggle_command' }); trial.cancel(); }
             existing.sendMessage({ type: 'akari-preview-toggle-playback' });
             return 'toggled';
         }
@@ -2702,7 +2867,41 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         const editUri = new URI(request.editUri).normalizePath();
         const key = editUri.toString();
         const existing = this.openOutputPreviews.get(key);
+        if (request.waitForReady) {
+            const trial = request.swapTrialToken ? this.swapTrialPlaybacks.get(key) : undefined;
+            if (request.swapTrialToken && (!trial || trial.identity.token !== request.swapTrialToken || trial.state.cancelled)) throw new Error('trial cancelled');
+            const alreadyConfigured = existing?.akariPreviewConfigured && !existing.isDisposed;
+            const widget = alreadyConfigured ? existing
+                : await this.getOrOpenPreview(editUri, { area: 'main' }, 'output') as PreviewWidgetMarker;
+            if (!widget.isAttached) this.shell.addWidget(widget, { area: 'main' });
+            this.shell.revealWidget(widget.id);
+            this.attachTimelinePassively();
+            // 保存通知と同じ本文は queueRefresh で共有し、二重の再読込を作らない。
+            if (alreadyConfigured) {
+                const editSource = (await this.fileService.readFile(editUri)).value.toString();
+                this.queueRefresh(widget, editUri, 'output', undefined, false, editSource);
+            }
+            let refresh: Promise<void> | undefined;
+            do {
+                refresh = widget.akariPreviewRefresh;
+                await refresh;
+            } while (refresh !== widget.akariPreviewRefresh);
+            await requestReadyPreviewSeek({
+                pageId: () => widget.akariPreviewPlaybackPageId,
+                disposed: () => widget.isDisposed || trial?.state.cancelled === true,
+                send: message => widget.sendMessage(message),
+                onMessage: listener => widget.onMessage(listener)
+            }, request.time, trial ? 5000 : 30000, request.seek !== false);
+            if (trial) {
+                logSwapTrial(trial.identity, 'ready_seek_response', { pageId: widget.akariPreviewPlaybackPageId, seek: request.seek !== false });
+                this.noteSwapReload(widget, 'reload_complete', widget.akariPreviewPlaybackPageId);
+            }
+            return 'seeked';
+        }
         if (existing?.akariPreviewConfigured && existing.akariPreviewSeekable && !existing.isDisposed) {
+            // お試しの保存通知で進行中の素材更新が終わってから新しい出力をシークする。
+            await existing.akariPreviewRefresh;
+            if (existing.isDisposed) return 'mismatched-asset';
             if (!existing.isAttached) {
                 this.shell.addWidget(existing, { area: 'main' });
             }
@@ -2916,6 +3115,10 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         let collapsedBagSummary: EditSummary | undefined;
         let projectedBagSummary: EditSummary | undefined;
         disposables.push(widget.onMessage(message => {
+            if (message?.type === 'akari-preview-capture-frame') {
+                void this.capturePreviewFrame(widget, message);
+                return;
+            }
             if (message?.type === 'akari-preview-expand-bag' && kind === 'output'
                 && (message.bagId === null || typeof message.bagId === 'string')
                 && Number.isSafeInteger(message.requestId)) {
@@ -2944,6 +3147,15 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 widget.sendMessage({ type: 'akari-preview-expand-bag', bagId,
                     requestId: message.requestId, summary: projectedBagSummary });
                 return;
+            }
+            const trial = this.swapTrialPlaybacks?.get(widget.akariPreviewEditUri?.normalizePath().toString() ?? '');
+            if (trial && message?.type === 'akari-preview-swap-user-control') {
+                logSwapTrial(trial.identity, 'playback_cancel', { reason: 'user_control' }); trial.cancel();
+            } else if (trial && message?.pageId === widget.akariPreviewPlaybackPageId) {
+                if (message.type === 'akari-preview-swap-playback-state' && message.token === trial.identity.token) {
+                    trial.event({ type: 'observed', playing: message.playing === true, userStopped: message.userStopped });
+                    logSwapTrial(trial.identity, 'playback_state', { playing: message.playing, userStopped: message.userStopped, source: 'renderer' });
+                }
             }
             // 診断（第11・12項）: ページ側の段の報告。届かないこと自体も証跡になる
             // （ホスト側の監視が「報告なし」として記録する）。
@@ -3018,6 +3230,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 this.timelineLayerSelections.set(selectionKey, null);
             }
             if (message?.type === 'akari-preview-primary-selection-ready') {
+                this.noteSwapReload(widget, 'reload_complete', message.pageId);
                 const key = widget.akariPreviewEditUri?.normalizePath().toString();
                 if (key && this.timelineOverlaySelections.has(key)) widget.sendMessage({ type: 'akari-preview-select-overlay', overlayId: this.timelineOverlaySelections.get(key) });
                 if (key && this.timelineLayerSelections.has(key)) widget.sendMessage({ type: 'akari-preview-select-layer', layerId: this.timelineLayerSelections.get(key) });
@@ -3267,6 +3480,12 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         // 下の reviewTransportByEdit に乗らないため、これが唯一の position 保持経路になる）。
         widget.akariPreviewLastKnownTime = captured.timelineT;
         widget.akariPreviewLastKnownPlaying = captured.playing;
+        const trial = normalizedEditUri && this.swapTrialPlaybacks?.get(normalizedEditUri);
+        if (trial && captured.playing && !trial.state.started && message.pageId === widget.akariPreviewPlaybackPageId
+            && message.trialToken === trial.identity.token) {
+            trial.event({ type: 'observed', playing: true });
+            if (trial.state.started) logSwapTrial(trial.identity, 'playback_state', { playing: true, source: 'tick' });
+        }
         if (!editUri) {
             if (this.activeRawPreviewWidget === widget) {
                 this.forwardRawPreviewAnnotationState(widget, 'playback');
@@ -3281,7 +3500,9 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             detail: {
                 videoUri: normalizedEditUri,
                 time: captured.timelineT,
-                playing: captured.playing
+                playing: captured.playing,
+                ...(message.trialToken && message.pageId === widget.akariPreviewPlaybackPageId
+                    ? { trialToken: message.trialToken } : {})
             }
         }));
     }
@@ -3547,6 +3768,14 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             return !result.refresh;
         };
         if (widget.isDisposed || deferDuringGesture()) return;
+        if (!forceRebuild && seekTimeOverride === undefined && editSource !== undefined
+            && widget.akariPreviewQueuedEditSource === editSource) return;
+        widget.akariPreviewQueuedEditSource = editSource;
+        const swapTrial = this.swapTrialPlaybacks?.get(identityUri.normalizePath().toString());
+        if (swapTrial) {
+            swapTrial.event({ type: 'queued', now: Date.now() });
+            logSwapTrial(swapTrial.identity, 'refresh_queued');
+        }
         const queuedWriteRevision = this.previewGestureGuards.get(widget)?.writeRevision;
         const previous = widget.akariPreviewRefresh ?? Promise.resolve();
         const refresh = (): Promise<void> => {
@@ -3564,6 +3793,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 lastKnownTime: widget.akariPreviewLastKnownTime,
                 lastKnownPlaying: widget.akariPreviewLastKnownPlaying
             });
+            const activeSwap = this.swapTrialPlaybacks?.get(identityUri.normalizePath().toString());
+            if (activeSwap) logSwapTrial(activeSwap.identity, 'refresh_started');
             return this.refreshPreview(
                 widget,
                 identityUri,
@@ -3578,6 +3809,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             refresh,
             refresh
         ).catch(error => {
+            widget.akariPreviewQueuedEditSource = undefined;
             console.error('[akari-preview] failed to refresh preview', error);
             this.handleRefreshFailure(widget, error);
         });
@@ -3745,6 +3977,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             });
         return this.frameEngineReadyTimeoutMsPromise;
     }
+
+    protected playbackPageSequence = 0;
 
     protected async refreshPreview(
         widget: PreviewWidgetMarker,
@@ -4114,6 +4348,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         const exportLook = this.preferences.get<boolean>('akari.preview.exportLook', false) === true;
         // setHTML はページを作り直すので、ページ側の段（スクリプト読込以降）はやり直しになる。
         diagnostics?.restartPageStages();
+        widget.akariPreviewPlaybackPageId = `${widget.id}:${++this.playbackPageSequence}`;
+        this.noteSwapReload(widget, 'reload_start');
         widget.setHTML(this.prepareHtml(
             videoUri,
             videoStream?.url ?? '',
@@ -4144,7 +4380,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     ? describePreviewWebviewRole(diagnostics.subject.id).label
                     : undefined,
                 assetOrigin: assets.origin
-            }
+            },
+            widget.akariPreviewPlaybackPageId
         ));
         // ここから先はページ側の段（スクリプト読込 → エンジン初期化 → メディア供給 → 初回描画）。
         // 初回描画の報告が来なければ監視が鳴り、widget 上の診断バンドとログに出る。
@@ -6612,7 +6849,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         exportLook = false,
         // 診断用の頁文脈（不具合メモ 第11・12項）。Console に出る Webview ID を
         // ページ自身にも持たせ、診断カードとログの id を突き合わせられるようにする。
-        pageDiagnostics: { webviewId?: string; webviewRole?: string; assetOrigin?: string } = {}
+        pageDiagnostics: { webviewId?: string; webviewRole?: string; assetOrigin?: string } = {},
+        playbackPageId?: string
     ): string {
         const { width, height } = model.summary.output;
         const threeTextRuntimeScript = hasThreeDimensionalTextOverlay(model.summary.overlays)
@@ -6666,6 +6904,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             hasSourceAudio: hasSourceAudio ?? null,
             initialSeekTime: Number.isFinite(initialSeekTime) ? initialSeekTime : null,
             initialPlaying,
+            playbackPageId,
             initialPlaybackRate: clampPreviewPlaybackRate(initialPlaybackRate),
             scrubAudioEnabled,
             previewAudioWorkletUrl: assets.previewAudioWorkletUrl ?? null,
@@ -6886,20 +7125,27 @@ ${kind === 'raw' ? '.akari-material-chip { position: absolute; top: 8px; left: 8
 #caption-zone-highlight { position: absolute; z-index: 1880; display: none; box-sizing: border-box; border: 1px dashed #4da3ff; background: rgba(77,163,255,.14); pointer-events: none; }
 #caption-zone-highlight.is-active { display: block; }
 #overlay-stage { position: absolute; top: 0; left: 0; width: ${width}px; height: ${height}px; overflow: hidden; pointer-events: none; }
-#akari-gen-overlay { position: absolute; inset: 0; pointer-events: none; z-index: 2100; }
+#akari-gen-overlay { --akari-gen-inv-scale: 1; --akari-gen-band-space: 0px; position: absolute; inset: 0; pointer-events: none; z-index: 2100; }
 #akari-gen-overlay *, #akari-gen-overlay *::before, #akari-gen-overlay *::after { pointer-events: none; }
-#akari-gen-tag { position: absolute; left: 10px; top: 10px; font: 10.5px/1.4 ui-monospace, Menlo, monospace; padding: 2px 8px; border-radius: 4px; background: rgba(0,0,0,.6); color: #DCE6EE; border: 1px dashed #8FA3B4; }
+#akari-gen-blur { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+#akari-gen-blur-image { width: 100%; height: 100%; object-fit: cover; filter: blur(18px) brightness(.65); transform: scale(1.06); pointer-events: none; }
+#akari-gen-pip { position: absolute; right: calc(10px * var(--akari-gen-inv-scale)); bottom: calc((10px + var(--akari-gen-band-space)) * var(--akari-gen-inv-scale)); width: 22%; pointer-events: none; }
+#akari-gen-pip-image { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: contain; background: rgba(0,0,0,.6); border-radius: 6px; border: 1px solid #A99AF2; box-sizing: border-box; pointer-events: none; }
+#akari-gen-pip-label { display: block; margin-bottom: calc(4px * var(--akari-gen-inv-scale)); font: calc(12px * var(--akari-gen-inv-scale))/1.4 ui-monospace, Menlo, monospace; white-space: nowrap; color: #E6DFFF; text-shadow: 0 calc(1px * var(--akari-gen-inv-scale)) calc(3px * var(--akari-gen-inv-scale)) #000; }
+#akari-gen-tag[data-akari-gen-severity="planned-video"] { border-color: #A99AF2; color: #E6DFFF; background: rgba(42,28,72,.8); }
+#akari-gen-tag { position: absolute; left: calc(10px * var(--akari-gen-inv-scale)); top: calc(10px * var(--akari-gen-inv-scale)); font: calc(12px * var(--akari-gen-inv-scale))/1.4 ui-monospace, Menlo, monospace; padding: calc(2px * var(--akari-gen-inv-scale)) calc(8px * var(--akari-gen-inv-scale)); border-radius: calc(4px * var(--akari-gen-inv-scale)); background: rgba(0,0,0,.6); color: #DCE6EE; border: calc(1px * var(--akari-gen-inv-scale)) dashed #8FA3B4; box-sizing: border-box; min-height: calc(22px * var(--akari-gen-inv-scale)); max-width: calc(100% - 20px * var(--akari-gen-inv-scale)); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 #akari-gen-tag[data-akari-gen-severity="generating"] { border-color: #F5C842; color: #F5C842; }
 #akari-gen-tag[data-akari-gen-severity="error"] { border-color: #D6402B; color: #D6402B; border-style: solid; }
 #akari-gen-tag[data-akari-gen-severity="frames"] { border-color: #1F6F8B; color: #1F6F8B; }
-#akari-gen-band { position: absolute; left: 0; right: 0; bottom: 0; height: 26px; box-sizing: border-box; background: rgba(0,0,0,.55); display: flex; align-items: center; gap: 8px; padding: 0 10px; font: 10.5px ui-monospace, Menlo, monospace; color: #F5C842; }
-#akari-gen-band-bar { flex: 1; height: 3px; background: rgba(255,255,255,.2); border-radius: 2px; overflow: hidden; }
+#akari-gen-band { position: absolute; left: 0; right: 0; bottom: 0; height: calc(26px * var(--akari-gen-inv-scale)); box-sizing: border-box; background: rgba(0,0,0,.55); display: flex; align-items: center; gap: calc(8px * var(--akari-gen-inv-scale)); padding: 0 calc(10px * var(--akari-gen-inv-scale)); font: calc(12px * var(--akari-gen-inv-scale))/1.4 ui-monospace, Menlo, monospace; color: #F5C842; }
+#akari-gen-band-text { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#akari-gen-band-bar { flex: 1; min-width: calc(20px * var(--akari-gen-inv-scale)); height: calc(3px * var(--akari-gen-inv-scale)); background: rgba(255,255,255,.2); border-radius: calc(2px * var(--akari-gen-inv-scale)); overflow: hidden; }
 #akari-gen-band-fill { display: block; height: 100%; background: #F5C842; }
 #akari-gen-shimmer { position: absolute; inset: 0; background: linear-gradient(100deg, transparent 35%, rgba(255,255,255,.14) 50%, transparent 65%); background-size: 250% 100%; }
 @media (prefers-reduced-motion: no-preference) { #akari-gen-shimmer { animation: akari-gen-sh 1.6s linear infinite; } }
 @keyframes akari-gen-sh { from { background-position: 120% 0; } to { background-position: -120% 0; } }
 #akari-gen-mask { position: absolute; box-sizing: border-box; border: 2px dashed #D6402B; border-radius: 3px; }
-#akari-gen-mask-label { position: absolute; left: 0; top: -16px; font: 9.5px ui-monospace, Menlo, monospace; color: #D6402B; }
+#akari-gen-mask-label { position: absolute; left: 0; top: calc(-18px * var(--akari-gen-inv-scale)); font: calc(12px * var(--akari-gen-inv-scale))/1.4 ui-monospace, Menlo, monospace; white-space: nowrap; color: #D6402B; }
 #akari-gen-overlay[hidden], #akari-gen-overlay [hidden] { display: none; }
 #pen-layer { position: absolute; top: 0; left: 0; z-index: 2; pointer-events: none; }
 #pen-layer.is-active { pointer-events: auto; cursor: crosshair; touch-action: none; }
@@ -6981,6 +7227,40 @@ ${kind === 'raw' ? '.akari-material-chip { position: absolute; top: 8px; left: 8
 .transport-left { position: relative; min-width: 0; justify-self: start; }
 .transport-center { justify-self: center; }
 .transport-right { position: relative; justify-self: end; }
+/* Capture-only presentation. Generation overlay implementation and exportLook preference stay untouched. */
+html.akari-gen-capture-fit #zoom-layer { transform: none !important; }
+html.akari-gen-capturing #preview-stage > :not(#preview-layers):not(#frame-engine-preview),
+html.akari-gen-capturing [id^="akari-gen-"],
+html.akari-gen-capturing [data-akari-interaction],
+html.akari-gen-capturing #frame-engine-preview > :not(#frame-engine-canvas),
+html.akari-gen-capturing #indicator-toggle,
+html.akari-gen-capturing #indicator-popup,
+html.akari-gen-capturing #zoom-minimap,
+html.akari-gen-capturing #reload-surface,
+html.akari-gen-capturing #audio-notice,
+html.akari-gen-capturing #write-error-banner,
+html.akari-gen-capturing .transport { visibility: hidden !important; }
+html.akari-gen-capturing .akari-focus-pulse { animation: none !important; box-shadow: none !important; }
+/* Selection decorations on content nodes must lose only their editing outline, not the content. */
+html.akari-gen-capturing #caption-plate:is([data-selected], [data-alt-all]),
+html.akari-gen-capturing #caption-plate:is([data-selected], [data-alt-all]) .akari-caption__plate,
+html.akari-gen-capturing [data-akari-interaction-selected],
+html.akari-gen-capturing [data-akari-interaction-editing="true"],
+html.akari-gen-capturing [data-akari-caption-editing="true"] { outline: none !important; caret-color: transparent !important; }
+html.akari-gen-capturing #caption-plate .akari-caption-handle-box,
+html.akari-gen-capturing #caption-plate .akari-caption-handle,
+html.akari-gen-capturing #layer-select-box,
+html.akari-gen-capturing #layer-crop-box,
+html.akari-gen-capturing #cut-select-box,
+html.akari-gen-capturing #caption-select-box,
+html.akari-gen-capturing [data-akari-handle],
+html.akari-gen-capturing [data-akari-crop-handle],
+html.akari-gen-capturing [data-akari-crop-edge] { visibility: hidden !important; }
+html.akari-gen-capturing [data-akari-interaction-editing="true"]::selection,
+html.akari-gen-capturing [data-akari-interaction-editing="true"] *::selection,
+html.akari-gen-capturing #caption-plate::selection,
+html.akari-gen-capturing #caption-plate *::selection { background: transparent !important; }
+#akari-gen-capture-frame.akari-gen-capture-flash { box-shadow: 0 0 0 2px var(--akari-accent), 0 0 8px var(--akari-accent); }
 .icon-button { display: inline-grid; place-items: center; width: 28px; height: 28px; border: none; border-radius: 6px; padding: 0; background: transparent; color: var(--akari-transport-fg); box-shadow: none; cursor: pointer; }
 .icon-button[hidden] { display: none; }
 .icon-button:disabled, .zoom-preset:disabled, .rate-preset:disabled { opacity: 0.4; cursor: default; }
@@ -7025,9 +7305,11 @@ ${kind === 'raw' ? '.akari-material-chip { position: absolute; top: 8px; left: 8
             <img id="transition-still" data-akari-transition-role="incoming-still" alt="" draggable="false">
             <div id="overlay-stage"><div id="transition-plate"></div><div id="transition-fallback-label"></div><div id="caption-plate"></div></div>
             <div id="akari-gen-overlay" aria-hidden="true" hidden>
+              <div id="akari-gen-blur" hidden><img id="akari-gen-blur-image" alt=""></div>
               <div id="akari-gen-shimmer" hidden></div>
               <div id="akari-gen-mask" hidden><span id="akari-gen-mask-label">編集領域</span></div>
               <div id="akari-gen-tag" hidden></div>
+              <div id="akari-gen-pip" hidden><span id="akari-gen-pip-label">最後の絵</span><img id="akari-gen-pip-image" alt=""></div>
               <div id="akari-gen-band" hidden><span id="akari-gen-band-text"></span><span id="akari-gen-band-bar"><i id="akari-gen-band-fill"></i></span></div>
             </div>
           </div>
@@ -7105,6 +7387,7 @@ ${kind === 'raw' ? '.akari-material-chip { position: absolute; top: 8px; left: 8
       <button id="skip-forward" class="icon-button" type="button" aria-label="10秒進む" title="10秒進む"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 5V2l4.5 4-4.5 4V7a6 6 0 1 0 5.65 8h2.09A8 8 0 1 1 13 5Z"/><text x="8" y="17" fill="currentColor" stroke="none" font-size="7" font-family="system-ui,sans-serif" font-weight="700">10</text></svg></button>
     </div>
     <div class="transport-right">
+      <button id="akari-gen-capture-frame" class="icon-button" type="button" aria-label="今のコマを保存" title="今のコマを保存"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h4l2-3h6l2 3h4v14H3Z" fill="none" stroke-width="2" stroke-linejoin="round"/><circle cx="12" cy="12" r="4" fill="none" stroke-width="2"/></svg></button>
       <button id="pen-toggle" class="icon-button" type="button" aria-label="ペン" title="ペン" aria-pressed="false" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 16-1 5 5-1L19.5 8.5a2.12 2.12 0 0 0-3-3zM14.8 7.2l2 2M4 16l4 4"/></svg></button>
       <button id="rate-toggle" class="icon-button rate-button" type="button" aria-label="再生速度" title="再生速度" aria-expanded="false" data-akari-ui="preview:rate">1×</button>
       <button id="zoom-toggle" class="icon-button" type="button" aria-label="ズーム" title="ズーム" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" fill="none" stroke-width="2"/><path d="m15.5 15.5 5 5" fill="none" stroke-width="2" stroke-linecap="round"/></svg></button>
@@ -7200,6 +7483,120 @@ body { display: grid; place-items: center; padding: 32px; }
 <main class="message-card" role="status"><p>${this.escapeHtml(message)}</p></main>
 </body>
 </html>`;
+    }
+
+    /** Pair messages by page and request, including restoration before the slower node write. */
+    protected async capturePreviewFrame(widget: PreviewWidgetMarker, request: PreviewFrameRequestMessage): Promise<void> {
+        const pageId = widget.akariPreviewPlaybackPageId;
+        if (request.pageId !== pageId || typeof request.requestId !== 'string') return;
+        const send = (type: PreviewFrameCommand['type'], options: { keepFrozen?: boolean; success?: boolean } = {}): void => {
+            widget.sendMessage({ type, requestId: request.requestId, pageId, ...options } satisfies PreviewFrameCommand);
+        };
+        if (widget.akariPreviewFrameCaptureRequest) {
+            send('akari-preview-capture-restore');
+            void this.messages.error('コマを保存できませんでした: 前のコマを保存中です');
+            return;
+        }
+        widget.akariPreviewFrameCaptureRequest = request.requestId;
+        let subscription: Disposable | undefined;
+        let timer: ReturnType<typeof setTimeout> | undefined;
+        let captureId: number | undefined;
+        let success = false;
+        try {
+            const editUri = widget.akariPreviewEditUri;
+            if (!editUri || !widget.akariPreviewSummary) throw new Error('出力プレビューでコマを保存してください');
+            if (!window.electronAkariPreview?.capturePreviewFrame) throw new Error('Electron の撮影機能が利用できません');
+            const output = { ...widget.akariPreviewSummary.output };
+            success = await runPreviewFrameCaptureAttempts({
+                max: 3,
+                attempt: async () => {
+                    let acceptingCapture = true;
+                    const ready = await new Promise<PreviewFrameReadyMessage>((resolve, reject) => {
+                        subscription = widget.onMessage(message => {
+                            if (message?.type === 'akari-preview-capture-ready' && message.requestId === request.requestId
+                                && message.pageId === pageId) resolve(message);
+                        });
+                        timer = setTimeout(() => reject(new Error('撮影準備がタイムアウトしました')), 5000);
+                        send('akari-preview-capture-prepare');
+                    });
+                    clearTimeout(timer);
+                    subscription.dispose();
+                    if (ready.error) throw new Error(ready.error);
+                    if (widget.isDisposed || widget.akariPreviewPlaybackPageId !== pageId) throw new Error('プレビューが更新されました');
+                    const frame = widget.node.querySelector('iframe.webview') as HTMLIFrameElement;
+                    if (!frame || !ready.rect || !ready.viewport || !ready.expectations || !Number.isFinite(ready.time)) throw new Error('撮影矩形を取得できません');
+                    const outer = frame.getBoundingClientRect();
+                    const sx = outer.width / frame.offsetWidth, sy = outer.height / frame.offsetHeight;
+                    if (!(sx > 0 && sy > 0) || Math.abs(frame.clientWidth - ready.viewport.width) > 1
+                        || Math.abs(frame.clientHeight - ready.viewport.height) > 1) throw new Error('プレビューのサイズが変わりました。もう一度お試しください');
+                    // Inner viewport -> outer iframe content -> main renderer CSS viewport.
+                    const rect = { x: outer.x + (frame.clientLeft + ready.rect.x) * sx,
+                        y: outer.y + (frame.clientTop + ready.rect.y) * sy,
+                        width: ready.rect.width * sx, height: ready.rect.height * sy };
+                    const sentinel = ready.sentinel ? { x: outer.x + (frame.clientLeft + ready.sentinel.x) * sx,
+                        y: outer.y + (frame.clientTop + ready.sentinel.y) * sy,
+                        width: ready.sentinel.width * sx, height: ready.sentinel.height * sy } : undefined;
+                    if (rect.x < 0 || rect.y < 0 || rect.x + rect.width > window.innerWidth
+                        || rect.y + rect.height > window.innerHeight) throw new Error('プレビューがウィンドウから切れています');
+                    try {
+                        const snapshot = await Promise.race([
+                            window.electronAkariPreview.capturePreviewFrame({ rect, sentinel, output, expectations: ready.expectations }).then(value => {
+                                if (!acceptingCapture) {
+                                    void window.electronAkariPreview.finishPreviewFrame(value.captureId, true).catch(() => undefined);
+                                    throw new Error('撮影がタイムアウトしました');
+                                }
+                                return value;
+                            }),
+                            new Promise<never>((_, reject) => { timer = setTimeout(() => reject(new Error('撮影がタイムアウトしました')), 3000); })
+                        ]);
+                        captureId = snapshot.captureId;
+                    } finally {
+                        acceptingCapture = false;
+                        clearTimeout(timer);
+                        // The phase-1 reply is only a handle. Restore before readback copy, resize and PNG encoding.
+                        await new Promise<void>((resolve, reject) => {
+                            const restored = widget.onMessage(message => {
+                                if (message?.type !== 'akari-preview-capture-restored' || message.requestId !== request.requestId
+                                    || message.pageId !== pageId) return;
+                                clearTimeout(timer);
+                                restored.dispose();
+                                resolve();
+                            });
+                            timer = setTimeout(() => {
+                                restored.dispose();
+                                reject(new Error('撮影後の表示復元を確認できませんでした'));
+                            }, 1000);
+                            send('akari-preview-capture-restore', { keepFrozen: true });
+                        });
+                    }
+                    if (widget.isDisposed || widget.akariPreviewPlaybackPageId !== pageId) throw new Error('プレビューが更新されました');
+                    const captured = await window.electronAkariPreview.finishPreviewFrame(captureId);
+                    captureId = undefined;
+                    if (!captured) throw new Error('撮影画像を取得できません');
+                    return { captured, time: ready.time! };
+                },
+                inspect: frame => {
+                    const inspection = frame.captured.inspection;
+                    if (!inspection.ok) console.warn('[akari-preview] frame capture rejected: ' + inspection.reasons.join(', '));
+                    return inspection;
+                },
+                save: async ({ captured, time }) => {
+                    const saved = await this.previewService.savePreviewFrame({ editUri: editUri.toString(), time, image: captured.image });
+                    void this.messages.info('コマを保存しました: ' + saved.path, { timeout: 3000 });
+                    if (captured.reduced) void this.messages.info(
+                        '表示サイズが出力より小さいため、拡大せず ' + captured.width + '×' + captured.height + ' px で保存しました', { timeout: 3000 });
+                },
+                notify: message => { void this.messages.error(message); }
+            });
+        } catch (error) {
+            void this.messages.error('コマを保存できませんでした: ' + (error instanceof Error ? error.message : String(error)));
+        } finally {
+            clearTimeout(timer);
+            subscription?.dispose();
+            if (captureId !== undefined) void window.electronAkariPreview.finishPreviewFrame(captureId, true).catch(() => undefined);
+            widget.akariPreviewFrameCaptureRequest = undefined;
+            send('akari-preview-capture-restore', { success });
+        }
     }
 
     /**
@@ -8322,7 +8719,8 @@ body { display: grid; place-items: center; padding: 32px; }
                 if (!immediate && now - lastPlaybackTickAt < 50) return;
                 lastPlaybackTickAt = now;
                 vscode.postMessage({
-                    type: 'akari-preview-playback-tick', time, playing,
+                    type: 'akari-preview-playback-tick', time, playing, pageId: initial.playbackPageId,
+                    trialToken: window.akari.swapTrialPlaybackToken,
                     rate: clampPreviewPlaybackRateFn(window.akari.previewPlaybackRate)
                 });
             };
@@ -8352,8 +8750,11 @@ body { display: grid; place-items: center; padding: 32px; }
             };
             window.akari.previewContentEnd = ${previewContentEnd.toString()};
             window.akari.previewCaptions = Array.isArray(initial.captions) ? initial.captions : [];
+            window.akari.reportPreviewFrameCapture = message => vscode.postMessage(message);
+            window.akari.reportReadySeek = message => vscode.postMessage(message);
+            window.akari.reportSwapPlayback = message => vscode.postMessage({ ...message, pageId: initial.playbackPageId });
             window.akari.reportPrimarySelectionReady = () => {
-                vscode.postMessage({ type: 'akari-preview-primary-selection-ready' });
+                vscode.postMessage({ type: 'akari-preview-primary-selection-ready', pageId: initial.playbackPageId });
                 vscode.postMessage({ type: 'akari-preview-generation-request' });
             };
             window.akari.requestGenerationUpdate = () => {
@@ -8592,6 +8993,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 layersStage.style.width = outputWidth + 'px';
                 layersStage.style.height = outputHeight + 'px';
                 layersStage.style.transform = stageTransform;
+                window.akari.updateGenerationOverlayLayout?.();
                 for (const layerVideo of layersStage.querySelectorAll('[data-akari-layer-id]')) {
                     applyLayerStyleMediaLayout(layerVideo, outputWidth, outputHeight);
                 }
@@ -10031,12 +10433,15 @@ body { display: grid; place-items: center; padding: 32px; }
             const formatPreviewRateLabelFn = (${formatPreviewRateLabel.toString()});
             const freezeHoldMsFn = (${freezeHoldMs.toString()});
             const wallClockOutputTimeFn = (${wallClockOutputTime.toString()});
-            // toString() は import 参照を復元できないため、helper を同名で先に注入する（上の isCutAudioAudible と同じ流儀）。
+            // production minify 後の外部識別子は復元できないため、helper は呼び出し時に引数で渡す。
             const resolveGenerationStateV1 = (${generationStateHelperV1.toString()});
             const resolveGenerationStateFn = (${resolveGenerationState.toString()});
+            const describeNextDraftV1 = (${generationNextDraftHelperV1.toString()});
             const describeOverlayFn = (${describeOverlay.toString()});
             const previewRatePresets = ${JSON.stringify(PREVIEW_RATE_PRESETS)};
             const frameEngineMediaIdle = initial.frameEngineEnabled === true;
+            let playbackMountReady = false;
+            let playbackModelUpdate;
             let summary = initial.summary;
             window.akari = window.akari || {};
             const adjustBypassIds = window.akari.adjustBypassIds || (window.akari.adjustBypassIds = new Set(initial.adjustBypassIds || []));
@@ -14363,6 +14768,7 @@ body { display: grid; place-items: center; padding: 32px; }
             const renderZoom = () => {
                 zoomLayer.style.transform = 'translate(' + pan.x.toFixed(3) + 'px, '
                     + pan.y.toFixed(3) + 'px) scale(' + zoom + ')';
+                globalThis.window?.akari?.updateGenerationOverlayLayout?.();
                 zoomValue.textContent = Math.round(zoom * 100) + '%';
                 zoomSlider.value = String(zoomToSlider(zoom));
                 const isZoomed = zoom > 1.05;
@@ -15908,6 +16314,17 @@ body { display: grid; place-items: center; padding: 32px; }
             previewMessageReload.addEventListener('click', () => {
                 if (!frameEngineMediaIdle) video.load();
             });
+            let swapTrialToken;
+            let swapTrialUserStopped = false;
+            const reportSwapState = token => window.akari.reportSwapPlayback({
+                type: 'akari-preview-swap-playback-state', token,
+                playing: isPlaying && token === window.akari.swapTrialPlaybackToken, userStopped: swapTrialUserStopped
+            });
+            const stopSwapAutoplay = () => {
+                swapTrialUserStopped = true;
+                window.akari.reportSwapPlayback({ type: 'akari-preview-swap-user-control' });
+            };
+            playToggle.addEventListener('click', event => { if (event.isTrusted) stopSwapAutoplay(); }, true);
             const togglePlayback = () => {
                 if (playToggle.disabled) return;
                 if (!isPlaying) {
@@ -15979,6 +16396,29 @@ body { display: grid; place-items: center; padding: 32px; }
                 initialPlaybackRestorePending = false;
                 if (!isPlaying) togglePlayback();
             };
+            (${installPreviewFrameCapture.toString()})({
+                pageId: initial.playbackPageId,
+                send: message => window.akari.reportPreviewFrameCapture(message),
+                freeze: () => {
+                    let time = outputTime;
+                    const resume = isPlaying;
+                    if (isPlaying) togglePlayback();
+                    let ready = Promise.resolve();
+                    const clock = window.akari.frameEngineClock;
+                    if (clock) {
+                        // Already paused above: pin the clock without seek(), which would enqueue
+                        // a second, timer-driven ScrubController render outside this ready promise.
+                        clock.pause(time);
+                        // Await this single same-summary render, then update the DOM captions/overlays.
+                        // The controller waits for browser painting BEFORE applying capture CSS;
+                        // gl.flush() completing here is not a canvas + DOM presentation fence.
+                        ready = clock.refreshAdjustBypass().then(() => { tick(true); });
+                    } else {
+                        time = outputTime; // pause's tick reads the actual decoded video clock.
+                    }
+                    return { time, ready, resume: () => { if (resume && !isPlaying) togglePlayback(); } };
+                }
+            });
             const isEditable = (${isEditableEventTarget.toString()});
             const shouldStopEditableDeletionKeydownFn = (${shouldStopEditableDeletionKeydown.toString()});
             const isImeComposing = (${isImeCompositionKeydown.toString()});
@@ -16345,6 +16785,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 event.preventDefault();
                 event.stopImmediatePropagation();
                 clearStaticAnnotationStrokes();
+                if (event.isTrusted) stopSwapAutoplay();
                 togglePlayback();
             }, true);
             // range の input はポインタ押下中にもキー操作でも届くため、pointerdown 〜 pointerup /
@@ -16418,6 +16859,10 @@ body { display: grid; place-items: center; padding: 32px; }
                 queueMicrotask(() => { applyingOverlaySelection = undefined; });
             };
             const generationOverlay = document.getElementById('akari-gen-overlay');
+            const generationPip = document.getElementById('akari-gen-pip');
+            const generationPipImage = document.getElementById('akari-gen-pip-image');
+            const generationBlur = document.getElementById('akari-gen-blur');
+            const generationBlurImage = document.getElementById('akari-gen-blur-image');
             const generationShimmer = document.getElementById('akari-gen-shimmer');
             const generationMask = document.getElementById('akari-gen-mask');
             const generationTag = document.getElementById('akari-gen-tag');
@@ -16425,11 +16870,30 @@ body { display: grid; place-items: center; padding: 32px; }
             const generationBandText = document.getElementById('akari-gen-band-text');
             const generationBandBar = document.getElementById('akari-gen-band-bar');
             const generationBandFill = document.getElementById('akari-gen-band-fill');
+            let generationTagText = '';
+            // 出力座標系は維持し、札と文字だけを画面 px に戻す。layersStage の実測は
+            // updateStageScale の frameScale と外側 zoom-layer の倍率の両方を含む。
+            const updateGenerationOverlayLayout = () => {
+                if (!generationOverlay || generationOverlay.hidden) return;
+                const scale = layersStage.getBoundingClientRect().width / layersStage.offsetWidth;
+                if (!Number.isFinite(scale) || scale <= 0) return;
+                generationOverlay.style.setProperty('--akari-gen-inv-scale', String(1 / scale));
+                generationOverlay.style.setProperty('--akari-gen-band-space', generationBand.hidden ? '0px' : '26px');
+                generationTag.textContent = generationTagText;
+                if (generationTagText.startsWith('▶ 動画予定') && generationTag.scrollWidth > generationTag.clientWidth) {
+                    generationTag.textContent = '▶ 動画予定';
+                }
+            };
+            if (generationOverlay) window.akari.updateGenerationOverlayLayout = updateGenerationOverlayLayout;
             let generationClips = [];
             let generationExportLook = typeof initial !== 'undefined' && initial.exportLook === true;
             const hideGenerationOverlay = () => {
                 if (!generationOverlay) return;
                 generationOverlay.hidden = true;
+                generationPip.hidden = true;
+                generationBlur.hidden = true;
+                generationPipImage.removeAttribute('src');
+                generationBlurImage.removeAttribute('src');
                 generationShimmer.hidden = true;
                 generationMask.hidden = true;
                 generationTag.hidden = true;
@@ -16447,23 +16911,31 @@ body { display: grid; place-items: center; padding: 32px; }
                     hideGenerationOverlay();
                     return;
                 }
-                const state = resolveGenerationStateFn(clip.meta, Date.now(), clip.binding);
+                const state = resolveGenerationStateFn(clip.meta, Date.now(), clip.binding, resolveGenerationStateV1);
                 const description = describeOverlayFn(state, clip.meta, String(clip.name || clip.id || ''), {
                     sourcePath: typeof clip.sourcePath === 'string' ? clip.sourcePath : undefined,
                     localTimeSec: timelineTime - clip.start,
                     clipDurationSec: clip.end - clip.start
-                });
+                }, describeNextDraftV1);
                 if (description.tag === null && description.band === null
-                    && !description.shimmer && !description.maskRect) {
+                    && !description.shimmer && !description.maskRect && !description.pip && !description.blurBackground) {
                     hideGenerationOverlay();
                     return;
                 }
                 generationOverlay.hidden = false;
+                const setGenerationImage = (container, image, path, uri) => {
+                    container.hidden = !path || typeof uri !== 'string' || !uri;
+                    if (container.hidden) image.removeAttribute('src');
+                    else if (image.getAttribute('src') !== uri) image.setAttribute('src', uri);
+                };
+                setGenerationImage(generationPip, generationPipImage, description.pip, clip.pipUri);
+                setGenerationImage(generationBlur, generationBlurImage, description.blurBackground, clip.blurBackgroundUri);
                 generationTag.hidden = description.tag === null;
-                generationTag.textContent = description.tag || '';
+                generationTagText = description.tag || '';
                 if (state === 'failed') generationTag.dataset.akariGenSeverity = 'error';
                 else if (clip.meta && clip.meta.kind === 'frames') generationTag.dataset.akariGenSeverity = 'frames';
                 else if (state === 'generating') generationTag.dataset.akariGenSeverity = 'generating';
+                else if (description.tag?.startsWith('▶ 動画予定')) generationTag.dataset.akariGenSeverity = 'planned-video';
                 else delete generationTag.dataset.akariGenSeverity;
                 generationBand.hidden = description.band === null;
                 generationBandText.textContent = description.band?.text || '';
@@ -16479,6 +16951,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     generationMask.style.width = (description.maskRect.w * 100) + '%';
                     generationMask.style.height = (description.maskRect.h * 100) + '%';
                 }
+                updateGenerationOverlayLayout();
             };
             const onMainVideoLoadedMetadata = event => {
                 if (event.currentTarget !== video) return;
@@ -16647,7 +17120,7 @@ body { display: grid; place-items: center; padding: 32px; }
             const applyIncrementalModel = nextSummary => {
                 if (!nextSummary || typeof nextSummary !== 'object') return;
                 if (window.akari.frameEngineClock?.updateModel) {
-                    void window.akari.frameEngineClock.updateModel(nextSummary);
+                    playbackModelUpdate = window.akari.frameEngineClock.updateModel(nextSummary);
                 } else if (initial.frameEngineEnabled) {
                     // frame-engine の codec probe / 初回描画より先に編集通知が届いても捨てない。
                     // bootstrap は復元フレーム描画後にこの最新 summary を適用してから ready を通知する。
@@ -16694,11 +17167,11 @@ body { display: grid; place-items: center; padding: 32px; }
                 if (window.akari.updateLayerLayout) window.akari.updateLayerLayout();
                 const nextAudioJson = JSON.stringify(summary.audio || null);
                 if (previousAudioJson !== nextAudioJson && window.akari.previewAudio?.updateConfig) {
-                    void window.akari.previewAudio.updateConfig(summary.audio, outputTime, isPlaying);
-                    void probeSfxDurations().then(() => {
-                        rebuildSegments();
-                        tick(true);
-                    });
+                    playbackModelUpdate = Promise.all([
+                        playbackModelUpdate,
+                        window.akari.previewAudio.updateConfig(summary.audio, outputTime, isPlaying),
+                        probeSfxDurations().then(() => { rebuildSegments(); tick(true); })
+                    ]);
                 }
                 tick(true);
                 window.akari.requestGenerationUpdate?.();
@@ -16721,8 +17194,29 @@ body { display: grid; place-items: center; padding: 32px; }
                 }).catch(error => console.warn('[akari-preview] bag expansion failed', error));
             });
             // END preview bag response
+            const readySeek = (${createReadySeekResponder.toString()})({
+                pageId: initial.playbackPageId,
+                ready: () => playbackMountReady
+                    && (frameEngineMediaIdle ? document.getElementById('frame-engine-preview')?.dataset.frameEngineReady === 'true'
+                        : initialPositionApplied && (isStillSegment(segments[activeSegmentIndex])
+                            || segments[activeSegmentIndex]?.kind === 'gap' || (!video.seeking && video.readyState >= 1))),
+                pendingModel: () => playbackModelUpdate,
+                seek: time => {
+                    // 開いた時点の時刻・再生復元で、この外部操作を後から上書きしない。
+                    initialPositionApplied = true;
+                    initialPlaybackRestorePending = false;
+                    if (isPlaying) togglePlayback();
+                    seekTimelineTime(time);
+                    tick(true);
+                },
+                reply: message => window.akari.reportReadySeek(message)
+            });
             window.addEventListener('message', event => {
                 const message = event.data;
+                if (message?.type === 'akari-preview-ready-seek') {
+                    void readySeek(message).catch(error => console.error('[akari-preview] ready seek failed', error));
+                    return;
+                }
                 // 2026-09-02 preview-perf: host からの seek は rAF で間引く（下の akari-preview-seek）。
                 // seek 以外のメッセージは「直前の seek が反映済み」という従来の順序を保つため、保留中の
                 // seek を先に flush してから処理する（間引かれるのは連続する seek 同士だけ）。
@@ -16926,8 +17420,21 @@ body { display: grid; place-items: center; padding: 32px; }
                     setPreviewPlaybackRate(message.rate);
                     return;
                 }
+                if (message?.type === 'akari-preview-swap-trial-context') {
+                    if (swapTrialToken !== message.token) {
+                        swapTrialToken = message.token; swapTrialUserStopped = false;
+                        window.akari.swapTrialPlaybackToken = undefined;
+                    }
+                    return;
+                }
+                if (message?.type === 'akari-preview-swap-playback-query') { reportSwapState(message.token); return; }
                 if (message?.type === 'akari-preview-set-playback' && typeof message.playing === 'boolean') {
+                    if (message.trialToken && swapTrialUserStopped) { reportSwapState(message.trialToken); return; }
                     if (message.playing !== isPlaying) togglePlayback();
+                    if (message.trialToken) {
+                        swapTrialToken = message.trialToken; window.akari.swapTrialPlaybackToken = message.trialToken;
+                        reportSwapState(message.trialToken);
+                    }
                     return;
                 }
                 if (message?.type === 'akari-preview-set-crop-mode') {
@@ -17096,6 +17603,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 reportOverlaySelectionChange();
                 applyRequestedOverlaySelection();
                 window.akari.reportPrimarySelectionReady();
+                playbackMountReady = true;
             }).catch(error => console.error('[akari-preview] overlay mount failed', error));
         })();`;
     }
@@ -17335,41 +17843,126 @@ body { display: grid; place-items: center; padding: 32px; }
     protected async sendGenerationUpdate(widget: PreviewWidgetMarker): Promise<void> {
         const editUri = widget.akariPreviewEditUri;
         const summary = widget.akariPreviewSummary;
-        if (!editUri || !summary || widget.isDisposed) return;
+        const disposed = (): boolean => {
+            if (!widget.isDisposed) return false;
+            console.warn('[akari-preview] generation update discarded: widget disposed');
+            return true;
+        };
+        if (disposed()) return;
+        if (!editUri || !summary) {
+            console.warn('[akari-preview] generation update unavailable: edit URI or summary not ready');
+            return;
+        }
         try {
             const sidecars = await this.previewService.readGenerationSidecars({
                 editUri: editUri.toString(),
                 workspaceRoots: await this.currentWorkspaceRoots()
             });
-            if (widget.isDisposed) return;
-            const segments = this.previewCaptionTimelineSegments(summary.cuts, summary.output.fps);
-            const clips = segments.flatMap(segment => {
-                if (segment.kind !== 'src' || segment.cutIndex === null) return [];
-                const cut = summary.cuts[segment.cutIndex];
-                if (!cut) return [];
-                const sourcePath = cut.sourcePath ?? '';
-                const generation = selectGenerationSidecarForSource(sourcePath, sidecars.entries.map(entry => ({
-                    sourcePath: entry.sourcePath,
-                    meta: entry.meta as GenerationMetaV1 | null,
-                    binding: entry.binding
-                })), Date.now());
-                return [{
-                    id: cut.id,
-                    name: sidecars.itemNames[cut.id] ?? cut.id,
-                    start: segment.outStart,
-                    end: segment.outEnd,
-                    sourcePath,
-                    meta: generation?.meta ?? null,
-                    binding: generation?.binding ?? null
-                }];
-            });
+            if (disposed()) return;
+            // summary は音声更新でも置き換わる。参照一致を送信条件にせず、その時点の cuts を使う。
+            const describeClips = () => {
+                const latest = widget.akariPreviewSummary ?? summary;
+                const segments = this.previewCaptionTimelineSegments(latest.cuts, latest.output.fps);
+                return segments.flatMap(segment => {
+                    if (segment.kind !== 'src' || segment.cutIndex === null) return [];
+                    const cut = latest.cuts[segment.cutIndex];
+                    if (!cut) return [];
+                    const sourcePath = cut.sourcePath ?? '';
+                    const generation = selectGenerationSidecarForSource(sourcePath, sidecars.entries.map(entry => ({
+                        sourcePath: entry.sourcePath,
+                        meta: entry.meta as GenerationMetaV1 | null,
+                        binding: entry.binding
+                    })), Date.now());
+                    return [{
+                        id: cut.id,
+                        name: sidecars.itemNames[cut.id] ?? cut.id,
+                        start: segment.outStart,
+                        end: segment.outEnd,
+                        sourcePath,
+                        meta: generation?.meta ?? null,
+                        binding: generation?.binding ?? null
+                    }];
+                });
+            };
+            const clips = describeClips();
+            // 画像の失敗・読み込みとの競合・遅延で既存の小札や帯まで止めない。
             widget.sendMessage({
                 type: 'akari-preview-generation-update',
-                clips,
+                clips: clips.map(clip => ({ ...clip, pipUri: null, blurBackgroundUri: null })),
                 exportLook: this.preferences.get<boolean>('akari.preview.exportLook', false) === true
             });
+
+            // Map の作成と差し替えは読み込み側に任せる。取得した stream は送信直前まで
+            // この呼び出しで所有し、読み込み側の所有リストを跨いだ場合は全て破棄する。
+            const assetUrls = widget.akariPreviewAssetUrlByUri;
+            const assetIds = widget.akariPreviewAssetStreamIds;
+            const refresh = widget.akariPreviewRefresh;
+            const acquired: Array<{ assetUri: string; id: string; url: string }> = [];
+            const images: Array<{ path: string; url: string | null }> = [];
+            const imageContextChanged = (): boolean => widget.akariPreviewAssetUrlByUri !== assetUrls
+                || widget.akariPreviewAssetStreamIds !== assetIds || widget.akariPreviewRefresh !== refresh;
+            const resolveImage = async (path: string | null | undefined): Promise<void> => {
+                if (!path || images.some(image => image.path === path)) return;
+                if (widget.isDisposed || imageContextChanged()) {
+                    console.warn('[akari-preview] generation image unavailable: preview changed or disposed', path);
+                    images.push({ path, url: null });
+                    return;
+                }
+                try {
+                    const assetUri = this.resolveEditAssetUri(path, editUri).toString();
+                    const known = assetUrls?.get(assetUri) ?? acquired.find(stream => stream.assetUri === assetUri)?.url;
+                    if (known) {
+                        images.push({ path, url: known });
+                        return;
+                    }
+                    const stream = await this.createAssetStream({ assetUri });
+                    acquired.push({ assetUri, id: stream.id, url: stream.url });
+                    images.push({ path, url: stream.url });
+                } catch (error) {
+                    console.warn('[akari-preview] generation image could not be resolved', path, error);
+                    images.push({ path, url: null });
+                }
+            };
+            try {
+                for (const clip of clips) {
+                    const state = resolveGenerationState(clip.meta, Date.now(), clip.binding);
+                    const description = describeOverlay(state, clip.meta, clip.name, { sourcePath: clip.sourcePath });
+                    await resolveImage(description.pip);
+                    await resolveImage(description.blurBackground);
+                }
+                if (widget.isDisposed) {
+                    disposed();
+                    return;
+                }
+                const changed = imageContextChanged();
+                if (changed) {
+                    console.warn('[akari-preview] generation images discarded: preview assets replaced; sending state without images');
+                }
+                if (images.length === 0) return; // 状態は送信済み。画像が無ければ追加送信しない。
+                const resolvedClips = describeClips().map(clip => {
+                    const state = resolveGenerationState(clip.meta, Date.now(), clip.binding);
+                    const description = describeOverlay(state, clip.meta, clip.name, { sourcePath: clip.sourcePath });
+                    const pipUri = changed ? null : images.find(image => image.path === description.pip)?.url ?? null;
+                    const blurBackgroundUri = changed ? null : images.find(image => image.path === description.blurBackground)?.url ?? null;
+                    return { ...clip, pipUri, blurBackgroundUri };
+                });
+                widget.sendMessage({
+                    type: 'akari-preview-generation-update',
+                    clips: resolvedClips,
+                    exportLook: this.preferences.get<boolean>('akari.preview.exportLook', false) === true
+                });
+                if (!changed) {
+                    for (const stream of acquired) {
+                        assetUrls?.set(stream.assetUri, stream.url);
+                        (widget.akariPreviewAssetStreamIds ??= []).push(stream.id);
+                    }
+                    acquired.length = 0; // 既存 disposePreviewStreams の所有へ移した。
+                }
+            } finally {
+                await this.disposeAssetStreams(acquired.map(stream => stream.id));
+            }
         } catch (error) {
-            console.error('[akari-preview] failed to read generation sidecars', error);
+            console.warn('[akari-preview] generation update failed', error);
         }
     }
 

@@ -23,7 +23,7 @@ const models = [
 
 const actions = Object.fromEntries(['update', 'copyAdjacent', 'generate', 'resume', 'retry'].map(name => [name, async () => ({ ok: true })]));
 const draft = modelId => ({ modelId, inputs: { prompt: '', first_frame: { path: 'still.png' }, last_frame: null, reference_images: [] }, output: { duration_s: 6, resolution: '720p', audio_out: true } });
-const names = fields => fields.map(field => field.name);
+const names = fields => fields.flatMap(field => [field.name, ...(field.generationReferences?.kinds.map(kind => kind.slot) ?? [])]);
 
 test('generationFields はモデル能力・見積・エラーを表駆動で欄へ反映する', () => {
   const cases = [
@@ -44,7 +44,7 @@ test('generationFields はモデル能力・見積・エラーを表駆動で欄
     for (const name of row.lacks) assert.ok(!names(fields).includes(name), `${row.model.id}: ${name}`);
     assert.match(fields.find(field => field.name === 'generation-estimate').getValue({}), new RegExp(row.estimate.replace('$', '\\$')));
     if (row.rounded) assert.equal(fields.find(field => field.name === 'generation-duration').getValue({}), '6 秒 → 8 秒');
-    if (row.model.id.includes('kling')) assert.equal(fields.find(field => field.name === 'reference_images').label, '参照画像');
+    if (row.model.id.includes('kling')) assert.ok(fields.find(field => field.generationReferences).generationReferences.kinds.some(kind => kind.slot === 'reference_images' && kind.max === null));
   }
 });
 
@@ -110,7 +110,7 @@ test('実カタログ 4 行で欄・見積・エラー・尺丸めを検証す�
       new RegExp(spec.estimate.replace('$', '\\$')));
     if (spec.rounded) assert.equal(fields.find(field => field.name === 'generation-duration').getValue({}), spec.rounded);
     if (spec.error) assert.ok(fields.some(field => field.className === 'akari-inspector-generation-error'));
-    if (spec.counterless) assert.equal(fields.find(field => field.name === 'reference_images').label, '参照画像');
+    if (spec.counterless) assert.ok(fields.find(field => field.generationReferences).generationReferences.kinds.some(kind => kind.slot === 'reference_images' && kind.max === null));
   }
 });
 
@@ -143,7 +143,8 @@ test('実カタログ 5 モデル × 最初・最後・参照・カメラ・音�
     assert.ok(model, id);
     const fields = generationFields({ snapshot: {}, catalogRow: model, draft: draft(id), defaults: { catalog: actualVideoModels }, actions });
     assert.deepEqual(columns.map(name => Number(names(fields).includes(name))), expected, id);
-    for (const field of fields.filter(row => ['seed', 'negative-prompt', 'reference_images', 'reference_audios'].includes(row.name))) assert.equal(field.generationDetail, true, field.name);
+    for (const field of fields.filter(row => ['seed', 'negative-prompt'].includes(row.name))) assert.equal(field.generationDetail, true, field.name);
+    for (const field of fields.filter(row => row.generationReferences)) assert.notEqual(field.generationDetail, true, field.name);
   }
 });
 

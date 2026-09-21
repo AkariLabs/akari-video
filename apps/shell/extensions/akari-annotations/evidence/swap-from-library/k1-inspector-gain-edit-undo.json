@@ -1,0 +1,31 @@
+{
+ "at": "2026-09-21T14:22:42.993Z",
+ "itemId": "bell-1",
+ "tabLabel": "音声",
+ "input": {
+  "x": 950.87109375,
+  "y": 127.5,
+  "value": "-3",
+  "row": "gain_db↔dB▲▼"
+ },
+ "typed": "-6",
+ "shaBefore": "0b6ccf6c363685d94a5a44f54f8d132ab1d99b8c22e5c838669849559e5356fc",
+ "changed": true,
+ "shaAfterEdit": "a40bd439e065644ffaeebbbbace4a346604f3ee6bbf506965ffa9a720c6d7702",
+ "itemAfterEdit": {
+  "id": "bell-1",
+  "at": 60,
+  "duration": 76,
+  "source": {
+   "kind": "media",
+   "src": "bell",
+   "in": 0,
+   "out": 2.520979
+  },
+  "gain_db": -6,
+  "fade_in": 0.1,
+  "fade_out": 0.2
+ },
+ "shaAfterUndo": "0b6ccf6c363685d94a5a44f54f8d132ab1d99b8c22e5c838669849559e5356fc",
+ "undoByteIdentical": true
+}

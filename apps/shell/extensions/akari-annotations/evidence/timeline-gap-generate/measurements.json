@@ -1,0 +1,1478 @@
+{
+  "status": "pass",
+  "driver": "Electron + CDP Input.dispatchMouseEvent",
+  "steps": [
+    {
+      "name": "real click in the four second visual gap",
+      "pass": true,
+      "measurements": {
+        "point": {
+          "x": 476.64133522727275,
+          "y": 542.515625
+        },
+        "heading": "すき間 · 4.0 秒",
+        "range": "3.00 → 7.00 秒",
+        "band": {
+          "left": 432,
+          "right": 521.453125,
+          "top": 519.515625,
+          "bottom": 567.515625,
+          "width": 89.453125,
+          "height": 48,
+          "border": "dashed",
+          "background": "rgba(159, 111, 255, 0.16)"
+        },
+        "images": [
+          {
+            "loaded": true,
+            "left": 657,
+            "right": 847.5,
+            "top": 230.0234375,
+            "bottom": 302.0234375,
+            "width": 190.5,
+            "height": 72
+          },
+          {
+            "loaded": true,
+            "left": 859.5,
+            "right": 1050,
+            "top": 230.0234375,
+            "bottom": 302.0234375,
+            "width": 190.5,
+            "height": 72
+          }
+        ],
+        "button": {
+          "text": "あいだを生成",
+          "left": 657,
+          "right": 1050,
+          "top": 314.0234375,
+          "bottom": 351.5234375,
+          "width": 393,
+          "height": 37.5,
+          "background": "rgb(99, 67, 152)",
+          "border": "rgb(184, 154, 255)",
+          "borderWidth": "1px",
+          "painted": true
+        },
+        "rects": [
+          {
+            "role": "H3",
+            "text": "すき間 · 4.0 秒",
+            "left": 657,
+            "right": 1050,
+            "top": 61,
+            "bottom": 85.3359375,
+            "width": 393,
+            "height": 24.3359375
+          },
+          {
+            "role": "P",
+            "text": "3.00 → 7.00 秒",
+            "left": 657,
+            "right": 1050,
+            "top": 97.3359375,
+            "bottom": 118.1328125,
+            "width": 393,
+            "height": 20.796875
+          },
+          {
+            "role": "P",
+            "text": "前後のクリップのあいだに、つなぎの動画を生成できます。前のクリップの最後のコマと、次のクリップの最初のコマが両端に入ります。",
+            "left": 657,
+            "right": 1050,
+            "top": 130.1328125,
+            "bottom": 192.5234375,
+            "width": 393,
+            "height": 62.390625
+          },
+          {
+            "role": "SPAN",
+            "text": "最初 = 動画A",
+            "left": 657,
+            "right": 847.5,
+            "top": 204.5234375,
+            "bottom": 224.0234375,
+            "width": 190.5,
+            "height": 19.5
+          },
+          {
+            "role": "IMG",
+            "text": "",
+            "left": 657,
+            "right": 847.5,
+            "top": 230.0234375,
+            "bottom": 302.0234375,
+            "width": 190.5,
+            "height": 72
+          },
+          {
+            "role": "SPAN",
+            "text": "最後 = 動画B",
+            "left": 859.5,
+            "right": 1050,
+            "top": 204.5234375,
+            "bottom": 224.0234375,
+            "width": 190.5,
+            "height": 19.5
+          },
+          {
+            "role": "IMG",
+            "text": "",
+            "left": 859.5,
+            "right": 1050,
+            "top": 230.0234375,
+            "bottom": 302.0234375,
+            "width": 190.5,
+            "height": 72
+          },
+          {
+            "role": "BUTTON",
+            "text": "あいだを生成",
+            "left": 657,
+            "right": 1050,
+            "top": 314.0234375,
+            "bottom": 351.5234375,
+            "width": 393,
+            "height": 37.5
+          }
+        ],
+        "overlaps": []
+      },
+      "elapsedMs": 401
+    },
+    {
+      "name": "real click creates exactly one four second video draft",
+      "pass": true,
+      "measurements": {
+        "point": {
+          "x": 853.5,
+          "y": 332.7734375
+        },
+        "item": {
+          "id": "gap-1",
+          "name": "あいだを生成",
+          "at": 90,
+          "duration": 120,
+          "source": {
+            "kind": "media",
+            "src": "gap-src-1",
+            "in": 0,
+            "out": 4
+          }
+        },
+        "source": {
+          "id": "gap-src-1",
+          "path": "assets/generated/frame-1790018667936-WS7aoj.png"
+        },
+        "meta": {
+          "version": 1,
+          "kind": "still",
+          "status": "planned",
+          "model": {
+            "id": "codex:image",
+            "as_of": "2026-09-12"
+          },
+          "inputs": {
+            "prompt": "",
+            "negative_prompt": null,
+            "first_frame": null,
+            "last_frame": null,
+            "reference_images": [],
+            "reference_videos": [],
+            "reference_audios": [],
+            "source_video": null,
+            "mode": null,
+            "camera": null,
+            "seed": null,
+            "extra": {}
+          },
+          "output": {
+            "duration_s": 4,
+            "resolution": "640x360",
+            "aspect": null,
+            "audio_out": null
+          },
+          "cost": {
+            "estimate_usd": 0,
+            "actual_usd": null,
+            "unit": "usd_per_image",
+            "source": "estimate"
+          },
+          "job": {
+            "provider": "codex",
+            "started_at": "2026-09-21T19:24:29.323Z",
+            "stale_after_s": 900
+          },
+          "provenance": {
+            "created_at": "2026-09-21T19:24:29.323Z",
+            "tool": "akari generate still --placeholder (chrome)",
+            "key_source": "login:codex"
+          },
+          "history": [
+            {
+              "at": "2026-09-21T19:24:29.323Z",
+              "status": "planned",
+              "reason": null
+            }
+          ],
+          "next": {
+            "kind": "video",
+            "status": "planned",
+            "model": {
+              "id": "fal:h3-i2v"
+            },
+            "inputs": {
+              "prompt": "",
+              "negative_prompt": null,
+              "first_frame": {
+                "path": "assets/captures/frame-a-2.967-334b7f8256a6.png",
+                "sha256": "89d8ed0d022fbea93de6bd9495167098832494e9c8f2881e907e6f6c2ed8a1d2",
+                "source_id": "a"
+              },
+              "last_frame": {
+                "path": "assets/captures/frame-b-0-52ea7d4454f9.png",
+                "sha256": "f3b2a75b3f8797b35b52f79ba104c39f96f1987091e050f67b422d8570ad88db",
+                "source_id": "b"
+              },
+              "reference_images": [],
+              "reference_videos": [],
+              "reference_audios": [],
+              "source_video": null,
+              "mode": null,
+              "camera": null,
+              "seed": null,
+              "extra": {},
+              "frames_or_refs": "frames"
+            },
+            "output": {
+              "duration_s": 4,
+              "resolution": null,
+              "aspect": null,
+              "audio_out": null
+            },
+            "updated_at": "2026-09-21T19:24:29.332Z"
+          }
+        },
+        "captures": [
+          "frame-a-2.967-334b7f8256a6.png",
+          "frame-b-0-52ea7d4454f9.png"
+        ],
+        "badge": "▶ 動画予定"
+      },
+      "elapsedMs": 1889
+    },
+    {
+      "name": "generation tab displays both captured endpoint frames and first-last variety",
+      "pass": true,
+      "measurements": {
+        "tab": "生成",
+        "selected": "true",
+        "images": [
+          {
+            "slot": "first_frame",
+            "loaded": true,
+            "left": 645,
+            "right": 841,
+            "top": 326.5,
+            "bottom": 422.5,
+            "width": 196,
+            "height": 96,
+            "background": "rgba(167, 139, 250, 0.08)",
+            "border": "rgb(167, 139, 250)",
+            "borderWidth": "1px",
+            "painted": true
+          },
+          {
+            "slot": "last_frame",
+            "loaded": true,
+            "left": 851,
+            "right": 1047,
+            "top": 326.5,
+            "bottom": 422.5,
+            "width": 196,
+            "height": 96,
+            "background": "rgba(167, 139, 250, 0.18)",
+            "border": "rgb(167, 139, 250)",
+            "borderWidth": "1px",
+            "painted": true
+          }
+        ],
+        "variety": "種類最初→最後",
+        "text": "映像色音声生成情報▾ 生成モデルMiniMax H3 · $0.05/秒 · as_of 2026-09-12（fal:h3-i2v）MiniMax H3 · $0.05/秒 · as_of 2026-09-22（fal:h3-ref）Kling Video v3 Standard · 見積不可 · as_of 2026-09-12（fal:kling-v3-standard-i2v）Kling Video v3 Pro · $0.112/秒 · as_of 2026-09-12（fal:kling-v3-pro-i2v）Veo 3.1 · $0.2/秒 · as_of 2026-09-12（fal:veo-3.1-flf）Veo 3.1 · $0.2/秒 · as_of 2026-09-12（fal:veo-3.1-ref）Seedance 2.0 · $0.3034/秒 · as_of 2026-09-12（fal:seedance-2.0-i2v）Seedance 2.0 · $0.3034/秒 · as_of 2026-09-12（fal:seedance-2.0-ref）Seedance 2.5 · 見積不可 · as_of 2026-09-12（fal:seedance-2.5-i2v）Wan 2.7 · $0.1/秒 · as_of 2026-09-12（fal:wan-2.7-i2v）Grok Imagine Video · 見積不可 · as_of 2026-09-12（fal:grok-imagine-i2v）Vidu Q3 · 見積不可 · as_of 2026-09-12（fal:vidu-q3-i2v）指示文（prompt）最初 / 最後参照MiniMax H3 は同時に使えません。切り替えても中身は残り、送るのは選んだ方だけです。最初の絵差し替えこのクリップの絵外す最後の絵差し替え外す種類最初→最後送る絵は素材のまま（色・サイズは送りません）カメラの動きなし寄る引く左へ振る右へ振る追いかける固定長さ4 秒 → 5 秒解像度480P768P2K4K音声常に付く・既定は消音詳細シード（seed）隣から取る見積見積不可（明示確認で実行）動画にする注記尺 4 秒 → 5 秒に丸めました（MiniMax H3 は 5〜15 秒）。差 1 秒\n.akari-inspector-generation-gap { display: grid; gap: 12px; padding: 12px; min-width: 0; }\n.akari-inspector-generation-gap h3, .akari-inspector-generation-gap p { margin: 0; line-height: 1.6; overflow-wrap: anywhere; }\n.akari-inspector-generation-gap-ends { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; }\n.akari-inspector-generation-gap-end { display: flex; flex-direction: column; gap: 6px; min-width: 0; }\n.akari-inspector-generation-gap-end img { width: 100%; height: 72px; object-fit: contain; background: #23212b; border: 1px solid #756388; box-sizing: border-box; }\n.akari-inspector-generation-gap-end span { overflow-wrap: anywhere; line-height: 1.5; }\n.akari-inspector-widget .akari-inspector-generation-gap button,\n.akari-inspector-widget .akari-inspector-generation-gap button:hover,\n.akari-inspector-widget .akari-inspector-generation-gap button:active,\n.akari-inspector-widget .akari-inspector-generation-gap button:disabled,\n.akari-inspector-widget .akari-inspector-generation-gap button:disabled:hover {\n    background: #634398; color: #fff; border: 1px solid #b89aff; border-radius: 4px; padding: 8px 12px; cursor: pointer;\n}\n.akari-inspector-widget .akari-inspector-generation-gap button:disabled,\n.akari-inspector-widget .akari-inspector-generation-gap button:disabled:hover { opacity: .6; cursor: wait; }\n\n    .akari-generation-batch { padding: 12px; display: flex; flex-direction: column; gap: 12px; min-width: 0; }\n    .akari-generation-batch h3, .akari-generation-batch p { margin: 0; }\n    .akari-generation-batch-list { display: flex; flex-direction: column; gap: 8px; }\n    .akari-generation-batch-row { display: grid; grid-template-columns: 48px minmax(0, 1fr); gap: 6px 10px;\n        padding: 8px; border: 1px solid var(--theia-panel-border, #555); border-radius: 4px; }\n    .akari-generation-batch-thumbnail { width: 48px; height: 32px; object-fit: cover;\n        background: var(--theia-editor-inactiveSelectionBackground, #333); grid-row: 1 / 3; }\n    .akari-generation-batch-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }\n    .akari-generation-batch-duration { font-size: 11px; opacity: .8; }\n    .akari-generation-batch-badge { grid-column: 1 / -1; min-width: 0; overflow: hidden;\n        white-space: nowrap; text-overflow: ellipsis; border-radius: 3px; padding: 4px 6px;\n        background: var(--theia-editor-inactiveSelectionBackground, #333); }\n    .akari-generation-batch-note { font-size: 11px; line-height: 1.6; overflow-wrap: anywhere; }\n    .akari-generation-batch button.akari-generation-batch-submit,\n    .akari-generation-batch button.akari-generation-batch-stop {\n        border: 1px solid var(--theia-button-background, #777); padding: 8px 10px;\n        background: var(--theia-button-background, #365e92); color: var(--theia-button-foreground, #fff); }\n    .akari-generation-batch button.akari-generation-batch-stop { background: var(--theia-editor-background, #222);\n        color: var(--theia-foreground, #eee); }\n    .akari-generation-batch button:disabled { opacity: .5; cursor: default; }\n\n    .akari-inspector-widget .akari-inspector-adjust-compare { padding: 6px; border: 1px solid var(--theia-panel-border); }\n    .akari-inspector-widget .akari-inspector-adjust-compare[aria-pressed=\"true\"] {\n        background: var(--theia-button-background); color: var(--theia-button-foreground);\n    }\n    .akari-inspector-widget button,\n    .akari-inspector-popover-menu button,\n    .akari-inspector-row-menu button {\n        appearance: none;\n        border: none;\n        border-radius: 3px;\n        background: transparent;\n        color: var(--theia-foreground);\n        font: inherit;\n        cursor: pointer;\n    }\n    .akari-inspector-widget button:hover,\n    .akari-inspector-popover-menu button:hover,\n    .akari-inspector-row-menu button:hover {\n        background: var(--theia-toolbar-hoverBackground);\n    }\n    .akari-inspector-widget button:active,\n    .akari-inspector-popover-menu button:active,\n    .akari-inspector-row-menu button:active {\n        background: var(--theia-button-background);\n        color: var(--theia-button-foreground);\n    }\n    .akari-inspector-widget button:focus-visible,\n    .akari-inspector-popover-menu button:focus-visible,\n    .akari-inspector-row-menu button:focus-visible {\n        outline: 1px solid var(--theia-focusBorder);\n        outline-offset: -1px;\n    }\n    .akari-inspector-widget button:disabled {\n        color: var(--theia-disabledForeground);\n        cursor: default;\n    }\n    .akari-inspector-widget button:disabled:hover {\n        background: transparent;\n    }\n    .akari-inspector-widget .akari-inspector-tab-strip {\n        /* The grid body spans all sections; its parent is the overflow:auto scrollport. */\n        position: sticky;\n        top: 0;\n        z-index: 10;\n        align-self: start;\n        background: var(--theia-editor-background);\n        display: flex;\n        min-width: 0;\n        border-bottom: 1px solid var(--theia-panel-border);\n    }\n    .akari-inspector-widget .akari-inspector-tab {\n        flex: 1 1 0;\n        min-width: 0;\n        padding: 6px 4px 5px;\n        border-bottom: 2px solid transparent;\n        border-radius: 0;\n        color: var(--theia-descriptionForeground);\n        text-align: center;\n    }\n    .akari-inspector-widget .akari-inspector-tab.is-active {\n        border-bottom-color: var(--theia-focusBorder);\n        color: var(--theia-foreground);\n    }\n    .akari-inspector-widget .akari-inspector-tab [data-akari-generation-todo] {\n        display: inline-block;\n        width: 5px;\n        height: 5px;\n        margin-left: 3px;\n        border-radius: 50%;\n        vertical-align: super;\n        background: var(--theia-focusBorder);\n    }\n    .akari-inspector-widget .akari-inspector-tab:disabled {\n        color: var(--theia-disabledForeground);\n    }\n    .akari-inspector-widget .akari-inspector-solo-banner {\n        display: flex;\n        align-items: center;\n        min-width: 0;\n        padding: 5px 6px;\n        border: 1px solid var(--akari-focus-pulse, var(--akari-accent));\n        border-radius: 3px;\n        color: var(--akari-focus-pulse, var(--akari-accent));\n        font-size: 12px;\n        white-space: nowrap;\n    }\n    .akari-inspector-widget .akari-inspector-solo-reset {\n        padding: 0 2px;\n        color: inherit;\n        text-decoration: underline;\n    }\n    .akari-inspector-widget .akari-inspector-row {\n        display: grid;\n        grid-template-columns: 84px 1fr;\n        gap: 8px;\n        font-size: 12px;\n        line-height: 1.5;\n    }\n    .akari-inspector-widget .akari-inspector-row-label {\n        color: var(--theia-descriptionForeground);\n    }\n    .akari-inspector-widget .akari-inspector-row-value {\n        font-variant-numeric: tabular-nums;\n        word-break: break-all;\n    }\n    .akari-inspector-widget .akari-inspector-row-input {\n        font: inherit;\n        font-variant-numeric: tabular-nums;\n        padding: 2px 4px;\n        border: 1px solid var(--theia-input-border, #454545);\n        background: var(--theia-input-background);\n        color: var(--theia-input-foreground);\n        border-radius: 2px;\n        width: 100%;\n        box-sizing: border-box;\n    }\n    .akari-inspector-widget .akari-caption-zone-grid {\n        display: grid;\n        grid-template-columns: repeat(3, minmax(30px, 1fr));\n        gap: 4px;\n        min-width: 0;\n    }\n    .akari-inspector-widget .akari-caption-zone-cell {\n        position: relative;\n        min-width: 0;\n        height: 34px;\n        padding: 0;\n        border: 1px solid var(--theia-input-border, #454545);\n        border-radius: 4px;\n        background: var(--theia-input-background);\n        color: var(--theia-descriptionForeground);\n        font-size: 15px;\n        text-align: center;\n    }\n    .akari-inspector-widget .akari-caption-zone-cell:hover,\n    .akari-inspector-widget .akari-caption-zone-cell:focus-visible {\n        border-color: var(--theia-focusBorder);\n        background: var(--theia-list-hoverBackground, var(--theia-toolbar-hoverBackground));\n        color: var(--theia-foreground);\n    }\n    .akari-inspector-widget .akari-caption-zone-cell.is-saved {\n        border-color: var(--theia-focusBorder);\n        color: var(--theia-textLink-foreground);\n        box-shadow: inset 0 0 0 1px var(--theia-focusBorder);\n    }\n    .akari-inspector-widget .akari-caption-zone-saved {\n        position: absolute;\n        right: 2px;\n        bottom: 1px;\n        padding: 0 3px;\n        border-radius: 999px;\n        background: var(--theia-button-background);\n        color: var(--theia-button-foreground);\n        font-size: 8px;\n        line-height: 1.35;\n        pointer-events: none;\n    }\n    .akari-inspector-widget .akari-inspector-color-field {\n        display: grid;\n        grid-template-columns: 30px minmax(0, 1fr);\n        gap: 6px;\n        align-items: center;\n    }\n    .akari-inspector-widget .akari-inspector-color-picker {\n        width: 30px;\n        height: 24px;\n        padding: 1px;\n        border: 1px solid var(--theia-input-border, #454545);\n        border-radius: 2px;\n        background: var(--theia-input-background);\n        cursor: pointer;\n    }\n    .akari-inspector-widget .akari-inspector-section {\n        border-bottom: 1px solid var(--theia-panel-border);\n        padding-bottom: 6px;\n    }\n    .akari-inspector-widget .akari-inspector-section-header {\n        display: flex;\n        align-items: center;\n        min-height: 28px;\n        gap: 4px;\n    }\n    .akari-inspector-widget .akari-inspector-section-toggle {\n        flex: 1;\n        border: 0;\n        padding: 4px 0;\n        color: var(--theia-foreground);\n        background: transparent;\n        text-align: left;\n        font: inherit;\n        font-weight: 600;\n        cursor: pointer;\n    }\n    .akari-inspector-widget .akari-inspector-section-enable {\n        display: inline-flex;\n        align-items: center;\n        gap: 3px;\n        color: var(--theia-descriptionForeground);\n        font-size: 10px;\n        white-space: nowrap;\n    }\n    .akari-inspector-widget .akari-inspector-section-body {\n        display: grid;\n        gap: 5px;\n    }\n    .akari-inspector-widget .akari-inspector-section-body[hidden] {\n        display: none;\n    }\n    .akari-inspector-widget .akari-inspector-section-caption {\n        margin: 0;\n        color: var(--theia-descriptionForeground);\n        font-size: 11px;\n        line-height: 1.4;\n    }\n    .akari-inspector-widget .akari-inspector-section-soon,\n    .akari-inspector-widget .akari-inspector-section-soon .akari-inspector-section-header {\n        color: var(--theia-disabledForeground);\n    }\n    .akari-inspector-widget .akari-inspector-section-soon-title {\n        flex: 1;\n        padding: 4px 0;\n        color: var(--theia-disabledForeground);\n        font-weight: 600;\n    }\n    .akari-inspector-widget .akari-inspector-section-soon-chip {\n        padding: 1px 6px;\n        border: 1px solid var(--theia-panel-border);\n        border-radius: 999px;\n        color: var(--theia-disabledForeground);\n        font-size: 10px;\n        line-height: 1.4;\n    }\n    .akari-inspector-widget .akari-adjust-preview {\n        display: grid;\n        gap: 5px;\n        padding: 0 0 4px 18px;\n        color: var(--theia-disabledForeground);\n        pointer-events: none;\n        user-select: none;\n    }\n    .akari-inspector-widget .akari-adjust-preview-row {\n        display: grid;\n        grid-template-columns: minmax(0, 1fr) 72px;\n        align-items: center;\n        gap: 8px;\n        min-height: 24px;\n        opacity: 0.68;\n    }\n    .akari-inspector-widget .akari-adjust-preview-value {\n        box-sizing: border-box;\n        min-width: 0;\n        padding: 2px 6px;\n        border: 1px solid var(--theia-input-border, #454545);\n        border-radius: 2px;\n        background: var(--theia-input-background);\n        color: var(--theia-disabledForeground);\n        text-align: right;\n        font-variant-numeric: tabular-nums;\n    }\n    .akari-inspector-widget .akari-adjust-preview-channels {\n        display: flex;\n        gap: 5px;\n    }\n    .akari-inspector-widget .akari-adjust-preview-channel {\n        min-width: 24px;\n        padding: 1px 5px;\n        border: 1px solid var(--theia-panel-border);\n        border-radius: 999px;\n        text-align: center;\n        opacity: 0.65;\n    }\n    .akari-inspector-widget .akari-adjust-preview-channel.is-active {\n        border-color: var(--theia-focusBorder);\n        color: var(--theia-foreground);\n    }\n    .akari-inspector-widget .akari-adjust-preview-channel-r { color: #e78585; }\n    .akari-inspector-widget .akari-adjust-preview-channel-g { color: #7fcb8b; }\n    .akari-inspector-widget .akari-adjust-preview-channel-b { color: #80a9e8; }\n    .akari-inspector-widget .akari-adjust-editor { display: grid; gap: 8px; padding: 8px; }\n    .akari-inspector-widget .akari-adjust-editor .akari-adjust-editor-curve { touch-action: none; overflow: visible; opacity: 1; }\n    .akari-inspector-widget .akari-adjust-editor-line { fill: none; stroke: var(--theia-foreground); stroke-width: 1.5; }\n    .akari-inspector-widget .akari-adjust-editor-point { fill: var(--theia-focusBorder, #68aaff); stroke: #202020; cursor: grab; }\n    .akari-inspector-widget .akari-adjust-editor .akari-adjust-preview-channel { cursor: pointer; }\n    .akari-inspector-widget .akari-adjust-editor .akari-adjust-preview-wheel {\n        touch-action: none; cursor: crosshair; opacity: 1;\n        background: conic-gradient(from 90deg, #ef6d6d, #c87bd5, #739be7, #6fd3d5, #72cf81, #e8d86b, #ef6d6d);\n    }\n    .akari-inspector-widget .akari-adjust-editor .akari-adjust-preview-wheel-center { pointer-events: none; }\n    .akari-inspector-widget .akari-adjust-editor-luminance { display: flex; min-width: 0; width: 100%; }\n    .akari-inspector-widget .akari-adjust-editor-luminance .akari-inspector-number-field {\n        min-width: 0; flex: 1; grid-template-columns: 18px minmax(28px, 1fr) auto 14px;\n    }\n    .akari-inspector-widget .akari-adjust-editor-notice { color: var(--theia-errorForeground); font-size: 11px; }\n    .akari-inspector-widget .akari-adjust-preview-curve.akari-adjust-editor-hue {\n        background: linear-gradient(to right, hsl(0,80%,50%), hsl(60,80%,45%), hsl(120,80%,45%), hsl(180,80%,45%), hsl(240,80%,55%), hsl(300,80%,50%), hsl(360,80%,50%)) bottom / 100% 10px no-repeat;\n    }\n    .akari-inspector-widget .akari-adjust-preview-curve {\n        width: min(100%, 180px);\n        height: 140px;\n        justify-self: center;\n        border: 1px solid var(--theia-panel-border);\n        border-radius: 3px;\n        background: var(--theia-input-background);\n        opacity: 0.68;\n    }\n    .akari-inspector-widget .akari-adjust-preview-curve-grid {\n        fill: none;\n        stroke: var(--theia-panel-border);\n        stroke-width: 1;\n    }\n    .akari-inspector-widget .akari-adjust-preview-curve-identity {\n        fill: none;\n        stroke: var(--theia-descriptionForeground);\n        stroke-width: 1.5;\n        stroke-dasharray: 5 4;\n    }\n    .akari-inspector-widget .akari-adjust-preview-wheel-grid {\n        display: grid;\n        grid-template-columns: repeat(2, minmax(0, 1fr));\n        gap: 12px 10px;\n    }\n    .akari-inspector-widget .akari-adjust-preview-wheel-item {\n        display: grid;\n        justify-items: center;\n        gap: 4px;\n    }\n    .akari-inspector-widget .akari-adjust-preview-wheel-label {\n        font-size: 10px;\n        opacity: 0.7;\n    }\n    .akari-inspector-widget .akari-adjust-preview-wheel {\n        position: relative;\n        width: 70px;\n        height: 70px;\n        border-radius: 50%;\n        background: conic-gradient(#ef6d6d, #e8d86b, #72cf81, #6fd3d5, #739be7, #c87bd5, #ef6d6d);\n        opacity: 0.65;\n    }\n    .akari-inspector-widget .akari-adjust-preview-wheel::after {\n        position: absolute;\n        inset: 8px;\n        border: 1px solid color-mix(in srgb, var(--theia-panel-border) 70%, transparent);\n        border-radius: 50%;\n        background: color-mix(in srgb, var(--theia-input-background) 88%, #808080);\n        content: '';\n    }\n    .akari-inspector-widget .akari-adjust-preview-wheel-center {\n        position: absolute;\n        z-index: 1;\n        left: 50%;\n        top: 50%;\n        width: 6px;\n        height: 6px;\n        border: 1px solid var(--theia-foreground);\n        border-radius: 50%;\n        background: var(--theia-input-background);\n        transform: translate(-50%, -50%);\n    }\n    .akari-inspector-widget .akari-adjust-preview-luminance {\n        width: 70px;\n        height: 5px;\n        border: 1px solid var(--theia-panel-border);\n        border-radius: 999px;\n        background: linear-gradient(90deg, #181818, #d0d0d0);\n        opacity: 0.65;\n    }\n    .akari-inspector-widget .akari-adjust-preview-hue-curve {\n        position: relative;\n        height: 74px;\n        overflow: hidden;\n        border: 1px solid var(--theia-panel-border);\n        border-radius: 3px;\n        background: var(--theia-input-background);\n        opacity: 0.65;\n    }\n    .akari-inspector-widget .akari-adjust-preview-hue-band {\n        position: absolute;\n        inset: 0;\n        background: linear-gradient(90deg, #ed6666, #e8dc67, #6dcc7a, #68ccd2, #718fdd, #c475d3, #ed6666);\n        opacity: 0.68;\n    }\n    .akari-inspector-widget .akari-adjust-preview-hue-line {\n        position: absolute;\n        left: 0;\n        right: 0;\n        top: 50%;\n        border-top: 1px solid var(--theia-foreground);\n        box-shadow: 0 0 0 1px color-mix(in srgb, var(--theia-input-background) 65%, transparent);\n    }\n    .akari-inspector-widget .akari-adjust-preview-lut-row {\n        display: grid;\n        grid-template-columns: 1fr;\n    }\n    .akari-inspector-widget .akari-adjust-preview-ghost-button {\n        padding: 4px 7px;\n        border: 1px dashed var(--theia-input-border, #454545);\n        border-radius: 3px;\n        color: var(--theia-disabledForeground);\n        text-align: center;\n        opacity: 0.68;\n    }\n    .akari-inspector-widget .akari-inspector-section-add {\n        border: 0;\n        border-radius: 3px;\n        background: transparent;\n        color: var(--theia-foreground);\n        cursor: pointer;\n    }\n    .akari-inspector-widget .akari-inspector-number-field {\n        display: grid;\n        grid-template-columns: 24px minmax(42px, 1fr) auto 18px 54px;\n        align-items: center;\n        gap: 3px;\n    }\n    .akari-inspector-widget .akari-inspector-number-field-seatless {\n        grid-template-columns: 24px minmax(42px, 1fr) auto 18px;\n    }\n    .akari-inspector-widget .akari-inspector-number-handle {\n        cursor: ew-resize;\n        border: 0;\n        color: var(--theia-textLink-foreground);\n        background: transparent;\n    }\n    .akari-inspector-widget .akari-inspector-number-input {\n        min-width: 0;\n        width: 100%;\n        box-sizing: border-box;\n        border: 1px solid var(--theia-input-border, #454545);\n        border-radius: 2px;\n        background: var(--theia-input-background);\n        color: var(--theia-input-foreground);\n        text-align: right;\n        font: inherit;\n        font-variant-numeric: tabular-nums;\n    }\n    .akari-inspector-widget .akari-inspector-number-steps {\n        display: grid;\n    }\n    .akari-inspector-widget .akari-inspector-number-steps button {\n        border: 0;\n        padding: 0;\n        font-size: 7px;\n        color: var(--theia-descriptionForeground);\n        background: transparent;\n    }\n    .akari-inspector-widget .akari-inspector-kf-controls {\n        display: grid;\n        grid-template-columns: repeat(4, 18px);\n        align-items: center;\n    }\n    .akari-inspector-widget .akari-inspector-kf-controls button {\n        appearance: none;\n        min-width: 0;\n        padding: 0;\n        border: none;\n        background: transparent;\n        color: var(--theia-descriptionForeground);\n    }\n    .akari-inspector-widget .akari-inspector-kf-controls button:hover {\n        background: var(--theia-toolbar-hoverBackground);\n        color: var(--theia-foreground);\n    }\n    .akari-inspector-widget .akari-inspector-kf-controls button:active {\n        background: var(--theia-button-background);\n        color: var(--theia-button-foreground);\n    }\n    .akari-inspector-widget .akari-inspector-kf-controls button:disabled {\n        opacity: .35;\n        background: transparent;\n        color: var(--theia-disabledForeground);\n    }\n    .akari-inspector-widget .akari-inspector-kf-seat {\n        color: var(--theia-textLink-foreground);\n    }\n    .akari-inspector-widget [data-akari-easing-preview] button,\n    .akari-inspector-popover-menu button,\n    .akari-inspector-row-menu button {\n        padding: 2px 4px;\n        text-align: left;\n    }\n    .akari-inspector-widget .akari-inspector-row-input:focus-visible,\n    .akari-inspector-widget .akari-inspector-number-input:focus-visible,\n    .akari-inspector-widget .akari-inspector-color-picker:focus-visible {\n        outline: 1px solid var(--theia-focusBorder);\n        outline-offset: -1px;\n    }\n    .akari-inspector-widget .akari-inspector-empty {\n        color: var(--theia-descriptionForeground);\n        padding: 4px 0;\n    }\n    .akari-inspector-widget .akari-inspector-generation-references { margin: 10px 0; }\n    .akari-inspector-widget .akari-inspector-generation-reference-heading { display: flex; gap: 8px; justify-content: space-between; flex-wrap: wrap; margin-bottom: 6px; }\n    .akari-inspector-widget .akari-inspector-generation-reference-counter { font-size: 11px; }\n    .akari-inspector-widget .akari-inspector-generation-reference-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: 8px; }\n    .akari-inspector-widget .akari-inspector-generation-reference-card { min-width: 0; border: 1px solid var(--theia-panel-border); border-radius: 4px; padding: 5px; }\n    .akari-inspector-widget .akari-inspector-generation-reference-top { display: flex; align-items: center; justify-content: space-between; gap: 5px; margin-bottom: 5px; }\n    .akari-inspector-widget .akari-inspector-generation-reference-badge { font-size: 11px; white-space: nowrap; }\n    .akari-inspector-widget .akari-inspector-generation-reference-unsupported .akari-inspector-generation-reference-badge { opacity: 0.45; }\n    .akari-inspector-widget .akari-inspector-generation-reference-thumbnail { height: 58px; display: flex; align-items: center; justify-content: center; background: var(--theia-editor-background); overflow: hidden; font-size: 11px; }\n    .akari-inspector-widget .akari-inspector-generation-reference-thumbnail img { width: 100%; height: 100%; object-fit: cover; }\n    .akari-inspector-widget .akari-inspector-generation-reference-filename { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 10px; margin-top: 4px; }\n    .akari-inspector-widget .akari-inspector-generation-reference-add { display: flex; flex-direction: column; align-items: stretch; justify-content: center; gap: 5px; min-height: 94px; }\n    .akari-inspector-widget .akari-inspector-generation-reference-add select { min-width: 0; color: var(--theia-foreground); background: var(--theia-dropdown-background); border: 1px solid var(--theia-panel-border); }\n    .akari-inspector-widget .akari-inspector-generation-references button:disabled { opacity: 0.5; cursor: default; }\n    .akari-inspector-widget .akari-inspector-generation-frames { display: flex; gap: 10px; margin: 10px 0; }\n    .akari-inspector-widget .akari-inspector-generation-cell { flex: 1; min-width: 0; }\n    .akari-inspector-widget .akari-inspector-generation-frame { position: relative; box-sizing: border-box; width: 100%; aspect-ratio: 16 / 9; max-height: 96px; border: 1px solid #a78bfa; background: rgba(167, 139, 250, 0.08); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; margin: 4px 0 8px; overflow: hidden; font-size: 11px; color: var(--theia-foreground); cursor: pointer; }\n    .akari-inspector-widget .akari-inspector-generation-frame:hover,\n    .akari-inspector-widget .akari-inspector-generation-frame:focus-visible { background: rgba(167, 139, 250, 0.18); outline: 1px solid #a78bfa; outline-offset: 2px; }\n    .akari-inspector-widget .akari-inspector-generation-frame[aria-pressed=\"true\"] { box-shadow: 0 0 0 2px var(--theia-editor-background), 0 0 0 4px #a78bfa; }\n    .akari-inspector-widget .akari-inspector-generation-frame[aria-disabled=\"true\"] { cursor: default; opacity: 0.6; }\n    .akari-inspector-widget .akari-inspector-generation-frame-hint { font-size: 10px; color: var(--theia-descriptionForeground); }\n    .akari-inspector-widget .akari-inspector-generation-frame-replace { position: absolute; bottom: 4px; right: 4px; padding: 2px 5px; background: #312547; color: #fff; border-radius: 3px; opacity: 0; pointer-events: none; }\n    .akari-inspector-widget .akari-inspector-generation-frame:hover .akari-inspector-generation-frame-replace,\n    .akari-inspector-widget .akari-inspector-generation-frame:focus-visible .akari-inspector-generation-frame-replace { opacity: 1; }\n    .akari-inspector-widget .akari-inspector-generation-frame img { width: 100%; height: 100%; object-fit: cover; }\n    .akari-inspector-widget .akari-inspector-generation-cell button { margin: 3px 3px 0 0; white-space: normal; }\n    .akari-inspector-widget button.akari-inspector-generation-primary,\n    .akari-inspector-widget button.akari-inspector-generation-secondary,\n    .akari-inspector-widget button.akari-inspector-generation-small,\n    .akari-inspector-widget button.akari-inspector-generation-camera-button {\n        border: 1px solid var(--theia-input-border, var(--theia-panel-border));\n        border-radius: 4px;\n        padding: 5px 10px;\n        background: var(--theia-button-secondaryBackground, var(--theia-editor-background));\n        color: var(--theia-button-secondaryForeground, var(--theia-foreground));\n    }\n    .akari-inspector-widget button.akari-inspector-generation-secondary:hover,\n    .akari-inspector-widget button.akari-inspector-generation-small:hover,\n    .akari-inspector-widget button.akari-inspector-generation-camera-button:hover {\n        background: var(--theia-button-secondaryHoverBackground, var(--theia-toolbar-hoverBackground));\n    }\n    .akari-inspector-widget button.akari-inspector-generation-primary {\n        border-color: var(--theia-button-background);\n        background: var(--theia-button-background);\n        color: var(--theia-button-foreground);\n    }\n    .akari-inspector-widget button.akari-inspector-generation-primary:hover {\n        background: var(--theia-button-hoverBackground);\n    }\n    .akari-inspector-widget button.akari-inspector-generation-primary:disabled,\n    .akari-inspector-widget button.akari-inspector-generation-primary:disabled:hover {\n        background: var(--theia-button-secondaryBackground, var(--theia-editor-background));\n        border-color: var(--theia-panel-border);\n        color: var(--theia-disabledForeground);\n        opacity: 0.65;\n        cursor: default;\n    }\n    .akari-inspector-widget button.akari-inspector-generation-small {\n        padding: 2px 6px;\n        font-size: 11px;\n        background: var(--theia-editor-background);\n        color: var(--theia-descriptionForeground);\n    }\n    .akari-inspector-widget button.akari-inspector-generation-camera-button { padding: 3px 8px; }\n    .akari-inspector-widget button.akari-inspector-generation-camera-button[aria-pressed=\"true\"] {\n        border-color: var(--theia-focusBorder);\n        background: var(--theia-button-background);\n        color: var(--theia-button-foreground);\n    }\n    .akari-inspector-widget button.akari-inspector-generation-primary:focus-visible,\n    .akari-inspector-widget button.akari-inspector-generation-secondary:focus-visible,\n    .akari-inspector-widget button.akari-inspector-generation-small:focus-visible,\n    .akari-inspector-widget button.akari-inspector-generation-camera-button:focus-visible {\n        outline: 2px solid var(--theia-focusBorder);\n        outline-offset: 2px;\n    }\n    .akari-inspector-widget .akari-inspector-generation-camera { margin: 10px 0; }\n    .akari-inspector-widget .akari-inspector-generation-details { margin: 10px 0; padding: 6px; border: 1px solid var(--theia-panel-border); }\n    .akari-inspector-widget .akari-inspector-generation-footer { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin-top: 12px; }\n    .akari-inspector-widget .akari-inspector-generation-submit-group { display: flex; flex: 1 1 auto; align-items: center; justify-content: flex-end; flex-wrap: nowrap; gap: 6px; margin-left: auto; min-width: 0; }\n    .akari-inspector-widget .akari-inspector-generation-submit-group > button { flex-shrink: 0; white-space: nowrap; }\n    .akari-inspector-widget .akari-inspector-generation-submit-group > .akari-inspector-generation-estimate { flex: 0 1 auto; min-width: calc(2em + 6px + 6ch); white-space: normal; text-align: right; justify-content: flex-end; }\n    .akari-inspector-widget .akari-inspector-generation-submit-group > .akari-inspector-generation-estimate > .akari-inspector-row-label { white-space: nowrap; flex-shrink: 0; }\n    .akari-inspector-widget .akari-inspector-generation-submit-group > .akari-inspector-generation-estimate > .akari-inspector-row-value { min-width: 0; white-space: normal; word-break: normal; overflow-wrap: normal; }\n    .akari-inspector-widget .akari-inspector-generation-facts {\n        padding: 5px 0;\n        border-top: 1px solid var(--theia-panel-border);\n        border-bottom: 1px solid var(--theia-panel-border);\n        font-variant-numeric: tabular-nums;\n    }\n    .akari-inspector-widget .akari-inspector-generation-estimate {\n        display: flex;\n        align-items: baseline;\n        gap: 6px;\n        white-space: nowrap;\n        color: var(--theia-textLink-foreground);\n        font-variant-numeric: tabular-nums;\n    }\n    .akari-inspector-widget .akari-inspector-generation-error {\n        color: var(--theia-errorForeground);\n    }\n    .akari-inspector-widget .akari-inspector-generation-warning {\n        color: var(--theia-editorWarning-foreground, var(--theia-descriptionForeground));\n    }\n    .akari-inspector-widget .akari-inspector-generation-note {\n        color: var(--theia-descriptionForeground);\n        font-size: 11px;\n    }\n    @keyframes akari-inspector-focus-pulse {\n        0%, 100% { box-shadow: 0 0 0 0 var(--akari-focus-pulse, var(--akari-accent)); }\n        50% { box-shadow: 0 0 0 4px var(--akari-focus-pulse, var(--akari-accent)); }\n    }\n    .akari-inspector-widget .akari-inspector-focus-pulse {\n        animation: akari-inspector-focus-pulse 0.4s ease-in-out 4;\n        border-radius: 3px;\n    }\n    .akari-inspector-widget .akari-inspector-focus-pulse-reduced {\n        outline: 2px solid var(--akari-focus-pulse, var(--akari-accent));\n        outline-offset: 1px;\n    }\n",
+        "rects": [
+          {
+            "role": "",
+            "text": "最初の絵",
+            "left": 645,
+            "right": 841,
+            "top": 303,
+            "bottom": 322.5,
+            "width": 196,
+            "height": 19.5
+          },
+          {
+            "role": "",
+            "text": "最後の絵",
+            "left": 851,
+            "right": 1047,
+            "top": 303,
+            "bottom": 322.5,
+            "width": 196,
+            "height": 19.5
+          },
+          {
+            "role": "",
+            "text": "カメラの動き",
+            "left": 645,
+            "right": 1047,
+            "top": 536,
+            "bottom": 555.5,
+            "width": 402,
+            "height": 19.5
+          },
+          {
+            "role": "akari-inspector-generation-frame",
+            "text": "最初の絵: 差し替える",
+            "left": 645,
+            "right": 841,
+            "top": 326.5,
+            "bottom": 422.5,
+            "width": 196,
+            "height": 96
+          },
+          {
+            "role": "akari-inspector-generation-frame",
+            "text": "最後の絵: 差し替える",
+            "left": 851,
+            "right": 1047,
+            "top": 326.5,
+            "bottom": 422.5,
+            "width": 196,
+            "height": 96
+          }
+        ],
+        "buttons": [
+          {
+            "text": "映像",
+            "left": 645,
+            "right": 725.3984375,
+            "top": 49,
+            "bottom": 81.5,
+            "width": 80.3984375,
+            "height": 32.5,
+            "background": "rgba(0, 0, 0, 0)",
+            "border": "rgba(204, 204, 204, 0.7)",
+            "borderWidth": "0px",
+            "painted": false
+          },
+          {
+            "text": "色",
+            "left": 725.3984375,
+            "right": 805.796875,
+            "top": 49,
+            "bottom": 81.5,
+            "width": 80.3984375,
+            "height": 32.5,
+            "background": "rgba(0, 0, 0, 0)",
+            "border": "rgba(204, 204, 204, 0.7)",
+            "borderWidth": "0px",
+            "painted": false
+          },
+          {
+            "text": "音声",
+            "left": 805.796875,
+            "right": 886.1953125,
+            "top": 49,
+            "bottom": 81.5,
+            "width": 80.3984375,
+            "height": 32.5,
+            "background": "rgba(0, 0, 0, 0)",
+            "border": "rgba(204, 204, 204, 0.7)",
+            "borderWidth": "0px",
+            "painted": false
+          },
+          {
+            "text": "生成",
+            "left": 886.1953125,
+            "right": 966.59375,
+            "top": 49,
+            "bottom": 81.5,
+            "width": 80.3984375,
+            "height": 32.5,
+            "background": "rgba(0, 0, 0, 0)",
+            "border": "rgb(204, 204, 204)",
+            "borderWidth": "0px",
+            "painted": false
+          },
+          {
+            "text": "情報",
+            "left": 966.59375,
+            "right": 1046.9921875,
+            "top": 49,
+            "bottom": 81.5,
+            "width": 80.3984375,
+            "height": 32.5,
+            "background": "rgba(0, 0, 0, 0)",
+            "border": "rgba(204, 204, 204, 0.7)",
+            "borderWidth": "0px",
+            "painted": false
+          },
+          {
+            "text": "▾ 生成",
+            "left": 645,
+            "right": 1047,
+            "top": 88.75,
+            "bottom": 116.25,
+            "width": 402,
+            "height": 27.5,
+            "background": "rgba(0, 0, 0, 0)",
+            "border": "rgb(204, 204, 204)",
+            "borderWidth": "0px",
+            "painted": false
+          },
+          {
+            "text": "最初 / 最後",
+            "left": 645,
+            "right": 726.046875,
+            "top": 209.5,
+            "bottom": 237,
+            "width": 81.046875,
+            "height": 27.5,
+            "background": "rgb(249, 115, 22)",
+            "border": "rgb(251, 146, 60)",
+            "borderWidth": "1px",
+            "painted": true
+          },
+          {
+            "text": "参照",
+            "left": 729.046875,
+            "right": 773.046875,
+            "top": 209.5,
+            "bottom": 237,
+            "width": 44,
+            "height": 27.5,
+            "background": "rgb(20, 20, 20)",
+            "border": "rgb(27, 27, 27)",
+            "borderWidth": "1px",
+            "painted": true
+          },
+          {
+            "text": "差し替え",
+            "left": 645,
+            "right": 841,
+            "top": 326.5,
+            "bottom": 422.5,
+            "width": 196,
+            "height": 96,
+            "background": "rgba(167, 139, 250, 0.08)",
+            "border": "rgb(167, 139, 250)",
+            "borderWidth": "1px",
+            "painted": true
+          },
+          {
+            "text": "このクリップの絵",
+            "left": 645,
+            "right": 770.2265625,
+            "top": 433.5,
+            "bottom": 465,
+            "width": 125.2265625,
+            "height": 31.5,
+            "background": "rgb(20, 20, 20)",
+            "border": "rgb(27, 27, 27)",
+            "borderWidth": "1px",
+            "painted": true
+          },
+          {
+            "text": "外す",
+            "left": 773.2265625,
+            "right": 809.2265625,
+            "top": 439,
+            "bottom": 461.5,
+            "width": 36,
+            "height": 22.5,
+            "background": "rgb(10, 10, 10)",
+            "border": "rgb(27, 27, 27)",
+            "borderWidth": "1px",
+            "painted": true
+          },
+          {
+            "text": "差し替え",
+            "left": 851,
+            "right": 1047,
+            "top": 326.5,
+            "bottom": 422.5,
+            "width": 196,
+            "height": 96,
+            "background": "rgba(167, 139, 250, 0.18)",
+            "border": "rgb(167, 139, 250)",
+            "borderWidth": "1px",
+            "painted": true
+          },
+          {
+            "text": "外す",
+            "left": 851,
+            "right": 887,
+            "top": 433.5,
+            "bottom": 456,
+            "width": 36,
+            "height": 22.5,
+            "background": "rgb(10, 10, 10)",
+            "border": "rgb(27, 27, 27)",
+            "borderWidth": "1px",
+            "painted": true
+          },
+          {
+            "text": "なし",
+            "left": 645,
+            "right": 689,
+            "top": 558.5,
+            "bottom": 586,
+            "width": 44,
+            "height": 27.5,
+            "background": "rgb(249, 115, 22)",
+            "border": "rgb(251, 146, 60)",
+            "borderWidth": "1px",
+            "painted": true
+          },
+          {
+            "text": "寄る",
+            "left": 692,
+            "right": 736,
+            "top": 558.5,
+            "bottom": 586,
+            "width": 44,
+            "height": 27.5,
+            "background": "rgb(20, 20, 20)",
+            "border": "rgb(27, 27, 27)",
+            "borderWidth": "1px",
+            "painted": true
+          },
+          {
+            "text": "引く",
+            "left": 739,
+            "right": 783,
+            "top": 558.5,
+            "bottom": 586,
+            "width": 44,
+            "height": 27.5,
+            "background": "rgb(20, 20, 20)",
+            "border": "rgb(27, 27, 27)",
+            "borderWidth": "1px",
+            "painted": true
+          },
+          {
+            "text": "左へ振る",
+            "left": 786,
+            "right": 856,
+            "top": 558.5,
+            "bottom": 586,
+            "width": 70,
+            "height": 27.5,
+            "background": "rgb(20, 20, 20)",
+            "border": "rgb(27, 27, 27)",
+            "borderWidth": "1px",
+            "painted": true
+          },
+          {
+            "text": "右へ振る",
+            "left": 859,
+            "right": 929,
+            "top": 558.5,
+            "bottom": 586,
+            "width": 70,
+            "height": 27.5,
+            "background": "rgb(20, 20, 20)",
+            "border": "rgb(27, 27, 27)",
+            "borderWidth": "1px",
+            "painted": true
+          },
+          {
+            "text": "追いかける",
+            "left": 932,
+            "right": 1014.6171875,
+            "top": 558.5,
+            "bottom": 586,
+            "width": 82.6171875,
+            "height": 27.5,
+            "background": "rgb(20, 20, 20)",
+            "border": "rgb(27, 27, 27)",
+            "borderWidth": "1px",
+            "painted": true
+          },
+          {
+            "text": "固定",
+            "left": 645,
+            "right": 689,
+            "top": 589,
+            "bottom": 616.5,
+            "width": 44,
+            "height": 27.5,
+            "background": "rgb(20, 20, 20)",
+            "border": "rgb(27, 27, 27)",
+            "borderWidth": "1px",
+            "painted": true
+          }
+        ]
+      },
+      "elapsedMs": 137
+    },
+    {
+      "name": "captured last frame link indicator",
+      "pass": true,
+      "measurements": {
+        "observed": true,
+        "title": "次のクリップの絵につながる",
+        "rect": {
+          "left": 506.453125,
+          "right": 520.453125,
+          "top": 537.515625,
+          "bottom": 549.515625,
+          "width": 14,
+          "height": 12
+        },
+        "pseudo": {
+          "before": {
+            "content": "\"\"",
+            "present": true
+          },
+          "after": {
+            "content": "\"\"",
+            "present": true
+          }
+        }
+      },
+      "elapsedMs": 0
+    },
+    {
+      "name": "edit-lint PASS",
+      "pass": true,
+      "measurements": {
+        "version": 1,
+        "checked_at": "2026-09-21T19:24:29.968Z",
+        "inputs": {
+          "captions_json_sha256": "83a6fc4db60a62ad889db7adf3d492333df8de26c3563b997ee108739dea7bf1",
+          "edit_json_sha256": "6df6f0842d309b39a72a3a75d11f1dedc465242df403cf260c3f740a2c790019"
+        },
+        "verdict": "pass",
+        "findings": [
+          {
+            "id": "F001",
+            "severity": "warning",
+            "check": "geometry.fit-compat",
+            "message": "fit 互換モードで描画中。`normalize-geometry` で実寸基準へ移行できます",
+            "path": "edit.json#output.geometry"
+          },
+          {
+            "id": "F002",
+            "severity": "warning",
+            "check": "timeline.items.order",
+            "message": "item gap-1 at array position 2 has at=90, before item right at position 1 (at=210)",
+            "path": "edit.json#tracks[0].items[2]"
+          }
+        ],
+        "skipped": [
+          {
+            "check": "analysis.json",
+            "reason": "analysis.json is absent"
+          },
+          {
+            "check": "audio.music-grid",
+            "reason": "audio.bgm is absent; music grid checks require audio.bgm.path"
+          },
+          {
+            "check": "intake",
+            "reason": ".akari/intake.json is absent"
+          },
+          {
+            "check": "media",
+            "reason": "media checks require --media"
+          },
+          {
+            "check": "review",
+            "reason": "review.json is absent"
+          }
+        ]
+      },
+      "elapsedMs": 168
+    },
+    {
+      "name": "no generation CLI invocation or paid provider request",
+      "pass": true,
+      "measurements": {
+        "calls": 0,
+        "falRequests": 0
+      },
+      "elapsedMs": 0
+    },
+    {
+      "name": "one real undo click removes both item and source",
+      "pass": true,
+      "measurements": {
+        "undoClicks": 1,
+        "itemCount": 2,
+        "sourceCount": 2
+      },
+      "elapsedMs": 301
+    }
+  ],
+  "screenshots": [
+    "01-before-gap.png",
+    "02-gap-panel.png",
+    "03-video-draft.png",
+    "04-generation-frames.png",
+    "05-after-undo.png"
+  ],
+  "falRequests": [],
+  "gap": {
+    "heading": "すき間 · 4.0 秒",
+    "range": "3.00 → 7.00 秒",
+    "band": {
+      "left": 432,
+      "right": 521.453125,
+      "top": 519.515625,
+      "bottom": 567.515625,
+      "width": 89.453125,
+      "height": 48,
+      "border": "dashed",
+      "background": "rgba(159, 111, 255, 0.16)"
+    },
+    "images": [
+      {
+        "loaded": true,
+        "left": 657,
+        "right": 847.5,
+        "top": 230.0234375,
+        "bottom": 302.0234375,
+        "width": 190.5,
+        "height": 72
+      },
+      {
+        "loaded": true,
+        "left": 859.5,
+        "right": 1050,
+        "top": 230.0234375,
+        "bottom": 302.0234375,
+        "width": 190.5,
+        "height": 72
+      }
+    ],
+    "button": {
+      "text": "あいだを生成",
+      "left": 657,
+      "right": 1050,
+      "top": 314.0234375,
+      "bottom": 351.5234375,
+      "width": 393,
+      "height": 37.5,
+      "background": "rgb(99, 67, 152)",
+      "border": "rgb(184, 154, 255)",
+      "borderWidth": "1px",
+      "painted": true
+    },
+    "rects": [
+      {
+        "role": "H3",
+        "text": "すき間 · 4.0 秒",
+        "left": 657,
+        "right": 1050,
+        "top": 61,
+        "bottom": 85.3359375,
+        "width": 393,
+        "height": 24.3359375
+      },
+      {
+        "role": "P",
+        "text": "3.00 → 7.00 秒",
+        "left": 657,
+        "right": 1050,
+        "top": 97.3359375,
+        "bottom": 118.1328125,
+        "width": 393,
+        "height": 20.796875
+      },
+      {
+        "role": "P",
+        "text": "前後のクリップのあいだに、つなぎの動画を生成できます。前のクリップの最後のコマと、次のクリップの最初のコマが両端に入ります。",
+        "left": 657,
+        "right": 1050,
+        "top": 130.1328125,
+        "bottom": 192.5234375,
+        "width": 393,
+        "height": 62.390625
+      },
+      {
+        "role": "SPAN",
+        "text": "最初 = 動画A",
+        "left": 657,
+        "right": 847.5,
+        "top": 204.5234375,
+        "bottom": 224.0234375,
+        "width": 190.5,
+        "height": 19.5
+      },
+      {
+        "role": "IMG",
+        "text": "",
+        "left": 657,
+        "right": 847.5,
+        "top": 230.0234375,
+        "bottom": 302.0234375,
+        "width": 190.5,
+        "height": 72
+      },
+      {
+        "role": "SPAN",
+        "text": "最後 = 動画B",
+        "left": 859.5,
+        "right": 1050,
+        "top": 204.5234375,
+        "bottom": 224.0234375,
+        "width": 190.5,
+        "height": 19.5
+      },
+      {
+        "role": "IMG",
+        "text": "",
+        "left": 859.5,
+        "right": 1050,
+        "top": 230.0234375,
+        "bottom": 302.0234375,
+        "width": 190.5,
+        "height": 72
+      },
+      {
+        "role": "BUTTON",
+        "text": "あいだを生成",
+        "left": 657,
+        "right": 1050,
+        "top": 314.0234375,
+        "bottom": 351.5234375,
+        "width": 393,
+        "height": 37.5
+      }
+    ]
+  },
+  "gapLayout": {
+    "overlaps": []
+  },
+  "chipLayout": {
+    "screenshot": "03-video-draft.png",
+    "chip": {
+      "text": "あいだを生成00:04:00画像最初最後あいだを生成▶ 動画予定",
+      "linkIndicator": {
+        "observed": true,
+        "title": "次のクリップの絵につながる",
+        "rect": {
+          "left": 506.453125,
+          "right": 520.453125,
+          "top": 537.515625,
+          "bottom": 549.515625,
+          "width": 14,
+          "height": 12
+        },
+        "pseudo": {
+          "before": {
+            "content": "\"\"",
+            "present": true
+          },
+          "after": {
+            "content": "\"\"",
+            "present": true
+          }
+        }
+      },
+      "frames": [
+        {
+          "side": "first",
+          "background": "url(\"data:image/jpeg;base64,/9j/4AAQSkZJRgABAgAAAQABAAD//gAQTGF2YzYyLjI4LjEwMgD/2wBDAAgICAkICQsLCwsLCw0MDQ0NDQ0NDQ0NDQ0ODg4REREODg4NDQ4OEBARERITEhERERETExQUFBgYFxccHB0iIin/xABMAAEBAAAAAAAAAAAAAAAAAAAABgEBAQAAAAAAAAAAAAAAAAAAAAYQAQAAAAAAAAAAAAAAAAAAAAARAQAAAAAAAAAAAAAAAAAAAAD/wAARCABaAKADARIAAhIAAxIA/9oADAMBAAIRAxEAPwCTFgJsAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAf/2Q==\")",
+          "left": 433,
+          "right": 468.78125,
+          "top": 525.515625,
+          "bottom": 561.515625,
+          "width": 35.78125,
+          "height": 36
+        },
+        {
+          "side": "last",
+          "background": "url(\"data:image/jpeg;base64,/9j/4AAQSkZJRgABAgAAAQABAAD//gAQTGF2YzYyLjI4LjEwMgD/2wBDAAgICAkICQsLCwsLCw0MDQ0NDQ0NDQ0NDQ0ODg4REREODg4NDQ4OEBARERITEhERERETExQUFBgYFxccHB0iIin/xABMAAEBAAAAAAAAAAAAAAAAAAAABQEBAQAAAAAAAAAAAAAAAAAAAAYQAQAAAAAAAAAAAAAAAAAAAAARAQAAAAAAAAAAAAAAAAAAAAD/wAARCABaAKADARIAAhIAAxIA/9oADAMBAAIRAxEAPwCeJ0WYAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA//2Q==\")",
+          "left": 486.671875,
+          "right": 522.453125,
+          "top": 525.515625,
+          "bottom": 561.515625,
+          "width": 35.78125,
+          "height": 36
+        }
+      ],
+      "foregroundRects": [
+        {
+          "role": "akari-generation-prompt",
+          "side": null,
+          "text": "あいだを生成",
+          "left": 472.78125,
+          "right": 480.671875,
+          "top": 537.515625,
+          "bottom": 549.515625,
+          "width": 7.890625,
+          "height": 12
+        },
+        {
+          "role": "akari-generation-link",
+          "side": null,
+          "text": "",
+          "left": 506.453125,
+          "right": 520.453125,
+          "top": 537.515625,
+          "bottom": 549.515625,
+          "width": 14,
+          "height": 12
+        },
+        {
+          "role": "akari-generation-badge",
+          "side": null,
+          "text": "▶ 動画予定",
+          "left": 435,
+          "right": 489.078125,
+          "top": 522.515625,
+          "bottom": 536.515625,
+          "width": 54.078125,
+          "height": 14
+        }
+      ]
+    },
+    "foregroundOverlaps": [],
+    "pictureOverlaps": [],
+    "overlapsOnPictures": [
+      {
+        "a": {
+          "role": "akari-generation-link",
+          "side": null,
+          "text": "",
+          "left": 506.453125,
+          "right": 520.453125,
+          "top": 537.515625,
+          "bottom": 549.515625,
+          "width": 14,
+          "height": 12
+        },
+        "b": {
+          "side": "last",
+          "background": "url(\"data:image/jpeg;base64,/9j/4AAQSkZJRgABAgAAAQABAAD//gAQTGF2YzYyLjI4LjEwMgD/2wBDAAgICAkICQsLCwsLCw0MDQ0NDQ0NDQ0NDQ0ODg4REREODg4NDQ4OEBARERITEhERERETExQUFBgYFxccHB0iIin/xABMAAEBAAAAAAAAAAAAAAAAAAAABQEBAQAAAAAAAAAAAAAAAAAAAAYQAQAAAAAAAAAAAAAAAAAAAAARAQAAAAAAAAAAAAAAAAAAAAD/wAARCABaAKADARIAAhIAAxIA/9oADAMBAAIRAxEAPwCeJ0WYAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA//2Q==\")",
+          "left": 486.671875,
+          "right": 522.453125,
+          "top": 525.515625,
+          "bottom": 561.515625,
+          "width": 35.78125,
+          "height": 36
+        }
+      },
+      {
+        "a": {
+          "role": "akari-generation-badge",
+          "side": null,
+          "text": "▶ 動画予定",
+          "left": 435,
+          "right": 489.078125,
+          "top": 522.515625,
+          "bottom": 536.515625,
+          "width": 54.078125,
+          "height": 14
+        },
+        "b": {
+          "side": "first",
+          "background": "url(\"data:image/jpeg;base64,/9j/4AAQSkZJRgABAgAAAQABAAD//gAQTGF2YzYyLjI4LjEwMgD/2wBDAAgICAkICQsLCwsLCw0MDQ0NDQ0NDQ0NDQ0ODg4REREODg4NDQ4OEBARERITEhERERETExQUFBgYFxccHB0iIin/xABMAAEBAAAAAAAAAAAAAAAAAAAABgEBAQAAAAAAAAAAAAAAAAAAAAYQAQAAAAAAAAAAAAAAAAAAAAARAQAAAAAAAAAAAAAAAAAAAAD/wAARCABaAKADARIAAhIAAxIA/9oADAMBAAIRAxEAPwCTFgJsAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAf/2Q==\")",
+          "left": 433,
+          "right": 468.78125,
+          "top": 525.515625,
+          "bottom": 561.515625,
+          "width": 35.78125,
+          "height": 36
+        }
+      },
+      {
+        "a": {
+          "role": "akari-generation-badge",
+          "side": null,
+          "text": "▶ 動画予定",
+          "left": 435,
+          "right": 489.078125,
+          "top": 522.515625,
+          "bottom": 536.515625,
+          "width": 54.078125,
+          "height": 14
+        },
+        "b": {
+          "side": "last",
+          "background": "url(\"data:image/jpeg;base64,/9j/4AAQSkZJRgABAgAAAQABAAD//gAQTGF2YzYyLjI4LjEwMgD/2wBDAAgICAkICQsLCwsLCw0MDQ0NDQ0NDQ0NDQ0ODg4REREODg4NDQ4OEBARERITEhERERETExQUFBgYFxccHB0iIin/xABMAAEBAAAAAAAAAAAAAAAAAAAABQEBAQAAAAAAAAAAAAAAAAAAAAYQAQAAAAAAAAAAAAAAAAAAAAARAQAAAAAAAAAAAAAAAAAAAAD/wAARCABaAKADARIAAhIAAxIA/9oADAMBAAIRAxEAPwCeJ0WYAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA//2Q==\")",
+          "left": 486.671875,
+          "right": 522.453125,
+          "top": 525.515625,
+          "bottom": 561.515625,
+          "width": 35.78125,
+          "height": 36
+        }
+      }
+    ]
+  },
+  "linkIndicator": {
+    "observed": true,
+    "title": "次のクリップの絵につながる",
+    "rect": {
+      "left": 506.453125,
+      "right": 520.453125,
+      "top": 537.515625,
+      "bottom": 549.515625,
+      "width": 14,
+      "height": 12
+    },
+    "pseudo": {
+      "before": {
+        "content": "\"\"",
+        "present": true
+      },
+      "after": {
+        "content": "\"\"",
+        "present": true
+      }
+    }
+  },
+  "generation": {
+    "tab": "生成",
+    "selected": "true",
+    "images": [
+      {
+        "slot": "first_frame",
+        "loaded": true,
+        "left": 645,
+        "right": 841,
+        "top": 326.5,
+        "bottom": 422.5,
+        "width": 196,
+        "height": 96,
+        "background": "rgba(167, 139, 250, 0.08)",
+        "border": "rgb(167, 139, 250)",
+        "borderWidth": "1px",
+        "painted": true
+      },
+      {
+        "slot": "last_frame",
+        "loaded": true,
+        "left": 851,
+        "right": 1047,
+        "top": 326.5,
+        "bottom": 422.5,
+        "width": 196,
+        "height": 96,
+        "background": "rgba(167, 139, 250, 0.18)",
+        "border": "rgb(167, 139, 250)",
+        "borderWidth": "1px",
+        "painted": true
+      }
+    ],
+    "variety": "種類最初→最後",
+    "text": "映像色音声生成情報▾ 生成モデルMiniMax H3 · $0.05/秒 · as_of 2026-09-12（fal:h3-i2v）MiniMax H3 · $0.05/秒 · as_of 2026-09-22（fal:h3-ref）Kling Video v3 Standard · 見積不可 · as_of 2026-09-12（fal:kling-v3-standard-i2v）Kling Video v3 Pro · $0.112/秒 · as_of 2026-09-12（fal:kling-v3-pro-i2v）Veo 3.1 · $0.2/秒 · as_of 2026-09-12（fal:veo-3.1-flf）Veo 3.1 · $0.2/秒 · as_of 2026-09-12（fal:veo-3.1-ref）Seedance 2.0 · $0.3034/秒 · as_of 2026-09-12（fal:seedance-2.0-i2v）Seedance 2.0 · $0.3034/秒 · as_of 2026-09-12（fal:seedance-2.0-ref）Seedance 2.5 · 見積不可 · as_of 2026-09-12（fal:seedance-2.5-i2v）Wan 2.7 · $0.1/秒 · as_of 2026-09-12（fal:wan-2.7-i2v）Grok Imagine Video · 見積不可 · as_of 2026-09-12（fal:grok-imagine-i2v）Vidu Q3 · 見積不可 · as_of 2026-09-12（fal:vidu-q3-i2v）指示文（prompt）最初 / 最後参照MiniMax H3 は同時に使えません。切り替えても中身は残り、送るのは選んだ方だけです。最初の絵差し替えこのクリップの絵外す最後の絵差し替え外す種類最初→最後送る絵は素材のまま（色・サイズは送りません）カメラの動きなし寄る引く左へ振る右へ振る追いかける固定長さ4 秒 → 5 秒解像度480P768P2K4K音声常に付く・既定は消音詳細シード（seed）隣から取る見積見積不可（明示確認で実行）動画にする注記尺 4 秒 → 5 秒に丸めました（MiniMax H3 は 5〜15 秒）。差 1 秒\n.akari-inspector-generation-gap { display: grid; gap: 12px; padding: 12px; min-width: 0; }\n.akari-inspector-generation-gap h3, .akari-inspector-generation-gap p { margin: 0; line-height: 1.6; overflow-wrap: anywhere; }\n.akari-inspector-generation-gap-ends { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; }\n.akari-inspector-generation-gap-end { display: flex; flex-direction: column; gap: 6px; min-width: 0; }\n.akari-inspector-generation-gap-end img { width: 100%; height: 72px; object-fit: contain; background: #23212b; border: 1px solid #756388; box-sizing: border-box; }\n.akari-inspector-generation-gap-end span { overflow-wrap: anywhere; line-height: 1.5; }\n.akari-inspector-widget .akari-inspector-generation-gap button,\n.akari-inspector-widget .akari-inspector-generation-gap button:hover,\n.akari-inspector-widget .akari-inspector-generation-gap button:active,\n.akari-inspector-widget .akari-inspector-generation-gap button:disabled,\n.akari-inspector-widget .akari-inspector-generation-gap button:disabled:hover {\n    background: #634398; color: #fff; border: 1px solid #b89aff; border-radius: 4px; padding: 8px 12px; cursor: pointer;\n}\n.akari-inspector-widget .akari-inspector-generation-gap button:disabled,\n.akari-inspector-widget .akari-inspector-generation-gap button:disabled:hover { opacity: .6; cursor: wait; }\n\n    .akari-generation-batch { padding: 12px; display: flex; flex-direction: column; gap: 12px; min-width: 0; }\n    .akari-generation-batch h3, .akari-generation-batch p { margin: 0; }\n    .akari-generation-batch-list { display: flex; flex-direction: column; gap: 8px; }\n    .akari-generation-batch-row { display: grid; grid-template-columns: 48px minmax(0, 1fr); gap: 6px 10px;\n        padding: 8px; border: 1px solid var(--theia-panel-border, #555); border-radius: 4px; }\n    .akari-generation-batch-thumbnail { width: 48px; height: 32px; object-fit: cover;\n        background: var(--theia-editor-inactiveSelectionBackground, #333); grid-row: 1 / 3; }\n    .akari-generation-batch-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }\n    .akari-generation-batch-duration { font-size: 11px; opacity: .8; }\n    .akari-generation-batch-badge { grid-column: 1 / -1; min-width: 0; overflow: hidden;\n        white-space: nowrap; text-overflow: ellipsis; border-radius: 3px; padding: 4px 6px;\n        background: var(--theia-editor-inactiveSelectionBackground, #333); }\n    .akari-generation-batch-note { font-size: 11px; line-height: 1.6; overflow-wrap: anywhere; }\n    .akari-generation-batch button.akari-generation-batch-submit,\n    .akari-generation-batch button.akari-generation-batch-stop {\n        border: 1px solid var(--theia-button-background, #777); padding: 8px 10px;\n        background: var(--theia-button-background, #365e92); color: var(--theia-button-foreground, #fff); }\n    .akari-generation-batch button.akari-generation-batch-stop { background: var(--theia-editor-background, #222);\n        color: var(--theia-foreground, #eee); }\n    .akari-generation-batch button:disabled { opacity: .5; cursor: default; }\n\n    .akari-inspector-widget .akari-inspector-adjust-compare { padding: 6px; border: 1px solid var(--theia-panel-border); }\n    .akari-inspector-widget .akari-inspector-adjust-compare[aria-pressed=\"true\"] {\n        background: var(--theia-button-background); color: var(--theia-button-foreground);\n    }\n    .akari-inspector-widget button,\n    .akari-inspector-popover-menu button,\n    .akari-inspector-row-menu button {\n        appearance: none;\n        border: none;\n        border-radius: 3px;\n        background: transparent;\n        color: var(--theia-foreground);\n        font: inherit;\n        cursor: pointer;\n    }\n    .akari-inspector-widget button:hover,\n    .akari-inspector-popover-menu button:hover,\n    .akari-inspector-row-menu button:hover {\n        background: var(--theia-toolbar-hoverBackground);\n    }\n    .akari-inspector-widget button:active,\n    .akari-inspector-popover-menu button:active,\n    .akari-inspector-row-menu button:active {\n        background: var(--theia-button-background);\n        color: var(--theia-button-foreground);\n    }\n    .akari-inspector-widget button:focus-visible,\n    .akari-inspector-popover-menu button:focus-visible,\n    .akari-inspector-row-menu button:focus-visible {\n        outline: 1px solid var(--theia-focusBorder);\n        outline-offset: -1px;\n    }\n    .akari-inspector-widget button:disabled {\n        color: var(--theia-disabledForeground);\n        cursor: default;\n    }\n    .akari-inspector-widget button:disabled:hover {\n        background: transparent;\n    }\n    .akari-inspector-widget .akari-inspector-tab-strip {\n        /* The grid body spans all sections; its parent is the overflow:auto scrollport. */\n        position: sticky;\n        top: 0;\n        z-index: 10;\n        align-self: start;\n        background: var(--theia-editor-background);\n        display: flex;\n        min-width: 0;\n        border-bottom: 1px solid var(--theia-panel-border);\n    }\n    .akari-inspector-widget .akari-inspector-tab {\n        flex: 1 1 0;\n        min-width: 0;\n        padding: 6px 4px 5px;\n        border-bottom: 2px solid transparent;\n        border-radius: 0;\n        color: var(--theia-descriptionForeground);\n        text-align: center;\n    }\n    .akari-inspector-widget .akari-inspector-tab.is-active {\n        border-bottom-color: var(--theia-focusBorder);\n        color: var(--theia-foreground);\n    }\n    .akari-inspector-widget .akari-inspector-tab [data-akari-generation-todo] {\n        display: inline-block;\n        width: 5px;\n        height: 5px;\n        margin-left: 3px;\n        border-radius: 50%;\n        vertical-align: super;\n        background: var(--theia-focusBorder);\n    }\n    .akari-inspector-widget .akari-inspector-tab:disabled {\n        color: var(--theia-disabledForeground);\n    }\n    .akari-inspector-widget .akari-inspector-solo-banner {\n        display: flex;\n        align-items: center;\n        min-width: 0;\n        padding: 5px 6px;\n        border: 1px solid var(--akari-focus-pulse, var(--akari-accent));\n        border-radius: 3px;\n        color: var(--akari-focus-pulse, var(--akari-accent));\n        font-size: 12px;\n        white-space: nowrap;\n    }\n    .akari-inspector-widget .akari-inspector-solo-reset {\n        padding: 0 2px;\n        color: inherit;\n        text-decoration: underline;\n    }\n    .akari-inspector-widget .akari-inspector-row {\n        display: grid;\n        grid-template-columns: 84px 1fr;\n        gap: 8px;\n        font-size: 12px;\n        line-height: 1.5;\n    }\n    .akari-inspector-widget .akari-inspector-row-label {\n        color: var(--theia-descriptionForeground);\n    }\n    .akari-inspector-widget .akari-inspector-row-value {\n        font-variant-numeric: tabular-nums;\n        word-break: break-all;\n    }\n    .akari-inspector-widget .akari-inspector-row-input {\n        font: inherit;\n        font-variant-numeric: tabular-nums;\n        padding: 2px 4px;\n        border: 1px solid var(--theia-input-border, #454545);\n        background: var(--theia-input-background);\n        color: var(--theia-input-foreground);\n        border-radius: 2px;\n        width: 100%;\n        box-sizing: border-box;\n    }\n    .akari-inspector-widget .akari-caption-zone-grid {\n        display: grid;\n        grid-template-columns: repeat(3, minmax(30px, 1fr));\n        gap: 4px;\n        min-width: 0;\n    }\n    .akari-inspector-widget .akari-caption-zone-cell {\n        position: relative;\n        min-width: 0;\n        height: 34px;\n        padding: 0;\n        border: 1px solid var(--theia-input-border, #454545);\n        border-radius: 4px;\n        background: var(--theia-input-background);\n        color: var(--theia-descriptionForeground);\n        font-size: 15px;\n        text-align: center;\n    }\n    .akari-inspector-widget .akari-caption-zone-cell:hover,\n    .akari-inspector-widget .akari-caption-zone-cell:focus-visible {\n        border-color: var(--theia-focusBorder);\n        background: var(--theia-list-hoverBackground, var(--theia-toolbar-hoverBackground));\n        color: var(--theia-foreground);\n    }\n    .akari-inspector-widget .akari-caption-zone-cell.is-saved {\n        border-color: var(--theia-focusBorder);\n        color: var(--theia-textLink-foreground);\n        box-shadow: inset 0 0 0 1px var(--theia-focusBorder);\n    }\n    .akari-inspector-widget .akari-caption-zone-saved {\n        position: absolute;\n        right: 2px;\n        bottom: 1px;\n        padding: 0 3px;\n        border-radius: 999px;\n        background: var(--theia-button-background);\n        color: var(--theia-button-foreground);\n        font-size: 8px;\n        line-height: 1.35;\n        pointer-events: none;\n    }\n    .akari-inspector-widget .akari-inspector-color-field {\n        display: grid;\n        grid-template-columns: 30px minmax(0, 1fr);\n        gap: 6px;\n        align-items: center;\n    }\n    .akari-inspector-widget .akari-inspector-color-picker {\n        width: 30px;\n        height: 24px;\n        padding: 1px;\n        border: 1px solid var(--theia-input-border, #454545);\n        border-radius: 2px;\n        background: var(--theia-input-background);\n        cursor: pointer;\n    }\n    .akari-inspector-widget .akari-inspector-section {\n        border-bottom: 1px solid var(--theia-panel-border);\n        padding-bottom: 6px;\n    }\n    .akari-inspector-widget .akari-inspector-section-header {\n        display: flex;\n        align-items: center;\n        min-height: 28px;\n        gap: 4px;\n    }\n    .akari-inspector-widget .akari-inspector-section-toggle {\n        flex: 1;\n        border: 0;\n        padding: 4px 0;\n        color: var(--theia-foreground);\n        background: transparent;\n        text-align: left;\n        font: inherit;\n        font-weight: 600;\n        cursor: pointer;\n    }\n    .akari-inspector-widget .akari-inspector-section-enable {\n        display: inline-flex;\n        align-items: center;\n        gap: 3px;\n        color: var(--theia-descriptionForeground);\n        font-size: 10px;\n        white-space: nowrap;\n    }\n    .akari-inspector-widget .akari-inspector-section-body {\n        display: grid;\n        gap: 5px;\n    }\n    .akari-inspector-widget .akari-inspector-section-body[hidden] {\n        display: none;\n    }\n    .akari-inspector-widget .akari-inspector-section-caption {\n        margin: 0;\n        color: var(--theia-descriptionForeground);\n        font-size: 11px;\n        line-height: 1.4;\n    }\n    .akari-inspector-widget .akari-inspector-section-soon,\n    .akari-inspector-widget .akari-inspector-section-soon .akari-inspector-section-header {\n        color: var(--theia-disabledForeground);\n    }\n    .akari-inspector-widget .akari-inspector-section-soon-title {\n        flex: 1;\n        padding: 4px 0;\n        color: var(--theia-disabledForeground);\n        font-weight: 600;\n    }\n    .akari-inspector-widget .akari-inspector-section-soon-chip {\n        padding: 1px 6px;\n        border: 1px solid var(--theia-panel-border);\n        border-radius: 999px;\n        color: var(--theia-disabledForeground);\n        font-size: 10px;\n        line-height: 1.4;\n    }\n    .akari-inspector-widget .akari-adjust-preview {\n        display: grid;\n        gap: 5px;\n        padding: 0 0 4px 18px;\n        color: var(--theia-disabledForeground);\n        pointer-events: none;\n        user-select: none;\n    }\n    .akari-inspector-widget .akari-adjust-preview-row {\n        display: grid;\n        grid-template-columns: minmax(0, 1fr) 72px;\n        align-items: center;\n        gap: 8px;\n        min-height: 24px;\n        opacity: 0.68;\n    }\n    .akari-inspector-widget .akari-adjust-preview-value {\n        box-sizing: border-box;\n        min-width: 0;\n        padding: 2px 6px;\n        border: 1px solid var(--theia-input-border, #454545);\n        border-radius: 2px;\n        background: var(--theia-input-background);\n        color: var(--theia-disabledForeground);\n        text-align: right;\n        font-variant-numeric: tabular-nums;\n    }\n    .akari-inspector-widget .akari-adjust-preview-channels {\n        display: flex;\n        gap: 5px;\n    }\n    .akari-inspector-widget .akari-adjust-preview-channel {\n        min-width: 24px;\n        padding: 1px 5px;\n        border: 1px solid var(--theia-panel-border);\n        border-radius: 999px;\n        text-align: center;\n        opacity: 0.65;\n    }\n    .akari-inspector-widget .akari-adjust-preview-channel.is-active {\n        border-color: var(--theia-focusBorder);\n        color: var(--theia-foreground);\n    }\n    .akari-inspector-widget .akari-adjust-preview-channel-r { color: #e78585; }\n    .akari-inspector-widget .akari-adjust-preview-channel-g { color: #7fcb8b; }\n    .akari-inspector-widget .akari-adjust-preview-channel-b { color: #80a9e8; }\n    .akari-inspector-widget .akari-adjust-editor { display: grid; gap: 8px; padding: 8px; }\n    .akari-inspector-widget .akari-adjust-editor .akari-adjust-editor-curve { touch-action: none; overflow: visible; opacity: 1; }\n    .akari-inspector-widget .akari-adjust-editor-line { fill: none; stroke: var(--theia-foreground); stroke-width: 1.5; }\n    .akari-inspector-widget .akari-adjust-editor-point { fill: var(--theia-focusBorder, #68aaff); stroke: #202020; cursor: grab; }\n    .akari-inspector-widget .akari-adjust-editor .akari-adjust-preview-channel { cursor: pointer; }\n    .akari-inspector-widget .akari-adjust-editor .akari-adjust-preview-wheel {\n        touch-action: none; cursor: crosshair; opacity: 1;\n        background: conic-gradient(from 90deg, #ef6d6d, #c87bd5, #739be7, #6fd3d5, #72cf81, #e8d86b, #ef6d6d);\n    }\n    .akari-inspector-widget .akari-adjust-editor .akari-adjust-preview-wheel-center { pointer-events: none; }\n    .akari-inspector-widget .akari-adjust-editor-luminance { display: flex; min-width: 0; width: 100%; }\n    .akari-inspector-widget .akari-adjust-editor-luminance .akari-inspector-number-field {\n        min-width: 0; flex: 1; grid-template-columns: 18px minmax(28px, 1fr) auto 14px;\n    }\n    .akari-inspector-widget .akari-adjust-editor-notice { color: var(--theia-errorForeground); font-size: 11px; }\n    .akari-inspector-widget .akari-adjust-preview-curve.akari-adjust-editor-hue {\n        background: linear-gradient(to right, hsl(0,80%,50%), hsl(60,80%,45%), hsl(120,80%,45%), hsl(180,80%,45%), hsl(240,80%,55%), hsl(300,80%,50%), hsl(360,80%,50%)) bottom / 100% 10px no-repeat;\n    }\n    .akari-inspector-widget .akari-adjust-preview-curve {\n        width: min(100%, 180px);\n        height: 140px;\n        justify-self: center;\n        border: 1px solid var(--theia-panel-border);\n        border-radius: 3px;\n        background: var(--theia-input-background);\n        opacity: 0.68;\n    }\n    .akari-inspector-widget .akari-adjust-preview-curve-grid {\n        fill: none;\n        stroke: var(--theia-panel-border);\n        stroke-width: 1;\n    }\n    .akari-inspector-widget .akari-adjust-preview-curve-identity {\n        fill: none;\n        stroke: var(--theia-descriptionForeground);\n        stroke-width: 1.5;\n        stroke-dasharray: 5 4;\n    }\n    .akari-inspector-widget .akari-adjust-preview-wheel-grid {\n        display: grid;\n        grid-template-columns: repeat(2, minmax(0, 1fr));\n        gap: 12px 10px;\n    }\n    .akari-inspector-widget .akari-adjust-preview-wheel-item {\n        display: grid;\n        justify-items: center;\n        gap: 4px;\n    }\n    .akari-inspector-widget .akari-adjust-preview-wheel-label {\n        font-size: 10px;\n        opacity: 0.7;\n    }\n    .akari-inspector-widget .akari-adjust-preview-wheel {\n        position: relative;\n        width: 70px;\n        height: 70px;\n        border-radius: 50%;\n        background: conic-gradient(#ef6d6d, #e8d86b, #72cf81, #6fd3d5, #739be7, #c87bd5, #ef6d6d);\n        opacity: 0.65;\n    }\n    .akari-inspector-widget .akari-adjust-preview-wheel::after {\n        position: absolute;\n        inset: 8px;\n        border: 1px solid color-mix(in srgb, var(--theia-panel-border) 70%, transparent);\n        border-radius: 50%;\n        background: color-mix(in srgb, var(--theia-input-background) 88%, #808080);\n        content: '';\n    }\n    .akari-inspector-widget .akari-adjust-preview-wheel-center {\n        position: absolute;\n        z-index: 1;\n        left: 50%;\n        top: 50%;\n        width: 6px;\n        height: 6px;\n        border: 1px solid var(--theia-foreground);\n        border-radius: 50%;\n        background: var(--theia-input-background);\n        transform: translate(-50%, -50%);\n    }\n    .akari-inspector-widget .akari-adjust-preview-luminance {\n        width: 70px;\n        height: 5px;\n        border: 1px solid var(--theia-panel-border);\n        border-radius: 999px;\n        background: linear-gradient(90deg, #181818, #d0d0d0);\n        opacity: 0.65;\n    }\n    .akari-inspector-widget .akari-adjust-preview-hue-curve {\n        position: relative;\n        height: 74px;\n        overflow: hidden;\n        border: 1px solid var(--theia-panel-border);\n        border-radius: 3px;\n        background: var(--theia-input-background);\n        opacity: 0.65;\n    }\n    .akari-inspector-widget .akari-adjust-preview-hue-band {\n        position: absolute;\n        inset: 0;\n        background: linear-gradient(90deg, #ed6666, #e8dc67, #6dcc7a, #68ccd2, #718fdd, #c475d3, #ed6666);\n        opacity: 0.68;\n    }\n    .akari-inspector-widget .akari-adjust-preview-hue-line {\n        position: absolute;\n        left: 0;\n        right: 0;\n        top: 50%;\n        border-top: 1px solid var(--theia-foreground);\n        box-shadow: 0 0 0 1px color-mix(in srgb, var(--theia-input-background) 65%, transparent);\n    }\n    .akari-inspector-widget .akari-adjust-preview-lut-row {\n        display: grid;\n        grid-template-columns: 1fr;\n    }\n    .akari-inspector-widget .akari-adjust-preview-ghost-button {\n        padding: 4px 7px;\n        border: 1px dashed var(--theia-input-border, #454545);\n        border-radius: 3px;\n        color: var(--theia-disabledForeground);\n        text-align: center;\n        opacity: 0.68;\n    }\n    .akari-inspector-widget .akari-inspector-section-add {\n        border: 0;\n        border-radius: 3px;\n        background: transparent;\n        color: var(--theia-foreground);\n        cursor: pointer;\n    }\n    .akari-inspector-widget .akari-inspector-number-field {\n        display: grid;\n        grid-template-columns: 24px minmax(42px, 1fr) auto 18px 54px;\n        align-items: center;\n        gap: 3px;\n    }\n    .akari-inspector-widget .akari-inspector-number-field-seatless {\n        grid-template-columns: 24px minmax(42px, 1fr) auto 18px;\n    }\n    .akari-inspector-widget .akari-inspector-number-handle {\n        cursor: ew-resize;\n        border: 0;\n        color: var(--theia-textLink-foreground);\n        background: transparent;\n    }\n    .akari-inspector-widget .akari-inspector-number-input {\n        min-width: 0;\n        width: 100%;\n        box-sizing: border-box;\n        border: 1px solid var(--theia-input-border, #454545);\n        border-radius: 2px;\n        background: var(--theia-input-background);\n        color: var(--theia-input-foreground);\n        text-align: right;\n        font: inherit;\n        font-variant-numeric: tabular-nums;\n    }\n    .akari-inspector-widget .akari-inspector-number-steps {\n        display: grid;\n    }\n    .akari-inspector-widget .akari-inspector-number-steps button {\n        border: 0;\n        padding: 0;\n        font-size: 7px;\n        color: var(--theia-descriptionForeground);\n        background: transparent;\n    }\n    .akari-inspector-widget .akari-inspector-kf-controls {\n        display: grid;\n        grid-template-columns: repeat(4, 18px);\n        align-items: center;\n    }\n    .akari-inspector-widget .akari-inspector-kf-controls button {\n        appearance: none;\n        min-width: 0;\n        padding: 0;\n        border: none;\n        background: transparent;\n        color: var(--theia-descriptionForeground);\n    }\n    .akari-inspector-widget .akari-inspector-kf-controls button:hover {\n        background: var(--theia-toolbar-hoverBackground);\n        color: var(--theia-foreground);\n    }\n    .akari-inspector-widget .akari-inspector-kf-controls button:active {\n        background: var(--theia-button-background);\n        color: var(--theia-button-foreground);\n    }\n    .akari-inspector-widget .akari-inspector-kf-controls button:disabled {\n        opacity: .35;\n        background: transparent;\n        color: var(--theia-disabledForeground);\n    }\n    .akari-inspector-widget .akari-inspector-kf-seat {\n        color: var(--theia-textLink-foreground);\n    }\n    .akari-inspector-widget [data-akari-easing-preview] button,\n    .akari-inspector-popover-menu button,\n    .akari-inspector-row-menu button {\n        padding: 2px 4px;\n        text-align: left;\n    }\n    .akari-inspector-widget .akari-inspector-row-input:focus-visible,\n    .akari-inspector-widget .akari-inspector-number-input:focus-visible,\n    .akari-inspector-widget .akari-inspector-color-picker:focus-visible {\n        outline: 1px solid var(--theia-focusBorder);\n        outline-offset: -1px;\n    }\n    .akari-inspector-widget .akari-inspector-empty {\n        color: var(--theia-descriptionForeground);\n        padding: 4px 0;\n    }\n    .akari-inspector-widget .akari-inspector-generation-references { margin: 10px 0; }\n    .akari-inspector-widget .akari-inspector-generation-reference-heading { display: flex; gap: 8px; justify-content: space-between; flex-wrap: wrap; margin-bottom: 6px; }\n    .akari-inspector-widget .akari-inspector-generation-reference-counter { font-size: 11px; }\n    .akari-inspector-widget .akari-inspector-generation-reference-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: 8px; }\n    .akari-inspector-widget .akari-inspector-generation-reference-card { min-width: 0; border: 1px solid var(--theia-panel-border); border-radius: 4px; padding: 5px; }\n    .akari-inspector-widget .akari-inspector-generation-reference-top { display: flex; align-items: center; justify-content: space-between; gap: 5px; margin-bottom: 5px; }\n    .akari-inspector-widget .akari-inspector-generation-reference-badge { font-size: 11px; white-space: nowrap; }\n    .akari-inspector-widget .akari-inspector-generation-reference-unsupported .akari-inspector-generation-reference-badge { opacity: 0.45; }\n    .akari-inspector-widget .akari-inspector-generation-reference-thumbnail { height: 58px; display: flex; align-items: center; justify-content: center; background: var(--theia-editor-background); overflow: hidden; font-size: 11px; }\n    .akari-inspector-widget .akari-inspector-generation-reference-thumbnail img { width: 100%; height: 100%; object-fit: cover; }\n    .akari-inspector-widget .akari-inspector-generation-reference-filename { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 10px; margin-top: 4px; }\n    .akari-inspector-widget .akari-inspector-generation-reference-add { display: flex; flex-direction: column; align-items: stretch; justify-content: center; gap: 5px; min-height: 94px; }\n    .akari-inspector-widget .akari-inspector-generation-reference-add select { min-width: 0; color: var(--theia-foreground); background: var(--theia-dropdown-background); border: 1px solid var(--theia-panel-border); }\n    .akari-inspector-widget .akari-inspector-generation-references button:disabled { opacity: 0.5; cursor: default; }\n    .akari-inspector-widget .akari-inspector-generation-frames { display: flex; gap: 10px; margin: 10px 0; }\n    .akari-inspector-widget .akari-inspector-generation-cell { flex: 1; min-width: 0; }\n    .akari-inspector-widget .akari-inspector-generation-frame { position: relative; box-sizing: border-box; width: 100%; aspect-ratio: 16 / 9; max-height: 96px; border: 1px solid #a78bfa; background: rgba(167, 139, 250, 0.08); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; margin: 4px 0 8px; overflow: hidden; font-size: 11px; color: var(--theia-foreground); cursor: pointer; }\n    .akari-inspector-widget .akari-inspector-generation-frame:hover,\n    .akari-inspector-widget .akari-inspector-generation-frame:focus-visible { background: rgba(167, 139, 250, 0.18); outline: 1px solid #a78bfa; outline-offset: 2px; }\n    .akari-inspector-widget .akari-inspector-generation-frame[aria-pressed=\"true\"] { box-shadow: 0 0 0 2px var(--theia-editor-background), 0 0 0 4px #a78bfa; }\n    .akari-inspector-widget .akari-inspector-generation-frame[aria-disabled=\"true\"] { cursor: default; opacity: 0.6; }\n    .akari-inspector-widget .akari-inspector-generation-frame-hint { font-size: 10px; color: var(--theia-descriptionForeground); }\n    .akari-inspector-widget .akari-inspector-generation-frame-replace { position: absolute; bottom: 4px; right: 4px; padding: 2px 5px; background: #312547; color: #fff; border-radius: 3px; opacity: 0; pointer-events: none; }\n    .akari-inspector-widget .akari-inspector-generation-frame:hover .akari-inspector-generation-frame-replace,\n    .akari-inspector-widget .akari-inspector-generation-frame:focus-visible .akari-inspector-generation-frame-replace { opacity: 1; }\n    .akari-inspector-widget .akari-inspector-generation-frame img { width: 100%; height: 100%; object-fit: cover; }\n    .akari-inspector-widget .akari-inspector-generation-cell button { margin: 3px 3px 0 0; white-space: normal; }\n    .akari-inspector-widget button.akari-inspector-generation-primary,\n    .akari-inspector-widget button.akari-inspector-generation-secondary,\n    .akari-inspector-widget button.akari-inspector-generation-small,\n    .akari-inspector-widget button.akari-inspector-generation-camera-button {\n        border: 1px solid var(--theia-input-border, var(--theia-panel-border));\n        border-radius: 4px;\n        padding: 5px 10px;\n        background: var(--theia-button-secondaryBackground, var(--theia-editor-background));\n        color: var(--theia-button-secondaryForeground, var(--theia-foreground));\n    }\n    .akari-inspector-widget button.akari-inspector-generation-secondary:hover,\n    .akari-inspector-widget button.akari-inspector-generation-small:hover,\n    .akari-inspector-widget button.akari-inspector-generation-camera-button:hover {\n        background: var(--theia-button-secondaryHoverBackground, var(--theia-toolbar-hoverBackground));\n    }\n    .akari-inspector-widget button.akari-inspector-generation-primary {\n        border-color: var(--theia-button-background);\n        background: var(--theia-button-background);\n        color: var(--theia-button-foreground);\n    }\n    .akari-inspector-widget button.akari-inspector-generation-primary:hover {\n        background: var(--theia-button-hoverBackground);\n    }\n    .akari-inspector-widget button.akari-inspector-generation-primary:disabled,\n    .akari-inspector-widget button.akari-inspector-generation-primary:disabled:hover {\n        background: var(--theia-button-secondaryBackground, var(--theia-editor-background));\n        border-color: var(--theia-panel-border);\n        color: var(--theia-disabledForeground);\n        opacity: 0.65;\n        cursor: default;\n    }\n    .akari-inspector-widget button.akari-inspector-generation-small {\n        padding: 2px 6px;\n        font-size: 11px;\n        background: var(--theia-editor-background);\n        color: var(--theia-descriptionForeground);\n    }\n    .akari-inspector-widget button.akari-inspector-generation-camera-button { padding: 3px 8px; }\n    .akari-inspector-widget button.akari-inspector-generation-camera-button[aria-pressed=\"true\"] {\n        border-color: var(--theia-focusBorder);\n        background: var(--theia-button-background);\n        color: var(--theia-button-foreground);\n    }\n    .akari-inspector-widget button.akari-inspector-generation-primary:focus-visible,\n    .akari-inspector-widget button.akari-inspector-generation-secondary:focus-visible,\n    .akari-inspector-widget button.akari-inspector-generation-small:focus-visible,\n    .akari-inspector-widget button.akari-inspector-generation-camera-button:focus-visible {\n        outline: 2px solid var(--theia-focusBorder);\n        outline-offset: 2px;\n    }\n    .akari-inspector-widget .akari-inspector-generation-camera { margin: 10px 0; }\n    .akari-inspector-widget .akari-inspector-generation-details { margin: 10px 0; padding: 6px; border: 1px solid var(--theia-panel-border); }\n    .akari-inspector-widget .akari-inspector-generation-footer { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin-top: 12px; }\n    .akari-inspector-widget .akari-inspector-generation-submit-group { display: flex; flex: 1 1 auto; align-items: center; justify-content: flex-end; flex-wrap: nowrap; gap: 6px; margin-left: auto; min-width: 0; }\n    .akari-inspector-widget .akari-inspector-generation-submit-group > button { flex-shrink: 0; white-space: nowrap; }\n    .akari-inspector-widget .akari-inspector-generation-submit-group > .akari-inspector-generation-estimate { flex: 0 1 auto; min-width: calc(2em + 6px + 6ch); white-space: normal; text-align: right; justify-content: flex-end; }\n    .akari-inspector-widget .akari-inspector-generation-submit-group > .akari-inspector-generation-estimate > .akari-inspector-row-label { white-space: nowrap; flex-shrink: 0; }\n    .akari-inspector-widget .akari-inspector-generation-submit-group > .akari-inspector-generation-estimate > .akari-inspector-row-value { min-width: 0; white-space: normal; word-break: normal; overflow-wrap: normal; }\n    .akari-inspector-widget .akari-inspector-generation-facts {\n        padding: 5px 0;\n        border-top: 1px solid var(--theia-panel-border);\n        border-bottom: 1px solid var(--theia-panel-border);\n        font-variant-numeric: tabular-nums;\n    }\n    .akari-inspector-widget .akari-inspector-generation-estimate {\n        display: flex;\n        align-items: baseline;\n        gap: 6px;\n        white-space: nowrap;\n        color: var(--theia-textLink-foreground);\n        font-variant-numeric: tabular-nums;\n    }\n    .akari-inspector-widget .akari-inspector-generation-error {\n        color: var(--theia-errorForeground);\n    }\n    .akari-inspector-widget .akari-inspector-generation-warning {\n        color: var(--theia-editorWarning-foreground, var(--theia-descriptionForeground));\n    }\n    .akari-inspector-widget .akari-inspector-generation-note {\n        color: var(--theia-descriptionForeground);\n        font-size: 11px;\n    }\n    @keyframes akari-inspector-focus-pulse {\n        0%, 100% { box-shadow: 0 0 0 0 var(--akari-focus-pulse, var(--akari-accent)); }\n        50% { box-shadow: 0 0 0 4px var(--akari-focus-pulse, var(--akari-accent)); }\n    }\n    .akari-inspector-widget .akari-inspector-focus-pulse {\n        animation: akari-inspector-focus-pulse 0.4s ease-in-out 4;\n        border-radius: 3px;\n    }\n    .akari-inspector-widget .akari-inspector-focus-pulse-reduced {\n        outline: 2px solid var(--akari-focus-pulse, var(--akari-accent));\n        outline-offset: 1px;\n    }\n",
+    "rects": [
+      {
+        "role": "",
+        "text": "最初の絵",
+        "left": 645,
+        "right": 841,
+        "top": 303,
+        "bottom": 322.5,
+        "width": 196,
+        "height": 19.5
+      },
+      {
+        "role": "",
+        "text": "最後の絵",
+        "left": 851,
+        "right": 1047,
+        "top": 303,
+        "bottom": 322.5,
+        "width": 196,
+        "height": 19.5
+      },
+      {
+        "role": "",
+        "text": "カメラの動き",
+        "left": 645,
+        "right": 1047,
+        "top": 536,
+        "bottom": 555.5,
+        "width": 402,
+        "height": 19.5
+      },
+      {
+        "role": "akari-inspector-generation-frame",
+        "text": "最初の絵: 差し替える",
+        "left": 645,
+        "right": 841,
+        "top": 326.5,
+        "bottom": 422.5,
+        "width": 196,
+        "height": 96
+      },
+      {
+        "role": "akari-inspector-generation-frame",
+        "text": "最後の絵: 差し替える",
+        "left": 851,
+        "right": 1047,
+        "top": 326.5,
+        "bottom": 422.5,
+        "width": 196,
+        "height": 96
+      }
+    ],
+    "buttons": [
+      {
+        "text": "映像",
+        "left": 645,
+        "right": 725.3984375,
+        "top": 49,
+        "bottom": 81.5,
+        "width": 80.3984375,
+        "height": 32.5,
+        "background": "rgba(0, 0, 0, 0)",
+        "border": "rgba(204, 204, 204, 0.7)",
+        "borderWidth": "0px",
+        "painted": false
+      },
+      {
+        "text": "色",
+        "left": 725.3984375,
+        "right": 805.796875,
+        "top": 49,
+        "bottom": 81.5,
+        "width": 80.3984375,
+        "height": 32.5,
+        "background": "rgba(0, 0, 0, 0)",
+        "border": "rgba(204, 204, 204, 0.7)",
+        "borderWidth": "0px",
+        "painted": false
+      },
+      {
+        "text": "音声",
+        "left": 805.796875,
+        "right": 886.1953125,
+        "top": 49,
+        "bottom": 81.5,
+        "width": 80.3984375,
+        "height": 32.5,
+        "background": "rgba(0, 0, 0, 0)",
+        "border": "rgba(204, 204, 204, 0.7)",
+        "borderWidth": "0px",
+        "painted": false
+      },
+      {
+        "text": "生成",
+        "left": 886.1953125,
+        "right": 966.59375,
+        "top": 49,
+        "bottom": 81.5,
+        "width": 80.3984375,
+        "height": 32.5,
+        "background": "rgba(0, 0, 0, 0)",
+        "border": "rgb(204, 204, 204)",
+        "borderWidth": "0px",
+        "painted": false
+      },
+      {
+        "text": "情報",
+        "left": 966.59375,
+        "right": 1046.9921875,
+        "top": 49,
+        "bottom": 81.5,
+        "width": 80.3984375,
+        "height": 32.5,
+        "background": "rgba(0, 0, 0, 0)",
+        "border": "rgba(204, 204, 204, 0.7)",
+        "borderWidth": "0px",
+        "painted": false
+      },
+      {
+        "text": "▾ 生成",
+        "left": 645,
+        "right": 1047,
+        "top": 88.75,
+        "bottom": 116.25,
+        "width": 402,
+        "height": 27.5,
+        "background": "rgba(0, 0, 0, 0)",
+        "border": "rgb(204, 204, 204)",
+        "borderWidth": "0px",
+        "painted": false
+      },
+      {
+        "text": "最初 / 最後",
+        "left": 645,
+        "right": 726.046875,
+        "top": 209.5,
+        "bottom": 237,
+        "width": 81.046875,
+        "height": 27.5,
+        "background": "rgb(249, 115, 22)",
+        "border": "rgb(251, 146, 60)",
+        "borderWidth": "1px",
+        "painted": true
+      },
+      {
+        "text": "参照",
+        "left": 729.046875,
+        "right": 773.046875,
+        "top": 209.5,
+        "bottom": 237,
+        "width": 44,
+        "height": 27.5,
+        "background": "rgb(20, 20, 20)",
+        "border": "rgb(27, 27, 27)",
+        "borderWidth": "1px",
+        "painted": true
+      },
+      {
+        "text": "差し替え",
+        "left": 645,
+        "right": 841,
+        "top": 326.5,
+        "bottom": 422.5,
+        "width": 196,
+        "height": 96,
+        "background": "rgba(167, 139, 250, 0.08)",
+        "border": "rgb(167, 139, 250)",
+        "borderWidth": "1px",
+        "painted": true
+      },
+      {
+        "text": "このクリップの絵",
+        "left": 645,
+        "right": 770.2265625,
+        "top": 433.5,
+        "bottom": 465,
+        "width": 125.2265625,
+        "height": 31.5,
+        "background": "rgb(20, 20, 20)",
+        "border": "rgb(27, 27, 27)",
+        "borderWidth": "1px",
+        "painted": true
+      },
+      {
+        "text": "外す",
+        "left": 773.2265625,
+        "right": 809.2265625,
+        "top": 439,
+        "bottom": 461.5,
+        "width": 36,
+        "height": 22.5,
+        "background": "rgb(10, 10, 10)",
+        "border": "rgb(27, 27, 27)",
+        "borderWidth": "1px",
+        "painted": true
+      },
+      {
+        "text": "差し替え",
+        "left": 851,
+        "right": 1047,
+        "top": 326.5,
+        "bottom": 422.5,
+        "width": 196,
+        "height": 96,
+        "background": "rgba(167, 139, 250, 0.18)",
+        "border": "rgb(167, 139, 250)",
+        "borderWidth": "1px",
+        "painted": true
+      },
+      {
+        "text": "外す",
+        "left": 851,
+        "right": 887,
+        "top": 433.5,
+        "bottom": 456,
+        "width": 36,
+        "height": 22.5,
+        "background": "rgb(10, 10, 10)",
+        "border": "rgb(27, 27, 27)",
+        "borderWidth": "1px",
+        "painted": true
+      },
+      {
+        "text": "なし",
+        "left": 645,
+        "right": 689,
+        "top": 558.5,
+        "bottom": 586,
+        "width": 44,
+        "height": 27.5,
+        "background": "rgb(249, 115, 22)",
+        "border": "rgb(251, 146, 60)",
+        "borderWidth": "1px",
+        "painted": true
+      },
+      {
+        "text": "寄る",
+        "left": 692,
+        "right": 736,
+        "top": 558.5,
+        "bottom": 586,
+        "width": 44,
+        "height": 27.5,
+        "background": "rgb(20, 20, 20)",
+        "border": "rgb(27, 27, 27)",
+        "borderWidth": "1px",
+        "painted": true
+      },
+      {
+        "text": "引く",
+        "left": 739,
+        "right": 783,
+        "top": 558.5,
+        "bottom": 586,
+        "width": 44,
+        "height": 27.5,
+        "background": "rgb(20, 20, 20)",
+        "border": "rgb(27, 27, 27)",
+        "borderWidth": "1px",
+        "painted": true
+      },
+      {
+        "text": "左へ振る",
+        "left": 786,
+        "right": 856,
+        "top": 558.5,
+        "bottom": 586,
+        "width": 70,
+        "height": 27.5,
+        "background": "rgb(20, 20, 20)",
+        "border": "rgb(27, 27, 27)",
+        "borderWidth": "1px",
+        "painted": true
+      },
+      {
+        "text": "右へ振る",
+        "left": 859,
+        "right": 929,
+        "top": 558.5,
+        "bottom": 586,
+        "width": 70,
+        "height": 27.5,
+        "background": "rgb(20, 20, 20)",
+        "border": "rgb(27, 27, 27)",
+        "borderWidth": "1px",
+        "painted": true
+      },
+      {
+        "text": "追いかける",
+        "left": 932,
+        "right": 1014.6171875,
+        "top": 558.5,
+        "bottom": 586,
+        "width": 82.6171875,
+        "height": 27.5,
+        "background": "rgb(20, 20, 20)",
+        "border": "rgb(27, 27, 27)",
+        "borderWidth": "1px",
+        "painted": true
+      },
+      {
+        "text": "固定",
+        "left": 645,
+        "right": 689,
+        "top": 589,
+        "bottom": 616.5,
+        "width": 44,
+        "height": 27.5,
+        "background": "rgb(20, 20, 20)",
+        "border": "rgb(27, 27, 27)",
+        "borderWidth": "1px",
+        "painted": true
+      }
+    ]
+  },
+  "generationLayout": {
+    "overlaps": []
+  },
+  "lint": {
+    "code": 0,
+    "stdout": "{\n  \"version\": 1,\n  \"checked_at\": \"2026-09-21T19:24:29.968Z\",\n  \"inputs\": {\n    \"captions_json_sha256\": \"83a6fc4db60a62ad889db7adf3d492333df8de26c3563b997ee108739dea7bf1\",\n    \"edit_json_sha256\": \"6df6f0842d309b39a72a3a75d11f1dedc465242df403cf260c3f740a2c790019\"\n  },\n  \"verdict\": \"pass\",\n  \"findings\": [\n    {\n      \"id\": \"F001\",\n      \"severity\": \"warning\",\n      \"check\": \"geometry.fit-compat\",\n      \"message\": \"fit 互換モードで描画中。`normalize-geometry` で実寸基準へ移行できます\",\n      \"path\": \"edit.json#output.geometry\"\n    },\n    {\n      \"id\": \"F002\",\n      \"severity\": \"warning\",\n      \"check\": \"timeline.items.order\",\n      \"message\": \"item gap-1 at array position 2 has at=90, before item right at position 1 (at=210)\",\n      \"path\": \"edit.json#tracks[0].items[2]\"\n    }\n  ],\n  \"skipped\": [\n    {\n      \"check\": \"analysis.json\",\n      \"reason\": \"analysis.json is absent\"\n    },\n    {\n      \"check\": \"audio.music-grid\",\n      \"reason\": \"audio.bgm is absent; music grid checks require audio.bgm.path\"\n    },\n    {\n      \"check\": \"intake\",\n      \"reason\": \".akari/intake.json is absent\"\n    },\n    {\n      \"check\": \"media\",\n      \"reason\": \"media checks require --media\"\n    },\n    {\n      \"check\": \"review\",\n      \"reason\": \"review.json is absent\"\n    }\n  ]\n}\n",
+    "stderr": ""
+  },
+  "fakeCliCalls": [],
+  "cleanup": {
+    "pid": 46339,
+    "signals": [
+      {
+        "pid": 46339,
+        "signal": "SIGTERM"
+      },
+      {
+        "pid": 46394,
+        "signal": "SIGTERM"
+      },
+      {
+        "pid": 46395,
+        "signal": "SIGTERM"
+      },
+      {
+        "pid": 46396,
+        "signal": "SIGTERM"
+      },
+      {
+        "pid": 46457,
+        "signal": "SIGTERM"
+      },
+      {
+        "pid": 46662,
+        "signal": "SIGTERM"
+      },
+      {
+        "pid": 46667,
+        "signal": "SIGTERM"
+      },
+      {
+        "pid": 46339,
+        "signal": "SIGKILL"
+      },
+      {
+        "pid": 46780,
+        "signal": "SIGKILL"
+      },
+      {
+        "pid": 46781,
+        "signal": "SIGKILL"
+      }
+    ],
+    "survivors": [],
+    "isolatedAkariHome": true,
+    "isolatedUserData": true,
+    "before": [
+      {
+        "pid": 46339,
+        "command": "<WORKTREE>/apps/shell/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron <WORKTREE>/apps/shell <TEMP>/project --remote-debugging-port=22219 --user-data-dir=<TEMP>/userdata --no-sandbox"
+      },
+      {
+        "pid": 46394,
+        "command": "<WORKTREE>/apps/shell/node_modules/electron/dist/Electron.app/Contents/Frameworks/Electron Helper.app/Contents/MacOS/Electron Helper <WORKTREE>/apps/shell/lib/backend/main.js <TEMP>/project --remote-debugging-port=22219 --user-data-dir=<TEMP>/userdata --no-sandbox"
+      },
+      {
+        "pid": 46395,
+        "command": "<WORKTREE>/apps/shell/node_modules/electron/dist/Electron.app/Contents/Frameworks/Electron Helper (GPU).app/Contents/MacOS/Electron Helper (GPU) --type=gpu-process --no-sandbox --user-data-dir=/private<TEMP>/userdata --gpu-preferences=SAAAAAAAAAAgAAAEAAAAAAAAAAAAAGAAAwAAAAAAAAAAAAAAAAAAAAIAAAAAAAAAAAAAAAAAAAAQAAAAAAAAABAAAAAAAAAACAAAAAAAAAAIAAAAAAAAAA== --shared-files --field-trial-handle=1718379636,r,1974299139970602193,17882079807940574531,262144 --enable-features=PdfUseShowSaveFilePicker,ScreenCaptureKitPickerScreen,ScreenCaptureKitStreamPickerSonoma --disable-features=LocalNetworkAccessChecks,MacWebContentsOcclusion,ScreenAIOCREnabled,SpareRendererForSitePerProcess,TimeoutHangingVideoCaptureStarts,TraceSiteInstanceGetProcessCreation --variations-seed-version --trace-process-track-uuid=3190708988185955192"
+      },
+      {
+        "pid": 46396,
+        "command": "<WORKTREE>/apps/shell/node_modules/electron/dist/Electron.app/Contents/Frameworks/Electron Helper.app/Contents/MacOS/Electron Helper --type=utility --utility-sub-type=network.mojom.NetworkService --lang=ja --service-sandbox-type=network --no-sandbox --user-data-dir=/private<TEMP>/userdata --shared-files --field-trial-handle=1718379636,r,1974299139970602193,17882079807940574531,262144 --enable-features=PdfUseShowSaveFilePicker,ScreenCaptureKitPickerScreen,ScreenCaptureKitStreamPickerSonoma --disable-features=LocalNetworkAccessChecks,MacWebContentsOcclusion,ScreenAIOCREnabled,SpareRendererForSitePerProcess,TimeoutHangingVideoCaptureStarts,TraceSiteInstanceGetProcessCreation --variations-seed-version --trace-process-track-uuid=3190708989122997041"
+      },
+      {
+        "pid": 46457,
+        "command": "<WORKTREE>/apps/shell/node_modules/electron/dist/Electron.app/Contents/Frameworks/Electron Helper (Renderer).app/Contents/MacOS/Electron Helper (Renderer) --type=renderer --user-data-dir=/private<TEMP>/userdata --app-path=<WORKTREE>/apps/shell --no-sandbox --no-zygote --no-sandbox --remote-debugging-port=22219 --lang=ja --num-raster-threads=4 --enable-zero-copy --enable-gpu-memory-buffer-compositor-resources --enable-main-frame-before-activation --renderer-client-id=4 --time-ticks-at-unix-epoch=-1788919145687225 --launch-time-ticks=1099519118266 --shared-files --field-trial-handle=1718379636,r,1974299139970602193,17882079807940574531,262144 --enable-features=PdfUseShowSaveFilePicker,ScreenCaptureKitPickerScreen,ScreenCaptureKitStreamPickerSonoma --disable-features=LocalNetworkAccessChecks,MacWebContentsOcclusion,ScreenAIOCREnabled,SpareRendererForSitePerProcess,TimeoutHangingVideoCaptureStarts,TraceSiteInstanceGetProcessCreation --variations-seed-version --trace-process-track-uuid=3190708990060038890"
+      },
+      {
+        "pid": 46662,
+        "command": "<WORKTREE>/apps/shell/node_modules/electron/dist/Electron.app/Contents/Frameworks/Electron Helper (Renderer).app/Contents/MacOS/Electron Helper (Renderer) --type=renderer --user-data-dir=/private<TEMP>/userdata --app-path=<WORKTREE>/apps/shell --enable-sandbox --no-sandbox --remote-debugging-port=22219 --lang=ja --num-raster-threads=4 --enable-zero-copy --enable-gpu-memory-buffer-compositor-resources --enable-main-frame-before-activation --renderer-client-id=5 --time-ticks-at-unix-epoch=-1788919145687225 --launch-time-ticks=1099521971700 --shared-files --field-trial-handle=1718379636,r,1974299139970602193,17882079807940574531,262144 --enable-features=PdfUseShowSaveFilePicker,ScreenCaptureKitPickerScreen,ScreenCaptureKitStreamPickerSonoma --disable-features=LocalNetworkAccessChecks,MacWebContentsOcclusion,ScreenAIOCREnabled,SpareRendererForSitePerProcess,TimeoutHangingVideoCaptureStarts,TraceSiteInstanceGetProcessCreation --variations-seed-version --trace-process-track-uuid=3190708990997080739"
+      },
+      {
+        "pid": 46667,
+        "command": "<WORKTREE>/apps/shell/node_modules/electron/dist/Electron.app/Contents/Frameworks/Electron Helper.app/Contents/MacOS/Electron Helper --type=utility --utility-sub-type=audio.mojom.AudioService --lang=ja --service-sandbox-type=audio --no-sandbox --message-loop-type-ui --user-data-dir=/private<TEMP>/userdata --shared-files --field-trial-handle=1718379636,r,1974299139970602193,17882079807940574531,262144 --enable-features=PdfUseShowSaveFilePicker,ScreenCaptureKitPickerScreen,ScreenCaptureKitStreamPickerSonoma --disable-features=LocalNetworkAccessChecks,MacWebContentsOcclusion,ScreenAIOCREnabled,SpareRendererForSitePerProcess,TimeoutHangingVideoCaptureStarts,TraceSiteInstanceGetProcessCreation --variations-seed-version --trace-process-track-uuid=3190708991934122588"
+      }
+    ],
+    "exited": true
+  },
+  "elapsedMs": 10559
+}

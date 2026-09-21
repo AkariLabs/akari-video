@@ -9352,7 +9352,6 @@ var require_tree_ops = __commonJS({
   "../edit-store/lib/tree-ops.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
-    exports.DEFAULT_CAPTION_TELOP_PRESET = void 0;
     exports.attachEditHelpers = attachEditHelpers;
     exports.updateItem = updateItem;
     exports.setItemAnchor = setItemAnchor;
@@ -9368,7 +9367,6 @@ var require_tree_ops = __commonJS({
     exports.removeItem = removeItem;
     exports.detachItem = detachItem;
     exports.materializeProjectedPart = materializeProjectedPart;
-    exports.convertCaptionToTelop = convertCaptionToTelop;
     exports.collectExcludedCaptionIds = collectExcludedCaptionIds;
     exports.filterCaptionRootByExcludedIds = filterCaptionRootByExcludedIds;
     exports.groupItems = groupItems;
@@ -9412,7 +9410,6 @@ var require_tree_ops = __commonJS({
       "out-elastic",
       "hold"
     ]);
-    exports.DEFAULT_CAPTION_TELOP_PRESET = "ref3_particle_min";
     function attachEditHelpers(edit) {
       Object.defineProperties(edit, {
         find: { enumerable: false, value: (id) => locate(edit, id)?.item },
@@ -9664,24 +9661,6 @@ var require_tree_ops = __commonJS({
       };
       ensureChildren(bag.item).push(child);
       return requireLocation(edit, id);
-    }
-    function convertCaptionToTelop(edit, id, options) {
-      const projected = options.at !== void 0 && options.duration !== void 0 ? { at: options.at, duration: options.duration } : void 0;
-      let location2 = locate(edit, id) ?? materializeProjectedPart(edit, id, projected);
-      if (location2.item.source.kind !== "caption")
-        throw new Error(`\u5B57\u5E55\u884C\u3067\u306F\u3042\u308A\u307E\u305B\u3093: ${id}`);
-      const captionId = location2.item.source.id;
-      if (location2.parent) {
-        const detached = detachItem(edit, location2.item.id, { track: "above" }, projected);
-        location2 = requireLocation(edit, detached.id);
-      }
-      location2.item.source = {
-        kind: "telop",
-        preset: options.preset ?? exports.DEFAULT_CAPTION_TELOP_PRESET,
-        params: { text: options.text },
-        from: `captions.json#${captionId}`
-      };
-      return location2.item;
     }
     function collectExcludedCaptionIds(edit) {
       const result = /* @__PURE__ */ new Set();

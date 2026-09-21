@@ -38,7 +38,8 @@ const valid = {
   'akari.menu.listOpenTargets': undefined,
   'akari.review.open': {},
   'akari.review.board.open': undefined,
-  'akari.partner.open': {}
+  'akari.partner.open': {},
+  'akari.settings.open': { section: 'connections' }
 };
 
 test('許可された全コマンドの正常な引数を受ける', () => {

@@ -81,12 +81,13 @@ export function applyReferenceMap({ MAP, endpoint, inputs, output, resolveMedia,
   const count = Object.values(lists).reduce((sum, refs) => sum + refs.length, 0);
   if (count > maxTotal) return reject("reference_images", `at most ${maxTotal} reference files in total`);
 
-  // Check Japanese labels and explicit provider labels alike, including camera
-  // prose already composed into prompt. Never append unrequested labels.
+  // Check Japanese labels and only @-prefixed provider labels, including camera
+  // prose. Bare English such as "Image 1 of 3" is not a reference assertion.
   for (const [slot, label] of Object.entries(REFERENCE_LABELS)) {
-    const tag = MAP[slot].tag;
+    const tag = MAP[slot].tag + (MAP[slot].tag_joiner ?? "");
     const escapedTag = tag.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
-    const pattern = new RegExp(`(?:@${label}|${escapedTag})([+-]?\\d+(?:\\.\\d+)?)`, "gu");
+    const labels = tag.startsWith("@") ? `@${label}|${escapedTag}` : `@${label}`;
+    const pattern = new RegExp(`(?:${labels})([+-]?\\d+(?:\\.\\d+)?)`, "gu");
     result.body.prompt = result.body.prompt.replace(pattern, (match, number) => {
       const index = Number(number);
       if (!Number.isSafeInteger(index) || index <= 0 || index > lists[slot].length) {

@@ -1,0 +1,198 @@
+{
+ "at": "2026-09-21T17:03:21.606Z",
+ "rows": [
+  {
+   "n": 1,
+   "key": "still/br-coffee-beans",
+   "token": "akari-annotations-widget:1790010197865:2",
+   "clickWall": 1790010197809,
+   "reloads": 1,
+   "playRequests": 1,
+   "retries": 0,
+   "readyFallback": 0,
+   "result": "playing",
+   "appliedMs": 167,
+   "playbackStartMs": 1395,
+   "logPlayingMs": 1093,
+   "cachedBefore": true,
+   "startAfterAppliedMs": 1228,
+   "firstPlayRequestMs": 1085,
+   "toasts": [],
+   "samples": [
+    [
+     65,
+     6.06061
+    ],
+    [
+     251,
+     7.74411
+    ],
+    [
+     409,
+     7.74411
+    ],
+    [
+     566,
+     0
+    ],
+    [
+     719,
+     0
+    ],
+    [
+     907,
+     0
+    ],
+    [
+     1078,
+     4.84848
+    ],
+    [
+     1234,
+     6.06061
+    ],
+    [
+     1395,
+     4.84848
+    ],
+    [
+     1552,
+     4.98317
+    ],
+    [
+     1708,
+     5.31986
+    ],
+    [
+     1862,
+     5.72391
+    ],
+    [
+     2015,
+     5.92593
+    ],
+    [
+     2168,
+     6.26263
+    ],
+    [
+     2321,
+     6.53199
+    ],
+    [
+     2476,
+     6.86869
+    ],
+    [
+     2634,
+     7.13805
+    ]
+   ],
+   "log": [
+    {
+     "wall": 1790010197868,
+     "token": "akari-annotations-widget:1790010197865:2",
+     "event": "trial_start",
+     "t": 0
+    },
+    {
+     "wall": 1790010197869,
+     "token": "akari-annotations-widget:1790010197865:2",
+     "event": "preview_trial_begin",
+     "t": 1,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:3"
+    },
+    {
+     "wall": 1790010197870,
+     "token": "akari-annotations-widget:1790010197865:2",
+     "event": "resolve_start",
+     "t": 1,
+     "candidate": "still/br-coffee-beans"
+    },
+    {
+     "wall": 1790010197883,
+     "token": "akari-annotations-widget:1790010197865:2",
+     "event": "resolve_done",
+     "t": 17,
+     "cached": true,
+     "ok": true
+    },
+    {
+     "wall": 1790010197891,
+     "token": "akari-annotations-widget:1790010197865:2",
+     "event": "refresh_queued",
+     "t": 25
+    },
+    {
+     "wall": 1790010197891,
+     "token": "akari-annotations-widget:1790010197865:2",
+     "event": "refresh_started",
+     "t": 25
+    },
+    {
+     "wall": 1790010197976,
+     "token": "akari-annotations-widget:1790010197865:2",
+     "event": "trial_applied",
+     "t": 109,
+     "itemId": "broll-1",
+     "candidate": "still/br-coffee-beans"
+    },
+    {
+     "wall": 1790010198185,
+     "token": "akari-annotations-widget:1790010197865:2",
+     "event": "reload_start",
+     "t": 303,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:4"
+    },
+    {
+     "wall": 1790010198310,
+     "token": "akari-annotations-widget:1790010197865:2",
+     "event": "reload_complete",
+     "t": 444,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:4"
+    },
+    {
+     "wall": 1790010198869,
+     "token": "akari-annotations-widget:1790010197865:2",
+     "event": "ready_seek_response",
+     "t": 852,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:4",
+     "seek": true
+    },
+    {
+     "wall": 1790010198893,
+     "token": "akari-annotations-widget:1790010197865:2",
+     "event": "ready_seek_response",
+     "t": 1026,
+     "pageId": "plugin-webview:akari-output-preview-4lsxsv:4",
+     "seek": true
+    },
+    {
+     "wall": 1790010198894,
+     "token": "akari-annotations-widget:1790010197865:2",
+     "event": "play_request",
+     "t": 1026,
+     "attempt": 1,
+     "revision": 2,
+     "quietForMs": 582
+    },
+    {
+     "wall": 1790010198902,
+     "token": "akari-annotations-widget:1790010197865:2",
+     "event": "playback_state",
+     "t": 1031,
+     "playing": true,
+     "userStopped": false,
+     "source": "renderer"
+    },
+    {
+     "wall": 1790010198943,
+     "token": "akari-annotations-widget:1790010197865:2",
+     "event": "trial_playback_result",
+     "t": 1077,
+     "result": "playing"
+    }
+   ]
+  }
+ ]
+}

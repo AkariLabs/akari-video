@@ -285,6 +285,194 @@ modelRow:section?.rows.find(row=>row.label==='モデル')?.input||''}})()`);
   throw new Error(`${name}: インスペクター前面・生成セクション可視の状態で 3 回撮影できなかった`);
 }
 
+const frameSelector = slot => `[data-akari-generation-pick-slot="${slot}"]`;
+const materialScope = '#akari-role-buckets-widget';
+const pickBand = `${materialScope} .akari-gen-pick-band`;
+const materialCard = name => `${materialScope} [data-akari-material-path="assets/stills/${name}.png"]`;
+
+async function clickElement(cdp, selector) {
+  const point = await evalOn(cdp, `(async()=>{
+    const element=document.querySelector(${S(selector)});
+    if(!element)throw new Error('Missing click target: '+${S(selector)});
+    element.scrollIntoView({block:'center',inline:'nearest',behavior:'instant'});
+    await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+    const r=element.getBoundingClientRect();
+    const x=r.left+r.width/2,y=r.top+r.height/2;
+    if(!r.width||!r.height||!element.contains(document.elementFromPoint(x,y)))throw new Error('Click target obscured: '+${S(selector)});
+    return{x,y};
+  })()`);
+  await realClick(cdp, point.x, point.y); // CDP Input.dispatchMouseEvent, not DOM click().
+}
+
+async function measureFrames(cdp, pendingSlot) {
+  const frames = await evalOn(cdp, `(()=>{
+    const rect=e=>{const r=e.getBoundingClientRect();return{left:r.left,right:r.right,top:r.top,bottom:r.bottom,width:r.width,height:r.height}};
+    return [...document.querySelectorAll('[data-akari-generation-pick-slot]')].map(frame=>{
+      const style=getComputedStyle(frame),r=rect(frame);
+      const buttons=[...frame.closest('.akari-inspector-generation-cell').querySelectorAll('button')].map(button=>{
+        const b=rect(button);return{text:button.textContent,rect:b,intersects:r.left<b.right&&r.right>b.left&&r.top<b.bottom&&r.bottom>b.top};
+      });
+      return{slot:frame.getAttribute('data-akari-generation-pick-slot'),role:frame.getAttribute('role'),tabindex:frame.tabIndex,
+        pressed:frame.getAttribute('aria-pressed'),disabled:frame.getAttribute('aria-disabled'),cursor:style.cursor,
+        borderWidth:style.borderTopWidth,borderStyle:style.borderTopStyle,background:style.backgroundColor,
+        boxShadow:style.boxShadow,outline:style.outline,rect:r,buttons,src:frame.querySelector('img')?.src??null};
+    });
+  })()`);
+  assert(frames.length === 2, '最初・最後の枠が揃っていない');
+  for (const frame of frames) {
+    assert(frame.role === 'button' && frame.tabindex === 0 && frame.cursor === 'pointer' && frame.disabled === 'false', `枠が押せない: ${JSON.stringify(frame)}`);
+    assert((Number.parseFloat(frame.borderWidth) > 0 && frame.borderStyle !== 'none')
+      || !['transparent', 'rgba(0, 0, 0, 0)'].includes(frame.background), '枠に背景も枠線もない');
+    assert(frame.rect.width > 0 && frame.rect.height > 0 && frame.buttons.every(button => !button.intersects), `枠と近道が交差: ${JSON.stringify(frame)}`);
+    assert(frame.pressed === String(frame.slot === pendingSlot), '選択待ちの aria-pressed が不正');
+    if (frame.slot === pendingSlot) {
+      assert(frame.boxShadow.includes('2px') && frame.boxShadow.includes('4px') && frame.boxShadow.includes('167, 139, 250'), `紫の二重の輪がない: ${frame.boxShadow}`);
+    } else assert(frame.boxShadow === 'none', '待機していない枠に輪が残る');
+  }
+  return frames;
+}
+
+async function beginFramePick(cdp, slot, label) {
+  await clickElement(cdp, frameSelector(slot));
+  const band = await waitEval(cdp, `document.querySelector(${S(pickBand)})?.textContent`, { label: '素材選択の帯' });
+  assert(band.includes(`${label} に入れる素材を選ぶ`), `帯が違う: ${band}`);
+  await clickElement(cdp, `${materialScope} [data-akari-panel-segment="materials"]`);
+  await waitEval(cdp, `Boolean(document.querySelector(${S(materialCard('a'))}))`, { label: 'プロジェクト画像カード' });
+  return band;
+}
+
+async function waitFrameSaved(cdp, slot, expected) {
+  const deadline = Date.now() + 30_000;
+  let next;
+  while (Date.now() < deadline) {
+    next = JSON.parse(await readFile(path.join(PROJECT, 'assets/stills/a.png.meta.json'), 'utf8')).next;
+    if (next?.inputs?.[slot]?.path === expected) break;
+    await sleep(100);
+  }
+  assert(next?.inputs?.[slot]?.path === expected, `next.inputs.${slot} が ${expected} でない`);
+  await waitEval(cdp, `!document.querySelector(${S(pickBand)})`, { label: '選択完了で帯が消える' });
+  const src = await waitEval(cdp, `(()=>{const image=document.querySelector(${S(frameSelector(slot))})?.querySelector('img');return image?.complete&&image.naturalWidth>0?image.src:null})()`, { label: `${slot} thumbnail` });
+  return { path: next.inputs[slot].path, src };
+}
+
+const referenceGrid = '.akari-inspector-generation-reference-grid';
+const referenceAdd = '[data-akari-generation-reference-add]';
+const modeSelector = label => `[data-akari-generation-mode="${label}"]`;
+const referenceMetaPath = path.join(PROJECT, 'assets/stills/a.png.meta.json');
+
+async function waitReferenceDraft(predicate, label) {
+  const deadline = Date.now() + 15_000;
+  while (Date.now() < deadline) {
+    const next = JSON.parse(await readFile(referenceMetaPath, 'utf8')).next;
+    if (predicate(next)) return next;
+    await sleep(100);
+  }
+  throw new Error(`next not saved: ${label}`);
+}
+
+async function measureReferences(cdp) {
+  const measured = await evalOn(cdp, `(()=>{
+    const rect=e=>{const r=e.getBoundingClientRect();return{left:r.left,right:r.right,top:r.top,bottom:r.bottom,width:r.width,height:r.height}};
+    const intersects=(a,b)=>a.left<b.right&&a.right>b.left&&a.top<b.bottom&&a.bottom>b.top;
+    const cards=[...document.querySelectorAll('.akari-inspector-generation-reference-card')].map(card=>{
+      const badge=card.querySelector('.akari-inspector-generation-reference-badge');
+      const remove=card.querySelector('[data-akari-generation-reference-remove]');
+      const thumbnail=card.querySelector('.akari-inspector-generation-reference-thumbnail');
+      const rectangles={badge:rect(badge),remove:rect(remove),thumbnail:rect(thumbnail)};
+      return{badge:badge.textContent,path:card.getAttribute('data-akari-generation-reference-path'),rectangles,
+        intersections:{badgeRemove:intersects(rectangles.badge,rectangles.remove),badgeThumbnail:intersects(rectangles.badge,rectangles.thumbnail),removeThumbnail:intersects(rectangles.remove,rectangles.thumbnail)}};
+    });
+    const buttons=[...document.querySelectorAll('[data-akari-generation-mode],[data-akari-generation-reference-add],[data-akari-generation-reference-remove]')].map(button=>{
+      const style=getComputedStyle(button);
+      return{text:button.textContent,disabled:button.disabled,pressed:button.getAttribute('aria-pressed'),rect:rect(button),
+        background:style.backgroundColor,borderWidth:style.borderTopWidth,borderStyle:style.borderTopStyle,borderColor:style.borderTopColor};
+    });
+    return{cards,buttons,counter:document.querySelector('.akari-inspector-generation-reference-counter')?.textContent,
+      frames:document.querySelectorAll('[data-akari-generation-pick-slot]').length};
+  })()`);
+  for (const card of measured.cards) {
+    assert(Object.values(card.rectangles).every(rect => rect.width > 0 && rect.height > 0), `参照カードの矩形が空: ${JSON.stringify(card)}`);
+    assert(Object.values(card.intersections).every(value => value === false), `札・×・サムネが交差: ${JSON.stringify(card)}`);
+  }
+  assert(measured.buttons.some(button => button.text === '＋ 追加'), '＋追加がない');
+  assert(measured.buttons.filter(button => ['参照', '最初 / 最後'].includes(button.text)).length === 2, '切替が揃わない');
+  for (const button of measured.buttons) {
+    const transparent = color => ['transparent', 'rgba(0, 0, 0, 0)'].includes(color);
+    assert(!button.disabled && button.rect.width > 0 && button.rect.height > 0, `押せないボタン: ${JSON.stringify(button)}`);
+    assert(!transparent(button.background) || (Number.parseFloat(button.borderWidth) > 0
+      && !['none','hidden'].includes(button.borderStyle) && !transparent(button.borderColor)), `背景も枠もないボタン: ${JSON.stringify(button)}`);
+  }
+  return measured;
+}
+
+// Keep the exact on-disk bytes as well as hashes: cancelling must not rewrite even
+// an equivalent next draft or edit/captions JSON with different formatting.
+async function cancellationDraftSnapshot() {
+  const files = ['assets/stills/a.png.meta.json', 'edit.json', 'captions.json'];
+  return Object.fromEntries(await Promise.all(files.map(async file => [file, await readFile(path.join(PROJECT, file))])));
+}
+
+async function assertCancellationDraftUnchanged(before) {
+  const after = await cancellationDraftSnapshot();
+  const files = Object.fromEntries(Object.keys(before).map(file => [file, {
+    beforeBytes: before[file].length, afterBytes: after[file].length,
+    beforeSha256: createHash('sha256').update(before[file]).digest('hex'),
+    afterSha256: createHash('sha256').update(after[file]).digest('hex'),
+    bytesUnchanged: before[file].equals(after[file])
+  }]));
+  const nextBefore = JSON.parse(before['assets/stills/a.png.meta.json'].toString()).next;
+  const nextAfter = JSON.parse(after['assets/stills/a.png.meta.json'].toString()).next;
+  const measured = { files, nextBefore, nextAfter, nextUnchanged: JSON.stringify(nextBefore) === JSON.stringify(nextAfter) };
+  out.pickCancellation.drafts = { ...out.pickCancellation.drafts, [out.pickCancellation.activeScenario]: measured };
+  await save();
+  assert(Object.values(files).every(file => file.bytesUnchanged) && measured.nextUnchanged,
+    `取り消しで下書きのバイト列が変化: ${JSON.stringify(measured)}`);
+  return measured;
+}
+
+async function measurePickCancellation(cdp, selector, expectedBand, expectedPressed) {
+  const measured = await evalOn(cdp, `(()=>{
+    const rect=e=>{const r=e.getBoundingClientRect();return{left:r.left,right:r.right,top:r.top,bottom:r.bottom,width:r.width,height:r.height}};
+    const intersects=(a,b)=>a.left<b.right&&a.right>b.left&&a.top<b.bottom&&a.bottom>b.top;
+    const control=document.querySelector(${S(selector)});
+    if(!control)throw new Error('Cancellation control missing');
+    const style=getComputedStyle(control),band=document.querySelector(${S(pickBand)});
+    const textBadgePairs=[];
+    for(const frame of document.querySelectorAll('[data-akari-generation-pick-slot]')){
+      const text=frame.querySelector(':scope > span:first-child');
+      const badge=frame.querySelector('.akari-inspector-generation-frame-hint,.akari-inspector-generation-frame-replace');
+      if(text&&badge){const textRect=rect(text),badgeRect=rect(badge);textBadgePairs.push({kind:'frame',text:text.textContent,badge:badge.textContent,textRect,badgeRect,intersects:intersects(textRect,badgeRect)});}
+    }
+    for(const card of document.querySelectorAll('.akari-inspector-generation-reference-card')){
+      const text=card.querySelector('.akari-inspector-generation-reference-filename');
+      const badge=card.querySelector('.akari-inspector-generation-reference-badge');
+      const textRect=rect(text),badgeRect=rect(badge);
+      textBadgePairs.push({kind:'reference',text:text.textContent,badge:badge.textContent,textRect,badgeRect,intersects:intersects(textRect,badgeRect)});
+    }
+    const bandRect=band?rect(band):null;
+    return{bandPresent:!!band,bandVisible:!!bandRect&&bandRect.width>0&&bandRect.height>0&&getComputedStyle(band).visibility==='visible',
+      bandText:band?.textContent??null,bandRect,ariaPressed:control.getAttribute('aria-pressed'),boxShadow:style.boxShadow,
+      background:style.backgroundColor,borderWidth:style.borderTopWidth,borderStyle:style.borderTopStyle,borderColor:style.borderTopColor,
+      rect:rect(control),textBadgePairs};
+  })()`);
+  const scenario = out.pickCancellation.activeScenario;
+  out.pickCancellation[scenario] = { ...out.pickCancellation[scenario], [expectedBand ? 'pending' : 'cancelled']: measured };
+  await save();
+  assert(measured.bandPresent === expectedBand && measured.bandVisible === expectedBand, `帯の状態が不正: ${JSON.stringify(measured)}`);
+  if (expectedPressed !== undefined) {
+    assert(measured.ariaPressed === String(expectedPressed), '枠の aria-pressed が不正');
+    assert(expectedPressed ? measured.boxShadow !== 'none' : measured.boxShadow === 'none', '枠の輪の状態が不正');
+  }
+  const transparent = color => ['transparent', 'rgba(0, 0, 0, 0)'].includes(color);
+  assert(measured.rect.width > 0 && measured.rect.height > 0, '取り消し対象の矩形が空');
+  assert(!transparent(measured.background) || (Number.parseFloat(measured.borderWidth) > 0
+    && !['none', 'hidden'].includes(measured.borderStyle) && !transparent(measured.borderColor)), '取り消し対象に背景も可視の枠線もない');
+  assert(measured.textBadgePairs.length > 0 && measured.textBadgePairs.every(pair => !pair.intersects
+    && pair.textRect.width > 0 && pair.textRect.height > 0 && pair.badgeRect.width > 0 && pair.badgeRect.height > 0),
+    `文字と札が交差または矩形が空: ${JSON.stringify(measured.textBadgePairs)}`);
+  return measured;
+}
+
 let spawnedChild;
 async function launch() {
   await mkdir(path.join(ISO, 'akari-home'), { recursive: true });
@@ -488,6 +676,170 @@ try {
   });
 
   await shot(cdp, '07-sticky-tab-strip.png', undefined, { scrollToBottom: true });
+
+  await step('7. 空の最初の絵を実クリック → 素材パネル → next と画像から', async () => {
+    await shot(cdp, '08-frame-empty.png', frameSelector('first_frame'));
+    assert(await evalOn(cdp, `document.querySelector(${S(frameSelector('first_frame'))}).textContent.includes('＋ 画像を選ぶ')`), '空枠の選択文言がない');
+    const idle = await measureFrames(cdp);
+    const band = await beginFramePick(cdp, 'first_frame', '最初の絵');
+    const pending = await measureFrames(cdp, 'first_frame');
+    await shot(cdp, '09-frame-picking.png', frameSelector('first_frame'));
+    await clickElement(cdp, materialCard('c'));
+    const picked = await waitFrameSaved(cdp, 'first_frame', 'assets/stills/c.png');
+    await waitEval(cdp, `(${sectionSnapshot})?.rows.some(row=>row.label==='種類'&&row.value==='画像から')`, { label: '種類 = 画像から' });
+    await shot(cdp, '10-frame-picked.png', frameSelector('first_frame'));
+    return { band, idle, pending, picked, after: await measureFrames(cdp) };
+  });
+
+  await step('8. 入っている最後の絵を実クリックで差し替える', async () => {
+    await beginFramePick(cdp, 'last_frame', '最後の絵');
+    await clickElement(cdp, materialCard('b'));
+    const before = await waitFrameSaved(cdp, 'last_frame', 'assets/stills/b.png');
+    await beginFramePick(cdp, 'last_frame', '最後の絵');
+    const pending = await measureFrames(cdp, 'last_frame');
+    await clickElement(cdp, materialCard('a'));
+    const after = await waitFrameSaved(cdp, 'last_frame', 'assets/stills/a.png');
+    assert(before.src !== after.src, '差し替え後もサムネ src が同じ');
+    await shot(cdp, '11-frame-replaced.png', frameSelector('last_frame'));
+    return { before, pending, after, frames: await measureFrames(cdp) };
+  });
+
+  await step('9. 選択待ちで Esc → 元の絵のまま輪を外す', async () => {
+    const metaPath = path.join(PROJECT, 'assets/stills/a.png.meta.json');
+    const beforeMeta = await readFile(metaPath, 'utf8');
+    const before = await measureFrames(cdp);
+    await beginFramePick(cdp, 'last_frame', '最後の絵');
+    const pending = await measureFrames(cdp, 'last_frame');
+    await cdp.send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 });
+    await cdp.send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 });
+    await waitEval(cdp, `!document.querySelector(${S(pickBand)})&&document.querySelector(${S(frameSelector('last_frame'))})?.getAttribute('aria-pressed')==='false'`, { label: 'Esc clears band and ring' });
+    await sleep(450);
+    const after = await measureFrames(cdp);
+    assert(before.every((frame, index) => frame.src === after[index].src), 'Esc でサムネが変化');
+    assert(await readFile(metaPath, 'utf8') === beforeMeta, 'Esc で meta が変化');
+    await shot(cdp, '12-frame-cancelled.png', frameSelector('last_frame'));
+    const mtimesAfter = { edit: (await stat(editPath)).mtimeMs, captions: (await stat(captionsPath)).mtimeMs };
+    assert(mtimesAfter.edit === mtimesBefore.edit && mtimesAfter.captions === mtimesBefore.captions, '枠の選択で edit/captions が変化');
+    return { before, pending, after, metaUnchanged: true, mtimesAfter };
+  });
+
+  // End the earlier fake failed job so this scenario starts from a planned H3 draft.
+  await rm(path.join(PROJECT, 'assets/generated/gen-clip-a.mp4.meta.json'));
+  await waitEval(cdp, `!document.querySelector(${S(action('retry'))})`, { label: 'H3 動画予定へ戻る' });
+  await waitEval(cdp, `(()=>{const imgs=[...document.querySelectorAll('.akari-inspector-generation-frame img')];return imgs.length===2&&imgs.every(img=>img.complete&&img.naturalWidth>0)})()`, { label: 'H3 動画予定の元の枠サムネ' });
+  const originalReferenceFrames = await measureFrames(cdp);
+  const originalReferenceNext = JSON.parse(await readFile(referenceMetaPath, 'utf8')).next;
+  assert(originalReferenceNext.kind === 'video' && originalReferenceNext.status === 'planned', 'H3 の動画予定でない');
+
+  await step('10. H3 動画予定 → 参照を実クリック → 枠が消えてグリッドと＋追加', async () => {
+    await clickElement(cdp, modeSelector('参照'));
+    await waitEval(cdp, `document.querySelector(${S(referenceGrid)})&&!document.querySelector('[data-akari-generation-pick-slot]')`, { label: '参照グリッドへ切替' });
+    const next = await waitReferenceDraft(next => next.model.id === 'fal:h3-ref' && next.inputs.frames_or_refs === 'references', 'H3 ref');
+    assert(next.inputs.first_frame.path === originalReferenceNext.inputs.first_frame.path, '切替で最初の絵が消えた');
+    await shot(cdp, '13-reference-empty.png', referenceAdd);
+    const measurements = await measureReferences(cdp);
+    assert(measurements.cards.length === 0 && measurements.frames === 0, '参照の初期状態が不正');
+    return { next, measurements };
+  });
+
+  await step('11. ＋追加 → 素材パネルで画像2枚を実クリック → 完了 → 札とカウンタ', async () => {
+    await clickElement(cdp, referenceAdd);
+    await waitEval(cdp, `document.querySelector(${S(pickBand)})?.textContent.includes('参照画像')`, { label: '参照画像の素材選択帯' });
+    await clickElement(cdp, materialCard('a'));
+    await waitEval(cdp, `document.querySelector(${S(materialCard('a'))})?.textContent.includes('@画像1')`, { label: '素材1の札' });
+    await clickElement(cdp, materialCard('b'));
+    await waitEval(cdp, `document.querySelector(${S(materialCard('b'))})?.textContent.includes('@画像2')`, { label: '素材2の札' });
+    await shot(cdp, '14-reference-picking-two.png', referenceAdd);
+    await clickElement(cdp, `${pickBand} .akari-gen-pick-complete`);
+    await waitEval(cdp, `!document.querySelector(${S(pickBand)})&&document.querySelectorAll('.akari-inspector-generation-reference-card').length===2`, { label: '参照選択完了' });
+    const next = await waitReferenceDraft(next => next.inputs.reference_images?.length === 2, '画像2枚');
+    assert(JSON.stringify(next.inputs.reference_images.map(ref => ref.path)) === JSON.stringify(['assets/stills/a.png','assets/stills/b.png']), '選択順が違う');
+    await waitEval(cdp, `(()=>{const imgs=[...document.querySelectorAll('.akari-inspector-generation-reference-thumbnail img')];return imgs.length===2&&imgs.every(img=>img.complete&&img.naturalWidth>0)})()`, { label: '参照サムネ2枚' });
+    await shot(cdp, '15-reference-two.png', referenceAdd);
+    const measurements = await measureReferences(cdp);
+    assert(JSON.stringify(measurements.cards.map(card => card.badge)) === JSON.stringify(['@画像1','@画像2']), '札の通し番号が違う');
+    assert(measurements.counter.includes('画像 2 / 9'), '画像 2 / 9 がない');
+    return { next, measurements };
+  });
+
+  await step('12. 最初 / 最後に実クリックで戻すと元の絵が残る', async () => {
+    await clickElement(cdp, modeSelector('最初 / 最後'));
+    await waitEval(cdp, `document.querySelectorAll('[data-akari-generation-pick-slot]').length===2&&!document.querySelector(${S(referenceGrid)})`, { label: '最初・最後の枠へ戻る' });
+    const next = await waitReferenceDraft(next => next.model.id === 'fal:h3-i2v' && next.inputs.frames_or_refs === 'frames', 'H3 frames');
+    for (const slot of ['first_frame','last_frame']) assert(JSON.stringify(next.inputs[slot]) === JSON.stringify(originalReferenceNext.inputs[slot]), `${slot} が変化`);
+    assert(next.inputs.reference_images.length === 2, '最初 / 最後への切替で参照が消えた');
+    await waitEval(cdp, `document.querySelector(${S(frameSelector('first_frame'))})?.querySelector('img')?.src===${S(originalReferenceFrames[0].src)}`, { label: '元の最初のサムネ' });
+    await waitEval(cdp, `(()=>{const imgs=[...document.querySelectorAll('.akari-inspector-generation-frame img')];return imgs.length===2&&imgs.every((img,index)=>img.src===${S(originalReferenceFrames.map(frame => frame.src))}[index]&&img.complete&&img.naturalWidth>0)})()`, { label: '元の両枠のサムネ' });
+    await shot(cdp, '16-reference-frames-restored.png', frameSelector('first_frame'));
+    const frames = await measureFrames(cdp);
+    assert(frames.every((frame,index) => frame.src === originalReferenceFrames[index].src), '元の最初・最後のサムネが変化');
+    return { next, frames };
+  });
+
+  await step('13. もう一度参照へ実クリック → 画像2枚と両側の next.inputs を保持', async () => {
+    await clickElement(cdp, modeSelector('参照'));
+    await waitEval(cdp, `document.querySelectorAll('.akari-inspector-generation-reference-card').length===2`, { label: '参照2枚復元' });
+    const next = await waitReferenceDraft(next => next.inputs.frames_or_refs === 'references' && next.model.id === 'fal:h3-ref', 'H3 ref restored');
+    assert(next.inputs.first_frame.path === originalReferenceNext.inputs.first_frame.path && next.inputs.last_frame.path === originalReferenceNext.inputs.last_frame.path, 'meta で枠側が消えた');
+    assert(JSON.stringify(next.inputs.reference_images.map(ref => ref.path)) === JSON.stringify(['assets/stills/a.png','assets/stills/b.png']), 'meta で参照側が消えた');
+    await shot(cdp, '17-reference-restored.png', referenceAdd);
+    const measurements = await measureReferences(cdp);
+    assert(measurements.frames === 0 && measurements.counter.includes('画像 2 / 9'), '復元後のグリッドが不正');
+    assert(JSON.stringify(measurements.cards.map(card => card.badge)) === JSON.stringify(['@画像1','@画像2']), '復元後の札が不正');
+    const after = { edit: (await stat(editPath)).mtimeMs, captions: (await stat(captionsPath)).mtimeMs };
+    assert(after.edit === mtimesBefore.edit && after.captions === mtimesBefore.captions, '参照選択で edit/captions が変化');
+    return { next, measurements, mtimesBefore, after };
+  });
+
+  await step('14. 空枠を実クリック → 同じ枠を再クリック → 帯と輪を消し下書き不変', async () => {
+    await clickElement(cdp, modeSelector('最初 / 最後'));
+    await waitReferenceDraft(next => next.model.id === 'fal:h3-i2v' && next.inputs.frames_or_refs === 'frames', 'cancel test frames');
+    await clickElement(cdp, action('first-frame-remove'));
+    await waitEval(cdp, `!document.querySelector(${S(action('first-frame-remove'))})&&document.querySelector(${S(frameSelector('first_frame'))})?.textContent.includes('＋ 画像を選ぶ')`, { label: '取り消し検証用の空枠' });
+    await waitReferenceDraft(next => next.inputs.first_frame === null, 'empty frame saved before cancelling');
+    await sleep(450);
+    const before = await cancellationDraftSnapshot();
+    out.pickCancellation = { activeScenario: 'frame' };
+    const idle = await measureFrames(cdp);
+    await clickElement(cdp, frameSelector('first_frame'));
+    await waitEval(cdp, `document.querySelector(${S(pickBand)})?.textContent.includes('最初の絵 に入れる素材を選ぶ')`, { label: '空枠の帯が表示' });
+    await shot(cdp, '18-frame-reclick-pending.png', frameSelector('first_frame'));
+    const pending = await measurePickCancellation(cdp, frameSelector('first_frame'), true, true);
+    const pendingFrames = await measureFrames(cdp, 'first_frame');
+    await clickElement(cdp, frameSelector('first_frame'));
+    await waitEval(cdp, `!document.querySelector(${S(pickBand)})&&document.querySelector(${S(frameSelector('first_frame'))})?.getAttribute('aria-pressed')==='false'`, { label: '同じ空枠の再押下で帯と輪が消失' });
+    await sleep(450); // Beyond the production 300ms draft-write debounce.
+    await shot(cdp, '19-frame-reclick-cancelled.png', frameSelector('first_frame'));
+    const cancelled = await measurePickCancellation(cdp, frameSelector('first_frame'), false, false);
+    const after = await measureFrames(cdp);
+    assert(idle.every((frame, index) => frame.src === after[index].src), '再押下で絵が変化');
+    const drafts = await assertCancellationDraftUnchanged(before);
+    return { idle, pending, pendingFrames, cancelled, after, drafts };
+  });
+
+  await step('15. 参照の＋追加を実クリック → 再クリック → 帯を消し下書き不変', async () => {
+    await clickElement(cdp, modeSelector('参照'));
+    await waitReferenceDraft(next => next.model.id === 'fal:h3-ref' && next.inputs.frames_or_refs === 'references', 'cancel test references');
+    await waitEval(cdp, `document.querySelectorAll('.akari-inspector-generation-reference-card').length===2`, { label: '取り消し検証用の参照2枚' });
+    await sleep(450);
+    out.pickCancellation.activeScenario = 'references';
+    const before = await cancellationDraftSnapshot();
+    await clickElement(cdp, referenceAdd);
+    await waitEval(cdp, `document.querySelector(${S(pickBand)})?.textContent.includes('参照画像')`, { label: '＋追加の帯が表示' });
+    await shot(cdp, '20-reference-reclick-pending.png', referenceAdd);
+    const pending = await measurePickCancellation(cdp, referenceAdd, true);
+    const referencesBefore = await measureReferences(cdp);
+    await clickElement(cdp, referenceAdd);
+    await waitEval(cdp, `!document.querySelector(${S(pickBand)})`, { label: '＋追加の再押下で帯が消失' });
+    await sleep(450);
+    await shot(cdp, '21-reference-reclick-cancelled.png', referenceAdd);
+    const cancelled = await measurePickCancellation(cdp, referenceAdd, false);
+    const referencesAfter = await measureReferences(cdp);
+    assert(JSON.stringify(referencesBefore.cards.map(card => [card.path, card.badge]))
+      === JSON.stringify(referencesAfter.cards.map(card => [card.path, card.badge])), '再押下で参照または札が変化');
+    const drafts = await assertCancellationDraftUnchanged(before);
+    return { pending, cancelled, referencesBefore, referencesAfter, drafts };
+  });
 
   out.status = 'pass';
   await save();

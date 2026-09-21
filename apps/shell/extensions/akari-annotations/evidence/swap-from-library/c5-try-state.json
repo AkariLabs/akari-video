@@ -1,0 +1,58 @@
+{
+ "mode": "state",
+ "at": "2026-09-21T14:09:22.716Z",
+ "shaBefore": "1bc0dd7045e4a58104968b6c76b402a254f3b5378e8e8afd02d1738543e0ee99",
+ "itemBefore": {
+  "track": "a1",
+  "id": "bell-1",
+  "at": 60,
+  "duration": 54,
+  "source": {
+   "kind": "media",
+   "src": "src-1",
+   "in": 0,
+   "out": 1.8
+  },
+  "path": "assets/audio/sfx-blip-marimba/sfx-blip-marimba.mp3",
+  "gain_db": -3,
+  "fade_in": 0.1,
+  "fade_out": 0.2
+ },
+ "shaAfter": "1bc0dd7045e4a58104968b6c76b402a254f3b5378e8e8afd02d1738543e0ee99",
+ "itemAfter": {
+  "track": "a1",
+  "id": "bell-1",
+  "at": 60,
+  "duration": 54,
+  "source": {
+   "kind": "media",
+   "src": "src-1",
+   "in": 0,
+   "out": 1.8
+  },
+  "path": "assets/audio/sfx-blip-marimba/sfx-blip-marimba.mp3",
+  "gain_db": -3,
+  "fade_in": 0.1,
+  "fade_out": 0.2
+ },
+ "sameTrack": [
+  "bell-1@60+54",
+  "pop-1@150+54"
+ ],
+ "ui": {
+  "trialBar": [
+   {
+    "text": "お試し中: Bell Tree Sweep Upward, Sparkling Cascade, Isola → Single Soft Marimba Note Blip, Warm Wooden Tone,▶ もう一度差し替えるやめる",
+    "visible": true
+   }
+  ],
+  "inspectorSwapRow": true,
+  "leftPanel": "swap-shelf",
+  "toasts": []
+ },
+ "lint": {
+  "verdict": "pass",
+  "errors": [],
+  "sourceRange": 0
+ }
+}

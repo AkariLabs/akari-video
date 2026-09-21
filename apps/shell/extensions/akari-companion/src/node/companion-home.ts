@@ -6,10 +6,6 @@ export function resolveAkariHomeDir(env: NodeJS.ProcessEnv = process.env, home =
     return env.AKARI_HOME || path.join(home, '.akari');
 }
 
-export function companionConfigPath(env: NodeJS.ProcessEnv = process.env, home = os.homedir()): string {
-    return path.join(resolveAkariHomeDir(env, home), 'companion.json');
-}
-
 export interface CompanionAddress { port: number; token: string; }
 
 export async function readCompanionAddress(filePath: string): Promise<CompanionAddress | undefined> {
@@ -24,4 +20,12 @@ export async function readCompanionAddress(filePath: string): Promise<CompanionA
     } catch {
         return undefined;
     }
+}
+
+/** The shared address file is an explicit development override only. */
+export async function readConfiguredCompanionAddress(env: NodeJS.ProcessEnv = process.env): Promise<CompanionAddress | undefined> {
+    if (env.AKARI_COMPANION_CONFIG) {
+        return readCompanionAddress(env.AKARI_COMPANION_CONFIG);
+    }
+    return undefined;
 }
