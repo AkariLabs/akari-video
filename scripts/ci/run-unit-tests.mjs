@@ -196,6 +196,7 @@ export const LANES = {
       pkg('schemas'),
       pkg('word-book'),           // 依存ゼロ・tmp fixture で作業場を組む（単語帳 v0 コア 2026-09-02）
       pkg('generate'),            // 依存ゼロ・純関数（生成入力バリデータ w1-b 2026-09-13。adapters/ は test script の glob 外 = 合流後の統合小票で吸収）
+      pkg('akari-vibe'),          // 依存ゼロ・fetch 差し替え・係を起こすテストはポート 0 番と一時の AKARI_HOME
       {
         // パッケージ単位（npm test）では Playwright / ffmpeg 前提のファイルまで走ってしまうので、
         // 外部ツール不要のファイルだけを明示列挙して node --test で直接叩く。
