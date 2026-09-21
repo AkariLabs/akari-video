@@ -1,0 +1,3918 @@
+{
+  "window": {
+    "w": 1680,
+    "h": 927,
+    "dpr": 2,
+    "screen": [
+      1680,
+      959
+    ]
+  },
+  "initial": {
+    "htmlClass": "",
+    "stageRect": {
+      "x": 36,
+      "y": 78.90625,
+      "w": 539,
+      "h": 303.1875
+    },
+    "zoomLayerTransform": "matrix(1, 0, 0, 1, 0, 0)",
+    "zoomPressed": [],
+    "output": {
+      "width": 640,
+      "height": 360,
+      "fps": 30
+    },
+    "captionText": "■■■■字幕テスト■■■■",
+    "captionSelected": false,
+    "captionRectInStage": {
+      "x": 21.561317443847656,
+      "y": 154.23216247558594,
+      "w": 495.8774108886719,
+      "h": 127.73616027832031
+    },
+    "button": {
+      "title": "今のコマを保存",
+      "aria": "今のコマを保存",
+      "disabled": false,
+      "parentClass": "transport-right",
+      "w": 28,
+      "h": 28,
+      "hasSvg": true,
+      "text": ""
+    },
+    "playLabel": "再生",
+    "visibleInteractionHandles": 0,
+    "genRects": [
+      {
+        "id": "akari-gen-tag",
+        "x": 9.994396209716797,
+        "y": 9.994400024414062,
+        "w": 133.24327087402344,
+        "h": 22.46929931640625
+      }
+    ],
+    "genVisible": [
+      "akari-gen-overlay:編集領域\n              planned · m",
+      "akari-gen-tag:planned · main-1"
+    ],
+    "captionSelectionChrome": 0,
+    "transportVisibility": "visible",
+    "dpr": 2
+  },
+  "runs": [
+    {
+      "run": 1,
+      "verdicts": [
+        {
+          "run": 1,
+          "shot": "run1-01-zoom200",
+          "added": [
+            "frame-00m00s000.png"
+          ],
+          "toast": [
+            "コマを保存しました: assets/captures/frame-00m00s000.png",
+            "コマを保存しました: assets/captures/frame-00m00s000.png",
+            "コマを保存しました: assets/captures/frame-00m00s000.png",
+            "コマを保存しました: assets/captures/frame-00m00s000.png"
+          ],
+          "spans": [
+            {
+              "ms": 43.5,
+              "frames": 3,
+              "fit": true
+            }
+          ],
+          "attempts": 1,
+          "captionExpected": true,
+          "flickerOk": true,
+          "failedToast": false,
+          "restoredClass": true,
+          "file": "frame-00m00s000.png",
+          "width": 640,
+          "height": 360,
+          "center": [
+            189,
+            121,
+            72
+          ],
+          "centerDiffersFromSource": true,
+          "yellowPixelsInCaptionBox": 31244,
+          "bluishPixels": 0,
+          "outlineYellow": 0,
+          "chipDeviating": 0,
+          "captionOk": true,
+          "leakOk": true,
+          "pass": true
+        },
+        {
+          "run": 1,
+          "shot": "run1-02-same-time-again",
+          "added": [
+            "frame-00m00s000-2.png"
+          ],
+          "toast": [
+            "コマを保存しました: assets/captures/frame-00m00s000-2.png",
+            "コマを保存しました: assets/captures/frame-00m00s000-2.png",
+            "コマを保存しました: assets/captures/frame-00m00s000-2.png",
+            "コマを保存しました: assets/captures/frame-00m00s000-2.png"
+          ],
+          "spans": [
+            {
+              "ms": 47.299999952316284,
+              "frames": 3,
+              "fit": true
+            }
+          ],
+          "attempts": 1,
+          "captionExpected": true,
+          "flickerOk": true,
+          "failedToast": false,
+          "restoredClass": true,
+          "file": "frame-00m00s000-2.png",
+          "width": 640,
+          "height": 360,
+          "center": [
+            189,
+            121,
+            72
+          ],
+          "centerDiffersFromSource": true,
+          "yellowPixelsInCaptionBox": 31244,
+          "bluishPixels": 0,
+          "outlineYellow": 0,
+          "chipDeviating": 0,
+          "captionOk": true,
+          "leakOk": true,
+          "pass": true
+        },
+        {
+          "run": 1,
+          "shot": "run1-03-caption-selected",
+          "added": [
+            "frame-00m00s000-3.png"
+          ],
+          "toast": [
+            "コマを保存しました: assets/captures/frame-00m00s000-3.png",
+            "コマを保存しました: assets/captures/frame-00m00s000-3.png",
+            "コマを保存しました: assets/captures/frame-00m00s000-3.png",
+            "コマを保存しました: assets/captures/frame-00m00s000-3.png"
+          ],
+          "spans": [
+            {
+              "ms": 38,
+              "frames": 2,
+              "fit": false
+            }
+          ],
+          "attempts": 1,
+          "captionExpected": true,
+          "flickerOk": true,
+          "failedToast": false,
+          "restoredClass": true,
+          "file": "frame-00m00s000-3.png",
+          "width": 640,
+          "height": 360,
+          "center": [
+            189,
+            121,
+            72
+          ],
+          "centerDiffersFromSource": true,
+          "yellowPixelsInCaptionBox": 31244,
+          "bluishPixels": 0,
+          "outlineYellow": 0,
+          "chipDeviating": 0,
+          "captionOk": true,
+          "leakOk": true,
+          "pass": true
+        },
+        {
+          "run": 1,
+          "shot": "run1-04-while-playing",
+          "added": [
+            "frame-00m01s800.png"
+          ],
+          "toast": [
+            "コマを保存しました: assets/captures/frame-00m01s800.png",
+            "コマを保存しました: assets/captures/frame-00m01s800.png",
+            "コマを保存しました: assets/captures/frame-00m01s800.png",
+            "コマを保存しました: assets/captures/frame-00m01s800.png"
+          ],
+          "spans": [
+            {
+              "ms": 44.10000014305115,
+              "frames": 3,
+              "fit": false
+            },
+            {
+              "ms": 44.90000009536743,
+              "frames": 2,
+              "fit": false
+            }
+          ],
+          "attempts": 2,
+          "captionExpected": true,
+          "flickerOk": true,
+          "failedToast": false,
+          "restoredClass": true,
+          "file": "frame-00m01s800.png",
+          "width": 640,
+          "height": 360,
+          "center": [
+            189,
+            121,
+            72
+          ],
+          "centerDiffersFromSource": true,
+          "yellowPixelsInCaptionBox": 31244,
+          "bluishPixels": 0,
+          "outlineYellow": 0,
+          "chipDeviating": 0,
+          "captionOk": true,
+          "leakOk": true,
+          "pass": true
+        }
+      ],
+      "sameTimeOk": true,
+      "playing": {
+        "before": "一時停止",
+        "after": "一時停止"
+      },
+      "genRectsAtStart": [
+        {
+          "id": "akari-gen-tag",
+          "x": 9.994396209716797,
+          "y": 9.994400024414062,
+          "w": 133.24327087402344,
+          "h": 22.46929931640625
+        }
+      ],
+      "shots": [
+        {
+          "label": "run1-01-zoom200",
+          "before": {
+            "htmlClass": "",
+            "stageRect": {
+              "x": -233.5,
+              "y": -72.6875,
+              "w": 1078,
+              "h": 606.375
+            },
+            "zoomLayerTransform": "matrix(2, 0, 0, 2, 0, 0)",
+            "zoomPressed": [],
+            "output": {
+              "width": 640,
+              "height": 360,
+              "fps": 30
+            },
+            "captionText": "■■■■字幕テスト■■■■",
+            "captionSelected": false,
+            "captionRectInStage": {
+              "x": 43.12263488769531,
+              "y": 308.4643249511719,
+              "w": 991.7548217773438,
+              "h": 255.47232055664062
+            },
+            "button": {
+              "title": "今のコマを保存",
+              "aria": "今のコマを保存",
+              "disabled": false,
+              "parentClass": "transport-right",
+              "w": 28,
+              "h": 28,
+              "hasSvg": true,
+              "text": ""
+            },
+            "playLabel": "再生",
+            "visibleInteractionHandles": 0,
+            "genRects": [
+              {
+                "id": "akari-gen-tag",
+                "x": 9.987823486328125,
+                "y": 9.987823486328125,
+                "w": 133.18405151367188,
+                "h": 22.449554443359375
+              }
+            ],
+            "genVisible": [
+              "akari-gen-overlay:編集領域\n              planned · m",
+              "akari-gen-tag:planned · main-1"
+            ],
+            "captionSelectionChrome": 0,
+            "transportVisibility": "visible",
+            "dpr": 2
+          },
+          "after": {
+            "htmlClass": "",
+            "stageRect": {
+              "x": -233.5,
+              "y": -72.6875,
+              "w": 1078,
+              "h": 606.375
+            },
+            "zoomLayerTransform": "matrix(2, 0, 0, 2, 0, 0)",
+            "zoomPressed": [],
+            "output": {
+              "width": 640,
+              "height": 360,
+              "fps": 30
+            },
+            "captionText": "■■■■字幕テスト■■■■",
+            "captionSelected": false,
+            "captionRectInStage": {
+              "x": 43.12263488769531,
+              "y": 308.4643249511719,
+              "w": 991.7548217773438,
+              "h": 255.47232055664062
+            },
+            "button": {
+              "title": "今のコマを保存",
+              "aria": "今のコマを保存",
+              "disabled": false,
+              "parentClass": "transport-right",
+              "w": 28,
+              "h": 28,
+              "hasSvg": true,
+              "text": ""
+            },
+            "playLabel": "再生",
+            "visibleInteractionHandles": 0,
+            "genRects": [
+              {
+                "id": "akari-gen-tag",
+                "x": 9.987823486328125,
+                "y": 9.987823486328125,
+                "w": 133.18405151367188,
+                "h": 22.449554443359375
+              }
+            ],
+            "genVisible": [
+              "akari-gen-overlay:編集領域\n              planned · m",
+              "akari-gen-tag:planned · main-1"
+            ],
+            "captionSelectionChrome": 0,
+            "transportVisibility": "visible",
+            "dpr": 2
+          },
+          "elapsedMs": 271,
+          "windowScreenshot": "run1-01-zoom200-window.png"
+        },
+        {
+          "label": "run1-02-same-time-again",
+          "before": {
+            "htmlClass": "",
+            "stageRect": {
+              "x": -233.5,
+              "y": -72.6875,
+              "w": 1078,
+              "h": 606.375
+            },
+            "zoomLayerTransform": "matrix(2, 0, 0, 2, 0, 0)",
+            "zoomPressed": [],
+            "output": {
+              "width": 640,
+              "height": 360,
+              "fps": 30
+            },
+            "captionText": "■■■■字幕テスト■■■■",
+            "captionSelected": false,
+            "captionRectInStage": {
+              "x": 43.12263488769531,
+              "y": 308.4643249511719,
+              "w": 991.7548217773438,
+              "h": 255.47232055664062
+            },
+            "button": {
+              "title": "今のコマを保存",
+              "aria": "今のコマを保存",
+              "disabled": false,
+              "parentClass": "transport-right",
+              "w": 28,
+              "h": 28,
+              "hasSvg": true,
+              "text": ""
+            },
+            "playLabel": "再生",
+            "visibleInteractionHandles": 0,
+            "genRects": [
+              {
+                "id": "akari-gen-tag",
+                "x": 9.987823486328125,
+                "y": 9.987823486328125,
+                "w": 133.18405151367188,
+                "h": 22.449554443359375
+              }
+            ],
+            "genVisible": [
+              "akari-gen-overlay:編集領域\n              planned · m",
+              "akari-gen-tag:planned · main-1"
+            ],
+            "captionSelectionChrome": 0,
+            "transportVisibility": "visible",
+            "dpr": 2
+          },
+          "after": {
+            "htmlClass": "",
+            "stageRect": {
+              "x": -233.5,
+              "y": -72.6875,
+              "w": 1078,
+              "h": 606.375
+            },
+            "zoomLayerTransform": "matrix(2, 0, 0, 2, 0, 0)",
+            "zoomPressed": [],
+            "output": {
+              "width": 640,
+              "height": 360,
+              "fps": 30
+            },
+            "captionText": "■■■■字幕テスト■■■■",
+            "captionSelected": false,
+            "captionRectInStage": {
+              "x": 43.12263488769531,
+              "y": 308.4643249511719,
+              "w": 991.7548217773438,
+              "h": 255.47232055664062
+            },
+            "button": {
+              "title": "今のコマを保存",
+              "aria": "今のコマを保存",
+              "disabled": false,
+              "parentClass": "transport-right",
+              "w": 28,
+              "h": 28,
+              "hasSvg": true,
+              "text": ""
+            },
+            "playLabel": "再生",
+            "visibleInteractionHandles": 0,
+            "genRects": [
+              {
+                "id": "akari-gen-tag",
+                "x": 9.987823486328125,
+                "y": 9.987823486328125,
+                "w": 133.18405151367188,
+                "h": 22.449554443359375
+              }
+            ],
+            "genVisible": [
+              "akari-gen-overlay:編集領域\n              planned · m",
+              "akari-gen-tag:planned · main-1"
+            ],
+            "captionSelectionChrome": 0,
+            "transportVisibility": "visible",
+            "dpr": 2
+          },
+          "elapsedMs": 162,
+          "windowScreenshot": "run1-02-same-time-again-window.png"
+        },
+        {
+          "label": "run1-03-caption-selected",
+          "before": {
+            "htmlClass": "",
+            "stageRect": {
+              "x": 36,
+              "y": 78.90625,
+              "w": 539,
+              "h": 303.1875
+            },
+            "zoomLayerTransform": "matrix(1, 0, 0, 1, 0, 0)",
+            "zoomPressed": [],
+            "output": {
+              "width": 640,
+              "height": 360,
+              "fps": 30
+            },
+            "captionText": "■■■■字幕テスト■■■■",
+            "captionSelected": false,
+            "captionRectInStage": {
+              "x": 21.561317443847656,
+              "y": 154.23216247558594,
+              "w": 495.8774108886719,
+              "h": 127.73616027832031
+            },
+            "button": {
+              "title": "今のコマを保存",
+              "aria": "今のコマを保存",
+              "disabled": false,
+              "parentClass": "transport-right",
+              "w": 28,
+              "h": 28,
+              "hasSvg": true,
+              "text": ""
+            },
+            "playLabel": "再生",
+            "visibleInteractionHandles": 0,
+            "genRects": [
+              {
+                "id": "akari-gen-tag",
+                "x": 9.994396209716797,
+                "y": 9.994400024414062,
+                "w": 133.24327087402344,
+                "h": 22.46929931640625
+              }
+            ],
+            "genVisible": [
+              "akari-gen-overlay:編集領域\n              planned · m",
+              "akari-gen-tag:planned · main-1"
+            ],
+            "captionSelectionChrome": 2,
+            "transportVisibility": "visible",
+            "dpr": 2
+          },
+          "after": {
+            "htmlClass": "",
+            "stageRect": {
+              "x": 36,
+              "y": 78.90625,
+              "w": 539,
+              "h": 303.1875
+            },
+            "zoomLayerTransform": "matrix(1, 0, 0, 1, 0, 0)",
+            "zoomPressed": [],
+            "output": {
+              "width": 640,
+              "height": 360,
+              "fps": 30
+            },
+            "captionText": "■■■■字幕テスト■■■■",
+            "captionSelected": false,
+            "captionRectInStage": {
+              "x": 21.561317443847656,
+              "y": 154.23216247558594,
+              "w": 495.8774108886719,
+              "h": 127.73616027832031
+            },
+            "button": {
+              "title": "今のコマを保存",
+              "aria": "今のコマを保存",
+              "disabled": false,
+              "parentClass": "transport-right",
+              "w": 28,
+              "h": 28,
+              "hasSvg": true,
+              "text": ""
+            },
+            "playLabel": "再生",
+            "visibleInteractionHandles": 0,
+            "genRects": [
+              {
+                "id": "akari-gen-tag",
+                "x": 9.994396209716797,
+                "y": 9.994400024414062,
+                "w": 133.24327087402344,
+                "h": 22.46929931640625
+              }
+            ],
+            "genVisible": [
+              "akari-gen-overlay:編集領域\n              planned · m",
+              "akari-gen-tag:planned · main-1"
+            ],
+            "captionSelectionChrome": 2,
+            "transportVisibility": "visible",
+            "dpr": 2
+          },
+          "elapsedMs": 158,
+          "windowScreenshot": "run1-03-caption-selected-window.png"
+        },
+        {
+          "label": "run1-04-while-playing",
+          "before": {
+            "htmlClass": "",
+            "stageRect": {
+              "x": 36,
+              "y": 78.90625,
+              "w": 539,
+              "h": 303.1875
+            },
+            "zoomLayerTransform": "matrix(1, 0, 0, 1, 0, 0)",
+            "zoomPressed": [],
+            "output": {
+              "width": 640,
+              "height": 360,
+              "fps": 30
+            },
+            "captionText": "■■■■字幕テスト■■■■",
+            "captionSelected": false,
+            "captionRectInStage": {
+              "x": 21.561317443847656,
+              "y": 154.23216247558594,
+              "w": 495.8774108886719,
+              "h": 127.73616027832031
+            },
+            "button": {
+              "title": "今のコマを保存",
+              "aria": "今のコマを保存",
+              "disabled": false,
+              "parentClass": "transport-right",
+              "w": 28,
+              "h": 28,
+              "hasSvg": true,
+              "text": ""
+            },
+            "playLabel": "一時停止",
+            "visibleInteractionHandles": 0,
+            "genRects": [
+              {
+                "id": "akari-gen-tag",
+                "x": 9.994396209716797,
+                "y": 9.994400024414062,
+                "w": 133.24327087402344,
+                "h": 22.46929931640625
+              }
+            ],
+            "genVisible": [
+              "akari-gen-overlay:編集領域\n              planned · m",
+              "akari-gen-tag:planned · main-1"
+            ],
+            "captionSelectionChrome": 2,
+            "transportVisibility": "visible",
+            "dpr": 2
+          },
+          "after": {
+            "htmlClass": "",
+            "stageRect": {
+              "x": 36,
+              "y": 78.90625,
+              "w": 539,
+              "h": 303.1875
+            },
+            "zoomLayerTransform": "matrix(1, 0, 0, 1, 0, 0)",
+            "zoomPressed": [],
+            "output": {
+              "width": 640,
+              "height": 360,
+              "fps": 30
+            },
+            "captionText": "■■■■字幕テスト■■■■",
+            "captionSelected": false,
+            "captionRectInStage": {
+              "x": 21.561317443847656,
+              "y": 154.23216247558594,
+              "w": 495.8774108886719,
+              "h": 127.73616027832031
+            },
+            "button": {
+              "title": "今のコマを保存",
+              "aria": "今のコマを保存",
+              "disabled": false,
+              "parentClass": "transport-right",
+              "w": 28,
+              "h": 28,
+              "hasSvg": true,
+              "text": ""
+            },
+            "playLabel": "一時停止",
+            "visibleInteractionHandles": 0,
+            "genRects": [
+              {
+                "id": "akari-gen-tag",
+                "x": 9.994396209716797,
+                "y": 9.994400024414062,
+                "w": 133.24327087402344,
+                "h": 22.46929931640625
+              }
+            ],
+            "genVisible": [
+              "akari-gen-overlay:編集領域\n              planned · m",
+              "akari-gen-tag:planned · main-1"
+            ],
+            "captionSelectionChrome": 2,
+            "transportVisibility": "visible",
+            "dpr": 2
+          },
+          "elapsedMs": 284,
+          "windowScreenshot": "run1-04-while-playing-window.png"
+        }
+      ]
+    },
+    {
+      "run": 2,
+      "verdicts": [
+        {
+          "run": 2,
+          "shot": "run2-01-zoom200",
+          "added": [
+            "frame-00m00s000-4.png"
+          ],
+          "toast": [
+            "コマを保存しました: assets/captures/frame-00m00s000-4.png",
+            "コマを保存しました: assets/captures/frame-00m00s000-4.png",
+            "コマを保存しました: assets/captures/frame-00m00s000-4.png",
+            "コマを保存しました: assets/captures/frame-00m00s000-4.png"
+          ],
+          "spans": [
+            {
+              "ms": 39.60000014305115,
+              "frames": 2,
+              "fit": true
+            }
+          ],
+          "attempts": 1,
+          "captionExpected": true,
+          "flickerOk": true,
+          "failedToast": false,
+          "restoredClass": true,
+          "file": "frame-00m00s000-4.png",
+          "width": 640,
+          "height": 360,
+          "center": [
+            189,
+            121,
+            72
+          ],
+          "centerDiffersFromSource": true,
+          "yellowPixelsInCaptionBox": 31244,
+          "bluishPixels": 0,
+          "outlineYellow": 0,
+          "chipDeviating": 0,
+          "captionOk": true,
+          "leakOk": true,
+          "pass": true
+        },
+        {
+          "run": 2,
+          "shot": "run2-02-same-time-again",
+          "added": [
+            "frame-00m00s000-5.png"
+          ],
+          "toast": [
+            "コマを保存しました: assets/captures/frame-00m00s000-5.png",
+            "コマを保存しました: assets/captures/frame-00m00s000-5.png",
+            "コマを保存しました: assets/captures/frame-00m00s000-5.png",
+            "コマを保存しました: assets/captures/frame-00m00s000-5.png"
+          ],
+          "spans": [
+            {
+              "ms": 49.09999990463257,
+              "frames": 3,
+              "fit": true
+            },
+            {
+              "ms": 43.200000047683716,
+              "frames": 2,
+              "fit": true
+            }
+          ],
+          "attempts": 2,
+          "captionExpected": true,
+          "flickerOk": true,
+          "failedToast": false,
+          "restoredClass": true,
+          "file": "frame-00m00s000-5.png",
+          "width": 640,
+          "height": 360,
+          "center": [
+            189,
+            121,
+            72
+          ],
+          "centerDiffersFromSource": true,
+          "yellowPixelsInCaptionBox": 31244,
+          "bluishPixels": 0,
+          "outlineYellow": 0,
+          "chipDeviating": 0,
+          "captionOk": true,
+          "leakOk": true,
+          "pass": true
+        },
+        {
+          "run": 2,
+          "shot": "run2-03-caption-selected",
+          "added": [
+            "frame-00m00s000-6.png"
+          ],
+          "toast": [
+            "コマを保存しました: assets/captures/frame-00m00s000-6.png",
+            "コマを保存しました: assets/captures/frame-00m00s000-6.png",
+            "コマを保存しました: assets/captures/frame-00m00s000-6.png",
+            "コマを保存しました: assets/captures/frame-00m00s000-6.png"
+          ],
+          "spans": [
+            {
+              "ms": 43.09999990463257,
+              "frames": 2,
+              "fit": false
+            }
+          ],
+          "attempts": 1,
+          "captionExpected": true,
+          "flickerOk": true,
+          "failedToast": false,
+          "restoredClass": true,
+          "file": "frame-00m00s000-6.png",
+          "width": 640,
+          "height": 360,
+          "center": [
+            189,
+            121,
+            72
+          ],
+          "centerDiffersFromSource": true,
+          "yellowPixelsInCaptionBox": 31244,
+          "bluishPixels": 0,
+          "outlineYellow": 0,
+          "chipDeviating": 0,
+          "captionOk": true,
+          "leakOk": true,
+          "pass": true
+        },
+        {
+          "run": 2,
+          "shot": "run2-04-while-playing",
+          "added": [
+            "frame-00m01s800-2.png"
+          ],
+          "toast": [
+            "コマを保存しました: assets/captures/frame-00m01s800-2.png",
+            "コマを保存しました: assets/captures/frame-00m01s800-2.png",
+            "コマを保存しました: assets/captures/frame-00m01s800-2.png",
+            "コマを保存しました: assets/captures/frame-00m01s800-2.png"
+          ],
+          "spans": [
+            {
+              "ms": 54.700000047683716,
+              "frames": 3,
+              "fit": false
+            }
+          ],
+          "attempts": 1,
+          "captionExpected": true,
+          "flickerOk": true,
+          "failedToast": false,
+          "restoredClass": true,
+          "file": "frame-00m01s800-2.png",
+          "width": 640,
+          "height": 360,
+          "center": [
+            189,
+            121,
+            72
+          ],
+          "centerDiffersFromSource": true,
+          "yellowPixelsInCaptionBox": 31244,
+          "bluishPixels": 0,
+          "outlineYellow": 0,
+          "chipDeviating": 0,
+          "captionOk": true,
+          "leakOk": true,
+          "pass": true
+        }
+      ],
+      "sameTimeOk": true,
+      "playing": {
+        "before": "一時停止",
+        "after": "一時停止"
+      },
+      "genRectsAtStart": [
+        {
+          "id": "akari-gen-tag",
+          "x": 9.994396209716797,
+          "y": 9.994400024414062,
+          "w": 133.24327087402344,
+          "h": 22.46929931640625
+        }
+      ],
+      "shots": [
+        {
+          "label": "run2-01-zoom200",
+          "before": {
+            "htmlClass": "",
+            "stageRect": {
+              "x": -233.5,
+              "y": -72.6875,
+              "w": 1078,
+              "h": 606.375
+            },
+            "zoomLayerTransform": "matrix(2, 0, 0, 2, 0, 0)",
+            "zoomPressed": [],
+            "output": {
+              "width": 640,
+              "height": 360,
+              "fps": 30
+            },
+            "captionText": "■■■■字幕テスト■■■■",
+            "captionSelected": false,
+            "captionRectInStage": {
+              "x": 43.12263488769531,
+              "y": 308.4643249511719,
+              "w": 991.7548217773438,
+              "h": 255.47232055664062
+            },
+            "button": {
+              "title": "今のコマを保存",
+              "aria": "今のコマを保存",
+              "disabled": false,
+              "parentClass": "transport-right",
+              "w": 28,
+              "h": 28,
+              "hasSvg": true,
+              "text": ""
+            },
+            "playLabel": "再生",
+            "visibleInteractionHandles": 0,
+            "genRects": [
+              {
+                "id": "akari-gen-tag",
+                "x": 9.987823486328125,
+                "y": 9.987823486328125,
+                "w": 133.18405151367188,
+                "h": 22.449554443359375
+              }
+            ],
+            "genVisible": [
+              "akari-gen-overlay:編集領域\n              planned · m",
+              "akari-gen-tag:planned · main-1"
+            ],
+            "captionSelectionChrome": 0,
+            "transportVisibility": "visible",
+            "dpr": 2
+          },
+          "after": {
+            "htmlClass": "",
+            "stageRect": {
+              "x": -233.5,
+              "y": -72.6875,
+              "w": 1078,
+              "h": 606.375
+            },
+            "zoomLayerTransform": "matrix(2, 0, 0, 2, 0, 0)",
+            "zoomPressed": [],
+            "output": {
+              "width": 640,
+              "height": 360,
+              "fps": 30
+            },
+            "captionText": "■■■■字幕テスト■■■■",
+            "captionSelected": false,
+            "captionRectInStage": {
+              "x": 43.12263488769531,
+              "y": 308.4643249511719,
+              "w": 991.7548217773438,
+              "h": 255.47232055664062
+            },
+            "button": {
+              "title": "今のコマを保存",
+              "aria": "今のコマを保存",
+              "disabled": false,
+              "parentClass": "transport-right",
+              "w": 28,
+              "h": 28,
+              "hasSvg": true,
+              "text": ""
+            },
+            "playLabel": "再生",
+            "visibleInteractionHandles": 0,
+            "genRects": [
+              {
+                "id": "akari-gen-tag",
+                "x": 9.987823486328125,
+                "y": 9.987823486328125,
+                "w": 133.18405151367188,
+                "h": 22.449554443359375
+              }
+            ],
+            "genVisible": [
+              "akari-gen-overlay:編集領域\n              planned · m",
+              "akari-gen-tag:planned · main-1"
+            ],
+            "captionSelectionChrome": 0,
+            "transportVisibility": "visible",
+            "dpr": 2
+          },
+          "elapsedMs": 172,
+          "windowScreenshot": "run2-01-zoom200-window.png"
+        },
+        {
+          "label": "run2-02-same-time-again",
+          "before": {
+            "htmlClass": "",
+            "stageRect": {
+              "x": -233.5,
+              "y": -72.6875,
+              "w": 1078,
+              "h": 606.375
+            },
+            "zoomLayerTransform": "matrix(2, 0, 0, 2, 0, 0)",
+            "zoomPressed": [],
+            "output": {
+              "width": 640,
+              "height": 360,
+              "fps": 30
+            },
+            "captionText": "■■■■字幕テスト■■■■",
+            "captionSelected": false,
+            "captionRectInStage": {
+              "x": 43.12263488769531,
+              "y": 308.4643249511719,
+              "w": 991.7548217773438,
+              "h": 255.47232055664062
+            },
+            "button": {
+              "title": "今のコマを保存",
+              "aria": "今のコマを保存",
+              "disabled": false,
+              "parentClass": "transport-right",
+              "w": 28,
+              "h": 28,
+              "hasSvg": true,
+              "text": ""
+            },
+            "playLabel": "再生",
+            "visibleInteractionHandles": 0,
+            "genRects": [
+              {
+                "id": "akari-gen-tag",
+                "x": 9.987823486328125,
+                "y": 9.987823486328125,
+                "w": 133.18405151367188,
+                "h": 22.449554443359375
+              }
+            ],
+            "genVisible": [
+              "akari-gen-overlay:編集領域\n              planned · m",
+              "akari-gen-tag:planned · main-1"
+            ],
+            "captionSelectionChrome": 0,
+            "transportVisibility": "visible",
+            "dpr": 2
+          },
+          "after": {
+            "htmlClass": "",
+            "stageRect": {
+              "x": -233.5,
+              "y": -72.6875,
+              "w": 1078,
+              "h": 606.375
+            },
+            "zoomLayerTransform": "matrix(2, 0, 0, 2, 0, 0)",
+            "zoomPressed": [],
+            "output": {
+              "width": 640,
+              "height": 360,
+              "fps": 30
+            },
+            "captionText": "■■■■字幕テスト■■■■",
+            "captionSelected": false,
+            "captionRectInStage": {
+              "x": 43.12263488769531,
+              "y": 308.4643249511719,
+              "w": 991.7548217773438,
+              "h": 255.47232055664062
+            },
+            "button": {
+              "title": "今のコマを保存",
+              "aria": "今のコマを保存",
+              "disabled": false,
+              "parentClass": "transport-right",
+              "w": 28,
+              "h": 28,
+              "hasSvg": true,
+              "text": ""
+            },
+            "playLabel": "再生",
+            "visibleInteractionHandles": 0,
+            "genRects": [
+              {
+                "id": "akari-gen-tag",
+                "x": 9.987823486328125,
+                "y": 9.987823486328125,
+                "w": 133.18405151367188,
+                "h": 22.449554443359375
+              }
+            ],
+            "genVisible": [
+              "akari-gen-overlay:編集領域\n              planned · m",
+              "akari-gen-tag:planned · main-1"
+            ],
+            "captionSelectionChrome": 0,
+            "transportVisibility": "visible",
+            "dpr": 2
+          },
+          "elapsedMs": 399,
+          "windowScreenshot": "run2-02-same-time-again-window.png"
+        },
+        {
+          "label": "run2-03-caption-selected",
+          "before": {
+            "htmlClass": "",
+            "stageRect": {
+              "x": 36,
+              "y": 78.90625,
+              "w": 539,
+              "h": 303.1875
+            },
+            "zoomLayerTransform": "matrix(1, 0, 0, 1, 0, 0)",
+            "zoomPressed": [],
+            "output": {
+              "width": 640,
+              "height": 360,
+              "fps": 30
+            },
+            "captionText": "■■■■字幕テスト■■■■",
+            "captionSelected": false,
+            "captionRectInStage": {
+              "x": 21.561317443847656,
+              "y": 154.23216247558594,
+              "w": 495.8774108886719,
+              "h": 127.73616027832031
+            },
+            "button": {
+              "title": "今のコマを保存",
+              "aria": "今のコマを保存",
+              "disabled": false,
+              "parentClass": "transport-right",
+              "w": 28,
+              "h": 28,
+              "hasSvg": true,
+              "text": ""
+            },
+            "playLabel": "再生",
+            "visibleInteractionHandles": 0,
+            "genRects": [
+              {
+                "id": "akari-gen-tag",
+                "x": 9.994396209716797,
+                "y": 9.994400024414062,
+                "w": 133.24327087402344,
+                "h": 22.46929931640625
+              }
+            ],
+            "genVisible": [
+              "akari-gen-overlay:編集領域\n              planned · m",
+              "akari-gen-tag:planned · main-1"
+            ],
+            "captionSelectionChrome": 2,
+            "transportVisibility": "visible",
+            "dpr": 2
+          },
+          "after": {
+            "htmlClass": "",
+            "stageRect": {
+              "x": 36,
+              "y": 78.90625,
+              "w": 539,
+              "h": 303.1875
+            },
+            "zoomLayerTransform": "matrix(1, 0, 0, 1, 0, 0)",
+            "zoomPressed": [],
+            "output": {
+              "width": 640,
+              "height": 360,
+              "fps": 30
+            },
+            "captionText": "■■■■字幕テスト■■■■",
+            "captionSelected": false,
+            "captionRectInStage": {
+              "x": 21.561317443847656,
+              "y": 154.23216247558594,
+              "w": 495.8774108886719,
+              "h": 127.73616027832031
+            },
+            "button": {
+              "title": "今のコマを保存",
+              "aria": "今のコマを保存",
+              "disabled": false,
+              "parentClass": "transport-right",
+              "w": 28,
+              "h": 28,
+              "hasSvg": true,
+              "text": ""
+            },
+            "playLabel": "再生",
+            "visibleInteractionHandles": 0,
+            "genRects": [
+              {
+                "id": "akari-gen-tag",
+                "x": 9.994396209716797,
+                "y": 9.994400024414062,
+                "w": 133.24327087402344,
+                "h": 22.46929931640625
+              }
+            ],
+            "genVisible": [
+              "akari-gen-overlay:編集領域\n              planned · m",
+              "akari-gen-tag:planned · main-1"
+            ],
+            "captionSelectionChrome": 2,
+            "transportVisibility": "visible",
+            "dpr": 2
+          },
+          "elapsedMs": 378,
+          "windowScreenshot": "run2-03-caption-selected-window.png"
+        },
+        {
+          "label": "run2-04-while-playing",
+          "before": {
+            "htmlClass": "",
+            "stageRect": {
+              "x": 36,
+              "y": 78.90625,
+              "w": 539,
+              "h": 303.1875
+            },
+            "zoomLayerTransform": "matrix(1, 0, 0, 1, 0, 0)",
+            "zoomPressed": [],
+            "output": {
+              "width": 640,
+              "height": 360,
+              "fps": 30
+            },
+            "captionText": "■■■■字幕テスト■■■■",
+            "captionSelected": false,
+            "captionRectInStage": {
+              "x": 21.561317443847656,
+              "y": 154.23216247558594,
+              "w": 495.8774108886719,
+              "h": 127.73616027832031
+            },
+            "button": {
+              "title": "今のコマを保存",
+              "aria": "今のコマを保存",
+              "disabled": false,
+              "parentClass": "transport-right",
+              "w": 28,
+              "h": 28,
+              "hasSvg": true,
+              "text": ""
+            },
+            "playLabel": "一時停止",
+            "visibleInteractionHandles": 0,
+            "genRects": [
+              {
+                "id": "akari-gen-tag",
+                "x": 9.994396209716797,
+                "y": 9.994400024414062,
+                "w": 133.24327087402344,
+                "h": 22.46929931640625
+              }
+            ],
+            "genVisible": [
+              "akari-gen-overlay:編集領域\n              planned · m",
+              "akari-gen-tag:planned · main-1"
+            ],
+            "captionSelectionChrome": 2,
+            "transportVisibility": "visible",
+            "dpr": 2
+          },
+          "after": {
+            "htmlClass": "",
+            "stageRect": {
+              "x": 36,
+              "y": 78.90625,
+              "w": 539,
+              "h": 303.1875
+            },
+            "zoomLayerTransform": "matrix(1, 0, 0, 1, 0, 0)",
+            "zoomPressed": [],
+            "output": {
+              "width": 640,
+              "height": 360,
+              "fps": 30
+            },
+            "captionText": "■■■■字幕テスト■■■■",
+            "captionSelected": false,
+            "captionRectInStage": {
+              "x": 21.561317443847656,
+              "y": 154.23216247558594,
+              "w": 495.8774108886719,
+              "h": 127.73616027832031
+            },
+            "button": {
+              "title": "今のコマを保存",
+              "aria": "今のコマを保存",
+              "disabled": false,
+              "parentClass": "transport-right",
+              "w": 28,
+              "h": 28,
+              "hasSvg": true,
+              "text": ""
+            },
+            "playLabel": "一時停止",
+            "visibleInteractionHandles": 0,
+            "genRects": [
+              {
+                "id": "akari-gen-tag",
+                "x": 9.994396209716797,
+                "y": 9.994400024414062,
+                "w": 133.24327087402344,
+                "h": 22.46929931640625
+              }
+            ],
+            "genVisible": [
+              "akari-gen-overlay:編集領域\n              planned · m",
+              "akari-gen-tag:planned · main-1"
+            ],
+            "captionSelectionChrome": 2,
+            "transportVisibility": "visible",
+            "dpr": 2
+          },
+          "elapsedMs": 398,
+          "windowScreenshot": "run2-04-while-playing-window.png"
+        }
+      ]
+    },
+    {
+      "run": 3,
+      "verdicts": [
+        {
+          "run": 3,
+          "shot": "run3-01-zoom200",
+          "added": [
+            "frame-00m00s000-7.png"
+          ],
+          "toast": [
+            "コマを保存しました: assets/captures/frame-00m00s000-7.png",
+            "コマを保存しました: assets/captures/frame-00m00s000-7.png",
+            "コマを保存しました: assets/captures/frame-00m00s000-7.png",
+            "コマを保存しました: assets/captures/frame-00m00s000-7.png"
+          ],
+          "spans": [
+            {
+              "ms": 41,
+              "frames": 2,
+              "fit": true
+            }
+          ],
+          "attempts": 1,
+          "captionExpected": true,
+          "flickerOk": true,
+          "failedToast": false,
+          "restoredClass": true,
+          "file": "frame-00m00s000-7.png",
+          "width": 640,
+          "height": 360,
+          "center": [
+            189,
+            121,
+            72
+          ],
+          "centerDiffersFromSource": true,
+          "yellowPixelsInCaptionBox": 31244,
+          "bluishPixels": 0,
+          "outlineYellow": 0,
+          "chipDeviating": 0,
+          "captionOk": true,
+          "leakOk": true,
+          "pass": true
+        },
+        {
+          "run": 3,
+          "shot": "run3-02-same-time-again",
+          "added": [
+            "frame-00m00s000-8.png"
+          ],
+          "toast": [
+            "コマを保存しました: assets/captures/frame-00m00s000-8.png",
+            "コマを保存しました: assets/captures/frame-00m00s000-8.png",
+            "コマを保存しました: assets/captures/frame-00m00s000-8.png",
+            "コマを保存しました: assets/captures/frame-00m00s000-8.png"
+          ],
+          "spans": [
+            {
+              "ms": 49.59999990463257,
+              "frames": 3,
+              "fit": true
+            }
+          ],
+          "attempts": 1,
+          "captionExpected": true,
+          "flickerOk": true,
+          "failedToast": false,
+          "restoredClass": true,
+          "file": "frame-00m00s000-8.png",
+          "width": 640,
+          "height": 360,
+          "center": [
+            189,
+            121,
+            72
+          ],
+          "centerDiffersFromSource": true,
+          "yellowPixelsInCaptionBox": 31244,
+          "bluishPixels": 0,
+          "outlineYellow": 0,
+          "chipDeviating": 0,
+          "captionOk": true,
+          "leakOk": true,
+          "pass": true
+        },
+        {
+          "run": 3,
+          "shot": "run3-03-caption-selected",
+          "added": [
+            "frame-00m00s000-9.png"
+          ],
+          "toast": [
+            "コマを保存しました: assets/captures/frame-00m00s000-9.png",
+            "コマを保存しました: assets/captures/frame-00m00s000-9.png",
+            "コマを保存しました: assets/captures/frame-00m00s000-9.png",
+            "コマを保存しました: assets/captures/frame-00m00s000-9.png"
+          ],
+          "spans": [
+            {
+              "ms": 39.299999952316284,
+              "frames": 2,
+              "fit": false
+            }
+          ],
+          "attempts": 1,
+          "captionExpected": true,
+          "flickerOk": true,
+          "failedToast": false,
+          "restoredClass": true,
+          "file": "frame-00m00s000-9.png",
+          "width": 640,
+          "height": 360,
+          "center": [
+            189,
+            121,
+            72
+          ],
+          "centerDiffersFromSource": true,
+          "yellowPixelsInCaptionBox": 31244,
+          "bluishPixels": 0,
+          "outlineYellow": 0,
+          "chipDeviating": 0,
+          "captionOk": true,
+          "leakOk": true,
+          "pass": true
+        },
+        {
+          "run": 3,
+          "shot": "run3-04-while-playing",
+          "added": [
+            "frame-00m01s767.png"
+          ],
+          "toast": [
+            "コマを保存しました: assets/captures/frame-00m01s767.png",
+            "コマを保存しました: assets/captures/frame-00m01s767.png",
+            "コマを保存しました: assets/captures/frame-00m01s767.png",
+            "コマを保存しました: assets/captures/frame-00m01s767.png"
+          ],
+          "spans": [
+            {
+              "ms": 35.5,
+              "frames": 2,
+              "fit": false
+            }
+          ],
+          "attempts": 1,
+          "captionExpected": true,
+          "flickerOk": true,
+          "failedToast": false,
+          "restoredClass": true,
+          "file": "frame-00m01s767.png",
+          "width": 640,
+          "height": 360,
+          "center": [
+            189,
+            121,
+            72
+          ],
+          "centerDiffersFromSource": true,
+          "yellowPixelsInCaptionBox": 31244,
+          "bluishPixels": 0,
+          "outlineYellow": 0,
+          "chipDeviating": 0,
+          "captionOk": true,
+          "leakOk": true,
+          "pass": true
+        }
+      ],
+      "sameTimeOk": true,
+      "playing": {
+        "before": "一時停止",
+        "after": "一時停止"
+      },
+      "genRectsAtStart": [
+        {
+          "id": "akari-gen-tag",
+          "x": 9.994396209716797,
+          "y": 9.994400024414062,
+          "w": 133.24327087402344,
+          "h": 22.46929931640625
+        }
+      ],
+      "shots": [
+        {
+          "label": "run3-01-zoom200",
+          "before": {
+            "htmlClass": "",
+            "stageRect": {
+              "x": -233.5,
+              "y": -72.6875,
+              "w": 1078,
+              "h": 606.375
+            },
+            "zoomLayerTransform": "matrix(2, 0, 0, 2, 0, 0)",
+            "zoomPressed": [],
+            "output": {
+              "width": 640,
+              "height": 360,
+              "fps": 30
+            },
+            "captionText": "■■■■字幕テスト■■■■",
+            "captionSelected": false,
+            "captionRectInStage": {
+              "x": 43.12263488769531,
+              "y": 308.4643249511719,
+              "w": 991.7548217773438,
+              "h": 255.47232055664062
+            },
+            "button": {
+              "title": "今のコマを保存",
+              "aria": "今のコマを保存",
+              "disabled": false,
+              "parentClass": "transport-right",
+              "w": 28,
+              "h": 28,
+              "hasSvg": true,
+              "text": ""
+            },
+            "playLabel": "再生",
+            "visibleInteractionHandles": 0,
+            "genRects": [
+              {
+                "id": "akari-gen-tag",
+                "x": 9.987823486328125,
+                "y": 9.987823486328125,
+                "w": 133.18405151367188,
+                "h": 22.449554443359375
+              }
+            ],
+            "genVisible": [
+              "akari-gen-overlay:編集領域\n              planned · m",
+              "akari-gen-tag:planned · main-1"
+            ],
+            "captionSelectionChrome": 0,
+            "transportVisibility": "visible",
+            "dpr": 2
+          },
+          "after": {
+            "htmlClass": "",
+            "stageRect": {
+              "x": -233.5,
+              "y": -72.6875,
+              "w": 1078,
+              "h": 606.375
+            },
+            "zoomLayerTransform": "matrix(2, 0, 0, 2, 0, 0)",
+            "zoomPressed": [],
+            "output": {
+              "width": 640,
+              "height": 360,
+              "fps": 30
+            },
+            "captionText": "■■■■字幕テスト■■■■",
+            "captionSelected": false,
+            "captionRectInStage": {
+              "x": 43.12263488769531,
+              "y": 308.4643249511719,
+              "w": 991.7548217773438,
+              "h": 255.47232055664062
+            },
+            "button": {
+              "title": "今のコマを保存",
+              "aria": "今のコマを保存",
+              "disabled": false,
+              "parentClass": "transport-right",
+              "w": 28,
+              "h": 28,
+              "hasSvg": true,
+              "text": ""
+            },
+            "playLabel": "再生",
+            "visibleInteractionHandles": 0,
+            "genRects": [
+              {
+                "id": "akari-gen-tag",
+                "x": 9.987823486328125,
+                "y": 9.987823486328125,
+                "w": 133.18405151367188,
+                "h": 22.449554443359375
+              }
+            ],
+            "genVisible": [
+              "akari-gen-overlay:編集領域\n              planned · m",
+              "akari-gen-tag:planned · main-1"
+            ],
+            "captionSelectionChrome": 0,
+            "transportVisibility": "visible",
+            "dpr": 2
+          },
+          "elapsedMs": 153,
+          "windowScreenshot": "run3-01-zoom200-window.png"
+        },
+        {
+          "label": "run3-02-same-time-again",
+          "before": {
+            "htmlClass": "",
+            "stageRect": {
+              "x": -233.5,
+              "y": -72.6875,
+              "w": 1078,
+              "h": 606.375
+            },
+            "zoomLayerTransform": "matrix(2, 0, 0, 2, 0, 0)",
+            "zoomPressed": [],
+            "output": {
+              "width": 640,
+              "height": 360,
+              "fps": 30
+            },
+            "captionText": "■■■■字幕テスト■■■■",
+            "captionSelected": false,
+            "captionRectInStage": {
+              "x": 43.12263488769531,
+              "y": 308.4643249511719,
+              "w": 991.7548217773438,
+              "h": 255.47232055664062
+            },
+            "button": {
+              "title": "今のコマを保存",
+              "aria": "今のコマを保存",
+              "disabled": false,
+              "parentClass": "transport-right",
+              "w": 28,
+              "h": 28,
+              "hasSvg": true,
+              "text": ""
+            },
+            "playLabel": "再生",
+            "visibleInteractionHandles": 0,
+            "genRects": [
+              {
+                "id": "akari-gen-tag",
+                "x": 9.987823486328125,
+                "y": 9.987823486328125,
+                "w": 133.18405151367188,
+                "h": 22.449554443359375
+              }
+            ],
+            "genVisible": [
+              "akari-gen-overlay:編集領域\n              planned · m",
+              "akari-gen-tag:planned · main-1"
+            ],
+            "captionSelectionChrome": 0,
+            "transportVisibility": "visible",
+            "dpr": 2
+          },
+          "after": {
+            "htmlClass": "",
+            "stageRect": {
+              "x": -233.5,
+              "y": -72.6875,
+              "w": 1078,
+              "h": 606.375
+            },
+            "zoomLayerTransform": "matrix(2, 0, 0, 2, 0, 0)",
+            "zoomPressed": [],
+            "output": {
+              "width": 640,
+              "height": 360,
+              "fps": 30
+            },
+            "captionText": "■■■■字幕テスト■■■■",
+            "captionSelected": false,
+            "captionRectInStage": {
+              "x": 43.12263488769531,
+              "y": 308.4643249511719,
+              "w": 991.7548217773438,
+              "h": 255.47232055664062
+            },
+            "button": {
+              "title": "今のコマを保存",
+              "aria": "今のコマを保存",
+              "disabled": false,
+              "parentClass": "transport-right",
+              "w": 28,
+              "h": 28,
+              "hasSvg": true,
+              "text": ""
+            },
+            "playLabel": "再生",
+            "visibleInteractionHandles": 0,
+            "genRects": [
+              {
+                "id": "akari-gen-tag",
+                "x": 9.987823486328125,
+                "y": 9.987823486328125,
+                "w": 133.18405151367188,
+                "h": 22.449554443359375
+              }
+            ],
+            "genVisible": [
+              "akari-gen-overlay:編集領域\n              planned · m",
+              "akari-gen-tag:planned · main-1"
+            ],
+            "captionSelectionChrome": 0,
+            "transportVisibility": "visible",
+            "dpr": 2
+          },
+          "elapsedMs": 296,
+          "windowScreenshot": "run3-02-same-time-again-window.png"
+        },
+        {
+          "label": "run3-03-caption-selected",
+          "before": {
+            "htmlClass": "",
+            "stageRect": {
+              "x": 36,
+              "y": 78.90625,
+              "w": 539,
+              "h": 303.1875
+            },
+            "zoomLayerTransform": "matrix(1, 0, 0, 1, 0, 0)",
+            "zoomPressed": [],
+            "output": {
+              "width": 640,
+              "height": 360,
+              "fps": 30
+            },
+            "captionText": "■■■■字幕テスト■■■■",
+            "captionSelected": false,
+            "captionRectInStage": {
+              "x": 21.561317443847656,
+              "y": 154.23216247558594,
+              "w": 495.8774108886719,
+              "h": 127.73616027832031
+            },
+            "button": {
+              "title": "今のコマを保存",
+              "aria": "今のコマを保存",
+              "disabled": false,
+              "parentClass": "transport-right",
+              "w": 28,
+              "h": 28,
+              "hasSvg": true,
+              "text": ""
+            },
+            "playLabel": "再生",
+            "visibleInteractionHandles": 0,
+            "genRects": [
+              {
+                "id": "akari-gen-tag",
+                "x": 9.994396209716797,
+                "y": 9.994400024414062,
+                "w": 133.24327087402344,
+                "h": 22.46929931640625
+              }
+            ],
+            "genVisible": [
+              "akari-gen-overlay:編集領域\n              planned · m",
+              "akari-gen-tag:planned · main-1"
+            ],
+            "captionSelectionChrome": 2,
+            "transportVisibility": "visible",
+            "dpr": 2
+          },
+          "after": {
+            "htmlClass": "",
+            "stageRect": {
+              "x": 36,
+              "y": 78.90625,
+              "w": 539,
+              "h": 303.1875
+            },
+            "zoomLayerTransform": "matrix(1, 0, 0, 1, 0, 0)",
+            "zoomPressed": [],
+            "output": {
+              "width": 640,
+              "height": 360,
+              "fps": 30
+            },
+            "captionText": "■■■■字幕テスト■■■■",
+            "captionSelected": false,
+            "captionRectInStage": {
+              "x": 21.561317443847656,
+              "y": 154.23216247558594,
+              "w": 495.8774108886719,
+              "h": 127.73616027832031
+            },
+            "button": {
+              "title": "今のコマを保存",
+              "aria": "今のコマを保存",
+              "disabled": false,
+              "parentClass": "transport-right",
+              "w": 28,
+              "h": 28,
+              "hasSvg": true,
+              "text": ""
+            },
+            "playLabel": "再生",
+            "visibleInteractionHandles": 0,
+            "genRects": [
+              {
+                "id": "akari-gen-tag",
+                "x": 9.994396209716797,
+                "y": 9.994400024414062,
+                "w": 133.24327087402344,
+                "h": 22.46929931640625
+              }
+            ],
+            "genVisible": [
+              "akari-gen-overlay:編集領域\n              planned · m",
+              "akari-gen-tag:planned · main-1"
+            ],
+            "captionSelectionChrome": 2,
+            "transportVisibility": "visible",
+            "dpr": 2
+          },
+          "elapsedMs": 359,
+          "windowScreenshot": "run3-03-caption-selected-window.png"
+        },
+        {
+          "label": "run3-04-while-playing",
+          "before": {
+            "htmlClass": "",
+            "stageRect": {
+              "x": 36,
+              "y": 78.90625,
+              "w": 539,
+              "h": 303.1875
+            },
+            "zoomLayerTransform": "matrix(1, 0, 0, 1, 0, 0)",
+            "zoomPressed": [],
+            "output": {
+              "width": 640,
+              "height": 360,
+              "fps": 30
+            },
+            "captionText": "■■■■字幕テスト■■■■",
+            "captionSelected": false,
+            "captionRectInStage": {
+              "x": 21.561317443847656,
+              "y": 154.23216247558594,
+              "w": 495.8774108886719,
+              "h": 127.73616027832031
+            },
+            "button": {
+              "title": "今のコマを保存",
+              "aria": "今のコマを保存",
+              "disabled": false,
+              "parentClass": "transport-right",
+              "w": 28,
+              "h": 28,
+              "hasSvg": true,
+              "text": ""
+            },
+            "playLabel": "一時停止",
+            "visibleInteractionHandles": 0,
+            "genRects": [
+              {
+                "id": "akari-gen-tag",
+                "x": 9.994396209716797,
+                "y": 9.994400024414062,
+                "w": 133.24327087402344,
+                "h": 22.46929931640625
+              }
+            ],
+            "genVisible": [
+              "akari-gen-overlay:編集領域\n              planned · m",
+              "akari-gen-tag:planned · main-1"
+            ],
+            "captionSelectionChrome": 2,
+            "transportVisibility": "visible",
+            "dpr": 2
+          },
+          "after": {
+            "htmlClass": "",
+            "stageRect": {
+              "x": 36,
+              "y": 78.90625,
+              "w": 539,
+              "h": 303.1875
+            },
+            "zoomLayerTransform": "matrix(1, 0, 0, 1, 0, 0)",
+            "zoomPressed": [],
+            "output": {
+              "width": 640,
+              "height": 360,
+              "fps": 30
+            },
+            "captionText": "■■■■字幕テスト■■■■",
+            "captionSelected": false,
+            "captionRectInStage": {
+              "x": 21.561317443847656,
+              "y": 154.23216247558594,
+              "w": 495.8774108886719,
+              "h": 127.73616027832031
+            },
+            "button": {
+              "title": "今のコマを保存",
+              "aria": "今のコマを保存",
+              "disabled": false,
+              "parentClass": "transport-right",
+              "w": 28,
+              "h": 28,
+              "hasSvg": true,
+              "text": ""
+            },
+            "playLabel": "一時停止",
+            "visibleInteractionHandles": 0,
+            "genRects": [
+              {
+                "id": "akari-gen-tag",
+                "x": 9.994396209716797,
+                "y": 9.994400024414062,
+                "w": 133.24327087402344,
+                "h": 22.46929931640625
+              }
+            ],
+            "genVisible": [
+              "akari-gen-overlay:編集領域\n              planned · m",
+              "akari-gen-tag:planned · main-1"
+            ],
+            "captionSelectionChrome": 2,
+            "transportVisibility": "visible",
+            "dpr": 2
+          },
+          "elapsedMs": 367,
+          "windowScreenshot": "run3-04-while-playing-window.png"
+        }
+      ]
+    },
+    {
+      "run": 4,
+      "verdicts": [
+        {
+          "run": 4,
+          "shot": "run4-01-zoom200",
+          "added": [
+            "frame-00m00s000-10.png"
+          ],
+          "toast": [
+            "コマを保存しました: assets/captures/frame-00m00s000-10.png",
+            "コマを保存しました: assets/captures/frame-00m00s000-10.png",
+            "コマを保存しました: assets/captures/frame-00m00s000-10.png",
+            "コマを保存しました: assets/captures/frame-00m00s000-10.png"
+          ],
+          "spans": [
+            {
+              "ms": 51,
+              "frames": 3,
+              "fit": true
+            }
+          ],
+          "attempts": 1,
+          "captionExpected": true,
+          "flickerOk": true,
+          "failedToast": false,
+          "restoredClass": true,
+          "file": "frame-00m00s000-10.png",
+          "width": 640,
+          "height": 360,
+          "center": [
+            189,
+            121,
+            72
+          ],
+          "centerDiffersFromSource": true,
+          "yellowPixelsInCaptionBox": 31244,
+          "bluishPixels": 0,
+          "outlineYellow": 0,
+          "chipDeviating": 0,
+          "captionOk": true,
+          "leakOk": true,
+          "pass": true
+        },
+        {
+          "run": 4,
+          "shot": "run4-02-same-time-again",
+          "added": [
+            "frame-00m00s000-11.png"
+          ],
+          "toast": [
+            "コマを保存しました: assets/captures/frame-00m00s000-11.png",
+            "コマを保存しました: assets/captures/frame-00m00s000-11.png",
+            "コマを保存しました: assets/captures/frame-00m00s000-11.png",
+            "コマを保存しました: assets/captures/frame-00m00s000-11.png"
+          ],
+          "spans": [
+            {
+              "ms": 39.90000009536743,
+              "frames": 2,
+              "fit": true
+            }
+          ],
+          "attempts": 1,
+          "captionExpected": true,
+          "flickerOk": true,
+          "failedToast": false,
+          "restoredClass": true,
+          "file": "frame-00m00s000-11.png",
+          "width": 640,
+          "height": 360,
+          "center": [
+            189,
+            121,
+            72
+          ],
+          "centerDiffersFromSource": true,
+          "yellowPixelsInCaptionBox": 31244,
+          "bluishPixels": 0,
+          "outlineYellow": 0,
+          "chipDeviating": 0,
+          "captionOk": true,
+          "leakOk": true,
+          "pass": true
+        },
+        {
+          "run": 4,
+          "shot": "run4-03-caption-selected",
+          "added": [
+            "frame-00m00s000-12.png"
+          ],
+          "toast": [
+            "コマを保存しました: assets/captures/frame-00m00s000-12.png",
+            "コマを保存しました: assets/captures/frame-00m00s000-12.png",
+            "コマを保存しました: assets/captures/frame-00m00s000-12.png",
+            "コマを保存しました: assets/captures/frame-00m00s000-12.png"
+          ],
+          "spans": [
+            {
+              "ms": 39.59999990463257,
+              "frames": 2,
+              "fit": false
+            }
+          ],
+          "attempts": 1,
+          "captionExpected": true,
+          "flickerOk": true,
+          "failedToast": false,
+          "restoredClass": true,
+          "file": "frame-00m00s000-12.png",
+          "width": 640,
+          "height": 360,
+          "center": [
+            189,
+            121,
+            72
+          ],
+          "centerDiffersFromSource": true,
+          "yellowPixelsInCaptionBox": 31244,
+          "bluishPixels": 0,
+          "outlineYellow": 0,
+          "chipDeviating": 0,
+          "captionOk": true,
+          "leakOk": true,
+          "pass": true
+        },
+        {
+          "run": 4,
+          "shot": "run4-04-while-playing",
+          "added": [
+            "frame-00m01s767-2.png"
+          ],
+          "toast": [
+            "コマを保存しました: assets/captures/frame-00m01s767-2.png",
+            "コマを保存しました: assets/captures/frame-00m01s767-2.png",
+            "コマを保存しました: assets/captures/frame-00m01s767-2.png",
+            "コマを保存しました: assets/captures/frame-00m01s767-2.png"
+          ],
+          "spans": [
+            {
+              "ms": 36.700000047683716,
+              "frames": 2,
+              "fit": false
+            }
+          ],
+          "attempts": 1,
+          "captionExpected": true,
+          "flickerOk": true,
+          "failedToast": false,
+          "restoredClass": true,
+          "file": "frame-00m01s767-2.png",
+          "width": 640,
+          "height": 360,
+          "center": [
+            189,
+            121,
+            72
+          ],
+          "centerDiffersFromSource": true,
+          "yellowPixelsInCaptionBox": 31244,
+          "bluishPixels": 0,
+          "outlineYellow": 0,
+          "chipDeviating": 0,
+          "captionOk": true,
+          "leakOk": true,
+          "pass": true
+        }
+      ],
+      "sameTimeOk": true,
+      "playing": {
+        "before": "一時停止",
+        "after": "一時停止"
+      },
+      "genRectsAtStart": [
+        {
+          "id": "akari-gen-tag",
+          "x": 9.994396209716797,
+          "y": 9.994400024414062,
+          "w": 133.24327087402344,
+          "h": 22.46929931640625
+        }
+      ],
+      "shots": [
+        {
+          "label": "run4-01-zoom200",
+          "before": {
+            "htmlClass": "",
+            "stageRect": {
+              "x": -233.5,
+              "y": -72.6875,
+              "w": 1078,
+              "h": 606.375
+            },
+            "zoomLayerTransform": "matrix(2, 0, 0, 2, 0, 0)",
+            "zoomPressed": [],
+            "output": {
+              "width": 640,
+              "height": 360,
+              "fps": 30
+            },
+            "captionText": "■■■■字幕テスト■■■■",
+            "captionSelected": false,
+            "captionRectInStage": {
+              "x": 43.12263488769531,
+              "y": 308.4643249511719,
+              "w": 991.7548217773438,
+              "h": 255.47232055664062
+            },
+            "button": {
+              "title": "今のコマを保存",
+              "aria": "今のコマを保存",
+              "disabled": false,
+              "parentClass": "transport-right",
+              "w": 28,
+              "h": 28,
+              "hasSvg": true,
+              "text": ""
+            },
+            "playLabel": "再生",
+            "visibleInteractionHandles": 0,
+            "genRects": [
+              {
+                "id": "akari-gen-tag",
+                "x": 9.987823486328125,
+                "y": 9.987823486328125,
+                "w": 133.18405151367188,
+                "h": 22.449554443359375
+              }
+            ],
+            "genVisible": [
+              "akari-gen-overlay:編集領域\n              planned · m",
+              "akari-gen-tag:planned · main-1"
+            ],
+            "captionSelectionChrome": 0,
+            "transportVisibility": "visible",
+            "dpr": 2
+          },
+          "after": {
+            "htmlClass": "",
+            "stageRect": {
+              "x": -233.5,
+              "y": -72.6875,
+              "w": 1078,
+              "h": 606.375
+            },
+            "zoomLayerTransform": "matrix(2, 0, 0, 2, 0, 0)",
+            "zoomPressed": [],
+            "output": {
+              "width": 640,
+              "height": 360,
+              "fps": 30
+            },
+            "captionText": "■■■■字幕テスト■■■■",
+            "captionSelected": false,
+            "captionRectInStage": {
+              "x": 43.12263488769531,
+              "y": 308.4643249511719,
+              "w": 991.7548217773438,
+              "h": 255.47232055664062
+            },
+            "button": {
+              "title": "今のコマを保存",
+              "aria": "今のコマを保存",
+              "disabled": false,
+              "parentClass": "transport-right",
+              "w": 28,
+              "h": 28,
+              "hasSvg": true,
+              "text": ""
+            },
+            "playLabel": "再生",
+            "visibleInteractionHandles": 0,
+            "genRects": [
+              {
+                "id": "akari-gen-tag",
+                "x": 9.987823486328125,
+                "y": 9.987823486328125,
+                "w": 133.18405151367188,
+                "h": 22.449554443359375
+              }
+            ],
+            "genVisible": [
+              "akari-gen-overlay:編集領域\n              planned · m",
+              "akari-gen-tag:planned · main-1"
+            ],
+            "captionSelectionChrome": 0,
+            "transportVisibility": "visible",
+            "dpr": 2
+          },
+          "elapsedMs": 310,
+          "windowScreenshot": "run4-01-zoom200-window.png"
+        },
+        {
+          "label": "run4-02-same-time-again",
+          "before": {
+            "htmlClass": "",
+            "stageRect": {
+              "x": -233.5,
+              "y": -72.6875,
+              "w": 1078,
+              "h": 606.375
+            },
+            "zoomLayerTransform": "matrix(2, 0, 0, 2, 0, 0)",
+            "zoomPressed": [],
+            "output": {
+              "width": 640,
+              "height": 360,
+              "fps": 30
+            },
+            "captionText": "■■■■字幕テスト■■■■",
+            "captionSelected": false,
+            "captionRectInStage": {
+              "x": 43.12263488769531,
+              "y": 308.4643249511719,
+              "w": 991.7548217773438,
+              "h": 255.47232055664062
+            },
+            "button": {
+              "title": "今のコマを保存",
+              "aria": "今のコマを保存",
+              "disabled": false,
+              "parentClass": "transport-right",
+              "w": 28,
+              "h": 28,
+              "hasSvg": true,
+              "text": ""
+            },
+            "playLabel": "再生",
+            "visibleInteractionHandles": 0,
+            "genRects": [
+              {
+                "id": "akari-gen-tag",
+                "x": 9.987823486328125,
+                "y": 9.987823486328125,
+                "w": 133.18405151367188,
+                "h": 22.449554443359375
+              }
+            ],
+            "genVisible": [
+              "akari-gen-overlay:編集領域\n              planned · m",
+              "akari-gen-tag:planned · main-1"
+            ],
+            "captionSelectionChrome": 0,
+            "transportVisibility": "visible",
+            "dpr": 2
+          },
+          "after": {
+            "htmlClass": "",
+            "stageRect": {
+              "x": -233.5,
+              "y": -72.6875,
+              "w": 1078,
+              "h": 606.375
+            },
+            "zoomLayerTransform": "matrix(2, 0, 0, 2, 0, 0)",
+            "zoomPressed": [],
+            "output": {
+              "width": 640,
+              "height": 360,
+              "fps": 30
+            },
+            "captionText": "■■■■字幕テスト■■■■",
+            "captionSelected": false,
+            "captionRectInStage": {
+              "x": 43.12263488769531,
+              "y": 308.4643249511719,
+              "w": 991.7548217773438,
+              "h": 255.47232055664062
+            },
+            "button": {
+              "title": "今のコマを保存",
+              "aria": "今のコマを保存",
+              "disabled": false,
+              "parentClass": "transport-right",
+              "w": 28,
+              "h": 28,
+              "hasSvg": true,
+              "text": ""
+            },
+            "playLabel": "再生",
+            "visibleInteractionHandles": 0,
+            "genRects": [
+              {
+                "id": "akari-gen-tag",
+                "x": 9.987823486328125,
+                "y": 9.987823486328125,
+                "w": 133.18405151367188,
+                "h": 22.449554443359375
+              }
+            ],
+            "genVisible": [
+              "akari-gen-overlay:編集領域\n              planned · m",
+              "akari-gen-tag:planned · main-1"
+            ],
+            "captionSelectionChrome": 0,
+            "transportVisibility": "visible",
+            "dpr": 2
+          },
+          "elapsedMs": 153,
+          "windowScreenshot": "run4-02-same-time-again-window.png"
+        },
+        {
+          "label": "run4-03-caption-selected",
+          "before": {
+            "htmlClass": "",
+            "stageRect": {
+              "x": 36,
+              "y": 78.90625,
+              "w": 539,
+              "h": 303.1875
+            },
+            "zoomLayerTransform": "matrix(1, 0, 0, 1, 0, 0)",
+            "zoomPressed": [],
+            "output": {
+              "width": 640,
+              "height": 360,
+              "fps": 30
+            },
+            "captionText": "■■■■字幕テスト■■■■",
+            "captionSelected": false,
+            "captionRectInStage": {
+              "x": 21.561317443847656,
+              "y": 154.23216247558594,
+              "w": 495.8774108886719,
+              "h": 127.73616027832031
+            },
+            "button": {
+              "title": "今のコマを保存",
+              "aria": "今のコマを保存",
+              "disabled": false,
+              "parentClass": "transport-right",
+              "w": 28,
+              "h": 28,
+              "hasSvg": true,
+              "text": ""
+            },
+            "playLabel": "再生",
+            "visibleInteractionHandles": 0,
+            "genRects": [
+              {
+                "id": "akari-gen-tag",
+                "x": 9.994396209716797,
+                "y": 9.994400024414062,
+                "w": 133.24327087402344,
+                "h": 22.46929931640625
+              }
+            ],
+            "genVisible": [
+              "akari-gen-overlay:編集領域\n              planned · m",
+              "akari-gen-tag:planned · main-1"
+            ],
+            "captionSelectionChrome": 2,
+            "transportVisibility": "visible",
+            "dpr": 2
+          },
+          "after": {
+            "htmlClass": "",
+            "stageRect": {
+              "x": 36,
+              "y": 78.90625,
+              "w": 539,
+              "h": 303.1875
+            },
+            "zoomLayerTransform": "matrix(1, 0, 0, 1, 0, 0)",
+            "zoomPressed": [],
+            "output": {
+              "width": 640,
+              "height": 360,
+              "fps": 30
+            },
+            "captionText": "■■■■字幕テスト■■■■",
+            "captionSelected": false,
+            "captionRectInStage": {
+              "x": 21.561317443847656,
+              "y": 154.23216247558594,
+              "w": 495.8774108886719,
+              "h": 127.73616027832031
+            },
+            "button": {
+              "title": "今のコマを保存",
+              "aria": "今のコマを保存",
+              "disabled": false,
+              "parentClass": "transport-right",
+              "w": 28,
+              "h": 28,
+              "hasSvg": true,
+              "text": ""
+            },
+            "playLabel": "再生",
+            "visibleInteractionHandles": 0,
+            "genRects": [
+              {
+                "id": "akari-gen-tag",
+                "x": 9.994396209716797,
+                "y": 9.994400024414062,
+                "w": 133.24327087402344,
+                "h": 22.46929931640625
+              }
+            ],
+            "genVisible": [
+              "akari-gen-overlay:編集領域\n              planned · m",
+              "akari-gen-tag:planned · main-1"
+            ],
+            "captionSelectionChrome": 2,
+            "transportVisibility": "visible",
+            "dpr": 2
+          },
+          "elapsedMs": 160,
+          "windowScreenshot": "run4-03-caption-selected-window.png"
+        },
+        {
+          "label": "run4-04-while-playing",
+          "before": {
+            "htmlClass": "",
+            "stageRect": {
+              "x": 36,
+              "y": 78.90625,
+              "w": 539,
+              "h": 303.1875
+            },
+            "zoomLayerTransform": "matrix(1, 0, 0, 1, 0, 0)",
+            "zoomPressed": [],
+            "output": {
+              "width": 640,
+              "height": 360,
+              "fps": 30
+            },
+            "captionText": "■■■■字幕テスト■■■■",
+            "captionSelected": false,
+            "captionRectInStage": {
+              "x": 21.561317443847656,
+              "y": 154.23216247558594,
+              "w": 495.8774108886719,
+              "h": 127.73616027832031
+            },
+            "button": {
+              "title": "今のコマを保存",
+              "aria": "今のコマを保存",
+              "disabled": false,
+              "parentClass": "transport-right",
+              "w": 28,
+              "h": 28,
+              "hasSvg": true,
+              "text": ""
+            },
+            "playLabel": "一時停止",
+            "visibleInteractionHandles": 0,
+            "genRects": [
+              {
+                "id": "akari-gen-tag",
+                "x": 9.994396209716797,
+                "y": 9.994400024414062,
+                "w": 133.24327087402344,
+                "h": 22.46929931640625
+              }
+            ],
+            "genVisible": [
+              "akari-gen-overlay:編集領域\n              planned · m",
+              "akari-gen-tag:planned · main-1"
+            ],
+            "captionSelectionChrome": 2,
+            "transportVisibility": "visible",
+            "dpr": 2
+          },
+          "after": {
+            "htmlClass": "",
+            "stageRect": {
+              "x": 36,
+              "y": 78.90625,
+              "w": 539,
+              "h": 303.1875
+            },
+            "zoomLayerTransform": "matrix(1, 0, 0, 1, 0, 0)",
+            "zoomPressed": [],
+            "output": {
+              "width": 640,
+              "height": 360,
+              "fps": 30
+            },
+            "captionText": "■■■■字幕テスト■■■■",
+            "captionSelected": false,
+            "captionRectInStage": {
+              "x": 21.561317443847656,
+              "y": 154.23216247558594,
+              "w": 495.8774108886719,
+              "h": 127.73616027832031
+            },
+            "button": {
+              "title": "今のコマを保存",
+              "aria": "今のコマを保存",
+              "disabled": false,
+              "parentClass": "transport-right",
+              "w": 28,
+              "h": 28,
+              "hasSvg": true,
+              "text": ""
+            },
+            "playLabel": "一時停止",
+            "visibleInteractionHandles": 0,
+            "genRects": [
+              {
+                "id": "akari-gen-tag",
+                "x": 9.994396209716797,
+                "y": 9.994400024414062,
+                "w": 133.24327087402344,
+                "h": 22.46929931640625
+              }
+            ],
+            "genVisible": [
+              "akari-gen-overlay:編集領域\n              planned · m",
+              "akari-gen-tag:planned · main-1"
+            ],
+            "captionSelectionChrome": 2,
+            "transportVisibility": "visible",
+            "dpr": 2
+          },
+          "elapsedMs": 161,
+          "windowScreenshot": "run4-04-while-playing-window.png"
+        }
+      ]
+    },
+    {
+      "run": 5,
+      "verdicts": [
+        {
+          "run": 5,
+          "shot": "run5-01-zoom200",
+          "added": [
+            "frame-00m00s000-13.png"
+          ],
+          "toast": [
+            "コマを保存しました: assets/captures/frame-00m00s000-13.png",
+            "コマを保存しました: assets/captures/frame-00m00s000-13.png",
+            "コマを保存しました: assets/captures/frame-00m00s000-13.png",
+            "コマを保存しました: assets/captures/frame-00m00s000-13.png"
+          ],
+          "spans": [
+            {
+              "ms": 40,
+              "frames": 2,
+              "fit": true
+            }
+          ],
+          "attempts": 1,
+          "captionExpected": true,
+          "flickerOk": true,
+          "failedToast": false,
+          "restoredClass": true,
+          "file": "frame-00m00s000-13.png",
+          "width": 640,
+          "height": 360,
+          "center": [
+            189,
+            121,
+            72
+          ],
+          "centerDiffersFromSource": true,
+          "yellowPixelsInCaptionBox": 31244,
+          "bluishPixels": 0,
+          "outlineYellow": 0,
+          "chipDeviating": 0,
+          "captionOk": true,
+          "leakOk": true,
+          "pass": true
+        },
+        {
+          "run": 5,
+          "shot": "run5-02-same-time-again",
+          "added": [
+            "frame-00m00s000-14.png"
+          ],
+          "toast": [
+            "コマを保存しました: assets/captures/frame-00m00s000-14.png",
+            "コマを保存しました: assets/captures/frame-00m00s000-14.png",
+            "コマを保存しました: assets/captures/frame-00m00s000-14.png",
+            "コマを保存しました: assets/captures/frame-00m00s000-14.png"
+          ],
+          "spans": [
+            {
+              "ms": 39.60000014305115,
+              "frames": 2,
+              "fit": true
+            }
+          ],
+          "attempts": 1,
+          "captionExpected": true,
+          "flickerOk": true,
+          "failedToast": false,
+          "restoredClass": true,
+          "file": "frame-00m00s000-14.png",
+          "width": 640,
+          "height": 360,
+          "center": [
+            189,
+            121,
+            72
+          ],
+          "centerDiffersFromSource": true,
+          "yellowPixelsInCaptionBox": 31244,
+          "bluishPixels": 0,
+          "outlineYellow": 0,
+          "chipDeviating": 0,
+          "captionOk": true,
+          "leakOk": true,
+          "pass": true
+        },
+        {
+          "run": 5,
+          "shot": "run5-03-caption-selected",
+          "added": [
+            "frame-00m00s000-15.png"
+          ],
+          "toast": [
+            "コマを保存しました: assets/captures/frame-00m00s000-15.png",
+            "コマを保存しました: assets/captures/frame-00m00s000-15.png",
+            "コマを保存しました: assets/captures/frame-00m00s000-15.png",
+            "コマを保存しました: assets/captures/frame-00m00s000-15.png"
+          ],
+          "spans": [
+            {
+              "ms": 39.799999952316284,
+              "frames": 2,
+              "fit": false
+            }
+          ],
+          "attempts": 1,
+          "captionExpected": true,
+          "flickerOk": true,
+          "failedToast": false,
+          "restoredClass": true,
+          "file": "frame-00m00s000-15.png",
+          "width": 640,
+          "height": 360,
+          "center": [
+            189,
+            121,
+            72
+          ],
+          "centerDiffersFromSource": true,
+          "yellowPixelsInCaptionBox": 31244,
+          "bluishPixels": 0,
+          "outlineYellow": 0,
+          "chipDeviating": 0,
+          "captionOk": true,
+          "leakOk": true,
+          "pass": true
+        },
+        {
+          "run": 5,
+          "shot": "run5-04-while-playing",
+          "added": [
+            "frame-00m01s767-3.png"
+          ],
+          "toast": [
+            "コマを保存しました: assets/captures/frame-00m01s767-3.png",
+            "コマを保存しました: assets/captures/frame-00m01s767-3.png",
+            "コマを保存しました: assets/captures/frame-00m01s767-3.png",
+            "コマを保存しました: assets/captures/frame-00m01s767-3.png"
+          ],
+          "spans": [
+            {
+              "ms": 37.39999985694885,
+              "frames": 2,
+              "fit": false
+            }
+          ],
+          "attempts": 1,
+          "captionExpected": true,
+          "flickerOk": true,
+          "failedToast": false,
+          "restoredClass": true,
+          "file": "frame-00m01s767-3.png",
+          "width": 640,
+          "height": 360,
+          "center": [
+            189,
+            121,
+            72
+          ],
+          "centerDiffersFromSource": true,
+          "yellowPixelsInCaptionBox": 31244,
+          "bluishPixels": 0,
+          "outlineYellow": 0,
+          "chipDeviating": 0,
+          "captionOk": true,
+          "leakOk": true,
+          "pass": true
+        }
+      ],
+      "sameTimeOk": true,
+      "playing": {
+        "before": "一時停止",
+        "after": "一時停止"
+      },
+      "genRectsAtStart": [
+        {
+          "id": "akari-gen-tag",
+          "x": 9.994396209716797,
+          "y": 9.994400024414062,
+          "w": 133.24327087402344,
+          "h": 22.46929931640625
+        }
+      ],
+      "shots": [
+        {
+          "label": "run5-01-zoom200",
+          "before": {
+            "htmlClass": "",
+            "stageRect": {
+              "x": -233.5,
+              "y": -72.6875,
+              "w": 1078,
+              "h": 606.375
+            },
+            "zoomLayerTransform": "matrix(2, 0, 0, 2, 0, 0)",
+            "zoomPressed": [],
+            "output": {
+              "width": 640,
+              "height": 360,
+              "fps": 30
+            },
+            "captionText": "■■■■字幕テスト■■■■",
+            "captionSelected": false,
+            "captionRectInStage": {
+              "x": 43.12263488769531,
+              "y": 308.4643249511719,
+              "w": 991.7548217773438,
+              "h": 255.47232055664062
+            },
+            "button": {
+              "title": "今のコマを保存",
+              "aria": "今のコマを保存",
+              "disabled": false,
+              "parentClass": "transport-right",
+              "w": 28,
+              "h": 28,
+              "hasSvg": true,
+              "text": ""
+            },
+            "playLabel": "再生",
+            "visibleInteractionHandles": 0,
+            "genRects": [
+              {
+                "id": "akari-gen-tag",
+                "x": 9.987823486328125,
+                "y": 9.987823486328125,
+                "w": 133.18405151367188,
+                "h": 22.449554443359375
+              }
+            ],
+            "genVisible": [
+              "akari-gen-overlay:編集領域\n              planned · m",
+              "akari-gen-tag:planned · main-1"
+            ],
+            "captionSelectionChrome": 0,
+            "transportVisibility": "visible",
+            "dpr": 2
+          },
+          "after": {
+            "htmlClass": "",
+            "stageRect": {
+              "x": -233.5,
+              "y": -72.6875,
+              "w": 1078,
+              "h": 606.375
+            },
+            "zoomLayerTransform": "matrix(2, 0, 0, 2, 0, 0)",
+            "zoomPressed": [],
+            "output": {
+              "width": 640,
+              "height": 360,
+              "fps": 30
+            },
+            "captionText": "■■■■字幕テスト■■■■",
+            "captionSelected": false,
+            "captionRectInStage": {
+              "x": 43.12263488769531,
+              "y": 308.4643249511719,
+              "w": 991.7548217773438,
+              "h": 255.47232055664062
+            },
+            "button": {
+              "title": "今のコマを保存",
+              "aria": "今のコマを保存",
+              "disabled": false,
+              "parentClass": "transport-right",
+              "w": 28,
+              "h": 28,
+              "hasSvg": true,
+              "text": ""
+            },
+            "playLabel": "再生",
+            "visibleInteractionHandles": 0,
+            "genRects": [
+              {
+                "id": "akari-gen-tag",
+                "x": 9.987823486328125,
+                "y": 9.987823486328125,
+                "w": 133.18405151367188,
+                "h": 22.449554443359375
+              }
+            ],
+            "genVisible": [
+              "akari-gen-overlay:編集領域\n              planned · m",
+              "akari-gen-tag:planned · main-1"
+            ],
+            "captionSelectionChrome": 0,
+            "transportVisibility": "visible",
+            "dpr": 2
+          },
+          "elapsedMs": 164,
+          "windowScreenshot": "run5-01-zoom200-window.png"
+        },
+        {
+          "label": "run5-02-same-time-again",
+          "before": {
+            "htmlClass": "",
+            "stageRect": {
+              "x": -233.5,
+              "y": -72.6875,
+              "w": 1078,
+              "h": 606.375
+            },
+            "zoomLayerTransform": "matrix(2, 0, 0, 2, 0, 0)",
+            "zoomPressed": [],
+            "output": {
+              "width": 640,
+              "height": 360,
+              "fps": 30
+            },
+            "captionText": "■■■■字幕テスト■■■■",
+            "captionSelected": false,
+            "captionRectInStage": {
+              "x": 43.12263488769531,
+              "y": 308.4643249511719,
+              "w": 991.7548217773438,
+              "h": 255.47232055664062
+            },
+            "button": {
+              "title": "今のコマを保存",
+              "aria": "今のコマを保存",
+              "disabled": false,
+              "parentClass": "transport-right",
+              "w": 28,
+              "h": 28,
+              "hasSvg": true,
+              "text": ""
+            },
+            "playLabel": "再生",
+            "visibleInteractionHandles": 0,
+            "genRects": [
+              {
+                "id": "akari-gen-tag",
+                "x": 9.987823486328125,
+                "y": 9.987823486328125,
+                "w": 133.18405151367188,
+                "h": 22.449554443359375
+              }
+            ],
+            "genVisible": [
+              "akari-gen-overlay:編集領域\n              planned · m",
+              "akari-gen-tag:planned · main-1"
+            ],
+            "captionSelectionChrome": 0,
+            "transportVisibility": "visible",
+            "dpr": 2
+          },
+          "after": {
+            "htmlClass": "",
+            "stageRect": {
+              "x": -233.5,
+              "y": -72.6875,
+              "w": 1078,
+              "h": 606.375
+            },
+            "zoomLayerTransform": "matrix(2, 0, 0, 2, 0, 0)",
+            "zoomPressed": [],
+            "output": {
+              "width": 640,
+              "height": 360,
+              "fps": 30
+            },
+            "captionText": "■■■■字幕テスト■■■■",
+            "captionSelected": false,
+            "captionRectInStage": {
+              "x": 43.12263488769531,
+              "y": 308.4643249511719,
+              "w": 991.7548217773438,
+              "h": 255.47232055664062
+            },
+            "button": {
+              "title": "今のコマを保存",
+              "aria": "今のコマを保存",
+              "disabled": false,
+              "parentClass": "transport-right",
+              "w": 28,
+              "h": 28,
+              "hasSvg": true,
+              "text": ""
+            },
+            "playLabel": "再生",
+            "visibleInteractionHandles": 0,
+            "genRects": [
+              {
+                "id": "akari-gen-tag",
+                "x": 9.987823486328125,
+                "y": 9.987823486328125,
+                "w": 133.18405151367188,
+                "h": 22.449554443359375
+              }
+            ],
+            "genVisible": [
+              "akari-gen-overlay:編集領域\n              planned · m",
+              "akari-gen-tag:planned · main-1"
+            ],
+            "captionSelectionChrome": 0,
+            "transportVisibility": "visible",
+            "dpr": 2
+          },
+          "elapsedMs": 159,
+          "windowScreenshot": "run5-02-same-time-again-window.png"
+        },
+        {
+          "label": "run5-03-caption-selected",
+          "before": {
+            "htmlClass": "",
+            "stageRect": {
+              "x": 36,
+              "y": 78.90625,
+              "w": 539,
+              "h": 303.1875
+            },
+            "zoomLayerTransform": "matrix(1, 0, 0, 1, 0, 0)",
+            "zoomPressed": [],
+            "output": {
+              "width": 640,
+              "height": 360,
+              "fps": 30
+            },
+            "captionText": "■■■■字幕テスト■■■■",
+            "captionSelected": false,
+            "captionRectInStage": {
+              "x": 21.561317443847656,
+              "y": 154.23216247558594,
+              "w": 495.8774108886719,
+              "h": 127.73616027832031
+            },
+            "button": {
+              "title": "今のコマを保存",
+              "aria": "今のコマを保存",
+              "disabled": false,
+              "parentClass": "transport-right",
+              "w": 28,
+              "h": 28,
+              "hasSvg": true,
+              "text": ""
+            },
+            "playLabel": "再生",
+            "visibleInteractionHandles": 0,
+            "genRects": [
+              {
+                "id": "akari-gen-tag",
+                "x": 9.994396209716797,
+                "y": 9.994400024414062,
+                "w": 133.24327087402344,
+                "h": 22.46929931640625
+              }
+            ],
+            "genVisible": [
+              "akari-gen-overlay:編集領域\n              planned · m",
+              "akari-gen-tag:planned · main-1"
+            ],
+            "captionSelectionChrome": 2,
+            "transportVisibility": "visible",
+            "dpr": 2
+          },
+          "after": {
+            "htmlClass": "",
+            "stageRect": {
+              "x": 36,
+              "y": 78.90625,
+              "w": 539,
+              "h": 303.1875
+            },
+            "zoomLayerTransform": "matrix(1, 0, 0, 1, 0, 0)",
+            "zoomPressed": [],
+            "output": {
+              "width": 640,
+              "height": 360,
+              "fps": 30
+            },
+            "captionText": "■■■■字幕テスト■■■■",
+            "captionSelected": false,
+            "captionRectInStage": {
+              "x": 21.561317443847656,
+              "y": 154.23216247558594,
+              "w": 495.8774108886719,
+              "h": 127.73616027832031
+            },
+            "button": {
+              "title": "今のコマを保存",
+              "aria": "今のコマを保存",
+              "disabled": false,
+              "parentClass": "transport-right",
+              "w": 28,
+              "h": 28,
+              "hasSvg": true,
+              "text": ""
+            },
+            "playLabel": "再生",
+            "visibleInteractionHandles": 0,
+            "genRects": [
+              {
+                "id": "akari-gen-tag",
+                "x": 9.994396209716797,
+                "y": 9.994400024414062,
+                "w": 133.24327087402344,
+                "h": 22.46929931640625
+              }
+            ],
+            "genVisible": [
+              "akari-gen-overlay:編集領域\n              planned · m",
+              "akari-gen-tag:planned · main-1"
+            ],
+            "captionSelectionChrome": 2,
+            "transportVisibility": "visible",
+            "dpr": 2
+          },
+          "elapsedMs": 151,
+          "windowScreenshot": "run5-03-caption-selected-window.png"
+        },
+        {
+          "label": "run5-04-while-playing",
+          "before": {
+            "htmlClass": "",
+            "stageRect": {
+              "x": 36,
+              "y": 78.90625,
+              "w": 539,
+              "h": 303.1875
+            },
+            "zoomLayerTransform": "matrix(1, 0, 0, 1, 0, 0)",
+            "zoomPressed": [],
+            "output": {
+              "width": 640,
+              "height": 360,
+              "fps": 30
+            },
+            "captionText": "■■■■字幕テスト■■■■",
+            "captionSelected": false,
+            "captionRectInStage": {
+              "x": 21.561317443847656,
+              "y": 154.23216247558594,
+              "w": 495.8774108886719,
+              "h": 127.73616027832031
+            },
+            "button": {
+              "title": "今のコマを保存",
+              "aria": "今のコマを保存",
+              "disabled": false,
+              "parentClass": "transport-right",
+              "w": 28,
+              "h": 28,
+              "hasSvg": true,
+              "text": ""
+            },
+            "playLabel": "一時停止",
+            "visibleInteractionHandles": 0,
+            "genRects": [
+              {
+                "id": "akari-gen-tag",
+                "x": 9.994396209716797,
+                "y": 9.994400024414062,
+                "w": 133.24327087402344,
+                "h": 22.46929931640625
+              }
+            ],
+            "genVisible": [
+              "akari-gen-overlay:編集領域\n              planned · m",
+              "akari-gen-tag:planned · main-1"
+            ],
+            "captionSelectionChrome": 2,
+            "transportVisibility": "visible",
+            "dpr": 2
+          },
+          "after": {
+            "htmlClass": "",
+            "stageRect": {
+              "x": 36,
+              "y": 78.90625,
+              "w": 539,
+              "h": 303.1875
+            },
+            "zoomLayerTransform": "matrix(1, 0, 0, 1, 0, 0)",
+            "zoomPressed": [],
+            "output": {
+              "width": 640,
+              "height": 360,
+              "fps": 30
+            },
+            "captionText": "■■■■字幕テスト■■■■",
+            "captionSelected": false,
+            "captionRectInStage": {
+              "x": 21.561317443847656,
+              "y": 154.23216247558594,
+              "w": 495.8774108886719,
+              "h": 127.73616027832031
+            },
+            "button": {
+              "title": "今のコマを保存",
+              "aria": "今のコマを保存",
+              "disabled": false,
+              "parentClass": "transport-right",
+              "w": 28,
+              "h": 28,
+              "hasSvg": true,
+              "text": ""
+            },
+            "playLabel": "一時停止",
+            "visibleInteractionHandles": 0,
+            "genRects": [
+              {
+                "id": "akari-gen-tag",
+                "x": 9.994396209716797,
+                "y": 9.994400024414062,
+                "w": 133.24327087402344,
+                "h": 22.46929931640625
+              }
+            ],
+            "genVisible": [
+              "akari-gen-overlay:編集領域\n              planned · m",
+              "akari-gen-tag:planned · main-1"
+            ],
+            "captionSelectionChrome": 2,
+            "transportVisibility": "visible",
+            "dpr": 2
+          },
+          "elapsedMs": 156,
+          "windowScreenshot": "run5-04-while-playing-window.png"
+        }
+      ]
+    }
+  ],
+  "projectPanel": [
+    "frame-00m00s000-10.png",
+    "frame-00m00s000-11.png",
+    "frame-00m00s000-12.png",
+    "frame-00m00s000-13.png",
+    "frame-00m00s000-14.png",
+    "frame-00m00s000-15.png",
+    "frame-00m00s000-2.png",
+    "frame-00m00s000-3.png",
+    "frame-00m00s000-4.png",
+    "frame-00m00s000-5.png"
+  ],
+  "captionAtCapture": [
+    {
+      "text": 13,
+      "lineVis": [
+        "visible"
+      ],
+      "lineDeep": [
+        "akari-caption-host--styled op=1 anim=none tr=none clip=none color=rgb(255, 255, 255) r=36,79,539x303",
+        "akari-caption op=1 anim=none tr=none clip=none color=rgb(255, 255, 0) r=36,79,539x303",
+        "STYLE op=1 anim=none tr=none clip=none color=rgb(255, 255, 0) r=0,0,0x0",
+        "akari-caption__plate op=1 anim=none tr=matrix(1, 0, 0, 1, 0, 0) clip=none color=rgb(255, 255, 0) r=36,233,539x128",
+        "akari-caption__line op=1 anim=none tr=none clip=none color=rgb(255, 255, 0) r=58,233,496x128"
+      ],
+      "canvasZ": "auto/auto",
+      "chain": [
+        "caption-plate:visible/block/1",
+        "overlay-stage:visible/block/1",
+        "preview-layers:visible/block/1",
+        "preview-stage:visible/block/1",
+        "zoom-layer:visible/block/1",
+        "preview-wrapper:visible/block/1",
+        "SECTION:visible/block/1",
+        "MAIN:visible/grid/1",
+        "BODY:visible/grid/1"
+      ],
+      "fit": true,
+      "nextFrame": [
+        "1/none",
+        "1/none",
+        "1/none",
+        "1/none"
+      ]
+    },
+    {
+      "text": 13,
+      "lineVis": [
+        "visible"
+      ],
+      "lineDeep": [
+        "akari-caption-host--styled op=1 anim=none tr=none clip=none color=rgb(255, 255, 255) r=36,79,539x303",
+        "akari-caption op=1 anim=none tr=none clip=none color=rgb(255, 255, 0) r=36,79,539x303",
+        "STYLE op=1 anim=none tr=none clip=none color=rgb(255, 255, 0) r=0,0,0x0",
+        "akari-caption__plate op=1 anim=none tr=matrix(1, 0, 0, 1, 0, 0) clip=none color=rgb(255, 255, 0) r=36,233,539x128",
+        "akari-caption__line op=1 anim=none tr=none clip=none color=rgb(255, 255, 0) r=58,233,496x128"
+      ],
+      "canvasZ": "auto/auto",
+      "chain": [
+        "caption-plate:visible/block/1",
+        "overlay-stage:visible/block/1",
+        "preview-layers:visible/block/1",
+        "preview-stage:visible/block/1",
+        "zoom-layer:visible/block/1",
+        "preview-wrapper:visible/block/1",
+        "SECTION:visible/block/1",
+        "MAIN:visible/grid/1",
+        "BODY:visible/grid/1"
+      ],
+      "fit": true,
+      "nextFrame": [
+        "1/none",
+        "1/none",
+        "1/none",
+        "1/none"
+      ]
+    },
+    {
+      "text": 13,
+      "lineVis": [
+        "visible"
+      ],
+      "lineDeep": [
+        "akari-caption-host--styled op=1 anim=none tr=none clip=none color=rgb(255, 255, 255) r=36,79,539x303",
+        "akari-caption op=1 anim=none tr=none clip=none color=rgb(255, 255, 0) r=36,79,539x303",
+        "STYLE op=1 anim=none tr=none clip=none color=rgb(255, 255, 0) r=0,0,0x0",
+        "akari-caption__plate op=1 anim=none tr=matrix(1, 0, 0, 1, 0, 0) clip=none color=rgb(255, 255, 0) r=36,233,539x128",
+        "akari-caption__line op=1 anim=none tr=none clip=none color=rgb(255, 255, 0) r=58,233,496x128"
+      ],
+      "canvasZ": "auto/auto",
+      "chain": [
+        "caption-plate:visible/block/1",
+        "overlay-stage:visible/block/1",
+        "preview-layers:visible/block/1",
+        "preview-stage:visible/block/1",
+        "zoom-layer:visible/block/1",
+        "preview-wrapper:visible/block/1",
+        "SECTION:visible/block/1",
+        "MAIN:visible/grid/1",
+        "BODY:visible/grid/1"
+      ],
+      "fit": false,
+      "nextFrame": [
+        "1/none",
+        "1/none",
+        "1/none",
+        "1/none"
+      ]
+    },
+    {
+      "text": 13,
+      "lineVis": [
+        "visible"
+      ],
+      "lineDeep": [
+        "akari-caption-host--styled op=1 anim=none tr=none clip=none color=rgb(255, 255, 255) r=36,79,539x303",
+        "akari-caption op=1 anim=none tr=none clip=none color=rgb(255, 255, 0) r=36,79,539x303",
+        "STYLE op=1 anim=none tr=none clip=none color=rgb(255, 255, 0) r=0,0,0x0",
+        "akari-caption__plate op=1 anim=none tr=matrix(1, 0, 0, 1, 0, 0) clip=none color=rgb(255, 255, 0) r=36,233,539x128",
+        "akari-caption__line op=1 anim=none tr=none clip=none color=rgb(255, 255, 0) r=58,233,496x128"
+      ],
+      "canvasZ": "auto/auto",
+      "chain": [
+        "caption-plate:visible/block/1",
+        "overlay-stage:visible/block/1",
+        "preview-layers:visible/block/1",
+        "preview-stage:visible/block/1",
+        "zoom-layer:visible/block/1",
+        "preview-wrapper:visible/block/1",
+        "SECTION:visible/block/1",
+        "MAIN:visible/grid/1",
+        "BODY:visible/grid/1"
+      ],
+      "fit": false,
+      "nextFrame": [
+        "1/none",
+        "1/none",
+        "1/none",
+        "1/none"
+      ]
+    },
+    {
+      "text": 13,
+      "lineVis": [
+        "visible"
+      ],
+      "lineDeep": [
+        "akari-caption-host--styled op=1 anim=none tr=none clip=none color=rgb(255, 255, 255) r=36,79,539x303",
+        "akari-caption op=1 anim=none tr=none clip=none color=rgb(255, 255, 0) r=36,79,539x303",
+        "STYLE op=1 anim=none tr=none clip=none color=rgb(255, 255, 0) r=0,0,0x0",
+        "akari-caption__plate op=1 anim=none tr=matrix(1, 0, 0, 1, 0, 0) clip=none color=rgb(255, 255, 0) r=36,233,539x128",
+        "akari-caption__line op=1 anim=none tr=none clip=none color=rgb(255, 255, 0) r=58,233,496x128"
+      ],
+      "canvasZ": "auto/auto",
+      "chain": [
+        "caption-plate:visible/block/1",
+        "overlay-stage:visible/block/1",
+        "preview-layers:visible/block/1",
+        "preview-stage:visible/block/1",
+        "zoom-layer:visible/block/1",
+        "preview-wrapper:visible/block/1",
+        "SECTION:visible/block/1",
+        "MAIN:visible/grid/1",
+        "BODY:visible/grid/1"
+      ],
+      "fit": false,
+      "nextFrame": [
+        "1/none",
+        "1/none",
+        "1/none",
+        "1/none"
+      ]
+    },
+    {
+      "text": 13,
+      "lineVis": [
+        "visible"
+      ],
+      "lineDeep": [
+        "akari-caption-host--styled op=1 anim=none tr=none clip=none color=rgb(255, 255, 255) r=36,79,539x303",
+        "akari-caption op=1 anim=none tr=none clip=none color=rgb(255, 255, 0) r=36,79,539x303",
+        "STYLE op=1 anim=none tr=none clip=none color=rgb(255, 255, 0) r=0,0,0x0",
+        "akari-caption__plate op=1 anim=none tr=matrix(1, 0, 0, 1, 0, 0) clip=none color=rgb(255, 255, 0) r=36,233,539x128",
+        "akari-caption__line op=1 anim=none tr=none clip=none color=rgb(255, 255, 0) r=58,233,496x128"
+      ],
+      "canvasZ": "auto/auto",
+      "chain": [
+        "caption-plate:visible/block/1",
+        "overlay-stage:visible/block/1",
+        "preview-layers:visible/block/1",
+        "preview-stage:visible/block/1",
+        "zoom-layer:visible/block/1",
+        "preview-wrapper:visible/block/1",
+        "SECTION:visible/block/1",
+        "MAIN:visible/grid/1",
+        "BODY:visible/grid/1"
+      ],
+      "fit": true,
+      "nextFrame": [
+        "1/none",
+        "1/none",
+        "1/none",
+        "1/none"
+      ]
+    },
+    {
+      "text": 13,
+      "lineVis": [
+        "visible"
+      ],
+      "lineDeep": [
+        "akari-caption-host--styled op=1 anim=none tr=none clip=none color=rgb(255, 255, 255) r=36,79,539x303",
+        "akari-caption op=1 anim=none tr=none clip=none color=rgb(255, 255, 0) r=36,79,539x303",
+        "STYLE op=1 anim=none tr=none clip=none color=rgb(255, 255, 0) r=0,0,0x0",
+        "akari-caption__plate op=1 anim=none tr=matrix(1, 0, 0, 1, 0, 0) clip=none color=rgb(255, 255, 0) r=36,233,539x128",
+        "akari-caption__line op=1 anim=none tr=none clip=none color=rgb(255, 255, 0) r=58,233,496x128"
+      ],
+      "canvasZ": "auto/auto",
+      "chain": [
+        "caption-plate:visible/block/1",
+        "overlay-stage:visible/block/1",
+        "preview-layers:visible/block/1",
+        "preview-stage:visible/block/1",
+        "zoom-layer:visible/block/1",
+        "preview-wrapper:visible/block/1",
+        "SECTION:visible/block/1",
+        "MAIN:visible/grid/1",
+        "BODY:visible/grid/1"
+      ],
+      "fit": true,
+      "nextFrame": [
+        "1/none",
+        "1/none",
+        "1/none",
+        "1/none"
+      ]
+    },
+    {
+      "text": 13,
+      "lineVis": [
+        "visible"
+      ],
+      "lineDeep": [
+        "akari-caption-host--styled op=1 anim=none tr=none clip=none color=rgb(255, 255, 255) r=36,79,539x303",
+        "akari-caption op=1 anim=none tr=none clip=none color=rgb(255, 255, 0) r=36,79,539x303",
+        "STYLE op=1 anim=none tr=none clip=none color=rgb(255, 255, 0) r=0,0,0x0",
+        "akari-caption__plate op=1 anim=none tr=matrix(1, 0, 0, 1, 0, 0) clip=none color=rgb(255, 255, 0) r=36,233,539x128",
+        "akari-caption__line op=1 anim=none tr=none clip=none color=rgb(255, 255, 0) r=58,233,496x128"
+      ],
+      "canvasZ": "auto/auto",
+      "chain": [
+        "caption-plate:visible/block/1",
+        "overlay-stage:visible/block/1",
+        "preview-layers:visible/block/1",
+        "preview-stage:visible/block/1",
+        "zoom-layer:visible/block/1",
+        "preview-wrapper:visible/block/1",
+        "SECTION:visible/block/1",
+        "MAIN:visible/grid/1",
+        "BODY:visible/grid/1"
+      ],
+      "fit": true,
+      "nextFrame": [
+        "1/none",
+        "1/none",
+        "1/none",
+        "1/none"
+      ]
+    },
+    {
+      "text": 13,
+      "lineVis": [
+        "visible"
+      ],
+      "lineDeep": [
+        "akari-caption-host--styled op=1 anim=none tr=none clip=none color=rgb(255, 255, 255) r=36,79,539x303",
+        "akari-caption op=1 anim=none tr=none clip=none color=rgb(255, 255, 0) r=36,79,539x303",
+        "STYLE op=1 anim=none tr=none clip=none color=rgb(255, 255, 0) r=0,0,0x0",
+        "akari-caption__plate op=1 anim=none tr=matrix(1, 0, 0, 1, 0, 0) clip=none color=rgb(255, 255, 0) r=36,233,539x128",
+        "akari-caption__line op=1 anim=none tr=none clip=none color=rgb(255, 255, 0) r=58,233,496x128"
+      ],
+      "canvasZ": "auto/auto",
+      "chain": [
+        "caption-plate:visible/block/1",
+        "overlay-stage:visible/block/1",
+        "preview-layers:visible/block/1",
+        "preview-stage:visible/block/1",
+        "zoom-layer:visible/block/1",
+        "preview-wrapper:visible/block/1",
+        "SECTION:visible/block/1",
+        "MAIN:visible/grid/1",
+        "BODY:visible/grid/1"
+      ],
+      "fit": false,
+      "nextFrame": [
+        "1/none",
+        "1/none",
+        "1/none",
+        "1/none"
+      ]
+    },
+    {
+      "text": 13,
+      "lineVis": [
+        "visible"
+      ],
+      "lineDeep": [
+        "akari-caption-host--styled op=1 anim=none tr=none clip=none color=rgb(255, 255, 255) r=36,79,539x303",
+        "akari-caption op=1 anim=none tr=none clip=none color=rgb(255, 255, 0) r=36,79,539x303",
+        "STYLE op=1 anim=none tr=none clip=none color=rgb(255, 255, 0) r=0,0,0x0",
+        "akari-caption__plate op=1 anim=none tr=matrix(1, 0, 0, 1, 0, 0) clip=none color=rgb(255, 255, 0) r=36,233,539x128",
+        "akari-caption__line op=1 anim=none tr=none clip=none color=rgb(255, 255, 0) r=58,233,496x128"
+      ],
+      "canvasZ": "auto/auto",
+      "chain": [
+        "caption-plate:visible/block/1",
+        "overlay-stage:visible/block/1",
+        "preview-layers:visible/block/1",
+        "preview-stage:visible/block/1",
+        "zoom-layer:visible/block/1",
+        "preview-wrapper:visible/block/1",
+        "SECTION:visible/block/1",
+        "MAIN:visible/grid/1",
+        "BODY:visible/grid/1"
+      ],
+      "fit": false,
+      "nextFrame": [
+        "1/none",
+        "1/none",
+        "1/none",
+        "1/none"
+      ]
+    },
+    {
+      "text": 13,
+      "lineVis": [
+        "visible"
+      ],
+      "lineDeep": [
+        "akari-caption-host--styled op=1 anim=none tr=none clip=none color=rgb(255, 255, 255) r=36,79,539x303",
+        "akari-caption op=1 anim=none tr=none clip=none color=rgb(255, 255, 0) r=36,79,539x303",
+        "STYLE op=1 anim=none tr=none clip=none color=rgb(255, 255, 0) r=0,0,0x0",
+        "akari-caption__plate op=1 anim=none tr=matrix(1, 0, 0, 1, 0, 0) clip=none color=rgb(255, 255, 0) r=36,233,539x128",
+        "akari-caption__line op=1 anim=none tr=none clip=none color=rgb(255, 255, 0) r=58,233,496x128"
+      ],
+      "canvasZ": "auto/auto",
+      "chain": [
+        "caption-plate:visible/block/1",
+        "overlay-stage:visible/block/1",
+        "preview-layers:visible/block/1",
+        "preview-stage:visible/block/1",
+        "zoom-layer:visible/block/1",
+        "preview-wrapper:visible/block/1",
+        "SECTION:visible/block/1",
+        "MAIN:visible/grid/1",
+        "BODY:visible/grid/1"
+      ],
+      "fit": true,
+      "nextFrame": [
+        "1/none",
+        "1/none",
+        "1/none",
+        "1/none"
+      ]
+    },
+    {
+      "text": 13,
+      "lineVis": [
+        "visible"
+      ],
+      "lineDeep": [
+        "akari-caption-host--styled op=1 anim=none tr=none clip=none color=rgb(255, 255, 255) r=36,79,539x303",
+        "akari-caption op=1 anim=none tr=none clip=none color=rgb(255, 255, 0) r=36,79,539x303",
+        "STYLE op=1 anim=none tr=none clip=none color=rgb(255, 255, 0) r=0,0,0x0",
+        "akari-caption__plate op=1 anim=none tr=matrix(1, 0, 0, 1, 0, 0) clip=none color=rgb(255, 255, 0) r=36,233,539x128",
+        "akari-caption__line op=1 anim=none tr=none clip=none color=rgb(255, 255, 0) r=58,233,496x128"
+      ],
+      "canvasZ": "auto/auto",
+      "chain": [
+        "caption-plate:visible/block/1",
+        "overlay-stage:visible/block/1",
+        "preview-layers:visible/block/1",
+        "preview-stage:visible/block/1",
+        "zoom-layer:visible/block/1",
+        "preview-wrapper:visible/block/1",
+        "SECTION:visible/block/1",
+        "MAIN:visible/grid/1",
+        "BODY:visible/grid/1"
+      ],
+      "fit": true,
+      "nextFrame": [
+        "1/none",
+        "1/none",
+        "1/none",
+        "1/none"
+      ]
+    },
+    {
+      "text": 13,
+      "lineVis": [
+        "visible"
+      ],
+      "lineDeep": [
+        "akari-caption-host--styled op=1 anim=none tr=none clip=none color=rgb(255, 255, 255) r=36,79,539x303",
+        "akari-caption op=1 anim=none tr=none clip=none color=rgb(255, 255, 0) r=36,79,539x303",
+        "STYLE op=1 anim=none tr=none clip=none color=rgb(255, 255, 0) r=0,0,0x0",
+        "akari-caption__plate op=1 anim=none tr=matrix(1, 0, 0, 1, 0, 0) clip=none color=rgb(255, 255, 0) r=36,233,539x128",
+        "akari-caption__line op=1 anim=none tr=none clip=none color=rgb(255, 255, 0) r=58,233,496x128"
+      ],
+      "canvasZ": "auto/auto",
+      "chain": [
+        "caption-plate:visible/block/1",
+        "overlay-stage:visible/block/1",
+        "preview-layers:visible/block/1",
+        "preview-stage:visible/block/1",
+        "zoom-layer:visible/block/1",
+        "preview-wrapper:visible/block/1",
+        "SECTION:visible/block/1",
+        "MAIN:visible/grid/1",
+        "BODY:visible/grid/1"
+      ],
+      "fit": false,
+      "nextFrame": [
+        "1/none",
+        "1/none",
+        "1/none",
+        "1/none"
+      ]
+    },
+    {
+      "text": 13,
+      "lineVis": [
+        "visible"
+      ],
+      "lineDeep": [
+        "akari-caption-host--styled op=1 anim=none tr=none clip=none color=rgb(255, 255, 255) r=36,79,539x303",
+        "akari-caption op=1 anim=none tr=none clip=none color=rgb(255, 255, 0) r=36,79,539x303",
+        "STYLE op=1 anim=none tr=none clip=none color=rgb(255, 255, 0) r=0,0,0x0",
+        "akari-caption__plate op=1 anim=none tr=matrix(1, 0, 0, 1, 0, 0) clip=none color=rgb(255, 255, 0) r=36,233,539x128",
+        "akari-caption__line op=1 anim=none tr=none clip=none color=rgb(255, 255, 0) r=58,233,496x128"
+      ],
+      "canvasZ": "auto/auto",
+      "chain": [
+        "caption-plate:visible/block/1",
+        "overlay-stage:visible/block/1",
+        "preview-layers:visible/block/1",
+        "preview-stage:visible/block/1",
+        "zoom-layer:visible/block/1",
+        "preview-wrapper:visible/block/1",
+        "SECTION:visible/block/1",
+        "MAIN:visible/grid/1",
+        "BODY:visible/grid/1"
+      ],
+      "fit": false,
+      "nextFrame": [
+        "1/none",
+        "1/none",
+        "1/none",
+        "1/none"
+      ]
+    },
+    {
+      "text": 13,
+      "lineVis": [
+        "visible"
+      ],
+      "lineDeep": [
+        "akari-caption-host--styled op=1 anim=none tr=none clip=none color=rgb(255, 255, 255) r=36,79,539x303",
+        "akari-caption op=1 anim=none tr=none clip=none color=rgb(255, 255, 0) r=36,79,539x303",
+        "STYLE op=1 anim=none tr=none clip=none color=rgb(255, 255, 0) r=0,0,0x0",
+        "akari-caption__plate op=1 anim=none tr=matrix(1, 0, 0, 1, 0, 0) clip=none color=rgb(255, 255, 0) r=36,233,539x128",
+        "akari-caption__line op=1 anim=none tr=none clip=none color=rgb(255, 255, 0) r=58,233,496x128"
+      ],
+      "canvasZ": "auto/auto",
+      "chain": [
+        "caption-plate:visible/block/1",
+        "overlay-stage:visible/block/1",
+        "preview-layers:visible/block/1",
+        "preview-stage:visible/block/1",
+        "zoom-layer:visible/block/1",
+        "preview-wrapper:visible/block/1",
+        "SECTION:visible/block/1",
+        "MAIN:visible/grid/1",
+        "BODY:visible/grid/1"
+      ],
+      "fit": true,
+      "nextFrame": [
+        "1/none",
+        "1/none",
+        "1/none",
+        "1/none"
+      ]
+    },
+    {
+      "text": 13,
+      "lineVis": [
+        "visible"
+      ],
+      "lineDeep": [
+        "akari-caption-host--styled op=1 anim=none tr=none clip=none color=rgb(255, 255, 255) r=36,79,539x303",
+        "akari-caption op=1 anim=none tr=none clip=none color=rgb(255, 255, 0) r=36,79,539x303",
+        "STYLE op=1 anim=none tr=none clip=none color=rgb(255, 255, 0) r=0,0,0x0",
+        "akari-caption__plate op=1 anim=none tr=matrix(1, 0, 0, 1, 0, 0) clip=none color=rgb(255, 255, 0) r=36,233,539x128",
+        "akari-caption__line op=1 anim=none tr=none clip=none color=rgb(255, 255, 0) r=58,233,496x128"
+      ],
+      "canvasZ": "auto/auto",
+      "chain": [
+        "caption-plate:visible/block/1",
+        "overlay-stage:visible/block/1",
+        "preview-layers:visible/block/1",
+        "preview-stage:visible/block/1",
+        "zoom-layer:visible/block/1",
+        "preview-wrapper:visible/block/1",
+        "SECTION:visible/block/1",
+        "MAIN:visible/grid/1",
+        "BODY:visible/grid/1"
+      ],
+      "fit": true,
+      "nextFrame": [
+        "1/none",
+        "1/none",
+        "1/none",
+        "1/none"
+      ]
+    },
+    {
+      "text": 13,
+      "lineVis": [
+        "visible"
+      ],
+      "lineDeep": [
+        "akari-caption-host--styled op=1 anim=none tr=none clip=none color=rgb(255, 255, 255) r=36,79,539x303",
+        "akari-caption op=1 anim=none tr=none clip=none color=rgb(255, 255, 0) r=36,79,539x303",
+        "STYLE op=1 anim=none tr=none clip=none color=rgb(255, 255, 0) r=0,0,0x0",
+        "akari-caption__plate op=1 anim=none tr=matrix(1, 0, 0, 1, 0, 0) clip=none color=rgb(255, 255, 0) r=36,233,539x128",
+        "akari-caption__line op=1 anim=none tr=none clip=none color=rgb(255, 255, 0) r=58,233,496x128"
+      ],
+      "canvasZ": "auto/auto",
+      "chain": [
+        "caption-plate:visible/block/1",
+        "overlay-stage:visible/block/1",
+        "preview-layers:visible/block/1",
+        "preview-stage:visible/block/1",
+        "zoom-layer:visible/block/1",
+        "preview-wrapper:visible/block/1",
+        "SECTION:visible/block/1",
+        "MAIN:visible/grid/1",
+        "BODY:visible/grid/1"
+      ],
+      "fit": false,
+      "nextFrame": [
+        "1/none",
+        "1/none",
+        "1/none",
+        "1/none"
+      ]
+    },
+    {
+      "text": 13,
+      "lineVis": [
+        "visible"
+      ],
+      "lineDeep": [
+        "akari-caption-host--styled op=1 anim=none tr=none clip=none color=rgb(255, 255, 255) r=36,79,539x303",
+        "akari-caption op=1 anim=none tr=none clip=none color=rgb(255, 255, 0) r=36,79,539x303",
+        "STYLE op=1 anim=none tr=none clip=none color=rgb(255, 255, 0) r=0,0,0x0",
+        "akari-caption__plate op=1 anim=none tr=matrix(1, 0, 0, 1, 0, 0) clip=none color=rgb(255, 255, 0) r=36,233,539x128",
+        "akari-caption__line op=1 anim=none tr=none clip=none color=rgb(255, 255, 0) r=58,233,496x128"
+      ],
+      "canvasZ": "auto/auto",
+      "chain": [
+        "caption-plate:visible/block/1",
+        "overlay-stage:visible/block/1",
+        "preview-layers:visible/block/1",
+        "preview-stage:visible/block/1",
+        "zoom-layer:visible/block/1",
+        "preview-wrapper:visible/block/1",
+        "SECTION:visible/block/1",
+        "MAIN:visible/grid/1",
+        "BODY:visible/grid/1"
+      ],
+      "fit": false,
+      "nextFrame": [
+        "1/none",
+        "1/none",
+        "1/none",
+        "1/none"
+      ]
+    },
+    {
+      "text": 13,
+      "lineVis": [
+        "visible"
+      ],
+      "lineDeep": [
+        "akari-caption-host--styled op=1 anim=none tr=none clip=none color=rgb(255, 255, 255) r=36,79,539x303",
+        "akari-caption op=1 anim=none tr=none clip=none color=rgb(255, 255, 0) r=36,79,539x303",
+        "STYLE op=1 anim=none tr=none clip=none color=rgb(255, 255, 0) r=0,0,0x0",
+        "akari-caption__plate op=1 anim=none tr=matrix(1, 0, 0, 1, 0, 0) clip=none color=rgb(255, 255, 0) r=36,233,539x128",
+        "akari-caption__line op=1 anim=none tr=none clip=none color=rgb(255, 255, 0) r=58,233,496x128"
+      ],
+      "canvasZ": "auto/auto",
+      "chain": [
+        "caption-plate:visible/block/1",
+        "overlay-stage:visible/block/1",
+        "preview-layers:visible/block/1",
+        "preview-stage:visible/block/1",
+        "zoom-layer:visible/block/1",
+        "preview-wrapper:visible/block/1",
+        "SECTION:visible/block/1",
+        "MAIN:visible/grid/1",
+        "BODY:visible/grid/1"
+      ],
+      "fit": true,
+      "nextFrame": [
+        "1/none",
+        "1/none",
+        "1/none",
+        "1/none"
+      ]
+    },
+    {
+      "text": 13,
+      "lineVis": [
+        "visible"
+      ],
+      "lineDeep": [
+        "akari-caption-host--styled op=1 anim=none tr=none clip=none color=rgb(255, 255, 255) r=36,79,539x303",
+        "akari-caption op=1 anim=none tr=none clip=none color=rgb(255, 255, 0) r=36,79,539x303",
+        "STYLE op=1 anim=none tr=none clip=none color=rgb(255, 255, 0) r=0,0,0x0",
+        "akari-caption__plate op=1 anim=none tr=matrix(1, 0, 0, 1, 0, 0) clip=none color=rgb(255, 255, 0) r=36,233,539x128",
+        "akari-caption__line op=1 anim=none tr=none clip=none color=rgb(255, 255, 0) r=58,233,496x128"
+      ],
+      "canvasZ": "auto/auto",
+      "chain": [
+        "caption-plate:visible/block/1",
+        "overlay-stage:visible/block/1",
+        "preview-layers:visible/block/1",
+        "preview-stage:visible/block/1",
+        "zoom-layer:visible/block/1",
+        "preview-wrapper:visible/block/1",
+        "SECTION:visible/block/1",
+        "MAIN:visible/grid/1",
+        "BODY:visible/grid/1"
+      ],
+      "fit": true,
+      "nextFrame": [
+        "1/none",
+        "1/none",
+        "1/none",
+        "1/none"
+      ]
+    },
+    {
+      "text": 13,
+      "lineVis": [
+        "visible"
+      ],
+      "lineDeep": [
+        "akari-caption-host--styled op=1 anim=none tr=none clip=none color=rgb(255, 255, 255) r=36,79,539x303",
+        "akari-caption op=1 anim=none tr=none clip=none color=rgb(255, 255, 0) r=36,79,539x303",
+        "STYLE op=1 anim=none tr=none clip=none color=rgb(255, 255, 0) r=0,0,0x0",
+        "akari-caption__plate op=1 anim=none tr=matrix(1, 0, 0, 1, 0, 0) clip=none color=rgb(255, 255, 0) r=36,233,539x128",
+        "akari-caption__line op=1 anim=none tr=none clip=none color=rgb(255, 255, 0) r=58,233,496x128"
+      ],
+      "canvasZ": "auto/auto",
+      "chain": [
+        "caption-plate:visible/block/1",
+        "overlay-stage:visible/block/1",
+        "preview-layers:visible/block/1",
+        "preview-stage:visible/block/1",
+        "zoom-layer:visible/block/1",
+        "preview-wrapper:visible/block/1",
+        "SECTION:visible/block/1",
+        "MAIN:visible/grid/1",
+        "BODY:visible/grid/1"
+      ],
+      "fit": false,
+      "nextFrame": [
+        "1/none",
+        "1/none",
+        "1/none",
+        "1/none"
+      ]
+    },
+    {
+      "text": 13,
+      "lineVis": [
+        "visible"
+      ],
+      "lineDeep": [
+        "akari-caption-host--styled op=1 anim=none tr=none clip=none color=rgb(255, 255, 255) r=36,79,539x303",
+        "akari-caption op=1 anim=none tr=none clip=none color=rgb(255, 255, 0) r=36,79,539x303",
+        "STYLE op=1 anim=none tr=none clip=none color=rgb(255, 255, 0) r=0,0,0x0",
+        "akari-caption__plate op=1 anim=none tr=matrix(1, 0, 0, 1, 0, 0) clip=none color=rgb(255, 255, 0) r=36,233,539x128",
+        "akari-caption__line op=1 anim=none tr=none clip=none color=rgb(255, 255, 0) r=58,233,496x128"
+      ],
+      "canvasZ": "auto/auto",
+      "chain": [
+        "caption-plate:visible/block/1",
+        "overlay-stage:visible/block/1",
+        "preview-layers:visible/block/1",
+        "preview-stage:visible/block/1",
+        "zoom-layer:visible/block/1",
+        "preview-wrapper:visible/block/1",
+        "SECTION:visible/block/1",
+        "MAIN:visible/grid/1",
+        "BODY:visible/grid/1"
+      ],
+      "fit": false,
+      "nextFrame": [
+        "1/none",
+        "1/none",
+        "1/none",
+        "1/none"
+      ]
+    }
+  ],
+  "metaJsonInCaptures": false,
+  "summary": {
+    "runs": 5,
+    "captures": 20,
+    "passed": 20,
+    "captionExpected": 20,
+    "captionOk": 20,
+    "leakOk": 20,
+    "maxBluish": 0,
+    "retries": 2,
+    "failedToasts": 0,
+    "sameTimeOk": true,
+    "flicker": {
+      "normalMaxMs": 54.700000047683716,
+      "fitMaxMs": 51,
+      "normalCount": 11,
+      "fitCount": 11
+    },
+    "allPass": true
+  }
+}
