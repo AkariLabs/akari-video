@@ -1294,7 +1294,7 @@
       nextScale = clampScale(nextScale);
       if (Math.abs(nextScale - 1) <= SCALE_SNAP_TOLERANCE) nextScale = 1;
       if (!applyResizeTransformAt(resize, nextScale)) return;
-      if (event.shiftKey) {
+      if (event.altKey) {
         resize.snapX = null;
         resize.snapY = null;
         hideSnapGuides();
@@ -1433,7 +1433,7 @@
       const videoDeltaX = drag.startStagePoint && currentStagePoint ? currentStagePoint.x - drag.startStagePoint.x : deltaX / scale;
       const videoDeltaY = drag.startStagePoint && currentStagePoint ? currentStagePoint.y - drag.startStagePoint.y : deltaY / scale;
       if (drag.group) {
-        moveGroupDrag(drag, videoDeltaX, videoDeltaY, event.shiftKey);
+        moveGroupDrag(drag, videoDeltaX, videoDeltaY, event.altKey);
         if (event.cancelable) event.preventDefault();
         return;
       }
@@ -1441,7 +1441,7 @@
         drag,
         drag.startX + videoDeltaX,
         drag.startY + videoDeltaY,
-        event.shiftKey
+        event.altKey
       );
       if (event.cancelable) event.preventDefault();
     }
@@ -1557,6 +1557,38 @@
       }
       return clone.outerHTML;
     }
+    function cancelEdit() {
+      if (!activeEdit) return;
+      const edit = activeEdit;
+      activeEdit = null;
+      for (const snapshot of edit.originalContents) {
+        snapshot.element.innerHTML = snapshot.html;
+        restoreAttribute(
+          snapshot.element,
+          "data-akari-split-units",
+          snapshot.hadSplitUnits,
+          snapshot.splitUnits
+        );
+      }
+      restoreAttribute(
+        edit.element,
+        "contenteditable",
+        edit.hadContentEditable,
+        edit.contentEditableValue
+      );
+      restoreAttribute(edit.element, "spellcheck", edit.hadSpellcheck, edit.spellcheckValue);
+      restoreAttribute(
+        edit.element,
+        "data-akari-interaction-editing",
+        edit.hadEditingMarker,
+        edit.editingMarkerValue
+      );
+      if (document.activeElement === edit.element) edit.element.blur();
+      invalidateOverlayHitPolicy(edit.container);
+      applyOverlayHitPolicy(edit.container);
+      syncOverlayHitRegion(edit.container);
+      refreshSelectionFrame();
+    }
     function commitEdit({ blur = true } = {}) {
       if (!activeEdit) return Promise.resolve(void 0);
       const edit = activeEdit;
@@ -1647,7 +1679,26 @@
         return;
       }
       if (activeEdit) void commitEdit();
+      const splitHost = window.akari.textSplit?.closestHost?.(element);
+      const slotName = slotNameForElement(element);
+      const affected = /* @__PURE__ */ new Set([
+        element,
+        ...splitHost ? [splitHost] : [],
+        ...mirrorSyncScope(container, element)?.querySelectorAll('[data-mirror="text"]') ?? [],
+        ...[...container.querySelectorAll("[data-akari-slot]")].filter((slot) => slotName && slot.getAttribute("data-akari-slot") === slotName)
+      ]);
+      const originalContents = [...affected].filter((candidate) => ![...affected].some((parent) => parent !== candidate && parent.contains(candidate))).map((candidate) => {
+        const clone = candidate.cloneNode(true);
+        restoreHitPolicyStyles(clone, candidate);
+        return {
+          element: candidate,
+          html: clone.innerHTML,
+          hadSplitUnits: candidate.hasAttribute("data-akari-split-units"),
+          splitUnits: candidate.getAttribute("data-akari-split-units") ?? ""
+        };
+      });
       activeEdit = {
+        originalContents,
         container,
         element,
         overlayId: container.dataset.overlayId ?? "",
@@ -1671,7 +1722,6 @@
         activeEdit.originalFragment = fragment.cloneNode(true);
         restoreHitPolicyStyles(activeEdit.originalFragment, fragment);
       }
-      const splitHost = window.akari.textSplit?.closestHost?.(element);
       if (splitHost) {
         activeEdit.splitHost = splitHost;
         window.akari.textSplit.collapse(splitHost);
@@ -1725,8 +1775,8 @@
       );
     }
     function onKeyDown(event) {
+      if (event.isComposing) return;
       if (selectionTree().length) {
-        if (event.isComposing) return;
         if (event.key === "Enter" && event.target instanceof Element && event.target.closest('[data-akari-ui="preview-scope-breadcrumb"]')) return;
         const handled = () => {
           event.preventDefault();
@@ -1745,7 +1795,7 @@
             return;
           }
           if (activeEdit) {
-            void commitEdit();
+            cancelEdit();
             handled();
             return;
           }
@@ -1799,7 +1849,11 @@
       event.stopPropagation();
       if (activeDrag) cancelDrag();
       if (activeResize) cancelResize();
-      if (activeEdit) void commitEdit();
+      if (activeEdit) {
+        cancelEdit();
+        event.stopImmediatePropagation();
+        return;
+      }
       clearSelection();
     }
     async function selftest() {
@@ -1845,7 +1899,7 @@
           pointerType: "mouse",
           isPrimary: true,
           button: 0,
-          shiftKey: true
+          altKey: true
         };
         selftestOverlayOverride = container;
         try {
