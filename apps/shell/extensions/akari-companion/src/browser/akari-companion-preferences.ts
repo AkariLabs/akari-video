@@ -7,7 +7,7 @@ const AKARI_COMPANION_PREFERENCE_SCHEMA: PreferenceSchema = {
     properties: {
         [AKARI_COMPANION_ENABLED]: {
             type: 'boolean',
-            default: false,
+            default: true,
             // スキーマで利用者設定より広いスコープへの配置を防ぎ、読む側でも
             // 実効値ではなく globalValue だけを読むことで二重に守る。
             scope: PreferenceScope.User,

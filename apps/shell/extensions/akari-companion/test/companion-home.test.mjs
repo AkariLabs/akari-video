@@ -4,7 +4,6 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 import {
-  companionConfigPath,
   readCompanionAddress,
   resolveAkariHomeDir
 } from '../lib/node/companion-home.js';
@@ -12,7 +11,6 @@ import {
 test('AKARI_HOME と既定ホームから設定パスを解決する', () => {
   assert.equal(resolveAkariHomeDir({ AKARI_HOME: '/custom' }, '/home'), '/custom');
   assert.equal(resolveAkariHomeDir({}, '/home'), join('/home', '.akari'));
-  assert.equal(companionConfigPath({ AKARI_HOME: '/custom' }, '/home'), join('/custom', 'companion.json'));
 });
 
 test('権限 600 の正しい設定だけを読む', async () => {

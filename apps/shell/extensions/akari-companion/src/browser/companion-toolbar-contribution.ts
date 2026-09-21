@@ -10,7 +10,7 @@ import { AnchorRect } from '../common/companion-panel-geometry';
 
 export const COMPANION_TOGGLE_COMMAND_ID = 'akari.companion.togglePanel';
 export const COMPANION_TOGGLE_ATTRIBUTE = 'data-akari-companion-toggle';
-export const COMPANION_TOGGLE_LABEL = '外部の操作盤';
+export const COMPANION_TOGGLE_LABEL = 'AKARI バイブ';
 /**
  * 「変更を見る」は同じ group の priority 100。Theia のツールバーは
  * `items.sort(PRIORITY_COMPARATOR).reverse()` で DOM に並べたうえで、
@@ -38,8 +38,8 @@ export function toolbarAnchorRect(doc: Document): AnchorRect | undefined {
 }
 
 export interface CompanionToolbarState {
-    /** 橋がつながっているあいだだけボタンを出す（相手が居なければ押すものが無い）。 */
-    connected(): boolean;
+    enabled(): boolean;
+    starting(): boolean;
     /** 枠が出ているか。ボタンの見た目（点が灯るか）に使う。 */
     open(): boolean;
 }
@@ -73,10 +73,13 @@ export class CompanionToolbarContribution implements TabBarToolbarContribution {
      * （つながった / 枠を開け閉めした直後に反映させるため）。
      */
     refresh(doc: Document): void {
-        const connected = Boolean(this.state?.connected());
+        const enabled = Boolean(this.state?.enabled());
+        const starting = Boolean(this.state?.starting());
         const open = Boolean(this.state?.open());
         for (const button of toolbarButtons(doc)) {
-            button.style.display = connected ? 'inline-flex' : 'none';
+            button.style.display = enabled ? 'inline-flex' : 'none';
+            button.dataset.starting = String(starting);
+            button.setAttribute('aria-busy', String(starting));
             button.dataset.open = open ? 'true' : 'false';
             button.setAttribute('aria-pressed', String(open));
         }
@@ -84,7 +87,8 @@ export class CompanionToolbarContribution implements TabBarToolbarContribution {
 
     protected renderButton(): React.ReactNode {
         const open = Boolean(this.state?.open());
-        const connected = Boolean(this.state?.connected());
+        const enabled = Boolean(this.state?.enabled());
+        const starting = Boolean(this.state?.starting());
         return React.createElement('button', {
             type: 'button',
             className: 'theia-button secondary akari-companion-toggle',
@@ -92,10 +96,12 @@ export class CompanionToolbarContribution implements TabBarToolbarContribution {
             'aria-label': COMPANION_TOGGLE_LABEL,
             'aria-pressed': open,
             [COMPANION_TOGGLE_ATTRIBUTE]: '',
+            'data-starting': String(starting),
+            'aria-busy': starting,
             'data-open': open ? 'true' : 'false',
             style: {
                 alignItems: 'center',
-                display: connected ? 'inline-flex' : 'none',
+                display: enabled ? 'inline-flex' : 'none',
                 height: '24px',
                 justifyContent: 'center',
                 margin: '0 2px 0 4px',
