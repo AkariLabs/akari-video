@@ -7,7 +7,7 @@ import { spawnSync } from "node:child_process";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 
-import { renderStoryboardPrint } from "../render-storyboard-print.mjs";
+import { readSidecars, renderStoryboardPrint } from "../render-storyboard-print.mjs";
 
 const packageDirectory = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const fixtureDirectory = path.join(packageDirectory, "test", "fixtures", "storyboard-print");
@@ -104,6 +104,92 @@ test("captions.json が無いプロジェクトも空字幕として CLI 描画�
     rmSync(temporaryDirectory, { recursive: true, force: true });
   }
 });
+
+// generation v0 契約 §3-2: 下書きと結線キーは素材自身の状態・kind を上書きしない。
+const nextVideo = {
+  kind: "video",
+  status: "planned",
+  model: { id: "fal:h3-i2v" },
+  inputs: {
+    prompt: "窓辺の静止画からゆっくり引く",
+    first_frame: { path: "assets/c.png", sha256: digest(path.join(fixtureDirectory, "assets", "c.png")) },
+    last_frame: null,
+    reference_images: [],
+    reference_videos: [],
+    reference_audios: [],
+    camera: null,
+    seed: null,
+    extra: {},
+    frames_or_refs: "frames",
+  },
+  output: { duration_s: 5, resolution: "768P", aspect: null, audio_out: null },
+  updated_at: generatedAt,
+};
+const placeholder = {
+  path: "assets/a.png",
+  sha256: digest(path.join(fixtureDirectory, "assets", "a.png")),
+  item_id: "opening",
+};
+
+for (const { name, itemId, meta, expected, badge } of [
+  {
+    name: "done の静止画に動画予定 next があっても done / still のまま印刷する",
+    itemId: "ending",
+    meta: { version: 1, kind: "still", status: "done", next: nextVideo },
+    expected: { state: "done", kind: "still" },
+    badge: '<span class="badge badge-still">静止画</span>',
+  },
+  {
+    name: "planned の文字カードに動画予定 next があっても planned のまま印刷する",
+    itemId: "opening",
+    meta: { version: 1, kind: "still", status: "planned", next: nextVideo },
+    expected: { state: "planned", kind: "still" },
+    badge: '<span class="badge badge-planned">planned</span>',
+  },
+  {
+    name: "generating の meta に placeholder があっても generating のまま印刷する",
+    itemId: "middle",
+    meta: { version: 1, kind: "video", status: "generating", placeholder, job: { started_at: generatedAt, stale_after_s: 900 } },
+    expected: { state: "generating", kind: "video" },
+    badge: '<span class="badge badge-generating">生成中</span>',
+  },
+  {
+    name: "placeholder 付き generating の job が古ければ stale として印刷する",
+    itemId: "middle",
+    meta: { version: 1, kind: "video", status: "generating", placeholder, job: { started_at: "2026-09-13T12:00:00.000Z", stale_after_s: 900 } },
+    expected: { state: "stale", kind: "video" },
+    badge: '<span class="badge badge-generating">生成中</span>',
+  },
+]) {
+  test(name, () => {
+    const temporaryDirectory = mkdtempSync(path.join(os.tmpdir(), "akari-storyboard-generation-meta-"));
+    const projectDirectory = path.join(temporaryDirectory, "project");
+    const outputDirectory = path.join(temporaryDirectory, "out");
+    try {
+      cpSync(fixtureDirectory, projectDirectory, { recursive: true });
+      const { edit } = fixture();
+      const items = edit.tracks[0].items;
+      const item = items.find((entry) => entry.id === itemId);
+      const source = edit.sources.find((entry) => entry.id === item.source.src);
+      writeFileSync(path.join(projectDirectory, `${source.path}.meta.json`), JSON.stringify(meta));
+
+      // CLI の HTML では generating / stale が同じバッジなので、固定時刻で状態も直接確認する。
+      const sidecars = readSidecars(projectDirectory, edit, items, new Date(generatedAt));
+      assert.deepEqual(sidecars[itemId], expected);
+
+      const result = spawnSync(process.execPath, [rendererPath, projectDirectory, "--no-capture", "--out", outputDirectory], { encoding: "utf8" });
+      assert.equal(result.status, 0, result.stderr);
+      assert.equal(result.stderr, "");
+      const html = readFileSync(path.join(outputDirectory, "index.html"), "utf8");
+      const card = [...html.matchAll(/<article\b[^>]*data-storyboard-item="([^"]+)"[^>]*>([\s\S]*?)<\/article>/g)]
+        .find((match) => match[1] === itemId);
+      assert.ok(card, `${itemId} のカードがある`);
+      assert.deepEqual(card[2].match(/<span class="badge [^"]+">[^<]*<\/span>/g), [badge]);
+    } finally {
+      rmSync(temporaryDirectory, { recursive: true, force: true });
+    }
+  });
+}
 
 test("source を持たない visual item はコマと尺バーから静かに除外する", () => {
   const input = fixture();
