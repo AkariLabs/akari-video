@@ -1,3 +1,4 @@
+import { calculateFrameDraw, type FrameDrawRange } from '../common/timeline-frame-draw';
 import { advanceMaterialTrialWindow, MaterialTrialWindow } from '../common/material-trial-window';
 import { logSwapTrial, SwapTrialIdentity } from 'akari-preview/lib/common/swap-trial-playback';
 import { materialSwapTarget, locateSwapItem, replaceMaterial, MaterialSwapTarget } from '../common/material-replacement';
@@ -606,7 +607,7 @@ type AudioSelectionSnapshot = TimelineAudioSelection & AudioEnvelopeFields & {
     playheadSeconds?: number;
 };
 
-type ToolMode = 'select' | 'razor';
+type ToolMode = 'select' | 'razor' | 'frame';
 
 type TimelineSelection =
     | { kind: 'cut'; index: number }
@@ -852,6 +853,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected readonly preferences!: PreferenceService;
 
     protected readonly toolbar = document.createElement('div');
+    protected readonly frameToolButton = document.createElement('button');
+    protected cancelFrameDraw: (() => void) | undefined;
     protected readonly selectToolButton = document.createElement('button');
     protected readonly razorToolButton = document.createElement('button');
     protected readonly snapToggleButton = document.createElement('button');
@@ -1351,10 +1354,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
             alignItems: 'center', display: 'flex', gap: '2px', minHeight: '30px',
             padding: '2px 6px', borderBottom: '1px solid var(--theia-widget-border)', boxSizing: 'border-box'
         });
-        this.configureIconButton(this.selectToolButton, 'codicon-cursor', '選択ツール', '選択 (A)');
+        this.configureIconButton(this.selectToolButton, 'codicon-cursor', '選択ツール', '選択 (V)');
         this.selectToolButton.addEventListener('click', () => this.setToolMode('select'));
-        this.configureIconButton(this.razorToolButton, 'codicon-screen-cut', '分割ツール', '分割 (B)');
+        this.configureIconButton(this.razorToolButton, 'codicon-screen-cut', '分割ツール', '分割 (C)');
         this.razorToolButton.addEventListener('click', () => this.setToolMode('razor'));
+        this.configureIconButton(this.frameToolButton, 'codicon-preview', '仮枠ツール', '仮枠 (F)');
+        this.frameToolButton.addEventListener('click', () => this.setToolMode('frame'));
         this.configureIconButton(this.snapToggleButton, 'codicon-magnet', 'マグネット', 'マグネット（スナップ）切替 (M / N)');
         this.snapToggleButton.addEventListener('click', () => this.setSnapEnabled(!this.snapEnabled));
         this.configureIconButton(this.undoButton, 'codicon-discard', '元に戻す', '元に戻す (⌘Z)');
@@ -1366,7 +1371,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.configureIconButton(this.compactButton, 'codicon-collapse-all', '詰める', 'クリップ間の空白を詰める');
         this.compactButton.addEventListener('click', () => void this.performCompactCuts());
         this.toolbar.append(
-            this.selectToolButton, this.razorToolButton,
+            this.selectToolButton, this.razorToolButton, this.frameToolButton,
             this.createToolbarSeparator(),
             this.snapToggleButton,
             this.createToolbarSeparator(),
@@ -1567,6 +1572,14 @@ export class AkariAnnotationsWidget extends BaseWidget {
             this.flushStripRender();
             this.settlePan();
         }, true);
+        // Capture only the frame tool: existing clip/marquee listeners remain unchanged.
+        this.strip.addEventListener('pointerdown', event => {
+            if (this.toolMode === 'frame') this.onStripPointerDown(event);
+        }, true);
+        this.strip.addEventListener('click', event => {
+            if (this.toolMode === 'frame') { event.preventDefault(); event.stopImmediatePropagation(); }
+        }, true);
+        this.toDispose.push({ dispose: () => this.cancelFrameDraw?.() });
         this.strip.addEventListener('pointerdown', event => this.onStripPointerDown(event));
         this.strip.addEventListener('wheel', event => this.onWheelZoom(event), { passive: false });
         this.strip.addEventListener('contextmenu', event => {
@@ -2059,6 +2072,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
         background: transparent;
         pointer-events: auto;
     }
+    .akari-annotations-tool-frame [data-akari-item-kind] { cursor: crosshair !important; }
+    .akari-annotations-frame-draw {
+        position: absolute; box-sizing: border-box; pointer-events: none; z-index: 50;
+        border: 2px dashed #b69aff; background: rgba(151, 104, 235, .18);
+        color: #eee5ff; display: flex; align-items: center; justify-content: center;
+        font-size: 12px; white-space: nowrap;
+    }
     .akari-annotations-widget:not(.akari-annotations-tool-razor) [data-trim-edge]:not([data-akari-locked="true"])::after {
         content: '';
         position: absolute;
@@ -2241,6 +2261,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
             if (isImeCompositionKeydown(event)) return;
             // キー操作は確定済みの幾何（選択・再生ヘッド位置）を前提にするため、保留中のズーム描画を先に流す。
             this.flushStripRender();
+            if (event.key === 'Escape' && this.cancelFrameDraw) {
+                event.preventDefault();
+                event.stopPropagation();
+                this.cancelFrameDraw();
+                return;
+            }
             if (event.key === 'Escape' && this.dragState) {
                 event.preventDefault();
                 this.cancelDrag(this.dragState);
@@ -2418,14 +2444,19 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     this.togglePreviewPlayback();
                     return;
                 }
-                if (key === 'a') {
+                if (key === 'a' || key === 'v') {
                     event.preventDefault();
                     this.setToolMode('select');
                     return;
                 }
-                if (key === 'b') {
+                if (key === 'b' || key === 'c') {
                     event.preventDefault();
                     this.setToolMode('razor');
+                    return;
+                }
+                if (key === 'f') {
+                    event.preventDefault();
+                    this.setToolMode('frame');
                     return;
                 }
                 if (key === 'n' || key === 'm') {
@@ -2763,14 +2794,17 @@ export class AkariAnnotationsWidget extends BaseWidget {
         if (this.toolMode === mode) {
             return;
         }
+        this.cancelFrameDraw?.();
         this.toolMode = mode;
         this.updateToolModeButtons();
         this.node.classList.toggle('akari-annotations-tool-razor', mode === 'razor');
-        this.strip.style.cursor = mode === 'razor' ? 'crosshair' : 'pointer';
+        this.node.classList.toggle('akari-annotations-tool-frame', mode === 'frame');
+        this.strip.style.cursor = mode !== 'select' ? 'crosshair' : 'pointer';
         this.renderStrip();
     }
 
     protected updateToolModeButtons(): void {
+        this.frameToolButton.setAttribute('aria-pressed', String(this.toolMode === 'frame'));
         this.selectToolButton.setAttribute('aria-pressed', String(this.toolMode === 'select'));
         this.razorToolButton.setAttribute('aria-pressed', String(this.toolMode === 'razor'));
     }
@@ -15597,7 +15631,120 @@ export class AkariAnnotationsWidget extends BaseWidget {
         void this.requestSeek(outputT, { domain: 'output' });
     }
 
+    protected beginFrameDraw(event: PointerEvent): void {
+        this.cancelFrameDraw?.();
+        const target = event.target instanceof Element ? event.target : undefined;
+        if (target?.closest('[data-akari-item-kind], .akari-track-header-row, .akari-annotations-pin')) return;
+        const doc = this.editDocument;
+        if (!doc || doc.version !== 2 || this.focusScope.rootId !== null) return;
+        const stripRect = this.strip.getBoundingClientRect();
+        const y = event.clientY - stripRect.top;
+        const layout = this.laneLayout.tracks.find(row => y >= row.top && y < row.top + row.height);
+        const track = (doc.tracks as Array<Record<string, any>>)?.find(row => row.id === layout?.id);
+        if (!layout || !track || track.lane !== 'visual' || this.isTrackLocked(track.id)) return;
+        const start = this.timeAtClientX(event.clientX);
+        const fps = this.fps;
+        const occupied = (track.items ?? []).map(item => ({ at: item.at, duration: item.duration }));
+        if (occupied.some(item => start * fps >= item.at && start * fps < item.at + item.duration)) return;
+        const candidates = this.outputSnapCandidates().filter(candidate =>
+            candidate.time >= this.viewStart && candidate.time <= this.viewStart + this.visibleDuration());
+        const thresholdSeconds = snapThresholdSecondsFor(SNAP_THRESHOLD_PX, stripRect.width, this.visibleDuration()) ?? 0;
+        const rectangle = document.createElement('div');
+        rectangle.className = 'akari-annotations-frame-draw';
+        rectangle.style.display = 'none';
+        this.timelineOverlay.appendChild(rectangle);
+        let range: FrameDrawRange | null = null;
+        const update = (pointer: PointerEvent): void => {
+            if (pointer.pointerId !== event.pointerId) return;
+            range = calculateFrameDraw({ start, end: this.timeAtClientX(pointer.clientX), fps,
+                distancePx: Math.abs(pointer.clientX - event.clientX), thresholdSeconds, candidates, occupied });
+            rectangle.style.display = range ? 'flex' : 'none';
+            if (!range) return;
+            const overlay = this.timelineOverlay.getBoundingClientRect();
+            const rect = this.strip.getBoundingClientRect();
+            const scale = rect.width / this.visibleDuration();
+            Object.assign(rectangle.style, {
+                left: `${rect.left - overlay.left + (range.at / fps - this.viewStart) * scale}px`,
+                top: `${rect.top - overlay.top + layout.top}px`,
+                width: `${range.duration / fps * scale}px`, height: `${layout.height}px`
+            });
+            rectangle.textContent = `${(range.duration / fps).toFixed(1)} 秒`;
+        };
+        const cleanup = (): void => {
+            this.strip.removeEventListener('pointermove', update);
+            this.strip.removeEventListener('pointerup', finish);
+            this.strip.removeEventListener('pointercancel', cancel);
+            this.strip.removeEventListener('lostpointercapture', cancel);
+            window.removeEventListener('blur', cleanup);
+            rectangle.remove();
+            this.cancelFrameDraw = undefined;
+            if (this.strip.hasPointerCapture(event.pointerId)) this.strip.releasePointerCapture(event.pointerId);
+        };
+        const cancel = (pointer: PointerEvent): void => { if (pointer.pointerId === event.pointerId) cleanup(); };
+        const finish = (pointer: PointerEvent): void => {
+            if (pointer.pointerId !== event.pointerId) return;
+            update(pointer);
+            cleanup();
+            if (range) void this.commitEmptyFrame(track.id, range, fps);
+        };
+        this.cancelFrameDraw = cleanup;
+        this.strip.setPointerCapture(event.pointerId);
+        this.strip.addEventListener('pointermove', update);
+        this.strip.addEventListener('pointerup', finish);
+        this.strip.addEventListener('pointercancel', cancel);
+        this.strip.addEventListener('lostpointercapture', cancel);
+        window.addEventListener('blur', cleanup);
+    }
+
+    protected async commitEmptyFrame(trackId: string, range: FrameDrawRange, fps: number): Promise<void> {
+        const location = this.location;
+        if (!location) return;
+        try {
+            const image = await this.annotationsService.createEmptyGenerationFrame({
+                projectRootUri: location.root.toString(), durationSeconds: range.duration / fps
+            });
+            if (this.location?.editUri.toString() !== location.editUri.toString()) return;
+            let itemId: string;
+            await this.commitEditMutation('空の枠を置く', doc => {
+                if (this.location?.editUri.toString() !== location.editUri.toString()) throw new Error('プロジェクトが変わりました。');
+                const track = (doc.tracks as Array<Record<string, any>>)?.find(row => row.id === trackId);
+                if (!track || track.lane !== 'visual' || track.locked || (doc.output as { fps: number })?.fps !== fps) {
+                    throw new Error('トラックまたはフレームレートが変わりました。');
+                }
+                if ((track.items ?? []).some(item => item.at < range.at + range.duration && item.at + item.duration > range.at)) {
+                    throw new Error('枠を置く場所に別のクリップがあります。');
+                }
+                const sources = [...(doc.sources as Array<Record<string, unknown>> ?? [])];
+                const ids = new Set([...sources.map(source => source.id), ...indexEditV2Items(doc).keys()]);
+                let serial = 1;
+                while (ids.has(`frame-${serial}`) || ids.has(`frame-src-${serial}`)) serial++;
+                itemId = `frame-${serial}`;
+                const sourceId = `frame-src-${serial}`;
+                sources.push({ id: sourceId, path: image.relativePath });
+                return insertV2Item({ ...doc, sources }, trackId, {
+                    id: itemId, name: '空の枠', at: range.at, duration: range.duration,
+                    source: { kind: 'media', src: sourceId, in: 0, out: range.duration / fps }
+                });
+            });
+            const index = this.cutItemIds.indexOf(itemId);
+            const row = this.timelineTreeRows.find(candidate => candidate.id === itemId);
+            if (index >= 0) this.applySelection({ kind: 'cut', index });
+            else if (row) this.applySelection(this.selectionForTreeRow(row));
+            // Drawing a frame explicitly requests its inspector; passive selection sync only attaches it.
+            await this.commands.executeCommand(OPEN_AKARI_INSPECTOR_ID);
+            this.showNotice('空の枠を置きました。');
+        } catch (error) {
+            this.showNotice(`空の枠を置けません: ${this.errorMessage(error)}`);
+        }
+    }
+
     protected onStripPointerDown(event: PointerEvent): void {
+        if (this.toolMode === 'frame') {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            if (event.button === 0) this.beginFrameDraw(event);
+            return;
+        }
         if (event.button !== 0 || this.toolMode !== 'select') {
             return;
         }
