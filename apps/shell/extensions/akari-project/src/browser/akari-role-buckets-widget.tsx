@@ -1816,16 +1816,20 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                 this.messages.error(`素材を取得できませんでした: ${outcome.error}`);
                 return;
             }
-            this.assetCatalogItems = this.assetCatalogItems.map(entry =>
-                entry.key === item.key ? { ...entry, state: 'cached' } : entry
-            );
-            void this.loadMaterials();
+            this.refreshAfterAssetCatalogImport(item.key);
         } catch {
             this.messages.error('素材を取得できませんでした。ネットワーク環境をご確認ください。');
         } finally {
             this.resolvingAssetKeys.delete(item.key);
             this.update();
         }
+    }
+
+    public refreshAfterAssetCatalogImport(itemKey: string): void {
+        this.assetCatalogItems = this.assetCatalogItems.map(entry =>
+            entry.key === itemKey ? { ...entry, state: 'cached' } : entry
+        );
+        void this.loadMaterials();
     }
 
     // --- ドロップ振り分け -----------------------------------------------------
