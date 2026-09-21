@@ -4343,8 +4343,10 @@ export class AkariInspectorWidget extends BaseWidget {
             return { ok: false, message: '元の静止画の入力が見つかりません。' };
         }
         const previous = this.generationQuality.get(identity.key);
+        const originalResolution = typeof original.output.resolution === 'string' && row.resolutions?.includes(original.output.resolution)
+            ? original.output.resolution : generationFields.defaultResolution(row);
         const resolution = previous?.modelId === row.id && previous.previousResolution
-            && row.resolutions?.includes(previous.previousResolution) ? previous.previousResolution : generationFields.defaultResolution(row);
+            && row.resolutions?.includes(previous.previousResolution) ? previous.previousResolution : originalResolution;
         const seed = (done?.meta as { inputs?: { seed?: unknown } })?.inputs?.seed;
         const draft = { modelId: original.modelId, inputs: { ...original.inputs },
             output: { ...original.output, duration_s: identity.duration, resolution } };

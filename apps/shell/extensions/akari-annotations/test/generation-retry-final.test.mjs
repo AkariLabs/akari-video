@@ -54,6 +54,19 @@ test('単一価格・同額・price null は下書き非対応', () => {
 });
 const originalMeta = { kind: 'still', status: 'done', next: { kind: 'video', status: 'planned', model: { id: h3.id }, inputs: { prompt: 'A garden.', first_frame: null, seed: null }, output: { resolution: '480P', duration_s: 6 } } };
 const doneMeta = { kind: 'video', status: 'done', model: { id: h3.id }, output: { resolution: '480P' }, inputs: { seed: 42 }, placeholder: { path: 'still.png', item_id: 'clip' } };
+for (const next of [originalMeta.next, undefined]) test(`still + done + next ${next ? 'あり' : 'なし'} はモデル select・指示文・枠の通常フォーム`, () => {
+  const defs = fields.generationFields(options(h3, draftFor(h3), { state: 'done', doneMeta: { kind: 'still', status: 'done', next } }));
+  assert.equal(defs.find(field => field.name === 'generation-model')?.inputKind, 'select');
+  assert.ok(defs.some(field => field.name === 'prompt'));
+  assert.ok(defs.some(field => field.generationFrame));
+  assert.ok(!defs.some(field => field.name === 'generation-done'));
+});
+test('video + done の通常画質は生成済みだけを表示する', () => {
+  const defs = fields.generationFields(options(h3, draftFor(h3), {
+    state: 'done', doneMeta: { ...doneMeta, output: { resolution: '768P' } }, originalNext: originalMeta
+  }));
+  assert.deepEqual(defs.map(field => [field.name, field.getValue({})]), [['generation-done', '生成済み']]);
+});
 test('下書き done + 元静止画 next だけに本番の画質にする…と説明を出す', async () => {
   for (const [meta, original, visible] of [[doneMeta, originalMeta, true], [doneMeta, undefined, false], [{ ...doneMeta, output: { resolution: '768P' } }, originalMeta, false], [{ ...doneMeta, status: 'failed' }, originalMeta, false]]) {
     let called = 0;
@@ -284,6 +297,18 @@ test('本番画質の準備は元 next 入力と対応 seed を保持・既定�
     assert.equal((await w.prepareGenerationFinal(identity)).ok, true); assert.deepEqual(w.generationDrafts.get('clip').inputs, { ...originalMeta.next.inputs, seed: 42 }); assert.equal(w.generationDrafts.get('clip').output.resolution, previous ?? h3.resolutions[0]); assert.equal(w.starts.length, 0);
     assert.equal((await w.updateGenerationDraft(identity, 'inputs.prompt', 'changed')).ok, false);
     if (!previous) { assert.equal((await w.confirmAndStartGeneration(identity)).ok, false); assert.equal(w.starts.length, 0); }
+  }
+});
+test('本番画質は元 next に残る選択解像度を復元し、開いている間の選択を優先する', async () => {
+  for (const [saved, previous, expected] of [['768P', undefined, '768P'], ['4K', undefined, '4K'], ['768P', '2K', '2K'], ['unknown', undefined, h3.resolutions[0]]]) {
+    const w = inspector();
+    const original = { ...originalMeta, next: { ...originalMeta.next, output: { ...originalMeta.next.output, resolution: saved } } };
+    w.generationDone.set('clip', { meta: doneMeta, originalMeta: original });
+    if (previous) w.generationQuality.set('clip', { modelId: h3.id, previousResolution: previous });
+    assert.equal((await w.prepareGenerationFinal(identity)).ok, true);
+    assert.equal(w.generationDrafts.get('clip').output.resolution, expected);
+    assert.equal(original.next.output.resolution, saved);
+    assert.equal(w.starts.length, 0);
   }
 });
 test('placeholder 逆引きは元静止画の存在と next を要求し first_frame に頼らない', async () => {

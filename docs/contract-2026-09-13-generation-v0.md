@@ -102,6 +102,7 @@ mp4 がまだ無い「動画予定」は、**仮枠の素材の meta**（静止�
    右パネルは同じ family のフレーム行 / 参照行を「最初 / 最後｜参照」で切り替え、model ID も相方に替える。参照は種類別の札・カウンタ付きグリッドで、素材パネルから複数選択する。
 4. **送るとき**: CLI は `next`（または `--inputs`）を読み、従来どおり**生成物の隣**に video meta（`generating`）を書く。このとき **`placeholder: { path, sha256, item_id }`** = その item が今指している素材（静止画 / 文字カード）を必ず書く。item への逆引きは `placeholder` が正、`inputs.first_frame.path` は 9/13 時点の meta のための後方互換。`next` は消さない（「同じ入力でもう一度」の元）
 5. **状態の優先**: `placeholder` で結線された生成物 meta が `generating` / stale / `failed` ならそれを描く。無ければ `next` の `planned` を描く。`done` で差し替わった後は mp4 の meta が直接当たる（§7）
+   done で差し替わった後の作り直し（本番の画質・同じ入力でもう一度）の下書きは、mp4 の meta の `next` に持つ。元の静止画の `next` は変えない。
 6. `next` の更新は undo に入れない（§3 規則 3 と同じ）。右パネルの編集は即保存
 7. 移行: `.akari/generation/<itemId>.inputs.json` があり `next` が無いときだけ読み、次の保存で `next` へ移す。新規の書き込みはしない
 8. ビート表（`akari generate still --spec`）はビートごとに動画予定（最初だけ / 最初→最後）を指定でき、指定があれば CLI が `next` を書く。指定が無ければ「画像のまま」

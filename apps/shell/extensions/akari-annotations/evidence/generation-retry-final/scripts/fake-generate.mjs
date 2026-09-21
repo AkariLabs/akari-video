@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Local fixture only: record next and arguments, then produce a failed job without any network access.
+// Local fixture only: record next and arguments; retry fails, final quality records only. No network access.
 import { appendFile, mkdir, readFile, realpath, rename, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -16,6 +16,8 @@ async function run(args) {
   const { next } = JSON.parse(await readFile(path.join(root, `${source.path}.meta.json`), 'utf8'));
   await appendFile(path.join(root, 'fake-invocations.jsonl'), `${JSON.stringify({ args, next })}\n`);
   await writeFile(path.join(root, 'fake-invocation.json'), JSON.stringify({ args, next }, null, 2));
+  // The final-quality case observes the real RPC's mp4 next write. Preserve the done fixture and its provenance.
+  if (itemId === 'clip-final') return 0;
   const target = path.join(root, 'assets/generated', `gen-${itemId}.mp4.meta.json`);
   await mkdir(path.dirname(target), { recursive: true });
   const base = {

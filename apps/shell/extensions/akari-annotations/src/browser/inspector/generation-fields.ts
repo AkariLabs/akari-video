@@ -269,7 +269,8 @@ export const generationFields = Object.assign(function generationFields<TSnapsho
     catalogRow, draft, validation, defaults, actions
 }: GenerationFieldsOptions<TSnapshot>): GenerationFieldDef<TSnapshot>[] {
     const canFinalize = generationCanFinalize(defaults.doneMeta, defaults.originalNext, catalogRow);
-    if (defaults.state === 'done' && !defaults.finalQuality) return canFinalize ? [{
+    if (defaults.state === 'done' && (defaults.doneMeta as GenerationMetaV1 | undefined)?.kind === 'video'
+        && !defaults.finalQuality) return canFinalize ? [{
         name: 'generation-actions', label: '操作', getValue: () => '', actions: [{
             name: 'final-quality', label: '本番の画質にする…', title: '本番の画質にする…',
             action: () => actions.finalQuality!()
