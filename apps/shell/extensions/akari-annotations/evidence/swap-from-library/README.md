@@ -151,3 +151,15 @@ r0 のビルドでも同じ操作で即終了する（`r2-r0build-broll-still-ab
 往復 1 で codex は preview の `applyCutVisual` の `deselectCut({ report: requestedCutId === undefined })` を常に `report: false` に変えていた。
 お試しと無関係の既存挙動（㉓ cut の無い区間へ移ったときの解除の report）まで変えるため差し戻し、codex は preview の変更を元に戻した
 （widget 側の item id 判定と `restoreMaterialSwapSelection` だけで解消することを単体テストで確認）。最終ビルドの実機で 9/9 継続を確認済み。
+
+## rebase（最新 main `82bbaa4a` へ rebase 後のスモーク）— L1 証跡
+
+- rebase 後のビルド（3 本目 = `b498ae2e`、`npm run build`）。同じ fixture（`0b6ccf6c…`）・`/tmp/swap-l1/` 構成・CDP 9395・内寸 1120×927。
+  入口は右クリック「入れ替え…」の実クリック。計測時のみ `localStorage['akari.swapTrial.log'] = '1'`。計測中の load average 22〜47
+
+| スモーク | 記録 | 結果 |
+|---|---|---|
+| 効果音の item（bell-1）に候補を 1 回お試し → 自動再生 → やめるで byte 一致 | `rebase-a0〜a3` | `audio/sfx-blip-beep` で `playing`（再生要求 1・送り直し 0）・帯「お試し中」→ やめるで `88125…` → `0b6ccf6c` |
+| 動画の item（broll-1）に静止画の候補 → 帯が出たまま続く → 差し替える → Cmd+Z 1 手で byte 一致 | `rebase-b0〜b4` / `rebase-b-trial.png` | `still/br-coffee-beans` で `playing`・`trial_end` なし・帯表示のまま → 差し替えるで `0abc8dba`（帯・棚が閉じる）→ Cmd+Z 1 回で `0b6ccf6c` |
+| お試し中に別の item を選ぶ → 巻き戻る | `rebase-c1〜c2` / `rebase-c-after-select.png` | `still/br-camera-gear` のお試し中（`9fff5d71`）に bell-1 を実クリック → `0b6ccf6c`・帯なし・フッター「素材の入れ替えを元に戻しました。」 |
+| お試しなしで通常の再生・シーク（他席の変更との干渉なし） | `rebase-d-seek.png` / `rebase-d-playing.png` | 出力プレビューのシークバー実クリックで再生ヘッド 6.1% → 48.4%、▶ で 52.6% → 60.1%（3 秒）と進み、⏸ で 64.5% に止まる。edit.json は `0b6ccf6c` のまま。ログに `bag expansion failed` / `ready seek failed` 0 件 |

@@ -1,0 +1,69 @@
+{
+ "mode": "bar",
+ "arg": "やめる",
+ "at": "2026-09-21T17:02:55.286Z",
+ "shaBefore": "881253c316bc0b145d8b182470661d4343eab7b331b8e13fe3667ba41d90c52e",
+ "itemBefore": {
+  "track": "a1",
+  "id": "bell-1",
+  "at": 60,
+  "duration": 54,
+  "source": {
+   "kind": "media",
+   "src": "src-1",
+   "in": 0,
+   "out": 1.8
+  },
+  "path": "assets/audio/sfx-blip-beep/sfx-blip-beep.mp3",
+  "gain_db": -3,
+  "fade_in": 0.1,
+  "fade_out": 0.2
+ },
+ "click": [
+  820.5,
+  64.25
+ ],
+ "settleMs": 2606,
+ "previewTimeSamples": [
+  3,
+  3,
+  3,
+  3,
+  3,
+  3,
+  3,
+  3
+ ],
+ "shaAfter": "0b6ccf6c363685d94a5a44f54f8d132ab1d99b8c22e5c838669849559e5356fc",
+ "itemAfter": {
+  "track": "a1",
+  "id": "bell-1",
+  "at": 60,
+  "duration": 76,
+  "source": {
+   "kind": "media",
+   "src": "bell",
+   "in": 0,
+   "out": 2.520979
+  },
+  "path": "assets/audio/sfx-bell-tree/sfx-bell-tree.mp3",
+  "gain_db": -3,
+  "fade_in": 0.1,
+  "fade_out": 0.2
+ },
+ "sameTrack": [
+  "bell-1@60+76",
+  "pop-1@150+54"
+ ],
+ "ui": {
+  "trialBar": [],
+  "inspectorSwapRow": false,
+  "leftPanel": "other",
+  "toasts": []
+ },
+ "lint": {
+  "verdict": "pass",
+  "errors": [],
+  "sourceRange": 0
+ }
+}
