@@ -1,0 +1,1335 @@
+{
+  "status": "PASS",
+  "startedAt": "2026-09-21T16:41:36.768Z",
+  "finishedAt": "2026-09-21T16:42:18.238Z",
+  "records": [
+    {
+      "step": 1,
+      "title": "leaf: right x3 / Shift down x1, exact +3/+10 and one write",
+      "status": "ok",
+      "observations": {
+        "preparation": {
+          "timelineBefore": {
+            "rootId": null,
+            "collapsedIds": [
+              "outer",
+              "g1",
+              "cycle-back",
+              "cycle-front"
+            ],
+            "selectedId": null,
+            "selection": null,
+            "selectedRows": [],
+            "breadcrumbs": [
+              "全体"
+            ],
+            "zoom": "100%"
+          },
+          "previewBefore": {
+            "selectedId": null,
+            "scopeId": null,
+            "floorScopeId": null,
+            "activeEdit": false
+          },
+          "focusExit": [],
+          "rebuild": {
+            "path": "ApplicationShell.closeWidget -> akari.preview.ensureVisible",
+            "closed": [
+              {
+                "id": "plugin-webview:akari-output-preview-1r5tdqa",
+                "disposed": true
+              }
+            ]
+          },
+          "click": {
+            "x": 89.28749465942383,
+            "y": 572.2046508789062,
+            "id": "plain",
+            "tag": "DIV",
+            "text": "名札なし"
+          },
+          "focusBeforeClear": {
+            "hasFocus": true,
+            "instance": null,
+            "activeElement": {
+              "tag": "BODY",
+              "id": "",
+              "editable": false
+            }
+          },
+          "previewAfter": {
+            "selectedId": null,
+            "scopeId": null,
+            "floorScopeId": null,
+            "activeEdit": false
+          },
+          "timelineAfter": {
+            "rootId": null,
+            "collapsedIds": [
+              "outer",
+              "g1",
+              "cycle-back",
+              "cycle-front"
+            ],
+            "selectedId": "plain",
+            "selection": {
+              "kind": "item",
+              "id": "plain",
+              "itemKind": "item",
+              "trackId": "v3"
+            },
+            "selectedRows": [],
+            "breadcrumbs": [
+              "全体"
+            ],
+            "zoom": "100%"
+          }
+        },
+        "before": {
+          "id": "plain",
+          "at": 0,
+          "duration": 120,
+          "source": {
+            "kind": "html",
+            "path": "overlays/plain.html"
+          }
+        },
+        "mainArrowProbe": {
+          "before": {
+            "count": 0,
+            "keydown": 0,
+            "keyup": 0,
+            "events": []
+          },
+          "after": {
+            "count": 0,
+            "keydown": 0,
+            "keyup": 0,
+            "events": []
+          }
+        },
+        "liveBefore": {
+          "x": 0,
+          "y": 0
+        },
+        "liveAfter": {
+          "x": 3,
+          "y": 10
+        },
+        "immediateWrites": [],
+        "after": {
+          "id": "plain",
+          "at": 0,
+          "duration": 120,
+          "source": {
+            "kind": "html",
+            "path": "overlays/plain.html"
+          },
+          "transform": {
+            "x": 3,
+            "y": 10,
+            "scale": 1,
+            "rotate": 0
+          }
+        },
+        "writes": [
+          {
+            "id": "plain",
+            "patch": {
+              "transform": {
+                "x": 3,
+                "y": 10,
+                "scale": 1,
+                "rotate": 0
+              }
+            },
+            "at": 2943.2000000476837
+          }
+        ],
+        "final": {
+          "id": "plain",
+          "at": 0,
+          "duration": 120,
+          "source": {
+            "kind": "html",
+            "path": "overlays/plain.html"
+          },
+          "transform": {
+            "x": 3,
+            "y": 10,
+            "scale": 1,
+            "rotate": 0
+          }
+        },
+        "unselectedArrowControl": {
+          "previewBefore": {
+            "selectedId": null,
+            "scopeId": null,
+            "floorScopeId": null,
+            "activeEdit": false
+          },
+          "plainBefore": {
+            "id": "plain",
+            "at": 0,
+            "duration": 120,
+            "source": {
+              "kind": "html",
+              "path": "overlays/plain.html"
+            },
+            "transform": {
+              "x": 3,
+              "y": 10,
+              "scale": 1,
+              "rotate": 0
+            }
+          },
+          "before": {
+            "count": 0,
+            "keydown": 0,
+            "keyup": 0,
+            "events": []
+          },
+          "focusBefore": {
+            "hasFocus": true,
+            "instance": null,
+            "activeElement": {
+              "tag": "BODY",
+              "id": "",
+              "editable": false
+            }
+          },
+          "after": {
+            "count": 1,
+            "keydown": 1,
+            "keyup": 0,
+            "events": [
+              {
+                "type": "keydown",
+                "key": "ArrowRight",
+                "code": "ArrowRight",
+                "isTrusted": false,
+                "repeat": false,
+                "shiftKey": false,
+                "altKey": false,
+                "ctrlKey": false,
+                "metaKey": false,
+                "at": 21958.60000014305
+              }
+            ]
+          },
+          "forwardingObserved": true,
+          "validation": "forwarding-positive-control",
+          "plainAfter": {
+            "id": "plain",
+            "at": 0,
+            "duration": 120,
+            "source": {
+              "kind": "html",
+              "path": "overlays/plain.html"
+            },
+            "transform": {
+              "x": 3,
+              "y": 10,
+              "scale": 1,
+              "rotate": 0
+            }
+          },
+          "plainHitAfter": {
+            "x": 93.09374618530273,
+            "y": 584.8921508789062,
+            "id": "plain",
+            "tag": "DIV",
+            "text": "名札なし"
+          }
+        }
+      }
+    },
+    {
+      "step": 2,
+      "title": "group and bag: same output-pixel nudge and one write each",
+      "status": "ok",
+      "observations": {
+        "preparation": {
+          "timelineBefore": {
+            "rootId": null,
+            "collapsedIds": [
+              "outer",
+              "g1",
+              "cycle-back",
+              "cycle-front"
+            ],
+            "selectedId": "plain",
+            "selection": {
+              "kind": "item",
+              "id": "plain",
+              "itemKind": "item",
+              "trackId": "v3"
+            },
+            "selectedRows": [],
+            "breadcrumbs": [
+              "全体"
+            ],
+            "zoom": "100%"
+          },
+          "previewBefore": {
+            "selectedId": null,
+            "scopeId": null,
+            "floorScopeId": null,
+            "activeEdit": false
+          },
+          "focusExit": [],
+          "rebuild": {
+            "path": "ApplicationShell.closeWidget -> akari.preview.ensureVisible",
+            "closed": [
+              {
+                "id": "plugin-webview:akari-output-preview-1r5tdqa",
+                "disposed": true
+              }
+            ]
+          },
+          "click": {
+            "x": 93.09374618530273,
+            "y": 584.8921508789062,
+            "id": "plain",
+            "tag": "DIV",
+            "text": "名札なし"
+          },
+          "focusBeforeClear": {
+            "hasFocus": true,
+            "instance": null,
+            "activeElement": {
+              "tag": "BODY",
+              "id": "",
+              "editable": false
+            }
+          },
+          "previewAfter": {
+            "selectedId": null,
+            "scopeId": null,
+            "floorScopeId": null,
+            "activeEdit": false
+          },
+          "timelineAfter": {
+            "rootId": null,
+            "collapsedIds": [
+              "outer",
+              "g1",
+              "cycle-back",
+              "cycle-front"
+            ],
+            "selectedId": "plain",
+            "selection": {
+              "kind": "item",
+              "id": "plain",
+              "itemKind": "item",
+              "trackId": "v3"
+            },
+            "selectedRows": [],
+            "breadcrumbs": [
+              "全体"
+            ],
+            "zoom": "100%"
+          }
+        },
+        "group": {
+          "before": {
+            "id": "outer",
+            "at": 0,
+            "duration": 120,
+            "transform": {
+              "x": 0,
+              "y": 0
+            },
+            "source": {
+              "kind": "group"
+            },
+            "items": [
+              {
+                "id": "g1",
+                "at": 30,
+                "duration": 90,
+                "transform": {
+                  "x": 270,
+                  "y": -110,
+                  "scale": 1,
+                  "rotate": 0
+                },
+                "opacity": 0.5,
+                "blend": "screen",
+                "source": {
+                  "kind": "group"
+                },
+                "items": [
+                  {
+                    "id": "g1.first",
+                    "at": 0,
+                    "duration": 45,
+                    "transform": {
+                      "x": 10,
+                      "y": 5,
+                      "scale": 1,
+                      "rotate": 0
+                    },
+                    "opacity": 0.8,
+                    "source": {
+                      "kind": "html",
+                      "path": "overlays/plain.html"
+                    }
+                  },
+                  {
+                    "id": "g1.second",
+                    "at": 0,
+                    "duration": 45,
+                    "transform": {
+                      "x": 110,
+                      "y": -45,
+                      "scale": 1,
+                      "rotate": 0
+                    },
+                    "source": {
+                      "kind": "html",
+                      "path": "overlays/plain.html"
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          "mainArrowProbe": {
+            "before": {
+              "count": 0,
+              "keydown": 0,
+              "keyup": 0,
+              "events": []
+            },
+            "after": {
+              "count": 0,
+              "keydown": 0,
+              "keyup": 0,
+              "events": []
+            }
+          },
+          "liveBefore": {
+            "x": 280,
+            "y": -105
+          },
+          "liveAfter": {
+            "x": 283,
+            "y": -95
+          },
+          "immediateWrites": [],
+          "after": {
+            "id": "outer",
+            "at": 0,
+            "duration": 120,
+            "transform": {
+              "x": 3,
+              "y": 10
+            },
+            "source": {
+              "kind": "group"
+            },
+            "items": [
+              {
+                "id": "g1",
+                "at": 30,
+                "duration": 90,
+                "transform": {
+                  "x": 270,
+                  "y": -110,
+                  "scale": 1,
+                  "rotate": 0
+                },
+                "opacity": 0.5,
+                "blend": "screen",
+                "source": {
+                  "kind": "group"
+                },
+                "items": [
+                  {
+                    "id": "g1.first",
+                    "at": 0,
+                    "duration": 45,
+                    "transform": {
+                      "x": 10,
+                      "y": 5,
+                      "scale": 1,
+                      "rotate": 0
+                    },
+                    "opacity": 0.8,
+                    "source": {
+                      "kind": "html",
+                      "path": "overlays/plain.html"
+                    }
+                  },
+                  {
+                    "id": "g1.second",
+                    "at": 0,
+                    "duration": 45,
+                    "transform": {
+                      "x": 110,
+                      "y": -45,
+                      "scale": 1,
+                      "rotate": 0
+                    },
+                    "source": {
+                      "kind": "html",
+                      "path": "overlays/plain.html"
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          "writes": [
+            {
+              "id": "outer",
+              "patch": {
+                "transform": {
+                  "x": 3,
+                  "y": 10
+                }
+              },
+              "at": 2347.7999999523163
+            }
+          ],
+          "final": {
+            "id": "outer",
+            "at": 0,
+            "duration": 120,
+            "transform": {
+              "x": 3,
+              "y": 10
+            },
+            "source": {
+              "kind": "group"
+            },
+            "items": [
+              {
+                "id": "g1",
+                "at": 30,
+                "duration": 90,
+                "transform": {
+                  "x": 270,
+                  "y": -110,
+                  "scale": 1,
+                  "rotate": 0
+                },
+                "opacity": 0.5,
+                "blend": "screen",
+                "source": {
+                  "kind": "group"
+                },
+                "items": [
+                  {
+                    "id": "g1.first",
+                    "at": 0,
+                    "duration": 45,
+                    "transform": {
+                      "x": 10,
+                      "y": 5,
+                      "scale": 1,
+                      "rotate": 0
+                    },
+                    "opacity": 0.8,
+                    "source": {
+                      "kind": "html",
+                      "path": "overlays/plain.html"
+                    }
+                  },
+                  {
+                    "id": "g1.second",
+                    "at": 0,
+                    "duration": 45,
+                    "transform": {
+                      "x": 110,
+                      "y": -45,
+                      "scale": 1,
+                      "rotate": 0
+                    },
+                    "source": {
+                      "kind": "html",
+                      "path": "overlays/plain.html"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        "bag": {
+          "preparation": {
+            "timelineBefore": {
+              "rootId": null,
+              "collapsedIds": [
+                "outer",
+                "g1",
+                "cycle-back",
+                "cycle-front"
+              ],
+              "selectedId": "outer",
+              "selection": {
+                "kind": "item",
+                "id": "outer",
+                "itemKind": "group",
+                "trackId": "v2"
+              },
+              "selectedRows": [
+                "outer"
+              ],
+              "breadcrumbs": [
+                "全体"
+              ],
+              "zoom": "100%"
+            },
+            "previewBefore": {
+              "selectedId": "outer",
+              "scopeId": null,
+              "floorScopeId": null,
+              "activeEdit": false
+            },
+            "focusExit": [],
+            "rebuild": {
+              "path": "ApplicationShell.closeWidget -> akari.preview.ensureVisible",
+              "closed": [
+                {
+                  "id": "plugin-webview:akari-output-preview-1r5tdqa",
+                  "disposed": true
+                }
+              ]
+            },
+            "click": {
+              "x": 93.09374618530273,
+              "y": 584.8921508789062,
+              "id": "plain",
+              "tag": "DIV",
+              "text": "名札なし"
+            },
+            "focusBeforeClear": {
+              "hasFocus": true,
+              "instance": null,
+              "activeElement": {
+                "tag": "BODY",
+                "id": "",
+                "editable": false
+              }
+            },
+            "previewAfter": {
+              "selectedId": null,
+              "scopeId": null,
+              "floorScopeId": null,
+              "activeEdit": false
+            },
+            "timelineAfter": {
+              "rootId": null,
+              "collapsedIds": [
+                "outer",
+                "g1",
+                "cycle-back",
+                "cycle-front"
+              ],
+              "selectedId": "plain",
+              "selection": {
+                "kind": "item",
+                "id": "plain",
+                "itemKind": "item",
+                "trackId": "v3"
+              },
+              "selectedRows": [],
+              "breadcrumbs": [
+                "全体"
+              ],
+              "zoom": "100%"
+            }
+          },
+          "before": {
+            "id": "lazy",
+            "at": 0,
+            "duration": 120,
+            "source": {
+              "kind": "html",
+              "path": "overlays/lazy.html"
+            }
+          },
+          "mainArrowProbe": {
+            "before": {
+              "count": 0,
+              "keydown": 0,
+              "keyup": 0,
+              "events": []
+            },
+            "after": {
+              "count": 0,
+              "keydown": 0,
+              "keyup": 0,
+              "events": []
+            }
+          },
+          "liveBefore": {
+            "x": 0,
+            "y": 0
+          },
+          "liveAfter": {
+            "x": 3,
+            "y": 10
+          },
+          "immediateWrites": [],
+          "after": {
+            "id": "lazy",
+            "at": 0,
+            "duration": 120,
+            "source": {
+              "kind": "html",
+              "path": "overlays/lazy.html"
+            },
+            "transform": {
+              "x": 3,
+              "y": 10
+            }
+          },
+          "writes": [
+            {
+              "id": "lazy",
+              "patch": {
+                "transform": {
+                  "x": 3,
+                  "y": 10
+                }
+              },
+              "at": 2152.399999856949
+            }
+          ],
+          "final": {
+            "id": "lazy",
+            "at": 0,
+            "duration": 120,
+            "source": {
+              "kind": "html",
+              "path": "overlays/lazy.html"
+            },
+            "transform": {
+              "x": 3,
+              "y": 10
+            }
+          }
+        }
+      }
+    },
+    {
+      "step": 3,
+      "title": "three single clicks cycle front, back, front in current scope",
+      "status": "ok",
+      "observations": {
+        "preparation": {
+          "timelineBefore": {
+            "rootId": null,
+            "collapsedIds": [
+              "outer",
+              "g1",
+              "cycle-back",
+              "cycle-front"
+            ],
+            "selectedId": "lazy",
+            "selection": {
+              "kind": "item",
+              "id": "lazy",
+              "itemKind": "bag",
+              "trackId": "lazy-track"
+            },
+            "selectedRows": [],
+            "breadcrumbs": [
+              "全体"
+            ],
+            "zoom": "100%"
+          },
+          "previewBefore": {
+            "selectedId": "lazy",
+            "scopeId": null,
+            "floorScopeId": null,
+            "activeEdit": false
+          },
+          "focusExit": [],
+          "rebuild": {
+            "path": "ApplicationShell.closeWidget -> akari.preview.ensureVisible",
+            "closed": [
+              {
+                "id": "plugin-webview:akari-output-preview-1r5tdqa",
+                "disposed": true
+              }
+            ]
+          },
+          "click": {
+            "x": 93.09374618530273,
+            "y": 584.8921508789062,
+            "id": "plain",
+            "tag": "DIV",
+            "text": "名札なし"
+          },
+          "focusBeforeClear": {
+            "hasFocus": true,
+            "instance": null,
+            "activeElement": {
+              "tag": "BODY",
+              "id": "",
+              "editable": false
+            }
+          },
+          "previewAfter": {
+            "selectedId": null,
+            "scopeId": null,
+            "floorScopeId": null,
+            "activeEdit": false
+          },
+          "timelineAfter": {
+            "rootId": null,
+            "collapsedIds": [
+              "outer",
+              "g1",
+              "cycle-back",
+              "cycle-front"
+            ],
+            "selectedId": "plain",
+            "selection": {
+              "kind": "item",
+              "id": "plain",
+              "itemKind": "item",
+              "trackId": "v3"
+            },
+            "selectedRows": [],
+            "breadcrumbs": [
+              "全体"
+            ],
+            "zoom": "100%"
+          }
+        },
+        "states": [
+          {
+            "selectedId": "cycle-front",
+            "scopeId": null,
+            "floorScopeId": null,
+            "activeEdit": false
+          },
+          {
+            "selectedId": "cycle-back",
+            "scopeId": null,
+            "floorScopeId": null,
+            "activeEdit": false
+          },
+          {
+            "selectedId": "cycle-front",
+            "scopeId": null,
+            "floorScopeId": null,
+            "activeEdit": false
+          }
+        ]
+      }
+    },
+    {
+      "step": 4,
+      "title": "double click enters the front group without cycling to back",
+      "status": "ok",
+      "observations": {
+        "preparation": {
+          "timelineBefore": {
+            "rootId": null,
+            "collapsedIds": [
+              "outer",
+              "g1",
+              "cycle-back",
+              "cycle-front"
+            ],
+            "selectedId": "cycle-front",
+            "selection": {
+              "kind": "item",
+              "id": "cycle-front",
+              "itemKind": "group",
+              "trackId": "cycle-front-track"
+            },
+            "selectedRows": [
+              "cycle-front"
+            ],
+            "breadcrumbs": [
+              "全体"
+            ],
+            "zoom": "100%"
+          },
+          "previewBefore": {
+            "selectedId": "cycle-front",
+            "scopeId": null,
+            "floorScopeId": null,
+            "activeEdit": false
+          },
+          "focusExit": [],
+          "rebuild": {
+            "path": "ApplicationShell.closeWidget -> akari.preview.ensureVisible",
+            "closed": [
+              {
+                "id": "plugin-webview:akari-output-preview-1r5tdqa",
+                "disposed": true
+              }
+            ]
+          },
+          "click": {
+            "x": 93.09374618530273,
+            "y": 584.8921508789062,
+            "id": "plain",
+            "tag": "DIV",
+            "text": "名札なし"
+          },
+          "focusBeforeClear": {
+            "hasFocus": true,
+            "instance": null,
+            "activeElement": {
+              "tag": "BODY",
+              "id": "",
+              "editable": false
+            }
+          },
+          "previewAfter": {
+            "selectedId": null,
+            "scopeId": null,
+            "floorScopeId": null,
+            "activeEdit": false
+          },
+          "timelineAfter": {
+            "rootId": null,
+            "collapsedIds": [
+              "outer",
+              "g1",
+              "cycle-back",
+              "cycle-front"
+            ],
+            "selectedId": "plain",
+            "selection": {
+              "kind": "item",
+              "id": "plain",
+              "itemKind": "item",
+              "trackId": "v3"
+            },
+            "selectedRows": [],
+            "breadcrumbs": [
+              "全体"
+            ],
+            "zoom": "100%"
+          }
+        },
+        "state": {
+          "selectedId": "cycle-front.child",
+          "scopeId": "cycle-front",
+          "floorScopeId": null,
+          "activeEdit": false
+        }
+      }
+    },
+    {
+      "step": 5,
+      "title": "hover resolves group union outside scope and leaf inside",
+      "status": "ok",
+      "observations": {
+        "preparation": {
+          "timelineBefore": {
+            "rootId": null,
+            "collapsedIds": [
+              "outer",
+              "g1",
+              "cycle-back"
+            ],
+            "selectedId": "cycle-front.child",
+            "selection": {
+              "kind": "item",
+              "id": "cycle-front.child",
+              "itemKind": "item",
+              "parentId": "cycle-front",
+              "trackId": "cycle-front-track"
+            },
+            "selectedRows": [
+              "cycle-front.child"
+            ],
+            "breadcrumbs": [
+              "全体"
+            ],
+            "zoom": "100%"
+          },
+          "previewBefore": {
+            "selectedId": "cycle-front.child",
+            "scopeId": "cycle-front",
+            "floorScopeId": null,
+            "activeEdit": false
+          },
+          "focusExit": [],
+          "rebuild": {
+            "path": "ApplicationShell.closeWidget -> akari.preview.ensureVisible",
+            "closed": [
+              {
+                "id": "plugin-webview:akari-output-preview-1r5tdqa",
+                "disposed": true
+              }
+            ]
+          },
+          "click": {
+            "x": 93.09374618530273,
+            "y": 584.8921508789062,
+            "id": "plain",
+            "tag": "DIV",
+            "text": "名札なし"
+          },
+          "focusBeforeClear": {
+            "hasFocus": true,
+            "instance": null,
+            "activeElement": {
+              "tag": "BODY",
+              "id": "",
+              "editable": false
+            }
+          },
+          "previewAfter": {
+            "selectedId": null,
+            "scopeId": null,
+            "floorScopeId": null,
+            "activeEdit": false
+          },
+          "timelineAfter": {
+            "rootId": null,
+            "collapsedIds": [
+              "outer",
+              "g1",
+              "cycle-back"
+            ],
+            "selectedId": "plain",
+            "selection": {
+              "kind": "item",
+              "id": "plain",
+              "itemKind": "item",
+              "trackId": "v3"
+            },
+            "selectedRows": [],
+            "breadcrumbs": [
+              "全体"
+            ],
+            "zoom": "100%"
+          }
+        },
+        "group": {
+          "id": "outer",
+          "left": 415.3515625,
+          "top": 375.859375,
+          "width": 192.84375,
+          "height": 88.171875,
+          "pointerEvents": "none"
+        },
+        "union": {
+          "left": 415.3562316894531,
+          "top": 375.8656005859375,
+          "width": 192.85000610351562,
+          "height": 88.17813110351562
+        },
+        "leaf": {
+          "id": "g1.second",
+          "left": 542.2265625,
+          "top": 375.859375,
+          "width": 65.96875,
+          "height": 24.734375,
+          "pointerEvents": "none"
+        }
+      }
+    },
+    {
+      "step": 6,
+      "title": "playing pointerdown pauses; selection stays paused, miss resumes",
+      "status": "ok",
+      "observations": {
+        "preparation": {
+          "timelineBefore": {
+            "rootId": null,
+            "collapsedIds": [
+              "cycle-back"
+            ],
+            "selectedId": "g1.first",
+            "selection": {
+              "kind": "item",
+              "id": "g1.first",
+              "itemKind": "item",
+              "parentId": "g1",
+              "trackId": "v2"
+            },
+            "selectedRows": [
+              "g1.first"
+            ],
+            "breadcrumbs": [
+              "全体"
+            ],
+            "zoom": "100%"
+          },
+          "previewBefore": {
+            "selectedId": "g1.first",
+            "scopeId": "g1",
+            "floorScopeId": null,
+            "activeEdit": false
+          },
+          "focusExit": [],
+          "rebuild": {
+            "path": "ApplicationShell.closeWidget -> akari.preview.ensureVisible",
+            "closed": [
+              {
+                "id": "plugin-webview:akari-output-preview-1r5tdqa",
+                "disposed": true
+              }
+            ]
+          },
+          "click": {
+            "x": 93.09374618530273,
+            "y": 584.8921508789062,
+            "id": "plain",
+            "tag": "DIV",
+            "text": "名札なし"
+          },
+          "focusBeforeClear": {
+            "hasFocus": true,
+            "instance": null,
+            "activeElement": {
+              "tag": "BODY",
+              "id": "",
+              "editable": false
+            }
+          },
+          "previewAfter": {
+            "selectedId": null,
+            "scopeId": null,
+            "floorScopeId": null,
+            "activeEdit": false
+          },
+          "timelineAfter": {
+            "rootId": null,
+            "collapsedIds": [
+              "cycle-back"
+            ],
+            "selectedId": "plain",
+            "selection": {
+              "kind": "item",
+              "id": "plain",
+              "itemKind": "item",
+              "trackId": "v3"
+            },
+            "selectedRows": [],
+            "breadcrumbs": [
+              "全体"
+            ],
+            "zoom": "100%"
+          }
+        },
+        "onDown": "再生",
+        "selected": {
+          "selectedId": "plain",
+          "scopeId": null,
+          "floorScopeId": null,
+          "activeEdit": false
+        },
+        "empty": {
+          "selectedId": null,
+          "scopeId": null,
+          "floorScopeId": null,
+          "activeEdit": false
+        },
+        "resumed": "一時停止"
+      }
+    }
+  ],
+  "events": [
+    {
+      "kind": "preview-focus",
+      "at": 1790008906437,
+      "data": {
+        "label": "before Escape",
+        "hasFocus": true,
+        "instance": null,
+        "activeElement": {
+          "tag": "BODY",
+          "id": "",
+          "editable": false
+        }
+      }
+    },
+    {
+      "kind": "preview-focus",
+      "at": 1790008907862,
+      "data": {
+        "label": "before nudge",
+        "hasFocus": true,
+        "instance": null,
+        "activeElement": {
+          "tag": "BODY",
+          "id": "",
+          "editable": false
+        }
+      }
+    },
+    {
+      "kind": "preview-focus",
+      "at": 1790008910009,
+      "data": {
+        "label": "before Escape",
+        "hasFocus": true,
+        "instance": null,
+        "activeElement": {
+          "tag": "BODY",
+          "id": "",
+          "editable": false
+        }
+      }
+    },
+    {
+      "kind": "preview-focus",
+      "at": 1790008910543,
+      "data": {
+        "label": "before unselected Arrow control",
+        "hasFocus": true,
+        "instance": null,
+        "activeElement": {
+          "tag": "BODY",
+          "id": "",
+          "editable": false
+        }
+      }
+    },
+    {
+      "kind": "preview-focus",
+      "at": 1790008912909,
+      "data": {
+        "label": "before Escape",
+        "hasFocus": true,
+        "instance": null,
+        "activeElement": {
+          "tag": "BODY",
+          "id": "",
+          "editable": false
+        }
+      }
+    },
+    {
+      "kind": "preview-focus",
+      "at": 1790008914086,
+      "data": {
+        "label": "before nudge",
+        "hasFocus": true,
+        "instance": null,
+        "activeElement": {
+          "tag": "BODY",
+          "id": "",
+          "editable": false
+        }
+      }
+    },
+    {
+      "kind": "preview-focus",
+      "at": 1790008916758,
+      "data": {
+        "label": "before Escape",
+        "hasFocus": true,
+        "instance": null,
+        "activeElement": {
+          "tag": "BODY",
+          "id": "",
+          "editable": false
+        }
+      }
+    },
+    {
+      "kind": "preview-focus",
+      "at": 1790008917762,
+      "data": {
+        "label": "before nudge",
+        "hasFocus": true,
+        "instance": null,
+        "activeElement": {
+          "tag": "BODY",
+          "id": "",
+          "editable": false
+        }
+      }
+    },
+    {
+      "kind": "preview-focus",
+      "at": 1790008925743,
+      "data": {
+        "label": "before Escape",
+        "hasFocus": true,
+        "instance": null,
+        "activeElement": {
+          "tag": "BODY",
+          "id": "",
+          "editable": false
+        }
+      }
+    },
+    {
+      "kind": "preview-focus",
+      "at": 1790008929314,
+      "data": {
+        "label": "before Escape",
+        "hasFocus": true,
+        "instance": null,
+        "activeElement": {
+          "tag": "BODY",
+          "id": "",
+          "editable": false
+        }
+      }
+    },
+    {
+      "kind": "preview-focus",
+      "at": 1790008932947,
+      "data": {
+        "label": "before Escape",
+        "hasFocus": true,
+        "instance": null,
+        "activeElement": {
+          "tag": "BODY",
+          "id": "",
+          "editable": false
+        }
+      }
+    },
+    {
+      "kind": "preview-focus",
+      "at": 1790008934341,
+      "data": {
+        "label": "before Enter",
+        "hasFocus": true,
+        "instance": null,
+        "activeElement": {
+          "tag": "BODY",
+          "id": "",
+          "editable": false
+        }
+      }
+    },
+    {
+      "kind": "preview-focus",
+      "at": 1790008934871,
+      "data": {
+        "label": "before Enter",
+        "hasFocus": true,
+        "instance": null,
+        "activeElement": {
+          "tag": "BODY",
+          "id": "",
+          "editable": false
+        }
+      }
+    },
+    {
+      "kind": "preview-focus",
+      "at": 1790008936795,
+      "data": {
+        "label": "before Escape",
+        "hasFocus": true,
+        "instance": null,
+        "activeElement": {
+          "tag": "BODY",
+          "id": "",
+          "editable": false
+        }
+      }
+    }
+  ]
+}

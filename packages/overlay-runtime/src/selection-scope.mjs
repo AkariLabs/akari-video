@@ -61,8 +61,13 @@ function lazyBagForScope(tree, scopeId) {
   return node?.kind === "bag" && node.lazy === true ? node.id : null;
 }
 
+function nextCycleCandidate(candidates, currentId) {
+  if (!candidates.length) return null;
+  return candidates[(candidates.indexOf(currentId) + 1) % candidates.length];
+}
+
 // END selection-scope
-export { resolveScopedSelection, enterScope, exitScope, lineage, descendantLeafIds, shouldHandleScopeEscape, lazyBagForScope, selectionAncestorIds };
+export { nextCycleCandidate, resolveScopedSelection, enterScope, exitScope, lineage, descendantLeafIds, shouldHandleScopeEscape, lazyBagForScope, selectionAncestorIds };
 
 // Pure counterpart of the widget helper; a source equality test keeps the copy
 // in sync without importing the Electron widget into Node.

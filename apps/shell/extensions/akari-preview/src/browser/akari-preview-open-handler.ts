@@ -6753,6 +6753,9 @@ ${kind === 'raw' ? '.akari-material-chip { position: absolute; top: 8px; left: 8
 [data-akari-ui="preview-scope-breadcrumb"][hidden] { display: none; }
 [data-akari-ui="preview-scope-breadcrumb"] button { color: inherit; background: transparent; border: 0; cursor: pointer; }
 .akari-interaction-selection-frame[data-akari-selection-kind="group"] .akari-interaction-handle { display: none; }
+[data-akari-ui="preview-hover-frame"] { position: fixed; pointer-events: none; box-sizing: border-box;
+  border: 1px solid var(--akari-accent); opacity: .45; z-index: 90; }
+[data-akari-ui="preview-hover-frame"][hidden] { display: none; }
 .preview-pane.is-draggable { cursor: grab; touch-action: none; }
 .preview-pane.is-dragging { cursor: grabbing; }
 #zoom-layer { position: absolute; inset: 0; transform-origin: 50% 50%; will-change: transform; }
@@ -16265,6 +16268,31 @@ body { display: grid; place-items: center; padding: 32px; }
             fullscreenToggle.addEventListener('click', () => {
                 void window.akari.toggleFullscreen().catch(error => console.error('[akari-preview] fullscreen failed', error));
             });
+            // Playback-click edit region: window capture precedes interaction.js document capture regardless of registration order.
+            // Freeze the target before the document/element selection handlers run.
+            // Finish after pointerup/click, including blank canvas hits and cancelled gestures.
+            let playbackSelectionPointer = null;
+            window.addEventListener('pointerdown', event => {
+                if (!isPlaying || event.button !== 0 || event.altKey || penModeActive || rectModeActive
+                    || !(event.target instanceof Element)
+                    || event.target.closest('button, [role="button"], input, textarea, select, a[href], [contenteditable="true"]')) return;
+                const onSurface = previewStage.contains(event.target)
+                    || isDirectManipulationTarget(event.target, event);
+                if (!onSurface) return;
+                togglePlayback();
+                if (!isPlaying) playbackSelectionPointer = event.pointerId;
+            }, true);
+            const finishPlaybackSelection = event => {
+                if (playbackSelectionPointer !== event.pointerId) return;
+                playbackSelectionPointer = null;
+                setTimeout(() => {
+                    const selected = window.akari.interaction?.selectedId || selectedLayerId
+                        || selectedCaptionId || cutSelected;
+                    if (!selected && !isPlaying) togglePlayback();
+                }, 0);
+            };
+            window.addEventListener('pointerup', finishPlaybackSelection, true);
+            window.addEventListener('pointercancel', finishPlaybackSelection, true);
             // 全画面状態の正本はホスト（akari-preview-fullscreen-state で通知される）。ボタン表示は
             // その通知でだけ切り替える。旧実装の document.fullscreenchange はこの webview では
             // 発火し得ない（sandbox に allowfullscreen が無い）ため廃止。
