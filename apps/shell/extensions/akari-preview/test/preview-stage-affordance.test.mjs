@@ -51,7 +51,7 @@ test('ズーム中も直接操作面はパン捕捉を素通しし、論理座�
     assert.match(source, /const displayScale = \(window\.akari\.stageScale\(\) \|\| 1\) \* zoom/);
 });
 
-test('V1 四隅 resize は共通スナップとガイドを使い Shift で無効化する', () => {
+test('V1 四隅 resize は共通スナップとガイドを使い Alt で無効化する', () => {
     const cutResize = source.slice(
         source.indexOf('for (const handle of cutHandleElements)'),
         source.indexOf('new ResizeObserver(() => updateCutSelectBox())')
@@ -61,7 +61,7 @@ test('V1 四隅 resize は共通スナップとガイドを使い Shift で無�
     assert.match(cutResize, /draggedStageX:\s*dragged\.x[\s\S]*draggedStageY:\s*dragged\.y/);
     assert.match(cutResize, /startScale:\s*original\.scale[\s\S]*scale:\s*nextScale/);
     assert.match(cutResize, /corner\.includes\('w'\)[\s\S]*corner\.includes\('n'\)/);
-    assert.match(cutResize, /moveEvent\.shiftKey\s*\|\|\s*!window\.akari\.interaction/);
+    assert.match(cutResize, /moveEvent\.altKey\s*\|\|\s*!window\.akari\.interaction/);
     assert.match(cutResize, /window\.akari\.interaction\?\.hideSnapGuides\?\.\(\)/);
     const removedSolverName = ['solveCentered', 'ResizeSnap'].join('');
     assert.equal(source.includes(removedSolverName), false);

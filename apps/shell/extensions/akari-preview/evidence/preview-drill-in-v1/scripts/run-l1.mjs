@@ -705,8 +705,9 @@ try {
         && out.journal.responses[0].ok === true, 'text commit saved once', out);
       out.gitDiff = await git('diff', '--no-ext-diff', '--no-color', 'HEAD', '--', 'edit.json', source.path);
     });
-    await sampleRecord(8, 'editing Esc × 4: commit, parent, outer, clear; timeline unchanged after every key', async out => {
+    await sampleRecord(8, 'editing Esc × 4: cancel, parent, outer, clear; timeline unchanged after every key', async out => {
       await resetPreview(); out.editing = await beginText('g1.first');
+      const originalHtml = await readFile(path.join(project, locate(await readEdit(), 'g1.first').source.path), 'utf8');
       await insertPreviewText(' L1-Esc');
       // Let the ordinary leaf selection notification settle BEFORE first Esc.
       await waitFor('timeline selected leaf before Esc', async () => {
@@ -727,8 +728,11 @@ try {
         let transitionError;
         try {
           await expectState(expected[i]);
-          if (i === 0) await waitFor('first Esc text commit response',
-            () => events.slice(index).some(e => e.kind === 'response'));
+          if (i === 0) {
+            await sleep(300);
+            check(!events.slice(index).some(e => e.kind === 'write' || e.kind === 'response'),
+              'first Esc cancels without a write');
+          }
         } catch (error) { transitionError = error.message; }
         const p = await state(), t = await timeline();
         const item = { key: i + 1, expected: expected[i], focusBeforeKey, preview: p, timelineBefore: timelineBeforeKey, timeline: t,
@@ -739,7 +743,7 @@ try {
         out.keys.push(item);
       }
       out.html = await readFile(path.join(project, locate(await readEdit(), 'g1.first').source.path), 'utf8');
-      check(out.html.includes(' L1-Esc'), 'first Esc committed text to disk', out);
+      check(out.html === originalHtml, 'first Esc cancelled text; disk unchanged', out);
       check(out.keys.every(k => k.stateOk && k.timelineUnchanged), 'one level per key, no extra timeline focus/selection movement', out.keys);
       await shot('08-escape-cleared');
     });

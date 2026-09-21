@@ -493,7 +493,7 @@
         pointerType: "mouse",
         isPrimary: true,
         button: 0,
-        shiftKey: true, // 可逆性の検証では resize snap を明示的に無効化
+        altKey: true, // 可逆性の検証では resize snap を明示的に無効化
       };
       const dispatch = (type, point, buttons) =>
         handle.dispatchEvent(
@@ -579,7 +579,7 @@
             pointerType: "mouse",
             isPrimary: true,
             button: 0,
-            shiftKey: true,
+            altKey: true,
           };
           visibleElement.dispatchEvent(new PointerEvent("pointerdown", {
             ...common, buttons: 1, clientX: startX, clientY: startY,
@@ -663,7 +663,7 @@
       pointerType: "mouse",
       isPrimary: true,
       button: 0,
-      shiftKey: true,
+      altKey: true,
     };
     const dispatchRepeated = (type, point, buttons) =>
       repeatedHandle.dispatchEvent(
@@ -764,7 +764,7 @@
       pointerType: "mouse",
       isPrimary: true,
       button: 0,
-      shiftKey: true,
+      altKey: true,
     };
     const dispatchDisturbed = (type, point, buttons) =>
       disturbedHandle.dispatchEvent(
@@ -851,7 +851,7 @@
       pointerType: "mouse",
       isPrimary: true,
       button: 0,
-      shiftKey: true,
+      altKey: true,
     };
     zoomHandle.dispatchEvent(
       new PointerEvent("pointerdown", {
@@ -964,7 +964,7 @@
       pointerType: "mouse",
       isPrimary: true,
       button: 0,
-      shiftKey: false,
+      altKey: false,
     };
     snapHandle.dispatchEvent(
       new PointerEvent("pointerdown", {
