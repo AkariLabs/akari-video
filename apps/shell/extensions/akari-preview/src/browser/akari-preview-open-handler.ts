@@ -1,3 +1,5 @@
+import { installPreviewFrameCapture } from '../common/preview-frame-controller';
+import { PreviewFrameRequestMessage, PreviewFrameReadyMessage, PreviewFrameCommand } from '../common/preview-frame-capture';
 import { SwapTrialPlayback, SwapTrialIdentity, logSwapTrial } from '../common/swap-trial-playback';
 import { requestReadyPreviewSeek, createReadySeekResponder } from '../common/preview-ready-seek';
 import { isMaterialPreviewWidgetId } from '../common/material-preview-slot';
@@ -892,6 +894,7 @@ interface ReviewAnnotationStrokeRequest {
 }
 
 interface PreviewWidgetMarker extends WebviewWidget {
+    akariPreviewFrameCaptureRequest?: string;
     akariPreviewAudioKeepKeys?: Set<string>;
     akariPreviewAudioKeepProbes?: Set<string>;
     akariPreviewAudioProjectRootUri?: string;
@@ -3111,6 +3114,10 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         let collapsedBagSummary: EditSummary | undefined;
         let projectedBagSummary: EditSummary | undefined;
         disposables.push(widget.onMessage(message => {
+            if (message?.type === 'akari-preview-capture-frame') {
+                void this.capturePreviewFrame(widget, message);
+                return;
+            }
             if (message?.type === 'akari-preview-expand-bag' && kind === 'output'
                 && (message.bagId === null || typeof message.bagId === 'string')
                 && Number.isSafeInteger(message.requestId)) {
@@ -7216,6 +7223,39 @@ ${kind === 'raw' ? '.akari-material-chip { position: absolute; top: 8px; left: 8
 .transport-left { position: relative; min-width: 0; justify-self: start; }
 .transport-center { justify-self: center; }
 .transport-right { position: relative; justify-self: end; }
+/* Capture-only presentation. Generation overlay implementation and exportLook preference stay untouched. */
+html.akari-gen-capture-fit #zoom-layer { transform: none !important; }
+html.akari-gen-capturing #preview-stage > :not(#preview-layers):not(#frame-engine-preview),
+html.akari-gen-capturing [id^="akari-gen-"],
+html.akari-gen-capturing [data-akari-interaction],
+html.akari-gen-capturing #frame-engine-preview > :not(#frame-engine-canvas),
+html.akari-gen-capturing #indicator-toggle,
+html.akari-gen-capturing #indicator-popup,
+html.akari-gen-capturing #zoom-minimap,
+html.akari-gen-capturing #reload-surface,
+html.akari-gen-capturing #audio-notice,
+html.akari-gen-capturing #write-error-banner,
+html.akari-gen-capturing .transport { visibility: hidden !important; }
+html.akari-gen-capturing .akari-focus-pulse { animation: none !important; box-shadow: none !important; }
+/* Selection decorations on content nodes must lose only their editing outline, not the content. */
+html.akari-gen-capturing #caption-plate:is([data-selected], [data-alt-all]),
+html.akari-gen-capturing #caption-plate:is([data-selected], [data-alt-all]) .akari-caption__plate,
+html.akari-gen-capturing [data-akari-interaction-selected],
+html.akari-gen-capturing [data-akari-interaction-editing="true"],
+html.akari-gen-capturing [data-akari-caption-editing="true"] { outline: none !important; caret-color: transparent !important; }
+html.akari-gen-capturing #caption-plate .akari-caption-handle-box,
+html.akari-gen-capturing #caption-plate .akari-caption-handle,
+html.akari-gen-capturing #layer-select-box,
+html.akari-gen-capturing #layer-crop-box,
+html.akari-gen-capturing #cut-select-box,
+html.akari-gen-capturing #caption-select-box,
+html.akari-gen-capturing [data-akari-handle],
+html.akari-gen-capturing [data-akari-crop-handle],
+html.akari-gen-capturing [data-akari-crop-edge] { visibility: hidden !important; }
+html.akari-gen-capturing [data-akari-interaction-editing="true"]::selection,
+html.akari-gen-capturing [data-akari-interaction-editing="true"] *::selection,
+html.akari-gen-capturing #caption-plate::selection,
+html.akari-gen-capturing #caption-plate *::selection { background: transparent !important; }
 .icon-button { display: inline-grid; place-items: center; width: 28px; height: 28px; border: none; border-radius: 6px; padding: 0; background: transparent; color: var(--akari-transport-fg); box-shadow: none; cursor: pointer; }
 .icon-button[hidden] { display: none; }
 .icon-button:disabled, .zoom-preset:disabled, .rate-preset:disabled { opacity: 0.4; cursor: default; }
@@ -7342,6 +7382,7 @@ ${kind === 'raw' ? '.akari-material-chip { position: absolute; top: 8px; left: 8
       <button id="skip-forward" class="icon-button" type="button" aria-label="10秒進む" title="10秒進む"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 5V2l4.5 4-4.5 4V7a6 6 0 1 0 5.65 8h2.09A8 8 0 1 1 13 5Z"/><text x="8" y="17" fill="currentColor" stroke="none" font-size="7" font-family="system-ui,sans-serif" font-weight="700">10</text></svg></button>
     </div>
     <div class="transport-right">
+      <button id="akari-gen-capture-frame" class="icon-button" type="button" aria-label="今のコマを保存" title="今のコマを保存"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h4l2-3h6l2 3h4v14H3Z" fill="none" stroke-width="2" stroke-linejoin="round"/><circle cx="12" cy="12" r="4" fill="none" stroke-width="2"/></svg></button>
       <button id="pen-toggle" class="icon-button" type="button" aria-label="ペン" title="ペン" aria-pressed="false" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 16-1 5 5-1L19.5 8.5a2.12 2.12 0 0 0-3-3zM14.8 7.2l2 2M4 16l4 4"/></svg></button>
       <button id="rate-toggle" class="icon-button rate-button" type="button" aria-label="再生速度" title="再生速度" aria-expanded="false" data-akari-ui="preview:rate">1×</button>
       <button id="zoom-toggle" class="icon-button" type="button" aria-label="ズーム" title="ズーム" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" fill="none" stroke-width="2"/><path d="m15.5 15.5 5 5" fill="none" stroke-width="2" stroke-linecap="round"/></svg></button>
@@ -7437,6 +7478,102 @@ body { display: grid; place-items: center; padding: 32px; }
 <main class="message-card" role="status"><p>${this.escapeHtml(message)}</p></main>
 </body>
 </html>`;
+    }
+
+    /** Pair messages by page and request, including restoration before the slower node write. */
+    protected async capturePreviewFrame(widget: PreviewWidgetMarker, request: PreviewFrameRequestMessage): Promise<void> {
+        const pageId = widget.akariPreviewPlaybackPageId;
+        if (request.pageId !== pageId || typeof request.requestId !== 'string') return;
+        const send = (type: PreviewFrameCommand['type']): void => {
+            widget.sendMessage({ type, requestId: request.requestId, pageId } satisfies PreviewFrameCommand);
+        };
+        if (widget.akariPreviewFrameCaptureRequest) {
+            send('akari-preview-capture-restore');
+            void this.messages.error('コマを保存できませんでした: 前のコマを保存中です');
+            return;
+        }
+        widget.akariPreviewFrameCaptureRequest = request.requestId;
+        let subscription: Disposable | undefined;
+        let timer: ReturnType<typeof setTimeout> | undefined;
+        let captureId: number | undefined;
+        let acceptingCapture = true;
+        try {
+            const editUri = widget.akariPreviewEditUri;
+            if (!editUri || !widget.akariPreviewSummary) throw new Error('出力プレビューでコマを保存してください');
+            if (!window.electronAkariPreview?.capturePreviewFrame) throw new Error('Electron の撮影機能が利用できません');
+            const output = { ...widget.akariPreviewSummary.output };
+            const ready = await new Promise<PreviewFrameReadyMessage>((resolve, reject) => {
+                subscription = widget.onMessage(message => {
+                    if (message?.type === 'akari-preview-capture-ready' && message.requestId === request.requestId
+                        && message.pageId === pageId) resolve(message);
+                });
+                timer = setTimeout(() => reject(new Error('撮影準備がタイムアウトしました')), 5000);
+                send('akari-preview-capture-prepare');
+            });
+            clearTimeout(timer);
+            subscription.dispose();
+            if (ready.error) throw new Error(ready.error);
+            if (widget.isDisposed || widget.akariPreviewPlaybackPageId !== pageId) throw new Error('プレビューが更新されました');
+            const frame = widget.node.querySelector('iframe.webview') as HTMLIFrameElement;
+            if (!frame || !ready.rect || !ready.viewport || !Number.isFinite(ready.time)) throw new Error('撮影矩形を取得できません');
+            const outer = frame.getBoundingClientRect();
+            const sx = outer.width / frame.offsetWidth, sy = outer.height / frame.offsetHeight;
+            if (!(sx > 0 && sy > 0) || Math.abs(frame.clientWidth - ready.viewport.width) > 1
+                || Math.abs(frame.clientHeight - ready.viewport.height) > 1) throw new Error('プレビューのサイズが変わりました。もう一度お試しください');
+            // Inner viewport -> outer iframe content -> main renderer CSS viewport.
+            const rect = { x: outer.x + (frame.clientLeft + ready.rect.x) * sx,
+                y: outer.y + (frame.clientTop + ready.rect.y) * sy,
+                width: ready.rect.width * sx, height: ready.rect.height * sy };
+            if (rect.x < 0 || rect.y < 0 || rect.x + rect.width > window.innerWidth
+                || rect.y + rect.height > window.innerHeight) throw new Error('プレビューがウィンドウから切れています');
+            try {
+                const snapshot = await Promise.race([
+                    window.electronAkariPreview.capturePreviewFrame({ rect, output }).then(value => {
+                        if (!acceptingCapture) {
+                            void window.electronAkariPreview.finishPreviewFrame(value.captureId, true).catch(() => undefined);
+                            throw new Error('撮影がタイムアウトしました');
+                        }
+                        return value;
+                    }),
+                    new Promise<never>((_, reject) => { timer = setTimeout(() => reject(new Error('撮影がタイムアウトしました')), 3000); })
+                ]);
+                captureId = snapshot.captureId;
+            } finally {
+                acceptingCapture = false;
+                clearTimeout(timer);
+                // The phase-1 reply is only a handle. Restore before readback copy, resize and PNG encoding.
+                await new Promise<void>((resolve, reject) => {
+                    const restored = widget.onMessage(message => {
+                        if (message?.type !== 'akari-preview-capture-restored' || message.requestId !== request.requestId
+                            || message.pageId !== pageId) return;
+                        clearTimeout(timer);
+                        restored.dispose();
+                        resolve();
+                    });
+                    timer = setTimeout(() => {
+                        restored.dispose();
+                        reject(new Error('撮影後の表示復元を確認できませんでした'));
+                    }, 1000);
+                    send('akari-preview-capture-restore');
+                });
+            }
+            if (widget.isDisposed || widget.akariPreviewPlaybackPageId !== pageId) throw new Error('プレビューが更新されました');
+            const captured = await window.electronAkariPreview.finishPreviewFrame(captureId);
+            captureId = undefined;
+            if (!captured) throw new Error('撮影画像を取得できません');
+            const saved = await this.previewService.savePreviewFrame({ editUri: editUri.toString(), time: ready.time, image: captured.image });
+            void this.messages.info('コマを保存しました: ' + saved.path, { timeout: 3000 });
+            if (captured.reduced) void this.messages.info(
+                '表示サイズが出力より小さいため、拡大せず ' + captured.width + '×' + captured.height + ' px で保存しました', { timeout: 3000 });
+        } catch (error) {
+            void this.messages.error('コマを保存できませんでした: ' + (error instanceof Error ? error.message : String(error)));
+        } finally {
+            clearTimeout(timer);
+            subscription?.dispose();
+            if (captureId !== undefined) void window.electronAkariPreview.finishPreviewFrame(captureId, true).catch(() => undefined);
+            widget.akariPreviewFrameCaptureRequest = undefined;
+            send('akari-preview-capture-restore');
+        }
     }
 
     /**
@@ -8590,6 +8727,7 @@ body { display: grid; place-items: center; padding: 32px; }
             };
             window.akari.previewContentEnd = ${previewContentEnd.toString()};
             window.akari.previewCaptions = Array.isArray(initial.captions) ? initial.captions : [];
+            window.akari.reportPreviewFrameCapture = message => vscode.postMessage(message);
             window.akari.reportReadySeek = message => vscode.postMessage(message);
             window.akari.reportSwapPlayback = message => vscode.postMessage({ ...message, pageId: initial.playbackPageId });
             window.akari.reportPrimarySelectionReady = () => {
@@ -16235,6 +16373,29 @@ body { display: grid; place-items: center; padding: 32px; }
                 initialPlaybackRestorePending = false;
                 if (!isPlaying) togglePlayback();
             };
+            (${installPreviewFrameCapture.toString()})({
+                pageId: initial.playbackPageId,
+                send: message => window.akari.reportPreviewFrameCapture(message),
+                freeze: () => {
+                    let time = outputTime;
+                    const resume = isPlaying;
+                    if (isPlaying) togglePlayback();
+                    let ready = Promise.resolve();
+                    const clock = window.akari.frameEngineClock;
+                    if (clock) {
+                        // Already paused above: pin the clock without seek(), which would enqueue
+                        // a second, timer-driven ScrubController render outside this ready promise.
+                        clock.pause(time);
+                        // Await this single same-summary render, then update the DOM captions/overlays.
+                        // The controller waits for browser painting BEFORE applying capture CSS;
+                        // gl.flush() completing here is not a canvas + DOM presentation fence.
+                        ready = clock.refreshAdjustBypass().then(() => { tick(true); });
+                    } else {
+                        time = outputTime; // pause's tick reads the actual decoded video clock.
+                    }
+                    return { time, ready, resume: () => { if (resume && !isPlaying) togglePlayback(); } };
+                }
+            });
             const isEditable = (${isEditableEventTarget.toString()});
             const shouldStopEditableDeletionKeydownFn = (${shouldStopEditableDeletionKeydown.toString()});
             const isImeComposing = (${isImeCompositionKeydown.toString()});

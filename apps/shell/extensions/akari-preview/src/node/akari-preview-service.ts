@@ -63,6 +63,7 @@ import {
 import { getH264Proxy, probeHasAudioStream, resolveFfmpegPath } from './hevc-proxy';
 import { prepareAlphaIntake } from './alpha-intake';
 import { ReviewSessionWriter } from './review-session-writer';
+import { writePreviewFrame } from './preview-frame-writer';
 import { prepareVisualThumbnailPage } from './visual-thumbnail-page';
 import { VisualThumbnailPage, VisualThumbnailRequest } from '../common/visual-thumbnail';
 
@@ -682,6 +683,19 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
         if (!roots.some(root => this.contains(root, editPath))) throw new Error('Project is outside the workspace');
         return prepareVisualThumbnailPage(editPath, request.itemId, await this.getOverlayRuntimeAssetUrls(),
             assetUri => this.createAssetStream({ assetUri }), id => this.disposeAssetStream(id), request.editSnapshot);
+    }
+
+    async savePreviewFrame(request: import('../common/preview-frame-capture').SavePreviewFrameRequest): Promise<{ path: string }> {
+        if (!request || typeof request.editUri !== 'string') throw new Error('Invalid preview project');
+        const requestedEdit = this.filePath(request.editUri);
+        const projectRoot = await realpath(dirname(requestedEdit));
+        const editPath = await realpath(requestedEdit);
+        const roots = await this.resolveWorkspaceRoots();
+        if (basename(requestedEdit) !== 'edit.json' || editPath !== join(projectRoot, 'edit.json')
+            || !(await stat(editPath)).isFile() || !roots.some(root => this.contains(root, projectRoot))) {
+            throw new Error('Capture project must contain edit.json inside the workspace (no redirected edit.json)');
+        }
+        return writePreviewFrame(projectRoot, request.time, request.image);
     }
 
     async prepareAssetVisualThumbnail(request: { assetUri: string; time?: number }): ReturnType<AkariPreviewService['prepareAssetVisualThumbnail']> {

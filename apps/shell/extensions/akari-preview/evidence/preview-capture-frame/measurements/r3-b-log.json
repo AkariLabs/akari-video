@@ -1,0 +1,315 @@
+[
+  {
+    "t": "2026-09-21T18:05:48.594Z",
+    "step": "window",
+    "w": 1680,
+    "h": 927,
+    "dpr": 2,
+    "screen": [
+      1680,
+      959
+    ]
+  },
+  {
+    "t": "2026-09-21T18:05:58.890Z",
+    "step": "initial",
+    "htmlClass": "",
+    "stageRect": {
+      "x": 36,
+      "y": 78.90625,
+      "w": 539,
+      "h": 303.1875
+    },
+    "zoomLayerTransform": "matrix(1, 0, 0, 1, 0, 0)",
+    "zoomPressed": [],
+    "output": {
+      "width": 1280,
+      "height": 720,
+      "fps": 30
+    },
+    "captionText": "■■■■字幕テスト■■■■",
+    "captionSelected": false,
+    "captionRectInStage": {
+      "x": 21.561317443847656,
+      "y": 218.09695434570312,
+      "w": 495.8774108886719,
+      "h": 63.868072509765625
+    },
+    "button": {
+      "title": "今のコマを保存",
+      "aria": "今のコマを保存",
+      "disabled": false,
+      "parentClass": "transport-right",
+      "w": 28,
+      "h": 28,
+      "hasSvg": true,
+      "text": ""
+    },
+    "playLabel": "再生",
+    "visibleInteractionHandles": 0,
+    "genVisible": [
+      "akari-gen-overlay:編集領域\n              planned · m",
+      "akari-gen-tag:planned · main-1"
+    ],
+    "captionSelectionChrome": 0,
+    "transportVisibility": "visible",
+    "dpr": 2
+  },
+  {
+    "t": "2026-09-21T18:06:00.102Z",
+    "step": "after-timeline-select",
+    "clip": {
+      "x": 491.875,
+      "y": 765.578125
+    },
+    "handles": 0,
+    "stage": {
+      "x": 36,
+      "y": 78.90625,
+      "w": 539,
+      "h": 303.1875
+    }
+  },
+  {
+    "t": "2026-09-21T18:06:02.431Z",
+    "step": "01-zoom200-selected-paused",
+    "added": [
+      "frame-00m00s000.png"
+    ],
+    "toast": [
+      "コマを保存しました: assets/captures/frame-00m00s000.png",
+      "コマを保存しました: assets/captures/frame-00m00s000.png",
+      "コマを保存しました: assets/captures/frame-00m00s000.png",
+      "コマを保存しました: assets/captures/frame-00m00s000.png"
+    ],
+    "elapsedMs": 253,
+    "span": {
+      "ms": 23.799999952316284,
+      "frames": 1,
+      "fit": false
+    },
+    "restoredZoom": true,
+    "htmlClassAfter": ""
+  },
+  {
+    "t": "2026-09-21T18:06:03.474Z",
+    "step": "02-same-time-again",
+    "added": [
+      "frame-00m00s000-2.png"
+    ],
+    "toast": [
+      "コマを保存しました: assets/captures/frame-00m00s000.png",
+      "コマを保存しました: assets/captures/frame-00m00s000.png",
+      "表示サイズが出力より小さいため、拡大せず 1076×604 px で保存しました",
+      "表示サイズが出力より小さいため、拡大せず 1076×604 px で保存しました",
+      "コマを保存しました: assets/captures/frame-00m00s000-2.png",
+      "コマを保存しました: assets/captures/frame-00m00s000-2.png",
+      "コマを保存しました: assets/captures/frame-00m00s000.png",
+      "コマを保存しました: assets/captures/frame-00m00s000.png",
+      "表示サイズが出力より小さいため、拡大せず 1076×604 px で保存しました",
+      "表示サイズが出力より小さいため、拡大せず 1076×604 px で保存しました",
+      "コマを保存しました: assets/captures/frame-00m00s000-2.png",
+      "コマを保存しました: assets/captures/frame-00m00s000-2.png"
+    ],
+    "elapsedMs": 150,
+    "span": {
+      "ms": 19.300000190734863,
+      "frames": 1,
+      "fit": false
+    },
+    "restoredZoom": true,
+    "htmlClassAfter": ""
+  },
+  {
+    "t": "2026-09-21T18:06:06.159Z",
+    "step": "04-caption-selected",
+    "added": [
+      "frame-00m00s000-3.png"
+    ],
+    "toast": [
+      "コマを保存しました: assets/captures/frame-00m00s000-2.png",
+      "コマを保存しました: assets/captures/frame-00m00s000-2.png",
+      "コマを保存しました: assets/captures/frame-00m00s000-3.png",
+      "コマを保存しました: assets/captures/frame-00m00s000-3.png",
+      "コマを保存しました: assets/captures/frame-00m00s000.png",
+      "コマを保存しました: assets/captures/frame-00m00s000.png",
+      "コマを保存しました: assets/captures/frame-00m00s000-2.png",
+      "コマを保存しました: assets/captures/frame-00m00s000-2.png",
+      "表示サイズが出力より小さいため、拡大せず 1076×604 px で保存しました",
+      "表示サイズが出力より小さいため、拡大せず 1076×604 px で保存しました",
+      "コマを保存しました: assets/captures/frame-00m00s000-3.png",
+      "コマを保存しました: assets/captures/frame-00m00s000-3.png"
+    ],
+    "elapsedMs": 160,
+    "span": {
+      "ms": 25.799999952316284,
+      "frames": 1,
+      "fit": false
+    },
+    "restoredZoom": true,
+    "htmlClassAfter": ""
+  },
+  {
+    "t": "2026-09-21T18:06:08.745Z",
+    "step": "03-while-playing",
+    "added": [
+      "frame-00m00s200.png"
+    ],
+    "toast": [
+      "コマを保存しました: assets/captures/frame-00m00s000-3.png",
+      "コマを保存しました: assets/captures/frame-00m00s000-3.png",
+      "コマを保存しました: assets/captures/frame-00m00s200.png",
+      "コマを保存しました: assets/captures/frame-00m00s200.png",
+      "コマを保存しました: assets/captures/frame-00m00s000.png",
+      "コマを保存しました: assets/captures/frame-00m00s000.png",
+      "コマを保存しました: assets/captures/frame-00m00s000-2.png",
+      "コマを保存しました: assets/captures/frame-00m00s000-2.png",
+      "コマを保存しました: assets/captures/frame-00m00s000-3.png",
+      "コマを保存しました: assets/captures/frame-00m00s000-3.png",
+      "表示サイズが出力より小さいため、拡大せず 1076×604 px で保存しました",
+      "表示サイズが出力より小さいため、拡大せず 1076×604 px で保存しました",
+      "コマを保存しました: assets/captures/frame-00m00s200.png",
+      "コマを保存しました: assets/captures/frame-00m00s200.png"
+    ],
+    "elapsedMs": 169,
+    "span": {
+      "ms": 22.399999856948853,
+      "frames": 1,
+      "fit": false
+    },
+    "restoredZoom": true,
+    "htmlClassAfter": ""
+  },
+  {
+    "t": "2026-09-21T18:06:12.350Z",
+    "step": "analysis",
+    "file": "frame-00m00s000.png",
+    "width": 1076,
+    "height": 604,
+    "center": [
+      203,
+      122,
+      75
+    ],
+    "sourceColor": [
+      192,
+      111,
+      63
+    ],
+    "centerDiffersFromSource": true,
+    "centerMaxChannelDiffFromSource": 12,
+    "captionBoxPx": {
+      "x0": 35,
+      "y0": 426,
+      "x1": 1041,
+      "y1": 570
+    },
+    "captionBoxPixels": 144864,
+    "yellowPixelsInCaptionBox": 0,
+    "bluishPixels": 0,
+    "outsideCaptionPixels": 505040,
+    "outsideCaptionDeviatingFromCenter": 0,
+    "firstDeviating": null
+  },
+  {
+    "t": "2026-09-21T18:06:12.512Z",
+    "step": "analysis",
+    "file": "frame-00m00s000-2.png",
+    "width": 1076,
+    "height": 604,
+    "center": [
+      203,
+      122,
+      75
+    ],
+    "sourceColor": [
+      192,
+      111,
+      63
+    ],
+    "centerDiffersFromSource": true,
+    "centerMaxChannelDiffFromSource": 12,
+    "captionBoxPx": {
+      "x0": 35,
+      "y0": 426,
+      "x1": 1041,
+      "y1": 570
+    },
+    "captionBoxPixels": 144864,
+    "yellowPixelsInCaptionBox": 0,
+    "bluishPixels": 0,
+    "outsideCaptionPixels": 505040,
+    "outsideCaptionDeviatingFromCenter": 0,
+    "firstDeviating": null
+  },
+  {
+    "t": "2026-09-21T18:06:12.713Z",
+    "step": "analysis",
+    "file": "frame-00m00s000-3.png",
+    "width": 1076,
+    "height": 604,
+    "center": [
+      203,
+      122,
+      75
+    ],
+    "sourceColor": [
+      192,
+      111,
+      63
+    ],
+    "centerDiffersFromSource": true,
+    "centerMaxChannelDiffFromSource": 12,
+    "captionBoxPx": {
+      "x0": 35,
+      "y0": 426,
+      "x1": 1041,
+      "y1": 570
+    },
+    "captionBoxPixels": 144864,
+    "yellowPixelsInCaptionBox": 39520,
+    "bluishPixels": 0,
+    "outsideCaptionPixels": 505040,
+    "outsideCaptionDeviatingFromCenter": 2386,
+    "firstDeviating": {
+      "x": 1041,
+      "y": 466,
+      "p": [
+        49,
+        30,
+        18
+      ]
+    }
+  },
+  {
+    "t": "2026-09-21T18:06:12.912Z",
+    "step": "analysis",
+    "file": "frame-00m00s200.png",
+    "width": 1076,
+    "height": 604,
+    "center": [
+      203,
+      122,
+      75
+    ],
+    "sourceColor": [
+      192,
+      111,
+      63
+    ],
+    "centerDiffersFromSource": true,
+    "centerMaxChannelDiffFromSource": 12,
+    "captionBoxPx": {
+      "x0": -80,
+      "y0": -166,
+      "x1": -63,
+      "y1": -149
+    },
+    "captionBoxPixels": 0,
+    "yellowPixelsInCaptionBox": 0,
+    "bluishPixels": 0,
+    "outsideCaptionPixels": 649904,
+    "outsideCaptionDeviatingFromCenter": 0,
+    "firstDeviating": null
+  }
+]
