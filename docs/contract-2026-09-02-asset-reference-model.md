@@ -66,13 +66,22 @@ edit の写しを渡す。BGM・SFX・ナレーション・分離音声・レイ
 
 別プロセスへの受け渡しには
 `<projectRoot>/.akari/render-tmp/media-references-<render-cut の PID>.json` を使う。
+表の形式は `{ "token": "<合言葉>", "references": { "<宣言パス>": { "absolute": "<実体の絶対パス>", "library_root": "<採用ルート>" } } }`。
+render-cut は実行ごとに `crypto.randomBytes(32)` の合言葉を hex 文字列として生成し、
+同じ値を環境変数 `AKARI_RENDER_MEDIA_REFERENCES_TOKEN` に設定してから書き出しを起動する。
+この変数は Electron 子プロセスへ継承される。終了時は `finally` で元の値へ戻し、元が未定義なら削除する。
+合言葉はログ・エラー文・render.json に出さない。
 render-cut は子プロセスの起動前に排他的に作成し、OSR / GPU（GPU から OSR への再試行を含む）の
 終了時に `finally` で成功・失敗とも削除する。Electron は親 PID からパスを決め、サーバー生成時に
 一度だけ読む。別 CLI の並行実行は表を共有しない。プロセス内の使用中パス集合で
 同じプロジェクトの重複実行（ネスト呼び出しを含む）を拒否する。集合に無い自 PID の既存表は、
 クラッシュや PID 再利用による残存表として削除してから排他的に作り直す。
 使用中の記録は作成・書き出し・後片付けの失敗時にも解除する。他 PID の表は回収しない。
-配信 API の明示引数 `mediaReferences` がある場合はそちらを優先し、表が無い場合はプロジェクト内だけを配信する。
+ファイル経由の表は、環境変数が無い・空、表の token が文字列でない、UTF-8 バイト長が異なる、
+または `crypto.timingSafeEqual` で一致しない場合は一切使わない。token の無い旧形式や壊れた JSON も空の表として扱う。
+これにより単体 CLI など render-cut を通らない起動では、プロジェクトに植え込まれた表から外部ファイルを配信しない。
+配信 API の明示引数 `mediaReferences` がある場合は従来どおりそちらを優先し、
+表が無い場合や認証できない場合はプロジェクト内だけを配信する。
 
 `/media/<宣言パス>` は次の順で検査する。
 

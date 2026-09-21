@@ -1,3 +1,4 @@
+import { timingSafeEqual } from "node:crypto";
 import { createReadStream, readFileSync } from "node:fs";
 import { lstat, realpath, stat } from "node:fs/promises";
 import { createServer } from "node:http";
@@ -18,17 +19,25 @@ export function renderMediaReferencesPath(projectRoot, parentPid = process.ppid)
   return join(projectRoot, ".akari", "render-tmp", `media-references-${parentPid}.json`);
 }
 
-function readMediaReferences(projectRoot) {
+function readMediaReferences(projectRoot, env) {
+  const token = env.AKARI_RENDER_MEDIA_REFERENCES_TOKEN;
+  if (typeof token !== "string" || !token) return {};
   try {
-    return JSON.parse(readFileSync(renderMediaReferencesPath(projectRoot), "utf8"));
+    const table = JSON.parse(readFileSync(renderMediaReferencesPath(projectRoot), "utf8"));
+    if (typeof table?.token !== "string") return {};
+    const expected = Buffer.from(token), actual = Buffer.from(table.token);
+    if (expected.length !== actual.length || !timingSafeEqual(expected, actual)) return {};
+    return table.references && typeof table.references === "object" && !Array.isArray(table.references)
+      ? table.references : {};
   } catch (error) {
-    if (error?.code === "ENOENT") return {};
+    // JSON の構文エラーには入力の一部（合言葉）が含まれ得るため外へ出さない。
+    if (error?.code === "ENOENT" || error instanceof SyntaxError) return {};
     throw error;
   }
 }
 
-export async function startStaticServer({ pageHtml, overlaySheetHtml, projectRoot, captionFontPath = null, mediaReferences }) {
-  const server = createServer(createStaticRequestHandler({ pageHtml, overlaySheetHtml, projectRoot, captionFontPath, mediaReferences }));
+export async function startStaticServer({ pageHtml, overlaySheetHtml, projectRoot, captionFontPath = null, mediaReferences, env = process.env }) {
+  const server = createServer(createStaticRequestHandler({ pageHtml, overlaySheetHtml, projectRoot, captionFontPath, mediaReferences, env }));
   await new Promise((resolvePromise, rejectPromise) => {
     server.once("error", rejectPromise);
     server.listen(0, "127.0.0.1", resolvePromise);
@@ -62,9 +71,9 @@ export function closeStaticServer(server, timeoutMs = STATIC_SERVER_CLOSE_TIMEOU
   });
 }
 
-export function createStaticRequestHandler({ pageHtml, overlaySheetHtml, projectRoot, captionFontPath = null, mediaReferences }) {
+export function createStaticRequestHandler({ pageHtml, overlaySheetHtml, projectRoot, captionFontPath = null, mediaReferences, env = process.env }) {
   const root = resolve(projectRoot);
-  const references = mediaReferences ?? readMediaReferences(root);
+  const references = mediaReferences ?? readMediaReferences(root, env);
   return async (request, response) => {
     try {
       response.setHeader("Cache-Control", "no-store");

@@ -52,7 +52,10 @@ test("reference table recovers stale own-PID files, protects active calls, and c
   const otherSidecar = renderMediaReferencesPath(projectRoot, process.pid + 1);
   await put(otherSidecar, "other process");
   const result = await withRenderMediaReferences(projectRoot, inputs, async () => {
-    assert.deepEqual(JSON.parse(await readFile(sidecar, "utf8")), table);
+    const envelope = JSON.parse(await readFile(sidecar, "utf8"));
+    assert.deepEqual(envelope.references, table);
+    assert.match(envelope.token, /^[a-f0-9]{64}$/u);
+    assert.equal(envelope.token, process.env.AKARI_RENDER_MEDIA_REFERENCES_TOKEN);
     // Electron と同じ直接の子プロセスで、引数追加なしの受け渡しを確認する。
     const child = spawnSync(process.execPath, ["--input-type=module", "-e", `
       import { createStaticRequestHandler } from ${JSON.stringify(new URL("../../osr-export/src/static-server.mjs", import.meta.url).href)};
@@ -72,7 +75,8 @@ test("reference table recovers stale own-PID files, protects active calls, and c
     assert.equal(child.status, 0, child.stderr);
     assert.equal(child.stdout, videoPath);
     await assert.rejects(withRenderMediaReferences(projectRoot, [], () => assert.fail("overlapping run")), { code: "EEXIST" });
-    assert.deepEqual(JSON.parse(await readFile(sidecar, "utf8")), table);
+    assert.deepEqual(JSON.parse(await readFile(sidecar, "utf8")), envelope);
+    assert.equal(process.env.AKARI_RENDER_MEDIA_REFERENCES_TOKEN, envelope.token);
     return 42;
   });
   assert.equal(result, 42);
@@ -81,7 +85,7 @@ test("reference table recovers stale own-PID files, protects active calls, and c
   await assert.rejects(withRenderMediaReferences(projectRoot, inputs, async () => { throw error; }), value => value === error);
   await assert.rejects(readFile(sidecar), { code: "ENOENT" });
   await withRenderMediaReferences(projectRoot, [], async () => {
-    assert.deepEqual(JSON.parse(await readFile(sidecar, "utf8")), {});
+    assert.deepEqual(JSON.parse(await readFile(sidecar, "utf8")).references, {});
   });
   assert.equal(await readFile(otherSidecar, "utf8"), "other process");
 });
@@ -95,9 +99,45 @@ test("reference table releases its active marker when preparation fails", async 
   await assert.rejects(withRenderMediaReferences(projectRoot, [], () => assert.fail("must not start")));
   await rm(sidecar, { recursive: true });
   await withRenderMediaReferences(projectRoot, [], async () => {
-    assert.deepEqual(JSON.parse(await readFile(sidecar, "utf8")), {});
+    assert.deepEqual(JSON.parse(await readFile(sidecar, "utf8")).references, {});
   });
   await assert.rejects(readFile(sidecar), { code: "ENOENT" });
+});
+
+test("reference token and sidecar are scoped to run and restored on success and failure", async (t) => {
+  const projectRoot = await mkdtemp(join(tmpdir(), "render-reference-token-"));
+  const original = process.env.AKARI_RENDER_MEDIA_REFERENCES_TOKEN;
+  const restore = value => {
+    if (value === undefined) delete process.env.AKARI_RENDER_MEDIA_REFERENCES_TOKEN;
+    else process.env.AKARI_RENDER_MEDIA_REFERENCES_TOKEN = value;
+  };
+  t.after(async () => {
+    restore(original);
+    await rm(projectRoot, { recursive: true, force: true });
+  });
+  const sidecar = renderMediaReferencesPath(projectRoot, process.pid);
+  const tokens = new Set();
+  for (const previous of [undefined, "", "inherited-token"]) {
+    for (const fails of [false, true]) {
+      restore(previous);
+      const failure = new Error("export failed");
+      const run = withRenderMediaReferences(projectRoot, [], async () => {
+        const envelope = JSON.parse(await readFile(sidecar, "utf8"));
+        assert.deepEqual(envelope.references, {});
+        assert.match(envelope.token, /^[a-f0-9]{64}$/u);
+        assert.equal(process.env.AKARI_RENDER_MEDIA_REFERENCES_TOKEN, envelope.token);
+        assert.equal(tokens.has(envelope.token), false);
+        tokens.add(envelope.token);
+        if (fails) throw failure;
+        return 42;
+      });
+      if (fails) await assert.rejects(run, error => error === failure);
+      else assert.equal(await run, 42);
+      assert.equal(process.env.AKARI_RENDER_MEDIA_REFERENCES_TOKEN, previous);
+      assert.equal(Object.hasOwn(process.env, "AKARI_RENDER_MEDIA_REFERENCES_TOKEN"), previous !== undefined);
+      await assert.rejects(readFile(sidecar), { code: "ENOENT" });
+    }
+  }
 });
 
 function run(command, args, options = {}) {

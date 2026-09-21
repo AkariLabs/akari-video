@@ -1,5 +1,5 @@
 import { settleDecisionLog } from "../../akari-tools/src/decision-log/settle.mjs";
-import { createHash } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import { spawnSync } from "node:child_process";
 import { constants as fsConstants, createReadStream, existsSync, readdirSync } from "node:fs";
 import {
@@ -765,17 +765,25 @@ export async function withRenderMediaReferences(projectRoot, inputs, run) {
   activeMediaReferencePaths.add(path);
   let created = false;
   try {
+    const token = randomBytes(32).toString("hex");
     await mkdir(dirname(path), { recursive: true });
     // この PID の別プロセスは同時に存在しない。他 PID の表には触れない。
     await rm(path, { force: true });
     const file = await open(path, "wx", 0o600);
     created = true;
     try {
-      await file.writeFile(JSON.stringify(buildRenderMediaReferences(inputs)), "utf8");
+      await file.writeFile(JSON.stringify({ token, references: buildRenderMediaReferences(inputs) }), "utf8");
     } finally {
       await file.close();
     }
-    return await run();
+    const previousToken = process.env.AKARI_RENDER_MEDIA_REFERENCES_TOKEN;
+    process.env.AKARI_RENDER_MEDIA_REFERENCES_TOKEN = token;
+    try {
+      return await run();
+    } finally {
+      if (previousToken === undefined) delete process.env.AKARI_RENDER_MEDIA_REFERENCES_TOKEN;
+      else process.env.AKARI_RENDER_MEDIA_REFERENCES_TOKEN = previousToken;
+    }
   } finally {
     try {
       if (created) await rm(path, { force: true });
