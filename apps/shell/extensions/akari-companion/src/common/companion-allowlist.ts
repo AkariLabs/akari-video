@@ -7,7 +7,7 @@ export const ALLOWED_COMMAND_IDS = [
     'akari.timeline.focusItem', 'akari.timeline.seek', 'akari.timeline.setView',
     'akari.timeline.setTool', 'akari.timeline.setSnap', 'akari.timeline.reveal',
     'akari.inspector.open', 'akari.daihon.open', 'akari.cuts.open', 'akari.transcribe.openDialog',
-    'akari.catalog.open', 'akari.catalog.listCategories',
+    'akari.catalog.open', 'akari.catalog.importAsset', 'akari.catalog.listCategories',
     'akari.menu.focus', 'akari.menu.listSkills', 'akari.menu.listOpenTargets',
     'akari.review.open', 'akari.review.board.open', 'akari.partner.open'
 ] as const;
@@ -125,9 +125,10 @@ export function validateCommandArgs(id: AllowedCommandId, value: unknown): ArgVa
         case 'akari.timeline.reveal':
             return noArgs(value);
         case 'akari.inspector.open':
-            return objectResult(value, ['attachOnly', 'tabId', 'sectionId', 'fieldName'], args =>
+            return objectResult(value, ['attachOnly', 'tabId', 'sectionId', 'fieldName', 'solo'], args =>
                 optional(args, 'attachOnly', boolean)
-                && ['tabId', 'sectionId', 'fieldName'].every(key => optional(args, key, bounded)), true);
+                && ['tabId', 'sectionId', 'fieldName'].every(key => optional(args, key, bounded))
+                && optional(args, 'solo', boolean), true);
         case 'akari.daihon.open':
             return objectResult(value,
                 ['captionId', 'wordRange', 'atSeconds', 'open', 'speaker', 'pulse'], args => {
@@ -151,6 +152,8 @@ export function validateCommandArgs(id: AllowedCommandId, value: unknown): ArgVa
                 optional(args, 'tab', candidate => candidate === 'project' || candidate === 'library')
                 && ['category', 'query', 'assetId'].every(key => optional(args, key, bounded))
                 && optional(args, 'pulse', boolean), true);
+        case 'akari.catalog.importAsset':
+            return objectResult(value, ['assetId'], args => required(args, 'assetId', bounded));
         case 'akari.menu.focus':
             return objectResult(value, ['section', 'pulse', 'skill'], args =>
                 optional(args, 'section', candidate => candidate === 'open' || candidate === 'skills')

@@ -70,6 +70,7 @@ export interface CompanionStateDocs {
     type: 'docs';
     seq: number;
     projectSessionId: string;
+    location?: { rootFsPath: string; editPath: string; captionsPath: string };
     edit: CompanionDocumentState;
     captions: CompanionDocumentState;
 }
