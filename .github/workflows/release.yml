@@ -131,10 +131,15 @@ jobs:
       dmg_name: ${{ steps.mac-artifacts.outputs.dmg_name }}
     steps:
       - uses: actions/checkout@v4
-      - name: Xcode 26.6 を選ぶ（macOS 26 SDK）
+      - name: macOS 26 SDK を確かめる（Xcode 26.6 が在れば選ぶ）
         run: |
           set -euo pipefail
-          sudo xcode-select -s /Applications/Xcode_26.6.app
+          # イメージの Xcode は予告つきで入れ替わる。26.6 が在れば固定し、無ければ既定のまま進んで
+          # 下の SDK の検査（fail-closed）に任せる。
+          if [ -d /Applications/Xcode_26.6.app ]; then
+            sudo xcode-select -s /Applications/Xcode_26.6.app
+          fi
+          xcode-select -p
           sdk_version=$(xcrun --show-sdk-version)
           echo "$sdk_version"
           sdk_major=${sdk_version%%.*}
