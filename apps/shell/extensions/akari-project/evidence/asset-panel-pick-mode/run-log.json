@@ -1,0 +1,67 @@
+{
+  "startedAt": "2026-09-21T17:20:58.063Z",
+  "cdpPort": 9531,
+  "status": "PASS",
+  "steps": [
+    {
+      "scenario": "single",
+      "elapsedMs": 2706,
+      "clicks": 1,
+      "result": {
+        "status": "picked",
+        "paths": [
+          "assets/a.png"
+        ]
+      },
+      "bandRemoved": true
+    },
+    {
+      "scenario": "multi",
+      "elapsedMs": 2811,
+      "badges": [
+        "@画像1",
+        "@画像2"
+      ],
+      "completeText": "完了（2）",
+      "maxDisabled": "true",
+      "result": {
+        "status": "picked",
+        "paths": [
+          "assets/a.png",
+          "assets/b.png"
+        ]
+      }
+    },
+    {
+      "scenario": "accepts",
+      "elapsedMs": 2837,
+      "ariaDisabled": "true",
+      "unresolved": true
+    },
+    {
+      "scenario": "escape",
+      "elapsedMs": 169,
+      "result": {
+        "status": "cancelled"
+      },
+      "bandRemoved": true
+    }
+  ],
+  "screenshots": [
+    "01-single-band.png",
+    "02-single-picked.png",
+    "03-multi-badges.png",
+    "04-video-disabled.png",
+    "05-escape-cancelled.png"
+  ],
+  "target": {
+    "id": "C50869765CC5403CB71241673C775E0B",
+    "title": "ホーム - ws",
+    "url": "file:///Users/ryoma/_edit/30_products/akari-video-wt/asset-panel-pick-mode/apps/shell/lib/frontend/index.html?port=58801#/private/tmp/pickmode-l1/ws"
+  },
+  "commandService": {
+    "resolution": "CommandService symbol",
+    "registered": true
+  },
+  "elapsedMs": 8583
+}

@@ -1,4 +1,8 @@
 import { MaterialSwapRequest, SwapCandidates, rankSwapCandidates } from '../common/material-swap-candidates';
+import {
+    GENERATION_PICK_PRIMARY_SELECTED_EVENT, GenerationPickCandidate, GenerationPickController,
+    GenerationPickRequest, GenerationPickResult, GenerationPickTimelineSelection, generationPickSelectionChanged
+} from '../common/generation-pick';
 import { AkariPreviewService } from 'akari-preview/lib/common/akari-preview-protocol';
 import { MaterialCardHoverPreview } from './material-card-hover-preview';
 import type { TranscriptState } from '../common/akari-project-protocol';
@@ -93,6 +97,8 @@ import { assetGroupOpenTarget } from '../common/asset-group-open-target';
 import { countReferences } from '../common/project-reference-check';
 import { ElectronAkariProjectApi } from '../electron-common/electron-api';
 import { isOsFileDropInput } from '../common/delegated-drop';
+
+try { require('../../src/browser/style/generation-pick.css'); } catch { /* node 単体テスト環境 */ }
 
 // パートナー拡張の公開コマンド ID とミラー（extension 間の npm 依存を作らない。
 // akari-partner-command-contribution.ts の AkariPartnerCommands.INJECT_PROMPT と同一）。
@@ -324,6 +330,116 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     @inject(WindowService)
     protected readonly windowService!: WindowService;
 
+    protected readonly generationPick = new GenerationPickController(
+        key => this.resolveCatalogMaterial(key), () => this.update()
+    );
+    protected generationPickRoot?: string;
+    protected readonly generationTimelineSelections = new Map<string, GenerationPickTimelineSelection>();
+    protected generationPickSelectionsAtStart = new Map<string, GenerationPickTimelineSelection>();
+
+    /** UI-internal command entry; library and project segments remain available. */
+    pickInto(request: GenerationPickRequest): Promise<GenerationPickResult> {
+        if (this.isDisposed) { return Promise.resolve({ status: 'cancelled' }); }
+        this.generationPickRoot = this.workflow.workspaceRoot?.toString();
+        this.generationPickSelectionsAtStart = new Map(this.generationTimelineSelections);
+        const result = this.generationPick.start(request);
+        this.node.tabIndex = -1;
+        this.node.focus();
+        return result;
+    }
+
+    protected readonly handleGenerationPrimarySelected = (event: Event): void => {
+        const detail = (event as CustomEvent<{ editUri?: string; selection?: GenerationPickTimelineSelection }>).detail;
+        if (typeof detail?.editUri !== 'string' || !detail.editUri) { return; }
+        const selection = detail.selection;
+        if (selection !== null && (!selection || !['cut', 'caption'].includes(selection.kind)
+            || typeof selection.id !== 'string' || !selection.id)) { return; }
+        let editUri: string;
+        try { editUri = new URI(detail.editUri).normalizePath().toString(); } catch { return; }
+        // Copy the payload so neither a producer nor later events can mutate the start snapshot.
+        this.generationTimelineSelections.set(editUri, selection ? { kind: selection.kind, id: selection.id } : null);
+        if (this.generationPick.request
+            && generationPickSelectionChanged(this.generationPickSelectionsAtStart.get(editUri), selection)) {
+            this.generationPick.cancel();
+        }
+    };
+
+    protected readonly handleGenerationPickKey = (event: KeyboardEvent): void => {
+        if (event.key === 'Escape' && this.generationPick.request) {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            this.generationPick.cancel();
+        }
+    };
+
+    protected override onBeforeDetach(msg: Message): void {
+        this.generationPick.cancel();
+        super.onBeforeDetach(msg);
+    }
+
+    protected override onCloseRequest(msg: Message): void {
+        this.generationPick.cancel();
+        super.onCloseRequest(msg);
+    }
+
+    protected generationCatalogCandidate(item: AssetCatalogViewItem): GenerationPickCandidate {
+        return {
+            key: item.key,
+            kind: item.category === 'still' ? 'image' : item.category === 'broll' ? 'video' : item.category === 'audio' ? 'audio' : 'other',
+            unavailableReason: canPlaceLibraryAsset(item) ? undefined
+                : item.origin === 'local' ? 'この素材は直接取り込めません。'
+                    : item.state === 'locked' ? '未購入の素材は選べません。' : 'この種類の素材は選べません。'
+        };
+    }
+
+    /** Capture before nested audition/import/open controls; normal handlers remain untouched outside pick mode. */
+    protected generationPickCardProps(candidate: GenerationPickCandidate): React.HTMLAttributes<HTMLDivElement> {
+        if (!this.generationPick.request) { return {}; }
+        const reason = this.generationPick.disabledReason(candidate);
+        return {
+            className: 'akari-gen-pick-card',
+            role: 'button', tabIndex: reason ? -1 : 0,
+            'aria-disabled': !!reason,
+            'aria-pressed': !!this.generationPick.badge(candidate),
+            'aria-busy': candidate.key !== undefined && this.generationPick.pendingKey === candidate.key,
+            ...(reason ? { title: reason } : {}),
+            onClickCapture: event => {
+                event.preventDefault(); event.stopPropagation();
+                void this.generationPick.pick(candidate);
+            },
+            onKeyDown: event => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault(); event.stopPropagation();
+                    void this.generationPick.pick(candidate);
+                }
+            },
+            onDragStartCapture: event => { event.preventDefault(); event.stopPropagation(); },
+            onContextMenuCapture: event => { event.preventDefault(); event.stopPropagation(); }
+        };
+    }
+
+    protected renderGenerationPickBadge(candidate: GenerationPickCandidate): React.ReactNode {
+        const badge = this.generationPick.badge(candidate);
+        const pending = candidate.key !== undefined && this.generationPick.pendingKey === candidate.key;
+        return badge || pending ? <span className='akari-gen-pick-badge' role='status'>{pending ? '取得中…' : badge}</span> : null;
+    }
+
+    protected renderGenerationPickBand(): React.ReactNode {
+        const request = this.generationPick.request;
+        if (!request) { return null; }
+        return <div className='akari-gen-pick-band'>
+            <strong>{request.label} に入れる素材を選ぶ</strong>
+            <div className='akari-gen-pick-actions'>
+                <button type='button' className='akari-gen-pick-cancel' onClick={() => this.generationPick.cancel()}>やめる</button>
+                {request.multi && <button type='button' className='akari-gen-pick-complete'
+                    disabled={!!this.generationPick.pendingKey} onClick={() => this.generationPick.complete()}>
+                    完了（{this.generationPick.paths.length}）
+                </button>}
+            </div>
+            {this.generationPick.error && <div className='akari-gen-pick-error' role='alert'>{this.generationPick.error}</div>}
+        </div>;
+    }
+
     protected topView: TopView = 'materials';
     /** ファイルをドラッグ中か（取り込み可能であることを枠で見せる。renderDropOverlay 参照）。 */
     protected dragActive = false;
@@ -468,6 +584,15 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     @postConstruct()
     protected init(): void {
         installCatalogFocusPulseStyle();
+        window.addEventListener('keydown', this.handleGenerationPickKey, true);
+        window.addEventListener(GENERATION_PICK_PRIMARY_SELECTED_EVENT, this.handleGenerationPrimarySelected);
+        this.toDispose.push({ dispose: () => {
+            window.removeEventListener('keydown', this.handleGenerationPickKey, true);
+            window.removeEventListener(GENERATION_PICK_PRIMARY_SELECTED_EVENT, this.handleGenerationPrimarySelected);
+            this.generationTimelineSelections.clear();
+            this.generationPickSelectionsAtStart.clear();
+            this.generationPick.cancel();
+        } });
         this.id = AkariRoleBucketsWidget.ID;
         this.title.label = '素材';
         this.title.caption = 'ドメインオブジェクトのカード棚';
@@ -506,6 +631,9 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         this.node.addEventListener('drop', event => this.handleDrop(event));
         this.toDispose.push(this.workflow.onDidChange(() => {
             if (this.materialSwap && this.materialSwap.root !== this.workflow.workspaceRoot?.toString()) this.closeMaterialSwap();
+            if (this.generationPickRoot !== this.workflow.workspaceRoot?.toString()) {
+                this.generationPick.cancel();
+            }
             this.ensureMaterialsWatch();
             this.ensureOutputsWatch();
             this.refresh();
@@ -556,6 +684,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
      * 「見えなくなったら止める」を担う。
      */
     protected override onAfterHide(msg: Message): void {
+        this.generationPick.cancel();
         super.onAfterHide(msg);
         this.stopCatalogAudio();
     }
@@ -2216,6 +2345,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                 data-akari-top-view={this.topView}
             >
                 {this.dragActive && this.renderDropOverlay()}
+                {this.renderGenerationPickBand()}
                 {this.renderTopControls()}
                 <div style={{ flex: '1 1 auto', overflow: 'auto', minHeight: 0 }}>
                     {this.topView === 'materials' ? this.renderMaterialsTab() : this.renderCatalogTab()}
@@ -2509,6 +2639,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     protected readonly materialPreviewService!: AkariPreviewService;
 
     protected renderMaterialCard(entry: MaterialCardEntry): React.ReactNode {
+        const pickCandidate: GenerationPickCandidate = { path: entry.mediaRelativePath ?? entry.relativePath, kind: entry.kind };
         const displayKind = entry.assetGroup ? 'other' : entry.kind;
         const layout = materialCardLayout({ kind: displayKind, name: entry.name, assetGroupCategory: entry.assetGroup?.category });
         const transcriptState = this.transcriptStateByPath[entry.relativePath] ?? 'none';
@@ -2516,7 +2647,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         const transcriptLabel = `文字起こし ${transcriptStatus}`;
         // D&D 対象は video/audio/image かつ非未整理のみ（司令塔裁定1）。other・未整理カードは
         // draggable にしない（未整理は「assets へ移動」が先 — 既存の moveToAssets 導線を優先する）。
-        const draggable = !entry.unorganized
+        const draggable = !this.generationPick.request && !entry.unorganized
             && (entry.kind === 'video' || entry.kind === 'audio' || entry.kind === 'image');
         return (
             <div
@@ -2530,10 +2661,11 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                 draggable={draggable}
                 onDragStart={draggable ? event => this.handleMaterialDragStart(event, entry) : undefined}
                 onDragEnd={draggable ? () => this.handleMaterialDragEnd() : undefined}
-                onMouseDown={entry.unorganized ? event => this.handleUnorganizedMaterialMouseDown(event) : undefined}
+                onMouseDown={!this.generationPick.request && entry.unorganized ? event => this.handleUnorganizedMaterialMouseDown(event) : undefined}
                 onClick={() => void this.openFile(entry.uri)}
                 onContextMenu={event => this.openMaterialContextMenu(event, entry)}
                 title={entry.name}
+                {...this.generationPickCardProps(pickCandidate)}
                 style={{
                     display: 'flex',
                     flexDirection: 'column',
@@ -2672,6 +2804,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                         </span>
                     </div>
                 </div>
+                {this.renderGenerationPickBadge(pickCandidate)}
                 {entry.unorganized && (
                     <div style={{ padding: '0 6px 6px' }}>
                         <button
@@ -3596,6 +3729,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     }
 
     protected renderCatalogListRow(item: AssetCatalogViewItem): React.ReactNode {
+        const pickCandidate = this.generationCatalogCandidate(item);
         const thumbnailBroken = this.catalogBrokenThumbnails.has(item.key);
         const previewUrl = item.previewUrl;
         const primaryTag = item.tags[0];
@@ -3606,7 +3740,8 @@ export class AkariRoleBucketsWidget extends ReactWidget {
             <div
                 key={item.key}
                 title={item.title}
-                draggable={this.canDragCatalogAsset(item)}
+                {...this.generationPickCardProps(pickCandidate)}
+                draggable={!this.generationPick.request && this.canDragCatalogAsset(item)}
                 onDragStart={event => this.handleCatalogAssetDragStart(event, item)}
                 onDragEnd={() => this.handleLibraryTransitionDragEnd()}
                 data-akari-catalog-item={item.key}
@@ -3656,8 +3791,9 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                     </span>
                     {this.renderCatalogAudioError(item)}
                 </div>
+                {this.renderGenerationPickBadge(pickCandidate)}
                 <div style={{ flex: '0 0 auto', display: 'flex', alignItems: 'center', gap: '4px', maxWidth: '46%' }}>
-                    {item.category === 'audio' && item.mediaUrl && (
+                    {!this.generationPick.request && item.category === 'audio' && item.mediaUrl && (
                         <button
                             type='button'
                             className='theia-button secondary'
@@ -3671,13 +3807,14 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                             <span className={this.playingCatalogAudioKey === item.key ? 'codicon codicon-debug-stop' : 'codicon codicon-play'} aria-hidden='true' />
                         </button>
                     )}
-                    <div style={{ minWidth: 0, maxWidth: '100%' }}>{this.renderCatalogCardActions(item)}</div>
+                    <div style={{ minWidth: 0, maxWidth: '100%' }}>{!this.generationPick.request && this.renderCatalogCardActions(item)}</div>
                 </div>
             </div>
         );
     }
 
     protected renderCatalogCard(item: AssetCatalogViewItem): React.ReactNode {
+        const pickCandidate = this.generationCatalogCandidate(item);
         const thumbnailBroken = this.catalogBrokenThumbnails.has(item.key);
         const previewUrl = item.previewUrl;
         const tags = item.tags.slice(0, 3);
@@ -3686,7 +3823,8 @@ export class AkariRoleBucketsWidget extends ReactWidget {
             <div
                 key={item.key}
                 title={item.title}
-                draggable={this.canDragCatalogAsset(item)}
+                {...this.generationPickCardProps(pickCandidate)}
+                draggable={!this.generationPick.request && this.canDragCatalogAsset(item)}
                 onDragStart={event => this.handleCatalogAssetDragStart(event, item)}
                 onDragEnd={() => this.handleLibraryTransitionDragEnd()}
                 data-akari-catalog-item={item.key}
@@ -3729,8 +3867,9 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                         />}
                     {this.renderAssetStateBadge(item)}
                     {this.renderAssetDistributionBadge(item)}
-                    {this.renderCatalogAudioControl(item)}
+                    {!this.generationPick.request && this.renderCatalogAudioControl(item)}
                 </div>
+                {this.renderGenerationPickBadge(pickCandidate)}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', padding: '5px' }}>
                     <span style={{ fontSize: '0.78em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {item.title}
@@ -3757,7 +3896,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                         )}
                     </div>
                     {this.renderCatalogAudioError(item)}
-                    {this.renderCatalogCardActions(item)}
+                    {!this.generationPick.request && this.renderCatalogCardActions(item)}
                 </div>
             </div>
         );

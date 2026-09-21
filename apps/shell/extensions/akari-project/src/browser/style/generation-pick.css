@@ -1,0 +1,80 @@
+.akari-gen-pick-band {
+    flex: 0 0 auto;
+    min-width: 0;
+    padding: 8px 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    border-bottom: 1px solid var(--theia-focusBorder);
+    background: var(--theia-list-inactiveSelectionBackground);
+    font-size: 12px;
+}
+.akari-gen-pick-band > strong {
+    white-space: normal;
+    overflow-wrap: anywhere;
+    line-height: 1.5;
+}
+.akari-gen-pick-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 6px;
+}
+.akari-gen-pick-actions button {
+    flex: 0 0 auto;
+    box-sizing: border-box;
+    width: auto;
+    min-width: 0;
+    height: 24px;
+    margin: 0;
+    padding: 0 8px;
+    font: inherit;
+    line-height: 22px;
+    white-space: nowrap;
+    border: 1px solid var(--akari-line, var(--theia-focusBorder));
+    border-radius: 6px;
+    cursor: pointer;
+}
+.akari-gen-pick-actions .akari-gen-pick-cancel {
+    background: transparent;
+    color: var(--akari-ink, var(--theia-foreground));
+}
+.akari-gen-pick-actions .akari-gen-pick-cancel:hover {
+    border-color: var(--akari-accent, var(--theia-focusBorder));
+}
+.akari-gen-pick-actions .akari-gen-pick-complete {
+    border-color: var(--akari-accent, var(--theia-button-background));
+    background: var(--akari-accent, var(--theia-button-background));
+    color: var(--akari-bg, var(--theia-button-foreground));
+}
+.akari-gen-pick-actions .akari-gen-pick-complete:hover:not(:disabled) {
+    background: var(--akari-accent-light, var(--theia-button-hoverBackground));
+}
+.akari-gen-pick-actions button:disabled { opacity: .45; cursor: wait; }
+.akari-gen-pick-error { color: var(--theia-errorForeground); }
+.akari-gen-pick-card { position: relative; cursor: pointer; }
+.akari-gen-pick-card[aria-disabled='true'] { opacity: .4; cursor: not-allowed !important; }
+.akari-gen-pick-card[aria-busy='true'] { opacity: .8; cursor: wait !important; }
+.akari-gen-pick-card[aria-pressed='true'] { outline: 2px solid var(--akari-accent, var(--theia-focusBorder)); outline-offset: -2px; }
+.akari-gen-pick-card:focus-visible { outline: 2px solid var(--theia-focusBorder); }
+/* Reserve a row below card thumbnails: kind/status chips, transcript and filename
+   already occupy the thumbnail corners. List rows reserve a right-hand flex cell. */
+.akari-gen-pick-badge {
+    position: static;
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-self: flex-end;
+    margin: 4px 6px;
+    padding: 1px 5px;
+    border-radius: 4px;
+    background: var(--akari-accent, var(--theia-button-background));
+    color: var(--akari-bg, var(--theia-button-foreground));
+    font-size: 11px;
+    line-height: 16px;
+    white-space: nowrap;
+    pointer-events: none;
+}
+.akari-gen-pick-card[data-akari-catalog-list-row] > .akari-gen-pick-badge {
+    align-self: center;
+    margin: 0;
+}
