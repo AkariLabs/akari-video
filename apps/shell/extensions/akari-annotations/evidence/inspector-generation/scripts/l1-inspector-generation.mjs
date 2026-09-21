@@ -285,6 +285,76 @@ modelRow:section?.rows.find(row=>row.label==='モデル')?.input||''}})()`);
   throw new Error(`${name}: インスペクター前面・生成セクション可視の状態で 3 回撮影できなかった`);
 }
 
+const frameSelector = slot => `[data-akari-generation-pick-slot="${slot}"]`;
+const materialScope = '#akari-role-buckets-widget';
+const pickBand = `${materialScope} .akari-gen-pick-band`;
+const materialCard = name => `${materialScope} [data-akari-material-path="assets/stills/${name}.png"]`;
+
+async function clickElement(cdp, selector) {
+  const point = await evalOn(cdp, `(async()=>{
+    const element=document.querySelector(${S(selector)});
+    if(!element)throw new Error('Missing click target: '+${S(selector)});
+    element.scrollIntoView({block:'center',inline:'nearest',behavior:'instant'});
+    await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+    const r=element.getBoundingClientRect();
+    const x=r.left+r.width/2,y=r.top+r.height/2;
+    if(!r.width||!r.height||!element.contains(document.elementFromPoint(x,y)))throw new Error('Click target obscured: '+${S(selector)});
+    return{x,y};
+  })()`);
+  await realClick(cdp, point.x, point.y); // CDP Input.dispatchMouseEvent, not DOM click().
+}
+
+async function measureFrames(cdp, pendingSlot) {
+  const frames = await evalOn(cdp, `(()=>{
+    const rect=e=>{const r=e.getBoundingClientRect();return{left:r.left,right:r.right,top:r.top,bottom:r.bottom,width:r.width,height:r.height}};
+    return [...document.querySelectorAll('[data-akari-generation-pick-slot]')].map(frame=>{
+      const style=getComputedStyle(frame),r=rect(frame);
+      const buttons=[...frame.closest('.akari-inspector-generation-cell').querySelectorAll('button')].map(button=>{
+        const b=rect(button);return{text:button.textContent,rect:b,intersects:r.left<b.right&&r.right>b.left&&r.top<b.bottom&&r.bottom>b.top};
+      });
+      return{slot:frame.getAttribute('data-akari-generation-pick-slot'),role:frame.getAttribute('role'),tabindex:frame.tabIndex,
+        pressed:frame.getAttribute('aria-pressed'),disabled:frame.getAttribute('aria-disabled'),cursor:style.cursor,
+        borderWidth:style.borderTopWidth,borderStyle:style.borderTopStyle,background:style.backgroundColor,
+        boxShadow:style.boxShadow,outline:style.outline,rect:r,buttons,src:frame.querySelector('img')?.src??null};
+    });
+  })()`);
+  assert(frames.length === 2, '最初・最後の枠が揃っていない');
+  for (const frame of frames) {
+    assert(frame.role === 'button' && frame.tabindex === 0 && frame.cursor === 'pointer' && frame.disabled === 'false', `枠が押せない: ${JSON.stringify(frame)}`);
+    assert((Number.parseFloat(frame.borderWidth) > 0 && frame.borderStyle !== 'none')
+      || !['transparent', 'rgba(0, 0, 0, 0)'].includes(frame.background), '枠に背景も枠線もない');
+    assert(frame.rect.width > 0 && frame.rect.height > 0 && frame.buttons.every(button => !button.intersects), `枠と近道が交差: ${JSON.stringify(frame)}`);
+    assert(frame.pressed === String(frame.slot === pendingSlot), '選択待ちの aria-pressed が不正');
+    if (frame.slot === pendingSlot) {
+      assert(frame.boxShadow.includes('2px') && frame.boxShadow.includes('4px') && frame.boxShadow.includes('167, 139, 250'), `紫の二重の輪がない: ${frame.boxShadow}`);
+    } else assert(frame.boxShadow === 'none', '待機していない枠に輪が残る');
+  }
+  return frames;
+}
+
+async function beginFramePick(cdp, slot, label) {
+  await clickElement(cdp, frameSelector(slot));
+  const band = await waitEval(cdp, `document.querySelector(${S(pickBand)})?.textContent`, { label: '素材選択の帯' });
+  assert(band.includes(`${label} に入れる素材を選ぶ`), `帯が違う: ${band}`);
+  await clickElement(cdp, `${materialScope} [data-akari-panel-segment="materials"]`);
+  await waitEval(cdp, `Boolean(document.querySelector(${S(materialCard('a'))}))`, { label: 'プロジェクト画像カード' });
+  return band;
+}
+
+async function waitFrameSaved(cdp, slot, expected) {
+  const deadline = Date.now() + 30_000;
+  let next;
+  while (Date.now() < deadline) {
+    next = JSON.parse(await readFile(path.join(PROJECT, 'assets/stills/a.png.meta.json'), 'utf8')).next;
+    if (next?.inputs?.[slot]?.path === expected) break;
+    await sleep(100);
+  }
+  assert(next?.inputs?.[slot]?.path === expected, `next.inputs.${slot} が ${expected} でない`);
+  await waitEval(cdp, `!document.querySelector(${S(pickBand)})`, { label: '選択完了で帯が消える' });
+  const src = await waitEval(cdp, `(()=>{const image=document.querySelector(${S(frameSelector(slot))})?.querySelector('img');return image?.complete&&image.naturalWidth>0?image.src:null})()`, { label: `${slot} thumbnail` });
+  return { path: next.inputs[slot].path, src };
+}
+
 let spawnedChild;
 async function launch() {
   await mkdir(path.join(ISO, 'akari-home'), { recursive: true });
@@ -488,6 +558,52 @@ try {
   });
 
   await shot(cdp, '07-sticky-tab-strip.png', undefined, { scrollToBottom: true });
+
+  await step('7. 空の最初の絵を実クリック → 素材パネル → next と画像から', async () => {
+    await shot(cdp, '08-frame-empty.png', frameSelector('first_frame'));
+    assert(await evalOn(cdp, `document.querySelector(${S(frameSelector('first_frame'))}).textContent.includes('＋ 画像を選ぶ')`), '空枠の選択文言がない');
+    const idle = await measureFrames(cdp);
+    const band = await beginFramePick(cdp, 'first_frame', '最初の絵');
+    const pending = await measureFrames(cdp, 'first_frame');
+    await shot(cdp, '09-frame-picking.png', frameSelector('first_frame'));
+    await clickElement(cdp, materialCard('c'));
+    const picked = await waitFrameSaved(cdp, 'first_frame', 'assets/stills/c.png');
+    await waitEval(cdp, `(${sectionSnapshot})?.rows.some(row=>row.label==='種類'&&row.value==='画像から')`, { label: '種類 = 画像から' });
+    await shot(cdp, '10-frame-picked.png', frameSelector('first_frame'));
+    return { band, idle, pending, picked, after: await measureFrames(cdp) };
+  });
+
+  await step('8. 入っている最後の絵を実クリックで差し替える', async () => {
+    await beginFramePick(cdp, 'last_frame', '最後の絵');
+    await clickElement(cdp, materialCard('b'));
+    const before = await waitFrameSaved(cdp, 'last_frame', 'assets/stills/b.png');
+    await beginFramePick(cdp, 'last_frame', '最後の絵');
+    const pending = await measureFrames(cdp, 'last_frame');
+    await clickElement(cdp, materialCard('a'));
+    const after = await waitFrameSaved(cdp, 'last_frame', 'assets/stills/a.png');
+    assert(before.src !== after.src, '差し替え後もサムネ src が同じ');
+    await shot(cdp, '11-frame-replaced.png', frameSelector('last_frame'));
+    return { before, pending, after, frames: await measureFrames(cdp) };
+  });
+
+  await step('9. 選択待ちで Esc → 元の絵のまま輪を外す', async () => {
+    const metaPath = path.join(PROJECT, 'assets/stills/a.png.meta.json');
+    const beforeMeta = await readFile(metaPath, 'utf8');
+    const before = await measureFrames(cdp);
+    await beginFramePick(cdp, 'last_frame', '最後の絵');
+    const pending = await measureFrames(cdp, 'last_frame');
+    await cdp.send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 });
+    await cdp.send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 });
+    await waitEval(cdp, `!document.querySelector(${S(pickBand)})&&document.querySelector(${S(frameSelector('last_frame'))})?.getAttribute('aria-pressed')==='false'`, { label: 'Esc clears band and ring' });
+    await sleep(450);
+    const after = await measureFrames(cdp);
+    assert(before.every((frame, index) => frame.src === after[index].src), 'Esc でサムネが変化');
+    assert(await readFile(metaPath, 'utf8') === beforeMeta, 'Esc で meta が変化');
+    await shot(cdp, '12-frame-cancelled.png', frameSelector('last_frame'));
+    const mtimesAfter = { edit: (await stat(editPath)).mtimeMs, captions: (await stat(captionsPath)).mtimeMs };
+    assert(mtimesAfter.edit === mtimesBefore.edit && mtimesAfter.captions === mtimesBefore.captions, '枠の選択で edit/captions が変化');
+    return { before, pending, after, metaUnchanged: true, mtimesAfter };
+  });
 
   out.status = 'pass';
   await save();

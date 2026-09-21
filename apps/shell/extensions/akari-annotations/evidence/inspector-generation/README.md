@@ -1,6 +1,6 @@
 # インスペクター生成パネル L1
 
-既存の PNG / results.json は再実行まで旧 UI の記録。更新スクリプトは次の 5 枚を撮影する。
+既存の PNG / results.json は再実行まで旧 UI の記録。更新スクリプトは次の 10 枚を撮影する。
 
 - `01-h3-first-to-last.png`: H3 の最初・最後に別々のサムネ、種類「最初→最後」
 - `02-prompt-only.png`: 両枠が空、種類「プロンプトだけ」、外すボタンなし
@@ -40,3 +40,25 @@ fixture/ を削除した後も、偽 CLI の引数と next は step 4 の記録�
 `r1.stickyTabStrip` と追加 SS の `screenshotDetails` にスクロール量、タブ帯と
 スクロールコンテナの上端座標・差を記録する。`scrollTop > 0` と上端の差 `≤ 1px`、
 タブ帯の可視状態を撮影直前に assert する。
+
+### 枠からの素材選択（step 7–9）
+
+既存の step 1–6 の後に、枠と素材カードへの CDP `Input.dispatchMouseEvent` による実クリックを追加。
+fixture の赤・青・緑の画像（`assets/stills/a.png`〜`c.png`）を素材パネルから選ぶ。
+有償 API は使わない。追加撮影は次の 5 枚。
+
+- `08-frame-empty.png`: 空の「最初の絵」と選択文言
+- `09-frame-picking.png`: 「最初の絵 に入れる素材を選ぶ」の帯と紫の二重の輪
+- `10-frame-picked.png`: 緑の絵を入れたサムネと種類「画像から」
+- `11-frame-replaced.png`: 「最後の絵」を青から赤へ差し替えた後
+- `12-frame-cancelled.png`: Esc 後、絵を保ったまま輪と帯が消えた状態
+
+`results.json` の追加 step に、枠の role / tabindex / cursor / aria-disabled / aria-pressed、
+計算後の border / background / box-shadow / outline、枠と近道ボタンの矩形を記録する。
+ボタンとしての背景または枠線、紫の二重の輪、矩形が交差しないことを assert する。
+選択後の `a.png.meta.json` の `next.inputs.first_frame.path`、最後の絵の変更前後のサムネ src、
+Esc 前後の meta のバイト列とサムネの不変性、edit/captions の mtime 不変も assert する。
+
+受け側には取り消しコマンドがない。再押下・クリップ変更・生成タブ以外への移動・dispose 時は
+送信側が結果を捨てて輪を外し、素材パネルの帯は Esc または「やめる」で閉じる。
+L1 の実行と証跡更新は Electron を起動できるラッパー側で行う。

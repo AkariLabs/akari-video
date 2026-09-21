@@ -17,7 +17,7 @@
         ],
         "view": {
           "hidden": false,
-          "text": "▾ 生成モデルMiniMax H3 · $0.05/秒 · as_of 2026-09-12（fal:h3-i2v）MiniMax H3 · $0.05/秒 · as_of 2026-09-12（fal:h3-ref）Kling Video v3 Standard · 見積不可 · as_of 2026-09-12（fal:kling-v3-standard-i2v）Kling Video v3 Pro · $0.112/秒 · as_of 2026-09-12（fal:kling-v3-pro-i2v）Veo 3.1 · $0.2/秒 · as_of 2026-09-12（fal:veo-3.1-flf）Veo 3.1 · $0.2/秒 · as_of 2026-09-12（fal:veo-3.1-ref）Seedance 2.0 · $0.3034/秒 · as_of 2026-09-12（fal:seedance-2.0-i2v）Seedance 2.0 · $0.3034/秒 · as_of 2026-09-12（fal:seedance-2.0-ref）Seedance 2.5 · 見積不可 · as_of 2026-09-12（fal:seedance-2.5-i2v）Wan 2.7 · $0.1/秒 · as_of 2026-09-12（fal:wan-2.7-i2v）Grok Imagine Video · 見積不可 · as_of 2026-09-12（fal:grok-imagine-i2v）Vidu Q3 · 見積不可 · as_of 2026-09-12（fal:vidu-q3-i2v）指示文（prompt）最初の絵このクリップの絵外す最後の絵次のクリップの最初外す種類最初→最後送る絵は素材のまま（色・サイズは送りません）カメラの動きなし寄る引く左へ振る右へ振る追いかける固定長さ6 秒（cuts）解像度480P768P2K4K音声常に付く・既定は消音詳細シード（seed）隣から取る見積$0.36（as_of 2026-09-12）動画にする",
+          "text": "▾ 生成モデルMiniMax H3 · $0.05/秒 · as_of 2026-09-12（fal:h3-i2v）MiniMax H3 · $0.05/秒 · as_of 2026-09-22（fal:h3-ref）Kling Video v3 Standard · 見積不可 · as_of 2026-09-12（fal:kling-v3-standard-i2v）Kling Video v3 Pro · $0.112/秒 · as_of 2026-09-12（fal:kling-v3-pro-i2v）Veo 3.1 · $0.2/秒 · as_of 2026-09-12（fal:veo-3.1-flf）Veo 3.1 · $0.2/秒 · as_of 2026-09-12（fal:veo-3.1-ref）Seedance 2.0 · $0.3034/秒 · as_of 2026-09-12（fal:seedance-2.0-i2v）Seedance 2.0 · $0.3034/秒 · as_of 2026-09-12（fal:seedance-2.0-ref）Seedance 2.5 · 見積不可 · as_of 2026-09-12（fal:seedance-2.5-i2v）Wan 2.7 · $0.1/秒 · as_of 2026-09-12（fal:wan-2.7-i2v）Grok Imagine Video · 見積不可 · as_of 2026-09-12（fal:grok-imagine-i2v）Vidu Q3 · 見積不可 · as_of 2026-09-12（fal:vidu-q3-i2v）指示文（prompt）最初の絵差し替えこのクリップの絵外す最後の絵差し替え次のクリップの最初外す種類最初→最後送る絵は素材のまま（色・サイズは送りません）カメラの動きなし寄る引く左へ振る右へ振る追いかける固定長さ6 秒（cuts）解像度480P768P2K4K音声常に付く・既定は消音詳細シード（seed）隣から取る見積$0.36（as_of 2026-09-12）動画にする",
           "rows": [
             {
               "label": "モデル",
@@ -82,7 +82,7 @@
       "pass": true,
       "detail": {
         "hidden": false,
-        "text": "▾ 生成モデルMiniMax H3 · $0.05/秒 · as_of 2026-09-12（fal:h3-i2v）MiniMax H3 · $0.05/秒 · as_of 2026-09-12（fal:h3-ref）Kling Video v3 Standard · 見積不可 · as_of 2026-09-12（fal:kling-v3-standard-i2v）Kling Video v3 Pro · $0.112/秒 · as_of 2026-09-12（fal:kling-v3-pro-i2v）Veo 3.1 · $0.2/秒 · as_of 2026-09-12（fal:veo-3.1-flf）Veo 3.1 · $0.2/秒 · as_of 2026-09-12（fal:veo-3.1-ref）Seedance 2.0 · $0.3034/秒 · as_of 2026-09-12（fal:seedance-2.0-i2v）Seedance 2.0 · $0.3034/秒 · as_of 2026-09-12（fal:seedance-2.0-ref）Seedance 2.5 · 見積不可 · as_of 2026-09-12（fal:seedance-2.5-i2v）Wan 2.7 · $0.1/秒 · as_of 2026-09-12（fal:wan-2.7-i2v）Grok Imagine Video · 見積不可 · as_of 2026-09-12（fal:grok-imagine-i2v）Vidu Q3 · 見積不可 · as_of 2026-09-12（fal:vidu-q3-i2v）指示文（prompt）最初の絵最初の絵このクリップの絵最後の絵最後の絵次のクリップの最初種類プロンプトだけ送る絵は素材のまま（色・サイズは送りません）カメラの動きなし寄る引く左へ振る右へ振る追いかける固定長さ6 秒（cuts）解像度480P768P2K4K音声常に付く・既定は消音詳細シード（seed）隣から取る見積$0.36（as_of 2026-09-12）動画にする",
+        "text": "▾ 生成モデルMiniMax H3 · $0.05/秒 · as_of 2026-09-12（fal:h3-i2v）MiniMax H3 · $0.05/秒 · as_of 2026-09-22（fal:h3-ref）Kling Video v3 Standard · 見積不可 · as_of 2026-09-12（fal:kling-v3-standard-i2v）Kling Video v3 Pro · $0.112/秒 · as_of 2026-09-12（fal:kling-v3-pro-i2v）Veo 3.1 · $0.2/秒 · as_of 2026-09-12（fal:veo-3.1-flf）Veo 3.1 · $0.2/秒 · as_of 2026-09-12（fal:veo-3.1-ref）Seedance 2.0 · $0.3034/秒 · as_of 2026-09-12（fal:seedance-2.0-i2v）Seedance 2.0 · $0.3034/秒 · as_of 2026-09-12（fal:seedance-2.0-ref）Seedance 2.5 · 見積不可 · as_of 2026-09-12（fal:seedance-2.5-i2v）Wan 2.7 · $0.1/秒 · as_of 2026-09-12（fal:wan-2.7-i2v）Grok Imagine Video · 見積不可 · as_of 2026-09-12（fal:grok-imagine-i2v）Vidu Q3 · 見積不可 · as_of 2026-09-12（fal:vidu-q3-i2v）指示文（prompt）最初の絵＋ 画像を選ぶ空なら入れなくてよいこのクリップの絵最後の絵＋ 画像を選ぶ空なら入れなくてよい次のクリップの最初種類プロンプトだけ送る絵は素材のまま（色・サイズは送りません）カメラの動きなし寄る引く左へ振る右へ振る追いかける固定長さ6 秒（cuts）解像度480P768P2K4K音声常に付く・既定は消音詳細シード（seed）隣から取る見積$0.36（as_of 2026-09-12）動画にする",
         "rows": [
           {
             "label": "モデル",
@@ -151,9 +151,9 @@
           "selector": "[data-akari-generation-action=\"generate\"]",
           "buttonRect": {
             "left": 960,
-            "top": 593.4921875,
+            "top": 593.5,
             "right": 1047,
-            "bottom": 624.9921875,
+            "bottom": 625,
             "width": 87,
             "height": 31.5
           },
@@ -208,7 +208,7 @@
             "resolution": "768P",
             "audio_out": true
           },
-          "updated_at": "2026-09-21T16:04:39.460Z"
+          "updated_at": "2026-09-21T17:41:49.759Z"
         }
       }
     },
@@ -221,9 +221,9 @@
           "selector": "[data-akari-generation-action=\"retry\"]",
           "buttonRect": {
             "left": 815,
-            "top": 591.2421875,
+            "top": 591.25,
             "right": 954,
-            "bottom": 622.7421875,
+            "bottom": 622.75,
             "width": 139,
             "height": 31.5
           },
@@ -250,12 +250,772 @@
       "pass": true,
       "detail": {
         "before": {
-          "edit": 1790006587353.2627,
-          "captions": 1790006587784.4006
+          "edit": 1790012432083.2102,
+          "captions": 1790012433629.1328
         },
         "after": {
-          "edit": 1790006587353.2627,
-          "captions": 1790006587784.4006
+          "edit": 1790012432083.2102,
+          "captions": 1790012433629.1328
+        }
+      }
+    },
+    {
+      "name": "7. 空の最初の絵を実クリック → 素材パネル → next と画像から",
+      "pass": true,
+      "detail": {
+        "band": "最初の絵 に入れる素材を選ぶやめる",
+        "idle": [
+          {
+            "slot": "first_frame",
+            "role": "button",
+            "tabindex": 0,
+            "pressed": "false",
+            "disabled": "false",
+            "cursor": "pointer",
+            "borderWidth": "1px",
+            "borderStyle": "solid",
+            "background": "rgba(167, 139, 250, 0.08)",
+            "boxShadow": "none",
+            "outline": "rgb(204, 204, 204) none 0px",
+            "rect": {
+              "left": 645,
+              "right": 841,
+              "top": 230,
+              "bottom": 326,
+              "width": 196,
+              "height": 96
+            },
+            "buttons": [
+              {
+                "text": "このクリップの絵",
+                "rect": {
+                  "left": 645,
+                  "right": 770.2265625,
+                  "top": 337,
+                  "bottom": 368.5,
+                  "width": 125.2265625,
+                  "height": 31.5
+                },
+                "intersects": false
+              }
+            ],
+            "src": null
+          },
+          {
+            "slot": "last_frame",
+            "role": "button",
+            "tabindex": 0,
+            "pressed": "false",
+            "disabled": "false",
+            "cursor": "pointer",
+            "borderWidth": "1px",
+            "borderStyle": "solid",
+            "background": "rgba(167, 139, 250, 0.08)",
+            "boxShadow": "none",
+            "outline": "rgb(204, 204, 204) none 0px",
+            "rect": {
+              "left": 851,
+              "right": 1047,
+              "top": 230,
+              "bottom": 326,
+              "width": 196,
+              "height": 96
+            },
+            "buttons": [
+              {
+                "text": "次のクリップの最初",
+                "rect": {
+                  "left": 851,
+                  "right": 989.2265625,
+                  "top": 337,
+                  "bottom": 368.5,
+                  "width": 138.2265625,
+                  "height": 31.5
+                },
+                "intersects": false
+              }
+            ],
+            "src": null
+          }
+        ],
+        "pending": [
+          {
+            "slot": "first_frame",
+            "role": "button",
+            "tabindex": 0,
+            "pressed": "true",
+            "disabled": "false",
+            "cursor": "pointer",
+            "borderWidth": "1px",
+            "borderStyle": "solid",
+            "background": "rgba(167, 139, 250, 0.08)",
+            "boxShadow": "rgb(10, 10, 10) 0px 0px 0px 2px, rgb(167, 139, 250) 0px 0px 0px 4px",
+            "outline": "rgb(204, 204, 204) none 0px",
+            "rect": {
+              "left": 645,
+              "right": 841,
+              "top": 230,
+              "bottom": 326,
+              "width": 196,
+              "height": 96
+            },
+            "buttons": [
+              {
+                "text": "このクリップの絵",
+                "rect": {
+                  "left": 645,
+                  "right": 770.2265625,
+                  "top": 337,
+                  "bottom": 368.5,
+                  "width": 125.2265625,
+                  "height": 31.5
+                },
+                "intersects": false
+              }
+            ],
+            "src": null
+          },
+          {
+            "slot": "last_frame",
+            "role": "button",
+            "tabindex": 0,
+            "pressed": "false",
+            "disabled": "false",
+            "cursor": "pointer",
+            "borderWidth": "1px",
+            "borderStyle": "solid",
+            "background": "rgba(167, 139, 250, 0.08)",
+            "boxShadow": "none",
+            "outline": "rgb(204, 204, 204) none 0px",
+            "rect": {
+              "left": 851,
+              "right": 1047,
+              "top": 230,
+              "bottom": 326,
+              "width": 196,
+              "height": 96
+            },
+            "buttons": [
+              {
+                "text": "次のクリップの最初",
+                "rect": {
+                  "left": 851,
+                  "right": 989.2265625,
+                  "top": 337,
+                  "bottom": 368.5,
+                  "width": 138.2265625,
+                  "height": 31.5
+                },
+                "intersects": false
+              }
+            ],
+            "src": null
+          }
+        ],
+        "picked": {
+          "path": "assets/stills/c.png",
+          "src": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAgAAAQABAAD//gAQTGF2YzYyLjI4LjEwMQD/2wBDAAgICAkICQsLCwsLCw0MDQ0NDQ0NDQ0NDQ0ODg4REREODg4NDQ4OEBARERITEhERERETExQUFBgYFxccHB0iIin/xABNAAEBAAAAAAAAAAAAAAAAAAAABQEBAQEAAAAAAAAAAAAAAAAAAAQGEAEAAAAAAAAAAAAAAAAAAAAAEQEAAAAAAAAAAAAAAAAAAAAA/8AAEQgAWgCgAwESAAISAAMSAP/aAAwDAQACEQMRAD8AjiQZQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAf/9k="
+        },
+        "after": [
+          {
+            "slot": "first_frame",
+            "role": "button",
+            "tabindex": 0,
+            "pressed": "false",
+            "disabled": "false",
+            "cursor": "pointer",
+            "borderWidth": "1px",
+            "borderStyle": "solid",
+            "background": "rgba(167, 139, 250, 0.08)",
+            "boxShadow": "none",
+            "outline": "rgb(204, 204, 204) none 0px",
+            "rect": {
+              "left": 645,
+              "right": 841,
+              "top": 230,
+              "bottom": 326,
+              "width": 196,
+              "height": 96
+            },
+            "buttons": [
+              {
+                "text": "このクリップの絵",
+                "rect": {
+                  "left": 645,
+                  "right": 770.2265625,
+                  "top": 337,
+                  "bottom": 368.5,
+                  "width": 125.2265625,
+                  "height": 31.5
+                },
+                "intersects": false
+              },
+              {
+                "text": "外す",
+                "rect": {
+                  "left": 773.2265625,
+                  "right": 809.2265625,
+                  "top": 342.5,
+                  "bottom": 365,
+                  "width": 36,
+                  "height": 22.5
+                },
+                "intersects": false
+              }
+            ],
+            "src": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAgAAAQABAAD//gAQTGF2YzYyLjI4LjEwMQD/2wBDAAgICAkICQsLCwsLCw0MDQ0NDQ0NDQ0NDQ0ODg4REREODg4NDQ4OEBARERITEhERERETExQUFBgYFxccHB0iIin/xABNAAEBAAAAAAAAAAAAAAAAAAAABQEBAQEAAAAAAAAAAAAAAAAAAAQGEAEAAAAAAAAAAAAAAAAAAAAAEQEAAAAAAAAAAAAAAAAAAAAA/8AAEQgAWgCgAwESAAISAAMSAP/aAAwDAQACEQMRAD8AjiQZQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAf/9k="
+          },
+          {
+            "slot": "last_frame",
+            "role": "button",
+            "tabindex": 0,
+            "pressed": "false",
+            "disabled": "false",
+            "cursor": "pointer",
+            "borderWidth": "1px",
+            "borderStyle": "solid",
+            "background": "rgba(167, 139, 250, 0.08)",
+            "boxShadow": "none",
+            "outline": "rgb(204, 204, 204) none 0px",
+            "rect": {
+              "left": 851,
+              "right": 1047,
+              "top": 230,
+              "bottom": 326,
+              "width": 196,
+              "height": 96
+            },
+            "buttons": [
+              {
+                "text": "次のクリップの最初",
+                "rect": {
+                  "left": 851,
+                  "right": 989.2265625,
+                  "top": 337,
+                  "bottom": 368.5,
+                  "width": 138.2265625,
+                  "height": 31.5
+                },
+                "intersects": false
+              }
+            ],
+            "src": null
+          }
+        ]
+      }
+    },
+    {
+      "name": "8. 入っている最後の絵を実クリックで差し替える",
+      "pass": true,
+      "detail": {
+        "before": {
+          "path": "assets/stills/b.png",
+          "src": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAgAAAQABAAD//gAQTGF2YzYyLjI4LjEwMQD/2wBDAAgICAkICQsLCwsLCw0MDQ0NDQ0NDQ0NDQ0ODg4REREODg4NDQ4OEBARERITEhERERETExQUFBgYFxccHB0iIin/xABNAAEBAAAAAAAAAAAAAAAAAAAABgEBAQEAAAAAAAAAAAAAAAAAAAUGEAEAAAAAAAAAAAAAAAAAAAAAEQEAAAAAAAAAAAAAAAAAAAAA/8AAEQgAWgCgAwESAAISAAMSAP/aAAwDAQACEQMRAD8AmRbGUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAH/9k="
+        },
+        "pending": [
+          {
+            "slot": "first_frame",
+            "role": "button",
+            "tabindex": 0,
+            "pressed": "false",
+            "disabled": "false",
+            "cursor": "pointer",
+            "borderWidth": "1px",
+            "borderStyle": "solid",
+            "background": "rgba(167, 139, 250, 0.08)",
+            "boxShadow": "none",
+            "outline": "rgb(204, 204, 204) none 0px",
+            "rect": {
+              "left": 645,
+              "right": 841,
+              "top": 230,
+              "bottom": 326,
+              "width": 196,
+              "height": 96
+            },
+            "buttons": [
+              {
+                "text": "このクリップの絵",
+                "rect": {
+                  "left": 645,
+                  "right": 770.2265625,
+                  "top": 337,
+                  "bottom": 368.5,
+                  "width": 125.2265625,
+                  "height": 31.5
+                },
+                "intersects": false
+              },
+              {
+                "text": "外す",
+                "rect": {
+                  "left": 773.2265625,
+                  "right": 809.2265625,
+                  "top": 342.5,
+                  "bottom": 365,
+                  "width": 36,
+                  "height": 22.5
+                },
+                "intersects": false
+              }
+            ],
+            "src": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAgAAAQABAAD//gAQTGF2YzYyLjI4LjEwMQD/2wBDAAgICAkICQsLCwsLCw0MDQ0NDQ0NDQ0NDQ0ODg4REREODg4NDQ4OEBARERITEhERERETExQUFBgYFxccHB0iIin/xABNAAEBAAAAAAAAAAAAAAAAAAAABQEBAQEAAAAAAAAAAAAAAAAAAAQGEAEAAAAAAAAAAAAAAAAAAAAAEQEAAAAAAAAAAAAAAAAAAAAA/8AAEQgAWgCgAwESAAISAAMSAP/aAAwDAQACEQMRAD8AjiQZQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAf/9k="
+          },
+          {
+            "slot": "last_frame",
+            "role": "button",
+            "tabindex": 0,
+            "pressed": "true",
+            "disabled": "false",
+            "cursor": "pointer",
+            "borderWidth": "1px",
+            "borderStyle": "solid",
+            "background": "rgba(167, 139, 250, 0.08)",
+            "boxShadow": "rgb(10, 10, 10) 0px 0px 0px 2px, rgb(167, 139, 250) 0px 0px 0px 4px",
+            "outline": "rgb(204, 204, 204) none 0px",
+            "rect": {
+              "left": 851,
+              "right": 1047,
+              "top": 230,
+              "bottom": 326,
+              "width": 196,
+              "height": 96
+            },
+            "buttons": [
+              {
+                "text": "次のクリップの最初",
+                "rect": {
+                  "left": 851,
+                  "right": 989.2265625,
+                  "top": 337,
+                  "bottom": 368.5,
+                  "width": 138.2265625,
+                  "height": 31.5
+                },
+                "intersects": false
+              },
+              {
+                "text": "外す",
+                "rect": {
+                  "left": 992.2265625,
+                  "right": 1028.2265625,
+                  "top": 342.5,
+                  "bottom": 365,
+                  "width": 36,
+                  "height": 22.5
+                },
+                "intersects": false
+              }
+            ],
+            "src": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAgAAAQABAAD//gAQTGF2YzYyLjI4LjEwMQD/2wBDAAgICAkICQsLCwsLCw0MDQ0NDQ0NDQ0NDQ0ODg4REREODg4NDQ4OEBARERITEhERERETExQUFBgYFxccHB0iIin/xABNAAEBAAAAAAAAAAAAAAAAAAAABgEBAQEAAAAAAAAAAAAAAAAAAAUGEAEAAAAAAAAAAAAAAAAAAAAAEQEAAAAAAAAAAAAAAAAAAAAA/8AAEQgAWgCgAwESAAISAAMSAP/aAAwDAQACEQMRAD8AmRbGUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAH/9k="
+          }
+        ],
+        "after": {
+          "path": "assets/stills/a.png",
+          "src": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAgAAAQABAAD//gAQTGF2YzYyLjI4LjEwMQD/2wBDAAgICAkICQsLCwsLCw0MDQ0NDQ0NDQ0NDQ0ODg4REREODg4NDQ4OEBARERITEhERERETExQUFBgYFxccHB0iIin/xABNAAEBAAAAAAAAAAAAAAAAAAAABQEBAQEAAAAAAAAAAAAAAAAAAAYHEAEAAAAAAAAAAAAAAAAAAAAAEQEAAAAAAAAAAAAAAAAAAAAA/8AAEQgAWgCgAwESAAISAAMSAP/aAAwDAQACEQMRAD8AkCbGmAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD/9k="
+        },
+        "frames": [
+          {
+            "slot": "first_frame",
+            "role": "button",
+            "tabindex": 0,
+            "pressed": "false",
+            "disabled": "false",
+            "cursor": "pointer",
+            "borderWidth": "1px",
+            "borderStyle": "solid",
+            "background": "rgba(167, 139, 250, 0.08)",
+            "boxShadow": "none",
+            "outline": "rgb(204, 204, 204) none 0px",
+            "rect": {
+              "left": 645,
+              "right": 841,
+              "top": 230,
+              "bottom": 326,
+              "width": 196,
+              "height": 96
+            },
+            "buttons": [
+              {
+                "text": "このクリップの絵",
+                "rect": {
+                  "left": 645,
+                  "right": 770.2265625,
+                  "top": 337,
+                  "bottom": 368.5,
+                  "width": 125.2265625,
+                  "height": 31.5
+                },
+                "intersects": false
+              },
+              {
+                "text": "外す",
+                "rect": {
+                  "left": 773.2265625,
+                  "right": 809.2265625,
+                  "top": 342.5,
+                  "bottom": 365,
+                  "width": 36,
+                  "height": 22.5
+                },
+                "intersects": false
+              }
+            ],
+            "src": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAgAAAQABAAD//gAQTGF2YzYyLjI4LjEwMQD/2wBDAAgICAkICQsLCwsLCw0MDQ0NDQ0NDQ0NDQ0ODg4REREODg4NDQ4OEBARERITEhERERETExQUFBgYFxccHB0iIin/xABNAAEBAAAAAAAAAAAAAAAAAAAABQEBAQEAAAAAAAAAAAAAAAAAAAQGEAEAAAAAAAAAAAAAAAAAAAAAEQEAAAAAAAAAAAAAAAAAAAAA/8AAEQgAWgCgAwESAAISAAMSAP/aAAwDAQACEQMRAD8AjiQZQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAf/9k="
+          },
+          {
+            "slot": "last_frame",
+            "role": "button",
+            "tabindex": 0,
+            "pressed": "false",
+            "disabled": "false",
+            "cursor": "pointer",
+            "borderWidth": "1px",
+            "borderStyle": "solid",
+            "background": "rgba(167, 139, 250, 0.08)",
+            "boxShadow": "none",
+            "outline": "rgb(204, 204, 204) none 0px",
+            "rect": {
+              "left": 851,
+              "right": 1047,
+              "top": 230,
+              "bottom": 326,
+              "width": 196,
+              "height": 96
+            },
+            "buttons": [
+              {
+                "text": "次のクリップの最初",
+                "rect": {
+                  "left": 851,
+                  "right": 989.2265625,
+                  "top": 337,
+                  "bottom": 368.5,
+                  "width": 138.2265625,
+                  "height": 31.5
+                },
+                "intersects": false
+              },
+              {
+                "text": "外す",
+                "rect": {
+                  "left": 992.2265625,
+                  "right": 1028.2265625,
+                  "top": 342.5,
+                  "bottom": 365,
+                  "width": 36,
+                  "height": 22.5
+                },
+                "intersects": false
+              }
+            ],
+            "src": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAgAAAQABAAD//gAQTGF2YzYyLjI4LjEwMQD/2wBDAAgICAkICQsLCwsLCw0MDQ0NDQ0NDQ0NDQ0ODg4REREODg4NDQ4OEBARERITEhERERETExQUFBgYFxccHB0iIin/xABNAAEBAAAAAAAAAAAAAAAAAAAABQEBAQEAAAAAAAAAAAAAAAAAAAYHEAEAAAAAAAAAAAAAAAAAAAAAEQEAAAAAAAAAAAAAAAAAAAAA/8AAEQgAWgCgAwESAAISAAMSAP/aAAwDAQACEQMRAD8AkCbGmAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD/9k="
+          }
+        ]
+      }
+    },
+    {
+      "name": "9. 選択待ちで Esc → 元の絵のまま輪を外す",
+      "pass": true,
+      "detail": {
+        "before": [
+          {
+            "slot": "first_frame",
+            "role": "button",
+            "tabindex": 0,
+            "pressed": "false",
+            "disabled": "false",
+            "cursor": "pointer",
+            "borderWidth": "1px",
+            "borderStyle": "solid",
+            "background": "rgba(167, 139, 250, 0.08)",
+            "boxShadow": "none",
+            "outline": "rgb(204, 204, 204) none 0px",
+            "rect": {
+              "left": 645,
+              "right": 841,
+              "top": 230,
+              "bottom": 326,
+              "width": 196,
+              "height": 96
+            },
+            "buttons": [
+              {
+                "text": "このクリップの絵",
+                "rect": {
+                  "left": 645,
+                  "right": 770.2265625,
+                  "top": 337,
+                  "bottom": 368.5,
+                  "width": 125.2265625,
+                  "height": 31.5
+                },
+                "intersects": false
+              },
+              {
+                "text": "外す",
+                "rect": {
+                  "left": 773.2265625,
+                  "right": 809.2265625,
+                  "top": 342.5,
+                  "bottom": 365,
+                  "width": 36,
+                  "height": 22.5
+                },
+                "intersects": false
+              }
+            ],
+            "src": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAgAAAQABAAD//gAQTGF2YzYyLjI4LjEwMQD/2wBDAAgICAkICQsLCwsLCw0MDQ0NDQ0NDQ0NDQ0ODg4REREODg4NDQ4OEBARERITEhERERETExQUFBgYFxccHB0iIin/xABNAAEBAAAAAAAAAAAAAAAAAAAABQEBAQEAAAAAAAAAAAAAAAAAAAQGEAEAAAAAAAAAAAAAAAAAAAAAEQEAAAAAAAAAAAAAAAAAAAAA/8AAEQgAWgCgAwESAAISAAMSAP/aAAwDAQACEQMRAD8AjiQZQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAf/9k="
+          },
+          {
+            "slot": "last_frame",
+            "role": "button",
+            "tabindex": 0,
+            "pressed": "false",
+            "disabled": "false",
+            "cursor": "pointer",
+            "borderWidth": "1px",
+            "borderStyle": "solid",
+            "background": "rgba(167, 139, 250, 0.08)",
+            "boxShadow": "none",
+            "outline": "rgb(204, 204, 204) none 0px",
+            "rect": {
+              "left": 851,
+              "right": 1047,
+              "top": 230,
+              "bottom": 326,
+              "width": 196,
+              "height": 96
+            },
+            "buttons": [
+              {
+                "text": "次のクリップの最初",
+                "rect": {
+                  "left": 851,
+                  "right": 989.2265625,
+                  "top": 337,
+                  "bottom": 368.5,
+                  "width": 138.2265625,
+                  "height": 31.5
+                },
+                "intersects": false
+              },
+              {
+                "text": "外す",
+                "rect": {
+                  "left": 992.2265625,
+                  "right": 1028.2265625,
+                  "top": 342.5,
+                  "bottom": 365,
+                  "width": 36,
+                  "height": 22.5
+                },
+                "intersects": false
+              }
+            ],
+            "src": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAgAAAQABAAD//gAQTGF2YzYyLjI4LjEwMQD/2wBDAAgICAkICQsLCwsLCw0MDQ0NDQ0NDQ0NDQ0ODg4REREODg4NDQ4OEBARERITEhERERETExQUFBgYFxccHB0iIin/xABNAAEBAAAAAAAAAAAAAAAAAAAABQEBAQEAAAAAAAAAAAAAAAAAAAYHEAEAAAAAAAAAAAAAAAAAAAAAEQEAAAAAAAAAAAAAAAAAAAAA/8AAEQgAWgCgAwESAAISAAMSAP/aAAwDAQACEQMRAD8AkCbGmAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD/9k="
+          }
+        ],
+        "pending": [
+          {
+            "slot": "first_frame",
+            "role": "button",
+            "tabindex": 0,
+            "pressed": "false",
+            "disabled": "false",
+            "cursor": "pointer",
+            "borderWidth": "1px",
+            "borderStyle": "solid",
+            "background": "rgba(167, 139, 250, 0.08)",
+            "boxShadow": "none",
+            "outline": "rgb(204, 204, 204) none 0px",
+            "rect": {
+              "left": 645,
+              "right": 841,
+              "top": 230,
+              "bottom": 326,
+              "width": 196,
+              "height": 96
+            },
+            "buttons": [
+              {
+                "text": "このクリップの絵",
+                "rect": {
+                  "left": 645,
+                  "right": 770.2265625,
+                  "top": 337,
+                  "bottom": 368.5,
+                  "width": 125.2265625,
+                  "height": 31.5
+                },
+                "intersects": false
+              },
+              {
+                "text": "外す",
+                "rect": {
+                  "left": 773.2265625,
+                  "right": 809.2265625,
+                  "top": 342.5,
+                  "bottom": 365,
+                  "width": 36,
+                  "height": 22.5
+                },
+                "intersects": false
+              }
+            ],
+            "src": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAgAAAQABAAD//gAQTGF2YzYyLjI4LjEwMQD/2wBDAAgICAkICQsLCwsLCw0MDQ0NDQ0NDQ0NDQ0ODg4REREODg4NDQ4OEBARERITEhERERETExQUFBgYFxccHB0iIin/xABNAAEBAAAAAAAAAAAAAAAAAAAABQEBAQEAAAAAAAAAAAAAAAAAAAQGEAEAAAAAAAAAAAAAAAAAAAAAEQEAAAAAAAAAAAAAAAAAAAAA/8AAEQgAWgCgAwESAAISAAMSAP/aAAwDAQACEQMRAD8AjiQZQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAf/9k="
+          },
+          {
+            "slot": "last_frame",
+            "role": "button",
+            "tabindex": 0,
+            "pressed": "true",
+            "disabled": "false",
+            "cursor": "pointer",
+            "borderWidth": "1px",
+            "borderStyle": "solid",
+            "background": "rgba(167, 139, 250, 0.08)",
+            "boxShadow": "rgb(10, 10, 10) 0px 0px 0px 2px, rgb(167, 139, 250) 0px 0px 0px 4px",
+            "outline": "rgb(204, 204, 204) none 0px",
+            "rect": {
+              "left": 851,
+              "right": 1047,
+              "top": 230,
+              "bottom": 326,
+              "width": 196,
+              "height": 96
+            },
+            "buttons": [
+              {
+                "text": "次のクリップの最初",
+                "rect": {
+                  "left": 851,
+                  "right": 989.2265625,
+                  "top": 337,
+                  "bottom": 368.5,
+                  "width": 138.2265625,
+                  "height": 31.5
+                },
+                "intersects": false
+              },
+              {
+                "text": "外す",
+                "rect": {
+                  "left": 992.2265625,
+                  "right": 1028.2265625,
+                  "top": 342.5,
+                  "bottom": 365,
+                  "width": 36,
+                  "height": 22.5
+                },
+                "intersects": false
+              }
+            ],
+            "src": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAgAAAQABAAD//gAQTGF2YzYyLjI4LjEwMQD/2wBDAAgICAkICQsLCwsLCw0MDQ0NDQ0NDQ0NDQ0ODg4REREODg4NDQ4OEBARERITEhERERETExQUFBgYFxccHB0iIin/xABNAAEBAAAAAAAAAAAAAAAAAAAABQEBAQEAAAAAAAAAAAAAAAAAAAYHEAEAAAAAAAAAAAAAAAAAAAAAEQEAAAAAAAAAAAAAAAAAAAAA/8AAEQgAWgCgAwESAAISAAMSAP/aAAwDAQACEQMRAD8AkCbGmAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD/9k="
+          }
+        ],
+        "after": [
+          {
+            "slot": "first_frame",
+            "role": "button",
+            "tabindex": 0,
+            "pressed": "false",
+            "disabled": "false",
+            "cursor": "pointer",
+            "borderWidth": "1px",
+            "borderStyle": "solid",
+            "background": "rgba(167, 139, 250, 0.08)",
+            "boxShadow": "none",
+            "outline": "rgb(204, 204, 204) none 0px",
+            "rect": {
+              "left": 645,
+              "right": 841,
+              "top": 230,
+              "bottom": 326,
+              "width": 196,
+              "height": 96
+            },
+            "buttons": [
+              {
+                "text": "このクリップの絵",
+                "rect": {
+                  "left": 645,
+                  "right": 770.2265625,
+                  "top": 337,
+                  "bottom": 368.5,
+                  "width": 125.2265625,
+                  "height": 31.5
+                },
+                "intersects": false
+              },
+              {
+                "text": "外す",
+                "rect": {
+                  "left": 773.2265625,
+                  "right": 809.2265625,
+                  "top": 342.5,
+                  "bottom": 365,
+                  "width": 36,
+                  "height": 22.5
+                },
+                "intersects": false
+              }
+            ],
+            "src": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAgAAAQABAAD//gAQTGF2YzYyLjI4LjEwMQD/2wBDAAgICAkICQsLCwsLCw0MDQ0NDQ0NDQ0NDQ0ODg4REREODg4NDQ4OEBARERITEhERERETExQUFBgYFxccHB0iIin/xABNAAEBAAAAAAAAAAAAAAAAAAAABQEBAQEAAAAAAAAAAAAAAAAAAAQGEAEAAAAAAAAAAAAAAAAAAAAAEQEAAAAAAAAAAAAAAAAAAAAA/8AAEQgAWgCgAwESAAISAAMSAP/aAAwDAQACEQMRAD8AjiQZQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAf/9k="
+          },
+          {
+            "slot": "last_frame",
+            "role": "button",
+            "tabindex": 0,
+            "pressed": "false",
+            "disabled": "false",
+            "cursor": "pointer",
+            "borderWidth": "1px",
+            "borderStyle": "solid",
+            "background": "rgba(167, 139, 250, 0.08)",
+            "boxShadow": "none",
+            "outline": "rgb(204, 204, 204) none 0px",
+            "rect": {
+              "left": 851,
+              "right": 1047,
+              "top": 230,
+              "bottom": 326,
+              "width": 196,
+              "height": 96
+            },
+            "buttons": [
+              {
+                "text": "次のクリップの最初",
+                "rect": {
+                  "left": 851,
+                  "right": 989.2265625,
+                  "top": 337,
+                  "bottom": 368.5,
+                  "width": 138.2265625,
+                  "height": 31.5
+                },
+                "intersects": false
+              },
+              {
+                "text": "外す",
+                "rect": {
+                  "left": 992.2265625,
+                  "right": 1028.2265625,
+                  "top": 342.5,
+                  "bottom": 365,
+                  "width": 36,
+                  "height": 22.5
+                },
+                "intersects": false
+              }
+            ],
+            "src": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAgAAAQABAAD//gAQTGF2YzYyLjI4LjEwMQD/2wBDAAgICAkICQsLCwsLCw0MDQ0NDQ0NDQ0NDQ0ODg4REREODg4NDQ4OEBARERITEhERERETExQUFBgYFxccHB0iIin/xABNAAEBAAAAAAAAAAAAAAAAAAAABQEBAQEAAAAAAAAAAAAAAAAAAAYHEAEAAAAAAAAAAAAAAAAAAAAAEQEAAAAAAAAAAAAAAAAAAAAA/8AAEQgAWgCgAwESAAISAAMSAP/aAAwDAQACEQMRAD8AkCbGmAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD/9k="
+          }
+        ],
+        "metaUnchanged": true,
+        "mtimesAfter": {
+          "edit": 1790012432083.2102,
+          "captions": 1790012433629.1328
         }
       }
     }
@@ -265,26 +1025,31 @@
     "02-prompt-only.png",
     "03-cost-approval-dialog.png",
     "04-failed-retry.png",
-    "07-sticky-tab-strip.png"
+    "07-sticky-tab-strip.png",
+    "08-frame-empty.png",
+    "09-frame-picking.png",
+    "10-frame-picked.png",
+    "11-frame-replaced.png",
+    "12-frame-cancelled.png"
   ],
   "screenshotDetails": [
     {
       "name": "01-h3-first-to-last.png",
-      "sha256": "77e6350daf3a626afffc205aec257354534270789ccbc382637b2b5b188638d0",
+      "sha256": "b3808feb4ec54dadc6e4bc176376d8f669437a99fb588575928390e8913f8898",
       "inspectorFront": true,
       "sectionVisible": true,
       "modelRow": "MiniMax H3 · $0.05/秒 · as_of 2026-09-12（fal:h3-i2v）"
     },
     {
       "name": "02-prompt-only.png",
-      "sha256": "5fe3c0e67c752899a1e26d1ac7bbf3b46c15ff309733d5ded004cf7f6a4f7d2a",
+      "sha256": "226507c2ed4aa1671d92dc1d31d42932bb46388d20224e3f6400464d8361d33d",
       "inspectorFront": true,
       "sectionVisible": true,
       "modelRow": "MiniMax H3 · $0.05/秒 · as_of 2026-09-12（fal:h3-i2v）"
     },
     {
       "name": "04-failed-retry.png",
-      "sha256": "175efb29d41fb37630900785bc33c0a3715a7cc811513f1f5fdb8c532119b79c",
+      "sha256": "0cb15aba368ead01b5dd42ad22a8f2e9de3447745a0517c5f9f554a518baf1be",
       "inspectorFront": true,
       "sectionVisible": true,
       "modelRow": "MiniMax H3 · $0.05/秒 · as_of 2026-09-12（fal:h3-i2v）",
@@ -292,9 +1057,9 @@
         "selector": "[data-akari-generation-action=\"retry\"]",
         "buttonRect": {
           "left": 815,
-          "top": 591.2421875,
+          "top": 591.25,
           "right": 954,
-          "bottom": 622.7421875,
+          "bottom": 622.75,
           "width": 139,
           "height": 31.5
         },
@@ -317,23 +1082,188 @@
     },
     {
       "name": "07-sticky-tab-strip.png",
-      "sha256": "97da8cbe1e7bb032eab377c66f9d598a997a80941072be39985fd7b35f181257",
+      "sha256": "0cb15aba368ead01b5dd42ad22a8f2e9de3447745a0517c5f9f554a518baf1be",
       "inspectorFront": true,
       "sectionVisible": true,
       "modelRow": "MiniMax H3 · $0.05/秒 · as_of 2026-09-12（fal:h3-i2v）",
       "stickyTabStrip": {
-        "scrollTop": 125,
-        "scrollHeight": 728,
+        "scrollTop": 127,
+        "scrollHeight": 730,
         "clientHeight": 603,
         "tabStripTop": 39,
         "containerTop": 39,
         "topDifference": 0,
         "visible": true
       }
+    },
+    {
+      "name": "08-frame-empty.png",
+      "sha256": "c6f46608a6361ba18f0676d4428c14e49d7a8b005f6ba9af1b4764f232adc9c8",
+      "inspectorFront": true,
+      "sectionVisible": true,
+      "modelRow": "MiniMax H3 · $0.05/秒 · as_of 2026-09-12（fal:h3-i2v）",
+      "actionVisibility": {
+        "selector": "[data-akari-generation-pick-slot=\"first_frame\"]",
+        "buttonRect": {
+          "left": 645,
+          "top": 230,
+          "right": 841,
+          "bottom": 326,
+          "width": 196,
+          "height": 96
+        },
+        "inspectorRect": {
+          "left": 635,
+          "top": 39,
+          "right": 1072,
+          "bottom": 642,
+          "width": 437,
+          "height": 603
+        },
+        "visibleRect": {
+          "left": 635,
+          "top": 39,
+          "right": 1057,
+          "bottom": 642
+        },
+        "fullyVisible": true
+      }
+    },
+    {
+      "name": "09-frame-picking.png",
+      "sha256": "c491e98293b743865b87e04df520951b3b0c7aed0e8a990e7f46bd45c06bac47",
+      "inspectorFront": true,
+      "sectionVisible": true,
+      "modelRow": "MiniMax H3 · $0.05/秒 · as_of 2026-09-12（fal:h3-i2v）",
+      "actionVisibility": {
+        "selector": "[data-akari-generation-pick-slot=\"first_frame\"]",
+        "buttonRect": {
+          "left": 645,
+          "top": 230,
+          "right": 841,
+          "bottom": 326,
+          "width": 196,
+          "height": 96
+        },
+        "inspectorRect": {
+          "left": 635,
+          "top": 39,
+          "right": 1072,
+          "bottom": 642,
+          "width": 437,
+          "height": 603
+        },
+        "visibleRect": {
+          "left": 635,
+          "top": 39,
+          "right": 1057,
+          "bottom": 642
+        },
+        "fullyVisible": true
+      }
+    },
+    {
+      "name": "10-frame-picked.png",
+      "sha256": "2deebcc08441eded3be2799d00a97dd69462918a4bb2b69bea357fb40ca9700b",
+      "inspectorFront": true,
+      "sectionVisible": true,
+      "modelRow": "MiniMax H3 · $0.05/秒 · as_of 2026-09-12（fal:h3-i2v）",
+      "actionVisibility": {
+        "selector": "[data-akari-generation-pick-slot=\"first_frame\"]",
+        "buttonRect": {
+          "left": 645,
+          "top": 230,
+          "right": 841,
+          "bottom": 326,
+          "width": 196,
+          "height": 96
+        },
+        "inspectorRect": {
+          "left": 635,
+          "top": 39,
+          "right": 1072,
+          "bottom": 642,
+          "width": 437,
+          "height": 603
+        },
+        "visibleRect": {
+          "left": 635,
+          "top": 39,
+          "right": 1057,
+          "bottom": 642
+        },
+        "fullyVisible": true
+      }
+    },
+    {
+      "name": "11-frame-replaced.png",
+      "sha256": "20db7de00eef5ae3b30995a9d91c74568d6ecea2318236b177ebca8be2a24920",
+      "inspectorFront": true,
+      "sectionVisible": true,
+      "modelRow": "MiniMax H3 · $0.05/秒 · as_of 2026-09-12（fal:h3-i2v）",
+      "actionVisibility": {
+        "selector": "[data-akari-generation-pick-slot=\"last_frame\"]",
+        "buttonRect": {
+          "left": 851,
+          "top": 230,
+          "right": 1047,
+          "bottom": 326,
+          "width": 196,
+          "height": 96
+        },
+        "inspectorRect": {
+          "left": 635,
+          "top": 39,
+          "right": 1072,
+          "bottom": 642,
+          "width": 437,
+          "height": 603
+        },
+        "visibleRect": {
+          "left": 635,
+          "top": 39,
+          "right": 1057,
+          "bottom": 642
+        },
+        "fullyVisible": true
+      }
+    },
+    {
+      "name": "12-frame-cancelled.png",
+      "sha256": "20db7de00eef5ae3b30995a9d91c74568d6ecea2318236b177ebca8be2a24920",
+      "inspectorFront": true,
+      "sectionVisible": true,
+      "modelRow": "MiniMax H3 · $0.05/秒 · as_of 2026-09-12（fal:h3-i2v）",
+      "actionVisibility": {
+        "selector": "[data-akari-generation-pick-slot=\"last_frame\"]",
+        "buttonRect": {
+          "left": 851,
+          "top": 230,
+          "right": 1047,
+          "bottom": 326,
+          "width": 196,
+          "height": 96
+        },
+        "inspectorRect": {
+          "left": 635,
+          "top": 39,
+          "right": 1072,
+          "bottom": 642,
+          "width": 437,
+          "height": 603
+        },
+        "visibleRect": {
+          "left": 635,
+          "top": 39,
+          "right": 1057,
+          "bottom": 642
+        },
+        "fullyVisible": true
+      }
     }
   ],
   "cleanup": {
-    "killedPid": 29520,
+    "killedPid": 69104,
     "survivingProcesses": 0,
     "survivingBackendMain": 0,
     "alive": 0,
@@ -403,14 +1333,14 @@
     },
     "footerRow": {
       "retry": {
-        "top": 591.2421875,
+        "top": 591.25,
         "right": 954,
         "left": 815,
         "width": 139,
         "height": 31.5
       },
       "primary": {
-        "top": 591.2421875,
+        "top": 591.25,
         "right": 1047,
         "left": 960,
         "width": 87,
@@ -418,7 +1348,7 @@
       },
       "topDifference": 0,
       "estimateLabel": {
-        "top": 588.9921875,
+        "top": 589,
         "right": 669,
         "left": 645,
         "width": 24,
@@ -427,8 +1357,8 @@
       }
     },
     "stickyTabStrip": {
-      "scrollTop": 125,
-      "scrollHeight": 728,
+      "scrollTop": 127,
+      "scrollHeight": 730,
       "clientHeight": 603,
       "tabStripTop": 39,
       "containerTop": 39,

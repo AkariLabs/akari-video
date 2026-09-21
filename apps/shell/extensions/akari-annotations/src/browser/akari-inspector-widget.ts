@@ -1,4 +1,6 @@
 import URI from '@theia/core/lib/common/uri';
+import { CommandRegistry } from '@theia/core/lib/common';
+import { GENERATION_PICK_INTO_COMMAND_ID, type GenerationPickRequest, type GenerationPickResult } from '../common/generation-pick-mirror';
 import { AkariAnnotationsService } from '../common/akari-annotations-protocol';
 import type { GenerationValidationResult } from '../common/akari-annotations-protocol';
 import { selectGenerationSidecarForSource, TRANSITION_VOCABULARY } from '@akari-video/edit-store';
@@ -2356,6 +2358,12 @@ export class AkariInspectorWidget extends BaseWidget {
     @inject(FileDialogService)
     protected readonly fileDialogService!: FileDialogService;
 
+    @inject(CommandRegistry)
+    protected readonly commandRegistry!: CommandRegistry;
+
+    protected generationFramePick?: { key: string; slot: string };
+    protected generationFramePickMessage?: { key: string; text: string };
+
     protected projectLutRefs: readonly string[] = [];
     protected lutGeneration = 0;
     protected lutRequestedGeneration = -1;
@@ -2914,7 +2922,15 @@ export class AkariInspectorWidget extends BaseWidget {
     }
     .akari-inspector-widget .akari-inspector-generation-frames { display: flex; gap: 10px; margin: 10px 0; }
     .akari-inspector-widget .akari-inspector-generation-cell { flex: 1; min-width: 0; }
-    .akari-inspector-widget .akari-inspector-generation-frame { aspect-ratio: 16 / 9; max-height: 96px; border: 1px dashed var(--theia-focusBorder); display: flex; align-items: center; justify-content: center; margin: 4px 0; overflow: hidden; font-size: 11px; color: var(--theia-descriptionForeground); }
+    .akari-inspector-widget .akari-inspector-generation-frame { position: relative; box-sizing: border-box; width: 100%; aspect-ratio: 16 / 9; max-height: 96px; border: 1px solid #a78bfa; background: rgba(167, 139, 250, 0.08); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; margin: 4px 0 8px; overflow: hidden; font-size: 11px; color: var(--theia-foreground); cursor: pointer; }
+    .akari-inspector-widget .akari-inspector-generation-frame:hover,
+    .akari-inspector-widget .akari-inspector-generation-frame:focus-visible { background: rgba(167, 139, 250, 0.18); outline: 1px solid #a78bfa; outline-offset: 2px; }
+    .akari-inspector-widget .akari-inspector-generation-frame[aria-pressed="true"] { box-shadow: 0 0 0 2px var(--theia-editor-background), 0 0 0 4px #a78bfa; }
+    .akari-inspector-widget .akari-inspector-generation-frame[aria-disabled="true"] { cursor: default; opacity: 0.6; }
+    .akari-inspector-widget .akari-inspector-generation-frame-hint { font-size: 10px; color: var(--theia-descriptionForeground); }
+    .akari-inspector-widget .akari-inspector-generation-frame-replace { position: absolute; bottom: 4px; right: 4px; padding: 2px 5px; background: #312547; color: #fff; border-radius: 3px; opacity: 0; pointer-events: none; }
+    .akari-inspector-widget .akari-inspector-generation-frame:hover .akari-inspector-generation-frame-replace,
+    .akari-inspector-widget .akari-inspector-generation-frame:focus-visible .akari-inspector-generation-frame-replace { opacity: 1; }
     .akari-inspector-widget .akari-inspector-generation-frame img { width: 100%; height: 100%; object-fit: cover; }
     .akari-inspector-widget .akari-inspector-generation-cell button { margin: 3px 3px 0 0; white-space: normal; }
     .akari-inspector-widget button.akari-inspector-generation-primary,
@@ -3154,6 +3170,7 @@ export class AkariInspectorWidget extends BaseWidget {
         this.body.replaceChildren();
         this.hideFieldNotice();
         const snapshot = this.model.snapshot;
+        if (this.generationFramePick || this.generationFramePickMessage) this.syncGenerationFramePick();
         if (!snapshot || snapshot.kind === 'multi') this.syncAdjustCompare(undefined, '');
         if (!snapshot) {
             this.tabSelectionKey = undefined;
@@ -3332,6 +3349,7 @@ export class AkariInspectorWidget extends BaseWidget {
             this.currentTab = activeTab;
         }
         this.explicitTabId = undefined;
+        if (this.generationFramePick) this.syncGenerationFramePick(activeTab);
         const compareTarget: LivePreviewTarget | undefined = rowSnapshot.kind === 'caption' || rowSnapshot.kind === 'audio'
             ? undefined : rowSnapshot.kind === 'cut' ? { kind: 'cut', index: rowSnapshot.index }
                 : { kind: 'item', id: rowSnapshot.id };
@@ -3502,6 +3520,7 @@ export class AkariInspectorWidget extends BaseWidget {
     }
 
     override dispose(): void {
+        this.cancelGenerationFramePick();
         this.syncAdjustCompare(undefined, '');
         this.lutGeneration++;
         super.dispose();
@@ -3897,6 +3916,85 @@ export class AkariInspectorWidget extends BaseWidget {
         });
     }
 
+    protected generationFramePickDisabled(key: string): boolean {
+        return ['generating', 'stale'].includes(this.generationStates.get(key) ?? '');
+    }
+
+    protected paintGenerationFramePick(): void {
+        for (const frame of Array.from(this.body.querySelectorAll<HTMLElement>('[data-akari-generation-pick-slot]'))) {
+            frame.setAttribute('aria-pressed', String(!!this.generationFramePick
+                && frame.getAttribute('data-akari-generation-pick-slot') === this.generationFramePick.slot));
+        }
+    }
+
+    protected cancelGenerationFramePick(): void {
+        // The receiver exposes pickInto only; Esc / やめる closes its band.
+        // Invalidating this token drops late results without touching either draft.
+        this.generationFramePick = undefined;
+        this.paintGenerationFramePick();
+    }
+
+    protected syncGenerationFramePick(tab = this.currentTab): void {
+        const key = this.generationIdentity(this.model.snapshot)?.key;
+        if (this.generationFramePick && (this.generationFramePick.key !== key || tab !== 'generation'
+            || this.generationFramePickDisabled(key!))) this.cancelGenerationFramePick();
+        if (this.generationFramePickMessage?.key !== key) this.generationFramePickMessage = undefined;
+    }
+
+    protected async pickGenerationFrame(
+        identity: { key: string; itemId: string; sourcePath: string; duration: number; sourceId?: string },
+        slot: 'first_frame' | 'last_frame', selected: string
+    ): Promise<void> {
+        if (this.isDisposed || this.currentTab !== 'generation' || this.generationFramePickDisabled(identity.key)
+            || this.generationIdentity(this.model.snapshot)?.key !== identity.key) return;
+        if (this.generationFramePick?.key === identity.key && this.generationFramePick.slot === slot) {
+            this.cancelGenerationFramePick();
+            return;
+        }
+        const pending = { key: identity.key, slot };
+        this.generationFramePick = pending;
+        this.generationFramePickMessage = undefined;
+        this.paintGenerationFramePick();
+        const request: GenerationPickRequest = {
+            slot, label: slot === 'first_frame' ? '最初の絵' : '最後の絵', accepts: ['image'], multi: false,
+            ...(selected ? { selected: [selected] } : {})
+        };
+        const isCurrent = (): boolean => this.generationFramePick === pending && !this.isDisposed
+            && this.currentTab === 'generation' && this.generationIdentity(this.model.snapshot)?.key === identity.key
+            && !this.generationFramePickDisabled(identity.key);
+        try {
+            const result = this.commandRegistry.getCommand(GENERATION_PICK_INTO_COMMAND_ID)
+                ? await this.commandRegistry.executeCommand<GenerationPickResult>(GENERATION_PICK_INTO_COMMAND_ID, request)
+                : await this.pickGenerationFrameFile(request);
+            if (!isCurrent()) return;
+            if (result.status === 'picked' && result.paths[0]) {
+                const updated = await this.updateGenerationDraft(identity, `inputs.${slot}`, { path: result.paths[0] });
+                if (!updated.ok) throw new Error(updated.message ?? '変更できませんでした。');
+            }
+        } catch (error) {
+            if (isCurrent()) {
+                this.generationFramePickMessage = { key: identity.key, text: error instanceof Error ? error.message : String(error) };
+                this.render();
+            }
+        } finally {
+            if (this.generationFramePick === pending) this.cancelGenerationFramePick();
+        }
+    }
+
+    protected async pickGenerationFrameFile(request: GenerationPickRequest): Promise<GenerationPickResult> {
+        const root = this.workspaceService.tryGetRoots()[0]?.resource;
+        if (!root) throw new Error('プロジェクトが開かれていません。');
+        const uri = await this.fileDialogService.showOpenDialog({
+            title: `${request.label} に入れる画像を選ぶ`, canSelectFiles: true, canSelectFolders: false, canSelectMany: false,
+            filters: { '画像': ['png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp', 'tif', 'tiff'] }
+        }, await this.fileService.resolve(root));
+        if (!uri) return { status: 'cancelled' };
+        const relative = root.relative(uri)?.toString();
+        if (!relative || relative.split('/').includes('..')) throw new Error('プロジェクト内の画像を選んでください。プロジェクト外のファイルは入れられません。');
+        if (!/\.(?:png|jpe?g|webp|gif|bmp|tiff?)$/iu.test(relative)) throw new Error('画像ファイルを選んでください。');
+        return { status: 'picked', paths: [relative] };
+    }
+
     protected async generationThumbnail(path: string): Promise<string | undefined> {
         const root = this.workspaceService.tryGetRoots()[0]?.resource;
         if (!root) return undefined;
@@ -3946,6 +4044,13 @@ export class AkariInspectorWidget extends BaseWidget {
                 retry: () => this.confirmAndStartGeneration(identity)
             }
         });
+        if (this.generationFramePickMessage?.key === identity.key) {
+            const message = { name: 'generation-message', label: 'エラー',
+                className: 'akari-inspector-generation-error', getValue: () => this.generationFramePickMessage!.text };
+            const index = fields.findIndex(field => field.name === 'generation-message');
+            if (index >= 0) fields[index] = message;
+            else fields.push(message);
+        }
         // Keep each paired visual unit together in the section model.
         const pairs = [['first-frame', 'last_frame'], ['generation-variety', 'generation-material-note'],
             ['generation-estimate', 'generation-actions']];
@@ -4249,8 +4354,34 @@ export class AkariInspectorWidget extends BaseWidget {
                 const preview = document.createElement('div');
                 preview.className = 'akari-inspector-generation-frame';
                 const path = field.getValue(snapshot);
-                preview.textContent = path ? '読み込み中…' : field.label;
-                preview.title = path;
+                const identity = this.generationIdentity(snapshot);
+                const slot = field.name === 'first-frame' ? 'first_frame' : 'last_frame';
+                const disabled = !!field.disabled || !identity || this.generationFramePickDisabled(identity.key);
+                preview.setAttribute('role', 'button');
+                preview.tabIndex = 0;
+                preview.setAttribute('aria-label', `${field.label}: ${path ? '差し替える' : '画像を選ぶ'}`);
+                preview.setAttribute('aria-disabled', String(disabled));
+                preview.setAttribute('aria-pressed', String(this.generationFramePick?.key === identity?.key
+                    && this.generationFramePick?.slot === slot));
+                preview.setAttribute('data-akari-generation-pick-slot', slot);
+                preview.title = path ? '差し替える' : '画像を選ぶ';
+                const content = document.createElement('span');
+                content.textContent = path ? '読み込み中…' : '＋ 画像を選ぶ';
+                preview.appendChild(content);
+                const badge = document.createElement('span');
+                badge.className = path ? 'akari-inspector-generation-frame-replace' : 'akari-inspector-generation-frame-hint';
+                badge.textContent = path ? '差し替え' : '空なら入れなくてよい';
+                preview.appendChild(badge);
+                const pick = (): void => {
+                    if (!disabled && identity) void this.pickGenerationFrame(identity, slot, path);
+                };
+                preview.addEventListener('click', pick);
+                preview.addEventListener('keydown', event => {
+                    if (event.key !== 'Enter' && event.key !== ' ') return;
+                    event.preventDefault();
+                    event.stopPropagation();
+                    if (!event.repeat) pick();
+                });
                 cell.appendChild(preview);
                 if (generationField.generationThumbnail) void generationField.generationThumbnail().then(uri => {
                     if (!preview.isConnected) return;
@@ -4258,8 +4389,8 @@ export class AkariInspectorWidget extends BaseWidget {
                         const image = document.createElement('img');
                         image.src = uri;
                         image.alt = field.label;
-                        preview.replaceChildren(image);
-                    } else preview.textContent = '画像を表示できません';
+                        content.replaceWith(image);
+                    } else content.textContent = '画像を表示できません';
                 });
                 for (const action of generationField.actions ?? []) {
                     const button = document.createElement('button');
