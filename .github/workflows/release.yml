@@ -123,12 +123,25 @@ jobs:
     name: build-mac (theia build + electron-builder zip/dmg + 署名/公証)
     needs: [resolve-tag, version-gate, packaged-imports-gate]
     if: ${{ !inputs.feed_only }}
-    runs-on: macos-14
+    # SpeechAnalyzer は macOS 26 SDK が必要。macos-26 は arm64 なので
+    # electron の darwin-arm64 取得と whisper-cli の arm64 前提はそのまま。
+    runs-on: macos-26
     timeout-minutes: 90
     outputs:
       dmg_name: ${{ steps.mac-artifacts.outputs.dmg_name }}
     steps:
       - uses: actions/checkout@v4
+      - name: Xcode 26.6 を選ぶ（macOS 26 SDK）
+        run: |
+          set -euo pipefail
+          sudo xcode-select -s /Applications/Xcode_26.6.app
+          sdk_version=$(xcrun --show-sdk-version)
+          echo "$sdk_version"
+          sdk_major=${sdk_version%%.*}
+          if [[ ! "$sdk_major" =~ ^[0-9]+$ ]] || (( 10#$sdk_major < 26 )); then
+            echo "macOS 26 以降の SDK が必要です: $sdk_version"
+            exit 1
+          fi
       - uses: actions/setup-node@v4
         with:
           node-version: '26.3.0'
@@ -163,7 +176,7 @@ jobs:
           # rationale: npm rebuild は electron の postinstall〔本体 DL〕を実行しない実測が
           # win 側にあり、mac でも npm rebuild だけでは dist/version が生成されない前提で
           # 同じ対処を踏襲する）。zip 展開は verify スキル L1 節が確立済みの ditto -x -k を使う
-          # （unzip でなく ditto を使う理由も同節参照）。macos-14 ランナーは arm64
+          # （unzip でなく ditto を使う理由も同節参照）。macos-26 ランナーは arm64
           v=$(node -p "require('./node_modules/electron/package.json').version")
           echo "=== electron $v direct download (darwin-arm64)"
           curl -sSL -o electron.zip "https://github.com/electron/electron/releases/download/v$v/electron-v$v-darwin-arm64.zip"
@@ -195,7 +208,7 @@ jobs:
 
       # task/2026-08-17-media-bin-whisper: whisper-cli は公式バイナリ配布が macOS 向けに無いため
       # ここで版固定ソース（binary-manifest.mjs の WHISPER_CPP_SOURCE）を cmake ビルドし、
-      # packages/media-bin/vendor/darwin-arm64/ に置く（macos-14 ランナーは arm64。x64 は
+      # packages/media-bin/vendor/darwin-arm64/ に置く（macos-26 ランナーは arm64。x64 は
       # 当面スコープ外）。prepackage（bundle-media-binaries.mjs）はこの vendor 配置を
       # best-effort で拾って resources/vendor-ffmpeg/ へ同梱するため、必ず prepackage より
       # 前に実行する。cmake は macos-14 イメージに既定同梱（ビルド不能ならスキップし、
@@ -206,7 +219,7 @@ jobs:
         run: npm run build:whisper
 
       # 検収時追加（司令塔・2026-08-17）: build-whisper は cmake 不在環境でベストエフォート
-      # スキップする設計だが、cmake が既定同梱の macos-14 ランナーで沈黙スキップ/沈黙失敗を
+      # スキップする設計だが、cmake が既定同梱の macos-26 ランナーで沈黙スキップ/沈黙失敗を
       # 許すと whisper-cli 無しの dmg が静かに出荷される。windows-build.yml 側の
       # 「whisper-cli 同梱確認」と対で、リリース CI ではビルド成果の実在と実行可否を fail-closed で検収する。
       - name: whisper-cli ビルド確認 (mac)
@@ -219,6 +232,15 @@ jobs:
       - name: prepackage (copy native helpers)
         working-directory: apps/shell
         run: npm run prepackage
+
+      - name: akari-vibe-stt ビルド確認 (mac)
+        working-directory: packages/akari-vibe
+        # ヘルパーはマイクを使うため実行せず、ファイルだけを検査する。
+        run: |
+          test -x native/bin/akari-vibe-stt || { echo "akari-vibe-stt がビルドされていません"; exit 1; }
+          file native/bin/akari-vibe-stt | grep -q 'Mach-O 64-bit executable' || { echo "akari-vibe-stt が Mach-O の実行体ではありません"; file native/bin/akari-vibe-stt; exit 1; }
+          file native/bin/akari-vibe-stt
+          ls -la native/bin/akari-vibe-stt
 
       # secrets 不在でもビルドは継続する（D2 裁定: Apple secrets 登録はオーナー作業で後回し）。
       # electron-builder は CSC_LINK 未設定なら自動的に未署名ビルドへフォールバックし、
