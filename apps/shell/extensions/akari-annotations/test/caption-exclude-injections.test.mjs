@@ -18,7 +18,7 @@ const arrayRoot = [{ id: 'c-1' }, { id: 'c-2' }];
 const objectRoot = { captions: arrayRoot, default_text_style: { color: '#fff' } };
 
 for (const [name, relativePath, marker] of [
-  ['render-cut', 'packages/render-cut/src/render-cut.mjs', 'collectExcludedCaptionIds(edit)'],
+  ['render-cut', 'packages/render-cut/src/caption-resolve.mjs', 'collectExcludedCaptionIds(edit)'],
   ['osr-export', 'packages/osr-export/src/page-builder.mjs', 'collectExcludedCaptionIds(edit)'],
   ['gpu-export', 'packages/gpu-export/src/page-builder.mjs', 'collectExcludedCaptionIds(prepared.edit)'],
   ['shell live preview', 'apps/shell/extensions/akari-preview/src/browser/akari-preview-open-handler.ts',
