@@ -80,7 +80,7 @@
     "lint": "eslint \"extensions/*/src/**/*.{ts,tsx}\"",
     "prestart": "npm run preflight",
     "start": "theia start --plugins=local-dir:plugins",
-    "prepackage": "node ../../packages/akari-launcher/scripts/prepack.mjs && node resources/scripts/copy-native-helpers.mjs && node resources/scripts/patch-ripgrep-asar-path.mjs && node resources/scripts/bundle-media-binaries.mjs && node resources/scripts/bundle-cli-node-modules.mjs && node resources/scripts/generate-third-party-notices.mjs",
+    "prepackage": "node ../../packages/akari-launcher/scripts/prepack.mjs && node resources/scripts/copy-native-helpers.mjs && node resources/scripts/build-vibe-stt-helper.mjs && node resources/scripts/patch-ripgrep-asar-path.mjs && node resources/scripts/bundle-media-binaries.mjs && node resources/scripts/bundle-cli-node-modules.mjs && node resources/scripts/generate-third-party-notices.mjs",
     "package": "electron-builder --dir",
     "postpackage": "node resources/scripts/verify-asar-contents.mjs",
     "watch": "theia build --watch --mode development"
@@ -277,6 +277,17 @@
         ]
       },
       {
+        "from": "../../packages/akari-vibe",
+        "to": "packages/akari-vibe",
+        "filter": [
+          "package.json",
+          "bin/**/*",
+          "live/**/*",
+          "src/**/*",
+          "native/bin/**/*"
+        ]
+      },
+      {
         "from": "resources/cli-node-modules",
         "to": "packages/node_modules"
       },
@@ -367,6 +378,10 @@
       }
     ],
     "mac": {
+      "extendInfo": {
+        "NSMicrophoneUsageDescription": "話しかけて編集する（AKARI バイブ）ためにマイクを使います。音声は端末の外へ送りません。",
+        "NSSpeechRecognitionUsageDescription": "話した言葉を端末内で文字にするために使います。"
+      },
       "icon": "resources/icons/icon.icns",
       "hardenedRuntime": true,
       "entitlements": "resources/entitlements.mac.plist",
