@@ -1,3 +1,4 @@
+import { PLACE_TEXT_COMMAND_ID } from '../common/place-text';
 import { Command } from '@theia/core/lib/common';
 
 /** ウィジェット同士の循環 import を避けるため、コマンド定義はここに置く。 */
@@ -92,3 +93,5 @@ export const GET_TIMELINE_PLAYHEAD: Command = {
 export const ADD_MATERIAL_AT_POINT: Command = {
     id: 'akari.timeline.addMaterialAtPoint'
 };
+
+export const PLACE_TEXT: Command = { id: PLACE_TEXT_COMMAND_ID, label: '文字を置く' };

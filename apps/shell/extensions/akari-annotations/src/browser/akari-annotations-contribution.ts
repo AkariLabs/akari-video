@@ -1,3 +1,4 @@
+import type { PlaceTextOptions } from '../common/place-text';
 import type { MaterialSwapTarget } from '../common/material-replacement';
 import type { OnWillStopAction } from '@theia/core/lib/browser/frontend-application-contribution';
 import { guardInitLayout } from 'akari-theme/lib/browser/init-layout-guard';
@@ -28,6 +29,7 @@ import { WorkspaceService } from '@theia/workspace/lib/browser/workspace-service
 import { WebviewWidget } from '@theia/plugin-ext/lib/main/browser/webview/webview';
 import { inject, injectable } from '@theia/core/shared/inversify';
 import {
+    PLACE_TEXT,
     ADD_MATERIAL_AT_PLAYHEAD,
     ADD_MATERIAL_AT_POINT,
     ATTACH_AKARI_ANNOTATIONS_PASSIVE,
@@ -286,6 +288,17 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
     }
 
     registerCommands(commands: CommandRegistry): void {
+        commands.registerCommand(PLACE_TEXT, {
+            execute: async (options: PlaceTextOptions = {}, editUri?: string) => {
+                const location = editUri ? (await this.locateAll()).find(item => item.editUri?.toString() === editUri) : undefined;
+                const widget = editUri ? (location ? await this.attachAt(location) : undefined) : await this.attach();
+                if (!widget) {
+                    this.messages.warn('タイムラインを開いてから文字を置いてください。');
+                    return;
+                }
+                return widget.placeText(options);
+            }
+        });
         commands.registerCommand(OPEN_AKARI_ANNOTATIONS, {
             execute: () => this.open()
         });

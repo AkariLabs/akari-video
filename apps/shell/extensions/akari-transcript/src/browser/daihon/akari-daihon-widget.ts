@@ -1,3 +1,4 @@
+import { PLACE_TEXT_COMMAND_ID } from 'akari-annotations/lib/common/place-text';
 import { placedTextRanges, placedTextLanes, placedTextTiming, type PlacedTextAction, type PlacedTextRange } from '../../common/daihon-placed-text';
 import { DaihonOpenTarget, isValidDaihonWordRange, resolveDaihonFocusRowId } from '../../common/daihon-focus-target';
 import { installDaihonFocusPulseStyle, triggerFocusPulse } from '../../common/daihon-focus-pulse-style';
@@ -439,6 +440,7 @@ export class AkariDaihonWidget extends BaseWidget {
     protected readonly quickPick!: QuickPickService;
 
     protected readonly captionsButton = document.createElement('button');
+    protected readonly placeTextButton = document.createElement('button');
     protected readonly retimeButton = document.createElement('button');
     protected readonly displayButton = document.createElement('button');
     protected readonly historyButton = document.createElement('button');
@@ -552,6 +554,10 @@ export class AkariDaihonWidget extends BaseWidget {
         this.captionsButton.style.cssText = 'min-height:36px;padding:8px 14px;font-weight:600;white-space:normal';
         this.captionsButton.disabled = true;
         this.captionsButton.addEventListener('click', () => void this.buildCaptions());
+        this.placeTextButton.type = 'button';
+        this.placeTextButton.className = 'akari-daihon-retime akari-daihon-place-text';
+        this.placeTextButton.textContent = 'T この行から文字を置く';
+        this.placeTextButton.addEventListener('click', () => void this.placeTextFromSelection());
         this.retimeButton.type = 'button';
         this.retimeButton.className = 'akari-daihon-retime';
         this.retimeButton.textContent = '⏱ 発話に合わせ直す';
@@ -585,7 +591,7 @@ export class AkariDaihonWidget extends BaseWidget {
             }
         });
         header.style.flexWrap = 'wrap';
-        header.append(title, this.count, spacer, this.captionsButton, this.retimeButton, this.historyButton, this.displayButton, this.tplButton, this.qcButton, this.silenceButton, this.cutsButton);
+        header.append(title, this.count, spacer, this.captionsButton, this.placeTextButton, this.retimeButton, this.historyButton, this.displayButton, this.tplButton, this.qcButton, this.silenceButton, this.cutsButton);
 
         this.rowsNode.className = 'akari-daihon-rows';
         this.rowsNode.tabIndex = 0;
@@ -1344,6 +1350,27 @@ export class AkariDaihonWidget extends BaseWidget {
         }
         this.placedSelection = id;
         this.renderPlacedText();
+    }
+
+    protected async placeTextFromSelection(): Promise<void> {
+        if (!this.editUri) return;
+        const rows = this.rows.filter(row => this.selection.selected.includes(row.id)
+            && row.outStart !== null && row.outEnd !== null)
+            .sort((left, right) => left.outStart! - right.outStart!);
+        const options = rows.length ? { start: rows[0].outStart!, end: rows[rows.length - 1].outEnd! } : {};
+        this.placeTextButton.disabled = true;
+        try {
+            const id = await this.commands.executeCommand<string | undefined>(
+                PLACE_TEXT_COMMAND_ID, options, this.editUri.toString());
+            if (id) {
+                await this.reload();
+                this.selectPlacedText(id);
+            }
+        } catch (error) {
+            this.notify(this.errorMessage(error));
+        } finally {
+            this.placeTextButton.disabled = false;
+        }
     }
 
     protected selectPlacedText(captionId: string): void {

@@ -1,3 +1,4 @@
+import { placeTextCaption, PLACE_TEXT_COMMAND_ID, type PlaceTextOptions } from '../common/place-text';
 import { timelineGapAt, type TimelineGap } from '../common/timeline-gap';
 import { calculateFrameDraw, type FrameDrawRange } from '../common/timeline-frame-draw';
 import { advanceMaterialTrialWindow, MaterialTrialWindow } from '../common/material-trial-window';
@@ -157,7 +158,8 @@ import {
     computeCutTrackSegments,
     derivedLegacyTracks,
     projectLegacyEdit,
-    readInternalEdit
+    readInternalEdit,
+    timelineDurationSeconds
 } from '../common/edit-store';
 import { materialOverlapInsertIndex } from '../common/material-drop-overlap';
 import {
@@ -864,6 +866,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
 
     protected readonly toolbar = document.createElement('div');
     protected readonly frameToolButton = document.createElement('button');
+    protected readonly placeTextButton = document.createElement('button');
+    protected placingText = false;
     protected cancelFrameDraw: (() => void) | undefined;
     protected readonly selectToolButton = document.createElement('button');
     protected readonly razorToolButton = document.createElement('button');
@@ -1370,6 +1374,16 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.razorToolButton.addEventListener('click', () => this.setToolMode('razor'));
         this.configureIconButton(this.frameToolButton, 'codicon-preview', '仮枠ツール', '仮枠 (F)');
         this.frameToolButton.addEventListener('click', () => this.setToolMode('frame'));
+        this.configureIconButton(this.placeTextButton, 'codicon-text-size', '文字を置く', '文字を置く');
+        this.placeTextButton.classList.remove('akari-annotations-icon-button');
+        this.placeTextButton.classList.add('akari-annotations-text-button', 'akari-timeline-place-text');
+        this.placeTextButton.textContent = 'T 文字を置く';
+        this.placeTextButton.style.width = 'auto';
+        this.placeTextButton.style.whiteSpace = 'nowrap';
+        this.placeTextButton.style.flexShrink = '0';
+        this.placeTextButton.addEventListener('click', () => {
+            void this.commands.executeCommand(PLACE_TEXT_COMMAND_ID, {}, this.location?.editUri?.toString());
+        });
         this.configureIconButton(this.snapToggleButton, 'codicon-magnet', 'マグネット', 'マグネット（スナップ）切替 (M / N)');
         this.snapToggleButton.addEventListener('click', () => this.setSnapEnabled(!this.snapEnabled));
         this.configureIconButton(this.undoButton, 'codicon-discard', '元に戻す', '元に戻す (⌘Z)');
@@ -1381,7 +1395,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.configureIconButton(this.compactButton, 'codicon-collapse-all', '詰める', 'クリップ間の空白を詰める');
         this.compactButton.addEventListener('click', () => void this.performCompactCuts());
         this.toolbar.append(
-            this.selectToolButton, this.razorToolButton, this.frameToolButton,
+            this.selectToolButton, this.razorToolButton, this.frameToolButton, this.placeTextButton,
             this.createToolbarSeparator(),
             this.snapToggleButton,
             this.createToolbarSeparator(),
@@ -4252,6 +4266,69 @@ export class AkariAnnotationsWidget extends BaseWidget {
             if (layout.start <= this.playheadT && this.playheadT < layout.end) return id;
         }
         return undefined;
+    }
+
+    /** 両方の入口から呼ぶ即置き。ファイルの新規作成も 1 手の履歴に含める。 */
+    async placeText(options: PlaceTextOptions = {}): Promise<string | undefined> {
+        const location = this.location;
+        if (!location?.editUri || this.placingText) return undefined;
+        this.placingText = true;
+        try {
+            const editSource = (await this.fileService.readFile(location.editUri)).value.toString();
+            const source = await this.fileService.exists(location.captionsUri)
+                ? (await this.fileService.readFile(location.captionsUri)).value.toString() : '{"captions": []}';
+            const captions = parseCaptions(source).captions;
+            const duration = timelineDurationSeconds(readInternalEdit(editSource, {
+                hasCaptions: captions.length > 0, captions: toAnchorCaptions(captions)
+            })).seconds;
+            const caption = placeTextCaption(options, this.playheadT, duration, captions.map(item => item.id));
+            await this.withHistory('文字を置く', async () => {
+                await this.annotationsService.insertCaption({
+                    captionsUri: location.captionsUri.toString(), projectRootUri: location.root.toString(),
+                    caption, label: '文字を置く'
+                });
+            });
+            await this.reloadCaptions();
+            this.selectCaptions(location.editUri.toString(), [caption.id]);
+            this.playheadT = caption.start;
+            this.playhead.style.left = `${this.percent(caption.start)}%`;
+            await this.requestSeek(caption.start, { domain: 'output' });
+            this.publishPrimaryPreviewSelection({ kind: 'caption', id: caption.id });
+            return caption.id;
+        } catch (error) {
+            const message = this.errorMessage(error);
+            this.messages.warn(message);
+            return undefined;
+        } finally {
+            this.placingText = false;
+        }
+    }
+
+    protected async withHistory(label: string, operation: () => Promise<void>): Promise<void> {
+        const location = this.location;
+        if (!location?.editUri) return;
+        const editUri = location.editUri;
+        const read = async (): Promise<{ edit: string; captions?: string }> => ({
+            edit: (await this.fileService.readFile(editUri)).value.toString(),
+            captions: await this.fileService.exists(location.captionsUri)
+                ? (await this.fileService.readFile(location.captionsUri)).value.toString() : undefined
+        });
+        const before = await read();
+        await operation();
+        const after = await read();
+        if (before.edit === after.edit && before.captions === after.captions) return;
+        const restore = async (snapshot: typeof before): Promise<void> => {
+            await this.annotationsService.writeEditSnapshot({
+                editUri: editUri.toString(), projectRootUri: location.root.toString(), editSource: snapshot.edit,
+                captionsUri: location.captionsUri.toString(), captionsSource: snapshot.captions
+            });
+            if (snapshot.captions === undefined && await this.fileService.exists(location.captionsUri)) {
+                await this.fileService.delete(location.captionsUri);
+            }
+            await this.reloadEdit();
+            await this.reloadCaptions();
+        };
+        this.pushHistory({ label, undo: () => restore(before), redo: () => restore(after) });
     }
 
     /** 台本 → タイムラインの片方向同期（task 2026-09-12-daihon-selection-sync 指示2）。 */
@@ -7699,14 +7776,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     : snapshot?.kind === 'layer' || snapshot?.kind === 'item' ? snapshot.id : undefined) === itemId;
             };
             if (!selected()) await new Promise<void>(resolve => {
-                let timer: number | undefined;
                 const finish = (): void => {
                     subscription.dispose();
                     if (timer !== undefined) window.clearTimeout(timer);
                     resolve();
                 };
                 const subscription = this.selectionModel.onChanged(() => { if (selected()) finish(); });
-                timer = window.setTimeout(finish, 2000);
+                const timer = window.setTimeout(finish, 2000);
                 if (selected()) finish();
             });
             if (this.isDisposed) return;

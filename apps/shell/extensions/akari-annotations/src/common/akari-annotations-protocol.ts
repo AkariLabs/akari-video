@@ -427,6 +427,7 @@ export interface CaptionWritePayload {
     timeDomain?: 'source' | 'output';
     /** 行ごとのスタイル。undo で落とさないために運ぶ（additive）。 */
     textStyle?: CaptionTextStyle;
+    stylePreset?: string;
 }
 
 export interface InsertCaptionRequest {

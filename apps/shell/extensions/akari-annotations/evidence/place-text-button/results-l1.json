@@ -1,0 +1,216 @@
+{
+  "status": "pass",
+  "checks": [
+    {
+      "name": "狭いタイムラインでもボタンが 1 行（潰れない）",
+      "pass": true,
+      "detail": {
+        "width": 94.2578125,
+        "height": 24,
+        "whiteSpace": "nowrap",
+        "text": "T 文字を置く",
+        "prevTitle": "仮枠 (F)",
+        "panelWidth": 524
+      }
+    },
+    {
+      "name": "captions.json が無い案件で押すと output 域の行が 1 本できる",
+      "pass": true,
+      "detail": {
+        "id": "c-0001",
+        "start": 0,
+        "end": 3,
+        "text": "テキストを入力",
+        "speaker": null,
+        "sourceRef": null,
+        "edited": true,
+        "time_domain": "output",
+        "text_style": {
+          "text_anchor": "mc",
+          "position": {
+            "x": 0.5,
+            "y": 0.5
+          }
+        }
+      }
+    },
+    {
+      "name": "プレビューに「テキストを入力」が出て選択され、時刻が合う",
+      "pass": true,
+      "detail": {
+        "plate": {
+          "id": "caption-plate-c-0001",
+          "text": "テキストを入力",
+          "cx": 747.9093933105469,
+          "cy": 222.001953125,
+          "left": 663,
+          "w": 169.81878662109375
+        },
+        "frame": {
+          "x": 296.78125,
+          "y": 16.00390625,
+          "w": 732.4375,
+          "h": 411.99609375,
+          "cx": 663,
+          "cy": 222.001953125
+        },
+        "verticalOffsetPx": 0,
+        "leftMinusCenterPx": 0,
+        "timelineSelected": []
+      }
+    },
+    {
+      "name": "置いた文字をプレビューでドラッグして位置を変えられる",
+      "pass": true,
+      "detail": {
+        "text_anchor": "tc",
+        "position": {
+          "x": 0.6638,
+          "y": 0.2641
+        }
+      }
+    },
+    {
+      "name": "Cmd+Z の 1 手で消える（captions.json ごと元の無い状態へ）/ Cmd+Shift+Z で戻る",
+      "pass": true,
+      "detail": {
+        "afterUndoFileExists": false,
+        "afterUndoPlates": 0,
+        "afterRedoRows": 1,
+        "note": "プレビューのドラッグは既存仕様で履歴に積まれない（置いた 1 手と一緒に戻る）"
+      }
+    },
+    {
+      "name": "同じ時間に置いた文字が既にあると入らず、理由が 1 枚だけ出る",
+      "pass": true,
+      "detail": {
+        "unchanged": true,
+        "notices": 1
+      }
+    },
+    {
+      "name": "edit-lint: error なし（captions.overlap を作らない）",
+      "pass": true,
+      "detail": {
+        "exit": 0,
+        "verdict": "pass",
+        "findings": [
+          "warning:",
+          "warning:"
+        ]
+      }
+    },
+    {
+      "name": "stylePreset つきのコマンド 1 回 → 行とスタイルが 1 手の Cmd+Z で戻る",
+      "pass": true,
+      "detail": {
+        "id": "c-0002",
+        "row": {
+          "id": "c-0002",
+          "start": 5,
+          "end": 7,
+          "text": "見出し",
+          "speaker": null,
+          "sourceRef": null,
+          "edited": true,
+          "time_domain": "output",
+          "style_preset": "subtitle-news",
+          "text_style": {
+            "text_anchor": "mc",
+            "position": {
+              "x": 0.5,
+              "y": 0.5
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "台本で 2 行選んで「T この行から文字を置く」→ 2 行ぶんの区間に入る",
+      "pass": true,
+      "detail": {
+        "selected": [
+          "c-0002",
+          "c-0003"
+        ],
+        "row": {
+          "id": "c-0005",
+          "start": 3,
+          "end": 8.5,
+          "text": "テキストを入力",
+          "speaker": null,
+          "sourceRef": null,
+          "edited": true,
+          "time_domain": "output",
+          "text_style": {
+            "text_anchor": "mc",
+            "position": {
+              "x": 0.5,
+              "y": 0.5
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "台本の行は増えず、バー 2 行と札が出る",
+      "pass": true,
+      "detail": {
+        "rows": [
+          "c-0001",
+          "c-0002",
+          "c-0003",
+          "c-0004"
+        ],
+        "bars": [
+          "c-0002",
+          "c-0003"
+        ],
+        "tags": [
+          "T テキストを入力 · 2 行"
+        ]
+      }
+    },
+    {
+      "name": "話した言葉の字幕と同じ時刻でもプレビューに両方出る",
+      "pass": true,
+      "detail": [
+        {
+          "id": "caption-plate-c-0002-output-1",
+          "text": "まずはコーヒーを淹れるところから"
+        },
+        {
+          "id": "caption-plate-c-0005",
+          "text": "テキストを入力"
+        }
+      ]
+    },
+    {
+      "name": "台本の入口でも Cmd+Z の 1 手でバイト単位に戻る",
+      "pass": true,
+      "detail": {
+        "bytesEqual": true,
+        "barsAfterUndo": 0
+      }
+    }
+  ],
+  "screenshots": [
+    "l1-01-narrow-toolbar.png",
+    "l1-02-nocap-placed.png",
+    "l1-03-nocap-dragged.png",
+    "l1-04-overlap-rejected.png",
+    "l1-05-daihon-placed.png",
+    "l1-06-export-frame-4s.png"
+  ],
+  "measured": {},
+  "export": {
+    "engine": "osr",
+    "tier": 2,
+    "durationSec": 9,
+    "size": "1280x720",
+    "seconds": 22,
+    "frame": "l1-06-export-frame-4s.png",
+    "frameTime": 4,
+    "observed": "置いた文字「テキストを入力」（縦は中央・左端が中央線）と話した言葉「まずはコーヒーを淹れるところから」の 2 本が写っている（目視）"
+  }
+}

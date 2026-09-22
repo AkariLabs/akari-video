@@ -1,3 +1,4 @@
+import { PLACED_TEXT_OVERLAP_NOTICE } from '../common/place-text';
 import { injectable } from '@theia/core/shared/inversify';
 import URI from '@theia/core/lib/common/uri';
 import { writeAtomic, writeProjectFilesGuarded } from '@akari-video/edit-store/lib/write-gate';
@@ -1401,10 +1402,40 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), '字幕のタイミングを調整') };
     }
 
+    private readonly captionInsertTails = new Map<string, Promise<WriteBackResult>>();
+
     async insertCaption(request: InsertCaptionRequest): Promise<WriteBackResult> {
         this.requireWriteRequest(request?.captionsUri, request?.projectRootUri);
+        const key = this.fsPath(request.captionsUri);
+        const previous = this.captionInsertTails.get(key);
+        const operation = (previous ?? Promise.resolve()).catch(() => undefined)
+            .then(() => this.insertCaptionSerialized(request));
+        this.captionInsertTails.set(key, operation);
+        try {
+            return await operation;
+        } finally {
+            if (this.captionInsertTails.get(key) === operation) this.captionInsertTails.delete(key);
+        }
+    }
+
+    private async insertCaptionSerialized(request: InsertCaptionRequest): Promise<WriteBackResult> {
+        this.requireWriteRequest(request?.captionsUri, request?.projectRootUri);
         const captionsPath = this.fsPath(request.captionsUri);
-        const source = await fs.readFile(captionsPath, 'utf8');
+        let source: string;
+        try {
+            source = await fs.readFile(captionsPath, 'utf8');
+        } catch (error) {
+            if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+            source = '{"captions": []}\n';
+        }
+        if (request.caption.timeDomain === 'output') {
+            const root = JSON.parse(source);
+            const captions = Array.isArray(root) ? root : root.captions;
+            if (captions.some((caption: { time_domain?: string; start: number; end: number }) =>
+                caption.time_domain === 'output' && caption.start < request.caption.end && request.caption.start < caption.end)) {
+                throw new Error(PLACED_TEXT_OVERLAP_NOTICE);
+            }
+        }
         const updated = insertCaptionLine(source, request.caption);
         await this.writeProjectFileGuarded(captionsPath, updated);
         await this.refreshAnchorsAfterCaptionWrite(captionsPath);
