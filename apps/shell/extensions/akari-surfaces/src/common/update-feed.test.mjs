@@ -13,6 +13,7 @@ import {
     isValidFeedShape,
     parseUpdateCache,
     resolveUpdateDownloadUrl,
+    resolveUpdateSizeLabel,
     withDismissedVersion,
     withFetchedFeed
 } from '../../lib/common/update-feed.js';
@@ -82,6 +83,19 @@ test('evaluateUpdateStatus: dismissed 済みの版では available: false', () =
     const status = evaluateUpdateStatus('0.1.0', cache);
     assert.equal(status.available, false);
     assert.equal(status.dismissed, true);
+});
+
+test('optional summary, size and notes are available to the toast, including dismissed history', () => {
+    const feed = { ...VALID_FEED, summary: '設定と右のアイコン列を整理', size_bytes: 180_000_000 };
+    const available = evaluateUpdateStatus('0.1.0', { feed }, 'mac');
+    assert.equal(available.summary, feed.summary);
+    assert.equal(available.sizeLabel, '180 MB');
+    assert.equal(available.notesUrl, feed.notes_url);
+    const dismissed = evaluateUpdateStatus('0.1.0', { feed, dismissed: { '0.2.0': 'now' } }, 'mac');
+    assert.equal(dismissed.available, false);
+    assert.equal(dismissed.summary, feed.summary);
+    assert.equal(dismissed.sizeLabel, '180 MB');
+    assert.equal(resolveUpdateSizeLabel({ ...VALID_FEED, size: '180 MB' }, 'mac'), '180 MB');
 });
 
 test('evaluateUpdateStatus: キャッシュ無し(null)は available: false（例外にならない）', () => {

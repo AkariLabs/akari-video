@@ -6,6 +6,8 @@ import { WorkspaceService } from '@theia/workspace/lib/browser/workspace-service
 import { FrontendApplicationConfigProvider } from '@theia/core/lib/browser/frontend-application-config-provider';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
 import URI from '@theia/core/lib/common/uri';
+import { EnvVariablesServer } from '@theia/core/lib/common/env-variables';
+import { homeWindowTitle } from './home/home-model';
 import { parseIntakeTitle } from '../common/project-display-name';
 
 const INTAKE_RELATIVE_PATH = '.akari/intake.json';
@@ -46,11 +48,13 @@ export class AkariWelcomeWindowTitleContribution implements WindowTitleContribut
 
     protected opened = false;
     protected resolvedTitle: string | null = null;
+    protected channel: string | undefined;
 
-    setTitleState(opened: boolean, resolvedTitle: string | null): boolean {
-        const changed = this.opened !== opened || this.resolvedTitle !== resolvedTitle;
+    setTitleState(opened: boolean, resolvedTitle: string | null, channel?: string): boolean {
+        const changed = this.opened !== opened || this.resolvedTitle !== resolvedTitle || this.channel !== channel;
         this.opened = opened;
         this.resolvedTitle = resolvedTitle;
+        this.channel = channel;
         return changed;
     }
 
@@ -58,11 +62,8 @@ export class AkariWelcomeWindowTitleContribution implements WindowTitleContribut
         if (!this.opened) {
             return FrontendApplicationConfigProvider.get().applicationName;
         }
-        const rootName = parts.get('rootName');
-        if (this.resolvedTitle && rootName && rootName !== this.resolvedTitle) {
-            return title.split(rootName).join(this.resolvedTitle);
-        }
-        return title;
+        const project = this.resolvedTitle || parts.get('rootName');
+        return project ? homeWindowTitle(project, this.channel) : title;
     }
 }
 
@@ -77,6 +78,8 @@ export class AkariWelcomeWindowTitleUpdater implements FrontendApplicationContri
 
     @inject(FileService)
     protected readonly fileService: FileService;
+
+    @inject(EnvVariablesServer) protected readonly envVariables: EnvVariablesServer;
 
     @inject(AkariWelcomeWindowTitleContribution)
     protected readonly contribution: AkariWelcomeWindowTitleContribution;
@@ -104,7 +107,8 @@ export class AkariWelcomeWindowTitleUpdater implements FrontendApplicationContri
         const roots = await this.workspaceService.roots;
         this.intakeUri = roots[0]?.resource.resolve(INTAKE_RELATIVE_PATH);
         const title = this.intakeUri ? await this.readTitle(this.intakeUri) : null;
-        const changed = this.contribution.setTitleState(this.workspaceService.opened, title);
+        const channel = roots[0] ? await this.readChannel(roots[0].resource) : undefined;
+        const changed = this.contribution.setTitleState(this.workspaceService.opened, title, channel);
         // 未選択・title 無しで状態が既定値のままでも、初回は必ず反映する。
         if (changed || !this.titleUpdated) {
             this.titleUpdated = true;
@@ -112,6 +116,17 @@ export class AkariWelcomeWindowTitleUpdater implements FrontendApplicationContri
             // だけなので空更新で updateTitle() を再トリガーする（公式 API はこれのみ）。
             this.windowTitleService.update({});
         }
+    }
+
+    protected async readChannel(projectUri: URI): Promise<string | undefined> {
+        try {
+            const override = await this.envVariables.getValue('AKARI_HOME');
+            const home = override?.value ? URI.fromFilePath(override.value) : new URI(await this.envVariables.getHomeDirUri()).resolve('.akari');
+            const pointer = JSON.parse((await this.fileService.readFile(home.resolve('creator-root.json'))).value.toString());
+            if (typeof pointer?.lastRoot !== 'string') { return undefined; }
+            const segments = URI.fromFilePath(pointer.lastRoot).relative(projectUri)?.toString().split('/');
+            return segments?.length === 4 && segments[0] === 'channels' && segments[2] === 'videos' ? segments[1] : undefined;
+        } catch { return undefined; }
     }
 
     protected async readTitle(uri: URI): Promise<string | null> {

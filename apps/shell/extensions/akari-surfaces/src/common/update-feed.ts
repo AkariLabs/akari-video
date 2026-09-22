@@ -17,6 +17,8 @@ export const DEFAULT_UPDATE_FEED_URL = 'https://github.com/AkariLabs/akari-video
 export interface UpdateFeedAsset {
     url?: string;
     sha256?: string;
+    size?: number;
+    size_bytes?: number;
 }
 
 export interface UpdateFeedCliComponent {
@@ -45,6 +47,10 @@ export interface UpdateFeed {
     channel?: string;
     released?: string;
     notes_url?: string;
+    summary?: string;
+    size?: number | string;
+    size_bytes?: number;
+    size_mb?: number;
     components?: {
         cli?: UpdateFeedCliComponent;
         shell?: UpdateFeedShellComponent;
@@ -69,6 +75,8 @@ export interface UpdateStatus {
     currentVersion?: string;
     channel?: string;
     notesUrl?: string;
+    summary?: string;
+    sizeLabel?: string;
     /** F7-v1（task 2026-08-03-home-v5-terms）: 「更新する」ボタンの遷移先。resolveUpdateDownloadUrl 参照。 */
     downloadUrl?: string;
 }
@@ -125,6 +133,18 @@ export function resolveUpdateDownloadUrl(feed: UpdateFeed | null | undefined, pl
     return asset?.url || feed?.notes_url || undefined;
 }
 
+/** フィードに任意で含まれる配布物サイズを、通知の短い MB 表記へ揃える。 */
+export function resolveUpdateSizeLabel(feed: UpdateFeed | null | undefined, platform: ShellPlatformKey | undefined): string | undefined {
+    if (typeof feed?.size_mb === 'number' && Number.isFinite(feed.size_mb) && feed.size_mb > 0) {
+        return `${Math.round(feed.size_mb)} MB`;
+    }
+    const asset = platform ? feed?.components?.shell?.[platform] : undefined;
+    const raw = feed?.size_bytes ?? asset?.size_bytes ?? asset?.size ?? feed?.size;
+    if (typeof raw === 'string') { return raw.trim() || undefined; }
+    if (typeof raw !== 'number' || !Number.isFinite(raw) || raw <= 0) { return undefined; }
+    return `${Math.round(raw >= 10_000 ? raw / 1_000_000 : raw)} MB`;
+}
+
 /** キャッシュ + 現在版から、ホームバナーを出すかどうかを判定する（同期・純粋関数）。 */
 export function evaluateUpdateStatus(currentVersion: string, cache: UpdateCache | null, platform?: ShellPlatformKey): UpdateStatus {
     const feed = cache?.feed;
@@ -136,15 +156,20 @@ export function evaluateUpdateStatus(currentVersion: string, cache: UpdateCache 
         return { available: false };
     }
     const dismissedAt = cache?.dismissed?.[latest];
+    const details = {
+        notesUrl: typeof feed.notes_url === 'string' ? feed.notes_url : undefined,
+        summary: typeof feed.summary === 'string' ? feed.summary.trim() || undefined : undefined,
+        sizeLabel: resolveUpdateSizeLabel(feed, platform)
+    };
     if (dismissedAt) {
-        return { available: false, dismissed: true, latestVersion: latest };
+        return { available: false, dismissed: true, latestVersion: latest, ...details };
     }
     return {
         available: true,
         latestVersion: latest,
         currentVersion,
         channel: typeof feed.channel === 'string' ? feed.channel : undefined,
-        notesUrl: typeof feed.notes_url === 'string' ? feed.notes_url : undefined,
+        ...details,
         downloadUrl: resolveUpdateDownloadUrl(feed, platform)
     };
 }

@@ -13,6 +13,7 @@ import { AkariHomeCommandContribution } from './akari-home-command-contribution'
 import { AkariHomeContribution } from './akari-home-contribution';
 import { AkariModeSwitchContribution } from './akari-mode-switch-contribution';
 import { AkariHomeWidget } from './akari-home-widget';
+import { AkariUpdateToast } from './home/update-toast';
 import { AkariProjectLauncherCommandContribution } from './akari-project-launcher-dialog';
 import { AkariPreferenceContribution } from './akari-preferences';
 import { AkariSurfaceOpenHandler } from './akari-surface-open-handler';
@@ -56,6 +57,7 @@ export default new ContainerModule(bind => {
     // 「作業場」という語を UI から追放する裁定にあわせて撤去した
     // （旧 F6 の現在地表示は状態バッジ・renderStatusBadge に置き換え済み）。
 
+    bind(AkariUpdateToast).toSelf().inSingletonScope();
     bind(AkariHomeWidget).toSelf();
     bind(WidgetFactory).toDynamicValue(ctx => ({
         id: AkariHomeWidget.ID,

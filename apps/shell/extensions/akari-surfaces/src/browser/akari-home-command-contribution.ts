@@ -50,6 +50,9 @@ export const AkariHomeCommands = {
     // File > New Window（workbench.action.newWindow・英語ラベル）と重複するため、
     // あちらのメニュー項目は AkariMenuCuration（akari-shell-strip）が外している
     // （コマンド自体は残す）。
+    TEST_UPDATE_FOUND: { id: 'akari.update.testFound', label: '更新通知を検証: 見つかった' } as Command,
+    TEST_UPDATE_DOWNLOADING: { id: 'akari.update.testDownloading', label: '更新通知を検証: ダウンロード中' } as Command,
+    TEST_UPDATE_READY: { id: 'akari.update.testReady', label: '更新通知を検証: 準備できた' } as Command,
     NEW_WINDOW: {
         id: 'akari.home.newWindow',
         label: '新しいウィンドウ'
@@ -89,6 +92,12 @@ export class AkariHomeCommandContribution implements CommandContribution, MenuCo
                 await widget.openFirstRunSetup();
             }
         });
+        for (const [command, stage] of [[AkariHomeCommands.TEST_UPDATE_FOUND, 'found'], [AkariHomeCommands.TEST_UPDATE_DOWNLOADING, 'downloading'], [AkariHomeCommands.TEST_UPDATE_READY, 'ready']] as const) {
+            registry.registerCommand(command, { execute: async (version?: string, notesUrl?: string, progress?: number) => {
+                const widget = await this.widgetManager.getOrCreateWidget<AkariHomeWidget>(AkariHomeWidget.ID);
+                widget.showUpdateForTest(stage, version || '99.0.0', notesUrl, progress);
+            } });
+        }
         registry.registerCommand(AkariHomeCommands.NEW_WINDOW, {
             execute: async () => {
                 await this.windowService.openNewDefaultWindow();

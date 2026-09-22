@@ -59,7 +59,7 @@ for (const active of ['outside', 'none', 'child', 'self']) {
 
 const initialSteps = [
     'refreshWelcomeMode', 'loadHomeFlow', 'loadCreatorRootProjects',
-    'loadStandaloneProjects', 'initializeFirstRunSetup', 'refreshCurrentLocation'
+    'loadStandaloneProjects', 'initializeFirstRunSetup', 'refreshCurrentLocation', 'loadCurrentBand'
 ];
 const deferredSteps = ['initializeProjectLauncher', 'loadUpdateStatus', 'checkVersionNotice'];
 const allSteps = [...initialSteps, ...deferredSteps];
@@ -101,6 +101,8 @@ function startFixture(firstRunWillAutoOpen = false) {
         homeReady: false, watching: false, toDispose: [],
         update() { assert.equal(this.homeReady, true); calls.push('update'); },
         initUpdaterEvents() { calls.push('updater'); },
+        resumeStartKind() {}, syncUpdateToast() {},
+        updateToast: {}, downloadUpdate() {}, restartAndApplyUpdate() {}, dismissUpdate() {},
         fileService: { onDidFilesChange() { calls.push('watch'); return { dispose() {} }; } }
     };
     for (const step of allSteps) {
@@ -141,7 +143,7 @@ test('ready stays false until every initial await resolves and precedes deferred
     assert.equal(instance.homeReady, true);
 });
 
-test('all nine steps retain performance measures and print a single data row', async () => {
+test('all initialization steps retain performance measures and print a single data row', async () => {
     const { instance } = startFixture();
     const marks = new Map();
     const measures = [];
@@ -167,10 +169,10 @@ test('all nine steps retain performance measures and print a single data row', a
 
 test('both rendered roots expose readiness only after initial data is ready', () => {
     const React = { createElement: (tag, props, ...children) => ({ tag, props, children }) };
-    const render = loadMethod('render', { React });
+    const render = loadMethod('render', { React, homePanelCss: '' });
     const renderWelcomeSurface = loadMethod('renderWelcomeSurface', { React, homeFlowStyles: {} });
     const instance = { updateStatus: {}, updaterUiState: {}, renderWelcomeSurface };
-    for (const name of ['renderDashboardHeader', 'renderExplanation', 'renderProjectList', 'renderStoreCard', 'renderWelcomeCard']) {
+    for (const name of ['renderDashboardHeader', 'renderHomeDialog', 'renderProjectList', 'renderStoreCard', 'renderWelcomeCard']) {
         instance[name] = () => null;
     }
     for (const welcomeMode of [false, true]) {
@@ -181,4 +183,46 @@ test('both rendered roots expose readiness only after initial data is ready', ()
             assert.equal(root.props['data-akari-home-ready'], String(homeReady));
         }
     }
+});
+
+test('start-kind resumes import, transcription, partner and generation after workspace reload', async () => {
+    for (const kind of ['import', 'transcribe', 'partner', 'generate']) {
+        const calls = [];
+        const sessionStorage = {
+            getItem: () => kind,
+            removeItem: key => calls.push(['clear', key])
+        };
+        const instance = {
+            currentProjectUri: {},
+            importForStartKind: async value => calls.push(['import', value]),
+            commands: { executeCommand: async (...args) => calls.push(['command', ...args]) }
+        };
+        await loadMethod('resumeStartKind', { sessionStorage }).call(instance);
+        assert.deepEqual(calls[0], ['clear', 'akari.home.start-kind']);
+        if (kind === 'import' || kind === 'transcribe') assert.deepEqual(calls[1], ['import', kind]);
+        if (kind === 'partner') assert.deepEqual(calls[1], ['command', 'akari.partner.open']);
+        if (kind === 'generate') assert.deepEqual(calls[1], ['command', 'akari.inspector.open', { tabId: 'generation' }]);
+    }
+});
+
+test('transcription imports through the home path and opens the dialog with its copied relative path', async () => {
+    const selected = { path: { base: 'camera.mp4' } };
+    const copied = { path: { base: 'camera.mp4' } };
+    const calls = [];
+    const instance = {
+        currentProjectUri: { toString: () => 'file:///project', relative: () => ({ toString: () => 'assets/camera.mp4' }) },
+        fileDialogs: { showOpenDialog: async options => { calls.push(['pick', options.canSelectMany]); return [selected]; } },
+        extensionOf: name => name.slice(name.lastIndexOf('.')),
+        importDroppedSources: async (sources, includeAudio) => { calls.push(['import', sources, includeAudio]); return [copied]; },
+        commands: { executeCommand: async (...args) => calls.push(['command', ...args]) },
+        messages: { info() {}, warn() {}, error() {} }
+    };
+    await loadMethod('importForStartKind', {
+        IMPORTABLE_EXTENSIONS: ['.mp4', '.jpg'], AUDIO_EXTENSIONS: ['.wav'], VIDEO_EXTENSIONS: ['.mp4']
+    }).call(instance, 'transcribe');
+    assert.deepEqual(calls, [
+        ['pick', true], ['import', [selected], true],
+        ['command', 'akari.transcribe.openDialog', { projectRoot: 'file:///project', relativePath: 'assets/camera.mp4' }],
+        ['command', 'akari.daihon.open']
+    ]);
 });
