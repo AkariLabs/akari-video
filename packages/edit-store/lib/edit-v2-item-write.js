@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.resolvePreviewItemWrite = resolvePreviewItemWrite;
+exports.resolvePreviewItemWriteBatch = resolvePreviewItemWriteBatch;
 const edit_v2_1 = require("./edit-v2");
 const isRecord = (value) => Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 const recordOf = (value) => isRecord(value) ? value : {};
@@ -17,6 +18,23 @@ function resolvePreviewItemWrite(editText, command) {
     return parsed.version === 2
         ? resolveV2Write(parsed, command)
         : resolveLegacyWrite(parsed, command);
+}
+/** Resolve all commands in memory. The caller lints and persists the final document once.
+ * External HTML writes cannot participate in this single-document transaction.
+ */
+function resolvePreviewItemWriteBatch(editText, commands) {
+    if (!Array.isArray(commands) || commands.length === 0) {
+        throw new Error('書き込みバッチが空です');
+    }
+    let candidateText = editText;
+    for (const command of commands) {
+        if (command.kind === 'overlay' && 'html' in command.patch) {
+            throw new Error('バッチでは外部 HTML 本文を書き込めません');
+        }
+        const resolved = resolvePreviewItemWrite(candidateText, command);
+        candidateText = resolved.candidateText ?? candidateText;
+    }
+    return { candidateText };
 }
 function resolveV2Write(parsed, command) {
     // strict reader を front door にして、legacy 文書や壊れた v2 を更新対象へ入れない。

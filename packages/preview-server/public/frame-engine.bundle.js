@@ -6290,6 +6290,7 @@ var require_edit_v2_item_write = __commonJS({
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.resolvePreviewItemWrite = resolvePreviewItemWrite;
+    exports.resolvePreviewItemWriteBatch = resolvePreviewItemWriteBatch;
     var edit_v2_1 = require_edit_v2();
     var isRecord2 = (value) => Boolean(value) && typeof value === "object" && !Array.isArray(value);
     var recordOf = (value) => isRecord2(value) ? value : {};
@@ -6301,6 +6302,20 @@ var require_edit_v2_item_write = __commonJS({
         throw new Error("edit.json \u304C object \u3067\u306F\u3042\u308A\u307E\u305B\u3093");
       }
       return parsed.version === 2 ? resolveV2Write(parsed, command) : resolveLegacyWrite(parsed, command);
+    }
+    function resolvePreviewItemWriteBatch(editText, commands) {
+      if (!Array.isArray(commands) || commands.length === 0) {
+        throw new Error("\u66F8\u304D\u8FBC\u307F\u30D0\u30C3\u30C1\u304C\u7A7A\u3067\u3059");
+      }
+      let candidateText = editText;
+      for (const command of commands) {
+        if (command.kind === "overlay" && "html" in command.patch) {
+          throw new Error("\u30D0\u30C3\u30C1\u3067\u306F\u5916\u90E8 HTML \u672C\u6587\u3092\u66F8\u304D\u8FBC\u3081\u307E\u305B\u3093");
+        }
+        const resolved = resolvePreviewItemWrite(candidateText, command);
+        candidateText = resolved.candidateText ?? candidateText;
+      }
+      return { candidateText };
     }
     function resolveV2Write(parsed, command) {
       (0, edit_v2_1.readEditV2)(parsed);

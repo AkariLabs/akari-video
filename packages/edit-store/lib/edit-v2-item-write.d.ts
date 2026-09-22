@@ -54,4 +54,8 @@ export interface PreviewItemWriteResolution {
  * 呼び出し側は v2 / legacy を知らず、返された edit.json 候補と HTML 参照先だけを扱う。
  */
 export declare function resolvePreviewItemWrite(editText: string, command: PreviewItemWriteCommand): PreviewItemWriteResolution;
+/** Resolve all commands in memory. The caller lints and persists the final document once.
+ * External HTML writes cannot participate in this single-document transaction.
+ */
+export declare function resolvePreviewItemWriteBatch(editText: string, commands: PreviewItemWriteCommand[]): PreviewItemWriteResolution;
 export {};

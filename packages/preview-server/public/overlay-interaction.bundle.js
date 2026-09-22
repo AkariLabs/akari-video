@@ -56,6 +56,12 @@
       if (!candidates.length) return null;
       return candidates[(candidates.indexOf(currentId) + 1) % candidates.length];
     }
+    function toggleScopedSelection(tree, selectedIds2, scopeId2, next) {
+      const sibling = (id) => tree.some((node) => node.id === id && node.parentId === scopeId2);
+      const additive = next.scopeId === scopeId2 && sibling(next.selectId) && selectedIds2.every(sibling);
+      const ids = additive ? selectedIds2.includes(next.selectId) ? selectedIds2.filter((id) => id !== next.selectId) : [...selectedIds2, next.selectId] : next.selectId === null ? [] : [next.selectId];
+      return { selectedIds: ids, selectId: ids.at(-1) ?? null, scopeId: next.scopeId };
+    }
     const stage = document.getElementById("overlay-stage");
     const dragStartDistance = 3;
     const SNAP_DISTANCE = 8;
@@ -93,6 +99,7 @@
     const SCALE_SNAP_TOLERANCE = 0.035;
     let selectedOverlay = null;
     let selectedId = null;
+    let selectedIds = [];
     let scopeId = null;
     let floorScopeId = window.akari.state?.selectionFloor ?? null;
     scopeId = floorScopeId;
@@ -153,6 +160,33 @@
       writeTail = promise.catch(() => void 0);
       promise.catch((error) => reportWriteError(kind, overlayId, error));
       return { generation, overlayId, promise };
+    }
+    function enqueueWriteBatch(context, writes) {
+      const generation = ++writeGeneration;
+      const promise = writeTail.then(() => {
+        if (!context.editPath) throw new Error("\u7DE8\u96C6\u4E2D\u306E edit.json \u304C\u3042\u308A\u307E\u305B\u3093");
+        if (typeof context.engine?.overlayWriteBatch !== "function") throw new Error("overlayWriteBatch \u3092\u5229\u7528\u3067\u304D\u307E\u305B\u3093");
+        return context.engine.overlayWriteBatch(writes);
+      });
+      writeTail = promise.catch(() => void 0);
+      return { generation, promise };
+    }
+    function selectionKind() {
+      return selectedIds.length > 1 ? "multi" : groupSelection ? "group" : "leaf";
+    }
+    function collectiveSelection() {
+      return groupSelection || selectedIds.length > 1;
+    }
+    function selectionMembers() {
+      return [...new Set(selectedIds.flatMap((id) => visibleMembers(id)))];
+    }
+    function markSelectionMembers() {
+      const members = new Set(selectionMembers());
+      for (const element of stage?.children ?? []) {
+        if (members.has(element)) {
+          if (!element.hasAttribute("data-akari-interaction-selected")) element.setAttribute("data-akari-interaction-selected", "true");
+        } else element.removeAttribute("data-akari-interaction-selected");
+      }
     }
     function findOverlayContainer(target) {
       if (!stage || !(target instanceof Node)) return null;
@@ -601,7 +635,7 @@
       return frame;
     }
     function refreshSelectionFrame() {
-      if (groupSelection) {
+      if (collectiveSelection()) {
         refreshGroupFrame();
         return;
       }
@@ -626,7 +660,7 @@
     }
     function trackSelectionFrame() {
       selectionTrackingFrame = null;
-      if (groupSelection) {
+      if (collectiveSelection()) {
         refreshGroupFrame();
         selectionTrackingFrame = requestAnimationFrame(trackSelectionFrame);
         return;
@@ -666,9 +700,11 @@
         cancelAnimationFrame(selectionTrackingFrame);
         selectionTrackingFrame = null;
       }
+      for (const element of stage?.children ?? []) element.removeAttribute("data-akari-interaction-selected");
       selectedOverlay?.removeAttribute("data-akari-interaction-selected");
       selectedOverlay = null;
       selectedId = null;
+      selectedIds = [];
       groupSelection = false;
       selectionFrame?.remove();
       selectionFrame = null;
@@ -689,10 +725,11 @@
     }
     function selectOverlay(container) {
       if (!isSelectable(container)) return false;
-      if (selectedOverlay !== container) {
+      if (selectedOverlay !== container || selectedIds.length > 1) {
         clearSelection();
         selectedOverlay = container;
         selectedId = container.dataset.overlayId ?? null;
+        selectedIds = selectedId === null ? [] : [selectedId];
         selectedOverlay.setAttribute("data-akari-interaction-selected", "true");
       }
       refreshSelectionFrame();
@@ -729,7 +766,8 @@
       return { left, top, right, bottom, width: right - left, height: bottom - top };
     }
     function refreshGroupFrame() {
-      const rect = unionBounds(visibleMembers());
+      markSelectionMembers();
+      const rect = unionBounds(selectionMembers());
       if (!rect) {
         if (selectionFrame) selectionFrame.hidden = true;
         return;
@@ -738,7 +776,7 @@
         selectionFrame = createSelectionFrame();
         document.body.appendChild(selectionFrame);
       }
-      selectionFrame.dataset.akariSelectionKind = "group";
+      selectionFrame.dataset.akariSelectionKind = selectionKind();
       for (const handle of selectionFrame.querySelectorAll('[data-akari-interaction="selection-handle"]')) handle.remove();
       selectionFrame.hidden = false;
       Object.assign(selectionFrame.style, {
@@ -791,6 +829,8 @@
       return treeNode(childId) ? childId : id;
     }
     function applyScopedSelection(next, { notify = true } = {}) {
+      const previousId = selectedId;
+      const wasMultiple = selectedIds.length > 1;
       const tree = selectionTree();
       if (floorScopeId !== null && next.selectId !== null && !lineage(tree, next.selectId).includes(floorScopeId)) return false;
       if (floorScopeId !== null && next.scopeId !== floorScopeId && !lineage(tree, next.scopeId).includes(floorScopeId)) next = { ...next, scopeId: floorScopeId };
@@ -799,6 +839,7 @@
       if (node && node.kind !== "leaf") {
         clearSelection();
         selectedId = node.id;
+        selectedIds = [node.id];
         groupSelection = true;
         refreshSelectionFrame();
         startSelectionTracking();
@@ -807,20 +848,35 @@
         if (!node?.lazy || lazyBagForScope(tree, scopeId) !== node.parentId) return false;
         clearSelection();
         selectedId = node.id;
+        selectedIds = [node.id];
         startSelectionTracking();
       }
-      publishScopedSelection(notify);
+      const unchangedMultiRepresentative = (wasMultiple || selectedIds.length > 1) && previousId === selectedId;
+      publishScopedSelection(notify && !unchangedMultiRepresentative);
       return true;
     }
     function selectScopedHit(container, event) {
       const id = scopedHitId(container, event);
       if (!id) return false;
-      return applyScopedSelection(resolveScopedSelection(
+      const next = resolveScopedSelection(
         selectionTree(),
         scopeId,
         id,
         { deep: Boolean(event.metaKey || event.ctrlKey) }
-      ));
+      );
+      if (!event.shiftKey) return applyScopedSelection(next);
+      if (floorScopeId !== null && !lineage(selectionTree(), next.selectId).includes(floorScopeId)) return false;
+      const selection = toggleScopedSelection(selectionTree(), selectedIds, scopeId, next);
+      if (selection.selectedIds.length < 2) return applyScopedSelection(selection);
+      const previousId = selectedId;
+      clearSelection();
+      scopeId = selection.scopeId;
+      selectedIds = selection.selectedIds;
+      selectedId = selection.selectId;
+      refreshSelectionFrame();
+      startSelectionTracking();
+      publishScopedSelection(previousId !== selectedId);
+      return true;
     }
     function selectFromTimeline(id) {
       if (!selectionTree().length) return false;
@@ -846,11 +902,12 @@
       publishScopedSelection(false);
     }
     function beginGroupDrag(event, container) {
-      const members = visibleMembers().map((element) => ({ element, transform: readTransform(element) }));
-      if (!members.length) return;
+      const members = selectionMembers().map((element) => ({ element, transform: readTransform(element) }));
+      if (!members.length || selectedIds.length > 1 && members.some((member) => !isMovable(member.element))) return;
       const world = treeNode(selectedId)?.transform ?? {};
       activeDrag = {
         group: true,
+        targets: movementTargets(),
         container,
         members,
         overlayId: selectedId,
@@ -905,22 +962,37 @@
       moveGroupMembers(drag, dx + (snap.x?.correction ?? 0), dy + (snap.y?.correction ?? 0));
       showSnapGuides(snap.x, snap.y);
     }
+    function movementTargets() {
+      return selectedIds.map((id) => {
+        const node = treeNode(id);
+        const container = containerById(id);
+        const transform = node?.kind === "leaf" && container ? readTransform(container) : node?.transform ?? {};
+        return { id, node, previousTransform: node?.transform, x: transform.x ?? 0, y: transform.y ?? 0 };
+      });
+    }
     function finishGroupDrag(drag) {
       if (!drag.moved || Math.abs(drag.dx) < 0.5 && Math.abs(drag.dy) < 0.5) {
         moveGroupMembers(drag, 0, 0);
         return null;
       }
-      const node = treeNode(drag.overlayId), previousTransform = node?.transform;
-      const transform = { ...previousTransform, x: drag.startX + drag.dx, y: drag.startY + drag.dy };
-      if (node) node.transform = transform;
-      const record = enqueueWrite(
-        drag.writeContext,
-        drag.overlayId,
-        { transform: { x: transform.x, y: transform.y } },
-        "transform"
-      );
+      const targets = drag.targets ?? [{
+        id: drag.overlayId,
+        node: treeNode(drag.overlayId),
+        previousTransform: treeNode(drag.overlayId)?.transform,
+        x: drag.startX,
+        y: drag.startY
+      }];
+      const writes = targets.map((target) => {
+        const transform = { x: target.x + drag.dx, y: target.y + drag.dy };
+        target.appliedTransform = { ...target.previousTransform, ...transform };
+        if (target.node) target.node.transform = target.appliedTransform;
+        return { overlayId: target.id, patch: { transform } };
+      });
+      const record = writes.length > 1 ? enqueueWriteBatch(drag.writeContext, writes) : enqueueWrite(drag.writeContext, writes[0].overlayId, writes[0].patch, "transform");
       record.promise.catch((error) => {
-        if (node?.transform === transform) node.transform = previousTransform;
+        for (const target of targets) {
+          if (target.node?.transform === target.appliedTransform) target.node.transform = target.previousTransform;
+        }
         moveGroupMembers(drag, 0, 0);
         reportWriteError("transform", drag.overlayId, error);
       });
@@ -957,13 +1029,14 @@
       if (!delta || !interactionEnabled || !selectedId || activeEdit || activeDrag || activeResize || event.metaKey || event.ctrlKey || event.altKey || !document.hasFocus()) return false;
       const isControl = (target) => target instanceof Element && (target.isContentEditable || target.closest('input, textarea, select, button, [role="textbox"]'));
       if (isControl(event.target) || isControl(document.activeElement)) return false;
-      const members = groupSelection ? visibleMembers() : [selectedOverlay];
+      const members = collectiveSelection() ? selectionMembers() : [selectedOverlay];
       if (!members.length || members.some((element) => !isMovable(element))) return false;
       if (nudge && nudge.overlayId !== selectedId) flushNudge();
       if (!nudge) {
-        const transform = groupSelection ? treeNode(selectedId)?.transform ?? {} : readTransform(selectedOverlay);
+        const transform = collectiveSelection() ? treeNode(selectedId)?.transform ?? {} : readTransform(selectedOverlay);
         nudge = {
-          group: groupSelection,
+          group: collectiveSelection(),
+          targets: collectiveSelection() ? movementTargets() : null,
           overlayId: selectedId,
           container: selectedOverlay,
           members: members.map((element) => ({ element, transform: readTransform(element) })),
@@ -1031,7 +1104,7 @@
           scopedHitId(container, event2),
           { deep: Boolean(event2.metaKey || event2.ctrlKey) }
         );
-        if (!next || next.selectId === selectedId || floorScopeId !== null && !lineage(selectionTree(), next.selectId).includes(floorScopeId)) {
+        if (!next || selectedIds.includes(next.selectId) || selectionMembers().includes(container) || floorScopeId !== null && !lineage(selectionTree(), next.selectId).includes(floorScopeId)) {
           hideHover();
           return;
         }
@@ -1533,12 +1606,12 @@
       if (event.button !== 0 || activeDrag || activeResize) return;
       flushNudge();
       hideHover();
-      clickOrigin = { selectedId, scopeId, moved: false };
+      clickOrigin = { selectedId, scopeId, moved: false, hadMultiple: selectedIds.length > 1 };
       if (selectionTree().length) {
         if (event.target instanceof Element && event.target.closest('[data-akari-ui="preview-scope-breadcrumb"]')) return;
         const handle = findHandleElement(event.target);
         if (handle) {
-          if (!groupSelection && isMovable(selectedOverlay)) beginResize(event, selectedOverlay, handle);
+          if (!collectiveSelection() && isMovable(selectedOverlay)) beginResize(event, selectedOverlay, handle);
           return;
         }
         const hit = overlayForEvent(event);
@@ -1555,9 +1628,17 @@
           return;
         }
         if (activeEdit?.container === hit && eventHitsElement(event, activeEdit.element)) return;
+        clickOrigin.scopedHit = true;
         if (activeEdit) void commitEdit();
-        if (!selectScopedHit(hit, event)) return;
-        if (groupSelection) {
+        const next = resolveScopedSelection(
+          selectionTree(),
+          scopeId,
+          scopedHitId(hit, event),
+          { deep: Boolean(event.metaKey || event.ctrlKey) }
+        );
+        const keepSet = selectedIds.length > 1 && !event.shiftKey && !event.metaKey && !event.ctrlKey && next.scopeId === scopeId && selectedIds.includes(next.selectId);
+        if (!keepSet && !selectScopedHit(hit, event)) return;
+        if (collectiveSelection()) {
           beginGroupDrag(event, hit);
           return;
         }
@@ -1932,8 +2013,19 @@
     function onClick(event) {
       if (!interactionEnabled || activeEdit) return;
       const hit = overlayForEvent(event);
-      if (!isSelectable(hit)) {
+      if (event.shiftKey && clickOrigin?.scopedHit) {
+        event.stopPropagation();
+        clickOrigin = null;
+        return;
+      }
+      if (isSelectable(hit) && (selectedIds.length > 1 || clickOrigin?.hadMultiple)) event.stopPropagation();
+      if (clickOrigin?.moved) {
+        clickOrigin = null;
         lastClick = null;
+        return;
+      }
+      if (!isSelectable(hit)) {
+        if (!event.shiftKey) lastClick = null;
         return;
       }
       const now = performance.now();
@@ -1943,6 +2035,10 @@
       if (nextId) applyScopedSelection({ selectId: nextId, scopeId });
       else if (selectionTree().length) selectScopedHit(hit, event);
       else selectOverlay(hit);
+      if (event.shiftKey) {
+        clickOrigin = null;
+        return;
+      }
       lastClick = event.detail === 1 && !origin.moved && !event.shiftKey && !event.metaKey && !event.ctrlKey && !event.altKey ? { x: event.clientX, y: event.clientY, scopeId, time: now } : null;
       clickOrigin = null;
     }
@@ -1950,6 +2046,11 @@
       if (!interactionEnabled) return;
       lastClick = null;
       hideHover();
+      if (selectedIds.length > 1) {
+        const hit = overlayForEvent(event);
+        if (!isSelectable(hit)) return;
+        applyScopedSelection(resolveScopedSelection(selectionTree(), scopeId, scopedHitId(hit, event)));
+      }
       if (selectionTree().length && groupSelection) {
         const hit = overlayForEvent(event);
         if (!isSelectable(hit)) return;
@@ -2006,6 +2107,11 @@
             handled();
             return;
           }
+          if (selectedIds.length > 1) {
+            applyScopedSelection({ selectId: selectedId, scopeId });
+            handled();
+            return;
+          }
           if (shouldHandleScopeEscape(selectedId, scopeId, floorScopeId)) {
             applyScopedSelection(exitScope(selectionTree(), selectedId, scopeId, floorScopeId), { notify: false });
             handled();
@@ -2021,6 +2127,7 @@
             }
             return;
           }
+          if (selectedIds.length > 1) applyScopedSelection({ selectId: selectedId, scopeId });
           if (event.shiftKey && (selectedId !== null || scopeId !== floorScopeId)) {
             applyScopedSelection(exitScope(selectionTree(), selectedId, scopeId, floorScopeId));
             handled();
@@ -2326,6 +2433,12 @@
     return {
       get selectedId() {
         return selectedId;
+      },
+      get selectedIds() {
+        return [...selectedIds];
+      },
+      get selectionKind() {
+        return selectionKind();
       },
       get scopeId() {
         return scopeId;
