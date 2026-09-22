@@ -247,6 +247,55 @@ jobs:
           file native/bin/akari-vibe-stt
           ls -la native/bin/akari-vibe-stt
 
+      # macos-26 対策（v0.1.75 の run 35693404159 で package が落ちた）: electron-builder 26.15.3 の
+      # importCerts は `security set-key-partition-list -k` に**証明書のパスワード**（CSC_KEY_PASSWORD）を
+      # 渡す（app-builder-lib out/codeSign/macCodeSign.js:168。キーチェーン自体のパスワードは :137 の
+      # 乱数で別物）。macos-14 では直前に解錠したキーチェーンがそのまま通っていたが、macos-26 ランナーでは
+      # `SecKeychainUnlock: The user name or passphrase you entered is not correct` で止まる。
+      # 取り込みはここで自前の一時キーチェーンに対して正しいパスワードで行い、CSC_KEYCHAIN で渡す
+      # （macPackager.js:49 — CSC_LINK を export しなければ electron-builder は取り込みを飛ばし、
+      # CSC_KEYCHAIN のキーチェーンから find-identity する）。secrets が無ければ何もしない
+      # （未署名フォールバックは従来どおり package ステップの分岐で扱う）。
+      - name: 署名証明書を一時キーチェーンへ取り込む（macos-26 対策）
+        id: sign-keychain
+        env:
+          CSC_LINK_SECRET: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD_SECRET: ${{ secrets.CSC_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          if [ -z "$CSC_LINK_SECRET" ]; then
+            echo "path=" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # CSC_LINK の形式は electron-builder と同じ 2 通りを受ける: https:// の URL か、
+          # p12 の base64（data:…;base64, 接頭辞つきでも可）。secret はファイルパスにならない
+          p12="$RUNNER_TEMP/csc.p12"
+          link="$(printf '%s' "$CSC_LINK_SECRET" | tr -d '[:space:]')"
+          case "$link" in
+            https://*) curl -sSL -o "$p12" "$link" ;;
+            *) printf '%s' "${link#data:*;base64,}" | base64 --decode > "$p12" ;;
+          esac
+          test -s "$p12" || { echo "CSC_LINK から p12 を復元できませんでした"; exit 1; }
+          keychain="$RUNNER_TEMP/akari-sign.keychain-db"
+          keychain_pw="$(openssl rand -base64 32)"
+          security create-keychain -p "$keychain_pw" "$keychain"
+          security set-keychain-settings "$keychain"
+          security unlock-keychain -p "$keychain_pw" "$keychain"
+          security import "$p12" -k "$keychain" -P "$CSC_KEY_PASSWORD_SECRET" \
+            -T /usr/bin/codesign -T /usr/bin/productbuild -T /usr/bin/security
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$keychain_pw" "$keychain" > /dev/null
+          # 検索リストへ足す（list-keychains -s は置き換えなので現在の一覧を後ろに続ける）
+          # shellcheck disable=SC2046
+          security list-keychains -d user -s "$keychain" $(security list-keychains -d user | tr -d '" ')
+          rm -f "$p12"
+          # 署名に使える identity が 1 つ以上あることを fail-closed で確かめる（名前は secret ではない）
+          identities="$(security find-identity -v -p codesigning "$keychain")"
+          echo "$identities"
+          if echo "$identities" | grep -q '0 valid identities found'; then
+            echo "一時キーチェーンに署名用の identity がありません"; exit 1
+          fi
+          echo "path=$keychain" >> "$GITHUB_OUTPUT"
+
       # secrets 不在でもビルドは継続する（D2 裁定: Apple secrets 登録はオーナー作業で後回し）。
       # electron-builder は CSC_LINK 未設定なら自動的に未署名ビルドへフォールバックし、
       # notarize 用の APPLE_API_KEY 系が未設定なら公証ステップを自動でスキップするが、
@@ -343,11 +392,16 @@ jobs:
         env:
           CSC_LINK_SECRET: ${{ secrets.CSC_LINK }}
           CSC_KEY_PASSWORD_SECRET: ${{ secrets.CSC_KEY_PASSWORD }}
+          SIGN_KEYCHAIN: ${{ steps.sign-keychain.outputs.path }}
           APPLE_API_KEY_PATH: ${{ steps.apple-api-key-file.outputs.path }}
           APPLE_API_KEY_ID_SECRET: ${{ secrets.APPLE_API_KEY_ID }}
           APPLE_API_ISSUER_SECRET: ${{ secrets.APPLE_API_ISSUER }}
         run: |
-          if [ -n "$CSC_LINK_SECRET" ]; then
+          if [ -n "$SIGN_KEYCHAIN" ]; then
+            # 取り込み済みの一時キーチェーンを使う。CSC_LINK は export しない（electron-builder 側の
+            # 取り込み = macos-26 で落ちる経路を走らせない）。identity は CSC_KEYCHAIN から自動探索される
+            export CSC_KEYCHAIN="$SIGN_KEYCHAIN"
+          elif [ -n "$CSC_LINK_SECRET" ]; then
             export CSC_LINK="$CSC_LINK_SECRET"
             export CSC_KEY_PASSWORD="$CSC_KEY_PASSWORD_SECRET"
           else
