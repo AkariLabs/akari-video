@@ -2152,10 +2152,12 @@
       if (event.key === "Enter" && activeEdit && event.target === activeEdit.element && !event.isComposing) {
         event.preventDefault();
         event.stopPropagation();
+        event.stopImmediatePropagation();
         void commitEdit();
         return;
       }
       if (event.key !== "Escape" || !selectedOverlay && !activeDrag && !activeResize && !activeEdit) {
+        isolateEditKey(event);
         return;
       }
       event.preventDefault();
@@ -2168,6 +2170,11 @@
         return;
       }
       clearSelection();
+    }
+    function isolateEditKey(event) {
+      if (event.isComposing || !activeEdit || event.target !== activeEdit.element) return;
+      event.stopPropagation();
+      event.stopImmediatePropagation();
     }
     async function selftest() {
       let container = null;
@@ -2424,6 +2431,8 @@
     window.addEventListener("pointerup", onPointerUp, true);
     window.addEventListener("pointercancel", onPointerCancel, true);
     window.addEventListener("keydown", onKeyDown, true);
+    window.addEventListener("keyup", isolateEditKey, true);
+    window.addEventListener("keypress", isolateEditKey, true);
     window.addEventListener("blur", () => {
       flushNudge();
       hideHover();
