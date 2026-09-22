@@ -24,7 +24,7 @@ test('タイムラインの注釈・録音帯ボタンは DOM に追加しない
         .map(match => match[0]).join('\n');
     assert.doesNotMatch(insertions, /this\.reviewButton\b|this\.reviewSessionRangesButton\b/);
     assert.match(timeline, /this\.toolbar\.append\(this\.zoomHud\)/);
-    assert.match(insertions, /this\.placeTextButton/);
+    assert.doesNotMatch(insertions, /this\.placeTextButton/);
 });
 
 test('録音帯は保存済み true を読まず非表示で初期化し、描画とパネル連携は維持する', () => {

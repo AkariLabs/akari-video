@@ -18,9 +18,17 @@ function editingHarness(cue, write = async () => {}) {
     plate.querySelector = selector => selector === '.akari-caption__plate' ? layout : query(selector);
     h.context.document.createElement = () => {
         const attributes = new Map();
-        return { className: '', textContent: '', style: {},
+        const children = [];
+        return { className: '', textContent: '', style: {}, children, parentElement: null,
             getAttribute: name => attributes.get(name) ?? null,
             setAttribute: (name, value) => attributes.set(name, value), removeAttribute: name => attributes.delete(name),
+            appendChild(child) { child.parentElement = this; children.push(child); return child; },
+            remove() {
+                const siblings = this.parentElement?.children;
+                const index = siblings?.indexOf(this) ?? -1;
+                if (index >= 0) siblings.splice(index, 1);
+                this.parentElement = null;
+            },
             closest: () => plate, focus() {} };
     };
     h.context.window.getSelection = () => null;

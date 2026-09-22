@@ -14,9 +14,9 @@ const rule = selector => {
 
 test('playback uses background only; selected rows keep their outline and checkmark', () => {
     assert.doesNotMatch(rule('.akari-daihon-row.active'), /border-left/);
-    assert.match(rule('.akari-daihon-row.active'), /background:#202b2e/);
+    assert.match(rule('.akari-daihon-row.active'), /background:color-mix\(in srgb, #53d1bc 10%, transparent\)/);
     assert.match(rule('.akari-daihon-row.selected.active'), /box-shadow:none/);
-    assert.match(rule('.akari-daihon-row.selected'), /outline:.*#f5c451/);
+    assert.match(rule('.akari-daihon-row.selected'), /outline:1px solid var\(--akari-accent\)/);
     assert.match(widget, /✓/);
 });
 
