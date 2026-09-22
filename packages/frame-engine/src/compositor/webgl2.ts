@@ -172,6 +172,7 @@ interface AdjustFxUniforms {
 interface CutUniforms extends AdjustFxUniforms {
   framing: WebGLUniformLocation | null;
   transform: WebGLUniformLocation | null;
+  scaleAxes: WebGLUniformLocation | null;
   opacity: WebGLUniformLocation | null;
   format: WebGLUniformLocation | null;
   sourceSize: WebGLUniformLocation | null;
@@ -383,6 +384,8 @@ uniform vec4 framing0;
 uniform vec4 framing1;
 uniform vec4 transform0;
 uniform vec4 transform1;
+uniform vec2 scaleAxes0;
+uniform vec2 scaleAxes1;
 uniform float opacity0;
 uniform float opacity1;
 uniform vec2 outputSize;
@@ -411,11 +414,11 @@ uniform float adjustLutIntensity1;
 uniform float transitionProgress;
 ${type === 'dissolve' ? 'uniform sampler2D dissolveNoise;' : ''}
 ${YUV_GLSL}
-vec2 inverseVisual(vec2 p, vec4 transform, vec4 framing) {
+vec2 inverseVisual(vec2 p, vec4 transform, vec4 framing, vec2 scaleAxes) {
   vec2 pixel = (p - 0.5) * outputSize - transform.xy;
   float angle = transform.w;
   pixel = mat2(cos(angle), -sin(angle), sin(angle), cos(angle)) * pixel;
-  pixel /= transform.z;
+  pixel /= scaleAxes;
   vec2 local = pixel / outputSize + 0.5;
   return framing.xy + local * framing.zw;
 }
@@ -460,7 +463,7 @@ vec4 sample0(vec2 p) {
     if (local.x < 0.0 || local.x > 1.0 || local.y < 0.0 || local.y > 1.0) return vec4(0.0);
     q = crop0.xy + local * crop0.zw;
   } else {
-    vec2 canvasPoint = inverseVisual(p, transform0, framing0);
+    vec2 canvasPoint = inverseVisual(p, transform0, framing0, scaleAxes0);
     if (canvasPoint.x < framing0.x || canvasPoint.x > framing0.x + framing0.z || canvasPoint.y < framing0.y || canvasPoint.y > framing0.y + framing0.w) return vec4(0.0);
     q = canvasToSource(canvasPoint, sourceSize0);
     if (q.x < 0.0 || q.x > 1.0 || q.y < 0.0 || q.y > 1.0) return vec4(0.0);
@@ -482,7 +485,7 @@ vec4 sample1(vec2 p) {
     if (local.x < 0.0 || local.x > 1.0 || local.y < 0.0 || local.y > 1.0) return vec4(0.0);
     q = crop1.xy + local * crop1.zw;
   } else {
-    vec2 canvasPoint = inverseVisual(p, transform1, framing1);
+    vec2 canvasPoint = inverseVisual(p, transform1, framing1, scaleAxes1);
     if (canvasPoint.x < framing1.x || canvasPoint.x > framing1.x + framing1.z || canvasPoint.y < framing1.y || canvasPoint.y > framing1.y + framing1.w) return vec4(0.0);
     q = canvasToSource(canvasPoint, sourceSize1);
     if (q.x < 0.0 || q.x > 1.0 || q.y < 0.0 || q.y > 1.0) return vec4(0.0);
@@ -941,8 +944,8 @@ export function forwardInverse(
   const h = visual.perspective
     ? cornersToHomography(visual.perspective.corners)
     : [1, 0, 0, 0, 1, 0, 0, 0, 1];
-  const bw = visual.crop.width * srcW * visual.transform.scale,
-    bh = visual.crop.height * srcH * visual.transform.scale;
+  const bw = visual.crop.width * srcW * (visual.transform.scaleX ?? visual.transform.scale),
+    bh = visual.crop.height * srcH * (visual.transform.scaleY ?? visual.transform.scale);
   const b = [bw, 0, -bw / 2, 0, bh, -bh / 2, 0, 0, 1],
     a = (visual.transform.rotateDegrees * Math.PI) / 180,
     c = Math.cos(a),
@@ -981,16 +984,16 @@ export function compositeCutGeometry(
     visual: { crop: cut.layerStyle.crop, perspective: null, transform: cut.transform }, width: srcW, height: srcH,
   };
   const fit = Math.min(outW / srcW, outH / srcH);
-  const axis = (start: number, length: number, source: number, out: number) => {
+  const axis = (start: number, length: number, source: number, out: number, scale: number) => {
     const offset = (out - source * fit) / 2;
     const lo = Math.max(0, Math.min(1, (start * out - offset) / (source * fit)));
     const hi = Math.max(0, Math.min(1, ((start + length) * out - offset) / (source * fit)));
     const span = Math.max(1e-6, hi - lo);
-    const center = ((((lo + span / 2) * source * fit + offset) / out - start) / length - 0.5) * out * cut.transform.scale;
+    const center = ((((lo + span / 2) * source * fit + offset) / out - start) / length - 0.5) * out * scale;
     return { lo, span, center, size: source * fit / length };
   };
-  const x = axis(cut.framing.x, cut.framing.width, srcW, outW);
-  const y = axis(cut.framing.y, cut.framing.height, srcH, outH);
+  const x = axis(cut.framing.x, cut.framing.width, srcW, outW, cut.transform.scaleX ?? cut.transform.scale);
+  const y = axis(cut.framing.y, cut.framing.height, srcH, outH, cut.transform.scaleY ?? cut.transform.scale);
   const angle = cut.transform.rotateDegrees * Math.PI / 180;
   return { width: x.size, height: y.size, visual: {
     crop: { x: x.lo, y: y.lo, width: x.span, height: y.span }, perspective: null,
@@ -1013,8 +1016,8 @@ export function cutLayerStyleBox(
 ): { width: number; height: number } {
   const crop = visual.layerStyle?.crop ?? FULL_CROP;
   return {
-    width: crop.width * srcW * visual.transform.scale,
-    height: crop.height * srcH * visual.transform.scale,
+    width: crop.width * srcW * (visual.transform.scaleX ?? visual.transform.scale),
+    height: crop.height * srcH * (visual.transform.scaleY ?? visual.transform.scale),
   };
 }
 
@@ -1276,6 +1279,7 @@ export class WebGL2Compositor implements CompositorBackend {
       ...this.adjustFxUniforms(program, String(index)),
       framing: gl.getUniformLocation(program, `framing${index}`),
       transform: gl.getUniformLocation(program, `transform${index}`),
+      scaleAxes: gl.getUniformLocation(program, `scaleAxes${index}`),
       opacity: gl.getUniformLocation(program, `opacity${index}`),
       format: gl.getUniformLocation(program, `format${index}`),
       sourceSize: gl.getUniformLocation(program, `sourceSize${index}`),
@@ -1537,6 +1541,7 @@ export class WebGL2Compositor implements CompositorBackend {
       v.transform.scale,
       (v.transform.rotateDegrees * Math.PI) / 180,
     );
+    this.gl.uniform2f(u.scaleAxes, v.transform.scaleX ?? v.transform.scale, v.transform.scaleY ?? v.transform.scale);
     this.gl.uniform1f(u.opacity, v.opacity);
     this.configureAdjustLut(v.adjustLut, adjustLutUnit, u);
     this.configureFxResult(null, u);
@@ -2001,8 +2006,8 @@ export class WebGL2Compositor implements CompositorBackend {
       // （fit 経路の displayed は size × fit が解像度不変なのでそのまま）。
       const sourceLogical = compositionSourceSize(plan.base[index], size);
       const displayed = visual.layerStyle ? cutLayerStyleBox(visual, sourceLogical.width, sourceLogical.height) : {
-        width: crop.width * size.width * fit * visual.transform.scale / framing.width,
-        height: crop.height * size.height * fit * visual.transform.scale / framing.height,
+        width: crop.width * size.width * fit * (visual.transform.scaleX ?? visual.transform.scale) / framing.width,
+        height: crop.height * size.height * fit * (visual.transform.scaleY ?? visual.transform.scale) / framing.height,
       };
       const result = this.snapshotBaseFx(index, this.runFxPasses(passes, {
         size, crop, displayed, format: still || video ? 2 : frame.format === 'NV12' ? 1 : 0,

@@ -215,12 +215,12 @@ test('base shader samples layer-style cuts through crop / box per input and leav
     const sampler = source.slice(source.indexOf(`vec4 sample${index}(vec2 p)`), source.indexOf(`vec4 sample${index}(vec2 p)`) + 900);
     assert.match(sampler, new RegExp(`if \\(layerStyle${index} == 1\\) \\{\\s+vec2 local = inverseBox\\(p, transform${index}, box${index}\\);`, 'u'));
     assert.match(sampler, new RegExp(`q = crop${index}\\.xy \\+ local \\* crop${index}\\.zw;`, 'u'));
-    assert.match(sampler, new RegExp(`\\} else \\{\\s+vec2 canvasPoint = inverseVisual\\(p, transform${index}, framing${index}\\);`, 'u'));
+    assert.match(sampler, new RegExp(`\\} else \\{\\s+vec2 canvasPoint = inverseVisual\\(p, transform${index}, framing${index}, scaleAxes${index}\\);`, 'u'));
     assert.match(sampler, new RegExp(`q = canvasToSource\\(canvasPoint, sourceSize${index}\\);`, 'u'));
   }
   assert.match(source, /vec2 inverseBox\(vec2 p, vec4 transform, vec2 box\) \{[\s\S]+?return pixel \/ box \+ 0\.5;\s+\}/u);
-  // the fit path's arithmetic is byte-identical to before: same statements, same order
-  assert.match(source, /vec2 inverseVisual\(vec2 p, vec4 transform, vec4 framing\) \{\s+vec2 pixel = \(p - 0\.5\) \* outputSize - transform\.xy;\s+float angle = transform\.w;\s+pixel = mat2\(cos\(angle\), -sin\(angle\), sin\(angle\), cos\(angle\)\) \* pixel;\s+pixel \/= transform\.z;\s+vec2 local = pixel \/ outputSize \+ 0\.5;\s+return framing\.xy \+ local \* framing\.zw;\s+\}/u);
+  // The inverse keeps fit/framing order; axis uniforms fall back independently to legacy scale.
+  assert.match(source, /vec2 inverseVisual\(vec2 p, vec4 transform, vec4 framing, vec2 scaleAxes\) \{\s+vec2 pixel = \(p - 0\.5\) \* outputSize - transform\.xy;\s+float angle = transform\.w;\s+pixel = mat2\(cos\(angle\), -sin\(angle\), sin\(angle\), cos\(angle\)\) \* pixel;\s+pixel \/= scaleAxes;\s+vec2 local = pixel \/ outputSize \+ 0\.5;\s+return framing\.xy \+ local \* framing\.zw;\s+\}/u);
   // box の基準は「復号したフレームの寸法」ではなく「ソースの論理寸法」であることを名前で固定する
   // （不具合メモ 第10項。sourceSize uniform = 復号寸法とは別物なので、取り違えを型と名前で止める）。
   assert.match(source, /private setCut\(\s+u: CutUniforms,\s+v: ResolvedCutVisual,\s+sourceLogical: \{ width: number; height: number \},\s+adjustLutUnit: number,\s+\)/u);

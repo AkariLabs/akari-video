@@ -4,6 +4,7 @@ import { join } from "node:path";
 import test from "node:test";
 
 import { buildGpuPage } from "../src/page-builder.mjs";
+import { renderOverlaySheet } from "../../render-cut/src/rasterize.mjs";
 
 const pageRuntimeSource = await readFile(
   join(import.meta.dirname, "..", "src", "page-runtime.js"),
@@ -109,9 +110,10 @@ test("(c) 静的スプライトは overlay の transform を落とさない", ()
     pageRuntimeSource.indexOf("function foreignObjectSvg("),
     pageRuntimeSource.indexOf("async function rasterizeSprite("),
   );
-  assert.match(spriteRoot, /transform:translate\(var\(--x, 0px\), var\(--y, 0px\)\) scale\(var\(--scale, 1\)\) rotate\(var\(--rotate, 0deg\)\);transform-origin:center;/u);
+  assert.match(spriteRoot, /transform:translate\(var\(--x, 0px\), var\(--y, 0px\)\) scale\(var\(--scale-x, var\(--scale, 1\)\), var\(--scale-y, var\(--scale, 1\)\)\) rotate\(var\(--rotate, 0deg\)\);transform-origin:center;/u);
   // OSR のコンテナと同じ宣言であること
-  assert.match(rasterizeSource, /\.akari-overlay-container \{[^}]*transform: translate\(var\(--x, 0px\), var\(--y, 0px\)\) scale\(var\(--scale, 1\)\) rotate\(var\(--rotate, 0deg\)\); transform-origin: center;/u);
+  const axisSheet = renderOverlaySheet({ overlays: [{ id: "axis", html: "<div>x</div>", start: 0, duration: 1, transform: { scaleX: 2 } }], edit, duration: 1, projectRoot: "/unused" });
+  assert.match(axisSheet, /\.akari-overlay-container \{[^}]*transform: translate\(var\(--x, 0px\), var\(--y, 0px\)\) scale\(var\(--scale-x, var\(--scale, 1\)\), var\(--scale-y, var\(--scale, 1\)\)\) rotate\(var\(--rotate, 0deg\)\); transform-origin: center;/u);
   // 静的スプライトの vars に transform が載っていること（載っていなければ上の宣言は効かない）
   const result = build([{ id: "static", start: 0, duration: 1, html: "<div>x</div>", transform: { x: 120, y: -40, scale: 1.5 } }]);
   assert.equal(result.spriteManifest.statics[0].vars["--x"], "120px");

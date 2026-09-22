@@ -1,0 +1,44 @@
+{
+  "ok": false,
+  "verdict": "REVIEW",
+  "source": {
+    "diffFile": "/tmp/aniso-review.diff"
+  },
+  "stats": {
+    "filesTouched": 55,
+    "addedLines": 1136,
+    "findings": 3,
+    "block": 0,
+    "review": 3,
+    "byCategory": {
+      "exec": 2,
+      "outbound-dynamic": 1
+    }
+  },
+  "findings": [
+    {
+      "category": "exec",
+      "tier": "review",
+      "file": "apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/run.mjs",
+      "line": 6,
+      "evidence": "import { spawn } from 'node:child_process';",
+      "note": "プロセス起動の追加 — LLM 審査対象"
+    },
+    {
+      "category": "outbound-dynamic",
+      "tier": "review",
+      "file": "apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/run.mjs",
+      "line": 71,
+      "evidence": "const socket = new WebSocket(`ws://127.0.0.1:${port}`);",
+      "note": "宛先が動的なネットワーク呼び出し — LLM 審査対象"
+    },
+    {
+      "category": "exec",
+      "tier": "review",
+      "file": "apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/run.mjs",
+      "line": 81,
+      "evidence": "const child = spawn(process.execPath, [join(repo, 'packages/preview-server/src/server.mjs'), project, '--port', String(port), '--no-lint'], { cwd: repo, stdio: ['ignore', 'pipe', 'pipe'] });",
+      "note": "プロセス起動の追加 — LLM 審査対象"
+    }
+  ]
+}

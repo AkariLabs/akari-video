@@ -1,0 +1,636 @@
+{
+  "description": "Classic shell runtime versus export overlay sheet in Chrome (supplemental)",
+  "measurements": [
+    {
+      "fixture": "scale-x",
+      "frame": 0,
+      "classic": {
+        "width": 200,
+        "height": 60,
+        "left": 220,
+        "top": 150
+      },
+      "export-sheet": {
+        "width": 200,
+        "height": 60,
+        "left": 220,
+        "top": 150
+      },
+      "expected": {
+        "width": 200,
+        "height": 60
+      },
+      "pass": true
+    },
+    {
+      "fixture": "scale-x",
+      "frame": 15,
+      "classic": {
+        "width": 200,
+        "height": 60,
+        "left": 220,
+        "top": 150
+      },
+      "export-sheet": {
+        "width": 200,
+        "height": 60,
+        "left": 220,
+        "top": 150
+      },
+      "expected": {
+        "width": 200,
+        "height": 60
+      },
+      "pass": true
+    },
+    {
+      "fixture": "scale-x",
+      "frame": 30,
+      "classic": {
+        "width": 200,
+        "height": 60,
+        "left": 220,
+        "top": 150
+      },
+      "export-sheet": {
+        "width": 200,
+        "height": 60,
+        "left": 220,
+        "top": 150
+      },
+      "expected": {
+        "width": 200,
+        "height": 60
+      },
+      "pass": true
+    },
+    {
+      "fixture": "scale-x",
+      "frame": 45,
+      "classic": {
+        "width": 200,
+        "height": 60,
+        "left": 220,
+        "top": 150
+      },
+      "export-sheet": {
+        "width": 200,
+        "height": 60,
+        "left": 220,
+        "top": 150
+      },
+      "expected": {
+        "width": 200,
+        "height": 60
+      },
+      "pass": true
+    },
+    {
+      "fixture": "scale-x",
+      "frame": 59,
+      "classic": {
+        "width": 200,
+        "height": 60,
+        "left": 220,
+        "top": 150
+      },
+      "export-sheet": {
+        "width": 200,
+        "height": 60,
+        "left": 220,
+        "top": 150
+      },
+      "expected": {
+        "width": 200,
+        "height": 60
+      },
+      "pass": true
+    },
+    {
+      "fixture": "scale-y",
+      "frame": 0,
+      "classic": {
+        "width": 100,
+        "height": 30,
+        "left": 270,
+        "top": 165
+      },
+      "export-sheet": {
+        "width": 100,
+        "height": 30,
+        "left": 270,
+        "top": 165
+      },
+      "expected": {
+        "width": 100,
+        "height": 30
+      },
+      "pass": true
+    },
+    {
+      "fixture": "scale-y",
+      "frame": 15,
+      "classic": {
+        "width": 100,
+        "height": 30,
+        "left": 270,
+        "top": 165
+      },
+      "export-sheet": {
+        "width": 100,
+        "height": 30,
+        "left": 270,
+        "top": 165
+      },
+      "expected": {
+        "width": 100,
+        "height": 30
+      },
+      "pass": true
+    },
+    {
+      "fixture": "scale-y",
+      "frame": 30,
+      "classic": {
+        "width": 100,
+        "height": 30,
+        "left": 270,
+        "top": 165
+      },
+      "export-sheet": {
+        "width": 100,
+        "height": 30,
+        "left": 270,
+        "top": 165
+      },
+      "expected": {
+        "width": 100,
+        "height": 30
+      },
+      "pass": true
+    },
+    {
+      "fixture": "scale-y",
+      "frame": 45,
+      "classic": {
+        "width": 100,
+        "height": 30,
+        "left": 270,
+        "top": 165
+      },
+      "export-sheet": {
+        "width": 100,
+        "height": 30,
+        "left": 270,
+        "top": 165
+      },
+      "expected": {
+        "width": 100,
+        "height": 30
+      },
+      "pass": true
+    },
+    {
+      "fixture": "scale-y",
+      "frame": 59,
+      "classic": {
+        "width": 100,
+        "height": 30,
+        "left": 270,
+        "top": 165
+      },
+      "export-sheet": {
+        "width": 100,
+        "height": 30,
+        "left": 270,
+        "top": 165
+      },
+      "expected": {
+        "width": 100,
+        "height": 30
+      },
+      "pass": true
+    },
+    {
+      "fixture": "rotated",
+      "frame": 0,
+      "classic": {
+        "width": 174.90380859375,
+        "height": 76.47113037109375,
+        "left": 232.548095703125,
+        "top": 141.76443481445312
+      },
+      "export-sheet": {
+        "width": 174.90380859375,
+        "height": 76.47113037109375,
+        "left": 232.548095703125,
+        "top": 141.76443481445312
+      },
+      "expected": {
+        "width": 174.9038105676658,
+        "height": 76.47114317029974
+      },
+      "pass": true
+    },
+    {
+      "fixture": "rotated",
+      "frame": 15,
+      "classic": {
+        "width": 174.90380859375,
+        "height": 76.47113037109375,
+        "left": 232.548095703125,
+        "top": 141.76443481445312
+      },
+      "export-sheet": {
+        "width": 174.90380859375,
+        "height": 76.47113037109375,
+        "left": 232.548095703125,
+        "top": 141.76443481445312
+      },
+      "expected": {
+        "width": 174.9038105676658,
+        "height": 76.47114317029974
+      },
+      "pass": true
+    },
+    {
+      "fixture": "rotated",
+      "frame": 30,
+      "classic": {
+        "width": 174.90380859375,
+        "height": 76.47113037109375,
+        "left": 232.548095703125,
+        "top": 141.76443481445312
+      },
+      "export-sheet": {
+        "width": 174.90380859375,
+        "height": 76.47113037109375,
+        "left": 232.548095703125,
+        "top": 141.76443481445312
+      },
+      "expected": {
+        "width": 174.9038105676658,
+        "height": 76.47114317029974
+      },
+      "pass": true
+    },
+    {
+      "fixture": "rotated",
+      "frame": 45,
+      "classic": {
+        "width": 174.90380859375,
+        "height": 76.47113037109375,
+        "left": 232.548095703125,
+        "top": 141.76443481445312
+      },
+      "export-sheet": {
+        "width": 174.90380859375,
+        "height": 76.47113037109375,
+        "left": 232.548095703125,
+        "top": 141.76443481445312
+      },
+      "expected": {
+        "width": 174.9038105676658,
+        "height": 76.47114317029974
+      },
+      "pass": true
+    },
+    {
+      "fixture": "rotated",
+      "frame": 59,
+      "classic": {
+        "width": 174.90380859375,
+        "height": 76.47113037109375,
+        "left": 232.548095703125,
+        "top": 141.76443481445312
+      },
+      "export-sheet": {
+        "width": 174.90380859375,
+        "height": 76.47113037109375,
+        "left": 232.548095703125,
+        "top": 141.76443481445312
+      },
+      "expected": {
+        "width": 174.9038105676658,
+        "height": 76.47114317029974
+      },
+      "pass": true
+    },
+    {
+      "fixture": "group-leaf",
+      "frame": 0,
+      "classic": {
+        "width": 250,
+        "height": 75,
+        "left": 215,
+        "top": 152.5
+      },
+      "export-sheet": {
+        "width": 250,
+        "height": 75,
+        "left": 215,
+        "top": 152.5
+      },
+      "expected": {
+        "width": 250,
+        "height": 75
+      },
+      "pass": true
+    },
+    {
+      "fixture": "group-leaf",
+      "frame": 15,
+      "classic": {
+        "width": 250,
+        "height": 75,
+        "left": 215,
+        "top": 152.5
+      },
+      "export-sheet": {
+        "width": 250,
+        "height": 75,
+        "left": 215,
+        "top": 152.5
+      },
+      "expected": {
+        "width": 250,
+        "height": 75
+      },
+      "pass": true
+    },
+    {
+      "fixture": "group-leaf",
+      "frame": 30,
+      "classic": {
+        "width": 250,
+        "height": 75,
+        "left": 215,
+        "top": 152.5
+      },
+      "export-sheet": {
+        "width": 250,
+        "height": 75,
+        "left": 215,
+        "top": 152.5
+      },
+      "expected": {
+        "width": 250,
+        "height": 75
+      },
+      "pass": true
+    },
+    {
+      "fixture": "group-leaf",
+      "frame": 45,
+      "classic": {
+        "width": 250,
+        "height": 75,
+        "left": 215,
+        "top": 152.5
+      },
+      "export-sheet": {
+        "width": 250,
+        "height": 75,
+        "left": 215,
+        "top": 152.5
+      },
+      "expected": {
+        "width": 250,
+        "height": 75
+      },
+      "pass": true
+    },
+    {
+      "fixture": "group-leaf",
+      "frame": 59,
+      "classic": {
+        "width": 250,
+        "height": 75,
+        "left": 215,
+        "top": 152.5
+      },
+      "export-sheet": {
+        "width": 250,
+        "height": 75,
+        "left": 215,
+        "top": 152.5
+      },
+      "expected": {
+        "width": 250,
+        "height": 75
+      },
+      "pass": true
+    },
+    {
+      "fixture": "keyframes",
+      "frame": 0,
+      "classic": {
+        "width": 100,
+        "height": 60,
+        "left": 270,
+        "top": 150
+      },
+      "export-sheet": {
+        "width": 100,
+        "height": 60,
+        "left": 270,
+        "top": 150
+      },
+      "expected": {
+        "width": 100,
+        "height": 60
+      },
+      "pass": true
+    },
+    {
+      "fixture": "keyframes",
+      "frame": 15,
+      "classic": {
+        "width": 125,
+        "height": 60,
+        "left": 257.5,
+        "top": 150
+      },
+      "export-sheet": {
+        "width": 125,
+        "height": 60,
+        "left": 257.5,
+        "top": 150
+      },
+      "expected": {
+        "width": 125,
+        "height": 60
+      },
+      "pass": true
+    },
+    {
+      "fixture": "keyframes",
+      "frame": 30,
+      "classic": {
+        "width": 150,
+        "height": 60,
+        "left": 245,
+        "top": 150
+      },
+      "export-sheet": {
+        "width": 150,
+        "height": 60,
+        "left": 245,
+        "top": 150
+      },
+      "expected": {
+        "width": 150,
+        "height": 60
+      },
+      "pass": true
+    },
+    {
+      "fixture": "keyframes",
+      "frame": 45,
+      "classic": {
+        "width": 175,
+        "height": 60,
+        "left": 232.5,
+        "top": 150
+      },
+      "export-sheet": {
+        "width": 175,
+        "height": 60,
+        "left": 232.5,
+        "top": 150
+      },
+      "expected": {
+        "width": 175,
+        "height": 60
+      },
+      "pass": true
+    },
+    {
+      "fixture": "keyframes",
+      "frame": 59,
+      "classic": {
+        "width": 198.33331298828125,
+        "height": 60,
+        "left": 220.83331298828125,
+        "top": 150
+      },
+      "export-sheet": {
+        "width": 198.33331298828125,
+        "height": 60,
+        "left": 220.83331298828125,
+        "top": 150
+      },
+      "expected": {
+        "width": 198.33333333333334,
+        "height": 60
+      },
+      "pass": true
+    },
+    {
+      "fixture": "legacy",
+      "frame": 0,
+      "classic": {
+        "width": 125,
+        "height": 75,
+        "left": 257.5,
+        "top": 142.5
+      },
+      "export-sheet": {
+        "width": 125,
+        "height": 75,
+        "left": 257.5,
+        "top": 142.5
+      },
+      "expected": {
+        "width": 125,
+        "height": 75
+      },
+      "pass": true
+    },
+    {
+      "fixture": "legacy",
+      "frame": 15,
+      "classic": {
+        "width": 125,
+        "height": 75,
+        "left": 257.5,
+        "top": 142.5
+      },
+      "export-sheet": {
+        "width": 125,
+        "height": 75,
+        "left": 257.5,
+        "top": 142.5
+      },
+      "expected": {
+        "width": 125,
+        "height": 75
+      },
+      "pass": true
+    },
+    {
+      "fixture": "legacy",
+      "frame": 30,
+      "classic": {
+        "width": 125,
+        "height": 75,
+        "left": 257.5,
+        "top": 142.5
+      },
+      "export-sheet": {
+        "width": 125,
+        "height": 75,
+        "left": 257.5,
+        "top": 142.5
+      },
+      "expected": {
+        "width": 125,
+        "height": 75
+      },
+      "pass": true
+    },
+    {
+      "fixture": "legacy",
+      "frame": 45,
+      "classic": {
+        "width": 125,
+        "height": 75,
+        "left": 257.5,
+        "top": 142.5
+      },
+      "export-sheet": {
+        "width": 125,
+        "height": 75,
+        "left": 257.5,
+        "top": 142.5
+      },
+      "expected": {
+        "width": 125,
+        "height": 75
+      },
+      "pass": true
+    },
+    {
+      "fixture": "legacy",
+      "frame": 59,
+      "classic": {
+        "width": 125,
+        "height": 75,
+        "left": 257.5,
+        "top": 142.5
+      },
+      "export-sheet": {
+        "width": 125,
+        "height": 75,
+        "left": 257.5,
+        "top": 142.5
+      },
+      "expected": {
+        "width": 125,
+        "height": 75
+      },
+      "pass": true
+    }
+  ],
+  "pass": true
+}

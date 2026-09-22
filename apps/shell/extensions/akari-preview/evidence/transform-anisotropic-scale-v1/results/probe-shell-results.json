@@ -1,0 +1,65 @@
+{
+  "startedAt": "2026-09-22T09:14:46.186Z",
+  "executable": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron",
+  "port": 9837,
+  "tolerancePx": 1,
+  "pass": false,
+  "cases": [
+    {
+      "fixture": "legacy-keyframes",
+      "expectedFrames": [
+        30,
+        59
+      ],
+      "pass": false,
+      "measurements": [
+        {
+          "frame": 30,
+          "measured": {
+            "width": 150,
+            "height": 90.0000060133163,
+            "time": 1,
+            "frame": 30,
+            "tickSequence": 2,
+            "seekValue": 1,
+            "stage": {
+              "width": 812,
+              "height": 456.7499694824219
+            },
+            "clientBounds": {
+              "left": 346.84375,
+              "top": 195.90625,
+              "width": 190.3125,
+              "height": 114.1875
+            },
+            "matrix": "matrix(1.5, 0, 0, 1.5, 0, 0)",
+            "scaleX": "",
+            "scaleY": ""
+          },
+          "expected": {
+            "width": 150,
+            "height": 90
+          },
+          "delta": {
+            "width": 0,
+            "height": 0.000006013316294684046
+          },
+          "pass": true,
+          "screenshot": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/probe-shell-legacy-keyframes-frame-30.png"
+        }
+      ],
+      "startedAt": "2026-09-22T09:14:46.197Z",
+      "project": "/private/var/folders/j1/hl65g8x91mv4hl8rm7q04j440000gn/T/akari-axis-shell-kDNS5R/project",
+      "editSha256": "ab2f6f7ee3de229ea0f910fab33742e48c48dda65bcd1477ebf868d7a17a907e",
+      "electronLog": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/probe-shell-legacy-keyframes-electron.log",
+      "error": "Error: timeout: rendered frame 59\n    at waitFor (file:///Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/probe-shell.tmp.mjs:141:17)\n    at async main (file:///Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/probe-shell.tmp.mjs:249:28)\n    at async file:///Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/probe-shell.tmp.mjs:306:3",
+      "electronExit": {
+        "code": null,
+        "signal": "SIGKILL"
+      },
+      "workspaceRemoved": true,
+      "finishedAt": "2026-09-22T09:16:14.344Z"
+    }
+  ],
+  "finishedAt": "2026-09-22T09:16:14.350Z"
+}

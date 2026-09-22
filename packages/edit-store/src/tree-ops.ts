@@ -1,3 +1,4 @@
+import { effectiveScale, normalizeTransform } from './transform';
 import type { EditV2, ItemV2, KeyframeV2, TrackV2, TransformV2 } from './edit-v2';
 import {
     type AnchorCaption,
@@ -33,7 +34,7 @@ export interface ProjectedItemTiming {
 }
 
 export type KeyframeProperty =
-    | 'transform.x' | 'transform.y' | 'transform.scale' | 'transform.rotate'
+    | 'transform.x' | 'transform.y' | 'transform.scale' | 'transform.scaleX' | 'transform.scaleY' | 'transform.rotate'
     | 'opacity' | 'crop' | 'perspective';
 
 export type SegmentEasing = string;
@@ -586,7 +587,7 @@ export function opacityOfAncestors(ancestors: MutableItem[]): number {
 }
 
 export function composeTransforms(parent?: TransformV2, child?: TransformV2): TransformV2 | undefined {
-    if (parent === undefined) return child === undefined ? undefined : { ...child };
+    if (parent === undefined) return child === undefined ? undefined : normalizeTransform(child);
     if (child === undefined) return { ...parent };
     const scale = parent.scale ?? 1;
     const radians = (parent.rotate ?? 0) * Math.PI / 180;
@@ -600,12 +601,17 @@ export function composeTransforms(parent?: TransformV2, child?: TransformV2): Tr
         result.y = (parent.y ?? 0) + scale * (childX * Math.sin(radians) + childY * Math.cos(radians));
     }
     if (parent.scale !== undefined || child.scale !== undefined) result.scale = scale * (child.scale ?? 1);
+    if (child.scaleX !== undefined || child.scaleY !== undefined) {
+        const axes = effectiveScale(child);
+        result.scaleX = scale * axes.x;
+        result.scaleY = scale * axes.y;
+    }
     if (parent.rotate !== undefined || child.rotate !== undefined) result.rotate = (parent.rotate ?? 0) + (child.rotate ?? 0);
-    return Object.keys(result).length === 0 ? undefined : result;
+    return Object.keys(result).length === 0 ? undefined : normalizeTransform(result);
 }
 
 export function relativeTransform(parent: TransformV2 | undefined, world: TransformV2 | undefined): TransformV2 | undefined {
-    if (parent === undefined) return world === undefined ? undefined : { ...world };
+    if (parent === undefined) return world === undefined ? undefined : normalizeTransform(world);
     if (world === undefined) return undefined;
     const scale = parent.scale ?? 1;
     const radians = -(parent.rotate ?? 0) * Math.PI / 180;
@@ -617,8 +623,13 @@ export function relativeTransform(parent: TransformV2 | undefined, world: Transf
         result.y = (dx * Math.sin(radians) + dy * Math.cos(radians)) / scale;
     }
     if (world.scale !== undefined || parent.scale !== undefined) result.scale = (world.scale ?? 1) / scale;
+    if (world.scaleX !== undefined || world.scaleY !== undefined) {
+        const axes = effectiveScale(world);
+        result.scaleX = axes.x / scale;
+        result.scaleY = axes.y / scale;
+    }
     if (world.rotate !== undefined || parent.rotate !== undefined) result.rotate = (world.rotate ?? 0) - (parent.rotate ?? 0);
-    return Object.keys(result).length === 0 ? undefined : result;
+    return Object.keys(result).length === 0 ? undefined : normalizeTransform(result);
 }
 
 export function ensureChildren(item: MutableItem, create = true): MutableItem[] {
@@ -698,7 +709,7 @@ function keyframeValue(point: KeyframeV2, property: KeyframeProperty): unknown {
 
 function keyframeProperties(point: KeyframeV2): KeyframeProperty[] {
     const result: KeyframeProperty[] = [];
-    for (const property of ['transform.x', 'transform.y', 'transform.scale', 'transform.rotate'] as const) {
+    for (const property of ['transform.x', 'transform.y', 'transform.scale', 'transform.scaleX', 'transform.scaleY', 'transform.rotate'] as const) {
         if (keyframeValue(point, property) !== undefined) result.push(property);
     }
     for (const property of ['opacity', 'crop', 'perspective'] as const) {

@@ -6,7 +6,7 @@ export interface EditCut {
     in: number;
     out: number;
     src?: string;
-    transform?: { x?: number; y?: number; scale?: number; rotate?: number };
+    transform?: { x?: number; y?: number; scale?: number; scaleX?: number; scaleY?: number; rotate?: number };
     opacity?: number;
     speed?: number;
     transitionOut?: {
@@ -55,7 +55,7 @@ export interface EditLayer {
     mask?: string;
     track?: number;
     preset?: string;
-    transform?: { x?: number; y?: number; scale?: number; rotate?: number };
+    transform?: { x?: number; y?: number; scale?: number; scaleX?: number; scaleY?: number; rotate?: number };
     opacity?: number;
     blend?: LayerBlendMode;
     chromaKey?: { color: string; similarity?: number; blend?: number };
@@ -407,10 +407,10 @@ export function setCutSpeedInSource(source: string, cutIndex: number, speed: num
 export function updateCutTransformInSource(
     source: string,
     cutIndex: number,
-    updates: { x?: number | null; y?: number | null; scale?: number | null; rotate?: number | null }
+    updates: { x?: number | null; y?: number | null; scale?: number | null; scaleX?: number | null; scaleY?: number | null; rotate?: number | null }
 ): string {
     if (updates.x === undefined && updates.y === undefined
-        && updates.scale === undefined && updates.rotate === undefined) {
+        && updates.scale === undefined && updates.scaleX === undefined && updates.scaleY === undefined && updates.rotate === undefined) {
         throw new Error('変更する transform フィールドを指定してください。');
     }
     for (const property of ['x', 'y', 'rotate'] as const) {
@@ -419,9 +419,11 @@ export function updateCutTransformInSource(
             throw new Error(`transform.${property} は有限数で指定してください。`);
         }
     }
-    if (updates.scale !== undefined && updates.scale !== null
-        && (!Number.isFinite(updates.scale) || updates.scale <= 0)) {
-        throw new Error('transform.scale は正の数で指定してください。');
+    for (const key of ['scale', 'scaleX', 'scaleY'] as const) {
+        const value = updates[key];
+        if (value !== undefined && value !== null && (!Number.isFinite(value) || value <= 0)) {
+            throw new Error(`transform.${key} は正の数で指定してください。`);
+        }
     }
     return updateArrayElementByIndex(source, 'cuts', cutIndex, 'クリップ', element => {
         const hasTransform = hasTopLevelProperty(element, 'transform');
@@ -436,7 +438,7 @@ export function updateCutTransformInSource(
         }
         const located = locateTopLevelObjectProperty(element, 'transform');
         let transform = located.text;
-        for (const property of ['x', 'y', 'scale', 'rotate'] as const) {
+        for (const property of ['x', 'y', 'scale', 'scaleX', 'scaleY', 'rotate'] as const) {
             const value = updates[property];
             if (value === undefined) {
                 continue;
@@ -857,10 +859,10 @@ export function updateLayerInSource(
 export function updateLayerTransformInSource(
     source: string,
     layerId: string,
-    updates: { x?: number | null; y?: number | null; scale?: number | null; rotate?: number | null }
+    updates: { x?: number | null; y?: number | null; scale?: number | null; scaleX?: number | null; scaleY?: number | null; rotate?: number | null }
 ): string {
     if (updates.x === undefined && updates.y === undefined
-        && updates.scale === undefined && updates.rotate === undefined) {
+        && updates.scale === undefined && updates.scaleX === undefined && updates.scaleY === undefined && updates.rotate === undefined) {
         throw new Error('変更する transform フィールドを指定してください。');
     }
     for (const property of ['x', 'y', 'rotate'] as const) {
@@ -869,9 +871,11 @@ export function updateLayerTransformInSource(
             throw new Error(`transform.${property} は有限数で指定してください。`);
         }
     }
-    if (updates.scale !== undefined && updates.scale !== null
-        && (!Number.isFinite(updates.scale) || updates.scale <= 0)) {
-        throw new Error('transform.scale は正の数で指定してください。');
+    for (const key of ['scale', 'scaleX', 'scaleY'] as const) {
+        const value = updates[key];
+        if (value !== undefined && value !== null && (!Number.isFinite(value) || value <= 0)) {
+            throw new Error(`transform.${key} は正の数で指定してください。`);
+        }
     }
     return updateArrayElementById(source, 'layers', layerId, '素材', element => {
         const hasTransform = hasTopLevelProperty(element, 'transform');
@@ -886,7 +890,7 @@ export function updateLayerTransformInSource(
         }
         const located = locateTopLevelObjectProperty(element, 'transform');
         let transform = located.text;
-        for (const property of ['x', 'y', 'scale', 'rotate'] as const) {
+        for (const property of ['x', 'y', 'scale', 'scaleX', 'scaleY', 'rotate'] as const) {
             const value = updates[property];
             if (value === undefined) {
                 continue;

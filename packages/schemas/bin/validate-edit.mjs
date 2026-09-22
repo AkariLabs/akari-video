@@ -642,8 +642,10 @@ function validateLayerTransform(value, label) {
       fail(`${label}.${field} は有限数である必要があります`);
     }
   }
-  if (hasOwn(value, "scale") && (!isFiniteNumber(value.scale) || value.scale <= 0)) {
-    fail(`${label}.scale は 0 より大きい有限数である必要があります`);
+  for (const key of ["scale", "scaleX", "scaleY"]) {
+    if (hasOwn(value, key) && (!isFiniteNumber(value[key]) || value[key] <= 0)) {
+      fail(`${label}.${key} は 0 より大きい有限数である必要があります`);
+    }
   }
 }
 
@@ -1341,7 +1343,7 @@ function validateCutTransform(value, label) {
     fail(`${label} は object である必要があります`);
     return;
   }
-  const allowedKeys = new Set(["x", "y", "scale", "rotate"]);
+  const allowedKeys = new Set(["x", "y", "scale", "scaleX", "scaleY", "rotate"]);
   for (const key of Object.keys(value)) {
     if (!allowedKeys.has(key)) {
       fail(`${label} に未知のキーがあります: ${key}`);
@@ -1352,8 +1354,10 @@ function validateCutTransform(value, label) {
       fail(`${label}.${field} は有限数である必要があります`);
     }
   }
-  if (hasOwn(value, "scale") && (!isFiniteNumber(value.scale) || value.scale <= 0)) {
-    fail(`${label}.scale は 0 より大きい有限数である必要があります`);
+  for (const key of ["scale", "scaleX", "scaleY"]) {
+    if (hasOwn(value, key) && (!isFiniteNumber(value[key]) || value[key] <= 0)) {
+      fail(`${label}.${key} は 0 より大きい有限数である必要があります`);
+    }
   }
 }
 

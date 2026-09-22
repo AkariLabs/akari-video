@@ -1,0 +1,4661 @@
+{
+  "measuredAt": "2026-09-22T21:22:29.588Z",
+  "frames": [
+    0,
+    15,
+    30,
+    45,
+    59
+  ],
+  "checks": [
+    {
+      "name": "legacy-read-byte-invariant",
+      "pass": true
+    },
+    {
+      "name": "legacy-canonical-byte-invariant",
+      "pass": true
+    },
+    {
+      "name": "group-axis-rejected",
+      "pass": true
+    }
+  ],
+  "surfaces": [
+    {
+      "fixture": "scale-x",
+      "surface": "web",
+      "measuredAt": "2026-09-22T21:22:29.601Z",
+      "status": "passed",
+      "outputs": [
+        {
+          "frameNumber": 0,
+          "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/scale-x/web/frame-0.png",
+          "measured": {
+            "width": 200,
+            "height": 60,
+            "renderedTime": 0,
+            "renderedFrame": 0,
+            "seekMax": 2,
+            "stage": {
+              "x": 16,
+              "y": 59,
+              "width": 1248,
+              "height": 702
+            },
+            "usedFragmentBounds": true
+          },
+          "expected": {
+            "width": 200,
+            "height": 60
+          },
+          "pass": true
+        },
+        {
+          "frameNumber": 15,
+          "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/scale-x/web/frame-15.png",
+          "measured": {
+            "width": 200,
+            "height": 60,
+            "renderedTime": 0.5,
+            "renderedFrame": 15,
+            "seekMax": 2,
+            "stage": {
+              "x": 16,
+              "y": 59,
+              "width": 1248,
+              "height": 702
+            },
+            "usedFragmentBounds": true
+          },
+          "expected": {
+            "width": 200,
+            "height": 60
+          },
+          "pass": true
+        },
+        {
+          "frameNumber": 30,
+          "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/scale-x/web/frame-30.png",
+          "measured": {
+            "width": 200,
+            "height": 60,
+            "renderedTime": 1,
+            "renderedFrame": 30,
+            "seekMax": 2,
+            "stage": {
+              "x": 16,
+              "y": 59,
+              "width": 1248,
+              "height": 702
+            },
+            "usedFragmentBounds": true
+          },
+          "expected": {
+            "width": 200,
+            "height": 60
+          },
+          "pass": true
+        },
+        {
+          "frameNumber": 45,
+          "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/scale-x/web/frame-45.png",
+          "measured": {
+            "width": 200,
+            "height": 60,
+            "renderedTime": 1.5,
+            "renderedFrame": 45,
+            "seekMax": 2,
+            "stage": {
+              "x": 16,
+              "y": 59,
+              "width": 1248,
+              "height": 702
+            },
+            "usedFragmentBounds": true
+          },
+          "expected": {
+            "width": 200,
+            "height": 60
+          },
+          "pass": true
+        },
+        {
+          "frameNumber": 59,
+          "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/scale-x/web/frame-59.png",
+          "measured": {
+            "width": 200,
+            "height": 60,
+            "renderedTime": 1.9666666666666666,
+            "renderedFrame": 59,
+            "seekMax": 2,
+            "stage": {
+              "x": 16,
+              "y": 59,
+              "width": 1248,
+              "height": 702
+            },
+            "usedFragmentBounds": true
+          },
+          "expected": {
+            "width": 200,
+            "height": 60
+          },
+          "pass": true
+        }
+      ],
+      "mergedFrom": "results-web-all.json"
+    },
+    {
+      "fixture": "scale-x",
+      "surface": "gpu",
+      "measuredAt": "2026-09-22T20:23:11.120Z",
+      "status": "passed",
+      "outputs": [
+        {
+          "frameNumber": 0,
+          "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/scale-x/gpu/frame-0.png",
+          "bytes": 921600
+        },
+        {
+          "frameNumber": 15,
+          "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/scale-x/gpu/frame-15.png",
+          "bytes": 921600
+        },
+        {
+          "frameNumber": 30,
+          "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/scale-x/gpu/frame-30.png",
+          "bytes": 921600
+        },
+        {
+          "frameNumber": 45,
+          "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/scale-x/gpu/frame-45.png",
+          "bytes": 921600
+        },
+        {
+          "frameNumber": 59,
+          "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/scale-x/gpu/frame-59.png",
+          "bytes": 921600
+        }
+      ],
+      "receipt": {
+        "launcherTier": 2,
+        "operation": "capture",
+        "verify": {
+          "mode": "frame-engine-readback",
+          "matched": true,
+          "frameNumbers": [
+            0,
+            15,
+            30,
+            45,
+            59
+          ]
+        },
+        "gpu": {
+          "encoder": "WebCodecsH264Encoder",
+          "hardware": "prefer-hardware",
+          "renderer": {
+            "vendor": "Google Inc. (Apple)",
+            "renderer": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1, Unspecified Version)"
+          },
+          "encoder_support": null,
+          "uploadPath": "direct",
+          "quality": "high",
+          "bitrate": 12000000,
+          "bitrateSource": "quality-preset",
+          "rateControl": null,
+          "rateControlFallbackReason": null,
+          "quantizer": null,
+          "codec": "h264",
+          "queueDepth": 3,
+          "queueWaits": 0,
+          "glTiming": null,
+          "trapReadback": false,
+          "readbackCounters": {
+            "webglReadbackCalls": 0,
+            "videoFrameCopyCalls": 0,
+            "canvasBlobCalls": 0,
+            "canvasDataUrlCalls": 0,
+            "canvasPixelReadCalls": 0,
+            "bitmapCreationCalls": 0
+          },
+          "captions": [],
+          "captionLayoutMaxDeltaPx": 0,
+          "captionMeasureAttempts": {
+            "count": 0,
+            "p50": null,
+            "max": null
+          },
+          "captionMeasureDiffs": {
+            "totalCount": 0,
+            "shownCount": 0,
+            "truncated": false,
+            "entries": []
+          },
+          "captionRasterTotalMs": 0,
+          "captionRasterBatches": {
+            "batches": 0,
+            "unitsPerBatchMax": 0,
+            "bandsMax": 0
+          },
+          "captionStartup": {
+            "totalMs": 0.20000004768371582,
+            "fontEncodeMs": 0,
+            "fontBase64Bytes": 0,
+            "measure": {
+              "stableCalls": 0,
+              "reusedStableCalls": 0,
+              "passes": 0,
+              "variantMeasurements": 0,
+              "totalMs": 0,
+              "p50": null,
+              "p95": null,
+              "max": null,
+              "fontWaitMs": 0,
+              "layoutMs": 0,
+              "rootMs": 0,
+              "distinctKeys": 0,
+              "duplicatePasses": 0,
+              "degradedUnits": 0,
+              "faultInjected": false
+            },
+            "raster": {
+              "batches": 0,
+              "bands": 0,
+              "units": 0,
+              "svgBuildMs": 0,
+              "svgChars": 0,
+              "assertMs": 0,
+              "srcAssignMs": 0,
+              "decodeMs": 0,
+              "sheetDrawMs": 0,
+              "drawImageMs": 0,
+              "registerMs": 0,
+              "totalMs": 0,
+              "prefetchedBatches": 0,
+              "prefetchMs": 0
+            }
+          },
+          "previewEvery": 0,
+          "previewFrames": 0,
+          "previewDisabledReason": null,
+          "platform": "darwin",
+          "chromium": "142.0.7444.265",
+          "devices": [
+            {
+              "vendor_id": 4203,
+              "device_id": 0,
+              "device_string": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1, Version 26.2 (Build 25C56))",
+              "active": true,
+              "gpu_preference": 0
+            }
+          ]
+        },
+        "viewport": {
+          "requested": {
+            "width": 640,
+            "height": 360
+          },
+          "measured": {
+            "width": 640,
+            "height": 360
+          },
+          "emulated": false,
+          "display": {
+            "width": 1680,
+            "height": 1050
+          }
+        },
+        "eligibility": {
+          "eligible": true,
+          "entries": [
+            {
+              "kind": "overlay",
+              "id": "leaf",
+              "classification": "same",
+              "reason": "static-html-sprite",
+              "conditions": []
+            }
+          ],
+          "summary": {
+            "same": 1,
+            "three": 0,
+            "dom": 0,
+            "degraded": 0,
+            "unsupported": 0
+          }
+        },
+        "elapsedMs": 126,
+        "gpu_preference": {
+          "policy": "auto",
+          "exit": "gpu",
+          "applied": false,
+          "previous": null,
+          "restored": null,
+          "reason": "platform",
+          "recovered_stale": false
+        }
+      },
+      "mergedFrom": "results-gpu-scale-x.json"
+    },
+    {
+      "fixture": "scale-x",
+      "surface": "osr",
+      "measuredAt": "2026-09-22T20:23:18.846Z",
+      "status": "passed",
+      "outputs": [
+        {
+          "frameNumber": 0,
+          "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/scale-x/osr/frame-0.png",
+          "sha256": "69092b1b433f57cde4e50622fc8114a97a2f920569a8073d1ca272c7ce34ee06"
+        },
+        {
+          "frameNumber": 15,
+          "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/scale-x/osr/frame-15.png",
+          "sha256": "69092b1b433f57cde4e50622fc8114a97a2f920569a8073d1ca272c7ce34ee06"
+        },
+        {
+          "frameNumber": 30,
+          "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/scale-x/osr/frame-30.png",
+          "sha256": "69092b1b433f57cde4e50622fc8114a97a2f920569a8073d1ca272c7ce34ee06"
+        },
+        {
+          "frameNumber": 45,
+          "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/scale-x/osr/frame-45.png",
+          "sha256": "69092b1b433f57cde4e50622fc8114a97a2f920569a8073d1ca272c7ce34ee06"
+        },
+        {
+          "frameNumber": 59,
+          "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/scale-x/osr/frame-59.png",
+          "sha256": "69092b1b433f57cde4e50622fc8114a97a2f920569a8073d1ca272c7ce34ee06"
+        }
+      ],
+      "receipt": {
+        "launcherTier": 2,
+        "operation": "capture",
+        "page": {
+          "version": 1,
+          "dimensions": {
+            "width": 640,
+            "height": 360,
+            "pageHeight": 361
+          },
+          "fps": 30,
+          "duration": 2,
+          "layers": [
+            "engine-canvas",
+            "dom-captions",
+            "html-overlays",
+            "three-canvas"
+          ],
+          "captionOverlayCount": 0,
+          "overlayCount": 1,
+          "lutApplication": "none",
+          "adjustApplication": "none",
+          "stampRow": true
+        },
+        "verify": {
+          "mode": "stamp",
+          "matched": true,
+          "frames": [
+            {
+              "frameNumber": 0,
+              "matched": true,
+              "decodedFrameNumber": 0,
+              "expectedFrameNumber": 0,
+              "retries": 0
+            },
+            {
+              "frameNumber": 15,
+              "matched": true,
+              "decodedFrameNumber": 15,
+              "expectedFrameNumber": 15,
+              "retries": 0
+            },
+            {
+              "frameNumber": 30,
+              "matched": true,
+              "decodedFrameNumber": 30,
+              "expectedFrameNumber": 30,
+              "retries": 0
+            },
+            {
+              "frameNumber": 45,
+              "matched": true,
+              "decodedFrameNumber": 45,
+              "expectedFrameNumber": 45,
+              "retries": 0
+            },
+            {
+              "frameNumber": 59,
+              "matched": true,
+              "decodedFrameNumber": 59,
+              "expectedFrameNumber": 59,
+              "retries": 0
+            }
+          ]
+        },
+        "viewport": {
+          "requested": {
+            "width": 640,
+            "height": 361
+          },
+          "measured": {
+            "width": 640,
+            "height": 361
+          },
+          "emulated": false,
+          "display": {
+            "width": 1680,
+            "height": 1050
+          },
+          "work_area": {
+            "width": 1680,
+            "height": 959
+          }
+        },
+        "warm_up": {
+          "attempts": 2,
+          "empty_attempts": 1,
+          "elapsed_ms": 17,
+          "satisfied": true
+        },
+        "elapsedMs": 692.53975
+      },
+      "mergedFrom": "results-osr-scale-x.json"
+    },
+    {
+      "fixture": "scale-y",
+      "surface": "web",
+      "measuredAt": "2026-09-22T21:22:34.579Z",
+      "status": "passed",
+      "outputs": [
+        {
+          "frameNumber": 0,
+          "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/scale-y/web/frame-0.png",
+          "measured": {
+            "width": 100,
+            "height": 30,
+            "renderedTime": 0,
+            "renderedFrame": 0,
+            "seekMax": 2,
+            "stage": {
+              "x": 16,
+              "y": 59,
+              "width": 1248,
+              "height": 702
+            },
+            "usedFragmentBounds": true
+          },
+          "expected": {
+            "width": 100,
+            "height": 30
+          },
+          "pass": true
+        },
+        {
+          "frameNumber": 15,
+          "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/scale-y/web/frame-15.png",
+          "measured": {
+            "width": 100,
+            "height": 30,
+            "renderedTime": 0.5,
+            "renderedFrame": 15,
+            "seekMax": 2,
+            "stage": {
+              "x": 16,
+              "y": 59,
+              "width": 1248,
+              "height": 702
+            },
+            "usedFragmentBounds": true
+          },
+          "expected": {
+            "width": 100,
+            "height": 30
+          },
+          "pass": true
+        },
+        {
+          "frameNumber": 30,
+          "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/scale-y/web/frame-30.png",
+          "measured": {
+            "width": 100,
+            "height": 30,
+            "renderedTime": 1,
+            "renderedFrame": 30,
+            "seekMax": 2,
+            "stage": {
+              "x": 16,
+              "y": 59,
+              "width": 1248,
+              "height": 702
+            },
+            "usedFragmentBounds": true
+          },
+          "expected": {
+            "width": 100,
+            "height": 30
+          },
+          "pass": true
+        },
+        {
+          "frameNumber": 45,
+          "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/scale-y/web/frame-45.png",
+          "measured": {
+            "width": 100,
+            "height": 30,
+            "renderedTime": 1.5,
+            "renderedFrame": 45,
+            "seekMax": 2,
+            "stage": {
+              "x": 16,
+              "y": 59,
+              "width": 1248,
+              "height": 702
+            },
+            "usedFragmentBounds": true
+          },
+          "expected": {
+            "width": 100,
+            "height": 30
+          },
+          "pass": true
+        },
+        {
+          "frameNumber": 59,
+          "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/scale-y/web/frame-59.png",
+          "measured": {
+            "width": 100,
+            "height": 30,
+            "renderedTime": 1.9666666666666666,
+            "renderedFrame": 59,
+            "seekMax": 2,
+            "stage": {
+              "x": 16,
+              "y": 59,
+              "width": 1248,
+              "height": 702
+            },
+            "usedFragmentBounds": true
+          },
+          "expected": {
+            "width": 100,
+            "height": 30
+          },
+          "pass": true
+        }
+      ],
+      "mergedFrom": "results-web-all.json"
+    },
+    {
+      "fixture": "scale-y",
+      "surface": "gpu",
+      "measuredAt": "2026-09-22T20:23:22.801Z",
+      "status": "passed",
+      "outputs": [
+        {
+          "frameNumber": 0,
+          "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/scale-y/gpu/frame-0.png",
+          "bytes": 921600
+        },
+        {
+          "frameNumber": 15,
+          "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/scale-y/gpu/frame-15.png",
+          "bytes": 921600
+        },
+        {
+          "frameNumber": 30,
+          "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/scale-y/gpu/frame-30.png",
+          "bytes": 921600
+        },
+        {
+          "frameNumber": 45,
+          "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/scale-y/gpu/frame-45.png",
+          "bytes": 921600
+        },
+        {
+          "frameNumber": 59,
+          "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/scale-y/gpu/frame-59.png",
+          "bytes": 921600
+        }
+      ],
+      "receipt": {
+        "launcherTier": 2,
+        "operation": "capture",
+        "verify": {
+          "mode": "frame-engine-readback",
+          "matched": true,
+          "frameNumbers": [
+            0,
+            15,
+            30,
+            45,
+            59
+          ]
+        },
+        "gpu": {
+          "encoder": "WebCodecsH264Encoder",
+          "hardware": "prefer-hardware",
+          "renderer": {
+            "vendor": "Google Inc. (Apple)",
+            "renderer": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1, Unspecified Version)"
+          },
+          "encoder_support": null,
+          "uploadPath": "direct",
+          "quality": "high",
+          "bitrate": 12000000,
+          "bitrateSource": "quality-preset",
+          "rateControl": null,
+          "rateControlFallbackReason": null,
+          "quantizer": null,
+          "codec": "h264",
+          "queueDepth": 3,
+          "queueWaits": 0,
+          "glTiming": null,
+          "trapReadback": false,
+          "readbackCounters": {
+            "webglReadbackCalls": 0,
+            "videoFrameCopyCalls": 0,
+            "canvasBlobCalls": 0,
+            "canvasDataUrlCalls": 0,
+            "canvasPixelReadCalls": 0,
+            "bitmapCreationCalls": 0
+          },
+          "captions": [],
+          "captionLayoutMaxDeltaPx": 0,
+          "captionMeasureAttempts": {
+            "count": 0,
+            "p50": null,
+            "max": null
+          },
+          "captionMeasureDiffs": {
+            "totalCount": 0,
+            "shownCount": 0,
+            "truncated": false,
+            "entries": []
+          },
+          "captionRasterTotalMs": 0,
+          "captionRasterBatches": {
+            "batches": 0,
+            "unitsPerBatchMax": 0,
+            "bandsMax": 0
+          },
+          "captionStartup": {
+            "totalMs": 0.09999990463256836,
+            "fontEncodeMs": 0,
+            "fontBase64Bytes": 0,
+            "measure": {
+              "stableCalls": 0,
+              "reusedStableCalls": 0,
+              "passes": 0,
+              "variantMeasurements": 0,
+              "totalMs": 0,
+              "p50": null,
+              "p95": null,
+              "max": null,
+              "fontWaitMs": 0,
+              "layoutMs": 0,
+              "rootMs": 0,
+              "distinctKeys": 0,
+              "duplicatePasses": 0,
+              "degradedUnits": 0,
+              "faultInjected": false
+            },
+            "raster": {
+              "batches": 0,
+              "bands": 0,
+              "units": 0,
+              "svgBuildMs": 0,
+              "svgChars": 0,
+              "assertMs": 0,
+              "srcAssignMs": 0,
+              "decodeMs": 0,
+              "sheetDrawMs": 0,
+              "drawImageMs": 0,
+              "registerMs": 0,
+              "totalMs": 0,
+              "prefetchedBatches": 0,
+              "prefetchMs": 0
+            }
+          },
+          "previewEvery": 0,
+          "previewFrames": 0,
+          "previewDisabledReason": null,
+          "platform": "darwin",
+          "chromium": "142.0.7444.265",
+          "devices": [
+            {
+              "vendor_id": 4203,
+              "device_id": 0,
+              "device_string": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1, Version 26.2 (Build 25C56))",
+              "active": true,
+              "gpu_preference": 0
+            }
+          ]
+        },
+        "viewport": {
+          "requested": {
+            "width": 640,
+            "height": 360
+          },
+          "measured": {
+            "width": 640,
+            "height": 360
+          },
+          "emulated": false,
+          "display": {
+            "width": 1680,
+            "height": 1050
+          }
+        },
+        "eligibility": {
+          "eligible": true,
+          "entries": [
+            {
+              "kind": "overlay",
+              "id": "leaf",
+              "classification": "same",
+              "reason": "static-html-sprite",
+              "conditions": []
+            }
+          ],
+          "summary": {
+            "same": 1,
+            "three": 0,
+            "dom": 0,
+            "degraded": 0,
+            "unsupported": 0
+          }
+        },
+        "elapsedMs": 94.29999995231628,
+        "gpu_preference": {
+          "policy": "auto",
+          "exit": "gpu",
+          "applied": false,
+          "previous": null,
+          "restored": null,
+          "reason": "platform",
+          "recovered_stale": false
+        }
+      },
+      "mergedFrom": "results-gpu-scale-y.json"
+    },
+    {
+      "fixture": "scale-y",
+      "surface": "osr",
+      "measuredAt": "2026-09-22T20:28:41.201Z",
+      "status": "passed",
+      "outputs": [
+        {
+          "frameNumber": 0,
+          "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/scale-y/osr/frame-0.png",
+          "sha256": "1b330d913aebe849053e09b996d58527075c383b8d27dfb2246233447fc25843"
+        },
+        {
+          "frameNumber": 15,
+          "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/scale-y/osr/frame-15.png",
+          "sha256": "1b330d913aebe849053e09b996d58527075c383b8d27dfb2246233447fc25843"
+        },
+        {
+          "frameNumber": 30,
+          "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/scale-y/osr/frame-30.png",
+          "sha256": "1b330d913aebe849053e09b996d58527075c383b8d27dfb2246233447fc25843"
+        },
+        {
+          "frameNumber": 45,
+          "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/scale-y/osr/frame-45.png",
+          "sha256": "1b330d913aebe849053e09b996d58527075c383b8d27dfb2246233447fc25843"
+        },
+        {
+          "frameNumber": 59,
+          "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/scale-y/osr/frame-59.png",
+          "sha256": "1b330d913aebe849053e09b996d58527075c383b8d27dfb2246233447fc25843"
+        }
+      ],
+      "receipt": {
+        "launcherTier": 2,
+        "operation": "capture",
+        "page": {
+          "version": 1,
+          "dimensions": {
+            "width": 640,
+            "height": 360,
+            "pageHeight": 361
+          },
+          "fps": 30,
+          "duration": 2,
+          "layers": [
+            "engine-canvas",
+            "dom-captions",
+            "html-overlays",
+            "three-canvas"
+          ],
+          "captionOverlayCount": 0,
+          "overlayCount": 1,
+          "lutApplication": "none",
+          "adjustApplication": "none",
+          "stampRow": true
+        },
+        "verify": {
+          "mode": "stamp",
+          "matched": true,
+          "frames": [
+            {
+              "frameNumber": 0,
+              "matched": true,
+              "decodedFrameNumber": 0,
+              "expectedFrameNumber": 0,
+              "retries": 0
+            },
+            {
+              "frameNumber": 15,
+              "matched": true,
+              "decodedFrameNumber": 15,
+              "expectedFrameNumber": 15,
+              "retries": 0
+            },
+            {
+              "frameNumber": 30,
+              "matched": true,
+              "decodedFrameNumber": 30,
+              "expectedFrameNumber": 30,
+              "retries": 0
+            },
+            {
+              "frameNumber": 45,
+              "matched": true,
+              "decodedFrameNumber": 45,
+              "expectedFrameNumber": 45,
+              "retries": 0
+            },
+            {
+              "frameNumber": 59,
+              "matched": true,
+              "decodedFrameNumber": 59,
+              "expectedFrameNumber": 59,
+              "retries": 0
+            }
+          ]
+        },
+        "viewport": {
+          "requested": {
+            "width": 640,
+            "height": 361
+          },
+          "measured": {
+            "width": 640,
+            "height": 361
+          },
+          "emulated": false,
+          "display": {
+            "width": 1680,
+            "height": 1050
+          },
+          "work_area": {
+            "width": 1680,
+            "height": 959
+          }
+        },
+        "warm_up": {
+          "attempts": 2,
+          "empty_attempts": 1,
+          "elapsed_ms": 27,
+          "satisfied": true
+        },
+        "elapsedMs": 1222.4627919999998
+      },
+      "mergedFrom": "results-osr-scale-y.json"
+    },
+    {
+      "fixture": "rotated",
+      "surface": "web",
+      "measuredAt": "2026-09-22T21:22:37.080Z",
+      "status": "passed",
+      "outputs": [
+        {
+          "frameNumber": 0,
+          "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/rotated/web/frame-0.png",
+          "measured": {
+            "width": 174.90381485376602,
+            "height": 76.47113506610577,
+            "renderedTime": 0,
+            "renderedFrame": 0,
+            "seekMax": 2,
+            "stage": {
+              "x": 16,
+              "y": 59,
+              "width": 1248,
+              "height": 702
+            },
+            "usedFragmentBounds": true
+          },
+          "expected": {
+            "width": 174.9038105676658,
+            "height": 76.47114317029974
+          },
+          "pass": true
+        },
+        {
+          "frameNumber": 15,
+          "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/rotated/web/frame-15.png",
+          "measured": {
+            "width": 174.90381485376602,
+            "height": 76.47113506610577,
+            "renderedTime": 0.5,
+            "renderedFrame": 15,
+            "seekMax": 2,
+            "stage": {
+              "x": 16,
+              "y": 59,
+              "width": 1248,
+              "height": 702
+            },
+            "usedFragmentBounds": true
+          },
+          "expected": {
+            "width": 174.9038105676658,
+            "height": 76.47114317029974
+          },
+          "pass": true
+        },
+        {
+          "frameNumber": 30,
+          "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/rotated/web/frame-30.png",
+          "measured": {
+            "width": 174.90381485376602,
+            "height": 76.47113506610577,
+            "renderedTime": 1,
+            "renderedFrame": 30,
+            "seekMax": 2,
+            "stage": {
+              "x": 16,
+              "y": 59,
+              "width": 1248,
+              "height": 702
+            },
+            "usedFragmentBounds": true
+          },
+          "expected": {
+            "width": 174.9038105676658,
+            "height": 76.47114317029974
+          },
+          "pass": true
+        },
+        {
+          "frameNumber": 45,
+          "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/rotated/web/frame-45.png",
+          "measured": {
+            "width": 174.90381485376602,
+            "height": 76.47113506610577,
+            "renderedTime": 1.5,
+            "renderedFrame": 45,
+            "seekMax": 2,
+            "stage": {
+              "x": 16,
+              "y": 59,
+              "width": 1248,
+              "height": 702
+            },
+            "usedFragmentBounds": true
+          },
+          "expected": {
+            "width": 174.9038105676658,
+            "height": 76.47114317029974
+          },
+          "pass": true
+        },
+        {
+          "frameNumber": 59,
+          "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/rotated/web/frame-59.png",
+          "measured": {
+            "width": 174.90381485376602,
+            "height": 76.47113506610577,
+            "renderedTime": 1.9666666666666666,
+            "renderedFrame": 59,
+            "seekMax": 2,
+            "stage": {
+              "x": 16,
+              "y": 59,
+              "width": 1248,
+              "height": 702
+            },
+            "usedFragmentBounds": true
+          },
+          "expected": {
+            "width": 174.9038105676658,
+            "height": 76.47114317029974
+          },
+          "pass": true
+        }
+      ],
+      "mergedFrom": "results-web-all.json"
+    },
+    {
+      "fixture": "rotated",
+      "surface": "gpu",
+      "measuredAt": "2026-09-22T20:28:47.240Z",
+      "status": "passed",
+      "outputs": [
+        {
+          "frameNumber": 0,
+          "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/rotated/gpu/frame-0.png",
+          "bytes": 921600
+        },
+        {
+          "frameNumber": 15,
+          "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/rotated/gpu/frame-15.png",
+          "bytes": 921600
+        },
+        {
+          "frameNumber": 30,
+          "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/rotated/gpu/frame-30.png",
+          "bytes": 921600
+        },
+        {
+          "frameNumber": 45,
+          "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/rotated/gpu/frame-45.png",
+          "bytes": 921600
+        },
+        {
+          "frameNumber": 59,
+          "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/rotated/gpu/frame-59.png",
+          "bytes": 921600
+        }
+      ],
+      "receipt": {
+        "launcherTier": 2,
+        "operation": "capture",
+        "verify": {
+          "mode": "frame-engine-readback",
+          "matched": true,
+          "frameNumbers": [
+            0,
+            15,
+            30,
+            45,
+            59
+          ]
+        },
+        "gpu": {
+          "encoder": "WebCodecsH264Encoder",
+          "hardware": "prefer-hardware",
+          "renderer": {
+            "vendor": "Google Inc. (Apple)",
+            "renderer": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1, Unspecified Version)"
+          },
+          "encoder_support": null,
+          "uploadPath": "direct",
+          "quality": "high",
+          "bitrate": 12000000,
+          "bitrateSource": "quality-preset",
+          "rateControl": null,
+          "rateControlFallbackReason": null,
+          "quantizer": null,
+          "codec": "h264",
+          "queueDepth": 3,
+          "queueWaits": 0,
+          "glTiming": null,
+          "trapReadback": false,
+          "readbackCounters": {
+            "webglReadbackCalls": 0,
+            "videoFrameCopyCalls": 0,
+            "canvasBlobCalls": 0,
+            "canvasDataUrlCalls": 0,
+            "canvasPixelReadCalls": 0,
+            "bitmapCreationCalls": 0
+          },
+          "captions": [],
+          "captionLayoutMaxDeltaPx": 0,
+          "captionMeasureAttempts": {
+            "count": 0,
+            "p50": null,
+            "max": null
+          },
+          "captionMeasureDiffs": {
+            "totalCount": 0,
+            "shownCount": 0,
+            "truncated": false,
+            "entries": []
+          },
+          "captionRasterTotalMs": 0,
+          "captionRasterBatches": {
+            "batches": 0,
+            "unitsPerBatchMax": 0,
+            "bandsMax": 0
+          },
+          "captionStartup": {
+            "totalMs": 0.20000004768371582,
+            "fontEncodeMs": 0,
+            "fontBase64Bytes": 0,
+            "measure": {
+              "stableCalls": 0,
+              "reusedStableCalls": 0,
+              "passes": 0,
+              "variantMeasurements": 0,
+              "totalMs": 0,
+              "p50": null,
+              "p95": null,
+              "max": null,
+              "fontWaitMs": 0,
+              "layoutMs": 0,
+              "rootMs": 0,
+              "distinctKeys": 0,
+              "duplicatePasses": 0,
+              "degradedUnits": 0,
+              "faultInjected": false
+            },
+            "raster": {
+              "batches": 0,
+              "bands": 0,
+              "units": 0,
+              "svgBuildMs": 0,
+              "svgChars": 0,
+              "assertMs": 0,
+              "srcAssignMs": 0,
+              "decodeMs": 0,
+              "sheetDrawMs": 0,
+              "drawImageMs": 0,
+              "registerMs": 0,
+              "totalMs": 0,
+              "prefetchedBatches": 0,
+              "prefetchMs": 0
+            }
+          },
+          "previewEvery": 0,
+          "previewFrames": 0,
+          "previewDisabledReason": null,
+          "platform": "darwin",
+          "chromium": "142.0.7444.265",
+          "devices": [
+            {
+              "vendor_id": 4203,
+              "device_id": 0,
+              "device_string": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1, Version 26.2 (Build 25C56))",
+              "active": true,
+              "gpu_preference": 0
+            }
+          ]
+        },
+        "viewport": {
+          "requested": {
+            "width": 640,
+            "height": 360
+          },
+          "measured": {
+            "width": 640,
+            "height": 360
+          },
+          "emulated": false,
+          "display": {
+            "width": 1680,
+            "height": 1050
+          }
+        },
+        "eligibility": {
+          "eligible": true,
+          "entries": [
+            {
+              "kind": "overlay",
+              "id": "leaf",
+              "classification": "same",
+              "reason": "static-html-sprite",
+              "conditions": []
+            }
+          ],
+          "summary": {
+            "same": 1,
+            "three": 0,
+            "dom": 0,
+            "degraded": 0,
+            "unsupported": 0
+          }
+        },
+        "elapsedMs": 85.89999985694885,
+        "gpu_preference": {
+          "policy": "auto",
+          "exit": "gpu",
+          "applied": false,
+          "previous": null,
+          "restored": null,
+          "reason": "platform",
+          "recovered_stale": false
+        }
+      },
+      "mergedFrom": "results-gpu-rotated.json"
+    },
+    {
+      "fixture": "rotated",
+      "surface": "osr",
+      "measuredAt": "2026-09-22T20:28:49.256Z",
+      "status": "passed",
+      "outputs": [
+        {
+          "frameNumber": 0,
+          "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/rotated/osr/frame-0.png",
+          "sha256": "dda43925859be39694c429ef6dc20b358b1d6ec28d1224841c7534eaca33fd79"
+        },
+        {
+          "frameNumber": 15,
+          "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/rotated/osr/frame-15.png",
+          "sha256": "dda43925859be39694c429ef6dc20b358b1d6ec28d1224841c7534eaca33fd79"
+        },
+        {
+          "frameNumber": 30,
+          "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/rotated/osr/frame-30.png",
+          "sha256": "dda43925859be39694c429ef6dc20b358b1d6ec28d1224841c7534eaca33fd79"
+        },
+        {
+          "frameNumber": 45,
+          "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/rotated/osr/frame-45.png",
+          "sha256": "dda43925859be39694c429ef6dc20b358b1d6ec28d1224841c7534eaca33fd79"
+        },
+        {
+          "frameNumber": 59,
+          "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/rotated/osr/frame-59.png",
+          "sha256": "dda43925859be39694c429ef6dc20b358b1d6ec28d1224841c7534eaca33fd79"
+        }
+      ],
+      "receipt": {
+        "launcherTier": 2,
+        "operation": "capture",
+        "page": {
+          "version": 1,
+          "dimensions": {
+            "width": 640,
+            "height": 360,
+            "pageHeight": 361
+          },
+          "fps": 30,
+          "duration": 2,
+          "layers": [
+            "engine-canvas",
+            "dom-captions",
+            "html-overlays",
+            "three-canvas"
+          ],
+          "captionOverlayCount": 0,
+          "overlayCount": 1,
+          "lutApplication": "none",
+          "adjustApplication": "none",
+          "stampRow": true
+        },
+        "verify": {
+          "mode": "stamp",
+          "matched": true,
+          "frames": [
+            {
+              "frameNumber": 0,
+              "matched": true,
+              "decodedFrameNumber": 0,
+              "expectedFrameNumber": 0,
+              "retries": 0
+            },
+            {
+              "frameNumber": 15,
+              "matched": true,
+              "decodedFrameNumber": 15,
+              "expectedFrameNumber": 15,
+              "retries": 0
+            },
+            {
+              "frameNumber": 30,
+              "matched": true,
+              "decodedFrameNumber": 30,
+              "expectedFrameNumber": 30,
+              "retries": 0
+            },
+            {
+              "frameNumber": 45,
+              "matched": true,
+              "decodedFrameNumber": 45,
+              "expectedFrameNumber": 45,
+              "retries": 0
+            },
+            {
+              "frameNumber": 59,
+              "matched": true,
+              "decodedFrameNumber": 59,
+              "expectedFrameNumber": 59,
+              "retries": 0
+            }
+          ]
+        },
+        "viewport": {
+          "requested": {
+            "width": 640,
+            "height": 361
+          },
+          "measured": {
+            "width": 640,
+            "height": 361
+          },
+          "emulated": false,
+          "display": {
+            "width": 1680,
+            "height": 1050
+          },
+          "work_area": {
+            "width": 1680,
+            "height": 959
+          }
+        },
+        "warm_up": {
+          "attempts": 2,
+          "empty_attempts": 1,
+          "elapsed_ms": 21,
+          "satisfied": true
+        },
+        "elapsedMs": 586.325042
+      },
+      "mergedFrom": "results-osr-rotated.json"
+    },
+    {
+      "fixture": "group-leaf",
+      "surface": "web",
+      "measuredAt": "2026-09-22T21:22:51.794Z",
+      "status": "passed",
+      "outputs": [
+        {
+          "frameNumber": 0,
+          "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/group-leaf/web/frame-0.png",
+          "measured": {
+            "width": 250,
+            "height": 75,
+            "renderedTime": 0,
+            "renderedFrame": 0,
+            "seekMax": 2,
+            "stage": {
+              "x": 16,
+              "y": 59,
+              "width": 1248,
+              "height": 702
+            },
+            "usedFragmentBounds": true
+          },
+          "expected": {
+            "width": 250,
+            "height": 75
+          },
+          "pass": true
+        },
+        {
+          "frameNumber": 15,
+          "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/group-leaf/web/frame-15.png",
+          "measured": {
+            "width": 250,
+            "height": 75,
+            "renderedTime": 0.5,
+            "renderedFrame": 15,
+            "seekMax": 2,
+            "stage": {
+              "x": 16,
+              "y": 59,
+              "width": 1248,
+              "height": 702
+            },
+            "usedFragmentBounds": true
+          },
+          "expected": {
+            "width": 250,
+            "height": 75
+          },
+          "pass": true
+        },
+        {
+          "frameNumber": 30,
+          "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/group-leaf/web/frame-30.png",
+          "measured": {
+            "width": 250,
+            "height": 75,
+            "renderedTime": 1,
+            "renderedFrame": 30,
+            "seekMax": 2,
+            "stage": {
+              "x": 16,
+              "y": 59,
+              "width": 1248,
+              "height": 702
+            },
+            "usedFragmentBounds": true
+          },
+          "expected": {
+            "width": 250,
+            "height": 75
+          },
+          "pass": true
+        },
+        {
+          "frameNumber": 45,
+          "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/group-leaf/web/frame-45.png",
+          "measured": {
+            "width": 250,
+            "height": 75,
+            "renderedTime": 1.5,
+            "renderedFrame": 45,
+            "seekMax": 2,
+            "stage": {
+              "x": 16,
+              "y": 59,
+              "width": 1248,
+              "height": 702
+            },
+            "usedFragmentBounds": true
+          },
+          "expected": {
+            "width": 250,
+            "height": 75
+          },
+          "pass": true
+        },
+        {
+          "frameNumber": 59,
+          "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/group-leaf/web/frame-59.png",
+          "measured": {
+            "width": 250,
+            "height": 75,
+            "renderedTime": 1.9666666666666666,
+            "renderedFrame": 59,
+            "seekMax": 2,
+            "stage": {
+              "x": 16,
+              "y": 59,
+              "width": 1248,
+              "height": 702
+            },
+            "usedFragmentBounds": true
+          },
+          "expected": {
+            "width": 250,
+            "height": 75
+          },
+          "pass": true
+        }
+      ],
+      "mergedFrom": "results-web-all.json"
+    },
+    {
+      "fixture": "group-leaf",
+      "surface": "gpu",
+      "measuredAt": "2026-09-22T20:28:53.299Z",
+      "status": "passed",
+      "outputs": [
+        {
+          "frameNumber": 0,
+          "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/group-leaf/gpu/frame-0.png",
+          "bytes": 921600
+        },
+        {
+          "frameNumber": 15,
+          "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/group-leaf/gpu/frame-15.png",
+          "bytes": 921600
+        },
+        {
+          "frameNumber": 30,
+          "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/group-leaf/gpu/frame-30.png",
+          "bytes": 921600
+        },
+        {
+          "frameNumber": 45,
+          "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/group-leaf/gpu/frame-45.png",
+          "bytes": 921600
+        },
+        {
+          "frameNumber": 59,
+          "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/group-leaf/gpu/frame-59.png",
+          "bytes": 921600
+        }
+      ],
+      "receipt": {
+        "launcherTier": 2,
+        "operation": "capture",
+        "verify": {
+          "mode": "frame-engine-readback",
+          "matched": true,
+          "frameNumbers": [
+            0,
+            15,
+            30,
+            45,
+            59
+          ]
+        },
+        "gpu": {
+          "encoder": "WebCodecsH264Encoder",
+          "hardware": "prefer-hardware",
+          "renderer": {
+            "vendor": "Google Inc. (Apple)",
+            "renderer": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1, Unspecified Version)"
+          },
+          "encoder_support": null,
+          "uploadPath": "direct",
+          "quality": "high",
+          "bitrate": 12000000,
+          "bitrateSource": "quality-preset",
+          "rateControl": null,
+          "rateControlFallbackReason": null,
+          "quantizer": null,
+          "codec": "h264",
+          "queueDepth": 3,
+          "queueWaits": 0,
+          "glTiming": null,
+          "trapReadback": false,
+          "readbackCounters": {
+            "webglReadbackCalls": 0,
+            "videoFrameCopyCalls": 0,
+            "canvasBlobCalls": 0,
+            "canvasDataUrlCalls": 0,
+            "canvasPixelReadCalls": 0,
+            "bitmapCreationCalls": 0
+          },
+          "captions": [],
+          "captionLayoutMaxDeltaPx": 0,
+          "captionMeasureAttempts": {
+            "count": 0,
+            "p50": null,
+            "max": null
+          },
+          "captionMeasureDiffs": {
+            "totalCount": 0,
+            "shownCount": 0,
+            "truncated": false,
+            "entries": []
+          },
+          "captionRasterTotalMs": 0,
+          "captionRasterBatches": {
+            "batches": 0,
+            "unitsPerBatchMax": 0,
+            "bandsMax": 0
+          },
+          "captionStartup": {
+            "totalMs": 0.10000014305114746,
+            "fontEncodeMs": 0,
+            "fontBase64Bytes": 0,
+            "measure": {
+              "stableCalls": 0,
+              "reusedStableCalls": 0,
+              "passes": 0,
+              "variantMeasurements": 0,
+              "totalMs": 0,
+              "p50": null,
+              "p95": null,
+              "max": null,
+              "fontWaitMs": 0,
+              "layoutMs": 0,
+              "rootMs": 0,
+              "distinctKeys": 0,
+              "duplicatePasses": 0,
+              "degradedUnits": 0,
+              "faultInjected": false
+            },
+            "raster": {
+              "batches": 0,
+              "bands": 0,
+              "units": 0,
+              "svgBuildMs": 0,
+              "svgChars": 0,
+              "assertMs": 0,
+              "srcAssignMs": 0,
+              "decodeMs": 0,
+              "sheetDrawMs": 0,
+              "drawImageMs": 0,
+              "registerMs": 0,
+              "totalMs": 0,
+              "prefetchedBatches": 0,
+              "prefetchMs": 0
+            }
+          },
+          "previewEvery": 0,
+          "previewFrames": 0,
+          "previewDisabledReason": null,
+          "platform": "darwin",
+          "chromium": "142.0.7444.265",
+          "devices": [
+            {
+              "vendor_id": 4203,
+              "device_id": 0,
+              "device_string": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1, Version 26.2 (Build 25C56))",
+              "active": true,
+              "gpu_preference": 0
+            }
+          ]
+        },
+        "viewport": {
+          "requested": {
+            "width": 640,
+            "height": 360
+          },
+          "measured": {
+            "width": 640,
+            "height": 360
+          },
+          "emulated": false,
+          "display": {
+            "width": 1680,
+            "height": 1050
+          }
+        },
+        "eligibility": {
+          "eligible": true,
+          "entries": [
+            {
+              "kind": "overlay",
+              "id": "leaf",
+              "classification": "same",
+              "reason": "static-html-sprite",
+              "conditions": []
+            }
+          ],
+          "summary": {
+            "same": 1,
+            "three": 0,
+            "dom": 0,
+            "degraded": 0,
+            "unsupported": 0
+          }
+        },
+        "elapsedMs": 84.5,
+        "gpu_preference": {
+          "policy": "auto",
+          "exit": "gpu",
+          "applied": false,
+          "previous": null,
+          "restored": null,
+          "reason": "platform",
+          "recovered_stale": false
+        }
+      },
+      "mergedFrom": "results-gpu-group-leaf.json"
+    },
+    {
+      "fixture": "group-leaf",
+      "surface": "osr",
+      "measuredAt": "2026-09-22T20:29:03.537Z",
+      "status": "passed",
+      "outputs": [
+        {
+          "frameNumber": 0,
+          "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/group-leaf/osr/frame-0.png",
+          "sha256": "cb9a04f5270051f7a37dac480fe810651ec19d605ee49f818d07260e4cd40571"
+        },
+        {
+          "frameNumber": 15,
+          "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/group-leaf/osr/frame-15.png",
+          "sha256": "cb9a04f5270051f7a37dac480fe810651ec19d605ee49f818d07260e4cd40571"
+        },
+        {
+          "frameNumber": 30,
+          "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/group-leaf/osr/frame-30.png",
+          "sha256": "cb9a04f5270051f7a37dac480fe810651ec19d605ee49f818d07260e4cd40571"
+        },
+        {
+          "frameNumber": 45,
+          "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/group-leaf/osr/frame-45.png",
+          "sha256": "cb9a04f5270051f7a37dac480fe810651ec19d605ee49f818d07260e4cd40571"
+        },
+        {
+          "frameNumber": 59,
+          "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/group-leaf/osr/frame-59.png",
+          "sha256": "cb9a04f5270051f7a37dac480fe810651ec19d605ee49f818d07260e4cd40571"
+        }
+      ],
+      "receipt": {
+        "launcherTier": 2,
+        "operation": "capture",
+        "page": {
+          "version": 1,
+          "dimensions": {
+            "width": 640,
+            "height": 360,
+            "pageHeight": 361
+          },
+          "fps": 30,
+          "duration": 2,
+          "layers": [
+            "engine-canvas",
+            "dom-captions",
+            "html-overlays",
+            "three-canvas"
+          ],
+          "captionOverlayCount": 0,
+          "overlayCount": 1,
+          "lutApplication": "none",
+          "adjustApplication": "none",
+          "stampRow": true
+        },
+        "verify": {
+          "mode": "stamp",
+          "matched": true,
+          "frames": [
+            {
+              "frameNumber": 0,
+              "matched": true,
+              "decodedFrameNumber": 0,
+              "expectedFrameNumber": 0,
+              "retries": 0
+            },
+            {
+              "frameNumber": 15,
+              "matched": true,
+              "decodedFrameNumber": 15,
+              "expectedFrameNumber": 15,
+              "retries": 0
+            },
+            {
+              "frameNumber": 30,
+              "matched": true,
+              "decodedFrameNumber": 30,
+              "expectedFrameNumber": 30,
+              "retries": 0
+            },
+            {
+              "frameNumber": 45,
+              "matched": true,
+              "decodedFrameNumber": 45,
+              "expectedFrameNumber": 45,
+              "retries": 0
+            },
+            {
+              "frameNumber": 59,
+              "matched": true,
+              "decodedFrameNumber": 59,
+              "expectedFrameNumber": 59,
+              "retries": 0
+            }
+          ]
+        },
+        "viewport": {
+          "requested": {
+            "width": 640,
+            "height": 361
+          },
+          "measured": {
+            "width": 640,
+            "height": 361
+          },
+          "emulated": false,
+          "display": {
+            "width": 1680,
+            "height": 1050
+          },
+          "work_area": {
+            "width": 1680,
+            "height": 959
+          }
+        },
+        "warm_up": {
+          "attempts": 2,
+          "empty_attempts": 1,
+          "elapsed_ms": 27,
+          "satisfied": true
+        },
+        "elapsedMs": 849.6407919999999
+      },
+      "mergedFrom": "results-osr-group-leaf.json"
+    },
+    {
+      "fixture": "keyframes",
+      "surface": "web",
+      "measuredAt": "2026-09-22T21:22:55.658Z",
+      "status": "passed",
+      "outputs": [
+        {
+          "frameNumber": 0,
+          "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/keyframes/web/frame-0.png",
+          "measured": {
+            "width": 100,
+            "height": 60,
+            "renderedTime": 0,
+            "renderedFrame": 0,
+            "seekMax": 2,
+            "stage": {
+              "x": 16,
+              "y": 59,
+              "width": 1248,
+              "height": 702
+            },
+            "usedFragmentBounds": true
+          },
+          "expected": {
+            "width": 100,
+            "height": 60
+          },
+          "pass": true
+        },
+        {
+          "frameNumber": 15,
+          "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/keyframes/web/frame-15.png",
+          "measured": {
+            "width": 125,
+            "height": 60,
+            "renderedTime": 0.5,
+            "renderedFrame": 15,
+            "seekMax": 2,
+            "stage": {
+              "x": 16,
+              "y": 59,
+              "width": 1248,
+              "height": 702
+            },
+            "usedFragmentBounds": true
+          },
+          "expected": {
+            "width": 125,
+            "height": 60
+          },
+          "pass": true
+        },
+        {
+          "frameNumber": 30,
+          "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/keyframes/web/frame-30.png",
+          "measured": {
+            "width": 150,
+            "height": 60,
+            "renderedTime": 1,
+            "renderedFrame": 30,
+            "seekMax": 2,
+            "stage": {
+              "x": 16,
+              "y": 59,
+              "width": 1248,
+              "height": 702
+            },
+            "usedFragmentBounds": true
+          },
+          "expected": {
+            "width": 150,
+            "height": 60
+          },
+          "pass": true
+        },
+        {
+          "frameNumber": 45,
+          "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/keyframes/web/frame-45.png",
+          "measured": {
+            "width": 175,
+            "height": 60,
+            "renderedTime": 1.5,
+            "renderedFrame": 45,
+            "seekMax": 2,
+            "stage": {
+              "x": 16,
+              "y": 59,
+              "width": 1248,
+              "height": 702
+            },
+            "usedFragmentBounds": true
+          },
+          "expected": {
+            "width": 175,
+            "height": 60
+          },
+          "pass": true
+        },
+        {
+          "frameNumber": 59,
+          "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/keyframes/web/frame-59.png",
+          "measured": {
+            "width": 198.33331768329327,
+            "height": 60,
+            "renderedTime": 1.9666666666666666,
+            "renderedFrame": 59,
+            "seekMax": 2,
+            "stage": {
+              "x": 16,
+              "y": 59,
+              "width": 1248,
+              "height": 702
+            },
+            "usedFragmentBounds": true
+          },
+          "expected": {
+            "width": 198.33333333333334,
+            "height": 60
+          },
+          "pass": true
+        }
+      ],
+      "mergedFrom": "results-web-all.json"
+    },
+    {
+      "fixture": "keyframes",
+      "surface": "gpu",
+      "measuredAt": "2026-09-22T20:29:30.256Z",
+      "status": "passed",
+      "outputs": [
+        {
+          "frameNumber": 0,
+          "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/keyframes/gpu/frame-0.png",
+          "bytes": 921600
+        },
+        {
+          "frameNumber": 15,
+          "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/keyframes/gpu/frame-15.png",
+          "bytes": 921600
+        },
+        {
+          "frameNumber": 30,
+          "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/keyframes/gpu/frame-30.png",
+          "bytes": 921600
+        },
+        {
+          "frameNumber": 45,
+          "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/keyframes/gpu/frame-45.png",
+          "bytes": 921600
+        },
+        {
+          "frameNumber": 59,
+          "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/keyframes/gpu/frame-59.png",
+          "bytes": 921600
+        }
+      ],
+      "receipt": {
+        "launcherTier": 2,
+        "operation": "capture",
+        "verify": {
+          "mode": "frame-engine-readback",
+          "matched": true,
+          "frameNumbers": [
+            0,
+            15,
+            30,
+            45,
+            59
+          ]
+        },
+        "gpu": {
+          "encoder": "WebCodecsH264Encoder",
+          "hardware": "prefer-hardware",
+          "renderer": {
+            "vendor": "Google Inc. (Apple)",
+            "renderer": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1, Unspecified Version)"
+          },
+          "encoder_support": null,
+          "uploadPath": "direct",
+          "quality": "high",
+          "bitrate": 12000000,
+          "bitrateSource": "quality-preset",
+          "rateControl": null,
+          "rateControlFallbackReason": null,
+          "quantizer": null,
+          "codec": "h264",
+          "queueDepth": 3,
+          "queueWaits": 0,
+          "glTiming": null,
+          "trapReadback": false,
+          "readbackCounters": {
+            "webglReadbackCalls": 0,
+            "videoFrameCopyCalls": 0,
+            "canvasBlobCalls": 0,
+            "canvasDataUrlCalls": 0,
+            "canvasPixelReadCalls": 0,
+            "bitmapCreationCalls": 0
+          },
+          "captions": [],
+          "captionLayoutMaxDeltaPx": 0,
+          "captionMeasureAttempts": {
+            "count": 0,
+            "p50": null,
+            "max": null
+          },
+          "captionMeasureDiffs": {
+            "totalCount": 0,
+            "shownCount": 0,
+            "truncated": false,
+            "entries": []
+          },
+          "captionRasterTotalMs": 0,
+          "captionRasterBatches": {
+            "batches": 0,
+            "unitsPerBatchMax": 0,
+            "bandsMax": 0
+          },
+          "captionStartup": {
+            "totalMs": 0,
+            "fontEncodeMs": 0,
+            "fontBase64Bytes": 0,
+            "measure": {
+              "stableCalls": 0,
+              "reusedStableCalls": 0,
+              "passes": 0,
+              "variantMeasurements": 0,
+              "totalMs": 0,
+              "p50": null,
+              "p95": null,
+              "max": null,
+              "fontWaitMs": 0,
+              "layoutMs": 0,
+              "rootMs": 0,
+              "distinctKeys": 0,
+              "duplicatePasses": 0,
+              "degradedUnits": 0,
+              "faultInjected": false
+            },
+            "raster": {
+              "batches": 0,
+              "bands": 0,
+              "units": 0,
+              "svgBuildMs": 0,
+              "svgChars": 0,
+              "assertMs": 0,
+              "srcAssignMs": 0,
+              "decodeMs": 0,
+              "sheetDrawMs": 0,
+              "drawImageMs": 0,
+              "registerMs": 0,
+              "totalMs": 0,
+              "prefetchedBatches": 0,
+              "prefetchMs": 0
+            }
+          },
+          "previewEvery": 0,
+          "previewFrames": 0,
+          "previewDisabledReason": null,
+          "platform": "darwin",
+          "chromium": "142.0.7444.265",
+          "devices": [
+            {
+              "vendor_id": 4203,
+              "device_id": 0,
+              "device_string": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1, Version 26.2 (Build 25C56))",
+              "active": true,
+              "gpu_preference": 0
+            }
+          ]
+        },
+        "viewport": {
+          "requested": {
+            "width": 640,
+            "height": 360
+          },
+          "measured": {
+            "width": 640,
+            "height": 360
+          },
+          "emulated": false,
+          "display": {
+            "width": 1680,
+            "height": 1050
+          }
+        },
+        "eligibility": {
+          "eligible": true,
+          "entries": [
+            {
+              "kind": "overlay",
+              "id": "leaf",
+              "classification": "dom",
+              "reason": "item-keyframes",
+              "conditions": [
+                "item-keyframes"
+              ]
+            }
+          ],
+          "summary": {
+            "same": 0,
+            "three": 0,
+            "dom": 1,
+            "degraded": 0,
+            "unsupported": 0
+          }
+        },
+        "elapsedMs": 259.69999980926514,
+        "gpu_preference": {
+          "policy": "auto",
+          "exit": "gpu",
+          "applied": false,
+          "previous": null,
+          "restored": null,
+          "reason": "platform",
+          "recovered_stale": false
+        }
+      },
+      "mergedFrom": "results-gpu-keyframes.json"
+    },
+    {
+      "fixture": "keyframes",
+      "surface": "osr",
+      "measuredAt": "2026-09-22T20:29:54.573Z",
+      "status": "passed",
+      "outputs": [
+        {
+          "frameNumber": 0,
+          "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/keyframes/osr/frame-0.png",
+          "sha256": "98524650e3cef5f99bc4fed6ecc8560c30d3ca6bd6d91c0c731a969eea44611c"
+        },
+        {
+          "frameNumber": 15,
+          "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/keyframes/osr/frame-15.png",
+          "sha256": "7dfd919d2310b88083b4bc264ffa3b45deba7bb41ef2eed4eeeed923be9b38bc"
+        },
+        {
+          "frameNumber": 30,
+          "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/keyframes/osr/frame-30.png",
+          "sha256": "ca50f78dc8eefe5c1097fa50e3df5edd79d205be2ab3dae01d8228e256649e35"
+        },
+        {
+          "frameNumber": 45,
+          "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/keyframes/osr/frame-45.png",
+          "sha256": "1aa35bf6486980e7a9aef839c6dbd68eba4dca275f88444b9b64b0428d77d5ce"
+        },
+        {
+          "frameNumber": 59,
+          "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/keyframes/osr/frame-59.png",
+          "sha256": "ec97b18af2785fd686dd21b6b8241ef3101ffe57f0f6ec6dafd0576e08c076a8"
+        }
+      ],
+      "receipt": {
+        "launcherTier": 2,
+        "operation": "capture",
+        "page": {
+          "version": 1,
+          "dimensions": {
+            "width": 640,
+            "height": 360,
+            "pageHeight": 361
+          },
+          "fps": 30,
+          "duration": 2,
+          "layers": [
+            "engine-canvas",
+            "dom-captions",
+            "html-overlays",
+            "three-canvas"
+          ],
+          "captionOverlayCount": 0,
+          "overlayCount": 1,
+          "lutApplication": "none",
+          "adjustApplication": "none",
+          "stampRow": true
+        },
+        "verify": {
+          "mode": "stamp",
+          "matched": true,
+          "frames": [
+            {
+              "frameNumber": 0,
+              "matched": true,
+              "decodedFrameNumber": 0,
+              "expectedFrameNumber": 0,
+              "retries": 0
+            },
+            {
+              "frameNumber": 15,
+              "matched": true,
+              "decodedFrameNumber": 15,
+              "expectedFrameNumber": 15,
+              "retries": 0
+            },
+            {
+              "frameNumber": 30,
+              "matched": true,
+              "decodedFrameNumber": 30,
+              "expectedFrameNumber": 30,
+              "retries": 0
+            },
+            {
+              "frameNumber": 45,
+              "matched": true,
+              "decodedFrameNumber": 45,
+              "expectedFrameNumber": 45,
+              "retries": 0
+            },
+            {
+              "frameNumber": 59,
+              "matched": true,
+              "decodedFrameNumber": 59,
+              "expectedFrameNumber": 59,
+              "retries": 0
+            }
+          ]
+        },
+        "viewport": {
+          "requested": {
+            "width": 640,
+            "height": 361
+          },
+          "measured": {
+            "width": 640,
+            "height": 361
+          },
+          "emulated": false,
+          "display": {
+            "width": 1680,
+            "height": 1050
+          },
+          "work_area": {
+            "width": 1680,
+            "height": 959
+          }
+        },
+        "warm_up": {
+          "attempts": 2,
+          "empty_attempts": 1,
+          "elapsed_ms": 32,
+          "satisfied": true
+        },
+        "elapsedMs": 939.4159160000002
+      },
+      "mergedFrom": "results-osr-keyframes.json"
+    },
+    {
+      "fixture": "legacy",
+      "surface": "web",
+      "measuredAt": "2026-09-22T21:22:58.099Z",
+      "status": "passed",
+      "outputs": [
+        {
+          "frameNumber": 0,
+          "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/legacy/web/frame-0.png",
+          "measured": {
+            "width": 125,
+            "height": 75,
+            "renderedTime": 0,
+            "renderedFrame": 0,
+            "seekMax": 2,
+            "stage": {
+              "x": 16,
+              "y": 59,
+              "width": 1248,
+              "height": 702
+            },
+            "usedFragmentBounds": true
+          },
+          "expected": {
+            "width": 125,
+            "height": 75
+          },
+          "pass": true
+        },
+        {
+          "frameNumber": 15,
+          "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/legacy/web/frame-15.png",
+          "measured": {
+            "width": 125,
+            "height": 75,
+            "renderedTime": 0.5,
+            "renderedFrame": 15,
+            "seekMax": 2,
+            "stage": {
+              "x": 16,
+              "y": 59,
+              "width": 1248,
+              "height": 702
+            },
+            "usedFragmentBounds": true
+          },
+          "expected": {
+            "width": 125,
+            "height": 75
+          },
+          "pass": true
+        },
+        {
+          "frameNumber": 30,
+          "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/legacy/web/frame-30.png",
+          "measured": {
+            "width": 125,
+            "height": 75,
+            "renderedTime": 1,
+            "renderedFrame": 30,
+            "seekMax": 2,
+            "stage": {
+              "x": 16,
+              "y": 59,
+              "width": 1248,
+              "height": 702
+            },
+            "usedFragmentBounds": true
+          },
+          "expected": {
+            "width": 125,
+            "height": 75
+          },
+          "pass": true
+        },
+        {
+          "frameNumber": 45,
+          "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/legacy/web/frame-45.png",
+          "measured": {
+            "width": 125,
+            "height": 75,
+            "renderedTime": 1.5,
+            "renderedFrame": 45,
+            "seekMax": 2,
+            "stage": {
+              "x": 16,
+              "y": 59,
+              "width": 1248,
+              "height": 702
+            },
+            "usedFragmentBounds": true
+          },
+          "expected": {
+            "width": 125,
+            "height": 75
+          },
+          "pass": true
+        },
+        {
+          "frameNumber": 59,
+          "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/legacy/web/frame-59.png",
+          "measured": {
+            "width": 125,
+            "height": 75,
+            "renderedTime": 1.9666666666666666,
+            "renderedFrame": 59,
+            "seekMax": 2,
+            "stage": {
+              "x": 16,
+              "y": 59,
+              "width": 1248,
+              "height": 702
+            },
+            "usedFragmentBounds": true
+          },
+          "expected": {
+            "width": 125,
+            "height": 75
+          },
+          "pass": true
+        }
+      ],
+      "mergedFrom": "results-web-all.json"
+    },
+    {
+      "fixture": "legacy",
+      "surface": "gpu",
+      "measuredAt": "2026-09-22T20:30:38.632Z",
+      "status": "passed",
+      "outputs": [
+        {
+          "frameNumber": 0,
+          "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/legacy/gpu/frame-0.png",
+          "bytes": 921600
+        },
+        {
+          "frameNumber": 15,
+          "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/legacy/gpu/frame-15.png",
+          "bytes": 921600
+        },
+        {
+          "frameNumber": 30,
+          "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/legacy/gpu/frame-30.png",
+          "bytes": 921600
+        },
+        {
+          "frameNumber": 45,
+          "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/legacy/gpu/frame-45.png",
+          "bytes": 921600
+        },
+        {
+          "frameNumber": 59,
+          "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/legacy/gpu/frame-59.png",
+          "bytes": 921600
+        }
+      ],
+      "receipt": {
+        "launcherTier": 2,
+        "operation": "capture",
+        "verify": {
+          "mode": "frame-engine-readback",
+          "matched": true,
+          "frameNumbers": [
+            0,
+            15,
+            30,
+            45,
+            59
+          ]
+        },
+        "gpu": {
+          "encoder": "WebCodecsH264Encoder",
+          "hardware": "prefer-hardware",
+          "renderer": {
+            "vendor": "Google Inc. (Apple)",
+            "renderer": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1, Unspecified Version)"
+          },
+          "encoder_support": null,
+          "uploadPath": "direct",
+          "quality": "high",
+          "bitrate": 12000000,
+          "bitrateSource": "quality-preset",
+          "rateControl": null,
+          "rateControlFallbackReason": null,
+          "quantizer": null,
+          "codec": "h264",
+          "queueDepth": 3,
+          "queueWaits": 0,
+          "glTiming": null,
+          "trapReadback": false,
+          "readbackCounters": {
+            "webglReadbackCalls": 0,
+            "videoFrameCopyCalls": 0,
+            "canvasBlobCalls": 0,
+            "canvasDataUrlCalls": 0,
+            "canvasPixelReadCalls": 0,
+            "bitmapCreationCalls": 0
+          },
+          "captions": [],
+          "captionLayoutMaxDeltaPx": 0,
+          "captionMeasureAttempts": {
+            "count": 0,
+            "p50": null,
+            "max": null
+          },
+          "captionMeasureDiffs": {
+            "totalCount": 0,
+            "shownCount": 0,
+            "truncated": false,
+            "entries": []
+          },
+          "captionRasterTotalMs": 0,
+          "captionRasterBatches": {
+            "batches": 0,
+            "unitsPerBatchMax": 0,
+            "bandsMax": 0
+          },
+          "captionStartup": {
+            "totalMs": 0,
+            "fontEncodeMs": 0,
+            "fontBase64Bytes": 0,
+            "measure": {
+              "stableCalls": 0,
+              "reusedStableCalls": 0,
+              "passes": 0,
+              "variantMeasurements": 0,
+              "totalMs": 0,
+              "p50": null,
+              "p95": null,
+              "max": null,
+              "fontWaitMs": 0,
+              "layoutMs": 0,
+              "rootMs": 0,
+              "distinctKeys": 0,
+              "duplicatePasses": 0,
+              "degradedUnits": 0,
+              "faultInjected": false
+            },
+            "raster": {
+              "batches": 0,
+              "bands": 0,
+              "units": 0,
+              "svgBuildMs": 0,
+              "svgChars": 0,
+              "assertMs": 0,
+              "srcAssignMs": 0,
+              "decodeMs": 0,
+              "sheetDrawMs": 0,
+              "drawImageMs": 0,
+              "registerMs": 0,
+              "totalMs": 0,
+              "prefetchedBatches": 0,
+              "prefetchMs": 0
+            }
+          },
+          "previewEvery": 0,
+          "previewFrames": 0,
+          "previewDisabledReason": null,
+          "platform": "darwin",
+          "chromium": "142.0.7444.265",
+          "devices": [
+            {
+              "vendor_id": 4203,
+              "device_id": 0,
+              "device_string": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1, Version 26.2 (Build 25C56))",
+              "active": true,
+              "gpu_preference": 0
+            }
+          ]
+        },
+        "viewport": {
+          "requested": {
+            "width": 640,
+            "height": 360
+          },
+          "measured": {
+            "width": 640,
+            "height": 360
+          },
+          "emulated": false,
+          "display": {
+            "width": 1680,
+            "height": 1050
+          }
+        },
+        "eligibility": {
+          "eligible": true,
+          "entries": [
+            {
+              "kind": "overlay",
+              "id": "leaf",
+              "classification": "same",
+              "reason": "static-html-sprite",
+              "conditions": []
+            }
+          ],
+          "summary": {
+            "same": 1,
+            "three": 0,
+            "dom": 0,
+            "degraded": 0,
+            "unsupported": 0
+          }
+        },
+        "elapsedMs": 104.60000014305115,
+        "gpu_preference": {
+          "policy": "auto",
+          "exit": "gpu",
+          "applied": false,
+          "previous": null,
+          "restored": null,
+          "reason": "platform",
+          "recovered_stale": false
+        }
+      },
+      "mergedFrom": "results-gpu-legacy.json"
+    },
+    {
+      "fixture": "legacy",
+      "surface": "osr",
+      "measuredAt": "2026-09-22T20:30:42.905Z",
+      "status": "passed",
+      "outputs": [
+        {
+          "frameNumber": 0,
+          "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/legacy/osr/frame-0.png",
+          "sha256": "1e702618a46a713f048ddf654d25351f3e02d75fc091e4f212da1c321761dfb4"
+        },
+        {
+          "frameNumber": 15,
+          "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/legacy/osr/frame-15.png",
+          "sha256": "1e702618a46a713f048ddf654d25351f3e02d75fc091e4f212da1c321761dfb4"
+        },
+        {
+          "frameNumber": 30,
+          "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/legacy/osr/frame-30.png",
+          "sha256": "1e702618a46a713f048ddf654d25351f3e02d75fc091e4f212da1c321761dfb4"
+        },
+        {
+          "frameNumber": 45,
+          "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/legacy/osr/frame-45.png",
+          "sha256": "1e702618a46a713f048ddf654d25351f3e02d75fc091e4f212da1c321761dfb4"
+        },
+        {
+          "frameNumber": 59,
+          "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/legacy/osr/frame-59.png",
+          "sha256": "1e702618a46a713f048ddf654d25351f3e02d75fc091e4f212da1c321761dfb4"
+        }
+      ],
+      "receipt": {
+        "launcherTier": 2,
+        "operation": "capture",
+        "page": {
+          "version": 1,
+          "dimensions": {
+            "width": 640,
+            "height": 360,
+            "pageHeight": 361
+          },
+          "fps": 30,
+          "duration": 2,
+          "layers": [
+            "engine-canvas",
+            "dom-captions",
+            "html-overlays",
+            "three-canvas"
+          ],
+          "captionOverlayCount": 0,
+          "overlayCount": 1,
+          "lutApplication": "none",
+          "adjustApplication": "none",
+          "stampRow": true
+        },
+        "verify": {
+          "mode": "stamp",
+          "matched": true,
+          "frames": [
+            {
+              "frameNumber": 0,
+              "matched": true,
+              "decodedFrameNumber": 0,
+              "expectedFrameNumber": 0,
+              "retries": 0
+            },
+            {
+              "frameNumber": 15,
+              "matched": true,
+              "decodedFrameNumber": 15,
+              "expectedFrameNumber": 15,
+              "retries": 0
+            },
+            {
+              "frameNumber": 30,
+              "matched": true,
+              "decodedFrameNumber": 30,
+              "expectedFrameNumber": 30,
+              "retries": 0
+            },
+            {
+              "frameNumber": 45,
+              "matched": true,
+              "decodedFrameNumber": 45,
+              "expectedFrameNumber": 45,
+              "retries": 0
+            },
+            {
+              "frameNumber": 59,
+              "matched": true,
+              "decodedFrameNumber": 59,
+              "expectedFrameNumber": 59,
+              "retries": 0
+            }
+          ]
+        },
+        "viewport": {
+          "requested": {
+            "width": 640,
+            "height": 361
+          },
+          "measured": {
+            "width": 640,
+            "height": 361
+          },
+          "emulated": false,
+          "display": {
+            "width": 1680,
+            "height": 1050
+          },
+          "work_area": {
+            "width": 1680,
+            "height": 959
+          }
+        },
+        "warm_up": {
+          "attempts": 2,
+          "empty_attempts": 1,
+          "elapsed_ms": 34,
+          "satisfied": true
+        },
+        "elapsedMs": 866.1876669999999
+      },
+      "mergedFrom": "results-osr-legacy.json"
+    },
+    {
+      "fixture": "legacy-keyframes",
+      "surface": "gpu",
+      "measuredAt": "2026-09-22T20:30:50.959Z",
+      "status": "passed",
+      "outputs": [
+        {
+          "frameNumber": 0,
+          "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/legacy-keyframes/gpu/frame-0.png",
+          "bytes": 921600
+        },
+        {
+          "frameNumber": 15,
+          "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/legacy-keyframes/gpu/frame-15.png",
+          "bytes": 921600
+        },
+        {
+          "frameNumber": 30,
+          "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/legacy-keyframes/gpu/frame-30.png",
+          "bytes": 921600
+        },
+        {
+          "frameNumber": 45,
+          "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/legacy-keyframes/gpu/frame-45.png",
+          "bytes": 921600
+        },
+        {
+          "frameNumber": 59,
+          "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/legacy-keyframes/gpu/frame-59.png",
+          "bytes": 921600
+        }
+      ],
+      "receipt": {
+        "launcherTier": 2,
+        "operation": "capture",
+        "verify": {
+          "mode": "frame-engine-readback",
+          "matched": true,
+          "frameNumbers": [
+            0,
+            15,
+            30,
+            45,
+            59
+          ]
+        },
+        "gpu": {
+          "encoder": "WebCodecsH264Encoder",
+          "hardware": "prefer-hardware",
+          "renderer": {
+            "vendor": "Google Inc. (Apple)",
+            "renderer": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1, Unspecified Version)"
+          },
+          "encoder_support": null,
+          "uploadPath": "direct",
+          "quality": "high",
+          "bitrate": 12000000,
+          "bitrateSource": "quality-preset",
+          "rateControl": null,
+          "rateControlFallbackReason": null,
+          "quantizer": null,
+          "codec": "h264",
+          "queueDepth": 3,
+          "queueWaits": 0,
+          "glTiming": null,
+          "trapReadback": false,
+          "readbackCounters": {
+            "webglReadbackCalls": 0,
+            "videoFrameCopyCalls": 0,
+            "canvasBlobCalls": 0,
+            "canvasDataUrlCalls": 0,
+            "canvasPixelReadCalls": 0,
+            "bitmapCreationCalls": 0
+          },
+          "captions": [],
+          "captionLayoutMaxDeltaPx": 0,
+          "captionMeasureAttempts": {
+            "count": 0,
+            "p50": null,
+            "max": null
+          },
+          "captionMeasureDiffs": {
+            "totalCount": 0,
+            "shownCount": 0,
+            "truncated": false,
+            "entries": []
+          },
+          "captionRasterTotalMs": 0,
+          "captionRasterBatches": {
+            "batches": 0,
+            "unitsPerBatchMax": 0,
+            "bandsMax": 0
+          },
+          "captionStartup": {
+            "totalMs": 0,
+            "fontEncodeMs": 0,
+            "fontBase64Bytes": 0,
+            "measure": {
+              "stableCalls": 0,
+              "reusedStableCalls": 0,
+              "passes": 0,
+              "variantMeasurements": 0,
+              "totalMs": 0,
+              "p50": null,
+              "p95": null,
+              "max": null,
+              "fontWaitMs": 0,
+              "layoutMs": 0,
+              "rootMs": 0,
+              "distinctKeys": 0,
+              "duplicatePasses": 0,
+              "degradedUnits": 0,
+              "faultInjected": false
+            },
+            "raster": {
+              "batches": 0,
+              "bands": 0,
+              "units": 0,
+              "svgBuildMs": 0,
+              "svgChars": 0,
+              "assertMs": 0,
+              "srcAssignMs": 0,
+              "decodeMs": 0,
+              "sheetDrawMs": 0,
+              "drawImageMs": 0,
+              "registerMs": 0,
+              "totalMs": 0,
+              "prefetchedBatches": 0,
+              "prefetchMs": 0
+            }
+          },
+          "previewEvery": 0,
+          "previewFrames": 0,
+          "previewDisabledReason": null,
+          "platform": "darwin",
+          "chromium": "142.0.7444.265",
+          "devices": [
+            {
+              "vendor_id": 4203,
+              "device_id": 0,
+              "device_string": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1, Version 26.2 (Build 25C56))",
+              "active": true,
+              "gpu_preference": 0
+            }
+          ]
+        },
+        "viewport": {
+          "requested": {
+            "width": 640,
+            "height": 360
+          },
+          "measured": {
+            "width": 640,
+            "height": 360
+          },
+          "emulated": false,
+          "display": {
+            "width": 1680,
+            "height": 1050
+          }
+        },
+        "eligibility": {
+          "eligible": true,
+          "entries": [
+            {
+              "kind": "overlay",
+              "id": "leaf",
+              "classification": "dom",
+              "reason": "item-keyframes",
+              "conditions": [
+                "item-keyframes"
+              ]
+            }
+          ],
+          "summary": {
+            "same": 0,
+            "three": 0,
+            "dom": 1,
+            "degraded": 0,
+            "unsupported": 0
+          }
+        },
+        "elapsedMs": 128.29999995231628,
+        "gpu_preference": {
+          "policy": "auto",
+          "exit": "gpu",
+          "applied": false,
+          "previous": null,
+          "restored": null,
+          "reason": "platform",
+          "recovered_stale": false
+        }
+      },
+      "mergedFrom": "results-gpu-legacy-keyframes.json"
+    },
+    {
+      "fixture": "legacy-keyframes",
+      "surface": "osr",
+      "measuredAt": "2026-09-22T20:30:56.926Z",
+      "status": "passed",
+      "outputs": [
+        {
+          "frameNumber": 0,
+          "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/legacy-keyframes/osr/frame-0.png",
+          "sha256": "98524650e3cef5f99bc4fed6ecc8560c30d3ca6bd6d91c0c731a969eea44611c"
+        },
+        {
+          "frameNumber": 15,
+          "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/legacy-keyframes/osr/frame-15.png",
+          "sha256": "1e702618a46a713f048ddf654d25351f3e02d75fc091e4f212da1c321761dfb4"
+        },
+        {
+          "frameNumber": 30,
+          "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/legacy-keyframes/osr/frame-30.png",
+          "sha256": "a0110f5859a7fe58c53a40d201a0b09a764429fa756f9965118b47c994a16076"
+        },
+        {
+          "frameNumber": 45,
+          "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/legacy-keyframes/osr/frame-45.png",
+          "sha256": "5830c67c1f8bc2de98da69e99e283a5dec91fd486cd9826dd299511e105f40a7"
+        },
+        {
+          "frameNumber": 59,
+          "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/legacy-keyframes/osr/frame-59.png",
+          "sha256": "4c498201fcff01e463d7417be3bc56b5b6661d941731e32b16fa071998fb9e63"
+        }
+      ],
+      "receipt": {
+        "launcherTier": 2,
+        "operation": "capture",
+        "page": {
+          "version": 1,
+          "dimensions": {
+            "width": 640,
+            "height": 360,
+            "pageHeight": 361
+          },
+          "fps": 30,
+          "duration": 2,
+          "layers": [
+            "engine-canvas",
+            "dom-captions",
+            "html-overlays",
+            "three-canvas"
+          ],
+          "captionOverlayCount": 0,
+          "overlayCount": 1,
+          "lutApplication": "none",
+          "adjustApplication": "none",
+          "stampRow": true
+        },
+        "verify": {
+          "mode": "stamp",
+          "matched": true,
+          "frames": [
+            {
+              "frameNumber": 0,
+              "matched": true,
+              "decodedFrameNumber": 0,
+              "expectedFrameNumber": 0,
+              "retries": 0
+            },
+            {
+              "frameNumber": 15,
+              "matched": true,
+              "decodedFrameNumber": 15,
+              "expectedFrameNumber": 15,
+              "retries": 0
+            },
+            {
+              "frameNumber": 30,
+              "matched": true,
+              "decodedFrameNumber": 30,
+              "expectedFrameNumber": 30,
+              "retries": 0
+            },
+            {
+              "frameNumber": 45,
+              "matched": true,
+              "decodedFrameNumber": 45,
+              "expectedFrameNumber": 45,
+              "retries": 0
+            },
+            {
+              "frameNumber": 59,
+              "matched": true,
+              "decodedFrameNumber": 59,
+              "expectedFrameNumber": 59,
+              "retries": 0
+            }
+          ]
+        },
+        "viewport": {
+          "requested": {
+            "width": 640,
+            "height": 361
+          },
+          "measured": {
+            "width": 640,
+            "height": 361
+          },
+          "emulated": false,
+          "display": {
+            "width": 1680,
+            "height": 1050
+          },
+          "work_area": {
+            "width": 1680,
+            "height": 959
+          }
+        },
+        "warm_up": {
+          "attempts": 2,
+          "empty_attempts": 1,
+          "elapsed_ms": 21,
+          "satisfied": true
+        },
+        "elapsedMs": 775.8070000000001
+      },
+      "mergedFrom": "results-osr-legacy-keyframes.json"
+    },
+    {
+      "fixture": "legacy-keyframes",
+      "surface": "web",
+      "measuredAt": "2026-09-22T20:21:35.206Z",
+      "status": "passed",
+      "outputs": [
+        {
+          "frameNumber": 0,
+          "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/legacy-keyframes/web/frame-0.png",
+          "measured": {
+            "width": 100,
+            "height": 60,
+            "renderedTime": 0,
+            "renderedFrame": 0,
+            "seekMax": 2,
+            "stage": {
+              "x": 16,
+              "y": 59,
+              "width": 1248,
+              "height": 702
+            },
+            "usedFragmentBounds": true
+          },
+          "expected": {
+            "width": 100,
+            "height": 60
+          },
+          "pass": true
+        },
+        {
+          "frameNumber": 15,
+          "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/legacy-keyframes/web/frame-15.png",
+          "measured": {
+            "width": 125,
+            "height": 75,
+            "renderedTime": 0.5,
+            "renderedFrame": 15,
+            "seekMax": 2,
+            "stage": {
+              "x": 16,
+              "y": 59,
+              "width": 1248,
+              "height": 702
+            },
+            "usedFragmentBounds": true
+          },
+          "expected": {
+            "width": 125,
+            "height": 75
+          },
+          "pass": true
+        },
+        {
+          "frameNumber": 30,
+          "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/legacy-keyframes/web/frame-30.png",
+          "measured": {
+            "width": 150,
+            "height": 90,
+            "renderedTime": 1,
+            "renderedFrame": 30,
+            "seekMax": 2,
+            "stage": {
+              "x": 16,
+              "y": 59,
+              "width": 1248,
+              "height": 702
+            },
+            "usedFragmentBounds": true
+          },
+          "expected": {
+            "width": 150,
+            "height": 90
+          },
+          "pass": true
+        },
+        {
+          "frameNumber": 45,
+          "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/legacy-keyframes/web/frame-45.png",
+          "measured": {
+            "width": 175,
+            "height": 105,
+            "renderedTime": 1.5,
+            "renderedFrame": 45,
+            "seekMax": 2,
+            "stage": {
+              "x": 16,
+              "y": 59,
+              "width": 1248,
+              "height": 702
+            },
+            "usedFragmentBounds": true
+          },
+          "expected": {
+            "width": 175,
+            "height": 105
+          },
+          "pass": true
+        },
+        {
+          "frameNumber": 59,
+          "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/legacy-keyframes/web/frame-59.png",
+          "measured": {
+            "width": 198.33331768329327,
+            "height": 119.00000939002405,
+            "renderedTime": 1.9666666666666666,
+            "renderedFrame": 59,
+            "seekMax": 2,
+            "stage": {
+              "x": 16,
+              "y": 59,
+              "width": 1248,
+              "height": 702
+            },
+            "usedFragmentBounds": true
+          },
+          "expected": {
+            "width": 198.33333333333334,
+            "height": 119
+          },
+          "pass": true
+        }
+      ],
+      "mergedFrom": "results-web-legacy-keyframes.json"
+    }
+  ],
+  "comparisons": [
+    {
+      "fixture": "scale-x",
+      "surface": "gpu",
+      "frame": 0,
+      "bounds": [
+        {
+          "left": 220,
+          "top": 150,
+          "width": 200,
+          "height": 60
+        },
+        {
+          "left": 220,
+          "top": 150,
+          "width": 200,
+          "height": 60
+        }
+      ],
+      "mad": 0.5388888888888889,
+      "diffPath": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/scale-x/gpu-diff-0.png",
+      "pass": true,
+      "baselineMad": 1.0184533333333334,
+      "madWithinBaseline": true
+    },
+    {
+      "fixture": "scale-x",
+      "surface": "gpu",
+      "frame": 15,
+      "bounds": [
+        {
+          "left": 220,
+          "top": 150,
+          "width": 200,
+          "height": 60
+        },
+        {
+          "left": 220,
+          "top": 150,
+          "width": 200,
+          "height": 60
+        }
+      ],
+      "mad": 0.5388888888888889,
+      "diffPath": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/scale-x/gpu-diff-15.png",
+      "pass": true,
+      "baselineMad": 1.0184533333333334,
+      "madWithinBaseline": true
+    },
+    {
+      "fixture": "scale-x",
+      "surface": "gpu",
+      "frame": 30,
+      "bounds": [
+        {
+          "left": 220,
+          "top": 150,
+          "width": 200,
+          "height": 60
+        },
+        {
+          "left": 220,
+          "top": 150,
+          "width": 200,
+          "height": 60
+        }
+      ],
+      "mad": 0.5388888888888889,
+      "diffPath": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/scale-x/gpu-diff-30.png",
+      "pass": true,
+      "baselineMad": 1.0184533333333334,
+      "madWithinBaseline": true
+    },
+    {
+      "fixture": "scale-x",
+      "surface": "gpu",
+      "frame": 45,
+      "bounds": [
+        {
+          "left": 220,
+          "top": 150,
+          "width": 200,
+          "height": 60
+        },
+        {
+          "left": 220,
+          "top": 150,
+          "width": 200,
+          "height": 60
+        }
+      ],
+      "mad": 0.5388888888888889,
+      "diffPath": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/scale-x/gpu-diff-45.png",
+      "pass": true,
+      "baselineMad": 1.0184533333333334,
+      "madWithinBaseline": true
+    },
+    {
+      "fixture": "scale-x",
+      "surface": "gpu",
+      "frame": 59,
+      "bounds": [
+        {
+          "left": 220,
+          "top": 150,
+          "width": 200,
+          "height": 60
+        },
+        {
+          "left": 220,
+          "top": 150,
+          "width": 200,
+          "height": 60
+        }
+      ],
+      "mad": 0.5388888888888889,
+      "diffPath": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/scale-x/gpu-diff-59.png",
+      "pass": true,
+      "baselineMad": 1.0184533333333334,
+      "madWithinBaseline": true
+    },
+    {
+      "fixture": "scale-x",
+      "surface": "osr",
+      "frame": 0,
+      "bounds": [
+        {
+          "left": 220,
+          "top": 150,
+          "width": 200,
+          "height": 60
+        },
+        {
+          "left": 220,
+          "top": 150,
+          "width": 200,
+          "height": 60
+        }
+      ],
+      "mad": 0.5388888888888889,
+      "diffPath": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/scale-x/osr-diff-0.png",
+      "pass": true,
+      "baselineMad": 1.0184533333333334,
+      "madWithinBaseline": true
+    },
+    {
+      "fixture": "scale-x",
+      "surface": "osr",
+      "frame": 15,
+      "bounds": [
+        {
+          "left": 220,
+          "top": 150,
+          "width": 200,
+          "height": 60
+        },
+        {
+          "left": 220,
+          "top": 150,
+          "width": 200,
+          "height": 60
+        }
+      ],
+      "mad": 0.5388888888888889,
+      "diffPath": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/scale-x/osr-diff-15.png",
+      "pass": true,
+      "baselineMad": 1.0184533333333334,
+      "madWithinBaseline": true
+    },
+    {
+      "fixture": "scale-x",
+      "surface": "osr",
+      "frame": 30,
+      "bounds": [
+        {
+          "left": 220,
+          "top": 150,
+          "width": 200,
+          "height": 60
+        },
+        {
+          "left": 220,
+          "top": 150,
+          "width": 200,
+          "height": 60
+        }
+      ],
+      "mad": 0.5388888888888889,
+      "diffPath": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/scale-x/osr-diff-30.png",
+      "pass": true,
+      "baselineMad": 1.0184533333333334,
+      "madWithinBaseline": true
+    },
+    {
+      "fixture": "scale-x",
+      "surface": "osr",
+      "frame": 45,
+      "bounds": [
+        {
+          "left": 220,
+          "top": 150,
+          "width": 200,
+          "height": 60
+        },
+        {
+          "left": 220,
+          "top": 150,
+          "width": 200,
+          "height": 60
+        }
+      ],
+      "mad": 0.5388888888888889,
+      "diffPath": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/scale-x/osr-diff-45.png",
+      "pass": true,
+      "baselineMad": 1.0184533333333334,
+      "madWithinBaseline": true
+    },
+    {
+      "fixture": "scale-x",
+      "surface": "osr",
+      "frame": 59,
+      "bounds": [
+        {
+          "left": 220,
+          "top": 150,
+          "width": 200,
+          "height": 60
+        },
+        {
+          "left": 220,
+          "top": 150,
+          "width": 200,
+          "height": 60
+        }
+      ],
+      "mad": 0.5388888888888889,
+      "diffPath": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/scale-x/osr-diff-59.png",
+      "pass": true,
+      "baselineMad": 1.0184533333333334,
+      "madWithinBaseline": true
+    },
+    {
+      "fixture": "scale-y",
+      "surface": "gpu",
+      "frame": 0,
+      "bounds": [
+        {
+          "left": 270,
+          "top": 165,
+          "width": 100,
+          "height": 30
+        },
+        {
+          "left": 270,
+          "top": 165,
+          "width": 100,
+          "height": 30
+        }
+      ],
+      "mad": 1.1086666666666667,
+      "diffPath": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/scale-y/gpu-diff-0.png",
+      "pass": true,
+      "baselineMad": 1.0184533333333334,
+      "madWithinBaseline": true
+    },
+    {
+      "fixture": "scale-y",
+      "surface": "gpu",
+      "frame": 15,
+      "bounds": [
+        {
+          "left": 270,
+          "top": 165,
+          "width": 100,
+          "height": 30
+        },
+        {
+          "left": 270,
+          "top": 165,
+          "width": 100,
+          "height": 30
+        }
+      ],
+      "mad": 1.1086666666666667,
+      "diffPath": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/scale-y/gpu-diff-15.png",
+      "pass": true,
+      "baselineMad": 1.0184533333333334,
+      "madWithinBaseline": true
+    },
+    {
+      "fixture": "scale-y",
+      "surface": "gpu",
+      "frame": 30,
+      "bounds": [
+        {
+          "left": 270,
+          "top": 165,
+          "width": 100,
+          "height": 30
+        },
+        {
+          "left": 270,
+          "top": 165,
+          "width": 100,
+          "height": 30
+        }
+      ],
+      "mad": 1.1086666666666667,
+      "diffPath": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/scale-y/gpu-diff-30.png",
+      "pass": true,
+      "baselineMad": 1.0184533333333334,
+      "madWithinBaseline": true
+    },
+    {
+      "fixture": "scale-y",
+      "surface": "gpu",
+      "frame": 45,
+      "bounds": [
+        {
+          "left": 270,
+          "top": 165,
+          "width": 100,
+          "height": 30
+        },
+        {
+          "left": 270,
+          "top": 165,
+          "width": 100,
+          "height": 30
+        }
+      ],
+      "mad": 1.1086666666666667,
+      "diffPath": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/scale-y/gpu-diff-45.png",
+      "pass": true,
+      "baselineMad": 1.0184533333333334,
+      "madWithinBaseline": true
+    },
+    {
+      "fixture": "scale-y",
+      "surface": "gpu",
+      "frame": 59,
+      "bounds": [
+        {
+          "left": 270,
+          "top": 165,
+          "width": 100,
+          "height": 30
+        },
+        {
+          "left": 270,
+          "top": 165,
+          "width": 100,
+          "height": 30
+        }
+      ],
+      "mad": 1.1086666666666667,
+      "diffPath": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/scale-y/gpu-diff-59.png",
+      "pass": true,
+      "baselineMad": 1.0184533333333334,
+      "madWithinBaseline": true
+    },
+    {
+      "fixture": "scale-y",
+      "surface": "osr",
+      "frame": 0,
+      "bounds": [
+        {
+          "left": 270,
+          "top": 165,
+          "width": 100,
+          "height": 30
+        },
+        {
+          "left": 270,
+          "top": 165,
+          "width": 100,
+          "height": 30
+        }
+      ],
+      "mad": 1.1086666666666667,
+      "diffPath": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/scale-y/osr-diff-0.png",
+      "pass": true,
+      "baselineMad": 1.0184533333333334,
+      "madWithinBaseline": true
+    },
+    {
+      "fixture": "scale-y",
+      "surface": "osr",
+      "frame": 15,
+      "bounds": [
+        {
+          "left": 270,
+          "top": 165,
+          "width": 100,
+          "height": 30
+        },
+        {
+          "left": 270,
+          "top": 165,
+          "width": 100,
+          "height": 30
+        }
+      ],
+      "mad": 1.1086666666666667,
+      "diffPath": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/scale-y/osr-diff-15.png",
+      "pass": true,
+      "baselineMad": 1.0184533333333334,
+      "madWithinBaseline": true
+    },
+    {
+      "fixture": "scale-y",
+      "surface": "osr",
+      "frame": 30,
+      "bounds": [
+        {
+          "left": 270,
+          "top": 165,
+          "width": 100,
+          "height": 30
+        },
+        {
+          "left": 270,
+          "top": 165,
+          "width": 100,
+          "height": 30
+        }
+      ],
+      "mad": 1.1086666666666667,
+      "diffPath": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/scale-y/osr-diff-30.png",
+      "pass": true,
+      "baselineMad": 1.0184533333333334,
+      "madWithinBaseline": true
+    },
+    {
+      "fixture": "scale-y",
+      "surface": "osr",
+      "frame": 45,
+      "bounds": [
+        {
+          "left": 270,
+          "top": 165,
+          "width": 100,
+          "height": 30
+        },
+        {
+          "left": 270,
+          "top": 165,
+          "width": 100,
+          "height": 30
+        }
+      ],
+      "mad": 1.1086666666666667,
+      "diffPath": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/scale-y/osr-diff-45.png",
+      "pass": true,
+      "baselineMad": 1.0184533333333334,
+      "madWithinBaseline": true
+    },
+    {
+      "fixture": "scale-y",
+      "surface": "osr",
+      "frame": 59,
+      "bounds": [
+        {
+          "left": 270,
+          "top": 165,
+          "width": 100,
+          "height": 30
+        },
+        {
+          "left": 270,
+          "top": 165,
+          "width": 100,
+          "height": 30
+        }
+      ],
+      "mad": 1.1086666666666667,
+      "diffPath": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/scale-y/osr-diff-59.png",
+      "pass": true,
+      "baselineMad": 1.0184533333333334,
+      "madWithinBaseline": true
+    },
+    {
+      "fixture": "rotated",
+      "surface": "gpu",
+      "frame": 0,
+      "bounds": [
+        {
+          "left": 233,
+          "top": 142,
+          "width": 174,
+          "height": 76
+        },
+        {
+          "left": 233,
+          "top": 142,
+          "width": 174,
+          "height": 76
+        }
+      ],
+      "mad": 0.8370387174833636,
+      "diffPath": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/rotated/gpu-diff-0.png",
+      "pass": true,
+      "baselineMad": 1.0184533333333334,
+      "madWithinBaseline": true
+    },
+    {
+      "fixture": "rotated",
+      "surface": "gpu",
+      "frame": 15,
+      "bounds": [
+        {
+          "left": 233,
+          "top": 142,
+          "width": 174,
+          "height": 76
+        },
+        {
+          "left": 233,
+          "top": 142,
+          "width": 174,
+          "height": 76
+        }
+      ],
+      "mad": 0.8370387174833636,
+      "diffPath": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/rotated/gpu-diff-15.png",
+      "pass": true,
+      "baselineMad": 1.0184533333333334,
+      "madWithinBaseline": true
+    },
+    {
+      "fixture": "rotated",
+      "surface": "gpu",
+      "frame": 30,
+      "bounds": [
+        {
+          "left": 233,
+          "top": 142,
+          "width": 174,
+          "height": 76
+        },
+        {
+          "left": 233,
+          "top": 142,
+          "width": 174,
+          "height": 76
+        }
+      ],
+      "mad": 0.8370387174833636,
+      "diffPath": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/rotated/gpu-diff-30.png",
+      "pass": true,
+      "baselineMad": 1.0184533333333334,
+      "madWithinBaseline": true
+    },
+    {
+      "fixture": "rotated",
+      "surface": "gpu",
+      "frame": 45,
+      "bounds": [
+        {
+          "left": 233,
+          "top": 142,
+          "width": 174,
+          "height": 76
+        },
+        {
+          "left": 233,
+          "top": 142,
+          "width": 174,
+          "height": 76
+        }
+      ],
+      "mad": 0.8370387174833636,
+      "diffPath": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/rotated/gpu-diff-45.png",
+      "pass": true,
+      "baselineMad": 1.0184533333333334,
+      "madWithinBaseline": true
+    },
+    {
+      "fixture": "rotated",
+      "surface": "gpu",
+      "frame": 59,
+      "bounds": [
+        {
+          "left": 233,
+          "top": 142,
+          "width": 174,
+          "height": 76
+        },
+        {
+          "left": 233,
+          "top": 142,
+          "width": 174,
+          "height": 76
+        }
+      ],
+      "mad": 0.8370387174833636,
+      "diffPath": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/rotated/gpu-diff-59.png",
+      "pass": true,
+      "baselineMad": 1.0184533333333334,
+      "madWithinBaseline": true
+    },
+    {
+      "fixture": "rotated",
+      "surface": "osr",
+      "frame": 0,
+      "bounds": [
+        {
+          "left": 233,
+          "top": 142,
+          "width": 174,
+          "height": 76
+        },
+        {
+          "left": 233,
+          "top": 142,
+          "width": 174,
+          "height": 76
+        }
+      ],
+      "mad": 0.8370387174833636,
+      "diffPath": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/rotated/osr-diff-0.png",
+      "pass": true,
+      "baselineMad": 1.0184533333333334,
+      "madWithinBaseline": true
+    },
+    {
+      "fixture": "rotated",
+      "surface": "osr",
+      "frame": 15,
+      "bounds": [
+        {
+          "left": 233,
+          "top": 142,
+          "width": 174,
+          "height": 76
+        },
+        {
+          "left": 233,
+          "top": 142,
+          "width": 174,
+          "height": 76
+        }
+      ],
+      "mad": 0.8370387174833636,
+      "diffPath": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/rotated/osr-diff-15.png",
+      "pass": true,
+      "baselineMad": 1.0184533333333334,
+      "madWithinBaseline": true
+    },
+    {
+      "fixture": "rotated",
+      "surface": "osr",
+      "frame": 30,
+      "bounds": [
+        {
+          "left": 233,
+          "top": 142,
+          "width": 174,
+          "height": 76
+        },
+        {
+          "left": 233,
+          "top": 142,
+          "width": 174,
+          "height": 76
+        }
+      ],
+      "mad": 0.8370387174833636,
+      "diffPath": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/rotated/osr-diff-30.png",
+      "pass": true,
+      "baselineMad": 1.0184533333333334,
+      "madWithinBaseline": true
+    },
+    {
+      "fixture": "rotated",
+      "surface": "osr",
+      "frame": 45,
+      "bounds": [
+        {
+          "left": 233,
+          "top": 142,
+          "width": 174,
+          "height": 76
+        },
+        {
+          "left": 233,
+          "top": 142,
+          "width": 174,
+          "height": 76
+        }
+      ],
+      "mad": 0.8370387174833636,
+      "diffPath": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/rotated/osr-diff-45.png",
+      "pass": true,
+      "baselineMad": 1.0184533333333334,
+      "madWithinBaseline": true
+    },
+    {
+      "fixture": "rotated",
+      "surface": "osr",
+      "frame": 59,
+      "bounds": [
+        {
+          "left": 233,
+          "top": 142,
+          "width": 174,
+          "height": 76
+        },
+        {
+          "left": 233,
+          "top": 142,
+          "width": 174,
+          "height": 76
+        }
+      ],
+      "mad": 0.8370387174833636,
+      "diffPath": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/rotated/osr-diff-59.png",
+      "pass": true,
+      "baselineMad": 1.0184533333333334,
+      "madWithinBaseline": true
+    },
+    {
+      "fixture": "group-leaf",
+      "surface": "gpu",
+      "frame": 0,
+      "bounds": [
+        {
+          "left": 215,
+          "top": 153,
+          "width": 250,
+          "height": 75
+        },
+        {
+          "left": 215,
+          "top": 153,
+          "width": 250,
+          "height": 74
+        }
+      ],
+      "mad": 0.5263466666666666,
+      "diffPath": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/group-leaf/gpu-diff-0.png",
+      "pass": true,
+      "baselineMad": 1.0184533333333334,
+      "madWithinBaseline": true
+    },
+    {
+      "fixture": "group-leaf",
+      "surface": "gpu",
+      "frame": 15,
+      "bounds": [
+        {
+          "left": 215,
+          "top": 153,
+          "width": 250,
+          "height": 75
+        },
+        {
+          "left": 215,
+          "top": 153,
+          "width": 250,
+          "height": 74
+        }
+      ],
+      "mad": 0.5263466666666666,
+      "diffPath": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/group-leaf/gpu-diff-15.png",
+      "pass": true,
+      "baselineMad": 1.0184533333333334,
+      "madWithinBaseline": true
+    },
+    {
+      "fixture": "group-leaf",
+      "surface": "gpu",
+      "frame": 30,
+      "bounds": [
+        {
+          "left": 215,
+          "top": 153,
+          "width": 250,
+          "height": 75
+        },
+        {
+          "left": 215,
+          "top": 153,
+          "width": 250,
+          "height": 74
+        }
+      ],
+      "mad": 0.5263466666666666,
+      "diffPath": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/group-leaf/gpu-diff-30.png",
+      "pass": true,
+      "baselineMad": 1.0184533333333334,
+      "madWithinBaseline": true
+    },
+    {
+      "fixture": "group-leaf",
+      "surface": "gpu",
+      "frame": 45,
+      "bounds": [
+        {
+          "left": 215,
+          "top": 153,
+          "width": 250,
+          "height": 75
+        },
+        {
+          "left": 215,
+          "top": 153,
+          "width": 250,
+          "height": 74
+        }
+      ],
+      "mad": 0.5263466666666666,
+      "diffPath": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/group-leaf/gpu-diff-45.png",
+      "pass": true,
+      "baselineMad": 1.0184533333333334,
+      "madWithinBaseline": true
+    },
+    {
+      "fixture": "group-leaf",
+      "surface": "gpu",
+      "frame": 59,
+      "bounds": [
+        {
+          "left": 215,
+          "top": 153,
+          "width": 250,
+          "height": 75
+        },
+        {
+          "left": 215,
+          "top": 153,
+          "width": 250,
+          "height": 74
+        }
+      ],
+      "mad": 0.5263466666666666,
+      "diffPath": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/group-leaf/gpu-diff-59.png",
+      "pass": true,
+      "baselineMad": 1.0184533333333334,
+      "madWithinBaseline": true
+    },
+    {
+      "fixture": "group-leaf",
+      "surface": "osr",
+      "frame": 0,
+      "bounds": [
+        {
+          "left": 215,
+          "top": 153,
+          "width": 250,
+          "height": 75
+        },
+        {
+          "left": 215,
+          "top": 153,
+          "width": 250,
+          "height": 74
+        }
+      ],
+      "mad": 0.5263466666666666,
+      "diffPath": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/group-leaf/osr-diff-0.png",
+      "pass": true,
+      "baselineMad": 1.0184533333333334,
+      "madWithinBaseline": true
+    },
+    {
+      "fixture": "group-leaf",
+      "surface": "osr",
+      "frame": 15,
+      "bounds": [
+        {
+          "left": 215,
+          "top": 153,
+          "width": 250,
+          "height": 75
+        },
+        {
+          "left": 215,
+          "top": 153,
+          "width": 250,
+          "height": 74
+        }
+      ],
+      "mad": 0.5263466666666666,
+      "diffPath": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/group-leaf/osr-diff-15.png",
+      "pass": true,
+      "baselineMad": 1.0184533333333334,
+      "madWithinBaseline": true
+    },
+    {
+      "fixture": "group-leaf",
+      "surface": "osr",
+      "frame": 30,
+      "bounds": [
+        {
+          "left": 215,
+          "top": 153,
+          "width": 250,
+          "height": 75
+        },
+        {
+          "left": 215,
+          "top": 153,
+          "width": 250,
+          "height": 74
+        }
+      ],
+      "mad": 0.5263466666666666,
+      "diffPath": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/group-leaf/osr-diff-30.png",
+      "pass": true,
+      "baselineMad": 1.0184533333333334,
+      "madWithinBaseline": true
+    },
+    {
+      "fixture": "group-leaf",
+      "surface": "osr",
+      "frame": 45,
+      "bounds": [
+        {
+          "left": 215,
+          "top": 153,
+          "width": 250,
+          "height": 75
+        },
+        {
+          "left": 215,
+          "top": 153,
+          "width": 250,
+          "height": 74
+        }
+      ],
+      "mad": 0.5263466666666666,
+      "diffPath": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/group-leaf/osr-diff-45.png",
+      "pass": true,
+      "baselineMad": 1.0184533333333334,
+      "madWithinBaseline": true
+    },
+    {
+      "fixture": "group-leaf",
+      "surface": "osr",
+      "frame": 59,
+      "bounds": [
+        {
+          "left": 215,
+          "top": 153,
+          "width": 250,
+          "height": 75
+        },
+        {
+          "left": 215,
+          "top": 153,
+          "width": 250,
+          "height": 74
+        }
+      ],
+      "mad": 0.5263466666666666,
+      "diffPath": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/group-leaf/osr-diff-59.png",
+      "pass": true,
+      "baselineMad": 1.0184533333333334,
+      "madWithinBaseline": true
+    },
+    {
+      "fixture": "keyframes",
+      "surface": "gpu",
+      "frame": 0,
+      "bounds": [
+        {
+          "left": 270,
+          "top": 150,
+          "width": 100,
+          "height": 60
+        },
+        {
+          "left": 270,
+          "top": 150,
+          "width": 100,
+          "height": 60
+        }
+      ],
+      "mad": 0.8032777777777778,
+      "diffPath": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/keyframes/gpu-diff-0.png",
+      "pass": true,
+      "baselineMad": 1.0184533333333334,
+      "madWithinBaseline": true
+    },
+    {
+      "fixture": "keyframes",
+      "surface": "gpu",
+      "frame": 15,
+      "bounds": [
+        {
+          "left": 258,
+          "top": 150,
+          "width": 125,
+          "height": 60
+        },
+        {
+          "left": 258,
+          "top": 150,
+          "width": 124,
+          "height": 60
+        }
+      ],
+      "mad": 0.9072888888888889,
+      "diffPath": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/keyframes/gpu-diff-15.png",
+      "pass": true,
+      "baselineMad": 1.0184533333333334,
+      "madWithinBaseline": true
+    },
+    {
+      "fixture": "keyframes",
+      "surface": "gpu",
+      "frame": 30,
+      "bounds": [
+        {
+          "left": 245,
+          "top": 150,
+          "width": 150,
+          "height": 60
+        },
+        {
+          "left": 245,
+          "top": 150,
+          "width": 150,
+          "height": 60
+        }
+      ],
+      "mad": 0.6471851851851852,
+      "diffPath": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/keyframes/gpu-diff-30.png",
+      "pass": true,
+      "baselineMad": 1.0184533333333334,
+      "madWithinBaseline": true
+    },
+    {
+      "fixture": "keyframes",
+      "surface": "gpu",
+      "frame": 45,
+      "bounds": [
+        {
+          "left": 233,
+          "top": 150,
+          "width": 175,
+          "height": 60
+        },
+        {
+          "left": 233,
+          "top": 150,
+          "width": 174,
+          "height": 60
+        }
+      ],
+      "mad": 0.6944444444444444,
+      "diffPath": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/keyframes/gpu-diff-45.png",
+      "pass": true,
+      "baselineMad": 1.0184533333333334,
+      "madWithinBaseline": true
+    },
+    {
+      "fixture": "keyframes",
+      "surface": "gpu",
+      "frame": 59,
+      "bounds": [
+        {
+          "left": 221,
+          "top": 150,
+          "width": 198,
+          "height": 60
+        },
+        {
+          "left": 221,
+          "top": 150,
+          "width": 198,
+          "height": 60
+        }
+      ],
+      "mad": 0.5388888888888889,
+      "diffPath": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/keyframes/gpu-diff-59.png",
+      "pass": true,
+      "baselineMad": 1.0184533333333334,
+      "madWithinBaseline": true
+    },
+    {
+      "fixture": "keyframes",
+      "surface": "osr",
+      "frame": 0,
+      "bounds": [
+        {
+          "left": 270,
+          "top": 150,
+          "width": 100,
+          "height": 60
+        },
+        {
+          "left": 270,
+          "top": 150,
+          "width": 100,
+          "height": 60
+        }
+      ],
+      "mad": 0.8032777777777778,
+      "diffPath": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/keyframes/osr-diff-0.png",
+      "pass": true,
+      "baselineMad": 1.0184533333333334,
+      "madWithinBaseline": true
+    },
+    {
+      "fixture": "keyframes",
+      "surface": "osr",
+      "frame": 15,
+      "bounds": [
+        {
+          "left": 258,
+          "top": 150,
+          "width": 125,
+          "height": 60
+        },
+        {
+          "left": 258,
+          "top": 150,
+          "width": 124,
+          "height": 60
+        }
+      ],
+      "mad": 0.9072888888888889,
+      "diffPath": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/keyframes/osr-diff-15.png",
+      "pass": true,
+      "baselineMad": 1.0184533333333334,
+      "madWithinBaseline": true
+    },
+    {
+      "fixture": "keyframes",
+      "surface": "osr",
+      "frame": 30,
+      "bounds": [
+        {
+          "left": 245,
+          "top": 150,
+          "width": 150,
+          "height": 60
+        },
+        {
+          "left": 245,
+          "top": 150,
+          "width": 150,
+          "height": 60
+        }
+      ],
+      "mad": 0.6471851851851852,
+      "diffPath": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/keyframes/osr-diff-30.png",
+      "pass": true,
+      "baselineMad": 1.0184533333333334,
+      "madWithinBaseline": true
+    },
+    {
+      "fixture": "keyframes",
+      "surface": "osr",
+      "frame": 45,
+      "bounds": [
+        {
+          "left": 233,
+          "top": 150,
+          "width": 175,
+          "height": 60
+        },
+        {
+          "left": 233,
+          "top": 150,
+          "width": 174,
+          "height": 60
+        }
+      ],
+      "mad": 0.6944444444444444,
+      "diffPath": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/keyframes/osr-diff-45.png",
+      "pass": true,
+      "baselineMad": 1.0184533333333334,
+      "madWithinBaseline": true
+    },
+    {
+      "fixture": "keyframes",
+      "surface": "osr",
+      "frame": 59,
+      "bounds": [
+        {
+          "left": 221,
+          "top": 150,
+          "width": 198,
+          "height": 60
+        },
+        {
+          "left": 221,
+          "top": 150,
+          "width": 198,
+          "height": 60
+        }
+      ],
+      "mad": 0.5388888888888889,
+      "diffPath": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/keyframes/osr-diff-59.png",
+      "pass": true,
+      "baselineMad": 1.0184533333333334,
+      "madWithinBaseline": true
+    },
+    {
+      "fixture": "legacy",
+      "surface": "gpu",
+      "frame": 0,
+      "bounds": [
+        {
+          "left": 258,
+          "top": 143,
+          "width": 125,
+          "height": 75
+        },
+        {
+          "left": 258,
+          "top": 143,
+          "width": 124,
+          "height": 74
+        }
+      ],
+      "mad": 1.0184533333333334,
+      "diffPath": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/legacy/gpu-diff-0.png",
+      "pass": true,
+      "baselineMad": 1.0184533333333334,
+      "madWithinBaseline": true
+    },
+    {
+      "fixture": "legacy",
+      "surface": "gpu",
+      "frame": 15,
+      "bounds": [
+        {
+          "left": 258,
+          "top": 143,
+          "width": 125,
+          "height": 75
+        },
+        {
+          "left": 258,
+          "top": 143,
+          "width": 124,
+          "height": 74
+        }
+      ],
+      "mad": 1.0184533333333334,
+      "diffPath": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/legacy/gpu-diff-15.png",
+      "pass": true,
+      "baselineMad": 1.0184533333333334,
+      "madWithinBaseline": true
+    },
+    {
+      "fixture": "legacy",
+      "surface": "gpu",
+      "frame": 30,
+      "bounds": [
+        {
+          "left": 258,
+          "top": 143,
+          "width": 125,
+          "height": 75
+        },
+        {
+          "left": 258,
+          "top": 143,
+          "width": 124,
+          "height": 74
+        }
+      ],
+      "mad": 1.0184533333333334,
+      "diffPath": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/legacy/gpu-diff-30.png",
+      "pass": true,
+      "baselineMad": 1.0184533333333334,
+      "madWithinBaseline": true
+    },
+    {
+      "fixture": "legacy",
+      "surface": "gpu",
+      "frame": 45,
+      "bounds": [
+        {
+          "left": 258,
+          "top": 143,
+          "width": 125,
+          "height": 75
+        },
+        {
+          "left": 258,
+          "top": 143,
+          "width": 124,
+          "height": 74
+        }
+      ],
+      "mad": 1.0184533333333334,
+      "diffPath": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/legacy/gpu-diff-45.png",
+      "pass": true,
+      "baselineMad": 1.0184533333333334,
+      "madWithinBaseline": true
+    },
+    {
+      "fixture": "legacy",
+      "surface": "gpu",
+      "frame": 59,
+      "bounds": [
+        {
+          "left": 258,
+          "top": 143,
+          "width": 125,
+          "height": 75
+        },
+        {
+          "left": 258,
+          "top": 143,
+          "width": 124,
+          "height": 74
+        }
+      ],
+      "mad": 1.0184533333333334,
+      "diffPath": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/legacy/gpu-diff-59.png",
+      "pass": true,
+      "baselineMad": 1.0184533333333334,
+      "madWithinBaseline": true
+    },
+    {
+      "fixture": "legacy",
+      "surface": "osr",
+      "frame": 0,
+      "bounds": [
+        {
+          "left": 258,
+          "top": 143,
+          "width": 125,
+          "height": 75
+        },
+        {
+          "left": 258,
+          "top": 143,
+          "width": 124,
+          "height": 74
+        }
+      ],
+      "mad": 1.0184533333333334,
+      "diffPath": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/legacy/osr-diff-0.png",
+      "pass": true,
+      "baselineMad": 1.0184533333333334,
+      "madWithinBaseline": true
+    },
+    {
+      "fixture": "legacy",
+      "surface": "osr",
+      "frame": 15,
+      "bounds": [
+        {
+          "left": 258,
+          "top": 143,
+          "width": 125,
+          "height": 75
+        },
+        {
+          "left": 258,
+          "top": 143,
+          "width": 124,
+          "height": 74
+        }
+      ],
+      "mad": 1.0184533333333334,
+      "diffPath": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/legacy/osr-diff-15.png",
+      "pass": true,
+      "baselineMad": 1.0184533333333334,
+      "madWithinBaseline": true
+    },
+    {
+      "fixture": "legacy",
+      "surface": "osr",
+      "frame": 30,
+      "bounds": [
+        {
+          "left": 258,
+          "top": 143,
+          "width": 125,
+          "height": 75
+        },
+        {
+          "left": 258,
+          "top": 143,
+          "width": 124,
+          "height": 74
+        }
+      ],
+      "mad": 1.0184533333333334,
+      "diffPath": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/legacy/osr-diff-30.png",
+      "pass": true,
+      "baselineMad": 1.0184533333333334,
+      "madWithinBaseline": true
+    },
+    {
+      "fixture": "legacy",
+      "surface": "osr",
+      "frame": 45,
+      "bounds": [
+        {
+          "left": 258,
+          "top": 143,
+          "width": 125,
+          "height": 75
+        },
+        {
+          "left": 258,
+          "top": 143,
+          "width": 124,
+          "height": 74
+        }
+      ],
+      "mad": 1.0184533333333334,
+      "diffPath": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/legacy/osr-diff-45.png",
+      "pass": true,
+      "baselineMad": 1.0184533333333334,
+      "madWithinBaseline": true
+    },
+    {
+      "fixture": "legacy",
+      "surface": "osr",
+      "frame": 59,
+      "bounds": [
+        {
+          "left": 258,
+          "top": 143,
+          "width": 125,
+          "height": 75
+        },
+        {
+          "left": 258,
+          "top": 143,
+          "width": 124,
+          "height": 74
+        }
+      ],
+      "mad": 1.0184533333333334,
+      "diffPath": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/legacy/osr-diff-59.png",
+      "pass": true,
+      "baselineMad": 1.0184533333333334,
+      "madWithinBaseline": true
+    }
+  ],
+  "comparisonCriterion": {
+    "boundsTolerancePx": 1,
+    "mad": "diagnostic-only",
+    "madBaselineAllowance": 1
+  },
+  "passScope": "all six fixtures: web/gpu/osr geometry and contract checks",
+  "madBaselines": {
+    "gpu": {
+      "fixture": "legacy",
+      "aggregation": "max of available legacy frames",
+      "mad": 1.0184533333333334,
+      "frames": [
+        {
+          "frame": 0,
+          "mad": 1.0184533333333334
+        },
+        {
+          "frame": 15,
+          "mad": 1.0184533333333334
+        },
+        {
+          "frame": 30,
+          "mad": 1.0184533333333334
+        },
+        {
+          "frame": 45,
+          "mad": 1.0184533333333334
+        },
+        {
+          "frame": 59,
+          "mad": 1.0184533333333334
+        }
+      ]
+    },
+    "osr": {
+      "fixture": "legacy",
+      "aggregation": "max of available legacy frames",
+      "mad": 1.0184533333333334,
+      "frames": [
+        {
+          "frame": 0,
+          "mad": 1.0184533333333334
+        },
+        {
+          "frame": 15,
+          "mad": 1.0184533333333334
+        },
+        {
+          "frame": 30,
+          "mad": 1.0184533333333334
+        },
+        {
+          "frame": 45,
+          "mad": 1.0184533333333334
+        },
+        {
+          "frame": 59,
+          "mad": 1.0184533333333334
+        }
+      ]
+    }
+  },
+  "pass": true,
+  "shell": {
+    "status": "not-run",
+    "reason": "Tier 2: open a fixture in the built shell and run shell-cdp.mjs against its CDP endpoint."
+  },
+  "mergedAt": "2026-09-22T21:23:00.539Z",
+  "mergedFrom": [
+    "results.json",
+    "results-gpu-group-leaf.json",
+    "results-gpu-keyframes.json",
+    "results-gpu-legacy-keyframes.json",
+    "results-gpu-legacy.json",
+    "results-gpu-rotated.json",
+    "results-gpu-scale-x.json",
+    "results-gpu-scale-y.json",
+    "results-osr-group-leaf.json",
+    "results-osr-keyframes.json",
+    "results-osr-legacy-keyframes.json",
+    "results-osr-legacy.json",
+    "results-osr-rotated.json",
+    "results-osr-scale-x.json",
+    "results-osr-scale-y.json",
+    "results-web-all.json",
+    "results-web-legacy-keyframes.json"
+  ],
+  "missingSurfaces": []
+}

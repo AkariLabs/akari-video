@@ -1,3 +1,4 @@
+import { normalizeTransform } from './transform';
 import {
     ITEM_V2_KEYS,
     KEYFRAME_V2_KEYS,
@@ -170,6 +171,9 @@ function serializeRecordArray(
 }
 
 function inlineField(key: string, value: unknown, item: boolean): string {
+    if (item && key === 'transform' && isRecord(value) && (value.scaleX !== undefined || value.scaleY !== undefined)) {
+        return inlineObject({ ...normalizeTransform(value) }, ['x', 'y', 'scale', 'scaleX', 'scaleY', 'rotate']);
+    }
     if (item && key === 'source' && isRecord(value)) return inlineObject(value, ['kind']);
     if (item && key === 'keyframes' && Array.isArray(value)) {
         return `[${value.map(point => inlineOrdered(point, KEYFRAME_V2_KEYS)).join(', ')}]`;
@@ -184,7 +188,7 @@ function inlineOrdered(value: unknown, preferred: readonly string[]): string {
 function inlineObject(value: JsonRecord, preferred: readonly string[], item = false): string {
     const keys = orderedKeys(value, preferred);
     if (keys.length === 0) return '{}';
-    return `{ ${keys.map(key => `${JSON.stringify(key)}: ${inlineField(key, value[key], item)}`).join(', ')} }`;
+    return `{ ${keys.map(key => `${JSON.stringify(key)}: ${inlineField(key, value[key], item || preferred === KEYFRAME_V2_KEYS)}`).join(', ')} }`;
 }
 
 function inline(value: unknown): string {

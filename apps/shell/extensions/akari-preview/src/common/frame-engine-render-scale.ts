@@ -41,6 +41,8 @@ interface RenderScaleTransform {
     x: number;
     y: number;
     scale: number;
+    scaleX?: number;
+    scaleY?: number;
 }
 
 interface RenderScaleCutVisual {
@@ -64,7 +66,9 @@ export function scaleEvaluationPlan<T extends RenderScaleEvaluationPlan>(plan: T
         ...transform,
         x: transform.x * scale,
         y: transform.y * scale,
-        scale: pixelScale ? transform.scale * scale : transform.scale
+        scale: pixelScale ? transform.scale * scale : transform.scale,
+        ...(pixelScale && transform.scaleX !== undefined ? { scaleX: transform.scaleX * scale } : {}),
+        ...(pixelScale && transform.scaleY !== undefined ? { scaleY: transform.scaleY * scale } : {})
     });
     const scaleCutVisual = (visual: RenderScaleCutVisual) => ({
         ...visual,

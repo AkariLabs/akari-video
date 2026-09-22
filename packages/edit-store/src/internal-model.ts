@@ -780,6 +780,8 @@ function isAlphaCapableMediaSourcePath(path: unknown): boolean {
 function needsCrossTrackLayers(item: ItemV2, pathOf?: (sourceId: string) => string | undefined): boolean {
     const transform = item.transform;
     return (transform?.scale !== undefined && transform.scale !== 1)
+        || (transform?.scaleX !== undefined && transform.scaleX !== 1)
+        || (transform?.scaleY !== undefined && transform.scaleY !== 1)
         || (transform?.x !== undefined && transform.x !== 0)
         || (transform?.y !== undefined && transform.y !== 0)
         || (transform?.rotate !== undefined && transform.rotate !== 0)

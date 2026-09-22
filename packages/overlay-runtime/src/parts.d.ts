@@ -13,7 +13,7 @@ export interface OverlayRecord {
   start: number;
   duration: number;
   track?: number;
-  transform?: { x?: number; y?: number; scale?: number; rotate?: number };
+  transform?: { x?: number; y?: number; scale?: number; scaleX?: number; scaleY?: number; rotate?: number };
   opacity?: number;
   blend?: string;
   vars?: Record<string, string>;
@@ -34,3 +34,7 @@ export function expandBagOverlays(
   internal: any,
   readHtml?: (reference: string, item: any) => string,
 ): OverlayRecord[];
+
+/** Uniform parent composition; explicit equal axes fold to scale. */
+export function composeTransforms(parent: { x?: number; y?: number; scale?: number; rotate?: number }, child: { x?: number; y?: number; scale?: number; scaleX?: number; scaleY?: number; rotate?: number }): { x: number; y: number; scale?: number; scaleX?: number; scaleY?: number; rotate: number };
+export function effectiveScale(transform?: { scale?: number; scaleX?: number; scaleY?: number }): { x: number; y: number };

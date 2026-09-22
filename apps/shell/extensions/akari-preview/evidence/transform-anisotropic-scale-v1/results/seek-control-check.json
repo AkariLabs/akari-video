@@ -1,0 +1,113 @@
+{
+  "before": [
+    {
+      "control": "scale",
+      "observed": [
+        {
+          "width": 100.00002543131511,
+          "height": 59.999995761447785,
+          "time": 0,
+          "duration": 0
+        },
+        {
+          "width": 100.00002543131511,
+          "height": 59.999995761447785,
+          "time": 0,
+          "duration": 0
+        },
+        {
+          "width": 100.00002543131511,
+          "height": 59.999995761447785,
+          "time": 0,
+          "duration": 0
+        },
+        {
+          "width": 100.00002543131511,
+          "height": 59.999995761447785,
+          "time": 0,
+          "duration": 0
+        },
+        {
+          "width": 100.00002543131511,
+          "height": 59.999995761447785,
+          "time": 0,
+          "duration": 0
+        }
+      ]
+    }
+  ],
+  "after": [
+    {
+      "control": "scale",
+      "observed": [
+        {
+          "width": 100.00002543131511,
+          "height": 59.999995761447785,
+          "time": 0,
+          "duration": 2
+        },
+        {
+          "width": 125.00002543131511,
+          "height": 74.99999470180973,
+          "time": 0.5,
+          "duration": 2
+        },
+        {
+          "width": 150.00002543131512,
+          "height": 89.99999364217167,
+          "time": 1,
+          "duration": 2
+        },
+        {
+          "width": 175.00002543131512,
+          "height": 104.99999258253362,
+          "time": 1.5,
+          "duration": 2
+        },
+        {
+          "width": 198.33333333333334,
+          "height": 119.00000685232608,
+          "time": 1.967,
+          "duration": 2
+        }
+      ]
+    },
+    {
+      "control": "scaleX",
+      "observed": [
+        {
+          "width": 100.00002543131511,
+          "height": 59.999995761447785,
+          "time": 0,
+          "duration": 2
+        },
+        {
+          "width": 125.00002543131511,
+          "height": 59.999995761447785,
+          "time": 0.5,
+          "duration": 2
+        },
+        {
+          "width": 150.00002543131512,
+          "height": 59.999995761447785,
+          "time": 1,
+          "duration": 2
+        },
+        {
+          "width": 175.00002543131512,
+          "height": 59.999995761447785,
+          "time": 1.5,
+          "duration": 2
+        },
+        {
+          "width": 198.33333333333334,
+          "height": 59.999995761447785,
+          "time": 1.967,
+          "duration": 2
+        }
+      ]
+    }
+  ],
+  "transport": "Production app via intercepted HTTP; WebSocket onmessage receives the real seek payload. No TCP listener in this sandbox test.",
+  "cause": "buildSegments used the empty cut-map duration, so seekTo clamped all times to 0, including legacy scale keyframes."
+}

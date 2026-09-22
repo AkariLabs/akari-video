@@ -1,3 +1,4 @@
+import { composePreviewTransforms, previewTransformAxes } from '../common/preview-transform';
 import { runPreviewFrameCaptureAttempts } from '../common/preview-frame-check';
 import { installPreviewFrameCapture } from '../common/preview-frame-controller';
 import { PreviewFrameRequestMessage, PreviewFrameReadyMessage, PreviewFrameCommand } from '../common/preview-frame-capture';
@@ -230,6 +231,8 @@ import {
 } from '../common/generation-overlay-model';
 
 export interface OverlayTransform {
+    scaleX?: number;
+    scaleY?: number;
     x?: number;
     y?: number;
     scale?: number;
@@ -5049,13 +5052,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             const tree: PreviewSelectionNode[] = [];
             if (rawVersion === 2) {
                 const rendered = new Map<string, { transform?: OverlayTransform }>(projectedOverlays.map(overlay => [overlay.id, overlay]));
-                const compose = (parent: OverlayTransform, child: OverlayTransform = {}): OverlayTransform => {
-                    const angle = (parent.rotate ?? 0) * Math.PI / 180;
-                    const scale = parent.scale ?? 1, x = child.x ?? 0, y = child.y ?? 0;
-                    return { x: (parent.x ?? 0) + scale * (Math.cos(angle) * x - Math.sin(angle) * y),
-                        y: (parent.y ?? 0) + scale * (Math.sin(angle) * x + Math.cos(angle) * y),
-                        scale: scale * (child.scale ?? 1), rotate: (parent.rotate ?? 0) + (child.rotate ?? 0) };
-                };
+                const compose = composePreviewTransforms;
                 const visit = (item: TreeItem, parentId: string | null, parentTransform: OverlayTransform): PreviewSelectionNode[] => {
                     const world = compose(parentTransform, item.declaration?.transform as OverlayTransform | undefined);
                     const kind = item.source.kind;
@@ -11407,6 +11404,8 @@ body { display: grid; place-items: center; padding: 32px; }
                 media.dataset.akariTransformScale = String(
                     Number.isFinite(transform.scale) && transform.scale > 0 ? transform.scale : 1
                 );
+                media.dataset.akariTransformScaleX = String(transform.scaleX ?? transform.scale ?? 1);
+                media.dataset.akariTransformScaleY = String(transform.scaleY ?? transform.scale ?? 1);
                 media.dataset.akariTransformRotate = String(Number.isFinite(transform.rotate) ? transform.rotate : 0);
                 const crop = segment.crop;
                 media.dataset.akariCropX = String(crop && Number.isFinite(crop.x) ? crop.x : 0);
@@ -11430,6 +11429,8 @@ body { display: grid; place-items: center; padding: 32px; }
                             media.dataset.akariTransformX = String(resolved.transform.x);
                             media.dataset.akariTransformY = String(resolved.transform.y);
                             media.dataset.akariTransformScale = String(resolved.transform.scale);
+                            media.dataset.akariTransformScaleX = String(resolved.transform.scaleX ?? resolved.transform.scale);
+                            media.dataset.akariTransformScaleY = String(resolved.transform.scaleY ?? resolved.transform.scale);
                             media.dataset.akariTransformRotate = String(resolved.transform.rotate);
                         }
                         if (resolved?.crop) {
@@ -11845,6 +11846,8 @@ body { display: grid; place-items: center; padding: 32px; }
                 layerVideo.dataset.akariTransformScale = String(
                     Number.isFinite(transform.scale) && transform.scale > 0 ? transform.scale : 1
                 );
+                layerVideo.dataset.akariTransformScaleX = String(transform.scaleX ?? transform.scale ?? 1);
+                layerVideo.dataset.akariTransformScaleY = String(transform.scaleY ?? transform.scale ?? 1);
                 layerVideo.dataset.akariTransformRotate = String(Number.isFinite(transform.rotate) ? transform.rotate : 0);
                 const crop = layer.crop;
                 layerVideo.dataset.akariCropX = String(crop && Number.isFinite(crop.x) ? crop.x : 0);
@@ -16065,6 +16068,8 @@ body { display: grid; place-items: center; padding: 32px; }
                                     layerVideo.dataset.akariTransformX = String(resolved.transform.x);
                                     layerVideo.dataset.akariTransformY = String(resolved.transform.y);
                                     layerVideo.dataset.akariTransformScale = String(resolved.transform.scale);
+                            layerVideo.dataset.akariTransformScaleX = String(resolved.transform.scaleX ?? resolved.transform.scale);
+                            layerVideo.dataset.akariTransformScaleY = String(resolved.transform.scaleY ?? resolved.transform.scale);
                                     layerVideo.dataset.akariTransformRotate = String(resolved.transform.rotate);
                                 }
                                 if (resolved.crop) {
@@ -17219,6 +17224,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     ? segments[activeSegmentIndex].cutIndex : null;
                 summary = nextSummary;
                 window.akari.state.summary = summary;
+                window.akari.runtime.applyAxisSummary?.(summary);
                 refreshAdjustCssApproximation();
                 refreshIndicators();
                 rebuildVisualTrackZ();
@@ -17778,6 +17784,7 @@ body { display: grid; place-items: center; padding: 32px; }
             x: this.finiteNumber(value?.x, 0),
             y: this.finiteNumber(value?.y, 0),
             scale: this.finiteNumber(value?.scale, 1),
+            ...previewTransformAxes(value),
             rotate: this.finiteNumber(value?.rotate, 0)
         };
     }
