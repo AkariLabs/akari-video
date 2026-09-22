@@ -222,7 +222,7 @@
             "resolution": "768P",
             "audio_out": true
           },
-          "updated_at": "2026-09-22T21:34:50.784Z"
+          "updated_at": "2026-09-22T21:44:01.740Z"
         }
       }
     },
@@ -266,12 +266,12 @@
       "pass": true,
       "detail": {
         "before": {
-          "edit": 1790112816717.492,
-          "captions": 1790112816716.6987
+          "edit": 1790113369844.774,
+          "captions": 1790113369844.111
         },
         "after": {
-          "edit": 1790112816717.492,
-          "captions": 1790112816716.6987
+          "edit": 1790113369844.774,
+          "captions": 1790113369844.111
         }
       }
     },
@@ -1030,8 +1030,8 @@
         ],
         "metaUnchanged": true,
         "mtimesAfter": {
-          "edit": 1790112816717.492,
-          "captions": 1790112816716.6987
+          "edit": 1790113369844.774,
+          "captions": 1790113369844.111
         }
       }
     },
@@ -1064,7 +1064,7 @@
             "resolution": "768P",
             "audio_out": true
           },
-          "updated_at": "2026-09-22T21:35:06.038Z"
+          "updated_at": "2026-09-22T21:44:16.971Z"
         },
         "measurements": {
           "cards": [],
@@ -1162,7 +1162,7 @@
             "resolution": "768P",
             "audio_out": true
           },
-          "updated_at": "2026-09-22T21:35:09.360Z"
+          "updated_at": "2026-09-22T21:44:20.238Z"
         },
         "measurements": {
           "cards": [
@@ -1365,7 +1365,7 @@
             "resolution": "768P",
             "audio_out": true
           },
-          "updated_at": "2026-09-22T21:35:09.957Z"
+          "updated_at": "2026-09-22T21:44:20.819Z"
         },
         "frames": [
           {
@@ -1503,7 +1503,7 @@
             "resolution": "768P",
             "audio_out": true
           },
-          "updated_at": "2026-09-22T21:35:10.538Z"
+          "updated_at": "2026-09-22T21:44:21.402Z"
         },
         "measurements": {
           "cards": [
@@ -1669,12 +1669,12 @@
           "frames": 0
         },
         "mtimesBefore": {
-          "edit": 1790112816717.492,
-          "captions": 1790112816716.6987
+          "edit": 1790113369844.774,
+          "captions": 1790113369844.111
         },
         "after": {
-          "edit": 1790112816717.492,
-          "captions": 1790112816716.6987
+          "edit": 1790113369844.774,
+          "captions": 1790113369844.111
         }
       }
     },
@@ -2040,8 +2040,8 @@
             "assets/stills/a.png.meta.json": {
               "beforeBytes": 614,
               "afterBytes": 614,
-              "beforeSha256": "6c0f374cfff1a7919ea14a3b942e05be5439fc4fecc22dad5208e3cea469f050",
-              "afterSha256": "6c0f374cfff1a7919ea14a3b942e05be5439fc4fecc22dad5208e3cea469f050",
+              "beforeSha256": "71b796a174a73ae132c43cc5d5230bbfc412ad587423481e585789aa514171f2",
+              "afterSha256": "71b796a174a73ae132c43cc5d5230bbfc412ad587423481e585789aa514171f2",
               "bytesUnchanged": true
             },
             "edit.json": {
@@ -2089,7 +2089,7 @@
               "resolution": "768P",
               "audio_out": true
             },
-            "updated_at": "2026-09-22T21:35:11.606Z"
+            "updated_at": "2026-09-22T21:44:22.483Z"
           },
           "nextAfter": {
             "kind": "video",
@@ -2121,7 +2121,7 @@
               "resolution": "768P",
               "audio_out": true
             },
-            "updated_at": "2026-09-22T21:35:11.606Z"
+            "updated_at": "2026-09-22T21:44:22.483Z"
           },
           "nextUnchanged": true
         }
@@ -2601,8 +2601,8 @@
             "assets/stills/a.png.meta.json": {
               "beforeBytes": 618,
               "afterBytes": 618,
-              "beforeSha256": "7928e2a63e31cfddd1b6f566f5bc05d020c75086acd26130ac3ab3d8397f0033",
-              "afterSha256": "7928e2a63e31cfddd1b6f566f5bc05d020c75086acd26130ac3ab3d8397f0033",
+              "beforeSha256": "dd7f25f32521bf8bf721ae5679d5ad4cc801a20dd2ff8df791ea38d6ee7035c1",
+              "afterSha256": "dd7f25f32521bf8bf721ae5679d5ad4cc801a20dd2ff8df791ea38d6ee7035c1",
               "bytesUnchanged": true
             },
             "edit.json": {
@@ -2650,7 +2650,7 @@
               "resolution": "768P",
               "audio_out": true
             },
-            "updated_at": "2026-09-22T21:35:15.751Z"
+            "updated_at": "2026-09-22T21:44:26.603Z"
           },
           "nextAfter": {
             "kind": "video",
@@ -2682,7 +2682,7 @@
               "resolution": "768P",
               "audio_out": true
             },
-            "updated_at": "2026-09-22T21:35:15.751Z"
+            "updated_at": "2026-09-22T21:44:26.603Z"
           },
           "nextUnchanged": true
         }
@@ -2743,16 +2743,16 @@
           },
           "job": {
             "provider": "none",
-            "started_at": "2026-09-22T21:35:20.307Z",
+            "started_at": "2026-09-22T21:44:31.187Z",
             "stale_after_s": 900
           },
           "provenance": {
-            "created_at": "2026-09-22T21:35:20.307Z",
+            "created_at": "2026-09-22T21:44:31.187Z",
             "tool": "akari shell (imported image)"
           },
           "history": [
             {
-              "at": "2026-09-22T21:35:20.307Z",
+              "at": "2026-09-22T21:44:31.187Z",
               "status": "done",
               "reason": null
             }
@@ -2795,7 +2795,7 @@
               "resolution": "480P",
               "audio_out": true
             },
-            "updated_at": "2026-09-22T21:35:20.406Z"
+            "updated_at": "2026-09-22T21:44:31.288Z"
           }
         }
       }
@@ -3525,21 +3525,21 @@
   "screenshotDetails": [
     {
       "name": "01-h3-first-to-last.png",
-      "sha256": "45fe929b792e0a5ebd30577bc3448a0a0221764e20818cbbedecc30273868038",
+      "sha256": "43083b8aee90d5bcb2642b578e924ddecd1c28b890b38c3e91e24ec974cfbfb2",
       "inspectorFront": true,
       "sectionVisible": true,
       "modelRow": "MiniMax H3 · $0.05/秒 · as_of 2026-09-12（fal:h3-i2v）"
     },
     {
       "name": "02-prompt-only.png",
-      "sha256": "fb0bf9c85d51f7371fd4dd2e3781e1f1c8b6ac75ebb0e87ef8e8cea699737a5e",
+      "sha256": "7fa39cdba103b8e7a009529be761547ceb8a91ebf36fdedb879320baf39c9b70",
       "inspectorFront": true,
       "sectionVisible": true,
       "modelRow": "MiniMax H3 · $0.05/秒 · as_of 2026-09-12（fal:h3-i2v）"
     },
     {
       "name": "04-failed-retry.png",
-      "sha256": "4e9bd4461e055c8edd9472d57e5a9fd8e55a00d112197f2cae8c7d152d269dad",
+      "sha256": "25f948a5c393ea7aa49c08b57a6ceda448286057b7a1812972b34007071f8fda",
       "inspectorFront": true,
       "sectionVisible": true,
       "modelRow": "MiniMax H3 · $0.05/秒 · as_of 2026-09-12（fal:h3-i2v）",
@@ -3574,7 +3574,7 @@
     },
     {
       "name": "07-sticky-tab-strip.png",
-      "sha256": "4e9bd4461e055c8edd9472d57e5a9fd8e55a00d112197f2cae8c7d152d269dad",
+      "sha256": "25f948a5c393ea7aa49c08b57a6ceda448286057b7a1812972b34007071f8fda",
       "inspectorFront": true,
       "sectionVisible": true,
       "modelRow": "MiniMax H3 · $0.05/秒 · as_of 2026-09-12（fal:h3-i2v）",
@@ -3594,7 +3594,7 @@
     },
     {
       "name": "08-frame-empty.png",
-      "sha256": "aa5891eb8c1fa2a881211ffde13fd8f502dfb6ec3e0a7d6d508a2ab2600504cb",
+      "sha256": "d6218da493abcf832aa5176847b7ac2771b56703f95a31753bda9f19a7fd1744",
       "inspectorFront": true,
       "sectionVisible": true,
       "modelRow": "MiniMax H3 · $0.05/秒 · as_of 2026-09-12（fal:h3-i2v）",
@@ -3629,7 +3629,7 @@
     },
     {
       "name": "09-frame-picking.png",
-      "sha256": "63682187cc3501bac2483badce1c754e5e6a04dead60fab6de0f6283bb06be1a",
+      "sha256": "84e16d89453e6c422a0d68abeed77d1f581677c8601ce80796f80fe3a078664f",
       "inspectorFront": true,
       "sectionVisible": true,
       "modelRow": "MiniMax H3 · $0.05/秒 · as_of 2026-09-12（fal:h3-i2v）",
@@ -3664,7 +3664,7 @@
     },
     {
       "name": "10-frame-picked.png",
-      "sha256": "6270d34c5d63a6b38be130969620ee91b1a99482c205d92d4cdd64c52776ee1d",
+      "sha256": "f3a52f9228fe9417633c37945cdf62582fa4ee35ab80cb84221d2c3d8f82b60f",
       "inspectorFront": true,
       "sectionVisible": true,
       "modelRow": "MiniMax H3 · $0.05/秒 · as_of 2026-09-12（fal:h3-i2v）",
@@ -3699,7 +3699,7 @@
     },
     {
       "name": "11-frame-replaced.png",
-      "sha256": "7e6528e9333725355aec8f3ce15bc092cffd4560c6838e1976ea4820e0f66780",
+      "sha256": "f3c2ae1649a9a588a9bc0c5aa94626ca13d145bd4e51a9d6703c4ecadeba8734",
       "inspectorFront": true,
       "sectionVisible": true,
       "modelRow": "MiniMax H3 · $0.05/秒 · as_of 2026-09-12（fal:h3-i2v）",
@@ -3734,7 +3734,7 @@
     },
     {
       "name": "12-frame-cancelled.png",
-      "sha256": "7e6528e9333725355aec8f3ce15bc092cffd4560c6838e1976ea4820e0f66780",
+      "sha256": "f3c2ae1649a9a588a9bc0c5aa94626ca13d145bd4e51a9d6703c4ecadeba8734",
       "inspectorFront": true,
       "sectionVisible": true,
       "modelRow": "MiniMax H3 · $0.05/秒 · as_of 2026-09-12（fal:h3-i2v）",
@@ -3769,7 +3769,7 @@
     },
     {
       "name": "13-reference-empty.png",
-      "sha256": "a6a345d6679238a938c9b8c9776adbd0b66410444e94d67a107ce04db3131e57",
+      "sha256": "3eeb2f54f1cb08fc3090c49cff99f23b7f307fe80ebc6144fac7b7e5812d497e",
       "inspectorFront": true,
       "sectionVisible": true,
       "modelRow": "MiniMax H3 · $0.05/秒 · as_of 2026-09-22（fal:h3-ref）",
@@ -3804,7 +3804,7 @@
     },
     {
       "name": "14-reference-picking-two.png",
-      "sha256": "ca60ecbae17398902da18f9e22cb6ce2e1e80033580cbd181da6b6319ea79559",
+      "sha256": "5a66f67225574d77c48d0c91f69af910d1e43a839acfcaccd6f22e79be1c40a9",
       "inspectorFront": true,
       "sectionVisible": true,
       "modelRow": "MiniMax H3 · $0.05/秒 · as_of 2026-09-22（fal:h3-ref）",
@@ -3839,7 +3839,7 @@
     },
     {
       "name": "15-reference-two.png",
-      "sha256": "bdf77b0e7867ed4a7fff5959522dd195377c792ae3c279f94bdaff7a6299b969",
+      "sha256": "8cec9f51289f6802ba60b7106be74e3b70147847964d5d09c9f29fdecc75998e",
       "inspectorFront": true,
       "sectionVisible": true,
       "modelRow": "MiniMax H3 · $0.05/秒 · as_of 2026-09-22（fal:h3-ref）",
@@ -3874,7 +3874,7 @@
     },
     {
       "name": "16-reference-frames-restored.png",
-      "sha256": "365f9fc4b29b49a3b9562a073b9abcf7347c0953cd9dfd9110a6457f317af092",
+      "sha256": "6d1274a9fdc9cd86a0839df7232602c4618e5d9fd7a506a0eb960f1d7de5f6d7",
       "inspectorFront": true,
       "sectionVisible": true,
       "modelRow": "MiniMax H3 · $0.05/秒 · as_of 2026-09-12（fal:h3-i2v）",
@@ -3909,7 +3909,7 @@
     },
     {
       "name": "17-reference-restored.png",
-      "sha256": "bdf77b0e7867ed4a7fff5959522dd195377c792ae3c279f94bdaff7a6299b969",
+      "sha256": "8cec9f51289f6802ba60b7106be74e3b70147847964d5d09c9f29fdecc75998e",
       "inspectorFront": true,
       "sectionVisible": true,
       "modelRow": "MiniMax H3 · $0.05/秒 · as_of 2026-09-22（fal:h3-ref）",
@@ -3944,7 +3944,7 @@
     },
     {
       "name": "18-frame-reclick-pending.png",
-      "sha256": "c642afd475d4a2a52b3f0191bd36d0fca765160917b681dab1016b242af50f4c",
+      "sha256": "756569a5e6ef61530286a5c5852425ba087f85d28070f92f175004a5be07ff67",
       "inspectorFront": true,
       "sectionVisible": true,
       "modelRow": "MiniMax H3 · $0.05/秒 · as_of 2026-09-12（fal:h3-i2v）",
@@ -3979,7 +3979,7 @@
     },
     {
       "name": "19-frame-reclick-cancelled.png",
-      "sha256": "1ab10cbfc6c42856cf0d81c7a94aa24c97ae9b6fb8b4b7d4ddbe18b602d00ca8",
+      "sha256": "4d9311ee3a8b06671f3196ee1311f4faac2af45854504d6c04d99e74b8b38efe",
       "inspectorFront": true,
       "sectionVisible": true,
       "modelRow": "MiniMax H3 · $0.05/秒 · as_of 2026-09-12（fal:h3-i2v）",
@@ -4014,7 +4014,7 @@
     },
     {
       "name": "20-reference-reclick-pending.png",
-      "sha256": "92529f7f3757f666291d8fe7e8ad3f78bd7fc11d0a20230b8f384b99760391d3",
+      "sha256": "2b5c0cc681dab2e64b6919cabfdf504d432154b5f02f1e05954e7a4991c65fe9",
       "inspectorFront": true,
       "sectionVisible": true,
       "modelRow": "MiniMax H3 · $0.05/秒 · as_of 2026-09-22（fal:h3-ref）",
@@ -4049,7 +4049,7 @@
     },
     {
       "name": "21-reference-reclick-cancelled.png",
-      "sha256": "b0056c3f21d82a8a80957d6f5e607b77b9039845e1fe9a5953adbf3d157b53f5",
+      "sha256": "98bb3378c4439ba3e066b1da61a0d769b8bfc40c3dbcd673e32e341935970531",
       "inspectorFront": true,
       "sectionVisible": true,
       "modelRow": "MiniMax H3 · $0.05/秒 · as_of 2026-09-22（fal:h3-ref）",
@@ -4088,11 +4088,11 @@
         "text": "費用承認$0.30（as_of 2026-09-12）で fal:h3-i2v に送ります。費用承認しますかキャンセル費用承認する",
         "count": 1
       },
-      "sha256": "ed3ce17317f5bc719bc3c0cac7e00dca8fdea80c4cb6cff7571f2c4eece4678e"
+      "sha256": "27ce1337c2ac0620a7662802e7fb7817e3fcb2525520327184baf8944fb61256"
     },
     {
       "name": "23-mp4-inline-error.png",
-      "sha256": "cb8df235f644e0908e30b586d2701db70679db76d4d64b7f3f8ea99112eb889a",
+      "sha256": "6670e13fd5cac6b6d1a79d417061746aa3d1e91452e69d0ec92b7c119a04da35",
       "inspectorFront": true,
       "sectionVisible": true,
       "modelRow": "MiniMax H3 · $0.05/秒 · as_of 2026-09-12（fal:h3-i2v）",
@@ -4127,7 +4127,7 @@
     },
     {
       "name": "24-mp4-inline-error-scrolled.png",
-      "sha256": "e2575710518fa66874f219dc92148e95e10a8bcad1a7f71274f27c0d96b31117",
+      "sha256": "6c89de883b9560f77736d7b1c416fda18802db4551f9f2fa1e3ac769fe08e855",
       "inspectorFront": true,
       "sectionVisible": true,
       "modelRow": "MiniMax H3 · $0.05/秒 · as_of 2026-09-12（fal:h3-i2v）",
@@ -4175,7 +4175,7 @@
     }
   ],
   "cleanup": {
-    "killedPid": 90281,
+    "killedPid": 21232,
     "survivingProcesses": 0,
     "survivingBackendMain": 0,
     "alive": 0,
@@ -4391,8 +4391,8 @@
           "assets/stills/a.png.meta.json": {
             "beforeBytes": 614,
             "afterBytes": 614,
-            "beforeSha256": "6c0f374cfff1a7919ea14a3b942e05be5439fc4fecc22dad5208e3cea469f050",
-            "afterSha256": "6c0f374cfff1a7919ea14a3b942e05be5439fc4fecc22dad5208e3cea469f050",
+            "beforeSha256": "71b796a174a73ae132c43cc5d5230bbfc412ad587423481e585789aa514171f2",
+            "afterSha256": "71b796a174a73ae132c43cc5d5230bbfc412ad587423481e585789aa514171f2",
             "bytesUnchanged": true
           },
           "edit.json": {
@@ -4440,7 +4440,7 @@
             "resolution": "768P",
             "audio_out": true
           },
-          "updated_at": "2026-09-22T21:35:11.606Z"
+          "updated_at": "2026-09-22T21:44:22.483Z"
         },
         "nextAfter": {
           "kind": "video",
@@ -4472,7 +4472,7 @@
             "resolution": "768P",
             "audio_out": true
           },
-          "updated_at": "2026-09-22T21:35:11.606Z"
+          "updated_at": "2026-09-22T21:44:22.483Z"
         },
         "nextUnchanged": true
       },
@@ -4481,8 +4481,8 @@
           "assets/stills/a.png.meta.json": {
             "beforeBytes": 618,
             "afterBytes": 618,
-            "beforeSha256": "7928e2a63e31cfddd1b6f566f5bc05d020c75086acd26130ac3ab3d8397f0033",
-            "afterSha256": "7928e2a63e31cfddd1b6f566f5bc05d020c75086acd26130ac3ab3d8397f0033",
+            "beforeSha256": "dd7f25f32521bf8bf721ae5679d5ad4cc801a20dd2ff8df791ea38d6ee7035c1",
+            "afterSha256": "dd7f25f32521bf8bf721ae5679d5ad4cc801a20dd2ff8df791ea38d6ee7035c1",
             "bytesUnchanged": true
           },
           "edit.json": {
@@ -4530,7 +4530,7 @@
             "resolution": "768P",
             "audio_out": true
           },
-          "updated_at": "2026-09-22T21:35:15.751Z"
+          "updated_at": "2026-09-22T21:44:26.603Z"
         },
         "nextAfter": {
           "kind": "video",
@@ -4562,7 +4562,7 @@
             "resolution": "768P",
             "audio_out": true
           },
-          "updated_at": "2026-09-22T21:35:15.751Z"
+          "updated_at": "2026-09-22T21:44:26.603Z"
         },
         "nextUnchanged": true
       }
