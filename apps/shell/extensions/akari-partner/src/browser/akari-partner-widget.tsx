@@ -1119,9 +1119,7 @@ export class AkariPartnerWidget extends ReactWidget {
                         return <div key={group.agent} style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
                             {rowEntries.map(entry => {
                                 const flow = this.entryFlow(entry);
-                                // 注意書きはボタン内に押し込まず（窮屈・省略される）、title 属性でもなく
-                                // （ホバーしないと読めない）、ボタン直下の 1 行として置く。
-                                // 出す条件は entry.caution の有無だけ — form からは導出しない。
+                                const icon = <span className={PARTNER_CLI_ICON_CLASSES[entry.agent]} aria-hidden='true' />;
                                 return <div key={entry.id} style={styles.buttonCell}>
                                     <button
                                         className={entry.recommended ? 'theia-button main' : 'theia-button secondary'}
@@ -1137,7 +1135,7 @@ export class AkariPartnerWidget extends ReactWidget {
                                         onClick={() => this.begin(entry)}
                                     >
                                         <span style={styles.buttonLabel}>
-                                            <span className={PARTNER_CLI_ICON_CLASSES[entry.agent]} aria-hidden='true' />
+                                            {entry.recommended ? <span style={styles.recommendedIconBacking}>{icon}</span> : icon}
                                             {entry.name}
                                             {entry.recommended && <span style={styles.recommendedBadge}>推奨</span>}
                                         </span>
@@ -1145,9 +1143,6 @@ export class AkariPartnerWidget extends ReactWidget {
                                             {flow.state === 'working' ? '処理中…' : this.entryActionLabel(entry)}
                                         </span>
                                     </button>
-                                    {entry.caution && <div style={styles.caution} data-partner-caution={entry.id}>
-                                        {entry.caution}
-                                    </div>}
                                 </div>;
                             })}
                         </div>;
@@ -1194,21 +1189,18 @@ export class AkariPartnerWidget extends ReactWidget {
 const styles: Record<string, React.CSSProperties> = {
     container: { padding: '28px 22px', maxWidth: 420, margin: '0 auto', textAlign: 'center' },
     heroIcon: { fontSize: 32, color: 'var(--theia-focusBorder)', marginBottom: 8 },
-    heading: { margin: '0 0 10px', fontSize: 21 },
+    // タブ名と重複する見出しだけを隠し、説明文・ボタンの開始位置は維持する。
+    heading: { margin: '0 0 10px', fontSize: 21, visibility: 'hidden' },
     lead: { margin: '0 0 24px', opacity: 0.78, lineHeight: 1.55 },
     buttonStack: { display: 'flex', flexDirection: 'column', gap: 10 },
     primaryButton: { width: '100%', minHeight: 46, fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
     secondaryButton: { width: '100%', minHeight: 46, background: 'transparent', border: '1px solid var(--theia-input-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
     buttonLabel: { display: 'inline-flex', alignItems: 'center', flex: '1 1 auto', flexWrap: 'wrap', gap: 7, minWidth: 0, textAlign: 'left' },
+    // 塗りボタンでもブランド色を判別できる下地。余白を相殺しアイコンの占有寸法は維持する。
+    recommendedIconBacking: { display: 'inline-flex', flex: 'none', padding: 2, margin: -2, borderRadius: 4, background: 'var(--theia-editor-background)' },
     buttonAction: { flex: '0 1 auto', fontSize: 11, opacity: 0.82, whiteSpace: 'normal', textAlign: 'right' },
-    // ボタン + その下の注意書きを 1 列にまとめる器（従来ボタン自身が持っていた flex をここへ移した）。
+    // ボタンの列幅を維持する器。
     buttonCell: { flex: '1 1 0', minWidth: 0, display: 'flex', flexDirection: 'column' },
-    // entry.caution の 1 行。lead（0.78）より読ませたいので opacity を上げ、色は
-    // akari-partner-catalog-widget.tsx の警告注記と同じ警告前景を使う（新しい色定数は足さない）。
-    caution: {
-        marginTop: 6, fontSize: 11, lineHeight: 1.45, opacity: 0.92, textAlign: 'left',
-        color: 'var(--theia-list-warningForeground, #cca700)'
-    },
     resumeHint: {
         marginTop: 14, padding: 12, borderRadius: 8, textAlign: 'left', fontSize: 12, lineHeight: 1.6,
         background: 'var(--theia-editorWidget-background)', border: '1px solid var(--theia-widget-border)'

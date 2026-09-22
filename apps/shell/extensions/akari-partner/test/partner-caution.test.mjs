@@ -1,10 +1,5 @@
-// task/2026-09-08-partner-form-caution 指示8:
-// カタログの任意フィールド `caution`（拡張形態の注意書き）が
-//   (a) 型どおりに入っていること
-//   (b) 表示条件が `caution` の有無だけで決まっていること（`form` から導出していないこと）
-// を守る。(b) は描画そのものではなくソースの分岐条件を見る — 描画は Theia の
-// ReactWidget クラスメソッド内の JSX なので、純関数として切り出すには両ウィジェットの
-// 手術が要る（判断の理由は report.md に記載）。
+// caution は互換メタデータとして残すが、両ピッカーでは表示しない。
+// 型・カタログと、別の警告／復帰導線の契約も継続して検査する。
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
@@ -15,7 +10,7 @@ const catalogWidgetUrl = new URL('../src/browser/akari-partner-catalog-widget.ts
 const partnerWidgetUrl = new URL('../src/browser/akari-partner-widget.tsx', import.meta.url);
 const faqJaUrl = new URL('../../../../../docs/how-to/faq.ja.md', import.meta.url);
 
-// 本票（task.md 指示1）が定めた文面。UI と FAQ で一字も違わないこと自体が価値なので定数で持つ。
+// 旧 caution 契約の文面を互換メタデータとして維持する（UI では表示しない）。
 const CAUTION_TEXT = '拡張ホストが再起動すると会話が切れます。長い作業には CLI 形態をおすすめします。';
 
 const BASE_KEYS = ['id', 'agent', 'name', 'description', 'recommended'];
@@ -61,7 +56,7 @@ test('パートナーカタログの全エントリが PartnerCatalogEntry の�
     }
 });
 
-test('form: extension の 2 件だけが本票の caution 文面を持つ', async () => {
+test('form: extension の 2 件だけが互換用の caution 文面を持つ', async () => {
     const catalog = await readCatalog();
     const extensions = catalog.filter(entry => entry.form === 'extension');
 
@@ -70,7 +65,7 @@ test('form: extension の 2 件だけが本票の caution 文面を持つ', asyn
         'openai/codex-extension'
     ]);
     for (const entry of extensions) {
-        assert.equal(entry.caution, CAUTION_TEXT, `${entry.id} の caution が本票の文面と違う`);
+        assert.equal(entry.caution, CAUTION_TEXT, `${entry.id} の互換用 caution が変わっている`);
     }
     assert.deepEqual(
         catalog.filter(entry => entry.caution !== undefined).map(entry => entry.id),
@@ -93,31 +88,18 @@ test('PartnerCatalogEntry の型が caution を任意フィールドとして宣
     assert.match(source, /caution\?: string;/);
 });
 
-test('注意書きの表示条件は caution の有無だけで、form から導出しない', async () => {
+test('両ピッカーは caution を本文にも title にも描画しない', async () => {
     for (const url of [catalogWidgetUrl, partnerWidgetUrl]) {
         const source = await readFile(url, 'utf8');
-        const file = url.pathname.split('/').pop();
-
-        // 分岐は `entry.caution &&` の 1 形だけ
-        const guards = source.match(/\{entry\.caution &&/g) ?? [];
-        assert.equal(guards.length, 1, `${file}: caution の分岐が 1 か所でない`);
-
-        // caution に触れる行が form を見ていない（コメント行は除く）
-        const offenders = source.split('\n').filter(line =>
-            line.includes('entry.caution') && /\bform\b/.test(line) && !line.trimStart().startsWith('//')
-        );
-        assert.deepEqual(offenders, [], `${file}: caution の表示が form から導出されている`);
-
-        // ホバーしないと読めない置き方（title 属性）にしない
-        assert.ok(!/title=\{entry\.caution\}/.test(source), `${file}: caution を title 属性で出している`);
+        assert.doesNotMatch(source, /entry\.caution|data-partner-caution|cautionStyle|styles\.caution/);
     }
 });
 
-test('FAQ（日本語）が UI と同じ語で切断と復帰を説明する', async () => {
+test('FAQ（日本語）の切断と復帰の説明を維持する', async () => {
     const faq = await readFile(faqJaUrl, 'utf8');
 
     assert.match(faq, /\*\*Q\. チャットが途中で切れます\*\*/);
-    assert.ok(faq.includes('拡張ホストが再起動すると会話が切れます'), 'FAQ が UI と同じ切断の語を使っていない');
+    assert.ok(faq.includes('拡張ホストが再起動すると会話が切れます'), 'FAQ の切断の説明が失われている');
     assert.ok(faq.includes('`akari --continue`'), 'FAQ に akari --continue の案内が無い');
     assert.ok(faq.includes('`/akari`'), 'FAQ に /akari の案内が無い');
 });

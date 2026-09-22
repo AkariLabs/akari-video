@@ -1,0 +1,2746 @@
+{
+  "measurements": {
+    "dark-themeId": "dark",
+    "dark-panel-after": {
+      "editorForeground": "#e5e5e5",
+      "buttons": [
+        {
+          "entry": "anthropic/claude-code-cli",
+          "main": true,
+          "buttonBg": "rgb(249, 115, 22)",
+          "iconParentBg": "rgb(10, 10, 10)",
+          "icon": {
+            "agent": "claude",
+            "backgroundColor": "rgb(217, 119, 87)",
+            "backgroundImage": "none",
+            "maskImage": "url(\"data:image/svg+xml;base64,PHN2ZyB4b…(2569)",
+            "color": "rgb(10, 10, 10)",
+            "width": "16px",
+            "height": "16px"
+          }
+        },
+        {
+          "entry": "anthropic/claude-code-extension",
+          "main": false,
+          "buttonBg": "rgb(20, 20, 20)",
+          "iconParentBg": "rgba(0, 0, 0, 0)",
+          "icon": {
+            "agent": "claude",
+            "backgroundColor": "rgb(217, 119, 87)",
+            "backgroundImage": "none",
+            "maskImage": "url(\"data:image/svg+xml;base64,PHN2ZyB4b…(2569)",
+            "color": "rgb(229, 229, 229)",
+            "width": "16px",
+            "height": "16px"
+          }
+        },
+        {
+          "entry": "openai/codex-cli",
+          "main": false,
+          "buttonBg": "rgb(20, 20, 20)",
+          "iconParentBg": "rgba(0, 0, 0, 0)",
+          "icon": {
+            "agent": "codex",
+            "backgroundColor": "rgb(229, 229, 229)",
+            "backgroundImage": "none",
+            "maskImage": "url(\"data:image/svg+xml;base64,PHN2ZyB4b…(2101)",
+            "color": "rgb(229, 229, 229)",
+            "width": "16px",
+            "height": "16px"
+          }
+        },
+        {
+          "entry": "openai/codex-extension",
+          "main": false,
+          "buttonBg": "rgb(20, 20, 20)",
+          "iconParentBg": "rgba(0, 0, 0, 0)",
+          "icon": {
+            "agent": "codex",
+            "backgroundColor": "rgb(229, 229, 229)",
+            "backgroundImage": "none",
+            "maskImage": "url(\"data:image/svg+xml;base64,PHN2ZyB4b…(2101)",
+            "color": "rgb(229, 229, 229)",
+            "width": "16px",
+            "height": "16px"
+          }
+        },
+        {
+          "entry": "sst/opencode-cli",
+          "main": false,
+          "buttonBg": "rgb(20, 20, 20)",
+          "iconParentBg": "rgba(0, 0, 0, 0)",
+          "icon": {
+            "agent": "opencode",
+            "backgroundColor": "rgb(229, 229, 229)",
+            "backgroundImage": "none",
+            "maskImage": "url(\"data:image/svg+xml;base64,PHN2ZyB4b…(197)",
+            "color": "rgb(229, 229, 229)",
+            "width": "16px",
+            "height": "16px"
+          }
+        },
+        {
+          "entry": "langbase/command-code-cli",
+          "main": false,
+          "buttonBg": "rgb(20, 20, 20)",
+          "iconParentBg": "rgba(0, 0, 0, 0)",
+          "icon": {
+            "agent": "commandcode",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "backgroundImage": "url(\"data:image/png;base64,iVBORw0KGgoAA…(933)",
+            "maskImage": "none",
+            "color": "rgb(229, 229, 229)",
+            "width": "16px",
+            "height": "16px"
+          }
+        },
+        {
+          "entry": "github/copilot-cli",
+          "main": false,
+          "buttonBg": "rgb(20, 20, 20)",
+          "iconParentBg": "rgba(0, 0, 0, 0)",
+          "icon": {
+            "agent": "copilot",
+            "backgroundColor": "rgb(229, 229, 229)",
+            "backgroundImage": "none",
+            "maskImage": "url(\"data:image/svg+xml;base64,PHN2ZyB4b…(2321)",
+            "color": "rgb(229, 229, 229)",
+            "width": "16px",
+            "height": "16px"
+          }
+        },
+        {
+          "entry": "cursor/cursor-cli",
+          "main": false,
+          "buttonBg": "rgb(20, 20, 20)",
+          "iconParentBg": "rgba(0, 0, 0, 0)",
+          "icon": {
+            "agent": "cursor",
+            "backgroundColor": "rgb(229, 229, 229)",
+            "backgroundImage": "none",
+            "maskImage": "url(\"data:image/svg+xml;base64,PHN2ZyB4b…(613)",
+            "color": "rgb(229, 229, 229)",
+            "width": "16px",
+            "height": "16px"
+          }
+        },
+        {
+          "entry": "google/antigravity-cli",
+          "main": false,
+          "buttonBg": "rgb(20, 20, 20)",
+          "iconParentBg": "rgba(0, 0, 0, 0)",
+          "icon": {
+            "agent": "antigravity",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "backgroundImage": "url(\"data:image/svg+xml;base64,PHN2ZyB4b…(10209)",
+            "maskImage": "none",
+            "color": "rgb(229, 229, 229)",
+            "width": "16px",
+            "height": "16px"
+          }
+        },
+        {
+          "entry": "xai/grok-build-cli",
+          "main": false,
+          "buttonBg": "rgb(20, 20, 20)",
+          "iconParentBg": "rgba(0, 0, 0, 0)",
+          "icon": {
+            "agent": "grok",
+            "backgroundColor": "rgb(229, 229, 229)",
+            "backgroundImage": "none",
+            "maskImage": "url(\"data:image/svg+xml;base64,PHN2ZyB4b…(897)",
+            "color": "rgb(229, 229, 229)",
+            "width": "16px",
+            "height": "16px"
+          }
+        }
+      ],
+      "headings": [
+        {
+          "text": "パートナーを追加",
+          "visibility": "hidden",
+          "display": "block"
+        }
+      ],
+      "cautionNodes": 0,
+      "cautionTextVisible": false,
+      "visibleHeadingText": [],
+      "rect": {
+        "x": 635,
+        "y": 39,
+        "width": 437,
+        "height": 603
+      }
+    },
+    "dark-panel-before-css": {
+      "editorForeground": "#e5e5e5",
+      "buttons": [
+        {
+          "entry": "anthropic/claude-code-cli",
+          "main": true,
+          "buttonBg": "rgb(249, 115, 22)",
+          "iconParentBg": "rgb(10, 10, 10)",
+          "icon": {
+            "agent": "claude",
+            "backgroundColor": "rgb(10, 10, 10)",
+            "backgroundImage": "none",
+            "maskImage": "url(\"data:image/svg+xml;base64,PHN2ZyB4b…(2569)",
+            "color": "rgb(10, 10, 10)",
+            "width": "16px",
+            "height": "16px"
+          }
+        },
+        {
+          "entry": "anthropic/claude-code-extension",
+          "main": false,
+          "buttonBg": "rgb(20, 20, 20)",
+          "iconParentBg": "rgba(0, 0, 0, 0)",
+          "icon": {
+            "agent": "claude",
+            "backgroundColor": "rgb(229, 229, 229)",
+            "backgroundImage": "none",
+            "maskImage": "url(\"data:image/svg+xml;base64,PHN2ZyB4b…(2569)",
+            "color": "rgb(229, 229, 229)",
+            "width": "16px",
+            "height": "16px"
+          }
+        },
+        {
+          "entry": "openai/codex-cli",
+          "main": false,
+          "buttonBg": "rgb(20, 20, 20)",
+          "iconParentBg": "rgba(0, 0, 0, 0)",
+          "icon": {
+            "agent": "codex",
+            "backgroundColor": "rgb(229, 229, 229)",
+            "backgroundImage": "none",
+            "maskImage": "url(\"data:image/svg+xml;base64,PHN2ZyB4b…(2101)",
+            "color": "rgb(229, 229, 229)",
+            "width": "16px",
+            "height": "16px"
+          }
+        },
+        {
+          "entry": "openai/codex-extension",
+          "main": false,
+          "buttonBg": "rgb(20, 20, 20)",
+          "iconParentBg": "rgba(0, 0, 0, 0)",
+          "icon": {
+            "agent": "codex",
+            "backgroundColor": "rgb(229, 229, 229)",
+            "backgroundImage": "none",
+            "maskImage": "url(\"data:image/svg+xml;base64,PHN2ZyB4b…(2101)",
+            "color": "rgb(229, 229, 229)",
+            "width": "16px",
+            "height": "16px"
+          }
+        },
+        {
+          "entry": "sst/opencode-cli",
+          "main": false,
+          "buttonBg": "rgb(20, 20, 20)",
+          "iconParentBg": "rgba(0, 0, 0, 0)",
+          "icon": {
+            "agent": "opencode",
+            "backgroundColor": "rgb(229, 229, 229)",
+            "backgroundImage": "none",
+            "maskImage": "url(\"data:image/svg+xml;base64,PHN2ZyB4b…(197)",
+            "color": "rgb(229, 229, 229)",
+            "width": "16px",
+            "height": "16px"
+          }
+        },
+        {
+          "entry": "langbase/command-code-cli",
+          "main": false,
+          "buttonBg": "rgb(20, 20, 20)",
+          "iconParentBg": "rgba(0, 0, 0, 0)",
+          "icon": {
+            "agent": "commandcode",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "backgroundImage": "url(\"data:image/png;base64,iVBORw0KGgoAA…(933)",
+            "maskImage": "none",
+            "color": "rgb(229, 229, 229)",
+            "width": "16px",
+            "height": "16px"
+          }
+        },
+        {
+          "entry": "github/copilot-cli",
+          "main": false,
+          "buttonBg": "rgb(20, 20, 20)",
+          "iconParentBg": "rgba(0, 0, 0, 0)",
+          "icon": {
+            "agent": "copilot",
+            "backgroundColor": "rgb(229, 229, 229)",
+            "backgroundImage": "none",
+            "maskImage": "url(\"data:image/svg+xml;base64,PHN2ZyB4b…(2321)",
+            "color": "rgb(229, 229, 229)",
+            "width": "16px",
+            "height": "16px"
+          }
+        },
+        {
+          "entry": "cursor/cursor-cli",
+          "main": false,
+          "buttonBg": "rgb(20, 20, 20)",
+          "iconParentBg": "rgba(0, 0, 0, 0)",
+          "icon": {
+            "agent": "cursor",
+            "backgroundColor": "rgb(229, 229, 229)",
+            "backgroundImage": "none",
+            "maskImage": "url(\"data:image/svg+xml;base64,PHN2ZyB4b…(613)",
+            "color": "rgb(229, 229, 229)",
+            "width": "16px",
+            "height": "16px"
+          }
+        },
+        {
+          "entry": "google/antigravity-cli",
+          "main": false,
+          "buttonBg": "rgb(20, 20, 20)",
+          "iconParentBg": "rgba(0, 0, 0, 0)",
+          "icon": {
+            "agent": "antigravity",
+            "backgroundColor": "rgb(229, 229, 229)",
+            "backgroundImage": "none",
+            "maskImage": "url(\"data:image/svg+xml;base64,PHN2ZyB4b…(429)",
+            "color": "rgb(229, 229, 229)",
+            "width": "16px",
+            "height": "16px"
+          }
+        },
+        {
+          "entry": "xai/grok-build-cli",
+          "main": false,
+          "buttonBg": "rgb(20, 20, 20)",
+          "iconParentBg": "rgba(0, 0, 0, 0)",
+          "icon": {
+            "agent": "grok",
+            "backgroundColor": "rgb(229, 229, 229)",
+            "backgroundImage": "none",
+            "maskImage": "url(\"data:image/svg+xml;base64,PHN2ZyB4b…(897)",
+            "color": "rgb(229, 229, 229)",
+            "width": "16px",
+            "height": "16px"
+          }
+        }
+      ],
+      "headings": [
+        {
+          "text": "パートナーを追加",
+          "visibility": "hidden",
+          "display": "block"
+        }
+      ],
+      "cautionNodes": 0,
+      "cautionTextVisible": false,
+      "visibleHeadingText": [],
+      "rect": {
+        "x": 635,
+        "y": 39,
+        "width": 437,
+        "height": 603
+      }
+    },
+    "dark-catalog": {
+      "icons": [
+        {
+          "agent": "claude",
+          "backgroundColor": "rgb(217, 119, 87)",
+          "backgroundImage": "none",
+          "maskImage": "url(\"data:image/svg+xml;base64,PHN2ZyB4b…(2569)",
+          "color": "rgb(229, 229, 229)",
+          "width": "16px",
+          "height": "16px"
+        },
+        {
+          "agent": "codex",
+          "backgroundColor": "rgb(229, 229, 229)",
+          "backgroundImage": "none",
+          "maskImage": "url(\"data:image/svg+xml;base64,PHN2ZyB4b…(2101)",
+          "color": "rgb(229, 229, 229)",
+          "width": "16px",
+          "height": "16px"
+        },
+        {
+          "agent": "opencode",
+          "backgroundColor": "rgb(229, 229, 229)",
+          "backgroundImage": "none",
+          "maskImage": "url(\"data:image/svg+xml;base64,PHN2ZyB4b…(197)",
+          "color": "rgb(229, 229, 229)",
+          "width": "16px",
+          "height": "16px"
+        },
+        {
+          "agent": "commandcode",
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "backgroundImage": "url(\"data:image/png;base64,iVBORw0KGgoAA…(933)",
+          "maskImage": "none",
+          "color": "rgb(229, 229, 229)",
+          "width": "16px",
+          "height": "16px"
+        },
+        {
+          "agent": "copilot",
+          "backgroundColor": "rgb(229, 229, 229)",
+          "backgroundImage": "none",
+          "maskImage": "url(\"data:image/svg+xml;base64,PHN2ZyB4b…(2321)",
+          "color": "rgb(229, 229, 229)",
+          "width": "16px",
+          "height": "16px"
+        },
+        {
+          "agent": "cursor",
+          "backgroundColor": "rgb(229, 229, 229)",
+          "backgroundImage": "none",
+          "maskImage": "url(\"data:image/svg+xml;base64,PHN2ZyB4b…(613)",
+          "color": "rgb(229, 229, 229)",
+          "width": "16px",
+          "height": "16px"
+        },
+        {
+          "agent": "antigravity",
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "backgroundImage": "url(\"data:image/svg+xml;base64,PHN2ZyB4b…(10209)",
+          "maskImage": "none",
+          "color": "rgb(229, 229, 229)",
+          "width": "16px",
+          "height": "16px"
+        },
+        {
+          "agent": "grok",
+          "backgroundColor": "rgb(229, 229, 229)",
+          "backgroundImage": "none",
+          "maskImage": "url(\"data:image/svg+xml;base64,PHN2ZyB4b…(897)",
+          "color": "rgb(229, 229, 229)",
+          "width": "16px",
+          "height": "16px"
+        }
+      ],
+      "cautionNodes": 0,
+      "cautionTextVisible": false,
+      "rect": {
+        "x": 48,
+        "y": 39,
+        "width": 165,
+        "height": 900
+      }
+    },
+    "dark-tabs": {
+      "results": {
+        "claude-selected": {
+          "current": true,
+          "active": false,
+          "rect": {
+            "x": 1072,
+            "y": 10,
+            "width": 48,
+            "height": 48
+          },
+          "icon": {
+            "agent": "claude",
+            "backgroundColor": "rgb(217, 119, 87)",
+            "backgroundImage": "none",
+            "maskImage": "url(\"data:image/svg+xml;base64,PHN2ZyB4b…(2569)",
+            "color": "rgb(249, 115, 22)",
+            "width": "48px",
+            "height": "48px"
+          }
+        },
+        "antigravity-selected": {
+          "current": true,
+          "active": false,
+          "rect": {
+            "x": 1072,
+            "y": 322,
+            "width": 48,
+            "height": 48
+          },
+          "icon": {
+            "agent": "antigravity",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "backgroundImage": "url(\"data:image/svg+xml;base64,PHN2ZyB4b…(10209)",
+            "maskImage": "none",
+            "color": "rgb(249, 115, 22)",
+            "width": "48px",
+            "height": "48px"
+          }
+        },
+        "codex-selected": {
+          "current": true,
+          "active": false,
+          "rect": {
+            "x": 1072,
+            "y": 62,
+            "width": 48,
+            "height": 48
+          },
+          "icon": {
+            "agent": "codex",
+            "backgroundColor": "rgb(229, 229, 229)",
+            "backgroundImage": "none",
+            "maskImage": "url(\"data:image/svg+xml;base64,PHN2ZyB4b…(2101)",
+            "color": "rgb(249, 115, 22)",
+            "width": "48px",
+            "height": "48px"
+          }
+        },
+        "claude-hover-unselected": {
+          "current": false,
+          "active": false,
+          "rect": {
+            "x": 1072,
+            "y": 10,
+            "width": 48,
+            "height": 48
+          },
+          "icon": {
+            "agent": "claude",
+            "backgroundColor": "rgb(217, 119, 87)",
+            "backgroundImage": "none",
+            "maskImage": "url(\"data:image/svg+xml;base64,PHN2ZyB4b…(2569)",
+            "color": "rgb(249, 115, 22)",
+            "width": "48px",
+            "height": "48px"
+          }
+        }
+      },
+      "tabs": [
+        {
+          "current": false,
+          "active": false,
+          "rect": {
+            "x": 1072,
+            "y": 10,
+            "width": 48,
+            "height": 48
+          },
+          "icon": {
+            "agent": "claude",
+            "backgroundColor": "rgb(217, 119, 87)",
+            "backgroundImage": "none",
+            "maskImage": "url(\"data:image/svg+xml;base64,PHN2ZyB4b…(2569)",
+            "color": "rgb(249, 115, 22)",
+            "width": "48px",
+            "height": "48px"
+          }
+        },
+        {
+          "current": true,
+          "active": true,
+          "rect": {
+            "x": 1072,
+            "y": 62,
+            "width": 48,
+            "height": 48
+          },
+          "icon": {
+            "agent": "codex",
+            "backgroundColor": "rgb(229, 229, 229)",
+            "backgroundImage": "none",
+            "maskImage": "url(\"data:image/svg+xml;base64,PHN2ZyB4b…(2101)",
+            "color": "rgb(249, 115, 22)",
+            "width": "48px",
+            "height": "48px"
+          }
+        },
+        {
+          "current": false,
+          "active": false,
+          "rect": {
+            "x": 1072,
+            "y": 114,
+            "width": 48,
+            "height": 48
+          },
+          "icon": {
+            "agent": "opencode",
+            "backgroundColor": "rgb(115, 115, 115)",
+            "backgroundImage": "none",
+            "maskImage": "url(\"data:image/svg+xml;base64,PHN2ZyB4b…(197)",
+            "color": "rgb(115, 115, 115)",
+            "width": "48px",
+            "height": "48px"
+          }
+        },
+        {
+          "current": false,
+          "active": false,
+          "rect": {
+            "x": 1072,
+            "y": 166,
+            "width": 48,
+            "height": 48
+          },
+          "icon": {
+            "agent": "commandcode",
+            "backgroundColor": "rgb(115, 115, 115)",
+            "backgroundImage": "none",
+            "maskImage": "none",
+            "color": "rgb(115, 115, 115)",
+            "width": "48px",
+            "height": "48px"
+          }
+        },
+        {
+          "current": false,
+          "active": false,
+          "rect": {
+            "x": 1072,
+            "y": 218,
+            "width": 48,
+            "height": 48
+          },
+          "icon": {
+            "agent": "copilot",
+            "backgroundColor": "rgb(229, 229, 229)",
+            "backgroundImage": "none",
+            "maskImage": "url(\"data:image/svg+xml;base64,PHN2ZyB4b…(2321)",
+            "color": "rgb(115, 115, 115)",
+            "width": "48px",
+            "height": "48px"
+          }
+        },
+        {
+          "current": false,
+          "active": false,
+          "rect": {
+            "x": 1072,
+            "y": 270,
+            "width": 48,
+            "height": 48
+          },
+          "icon": {
+            "agent": "cursor",
+            "backgroundColor": "rgb(115, 115, 115)",
+            "backgroundImage": "none",
+            "maskImage": "url(\"data:image/svg+xml;base64,PHN2ZyB4b…(613)",
+            "color": "rgb(115, 115, 115)",
+            "width": "48px",
+            "height": "48px"
+          }
+        },
+        {
+          "current": false,
+          "active": false,
+          "rect": {
+            "x": 1072,
+            "y": 322,
+            "width": 48,
+            "height": 48
+          },
+          "icon": {
+            "agent": "antigravity",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "backgroundImage": "url(\"data:image/svg+xml;base64,PHN2ZyB4b…(10209)",
+            "maskImage": "none",
+            "color": "rgb(115, 115, 115)",
+            "width": "48px",
+            "height": "48px"
+          }
+        },
+        {
+          "current": false,
+          "active": false,
+          "rect": {
+            "x": 1072,
+            "y": 374,
+            "width": 48,
+            "height": 48
+          },
+          "icon": {
+            "agent": "grok",
+            "backgroundColor": "rgb(115, 115, 115)",
+            "backgroundImage": "none",
+            "maskImage": "url(\"data:image/svg+xml;base64,PHN2ZyB4b…(897)",
+            "color": "rgb(115, 115, 115)",
+            "width": "48px",
+            "height": "48px"
+          }
+        },
+        {
+          "current": false,
+          "active": false,
+          "rect": {
+            "x": 1072,
+            "y": 563,
+            "width": 62,
+            "height": 52
+          },
+          "icon": {
+            "agent": "claude",
+            "backgroundColor": "rgb(217, 119, 87)",
+            "backgroundImage": "none",
+            "maskImage": "url(\"data:image/svg+xml;base64,PHN2ZyB4b…(2569)",
+            "color": "rgb(115, 115, 115)",
+            "width": "48px",
+            "height": "48px"
+          }
+        },
+        {
+          "current": true,
+          "active": true,
+          "rect": {
+            "x": 1134,
+            "y": 563,
+            "width": 62,
+            "height": 32
+          },
+          "icon": {
+            "agent": "codex",
+            "backgroundColor": "rgb(229, 229, 229)",
+            "backgroundImage": "none",
+            "maskImage": "url(\"data:image/svg+xml;base64,PHN2ZyB4b…(2101)",
+            "color": "rgb(249, 115, 22)",
+            "width": "48px",
+            "height": "48px"
+          }
+        },
+        {
+          "current": false,
+          "active": false,
+          "rect": {
+            "x": 1196,
+            "y": 563,
+            "width": 62,
+            "height": 52
+          },
+          "icon": {
+            "agent": "opencode",
+            "backgroundColor": "rgb(115, 115, 115)",
+            "backgroundImage": "none",
+            "maskImage": "url(\"data:image/svg+xml;base64,PHN2ZyB4b…(197)",
+            "color": "rgb(115, 115, 115)",
+            "width": "48px",
+            "height": "48px"
+          }
+        },
+        {
+          "current": false,
+          "active": false,
+          "rect": {
+            "x": 1258,
+            "y": 563,
+            "width": 62,
+            "height": 52
+          },
+          "icon": {
+            "agent": "commandcode",
+            "backgroundColor": "rgb(115, 115, 115)",
+            "backgroundImage": "none",
+            "maskImage": "none",
+            "color": "rgb(115, 115, 115)",
+            "width": "48px",
+            "height": "48px"
+          }
+        },
+        {
+          "current": false,
+          "active": false,
+          "rect": {
+            "x": 1320,
+            "y": 563,
+            "width": 62,
+            "height": 52
+          },
+          "icon": {
+            "agent": "copilot",
+            "backgroundColor": "rgb(229, 229, 229)",
+            "backgroundImage": "none",
+            "maskImage": "url(\"data:image/svg+xml;base64,PHN2ZyB4b…(2321)",
+            "color": "rgb(115, 115, 115)",
+            "width": "48px",
+            "height": "48px"
+          }
+        },
+        {
+          "current": false,
+          "active": false,
+          "rect": {
+            "x": 1382,
+            "y": 563,
+            "width": 62,
+            "height": 52
+          },
+          "icon": {
+            "agent": "cursor",
+            "backgroundColor": "rgb(115, 115, 115)",
+            "backgroundImage": "none",
+            "maskImage": "url(\"data:image/svg+xml;base64,PHN2ZyB4b…(613)",
+            "color": "rgb(115, 115, 115)",
+            "width": "48px",
+            "height": "48px"
+          }
+        },
+        {
+          "current": false,
+          "active": false,
+          "rect": {
+            "x": 1444,
+            "y": 563,
+            "width": 62,
+            "height": 52
+          },
+          "icon": {
+            "agent": "antigravity",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "backgroundImage": "url(\"data:image/svg+xml;base64,PHN2ZyB4b…(10209)",
+            "maskImage": "none",
+            "color": "rgb(115, 115, 115)",
+            "width": "48px",
+            "height": "48px"
+          }
+        },
+        {
+          "current": false,
+          "active": false,
+          "rect": {
+            "x": 1506,
+            "y": 563,
+            "width": 62,
+            "height": 52
+          },
+          "icon": {
+            "agent": "grok",
+            "backgroundColor": "rgb(115, 115, 115)",
+            "backgroundImage": "none",
+            "maskImage": "url(\"data:image/svg+xml;base64,PHN2ZyB4b…(897)",
+            "color": "rgb(115, 115, 115)",
+            "width": "48px",
+            "height": "48px"
+          }
+        }
+      ],
+      "beforeCssTabs": [
+        {
+          "current": false,
+          "active": false,
+          "rect": {
+            "x": 1072,
+            "y": 10,
+            "width": 48,
+            "height": 48
+          },
+          "icon": {
+            "agent": "claude",
+            "backgroundColor": "rgb(249, 115, 22)",
+            "backgroundImage": "none",
+            "maskImage": "url(\"data:image/svg+xml;base64,PHN2ZyB4b…(2569)",
+            "color": "rgb(249, 115, 22)",
+            "width": "48px",
+            "height": "48px"
+          }
+        },
+        {
+          "current": true,
+          "active": true,
+          "rect": {
+            "x": 1072,
+            "y": 62,
+            "width": 48,
+            "height": 48
+          },
+          "icon": {
+            "agent": "codex",
+            "backgroundColor": "rgb(249, 115, 22)",
+            "backgroundImage": "none",
+            "maskImage": "url(\"data:image/svg+xml;base64,PHN2ZyB4b…(2101)",
+            "color": "rgb(249, 115, 22)",
+            "width": "48px",
+            "height": "48px"
+          }
+        },
+        {
+          "current": false,
+          "active": false,
+          "rect": {
+            "x": 1072,
+            "y": 114,
+            "width": 48,
+            "height": 48
+          },
+          "icon": {
+            "agent": "opencode",
+            "backgroundColor": "rgb(115, 115, 115)",
+            "backgroundImage": "none",
+            "maskImage": "url(\"data:image/svg+xml;base64,PHN2ZyB4b…(197)",
+            "color": "rgb(115, 115, 115)",
+            "width": "48px",
+            "height": "48px"
+          }
+        },
+        {
+          "current": false,
+          "active": false,
+          "rect": {
+            "x": 1072,
+            "y": 166,
+            "width": 48,
+            "height": 48
+          },
+          "icon": {
+            "agent": "commandcode",
+            "backgroundColor": "rgb(115, 115, 115)",
+            "backgroundImage": "none",
+            "maskImage": "none",
+            "color": "rgb(115, 115, 115)",
+            "width": "48px",
+            "height": "48px"
+          }
+        },
+        {
+          "current": false,
+          "active": false,
+          "rect": {
+            "x": 1072,
+            "y": 218,
+            "width": 48,
+            "height": 48
+          },
+          "icon": {
+            "agent": "copilot",
+            "backgroundColor": "rgb(115, 115, 115)",
+            "backgroundImage": "none",
+            "maskImage": "url(\"data:image/svg+xml;base64,PHN2ZyB4b…(2321)",
+            "color": "rgb(115, 115, 115)",
+            "width": "48px",
+            "height": "48px"
+          }
+        },
+        {
+          "current": false,
+          "active": false,
+          "rect": {
+            "x": 1072,
+            "y": 270,
+            "width": 48,
+            "height": 48
+          },
+          "icon": {
+            "agent": "cursor",
+            "backgroundColor": "rgb(115, 115, 115)",
+            "backgroundImage": "none",
+            "maskImage": "url(\"data:image/svg+xml;base64,PHN2ZyB4b…(613)",
+            "color": "rgb(115, 115, 115)",
+            "width": "48px",
+            "height": "48px"
+          }
+        },
+        {
+          "current": false,
+          "active": false,
+          "rect": {
+            "x": 1072,
+            "y": 322,
+            "width": 48,
+            "height": 48
+          },
+          "icon": {
+            "agent": "antigravity",
+            "backgroundColor": "rgb(115, 115, 115)",
+            "backgroundImage": "none",
+            "maskImage": "url(\"data:image/svg+xml;base64,PHN2ZyB4b…(429)",
+            "color": "rgb(115, 115, 115)",
+            "width": "48px",
+            "height": "48px"
+          }
+        },
+        {
+          "current": false,
+          "active": false,
+          "rect": {
+            "x": 1072,
+            "y": 374,
+            "width": 48,
+            "height": 48
+          },
+          "icon": {
+            "agent": "grok",
+            "backgroundColor": "rgb(115, 115, 115)",
+            "backgroundImage": "none",
+            "maskImage": "url(\"data:image/svg+xml;base64,PHN2ZyB4b…(897)",
+            "color": "rgb(115, 115, 115)",
+            "width": "48px",
+            "height": "48px"
+          }
+        },
+        {
+          "current": false,
+          "active": false,
+          "rect": {
+            "x": 1072,
+            "y": 563,
+            "width": 62,
+            "height": 52
+          },
+          "icon": {
+            "agent": "claude",
+            "backgroundColor": "rgb(115, 115, 115)",
+            "backgroundImage": "none",
+            "maskImage": "url(\"data:image/svg+xml;base64,PHN2ZyB4b…(2569)",
+            "color": "rgb(115, 115, 115)",
+            "width": "48px",
+            "height": "48px"
+          }
+        },
+        {
+          "current": true,
+          "active": true,
+          "rect": {
+            "x": 1134,
+            "y": 563,
+            "width": 62,
+            "height": 32
+          },
+          "icon": {
+            "agent": "codex",
+            "backgroundColor": "rgb(249, 115, 22)",
+            "backgroundImage": "none",
+            "maskImage": "url(\"data:image/svg+xml;base64,PHN2ZyB4b…(2101)",
+            "color": "rgb(249, 115, 22)",
+            "width": "48px",
+            "height": "48px"
+          }
+        },
+        {
+          "current": false,
+          "active": false,
+          "rect": {
+            "x": 1196,
+            "y": 563,
+            "width": 62,
+            "height": 52
+          },
+          "icon": {
+            "agent": "opencode",
+            "backgroundColor": "rgb(115, 115, 115)",
+            "backgroundImage": "none",
+            "maskImage": "url(\"data:image/svg+xml;base64,PHN2ZyB4b…(197)",
+            "color": "rgb(115, 115, 115)",
+            "width": "48px",
+            "height": "48px"
+          }
+        },
+        {
+          "current": false,
+          "active": false,
+          "rect": {
+            "x": 1258,
+            "y": 563,
+            "width": 62,
+            "height": 52
+          },
+          "icon": {
+            "agent": "commandcode",
+            "backgroundColor": "rgb(115, 115, 115)",
+            "backgroundImage": "none",
+            "maskImage": "none",
+            "color": "rgb(115, 115, 115)",
+            "width": "48px",
+            "height": "48px"
+          }
+        },
+        {
+          "current": false,
+          "active": false,
+          "rect": {
+            "x": 1320,
+            "y": 563,
+            "width": 62,
+            "height": 52
+          },
+          "icon": {
+            "agent": "copilot",
+            "backgroundColor": "rgb(115, 115, 115)",
+            "backgroundImage": "none",
+            "maskImage": "url(\"data:image/svg+xml;base64,PHN2ZyB4b…(2321)",
+            "color": "rgb(115, 115, 115)",
+            "width": "48px",
+            "height": "48px"
+          }
+        },
+        {
+          "current": false,
+          "active": false,
+          "rect": {
+            "x": 1382,
+            "y": 563,
+            "width": 62,
+            "height": 52
+          },
+          "icon": {
+            "agent": "cursor",
+            "backgroundColor": "rgb(115, 115, 115)",
+            "backgroundImage": "none",
+            "maskImage": "url(\"data:image/svg+xml;base64,PHN2ZyB4b…(613)",
+            "color": "rgb(115, 115, 115)",
+            "width": "48px",
+            "height": "48px"
+          }
+        },
+        {
+          "current": false,
+          "active": false,
+          "rect": {
+            "x": 1444,
+            "y": 563,
+            "width": 62,
+            "height": 52
+          },
+          "icon": {
+            "agent": "antigravity",
+            "backgroundColor": "rgb(115, 115, 115)",
+            "backgroundImage": "none",
+            "maskImage": "url(\"data:image/svg+xml;base64,PHN2ZyB4b…(429)",
+            "color": "rgb(115, 115, 115)",
+            "width": "48px",
+            "height": "48px"
+          }
+        },
+        {
+          "current": false,
+          "active": false,
+          "rect": {
+            "x": 1506,
+            "y": 563,
+            "width": 62,
+            "height": 52
+          },
+          "icon": {
+            "agent": "grok",
+            "backgroundColor": "rgb(115, 115, 115)",
+            "backgroundImage": "none",
+            "maskImage": "url(\"data:image/svg+xml;base64,PHN2ZyB4b…(897)",
+            "color": "rgb(115, 115, 115)",
+            "width": "48px",
+            "height": "48px"
+          }
+        }
+      ]
+    },
+    "light-themeId": "light",
+    "light-panel-after": {
+      "editorForeground": "#171717",
+      "buttons": [
+        {
+          "entry": "anthropic/claude-code-cli",
+          "main": true,
+          "buttonBg": "rgb(234, 88, 12)",
+          "iconParentBg": "rgb(255, 255, 255)",
+          "icon": {
+            "agent": "claude",
+            "backgroundColor": "rgb(217, 119, 87)",
+            "backgroundImage": "none",
+            "maskImage": "url(\"data:image/svg+xml;base64,PHN2ZyB4b…(2569)",
+            "color": "rgb(255, 255, 255)",
+            "width": "16px",
+            "height": "16px"
+          }
+        },
+        {
+          "entry": "anthropic/claude-code-extension",
+          "main": false,
+          "buttonBg": "rgb(245, 245, 245)",
+          "iconParentBg": "rgba(0, 0, 0, 0)",
+          "icon": {
+            "agent": "claude",
+            "backgroundColor": "rgb(217, 119, 87)",
+            "backgroundImage": "none",
+            "maskImage": "url(\"data:image/svg+xml;base64,PHN2ZyB4b…(2569)",
+            "color": "rgb(23, 23, 23)",
+            "width": "16px",
+            "height": "16px"
+          }
+        },
+        {
+          "entry": "openai/codex-cli",
+          "main": false,
+          "buttonBg": "rgb(245, 245, 245)",
+          "iconParentBg": "rgba(0, 0, 0, 0)",
+          "icon": {
+            "agent": "codex",
+            "backgroundColor": "rgb(23, 23, 23)",
+            "backgroundImage": "none",
+            "maskImage": "url(\"data:image/svg+xml;base64,PHN2ZyB4b…(2101)",
+            "color": "rgb(23, 23, 23)",
+            "width": "16px",
+            "height": "16px"
+          }
+        },
+        {
+          "entry": "openai/codex-extension",
+          "main": false,
+          "buttonBg": "rgb(245, 245, 245)",
+          "iconParentBg": "rgba(0, 0, 0, 0)",
+          "icon": {
+            "agent": "codex",
+            "backgroundColor": "rgb(23, 23, 23)",
+            "backgroundImage": "none",
+            "maskImage": "url(\"data:image/svg+xml;base64,PHN2ZyB4b…(2101)",
+            "color": "rgb(23, 23, 23)",
+            "width": "16px",
+            "height": "16px"
+          }
+        },
+        {
+          "entry": "sst/opencode-cli",
+          "main": false,
+          "buttonBg": "rgb(245, 245, 245)",
+          "iconParentBg": "rgba(0, 0, 0, 0)",
+          "icon": {
+            "agent": "opencode",
+            "backgroundColor": "rgb(23, 23, 23)",
+            "backgroundImage": "none",
+            "maskImage": "url(\"data:image/svg+xml;base64,PHN2ZyB4b…(197)",
+            "color": "rgb(23, 23, 23)",
+            "width": "16px",
+            "height": "16px"
+          }
+        },
+        {
+          "entry": "langbase/command-code-cli",
+          "main": false,
+          "buttonBg": "rgb(245, 245, 245)",
+          "iconParentBg": "rgba(0, 0, 0, 0)",
+          "icon": {
+            "agent": "commandcode",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "backgroundImage": "url(\"data:image/png;base64,iVBORw0KGgoAA…(933)",
+            "maskImage": "none",
+            "color": "rgb(23, 23, 23)",
+            "width": "16px",
+            "height": "16px"
+          }
+        },
+        {
+          "entry": "github/copilot-cli",
+          "main": false,
+          "buttonBg": "rgb(245, 245, 245)",
+          "iconParentBg": "rgba(0, 0, 0, 0)",
+          "icon": {
+            "agent": "copilot",
+            "backgroundColor": "rgb(23, 23, 23)",
+            "backgroundImage": "none",
+            "maskImage": "url(\"data:image/svg+xml;base64,PHN2ZyB4b…(2321)",
+            "color": "rgb(23, 23, 23)",
+            "width": "16px",
+            "height": "16px"
+          }
+        },
+        {
+          "entry": "cursor/cursor-cli",
+          "main": false,
+          "buttonBg": "rgb(245, 245, 245)",
+          "iconParentBg": "rgba(0, 0, 0, 0)",
+          "icon": {
+            "agent": "cursor",
+            "backgroundColor": "rgb(23, 23, 23)",
+            "backgroundImage": "none",
+            "maskImage": "url(\"data:image/svg+xml;base64,PHN2ZyB4b…(613)",
+            "color": "rgb(23, 23, 23)",
+            "width": "16px",
+            "height": "16px"
+          }
+        },
+        {
+          "entry": "google/antigravity-cli",
+          "main": false,
+          "buttonBg": "rgb(245, 245, 245)",
+          "iconParentBg": "rgba(0, 0, 0, 0)",
+          "icon": {
+            "agent": "antigravity",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "backgroundImage": "url(\"data:image/svg+xml;base64,PHN2ZyB4b…(10209)",
+            "maskImage": "none",
+            "color": "rgb(23, 23, 23)",
+            "width": "16px",
+            "height": "16px"
+          }
+        },
+        {
+          "entry": "xai/grok-build-cli",
+          "main": false,
+          "buttonBg": "rgb(245, 245, 245)",
+          "iconParentBg": "rgba(0, 0, 0, 0)",
+          "icon": {
+            "agent": "grok",
+            "backgroundColor": "rgb(23, 23, 23)",
+            "backgroundImage": "none",
+            "maskImage": "url(\"data:image/svg+xml;base64,PHN2ZyB4b…(897)",
+            "color": "rgb(23, 23, 23)",
+            "width": "16px",
+            "height": "16px"
+          }
+        }
+      ],
+      "headings": [
+        {
+          "text": "パートナーを追加",
+          "visibility": "hidden",
+          "display": "block"
+        }
+      ],
+      "cautionNodes": 0,
+      "cautionTextVisible": false,
+      "visibleHeadingText": [],
+      "rect": {
+        "x": 635,
+        "y": 39,
+        "width": 437,
+        "height": 603
+      }
+    },
+    "light-panel-before-css": {
+      "editorForeground": "#171717",
+      "buttons": [
+        {
+          "entry": "anthropic/claude-code-cli",
+          "main": true,
+          "buttonBg": "rgb(234, 88, 12)",
+          "iconParentBg": "rgb(255, 255, 255)",
+          "icon": {
+            "agent": "claude",
+            "backgroundColor": "rgb(255, 255, 255)",
+            "backgroundImage": "none",
+            "maskImage": "url(\"data:image/svg+xml;base64,PHN2ZyB4b…(2569)",
+            "color": "rgb(255, 255, 255)",
+            "width": "16px",
+            "height": "16px"
+          }
+        },
+        {
+          "entry": "anthropic/claude-code-extension",
+          "main": false,
+          "buttonBg": "rgb(245, 245, 245)",
+          "iconParentBg": "rgba(0, 0, 0, 0)",
+          "icon": {
+            "agent": "claude",
+            "backgroundColor": "rgb(23, 23, 23)",
+            "backgroundImage": "none",
+            "maskImage": "url(\"data:image/svg+xml;base64,PHN2ZyB4b…(2569)",
+            "color": "rgb(23, 23, 23)",
+            "width": "16px",
+            "height": "16px"
+          }
+        },
+        {
+          "entry": "openai/codex-cli",
+          "main": false,
+          "buttonBg": "rgb(245, 245, 245)",
+          "iconParentBg": "rgba(0, 0, 0, 0)",
+          "icon": {
+            "agent": "codex",
+            "backgroundColor": "rgb(23, 23, 23)",
+            "backgroundImage": "none",
+            "maskImage": "url(\"data:image/svg+xml;base64,PHN2ZyB4b…(2101)",
+            "color": "rgb(23, 23, 23)",
+            "width": "16px",
+            "height": "16px"
+          }
+        },
+        {
+          "entry": "openai/codex-extension",
+          "main": false,
+          "buttonBg": "rgb(245, 245, 245)",
+          "iconParentBg": "rgba(0, 0, 0, 0)",
+          "icon": {
+            "agent": "codex",
+            "backgroundColor": "rgb(23, 23, 23)",
+            "backgroundImage": "none",
+            "maskImage": "url(\"data:image/svg+xml;base64,PHN2ZyB4b…(2101)",
+            "color": "rgb(23, 23, 23)",
+            "width": "16px",
+            "height": "16px"
+          }
+        },
+        {
+          "entry": "sst/opencode-cli",
+          "main": false,
+          "buttonBg": "rgb(245, 245, 245)",
+          "iconParentBg": "rgba(0, 0, 0, 0)",
+          "icon": {
+            "agent": "opencode",
+            "backgroundColor": "rgb(23, 23, 23)",
+            "backgroundImage": "none",
+            "maskImage": "url(\"data:image/svg+xml;base64,PHN2ZyB4b…(197)",
+            "color": "rgb(23, 23, 23)",
+            "width": "16px",
+            "height": "16px"
+          }
+        },
+        {
+          "entry": "langbase/command-code-cli",
+          "main": false,
+          "buttonBg": "rgb(245, 245, 245)",
+          "iconParentBg": "rgba(0, 0, 0, 0)",
+          "icon": {
+            "agent": "commandcode",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "backgroundImage": "url(\"data:image/png;base64,iVBORw0KGgoAA…(933)",
+            "maskImage": "none",
+            "color": "rgb(23, 23, 23)",
+            "width": "16px",
+            "height": "16px"
+          }
+        },
+        {
+          "entry": "github/copilot-cli",
+          "main": false,
+          "buttonBg": "rgb(245, 245, 245)",
+          "iconParentBg": "rgba(0, 0, 0, 0)",
+          "icon": {
+            "agent": "copilot",
+            "backgroundColor": "rgb(23, 23, 23)",
+            "backgroundImage": "none",
+            "maskImage": "url(\"data:image/svg+xml;base64,PHN2ZyB4b…(2321)",
+            "color": "rgb(23, 23, 23)",
+            "width": "16px",
+            "height": "16px"
+          }
+        },
+        {
+          "entry": "cursor/cursor-cli",
+          "main": false,
+          "buttonBg": "rgb(245, 245, 245)",
+          "iconParentBg": "rgba(0, 0, 0, 0)",
+          "icon": {
+            "agent": "cursor",
+            "backgroundColor": "rgb(23, 23, 23)",
+            "backgroundImage": "none",
+            "maskImage": "url(\"data:image/svg+xml;base64,PHN2ZyB4b…(613)",
+            "color": "rgb(23, 23, 23)",
+            "width": "16px",
+            "height": "16px"
+          }
+        },
+        {
+          "entry": "google/antigravity-cli",
+          "main": false,
+          "buttonBg": "rgb(245, 245, 245)",
+          "iconParentBg": "rgba(0, 0, 0, 0)",
+          "icon": {
+            "agent": "antigravity",
+            "backgroundColor": "rgb(23, 23, 23)",
+            "backgroundImage": "none",
+            "maskImage": "url(\"data:image/svg+xml;base64,PHN2ZyB4b…(429)",
+            "color": "rgb(23, 23, 23)",
+            "width": "16px",
+            "height": "16px"
+          }
+        },
+        {
+          "entry": "xai/grok-build-cli",
+          "main": false,
+          "buttonBg": "rgb(245, 245, 245)",
+          "iconParentBg": "rgba(0, 0, 0, 0)",
+          "icon": {
+            "agent": "grok",
+            "backgroundColor": "rgb(23, 23, 23)",
+            "backgroundImage": "none",
+            "maskImage": "url(\"data:image/svg+xml;base64,PHN2ZyB4b…(897)",
+            "color": "rgb(23, 23, 23)",
+            "width": "16px",
+            "height": "16px"
+          }
+        }
+      ],
+      "headings": [
+        {
+          "text": "パートナーを追加",
+          "visibility": "hidden",
+          "display": "block"
+        }
+      ],
+      "cautionNodes": 0,
+      "cautionTextVisible": false,
+      "visibleHeadingText": [],
+      "rect": {
+        "x": 635,
+        "y": 39,
+        "width": 437,
+        "height": 603
+      }
+    },
+    "light-catalog": {
+      "icons": [
+        {
+          "agent": "claude",
+          "backgroundColor": "rgb(217, 119, 87)",
+          "backgroundImage": "none",
+          "maskImage": "url(\"data:image/svg+xml;base64,PHN2ZyB4b…(2569)",
+          "color": "rgb(23, 23, 23)",
+          "width": "16px",
+          "height": "16px"
+        },
+        {
+          "agent": "codex",
+          "backgroundColor": "rgb(23, 23, 23)",
+          "backgroundImage": "none",
+          "maskImage": "url(\"data:image/svg+xml;base64,PHN2ZyB4b…(2101)",
+          "color": "rgb(23, 23, 23)",
+          "width": "16px",
+          "height": "16px"
+        },
+        {
+          "agent": "opencode",
+          "backgroundColor": "rgb(23, 23, 23)",
+          "backgroundImage": "none",
+          "maskImage": "url(\"data:image/svg+xml;base64,PHN2ZyB4b…(197)",
+          "color": "rgb(23, 23, 23)",
+          "width": "16px",
+          "height": "16px"
+        },
+        {
+          "agent": "commandcode",
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "backgroundImage": "url(\"data:image/png;base64,iVBORw0KGgoAA…(933)",
+          "maskImage": "none",
+          "color": "rgb(23, 23, 23)",
+          "width": "16px",
+          "height": "16px"
+        },
+        {
+          "agent": "copilot",
+          "backgroundColor": "rgb(23, 23, 23)",
+          "backgroundImage": "none",
+          "maskImage": "url(\"data:image/svg+xml;base64,PHN2ZyB4b…(2321)",
+          "color": "rgb(23, 23, 23)",
+          "width": "16px",
+          "height": "16px"
+        },
+        {
+          "agent": "cursor",
+          "backgroundColor": "rgb(23, 23, 23)",
+          "backgroundImage": "none",
+          "maskImage": "url(\"data:image/svg+xml;base64,PHN2ZyB4b…(613)",
+          "color": "rgb(23, 23, 23)",
+          "width": "16px",
+          "height": "16px"
+        },
+        {
+          "agent": "antigravity",
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "backgroundImage": "url(\"data:image/svg+xml;base64,PHN2ZyB4b…(10209)",
+          "maskImage": "none",
+          "color": "rgb(23, 23, 23)",
+          "width": "16px",
+          "height": "16px"
+        },
+        {
+          "agent": "grok",
+          "backgroundColor": "rgb(23, 23, 23)",
+          "backgroundImage": "none",
+          "maskImage": "url(\"data:image/svg+xml;base64,PHN2ZyB4b…(897)",
+          "color": "rgb(23, 23, 23)",
+          "width": "16px",
+          "height": "16px"
+        }
+      ],
+      "cautionNodes": 0,
+      "cautionTextVisible": false,
+      "rect": {
+        "x": 48,
+        "y": 39,
+        "width": 165,
+        "height": 900
+      }
+    },
+    "light-tabs": {
+      "results": {
+        "claude-selected": {
+          "current": true,
+          "active": true,
+          "rect": {
+            "x": 1072,
+            "y": 10,
+            "width": 48,
+            "height": 48
+          },
+          "icon": {
+            "agent": "claude",
+            "backgroundColor": "rgb(217, 119, 87)",
+            "backgroundImage": "none",
+            "maskImage": "url(\"data:image/svg+xml;base64,PHN2ZyB4b…(2569)",
+            "color": "rgb(234, 88, 12)",
+            "width": "48px",
+            "height": "48px"
+          }
+        },
+        "antigravity-selected": {
+          "current": true,
+          "active": true,
+          "rect": {
+            "x": 1072,
+            "y": 322,
+            "width": 48,
+            "height": 48
+          },
+          "icon": {
+            "agent": "antigravity",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "backgroundImage": "url(\"data:image/svg+xml;base64,PHN2ZyB4b…(10209)",
+            "maskImage": "none",
+            "color": "rgb(234, 88, 12)",
+            "width": "48px",
+            "height": "48px"
+          }
+        },
+        "codex-selected": {
+          "current": true,
+          "active": true,
+          "rect": {
+            "x": 1072,
+            "y": 62,
+            "width": 48,
+            "height": 48
+          },
+          "icon": {
+            "agent": "codex",
+            "backgroundColor": "rgb(23, 23, 23)",
+            "backgroundImage": "none",
+            "maskImage": "url(\"data:image/svg+xml;base64,PHN2ZyB4b…(2101)",
+            "color": "rgb(234, 88, 12)",
+            "width": "48px",
+            "height": "48px"
+          }
+        },
+        "claude-hover-unselected": {
+          "current": false,
+          "active": false,
+          "rect": {
+            "x": 1072,
+            "y": 10,
+            "width": 48,
+            "height": 48
+          },
+          "icon": {
+            "agent": "claude",
+            "backgroundColor": "rgb(217, 119, 87)",
+            "backgroundImage": "none",
+            "maskImage": "url(\"data:image/svg+xml;base64,PHN2ZyB4b…(2569)",
+            "color": "rgb(234, 88, 12)",
+            "width": "48px",
+            "height": "48px"
+          }
+        }
+      },
+      "tabs": [
+        {
+          "current": false,
+          "active": false,
+          "rect": {
+            "x": 1072,
+            "y": 10,
+            "width": 48,
+            "height": 48
+          },
+          "icon": {
+            "agent": "claude",
+            "backgroundColor": "rgb(217, 119, 87)",
+            "backgroundImage": "none",
+            "maskImage": "url(\"data:image/svg+xml;base64,PHN2ZyB4b…(2569)",
+            "color": "rgb(234, 88, 12)",
+            "width": "48px",
+            "height": "48px"
+          }
+        },
+        {
+          "current": true,
+          "active": true,
+          "rect": {
+            "x": 1072,
+            "y": 62,
+            "width": 48,
+            "height": 48
+          },
+          "icon": {
+            "agent": "codex",
+            "backgroundColor": "rgb(23, 23, 23)",
+            "backgroundImage": "none",
+            "maskImage": "url(\"data:image/svg+xml;base64,PHN2ZyB4b…(2101)",
+            "color": "rgb(234, 88, 12)",
+            "width": "48px",
+            "height": "48px"
+          }
+        },
+        {
+          "current": false,
+          "active": false,
+          "rect": {
+            "x": 1072,
+            "y": 114,
+            "width": 48,
+            "height": 48
+          },
+          "icon": {
+            "agent": "opencode",
+            "backgroundColor": "rgb(115, 115, 115)",
+            "backgroundImage": "none",
+            "maskImage": "url(\"data:image/svg+xml;base64,PHN2ZyB4b…(197)",
+            "color": "rgb(115, 115, 115)",
+            "width": "48px",
+            "height": "48px"
+          }
+        },
+        {
+          "current": false,
+          "active": false,
+          "rect": {
+            "x": 1072,
+            "y": 166,
+            "width": 48,
+            "height": 48
+          },
+          "icon": {
+            "agent": "commandcode",
+            "backgroundColor": "rgb(115, 115, 115)",
+            "backgroundImage": "none",
+            "maskImage": "none",
+            "color": "rgb(115, 115, 115)",
+            "width": "48px",
+            "height": "48px"
+          }
+        },
+        {
+          "current": false,
+          "active": false,
+          "rect": {
+            "x": 1072,
+            "y": 218,
+            "width": 48,
+            "height": 48
+          },
+          "icon": {
+            "agent": "copilot",
+            "backgroundColor": "rgb(23, 23, 23)",
+            "backgroundImage": "none",
+            "maskImage": "url(\"data:image/svg+xml;base64,PHN2ZyB4b…(2321)",
+            "color": "rgb(115, 115, 115)",
+            "width": "48px",
+            "height": "48px"
+          }
+        },
+        {
+          "current": false,
+          "active": false,
+          "rect": {
+            "x": 1072,
+            "y": 270,
+            "width": 48,
+            "height": 48
+          },
+          "icon": {
+            "agent": "cursor",
+            "backgroundColor": "rgb(115, 115, 115)",
+            "backgroundImage": "none",
+            "maskImage": "url(\"data:image/svg+xml;base64,PHN2ZyB4b…(613)",
+            "color": "rgb(115, 115, 115)",
+            "width": "48px",
+            "height": "48px"
+          }
+        },
+        {
+          "current": false,
+          "active": false,
+          "rect": {
+            "x": 1072,
+            "y": 322,
+            "width": 48,
+            "height": 48
+          },
+          "icon": {
+            "agent": "antigravity",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "backgroundImage": "url(\"data:image/svg+xml;base64,PHN2ZyB4b…(10209)",
+            "maskImage": "none",
+            "color": "rgb(115, 115, 115)",
+            "width": "48px",
+            "height": "48px"
+          }
+        },
+        {
+          "current": false,
+          "active": false,
+          "rect": {
+            "x": 1072,
+            "y": 374,
+            "width": 48,
+            "height": 48
+          },
+          "icon": {
+            "agent": "grok",
+            "backgroundColor": "rgb(115, 115, 115)",
+            "backgroundImage": "none",
+            "maskImage": "url(\"data:image/svg+xml;base64,PHN2ZyB4b…(897)",
+            "color": "rgb(115, 115, 115)",
+            "width": "48px",
+            "height": "48px"
+          }
+        },
+        {
+          "current": false,
+          "active": false,
+          "rect": {
+            "x": 1072,
+            "y": 563,
+            "width": 62,
+            "height": 52
+          },
+          "icon": {
+            "agent": "claude",
+            "backgroundColor": "rgb(217, 119, 87)",
+            "backgroundImage": "none",
+            "maskImage": "url(\"data:image/svg+xml;base64,PHN2ZyB4b…(2569)",
+            "color": "rgb(115, 115, 115)",
+            "width": "48px",
+            "height": "48px"
+          }
+        },
+        {
+          "current": true,
+          "active": true,
+          "rect": {
+            "x": 1134,
+            "y": 563,
+            "width": 62,
+            "height": 32
+          },
+          "icon": {
+            "agent": "codex",
+            "backgroundColor": "rgb(23, 23, 23)",
+            "backgroundImage": "none",
+            "maskImage": "url(\"data:image/svg+xml;base64,PHN2ZyB4b…(2101)",
+            "color": "rgb(234, 88, 12)",
+            "width": "48px",
+            "height": "48px"
+          }
+        },
+        {
+          "current": false,
+          "active": false,
+          "rect": {
+            "x": 1196,
+            "y": 563,
+            "width": 62,
+            "height": 52
+          },
+          "icon": {
+            "agent": "opencode",
+            "backgroundColor": "rgb(115, 115, 115)",
+            "backgroundImage": "none",
+            "maskImage": "url(\"data:image/svg+xml;base64,PHN2ZyB4b…(197)",
+            "color": "rgb(115, 115, 115)",
+            "width": "48px",
+            "height": "48px"
+          }
+        },
+        {
+          "current": false,
+          "active": false,
+          "rect": {
+            "x": 1258,
+            "y": 563,
+            "width": 62,
+            "height": 52
+          },
+          "icon": {
+            "agent": "commandcode",
+            "backgroundColor": "rgb(115, 115, 115)",
+            "backgroundImage": "none",
+            "maskImage": "none",
+            "color": "rgb(115, 115, 115)",
+            "width": "48px",
+            "height": "48px"
+          }
+        },
+        {
+          "current": false,
+          "active": false,
+          "rect": {
+            "x": 1320,
+            "y": 563,
+            "width": 62,
+            "height": 52
+          },
+          "icon": {
+            "agent": "copilot",
+            "backgroundColor": "rgb(23, 23, 23)",
+            "backgroundImage": "none",
+            "maskImage": "url(\"data:image/svg+xml;base64,PHN2ZyB4b…(2321)",
+            "color": "rgb(115, 115, 115)",
+            "width": "48px",
+            "height": "48px"
+          }
+        },
+        {
+          "current": false,
+          "active": false,
+          "rect": {
+            "x": 1382,
+            "y": 563,
+            "width": 62,
+            "height": 52
+          },
+          "icon": {
+            "agent": "cursor",
+            "backgroundColor": "rgb(115, 115, 115)",
+            "backgroundImage": "none",
+            "maskImage": "url(\"data:image/svg+xml;base64,PHN2ZyB4b…(613)",
+            "color": "rgb(115, 115, 115)",
+            "width": "48px",
+            "height": "48px"
+          }
+        },
+        {
+          "current": false,
+          "active": false,
+          "rect": {
+            "x": 1444,
+            "y": 563,
+            "width": 62,
+            "height": 52
+          },
+          "icon": {
+            "agent": "antigravity",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "backgroundImage": "url(\"data:image/svg+xml;base64,PHN2ZyB4b…(10209)",
+            "maskImage": "none",
+            "color": "rgb(115, 115, 115)",
+            "width": "48px",
+            "height": "48px"
+          }
+        },
+        {
+          "current": false,
+          "active": false,
+          "rect": {
+            "x": 1506,
+            "y": 563,
+            "width": 62,
+            "height": 52
+          },
+          "icon": {
+            "agent": "grok",
+            "backgroundColor": "rgb(115, 115, 115)",
+            "backgroundImage": "none",
+            "maskImage": "url(\"data:image/svg+xml;base64,PHN2ZyB4b…(897)",
+            "color": "rgb(115, 115, 115)",
+            "width": "48px",
+            "height": "48px"
+          }
+        }
+      ],
+      "beforeCssTabs": [
+        {
+          "current": false,
+          "active": false,
+          "rect": {
+            "x": 1072,
+            "y": 10,
+            "width": 48,
+            "height": 48
+          },
+          "icon": {
+            "agent": "claude",
+            "backgroundColor": "rgb(234, 88, 12)",
+            "backgroundImage": "none",
+            "maskImage": "url(\"data:image/svg+xml;base64,PHN2ZyB4b…(2569)",
+            "color": "rgb(234, 88, 12)",
+            "width": "48px",
+            "height": "48px"
+          }
+        },
+        {
+          "current": true,
+          "active": true,
+          "rect": {
+            "x": 1072,
+            "y": 62,
+            "width": 48,
+            "height": 48
+          },
+          "icon": {
+            "agent": "codex",
+            "backgroundColor": "rgb(234, 88, 12)",
+            "backgroundImage": "none",
+            "maskImage": "url(\"data:image/svg+xml;base64,PHN2ZyB4b…(2101)",
+            "color": "rgb(234, 88, 12)",
+            "width": "48px",
+            "height": "48px"
+          }
+        },
+        {
+          "current": false,
+          "active": false,
+          "rect": {
+            "x": 1072,
+            "y": 114,
+            "width": 48,
+            "height": 48
+          },
+          "icon": {
+            "agent": "opencode",
+            "backgroundColor": "rgb(115, 115, 115)",
+            "backgroundImage": "none",
+            "maskImage": "url(\"data:image/svg+xml;base64,PHN2ZyB4b…(197)",
+            "color": "rgb(115, 115, 115)",
+            "width": "48px",
+            "height": "48px"
+          }
+        },
+        {
+          "current": false,
+          "active": false,
+          "rect": {
+            "x": 1072,
+            "y": 166,
+            "width": 48,
+            "height": 48
+          },
+          "icon": {
+            "agent": "commandcode",
+            "backgroundColor": "rgb(115, 115, 115)",
+            "backgroundImage": "none",
+            "maskImage": "none",
+            "color": "rgb(115, 115, 115)",
+            "width": "48px",
+            "height": "48px"
+          }
+        },
+        {
+          "current": false,
+          "active": false,
+          "rect": {
+            "x": 1072,
+            "y": 218,
+            "width": 48,
+            "height": 48
+          },
+          "icon": {
+            "agent": "copilot",
+            "backgroundColor": "rgb(115, 115, 115)",
+            "backgroundImage": "none",
+            "maskImage": "url(\"data:image/svg+xml;base64,PHN2ZyB4b…(2321)",
+            "color": "rgb(115, 115, 115)",
+            "width": "48px",
+            "height": "48px"
+          }
+        },
+        {
+          "current": false,
+          "active": false,
+          "rect": {
+            "x": 1072,
+            "y": 270,
+            "width": 48,
+            "height": 48
+          },
+          "icon": {
+            "agent": "cursor",
+            "backgroundColor": "rgb(115, 115, 115)",
+            "backgroundImage": "none",
+            "maskImage": "url(\"data:image/svg+xml;base64,PHN2ZyB4b…(613)",
+            "color": "rgb(115, 115, 115)",
+            "width": "48px",
+            "height": "48px"
+          }
+        },
+        {
+          "current": false,
+          "active": false,
+          "rect": {
+            "x": 1072,
+            "y": 322,
+            "width": 48,
+            "height": 48
+          },
+          "icon": {
+            "agent": "antigravity",
+            "backgroundColor": "rgb(115, 115, 115)",
+            "backgroundImage": "none",
+            "maskImage": "url(\"data:image/svg+xml;base64,PHN2ZyB4b…(429)",
+            "color": "rgb(115, 115, 115)",
+            "width": "48px",
+            "height": "48px"
+          }
+        },
+        {
+          "current": false,
+          "active": false,
+          "rect": {
+            "x": 1072,
+            "y": 374,
+            "width": 48,
+            "height": 48
+          },
+          "icon": {
+            "agent": "grok",
+            "backgroundColor": "rgb(115, 115, 115)",
+            "backgroundImage": "none",
+            "maskImage": "url(\"data:image/svg+xml;base64,PHN2ZyB4b…(897)",
+            "color": "rgb(115, 115, 115)",
+            "width": "48px",
+            "height": "48px"
+          }
+        },
+        {
+          "current": false,
+          "active": false,
+          "rect": {
+            "x": 1072,
+            "y": 563,
+            "width": 62,
+            "height": 52
+          },
+          "icon": {
+            "agent": "claude",
+            "backgroundColor": "rgb(115, 115, 115)",
+            "backgroundImage": "none",
+            "maskImage": "url(\"data:image/svg+xml;base64,PHN2ZyB4b…(2569)",
+            "color": "rgb(115, 115, 115)",
+            "width": "48px",
+            "height": "48px"
+          }
+        },
+        {
+          "current": true,
+          "active": true,
+          "rect": {
+            "x": 1134,
+            "y": 563,
+            "width": 62,
+            "height": 32
+          },
+          "icon": {
+            "agent": "codex",
+            "backgroundColor": "rgb(234, 88, 12)",
+            "backgroundImage": "none",
+            "maskImage": "url(\"data:image/svg+xml;base64,PHN2ZyB4b…(2101)",
+            "color": "rgb(234, 88, 12)",
+            "width": "48px",
+            "height": "48px"
+          }
+        },
+        {
+          "current": false,
+          "active": false,
+          "rect": {
+            "x": 1196,
+            "y": 563,
+            "width": 62,
+            "height": 52
+          },
+          "icon": {
+            "agent": "opencode",
+            "backgroundColor": "rgb(115, 115, 115)",
+            "backgroundImage": "none",
+            "maskImage": "url(\"data:image/svg+xml;base64,PHN2ZyB4b…(197)",
+            "color": "rgb(115, 115, 115)",
+            "width": "48px",
+            "height": "48px"
+          }
+        },
+        {
+          "current": false,
+          "active": false,
+          "rect": {
+            "x": 1258,
+            "y": 563,
+            "width": 62,
+            "height": 52
+          },
+          "icon": {
+            "agent": "commandcode",
+            "backgroundColor": "rgb(115, 115, 115)",
+            "backgroundImage": "none",
+            "maskImage": "none",
+            "color": "rgb(115, 115, 115)",
+            "width": "48px",
+            "height": "48px"
+          }
+        },
+        {
+          "current": false,
+          "active": false,
+          "rect": {
+            "x": 1320,
+            "y": 563,
+            "width": 62,
+            "height": 52
+          },
+          "icon": {
+            "agent": "copilot",
+            "backgroundColor": "rgb(115, 115, 115)",
+            "backgroundImage": "none",
+            "maskImage": "url(\"data:image/svg+xml;base64,PHN2ZyB4b…(2321)",
+            "color": "rgb(115, 115, 115)",
+            "width": "48px",
+            "height": "48px"
+          }
+        },
+        {
+          "current": false,
+          "active": false,
+          "rect": {
+            "x": 1382,
+            "y": 563,
+            "width": 62,
+            "height": 52
+          },
+          "icon": {
+            "agent": "cursor",
+            "backgroundColor": "rgb(115, 115, 115)",
+            "backgroundImage": "none",
+            "maskImage": "url(\"data:image/svg+xml;base64,PHN2ZyB4b…(613)",
+            "color": "rgb(115, 115, 115)",
+            "width": "48px",
+            "height": "48px"
+          }
+        },
+        {
+          "current": false,
+          "active": false,
+          "rect": {
+            "x": 1444,
+            "y": 563,
+            "width": 62,
+            "height": 52
+          },
+          "icon": {
+            "agent": "antigravity",
+            "backgroundColor": "rgb(115, 115, 115)",
+            "backgroundImage": "none",
+            "maskImage": "url(\"data:image/svg+xml;base64,PHN2ZyB4b…(429)",
+            "color": "rgb(115, 115, 115)",
+            "width": "48px",
+            "height": "48px"
+          }
+        },
+        {
+          "current": false,
+          "active": false,
+          "rect": {
+            "x": 1506,
+            "y": 563,
+            "width": 62,
+            "height": 52
+          },
+          "icon": {
+            "agent": "grok",
+            "backgroundColor": "rgb(115, 115, 115)",
+            "backgroundImage": "none",
+            "maskImage": "url(\"data:image/svg+xml;base64,PHN2ZyB4b…(897)",
+            "color": "rgb(115, 115, 115)",
+            "width": "48px",
+            "height": "48px"
+          }
+        }
+      ]
+    }
+  },
+  "checks": [
+    {
+      "name": "dark: 8 エージェント全部のアイコンがボタンにある",
+      "ok": true,
+      "data": [
+        "claude",
+        "codex",
+        "opencode",
+        "commandcode",
+        "copilot",
+        "cursor",
+        "antigravity",
+        "grok"
+      ]
+    },
+    {
+      "name": "dark: Claude = rgb(217, 119, 87) 単色 mask",
+      "ok": true,
+      "data": {
+        "agent": "claude",
+        "backgroundColor": "rgb(217, 119, 87)",
+        "backgroundImage": "none",
+        "maskImage": "url(\"data:image/svg+xml;base64,PHN2ZyB4b…(2569)",
+        "color": "rgb(229, 229, 229)",
+        "width": "16px",
+        "height": "16px"
+      }
+    },
+    {
+      "name": "dark: 推奨（塗り）ボタンの Claude アイコンに下地がありボタン色と別",
+      "ok": true,
+      "data": {
+        "buttonBg": "rgb(249, 115, 22)",
+        "backing": "rgb(10, 10, 10)",
+        "icon": "rgb(217, 119, 87)"
+      }
+    },
+    {
+      "name": "dark: Antigravity = background-image の多色 SVG・mask なし・背景色透明",
+      "ok": true,
+      "data": {
+        "agent": "antigravity",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "backgroundImage": "url(\"data:image/svg+xml;base64,PHN2ZyB4b…(10209)",
+        "maskImage": "none",
+        "color": "rgb(229, 229, 229)",
+        "width": "16px",
+        "height": "16px"
+      }
+    },
+    {
+      "name": "dark: codex = テーマの文字色（--theia-editor-foreground #e5e5e5）",
+      "ok": true,
+      "data": {
+        "agent": "codex",
+        "backgroundColor": "rgb(229, 229, 229)",
+        "backgroundImage": "none",
+        "maskImage": "url(\"data:image/svg+xml;base64,PHN2ZyB4b…(2101)",
+        "color": "rgb(229, 229, 229)",
+        "width": "16px",
+        "height": "16px"
+      }
+    },
+    {
+      "name": "dark: copilot = テーマの文字色（--theia-editor-foreground #e5e5e5）",
+      "ok": true,
+      "data": {
+        "agent": "copilot",
+        "backgroundColor": "rgb(229, 229, 229)",
+        "backgroundImage": "none",
+        "maskImage": "url(\"data:image/svg+xml;base64,PHN2ZyB4b…(2321)",
+        "color": "rgb(229, 229, 229)",
+        "width": "16px",
+        "height": "16px"
+      }
+    },
+    {
+      "name": "dark: grok の computed が BEFORE CSS と一致",
+      "ok": true,
+      "data": {
+        "agent": "grok",
+        "backgroundColor": "rgb(229, 229, 229)",
+        "backgroundImage": "none",
+        "maskImage": "url(\"data:image/svg+xml;base64,PHN2ZyB4b…(897)",
+        "color": "rgb(229, 229, 229)",
+        "width": "16px",
+        "height": "16px"
+      }
+    },
+    {
+      "name": "dark: cursor の computed が BEFORE CSS と一致",
+      "ok": true,
+      "data": {
+        "agent": "cursor",
+        "backgroundColor": "rgb(229, 229, 229)",
+        "backgroundImage": "none",
+        "maskImage": "url(\"data:image/svg+xml;base64,PHN2ZyB4b…(613)",
+        "color": "rgb(229, 229, 229)",
+        "width": "16px",
+        "height": "16px"
+      }
+    },
+    {
+      "name": "dark: opencode の computed が BEFORE CSS と一致",
+      "ok": true,
+      "data": {
+        "agent": "opencode",
+        "backgroundColor": "rgb(229, 229, 229)",
+        "backgroundImage": "none",
+        "maskImage": "url(\"data:image/svg+xml;base64,PHN2ZyB4b…(197)",
+        "color": "rgb(229, 229, 229)",
+        "width": "16px",
+        "height": "16px"
+      }
+    },
+    {
+      "name": "dark: commandcode の computed が BEFORE CSS と一致",
+      "ok": true,
+      "data": {
+        "agent": "commandcode",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "backgroundImage": "url(\"data:image/png;base64,iVBORw0KGgoAA…(933)",
+        "maskImage": "none",
+        "color": "rgb(229, 229, 229)",
+        "width": "16px",
+        "height": "16px"
+      }
+    },
+    {
+      "name": "dark: 注意書きが partner-widget に無い",
+      "ok": true,
+      "data": {
+        "nodes": 0
+      }
+    },
+    {
+      "name": "dark: 「パートナーを追加」「パートナー接続済み」の見出しが見えない",
+      "ok": true,
+      "data": [
+        {
+          "text": "パートナーを追加",
+          "visibility": "hidden",
+          "display": "block"
+        }
+      ]
+    },
+    {
+      "name": "dark: 左カタログに注意書きが無い",
+      "ok": true,
+      "data": {
+        "nodes": 0
+      }
+    },
+    {
+      "name": "dark: 左カタログのアイコンもボタンと同じ computed",
+      "ok": true,
+      "data": {
+        "claude": "rgb(217, 119, 87)",
+        "codex": "rgb(229, 229, 229)",
+        "opencode": "rgb(229, 229, 229)",
+        "commandcode": "rgba(0, 0, 0, 0)",
+        "copilot": "rgb(229, 229, 229)",
+        "cursor": "rgb(229, 229, 229)",
+        "antigravity": "rgba(0, 0, 0, 0)",
+        "grok": "rgb(229, 229, 229)"
+      }
+    },
+    {
+      "name": "dark: 選択中タブ（claude）のアイコン computed がボタンと同じ",
+      "ok": true,
+      "data": {
+        "current": true,
+        "active": false,
+        "bg": "rgb(217, 119, 87)",
+        "img": "none"
+      }
+    },
+    {
+      "name": "dark: 選択中タブ（antigravity）のアイコン computed がボタンと同じ",
+      "ok": true,
+      "data": {
+        "current": true,
+        "active": false,
+        "bg": "rgba(0, 0, 0, 0)",
+        "img": "url(\"data:image/svg+xml;base64,PHN2ZyB4b…(10209)"
+      }
+    },
+    {
+      "name": "dark: 選択中タブ（codex）のアイコン computed がボタンと同じ",
+      "ok": true,
+      "data": {
+        "current": true,
+        "active": false,
+        "bg": "rgb(229, 229, 229)",
+        "img": "none"
+      }
+    },
+    {
+      "name": "dark: ホバー中・非選択タブ（claude）もオレンジ",
+      "ok": true,
+      "data": {
+        "agent": "claude",
+        "backgroundColor": "rgb(217, 119, 87)",
+        "backgroundImage": "none",
+        "maskImage": "url(\"data:image/svg+xml;base64,PHN2ZyB4b…(2569)",
+        "color": "rgb(249, 115, 22)",
+        "width": "48px",
+        "height": "48px"
+      }
+    },
+    {
+      "name": "dark: Claude / Codex / Copilot / Antigravity のタブアイコンがボタンと同じ色・画像",
+      "ok": true,
+      "data": {
+        "claude": [
+          "rgb(217, 119, 87)",
+          "none"
+        ],
+        "codex": [
+          "rgb(229, 229, 229)",
+          "none"
+        ],
+        "copilot": [
+          "rgb(229, 229, 229)",
+          "none"
+        ],
+        "antigravity": [
+          "rgba(0, 0, 0, 0)",
+          "url(\"data:image/svg+xml;base64,PHN2ZyB4b…(10209)"
+        ]
+      }
+    },
+    {
+      "name": "dark: grok のタブアイコン computed が BEFORE CSS と一致",
+      "ok": true,
+      "data": "rgb(115, 115, 115)"
+    },
+    {
+      "name": "dark: cursor のタブアイコン computed が BEFORE CSS と一致",
+      "ok": true,
+      "data": "rgb(115, 115, 115)"
+    },
+    {
+      "name": "dark: opencode のタブアイコン computed が BEFORE CSS と一致",
+      "ok": true,
+      "data": "rgb(115, 115, 115)"
+    },
+    {
+      "name": "dark: commandcode のタブアイコン computed が BEFORE CSS と一致",
+      "ok": true,
+      "data": "rgb(115, 115, 115)"
+    },
+    {
+      "name": "light: 8 エージェント全部のアイコンがボタンにある",
+      "ok": true,
+      "data": [
+        "claude",
+        "codex",
+        "opencode",
+        "commandcode",
+        "copilot",
+        "cursor",
+        "antigravity",
+        "grok"
+      ]
+    },
+    {
+      "name": "light: Claude = rgb(217, 119, 87) 単色 mask",
+      "ok": true,
+      "data": {
+        "agent": "claude",
+        "backgroundColor": "rgb(217, 119, 87)",
+        "backgroundImage": "none",
+        "maskImage": "url(\"data:image/svg+xml;base64,PHN2ZyB4b…(2569)",
+        "color": "rgb(23, 23, 23)",
+        "width": "16px",
+        "height": "16px"
+      }
+    },
+    {
+      "name": "light: 推奨（塗り）ボタンの Claude アイコンに下地がありボタン色と別",
+      "ok": true,
+      "data": {
+        "buttonBg": "rgb(234, 88, 12)",
+        "backing": "rgb(255, 255, 255)",
+        "icon": "rgb(217, 119, 87)"
+      }
+    },
+    {
+      "name": "light: Antigravity = background-image の多色 SVG・mask なし・背景色透明",
+      "ok": true,
+      "data": {
+        "agent": "antigravity",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "backgroundImage": "url(\"data:image/svg+xml;base64,PHN2ZyB4b…(10209)",
+        "maskImage": "none",
+        "color": "rgb(23, 23, 23)",
+        "width": "16px",
+        "height": "16px"
+      }
+    },
+    {
+      "name": "light: codex = テーマの文字色（--theia-editor-foreground #171717）",
+      "ok": true,
+      "data": {
+        "agent": "codex",
+        "backgroundColor": "rgb(23, 23, 23)",
+        "backgroundImage": "none",
+        "maskImage": "url(\"data:image/svg+xml;base64,PHN2ZyB4b…(2101)",
+        "color": "rgb(23, 23, 23)",
+        "width": "16px",
+        "height": "16px"
+      }
+    },
+    {
+      "name": "light: copilot = テーマの文字色（--theia-editor-foreground #171717）",
+      "ok": true,
+      "data": {
+        "agent": "copilot",
+        "backgroundColor": "rgb(23, 23, 23)",
+        "backgroundImage": "none",
+        "maskImage": "url(\"data:image/svg+xml;base64,PHN2ZyB4b…(2321)",
+        "color": "rgb(23, 23, 23)",
+        "width": "16px",
+        "height": "16px"
+      }
+    },
+    {
+      "name": "light: grok の computed が BEFORE CSS と一致",
+      "ok": true,
+      "data": {
+        "agent": "grok",
+        "backgroundColor": "rgb(23, 23, 23)",
+        "backgroundImage": "none",
+        "maskImage": "url(\"data:image/svg+xml;base64,PHN2ZyB4b…(897)",
+        "color": "rgb(23, 23, 23)",
+        "width": "16px",
+        "height": "16px"
+      }
+    },
+    {
+      "name": "light: cursor の computed が BEFORE CSS と一致",
+      "ok": true,
+      "data": {
+        "agent": "cursor",
+        "backgroundColor": "rgb(23, 23, 23)",
+        "backgroundImage": "none",
+        "maskImage": "url(\"data:image/svg+xml;base64,PHN2ZyB4b…(613)",
+        "color": "rgb(23, 23, 23)",
+        "width": "16px",
+        "height": "16px"
+      }
+    },
+    {
+      "name": "light: opencode の computed が BEFORE CSS と一致",
+      "ok": true,
+      "data": {
+        "agent": "opencode",
+        "backgroundColor": "rgb(23, 23, 23)",
+        "backgroundImage": "none",
+        "maskImage": "url(\"data:image/svg+xml;base64,PHN2ZyB4b…(197)",
+        "color": "rgb(23, 23, 23)",
+        "width": "16px",
+        "height": "16px"
+      }
+    },
+    {
+      "name": "light: commandcode の computed が BEFORE CSS と一致",
+      "ok": true,
+      "data": {
+        "agent": "commandcode",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "backgroundImage": "url(\"data:image/png;base64,iVBORw0KGgoAA…(933)",
+        "maskImage": "none",
+        "color": "rgb(23, 23, 23)",
+        "width": "16px",
+        "height": "16px"
+      }
+    },
+    {
+      "name": "light: 注意書きが partner-widget に無い",
+      "ok": true,
+      "data": {
+        "nodes": 0
+      }
+    },
+    {
+      "name": "light: 「パートナーを追加」「パートナー接続済み」の見出しが見えない",
+      "ok": true,
+      "data": [
+        {
+          "text": "パートナーを追加",
+          "visibility": "hidden",
+          "display": "block"
+        }
+      ]
+    },
+    {
+      "name": "light: 左カタログに注意書きが無い",
+      "ok": true,
+      "data": {
+        "nodes": 0
+      }
+    },
+    {
+      "name": "light: 左カタログのアイコンもボタンと同じ computed",
+      "ok": true,
+      "data": {
+        "claude": "rgb(217, 119, 87)",
+        "codex": "rgb(23, 23, 23)",
+        "opencode": "rgb(23, 23, 23)",
+        "commandcode": "rgba(0, 0, 0, 0)",
+        "copilot": "rgb(23, 23, 23)",
+        "cursor": "rgb(23, 23, 23)",
+        "antigravity": "rgba(0, 0, 0, 0)",
+        "grok": "rgb(23, 23, 23)"
+      }
+    },
+    {
+      "name": "light: 選択中タブ（claude）のアイコン computed がボタンと同じ",
+      "ok": true,
+      "data": {
+        "current": true,
+        "active": true,
+        "bg": "rgb(217, 119, 87)",
+        "img": "none"
+      }
+    },
+    {
+      "name": "light: 選択中タブ（antigravity）のアイコン computed がボタンと同じ",
+      "ok": true,
+      "data": {
+        "current": true,
+        "active": true,
+        "bg": "rgba(0, 0, 0, 0)",
+        "img": "url(\"data:image/svg+xml;base64,PHN2ZyB4b…(10209)"
+      }
+    },
+    {
+      "name": "light: 選択中タブ（codex）のアイコン computed がボタンと同じ",
+      "ok": true,
+      "data": {
+        "current": true,
+        "active": true,
+        "bg": "rgb(23, 23, 23)",
+        "img": "none"
+      }
+    },
+    {
+      "name": "light: ホバー中・非選択タブ（claude）もオレンジ",
+      "ok": true,
+      "data": {
+        "agent": "claude",
+        "backgroundColor": "rgb(217, 119, 87)",
+        "backgroundImage": "none",
+        "maskImage": "url(\"data:image/svg+xml;base64,PHN2ZyB4b…(2569)",
+        "color": "rgb(234, 88, 12)",
+        "width": "48px",
+        "height": "48px"
+      }
+    },
+    {
+      "name": "light: Claude / Codex / Copilot / Antigravity のタブアイコンがボタンと同じ色・画像",
+      "ok": true,
+      "data": {
+        "claude": [
+          "rgb(217, 119, 87)",
+          "none"
+        ],
+        "codex": [
+          "rgb(23, 23, 23)",
+          "none"
+        ],
+        "copilot": [
+          "rgb(23, 23, 23)",
+          "none"
+        ],
+        "antigravity": [
+          "rgba(0, 0, 0, 0)",
+          "url(\"data:image/svg+xml;base64,PHN2ZyB4b…(10209)"
+        ]
+      }
+    },
+    {
+      "name": "light: grok のタブアイコン computed が BEFORE CSS と一致",
+      "ok": true,
+      "data": "rgb(115, 115, 115)"
+    },
+    {
+      "name": "light: cursor のタブアイコン computed が BEFORE CSS と一致",
+      "ok": true,
+      "data": "rgb(115, 115, 115)"
+    },
+    {
+      "name": "light: opencode のタブアイコン computed が BEFORE CSS と一致",
+      "ok": true,
+      "data": "rgb(115, 115, 115)"
+    },
+    {
+      "name": "light: commandcode のタブアイコン computed が BEFORE CSS と一致",
+      "ok": true,
+      "data": "rgb(115, 115, 115)"
+    }
+  ]
+}
