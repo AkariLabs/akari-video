@@ -122,7 +122,8 @@ export function formatConnections(
     providers: readonly ConnectionProvider[], state: CredentialState,
     doctors: ReadonlyMap<string, ConnectionDoctor> = new Map()
 ): ConnectionRow[] {
-    const priority = ['fal', 'elevenlabs', 'groq'];
+    // 設定の並び = グループ順（生成 AI: fal → OpenRouter → ElevenLabs → Replicate / 文字起こし: Groq）。
+    const priority = ['fal', 'openrouter', 'elevenlabs', 'replicate', 'groq'];
     const rank = (id: string): number => { const i = priority.indexOf(id); return i < 0 ? priority.length : i; };
     const labels: Record<string, string> = { fal: 'fal.ai', elevenlabs: 'ElevenLabs', groq: 'Groq', replicate: 'Replicate', openrouter: 'OpenRouter' };
     return providers.filter(provider => provider.auth === 'env-key' && provider.id !== 'akari-cloud')
