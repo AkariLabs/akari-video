@@ -502,6 +502,7 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
         const band = element('div');
         band.className = 'akari-set-group';
         band.setAttribute('data-akari-account-band', 'true');
+        band.setAttribute('data-akari-settings-group', 'アカウント');
         const bandInner = element('div');
         bandInner.className = 'akari-set-account';
         const avatar = element('div');
@@ -542,6 +543,7 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
         const store = element('div');
         store.className = 'akari-set-group';
         store.setAttribute('data-akari-store-group', 'true');
+        store.setAttribute('data-akari-settings-group', 'AKARI STORE');
         const storeTitle = element('div', 'AKARI STORE');
         storeTitle.className = 'akari-set-group-title';
         const statusRow = element('div');
@@ -878,11 +880,12 @@ class SettingsToolsView extends AkariFirstRunSetupDialog {
             if (tone) { line.setAttribute('data-tone', tone); }
             body.append(line);
         };
-        if (tool.version) { extra(tool.version); }
+        // 版の欄に実行ログ（パス入り）が返る道具がある（whisper-cli）。パスを含むものは版として出さない。
+        if (tool.version && !/[\\/]/.test(tool.version)) { extra(tool.version); }
         if (tool.id === 'whisper' && tool.model) {
             const voiceInk = tool.model.path ? /[\\/]com\.prakashjoshipax\.VoiceInk[\\/]/.test(tool.model.path) : false;
             const line = tool.model.path
-                ? `モデル: ${voiceInk ? 'VoiceInk のモデルを使います · ' : ''}${tool.model.path}`
+                ? `モデル: ${voiceInk ? 'VoiceInk のモデルを使います · ' : ''}${homeShortened(tool.model.path)}`
                 : `認識モデル · ${WHISPER_MODEL_SIZE_LABEL} · ${tool.model.available ? '取得済み' : '未取得'}`;
             extra(line);
             body.lastElementChild?.setAttribute('data-akari-tool-model-state', String(tool.model.available));
@@ -1013,6 +1016,10 @@ function inlineLink(label: string, click: () => void): HTMLButtonElement {
     button.style.marginLeft = '4px';
     return button;
 }
+/** ホームディレクトリの接頭辞を ~ に縮める（画面とスクリーンショットに利用者名を出さない）。 */
+function homeShortened(path: string): string {
+    return path.replace(/^\/(?:Users|home)\/[^/]+/, '~').replace(/^[A-Za-z]:\\Users\\[^\\]+/, '~');
+}
 /** テーマの見本（そのテーマのパレットで描いた小さな画面）。 */
 function themePreview(theme: string): HTMLElement {
     const preview = el('div', 'akari-set-theme-preview');
@@ -1021,11 +1028,11 @@ function themePreview(theme: string): HTMLElement {
     preview.append(el('i'), el('i', 'm'), el('i'));
     return preview;
 }
+/** 状態のピルは「接続済み / 未接続」の 2 値（キーが通らないと分かったときだけ「繋がらない」）。確認の詳細は下の 1 行に出す。 */
 function doctorPill(row: ConnectionRow): [string, 'ok' | 'neutral' | 'warn'] {
     if (!row.configured || row.doctor.status === 'unconfigured') { return ['未接続', 'neutral']; }
-    if (row.doctor.status === 'ok') { return ['接続済み', 'ok']; }
     if (row.doctor.status === 'unauthorized') { return ['繋がらない', 'warn']; }
-    return ['登録済み', 'neutral'];
+    return ['接続済み', 'ok'];
 }
 function doctorLabel(doctor: ConnectionDoctor): string {
     if (doctor.status === 'unconfigured') { return '未登録'; }

@@ -6,7 +6,7 @@ import { PROVIDER_LOGOS } from './provider-logos';
  *
  * 説明文の上書きはここ 1 か所だけ（creator-root の notes.description は工程番号入りの内部向けの文なので、
  * 設定画面では利用者向けの一言に差し替える）。表に無いプロバイダーは creator-root の説明をそのまま出す。
- * OpenRouter はオーナー口述（2026-09-22）「つなぐと Akari Vibe（声で動画編集）が使える」の趣旨。
+ * OpenRouter は「つなぐと Akari Vibe（声で話しかけて動画を編集）が使える」ことを伝える（2026-09-22 裁定）。
  */
 export type ProviderGroup = 'generate' | 'transcribe';
 
