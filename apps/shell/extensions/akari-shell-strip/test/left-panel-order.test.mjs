@@ -35,7 +35,7 @@ test('LEFT_PANEL_FIXED_ORDER matches the actual ALLOWLIST ID sequence', () => {
 test('restored tabs with settings first return to the fixed order without mutating input', () => {
     const current = Object.freeze([
         'akari-settings-opener', 'akari-menu-widget', 'search-view-container',
-        'akari-role-buckets-widget', 'vsx-extensions-view-container'
+        'akari-role-buckets-widget'
     ]);
     const ordered = computeLeftPanelOrder(current, FIXED_ORDER);
     assert.deepEqual(ordered, FIXED_ORDER.slice(1));
