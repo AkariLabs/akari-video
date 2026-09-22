@@ -7,6 +7,7 @@ import { hoverPopupPosition } from '../common/material-card-hover';
 
 interface Props {
     service: AkariProjectService; isOSX: boolean;
+    overlayHost: HTMLElement;
     request?: { paths: string[] };
     pick(mode: 'both' | 'files' | 'folders'): Promise<string[]>;
     imported(result: LibraryImportResult): Promise<void>;
@@ -16,22 +17,35 @@ interface Props {
 const css = `
 .akari-library-import button { cursor:pointer; }
 .akari-library-import button:disabled { cursor:default; opacity:.5; }
-.akari-import-backdrop { position:absolute; inset:0; z-index:50; background:#0006; display:flex; align-items:flex-end; }
+.akari-import-backdrop { position:fixed; z-index:50; background:#0006; display:flex; align-items:flex-end; }
 .akari-import-sheet { height:88%; width:100%; box-sizing:border-box; display:flex; flex-direction:column; min-height:0;
  background:var(--theia-editor-background); color:var(--theia-editor-foreground); border:1px solid var(--theia-panel-border);
  border-radius:12px 12px 0 0; box-shadow:0 -6px 24px #0004; animation:akari-import-rise .18s ease-out; }
 .akari-import-scroll { overflow:auto; min-height:0; flex:1; padding:12px; }
 .akari-import-sheet header, .akari-import-sheet footer { padding:12px; flex:none; }
-.akari-import-sheet footer { border-top:1px solid var(--theia-panel-border); display:flex; justify-content:flex-end; gap:8px; }
+.akari-import-sheet footer { border-top:1px solid var(--theia-panel-border); display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
+.akari-import-sheet footer button { min-width:0 !important; margin-left:0 !important; white-space:nowrap; padding:4px; }
 .akari-import-group { border:1px solid var(--theia-panel-border); border-radius:6px; margin:8px 0; overflow:hidden; }
 .akari-import-group summary { padding:10px; cursor:pointer; }
 .akari-import-row { display:flex; align-items:center; gap:6px; padding:8px; border-top:1px solid var(--theia-panel-border); }
 .akari-import-name { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.akari-import-row-ambiguous { flex-wrap:wrap; }
+.akari-import-kind-toggle { display:flex; width:100%; min-width:0; gap:4px; }
+.akari-import-kind-toggle button { flex:1 1 0; min-width:0; padding:3px 2px; white-space:nowrap; }
+.akari-library-import-add.theia-button { min-width:0 !important; margin-left:0 !important; padding:0 !important; }
 .akari-import-sheet input[type=text], .akari-import-sheet textarea { box-sizing:border-box; width:100%; margin:8px 0; }
 .akari-import-sheet button[aria-pressed=true] { outline:2px solid var(--theia-focusBorder); }
 @keyframes akari-import-rise { from { transform:translateY(100%); } to { transform:translateY(0); } }
 @media (prefers-reduced-motion:reduce) { .akari-import-sheet { animation:none; } }
 `;
+
+export function libraryImportReadinessText(rejectedCount: number): string {
+    return `✓ 全部読み込めることを確認しました${rejectedCount > 0 ? `（取り込まない ${rejectedCount} 件）` : ''}`;
+}
+
+export function focusLibraryImportSheet(element: HTMLElement | null): void {
+    element?.focus({ preventScroll: true });
+}
 
 /** Stable React children keep details, scrollTop, focus and text selection across widget updates. */
 export function LibraryImportSheet(props: Props): React.ReactElement {
@@ -52,6 +66,7 @@ export function LibraryImportSheet(props: Props): React.ReactElement {
     const mounted = React.useRef(true);
     const waveforms = React.useRef(new Map<string, { image?: string; error?: string }>());
     const dialog = React.useRef<HTMLDivElement>(null);
+    const [bounds, setBounds] = React.useState(() => props.overlayHost.getBoundingClientRect());
     const hoverDelay = React.useRef<ReturnType<typeof setTimeout>>();
     const hideHover = (): void => { if (hoverDelay.current) clearTimeout(hoverDelay.current); hoverDelay.current = undefined; setHover(undefined); };
     const stop = (): void => {
@@ -64,9 +79,17 @@ export function LibraryImportSheet(props: Props): React.ReactElement {
     React.useEffect(() => {
         if (!open) return;
         const previous = document.activeElement as HTMLElement | null;
-        dialog.current?.focus();
-        return () => { if (previous?.isConnected) previous.focus(); };
+        focusLibraryImportSheet(dialog.current);
+        return () => { if (previous?.isConnected) focusLibraryImportSheet(previous); };
     }, [open]);
+    React.useLayoutEffect(() => {
+        const measure = (): void => setBounds(props.overlayHost.getBoundingClientRect());
+        measure();
+        const observer = typeof ResizeObserver === 'undefined' ? undefined : new ResizeObserver(measure);
+        observer?.observe(props.overlayHost);
+        window.addEventListener('resize', measure);
+        return () => { observer?.disconnect(); window.removeEventListener('resize', measure); };
+    }, [props.overlayHost]);
     const begin = async (paths: string[]): Promise<void> => {
         if (!paths.length || busy === 'apply') return;
         const current = ++generation.current;
@@ -132,7 +155,7 @@ export function LibraryImportSheet(props: Props): React.ReactElement {
         } catch (e) { if (mounted.current) setError(String(e)); }
         finally { if (mounted.current) setBusy(undefined); }
     };
-    const row = (item: LibraryImportItem): React.ReactNode => <div className='akari-import-row' key={item.path}
+    const row = (item: LibraryImportItem): React.ReactNode => <div className={`akari-import-row${item.ambiguous ? ' akari-import-row-ambiguous' : ''}`} key={item.path}
         onMouseEnter={event => { const position = hoverPopupPosition(event.currentTarget.getBoundingClientRect(),
             { width: window.innerWidth, height: window.innerHeight }, { width: 300, height: 220 }); hideHover(); hoverDelay.current = setTimeout(() => setHover({ item, ...position }), 250); }}
         onMouseLeave={hideHover}>
@@ -140,20 +163,20 @@ export function LibraryImportSheet(props: Props): React.ReactElement {
             onClick={() => void play(item)}>{playing === item.path ? '■' : '▶'}</button>}
         <span className='akari-import-name' title={item.path}>{item.name}</span>
         <small>{item.durationSec !== null ? `${item.durationSec.toFixed(1)} 秒` : `${((item.bytes ?? 0) / 1024).toFixed(0)} KB`}</small>
-        {item.ambiguous && <span role='group' aria-label={`${item.name} の種類`} style={{ whiteSpace: 'nowrap' }}>
+        {item.ambiguous && <span role='group' aria-label={`${item.name} の種類`} className='akari-import-kind-toggle'>
             {(['sfx', 'bgm'] as const).map(kind => <button type='button' key={kind} aria-pressed={item.kind === kind}
                 disabled={busy === 'apply'} onClick={() => setPlan(previous => previous && ({ ...previous,
                     items: previous.items.map(entry => entry.path === item.path ? { ...entry, kind } : entry) }))}>{kind === 'sfx' ? '効果音' : 'BGM'}</button>)}
         </span>}
     </div>;
     const count = plan?.items.filter(item => item.selected !== false).length ?? 0;
-    return <div className='akari-library-import'>
+    return createPortal(<div className='akari-library-import'>
         <style>{css}</style>
-        <button type='button' className='theia-button' aria-label='ライブラリに追加' aria-haspopup='menu' aria-expanded={menu}
-            style={{ position: 'absolute', right: 16, bottom: 16, width: 42, height: 42, borderRadius: '50%', fontSize: 24, zIndex: 30 }}
+        <button type='button' className='theia-button akari-library-import-add' aria-label='ライブラリに追加' aria-haspopup='menu' aria-expanded={menu}
+            style={{ position: 'fixed', left: bounds.right - 58, top: bounds.bottom - 100, width: 42, height: 42, borderRadius: '50%', fontSize: 24, zIndex: 30 }}
             onClick={() => setMenu(!menu)}>＋</button>
-        {menu && <div style={{ position: 'absolute', inset: 0, zIndex: 40 }} onClick={() => setMenu(false)}>
-            <div role='menu' style={{ position: 'absolute', right: 16, bottom: 66, padding: 10, display: 'grid', gap: 8,
+        {menu && <div style={{ position: 'fixed', left: bounds.left, top: bounds.top, width: bounds.width, height: bounds.height, zIndex: 40 }} onClick={() => setMenu(false)}>
+            <div role='menu' style={{ position: 'absolute', right: 16, bottom: 108, padding: 10, display: 'grid', gap: 8,
                 background: 'var(--theia-editor-background)', border: '1px solid var(--theia-panel-border)', boxShadow: '0 4px 16px #0005' }}
                 onClick={event => event.stopPropagation()} onKeyDown={event => { if (event.key === 'Escape') setMenu(false); }}>
                 <button type='button' role='menuitem' onClick={() => { setMenu(false); setPlan(undefined); setError(''); setOpen(true); }}>ローカルから取り込む</button>
@@ -162,7 +185,8 @@ export function LibraryImportSheet(props: Props): React.ReactElement {
                 <button type='button' role='menuitem' disabled>ライブラリを点検（今後追加）</button>
             </div>
         </div>}
-        {open && <div className='akari-import-backdrop' onMouseDown={event => { if (event.target === event.currentTarget) close(); }}>
+        {open && <div className='akari-import-backdrop' style={{ left: bounds.left, top: bounds.top, width: bounds.width, height: bounds.height }}
+            onMouseDown={event => { if (event.target === event.currentTarget) close(); }}>
             <div ref={dialog} tabIndex={-1} role='dialog' aria-modal='true' aria-label='ローカルから取り込む' className='akari-import-sheet'
                 onKeyDown={event => {
                     if (event.key === 'Escape') { event.stopPropagation(); close(); }
@@ -181,7 +205,7 @@ export function LibraryImportSheet(props: Props): React.ReactElement {
                             : <><button type='button' onClick={() => void pick('files')}>ファイルを選ぶ</button> <button type='button' onClick={() => void pick('folders')}>フォルダを選ぶ</button></>}
                     </>}
                     {plan && <>
-                        <p>{plan.rejected.length ? `読み込みを確認しました（取り込まない ${plan.rejected.length} 件）` : '✓ 全部読み込めることを確認しました'}</p>
+                        <p>{libraryImportReadinessText(plan.rejected.length)}</p>
                         {plan.truncated && <p role='alert'>一度に確認できる {plan.limit} 件まで表示しています。残りは分けて取り込んでください。</p>}
                         {plan.warnings.map((warning, index) => <p key={index} role='status'>{warning}</p>)}
                         {libraryImportGroups(plan).map(group => <details key={group.kind} className='akari-import-group'>
@@ -218,5 +242,5 @@ export function LibraryImportSheet(props: Props): React.ReactElement {
             <small>{hover.item.durationSec === null ? (hover.item.durationSource === 'size' ? '尺は未取得・サイズで推定 · ' : '') : `${hover.item.durationSec.toFixed(1)} 秒 · `}
                 {((hover.item.bytes ?? 0) / 1024).toFixed(0)} KB</small>
         </div>, document.body)}
-    </div>;
+    </div>, props.overlayHost);
 }

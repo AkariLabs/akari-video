@@ -1286,10 +1286,8 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     }
 
     protected reportLibraryImportResult(result: LibraryImportResult): void {
-        if (result.added.length) this.messages.info(`${result.added.length} 件をライブラリに取り込みました。`);
-        if (result.duplicates.length) this.messages.info(`もう入っています: ${result.duplicates.map(item => item.title || item.id).join('、')}`);
-        for (const item of [...result.rejected, ...result.failures]) this.messages.warn(`${item.path || ''}: ${item.reason}`);
-        for (const item of result.added) for (const warning of item.warnings ?? []) this.messages.warn(warning);
+        if (result.added.length) this.messages.info(`${result.added.length} 件を取り込みました`);
+        for (const item of result.failures) this.messages.warn(`${item.path || ''}: ${item.reason}`);
     }
 
     protected async finishLibraryImport(result: LibraryImportResult): Promise<void> {
@@ -2516,6 +2514,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                     </div>
                 )}
                 {libraryOnly && <LibraryImportSheet service={this.projectService} isOSX={isOSX}
+                    overlayHost={this.node}
                     request={this.libraryImportRequest} consumed={() => { this.libraryImportRequest = undefined; }} pick={mode => this.pickLibraryImport(mode)}
                     imported={result => this.finishLibraryImport(result)} stopAudio={() => this.stopCatalogAudio()} />}
                 {this.renderLintBadge()}

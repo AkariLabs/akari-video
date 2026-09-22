@@ -39,6 +39,13 @@ Assets in your library appear as regular cards, and audio can be auditioned.
 External index cards are included under Asset sites and keep their existing
 Import and Ask actions.
 
+To add your own files or folders, use **＋ → Import from local** at the bottom
+right of the library, or **drop them onto the library view**. The sheet lets you
+check types and counts before import and choose SFX or BGM for ambiguous audio.
+Unsupported and duplicate files appear separately with their reasons. For a
+project's physical asset, right-click and choose **Store in library** to copy it
+into the library. This leaves the project's file and `edit.json` unchanged.
+
 ## Drag & drop onto the timeline
 
 Drag an asset card onto the timeline to place it: a duration ghost previews the span
