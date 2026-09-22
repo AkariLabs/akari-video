@@ -69,6 +69,16 @@ function nextCycleCandidate(candidates, currentId) {
   return candidates[(candidates.indexOf(currentId) + 1) % candidates.length];
 }
 
+// Toggle only immediate siblings in the current scope; preserve insertion order.
+function toggleScopedSelection(tree, selectedIds, scopeId, next) {
+  const sibling = id => tree.some(node => node.id === id && node.parentId === scopeId);
+  const additive = next.scopeId === scopeId && sibling(next.selectId) && selectedIds.every(sibling);
+  const ids = additive
+    ? selectedIds.includes(next.selectId) ? selectedIds.filter(id => id !== next.selectId) : [...selectedIds, next.selectId]
+    : next.selectId === null ? [] : [next.selectId];
+  return { selectedIds: ids, selectId: ids.at(-1) ?? null, scopeId: next.scopeId };
+}
+
 // END selection-scope
 
   const stage = document.getElementById("overlay-stage");
@@ -117,6 +127,7 @@ function nextCycleCandidate(candidates, currentId) {
 
   let selectedOverlay = null;
   let selectedId = null;
+  let selectedIds = [];
   let scopeId = null;
   let floorScopeId = window.akari.state?.selectionFloor ?? null;
   scopeId = floorScopeId;
@@ -192,6 +203,29 @@ function nextCycleCandidate(candidates, currentId) {
     promise.catch((error) => reportWriteError(kind, overlayId, error));
 
     return { generation, overlayId, promise };
+  }
+
+  function enqueueWriteBatch(context, writes) {
+    const generation = ++writeGeneration;
+    const promise = writeTail.then(() => {
+      if (!context.editPath) throw new Error("編集中の edit.json がありません");
+      if (typeof context.engine?.overlayWriteBatch !== 'function') throw new Error('overlayWriteBatch を利用できません');
+      return context.engine.overlayWriteBatch(writes);
+    });
+    writeTail = promise.catch(() => undefined);
+    return { generation, promise };
+  }
+
+  function selectionKind() { return selectedIds.length > 1 ? 'multi' : groupSelection ? 'group' : 'leaf'; }
+  function collectiveSelection() { return groupSelection || selectedIds.length > 1; }
+  function selectionMembers() { return [...new Set(selectedIds.flatMap(id => visibleMembers(id)))]; }
+  function markSelectionMembers() {
+    const members = new Set(selectionMembers());
+    for (const element of stage?.children ?? []) {
+      if (members.has(element)) {
+        if (!element.hasAttribute('data-akari-interaction-selected')) element.setAttribute('data-akari-interaction-selected', 'true');
+      } else element.removeAttribute('data-akari-interaction-selected');
+    }
   }
 
   function findOverlayContainer(target) {
@@ -800,7 +834,7 @@ function nextCycleCandidate(candidates, currentId) {
   }
 
   function refreshSelectionFrame() {
-    if (groupSelection) { refreshGroupFrame(); return; }
+    if (collectiveSelection()) { refreshGroupFrame(); return; }
     if (!stage || !isSelectable(selectedOverlay)) return;
 
     const rect = fragmentBounds(selectedOverlay);
@@ -850,7 +884,7 @@ function nextCycleCandidate(candidates, currentId) {
 
   function trackSelectionFrame() {
     selectionTrackingFrame = null;
-    if (groupSelection) {
+    if (collectiveSelection()) {
       refreshGroupFrame();
       selectionTrackingFrame = requestAnimationFrame(trackSelectionFrame);
       return;
@@ -889,9 +923,11 @@ function nextCycleCandidate(candidates, currentId) {
       cancelAnimationFrame(selectionTrackingFrame);
       selectionTrackingFrame = null;
     }
+    for (const element of stage?.children ?? []) element.removeAttribute('data-akari-interaction-selected');
     selectedOverlay?.removeAttribute("data-akari-interaction-selected");
     selectedOverlay = null;
     selectedId = null;
+    selectedIds = [];
     groupSelection = false;
 
     selectionFrame?.remove();
@@ -917,10 +953,11 @@ function nextCycleCandidate(candidates, currentId) {
   function selectOverlay(container) {
     if (!isSelectable(container)) return false;
 
-    if (selectedOverlay !== container) {
+    if (selectedOverlay !== container || selectedIds.length > 1) {
       clearSelection();
       selectedOverlay = container;
       selectedId = container.dataset.overlayId ?? null;
+      selectedIds = selectedId === null ? [] : [selectedId];
       selectedOverlay.setAttribute("data-akari-interaction-selected", "true");
     }
 
@@ -958,13 +995,14 @@ function nextCycleCandidate(candidates, currentId) {
     return { left, top, right, bottom, width: right - left, height: bottom - top };
   }
   function refreshGroupFrame() {
-    const rect = unionBounds(visibleMembers());
+    markSelectionMembers();
+    const rect = unionBounds(selectionMembers());
     if (!rect) { if (selectionFrame) selectionFrame.hidden = true; return; }
     if (!selectionFrame?.isConnected) {
       selectionFrame = createSelectionFrame();
       document.body.appendChild(selectionFrame);
     }
-    selectionFrame.dataset.akariSelectionKind = "group";
+    selectionFrame.dataset.akariSelectionKind = selectionKind();
     // The classic runtime also runs without shell CSS. Never leave interactive
     // handles in a group frame on those hosts.
     for (const handle of selectionFrame.querySelectorAll('[data-akari-interaction="selection-handle"]')) handle.remove();
@@ -1018,6 +1056,8 @@ function nextCycleCandidate(candidates, currentId) {
     return treeNode(childId) ? childId : id;
   }
   function applyScopedSelection(next, { notify = true } = {}) {
+    const previousId = selectedId;
+    const wasMultiple = selectedIds.length > 1;
     const tree = selectionTree();
     if (floorScopeId !== null && next.selectId !== null
       && !lineage(tree, next.selectId).includes(floorScopeId)) return false;
@@ -1028,6 +1068,7 @@ function nextCycleCandidate(candidates, currentId) {
     if (node && node.kind !== 'leaf') {
       clearSelection();
       selectedId = node.id;
+      selectedIds = [node.id];
       groupSelection = true;
       refreshSelectionFrame();
       startSelectionTracking();
@@ -1036,16 +1077,31 @@ function nextCycleCandidate(candidates, currentId) {
       if (!node?.lazy || lazyBagForScope(tree, scopeId) !== node.parentId) return false;
       clearSelection();
       selectedId = node.id;
+      selectedIds = [node.id];
       startSelectionTracking(); // Rebind to the leaf after the host response mounts it.
     }
-    publishScopedSelection(notify);
+    const unchangedMultiRepresentative = (wasMultiple || selectedIds.length > 1) && previousId === selectedId;
+    publishScopedSelection(notify && !unchangedMultiRepresentative);
     return true;
   }
   function selectScopedHit(container, event) {
     const id = scopedHitId(container, event);
     if (!id) return false;
-    return applyScopedSelection(resolveScopedSelection(selectionTree(), scopeId, id,
-      { deep: Boolean(event.metaKey || event.ctrlKey) }));
+    const next = resolveScopedSelection(selectionTree(), scopeId, id,
+      { deep: Boolean(event.metaKey || event.ctrlKey) });
+    if (!event.shiftKey) return applyScopedSelection(next);
+    if (floorScopeId !== null && !lineage(selectionTree(), next.selectId).includes(floorScopeId)) return false;
+    const selection = toggleScopedSelection(selectionTree(), selectedIds, scopeId, next);
+    if (selection.selectedIds.length < 2) return applyScopedSelection(selection);
+    const previousId = selectedId;
+    clearSelection();
+    scopeId = selection.scopeId;
+    selectedIds = selection.selectedIds;
+    selectedId = selection.selectId;
+    refreshSelectionFrame();
+    startSelectionTracking();
+    publishScopedSelection(previousId !== selectedId);
+    return true;
   }
   function selectFromTimeline(id) {
     if (!selectionTree().length) return false;
@@ -1067,10 +1123,10 @@ function nextCycleCandidate(candidates, currentId) {
     publishScopedSelection(false);
   }
   function beginGroupDrag(event, container) {
-    const members = visibleMembers().map(element => ({ element, transform: readTransform(element) }));
-    if (!members.length) return;
+    const members = selectionMembers().map(element => ({ element, transform: readTransform(element) }));
+    if (!members.length || (selectedIds.length > 1 && members.some(member => !isMovable(member.element)))) return;
     const world = treeNode(selectedId)?.transform ?? {};
-    activeDrag = { group: true, container, members, overlayId: selectedId, pointerId: event.pointerId,
+    activeDrag = { group: true, targets: movementTargets(), container, members, overlayId: selectedId, pointerId: event.pointerId,
       startClientX: event.clientX, startClientY: event.clientY,
       startStagePoint: stageLocalPoint(event.clientX, event.clientY),
       startX: world.x ?? 0, startY: world.y ?? 0, dx: 0, dy: 0,
@@ -1097,20 +1153,32 @@ function nextCycleCandidate(candidates, currentId) {
     moveGroupMembers(drag, dx + (snap.x?.correction ?? 0), dy + (snap.y?.correction ?? 0));
     showSnapGuides(snap.x, snap.y);
   }
+  function movementTargets() {
+    return selectedIds.map(id => {
+      const node = treeNode(id);
+      const container = containerById(id);
+      const transform = node?.kind === 'leaf' && container ? readTransform(container) : node?.transform ?? {};
+      return { id, node, previousTransform: node?.transform, x: transform.x ?? 0, y: transform.y ?? 0 };
+    });
+  }
   function finishGroupDrag(drag) {
     if (!drag.moved || (Math.abs(drag.dx) < .5 && Math.abs(drag.dy) < .5)) {
       moveGroupMembers(drag, 0, 0); return null;
     }
-    const node = treeNode(drag.overlayId), previousTransform = node?.transform;
-    const transform = { ...previousTransform, x: drag.startX + drag.dx, y: drag.startY + drag.dy };
-    // The derived tree can outlive a quick second gesture before the file watcher
-    // refreshes it. Keep its group origin in sync with the live descendant pose.
-    if (node) node.transform = transform;
-    const record = enqueueWrite(drag.writeContext, drag.overlayId,
-      { transform: { x: transform.x, y: transform.y } }, 'transform');
+    const targets = drag.targets ?? [{ id: drag.overlayId, node: treeNode(drag.overlayId),
+      previousTransform: treeNode(drag.overlayId)?.transform, x: drag.startX, y: drag.startY }];
+    const writes = targets.map(target => {
+      const transform = { x: target.x + drag.dx, y: target.y + drag.dy };
+      target.appliedTransform = { ...target.previousTransform, ...transform };
+      if (target.node) target.node.transform = target.appliedTransform;
+      return { overlayId: target.id, patch: { transform } };
+    });
+    const record = writes.length > 1 ? enqueueWriteBatch(drag.writeContext, writes)
+      : enqueueWrite(drag.writeContext, writes[0].overlayId, writes[0].patch, 'transform');
     record.promise.catch(error => {
-      if (node?.transform === transform) node.transform = previousTransform;
-      // Restore still-mounted descendants only; never reattach stale DOM after a reload.
+      for (const target of targets) {
+        if (target.node?.transform === target.appliedTransform) target.node.transform = target.previousTransform;
+      }
       moveGroupMembers(drag, 0, 0);
       reportWriteError('transform', drag.overlayId, error);
     });
@@ -1145,12 +1213,12 @@ function nextCycleCandidate(candidates, currentId) {
     const isControl = target => target instanceof Element
       && (target.isContentEditable || target.closest('input, textarea, select, button, [role="textbox"]'));
     if (isControl(event.target) || isControl(document.activeElement)) return false;
-    const members = groupSelection ? visibleMembers() : [selectedOverlay];
+    const members = collectiveSelection() ? selectionMembers() : [selectedOverlay];
     if (!members.length || members.some(element => !isMovable(element))) return false;
     if (nudge && nudge.overlayId !== selectedId) flushNudge();
     if (!nudge) {
-      const transform = groupSelection ? treeNode(selectedId)?.transform ?? {} : readTransform(selectedOverlay);
-      nudge = { group: groupSelection, overlayId: selectedId, container: selectedOverlay,
+      const transform = collectiveSelection() ? treeNode(selectedId)?.transform ?? {} : readTransform(selectedOverlay);
+      nudge = { group: collectiveSelection(), targets: collectiveSelection() ? movementTargets() : null, overlayId: selectedId, container: selectedOverlay,
         members: members.map(element => ({ element, transform: readTransform(element) })),
         transform, startX: transform.x ?? 0, startY: transform.y ?? 0, dx: 0, dy: 0,
         moved: true, writeContext: captureWriteContext() };
@@ -1199,7 +1267,7 @@ function nextCycleCandidate(candidates, currentId) {
       const container = overlayForEvent(event);
       const next = isSelectable(container) && resolveScopedSelection(selectionTree(), scopeId,
         scopedHitId(container, event), { deep: Boolean(event.metaKey || event.ctrlKey) });
-      if (!next || next.selectId === selectedId || (floorScopeId !== null
+      if (!next || selectedIds.includes(next.selectId) || selectionMembers().includes(container) || (floorScopeId !== null
         && !lineage(selectionTree(), next.selectId).includes(floorScopeId))) { hideHover(); return; }
       const node = treeNode(next.selectId);
       const leaf = containerById(next.selectId);
@@ -1858,13 +1926,13 @@ function nextCycleCandidate(candidates, currentId) {
     if (event.button !== 0 || activeDrag || activeResize) return;
     flushNudge();
     hideHover();
-    clickOrigin = { selectedId, scopeId, moved: false };
+    clickOrigin = { selectedId, scopeId, moved: false, hadMultiple: selectedIds.length > 1 };
 
     if (selectionTree().length) {
       if (event.target instanceof Element && event.target.closest('[data-akari-ui="preview-scope-breadcrumb"]')) return;
       const handle = findHandleElement(event.target);
       if (handle) {
-        if (!groupSelection && isMovable(selectedOverlay)) beginResize(event, selectedOverlay, handle);
+        if (!collectiveSelection() && isMovable(selectedOverlay)) beginResize(event, selectedOverlay, handle);
         return;
       }
       const hit = overlayForEvent(event);
@@ -1880,9 +1948,16 @@ function nextCycleCandidate(candidates, currentId) {
         return;
       }
       if (activeEdit?.container === hit && eventHitsElement(event, activeEdit.element)) return;
+      clickOrigin.scopedHit = true;
       if (activeEdit) void commitEdit();
-      if (!selectScopedHit(hit, event)) return;
-      if (groupSelection) { beginGroupDrag(event, hit); return; }
+      const next = resolveScopedSelection(selectionTree(), scopeId, scopedHitId(hit, event),
+        { deep: Boolean(event.metaKey || event.ctrlKey) });
+      // Preserve the set while pressing an already selected sibling, so a plain
+      // drag moves the set. A stationary click collapses it in onClick.
+      const keepSet = selectedIds.length > 1 && !event.shiftKey && !event.metaKey && !event.ctrlKey
+        && next.scopeId === scopeId && selectedIds.includes(next.selectId);
+      if (!keepSet && !selectScopedHit(hit, event)) return;
+      if (collectiveSelection()) { beginGroupDrag(event, hit); return; }
       if (!selectedOverlay || selectedOverlay !== hit) return;
       // Continue the existing leaf drag with the already-resolved container.
     }
@@ -2353,7 +2428,15 @@ function nextCycleCandidate(candidates, currentId) {
   function onClick(event) {
     if (!interactionEnabled || activeEdit) return;
     const hit = overlayForEvent(event);
-    if (!isSelectable(hit)) { lastClick = null; return; }
+    // pointerdown already toggled. Do not toggle twice or update the cycle clock.
+    if (event.shiftKey && clickOrigin?.scopedHit) {
+      event.stopPropagation(); clickOrigin = null; return;
+    }
+    // The shell's forced stage-click report would duplicate the representative
+    // notification already published by this set transition. Leave UI clicks alone.
+    if (isSelectable(hit) && (selectedIds.length > 1 || clickOrigin?.hadMultiple)) event.stopPropagation();
+    if (clickOrigin?.moved) { clickOrigin = null; lastClick = null; return; }
+    if (!isSelectable(hit)) { if (!event.shiftKey) lastClick = null; return; }
     const now = performance.now();
     const origin = clickOrigin ?? { selectedId, scopeId };
     const canCycle = event.detail === 1 && !event.shiftKey && !event.metaKey && !event.ctrlKey
@@ -2364,6 +2447,7 @@ function nextCycleCandidate(candidates, currentId) {
     if (nextId) applyScopedSelection({ selectId: nextId, scopeId });
     else if (selectionTree().length) selectScopedHit(hit, event);
     else selectOverlay(hit);
+    if (event.shiftKey) { clickOrigin = null; return; }
     lastClick = event.detail === 1 && !origin.moved && !event.shiftKey && !event.metaKey && !event.ctrlKey && !event.altKey
       ? { x: event.clientX, y: event.clientY, scopeId, time: now } : null;
     clickOrigin = null;
@@ -2373,6 +2457,11 @@ function nextCycleCandidate(candidates, currentId) {
     if (!interactionEnabled) return;
     lastClick = null;
     hideHover();
+    if (selectedIds.length > 1) {
+      const hit = overlayForEvent(event);
+      if (!isSelectable(hit)) return;
+      applyScopedSelection(resolveScopedSelection(selectionTree(), scopeId, scopedHitId(hit, event)));
+    }
     if (selectionTree().length && groupSelection) {
       const hit = overlayForEvent(event);
       if (!isSelectable(hit)) return;
@@ -2427,6 +2516,9 @@ function nextCycleCandidate(candidates, currentId) {
         if (activeDrag) { cancelDrag(); handled(); return; }
         if (activeResize) { cancelResize(); handled(); return; }
         if (activeEdit) { cancelEdit(); handled(); return; }
+        if (selectedIds.length > 1) {
+          applyScopedSelection({ selectId: selectedId, scopeId }); handled(); return;
+        }
         if (shouldHandleScopeEscape(selectedId, scopeId, floorScopeId)) {
           applyScopedSelection(exitScope(selectionTree(), selectedId, scopeId, floorScopeId), { notify: false });
           handled(); return;
@@ -2440,6 +2532,7 @@ function nextCycleCandidate(candidates, currentId) {
           if (event.target === activeEdit.element) { void commitEdit(); handled(); }
           return;
         }
+        if (selectedIds.length > 1) applyScopedSelection({ selectId: selectedId, scopeId });
         if (event.shiftKey && (selectedId !== null || scopeId !== floorScopeId)) {
           applyScopedSelection(exitScope(selectionTree(), selectedId, scopeId, floorScopeId));
           handled(); return;
@@ -2818,6 +2911,8 @@ function nextCycleCandidate(candidates, currentId) {
 
   return {
     get selectedId() { return selectedId; },
+    get selectedIds() { return [...selectedIds]; },
+    get selectionKind() { return selectionKind(); },
     get scopeId() { return scopeId; },
     get floorScopeId() { return floorScopeId; },
     get activeEdit() { return Boolean(activeEdit); },

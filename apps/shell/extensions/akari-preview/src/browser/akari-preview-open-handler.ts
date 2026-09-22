@@ -41,6 +41,7 @@ import {
     projectSpeechDeclarations,
     resolveInternalTrackZ,
     resolvePreviewItemWrite,
+    resolvePreviewItemWriteBatch,
     selectGenerationSidecarForSource,
     toAnchorCaptions,
     TRANSITION_VOCABULARY,
@@ -765,6 +766,12 @@ interface OverlayWriteRequest {
         // data-akari-slot の編集は共有テンプレを変更せず、v2 source.params へ書き戻す。
         params?: Record<string, string>;
     };
+}
+
+interface OverlayWriteBatchRequest {
+    type: 'akari-preview-overlay-write-batch';
+    requestId: string;
+    writes: Array<Pick<OverlayWriteRequest, 'overlayId' | 'patch'>>;
 }
 
 // ㉔ layers[].crop（0..1 正規化・ソースフレーム相対・静的。#/$defs/layerCrop）。
@@ -3250,6 +3257,9 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             }
             if (this.isOverlayWriteRequest(message)) {
                 this.overlayWriteTail = this.overlayWriteTail.then(() => this.handleOverlayWrite(widget, message));
+            }
+            if (this.isOverlayWriteBatchRequest(message)) {
+                this.overlayWriteTail = this.overlayWriteTail.then(() => this.handleOverlayWriteBatch(widget, message));
             }
             if (this.isLayerWriteRequest(message)) {
                 this.layerWriteTail = this.layerWriteTail.then(() => this.handleLayerWrite(widget, message));
@@ -6240,6 +6250,36 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         }
     }
 
+    protected async handleOverlayWriteBatch(widget: PreviewWidgetMarker, request: OverlayWriteBatchRequest): Promise<void> {
+        try {
+            const editUri = widget.akariPreviewEditUri;
+            if (!editUri) throw new Error('編集中の edit.json がありません');
+            const resolved = resolvePreviewItemWriteBatch(await this.readText(editUri), request.writes.map(write => ({
+                kind: 'overlay' as const, itemId: write.overlayId, patch: write.patch
+            })));
+            const candidateText = resolved.candidateText;
+            if (candidateText === undefined) throw new Error('バッチの結果文書がありません');
+            const lintResult = await this.previewService.lintEditCandidate({ editUri: editUri.toString(), candidateText });
+            if (!lintResult.pass) throw new Error(lintResult.errors[0] ?? 'edit-lint が変更を拒否しました');
+            this.recentWrites.set(editUri.toString(), Date.now());
+            await this.fileService.writeFile(editUri, BinaryBuffer.fromString(candidateText));
+            widget.sendMessage({ type: 'akari-preview-overlay-write-batch-response', requestId: request.requestId, ok: true });
+        } catch (error) {
+            widget.sendMessage({ type: 'akari-preview-overlay-write-batch-response', requestId: request.requestId,
+                ok: false, error: error instanceof Error ? error.message : String(error) });
+        }
+    }
+
+    protected isOverlayWriteBatchRequest(message: any): message is OverlayWriteBatchRequest {
+        return message?.type === 'akari-preview-overlay-write-batch'
+            && typeof message.requestId === 'string'
+            && Array.isArray(message.writes) && message.writes.length > 0
+            && message.writes.every((write: any) => write && typeof write.overlayId === 'string'
+                && write.overlayId.length > 0 && write.patch && typeof write.patch === 'object'
+                && !Array.isArray(write.patch)
+                && (!('text' in write.patch) || typeof write.patch.text === 'string'));
+    }
+
     protected isOverlayWriteRequest(message: any): message is OverlayWriteRequest {
         return message?.type === 'akari-preview-overlay-write'
             && typeof message.requestId === 'string'
@@ -6991,7 +7031,8 @@ ${kind === 'raw' ? '.akari-material-chip { position: absolute; top: 8px; left: 8
   background: var(--theia-editor-background); color: var(--theia-editor-foreground); font-size: 11px; }
 [data-akari-ui="preview-scope-breadcrumb"][hidden] { display: none; }
 [data-akari-ui="preview-scope-breadcrumb"] button { color: inherit; background: transparent; border: 0; cursor: pointer; }
-.akari-interaction-selection-frame[data-akari-selection-kind="group"] .akari-interaction-handle { display: none; }
+.akari-interaction-selection-frame[data-akari-selection-kind="group"] .akari-interaction-handle,
+.akari-interaction-selection-frame[data-akari-selection-kind="multi"] .akari-interaction-handle { display: none; }
 [data-akari-ui="preview-hover-frame"] { position: fixed; pointer-events: none; box-sizing: border-box;
   border: 1px solid var(--akari-accent); opacity: .45; z-index: 90; }
 [data-akari-ui="preview-hover-frame"][hidden] { display: none; }
@@ -8054,6 +8095,11 @@ body { display: grid; place-items: center; padding: 32px; }
                 writeErrorBanner.hidden = true;
             });
             window.akari.engine = {
+                overlayWriteBatch: writes => new Promise((resolve, reject) => {
+                    const requestId = 'akari-preview-' + (++sequence);
+                    pending.set(requestId, { kind: 'overlay-write-batch', resolve, reject });
+                    vscode.postMessage({ type: 'akari-preview-overlay-write-batch', requestId, writes });
+                }),
                 overlayWrite: (_editPath, overlayId, patch) => new Promise((resolve, reject) => {
                     const requestId = 'akari-preview-' + (++sequence);
                     pending.set(requestId, { kind: 'overlay-write', resolve, reject });
@@ -8814,6 +8860,7 @@ body { display: grid; place-items: center; padding: 32px; }
 
             const PENDING_RESPONSE_TYPES = {
                 'overlay-write': 'akari-preview-overlay-write-response',
+                'overlay-write-batch': 'akari-preview-overlay-write-batch-response',
                 'layer-write': 'akari-preview-layer-write-response',
                 'cut-write': 'akari-preview-cut-write-response',
                 'caption-write': 'akari-preview-caption-write-response',

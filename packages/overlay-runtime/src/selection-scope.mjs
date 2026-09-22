@@ -66,8 +66,18 @@ function nextCycleCandidate(candidates, currentId) {
   return candidates[(candidates.indexOf(currentId) + 1) % candidates.length];
 }
 
+// Toggle only immediate siblings in the current scope; preserve insertion order.
+function toggleScopedSelection(tree, selectedIds, scopeId, next) {
+  const sibling = id => tree.some(node => node.id === id && node.parentId === scopeId);
+  const additive = next.scopeId === scopeId && sibling(next.selectId) && selectedIds.every(sibling);
+  const ids = additive
+    ? selectedIds.includes(next.selectId) ? selectedIds.filter(id => id !== next.selectId) : [...selectedIds, next.selectId]
+    : next.selectId === null ? [] : [next.selectId];
+  return { selectedIds: ids, selectId: ids.at(-1) ?? null, scopeId: next.scopeId };
+}
+
 // END selection-scope
-export { nextCycleCandidate, resolveScopedSelection, enterScope, exitScope, lineage, descendantLeafIds, shouldHandleScopeEscape, lazyBagForScope, selectionAncestorIds };
+export { toggleScopedSelection, nextCycleCandidate, resolveScopedSelection, enterScope, exitScope, lineage, descendantLeafIds, shouldHandleScopeEscape, lazyBagForScope, selectionAncestorIds };
 
 // Pure counterpart of the widget helper; a source equality test keeps the copy
 // in sync without importing the Electron widget into Node.

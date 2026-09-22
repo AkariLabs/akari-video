@@ -84,6 +84,27 @@ export function resolvePreviewItemWrite(
         : resolveLegacyWrite(parsed, command);
 }
 
+/** Resolve all commands in memory. The caller lints and persists the final document once.
+ * External HTML writes cannot participate in this single-document transaction.
+ */
+export function resolvePreviewItemWriteBatch(
+    editText: string,
+    commands: PreviewItemWriteCommand[]
+): PreviewItemWriteResolution {
+    if (!Array.isArray(commands) || commands.length === 0) {
+        throw new Error('書き込みバッチが空です');
+    }
+    let candidateText = editText;
+    for (const command of commands) {
+        if (command.kind === 'overlay' && 'html' in command.patch) {
+            throw new Error('バッチでは外部 HTML 本文を書き込めません');
+        }
+        const resolved = resolvePreviewItemWrite(candidateText, command);
+        candidateText = resolved.candidateText ?? candidateText;
+    }
+    return { candidateText };
+}
+
 function resolveV2Write(
     parsed: UnknownRecord,
     command: PreviewItemWriteCommand
