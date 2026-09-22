@@ -13749,6 +13749,11 @@ body { display: grid; place-items: center; padding: 32px; }
             };
             const selectCaption = (captionId, options) => {
                 const report = !options || options.report !== false;
+                // Keep a host-selected group when one of its cues becomes primary.
+                if (!(selectedCaptionIds.size > 1 && selectedCaptionIds.has(captionId))) {
+                    selectedCaptionIds = captionId ? new Set([captionId]) : new Set();
+                }
+                applyCaptionSelectionAttrs();
                 if (captionId) { requestedCutId = undefined; requestedOverlayId = null; window.akari.interaction?.clearSelection?.(); }
                 if (captionId === selectedCaptionId) {
                     updateCaptionSelectBox();

@@ -1,0 +1,3758 @@
+{
+  "status": "PASS",
+  "mode": "after",
+  "startedAt": "2026-09-22T07:23:08.290Z",
+  "finishedAt": "2026-09-22T07:23:54.068Z",
+  "records": [
+    {
+      "step": 1,
+      "title": "(1) Same real preview click used for the before regression",
+      "status": "ok",
+      "observations": {
+        "observed": {
+          "time": 0.5,
+          "sliderTime": 0.5,
+          "blue": true,
+          "editing": false,
+          "rows": [
+            {
+              "key": "c-0001-output-1",
+              "text": "First caption",
+              "selected": true,
+              "handles": [
+                "ne",
+                "nw",
+                "rot",
+                "se",
+                "sw"
+              ],
+              "outline": {
+                "color": "rgb(245, 196, 81)",
+                "style": "solid",
+                "width": "1.5px"
+              },
+              "scale": "",
+              "rotate": "",
+              "visible": true
+            },
+            {
+              "key": "c-0002",
+              "text": "Overlapping caption",
+              "selected": false,
+              "handles": [],
+              "outline": {
+                "color": "rgb(255, 255, 255)",
+                "style": "none",
+                "width": "0px"
+              },
+              "scale": "",
+              "rotate": "",
+              "visible": true
+            }
+          ]
+        },
+        "beforeEvidence": "../run-log-before.json (run separately against the pre-fix build)"
+      }
+    },
+    {
+      "step": 2,
+      "title": "(2) Selected attribute, five handles and yellow outline; redraw retains selection",
+      "status": "ok",
+      "observations": {
+        "selected": {
+          "time": 0.5,
+          "sliderTime": 0.5,
+          "blue": true,
+          "editing": false,
+          "rows": [
+            {
+              "key": "c-0001-output-1",
+              "text": "First caption",
+              "selected": true,
+              "handles": [
+                "ne",
+                "nw",
+                "rot",
+                "se",
+                "sw"
+              ],
+              "outline": {
+                "color": "rgb(245, 196, 81)",
+                "style": "solid",
+                "width": "1.5px"
+              },
+              "scale": "",
+              "rotate": "",
+              "visible": true
+            },
+            {
+              "key": "c-0002",
+              "text": "Overlapping caption",
+              "selected": false,
+              "handles": [],
+              "outline": {
+                "color": "rgb(255, 255, 255)",
+                "style": "none",
+                "width": "0px"
+              },
+              "scale": "",
+              "rotate": "",
+              "visible": true
+            }
+          ]
+        },
+        "absent": {
+          "time": 2.2666666666666666,
+          "sliderTime": 2.267,
+          "blue": false,
+          "editing": false,
+          "rows": []
+        },
+        "rebuilt": {
+          "time": 0.5,
+          "sliderTime": 0.5,
+          "blue": true,
+          "editing": false,
+          "rows": [
+            {
+              "key": "c-0001-output-1",
+              "text": "First caption",
+              "selected": true,
+              "handles": [
+                "ne",
+                "nw",
+                "rot",
+                "se",
+                "sw"
+              ],
+              "outline": {
+                "color": "rgb(245, 196, 81)",
+                "style": "solid",
+                "width": "1.5px"
+              },
+              "scale": "",
+              "rotate": "",
+              "visible": true
+            },
+            {
+              "key": "c-0002",
+              "text": "Overlapping caption",
+              "selected": false,
+              "handles": [],
+              "outline": {
+                "color": "rgb(255, 255, 255)",
+                "style": "none",
+                "width": "0px"
+              },
+              "scale": "",
+              "rotate": "",
+              "visible": true
+            }
+          ]
+        }
+      }
+    },
+    {
+      "step": 3,
+      "title": "(3) Corner drag changes live scale and persists",
+      "status": "ok",
+      "observations": {
+        "before": {
+          "edit": {
+            "version": 2,
+            "output": {
+              "width": 640,
+              "height": 360,
+              "fps": 30
+            },
+            "sources": [
+              {
+                "id": "main",
+                "path": "assets/base.png"
+              }
+            ],
+            "tracks": [
+              {
+                "id": "video",
+                "lane": "visual",
+                "items": [
+                  {
+                    "id": "cut-1",
+                    "at": 0,
+                    "duration": 150,
+                    "source": {
+                      "kind": "media",
+                      "src": "main",
+                      "in": 0,
+                      "out": 5
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "caption-bag-track",
+                "lane": "visual",
+                "items": [
+                  {
+                    "id": "caption-bag",
+                    "at": 0,
+                    "duration": 150,
+                    "source": {
+                      "kind": "captions",
+                      "path": "captions.json"
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          "captions": {
+            "default_text_style": {
+              "size_px": 28,
+              "max_width_pct": 80
+            },
+            "captions": [
+              {
+                "id": "c-0001",
+                "start": 0.25,
+                "end": 2,
+                "text": "First caption",
+                "src": "main",
+                "speaker": null,
+                "sourceRef": null,
+                "edited": false,
+                "text_style": {
+                  "text_anchor": "bc",
+                  "position": {
+                    "y": 0.78
+                  }
+                }
+              },
+              {
+                "id": "c-0002",
+                "start": 0.25,
+                "end": 2,
+                "text": "Overlapping caption",
+                "src": "main",
+                "time_domain": "output",
+                "speaker": null,
+                "sourceRef": null,
+                "edited": false,
+                "text_style": {
+                  "text_anchor": "bc",
+                  "position": {
+                    "y": 0.34
+                  }
+                }
+              },
+              {
+                "id": "c-0003",
+                "start": 2.5,
+                "end": 4.5,
+                "text": "Later caption",
+                "src": "main",
+                "speaker": null,
+                "sourceRef": null,
+                "edited": false,
+                "text_style": {
+                  "text_anchor": "bc",
+                  "position": {
+                    "y": 0.78
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "live": {
+          "time": 0.5,
+          "sliderTime": 0.5,
+          "blue": true,
+          "editing": false,
+          "rows": [
+            {
+              "key": "c-0001-output-1",
+              "text": "First caption",
+              "selected": true,
+              "handles": [
+                "ne",
+                "nw",
+                "rot",
+                "se",
+                "sw"
+              ],
+              "outline": {
+                "color": "rgb(245, 196, 81)",
+                "style": "solid",
+                "width": "1.5px"
+              },
+              "scale": "1.25",
+              "rotate": "",
+              "visible": true
+            },
+            {
+              "key": "c-0002",
+              "text": "Overlapping caption",
+              "selected": false,
+              "handles": [],
+              "outline": {
+                "color": "rgb(255, 255, 255)",
+                "style": "none",
+                "width": "0px"
+              },
+              "scale": "",
+              "rotate": "",
+              "visible": true
+            }
+          ]
+        },
+        "saved": {
+          "edit": {
+            "version": 2,
+            "output": {
+              "width": 640,
+              "height": 360,
+              "fps": 30
+            },
+            "sources": [
+              {
+                "id": "main",
+                "path": "assets/base.png"
+              }
+            ],
+            "tracks": [
+              {
+                "id": "video",
+                "lane": "visual",
+                "items": [
+                  {
+                    "id": "cut-1",
+                    "at": 0,
+                    "duration": 150,
+                    "source": {
+                      "kind": "media",
+                      "src": "main",
+                      "in": 0,
+                      "out": 5
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "caption-bag-track",
+                "lane": "visual",
+                "items": [
+                  {
+                    "id": "caption-bag",
+                    "at": 0,
+                    "duration": 150,
+                    "source": {
+                      "kind": "captions",
+                      "path": "captions.json"
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          "captions": {
+            "default_text_style": {
+              "size_px": 28,
+              "max_width_pct": 80
+            },
+            "captions": [
+              {
+                "id": "c-0001",
+                "start": 0.25,
+                "end": 2,
+                "text": "First caption",
+                "src": "main",
+                "speaker": null,
+                "sourceRef": null,
+                "edited": false,
+                "text_style": {
+                  "text_anchor": "bc",
+                  "position": {
+                    "y": 0.78
+                  },
+                  "scale": 1.25
+                }
+              },
+              {
+                "id": "c-0002",
+                "start": 0.25,
+                "end": 2,
+                "text": "Overlapping caption",
+                "src": "main",
+                "time_domain": "output",
+                "speaker": null,
+                "sourceRef": null,
+                "edited": false,
+                "text_style": {
+                  "text_anchor": "bc",
+                  "position": {
+                    "y": 0.34
+                  }
+                }
+              },
+              {
+                "id": "c-0003",
+                "start": 2.5,
+                "end": 4.5,
+                "text": "Later caption",
+                "src": "main",
+                "speaker": null,
+                "sourceRef": null,
+                "edited": false,
+                "text_style": {
+                  "text_anchor": "bc",
+                  "position": {
+                    "y": 0.78
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "rebuilt": {
+          "time": 0.5,
+          "sliderTime": 0.5,
+          "blue": true,
+          "editing": false,
+          "rows": [
+            {
+              "key": "c-0001-output-1",
+              "text": "First caption",
+              "selected": true,
+              "handles": [
+                "ne",
+                "nw",
+                "rot",
+                "se",
+                "sw"
+              ],
+              "outline": {
+                "color": "rgb(245, 196, 81)",
+                "style": "solid",
+                "width": "1.5px"
+              },
+              "scale": "1.25",
+              "rotate": "",
+              "visible": true
+            },
+            {
+              "key": "c-0002",
+              "text": "Overlapping caption",
+              "selected": false,
+              "handles": [],
+              "outline": {
+                "color": "rgb(255, 255, 255)",
+                "style": "none",
+                "width": "0px"
+              },
+              "scale": "",
+              "rotate": "",
+              "visible": true
+            }
+          ]
+        }
+      }
+    },
+    {
+      "step": 4,
+      "title": "(4) Shift rotation changes live angle and persists a multiple of 15 degrees",
+      "status": "ok",
+      "observations": {
+        "before": {
+          "edit": {
+            "version": 2,
+            "output": {
+              "width": 640,
+              "height": 360,
+              "fps": 30
+            },
+            "sources": [
+              {
+                "id": "main",
+                "path": "assets/base.png"
+              }
+            ],
+            "tracks": [
+              {
+                "id": "video",
+                "lane": "visual",
+                "items": [
+                  {
+                    "id": "cut-1",
+                    "at": 0,
+                    "duration": 150,
+                    "source": {
+                      "kind": "media",
+                      "src": "main",
+                      "in": 0,
+                      "out": 5
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "caption-bag-track",
+                "lane": "visual",
+                "items": [
+                  {
+                    "id": "caption-bag",
+                    "at": 0,
+                    "duration": 150,
+                    "source": {
+                      "kind": "captions",
+                      "path": "captions.json"
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          "captions": {
+            "default_text_style": {
+              "size_px": 28,
+              "max_width_pct": 80
+            },
+            "captions": [
+              {
+                "id": "c-0001",
+                "start": 0.25,
+                "end": 2,
+                "text": "First caption",
+                "src": "main",
+                "speaker": null,
+                "sourceRef": null,
+                "edited": false,
+                "text_style": {
+                  "text_anchor": "bc",
+                  "position": {
+                    "y": 0.78
+                  },
+                  "scale": 1.25
+                }
+              },
+              {
+                "id": "c-0002",
+                "start": 0.25,
+                "end": 2,
+                "text": "Overlapping caption",
+                "src": "main",
+                "time_domain": "output",
+                "speaker": null,
+                "sourceRef": null,
+                "edited": false,
+                "text_style": {
+                  "text_anchor": "bc",
+                  "position": {
+                    "y": 0.34
+                  }
+                }
+              },
+              {
+                "id": "c-0003",
+                "start": 2.5,
+                "end": 4.5,
+                "text": "Later caption",
+                "src": "main",
+                "speaker": null,
+                "sourceRef": null,
+                "edited": false,
+                "text_style": {
+                  "text_anchor": "bc",
+                  "position": {
+                    "y": 0.78
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "live": {
+          "time": 0.5,
+          "sliderTime": 0.5,
+          "blue": true,
+          "editing": false,
+          "rows": [
+            {
+              "key": "c-0001-output-1",
+              "text": "First caption",
+              "selected": true,
+              "handles": [
+                "ne",
+                "nw",
+                "rot",
+                "se",
+                "sw"
+              ],
+              "outline": {
+                "color": "rgb(245, 196, 81)",
+                "style": "solid",
+                "width": "1.5px"
+              },
+              "scale": "1.25",
+              "rotate": "30deg",
+              "visible": true
+            },
+            {
+              "key": "c-0002",
+              "text": "Overlapping caption",
+              "selected": false,
+              "handles": [],
+              "outline": {
+                "color": "rgb(255, 255, 255)",
+                "style": "none",
+                "width": "0px"
+              },
+              "scale": "",
+              "rotate": "",
+              "visible": true
+            }
+          ]
+        },
+        "saved": {
+          "edit": {
+            "version": 2,
+            "output": {
+              "width": 640,
+              "height": 360,
+              "fps": 30
+            },
+            "sources": [
+              {
+                "id": "main",
+                "path": "assets/base.png"
+              }
+            ],
+            "tracks": [
+              {
+                "id": "video",
+                "lane": "visual",
+                "items": [
+                  {
+                    "id": "cut-1",
+                    "at": 0,
+                    "duration": 150,
+                    "source": {
+                      "kind": "media",
+                      "src": "main",
+                      "in": 0,
+                      "out": 5
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "caption-bag-track",
+                "lane": "visual",
+                "items": [
+                  {
+                    "id": "caption-bag",
+                    "at": 0,
+                    "duration": 150,
+                    "source": {
+                      "kind": "captions",
+                      "path": "captions.json"
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          "captions": {
+            "default_text_style": {
+              "size_px": 28,
+              "max_width_pct": 80
+            },
+            "captions": [
+              {
+                "id": "c-0001",
+                "start": 0.25,
+                "end": 2,
+                "text": "First caption",
+                "src": "main",
+                "speaker": null,
+                "sourceRef": null,
+                "edited": false,
+                "text_style": {
+                  "text_anchor": "bc",
+                  "position": {
+                    "y": 0.78
+                  },
+                  "scale": 1.25,
+                  "rotate": 30
+                }
+              },
+              {
+                "id": "c-0002",
+                "start": 0.25,
+                "end": 2,
+                "text": "Overlapping caption",
+                "src": "main",
+                "time_domain": "output",
+                "speaker": null,
+                "sourceRef": null,
+                "edited": false,
+                "text_style": {
+                  "text_anchor": "bc",
+                  "position": {
+                    "y": 0.34
+                  }
+                }
+              },
+              {
+                "id": "c-0003",
+                "start": 2.5,
+                "end": 4.5,
+                "text": "Later caption",
+                "src": "main",
+                "speaker": null,
+                "sourceRef": null,
+                "edited": false,
+                "text_style": {
+                  "text_anchor": "bc",
+                  "position": {
+                    "y": 0.78
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "persistedVisual": {
+          "time": 0.5,
+          "sliderTime": 0.5,
+          "blue": true,
+          "editing": false,
+          "rows": [
+            {
+              "key": "c-0001-output-1",
+              "text": "First caption",
+              "selected": true,
+              "handles": [
+                "ne",
+                "nw",
+                "rot",
+                "se",
+                "sw"
+              ],
+              "outline": {
+                "color": "rgb(245, 196, 81)",
+                "style": "solid",
+                "width": "1.5px"
+              },
+              "scale": "1.25",
+              "rotate": "30deg",
+              "visible": true
+            },
+            {
+              "key": "c-0002",
+              "text": "Overlapping caption",
+              "selected": false,
+              "handles": [],
+              "outline": {
+                "color": "rgb(255, 255, 255)",
+                "style": "none",
+                "width": "0px"
+              },
+              "scale": "",
+              "rotate": "",
+              "visible": true
+            }
+          ]
+        }
+      }
+    },
+    {
+      "step": 5,
+      "title": "(5) Body drag persists cue position",
+      "status": "ok",
+      "observations": {
+        "before": {
+          "edit": {
+            "version": 2,
+            "output": {
+              "width": 640,
+              "height": 360,
+              "fps": 30
+            },
+            "sources": [
+              {
+                "id": "main",
+                "path": "assets/base.png"
+              }
+            ],
+            "tracks": [
+              {
+                "id": "video",
+                "lane": "visual",
+                "items": [
+                  {
+                    "id": "cut-1",
+                    "at": 0,
+                    "duration": 150,
+                    "source": {
+                      "kind": "media",
+                      "src": "main",
+                      "in": 0,
+                      "out": 5
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "caption-bag-track",
+                "lane": "visual",
+                "items": [
+                  {
+                    "id": "caption-bag",
+                    "at": 0,
+                    "duration": 150,
+                    "source": {
+                      "kind": "captions",
+                      "path": "captions.json"
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          "captions": {
+            "default_text_style": {
+              "size_px": 28,
+              "max_width_pct": 80
+            },
+            "captions": [
+              {
+                "id": "c-0001",
+                "start": 0.25,
+                "end": 2,
+                "text": "First caption",
+                "src": "main",
+                "speaker": null,
+                "sourceRef": null,
+                "edited": false,
+                "text_style": {
+                  "text_anchor": "bc",
+                  "position": {
+                    "y": 0.78
+                  },
+                  "scale": 1.25,
+                  "rotate": 30
+                }
+              },
+              {
+                "id": "c-0002",
+                "start": 0.25,
+                "end": 2,
+                "text": "Overlapping caption",
+                "src": "main",
+                "time_domain": "output",
+                "speaker": null,
+                "sourceRef": null,
+                "edited": false,
+                "text_style": {
+                  "text_anchor": "bc",
+                  "position": {
+                    "y": 0.34
+                  }
+                }
+              },
+              {
+                "id": "c-0003",
+                "start": 2.5,
+                "end": 4.5,
+                "text": "Later caption",
+                "src": "main",
+                "speaker": null,
+                "sourceRef": null,
+                "edited": false,
+                "text_style": {
+                  "text_anchor": "bc",
+                  "position": {
+                    "y": 0.78
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "saved": {
+          "edit": {
+            "version": 2,
+            "output": {
+              "width": 640,
+              "height": 360,
+              "fps": 30
+            },
+            "sources": [
+              {
+                "id": "main",
+                "path": "assets/base.png"
+              }
+            ],
+            "tracks": [
+              {
+                "id": "video",
+                "lane": "visual",
+                "items": [
+                  {
+                    "id": "cut-1",
+                    "at": 0,
+                    "duration": 150,
+                    "source": {
+                      "kind": "media",
+                      "src": "main",
+                      "in": 0,
+                      "out": 5
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "caption-bag-track",
+                "lane": "visual",
+                "items": [
+                  {
+                    "id": "caption-bag",
+                    "at": 0,
+                    "duration": 150,
+                    "source": {
+                      "kind": "captions",
+                      "path": "captions.json"
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          "captions": {
+            "default_text_style": {
+              "size_px": 28,
+              "max_width_pct": 80
+            },
+            "captions": [
+              {
+                "id": "c-0001",
+                "start": 0.25,
+                "end": 2,
+                "text": "First caption",
+                "src": "main",
+                "speaker": null,
+                "sourceRef": null,
+                "edited": false,
+                "text_style": {
+                  "text_anchor": "bc",
+                  "position": {
+                    "x": 0.3565,
+                    "y": 0.8997
+                  },
+                  "scale": 1.25
+                }
+              },
+              {
+                "id": "c-0002",
+                "start": 0.25,
+                "end": 2,
+                "text": "Overlapping caption",
+                "src": "main",
+                "time_domain": "output",
+                "speaker": null,
+                "sourceRef": null,
+                "edited": false,
+                "text_style": {
+                  "text_anchor": "bc",
+                  "position": {
+                    "y": 0.34
+                  }
+                }
+              },
+              {
+                "id": "c-0003",
+                "start": 2.5,
+                "end": 4.5,
+                "text": "Later caption",
+                "src": "main",
+                "speaker": null,
+                "sourceRef": null,
+                "edited": false,
+                "text_style": {
+                  "text_anchor": "bc",
+                  "position": {
+                    "y": 0.78
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "observed": {
+          "time": 0.5,
+          "sliderTime": 0.5,
+          "blue": true,
+          "editing": false,
+          "rows": [
+            {
+              "key": "c-0001-output-1",
+              "text": "First caption",
+              "selected": true,
+              "handles": [
+                "ne",
+                "nw",
+                "rot",
+                "se",
+                "sw"
+              ],
+              "outline": {
+                "color": "rgb(245, 196, 81)",
+                "style": "solid",
+                "width": "1.5px"
+              },
+              "scale": "1.25",
+              "rotate": "30deg",
+              "visible": true
+            },
+            {
+              "key": "c-0002",
+              "text": "Overlapping caption",
+              "selected": false,
+              "handles": [],
+              "outline": {
+                "color": "rgb(255, 255, 255)",
+                "style": "none",
+                "width": "0px"
+              },
+              "scale": "",
+              "rotate": "",
+              "visible": true
+            }
+          ]
+        }
+      }
+    },
+    {
+      "step": 6,
+      "title": "(6) Host selection and two simultaneous selected cues; changing primary preserves the group",
+      "status": "ok",
+      "observations": {
+        "single": {
+          "time": 0.5,
+          "sliderTime": 0.5,
+          "blue": true,
+          "editing": false,
+          "rows": [
+            {
+              "key": "c-0001-output-1",
+              "text": "First caption",
+              "selected": true,
+              "handles": [
+                "ne",
+                "nw",
+                "rot",
+                "se",
+                "sw"
+              ],
+              "outline": {
+                "color": "rgb(245, 196, 81)",
+                "style": "solid",
+                "width": "1.5px"
+              },
+              "scale": "1.25",
+              "rotate": "30deg",
+              "visible": true
+            },
+            {
+              "key": "c-0002",
+              "text": "Overlapping caption",
+              "selected": false,
+              "handles": [],
+              "outline": {
+                "color": "rgb(255, 255, 255)",
+                "style": "none",
+                "width": "0px"
+              },
+              "scale": "",
+              "rotate": "",
+              "visible": true
+            }
+          ]
+        },
+        "multiple": {
+          "time": 0.5,
+          "sliderTime": 0.5,
+          "blue": true,
+          "editing": false,
+          "rows": [
+            {
+              "key": "c-0001-output-1",
+              "text": "First caption",
+              "selected": true,
+              "handles": [
+                "ne",
+                "nw",
+                "rot",
+                "se",
+                "sw"
+              ],
+              "outline": {
+                "color": "rgb(245, 196, 81)",
+                "style": "solid",
+                "width": "1.5px"
+              },
+              "scale": "1.25",
+              "rotate": "30deg",
+              "visible": true
+            },
+            {
+              "key": "c-0002",
+              "text": "Overlapping caption",
+              "selected": true,
+              "handles": [
+                "ne",
+                "nw",
+                "rot",
+                "se",
+                "sw"
+              ],
+              "outline": {
+                "color": "rgb(245, 196, 81)",
+                "style": "solid",
+                "width": "1.5px"
+              },
+              "scale": "",
+              "rotate": "",
+              "visible": true
+            }
+          ]
+        },
+        "changedPrimary": {
+          "time": 0.5,
+          "sliderTime": 0.5,
+          "blue": true,
+          "editing": false,
+          "rows": [
+            {
+              "key": "c-0001-output-1",
+              "text": "First caption",
+              "selected": true,
+              "handles": [
+                "ne",
+                "nw",
+                "rot",
+                "se",
+                "sw"
+              ],
+              "outline": {
+                "color": "rgb(245, 196, 81)",
+                "style": "solid",
+                "width": "1.5px"
+              },
+              "scale": "1.25",
+              "rotate": "30deg",
+              "visible": true
+            },
+            {
+              "key": "c-0002",
+              "text": "Overlapping caption",
+              "selected": true,
+              "handles": [
+                "ne",
+                "nw",
+                "rot",
+                "se",
+                "sw"
+              ],
+              "outline": {
+                "color": "rgb(245, 196, 81)",
+                "style": "solid",
+                "width": "1.5px"
+              },
+              "scale": "",
+              "rotate": "",
+              "visible": true
+            }
+          ]
+        },
+        "reselectedPrimary": {
+          "time": 0.5,
+          "sliderTime": 0.5,
+          "blue": true,
+          "editing": false,
+          "rows": [
+            {
+              "key": "c-0001-output-1",
+              "text": "First caption",
+              "selected": true,
+              "handles": [
+                "ne",
+                "nw",
+                "rot",
+                "se",
+                "sw"
+              ],
+              "outline": {
+                "color": "rgb(245, 196, 81)",
+                "style": "solid",
+                "width": "1.5px"
+              },
+              "scale": "1.25",
+              "rotate": "",
+              "visible": true
+            },
+            {
+              "key": "c-0002",
+              "text": "Overlapping caption",
+              "selected": true,
+              "handles": [
+                "ne",
+                "nw",
+                "rot",
+                "se",
+                "sw"
+              ],
+              "outline": {
+                "color": "rgb(245, 196, 81)",
+                "style": "solid",
+                "width": "1.5px"
+              },
+              "scale": "",
+              "rotate": "",
+              "visible": true
+            }
+          ]
+        },
+        "rebuilt": {
+          "time": 0.5,
+          "sliderTime": 0.5,
+          "blue": true,
+          "editing": false,
+          "rows": [
+            {
+              "key": "c-0001-output-1",
+              "text": "First caption",
+              "selected": true,
+              "handles": [
+                "ne",
+                "nw",
+                "rot",
+                "se",
+                "sw"
+              ],
+              "outline": {
+                "color": "rgb(245, 196, 81)",
+                "style": "solid",
+                "width": "1.5px"
+              },
+              "scale": "1.25",
+              "rotate": "",
+              "visible": true
+            },
+            {
+              "key": "c-0002",
+              "text": "Overlapping caption",
+              "selected": true,
+              "handles": [
+                "ne",
+                "nw",
+                "rot",
+                "se",
+                "sw"
+              ],
+              "outline": {
+                "color": "rgb(245, 196, 81)",
+                "style": "solid",
+                "width": "1.5px"
+              },
+              "scale": "",
+              "rotate": "",
+              "visible": true
+            }
+          ]
+        },
+        "messages": [
+          {
+            "type": "akari-preview-select-primary",
+            "captionIds": null,
+            "selection": null,
+            "requestId": null,
+            "ok": false,
+            "error": null
+          },
+          {
+            "type": "akari-preview-set-selected-captions",
+            "captionIds": [],
+            "selection": null,
+            "requestId": null,
+            "ok": false,
+            "error": null
+          },
+          {
+            "type": "akari-preview-select-primary",
+            "captionIds": null,
+            "selection": null,
+            "requestId": null,
+            "ok": false,
+            "error": null
+          },
+          {
+            "type": "akari-preview-set-selected-captions",
+            "captionIds": [],
+            "selection": null,
+            "requestId": null,
+            "ok": false,
+            "error": null
+          },
+          {
+            "type": "akari-preview-caption-write-response",
+            "captionIds": null,
+            "selection": null,
+            "requestId": "akari-preview-1",
+            "ok": true,
+            "error": null
+          },
+          {
+            "type": "akari-preview-select-primary",
+            "captionIds": null,
+            "selection": null,
+            "requestId": null,
+            "ok": false,
+            "error": null
+          },
+          {
+            "type": "akari-preview-set-selected-captions",
+            "captionIds": [],
+            "selection": null,
+            "requestId": null,
+            "ok": false,
+            "error": null
+          },
+          {
+            "type": "akari-preview-caption-write-response",
+            "captionIds": null,
+            "selection": null,
+            "requestId": "akari-preview-2",
+            "ok": true,
+            "error": null
+          },
+          {
+            "type": "akari-preview-select-primary",
+            "captionIds": null,
+            "selection": null,
+            "requestId": null,
+            "ok": false,
+            "error": null
+          },
+          {
+            "type": "akari-preview-set-selected-captions",
+            "captionIds": [],
+            "selection": null,
+            "requestId": null,
+            "ok": false,
+            "error": null
+          },
+          {
+            "type": "akari-preview-caption-write-response",
+            "captionIds": null,
+            "selection": null,
+            "requestId": "akari-preview-3",
+            "ok": true,
+            "error": null
+          },
+          {
+            "type": "akari-preview-select-primary",
+            "captionIds": null,
+            "selection": null,
+            "requestId": null,
+            "ok": false,
+            "error": null
+          },
+          {
+            "type": "akari-preview-set-selected-captions",
+            "captionIds": [],
+            "selection": null,
+            "requestId": null,
+            "ok": false,
+            "error": null
+          },
+          {
+            "type": "akari-preview-set-selected-captions",
+            "captionIds": [
+              "c-0001"
+            ],
+            "selection": null,
+            "requestId": null,
+            "ok": false,
+            "error": null
+          },
+          {
+            "type": "akari-preview-select-primary",
+            "captionIds": null,
+            "selection": {
+              "kind": "caption",
+              "id": "c-0001"
+            },
+            "requestId": null,
+            "ok": false,
+            "error": null
+          },
+          {
+            "type": "akari-preview-set-selected-captions",
+            "captionIds": [
+              "c-0001",
+              "c-0002"
+            ],
+            "selection": null,
+            "requestId": null,
+            "ok": false,
+            "error": null
+          },
+          {
+            "type": "akari-preview-select-primary",
+            "captionIds": null,
+            "selection": {
+              "kind": "caption",
+              "id": "c-0001"
+            },
+            "requestId": null,
+            "ok": false,
+            "error": null
+          },
+          {
+            "type": "akari-preview-set-selected-captions",
+            "captionIds": [
+              "c-0001",
+              "c-0002"
+            ],
+            "selection": null,
+            "requestId": null,
+            "ok": false,
+            "error": null
+          },
+          {
+            "type": "akari-preview-select-primary",
+            "captionIds": null,
+            "selection": {
+              "kind": "caption",
+              "id": "c-0002"
+            },
+            "requestId": null,
+            "ok": false,
+            "error": null
+          }
+        ]
+      }
+    },
+    {
+      "step": 7,
+      "title": "(7) Empty click and Escape remove selection and handles",
+      "status": "ok",
+      "observations": {
+        "emptyClick": {
+          "time": 0.5,
+          "sliderTime": 0.5,
+          "blue": false,
+          "editing": false,
+          "rows": [
+            {
+              "key": "c-0001-output-1",
+              "text": "First caption",
+              "selected": false,
+              "handles": [],
+              "outline": {
+                "color": "rgb(255, 255, 255)",
+                "style": "none",
+                "width": "0px"
+              },
+              "scale": "1.25",
+              "rotate": "",
+              "visible": true
+            },
+            {
+              "key": "c-0002",
+              "text": "Overlapping caption",
+              "selected": false,
+              "handles": [],
+              "outline": {
+                "color": "rgb(255, 255, 255)",
+                "style": "none",
+                "width": "0px"
+              },
+              "scale": "",
+              "rotate": "",
+              "visible": true
+            }
+          ]
+        },
+        "escape": {
+          "time": 0.5,
+          "sliderTime": 0.5,
+          "blue": false,
+          "editing": false,
+          "rows": [
+            {
+              "key": "c-0001-output-1",
+              "text": "First caption",
+              "selected": false,
+              "handles": [],
+              "outline": {
+                "color": "rgb(255, 255, 255)",
+                "style": "none",
+                "width": "0px"
+              },
+              "scale": "1.25",
+              "rotate": "",
+              "visible": true
+            },
+            {
+              "key": "c-0002",
+              "text": "Overlapping caption",
+              "selected": false,
+              "handles": [],
+              "outline": {
+                "color": "rgb(255, 255, 255)",
+                "style": "none",
+                "width": "0px"
+              },
+              "scale": "",
+              "rotate": "",
+              "visible": true
+            }
+          ]
+        }
+      }
+    },
+    {
+      "step": 8,
+      "title": "Overlap/presence and caption editing Escape regression",
+      "status": "ok",
+      "observations": {
+        "beforeCancel": {
+          "edit": {
+            "version": 2,
+            "output": {
+              "width": 640,
+              "height": 360,
+              "fps": 30
+            },
+            "sources": [
+              {
+                "id": "main",
+                "path": "assets/base.png"
+              }
+            ],
+            "tracks": [
+              {
+                "id": "video",
+                "lane": "visual",
+                "items": [
+                  {
+                    "id": "cut-1",
+                    "at": 0,
+                    "duration": 150,
+                    "source": {
+                      "kind": "media",
+                      "src": "main",
+                      "in": 0,
+                      "out": 5
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "caption-bag-track",
+                "lane": "visual",
+                "items": [
+                  {
+                    "id": "caption-bag",
+                    "at": 0,
+                    "duration": 150,
+                    "source": {
+                      "kind": "captions",
+                      "path": "captions.json"
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          "captions": {
+            "default_text_style": {
+              "size_px": 28,
+              "max_width_pct": 80
+            },
+            "captions": [
+              {
+                "id": "c-0001",
+                "start": 0.25,
+                "end": 2,
+                "text": "First caption",
+                "src": "main",
+                "speaker": null,
+                "sourceRef": null,
+                "edited": false,
+                "text_style": {
+                  "text_anchor": "bc",
+                  "position": {
+                    "x": 0.3565,
+                    "y": 0.8997
+                  },
+                  "scale": 1.25
+                }
+              },
+              {
+                "id": "c-0002",
+                "start": 0.25,
+                "end": 2,
+                "text": "Overlapping caption",
+                "src": "main",
+                "time_domain": "output",
+                "speaker": null,
+                "sourceRef": null,
+                "edited": false,
+                "text_style": {
+                  "text_anchor": "bc",
+                  "position": {
+                    "y": 0.34
+                  }
+                }
+              },
+              {
+                "id": "c-0003",
+                "start": 2.5,
+                "end": 4.5,
+                "text": "Later caption",
+                "src": "main",
+                "speaker": null,
+                "sourceRef": null,
+                "edited": false,
+                "text_style": {
+                  "text_anchor": "bc",
+                  "position": {
+                    "y": 0.78
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "cancel": {
+          "time": 0.5,
+          "sliderTime": 0.5,
+          "blue": true,
+          "editing": false,
+          "rows": [
+            {
+              "key": "c-0001-output-1",
+              "text": "First caption",
+              "selected": true,
+              "handles": [
+                "ne",
+                "nw",
+                "rot",
+                "se",
+                "sw"
+              ],
+              "outline": {
+                "color": "rgb(245, 196, 81)",
+                "style": "solid",
+                "width": "1.5px"
+              },
+              "scale": "1.25",
+              "rotate": "",
+              "visible": true
+            },
+            {
+              "key": "c-0002",
+              "text": "Overlapping caption",
+              "selected": false,
+              "handles": [],
+              "outline": {
+                "color": "rgb(255, 255, 255)",
+                "style": "none",
+                "width": "0px"
+              },
+              "scale": "",
+              "rotate": "",
+              "visible": true
+            }
+          ]
+        },
+        "afterCancel": {
+          "edit": {
+            "version": 2,
+            "output": {
+              "width": 640,
+              "height": 360,
+              "fps": 30
+            },
+            "sources": [
+              {
+                "id": "main",
+                "path": "assets/base.png"
+              }
+            ],
+            "tracks": [
+              {
+                "id": "video",
+                "lane": "visual",
+                "items": [
+                  {
+                    "id": "cut-1",
+                    "at": 0,
+                    "duration": 150,
+                    "source": {
+                      "kind": "media",
+                      "src": "main",
+                      "in": 0,
+                      "out": 5
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "caption-bag-track",
+                "lane": "visual",
+                "items": [
+                  {
+                    "id": "caption-bag",
+                    "at": 0,
+                    "duration": 150,
+                    "source": {
+                      "kind": "captions",
+                      "path": "captions.json"
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          "captions": {
+            "default_text_style": {
+              "size_px": 28,
+              "max_width_pct": 80
+            },
+            "captions": [
+              {
+                "id": "c-0001",
+                "start": 0.25,
+                "end": 2,
+                "text": "First caption",
+                "src": "main",
+                "speaker": null,
+                "sourceRef": null,
+                "edited": false,
+                "text_style": {
+                  "text_anchor": "bc",
+                  "position": {
+                    "x": 0.3565,
+                    "y": 0.8997
+                  },
+                  "scale": 1.25
+                }
+              },
+              {
+                "id": "c-0002",
+                "start": 0.25,
+                "end": 2,
+                "text": "Overlapping caption",
+                "src": "main",
+                "time_domain": "output",
+                "speaker": null,
+                "sourceRef": null,
+                "edited": false,
+                "text_style": {
+                  "text_anchor": "bc",
+                  "position": {
+                    "y": 0.34
+                  }
+                }
+              },
+              {
+                "id": "c-0003",
+                "start": 2.5,
+                "end": 4.5,
+                "text": "Later caption",
+                "src": "main",
+                "speaker": null,
+                "sourceRef": null,
+                "edited": false,
+                "text_style": {
+                  "text_anchor": "bc",
+                  "position": {
+                    "y": 0.78
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "durationRequestedMs": 0,
+        "samples": [
+          {
+            "iteration": 0,
+            "operation": "seek",
+            "expected": [
+              "c-0001",
+              "c-0002"
+            ],
+            "ok": true,
+            "snapshot": {
+              "time": 0.5,
+              "sliderTime": 0.5,
+              "blue": true,
+              "editing": false,
+              "rows": [
+                {
+                  "key": "c-0001-output-1",
+                  "text": "First caption",
+                  "selected": true,
+                  "handles": [
+                    "ne",
+                    "nw",
+                    "rot",
+                    "se",
+                    "sw"
+                  ],
+                  "outline": {
+                    "color": "rgb(245, 196, 81)",
+                    "style": "solid",
+                    "width": "1.5px"
+                  },
+                  "scale": "1.25",
+                  "rotate": "",
+                  "visible": true
+                },
+                {
+                  "key": "c-0002",
+                  "text": "Overlapping caption",
+                  "selected": false,
+                  "handles": [],
+                  "outline": {
+                    "color": "rgb(255, 255, 255)",
+                    "style": "none",
+                    "width": "0px"
+                  },
+                  "scale": "",
+                  "rotate": "",
+                  "visible": true
+                }
+              ]
+            }
+          },
+          {
+            "iteration": 0,
+            "operation": "seek",
+            "expected": [
+              "c-0003"
+            ],
+            "ok": true,
+            "snapshot": {
+              "time": 3,
+              "sliderTime": 3,
+              "blue": false,
+              "editing": false,
+              "rows": [
+                {
+                  "key": "c-0003-output-1",
+                  "text": "Later caption",
+                  "selected": false,
+                  "handles": [],
+                  "outline": {
+                    "color": "rgb(255, 255, 255)",
+                    "style": "none",
+                    "width": "0px"
+                  },
+                  "scale": "",
+                  "rotate": "",
+                  "visible": true
+                }
+              ]
+            }
+          },
+          {
+            "iteration": 0,
+            "operation": "seek",
+            "expected": [
+              "c-0001",
+              "c-0002"
+            ],
+            "ok": true,
+            "snapshot": {
+              "time": 0.5,
+              "sliderTime": 0.5,
+              "blue": true,
+              "editing": false,
+              "rows": [
+                {
+                  "key": "c-0001-output-1",
+                  "text": "First caption",
+                  "selected": true,
+                  "handles": [
+                    "ne",
+                    "nw",
+                    "rot",
+                    "se",
+                    "sw"
+                  ],
+                  "outline": {
+                    "color": "rgb(245, 196, 81)",
+                    "style": "solid",
+                    "width": "1.5px"
+                  },
+                  "scale": "1.25",
+                  "rotate": "",
+                  "visible": true
+                },
+                {
+                  "key": "c-0002",
+                  "text": "Overlapping caption",
+                  "selected": false,
+                  "handles": [],
+                  "outline": {
+                    "color": "rgb(255, 255, 255)",
+                    "style": "none",
+                    "width": "0px"
+                  },
+                  "scale": "",
+                  "rotate": "",
+                  "visible": true
+                }
+              ]
+            }
+          },
+          {
+            "iteration": 0,
+            "operation": "seek",
+            "expected": [],
+            "ok": true,
+            "snapshot": {
+              "time": 2.2666666666666666,
+              "sliderTime": 2.267,
+              "blue": false,
+              "editing": false,
+              "rows": []
+            }
+          },
+          {
+            "iteration": 0,
+            "operation": "seek",
+            "expected": [
+              "c-0001",
+              "c-0002"
+            ],
+            "ok": true,
+            "snapshot": {
+              "time": 1.5,
+              "sliderTime": 1.5,
+              "blue": true,
+              "editing": false,
+              "rows": [
+                {
+                  "key": "c-0001-output-1",
+                  "text": "First caption",
+                  "selected": true,
+                  "handles": [
+                    "ne",
+                    "nw",
+                    "rot",
+                    "se",
+                    "sw"
+                  ],
+                  "outline": {
+                    "color": "rgb(245, 196, 81)",
+                    "style": "solid",
+                    "width": "1.5px"
+                  },
+                  "scale": "1.25",
+                  "rotate": "",
+                  "visible": true
+                },
+                {
+                  "key": "c-0002",
+                  "text": "Overlapping caption",
+                  "selected": false,
+                  "handles": [],
+                  "outline": {
+                    "color": "rgb(255, 255, 255)",
+                    "style": "none",
+                    "width": "0px"
+                  },
+                  "scale": "",
+                  "rotate": "",
+                  "visible": true
+                }
+              ]
+            }
+          },
+          {
+            "iteration": 0,
+            "operation": "immediately-after-edit",
+            "expected": [
+              "c-0001",
+              "c-0002"
+            ],
+            "ok": true,
+            "snapshot": {
+              "time": 0.5,
+              "sliderTime": 0.5,
+              "blue": true,
+              "editing": false,
+              "rows": [
+                {
+                  "key": "c-0001-output-1",
+                  "text": "First caption edit 0",
+                  "selected": true,
+                  "handles": [
+                    "ne",
+                    "nw",
+                    "rot",
+                    "se",
+                    "sw"
+                  ],
+                  "outline": {
+                    "color": "rgb(245, 196, 81)",
+                    "style": "solid",
+                    "width": "1.5px"
+                  },
+                  "scale": "1.25",
+                  "rotate": "",
+                  "visible": true
+                },
+                {
+                  "key": "c-0002",
+                  "text": "Overlapping caption",
+                  "selected": false,
+                  "handles": [],
+                  "outline": {
+                    "color": "rgb(255, 255, 255)",
+                    "style": "none",
+                    "width": "0px"
+                  },
+                  "scale": "",
+                  "rotate": "",
+                  "visible": true
+                }
+              ]
+            }
+          }
+        ],
+        "missing": [],
+        "elapsedMs": 3496,
+        "reproduced": false,
+        "scope": "Not reproduced in this run; no rendering change proposed",
+        "afterEdit": {
+          "time": 0.5,
+          "sliderTime": 0.5,
+          "blue": true,
+          "editing": false,
+          "rows": [
+            {
+              "key": "c-0001-output-1",
+              "text": "First caption edit 0",
+              "selected": true,
+              "handles": [
+                "ne",
+                "nw",
+                "rot",
+                "se",
+                "sw"
+              ],
+              "outline": {
+                "color": "rgb(245, 196, 81)",
+                "style": "solid",
+                "width": "1.5px"
+              },
+              "scale": "1.25",
+              "rotate": "",
+              "visible": true
+            },
+            {
+              "key": "c-0002",
+              "text": "Overlapping caption",
+              "selected": false,
+              "handles": [],
+              "outline": {
+                "color": "rgb(255, 255, 255)",
+                "style": "none",
+                "width": "0px"
+              },
+              "scale": "",
+              "rotate": "",
+              "visible": true
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "seeks": [
+    {
+      "requestedTime": 0.5,
+      "attempts": [
+        {
+          "attempt": 1,
+          "last": {
+            "engine": "frame-engine",
+            "fps": 30,
+            "ready": true,
+            "duration": 5,
+            "slider": {
+              "value": "0.5",
+              "max": "5",
+              "step": "0.001",
+              "disabled": false
+            },
+            "instance": "2026-09-22T07:23:08.290Z-1",
+            "playback": {
+              "time": 0.5,
+              "playing": false,
+              "sequence": 1
+            }
+          },
+          "before": {
+            "engine": "frame-engine",
+            "fps": 30,
+            "ready": true,
+            "duration": 5,
+            "slider": {
+              "value": "0.5",
+              "max": "5",
+              "step": "0.001",
+              "disabled": false
+            },
+            "instance": "2026-09-22T07:23:08.290Z-1",
+            "playback": null
+          },
+          "expectedFrame": 15,
+          "expectedTime": 0.5,
+          "command": {
+            "result": "seeked",
+            "resultType": "string"
+          },
+          "after": {
+            "engine": "frame-engine",
+            "fps": 30,
+            "ready": true,
+            "duration": 5,
+            "slider": {
+              "value": "0.5",
+              "max": "5",
+              "step": "0.001",
+              "disabled": false
+            },
+            "instance": "2026-09-22T07:23:08.290Z-1",
+            "playback": {
+              "time": 0.5,
+              "playing": false,
+              "sequence": 1
+            }
+          }
+        }
+      ],
+      "status": "ok"
+    },
+    {
+      "requestedTime": 0.5,
+      "attempts": [
+        {
+          "attempt": 1,
+          "last": {
+            "engine": "frame-engine",
+            "fps": 30,
+            "ready": true,
+            "duration": 5,
+            "slider": {
+              "value": "0.5",
+              "max": "5",
+              "step": "0.001",
+              "disabled": false
+            },
+            "instance": "2026-09-22T07:23:08.290Z-1",
+            "playback": {
+              "time": 0.5,
+              "playing": false,
+              "sequence": 2
+            }
+          },
+          "before": {
+            "engine": "frame-engine",
+            "fps": 30,
+            "ready": true,
+            "duration": 5,
+            "slider": {
+              "value": "0.5",
+              "max": "5",
+              "step": "0.001",
+              "disabled": false
+            },
+            "instance": "2026-09-22T07:23:08.290Z-1",
+            "playback": {
+              "time": 0.5,
+              "playing": false,
+              "sequence": 1
+            }
+          },
+          "expectedFrame": 15,
+          "expectedTime": 0.5,
+          "command": {
+            "result": "seeked",
+            "resultType": "string"
+          },
+          "after": {
+            "engine": "frame-engine",
+            "fps": 30,
+            "ready": true,
+            "duration": 5,
+            "slider": {
+              "value": "0.5",
+              "max": "5",
+              "step": "0.001",
+              "disabled": false
+            },
+            "instance": "2026-09-22T07:23:08.290Z-1",
+            "playback": {
+              "time": 0.5,
+              "playing": false,
+              "sequence": 2
+            }
+          }
+        }
+      ],
+      "status": "ok"
+    },
+    {
+      "requestedTime": 0.5,
+      "attempts": [
+        {
+          "attempt": 1,
+          "last": {
+            "engine": "frame-engine",
+            "fps": 30,
+            "ready": true,
+            "duration": 5,
+            "slider": {
+              "value": "0.5",
+              "max": "5",
+              "step": "0.001",
+              "disabled": false
+            },
+            "instance": "2026-09-22T07:23:08.290Z-1",
+            "playback": {
+              "time": 0.5,
+              "playing": false,
+              "sequence": 3
+            }
+          },
+          "before": {
+            "engine": "frame-engine",
+            "fps": 30,
+            "ready": true,
+            "duration": 5,
+            "slider": {
+              "value": "0.5",
+              "max": "5",
+              "step": "0.001",
+              "disabled": false
+            },
+            "instance": "2026-09-22T07:23:08.290Z-1",
+            "playback": {
+              "time": 0.5,
+              "playing": false,
+              "sequence": 2
+            }
+          },
+          "expectedFrame": 15,
+          "expectedTime": 0.5,
+          "command": {
+            "result": "seeked",
+            "resultType": "string"
+          },
+          "after": {
+            "engine": "frame-engine",
+            "fps": 30,
+            "ready": true,
+            "duration": 5,
+            "slider": {
+              "value": "0.5",
+              "max": "5",
+              "step": "0.001",
+              "disabled": false
+            },
+            "instance": "2026-09-22T07:23:08.290Z-1",
+            "playback": {
+              "time": 0.5,
+              "playing": false,
+              "sequence": 3
+            }
+          }
+        }
+      ],
+      "status": "ok"
+    },
+    {
+      "requestedTime": 2.25,
+      "attempts": [
+        {
+          "attempt": 1,
+          "last": {
+            "engine": "frame-engine",
+            "fps": 30,
+            "ready": true,
+            "duration": 5,
+            "slider": {
+              "value": "2.267",
+              "max": "5",
+              "step": "0.001",
+              "disabled": false
+            },
+            "instance": "2026-09-22T07:23:08.290Z-1",
+            "playback": {
+              "time": 2.2666666666666666,
+              "playing": false,
+              "sequence": 4
+            }
+          },
+          "before": {
+            "engine": "frame-engine",
+            "fps": 30,
+            "ready": true,
+            "duration": 5,
+            "slider": {
+              "value": "0.5",
+              "max": "5",
+              "step": "0.001",
+              "disabled": false
+            },
+            "instance": "2026-09-22T07:23:08.290Z-1",
+            "playback": {
+              "time": 0.5,
+              "playing": false,
+              "sequence": 3
+            }
+          },
+          "expectedFrame": 68,
+          "expectedTime": 2.2666666666666666,
+          "command": {
+            "result": "seeked",
+            "resultType": "string"
+          },
+          "after": {
+            "engine": "frame-engine",
+            "fps": 30,
+            "ready": true,
+            "duration": 5,
+            "slider": {
+              "value": "2.267",
+              "max": "5",
+              "step": "0.001",
+              "disabled": false
+            },
+            "instance": "2026-09-22T07:23:08.290Z-1",
+            "playback": {
+              "time": 2.2666666666666666,
+              "playing": false,
+              "sequence": 4
+            }
+          }
+        }
+      ],
+      "status": "ok"
+    },
+    {
+      "requestedTime": 0.5,
+      "attempts": [
+        {
+          "attempt": 1,
+          "last": {
+            "engine": "frame-engine",
+            "fps": 30,
+            "ready": true,
+            "duration": 5,
+            "slider": {
+              "value": "0.5",
+              "max": "5",
+              "step": "0.001",
+              "disabled": false
+            },
+            "instance": "2026-09-22T07:23:08.290Z-1",
+            "playback": {
+              "time": 0.5,
+              "playing": false,
+              "sequence": 5
+            }
+          },
+          "before": {
+            "engine": "frame-engine",
+            "fps": 30,
+            "ready": true,
+            "duration": 5,
+            "slider": {
+              "value": "2.267",
+              "max": "5",
+              "step": "0.001",
+              "disabled": false
+            },
+            "instance": "2026-09-22T07:23:08.290Z-1",
+            "playback": {
+              "time": 2.2666666666666666,
+              "playing": false,
+              "sequence": 4
+            }
+          },
+          "expectedFrame": 15,
+          "expectedTime": 0.5,
+          "command": {
+            "result": "seeked",
+            "resultType": "string"
+          },
+          "after": {
+            "engine": "frame-engine",
+            "fps": 30,
+            "ready": true,
+            "duration": 5,
+            "slider": {
+              "value": "0.5",
+              "max": "5",
+              "step": "0.001",
+              "disabled": false
+            },
+            "instance": "2026-09-22T07:23:08.290Z-1",
+            "playback": {
+              "time": 0.5,
+              "playing": false,
+              "sequence": 5
+            }
+          }
+        }
+      ],
+      "status": "ok"
+    },
+    {
+      "requestedTime": 0.5,
+      "attempts": [
+        {
+          "attempt": 1,
+          "last": {
+            "engine": "frame-engine",
+            "fps": 30,
+            "ready": true,
+            "duration": 5,
+            "slider": {
+              "value": "0.5",
+              "max": "5",
+              "step": "0.001",
+              "disabled": false
+            },
+            "instance": "2026-09-22T07:23:08.290Z-1",
+            "playback": {
+              "time": 0.5,
+              "playing": false,
+              "sequence": 6
+            }
+          },
+          "before": {
+            "engine": "frame-engine",
+            "fps": 30,
+            "ready": true,
+            "duration": 5,
+            "slider": {
+              "value": "0.5",
+              "max": "5",
+              "step": "0.001",
+              "disabled": false
+            },
+            "instance": "2026-09-22T07:23:08.290Z-1",
+            "playback": {
+              "time": 0.5,
+              "playing": false,
+              "sequence": 5
+            }
+          },
+          "expectedFrame": 15,
+          "expectedTime": 0.5,
+          "command": {
+            "result": "seeked",
+            "resultType": "string"
+          },
+          "after": {
+            "engine": "frame-engine",
+            "fps": 30,
+            "ready": true,
+            "duration": 5,
+            "slider": {
+              "value": "0.5",
+              "max": "5",
+              "step": "0.001",
+              "disabled": false
+            },
+            "instance": "2026-09-22T07:23:08.290Z-1",
+            "playback": {
+              "time": 0.5,
+              "playing": false,
+              "sequence": 6
+            }
+          }
+        }
+      ],
+      "status": "ok"
+    },
+    {
+      "requestedTime": 2.25,
+      "attempts": [
+        {
+          "attempt": 1,
+          "last": {
+            "engine": "frame-engine",
+            "fps": 30,
+            "ready": true,
+            "duration": 5,
+            "slider": {
+              "value": "2.267",
+              "max": "5",
+              "step": "0.001",
+              "disabled": false
+            },
+            "instance": "2026-09-22T07:23:08.290Z-1",
+            "playback": {
+              "time": 2.2666666666666666,
+              "playing": false,
+              "sequence": 7
+            }
+          },
+          "before": {
+            "engine": "frame-engine",
+            "fps": 30,
+            "ready": true,
+            "duration": 5,
+            "slider": {
+              "value": "0.5",
+              "max": "5",
+              "step": "0.001",
+              "disabled": false
+            },
+            "instance": "2026-09-22T07:23:08.290Z-1",
+            "playback": {
+              "time": 0.5,
+              "playing": false,
+              "sequence": 6
+            }
+          },
+          "expectedFrame": 68,
+          "expectedTime": 2.2666666666666666,
+          "command": {
+            "result": "seeked",
+            "resultType": "string"
+          },
+          "after": {
+            "engine": "frame-engine",
+            "fps": 30,
+            "ready": true,
+            "duration": 5,
+            "slider": {
+              "value": "2.267",
+              "max": "5",
+              "step": "0.001",
+              "disabled": false
+            },
+            "instance": "2026-09-22T07:23:08.290Z-1",
+            "playback": {
+              "time": 2.2666666666666666,
+              "playing": false,
+              "sequence": 7
+            }
+          }
+        }
+      ],
+      "status": "ok"
+    },
+    {
+      "requestedTime": 0.5,
+      "attempts": [
+        {
+          "attempt": 1,
+          "last": {
+            "engine": "frame-engine",
+            "fps": 30,
+            "ready": true,
+            "duration": 5,
+            "slider": {
+              "value": "0.5",
+              "max": "5",
+              "step": "0.001",
+              "disabled": false
+            },
+            "instance": "2026-09-22T07:23:08.290Z-1",
+            "playback": {
+              "time": 0.5,
+              "playing": false,
+              "sequence": 8
+            }
+          },
+          "before": {
+            "engine": "frame-engine",
+            "fps": 30,
+            "ready": true,
+            "duration": 5,
+            "slider": {
+              "value": "2.267",
+              "max": "5",
+              "step": "0.001",
+              "disabled": false
+            },
+            "instance": "2026-09-22T07:23:08.290Z-1",
+            "playback": {
+              "time": 2.2666666666666666,
+              "playing": false,
+              "sequence": 7
+            }
+          },
+          "expectedFrame": 15,
+          "expectedTime": 0.5,
+          "command": {
+            "result": "seeked",
+            "resultType": "string"
+          },
+          "after": {
+            "engine": "frame-engine",
+            "fps": 30,
+            "ready": true,
+            "duration": 5,
+            "slider": {
+              "value": "0.5",
+              "max": "5",
+              "step": "0.001",
+              "disabled": false
+            },
+            "instance": "2026-09-22T07:23:08.290Z-1",
+            "playback": {
+              "time": 0.5,
+              "playing": false,
+              "sequence": 8
+            }
+          }
+        }
+      ],
+      "status": "ok"
+    },
+    {
+      "requestedTime": 0.5,
+      "attempts": [
+        {
+          "attempt": 1,
+          "last": {
+            "engine": "frame-engine",
+            "fps": 30,
+            "ready": true,
+            "duration": 5,
+            "slider": {
+              "value": "0.5",
+              "max": "5",
+              "step": "0.001",
+              "disabled": false
+            },
+            "instance": "2026-09-22T07:23:08.290Z-1",
+            "playback": {
+              "time": 0.5,
+              "playing": false,
+              "sequence": 9
+            }
+          },
+          "before": {
+            "engine": "frame-engine",
+            "fps": 30,
+            "ready": true,
+            "duration": 5,
+            "slider": {
+              "value": "0.5",
+              "max": "5",
+              "step": "0.001",
+              "disabled": false
+            },
+            "instance": "2026-09-22T07:23:08.290Z-1",
+            "playback": {
+              "time": 0.5,
+              "playing": false,
+              "sequence": 8
+            }
+          },
+          "expectedFrame": 15,
+          "expectedTime": 0.5,
+          "command": {
+            "result": "seeked",
+            "resultType": "string"
+          },
+          "after": {
+            "engine": "frame-engine",
+            "fps": 30,
+            "ready": true,
+            "duration": 5,
+            "slider": {
+              "value": "0.5",
+              "max": "5",
+              "step": "0.001",
+              "disabled": false
+            },
+            "instance": "2026-09-22T07:23:08.290Z-1",
+            "playback": {
+              "time": 0.5,
+              "playing": false,
+              "sequence": 9
+            }
+          }
+        }
+      ],
+      "status": "ok"
+    },
+    {
+      "requestedTime": 0.5,
+      "attempts": [
+        {
+          "attempt": 1,
+          "last": {
+            "engine": "frame-engine",
+            "fps": 30,
+            "ready": true,
+            "duration": 5,
+            "slider": {
+              "value": "0.5",
+              "max": "5",
+              "step": "0.001",
+              "disabled": false
+            },
+            "instance": "2026-09-22T07:23:08.290Z-1",
+            "playback": {
+              "time": 0.5,
+              "playing": false,
+              "sequence": 10
+            }
+          },
+          "before": {
+            "engine": "frame-engine",
+            "fps": 30,
+            "ready": true,
+            "duration": 5,
+            "slider": {
+              "value": "0.5",
+              "max": "5",
+              "step": "0.001",
+              "disabled": false
+            },
+            "instance": "2026-09-22T07:23:08.290Z-1",
+            "playback": {
+              "time": 0.5,
+              "playing": false,
+              "sequence": 9
+            }
+          },
+          "expectedFrame": 15,
+          "expectedTime": 0.5,
+          "command": {
+            "result": "seeked",
+            "resultType": "string"
+          },
+          "after": {
+            "engine": "frame-engine",
+            "fps": 30,
+            "ready": true,
+            "duration": 5,
+            "slider": {
+              "value": "0.5",
+              "max": "5",
+              "step": "0.001",
+              "disabled": false
+            },
+            "instance": "2026-09-22T07:23:08.290Z-1",
+            "playback": {
+              "time": 0.5,
+              "playing": false,
+              "sequence": 10
+            }
+          }
+        }
+      ],
+      "status": "ok"
+    },
+    {
+      "requestedTime": 0.5,
+      "attempts": [
+        {
+          "attempt": 1,
+          "last": {
+            "engine": "frame-engine",
+            "fps": 30,
+            "ready": true,
+            "duration": 5,
+            "slider": {
+              "value": "0.5",
+              "max": "5",
+              "step": "0.001",
+              "disabled": false
+            },
+            "instance": "2026-09-22T07:23:08.290Z-1",
+            "playback": {
+              "time": 0.5,
+              "playing": false,
+              "sequence": 11
+            }
+          },
+          "before": {
+            "engine": "frame-engine",
+            "fps": 30,
+            "ready": true,
+            "duration": 5,
+            "slider": {
+              "value": "0.5",
+              "max": "5",
+              "step": "0.001",
+              "disabled": false
+            },
+            "instance": "2026-09-22T07:23:08.290Z-1",
+            "playback": {
+              "time": 0.5,
+              "playing": false,
+              "sequence": 10
+            }
+          },
+          "expectedFrame": 15,
+          "expectedTime": 0.5,
+          "command": {
+            "result": "seeked",
+            "resultType": "string"
+          },
+          "after": {
+            "engine": "frame-engine",
+            "fps": 30,
+            "ready": true,
+            "duration": 5,
+            "slider": {
+              "value": "0.5",
+              "max": "5",
+              "step": "0.001",
+              "disabled": false
+            },
+            "instance": "2026-09-22T07:23:08.290Z-1",
+            "playback": {
+              "time": 0.5,
+              "playing": false,
+              "sequence": 11
+            }
+          }
+        }
+      ],
+      "status": "ok"
+    },
+    {
+      "requestedTime": 2.25,
+      "attempts": [
+        {
+          "attempt": 1,
+          "last": {
+            "engine": "frame-engine",
+            "fps": 30,
+            "ready": true,
+            "duration": 5,
+            "slider": {
+              "value": "2.267",
+              "max": "5",
+              "step": "0.001",
+              "disabled": false
+            },
+            "instance": "2026-09-22T07:23:08.290Z-1",
+            "playback": {
+              "time": 2.2666666666666666,
+              "playing": false,
+              "sequence": 12
+            }
+          },
+          "before": {
+            "engine": "frame-engine",
+            "fps": 30,
+            "ready": true,
+            "duration": 5,
+            "slider": {
+              "value": "0.5",
+              "max": "5",
+              "step": "0.001",
+              "disabled": false
+            },
+            "instance": "2026-09-22T07:23:08.290Z-1",
+            "playback": {
+              "time": 0.5,
+              "playing": false,
+              "sequence": 11
+            }
+          },
+          "expectedFrame": 68,
+          "expectedTime": 2.2666666666666666,
+          "command": {
+            "result": "seeked",
+            "resultType": "string"
+          },
+          "after": {
+            "engine": "frame-engine",
+            "fps": 30,
+            "ready": true,
+            "duration": 5,
+            "slider": {
+              "value": "2.267",
+              "max": "5",
+              "step": "0.001",
+              "disabled": false
+            },
+            "instance": "2026-09-22T07:23:08.290Z-1",
+            "playback": {
+              "time": 2.2666666666666666,
+              "playing": false,
+              "sequence": 12
+            }
+          }
+        }
+      ],
+      "status": "ok"
+    },
+    {
+      "requestedTime": 0.5,
+      "attempts": [
+        {
+          "attempt": 1,
+          "last": {
+            "engine": "frame-engine",
+            "fps": 30,
+            "ready": true,
+            "duration": 5,
+            "slider": {
+              "value": "0.5",
+              "max": "5",
+              "step": "0.001",
+              "disabled": false
+            },
+            "instance": "2026-09-22T07:23:08.290Z-1",
+            "playback": {
+              "time": 0.5,
+              "playing": false,
+              "sequence": 13
+            }
+          },
+          "before": {
+            "engine": "frame-engine",
+            "fps": 30,
+            "ready": true,
+            "duration": 5,
+            "slider": {
+              "value": "2.267",
+              "max": "5",
+              "step": "0.001",
+              "disabled": false
+            },
+            "instance": "2026-09-22T07:23:08.290Z-1",
+            "playback": {
+              "time": 2.2666666666666666,
+              "playing": false,
+              "sequence": 12
+            }
+          },
+          "expectedFrame": 15,
+          "expectedTime": 0.5,
+          "command": {
+            "result": "seeked",
+            "resultType": "string"
+          },
+          "after": {
+            "engine": "frame-engine",
+            "fps": 30,
+            "ready": true,
+            "duration": 5,
+            "slider": {
+              "value": "0.5",
+              "max": "5",
+              "step": "0.001",
+              "disabled": false
+            },
+            "instance": "2026-09-22T07:23:08.290Z-1",
+            "playback": {
+              "time": 0.5,
+              "playing": false,
+              "sequence": 13
+            }
+          }
+        }
+      ],
+      "status": "ok"
+    },
+    {
+      "requestedTime": 0.5,
+      "attempts": [
+        {
+          "attempt": 1,
+          "last": {
+            "engine": "frame-engine",
+            "fps": 30,
+            "ready": true,
+            "duration": 5,
+            "slider": {
+              "value": "0.5",
+              "max": "5",
+              "step": "0.001",
+              "disabled": false
+            },
+            "instance": "2026-09-22T07:23:08.290Z-1",
+            "playback": {
+              "time": 0.5,
+              "playing": false,
+              "sequence": 14
+            }
+          },
+          "before": {
+            "engine": "frame-engine",
+            "fps": 30,
+            "ready": true,
+            "duration": 5,
+            "slider": {
+              "value": "0.5",
+              "max": "5",
+              "step": "0.001",
+              "disabled": false
+            },
+            "instance": "2026-09-22T07:23:08.290Z-1",
+            "playback": {
+              "time": 0.5,
+              "playing": false,
+              "sequence": 13
+            }
+          },
+          "expectedFrame": 15,
+          "expectedTime": 0.5,
+          "command": {
+            "result": "seeked",
+            "resultType": "string"
+          },
+          "after": {
+            "engine": "frame-engine",
+            "fps": 30,
+            "ready": true,
+            "duration": 5,
+            "slider": {
+              "value": "0.5",
+              "max": "5",
+              "step": "0.001",
+              "disabled": false
+            },
+            "instance": "2026-09-22T07:23:08.290Z-1",
+            "playback": {
+              "time": 0.5,
+              "playing": false,
+              "sequence": 14
+            }
+          }
+        }
+      ],
+      "status": "ok"
+    },
+    {
+      "requestedTime": 0.5,
+      "attempts": [
+        {
+          "attempt": 1,
+          "last": {
+            "engine": "frame-engine",
+            "fps": 30,
+            "ready": true,
+            "duration": 5,
+            "slider": {
+              "value": "0.5",
+              "max": "5",
+              "step": "0.001",
+              "disabled": false
+            },
+            "instance": "2026-09-22T07:23:08.290Z-1",
+            "playback": {
+              "time": 0.5,
+              "playing": false,
+              "sequence": 15
+            }
+          },
+          "before": {
+            "engine": "frame-engine",
+            "fps": 30,
+            "ready": true,
+            "duration": 5,
+            "slider": {
+              "value": "0.5",
+              "max": "5",
+              "step": "0.001",
+              "disabled": false
+            },
+            "instance": "2026-09-22T07:23:08.290Z-1",
+            "playback": {
+              "time": 0.5,
+              "playing": false,
+              "sequence": 14
+            }
+          },
+          "expectedFrame": 15,
+          "expectedTime": 0.5,
+          "command": {
+            "result": "seeked",
+            "resultType": "string"
+          },
+          "after": {
+            "engine": "frame-engine",
+            "fps": 30,
+            "ready": true,
+            "duration": 5,
+            "slider": {
+              "value": "0.5",
+              "max": "5",
+              "step": "0.001",
+              "disabled": false
+            },
+            "instance": "2026-09-22T07:23:08.290Z-1",
+            "playback": {
+              "time": 0.5,
+              "playing": false,
+              "sequence": 15
+            }
+          }
+        }
+      ],
+      "status": "ok"
+    },
+    {
+      "requestedTime": 0.5,
+      "attempts": [
+        {
+          "attempt": 1,
+          "last": {
+            "engine": "frame-engine",
+            "fps": 30,
+            "ready": true,
+            "duration": 5,
+            "slider": {
+              "value": "0.5",
+              "max": "5",
+              "step": "0.001",
+              "disabled": false
+            },
+            "instance": "2026-09-22T07:23:08.290Z-1",
+            "playback": {
+              "time": 0.5,
+              "playing": false,
+              "sequence": 16
+            }
+          },
+          "before": {
+            "engine": "frame-engine",
+            "fps": 30,
+            "ready": true,
+            "duration": 5,
+            "slider": {
+              "value": "0.5",
+              "max": "5",
+              "step": "0.001",
+              "disabled": false
+            },
+            "instance": "2026-09-22T07:23:08.290Z-1",
+            "playback": {
+              "time": 0.5,
+              "playing": false,
+              "sequence": 15
+            }
+          },
+          "expectedFrame": 15,
+          "expectedTime": 0.5,
+          "command": {
+            "result": "seeked",
+            "resultType": "string"
+          },
+          "after": {
+            "engine": "frame-engine",
+            "fps": 30,
+            "ready": true,
+            "duration": 5,
+            "slider": {
+              "value": "0.5",
+              "max": "5",
+              "step": "0.001",
+              "disabled": false
+            },
+            "instance": "2026-09-22T07:23:08.290Z-1",
+            "playback": {
+              "time": 0.5,
+              "playing": false,
+              "sequence": 16
+            }
+          }
+        }
+      ],
+      "status": "ok"
+    },
+    {
+      "requestedTime": 3,
+      "attempts": [
+        {
+          "attempt": 1,
+          "last": {
+            "engine": "frame-engine",
+            "fps": 30,
+            "ready": true,
+            "duration": 5,
+            "slider": {
+              "value": "3",
+              "max": "5",
+              "step": "0.001",
+              "disabled": false
+            },
+            "instance": "2026-09-22T07:23:08.290Z-1",
+            "playback": {
+              "time": 3,
+              "playing": false,
+              "sequence": 17
+            }
+          },
+          "before": {
+            "engine": "frame-engine",
+            "fps": 30,
+            "ready": true,
+            "duration": 5,
+            "slider": {
+              "value": "0.5",
+              "max": "5",
+              "step": "0.001",
+              "disabled": false
+            },
+            "instance": "2026-09-22T07:23:08.290Z-1",
+            "playback": {
+              "time": 0.5,
+              "playing": false,
+              "sequence": 16
+            }
+          },
+          "expectedFrame": 90,
+          "expectedTime": 3,
+          "command": {
+            "result": "seeked",
+            "resultType": "string"
+          },
+          "after": {
+            "engine": "frame-engine",
+            "fps": 30,
+            "ready": true,
+            "duration": 5,
+            "slider": {
+              "value": "3",
+              "max": "5",
+              "step": "0.001",
+              "disabled": false
+            },
+            "instance": "2026-09-22T07:23:08.290Z-1",
+            "playback": {
+              "time": 3,
+              "playing": false,
+              "sequence": 17
+            }
+          }
+        }
+      ],
+      "status": "ok"
+    },
+    {
+      "requestedTime": 0.5,
+      "attempts": [
+        {
+          "attempt": 1,
+          "last": {
+            "engine": "frame-engine",
+            "fps": 30,
+            "ready": true,
+            "duration": 5,
+            "slider": {
+              "value": "0.5",
+              "max": "5",
+              "step": "0.001",
+              "disabled": false
+            },
+            "instance": "2026-09-22T07:23:08.290Z-1",
+            "playback": {
+              "time": 0.5,
+              "playing": false,
+              "sequence": 18
+            }
+          },
+          "before": {
+            "engine": "frame-engine",
+            "fps": 30,
+            "ready": true,
+            "duration": 5,
+            "slider": {
+              "value": "3",
+              "max": "5",
+              "step": "0.001",
+              "disabled": false
+            },
+            "instance": "2026-09-22T07:23:08.290Z-1",
+            "playback": {
+              "time": 3,
+              "playing": false,
+              "sequence": 17
+            }
+          },
+          "expectedFrame": 15,
+          "expectedTime": 0.5,
+          "command": {
+            "result": "seeked",
+            "resultType": "string"
+          },
+          "after": {
+            "engine": "frame-engine",
+            "fps": 30,
+            "ready": true,
+            "duration": 5,
+            "slider": {
+              "value": "0.5",
+              "max": "5",
+              "step": "0.001",
+              "disabled": false
+            },
+            "instance": "2026-09-22T07:23:08.290Z-1",
+            "playback": {
+              "time": 0.5,
+              "playing": false,
+              "sequence": 18
+            }
+          }
+        }
+      ],
+      "status": "ok"
+    },
+    {
+      "requestedTime": 2.25,
+      "attempts": [
+        {
+          "attempt": 1,
+          "last": {
+            "engine": "frame-engine",
+            "fps": 30,
+            "ready": true,
+            "duration": 5,
+            "slider": {
+              "value": "2.267",
+              "max": "5",
+              "step": "0.001",
+              "disabled": false
+            },
+            "instance": "2026-09-22T07:23:08.290Z-1",
+            "playback": {
+              "time": 2.2666666666666666,
+              "playing": false,
+              "sequence": 19
+            }
+          },
+          "before": {
+            "engine": "frame-engine",
+            "fps": 30,
+            "ready": true,
+            "duration": 5,
+            "slider": {
+              "value": "0.5",
+              "max": "5",
+              "step": "0.001",
+              "disabled": false
+            },
+            "instance": "2026-09-22T07:23:08.290Z-1",
+            "playback": {
+              "time": 0.5,
+              "playing": false,
+              "sequence": 18
+            }
+          },
+          "expectedFrame": 68,
+          "expectedTime": 2.2666666666666666,
+          "command": {
+            "result": "seeked",
+            "resultType": "string"
+          },
+          "after": {
+            "engine": "frame-engine",
+            "fps": 30,
+            "ready": true,
+            "duration": 5,
+            "slider": {
+              "value": "2.267",
+              "max": "5",
+              "step": "0.001",
+              "disabled": false
+            },
+            "instance": "2026-09-22T07:23:08.290Z-1",
+            "playback": {
+              "time": 2.2666666666666666,
+              "playing": false,
+              "sequence": 19
+            }
+          }
+        }
+      ],
+      "status": "ok"
+    },
+    {
+      "requestedTime": 1.5,
+      "attempts": [
+        {
+          "attempt": 1,
+          "last": {
+            "engine": "frame-engine",
+            "fps": 30,
+            "ready": true,
+            "duration": 5,
+            "slider": {
+              "value": "1.5",
+              "max": "5",
+              "step": "0.001",
+              "disabled": false
+            },
+            "instance": "2026-09-22T07:23:08.290Z-1",
+            "playback": {
+              "time": 1.5,
+              "playing": false,
+              "sequence": 20
+            }
+          },
+          "before": {
+            "engine": "frame-engine",
+            "fps": 30,
+            "ready": true,
+            "duration": 5,
+            "slider": {
+              "value": "2.267",
+              "max": "5",
+              "step": "0.001",
+              "disabled": false
+            },
+            "instance": "2026-09-22T07:23:08.290Z-1",
+            "playback": {
+              "time": 2.2666666666666666,
+              "playing": false,
+              "sequence": 19
+            }
+          },
+          "expectedFrame": 45,
+          "expectedTime": 1.5,
+          "command": {
+            "result": "seeked",
+            "resultType": "string"
+          },
+          "after": {
+            "engine": "frame-engine",
+            "fps": 30,
+            "ready": true,
+            "duration": 5,
+            "slider": {
+              "value": "1.5",
+              "max": "5",
+              "step": "0.001",
+              "disabled": false
+            },
+            "instance": "2026-09-22T07:23:08.290Z-1",
+            "playback": {
+              "time": 1.5,
+              "playing": false,
+              "sequence": 20
+            }
+          }
+        }
+      ],
+      "status": "ok"
+    },
+    {
+      "requestedTime": 0.5,
+      "attempts": [
+        {
+          "attempt": 1,
+          "last": {
+            "engine": "frame-engine",
+            "fps": 30,
+            "ready": true,
+            "duration": 5,
+            "slider": {
+              "value": "0.5",
+              "max": "5",
+              "step": "0.001",
+              "disabled": false
+            },
+            "instance": "2026-09-22T07:23:08.290Z-1",
+            "playback": {
+              "time": 0.5,
+              "playing": false,
+              "sequence": 21
+            }
+          },
+          "before": {
+            "engine": "frame-engine",
+            "fps": 30,
+            "ready": true,
+            "duration": 5,
+            "slider": {
+              "value": "1.5",
+              "max": "5",
+              "step": "0.001",
+              "disabled": false
+            },
+            "instance": "2026-09-22T07:23:08.290Z-1",
+            "playback": {
+              "time": 1.5,
+              "playing": false,
+              "sequence": 20
+            }
+          },
+          "expectedFrame": 15,
+          "expectedTime": 0.5,
+          "command": {
+            "result": "seeked",
+            "resultType": "string"
+          },
+          "after": {
+            "engine": "frame-engine",
+            "fps": 30,
+            "ready": true,
+            "duration": 5,
+            "slider": {
+              "value": "0.5",
+              "max": "5",
+              "step": "0.001",
+              "disabled": false
+            },
+            "instance": "2026-09-22T07:23:08.290Z-1",
+            "playback": {
+              "time": 0.5,
+              "playing": false,
+              "sequence": 21
+            }
+          }
+        }
+      ],
+      "status": "ok"
+    }
+  ],
+  "commands": [
+    {
+      "id": "akari.annotations.open",
+      "startedAt": "2026-09-22T07:23:10.530Z",
+      "summary": {
+        "result": null,
+        "resultType": "object"
+      },
+      "finishedAt": "2026-09-22T07:23:13.142Z"
+    },
+    {
+      "id": "akari.preview.seekOutput",
+      "startedAt": "2026-09-22T07:23:13.142Z",
+      "summary": {
+        "result": "seeked",
+        "resultType": "string"
+      },
+      "finishedAt": "2026-09-22T07:23:35.534Z"
+    },
+    {
+      "id": "akari.preview.ensureVisible",
+      "startedAt": "2026-09-22T07:23:35.549Z",
+      "summary": {
+        "result": "revealed",
+        "resultType": "string"
+      },
+      "finishedAt": "2026-09-22T07:23:35.584Z"
+    },
+    {
+      "id": "akari.preview.seekOutput",
+      "startedAt": "2026-09-22T07:23:35.755Z",
+      "summary": {
+        "result": "seeked",
+        "resultType": "string"
+      },
+      "finishedAt": "2026-09-22T07:23:36.208Z"
+    },
+    {
+      "id": "akari.preview.seekOutput",
+      "startedAt": "2026-09-22T07:23:36.379Z",
+      "summary": {
+        "result": "seeked",
+        "resultType": "string"
+      },
+      "finishedAt": "2026-09-22T07:23:36.507Z"
+    },
+    {
+      "id": "akari.preview.seekOutput",
+      "startedAt": "2026-09-22T07:23:37.400Z",
+      "summary": {
+        "result": "seeked",
+        "resultType": "string"
+      },
+      "finishedAt": "2026-09-22T07:23:37.500Z"
+    },
+    {
+      "id": "akari.preview.seekOutput",
+      "startedAt": "2026-09-22T07:23:37.794Z",
+      "summary": {
+        "result": "seeked",
+        "resultType": "string"
+      },
+      "finishedAt": "2026-09-22T07:23:37.875Z"
+    },
+    {
+      "id": "akari.preview.seekOutput",
+      "startedAt": "2026-09-22T07:23:38.086Z",
+      "summary": {
+        "result": "seeked",
+        "resultType": "string"
+      },
+      "finishedAt": "2026-09-22T07:23:38.278Z"
+    },
+    {
+      "id": "akari.preview.seekOutput",
+      "startedAt": "2026-09-22T07:23:38.659Z",
+      "summary": {
+        "result": "seeked",
+        "resultType": "string"
+      },
+      "finishedAt": "2026-09-22T07:23:38.740Z"
+    },
+    {
+      "id": "akari.preview.seekOutput",
+      "startedAt": "2026-09-22T07:23:40.647Z",
+      "summary": {
+        "result": "seeked",
+        "resultType": "string"
+      },
+      "finishedAt": "2026-09-22T07:23:40.991Z"
+    },
+    {
+      "id": "akari.preview.seekOutput",
+      "startedAt": "2026-09-22T07:23:41.154Z",
+      "summary": {
+        "result": "seeked",
+        "resultType": "string"
+      },
+      "finishedAt": "2026-09-22T07:23:41.678Z"
+    },
+    {
+      "id": "akari.preview.seekOutput",
+      "startedAt": "2026-09-22T07:23:42.281Z",
+      "summary": {
+        "result": "seeked",
+        "resultType": "string"
+      },
+      "finishedAt": "2026-09-22T07:23:42.344Z"
+    },
+    {
+      "id": "akari.preview.seekOutput",
+      "startedAt": "2026-09-22T07:23:43.982Z",
+      "summary": {
+        "result": "seeked",
+        "resultType": "string"
+      },
+      "finishedAt": "2026-09-22T07:23:44.290Z"
+    },
+    {
+      "id": "akari.preview.seekOutput",
+      "startedAt": "2026-09-22T07:23:45.725Z",
+      "summary": {
+        "result": "seeked",
+        "resultType": "string"
+      },
+      "finishedAt": "2026-09-22T07:23:45.821Z"
+    },
+    {
+      "id": "akari.preview.seekOutput",
+      "startedAt": "2026-09-22T07:23:46.294Z",
+      "summary": {
+        "result": "seeked",
+        "resultType": "string"
+      },
+      "finishedAt": "2026-09-22T07:23:46.419Z"
+    },
+    {
+      "id": "akari.preview.seekOutput",
+      "startedAt": "2026-09-22T07:23:46.553Z",
+      "summary": {
+        "result": "seeked",
+        "resultType": "string"
+      },
+      "finishedAt": "2026-09-22T07:23:46.610Z"
+    },
+    {
+      "id": "akari.preview.seekOutput",
+      "startedAt": "2026-09-22T07:23:47.350Z",
+      "summary": {
+        "result": "seeked",
+        "resultType": "string"
+      },
+      "finishedAt": "2026-09-22T07:23:47.592Z"
+    },
+    {
+      "id": "akari.preview.seekOutput",
+      "startedAt": "2026-09-22T07:23:48.970Z",
+      "summary": {
+        "result": "seeked",
+        "resultType": "string"
+      },
+      "finishedAt": "2026-09-22T07:23:49.101Z"
+    },
+    {
+      "id": "akari.preview.seekOutput",
+      "startedAt": "2026-09-22T07:23:50.353Z",
+      "summary": {
+        "result": "seeked",
+        "resultType": "string"
+      },
+      "finishedAt": "2026-09-22T07:23:50.404Z"
+    },
+    {
+      "id": "akari.preview.seekOutput",
+      "startedAt": "2026-09-22T07:23:50.589Z",
+      "summary": {
+        "result": "seeked",
+        "resultType": "string"
+      },
+      "finishedAt": "2026-09-22T07:23:50.885Z"
+    },
+    {
+      "id": "akari.preview.seekOutput",
+      "startedAt": "2026-09-22T07:23:51.273Z",
+      "summary": {
+        "result": "seeked",
+        "resultType": "string"
+      },
+      "finishedAt": "2026-09-22T07:23:51.406Z"
+    },
+    {
+      "id": "akari.preview.seekOutput",
+      "startedAt": "2026-09-22T07:23:51.616Z",
+      "summary": {
+        "result": "seeked",
+        "resultType": "string"
+      },
+      "finishedAt": "2026-09-22T07:23:51.699Z"
+    },
+    {
+      "id": "akari.preview.seekOutput",
+      "startedAt": "2026-09-22T07:23:51.891Z",
+      "summary": {
+        "result": "seeked",
+        "resultType": "string"
+      },
+      "finishedAt": "2026-09-22T07:23:51.940Z"
+    },
+    {
+      "id": "akari.preview.seekOutput",
+      "startedAt": "2026-09-22T07:23:52.141Z",
+      "summary": {
+        "result": "seeked",
+        "resultType": "string"
+      },
+      "finishedAt": "2026-09-22T07:23:52.249Z"
+    }
+  ],
+  "persistence": "Existing captionWrite persists captions.json text_style; edit.json is also recorded, never forced to change.",
+  "input": "CDP Input.dispatchMouseEvent; every Shift pointermove has modifiers=8; CDP keyboard input"
+}
