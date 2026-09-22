@@ -1,0 +1,1539 @@
+{
+  "phase": "rebase2",
+  "status": "fail",
+  "checks": [
+    {
+      "name": "§4 タイムラインのツールバーに「T 文字を置く」が無い",
+      "pass": true,
+      "detail": {
+        "timelineButton": [],
+        "timelineTextMatches": [],
+        "daihonButton": [
+          "T この行から文字を置く"
+        ]
+      }
+    },
+    {
+      "name": "§0/§1 置いた文字をダブルクリック → 枠の実測",
+      "pass": true,
+      "detail": {
+        "outlined": [],
+        "selectBox": {
+          "active": true,
+          "display": "block",
+          "border": "dashed 1.5px rgb(77, 163, 255)",
+          "rect": {
+            "left": 374,
+            "top": 206.14,
+            "width": 133.59,
+            "height": 31.7
+          }
+        },
+        "editing": {
+          "el": ".akari-caption__line",
+          "outlineStyle": "none",
+          "outlineWidth": "0px",
+          "outlineColor": "rgb(255, 255, 255)",
+          "outlineOffset": "0px",
+          "rect": {
+            "left": 374,
+            "top": 206.15,
+            "width": 133.59,
+            "height": 31.7
+          },
+          "focused": true,
+          "text": "置いた文字 1"
+        },
+        "layer": {
+          "position": "absolute",
+          "pointerEvents": "none",
+          "rect": {
+            "left": 36,
+            "top": 31.88,
+            "width": 676,
+            "height": 380.25
+          }
+        }
+      }
+    },
+    {
+      "name": "§0/§2 編集中に「選択枠のすぐ外（枠と枠の間）」をクリック",
+      "pass": true,
+      "detail": {
+        "point": {
+          "x": 371.5,
+          "y": 221.98999999999998
+        },
+        "hit": "#preview-stage.",
+        "state": {
+          "selectBoxActive": false,
+          "selectedPlates": [],
+          "editing": false
+        }
+      }
+    },
+    {
+      "name": "§0/§2 編集中に文字を足してから、フレーム内の何もない所を 1 回クリック → 確定 + 選択解除",
+      "pass": true,
+      "detail": {
+        "point": {
+          "x": 90.08,
+          "y": 69.9,
+          "hit": "#preview-stage.",
+          "onPlate": false
+        },
+        "before": {
+          "selectBoxActive": true,
+          "selectedPlates": [
+            "caption-plate-c-0101"
+          ],
+          "editing": true
+        },
+        "hostBefore": {
+          "daihonRows": [],
+          "daihonPlaced": [
+            "c-0101"
+          ],
+          "timeline": [
+            "c-0101:akari-annotations-selected"
+          ]
+        },
+        "after": {
+          "selectBoxActive": false,
+          "selectedPlates": [],
+          "editing": false
+        },
+        "hostAfter": {
+          "daihonRows": [],
+          "daihonPlaced": [],
+          "timeline": []
+        },
+        "savedText": "置いた文字 1★"
+      }
+    },
+    {
+      "name": "§0/§2 選択中（編集なし）に何もない所をクリック（フレーム内 / フレーム外）",
+      "pass": true,
+      "detail": {
+        "insideFrame": {
+          "point": {
+            "x": 90.08,
+            "y": 69.9,
+            "hit": "#preview-stage.",
+            "onPlate": false
+          },
+          "selected": {
+            "selectBoxActive": true,
+            "selectedPlates": [
+              "caption-plate-c-0101"
+            ],
+            "editing": false
+          },
+          "hostSelected": {
+            "daihonRows": [],
+            "daihonPlaced": [
+              "c-0101"
+            ],
+            "timeline": [
+              "c-0101:akari-annotations-selected"
+            ]
+          },
+          "after": {
+            "selectBoxActive": false,
+            "selectedPlates": [],
+            "editing": false
+          },
+          "hostAfter": {
+            "daihonRows": [],
+            "daihonPlaced": [],
+            "timeline": []
+          }
+        },
+        "outsideFrame": {
+          "point": {
+            "x": 374,
+            "y": 21.875,
+            "hit": "#zoom-layer.",
+            "onPlate": false
+          },
+          "selected": {
+            "selectBoxActive": true,
+            "selectedPlates": [
+              "caption-plate-c-0101"
+            ],
+            "editing": false
+          },
+          "hostSelected": {
+            "daihonRows": [],
+            "daihonPlaced": [
+              "c-0101"
+            ],
+            "timeline": [
+              "c-0101:akari-annotations-selected"
+            ]
+          },
+          "after": {
+            "selectBoxActive": false,
+            "selectedPlates": [],
+            "editing": false
+          },
+          "hostAfter": {
+            "daihonRows": [],
+            "daihonPlaced": [],
+            "timeline": []
+          }
+        }
+      }
+    },
+    {
+      "name": "rebase2 他席 P0 の回帰なし: 置いた文字をクリック → 黄色い枠とハンドルが出る",
+      "pass": true,
+      "detail": {
+        "state": {
+          "selectBoxActive": true,
+          "selectedPlates": [
+            "caption-plate-c-0101"
+          ],
+          "editing": false
+        },
+        "selected": true,
+        "outline": "solid 1.5px rgb(245, 196, 81)",
+        "handles": [
+          {
+            "kind": "nw",
+            "w": 6,
+            "h": 6,
+            "display": "block",
+            "visibility": "visible",
+            "border": "rgb(245, 196, 81)"
+          },
+          {
+            "kind": "ne",
+            "w": 6,
+            "h": 6,
+            "display": "block",
+            "visibility": "visible",
+            "border": "rgb(245, 196, 81)"
+          },
+          {
+            "kind": "sw",
+            "w": 6,
+            "h": 6,
+            "display": "block",
+            "visibility": "visible",
+            "border": "rgb(245, 196, 81)"
+          },
+          {
+            "kind": "se",
+            "w": 6,
+            "h": 6,
+            "display": "block",
+            "visibility": "visible",
+            "border": "rgb(245, 196, 81)"
+          },
+          {
+            "kind": "rot",
+            "w": 7,
+            "h": 7,
+            "display": "block",
+            "visibility": "visible",
+            "border": "rgb(255, 255, 255)"
+          }
+        ]
+      }
+    },
+    {
+      "name": "rebase2 2 本（話した言葉の字幕 + 置いた文字）を選ぶ → 何もない所を 1 回クリックで両方解除",
+      "pass": true,
+      "detail": {
+        "usedPath": "host event akari.daihon.selectionChanged [spoken, placed] + primarySelected(placed)（計装）",
+        "attempts": [
+          {
+            "path": "preview Shift+click",
+            "preview": {
+              "selectBoxActive": true,
+              "selectedPlates": [
+                "caption-plate-c-0001-output-1"
+              ],
+              "editing": false
+            },
+            "host": {
+              "daihonRows": [],
+              "daihonPlaced": [],
+              "timeline": [
+                "c-0001:akari-annotations-selected"
+              ]
+            }
+          },
+          {
+            "path": "timeline Shift+click",
+            "points": {
+              "a": {
+                "miss": true,
+                "rect": {
+                  "l": 200,
+                  "t": 693.890625,
+                  "w": 53.6328125,
+                  "h": 22
+                }
+              },
+              "b": {
+                "x": 223.46484375,
+                "y": 704.890625,
+                "rect": {
+                  "l": 200,
+                  "t": 693.890625,
+                  "w": 46.9296875,
+                  "h": 22
+                }
+              }
+            },
+            "preview": {
+              "selectBoxActive": false,
+              "selectedPlates": [],
+              "editing": false
+            },
+            "host": {
+              "daihonRows": [],
+              "daihonPlaced": [],
+              "timeline": []
+            }
+          },
+          {
+            "path": "daihon Cmd+click row + Shift+click placed bar",
+            "preview": {
+              "selectBoxActive": false,
+              "selectedPlates": [
+                "caption-plate-c-0001-output-1"
+              ],
+              "editing": false
+            },
+            "host": {
+              "daihonRows": [
+                "c-0001"
+              ],
+              "daihonPlaced": [],
+              "timeline": [
+                "c-0001:akari-annotations-selected+akari-annotations-caption-selected"
+              ]
+            }
+          },
+          {
+            "path": "host event akari.daihon.selectionChanged [spoken, placed] + primarySelected(placed)（計装）",
+            "preview": {
+              "selectBoxActive": true,
+              "selectedPlates": [
+                "caption-plate-c-0101",
+                "caption-plate-c-0001-output-1"
+              ],
+              "editing": false
+            },
+            "host": {
+              "daihonRows": [],
+              "daihonPlaced": [
+                "c-0101"
+              ],
+              "timeline": [
+                "c-0001:akari-annotations-caption-selected"
+              ]
+            }
+          }
+        ],
+        "selected": {
+          "selectBoxActive": true,
+          "selectedPlates": [
+            "caption-plate-c-0101",
+            "caption-plate-c-0001-output-1"
+          ],
+          "editing": false
+        },
+        "handlesTwo": {
+          "spoken": {
+            "selected": true,
+            "outline": "solid 1.5px rgb(245, 196, 81)",
+            "handles": [
+              {
+                "kind": "nw",
+                "w": 6,
+                "h": 6,
+                "display": "block",
+                "visibility": "visible",
+                "border": "rgb(245, 196, 81)"
+              },
+              {
+                "kind": "ne",
+                "w": 6,
+                "h": 6,
+                "display": "block",
+                "visibility": "visible",
+                "border": "rgb(245, 196, 81)"
+              },
+              {
+                "kind": "sw",
+                "w": 6,
+                "h": 6,
+                "display": "block",
+                "visibility": "visible",
+                "border": "rgb(245, 196, 81)"
+              },
+              {
+                "kind": "se",
+                "w": 6,
+                "h": 6,
+                "display": "block",
+                "visibility": "visible",
+                "border": "rgb(245, 196, 81)"
+              },
+              {
+                "kind": "rot",
+                "w": 7,
+                "h": 7,
+                "display": "block",
+                "visibility": "visible",
+                "border": "rgb(255, 255, 255)"
+              }
+            ]
+          },
+          "placed": {
+            "selected": true,
+            "outline": "solid 1.5px rgb(245, 196, 81)",
+            "handles": [
+              {
+                "kind": "nw",
+                "w": 6,
+                "h": 6,
+                "display": "block",
+                "visibility": "visible",
+                "border": "rgb(245, 196, 81)"
+              },
+              {
+                "kind": "ne",
+                "w": 6,
+                "h": 6,
+                "display": "block",
+                "visibility": "visible",
+                "border": "rgb(245, 196, 81)"
+              },
+              {
+                "kind": "sw",
+                "w": 6,
+                "h": 6,
+                "display": "block",
+                "visibility": "visible",
+                "border": "rgb(245, 196, 81)"
+              },
+              {
+                "kind": "se",
+                "w": 6,
+                "h": 6,
+                "display": "block",
+                "visibility": "visible",
+                "border": "rgb(245, 196, 81)"
+              },
+              {
+                "kind": "rot",
+                "w": 7,
+                "h": 7,
+                "display": "block",
+                "visibility": "visible",
+                "border": "rgb(255, 255, 255)"
+              }
+            ]
+          }
+        },
+        "hostSelected": {
+          "daihonRows": [],
+          "daihonPlaced": [
+            "c-0101"
+          ],
+          "timeline": [
+            "c-0001:akari-annotations-caption-selected"
+          ]
+        },
+        "after": {
+          "selectBoxActive": false,
+          "selectedPlates": [],
+          "editing": false
+        },
+        "hostAfter": {
+          "daihonRows": [],
+          "daihonPlaced": [],
+          "timeline": [
+            "c-0001:akari-annotations-caption-selected"
+          ]
+        },
+        "handlesAfter": {
+          "spoken": {
+            "selected": false,
+            "outline": "none 0px rgb(255, 255, 255)",
+            "handles": []
+          },
+          "placed": {
+            "selected": false,
+            "outline": "none 0px rgb(255, 255, 255)",
+            "handles": []
+          }
+        },
+        "timelineResidueFromSyntheticEvent": [
+          "c-0001:akari-annotations-caption-selected"
+        ]
+      }
+    },
+    {
+      "name": "rebase2 実 UI: 台本で話した言葉の行を選ぶ（ホスト発の選択）→ プレビューの何もない所を 1 回クリックで解除",
+      "pass": false,
+      "error": "Error: host selection {\"daihonRows\":[\"c-0001\"],\"daihonPlaced\":[],\"timeline\":[\"c-0001:akari-annotations-caption-selected\"]}\n    at assert (file://<worktree>/apps/shell/extensions/akari-preview/evidence/placed-text-feedback-polish/scripts/l1.mjs:35:74)\n    at file://<worktree>/apps/shell/extensions/akari-preview/evidence/placed-text-feedback-polish/scripts/l1.mjs:364:17\n    at async check (file://<worktree>/apps/shell/extensions/akari-preview/evidence/placed-text-feedback-polish/scripts/l1.mjs:39:27)\n    at async file://<worktree>/apps/shell/extensions/akari-preview/evidence/placed-text-feedback-polish/scripts/l1.mjs:343:13"
+    },
+    {
+      "name": "rebase2 他席 P0: 編集中の Backspace は文字だけ消し、アイテムは消えない",
+      "pass": true,
+      "detail": {
+        "beforeText": "置いた文字 1★",
+        "editingBefore": "置いた文字 1★",
+        "focusBefore": true,
+        "editingAfter": "置いた文字 1",
+        "afterBackspace": [
+          {
+            "ms": 0,
+            "editing": "置いた文字 1",
+            "focused": true,
+            "active": "div.akari-caption__line",
+            "plate": ".akari-caption{position:absolute;inset:0;pointer-events:none;color:var(--caption-color,#fff);-webkit-text-stroke:var(--caption-webkit-text-stroke,var(--caption-stroke,0.14em rgba(0,0,0,.9)));paint-order:var(--caption-paint-order,stroke fill);text-shadow:var(--caption-text-shadow,0 2px 8px rgba(0,0,0,.35));font-family:var(--caption-font-family,\"AKARI Noto Sans JP\",\"Noto Sans JP\",sans-serif);font-size:var(--caption-font-size,38px);font-weight:var(--caption-font-weight,700);font-style:var(--caption-font-style,normal);text-decoration:var(--caption-text-decoration,none);letter-spacing:var(--caption-letter-spacing,normal);text-transform:var(--caption-text-transform,none);line-height:var(--caption-word-line-height,var(--caption-line-height,1.42));writing-mode:var(--caption-writing-mode,horizontal-tb);text-align:center;}.akari-caption__plate{position:absolute;top:var(--caption-top,auto);translate:var(--caption-translate,none);left:var(--caption-left,0);right:var(--caption-right,0);bottom:var(--caption-bottom,7%);display:flex;flex-direction:column;justify-content:var(--caption-justify-content,flex-start);align-items:var(--caption-align-items,stretch);gap:var(--plate-gap,4px);transform:rotate(var(--caption-rotate,0deg)) scale(var(--caption-scale,1));transform-origin:center;}.akari-caption__line{position:relative;isolation:isolate;width:max-content;max-width:var(--caption-line-max-width,92%);margin:var(--caption-line-margin,0 auto);padding:var(--plate-pad-y,0.08em) var(--plate-pad-x,0.42em);border-radius:var(--plate-radius,10px);background:var(--plate-bg,transparent);text-align:var(--caption-text-align,center);white-space:pre;}.akari-caption__line::before{content:\"\";position:absolute;inset:calc(0px - var(--plate-ext-height,0px)) calc(0px - var(--plate-ext-width,0px));z-index:-1;border-radius:var(--plate-ext-radius,10px);background:var(--plate-ext-bg,transparent);transform:translate(var(--plate-offset-x,0px),var(--plate-offset-y,0px));}置いた文字 1"
+          },
+          {
+            "ms": 102,
+            "editing": "置いた文字 1",
+            "focused": true,
+            "active": "div.akari-caption__line",
+            "plate": ".akari-caption{position:absolute;inset:0;pointer-events:none;color:var(--caption-color,#fff);-webkit-text-stroke:var(--caption-webkit-text-stroke,var(--caption-stroke,0.14em rgba(0,0,0,.9)));paint-order:var(--caption-paint-order,stroke fill);text-shadow:var(--caption-text-shadow,0 2px 8px rgba(0,0,0,.35));font-family:var(--caption-font-family,\"AKARI Noto Sans JP\",\"Noto Sans JP\",sans-serif);font-size:var(--caption-font-size,38px);font-weight:var(--caption-font-weight,700);font-style:var(--caption-font-style,normal);text-decoration:var(--caption-text-decoration,none);letter-spacing:var(--caption-letter-spacing,normal);text-transform:var(--caption-text-transform,none);line-height:var(--caption-word-line-height,var(--caption-line-height,1.42));writing-mode:var(--caption-writing-mode,horizontal-tb);text-align:center;}.akari-caption__plate{position:absolute;top:var(--caption-top,auto);translate:var(--caption-translate,none);left:var(--caption-left,0);right:var(--caption-right,0);bottom:var(--caption-bottom,7%);display:flex;flex-direction:column;justify-content:var(--caption-justify-content,flex-start);align-items:var(--caption-align-items,stretch);gap:var(--plate-gap,4px);transform:rotate(var(--caption-rotate,0deg)) scale(var(--caption-scale,1));transform-origin:center;}.akari-caption__line{position:relative;isolation:isolate;width:max-content;max-width:var(--caption-line-max-width,92%);margin:var(--caption-line-margin,0 auto);padding:var(--plate-pad-y,0.08em) var(--plate-pad-x,0.42em);border-radius:var(--plate-radius,10px);background:var(--plate-bg,transparent);text-align:var(--caption-text-align,center);white-space:pre;}.akari-caption__line::before{content:\"\";position:absolute;inset:calc(0px - var(--plate-ext-height,0px)) calc(0px - var(--plate-ext-width,0px));z-index:-1;border-radius:var(--plate-ext-radius,10px);background:var(--plate-ext-bg,transparent);transform:translate(var(--plate-offset-x,0px),var(--plate-offset-y,0px));}置いた文字 1"
+          },
+          {
+            "ms": 206,
+            "editing": "置いた文字 1",
+            "focused": true,
+            "active": "div.akari-caption__line",
+            "plate": ".akari-caption{position:absolute;inset:0;pointer-events:none;color:var(--caption-color,#fff);-webkit-text-stroke:var(--caption-webkit-text-stroke,var(--caption-stroke,0.14em rgba(0,0,0,.9)));paint-order:var(--caption-paint-order,stroke fill);text-shadow:var(--caption-text-shadow,0 2px 8px rgba(0,0,0,.35));font-family:var(--caption-font-family,\"AKARI Noto Sans JP\",\"Noto Sans JP\",sans-serif);font-size:var(--caption-font-size,38px);font-weight:var(--caption-font-weight,700);font-style:var(--caption-font-style,normal);text-decoration:var(--caption-text-decoration,none);letter-spacing:var(--caption-letter-spacing,normal);text-transform:var(--caption-text-transform,none);line-height:var(--caption-word-line-height,var(--caption-line-height,1.42));writing-mode:var(--caption-writing-mode,horizontal-tb);text-align:center;}.akari-caption__plate{position:absolute;top:var(--caption-top,auto);translate:var(--caption-translate,none);left:var(--caption-left,0);right:var(--caption-right,0);bottom:var(--caption-bottom,7%);display:flex;flex-direction:column;justify-content:var(--caption-justify-content,flex-start);align-items:var(--caption-align-items,stretch);gap:var(--plate-gap,4px);transform:rotate(var(--caption-rotate,0deg)) scale(var(--caption-scale,1));transform-origin:center;}.akari-caption__line{position:relative;isolation:isolate;width:max-content;max-width:var(--caption-line-max-width,92%);margin:var(--caption-line-margin,0 auto);padding:var(--plate-pad-y,0.08em) var(--plate-pad-x,0.42em);border-radius:var(--plate-radius,10px);background:var(--plate-bg,transparent);text-align:var(--caption-text-align,center);white-space:pre;}.akari-caption__line::before{content:\"\";position:absolute;inset:calc(0px - var(--plate-ext-height,0px)) calc(0px - var(--plate-ext-width,0px));z-index:-1;border-radius:var(--plate-ext-radius,10px);background:var(--plate-ext-bg,transparent);transform:translate(var(--plate-offset-x,0px),var(--plate-offset-y,0px));}置いた文字 1"
+          },
+          {
+            "ms": 309,
+            "editing": "置いた文字 1",
+            "focused": true,
+            "active": "div.akari-caption__line",
+            "plate": ".akari-caption{position:absolute;inset:0;pointer-events:none;color:var(--caption-color,#fff);-webkit-text-stroke:var(--caption-webkit-text-stroke,var(--caption-stroke,0.14em rgba(0,0,0,.9)));paint-order:var(--caption-paint-order,stroke fill);text-shadow:var(--caption-text-shadow,0 2px 8px rgba(0,0,0,.35));font-family:var(--caption-font-family,\"AKARI Noto Sans JP\",\"Noto Sans JP\",sans-serif);font-size:var(--caption-font-size,38px);font-weight:var(--caption-font-weight,700);font-style:var(--caption-font-style,normal);text-decoration:var(--caption-text-decoration,none);letter-spacing:var(--caption-letter-spacing,normal);text-transform:var(--caption-text-transform,none);line-height:var(--caption-word-line-height,var(--caption-line-height,1.42));writing-mode:var(--caption-writing-mode,horizontal-tb);text-align:center;}.akari-caption__plate{position:absolute;top:var(--caption-top,auto);translate:var(--caption-translate,none);left:var(--caption-left,0);right:var(--caption-right,0);bottom:var(--caption-bottom,7%);display:flex;flex-direction:column;justify-content:var(--caption-justify-content,flex-start);align-items:var(--caption-align-items,stretch);gap:var(--plate-gap,4px);transform:rotate(var(--caption-rotate,0deg)) scale(var(--caption-scale,1));transform-origin:center;}.akari-caption__line{position:relative;isolation:isolate;width:max-content;max-width:var(--caption-line-max-width,92%);margin:var(--caption-line-margin,0 auto);padding:var(--plate-pad-y,0.08em) var(--plate-pad-x,0.42em);border-radius:var(--plate-radius,10px);background:var(--plate-bg,transparent);text-align:var(--caption-text-align,center);white-space:pre;}.akari-caption__line::before{content:\"\";position:absolute;inset:calc(0px - var(--plate-ext-height,0px)) calc(0px - var(--plate-ext-width,0px));z-index:-1;border-radius:var(--plate-ext-radius,10px);background:var(--plate-ext-bg,transparent);transform:translate(var(--plate-offset-x,0px),var(--plate-offset-y,0px));}置いた文字 1"
+          },
+          {
+            "ms": 422,
+            "editing": "置いた文字 1",
+            "focused": true,
+            "active": "div.akari-caption__line",
+            "plate": ".akari-caption{position:absolute;inset:0;pointer-events:none;color:var(--caption-color,#fff);-webkit-text-stroke:var(--caption-webkit-text-stroke,var(--caption-stroke,0.14em rgba(0,0,0,.9)));paint-order:var(--caption-paint-order,stroke fill);text-shadow:var(--caption-text-shadow,0 2px 8px rgba(0,0,0,.35));font-family:var(--caption-font-family,\"AKARI Noto Sans JP\",\"Noto Sans JP\",sans-serif);font-size:var(--caption-font-size,38px);font-weight:var(--caption-font-weight,700);font-style:var(--caption-font-style,normal);text-decoration:var(--caption-text-decoration,none);letter-spacing:var(--caption-letter-spacing,normal);text-transform:var(--caption-text-transform,none);line-height:var(--caption-word-line-height,var(--caption-line-height,1.42));writing-mode:var(--caption-writing-mode,horizontal-tb);text-align:center;}.akari-caption__plate{position:absolute;top:var(--caption-top,auto);translate:var(--caption-translate,none);left:var(--caption-left,0);right:var(--caption-right,0);bottom:var(--caption-bottom,7%);display:flex;flex-direction:column;justify-content:var(--caption-justify-content,flex-start);align-items:var(--caption-align-items,stretch);gap:var(--plate-gap,4px);transform:rotate(var(--caption-rotate,0deg)) scale(var(--caption-scale,1));transform-origin:center;}.akari-caption__line{position:relative;isolation:isolate;width:max-content;max-width:var(--caption-line-max-width,92%);margin:var(--caption-line-margin,0 auto);padding:var(--plate-pad-y,0.08em) var(--plate-pad-x,0.42em);border-radius:var(--plate-radius,10px);background:var(--plate-bg,transparent);text-align:var(--caption-text-align,center);white-space:pre;}.akari-caption__line::before{content:\"\";position:absolute;inset:calc(0px - var(--plate-ext-height,0px)) calc(0px - var(--plate-ext-width,0px));z-index:-1;border-radius:var(--plate-ext-radius,10px);background:var(--plate-ext-bg,transparent);transform:translate(var(--plate-offset-x,0px),var(--plate-offset-y,0px));}置いた文字 1"
+          },
+          {
+            "ms": 525,
+            "editing": "置いた文字 1",
+            "focused": true,
+            "active": "div.akari-caption__line",
+            "plate": ".akari-caption{position:absolute;inset:0;pointer-events:none;color:var(--caption-color,#fff);-webkit-text-stroke:var(--caption-webkit-text-stroke,var(--caption-stroke,0.14em rgba(0,0,0,.9)));paint-order:var(--caption-paint-order,stroke fill);text-shadow:var(--caption-text-shadow,0 2px 8px rgba(0,0,0,.35));font-family:var(--caption-font-family,\"AKARI Noto Sans JP\",\"Noto Sans JP\",sans-serif);font-size:var(--caption-font-size,38px);font-weight:var(--caption-font-weight,700);font-style:var(--caption-font-style,normal);text-decoration:var(--caption-text-decoration,none);letter-spacing:var(--caption-letter-spacing,normal);text-transform:var(--caption-text-transform,none);line-height:var(--caption-word-line-height,var(--caption-line-height,1.42));writing-mode:var(--caption-writing-mode,horizontal-tb);text-align:center;}.akari-caption__plate{position:absolute;top:var(--caption-top,auto);translate:var(--caption-translate,none);left:var(--caption-left,0);right:var(--caption-right,0);bottom:var(--caption-bottom,7%);display:flex;flex-direction:column;justify-content:var(--caption-justify-content,flex-start);align-items:var(--caption-align-items,stretch);gap:var(--plate-gap,4px);transform:rotate(var(--caption-rotate,0deg)) scale(var(--caption-scale,1));transform-origin:center;}.akari-caption__line{position:relative;isolation:isolate;width:max-content;max-width:var(--caption-line-max-width,92%);margin:var(--caption-line-margin,0 auto);padding:var(--plate-pad-y,0.08em) var(--plate-pad-x,0.42em);border-radius:var(--plate-radius,10px);background:var(--plate-bg,transparent);text-align:var(--caption-text-align,center);white-space:pre;}.akari-caption__line::before{content:\"\";position:absolute;inset:calc(0px - var(--plate-ext-height,0px)) calc(0px - var(--plate-ext-width,0px));z-index:-1;border-radius:var(--plate-ext-radius,10px);background:var(--plate-ext-bg,transparent);transform:translate(var(--plate-offset-x,0px),var(--plate-offset-y,0px));}置いた文字 1"
+          },
+          {
+            "ms": 629,
+            "editing": "置いた文字 1",
+            "focused": true,
+            "active": "div.akari-caption__line",
+            "plate": ".akari-caption{position:absolute;inset:0;pointer-events:none;color:var(--caption-color,#fff);-webkit-text-stroke:var(--caption-webkit-text-stroke,var(--caption-stroke,0.14em rgba(0,0,0,.9)));paint-order:var(--caption-paint-order,stroke fill);text-shadow:var(--caption-text-shadow,0 2px 8px rgba(0,0,0,.35));font-family:var(--caption-font-family,\"AKARI Noto Sans JP\",\"Noto Sans JP\",sans-serif);font-size:var(--caption-font-size,38px);font-weight:var(--caption-font-weight,700);font-style:var(--caption-font-style,normal);text-decoration:var(--caption-text-decoration,none);letter-spacing:var(--caption-letter-spacing,normal);text-transform:var(--caption-text-transform,none);line-height:var(--caption-word-line-height,var(--caption-line-height,1.42));writing-mode:var(--caption-writing-mode,horizontal-tb);text-align:center;}.akari-caption__plate{position:absolute;top:var(--caption-top,auto);translate:var(--caption-translate,none);left:var(--caption-left,0);right:var(--caption-right,0);bottom:var(--caption-bottom,7%);display:flex;flex-direction:column;justify-content:var(--caption-justify-content,flex-start);align-items:var(--caption-align-items,stretch);gap:var(--plate-gap,4px);transform:rotate(var(--caption-rotate,0deg)) scale(var(--caption-scale,1));transform-origin:center;}.akari-caption__line{position:relative;isolation:isolate;width:max-content;max-width:var(--caption-line-max-width,92%);margin:var(--caption-line-margin,0 auto);padding:var(--plate-pad-y,0.08em) var(--plate-pad-x,0.42em);border-radius:var(--plate-radius,10px);background:var(--plate-bg,transparent);text-align:var(--caption-text-align,center);white-space:pre;}.akari-caption__line::before{content:\"\";position:absolute;inset:calc(0px - var(--plate-ext-height,0px)) calc(0px - var(--plate-ext-width,0px));z-index:-1;border-radius:var(--plate-ext-radius,10px);background:var(--plate-ext-bg,transparent);transform:translate(var(--plate-offset-x,0px),var(--plate-offset-y,0px));}置いた文字 1"
+          },
+          {
+            "ms": 733,
+            "editing": "置いた文字 1",
+            "focused": true,
+            "active": "div.akari-caption__line",
+            "plate": ".akari-caption{position:absolute;inset:0;pointer-events:none;color:var(--caption-color,#fff);-webkit-text-stroke:var(--caption-webkit-text-stroke,var(--caption-stroke,0.14em rgba(0,0,0,.9)));paint-order:var(--caption-paint-order,stroke fill);text-shadow:var(--caption-text-shadow,0 2px 8px rgba(0,0,0,.35));font-family:var(--caption-font-family,\"AKARI Noto Sans JP\",\"Noto Sans JP\",sans-serif);font-size:var(--caption-font-size,38px);font-weight:var(--caption-font-weight,700);font-style:var(--caption-font-style,normal);text-decoration:var(--caption-text-decoration,none);letter-spacing:var(--caption-letter-spacing,normal);text-transform:var(--caption-text-transform,none);line-height:var(--caption-word-line-height,var(--caption-line-height,1.42));writing-mode:var(--caption-writing-mode,horizontal-tb);text-align:center;}.akari-caption__plate{position:absolute;top:var(--caption-top,auto);translate:var(--caption-translate,none);left:var(--caption-left,0);right:var(--caption-right,0);bottom:var(--caption-bottom,7%);display:flex;flex-direction:column;justify-content:var(--caption-justify-content,flex-start);align-items:var(--caption-align-items,stretch);gap:var(--plate-gap,4px);transform:rotate(var(--caption-rotate,0deg)) scale(var(--caption-scale,1));transform-origin:center;}.akari-caption__line{position:relative;isolation:isolate;width:max-content;max-width:var(--caption-line-max-width,92%);margin:var(--caption-line-margin,0 auto);padding:var(--plate-pad-y,0.08em) var(--plate-pad-x,0.42em);border-radius:var(--plate-radius,10px);background:var(--plate-bg,transparent);text-align:var(--caption-text-align,center);white-space:pre;}.akari-caption__line::before{content:\"\";position:absolute;inset:calc(0px - var(--plate-ext-height,0px)) calc(0px - var(--plate-ext-width,0px));z-index:-1;border-radius:var(--plate-ext-radius,10px);background:var(--plate-ext-bg,transparent);transform:translate(var(--plate-offset-x,0px),var(--plate-offset-y,0px));}置いた文字 1"
+          },
+          {
+            "ms": 835,
+            "editing": "置いた文字 1",
+            "focused": true,
+            "active": "div.akari-caption__line",
+            "plate": ".akari-caption{position:absolute;inset:0;pointer-events:none;color:var(--caption-color,#fff);-webkit-text-stroke:var(--caption-webkit-text-stroke,var(--caption-stroke,0.14em rgba(0,0,0,.9)));paint-order:var(--caption-paint-order,stroke fill);text-shadow:var(--caption-text-shadow,0 2px 8px rgba(0,0,0,.35));font-family:var(--caption-font-family,\"AKARI Noto Sans JP\",\"Noto Sans JP\",sans-serif);font-size:var(--caption-font-size,38px);font-weight:var(--caption-font-weight,700);font-style:var(--caption-font-style,normal);text-decoration:var(--caption-text-decoration,none);letter-spacing:var(--caption-letter-spacing,normal);text-transform:var(--caption-text-transform,none);line-height:var(--caption-word-line-height,var(--caption-line-height,1.42));writing-mode:var(--caption-writing-mode,horizontal-tb);text-align:center;}.akari-caption__plate{position:absolute;top:var(--caption-top,auto);translate:var(--caption-translate,none);left:var(--caption-left,0);right:var(--caption-right,0);bottom:var(--caption-bottom,7%);display:flex;flex-direction:column;justify-content:var(--caption-justify-content,flex-start);align-items:var(--caption-align-items,stretch);gap:var(--plate-gap,4px);transform:rotate(var(--caption-rotate,0deg)) scale(var(--caption-scale,1));transform-origin:center;}.akari-caption__line{position:relative;isolation:isolate;width:max-content;max-width:var(--caption-line-max-width,92%);margin:var(--caption-line-margin,0 auto);padding:var(--plate-pad-y,0.08em) var(--plate-pad-x,0.42em);border-radius:var(--plate-radius,10px);background:var(--plate-bg,transparent);text-align:var(--caption-text-align,center);white-space:pre;}.akari-caption__line::before{content:\"\";position:absolute;inset:calc(0px - var(--plate-ext-height,0px)) calc(0px - var(--plate-ext-width,0px));z-index:-1;border-radius:var(--plate-ext-radius,10px);background:var(--plate-ext-bg,transparent);transform:translate(var(--plate-offset-x,0px),var(--plate-offset-y,0px));}置いた文字 1"
+          },
+          {
+            "ms": 937,
+            "editing": "置いた文字 1",
+            "focused": true,
+            "active": "div.akari-caption__line",
+            "plate": ".akari-caption{position:absolute;inset:0;pointer-events:none;color:var(--caption-color,#fff);-webkit-text-stroke:var(--caption-webkit-text-stroke,var(--caption-stroke,0.14em rgba(0,0,0,.9)));paint-order:var(--caption-paint-order,stroke fill);text-shadow:var(--caption-text-shadow,0 2px 8px rgba(0,0,0,.35));font-family:var(--caption-font-family,\"AKARI Noto Sans JP\",\"Noto Sans JP\",sans-serif);font-size:var(--caption-font-size,38px);font-weight:var(--caption-font-weight,700);font-style:var(--caption-font-style,normal);text-decoration:var(--caption-text-decoration,none);letter-spacing:var(--caption-letter-spacing,normal);text-transform:var(--caption-text-transform,none);line-height:var(--caption-word-line-height,var(--caption-line-height,1.42));writing-mode:var(--caption-writing-mode,horizontal-tb);text-align:center;}.akari-caption__plate{position:absolute;top:var(--caption-top,auto);translate:var(--caption-translate,none);left:var(--caption-left,0);right:var(--caption-right,0);bottom:var(--caption-bottom,7%);display:flex;flex-direction:column;justify-content:var(--caption-justify-content,flex-start);align-items:var(--caption-align-items,stretch);gap:var(--plate-gap,4px);transform:rotate(var(--caption-rotate,0deg)) scale(var(--caption-scale,1));transform-origin:center;}.akari-caption__line{position:relative;isolation:isolate;width:max-content;max-width:var(--caption-line-max-width,92%);margin:var(--caption-line-margin,0 auto);padding:var(--plate-pad-y,0.08em) var(--plate-pad-x,0.42em);border-radius:var(--plate-radius,10px);background:var(--plate-bg,transparent);text-align:var(--caption-text-align,center);white-space:pre;}.akari-caption__line::before{content:\"\";position:absolute;inset:calc(0px - var(--plate-ext-height,0px)) calc(0px - var(--plate-ext-width,0px));z-index:-1;border-radius:var(--plate-ext-radius,10px);background:var(--plate-ext-bg,transparent);transform:translate(var(--plate-offset-x,0px),var(--plate-offset-y,0px));}置いた文字 1"
+          },
+          {
+            "ms": 1041,
+            "editing": "置いた文字 1",
+            "focused": true,
+            "active": "div.akari-caption__line",
+            "plate": ".akari-caption{position:absolute;inset:0;pointer-events:none;color:var(--caption-color,#fff);-webkit-text-stroke:var(--caption-webkit-text-stroke,var(--caption-stroke,0.14em rgba(0,0,0,.9)));paint-order:var(--caption-paint-order,stroke fill);text-shadow:var(--caption-text-shadow,0 2px 8px rgba(0,0,0,.35));font-family:var(--caption-font-family,\"AKARI Noto Sans JP\",\"Noto Sans JP\",sans-serif);font-size:var(--caption-font-size,38px);font-weight:var(--caption-font-weight,700);font-style:var(--caption-font-style,normal);text-decoration:var(--caption-text-decoration,none);letter-spacing:var(--caption-letter-spacing,normal);text-transform:var(--caption-text-transform,none);line-height:var(--caption-word-line-height,var(--caption-line-height,1.42));writing-mode:var(--caption-writing-mode,horizontal-tb);text-align:center;}.akari-caption__plate{position:absolute;top:var(--caption-top,auto);translate:var(--caption-translate,none);left:var(--caption-left,0);right:var(--caption-right,0);bottom:var(--caption-bottom,7%);display:flex;flex-direction:column;justify-content:var(--caption-justify-content,flex-start);align-items:var(--caption-align-items,stretch);gap:var(--plate-gap,4px);transform:rotate(var(--caption-rotate,0deg)) scale(var(--caption-scale,1));transform-origin:center;}.akari-caption__line{position:relative;isolation:isolate;width:max-content;max-width:var(--caption-line-max-width,92%);margin:var(--caption-line-margin,0 auto);padding:var(--plate-pad-y,0.08em) var(--plate-pad-x,0.42em);border-radius:var(--plate-radius,10px);background:var(--plate-bg,transparent);text-align:var(--caption-text-align,center);white-space:pre;}.akari-caption__line::before{content:\"\";position:absolute;inset:calc(0px - var(--plate-ext-height,0px)) calc(0px - var(--plate-ext-width,0px));z-index:-1;border-radius:var(--plate-ext-radius,10px);background:var(--plate-ext-bg,transparent);transform:translate(var(--plate-offset-x,0px),var(--plate-offset-y,0px));}置いた文字 1"
+          },
+          {
+            "ms": 1144,
+            "editing": "置いた文字 1",
+            "focused": true,
+            "active": "div.akari-caption__line",
+            "plate": ".akari-caption{position:absolute;inset:0;pointer-events:none;color:var(--caption-color,#fff);-webkit-text-stroke:var(--caption-webkit-text-stroke,var(--caption-stroke,0.14em rgba(0,0,0,.9)));paint-order:var(--caption-paint-order,stroke fill);text-shadow:var(--caption-text-shadow,0 2px 8px rgba(0,0,0,.35));font-family:var(--caption-font-family,\"AKARI Noto Sans JP\",\"Noto Sans JP\",sans-serif);font-size:var(--caption-font-size,38px);font-weight:var(--caption-font-weight,700);font-style:var(--caption-font-style,normal);text-decoration:var(--caption-text-decoration,none);letter-spacing:var(--caption-letter-spacing,normal);text-transform:var(--caption-text-transform,none);line-height:var(--caption-word-line-height,var(--caption-line-height,1.42));writing-mode:var(--caption-writing-mode,horizontal-tb);text-align:center;}.akari-caption__plate{position:absolute;top:var(--caption-top,auto);translate:var(--caption-translate,none);left:var(--caption-left,0);right:var(--caption-right,0);bottom:var(--caption-bottom,7%);display:flex;flex-direction:column;justify-content:var(--caption-justify-content,flex-start);align-items:var(--caption-align-items,stretch);gap:var(--plate-gap,4px);transform:rotate(var(--caption-rotate,0deg)) scale(var(--caption-scale,1));transform-origin:center;}.akari-caption__line{position:relative;isolation:isolate;width:max-content;max-width:var(--caption-line-max-width,92%);margin:var(--caption-line-margin,0 auto);padding:var(--plate-pad-y,0.08em) var(--plate-pad-x,0.42em);border-radius:var(--plate-radius,10px);background:var(--plate-bg,transparent);text-align:var(--caption-text-align,center);white-space:pre;}.akari-caption__line::before{content:\"\";position:absolute;inset:calc(0px - var(--plate-ext-height,0px)) calc(0px - var(--plate-ext-width,0px));z-index:-1;border-radius:var(--plate-ext-radius,10px);background:var(--plate-ext-bg,transparent);transform:translate(var(--plate-offset-x,0px),var(--plate-offset-y,0px));}置いた文字 1"
+          },
+          {
+            "ms": 1254,
+            "editing": "置いた文字 1",
+            "focused": true,
+            "active": "div.akari-caption__line",
+            "plate": ".akari-caption{position:absolute;inset:0;pointer-events:none;color:var(--caption-color,#fff);-webkit-text-stroke:var(--caption-webkit-text-stroke,var(--caption-stroke,0.14em rgba(0,0,0,.9)));paint-order:var(--caption-paint-order,stroke fill);text-shadow:var(--caption-text-shadow,0 2px 8px rgba(0,0,0,.35));font-family:var(--caption-font-family,\"AKARI Noto Sans JP\",\"Noto Sans JP\",sans-serif);font-size:var(--caption-font-size,38px);font-weight:var(--caption-font-weight,700);font-style:var(--caption-font-style,normal);text-decoration:var(--caption-text-decoration,none);letter-spacing:var(--caption-letter-spacing,normal);text-transform:var(--caption-text-transform,none);line-height:var(--caption-word-line-height,var(--caption-line-height,1.42));writing-mode:var(--caption-writing-mode,horizontal-tb);text-align:center;}.akari-caption__plate{position:absolute;top:var(--caption-top,auto);translate:var(--caption-translate,none);left:var(--caption-left,0);right:var(--caption-right,0);bottom:var(--caption-bottom,7%);display:flex;flex-direction:column;justify-content:var(--caption-justify-content,flex-start);align-items:var(--caption-align-items,stretch);gap:var(--plate-gap,4px);transform:rotate(var(--caption-rotate,0deg)) scale(var(--caption-scale,1));transform-origin:center;}.akari-caption__line{position:relative;isolation:isolate;width:max-content;max-width:var(--caption-line-max-width,92%);margin:var(--caption-line-margin,0 auto);padding:var(--plate-pad-y,0.08em) var(--plate-pad-x,0.42em);border-radius:var(--plate-radius,10px);background:var(--plate-bg,transparent);text-align:var(--caption-text-align,center);white-space:pre;}.akari-caption__line::before{content:\"\";position:absolute;inset:calc(0px - var(--plate-ext-height,0px)) calc(0px - var(--plate-ext-width,0px));z-index:-1;border-radius:var(--plate-ext-radius,10px);background:var(--plate-ext-bg,transparent);transform:translate(var(--plate-offset-x,0px),var(--plate-offset-y,0px));}置いた文字 1"
+          },
+          {
+            "ms": 1361,
+            "editing": "置いた文字 1",
+            "focused": true,
+            "active": "div.akari-caption__line",
+            "plate": ".akari-caption{position:absolute;inset:0;pointer-events:none;color:var(--caption-color,#fff);-webkit-text-stroke:var(--caption-webkit-text-stroke,var(--caption-stroke,0.14em rgba(0,0,0,.9)));paint-order:var(--caption-paint-order,stroke fill);text-shadow:var(--caption-text-shadow,0 2px 8px rgba(0,0,0,.35));font-family:var(--caption-font-family,\"AKARI Noto Sans JP\",\"Noto Sans JP\",sans-serif);font-size:var(--caption-font-size,38px);font-weight:var(--caption-font-weight,700);font-style:var(--caption-font-style,normal);text-decoration:var(--caption-text-decoration,none);letter-spacing:var(--caption-letter-spacing,normal);text-transform:var(--caption-text-transform,none);line-height:var(--caption-word-line-height,var(--caption-line-height,1.42));writing-mode:var(--caption-writing-mode,horizontal-tb);text-align:center;}.akari-caption__plate{position:absolute;top:var(--caption-top,auto);translate:var(--caption-translate,none);left:var(--caption-left,0);right:var(--caption-right,0);bottom:var(--caption-bottom,7%);display:flex;flex-direction:column;justify-content:var(--caption-justify-content,flex-start);align-items:var(--caption-align-items,stretch);gap:var(--plate-gap,4px);transform:rotate(var(--caption-rotate,0deg)) scale(var(--caption-scale,1));transform-origin:center;}.akari-caption__line{position:relative;isolation:isolate;width:max-content;max-width:var(--caption-line-max-width,92%);margin:var(--caption-line-margin,0 auto);padding:var(--plate-pad-y,0.08em) var(--plate-pad-x,0.42em);border-radius:var(--plate-radius,10px);background:var(--plate-bg,transparent);text-align:var(--caption-text-align,center);white-space:pre;}.akari-caption__line::before{content:\"\";position:absolute;inset:calc(0px - var(--plate-ext-height,0px)) calc(0px - var(--plate-ext-width,0px));z-index:-1;border-radius:var(--plate-ext-radius,10px);background:var(--plate-ext-bg,transparent);transform:translate(var(--plate-offset-x,0px),var(--plate-offset-y,0px));}置いた文字 1"
+          },
+          {
+            "ms": 1465,
+            "editing": "置いた文字 1",
+            "focused": true,
+            "active": "div.akari-caption__line",
+            "plate": ".akari-caption{position:absolute;inset:0;pointer-events:none;color:var(--caption-color,#fff);-webkit-text-stroke:var(--caption-webkit-text-stroke,var(--caption-stroke,0.14em rgba(0,0,0,.9)));paint-order:var(--caption-paint-order,stroke fill);text-shadow:var(--caption-text-shadow,0 2px 8px rgba(0,0,0,.35));font-family:var(--caption-font-family,\"AKARI Noto Sans JP\",\"Noto Sans JP\",sans-serif);font-size:var(--caption-font-size,38px);font-weight:var(--caption-font-weight,700);font-style:var(--caption-font-style,normal);text-decoration:var(--caption-text-decoration,none);letter-spacing:var(--caption-letter-spacing,normal);text-transform:var(--caption-text-transform,none);line-height:var(--caption-word-line-height,var(--caption-line-height,1.42));writing-mode:var(--caption-writing-mode,horizontal-tb);text-align:center;}.akari-caption__plate{position:absolute;top:var(--caption-top,auto);translate:var(--caption-translate,none);left:var(--caption-left,0);right:var(--caption-right,0);bottom:var(--caption-bottom,7%);display:flex;flex-direction:column;justify-content:var(--caption-justify-content,flex-start);align-items:var(--caption-align-items,stretch);gap:var(--plate-gap,4px);transform:rotate(var(--caption-rotate,0deg)) scale(var(--caption-scale,1));transform-origin:center;}.akari-caption__line{position:relative;isolation:isolate;width:max-content;max-width:var(--caption-line-max-width,92%);margin:var(--caption-line-margin,0 auto);padding:var(--plate-pad-y,0.08em) var(--plate-pad-x,0.42em);border-radius:var(--plate-radius,10px);background:var(--plate-bg,transparent);text-align:var(--caption-text-align,center);white-space:pre;}.akari-caption__line::before{content:\"\";position:absolute;inset:calc(0px - var(--plate-ext-height,0px)) calc(0px - var(--plate-ext-width,0px));z-index:-1;border-radius:var(--plate-ext-radius,10px);background:var(--plate-ext-bg,transparent);transform:translate(var(--plate-offset-x,0px),var(--plate-offset-y,0px));}置いた文字 1"
+          }
+        ],
+        "editingStillOpenAt1500ms": true,
+        "savedText": "置いた文字 1",
+        "captionsCount": {
+          "before": 17,
+          "after": 17
+        },
+        "editJsonUnchanged": true
+      }
+    },
+    {
+      "name": "§2 回帰: 何も選んでいないときにフレーム内をクリックすると従来どおりカットが選ばれる（記録）",
+      "pass": true,
+      "detail": {
+        "firstClick": {
+          "cut": true,
+          "caption": false
+        },
+        "secondClick": {
+          "cut": true,
+          "caption": false
+        }
+      }
+    },
+    {
+      "name": "§6 置いた文字を 5 か所へドラッグ → 落とした位置（±1%）で保存・描画",
+      "pass": true,
+      "detail": [
+        {
+          "target": "中央付近",
+          "drop": {
+            "x": 0.52,
+            "y": 0.46
+          },
+          "plateTextAtGrab": "置いた文字 1",
+          "plateTextAfter": "置いた文字 1",
+          "savedText": "置いた文字 1",
+          "plateWidthRatio": 0.1976,
+          "saved": {
+            "position": {
+              "x": 0.4212,
+              "y": 0.46
+            },
+            "text_anchor": "mc"
+          },
+          "expectedSaved": {
+            "x": 0.4212,
+            "y": 0.46
+          },
+          "rendered": {
+            "x": 0.52,
+            "y": 0.46
+          },
+          "renderedError": {
+            "x": 0,
+            "y": 0
+          },
+          "savedError": {
+            "x": 0,
+            "y": 0
+          }
+        },
+        {
+          "target": "左上",
+          "drop": {
+            "x": 0.16,
+            "y": 0.12
+          },
+          "plateTextAtGrab": "置いた文字 1",
+          "plateTextAfter": "置いた文字 1",
+          "savedText": "置いた文字 1",
+          "plateWidthRatio": 0.1976,
+          "saved": {
+            "position": {
+              "x": 0.0612,
+              "y": 0.12
+            },
+            "text_anchor": "mc"
+          },
+          "expectedSaved": {
+            "x": 0.0612,
+            "y": 0.12
+          },
+          "rendered": {
+            "x": 0.16,
+            "y": 0.12
+          },
+          "renderedError": {
+            "x": 0,
+            "y": 0
+          },
+          "savedError": {
+            "x": 0,
+            "y": 0
+          }
+        },
+        {
+          "target": "右端",
+          "drop": {
+            "x": 0.86,
+            "y": 0.5
+          },
+          "plateTextAtGrab": "置いた文字 1",
+          "plateTextAfter": "置いた文字 1",
+          "savedText": "置いた文字 1",
+          "plateWidthRatio": 0.1829,
+          "saved": {
+            "position": {
+              "x": 0.7612,
+              "y": 0.5
+            },
+            "text_anchor": "mc"
+          },
+          "expectedSaved": {
+            "x": 0.7686,
+            "y": 0.5
+          },
+          "rendered": {
+            "x": 0.8526,
+            "y": 0.5
+          },
+          "renderedError": {
+            "x": -0.0074,
+            "y": 0
+          },
+          "savedError": {
+            "x": -0.0074,
+            "y": 0
+          }
+        },
+        {
+          "target": "下端付近",
+          "drop": {
+            "x": 0.14,
+            "y": 0.9
+          },
+          "plateTextAtGrab": "置いた文字 1",
+          "plateTextAfter": "置いた文字 1",
+          "savedText": "置いた文字 1",
+          "plateWidthRatio": 0.1976,
+          "saved": {
+            "position": {
+              "x": 0.0485,
+              "y": 0.9
+            },
+            "text_anchor": "mc"
+          },
+          "expectedSaved": {
+            "x": 0.0412,
+            "y": 0.9
+          },
+          "rendered": {
+            "x": 0.1473,
+            "y": 0.9
+          },
+          "renderedError": {
+            "x": 0.0073,
+            "y": 0
+          },
+          "savedError": {
+            "x": 0.0073,
+            "y": 0
+          }
+        },
+        {
+          "target": "任意",
+          "drop": {
+            "x": 0.33,
+            "y": 0.68
+          },
+          "plateTextAtGrab": "置いた文字 1",
+          "plateTextAfter": "置いた文字 1",
+          "savedText": "置いた文字 1",
+          "plateWidthRatio": 0.1976,
+          "saved": {
+            "position": {
+              "x": 0.2312,
+              "y": 0.68
+            },
+            "text_anchor": "mc"
+          },
+          "expectedSaved": {
+            "x": 0.2312,
+            "y": 0.68
+          },
+          "rendered": {
+            "x": 0.33,
+            "y": 0.68
+          },
+          "renderedError": {
+            "x": 0,
+            "y": 0
+          },
+          "savedError": {
+            "x": 0,
+            "y": 0
+          }
+        }
+      ]
+    },
+    {
+      "name": "§6 置いた文字の選択中チップ（はみ出し防止）の表示",
+      "pass": true,
+      "detail": {
+        "text": "🧲 はみ出し防止 OFF",
+        "on": false,
+        "display": "block"
+      }
+    },
+    {
+      "name": "§6 回帰: 話した言葉の字幕のドラッグ（中央揃え・はみ出し防止）",
+      "pass": true,
+      "detail": {
+        "nearCenter": {
+          "text_anchor": "bc",
+          "position": {
+            "y": 0.83
+          }
+        },
+        "farRight": {
+          "text_anchor": "bc",
+          "position": {
+            "x": 0.5018,
+            "y": 0.83
+          }
+        },
+        "farRightPlateRightRatio": 0.9233
+      }
+    },
+    {
+      "name": "§2 回帰: 話した言葉の字幕もクリック選択 → 何もない所で解除 / ダブルクリック編集が開く",
+      "pass": true,
+      "detail": {
+        "selected": {
+          "selectBoxActive": true,
+          "selectedPlates": [
+            "caption-plate-c-0001-output-1"
+          ],
+          "editing": false
+        },
+        "after": {
+          "selectBoxActive": false,
+          "selectedPlates": [],
+          "editing": false
+        },
+        "dblclickEditing": true
+      }
+    },
+    {
+      "name": "§3 台本: 再生中の行（.active）の目印",
+      "pass": true,
+      "detail": {
+        "classes": "akari-daihon-row active",
+        "borderLeftWidth": "3px",
+        "borderLeftColor": "rgba(0, 0, 0, 0)",
+        "borderLeftStyle": "solid",
+        "borderRadius": "5px",
+        "boxShadow": "none",
+        "background": "color(srgb 0.32549 0.819608 0.737255 / 0.1)",
+        "outline": "none 0px rgb(229, 229, 229)",
+        "before": {
+          "content": "none",
+          "width": "auto",
+          "height": "auto",
+          "borderRadius": "0px",
+          "background": "rgba(0, 0, 0, 0)",
+          "left": "auto",
+          "top": "auto",
+          "bottom": "auto"
+        },
+        "after": {
+          "content": "none",
+          "width": "auto",
+          "height": "auto",
+          "borderRadius": "0px",
+          "background": "rgba(0, 0, 0, 0)",
+          "left": "auto",
+          "top": "auto",
+          "bottom": "auto"
+        }
+      }
+    },
+    {
+      "name": "§3 台本: 選択中かつ再生中（.selected.active）",
+      "pass": true,
+      "detail": {
+        "classes": "akari-daihon-row active selected",
+        "borderLeftWidth": "3px",
+        "borderLeftColor": "rgba(0, 0, 0, 0)",
+        "borderLeftStyle": "solid",
+        "borderRadius": "5px",
+        "boxShadow": "none",
+        "background": "oklab(0.78478 -0.115414 -0.000536978 / 0.1)",
+        "outline": "solid 1px rgb(249, 115, 22)",
+        "before": {
+          "content": "none",
+          "width": "auto",
+          "height": "auto",
+          "borderRadius": "0px",
+          "background": "rgba(0, 0, 0, 0)",
+          "left": "auto",
+          "top": "auto",
+          "bottom": "auto"
+        },
+        "after": {
+          "content": "none",
+          "width": "auto",
+          "height": "auto",
+          "borderRadius": "0px",
+          "background": "rgba(0, 0, 0, 0)",
+          "left": "auto",
+          "top": "auto",
+          "bottom": "auto"
+        }
+      }
+    },
+    {
+      "name": "§3 置いた文字のバー: 直線の棒（top/bottom 0・角丸 0・幅 4px）",
+      "pass": true,
+      "detail": {
+        "count": 8,
+        "bars": [
+          {
+            "row": "c-0001",
+            "id": "c-0102",
+            "classes": "akari-daihon-placed-bar first",
+            "top": "0px",
+            "bottom": "0px",
+            "width": "4px",
+            "borderRadius": "0px",
+            "boxShadow": "none",
+            "outline": "none",
+            "opacity": "0.9",
+            "filter": "none",
+            "background": "rgb(251, 146, 60)",
+            "insetTop": 0,
+            "insetBottom": 0,
+            "height": 67.95,
+            "rowHeight": 67.95
+          },
+          {
+            "row": "c-0002",
+            "id": "c-0102",
+            "classes": "akari-daihon-placed-bar last",
+            "top": "0px",
+            "bottom": "0px",
+            "width": "4px",
+            "borderRadius": "0px",
+            "boxShadow": "none",
+            "outline": "none",
+            "opacity": "0.9",
+            "filter": "none",
+            "background": "rgb(251, 146, 60)",
+            "insetTop": 0,
+            "insetBottom": 0,
+            "height": 67.95,
+            "rowHeight": 67.95
+          },
+          {
+            "row": "c-0002",
+            "id": "c-0103",
+            "classes": "akari-daihon-placed-bar first",
+            "top": "0px",
+            "bottom": "0px",
+            "width": "4px",
+            "borderRadius": "0px",
+            "boxShadow": "none",
+            "outline": "none",
+            "opacity": "0.9",
+            "filter": "none",
+            "background": "rgb(167, 139, 250)",
+            "insetTop": 0,
+            "insetBottom": 0,
+            "height": 67.95,
+            "rowHeight": 67.95
+          },
+          {
+            "row": "c-0003",
+            "id": "c-0103",
+            "classes": "akari-daihon-placed-bar last",
+            "top": "0px",
+            "bottom": "0px",
+            "width": "4px",
+            "borderRadius": "0px",
+            "boxShadow": "none",
+            "outline": "none",
+            "opacity": "0.9",
+            "filter": "none",
+            "background": "rgb(167, 139, 250)",
+            "insetTop": 0,
+            "insetBottom": 0,
+            "height": 67.95,
+            "rowHeight": 67.95
+          },
+          {
+            "row": "c-0004",
+            "id": "c-0106",
+            "classes": "akari-daihon-placed-bar first",
+            "top": "0px",
+            "bottom": "0px",
+            "width": "4px",
+            "borderRadius": "0px",
+            "boxShadow": "none",
+            "outline": "none",
+            "opacity": "0.9",
+            "filter": "none",
+            "background": "rgb(34, 211, 238)",
+            "insetTop": 0,
+            "insetBottom": 0,
+            "height": 67.95,
+            "rowHeight": 67.95
+          },
+          {
+            "row": "c-0005",
+            "id": "c-0106",
+            "classes": "akari-daihon-placed-bar last",
+            "top": "0px",
+            "bottom": "0px",
+            "width": "4px",
+            "borderRadius": "0px",
+            "boxShadow": "none",
+            "outline": "none",
+            "opacity": "0.9",
+            "filter": "none",
+            "background": "rgb(34, 211, 238)",
+            "insetTop": 0,
+            "insetBottom": 0,
+            "height": 67.95,
+            "rowHeight": 67.95
+          },
+          {
+            "row": "c-0005",
+            "id": "c-0107",
+            "classes": "akari-daihon-placed-bar first",
+            "top": "0px",
+            "bottom": "0px",
+            "width": "4px",
+            "borderRadius": "0px",
+            "boxShadow": "none",
+            "outline": "none",
+            "opacity": "0.9",
+            "filter": "none",
+            "background": "rgb(250, 204, 21)",
+            "insetTop": 0,
+            "insetBottom": 0,
+            "height": 67.95,
+            "rowHeight": 67.95
+          },
+          {
+            "row": "c-0006",
+            "id": "c-0107",
+            "classes": "akari-daihon-placed-bar last",
+            "top": "0px",
+            "bottom": "0px",
+            "width": "4px",
+            "borderRadius": "0px",
+            "boxShadow": "none",
+            "outline": "none",
+            "opacity": "0.9",
+            "filter": "none",
+            "background": "rgb(250, 204, 21)",
+            "insetTop": 0,
+            "insetBottom": 0,
+            "height": 67.95,
+            "rowHeight": 67.95
+          }
+        ]
+      }
+    },
+    {
+      "name": "§3 置いた文字のバー: 選択中も角丸・リングなし（太さか明るさで示す）",
+      "pass": true,
+      "detail": {
+        "selected": [
+          {
+            "row": "c-0002",
+            "id": "c-0103",
+            "classes": "akari-daihon-placed-bar selected first",
+            "top": "0px",
+            "bottom": "0px",
+            "width": "4px",
+            "borderRadius": "0px",
+            "boxShadow": "none",
+            "outline": "none",
+            "opacity": "1",
+            "filter": "brightness(1.3)",
+            "background": "rgb(167, 139, 250)",
+            "insetTop": 0,
+            "insetBottom": 0,
+            "height": 67.95,
+            "rowHeight": 67.95
+          },
+          {
+            "row": "c-0003",
+            "id": "c-0103",
+            "classes": "akari-daihon-placed-bar selected last",
+            "top": "0px",
+            "bottom": "0px",
+            "width": "4px",
+            "borderRadius": "0px",
+            "boxShadow": "none",
+            "outline": "none",
+            "opacity": "1",
+            "filter": "brightness(1.3)",
+            "background": "rgb(167, 139, 250)",
+            "insetTop": 0,
+            "insetBottom": 0,
+            "height": 67.95,
+            "rowHeight": 67.95
+          }
+        ],
+        "normalSample": {
+          "row": "c-0001",
+          "id": "c-0102",
+          "classes": "akari-daihon-placed-bar first",
+          "top": "0px",
+          "bottom": "0px",
+          "width": "4px",
+          "borderRadius": "0px",
+          "boxShadow": "none",
+          "outline": "none",
+          "opacity": "0.9",
+          "filter": "none",
+          "background": "rgb(251, 146, 60)",
+          "insetTop": 0,
+          "insetBottom": 0,
+          "height": 67.95,
+          "rowHeight": 67.95
+        }
+      }
+    },
+    {
+      "name": "§4 台本の「T この行から文字を置く」は従来どおり動く（10 本目を置く）",
+      "pass": true,
+      "detail": {
+        "selectedRows": [
+          "c-0008"
+        ],
+        "button": "T この行から文字を置く",
+        "added": {
+          "id": "c-0110",
+          "start": 28,
+          "end": 31.2,
+          "text": "テキストを入力",
+          "speaker": null,
+          "sourceRef": null,
+          "edited": true,
+          "time_domain": "output",
+          "text_style": {
+            "text_anchor": "mc",
+            "position": {
+              "x": 0.5,
+              "y": 0.5
+            }
+          }
+        },
+        "placedCount": 10
+      }
+    },
+    {
+      "name": "§5 置いた文字の色が 8 色以上で循環する（DOM の computed color）",
+      "pass": true,
+      "detail": {
+        "placed": 10,
+        "distinctColors": 8,
+        "colors": [
+          {
+            "id": "c-0102",
+            "bar": "rgb(251, 146, 60)",
+            "var": "#fb923c",
+            "tag": "rgb(251, 146, 60)|rgb(251, 146, 60)|color(srgb 0.984314 0.572549 0.235294 / 0.24)"
+          },
+          {
+            "id": "c-0101",
+            "tag": "rgb(56, 189, 248)|rgb(56, 189, 248)|color(srgb 0.219608 0.741176 0.972549 / 0.24)",
+            "var": "#38bdf8"
+          },
+          {
+            "id": "c-0103",
+            "bar": "rgb(167, 139, 250)",
+            "var": "#a78bfa",
+            "tag": "rgb(167, 139, 250)|rgb(167, 139, 250)|color(srgb 0.654902 0.545098 0.980392 / 0.24)"
+          },
+          {
+            "id": "c-0104",
+            "tag": "rgb(52, 211, 153)|rgb(52, 211, 153)|color(srgb 0.203922 0.827451 0.6 / 0.24)",
+            "var": "#34d399"
+          },
+          {
+            "id": "c-0106",
+            "bar": "rgb(34, 211, 238)",
+            "var": "#22d3ee",
+            "tag": "rgb(34, 211, 238)|rgb(34, 211, 238)|color(srgb 0.133333 0.827451 0.933333 / 0.24)"
+          },
+          {
+            "id": "c-0105",
+            "tag": "rgb(244, 114, 182)|rgb(244, 114, 182)|color(srgb 0.956863 0.447059 0.713726 / 0.24)",
+            "var": "#f472b6"
+          },
+          {
+            "id": "c-0107",
+            "bar": "rgb(250, 204, 21)",
+            "var": "#facc15",
+            "tag": "rgb(250, 204, 21)|rgb(250, 204, 21)|color(srgb 0.980392 0.8 0.0823529 / 0.24)"
+          },
+          {
+            "id": "c-0108",
+            "tag": "rgb(248, 113, 113)|rgb(248, 113, 113)|color(srgb 0.972549 0.443137 0.443137 / 0.24)",
+            "var": "#f87171"
+          },
+          {
+            "id": "c-0109",
+            "tag": "rgb(56, 189, 248)|rgb(56, 189, 248)|color(srgb 0.219608 0.741176 0.972549 / 0.24)",
+            "var": "#38bdf8"
+          },
+          {
+            "id": "c-0110",
+            "tag": "rgb(251, 146, 60)|rgb(251, 146, 60)|color(srgb 0.984314 0.572549 0.235294 / 0.24)",
+            "var": "#fb923c"
+          }
+        ]
+      }
+    },
+    {
+      "name": "rebase 他席との干渉なし: 右レールとインスペクターが開き、台本パネルが従来どおり出る",
+      "pass": true,
+      "detail": {
+        "railBefore": {
+          "rail": true,
+          "railTabs": [
+            "パートナーを追加",
+            "台本",
+            "カット",
+            "注釈",
+            "インスペクター",
+            "パートナーを追加",
+            "台本",
+            "カット",
+            "注釈",
+            "インスペクター",
+            "パートナーを追加",
+            "台本",
+            "カット",
+            "注釈",
+            "インスペクター"
+          ],
+          "inspector": false,
+          "inspectorCards": 5,
+          "daihon": true,
+          "daihonRows": 8
+        },
+        "inspector": {
+          "rail": true,
+          "railTabs": [
+            "パートナーを追加",
+            "台本",
+            "カット",
+            "注釈",
+            "インスペクター",
+            "パートナーを追加",
+            "台本",
+            "カット",
+            "注釈",
+            "インスペクター",
+            "パートナーを追加",
+            "台本",
+            "カット",
+            "注釈",
+            "インスペクター"
+          ],
+          "inspector": true,
+          "inspectorCards": 5,
+          "daihon": false,
+          "daihonRows": 8
+        },
+        "daihon": {
+          "rail": true,
+          "railTabs": [
+            "パートナーを追加",
+            "台本",
+            "カット",
+            "注釈",
+            "インスペクター",
+            "パートナーを追加",
+            "台本",
+            "カット",
+            "注釈",
+            "インスペクター",
+            "パートナーを追加",
+            "台本",
+            "カット",
+            "注釈",
+            "インスペクター"
+          ],
+          "inspector": false,
+          "inspectorCards": 5,
+          "daihon": true,
+          "daihonRows": 8
+        }
+      }
+    },
+    {
+      "name": "§6 再読込後も最後に落とした位置に描かれる",
+      "pass": true,
+      "detail": {
+        "saved": {
+          "position": {
+            "x": 0.2312,
+            "y": 0.68
+          },
+          "text_anchor": "mc"
+        },
+        "rendered": {
+          "x": 0.33,
+          "y": 0.68
+        },
+        "error": {
+          "x": 0,
+          "y": 0
+        }
+      }
+    }
+  ],
+  "screenshots": [
+    "rebase2-01-dblclick-editing.png",
+    "rebase2-02-after-empty-click-editing.png",
+    "rebase2-10-click-handles.png",
+    "rebase2-11-two-selected.png",
+    "rebase2-12-two-released.png",
+    "rebase2-03-drag-3.png",
+    "rebase2-04-daihon-active-selected.png",
+    "rebase2-05-daihon-bar-selected.png",
+    "rebase2-06-daihon-colors.png",
+    "rebase2-08-inspector.png",
+    "rebase2-09-daihon-back.png",
+    "rebase2-07-reload.png"
+  ],
+  "previewWarnings": [
+    "2026-09-22T21:03:03.141Z root WARN [akari-preview] speech sidecar cut-base-speech: no audio stream: Stream map '' matches no streams. To ignore this, add a trailing '?' to the map. Failed to set value '0:a:0' for option 'map': Invalid argument Error parsing options for output file <machine-path>"
+  ],
+  "calibration": {
+    "sx": 1,
+    "sy": 1,
+    "dx": 57,
+    "dy": 39
+  },
+  "frame": {
+    "x": 36,
+    "y": 31.875,
+    "w": 676,
+    "h": 380.25
+  },
+  "emptyPoints": {
+    "insideFrame": {
+      "x": 90.08,
+      "y": 69.9,
+      "hit": "#preview-stage.",
+      "onPlate": false
+    },
+    "outsideFrame": {
+      "x": 374,
+      "y": 21.875,
+      "hit": "#zoom-layer.",
+      "onPlate": false
+    }
+  },
+  "drags": [
+    {
+      "target": "中央付近",
+      "drop": {
+        "x": 0.52,
+        "y": 0.46
+      },
+      "plateTextAtGrab": "置いた文字 1",
+      "plateTextAfter": "置いた文字 1",
+      "savedText": "置いた文字 1",
+      "plateWidthRatio": 0.1976,
+      "saved": {
+        "position": {
+          "x": 0.4212,
+          "y": 0.46
+        },
+        "text_anchor": "mc"
+      },
+      "expectedSaved": {
+        "x": 0.4212,
+        "y": 0.46
+      },
+      "rendered": {
+        "x": 0.52,
+        "y": 0.46
+      },
+      "renderedError": {
+        "x": 0,
+        "y": 0
+      },
+      "savedError": {
+        "x": 0,
+        "y": 0
+      }
+    },
+    {
+      "target": "左上",
+      "drop": {
+        "x": 0.16,
+        "y": 0.12
+      },
+      "plateTextAtGrab": "置いた文字 1",
+      "plateTextAfter": "置いた文字 1",
+      "savedText": "置いた文字 1",
+      "plateWidthRatio": 0.1976,
+      "saved": {
+        "position": {
+          "x": 0.0612,
+          "y": 0.12
+        },
+        "text_anchor": "mc"
+      },
+      "expectedSaved": {
+        "x": 0.0612,
+        "y": 0.12
+      },
+      "rendered": {
+        "x": 0.16,
+        "y": 0.12
+      },
+      "renderedError": {
+        "x": 0,
+        "y": 0
+      },
+      "savedError": {
+        "x": 0,
+        "y": 0
+      }
+    },
+    {
+      "target": "右端",
+      "drop": {
+        "x": 0.86,
+        "y": 0.5
+      },
+      "plateTextAtGrab": "置いた文字 1",
+      "plateTextAfter": "置いた文字 1",
+      "savedText": "置いた文字 1",
+      "plateWidthRatio": 0.1829,
+      "saved": {
+        "position": {
+          "x": 0.7612,
+          "y": 0.5
+        },
+        "text_anchor": "mc"
+      },
+      "expectedSaved": {
+        "x": 0.7686,
+        "y": 0.5
+      },
+      "rendered": {
+        "x": 0.8526,
+        "y": 0.5
+      },
+      "renderedError": {
+        "x": -0.0074,
+        "y": 0
+      },
+      "savedError": {
+        "x": -0.0074,
+        "y": 0
+      }
+    },
+    {
+      "target": "下端付近",
+      "drop": {
+        "x": 0.14,
+        "y": 0.9
+      },
+      "plateTextAtGrab": "置いた文字 1",
+      "plateTextAfter": "置いた文字 1",
+      "savedText": "置いた文字 1",
+      "plateWidthRatio": 0.1976,
+      "saved": {
+        "position": {
+          "x": 0.0485,
+          "y": 0.9
+        },
+        "text_anchor": "mc"
+      },
+      "expectedSaved": {
+        "x": 0.0412,
+        "y": 0.9
+      },
+      "rendered": {
+        "x": 0.1473,
+        "y": 0.9
+      },
+      "renderedError": {
+        "x": 0.0073,
+        "y": 0
+      },
+      "savedError": {
+        "x": 0.0073,
+        "y": 0
+      }
+    },
+    {
+      "target": "任意",
+      "drop": {
+        "x": 0.33,
+        "y": 0.68
+      },
+      "plateTextAtGrab": "置いた文字 1",
+      "plateTextAfter": "置いた文字 1",
+      "savedText": "置いた文字 1",
+      "plateWidthRatio": 0.1976,
+      "saved": {
+        "position": {
+          "x": 0.2312,
+          "y": 0.68
+        },
+        "text_anchor": "mc"
+      },
+      "expectedSaved": {
+        "x": 0.2312,
+        "y": 0.68
+      },
+      "rendered": {
+        "x": 0.33,
+        "y": 0.68
+      },
+      "renderedError": {
+        "x": 0,
+        "y": 0
+      },
+      "savedError": {
+        "x": 0,
+        "y": 0
+      }
+    }
+  ]
+}

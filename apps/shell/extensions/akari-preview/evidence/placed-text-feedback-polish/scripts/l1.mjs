@@ -1,10 +1,12 @@
 #!/usr/bin/env node
 // 置いた文字の実機所見 5 点の L1（ラッパー作成の検証スクリプト）。fixture は gen-fixture.mjs で作る。
-// 使い方: node l1.mjs <before|after|rebase> <fixture dir> [--port=9447]
+// 使い方: node l1.mjs <before|after|rebase|rebase2> <fixture dir> [--port=9447]
 // rebase = 最新 main へ rebase した後の再スモーク（after と同じ判定 + 他席の右レール・インスペクター・台本との干渉確認）。
+// rebase2 = 再 rebase（他席 P0 × 2 の合流後）の再スモーク。rebase の判定 + クリックで黄色い枠とハンドル / 2 本選択 → 何もない所で両方解除 / 編集中の Backspace。
 // 実機の Electron を自分専用のポート・一時ディレクトリで起動し、CDP の実マウス・実キーで操作して実測する。
 // before = 変更前ビルドの観測記録（判定はしない）/ after = 受け入れ条件の判定つき。
 import { readFile, cp, rm, realpath } from 'node:fs/promises';
+import { existsSync } from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import { fileURLToPath } from 'node:url';
@@ -12,16 +14,18 @@ import { CDP, evalOn, listTargets, realClick, realDragMod } from './cdp-lib.mjs'
 import { S, command, launch, sanitize, saveJson, screenshot, sleep, stop, waitEval } from './l1-lib.mjs';
 
 const PHASE = process.argv[2];
-if (!['before', 'after', 'rebase'].includes(PHASE)) throw new Error('phase must be before|after|rebase');
+if (!['before', 'after', 'rebase', 'rebase2'].includes(PHASE)) throw new Error('phase must be before|after|rebase|rebase2');
 const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const REPO = path.resolve(ROOT, '..', '..', '..', '..', '..', '..');
 const SHELL = path.join(REPO, 'apps', 'shell');
-const ELECTRON = path.join(SHELL, 'node_modules/electron/dist/Electron.app/Contents/MacOS/Electron');
+// electron は apps/shell/node_modules に無い配置（ルートへ巻き上げ）もあるので両方を見る。
+const ELECTRON_REL = 'node_modules/electron/dist/Electron.app/Contents/MacOS/Electron';
+const ELECTRON = existsSync(path.join(SHELL, ELECTRON_REL)) ? path.join(SHELL, ELECTRON_REL) : path.join(REPO, ELECTRON_REL);
 const FIXTURE_SRC = path.resolve(process.argv[3] ?? path.join(os.tmpdir(), 'ptfp-l1', 'fixture'));
 const PORT = Number(process.argv.find(v => v.startsWith('--port='))?.slice(7) ?? 9447);
 const TMP = path.join(os.tmpdir(), 'ptfp-l1');
 const RUNS = path.join(TMP, 'runs');
-const RESULTS = path.join(ROOT, PHASE === 'rebase' ? 'rebase-results.json' : `results-${PHASE}.json`);
+const RESULTS = path.join(ROOT, PHASE.startsWith('rebase') ? `${PHASE}-results.json` : `results-${PHASE}.json`);
 const STRICT = PHASE !== 'before';
 const out = { phase: PHASE, status: 'running', checks: [], screenshots: [] };
 const P1 = 'c-0101';
@@ -250,6 +254,150 @@ try {
             }
             return results;
         });
+        if (PHASE === 'rebase2') {
+            // ===== rebase2: 他席 P0（字幕ハンドルの退行修正・文字編集中のキー閉じ込め）と本タスクの組み合わせ =====
+            const HANDLES = id => `(()=>{const want='caption-plate-'+encodeURIComponent(${S(id)});const p=document.getElementById(want)||[...document.querySelectorAll('.caption-row-plate')].find(e=>e.id.startsWith(want));if(!p)return null;const t=p.querySelector('.akari-caption__plate')||p;const cs=getComputedStyle(p.classList.contains('akari-caption-host--styled')?t:p);const hs=[...p.querySelectorAll('.akari-caption-handle')].map(h=>{const r=h.getBoundingClientRect();const c=getComputedStyle(h);return{kind:h.getAttribute('data-h'),w:Math.round(r.width),h:Math.round(r.height),display:c.display,visibility:c.visibility,border:c.borderTopColor}});return{selected:p.hasAttribute('data-selected'),outline:cs.outlineStyle+' '+cs.outlineWidth+' '+cs.outlineColor,handles:hs}})()`;
+            await check('rebase2 他席 P0 の回帰なし: 置いた文字をクリック → 黄色い枠とハンドルが出る', async () => {
+                const plate = await stablePlate(v, P1);
+                await clickLocal(session, off, { x: plate.cx, y: plate.cy });
+                await sleep(800);
+                const state = await v.eval(PREVIEW_STATE);
+                const m = await v.eval(HANDLES(P1));
+                const visible = m.handles.filter(h => h.w > 0 && h.h > 0 && h.display !== 'none' && h.visibility !== 'hidden');
+                assert(state.selectBoxActive && m.selected, `not selected ${S({ state, m })}`);
+                assert(/solid/.test(m.outline) && /245, 196, 81/.test(m.outline), `yellow outline ${m.outline}`);
+                assert(visible.length === 5 && ['nw', 'ne', 'sw', 'se', 'rot'].every(k => visible.some(h => h.kind === k)), `handles ${S(m.handles)}`);
+                await shot(session.cdp, '10-click-handles');
+                await clickLocal(session, off, empties.insideFrame); await sleep(700);
+                return { state, ...m };
+            });
+            await check('rebase2 2 本（話した言葉の字幕 + 置いた文字）を選ぶ → 何もない所を 1 回クリックで両方解除', async () => {
+                const attempts = [];
+                const twoSelected = async () => { const st = await v.eval(PREVIEW_STATE); return st.selectedPlates.length >= 2 ? st : null; };
+                const clearAll = async () => { await clickLocal(session, off, empties.insideFrame); await sleep(700); };
+                // (a) プレビューで Shift クリック
+                const pp = await stablePlate(v, P1), sp = await stablePlate(v, SPOKEN1);
+                await clickLocal(session, off, { x: pp.cx, y: pp.cy }); await sleep(600);
+                { const q = toPage(off, { x: sp.cx, y: sp.cy }); await realClick(session.cdp, q.x, q.y, { modifiers: 8 }); }
+                await sleep(900);
+                let state = await twoSelected();
+                attempts.push({ path: 'preview Shift+click', preview: await v.eval(PREVIEW_STATE), host: await evalOn(session.cdp, HOST_SELECTION) });
+                // (b) タイムラインで Shift クリック（字幕の項目）
+                if (!state) {
+                    await clearAll();
+                    // 2 本は同じ時刻から始まるので、実際にその項目が当たる点を項目の矩形の中から探す。
+                    const itemPoint = id => `(()=>{const e=[...document.querySelectorAll('[data-akari-item-kind="caption"]')].find(e=>e.dataset.akariItemId===${S(id)});if(!e)return null;e.scrollIntoView({block:'nearest',inline:'nearest'});const r=e.getBoundingClientRect();if(r.width<2||r.height<2)return null;for(const fy of [.5,.3,.7,.15,.85])for(const fx of [.5,.3,.7,.15,.85,.05,.95]){const x=r.left+r.width*fx,y=r.top+r.height*fy;const h=document.elementFromPoint(x,y)?.closest?.('[data-akari-item-kind="caption"]');if(h&&h.dataset.akariItemId===${S(id)})return{x,y,rect:{l:r.left,t:r.top,w:r.width,h:r.height}}}return{miss:true,rect:{l:r.left,t:r.top,w:r.width,h:r.height}}})()`;
+                    const a = await evalOn(session.cdp, itemPoint(SPOKEN1)), b = await evalOn(session.cdp, itemPoint(P1));
+                    if (a && b && !a.miss && !b.miss) {
+                        await realClick(session.cdp, a.x, a.y); await sleep(600);
+                        await realClick(session.cdp, b.x, b.y, { modifiers: 8 }); await sleep(1200);
+                        state = await twoSelected();
+                    }
+                    attempts.push({ path: 'timeline Shift+click', points: { a, b }, preview: await v.eval(PREVIEW_STATE), host: await evalOn(session.cdp, HOST_SELECTION) });
+                }
+                // (c) 台本で行を選び、置いた文字のバーを Shift クリック
+                if (!state) {
+                    await clearAll();
+                    const rowPt = await evalOn(session.cdp, `(()=>{const r=document.querySelector('.akari-daihon-row[data-caption-id=${S(SPOKEN1)}] .akari-daihon-row-text');r.scrollIntoView({block:'center'});const b=r.getBoundingClientRect();return{x:b.right-4,y:b.top+b.height/2}})()`);
+                    await realClick(session.cdp, rowPt.x, rowPt.y, { modifiers: 4 }); await sleep(700);
+                    const barPt = await evalOn(session.cdp, `(()=>{const b=[...document.querySelectorAll('.akari-daihon-placed-bar')].find(b=>(b.dataset.captionId||b.dataset.placedId)===${S(P1)});if(!b)return null;const r=b.getBoundingClientRect();return{x:r.left+r.width/2,y:r.top+r.height/2}})()`);
+                    if (barPt) { await realClick(session.cdp, barPt.x, barPt.y, { modifiers: 8 }); await sleep(1200); }
+                    state = await twoSelected();
+                    attempts.push({ path: 'daihon Cmd+click row + Shift+click placed bar', preview: await v.eval(PREVIEW_STATE), host: await evalOn(session.cdp, HOST_SELECTION) });
+                    if (!state && barPt) {
+                        await realClick(session.cdp, barPt.x, barPt.y, { modifiers: 4 }); await sleep(1200);
+                        state = await twoSelected();
+                        attempts.push({ path: 'daihon Cmd+click row + Cmd+click placed bar', preview: await v.eval(PREVIEW_STATE), host: await evalOn(session.cdp, HOST_SELECTION) });
+                    }
+                }
+                // (d) 実 UI で 2 本にならない場合: 他席 P0 の L1 と同じく、台本の選択通知（ホストのイベント）で 2 本を選ばせる。
+                //     解除はこのあと実マウスの空クリックで行う（判定の対象はそちら）。
+                if (!state) {
+                    await clearAll();
+                    const editUri = `file://${path.join(fixture, 'edit.json')}`;
+                    await evalOn(session.cdp, `window.dispatchEvent(new CustomEvent('akari.daihon.selectionChanged',{detail:${S({ editUri, captionIds: [SPOKEN1, P1] })}}))`);
+                    await sleep(500);
+                    await evalOn(session.cdp, `window.dispatchEvent(new CustomEvent('akari.timeline.primarySelected',{detail:${S({ editUri, selection: { kind: 'caption', id: P1 } })}}))`);
+                    await sleep(1200);
+                    state = await twoSelected();
+                    attempts.push({ path: 'host event akari.daihon.selectionChanged [spoken, placed] + primarySelected(placed)（計装）', preview: await v.eval(PREVIEW_STATE), host: await evalOn(session.cdp, HOST_SELECTION) });
+                }
+                assert(state, `2 本選択にならない ${S(attempts)}`);
+                const handlesTwo = { spoken: await v.eval(HANDLES(SPOKEN1)), placed: await v.eval(HANDLES(P1)) };
+                const host = await evalOn(session.cdp, HOST_SELECTION);
+                await shot(session.cdp, '11-two-selected');
+                await clickLocal(session, off, empties.insideFrame);
+                await sleep(1200);
+                const after = await v.eval(PREVIEW_STATE);
+                const hostAfter = await evalOn(session.cdp, HOST_SELECTION);
+                assert(!after.selectBoxActive && after.selectedPlates.length === 0, `still selected ${S(after)}`);
+                const synthetic = attempts.at(-1).path.startsWith('host event');
+                // 計装で 2 本にした場合、台本自身は選択を持っていない（イベントだけ）ので、タイムラインへ写った分は台本の解除通知では消えない。
+                // その場合はプレビューと台本だけを判定し、タイムラインの残りは記録する（実 UI の経路は次の項目で判定する）。
+                assert(hostAfter.daihonRows.length === 0 && hostAfter.daihonPlaced.length === 0 && (synthetic || hostAfter.timeline.length === 0), `host selection ${S(hostAfter)}`);
+                await shot(session.cdp, '12-two-released');
+                const handlesAfter = { spoken: await v.eval(HANDLES(SPOKEN1)), placed: await v.eval(HANDLES(P1)) };
+                assert(!handlesAfter.spoken.selected && !handlesAfter.placed.selected && handlesAfter.spoken.handles.length === 0 && handlesAfter.placed.handles.length === 0, `handles remain ${S(handlesAfter)}`);
+                return { usedPath: attempts.at(-1).path, attempts, selected: state, handlesTwo, hostSelected: host, after, hostAfter, handlesAfter, timelineResidueFromSyntheticEvent: synthetic ? hostAfter.timeline : null };
+            });
+            await check('rebase2 実 UI: 台本で話した言葉の行を選ぶ（ホスト発の選択）→ プレビューの何もない所を 1 回クリックで解除', async () => {
+                const editUri = `file://${path.join(fixture, 'edit.json')}`;
+                // 前の項目の計装の残り（タイムラインの字幕選択）を外してから始める。
+                await evalOn(session.cdp, `window.dispatchEvent(new CustomEvent('akari.daihon.selectionChanged',{detail:${S({ editUri, captionIds: [] })}}))`);
+                await session.cdp.send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 });
+                await session.cdp.send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 });
+                await sleep(800);
+                const start = await evalOn(session.cdp, HOST_SELECTION);
+                const rowPt = await evalOn(session.cdp, `(()=>{const r=document.querySelector('.akari-daihon-row[data-caption-id=${S(SPOKEN1)}] .akari-daihon-row-text');r.scrollIntoView({block:'center'});const b=r.getBoundingClientRect();return{x:b.right-4,y:b.top+b.height/2}})()`);
+                await realClick(session.cdp, rowPt.x, rowPt.y, { modifiers: 4 });
+                await sleep(1200);
+                const selected = await v.eval(PREVIEW_STATE);
+                const hostSelected = await evalOn(session.cdp, HOST_SELECTION);
+                const handles = await v.eval(HANDLES(SPOKEN1));
+                await clickLocal(session, off, empties.insideFrame);
+                await sleep(1200);
+                const after = await v.eval(PREVIEW_STATE);
+                const hostAfter = await evalOn(session.cdp, HOST_SELECTION);
+                const handlesAfter = await v.eval(HANDLES(SPOKEN1));
+                assert(hostSelected.daihonRows.includes(SPOKEN1) && selected.selectedPlates.length >= 1, `not selected first ${S({ selected, hostSelected })}`);
+                assert(after.selectedPlates.length === 0 && !after.selectBoxActive && !handlesAfter.selected && handlesAfter.handles.length === 0, `preview still selected ${S({ after, handlesAfter })}`);
+                assert(hostAfter.daihonRows.length === 0 && hostAfter.daihonPlaced.length === 0 && hostAfter.timeline.length === 0, `host selection ${S(hostAfter)}`);
+                return { start, selected, hostSelected, handles, after, hostAfter, handlesAfter };
+            });
+            await check('rebase2 他席 P0: 編集中の Backspace は文字だけ消し、アイテムは消えない', async () => {
+                const beforeRows = await captionsOf(fixture);
+                const beforeText = beforeRows.find(c => c.id === P1).text;
+                const beforeEdit = await readFile(path.join(fixture, 'edit.json'), 'utf8');
+                const plate = await stablePlate(v, P1);
+                await clickLocal(session, off, { x: plate.cx, y: plate.cy }, 2);
+                await waitFor('editing', () => v.eval(`Boolean(document.querySelector('[data-akari-caption-editing="true"]'))`), 10_000);
+                await sleep(400);
+                // ダブルクリックで語が選ばれている場合があるので、行末へ caret を置いてから 1 回だけ Backspace。
+                await v.eval(`(()=>{const e=document.querySelector('[data-akari-caption-editing="true"]');const r=document.createRange();r.selectNodeContents(e);r.collapse(false);const s=getSelection();s.removeAllRanges();s.addRange(r);return true})()`);
+                const editingBefore = await v.eval(`document.querySelector('[data-akari-caption-editing="true"]').textContent`);
+                const focusBefore = await v.eval(`(()=>{const e=document.querySelector('[data-akari-caption-editing="true"]');return document.activeElement===e})()`);
+                await session.cdp.send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Backspace', code: 'Backspace', windowsVirtualKeyCode: 8 });
+                await session.cdp.send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Backspace', code: 'Backspace', windowsVirtualKeyCode: 8 });
+                // Backspace 直後の編集状態を 100ms 刻みで 1.5 秒追う（編集が閉じるか・いつ閉じるか）。
+                const EDIT_PROBE = `(()=>{const e=document.querySelector('[data-akari-caption-editing="true"]');const a=document.activeElement;return{editing:e?e.textContent:null,focused:Boolean(e&&a===e),active:a?(a.id?'#'+a.id:a.tagName.toLowerCase())+'.'+[...a.classList].join('.'):null,plate:(()=>{const p=[...document.querySelectorAll('.caption-row-plate')].find(x=>x.id.startsWith('caption-plate-'+${S(P1)}));return p?p.textContent:null})()}})()`;
+                const timeline = [];
+                const t0 = Date.now();
+                for (let i = 0; i < 15; i++) { timeline.push({ ms: Date.now() - t0, ...(await v.eval(EDIT_PROBE)) }); await sleep(100); }
+                const editingAfter = timeline[0].editing;
+                const plateStill = await v.eval(PLATE(P1));
+                await clickLocal(session, off, empties.insideFrame);
+                await sleep(1200);
+                const afterRows = await waitFor('committed', async () => { const rows = await captionsOf(fixture); const r = rows.find(c => c.id === P1); return r && r.text !== beforeText ? rows : null; }, 10_000).catch(() => captionsOf(fixture));
+                const afterEdit = await readFile(path.join(fixture, 'edit.json'), 'utf8');
+                const row = afterRows.find(c => c.id === P1);
+                assert(editingAfter === editingBefore.slice(0, -1), `editing text ${S({ editingBefore, editingAfter })}`);
+                assert(plateStill && row, `item removed ${S({ plateStill: Boolean(plateStill), row })}`);
+                assert(afterRows.length === beforeRows.length, `captions count ${beforeRows.length} → ${afterRows.length}`);
+                assert(row.text === beforeText.slice(0, -1), `saved text ${S({ beforeText, saved: row.text })}`);
+                assert(afterEdit === beforeEdit, 'edit.json changed');
+                return { beforeText, editingBefore, focusBefore, editingAfter, afterBackspace: timeline, editingStillOpenAt1500ms: timeline.at(-1).editing !== null, savedText: row.text, captionsCount: { before: beforeRows.length, after: afterRows.length }, editJsonUnchanged: afterEdit === beforeEdit };
+            });
+        }
         await check('§2 回帰: 何も選んでいないときにフレーム内をクリックすると従来どおりカットが選ばれる（記録）', async () => {
             await clickLocal(session, off, empties.insideFrame); await sleep(900);
             const first = await v.eval(`(()=>({cut:document.getElementById('cut-select-box')?.classList.contains('is-active')??null,caption:document.getElementById('caption-select-box').classList.contains('is-active')}))()`);
@@ -443,7 +591,7 @@ try {
             return { placed: m.length, distinctColors: distinct.length, colors: m };
         });
         await shot(session.cdp, '06-daihon-colors');
-        if (PHASE === 'rebase') {
+        if (PHASE.startsWith('rebase')) {
             // 他席の変更（右レール 1 本 + 区切り線 / インスペクターの持ち物カード）と干渉していないこと。
             const RAIL = `(()=>{const rail=document.querySelector('.akari-right-rail');const tabs=rail?[...rail.querySelectorAll('.lm-TabBar-tab')].map(t=>t.title||t.textContent.trim()).filter(Boolean):[];const vis=e=>{if(!e)return false;const r=e.getBoundingClientRect();return r.width>0&&r.height>0&&getComputedStyle(e).display!=='none'&&getComputedStyle(e).visibility!=='hidden'};const insp=document.getElementById('akari-inspector-widget');const daihon=document.querySelector('.akari-daihon-widget');return{rail:vis(rail),railTabs:tabs,inspector:vis(insp),inspectorCards:insp?insp.querySelectorAll('section, [class*="card"]').length:0,daihon:vis(daihon),daihonRows:document.querySelectorAll('.akari-daihon-row').length}})()`;
             await check('rebase 他席との干渉なし: 右レールとインスペクターが開き、台本パネルが従来どおり出る', async () => {
