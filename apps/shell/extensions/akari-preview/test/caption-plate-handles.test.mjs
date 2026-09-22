@@ -156,7 +156,7 @@ test('handle box follows the text bounds for styled captions and fills a plain p
 
 test('body drag keeps Alt group position and batches one cue for ordinary movement', () => {
   assert.match(handlerSource, /if \(groupMode\) \{[\s\S]*captionWrite\(cueId, \{ groupPosition \}\)/u);
-  assert.match(handlerSource, /else \{[\s\S]*plateTransform: \{[\s\S]*captionIds: \[cueId\][\s\S]*scale,[\s\S]*rotate,[\s\S]*cuePosition: \{ captionId: cueId, value: cuePosition \}/u);
+  assert.match(handlerSource, /else \{\s*const cuePosition = captionCuePositionFromRects\([\s\S]*?\);\s*await window\.akari\.engine\.captionWrite\(cueId, \{\s*cuePosition\s*\}\);/u);
 });
 
 test('webview inline math is mechanically locked to the pure functions', () => {

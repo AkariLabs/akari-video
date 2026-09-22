@@ -342,7 +342,7 @@ test('caption drag keeps Alt group movement and batches ordinary cue movement wi
     assert.match(handlerSource, /const captionVisualRect =/);
     assert.match(handlerSource, /querySelectorAll\('\.akari-caption__line'\)/);
     assert.match(handlerSource, /await window\.akari\.engine\.captionWrite\(cueId, \{ groupPosition \}\)/);
-    assert.match(handlerSource, /plateTransform: \{[\s\S]*captionIds: \[cueId\][\s\S]*cuePosition: \{ captionId: cueId, value: cuePosition \}/);
+    assert.match(handlerSource, /else \{\s*const cuePosition = captionCuePositionFromRects\([\s\S]*?\);\s*await window\.akari\.engine\.captionWrite\(cueId, \{\s*cuePosition\s*\}\);/);
     assert.match(handlerSource, /pendingCaptionDragReload = true/);
     assert.match(handlerSource, /akari-preview-captions-update'[\s\S]*plate\.style\.translate = ''/);
     assert.doesNotMatch(handlerSource, /zoneFromFraction/);
@@ -369,7 +369,7 @@ test('caption cue drag clamp, reset, and Alt group mode are wired', () => {
     assert.match(handlerSource, /captionClampOff/);
     assert.match(handlerSource, /akari-caption-clamp-chip/);
     assert.match(handlerSource, /akari-caption-position-reset/);
-    assert.match(handlerSource, /cuePosition: \{ captionId: cueId, value: cuePosition \}/);
+    assert.match(handlerSource, /captionWrite\(cueId, \{\s*cuePosition\s*\}\)/);
     assert.match(handlerSource, /cuePositionReset: true/);
     assert.match(handlerSource, /event\.altKey/);
 });
