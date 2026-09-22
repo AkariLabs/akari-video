@@ -16,6 +16,7 @@ import { startBrowseServer } from '../src/browse-server.mjs';
 import { bundleProjectReferences } from '../src/bundle.mjs';
 import { cacheCatalog, loadCatalog } from '../src/catalog.mjs';
 import { resolve as resolveAsset } from '../src/resolve.mjs';
+import { DEFAULT_CATALOG_URL, DEFAULT_STORE_API } from '../src/service-urls.mjs';
 import { composeState } from '../src/state.mjs';
 
 function flagValue(args, name) {
@@ -193,9 +194,9 @@ function printUsage() {
 環境変数:
   AKARI_HOME             マシン設定の置き場（既定: ~/.akari）
   AKARI_LIBRARY_ROOT     ライブラリの置き場の上書き
-  AKARI_ASSETS_CATALOG   カタログの取得元。URL またはローカルパス（既定: akari-oss.app/assets/catalog.json）
+  AKARI_ASSETS_CATALOG   カタログの取得元。URL またはローカルパス（既定: ${DEFAULT_CATALOG_URL}）
   AKARI_ASSETS_BASE      素材実体の配信ベースの上書き（既定はカタログの "base" フィールド）
-  AKARI_STORE_API        entitlements API のホスト上書き（既定: akari-oss.app）`);
+  AKARI_STORE_API        entitlements API のホスト上書き（既定: ${DEFAULT_STORE_API}）`);
 }
 
 async function main() {

@@ -77,11 +77,11 @@ test('toResolverAssetCatalogViewItem: license.spdx / provenance.prompt / preview
             state: 'cached',
             provenance: { prompt: 'A field of scattered asteroids...' }
         },
-        'https://akari-oss.app/assets/still/bg-asteroid-belt/v1/preview.png'
+        'https://akari.video/assets/still/bg-asteroid-belt/v1/preview.png'
     );
     assert.equal(item.licenseSpdx, 'CC0-1.0');
     assert.equal(item.prompt, 'A field of scattered asteroids...');
-    assert.equal(item.previewUrl, 'https://akari-oss.app/assets/still/bg-asteroid-belt/v1/preview.png');
+    assert.equal(item.previewUrl, 'https://akari.video/assets/still/bg-asteroid-belt/v1/preview.png');
     assert.equal(item.mediaUrl, undefined);
     assert.deepEqual(item.tags, ['background', 'space']);
 });
@@ -186,12 +186,12 @@ test('assetStateBadgeTitle: 4 状態それぞれの長め文言', () => {
     assert.equal(assetStateBadgeTitle({}), undefined);
 });
 
-test('deriveStoreLabBaseUrl: url 未指定は本番既定 https://akari-oss.app/lab', () => {
-    assert.equal(deriveStoreLabBaseUrl(undefined), 'https://akari-oss.app/lab');
+test('deriveStoreLabBaseUrl: url 未指定は本番既定 https://akari.video/lab', () => {
+    assert.equal(deriveStoreLabBaseUrl(undefined), 'https://akari.video/lab');
 });
 
 test('deriveStoreLabBaseUrl: store-credentials.json の url（.../api/store）から .../lab を導く', () => {
-    assert.equal(deriveStoreLabBaseUrl('https://akari-oss.app/api/store'), 'https://akari-oss.app/lab');
+    assert.equal(deriveStoreLabBaseUrl('https://akari.video/api/store'), 'https://akari.video/lab');
     assert.equal(deriveStoreLabBaseUrl('http://localhost:8788/api/store'), 'http://localhost:8788/lab');
 });
 
@@ -202,12 +202,12 @@ test('storeProductUrl: 商品ページ URL（asset.html?id=<id>）を組み立�
     );
     assert.equal(
         storeProductUrl(undefined, 'app-icon-squircle'),
-        'https://akari-oss.app/lab/asset.html?id=app-icon-squircle'
+        'https://akari.video/lab/asset.html?id=app-icon-squircle'
     );
 });
 
 test('catalogPurchaseActionText: カードは額面のみ、リストは「で購入」まで表示する', () => {
-    const url = 'https://akari-oss.app/lab/asset.html?id=paid-asset';
+    const url = 'https://akari.video/lab/asset.html?id=paid-asset';
     assert.deepEqual(catalogPurchaseActionText(2980, 'grid', url), {
         label: '¥2,980',
         title: `¥2,980 で購入 — ストアを開く（${url}）`

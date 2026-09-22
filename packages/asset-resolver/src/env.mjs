@@ -8,8 +8,8 @@
 import os from 'node:os';
 import path from 'node:path';
 
-export const DEFAULT_CATALOG_URL = 'https://akari-oss.app/assets/catalog.json';
-export const DEFAULT_STORE_API = 'https://akari-oss.app';
+import { DEFAULT_CATALOG_URL, DEFAULT_STORE_API, normalizeAkariUrl } from './service-urls.mjs';
+export { DEFAULT_CATALOG_URL, DEFAULT_STORE_API } from './service-urls.mjs';
 const CREDENTIALS_FILE = 'store-credentials.json';
 const CATALOG_CACHE_FILE = 'catalog-cache.json';
 
@@ -30,7 +30,7 @@ export function resolveAkariHome(env = process.env) {
 export function resolveCatalogSource(env = process.env) {
   const raw = env.AKARI_ASSETS_CATALOG || DEFAULT_CATALOG_URL;
   if (isRemoteLocation(raw)) {
-    return { kind: 'url', value: raw };
+    return { kind: 'url', value: normalizeAkariUrl(raw) };
   }
   return { kind: 'file', value: path.resolve(raw) };
 }
@@ -45,7 +45,7 @@ export function resolveEffectiveBase(env = process.env, catalog) {
   if (!base) {
     throw new Error('素材の配信ベースが決まりません（catalog.base 未設定・AKARI_ASSETS_BASE 未設定）');
   }
-  return base;
+  return normalizeAkariUrl(base);
 }
 
 export function resolveCredentialsPath(env = process.env) {
@@ -57,7 +57,7 @@ export function catalogCachePath(env = process.env) {
 }
 
 function trimTrailingSlash(value) {
-  return value.replace(/\/+$/, '');
+  return normalizeAkariUrl(value).replace(/\/+$/, '');
 }
 
 /**

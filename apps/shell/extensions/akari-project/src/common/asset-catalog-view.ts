@@ -7,6 +7,8 @@
 
 import { AssetCatalogResolverStatus, AssetCatalogViewItem, AssetEntitlementsStatus } from './akari-project-protocol';
 import { CatalogPack } from './catalog-packs';
+import { deriveStoreLabBaseUrl } from 'akari-video/src/service-urls.cjs';
+export { deriveStoreLabBaseUrl } from 'akari-video/src/service-urls.cjs';
 
 /** resolver カタログの files[] 1 件（akari-assets-catalog/v0 契約: url か key のどちらかを持つ）。 */
 export interface ResolverRawCatalogFile {
@@ -185,21 +187,6 @@ export function assetStateBadgeTitle(item: Pick<AssetCatalogViewItem, 'state' | 
 }
 
 // --- locked カードの購入案内（価格 + ストア URL） --------------------------------------------
-
-const DEFAULT_STORE_LAB_BASE_URL = 'https://akari-oss.app/lab';
-
-/**
- * ストア接続の `StoreConnectionStatus.url`（`.../api/store`。dev 環境では
- * `http://localhost:8788/api/store` 等）から、人間向け商品ページのベース URL（`.../lab`）を導く。
- * 未接続（url 未設定）時は本番既定を使う — ログイン前でも購入案内自体は出せる
- * （商品ページの閲覧自体はログイン不要。ゲートは購入・DL ボタン側。commerce 契約 §18）。
- */
-export function deriveStoreLabBaseUrl(storeApiUrl: string | undefined): string {
-    if (!storeApiUrl) {
-        return DEFAULT_STORE_LAB_BASE_URL;
-    }
-    return storeApiUrl.replace(/\/api\/store\/?$/, '/lab');
-}
 
 /** 商品詳細ページの URL（`asset.html?id=<id>`。ストア静的プロトタイプの既存規約）。 */
 export function storeProductUrl(storeApiUrl: string | undefined, id: string): string {

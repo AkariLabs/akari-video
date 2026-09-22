@@ -1,0 +1,70 @@
+{
+  "port": "9455",
+  "startedAt": "2026-09-22T08:10:07.042Z",
+  "storedCredentialsUrl": "https://akari-oss.app/api/store",
+  "entitlementsUrl": "https://akari.video/api/store/v1/entitlements",
+  "entitlementsCalls": [
+    {
+      "url": "https://akari.video/api/store/v1/entitlements",
+      "status": 401
+    }
+  ],
+  "entitlementsResult": {
+    "status": "unauthorized",
+    "ids": []
+  },
+  "defaultCatalog": {
+    "url": "https://akari.video/assets/catalog.json",
+    "status": 200,
+    "base": "https://akari-oss.app/assets/",
+    "items": 360,
+    "paidItems": 3
+  },
+  "pageUrl": "file://<WORKTREE>/apps/shell/lib/frontend/index.html?port=49884#<SCRATCH>/workspace",
+  "patchedWindowServices": 2,
+  "storeRow": {
+    "text": "AKARI Store動画に使える素材や演出パックを探して購入できます。接続すると、購入済みの素材を AKARI Video で使えます。接続中 · l1@example.testストアを開く切断する",
+    "hasOpenButton": true
+  },
+  "storeOpened": [
+    {
+      "url": "https://akari.video/lab/",
+      "options": {
+        "external": true
+      }
+    }
+  ],
+  "library": {
+    "itemCount": 424,
+    "purchaseButtons": 3,
+    "purchaseTitles": [
+      "¥1,200 で購入 — ストアを開く（https://akari.video/lab/asset.html?id=app-icon-squircle）",
+      "¥2,980 で購入 — ストアを開く（https://akari.video/lab/asset.html?id=phone-pro-titanium）",
+      "¥2,980 で購入 — ストアを開く（https://akari.video/lab/asset.html?id=laptop-slim-aluminum）"
+    ]
+  },
+  "allOpened": [
+    {
+      "url": "https://akari.video/lab/",
+      "options": {
+        "external": true
+      }
+    },
+    {
+      "url": "https://akari.video/lab/asset.html?id=app-icon-squircle",
+      "options": {
+        "external": true
+      }
+    }
+  ],
+  "consoleErrors": [],
+  "checks": {
+    "storeOpensNewLab": true,
+    "purchaseOpensNewLab": true,
+    "purchaseTitlesNewLab": true,
+    "libraryLoaded": true,
+    "defaultCatalogOk": true,
+    "entitlementsToNewDomain": true,
+    "entitlementsNoThrow": true
+  }
+}

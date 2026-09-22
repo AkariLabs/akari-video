@@ -78,7 +78,7 @@ checksums 不一致は、いずれも `AssetResolverError`（`code: 'download_fa
 {
   "schema": "akari-assets-catalog/v0",
   "version": "2026-08-04",
-  "base": "https://akari-oss.app/assets/",
+  "base": "https://akari.video/assets/",
   "items": [
     {
       "id": "br-typing-laptop",
@@ -110,9 +110,9 @@ checksums 不一致は、いずれも `AssetResolverError`（`code: 'download_fa
 | --- | --- | --- |
 | `AKARI_HOME` | `~/.akari` | マシン状態（library-location.json・カタログキャッシュ・store-credentials.json）。作業場なしでは旧 assets/ もここに置く |
 | `AKARI_LIBRARY_ROOT` | 未設定 | ライブラリの書き込み先の明示上書き（読みは旧置き場にもフォールバック） |
-| `AKARI_ASSETS_CATALOG` | `https://akari-oss.app/assets/catalog.json` | カタログの取得元。**URL** ならリモート fetch、それ以外はローカルファイルパスとして読む（未デプロイの開発時は store リポのローカル出力を指す） |
+| `AKARI_ASSETS_CATALOG` | `https://akari.video/assets/catalog.json` | カタログの取得元。**URL** ならリモート fetch、それ以外はローカルファイルパスとして読む（未デプロイの開発時は store リポのローカル出力を指す） |
 | `AKARI_ASSETS_BASE` | カタログの `base` フィールド | 素材実体の配信ベースの上書き（ローカル開発でディレクトリを直接指すときに使う） |
-| `AKARI_STORE_API` | `https://akari-oss.app` | entitlements API のホスト上書き。未設定時は `~/.akari/store-credentials.json` の `url`（`akari store connect` が書き込む値）から組み立てる |
+| `AKARI_STORE_API` | `https://akari.video` | entitlements API のホスト上書き。未設定時は `~/.akari/store-credentials.json` の `url`（`akari store connect` が書き込む値）から組み立てる |
 
 `store-credentials.json` が無い場合、または entitlements API への到達に失敗した場合は
 「entitlements 不明」として無料素材のみが使える状態にフォールバックする（黙って有料を通したり、
@@ -193,7 +193,7 @@ root（絶対パス）、state（pending / migrating / done / declined）、deci
 | `preview` / `mediaFile` | ローカル素材では `preview.png` / 直下で一意な主メディアのファイル名。無ければ null |
 
 AKARI 配布元は URL を解析し、ホスト `github.com` かつパスの最初のセグメントが `AkariLabs`、
-またはホスト `akari-oss.app` とそのサブドメインで判定する。壊れた URL は `site` とする。
+またはホスト `akari.video` とそのサブドメインで判定する。移行期間中は旧公式ホストとそのサブドメインも受け入れる。壊れた URL は `site` とする。
 
 主メディアはシェルと同じ一意解決の規則で、複数テイクから勝手に選ばない。
 still の `preview.png` は主メディア候補から除く。音・映像・画像に加え、取り込み対象の

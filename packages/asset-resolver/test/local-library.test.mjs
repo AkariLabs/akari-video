@@ -5,6 +5,7 @@ import path from 'node:path';
 import test from 'node:test';
 import { composeState } from '../src/state.mjs';
 import { primaryMediaFile, sourceFields } from '../src/library.mjs';
+import { LEGACY_AKARI_HOST } from '../src/service-urls.mjs';
 import { setupFixtureEnv } from './helpers.mjs';
 
 function fixture(t) {
@@ -110,12 +111,16 @@ for (const kind of ['bgm', 'jingle', 'sfx']) {
 for (const [url, expected] of [
   ['https://github.com/AkariLabs-evil/x', 'site'],
   ['https://evil.example/github.com/AkariLabs/x', 'site'],
-  ['https://akari-oss.app.evil.example/x', 'site'],
-  ['https://evilakari-oss.app/x', 'site'],
+  [`https://${LEGACY_AKARI_HOST}.evil.example/x`, 'site'],
+  ['https://akari.video.evil.example/x', 'site'],
+  ['https://evilakari.video/x', 'site'],
+  ['https://akari.video/x', 'lab'],
+  ['https://x.akari.video/x', 'lab'],
+  [`https://evil${LEGACY_AKARI_HOST}/x`, 'site'],
   ['https://github.com/other/AkariLabs/x', 'site'],
-  ['https://akari-oss.app/x', 'lab'],
-  ['https://assets.akari-oss.app/x', 'lab'],
-  ['https://cdn.assets.akari-oss.app/x', 'lab'],
+  [`https://${LEGACY_AKARI_HOST}/x`, 'lab'],
+  [`https://assets.${LEGACY_AKARI_HOST}/x`, 'lab'],
+  [`https://cdn.assets.${LEGACY_AKARI_HOST}/x`, 'lab'],
   ['https://[broken', 'site'],
   ['not a URL', 'site'],
 ]) {

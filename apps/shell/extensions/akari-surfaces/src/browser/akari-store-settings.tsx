@@ -1,3 +1,4 @@
+import { deriveStoreLabBaseUrl } from 'akari-project/lib/common/asset-catalog-view';
 import * as React from '@theia/core/shared/react';
 import { WindowService } from '@theia/core/lib/browser/window/window-service';
 import { AkariProjectService, AssetEntitlementsStatus } from 'akari-project/lib/common/akari-project-protocol';
@@ -26,7 +27,7 @@ export function AkariStoreSettings({ service, windows, refreshKey }: { service: 
     }, [service, state.connection.connected, state.phase]);
     const reconnect = storeReconnectRequired(state.connection.connected, entitlements);
     const busy = state.phase === 'starting' || state.phase === 'pending';
-    const url = (state.connection.url ?? 'https://akari-oss.app/api/store').replace(/\/api\/store\/?$/, '/lab/');
+    const url = `${deriveStoreLabBaseUrl(state.connection.url)}/`;
     return <section data-akari-store-settings='true' style={{ borderTop: '1px solid var(--theia-widget-border)', paddingTop: 14, display: 'grid', gap: 10 }}>
         <strong>AKARI Store</strong>
         <p data-akari-store-description='true' style={{ margin: 0, fontSize: 12, lineHeight: 1.6, color: 'var(--theia-descriptionForeground)' }}>

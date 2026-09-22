@@ -442,7 +442,7 @@ catalog に載せる素材は、取得元のライセンスが CC0 相当（帰�
 出どころはカタログ掲載（lab）、明示 origin タグ（site / own）、AKARI 配布元の source.url（lab）、
 その他の source.url あり（site）、それ以外（own）の順で決める。
 AKARI 配布元は URL を解析し、ホスト github.com かつパスの最初のセグメントが AkariLabs、
-またはホスト akari-oss.app とそのサブドメインで判定する。壊れた URL は site とする。
+またはホスト akari.video とそのサブドメインで判定する。移行期間中は旧公式ホストとそのサブドメインも受け入れる。壊れた URL は site とする。
 素材ディレクトリの `CREDIT.txt` はクレジット文面 1 行。文面がある場合は
 `license.attribution_required: true`、source がある場合はその attribution_required も true にする。
 

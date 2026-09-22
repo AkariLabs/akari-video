@@ -5,7 +5,8 @@ import {
 import { homedir, hostname } from 'node:os';
 import path from 'node:path';
 
-export const DEFAULT_STORE_BASE_URL = 'https://akari-oss.app/api/store';
+import { DEFAULT_STORE_BASE_URL, normalizeAkariUrl } from './service-urls.cjs';
+export { DEFAULT_STORE_BASE_URL } from './service-urls.cjs';
 const CREDENTIALS_FILE = 'store-credentials.json';
 
 export function resolveAkariHome(env = process.env) {
@@ -22,7 +23,7 @@ export function readCredentials(env = process.env) {
   try {
     const parsed = JSON.parse(readFileSync(file, 'utf8'));
     if (typeof parsed?.token !== 'string' || typeof parsed?.url !== 'string') return null;
-    return parsed;
+    return { ...parsed, url: normalizeAkariUrl(parsed.url) };
   } catch {
     return null;
   }
@@ -57,7 +58,7 @@ export function defaultOpenBrowser(url, platform = process.platform) {
 export async function fetchStoreEntitlements(fetchImpl, baseUrl, token) {
   let response;
   try {
-    response = await fetchImpl(`${baseUrl}/v1/entitlements`, {
+    response = await fetchImpl(`${normalizeAkariUrl(baseUrl).replace(/\/+$/, '')}/v1/entitlements`, {
       headers: { authorization: `Bearer ${token}` }
     });
   } catch (error) {
@@ -95,7 +96,7 @@ export async function validateAndSaveCredentials(
     return { status: 'error', error };
   }
   const credentials = {
-    url: baseUrl,
+    url: normalizeAkariUrl(baseUrl),
     token,
     email: data.email,
     connected_at: now().toISOString()
@@ -113,7 +114,7 @@ export async function startDeviceConnection({
   label = `AKARI Video (${hostname()})`,
   openBrowser
 } = {}) {
-  const normalizedBaseUrl = baseUrl.replace(/\/$/, '');
+  const normalizedBaseUrl = normalizeAkariUrl(baseUrl).replace(/\/+$/, '');
   let response;
   try {
     response = await fetchImpl(`${normalizedBaseUrl}/device/start`, {
@@ -159,7 +160,7 @@ export async function pollDeviceConnection({
 }) {
   let response;
   try {
-    response = await fetchImpl(`${baseUrl}/device/claim`, {
+    response = await fetchImpl(`${normalizeAkariUrl(baseUrl).replace(/\/+$/, '')}/device/claim`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ deviceCode })

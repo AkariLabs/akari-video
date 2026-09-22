@@ -1,3 +1,4 @@
+import { deriveStoreLabBaseUrl } from 'akari-project/lib/common/asset-catalog-view';
 import { EnvVariablesServer } from '@theia/core/lib/common/env-variables';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
 import { FileDialogService } from '@theia/filesystem/lib/browser';
@@ -403,7 +404,7 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
                     : this.storeReconnect ? STORE_RECONNECT_REQUIRED_MESSAGE
                         : state.connection.connected ? `接続中 · ${state.connection.email ?? state.connection.identifier ?? ''}` : '未接続');
         status.setAttribute('role', 'status');
-        const url = (state.connection.url ?? 'https://akari-oss.app/api/store').replace(/\/api\/store\/?$/, '/lab/');
+        const url = `${deriveStoreLabBaseUrl(state.connection.url)}/`;
         const controls = element('div');
         Object.assign(controls.style, { display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '10px' });
         controls.append(action('ストアを開く', () => this.windows.openNewWindow(url, { external: true })));

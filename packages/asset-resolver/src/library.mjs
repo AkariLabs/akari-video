@@ -3,10 +3,13 @@ import { readdirSync, statSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { resolveAssetLibraryRoots } from '../../creator-root/src/index.mjs';
 
+import { AKARI_HOST, LEGACY_AKARI_HOST } from './service-urls.mjs';
+
 export const ASSET_CATEGORIES = ['overlay', 'still', 'scene3d', 'audio', 'broll', 'font'];
 const FIRST_PARTY_SOURCES = [
   { hostname: 'github.com', firstPathSegment: 'AkariLabs' },
-  { hostname: 'akari-oss.app', includeSubdomains: true },
+  { hostname: AKARI_HOST, includeSubdomains: true },
+  { hostname: LEGACY_AKARI_HOST, includeSubdomains: true },
 ];
 
 function isFirstPartySource(sourceUrl) {

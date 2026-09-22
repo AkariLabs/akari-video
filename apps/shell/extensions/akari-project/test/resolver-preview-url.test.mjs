@@ -8,19 +8,19 @@ import { resolveResolverPreviewUrl } from '../lib/node/resolver-preview-url.js';
 // ローカルディレクトリパス）から <img src> にそのまま渡せる URL を組み立てる純関数のテスト。
 
 test('resolveResolverPreviewUrl: preview が無ければ undefined', () => {
-    assert.equal(resolveResolverPreviewUrl(undefined, 'https://akari-oss.app/assets/'), undefined);
-    assert.equal(resolveResolverPreviewUrl('', 'https://akari-oss.app/assets/'), undefined);
+    assert.equal(resolveResolverPreviewUrl(undefined, 'https://akari.video/assets/'), undefined);
+    assert.equal(resolveResolverPreviewUrl('', 'https://akari.video/assets/'), undefined);
 });
 
 test('resolveResolverPreviewUrl: preview が既に絶対 URL ならそのまま返す（base 無視）', () => {
     const preview = 'https://cdn.example.com/x/preview.png';
-    assert.equal(resolveResolverPreviewUrl(preview, 'https://akari-oss.app/assets/'), preview);
+    assert.equal(resolveResolverPreviewUrl(preview, 'https://akari.video/assets/'), preview);
     assert.equal(resolveResolverPreviewUrl(preview, '/local/dist-assets'), preview);
 });
 
 test('resolveResolverPreviewUrl: base がリモート URL のとき、相対キーを絶対 URL 化する', () => {
-    const result = resolveResolverPreviewUrl('still/br-typing-laptop/v1/preview.png', 'https://akari-oss.app/assets/');
-    assert.equal(result, 'https://akari-oss.app/assets/still/br-typing-laptop/v1/preview.png');
+    const result = resolveResolverPreviewUrl('still/br-typing-laptop/v1/preview.png', 'https://akari.video/assets/');
+    assert.equal(result, 'https://akari.video/assets/still/br-typing-laptop/v1/preview.png');
 });
 
 test('resolveResolverPreviewUrl: base がローカルディレクトリのとき、file: URI 化する', () => {
