@@ -1,0 +1,993 @@
+{
+  "status": "pass",
+  "startedAt": "2026-09-22T13:34:20.172Z",
+  "port": 9458,
+  "steps": [
+    {
+      "name": "1. 起動時: レールは 1 本・区切り線が縦の真ん中・上にエージェント・下に 5 パネル・右パネルは 1 面（ダーク）",
+      "pass": true,
+      "detail": {
+        "theme": "theia-dark",
+        "window": {
+          "w": 1120,
+          "h": 668
+        },
+        "railRect": {
+          "x": 1072,
+          "y": 4,
+          "w": 48,
+          "h": 592
+        },
+        "railMiddleY": 300,
+        "separator": {
+          "y": 300,
+          "top": 300,
+          "display": "block",
+          "width": "22px",
+          "height": "1px",
+          "left": 1085
+        },
+        "lastAgentIcon": {
+          "x": 1072,
+          "y": 10,
+          "w": 48,
+          "h": 48
+        },
+        "firstLowerIcon": {
+          "x": 1072,
+          "y": 307,
+          "w": 48,
+          "h": 48
+        },
+        "rail": [
+          "akari-partner-onboarding:agent:current@10",
+          "akari-daihon-widget:lower@307",
+          "akari-cuts-widget:lower@359",
+          "akari-review-panel-widget:lower@411",
+          "akari-inspector-widget:lower@463",
+          "akari-audio-meter-widget:lower@515"
+        ],
+        "panes": [
+          {
+            "id": "akari-partner-onboarding",
+            "rect": {
+              "x": 635,
+              "y": 39,
+              "w": 437,
+              "h": 603
+            }
+          }
+        ],
+        "toolbar": {
+          "rect": {
+            "x": 635,
+            "y": 4,
+            "w": 437,
+            "h": 35
+          },
+          "title": "パートナーを追加"
+        },
+        "bottomMenu": {
+          "x": 1072,
+          "y": 596,
+          "w": 48,
+          "h": 46
+        }
+      },
+      "ms": 9214
+    },
+    {
+      "name": "2. レールのアイコンにホバー → 100ms 以内に名前だけのツールチップ（Theia の遅延ツールチップは出ない）",
+      "pass": true,
+      "detail": {
+        "records": [
+          {
+            "id": "akari-partner-onboarding",
+            "text": "パートナーを追加",
+            "msFromMouseMove": 15.6,
+            "msFromMouseOver": 2.8,
+            "tipRect": {
+              "x": 953,
+              "y": 21,
+              "w": 113,
+              "h": 26
+            }
+          },
+          {
+            "id": "akari-daihon-widget",
+            "text": "台本",
+            "msFromMouseMove": 13.7,
+            "msFromMouseOver": 0.5,
+            "tipRect": {
+              "x": 1024,
+              "y": 318,
+              "w": 42,
+              "h": 26
+            }
+          },
+          {
+            "id": "akari-cuts-widget",
+            "text": "カット",
+            "msFromMouseMove": 14.8,
+            "msFromMouseOver": 0.6,
+            "tipRect": {
+              "x": 1012,
+              "y": 370,
+              "w": 54,
+              "h": 26
+            }
+          },
+          {
+            "id": "akari-review-panel-widget",
+            "text": "注釈",
+            "msFromMouseMove": 12.2,
+            "msFromMouseOver": 0.7,
+            "tipRect": {
+              "x": 1024,
+              "y": 422,
+              "w": 42,
+              "h": 26
+            }
+          },
+          {
+            "id": "akari-inspector-widget",
+            "text": "インスペクター",
+            "msFromMouseMove": 12.9,
+            "msFromMouseOver": 0.6,
+            "tipRect": {
+              "x": 965,
+              "y": 474,
+              "w": 101,
+              "h": 26
+            }
+          },
+          {
+            "id": "akari-audio-meter-widget",
+            "text": "音声メーター",
+            "msFromMouseMove": 13.4,
+            "msFromMouseOver": 0.6,
+            "tipRect": {
+              "x": 976,
+              "y": 526,
+              "w": 90,
+              "h": 26
+            }
+          }
+        ],
+        "maxMsFromMouseMove": 15.6,
+        "delayedHoverAfter2s": [],
+        "inspectorCaptionNotShown": "タイムラインで選択した項目の詳細（安全なフィールドは編集可能）"
+      },
+      "ms": 5214
+    },
+    {
+      "name": "3. 5 パネルのアイコンがハサミ / 紙 / 吹き出し / つまみ / レベルのバー（線画）",
+      "pass": true,
+      "detail": {
+        "icons": {
+          "akari-partner-onboarding": "lm-TabBar-tabIcon codicon codicon-add",
+          "akari-daihon-widget": "lm-TabBar-tabIcon akari-rail-icon akari-rail-icon-daihon",
+          "akari-cuts-widget": "lm-TabBar-tabIcon akari-rail-icon akari-rail-icon-cuts",
+          "akari-review-panel-widget": "lm-TabBar-tabIcon akari-rail-icon akari-rail-icon-review",
+          "akari-inspector-widget": "lm-TabBar-tabIcon akari-rail-icon akari-rail-icon-inspector",
+          "akari-audio-meter-widget": "lm-TabBar-tabIcon akari-rail-icon akari-rail-icon-audio-meter"
+        },
+        "masks": {
+          "lm-TabBar-tabIcon akari-rail-icon akari-rail-icon-daihon": {
+            "w": 48,
+            "h": 48,
+            "maskSize": "24px",
+            "mask": "url(\"data:image/svg+xml;base64,PHN2ZyB4b"
+          },
+          "lm-TabBar-tabIcon akari-rail-icon akari-rail-icon-cuts": {
+            "w": 48,
+            "h": 48,
+            "maskSize": "24px",
+            "mask": "url(\"data:image/svg+xml;base64,PHN2ZyB4b"
+          },
+          "lm-TabBar-tabIcon akari-rail-icon akari-rail-icon-review": {
+            "w": 48,
+            "h": 48,
+            "maskSize": "24px",
+            "mask": "url(\"data:image/svg+xml;base64,PHN2ZyB4b"
+          },
+          "lm-TabBar-tabIcon akari-rail-icon akari-rail-icon-inspector": {
+            "w": 48,
+            "h": 48,
+            "maskSize": "24px",
+            "mask": "url(\"data:image/svg+xml;base64,PHN2ZyB4b"
+          },
+          "lm-TabBar-tabIcon akari-rail-icon akari-rail-icon-audio-meter": {
+            "w": 48,
+            "h": 48,
+            "maskSize": "24px",
+            "mask": "url(\"data:image/svg+xml;base64,PHN2ZyB4b"
+          }
+        },
+        "tabHeights": [
+          "akari-partner-onboarding:48",
+          "akari-daihon-widget:48",
+          "akari-cuts-widget:48",
+          "akari-review-panel-widget:48",
+          "akari-inspector-widget:48",
+          "akari-audio-meter-widget:48"
+        ]
+      },
+      "ms": 733
+    },
+    {
+      "name": "4. カットをレールからメインへドラッグ → メインのタブになりレールから消える → メインのタブをレールの線の下へ戻すと元どおり",
+      "pass": true,
+      "detail": {
+        "inMain": {
+          "mainTab": {
+            "rect": {
+              "x": 316,
+              "y": 8,
+              "w": 86,
+              "h": 27
+            },
+            "current": true
+          },
+          "rail": [
+            "akari-partner-onboarding:agent:current@10",
+            "akari-daihon-widget:lower@307",
+            "akari-review-panel-widget:lower@359",
+            "akari-inspector-widget:lower@411",
+            "akari-audio-meter-widget:lower@463"
+          ],
+          "zonesShown": [
+            "main",
+            "rtop",
+            "rbottom",
+            "railtop",
+            "railbottom"
+          ]
+        },
+        "zonesWhileReturning": [
+          "rtop",
+          "rbottom",
+          "railtop",
+          "railbottom"
+        ],
+        "afterReturn": {
+          "current": "akari-partner-onboarding",
+          "split": false,
+          "top": null,
+          "bottom": null,
+          "focus": "top",
+          "panes": [
+            {
+              "id": "akari-partner-onboarding",
+              "rect": {
+                "x": 635,
+                "y": 39,
+                "w": 437,
+                "h": 603
+              }
+            }
+          ],
+          "headers": [],
+          "groups": {},
+          "displaced": {},
+          "rail": [
+            "akari-partner-onboarding:agent:current@10",
+            "akari-daihon-widget:lower@307",
+            "akari-cuts-widget:lower@359",
+            "akari-review-panel-widget:lower@411",
+            "akari-inspector-widget:lower@463",
+            "akari-audio-meter-widget:lower@515"
+          ],
+          "main": [
+            "akari-home-widget"
+          ]
+        }
+      },
+      "ms": 11147
+    },
+    {
+      "name": "5. 注釈をレールの線の上へドラッグ → 上の所属になる",
+      "pass": true,
+      "detail": {
+        "current": "akari-partner-onboarding",
+        "split": false,
+        "top": null,
+        "bottom": null,
+        "focus": "top",
+        "panes": [
+          {
+            "id": "akari-partner-onboarding",
+            "rect": {
+              "x": 635,
+              "y": 39,
+              "w": 437,
+              "h": 603
+            }
+          }
+        ],
+        "headers": [],
+        "groups": {
+          "akari-review-panel-widget": "agent"
+        },
+        "displaced": {},
+        "rail": [
+          "akari-review-panel-widget:agent@10",
+          "akari-partner-onboarding:agent:current@62",
+          "akari-daihon-widget:lower@307",
+          "akari-cuts-widget:lower@359",
+          "akari-inspector-widget:lower@411",
+          "akari-audio-meter-widget:lower@463"
+        ],
+        "main": [
+          "akari-home-widget"
+        ],
+        "separator": {
+          "y": 300,
+          "top": 300,
+          "display": "block",
+          "width": "22px",
+          "height": "1px",
+          "left": 1085
+        }
+      },
+      "ms": 4600
+    },
+    {
+      "name": "6. インスペクターを右パネルの下半分へドラッグ → そのときだけ 2 段（上 = 出ていたエージェント / 下 = インスペクター）",
+      "pass": true,
+      "detail": {
+        "current": "akari-inspector-widget",
+        "split": true,
+        "top": "akari-partner-onboarding",
+        "bottom": "akari-inspector-widget",
+        "focus": "bottom",
+        "panes": [
+          {
+            "id": "akari-partner-onboarding",
+            "rect": {
+              "x": 635,
+              "y": 32,
+              "w": 437,
+              "h": 288
+            }
+          },
+          {
+            "id": "akari-inspector-widget",
+            "rect": {
+              "x": 635,
+              "y": 354,
+              "w": 437,
+              "h": 288
+            }
+          }
+        ],
+        "headers": [
+          {
+            "rect": {
+              "x": 635,
+              "y": 4,
+              "w": 437,
+              "h": 28
+            },
+            "focus": false,
+            "label": "パートナーを追加",
+            "close": true
+          },
+          {
+            "rect": {
+              "x": 635,
+              "y": 326,
+              "w": 437,
+              "h": 28
+            },
+            "focus": true,
+            "label": "インスペクター",
+            "close": true
+          }
+        ],
+        "groups": {
+          "akari-review-panel-widget": "agent"
+        },
+        "displaced": {},
+        "rail": [
+          "akari-review-panel-widget:agent@10",
+          "akari-partner-onboarding:agent:shown@62",
+          "akari-daihon-widget:lower@307",
+          "akari-cuts-widget:lower@359",
+          "akari-inspector-widget:lower:current:shown@411",
+          "akari-audio-meter-widget:lower@463"
+        ],
+        "main": [
+          "akari-home-widget"
+        ],
+        "handle": {
+          "x": 635,
+          "y": 320,
+          "w": 437,
+          "h": 6
+        },
+        "zones": [
+          {
+            "zone": "main",
+            "label": "メインへ置く",
+            "hot": false,
+            "rect": {
+              "x": 229,
+              "y": 11,
+              "w": 390,
+              "h": 624
+            }
+          },
+          {
+            "zone": "rtop",
+            "label": "右の上の段に分ける",
+            "hot": false,
+            "rect": {
+              "x": 643,
+              "y": 47,
+              "w": 421,
+              "h": 286
+            }
+          },
+          {
+            "zone": "rbottom",
+            "label": "右の下の段に分ける",
+            "hot": true,
+            "rect": {
+              "x": 643,
+              "y": 349,
+              "w": 421,
+              "h": 286
+            }
+          },
+          {
+            "zone": "railtop",
+            "label": "線の上へ",
+            "hot": false,
+            "rect": {
+              "x": 1068,
+              "y": 8,
+              "w": 52,
+              "h": 290
+            }
+          },
+          {
+            "zone": "railbottom",
+            "label": "線の下へ",
+            "hot": false,
+            "rect": {
+              "x": 1068,
+              "y": 302,
+              "w": 52,
+              "h": 290
+            }
+          }
+        ]
+      },
+      "ms": 6136
+    },
+    {
+      "name": "7. 2 段で、線の上のアイコンを押すと上の段、線の下のアイコンを押すと下の段が変わる（フォーカスも移る）",
+      "pass": true,
+      "detail": {
+        "records": [
+          {
+            "clicked": "akari-review-panel-widget",
+            "slot": "top",
+            "top": "akari-review-panel-widget",
+            "bottom": "akari-inspector-widget",
+            "focus": "top",
+            "panes": [
+              "akari-review-panel-widget@{\"x\":635,\"y\":32,\"w\":437,\"h\":288}",
+              "akari-inspector-widget@{\"x\":635,\"y\":354,\"w\":437,\"h\":288}"
+            ]
+          },
+          {
+            "clicked": "akari-audio-meter-widget",
+            "slot": "bottom",
+            "top": "akari-review-panel-widget",
+            "bottom": "akari-audio-meter-widget",
+            "focus": "bottom",
+            "panes": [
+              "akari-review-panel-widget@{\"x\":635,\"y\":32,\"w\":437,\"h\":288}",
+              "akari-audio-meter-widget@{\"x\":635,\"y\":354,\"w\":437,\"h\":288}"
+            ]
+          },
+          {
+            "clicked": "akari-daihon-widget",
+            "slot": "bottom",
+            "top": "akari-review-panel-widget",
+            "bottom": "akari-daihon-widget",
+            "focus": "bottom",
+            "panes": [
+              "akari-review-panel-widget@{\"x\":635,\"y\":32,\"w\":437,\"h\":288}",
+              "akari-daihon-widget@{\"x\":635,\"y\":354,\"w\":437,\"h\":288}"
+            ]
+          },
+          {
+            "clicked": "akari-partner-onboarding",
+            "slot": "top",
+            "top": "akari-partner-onboarding",
+            "bottom": "akari-daihon-widget",
+            "focus": "top",
+            "panes": [
+              "akari-partner-onboarding@{\"x\":635,\"y\":32,\"w\":437,\"h\":288}",
+              "akari-daihon-widget@{\"x\":635,\"y\":354,\"w\":437,\"h\":288}"
+            ]
+          },
+          {
+            "clicked": "akari-cuts-widget",
+            "slot": "bottom",
+            "top": "akari-partner-onboarding",
+            "bottom": "akari-cuts-widget",
+            "focus": "bottom",
+            "panes": [
+              "akari-partner-onboarding@{\"x\":635,\"y\":32,\"w\":437,\"h\":288}",
+              "akari-cuts-widget@{\"x\":635,\"y\":354,\"w\":437,\"h\":288}"
+            ]
+          }
+        ],
+        "focusByClickingInsidePane": {
+          "focus": "bottom",
+          "current": "akari-cuts-widget"
+        }
+      },
+      "ms": 10079
+    },
+    {
+      "name": "8. 1 面に戻す: 段の見出しの × / 段の見出しをレールへドラッグ / 境目を端まで寄せる（どれもパネルはレールに残る）",
+      "pass": true,
+      "detail": {
+        "close": {
+          "closeButton": {
+            "x": 1044,
+            "y": 329,
+            "w": 22,
+            "h": 22
+          },
+          "current": "akari-partner-onboarding",
+          "split": false,
+          "top": null,
+          "bottom": null,
+          "focus": "top",
+          "panes": [
+            {
+              "id": "akari-partner-onboarding",
+              "rect": {
+                "x": 635,
+                "y": 39,
+                "w": 437,
+                "h": 603
+              }
+            }
+          ],
+          "headers": [],
+          "groups": {
+            "akari-review-panel-widget": "agent"
+          },
+          "displaced": {},
+          "rail": [
+            "akari-review-panel-widget:agent@10",
+            "akari-partner-onboarding:agent:current@62",
+            "akari-daihon-widget:lower@307",
+            "akari-cuts-widget:lower@359",
+            "akari-inspector-widget:lower@411",
+            "akari-audio-meter-widget:lower@463"
+          ],
+          "main": [
+            "akari-home-widget"
+          ]
+        },
+        "headerToRail": {
+          "zones": [
+            "main",
+            "rtop",
+            "rbottom",
+            "railtop",
+            "railbottom"
+          ],
+          "current": "akari-partner-onboarding",
+          "split": false,
+          "top": null,
+          "bottom": null,
+          "focus": "top",
+          "panes": [
+            {
+              "id": "akari-partner-onboarding",
+              "rect": {
+                "x": 635,
+                "y": 39,
+                "w": 437,
+                "h": 603
+              }
+            }
+          ],
+          "headers": [],
+          "groups": {
+            "akari-review-panel-widget": "agent"
+          },
+          "displaced": {},
+          "rail": [
+            "akari-review-panel-widget:agent@10",
+            "akari-partner-onboarding:agent:current@62",
+            "akari-daihon-widget:lower@307",
+            "akari-cuts-widget:lower@359",
+            "akari-inspector-widget:lower@411",
+            "akari-audio-meter-widget:lower@463"
+          ],
+          "main": [
+            "akari-home-widget"
+          ]
+        },
+        "gutterToEdge": {
+          "handleBefore": {
+            "x": 635,
+            "y": 320,
+            "w": 437,
+            "h": 6
+          },
+          "current": "akari-partner-onboarding",
+          "split": false,
+          "top": null,
+          "bottom": null,
+          "focus": "top",
+          "panes": [
+            {
+              "id": "akari-partner-onboarding",
+              "rect": {
+                "x": 635,
+                "y": 39,
+                "w": 437,
+                "h": 603
+              }
+            }
+          ],
+          "headers": [],
+          "groups": {
+            "akari-review-panel-widget": "agent"
+          },
+          "displaced": {},
+          "rail": [
+            "akari-review-panel-widget:agent@10",
+            "akari-partner-onboarding:agent:current@62",
+            "akari-daihon-widget:lower@307",
+            "akari-cuts-widget:lower@359",
+            "akari-inspector-widget:lower@411",
+            "akari-audio-meter-widget:lower@463"
+          ],
+          "main": [
+            "akari-home-widget"
+          ]
+        }
+      },
+      "ms": 13899
+    },
+    {
+      "name": "9. 既存の呼び出し: 注釈を開く / インスペクター・台本を前面 / 右パネルの畳む・開く / 進め方メニュー（1 面と 2 段の両方）",
+      "pass": true,
+      "detail": {
+        "akari.review.open": {
+          "shown": "akari-review-panel-widget"
+        },
+        "akari.inspector.open": {
+          "shown": "akari-inspector-widget"
+        },
+        "akari.daihon.open": {
+          "shown": "akari-daihon-widget"
+        },
+        "split: akari.inspector.open": {
+          "top": "akari-partner-onboarding",
+          "bottom": "akari-inspector-widget"
+        },
+        "split: akari.review.open": {
+          "top": "akari-review-panel-widget",
+          "bottom": "akari-inspector-widget"
+        },
+        "split: akari.daihon.open": {
+          "top": "akari-review-panel-widget",
+          "bottom": "akari-daihon-widget"
+        },
+        "core.toggle.right.panel ×2": {
+          "collapsedRightRect": {
+            "x": 1071,
+            "y": 3,
+            "w": 49,
+            "h": 640
+          },
+          "reopenedRightRect": {
+            "x": 634,
+            "y": 3,
+            "w": 486,
+            "h": 640
+          },
+          "reopened": {
+            "top": "akari-review-panel-widget",
+            "bottom": "akari-daihon-widget"
+          }
+        },
+        "bottomMenu": {
+          "rect": {
+            "x": 1072,
+            "y": 596,
+            "w": 48,
+            "h": 46
+          },
+          "via": "cdp-mouse",
+          "menuPath": [
+            "akari-mode-switch-menu"
+          ],
+          "intakeAutonomy": "collaborative"
+        }
+      },
+      "ms": 25905
+    },
+    {
+      "name": "10a. 所属（注釈 = 上）・2 段・境目の比率・メインへ出したカットを作ってレイアウトを保存",
+      "pass": true,
+      "detail": {
+        "current": "akari-daihon-widget",
+        "split": true,
+        "top": "akari-review-panel-widget",
+        "bottom": "akari-daihon-widget",
+        "focus": "bottom",
+        "panes": [
+          {
+            "id": "akari-review-panel-widget",
+            "rect": {
+              "x": 635,
+              "y": 32,
+              "w": 437,
+              "h": 180
+            }
+          },
+          {
+            "id": "akari-daihon-widget",
+            "rect": {
+              "x": 635,
+              "y": 246,
+              "w": 437,
+              "h": 396
+            }
+          }
+        ],
+        "headers": [
+          {
+            "rect": {
+              "x": 635,
+              "y": 4,
+              "w": 437,
+              "h": 28
+            },
+            "focus": false,
+            "label": "注釈",
+            "close": true
+          },
+          {
+            "rect": {
+              "x": 635,
+              "y": 218,
+              "w": 437,
+              "h": 28
+            },
+            "focus": true,
+            "label": "台本",
+            "close": true
+          }
+        ],
+        "groups": {
+          "akari-review-panel-widget": "agent"
+        },
+        "displaced": {
+          "akari-cuts-widget": "main"
+        },
+        "rail": [
+          "akari-review-panel-widget:agent:shown@10",
+          "akari-partner-onboarding:agent@62",
+          "akari-daihon-widget:lower:current:shown@307",
+          "akari-inspector-widget:lower@359",
+          "akari-audio-meter-widget:lower@411"
+        ],
+        "main": [
+          "akari-home-widget",
+          "akari-cuts-widget"
+        ],
+        "paneRatio": 0.313,
+        "storedAkariRail": {
+          "version": 1,
+          "groups": {
+            "akari-review-panel-widget": "agent"
+          },
+          "split": true,
+          "top": "akari-review-panel-widget",
+          "bottom": "akari-daihon-widget",
+          "focus": "bottom",
+          "ratio": 0.32912973814372776,
+          "displaced": {
+            "akari-cuts-widget": "main"
+          }
+        }
+      },
+      "ms": 4764
+    },
+    {
+      "name": "10b. 再起動後に所属・2 段・比率・メインのカットが復元される",
+      "pass": true,
+      "detail": {
+        "current": "akari-daihon-widget",
+        "split": true,
+        "top": "akari-review-panel-widget",
+        "bottom": "akari-daihon-widget",
+        "focus": "bottom",
+        "panes": [
+          {
+            "id": "akari-review-panel-widget",
+            "rect": {
+              "x": 628,
+              "y": 32,
+              "w": 444,
+              "h": 180
+            }
+          },
+          {
+            "id": "akari-daihon-widget",
+            "rect": {
+              "x": 628,
+              "y": 246,
+              "w": 444,
+              "h": 396
+            }
+          }
+        ],
+        "headers": [
+          {
+            "rect": {
+              "x": 628,
+              "y": 4,
+              "w": 444,
+              "h": 28
+            },
+            "focus": false,
+            "label": "注釈",
+            "close": true
+          },
+          {
+            "rect": {
+              "x": 628,
+              "y": 218,
+              "w": 444,
+              "h": 28
+            },
+            "focus": true,
+            "label": "台本",
+            "close": true
+          }
+        ],
+        "groups": {
+          "akari-review-panel-widget": "agent"
+        },
+        "displaced": {
+          "akari-cuts-widget": "main"
+        },
+        "rail": [
+          "akari-review-panel-widget:agent:shown@10",
+          "akari-partner-onboarding:agent@62",
+          "akari-daihon-widget:lower:current:shown@307",
+          "akari-inspector-widget:lower@359",
+          "akari-audio-meter-widget:lower@411"
+        ],
+        "main": [
+          "akari-home-widget",
+          "akari-cuts-widget"
+        ],
+        "paneRatio": 0.313,
+        "expectedPaneRatio": 0.313
+      },
+      "ms": 1305
+    },
+    {
+      "name": "11a. 右レールの保存データ（akariRail）だけが壊れている → 右レールは既定（1 面・既定の所属）",
+      "pass": true,
+      "detail": {
+        "current": "akari-daihon-widget",
+        "split": false,
+        "top": null,
+        "bottom": null,
+        "focus": "top",
+        "panes": [
+          {
+            "id": "akari-daihon-widget",
+            "rect": {
+              "x": 621,
+              "y": 39,
+              "w": 451,
+              "h": 603
+            }
+          }
+        ],
+        "headers": [],
+        "groups": {},
+        "displaced": {},
+        "rail": [
+          "akari-partner-onboarding:agent@10",
+          "akari-daihon-widget:lower:current@307",
+          "akari-review-panel-widget:lower@359",
+          "akari-inspector-widget:lower@411",
+          "akari-audio-meter-widget:lower@463"
+        ],
+        "main": [
+          "akari-home-widget",
+          "akari-cuts-widget"
+        ]
+      },
+      "ms": 18226
+    },
+    {
+      "name": "11b. 右パネル全体の保存データが壊れている（items に null・幅が文字列）→ 既定（1 面・既定の所属）",
+      "pass": true,
+      "detail": {
+        "current": null,
+        "split": false,
+        "top": null,
+        "bottom": null,
+        "focus": "top",
+        "panes": [],
+        "headers": [],
+        "groups": {},
+        "displaced": {},
+        "rail": [
+          "akari-partner-onboarding:agent@10",
+          "akari-daihon-widget:lower@307",
+          "akari-cuts-widget:lower@359",
+          "akari-review-panel-widget:lower@411"
+        ],
+        "main": [
+          "akari-home-widget"
+        ]
+      },
+      "ms": 21118
+    }
+  ],
+  "screenshots": [
+    "01-startup-one-pane-rail.png",
+    "02-hover-tooltip-inspector.png",
+    "03-rail-icons.png",
+    "04a-drag-cuts-zones.png",
+    "04b-cuts-in-main.png",
+    "04c-drag-main-tab-back-zones.png",
+    "04d-cuts-back-on-rail.png",
+    "05a-drag-review-zones.png",
+    "05b-review-above-line.png",
+    "06a-drag-inspector-zones.png",
+    "06b-two-panes.png",
+    "07a-click-above-line-top-pane.png",
+    "07b-click-below-line-bottom-pane.png",
+    "08a-close-pane-one-pane.png",
+    "08b-drag-pane-header-zones.png",
+    "08c-gutter-to-edge-one-pane.png",
+    "09a-collapsed.png",
+    "10a-before-restart.png",
+    "10b-after-restart-restored.png",
+    "11a-broken-akari-rail-default.png",
+    "11b-broken-right-panel-default.png"
+  ],
+  "launches": [
+    {
+      "label": "main-1",
+      "readyMs": 21367
+    },
+    {
+      "label": "main-2",
+      "readyMs": 16197
+    },
+    {
+      "label": "main-3",
+      "readyMs": 13875
+    },
+    {
+      "label": "main-4",
+      "readyMs": 14541
+    }
+  ],
+  "finishedAt": "2026-09-22T13:37:13.642Z",
+  "pass": true
+}

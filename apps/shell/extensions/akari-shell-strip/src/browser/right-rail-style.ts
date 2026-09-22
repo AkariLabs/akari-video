@@ -155,8 +155,10 @@ export const RIGHT_RAIL_CSS = `
     z-index: 10040;
 }
 .akari-rail-drop.akari-rail-drop-narrow {
+    padding: 0;
     font-size: 11px;
-    line-height: 1.3;
+    letter-spacing: -0.02em;
+    white-space: nowrap;
 }
 .akari-rail-drop.akari-rail-drop-hot {
     background: rgba(249, 115, 22, 0.2);

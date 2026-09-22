@@ -1,0 +1,130 @@
+{
+  "version": 5,
+  "mainPanel": {
+    "main": {
+      "type": "tab-area",
+      "widgets": [
+        {
+          "constructionOptions": {
+            "factoryId": "akari-home-widget"
+          }
+        },
+        {
+          "constructionOptions": {
+            "factoryId": "akari-cuts-widget"
+          }
+        }
+      ],
+      "currentIndex": 0
+    }
+  },
+  "mainPanelPinned": [
+    false,
+    false
+  ],
+  "bottomPanel": {
+    "config": {
+      "main": {
+        "type": "tab-area",
+        "widgets": [
+          {
+            "constructionOptions": {
+              "factoryId": "akari-annotations-widget",
+              "options": {}
+            }
+          }
+        ],
+        "currentIndex": 0
+      }
+    },
+    "pinned": [
+      false
+    ],
+    "size": 258,
+    "expanded": true
+  },
+  "leftPanel": {
+    "type": "sidepanel",
+    "items": [
+      {
+        "widget": {
+          "constructionOptions": {
+            "factoryId": "akari-role-buckets-widget"
+          }
+        },
+        "rank": 100,
+        "expanded": true,
+        "pinned": false
+      },
+      {
+        "widget": {
+          "constructionOptions": {
+            "factoryId": "search-view-container"
+          },
+          "innerWidgetState": "{\"parts\":[{\"partId\":\"search-in-workspace\",\"collapsed\":false,\"hidden\":false,\"originalContainerId\":\"search-view-container\",\"originalContainerTitle\":{\"label\":\"Search\",\"iconClass\":\"codicon codicon-search\",\"closeable\":true},\"widget\":{\"constructionOptions\":{\"factoryId\":\"search-in-workspace\"},\"innerWidgetState\":\"{\\\"matchCaseState\\\":{\\\"className\\\":\\\"codicon codicon-case-sensitive\\\",\\\"enabled\\\":false,\\\"title\\\":\\\"Match Case\\\"},\\\"wholeWordState\\\":{\\\"className\\\":\\\"codicon codicon-whole-word\\\",\\\"enabled\\\":false,\\\"title\\\":\\\"Match Whole Word\\\"},\\\"regExpState\\\":{\\\"className\\\":\\\"codicon codicon-regex\\\",\\\"enabled\\\":false,\\\"title\\\":\\\"Use Regular Expression\\\"},\\\"useExcludeSettingsState\\\":{\\\"className\\\":\\\"codicon codicon-eye\\\",\\\"enabled\\\":true,\\\"title\\\":\\\"Use Exclude Settings and Ignore Files\\\"},\\\"showSearchDetails\\\":false,\\\"searchInWorkspaceOptions\\\":{\\\"matchCase\\\":false,\\\"matchWholeWord\\\":false,\\\"useRegExp\\\":false,\\\"multiline\\\":false,\\\"includeIgnored\\\":false,\\\"include\\\":[],\\\"exclude\\\":[],\\\"maxResults\\\":2000},\\\"searchTerm\\\":\\\"\\\",\\\"replaceTerm\\\":\\\"\\\",\\\"showReplaceField\\\":false,\\\"searchHistoryState\\\":{\\\"history\\\":[],\\\"index\\\":0},\\\"replaceHistoryState\\\":{\\\"history\\\":[],\\\"index\\\":0},\\\"includeHistoryState\\\":{\\\"history\\\":[],\\\"index\\\":0},\\\"excludeHistoryState\\\":{\\\"history\\\":[],\\\"index\\\":0},\\\"includeIgnoredState\\\":{\\\"className\\\":\\\"codicon codicon-eye\\\",\\\"enabled\\\":false,\\\"title\\\":\\\"Include Ignored Files\\\"}}\"}}],\"title\":{\"label\":\"Search\",\"iconClass\":\"codicon codicon-search\",\"closeable\":true}}"
+        },
+        "rank": 200,
+        "expanded": false,
+        "pinned": false
+      },
+      {
+        "widget": {
+          "constructionOptions": {
+            "factoryId": "akari-partner-catalog-factory"
+          }
+        },
+        "rank": 300,
+        "expanded": false,
+        "pinned": false
+      },
+      {
+        "widget": {
+          "constructionOptions": {
+            "factoryId": "akari-settings-opener"
+          }
+        },
+        "rank": 400,
+        "expanded": false,
+        "pinned": false
+      },
+      {
+        "widget": {
+          "constructionOptions": {
+            "factoryId": "akari-menu-widget"
+          }
+        },
+        "rank": 500,
+        "expanded": false,
+        "pinned": false
+      }
+    ],
+    "size": 214
+  },
+  "rightPanel": {
+    "type": "sidepanel",
+    "items": [
+      {
+        "widget": {
+          "id": "akari-review-panel-widget"
+        },
+        "expanded": "broken",
+        "rank": "x"
+      },
+      null
+    ],
+    "size": "NaN",
+    "akariRail": {
+      "version": 1,
+      "groups": {
+        "akari-review-panel-widget": "agent"
+      },
+      "split": true,
+      "top": "akari-review-panel-widget",
+      "bottom": "akari-review-panel-widget",
+      "focus": "top",
+      "ratio": 0.5,
+      "displaced": {}
+    }
+  },
+  "activeWidgetId": "akari-home-widget"
+}
