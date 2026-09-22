@@ -1,3 +1,4 @@
+import { LibraryImportPlan, LibraryImportResult } from './library-import';
 import { CatalogPack } from './catalog-packs';
 import { PresetShowcase } from './preset-showcase';
 export { PresetShowcase, PresetShowcaseItem, PresetShowcaseKind } from './preset-showcase';
@@ -295,6 +296,9 @@ export interface BuildCaptionsRequest extends TranscribeOptions { projectRoot: s
 export type BuildCaptionsResult = { needsForce: true } | { needsForce?: false; [key: string]: unknown };
 
 export interface AkariProjectService {
+    planLibraryImport(paths: string[]): Promise<LibraryImportPlan>;
+    applyLibraryImport(plan: LibraryImportPlan): Promise<LibraryImportResult>;
+    previewLibraryImportAudio(path: string): Promise<{ image?: string; error?: string }>;
     listProjectAssetReferences(projectUri: string): Promise<ProjectAssetReference[]>;
     removeProjectAssetReference(projectUri: string, reference: { category: string; id: string }): Promise<void>;
     bundleProjectAssets(projectUri: string, dryRun: boolean): Promise<AssetBundleOutcome>;

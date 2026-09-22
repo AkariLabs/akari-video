@@ -8,13 +8,13 @@ function ids(target, isOSX, context) {
 
 test('material（macOS）: open/reveal/copy-file/copy-path/rename/delete/ask-agent の順', () => {
     assert.deepEqual(ids('material', true), [
-        'open', 'reveal', 'copy-file', 'copy-path', 'rename', 'delete', 'ask-agent'
+        'open', 'reveal', 'copy-file', 'copy-path', 'store-library', 'rename', 'delete', 'ask-agent'
     ]);
 });
 
 test('material（非 macOS）: copy-file が出ない', () => {
     assert.deepEqual(ids('material', false), [
-        'open', 'reveal', 'copy-path', 'rename', 'delete', 'ask-agent'
+        'open', 'reveal', 'copy-path', 'store-library', 'rename', 'delete', 'ask-agent'
     ]);
 });
 
@@ -27,13 +27,13 @@ test('assetGroup（meta.json ディレクトリ）は material と同じ target 
 
 test('unorganized（macOS）: material の項目 + move-to-assets が末尾', () => {
     assert.deepEqual(ids('unorganized', true), [
-        'open', 'reveal', 'copy-file', 'copy-path', 'rename', 'delete', 'ask-agent', 'move-to-assets'
+        'open', 'reveal', 'copy-file', 'copy-path', 'store-library', 'rename', 'delete', 'ask-agent', 'move-to-assets'
     ]);
 });
 
 test('unorganized（非 macOS）: copy-file が出ず move-to-assets は残る', () => {
     assert.deepEqual(ids('unorganized', false), [
-        'open', 'reveal', 'copy-path', 'rename', 'delete', 'ask-agent', 'move-to-assets'
+        'open', 'reveal', 'copy-path', 'store-library', 'rename', 'delete', 'ask-agent', 'move-to-assets'
     ]);
 });
 
@@ -75,31 +75,31 @@ test('data/plan/report には danger 項目自体が存在しない', () => {
 
 test('material × video（macOS）: add-to-timeline と show-info が追加される（並び順込み）', () => {
     assert.deepEqual(ids('material', true, { materialKind: 'video' }), [
-        'open', 'add-to-timeline', 'reveal', 'copy-file', 'copy-path', 'show-info', 'transcribe', 'rename', 'delete', 'ask-agent'
+        'open', 'add-to-timeline', 'reveal', 'copy-file', 'copy-path', 'show-info', 'transcribe', 'store-library', 'rename', 'delete', 'ask-agent'
     ]);
 });
 
 test('material × audio（非 macOS）: add-to-timeline と show-info が追加される（copy-file は無し）', () => {
     assert.deepEqual(ids('material', false, { materialKind: 'audio' }), [
-        'open', 'add-to-timeline', 'reveal', 'copy-path', 'show-info', 'transcribe', 'rename', 'delete', 'ask-agent'
+        'open', 'add-to-timeline', 'reveal', 'copy-path', 'show-info', 'transcribe', 'store-library', 'rename', 'delete', 'ask-agent'
     ]);
 });
 
 test('material × image: add-to-timeline と show-info が追加される（task 2026-08-10-material-dnd-timeline で解禁）', () => {
     assert.deepEqual(ids('material', true, { materialKind: 'image' }), [
-        'open', 'add-to-timeline', 'reveal', 'copy-file', 'copy-path', 'show-info', 'rename', 'delete', 'ask-agent'
+        'open', 'add-to-timeline', 'reveal', 'copy-file', 'copy-path', 'show-info', 'store-library', 'rename', 'delete', 'ask-agent'
     ]);
 });
 
 test('material × other: add-to-timeline は出ず、show-info だけ出る', () => {
     assert.deepEqual(ids('material', true, { materialKind: 'other' }), [
-        'open', 'reveal', 'copy-file', 'copy-path', 'show-info', 'rename', 'delete', 'ask-agent'
+        'open', 'reveal', 'copy-file', 'copy-path', 'show-info', 'store-library', 'rename', 'delete', 'ask-agent'
     ]);
 });
 
 test('unorganized: context ありでも add-to-timeline/show-info はどちらも出ない', () => {
     assert.deepEqual(ids('unorganized', true, { materialKind: 'video' }), [
-        'open', 'reveal', 'copy-file', 'copy-path', 'rename', 'delete', 'ask-agent', 'move-to-assets'
+        'open', 'reveal', 'copy-file', 'copy-path', 'store-library', 'rename', 'delete', 'ask-agent', 'move-to-assets'
     ]);
 });
 
@@ -117,13 +117,13 @@ test('data: context ありでも add-to-timeline/show-info はどちらも出な
 
 test('context 省略時は前タスクと完全に同じ項目列（後方互換）', () => {
     assert.deepEqual(ids('material', true), [
-        'open', 'reveal', 'copy-file', 'copy-path', 'rename', 'delete', 'ask-agent'
+        'open', 'reveal', 'copy-file', 'copy-path', 'store-library', 'rename', 'delete', 'ask-agent'
     ]);
     assert.deepEqual(ids('material', false), [
-        'open', 'reveal', 'copy-path', 'rename', 'delete', 'ask-agent'
+        'open', 'reveal', 'copy-path', 'store-library', 'rename', 'delete', 'ask-agent'
     ]);
     assert.deepEqual(ids('unorganized', true), [
-        'open', 'reveal', 'copy-file', 'copy-path', 'rename', 'delete', 'ask-agent', 'move-to-assets'
+        'open', 'reveal', 'copy-file', 'copy-path', 'store-library', 'rename', 'delete', 'ask-agent', 'move-to-assets'
     ]);
 });
 

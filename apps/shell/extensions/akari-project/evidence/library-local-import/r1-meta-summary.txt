@@ -1,0 +1,5 @@
+long-theme validate=0 audio ["origin:own","folder:MyPack"] private-owned false 0
+mid-loop validate=0 audio ["origin:own","folder:MyPack"] private-owned false 0
+short-hit validate=0 audio ["origin:own","folder:MyPack","sfx"] private-owned false 0
+clip validate=0 broll ["origin:own","folder:MyPack"] private-owned false 0
+my-font validate=0 font ["origin:own","folder:MyPack"] private-owned false 0

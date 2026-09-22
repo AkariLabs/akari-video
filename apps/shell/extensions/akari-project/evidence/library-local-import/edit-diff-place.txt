@@ -1,0 +1,11 @@
+4c4,11
+<   "sources": [ { "id": "s1", "path": "assets/base.mp4" } ],
+---
+>   "sources": [
+>     { "id": "s1", "path": "assets/base.mp4" }
+>   ],
+>   "audio": {
+>     "sfx": [
+>       { "id": "audio-1", "path": "assets/audio/short-hit/short-hit.wav", "t": 0, "track": 0, "gain_db": 12, "fade_in": 0, "fade_out": 0 }
+>     ]
+>   },

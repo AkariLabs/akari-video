@@ -1,3 +1,5 @@
+import { LibraryImportPlan, LibraryImportResult } from '../common/library-import';
+import { libraryImportScript, libraryPacksScript, libraryImportWaveformScript } from './library-import-scripts';
 import { assetResolveOutcome, restrictedReferenceCount } from '../common/project-asset-reference';
 import { applyCutRanges, readEditV2 } from '@akari-video/edit-store';
 import { mediaCliCandidates, captionsCliCandidates } from '../common/akari-tools-cli-candidates';
@@ -344,13 +346,14 @@ export class AkariProjectServiceImpl implements AkariProjectService {
      * 「取得できたが 0 件」を区別する（catalog-account-first-ux task.md §1）。
      */
     async getAssetCatalogView(preferenceRoot: string | undefined): Promise<AssetCatalogView> {
-        const [resolverResult, local] = await Promise.all([
+        const [resolverResult, local, libraryPacks] = await Promise.all([
             this.loadResolverCatalogItems(),
-            this.loadLocalCatalogViewItems(preferenceRoot)
+            this.loadLocalCatalogViewItems(preferenceRoot),
+            this.loadLibraryPacks()
         ]);
         return {
             items: mergeAssetCatalogViews(local.items, resolverResult.items),
-            packs: local.packs,
+            packs: [...local.packs, ...libraryPacks.filter(pack => !local.packs.some(builtin => builtin.id === pack.id))],
             resolver: {
                 status: resolverResult.status,
                 itemCount: resolverResult.items.length,
@@ -499,6 +502,43 @@ export class AkariProjectServiceImpl implements AkariProjectService {
             return [];
         }
         return parseCatalogPacksFile(raw);
+    }
+
+    protected async loadLibraryPacks(): Promise<CatalogPack[]> {
+        const src = await this.findAssetResolverSrcDir();
+        if (!src) return [];
+        try {
+            const result = await this.runResolverScript(libraryPacksScript(src));
+            if (result.code !== 0) return [];
+            const roots: string[] = JSON.parse(result.stdout);
+            const packs = (await Promise.all(roots.map(root => this.loadCatalogPacks(root)))).flat();
+            return packs.filter((pack, index) => packs.findIndex(other => other.id === pack.id) === index);
+        } catch { return []; }
+    }
+
+    async planLibraryImport(paths: string[]): Promise<LibraryImportPlan> {
+        return this.runLibraryImport('plan', paths);
+    }
+
+    async applyLibraryImport(plan: LibraryImportPlan): Promise<LibraryImportResult> {
+        return this.runLibraryImport('apply', plan);
+    }
+
+    protected async runLibraryImport<T>(operation: 'plan' | 'apply', input: unknown): Promise<T> {
+        const src = await this.findAssetResolverSrcDir();
+        if (!src) throw new Error('アセット resolver が見つかりません');
+        const result = await this.runResolverScript(libraryImportScript(src, operation), JSON.stringify(input));
+        if (result.code !== 0) throw new Error(result.stderr || '取り込み処理に失敗しました');
+        // applyAdd returns partial successes and failures together. Do not discard either.
+        return JSON.parse(result.stdout);
+    }
+
+    async previewLibraryImportAudio(path: string): Promise<{ image?: string; error?: string }> {
+        const src = await this.findAssetResolverSrcDir();
+        if (!src) return { error: '波形を表示できません' };
+        const result = await this.runResolverScript(libraryImportWaveformScript(src), JSON.stringify(path));
+        if (result.code !== 0) return { error: '波形を表示できません' };
+        return JSON.parse(result.stdout);
     }
 
     /**
@@ -777,18 +817,20 @@ await removeProjectReference(${JSON.stringify(this.fsPath(projectUri))}, ${JSON.
      * process.execPath が Electron 実行体を指す場合に必要）。spawn 自体が失敗した
      * 場合も例外を投げず code=2 として返す（呼び出し側の fail-soft 処理を単純にする）。
      */
-    protected async runResolverScript(script: string): Promise<{ code: number; stdout: string; stderr: string }> {
+    protected async runResolverScript(script: string, input?: string): Promise<{ code: number; stdout: string; stderr: string }> {
         return new Promise(resolvePromise => {
             const child = spawn(process.execPath, ['--input-type=module', '-e', script], {
                 env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' },
-                stdio: ['ignore', 'pipe', 'pipe']
+                stdio: ['pipe', 'pipe', 'pipe']
             });
+            child.stdin.on('error', () => { /* Early process exit is reported below. */ });
+            child.stdin.end(input);
             let stdout = '';
             let stderr = '';
             child.stdout.on('data', chunk => stdout += chunk.toString());
             child.stderr.on('data', chunk => stderr += chunk.toString());
             child.on('error', error => resolvePromise({ code: 2, stdout, stderr: String(error) }));
-            child.on('exit', code => resolvePromise({ code: code ?? 2, stdout, stderr }));
+            child.on('close', code => resolvePromise({ code: code ?? 2, stdout, stderr }));
         });
     }
 

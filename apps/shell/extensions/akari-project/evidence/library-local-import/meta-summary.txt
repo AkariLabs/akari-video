@@ -1,0 +1,6 @@
+long-theme audio ["origin:own","folder:MyPack"] private-owned false 0
+mid-loop audio ["origin:own","folder:MyPack"] private-owned false 0
+proj-chime audio ["origin:own","sfx"] private-owned false 0
+short-hit audio ["origin:own","folder:MyPack","sfx"] private-owned false 0
+clip broll ["origin:own","folder:MyPack"] private-owned false 0
+my-font font ["origin:own","folder:MyPack"] private-owned false 0
