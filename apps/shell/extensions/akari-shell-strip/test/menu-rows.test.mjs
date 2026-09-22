@@ -11,9 +11,9 @@ const read = path => readFileSync(new URL(path, import.meta.url), 'utf8');
 test('ひらく contains exactly the nine ordered rows', () => {
     assert.deepEqual(akariMenuRows(), [
         { id: 'akari.partner.open', label: 'パートナー', icon: 'codicon codicon-add' },
-        { id: 'akari.daihon.open', label: '台本', icon: 'codicon codicon-list-selection' },
-        { id: 'akari.cuts.open', label: 'カット候補', icon: 'codicon codicon-checklist' },
-        { id: 'akari.review.open', label: '注釈', icon: 'codicon codicon-comment-discussion' },
+        { id: 'akari.daihon.open', label: '台本', icon: 'akari-rail-icon akari-rail-icon-daihon' },
+        { id: 'akari.cuts.open', label: 'カット候補', icon: 'akari-rail-icon akari-rail-icon-cuts' },
+        { id: 'akari.review.open', label: '注釈', icon: 'akari-rail-icon akari-rail-icon-review' },
         { id: 'akari.annotations.open', label: 'タイムライン（下パネル）', icon: 'codicon codicon-comment' },
         { id: 'akari.menu.openOverview', label: 'ホーム', icon: 'codicon codicon-home' },
         { id: 'akari.home.openFirstRunSetup', label: 'セットアップ', icon: 'codicon codicon-tools' },

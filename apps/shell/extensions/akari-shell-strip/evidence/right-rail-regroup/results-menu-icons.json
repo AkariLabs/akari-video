@@ -1,0 +1,179 @@
+{
+  "startedAt": "2026-09-22T13:41:49.950Z",
+  "port": 9458,
+  "readyMs": 26122,
+  "rows": [
+    {
+      "label": "パートナー",
+      "iconClass": "codicon codicon-add",
+      "mask": false,
+      "bg": "rgba(0, 0, 0, 0)",
+      "rect": {
+        "x": 84,
+        "y": 97,
+        "w": 16,
+        "h": 16
+      }
+    },
+    {
+      "label": "台本",
+      "iconClass": "akari-rail-icon akari-rail-icon-daihon",
+      "mask": true,
+      "bg": "rgb(229, 229, 229)",
+      "rect": {
+        "x": 84,
+        "y": 147,
+        "w": 18,
+        "h": 18
+      }
+    },
+    {
+      "label": "カット候補",
+      "iconClass": "akari-rail-icon akari-rail-icon-cuts",
+      "mask": true,
+      "bg": "rgb(229, 229, 229)",
+      "rect": {
+        "x": 84,
+        "y": 199,
+        "w": 18,
+        "h": 18
+      }
+    },
+    {
+      "label": "注釈",
+      "iconClass": "akari-rail-icon akari-rail-icon-review",
+      "mask": true,
+      "bg": "rgb(229, 229, 229)",
+      "rect": {
+        "x": 84,
+        "y": 250,
+        "w": 18,
+        "h": 18
+      }
+    },
+    {
+      "label": "タイムライン（下パネル）",
+      "iconClass": "codicon codicon-comment",
+      "mask": false,
+      "bg": "rgba(0, 0, 0, 0)",
+      "rect": {
+        "x": 84,
+        "y": 312,
+        "w": 16,
+        "h": 16
+      }
+    },
+    {
+      "label": "ホーム",
+      "iconClass": "codicon codicon-home",
+      "mask": false,
+      "bg": "rgba(0, 0, 0, 0)",
+      "rect": {
+        "x": 84,
+        "y": 373,
+        "w": 16,
+        "h": 16
+      }
+    },
+    {
+      "label": "セットアップ",
+      "iconClass": "codicon codicon-tools",
+      "mask": false,
+      "bg": "rgba(0, 0, 0, 0)",
+      "rect": {
+        "x": 84,
+        "y": 424,
+        "w": 16,
+        "h": 16
+      }
+    },
+    {
+      "label": "プロジェクト・ランチャー",
+      "iconClass": "codicon codicon-layout",
+      "mask": false,
+      "bg": "rgba(0, 0, 0, 0)",
+      "rect": {
+        "x": 84,
+        "y": 495,
+        "w": 16,
+        "h": 16
+      }
+    },
+    {
+      "label": "変更を見る",
+      "iconClass": "codicon codicon-diff",
+      "mask": false,
+      "bg": "rgba(0, 0, 0, 0)",
+      "rect": {
+        "x": 84,
+        "y": 566,
+        "w": 16,
+        "h": 16
+      }
+    },
+    {
+      "label": "ブラウザプレビュー",
+      "iconClass": "codicon codicon-globe",
+      "mask": false,
+      "bg": "rgba(0, 0, 0, 0)",
+      "rect": {
+        "x": 84,
+        "y": 636,
+        "w": 16,
+        "h": 16
+      }
+    }
+  ],
+  "checks": [
+    {
+      "label": "台本",
+      "pass": true,
+      "row": {
+        "label": "台本",
+        "iconClass": "akari-rail-icon akari-rail-icon-daihon",
+        "mask": true,
+        "bg": "rgb(229, 229, 229)",
+        "rect": {
+          "x": 84,
+          "y": 147,
+          "w": 18,
+          "h": 18
+        }
+      }
+    },
+    {
+      "label": "カット候補",
+      "pass": true,
+      "row": {
+        "label": "カット候補",
+        "iconClass": "akari-rail-icon akari-rail-icon-cuts",
+        "mask": true,
+        "bg": "rgb(229, 229, 229)",
+        "rect": {
+          "x": 84,
+          "y": 199,
+          "w": 18,
+          "h": 18
+        }
+      }
+    },
+    {
+      "label": "注釈",
+      "pass": true,
+      "row": {
+        "label": "注釈",
+        "iconClass": "akari-rail-icon akari-rail-icon-review",
+        "mask": true,
+        "bg": "rgb(229, 229, 229)",
+        "rect": {
+          "x": 84,
+          "y": 250,
+          "w": 18,
+          "h": 18
+        }
+      }
+    }
+  ],
+  "screenshot": "12-menu-open-row-icons.png",
+  "pass": true
+}
