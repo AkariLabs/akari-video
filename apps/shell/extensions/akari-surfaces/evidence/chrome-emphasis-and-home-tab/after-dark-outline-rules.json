@@ -1,0 +1,46 @@
+{
+ "root": "#document",
+ "rules": [
+  {
+   "selector": ":focus-visible",
+   "origin": "user-agent",
+   "props": [
+    "outline-color: -webkit-focus-ring-color",
+    "outline-style: auto",
+    "outline-width: 1px"
+   ]
+  },
+  {
+   "selector": ":focus-visible",
+   "origin": "regular",
+   "props": [
+    "outline-color: var(--akari-accent-light, #fb923c) !important !important",
+    "outline-color: var(--akari-accent-light, #fb923c) !important !important"
+   ]
+  },
+  {
+   "selector": ":focus:not(iframe)",
+   "origin": "regular",
+   "props": [
+    "outline-width: 1px",
+    "outline-style: solid",
+    "outline-offset: -1px",
+    "outline-color: var(--theia-focusBorder)",
+    "outline-width: 1px",
+    "outline-style: solid",
+    "outline-offset: -1px",
+    "outline-color: var(--theia-focusBorder)"
+   ]
+  },
+  {
+   "selector": "#theia-app-shell .lm-Widget:is(:not([role]), [role=\"tabpanel\"], [role=\"region\"], [role=\"group\"]):not(button):not(input):not(select):not(textarea):not(a[href]):not([contenteditable]:not([contenteditable=\"false\"])):focus",
+   "origin": "regular",
+   "props": [
+    "outline: none !important !important",
+    "outline-color: initial !important !important",
+    "outline-style: none !important !important",
+    "outline-width: initial !important !important"
+   ]
+  }
+ ]
+}

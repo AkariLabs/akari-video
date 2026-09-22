@@ -1,0 +1,63 @@
+[
+ {
+  "step": "opened",
+  "dialog": true,
+  "el": "body.monaco-enable-motion.underline-links.vs-dark",
+  "text": "素材検索パートナー / 拡張設定メニュー素材検索パートナー ",
+  "role": null,
+  "focusVisible": false,
+  "outline": "none 0px rgb(204, 204, 204)",
+  "boxShadow": "none",
+  "rect": [
+   0,
+   0,
+   1120,
+   668
+  ]
+ },
+ {
+  "step": "tab1",
+  "el": "button.theia-button.secondary",
+  "text": "はじめかた",
+  "role": null,
+  "focusVisible": true,
+  "outline": "solid 1px rgb(251, 146, 60)",
+  "boxShadow": "none",
+  "rect": [
+   48,
+   123,
+   180,
+   36
+  ]
+ },
+ {
+  "step": "tab2",
+  "el": "button.theia-button.secondary",
+  "text": "書き出し",
+  "role": null,
+  "focusVisible": true,
+  "outline": "solid 1px rgb(251, 146, 60)",
+  "boxShadow": "none",
+  "rect": [
+   48,
+   163,
+   180,
+   36
+  ]
+ },
+ {
+  "step": "tab3",
+  "el": "button.theia-button.secondary",
+  "text": "プレビュー品質",
+  "role": null,
+  "focusVisible": true,
+  "outline": "solid 1px rgb(251, 146, 60)",
+  "boxShadow": "none",
+  "rect": [
+   48,
+   202,
+   180,
+   36
+  ]
+ }
+]

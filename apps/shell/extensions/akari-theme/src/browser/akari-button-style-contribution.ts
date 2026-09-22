@@ -78,6 +78,15 @@ input[type="range"] {
 :focus-visible {
     outline-color: var(--akari-accent-light, #fb923c) !important;
 }
+
+/* Theia の :focus:not(iframe) は widget の root にも四角い outline を付ける。
+   ホームの onActivateRequest は root（tabIndex=-1）へ focus() するため、
+   カードの overflow:hidden + 角丸でその枠が切れる。コンテナ自身だけ抑制し、
+   子の操作部品・操作用 ARIA role・編集可能要素のリングはそのまま残す。
+   :focus-visible だけでなく、クリック後のプログラム的 focus も対象にする。 */
+#theia-app-shell .lm-Widget:is(:not([role]), [role="tabpanel"], [role="region"], [role="group"]):not(button):not(input):not(select):not(textarea):not(a[href]):not([contenteditable]:not([contenteditable="false"])):focus {
+    outline: none !important;
+}
 `;
 
 @injectable()

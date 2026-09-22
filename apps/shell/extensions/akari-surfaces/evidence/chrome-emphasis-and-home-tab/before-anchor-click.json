@@ -1,0 +1,33 @@
+{
+ "tabCount": 4,
+ "before": {
+  "anchorHidden": false,
+  "anchorRect": [
+   222,
+   4,
+   36,
+   35
+  ],
+  "hitIsAnchor": false,
+  "hit": "theia-hover",
+  "homeLeft": 36,
+  "scrollerLeft": 258,
+  "scrollerWidth": 238.34375,
+  "current": "ホーム"
+ },
+ "after": {
+  "anchorHidden": true,
+  "anchorRect": [
+   0,
+   0,
+   0,
+   0
+  ],
+  "hitIsAnchor": false,
+  "hit": null,
+  "homeLeft": 222,
+  "scrollerLeft": 222,
+  "scrollerWidth": 274.34375,
+  "current": "ホーム"
+ }
+}

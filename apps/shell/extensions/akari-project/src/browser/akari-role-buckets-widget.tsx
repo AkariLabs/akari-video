@@ -4235,9 +4235,8 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                     cursor: 'pointer',
                     borderRadius: `${AKARI_RADIUS.panel}px`,
                     padding: '6px 8px',
-                    background: AKARI_SURFACE.raised,
-                    border: AKARI_BORDER.ghost,
-                    ...(isEditData ? { borderLeft: `2px solid ${AKARI_LINE.accent}` } : {})
+                    background: isEditData ? 'var(--theia-akariTheme-accentTint)' : AKARI_SURFACE.raised,
+                    border: AKARI_BORDER.ghost
                 }}
             >
                 <div style={{

@@ -1,0 +1,33 @@
+{
+ "frames": 182,
+ "changes": 0,
+ "samples": [],
+ "final": {
+  "tabs": [
+   [
+    "ホーム",
+    227.91,
+    85.35,
+    "lm-TabBar-tab  theia-mod-active lm-mod-current"
+   ]
+  ],
+  "anchors": [
+   [
+    true,
+    0,
+    0
+   ]
+  ],
+  "scroller": [
+   221.91,
+   281.42
+  ]
+ },
+ "hoverSelected": "ホーム",
+ "hovered": "lm-TabBar-tabLabel",
+ "openTabsRequested": 0,
+ "mouse": {
+  "x": 270.58984375,
+  "y": 21.5
+ }
+}

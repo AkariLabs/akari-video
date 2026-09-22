@@ -1,0 +1,33 @@
+{
+ "tabCount": 4,
+ "before": {
+  "anchorHidden": false,
+  "anchorRect": [
+   221.9140625,
+   4,
+   36,
+   35
+  ],
+  "hitIsAnchor": true,
+  "hit": "akari-home-tab-anchor codicon codicon-home",
+  "homeLeft": -67.0859375,
+  "scrollerLeft": 221.9140625,
+  "scrollerWidth": 208.34375,
+  "current": "note-03.md"
+ },
+ "after": {
+  "anchorHidden": true,
+  "anchorRect": [
+   0,
+   0,
+   0,
+   0
+  ],
+  "hitIsAnchor": false,
+  "hit": null,
+  "homeLeft": 221.9140625,
+  "scrollerLeft": 221.9140625,
+  "scrollerWidth": 208.34375,
+  "current": "ホーム"
+ }
+}

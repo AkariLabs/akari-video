@@ -1,0 +1,56 @@
+{
+ "theme": "theia-dark",
+ "cards": [
+  {
+   "path": "edit.json",
+   "emphasis": "edit",
+   "borderLeftWidth": "2px",
+   "borderLeftColor": "rgb(249, 115, 22)",
+   "borderTopWidth": "1px",
+   "borderRightWidth": "1px",
+   "borderRadius": "8px",
+   "backgroundColor": "rgb(20, 20, 20)",
+   "labelWeight": "600",
+   "rect": [
+    58,
+    405.953125,
+    130,
+    74.5
+   ]
+  },
+  {
+   "path": "captions.json",
+   "emphasis": null,
+   "borderLeftWidth": "1px",
+   "borderLeftColor": "rgba(0, 0, 0, 0)",
+   "borderTopWidth": "1px",
+   "borderRightWidth": "1px",
+   "borderRadius": "8px",
+   "backgroundColor": "rgb(20, 20, 20)",
+   "labelWeight": "400",
+   "rect": [
+    58,
+    484.453125,
+    130,
+    74.5
+   ]
+  },
+  {
+   "path": "planning/note-16.md",
+   "emphasis": null,
+   "borderLeftWidth": "1px",
+   "borderLeftColor": "rgba(0, 0, 0, 0)",
+   "borderTopWidth": "1px",
+   "borderRightWidth": "1px",
+   "borderRadius": "8px",
+   "backgroundColor": "rgb(20, 20, 20)",
+   "labelWeight": "400",
+   "rect": [
+    58,
+    586.453125,
+    130,
+    82
+   ]
+  }
+ ]
+}

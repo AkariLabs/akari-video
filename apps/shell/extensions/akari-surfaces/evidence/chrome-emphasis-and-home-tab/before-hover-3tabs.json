@@ -1,0 +1,52 @@
+{
+ "frames": 181,
+ "changes": 0,
+ "samples": [],
+ "final": {
+  "tabs": [
+   [
+    "ホーム",
+    222,
+    85.35,
+    "lm-TabBar-tab  theia-mod-active lm-mod-current"
+   ],
+   [
+    "note-01.md",
+    310.35,
+    132.75,
+    "lm-TabBar-tab lm-mod-closable"
+   ],
+   [
+    "note-02.md",
+    446.1,
+    134.7,
+    "lm-TabBar-tab lm-mod-closable"
+   ],
+   [
+    "note-03.md",
+    583.8,
+    134.74,
+    "lm-TabBar-tab lm-mod-closable"
+   ]
+  ],
+  "anchors": [
+   [
+    true,
+    0,
+    0
+   ]
+  ],
+  "scroller": [
+   222,
+   274.34
+  ]
+ },
+ "hoverSelected": "ホーム",
+ "hovered": "lm-TabBar-tabLabel",
+ "openTabsRequested": 3,
+ "mouse": {
+  "x": 264.67578125,
+  "y": 21.5,
+  "via": "tab"
+ }
+}

@@ -1,0 +1,77 @@
+{
+ "mode": "keyboard",
+ "current": "ホーム",
+ "panelRect": [
+  220.9140625,
+  3,
+  406,
+  640,
+  2
+ ],
+ "onNote": {
+  "active": "div#plugin-webview:akari-surface-1o5ys6p.lm-Widget.theia-webview.lm-DockPanel-widget",
+  "tabIndex": 0,
+  "role": "tabpanel",
+  "matchesFocusVisible": false,
+  "outline": "none 0px rgb(204, 204, 204)",
+  "outlineOffset": "-1px",
+  "radius": "0px",
+  "overflow": "visible",
+  "rect": [
+   222,
+   39,
+   404,
+   603
+  ],
+  "ancestors": [
+   {
+    "el": "div#theia-main-content-panel.lm-Widget.lm-DockPanel.lm-SplitPanel-child",
+    "overflow": "hidden",
+    "radius": "12px"
+   },
+   {
+    "el": "body.monaco-enable-motion.underline-links.vs-dark.dark-theia.mac.theia-dark",
+    "overflow": "hidden",
+    "radius": "0px"
+   },
+   {
+    "el": "html.notranslate",
+    "overflow": "hidden",
+    "radius": "0px"
+   }
+  ]
+ },
+ "onHome": {
+  "active": "div#akari-home-widget.lm-Widget.lm-DockPanel-widget.ps",
+  "tabIndex": -1,
+  "role": "tabpanel",
+  "matchesFocusVisible": false,
+  "outline": "none 0px rgb(204, 204, 204)",
+  "outlineOffset": "-1px",
+  "radius": "0px",
+  "overflow": "hidden",
+  "rect": [
+   222,
+   39,
+   404,
+   603
+  ],
+  "ancestors": [
+   {
+    "el": "div#theia-main-content-panel.lm-Widget.lm-DockPanel.lm-SplitPanel-child",
+    "overflow": "hidden",
+    "radius": "12px"
+   },
+   {
+    "el": "body.monaco-enable-motion.underline-links.vs-dark.dark-theia.mac.theia-dark",
+    "overflow": "hidden",
+    "radius": "0px"
+   },
+   {
+    "el": "html.notranslate",
+    "overflow": "hidden",
+    "radius": "0px"
+   }
+  ]
+ }
+}

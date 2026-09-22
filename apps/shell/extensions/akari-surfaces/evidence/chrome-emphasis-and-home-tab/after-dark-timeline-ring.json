@@ -1,0 +1,70 @@
+{
+ "widgetRect": [
+  221.9140625,
+  441.515625,
+  404,
+  200.4765625
+ ],
+ "steps": [
+  {
+   "step": "click",
+   "el": "button.theia-button.secondary.akari-annotations-icon-button",
+   "text": "",
+   "title": "選択 (V)",
+   "inTimeline": true,
+   "focusVisible": false,
+   "outline": "solid 1px rgb(251, 146, 60)",
+   "rect": [
+    228,
+    444,
+    24,
+    24
+   ]
+  },
+  {
+   "step": "tab1",
+   "el": "button.theia-button.secondary.akari-annotations-icon-button",
+   "text": "",
+   "title": "分割 (C)",
+   "inTimeline": true,
+   "focusVisible": true,
+   "outline": "solid 1px rgb(251, 146, 60)",
+   "rect": [
+    254,
+    444,
+    24,
+    24
+   ]
+  },
+  {
+   "step": "tab2",
+   "el": "button.theia-button.secondary.akari-annotations-icon-button",
+   "text": "",
+   "title": "仮枠 (F)",
+   "inTimeline": true,
+   "focusVisible": true,
+   "outline": "solid 1px rgb(251, 146, 60)",
+   "rect": [
+    280,
+    444,
+    24,
+    24
+   ]
+  },
+  {
+   "step": "tab3",
+   "el": "button.theia-button.secondary.akari-annotations-text-button",
+   "text": "T 文字を置く",
+   "title": "文字を置く",
+   "inTimeline": true,
+   "focusVisible": true,
+   "outline": "solid 1px rgb(251, 146, 60)",
+   "rect": [
+    306,
+    444,
+    94,
+    24
+   ]
+  }
+ ]
+}

@@ -1,0 +1,90 @@
+{
+ "frames": 181,
+ "changes": 0,
+ "first": {
+  "tabs": [
+   [
+    227.91,
+    8,
+    85.35,
+    27,
+    "lm-TabBar-tab  theia-mod-active lm-mod-current"
+   ],
+   [
+    316.27,
+    8,
+    132.75,
+    27,
+    "lm-TabBar-tab lm-mod-closable"
+   ],
+   [
+    452.02,
+    8,
+    134.7,
+    27,
+    "lm-TabBar-tab lm-mod-closable"
+   ],
+   [
+    589.71,
+    8,
+    134.74,
+    27,
+    "lm-TabBar-tab lm-mod-closable"
+   ]
+  ],
+  "anchor": [
+   [
+    true,
+    0,
+    0
+   ]
+  ],
+  "rails": [
+   [
+    "ps__rail-x",
+    "1",
+    208
+   ],
+   [
+    "ps__rail-y",
+    "1",
+    0
+   ],
+   [
+    "ps__rail-x",
+    "0",
+    0
+   ],
+   [
+    "ps__rail-y",
+    "0",
+    0
+   ],
+   [
+    "ps__rail-x",
+    "0",
+    0
+   ],
+   [
+    "ps__rail-y",
+    "0",
+    0
+   ]
+  ],
+  "hover": [
+   [
+    "theia-hover bottom",
+    179.05,
+    40
+   ]
+  ],
+  "scrollLeft": 0,
+  "barClass": "lm-Widget lm-TabBar theia-app-centers theia-app-main theia-tabBar-active"
+ },
+ "samples": [],
+ "mouse": {
+  "x": 270.58984375,
+  "y": 21.5
+ },
+ "moves": 42
+}
