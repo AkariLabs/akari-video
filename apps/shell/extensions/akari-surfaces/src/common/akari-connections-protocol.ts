@@ -63,6 +63,54 @@ export interface GenerationCatalogModel {
 
 export interface GenerationCatalog { models: GenerationCatalogModel[] }
 
+/**
+ * 残高の口（2026-09-22 各社の公式ドキュメントで確認）。`balance` が true のサービスだけ「残高を見る」を出し、
+ * 押したときだけ node 側（readBalance）が登録済みのキーで問い合わせる。キーはレンダラーへ渡さない。
+ * `balance` が false のサービスは公式に API キーで残高を取る口が無いので、管理画面（billing_url）へのリンクだけ出す。
+ */
+export const PROVIDER_BALANCE_SUPPORT: Readonly<Record<string, { balance: boolean; docs: readonly string[]; billing_url: string }>> = {
+    // GET https://openrouter.ai/api/v1/key（通常キー・Bearer）→ data.limit_remaining（null = キーに上限なし）/ data.usage。
+    // 口座全体の GET /api/v1/credits は Management key 専用なので使わない。
+    openrouter: {
+        balance: true, billing_url: 'https://openrouter.ai/settings/credits',
+        docs: ['https://openrouter.ai/docs/api_reference/limits', 'https://openrouter.ai/docs/api-reference/get-credits']
+    },
+    // GET https://api.fal.ai/v1/account/billing?expand=credits（Authorization: Key …）→ credits.current_balance / currency。ADMIN スコープのキーが要る。
+    fal: {
+        balance: true, billing_url: 'https://fal.ai/dashboard/usage-billing/billing',
+        docs: ['https://fal.ai/docs/platform-apis/v1/account/billing']
+    },
+    // GET https://api.elevenlabs.io/v1/user/subscription（xi-api-key）→ character_limit - character_count。
+    elevenlabs: {
+        balance: true, billing_url: 'https://elevenlabs.io/app/subscription',
+        docs: ['https://elevenlabs.io/docs/api-reference/user/subscription/get']
+    },
+    // API リファレンスに残高・使用量の口が無い（使用量は console のみ）。
+    groq: {
+        balance: false, billing_url: 'https://console.groq.com/settings/billing',
+        docs: ['https://console.groq.com/docs/api-reference', 'https://console.groq.com/docs/spend-limits']
+    },
+    // GET /v1/account は type / username / name / github_url だけで残高を返さない。
+    replicate: {
+        balance: false, billing_url: 'https://replicate.com/account/billing',
+        docs: ['https://replicate.com/docs/reference/http']
+    }
+};
+
+export function providerHasBalanceEndpoint(id: string): boolean {
+    return PROVIDER_BALANCE_SUPPORT[id]?.balance === true;
+}
+
+/** 残高の問い合わせ結果。表示用の 1 行だけを返す（生の応答・キーは返さない）。 */
+export interface ProviderBalanceResult {
+    ok: boolean;
+    /** ok のとき: 「残り $4.72」形式の 1 行。 */
+    display?: string;
+    /** 失敗のとき: 1 行のエラー。 */
+    error?: string;
+    checked_at: string;
+}
+
 export interface AkariConnectionsService {
     listConnections(): Promise<ConnectionsList>;
     setCredential(id: string, value: string): Promise<SetCredentialResult>;
@@ -71,4 +119,6 @@ export interface AkariConnectionsService {
     readGenerationDefaults(): Promise<GenerationDefaultsResult>;
     setGenerationDefaults(update: { still?: string; video?: string }): Promise<GenerationDefaultsResult>;
     readGenerationCatalog(): Promise<GenerationCatalog>;
+    /** 押したときだけ呼ぶ。登録済みのキーで各社の公式の口へ問い合わせる（自動では呼ばない）。 */
+    readBalance(id: string): Promise<ProviderBalanceResult>;
 }

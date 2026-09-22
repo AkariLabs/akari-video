@@ -1,0 +1,2 @@
+{"at":"2026-09-22T09:55:16.916Z","method":"GET","path":"/api/v1/key","auth":"Bearer"}
+{"at":"2026-09-22T09:55:16.978Z","method":"GET","path":"/v1/account/billing?expand=credits","auth":"Key"}

@@ -1,5 +1,6 @@
 import { injectable } from '@theia/core/shared/inversify';
 import type { FrontendApplicationContribution } from '@theia/core/lib/browser';
+import { AKARI_SETTINGS_UI_CSS } from '../settings/settings-ui-style';
 
 // 表示属性の付与漏れやフェード中の detach で透明のまま残らないよう、フェードインは行わない。
 export const AKARI_SETTINGS_DIALOG_CSS = `
@@ -24,10 +25,13 @@ export const AKARI_SETTINGS_DIALOG_CSS = `
 @injectable()
 export class AkariSettingsDialogStyleContribution implements FrontendApplicationContribution {
     onStart(): void {
-        if (document.getElementById('akari-settings-dialog-backdrop')) { return; }
-        const style = document.createElement('style');
-        style.id = 'akari-settings-dialog-backdrop';
-        style.textContent = AKARI_SETTINGS_DIALOG_CSS;
-        document.head.appendChild(style);
+        // 背景のブラーと、ダイアログ内の部品（settings/settings-ui-style.ts）は別の <style> に分けて持つ。
+        for (const [id, css] of [['akari-settings-dialog-backdrop', AKARI_SETTINGS_DIALOG_CSS], ['akari-settings-dialog-ui', AKARI_SETTINGS_UI_CSS]]) {
+            if (document.getElementById(id)) { continue; }
+            const style = document.createElement('style');
+            style.id = id;
+            style.textContent = css;
+            document.head.appendChild(style);
+        }
     }
 }

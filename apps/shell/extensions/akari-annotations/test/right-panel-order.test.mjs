@@ -110,3 +110,51 @@ test('review right-dock tab is unclosable while the temporary timeline remains c
     assert.doesNotMatch(review, /this\.title\.closable = true;/);
     assert.match(timeline, /this\.title\.closable = true;/);
 });
+
+// ── task 2026-09-22-right-rail-regroup: レールの真ん中の区切り線で上 = エージェント / 下 = それ以外 ──
+const rail = require('../lib/browser/right-panel-order.js');
+const RAIL_FIXED = rail.RIGHT_RAIL_FIXED_ORDER;
+
+test('RIGHT_RAIL_FIXED_ORDER mirrors the contribution fixed order (partner → daihon → cuts → review → inspector → meter)', () => {
+    assert.deepEqual([...RAIL_FIXED], ['akari-partner-onboarding', 'akari-daihon-widget', 'akari-cuts-widget',
+        'akari-review-panel-widget', 'akari-inspector-widget', 'akari-audio-meter-widget']);
+    const source = readFileSync(new URL('../src/browser/akari-annotations-contribution.ts', import.meta.url), 'utf8');
+    // 並び直しは右パネルハンドラーの所属（railGroupOf）に従う。
+    assert.match(source, /computeRightPanelOrder\(titles\.map\(title => title\.owner\.id\), RIGHT_PANEL_FIXED_ORDER, groupOf\)/);
+    assert.match(source, /handler\.railGroupOf\?\.\(id\) \?\? defaultRightRailGroup\(id\)/);
+});
+
+test('defaultRightRailGroup: partner onboarding and terminal-<n> are above the line, everything else (incl. unknown) below', () => {
+    const table = [
+        ['akari-partner-onboarding', 'agent'], ['terminal-0', 'agent'], ['terminal-12', 'agent'],
+        ['akari-daihon-widget', 'lower'], ['akari-cuts-widget', 'lower'], ['akari-review-panel-widget', 'lower'],
+        ['akari-inspector-widget', 'lower'], ['akari-audio-meter-widget', 'lower'], ['outline-view', 'lower'],
+        ['terminal-x', 'lower'], ['my-terminal-1', 'lower']
+    ];
+    for (const [id, group] of table) {
+        assert.equal(rail.defaultRightRailGroup(id), group, id);
+    }
+});
+
+test('computeRightPanelOrder with groupOf: agents (terminals → partner last) above, fixed lower then loose lower below', () => {
+    const current = ['akari-cuts-widget', 'outline-view', 'terminal-3', 'akari-audio-meter-widget', 'akari-partner-onboarding',
+        'akari-inspector-widget', 'terminal-1', 'akari-review-panel-widget', 'akari-daihon-widget'];
+    const ordered = rail.computeRightPanelOrder(current, RAIL_FIXED, rail.defaultRightRailGroup);
+    assert.deepEqual(ordered, ['terminal-3', 'terminal-1', 'akari-partner-onboarding', 'akari-daihon-widget', 'akari-cuts-widget',
+        'akari-review-panel-widget', 'akari-inspector-widget', 'akari-audio-meter-widget', 'outline-view']);
+    assert.deepEqual(rail.computeRightPanelOrder(ordered, RAIL_FIXED, rail.defaultRightRailGroup), ordered, 'idempotent');
+});
+
+test('computeRightPanelOrder with groupOf: a panel moved above the line sits before "パートナーを追加", a terminal moved below goes last', () => {
+    const overrides = { 'akari-review-panel-widget': 'agent', 'terminal-1': 'lower' };
+    const groupOf = id => overrides[id] ?? rail.defaultRightRailGroup(id);
+    const current = ['terminal-1', 'terminal-2', 'akari-partner-onboarding', 'akari-daihon-widget', 'akari-cuts-widget',
+        'akari-review-panel-widget', 'akari-inspector-widget'];
+    assert.deepEqual(rail.computeRightPanelOrder(current, RAIL_FIXED, groupOf), ['terminal-2', 'akari-review-panel-widget',
+        'akari-partner-onboarding', 'akari-daihon-widget', 'akari-cuts-widget', 'akari-inspector-widget', 'terminal-1']);
+});
+
+test('computeRightPanelOrder without groupOf keeps the legacy behaviour (loose first, fixed last)', () => {
+    const current = ['akari-cuts-widget', 'terminal-1', 'akari-partner-onboarding'];
+    assert.deepEqual(rail.computeRightPanelOrder(current, RAIL_FIXED), ['terminal-1', 'akari-partner-onboarding', 'akari-cuts-widget']);
+});

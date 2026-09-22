@@ -1,14 +1,13 @@
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import test from 'node:test';
-import { createRequire } from 'node:module';
 import {
     SETTINGS_SECTIONS, SECTION_PREFERENCE_KEYS, sectionForPreferenceKey,
     resolveSettingsSectionId, settingsSectionElementId, normalizeQualityTier,
     SETTINGS_SECTION_DESCRIPTIONS, SETTINGS_LAST_SECTION_KEY, initialSettingsSection, isSettingsSectionVisible,
     normalizeExportCodec, normalizeExportFps, normalizeExportEncoder, EXPORT_CODEC_CHOICES, EXPORT_FPS_CHOICES,
     normalizeTheme, normalizeExportQuality, normalizeOutputDirectory,
-    QUALITY_TIER_CHOICES, THEME_CHOICES, EXPORT_QUALITY_CHOICES
+    QUALITY_TIER_CHOICES, THEME_CHOICES, EXPORT_QUALITY_CHOICES, QUALITY_TIER_RESERVED_NOTE
 } from '../../lib/common/settings-sections.js';
 
 const source = path => readFileSync(new URL(path, import.meta.url), 'utf8');
@@ -31,13 +30,16 @@ test('全節の設定キーは節へ往復し、複数の節に重複しない',
 
 test('旧設定の品質・テーマ・開発者・通知と Store 接続は各節に移行する', () => {
     for (const [key, section] of [
-        ['akari.qualityTier', 'quality'], ['workbench.colorTheme', 'developer'],
+        ['akari.qualityTier', 'quality'], ['workbench.colorTheme', 'appearance'],
         ['akari.developerMode', 'developer'], ['akari.notifications.agentTurnEnd', 'notifications']
     ]) { assert.equal(sectionForPreferenceKey(key), section); }
     const dialog = source('../browser/akari-settings-dialog.ts');
     assert.match(dialog, /this\.storeRow\.setAttribute\('data-akari-store-settings', 'true'\)/);
     assert.match(dialog, /this\.connections\.append\([^;]*this\.providerList/s);
-    assert.match(dialog, /this\.providerList\.replaceChildren\([^;]*this\.storeRow/s);
+    // AKARI Store は Akari アカウント節へ移した（2026-09-22）。接続と API キーの一覧には入れない。
+    assert.doesNotMatch(dialog, /this\.providerList\.(?:replaceChildren|append)\([^;]*this\.storeRow/s);
+    assert.doesNotMatch(dialog, /this\.connections\.append\([^;]*this\.storeRow/s);
+    assert.match(dialog, /if \(id === 'account'\) \{\s*section\.append\(this\.storeRow\);/);
     assert.match(dialog, /new StoreConnectionFlowController/);
     assert.match(dialog, /this\.storeController\.disconnect\(\)/);
 });
@@ -54,9 +56,9 @@ test('節指定はオブジェクトと文字列を受け付け、未知の値�
 
 test('節の順序・グループと DOM ID はナビの契約に一致する', () => {
     assert.deepEqual(SETTINGS_SECTIONS.map(section => section.id),
-        ['start', 'export', 'quality', 'transcribe', 'connections', 'notifications', 'tools', 'developer']);
+        ['account', 'start', 'export', 'appearance', 'connections', 'transcribe', 'quality', 'notifications', 'tools', 'developer']);
     assert.deepEqual(SETTINGS_SECTIONS.map(section => section.label),
-        ['はじめかた', '書き出し', 'プレビュー品質', '文字起こし', '接続と API キー', '通知', '道具', '開発者モード']);
+        ['Akari アカウント', 'はじめかた', '書き出し', '外観', '接続と API キー', '文字起こし', 'プレビュー品質', '通知', '道具', '開発者モード']);
     for (const { id, group } of SETTINGS_SECTIONS) {
         assert.equal(group, id === 'developer' ? 'developer' : 'main');
         assert.equal(settingsSectionElementId(id), `akari-settings-${id}`);
@@ -98,7 +100,7 @@ test('旧設定 widget と復元用 WidgetFactory を撤去する', () => {
     assert.equal(source('../browser/akari-settings-dialog.ts').includes('akari-settings-widget'), false);
 });
 
-test('ページ選択では全 8 節のうち自分だけを表示する', () => {
+test('ページ選択では全 10 節のうち自分だけを表示する', () => {
     for (const { id: selected } of SETTINGS_SECTIONS) {
         const visible = SETTINGS_SECTIONS.filter(({ id }) => isSettingsSectionVisible(id, selected));
         assert.deepEqual(visible.map(({ id }) => id), [selected]);
@@ -116,8 +118,8 @@ test('最後のページの復元は明示指定を優先し、不正な保存�
         assert.equal(initialSettingsSection(id, 'unknown'), id);
     }
     for (const stored of [undefined, null, '', 'unknown', {}, [], 1, true]) {
-        assert.equal(initialSettingsSection(undefined, stored), 'start');
-        assert.equal(initialSettingsSection('unknown', stored), 'start');
+        assert.equal(initialSettingsSection(undefined, stored), 'account');
+        assert.equal(initialSettingsSection('unknown', stored), 'account');
     }
 });
 
@@ -144,15 +146,14 @@ test('全 akari スキーマキーをフォールバックに頼らずページ�
                     dialog.includes(`this.preferences.get<boolean>(${match[1]},`) ||
                     dialog.includes(`this.preferences.get<TranscribeBackend>(${match[1]},`) ||
                     dialog.includes(`this.preferences.get<string[]>(${match[1]},`) ||
-                    dialog.includes(`this.preferenceCheckbox(${match[1]},`), `${key} has a form`);
+                    dialog.includes(`this.preferenceSwitch(${match[1]},`), `${key} has a form`);
                 assert.ok(dialog.includes(`this.savePreference(${match[1]},`) ||
-                    dialog.includes(`this.preferenceSelect(${match[1]},`) ||
-                    dialog.includes(`this.preferenceCheckbox(${match[1]},`), `${key} can be saved`);
+                    dialog.includes(`this.preferenceSwitch(${match[1]},`), `${key} can be saved`);
             }
         }
     }
     assert.ok(schemaKeys.size >= 14, 'all three preference schemas must be read');
-    assert.ok(dialog.includes('this.preferenceCheckbox(AKARI_DEVELOPER_MODE,'),
+    assert.ok(dialog.includes('this.preferenceSwitch(AKARI_DEVELOPER_MODE,'),
         'akari.developerMode has a form and can be saved');
     assert.equal(sectionForPreferenceKey('akari.catalog.root'), 'tools');
     assert.ok(dialog.includes('normalizeOutputDirectory(this.preferences.get(AKARI_CATALOG_ROOT))'),
@@ -167,9 +168,10 @@ test('全ページは共通の見出しと説明を持ち、hidden で切り替�
         assert.ok(SETTINGS_SECTION_DESCRIPTIONS[id].trim().length > 0, id);
         assert.equal(SETTINGS_SECTION_DESCRIPTIONS[id].includes('\n'), false, id);
     }
-    assert.equal(SETTINGS_SECTION_DESCRIPTIONS.quality,
-        '現在はこの値を読む機能がありません（AI 生成の品質段階として予約）');
+    // 「値を読む機能が無い」注記は説明文から外し、プレビュー品質のカードの下に小さく出す。
+    assert.equal(QUALITY_TIER_RESERVED_NOTE, '今はこの値を読む機能がありません（AI 生成の品質段階として予約）');
     const dialog = source('../browser/akari-settings-dialog.ts');
+    assert.match(dialog, /settingsNote\(QUALITY_TIER_RESERVED_NOTE\)/);
     assert.match(dialog, /element\('h2', SETTINGS_SECTIONS\.find\(item => item\.id === id\)!\.label\)/);
     assert.match(dialog, /description\(SETTINGS_SECTION_DESCRIPTIONS\[id\]\)/);
     assert.match(dialog, /section\.replaceChildren\(\.\.\.this\.sectionHeading\(id\)\)/);
@@ -182,76 +184,14 @@ test('全ページは共通の見出しと説明を持ち、hidden で切り替�
     assert.doesNotMatch(dialog, /scrollIntoView|scheduleSectionScroll|settingsSectionScrollTop|ResizeObserver|releaseScroll/);
 });
 
-test('カタログのフォルダは手入力と選択でユーザー設定に保存し、キャンセルでは変更しない', async () => {
-    assert.match(source('../browser/akari-settings-dialog.ts'), /Object\.assign\(catalogRow\.style, \{ marginTop: '24px', position: 'relative', zIndex: '3' \}\)/);
-    const require = createRequire(import.meta.url);
-    const sections = require('../../lib/common/settings-sections.js');
-    const { PreferenceScope } = require('@theia/core/lib/common/preferences/preference-scope');
-    const element = tag => ({
-        tag, children: [], style: {}, attributes: {}, listeners: {}, textContent: '',
-        append(...children) { this.children.push(...children); },
-        replaceChildren(...children) { this.children = children; },
-        setAttribute(name, value) { this.attributes[name] = value; },
-        addEventListener(name, callback) { this.listeners[name] = callback; }
-    });
-    const code = source('../../lib/browser/akari-settings-dialog.js');
-    const modules = Object.fromEntries([...code.matchAll(/require\("([^"]+)"\)/g)].map(([, id]) => [id, {}]));
-    Object.assign(modules, {
-        '@theia/core/lib/browser/dialogs': { AbstractDialog: class {} },
-        './akari-first-run-setup-dialog': { AkariFirstRunSetupDialog: class {} },
-        '@theia/core/shared/inversify': { injectable: () => () => {}, inject: () => () => {} },
-        '@theia/core/lib/common/preferences': { PreferenceScope },
-        '../common/settings-sections': sections
-    });
-    const exports = {};
-    new Function('require', 'exports', 'document', code)(id => {
-        assert.ok(id in modules, `unexpected dependency: ${id}`);
-        return modules[id];
-    }, exports, { createElement: element });
-    const dialog = Object.create(exports.AkariSettingsDialog.prototype);
-    const page = element('section'), tools = element('div'), writes = [];
-    let current = '/catalog/initial', destination;
-    Object.assign(dialog, {
-        sections: new Map([['tools', page]]), toolsView: { content: tools }, notice: element('p'),
-        preferenceWrites: Promise.resolve(),
-        preferences: {
-            get(key) { assert.equal(key, 'akari.catalog.root'); return current; },
-            async set(key, value, scope) { current = value; writes.push([key, value, scope]); }
-        },
-        fileDialogs: { async showOpenDialog(options) {
-            assert.equal(options.canSelectFiles, false);
-            assert.equal(options.canSelectFolders, true);
-            return destination;
-        } }
-    });
-    const all = node => [node, ...node.children.flatMap(all)];
-    const input = () => all(page).find(node => node.tag === 'input');
-    const pick = () => all(page).find(node => node.tag === 'button' && node.textContent === 'フォルダを選ぶ').listeners.click();
-    dialog.renderSection('tools');
-    assert.ok(page.children.includes(tools));
-    assert.equal(input().value, '/catalog/initial');
-    assert.equal(input().attributes['aria-label'], 'カタログの素材フォルダ');
-    input().value = '';
-    input().listeners.change();
-    await dialog.preferenceWrites;
-    assert.deepEqual(writes, [['akari.catalog.root', '', PreferenceScope.User]]);
-    const beforeCancel = input();
-    await pick();
-    assert.equal(input(), beforeCancel);
-    assert.equal(writes.length, 1);
-    destination = { path: { fsPath: () => '/catalog/選んだ素材' } };
-    await pick();
-    assert.notEqual(input(), beforeCancel, '選択後は保存した値で再描画する');
-    assert.equal(input().value, '/catalog/選んだ素材');
-    assert.deepEqual(writes.at(-1), ['akari.catalog.root', '/catalog/選んだ素材', PreferenceScope.User]);
-});
+// カタログのフォルダ（手入力・選択・キャンセル）の DOM 検査は settings-dialog-refresh.test.mjs へ移した。
 
 test('ページの保存と復元は保存不可でも動き、コマンドからの直接指定を渡す', () => {
     const dialog = source('../browser/akari-settings-dialog.ts');
     assert.match(dialog, /try \{ stored = localStorage\.getItem\(SETTINGS_LAST_SECTION_KEY\); \} catch/);
     assert.match(dialog, /this\.showSection\(initialSettingsSection\(initialSection, stored\)\)/);
     assert.match(dialog, /try \{ localStorage\.setItem\(SETTINGS_LAST_SECTION_KEY, section\); \} catch/);
-    assert.match(dialog, /action\(label, \(\) => this\.showSection\(target\)\)/);
+    assert.match(dialog, /button\.addEventListener\('click', \(\) => this\.showSection\(target\)\)/);
     assert.match(dialog, /const section = resolveSettingsSectionId\(arg\)/);
     assert.match(dialog, /this\.dialog\?\.showSection\(section\)/);
     assert.match(dialog, /new AkariSettingsDialog\([^;]*this\.requestedSection\)/);
@@ -279,8 +219,7 @@ test('形式・fps・OS ごとのエンコーダは有効値を保持し、不�
     }
     assert.deepEqual(EXPORT_FPS_CHOICES.map(({ value }) => normalizeExportFps(Number(value))), [undefined, 24, 30, 60]);
     const dialog = source('../browser/akari-settings-dialog.ts');
-    assert.match(dialog, /this\.preferenceSelect\(AKARI_EXPORT_FPS,[\s\S]*?value => normalizeExportFps\(Number\(value\)\)/);
-    assert.match(dialog, /this\.savePreference\(key, toPreferenceValue\(control\.value\)\)/);
+    assert.match(dialog, /this\.savePreference\(AKARI_EXPORT_FPS, normalizeExportFps\(Number\(value\)\)\)/);
     assert.match(dialog, /this\.preferences\.set\(key, value, PreferenceScope\.User\)/);
 });
 
@@ -292,70 +231,4 @@ test('文字起こしのモードは先頭に掲載し、既定は simple', () =
         /\[AKARI_TRANSCRIBE_MODE\]:\s*\{\s*type: 'string', enum: \['simple', 'advanced'\], default: 'simple'/);
 });
 
-test('文字起こしのラジオ切替で比較・カットの説明とフォームを置き換え、設定値を保つ', async () => {
-    const require = createRequire(import.meta.url);
-    const sections = require('../../lib/common/settings-sections.js');
-    const protocol = require('../../lib/common/akari-connections-protocol.js');
-    const { PreferenceScope } = require('@theia/core/lib/common/preferences/preference-scope');
-    const element = tag => ({
-        tag, children: [], style: {}, attributes: {}, listeners: {}, textContent: '',
-        append(...children) { this.children.push(...children); },
-        replaceChildren(...children) { this.children = children; },
-        setAttribute(name, value) { this.attributes[name] = value; },
-        addEventListener(name, callback) { this.listeners[name] = callback; }
-    });
-    const code = source('../../lib/browser/akari-settings-dialog.js');
-    const modules = Object.fromEntries([...code.matchAll(/require\("([^"]+)"\)/g)].map(([, id]) => [id, {}]));
-    Object.assign(modules, {
-        '@theia/core/lib/browser/dialogs': { AbstractDialog: class {} },
-        './akari-first-run-setup-dialog': { AkariFirstRunSetupDialog: class {} },
-        '@theia/core/shared/inversify': { injectable: () => () => {}, inject: () => () => {} },
-        '@theia/core/lib/common/preferences': { PreferenceScope },
-        '../common/settings-sections': sections,
-        '../common/akari-connections-protocol': protocol
-    });
-    const exports = {};
-    new Function('require', 'exports', 'document', code)(id => {
-        assert.ok(id in modules, `unexpected dependency: ${id}`);
-        return modules[id];
-    }, exports, { createElement: element });
-    const dialog = Object.create(exports.AkariSettingsDialog.prototype);
-    const values = {
-        'akari.transcribe.compareSet': ['whisper-cpp', 'cloud:scribe'],
-        'akari.transcribe.autoCuts': false
-    }, writes = [];
-    Object.assign(dialog, {
-        transcribe: element('section'), notice: element('p'), compareDraft: [], compareEnabled: false,
-        preferenceWrites: Promise.resolve(),
-        preferences: {
-            get(key, fallback) { return values[key] ?? fallback; },
-            async set(key, value, scope) { values[key] = value; writes.push([key, value, scope]); dialog.renderTranscribe(); }
-        }
-    });
-    const all = node => [node, ...node.children.flatMap(all)];
-    const checkboxCount = () => all(dialog.transcribe).filter(node => node.tag === 'input' && node.type === 'checkbox').length;
-    const selectMode = async mode => {
-        all(dialog.transcribe).find(node => node.tag === 'input' && node.name === 'akari-transcribe-mode' && node.value === mode).listeners.change();
-        await dialog.preferenceWrites;
-    };
-    dialog.renderTranscribe();
-    const modes = dialog.transcribe.children.find(node => node.attributes.role === 'radiogroup');
-    assert.deepEqual(all(modes).filter(node => node.tag === 'input').map(node => [node.value, node.checked]),
-        [['simple', true], ['advanced', false]]);
-    assert.equal(checkboxCount(), 0);
-    assert.equal(all(dialog.transcribe).filter(node => node.textContent.includes('アドバンスで使います')).length, 1);
-    await selectMode('advanced');
-    assert.equal(checkboxCount(), 6);
-    assert.equal(all(dialog.transcribe).filter(node => node.textContent.includes('アドバンスで使います')).length, 0);
-    const checkboxes = all(dialog.transcribe).filter(node => node.tag === 'input' && node.type === 'checkbox');
-    assert.equal(checkboxes.at(-1).checked, false);
-    assert.equal(checkboxes.filter(node => node.checked).length, 3);
-    await selectMode('simple');
-    assert.equal(checkboxCount(), 0);
-    assert.deepEqual(writes, [
-        ['akari.transcribe.mode', 'advanced', PreferenceScope.User],
-        ['akari.transcribe.mode', 'simple', PreferenceScope.User]
-    ]);
-    assert.deepEqual(values['akari.transcribe.compareSet'], ['whisper-cpp', 'cloud:scribe']);
-    assert.equal(values['akari.transcribe.autoCuts'], false);
-});
+// 文字起こしのモード切替（カード）で比較・カットのフォームを置き換える DOM 検査は settings-dialog-refresh.test.mjs へ移した。

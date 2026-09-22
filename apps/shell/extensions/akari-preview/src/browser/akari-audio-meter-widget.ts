@@ -21,7 +21,7 @@ export class AkariAudioMeterWidget extends BaseWidget {
         this.id = AkariAudioMeterWidget.FACTORY_ID;
         this.title.label = '音声メーター';
         this.title.caption = '出力プレビューのマスター音量（L / R のピークと RMS・クリップ）';
-        this.title.iconClass = 'codicon codicon-pulse';
+        this.title.iconClass = 'akari-rail-icon akari-rail-icon-audio-meter';
         this.title.closable = true;
         this.node.classList.add('akari-audio-meter-widget');
         this.node.tabIndex = -1;

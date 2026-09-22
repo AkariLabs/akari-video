@@ -1,0 +1,1362 @@
+{
+  "port": "9457",
+  "startedAt": "2026-09-22T09:54:50.165Z",
+  "pages": {
+    "dark": [
+      {
+        "id": "account",
+        "visible": [
+          "account"
+        ],
+        "nav": [
+          "Akari アカウント",
+          "はじめかた",
+          "書き出し",
+          "外観",
+          "接続と API キー",
+          "文字起こし",
+          "プレビュー品質",
+          "通知",
+          "道具",
+          "開発者モード"
+        ],
+        "navGroups": [
+          "開発者"
+        ],
+        "activeNav": "account",
+        "activeNavComputed": {
+          "borderInlineStartWidth": "0px",
+          "borderLeftWidth": "0px",
+          "backgroundColor": "rgb(26, 26, 26)",
+          "fontWeight": "600",
+          "color": "rgb(229, 229, 229)",
+          "iconColor": "rgb(249, 115, 22)"
+        },
+        "inactiveNavBackground": "rgba(0, 0, 0, 0)",
+        "heading": "Akari アカウント",
+        "groups": [
+          "アカウント",
+          "AKARI STORE"
+        ],
+        "parts": {
+          "choiceCards": 0,
+          "cards": 0,
+          "dropdowns": 0,
+          "segmented": 0,
+          "switches": 0,
+          "checkChips": 0,
+          "textInputs": 0,
+          "svgIcons": 1,
+          "logos": 0
+        },
+        "rawFormControls": {
+          "total": 0,
+          "visible": 0
+        },
+        "pageScrollHeight": 730,
+        "pageClientHeight": 730
+      },
+      {
+        "id": "start",
+        "visible": [
+          "start"
+        ],
+        "nav": [
+          "Akari アカウント",
+          "はじめかた",
+          "書き出し",
+          "外観",
+          "接続と API キー",
+          "文字起こし",
+          "プレビュー品質",
+          "通知",
+          "道具",
+          "開発者モード"
+        ],
+        "navGroups": [
+          "開発者"
+        ],
+        "activeNav": "start",
+        "activeNavComputed": {
+          "borderInlineStartWidth": "0px",
+          "borderLeftWidth": "0px",
+          "backgroundColor": "rgb(26, 26, 26)",
+          "fontWeight": "600",
+          "color": "rgb(229, 229, 229)",
+          "iconColor": "rgb(249, 115, 22)"
+        },
+        "inactiveNavBackground": "rgba(0, 0, 0, 0)",
+        "heading": "はじめかた",
+        "groups": [
+          "(見出しなし)"
+        ],
+        "parts": {
+          "choiceCards": 0,
+          "cards": 0,
+          "dropdowns": 0,
+          "segmented": 0,
+          "switches": 0,
+          "checkChips": 0,
+          "textInputs": 0,
+          "svgIcons": 2,
+          "logos": 0
+        },
+        "rawFormControls": {
+          "total": 0,
+          "visible": 0
+        },
+        "pageScrollHeight": 730,
+        "pageClientHeight": 730
+      },
+      {
+        "id": "export",
+        "visible": [
+          "export"
+        ],
+        "nav": [
+          "Akari アカウント",
+          "はじめかた",
+          "書き出し",
+          "外観",
+          "接続と API キー",
+          "文字起こし",
+          "プレビュー品質",
+          "通知",
+          "道具",
+          "開発者モード"
+        ],
+        "navGroups": [
+          "開発者"
+        ],
+        "activeNav": "export",
+        "activeNavComputed": {
+          "borderInlineStartWidth": "0px",
+          "borderLeftWidth": "0px",
+          "backgroundColor": "rgb(26, 26, 26)",
+          "fontWeight": "600",
+          "color": "rgb(229, 229, 229)",
+          "iconColor": "rgb(249, 115, 22)"
+        },
+        "inactiveNavBackground": "rgba(0, 0, 0, 0)",
+        "heading": "書き出し",
+        "groups": [
+          "画質",
+          "形式",
+          "保存先"
+        ],
+        "parts": {
+          "choiceCards": 1,
+          "cards": 4,
+          "dropdowns": 1,
+          "segmented": 2,
+          "switches": 0,
+          "checkChips": 0,
+          "textInputs": 1,
+          "svgIcons": 2,
+          "logos": 0
+        },
+        "rawFormControls": {
+          "total": 0,
+          "visible": 0
+        },
+        "pageScrollHeight": 730,
+        "pageClientHeight": 730
+      },
+      {
+        "id": "appearance",
+        "visible": [
+          "appearance"
+        ],
+        "nav": [
+          "Akari アカウント",
+          "はじめかた",
+          "書き出し",
+          "外観",
+          "接続と API キー",
+          "文字起こし",
+          "プレビュー品質",
+          "通知",
+          "道具",
+          "開発者モード"
+        ],
+        "navGroups": [
+          "開発者"
+        ],
+        "activeNav": "appearance",
+        "activeNavComputed": {
+          "borderInlineStartWidth": "0px",
+          "borderLeftWidth": "0px",
+          "backgroundColor": "rgb(26, 26, 26)",
+          "fontWeight": "600",
+          "color": "rgb(229, 229, 229)",
+          "iconColor": "rgb(249, 115, 22)"
+        },
+        "inactiveNavBackground": "rgba(0, 0, 0, 0)",
+        "heading": "外観",
+        "groups": [
+          "テーマ"
+        ],
+        "parts": {
+          "choiceCards": 1,
+          "cards": 2,
+          "dropdowns": 0,
+          "segmented": 0,
+          "switches": 0,
+          "checkChips": 0,
+          "textInputs": 0,
+          "svgIcons": 0,
+          "logos": 0
+        },
+        "rawFormControls": {
+          "total": 0,
+          "visible": 0
+        },
+        "pageScrollHeight": 730,
+        "pageClientHeight": 730
+      },
+      {
+        "id": "connections",
+        "visible": [
+          "connections"
+        ],
+        "nav": [
+          "Akari アカウント",
+          "はじめかた",
+          "書き出し",
+          "外観",
+          "接続と API キー",
+          "文字起こし",
+          "プレビュー品質",
+          "通知",
+          "道具",
+          "開発者モード"
+        ],
+        "navGroups": [
+          "開発者"
+        ],
+        "activeNav": "connections",
+        "activeNavComputed": {
+          "borderInlineStartWidth": "0px",
+          "borderLeftWidth": "0px",
+          "backgroundColor": "rgb(26, 26, 26)",
+          "fontWeight": "600",
+          "color": "rgb(229, 229, 229)",
+          "iconColor": "rgb(249, 115, 22)"
+        },
+        "inactiveNavBackground": "rgba(0, 0, 0, 0)",
+        "heading": "接続と API キー",
+        "groups": [
+          "生成 AI",
+          "文字起こし",
+          "キーの保存先"
+        ],
+        "parts": {
+          "choiceCards": 0,
+          "cards": 0,
+          "dropdowns": 2,
+          "segmented": 1,
+          "switches": 0,
+          "checkChips": 0,
+          "textInputs": 3,
+          "svgIcons": 15,
+          "logos": 5
+        },
+        "rawFormControls": {
+          "total": 0,
+          "visible": 0
+        },
+        "pageScrollHeight": 1127,
+        "pageClientHeight": 730
+      },
+      {
+        "id": "transcribe",
+        "visible": [
+          "transcribe"
+        ],
+        "nav": [
+          "Akari アカウント",
+          "はじめかた",
+          "書き出し",
+          "外観",
+          "接続と API キー",
+          "文字起こし",
+          "プレビュー品質",
+          "通知",
+          "道具",
+          "開発者モード"
+        ],
+        "navGroups": [
+          "開発者"
+        ],
+        "activeNav": "transcribe",
+        "activeNavComputed": {
+          "borderInlineStartWidth": "0px",
+          "borderLeftWidth": "0px",
+          "backgroundColor": "rgb(26, 26, 26)",
+          "fontWeight": "600",
+          "color": "rgb(229, 229, 229)",
+          "iconColor": "rgb(249, 115, 22)"
+        },
+        "inactiveNavBackground": "rgba(0, 0, 0, 0)",
+        "heading": "文字起こし",
+        "groups": [
+          "モード",
+          "エンジン"
+        ],
+        "parts": {
+          "choiceCards": 1,
+          "cards": 2,
+          "dropdowns": 1,
+          "segmented": 1,
+          "switches": 0,
+          "checkChips": 0,
+          "textInputs": 0,
+          "svgIcons": 3,
+          "logos": 0
+        },
+        "rawFormControls": {
+          "total": 0,
+          "visible": 0
+        },
+        "pageScrollHeight": 730,
+        "pageClientHeight": 730
+      },
+      {
+        "id": "quality",
+        "visible": [
+          "quality"
+        ],
+        "nav": [
+          "Akari アカウント",
+          "はじめかた",
+          "書き出し",
+          "外観",
+          "接続と API キー",
+          "文字起こし",
+          "プレビュー品質",
+          "通知",
+          "道具",
+          "開発者モード"
+        ],
+        "navGroups": [
+          "開発者"
+        ],
+        "activeNav": "quality",
+        "activeNavComputed": {
+          "borderInlineStartWidth": "0px",
+          "borderLeftWidth": "0px",
+          "backgroundColor": "rgb(26, 26, 26)",
+          "fontWeight": "600",
+          "color": "rgb(229, 229, 229)",
+          "iconColor": "rgb(249, 115, 22)"
+        },
+        "inactiveNavBackground": "rgba(0, 0, 0, 0)",
+        "heading": "プレビュー品質",
+        "groups": [
+          "品質段階",
+          "タイムライン"
+        ],
+        "parts": {
+          "choiceCards": 1,
+          "cards": 2,
+          "dropdowns": 0,
+          "segmented": 0,
+          "switches": 1,
+          "checkChips": 0,
+          "textInputs": 0,
+          "svgIcons": 2,
+          "logos": 0
+        },
+        "rawFormControls": {
+          "total": 0,
+          "visible": 0
+        },
+        "pageScrollHeight": 730,
+        "pageClientHeight": 730
+      },
+      {
+        "id": "notifications",
+        "visible": [
+          "notifications"
+        ],
+        "nav": [
+          "Akari アカウント",
+          "はじめかた",
+          "書き出し",
+          "外観",
+          "接続と API キー",
+          "文字起こし",
+          "プレビュー品質",
+          "通知",
+          "道具",
+          "開発者モード"
+        ],
+        "navGroups": [
+          "開発者"
+        ],
+        "activeNav": "notifications",
+        "activeNavComputed": {
+          "borderInlineStartWidth": "0px",
+          "borderLeftWidth": "0px",
+          "backgroundColor": "rgb(26, 26, 26)",
+          "fontWeight": "600",
+          "color": "rgb(229, 229, 229)",
+          "iconColor": "rgb(249, 115, 22)"
+        },
+        "inactiveNavBackground": "rgba(0, 0, 0, 0)",
+        "heading": "通知",
+        "groups": [
+          "(見出しなし)"
+        ],
+        "parts": {
+          "choiceCards": 0,
+          "cards": 0,
+          "dropdowns": 0,
+          "segmented": 0,
+          "switches": 1,
+          "checkChips": 0,
+          "textInputs": 0,
+          "svgIcons": 0,
+          "logos": 0
+        },
+        "rawFormControls": {
+          "total": 0,
+          "visible": 0
+        },
+        "pageScrollHeight": 730,
+        "pageClientHeight": 730
+      },
+      {
+        "id": "tools",
+        "visible": [
+          "tools"
+        ],
+        "nav": [
+          "Akari アカウント",
+          "はじめかた",
+          "書き出し",
+          "外観",
+          "接続と API キー",
+          "文字起こし",
+          "プレビュー品質",
+          "通知",
+          "道具",
+          "開発者モード"
+        ],
+        "navGroups": [
+          "開発者"
+        ],
+        "activeNav": "tools",
+        "activeNavComputed": {
+          "borderInlineStartWidth": "0px",
+          "borderLeftWidth": "0px",
+          "backgroundColor": "rgb(26, 26, 26)",
+          "fontWeight": "600",
+          "color": "rgb(229, 229, 229)",
+          "iconColor": "rgb(249, 115, 22)"
+        },
+        "inactiveNavBackground": "rgba(0, 0, 0, 0)",
+        "heading": "道具",
+        "groups": [
+          "道具",
+          "素材フォルダ"
+        ],
+        "parts": {
+          "choiceCards": 0,
+          "cards": 0,
+          "dropdowns": 0,
+          "segmented": 0,
+          "switches": 0,
+          "checkChips": 0,
+          "textInputs": 1,
+          "svgIcons": 9,
+          "logos": 0
+        },
+        "rawFormControls": {
+          "total": 0,
+          "visible": 0
+        },
+        "pageScrollHeight": 842,
+        "pageClientHeight": 730
+      },
+      {
+        "id": "developer",
+        "visible": [
+          "developer"
+        ],
+        "nav": [
+          "Akari アカウント",
+          "はじめかた",
+          "書き出し",
+          "外観",
+          "接続と API キー",
+          "文字起こし",
+          "プレビュー品質",
+          "通知",
+          "道具",
+          "開発者モード"
+        ],
+        "navGroups": [
+          "開発者"
+        ],
+        "activeNav": "developer",
+        "activeNavComputed": {
+          "borderInlineStartWidth": "0px",
+          "borderLeftWidth": "0px",
+          "backgroundColor": "rgb(26, 26, 26)",
+          "fontWeight": "600",
+          "color": "rgb(229, 229, 229)",
+          "iconColor": "rgb(249, 115, 22)"
+        },
+        "inactiveNavBackground": "rgba(0, 0, 0, 0)",
+        "heading": "開発者モード",
+        "groups": [
+          "(見出しなし)"
+        ],
+        "parts": {
+          "choiceCards": 0,
+          "cards": 0,
+          "dropdowns": 0,
+          "segmented": 0,
+          "switches": 1,
+          "checkChips": 0,
+          "textInputs": 0,
+          "svgIcons": 0,
+          "logos": 0
+        },
+        "rawFormControls": {
+          "total": 0,
+          "visible": 0
+        },
+        "pageScrollHeight": 730,
+        "pageClientHeight": 730
+      }
+    ],
+    "light": [
+      {
+        "id": "account",
+        "visible": [
+          "account"
+        ],
+        "nav": [
+          "Akari アカウント",
+          "はじめかた",
+          "書き出し",
+          "外観",
+          "接続と API キー",
+          "文字起こし",
+          "プレビュー品質",
+          "通知",
+          "道具",
+          "開発者モード"
+        ],
+        "navGroups": [
+          "開発者"
+        ],
+        "activeNav": "account",
+        "activeNavComputed": {
+          "borderInlineStartWidth": "0px",
+          "borderLeftWidth": "0px",
+          "backgroundColor": "rgb(229, 229, 229)",
+          "fontWeight": "600",
+          "color": "rgb(23, 23, 23)",
+          "iconColor": "rgb(234, 88, 12)"
+        },
+        "inactiveNavBackground": "rgba(0, 0, 0, 0)",
+        "heading": "Akari アカウント",
+        "groups": [
+          "アカウント",
+          "AKARI STORE"
+        ],
+        "parts": {
+          "choiceCards": 0,
+          "cards": 0,
+          "dropdowns": 0,
+          "segmented": 0,
+          "switches": 0,
+          "checkChips": 0,
+          "textInputs": 0,
+          "svgIcons": 1,
+          "logos": 0
+        },
+        "rawFormControls": {
+          "total": 0,
+          "visible": 0
+        },
+        "pageScrollHeight": 730,
+        "pageClientHeight": 730
+      },
+      {
+        "id": "start",
+        "visible": [
+          "start"
+        ],
+        "nav": [
+          "Akari アカウント",
+          "はじめかた",
+          "書き出し",
+          "外観",
+          "接続と API キー",
+          "文字起こし",
+          "プレビュー品質",
+          "通知",
+          "道具",
+          "開発者モード"
+        ],
+        "navGroups": [
+          "開発者"
+        ],
+        "activeNav": "start",
+        "activeNavComputed": {
+          "borderInlineStartWidth": "0px",
+          "borderLeftWidth": "0px",
+          "backgroundColor": "rgb(229, 229, 229)",
+          "fontWeight": "600",
+          "color": "rgb(23, 23, 23)",
+          "iconColor": "rgb(234, 88, 12)"
+        },
+        "inactiveNavBackground": "rgba(0, 0, 0, 0)",
+        "heading": "はじめかた",
+        "groups": [
+          "(見出しなし)"
+        ],
+        "parts": {
+          "choiceCards": 0,
+          "cards": 0,
+          "dropdowns": 0,
+          "segmented": 0,
+          "switches": 0,
+          "checkChips": 0,
+          "textInputs": 0,
+          "svgIcons": 2,
+          "logos": 0
+        },
+        "rawFormControls": {
+          "total": 0,
+          "visible": 0
+        },
+        "pageScrollHeight": 730,
+        "pageClientHeight": 730
+      },
+      {
+        "id": "export",
+        "visible": [
+          "export"
+        ],
+        "nav": [
+          "Akari アカウント",
+          "はじめかた",
+          "書き出し",
+          "外観",
+          "接続と API キー",
+          "文字起こし",
+          "プレビュー品質",
+          "通知",
+          "道具",
+          "開発者モード"
+        ],
+        "navGroups": [
+          "開発者"
+        ],
+        "activeNav": "export",
+        "activeNavComputed": {
+          "borderInlineStartWidth": "0px",
+          "borderLeftWidth": "0px",
+          "backgroundColor": "rgb(229, 229, 229)",
+          "fontWeight": "600",
+          "color": "rgb(23, 23, 23)",
+          "iconColor": "rgb(234, 88, 12)"
+        },
+        "inactiveNavBackground": "rgba(0, 0, 0, 0)",
+        "heading": "書き出し",
+        "groups": [
+          "画質",
+          "形式",
+          "保存先"
+        ],
+        "parts": {
+          "choiceCards": 1,
+          "cards": 4,
+          "dropdowns": 1,
+          "segmented": 2,
+          "switches": 0,
+          "checkChips": 0,
+          "textInputs": 1,
+          "svgIcons": 2,
+          "logos": 0
+        },
+        "rawFormControls": {
+          "total": 0,
+          "visible": 0
+        },
+        "pageScrollHeight": 730,
+        "pageClientHeight": 730
+      },
+      {
+        "id": "appearance",
+        "visible": [
+          "appearance"
+        ],
+        "nav": [
+          "Akari アカウント",
+          "はじめかた",
+          "書き出し",
+          "外観",
+          "接続と API キー",
+          "文字起こし",
+          "プレビュー品質",
+          "通知",
+          "道具",
+          "開発者モード"
+        ],
+        "navGroups": [
+          "開発者"
+        ],
+        "activeNav": "appearance",
+        "activeNavComputed": {
+          "borderInlineStartWidth": "0px",
+          "borderLeftWidth": "0px",
+          "backgroundColor": "rgb(229, 229, 229)",
+          "fontWeight": "600",
+          "color": "rgb(23, 23, 23)",
+          "iconColor": "rgb(234, 88, 12)"
+        },
+        "inactiveNavBackground": "rgba(0, 0, 0, 0)",
+        "heading": "外観",
+        "groups": [
+          "テーマ"
+        ],
+        "parts": {
+          "choiceCards": 1,
+          "cards": 2,
+          "dropdowns": 0,
+          "segmented": 0,
+          "switches": 0,
+          "checkChips": 0,
+          "textInputs": 0,
+          "svgIcons": 0,
+          "logos": 0
+        },
+        "rawFormControls": {
+          "total": 0,
+          "visible": 0
+        },
+        "pageScrollHeight": 730,
+        "pageClientHeight": 730
+      },
+      {
+        "id": "connections",
+        "visible": [
+          "connections"
+        ],
+        "nav": [
+          "Akari アカウント",
+          "はじめかた",
+          "書き出し",
+          "外観",
+          "接続と API キー",
+          "文字起こし",
+          "プレビュー品質",
+          "通知",
+          "道具",
+          "開発者モード"
+        ],
+        "navGroups": [
+          "開発者"
+        ],
+        "activeNav": "connections",
+        "activeNavComputed": {
+          "borderInlineStartWidth": "0px",
+          "borderLeftWidth": "0px",
+          "backgroundColor": "rgb(229, 229, 229)",
+          "fontWeight": "600",
+          "color": "rgb(23, 23, 23)",
+          "iconColor": "rgb(234, 88, 12)"
+        },
+        "inactiveNavBackground": "rgba(0, 0, 0, 0)",
+        "heading": "接続と API キー",
+        "groups": [
+          "生成 AI",
+          "文字起こし",
+          "キーの保存先"
+        ],
+        "parts": {
+          "choiceCards": 0,
+          "cards": 0,
+          "dropdowns": 2,
+          "segmented": 1,
+          "switches": 0,
+          "checkChips": 0,
+          "textInputs": 3,
+          "svgIcons": 15,
+          "logos": 5
+        },
+        "rawFormControls": {
+          "total": 0,
+          "visible": 0
+        },
+        "pageScrollHeight": 1127,
+        "pageClientHeight": 730
+      },
+      {
+        "id": "transcribe",
+        "visible": [
+          "transcribe"
+        ],
+        "nav": [
+          "Akari アカウント",
+          "はじめかた",
+          "書き出し",
+          "外観",
+          "接続と API キー",
+          "文字起こし",
+          "プレビュー品質",
+          "通知",
+          "道具",
+          "開発者モード"
+        ],
+        "navGroups": [
+          "開発者"
+        ],
+        "activeNav": "transcribe",
+        "activeNavComputed": {
+          "borderInlineStartWidth": "0px",
+          "borderLeftWidth": "0px",
+          "backgroundColor": "rgb(229, 229, 229)",
+          "fontWeight": "600",
+          "color": "rgb(23, 23, 23)",
+          "iconColor": "rgb(234, 88, 12)"
+        },
+        "inactiveNavBackground": "rgba(0, 0, 0, 0)",
+        "heading": "文字起こし",
+        "groups": [
+          "モード",
+          "エンジン",
+          "アドバンス"
+        ],
+        "parts": {
+          "choiceCards": 1,
+          "cards": 2,
+          "dropdowns": 1,
+          "segmented": 1,
+          "switches": 2,
+          "checkChips": 4,
+          "textInputs": 0,
+          "svgIcons": 3,
+          "logos": 0
+        },
+        "rawFormControls": {
+          "total": 0,
+          "visible": 0
+        },
+        "pageScrollHeight": 730,
+        "pageClientHeight": 730
+      },
+      {
+        "id": "quality",
+        "visible": [
+          "quality"
+        ],
+        "nav": [
+          "Akari アカウント",
+          "はじめかた",
+          "書き出し",
+          "外観",
+          "接続と API キー",
+          "文字起こし",
+          "プレビュー品質",
+          "通知",
+          "道具",
+          "開発者モード"
+        ],
+        "navGroups": [
+          "開発者"
+        ],
+        "activeNav": "quality",
+        "activeNavComputed": {
+          "borderInlineStartWidth": "0px",
+          "borderLeftWidth": "0px",
+          "backgroundColor": "rgb(229, 229, 229)",
+          "fontWeight": "600",
+          "color": "rgb(23, 23, 23)",
+          "iconColor": "rgb(234, 88, 12)"
+        },
+        "inactiveNavBackground": "rgba(0, 0, 0, 0)",
+        "heading": "プレビュー品質",
+        "groups": [
+          "品質段階",
+          "タイムライン"
+        ],
+        "parts": {
+          "choiceCards": 1,
+          "cards": 2,
+          "dropdowns": 0,
+          "segmented": 0,
+          "switches": 1,
+          "checkChips": 0,
+          "textInputs": 0,
+          "svgIcons": 2,
+          "logos": 0
+        },
+        "rawFormControls": {
+          "total": 0,
+          "visible": 0
+        },
+        "pageScrollHeight": 730,
+        "pageClientHeight": 730
+      },
+      {
+        "id": "notifications",
+        "visible": [
+          "notifications"
+        ],
+        "nav": [
+          "Akari アカウント",
+          "はじめかた",
+          "書き出し",
+          "外観",
+          "接続と API キー",
+          "文字起こし",
+          "プレビュー品質",
+          "通知",
+          "道具",
+          "開発者モード"
+        ],
+        "navGroups": [
+          "開発者"
+        ],
+        "activeNav": "notifications",
+        "activeNavComputed": {
+          "borderInlineStartWidth": "0px",
+          "borderLeftWidth": "0px",
+          "backgroundColor": "rgb(229, 229, 229)",
+          "fontWeight": "600",
+          "color": "rgb(23, 23, 23)",
+          "iconColor": "rgb(234, 88, 12)"
+        },
+        "inactiveNavBackground": "rgba(0, 0, 0, 0)",
+        "heading": "通知",
+        "groups": [
+          "(見出しなし)"
+        ],
+        "parts": {
+          "choiceCards": 0,
+          "cards": 0,
+          "dropdowns": 0,
+          "segmented": 0,
+          "switches": 1,
+          "checkChips": 0,
+          "textInputs": 0,
+          "svgIcons": 0,
+          "logos": 0
+        },
+        "rawFormControls": {
+          "total": 0,
+          "visible": 0
+        },
+        "pageScrollHeight": 730,
+        "pageClientHeight": 730
+      },
+      {
+        "id": "tools",
+        "visible": [
+          "tools"
+        ],
+        "nav": [
+          "Akari アカウント",
+          "はじめかた",
+          "書き出し",
+          "外観",
+          "接続と API キー",
+          "文字起こし",
+          "プレビュー品質",
+          "通知",
+          "道具",
+          "開発者モード"
+        ],
+        "navGroups": [
+          "開発者"
+        ],
+        "activeNav": "tools",
+        "activeNavComputed": {
+          "borderInlineStartWidth": "0px",
+          "borderLeftWidth": "0px",
+          "backgroundColor": "rgb(229, 229, 229)",
+          "fontWeight": "600",
+          "color": "rgb(23, 23, 23)",
+          "iconColor": "rgb(234, 88, 12)"
+        },
+        "inactiveNavBackground": "rgba(0, 0, 0, 0)",
+        "heading": "道具",
+        "groups": [
+          "道具",
+          "素材フォルダ"
+        ],
+        "parts": {
+          "choiceCards": 0,
+          "cards": 0,
+          "dropdowns": 0,
+          "segmented": 0,
+          "switches": 0,
+          "checkChips": 0,
+          "textInputs": 1,
+          "svgIcons": 9,
+          "logos": 0
+        },
+        "rawFormControls": {
+          "total": 0,
+          "visible": 0
+        },
+        "pageScrollHeight": 842,
+        "pageClientHeight": 730
+      },
+      {
+        "id": "developer",
+        "visible": [
+          "developer"
+        ],
+        "nav": [
+          "Akari アカウント",
+          "はじめかた",
+          "書き出し",
+          "外観",
+          "接続と API キー",
+          "文字起こし",
+          "プレビュー品質",
+          "通知",
+          "道具",
+          "開発者モード"
+        ],
+        "navGroups": [
+          "開発者"
+        ],
+        "activeNav": "developer",
+        "activeNavComputed": {
+          "borderInlineStartWidth": "0px",
+          "borderLeftWidth": "0px",
+          "backgroundColor": "rgb(229, 229, 229)",
+          "fontWeight": "600",
+          "color": "rgb(23, 23, 23)",
+          "iconColor": "rgb(234, 88, 12)"
+        },
+        "inactiveNavBackground": "rgba(0, 0, 0, 0)",
+        "heading": "開発者モード",
+        "groups": [
+          "(見出しなし)"
+        ],
+        "parts": {
+          "choiceCards": 0,
+          "cards": 0,
+          "dropdowns": 0,
+          "segmented": 0,
+          "switches": 1,
+          "checkChips": 0,
+          "textInputs": 0,
+          "svgIcons": 0,
+          "logos": 0
+        },
+        "rawFormControls": {
+          "total": 0,
+          "visible": 0
+        },
+        "pageScrollHeight": 730,
+        "pageClientHeight": 730
+      }
+    ]
+  },
+  "clearedLastSection": true,
+  "toolsAndConnectionsLoaded": true,
+  "initialOpen": {
+    "visible": [
+      "account"
+    ],
+    "nav": [
+      "Akari アカウント",
+      "はじめかた",
+      "書き出し",
+      "外観",
+      "接続と API キー",
+      "文字起こし",
+      "プレビュー品質",
+      "通知",
+      "道具",
+      "開発者モード"
+    ],
+    "navGroups": [
+      "開発者"
+    ],
+    "activeNav": "account",
+    "activeNavComputed": {
+      "borderInlineStartWidth": "0px",
+      "borderLeftWidth": "0px",
+      "backgroundColor": "rgb(26, 26, 26)",
+      "fontWeight": "600",
+      "color": "rgb(229, 229, 229)",
+      "iconColor": "rgb(249, 115, 22)"
+    },
+    "inactiveNavBackground": "rgba(0, 0, 0, 0)",
+    "heading": "Akari アカウント",
+    "groups": [
+      "アカウント",
+      "AKARI STORE"
+    ],
+    "parts": {
+      "choiceCards": 0,
+      "cards": 0,
+      "dropdowns": 0,
+      "segmented": 0,
+      "switches": 0,
+      "checkChips": 0,
+      "textInputs": 0,
+      "svgIcons": 1,
+      "logos": 0
+    },
+    "rawFormControls": {
+      "total": 0,
+      "visible": 0
+    },
+    "pageScrollHeight": 730,
+    "pageClientHeight": 730
+  },
+  "settingsBefore": {},
+  "mockRequestsBeforeAnyClick": 0,
+  "themeBefore": {
+    "bodyClass": [
+      "theia-dark"
+    ],
+    "akariBg": "#0a0a0a",
+    "akariInk": "#e5e5e5",
+    "colorScheme": "dark"
+  },
+  "account": {
+    "storeInAccount": 1,
+    "storeInConnections": 0,
+    "storeStatus": "未接続",
+    "storeStatusKind": "disconnected",
+    "storeOpenUrl": "https://akari.video/lab/",
+    "planFrame": false,
+    "accountName": "AKARI Store に接続していません"
+  },
+  "connectionsBeforeBalance": {
+    "groups": [
+      {
+        "group": "generate",
+        "title": "生成 AI",
+        "providers": [
+          "fal",
+          "openrouter",
+          "elevenlabs",
+          "replicate"
+        ]
+      },
+      {
+        "group": "transcribe",
+        "title": "文字起こし",
+        "providers": [
+          "groq"
+        ]
+      }
+    ],
+    "logos": [
+      {
+        "id": "fal",
+        "naturalWidth": 180,
+        "complete": true,
+        "kind": "data:image/png"
+      },
+      {
+        "id": "openrouter",
+        "naturalWidth": 180,
+        "complete": true,
+        "kind": "data:image/png"
+      },
+      {
+        "id": "elevenlabs",
+        "naturalWidth": 500,
+        "complete": true,
+        "kind": "data:image/svg+xml"
+      },
+      {
+        "id": "replicate",
+        "naturalWidth": 96,
+        "complete": true,
+        "kind": "data:image/png"
+      },
+      {
+        "id": "groq",
+        "naturalWidth": 33,
+        "complete": true,
+        "kind": "data:image/svg+xml"
+      }
+    ],
+    "pills": [
+      {
+        "id": "fal",
+        "pill": "接続済み",
+        "balanceButton": "enabled",
+        "balanceValue": "—",
+        "billingLink": true
+      },
+      {
+        "id": "openrouter",
+        "pill": "接続済み",
+        "balanceButton": "enabled",
+        "balanceValue": "—",
+        "billingLink": true
+      },
+      {
+        "id": "elevenlabs",
+        "pill": "未接続",
+        "balanceButton": "disabled",
+        "balanceValue": "未接続",
+        "billingLink": true
+      },
+      {
+        "id": "replicate",
+        "pill": "未接続",
+        "balanceButton": "none",
+        "balanceValue": null,
+        "billingLink": true
+      },
+      {
+        "id": "groq",
+        "pill": "未接続",
+        "balanceButton": "none",
+        "balanceValue": null,
+        "billingLink": true
+      }
+    ],
+    "openRouterDescription": "いろいろな会社の AI モデルを 1 つのキーで。つなぐと Akari Vibe（声で話しかけて動画を編集）が使えます",
+    "storageSegment": [
+      {
+        "label": "このファイル",
+        "checked": "true",
+        "disabled": false
+      },
+      {
+        "label": "暗号化",
+        "checked": "false",
+        "disabled": true
+      }
+    ]
+  },
+  "mockRequestsBeforeBalanceClick": 0,
+  "balanceAfterClick": [
+    {
+      "id": "openrouter",
+      "text": "残高を見る 残り $4.72 たった今",
+      "state": "ok"
+    },
+    {
+      "id": "fal",
+      "text": "残高を見る 残り $18.40 たった今",
+      "state": "ok"
+    }
+  ],
+  "mockRequestsAfterBalanceClick": [
+    {
+      "at": "2026-09-22T09:55:16.916Z",
+      "method": "GET",
+      "path": "/api/v1/key",
+      "auth": "Bearer"
+    },
+    {
+      "at": "2026-09-22T09:55:16.978Z",
+      "method": "GET",
+      "path": "/v1/account/billing?expand=credits",
+      "auth": "Key"
+    }
+  ],
+  "exportKeyboard": {
+    "dropdownOpened": {
+      "ariaExpanded": "true",
+      "listVisible": true,
+      "activeElementRole": "listbox",
+      "options": [
+        {
+          "label": "MP4 · H.264",
+          "description": "どこでも再生できる",
+          "selected": "true"
+        },
+        {
+          "label": "MP4 · H.265（HEVC）",
+          "description": "同じ画質で軽い",
+          "selected": "false"
+        },
+        {
+          "label": "MOV · ProRes 422 HQ",
+          "description": "編集ソフトへ渡す",
+          "selected": "false"
+        },
+        {
+          "label": "連番 PNG",
+          "description": "1 コマずつ画像で",
+          "selected": "false"
+        }
+      ]
+    },
+    "activeAfterArrows": "prores422",
+    "afterEnter": {
+      "current": "MOV · ProRes 422 HQ",
+      "expanded": "false"
+    },
+    "afterEscape": {
+      "expanded": "false",
+      "dialogs": 1
+    },
+    "before": {
+      "quality": "(既定 standard)",
+      "codec": "(既定 h264)"
+    },
+    "after": {
+      "quality": "master",
+      "codec": "prores422"
+    }
+  },
+  "transcribeMode": {
+    "before": "(既定 simple)",
+    "after": "advanced",
+    "advancedParts": {
+      "choiceCards": 1,
+      "cards": 2,
+      "dropdowns": 1,
+      "segmented": 1,
+      "switches": 2,
+      "checkChips": 4,
+      "textInputs": 0,
+      "svgIcons": 3,
+      "logos": 0
+    },
+    "advancedGroups": [
+      "モード",
+      "エンジン",
+      "アドバンス"
+    ]
+  },
+  "themeSwitch": {
+    "settingBefore": "(既定 dark)",
+    "settingAfter": "light",
+    "stateAfter": {
+      "bodyClass": [
+        "theia-light"
+      ],
+      "akariBg": "#ffffff",
+      "akariInk": "#171717",
+      "colorScheme": "light"
+    }
+  },
+  "themeRestored": {
+    "setting": "dark",
+    "state": {
+      "bodyClass": [
+        "theia-dark"
+      ],
+      "akariBg": "#0a0a0a",
+      "akariInk": "#e5e5e5",
+      "colorScheme": "dark"
+    }
+  },
+  "dialogsAfterEscape": 0,
+  "consoleErrors": [],
+  "elapsedSeconds": 56
+}
