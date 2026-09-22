@@ -549,18 +549,20 @@ test('audio の formant select 上の右クリックから既定値に戻すと 
   }
 }));
 
-test('KF 席の前後ナビは ‹ / › で、席本体の ◇ / ◆ と区別する', () => withFakeDocument(() => {
+test('KF 席は SVG ナビ・ダイヤ・メニューの4ボタンで、打点は aria-pressed で区別する', () => withFakeDocument(() => {
   const inactive = createKeyframeSeat('opacity');
-  assert.deepEqual(inactive.children.map(child => child.textContent), ['‹', '◇', '›']);
+  assert.equal(inactive.children.length, 4);
+  assert.ok(inactive.children.every(child => child.children[0].innerHTML.includes('<svg')));
   assert.equal(inactive.children[1].className, 'akari-inspector-kf-seat');
+  assert.equal(inactive.children[1].attributes.get('aria-pressed'), 'false');
+  assert.equal(inactive.children[3].attributes.get('aria-haspopup'), 'menu');
 
   const active = createKeyframeSeat('opacity', {
-    active: true,
-    onToggle() {},
-    onPrevious() {},
-    onNext() {}
+    active: true, hasKeyframes: true,
+    onToggle() {}, onPrevious() {}, onNext() {}, onReveal() {}
   });
-  assert.deepEqual(active.children.map(child => child.textContent), ['‹', '◆', '›']);
+  assert.equal(active.children.length, 4);
+  assert.equal(active.children[1].attributes.get('aria-pressed'), 'true');
 }));
 
 test('不透明度は表示 0..100% のドラッグ数値行と KF 席を使う', async () => {

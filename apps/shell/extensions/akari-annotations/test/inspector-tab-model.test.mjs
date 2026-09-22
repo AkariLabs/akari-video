@@ -1,3 +1,4 @@
+import { createSelectionHeader } from '../lib/browser/inspector/selection-header.js';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
@@ -92,7 +93,7 @@ const widgetAst = ts.createSourceFile('inspector.ts', widgetSource, ts.ScriptTar
 const widgetClass = widgetAst.statements.find(node => ts.isClassDeclaration(node) && node.name?.text === 'AkariInspectorWidget');
 const method = name => widgetClass.members.find(node => node.name?.getText(widgetAst) === name).getText(widgetAst);
 const factory = name => widgetAst.statements.find(node => ts.isFunctionDeclaration(node) && node.name?.text === name).getText(widgetAst);
-const dependencies = { selectGenerationSidecarForSource, ...tabModel, ...fx, ...adjust, ...audioMaster, INSPECTOR_LOOK_PRESETS, matchLookPreset, buildLutOptions,
+const dependencies = { createSelectionHeader, selectGenerationSidecarForSource, ...tabModel, ...fx, ...adjust, ...audioMaster, INSPECTOR_LOOK_PRESETS, matchLookPreset, buildLutOptions,
   AUDIO_PREVIEW_SECTIONS, ADJUST_PREVIEW_SECTIONS, generationFields,
   CUT_SECTIONS: cutSections, LAYER_SECTIONS: layerSections, layerAudioControls: new WeakMap(), CAPTION_ZONE_HOVER_EVENT: '' };
 delete dependencies.default;
@@ -136,6 +137,7 @@ function renderFixture(kind, Harness = RenderHarness) {
   widget.tabState = new InspectorTabState({ getItem: key => values.get(key) ?? null, setItem: (key, value) => values.set(key, value) });
   widget.model = { snapshot, audioMaster: { enabled: false, denoise: 'off' } };
   widget.body = new TabElement();
+  widget.generationThumbnail = async () => undefined;
   widget.projectLutRefs = [];
   widget.workspaceService = { tryGetRoots: () => [] };
   widget.generationTabMeta = new Map();
@@ -234,12 +236,12 @@ test('caption / audio / world: id・ラベル・disabled title の語彙を固�
     const widget = renderFixture('cut');
     const tabs = tabsForKind(kind, { generationAvailable: true });
     widget.appendTabStrip(kind, tabs, tabs[0].id, true);
-    assert.deepEqual(widget.body.children[0].children.map(button => [
+    assert.deepEqual(widget.body.children.find(child => child.className === 'akari-inspector-tab-strip').children.map(button => [
       button.attributes.get('data-akari-ui').replace('tab:inspector-', ''), button.textContent, !button.disabled, button.title ?? ''
     ]), expected);
     widget.body.replaceChildren();
     widget.appendTabStrip(kind, tabs.map(tab => ({ ...tab, enabled: false })), '');
-    assert.deepEqual(widget.body.children[0].children.map(button => button.title), ['近日', '近日']);
+    assert.deepEqual(widget.body.children.find(child => child.className === 'akari-inspector-tab-strip').children.map(button => button.title), ['近日', '近日']);
   }
 }));
 
@@ -252,7 +254,7 @@ test('generation: 節割付・enabled・disabled title・やること印の DOM 
       widget.generationStates.set(key, state);
       widget.tabSelectionKey = undefined;
       widget.render();
-      const buttons = widget.body.children[0].children;
+      const buttons = widget.body.children.find(child => child.className === 'akari-inspector-tab-strip').children;
       const generation = buttons.find(button => button.attributes.get('data-akari-ui') === 'tab:inspector-generation');
       const todo = ['planned', 'generating', 'stale', 'failed'].includes(state);
       assert.equal(generation.disabled, false);
@@ -275,7 +277,7 @@ test('generation: 節割付・enabled・disabled title・やること印の DOM 
     else widget.model.snapshot.src = 'done.mp4';
     widget.render();
     assert.equal(widget.currentTab, 'adjust', 'same item after source replacement');
-    const generation = widget.body.children[0].children.find(button => button.textContent === '生成');
+    const generation = widget.body.children.find(child => child.className === 'akari-inspector-tab-strip').children.find(button => button.textContent === '生成');
     assert.equal(generation.disabled, true);
     assert.equal(generation.title, 'このクリップには生成の入力がありません');
     assert.equal(generation.children.length, 0);
@@ -312,7 +314,7 @@ test('非同期 next 読込後に初期タブを確定し、手動選択・同�
     widget.render();
     assert.equal(widget.tabSelectionKey, undefined, 'do not lock the default while metadata is pending');
     if (explicit) {
-      const button = widget.body.children[0].children.find(button => button.attributes.get('data-akari-ui') === `tab:inspector-${explicit}`);
+      const button = widget.body.children.find(child => child.className === 'akari-inspector-tab-strip').children.find(button => button.attributes.get('data-akari-ui') === `tab:inspector-${explicit}`);
       button.listeners.get('click')();
     }
     await new Promise(resolve => setImmediate(resolve));
@@ -327,13 +329,13 @@ test('非同期 next 読込後に初期タブを確定し、手動選択・同�
     await new Promise(resolve => setImmediate(resolve));
     assert.equal(widget.currentTab, explicit ?? 'generation');
     assert.deepEqual(widget.generationTabMeta.get(key), {});
-    const generation = widget.body.children[0].children.find(button => button.textContent === '生成');
+    const generation = widget.body.children.find(child => child.className === 'akari-inspector-tab-strip').children.find(button => button.textContent === '生成');
     assert.equal(generation.children.length, 0, 'removing next clears the dot');
   }
 }));
 
 test('world / 空選択を経た別クリップに前の explicit tab を持ち越さない', () => withTabDom(() => {
-  for (const snapshot of [undefined, { kind: 'world' }, { kind: 'multi', items: [] }]) {
+  for (const snapshot of [undefined, { kind: 'world', world: { id: 'world-1', label: '地図' } }, { kind: 'multi', count: 0, items: [] }]) {
     const widget = renderFixture('cut');
     const clip = widget.model.snapshot;
     widget.renderWorldSelection = () => {};
@@ -372,7 +374,7 @@ for (const kind of ['cut', 'layer']) {
       widget.render();
       await new Promise(resolve => setImmediate(resolve));
       assert.equal(widget.currentTab, planned ? 'generation' : 'video');
-      const tab = widget.body.children[0].children.find(button => button.attributes.get('data-akari-ui') === 'tab:inspector-generation');
+      const tab = widget.body.children.find(child => child.className === 'akari-inspector-tab-strip').children.find(button => button.attributes.get('data-akari-ui') === 'tab:inspector-generation');
       assert.equal(tab.attributes.get('aria-selected'), String(planned));
       assert.equal(tab.children.some(child => child.attributes.get('data-akari-generation-todo') === 'true'), planned);
     }));

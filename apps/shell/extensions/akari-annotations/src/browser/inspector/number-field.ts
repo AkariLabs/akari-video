@@ -1,3 +1,4 @@
+import { createInspectorIcon } from './icons';
 import { isImeCompositionKeydown } from 'akari-preview/lib/common/review-tool-mode';
 
 export interface NumberFieldOptions {
@@ -52,42 +53,96 @@ export function formatNumberStep(value: number, step: number, precision?: number
 export function createKeyframeSeat(name: string, options?: KeyframeSeatOptions): HTMLElement {
     const group = document.createElement('span');
     group.className = 'akari-inspector-kf-controls';
-    const previous = document.createElement('button');
-    previous.type = 'button';
-    previous.textContent = '‹';
-    previous.title = '前のキーフレームへ';
-    previous.setAttribute('aria-label', '前のキーフレームへ');
+    const control = (icon: 'left' | 'diamond' | 'right' | 'more' | 'jump', label: string): HTMLButtonElement => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.title = label;
+        button.setAttribute('aria-label', label);
+        button.append(createInspectorIcon(icon));
+        return button;
+    };
+    const previous = control('left', '前のキーフレームへ');
+    previous.disabled = !options?.hasKeyframes;
     previous.addEventListener('click', () => options?.onPrevious());
-    const button = document.createElement('button');
-    button.type = 'button';
+    const button = control('diamond', options?.active
+        ? '現在時刻のキーフレームを消す' : '現在時刻にキーフレームを打つ');
     button.className = 'akari-inspector-kf-seat';
-    button.title = options?.active ? '現在時刻のキーフレームを消す' : '現在時刻にキーフレームを打つ';
-    button.setAttribute('aria-label', button.title);
+    button.disabled = !options;
+    button.setAttribute('aria-pressed', String(options?.active === true));
     button.setAttribute('data-akari-ui', `inspector-kf-seat:${name}`);
-    button.textContent = options?.active ? '◆' : '◇';
     button.addEventListener('click', () => options?.onToggle());
-    const next = document.createElement('button');
-    next.type = 'button';
-    next.textContent = '›';
-    next.title = '次のキーフレームへ';
-    next.setAttribute('aria-label', '次のキーフレームへ');
+    const next = control('right', '次のキーフレームへ');
+    next.disabled = !options?.hasKeyframes;
     next.addEventListener('click', () => options?.onNext());
-    group.append(previous, button, next);
-    if (options?.onReveal) {
-        const reveal = document.createElement('button');
-        reveal.type = 'button';
-        reveal.textContent = '⤢';
+    const more = control('more', 'キーフレームのその他の操作');
+    more.disabled = !options?.onReveal;
+    more.setAttribute('aria-haspopup', 'menu');
+    more.setAttribute('aria-expanded', 'false');
+    more.setAttribute('data-akari-ui', `inspector-kf-more:${name}`);
+    let closeMenu: (() => void) | undefined;
+    more.addEventListener('click', () => {
+        if (closeMenu) { closeMenu(); return; }
+        if (more.disabled || !options) return;
+        const menu = document.createElement('div');
+        menu.className = 'akari-inspector-kf-menu';
+        menu.setAttribute('role', 'menu');
+        menu.setAttribute('aria-label', 'キーフレームの操作');
+        menu.setAttribute('popover', 'auto');
+        const reveal = control('jump', 'タイムラインのキーフレーム行を開く');
+        const label = document.createElement('span');
+        label.textContent = reveal.title;
+        reveal.append(label);
         reveal.disabled = !options.hasKeyframes;
-        reveal.title = options.hasKeyframes
-            ? 'タイムラインのキーフレーム行を開く'
-            : 'キーフレームがありません';
-        reveal.setAttribute('aria-label', reveal.title);
+        if (reveal.disabled) reveal.title = 'キーフレームがありません';
+        reveal.setAttribute('role', 'menuitem');
         reveal.setAttribute('data-akari-ui', `inspector-kf-jump:${name}`);
-        reveal.addEventListener('click', () => {
-            if (!reveal.disabled) options.onReveal();
+        menu.append(reveal);
+        // The top layer avoids clipping by the inspector's horizontal scroll guard.
+        document.body.append(menu);
+        const close = (): void => {
+            if (closeMenu !== close) return;
+            observer.disconnect();
+            window.removeEventListener('resize', close);
+            document.removeEventListener('scroll', close, true);
+            menu.remove();
+            more.setAttribute('aria-expanded', 'false');
+            closeMenu = undefined;
+        };
+        const observer = new MutationObserver(() => {
+            if (!more.isConnected || more.disabled) close();
         });
-        group.appendChild(reveal);
-    }
+        observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['disabled'] });
+        closeMenu = close;
+        window.addEventListener('resize', close);
+        document.addEventListener('scroll', close, true);
+        menu.addEventListener('toggle', event => {
+            if ((event as ToggleEvent).newState === 'closed') close();
+        });
+        menu.addEventListener('keydown', event => {
+            if (event.key === 'Escape') {
+                event.preventDefault();
+                close();
+                more.focus();
+            } else if (['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) {
+                event.preventDefault();
+                if (!reveal.disabled) reveal.focus();
+            }
+        });
+        reveal.addEventListener('click', () => {
+            if (reveal.disabled) return;
+            close();
+            more.focus();
+            options.onReveal();
+        });
+        menu.showPopover();
+        const anchor = more.getBoundingClientRect();
+        const rect = menu.getBoundingClientRect();
+        menu.style.left = `${Math.max(4, Math.min(anchor.right - rect.width, window.innerWidth - rect.width - 4))}px`;
+        menu.style.top = `${Math.max(4, Math.min(anchor.bottom + 4, window.innerHeight - rect.height - 4))}px`;
+        more.setAttribute('aria-expanded', 'true');
+        if (!reveal.disabled) reveal.focus();
+    });
+    group.append(previous, button, next, more);
     return group;
 }
 
@@ -111,7 +166,7 @@ export function createNumberField(options: NumberFieldOptions): HTMLElement {
     handle.className = 'akari-inspector-number-handle';
     handle.title = '左右へドラッグして調整';
     handle.setAttribute('aria-label', `${options.label}をドラッグして調整`);
-    handle.textContent = '↔';
+    handle.append(createInspectorIcon('scrub'));
 
     const input = document.createElement('input');
     input.type = 'text';
@@ -145,7 +200,7 @@ export function createNumberField(options: NumberFieldOptions): HTMLElement {
     const down = document.createElement('button');
     for (const [button, direction, label] of [[up, 1, '増やす'], [down, -1, '減らす']] as const) {
         button.type = 'button';
-        button.textContent = direction > 0 ? '▲' : '▼';
+        button.append(createInspectorIcon(direction > 0 ? 'up' : 'down'));
         button.setAttribute('aria-label', `${options.label}を${label}`);
         button.addEventListener('click', event => {
             cancelInputPreview();

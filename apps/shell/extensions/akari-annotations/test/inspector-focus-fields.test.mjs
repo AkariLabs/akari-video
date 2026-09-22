@@ -1,3 +1,4 @@
+import { createInspectorIcon } from '../lib/browser/inspector/icons.js';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
@@ -11,7 +12,7 @@ const code = ts.transpileModule(`class Widget { ${methods.map(name =>
     widgetClass.members.find(member => member.name?.getText(ast) === name).getText(ast)).join('\n')} }`, {
     compilerOptions: { target: ts.ScriptTarget.ES2021 }
 }).outputText;
-const Widget = new Function(`${code}; return Widget;`)();
+const Widget = new Function('createInspectorIcon', `${code}; return Widget;`)(createInspectorIcon);
 
 class FakeElement {
     children = []; attributes = new Map(); style = {}; dataset = {}; className = '';

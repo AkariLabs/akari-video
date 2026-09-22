@@ -30,6 +30,8 @@ import {
     TimelineWorldSelection,
     TimelineGapSelection
 } from './timeline-selection-model';
+import { createSelectionHeader } from './inspector/selection-header';
+import { createInspectorIcon } from './inspector/icons';
 import { worldInstructionCopy } from '../common/world-instruction-copy';
 import { keyframeRowPropertyOf, keyframeValueAt, type KeyframeSeatProperty } from './timeline/timeline-keyframe-rows';
 import { CAPTION_ZONES, type CaptionBackgroundMode, type CaptionTextStyle } from '../common/caption-store';
@@ -2437,12 +2439,17 @@ export class AkariInspectorWidget extends BaseWidget {
         this.node.setAttribute('data-akari-ui-label', 'インスペクター');
         Object.assign(this.node.style, {
             height: '100%',
-            overflow: 'auto',
-            background: 'var(--theia-editor-background)'
+            overflowX: 'hidden',
+            overflowY: 'auto',
+            minWidth: '0',
+            containerType: 'inline-size',
+            background: 'var(--akari-bg)'
         });
         Object.assign(this.body.style, {
-            padding: '10px',
+            padding: '8px',
+            minWidth: '0',
             display: 'grid',
+            gridTemplateColumns: 'minmax(0, 1fr)',
             gap: '6px',
             alignContent: 'start'
         });
@@ -2452,7 +2459,7 @@ export class AkariInspectorWidget extends BaseWidget {
             padding: '6px 10px',
             fontSize: '11px',
             color: 'var(--theia-errorForeground, #f14c4c)',
-            borderBottom: '1px solid var(--theia-panel-border)'
+            borderBottom: '1px solid var(--akari-line)'
         });
         this.node.insertBefore(this.fieldNotice, this.body);
 
@@ -2462,14 +2469,14 @@ export class AkariInspectorWidget extends BaseWidget {
 .akari-inspector-generation-gap h3, .akari-inspector-generation-gap p { margin: 0; line-height: 1.6; overflow-wrap: anywhere; }
 .akari-inspector-generation-gap-ends { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; }
 .akari-inspector-generation-gap-end { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
-.akari-inspector-generation-gap-end img { width: 100%; height: 72px; object-fit: contain; background: #23212b; border: 1px solid #756388; box-sizing: border-box; }
+.akari-inspector-generation-gap-end img { width: 100%; height: 72px; object-fit: contain; background: var(--akari-bg); border: 1px solid var(--akari-line); box-sizing: border-box; }
 .akari-inspector-generation-gap-end span { overflow-wrap: anywhere; line-height: 1.5; }
 .akari-inspector-widget .akari-inspector-generation-gap button,
 .akari-inspector-widget .akari-inspector-generation-gap button:hover,
 .akari-inspector-widget .akari-inspector-generation-gap button:active,
 .akari-inspector-widget .akari-inspector-generation-gap button:disabled,
 .akari-inspector-widget .akari-inspector-generation-gap button:disabled:hover {
-    background: #634398; color: #fff; border: 1px solid #b89aff; border-radius: 4px; padding: 8px 12px; cursor: pointer;
+    background: var(--akari-accent); color: var(--akari-bg); border: 1px solid var(--akari-accent); border-radius: 4px; padding: 8px 12px; cursor: pointer;
 }
 .akari-inspector-widget .akari-inspector-generation-gap button:disabled,
 .akari-inspector-widget .akari-inspector-generation-gap button:disabled:hover { opacity: .6; cursor: wait; }
@@ -2478,26 +2485,26 @@ export class AkariInspectorWidget extends BaseWidget {
     .akari-generation-batch h3, .akari-generation-batch p { margin: 0; }
     .akari-generation-batch-list { display: flex; flex-direction: column; gap: 8px; }
     .akari-generation-batch-row { display: grid; grid-template-columns: 48px minmax(0, 1fr); gap: 6px 10px;
-        padding: 8px; border: 1px solid var(--theia-panel-border, #555); border-radius: 4px; }
+        padding: 8px; border: 1px solid var(--akari-line); border-radius: 4px; }
     .akari-generation-batch-thumbnail { width: 48px; height: 32px; object-fit: cover;
-        background: var(--theia-editor-inactiveSelectionBackground, #333); grid-row: 1 / 3; }
+        background: var(--akari-elevated); grid-row: 1 / 3; }
     .akari-generation-batch-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .akari-generation-batch-duration { font-size: 11px; opacity: .8; }
     .akari-generation-batch-badge { grid-column: 1 / -1; min-width: 0; overflow: hidden;
         white-space: nowrap; text-overflow: ellipsis; border-radius: 3px; padding: 4px 6px;
-        background: var(--theia-editor-inactiveSelectionBackground, #333); }
+        background: var(--akari-elevated); }
     .akari-generation-batch-note { font-size: 11px; line-height: 1.6; overflow-wrap: anywhere; }
     .akari-generation-batch button.akari-generation-batch-submit,
     .akari-generation-batch button.akari-generation-batch-stop {
-        border: 1px solid var(--theia-button-background, #777); padding: 8px 10px;
-        background: var(--theia-button-background, #365e92); color: var(--theia-button-foreground, #fff); }
-    .akari-generation-batch button.akari-generation-batch-stop { background: var(--theia-editor-background, #222);
-        color: var(--theia-foreground, #eee); }
+        border: 1px solid var(--akari-accent); padding: 8px 10px;
+        background: var(--akari-accent); color: var(--akari-bg); }
+    .akari-generation-batch button.akari-generation-batch-stop { background: var(--akari-bg);
+        color: var(--akari-ink); }
     .akari-generation-batch button:disabled { opacity: .5; cursor: default; }
 
-    .akari-inspector-widget .akari-inspector-adjust-compare { padding: 6px; border: 1px solid var(--theia-panel-border); }
+    .akari-inspector-widget .akari-inspector-adjust-compare { padding: 6px; border: 1px solid var(--akari-line); }
     .akari-inspector-widget .akari-inspector-adjust-compare[aria-pressed="true"] {
-        background: var(--theia-button-background); color: var(--theia-button-foreground);
+        background: var(--akari-accent); color: var(--akari-bg);
     }
     .akari-inspector-widget button,
     .akari-inspector-popover-menu button,
@@ -2506,57 +2513,64 @@ export class AkariInspectorWidget extends BaseWidget {
         border: none;
         border-radius: 3px;
         background: transparent;
-        color: var(--theia-foreground);
+        color: var(--akari-ink);
         font: inherit;
         cursor: pointer;
     }
     .akari-inspector-widget button:hover,
     .akari-inspector-popover-menu button:hover,
     .akari-inspector-row-menu button:hover {
-        background: var(--theia-toolbar-hoverBackground);
+        background: var(--akari-elevated);
     }
     .akari-inspector-widget button:active,
     .akari-inspector-popover-menu button:active,
     .akari-inspector-row-menu button:active {
-        background: var(--theia-button-background);
-        color: var(--theia-button-foreground);
+        background: var(--akari-accent);
+        color: var(--akari-bg);
     }
     .akari-inspector-widget button:focus-visible,
     .akari-inspector-popover-menu button:focus-visible,
     .akari-inspector-row-menu button:focus-visible {
-        outline: 1px solid var(--theia-focusBorder);
+        outline: 1px solid var(--akari-accent);
         outline-offset: -1px;
     }
     .akari-inspector-widget button:disabled {
-        color: var(--theia-disabledForeground);
+        color: var(--akari-faint);
         cursor: default;
     }
     .akari-inspector-widget button:disabled:hover {
         background: transparent;
     }
     .akari-inspector-widget .akari-inspector-tab-strip {
-        /* The grid body spans all sections; its parent is the overflow:auto scrollport. */
+        /* The root scrolls vertically; the selection header precedes the sticky tabs. */
         position: sticky;
         top: 0;
         z-index: 10;
         align-self: start;
-        background: var(--theia-editor-background);
+        padding: 6px 0;
+        gap: 2px;
+        flex-wrap: wrap;
+        background: var(--akari-card);
         display: flex;
         min-width: 0;
-        border-bottom: 1px solid var(--theia-panel-border);
+        border-bottom: 1px solid var(--akari-line);
     }
     .akari-inspector-widget .akari-inspector-tab {
-        flex: 1 1 0;
+        flex: 1 1 36px;
         min-width: 0;
-        padding: 6px 4px 5px;
-        border-bottom: 2px solid transparent;
-        border-radius: 0;
-        color: var(--theia-descriptionForeground);
+        padding: 6px 2px 5px;
+        border: 0;
+        border-radius: 6px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        color: var(--akari-muted);
         text-align: center;
     }
     .akari-inspector-widget .akari-inspector-tab.is-active {
-        border-bottom-color: var(--theia-focusBorder);
-        color: var(--theia-foreground);
+        background: var(--akari-elevated);
+        color: var(--akari-ink);
+        font-weight: 600;
     }
     .akari-inspector-widget .akari-inspector-tab [data-akari-generation-todo] {
         display: inline-block;
@@ -2565,10 +2579,10 @@ export class AkariInspectorWidget extends BaseWidget {
         margin-left: 3px;
         border-radius: 50%;
         vertical-align: super;
-        background: var(--theia-focusBorder);
+        background: var(--akari-accent);
     }
     .akari-inspector-widget .akari-inspector-tab:disabled {
-        color: var(--theia-disabledForeground);
+        color: var(--akari-faint);
     }
     .akari-inspector-widget .akari-inspector-solo-banner {
         display: flex;
@@ -2588,13 +2602,13 @@ export class AkariInspectorWidget extends BaseWidget {
     }
     .akari-inspector-widget .akari-inspector-row {
         display: grid;
-        grid-template-columns: 84px 1fr;
+        grid-template-columns: 64px minmax(0, 1fr);
         gap: 8px;
         font-size: 12px;
         line-height: 1.5;
     }
     .akari-inspector-widget .akari-inspector-row-label {
-        color: var(--theia-descriptionForeground);
+        color: var(--akari-muted);
     }
     .akari-inspector-widget .akari-inspector-row-value {
         font-variant-numeric: tabular-nums;
@@ -2604,16 +2618,16 @@ export class AkariInspectorWidget extends BaseWidget {
         font: inherit;
         font-variant-numeric: tabular-nums;
         padding: 2px 4px;
-        border: 1px solid var(--theia-input-border, #454545);
-        background: var(--theia-input-background);
-        color: var(--theia-input-foreground);
+        border: 1px solid var(--akari-line);
+        background: var(--akari-bg);
+        color: var(--akari-ink);
         border-radius: 2px;
         width: 100%;
         box-sizing: border-box;
     }
     .akari-inspector-widget .akari-caption-zone-grid {
         display: grid;
-        grid-template-columns: repeat(3, minmax(30px, 1fr));
+        grid-template-columns: repeat(3, minmax(0, 1fr));
         gap: 4px;
         min-width: 0;
     }
@@ -2622,23 +2636,23 @@ export class AkariInspectorWidget extends BaseWidget {
         min-width: 0;
         height: 34px;
         padding: 0;
-        border: 1px solid var(--theia-input-border, #454545);
+        border: 1px solid var(--akari-line);
         border-radius: 4px;
-        background: var(--theia-input-background);
-        color: var(--theia-descriptionForeground);
+        background: var(--akari-bg);
+        color: var(--akari-muted);
         font-size: 15px;
         text-align: center;
     }
     .akari-inspector-widget .akari-caption-zone-cell:hover,
     .akari-inspector-widget .akari-caption-zone-cell:focus-visible {
-        border-color: var(--theia-focusBorder);
-        background: var(--theia-list-hoverBackground, var(--theia-toolbar-hoverBackground));
-        color: var(--theia-foreground);
+        border-color: var(--akari-accent);
+        background: var(--akari-elevated);
+        color: var(--akari-ink);
     }
     .akari-inspector-widget .akari-caption-zone-cell.is-saved {
-        border-color: var(--theia-focusBorder);
-        color: var(--theia-textLink-foreground);
-        box-shadow: inset 0 0 0 1px var(--theia-focusBorder);
+        border-color: var(--akari-accent);
+        color: var(--akari-accent);
+        box-shadow: inset 0 0 0 1px var(--akari-accent);
     }
     .akari-inspector-widget .akari-caption-zone-saved {
         position: absolute;
@@ -2646,8 +2660,8 @@ export class AkariInspectorWidget extends BaseWidget {
         bottom: 1px;
         padding: 0 3px;
         border-radius: 999px;
-        background: var(--theia-button-background);
-        color: var(--theia-button-foreground);
+        background: var(--akari-accent);
+        color: var(--akari-bg);
         font-size: 8px;
         line-height: 1.35;
         pointer-events: none;
@@ -2662,37 +2676,46 @@ export class AkariInspectorWidget extends BaseWidget {
         width: 30px;
         height: 24px;
         padding: 1px;
-        border: 1px solid var(--theia-input-border, #454545);
+        border: 1px solid var(--akari-line);
         border-radius: 2px;
-        background: var(--theia-input-background);
+        background: var(--akari-bg);
         cursor: pointer;
     }
     .akari-inspector-widget .akari-inspector-section {
-        border-bottom: 1px solid var(--theia-panel-border);
-        padding-bottom: 6px;
+        border: 1px solid var(--akari-line);
+        border-radius: 8px;
+        background: var(--akari-card);
+        padding: 0 8px 8px;
     }
     .akari-inspector-widget .akari-inspector-section-header {
         display: flex;
         align-items: center;
         min-height: 28px;
         gap: 4px;
+        border-bottom: 1px solid var(--akari-line-inner);
+        margin-bottom: 6px;
+        padding: 6px 0;
     }
     .akari-inspector-widget .akari-inspector-section-toggle {
         flex: 1;
         border: 0;
         padding: 4px 0;
-        color: var(--theia-foreground);
+        color: var(--akari-muted);
+        display: flex;
+        align-items: center;
+        gap: 4px;
         background: transparent;
         text-align: left;
         font: inherit;
-        font-weight: 600;
+        font-weight: 500;
+        font-size: 11px;
         cursor: pointer;
     }
     .akari-inspector-widget .akari-inspector-section-enable {
         display: inline-flex;
         align-items: center;
         gap: 3px;
-        color: var(--theia-descriptionForeground);
+        color: var(--akari-muted);
         font-size: 10px;
         white-space: nowrap;
     }
@@ -2705,25 +2728,25 @@ export class AkariInspectorWidget extends BaseWidget {
     }
     .akari-inspector-widget .akari-inspector-section-caption {
         margin: 0;
-        color: var(--theia-descriptionForeground);
+        color: var(--akari-muted);
         font-size: 11px;
         line-height: 1.4;
     }
     .akari-inspector-widget .akari-inspector-section-soon,
     .akari-inspector-widget .akari-inspector-section-soon .akari-inspector-section-header {
-        color: var(--theia-disabledForeground);
+        color: var(--akari-faint);
     }
     .akari-inspector-widget .akari-inspector-section-soon-title {
         flex: 1;
         padding: 4px 0;
-        color: var(--theia-disabledForeground);
+        color: var(--akari-faint);
         font-weight: 600;
     }
     .akari-inspector-widget .akari-inspector-section-soon-chip {
         padding: 1px 6px;
-        border: 1px solid var(--theia-panel-border);
+        border: 1px solid var(--akari-line);
         border-radius: 999px;
-        color: var(--theia-disabledForeground);
+        color: var(--akari-faint);
         font-size: 10px;
         line-height: 1.4;
     }
@@ -2731,7 +2754,7 @@ export class AkariInspectorWidget extends BaseWidget {
         display: grid;
         gap: 5px;
         padding: 0 0 4px 18px;
-        color: var(--theia-disabledForeground);
+        color: var(--akari-faint);
         pointer-events: none;
         user-select: none;
     }
@@ -2747,10 +2770,10 @@ export class AkariInspectorWidget extends BaseWidget {
         box-sizing: border-box;
         min-width: 0;
         padding: 2px 6px;
-        border: 1px solid var(--theia-input-border, #454545);
+        border: 1px solid var(--akari-line);
         border-radius: 2px;
-        background: var(--theia-input-background);
-        color: var(--theia-disabledForeground);
+        background: var(--akari-bg);
+        color: var(--akari-faint);
         text-align: right;
         font-variant-numeric: tabular-nums;
     }
@@ -2761,22 +2784,22 @@ export class AkariInspectorWidget extends BaseWidget {
     .akari-inspector-widget .akari-adjust-preview-channel {
         min-width: 24px;
         padding: 1px 5px;
-        border: 1px solid var(--theia-panel-border);
+        border: 1px solid var(--akari-line);
         border-radius: 999px;
         text-align: center;
         opacity: 0.65;
     }
     .akari-inspector-widget .akari-adjust-preview-channel.is-active {
-        border-color: var(--theia-focusBorder);
-        color: var(--theia-foreground);
+        border-color: var(--akari-accent);
+        color: var(--akari-ink);
     }
     .akari-inspector-widget .akari-adjust-preview-channel-r { color: #e78585; }
     .akari-inspector-widget .akari-adjust-preview-channel-g { color: #7fcb8b; }
     .akari-inspector-widget .akari-adjust-preview-channel-b { color: #80a9e8; }
     .akari-inspector-widget .akari-adjust-editor { display: grid; gap: 8px; padding: 8px; }
     .akari-inspector-widget .akari-adjust-editor .akari-adjust-editor-curve { touch-action: none; overflow: visible; opacity: 1; }
-    .akari-inspector-widget .akari-adjust-editor-line { fill: none; stroke: var(--theia-foreground); stroke-width: 1.5; }
-    .akari-inspector-widget .akari-adjust-editor-point { fill: var(--theia-focusBorder, #68aaff); stroke: #202020; cursor: grab; }
+    .akari-inspector-widget .akari-adjust-editor-line { fill: none; stroke: var(--akari-ink); stroke-width: 1.5; }
+    .akari-inspector-widget .akari-adjust-editor-point { fill: var(--akari-accent); stroke: var(--akari-bg); cursor: grab; }
     .akari-inspector-widget .akari-adjust-editor .akari-adjust-preview-channel { cursor: pointer; }
     .akari-inspector-widget .akari-adjust-editor .akari-adjust-preview-wheel {
         touch-action: none; cursor: crosshair; opacity: 1;
@@ -2785,7 +2808,7 @@ export class AkariInspectorWidget extends BaseWidget {
     .akari-inspector-widget .akari-adjust-editor .akari-adjust-preview-wheel-center { pointer-events: none; }
     .akari-inspector-widget .akari-adjust-editor-luminance { display: flex; min-width: 0; width: 100%; }
     .akari-inspector-widget .akari-adjust-editor-luminance .akari-inspector-number-field {
-        min-width: 0; flex: 1; grid-template-columns: 18px minmax(28px, 1fr) auto 14px;
+        min-width: 0; flex: 1; grid-template-columns: 18px minmax(0, 1fr) auto 14px;
     }
     .akari-inspector-widget .akari-adjust-editor-notice { color: var(--theia-errorForeground); font-size: 11px; }
     .akari-inspector-widget .akari-adjust-preview-curve.akari-adjust-editor-hue {
@@ -2795,19 +2818,19 @@ export class AkariInspectorWidget extends BaseWidget {
         width: min(100%, 180px);
         height: 140px;
         justify-self: center;
-        border: 1px solid var(--theia-panel-border);
+        border: 1px solid var(--akari-line);
         border-radius: 3px;
-        background: var(--theia-input-background);
+        background: var(--akari-bg);
         opacity: 0.68;
     }
     .akari-inspector-widget .akari-adjust-preview-curve-grid {
         fill: none;
-        stroke: var(--theia-panel-border);
+        stroke: var(--akari-line);
         stroke-width: 1;
     }
     .akari-inspector-widget .akari-adjust-preview-curve-identity {
         fill: none;
-        stroke: var(--theia-descriptionForeground);
+        stroke: var(--akari-muted);
         stroke-width: 1.5;
         stroke-dasharray: 5 4;
     }
@@ -2836,9 +2859,9 @@ export class AkariInspectorWidget extends BaseWidget {
     .akari-inspector-widget .akari-adjust-preview-wheel::after {
         position: absolute;
         inset: 8px;
-        border: 1px solid color-mix(in srgb, var(--theia-panel-border) 70%, transparent);
+        border: 1px solid color-mix(in srgb, var(--akari-line) 70%, transparent);
         border-radius: 50%;
-        background: color-mix(in srgb, var(--theia-input-background) 88%, #808080);
+        background: color-mix(in srgb, var(--akari-bg) 88%, #808080);
         content: '';
     }
     .akari-inspector-widget .akari-adjust-preview-wheel-center {
@@ -2848,15 +2871,15 @@ export class AkariInspectorWidget extends BaseWidget {
         top: 50%;
         width: 6px;
         height: 6px;
-        border: 1px solid var(--theia-foreground);
+        border: 1px solid var(--akari-ink);
         border-radius: 50%;
-        background: var(--theia-input-background);
+        background: var(--akari-bg);
         transform: translate(-50%, -50%);
     }
     .akari-inspector-widget .akari-adjust-preview-luminance {
         width: 70px;
         height: 5px;
-        border: 1px solid var(--theia-panel-border);
+        border: 1px solid var(--akari-line);
         border-radius: 999px;
         background: linear-gradient(90deg, #181818, #d0d0d0);
         opacity: 0.65;
@@ -2865,9 +2888,9 @@ export class AkariInspectorWidget extends BaseWidget {
         position: relative;
         height: 74px;
         overflow: hidden;
-        border: 1px solid var(--theia-panel-border);
+        border: 1px solid var(--akari-line);
         border-radius: 3px;
-        background: var(--theia-input-background);
+        background: var(--akari-bg);
         opacity: 0.65;
     }
     .akari-inspector-widget .akari-adjust-preview-hue-band {
@@ -2881,8 +2904,8 @@ export class AkariInspectorWidget extends BaseWidget {
         left: 0;
         right: 0;
         top: 50%;
-        border-top: 1px solid var(--theia-foreground);
-        box-shadow: 0 0 0 1px color-mix(in srgb, var(--theia-input-background) 65%, transparent);
+        border-top: 1px solid var(--akari-ink);
+        box-shadow: 0 0 0 1px color-mix(in srgb, var(--akari-bg) 65%, transparent);
     }
     .akari-inspector-widget .akari-adjust-preview-lut-row {
         display: grid;
@@ -2890,9 +2913,9 @@ export class AkariInspectorWidget extends BaseWidget {
     }
     .akari-inspector-widget .akari-adjust-preview-ghost-button {
         padding: 4px 7px;
-        border: 1px dashed var(--theia-input-border, #454545);
+        border: 1px dashed var(--akari-line);
         border-radius: 3px;
-        color: var(--theia-disabledForeground);
+        color: var(--akari-faint);
         text-align: center;
         opacity: 0.68;
     }
@@ -2900,32 +2923,32 @@ export class AkariInspectorWidget extends BaseWidget {
         border: 0;
         border-radius: 3px;
         background: transparent;
-        color: var(--theia-foreground);
+        color: var(--akari-ink);
         cursor: pointer;
     }
     .akari-inspector-widget .akari-inspector-number-field {
         display: grid;
-        grid-template-columns: 24px minmax(42px, 1fr) auto 18px 54px;
+        grid-template-columns: 18px minmax(0, 1fr) auto 12px 80px;
         align-items: center;
         gap: 3px;
     }
     .akari-inspector-widget .akari-inspector-number-field-seatless {
-        grid-template-columns: 24px minmax(42px, 1fr) auto 18px;
+        grid-template-columns: 18px minmax(0, 1fr) auto 12px;
     }
     .akari-inspector-widget .akari-inspector-number-handle {
         cursor: ew-resize;
         border: 0;
-        color: var(--theia-textLink-foreground);
+        color: var(--akari-accent);
         background: transparent;
     }
     .akari-inspector-widget .akari-inspector-number-input {
         min-width: 0;
         width: 100%;
         box-sizing: border-box;
-        border: 1px solid var(--theia-input-border, #454545);
+        border: 1px solid var(--akari-line);
         border-radius: 2px;
-        background: var(--theia-input-background);
-        color: var(--theia-input-foreground);
+        background: var(--akari-bg);
+        color: var(--akari-ink);
         text-align: right;
         font: inherit;
         font-variant-numeric: tabular-nums;
@@ -2937,12 +2960,12 @@ export class AkariInspectorWidget extends BaseWidget {
         border: 0;
         padding: 0;
         font-size: 7px;
-        color: var(--theia-descriptionForeground);
+        color: var(--akari-muted);
         background: transparent;
     }
     .akari-inspector-widget .akari-inspector-kf-controls {
         display: grid;
-        grid-template-columns: repeat(4, 18px);
+        grid-template-columns: repeat(4, 20px);
         align-items: center;
     }
     .akari-inspector-widget .akari-inspector-kf-controls button {
@@ -2951,23 +2974,20 @@ export class AkariInspectorWidget extends BaseWidget {
         padding: 0;
         border: none;
         background: transparent;
-        color: var(--theia-descriptionForeground);
+        color: var(--akari-muted);
     }
     .akari-inspector-widget .akari-inspector-kf-controls button:hover {
-        background: var(--theia-toolbar-hoverBackground);
-        color: var(--theia-foreground);
+        background: var(--akari-elevated);
+        color: var(--akari-ink);
     }
     .akari-inspector-widget .akari-inspector-kf-controls button:active {
-        background: var(--theia-button-background);
-        color: var(--theia-button-foreground);
+        background: var(--akari-accent);
+        color: var(--akari-bg);
     }
     .akari-inspector-widget .akari-inspector-kf-controls button:disabled {
         opacity: .35;
         background: transparent;
-        color: var(--theia-disabledForeground);
-    }
-    .akari-inspector-widget .akari-inspector-kf-seat {
-        color: var(--theia-textLink-foreground);
+        color: var(--akari-faint);
     }
     .akari-inspector-widget [data-akari-easing-preview] button,
     .akari-inspector-popover-menu button,
@@ -2978,36 +2998,36 @@ export class AkariInspectorWidget extends BaseWidget {
     .akari-inspector-widget .akari-inspector-row-input:focus-visible,
     .akari-inspector-widget .akari-inspector-number-input:focus-visible,
     .akari-inspector-widget .akari-inspector-color-picker:focus-visible {
-        outline: 1px solid var(--theia-focusBorder);
+        outline: 1px solid var(--akari-accent);
         outline-offset: -1px;
     }
     .akari-inspector-widget .akari-inspector-empty {
-        color: var(--theia-descriptionForeground);
+        color: var(--akari-muted);
         padding: 4px 0;
     }
     .akari-inspector-widget .akari-inspector-generation-references { margin: 10px 0; }
     .akari-inspector-widget .akari-inspector-generation-reference-heading { display: flex; gap: 8px; justify-content: space-between; flex-wrap: wrap; margin-bottom: 6px; }
     .akari-inspector-widget .akari-inspector-generation-reference-counter { font-size: 11px; }
-    .akari-inspector-widget .akari-inspector-generation-reference-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: 8px; }
-    .akari-inspector-widget .akari-inspector-generation-reference-card { min-width: 0; border: 1px solid var(--theia-panel-border); border-radius: 4px; padding: 5px; }
+    .akari-inspector-widget .akari-inspector-generation-reference-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(112px, 100%), 1fr)); gap: 8px; }
+    .akari-inspector-widget .akari-inspector-generation-reference-card { min-width: 0; border: 1px solid var(--akari-line); border-radius: 4px; padding: 5px; }
     .akari-inspector-widget .akari-inspector-generation-reference-top { display: flex; align-items: center; justify-content: space-between; gap: 5px; margin-bottom: 5px; }
     .akari-inspector-widget .akari-inspector-generation-reference-badge { font-size: 11px; white-space: nowrap; }
     .akari-inspector-widget .akari-inspector-generation-reference-unsupported .akari-inspector-generation-reference-badge { opacity: 0.45; }
-    .akari-inspector-widget .akari-inspector-generation-reference-thumbnail { height: 58px; display: flex; align-items: center; justify-content: center; background: var(--theia-editor-background); overflow: hidden; font-size: 11px; }
+    .akari-inspector-widget .akari-inspector-generation-reference-thumbnail { height: 58px; display: flex; align-items: center; justify-content: center; background: var(--akari-bg); overflow: hidden; font-size: 11px; }
     .akari-inspector-widget .akari-inspector-generation-reference-thumbnail img { width: 100%; height: 100%; object-fit: cover; }
     .akari-inspector-widget .akari-inspector-generation-reference-filename { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 10px; margin-top: 4px; }
     .akari-inspector-widget .akari-inspector-generation-reference-add { display: flex; flex-direction: column; align-items: stretch; justify-content: center; gap: 5px; min-height: 94px; }
-    .akari-inspector-widget .akari-inspector-generation-reference-add select { min-width: 0; color: var(--theia-foreground); background: var(--theia-dropdown-background); border: 1px solid var(--theia-panel-border); }
+    .akari-inspector-widget .akari-inspector-generation-reference-add select { min-width: 0; color: var(--akari-ink); background: var(--akari-bg); border: 1px solid var(--akari-line); }
     .akari-inspector-widget .akari-inspector-generation-references button:disabled { opacity: 0.5; cursor: default; }
     .akari-inspector-widget .akari-inspector-generation-frames { display: flex; gap: 10px; margin: 10px 0; }
     .akari-inspector-widget .akari-inspector-generation-cell { flex: 1; min-width: 0; }
-    .akari-inspector-widget .akari-inspector-generation-frame { position: relative; box-sizing: border-box; width: 100%; aspect-ratio: 16 / 9; max-height: 96px; border: 1px solid #a78bfa; background: rgba(167, 139, 250, 0.08); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; margin: 4px 0 8px; overflow: hidden; font-size: 11px; color: var(--theia-foreground); cursor: pointer; }
+    .akari-inspector-widget .akari-inspector-generation-frame { position: relative; box-sizing: border-box; width: 100%; aspect-ratio: 16 / 9; max-height: 96px; border: 1px solid var(--akari-accent); background: color-mix(in srgb, var(--akari-accent) 8%, transparent); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; margin: 4px 0 8px; overflow: hidden; font-size: 11px; color: var(--akari-ink); cursor: pointer; }
     .akari-inspector-widget .akari-inspector-generation-frame:hover,
-    .akari-inspector-widget .akari-inspector-generation-frame:focus-visible { background: rgba(167, 139, 250, 0.18); outline: 1px solid #a78bfa; outline-offset: 2px; }
-    .akari-inspector-widget .akari-inspector-generation-frame[aria-pressed="true"] { box-shadow: 0 0 0 2px var(--theia-editor-background), 0 0 0 4px #a78bfa; }
+    .akari-inspector-widget .akari-inspector-generation-frame:focus-visible { background: color-mix(in srgb, var(--akari-accent) 18%, transparent); outline: 1px solid var(--akari-accent); outline-offset: 2px; }
+    .akari-inspector-widget .akari-inspector-generation-frame[aria-pressed="true"] { box-shadow: 0 0 0 2px var(--akari-bg), 0 0 0 4px var(--akari-accent); }
     .akari-inspector-widget .akari-inspector-generation-frame[aria-disabled="true"] { cursor: default; opacity: 0.6; }
-    .akari-inspector-widget .akari-inspector-generation-frame-hint { font-size: 10px; color: var(--theia-descriptionForeground); }
-    .akari-inspector-widget .akari-inspector-generation-frame-replace { position: absolute; bottom: 4px; right: 4px; padding: 2px 5px; background: #312547; color: #fff; border-radius: 3px; opacity: 0; pointer-events: none; }
+    .akari-inspector-widget .akari-inspector-generation-frame-hint { font-size: 10px; color: var(--akari-muted); }
+    .akari-inspector-widget .akari-inspector-generation-frame-replace { position: absolute; bottom: 4px; right: 4px; padding: 2px 5px; background: var(--akari-elevated); color: var(--akari-ink); border-radius: 3px; opacity: 0; pointer-events: none; }
     .akari-inspector-widget .akari-inspector-generation-frame:hover .akari-inspector-generation-frame-replace,
     .akari-inspector-widget .akari-inspector-generation-frame:focus-visible .akari-inspector-generation-frame-replace { opacity: 1; }
     .akari-inspector-widget .akari-inspector-generation-frame img { width: 100%; height: 100%; object-fit: cover; }
@@ -3016,64 +3036,64 @@ export class AkariInspectorWidget extends BaseWidget {
     .akari-inspector-widget button.akari-inspector-generation-secondary,
     .akari-inspector-widget button.akari-inspector-generation-small,
     .akari-inspector-widget button.akari-inspector-generation-camera-button {
-        border: 1px solid var(--theia-input-border, var(--theia-panel-border));
+        border: 1px solid var(--akari-line);
         border-radius: 4px;
         padding: 5px 10px;
-        background: var(--theia-button-secondaryBackground, var(--theia-editor-background));
-        color: var(--theia-button-secondaryForeground, var(--theia-foreground));
+        background: var(--akari-card);
+        color: var(--akari-ink);
     }
     .akari-inspector-widget button.akari-inspector-generation-secondary:hover,
     .akari-inspector-widget button.akari-inspector-generation-small:hover,
     .akari-inspector-widget button.akari-inspector-generation-camera-button:hover {
-        background: var(--theia-button-secondaryHoverBackground, var(--theia-toolbar-hoverBackground));
+        background: var(--akari-elevated);
     }
     .akari-inspector-widget button.akari-inspector-generation-primary {
-        border-color: var(--theia-button-background);
-        background: var(--theia-button-background);
-        color: var(--theia-button-foreground);
+        border-color: var(--akari-accent);
+        background: var(--akari-accent);
+        color: var(--akari-bg);
     }
     .akari-inspector-widget button.akari-inspector-generation-primary:hover {
-        background: var(--theia-button-hoverBackground);
+        background: var(--akari-accent-light);
     }
     .akari-inspector-widget button.akari-inspector-generation-primary:disabled,
     .akari-inspector-widget button.akari-inspector-generation-primary:disabled:hover {
-        background: var(--theia-button-secondaryBackground, var(--theia-editor-background));
-        border-color: var(--theia-panel-border);
-        color: var(--theia-disabledForeground);
+        background: var(--akari-card);
+        border-color: var(--akari-line);
+        color: var(--akari-faint);
         opacity: 0.65;
         cursor: default;
     }
     .akari-inspector-widget button.akari-inspector-generation-small {
         padding: 2px 6px;
         font-size: 11px;
-        background: var(--theia-editor-background);
-        color: var(--theia-descriptionForeground);
+        background: var(--akari-bg);
+        color: var(--akari-muted);
     }
     .akari-inspector-widget button.akari-inspector-generation-camera-button { padding: 3px 8px; }
     .akari-inspector-widget button.akari-inspector-generation-camera-button[aria-pressed="true"] {
-        border-color: var(--theia-focusBorder);
-        background: var(--theia-button-background);
-        color: var(--theia-button-foreground);
+        border-color: var(--akari-accent);
+        background: var(--akari-accent);
+        color: var(--akari-bg);
     }
     .akari-inspector-widget button.akari-inspector-generation-primary:focus-visible,
     .akari-inspector-widget button.akari-inspector-generation-secondary:focus-visible,
     .akari-inspector-widget button.akari-inspector-generation-small:focus-visible,
     .akari-inspector-widget button.akari-inspector-generation-camera-button:focus-visible {
-        outline: 2px solid var(--theia-focusBorder);
+        outline: 2px solid var(--akari-accent);
         outline-offset: 2px;
     }
     .akari-inspector-widget .akari-inspector-generation-camera { margin: 10px 0; }
-    .akari-inspector-widget .akari-inspector-generation-details { margin: 10px 0; padding: 6px; border: 1px solid var(--theia-panel-border); }
+    .akari-inspector-widget .akari-inspector-generation-details { margin: 10px 0; padding: 6px; border: 1px solid var(--akari-line); }
     .akari-inspector-widget .akari-inspector-generation-footer { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
-    .akari-inspector-widget .akari-inspector-generation-submit-group { display: flex; flex: 1 1 auto; align-items: center; justify-content: flex-end; flex-wrap: nowrap; gap: 6px; margin-left: auto; min-width: 0; }
-    .akari-inspector-widget .akari-inspector-generation-submit-group > button { flex-shrink: 0; white-space: nowrap; }
-    .akari-inspector-widget .akari-inspector-generation-submit-group > .akari-inspector-generation-estimate { flex: 0 1 auto; min-width: calc(2em + 6px + 6ch); white-space: normal; text-align: right; justify-content: flex-end; }
+    .akari-inspector-widget .akari-inspector-generation-submit-group { display: flex; flex: 1 1 auto; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 6px; margin-left: auto; min-width: 0; }
+    .akari-inspector-widget .akari-inspector-generation-submit-group > button { flex: 0 1 auto; white-space: normal; overflow-wrap: anywhere; }
+    .akari-inspector-widget .akari-inspector-generation-submit-group > .akari-inspector-generation-estimate { flex: 0 1 auto; min-width: 0; white-space: normal; text-align: right; justify-content: flex-end; }
     .akari-inspector-widget .akari-inspector-generation-submit-group > .akari-inspector-generation-estimate > .akari-inspector-row-label { white-space: nowrap; flex-shrink: 0; }
-    .akari-inspector-widget .akari-inspector-generation-submit-group > .akari-inspector-generation-estimate > .akari-inspector-row-value { min-width: 0; white-space: normal; word-break: normal; overflow-wrap: normal; }
+    .akari-inspector-widget .akari-inspector-generation-submit-group > .akari-inspector-generation-estimate > .akari-inspector-row-value { min-width: 0; white-space: normal; word-break: normal; overflow-wrap: anywhere; }
     .akari-inspector-widget .akari-inspector-generation-facts {
         padding: 5px 0;
-        border-top: 1px solid var(--theia-panel-border);
-        border-bottom: 1px solid var(--theia-panel-border);
+        border-top: 1px solid var(--akari-line);
+        border-bottom: 1px solid var(--akari-line);
         font-variant-numeric: tabular-nums;
     }
     .akari-inspector-widget .akari-inspector-generation-estimate {
@@ -3081,17 +3101,17 @@ export class AkariInspectorWidget extends BaseWidget {
         align-items: baseline;
         gap: 6px;
         white-space: nowrap;
-        color: var(--theia-textLink-foreground);
+        color: var(--akari-accent);
         font-variant-numeric: tabular-nums;
     }
     .akari-inspector-widget .akari-inspector-generation-error {
         color: var(--theia-errorForeground);
     }
     .akari-inspector-widget .akari-inspector-generation-warning {
-        color: var(--theia-editorWarning-foreground, var(--theia-descriptionForeground));
+        color: var(--theia-editorWarning-foreground, var(--akari-muted));
     }
     .akari-inspector-widget .akari-inspector-generation-note {
-        color: var(--theia-descriptionForeground);
+        color: var(--akari-muted);
         font-size: 11px;
     }
     @keyframes akari-inspector-focus-pulse {
@@ -3106,6 +3126,53 @@ export class AkariInspectorWidget extends BaseWidget {
         outline: 2px solid var(--akari-focus-pulse, var(--akari-accent));
         outline-offset: 1px;
     }
+    .akari-inspector-widget { color: var(--akari-ink); overflow-wrap: anywhere; }
+    .akari-inspector-widget *, .akari-inspector-kf-menu * { min-width: 0; box-sizing: border-box; }
+    .akari-inspector-widget :is(input, select, textarea, img, button, svg) { max-width: 100%; }
+    .akari-inspector-widget :is(p, dd, summary) { overflow-wrap: anywhere; }
+    .akari-inspector-selection-header { display: grid; grid-template-columns: 40px minmax(0, 1fr); gap: 10px;
+        align-items: center; padding: 10px; background: var(--akari-card); border-bottom: 1px solid var(--akari-line-inner); }
+    .akari-inspector-selection-header strong, .akari-inspector-selection-header span {
+        display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .akari-inspector-selection-header span { font: 11px ui-monospace, monospace; color: var(--akari-faint); margin-top: 3px; }
+    .akari-inspector-selection-thumbnail { width: 40px; height: 28px; border-radius: 5px; overflow: hidden;
+        background: var(--theia-akariTheme-placedTextBlue); }
+    .akari-inspector-selection-thumbnail[data-kind="audio"] { background: var(--theia-akariTheme-placedTextGreen); }
+    .akari-inspector-selection-thumbnail[data-kind="caption"] { background: var(--theia-akariTheme-placedTextPink); }
+    .akari-inspector-selection-thumbnail:is([data-kind="layer"], [data-kind="overlay"]) { background: var(--theia-akariTheme-placedTextViolet); }
+    .akari-inspector-selection-thumbnail:is([data-kind="world"], [data-kind="multi"], [data-kind="gap"]) { background: var(--akari-muted); }
+    .akari-inspector-selection-thumbnail img { width: 100%; height: 100%; object-fit: cover; }
+    .akari-inspector-icon { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .akari-inspector-icon svg { display: block; }
+    .akari-inspector-section-toggle .akari-inspector-icon { order: -1; }
+    .akari-inspector-section-toggle[aria-expanded="false"] .akari-inspector-icon { transform: rotate(-90deg); }
+    .akari-inspector-widget .akari-inspector-row-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .akari-inspector-widget .akari-inspector-row { align-items: center; gap: 6px; }
+    .akari-inspector-widget .akari-inspector-number-field { gap: 2px; }
+    .akari-inspector-widget .akari-inspector-number-handle { padding: 0; display: grid; place-items: center; }
+    .akari-inspector-widget .akari-inspector-number-input { height: 24px; padding: 2px; border-radius: 5px; }
+    .akari-inspector-widget .akari-inspector-number-unit { max-width: 24px; overflow: hidden; font-size: 10px; color: var(--akari-faint); }
+    .akari-inspector-number-steps .akari-inspector-icon svg { width: 10px; height: 10px; }
+    .akari-inspector-widget .akari-inspector-kf-controls { width: 80px; border: 0; background: transparent; }
+    .akari-inspector-widget .akari-inspector-kf-controls > button { width: 20px; height: 24px; display: grid; place-items: center; border-radius: 5px; }
+    .akari-inspector-kf-controls svg { width: 12px; height: 12px; }
+    .akari-inspector-widget .akari-inspector-kf-seat[aria-pressed="true"] { color: var(--akari-accent); }
+    .akari-inspector-kf-seat[aria-pressed="true"] svg { fill: currentColor; }
+    .akari-inspector-widget .akari-inspector-solo-banner { flex-wrap: wrap; white-space: normal; overflow-wrap: anywhere; }
+    .akari-inspector-widget .akari-adjust-preview-channels { flex-wrap: wrap; }
+    .akari-inspector-kf-menu { position: fixed; inset: auto; margin: 0; padding: 4px; max-width: calc(100vw - 8px);
+        border: 1px solid var(--akari-line); border-radius: 8px; background: var(--akari-elevated); color: var(--akari-ink);
+        font: 12px sans-serif; box-shadow: 0 8px 24px color-mix(in srgb, var(--akari-ground) 60%, transparent); }
+    .akari-inspector-kf-menu button { display: flex; align-items: center; gap: 8px; padding: 6px 8px; width: 100%;
+        border: 0; border-radius: 5px; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+    .akari-inspector-kf-menu button:hover { background: var(--akari-card); }
+    .akari-inspector-kf-menu button:disabled { color: var(--akari-faint); cursor: default; }
+    .akari-inspector-kf-menu button:focus-visible { outline: 1px solid var(--akari-accent); outline-offset: -1px; }
+    @container (max-width: 300px) {
+        .akari-inspector-widget .akari-inspector-row { grid-template-columns: minmax(0, 1fr); gap: 2px; }
+        .akari-inspector-widget .akari-adjust-preview-wheel-grid { grid-template-columns: minmax(0, 1fr); }
+    }
+
 `;
         this.node.appendChild(style);
 
@@ -3349,6 +3416,7 @@ export class AkariInspectorWidget extends BaseWidget {
             this.body.appendChild(empty);
             return;
         }
+        this.body.appendChild(createSelectionHeader(snapshot, path => this.generationThumbnail(path)));
         if (snapshot.kind === 'gap') {
             this.tabSelectionKey = undefined;
             this.currentTab = undefined;
@@ -3615,7 +3683,7 @@ export class AkariInspectorWidget extends BaseWidget {
                     label.textContent = '入れ替え';
                     const button = document.createElement('button');
                     button.className = 'theia-button secondary';
-                    button.textContent = '⇄ 候補を見る';
+                    button.textContent = '候補を見る';
                     button.onclick = () => this.model.requestMaterialSwap?.();
                     row.append(label, button);
                     this.body.appendChild(row);
@@ -3643,7 +3711,7 @@ export class AkariInspectorWidget extends BaseWidget {
             : null;
         const fieldLabel = field?.querySelector('.akari-inspector-row-label')?.textContent?.trim();
         const sectionLabel = section?.querySelector('.akari-inspector-section-toggle')?.textContent
-            ?.replace(/^[▸▾]\s*/u, '').trim();
+            ?.trim();
         const label = fieldLabel || sectionLabel || this.solo.fieldName || this.solo.sectionId || 'この項目';
         const banner = document.createElement('div');
         banner.className = 'akari-inspector-solo-banner';
@@ -3675,7 +3743,7 @@ export class AkariInspectorWidget extends BaseWidget {
             ['via', snapshot.edge.via ?? '-'], ['carry', snapshot.edge.carry?.join(', ') || '-']
         ] : [];
         const list = document.createElement('dl');
-        Object.assign(list.style, { display: 'grid', gridTemplateColumns: '90px 1fr', gap: '7px', margin: '4px 0 10px' });
+        Object.assign(list.style, { display: 'grid', gridTemplateColumns: '64px minmax(0, 1fr)', gap: '7px', margin: '4px 0 10px' });
         for (const [label, value] of values) {
             const dt = document.createElement('dt'); dt.textContent = label;
             const dd = document.createElement('dd'); dd.textContent = String(value); dd.style.margin = '0';
@@ -3797,7 +3865,8 @@ export class AkariInspectorWidget extends BaseWidget {
         const toggle = document.createElement('button');
         toggle.type = 'button';
         toggle.className = 'akari-inspector-section-toggle akari-inspector-section-soon-title';
-        toggle.textContent = `${collapsed ? '▸' : '▾'} ${section.label}`;
+        toggle.textContent = section.label;
+        toggle.appendChild(createInspectorIcon('down'));
         toggle.setAttribute('aria-expanded', String(!collapsed));
         const chip = document.createElement('span');
         chip.className = 'akari-inspector-section-soon-chip';
@@ -3809,7 +3878,6 @@ export class AkariInspectorWidget extends BaseWidget {
         toggle.addEventListener('click', () => {
             const next = !body.hidden;
             body.hidden = next;
-            toggle.textContent = `${next ? '▸' : '▾'} ${section.label}`;
             toggle.setAttribute('aria-expanded', String(!next));
             this.sectionState.setCollapsed(kind, stateId, next);
         });
@@ -3864,7 +3932,8 @@ export class AkariInspectorWidget extends BaseWidget {
         toggle.type = 'button';
         toggle.className = 'akari-inspector-section-toggle';
         const collapsed = this.sectionState.isCollapsed(kind, section);
-        toggle.textContent = `${collapsed ? '▸' : '▾'} ${section.label}`;
+        toggle.textContent = section.label;
+        toggle.appendChild(createInspectorIcon('down'));
         toggle.setAttribute('aria-expanded', String(!collapsed));
         const body = document.createElement('div');
         body.className = 'akari-inspector-section-body';
@@ -3872,7 +3941,6 @@ export class AkariInspectorWidget extends BaseWidget {
         toggle.addEventListener('click', () => {
             const next = !body.hidden;
             body.hidden = next;
-            toggle.textContent = `${next ? '▸' : '▾'} ${section.label}`;
             toggle.setAttribute('aria-expanded', String(!next));
             this.sectionState.setCollapsed(kind, section.id, next);
         });
@@ -3918,7 +3986,8 @@ export class AkariInspectorWidget extends BaseWidget {
                 const add = document.createElement('button');
                 add.type = 'button';
                 add.className = 'akari-inspector-section-add';
-                add.textContent = '+';
+                add.appendChild(createInspectorIcon('plus'));
+                add.setAttribute('aria-label', '項目を追加');
                 add.title = '変形の行を追加';
                 add.setAttribute('data-akari-ui', 'menu:inspector-transform-add');
                 add.addEventListener('click', event => {
@@ -3928,8 +3997,8 @@ export class AkariInspectorWidget extends BaseWidget {
                     menu.className = 'akari-inspector-popover-menu';
                     Object.assign(menu.style, {
                         position: 'fixed', left: `${event.clientX}px`, top: `${event.clientY}px`, zIndex: '10000',
-                        display: 'grid', padding: '4px', background: 'var(--theia-menu-background)',
-                        border: '1px solid var(--theia-menu-border, #454545)'
+                        display: 'grid', padding: '4px', background: 'var(--akari-elevated)',
+                        border: '1px solid var(--akari-line)'
                     });
                     hidden.forEach(field => {
                         const choice = document.createElement('button');
@@ -4881,7 +4950,7 @@ export class AkariInspectorWidget extends BaseWidget {
                 const remove = document.createElement('button');
                 remove.type = 'button';
                 remove.className = 'akari-inspector-generation-small';
-                remove.textContent = '×';
+                remove.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>';
                 remove.setAttribute('aria-label', `${entry.badge} を外す`);
                 remove.setAttribute('data-akari-generation-reference-remove', entry.badge);
                 remove.disabled = disabled;
@@ -4895,7 +4964,7 @@ export class AkariInspectorWidget extends BaseWidget {
                 card.appendChild(top);
                 const preview = document.createElement('div');
                 preview.className = 'akari-inspector-generation-reference-thumbnail';
-                preview.textContent = entry.slot === 'reference_audios' ? '♫' : '読み込み中…';
+                preview.textContent = entry.slot === 'reference_audios' ? '音声' : '読み込み中…';
                 if (entry.slot !== 'reference_audios') void this.generationThumbnail(entry.reference.path).then(uri => {
                     if (!preview.isConnected) return;
                     if (uri) {
@@ -4925,7 +4994,7 @@ export class AkariInspectorWidget extends BaseWidget {
                 }
                 if (references.kinds.length > 1) tail.appendChild(select);
                 const add = document.createElement('button');
-                add.type = 'button'; add.textContent = '＋ 追加';
+                add.type = 'button'; add.textContent = '追加';
                 add.className = 'akari-inspector-generation-secondary';
                 add.setAttribute('data-akari-generation-reference-add', 'true');
                 add.disabled = disabled;
@@ -5053,7 +5122,7 @@ export class AkariInspectorWidget extends BaseWidget {
                 preview.setAttribute('data-akari-generation-pick-slot', slot);
                 preview.title = path ? '差し替える' : '画像を選ぶ';
                 const content = document.createElement('span');
-                content.textContent = path ? '読み込み中…' : '＋ 画像を選ぶ';
+                content.textContent = path ? '読み込み中…' : '画像を選ぶ';
                 preview.appendChild(content);
                 const badge = document.createElement('span');
                 badge.className = path ? 'akari-inspector-generation-frame-replace' : 'akari-inspector-generation-frame-hint';
@@ -5186,7 +5255,7 @@ export class AkariInspectorWidget extends BaseWidget {
             valueElement.textContent = field.getValue(snapshot);
             if (field.disabled) {
                 row.setAttribute('aria-disabled', 'true');
-                row.style.color = 'var(--theia-disabledForeground)';
+                row.style.color = 'var(--akari-faint)';
             }
             row.appendChild(valueElement);
             parent.appendChild(row);
@@ -5289,13 +5358,15 @@ export class AkariInspectorWidget extends BaseWidget {
             const grid = document.createElement('div');
             grid.className = 'akari-caption-zone-grid';
             grid.setAttribute('data-akari-ui', `field:inspector-${fieldName}`);
-            const glyphs = ['↖', '↑', '↗', '←', '•', '→', '↙', '↓', '↘'];
+            const angles = [-45, 0, 45, -90, undefined, 90, -135, 180, 135];
             (field.options ?? []).forEach((zone, index) => {
                 const button = document.createElement('button');
                 button.type = 'button';
                 button.className = 'akari-caption-zone-cell';
                 button.dataset.akariCaptionZone = zone;
-                button.textContent = glyphs[index] ?? '•';
+                button.innerHTML = index === 4
+                    ? '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.75"/></svg>'
+                    : `<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M12 20V4M6 10l6-6 6 6" transform="rotate(${angles[index] ?? 0} 12 12)" fill="none" stroke="currentColor" stroke-width="1.75"/></svg>`;
                 button.title = zone;
                 button.setAttribute('aria-label', `字幕位置: ${zone}`);
                 if (zone === editValue) {
@@ -5432,8 +5503,8 @@ export class AkariInspectorWidget extends BaseWidget {
             menu.className = 'akari-inspector-row-menu';
             Object.assign(menu.style, {
                 position: 'fixed', left: `${event.clientX}px`, top: `${event.clientY}px`, zIndex: '10000',
-                display: 'grid', padding: '4px', background: 'var(--theia-menu-background)',
-                border: '1px solid var(--theia-menu-border, #454545)'
+                display: 'grid', padding: '4px', background: 'var(--akari-elevated)',
+                border: '1px solid var(--akari-line)'
             });
             if (field.reset) {
                 const reset = document.createElement('button');

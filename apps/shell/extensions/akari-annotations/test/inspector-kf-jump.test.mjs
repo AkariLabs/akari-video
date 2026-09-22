@@ -1,3 +1,4 @@
+import { withInspectorDom as withFakeDocument } from './helpers/inspector-dom.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
@@ -13,51 +14,6 @@ const timelineSource = readFileSync(
 const protocolSource = readFileSync(
     new URL('../src/browser/timeline-selection-model.ts', import.meta.url), 'utf8'
 );
-
-class FakeElement {
-    constructor(tagName) {
-        this.tagName = tagName.toUpperCase();
-        this.children = [];
-        this.attributes = new Map();
-        this.listeners = new Map();
-        this.disabled = false;
-    }
-
-    setAttribute(name, value) {
-        this.attributes.set(name, value);
-    }
-
-    addEventListener(type, listener) {
-        this.listeners.set(type, [...(this.listeners.get(type) ?? []), listener]);
-    }
-
-    append(...children) {
-        this.children.push(...children);
-    }
-
-    appendChild(child) {
-        this.children.push(child);
-        return child;
-    }
-
-    emit(type) {
-        for (const listener of this.listeners.get(type) ?? []) listener({});
-    }
-}
-
-function withFakeDocument(callback) {
-    const original = Object.getOwnPropertyDescriptor(globalThis, 'document');
-    Object.defineProperty(globalThis, 'document', {
-        configurable: true,
-        value: { createElement: tagName => new FakeElement(tagName) }
-    });
-    try {
-        return callback();
-    } finally {
-        if (original) Object.defineProperty(globalThis, 'document', original);
-        else delete globalThis.document;
-    }
-}
 
 function between(source, startNeedle, endNeedle) {
     const start = source.indexOf(startNeedle);
@@ -78,28 +34,69 @@ function keyframeOptions(hasKeyframes, onReveal = () => {}) {
     };
 }
 
-test('KF がある有効行の席には活性な ⤢ が末尾にあり、reveal を発火する', () => withFakeDocument(() => {
+test('KF の4つ目の SVG ボタンから reveal メニューを開いて既存の操作を発火する', () => withFakeDocument(({ document }) => {
     let reveals = 0;
     const seat = createKeyframeSeat('transform-x', keyframeOptions(true, () => reveals++));
-    assert.deepEqual(seat.children.map(child => child.textContent), ['‹', '◇', '›', '⤢']);
-    const jump = seat.children.at(-1);
+    assert.equal(seat.children.length, 4);
+    assert.ok(seat.children.every(child => child.tagName === 'BUTTON' && child.children[0].innerHTML.includes('<svg')));
+    const more = seat.children[3];
+    assert.equal(more.attributes.get('aria-haspopup'), 'menu');
+    assert.equal(more.attributes.get('aria-expanded'), 'false');
+    assert.equal(document.body.children.length, 0);
+    more.emit('click');
+    assert.equal(seat.children.length, 4, 'menu must not become a fifth control');
+    assert.equal(more.attributes.get('aria-expanded'), 'true');
+    const menu = document.body.children[0];
+    assert.equal(menu.open, true);
+    assert.equal(menu.attributes.get('role'), 'menu');
+    assert.equal(menu.children.length, 1, 'only the implemented reveal action belongs in this menu');
+    const jump = menu.children[0];
     assert.equal(jump.disabled, false);
     assert.equal(jump.title, 'タイムラインのキーフレーム行を開く');
     assert.equal(jump.attributes.get('data-akari-ui'), 'inspector-kf-jump:transform-x');
+    assert.equal(jump.children[1].textContent, jump.title);
     jump.emit('click');
     assert.equal(reveals, 1);
+    assert.equal(document.body.children.length, 0);
+    assert.equal(more.attributes.get('aria-expanded'), 'false');
 }));
 
-test('KF が無い有効行の ⤢ は disabled、無効行には ⤢ を描かない', () => withFakeDocument(() => {
-    const empty = createKeyframeSeat('opacity', keyframeOptions(false));
-    const jump = empty.children.at(-1);
-    assert.equal(jump.textContent, '⤢');
+test('KF がない行もメニューを開けるが reveal は無効、非対応行の4席は無効', () => withFakeDocument(({ document }) => {
+    let reveals = 0;
+    const empty = createKeyframeSeat('opacity', keyframeOptions(false, () => reveals++));
+    empty.children[3].emit('click');
+    const jump = document.body.children[0].children[0];
+    assert.equal(jump.attributes.get('data-akari-ui'), 'inspector-kf-jump:opacity');
     assert.equal(jump.disabled, true);
     assert.equal(jump.title, 'キーフレームがありません');
-
+    jump.emit('click');
+    assert.equal(reveals, 0);
+    empty.children[3].emit('click');
     const unsupported = createKeyframeSeat('crop-x');
-    assert.deepEqual(unsupported.children.map(child => child.textContent), ['‹', '◇', '›']);
+    assert.equal(unsupported.children.length, 4);
+    assert.ok(unsupported.children.every(child => child.disabled));
+    unsupported.children[3].emit('click');
+    assert.equal(document.body.children.length, 0);
 }));
+
+for (const reason of ['Escape', 'dismiss', 'scroll', 'resize', 'selection']) {
+    test(`KF メニューは ${reason} で閉じ、リスナーと監視を解除する`, () => withFakeDocument(({ document, window, observers }) => {
+        const seat = createKeyframeSeat('x', keyframeOptions(true));
+        const more = seat.children[3];
+        more.emit('click');
+        const menu = document.body.children[0];
+        if (reason === 'Escape') menu.emit('keydown', { key: 'Escape' });
+        if (reason === 'dismiss') menu.emit('toggle', { newState: 'closed' });
+        if (reason === 'scroll') document.emit('scroll');
+        if (reason === 'resize') window.emit('resize');
+        if (reason === 'selection') { more.isConnected = false; observers[0].callback(); }
+        assert.equal(document.body.children.length, 0);
+        assert.equal(more.attributes.get('aria-expanded'), 'false');
+        assert.equal(observers[0].observing, false);
+        assert.equal(document.listeners.get('scroll').length, 0);
+        assert.equal(window.listeners.get('resize').length, 0);
+    }));
+}
 
 test('有効行のダブルクリックは reveal request へ配線し、入力部品上では抑止する', () => {
     const options = between(inspectorSource, 'protected keyframeSeatOptions(', 'protected appendRow(');

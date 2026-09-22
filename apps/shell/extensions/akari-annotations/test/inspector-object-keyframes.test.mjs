@@ -189,6 +189,6 @@ test('only seatless rows collapse the fifth grid column', () => dom(() => {
     const field = createNumberField({ name: 'speed', label: 'Speed', value: 1, step: 0.1, onCommit: async () => true });
     assert.equal(field.children.length, 4);
     assert.equal(field.className.includes('akari-inspector-number-field-seatless'), true);
-    assert.match(inspectorSource, /\.akari-inspector-number-field\s*\{[^}]*grid-template-columns: 24px minmax\(42px, 1fr\) auto 18px 54px;/u);
-    assert.match(inspectorSource, /\.akari-inspector-number-field-seatless\s*\{\s*grid-template-columns: 24px minmax\(42px, 1fr\) auto 18px;/u);
+    assert.match(inspectorSource, /\.akari-inspector-number-field\s*\{[^}]*grid-template-columns: 18px minmax\(0, 1fr\) auto 12px 80px;/u);
+    assert.match(inspectorSource, /\.akari-inspector-number-field-seatless\s*\{\s*grid-template-columns: 18px minmax\(0, 1fr\) auto 12px;/u);
 }));

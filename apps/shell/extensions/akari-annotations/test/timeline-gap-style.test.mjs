@@ -32,9 +32,9 @@ for (const states of [[], ['hover'], ['active'], ['focus-visible'], ['disabled']
       .sort((a, b) => a.specificity - b.specificity || a.order - b.order)) {
       for (const [property, value] of Object.entries(rule.declarations)) winners[property] = { rule, value };
     }
-    assert.equal(winners.background.value, '#634398');
-    assert.equal(winners.border.value, '1px solid #b89aff');
-    assert.equal(winners.color.value, '#fff');
+    assert.equal(winners.background.value, 'var(--akari-accent)');
+    assert.equal(winners.border.value, '1px solid var(--akari-accent)');
+    assert.equal(winners.color.value, 'var(--akari-bg)');
     for (const property of ['background', 'border', 'color']) assert.ok(winners[property].rule.gap);
     if (states.includes('disabled')) {
       assert.equal(winners.opacity.value, '.6'); assert.equal(winners.cursor.value, 'wait');

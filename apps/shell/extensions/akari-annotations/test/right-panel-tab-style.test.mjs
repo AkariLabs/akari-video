@@ -36,6 +36,6 @@ test('生成のやること印はタブ帯内だけで既存アクセント色�
     const widget = readFileSync(new URL('../src/browser/akari-inspector-widget.ts', import.meta.url), 'utf8');
     const rule = widget.match(/\.akari-inspector-tab \[data-akari-generation-todo\] \{([^}]+)\}/u)?.[1];
     assert.ok(rule);
-    assert.match(rule, /background: var\(--theia-focusBorder\)/u);
+    assert.match(rule, /background: var\(--akari-accent\)/u);
     assert.match(rule, /border-radius: 50%/u);
 });
