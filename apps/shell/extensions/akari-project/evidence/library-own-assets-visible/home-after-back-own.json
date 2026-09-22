@@ -1,0 +1,111 @@
+{
+ "backClicked": true,
+ "sourceFilter": [
+  "all:false",
+  "own:true",
+  "site:false",
+  "lab:false"
+ ],
+ "categories": [
+  {
+   "key": "bgm",
+   "count": "0",
+   "opacity": "0.46"
+  },
+  {
+   "key": "sfx",
+   "count": "4",
+   "opacity": "1"
+  },
+  {
+   "key": "broll",
+   "count": "0",
+   "opacity": "0.46"
+  },
+  {
+   "key": "image",
+   "count": "0",
+   "opacity": "0.46"
+  },
+  {
+   "key": "overlay",
+   "count": "0",
+   "opacity": "0.46"
+  },
+  {
+   "key": "scene3d",
+   "count": "0",
+   "opacity": "0.46"
+  },
+  {
+   "key": "pack",
+   "count": "0",
+   "opacity": "0.46"
+  },
+  {
+   "key": "textstyle",
+   "count": "0",
+   "opacity": "0.46"
+  },
+  {
+   "key": "textanim",
+   "count": "0",
+   "opacity": "0.46"
+  },
+  {
+   "key": "font",
+   "count": "0",
+   "opacity": "0.46"
+  },
+  {
+   "key": "shapes",
+   "count": null,
+   "opacity": "0.46"
+  },
+  {
+   "key": "stamps",
+   "count": null,
+   "opacity": "0.46"
+  },
+  {
+   "key": "lut",
+   "count": "0",
+   "opacity": "0.46"
+  },
+  {
+   "key": "transition",
+   "count": "0",
+   "opacity": "0.46"
+  },
+  {
+   "key": "fx",
+   "count": null,
+   "opacity": "0.46"
+  },
+  {
+   "key": "motion",
+   "count": null,
+   "opacity": "0.46"
+  },
+  {
+   "key": "template",
+   "count": null,
+   "opacity": "0.46"
+  }
+ ],
+ "recentStrip": [
+  {
+   "key": "asset:audio/own-click",
+   "text": "own-clickSFX"
+  },
+  {
+   "key": "folder:FieldRec",
+   "text": "FieldRecSFX · 3 件"
+  }
+ ],
+ "folderFilter": null,
+ "cards": [],
+ "cardCount": 0,
+ "focused": [],
+ "homeVisible": true
+}

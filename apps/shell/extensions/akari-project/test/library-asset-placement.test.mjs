@@ -32,3 +32,17 @@ for (const [label, item, children, expected] of [
 ]) {
     test(`主メディア: ${label}`, () => assert.deepEqual(resolveLibraryAssetMedia(item, children), expected));
 }
+
+
+test('配置経路: own/site の置き場だけコピーし、Lab・索引・置き場なしは従来経路', async () => {
+    const { localLibraryAssetPlacementSource } = await import('../lib/common/library-asset-placement.js');
+    const item = { origin: 'resolver', category: 'audio', id: 'sample', libraryDir: '/library/audio/sample' };
+    for (const sourceKind of ['own', 'site']) {
+        assert.deepEqual(localLibraryAssetPlacementSource({ ...item, sourceKind }),
+            { category: 'audio', id: 'sample', libraryDir: '/library/audio/sample' });
+        assert.equal(localLibraryAssetPlacementSource({ ...item, sourceKind, libraryDir: undefined }), undefined);
+    }
+    for (const extra of [{ sourceKind: 'lab' }, { sourceKind: undefined }, { origin: 'local', sourceKind: 'site' }]) {
+        assert.equal(localLibraryAssetPlacementSource({ ...item, ...extra }), undefined);
+    }
+});

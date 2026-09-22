@@ -1,0 +1,35 @@
+{
+ "sourceFilter": [
+  "all:false",
+  "own:false",
+  "site:true",
+  "lab:false"
+ ],
+ "categories": [],
+ "recentStrip": [],
+ "folderFilter": null,
+ "cards": [
+  "audio/akari-sounds-sfx",
+  "audio/dova-syndrome-hatena-mark-se",
+  "audio/freesound-inspectorj-pencil-writing",
+  "audio/musmus-onomatope-sfx-pack",
+  "audio/otologic-motion-pop-sfx-pack",
+  "audio/otologic-sfx-selection",
+  "audio/ui-click-sfx-pack",
+  "audio/impact-sfx-pack",
+  "audio/whoosh-transition",
+  "audio/camera-shutter",
+  "audio/pocket-se-fail-pack",
+  "audio/soundeffect-lab-ui-signal-pack",
+  "audio/soundeffect-lab-anime-direction-pack",
+  "audio/soundeffect-lab-scene-transition",
+  "audio/soundeffect-lab-ambient-life-pack",
+  "audio/maoudamashii-se-system-category",
+  "audio/maoudamashii-se-magic-category",
+  "audio/maoudamashii-se-onepoint-category",
+  "audio/maoudamashii-object-sound-15"
+ ],
+ "cardCount": 19,
+ "focused": [],
+ "homeVisible": false
+}

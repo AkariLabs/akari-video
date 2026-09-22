@@ -1,0 +1,101 @@
+{
+ "sourceFilter": [
+  "all:false",
+  "own:false",
+  "site:false",
+  "lab:true"
+ ],
+ "categories": [
+  {
+   "key": "bgm",
+   "count": "111",
+   "opacity": "1"
+  },
+  {
+   "key": "sfx",
+   "count": "77",
+   "opacity": "1"
+  },
+  {
+   "key": "broll",
+   "count": "1",
+   "opacity": "1"
+  },
+  {
+   "key": "image",
+   "count": "161",
+   "opacity": "1"
+  },
+  {
+   "key": "overlay",
+   "count": "7",
+   "opacity": "1"
+  },
+  {
+   "key": "scene3d",
+   "count": "3",
+   "opacity": "1"
+  },
+  {
+   "key": "pack",
+   "count": "0",
+   "opacity": "0.46"
+  },
+  {
+   "key": "textstyle",
+   "count": "12",
+   "opacity": "1"
+  },
+  {
+   "key": "textanim",
+   "count": "47",
+   "opacity": "1"
+  },
+  {
+   "key": "font",
+   "count": "0",
+   "opacity": "0.46"
+  },
+  {
+   "key": "shapes",
+   "count": null,
+   "opacity": "0.46"
+  },
+  {
+   "key": "stamps",
+   "count": null,
+   "opacity": "0.46"
+  },
+  {
+   "key": "lut",
+   "count": "10",
+   "opacity": "1"
+  },
+  {
+   "key": "transition",
+   "count": "29",
+   "opacity": "1"
+  },
+  {
+   "key": "fx",
+   "count": null,
+   "opacity": "0.46"
+  },
+  {
+   "key": "motion",
+   "count": null,
+   "opacity": "0.46"
+  },
+  {
+   "key": "template",
+   "count": null,
+   "opacity": "0.46"
+  }
+ ],
+ "recentStrip": [],
+ "folderFilter": null,
+ "cards": [],
+ "cardCount": 0,
+ "focused": [],
+ "homeVisible": true
+}

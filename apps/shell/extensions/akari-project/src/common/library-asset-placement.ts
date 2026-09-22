@@ -1,4 +1,4 @@
-import type { AssetCatalogViewItem } from './akari-project-protocol';
+import type { AssetCatalogViewItem, LibraryAssetPlacementSource } from './akari-project-protocol';
 import type { AssetBinChildNode } from './asset-bin-grouping';
 import { classifyMaterialKind, resolveAssetGroupMedia, AssetGroupMedia } from './asset-group-media';
 
@@ -28,4 +28,11 @@ export function resolveLibraryAssetMedia(
     const matches = children.filter(child => !child.isDirectory && child.name === name
         && classifyMaterialKind(child.name) === 'audio');
     return matches.length === 1 ? { kind: 'audio', mediaName: matches[0].name } : { kind: 'other' };
+}
+
+/** list にカタログ収載フラグが無いため own/site の置き場素材だけをコピー経路へ渡す。 */
+export function localLibraryAssetPlacementSource(item: AssetCatalogViewItem): LibraryAssetPlacementSource | undefined {
+    return item.origin === 'resolver' && item.libraryDir && (item.sourceKind === 'own' || item.sourceKind === 'site')
+        ? { category: item.category, id: item.id, libraryDir: item.libraryDir }
+        : undefined;
 }

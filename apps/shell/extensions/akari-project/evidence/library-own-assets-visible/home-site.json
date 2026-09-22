@@ -1,0 +1,106 @@
+{
+ "sourceFilter": [
+  "all:false",
+  "own:false",
+  "site:true",
+  "lab:false"
+ ],
+ "categories": [
+  {
+   "key": "bgm",
+   "count": "11",
+   "opacity": "1"
+  },
+  {
+   "key": "sfx",
+   "count": "19",
+   "opacity": "1"
+  },
+  {
+   "key": "broll",
+   "count": "1",
+   "opacity": "1"
+  },
+  {
+   "key": "image",
+   "count": "0",
+   "opacity": "0.46"
+  },
+  {
+   "key": "overlay",
+   "count": "0",
+   "opacity": "0.46"
+  },
+  {
+   "key": "scene3d",
+   "count": "3",
+   "opacity": "1"
+  },
+  {
+   "key": "pack",
+   "count": "2",
+   "opacity": "1"
+  },
+  {
+   "key": "textstyle",
+   "count": "0",
+   "opacity": "0.46"
+  },
+  {
+   "key": "textanim",
+   "count": "0",
+   "opacity": "0.46"
+  },
+  {
+   "key": "font",
+   "count": "31",
+   "opacity": "1"
+  },
+  {
+   "key": "shapes",
+   "count": null,
+   "opacity": "0.46"
+  },
+  {
+   "key": "stamps",
+   "count": null,
+   "opacity": "0.46"
+  },
+  {
+   "key": "lut",
+   "count": "0",
+   "opacity": "0.46"
+  },
+  {
+   "key": "transition",
+   "count": "0",
+   "opacity": "0.46"
+  },
+  {
+   "key": "fx",
+   "count": null,
+   "opacity": "0.46"
+  },
+  {
+   "key": "motion",
+   "count": null,
+   "opacity": "0.46"
+  },
+  {
+   "key": "template",
+   "count": null,
+   "opacity": "0.46"
+  }
+ ],
+ "recentStrip": [
+  {
+   "key": "asset:audio/site-bgm-morning",
+   "text": "site-bgm-morningBGM"
+  }
+ ],
+ "folderFilter": null,
+ "cards": [],
+ "cardCount": 0,
+ "focused": [],
+ "homeVisible": true
+}

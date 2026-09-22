@@ -1,0 +1,38 @@
+{
+ "key": "audio/own-click",
+ "playheadBefore": null,
+ "waitMs": 3516,
+ "editChanged": true,
+ "before": {
+  "items": 2,
+  "sfx": 1,
+  "bgm": 0,
+  "sources": 1
+ },
+ "after": {
+  "items": 2,
+  "sfx": 2,
+  "bgm": 0,
+  "sources": 1
+ },
+ "newItems": [],
+ "newSfx": [
+  {
+   "id": "audio-2",
+   "path": "assets/audio/own-click/own-click.wav",
+   "t": 2.1,
+   "track": 0,
+   "gain_db": 2.6,
+   "fade_in": 0,
+   "fade_out": 0
+  }
+ ],
+ "bgmAfter": null,
+ "newSources": [],
+ "projectAssetDir": [
+  "meta.json",
+  "own-click.wav",
+  "preview.png"
+ ],
+ "toasts": []
+}

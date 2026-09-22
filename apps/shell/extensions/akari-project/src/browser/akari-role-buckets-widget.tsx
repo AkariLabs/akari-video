@@ -56,7 +56,6 @@ import {
     catalogItemCategoryChipKey,
     deriveCatalogCategoryChips,
     deriveCatalogFilteredEmptyKind,
-    filterCatalogItems,
     normalizeCatalogViewMode,
     parseCatalogItemMeta
 } from '../common/catalog-reader';
@@ -75,12 +74,16 @@ import {
     storeProductUrl,
     summarizeCatalogPackDistribution
 } from '../common/asset-catalog-view';
+import {
+    countLibraryCategory, filterLibraryCatalogItems, filterLibrarySources, includesLibraryLab,
+    LIBRARY_SOURCE_FILTERS, LibrarySourceFilter, recentLibraryEntries, RecentLibraryEntry
+} from '../common/library-source-view';
 import { AssetBinChildNode, isAssetBinGroupDirectory } from '../common/asset-bin-grouping';
-import { canPlaceLibraryAsset, resolveLibraryAssetMedia, RESOLVE_LIBRARY_MATERIAL_COMMAND_ID } from '../common/library-asset-placement';
+import { canPlaceLibraryAsset, localLibraryAssetPlacementSource, resolveLibraryAssetMedia, RESOLVE_LIBRARY_MATERIAL_COMMAND_ID } from '../common/library-asset-placement';
 import { classifyMaterialKind, MaterialKind, resolveAssetGroupMedia } from '../common/asset-group-media';
 import { materialCardLayout } from '../common/material-card-layout';
 import { CatalogPack } from '../common/catalog-packs';
-import { derivePresetShowcaseChips, filterPresetShowcaseItems } from '../common/preset-showcase';
+import { filterPresetShowcaseItems } from '../common/preset-showcase';
 import {
     LIBRARY_GROUPS,
     LibraryCategoryDefinition,
@@ -550,6 +553,8 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     protected catalogEntitlementsStatus: AssetEntitlementsStatus = 'ok';
     protected catalogLoading = false;
     protected catalogQuery = '';
+    protected librarySourceFilter: LibrarySourceFilter = 'all';
+    protected libraryFolderFilter: string | undefined;
     /** プロジェクト面の素材名フィルタ。catalogQuery とは面ごとに独立して保持する。 */
     protected materialQuery = '';
     /** undefined = ライブラリホーム。値あり = フラット一覧から開いたカテゴリページ。 */
@@ -1745,7 +1750,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     }
 
     protected filteredCatalogItems(): AssetCatalogViewItem[] {
-        return filterCatalogItems(this.assetCatalogItems, this.catalogQuery, this.catalogCategory);
+        return filterLibraryCatalogItems(this.assetCatalogItems, this.librarySourceFilter, this.catalogQuery, this.catalogCategory, this.libraryFolderFilter);
     }
 
     protected catalogCategoryChips(): CatalogCategoryChip[] {
@@ -1762,7 +1767,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     }
 
     protected filteredPresetShowcaseItems(kind: PresetShowcaseKind): PresetShowcaseItem[] {
-        return filterPresetShowcaseItems(this.presetShowcase[kind], this.catalogQuery);
+        return includesLibraryLab(this.librarySourceFilter) ? filterPresetShowcaseItems(this.presetShowcase[kind], this.catalogQuery) : [];
     }
 
     protected setCatalogQuery(query: string): void {
@@ -1790,6 +1795,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         if (category.status !== 'live') {
             return;
         }
+        this.libraryFolderFilter = undefined;
         this.libraryCategory = key;
         this.catalogCategory = category.chipKey ?? 'all';
         this.update();
@@ -1797,23 +1803,15 @@ export class AkariRoleBucketsWidget extends ReactWidget {
 
     protected showLibraryHome(): void {
         this.stopCatalogAudio();
+        this.libraryFolderFilter = undefined;
         this.libraryCategory = undefined;
         this.catalogCategory = 'all';
         this.update();
     }
 
     protected libraryCategoryCount(category: LibraryCategoryDefinition): number | undefined {
-        if (category.status === 'soon') {
-            return undefined;
-        }
-        if (category.key === 'transition') {
-            return TRANSITION_VOCABULARY.length;
-        }
-        if (category.key === 'pack') {
-            return groupCatalogItemsByPack(this.assetCatalogItems, this.catalogPacks).groups.length;
-        }
-        return [...this.catalogCategoryChips(), ...derivePresetShowcaseChips(this.presetShowcase)]
-            .find(chip => chip.category === category.chipKey)?.count ?? 0;
+        return countLibraryCategory(category, this.librarySourceFilter, this.assetCatalogItems,
+            this.presetShowcase, TRANSITION_VOCABULARY.length, this.catalogPacks);
     }
 
     /** `akari.catalog.listCategories` の実体。UI 状態は変えない読み取り専用メソッド。 */
@@ -2010,7 +2008,10 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         this.resolvingAssetKeys.add(item.key);
         this.update();
         try {
-            const outcome = await this.projectService.resolveAsset(item.id, root.toString());
+            const localSource = localLibraryAssetPlacementSource(item);
+            const outcome = localSource
+                ? await this.projectService.placeLibraryAsset(localSource, root.toString())
+                : await this.projectService.resolveAsset(item.id, root.toString());
             // tsconfig の strict:false（strictNullChecks off）下では `!outcome.success` /
             // if-else の判別共用体絞り込みが効かない（実測で確認済み）。`=== false` の
             // 明示比較だけが確実に絞り込めるため、これを使う。
@@ -2070,7 +2071,10 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                 } catch { /* 未取得・不完全な配置は従来の resolver へ委譲する。 */ }
                 if (this.workflow.workspaceRoot?.toString() !== root.toString()) return undefined;
             }
-            const outcome = await this.projectService.resolveAsset(item.id, root.toString());
+            const localSource = localLibraryAssetPlacementSource(item);
+            const outcome = localSource
+                ? await this.projectService.placeLibraryAsset(localSource, root.toString())
+                : await this.projectService.resolveAsset(item.id, root.toString());
             if (outcome.success === false) {
                 this.messages.error(`素材を取得できませんでした: ${outcome.error}`);
                 return undefined;
@@ -2490,6 +2494,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                         );
                     })}
                 </div>
+                {this.topView === 'catalog' && !this.materialSwap && this.renderLibrarySourceFilters()}
                 <input
                     type='search'
                     value={query}
@@ -2842,13 +2847,72 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         );
     }
 
+    protected renderLibrarySourceFilters(): React.ReactNode {
+        return (
+            <div aria-label='素材の出どころ' role='group' style={{ display: 'flex', gap: '3px' }}>
+                {LIBRARY_SOURCE_FILTERS.map(source => (
+                    <button
+                        key={source.key}
+                        type='button'
+                        data-source-filter={source.key}
+                        aria-pressed={this.librarySourceFilter === source.key}
+                        onClick={() => { this.librarySourceFilter = source.key; this.update(); }}
+                        style={{
+                            flex: '1 1 auto', padding: '4px 2px', fontSize: '0.72em', cursor: 'pointer',
+                            borderRadius: `${AKARI_RADIUS.chip}px`, color: AKARI_INK,
+                            border: this.librarySourceFilter === source.key ? AKARI_BORDER.accent : AKARI_BORDER.ghost,
+                            background: this.librarySourceFilter === source.key ? AKARI_SURFACE.elevated : 'transparent'
+                        }}
+                    >{source.label}</button>
+                ))}
+            </div>
+        );
+    }
+
+    protected openRecentLibraryEntry(entry: RecentLibraryEntry): void {
+        this.catalogQuery = '';
+        this.selectLibraryCategory(entry.category);
+        this.libraryFolderFilter = entry.folder;
+        this.update();
+        if (!entry.folder) { void this.focusAssetCard('catalog', entry.itemKey, true); }
+    }
+
+    protected renderRecentLibraryStrip(): React.ReactNode {
+        const entries = recentLibraryEntries(this.assetCatalogItems, this.librarySourceFilter);
+        if (!entries.length) { return undefined; }
+        return (
+            <section data-recent-strip style={{ paddingTop: '8px' }}>
+                <div style={{ fontSize: '0.75em', fontWeight: 700, paddingBottom: '6px' }}>最近入れた</div>
+                <div style={{ display: 'flex', gap: '6px', overflowX: 'auto', paddingBottom: '4px' }}>
+                    {entries.map(entry => (
+                        <button
+                            key={entry.key} type='button' data-recent-key={entry.key}
+                            onClick={() => this.openRecentLibraryEntry(entry)}
+                            title={entry.label}
+                            style={{
+                                flex: '0 0 100px', minWidth: 0, padding: '7px', textAlign: 'left', cursor: 'pointer',
+                                border: AKARI_BORDER.ghost, borderRadius: `${AKARI_RADIUS.panel}px`,
+                                background: AKARI_SURFACE.raised, color: AKARI_INK
+                            }}
+                        >
+                            <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '0.78em' }}>{entry.label}</div>
+                            <div style={{ fontSize: '0.68em', opacity: 0.65, paddingTop: '3px' }}>
+                                {this.libraryCategoryDefinition(entry.category).label}{entry.folder ? ` · ${entry.count} 件` : ''}
+                            </div>
+                        </button>
+                    ))}
+                </div>
+            </section>
+        );
+    }
+
     protected renderLibraryHome(): React.ReactNode {
         const query = this.catalogQuery.trim();
         if (query) {
             const hits = searchLibraryHome(query, {
-                catalogItems: this.assetCatalogItems,
-                presetShowcase: this.presetShowcase,
-                transitions: TRANSITION_VOCABULARY
+                catalogItems: filterLibrarySources(this.assetCatalogItems, this.librarySourceFilter),
+                presetShowcase: includesLibraryLab(this.librarySourceFilter) ? this.presetShowcase : { textstyle: [], textanim: [], lut: [] },
+                transitions: includesLibraryLab(this.librarySourceFilter) ? TRANSITION_VOCABULARY : []
             });
             return (
                 <div data-akari-library-home data-akari-library-search-results={hits.length} style={{ padding: '8px 10px 12px' }}>
@@ -2884,6 +2948,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         }
         return (
             <div data-akari-library-home style={{ padding: '2px 8px 12px' }}>
+                {this.renderRecentLibraryStrip()}
                 {LIBRARY_GROUPS.map(group => (
                     <section key={group.label} style={{ marginTop: '10px' }}>
                         <div style={{
@@ -2940,12 +3005,14 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                 disabled={soon}
                 aria-disabled={soon ? 'true' : undefined}
                 data-akari-library-category={category.key}
+                data-category={category.key}
+                data-count={count}
                 data-akari-library-soon={soon ? 'true' : undefined}
                 onClick={soon ? undefined : event => { event.stopPropagation(); this.selectLibraryCategory(category.key as LibraryCategoryKey); }}
                 style={{
                     display: 'grid', gridTemplateColumns: '28px minmax(0, 1fr) auto', alignItems: 'center', gap: '7px',
                     width: '100%', padding: '6px 10px 6px 6px', textAlign: 'left', borderRadius: `${AKARI_RADIUS.panel}px`,
-                    cursor: soon ? 'default' : 'pointer', opacity: soon ? 0.46 : 1,
+                    cursor: soon ? 'default' : 'pointer', opacity: soon || count === 0 ? 0.46 : 1,
                     background: AKARI_SURFACE.raised, color: AKARI_INK,
                     border: AKARI_BORDER.ghost
                 }}
@@ -2998,6 +3065,12 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                     </div>
                     <div style={{ paddingTop: '5px', fontSize: '0.7em', lineHeight: 1.45, opacity: 0.64 }}>{category.hint}</div>
                 </div>
+                {this.libraryFolderFilter !== undefined && (
+                    <div data-library-folder-filter={this.libraryFolderFilter} style={{ padding: '7px 10px', fontSize: '0.78em' }}>
+                        フォルダ: {this.libraryFolderFilter}
+                        <button type='button' aria-label='フォルダの絞り込みを解除' onClick={() => { this.libraryFolderFilter = undefined; this.update(); }}>×</button>
+                    </div>
+                )}
                 {this.renderLibraryCategoryBody(key)}
             </div>
         );
@@ -3092,7 +3165,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     }
 
     protected renderLibraryPackBody(): React.ReactNode {
-        const filtered = filterCatalogItems(this.assetCatalogItems, this.catalogQuery, 'all');
+        const filtered = filterLibraryCatalogItems(this.assetCatalogItems, this.librarySourceFilter, this.catalogQuery, 'all');
         const { groups } = groupCatalogItemsByPack(filtered, this.catalogPacks);
         const totalGroups = groupCatalogItemsByPack(this.assetCatalogItems, this.catalogPacks).groups.length;
         return (
@@ -3131,8 +3204,8 @@ export class AkariRoleBucketsWidget extends ReactWidget {
 
     protected renderTransitionLibrary(): React.ReactNode {
         const normalizedQuery = this.catalogQuery.trim().toLowerCase();
-        const filtered = TRANSITION_VOCABULARY.filter(transition => !normalizedQuery
-            || [transition.labelJa, transition.id, transition.category].join(' ').toLowerCase().includes(normalizedQuery));
+        const filtered = TRANSITION_VOCABULARY.filter(transition => includesLibraryLab(this.librarySourceFilter) && (!normalizedQuery
+            || [transition.labelJa, transition.id, transition.category].join(' ').toLowerCase().includes(normalizedQuery)));
         const categories = Array.from(new Set(TRANSITION_VOCABULARY.map(transition => transition.category)));
         return (
             <div

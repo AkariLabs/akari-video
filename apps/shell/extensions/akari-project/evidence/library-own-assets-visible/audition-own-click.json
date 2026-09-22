@@ -1,0 +1,13 @@
+{
+ "playingCards": [],
+ "audio": [
+  {
+   "src": "file:///tmp/loav-l1/library/audio/own-click/own-click.wav",
+   "paused": true,
+   "currentTime": 1.5,
+   "readyState": 4,
+   "error": null
+  }
+ ],
+ "audioError": []
+}

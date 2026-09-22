@@ -110,6 +110,14 @@ export type AssetCatalogItemState = 'cached' | 'available' | 'locked';
  */
 export interface AssetCatalogViewItem {
     origin: AssetCatalogItemOrigin;
+    /** resolver が確定した出どころ。外部索引・プリセットの分類は表示側で補う。 */
+    sourceKind?: 'lab' | 'site' | 'own';
+    folder?: string;
+    addedAt?: string;
+    libraryDir?: string;
+    mediaFile?: string | null;
+    /** パック所属等にだけ使う。表示・検索には含めない。 */
+    machineTags?: string[];
     /** `${category}/${id}`。一覧の React key・カード DOM の data 属性に使う。 */
     key: string;
     id: string;
@@ -119,9 +127,9 @@ export interface AssetCatalogViewItem {
     licenseSpdx?: string;
     previewUrl?: string;
     /**
-     * origin='resolver' の audio カテゴリのみ。試聴用の実体 URL（http(s) URL または file: URI）。
-     * previewUrl（サムネ画像）とは別物 — files[] の音声ファイルから解決規則を previewUrl と
-     * 揃えて組み立てる（src/node/resolver-preview-url.ts）。state（locked 含む）に関わらず
+     * origin='resolver' の実体 URL（http(s) URL または file: URI）。
+     * 置き場では libraryDir + mediaFile、リモート音源では files[] から組み立てる。
+     * previewUrl（サムネ画像）とは別物。state（locked 含む）に関わらず
      * 試聴自体は独立して行える（「使う」= resolveAsset とは無関係）。
      */
     mediaUrl?: string;
@@ -186,6 +194,13 @@ export interface AssetCatalogView {
     resolver: AssetCatalogResolverStatus;
     entitlementsStatus: AssetEntitlementsStatus;
     entitledProducts?: EntitledProduct[];
+}
+
+/** 置き場の素材を配置する入力。実パスと置き場の照合は node 側で行う。 */
+export interface LibraryAssetPlacementSource {
+    category: string;
+    id: string;
+    libraryDir: string;
 }
 
 export type AssetResolveOutcome =
@@ -317,6 +332,8 @@ export interface AkariProjectService {
      * success=false + 購入案内メッセージで返る（resolver 自体の fail-closed をそのまま透過）。
      */
     resolveAsset(id: string, projectUri: string): Promise<AssetResolveOutcome>;
+    /** カタログ外の置き場素材を検証し、既存の CoW コピーで assets/ へ配置する。 */
+    placeLibraryAsset(source: LibraryAssetPlacementSource, projectUri: string): Promise<AssetResolveOutcome>;
     getStoreConnectionStatus(): Promise<StoreConnectionStatus>;
     startStoreDeviceConnection(): Promise<StoreDeviceStartOutcome>;
     pollStoreDeviceConnection(request: StoreDevicePollRequest): Promise<StoreDevicePollOutcome>;

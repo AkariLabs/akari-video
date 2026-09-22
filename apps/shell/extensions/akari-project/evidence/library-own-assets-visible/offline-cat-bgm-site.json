@@ -1,0 +1,27 @@
+{
+ "sourceFilter": [
+  "all:false",
+  "own:false",
+  "site:true",
+  "lab:false"
+ ],
+ "categories": [],
+ "recentStrip": [],
+ "folderFilter": null,
+ "cards": [
+  "audio/akari-sounds-bgm",
+  "audio/akari-sounds-jingle",
+  "audio/dova-syndrome-cheerleaders-bgm",
+  "audio/dova-syndrome-user-manual",
+  "audio/musmus-yuttari-honobono",
+  "audio/musmus-hageshii-atsui-upper",
+  "audio/site-bgm-morning",
+  "audio/cozy-lofi-bgm",
+  "audio/corporate-upbeat-bgm",
+  "audio/maoudamashii-bgm-neorock",
+  "audio/maoudamashii-bgm-piano"
+ ],
+ "cardCount": 11,
+ "focused": [],
+ "homeVisible": false
+}

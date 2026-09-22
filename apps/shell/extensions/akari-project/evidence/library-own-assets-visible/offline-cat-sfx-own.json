@@ -1,0 +1,20 @@
+{
+ "sourceFilter": [
+  "all:false",
+  "own:true",
+  "site:false",
+  "lab:false"
+ ],
+ "categories": [],
+ "recentStrip": [],
+ "folderFilter": null,
+ "cards": [
+  "audio/field-birds",
+  "audio/field-rain",
+  "audio/field-wind",
+  "audio/own-click"
+ ],
+ "cardCount": 4,
+ "focused": [],
+ "homeVisible": false
+}
