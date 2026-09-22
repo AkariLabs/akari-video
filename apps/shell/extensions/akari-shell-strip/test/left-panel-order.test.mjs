@@ -8,7 +8,7 @@ const require = createRequire(import.meta.url);
 const { computeLeftPanelOrder } = require('../lib/browser/left-panel-order.js');
 const FIXED_ORDER = [
     'explorer-view-container', 'akari-role-buckets-widget', 'search-view-container',
-    'vsx-extensions-view-container', 'akari-settings-opener', 'akari-menu-widget'
+    'akari-settings-opener', 'akari-menu-widget'
 ];
 
 test('LEFT_PANEL_FIXED_ORDER matches the actual ALLOWLIST ID sequence', () => {
