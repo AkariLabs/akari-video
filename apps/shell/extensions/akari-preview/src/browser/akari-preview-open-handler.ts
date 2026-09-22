@@ -13924,8 +13924,11 @@ body { display: grid; place-items: center; padding: 32px; }
                 const rect = captionVisualRect();
                 const center = { x: (rect.left + rect.right) / 2, y: (rect.top + rect.bottom) / 2 };
                 const start = captionOutputPoint(event.clientX, event.clientY);
-                const baseScale = Number.isFinite(caption.textStyle?.scale) ? caption.textStyle.scale : 1;
-                const baseRotate = Number.isFinite(caption.textStyle?.rotate) ? caption.textStyle.rotate : 0;
+                const currentStyle = getComputedStyle(captionPlate);
+                const currentScale = parseFloat(currentStyle.getPropertyValue('--caption-scale'));
+                const currentRotate = parseFloat(currentStyle.getPropertyValue('--caption-rotate'));
+                const baseScale = Number.isFinite(currentScale) ? currentScale : 1;
+                const baseRotate = Number.isFinite(currentRotate) ? currentRotate : 0;
                 const pointerId = event.pointerId;
                 let moved = false;
                 selectionDragActive = true;
@@ -14100,15 +14103,8 @@ body { display: grid; place-items: center; padding: 32px; }
                             const cuePosition = captionCuePositionFromRects(
                                 captionVisualRect(), outputFrame, clampOn
                             );
-                            const scale = Number.isFinite(caption.textStyle?.scale) ? caption.textStyle.scale : 1;
-                            const rotate = Number.isFinite(caption.textStyle?.rotate) ? caption.textStyle.rotate : 0;
                             await window.akari.engine.captionWrite(cueId, {
-                                plateTransform: {
-                                    captionIds: [cueId],
-                                    scale,
-                                    rotate,
-                                    cuePosition: { captionId: cueId, value: cuePosition }
-                                }
+                                cuePosition
                             });
                             captionCuePositionKnown.set(cueId, true);
                         }
