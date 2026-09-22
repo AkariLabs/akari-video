@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // 置いた文字の実機所見 5 点の L1（ラッパー作成の検証スクリプト）。fixture は gen-fixture.mjs で作る。
-// 使い方: node l1.mjs <before|after> <fixture dir> [--port=9447]
+// 使い方: node l1.mjs <before|after|rebase> <fixture dir> [--port=9447]
+// rebase = 最新 main へ rebase した後の再スモーク（after と同じ判定 + 他席の右レール・インスペクター・台本との干渉確認）。
 // 実機の Electron を自分専用のポート・一時ディレクトリで起動し、CDP の実マウス・実キーで操作して実測する。
 // before = 変更前ビルドの観測記録（判定はしない）/ after = 受け入れ条件の判定つき。
 import { readFile, cp, rm, realpath } from 'node:fs/promises';
@@ -11,7 +12,7 @@ import { CDP, evalOn, listTargets, realClick, realDragMod } from './cdp-lib.mjs'
 import { S, command, launch, sanitize, saveJson, screenshot, sleep, stop, waitEval } from './l1-lib.mjs';
 
 const PHASE = process.argv[2];
-if (PHASE !== 'before' && PHASE !== 'after') throw new Error('phase must be before|after');
+if (!['before', 'after', 'rebase'].includes(PHASE)) throw new Error('phase must be before|after|rebase');
 const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const REPO = path.resolve(ROOT, '..', '..', '..', '..', '..', '..');
 const SHELL = path.join(REPO, 'apps', 'shell');
@@ -20,8 +21,8 @@ const FIXTURE_SRC = path.resolve(process.argv[3] ?? path.join(os.tmpdir(), 'ptfp
 const PORT = Number(process.argv.find(v => v.startsWith('--port='))?.slice(7) ?? 9447);
 const TMP = path.join(os.tmpdir(), 'ptfp-l1');
 const RUNS = path.join(TMP, 'runs');
-const RESULTS = path.join(ROOT, `results-${PHASE}.json`);
-const STRICT = PHASE === 'after';
+const RESULTS = path.join(ROOT, PHASE === 'rebase' ? 'rebase-results.json' : `results-${PHASE}.json`);
+const STRICT = PHASE !== 'before';
 const out = { phase: PHASE, status: 'running', checks: [], screenshots: [] };
 const P1 = 'c-0101';
 const TARGETS_LAST = { x: 0.33, y: 0.68 };
@@ -94,7 +95,7 @@ async function calibrate(session, v) {
 const toPage = (off, pt) => ({ x: pt.x * off.sx + off.dx, y: pt.y * off.sy + off.dy });
 
 const FRAME = `(()=>{const c=[...document.querySelectorAll('#preview-stage canvas, #preview-stage video')].map(e=>e.getBoundingClientRect()).filter(r=>r.width>50).sort((a,b)=>b.width*b.height-a.width*a.height)[0];return c?{x:c.x,y:c.y,w:c.width,h:c.height}:null})()`;
-const PLATE = id => `(()=>{const want='caption-plate-'+encodeURIComponent(${S(id)});const p=document.getElementById(want)||[...document.querySelectorAll('.caption-row-plate')].find(e=>e.id.startsWith(want));if(!p)return null;const l=p.querySelector('.akari-caption__line')||p.querySelector('.akari-caption__plate')||p;const r=l.getBoundingClientRect();return{left:r.left,top:r.top,right:r.right,bottom:r.bottom,cx:r.left+r.width/2,cy:r.top+r.height/2,w:r.width,h:r.height,selected:p.hasAttribute('data-selected')}})()`;
+const PLATE = id => `(()=>{const want='caption-plate-'+encodeURIComponent(${S(id)});const p=document.getElementById(want)||[...document.querySelectorAll('.caption-row-plate')].find(e=>e.id.startsWith(want));if(!p)return null;const l=p.querySelector('.akari-caption__line')||p.querySelector('.akari-caption__plate')||p;const r=l.getBoundingClientRect();return{left:r.left,top:r.top,right:r.right,bottom:r.bottom,cx:r.left+r.width/2,cy:r.top+r.height/2,w:r.width,h:r.height,text:l.textContent,selected:p.hasAttribute('data-selected')}})()`;
 // 字幕層の中で outline / border を持つ要素と選択枠を全部拾う（「枠が何本出ているか」の実測）。
 const FRAMES_DOM = `(()=>{const px=v=>Math.round(v*100)/100;const rect=e=>{const r=e.getBoundingClientRect();return{left:px(r.left),top:px(r.top),width:px(r.width),height:px(r.height)}};const layer=document.getElementById('caption-plate');const list=[];for(const e of [layer,...layer.querySelectorAll('*')]){const cs=getComputedStyle(e);if(cs.outlineStyle!=='none'&&parseFloat(cs.outlineWidth)>0)list.push({el:(e.id?'#'+e.id:'')+'.'+[...e.classList].join('.'),editing:e.getAttribute('data-akari-caption-editing'),outlineStyle:cs.outlineStyle,outlineWidth:cs.outlineWidth,outlineColor:cs.outlineColor,outlineOffset:cs.outlineOffset,rect:rect(e)})}const box=document.getElementById('caption-select-box');const bcs=getComputedStyle(box);const ed=document.querySelector('[data-akari-caption-editing="true"]');const ecs=ed&&getComputedStyle(ed);return{outlined:list,selectBox:{active:box.classList.contains('is-active'),display:bcs.display,border:bcs.borderTopStyle+' '+bcs.borderTopWidth+' '+bcs.borderTopColor,rect:rect(box)},editing:ed?{el:'.'+[...ed.classList].join('.'),outlineStyle:ecs.outlineStyle,outlineWidth:ecs.outlineWidth,outlineColor:ecs.outlineColor,outlineOffset:ecs.outlineOffset,rect:rect(ed),focused:document.activeElement===ed,text:ed.textContent}:null,layer:{position:getComputedStyle(layer).position,pointerEvents:getComputedStyle(layer).pointerEvents,rect:rect(layer)}}})()`;
 const PREVIEW_STATE = `(()=>{const box=document.getElementById('caption-select-box');return{selectBoxActive:box.classList.contains('is-active'),selectedPlates:[...document.querySelectorAll('.caption-row-plate[data-selected]')].map(p=>p.id),editing:Boolean(document.querySelector('[data-akari-caption-editing="true"]'))}})()`;
@@ -286,7 +287,7 @@ try {
                 // 落とした位置での左端 = 落とした中心 − 幅/2 を期待値にする。
                 const halfW = (after.w / fr.w) / 2;
                 const expectedSaved = { x: round(target.x - halfW), y: target.y };
-                const record = { target: target.name, drop: { x: target.x, y: target.y }, plateWidthRatio: round(after.w / fr.w), saved: style, expectedSaved, rendered,
+                const record = { target: target.name, drop: { x: target.x, y: target.y }, plateTextAtGrab: plate.text, plateTextAfter: after.text, savedText: row.text, plateWidthRatio: round(after.w / fr.w), saved: style, expectedSaved, rendered,
                     renderedError: { x: round(rendered.x - target.x), y: round(rendered.y - target.y) } };
                 if (style.position) record.savedError = { x: round((style.position.x ?? NaN) - expectedSaved.x), y: round(style.position.y - expectedSaved.y) };
                 drags.push(record);
@@ -442,6 +443,24 @@ try {
             return { placed: m.length, distinctColors: distinct.length, colors: m };
         });
         await shot(session.cdp, '06-daihon-colors');
+        if (PHASE === 'rebase') {
+            // 他席の変更（右レール 1 本 + 区切り線 / インスペクターの持ち物カード）と干渉していないこと。
+            const RAIL = `(()=>{const rail=document.querySelector('.akari-right-rail');const tabs=rail?[...rail.querySelectorAll('.lm-TabBar-tab')].map(t=>t.title||t.textContent.trim()).filter(Boolean):[];const vis=e=>{if(!e)return false;const r=e.getBoundingClientRect();return r.width>0&&r.height>0&&getComputedStyle(e).display!=='none'&&getComputedStyle(e).visibility!=='hidden'};const insp=document.getElementById('akari-inspector-widget');const daihon=document.querySelector('.akari-daihon-widget');return{rail:vis(rail),railTabs:tabs,inspector:vis(insp),inspectorCards:insp?insp.querySelectorAll('section, [class*="card"]').length:0,daihon:vis(daihon),daihonRows:document.querySelectorAll('.akari-daihon-row').length}})()`;
+            await check('rebase 他席との干渉なし: 右レールとインスペクターが開き、台本パネルが従来どおり出る', async () => {
+                const railBefore = await evalOn(session.cdp, RAIL);
+                assert(railBefore.rail && railBefore.railTabs.length >= 2, `rail ${S(railBefore)}`);
+                await evalOn(session.cdp, command('akari.inspector.open'));
+                const inspector = await waitFor('inspector visible', async () => { const x = await evalOn(session.cdp, RAIL); return x.inspector && x; }, 30_000);
+                await sleep(1000);
+                await shot(session.cdp, '08-inspector');
+                await evalOn(session.cdp, command('akari.daihon.open'));
+                const daihon = await waitFor('daihon visible', async () => { const x = await evalOn(session.cdp, RAIL); return x.daihon && x.daihonRows > 0 && x; }, 30_000);
+                assert(daihon.rail, `rail after daihon ${S(daihon)}`);
+                await sleep(1000);
+                await shot(session.cdp, '09-daihon-back');
+                return { railBefore, inspector, daihon };
+            });
+        }
         v.cdp.close();
     } finally { await stop(session); }
 
