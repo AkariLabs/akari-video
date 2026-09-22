@@ -28,8 +28,15 @@ import { AkariScopeService } from './akari-scope-service';
 import { SidePanelHandler } from '@theia/core/lib/browser/shell/side-panel-handler';
 import { AkariRightPanelHandler } from './akari-right-panel-handler';
 import { AkariRightRailDnd } from './akari-right-rail-dnd';
+import { AkariStatusbarResources } from './statusbar/akari-statusbar-resources';
+import { AkariStatusbarResourcesService, AKARI_STATUSBAR_RESOURCES_PATH } from '../common/statusbar-resources-protocol';
 
 export default new ContainerModule((bind, unbind, isBound, rebind) => {
+    bind(AkariStatusbarResourcesService).toDynamicValue(ctx =>
+        WebSocketConnectionProvider.createProxy(ctx.container, AKARI_STATUSBAR_RESOURCES_PATH)
+    ).inSingletonScope();
+    bind(AkariStatusbarResources).toSelf().inSingletonScope();
+    bind(FrontendApplicationContribution).toService(AkariStatusbarResources);
     bind(AkariScopeService).toSelf().inSingletonScope();
     bind(FrontendApplicationContribution).toService(AkariScopeService);
     bind(AkariExportPreferenceContribution).toSelf().inSingletonScope();

@@ -15,6 +15,9 @@
       "backend": "lib/node/akari-preview-server-backend-module"
     },
     {
+      "backend": "lib/node/akari-statusbar-resources-backend-module"
+    },
+    {
       "electronMain": "lib/electron-main/akari-window-selfheal-module"
     }
   ],

@@ -1,0 +1,214 @@
+{
+  "first": {
+    "hook": {
+      "pollCount": 2,
+      "lastSample": {
+        "cpuPercent": 87.79974758098443,
+        "gpuPercent": 27,
+        "memoryUsedBytes": 13048627200,
+        "memoryTotalBytes": 17179869184,
+        "diskFreeBytes": 463817142272,
+        "diskTotalBytes": 1995218165760,
+        "rssByPid": {},
+        "username": "ryoma",
+        "sampledAt": 1790110750107
+      }
+    },
+    "bar": "ryoma\n0\n0\nCPU 88% · GPU 27% · メモリ 13.0 GB · 実行中 0",
+    "resourceEntry": [
+      {
+        "tag": "DIV",
+        "className": "area right",
+        "text": "CPU 88% · GPU 27% · メモリ 13.0 GB · 実行中 0",
+        "color": "rgb(204, 204, 204)"
+      },
+      {
+        "tag": "DIV",
+        "className": "element hasCommand akari-statusbar-mono",
+        "text": "CPU 88% · GPU 27% · メモリ 13.0 GB · 実行中 0",
+        "color": "rgb(115, 115, 115)"
+      },
+      {
+        "tag": "SPAN",
+        "className": "",
+        "text": "CPU 88% · GPU 27% · メモリ 13.0 GB · 実行中 0",
+        "color": "rgb(115, 115, 115)"
+      }
+    ]
+  },
+  "second": {
+    "hook": {
+      "pollCount": 3,
+      "lastSample": {
+        "cpuPercent": 93.705710712797,
+        "gpuPercent": 15,
+        "memoryUsedBytes": 13270155264,
+        "memoryTotalBytes": 17179869184,
+        "diskFreeBytes": 463817248768,
+        "diskTotalBytes": 1995218165760,
+        "rssByPid": {},
+        "username": "ryoma",
+        "sampledAt": 1790110753171
+      }
+    },
+    "bar": "ryoma\n0\n0\nCPU 94% · GPU 15% · メモリ 13.3 GB · 実行中 0",
+    "resourceEntry": [
+      {
+        "tag": "DIV",
+        "className": "area right",
+        "text": "CPU 94% · GPU 15% · メモリ 13.3 GB · 実行中 0",
+        "color": "rgb(204, 204, 204)"
+      },
+      {
+        "tag": "DIV",
+        "className": "element hasCommand akari-statusbar-mono",
+        "text": "CPU 94% · GPU 15% · メモリ 13.3 GB · 実行中 0",
+        "color": "rgb(115, 115, 115)"
+      },
+      {
+        "tag": "SPAN",
+        "className": "",
+        "text": "CPU 94% · GPU 15% · メモリ 13.3 GB · 実行中 0",
+        "color": "rgb(115, 115, 115)"
+      }
+    ]
+  },
+  "resourcesPopup": {
+    "text": "リソース\n3 秒ごと\nCPU（機械全体）\n94%\nGPU\n15%\nメモリ（機械全体）\n13.3 GB",
+    "rows": [
+      {
+        "key": "cpu",
+        "width": "93.7057%",
+        "color": "rgb(107, 107, 107)"
+      },
+      {
+        "key": "gpu",
+        "width": "15%",
+        "color": "rgb(107, 107, 107)"
+      },
+      {
+        "key": "memory",
+        "width": "77.2425%",
+        "color": "rgb(107, 107, 107)"
+      }
+    ]
+  },
+  "partnerStart": {
+    "id": "terminal-1",
+    "pid": 67784
+  },
+  "partnerRunning": {
+    "bar": "CPU 100% · GPU 11% · メモリ 13.1 GB · 実行中 1",
+    "rows": [
+      {
+        "id": "terminal:terminal-1",
+        "text": "⌘\nL1 パートナー\n0.0 GB\n止める"
+      }
+    ]
+  },
+  "partnerStopped": {
+    "bar": "CPU 100% · GPU 11% · メモリ 13.1 GB · 実行中 0",
+    "rows": []
+  },
+  "theiaGlobal": {
+    "hasContainer": true,
+    "keys": [
+      "container"
+    ]
+  },
+  "preferenceBindings": {
+    "containerFields": [
+      "id",
+      "parent",
+      "options",
+      "_middleware",
+      "_bindingDictionary",
+      "_activations",
+      "_deactivations",
+      "_snapshots",
+      "_metadataReader",
+      "_moduleActivationStore"
+    ],
+    "matches": [
+      "Symbol(PreferenceProviderProvider)",
+      "Symbol(PreferenceService)",
+      "Symbol(ValidPreferenceScopes)",
+      "Symbol(PreferenceSchemaService)",
+      "Symbol(PreferenceProvider)",
+      "Symbol(PreferenceContribution)",
+      "Symbol(PreferenceProxyFactory)",
+      "Symbol(CorePreferences)",
+      "Symbol(CorePreferenceContribution)",
+      "Symbol(treePreferences)",
+      "Symbol(ElectronWindowPreferences)",
+      "Symbol(ElectronWindowPreferenceContribution)",
+      "Symbol(EditorPreferences)",
+      "Symbol(EditorPreferenceContribution)",
+      "Symbol(FileSystemPreferences)",
+      "Symbol(FilesystemPreferenceContribution)",
+      "Symbol(WorkspacePreferences)",
+      "Symbol(WorkspacePreferenceContribution)",
+      "Symbol(WorkspaceTrustPreferences)",
+      "Symbol(WorkspaceTrustPreferenceContribution)"
+    ]
+  },
+  "preferenceToggle": {
+    "before": "CPU 100% · GPU 11% · メモリ 13.1 GB · 実行中 0",
+    "after": "メモリ 13.1 GB · ディスク 残 464 GB",
+    "rows": [
+      "memory",
+      "disk"
+    ]
+  },
+  "accountPopup": {
+    "text": "アカウント\n↻ 更新\nryoma\nAKARI Store 未接続\nfal.ai\n未接続\n›\nOpenRouter\n未接続\n›\nElevenLabs\n未接続\n›\nReplicate\n未接続\n›\nGroq\n未接続\n›",
+    "rows": [
+      "fal",
+      "openrouter",
+      "elevenlabs",
+      "replicate",
+      "groq"
+    ]
+  },
+  "balanceMockInstalled": true,
+  "balanceCallsBefore": 0,
+  "mockBalance": {
+    "calls": 1,
+    "text": "アカウント\n↻ 0 分前\nryoma\nAKARI Store 未接続\nOpenRouter\n残り $4.72\n›",
+    "rows": [
+      "openrouter"
+    ]
+  },
+  "providerRoute": {
+    "dialogVisible": true,
+    "activeSection": "connections",
+    "sectionVisible": true,
+    "heading": "接続と API キー",
+    "selectedNav": "connections",
+    "provider": true,
+    "providerVisible": true
+  },
+  "beforeBlur": 9,
+  "afterBlur": 9,
+  "afterFocus": 10,
+  "beforeMinimize": {
+    "pollCount": 10,
+    "hidden": false,
+    "hasFocus": true
+  },
+  "cdpMinimizeError": "Error: {\"code\":-32601,\"message\":\"'Browser.getWindowForTarget' wasn't found\"}",
+  "afterMinimize": {
+    "pollCount": 10,
+    "hidden": false,
+    "hasFocus": false
+  },
+  "minimizeMode": "finder-background",
+  "minimizeSupported": true,
+  "restoreError": "Error: Command failed: osascript -e tell application \"Electron\" to activate\n31:39: execution error: Electronでエラーが起きました: アプリケーションは実行されていません。 (-600)\n",
+  "afterRestore": {
+    "pollCount": 10,
+    "hidden": false,
+    "hasFocus": false
+  },
+  "startupError": false
+}
