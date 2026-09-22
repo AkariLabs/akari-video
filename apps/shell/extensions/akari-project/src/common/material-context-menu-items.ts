@@ -69,6 +69,9 @@ export function buildMaterialContextMenuItems(
             items.push({ id: 'transcribe', label: '文字起こし' });
         }
     }
+    if (target === 'material' || target === 'unorganized') {
+        items.push({ id: 'store-library', label: 'ライブラリに保管' });
+    }
     if (DESTRUCTIVE_CAPABLE_TARGETS.has(target)) {
         items.push(
             { id: 'rename', label: '名前を変更…' },

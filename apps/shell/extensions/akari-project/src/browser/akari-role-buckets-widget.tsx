@@ -1,3 +1,5 @@
+import { LibraryImportSheet } from './library-import-sheet';
+import { LibraryImportResult } from '../common/library-import';
 import { referencePresentation } from '../common/project-asset-reference';
 import { ProjectAssetReference, AssetBundleOutcome } from '../common/akari-project-protocol';
 import { MaterialSwapRequest, SwapCandidates, rankSwapCandidates } from '../common/material-swap-candidates';
@@ -556,6 +558,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     protected catalogResolver?: AssetCatalogResolverStatus;
     protected catalogEntitlementsStatus: AssetEntitlementsStatus = 'ok';
     protected catalogLoading = false;
+    protected libraryImportRequest?: { paths: string[] };
     protected catalogQuery = '';
     protected librarySourceFilter: LibrarySourceFilter = 'all';
     protected libraryFolderFilter: string | undefined;
@@ -1246,6 +1249,9 @@ export class AkariRoleBucketsWidget extends ReactWidget {
             case 'show-info':
                 void this.showAssetInfo(entry.uri);
                 break;
+            case 'store-library':
+                void this.storeMaterialInLibrary(entry);
+                break;
             case 'rename': {
                 const renameTarget = this.materialFileSystemTarget(entry);
                 void this.renameEntry(renameTarget.uri, entry.name, entry.relativePath, renameTarget.isDirectory, () => this.loadMaterials());
@@ -1265,6 +1271,45 @@ export class AkariRoleBucketsWidget extends ReactWidget {
             default:
                 break;
         }
+    }
+
+    protected async storeMaterialInLibrary(entry: MaterialCardEntry): Promise<void> {
+        if (entry.reference) return;
+        try {
+            const uri = entry.mediaRelativePath && this.workflow.workspaceRoot
+                ? this.workflow.workspaceRoot.resolve(entry.mediaRelativePath) : entry.uri;
+            const plan = await this.projectService.planLibraryImport([uri.path.fsPath()]);
+            const result = await this.projectService.applyLibraryImport(plan);
+            this.reportLibraryImportResult(result);
+            await this.loadAssetCatalogView();
+        } catch (error) { this.messages.error(`ライブラリに保管できませんでした: ${String(error)}`); }
+    }
+
+    protected reportLibraryImportResult(result: LibraryImportResult): void {
+        if (result.added.length) this.messages.info(`${result.added.length} 件をライブラリに取り込みました。`);
+        if (result.duplicates.length) this.messages.info(`もう入っています: ${result.duplicates.map(item => item.title || item.id).join('、')}`);
+        for (const item of [...result.rejected, ...result.failures]) this.messages.warn(`${item.path || ''}: ${item.reason}`);
+        for (const item of result.added) for (const warning of item.warnings ?? []) this.messages.warn(warning);
+    }
+
+    protected async finishLibraryImport(result: LibraryImportResult): Promise<void> {
+        this.reportLibraryImportResult(result);
+        this.topView = 'catalog';
+        this.libraryCategory = undefined;
+        this.librarySourceFilter = 'all';
+        this.libraryFolderFilter = undefined;
+        this.catalogQuery = '';
+        this.catalogCategory = 'all';
+        await this.loadAssetCatalogView();
+        this.update();
+        requestAnimationFrame(() => this.node.querySelector('[data-recent-strip]')?.scrollIntoView({ block: 'start' }));
+    }
+
+    protected async pickLibraryImport(mode: 'both' | 'files' | 'folders'): Promise<string[]> {
+        const selected = await this.dialogs.showOpenDialog({
+            title: 'ローカルから取り込む', canSelectMany: true, canSelectFiles: mode !== 'folders', canSelectFolders: mode !== 'files'
+        });
+        return selected ? (Array.isArray(selected) ? selected : [selected]).map(uri => uri.path.fsPath()) : [];
     }
 
     protected async retryMaterialReference(entry: MaterialCardEntry): Promise<void> {
@@ -2328,6 +2373,15 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         if (!transfer || !isOsFileDropInput(transfer.types)) {
             return;
         }
+        if (this.topView === 'catalog') {
+            const paths = Array.from(transfer.files).map(file => this.resolveDroppedFilePath(file)).filter((path): path is string => !!path);
+            if (!transfer.files.length) for (const line of transfer.getData('text/uri-list').split(/\r?\n/)) {
+                if (line.startsWith('file:')) paths.push(new URI(line).path.fsPath());
+            }
+            if (paths.length) { this.libraryImportRequest = { paths }; this.update(); }
+            else this.messages.warn('ファイルの場所を読み取れませんでした。＋ から選び直してください。');
+            return;
+        }
         const { accepted, rejectedCount } = this.classifyDropped(transfer);
         if (accepted.length) {
             void this.importDropped(accepted);
@@ -2444,7 +2498,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         const libraryOnly = this.topView === 'catalog';
         return (
             <div
-                style={{ display: 'flex', flexDirection: 'column', height: '100%' }}
+                style={{ position: 'relative', display: 'flex', flexDirection: 'column', height: '100%' }}
                 data-akari-left-panel-layout={libraryOnly ? 'library-only' : 'split'}
             >
                 <div style={{
@@ -2461,6 +2515,9 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                         {this.renderOutputsPane()}
                     </div>
                 )}
+                {libraryOnly && <LibraryImportSheet service={this.projectService} isOSX={isOSX}
+                    request={this.libraryImportRequest} consumed={() => { this.libraryImportRequest = undefined; }} pick={mode => this.pickLibraryImport(mode)}
+                    imported={result => this.finishLibraryImport(result)} stopAudio={() => this.stopCatalogAudio()} />}
                 {this.renderLintBadge()}
             </div>
         );
@@ -2488,7 +2545,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                 }}
             >
                 <span className='codicon codicon-cloud-upload' aria-hidden='true' style={{ fontSize: 22 }} />
-                <strong style={{ fontSize: 12.5, lineHeight: 1.4 }}>ここに落とすと素材に取り込みます</strong>
+                <strong style={{ fontSize: 12.5, lineHeight: 1.4 }}>{this.topView === 'catalog' ? 'ここに落とすとライブラリへ取り込みます' : 'ここに落とすと素材に取り込みます'}</strong>
             </div>
         );
     }
