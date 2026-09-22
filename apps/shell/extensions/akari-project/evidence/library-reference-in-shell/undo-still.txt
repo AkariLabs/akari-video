@@ -1,0 +1,19 @@
+Cmd+Z 後の edit.json と after-broll コミットの差分（空 = 1 手で戻った）:
+--- 台帳（行は残る）:
+{
+  "version": 0,
+  "references": [
+    {
+      "id": "ref-beep",
+      "category": "audio"
+    },
+    {
+      "id": "ref-broll",
+      "category": "broll"
+    },
+    {
+      "id": "ref-still",
+      "category": "still"
+    }
+  ]
+}

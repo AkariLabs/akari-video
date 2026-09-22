@@ -1,0 +1,130 @@
+diff --git a/edit.json b/edit.json
+index 50cd1cf..93e85c5 100644
+--- a/edit.json
++++ b/edit.json
+@@ -1,106 +1,28 @@
+ {
+   "version": 2,
+-  "output": {
+-    "width": 640,
+-    "height": 360,
+-    "fps": 30
+-  },
++  "output": { "width": 640, "height": 360, "fps": 30 },
+   "sources": [
+-    {
+-      "id": "s1",
+-      "path": "assets/base.mp4"
+-    },
+-    {
+-      "id": "src-1",
+-      "path": "assets/broll/ref-broll/ref-broll.mp4"
+-    },
+-    {
+-      "id": "src-2",
+-      "path": "assets/still/ref-still/ref-still.png"
+-    }
++    { "id": "s1", "path": "assets/base.mp4" },
++    { "id": "src-1", "path": "assets/broll/ref-broll/ref-broll.mp4" },
++    { "id": "src-2", "path": "assets/still/ref-still/ref-still.png" }
+   ],
+   "audio": {
+     "sfx": [
+-      {
+-        "id": "audio-1",
+-        "path": "assets/audio/ref-beep/ref-beep.wav",
+-        "t": 0,
+-        "track": 0,
+-        "gain_db": 5.2,
+-        "fade_in": 0,
+-        "fade_out": 0
+-      }
++      { "id": "audio-1", "path": "assets/audio/ref-beep/ref-beep.wav", "t": 0, "track": 0, "gain_db": 5.2, "fade_in": 0, "fade_out": 0 },
++      { "id": "audio-2", "path": "assets/audio/sfx-bell-tree/sfx-bell-tree.mp3", "t": 5.933333333333334, "track": 0 }
+     ]
+   },
+   "tracks": [
+-    {
+-      "id": "v1",
+-      "lane": "visual",
+-      "name": "V1",
+-      "items": [
+-        {
+-          "id": "cut-1",
+-          "at": 0,
+-          "duration": 90,
+-          "source": {
+-            "kind": "media",
+-            "src": "s1",
+-            "in": 0,
+-            "out": 3
+-          }
+-        },
+-        {
+-          "id": "cut-2",
+-          "at": 90,
+-          "duration": 90,
+-          "source": {
+-            "kind": "media",
+-            "src": "s1",
+-            "in": 3,
+-            "out": 6
+-          }
+-        }
+-      ]
+-    },
+-    {
+-      "id": "v2",
+-      "lane": "visual",
+-      "items": [
+-        {
+-          "id": "clip-1",
+-          "at": 178,
+-          "duration": 120,
+-          "source": {
+-            "kind": "media",
+-            "src": "src-1",
+-            "in": 0,
+-            "out": 4
+-          }
+-        }
+-      ]
+-    },
+-    {
+-      "id": "v3",
+-      "lane": "visual",
+-      "items": [
+-        {
+-          "id": "image-1",
+-          "at": 0,
+-          "duration": 60,
+-          "source": {
+-            "kind": "media",
+-            "src": "src-2",
+-            "in": 0,
+-            "out": 2
+-          }
+-        }
+-      ]
+-    },
+-    {
+-      "id": "a1",
+-      "lane": "audio",
+-      "name": "A1",
+-      "items": []
+-    }
++    { "id": "v1", "lane": "visual", "name": "V1", "items": [
++      { "id": "cut-1", "at": 0, "duration": 90, "source": { "kind": "media", "src": "s1", "in": 0, "out": 3 } },
++      { "id": "cut-2", "at": 90, "duration": 90, "source": { "kind": "media", "src": "s1", "in": 3, "out": 6 } }
++    ] },
++    { "id": "v2", "lane": "visual", "items": [
++      { "id": "clip-1", "at": 178, "duration": 120, "source": { "kind": "media", "src": "src-1", "in": 0, "out": 4 } }
++    ] },
++    { "id": "v3", "lane": "visual", "items": [
++      { "id": "image-1", "at": 0, "duration": 60, "source": { "kind": "media", "src": "src-2", "in": 0, "out": 2 } }
++    ] },
++    { "id": "a1", "lane": "audio", "name": "A1", "items": [] }
+   ]
+-}
+\ No newline at end of file
++}

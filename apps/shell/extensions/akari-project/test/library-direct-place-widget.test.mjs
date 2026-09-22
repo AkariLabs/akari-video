@@ -111,3 +111,20 @@ for (const sourceKind of ['own', 'site', 'lab']) {
         });
     }
 }
+
+for (const sourceKind of ['lab', 'own', 'site']) {
+    test(`参照の ${sourceKind} を置き場で読み、edit 用には従来の相対パスを返す`, async () => {
+        const { handler, messages } = fixture();
+        const localItem = { ...item, sourceKind, libraryDir: '/library/audio/sample', state: 'cached' };
+        handler.assetCatalogItems = [localItem];
+        handler.projectService.resolveAsset = handler.projectService.placeLibraryAsset = async () => ({
+            success: true, reference: true, libraryDir: localItem.libraryDir, projectAssetPath: '/project/assets/audio/sample'
+        });
+        handler.files.resolve = async uri => {
+            assert.equal(uri.toString(), 'file:///library/audio/sample');
+            return { children: ['a.mp3', 'b.mp3'].map(name => ({ name, isDirectory: false })) };
+        };
+        assert.deepEqual(await handler.resolveCatalogMaterial(item.key), { relativePath: 'assets/audio/sample/b.mp3', kind: 'audio' });
+        assert.deepEqual(messages, []);
+    });
+}

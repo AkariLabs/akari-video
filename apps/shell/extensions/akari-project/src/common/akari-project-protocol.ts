@@ -204,8 +204,27 @@ export interface LibraryAssetPlacementSource {
 }
 
 export type AssetResolveOutcome =
-    | { success: true; projectAssetPath: string }
+    | { success: true; projectAssetPath: string; reference?: boolean; libraryDir?: string }
     | { success: false; error: string };
+
+export interface ProjectAssetReference {
+    category: string;
+    id: string;
+    libraryDir?: string;
+    title?: string;
+    tags: string[];
+    sourceKind?: 'lab' | 'site' | 'own';
+    files: Array<{ name: string; path: string; bytes: number }>;
+}
+
+export interface AssetBundleOutcome {
+    planned: ProjectAssetReference[];
+    bytes: number;
+    unknownSizeCount: number;
+    restrictedCount: number;
+    materialized: string[];
+    failures: Array<{ key: string; message: string }>;
+}
 
 export interface StoreConnectionStatus {
     connected: boolean;
@@ -276,6 +295,9 @@ export interface BuildCaptionsRequest extends TranscribeOptions { projectRoot: s
 export type BuildCaptionsResult = { needsForce: true } | { needsForce?: false; [key: string]: unknown };
 
 export interface AkariProjectService {
+    listProjectAssetReferences(projectUri: string): Promise<ProjectAssetReference[]>;
+    removeProjectAssetReference(projectUri: string, reference: { category: string; id: string }): Promise<void>;
+    bundleProjectAssets(projectUri: string, dryRun: boolean): Promise<AssetBundleOutcome>;
     readTranscribeArtifacts(request: TranscribeArtifactRequest): Promise<TranscribeArtifacts>;
     writeCutsSelection(request: WriteCutsSelectionRequest): Promise<void>;
     applyCutsToEdit(request: TranscribeArtifactRequest): Promise<{ changed: boolean }>;
@@ -331,7 +353,7 @@ export interface AkariProjectService {
      * 配置する。無料 or 購入済み（entitlements 保有）のみ成功する。未購入は
      * success=false + 購入案内メッセージで返る（resolver 自体の fail-closed をそのまま透過）。
      */
-    resolveAsset(id: string, projectUri: string): Promise<AssetResolveOutcome>;
+    resolveAsset(id: string, projectUri: string, options?: { force?: boolean }): Promise<AssetResolveOutcome>;
     /** カタログ外の置き場素材を検証し、既存の CoW コピーで assets/ へ配置する。 */
     placeLibraryAsset(source: LibraryAssetPlacementSource, projectUri: string): Promise<AssetResolveOutcome>;
     getStoreConnectionStatus(): Promise<StoreConnectionStatus>;

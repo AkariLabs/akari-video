@@ -38,22 +38,23 @@ async function assertRejected(f, source) {
     assert.equal(await readFile(join(f.source.libraryDir, 'sound.wav'), 'utf8'), 'original media');
 }
 
-test('実子プロセスで置き場を検証し、assets/category/idへコピー（大元は維持）', async t => {
+test('実子プロセスで置き場を検証し、コピーせず参照を記帳（既存実体と大元は維持）', async t => {
     const f = await fixture(t);
     const result = await f.service.placeLibraryAsset(f.source, f.projectUri);
-    assert.deepEqual(result, { success: true, projectAssetPath: f.destination });
-    assert.equal(await readFile(join(f.destination, 'sound.wav'), 'utf8'), 'original media');
+    assert.deepEqual(result, { success: true, projectAssetPath: f.destination, reference: true, libraryDir: f.source.libraryDir });
+    await assert.rejects(readFile(join(f.destination, 'sound.wav')), { code: 'ENOENT' });
+    assert.deepEqual(JSON.parse(await readFile(join(f.project, '.akari/asset-references.json'), 'utf8')).references, [{ category: 'audio', id: 'sample' }]);
     assert.equal(await readFile(join(f.source.libraryDir, 'sound.wav'), 'utf8'), 'original media');
-    await assert.rejects(readFile(join(f.destination, 'sentinel.txt')), { code: 'ENOENT' });
+    assert.equal(await readFile(join(f.destination, 'sentinel.txt'), 'utf8'), 'previous project asset');
 });
 
-test('移行前の置き場も resolver の read roots に従ってコピーできる', async t => {
+test('移行前の置き場も resolver の read roots に従って参照できる', async t => {
     const f = await fixture(t);
     const legacy = join(f.env.AKARI_HOME, 'assets', 'audio', 'sample');
     await mkdir(legacy, { recursive: true });
     await writeFile(join(legacy, 'legacy.wav'), 'legacy');
     assert.equal((await f.service.placeLibraryAsset({ ...f.source, libraryDir: legacy }, f.projectUri)).success, true);
-    assert.equal(await readFile(join(f.destination, 'legacy.wav'), 'utf8'), 'legacy');
+    await assert.rejects(readFile(join(f.destination, 'legacy.wav')), { code: 'ENOENT' });
 });
 
 for (const id of ['..', '../sample', 'nested/sample', 'nested\\sample', 'a..b', '.', '']) {
@@ -120,8 +121,8 @@ test('リンク経由で開いたプロジェクトもwidgetが相対化でき�
     const f = await fixture(t), alias = join(f.root, 'project-alias');
     await symlink(f.project, alias, 'dir');
     const result = await f.service.placeLibraryAsset(f.source, pathToFileURL(alias).href);
-    assert.deepEqual(result, { success: true, projectAssetPath: join(alias, 'assets', 'audio', 'sample') });
-    assert.equal(await readFile(join(result.projectAssetPath, 'sound.wav'), 'utf8'), 'original media');
+    assert.deepEqual(result, { success: true, projectAssetPath: join(alias, 'assets', 'audio', 'sample'), reference: true, libraryDir: f.source.libraryDir });
+    assert.equal(await readFile(join(result.libraryDir, 'sound.wav'), 'utf8'), 'original media');
 });
 
 test('素材の大元の中へ再帰コピーする配置を拒否する', async t => {
@@ -131,4 +132,38 @@ test('素材の大元の中へ再帰コピーする配置を拒否する', async
     assert.equal(result.success, false);
     assert.match(result.error, /大元/);
     assert.equal(await readFile(join(f.source.libraryDir, 'sound.wav'), 'utf8'), 'original media');
+});
+
+test('Lab は reference:true で記帳し、まとめる dry-run は無変更・実行は部分成功・再実行は冪等', async t => {
+    const f = await fixture(t);
+    await rm(f.destination, { recursive: true });
+    const catalog = join(f.root, 'catalog.json');
+    const previous = process.env.AKARI_ASSETS_CATALOG;
+    process.env.AKARI_ASSETS_CATALOG = catalog;
+    t.after(() => { if (previous === undefined) delete process.env.AKARI_ASSETS_CATALOG; else process.env.AKARI_ASSETS_CATALOG = previous; });
+    await writeFile(catalog, JSON.stringify({ items: [{ id: 'sample', category: 'audio', title: 'Lab sound', files: [] }] }));
+    await writeFile(join(f.source.libraryDir, 'meta.json'), JSON.stringify({ id: 'sample', category: 'audio', title: 'Lab sound', tags: ['license:subscription'] }));
+    const result = await f.service.resolveAsset('sample', f.projectUri);
+    assert.equal(result.success, true);
+    assert.equal(result.reference, true);
+    assert.equal(result.libraryDir, f.source.libraryDir);
+    await assert.rejects(readFile(join(f.destination, 'sound.wav')), { code: 'ENOENT' });
+    const ledger = join(f.project, '.akari/asset-references.json');
+    await writeFile(ledger, JSON.stringify({ version: 0, references: [{ category: 'audio', id: 'sample' }, { category: 'audio', id: 'missing' }] }));
+    const before = await readFile(ledger, 'utf8');
+    const plan = await f.service.bundleProjectAssets(f.projectUri, true);
+    assert.equal(plan.planned.length, 2);
+    assert.equal(plan.restrictedCount, 1);
+    assert.ok(plan.bytes >= 'original media'.length);
+    assert.equal(plan.unknownSizeCount, 1);
+    assert.equal(await readFile(ledger, 'utf8'), before);
+    await assert.rejects(readFile(join(f.destination, 'sound.wav')), { code: 'ENOENT' });
+    const bundled = await f.service.bundleProjectAssets(f.projectUri, false);
+    assert.deepEqual(bundled.materialized, ['audio/sample']);
+    assert.equal(bundled.failures[0].key, 'audio/missing');
+    assert.match(bundled.failures[0].message, /未知/);
+    assert.equal(await readFile(join(f.destination, 'sound.wav'), 'utf8'), 'original media');
+    assert.deepEqual(JSON.parse(await readFile(ledger, 'utf8')).references, [{ category: 'audio', id: 'missing' }]);
+    await f.service.removeProjectAssetReference(f.projectUri, { category: 'audio', id: 'missing' });
+    assert.equal((await f.service.bundleProjectAssets(f.projectUri, false)).planned.length, 0);
 });

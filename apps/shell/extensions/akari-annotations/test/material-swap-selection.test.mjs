@@ -24,7 +24,7 @@ function harness(doc=fixture()){
   resolveLegacyEditForOpen:async text=>text,readEdit:text=>store.readInternalEdit(JSON.parse(text)),hydrateDocumentMotionReferences:async()=>{},
   invalidateContentExtent(){},itemLocations:new Map(),sourceMap:new Map(),layerTransitionWarnings:new Map(),timelineTreePartsByHtml:new Map(),timelineCollapsedIds:new Set(),treeRowsByTrack:new Map(),
   withSfxFade:()=>[],withNarrationEnvelope:items=>items??[],withBgmEnvelope:()=>undefined,pinAudioGroupToBottom:tracks=>tracks,
-  rebuildSourceMap(){},showWarnings(){},showNotice:message=>{throw Error(message);},rebuildSegments(){},notifyCaptionSourceMappingWarning(){},
+  refreshReferenceMediaUris: async () => {}, rebuildSourceMap(){},showWarnings(){},showNotice:message=>{throw Error(message);},rebuildSegments(){},notifyCaptionSourceMappingWarning(){},
   applyStoredTrackFlags:async()=>{},syncTimelineTrackTogglesToPreview(){},loadTrackHeights:async()=>{},reloadGenerationSidecars:async()=>{},reloadResolvedCaptionDisplay:async()=>{},renderStrip(){},
   selectionKey:value=>JSON.stringify(value),publishPrimaryPreviewSelection(){},
   canHandlePlaybackTick:()=>true,exitTrimmerModeUnlessSelected(){},applySelectionClass(){},syncRightPane(){},revealOutputPreview(){},revealPreviewSelection(){},selectionModel:{},multiSelection:[],finishMaterialSwap:async()=>{ended++;},

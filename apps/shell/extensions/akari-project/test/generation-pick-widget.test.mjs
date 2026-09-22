@@ -117,7 +117,7 @@ test('all three renderers wire mode props/badges, preserve normal actions and di
         assert.match(text, /renderGenerationPickBadge\(pickCandidate\)/);
         assert.match(text, /!this\.generationPick\.request/);
     }
-    assert.match(member('renderMaterialCard'), /onClick=\{\(\) => void this\.openFile\(entry\.uri\)\}/);
+    assert.match(member('renderMaterialCard'), /onClick=\{\(\) => \{ if \(!entry\.missing\) void this\.openFile\(entry\.uri\); \}\}/);
     assert.match(member('renderMaterialCard'), /onContextMenu=\{event => this\.openMaterialContextMenu\(event, entry\)\}/);
     assert.match(member('generationPick'), /key => this\.resolveCatalogMaterial\(key\)/);
     assert.match(member('init'), /removeEventListener\('keydown', this\.handleGenerationPickKey, true\)/);

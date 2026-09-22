@@ -1,0 +1,17 @@
+assets/.gitkeep
+assets/audio/ref-beep/meta.json
+assets/audio/ref-beep/preview.png
+assets/audio/ref-beep/ref-beep.wav
+assets/base.mp4
+assets/broll/ref-broll/meta.json
+assets/broll/ref-broll/preview.png
+assets/broll/ref-broll/ref-broll.mp4
+assets/still/ref-still/fragment.html
+assets/still/ref-still/meta.json
+assets/still/ref-still/preview.png
+assets/still/ref-still/ref-still.png
+
+{
+  "version": 0,
+  "references": []
+}

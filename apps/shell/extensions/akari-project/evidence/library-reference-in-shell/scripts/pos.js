@@ -1,0 +1,1 @@
+(() => { const re = new RegExp(window.__q); const e=[...document.querySelectorAll('*')].find(e=>e.children.length===0&&re.test(e.textContent.trim())&&e.getBoundingClientRect().width>0); if(!e) return null; const r=e.getBoundingClientRect(); return [r.left+r.width/2, r.top+r.height/2]; })()

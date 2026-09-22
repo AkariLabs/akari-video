@@ -67,6 +67,11 @@ import { writePreviewFrame } from './preview-frame-writer';
 import { prepareVisualThumbnailPage } from './visual-thumbnail-page';
 import { VisualThumbnailPage, VisualThumbnailRequest } from '../common/visual-thumbnail';
 
+interface ReferenceModule {
+    resolveProjectAssetPath(project: string, declared: string): Promise<string | null>;
+    projectReferenceMediaUris(project: string): Promise<Record<string, string>>;
+}
+
 interface StreamTarget {
     path: string;
     mimeType: string;
@@ -682,7 +687,11 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
         const roots = await this.resolveWorkspaceRoots();
         if (!roots.some(root => this.contains(root, editPath))) throw new Error('Project is outside the workspace');
         return prepareVisualThumbnailPage(editPath, request.itemId, await this.getOverlayRuntimeAssetUrls(),
-            assetUri => this.createAssetStream({ assetUri }), id => this.disposeAssetStream(id), request.editSnapshot);
+            assetUri => this.createAssetStream({ assetUri }), id => this.disposeAssetStream(id), request.editSnapshot,
+            async declaredPath => {
+                const uri = await this.resolveProjectAssetUri({ projectRootUri: pathToFileURL(dirname(editPath)).href, declaredPath });
+                return uri ? fileURLToPath(uri) : undefined;
+            });
     }
 
     async savePreviewFrame(request: import('../common/preview-frame-capture').SavePreviewFrameRequest): Promise<{ path: string }> {
@@ -701,7 +710,8 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
     async prepareAssetVisualThumbnail(request: { assetUri: string; time?: number }): ReturnType<AkariPreviewService['prepareAssetVisualThumbnail']> {
         const assetPath = await realpath(this.filePath(request.assetUri));
         const roots = await this.resolveWorkspaceRoots();
-        const root = roots.filter(value => this.contains(value, assetPath)).sort((a, b) => b.length - a.length)[0];
+        let root = roots.filter(value => this.contains(value, assetPath)).sort((a, b) => b.length - a.length)[0];
+        if (!root && await this.isReferencedMediaPath(assetPath, roots)) root = dirname(assetPath);
         if (!root) throw new Error('Material is outside the workspace');
         const { prepareAssetVisualThumbnailPage } = await import('./visual-thumbnail-page');
         return prepareAssetVisualThumbnailPage(assetPath, root, request.time, await this.getOverlayRuntimeAssetUrls(),
@@ -714,7 +724,10 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
         if (!roots.some(root => this.contains(root, projectRoot))) throw new Error('Project is outside the workspace');
         return rewritePreviewFragmentAssets(request.html, {
             projectRoot, htmlPath: request.htmlPath, overlayId: request.overlayId
-        }, assetUri => this.createAssetStream({ assetUri, workspaceRoots: request.workspaceRoots }));
+        }, assetUri => this.createAssetStream({ assetUri, workspaceRoots: request.workspaceRoots }), async declaredPath => {
+            const uri = await this.resolveProjectAssetUri({ projectRootUri: request.projectRootUri, declaredPath });
+            return uri ? fileURLToPath(uri) : undefined;
+        });
     }
 
     private async validatePreviewAudioSidecarRequest(request: PrepareSpeechAtempoRequest): Promise<{
@@ -736,7 +749,7 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
         const projectRoot = await realpath(this.filePath(request.projectRootUri));
         const sourcePath = await realpath(this.filePath(request.sourceUri));
         if (!roots.some(root => this.contains(root, projectRoot))
-            || !roots.some(root => this.contains(root, sourcePath))) {
+            || (!roots.some(root => this.contains(root, sourcePath)) && !await this.isReferencedMediaPath(sourcePath, [projectRoot]))) {
             throw new Error('Preview audio sidecar paths must stay inside an open workspace');
         }
         const sourceStat = await stat(sourcePath);
@@ -906,7 +919,7 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
             if (typeof value !== 'string' || !isAbsolute(value)) continue;
             try {
                 const sourcePath = await realpath(value);
-                if (roots.some(root => this.contains(root, sourcePath))) sourcePaths.push(sourcePath);
+                if (roots.some(root => this.contains(root, sourcePath)) || await this.isReferencedMediaPath(sourcePath, [projectRoot])) sourcePaths.push(sourcePath);
             } catch { /* Missing or inaccessible sources cannot refer to a pending probe. */ }
         }
         const module = await this.loadSpeechAtempoModule();
@@ -975,6 +988,49 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
             return { ok: false, reason: `${reason}: ${error instanceof Error ? error.message : String(error)}`, state };
         }
         return { ok: true, state: await this.getGpuPreferenceState() };
+    }
+
+    protected referenceProjects = new Set<string>();
+
+    protected async loadReferenceModule(): Promise<ReferenceModule> {
+        const candidates: string[] = [];
+        if (typeof process.resourcesPath === 'string') {
+            candidates.push(resolve(process.resourcesPath, 'packages/asset-resolver/src/shell-reference.mjs'));
+        }
+        let ancestor = resolve(__dirname);
+        for (let depth = 0; depth < 10; depth++) {
+            candidates.push(resolve(ancestor, 'packages/asset-resolver/src/shell-reference.mjs'));
+            const parent = dirname(ancestor);
+            if (parent === ancestor) break;
+            ancestor = parent;
+        }
+        const candidate = candidates.find(value => this.isFile(value));
+        if (!candidate) throw new Error('素材の参照 resolver が見つかりません');
+        const importModule = Function('specifier', 'return import(specifier)') as
+            (specifier: string) => Promise<ReferenceModule>;
+        return importModule(pathToFileURL(candidate).toString());
+    }
+
+    async resolveProjectAssetUri(request: { projectRootUri: string; declaredPath: string }): Promise<string | undefined> {
+        const project = await realpath(this.filePath(request.projectRootUri));
+        const roots = await this.resolveWorkspaceRoots();
+        if (!roots.some(root => this.contains(root, project))) throw new Error('Project is outside the workspace');
+        const module = await this.loadReferenceModule();
+        const actual = await module.resolveProjectAssetPath(project, request.declaredPath);
+        this.referenceProjects.add(project);
+        return actual ? pathToFileURL(actual).toString() : undefined;
+    }
+
+    /** Allow exact ledger-resolved files, never an entire external library root. */
+    protected async isReferencedMediaPath(target: string, roots: string[]): Promise<boolean> {
+        const module = await this.loadReferenceModule();
+        const projects = new Set([...roots, ...this.referenceProjects]);
+        for (const project of projects) {
+            if (!roots.some(root => this.contains(root, project))) continue;
+            const uris = await module.projectReferenceMediaUris(project);
+            if (Object.values(uris).includes(pathToFileURL(target).href)) return true;
+        }
+        return false;
     }
 
     protected loadGpuPreferenceModule(): Promise<GpuPreferenceModule> {
@@ -1617,7 +1673,9 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
         const targetPath = await realpath(this.filePath(uri));
         const roots = await this.resolveWorkspaceRoots(requestRoots);
         if (!roots.some(root => this.contains(root, targetPath))) {
-            throw new Error(`${kind} files outside the workspace cannot be streamed`);
+            if (!await this.isReferencedMediaPath(targetPath, roots)) throw new Error(`${kind} files outside the workspace cannot be streamed`);
+            // The stream's realpath recheck may authorize this file only, not its siblings.
+            roots.push(targetPath);
         }
         const targetStat = await stat(targetPath);
         if (!targetStat.isFile()) {

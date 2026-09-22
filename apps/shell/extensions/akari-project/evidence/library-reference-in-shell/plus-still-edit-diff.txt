@@ -1,0 +1,24 @@
+diff --git a/edit.json b/edit.json
+index 82a4f31..aa7692e 100644
+--- a/edit.json
++++ b/edit.json
+@@ -3,7 +3,8 @@
+   "output": { "width": 640, "height": 360, "fps": 30 },
+   "sources": [
+     { "id": "s1", "path": "assets/base.mp4" },
+-    { "id": "src-1", "path": "assets/broll/ref-broll/ref-broll.mp4" }
++    { "id": "src-1", "path": "assets/broll/ref-broll/ref-broll.mp4" },
++    { "id": "src-2", "path": "assets/still/ref-still/ref-still.png" }
+   ],
+   "audio": {
+     "sfx": [
+@@ -15,6 +16,9 @@
+       { "id": "cut-1", "at": 0, "duration": 90, "source": { "kind": "media", "src": "s1", "in": 0, "out": 3 } },
+       { "id": "cut-2", "at": 90, "duration": 90, "source": { "kind": "media", "src": "s1", "in": 3, "out": 6 } }
+     ] },
++    { "id": "v3", "lane": "visual", "items": [
++      { "id": "image-1", "at": 178, "duration": 150, "source": { "kind": "media", "src": "src-2", "in": 0, "out": 5 } }
++    ] },
+     { "id": "v2", "lane": "visual", "items": [
+       { "id": "clip-1", "at": 178, "duration": 120, "source": { "kind": "media", "src": "src-1", "in": 0, "out": 4 } }
+     ] },

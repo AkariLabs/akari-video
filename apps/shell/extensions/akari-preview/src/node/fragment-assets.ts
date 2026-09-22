@@ -42,7 +42,8 @@ function loadModules(): Promise<[FragmentModule, InputModule]> {
 export async function rewritePreviewFragmentAssets(
     html: string,
     options: { projectRoot: string; htmlPath: string; overlayId: string },
-    createStream: (uri: string) => Promise<VideoStreamReference>
+    createStream: (uri: string) => Promise<VideoStreamReference>,
+    resolveReference?: (declaredPath: string) => Promise<string | undefined>
 ): Promise<FragmentAssetPreviewResult> {
     const [fragment, inputs] = await loadModules();
     const { projectRoot, htmlPath, overlayId } = options;
@@ -52,7 +53,9 @@ export async function rewritePreviewFragmentAssets(
     for (const reference of fragment.extractFragmentAssetReferences(html, htmlPath)) {
         if (urls.has(reference.path)) continue;
         try {
-            const target = inputs.resolveDeclaredProjectInput(projectRoot, reference.path, `overlay:${overlayId}:fragment-asset`);
+            const target = (resolveReference && reference.path.replace(/\\/g, '/').startsWith('assets/')
+                ? await resolveReference(reference.path) : undefined)
+                ?? inputs.resolveDeclaredProjectInput(projectRoot, reference.path, `overlay:${overlayId}:fragment-asset`);
             const uri = pathToFileURL(target).href;
             const stream = await createStream(uri);
             streams.push({ ...stream, uri });

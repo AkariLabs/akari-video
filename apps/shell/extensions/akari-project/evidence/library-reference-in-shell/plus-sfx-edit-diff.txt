@@ -1,0 +1,16 @@
+diff --git a/edit.json b/edit.json
+index 6ab2496..1395891 100644
+--- a/edit.json
++++ b/edit.json
+@@ -4,6 +4,11 @@
+   "sources": [
+     { "id": "s1", "path": "assets/base.mp4" }
+   ],
++  "audio": {
++    "sfx": [
++      { "id": "audio-1", "path": "assets/audio/ref-beep/ref-beep.wav", "t": 0, "track": 0, "gain_db": 5.2, "fade_in": 0, "fade_out": 0 }
++    ]
++  },
+   "tracks": [
+     { "id": "v1", "lane": "visual", "name": "V1", "items": [
+       { "id": "cut-1", "at": 0, "duration": 90, "source": { "kind": "media", "src": "s1", "in": 0, "out": 3 } },
