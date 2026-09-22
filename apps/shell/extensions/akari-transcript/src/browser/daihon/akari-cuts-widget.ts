@@ -37,7 +37,7 @@ export class AkariCutsWidget extends BaseWidget {
         this.id = AkariCutsWidget.FACTORY_ID; this.title.label = 'カット'; this.title.caption = '文字起こしのカット候補'; this.title.closable = false;
         this.title.iconClass = 'codicon codicon-checklist';
         this.node.dataset.akariCuts = 'true';
-        Object.assign(this.node.style, { display: 'flex', flexDirection: 'column', background: '#20242b', color: '#e9ecf2', height: '100%', overflow: 'hidden' });
+        Object.assign(this.node.style, { display: 'flex', flexDirection: 'column', background: 'var(--theia-editor-background)', color: 'var(--akari-ink, var(--theia-foreground))', height: '100%', overflow: 'hidden' });
         for (const node of [this.picker, this.band, this.foot, this.notice]) Object.assign(node.style, { margin: '8px 10px' });
         Object.assign(this.list.style, { flex: '1', minHeight: '0', overflow: 'auto', padding: '6px 10px' });
         this.picker.setAttribute('aria-label', 'カット候補の素材');
@@ -164,7 +164,7 @@ export class AkariCutsWidget extends BaseWidget {
         if (!this.cuts) this.list.append(transcribeElement('p', '文字起こし後にカット候補がここに並びます'));
         for (const candidate of this.cuts?.candidates ?? []) {
             const row = transcribeElement('label'); row.dataset.candidateId = candidate.id;
-            Object.assign(row.style, { display: 'grid', gridTemplateColumns: '22px minmax(0, 1fr)', gap: '6px', padding: '10px', marginBottom: '6px', borderRadius: '6px', background: '#292e36', border: `1px solid ${isHandEditedCandidate(this.cuts, candidate.id) ? '#7fb0e0' : '#434952'}`, opacity: candidate.on ? '1' : '.6' });
+            Object.assign(row.style, { display: 'grid', gridTemplateColumns: '22px minmax(0, 1fr)', gap: '6px', padding: '10px', marginBottom: '6px', borderRadius: '6px', background: 'var(--akari-card)', border: `1px solid ${isHandEditedCandidate(this.cuts, candidate.id) ? 'var(--akari-accent)' : 'var(--akari-line)'}`, opacity: candidate.on ? '1' : '.6' });
             const check = transcribeElement('input'); check.type = 'checkbox'; check.checked = candidate.on; check.setAttribute('aria-label', `${candidate.id} を切る`);
             check.onchange = () => {
                 const root = this.root!.toString(), relativePath = this.source, on = check.checked;
@@ -176,21 +176,29 @@ export class AkariCutsWidget extends BaseWidget {
             };
             const body = transcribeElement('div'); body.append(transcribeElement('small', `${candidate.start.toFixed(1)}–${candidate.end.toFixed(1)} · ${CUT_KIND_LABELS[candidate.kind]}`), transcribeElement('div'));
             body.append(transcribeElement('s', candidate.text ?? '（音声なし）'), transcribeElement('div', candidate.reason));
-            if (isHandEditedCandidate(this.cuts, candidate.id)) { const mark = transcribeElement('small', '✎ 台本を手で直した行'); mark.style.color = '#9ec1ff'; body.append(mark); }
+            if (isHandEditedCandidate(this.cuts, candidate.id)) { const mark = transcribeElement('small', '✎ 台本を手で直した行'); mark.style.color = 'var(--akari-accent-light)'; body.append(mark); }
             row.append(check, body); this.list.append(row);
         }
         this.foot.replaceChildren(transcribeElement('p', `切る ${summary.count} 箇所・短くなる ${summary.seconds.toFixed(1)} 秒`));
         const first = this.cuts?.candidates.find(candidate => candidate.on);
-        this.foot.append(transcribeButton('プレビューで見る', () => {
+        const previewButton = transcribeButton('プレビューで見る', () => {
             if (first && this.root) void listenTranscribeRange(this.commands, this.shell, this.opener,
                 this.root.resolve(this.source).normalizePath().toString(), first.start).catch(error => { this.notice.textContent = String(error); });
-        }, !first));
-        this.foot.append(transcribeButton('タイムラインへ', () => {
+        }, !first);
+        const timelineButton = transcribeButton('タイムラインへ', () => {
             const request = { projectRoot: this.root!.toString(), relativePath: this.source };
             this.tail = this.tail.then(async () => {
                 const result = await this.service.applyCutsToEdit(request);
                 this.notice.textContent = result.changed ? 'タイムラインにカット点を入れました' : '適用済みです';
             }).catch(error => { this.notice.textContent = String(error); });
-        }, !first));
+        }, !first);
+        for (const button of [previewButton, timelineButton]) {
+            Object.assign(button.style, {
+                background: 'var(--akari-elevated)',
+                border: '1px solid var(--akari-line)',
+                color: 'var(--akari-ink, var(--theia-foreground))'
+            });
+        }
+        this.foot.append(previewButton, timelineButton);
     }
 }

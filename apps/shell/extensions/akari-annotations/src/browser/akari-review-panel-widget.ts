@@ -240,8 +240,11 @@ export class AkariReviewPanelWidget extends BaseWidget {
             alignItems: 'center', display: 'flex', gap: '8px', minHeight: '38px',
             padding: '6px 10px', borderBottom: '1px solid var(--theia-widget-border)', boxSizing: 'border-box'
         });
-        const heading = document.createElement('strong');
-        heading.textContent = '注釈';
+        // Keep the former two-character heading slot so the filter and board button stay put.
+        const heading = document.createElement('span');
+        heading.setAttribute('aria-hidden', 'true');
+        heading.style.width = '2em';
+        heading.style.flexShrink = '0';
         heading.style.marginRight = 'auto';
         this.filterSelect.setAttribute('aria-label', '状態で絞り込み');
         const filterOptions: Array<[AnnotationStatusFilter, string]> = [

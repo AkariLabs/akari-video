@@ -1,0 +1,722 @@
+{
+  "status": "PASS",
+  "port": 9452,
+  "checks": [
+    {
+      "name": "timeline-toolbar-no-annotation-or-ranges-button",
+      "pass": true,
+      "detail": {
+        "localStorage": "true",
+        "toolbarButtons": [
+          {
+            "text": "",
+            "title": "選択 (V)",
+            "testid": null,
+            "width": 24
+          },
+          {
+            "text": "",
+            "title": "分割 (C)",
+            "testid": null,
+            "width": 24
+          },
+          {
+            "text": "",
+            "title": "仮枠 (F)",
+            "testid": null,
+            "width": 24
+          },
+          {
+            "text": "T 文字を置く",
+            "title": "文字を置く",
+            "testid": null,
+            "width": 94
+          },
+          {
+            "text": "",
+            "title": "マグネット（スナップ）切替 (M / N)",
+            "testid": null,
+            "width": 24
+          },
+          {
+            "text": "",
+            "title": "元に戻す (⌘Z)",
+            "testid": null,
+            "width": 24
+          },
+          {
+            "text": "",
+            "title": "やり直す (⇧⌘Z)",
+            "testid": null,
+            "width": 24
+          },
+          {
+            "text": "",
+            "title": "クリップ間の空白を詰める",
+            "testid": null,
+            "width": 24
+          },
+          {
+            "text": "100%",
+            "title": "100%（全体表示）に戻す",
+            "testid": "akari-timeline-zoom-percent",
+            "width": 38
+          }
+        ],
+        "rangesToggle": false,
+        "reviewButton": false,
+        "rangesButton": false
+      }
+    },
+    {
+      "name": "recording-ranges-hidden-despite-localStorage-true",
+      "pass": true,
+      "detail": {
+        "visibleAtStart": false,
+        "bands": 0,
+        "bandsAfterInject": 0,
+        "controlBandsWhenForcedVisible": 1
+      }
+    },
+    {
+      "name": "timeline-other-button-works (snap toggle)",
+      "pass": true,
+      "detail": {
+        "before": {
+          "pressed": "false",
+          "title": "マグネット（スナップ）切替 (M / N)",
+          "x": 484.2578125,
+          "y": 599.390625,
+          "snap": false
+        },
+        "after": {
+          "pressed": "true",
+          "title": "マグネット（スナップ）切替 (M / N)",
+          "x": 484.2578125,
+          "y": 599.390625,
+          "snap": true
+        },
+        "restored": {
+          "pressed": "false",
+          "title": "マグネット（スナップ）切替 (M / N)",
+          "x": 484.2578125,
+          "y": 599.390625,
+          "snap": false
+        }
+      }
+    },
+    {
+      "name": "dark: widget root backgrounds identical",
+      "pass": true,
+      "detail": {
+        "background": "rgb(10, 10, 10)",
+        "panels": [
+          {
+            "label": "台本",
+            "id": "akari-daihon-widget",
+            "background": "rgb(10, 10, 10)",
+            "color": "rgb(229, 229, 229)",
+            "tabLabel": "台本",
+            "tabCaption": "字幕を基点に動画を仕上げる（再生に追従・クリックでシーク・ダブルクリックで編集）"
+          },
+          {
+            "label": "カット",
+            "id": "akari-cuts-widget",
+            "background": "rgb(10, 10, 10)",
+            "color": "rgb(229, 229, 229)",
+            "tabLabel": "カット",
+            "tabCaption": "文字起こしのカット候補"
+          },
+          {
+            "label": "注釈",
+            "id": "akari-review-panel-widget",
+            "background": "rgb(10, 10, 10)",
+            "color": "rgb(229, 229, 229)",
+            "tabLabel": "注釈",
+            "tabCaption": "注釈（レビューコメント）"
+          },
+          {
+            "label": "インスペクター",
+            "id": "akari-inspector-widget",
+            "background": "rgb(10, 10, 10)",
+            "color": "rgb(229, 229, 229)",
+            "tabLabel": "インスペクター",
+            "tabCaption": "タイムラインで選択した項目の詳細（安全なフィールドは編集可能）"
+          },
+          {
+            "label": "音声メーター",
+            "id": "akari-audio-meter-widget",
+            "background": "rgb(10, 10, 10)",
+            "color": "rgb(229, 229, 229)",
+            "tabLabel": "音声メーター",
+            "tabCaption": "出力プレビューのマスター音量（L / R のピークと RMS・クリップ）"
+          }
+        ]
+      }
+    },
+    {
+      "name": "dark: main text contrast >= 4.5",
+      "pass": true,
+      "detail": {
+        "daihon.rowWordPast": {
+          "text": "これは 1 行目の話した言葉です",
+          "color": "rgb(163, 163, 163)",
+          "background": "rgb(10, 10, 10)",
+          "ratio": 7.85
+        },
+        "daihon.count": {
+          "text": "6 行",
+          "color": "rgb(163, 163, 163)",
+          "background": "rgb(10, 10, 10)",
+          "ratio": 7.85
+        },
+        "daihon.tc": {
+          "text": "0:00.00 – 0:04.00",
+          "color": "rgb(163, 163, 163)",
+          "background": "rgb(10, 10, 10)",
+          "ratio": 7.85
+        },
+        "daihon.headButton": {
+          "text": "🕘 履歴",
+          "color": "rgb(229, 229, 229)",
+          "background": "rgb(26, 26, 26)",
+          "ratio": 13.82
+        },
+        "daihon.gapChip": {
+          "text": "··· 30.02",
+          "color": "rgb(163, 163, 163)",
+          "background": "rgb(10, 10, 10)",
+          "ratio": 7.85
+        },
+        "daihon.qcState": {
+          "text": "QC ✓",
+          "color": "color(srgb 0.712941 0.883922 0.788235)",
+          "background": "rgb(10, 10, 10)",
+          "ratio": 13.8
+        },
+        "daihon.widget": {
+          "text": "台本6 行文字起こしして字幕を作るT この行から文字を置く⏱",
+          "color": "rgb(229, 229, 229)",
+          "background": "rgb(10, 10, 10)",
+          "ratio": 15.72
+        },
+        "cuts.row": {
+          "text": "えー、",
+          "color": "rgb(229, 229, 229)",
+          "background": "rgb(20, 20, 20)",
+          "ratio": 14.62
+        },
+        "cuts.rowReason": {
+          "text": "0.5–0.9 · フィラーえー、L1 fixture✎ 台",
+          "color": "rgb(229, 229, 229)",
+          "background": "rgb(20, 20, 20)",
+          "ratio": 14.62
+        },
+        "cuts.rowSmall": {
+          "text": "0.5–0.9 · フィラー",
+          "color": "rgb(229, 229, 229)",
+          "background": "rgb(20, 20, 20)",
+          "ratio": 14.62
+        },
+        "cuts.foot": {
+          "text": "切る 3 箇所・短くなる 1.2 秒",
+          "color": "rgb(229, 229, 229)",
+          "background": "rgb(10, 10, 10)",
+          "ratio": 15.72
+        },
+        "cuts.handEditedMark": {
+          "text": "✎ 台本を手で直した行",
+          "color": "rgb(251, 146, 60)",
+          "background": "rgb(20, 20, 20)",
+          "ratio": 8.14
+        },
+        "cuts.footButton": {
+          "text": "プレビューで見る",
+          "color": "rgb(229, 229, 229)",
+          "background": "rgb(26, 26, 26)",
+          "ratio": 13.82
+        }
+      }
+    },
+    {
+      "name": "light: widget root backgrounds identical",
+      "pass": true,
+      "detail": {
+        "background": "rgb(255, 255, 255)",
+        "panels": [
+          {
+            "label": "台本",
+            "id": "akari-daihon-widget",
+            "background": "rgb(255, 255, 255)",
+            "color": "rgb(23, 23, 23)",
+            "tabLabel": "台本",
+            "tabCaption": "字幕を基点に動画を仕上げる（再生に追従・クリックでシーク・ダブルクリックで編集）"
+          },
+          {
+            "label": "カット",
+            "id": "akari-cuts-widget",
+            "background": "rgb(255, 255, 255)",
+            "color": "rgb(23, 23, 23)",
+            "tabLabel": "カット",
+            "tabCaption": "文字起こしのカット候補"
+          },
+          {
+            "label": "注釈",
+            "id": "akari-review-panel-widget",
+            "background": "rgb(255, 255, 255)",
+            "color": "rgb(23, 23, 23)",
+            "tabLabel": "注釈",
+            "tabCaption": "注釈（レビューコメント）"
+          },
+          {
+            "label": "インスペクター",
+            "id": "akari-inspector-widget",
+            "background": "rgb(255, 255, 255)",
+            "color": "rgb(23, 23, 23)",
+            "tabLabel": "インスペクター",
+            "tabCaption": "タイムラインで選択した項目の詳細（安全なフィールドは編集可能）"
+          },
+          {
+            "label": "音声メーター",
+            "id": "akari-audio-meter-widget",
+            "background": "rgb(255, 255, 255)",
+            "color": "rgb(23, 23, 23)",
+            "tabLabel": "音声メーター",
+            "tabCaption": "出力プレビューのマスター音量（L / R のピークと RMS・クリップ）"
+          }
+        ]
+      }
+    },
+    {
+      "name": "light: main text contrast >= 4.5",
+      "pass": true,
+      "detail": {
+        "daihon.rowWordPast": {
+          "text": "これは 1 行目の話した言葉です",
+          "color": "rgb(82, 82, 82)",
+          "background": "rgb(255, 255, 255)",
+          "ratio": 7.81
+        },
+        "daihon.count": {
+          "text": "6 行",
+          "color": "rgb(82, 82, 82)",
+          "background": "rgb(255, 255, 255)",
+          "ratio": 7.81
+        },
+        "daihon.tc": {
+          "text": "0:00.00 – 0:04.00",
+          "color": "rgb(82, 82, 82)",
+          "background": "rgb(255, 255, 255)",
+          "ratio": 7.81
+        },
+        "daihon.headButton": {
+          "text": "🕘 履歴",
+          "color": "rgb(23, 23, 23)",
+          "background": "rgb(229, 229, 229)",
+          "ratio": 14.23
+        },
+        "daihon.gapChip": {
+          "text": "··· 30.02",
+          "color": "rgb(82, 82, 82)",
+          "background": "rgb(255, 255, 255)",
+          "ratio": 7.81
+        },
+        "daihon.qcState": {
+          "text": "QC ✓",
+          "color": "color(srgb 0.228235 0.399216 0.303529)",
+          "background": "rgb(255, 255, 255)",
+          "ratio": 6.6
+        },
+        "daihon.widget": {
+          "text": "台本6 行文字起こしして字幕を作るT この行から文字を置く⏱",
+          "color": "rgb(23, 23, 23)",
+          "background": "rgb(255, 255, 255)",
+          "ratio": 17.93
+        },
+        "cuts.row": {
+          "text": "えー、",
+          "color": "rgb(23, 23, 23)",
+          "background": "rgb(245, 245, 245)",
+          "ratio": 16.44
+        },
+        "cuts.rowReason": {
+          "text": "0.5–0.9 · フィラーえー、L1 fixture✎ 台",
+          "color": "rgb(23, 23, 23)",
+          "background": "rgb(245, 245, 245)",
+          "ratio": 16.44
+        },
+        "cuts.rowSmall": {
+          "text": "0.5–0.9 · フィラー",
+          "color": "rgb(23, 23, 23)",
+          "background": "rgb(245, 245, 245)",
+          "ratio": 16.44
+        },
+        "cuts.foot": {
+          "text": "切る 3 箇所・短くなる 1.2 秒",
+          "color": "rgb(23, 23, 23)",
+          "background": "rgb(255, 255, 255)",
+          "ratio": 17.93
+        },
+        "cuts.handEditedMark": {
+          "text": "✎ 台本を手で直した行",
+          "color": "rgb(194, 65, 12)",
+          "background": "rgb(245, 245, 245)",
+          "ratio": 4.75
+        },
+        "cuts.footButton": {
+          "text": "プレビューで見る",
+          "color": "rgb(23, 23, 23)",
+          "background": "rgb(229, 229, 229)",
+          "ratio": 14.23
+        }
+      }
+    },
+    {
+      "name": "daihon inner heading hidden, tab label kept",
+      "pass": true,
+      "detail": {
+        "title": {
+          "text": "台本",
+          "visibility": "hidden",
+          "display": "block"
+        },
+        "headHeight": 80,
+        "headChildren": [
+          "akari-daihon-title",
+          "akari-daihon-count",
+          "akari-daihon-spacer",
+          "theia-button",
+          "akari-daihon-retime",
+          "akari-daihon-retime",
+          "akari-daihon-history",
+          "akari-daihon-display",
+          "akari-daihon-tpl",
+          "akari-daihon-qc",
+          "akari-daihon-silence",
+          "akari-daihon-cuts"
+        ],
+        "tabLabel": "台本",
+        "ariaLabel": null
+      }
+    },
+    {
+      "name": "daihon row select works (plain click = seek, cmd-click = select)",
+      "pass": true,
+      "detail": {
+        "selected": [
+          "s-3"
+        ],
+        "selectedBg": "rgb(38, 22, 12)",
+        "selectedOutline": "rgb(249, 115, 22)",
+        "selbar": true
+      }
+    },
+    {
+      "name": "cuts list shows candidates",
+      "pass": true,
+      "detail": {
+        "rows": 8,
+        "firstBorder": "rgb(249, 115, 22)",
+        "firstBg": "rgb(20, 20, 20)",
+        "secondBorder": "rgba(255, 255, 255, 0.13)",
+        "foot": "切る 3 箇所・短くなる 1.2 秒"
+      }
+    },
+    {
+      "name": "review panel: inner heading gone, filter + board work",
+      "pass": true,
+      "detail": {
+        "toolbarTexts": [
+          ""
+        ],
+        "strong": [
+          "録音セッション"
+        ],
+        "select": {
+          "x": 1189,
+          "w": 76,
+          "options": [
+            "all",
+            "open",
+            "addressed",
+            "resolved"
+          ],
+          "value": "all"
+        },
+        "board": {
+          "x": 1284,
+          "w": 98
+        },
+        "tabLabel": "注釈",
+        "filterChangedTo": "open",
+        "boardOpened": [
+          "akari-review-board-widget"
+        ],
+        "currentAfterBoard": "akari-review-panel-widget"
+      }
+    }
+  ],
+  "screenshots": [
+    "timeline-toolbar.png",
+    "dark-1-akari-daihon-widget.png",
+    "dark-2-akari-cuts-widget.png",
+    "dark-3-akari-review-panel-widget.png",
+    "dark-4-akari-inspector-widget.png",
+    "dark-5-akari-audio-meter-widget.png",
+    "light-1-akari-daihon-widget.png",
+    "light-2-akari-cuts-widget.png",
+    "light-3-akari-review-panel-widget.png",
+    "light-4-akari-inspector-widget.png",
+    "light-5-akari-audio-meter-widget.png",
+    "dark-daihon-after-select.png",
+    "dark-review-board-opened.png",
+    "dark-review-panel-heading.png"
+  ],
+  "measured": {
+    "timelineWidgetId": "akari-annotations-widget",
+    "dark-backgrounds": [
+      {
+        "label": "台本",
+        "id": "akari-daihon-widget",
+        "background": "rgb(10, 10, 10)",
+        "color": "rgb(229, 229, 229)",
+        "tabLabel": "台本",
+        "tabCaption": "字幕を基点に動画を仕上げる（再生に追従・クリックでシーク・ダブルクリックで編集）"
+      },
+      {
+        "label": "カット",
+        "id": "akari-cuts-widget",
+        "background": "rgb(10, 10, 10)",
+        "color": "rgb(229, 229, 229)",
+        "tabLabel": "カット",
+        "tabCaption": "文字起こしのカット候補"
+      },
+      {
+        "label": "注釈",
+        "id": "akari-review-panel-widget",
+        "background": "rgb(10, 10, 10)",
+        "color": "rgb(229, 229, 229)",
+        "tabLabel": "注釈",
+        "tabCaption": "注釈（レビューコメント）"
+      },
+      {
+        "label": "インスペクター",
+        "id": "akari-inspector-widget",
+        "background": "rgb(10, 10, 10)",
+        "color": "rgb(229, 229, 229)",
+        "tabLabel": "インスペクター",
+        "tabCaption": "タイムラインで選択した項目の詳細（安全なフィールドは編集可能）"
+      },
+      {
+        "label": "音声メーター",
+        "id": "akari-audio-meter-widget",
+        "background": "rgb(10, 10, 10)",
+        "color": "rgb(229, 229, 229)",
+        "tabLabel": "音声メーター",
+        "tabCaption": "出力プレビューのマスター音量（L / R のピークと RMS・クリップ）"
+      }
+    ],
+    "dark-contrast": {
+      "daihon.rowWordPast": {
+        "text": "これは 1 行目の話した言葉です",
+        "color": "rgb(163, 163, 163)",
+        "background": "rgb(10, 10, 10)",
+        "ratio": 7.85
+      },
+      "daihon.count": {
+        "text": "6 行",
+        "color": "rgb(163, 163, 163)",
+        "background": "rgb(10, 10, 10)",
+        "ratio": 7.85
+      },
+      "daihon.tc": {
+        "text": "0:00.00 – 0:04.00",
+        "color": "rgb(163, 163, 163)",
+        "background": "rgb(10, 10, 10)",
+        "ratio": 7.85
+      },
+      "daihon.headButton": {
+        "text": "🕘 履歴",
+        "color": "rgb(229, 229, 229)",
+        "background": "rgb(26, 26, 26)",
+        "ratio": 13.82
+      },
+      "daihon.gapChip": {
+        "text": "··· 30.02",
+        "color": "rgb(163, 163, 163)",
+        "background": "rgb(10, 10, 10)",
+        "ratio": 7.85
+      },
+      "daihon.qcState": {
+        "text": "QC ✓",
+        "color": "color(srgb 0.712941 0.883922 0.788235)",
+        "background": "rgb(10, 10, 10)",
+        "ratio": 13.8
+      },
+      "daihon.widget": {
+        "text": "台本6 行文字起こしして字幕を作るT この行から文字を置く⏱",
+        "color": "rgb(229, 229, 229)",
+        "background": "rgb(10, 10, 10)",
+        "ratio": 15.72
+      },
+      "cuts.row": {
+        "text": "えー、",
+        "color": "rgb(229, 229, 229)",
+        "background": "rgb(20, 20, 20)",
+        "ratio": 14.62
+      },
+      "cuts.rowReason": {
+        "text": "0.5–0.9 · フィラーえー、L1 fixture✎ 台",
+        "color": "rgb(229, 229, 229)",
+        "background": "rgb(20, 20, 20)",
+        "ratio": 14.62
+      },
+      "cuts.rowSmall": {
+        "text": "0.5–0.9 · フィラー",
+        "color": "rgb(229, 229, 229)",
+        "background": "rgb(20, 20, 20)",
+        "ratio": 14.62
+      },
+      "cuts.foot": {
+        "text": "切る 3 箇所・短くなる 1.2 秒",
+        "color": "rgb(229, 229, 229)",
+        "background": "rgb(10, 10, 10)",
+        "ratio": 15.72
+      },
+      "cuts.handEditedMark": {
+        "text": "✎ 台本を手で直した行",
+        "color": "rgb(251, 146, 60)",
+        "background": "rgb(20, 20, 20)",
+        "ratio": 8.14
+      },
+      "cuts.footButton": {
+        "text": "プレビューで見る",
+        "color": "rgb(229, 229, 229)",
+        "background": "rgb(26, 26, 26)",
+        "ratio": 13.82
+      }
+    },
+    "light-backgrounds": [
+      {
+        "label": "台本",
+        "id": "akari-daihon-widget",
+        "background": "rgb(255, 255, 255)",
+        "color": "rgb(23, 23, 23)",
+        "tabLabel": "台本",
+        "tabCaption": "字幕を基点に動画を仕上げる（再生に追従・クリックでシーク・ダブルクリックで編集）"
+      },
+      {
+        "label": "カット",
+        "id": "akari-cuts-widget",
+        "background": "rgb(255, 255, 255)",
+        "color": "rgb(23, 23, 23)",
+        "tabLabel": "カット",
+        "tabCaption": "文字起こしのカット候補"
+      },
+      {
+        "label": "注釈",
+        "id": "akari-review-panel-widget",
+        "background": "rgb(255, 255, 255)",
+        "color": "rgb(23, 23, 23)",
+        "tabLabel": "注釈",
+        "tabCaption": "注釈（レビューコメント）"
+      },
+      {
+        "label": "インスペクター",
+        "id": "akari-inspector-widget",
+        "background": "rgb(255, 255, 255)",
+        "color": "rgb(23, 23, 23)",
+        "tabLabel": "インスペクター",
+        "tabCaption": "タイムラインで選択した項目の詳細（安全なフィールドは編集可能）"
+      },
+      {
+        "label": "音声メーター",
+        "id": "akari-audio-meter-widget",
+        "background": "rgb(255, 255, 255)",
+        "color": "rgb(23, 23, 23)",
+        "tabLabel": "音声メーター",
+        "tabCaption": "出力プレビューのマスター音量（L / R のピークと RMS・クリップ）"
+      }
+    ],
+    "light-contrast": {
+      "daihon.rowWordPast": {
+        "text": "これは 1 行目の話した言葉です",
+        "color": "rgb(82, 82, 82)",
+        "background": "rgb(255, 255, 255)",
+        "ratio": 7.81
+      },
+      "daihon.count": {
+        "text": "6 行",
+        "color": "rgb(82, 82, 82)",
+        "background": "rgb(255, 255, 255)",
+        "ratio": 7.81
+      },
+      "daihon.tc": {
+        "text": "0:00.00 – 0:04.00",
+        "color": "rgb(82, 82, 82)",
+        "background": "rgb(255, 255, 255)",
+        "ratio": 7.81
+      },
+      "daihon.headButton": {
+        "text": "🕘 履歴",
+        "color": "rgb(23, 23, 23)",
+        "background": "rgb(229, 229, 229)",
+        "ratio": 14.23
+      },
+      "daihon.gapChip": {
+        "text": "··· 30.02",
+        "color": "rgb(82, 82, 82)",
+        "background": "rgb(255, 255, 255)",
+        "ratio": 7.81
+      },
+      "daihon.qcState": {
+        "text": "QC ✓",
+        "color": "color(srgb 0.228235 0.399216 0.303529)",
+        "background": "rgb(255, 255, 255)",
+        "ratio": 6.6
+      },
+      "daihon.widget": {
+        "text": "台本6 行文字起こしして字幕を作るT この行から文字を置く⏱",
+        "color": "rgb(23, 23, 23)",
+        "background": "rgb(255, 255, 255)",
+        "ratio": 17.93
+      },
+      "cuts.row": {
+        "text": "えー、",
+        "color": "rgb(23, 23, 23)",
+        "background": "rgb(245, 245, 245)",
+        "ratio": 16.44
+      },
+      "cuts.rowReason": {
+        "text": "0.5–0.9 · フィラーえー、L1 fixture✎ 台",
+        "color": "rgb(23, 23, 23)",
+        "background": "rgb(245, 245, 245)",
+        "ratio": 16.44
+      },
+      "cuts.rowSmall": {
+        "text": "0.5–0.9 · フィラー",
+        "color": "rgb(23, 23, 23)",
+        "background": "rgb(245, 245, 245)",
+        "ratio": 16.44
+      },
+      "cuts.foot": {
+        "text": "切る 3 箇所・短くなる 1.2 秒",
+        "color": "rgb(23, 23, 23)",
+        "background": "rgb(255, 255, 255)",
+        "ratio": 17.93
+      },
+      "cuts.handEditedMark": {
+        "text": "✎ 台本を手で直した行",
+        "color": "rgb(194, 65, 12)",
+        "background": "rgb(245, 245, 245)",
+        "ratio": 4.75
+      },
+      "cuts.footButton": {
+        "text": "プレビューで見る",
+        "color": "rgb(23, 23, 23)",
+        "background": "rgb(229, 229, 229)",
+        "ratio": 14.23
+      }
+    }
+  }
+}

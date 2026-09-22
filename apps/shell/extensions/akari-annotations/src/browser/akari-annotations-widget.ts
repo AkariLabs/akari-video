@@ -928,7 +928,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
         edges: Array<any>;
     }) | undefined;
     protected reviewSessionState: TimelineReviewSessionUiState | undefined;
-    protected recordingRangesVisible = this.readReviewSessionRangesVisible();
+    // No toolbar toggle is exposed; ignore the saved visibility on startup.
+    protected recordingRangesVisible = false;
     protected lastReviewSessionContext = '';
     protected lastClipAnnotationLabelsSignature = '';
     protected reviewSessionBandsCache: Array<{ id: string; ranges: ReviewSessionRange[] }> = [];
@@ -1454,7 +1455,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             this.updateReviewSessionRangeLayout();
             this.renderStrip();
         });
-        this.toolbar.append(this.zoomHud, this.reviewSessionRangesButton, this.reviewButton);
+        this.toolbar.append(this.zoomHud);
 
         Object.assign(this.timelineViewport.style, {
             display: 'grid', gridTemplateColumns: `${TRACK_HEADER_WIDTH}px minmax(0, 1fr)`, minHeight: '0',
