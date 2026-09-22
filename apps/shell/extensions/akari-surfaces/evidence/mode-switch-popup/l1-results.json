@@ -1,0 +1,221 @@
+{
+  "checks": [
+    {
+      "label": "dark-open",
+      "button": {
+        "left": 1072,
+        "top": 596,
+        "right": 1120,
+        "bottom": 642,
+        "width": 48,
+        "height": 46
+      },
+      "popup": {
+        "left": 724,
+        "top": 366,
+        "right": 1064,
+        "bottom": 641.6875,
+        "width": 340,
+        "height": 275.6875
+      },
+      "open": true,
+      "active": true,
+      "route": true,
+      "cards": [
+        {
+          "label": "そのまま",
+          "selected": false
+        },
+        {
+          "label": "提案つき",
+          "selected": true
+        },
+        {
+          "label": "一緒に作る",
+          "selected": false
+        }
+      ],
+      "contextMenus": 0,
+      "theme": "monaco-enable-motion underline-links vs-dark dark-theia mac theia-dark",
+      "viewport": {
+        "width": 1120,
+        "height": 668
+      }
+    },
+    {
+      "label": "escape-close",
+      "pass": true
+    },
+    {
+      "label": "button-toggle",
+      "pass": true
+    },
+    {
+      "label": "outside-close",
+      "pass": true
+    },
+    {
+      "label": "save",
+      "before": {
+        "autonomy": "checkpoint"
+      },
+      "after": {
+        "autonomy": "collaborative"
+      }
+    },
+    {
+      "label": "right-panel-collapsed-state",
+      "currentTitle": null,
+      "expansion": "collapsed",
+      "dockHidden": true,
+      "dockWidth": 0,
+      "dockHeight": 0
+    },
+    {
+      "label": "collapsed-right-panel",
+      "button": {
+        "left": 1072,
+        "top": 596,
+        "right": 1120,
+        "bottom": 642,
+        "width": 48,
+        "height": 46
+      },
+      "popup": {
+        "left": 724,
+        "top": 366,
+        "right": 1064,
+        "bottom": 641.6875,
+        "width": 340,
+        "height": 275.6875
+      },
+      "open": true,
+      "active": true,
+      "route": true,
+      "cards": [
+        {
+          "label": "そのまま",
+          "selected": false
+        },
+        {
+          "label": "提案つき",
+          "selected": false
+        },
+        {
+          "label": "一緒に作る",
+          "selected": true
+        }
+      ],
+      "contextMenus": 0,
+      "theme": "monaco-enable-motion underline-links vs-dark dark-theia mac theia-dark",
+      "viewport": {
+        "width": 1120,
+        "height": 668
+      }
+    },
+    {
+      "label": "two-tier-right-rail",
+      "button": {
+        "left": 1072,
+        "top": 596,
+        "right": 1120,
+        "bottom": 642,
+        "width": 48,
+        "height": 46
+      },
+      "popup": {
+        "left": 724,
+        "top": 366,
+        "right": 1064,
+        "bottom": 641.6875,
+        "width": 340,
+        "height": 275.6875
+      },
+      "open": true,
+      "active": true,
+      "route": true,
+      "cards": [
+        {
+          "label": "そのまま",
+          "selected": false
+        },
+        {
+          "label": "提案つき",
+          "selected": false
+        },
+        {
+          "label": "一緒に作る",
+          "selected": true
+        }
+      ],
+      "contextMenus": 0,
+      "theme": "monaco-enable-motion underline-links vs-dark dark-theia mac theia-dark",
+      "viewport": {
+        "width": 1120,
+        "height": 668
+      }
+    },
+    {
+      "label": "rail-split",
+      "state": {
+        "version": 1,
+        "groups": {},
+        "split": true,
+        "top": "akari-partner-onboarding",
+        "bottom": "akari-daihon-widget",
+        "focus": "bottom",
+        "ratio": 0.5,
+        "displaced": {}
+      }
+    },
+    {
+      "label": "light-open",
+      "button": {
+        "left": 1072,
+        "top": 596,
+        "right": 1120,
+        "bottom": 642,
+        "width": 48,
+        "height": 46
+      },
+      "popup": {
+        "left": 724,
+        "top": 366,
+        "right": 1064,
+        "bottom": 641.6875,
+        "width": 340,
+        "height": 275.6875
+      },
+      "open": true,
+      "active": true,
+      "route": true,
+      "cards": [
+        {
+          "label": "そのまま",
+          "selected": false
+        },
+        {
+          "label": "提案つき",
+          "selected": false
+        },
+        {
+          "label": "一緒に作る",
+          "selected": true
+        }
+      ],
+      "contextMenus": 0,
+      "theme": "monaco-enable-motion underline-links mac vs light-theia theia-light",
+      "viewport": {
+        "width": 1120,
+        "height": 668
+      }
+    }
+  ],
+  "screenshots": [
+    "01-dark-open.png",
+    "02-collapsed-open.png",
+    "03-two-tier-open.png",
+    "04-light-open.png"
+  ],
+  "status": "PASS"
+}

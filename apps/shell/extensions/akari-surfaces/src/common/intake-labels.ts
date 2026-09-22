@@ -73,7 +73,7 @@ export const INTAKE_AUTONOMY_LABELS: Readonly<Record<IntakeAutonomy, string>> = 
 
 export const INTAKE_AUTONOMY_DESCRIPTIONS: Readonly<Record<IntakeAutonomy, string>> = {
     'full-auto': '言った通りに入れて、見ずに書き出す',
-    checkpoint: '良さそうな物も入れて見せる。要らなければ消す。判子は書き出しの 1 回',
+    checkpoint: '良さそうな物も入れて見せる。要らなければ消す。確認は書き出しの 1 回',
     collaborative: '方針・素材・実行の要所で確認する'
 };
 

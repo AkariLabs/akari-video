@@ -13,6 +13,7 @@ import {
     INTAKE_AUTONOMY_ORDER,
     INTAKE_DEFAULT_AUTONOMY
 } from '../common/intake-labels';
+import { installModeSwitchStyle, modeIcon, ModeSwitchPopup } from './mode-switch/mode-switch-popup';
 
 const MENU_ID = 'akari-mode-switch';
 const MENU_PATH = ['akari-mode-switch-menu'];
@@ -31,12 +32,27 @@ export class AkariModeSwitchContribution implements FrontendApplicationContribut
     @inject(MessageService)
     protected readonly messages!: MessageService;
 
+    @inject(CommandRegistry)
+    protected readonly commands!: CommandRegistry;
+
     protected readonly toDispose = new DisposableCollection();
     protected intakeUri: URI | undefined;
     protected refreshVersion = 0;
     protected writing = false;
+    protected currentAutonomy: IntakeAutonomy | undefined;
+    protected popup: ModeSwitchPopup | undefined;
+    protected menuObserver: MutationObserver | undefined;
 
     onStart(): void {
+        installModeSwitchStyle();
+        const menuNode = this.shell.rightPanelHandler.bottomMenu.node;
+        menuNode.addEventListener('click', this.onMenuClick, true);
+        this.menuObserver = new MutationObserver(() => this.decorateMenuButton());
+        this.menuObserver.observe(menuNode, { childList: true, subtree: true });
+        document.addEventListener('pointerdown', this.onOutsidePointerDown, true);
+        document.addEventListener('keydown', this.onKeyDown, true);
+        window.addEventListener('resize', this.repositionPopup);
+        window.addEventListener('scroll', this.repositionPopup, true);
         this.updateMenu();
         this.toDispose.push(this.workspaceService.onWorkspaceChanged(() => { void this.refreshMenu(); }));
         this.toDispose.push(this.fileService.onDidFilesChange(event => {
@@ -49,6 +65,13 @@ export class AkariModeSwitchContribution implements FrontendApplicationContribut
 
     onStop(): void {
         ++this.refreshVersion;
+        this.closePopup();
+        this.menuObserver?.disconnect();
+        this.shell.rightPanelHandler.bottomMenu.node.removeEventListener('click', this.onMenuClick, true);
+        document.removeEventListener('pointerdown', this.onOutsidePointerDown, true);
+        document.removeEventListener('keydown', this.onKeyDown, true);
+        window.removeEventListener('resize', this.repositionPopup);
+        window.removeEventListener('scroll', this.repositionPopup, true);
         this.toDispose.dispose();
         this.shell.rightPanelHandler.removeBottomMenu(MENU_ID);
     }
@@ -80,15 +103,81 @@ export class AkariModeSwitchContribution implements FrontendApplicationContribut
     }
 
     protected updateMenu(autonomy?: IntakeAutonomy): void {
+        this.currentAutonomy = autonomy;
+        this.popup?.setCurrent(autonomy);
         this.shell.rightPanelHandler.removeBottomMenu(MENU_ID);
         this.shell.rightPanelHandler.addBottomMenu({
             id: MENU_ID,
-            iconClass: 'codicon codicon-settings',
+            iconClass: 'akari-mode-switch-icon',
             title: autonomy ? `進め方: ${INTAKE_AUTONOMY_LABELS[autonomy]}` : '進め方を切り替える',
             menuPath: MENU_PATH,
             order: 0
         });
+        this.decorateMenuButton();
     }
+
+    protected modeButton(): HTMLElement | undefined {
+        const icon = this.shell.rightPanelHandler.bottomMenu.node.querySelector<HTMLElement>('.akari-mode-switch-icon');
+        return icon?.closest<HTMLElement>('.theia-sidebar-menu-item') ?? undefined;
+    }
+
+    protected decorateMenuButton(): void {
+        const button = this.modeButton();
+        const icon = button?.querySelector<HTMLElement>('.akari-mode-switch-icon');
+        if (icon && !icon.querySelector('svg')) {
+            icon.appendChild(modeIcon('route'));
+        }
+        button?.classList.toggle('akari-mode-switch-open', !!this.popup);
+    }
+
+    protected readonly onMenuClick = (event: MouseEvent): void => {
+        const target = event.target;
+        const button = target instanceof Element ? target.closest<HTMLElement>('.theia-sidebar-menu-item') : undefined;
+        if (!button?.querySelector('.akari-mode-switch-icon')) { return; }
+        // SidebarMenuWidget opens ContextMenuRenderer in its bubbling React onClick.
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        if (this.popup) {
+            this.closePopup();
+        } else {
+            this.openPopup(button);
+        }
+    };
+
+    protected openPopup(button: HTMLElement): void {
+        const popup = new ModeSwitchPopup(this.currentAutonomy, autonomy => {
+            this.closePopup();
+            void this.commands.executeCommand(`akari.mode.set.${autonomy}`);
+        });
+        this.popup = popup;
+        popup.show(button);
+        button.classList.add('akari-mode-switch-open');
+    }
+
+    protected closePopup(): void {
+        this.popup?.dispose();
+        this.popup = undefined;
+        this.modeButton()?.classList.remove('akari-mode-switch-open');
+    }
+
+    protected readonly onOutsidePointerDown = (event: PointerEvent): void => {
+        if (!this.popup) { return; }
+        const target = event.target;
+        if (target instanceof Node && (this.popup.node.contains(target) || this.modeButton()?.contains(target))) { return; }
+        this.closePopup();
+    };
+
+    protected readonly onKeyDown = (event: KeyboardEvent): void => {
+        if (event.key === 'Escape' && this.popup) {
+            event.stopPropagation();
+            this.closePopup();
+        }
+    };
+
+    protected readonly repositionPopup = (): void => {
+        const button = this.modeButton();
+        if (button && this.popup) { this.popup.reposition(button); }
+    };
 
     protected async refreshMenu(): Promise<void> {
         const version = ++this.refreshVersion;
