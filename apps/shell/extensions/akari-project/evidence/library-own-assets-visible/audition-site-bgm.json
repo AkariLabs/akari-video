@@ -1,0 +1,15 @@
+{
+ "playingCards": [
+  "audio/site-bgm-morning"
+ ],
+ "audio": [
+  {
+   "src": "file:///tmp/loav-l1/library/audio/site-bgm-morning/site-bgm-morning.mp3",
+   "paused": false,
+   "currentTime": 2.288801,
+   "readyState": 4,
+   "error": null
+  }
+ ],
+ "audioError": []
+}

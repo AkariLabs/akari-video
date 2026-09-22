@@ -3,15 +3,15 @@ import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import test from 'node:test';
 import ts from 'typescript';
-import { canPlaceLibraryAsset, resolveLibraryAssetMedia, RESOLVE_LIBRARY_MATERIAL_COMMAND_ID } from '../lib/common/library-asset-placement.js';
+import { canPlaceLibraryAsset, localLibraryAssetPlacementSource, resolveLibraryAssetMedia, RESOLVE_LIBRARY_MATERIAL_COMMAND_ID } from '../lib/common/library-asset-placement.js';
 const require = createRequire(import.meta.url);
 const URI = require('@theia/core/lib/common/uri').default;
 const source = ts.createSourceFile('widget.tsx', readFileSync(new URL('../src/browser/akari-role-buckets-widget.tsx', import.meta.url), 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
 const widget = source.statements.find(node => ts.isClassDeclaration(node) && node.name?.text === 'AkariRoleBucketsWidget');
-const names = ['resolveCatalogMaterial', 'canDragCatalogAsset', 'handleCatalogAssetDragStart', 'addCatalogAssetAtPlayhead'];
+const names = ['resolveCatalogMaterial', 'canDragCatalogAsset', 'handleCatalogAssetDragStart', 'addCatalogAssetAtPlayhead', 'useAssetCatalogItem', 'refreshAfterAssetCatalogImport'];
 const code = ts.transpileModule(`class Handler { ${names.map(name => widget.members.find(member => member.name?.getText(source) === name).getText(source)).join('\n')} }`, { compilerOptions: { target: ts.ScriptTarget.ES2021 } }).outputText;
 const events = [];
-const Handler = new Function('URI', 'canPlaceLibraryAsset', 'resolveLibraryAssetMedia', 'RESOLVE_LIBRARY_MATERIAL_COMMAND_ID', 'TIMELINE_ADD_MATERIAL_AT_PLAYHEAD_COMMAND_ID', 'LIBRARY_DRAG_MIME', 'LIBRARY_DRAG_START_EVENT', 'window', 'CustomEvent', `${code}\nreturn Handler;`)(URI, canPlaceLibraryAsset, resolveLibraryAssetMedia, RESOLVE_LIBRARY_MATERIAL_COMMAND_ID, 'akari.timeline.addMaterialAtPlayhead', 'application/x-akari-library-item', 'akari.library.dragStart', { dispatchEvent: event => events.push(event) }, class { constructor(type, init) { this.type = type; this.detail = init.detail; } });
+const Handler = new Function('URI', 'canPlaceLibraryAsset', 'localLibraryAssetPlacementSource', 'resolveLibraryAssetMedia', 'RESOLVE_LIBRARY_MATERIAL_COMMAND_ID', 'TIMELINE_ADD_MATERIAL_AT_PLAYHEAD_COMMAND_ID', 'LIBRARY_DRAG_MIME', 'LIBRARY_DRAG_START_EVENT', 'window', 'CustomEvent', `${code}\nreturn Handler;`)(URI, canPlaceLibraryAsset, localLibraryAssetPlacementSource, resolveLibraryAssetMedia, RESOLVE_LIBRARY_MATERIAL_COMMAND_ID, 'akari.timeline.addMaterialAtPlayhead', 'application/x-akari-library-item', 'akari.library.dragStart', { dispatchEvent: event => events.push(event) }, class { constructor(type, init) { this.type = type; this.detail = init.detail; } });
 const item = { origin: 'resolver', key: 'audio/sample', id: 'sample', category: 'audio', title: '素材', state: 'available', mediaUrl: 'https://example.test/b.mp3' };
 function fixture() {
     const handler = new Handler(), calls = [], messages = [];
@@ -86,3 +86,28 @@ test('カードのドラッグは同じ payload を MIME とミラーへ送り�
     handler.libraryCategory = 'pack';
     assert.equal(handler.canDragCatalogAsset(item), false);
 });
+
+for (const sourceKind of ['own', 'site', 'lab']) {
+    for (const operation of ['resolveCatalogMaterial', 'useAssetCatalogItem']) {
+        test(`${operation}: ${sourceKind} の置き場素材を対応する配置経路へ渡す`, async () => {
+            const { handler, calls, messages } = fixture();
+            const localItem = { ...item, sourceKind, libraryDir: '/library/audio/sample', state: 'cached' };
+            const placements = [];
+            handler.assetCatalogItems = [localItem];
+            handler.projectService.placeLibraryAsset = async (...args) => {
+                placements.push(args);
+                return { success: true, projectAssetPath: '/project/assets/audio/sample' };
+            };
+            const result = operation === 'resolveCatalogMaterial'
+                ? await handler.resolveCatalogMaterial(localItem.key)
+                : await handler.useAssetCatalogItem(localItem);
+            assert.deepEqual(placements, sourceKind === 'lab' ? [] : [[
+                { category: 'audio', id: 'sample', libraryDir: '/library/audio/sample' }, 'file:///project'
+            ]]);
+            assert.equal(calls.length, sourceKind === 'lab' ? 1 : 0);
+            assert.deepEqual(messages, []);
+            if (operation === 'resolveCatalogMaterial') assert.deepEqual(result, { relativePath: 'assets/audio/sample/b.mp3', kind: 'audio' });
+            assert.equal(handler.assetCatalogItems[0].state, 'cached');
+        });
+    }
+}

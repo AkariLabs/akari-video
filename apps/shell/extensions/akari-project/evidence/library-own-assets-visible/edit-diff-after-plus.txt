@@ -1,0 +1,29 @@
+diff --git a/edit.json b/edit.json
+index 415dc33..e959016 100644
+--- a/edit.json
++++ b/edit.json
+@@ -4,14 +4,17 @@
+   "sources": [
+     { "id": "s1", "path": "assets/base.mp4" }
+   ],
++  "audio": {
++    "sfx": [
++      { "id": "audio-1", "path": "assets/audio/site-bgm-morning/site-bgm-morning.mp3", "t": 0, "track": 0, "gain_db": 2.3, "fade_in": 0.2, "fade_out": 1 },
++      { "id": "audio-2", "path": "assets/audio/own-click/own-click.wav", "t": 2.1, "track": 0, "gain_db": 2.6, "fade_in": 0, "fade_out": 0 }
++    ]
++  },
+   "tracks": [
+-    {
+-      "id": "v1", "lane": "visual", "name": "V1",
+-      "items": [
+-        { "id": "cut-1", "at": 0, "duration": 90, "source": { "kind": "media", "src": "s1", "in": 0, "out": 3 } },
+-        { "id": "cut-2", "at": 90, "duration": 90, "source": { "kind": "media", "src": "s1", "in": 3, "out": 6 } }
+-      ]
+-    },
++    { "id": "v1", "lane": "visual", "name": "V1", "items": [
++      { "id": "cut-1", "at": 0, "duration": 90, "source": { "kind": "media", "src": "s1", "in": 0, "out": 3 } },
++      { "id": "cut-2", "at": 90, "duration": 90, "source": { "kind": "media", "src": "s1", "in": 3, "out": 6 } }
++    ] },
+     { "id": "a1", "lane": "audio", "name": "A1", "items": [] }
+   ]
+ }

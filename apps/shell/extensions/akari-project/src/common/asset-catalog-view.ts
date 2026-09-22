@@ -21,6 +21,13 @@ export interface ResolverRawCatalogItem {
     category: string;
     title: string;
     tags?: string[];
+    sourceKind?: AssetCatalogViewItem['sourceKind'];
+    folder?: string | null;
+    addedAt?: string;
+    libraryDir?: string;
+    mediaFile?: string | null;
+    machineTags?: string[];
+    preview?: string | null;
     license?: { spdx?: string };
     price?: number | null;
     state?: 'cached' | 'available' | 'locked';
@@ -60,6 +67,12 @@ export function toResolverAssetCatalogViewItem(item: ResolverRawCatalogItem, pre
         category: item.category,
         title: item.title,
         tags: item.tags ?? [],
+        sourceKind: item.sourceKind,
+        folder: item.folder ?? undefined,
+        addedAt: item.addedAt,
+        libraryDir: item.libraryDir,
+        mediaFile: item.mediaFile,
+        machineTags: item.machineTags,
         licenseSpdx: item.license?.spdx,
         price: item.price ?? 0,
         state: item.state,
@@ -267,9 +280,9 @@ export function assetDistributionBadgeText(distribution: AssetDistribution | und
 
 const PACK_TAG_PREFIX = 'pack:';
 
-/** アイテムの tags から `pack:<id>` タグの `<id>` 部分を全件抽出する（複数所属を許す）。 */
-export function catalogItemPackIds(item: Pick<AssetCatalogViewItem, 'tags'>): string[] {
-    return (item.tags ?? [])
+/** resolver の machineTags と従来のローカル tags からパック所属を読む（複数所属可）。 */
+export function catalogItemPackIds(item: Pick<AssetCatalogViewItem, 'tags' | 'machineTags'>): string[] {
+    return [...(item.tags ?? []), ...(item.machineTags ?? [])]
         .filter(tag => tag.startsWith(PACK_TAG_PREFIX))
         .map(tag => tag.slice(PACK_TAG_PREFIX.length))
         .filter(id => id.length > 0);

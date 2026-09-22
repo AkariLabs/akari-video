@@ -23,6 +23,22 @@ Right-click an asset card (including unsorted items) or a deliverable row
 Destructive items (rename / delete) and "ask the agent" are limited to assets,
 unsorted items, and exports; data / plan / report rows only get the open-style items.
 
+## Library: sources and recent assets
+
+Use **All / Mine / Asset sites / Lab** above the search field to filter by source.
+The same selection applies to home category counts and category contents, and stays
+selected when you return home. Categories with no matches appear dimmed and can still
+be opened. Text styles, text animations, LUTs, and transitions belong to Lab.
+
+**Recently added** on the home page shows up to eight of your own and asset-site
+assets, newest first. Assets from the same folder share one chip; clicking it opens
+the category filtered to that folder. Click × beside the folder name to clear the
+filter. Clicking an individual asset reveals its card.
+
+Assets in your library appear as regular cards, and audio can be auditioned.
+External index cards are included under Asset sites and keep their existing
+Import and Ask actions.
+
 ## Drag & drop onto the timeline
 
 Drag an asset card onto the timeline to place it: a duration ghost previews the span

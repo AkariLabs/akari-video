@@ -1,0 +1,38 @@
+{
+ "key": "audio/site-bgm-morning",
+ "playheadBefore": null,
+ "waitMs": 5030,
+ "editChanged": true,
+ "before": {
+  "items": 2,
+  "sfx": 0,
+  "bgm": 0,
+  "sources": 1
+ },
+ "after": {
+  "items": 2,
+  "sfx": 1,
+  "bgm": 0,
+  "sources": 1
+ },
+ "newItems": [],
+ "newSfx": [
+  {
+   "id": "audio-1",
+   "path": "assets/audio/site-bgm-morning/site-bgm-morning.mp3",
+   "t": 0,
+   "track": 0,
+   "gain_db": 2.3,
+   "fade_in": 0.2,
+   "fade_out": 1
+  }
+ ],
+ "bgmAfter": null,
+ "newSources": [],
+ "projectAssetDir": [
+  "meta.json",
+  "preview.png",
+  "site-bgm-morning.mp3"
+ ],
+ "toasts": []
+}

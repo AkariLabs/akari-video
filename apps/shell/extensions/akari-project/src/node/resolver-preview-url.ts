@@ -1,3 +1,4 @@
+import { ResolverRawCatalogItem, selectResolverAudioFileRef } from '../common/asset-catalog-view';
 import { resolve } from 'path';
 import { pathToFileURL } from 'url';
 
@@ -32,4 +33,17 @@ export function resolveResolverPreviewUrl(preview: string | undefined, base: str
         return new URL(preview, base).toString();
     }
     return pathToFileURL(resolve(base, preview)).toString();
+}
+
+/** 置き場の主メディアは file URI。Lab の相対サムネキー・複数テイク試聴も維持する。 */
+export function resolveResolverCatalogUrls(item: ResolverRawCatalogItem, base: string | null): { previewUrl?: string; mediaUrl?: string } {
+    const previewBase = item.libraryDir && item.preview === 'preview.png' ? item.libraryDir : base;
+    const audioRef = selectResolverAudioFileRef(item);
+    return {
+        previewUrl: previewBase || isRemoteLocation(item.preview ?? undefined)
+            ? resolveResolverPreviewUrl(item.preview ?? undefined, previewBase ?? '') : undefined,
+        mediaUrl: item.libraryDir && item.mediaFile
+            ? pathToFileURL(resolve(item.libraryDir, item.mediaFile)).toString()
+            : base || isRemoteLocation(audioRef) ? resolveResolverPreviewUrl(audioRef, base ?? '') : undefined
+    };
 }

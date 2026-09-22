@@ -1,0 +1,118 @@
+{
+ "sourceFilter": [
+  "all:true",
+  "own:false",
+  "site:false",
+  "lab:false"
+ ],
+ "categories": [
+  {
+   "key": "bgm",
+   "count": "11",
+   "opacity": "1"
+  },
+  {
+   "key": "sfx",
+   "count": "23",
+   "opacity": "1"
+  },
+  {
+   "key": "broll",
+   "count": "1",
+   "opacity": "1"
+  },
+  {
+   "key": "image",
+   "count": "0",
+   "opacity": "0.46"
+  },
+  {
+   "key": "overlay",
+   "count": "1",
+   "opacity": "1"
+  },
+  {
+   "key": "scene3d",
+   "count": "3",
+   "opacity": "1"
+  },
+  {
+   "key": "pack",
+   "count": "2",
+   "opacity": "1"
+  },
+  {
+   "key": "textstyle",
+   "count": "12",
+   "opacity": "1"
+  },
+  {
+   "key": "textanim",
+   "count": "47",
+   "opacity": "1"
+  },
+  {
+   "key": "font",
+   "count": "31",
+   "opacity": "1"
+  },
+  {
+   "key": "shapes",
+   "count": null,
+   "opacity": "0.46"
+  },
+  {
+   "key": "stamps",
+   "count": null,
+   "opacity": "0.46"
+  },
+  {
+   "key": "lut",
+   "count": "10",
+   "opacity": "1"
+  },
+  {
+   "key": "transition",
+   "count": "29",
+   "opacity": "1"
+  },
+  {
+   "key": "fx",
+   "count": null,
+   "opacity": "0.46"
+  },
+  {
+   "key": "motion",
+   "count": null,
+   "opacity": "0.46"
+  },
+  {
+   "key": "template",
+   "count": null,
+   "opacity": "0.46"
+  }
+ ],
+ "recentStrip": [
+  {
+   "key": "asset:overlay/phone-2d",
+   "text": "2D スマホモックオーバーレイ"
+  },
+  {
+   "key": "asset:audio/own-click",
+   "text": "own-clickSFX"
+  },
+  {
+   "key": "asset:audio/site-bgm-morning",
+   "text": "site-bgm-morningBGM"
+  },
+  {
+   "key": "folder:FieldRec",
+   "text": "FieldRecSFX · 3 件"
+  }
+ ],
+ "folderFilter": null,
+ "cards": [],
+ "cardCount": 0,
+ "focused": [],
+ "homeVisible": true
+}

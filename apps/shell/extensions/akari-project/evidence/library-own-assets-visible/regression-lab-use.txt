@@ -1,0 +1,8 @@
+/tmp/loav-l1/library/overlay/:
+phone-2d
+
+/tmp/loav-l1/ws/assets/overlay/phone-2d:
+demo.mp4
+fragment.html
+meta.json
+preview.png
