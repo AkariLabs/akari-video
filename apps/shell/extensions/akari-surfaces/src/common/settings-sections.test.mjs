@@ -56,11 +56,11 @@ test('節指定はオブジェクトと文字列を受け付け、未知の値�
 
 test('節の順序・グループと DOM ID はナビの契約に一致する', () => {
     assert.deepEqual(SETTINGS_SECTIONS.map(section => section.id),
-        ['account', 'start', 'export', 'appearance', 'connections', 'transcribe', 'quality', 'notifications', 'tools', 'developer']);
+        ['account', 'start', 'export', 'appearance', 'connections', 'partner', 'transcribe', 'quality', 'notifications', 'tools', 'storage', 'privacy', 'statistics', 'help', 'about', 'developer']);
     assert.deepEqual(SETTINGS_SECTIONS.map(section => section.label),
-        ['Akari アカウント', 'はじめかた', '書き出し', '外観', '接続と API キー', '文字起こし', 'プレビュー品質', '通知', '道具', '開発者モード']);
+        ['Akari アカウント', 'はじめかた', '書き出し', '外観', '接続と API キー', 'パートナー', '文字起こし', 'プレビュー品質', '通知', '道具', 'ストレージ', 'プライバシーとアクセス許可', '統計と利用状況', '困ったとき', 'このアプリについて', '開発者モード']);
     for (const { id, group } of SETTINGS_SECTIONS) {
-        assert.equal(group, id === 'developer' ? 'developer' : 'main');
+        assert.equal(group, id === 'developer' ? 'developer' : ['storage', 'privacy', 'statistics'].includes(id) ? 'data' : ['help', 'about'].includes(id) ? 'support' : 'main');
         assert.equal(settingsSectionElementId(id), `akari-settings-${id}`);
     }
 });
@@ -100,7 +100,7 @@ test('旧設定 widget と復元用 WidgetFactory を撤去する', () => {
     assert.equal(source('../browser/akari-settings-dialog.ts').includes('akari-settings-widget'), false);
 });
 
-test('ページ選択では全 10 節のうち自分だけを表示する', () => {
+test('ページ選択では全節のうち自分だけを表示する', () => {
     for (const { id: selected } of SETTINGS_SECTIONS) {
         const visible = SETTINGS_SECTIONS.filter(({ id }) => isSettingsSectionVisible(id, selected));
         assert.deepEqual(visible.map(({ id }) => id), [selected]);

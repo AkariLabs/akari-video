@@ -6,13 +6,15 @@ import { AkariNewProjectService, AkariToolCheckResult, AkariToolId } from '../co
 import { AkariFirstRunSetupDialog } from './akari-first-run-setup-dialog';
 import { inject, injectable } from '@theia/core/shared/inversify';
 import { AbstractDialog } from '@theia/core/lib/browser/dialogs';
-import { CommonCommands } from '@theia/core/lib/browser';
+import { ApplicationShell, CommonCommands, WebSocketConnectionProvider, WidgetManager } from '@theia/core/lib/browser';
+import { WorkspaceService } from '@theia/workspace/lib/browser/workspace-service';
+import { PluginServer } from '@theia/plugin-ext/lib/common/plugin-protocol';
 import { OS } from '@theia/core/lib/common/os';
 import { buildExportEncoderChoices, ExportEncoder } from 'akari-shell-strip/lib/common/export-encoder-choices';
 import { WindowService } from '@theia/core/lib/browser/window/window-service';
 import { Message } from '@theia/core/shared/@lumino/messaging';
 import { CommandContribution, CommandRegistry, CommandService } from '@theia/core/lib/common';
-import { PreferenceScope, PreferenceService } from '@theia/core/lib/common/preferences';
+import { PreferenceScope, PreferenceService, PreferenceSchemaService } from '@theia/core/lib/common/preferences';
 import { StoreConnectionFlowController, StoreConnectionFlowState } from 'akari-project/lib/common/store-connection-flow';
 import { AkariProjectService } from 'akari-project/lib/common/akari-project-protocol';
 import { AKARI_BORDER, AKARI_SURFACE } from 'akari-project/lib/common/akari-surface-tokens';
@@ -31,7 +33,7 @@ import {
     AKARI_TRANSCRIBE_MODE, AKARI_TRANSCRIBE_AUTO_CUTS, AKARI_TRANSCRIBE_BACKEND, AKARI_TRANSCRIBE_COMPARE_SET,
     AKARI_QUALITY_TIER, AKARI_DEVELOPER_MODE, AKARI_AGENT_TURN_END_NOTIFICATION, AKARI_CATALOG_ROOT,
     AKARI_TIMELINE_VISUAL_THUMBNAILS,
-    WORKBENCH_COLOR_THEME, AKARI_EXPORT_QUALITY, AKARI_EXPORT_OUTPUT_DIRECTORY,
+    WORKBENCH_COLOR_THEME, AKARI_EXPORT_QUALITY, AKARI_EXPORT_OUTPUT_DIRECTORY, AKARI_EXPORT_FILENAME_PATTERN,
     AKARI_EXPORT_ENCODER, AKARI_EXPORT_CODEC, AKARI_EXPORT_FPS, EXPORT_CODEC_CHOICES, EXPORT_FPS_CHOICES,
     SETTINGS_SECTIONS, SettingsSectionId, QUALITY_TIER_CHOICES, THEME_CHOICES, EXPORT_QUALITY_CHOICES, TRANSCRIBE_MODE_CHOICES,
     normalizeQualityTier, normalizeTheme, normalizeExportQuality, normalizeOutputDirectory,
@@ -39,6 +41,11 @@ import {
     SETTINGS_SECTION_DESCRIPTIONS, SETTINGS_LAST_SECTION_KEY, initialSettingsSection, QUALITY_TIER_RESERVED_NOTE,
     normalizeExportEncoder, normalizeExportCodec, normalizeExportFps
 } from '../common/settings-sections';
+import { AKARI_APPEARANCE_THEME_MODE, AKARI_APPEARANCE_ZOOM, STATUS_BAR_KEYS, AKARI_PARTNER_REOPEN, clampZoom, matchesSettingsSearch, formatShortReleaseDate } from '../common/settings-sections';
+import { PARTNER_CLI_ICON_CLASSES, PARTNER_CATALOG } from 'akari-partner/lib/browser/partner-catalog';
+import { installPartnerTerminalStyle } from 'akari-partner/lib/browser/partner-terminal-style';
+import { AkariSettingsMaintenanceService, AKARI_SETTINGS_MAINTENANCE_PATH, PartnerDetail, StorageSnapshot, StorageEntry, StorageCleanTarget } from '../common/settings-maintenance-protocol';
+import { compareVersions } from '../common/update-feed';
 import { settingsIcon, SettingsIconName } from './settings/settings-icons';
 import {
     checkChips, choiceCards, dropdown, DropdownHandle, el, groupCard, segmentedControl, setPill, settingRow, settingsNote,
@@ -66,6 +73,7 @@ const ENCODER_SHORT_LABELS: Record<ExportEncoder, string> = {
 const TOOL_ICONS: Record<AkariToolId, SettingsIconName> = {
     ffmpeg: 'film', whisper: 'mic', 'yt-dlp': 'download', voicevox: 'user', blender: 'cube', 'speech-analyzer': 'spark', 'xcode-clt': 'terminal'
 };
+const STORAGE_COLORS = ['#9a9a9a', '#7a7a7a', '#5c5c5c', '#454545', '#333333'] as const;
 
 export class AkariSettingsDialog extends AbstractDialog<void> {
     protected readonly body = element('main');
@@ -82,10 +90,18 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
     protected storeStatusGeneration = 0;
     protected readonly notice = element('p');
     protected preferenceWrites: Promise<unknown> = Promise.resolve();
+    protected readonly localPreferenceWrites = new Set<string>();
     protected readonly toolsView: SettingsToolsView;
     protected compareEnabled: boolean;
     protected compareDraft: string[];
     protected connectionSummary: { configured: number; total: number } | undefined;
+    protected readonly searchInput = element('input');
+    protected storageSnapshot: StorageSnapshot | undefined;
+    protected diagnosticPath = '';
+    protected diagnosticPathCustomized = false;
+    protected credentialsPath = '';
+    protected partnerDetails: Record<string, PartnerDetail> | undefined;
+    protected extensionVersions: Record<string, string> | undefined;
 
     constructor(
         protected readonly preferences: PreferenceService,
@@ -94,7 +110,9 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
         protected readonly windows: WindowService,
         protected readonly commands: CommandService,
         toolsService: AkariNewProjectService, files: FileService, env: EnvVariablesServer,
-        protected readonly fileDialogs: FileDialogService, initialSection?: SettingsSectionId
+        protected readonly fileDialogs: FileDialogService, protected readonly maintenance: AkariSettingsMaintenanceService,
+        protected readonly workspaceRoot: string | undefined, protected readonly widgetManager: WidgetManager,
+        protected readonly shell: ApplicationShell, protected readonly pluginServer: PluginServer, initialSection?: SettingsSectionId
     ) {
         super({ title: 'AKARI Video の設定' });
         this.compareDraft = preferences.get<string[]>(AKARI_TRANSCRIBE_COMPARE_SET, []);
@@ -114,20 +132,29 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
         this.toolsView.onToolsChanged = () => { if (!this.isDisposed) { this.renderSection('start'); } };
         this.toDispose.push(this.toolsView);
         this.buildDom();
+        installPartnerTerminalStyle();
         let stored: string | null = null;
         try { stored = localStorage.getItem(SETTINGS_LAST_SECTION_KEY); } catch { /* 保存不可でも設定は使える。 */ }
         this.showSection(initialSettingsSection(initialSection, stored));
         for (const section of SETTINGS_SECTIONS) { this.renderSection(section.id); }
         this.toDispose.push(preferences.onPreferenceChanged(change => {
+            if (this.localPreferenceWrites.delete(change.preferenceName)) { return; }
             const section = sectionForPreferenceKey(change.preferenceName);
             if (section) { this.renderSection(section); }
         }));
         void this.toolsView.refresh();
         void this.loadConnections();
         void this.storeController.refreshStatus();
+        void this.loadStorage();
+        void this.loadPartnerDetails();
+        void this.maintenance.diagnosticDefaultPath().then(value => {
+            if (!this.diagnosticPathCustomized && !this.diagnosticPath) { this.diagnosticPath = value; this.renderSection('help'); }
+        });
     }
 
     get value(): void { return undefined; }
+    focusSearch(): void { this.searchInput.focus(); }
+    refreshPrivacy(): void { if (!this.isDisposed) { this.renderSection('privacy'); } }
     protected override handleEnter(_event: KeyboardEvent): boolean { return false; }
 
     override close(): void {
@@ -150,18 +177,27 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
         const nav = element('nav');
         nav.className = 'akari-set-nav';
         nav.setAttribute('aria-label', '設定の項目');
-        const title = element('h3', '設定');
-        title.className = 'akari-set-nav-title';
-        nav.append(title);
+        this.searchInput.className = 'akari-set-search';
+        this.searchInput.type = 'search';
+        this.searchInput.placeholder = '設定を探す';
+        this.searchInput.setAttribute('aria-label', '設定を検索');
+        this.searchInput.addEventListener('input', () => this.filterSections());
+        const search = element('label'); search.className = 'akari-set-search-wrap';
+        const keyHint = element('kbd', '⌘F');
+        search.append(settingsIcon('search', 'sm'), this.searchInput, keyHint);
+        nav.append(search);
+        let previousGroup: string = 'main';
         for (const section of SETTINGS_SECTIONS) {
-            if (section.group === 'developer') {
-                const group = element('h3', '開発者');
+            if (section.group !== previousGroup) {
+                const group = element('h3', section.group === 'data' ? 'データとプライバシー' : section.group === 'support' ? 'サポート' : '開発者');
                 group.className = 'akari-set-nav-group';
+                group.setAttribute('data-settings-nav-group', section.group);
                 nav.append(group);
             }
-            nav.append(this.navigation(section.label, section.id, section.icon));
+            previousGroup = section.group;
+            nav.append(this.navigation(section.label, section.id, section.icon, 'badge' in section ? section.badge : undefined));
         }
-        Object.assign(this.body.style, { display: 'flex', flexDirection: 'column', flex: '1', minWidth: '0', minHeight: '0' });
+        Object.assign(this.body.style, { display: 'flex', flexDirection: 'column', flex: '1', minWidth: '0', minHeight: '0', position: 'relative' });
         this.notice.setAttribute('role', 'alert');
         this.notice.className = 'akari-set-notice';
         this.body.append(this.notice);
@@ -185,9 +221,14 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
         this.providerList.append(settingsNote('接続を読み込んでいます…'));
         this.renderStore();
         this.contentNode.append(nav, this.body);
+        this.addEventListener(this.node, 'keydown', event => {
+            if (event.metaKey && event.key.toLowerCase() === 'f') { event.preventDefault(); this.searchInput.focus(); }
+        });
     }
 
     showSection(section: SettingsSectionId): void {
+        const navTarget = this.contentNode.querySelector<HTMLElement>(`[data-settings-nav="${section}"]`);
+        if (navTarget?.hidden && this.searchInput.value) { this.searchInput.value = ''; this.filterSections(); }
         for (const [id, node] of this.sections) {
             node.hidden = !isSettingsSectionVisible(id, section);
             if (!node.hidden) { node.scrollTop = 0; }
@@ -197,6 +238,38 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
         for (const item of Array.from(this.contentNode.querySelectorAll<HTMLElement>('[data-settings-nav]'))) {
             if (item.getAttribute('data-settings-nav') === section) { item.setAttribute('aria-current', 'true'); }
             else { item.removeAttribute('aria-current'); }
+        }
+        this.highlightSearch(section);
+    }
+
+    protected filterSections(): void {
+        const query = this.searchInput.value;
+        let first: SettingsSectionId | undefined;
+        for (const item of SETTINGS_SECTIONS) {
+            const node = this.sections.get(item.id)!;
+            const rows = Array.from(node.querySelectorAll<HTMLElement>(
+                '.akari-set-row-label,.akari-set-row-desc,.akari-set-group-title,.akari-set-partner-name,.akari-set-partner-sub,.akari-set-storage-header,.akari-set-permission-row'
+            )).map(row => row.textContent ?? '');
+            const match = matchesSettingsSearch(query, item.label, SETTINGS_SECTION_DESCRIPTIONS[item.id], rows);
+            const nav = this.contentNode.querySelector<HTMLElement>(`[data-settings-nav="${item.id}"]`);
+            if (nav) { nav.hidden = !match; }
+            if (match && !first) { first = item.id; }
+        }
+        const visible = Array.from(this.contentNode.querySelectorAll<HTMLElement>('[data-settings-nav]')).find(item => item.getAttribute('aria-current') === 'true' && !item.hidden);
+        if (!visible && first) { this.showSection(first); }
+        for (const item of SETTINGS_SECTIONS) { this.highlightSearch(item.id); }
+        for (const group of Array.from(this.contentNode.querySelectorAll<HTMLElement>('[data-settings-nav-group]'))) {
+            const name = group.getAttribute('data-settings-nav-group');
+            group.hidden = !SETTINGS_SECTIONS.some(item => item.group === name && !this.contentNode.querySelector<HTMLElement>(`[data-settings-nav="${item.id}"]`)?.hidden);
+        }
+    }
+
+    protected highlightSearch(id: SettingsSectionId): void {
+        const query = this.searchInput.value.trim().toLocaleLowerCase();
+        for (const row of Array.from(this.sections.get(id)!.querySelectorAll<HTMLElement>(
+            '.akari-set-row,.akari-set-partner-row,.akari-set-storage-row,.akari-set-permission-row'
+        ))) {
+            row.classList.toggle('akari-set-search-hit', !!query && (row.querySelector('.akari-set-row-text')?.textContent ?? row.textContent ?? '').toLocaleLowerCase().includes(query));
         }
     }
 
@@ -214,11 +287,13 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
         });
     }
 
-    protected navigation(label: string, target: SettingsSectionId, icon: SettingsIconName): HTMLButtonElement {
+    protected navigation(label: string, target: SettingsSectionId, icon: SettingsIconName, badge?: string): HTMLButtonElement {
         const button = element('button');
         button.type = 'button';
         button.className = 'akari-set-nav-item';
-        button.append(settingsIcon(icon), element('span', label));
+        const title = element('span', label); title.className = 'akari-set-nav-label';
+        button.append(settingsIcon(icon), title);
+        if (badge) { const note = element('span', badge); note.className = `akari-set-nav-badge${badge === '準備中' ? ' akari-set-nav-badge-soon' : ''}`; button.append(note); }
         button.addEventListener('click', () => this.showSection(target));
         button.setAttribute('data-settings-nav', target);
         return button;
@@ -229,6 +304,7 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
         heading.id = `${settingsSectionElementId(id)}-heading`;
         const lead = description(SETTINGS_SECTION_DESCRIPTIONS[id]);
         lead.className = 'akari-set-lead';
+        lead.style.margin = '';
         return [heading, lead];
     }
 
@@ -237,6 +313,12 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
         if (id === 'connections') { return; }
         const section = this.sections.get(id)!;
         section.replaceChildren(...this.sectionHeading(id));
+        if (id === 'partner') { this.renderPartner(section); return; }
+        if (id === 'storage') { this.renderStorageSection(section); return; }
+        if (id === 'privacy') { this.renderPrivacy(section); return; }
+        if (id === 'statistics') { this.renderStatistics(section); return; }
+        if (id === 'help') { this.renderHelp(section); return; }
+        if (id === 'about') { this.renderAbout(section); return; }
         if (id === 'account') {
             section.append(this.storeRow);
         } else if (id === 'tools') {
@@ -290,11 +372,30 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
             section.append(groupCard(undefined, this.preferenceSwitch(AKARI_AGENT_TURN_END_NOTIFICATION, 'AI 完了通知', true,
                 'Claude Code などの処理が終わったとき、通知でお知らせします（ウィンドウが背面のときだけ）')));
         } else if (id === 'appearance') {
-            const theme = normalizeTheme(this.preferences.get(WORKBENCH_COLOR_THEME));
+            const theme = this.preferences.get<string>(AKARI_APPEARANCE_THEME_MODE, normalizeTheme(this.preferences.get(WORKBENCH_COLOR_THEME)));
             const themes: { value: string; label: string; preview?: HTMLElement }[] = THEME_CHOICES.map(option => ({ ...option, preview: themePreview(option.value) }));
             if (!themes.some(option => option.value === theme)) { themes.push({ value: theme, label: theme }); }
             section.append(groupCard('テーマ', choiceCards({ label: 'テーマ', options: themes, value: theme, columns: 3,
-                onChange: value => this.savePreference(WORKBENCH_COLOR_THEME, value) })));
+                onChange: value => { this.savePreference(AKARI_APPEARANCE_THEME_MODE, value); this.applyTheme(value); } })));
+            section.append(groupCard('言語', settingRow('表示する言語', 'ほかの言語は準備中です',
+                segmentedControl({ label: '言語', options: [{ value: 'ja', label: '日本語' }, { value: 'en', label: 'English（準備中）', disabled: true }], value: 'ja', onChange: () => undefined }))));
+            const zoom = clampZoom(Number(this.preferences.get(AKARI_APPEARANCE_ZOOM, 100)));
+            const zoomLabel = element('span', `${zoom}%`);
+            const changeZoom = (next: number): void => { const value = clampZoom(next); zoomLabel.textContent = `${value}%`; this.savePreference(AKARI_APPEARANCE_ZOOM, value); applyAkariZoom(value); };
+            section.append(groupCard('UI の大きさ', settingRow('UI の大きさ', 'ズーム 60〜200%。⌘+ / ⌘− でも変更できます',
+                action('−', () => changeZoom(Number(zoomLabel.textContent?.replace('%', '')) - 10), { small: true }), zoomLabel,
+                action('+', () => changeZoom(Number(zoomLabel.textContent?.replace('%', '')) + 10), { small: true }),
+                action('元に戻す', () => changeZoom(100), { small: true }))));
+            section.append(groupCard('下のバー（右下）に出すもの',
+                this.preferenceSwitch(STATUS_BAR_KEYS.cpu, 'CPU', true, '使用率'),
+                this.preferenceSwitch(STATUS_BAR_KEYS.gpu, 'GPU', true, '使用率'),
+                this.preferenceSwitch(STATUS_BAR_KEYS.memory, 'メモリ', true, '使用量'),
+                this.preferenceSwitch(STATUS_BAR_KEYS.disk, 'ディスクの空き', false, '空き容量'),
+                this.preferenceSwitch(STATUS_BAR_KEYS.running, '実行中の数', true, 'パートナー・書き出し・文字起こし'),
+                this.preferenceSwitch(STATUS_BAR_KEYS.accountBalance, 'アカウント残高', false, '取得できるサービスのみ'),
+                settingRow('更新の間隔', 'リソース表示を更新する間隔', segmentedControl({ label: '更新の間隔',
+                    options: [{ value: '1', label: '1 秒' }, { value: '3', label: '3 秒' }, { value: '10', label: '10 秒' }],
+                    value: String(this.preferences.get(STATUS_BAR_KEYS.intervalSec, 3)), onChange: value => this.savePreference(STATUS_BAR_KEYS.intervalSec, Number(value)) }))));
         } else if (id === 'developer') {
             section.append(groupCard(undefined, this.preferenceSwitch(AKARI_DEVELOPER_MODE, 'Developer mode', false,
                 'HTML をコードとして開き、フル設定を使えるようにします')));
@@ -337,8 +438,282 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
                     settingRow('くわしい設定', 'フル設定を開きます', action('開く', () => {
                         this.close();
                         void this.commands.executeCommand(CommonCommands.OPEN_PREFERENCES.id);
-                    }, { small: true }))));
+                    }, { small: true }))),
+                groupCard('書き出しのあと',
+                    this.preferenceSwitch('akari.export.openFolderAfter', '終わったらフォルダを開く', false, 'Finder で書き出したファイルを選んだ状態に'),
+                    this.preferenceSwitch('akari.export.notifyAfter', '終わったら知らせる', true, 'ウィンドウが背面のときだけ'),
+                    settingRow('ファイル名の決め方', '書き出したファイルの名前', dropdown({ label: 'ファイル名の決め方',
+                        options: [{ value: 'project-date-time', label: 'プロジェクト名_日付_時刻' }, { value: 'project-name', label: 'プロジェクト名' }],
+                        value: this.preferences.get<string>(AKARI_EXPORT_FILENAME_PATTERN, 'project-date-time'),
+                        onChange: value => this.savePreference(AKARI_EXPORT_FILENAME_PATTERN, value) }))));
         }
+    }
+
+    protected applyTheme(mode: string): void {
+        const selected = mode === 'system' ? ((window.akariNativeDark ?? matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light') : mode;
+        this.savePreference(WORKBENCH_COLOR_THEME, selected);
+    }
+
+    protected renderPartner(section: HTMLElement): void {
+        const ids = ['claude', 'codex', 'opencode', 'commandcode', 'copilot', 'cursor', 'antigravity', 'grok'] as const;
+        const names: Record<typeof ids[number], string> = { claude: 'Claude Code', codex: 'Codex', opencode: 'OpenCode',
+            commandcode: 'Command Code', copilot: 'Copilot', cursor: 'Cursor', antigravity: 'Antigravity', grok: 'Grok' };
+        const rows = ids.map(id => {
+            const detail = this.partnerDetails?.[id];
+            return this.partnerRow(id, names[id], detail?.installed === undefined ? '調べています' : detail.installed ? 'インストール済み' : '未インストール',
+                detail?.detail || '—', detail?.installed === false ? '入れ方' : '起動', async () => {
+                this.close();
+                await this.commands.executeCommand('akari.partner.open');
+                if (!detail?.installed) { return; }
+                const widget = this.widgetManager.tryGetWidget('akari-partner-onboarding') as unknown as { begin(entry: typeof PARTNER_CATALOG[number]): Promise<void> } | undefined;
+                const entry = PARTNER_CATALOG.find(candidate => candidate.agent === id && candidate.form === 'cli');
+                if (widget && entry) { await widget.begin(entry); }
+            });
+        });
+        const extensions = [
+            { id: 'anthropic.claude-code', agent: 'claude' as const, name: 'Claude Code 拡張' },
+            { id: 'openai.chatgpt', agent: 'codex' as const, name: 'Codex 拡張' }
+        ].map(entry => this.partnerRow(entry.agent, entry.name,
+            this.extensionVersions ? entry.id in this.extensionVersions ? '入っている' : '入っていない' : '調べています',
+            `${entry.id}${this.extensionVersions?.[entry.id] ? ` · ${this.extensionVersions[entry.id]}` : ''}`, '開く', () => {
+                this.close(); void this.commands.executeCommand('akari.partner.open');
+            }));
+        const cli = groupCard('CLI', ...rows);
+        const cliHeading = cli.querySelector<HTMLElement>('.akari-set-group-title');
+        if (cliHeading) { cliHeading.append(element('span', '右のレールの線の上に並ぶ')); }
+        const caution = element('div'); caution.className = 'akari-set-caution';
+        caution.append(settingsIcon('info', 'sm'), element('span', '拡張は、拡張ホストが再起動すると会話が切れます。長い作業には CLI をおすすめします。'));
+        section.append(cli, groupCard('公式拡張',
+            caution,
+            ...extensions,
+            settingRow('ほかの拡張を探す', 'Open VSX から（くわしい人向け）', action('開く', async () => {
+                this.close();
+                const widget = await this.widgetManager.getOrCreateWidget('vsx-extensions-view-container');
+                if (!widget.isAttached) { await this.shell.addWidget(widget, { area: 'main' }); }
+                await this.shell.activateWidget(widget.id);
+            }, { small: true }))),
+        groupCard('ふるまい', this.preferenceSwitch(AKARI_PARTNER_REOPEN, '起動したら前回のパートナーを開く', true, '右のレールの線の上に並べる')));
+    }
+
+    protected partnerRow(id: keyof typeof PARTNER_CLI_ICON_CLASSES, name: string, state: string, sub: string,
+        buttonLabel: string, onClick: () => void | Promise<void>): HTMLElement {
+        const row = element('div'); row.className = 'akari-set-partner-row';
+        const tile = element('span'); tile.className = 'akari-set-partner-tile';
+        const icon = element('span'); icon.className = `akari-set-partner-icon ${PARTNER_CLI_ICON_CLASSES[id]}`; tile.append(icon);
+        const text = element('div');
+        const top = element('div'); top.className = 'akari-set-partner-name';
+        const badge = element('span', state); badge.className = 'akari-set-partner-chip';
+        top.append(element('b', name), badge);
+        const subtitle = element('div', sub); subtitle.className = 'akari-set-partner-sub';
+        text.append(top, subtitle);
+        row.append(tile, text, action(buttonLabel, onClick, { small: true }));
+        return row;
+    }
+
+    protected async loadPartnerDetails(): Promise<void> {
+        const [cli, plugins] = await Promise.allSettled([this.maintenance.partnerDetails(), this.pluginServer.getInstalledPlugins()]);
+        if (cli.status === 'fulfilled') { this.partnerDetails = cli.value; }
+        if (plugins.status === 'fulfilled') {
+            this.extensionVersions = {};
+            for (const item of plugins.value) {
+                const value = String(item); const at = value.lastIndexOf('@');
+                if (at > 0) { this.extensionVersions[value.slice(0, at).toLowerCase()] = value.slice(at + 1); }
+            }
+        }
+        if (!this.isDisposed) { this.renderSection('partner'); }
+    }
+
+    protected async loadStorage(): Promise<void> {
+        try { this.storageSnapshot = await this.maintenance.measure(this.workspaceRoot); }
+        catch { this.storageSnapshot = { entries: [], freeBytes: 0 }; this.notice.textContent = 'ストレージを調べられませんでした。'; }
+        if (!this.isDisposed) { this.renderSection('storage'); }
+    }
+
+    protected renderStorageSection(section: HTMLElement): void {
+        if (!this.storageSnapshot) { section.append(settingsNote('調べています…')); return; }
+        const { entries, freeBytes } = this.storageSnapshot;
+        const total = entries.reduce((sum, entry) => sum + entry.bytes, 0);
+        const summary = element('div'); summary.className = 'akari-set-storage-total';
+        summary.append(element('b', formatBytes(total)), element('span', `AKARI 全体 · Mac の空き ${freeBytes ? formatBytes(freeBytes) : '調べられませんでした'}`));
+        const usage = element('div'); usage.className = 'akari-set-storage-usage';
+        const legend = element('div'); legend.className = 'akari-set-storage-legend';
+        entries.forEach((entry, index) => {
+            const part = element('i'); part.style.width = `${total ? entry.bytes / total * 100 : 20}%`; part.style.background = STORAGE_COLORS[index];
+            usage.append(part);
+            const item = element('span', `${entry.label} ${formatBytes(entry.bytes)}`);
+            item.style.setProperty('--akari-storage-color', STORAGE_COLORS[index]); legend.append(item);
+        });
+        section.append(groupCard(undefined, summary, usage, legend));
+        const rows = entries.map(entry => this.storageDetailRow(entry));
+        const breakdown = groupCard('内訳', ...rows);
+        breakdown.querySelector('.akari-set-group-title')?.append(element('span', '行を押すと開く'));
+        section.append(breakdown);
+    }
+
+    protected storageDetailRow(entry: StorageEntry): HTMLElement {
+        const row = element('div'); row.className = 'akari-set-storage-row'; row.setAttribute('data-storage-row', entry.id);
+        const header = element('button'); header.type = 'button'; header.className = 'akari-set-storage-header';
+        header.setAttribute('aria-expanded', 'false');
+        const badge = element('span', entry.safeToDelete); badge.className = entry.id === 'cache' ? 'akari-set-storage-safe' : 'akari-set-storage-keep';
+        header.append(settingsIcon('chevr', 'sm'), element('b', entry.label), badge, element('span', formatBytes(entry.bytes)));
+        const detail = element('div'); detail.className = 'akari-set-storage-detail'; detail.hidden = true;
+        const why = element('div'); why.className = 'akari-set-storage-why'; why.append(settingsIcon('shield', 'sm'), element('span', entry.detail));
+        const table = element('table');
+        for (const child of entry.children) {
+            const tr = element('tr');
+            for (const value of [child.label, child.path, formatBytes(child.bytes)]) { tr.append(element('td', value)); }
+            table.append(tr);
+        }
+        const actions = element('div'); actions.className = 'akari-set-storage-actions';
+        if (entry.id === 'cache' || entry.id === 'models' || entry.id === 'history') {
+            const target: StorageCleanTarget = entry.id === 'history' ? 'old-history' : entry.id;
+            actions.append(action(entry.id === 'cache' ? '掃除する…' : entry.id === 'models' ? '消す…' : '古いものを消す…',
+                () => this.showStorageConfirmation(target, entry), { small: true }));
+        }
+        if (entry.id === 'cache' || entry.id === 'library') {
+            actions.append(action('Finder で表示', () => void this.maintenance.revealPath(entry.path), { small: true }));
+        }
+        if (entry.id === 'exports') { actions.append(action('一覧', () => void this.maintenance.openPath(entry.path), { small: true })); }
+        detail.append(why, table, actions);
+        header.addEventListener('click', () => { const open = header.getAttribute('aria-expanded') !== 'true';
+            header.setAttribute('aria-expanded', String(open)); detail.hidden = !open; row.classList.toggle('akari-set-storage-open', open); });
+        row.append(header, detail); return row;
+    }
+
+    protected showStorageConfirmation(target: StorageCleanTarget, entry: StorageEntry): void {
+        const overlay = element('div'); overlay.className = 'akari-set-storage-confirm'; overlay.setAttribute('role', 'dialog');
+        overlay.setAttribute('aria-modal', 'true'); overlay.setAttribute('aria-label', `${entry.label}を消す確認`);
+        const box = element('div'); box.className = 'akari-set-storage-confirm-box';
+        box.append(element('h4', `${entry.label} ${formatBytes(entry.bytes)} を${target === 'cache' ? '掃除' : '削除'}しますか？`));
+        const yes = element('ul');
+        yes.append(...entry.paths.map(location => element('li', `消すもの: ${target === 'old-history' ? '30 日より古い履歴' : entry.label}（${location}）`)),
+            element('li', target === 'cache' ? '必要になったら自動で作り直します' : target === 'models' ? '次に使うとき再ダウンロードが必要です' : '30 日より古い履歴だけを削除します'));
+        const no = element('ul'); no.className = 'akari-set-storage-confirm-no';
+        no.append(element('li', '消さないもの: プロジェクト・素材・書き出し・最近の編集履歴'));
+        const buttons = element('div'); buttons.className = 'akari-set-storage-confirm-actions';
+        buttons.append(action('やめる', () => overlay.remove(), { small: true }),
+            action(target === 'cache' ? '掃除する' : '削除する', async () => {
+                try { await this.maintenance.cleanStorage(target, this.workspaceRoot); overlay.remove(); await this.loadStorage(); }
+                catch { this.notice.textContent = `${entry.label}を削除できませんでした。`; overlay.remove(); }
+            }, { small: true, variant: 'primary' }));
+        box.append(yes, no, buttons); overlay.append(box); this.body.append(overlay);
+    }
+
+    protected renderPrivacy(section: HTMLElement): void {
+        const microphone = window.akariPermissions?.microphone;
+        const permissionLabel = (value: string | undefined): string => value === 'granted' ? '許可済み'
+            : value === 'denied' || value === 'restricted' ? '拒否' : value === 'not-determined' ? '未設定' : 'システム設定で確認';
+        const notification = typeof Notification !== 'undefined' ? Notification.permission : undefined;
+        const permissions: { icon: SettingsIconName; name: string; description: string; state: string; url: string }[] = [
+            { icon: 'mic', name: 'マイク', description: '声で編集（Akari Vibe）・注釈の録音', state: permissionLabel(microphone), url: 'x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone' },
+            { icon: 'folder', name: '書類・デスクトップ・ダウンロード', description: 'そこに置いたプロジェクトや素材を開く', state: 'システム設定で確認', url: 'x-apple.systempreferences:com.apple.preference.security?Privacy_FilesAndFolders' },
+            { icon: 'bell', name: '通知', description: '書き出し・AI の作業が終わったとき', state: permissionLabel(notification), url: 'x-apple.systempreferences:com.apple.preference.notifications' },
+            { icon: 'terminal', name: 'フルディスクアクセス', description: 'ふつうは不要。外付けドライブの一部で要ることがある', state: 'システム設定で確認', url: 'x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles' }
+        ];
+        const rows = permissions.map(item => {
+            const row = element('div'); row.className = 'akari-set-permission-row';
+            const tile = element('span'); tile.className = 'akari-set-partner-tile'; tile.append(settingsIcon(item.icon, 'sm'));
+            const copy = element('div'); copy.append(element('b', item.name), element('span', item.description));
+            const state = element('span', item.state); state.className = `akari-set-permission-state${item.state === '許可済み' ? ' akari-set-permission-state-ok' : ''}`;
+            row.append(tile, copy, state, action('システム設定', () => this.windows.openNewWindow(item.url, { external: true }), { small: true }));
+            return row;
+        });
+        section.append(groupCard('macOS のアクセス許可', ...rows),
+        groupCard('外へ送るもの', settingRow('利用状況の送信', 'AKARI Video は利用状況を送っていません', statusPill('送っていない')),
+            settingRow('API キー', 'この Mac の中だけ（credentials.env）。AKARI のサーバーには送りません', action('場所を開く', () => {
+                if (this.credentialsPath) { void this.maintenance.openPath(this.credentialsPath.replace(/[\\/][^\\/]+$/, '')); }
+            }, { small: true }))));
+    }
+
+    protected renderStatistics(section: HTMLElement): void {
+        const wrap = element('div'); wrap.className = 'akari-set-soon';
+        const blurred = element('div'); blurred.className = 'akari-set-soon-blur'; blurred.setAttribute('aria-hidden', 'true');
+        const kpi = element('div'); kpi.className = 'akari-set-stats-kpi';
+        for (const [label, value] of [['使った金額', '$23.10'], ['トークン', '4.2 M'], ['生成した動画', '37 本']]) {
+            const tile = element('div'); tile.append(element('span', label), element('b', value)); kpi.append(tile);
+        }
+        const chart = element('div'); chart.className = 'akari-set-stats-chart';
+        [20, 35, 28, 60, 44, 12, 8, 52, 70, 33, 41, 25, 18, 64].forEach((height, index) => {
+            const bar = element('i'); bar.style.height = `${height}%`; if (index % 5 === 3) { bar.className = 'akari-set-stats-chart-hi'; } chart.append(bar);
+        });
+        blurred.append(groupCard('この 30 日', kpi, chart));
+        const services = [['OpenRouter · Akari Vibe', '$11.40', 62], ['fal · 画像・動画の生成', '$9.20', 48],
+            ['ElevenLabs · ナレーション', '$2.50', 14]] as const;
+        blurred.append(groupCard('サービスごと', ...services.map(([name, amount, percent]) => {
+            const row = element('div'); row.className = 'akari-set-stats-service';
+            const logo = element('span'); logo.className = 'akari-set-stats-service-logo';
+            const bar = element('span'); bar.className = 'akari-set-stats-service-bar';
+            const fill = element('i'); fill.style.width = `${percent}%`; bar.append(fill);
+            row.append(logo, element('span', name), bar, element('span', amount)); return row;
+        })));
+        const veil = element('div'); veil.className = 'akari-set-soon-veil';
+        const copy = element('div'); copy.append(element('b', 'Coming soon'), element('span', 'サービスごとの使用量と金額')); veil.append(copy);
+        wrap.append(blurred, veil); section.append(wrap);
+    }
+
+    protected renderHelp(section: HTMLElement): void {
+        const checklist = element('div'); checklist.className = 'akari-set-diagnostic-list';
+        for (const label of ['アプリと OS のバージョン', '直近のログ（24 時間）', '道具の状態（ffmpeg など）', '画面の配置', 'プロジェクトの edit.json']) {
+            const item = element('span'); item.append(settingsIcon('check', 'sm'), element('span', label)); checklist.append(item);
+        }
+        const excluded = element('span', 'API キー・個人のパスは入れない'); excluded.className = 'akari-set-diagnostic-excluded'; checklist.append(excluded);
+        section.append(groupCard('診断情報を書き出す', checklist,
+            settingRow('保存先', homeShortened(this.diagnosticPath || '調べています…'), action('場所を変える', async () => {
+                const destination = await this.fileDialogs.showSaveDialog({ title: '診断情報の保存先', inputValue: this.diagnosticPath });
+                if (destination) { this.diagnosticPath = destination.path.fsPath(); this.diagnosticPathCustomized = true; this.renderSection('help'); }
+            }, { small: true })),
+            settingRow('zip にまとめる', 'できたら Finder で選んだ状態で開きます。中身は開いて確かめられます', action('書き出す', async () => {
+                const left = document.querySelector<HTMLElement>('#theia-left-content-panel')?.getBoundingClientRect().width || 0;
+                const right = document.querySelector<HTMLElement>('#theia-right-content-panel')?.getBoundingClientRect().width || 0;
+                try { const location = await this.maintenance.exportDiagnostics(this.diagnosticPathCustomized ? this.diagnosticPath : undefined,
+                    { width: window.innerWidth, height: window.innerHeight, leftPanelWidth: left, rightPanelWidth: right },
+                    this.workspaceRoot, this.credentialsPath);
+                    this.diagnosticPath = location; this.renderSection('help');
+                    await this.maintenance.revealPath(location); this.notice.textContent = '診断情報を書き出しました。'; }
+                catch { this.notice.textContent = '診断情報を書き出せませんでした。'; }
+            }, { small: true }))),
+        groupCard('そのほか',
+            settingRow('不具合を報告する', 'GitHub の issue を開く', action('開く', () => this.windows.openNewWindow('https://github.com/akari-video/akari-video/issues/new', { external: true }), { small: true })),
+            settingRow('ログのフォルダを開く', '~/Library/Logs/AKARI Video', action('開く', () => void this.maintenance.openPath('~/Library/Logs/AKARI Video'), { small: true })),
+            settingRow('画面の配置を最初に戻す', 'パネルの位置・右のレールの並びを既定に', action('戻す', () => void this.commands.executeCommand('reset.layout'), { small: true }))));
+    }
+
+    protected renderAbout(section: HTMLElement): void {
+        section.append(groupCard('AKARI Video', settingsNote('バージョンとビルド情報を調べています…')));
+        void Promise.all([this.maintenance.appInfo(), window.electronAkariUpdater?.getLastEvent()]).then(([info, update]) => {
+            if (this.isDisposed || !section.isConnected) { return; }
+            section.replaceChildren(...this.sectionHeading('about'));
+            const icon = element('img'); icon.src = info.icon; icon.alt = 'AKARI Video'; icon.width = 64; icon.height = 64;
+            const hero = element('div'); hero.className = 'akari-set-about-hero';
+            const identity = element('div'); identity.append(element('h3', 'AKARI Video'),
+                element('p', `v${info.version} · ${info.buildDate} ビルド · ${info.os}`));
+            hero.append(icon, identity);
+            const status = update?.kind === 'update-not-available' || (info.recentChanges && compareVersions(info.version, info.recentChanges.version) >= 0) ? '最新です'
+                : update?.kind === 'update-available' || update?.kind === 'update-downloaded' ? '更新があります' : 'アップデートを確認できます';
+            const checked = info.lastChecked ? new Date(info.lastChecked).toLocaleString('ja-JP') : 'まだ確認していません';
+            const main = groupCard(undefined, hero,
+                settingRow(status, `最後に確かめた: ${checked}`, action('アップデートを確認', () => void window.electronAkariUpdater?.checkForUpdatesNow(), { small: true, icon: 'refresh' })),
+                settingRow('受け取る版', 'プレリリースは新しい機能が早く届くかわりに不安定なことがある', segmentedControl({ label: '受け取る版', options: [{ value: 'stable', label: '安定版' }, { value: 'prerelease', label: 'プレリリースも' }],
+                    value: this.preferences.get('akari.update.channel', 'stable'), onChange: value => {
+                        this.savePreference('akari.update.channel', value);
+                        void this.maintenance.setUpdateSettings({ channel: value });
+                    } })),
+                settingRow('自動で確認する', '起動したときに右下の通知でお知らせ', switchControl({ label: '自動で確認する',
+                    checked: this.preferences.get<boolean>('akari.update.autoCheck', true), onChange: checked => {
+                        this.savePreference('akari.update.autoCheck', checked);
+                        void this.maintenance.setUpdateSettings({ autoCheck: checked });
+                    } })));
+            section.append(main);
+            if (info.recentChanges) {
+                const release = element('div'); release.className = 'akari-set-about-release';
+                release.append(element('b', `v${info.recentChanges.version}`), element('span', formatShortReleaseDate(info.recentChanges.date)));
+                if (info.recentChanges.notesUrl) { release.append(action('変更を見る', () => this.windows.openNewWindow(info.recentChanges!.notesUrl!, { external: true }), { small: true })); }
+                section.append(groupCard('最近の変更', release));
+            }
+            section.append(groupCard(undefined, settingRow('リンク', 'akari.video · GitHub · オープンソースのライセンス',
+                ...[['公式サイト', 'https://akari.video'], ['GitHub', 'https://github.com/akari-video/akari-video'], ['ライセンス', 'https://github.com/akari-video/akari-video/blob/main/LICENSE']].map(([label, url]) =>
+                    action(label, () => this.windows.openNewWindow(url, { external: true }), { small: true })))));
+        }).catch(() => { this.notice.textContent = 'アプリ情報を読み込めませんでした。'; });
     }
 
     /** はじめかたの進み具合。道具・接続の状態が読めたものだけ出す（読めないうちは枠ごと出さない）。 */
@@ -425,7 +800,11 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
     }
 
     protected savePreference(key: string, value: unknown): void {
-        this.preferenceWrites = this.preferenceWrites.then(() => this.preferences.set(key, value, PreferenceScope.User)).catch(() => {
+        this.localPreferenceWrites.add(key);
+        this.preferenceWrites = this.preferenceWrites.then(() => this.preferences.set(key, value, PreferenceScope.User)).then(() => {
+            setTimeout(() => this.localPreferenceWrites.delete(key), 500);
+        }).catch(() => {
+            this.localPreferenceWrites.delete(key);
             this.notice.textContent = '設定を保存できませんでした。';
             if (!this.isDisposed) {
                 const section = sectionForPreferenceKey(key);
@@ -440,6 +819,8 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
             if (this.isDisposed) { return; }
             this.renderProviders(list.providers);
             this.renderStorage(list.credentials);
+            this.credentialsPath = list.credentials.path;
+            this.renderSection('privacy');
         } catch {
             this.providerList.replaceChildren(settingsNote('接続一覧を読み込めませんでした。'), action('再読み込み', () => void this.loadConnections(), { small: true }));
         }
@@ -936,6 +1317,7 @@ class SettingsToolsView extends AkariFirstRunSetupDialog {
 @injectable()
 export class AkariSettingsCommandContribution implements CommandContribution {
     @inject(PreferenceService) protected readonly preferences!: PreferenceService;
+    @inject(PreferenceSchemaService) protected readonly preferenceSchemas!: PreferenceSchemaService;
     @inject(AkariConnectionsService) protected readonly connections!: AkariConnectionsService;
     @inject(AkariProjectService) protected readonly store!: AkariProjectService;
     @inject(WindowService) protected readonly windows!: WindowService;
@@ -944,11 +1326,76 @@ export class AkariSettingsCommandContribution implements CommandContribution {
     @inject(FileService) protected readonly files!: FileService;
     @inject(FileDialogService) protected readonly fileDialogs!: FileDialogService;
     @inject(EnvVariablesServer) protected readonly env!: EnvVariablesServer;
+    @inject(WebSocketConnectionProvider) protected readonly connectionsProvider!: WebSocketConnectionProvider;
+    @inject(WorkspaceService) protected readonly workspaceService!: WorkspaceService;
+    @inject(WidgetManager) protected readonly widgetManager!: WidgetManager;
+    @inject(ApplicationShell) protected readonly shell!: ApplicationShell;
+    @inject(PluginServer) protected readonly pluginServer!: PluginServer;
+    protected maintenance?: AkariSettingsMaintenanceService;
     protected dialog: AkariSettingsDialog | undefined;
     protected requestedSection: SettingsSectionId | undefined;
     protected opened: Promise<unknown> | undefined;
 
     registerCommands(commands: CommandRegistry): void {
+        window.addEventListener('akari-permissions', event => {
+            window.akariPermissions = (event as CustomEvent<{ microphone: string }>).detail;
+            this.dialog?.refreshPrivacy();
+        });
+        window.addEventListener('keydown', event => {
+            if (this.dialog && event.metaKey && event.key.toLowerCase() === 'f') {
+                event.preventDefault(); event.stopImmediatePropagation(); this.dialog.focusSearch();
+            }
+        }, true);
+        this.preferenceSchemas.addSchema({ properties: {
+            [AKARI_APPEARANCE_THEME_MODE]: { type: 'string', enum: ['dark', 'light', 'system'], default: 'dark' },
+            [AKARI_APPEARANCE_ZOOM]: { type: 'number', minimum: 60, maximum: 200, default: 100 },
+            [STATUS_BAR_KEYS.cpu]: { type: 'boolean', default: true },
+            [STATUS_BAR_KEYS.gpu]: { type: 'boolean', default: true },
+            [STATUS_BAR_KEYS.memory]: { type: 'boolean', default: true },
+            [STATUS_BAR_KEYS.disk]: { type: 'boolean', default: false },
+            [STATUS_BAR_KEYS.running]: { type: 'boolean', default: true },
+            [STATUS_BAR_KEYS.intervalSec]: { type: 'number', enum: [1, 3, 10], default: 3 },
+            [STATUS_BAR_KEYS.accountBalance]: { type: 'boolean', default: false },
+            [AKARI_PARTNER_REOPEN]: { type: 'boolean', default: true },
+            'akari.export.openFolderAfter': { type: 'boolean', default: false },
+            'akari.export.notifyAfter': { type: 'boolean', default: true },
+            [AKARI_EXPORT_FILENAME_PATTERN]: { type: 'string', enum: ['project-date-time', 'project-name'], default: 'project-date-time' },
+            'akari.update.channel': { type: 'string', enum: ['stable', 'prerelease'], default: 'stable' },
+            'akari.update.autoCheck': { type: 'boolean', default: true }
+        } });
+        const applyZoom = (): void => applyAkariZoom(clampZoom(Number(this.preferences.get(AKARI_APPEARANCE_ZOOM, 100))));
+        const applySystemTheme = (): void => {
+            if (this.preferences.get<string>(AKARI_APPEARANCE_THEME_MODE, 'dark') === 'system') {
+                const selected = (window.akariNativeDark ?? matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
+                void this.preferences.set(WORKBENCH_COLOR_THEME, selected, PreferenceScope.User).then(() => {
+                    window.electronTheiaCore?.setTheme('system');
+                });
+            }
+        };
+        void this.preferences.ready.then(() => { applyZoom(); applySystemTheme(); });
+        this.preferences.onPreferenceChanged(change => {
+            if (change.preferenceName === AKARI_APPEARANCE_ZOOM) { applyZoom(); }
+            if (change.preferenceName === AKARI_APPEARANCE_THEME_MODE) { applySystemTheme(); }
+            if (change.preferenceName === WORKBENCH_COLOR_THEME && this.preferences.get<string>(AKARI_APPEARANCE_THEME_MODE, 'dark') === 'system') {
+                setTimeout(() => window.electronTheiaCore?.setTheme('system'), 0);
+            }
+        });
+        matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applySystemTheme);
+        window.addEventListener('akari-native-theme', event => {
+            window.akariNativeDark = !!(event as CustomEvent<{ dark: boolean }>).detail?.dark;
+            applySystemTheme();
+        });
+        window.addEventListener('keydown', event => {
+            if (!event.metaKey || event.altKey || event.ctrlKey) { return; }
+            const target = event.target as HTMLElement | null;
+            if (target?.closest('.xterm, .terminal-widget, .theia-terminal')) { return; }
+            if (event.key !== '+' && event.key !== '=' && event.key !== ';' && event.key !== '-') { return; }
+            event.preventDefault();
+            const current = clampZoom(Number(document.documentElement.dataset.akariZoom || this.preferences.get(AKARI_APPEARANCE_ZOOM, 100)));
+            const value = clampZoom(current + (event.key === '-' ? -10 : 10));
+            applyAkariZoom(value);
+            void this.preferences.set(AKARI_APPEARANCE_ZOOM, value, PreferenceScope.User);
+        }, true);
         // Reuse the existing RPC proxies. Opening a second channel for the same path hangs
         // in Theia; other extensions couple here only through path strings and JSON.
         commands.registerCommand({ id: 'akari.settings.readStatus' }, {
@@ -975,7 +1422,9 @@ export class AkariSettingsCommandContribution implements CommandContribution {
 
     protected async openSettings(): Promise<void> {
         await this.preferences.ready;
-        const dialog = new AkariSettingsDialog(this.preferences, this.connections, this.store, this.windows, this.commands, this.tools, this.files, this.env, this.fileDialogs, this.requestedSection);
+        this.maintenance ??= this.connectionsProvider.createProxy<AkariSettingsMaintenanceService>(AKARI_SETTINGS_MAINTENANCE_PATH);
+        const root = this.workspaceService.tryGetRoots()[0]?.resource.path.fsPath();
+        const dialog = new AkariSettingsDialog(this.preferences, this.connections, this.store, this.windows, this.commands, this.tools, this.files, this.env, this.fileDialogs, this.maintenance, root, this.widgetManager, this.shell, this.pluginServer, this.requestedSection);
         this.dialog = dialog;
         try { await dialog.open(); }
         finally {
@@ -1019,6 +1468,20 @@ function inlineLink(label: string, click: () => void): HTMLButtonElement {
 /** ホームディレクトリの接頭辞を ~ に縮める（画面とスクリーンショットに利用者名を出さない）。 */
 function homeShortened(path: string): string {
     return path.replace(/^\/(?:Users|home)\/[^/]+/, '~').replace(/^[A-Za-z]:\\Users\\[^\\]+/, '~');
+}
+function formatBytes(bytes: number): string {
+    if (bytes < 1024) { return `${bytes} B`; }
+    const unit = bytes < 1024 ** 2 ? 'KB' : bytes < 1024 ** 3 ? 'MB' : 'GB';
+    const scale = unit === 'KB' ? 1024 : unit === 'MB' ? 1024 ** 2 : 1024 ** 3;
+    return `${(bytes / scale).toFixed(1)} ${unit}`;
+}
+function applyAkariZoom(value: number): void {
+    document.documentElement.dataset.akariZoom = String(value);
+    if (window.electronTheiaCore?.setZoomLevel) {
+        window.electronTheiaCore.setZoomLevel(Math.log(value / 100) / Math.log(1.2));
+    } else {
+        document.documentElement.style.setProperty('zoom', `${value}%`);
+    }
 }
 /** テーマの見本（そのテーマのパレットで描いた小さな画面）。 */
 function themePreview(theme: string): HTMLElement {

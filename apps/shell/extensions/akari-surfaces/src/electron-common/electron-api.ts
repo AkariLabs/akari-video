@@ -22,5 +22,8 @@ declare global {
     interface Window {
         /** 未署名の開発ビルド（`theia start`・electron を経由しない起動）では存在しない — 呼び出し側は必ずガードする。 */
         electronAkariUpdater?: ElectronAkariUpdaterApi;
+        akariNativeDark?: boolean;
+        akariPermissions?: { microphone: string };
+        electronTheiaCore?: { setTheme(theme: 'dark' | 'light' | 'system'): void; setZoomLevel(level: number): void };
     }
 }

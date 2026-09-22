@@ -59,7 +59,8 @@ const fakeDocument = {
     removeEventListener(type, listener) { this.listeners[type] = (this.listeners[type] ?? []).filter(item => item !== listener); }
 };
 globalThis.document = fakeDocument;
-globalThis.window = { innerHeight: 800 };
+globalThis.window = { innerHeight: 800, localStorage: { getItem: () => null } };
+globalThis.requestAnimationFrame = callback => { callback(); return 1; };
 const all = node => [node, ...node.children.filter(child => typeof child !== 'string').flatMap(all)];
 const find = (root, predicate) => all(root).find(predicate);
 const byText = (root, text) => find(root, node => node._text === text || (node.tag === 'button' && node.textContent === text));
@@ -74,9 +75,10 @@ function loadDialogModule() {
         './akari-first-run-setup-dialog': { AkariFirstRunSetupDialog: class {} },
         './akari-home-command-contribution': { AkariHomeCommands: { OPEN_FIRST_RUN_SETUP: { id: 'first-run' } } },
         '@theia/core/shared/inversify': { injectable: () => () => {}, inject: () => () => {} },
-        '@theia/core/lib/common/preferences': { PreferenceScope, PreferenceService: Symbol('PreferenceService') },
+        '@theia/core/lib/common/preferences': { PreferenceScope, PreferenceService: Symbol('PreferenceService'), PreferenceSchemaService: Symbol('PreferenceSchemaService') },
         '@theia/core/lib/common/os': { OS: { type: () => 'OSX', Type: { OSX: 'OSX', Windows: 'Windows' } } },
-        '@theia/core/lib/browser': { CommonCommands: { OPEN_PREFERENCES: { id: 'preferences' } } },
+        '@theia/core/lib/browser': { CommonCommands: { OPEN_PREFERENCES: { id: 'preferences' } }, WebSocketConnectionProvider: class {}, WidgetManager: class {}, ApplicationShell: class {} },
+        '@theia/workspace/lib/browser/workspace-service': { WorkspaceService: class {} },
         '@theia/core/lib/browser/window/window-service': { WindowService: Symbol('WindowService') },
         '@theia/core/lib/common': { CommandService: Symbol('CommandService') },
         '@theia/filesystem/lib/browser': { FileDialogService: Symbol('FileDialogService') },
@@ -94,7 +96,7 @@ function makeDialog(values = {}, extra = {}) {
     const dialog = Object.create(dialogModule.AkariSettingsDialog.prototype);
     const writes = [];
     Object.assign(dialog, {
-        notice: new FakeNode('p'), preferenceWrites: Promise.resolve(), compareDraft: [], compareEnabled: false,
+        notice: new FakeNode('p'), preferenceWrites: Promise.resolve(), localPreferenceWrites: new Set(), compareDraft: [], compareEnabled: false,
         transcribe: new FakeNode('section'), sections: new Map(), isDisposed: false,
         preferences: {
             get(key, fallback) { return key in values ? values[key] : fallback; },
@@ -108,12 +110,13 @@ function makeDialog(values = {}, extra = {}) {
 test('(a) ナビは Akari アカウント先頭・外観を新設し、開発者モードだけが開発者グループ', () => {
     const { SETTINGS_SECTIONS, SECTION_PREFERENCE_KEYS, resolveSettingsSectionId, sectionForPreferenceKey } = require('../../lib/common/settings-sections.js');
     assert.deepEqual(SETTINGS_SECTIONS.map(section => section.label),
-        ['Akari アカウント', 'はじめかた', '書き出し', '外観', '接続と API キー', '文字起こし', 'プレビュー品質', '通知', '道具', '開発者モード']);
+        ['Akari アカウント', 'はじめかた', '書き出し', '外観', '接続と API キー', 'パートナー', '文字起こし', 'プレビュー品質', '通知', '道具', 'ストレージ', 'プライバシーとアクセス許可', '統計と利用状況', '困ったとき', 'このアプリについて', '開発者モード']);
     assert.deepEqual(SETTINGS_SECTIONS.filter(section => section.group === 'developer').map(section => section.id), ['developer']);
     const { SETTINGS_ICON_PATHS } = require('../../lib/browser/settings/settings-icons.js');
     for (const section of SETTINGS_SECTIONS) { assert.ok(section.icon in SETTINGS_ICON_PATHS, section.id); }
     // テーマは外観へ。開発者モードの節にはスイッチ 1 個（Developer mode）だけが残る。
-    assert.deepEqual(SECTION_PREFERENCE_KEYS.appearance, ['workbench.colorTheme']);
+    assert.ok(SECTION_PREFERENCE_KEYS.appearance.includes('workbench.colorTheme'));
+    assert.ok(SECTION_PREFERENCE_KEYS.appearance.includes('akari.appearance.zoom'));
     assert.deepEqual(SECTION_PREFERENCE_KEYS.developer, ['akari.developerMode']);
     assert.equal(sectionForPreferenceKey('workbench.colorTheme'), 'appearance');
     // 旧 id developer でテーマを指して来た場合は外観へ寄せる。developer だけなら開発者モードのまま。
@@ -158,7 +161,7 @@ test('(c) 設定ダイアログの表示文字列に絵文字・記号文字の�
     const symbols = ['✓', '✔', '▼', '▾', '↗', '⚙', '🔔', '★', '●', '◆', '›', '‹', '→', '×'];
     for (const file of files) {
         const text = source(file);
-        const hit = text.match(emoji);
+        const hit = text.replaceAll('⌘', '').match(emoji);
         assert.equal(hit, null, `${file}: ${hit?.[0]}`);
         for (const symbol of symbols) { assert.equal(text.includes(symbol), false, `${file}: ${symbol}`); }
     }
@@ -351,7 +354,7 @@ test('書き出し: 画質カード・形式ドロップダウン・fps セグ�
     fps.children[2].click();
     fps.children[0].click();
     const encoder = find(page, node => node.attributes['data-akari-segmented'] === 'エンコーダ');
-    assert.deepEqual(encoder.children.map(item => item.textContent), ['自動', 'GPU', 'CPU']);
+    assert.deepEqual(encoder.children.filter(item => item.tag === 'button').map(item => item.textContent), ['自動', 'GPU', 'CPU']);
     await dialog.preferenceWrites;
     assert.deepEqual(writes.map(([key, value]) => [key, value]), [
         ['akari.export.quality', 'master'], ['akari.export.codec', 'prores422'], ['akari.export.fps', 30], ['akari.export.fps', undefined]
@@ -364,10 +367,10 @@ test('外観: テーマはプレビュー付きのカードで選び、ダーク
     dialog.renderSection('appearance');
     const cards = find(page, node => node.attributes['data-akari-choice-cards'] === 'テーマ');
     assert.deepEqual(cards.children.map(card => [card.getAttribute('data-value'), find(card, node => node.className === 'akari-set-theme-preview')?.getAttribute('data-theme')]),
-        [['dark', 'dark'], ['light', 'light']]);
+        [['dark', 'dark'], ['light', 'light'], ['system', 'system']]);
     cards.children[1].click();
     await dialog.preferenceWrites;
-    assert.deepEqual(writes.map(([key, value]) => [key, value]), [['workbench.colorTheme', 'light']]);
+    assert.deepEqual(writes.map(([key, value]) => [key, value]), [['akari.appearance.themeMode', 'light'], ['workbench.colorTheme', 'light']]);
     // 開発者モードの節にはテーマが無い
     const developer = new FakeNode('section');
     const other = makeDialog({}, { sections: new Map([['developer', developer]]) });

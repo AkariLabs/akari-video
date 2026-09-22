@@ -79,7 +79,6 @@ const ALLOWLIST: CurationEntry[] = [
     { id: EXPLORER_VIEW_CONTAINER_ID, label: '素材' },
     { id: ROLE_BUCKETS_WIDGET_ID, label: null },
     { id: 'search-view-container', label: '検索' },
-    { id: 'vsx-extensions-view-container', label: 'パートナー / 拡張' },
     { id: 'akari-settings-opener', label: null },
     { id: MENU_WIDGET_ID, label: null }
 ];
@@ -89,7 +88,6 @@ const LEFT_PANEL_FIXED_ORDER: readonly string[] = [
     EXPLORER_VIEW_CONTAINER_ID,
     ROLE_BUCKETS_WIDGET_ID,
     'search-view-container',
-    'vsx-extensions-view-container',
     'akari-settings-opener',
     MENU_WIDGET_ID
 ];
@@ -176,6 +174,10 @@ export class AkariActivityBarCuration implements FrontendApplicationContribution
             await shell.addWidget(widget, { area: 'left', rank: 100 });
         }
         this.reconcileLeftPanel(trigger);
+        if (this.developerMode.isEnabled) {
+            const search = await this.widgetManager.getOrCreateWidget('search-view-container');
+            if (!search.isAttached) { await shell.addWidget(search, { area: 'left', rank: 200 }); }
+        }
         await shell.revealWidget(showId);
     }
 
@@ -288,6 +290,7 @@ export class AkariActivityBarCuration implements FrontendApplicationContribution
      * メニューを含むその他の allowlist widget はここでは隠さない。
      */
     protected isHidden(id: string): boolean {
+        if (id === 'search-view-container') { return !this.developerMode.isEnabled; }
         if (id === DEVELOPER_MODE_WIDGET_ID || id === NON_DEVELOPER_MODE_WIDGET_ID) {
             return this.isModeMismatched(id);
         }

@@ -136,6 +136,14 @@ export function segmentedControl<T extends string>(options: {
     const group = el('div', 'akari-set-seg');
     group.setAttribute('aria-label', options.label);
     group.setAttribute('data-akari-segmented', options.label);
+    const thumb = el('span', 'akari-set-seg-thumb');
+    thumb.setAttribute('aria-hidden', 'true');
+    const moveThumb = (): void => {
+        const selected = items.find(item => item.button.getAttribute('aria-checked') === 'true')?.button;
+        if (!selected) { return; }
+        thumb.style.width = `${selected.offsetWidth}px`;
+        thumb.style.transform = `translateX(${selected.offsetLeft - 2}px)`;
+    };
     const items = options.options.map(option => {
         const button = el('button', 'akari-set-seg-item', option.label);
         button.type = 'button';
@@ -143,10 +151,14 @@ export function segmentedControl<T extends string>(options: {
         button.setAttribute('data-value', option.value);
         if (option.title) { button.title = option.title; }
         if (option.disabled) { button.disabled = true; button.setAttribute('aria-disabled', 'true'); }
+        button.addEventListener('click', () => requestAnimationFrame(moveThumb));
+        button.addEventListener('keydown', () => requestAnimationFrame(moveThumb));
         group.append(button);
         return { value: option.value, button, disabled: option.disabled };
     });
+    group.append(thumb);
     radioGroup(group, items, options.value, options.onChange);
+    requestAnimationFrame(() => { moveThumb(); requestAnimationFrame(() => group.setAttribute('data-ready', 'true')); });
     return group;
 }
 

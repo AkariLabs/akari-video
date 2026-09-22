@@ -6,12 +6,18 @@ export const SETTINGS_SECTIONS = [
     { id: 'account', label: 'Akari アカウント', group: 'main', icon: 'user' },
     { id: 'start', label: 'はじめかた', group: 'main', icon: 'play' },
     { id: 'export', label: '書き出し', group: 'main', icon: 'download' },
-    { id: 'appearance', label: '外観', group: 'main', icon: 'contrast' },
+    { id: 'appearance', label: '外観', group: 'main', icon: 'contrast', badge: '言語・大きさ' },
     { id: 'connections', label: '接続と API キー', group: 'main', icon: 'key' },
+    { id: 'partner', label: 'パートナー', group: 'main', icon: 'bot', badge: '新' },
     { id: 'transcribe', label: '文字起こし', group: 'main', icon: 'mic' },
     { id: 'quality', label: 'プレビュー品質', group: 'main', icon: 'gauge' },
     { id: 'notifications', label: '通知', group: 'main', icon: 'bell' },
     { id: 'tools', label: '道具', group: 'main', icon: 'wrench' },
+    { id: 'storage', label: 'ストレージ', group: 'data', icon: 'disk', badge: '新' },
+    { id: 'privacy', label: 'プライバシーとアクセス許可', group: 'data', icon: 'shield', badge: '新' },
+    { id: 'statistics', label: '統計と利用状況', group: 'data', icon: 'chart', badge: '準備中' },
+    { id: 'help', label: '困ったとき', group: 'support', icon: 'help', badge: '新' },
+    { id: 'about', label: 'このアプリについて', group: 'support', icon: 'info', badge: '新' },
     { id: 'developer', label: '開発者モード', group: 'developer', icon: 'code' }
 ] as const;
 
@@ -21,7 +27,13 @@ export const SETTINGS_SECTION_DESCRIPTIONS: Record<SettingsSectionId, string> = 
     account: 'AKARI Store の接続と、購入した素材の受け取りをここで管理します。',
     start: '初回セットアップで動画づくりの準備を進めます。',
     export: '書き出しの画質・形式・フレームレートと保存先の既定値を選びます。',
-    appearance: 'アプリの色を選びます。',
+    appearance: '色・言語・大きさと、下のバーに出すもの。',
+    partner: '一緒に作業する AI（CLI・公式拡張）。左の縦バーの「パートナー / 拡張」はここへ移りました。',
+    storage: 'AKARI が使っているディスクの量。行を開くと、場所と中身、消して大丈夫かが分かります。',
+    privacy: 'macOS の許可と、外へ送るもの。ターミナルから起動したパートナーも、この許可を引き継ぎます。',
+    statistics: 'つないだサービスで、どれだけ使ったか。',
+    help: 'うまく動かないときの道具。不具合を報告するときは診断情報を添えると早く直せます。',
+    about: 'バージョンとアップデート。',
     connections: '外部サービスの接続と API キーを管理します。生成の既定モデル（静止画・動画）もここで選びます。',
     transcribe: '文字起こしのモードとエンジンを選びます。',
     quality: 'プレビューの描き方を選びます。',
@@ -60,19 +72,31 @@ export const AKARI_EXPORT_ENCODER = 'akari.export.encoder';
 export const AKARI_EXPORT_CODEC = 'akari.export.codec';
 export const AKARI_EXPORT_FPS = 'akari.export.fps';
 export const AKARI_EXPORT_OUTPUT_DIRECTORY = 'akari.export.outputDirectory';
+export const AKARI_EXPORT_FILENAME_PATTERN = 'akari.export.fileNamePattern';
 // カタログのスキーマは akari-project/akari-project-frontend-module.ts が所有。設定キーは文字列ミラー。
 export const AKARI_CATALOG_ROOT = 'akari.catalog.root';
+export const AKARI_APPEARANCE_THEME_MODE = 'akari.appearance.themeMode';
+export const AKARI_APPEARANCE_ZOOM = 'akari.appearance.zoom';
+export const STATUS_BAR_KEYS = {
+    cpu: 'akari.statusBar.cpu', gpu: 'akari.statusBar.gpu', memory: 'akari.statusBar.memory',
+    disk: 'akari.statusBar.disk', running: 'akari.statusBar.running',
+    intervalSec: 'akari.statusBar.intervalSec', accountBalance: 'akari.statusBar.accountBalance'
+} as const;
+export const AKARI_PARTNER_REOPEN = 'akari.partner.reopenLast';
 
 export const SECTION_PREFERENCE_KEYS: Record<SettingsSectionId, readonly string[]> = {
     account: [], // AKARI Store は PreferenceService ではなく Store の接続フローが所有する。
     start: [],
-    export: [AKARI_EXPORT_QUALITY, AKARI_EXPORT_ENCODER, AKARI_EXPORT_CODEC, AKARI_EXPORT_FPS, AKARI_EXPORT_OUTPUT_DIRECTORY],
-    appearance: [WORKBENCH_COLOR_THEME],
+    export: [AKARI_EXPORT_QUALITY, AKARI_EXPORT_ENCODER, AKARI_EXPORT_CODEC, AKARI_EXPORT_FPS, AKARI_EXPORT_OUTPUT_DIRECTORY,
+        'akari.export.openFolderAfter', 'akari.export.notifyAfter', AKARI_EXPORT_FILENAME_PATTERN],
+    appearance: [WORKBENCH_COLOR_THEME, AKARI_APPEARANCE_THEME_MODE, AKARI_APPEARANCE_ZOOM, ...Object.values(STATUS_BAR_KEYS)],
     connections: [], // API キーは PreferenceService ではなく接続サービスが所有する。
+    partner: [AKARI_PARTNER_REOPEN],
     transcribe: [AKARI_TRANSCRIBE_MODE, AKARI_TRANSCRIBE_BACKEND, AKARI_TRANSCRIBE_COMPARE_SET, AKARI_TRANSCRIBE_AUTO_CUTS],
     quality: [AKARI_QUALITY_TIER, AKARI_TIMELINE_VISUAL_THUMBNAILS],
     notifications: [AKARI_AGENT_TURN_END_NOTIFICATION],
     tools: [AKARI_CATALOG_ROOT],
+    storage: [], privacy: [], statistics: [], help: [], about: [],
     developer: [AKARI_DEVELOPER_MODE]
 };
 
@@ -108,9 +132,20 @@ export const QUALITY_TIER_CHOICES = [
     { value: 'draft', label: 'Draft', description: '速い確認用', icon: 'bolt' },
     { value: 'final', label: 'Final', description: '最終品質', icon: 'gem' }
 ] as const;
-// 「システムに合わせる」は出さない: Theia 1.73 は OS の配色への追従（window.autoDetectColorScheme）を
-// 実装しておらず、起動前の既定を決めるだけなので、選んでも切り替わらない選択肢になる。
-export const THEME_CHOICES = [{ value: 'dark', label: 'ダーク' }, { value: 'light', label: 'ライト' }] as const;
+export const THEME_CHOICES = [{ value: 'dark', label: 'ダーク' }, { value: 'light', label: 'ライト' }, { value: 'system', label: 'システムに合わせる' }] as const;
+export function clampZoom(value: number): number { return Math.min(200, Math.max(60, Math.round(value / 10) * 10)); }
+export function matchesSettingsSearch(query: string, label: string, description: string, rows: readonly string[]): boolean {
+    const needle = query.trim().toLocaleLowerCase();
+    return !needle || [label, description, ...rows].some(value => value.toLocaleLowerCase().includes(needle));
+}
+/** フィードの公開日を、そのフィードで記された暦日のまま短く表示する。 */
+export function formatShortReleaseDate(value: unknown): string {
+    if (typeof value !== 'string') { return ''; }
+    const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(value);
+    if (!match) { return ''; }
+    const month = Number(match[2]); const day = Number(match[3]);
+    return month >= 1 && month <= 12 && day >= 1 && day <= 31 ? `${month}/${day}` : '';
+}
 export const EXPORT_QUALITY_CHOICES = [
     { value: 'light', label: '軽量', description: '共有・確認向け' },
     { value: 'standard', label: '標準', description: 'ふだんの投稿' },

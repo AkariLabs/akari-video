@@ -57,7 +57,7 @@ export class AkariUpdaterElectronMain implements ElectronMainApplicationContribu
         });
         ipcMain.handle(CHANNEL_UPDATER_CHECK, async (): Promise<void> => {
             // 結果はイベント（CHANNEL_UPDATER_EVENT）でレンダラーへ流れるため await しない。
-            this.safeCheck();
+            this.safeCheck(true);
         });
 
         try {
@@ -76,7 +76,7 @@ export class AkariUpdaterElectronMain implements ElectronMainApplicationContribu
 
         autoUpdater.autoDownload = true;
         autoUpdater.autoInstallOnAppQuit = true;
-        autoUpdater.allowPrerelease = resolveAllowPrerelease(this.readCachedChannel());
+        autoUpdater.allowPrerelease = this.readUpdateSettings().channel === 'prerelease';
 
         autoUpdater.on('checking-for-update', () => this.emit({ kind: 'checking-for-update' }));
         autoUpdater.on('update-available', (info: UpdateInfo) => this.emit({ kind: 'update-available', version: info.version }));
@@ -117,7 +117,10 @@ export class AkariUpdaterElectronMain implements ElectronMainApplicationContribu
         }
     }
 
-    protected safeCheck(): void {
+    protected safeCheck(manual = false): void {
+        const settings = this.readUpdateSettings();
+        autoUpdater.allowPrerelease = settings.channel === 'prerelease';
+        if (!manual && !settings.autoCheck) { return; }
         if (isAppTranslocationPath(process.execPath)) {
             this.recordUpdaterError('App Translocation を検知しました', new Error('App Translocation'));
             return;
@@ -170,6 +173,14 @@ export class AkariUpdaterElectronMain implements ElectronMainApplicationContribu
         } catch {
             return undefined;
         }
+    }
+
+    protected readUpdateSettings(): { channel: 'stable' | 'prerelease'; autoCheck: boolean } {
+        try {
+            const home = process.env.AKARI_HOME || join(homedir(), '.akari');
+            const value = JSON.parse(readFileSync(join(home, 'update-preferences.json'), 'utf8')) as { channel?: string; autoCheck?: boolean };
+            return { channel: value.channel === 'prerelease' ? 'prerelease' : 'stable', autoCheck: value.autoCheck !== false };
+        } catch { return { channel: resolveAllowPrerelease(this.readCachedChannel()) ? 'prerelease' : 'stable', autoCheck: true }; }
     }
 
     protected emit(event: ShellUpdaterEvent): void {

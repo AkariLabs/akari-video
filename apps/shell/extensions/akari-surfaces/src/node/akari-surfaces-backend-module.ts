@@ -11,6 +11,8 @@ import { AkariConnectionsService, AKARI_CONNECTIONS_SERVICE_PATH } from '../comm
 import { AkariConnectionsServiceImpl } from './akari-connections-service';
 import { AkariKitsService, AKARI_KITS_SERVICE_PATH } from '../common/akari-kits-protocol';
 import { AkariKitsServiceImpl } from './akari-kits-service';
+import { AkariSettingsMaintenanceService, AKARI_SETTINGS_MAINTENANCE_PATH } from '../common/settings-maintenance-protocol';
+import { AkariSettingsMaintenanceServiceImpl } from './settings-maintenance-service';
 
 export default new ContainerModule(bind => {
     bind(LibraryMigrationContribution).toSelf().inSingletonScope();
@@ -36,5 +38,10 @@ export default new ContainerModule(bind => {
     bind(AkariKitsService).toService(AkariKitsServiceImpl);
     bind(ConnectionHandler).toDynamicValue(context =>
         new JsonRpcConnectionHandler(AKARI_KITS_SERVICE_PATH, () => context.container.get(AkariKitsService))
+    ).inSingletonScope();
+    bind(AkariSettingsMaintenanceServiceImpl).toSelf().inSingletonScope();
+    bind(AkariSettingsMaintenanceService).toService(AkariSettingsMaintenanceServiceImpl);
+    bind(ConnectionHandler).toDynamicValue(context =>
+        new JsonRpcConnectionHandler(AKARI_SETTINGS_MAINTENANCE_PATH, () => context.container.get(AkariSettingsMaintenanceService))
     ).inSingletonScope();
 });

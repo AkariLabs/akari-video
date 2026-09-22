@@ -1,0 +1,195 @@
+{
+  "nav": {
+    "width": 270,
+    "privacyLabelFits": true,
+    "privacyText": "プライバシーとアクセス許可新",
+    "groups": [
+      "データとプライバシー",
+      "サポート",
+      "開発者"
+    ],
+    "searchPlaceholder": "設定を探す"
+  },
+  "storage": {
+    "total": "7.5 MBAKARI 全体 · Mac の空き 431.3 GB",
+    "rows": [
+      {
+        "id": "cache",
+        "text": "キャッシュ消しても大丈夫3.0 MB"
+      },
+      {
+        "id": "models",
+        "text": "文字起こしのモデルもう一度ダウンロードが必要1.0 MB"
+      },
+      {
+        "id": "library",
+        "text": "素材ライブラリ消すと戻らない2.0 MB"
+      },
+      {
+        "id": "exports",
+        "text": "書き出し消すと戻らない1.0 MB"
+      },
+      {
+        "id": "history",
+        "text": "編集の履歴古いものだけ消せる512.0 KB"
+      }
+    ]
+  },
+  "partner": {
+    "rows": [
+      "Claude Codeインストール済み2.1.280 (Claude Code)起動",
+      "Codexインストール済みcodex-cli 0.155.1起動",
+      "OpenCodeインストール済み1.18.26起動",
+      "Command Codeインストール済み—起動",
+      "Copilotインストール済み—起動",
+      "Cursor未インストールcursor-agent が見つかりません入れ方",
+      "Antigravity未インストール—入れ方",
+      "Grokインストール済みgrok 1.0.13 (5e9a58528b76) [stable]起動",
+      "Claude Code 拡張入っていないanthropic.claude-code開く",
+      "Codex 拡張入っていないopenai.chatgpt開く"
+    ]
+  },
+  "statistics": {
+    "blur": "blur(5px) grayscale(1)",
+    "ariaHidden": "true",
+    "kpi": 3,
+    "services": 3
+  },
+  "privacy": [
+    {
+      "name": "マイク",
+      "state": "許可済み"
+    },
+    {
+      "name": "書類・デスクトップ・ダウンロード",
+      "state": "システム設定で確認"
+    },
+    {
+      "name": "通知",
+      "state": "許可済み"
+    },
+    {
+      "name": "フルディスクアクセス",
+      "state": "システム設定で確認"
+    }
+  ],
+  "about": {
+    "hero": "AKARI Videov0.1.77 · 2026-09-23 ビルド · macOS arm64",
+    "status": "最新です最後に確かめた: 2026/9/23 6:40:28アップデートを確認"
+  },
+  "screenshots": {
+    "sectionsDark": 16,
+    "sectionsLight": 16,
+    "scrolled": 8,
+    "storageOpen": 2,
+    "storageConfirm": 2
+  },
+  "motion": {
+    "leadMargin": "20px",
+    "segment": "0.28s",
+    "switch": "0.28s",
+    "card": "0.28s",
+    "reducedMotion": "0s"
+  },
+  "search": {
+    "ズーム": {
+      "nav": [
+        "appearance"
+      ],
+      "hits": 1
+    },
+    "診断": {
+      "nav": [
+        "help"
+      ],
+      "hits": 1
+    },
+    "拡張": {
+      "nav": [
+        "partner"
+      ],
+      "hits": 1
+    }
+  },
+  "cacheSweep": {
+    "before": "3.0 MB",
+    "after": "0 B",
+    "confirmed": true,
+    "modelPreserved": true,
+    "assetsPreserved": true,
+    "exportsPreserved": true,
+    "historyPreserved": true
+  },
+  "diagnostics": {
+    "zipEntries": [
+      "diagnostic.json",
+      "tools.json",
+      "layout.json",
+      "logs-summary.json",
+      "recent-logs.json",
+      "recent-logs.txt",
+      "edit.json"
+    ],
+    "unzipTest": "OK",
+    "keyOrPersonalPathFound": false
+  },
+  "cacheConfirmationPaths": {
+    "dark": [
+      "消すもの: キャッシュ（/private/tmp/akari-settings-v3-r1.rDiOJH/workspace/.akari/cache）",
+      "消すもの: キャッシュ（/tmp/akari-settings-v3-r1.rDiOJH/akari/cache）",
+      "必要になったら自動で作り直します",
+      "消さないもの: プロジェクト・素材・書き出し・最近の編集履歴"
+    ],
+    "light": [
+      "消すもの: キャッシュ（/private/tmp/akari-settings-v3-r1.rDiOJH/workspace/.akari/cache）",
+      "消すもの: キャッシュ（/tmp/akari-settings-v3-r1.rDiOJH/akari/cache）",
+      "必要になったら自動で作り直します",
+      "消さないもの: プロジェクト・素材・書き出し・最近の編集履歴"
+    ]
+  },
+  "searchAdditional": {
+    "Codex": {
+      "nav": [
+        "partner"
+      ],
+      "hits": 2
+    },
+    "キャッシュ": {
+      "nav": [
+        "storage"
+      ],
+      "hits": 1
+    },
+    "マイク": {
+      "nav": [
+        "privacy"
+      ],
+      "hits": 1
+    }
+  },
+  "r2": {
+    "navSticky": {
+      "scrollTopBefore": 0,
+      "scrollTopAfter": 77,
+      "searchTopBeforePx": 64,
+      "searchTopAfterPx": 64
+    },
+    "diagnosticFilenameExamples": [
+      "AKARI-診断-2026-09-23-1432.zip",
+      "AKARI-診断-2026-09-23-1436.zip"
+    ],
+    "cacheSweep": {
+      "directoryPreserved": true,
+      "gitkeepPreserved": true,
+      "thumbnailDeleted": true,
+      "after": "0 B"
+    },
+    "releaseDate": "9/22",
+    "screenshots": [
+      "storage-dark.png",
+      "storage-light.png",
+      "about-dark.png",
+      "about-light.png"
+    ]
+  }
+}
