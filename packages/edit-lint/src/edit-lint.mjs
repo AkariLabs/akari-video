@@ -4076,7 +4076,6 @@ function validateCaptions(captions, edit, analysis, findings, paths, cutsEndSeco
   // 意図を説明する記述がなく、テストも 1 件も無い（= 消しても何も落ちない）状態だった。
   // 常に全件発火する警告は本物の指摘を埋めるだけなので、規則ごと落とすのが正しい。
   // 撤去の証跡は edit-lint.test.mjs の "captions.overlay-link は発火しない" で固定してある。
-  const outputTimeGroup = Symbol("output-time");
   const previousStart = new Map();
   const furthestEnd = new Map();
   const furthestCaption = new Map();
@@ -4227,31 +4226,28 @@ function validateCaptions(captions, edit, analysis, findings, paths, cutsEndSeco
         itemPath,
       );
     } else {
-      const timeGroup = caption.time_domain === "output" ? outputTimeGroup : caption.src;
-      const groupPreviousStart = previousStart.get(timeGroup) ?? -Infinity;
-      const groupFurthestEnd = furthestEnd.get(timeGroup) ?? -Infinity;
-      const groupFurthestCaption = furthestCaption.get(timeGroup) ?? null;
-      if (caption.start < groupPreviousStart - EPSILON) {
-        captionFinding(
-          findings,
-          "captions.order",
-          "captions must be sorted by start time",
-          itemPath,
-        );
-      }
-      previousStart.set(timeGroup, caption.start);
-      if (caption.start < groupFurthestEnd - EPSILON) {
-        addFinding(findings, {
-          severity: "error",
-          check: "captions.overlap",
-          message: `caption overlaps ${groupFurthestCaption.id ?? groupFurthestCaption.path} on the same track`,
-          path: itemPath,
-          range: { start: caption.start, end: caption.end },
-        });
-      }
-      if (caption.end > groupFurthestEnd) {
-        furthestEnd.set(timeGroup, caption.end);
-        furthestCaption.set(timeGroup, { id: caption.id, path: itemPath });
+      if (caption.time_domain !== "output") {
+        const timeGroup = caption.src;
+        const groupPreviousStart = previousStart.get(timeGroup) ?? -Infinity;
+        const groupFurthestEnd = furthestEnd.get(timeGroup) ?? -Infinity;
+        const groupFurthestCaption = furthestCaption.get(timeGroup) ?? null;
+        if (caption.start < groupPreviousStart - EPSILON) {
+          captionFinding(findings, "captions.order", "captions must be sorted by start time", itemPath);
+        }
+        previousStart.set(timeGroup, caption.start);
+        if (caption.start < groupFurthestEnd - EPSILON) {
+          addFinding(findings, {
+            severity: "error",
+            check: "captions.overlap",
+            message: `caption overlaps ${groupFurthestCaption.id ?? groupFurthestCaption.path} on the same track`,
+            path: itemPath,
+            range: { start: caption.start, end: caption.end },
+          });
+        }
+        if (caption.end > groupFurthestEnd) {
+          furthestEnd.set(timeGroup, caption.end);
+          furthestCaption.set(timeGroup, { id: caption.id, path: itemPath });
+        }
       }
       const displaySeconds = caption.end - caption.start;
       if (displaySeconds < 1.0 - EPSILON) {

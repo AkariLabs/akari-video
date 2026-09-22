@@ -204,7 +204,9 @@ import {
     computeTrackAutoNames as computeTrackKindAutoNames,
     sortDefaultTimelineTracks,
     withAudioDisplaySupplement,
-    withCaptionsDisplaySupplement
+    withCaptionsDisplaySupplement,
+    withPlacedTextDisplayTrack,
+    PLACED_TEXT_TRACK_ID
 } from '../common/derive-timeline-tracks';
 import { assignSubRows } from '../common/lane-layout';
 import { CaptionSubrowLayout, computeCaptionSubrowLayout } from '../common/caption-subrow-layout';
@@ -737,6 +739,17 @@ const STATUS_COLORS: Record<Annotation['status'], string> = {
     resolved: 'var(--theia-charts-green)'
 };
 
+const PLACED_TEXT_COLORS = [
+    'var(--theia-akariTheme-placedTextBlue, #38bdf8)',
+    'var(--theia-akariTheme-placedTextOrange, #fb923c)',
+    'var(--theia-akariTheme-placedTextViolet, #a78bfa)',
+    'var(--theia-akariTheme-placedTextGreen, #34d399)',
+    'var(--theia-akariTheme-placedTextPink, #f472b6)',
+    'var(--theia-akariTheme-placedTextCyan, #22d3ee)',
+    'var(--theia-akariTheme-placedTextYellow, #facc15)',
+    'var(--theia-akariTheme-placedTextRed, #f87171)'
+];
+
 const BEAT_KIND_COLORS: Record<string, string> = {
     hook: 'var(--theia-charts-blue, #3794ff)',
     turn: 'var(--theia-charts-orange, #d19a66)',
@@ -1176,6 +1189,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected readonly audioNarrationRows = new Map<string, number>();
     /** captions.json を正本のまま保ち、content トラック内の表示用サブ段だけを ID 単位で導出する。 */
     protected captionLayouts = new Map<string, CaptionSubrowLayout>();
+    protected placedTextRows = new Map<string, number>();
     protected timelineTreeTracks: InternalTrack[] = [];
     protected timelineTreePartsByHtml = new Map<string, readonly { id: string; order: number }[]>();
     protected audioBgmTop = 0;
@@ -1733,12 +1747,18 @@ export class AkariAnnotationsWidget extends BaseWidget {
         background: color-mix(in srgb, var(--theia-charts-purple, #b180d7) 68%, transparent);
         border-radius: 5px;
     }
+    .akari-annotations-widget .akari-annotations-strip-caption.akari-annotations-placed-text {
+        background: color-mix(in srgb, var(--akari-placed-text-color) 68%, transparent);
+    }
     .akari-annotations-widget .akari-annotations-strip-caption.akari-annotations-caption-selected {
         background: rgba(245, 196, 81, .35);
         outline: 2px solid #f5c451;
         outline-offset: -2px;
         box-shadow: none;
         z-index: 3;
+    }
+    .akari-annotations-widget .akari-annotations-strip-caption.akari-annotations-placed-text.akari-annotations-caption-selected {
+        background: color-mix(in srgb, var(--akari-placed-text-color) 68%, transparent);
     }
     .akari-annotations-widget .akari-annotations-strip-caption.akari-annotations-caption-playing {
         box-shadow: inset 0 0 0 1.5px #53d1bc;
@@ -5130,6 +5150,17 @@ export class AkariAnnotationsWidget extends BaseWidget {
             if (captionId !== undefined && (selection.kind === 'caption' || this.rawV2Item(selection.id) === undefined)) {
                 const caption = this.captions.find(candidate => candidate.id === captionId);
                 if (!caption) throw new Error("字幕が見つかりません。");
+                if (caption.timeDomain === 'output') {
+                    await this.withHistory('文字の削除', async () => {
+                        await this.annotationsService.removeCaption({
+                            captionsUri: location.captionsUri.toString(),
+                            projectRootUri: location.root.toString(), captionId: caption.id
+                        });
+                    });
+                    await this.reloadCaptions();
+                    this.footer.textContent = '文字を削除しました。';
+                    return;
+                }
                 // undo は captions.json の行を丸ごと戻す（time_domain / text_style を落とさない。
                 // 2026-09-02 実機: output 時間軸の字幕が source 扱いで戻り、スタイルも消えていた）。
                 const payload: CaptionWritePayload = {
@@ -8296,16 +8327,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
         }
     }
 
-    /**
-     * lint（captions.overlap）と同じ時間群の字幕を返す: output 時間軸は output 同士、
-     * source 時間軸は同じ src（captionSourceForMapping）同士。自分は含めない。
-     */
+    /** 話した言葉だけを同じ src の隣接字幕へクランプする。置いた文字は重なり自由。 */
     protected captionOverlapNeighbors(captionId: string, timeDomain: 'source' | 'output'): CaptionNeighborRange[] {
-        if (timeDomain === 'output') {
-            return this.captions
-                .filter(candidate => candidate.id !== captionId && candidate.timeDomain === 'output')
-                .map(candidate => ({ id: candidate.id, start: candidate.start, end: candidate.end }));
-        }
+        if (timeDomain === 'output') return [];
         const source = this.captionSourceForMapping(captionId);
         return this.captions
             .filter(candidate => candidate.id !== captionId && candidate.timeDomain !== 'output'
@@ -8470,7 +8494,18 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 height = chipLayout.height;
                 captionRowsMixedWithItems = true;
             } else if (timelineTrack.kind === 'captions') {
-                height = SUBROW_STRIDE;
+                if (timelineTrack.id === PLACED_TEXT_TRACK_ID) {
+                    const placed = this.captions.flatMap(caption => {
+                        if (caption.timeDomain !== 'output') return [];
+                        const layout = this.captionLayouts.get(caption.id);
+                        return layout ? [{ id: caption.id, at: layout.start, duration: layout.end - layout.start }] : [];
+                    });
+                    const chipLayout = assignDetachedCaptionChipSubRows([], placed, {
+                        baseHeight: SUBROW_STRIDE, subrowStride: SUBROW_STRIDE
+                    });
+                    this.placedTextRows = new Map(chipLayout.rowById);
+                    height = chipLayout.height;
+                } else height = SUBROW_STRIDE;
             } else {
                 // audio は track（ref）ごとに独立した帯として積む。narration / BGM も v2 item を
                 // 読んだ投影形では実 track ref を持つため、その ref の帯だけへ乗せる。
@@ -8542,7 +8577,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 layerTracks.push(layout);
             } else if (timelineTrack.kind === 'overlays') {
                 this.overlayTrackLayouts.push({ ...layout, rows: [] });
-            } else if (timelineTrack.kind === 'captions') {
+            } else if (timelineTrack.kind === 'captions' && timelineTrack.id !== PLACED_TEXT_TRACK_ID) {
                 captions = layout;
             } else {
                 audioTracks.push(layout);
@@ -8610,9 +8645,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
      * その時点の this.captions / this.timelineTracks の最新値から毎回作り直す。
      */
     protected computeCaptionsDisplayTrack(): void {
-        this.displayTimelineTracks = withCaptionsDisplaySupplement(
-            this.displayTimelineTracks, this.captions.length > 0
-        );
+        this.displayTimelineTracks = withPlacedTextDisplayTrack(withCaptionsDisplaySupplement(
+            this.displayTimelineTracks, this.captions.some(caption => caption.timeDomain !== 'output')
+        ), this.captions.some(caption => caption.timeDomain === 'output'));
     }
 
     /**
@@ -9036,9 +9071,16 @@ export class AkariAnnotationsWidget extends BaseWidget {
         }
 
         const excludedCaptionIds = collectExcludedCaptionIds({ tracks: this.timelineTreeTracks });
+        const placedColorById = new Map(this.captions.filter(caption => caption.timeDomain === 'output')
+            .map(caption => caption.id).sort().map((id, index) =>
+                [id, PLACED_TEXT_COLORS[index % PLACED_TEXT_COLORS.length]] as const));
         this.captions.forEach(caption => {
             if (excludedCaptionIds.has(caption.id)) return;
-            const captionTrackLayout = this.trackLayout('captions', 0);
+            const placedText = caption.timeDomain === 'output';
+            const captionTrackLayout = placedText
+                ? this.laneLayout.tracks.find(layout => layout.id === PLACED_TEXT_TRACK_ID)
+                : this.laneLayout.tracks.find(layout => layout.kind === 'captions'
+                    && layout.id !== PLACED_TEXT_TRACK_ID);
             const captionLayout = this.captionLayouts.get(caption.id);
             if (!captionTrackLayout || !captionLayout) {
                 // output 区間を持たない（削除区間へ完全に落ちた）字幕はレイアウト計算時に除外済み。
@@ -9048,9 +9090,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
             if (!this.isRangeMounted(outputStart, outputEnd)) {
                 return;
             }
-            const top = captionTrackLayout.top;
+            const top = captionTrackLayout.top + (placedText
+                ? (this.placedTextRows.get(caption.id) ?? 0) * SUBROW_STRIDE : 0);
             const captionDisplayCues = this.captionDisplayCuesBySource.get(caption.id) ?? [];
-            const blocks = captionFragmentBreaksVisible
+            const blocks = !placedText && captionFragmentBreaksVisible
                 ? captionFragmentBlocks(captionDisplayCues) : [];
             const { element, created } = this.keyedStripSegment(
                 `caption:${caption.id}`, JSON.stringify({ caption, captionFragmentBreaksVisible, captionDisplayCues }),
@@ -9061,6 +9104,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
             element.dataset.akariItemId = caption.id;
             this.installVisualHover(element);
             element.dataset.akariLane = captionTrackLayout.id ?? 'captions';
+            element.classList.toggle('akari-annotations-placed-text', placedText);
+            if (placedText) {
+                element.style.setProperty('--akari-placed-text-color', placedColorById.get(caption.id)!);
+            }
             const treeRow = this.captionTreeRow(caption.id);
             if (treeRow) element.dataset.akariTreeRowId = treeRow.id;
             element.style.opacity = this.captionsVisible ? '' : '.28';
@@ -9089,7 +9136,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                         element.appendChild(fragment);
                     }
                 } else {
-                    const folded = captionFragmentBreaksVisible && captionDisplayCues.length === 1
+                    const folded = !placedText && captionFragmentBreaksVisible && captionDisplayCues.length === 1
                         && Array.isArray(captionDisplayCues[0].display_lines)
                         && captionDisplayCues[0].display_lines!.length >= 2;
                     const label = this.captionLabel(`${caption.text}${folded ? ' ⏎' : ''}`);
@@ -10774,7 +10821,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             if (!layout) {
                 return;
             }
-            const name = track.label || autoNames.get(track.id) || '';
+            const name = track.id === PLACED_TEXT_TRACK_ID ? '文字' : track.label || autoNames.get(track.id) || '';
             const iconKind = this.trackIconKind(track.kind);
             let visible = true;
             let audible = true;
@@ -10857,7 +10904,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     ...(track.kind === 'captions' ? [this.captionFragmentBreaksVisible()] : [])]),
                 () => this.trackHeaderRow(
                     name, iconKind, track.id, layout.top, layout.height,
-                    visible, toggleVisibility, audible, toggleMute, layout.track, track
+                    visible, toggleVisibility, audible, toggleMute, layout.track, track,
+                    track.id === PLACED_TEXT_TRACK_ID
                 )
             );
             header.style.top = `${layout.top}px`;
@@ -11090,7 +11138,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
         audible: boolean,
         toggleMute: () => void,
         track?: number,
-        timelineTrack?: EditTimelineTrack
+        timelineTrack?: EditTimelineTrack,
+        displayOnly = false
     ): HTMLDivElement {
         const row = document.createElement('div');
         row.className = 'akari-track-header-row';
@@ -11110,9 +11159,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
         icon.innerHTML = this.trackKindSvg(kind);
         const nameElement = document.createElement('span');
         nameElement.className = 'akari-track-header-name';
-        nameElement.textContent = timelineTrack && this.timelineTrackItemCount(timelineTrack) === 0
+        nameElement.textContent = timelineTrack && !displayOnly && this.timelineTrackItemCount(timelineTrack) === 0
             ? `${name} (空)` : name;
         row.append(icon, nameElement);
+        if (displayOnly) return row;
         if (timelineTrack) {
             const target = document.createElement('button');
             target.type = 'button';
@@ -11531,6 +11581,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
         const row = this.expandedTimelineTreeRows.find(candidate => candidate.id === itemId);
         if (row) return row.trackId;
         if (this.captions.some(caption => caption.id === itemId)) {
+            if (this.captions.find(caption => caption.id === itemId)?.timeDomain === 'output') {
+                return PLACED_TEXT_TRACK_ID;
+            }
             return this.captionTreeRow(itemId)?.trackId
                 ?? this.displayTimelineTracks.find(track => track.kind === 'captions')?.id;
         }
@@ -15172,6 +15225,18 @@ export class AkariAnnotationsWidget extends BaseWidget {
             return;
         }
         try {
+            if (preview.originalTimeDomain === 'output') {
+                await this.withHistory('文字のタイミングを調整', async () => {
+                    await this.annotationsService.setCaptionTiming({
+                        captionsUri: location.captionsUri.toString(),
+                        projectRootUri: location.root.toString(), captionId: preview.id,
+                        start: preview.start, end: preview.end, edited: true
+                    });
+                });
+                await this.reloadCaptions();
+                this.footer.textContent = '文字のタイミングを調整しました。';
+                return;
+            }
             const before = (await this.fileService.readFile(location.captionsUri)).value.toString();
             const after = setCaptionTimingLine(before, preview.id, preview.start, preview.end,
                 preview.storedTimeDomain ?? null, true);
@@ -16581,7 +16646,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected async openTimelineClipContextMenu(event: MouseEvent, element: HTMLElement): Promise<void> {
         event.preventDefault();
         closeTimelineContextMenu();
-        const captionTreeRow = element.dataset.akariTreeRowId
+        const captionTreeRow = element.dataset.akariLane === PLACED_TEXT_TRACK_ID ? undefined
+            : element.dataset.akariTreeRowId
             ? this.expandedTimelineTreeRows.find(row => row.id === element.dataset.akariTreeRowId) : undefined;
         const item: TimelineSelectionItem | undefined = captionTreeRow ? {
             kind: 'item', id: captionTreeRow.id, itemKind: captionTreeRow.itemKind,

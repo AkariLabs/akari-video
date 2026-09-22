@@ -1,4 +1,3 @@
-import { PLACED_TEXT_OVERLAP_NOTICE } from '../common/place-text';
 import { injectable } from '@theia/core/shared/inversify';
 import URI from '@theia/core/lib/common/uri';
 import { writeAtomic, writeProjectFilesGuarded } from '@akari-video/edit-store/lib/write-gate';
@@ -1435,14 +1434,6 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         } catch (error) {
             if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
             source = '{"captions": []}\n';
-        }
-        if (request.caption.timeDomain === 'output') {
-            const root = JSON.parse(source);
-            const captions = Array.isArray(root) ? root : root.captions;
-            if (captions.some((caption: { time_domain?: string; start: number; end: number }) =>
-                caption.time_domain === 'output' && caption.start < request.caption.end && request.caption.start < caption.end)) {
-                throw new Error(PLACED_TEXT_OVERLAP_NOTICE);
-            }
         }
         const updated = insertCaptionLine(source, request.caption);
         await this.writeProjectFileGuarded(captionsPath, updated);

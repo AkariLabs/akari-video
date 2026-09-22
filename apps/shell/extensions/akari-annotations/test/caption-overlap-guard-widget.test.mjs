@@ -36,8 +36,8 @@ test('止まったことはドラッグ表示に出し、ゴーストは赤に�
     assert.match(branch, /this\.setGhostSnapped\(state\.ghost, snapped && !blockedByNeighbor\)/);
 });
 
-test('隣の字幕は lint と同じ時間群で選ぶ（output 同士 / 同じ src 同士・自分は除く）', () => {
+test('置いた文字には隣接ガードを掛けず、話した言葉は同じ src のみ見る', () => {
     const helper = between(widget, 'protected captionOverlapNeighbors(', 'protected captionRangeToOutputRanges(');
-    assert.match(helper, /candidate\.id !== captionId && candidate\.timeDomain === 'output'/);
+    assert.match(helper, /if \(timeDomain === 'output'\) return \[\];/);
     assert.match(helper, /candidate\.timeDomain !== 'output'[\s\S]*this\.captionSourceForMapping\(candidate\.id\) === source/);
 });

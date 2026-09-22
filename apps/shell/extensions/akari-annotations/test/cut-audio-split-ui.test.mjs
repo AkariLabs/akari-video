@@ -39,6 +39,7 @@ const dependencies = {
     ...kernel, ...mutations, isTrackLocked, lockedTrackMessage, audioClipFxFieldsForSnapshot, updateAudioClipFxDocument,
     removeV2Item: mutations.removeItem, updateV2Item: mutations.updateItem,
     moveV2ItemToNewTrack: mutations.moveItemToNewTrack, MINIMUM_ITEM_DURATION: 0.15,
+    PLACED_TEXT_TRACK_ID: 't-placed-text-display',
     removeCaptionLine: require('../lib/common/caption-store.js').removeCaptionLine,
     buildTimelineClipMenuItems, withAudioTrimMenuItem,
     openTimelineContextMenu: options => { openedMenu = options; },

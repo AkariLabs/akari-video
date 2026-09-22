@@ -1,0 +1,239 @@
+{
+  "after-two-output": {
+    "label": "after-two-output",
+    "captions": [
+      {
+        "id": "c-0001",
+        "start": 0,
+        "end": 2.5,
+        "time_domain": null,
+        "text": "今日は朝のルーティンを紹介します"
+      },
+      {
+        "id": "c-0002",
+        "start": 3,
+        "end": 5.5,
+        "time_domain": null,
+        "text": "まずはコーヒーを淹れるところから"
+      },
+      {
+        "id": "c-0003",
+        "start": 6,
+        "end": 8.5,
+        "time_domain": null,
+        "text": "豆は挽きたてが一番おいしい"
+      },
+      {
+        "id": "c-0004",
+        "start": 9,
+        "end": 11.5,
+        "time_domain": null,
+        "text": "お湯は少し冷ましてから注ぎます"
+      },
+      {
+        "id": "c-0101",
+        "start": 3,
+        "end": 6,
+        "time_domain": "output",
+        "text": "置いた文字 1"
+      },
+      {
+        "id": "c-0102",
+        "start": 3,
+        "end": 6,
+        "time_domain": "output",
+        "text": "置いた文字 2"
+      }
+    ],
+    "lint": {
+      "exit": 0,
+      "verdict": "pass",
+      "errors": [],
+      "warnings": [
+        "geometry.fit-compat"
+      ]
+    },
+    "policy": {
+      "lint": {
+        "exit": 0,
+        "verdict": "pass",
+        "errors": [],
+        "warnings": [
+          "geometry.fit-compat"
+        ]
+      },
+      "renderCut": {
+        "mode": "plan-only",
+        "exit": 0,
+        "seconds": 0.4,
+        "overlappingDisplayCues": false,
+        "tail": [
+          "PLAN: <machine-path> (12s)"
+        ]
+      }
+    }
+  },
+  "after-spoken-overlap": {
+    "label": "after-spoken-overlap",
+    "captions": [
+      {
+        "id": "c-0001",
+        "start": 0,
+        "end": 2.5,
+        "time_domain": null,
+        "text": "今日は朝のルーティンを紹介します"
+      },
+      {
+        "id": "c-0002",
+        "start": 3,
+        "end": 6.5,
+        "time_domain": null,
+        "text": "まずはコーヒーを淹れるところから"
+      },
+      {
+        "id": "c-0003",
+        "start": 6,
+        "end": 8.5,
+        "time_domain": null,
+        "text": "豆は挽きたてが一番おいしい"
+      },
+      {
+        "id": "c-0004",
+        "start": 9,
+        "end": 11.5,
+        "time_domain": null,
+        "text": "お湯は少し冷ましてから注ぎます"
+      }
+    ],
+    "lint": {
+      "exit": 1,
+      "verdict": "fail",
+      "errors": [
+        {
+          "check": "captions.overlap",
+          "message": "caption overlaps c-0002 on the same track"
+        }
+      ],
+      "warnings": [
+        "geometry.fit-compat"
+      ]
+    },
+    "policy": {
+      "lint": {
+        "exit": 1,
+        "verdict": "fail",
+        "errors": [
+          {
+            "check": "captions.display-policy",
+            "message": "single_line_sequential display cues overlap: c-0002-occ-0001-part-1 and c-0003-occ-0001-part-1"
+          },
+          {
+            "check": "captions.overlap",
+            "message": "caption overlaps c-0002 on the same track"
+          }
+        ],
+        "warnings": [
+          "geometry.fit-compat"
+        ]
+      },
+      "renderCut": {
+        "mode": "plan-only",
+        "exit": 2,
+        "seconds": 0.7,
+        "overlappingDisplayCues": true,
+        "tail": [
+          "render-cut execution error: single_line_sequential display cues overlap: c-0002-occ-0001-part-1 and c-0003-occ-0001-part-1"
+        ]
+      }
+    }
+  },
+  "after-export": {
+    "label": "after-export",
+    "captions": [
+      {
+        "id": "c-0001",
+        "start": 0,
+        "end": 2.5,
+        "time_domain": null,
+        "text": "今日は朝のルーティンを紹介します"
+      },
+      {
+        "id": "c-0002",
+        "start": 3,
+        "end": 5.5,
+        "time_domain": null,
+        "text": "まずはコーヒーを淹れるところから"
+      },
+      {
+        "id": "c-0003",
+        "start": 6,
+        "end": 8.5,
+        "time_domain": null,
+        "text": "豆は挽きたてが一番おいしい"
+      },
+      {
+        "id": "c-0004",
+        "start": 9,
+        "end": 11.5,
+        "time_domain": null,
+        "text": "お湯は少し冷ましてから注ぎます"
+      },
+      {
+        "id": "c-0101",
+        "start": 3,
+        "end": 6,
+        "time_domain": "output",
+        "text": "置いた文字 1"
+      },
+      {
+        "id": "c-0102",
+        "start": 3,
+        "end": 6,
+        "time_domain": "output",
+        "text": "置いた文字 2"
+      },
+      {
+        "id": "c-0103",
+        "start": 3,
+        "end": 6,
+        "time_domain": "output",
+        "text": "置いた文字 3"
+      }
+    ],
+    "lint": {
+      "exit": 0,
+      "verdict": "pass",
+      "errors": [],
+      "warnings": [
+        "geometry.fit-compat"
+      ]
+    },
+    "policy": {
+      "lint": {
+        "exit": 0,
+        "verdict": "pass",
+        "errors": [],
+        "warnings": [
+          "geometry.fit-compat"
+        ]
+      },
+      "renderCut": {
+        "mode": "render",
+        "exit": 0,
+        "seconds": 6,
+        "overlappingDisplayCues": false,
+        "tail": [
+          "PROGRESS preview=300 path=<machine-path>",
+          "PROGRESS frame=330 total=360",
+          "PROGRESS preview=330 path=<machine-path>",
+          "PROGRESS frame=360 total=360",
+          "WARN verify.audio-level: 音声の宣言が無い無音トラック（-91 dB）",
+          "PASS: exports/out.mp4",
+          "[OpenH264] this = 0x0x10c05247050, Warning:bEnableFrameSkip = 0,bitrate can't be controlled for RC_QUALITY_MODE,RC_BITRATE_MODE and RC_TIMESTAMP_MODE without enabling skip frame.",
+          "sysctlbyname for kern.hv_vmm_present failed with status -1"
+        ]
+      },
+      "frame": "after-05-export-frame-4s.png"
+    }
+  }
+}

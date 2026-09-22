@@ -1,0 +1,381 @@
+{
+  "status": "pass",
+  "checks": [
+    {
+      "name": "話した言葉がある時刻（3〜6 秒）に置いた文字を 3 本置ける",
+      "pass": true,
+      "detail": {
+        "commandResults": [
+          "c-0005",
+          "c-0006",
+          "c-0007"
+        ],
+        "rows": [
+          {
+            "id": "c-0005",
+            "start": 3,
+            "end": 6,
+            "time_domain": "output",
+            "text": "置いた文字 1"
+          },
+          {
+            "id": "c-0006",
+            "start": 3,
+            "end": 6,
+            "time_domain": "output",
+            "text": "置いた文字 2"
+          },
+          {
+            "id": "c-0007",
+            "start": 3,
+            "end": 6,
+            "time_domain": "output",
+            "text": "置いた文字 3"
+          }
+        ]
+      }
+    },
+    {
+      "name": "「文字」行が「字幕」行の直上に出て、「字幕」行には話した言葉だけ・3 本は重ならない段に詰まる",
+      "pass": true,
+      "detail": {
+        "labels": [
+          {
+            "text": "文字",
+            "cls": "akari-track-header-name",
+            "top": 685.1,
+            "height": 16.5,
+            "visible": true
+          },
+          {
+            "text": "字幕",
+            "cls": "akari-track-header-name",
+            "top": 735.1,
+            "height": 16.5,
+            "visible": true
+          }
+        ],
+        "placed": [
+          {
+            "id": "c-0005",
+            "lane": "t-placed-text-display",
+            "left": 334.1,
+            "top": 656.9,
+            "width": 134.1,
+            "height": 22,
+            "text": "置いた文字 1",
+            "bg": "color(srgb 0.219608 0.741176 0.972549 / 0.68)",
+            "border": "rgb(204, 204, 204)",
+            "cls": "akari-annotations-placed-text akari-annotations-strip-hit-target"
+          },
+          {
+            "id": "c-0006",
+            "lane": "t-placed-text-display",
+            "left": 334.1,
+            "top": 680.9,
+            "width": 134.1,
+            "height": 22,
+            "text": "置いた文字 2",
+            "bg": "color(srgb 0.984314 0.572549 0.235294 / 0.68)",
+            "border": "rgb(204, 204, 204)",
+            "cls": "akari-annotations-placed-text akari-annotations-strip-hit-target"
+          },
+          {
+            "id": "c-0007",
+            "lane": "t-placed-text-display",
+            "left": 334.1,
+            "top": 704.9,
+            "width": 134.1,
+            "height": 22,
+            "text": "置いた文字 3",
+            "bg": "color(srgb 0.654902 0.545098 0.980392 / 0.68)",
+            "border": "rgb(251, 146, 60)",
+            "cls": "akari-annotations-placed-text akari-annotations-strip-hit-target akari-annotations-selected akari-annotations-caption-selected"
+          }
+        ],
+        "spoken": [
+          {
+            "id": "c-0001",
+            "lane": "v-captions",
+            "top": 730.9
+          },
+          {
+            "id": "c-0002",
+            "lane": "v-captions",
+            "top": 730.9
+          },
+          {
+            "id": "c-0003",
+            "lane": "v-captions",
+            "top": 730.9
+          },
+          {
+            "id": "c-0004",
+            "lane": "v-captions",
+            "top": 730.9
+          }
+        ],
+        "placedTops": [
+          656.9,
+          680.9,
+          704.9
+        ],
+        "overlappingPairs": 0
+      }
+    },
+    {
+      "name": "チップの色は台本と同じ置いた文字の色（id 順で循環）・文言はテキストの先頭",
+      "pass": true,
+      "detail": {
+        "ids": [
+          "c-0005",
+          "c-0006",
+          "c-0007"
+        ],
+        "bg": [
+          "color(srgb 0.219608 0.741176 0.972549 / 0.68)",
+          "color(srgb 0.984314 0.572549 0.235294 / 0.68)",
+          "color(srgb 0.654902 0.545098 0.980392 / 0.68)"
+        ],
+        "colorVars": [
+          "var(--theia-akariTheme-placedTextBlue, #38bdf8)",
+          "var(--theia-akariTheme-placedTextOrange, #fb923c)",
+          "var(--theia-akariTheme-placedTextViolet, #a78bfa)"
+        ],
+        "text": [
+          "置いた文字 1",
+          "置いた文字 2",
+          "置いた文字 3"
+        ]
+      }
+    },
+    {
+      "name": "プレビュー（4 秒）に置いた文字 3 本 + 話した言葉 1 本",
+      "pass": true,
+      "detail": [
+        {
+          "id": "caption-plate-c-0002-output-1",
+          "text": "まずはコーヒーを淹れるところから",
+          "cx": 374,
+          "cy": 370
+        },
+        {
+          "id": "caption-plate-c-0005",
+          "text": "置いた文字 1",
+          "cx": 441,
+          "cy": 222
+        },
+        {
+          "id": "caption-plate-c-0006",
+          "text": "置いた文字 2",
+          "cx": 441,
+          "cy": 222
+        },
+        {
+          "id": "caption-plate-c-0007",
+          "text": "置いた文字 3",
+          "cx": 441,
+          "cy": 222
+        }
+      ]
+    },
+    {
+      "name": "チップをクリック → プレビューの選択と同期",
+      "pass": true,
+      "detail": {
+        "clicked": "c-0006",
+        "previewSelected": [
+          "caption-plate-c-0006"
+        ]
+      }
+    },
+    {
+      "name": "ドラッグで時刻移動（長さ・time_domain 不変）→ Cmd+Z 1 手で byte 一致",
+      "pass": true,
+      "detail": {
+        "moved": {
+          "start": 5.006756756756756,
+          "end": 8.006756756756756,
+          "time_domain": "output"
+        },
+        "undoByteEqual": true
+      }
+    },
+    {
+      "name": "端を掴んで長さ変更（start 不変・time_domain 不変）→ Cmd+Z 1 手で byte 一致",
+      "pass": true,
+      "detail": {
+        "resized": {
+          "start": 3,
+          "end": 7.337837837837838,
+          "time_domain": "output"
+        },
+        "undoByteEqual": true
+      }
+    },
+    {
+      "name": "右クリック →「複製」→ Cmd+Z 1 手で byte 一致",
+      "pass": true,
+      "detail": {
+        "menu": [
+          {
+            "id": "copy",
+            "label": "コピー",
+            "disabled": false
+          },
+          {
+            "id": "cut",
+            "label": "切り取り",
+            "disabled": false
+          },
+          {
+            "id": "paste",
+            "label": "貼り付け",
+            "disabled": true
+          },
+          {
+            "id": "duplicate",
+            "label": "複製",
+            "disabled": false
+          },
+          {
+            "id": "annotate",
+            "label": "注釈…",
+            "disabled": false
+          },
+          {
+            "id": "delete",
+            "label": "削除",
+            "disabled": false
+          }
+        ],
+        "outputRowsAfter": [
+          {
+            "id": "c-0005",
+            "start": 3,
+            "end": 6,
+            "time_domain": "output",
+            "text": "置いた文字 1"
+          },
+          {
+            "id": "c-0006",
+            "start": 3,
+            "end": 6,
+            "time_domain": "output",
+            "text": "置いた文字 2"
+          },
+          {
+            "id": "c-0007",
+            "start": 3,
+            "end": 6,
+            "time_domain": "output",
+            "text": "置いた文字 3"
+          },
+          {
+            "id": "c-0008",
+            "start": 3,
+            "end": 6,
+            "time_domain": "output",
+            "text": "置いた文字 2"
+          }
+        ],
+        "placedChipsAfter": [
+          {
+            "id": "c-0005",
+            "top": 655.9,
+            "left": 334.1
+          },
+          {
+            "id": "c-0006",
+            "top": 679.9,
+            "left": 334.1
+          },
+          {
+            "id": "c-0007",
+            "top": 703.9,
+            "left": 334.1
+          },
+          {
+            "id": "c-0008",
+            "top": 727.9,
+            "left": 334.1
+          }
+        ],
+        "undoByteEqual": true
+      }
+    },
+    {
+      "name": "右クリック →「削除」→ Cmd+Z 1 手で byte 一致",
+      "pass": true,
+      "detail": {
+        "menu": [
+          {
+            "id": "copy",
+            "label": "コピー",
+            "disabled": false
+          },
+          {
+            "id": "cut",
+            "label": "切り取り",
+            "disabled": false
+          },
+          {
+            "id": "paste",
+            "label": "貼り付け",
+            "disabled": true
+          },
+          {
+            "id": "duplicate",
+            "label": "複製",
+            "disabled": false
+          },
+          {
+            "id": "annotate",
+            "label": "注釈…",
+            "disabled": false
+          },
+          {
+            "id": "delete",
+            "label": "削除",
+            "disabled": false
+          }
+        ],
+        "outputRowsAfter": [
+          {
+            "id": "c-0005",
+            "start": 3,
+            "end": 6,
+            "time_domain": "output",
+            "text": "置いた文字 1"
+          },
+          {
+            "id": "c-0007",
+            "start": 3,
+            "end": 6,
+            "time_domain": "output",
+            "text": "置いた文字 3"
+          }
+        ],
+        "placedChipsAfter": [
+          {
+            "id": "c-0005",
+            "top": 668.9,
+            "left": 334.1
+          },
+          {
+            "id": "c-0007",
+            "top": 692.9,
+            "left": 334.1
+          }
+        ],
+        "undoByteEqual": true
+      }
+    }
+  ],
+  "screenshots": [
+    "after-01-placed-text-row.png",
+    "after-02-context-menu-duplicate.png",
+    "after-03-context-menu-delete.png",
+    "after-04-after-undo.png"
+  ]
+}

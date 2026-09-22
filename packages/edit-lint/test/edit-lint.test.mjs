@@ -1302,6 +1302,23 @@ test("captions overlap remains an error within the same source", async () => {
   });
 });
 
+test("output captions may overlap and be unordered while source overlap still fails", async () => {
+  await withFixtures(async (fixtures) => {
+    const project = join(fixtures, "v1-valid");
+    const rows = [
+      { id: "c-0001", start: 2, end: 5, text: "置いた文字 A", time_domain: "output" },
+      { id: "c-0002", start: 1, end: 4, text: "置いた文字 B", time_domain: "output" },
+    ];
+    await writeFile(join(project, "captions.json"), `${JSON.stringify(rows)}\n`);
+    const outputFindings = parseResult(run(project)).findings;
+    assert.equal(outputFindings.filter(finding => ["captions.overlap", "captions.order"].includes(finding.check)).length, 0);
+    rows.push({ id: "c-0003", start: 1, end: 4, text: "話した言葉", time_domain: "source" });
+    rows.push({ id: "c-0004", start: 2, end: 5, text: "話した言葉 2", time_domain: "source" });
+    await writeFile(join(project, "captions.json"), `${JSON.stringify(rows)}\n`);
+    assert.equal(parseResult(run(project)).findings.filter(finding => finding.check === "captions.overlap").length, 1);
+  });
+});
+
 test("captions overlap remains an error for array-root captions without src", async () => {
   await withFixtures(async (fixtures) => {
     const project = join(fixtures, "captions-overlap-adjacent-valid");

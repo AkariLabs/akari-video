@@ -40,6 +40,7 @@ style/emphasis conflicts; non-NFC or trimmed text; invalid manual fragments; unr
 overlap; and reference/output aspect mismatch. A resolved production render stores
 `.akari/reports/caption-layout/<payload-sha256>.json`, including Node/ICU provenance and the boundary
 projection digest, and its immutable render receipt references the file and summary.
+Captions with `time_domain: "output"` (placed text) are exempt from overlap and order checks; any number may share the same time (2026-09-22 decision). Source-domain captions retain their per-source checks.
 
 Under `display_policy`, an omitted `captions[].style` remains valid. The known word-display styles
 `karaoke`, `pop`, `reveal`, and `reveal-word` remain `STYLE_CONFLICT` errors, while any other value is

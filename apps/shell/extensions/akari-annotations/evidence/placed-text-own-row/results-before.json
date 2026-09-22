@@ -1,0 +1,87 @@
+{
+  "status": "pass",
+  "checks": [
+    {
+      "name": "(a) 1 本目のチップが「字幕」行の話した言葉のチップと重なる",
+      "pass": true,
+      "detail": {
+        "commandResult": "c-0005",
+        "row": {
+          "id": "c-0005",
+          "start": 3,
+          "end": 6,
+          "time_domain": "output"
+        },
+        "placed": {
+          "id": "c-0005",
+          "lane": "v-captions",
+          "left": 334.1,
+          "top": 693.9,
+          "width": 134.1,
+          "height": 22,
+          "text": "置いた文字 1",
+          "bg": "rgba(245, 196, 81, 0.35)",
+          "border": "rgb(251, 146, 60)",
+          "cls": "akari-annotations-strip-hit-target akari-annotations-selected akari-annotations-caption-selected"
+        },
+        "spoken": {
+          "id": "c-0002",
+          "lane": "v-captions",
+          "left": 334.1,
+          "top": 693.9,
+          "width": 111.7,
+          "height": 22,
+          "text": "まずはコーヒーを淹れるところから",
+          "bg": "color(srgb 0.694118 0.501961 0.843137 / 0.68)",
+          "border": "rgb(204, 204, 204)",
+          "cls": "akari-annotations-strip-hit-target"
+        },
+        "sameTop": true,
+        "rowLabels": [
+          {
+            "text": "字幕",
+            "cls": "akari-track-header-name",
+            "top": 698.1,
+            "height": 16.5,
+            "visible": true
+          }
+        ]
+      }
+    },
+    {
+      "name": "(b) 同じ時刻の 2 本目は「同じ時間に置いた文字が既にあります」で入らない",
+      "pass": true,
+      "detail": {
+        "commandResult": null,
+        "thrown": null,
+        "notices": [
+          "同じ時間に置いた文字が既にあります"
+        ],
+        "captionsUnchanged": true,
+        "outputRows": 1
+      }
+    },
+    {
+      "name": "プレビュー（参考）",
+      "pass": true,
+      "detail": [
+        {
+          "id": "caption-plate-c-0002-output-1",
+          "text": "まずはコーヒーを淹れるところから",
+          "cx": 374,
+          "cy": 370
+        },
+        {
+          "id": "caption-plate-c-0005",
+          "text": "置いた文字 1",
+          "cx": 441,
+          "cy": 222
+        }
+      ]
+    }
+  ],
+  "screenshots": [
+    "before-01-chip-overlaps-spoken.png",
+    "before-02-second-rejected.png"
+  ]
+}

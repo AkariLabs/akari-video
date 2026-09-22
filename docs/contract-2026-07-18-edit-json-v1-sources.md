@@ -83,6 +83,7 @@ source 秒アンカー規則の対象外である。
   `sourceT` または `sourceRange` と組にして source 座標を表す
 - `src` の省略は単一ソース互換を意味する
 - 字幕の重なり（`captions.overlap`）と並び順（`captions.order`）の判定は `src` ごとに行う
+- `time_domain: "output"` の行（置いた文字）は重なり・並び順の検査対象外（2026-09-22 裁定。置き物なので同時に何個あってもよい）
 
 analysis サイドカーは素材単位のままとし、構造は変更しない。参照時に `src` から source path を
 解決する。

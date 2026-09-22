@@ -1,0 +1,62 @@
+{
+  "label": "base",
+  "rowLabels": [
+    {
+      "text": "字幕",
+      "cls": "akari-track-header-name",
+      "top": 698.1,
+      "height": 16.5,
+      "visible": true
+    }
+  ],
+  "headers": [
+    {
+      "name": "字幕",
+      "top": 693.9,
+      "height": 24
+    },
+    {
+      "name": "Base",
+      "top": 719.9,
+      "height": 48
+    }
+  ],
+  "chips": [
+    {
+      "id": "c-0001",
+      "lane": "v-captions",
+      "left": 200,
+      "top": 693.9,
+      "width": 111.7,
+      "height": 22,
+      "bg": "color(srgb 0.694118 0.501961 0.843137 / 0.68)"
+    },
+    {
+      "id": "c-0002",
+      "lane": "v-captions",
+      "left": 334.1,
+      "top": 693.9,
+      "width": 111.7,
+      "height": 22,
+      "bg": "color(srgb 0.694118 0.501961 0.843137 / 0.68)"
+    },
+    {
+      "id": "c-0003",
+      "lane": "v-captions",
+      "left": 468.2,
+      "top": 693.9,
+      "width": 111.7,
+      "height": 22,
+      "bg": "color(srgb 0.694118 0.501961 0.843137 / 0.68)"
+    },
+    {
+      "id": "c-0004",
+      "lane": "v-captions",
+      "left": 602.3,
+      "top": 693.9,
+      "width": 111.7,
+      "height": 22,
+      "bg": "color(srgb 0.694118 0.501961 0.843137 / 0.68)"
+    }
+  ]
+}

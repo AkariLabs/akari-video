@@ -324,13 +324,14 @@ function resolveCaptionDisplay(captionsRoot, edit, options = {}) {
         });
     }
     displayCues.sort(compareDisplayCue);
-    // Match lint's time groups. Fragment scheduling above is per occurrence and
-    // therefore independent of cues in another source/output time domain.
+    // Spoken captions retain source-group overlap checks. Placed text may overlap freely.
     const groupByCaption = new Map(captions.map(caption => [caption.id,
-        caption.time_domain === 'output' ? 'output' : 'source:' + (caption.src ?? '')]));
+        caption.time_domain === 'output' ? undefined : 'source:' + (caption.src ?? '')]));
     const previousByGroup = new Map();
     for (const cue of displayCues) {
         const group = groupByCaption.get(cue.source_cue_id);
+        if (group === undefined)
+            continue;
         const previous = previousByGroup.get(group);
         if (previous && previous.end - cue.start > 0.000001) {
             fail('OVERLAPPING_DISPLAY_CUES', `single_line_sequential display cues overlap: ${previous.id} and ${cue.id}`);

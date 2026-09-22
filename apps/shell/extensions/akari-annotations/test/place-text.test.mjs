@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL, fileURLToPath } from 'node:url';
 import ts from 'typescript';
-import { placeTextCaption, nextDaihonCaptionId, PLACED_TEXT_OVERLAP_NOTICE } from '../lib/common/place-text.js';
+import { placeTextCaption, nextDaihonCaptionId } from '../lib/common/place-text.js';
 import { AkariAnnotationsServiceImpl } from '../lib/node/akari-annotations-service.js';
 import { parseCaptions, readInternalEdit, toAnchorCaptions, timelineDurationSeconds } from '@akari-video/edit-store';
 
@@ -101,25 +101,47 @@ test('overlapping spoken captions are allowed; undo preserves the original bytes
     assert.equal(await readFile(f.captionsPath, 'utf8'), before);
 });
 
-test('same output group overlap is rejected before write, shown to the user, and adds no undo entry', async t => {
+test('same output group overlap is inserted and one undo restores original bytes', async t => {
     const before = JSON.stringify([{ id: 'c-0001', start: 1, end: 5, text: '既存', time_domain: 'output', sourceRef: null, speaker: null, edited: true }]);
     const f = await fixture(t, before);
-    assert.equal(await f.widget.placeText(), undefined);
-    assert.deepEqual(f.warnings, [PLACED_TEXT_OVERLAP_NOTICE]);
-    assert.deepEqual(f.notices, [], 'do not show a second timeline notice');
-    assert.equal(f.service.writes.length, 0);
-    assert.equal(f.history.length, 0);
+    assert.equal(await f.widget.placeText(), 'c-0002', f.warnings.join(' / '));
+    assert.equal(JSON.parse(await readFile(f.captionsPath, 'utf8')).length, 2);
+    assert.equal(f.history.length, 1);
+    await f.history[0].undo();
     assert.equal(await readFile(f.captionsPath, 'utf8'), before);
-    assert.equal(await f.widget.placeText({ start: 5, end: 7 }), 'c-0002');
 });
 
-test('service serializes concurrent insertions: only one overlapping output caption is written', async t => {
+test('service serializes concurrent insertions and keeps both overlapping output captions', async t => {
     const f = await fixture(t);
     const results = await Promise.allSettled([1, 2].map(i => f.service.insertCaption({ ...f.request,
         caption: { ...placeTextCaption({}, 0, 10, []), id: `c-000${i}` } })));
-    assert.equal(results.filter(result => result.status === 'fulfilled').length, 1);
-    assert.match(results.find(result => result.status === 'rejected').reason.message, /同じ時間/);
-    assert.equal(JSON.parse(await readFile(f.captionsPath, 'utf8')).captions.length, 1);
+    assert.equal(results.filter(result => result.status === 'fulfilled').length, 2);
+    assert.equal(JSON.parse(await readFile(f.captionsPath, 'utf8')).captions.length, 2);
+});
+
+test('removing placed text uses one snapshot undo and restores captions.json bytes', async t => {
+    const before = '{"captions":[{"id":"c-0001","start":1,"end":5,"text":"置いた文字","time_domain":"output","style_preset":"title-impact"}]}\n';
+    const f = await fixture(t, before);
+    await f.widget.withHistory('文字の削除', async () => {
+        await f.service.removeCaption({ ...f.request, captionId: 'c-0001' });
+    });
+    assert.equal(f.history.length, 1);
+    assert.equal(JSON.parse(await readFile(f.captionsPath, 'utf8')).captions.length, 0);
+    await f.history[0].undo();
+    assert.equal(await readFile(f.captionsPath, 'utf8'), before);
+});
+
+test('placed text timing preserves output domain and duration, with one byte-exact undo', async t => {
+    const before = '{"captions":[{"id":"c-0001","start":1,"end":4,"text":"置いた文字","time_domain":"output","edited":true}]}\n';
+    const f = await fixture(t, before);
+    await f.widget.withHistory('文字のタイミングを調整', async () => {
+        await f.service.setCaptionTiming({ ...f.request, captionId: 'c-0001', start: 2, end: 5, edited: true });
+    });
+    const moved = JSON.parse(await readFile(f.captionsPath, 'utf8')).captions[0];
+    assert.deepEqual([moved.start, moved.end, moved.time_domain], [2, 5, 'output']);
+    assert.equal(f.history.length, 1);
+    await f.history[0].undo();
+    assert.equal(await readFile(f.captionsPath, 'utf8'), before);
 });
 
 test('empty edit has a three second default, independent of the timeline display extent', async t => {

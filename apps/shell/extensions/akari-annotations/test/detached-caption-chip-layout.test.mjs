@@ -88,3 +88,15 @@ test('cuts 段では既存配置を変更せず baseHeight の直下へ caption 
   assert.equal(layout.rowById.get('cap-c-1'), 2);
   assert.equal(layout.height, 72);
 });
+
+test('置いた文字は重なりだけ段を増やし、空いた段を再利用する', () => {
+  const layout = assignDetachedCaptionChipSubRows([], [
+    row('a', { at: 0, duration: 2 }),
+    row('b', { at: 1, duration: 2 }),
+    row('c', { at: 2, duration: 2 }),
+  ], { baseHeight: 24, subrowStride: 24 });
+  assert.equal(layout.rowById.get('a'), layout.rowById.get('c'));
+  assert.notEqual(layout.rowById.get('a'), layout.rowById.get('b'));
+  assert.equal(layout.subrowCount, 2);
+  assert.equal(layout.height, 48);
+});

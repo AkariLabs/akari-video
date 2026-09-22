@@ -1,7 +1,6 @@
 import type { CaptionWritePayload } from './akari-annotations-protocol';
 
 export const PLACE_TEXT_COMMAND_ID = 'akari.caption.placeText';
-export const PLACED_TEXT_OVERLAP_NOTICE = '同じ時間に置いた文字が既にあります';
 
 export interface PlaceTextOptions {
     start?: number;

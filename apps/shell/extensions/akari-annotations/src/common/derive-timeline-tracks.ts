@@ -104,6 +104,21 @@ export function withCaptionsDisplaySupplement(
     return [...tracks, { id: 't-captions-implied', kind: 'captions' }];
 }
 
+/** captions.json の output 行だけを表示する仮想行。配列末尾ほど画面の上に出る。 */
+export const PLACED_TEXT_TRACK_ID = 't-placed-text-display';
+
+export function withPlacedTextDisplayTrack(
+    tracks: readonly EditTimelineTrack[], hasPlacedText: boolean
+): EditTimelineTrack[] {
+    const next = tracks.filter(track => track.id !== PLACED_TEXT_TRACK_ID);
+    if (!hasPlacedText) return next;
+    const captionIndex = next.findIndex(track => track.kind === 'captions');
+    next.splice(captionIndex < 0 ? next.length : captionIndex + 1, 0, {
+        id: PLACED_TEXT_TRACK_ID, kind: 'captions', label: '文字'
+    });
+    return next;
+}
+
 /**
  * R7-4・A/V/T 命名（2026-08-12、字幕レーンの自動命名を V 系から T 系へ分離）: トラック表示名を
  * グループ内連番 + 種別プレフィックスへ（音声 = A1, A2, …・字幕 = T1, T2, …・映像系

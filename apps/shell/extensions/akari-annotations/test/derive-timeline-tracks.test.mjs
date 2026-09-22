@@ -6,6 +6,8 @@ import {
   deriveDefaultTimelineTracks,
   withAudioDisplaySupplement,
   withCaptionsDisplaySupplement,
+  withPlacedTextDisplayTrack,
+  PLACED_TEXT_TRACK_ID,
 } from "../lib/common/derive-timeline-tracks.js";
 
 // captions.json あり + timeline 無し → captions レーン導出
@@ -78,6 +80,18 @@ test("withCaptionsDisplaySupplement is idempotent regardless of how many times i
   // captions.json が後から空になった場合、次の再計算では補完対象から外れる
   const clearedAfterReload = withCaptionsDisplaySupplement(explicitTracks, false);
   assert.equal(clearedAfterReload.some((track) => track.kind === "captions"), false);
+});
+
+test("placed text gets its own display row directly above spoken captions, only when present", () => {
+  const tracks = [{ id: 'video', kind: 'cuts' }, { id: 'spoken', kind: 'captions' }];
+  assert.deepEqual(withPlacedTextDisplayTrack(tracks, false), tracks);
+  assert.deepEqual(withPlacedTextDisplayTrack(tracks, true).map(track => track.id),
+    ['video', 'spoken', PLACED_TEXT_TRACK_ID]);
+  assert.deepEqual(withPlacedTextDisplayTrack([{ id: 'video', kind: 'cuts' }], true).map(track => track.id),
+    ['video', PLACED_TEXT_TRACK_ID]);
+  const placed = withPlacedTextDisplayTrack(tracks, true);
+  assert.deepEqual(withPlacedTextDisplayTrack(placed, true), placed);
+  assert.deepEqual(withPlacedTextDisplayTrack(placed, false), tracks);
 });
 
 // 命名: audio/captions/映像系の 3 分類

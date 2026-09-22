@@ -1072,7 +1072,7 @@ test('max_characters rejects non-positive integers and invalid types', () => {
   }
 });
 
-test('display overlap is checked independently for source ids and output domain', () => {
+test('display overlap is checked for source ids while output captions may overlap', () => {
   const edit = {
     output: { width: 1280, height: 720, fps: 30 },
     sources: [{ id: 'a' }, { id: 'b' }],
@@ -1090,6 +1090,6 @@ test('display overlap is checked independently for source ids and output domain'
     assert.deepEqual(combined.display_cues.filter(row => row.source_cue_id === cue.id), resolve([cue]).display_cues);
   }
   assert.throws(() => resolve([sourceA, { ...sourceA, id: 'overlap', start: 1 }]), { code: 'OVERLAPPING_DISPLAY_CUES' });
-  assert.throws(() => resolve([output, { ...output, id: 'overlap', src: 'b' }]), { code: 'OVERLAPPING_DISPLAY_CUES' });
+  assert.doesNotThrow(() => resolve([output, { ...output, id: 'overlap', src: 'b' }]));
   assert.doesNotThrow(() => resolve([sourceA, { ...sourceA, id: 'touch', start: 4, end: 6 }]));
 });

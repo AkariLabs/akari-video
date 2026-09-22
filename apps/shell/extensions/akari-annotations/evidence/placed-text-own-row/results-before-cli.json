@@ -1,0 +1,88 @@
+{
+  "label": "before",
+  "captions": [
+    {
+      "id": "c-0001",
+      "start": 0,
+      "end": 2.5,
+      "time_domain": null,
+      "text": "今日は朝のルーティンを紹介します"
+    },
+    {
+      "id": "c-0002",
+      "start": 3,
+      "end": 5.5,
+      "time_domain": null,
+      "text": "まずはコーヒーを淹れるところから"
+    },
+    {
+      "id": "c-0003",
+      "start": 6,
+      "end": 8.5,
+      "time_domain": null,
+      "text": "豆は挽きたてが一番おいしい"
+    },
+    {
+      "id": "c-0004",
+      "start": 9,
+      "end": 11.5,
+      "time_domain": null,
+      "text": "お湯は少し冷ましてから注ぎます"
+    },
+    {
+      "id": "c-0101",
+      "start": 3,
+      "end": 6,
+      "time_domain": "output",
+      "text": "置いた文字 1"
+    },
+    {
+      "id": "c-0102",
+      "start": 3,
+      "end": 6,
+      "time_domain": "output",
+      "text": "置いた文字 2"
+    }
+  ],
+  "lint": {
+    "exit": 1,
+    "verdict": "fail",
+    "errors": [
+      {
+        "check": "captions.overlap",
+        "message": "caption overlaps c-0101 on the same track"
+      }
+    ],
+    "warnings": [
+      "geometry.fit-compat"
+    ]
+  },
+  "policy": {
+    "lint": {
+      "exit": 1,
+      "verdict": "fail",
+      "errors": [
+        {
+          "check": "captions.display-policy",
+          "message": "single_line_sequential display cues overlap: c-0101-occ-0001-part-1 and c-0102-occ-0001-part-1"
+        },
+        {
+          "check": "captions.overlap",
+          "message": "caption overlaps c-0101 on the same track"
+        }
+      ],
+      "warnings": [
+        "geometry.fit-compat"
+      ]
+    },
+    "renderCut": {
+      "mode": "plan-only",
+      "exit": 2,
+      "seconds": 0.3,
+      "overlappingDisplayCues": true,
+      "tail": [
+        "render-cut execution error: single_line_sequential display cues overlap: c-0101-occ-0001-part-1 and c-0102-occ-0001-part-1"
+      ]
+    }
+  }
+}

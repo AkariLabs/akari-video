@@ -4046,11 +4046,13 @@ ${indent}`);
         displayCues.sort(compareDisplayCue);
         const groupByCaption = new Map(captions.map((caption) => [
           caption.id,
-          caption.time_domain === "output" ? "output" : "source:" + (caption.src ?? "")
+          caption.time_domain === "output" ? void 0 : "source:" + (caption.src ?? "")
         ]));
         const previousByGroup = /* @__PURE__ */ new Map();
         for (const cue of displayCues) {
           const group = groupByCaption.get(cue.source_cue_id);
+          if (group === void 0)
+            continue;
           const previous = previousByGroup.get(group);
           if (previous && previous.end - cue.start > 1e-6) {
             fail("OVERLAPPING_DISPLAY_CUES", `single_line_sequential display cues overlap: ${previous.id} and ${cue.id}`);
