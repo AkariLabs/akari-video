@@ -8,6 +8,9 @@ const STRUCTURAL_WORDS = new Set(['item', 'cut', 'seg', 'the', 'target', 'time',
 const DISPLAY_ALIASES = Object.freeze({
     bgm: ['BGM', '音楽'],
     logo: ['ロゴ'],
+    video: ['動画'],
+    captions: ['字幕'],
+    caption: ['字幕'],
     chart: ['チャート'],
     telop: ['テロップ'],
     point: ['ポイント'],
@@ -70,10 +73,32 @@ export function passesP2Partial(text, elementWords = []) {
 // getState は各途中経過で読み直す。source/context が差し替われば要素語も即座に変わる。
 export function createP2PartialPredicate(getState) {
     if (typeof getState !== 'function') throw new TypeError('getState is required');
-    return item => {
-        let state;
-        try { state = getState(); }
-        catch { return passesP2Partial(item?.text ?? item); }
-        return passesP2Partial(item?.text ?? item, projectElementWords(state));
+    const seenByOperation = new Map();
+    const matchingWords = item => {
+        let words = P2_FIXED_WORDS;
+        try { words = [...words, ...projectElementWords(getState())]; }
+        catch { /* 状態が読めないときは移動語だけで判定する */ }
+        const text = String(item?.text ?? item ?? '');
+        return words.filter(word => text.includes(word));
     };
+    const predicate = item => {
+        const words = matchingWords(item);
+        const id = item?.operationId;
+        const seen = seenByOperation.get(id) ?? new Set();
+        const fresh = words.some(word => !seen.has(word));
+        for (const word of words) seen.add(word);
+        if (words.length) seenByOperation.set(id, seen);
+        return fresh;
+    };
+    // 同じ語の伸長では既存の送信待ちを維持し、断片だけ最新に差し替える。
+    // 言い直しでその対象語が消えた場合は scheduler が待機を取り消す。
+    predicate.keepPending = (item, pending) => {
+        const current = new Set(matchingWords(item));
+        return matchingWords(pending).some(word => current.has(word));
+    };
+    predicate.reset = (...ids) => {
+        if (ids.length) seenByOperation.delete(ids[0]);
+        else seenByOperation.clear();
+    };
+    return predicate;
 }

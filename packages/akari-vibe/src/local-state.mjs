@@ -14,10 +14,20 @@ export function projectState({ edit, context, ctx, captions=[] }) {
     const segments = view(edit).segments;
     const T = ctx.playheadT ?? 0;
     const here = cutIndexAt(segments, T);
+    const locations = editStore.allLocations(edit);
     const label = (id) => context.labels[id] ?? id;
     const itemLabel = (it) => {
         const declared = context.labels[it.id], text = it.raw?.source.kind === 'telop' ? roleValue(it.raw,'text') : null;
         if (text != null) return declared ? declared.replace(/「[^」]*」/, `「${text}」`) : `入れた文字「${text}」`;
+        if (it.raw?.source?.kind === 'captions') return declared ?? '字幕（全体）';
+        const location = locations.find(({ item }) => item.id === it.itemId);
+        const trackName = typeof location?.track.name === 'string' ? Array.from(location.track.name.trim()).slice(0, 40).join('') : '';
+        if (it.raw?.source?.kind === 'media' && location?.track.lane === 'visual' && trackName) {
+            const peers = locations.filter(({ item, track }) => track === location.track && item.source?.kind === 'media')
+                .sort((a, b) => editStore.absoluteAt(a) - editStore.absoluteAt(b));
+            const clock = seconds => `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, '0')}`;
+            return `「${trackName}」の素材${peers.length > 1 ? ` ${peers.indexOf(location) + 1}（${clock(it.start)}〜${clock(it.end)}）` : ''}`;
+        }
         return label(it.id);
     };
 
@@ -26,14 +36,15 @@ export function projectState({ edit, context, ctx, captions=[] }) {
         return { key: `cut_${s.index + 1}`, n: s.index + 1, itemId: s.itemId, at: s.at, end: s.end, said, note: ORDINAL_NOTE(s.index, segments.length) };
     });
     const cutIds = new Set(segments.map(s => s.itemId));
-    const locations = editStore.allLocations(edit);
     const fixturePartsEnabled = locations.some(({ item }) => item.source?.kind === 'html');
     const partParentIds = new Set(Object.values(context.layout ?? {}).filter(value => value?.kind === 'html-part').map(value => value.parentId));
     const fixtureHtmlItems = Object.entries(context.layout ?? {}).filter(([, value]) => fixturePartsEnabled && value?.kind === 'html' && value.item).map(([id, value]) => {
         const item = structuredClone(value.item), start = item.at / edit.output.fps;
         return { id, itemId: item.id, start, end: start + item.duration / edit.output.fps, raw: { ...item, __fixtureItem: true } };
     });
-    const regularItems = [...locations.filter(({ item }) => !cutIds.has(item.id) && typeof item.source?.part !== 'string').map(location => {
+    // カットは番号で指定する候補。名前のある映像は素材としても出し、既存の問いが label を使えるようにする。
+    const regularItems = [...locations.filter(({ item, track }) => (!cutIds.has(item.id)
+            || (typeof track.name === 'string' && track.name.trim())) && typeof item.source?.part !== 'string').map(location => {
             const { item, track } = location, start = editStore.absoluteAt(location) / edit.output.fps;
             return { id: `item:${item.id}`, itemId: item.id, start, end: start + item.duration / edit.output.fps, audio: track.lane === 'audio', raw: item };
         }), ...fixtureHtmlItems.filter(candidate => !locations.some(({item}) => item.id === candidate.itemId))];

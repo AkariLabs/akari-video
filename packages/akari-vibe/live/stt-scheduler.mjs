@@ -7,6 +7,7 @@ export function createSttScheduler({
     onSkip = () => {},
     partialPredicate = () => true,
     completeGate = () => undefined,
+    maxPartialsPerOperation = Infinity,
     partialDelayMs = 600,
     initialPartialDelayMs = 250,
     clock = { now: () => Date.now(), setTimeout, clearTimeout },
@@ -14,6 +15,9 @@ export function createSttScheduler({
     if (typeof dispatch !== 'function') throw new TypeError('dispatch is required');
     if (typeof partialPredicate !== 'function') throw new TypeError('partialPredicate must be a function');
     if (typeof completeGate !== 'function') throw new TypeError('completeGate must be a function');
+    if (maxPartialsPerOperation !== Infinity && (!Number.isSafeInteger(maxPartialsPerOperation) || maxPartialsPerOperation < 0)) {
+        throw new TypeError('maxPartialsPerOperation must be a non-negative integer or Infinity');
+    }
     const operations = new Map();
     const queue = [];
     let inFlight = null;
@@ -22,7 +26,7 @@ export function createSttScheduler({
 
     const opState = (id) => {
         if (!operations.has(id)) operations.set(id, {
-            revision: 0, text: null, partialSent: false, lastPartialAt: -Infinity,
+            revision: 0, text: null, partialCount: 0, partialSent: false, lastPartialAt: -Infinity,
             timer: null, pending: null, evaluatedLite: new Set(), lastLite: null,
         });
         return operations.get(id);
@@ -47,10 +51,12 @@ export function createSttScheduler({
             const state = opState(item.operationId);
             item.stateKey = stateKey(); // 待ち行列の間に編集状態が変わった場合は、送信直前の状態を使う。
             if (item.kind === 'lite') {
+                if (state.partialCount >= maxPartialsPerOperation) { onSkip('partial-budget', item); continue; }
                 const key = `${item.text}\u0000${item.stateKey}`;
                 if (state.evaluatedLite.has(key)) { onSkip('same-lite', item); continue; }
             }
             inFlight = item;
+            if (item.kind === 'lite') state.partialCount += 1; // 実際の判断呼び出しだけ数える。
             const result = await dispatch(item) ?? {};
             if (item.kind === 'lite' && result.complete != null) {
                 state.evaluatedLite.add(`${item.text}\u0000${item.stateKey}`);
@@ -85,6 +91,9 @@ export function createSttScheduler({
         partial(raw) {
             const item = stamp({ ...raw, kind: 'lite', final: false });
             const state = opState(item.operationId);
+            if (state.partialCount >= maxPartialsPerOperation) {
+                onSkip('partial-budget', item); return null;
+            }
             if (hasUnsettledNumericTail(item.text)) {
                 if (state.timer) clock.clearTimeout(state.timer);
                 if (state.pending) onSkip('numeric-tail', state.pending);
@@ -92,6 +101,11 @@ export function createSttScheduler({
                 onSkip('numeric-tail', item); finishIdle(); return null;
             }
             if (!partialPredicate(item)) {
+                if (state.pending && partialPredicate.keepPending?.(item, state.pending)) {
+                    onSkip('superseded-lite', state.pending);
+                    state.pending = item;
+                    return item;
+                }
                 const cancelled = state.pending;
                 if (state.timer) clock.clearTimeout(state.timer);
                 state.timer = null; state.pending = null;
@@ -131,6 +145,7 @@ export function createSttScheduler({
         final(raw) {
             const item = stamp({ ...raw, kind: 'final', final: true, early: false });
             cancelPendingLite(item.operationId);
+            partialPredicate.reset?.(item.operationId);
             if (inFlight?.kind === 'early' && same(inFlight, item)) {
                 inFlight.promotedFinal = item;
                 onSkip('promoted-inflight-early', item);
@@ -149,9 +164,10 @@ export function createSttScheduler({
         reset() {
             for (const state of operations.values()) if (state.timer) clock.clearTimeout(state.timer);
             operations.clear(); queue.length = 0;
+            partialPredicate.reset?.();
             finishIdle();
         },
-        close(operationId) { cancelPendingLite(operationId); },
+        close(operationId) { cancelPendingLite(operationId); partialPredicate.reset?.(operationId); },
         idle() {
             if (!draining && !inFlight && !queue.length && ![...operations.values()].some(s => s.timer || s.pending)) return Promise.resolve();
             return new Promise(resolve => idleWaiters.push(resolve));

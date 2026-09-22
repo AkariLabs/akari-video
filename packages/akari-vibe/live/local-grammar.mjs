@@ -185,7 +185,7 @@ export function match(input, ctx = {}) {
     if (/^(?:(?:ここ|現在位置)から)?(?:再生|プレイ)(?:して|してください|して下さい|してほしい|してもらえる|してもらえますか)?$/.test(text)) {
         return decision('playback_relative_play', 'play.start');
     }
-    if (/^(?:再生を)?(?:停止|一時停止|ストップ|止めて|止めてください|止めて下さい|止めてほしい|止めてもらえる|止めてもらえますか)$/.test(text)
+    if (/^(?:再生を)?(?:(?:停止|一時停止|ストップ)(?:して|してください|して下さい)?|止めて|止めてください|止めて下さい|止めてほしい|止めてもらえる|止めてもらえますか)$/.test(text)
         && !/止め絵|分割|聞き取り/.test(text)) {
         return decision('playback_relative_pause', 'play.pause');
     }

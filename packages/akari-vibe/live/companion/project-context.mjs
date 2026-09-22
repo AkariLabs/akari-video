@@ -85,7 +85,10 @@ export class ProjectContextTracker {
         if (message?.type === 'light') {
             if (!Number.isFinite(message.seq) || message.seq <= this.lightSeq) return false;
             this.lightSeq = message.seq;
-            const ids = Array.isArray(message.selection) ? message.selection.map(row => row?.id).filter(id => typeof id === 'string') : [];
+            const ids = Array.isArray(message.selection) ? message.selection
+                .filter(row => typeof row?.kind === 'string' && typeof row?.id === 'string'
+                    && ['item', 'cut', 'caption'].includes(row.kind))
+                .map(row => `${row.kind}:${row.id}`) : [];
             this.state = { ...this.state, projectSessionId: message.projectSessionId ?? this.state.projectSessionId,
                 selection: ids.length > 1 ? ids : ids[0] ?? null,
                 playheadT: Number.isFinite(message.playhead?.seconds) ? message.playhead.seconds : this.state.playheadT,

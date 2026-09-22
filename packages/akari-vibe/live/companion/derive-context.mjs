@@ -39,21 +39,26 @@ function fragmentDir(item, location = null) {
     return path.dirname(file);
 }
 
-/**
- * 素材の呼び名。カタログの素材は meta.json の title（日本語）を持つ。
- * 自作の断片には meta.json が無いので、置き場所の名前を呼び名の代わりにする
- * （id をそのまま見せるよりは指しやすい）。
- */
-export function assetTitle(item, location = null) {
+const shortName = value => typeof value === 'string' ? Array.from(value.trim()).slice(0, 40).join('') : '';
+const fragmentText = item => item?.source?.kind === 'html'
+    ? ['title', 'text', 'label'].map(key => shortName(item.source.params?.[key])).find(Boolean) : null;
+
+/** カタログ名 → 断片の本文 → トラック名 → 置き場所の順。実ファイルが無くても本文は使える。 */
+export function assetTitle(item, location = null, track = null) {
+    if (item?.source?.kind === 'captions') return '字幕（全体）';
     const dir = fragmentDir(item, location);
-    if (!dir) return null;
-    try {
+    if (dir) try {
         const meta = JSON.parse(fs.readFileSync(path.join(dir, 'meta.json'), 'utf8'));
-        if (typeof meta.title === 'string' && meta.title.trim()) return meta.title.trim();
+        if (shortName(meta.title)) return shortName(meta.title);
     } catch { /* meta.json が無い素材は下の名前で呼ぶ */ }
+    const text = fragmentText(item);
+    if (text) return `テロップ「${text}」`;
+    const trackName = shortName(track?.name);
+    if (trackName && ['html', 'media'].includes(item?.source?.kind)) return `「${trackName}」の素材`;
+    if (!dir) return null;
     const base = path.basename(item.source.path).replace(/\.[^.]*$/, '');
     const stem = base === 'fragment' || base === 'index' ? path.basename(dir) : base;
-    return /^[\w-]+$/.test(stem) ? `重ね物「${stem}」` : null;
+    return /^[\w-]+$/.test(stem) ? `重ね物「${shortName(stem)}」` : null;
 }
 
 /** 素材ごとの色ツマミ。宣言（meta.json の knobs）に色が 1 つだけあればそれ、無ければ色の値を持つ vars が 1 つだけのときそれ。 */
@@ -66,8 +71,8 @@ export function colorKnobOf(item) {
 
 export function deriveLabels(edit, location = null) {
     const labels = {};
-    for (const { item } of editStore.allLocations(edit)) {
-        const title = assetTitle(item, location);
+    for (const { item, track } of editStore.allLocations(edit)) {
+        const title = assetTitle(item, location, track);
         if (title) labels[`item:${item.id}`] = title;
     }
     return labels;
@@ -83,13 +88,23 @@ export function deriveColorKnobs(edit) {
 }
 
 /** 橋から来た文書とローカルの人物行から、判断に渡す文脈を作る。 */
-export function deriveContext(edit, { transcript = [], vision = [], location = null } = {}) {
+export function deriveContext(edit, { transcript = [], vision = [], location = null, layout = {} } = {}) {
+    const namedLayout = { ...layout };
+    for (const { item, track } of editStore.allLocations(edit)) {
+        const id = `item:${item.id}`;
+        const names = [shortName(track.name), fragmentText(item)].filter(Boolean);
+        const aliases = names.flatMap(name => [name,
+            shortName(name.replace(/^(?:左上|右上|左下|右下|中央|左|右|上|下)\s*/, '')),
+            shortName(name.replace(/([A-Za-z0-9])([^\x00-\x7f])/g, '$1 $2'))]).filter(Boolean);
+        if (aliases.length) namedLayout[id] = { ...layout[id],
+            candidateAliases: [...new Set([...(layout[id]?.candidateAliases ?? []), ...aliases])] };
+    }
     return {
         transcript,
         vision,
         labels: deriveLabels(edit, location),
         palette: PALETTE,
-        layout: {},                       // 実測の表示領域は橋を渡らない（段 2）
+        layout: namedLayout,               // 別名だけを足す。実測の表示領域は橋を渡らない（段 2）
         colorKnobs: deriveColorKnobs(edit),
     };
 }

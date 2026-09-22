@@ -729,6 +729,7 @@ const decisionStateKey = () => JSON.stringify([source, captionsSource, ctx, ui, 
     undoStack.map(e => [e.id,e.op,e.target])]);
 scheduler = createSttScheduler({ dispatch:processScheduled, stateKey:decisionStateKey, normalize,
     completeGate:() => displayGate.complete,
+    maxPartialsPerOperation:2,
     partialPredicate:createP2PartialPredicate(() => ({source,context,state:localState({edit:JSON.parse(source),context,ctx,text:'',captions:parseCaptionList(captionsSource)})})),
     partialDelayMs:PARTIAL_MIN_MS, onSkip(reason,item) {
         if (/lite/.test(reason)) saved.skippedPartials++;
