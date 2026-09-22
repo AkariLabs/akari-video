@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.serializeEdit = serializeEdit;
 exports.serializeCaptions = serializeCaptions;
 exports.serializeMotion = serializeMotion;
+const transform_1 = require("./transform");
 const edit_v2_keys_1 = require("./generated/edit-v2-keys");
 const ITEM_KEY_ORDER = [
     'id', 'name', 'at', 'duration', 'hidden', 'locked', 'transform', 'opacity',
@@ -159,6 +160,9 @@ function serializeRecordArray(values, indent, render) {
     return lines.join('\n');
 }
 function inlineField(key, value, item) {
+    if (item && key === 'transform' && isRecord(value) && (value.scaleX !== undefined || value.scaleY !== undefined)) {
+        return inlineObject({ ...(0, transform_1.normalizeTransform)(value) }, ['x', 'y', 'scale', 'scaleX', 'scaleY', 'rotate']);
+    }
     if (item && key === 'source' && isRecord(value))
         return inlineObject(value, ['kind']);
     if (item && key === 'keyframes' && Array.isArray(value)) {
@@ -173,7 +177,7 @@ function inlineObject(value, preferred, item = false) {
     const keys = orderedKeys(value, preferred);
     if (keys.length === 0)
         return '{}';
-    return `{ ${keys.map(key => `${JSON.stringify(key)}: ${inlineField(key, value[key], item)}`).join(', ')} }`;
+    return `{ ${keys.map(key => `${JSON.stringify(key)}: ${inlineField(key, value[key], item || preferred === edit_v2_keys_1.KEYFRAME_V2_KEYS)}`).join(', ')} }`;
 }
 function inline(value) {
     if (Array.isArray(value))

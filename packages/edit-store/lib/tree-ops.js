@@ -35,6 +35,7 @@ exports.composeTransforms = composeTransforms;
 exports.relativeTransform = relativeTransform;
 exports.ensureChildren = ensureChildren;
 exports.clone = clone;
+const transform_1 = require("./transform");
 const item_anchor_1 = require("./item-anchor");
 const SEGMENT_EASINGS = new Set([
     'linear', 'ease-in-out', 'in-quad', 'out-quad', 'in-out-quad',
@@ -510,7 +511,7 @@ function opacityOfAncestors(ancestors) {
 }
 function composeTransforms(parent, child) {
     if (parent === undefined)
-        return child === undefined ? undefined : { ...child };
+        return child === undefined ? undefined : (0, transform_1.normalizeTransform)(child);
     if (child === undefined)
         return { ...parent };
     const scale = parent.scale ?? 1;
@@ -526,13 +527,18 @@ function composeTransforms(parent, child) {
     }
     if (parent.scale !== undefined || child.scale !== undefined)
         result.scale = scale * (child.scale ?? 1);
+    if (child.scaleX !== undefined || child.scaleY !== undefined) {
+        const axes = (0, transform_1.effectiveScale)(child);
+        result.scaleX = scale * axes.x;
+        result.scaleY = scale * axes.y;
+    }
     if (parent.rotate !== undefined || child.rotate !== undefined)
         result.rotate = (parent.rotate ?? 0) + (child.rotate ?? 0);
-    return Object.keys(result).length === 0 ? undefined : result;
+    return Object.keys(result).length === 0 ? undefined : (0, transform_1.normalizeTransform)(result);
 }
 function relativeTransform(parent, world) {
     if (parent === undefined)
-        return world === undefined ? undefined : { ...world };
+        return world === undefined ? undefined : (0, transform_1.normalizeTransform)(world);
     if (world === undefined)
         return undefined;
     const scale = parent.scale ?? 1;
@@ -546,9 +552,14 @@ function relativeTransform(parent, world) {
     }
     if (world.scale !== undefined || parent.scale !== undefined)
         result.scale = (world.scale ?? 1) / scale;
+    if (world.scaleX !== undefined || world.scaleY !== undefined) {
+        const axes = (0, transform_1.effectiveScale)(world);
+        result.scaleX = axes.x / scale;
+        result.scaleY = axes.y / scale;
+    }
     if (world.rotate !== undefined || parent.rotate !== undefined)
         result.rotate = (world.rotate ?? 0) - (parent.rotate ?? 0);
-    return Object.keys(result).length === 0 ? undefined : result;
+    return Object.keys(result).length === 0 ? undefined : (0, transform_1.normalizeTransform)(result);
 }
 function ensureChildren(item, create = true) {
     if (Array.isArray(item.items))
@@ -627,7 +638,7 @@ function keyframeValue(point, property) {
 }
 function keyframeProperties(point) {
     const result = [];
-    for (const property of ['transform.x', 'transform.y', 'transform.scale', 'transform.rotate']) {
+    for (const property of ['transform.x', 'transform.y', 'transform.scale', 'transform.scaleX', 'transform.scaleY', 'transform.rotate']) {
         if (keyframeValue(point, property) !== undefined)
             result.push(property);
     }

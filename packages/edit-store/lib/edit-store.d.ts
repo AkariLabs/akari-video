@@ -9,6 +9,8 @@ export interface EditCut {
         x?: number;
         y?: number;
         scale?: number;
+        scaleX?: number;
+        scaleY?: number;
         rotate?: number;
     };
     opacity?: number;
@@ -56,6 +58,8 @@ export interface EditLayer {
         x?: number;
         y?: number;
         scale?: number;
+        scaleX?: number;
+        scaleY?: number;
         rotate?: number;
     };
     opacity?: number;
@@ -184,6 +188,8 @@ export declare function updateCutTransformInSource(source: string, cutIndex: num
     x?: number | null;
     y?: number | null;
     scale?: number | null;
+    scaleX?: number | null;
+    scaleY?: number | null;
     rotate?: number | null;
 }): string;
 export declare function updateCutOpacityInSource(source: string, cutIndex: number, opacity: number | null): string;
@@ -248,6 +254,8 @@ export declare function updateLayerTransformInSource(source: string, layerId: st
     x?: number | null;
     y?: number | null;
     scale?: number | null;
+    scaleX?: number | null;
+    scaleY?: number | null;
     rotate?: number | null;
 }): string;
 export declare function updateLayerOpacityInSource(source: string, layerId: string, opacity: number | null): string;

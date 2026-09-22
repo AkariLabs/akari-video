@@ -26,7 +26,7 @@ export interface ProjectedItemTiming {
     at: number;
     duration: number;
 }
-export type KeyframeProperty = 'transform.x' | 'transform.y' | 'transform.scale' | 'transform.rotate' | 'opacity' | 'crop' | 'perspective';
+export type KeyframeProperty = 'transform.x' | 'transform.y' | 'transform.scale' | 'transform.scaleX' | 'transform.scaleY' | 'transform.rotate' | 'opacity' | 'crop' | 'perspective';
 export type SegmentEasing = string;
 export type EditableEditV2 = Omit<EditV2, 'tracks'> & {
     tracks: ProjectTrackV2[];

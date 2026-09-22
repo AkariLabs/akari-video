@@ -325,7 +325,7 @@ var require_edit_store = __commonJS({
       });
     }
     function updateCutTransformInSource(source, cutIndex, updates) {
-      if (updates.x === void 0 && updates.y === void 0 && updates.scale === void 0 && updates.rotate === void 0) {
+      if (updates.x === void 0 && updates.y === void 0 && updates.scale === void 0 && updates.scaleX === void 0 && updates.scaleY === void 0 && updates.rotate === void 0) {
         throw new Error("\u5909\u66F4\u3059\u308B transform \u30D5\u30A3\u30FC\u30EB\u30C9\u3092\u6307\u5B9A\u3057\u3066\u304F\u3060\u3055\u3044\u3002");
       }
       for (const property of ["x", "y", "rotate"]) {
@@ -334,8 +334,11 @@ var require_edit_store = __commonJS({
           throw new Error(`transform.${property} \u306F\u6709\u9650\u6570\u3067\u6307\u5B9A\u3057\u3066\u304F\u3060\u3055\u3044\u3002`);
         }
       }
-      if (updates.scale !== void 0 && updates.scale !== null && (!Number.isFinite(updates.scale) || updates.scale <= 0)) {
-        throw new Error("transform.scale \u306F\u6B63\u306E\u6570\u3067\u6307\u5B9A\u3057\u3066\u304F\u3060\u3055\u3044\u3002");
+      for (const key of ["scale", "scaleX", "scaleY"]) {
+        const value = updates[key];
+        if (value !== void 0 && value !== null && (!Number.isFinite(value) || value <= 0)) {
+          throw new Error(`transform.${key} \u306F\u6B63\u306E\u6570\u3067\u6307\u5B9A\u3057\u3066\u304F\u3060\u3055\u3044\u3002`);
+        }
       }
       return updateArrayElementByIndex(source, "cuts", cutIndex, "\u30AF\u30EA\u30C3\u30D7", (element) => {
         const hasTransform = hasTopLevelProperty(element, "transform");
@@ -345,7 +348,7 @@ var require_edit_store = __commonJS({
         }
         const located = locateTopLevelObjectProperty(element, "transform");
         let transform = located.text;
-        for (const property of ["x", "y", "scale", "rotate"]) {
+        for (const property of ["x", "y", "scale", "scaleX", "scaleY", "rotate"]) {
           const value = updates[property];
           if (value === void 0) {
             continue;
@@ -645,7 +648,7 @@ var require_edit_store = __commonJS({
       });
     }
     function updateLayerTransformInSource(source, layerId, updates) {
-      if (updates.x === void 0 && updates.y === void 0 && updates.scale === void 0 && updates.rotate === void 0) {
+      if (updates.x === void 0 && updates.y === void 0 && updates.scale === void 0 && updates.scaleX === void 0 && updates.scaleY === void 0 && updates.rotate === void 0) {
         throw new Error("\u5909\u66F4\u3059\u308B transform \u30D5\u30A3\u30FC\u30EB\u30C9\u3092\u6307\u5B9A\u3057\u3066\u304F\u3060\u3055\u3044\u3002");
       }
       for (const property of ["x", "y", "rotate"]) {
@@ -654,8 +657,11 @@ var require_edit_store = __commonJS({
           throw new Error(`transform.${property} \u306F\u6709\u9650\u6570\u3067\u6307\u5B9A\u3057\u3066\u304F\u3060\u3055\u3044\u3002`);
         }
       }
-      if (updates.scale !== void 0 && updates.scale !== null && (!Number.isFinite(updates.scale) || updates.scale <= 0)) {
-        throw new Error("transform.scale \u306F\u6B63\u306E\u6570\u3067\u6307\u5B9A\u3057\u3066\u304F\u3060\u3055\u3044\u3002");
+      for (const key of ["scale", "scaleX", "scaleY"]) {
+        const value = updates[key];
+        if (value !== void 0 && value !== null && (!Number.isFinite(value) || value <= 0)) {
+          throw new Error(`transform.${key} \u306F\u6B63\u306E\u6570\u3067\u6307\u5B9A\u3057\u3066\u304F\u3060\u3055\u3044\u3002`);
+        }
       }
       return updateArrayElementById(source, "layers", layerId, "\u7D20\u6750", (element) => {
         const hasTransform = hasTopLevelProperty(element, "transform");
@@ -665,7 +671,7 @@ var require_edit_store = __commonJS({
         }
         const located = locateTopLevelObjectProperty(element, "transform");
         let transform = located.text;
-        for (const property of ["x", "y", "scale", "rotate"]) {
+        for (const property of ["x", "y", "scale", "scaleX", "scaleY", "rotate"]) {
           const value = updates[property];
           if (value === void 0) {
             continue;
@@ -5774,6 +5780,14 @@ var require_edit_v2 = __commonJS({
       if (hasOwn(value, "keyframes"))
         validateKeyframes(value.keyframes, `${path}.keyframes`);
       validateItemSource(value.source, `${path}.source`, sourceIds);
+      if (value.source.kind === "group") {
+        const transforms = [value.transform, ...Array.isArray(value.keyframes) ? value.keyframes.map((point) => point.transform) : []];
+        for (const transform of transforms) {
+          if (transform !== null && typeof transform === "object" && (hasOwn(transform, "scaleX") || hasOwn(transform, "scaleY"))) {
+            throw invalid(`${path}.transform`, "group \u306F scaleX / scaleY \u3092\u6307\u5B9A\u3067\u304D\u307E\u305B\u3093");
+          }
+        }
+      }
       if (hasOwn(value, "audio")) {
         if (value.source.kind !== "media")
           throw invalid(`${path}.audio`, "media item \u3060\u3051\u304C\u6307\u5B9A\u3067\u304D\u307E\u3059");
@@ -5965,13 +5979,15 @@ var require_edit_v2 = __commonJS({
     }
     function validateTransform(value, path) {
       requireRecord(value, path);
-      requireExactKeys(value, /* @__PURE__ */ new Set(["x", "y", "scale", "rotate"]), path);
+      requireExactKeys(value, /* @__PURE__ */ new Set(["x", "y", "scale", "scaleX", "scaleY", "rotate"]), path);
       for (const key of ["x", "y", "rotate"]) {
         if (hasOwn(value, key))
           requireNumber(value[key], `${path}.${key}`);
       }
-      if (hasOwn(value, "scale"))
-        requirePositiveNumber(value.scale, `${path}.scale`);
+      for (const key of ["scale", "scaleX", "scaleY"]) {
+        if (hasOwn(value, key))
+          requirePositiveNumber(value[key], `${path}.${key}`);
+      }
     }
     function validateCrop(value, path) {
       requireRecord(value, path);
@@ -6286,6 +6302,31 @@ var require_edit_v2 = __commonJS({
   }
 });
 
+// ../edit-store/lib/transform.js
+var require_transform = __commonJS({
+  "../edit-store/lib/transform.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.effectiveScale = effectiveScale;
+    exports.normalizeTransform = normalizeTransform;
+    function effectiveScale(transform) {
+      return { x: transform?.scaleX ?? transform?.scale ?? 1, y: transform?.scaleY ?? transform?.scale ?? 1 };
+    }
+    function normalizeTransform(transform) {
+      const result = { ...transform };
+      if (result.scaleX === void 0 && result.scaleY === void 0)
+        return result;
+      const axes = effectiveScale(result);
+      if (axes.x === axes.y) {
+        result.scale = axes.x;
+        delete result.scaleX;
+        delete result.scaleY;
+      }
+      return result;
+    }
+  }
+});
+
 // ../edit-store/lib/edit-v2-item-write.js
 var require_edit_v2_item_write = __commonJS({
   "../edit-store/lib/edit-v2-item-write.js"(exports) {
@@ -6294,10 +6335,30 @@ var require_edit_v2_item_write = __commonJS({
     exports.resolvePreviewItemWrite = resolvePreviewItemWrite;
     exports.resolvePreviewItemWriteBatch = resolvePreviewItemWriteBatch;
     var edit_v2_1 = require_edit_v2();
+    var transform_1 = require_transform();
     var isRecord2 = (value) => Boolean(value) && typeof value === "object" && !Array.isArray(value);
     var recordOf = (value) => isRecord2(value) ? value : {};
     var stringifyEdit = (value) => `${JSON.stringify(value, void 0, 2)}
 `;
+    var transformKeys = ["x", "y", "scale", "scaleX", "scaleY", "rotate"];
+    function mergeTransform(original, patch) {
+      const merged = (0, transform_1.normalizeTransform)({ ...recordOf(original), ...patch });
+      if (merged.scaleX !== void 0 || merged.scaleY !== void 0) {
+        const axes = (0, transform_1.effectiveScale)(merged);
+        merged.scaleX = axes.x;
+        merged.scaleY = axes.y;
+      }
+      const ordered = {};
+      for (const key of transformKeys) {
+        if (merged[key] !== void 0)
+          ordered[key] = merged[key];
+      }
+      for (const [key, value] of Object.entries(merged)) {
+        if (!transformKeys.includes(key))
+          ordered[key] = value;
+      }
+      return ordered;
+    }
     function resolvePreviewItemWrite(editText, command) {
       const parsed = JSON.parse(editText);
       if (!isRecord2(parsed)) {
@@ -6418,6 +6479,10 @@ var require_edit_v2_item_write = __commonJS({
           }
           if (patch.scale !== void 0)
             local.scale = world.scale / parent.scale;
+          if (patch.scaleX !== void 0)
+            local.scaleX = patch.scaleX / parent.scale;
+          if (patch.scaleY !== void 0)
+            local.scaleY = patch.scaleY / parent.scale;
           if (patch.rotate !== void 0)
             local.rotate = world.rotate - parent.rotate;
           command = { ...command, patch: { ...command.patch, transform: local } };
@@ -6428,7 +6493,7 @@ var require_edit_v2_item_write = __commonJS({
           }
           if (!command.patch.transform)
             return {};
-          item.transform = { ...recordOf(item.transform), ...command.patch.transform };
+          item.transform = mergeTransform(item.transform, command.patch.transform);
           return { candidateText: stringifyEdit(edit) };
         }
       }
@@ -6464,12 +6529,12 @@ var require_edit_v2_item_write = __commonJS({
           throw new Error(`\u56F3\u5F62\u30A2\u30A4\u30C6\u30E0\u306B\u306F HTML \u672C\u6587\u30FBvars\u30FBHTML params \u3092\u66F8\u304D\u623B\u305B\u307E\u305B\u3093: ${itemId}`);
         }
         if (command.patch.transform) {
-          item.transform = { ...recordOf(item.transform), ...command.patch.transform };
+          item.transform = mergeTransform(item.transform, command.patch.transform);
           editChanged = true;
         }
       } else if (command.kind === "layer") {
         if (command.patch.transform) {
-          item.transform = { ...recordOf(item.transform), ...command.patch.transform };
+          item.transform = mergeTransform(item.transform, command.patch.transform);
           editChanged = true;
         }
         if (command.patch.crop) {
@@ -6491,7 +6556,7 @@ var require_edit_v2_item_write = __commonJS({
           throw new Error(`\u6620\u50CF\u30A2\u30A4\u30C6\u30E0\u3067\u306F\u3042\u308A\u307E\u305B\u3093: ${itemId}`);
         }
         if (command.patch.transform) {
-          item.transform = { ...recordOf(item.transform), ...command.patch.transform };
+          item.transform = mergeTransform(item.transform, command.patch.transform);
           editChanged = true;
         }
         if (command.patch.crop) {
@@ -6526,7 +6591,7 @@ var require_edit_v2_item_write = __commonJS({
           editChanged = true;
         }
         if (command.patch.transform) {
-          overlay.transform = { ...recordOf(overlay.transform), ...command.patch.transform };
+          overlay.transform = mergeTransform(overlay.transform, command.patch.transform);
           editChanged = true;
         }
         return {
@@ -6543,7 +6608,7 @@ var require_edit_v2_item_write = __commonJS({
           throw new Error(`\u7D20\u6750\u304C\u898B\u3064\u304B\u308A\u307E\u305B\u3093: ${command.itemId}`);
         }
         if (command.patch.transform) {
-          layer.transform = { ...recordOf(layer.transform), ...command.patch.transform };
+          layer.transform = mergeTransform(layer.transform, command.patch.transform);
         }
         if (command.patch.crop) {
           layer.crop = { ...command.patch.crop };
@@ -6570,7 +6635,7 @@ var require_edit_v2_item_write = __commonJS({
         throw new Error("\u30AB\u30C3\u30C8\u306E crop \u66F8\u304D\u623B\u3057\u306B\u306F edit.json version 2 \u304C\u5FC5\u8981\u3067\u3059");
       }
       if (command.patch.transform) {
-        cut.transform = { ...recordOf(cut.transform), ...command.patch.transform };
+        cut.transform = mergeTransform(cut.transform, command.patch.transform);
       }
       return { candidateText: stringifyEdit(edit) };
     }
@@ -7226,7 +7291,7 @@ var require_internal_model = __commonJS({
     }
     function needsCrossTrackLayers(item, pathOf) {
       const transform = item.transform;
-      return transform?.scale !== void 0 && transform.scale !== 1 || transform?.x !== void 0 && transform.x !== 0 || transform?.y !== void 0 && transform.y !== 0 || transform?.rotate !== void 0 && transform.rotate !== 0 || item.crop !== void 0 || item.opacity !== void 0 && item.opacity < 1 || item.keyframes !== void 0 || item.source.kind === "media" && "mask" in item && item.mask !== void 0 || item.source.kind === "media" && (0, cut_adjacency_1.isStillImageSourcePath)(pathOf?.(item.source.src)) || item.source.kind === "media" && isAlphaCapableMediaSourcePath(pathOf?.(item.source.src));
+      return transform?.scale !== void 0 && transform.scale !== 1 || transform?.scaleX !== void 0 && transform.scaleX !== 1 || transform?.scaleY !== void 0 && transform.scaleY !== 1 || transform?.x !== void 0 && transform.x !== 0 || transform?.y !== void 0 && transform.y !== 0 || transform?.rotate !== void 0 && transform.rotate !== 0 || item.crop !== void 0 || item.opacity !== void 0 && item.opacity < 1 || item.keyframes !== void 0 || item.source.kind === "media" && "mask" in item && item.mask !== void 0 || item.source.kind === "media" && (0, cut_adjacency_1.isStillImageSourcePath)(pathOf?.(item.source.src)) || item.source.kind === "media" && isAlphaCapableMediaSourcePath(pathOf?.(item.source.src));
     }
     function nextRef(counters, kind) {
       const ref = counters.get(kind) ?? 0;
@@ -9420,6 +9485,7 @@ var require_tree_ops = __commonJS({
     exports.relativeTransform = relativeTransform;
     exports.ensureChildren = ensureChildren;
     exports.clone = clone;
+    var transform_1 = require_transform();
     var item_anchor_1 = require_item_anchor();
     var SEGMENT_EASINGS = /* @__PURE__ */ new Set([
       "linear",
@@ -9890,7 +9956,7 @@ var require_tree_ops = __commonJS({
     }
     function composeTransforms(parent, child) {
       if (parent === void 0)
-        return child === void 0 ? void 0 : { ...child };
+        return child === void 0 ? void 0 : (0, transform_1.normalizeTransform)(child);
       if (child === void 0)
         return { ...parent };
       const scale = parent.scale ?? 1;
@@ -9906,13 +9972,18 @@ var require_tree_ops = __commonJS({
       }
       if (parent.scale !== void 0 || child.scale !== void 0)
         result.scale = scale * (child.scale ?? 1);
+      if (child.scaleX !== void 0 || child.scaleY !== void 0) {
+        const axes = (0, transform_1.effectiveScale)(child);
+        result.scaleX = scale * axes.x;
+        result.scaleY = scale * axes.y;
+      }
       if (parent.rotate !== void 0 || child.rotate !== void 0)
         result.rotate = (parent.rotate ?? 0) + (child.rotate ?? 0);
-      return Object.keys(result).length === 0 ? void 0 : result;
+      return Object.keys(result).length === 0 ? void 0 : (0, transform_1.normalizeTransform)(result);
     }
     function relativeTransform(parent, world) {
       if (parent === void 0)
-        return world === void 0 ? void 0 : { ...world };
+        return world === void 0 ? void 0 : (0, transform_1.normalizeTransform)(world);
       if (world === void 0)
         return void 0;
       const scale = parent.scale ?? 1;
@@ -9926,9 +9997,14 @@ var require_tree_ops = __commonJS({
       }
       if (world.scale !== void 0 || parent.scale !== void 0)
         result.scale = (world.scale ?? 1) / scale;
+      if (world.scaleX !== void 0 || world.scaleY !== void 0) {
+        const axes = (0, transform_1.effectiveScale)(world);
+        result.scaleX = axes.x / scale;
+        result.scaleY = axes.y / scale;
+      }
       if (world.rotate !== void 0 || parent.rotate !== void 0)
         result.rotate = (world.rotate ?? 0) - (parent.rotate ?? 0);
-      return Object.keys(result).length === 0 ? void 0 : result;
+      return Object.keys(result).length === 0 ? void 0 : (0, transform_1.normalizeTransform)(result);
     }
     function ensureChildren(item, create = true) {
       if (Array.isArray(item.items))
@@ -10005,7 +10081,7 @@ var require_tree_ops = __commonJS({
     }
     function keyframeProperties(point) {
       const result = [];
-      for (const property of ["transform.x", "transform.y", "transform.scale", "transform.rotate"]) {
+      for (const property of ["transform.x", "transform.y", "transform.scale", "transform.scaleX", "transform.scaleY", "transform.rotate"]) {
         if (keyframeValue(point, property) !== void 0)
           result.push(property);
       }
@@ -10570,6 +10646,7 @@ var require_canonical = __commonJS({
     exports.serializeEdit = serializeEdit;
     exports.serializeCaptions = serializeCaptions;
     exports.serializeMotion = serializeMotion;
+    var transform_1 = require_transform();
     var edit_v2_keys_1 = require_edit_v2_keys();
     var ITEM_KEY_ORDER = [
       "id",
@@ -10751,6 +10828,9 @@ var require_canonical = __commonJS({
       return lines.join("\n");
     }
     function inlineField(key, value, item) {
+      if (item && key === "transform" && isRecord2(value) && (value.scaleX !== void 0 || value.scaleY !== void 0)) {
+        return inlineObject({ ...(0, transform_1.normalizeTransform)(value) }, ["x", "y", "scale", "scaleX", "scaleY", "rotate"]);
+      }
       if (item && key === "source" && isRecord2(value))
         return inlineObject(value, ["kind"]);
       if (item && key === "keyframes" && Array.isArray(value)) {
@@ -10765,7 +10845,7 @@ var require_canonical = __commonJS({
       const keys = orderedKeys(value, preferred);
       if (keys.length === 0)
         return "{}";
-      return `{ ${keys.map((key) => `${JSON.stringify(key)}: ${inlineField(key, value[key], item)}`).join(", ")} }`;
+      return `{ ${keys.map((key) => `${JSON.stringify(key)}: ${inlineField(key, value[key], item || preferred === edit_v2_keys_1.KEYFRAME_V2_KEYS)}`).join(", ")} }`;
     }
     function inline(value) {
       if (Array.isArray(value))
@@ -11623,7 +11703,7 @@ var require_lib = __commonJS({
       for (var p2 in m2) if (p2 !== "default" && !Object.prototype.hasOwnProperty.call(exports2, p2)) __createBinding(exports2, m2, p2);
     };
     Object.defineProperty(exports, "__esModule", { value: true });
-    exports.LegacyEditVersionError = exports.parseEdit = void 0;
+    exports.normalizeTransform = exports.effectiveScale = exports.LegacyEditVersionError = exports.parseEdit = void 0;
     __exportStar(require_edit_store(), exports);
     __exportStar(require_caption_store(), exports);
     __exportStar(require_caption_style_preset(), exports);
@@ -11665,6 +11745,13 @@ var require_lib = __commonJS({
       return error_1.LegacyEditVersionError;
     } });
     __exportStar(require_adjust_css_visual(), exports);
+    var transform_1 = require_transform();
+    Object.defineProperty(exports, "effectiveScale", { enumerable: true, get: function() {
+      return transform_1.effectiveScale;
+    } });
+    Object.defineProperty(exports, "normalizeTransform", { enumerable: true, get: function() {
+      return transform_1.normalizeTransform;
+    } });
   }
 });
 
@@ -18944,7 +19031,7 @@ function valueAt(points, pick, t) {
   }
   return pick(last);
 }
-function computeLayerKeyframesVisual(keyframes, layerLocalSeconds) {
+function computeLayerKeyframesVisual(keyframes, layerLocalSeconds, statics = {}) {
   const points = (keyframes ?? []).filter((point) => finite(point?.t) && point.t >= 0).slice().sort((left, right) => left.t - right.t);
   if (points.length < 2) return null;
   const t = finite(layerLocalSeconds) ? layerLocalSeconds : 0;
@@ -18953,7 +19040,7 @@ function computeLayerKeyframesVisual(keyframes, layerLocalSeconds) {
   );
   const leaf = (name, fallback) => valueAt(
     transformPoints,
-    (point) => finite(point.transform?.[name]) ? point.transform[name] : fallback,
+    (point) => finite(point.transform?.[name]) ? point.transform[name] : name === "scaleX" || name === "scaleY" ? point.transform?.scale ?? statics?.[name] ?? statics?.scale ?? fallback : fallback,
     t
   );
   const rawScale = transformPoints.length ? leaf("scale", 1) : 1;
@@ -18961,6 +19048,7 @@ function computeLayerKeyframesVisual(keyframes, layerLocalSeconds) {
     x: leaf("x", 0),
     y: leaf("y", 0),
     scale: rawScale > 0 ? rawScale : 1,
+    ...statics?.scaleX !== void 0 || statics?.scaleY !== void 0 || transformPoints.some((point) => point.transform?.scaleX !== void 0 || point.transform?.scaleY !== void 0) ? { scaleX: Math.max(Number.EPSILON, leaf("scaleX", 1)), scaleY: Math.max(Number.EPSILON, leaf("scaleY", 1)) } : {},
     rotateDegrees: leaf("rotate", 0)
   } : null;
   const cropPoints = points.filter(
@@ -19337,6 +19425,8 @@ uniform vec4 framing0;
 uniform vec4 framing1;
 uniform vec4 transform0;
 uniform vec4 transform1;
+uniform vec2 scaleAxes0;
+uniform vec2 scaleAxes1;
 uniform float opacity0;
 uniform float opacity1;
 uniform vec2 outputSize;
@@ -19365,11 +19455,11 @@ uniform float adjustLutIntensity1;
 uniform float transitionProgress;
 ${type === "dissolve" ? "uniform sampler2D dissolveNoise;" : ""}
 ${YUV_GLSL}
-vec2 inverseVisual(vec2 p, vec4 transform, vec4 framing) {
+vec2 inverseVisual(vec2 p, vec4 transform, vec4 framing, vec2 scaleAxes) {
   vec2 pixel = (p - 0.5) * outputSize - transform.xy;
   float angle = transform.w;
   pixel = mat2(cos(angle), -sin(angle), sin(angle), cos(angle)) * pixel;
-  pixel /= transform.z;
+  pixel /= scaleAxes;
   vec2 local = pixel / outputSize + 0.5;
   return framing.xy + local * framing.zw;
 }
@@ -19414,7 +19504,7 @@ vec4 sample0(vec2 p) {
     if (local.x < 0.0 || local.x > 1.0 || local.y < 0.0 || local.y > 1.0) return vec4(0.0);
     q = crop0.xy + local * crop0.zw;
   } else {
-    vec2 canvasPoint = inverseVisual(p, transform0, framing0);
+    vec2 canvasPoint = inverseVisual(p, transform0, framing0, scaleAxes0);
     if (canvasPoint.x < framing0.x || canvasPoint.x > framing0.x + framing0.z || canvasPoint.y < framing0.y || canvasPoint.y > framing0.y + framing0.w) return vec4(0.0);
     q = canvasToSource(canvasPoint, sourceSize0);
     if (q.x < 0.0 || q.x > 1.0 || q.y < 0.0 || q.y > 1.0) return vec4(0.0);
@@ -19436,7 +19526,7 @@ vec4 sample1(vec2 p) {
     if (local.x < 0.0 || local.x > 1.0 || local.y < 0.0 || local.y > 1.0) return vec4(0.0);
     q = crop1.xy + local * crop1.zw;
   } else {
-    vec2 canvasPoint = inverseVisual(p, transform1, framing1);
+    vec2 canvasPoint = inverseVisual(p, transform1, framing1, scaleAxes1);
     if (canvasPoint.x < framing1.x || canvasPoint.x > framing1.x + framing1.z || canvasPoint.y < framing1.y || canvasPoint.y > framing1.y + framing1.w) return vec4(0.0);
     q = canvasToSource(canvasPoint, sourceSize1);
     if (q.x < 0.0 || q.x > 1.0 || q.y < 0.0 || q.y > 1.0) return vec4(0.0);
@@ -19849,7 +19939,7 @@ function packLutRgba16f(lut) {
 }
 function forwardInverse(visual, srcW, srcH, outW, outH) {
   const h = visual.perspective ? cornersToHomography(visual.perspective.corners) : [1, 0, 0, 0, 1, 0, 0, 0, 1];
-  const bw = visual.crop.width * srcW * visual.transform.scale, bh = visual.crop.height * srcH * visual.transform.scale;
+  const bw = visual.crop.width * srcW * (visual.transform.scaleX ?? visual.transform.scale), bh = visual.crop.height * srcH * (visual.transform.scaleY ?? visual.transform.scale);
   const b = [bw, 0, -bw / 2, 0, bh, -bh / 2, 0, 0, 1], a = visual.transform.rotateDegrees * Math.PI / 180, c = Math.cos(a), s = Math.sin(a);
   const rotate = [c, -s, 0, s, c, 0, 0, 0, 1], translate = [
     1,
@@ -19882,16 +19972,16 @@ function compositeCutGeometry(cut, srcW, srcH, outW, outH) {
     height: srcH
   };
   const fit = Math.min(outW / srcW, outH / srcH);
-  const axis = (start, length, source, out) => {
+  const axis = (start, length, source, out, scale) => {
     const offset = (out - source * fit) / 2;
     const lo = Math.max(0, Math.min(1, (start * out - offset) / (source * fit)));
     const hi = Math.max(0, Math.min(1, ((start + length) * out - offset) / (source * fit)));
     const span = Math.max(1e-6, hi - lo);
-    const center = ((((lo + span / 2) * source * fit + offset) / out - start) / length - 0.5) * out * cut.transform.scale;
+    const center = ((((lo + span / 2) * source * fit + offset) / out - start) / length - 0.5) * out * scale;
     return { lo, span, center, size: source * fit / length };
   };
-  const x3 = axis(cut.framing.x, cut.framing.width, srcW, outW);
-  const y2 = axis(cut.framing.y, cut.framing.height, srcH, outH);
+  const x3 = axis(cut.framing.x, cut.framing.width, srcW, outW, cut.transform.scaleX ?? cut.transform.scale);
+  const y2 = axis(cut.framing.y, cut.framing.height, srcH, outH, cut.transform.scaleY ?? cut.transform.scale);
   const angle = cut.transform.rotateDegrees * Math.PI / 180;
   return { width: x3.size, height: y2.size, visual: {
     crop: { x: x3.lo, y: y2.lo, width: x3.span, height: y2.span },
@@ -19907,8 +19997,8 @@ var FULL_CROP = Object.freeze({ x: 0, y: 0, width: 1, height: 1 });
 function cutLayerStyleBox(visual, srcW, srcH) {
   const crop = visual.layerStyle?.crop ?? FULL_CROP;
   return {
-    width: crop.width * srcW * visual.transform.scale,
-    height: crop.height * srcH * visual.transform.scale
+    width: crop.width * srcW * (visual.transform.scaleX ?? visual.transform.scale),
+    height: crop.height * srcH * (visual.transform.scaleY ?? visual.transform.scale)
   };
 }
 function rotationQuarterTurns(frame) {
@@ -20095,6 +20185,7 @@ var WebGL2Compositor = class {
       ...this.adjustFxUniforms(program, String(index)),
       framing: gl.getUniformLocation(program, `framing${index}`),
       transform: gl.getUniformLocation(program, `transform${index}`),
+      scaleAxes: gl.getUniformLocation(program, `scaleAxes${index}`),
       opacity: gl.getUniformLocation(program, `opacity${index}`),
       format: gl.getUniformLocation(program, `format${index}`),
       sourceSize: gl.getUniformLocation(program, `sourceSize${index}`),
@@ -20327,6 +20418,7 @@ var WebGL2Compositor = class {
       v2.transform.scale,
       v2.transform.rotateDegrees * Math.PI / 180
     );
+    this.gl.uniform2f(u2.scaleAxes, v2.transform.scaleX ?? v2.transform.scale, v2.transform.scaleY ?? v2.transform.scale);
     this.gl.uniform1f(u2.opacity, v2.opacity);
     this.configureAdjustLut(v2.adjustLut, adjustLutUnit, u2);
     this.configureFxResult(null, u2);
@@ -20789,8 +20881,8 @@ var WebGL2Compositor = class {
       const crop = visual.layerStyle?.crop ?? { x: x3[0], y: y2[0], width: x3[1], height: y2[1] };
       const sourceLogical = compositionSourceSize(plan.base[index], size);
       const displayed = visual.layerStyle ? cutLayerStyleBox(visual, sourceLogical.width, sourceLogical.height) : {
-        width: crop.width * size.width * fit * visual.transform.scale / framing.width,
-        height: crop.height * size.height * fit * visual.transform.scale / framing.height
+        width: crop.width * size.width * fit * (visual.transform.scaleX ?? visual.transform.scale) / framing.width,
+        height: crop.height * size.height * fit * (visual.transform.scaleY ?? visual.transform.scale) / framing.height
       };
       const result = this.snapshotBaseFx(index, this.runFxPasses(passes, {
         size,
@@ -22247,7 +22339,7 @@ function interpolateFraming(keyframes, playbackSeconds) {
   };
 }
 function layerStyleVisualAt(cut, localSeconds) {
-  const animated = computeLayerKeyframesVisual(cut.keyframes, localSeconds);
+  const animated = computeLayerKeyframesVisual(cut.keyframes, localSeconds, cut.transform);
   const staticCrop = cut.crop ?? { x: 0, y: 0, w: 1, h: 1 };
   const crop = animated?.crop ?? {
     x: finite4(staticCrop.x, 0),
@@ -22261,6 +22353,8 @@ function layerStyleVisualAt(cut, localSeconds) {
     x: finite4(cut.transform?.x, 0),
     y: finite4(cut.transform?.y, 0),
     scale: finite4(cut.transform?.scale, 1),
+    ...cut.transform?.scaleX !== void 0 ? { scaleX: cut.transform.scaleX } : {},
+    ...cut.transform?.scaleY !== void 0 ? { scaleY: cut.transform.scaleY } : {},
     rotateDegrees: finite4(cut.transform?.rotate, 0)
   };
   return {
@@ -22269,6 +22363,8 @@ function layerStyleVisualAt(cut, localSeconds) {
       x: transform.x,
       y: transform.y,
       scale: Math.max(Number.EPSILON, transform.scale),
+      ...transform.scaleX !== void 0 ? { scaleX: transform.scaleX } : {},
+      ...transform.scaleY !== void 0 ? { scaleY: transform.scaleY } : {},
       rotateDegrees: transform.rotateDegrees
     },
     opacity: clamp3(animated?.opacity ?? finite4(cut.opacity, 1), 0, 1),
@@ -22281,6 +22377,8 @@ function motionTransform(transform, motion2) {
   return {
     x: transform.x + motion2.dx,
     y: transform.y + motion2.dy,
+    ...transform.scaleX !== void 0 ? { scaleX: transform.scaleX * motion2.scale } : {},
+    ...transform.scaleY !== void 0 ? { scaleY: transform.scaleY * motion2.scale } : {},
     scale: transform.scale * motion2.scale,
     rotateDegrees: transform.rotateDegrees + motion2.rotate
   };
@@ -22346,6 +22444,8 @@ function visualAt(cut, playbackSeconds, localSeconds, fps, adjustLut, adjustFx) 
       x: finite4(cut.transform?.x, 0),
       y: finite4(cut.transform?.y, 0),
       scale: Math.max(Number.EPSILON, finite4(cut.transform?.scale, 1)),
+      ...cut.transform?.scaleX !== void 0 ? { scaleX: cut.transform.scaleX } : {},
+      ...cut.transform?.scaleY !== void 0 ? { scaleY: cut.transform.scaleY } : {},
       rotateDegrees: finite4(cut.transform?.rotate, 0)
     },
     opacity: clamp3(finite4(cut.opacity, 1), 0, 1)
@@ -22456,7 +22556,7 @@ function resolvedCompositeLayers(timeline, timeUs, sources) {
     }
     const source = sources.get(layer.src);
     if (!source) throw new Error(`no layer source registered for ${layer.src}`);
-    const animated = computeLayerKeyframesVisual(layer.keyframes, localSeconds);
+    const animated = computeLayerKeyframesVisual(layer.keyframes, localSeconds, layer.transform);
     const staticCrop = layer.crop ?? { x: 0, y: 0, w: 1, h: 1 };
     const staticTransform = layer.transform ?? {};
     const visual = {
@@ -22471,6 +22571,8 @@ function resolvedCompositeLayers(timeline, timeUs, sources) {
         x: finite4(staticTransform.x, 0),
         y: finite4(staticTransform.y, 0),
         scale: Math.max(Number.EPSILON, finite4(staticTransform.scale, 1)),
+        ...staticTransform?.scaleX !== void 0 ? { scaleX: staticTransform.scaleX } : {},
+        ...staticTransform?.scaleY !== void 0 ? { scaleY: staticTransform.scaleY } : {},
         rotateDegrees: finite4(staticTransform.rotate, 0)
       }
     };

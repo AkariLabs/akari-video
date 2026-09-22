@@ -2178,6 +2178,14 @@ var AkariEditKernel = (() => {
     if (hasOwn(value, "animator")) validateAnimators(value.animator, `${path}.animator`);
     if (hasOwn(value, "keyframes")) validateKeyframes(value.keyframes, `${path}.keyframes`);
     validateItemSource(value.source, `${path}.source`, sourceIds);
+    if (value.source.kind === "group") {
+      const transforms = [value.transform, ...Array.isArray(value.keyframes) ? value.keyframes.map((point) => point.transform) : []];
+      for (const transform of transforms) {
+        if (transform !== null && typeof transform === "object" && (hasOwn(transform, "scaleX") || hasOwn(transform, "scaleY"))) {
+          throw invalid(`${path}.transform`, "group \u306F scaleX / scaleY \u3092\u6307\u5B9A\u3067\u304D\u307E\u305B\u3093");
+        }
+      }
+    }
     if (hasOwn(value, "audio")) {
       if (value.source.kind !== "media") throw invalid(`${path}.audio`, "media item \u3060\u3051\u304C\u6307\u5B9A\u3067\u304D\u307E\u3059");
       if (value.audio !== false) throw invalid(`${path}.audio`, "false \u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
@@ -2336,11 +2344,13 @@ var AkariEditKernel = (() => {
   }
   function validateTransform(value, path) {
     requireRecord(value, path);
-    requireExactKeys(value, /* @__PURE__ */ new Set(["x", "y", "scale", "rotate"]), path);
+    requireExactKeys(value, /* @__PURE__ */ new Set(["x", "y", "scale", "scaleX", "scaleY", "rotate"]), path);
     for (const key of ["x", "y", "rotate"]) {
       if (hasOwn(value, key)) requireNumber(value[key], `${path}.${key}`);
     }
-    if (hasOwn(value, "scale")) requirePositiveNumber(value.scale, `${path}.scale`);
+    for (const key of ["scale", "scaleX", "scaleY"]) {
+      if (hasOwn(value, key)) requirePositiveNumber(value[key], `${path}.${key}`);
+    }
   }
   function validateCrop(value, path) {
     requireRecord(value, path);
@@ -2994,7 +3004,7 @@ var AkariEditKernel = (() => {
   }
   function needsCrossTrackLayers(item, pathOf) {
     const transform = item.transform;
-    return transform?.scale !== void 0 && transform.scale !== 1 || transform?.x !== void 0 && transform.x !== 0 || transform?.y !== void 0 && transform.y !== 0 || transform?.rotate !== void 0 && transform.rotate !== 0 || item.crop !== void 0 || item.opacity !== void 0 && item.opacity < 1 || item.keyframes !== void 0 || item.source.kind === "media" && "mask" in item && item.mask !== void 0 || item.source.kind === "media" && isStillImageSourcePath(pathOf?.(item.source.src)) || item.source.kind === "media" && isAlphaCapableMediaSourcePath(pathOf?.(item.source.src));
+    return transform?.scale !== void 0 && transform.scale !== 1 || transform?.scaleX !== void 0 && transform.scaleX !== 1 || transform?.scaleY !== void 0 && transform.scaleY !== 1 || transform?.x !== void 0 && transform.x !== 0 || transform?.y !== void 0 && transform.y !== 0 || transform?.rotate !== void 0 && transform.rotate !== 0 || item.crop !== void 0 || item.opacity !== void 0 && item.opacity < 1 || item.keyframes !== void 0 || item.source.kind === "media" && "mask" in item && item.mask !== void 0 || item.source.kind === "media" && isStillImageSourcePath(pathOf?.(item.source.src)) || item.source.kind === "media" && isAlphaCapableMediaSourcePath(pathOf?.(item.source.src));
   }
   function nextRef(counters, kind) {
     const ref = counters.get(kind) ?? 0;

@@ -14,7 +14,7 @@ var __exportStar = (this && this.__exportStar) || function(m, exports) {
     for (var p in m) if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports, p)) __createBinding(exports, m, p);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.LegacyEditVersionError = exports.parseEdit = void 0;
+exports.normalizeTransform = exports.effectiveScale = exports.LegacyEditVersionError = exports.parseEdit = void 0;
 /**
  * ブラウザ安全なエントリポイント（テキスト手術のみ）。
  * lint ゲート付き書き込み（Node 専用）は './write-gate' を明示的に import すること
@@ -61,3 +61,6 @@ Object.defineProperty(exports, "parseEdit", { enumerable: true, get: function ()
 var error_1 = require("./migrate/error");
 Object.defineProperty(exports, "LegacyEditVersionError", { enumerable: true, get: function () { return error_1.LegacyEditVersionError; } });
 __exportStar(require("./adjust-css-visual"), exports);
+var transform_1 = require("./transform");
+Object.defineProperty(exports, "effectiveScale", { enumerable: true, get: function () { return transform_1.effectiveScale; } });
+Object.defineProperty(exports, "normalizeTransform", { enumerable: true, get: function () { return transform_1.normalizeTransform; } });

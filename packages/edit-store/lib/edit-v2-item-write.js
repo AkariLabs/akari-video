@@ -3,9 +3,29 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.resolvePreviewItemWrite = resolvePreviewItemWrite;
 exports.resolvePreviewItemWriteBatch = resolvePreviewItemWriteBatch;
 const edit_v2_1 = require("./edit-v2");
+const transform_1 = require("./transform");
 const isRecord = (value) => Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 const recordOf = (value) => isRecord(value) ? value : {};
 const stringifyEdit = (value) => `${JSON.stringify(value, undefined, 2)}\n`;
+const transformKeys = ['x', 'y', 'scale', 'scaleX', 'scaleY', 'rotate'];
+function mergeTransform(original, patch) {
+    const merged = (0, transform_1.normalizeTransform)({ ...recordOf(original), ...patch });
+    if (merged.scaleX !== undefined || merged.scaleY !== undefined) {
+        const axes = (0, transform_1.effectiveScale)(merged);
+        merged.scaleX = axes.x;
+        merged.scaleY = axes.y;
+    }
+    const ordered = {};
+    for (const key of transformKeys) {
+        if (merged[key] !== undefined)
+            ordered[key] = merged[key];
+    }
+    for (const [key, value] of Object.entries(merged)) {
+        if (!transformKeys.includes(key))
+            ordered[key] = value;
+    }
+    return ordered;
+}
 /**
  * 出力プレビューの item 書き戻しを、版判定を含む読み込み層 1 箇所へ閉じ込める。
  * 呼び出し側は v2 / legacy を知らず、返された edit.json 候補と HTML 参照先だけを扱う。
@@ -146,6 +166,10 @@ function resolveV2Write(parsed, command) {
             }
             if (patch.scale !== undefined)
                 local.scale = world.scale / parent.scale;
+            if (patch.scaleX !== undefined)
+                local.scaleX = patch.scaleX / parent.scale;
+            if (patch.scaleY !== undefined)
+                local.scaleY = patch.scaleY / parent.scale;
             if (patch.rotate !== undefined)
                 local.rotate = world.rotate - parent.rotate;
             command = { ...command, patch: { ...command.patch, transform: local } };
@@ -156,7 +180,7 @@ function resolveV2Write(parsed, command) {
             }
             if (!command.patch.transform)
                 return {};
-            item.transform = { ...recordOf(item.transform), ...command.patch.transform };
+            item.transform = mergeTransform(item.transform, command.patch.transform);
             return { candidateText: stringifyEdit(edit) };
         }
     }
@@ -193,13 +217,13 @@ function resolveV2Write(parsed, command) {
             throw new Error(`図形アイテムには HTML 本文・vars・HTML params を書き戻せません: ${itemId}`);
         }
         if (command.patch.transform) {
-            item.transform = { ...recordOf(item.transform), ...command.patch.transform };
+            item.transform = mergeTransform(item.transform, command.patch.transform);
             editChanged = true;
         }
     }
     else if (command.kind === 'layer') {
         if (command.patch.transform) {
-            item.transform = { ...recordOf(item.transform), ...command.patch.transform };
+            item.transform = mergeTransform(item.transform, command.patch.transform);
             editChanged = true;
         }
         if (command.patch.crop) {
@@ -223,7 +247,7 @@ function resolveV2Write(parsed, command) {
             throw new Error(`映像アイテムではありません: ${itemId}`);
         }
         if (command.patch.transform) {
-            item.transform = { ...recordOf(item.transform), ...command.patch.transform };
+            item.transform = mergeTransform(item.transform, command.patch.transform);
             editChanged = true;
         }
         if (command.patch.crop) {
@@ -260,7 +284,7 @@ function resolveLegacyWrite(edit, command) {
             editChanged = true;
         }
         if (command.patch.transform) {
-            overlay.transform = { ...recordOf(overlay.transform), ...command.patch.transform };
+            overlay.transform = mergeTransform(overlay.transform, command.patch.transform);
             editChanged = true;
         }
         return {
@@ -277,7 +301,7 @@ function resolveLegacyWrite(edit, command) {
             throw new Error(`素材が見つかりません: ${command.itemId}`);
         }
         if (command.patch.transform) {
-            layer.transform = { ...recordOf(layer.transform), ...command.patch.transform };
+            layer.transform = mergeTransform(layer.transform, command.patch.transform);
         }
         if (command.patch.crop) {
             layer.crop = { ...command.patch.crop };
@@ -306,7 +330,7 @@ function resolveLegacyWrite(edit, command) {
         throw new Error('カットの crop 書き戻しには edit.json version 2 が必要です');
     }
     if (command.patch.transform) {
-        cut.transform = { ...recordOf(cut.transform), ...command.patch.transform };
+        cut.transform = mergeTransform(cut.transform, command.patch.transform);
     }
     return { candidateText: stringifyEdit(edit) };
 }

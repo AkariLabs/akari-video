@@ -284,6 +284,14 @@ function validateItem(value, path, ids, sourceIds) {
     if (hasOwn(value, 'keyframes'))
         validateKeyframes(value.keyframes, `${path}.keyframes`);
     validateItemSource(value.source, `${path}.source`, sourceIds);
+    if (value.source.kind === 'group') {
+        const transforms = [value.transform, ...(Array.isArray(value.keyframes) ? value.keyframes.map(point => point.transform) : [])];
+        for (const transform of transforms) {
+            if (transform !== null && typeof transform === 'object' && (hasOwn(transform, 'scaleX') || hasOwn(transform, 'scaleY'))) {
+                throw invalid(`${path}.transform`, 'group は scaleX / scaleY を指定できません');
+            }
+        }
+    }
     if (hasOwn(value, 'audio')) {
         if (value.source.kind !== 'media')
             throw invalid(`${path}.audio`, 'media item だけが指定できます');
@@ -459,13 +467,15 @@ function validateFilter(value, path) {
 }
 function validateTransform(value, path) {
     requireRecord(value, path);
-    requireExactKeys(value, new Set(['x', 'y', 'scale', 'rotate']), path);
+    requireExactKeys(value, new Set(['x', 'y', 'scale', 'scaleX', 'scaleY', 'rotate']), path);
     for (const key of ['x', 'y', 'rotate']) {
         if (hasOwn(value, key))
             requireNumber(value[key], `${path}.${key}`);
     }
-    if (hasOwn(value, 'scale'))
-        requirePositiveNumber(value.scale, `${path}.scale`);
+    for (const key of ['scale', 'scaleX', 'scaleY']) {
+        if (hasOwn(value, key))
+            requirePositiveNumber(value[key], `${path}.${key}`);
+    }
 }
 function validateCrop(value, path) {
     requireRecord(value, path);

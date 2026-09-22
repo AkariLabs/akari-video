@@ -3,6 +3,8 @@ export interface PreviewItemTransformPatch {
     x?: number;
     y?: number;
     scale?: number;
+    scaleX?: number;
+    scaleY?: number;
     rotate?: number;
 }
 export interface PreviewItemCropPatch {

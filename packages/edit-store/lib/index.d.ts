@@ -38,3 +38,4 @@ export * from './adjust-css-approx';
 export { parseEdit } from './migrate/legacy-parse';
 export { LegacyEditVersionError } from './migrate/error';
 export * from './adjust-css-visual';
+export { effectiveScale, normalizeTransform } from './transform';
