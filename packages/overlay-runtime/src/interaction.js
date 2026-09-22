@@ -2556,6 +2556,7 @@ function toggleScopedSelection(tree, selectedIds, scopeId, next) {
     ) {
       event.preventDefault();
       event.stopPropagation();
+      event.stopImmediatePropagation();
       void commitEdit();
       return;
     }
@@ -2564,6 +2565,7 @@ function toggleScopedSelection(tree, selectedIds, scopeId, next) {
       event.key !== "Escape" ||
       (!selectedOverlay && !activeDrag && !activeResize && !activeEdit)
     ) {
+      isolateEditKey(event);
       return;
     }
 
@@ -2573,6 +2575,15 @@ function toggleScopedSelection(tree, selectedIds, scopeId, next) {
     if (activeResize) cancelResize();
     if (activeEdit) { cancelEdit(); event.stopImmediatePropagation(); return; }
     clearSelection();
+  }
+
+  function isolateEditKey(event) {
+    if (event.isComposing || !activeEdit || event.target !== activeEdit.element) return;
+    // Keep native contenteditable input, deletion, caret motion and shortcuts.
+    // Theia forwards keys from window bubble, including keyup used to commit
+    // timeline nudges. Only propagation must stop; never preventDefault here.
+    event.stopPropagation();
+    event.stopImmediatePropagation();
   }
 
   async function selftest() {
@@ -2906,6 +2917,8 @@ function toggleScopedSelection(tree, selectedIds, scopeId, next) {
   window.addEventListener("pointerup", onPointerUp, true);
   window.addEventListener("pointercancel", onPointerCancel, true);
   window.addEventListener("keydown", onKeyDown, true);
+  window.addEventListener("keyup", isolateEditKey, true);
+  window.addEventListener("keypress", isolateEditKey, true);
   window.addEventListener('blur', () => { flushNudge(); hideHover(); lastClick = null; });
   document.addEventListener('pointerleave', hideHover);
 
