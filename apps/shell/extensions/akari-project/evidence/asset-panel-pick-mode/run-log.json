@@ -57,7 +57,7 @@
   "target": {
     "id": "C50869765CC5403CB71241673C775E0B",
     "title": "ホーム - ws",
-    "url": "file:///Users/ryoma/_edit/30_products/akari-video-wt/asset-panel-pick-mode/apps/shell/lib/frontend/index.html?port=58801#/private/tmp/pickmode-l1/ws"
+    "url": "file://<WORKTREE>/apps/shell/lib/frontend/index.html?port=58801#<SCRATCH>/pickmode-l1/ws"
   },
   "commandService": {
     "resolution": "CommandService symbol",

@@ -6996,7 +6996,7 @@
               {
                 "method": "overlayWrite",
                 "args": [
-                  "file:///private/tmp/akari-modifier-keys-l1-workspace.HbOLtU/project/edit.json",
+                  "file://<SCRATCH>/akari-modifier-keys-l1-workspace.HbOLtU/project/edit.json",
                   "plain",
                   {
                     "html": "<div class=\"plain\" style=\"position: absolute; left: 16px; bottom: 16px; color: white;\">Saved plain</div>"
@@ -8362,7 +8362,7 @@
               {
                 "method": "overlayWrite",
                 "args": [
-                  "file:///private/tmp/akari-modifier-keys-l1-workspace.HbOLtU/project/edit.json",
+                  "file://<SCRATCH>/akari-modifier-keys-l1-workspace.HbOLtU/project/edit.json",
                   "s01.C",
                   {
                     "text": "Saved s01.C"
@@ -8653,7 +8653,7 @@
             "data": {
               "method": "overlayWrite",
               "args": [
-                "file:///private/tmp/akari-modifier-keys-l1-workspace.HbOLtU/project/edit.json",
+                "file://<SCRATCH>/akari-modifier-keys-l1-workspace.HbOLtU/project/edit.json",
                 "plain",
                 {
                   "html": "<div class=\"plain\" style=\"position: absolute; left: 16px; bottom: 16px; color: white;\">Saved plain</div>"
@@ -8896,7 +8896,7 @@
             "data": {
               "method": "overlayWrite",
               "args": [
-                "file:///private/tmp/akari-modifier-keys-l1-workspace.HbOLtU/project/edit.json",
+                "file://<SCRATCH>/akari-modifier-keys-l1-workspace.HbOLtU/project/edit.json",
                 "s01.C",
                 {
                   "text": "Saved s01.C"
@@ -21295,7 +21295,7 @@
       "data": {
         "method": "overlayWrite",
         "args": [
-          "file:///private/tmp/akari-modifier-keys-l1-workspace.HbOLtU/project/edit.json",
+          "file://<SCRATCH>/akari-modifier-keys-l1-workspace.HbOLtU/project/edit.json",
           "plain",
           {
             "html": "<div class=\"plain\" style=\"position: absolute; left: 16px; bottom: 16px; color: white;\">Saved plain</div>"
@@ -21538,7 +21538,7 @@
       "data": {
         "method": "overlayWrite",
         "args": [
-          "file:///private/tmp/akari-modifier-keys-l1-workspace.HbOLtU/project/edit.json",
+          "file://<SCRATCH>/akari-modifier-keys-l1-workspace.HbOLtU/project/edit.json",
           "s01.C",
           {
             "text": "Saved s01.C"

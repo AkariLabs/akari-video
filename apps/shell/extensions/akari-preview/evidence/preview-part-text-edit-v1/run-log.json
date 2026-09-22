@@ -1608,7 +1608,7 @@
         "writes": [
           {
             "type": "akari-preview-overlay-write",
-            "editPath": "file:///private/tmp/akari-part-text-l1-workspace.T0p6zy/project/edit.json",
+            "editPath": "file://<SCRATCH>/akari-part-text-l1-workspace.T0p6zy/project/edit.json",
             "overlayId": "s01.C",
             "patch": {
               "text": "L1-C-new"
@@ -3494,7 +3494,7 @@
         "writes": [
           {
             "type": "akari-preview-overlay-write",
-            "editPath": "file:///private/tmp/akari-part-text-l1-workspace.T0p6zy/project/edit.json",
+            "editPath": "file://<SCRATCH>/akari-part-text-l1-workspace.T0p6zy/project/edit.json",
             "overlayId": "s01.B",
             "patch": {
               "text": "L1-B-new"
@@ -5379,7 +5379,7 @@
         "writes": [
           {
             "type": "akari-preview-overlay-write",
-            "editPath": "file:///private/tmp/akari-part-text-l1-workspace.T0p6zy/project/edit.json",
+            "editPath": "file://<SCRATCH>/akari-part-text-l1-workspace.T0p6zy/project/edit.json",
             "overlayId": "s01#A",
             "patch": {
               "text": "L1-A-new"
@@ -7249,7 +7249,7 @@
         "writes": [
           {
             "type": "akari-preview-overlay-write",
-            "editPath": "file:///private/tmp/akari-part-text-l1-workspace.T0p6zy/project/edit.json",
+            "editPath": "file://<SCRATCH>/akari-part-text-l1-workspace.T0p6zy/project/edit.json",
             "overlayId": "plain",
             "patch": {
               "html": "<div class=\"plain\" style=\"position: absolute; left: 16px; bottom: 16px; color: white;\">L1-plain-new</div>"
@@ -7991,7 +7991,7 @@
       "kind": "write",
       "data": {
         "type": "akari-preview-overlay-write",
-        "editPath": "file:///private/tmp/akari-part-text-l1-workspace.T0p6zy/project/edit.json",
+        "editPath": "file://<SCRATCH>/akari-part-text-l1-workspace.T0p6zy/project/edit.json",
         "overlayId": "s01.C",
         "patch": {
           "text": "L1-C-new"
@@ -8017,7 +8017,7 @@
       "kind": "write",
       "data": {
         "type": "akari-preview-overlay-write",
-        "editPath": "file:///private/tmp/akari-part-text-l1-workspace.T0p6zy/project/edit.json",
+        "editPath": "file://<SCRATCH>/akari-part-text-l1-workspace.T0p6zy/project/edit.json",
         "overlayId": "s01.B",
         "patch": {
           "text": "L1-B-new"
@@ -8043,7 +8043,7 @@
       "kind": "write",
       "data": {
         "type": "akari-preview-overlay-write",
-        "editPath": "file:///private/tmp/akari-part-text-l1-workspace.T0p6zy/project/edit.json",
+        "editPath": "file://<SCRATCH>/akari-part-text-l1-workspace.T0p6zy/project/edit.json",
         "overlayId": "s01#A",
         "patch": {
           "text": "L1-A-new"
@@ -8069,7 +8069,7 @@
       "kind": "write",
       "data": {
         "type": "akari-preview-overlay-write",
-        "editPath": "file:///private/tmp/akari-part-text-l1-workspace.T0p6zy/project/edit.json",
+        "editPath": "file://<SCRATCH>/akari-part-text-l1-workspace.T0p6zy/project/edit.json",
         "overlayId": "plain",
         "patch": {
           "html": "<div class=\"plain\" style=\"position: absolute; left: 16px; bottom: 16px; color: white;\">L1-plain-new</div>"
