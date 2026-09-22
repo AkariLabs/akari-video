@@ -1,0 +1,1329 @@
+{
+  "status": "PASS",
+  "expectedStateAPI": {
+    "object": "window.akari.interaction",
+    "getters": [
+      "selectedId",
+      "scopeId",
+      "floorScopeId",
+      "activeEdit",
+      "selectedIds",
+      "selectionKind"
+    ]
+  },
+  "startedAt": "2026-09-22T00:57:50.159Z",
+  "finishedAt": "2026-09-22T00:58:34.267Z",
+  "records": [
+    {
+      "step": 1,
+      "title": "Shift adds two siblings; union and member marks",
+      "status": "ok",
+      "observations": {
+        "preparation": {
+          "timelineBefore": {
+            "rootId": null,
+            "collapsedIds": [
+              "g"
+            ],
+            "selectedId": null,
+            "selection": null,
+            "selectedRows": [],
+            "breadcrumbs": [
+              "全体"
+            ],
+            "zoom": "100%"
+          },
+          "previewBefore": {
+            "selectedId": null,
+            "selectedIds": [],
+            "selectionKind": "leaf",
+            "scopeId": null,
+            "floorScopeId": null,
+            "activeEdit": false
+          },
+          "focusExit": [],
+          "rebuild": {
+            "path": "ApplicationShell.closeWidget -> akari.preview.ensureVisible",
+            "closed": [
+              {
+                "id": "plugin-webview:akari-output-preview-1e36sqx",
+                "disposed": true
+              }
+            ]
+          },
+          "click": {
+            "x": 156.53125,
+            "y": 265.484375,
+            "id": "a",
+            "tag": "DIV",
+            "text": "a"
+          },
+          "focusBeforeClear": {
+            "hasFocus": true,
+            "instance": null,
+            "activeElement": {
+              "tag": "BODY",
+              "id": "",
+              "editable": false
+            }
+          },
+          "previewAfter": {
+            "selectedId": null,
+            "selectedIds": [],
+            "selectionKind": "leaf",
+            "scopeId": null,
+            "floorScopeId": null,
+            "activeEdit": false
+          },
+          "timelineAfter": {
+            "rootId": null,
+            "collapsedIds": [
+              "g"
+            ],
+            "selectedId": "a",
+            "selection": {
+              "kind": "item",
+              "id": "a",
+              "itemKind": "item",
+              "trackId": "visual-a"
+            },
+            "selectedRows": [],
+            "breadcrumbs": [
+              "全体"
+            ],
+            "zoom": "100%"
+          }
+        },
+        "state": {
+          "selectedId": "b",
+          "selectedIds": [
+            "a",
+            "b"
+          ],
+          "selectionKind": "multi",
+          "scopeId": null,
+          "floorScopeId": null,
+          "activeEdit": false
+        },
+        "geometry": {
+          "marked": [
+            "a",
+            "b"
+          ],
+          "handles": 0,
+          "frame": {
+            "left": 86.75,
+            "top": 236.9375,
+            "right": 442,
+            "bottom": 294.03125
+          },
+          "union": {
+            "left": 86.75,
+            "top": 236.9375,
+            "right": 442,
+            "bottom": 294.03125
+          }
+        }
+      }
+    },
+    {
+      "step": 2,
+      "title": "Third sibling toggles in and out",
+      "status": "ok",
+      "observations": {
+        "preparation": {
+          "timelineBefore": {
+            "rootId": null,
+            "collapsedIds": [
+              "g"
+            ],
+            "selectedId": "b",
+            "selection": {
+              "kind": "item",
+              "id": "b",
+              "itemKind": "item",
+              "trackId": "visual-b"
+            },
+            "selectedRows": [],
+            "breadcrumbs": [
+              "全体"
+            ],
+            "zoom": "100%"
+          },
+          "previewBefore": {
+            "selectedId": "b",
+            "selectedIds": [
+              "a",
+              "b"
+            ],
+            "selectionKind": "multi",
+            "scopeId": null,
+            "floorScopeId": null,
+            "activeEdit": false
+          },
+          "focusExit": [],
+          "rebuild": {
+            "path": "ApplicationShell.closeWidget -> akari.preview.ensureVisible",
+            "closed": [
+              {
+                "id": "plugin-webview:akari-output-preview-1e36sqx",
+                "disposed": true
+              }
+            ]
+          },
+          "click": {
+            "x": 156.53125,
+            "y": 265.484375,
+            "id": "a",
+            "tag": "DIV",
+            "text": "a"
+          },
+          "focusBeforeClear": {
+            "hasFocus": true,
+            "instance": null,
+            "activeElement": {
+              "tag": "BODY",
+              "id": "",
+              "editable": false
+            }
+          },
+          "previewAfter": {
+            "selectedId": null,
+            "selectedIds": [],
+            "selectionKind": "leaf",
+            "scopeId": null,
+            "floorScopeId": null,
+            "activeEdit": false
+          },
+          "timelineAfter": {
+            "rootId": null,
+            "collapsedIds": [
+              "g"
+            ],
+            "selectedId": "a",
+            "selection": {
+              "kind": "item",
+              "id": "a",
+              "itemKind": "item",
+              "trackId": "visual-a"
+            },
+            "selectedRows": [],
+            "breadcrumbs": [
+              "全体"
+            ],
+            "zoom": "100%"
+          }
+        },
+        "added": {
+          "selectedId": "c",
+          "selectedIds": [
+            "a",
+            "b",
+            "c"
+          ],
+          "selectionKind": "multi",
+          "scopeId": null,
+          "floorScopeId": null,
+          "activeEdit": false
+        },
+        "removed": {
+          "selectedId": "b",
+          "selectedIds": [
+            "a",
+            "b"
+          ],
+          "selectionKind": "multi",
+          "scopeId": null,
+          "floorScopeId": null,
+          "activeEdit": false
+        },
+        "geometry": {
+          "marked": [
+            "a",
+            "b"
+          ],
+          "handles": 0,
+          "frame": {
+            "left": 86.75,
+            "top": 236.9375,
+            "right": 442,
+            "bottom": 294.03125
+          },
+          "union": {
+            "left": 86.75,
+            "top": 236.9375,
+            "right": 442,
+            "bottom": 294.03125
+          }
+        }
+      }
+    },
+    {
+      "step": 3,
+      "title": "Drag three siblings: one real host batch and one file write",
+      "status": "ok",
+      "observations": {
+        "preparation": {
+          "timelineBefore": {
+            "rootId": null,
+            "collapsedIds": [
+              "g"
+            ],
+            "selectedId": "b",
+            "selection": {
+              "kind": "item",
+              "id": "b",
+              "itemKind": "item",
+              "trackId": "visual-b"
+            },
+            "selectedRows": [],
+            "breadcrumbs": [
+              "全体"
+            ],
+            "zoom": "100%"
+          },
+          "previewBefore": {
+            "selectedId": "b",
+            "selectedIds": [
+              "a",
+              "b"
+            ],
+            "selectionKind": "multi",
+            "scopeId": null,
+            "floorScopeId": null,
+            "activeEdit": false
+          },
+          "focusExit": [],
+          "rebuild": {
+            "path": "ApplicationShell.closeWidget -> akari.preview.ensureVisible",
+            "closed": [
+              {
+                "id": "plugin-webview:akari-output-preview-1e36sqx",
+                "disposed": true
+              }
+            ]
+          },
+          "click": {
+            "x": 156.53125,
+            "y": 265.484375,
+            "id": "a",
+            "tag": "DIV",
+            "text": "a"
+          },
+          "focusBeforeClear": {
+            "hasFocus": true,
+            "instance": null,
+            "activeElement": {
+              "tag": "BODY",
+              "id": "",
+              "editable": false
+            }
+          },
+          "previewAfter": {
+            "selectedId": null,
+            "selectedIds": [],
+            "selectionKind": "leaf",
+            "scopeId": null,
+            "floorScopeId": null,
+            "activeEdit": false
+          },
+          "timelineAfter": {
+            "rootId": null,
+            "collapsedIds": [
+              "g"
+            ],
+            "selectedId": "a",
+            "selection": {
+              "kind": "item",
+              "id": "a",
+              "itemKind": "item",
+              "trackId": "visual-a"
+            },
+            "selectedRows": [],
+            "breadcrumbs": [
+              "全体"
+            ],
+            "zoom": "100%"
+          }
+        },
+        "before": [
+          {
+            "id": "a",
+            "x": 0,
+            "y": 0
+          },
+          {
+            "id": "b",
+            "x": 0,
+            "y": 0
+          },
+          {
+            "id": "c",
+            "x": 0,
+            "y": 0
+          }
+        ],
+        "response": {
+          "type": "akari-preview-overlay-write-batch-response",
+          "requestId": "akari-preview-1",
+          "ok": true
+        },
+        "after": [
+          {
+            "id": "a",
+            "x": 25,
+            "y": 17.99999518934729
+          },
+          {
+            "id": "b",
+            "x": 25,
+            "y": 17.99999518934729
+          },
+          {
+            "id": "c",
+            "x": 25,
+            "y": 17.99999518934729
+          }
+        ],
+        "host": {
+          "messages": [
+            {
+              "type": "akari-preview-overlay-write-batch",
+              "request": {
+                "type": "akari-preview-overlay-write-batch",
+                "requestId": "akari-preview-1",
+                "writes": [
+                  {
+                    "overlayId": "a",
+                    "patch": {
+                      "transform": {
+                        "x": 25,
+                        "y": 17.99999518934729
+                      }
+                    }
+                  },
+                  {
+                    "overlayId": "b",
+                    "patch": {
+                      "transform": {
+                        "x": 25,
+                        "y": 17.99999518934729
+                      }
+                    }
+                  },
+                  {
+                    "overlayId": "c",
+                    "patch": {
+                      "transform": {
+                        "x": 25,
+                        "y": 17.99999518934729
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          ],
+          "reads": 1,
+          "lints": 1,
+          "writes": 1,
+          "lintResults": [
+            {
+              "pass": true,
+              "errors": []
+            }
+          ],
+          "invalidation": null,
+          "checks": {
+            "serviceReplaced": true,
+            "lintMethodReplaced": true
+          }
+        }
+      }
+    },
+    {
+      "step": 4,
+      "title": "Nudge x3 and Shift down: all +3/+10, one idle batch",
+      "status": "ok",
+      "observations": {
+        "preparation": {
+          "timelineBefore": {
+            "rootId": null,
+            "collapsedIds": [
+              "g"
+            ],
+            "selectedId": "c",
+            "selection": {
+              "kind": "item",
+              "id": "c",
+              "itemKind": "item",
+              "trackId": "visual-c"
+            },
+            "selectedRows": [],
+            "breadcrumbs": [
+              "全体"
+            ],
+            "zoom": "100%"
+          },
+          "previewBefore": {
+            "selectedId": "c",
+            "selectedIds": [
+              "a",
+              "b",
+              "c"
+            ],
+            "selectionKind": "multi",
+            "scopeId": null,
+            "floorScopeId": null,
+            "activeEdit": false
+          },
+          "focusExit": [],
+          "rebuild": {
+            "path": "ApplicationShell.closeWidget -> akari.preview.ensureVisible",
+            "closed": [
+              {
+                "id": "plugin-webview:akari-output-preview-1e36sqx",
+                "disposed": true
+              }
+            ]
+          },
+          "click": {
+            "x": 188.25,
+            "y": 288.3218688964844,
+            "id": "a",
+            "tag": "DIV",
+            "text": "a"
+          },
+          "focusBeforeClear": {
+            "hasFocus": true,
+            "instance": null,
+            "activeElement": {
+              "tag": "BODY",
+              "id": "",
+              "editable": false
+            }
+          },
+          "previewAfter": {
+            "selectedId": null,
+            "selectedIds": [],
+            "selectionKind": "leaf",
+            "scopeId": null,
+            "floorScopeId": null,
+            "activeEdit": false
+          },
+          "timelineAfter": {
+            "rootId": null,
+            "collapsedIds": [
+              "g"
+            ],
+            "selectedId": "a",
+            "selection": {
+              "kind": "item",
+              "id": "a",
+              "itemKind": "item",
+              "trackId": "visual-a"
+            },
+            "selectedRows": [],
+            "breadcrumbs": [
+              "全体"
+            ],
+            "zoom": "100%"
+          }
+        },
+        "before": [
+          {
+            "id": "a",
+            "x": 25,
+            "y": 17.99999518934729
+          },
+          {
+            "id": "b",
+            "x": 25,
+            "y": 17.99999518934729
+          },
+          {
+            "id": "c",
+            "x": 25,
+            "y": 17.99999518934729
+          }
+        ],
+        "live": [
+          {
+            "id": "a",
+            "x": 28,
+            "y": 27.99999518934729
+          },
+          {
+            "id": "b",
+            "x": 28,
+            "y": 27.99999518934729
+          },
+          {
+            "id": "c",
+            "x": 28,
+            "y": 27.99999518934729
+          }
+        ],
+        "immediateMessages": 0,
+        "response": {
+          "type": "akari-preview-overlay-write-batch-response",
+          "requestId": "akari-preview-1",
+          "ok": true
+        },
+        "after": [
+          {
+            "id": "a",
+            "x": 28,
+            "y": 27.99999518934729
+          },
+          {
+            "id": "b",
+            "x": 28,
+            "y": 27.99999518934729
+          },
+          {
+            "id": "c",
+            "x": 28,
+            "y": 27.99999518934729
+          }
+        ],
+        "host": {
+          "messages": [
+            {
+              "type": "akari-preview-overlay-write-batch",
+              "request": {
+                "type": "akari-preview-overlay-write-batch",
+                "requestId": "akari-preview-1",
+                "writes": [
+                  {
+                    "overlayId": "a",
+                    "patch": {
+                      "transform": {
+                        "x": 28,
+                        "y": 27.99999518934729
+                      }
+                    }
+                  },
+                  {
+                    "overlayId": "b",
+                    "patch": {
+                      "transform": {
+                        "x": 28,
+                        "y": 27.99999518934729
+                      }
+                    }
+                  },
+                  {
+                    "overlayId": "c",
+                    "patch": {
+                      "transform": {
+                        "x": 28,
+                        "y": 27.99999518934729
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          ],
+          "reads": 1,
+          "lints": 1,
+          "writes": 1,
+          "lintResults": [
+            {
+              "pass": true,
+              "errors": []
+            }
+          ],
+          "invalidation": null,
+          "checks": {
+            "serviceReplaced": true,
+            "lintMethodReplaced": true
+          }
+        }
+      }
+    },
+    {
+      "step": 5,
+      "title": "Shift deep click in another scope replaces the set",
+      "status": "ok",
+      "observations": {
+        "preparation": {
+          "timelineBefore": {
+            "rootId": null,
+            "collapsedIds": [
+              "g"
+            ],
+            "selectedId": "c",
+            "selection": {
+              "kind": "item",
+              "id": "c",
+              "itemKind": "item",
+              "trackId": "visual-c"
+            },
+            "selectedRows": [],
+            "breadcrumbs": [
+              "全体"
+            ],
+            "zoom": "100%"
+          },
+          "previewBefore": {
+            "selectedId": "c",
+            "selectedIds": [
+              "a",
+              "b",
+              "c"
+            ],
+            "selectionKind": "multi",
+            "scopeId": null,
+            "floorScopeId": null,
+            "activeEdit": false
+          },
+          "focusExit": [],
+          "rebuild": {
+            "path": "ApplicationShell.closeWidget -> akari.preview.ensureVisible",
+            "closed": [
+              {
+                "id": "plugin-webview:akari-output-preview-1e36sqx",
+                "disposed": true
+              }
+            ]
+          },
+          "click": {
+            "x": 192.05624389648438,
+            "y": 301.0093688964844,
+            "id": "a",
+            "tag": "DIV",
+            "text": "a"
+          },
+          "focusBeforeClear": {
+            "hasFocus": true,
+            "instance": null,
+            "activeElement": {
+              "tag": "BODY",
+              "id": "",
+              "editable": false
+            }
+          },
+          "previewAfter": {
+            "selectedId": null,
+            "selectedIds": [],
+            "selectionKind": "leaf",
+            "scopeId": null,
+            "floorScopeId": null,
+            "activeEdit": false
+          },
+          "timelineAfter": {
+            "rootId": null,
+            "collapsedIds": [
+              "g"
+            ],
+            "selectedId": "a",
+            "selection": {
+              "kind": "item",
+              "id": "a",
+              "itemKind": "item",
+              "trackId": "visual-a"
+            },
+            "selectedRows": [],
+            "breadcrumbs": [
+              "全体"
+            ],
+            "zoom": "100%"
+          }
+        },
+        "state": {
+          "selectedId": "nested",
+          "selectedIds": [
+            "nested"
+          ],
+          "selectionKind": "leaf",
+          "scopeId": "g",
+          "floorScopeId": null,
+          "activeEdit": false
+        },
+        "outside": {
+          "selectedId": "a",
+          "selectedIds": [
+            "a"
+          ],
+          "selectionKind": "leaf",
+          "scopeId": null,
+          "floorScopeId": null,
+          "activeEdit": false
+        }
+      }
+    },
+    {
+      "step": 6,
+      "title": "Escape collapses to representative, next Escape clears",
+      "status": "ok",
+      "observations": {
+        "preparation": {
+          "timelineBefore": {
+            "rootId": null,
+            "collapsedIds": [],
+            "selectedId": "a",
+            "selection": {
+              "kind": "item",
+              "id": "a",
+              "itemKind": "item",
+              "trackId": "visual-a"
+            },
+            "selectedRows": [],
+            "breadcrumbs": [
+              "全体"
+            ],
+            "zoom": "100%"
+          },
+          "previewBefore": {
+            "selectedId": "a",
+            "selectedIds": [
+              "a"
+            ],
+            "selectionKind": "leaf",
+            "scopeId": null,
+            "floorScopeId": null,
+            "activeEdit": false
+          },
+          "focusExit": [],
+          "rebuild": {
+            "path": "ApplicationShell.closeWidget -> akari.preview.ensureVisible",
+            "closed": [
+              {
+                "id": "plugin-webview:akari-output-preview-1e36sqx",
+                "disposed": true
+              }
+            ]
+          },
+          "click": {
+            "x": 192.05624389648438,
+            "y": 301.0093688964844,
+            "id": "a",
+            "tag": "DIV",
+            "text": "a"
+          },
+          "focusBeforeClear": {
+            "hasFocus": true,
+            "instance": null,
+            "activeElement": {
+              "tag": "BODY",
+              "id": "",
+              "editable": false
+            }
+          },
+          "previewAfter": {
+            "selectedId": null,
+            "selectedIds": [],
+            "selectionKind": "leaf",
+            "scopeId": null,
+            "floorScopeId": null,
+            "activeEdit": false
+          },
+          "timelineAfter": {
+            "rootId": null,
+            "collapsedIds": [],
+            "selectedId": "a",
+            "selection": {
+              "kind": "item",
+              "id": "a",
+              "itemKind": "item",
+              "trackId": "visual-a"
+            },
+            "selectedRows": [],
+            "breadcrumbs": [
+              "全体"
+            ],
+            "zoom": "100%"
+          }
+        },
+        "collapsed": {
+          "selectedId": "c",
+          "selectedIds": [
+            "c"
+          ],
+          "selectionKind": "leaf",
+          "scopeId": null,
+          "floorScopeId": null,
+          "activeEdit": false
+        },
+        "cleared": {
+          "selectedId": null,
+          "selectedIds": [],
+          "selectionKind": "leaf",
+          "scopeId": null,
+          "floorScopeId": null,
+          "activeEdit": false
+        }
+      }
+    },
+    {
+      "step": 7,
+      "title": "Double click narrows to a leaf for text or a group for drill-in",
+      "status": "ok",
+      "observations": {
+        "preparation": {
+          "timelineBefore": {
+            "rootId": null,
+            "collapsedIds": [],
+            "selectedId": "c",
+            "selection": {
+              "kind": "item",
+              "id": "c",
+              "itemKind": "item",
+              "trackId": "visual-c"
+            },
+            "selectedRows": [],
+            "breadcrumbs": [
+              "全体"
+            ],
+            "zoom": "100%"
+          },
+          "previewBefore": {
+            "selectedId": null,
+            "selectedIds": [],
+            "selectionKind": "leaf",
+            "scopeId": null,
+            "floorScopeId": null,
+            "activeEdit": false
+          },
+          "focusExit": [],
+          "rebuild": {
+            "path": "ApplicationShell.closeWidget -> akari.preview.ensureVisible",
+            "closed": [
+              {
+                "id": "plugin-webview:akari-output-preview-1e36sqx",
+                "disposed": true
+              }
+            ]
+          },
+          "click": {
+            "x": 192.05624389648438,
+            "y": 301.0093688964844,
+            "id": "a",
+            "tag": "DIV",
+            "text": "a"
+          },
+          "focusBeforeClear": {
+            "hasFocus": true,
+            "instance": null,
+            "activeElement": {
+              "tag": "BODY",
+              "id": "",
+              "editable": false
+            }
+          },
+          "previewAfter": {
+            "selectedId": null,
+            "selectedIds": [],
+            "selectionKind": "leaf",
+            "scopeId": null,
+            "floorScopeId": null,
+            "activeEdit": false
+          },
+          "timelineAfter": {
+            "rootId": null,
+            "collapsedIds": [],
+            "selectedId": "a",
+            "selection": {
+              "kind": "item",
+              "id": "a",
+              "itemKind": "item",
+              "trackId": "visual-a"
+            },
+            "selectedRows": [],
+            "breadcrumbs": [
+              "全体"
+            ],
+            "zoom": "100%"
+          }
+        },
+        "text": {
+          "selectedId": "a",
+          "selectedIds": [
+            "a"
+          ],
+          "selectionKind": "leaf",
+          "scopeId": null,
+          "floorScopeId": null,
+          "activeEdit": true
+        },
+        "drill": {
+          "selectedId": "nested",
+          "selectedIds": [
+            "nested"
+          ],
+          "selectionKind": "leaf",
+          "scopeId": "g",
+          "floorScopeId": null,
+          "activeEdit": false
+        }
+      }
+    },
+    {
+      "step": 8,
+      "title": "Real lint rejects a missing-reference candidate: all live positions and edit bytes roll back",
+      "status": "ok",
+      "observations": {
+        "preparation": {
+          "timelineBefore": {
+            "rootId": null,
+            "collapsedIds": [],
+            "selectedId": "nested",
+            "selection": {
+              "kind": "item",
+              "id": "nested",
+              "itemKind": "item",
+              "parentId": "g",
+              "trackId": "visual-g"
+            },
+            "selectedRows": [
+              "nested"
+            ],
+            "breadcrumbs": [
+              "全体"
+            ],
+            "zoom": "100%"
+          },
+          "previewBefore": {
+            "selectedId": "nested",
+            "selectedIds": [
+              "nested"
+            ],
+            "selectionKind": "leaf",
+            "scopeId": "g",
+            "floorScopeId": null,
+            "activeEdit": false
+          },
+          "focusExit": [],
+          "rebuild": {
+            "path": "ApplicationShell.closeWidget -> akari.preview.ensureVisible",
+            "closed": [
+              {
+                "id": "plugin-webview:akari-output-preview-1e36sqx",
+                "disposed": true
+              }
+            ]
+          },
+          "click": {
+            "x": 192.05624389648438,
+            "y": 301.0093688964844,
+            "id": "a",
+            "tag": "DIV",
+            "text": "a"
+          },
+          "focusBeforeClear": {
+            "hasFocus": true,
+            "instance": null,
+            "activeElement": {
+              "tag": "BODY",
+              "id": "",
+              "editable": false
+            }
+          },
+          "previewAfter": {
+            "selectedId": null,
+            "selectedIds": [],
+            "selectionKind": "leaf",
+            "scopeId": null,
+            "floorScopeId": null,
+            "activeEdit": false
+          },
+          "timelineAfter": {
+            "rootId": null,
+            "collapsedIds": [],
+            "selectedId": "a",
+            "selection": {
+              "kind": "item",
+              "id": "a",
+              "itemKind": "item",
+              "trackId": "visual-a"
+            },
+            "selectedRows": [],
+            "breadcrumbs": [
+              "全体"
+            ],
+            "zoom": "100%"
+          }
+        },
+        "before": [
+          {
+            "id": "a",
+            "x": 28,
+            "y": 27.99999518934729
+          },
+          {
+            "id": "b",
+            "x": 28,
+            "y": 27.99999518934729
+          },
+          {
+            "id": "c",
+            "x": 28,
+            "y": 27.99999518934729
+          }
+        ],
+        "response": {
+          "type": "akari-preview-overlay-write-batch-response",
+          "requestId": "akari-preview-1",
+          "ok": false,
+          "error": "[references.files] overlays[2].html does not resolve to a regular file"
+        },
+        "after": [
+          {
+            "id": "a",
+            "x": 28,
+            "y": 27.99999518934729
+          },
+          {
+            "id": "b",
+            "x": 28,
+            "y": 27.99999518934729
+          },
+          {
+            "id": "c",
+            "x": 28,
+            "y": 27.99999518934729
+          }
+        ],
+        "host": {
+          "messages": [
+            {
+              "type": "akari-preview-overlay-write-batch",
+              "request": {
+                "type": "akari-preview-overlay-write-batch",
+                "requestId": "akari-preview-1",
+                "writes": [
+                  {
+                    "overlayId": "a",
+                    "patch": {
+                      "transform": {
+                        "x": 53,
+                        "y": 45.99999037869458
+                      }
+                    }
+                  },
+                  {
+                    "overlayId": "b",
+                    "patch": {
+                      "transform": {
+                        "x": 53,
+                        "y": 45.99999037869458
+                      }
+                    }
+                  },
+                  {
+                    "overlayId": "c",
+                    "patch": {
+                      "transform": {
+                        "x": 53,
+                        "y": 45.99999037869458
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          ],
+          "reads": 1,
+          "lints": 1,
+          "writes": 0,
+          "lintResults": [
+            {
+              "pass": false,
+              "errors": [
+                "[references.files] overlays[2].html does not resolve to a regular file"
+              ]
+            }
+          ],
+          "invalidation": {
+            "itemId": "c",
+            "path": "overlays/__l1_missing_c__.html"
+          },
+          "checks": {
+            "serviceReplaced": true,
+            "lintMethodReplaced": true
+          }
+        },
+        "editUnchanged": true
+      }
+    }
+  ],
+  "events": [
+    {
+      "kind": "host-probe-installed",
+      "checks": {
+        "serviceReplaced": true,
+        "lintMethodReplaced": true
+      }
+    },
+    {
+      "kind": "preview-focus",
+      "at": 1790038676243,
+      "data": {
+        "label": "before Escape",
+        "hasFocus": true,
+        "instance": null,
+        "activeElement": {
+          "tag": "BODY",
+          "id": "",
+          "editable": false
+        }
+      }
+    },
+    {
+      "kind": "preview-focus",
+      "at": 1790038679362,
+      "data": {
+        "label": "before Escape",
+        "hasFocus": true,
+        "instance": null,
+        "activeElement": {
+          "tag": "BODY",
+          "id": "",
+          "editable": false
+        }
+      }
+    },
+    {
+      "kind": "preview-focus",
+      "at": 1790038683007,
+      "data": {
+        "label": "before Escape",
+        "hasFocus": true,
+        "instance": null,
+        "activeElement": {
+          "tag": "BODY",
+          "id": "",
+          "editable": false
+        }
+      }
+    },
+    {
+      "kind": "preview-focus",
+      "at": 1790038688794,
+      "data": {
+        "label": "before Escape",
+        "hasFocus": true,
+        "instance": null,
+        "activeElement": {
+          "tag": "BODY",
+          "id": "",
+          "editable": false
+        }
+      }
+    },
+    {
+      "kind": "preview-focus",
+      "at": 1790038690922,
+      "data": {
+        "label": "nudge",
+        "hasFocus": true,
+        "instance": null,
+        "activeElement": {
+          "tag": "BODY",
+          "id": "",
+          "editable": false
+        }
+      }
+    },
+    {
+      "kind": "preview-focus",
+      "at": 1790038694916,
+      "data": {
+        "label": "before Escape",
+        "hasFocus": true,
+        "instance": null,
+        "activeElement": {
+          "tag": "BODY",
+          "id": "",
+          "editable": false
+        }
+      }
+    },
+    {
+      "kind": "preview-focus",
+      "at": 1790038700558,
+      "data": {
+        "label": "before Escape",
+        "hasFocus": true,
+        "instance": null,
+        "activeElement": {
+          "tag": "BODY",
+          "id": "",
+          "editable": false
+        }
+      }
+    },
+    {
+      "kind": "preview-focus",
+      "at": 1790038702516,
+      "data": {
+        "label": "before Escape",
+        "hasFocus": true,
+        "instance": null,
+        "activeElement": {
+          "tag": "BODY",
+          "id": "",
+          "editable": false
+        }
+      }
+    },
+    {
+      "kind": "preview-focus",
+      "at": 1790038703066,
+      "data": {
+        "label": "before Escape",
+        "hasFocus": true,
+        "instance": null,
+        "activeElement": {
+          "tag": "BODY",
+          "id": "",
+          "editable": false
+        }
+      }
+    },
+    {
+      "kind": "preview-focus",
+      "at": 1790038705014,
+      "data": {
+        "label": "before Escape",
+        "hasFocus": true,
+        "instance": null,
+        "activeElement": {
+          "tag": "BODY",
+          "id": "",
+          "editable": false
+        }
+      }
+    },
+    {
+      "kind": "preview-focus",
+      "at": 1790038707628,
+      "data": {
+        "label": "before Escape",
+        "hasFocus": true,
+        "instance": null,
+        "activeElement": {
+          "tag": "DIV",
+          "id": "",
+          "editable": true
+        }
+      }
+    },
+    {
+      "kind": "preview-focus",
+      "at": 1790038711983,
+      "data": {
+        "label": "before Escape",
+        "hasFocus": true,
+        "instance": null,
+        "activeElement": {
+          "tag": "BODY",
+          "id": "",
+          "editable": false
+        }
+      }
+    }
+  ]
+}

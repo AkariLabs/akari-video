@@ -100,11 +100,11 @@ test('nudge/cycle/hover through native browser gestures', async t => {
       } finally { await page.close(); }
     }
   });
-  await t.test('three single clicks cycle front/back/front; modifiers, distance and timeout reset', async () => {
+  await t.test('three single clicks cycle front/back/front; Shift toggles without cycling, distance and timeout reset', async () => {
     const page = await fixture(browser);
     try {
       for (const selected of ['front', 'back', 'front']) { await click(page); assert.equal((await state(page)).selected, selected); }
-      await click(page, 1, 8); assert.equal((await state(page)).selected, 'front');
+      await click(page, 1, 8); assert.equal((await state(page)).selected, null, 'Shift removes the selected sibling without cycling');
       await click(page); assert.equal((await state(page)).selected, 'front');
       await sleep(650); await click(page); assert.equal((await state(page)).selected, 'front');
       await click(page, 1, 0, 120); assert.equal((await state(page)).selected, 'front');

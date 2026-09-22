@@ -75,3 +75,17 @@ test('only the lazy bag matching the current scope requests expansion', async ()
   assert.equal(lazyBagForScope(lazyTree, 'lazy#A'), null);
   assert.equal(lazyBagForScope(lazyTree, 'missing'), null);
 });
+
+test('additive selection toggles immediate siblings in insertion order and chooses the last survivor', async () => {
+  const { toggleScopedSelection: toggle } = await import('../src/selection-scope.mjs');
+  const hit = (selectId, scopeId = 'g') => ({ selectId, scopeId });
+  assert.deepEqual(toggle(tree, ['a'], 'g', hit('b')), { selectedIds: ['a','b'], selectId: 'b', scopeId: 'g' });
+  assert.deepEqual(toggle(tree, ['a','b'], 'g', hit('a')), { selectedIds: ['b'], selectId: 'b', scopeId: 'g' });
+  assert.deepEqual(toggle(tree, ['a','b'], 'g', hit('b')), { selectedIds: ['a'], selectId: 'a', scopeId: 'g' });
+  assert.deepEqual(toggle(tree, ['a'], 'g', hit('a')), { selectedIds: [], selectId: null, scopeId: 'g' });
+  assert.deepEqual(toggle(tree, ['a','b'], 'g', hit('plain', null)), { selectedIds: ['plain'], selectId: 'plain', scopeId: null });
+  assert.deepEqual(toggle(tree, ['a'], 'g', hit('c')), { selectedIds: ['c'], selectId: 'c', scopeId: 'g' });
+  assert.deepEqual(toggle(tree, ['plain'], null, hit('a')), { selectedIds: ['a'], selectId: 'a', scopeId: 'g' });
+  assert.deepEqual(toggle(tree, ['a','b'], 'g', hit(null)), { selectedIds: [], selectId: null, scopeId: 'g' });
+  assert.deepEqual(toggle(tree, ['outer'], null, hit('bag', null)).selectedIds, ['outer','bag']);
+});
