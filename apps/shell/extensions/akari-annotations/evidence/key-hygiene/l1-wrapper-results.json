@@ -1,0 +1,133 @@
+{
+  "labels": {
+    "splitTitle": "分割 (B / C)",
+    "splitAria": "分割ツール",
+    "placeText": "T 文字を置く",
+    "help": "Space: 再生 / 停止\n← →: 1フレーム移動\nShift+← →: 1秒移動\nV / A: 選択\nB / C: 分割\nF: 仮枠\nT: 文字を置く\nN / M: スナップ切替\nDelete / Backspace: 削除\nAlt+Delete: 片側だけ削除\n⌘C / ⌘X / ⌘V: コピー / カット / ペースト\n⌘G / Shift+⌘G: まとめる / ばらす\nEsc: 選択解除\n\\ / Enter: 親 / 子を選ぶ\nAlt+矢印: 位置を1px移動\nShift+Alt+矢印: 位置を10px移動\n]: 1つ前へ\n[: 1つ後ろへ"
+  },
+  "timelineSpace": {
+    "before": {
+      "playing": false,
+      "toggles": 0,
+      "copies": 0,
+      "selection": "{\"kind\":\"cut\",\"index\":0}",
+      "active": "BODY.monaco-enable-motion.underline-links"
+    },
+    "afterFirstSpace": {
+      "playing": true,
+      "toggles": 1,
+      "copies": 0,
+      "selection": "{\"kind\":\"cut\",\"index\":0}",
+      "active": "BODY.monaco-enable-motion.underline-links"
+    },
+    "afterSecondSpace": {
+      "playing": false,
+      "toggles": 2,
+      "copies": 0,
+      "selection": "{\"kind\":\"cut\",\"index\":0}",
+      "active": "BODY.monaco-enable-motion.underline-links"
+    }
+  },
+  "timelineEsc": {
+    "before": "{\"kind\":\"cut\",\"index\":0}",
+    "after": null
+  },
+  "timelineCopy": {
+    "copiesBefore": 0,
+    "copiesAfter": 1,
+    "footer": "1 件をコピーしました。"
+  },
+  "timelineDelete": {
+    "clipsBefore": 2,
+    "clipsAfter": 1,
+    "clipsAfterUndo": 2
+  },
+  "tKey": {
+    "captionsBefore": 2,
+    "captionsAfter": 3
+  },
+  "audioDialog": {
+    "timelineSelection": "{\"kind\":\"cut\",\"index\":0}",
+    "clipsBefore": 2,
+    "beforeSpace": {
+      "open": true,
+      "deleteEnabled": true,
+      "previewPlaying": false,
+      "toggles": 2,
+      "active": "BUTTON.theia-button.main"
+    },
+    "afterSpace": {
+      "previewPlaying": false,
+      "toggles": 2,
+      "dialogAudioPlays": 1,
+      "dialogAudioPaused": false
+    },
+    "afterDelete": {
+      "open": true,
+      "deleteEnabled": false,
+      "clips": 2
+    },
+    "afterFirstEsc": {
+      "open": false,
+      "deleteEnabled": false
+    }
+  },
+  "libraryCard": {
+    "card": {
+      "x": 92,
+      "y": 233
+    },
+    "focused": "DIV",
+    "before": {
+      "playing": false,
+      "toggles": 2
+    },
+    "after": {
+      "playing": false,
+      "toggles": 2,
+      "active": "DIV"
+    }
+  },
+  "daihonEsc": {
+    "before": {
+      "rowsSelected": 1,
+      "playing": false,
+      "toggles": 2,
+      "copies": 1,
+      "selection": "{\"kind\":\"caption\",\"id\":\"c-0001\"}",
+      "active": "DIV.akari-daihon-rows"
+    },
+    "afterFirstEsc": {
+      "rowsSelected": 0,
+      "playing": false,
+      "toggles": 2,
+      "copies": 1,
+      "selection": null,
+      "active": "DIV.akari-daihon-rows"
+    }
+  },
+  "partnerIme": {
+    "before": 0,
+    "composingValue": "にほんご",
+    "afterComposingEnter": 0,
+    "committedValue": "にほんご日本語",
+    "afterCommit": 0,
+    "afterEnter": 1,
+    "lastMessage": "にほんご日本語"
+  },
+  "partnerCopy": {
+    "selected": "にほんご日本語\n",
+    "active": "DIV#akari-partner-onboarding.lm-Widget.lm-DockPanel-widget",
+    "timelineSelection": "{\"kind\":\"cut\",\"index\":0}",
+    "clipboard": "にほんご日本語\n",
+    "timelineCopiesBefore": 1,
+    "timelineCopiesAfter": 1
+  },
+  "webviewForwardedEsc": {
+    "active": "IFRAME",
+    "selectionAfter": null,
+    "selectionBefore": "{\"kind\":\"cut\",\"index\":0}"
+  },
+  "pass": true,
+  "orphans": 0
+}

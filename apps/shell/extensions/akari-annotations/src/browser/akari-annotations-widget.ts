@@ -661,6 +661,10 @@ const PREVIEW_ADJUST_BYPASS_QUERY_EVENT = 'akari.preview.adjustBypassQuery';
 const TIMELINE_LOOP_RANGE_EVENT = 'akari.timeline.loopRange';
 const SHORTCUTS_HELP_TEXT = [
     'Space: 再生 / 停止', '← →: 1フレーム移動', 'Shift+← →: 1秒移動',
+    'V / A: 選択', 'B / C: 分割', 'F: 仮枠', 'T: 文字を置く', 'N / M: スナップ切替',
+    'Delete / Backspace: 削除', 'Alt+Delete: 片側だけ削除',
+    '⌘C / ⌘X / ⌘V: コピー / カット / ペースト', '⌘G / Shift+⌘G: まとめる / ばらす',
+    'Esc: 選択解除', '\\ / Enter: 親 / 子を選ぶ',
     'Alt+矢印: 位置を1px移動', 'Shift+Alt+矢印: 位置を10px移動',
     ']: 1つ前へ', '[: 1つ後ろへ'
 ].join('\n');
@@ -1384,7 +1388,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         });
         this.configureIconButton(this.selectToolButton, 'codicon-cursor', '選択ツール', '選択 (V)');
         this.selectToolButton.addEventListener('click', () => this.setToolMode('select'));
-        this.configureIconButton(this.razorToolButton, 'codicon-screen-cut', '分割ツール', '分割 (C)');
+        this.configureIconButton(this.razorToolButton, 'codicon-screen-cut', '分割ツール', '分割 (B / C)');
         this.razorToolButton.addEventListener('click', () => this.setToolMode('razor'));
         this.configureIconButton(this.frameToolButton, 'codicon-preview', '仮枠ツール', '仮枠 (F)');
         this.frameToolButton.addEventListener('click', () => this.setToolMode('frame'));
@@ -2295,6 +2299,23 @@ export class AkariAnnotationsWidget extends BaseWidget {
             if (isImeCompositionKeydown(event)) return;
             // キー操作は確定済みの幾何（選択・再生ヘッド位置）を前提にするため、保留中のズーム描画を先に流す。
             this.flushStripRender();
+            // Theia の表示中モーダルは window capture より後でキーを受ける。先にタイムラインが消費しない。
+            const modalOpen = Array.from(document.querySelectorAll?.('.dialogOverlay, [aria-modal="true"]') ?? [])
+                .some(element => element.getClientRects().length > 0
+                    && getComputedStyle(element).visibility !== 'hidden');
+            if (modalOpen) return;
+            const focusedElement = typeof HTMLElement !== 'undefined' && document.activeElement instanceof HTMLElement
+                ? document.activeElement : null;
+            // Theia が webview の keydown を再送すると、target と activeElement は iframe になる。
+            const isWebviewKeydown = focusedElement?.tagName === 'IFRAME'
+                || (typeof HTMLElement !== 'undefined' && event.target instanceof HTMLElement
+                    && event.target.tagName === 'IFRAME');
+            const timelineOwnsFocus = isWebviewKeydown || !!focusedElement && this.node.contains(focusedElement);
+            const focusOutsideTimeline = !!focusedElement && focusedElement !== document.body
+                && !timelineOwnsFocus;
+            const focusedControl = focusedElement?.closest('button, [role="button"], [tabindex]');
+            const focusOnControl = !isWebviewKeydown && !!focusedControl && focusedControl !== this.node;
+            if (event.key === 'Escape' && focusOutsideTimeline) return;
             if (event.key === 'Escape' && this.cancelFrameDraw) {
                 event.preventDefault();
                 event.stopPropagation();
@@ -2453,6 +2474,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 });
                 return;
             }
+            if ((event.metaKey || event.ctrlKey) && ['c', 'x', 'v'].includes(event.key.toLowerCase())
+                && (focusOutsideTimeline || (!timelineOwnsFocus && typeof window !== 'undefined'
+                    && !!window.getSelection?.()?.toString()))) return;
             if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'c') {
                 event.preventDefault();
                 event.stopPropagation();
@@ -2474,6 +2498,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             if (!event.metaKey && !event.ctrlKey && !event.altKey) {
                 const key = event.key.toLowerCase();
                 if (key === ' ' || event.code === 'Space') {
+                    if (focusOnControl) return;
                     event.preventDefault();
                     this.togglePreviewPlayback();
                     return;
@@ -2491,6 +2516,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 if (key === 'f') {
                     event.preventDefault();
                     this.setToolMode('frame');
+                    return;
+                }
+                if (key === 't') {
+                    event.preventDefault();
+                    void this.commands.executeCommand(PLACE_TEXT_COMMAND_ID, {}, this.location?.editUri?.toString());
                     return;
                 }
                 if (key === 'n' || key === 'm') {

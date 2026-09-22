@@ -1073,7 +1073,8 @@ export class AkariPartnerWidget extends ReactWidget {
                         style={chatStyles.input}
                         onChange={event => { this.composerValue = event.target.value; this.update(); }}
                         onKeyDown={event => {
-                            if (event.key === 'Enter') {
+                            if (event.key === 'Enter' && !event.nativeEvent.isComposing
+                                && event.nativeEvent.keyCode !== 229) {
                                 event.preventDefault();
                                 this.submitComposer();
                             }
