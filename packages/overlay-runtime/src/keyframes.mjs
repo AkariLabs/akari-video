@@ -1,5 +1,5 @@
-const PROPERTY_DEFAULTS = Object.freeze({ x: 0, y: 0, scale: 1, rotate: 0, opacity: 1 });
-const TRANSFORM_PROPERTIES = new Set(["x", "y", "scale", "rotate"]);
+const PROPERTY_DEFAULTS = Object.freeze({ x: 0, y: 0, scale: 1, scaleX: 1, scaleY: 1, rotate: 0, opacity: 1 });
+const TRANSFORM_PROPERTIES = new Set(["x", "y", "scale", "scaleX", "scaleY", "rotate"]);
 const CUBIC_BEZIER_PATTERN = /^cubic-bezier\(\s*([-+]?(?:\d+\.?\d*|\.\d+)(?:e[-+]?\d+)?)\s*,\s*([-+]?(?:\d+\.?\d*|\.\d+)(?:e[-+]?\d+)?)\s*,\s*([-+]?(?:\d+\.?\d*|\.\d+)(?:e[-+]?\d+)?)\s*,\s*([-+]?(?:\d+\.?\d*|\.\d+)(?:e[-+]?\d+)?)\s*\)$/iu;
 
 function finiteNumber(value, fallback) {
@@ -109,21 +109,23 @@ function easingFor(point, property) {
   const easing = point?.easing;
   if (typeof easing === "string") return easing;
   if (!easing || typeof easing !== "object" || Array.isArray(easing)) return "linear";
-  const direct = easing[property];
+  const direct = easing[property] ?? easing[`transform.${property}`];
   if (typeof direct === "string") return direct;
   if (TRANSFORM_PROPERTIES.has(property) && typeof easing.transform === "string") return easing.transform;
   const nested = easing.transform?.[property];
   return typeof nested === "string" ? nested : "linear";
 }
 
-function pointValue(point, property) {
-  const value = TRANSFORM_PROPERTIES.has(property) ? point?.transform?.[property] : point?.[property];
+function pointValue(point, property, fallback) {
+  const value = TRANSFORM_PROPERTIES.has(property)
+    ? (point?.transform?.[property] ?? ((property === "scaleX" || property === "scaleY") ? (point?.transform?.scale ?? (point?.transform ? fallback : undefined)) : undefined))
+    : point?.[property];
   return typeof value === "number" && Number.isFinite(value) ? value : undefined;
 }
 
 function interpolateProperty(points, property, localFrame, fallback) {
   const declared = points
-    .map((point) => ({ point, value: pointValue(point, property) }))
+    .map((point) => ({ point, value: pointValue(point, property, fallback) }))
     .filter((entry) => entry.value !== undefined);
   if (declared.length === 0) return fallback;
   if (declared.length === 1) return declared[0].value;
@@ -146,7 +148,7 @@ function interpolateProperty(points, property, localFrame, fallback) {
 function interpolateKeyframes(points, localFrame, { statics = {} } = {}) {
   const fallback = Object.fromEntries(Object.entries(PROPERTY_DEFAULTS).map(([property, value]) => [
     property,
-    finiteNumber(statics?.[property], value),
+    finiteNumber(statics?.[property], (property === "scaleX" || property === "scaleY") ? finiteNumber(statics?.scale, value) : value),
   ]));
   const usable = Array.isArray(points)
     ? points.filter((point) => point && typeof point === "object" && !Array.isArray(point)
@@ -154,10 +156,12 @@ function interpolateKeyframes(points, localFrame, { statics = {} } = {}) {
       .slice()
       .sort((left, right) => left.t - right.t)
     : [];
+  const hasAxes = [statics, ...usable.map(point => point.transform)].some(value => value?.scaleX !== undefined || value?.scaleY !== undefined);
+  if (!hasAxes) { delete fallback.scaleX; delete fallback.scaleY; }
   const frame = finiteNumber(localFrame, 0);
   if (usable.length < 2) return { ...fallback };
   const result = {};
-  for (const property of Object.keys(PROPERTY_DEFAULTS)) {
+  for (const property of Object.keys(fallback)) {
     result[property] = rounded(interpolateProperty(usable, property, frame, fallback[property]));
   }
   result.opacity = rounded(clamp(result.opacity));

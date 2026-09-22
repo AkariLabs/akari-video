@@ -17,6 +17,15 @@ updated: 2026-08-30
 
 ## 1. 意味論
 
+> **2026-09-22 — 非等方スケール v1**: `transform.scaleX` / `scaleY` は独立した正数。
+> 有効値は `(scaleX ?? scale ?? 1, scaleY ?? scale ?? 1)`。負値・0 は不可。
+> `source.kind === 'group'` は軸別指定を持てず、親は常に等比とする。
+> 等比親との合成は子の各有効値に親の `scale` を掛け、逆変換は同じ値で割る。
+> 書き込み時に両軸の有効値が等しければ `scale` に畳む。既存の `scale` だけの宣言は変更しない。
+> keyframes は端点を各軸の有効値へ解決してから補間する（`scale` と `scaleX` の混在も可）。
+> overlay の CSS は `translate(...) scale(sx, sy) rotate(...)`、素材は crop の幅・高さへ
+> 各軸を掛けて回転する。四隅 resize は両軸へ同じ倍率を掛け、縦横比を維持する。
+
 - `keyframes[]` はレイヤー / アイテムの `transform` / `crop` / `perspective` を時間で動かす共通機構
 - `t` は**ローカル時間**: v1 `layers[].keyframes[].t` はレイヤー内秒（`layerItem.t` を 0 とする。`cuts[].framing.keyframes[].t` と同じ規約）、
   v2 `items[].keyframes[].t` は**アイテム内の整数フレーム**（`item.at` を 0 とする）

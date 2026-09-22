@@ -985,6 +985,8 @@
         "x": { "type": "number" },
         "y": { "type": "number" },
         "scale": { "$ref": "#/$defs/positiveNumber" },
+        "scaleX": { "$ref": "#/$defs/positiveNumber" },
+        "scaleY": { "$ref": "#/$defs/positiveNumber" },
         "rotate": { "type": "number" }
       },
       "$comment": "cuts[].transform 用。layerTransform と同語彙・同意味論（x/y=px 省略時0・scale=正の数 省略時1・rotate=度 省略時0）。layerTransform は additionalProperties:true のため既存 layerItem 検証結果を変えないよう独立した $def にしている（cuts 側は未知キーを拒否）。"
@@ -1126,6 +1128,8 @@
         "x": { "type": "number" },
         "y": { "type": "number" },
         "scale": { "$ref": "#/$defs/positiveNumber" },
+        "scaleX": { "$ref": "#/$defs/positiveNumber" },
+        "scaleY": { "$ref": "#/$defs/positiveNumber" },
         "rotate": { "type": "number" }
       }
     },
@@ -1716,7 +1720,7 @@
         "at": { "$ref": "#/$defs/itemAtV2" },
         "duration": { "$ref": "#/$defs/frames" },
         "anchor": { "$ref": "#/$defs/itemAnchorV2" },
-        "transform": { "$ref": "#/$defs/layerTransform" },
+        "transform": { "$ref": "#/$defs/layerTransform", "properties": { "scaleX": false, "scaleY": false } },
         "opacity": { "type": "number", "minimum": 0, "maximum": 1 },
         "blend": { "$ref": "#/$defs/layerBlendMode" },
         "crop": { "$ref": "#/$defs/layerCrop" },
@@ -1724,7 +1728,7 @@
         "perspective": { "$ref": "#/$defs/layerPerspective" },
         "motion": { "$ref": "#/$defs/motionV0" },
         "animator": { "type": "array", "items": { "$ref": "#/$defs/animatorV0" } },
-        "keyframes": { "oneOf": [{ "type": "array", "minItems": 2, "items": { "$ref": "#/$defs/keyframeV2" } }, { "type": "object", "additionalProperties": false, "required": ["path", "count"], "properties": { "path": { "type": "string", "pattern": "^motion/.+\\.json$" }, "count": { "type": "integer", "minimum": 2 } } }] },
+        "keyframes": {"allOf": [{"oneOf": [{"type": "array", "minItems": 2, "items": {"$ref": "#/$defs/keyframeV2"}}, {"type": "object", "additionalProperties": false, "required": ["path", "count"], "properties": {"path": {"type": "string", "pattern": "^motion/.+\\.json$"}, "count": {"type": "integer", "minimum": 2}}}]}, {"if": {"type": "array"}, "then": {"items": {"properties": {"transform": {"properties": {"scaleX": false, "scaleY": false}}}}}}]},
         "items": { "type": "array", "items": { "$ref": "#/$defs/itemV2" } },
         "source": { "$ref": "#/$defs/itemSourceGroupV2" }
       }

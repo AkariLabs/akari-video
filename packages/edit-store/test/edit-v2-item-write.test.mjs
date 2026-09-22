@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { resolvePreviewItemWrite } from '../lib/edit-v2-item-write.js';
+import { resolvePreviewItemWrite, resolvePreviewItemWriteBatch } from '../lib/edit-v2-item-write.js';
 
 const v2 = () => ({
   version: 2,
@@ -150,4 +150,52 @@ test('legacy v0/v1 documents stay on their existing collection route', () => {
     }),
     /overlays が配列ではありません/,
   );
+});
+
+test('single move and uniform resize preserve the legacy transform key set', () => {
+  const value = v2();
+  value.tracks[1].items[0].transform = { x: 0, y: 0, scale: 1, rotate: 0 };
+  const move = resolvePreviewItemWrite(JSON.stringify(value), {
+    kind: 'overlay', itemId: 'title-1',
+    patch: { transform: { x: 34, y: 19.18, scale: 1, scaleX: 1, scaleY: 1, rotate: 0 } },
+  });
+  const moved = JSON.parse(move.candidateText).tracks[1].items[0].transform;
+  assert.deepEqual(moved, { x: 34, y: 19.18, scale: 1, rotate: 0 });
+  assert.deepEqual(Object.keys(moved), ['x', 'y', 'scale', 'rotate']);
+  const resize = resolvePreviewItemWrite(move.candidateText, {
+    kind: 'overlay', itemId: 'title-1',
+    patch: { transform: { x: 34, y: 19.18, scale: 1.5, scaleX: 1.5, scaleY: 1.5, rotate: 0 } },
+  });
+  assert.deepEqual(JSON.parse(resize.candidateText).tracks[1].items[0].transform,
+    { x: 34, y: 19.18, scale: 1.5, rotate: 0 });
+});
+
+test('single move keeps unequal axes, fills a missing axis, and folds equality', () => {
+  const value = v2();
+  value.tracks[1].items[0].transform = { x: 0, y: 0, scale: 1, scaleX: 2, rotate: 0 };
+  const move = resolvePreviewItemWrite(JSON.stringify(value), {
+    kind: 'overlay', itemId: 'title-1', patch: { transform: { x: 5, y: 6 } },
+  });
+  const moved = JSON.parse(move.candidateText).tracks[1].items[0].transform;
+  assert.deepEqual(moved, { x: 5, y: 6, scale: 1, scaleX: 2, scaleY: 1, rotate: 0 });
+  assert.deepEqual(Object.keys(moved), ['x', 'y', 'scale', 'scaleX', 'scaleY', 'rotate']);
+  const equal = resolvePreviewItemWrite(move.candidateText, {
+    kind: 'overlay', itemId: 'title-1', patch: { transform: { scaleX: 1, scaleY: 1 } },
+  });
+  assert.deepEqual(JSON.parse(equal.candidateText).tracks[1].items[0].transform,
+    { x: 5, y: 6, scale: 1, rotate: 0 });
+});
+
+test('batch move preserves each item’s original scale representation', () => {
+  const value = v2();
+  value.tracks[0].items[0].transform = { x: 0, y: 0, scale: 1, rotate: 0 };
+  value.tracks[1].items[0].transform = { x: 0, y: 0, scale: 1, scaleX: 2, scaleY: 0.5, rotate: 0 };
+  const result = resolvePreviewItemWriteBatch(JSON.stringify(value), [
+    { kind: 'cut', itemId: 'clip-1', legacyIndex: 0, patch: { transform: { x: 10, y: 20 } } },
+    { kind: 'overlay', itemId: 'title-1', patch: { transform: { x: 30, y: 40 } } },
+  ]);
+  const written = JSON.parse(result.candidateText);
+  assert.deepEqual(written.tracks[0].items[0].transform, { x: 10, y: 20, scale: 1, rotate: 0 });
+  assert.deepEqual(written.tracks[1].items[0].transform,
+    { x: 30, y: 40, scale: 1, scaleX: 2, scaleY: 0.5, rotate: 0 });
 });

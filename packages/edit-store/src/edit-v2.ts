@@ -20,6 +20,8 @@ export interface TransformV2 {
     x?: number;
     y?: number;
     scale?: number;
+    scaleX?: number;
+    scaleY?: number;
     rotate?: number;
 }
 
@@ -631,6 +633,14 @@ function validateItem(
     if (hasOwn(value, 'animator')) validateAnimators(value.animator, `${path}.animator`);
     if (hasOwn(value, 'keyframes')) validateKeyframes(value.keyframes, `${path}.keyframes`);
     validateItemSource(value.source, `${path}.source`, sourceIds);
+    if (value.source.kind === 'group') {
+        const transforms = [value.transform, ...(Array.isArray(value.keyframes) ? value.keyframes.map(point => point.transform) : [])];
+        for (const transform of transforms) {
+            if (transform !== null && typeof transform === 'object' && (hasOwn(transform, 'scaleX') || hasOwn(transform, 'scaleY'))) {
+                throw invalid(`${path}.transform`, 'group は scaleX / scaleY を指定できません');
+            }
+        }
+    }
     if (hasOwn(value, 'audio')) {
         if (value.source.kind !== 'media') throw invalid(`${path}.audio`, 'media item だけが指定できます');
         if (value.audio !== false) throw invalid(`${path}.audio`, 'false である必要があります');
@@ -779,11 +789,13 @@ function validateFilter(value: unknown, path: string): asserts value is FilterV2
 
 function validateTransform(value: unknown, path: string): asserts value is TransformV2 {
     requireRecord(value, path);
-    requireExactKeys(value, new Set(['x', 'y', 'scale', 'rotate']), path);
+    requireExactKeys(value, new Set(['x', 'y', 'scale', 'scaleX', 'scaleY', 'rotate']), path);
     for (const key of ['x', 'y', 'rotate']) {
         if (hasOwn(value, key)) requireNumber(value[key], `${path}.${key}`);
     }
-    if (hasOwn(value, 'scale')) requirePositiveNumber(value.scale, `${path}.scale`);
+    for (const key of ['scale', 'scaleX', 'scaleY']) {
+        if (hasOwn(value, key)) requirePositiveNumber(value[key], `${path}.${key}`);
+    }
 }
 
 function validateCrop(value: unknown, path: string): asserts value is CropV2 {

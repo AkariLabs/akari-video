@@ -1,0 +1,177 @@
+{
+  "measuredAt": "2026-09-22T20:30:42.890Z",
+  "frames": [
+    0,
+    15,
+    30,
+    45,
+    59
+  ],
+  "checks": [
+    {
+      "name": "legacy-read-byte-invariant",
+      "pass": true
+    },
+    {
+      "name": "legacy-canonical-byte-invariant",
+      "pass": true
+    },
+    {
+      "name": "group-axis-rejected",
+      "pass": true
+    }
+  ],
+  "surfaces": [
+    {
+      "fixture": "legacy",
+      "surface": "osr",
+      "measuredAt": "2026-09-22T20:30:42.905Z",
+      "status": "passed",
+      "outputs": [
+        {
+          "frameNumber": 0,
+          "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/legacy/osr/frame-0.png",
+          "sha256": "1e702618a46a713f048ddf654d25351f3e02d75fc091e4f212da1c321761dfb4"
+        },
+        {
+          "frameNumber": 15,
+          "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/legacy/osr/frame-15.png",
+          "sha256": "1e702618a46a713f048ddf654d25351f3e02d75fc091e4f212da1c321761dfb4"
+        },
+        {
+          "frameNumber": 30,
+          "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/legacy/osr/frame-30.png",
+          "sha256": "1e702618a46a713f048ddf654d25351f3e02d75fc091e4f212da1c321761dfb4"
+        },
+        {
+          "frameNumber": 45,
+          "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/legacy/osr/frame-45.png",
+          "sha256": "1e702618a46a713f048ddf654d25351f3e02d75fc091e4f212da1c321761dfb4"
+        },
+        {
+          "frameNumber": 59,
+          "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/legacy/osr/frame-59.png",
+          "sha256": "1e702618a46a713f048ddf654d25351f3e02d75fc091e4f212da1c321761dfb4"
+        }
+      ],
+      "receipt": {
+        "launcherTier": 2,
+        "operation": "capture",
+        "page": {
+          "version": 1,
+          "dimensions": {
+            "width": 640,
+            "height": 360,
+            "pageHeight": 361
+          },
+          "fps": 30,
+          "duration": 2,
+          "layers": [
+            "engine-canvas",
+            "dom-captions",
+            "html-overlays",
+            "three-canvas"
+          ],
+          "captionOverlayCount": 0,
+          "overlayCount": 1,
+          "lutApplication": "none",
+          "adjustApplication": "none",
+          "stampRow": true
+        },
+        "verify": {
+          "mode": "stamp",
+          "matched": true,
+          "frames": [
+            {
+              "frameNumber": 0,
+              "matched": true,
+              "decodedFrameNumber": 0,
+              "expectedFrameNumber": 0,
+              "retries": 0
+            },
+            {
+              "frameNumber": 15,
+              "matched": true,
+              "decodedFrameNumber": 15,
+              "expectedFrameNumber": 15,
+              "retries": 0
+            },
+            {
+              "frameNumber": 30,
+              "matched": true,
+              "decodedFrameNumber": 30,
+              "expectedFrameNumber": 30,
+              "retries": 0
+            },
+            {
+              "frameNumber": 45,
+              "matched": true,
+              "decodedFrameNumber": 45,
+              "expectedFrameNumber": 45,
+              "retries": 0
+            },
+            {
+              "frameNumber": 59,
+              "matched": true,
+              "decodedFrameNumber": 59,
+              "expectedFrameNumber": 59,
+              "retries": 0
+            }
+          ]
+        },
+        "viewport": {
+          "requested": {
+            "width": 640,
+            "height": 361
+          },
+          "measured": {
+            "width": 640,
+            "height": 361
+          },
+          "emulated": false,
+          "display": {
+            "width": 1680,
+            "height": 1050
+          },
+          "work_area": {
+            "width": 1680,
+            "height": 959
+          }
+        },
+        "warm_up": {
+          "attempts": 2,
+          "empty_attempts": 1,
+          "elapsed_ms": 34,
+          "satisfied": true
+        },
+        "elapsedMs": 866.1876669999999
+      }
+    }
+  ],
+  "comparisons": [],
+  "comparisonCriterion": {
+    "boundsTolerancePx": 1,
+    "mad": "diagnostic-only",
+    "madBaselineAllowance": 1
+  },
+  "passScope": "selected captures and available comparisons only",
+  "madBaselines": {
+    "gpu": {
+      "fixture": "legacy",
+      "aggregation": "max of available legacy frames",
+      "mad": null,
+      "frames": []
+    },
+    "osr": {
+      "fixture": "legacy",
+      "aggregation": "max of available legacy frames",
+      "mad": null,
+      "frames": []
+    }
+  },
+  "pass": true,
+  "shell": {
+    "status": "not-run",
+    "reason": "Tier 2: open a fixture in the built shell and run shell-cdp.mjs against its CDP endpoint."
+  }
+}

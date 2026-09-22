@@ -1,0 +1,15 @@
+{
+  "observed": [
+    "package-lock.json",
+    "packages/akari-tools/bin/capture.mjs",
+    "packages/akari-tools/bin/media.mjs",
+    "packages/akari-tools/bin/word-book.mjs",
+    "packages/akari-tools/bin/world.mjs",
+    "packages/akari-vibe/bin/akari-vibe.mjs",
+    "packages/asset-resolver/bin/akari-assets.mjs",
+    "packages/chat-bridge/src/telegram.mjs",
+    "packages/export-nle/bin/export-nle.mjs",
+    "packages/media-bin/bin/audio-measure.mjs"
+  ],
+  "note": "Initial worktree was clean. These differences appeared during the wrapper npm install; this task did not edit or revert them."
+}

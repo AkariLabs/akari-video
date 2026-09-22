@@ -123,6 +123,8 @@ export interface ResolvedCutVisual {
     x: number;
     y: number;
     scale: number;
+    scaleX?: number;
+    scaleY?: number;
     rotateDegrees: number;
   };
   opacity: number;
@@ -163,7 +165,7 @@ export type ResolvedBaseLayer = ResolvedVideoLayer | ResolvedImageBaseLayer;
 export interface ResolvedLayerVisual {
   crop: { x: number; y: number; width: number; height: number };
   perspective: { corners: readonly (readonly [number, number])[] } | null;
-  transform: { x: number; y: number; scale: number; rotateDegrees: number };
+  transform: { x: number; y: number; scale: number; scaleX?: number; scaleY?: number; rotateDegrees: number };
 }
 
 export type ResolvedLayerBlendMode =

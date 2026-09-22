@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import vm from 'node:vm';
 import { parseRenderScaleMode, resolveRenderScale, scaledOutputSize, scaleEvaluationPlan } from '../lib/common/frame-engine-render-scale.js';
+// Native type stripping exercises the edit without rebuilding lib while the wrapper runs L1.
+import { scaleEvaluationPlan as scaleSourceEvaluationPlan } from '../src/common/frame-engine-render-scale.ts';
 
 test('parseRenderScaleMode accepts the four modes and falls back to auto', () => {
   for (const [input, expected] of [
@@ -92,6 +94,49 @@ function assertUnchangedReferences(actual, original, changedKeys) {
     if (!changedKeys.includes(key)) assert.equal(actual[key], original[key], `preserve ${key}`);
   }
 }
+
+test('anisotropic render scale projects only declared pixel axes, including stacked cuts', () => {
+  for (const axes of [{ scaleX: 2 }, { scaleY: 0.75 }, { scaleX: 2, scaleY: 0.75 }]) {
+    const plan = evaluationPlanFixture();
+    Object.assign(plan.base[0].visual.transform, axes); // The fixture shares this transform across all visuals.
+    const snapshot = structuredClone(plan);
+    for (const scale of [1, 0.5, 0.25]) {
+      const result = scaleSourceEvaluationPlan(plan, scale);
+      const transforms = result.base.map(layer => [layer.visual.transform, !!layer.visual.layerStyle]);
+      for (const layer of result.layers) {
+        if (layer.kind === 'filter') continue;
+        transforms.push([layer.visual.transform, true]);
+        if (layer.cutVisual) transforms.push([layer.cutVisual.transform, !!layer.cutVisual.layerStyle]);
+      }
+      for (const [transform, pixelScale] of transforms) {
+        assert.equal(transform.scale, 0.45 * (pixelScale ? scale : 1));
+        for (const key of ['scaleX', 'scaleY']) {
+          assert.equal(Object.hasOwn(transform, key), Object.hasOwn(axes, key), key);
+          if (Object.hasOwn(axes, key)) assert.equal(transform[key], axes[key] * (pixelScale ? scale : 1), key);
+        }
+      }
+      assert.deepEqual(plan, snapshot);
+      assert.equal(result.output, plan.output);
+      assert.equal(result.layers[5], plan.layers[5]);
+      if (scale === 1) assert.equal(result, plan);
+    }
+  }
+});
+
+test('anisotropic support leaves uniform plan keys and serialized output unchanged', () => {
+  const plan = evaluationPlanFixture();
+  for (const scale of [1, 0.5, 0.25]) {
+    const result = scaleSourceEvaluationPlan(plan, scale);
+    assert.deepEqual(result, scaleEvaluationPlan(plan, scale));
+    assert.equal(JSON.stringify(result), JSON.stringify(scaleEvaluationPlan(plan, scale)));
+    const transforms = [...result.base, ...result.layers.filter(layer => layer.kind !== 'filter')]
+      .flatMap(layer => [layer.visual.transform, ...(layer.cutVisual ? [layer.cutVisual.transform] : [])]);
+    for (const transform of transforms) {
+      assert.equal(Object.hasOwn(transform, 'scaleX'), false);
+      assert.equal(Object.hasOwn(transform, 'scaleY'), false);
+    }
+  }
+});
 
 test('scaleEvaluationPlan projects fit cuts and layer-style cuts without changing normalized framing or effects', () => {
   const plan = evaluationPlanFixture();

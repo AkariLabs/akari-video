@@ -1,0 +1,246 @@
+{
+  "measuredAt": "2026-09-22T20:30:50.927Z",
+  "frames": [
+    0,
+    15,
+    30,
+    45,
+    59
+  ],
+  "checks": [
+    {
+      "name": "legacy-read-byte-invariant",
+      "pass": true
+    },
+    {
+      "name": "legacy-canonical-byte-invariant",
+      "pass": true
+    },
+    {
+      "name": "group-axis-rejected",
+      "pass": true
+    }
+  ],
+  "surfaces": [
+    {
+      "fixture": "legacy-keyframes",
+      "surface": "gpu",
+      "measuredAt": "2026-09-22T20:30:50.959Z",
+      "status": "passed",
+      "outputs": [
+        {
+          "frameNumber": 0,
+          "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/legacy-keyframes/gpu/frame-0.png",
+          "bytes": 921600
+        },
+        {
+          "frameNumber": 15,
+          "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/legacy-keyframes/gpu/frame-15.png",
+          "bytes": 921600
+        },
+        {
+          "frameNumber": 30,
+          "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/legacy-keyframes/gpu/frame-30.png",
+          "bytes": 921600
+        },
+        {
+          "frameNumber": 45,
+          "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/legacy-keyframes/gpu/frame-45.png",
+          "bytes": 921600
+        },
+        {
+          "frameNumber": 59,
+          "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-anisotropic-scale-contract/apps/shell/extensions/akari-preview/evidence/transform-anisotropic-scale-v1/results/legacy-keyframes/gpu/frame-59.png",
+          "bytes": 921600
+        }
+      ],
+      "receipt": {
+        "launcherTier": 2,
+        "operation": "capture",
+        "verify": {
+          "mode": "frame-engine-readback",
+          "matched": true,
+          "frameNumbers": [
+            0,
+            15,
+            30,
+            45,
+            59
+          ]
+        },
+        "gpu": {
+          "encoder": "WebCodecsH264Encoder",
+          "hardware": "prefer-hardware",
+          "renderer": {
+            "vendor": "Google Inc. (Apple)",
+            "renderer": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1, Unspecified Version)"
+          },
+          "encoder_support": null,
+          "uploadPath": "direct",
+          "quality": "high",
+          "bitrate": 12000000,
+          "bitrateSource": "quality-preset",
+          "rateControl": null,
+          "rateControlFallbackReason": null,
+          "quantizer": null,
+          "codec": "h264",
+          "queueDepth": 3,
+          "queueWaits": 0,
+          "glTiming": null,
+          "trapReadback": false,
+          "readbackCounters": {
+            "webglReadbackCalls": 0,
+            "videoFrameCopyCalls": 0,
+            "canvasBlobCalls": 0,
+            "canvasDataUrlCalls": 0,
+            "canvasPixelReadCalls": 0,
+            "bitmapCreationCalls": 0
+          },
+          "captions": [],
+          "captionLayoutMaxDeltaPx": 0,
+          "captionMeasureAttempts": {
+            "count": 0,
+            "p50": null,
+            "max": null
+          },
+          "captionMeasureDiffs": {
+            "totalCount": 0,
+            "shownCount": 0,
+            "truncated": false,
+            "entries": []
+          },
+          "captionRasterTotalMs": 0,
+          "captionRasterBatches": {
+            "batches": 0,
+            "unitsPerBatchMax": 0,
+            "bandsMax": 0
+          },
+          "captionStartup": {
+            "totalMs": 0,
+            "fontEncodeMs": 0,
+            "fontBase64Bytes": 0,
+            "measure": {
+              "stableCalls": 0,
+              "reusedStableCalls": 0,
+              "passes": 0,
+              "variantMeasurements": 0,
+              "totalMs": 0,
+              "p50": null,
+              "p95": null,
+              "max": null,
+              "fontWaitMs": 0,
+              "layoutMs": 0,
+              "rootMs": 0,
+              "distinctKeys": 0,
+              "duplicatePasses": 0,
+              "degradedUnits": 0,
+              "faultInjected": false
+            },
+            "raster": {
+              "batches": 0,
+              "bands": 0,
+              "units": 0,
+              "svgBuildMs": 0,
+              "svgChars": 0,
+              "assertMs": 0,
+              "srcAssignMs": 0,
+              "decodeMs": 0,
+              "sheetDrawMs": 0,
+              "drawImageMs": 0,
+              "registerMs": 0,
+              "totalMs": 0,
+              "prefetchedBatches": 0,
+              "prefetchMs": 0
+            }
+          },
+          "previewEvery": 0,
+          "previewFrames": 0,
+          "previewDisabledReason": null,
+          "platform": "darwin",
+          "chromium": "142.0.7444.265",
+          "devices": [
+            {
+              "vendor_id": 4203,
+              "device_id": 0,
+              "device_string": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1, Version 26.2 (Build 25C56))",
+              "active": true,
+              "gpu_preference": 0
+            }
+          ]
+        },
+        "viewport": {
+          "requested": {
+            "width": 640,
+            "height": 360
+          },
+          "measured": {
+            "width": 640,
+            "height": 360
+          },
+          "emulated": false,
+          "display": {
+            "width": 1680,
+            "height": 1050
+          }
+        },
+        "eligibility": {
+          "eligible": true,
+          "entries": [
+            {
+              "kind": "overlay",
+              "id": "leaf",
+              "classification": "dom",
+              "reason": "item-keyframes",
+              "conditions": [
+                "item-keyframes"
+              ]
+            }
+          ],
+          "summary": {
+            "same": 0,
+            "three": 0,
+            "dom": 1,
+            "degraded": 0,
+            "unsupported": 0
+          }
+        },
+        "elapsedMs": 128.29999995231628,
+        "gpu_preference": {
+          "policy": "auto",
+          "exit": "gpu",
+          "applied": false,
+          "previous": null,
+          "restored": null,
+          "reason": "platform",
+          "recovered_stale": false
+        }
+      }
+    }
+  ],
+  "comparisons": [],
+  "comparisonCriterion": {
+    "boundsTolerancePx": 1,
+    "mad": "diagnostic-only",
+    "madBaselineAllowance": 1
+  },
+  "passScope": "selected captures and available comparisons only",
+  "madBaselines": {
+    "gpu": {
+      "fixture": "legacy",
+      "aggregation": "max of available legacy frames",
+      "mad": null,
+      "frames": []
+    },
+    "osr": {
+      "fixture": "legacy",
+      "aggregation": "max of available legacy frames",
+      "mad": null,
+      "frames": []
+    }
+  },
+  "pass": true,
+  "shell": {
+    "status": "not-run",
+    "reason": "Tier 2: open a fixture in the built shell and run shell-cdp.mjs against its CDP endpoint."
+  }
+}

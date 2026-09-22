@@ -809,10 +809,15 @@ function toggleScopedSelection(tree, selectedIds, scopeId, next) {
   }
 
   function readTransform(container) {
+    const scale = cssVariableNumber(container, "--scale", 1);
+    const hasAxis = ["--scale-x", "--scale-y"].some(name => container.style.getPropertyValue(name).trim());
+    const scaleX = cssVariableNumber(container, "--scale-x", scale);
+    const scaleY = cssVariableNumber(container, "--scale-y", scale);
     return {
       x: cssVariableNumber(container, "--x", 0),
       y: cssVariableNumber(container, "--y", 0),
-      scale: cssVariableNumber(container, "--scale", 1),
+      scale: hasAxis && scaleX === scaleY ? scaleX : scale,
+      ...(hasAxis && scaleX !== scaleY ? { scaleX, scaleY } : {}),
       rotate: cssVariableNumber(container, "--rotate", 0),
     };
   }
@@ -1686,6 +1691,9 @@ function toggleScopedSelection(tree, selectedIds, scopeId, next) {
       draggedStageY: dragged.y,
       startDistance: startDistance || 1, // 0除算回避（アンカーとハンドルが重なる異常系向け保険）
       startScale: transform.scale,
+      startScaleX: transform.scaleX ?? transform.scale,
+      startScaleY: transform.scaleY ?? transform.scale,
+      axisCss: [container.style.getPropertyValue("--scale-x"), container.style.getPropertyValue("--scale-y")],
       startX: transform.x,
       startY: transform.y,
       snapX: null,
@@ -1835,6 +1843,10 @@ function toggleScopedSelection(tree, selectedIds, scopeId, next) {
     resize.container.style.setProperty("--x", `${translate.x}px`);
     resize.container.style.setProperty("--y", `${translate.y}px`);
     resize.container.style.setProperty("--scale", String(scaleValue));
+    if (resize.axisCss.some(Boolean)) {
+      resize.container.style.setProperty("--scale-x", String(resize.startScaleX * scaleValue / resize.startScale));
+      resize.container.style.setProperty("--scale-y", String(resize.startScaleY * scaleValue / resize.startScale));
+    }
     return true;
   }
 
@@ -1879,6 +1891,10 @@ function toggleScopedSelection(tree, selectedIds, scopeId, next) {
     resize.container.style.setProperty("--x", `${resize.startX}px`);
     resize.container.style.setProperty("--y", `${resize.startY}px`);
     resize.container.style.setProperty("--scale", String(resize.startScale));
+    ["--scale-x", "--scale-y"].forEach((css, index) => {
+      if (resize.axisCss[index]) resize.container.style.setProperty(css, resize.axisCss[index]);
+      else resize.container.style.removeProperty(css);
+    });
     releaseResizePointer(resize);
     hideSnapGuides();
     refreshSelectionFrame();
@@ -1895,6 +1911,11 @@ function toggleScopedSelection(tree, selectedIds, scopeId, next) {
     if (!resize.moved) return null;
 
     const transform = readTransform(resize.container);
+    if (transform.scaleX !== undefined && transform.scaleX === transform.scaleY) {
+      transform.scale = transform.scaleX;
+      delete transform.scaleX;
+      delete transform.scaleY;
+    }
     const record = enqueueWrite(
       resize.writeContext,
       resize.overlayId,

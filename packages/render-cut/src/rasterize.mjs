@@ -56,6 +56,15 @@ export function renderOverlaySheet({ overlays, edit, projectRoot, duration }) {
     ...overlay,
     html: embedFragmentAssets(overlay.html, { projectRoot, htmlPath: overlay.htmlPath, overlayId: overlay.id }),
   } : overlay);
+  // Preserve legacy sheet bytes when no axis override is used.
+  const usesAxisScale = orderedOverlays.some(overlay =>
+    overlay.transform?.scaleX !== undefined || overlay.transform?.scaleY !== undefined
+    || overlay.vars?.["--scale-x"] !== undefined || overlay.vars?.["--scale-y"] !== undefined
+    || (Array.isArray(overlay.keyframes) && overlay.keyframes.some(point =>
+      point.transform?.scaleX !== undefined || point.transform?.scaleY !== undefined)));
+  const overlayScaleCss = usesAxisScale
+    ? "scale(var(--scale-x, var(--scale, 1)), var(--scale-y, var(--scale, 1)))"
+    : "scale(var(--scale, 1))";
   const strippedOverlayHtml = orderedOverlays.map((overlay) => stripHtmlComments(overlay.html));
   const hasTextSlotParams = orderedOverlays.some((overlay) =>
     overlay.params && typeof overlay.params === "object" && !Array.isArray(overlay.params)
@@ -98,6 +107,8 @@ export function renderOverlaySheet({ overlays, edit, projectRoot, duration }) {
               x: Number.parseFloat(container.style.getPropertyValue('--x')),
               y: Number.parseFloat(container.style.getPropertyValue('--y')),
               scale: Number.parseFloat(container.style.getPropertyValue('--scale')),
+              scaleX: Number.parseFloat(container.style.getPropertyValue('--scale-x')),
+              scaleY: Number.parseFloat(container.style.getPropertyValue('--scale-y')),
               rotate: Number.parseFloat(container.style.getPropertyValue('--rotate')),
               opacity: Number(container.dataset.akariOpacity),
             };
@@ -110,6 +121,8 @@ export function renderOverlaySheet({ overlays, edit, projectRoot, duration }) {
             container.style.setProperty('--x', background ? '0px' : state.x + 'px');
             container.style.setProperty('--y', background ? '0px' : state.y + 'px');
             container.style.setProperty('--scale', background ? '1' : String(state.scale));
+            container.style.setProperty('--scale-x', background ? '1' : String(state.scaleX ?? state.scale));
+            container.style.setProperty('--scale-y', background ? '1' : String(state.scaleY ?? state.scale));
             container.style.setProperty('--rotate', background ? '0deg' : state.rotate + 'deg');
             container.style.setProperty('opacity', String(state.opacity));
           }
@@ -159,7 +172,7 @@ export function renderOverlaySheet({ overlays, edit, projectRoot, duration }) {
   <style>
     html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: transparent !important; }
     #stage { position: relative; width: ${edit.output.width}px; height: ${edit.output.height}px; overflow: hidden; background: transparent; }
-    .akari-overlay-container { position: absolute; inset: 0; visibility: hidden; pointer-events: none; transform: translate(var(--x, 0px), var(--y, 0px)) scale(var(--scale, 1)) rotate(var(--rotate, 0deg)); transform-origin: center; }
+    .akari-overlay-container { position: absolute; inset: 0; visibility: hidden; pointer-events: none; transform: translate(var(--x, 0px), var(--y, 0px)) ${overlayScaleCss} rotate(var(--rotate, 0deg)); transform-origin: center; }
     .akari-overlay-container > .scene-content { position: absolute; inset: 0; }
   </style>${motionVocabularyStyle}${itemKeyframesRuntimeScripts}${runtimeScripts}
 </head>
@@ -467,6 +480,8 @@ function renderOverlayNode(overlay, index, fps) {
     "--x": isBackground ? "0px" : `${transform.x ?? 0}px`,
     "--y": isBackground ? "0px" : `${transform.y ?? 0}px`,
     "--scale": isBackground ? "1" : String(transform.scale ?? 1),
+    ...(transform.scaleX !== undefined ? { "--scale-x": String(transform.scaleX) } : {}),
+    ...(transform.scaleY !== undefined ? { "--scale-y": String(transform.scaleY) } : {}),
     "--rotate": isBackground ? "0deg" : `${transform.rotate ?? 0}deg`,
     ...(overlay.vars ?? {}),
   };
@@ -474,6 +489,8 @@ function renderOverlayNode(overlay, index, fps) {
     variables["--x"] = "0px";
     variables["--y"] = "0px";
     variables["--scale"] = "1";
+    if (variables["--scale-x"] !== undefined) variables["--scale-x"] = "1";
+    if (variables["--scale-y"] !== undefined) variables["--scale-y"] = "1";
     variables["--rotate"] = "0deg";
   }
   const style = Object.entries(variables)

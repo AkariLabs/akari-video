@@ -273,7 +273,7 @@ function emptyGroupContext() {
   };
 }
 
-function composeTransforms(parent, child) {
+export function composeTransforms(parent, child) {
   const angle = finiteNumber(parent.rotate, 0) * Math.PI / 180;
   const scale = finiteNumber(parent.scale, 1);
   const childX = finiteNumber(child.x, 0);
@@ -281,7 +281,7 @@ function composeTransforms(parent, child) {
   return {
     x: finiteNumber(parent.x, 0) + scale * (Math.cos(angle) * childX - Math.sin(angle) * childY),
     y: finiteNumber(parent.y, 0) + scale * (Math.sin(angle) * childX + Math.cos(angle) * childY),
-    scale: scale * finiteNumber(child.scale, 1),
+    ...scaleFields(scale, child),
     rotate: finiteNumber(parent.rotate, 0) + finiteNumber(child.rotate, 0),
   };
 }
@@ -291,17 +291,27 @@ function mergeTransforms(parent, child) {
   return Object.keys(result).length > 0 ? result : undefined;
 }
 
+export function effectiveScale(value) {
+  return { x: value?.scaleX ?? value?.scale ?? 1, y: value?.scaleY ?? value?.scale ?? 1 };
+}
+
+function scaleFields(parentScale, child) {
+  const { x, y } = effectiveScale(child);
+  return x === y ? { scale: parentScale * x }
+    : { scale: parentScale * (child?.scale ?? 1), scaleX: parentScale * x, scaleY: parentScale * y };
+}
+
 function transformOf(value) {
   return {
     x: finiteNumber(value?.x, 0),
     y: finiteNumber(value?.y, 0),
-    scale: finiteNumber(value?.scale, 1),
+    ...scaleFields(1, value),
     rotate: finiteNumber(value?.rotate, 0),
   };
 }
 
 function hasTransform(value) {
-  return isRecord(value) && ["x", "y", "scale", "rotate"].some(key => value[key] !== undefined);
+  return isRecord(value) && ["x", "y", "scale", "scaleX", "scaleY", "rotate"].some(key => value[key] !== undefined);
 }
 
 function declarationOf(item) {

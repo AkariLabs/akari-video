@@ -36,6 +36,7 @@ import { computeLayerPerspectiveVisual } from '/layer-perspective-visual.js';
 import { cropAnchorCorrectedTransform } from '/layer-crop-anchor.js';
 // layers[].keyframes（transform/crop/perspective のアニメーション。contract-2026-08-09-transform-keyframes-v0.md）。
 import { computeLayerKeyframesVisual } from '/layer-keyframes-visual.js';
+import { interpolateKeyframes as interpolateTransformKeyframes } from '/keyframes.mjs';
 import { createCutFxController } from '/cut-fx.js';
 import { markLayerUnplayable, syncLayerLazyLoad } from '/layer-lazy-load.js';
 // layers[] の再生元を宣言済み proxy へ解決する（不具合メモ 第15項。再生用コピーの src だけ
@@ -651,7 +652,12 @@ function buildSegments() {
         opacity: summary.cuts[s.cutIndex] ? summary.cuts[s.cutIndex].opacity : undefined,
         adjust: summary.cuts[s.cutIndex] ? summary.cuts[s.cutIndex].adjust : undefined,
       });
-  totalDuration = built.totalDuration;
+  // HTML-only compositions still have a clock: clamping to the empty cut map freezes all keyframes.
+  totalDuration = (summary.overlays ?? []).reduce((end, overlay) => {
+    const start = Number(overlay.start), duration = Number(overlay.duration);
+    return Number.isFinite(start) && Number.isFinite(duration) && duration > 0 && overlay.enabled !== false
+      ? Math.max(end, start + duration) : end;
+  }, built.totalDuration);
   seek.max = totalDuration;
   updateTimeLabel();
   updateSeekVisual();
@@ -742,6 +748,8 @@ function perspectiveOf(el) {
 // 焼き込むため、shell と同じ box 単位になった（layer-perspective-visual.js のコメント参照）。
 function applyLayerLayout(el, x, y, scale, rotate) {
   const os = outputSizePx();
+  const scaleX = Number(el.dataset.layerScaleX) || scale;
+  const scaleY = Number(el.dataset.layerScaleY) || scale;
   el.style.left = `${os.width / 2 + x}px`;
   el.style.top = `${os.height / 2 + y}px`;
   const crop = cropOf(el);
@@ -754,10 +762,10 @@ function applyLayerLayout(el, x, y, scale, rotate) {
   let transform = `translate(-${pivotXPct}%, -${pivotYPct}%) rotate(${rotate}deg)`;
   const intrinsic = layerIntrinsicSize(el);
   if (intrinsic.width > 0 && intrinsic.height > 0) {
-    el.style.width = `${intrinsic.width * scale}px`;
-    el.style.height = `${intrinsic.height * scale}px`;
-    const boxWidthPx = crop.w * intrinsic.width * scale;
-    const boxHeightPx = crop.h * intrinsic.height * scale;
+    el.style.width = `${intrinsic.width * scaleX}px`;
+    el.style.height = `${intrinsic.height * scaleY}px`;
+    const boxWidthPx = crop.w * intrinsic.width * scaleX;
+    const boxHeightPx = crop.h * intrinsic.height * scaleY;
     const visual = computeLayerPerspectiveVisual(perspectiveOf(el), boxWidthPx, boxHeightPx);
     if (visual) transform += ` ${visual.transformFunction}`;
   }
@@ -852,6 +860,8 @@ function setupLayers() {
     el.dataset.layerX = layer.transform?.x || 0;
     el.dataset.layerY = layer.transform?.y || 0;
     el.dataset.layerScale = layer.transform?.scale || 1;
+    if (layer.transform?.scaleX !== undefined) el.dataset.layerScaleX = String(layer.transform.scaleX);
+    if (layer.transform?.scaleY !== undefined) el.dataset.layerScaleY = String(layer.transform.scaleY);
     el.dataset.layerRotate = layer.transform?.rotate || 0;
     const crop = layer.crop;
     const cropW = crop && Number.isFinite(crop.w) && crop.w > 0 ? crop.w : 1;
@@ -1076,7 +1086,12 @@ function syncLayers(t) {
           if (resolved.transform) {
             lv.el.dataset.layerX = String(resolved.transform.x);
             lv.el.dataset.layerY = String(resolved.transform.y);
+            const axes = interpolateTransformKeyframes(l.keyframes, localT, { statics: l.transform ?? {} });
             lv.el.dataset.layerScale = String(resolved.transform.scale);
+            if (axes.scaleX !== undefined) lv.el.dataset.layerScaleX = String(axes.scaleX);
+            else delete lv.el.dataset.layerScaleX;
+            if (axes.scaleY !== undefined) lv.el.dataset.layerScaleY = String(axes.scaleY);
+            else delete lv.el.dataset.layerScaleY;
             lv.el.dataset.layerRotate = String(resolved.transform.rotate);
           }
           if (resolved.crop) {
@@ -1324,6 +1339,8 @@ function layerTransformOf(el) {
     x: Number(el.dataset.layerX) || 0,
     y: Number(el.dataset.layerY) || 0,
     scale: Number(el.dataset.layerScale) || 1,
+    ...(el.dataset.layerScaleX !== undefined ? { scaleX: Number(el.dataset.layerScaleX) } : {}),
+    ...(el.dataset.layerScaleY !== undefined ? { scaleY: Number(el.dataset.layerScaleY) } : {}),
     rotate: Number(el.dataset.layerRotate) || 0,
   };
 }
@@ -1338,10 +1355,10 @@ function layerTransformOf(el) {
 // 導出する必要がある（shell と同じ formula: P' = outputSize/2 + T + s·R(θ)·(P-pivot)）。
 function layerRectForVideoRect(transform, videoRect, pivotPx) {
   const os = outputSizePx();
-  const outputW = videoRect.w * transform.scale;
-  const outputH = videoRect.h * transform.scale;
-  const offX = (videoRect.x + videoRect.w / 2 - pivotPx.x) * transform.scale;
-  const offY = (videoRect.y + videoRect.h / 2 - pivotPx.y) * transform.scale;
+  const outputW = videoRect.w * (transform.scaleX ?? transform.scale);
+  const outputH = videoRect.h * (transform.scaleY ?? transform.scale);
+  const offX = (videoRect.x + videoRect.w / 2 - pivotPx.x) * (transform.scaleX ?? transform.scale);
+  const offY = (videoRect.y + videoRect.h / 2 - pivotPx.y) * (transform.scaleY ?? transform.scale);
   const rad = transform.rotate * Math.PI / 180;
   const rotOffX = offX * Math.cos(rad) - offY * Math.sin(rad);
   const rotOffY = offX * Math.sin(rad) + offY * Math.cos(rad);
@@ -1367,8 +1384,8 @@ function fractionForClient(el, transform, pivotFrac, clientX, clientY) {
   const rad = -transform.rotate * Math.PI / 180;
   const rx = dx * Math.cos(rad) - dy * Math.sin(rad);
   const ry = dx * Math.sin(rad) + dy * Math.cos(rad);
-  const lx = rx / (transform.scale || 1) + pivotPx.x;
-  const ly = ry / (transform.scale || 1) + pivotPx.y;
+  const lx = rx / (transform.scaleX ?? transform.scale ?? 1) + pivotPx.x;
+  const ly = ry / (transform.scaleY ?? transform.scale ?? 1) + pivotPx.y;
   return { x: lx / vw, y: ly / vh };
 }
 
@@ -3834,8 +3851,12 @@ function createOverlayRuntime() {
       c.style.setProperty('--x', isBackground ? '0px' : `${t.x||0}px`);
       c.style.setProperty('--y', isBackground ? '0px' : `${t.y||0}px`);
       c.style.setProperty('--scale', isBackground ? '1' : String(t.scale||1));
+      for (const [key, css] of [['scaleX', '--scale-x'], ['scaleY', '--scale-y']]) {
+        if (t[key] !== undefined) c.style.setProperty(css, String(t[key]));
+        else c.style.removeProperty(css);
+      }
       c.style.setProperty('--rotate', isBackground ? '0deg' : `${t.rotate||0}deg`);
-      c.style.transform = 'translate(var(--x,0px), var(--y,0px)) scale(var(--scale,1)) rotate(var(--rotate,0deg))';
+      c.style.transform = 'translate(var(--x,0px), var(--y,0px)) scale(var(--scale-x,var(--scale,1)),var(--scale-y,var(--scale,1))) rotate(var(--rotate,0deg))';
       if (o.vars && typeof o.vars === 'object') {
         for (const [k, v] of Object.entries(o.vars)) {
           if (k.startsWith('--') && (typeof v === 'string' || typeof v === 'number')) c.style.setProperty(k, String(v));
@@ -3845,6 +3866,8 @@ function createOverlayRuntime() {
         c.style.setProperty('--x', '0px');
         c.style.setProperty('--y', '0px');
         c.style.setProperty('--scale', '1');
+        c.style.setProperty('--scale-x', '1');
+        c.style.setProperty('--scale-y', '1');
         c.style.setProperty('--rotate', '0deg');
       }
       // html は「< で始まればインライン、それ以外はファイルパス参照」（shell と同一解釈。lint 契約はパス参照が正）
@@ -3866,6 +3889,8 @@ function createOverlayRuntime() {
             x: isBackground ? 0 : Number(t.x ?? 0),
             y: isBackground ? 0 : Number(t.y ?? 0),
             scale: isBackground ? 1 : Number(t.scale ?? 1),
+            ...(!isBackground && t.scaleX !== undefined ? { scaleX: t.scaleX } : {}),
+            ...(!isBackground && t.scaleY !== undefined ? { scaleY: t.scaleY } : {}),
             rotate: isBackground ? 0 : Number(t.rotate ?? 0),
             opacity: Number(o.opacity ?? 1),
           },
@@ -3932,6 +3957,8 @@ function createOverlayRuntime() {
         o.el.style.setProperty('--x', o.isBackground ? '0px' : `${state.x}px`);
         o.el.style.setProperty('--y', o.isBackground ? '0px' : `${state.y}px`);
         o.el.style.setProperty('--scale', o.isBackground ? '1' : String(state.scale));
+        o.el.style.setProperty('--scale-x', o.isBackground ? '1' : String(state.scaleX ?? state.scale));
+        o.el.style.setProperty('--scale-y', o.isBackground ? '1' : String(state.scaleY ?? state.scale));
         o.el.style.setProperty('--rotate', o.isBackground ? '0deg' : `${state.rotate}deg`);
         o.el.style.setProperty('opacity', String(state.opacity));
       }
@@ -3985,6 +4012,10 @@ function createOverlayRuntime() {
       entry.el.style.setProperty('--x', isBackground ? '0px' : `${t.x || 0}px`);
       entry.el.style.setProperty('--y', isBackground ? '0px' : `${t.y || 0}px`);
       entry.el.style.setProperty('--scale', isBackground ? '1' : String(t.scale || 1));
+      for (const [key, css] of [['scaleX', '--scale-x'], ['scaleY', '--scale-y']]) {
+        if (t[key] !== undefined) entry.el.style.setProperty(css, String(t[key]));
+        else entry.el.style.removeProperty(css);
+      }
       entry.el.style.setProperty('--rotate', isBackground ? '0deg' : `${t.rotate || 0}deg`);
       if (o.vars && typeof o.vars === 'object') {
         for (const [k, v] of Object.entries(o.vars)) {
@@ -3997,6 +4028,8 @@ function createOverlayRuntime() {
         entry.el.style.setProperty('--x', '0px');
         entry.el.style.setProperty('--y', '0px');
         entry.el.style.setProperty('--scale', '1');
+        entry.el.style.setProperty('--scale-x', '1');
+        entry.el.style.setProperty('--scale-y', '1');
         entry.el.style.setProperty('--rotate', '0deg');
       }
       window.akari.interaction?.invalidateOverlayHitPolicy?.(entry.el);
@@ -4012,6 +4045,8 @@ function createOverlayRuntime() {
           x: isBackground ? 0 : Number(t.x ?? 0),
           y: isBackground ? 0 : Number(t.y ?? 0),
           scale: isBackground ? 1 : Number(t.scale ?? 1),
+            ...(!isBackground && t.scaleX !== undefined ? { scaleX: t.scaleX } : {}),
+            ...(!isBackground && t.scaleY !== undefined ? { scaleY: t.scaleY } : {}),
           rotate: isBackground ? 0 : Number(t.rotate ?? 0),
           opacity: Number(o.opacity ?? 1),
         };

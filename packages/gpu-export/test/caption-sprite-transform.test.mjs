@@ -19,7 +19,7 @@ test('caption band and single-svg raster roots consume sprite transform variable
     projectRoot: process.cwd(),
     duration: 1,
   });
-  const transform = 'transform:translate(var(--x, 0px), var(--y, 0px)) scale(var(--scale, 1)) rotate(var(--rotate, 0deg));transform-origin:center;';
+  const transform = 'transform:translate(var(--x, 0px), var(--y, 0px)) scale(var(--scale-x, var(--scale, 1)), var(--scale-y, var(--scale, 1))) rotate(var(--rotate, 0deg));transform-origin:center;';
   const rasterRoots = built.html.match(/class="akari-sprite-root" data-akari-band=[^>]+/gu) ?? [];
   assert.equal(rasterRoots.length, 2);
   assert.ok(rasterRoots.every(root => root.includes(transform)));

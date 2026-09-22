@@ -1,0 +1,186 @@
+{
+  "recordedAt": "2026-09-22T06:56:54.841363+00:00",
+  "allRequiredChecksPass": false,
+  "checks": {
+    "edit-store-final": {
+      "log": "edit-store-final.log",
+      "tests": 880,
+      "pass": 880,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "outcome": "passed"
+    },
+    "schemas-full": {
+      "log": "schemas-full.log",
+      "tests": 520,
+      "pass": 519,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 1,
+      "outcome": "passed"
+    },
+    "akari-preview-isolated": {
+      "log": "akari-preview-isolated.log",
+      "tests": 1330,
+      "pass": 1312,
+      "fail": 16,
+      "cancelled": 2,
+      "skipped": 0,
+      "outcome": "failed"
+    },
+    "compositor-retest": {
+      "log": "compositor-retest.log",
+      "tests": 28,
+      "pass": 28,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "outcome": "passed"
+    },
+    "overlay-critical": {
+      "log": "overlay-critical.log",
+      "tests": 8,
+      "pass": 8,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "outcome": "passed"
+    },
+    "added-tests-parallel-attempt": {
+      "log": "added-tests-parallel-attempt.log",
+      "tests": 17,
+      "pass": 16,
+      "fail": 0,
+      "cancelled": 1,
+      "skipped": 0,
+      "outcome": "failed"
+    },
+    "added-tests-pure-final": {
+      "log": "added-tests-pure-final.log",
+      "tests": 16,
+      "pass": 16,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "outcome": "passed"
+    },
+    "added-tests-browser-final": {
+      "log": "added-tests-browser-final.log",
+      "tests": 1,
+      "pass": 1,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "outcome": "passed"
+    },
+    "legacy-sheet-retest": {
+      "log": "legacy-sheet-retest.log",
+      "tests": 12,
+      "pass": 10,
+      "fail": 2,
+      "cancelled": 0,
+      "skipped": 0,
+      "outcome": "failed"
+    },
+    "sheet-retest": {
+      "log": "sheet-retest.log",
+      "tests": 34,
+      "pass": 33,
+      "fail": 1,
+      "cancelled": 0,
+      "skipped": 0,
+      "outcome": "failed"
+    },
+    "eos-retest": {
+      "log": "eos-retest.log",
+      "tests": 1,
+      "pass": 0,
+      "fail": 1,
+      "cancelled": 0,
+      "skipped": 0,
+      "outcome": "failed"
+    },
+    "shell-lint": {
+      "log": "shell-lint.log"
+    },
+    "shell-typecheck": {
+      "log": "shell-typecheck.log"
+    },
+    "frame-engine-typecheck": {
+      "log": "frame-engine-typecheck.log"
+    }
+  },
+  "typechecks": {
+    "edit-store": "passed through npm test build",
+    "frame-engine": "passed",
+    "akari-preview": "passed; emitted only into /tmp/akari-aniso-shell-shadow"
+  },
+  "shellLint": "passed (0 errors, 1 pre-existing unused-variable warning in akari-companion)",
+  "regressionRuns": [
+    "regression-results.json",
+    "regression-node22-results.json"
+  ],
+  "runtimeDom": {
+    "comparisons": 30,
+    "passed": 30,
+    "evidence": "runtime-dom/results.json"
+  },
+  "legacyBytes": {
+    "editReadAndCanonical": true,
+    "partsFixtures": true,
+    "exportPageAndSheet": true,
+    "evidence": "legacy-sheet-baseline.json"
+  },
+  "l1": {
+    "web": "listen EPERM on loopback",
+    "gpu": "default Electron missing; explicit tier 2 Electron exited SIGABRT",
+    "osr": "default Electron missing; explicit tier 2 Electron exited SIGABRT",
+    "previewDrillIn": "launcher unavailable; existing harness --startup-failed path recorded in preview-drill-in/run-log.json"
+  },
+  "remainingFailures": [
+    "frame-engine EOS 50 ms timing assertion (82.4 ms in isolated retry)",
+    "3D/browser readiness and navigation timeouts",
+    "loopback listen EPERM",
+    "Electron unavailable for export-dependent regression tests",
+    "fixed historical HTML hashes also differ with the base rasterize/page-builder; legacy-sheet-baseline.json confirms this patch preserves current base bytes",
+    "isolated shell test missing @theia/core source CSS; browser tests timed out"
+  ],
+  "contractBoundaryDeviations": [
+    "Existing shell frame-engine-render-scale.ts must scale explicit axes for reduced-resolution media plans; existing-function changes are outside the limited common pure-function-addition scope.",
+    "Shell legacy media layout and hit-test math still uses a uniform scalar; only permitted axis dataset propagation was changed."
+  ],
+  "security": {
+    "block": 0,
+    "review": 3,
+    "evidence": "security-pregate.json",
+    "dataFlowReview": "security-review.json"
+  },
+  "externalChanges": "external-diff.json lists npm install side effects left untouched",
+  "generatedRestored": true,
+  "restoreMethod": "git checkout HEAD -- <generated paths> using a temporary GIT_INDEX_FILE because the sandbox prohibits the real index.lock",
+  "generatedPaths": [
+    "packages/edit-store/lib/canonical.js",
+    "packages/edit-store/lib/edit-store.d.ts",
+    "packages/edit-store/lib/edit-store.js",
+    "packages/edit-store/lib/edit-v2-item-write.d.ts",
+    "packages/edit-store/lib/edit-v2-item-write.js",
+    "packages/edit-store/lib/edit-v2.d.ts",
+    "packages/edit-store/lib/edit-v2.js",
+    "packages/edit-store/lib/index.d.ts",
+    "packages/edit-store/lib/index.js",
+    "packages/edit-store/lib/internal-model.js",
+    "packages/edit-store/lib/tree-ops.d.ts",
+    "packages/edit-store/lib/tree-ops.js",
+    "packages/edit-store/lib/webview-kernel.js",
+    "packages/gpu-export/generated/frame-engine.js",
+    "packages/osr-export/generated/frame-engine.js",
+    "packages/preview-server/public/frame-engine.bundle.js",
+    "packages/preview-server/public/overlay-interaction.bundle.js"
+  ],
+  "addedTests": {
+    "purePassed": 16,
+    "browserPassed": 1,
+    "parallelAttempt": "Browser timed out under concurrent load; the unchanged browser test passed on standalone rerun."
+  }
+}

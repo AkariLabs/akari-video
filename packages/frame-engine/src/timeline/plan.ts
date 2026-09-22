@@ -68,7 +68,7 @@ export interface FrameEngineLayer {
   kind?: 'video' | 'baked' | 'filter' | 'matte';
   src?: string;
   mask?: string;
-  transform?: { x?: number; y?: number; scale?: number; rotate?: number };
+  transform?: { x?: number; y?: number; scale?: number; scaleX?: number; scaleY?: number; rotate?: number };
   crop?: { x: number; y: number; w: number; h: number };
   perspective?: { corners: readonly (readonly [number, number])[] };
   keyframes?: readonly LayerKeyframe[];
@@ -418,7 +418,7 @@ function interpolateFraming(
  * （cut.crop / cut.transform / cut.opacity）へ上書きする。perspective は読まない（build 時に warn 済み）。
  */
 function layerStyleVisualAt(cut: FrameEngineCut, localSeconds: number): ResolvedCutVisual {
-  const animated = computeLayerKeyframesVisual(cut.keyframes, localSeconds);
+  const animated = computeLayerKeyframesVisual(cut.keyframes, localSeconds, cut.transform);
   const staticCrop = cut.crop ?? { x: 0, y: 0, w: 1, h: 1 };
   const crop = animated?.crop ?? {
     x: finite(staticCrop.x, 0),
@@ -432,6 +432,8 @@ function layerStyleVisualAt(cut: FrameEngineCut, localSeconds: number): Resolved
     x: finite(cut.transform?.x, 0),
     y: finite(cut.transform?.y, 0),
     scale: finite(cut.transform?.scale, 1),
+    ...(cut.transform?.scaleX !== undefined ? { scaleX: cut.transform.scaleX } : {}),
+    ...(cut.transform?.scaleY !== undefined ? { scaleY: cut.transform.scaleY } : {}),
     rotateDegrees: finite(cut.transform?.rotate, 0)
   };
   return {
@@ -440,6 +442,8 @@ function layerStyleVisualAt(cut: FrameEngineCut, localSeconds: number): Resolved
       x: transform.x,
       y: transform.y,
       scale: Math.max(Number.EPSILON, transform.scale),
+      ...(transform.scaleX !== undefined ? { scaleX: transform.scaleX } : {}),
+      ...(transform.scaleY !== undefined ? { scaleY: transform.scaleY } : {}),
       rotateDegrees: transform.rotateDegrees
     },
     opacity: clamp(animated?.opacity ?? finite(cut.opacity, 1), 0, 1),
@@ -452,6 +456,8 @@ function layerStyleVisualAt(cut: FrameEngineCut, localSeconds: number): Resolved
 function motionTransform(transform: ResolvedCutVisual['transform'], motion: MotionVisual): ResolvedCutVisual['transform'] {
   return {
     x: transform.x + motion.dx, y: transform.y + motion.dy,
+    ...(transform.scaleX !== undefined ? { scaleX: transform.scaleX * motion.scale } : {}),
+    ...(transform.scaleY !== undefined ? { scaleY: transform.scaleY * motion.scale } : {}),
     scale: transform.scale * motion.scale, rotateDegrees: transform.rotateDegrees + motion.rotate
   };
 }
@@ -532,6 +538,8 @@ function visualAt(
       x: finite(cut.transform?.x, 0),
       y: finite(cut.transform?.y, 0),
       scale: Math.max(Number.EPSILON, finite(cut.transform?.scale, 1)),
+      ...(cut.transform?.scaleX !== undefined ? { scaleX: cut.transform.scaleX } : {}),
+      ...(cut.transform?.scaleY !== undefined ? { scaleY: cut.transform.scaleY } : {}),
       rotateDegrees: finite(cut.transform?.rotate, 0)
     },
     opacity: clamp(finite(cut.opacity, 1), 0, 1)
@@ -678,7 +686,7 @@ function resolvedCompositeLayers(
     }
     const source = sources.get(layer.src);
     if (!source) throw new Error(`no layer source registered for ${layer.src}`);
-    const animated = computeLayerKeyframesVisual(layer.keyframes, localSeconds);
+    const animated = computeLayerKeyframesVisual(layer.keyframes, localSeconds, layer.transform);
     const staticCrop = layer.crop ?? { x: 0, y: 0, w: 1, h: 1 };
     const staticTransform = layer.transform ?? {};
     const visual = {
@@ -692,6 +700,8 @@ function resolvedCompositeLayers(
       transform: animated?.transform ?? {
         x: finite(staticTransform.x, 0), y: finite(staticTransform.y, 0),
         scale: Math.max(Number.EPSILON, finite(staticTransform.scale, 1)),
+        ...(staticTransform?.scaleX !== undefined ? { scaleX: staticTransform.scaleX } : {}),
+        ...(staticTransform?.scaleY !== undefined ? { scaleY: staticTransform.scaleY } : {}),
         rotateDegrees: finite(staticTransform.rotate, 0)
       }
     };

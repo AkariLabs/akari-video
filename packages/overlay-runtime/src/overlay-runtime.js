@@ -197,10 +197,13 @@ function createOverlayRuntime(options = {}) {
       container.style.setProperty("--x", isBackground ? "0px" : `${finiteNumber(transform.x, 0)}px`);
       container.style.setProperty("--y", isBackground ? "0px" : `${finiteNumber(transform.y, 0)}px`);
       container.style.setProperty("--scale", isBackground ? "1" : String(finiteNumber(transform.scale, 1)));
+      for (const [key, css] of [["scaleX", "--scale-x"], ["scaleY", "--scale-y"]]) {
+        if (isBackground || transform[key] !== undefined) container.style.setProperty(css, isBackground ? "1" : String(transform[key]));
+      }
       container.style.setProperty("--rotate", isBackground ? "0deg" : `${finiteNumber(transform.rotate, 0)}deg`);
       container.style.transform =
         "translate(var(--x,0px), var(--y,0px)) " +
-        "scale(var(--scale,1)) rotate(var(--rotate,0deg))";
+        "scale(var(--scale-x,var(--scale,1)),var(--scale-y,var(--scale,1))) rotate(var(--rotate,0deg))";
 
       const template = document.createElement("template");
       template.innerHTML = overlay.html ?? "";
@@ -238,6 +241,7 @@ function createOverlayRuntime(options = {}) {
       fragment.appendChild(container);
       const mountedOverlay = {
         container,
+        hasAxisTransform: hasAxisTransform(overlay),
         start,
         duration,
         visible: false,
@@ -252,6 +256,8 @@ function createOverlayRuntime(options = {}) {
             x: isBackground ? 0 : finiteNumber(transform.x, 0),
             y: isBackground ? 0 : finiteNumber(transform.y, 0),
             scale: isBackground ? 1 : finiteNumber(transform.scale, 1),
+            ...(!isBackground && transform.scaleX !== undefined ? { scaleX: transform.scaleX } : {}),
+            ...(!isBackground && transform.scaleY !== undefined ? { scaleY: transform.scaleY } : {}),
             rotate: isBackground ? 0 : finiteNumber(transform.rotate, 0),
             opacity: finiteNumber(overlay.opacity, 1),
           },
@@ -263,6 +269,50 @@ function createOverlayRuntime(options = {}) {
 
     stage.replaceChildren(fragment);
     mountedStage = stage;
+  }
+
+  function hasAxisTransform(value) {
+    return value?.transform?.scaleX !== undefined || value?.transform?.scaleY !== undefined
+      || (Array.isArray(value?.keyframes) && value.keyframes.some(point =>
+        point?.transform?.scaleX !== undefined || point?.transform?.scaleY !== undefined));
+  }
+
+  // Incremental shell messages must update the cached keyframes/statics as well as CSS.
+  // Leave legacy-only records and all selection/handle DOM untouched.
+  function applyAxisSummary(summary) {
+    const next = new Map((summary?.overlays ?? []).map(value => [String(value.id), value]));
+    for (const mounted of mountedOverlays) {
+      const value = next.get(mounted.container.dataset.overlayId);
+      if (!value || (!mounted.hasAxisTransform && !hasAxisTransform(value))) continue;
+      mounted.hasAxisTransform = hasAxisTransform(value);
+      const transform = value.transform ?? {};
+      const background = value.role === "background";
+      const statics = {
+        x: background ? 0 : finiteNumber(transform.x, 0),
+        y: background ? 0 : finiteNumber(transform.y, 0),
+        scale: background ? 1 : finiteNumber(transform.scale, 1),
+        rotate: background ? 0 : finiteNumber(transform.rotate, 0),
+        opacity: finiteNumber(value.opacity, 1),
+      };
+      mounted.container.style.setProperty("--x", `${statics.x}px`);
+      mounted.container.style.setProperty("--y", `${statics.y}px`);
+      mounted.container.style.setProperty("--scale", String(statics.scale));
+      mounted.container.style.setProperty("--rotate", `${statics.rotate}deg`);
+      for (const [key, css] of [["scaleX", "--scale-x"], ["scaleY", "--scale-y"]]) {
+        if (background || transform[key] !== undefined) {
+          statics[key] = background ? 1 : transform[key];
+          mounted.container.style.setProperty(css, String(statics[key]));
+        } else mounted.container.style.removeProperty(css);
+      }
+      mounted.container.style.setProperty("opacity", String(statics.opacity));
+      mounted.hitPolicyPending = true;
+      mounted.statics = statics;
+      mounted.keyframes = Array.isArray(value.keyframes) ? value.keyframes : undefined;
+      mounted.fps = finiteNumber(summary?.output?.fps, 30);
+      mounted.start = finiteNumber(value.start, mounted.start);
+      mounted.duration = finiteNumber(value.duration, mounted.duration);
+      mounted.isBackground = background;
+    }
   }
 
   function tick(t, playing) {
@@ -318,6 +368,9 @@ function createOverlayRuntime(options = {}) {
         overlay.container.style.setProperty("--x", overlay.isBackground ? "0px" : `${state.x}px`);
         overlay.container.style.setProperty("--y", overlay.isBackground ? "0px" : `${state.y}px`);
         overlay.container.style.setProperty("--scale", overlay.isBackground ? "1" : String(state.scale));
+        for (const [key, css] of [["scaleX", "--scale-x"], ["scaleY", "--scale-y"]]) {
+          if (state[key] !== undefined) overlay.container.style.setProperty(css, overlay.isBackground ? "1" : String(state[key]));
+        }
         overlay.container.style.setProperty("--rotate", overlay.isBackground ? "0deg" : `${state.rotate}deg`);
         overlay.container.style.setProperty("opacity", String(state.opacity));
       }
@@ -376,7 +429,7 @@ function createOverlayRuntime(options = {}) {
     }
   }
 
-  return { mount, tick, unmount, configure, version: RUNTIME_VERSION };
+  return { mount, tick, unmount, configure, applyAxisSummary, version: RUNTIME_VERSION };
 }
 
 window.akari.createOverlayRuntime = createOverlayRuntime;

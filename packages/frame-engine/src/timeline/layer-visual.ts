@@ -2,7 +2,7 @@ import type { ResolvedLayerVisual } from '../types.js';
 
 export interface LayerKeyframe {
   t: number;
-  transform?: { x?: number; y?: number; scale?: number; rotate?: number };
+  transform?: { x?: number; y?: number; scale?: number; scaleX?: number; scaleY?: number; rotate?: number };
   crop?: { x: number; y: number; w: number; h: number };
   perspective?: { corners: readonly (readonly [number, number])[] };
   /** contract-2026-08-30-motion-and-keyframes-v0.md §2.1 (a): opacity is a keyframe-able leaf. */
@@ -46,6 +46,7 @@ function valueAt(
 export function computeLayerKeyframesVisual(
   keyframes: readonly LayerKeyframe[] | undefined,
   layerLocalSeconds: number,
+  statics: LayerKeyframe['transform'] = {},
 ): {
   transform: ResolvedLayerVisual['transform'] | null;
   crop: ResolvedLayerVisual['crop'] | null;
@@ -62,11 +63,12 @@ export function computeLayerKeyframesVisual(
   const transformPoints = points.filter(
     (point) => point.transform && typeof point.transform === 'object',
   );
-  const leaf = (name: 'x' | 'y' | 'scale' | 'rotate', fallback: number) =>
+  const leaf = (name: 'x' | 'y' | 'scale' | 'scaleX' | 'scaleY' | 'rotate', fallback: number) =>
     valueAt(
       transformPoints,
       (point) =>
-        finite(point.transform?.[name]) ? point.transform[name]! : fallback,
+        finite(point.transform?.[name]) ? point.transform[name]!
+          : ((name === 'scaleX' || name === 'scaleY') ? (point.transform?.scale ?? statics?.[name] ?? statics?.scale ?? fallback) : fallback),
       t,
     );
   const rawScale = transformPoints.length ? leaf('scale', 1) : 1;
@@ -75,6 +77,8 @@ export function computeLayerKeyframesVisual(
         x: leaf('x', 0),
         y: leaf('y', 0),
         scale: rawScale > 0 ? rawScale : 1,
+        ...((statics?.scaleX !== undefined || statics?.scaleY !== undefined || transformPoints.some(point => point.transform?.scaleX !== undefined || point.transform?.scaleY !== undefined))
+          ? { scaleX: Math.max(Number.EPSILON, leaf('scaleX', 1)), scaleY: Math.max(Number.EPSILON, leaf('scaleY', 1)) } : {}),
         rotateDegrees: leaf('rotate', 0),
       }
     : null;

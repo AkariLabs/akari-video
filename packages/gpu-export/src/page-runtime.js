@@ -507,7 +507,7 @@
     const xhtml = serializeHtmlToXhtml(html);
     return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
       <foreignObject width="100%" height="100%">
-        <div xmlns="http://www.w3.org/1999/xhtml" class="akari-sprite-root" style="position:relative;width:${width}px;height:${height}px;overflow:hidden;background:transparent;container-type:size;transform:translate(var(--x, 0px), var(--y, 0px)) scale(var(--scale, 1)) rotate(var(--rotate, 0deg));transform-origin:center;${varsCss(vars)}">
+        <div xmlns="http://www.w3.org/1999/xhtml" class="akari-sprite-root" style="position:relative;width:${width}px;height:${height}px;overflow:hidden;background:transparent;container-type:size;transform:translate(var(--x, 0px), var(--y, 0px)) scale(var(--scale-x, var(--scale, 1)), var(--scale-y, var(--scale, 1))) rotate(var(--rotate, 0deg));transform-origin:center;${varsCss(vars)}">
           <style>html,body{margin:0;width:100%;height:100%;overflow:hidden}${extraCss}</style>${xhtml}
         </div>
       </foreignObject>
@@ -1030,7 +1030,7 @@
     const scopedBandCss = scopeCaptionCss(bandCss, prefix);
     return `<foreignObject x="0" y="${offsetY}" width="${config.width}" height="${textureRect.height}">
       <div xmlns="http://www.w3.org/1999/xhtml" style="position:relative;width:${config.width}px;height:${textureRect.height}px;overflow:hidden">
-        <div class="akari-sprite-root" data-akari-band="${bandIndex}" style="position:absolute;left:0;top:${-textureRect.y}px;width:${config.width}px;height:${config.height}px;overflow:hidden;background:transparent;container-type:size;transform:translate(var(--x, 0px), var(--y, 0px)) scale(var(--scale, 1)) rotate(var(--rotate, 0deg));transform-origin:center;${varsCss(value.vars)}">
+        <div class="akari-sprite-root" data-akari-band="${bandIndex}" style="position:absolute;left:0;top:${-textureRect.y}px;width:${config.width}px;height:${config.height}px;overflow:hidden;background:transparent;container-type:size;transform:translate(var(--x, 0px), var(--y, 0px)) scale(var(--scale-x, var(--scale, 1)), var(--scale-y, var(--scale, 1))) rotate(var(--rotate, 0deg));transform-origin:center;${varsCss(value.vars)}">
           <style>html,body{margin:0;width:${config.width}px;height:${config.height}px;overflow:hidden}${sharedCss}${scopedBandCss}</style>${xhtml}
         </div>
       </div>
@@ -1042,7 +1042,7 @@
     const scopedBandCss = scopeCaptionCss(bandCss, `[data-akari-band="0"]`);
     return removeDuplicateCaptionFontFaces(`<svg xmlns="http://www.w3.org/2000/svg" width="${config.width}" height="${textureRect.height}" viewBox="0 ${textureRect.y} ${config.width} ${textureRect.height}">
       <foreignObject x="0" y="0" width="${config.width}" height="${config.height}">
-        <div xmlns="http://www.w3.org/1999/xhtml" class="akari-sprite-root" data-akari-band="0" style="position:relative;width:${config.width}px;height:${config.height}px;overflow:hidden;background:transparent;container-type:size;transform:translate(var(--x, 0px), var(--y, 0px)) scale(var(--scale, 1)) rotate(var(--rotate, 0deg));transform-origin:center;${varsCss(value.vars)}">
+        <div xmlns="http://www.w3.org/1999/xhtml" class="akari-sprite-root" data-akari-band="0" style="position:relative;width:${config.width}px;height:${config.height}px;overflow:hidden;background:transparent;container-type:size;transform:translate(var(--x, 0px), var(--y, 0px)) scale(var(--scale-x, var(--scale, 1)), var(--scale-y, var(--scale, 1))) rotate(var(--rotate, 0deg));transform-origin:center;${varsCss(value.vars)}">
           <style>html,body{margin:0;width:${config.width}px;height:${config.height}px;overflow:hidden}${sharedCss}${scopedBandCss}</style>${xhtml}
         </div>
       </foreignObject>
@@ -1355,8 +1355,8 @@
       ...state,
       translateX: state.translateX + (visual?.transform?.x ?? transform?.x ?? 0),
       translateY: state.translateY + (visual?.transform?.y ?? transform?.y ?? 0),
-      scaleX: state.scaleX * scale,
-      scaleY: state.scaleY * scale,
+      scaleX: state.scaleX * (visual?.transform?.scaleX ?? transform?.scaleX ?? scale),
+      scaleY: state.scaleY * (visual?.transform?.scaleY ?? transform?.scaleY ?? scale),
       opacity: state.opacity * (visual?.opacity ?? declaration.item?.opacity ?? 1),
       rotateDeg: state.rotateDeg + (visual?.transform?.rotateDegrees ?? transform?.rotate ?? 0),
     };
@@ -2089,6 +2089,12 @@
           container.dataset.duration = String(entry.duration);
           if (entry.params && typeof entry.params === "object") container.dataset.akariParams = JSON.stringify(entry.params);
           styleVariables(container, entry.vars);
+          const transform = declaration?.transform ?? entry.transform ?? {};
+          const background = declaration?.role === "background" || entry.role === "background";
+          for (const [key, css] of [["scaleX", "--scale-x"], ["scaleY", "--scale-y"]]) {
+            if (background || (transform[key] !== undefined && declaration?.vars?.[css] === undefined)) container.style.setProperty(css, background ? "1" : String(transform[key]));
+          }
+          container.style.transform = "translate(var(--x, 0px), var(--y, 0px)) scale(var(--scale-x, var(--scale, 1)), var(--scale-y, var(--scale, 1))) rotate(var(--rotate, 0deg))";
           const content = document.createElement("div");
           content.className = "scene-content";
           content.insertAdjacentHTML("beforeend", applyTextSlotParams(entry.html, entry.params));
@@ -2104,6 +2110,8 @@
                   x: Number(declaration.transform?.x ?? 0),
                   y: Number(declaration.transform?.y ?? 0),
                   scale: Number(declaration.transform?.scale ?? 1),
+                  ...(declaration.transform?.scaleX !== undefined ? { scaleX: declaration.transform.scaleX } : {}),
+                  ...(declaration.transform?.scaleY !== undefined ? { scaleY: declaration.transform.scaleY } : {}),
                   rotate: Number(declaration.transform?.rotate ?? 0),
                   opacity: Number(declaration.opacity ?? 1),
                 },
@@ -2250,6 +2258,8 @@
           container.style.setProperty("--x", background ? "0px" : `${state.x}px`);
           container.style.setProperty("--y", background ? "0px" : `${state.y}px`);
           container.style.setProperty("--scale", background ? "1" : String(state.scale));
+          container.style.setProperty("--scale-x", background ? "1" : String(state.scaleX ?? state.scale));
+          container.style.setProperty("--scale-y", background ? "1" : String(state.scaleY ?? state.scale));
           container.style.setProperty("--rotate", background ? "0deg" : `${state.rotate}deg`);
           container.style.setProperty("opacity", String(state.opacity));
         }
@@ -2423,9 +2433,20 @@
     const started = performance.now();
     try {
       for (const value of config.spriteManifest.statics) {
-        spriteCompositor.registerSprite(value.id, await rasterizeSprite(value, config));
+        const declaration = (config.edit?.overlays ?? []).find(overlay => String(overlay.id) === value.id);
+        const transform = declaration?.transform ?? {};
+        const vars = { ...value.vars };
+        for (const [key, css] of [["scaleX", "--scale-x"], ["scaleY", "--scale-y"]]) {
+          if (declaration?.role === "background") vars[css] = "1";
+          else if (transform[key] !== undefined && declaration?.vars?.[css] === undefined) vars[css] = String(transform[key]);
+        }
+        spriteCompositor.registerSprite(value.id, await rasterizeSprite({ ...value, vars }, config));
       }
-      for (const value of config.spriteManifest.captions) {
+      for (const declaration of config.spriteManifest.captions) {
+        const value = { ...declaration, vars: { ...declaration.vars,
+          ...(declaration.transform?.scaleX !== undefined ? { "--scale-x": String(declaration.transform.scaleX) } : {}),
+          ...(declaration.transform?.scaleY !== undefined ? { "--scale-y": String(declaration.transform.scaleY) } : {}),
+        } };
         const captionBuildStarted = performance.now();
         const built = await buildCaptionUnits(
           value,
