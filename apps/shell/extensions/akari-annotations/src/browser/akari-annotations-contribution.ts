@@ -52,7 +52,7 @@ import { AkariReviewBoardWidget } from './akari-review-board-widget';
 import { AkariReviewPanelWidget } from './akari-review-panel-widget';
 import { AkariSessionViewerWidget } from './akari-session-viewer-widget';
 import { ProjectLocation } from './project-location';
-import { computeRightPanelOrder } from './right-panel-order';
+import { computeRightPanelOrder, defaultRightRailGroup, RightRailGroup } from './right-panel-order';
 import { installRightPanelTabStyle } from './right-panel-tab-style';
 import { ReviewModel } from './review-model';
 import { coalesceReviewOpens, shouldOpenReviewPanelFor } from '../common/review-watch';
@@ -469,10 +469,17 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
      * で反映するだけ。
      */
     protected reconcileRightPanelOrder(): void {
-        const tabBar = this.shell.rightPanelHandler.tabBar;
+        const handler = this.shell.rightPanelHandler as typeof this.shell.rightPanelHandler & {
+            railGroupOf?(id: string): RightRailGroup;
+        };
+        const tabBar = handler.tabBar;
         const titles = Array.from(tabBar.titles).filter(title => !title.owner.isDisposed);
         const titlesById = new Map(titles.map(title => [title.owner.id, title]));
-        const targetOrder = computeRightPanelOrder(titles.map(title => title.owner.id), RIGHT_PANEL_FIXED_ORDER);
+        // 追記（task 2026-09-22-right-rail-regroup）: レールは真ん中の区切り線で上 = エージェント / 下 = それ以外に分かれ、
+        // 所属はドラッグで入れ替わる。所属は akari-shell-strip の右パネルハンドラーが持つので、それに合わせて 2 区画で並べる
+        // （ハンドラーが居ない構成では既定の所属）。
+        const groupOf = (id: string) => handler.railGroupOf?.(id) ?? defaultRightRailGroup(id);
+        const targetOrder = computeRightPanelOrder(titles.map(title => title.owner.id), RIGHT_PANEL_FIXED_ORDER, groupOf);
         targetOrder.forEach((id, index) => {
             const title = titlesById.get(id);
             if (title) {

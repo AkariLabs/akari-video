@@ -26,6 +26,11 @@ import { FrontendApplication } from '@theia/core/lib/browser';
  */
 const LAYOUT_RESTORE_TIMEOUT_MS = 8000;
 
+/** 右レールの状態を既定（1 面・既定の所属）へ戻す口（AkariRightPanelHandler.resetRailLayout）。 */
+interface RightRailResettable {
+    resetRailLayout?(): void;
+}
+
 @injectable()
 export class AkariFrontendApplication extends FrontendApplication {
 
@@ -42,18 +47,28 @@ export class AkariFrontendApplication extends FrontendApplication {
                     `[akari-shell-strip] layout restore timed out after ${LAYOUT_RESTORE_TIMEOUT_MS}ms — ` +
                     'falling back to default (empty) layout to guarantee ready state.'
                 );
+                this.resetRightRail();
                 return false;
+            }
+            if (!result) {
+                this.resetRightRail();
             }
             return result;
         } catch (e) {
             // 保険（core 側の restoreLayout は既に内部で try/catch → false を返す設計だが、
             // 将来の Theia バージョン変更や想定外の同期例外に備えて二重に守る）。
             console.error('[akari-shell-strip] layout restore threw unexpectedly — falling back to default (empty) layout.', e);
+            this.resetRightRail();
             return false;
         } finally {
             if (timeoutHandle !== undefined) {
                 clearTimeout(timeoutHandle);
             }
         }
+    }
+
+    /** 壊れた保存レイアウトでは右レールも既定（1 面・既定の所属）へ（task 2026-09-22-right-rail-regroup）。 */
+    protected resetRightRail(): void {
+        (this.shell.rightPanelHandler as unknown as RightRailResettable).resetRailLayout?.();
     }
 }

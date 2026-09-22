@@ -2431,7 +2431,7 @@ export class AkariInspectorWidget extends BaseWidget {
         this.id = AkariInspectorWidget.FACTORY_ID;
         this.title.label = 'インスペクター';
         this.title.caption = 'タイムラインで選択した項目の詳細（安全なフィールドは編集可能）';
-        this.title.iconClass = 'codicon codicon-inspect';
+        this.title.iconClass = 'akari-rail-icon akari-rail-icon-inspector';
         this.title.closable = true;
         this.node.classList.add('akari-inspector-widget');
         // docs/contract-2026-08-11-review-session-ui-events.md #2: panel:<id> opt-in target.

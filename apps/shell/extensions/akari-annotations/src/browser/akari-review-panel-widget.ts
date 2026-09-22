@@ -222,7 +222,7 @@ export class AkariReviewPanelWidget extends BaseWidget {
         this.id = AkariReviewPanelWidget.FACTORY_ID;
         this.title.label = '注釈';
         this.title.caption = '注釈（レビューコメント）';
-        this.title.iconClass = 'codicon codicon-comment-discussion';
+        this.title.iconClass = 'akari-rail-icon akari-rail-icon-review';
         this.title.closable = false; // 右ドック常設。閉じたいときは右ドックごと畳む。
         this.node.classList.add('akari-review-panel-widget');
         // docs/contract-2026-08-11-review-session-ui-events.md #2: panel:<id> opt-in target.

@@ -509,7 +509,7 @@ export class AkariDaihonWidget extends BaseWidget {
         this.id = AkariDaihonWidget.FACTORY_ID;
         this.title.label = '台本';
         this.title.caption = '字幕を基点に動画を仕上げる（再生に追従・クリックでシーク・ダブルクリックで編集）';
-        this.title.iconClass = 'codicon codicon-list-selection';
+        this.title.iconClass = 'akari-rail-icon akari-rail-icon-daihon';
         this.title.closable = false; // 右ドック常設。閉じたいときは右ドックごと畳む。
         this.node.classList.add('akari-daihon-widget');
         this.node.setAttribute('data-akari-ui', 'panel:daihon');
