@@ -77,8 +77,10 @@ export function planShellEffects({ final = false, decision = {}, executed = fals
         for(const row of shellCommands){
             if(typeof row?.commandId==='string')addCommand(row.commandId,row.args);
         }
-        addCommand('akari.menu.focus',{section:'open',pulse:true});
-        considerFly(30,'menuSection','open');
+        if(shellCommands.length===0){
+            addCommand('akari.menu.focus',{section:'open',pulse:true});
+            considerFly(30,'menuSection','open');
+        }
     }
 
     if(final&&executed&&decision.op==='skill_dispatch'
