@@ -3352,6 +3352,13 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 ? this.resourceSuffix(widget.akariPreviewEditUri) : undefined;
             for (const change of event.changes) {
                 const key = change.resource.toString();
+                const referencesUri = widget.akariPreviewEditUri?.parent.resolve('.akari/asset-references.json');
+                if (referencesUri && key === referencesUri.toString()) {
+                    // Bundle/removal changes the media location without changing edit.json.
+                    previewChanged = true;
+                    nonModelResourceChanged = true;
+                    continue;
+                }
                 if (kind === 'output' && change.resource.path.base.endsWith('.meta.json')) {
                     generationChanged = true;
                     continue;
@@ -4094,7 +4101,9 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             this.showMessageCard(widget, videoUri, UNSUPPORTED_FORMAT_MESSAGE, identityUri, kind);
             return;
         }
-        if (!(await this.isInsideWorkspace(videoUri))) {
+        // Output media may be ledger references outside the workspace. The stream RPC
+        // validates each exact file; keep the local-only guard for raw views and edit.json.
+        if ((kind === 'raw' || compositionOnly) && !(await this.isInsideWorkspace(videoUri))) {
             await this.disposeAssetStreams(model.assetStreamIds);
             diagnostics?.note('ワークスペース外の素材カードを表示: ' + videoUri.toString());
             this.showMessageCard(widget, videoUri, OUTSIDE_WORKSPACE_MESSAGE, identityUri, kind);
@@ -4161,9 +4170,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     continue;
                 }
                 const entryIsStillImage = isImageLayerSrc(entry.uri.path.base);
-                if ((!entryIsStillImage && !PLAYABLE_VIDEO_MIME_TYPES.has(entry.uri.path.ext.toLowerCase()))
-                    || !(await this.isInsideWorkspace(entry.uri))) {
-                    console.warn('[akari-preview] sources[] の素材を再生できません（形式か配置）', entry.uri.toString());
+                if (!entryIsStillImage && !PLAYABLE_VIDEO_MIME_TYPES.has(entry.uri.path.ext.toLowerCase())) {
+                    console.warn('[akari-preview] sources[] の素材を再生できません（形式）', entry.uri.toString());
                     continue;
                 }
                 try {
@@ -4793,11 +4801,11 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 if (!declared.id) {
                     throw new TypeError('edit.json の sources[].id が不正です。');
                 }
-                const uri = this.resolveEditAssetUri(declaredPath, editUri);
+                const uri = await this.resolveEditAssetUri(declaredPath, editUri);
                 let proxyUri: URI | undefined;
                 const declaredProxy = declared.declaredProxy;
                 if (typeof declaredProxy === 'string' && declaredProxy.trim()) {
-                    const candidate = this.resolveEditAssetUri(declaredProxy, editUri);
+                    const candidate = await this.resolveEditAssetUri(declaredProxy, editUri);
                     proxyUri = await this.fileService.exists(candidate) ? candidate : undefined;
                 }
                 return { id: declared.id, uri, proxyUri };
@@ -4851,7 +4859,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                         background = { type: 'color', color: declaredBackground };
                     } else {
                         try {
-                            const backgroundUri = this.resolveEditAssetUri(declaredBackground, editUri);
+                            const backgroundUri = await this.resolveEditAssetUri(declaredBackground, editUri);
                             const stream = await ensureAssetStream(backgroundUri.toString(), backgroundUri);
                             background = { type: 'image', url: stream.url };
                         } catch (error) {
@@ -4948,7 +4956,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             }).map(async declaration => {
                 const isLayer = 'scope' in declaration && declaration.scope === 'layers';
                 const source = isLayer
-                    ? { uri: this.resolveEditAssetUri(declaration.src, editUri) }
+                    ? { uri: await this.resolveEditAssetUri(declaration.src, editUri) }
                     : sourcesById.get(declaration.src);
                 if (!source) return declaration;
                 const request: PreviewAudioSidecarRequest = {
@@ -4999,7 +5007,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     const rawHtml = item.source.html;
                     if (rawHtml && !rawHtml.trimStart().startsWith('<')) {
                         if (!overlayHtml.has(rawHtml) && !overlayHtmlTasks.has(rawHtml)) {
-                            const fragmentUri = editUri.parent.resolve(rawHtml);
+                            const fragmentUri = await this.resolveEditAssetUri(rawHtml, editUri);
                             registerOverlayUri(fragmentUri);
                             overlayHtmlTasks.set(rawHtml, this.readText(fragmentUri).then(
                                 async text => {
@@ -5034,7 +5042,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             await Promise.all(internal.tracks.flatMap(track => track.items.map(item => loadOverlayTree(item, track.id))));
             await resolvePreviewItemKeyframes(internal, {
                 readText: async path => {
-                    const bagUri = editUri.parent.resolve(path);
+                    const bagUri = await this.resolveEditAssetUri(path, editUri);
                     registerMotionBagUri(bagUri);
                     return this.readText(bagUri);
                 },
@@ -5198,7 +5206,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 }
                 let sourceUri: URI;
                 try {
-                    sourceUri = this.resolveEditAssetUri(value.src, editUri);
+                    sourceUri = await this.resolveEditAssetUri(value.src, editUri);
                 } catch (error) {
                     console.warn(`[akari-preview] ${label} を無視しました（src を解決できません）`, error);
                     return { kind: 'skip', unsupportedBlend };
@@ -5209,8 +5217,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     try {
                         // The internal projection normally resolves mask ids to project-relative paths.
                         const maskUri = maskSource
-                            ? this.resolveEditAssetUri(maskSource.uri.toString(), editUri)
-                            : this.resolveEditAssetUri(maskSourceId, editUri);
+                            ? await this.resolveEditAssetUri(maskSource.uri.toString(), editUri)
+                            : await this.resolveEditAssetUri(maskSourceId, editUri);
                         if (isImageLayerSrc(maskUri.path.toString()) || isImageLayerSrc(value.src)) {
                             console.warn(`[akari-preview] ${label}.mask を無視しました（静止画には対応していません）`);
                             return undefined;
@@ -5568,12 +5576,12 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 console.warn(`[akari-preview] ${label} を無視しました（path 不正）`);
                 return undefined;
             }
-            const assetUri = this.resolveEditAssetUri(pathValue, editUri);
-            const key = assetUri.toString();
-            // Reserve declaration order before concurrent stream resolution completes.
+            // Reserve declaration order before either path RPC or stream resolution completes.
             const entry: PreviewAudioSidecarEntry = { at, kind };
             sidecarRequests.push(entry);
             try {
+                const assetUri = await this.resolveEditAssetUri(pathValue, editUri);
+                const key = assetUri.toString();
                 const stream = await ensure(key, assetUri);
                 // Independent speech still references the video container. Like embedded
                 // speech, it needs extracted audio even for a short trim without clip FX.
@@ -5971,7 +5979,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     if (relativePath.startsWith('/') || /^[a-z][a-z\d+.-]*:/i.test(relativePath)) {
                         throw new TypeError(`${field} に絶対パスや URL は指定できません`);
                     }
-                    const assetUri = editUri.parent.resolve(relativePath);
+                    const assetUri = await this.resolveEditAssetUri(relativePath, editUri);
                     const key = assetUri.toString();
                     if (ensureAssetStream) {
                         return (await ensureAssetStream(key, assetUri)).url;
@@ -5996,7 +6004,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 if (resolved.modelPath) {
                     try {
                         const unsupported = this.detectUnsupportedGltfExtensions(
-                            await this.readGltfHeaderBytes(editUri.parent.resolve(resolved.modelPath))
+                            await this.readGltfHeaderBytes(await this.resolveEditAssetUri(resolved.modelPath, editUri))
                         );
                         if (unsupported.length > 0) {
                             unsupportedGltfWarnings.push(
@@ -17856,7 +17864,7 @@ body { display: grid; place-items: center; padding: 32px; }
     // edit.json's parent directory). edit.json's own canon is project-relative paths, so darwin
     // never actually receives a "C:\..." value in practice; this only has to be correct in
     // principle for a future Windows port, not exercised end-to-end on this platform.
-    protected resolveEditAssetUri(pathValue: string, editUri: URI): URI {
+    protected async resolveEditAssetUri(pathValue: string, editUri: URI): Promise<URI> {
         switch (classifyEditAssetPath(pathValue)) {
             case 'file-uri':
                 return new URI(pathValue);
@@ -17867,8 +17875,13 @@ body { display: grid; place-items: center; padding: 32px; }
             case 'posix-absolute':
                 return new URI(pathValue).withScheme('file');
             case 'relative':
-            default:
-                return editUri.parent.resolve(pathValue);
+            default: {
+                if (!pathValue.replace(/\\/g, '/').startsWith('assets/')) return editUri.parent.resolve(pathValue);
+                const resolved = await this.previewService.resolveProjectAssetUri({
+                    projectRootUri: editUri.parent.toString(), declaredPath: pathValue
+                });
+                return resolved ? new URI(resolved) : editUri.parent.resolve(pathValue);
+            }
         }
     }
 
@@ -17997,7 +18010,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     return;
                 }
                 try {
-                    const assetUri = this.resolveEditAssetUri(path, editUri).toString();
+                    const assetUri = (await this.resolveEditAssetUri(path, editUri)).toString();
                     const known = assetUrls?.get(assetUri) ?? acquired.find(stream => stream.assetUri === assetUri)?.url;
                     if (known) {
                         images.push({ path, url: known });

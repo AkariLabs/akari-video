@@ -415,6 +415,7 @@ export interface ReadGenerationSidecarsResult {
 }
 
 export interface AkariPreviewService {
+    resolveProjectAssetUri(request: { projectRootUri: string; declaredPath: string }): Promise<string | undefined>;
     savePreviewFrame(request: import('./preview-frame-capture').SavePreviewFrameRequest): Promise<{ path: string }>;
     prepareAssetVisualThumbnail(request: { assetUri: string; time?: number }): Promise<import('./visual-thumbnail').VisualThumbnailPage & {
         assetUri: string; duration: number; time: number; mtime: number; size: number;

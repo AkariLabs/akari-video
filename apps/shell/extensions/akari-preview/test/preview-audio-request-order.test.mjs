@@ -186,6 +186,7 @@ test('concurrent regular stream resolution retains declaration order and issues 
         new URI('file:///project/edit.json'), new Map(), [], new Set(), [], entries,
         f.host.previewService, new Set(), key => new Promise(done => streams.push(() => done({ id: key, url: key })))
     );
+    await new Promise(done => setImmediate(done));
     assert.equal(streams.length, 2);
     streams[1]();
     await new Promise(done => setImmediate(done));

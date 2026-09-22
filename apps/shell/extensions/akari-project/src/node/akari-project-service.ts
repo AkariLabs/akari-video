@@ -1,3 +1,4 @@
+import { assetResolveOutcome, restrictedReferenceCount } from '../common/project-asset-reference';
 import { applyCutRanges, readEditV2 } from '@akari-video/edit-store';
 import { mediaCliCandidates, captionsCliCandidates } from '../common/akari-tools-cli-candidates';
 import { interpretCaptionsResult } from '../common/captions-result';
@@ -18,7 +19,7 @@ import {
     AssetCatalogViewItem,
     EntitledProduct,
     AssetEntitlementsStatus,
-    AssetResolveOutcome,
+    AssetResolveOutcome, ProjectAssetReference, AssetBundleOutcome,
     LibraryAssetPlacementSource,
     DiffPreparationResult,
     DiffResourcePair,
@@ -585,7 +586,7 @@ process.stdout.write(JSON.stringify({ base, items, entitlementsStatus, entitledP
      * （fail-closed・sha256 検証・validate-asset・entitlements 判定は resolver 側の
      * 実装をそのまま透過する — ここでは再実装しない）。
      */
-    async resolveAsset(id: string, projectUri: string): Promise<AssetResolveOutcome> {
+    async resolveAsset(id: string, projectUri: string, options?: { force?: boolean }): Promise<AssetResolveOutcome> {
         const srcDir = await this.findAssetResolverSrcDir();
         if (!srcDir) {
             return { success: false, error: 'アセット resolver が見つかりません（開発配置を確認してください）' };
@@ -595,8 +596,8 @@ process.stdout.write(JSON.stringify({ base, items, entitlementsStatus, entitledP
         const script = `
 import { resolve } from ${JSON.stringify(resolveModuleUrl)};
 try {
-  const result = await resolve(${JSON.stringify(id)}, { project: ${JSON.stringify(projectPath)} });
-  process.stdout.write(JSON.stringify({ success: true, projectDir: result.projectDir ?? null }));
+  const result = await resolve(${JSON.stringify(id)}, { project: ${JSON.stringify(projectPath)}, reference: true, force: ${options?.force === true} });
+  process.stdout.write(JSON.stringify({ success: true, ...result }));
 } catch (error) {
   process.stdout.write(JSON.stringify({ success: false, error: error && error.message ? error.message : String(error) }));
 }
@@ -605,22 +606,15 @@ try {
         if (code !== 0) {
             return { success: false, error: (stderr || stdout || `resolver スクリプトが異常終了しました (exit ${code})`).trim() };
         }
-        let parsed: { success: boolean; projectDir?: string | null; error?: string };
         try {
-            parsed = JSON.parse(stdout);
+            const parsed = JSON.parse(stdout);
+            return assetResolveOutcome(parsed, join(projectPath, 'assets', parsed.category ?? '', parsed.id ?? id));
         } catch {
             return { success: false, error: `resolver の応答を解釈できませんでした: ${stdout.slice(0, 300)}` };
         }
-        if (parsed.success && parsed.projectDir) {
-            return { success: true, projectAssetPath: parsed.projectDir };
-        }
-        if (parsed.success) {
-            return { success: false, error: '素材をライブラリへ取得しましたが、プロジェクトへの配置結果を確認できませんでした' };
-        }
-        return { success: false, error: parsed.error ?? '不明なエラーです' };
     }
 
-    /** カタログ外の素材は resolve() を通さず、検証後に既存の CoW コピーへ渡す。 */
+    /** カタログ外の素材は resolve() を通さず、入力と配置先を検証して参照台帳に記帳する。 */
     async placeLibraryAsset(source: LibraryAssetPlacementSource, projectUri: string): Promise<AssetResolveOutcome> {
         try {
             const srcDir = await this.findAssetResolverSrcDir();
@@ -631,7 +625,7 @@ try {
             const script = `
 import { realpath, stat } from 'node:fs/promises';
 import { basename, dirname, isAbsolute, join, relative, sep } from 'node:path';
-import { copyIntoProject } from ${JSON.stringify(pathToFileURL(join(srcDir, 'resolve.mjs')).toString())};
+import { recordProjectReference } from ${JSON.stringify(pathToFileURL(join(srcDir, 'project-references.mjs')).toString())};
 import { ASSET_CATEGORIES } from ${JSON.stringify(pathToFileURL(join(srcDir, 'library.mjs')).toString())};
 import { resolveAssetLibraryRoots } from ${JSON.stringify(pathToFileURL(resolve(srcDir, '../../creator-root/src/index.mjs')).toString())};
 const within = (root, target) => {
@@ -677,10 +671,10 @@ try {
     if (within(actualDestination, actual) || within(actual, actualDestination)) {
         throw new Error('素材の大元と重なる配置はできません');
     }
-    await copyIntoProject(actual, project, source.category, source.id);
+    await recordProjectReference(project, { category: source.category, id: source.id });
     // widget の URI.relative が使えるよう、返すパスは要求されたプロジェクト表記に揃える。
     const projectAssetPath = join(${JSON.stringify(projectPath)}, 'assets', source.category, source.id);
-    process.stdout.write(JSON.stringify({ success: true, projectAssetPath }));
+    process.stdout.write(JSON.stringify({ success: true, projectAssetPath, reference: true, libraryDir: actual }));
 } catch (error) {
     process.stdout.write(JSON.stringify({ success: false, error: error instanceof Error ? error.message : String(error) }));
 }
@@ -690,13 +684,75 @@ try {
                 return { success: false, error: (stderr || stdout || `素材の配置が異常終了しました (exit ${code})`).trim() };
             }
             const outcome = JSON.parse(stdout);
-            if (outcome.success === true && typeof outcome.projectAssetPath === 'string' && outcome.projectAssetPath) {
-                return { success: true, projectAssetPath: outcome.projectAssetPath };
-            }
-            return { success: false, error: typeof outcome.error === 'string' ? outcome.error : '素材の配置結果を確認できませんでした' };
+            return assetResolveOutcome(outcome, join(projectPath, 'assets', source.category, source.id));
         } catch (error) {
             return { success: false, error: error instanceof Error ? error.message : String(error) };
         }
+    }
+
+    async listProjectAssetReferences(projectUri: string): Promise<ProjectAssetReference[]> {
+        const srcDir = await this.findAssetResolverSrcDir();
+        if (!srcDir) throw new Error('アセット resolver が見つかりません');
+        const script = `
+import { readFile } from 'node:fs/promises';
+import { listProjectReferenceAssets } from ${JSON.stringify(pathToFileURL(join(srcDir, 'shell-reference.mjs')).toString())};
+import { sourceFields } from ${JSON.stringify(pathToFileURL(join(srcDir, 'library.mjs')).toString())};
+import { readCatalogCache } from ${JSON.stringify(pathToFileURL(join(srcDir, 'catalog.mjs')).toString())};
+import { resolveCatalogSource } from ${JSON.stringify(pathToFileURL(join(srcDir, 'env.mjs')).toString())};
+let catalog = await readCatalogCache();
+const source = resolveCatalogSource(process.env);
+if (source.kind === 'file') { try { catalog = JSON.parse(await readFile(source.value, 'utf8')); } catch {} }
+const entries = await listProjectReferenceAssets(${JSON.stringify(this.fsPath(projectUri))});
+for (const entry of entries) {
+    let meta;
+    try { meta = JSON.parse(await readFile(entry.files.find(file => file.name === 'meta.json').path, 'utf8')); } catch {}
+    entry.tags = Array.isArray(meta?.tags) ? meta.tags.filter(tag => typeof tag === 'string') : [];
+    const known = catalog?.items?.find(item => item.id === entry.id && item.category === entry.category);
+    entry.title = typeof meta?.title === 'string' ? meta.title : typeof known?.title === 'string' ? known.title : entry.id;
+    if (!meta && known) entry.tags = Array.isArray(known.tags) ? known.tags.filter(tag => typeof tag === 'string') : [];
+    if (meta || known) entry.sourceKind = sourceFields(meta ?? known, !!known).sourceKind;
+}
+process.stdout.write(JSON.stringify(entries));
+`;
+        const result = await this.runResolverScript(script);
+        if (result.code !== 0) throw new Error(result.stderr || '参照台帳を読み込めませんでした');
+        return JSON.parse(result.stdout);
+    }
+
+    async removeProjectAssetReference(projectUri: string, reference: { category: string; id: string }): Promise<void> {
+        const srcDir = await this.findAssetResolverSrcDir();
+        if (!srcDir) throw new Error('アセット resolver が見つかりません');
+        const result = await this.runResolverScript(`
+import { removeProjectReference } from ${JSON.stringify(pathToFileURL(join(srcDir, 'project-references.mjs')).toString())};
+await removeProjectReference(${JSON.stringify(this.fsPath(projectUri))}, ${JSON.stringify(reference)});
+`);
+        if (result.code !== 0) throw new Error(result.stderr || '参照を外せませんでした');
+    }
+
+    async bundleProjectAssets(projectUri: string, dryRun: boolean): Promise<AssetBundleOutcome> {
+        const srcDir = await this.findAssetResolverSrcDir();
+        if (!srcDir) throw new Error('アセット resolver が見つかりません');
+        const before = await this.listProjectAssetReferences(projectUri);
+        const result = await this.runNodeScript(resolve(srcDir, '../bin/akari-assets.mjs'),
+            ['bundle', '--project', this.fsPath(projectUri), ...(dryRun ? ['--dry-run'] : [])]);
+        if (dryRun && result.code !== 0) throw new Error(result.stderr || result.stdout);
+        const keys = new Set(result.stdout.split(/\r?\n/).filter(line => line.startsWith('実体化予定: '))
+            .map(line => line.slice('実体化予定: '.length)));
+        const planned = dryRun ? before.filter(entry => keys.has(`${entry.category}/${entry.id}`)) : before;
+        const remaining = dryRun ? [] : await this.listProjectAssetReferences(projectUri);
+        const remainingKeys = new Set(remaining.map(entry => `${entry.category}/${entry.id}`));
+        return {
+            planned, bytes: planned.reduce((sum, entry) => sum + entry.files.reduce((n, file) => n + file.bytes, 0), 0),
+            unknownSizeCount: planned.filter(entry => !entry.files.length).length,
+            restrictedCount: restrictedReferenceCount(planned),
+            materialized: dryRun ? [] : before.map(entry => `${entry.category}/${entry.id}`).filter(key => !remainingKeys.has(key)),
+            failures: remaining.map(entry => {
+                const key = `${entry.category}/${entry.id}`;
+                const line = result.stderr.split(/\r?\n/).find(value => value.trim().startsWith(`${key}:`));
+                return { key, message: line?.trim().slice(key.length + 1).trim()
+                    ?? (result.stderr || '取得できず参照台帳に残りました') };
+            })
+        };
     }
 
     /**

@@ -32,6 +32,7 @@ function fixture(at = 30, mediaKind = 'audio') {
  writeEditSnapshotGuarded: async text => { disk = text; writes.push(text); events.push('write'); }, reloadEdit: async () => { w.editDocument = JSON.parse(disk); events.push('reload'); },
  historyService: { materialTrial: trial, setMaterialTrial: (entry, _cancel, replace) => replace ? trial.replace(entry) : trial.set(entry), finishMaterialTrial: async confirm => {
  if (confirm) trial.confirm(entry => past.push(entry)); else await trial.cancel(); } },
+ refreshReferenceMediaUris: async () => {}, resolveEditMediaUri: path => ({ toString: () => `file:///project/${path}`, path: { toString: () => `/project/${path}` } }),
  annotationsService: { getAudioDuration: async () => ({ status: 'ready', durationSeconds: 3 }) },
  commandRegistry: { getCommand: () => true, executeCommand: async (id, args) => {
  commands.push([id, args]); events.push(id); if (id === 'akari.catalog.resolveMaterial') return { relativePath: `${args}.wav`, kind: 'audio' }; if (id === 'akari.preview.playSwapTrial') return 'playing'; return true; } },

@@ -45,7 +45,7 @@ test('GLB の拡張検査はヘッダ + JSON チャンクだけ読む', () => {
   assert.match(handler, /const GLTF_HEADER_PROBE_BYTES = 64 \* 1024;/u);
   assert.match(handler, /this\.fileService\.readFile\(uri, \{ position: 0, length: GLTF_HEADER_PROBE_BYTES \}\)/u);
   assert.match(handler, /const needed = 20 \+ view\.getUint32\(12, true\);/u);
-  assert.match(handler, /await this\.readGltfHeaderBytes\(editUri\.parent\.resolve\(resolved\.modelPath\)\)/u);
+  assert.match(handler, /await this\.readGltfHeaderBytes\(await this\.resolveEditAssetUri\(resolved\.modelPath, editUri\)\)/u);
   assert.doesNotMatch(handler, /const modelContent = await this\.fileService\.readFile\(/u);
 });
 

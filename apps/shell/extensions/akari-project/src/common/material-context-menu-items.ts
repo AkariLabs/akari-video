@@ -25,6 +25,7 @@ export interface MaterialContextMenuContext {
     readonly materialKind?: 'video' | 'audio' | 'image' | 'other';
     /** グループカードにはファイル単位の文字起こしを出さない。 */
     readonly assetGroup?: boolean;
+    readonly reference?: boolean;
 }
 
 /** rename / delete / ask-agent を出す対象（司令塔裁定1）。 */
@@ -39,6 +40,10 @@ export function buildMaterialContextMenuItems(
     isOSX: boolean,
     context?: MaterialContextMenuContext
 ): MaterialContextMenuItem[] {
+    if (context?.reference) return [
+        { id: 'view-library', label: 'ライブラリで見る' },
+        { id: 'remove-reference', label: 'このプロジェクトから外す', danger: true }
+    ];
     const items: MaterialContextMenuItem[] = [
         { id: 'open', label: '開く' }
     ];

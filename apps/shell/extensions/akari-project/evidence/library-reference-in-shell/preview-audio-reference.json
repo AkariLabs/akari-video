@@ -1,0 +1,59 @@
+[
+ {
+  "ctx": 7,
+  "origin": "http://8ce4ec3d-33fc-55e7-a3dc-0c9c829df737.webview.localhost:63150",
+  "name": "",
+  "value": {
+   "starts": [
+    {
+     "dur": 1.5,
+     "ch": 1,
+     "args": [
+      5.966666666666666,
+      0,
+      1.5
+     ],
+     "peak": 0.0999918133020401
+    },
+    {
+     "dur": 3,
+     "ch": 1,
+     "args": [
+      5.966666666666666,
+      0,
+      3
+     ],
+     "peak": 0.21898674964904785
+    },
+    {
+     "dur": 3,
+     "ch": 1,
+     "args": [
+      8.966666666666665,
+      0,
+      3
+     ],
+     "peak": 0.13030517101287842
+    }
+   ],
+   "time": [
+    "0:06 / 0:06"
+   ],
+   "assets": [
+    "http://127.0.0.1:63338/asset/a93dc798971f7fdae45c39bafbddcb1f9433c399115cc0a973983074e901d1ce.wav",
+    "http://127.0.0.1:63338/asset/dce1636e249b70354ef533bfe7880cb1756431f8b6475b1c6ed04df8dfa49a22.flac",
+    "http://127.0.0.1:63338/asset/f15f34ce9d566abeff5bbcbb4e63ae60b9a2fb1ce368884d02abc09609e53d5e.flac"
+   ]
+  }
+ },
+ {
+  "ctx": 1,
+  "origin": "http://8ce4ec3d-33fc-55e7-a3dc-0c9c829df737.webview.localhost:63150",
+  "name": "",
+  "value": {
+   "starts": [],
+   "time": [],
+   "assets": []
+  }
+ }
+]

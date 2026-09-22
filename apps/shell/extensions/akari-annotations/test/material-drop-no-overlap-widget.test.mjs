@@ -40,6 +40,7 @@ function fixture(tracks = [track('v1', 'visual', [item('base-clip')]), track('v2
     const uri = { toString: () => 'file:///project/edit.json', path: { fsPath: () => '/project' } };
     const handler = Object.assign(new Handler(), {
         location: { root: uri, editUri: uri }, fps: 30, playheadT: 3,
+        refreshReferenceMediaUris: async () => {},
         frameAt: t => Math.round(t * 30), resolveEditMediaUri: () => uri,
         fileService: { readFile: async () => ({ value: { toString: () => text } }) },
         writeTimelineSnapshots: async next => { text = next; writes.push(next); },

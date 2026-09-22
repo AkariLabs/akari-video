@@ -1,0 +1,1 @@
+clksel(){ P=$(node cdp.mjs eval "(() => { const e=document.querySelector('$1'); if(!e) return null; e.scrollIntoView({block:'center'}); const r=e.getBoundingClientRect(); return [r.left+Math.min(r.width/2,30), r.top+Math.min(r.height/2,20)]; })()" | tr -d '\n []'); echo "pos $1 = $P"; [ "$P" = null ] && return 1; node cdp.mjs click ${P%,*} ${P#*,} ${2:-} >/dev/null; }

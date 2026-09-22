@@ -74,10 +74,10 @@ test('v2 layer mask resolves a sources id or projected path through ensureAssetS
     assert.ok(start >= 0 && end > start);
     const layer = handler.slice(start, end);
     assert.match(layer, /const maskSourceId = rawVersion === 2 \? base\.mask : undefined;[\s\S]*?delete base\.mask;/);
-    const resolver = layer.match(/const resolveLayerMask = async[\s\S]*?\n                \};/)?.[0];
+    const resolver = layer.match(/const resolveLayerMask = async[\s\S]*?\n {16}\};/)?.[0];
     assert.ok(resolver);
     assert.match(resolver, /sourcesById\.get\(maskSourceId\)/);
-    assert.match(resolver, /const maskUri = maskSource\s*\? this\.resolveEditAssetUri\(maskSource\.uri\.toString\(\), editUri\)\s*: this\.resolveEditAssetUri\(maskSourceId, editUri\);/);
+    assert.match(resolver, /const maskUri = maskSource\s*\? await this\.resolveEditAssetUri\(maskSource\.uri\.toString\(\), editUri\)\s*: await this\.resolveEditAssetUri\(maskSourceId, editUri\);/);
     assert.match(resolver, /isImageLayerSrc\(maskUri\.path\.toString\(\)\)/);
     assert.match(resolver, /return \(await ensureAssetStream\(maskUri\.toString\(\), maskUri\)\)\.url;/);
     assert.match(resolver, /catch \{\s*console\.warn\([^\n]+\);\s*return undefined;/);

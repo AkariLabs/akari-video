@@ -812,6 +812,7 @@ export interface RemoveSfxResult extends DeleteArrayItemResult {
 }
 
 export interface AkariAnnotationsService {
+    projectReferenceMediaUris(request: { projectRootUri: string; declaredPaths?: string[] }): Promise<Record<string, string>>;
     setClient(client: AkariAnnotationsClient | undefined): void;
     extractSourceFrame(request: ExtractSourceFrameRequest): Promise<ExtractSourceFrameResult>;
     getClipThumbnail(request: GetClipThumbnailRequest): Promise<GetClipThumbnailResult>;

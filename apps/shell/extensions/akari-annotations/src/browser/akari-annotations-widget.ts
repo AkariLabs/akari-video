@@ -4542,8 +4542,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
             }
             const location = this.location;
             if (!location?.editUri || location.editUri.toString() !== session.editUri) return;
-            const mediaUri = location.root.resolve(material.relativePath);
-            const relativePath = relativeTimelineMaterialPath(location.editUri.parent.path.toString(), mediaUri.path.toString());
+            const declaredUri = location.root.resolve(material.relativePath);
+            const relativePath = relativeTimelineMaterialPath(location.editUri.parent.path.toString(), declaredUri.path.toString());
+            await this.refreshReferenceMediaUris(undefined, [relativePath]);
+            const mediaUri = this.resolveEditMediaUri(relativePath, location.editUri);
             let actualDurationS: number | undefined;
             if (material.kind !== 'image') {
                 const result = await this.annotationsService.getAudioDuration({ projectRootUri: location.root.toString(), audioUri: mediaUri.toString() });
@@ -4679,7 +4681,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected selectedMaterialSwapTarget(selection = this.selection): MaterialSwapTarget | undefined {
         const target = materialSwapTarget(this.editDocument, this.selectedMaterialSwapItemId(selection));
         if (!target || !this.location?.editUri || !this.location.root.relative) return target;
-        const path = this.location.root.relative(this.resolveEditMediaUri(target.currentRelativePath, this.location.editUri))?.toString();
+        const path = this.location.root.relative(this.location.editUri.parent.resolve(target.currentRelativePath))?.toString();
         return path ? { ...target, currentRelativePath: path } : target;
     }
 
@@ -5372,8 +5374,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
             return;
         }
         // 素材カード / OS ドロップのパスは root 相対。初回だけ生成先の edit.json 相対へ直す。
+        await this.refreshReferenceMediaUris(undefined, [relativePath]);
         const initialMaterialUri = !this.location.editUri
-            ? this.resolveEditMediaUri(relativePath, this.location.root.resolve('edit.json')) : undefined;
+            ? this.location.root.resolve(relativePath) : undefined;
         try {
             if (!this.location.editUri && !await this.ensureTimelineEdit(initialMaterialUri)) return;
         } catch (error) {
@@ -5648,10 +5651,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
         if (!location?.editUri) {
             return;
         }
-        const audioUri = this.resolveEditMediaUri(relativePath, location.editUri).toString();
-        const promise = this.annotationsService.getAudioDuration({
-            projectRootUri: location.root.toString(), audioUri
-        }).then(result => (result.status === 'ready' ? result.durationSeconds : undefined))
+        const promise = this.refreshReferenceMediaUris(undefined, [relativePath]).then(() => this.annotationsService.getAudioDuration({
+            projectRootUri: location.root.toString(), audioUri: this.resolveEditMediaUri(relativePath, location.editUri).toString()
+        })).then(result => (result.status === 'ready' ? result.durationSeconds : undefined))
             .catch(() => undefined);
         this.materialDurationPromises.set(relativePath, promise);
         void promise.then(resolved => {
@@ -6461,6 +6463,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
             if (this.location.editUri && event.contains(this.location.editUri)) {
                 void this.updateTimelineTabCaption();
             }
+            if (event.contains(this.location.root.resolve('.akari/asset-references.json'))) {
+                void this.reloadEdit();
+            }
             let visualChanged = false;
             for (const [id, dependencies] of this.visualDependencies) {
                 if (!dependencies.some(uri => event.contains(uri))) continue;
@@ -6735,6 +6740,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 // 版を知るのはここ（読み込み層）だけ。以降は内部表現（tracks[].items[]）と
                 // その射影しか見ない。
                 const internal = this.readEdit(source);
+                await this.refreshReferenceMediaUris(source);
+                if (generation !== this.editReloadGeneration) return;
                 const partsByHtml = new Map<string, Array<{ id: string; order: number }>>();
                 const loadTreeParts = async (item: typeof internal.tracks[number]['items'][number]): Promise<void> => {
                     if (item.source.kind === 'html' && !partsByHtml.has(item.source.html)) {
@@ -6742,7 +6749,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                         try {
                             if (reference.trimStart().startsWith('<')) partsByHtml.set(reference, scanHtmlParts(reference));
                             else {
-                                const uri = this.location!.editUri.parent.resolve(reference);
+                                const uri = this.resolveEditMediaUri(reference, this.location!.editUri);
                                 const key = uri.toString();
                                 let pending = this.htmlPartsCache.get(key);
                                 if (!pending) {
@@ -7146,7 +7153,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
             const data: unknown = JSON.parse((await this.fileService.readFile(uri)).value.toString());
             if (!isVisualThumbnailDiskEntry(data) || data.key !== key) return undefined;
             const dependencies = data.dependencies.map(dep => new URI(dep.uri));
-            if (dependencies.some(uri => !root.isEqualOrParent(uri))) return undefined;
+            const referenceUris = new Set(Object.values(this.referenceMediaUris ?? {}));
+            if (dependencies.some(uri => !root.isEqualOrParent(uri) && !referenceUris.has(uri.toString()))) return undefined;
             const current = await Promise.all(dependencies.map(uri => this.fileService.resolve(uri, { resolveMetadata: true })));
             if (!valid() || current.some((stat, index) => !stat.isFile
                 || stat.mtime !== data.dependencies[index].mtime || stat.size !== data.dependencies[index].size)) return undefined;
@@ -7544,7 +7552,33 @@ export class AkariAnnotationsWidget extends BaseWidget {
         }
     }
 
+    protected referenceMediaUris: Record<string, string> = {};
+    protected referenceMediaRoot = '';
+    protected referenceMediaGeneration = 0;
+
+    protected async refreshReferenceMediaUris(source?: string, paths: string[] = []): Promise<void> {
+        const root = (this.location?.editUri?.parent ?? this.location?.root)?.toString();
+        if (!root) return;
+        const generation = ++this.referenceMediaGeneration;
+        const declaredPaths = new Set(paths);
+        const visit = (value: unknown): void => {
+            if (typeof value === 'string' && value.replace(/\\/g, '/').startsWith('assets/')) declaredPaths.add(value);
+            else if (Array.isArray(value)) value.forEach(visit);
+            else if (value && typeof value === 'object') Object.values(value).forEach(visit);
+        };
+        visit(source ? JSON.parse(source) : this.editDocument);
+        const uris = await this.annotationsService.projectReferenceMediaUris({ projectRootUri: root, declaredPaths: [...declaredPaths] });
+        if (generation !== this.referenceMediaGeneration || (this.location?.editUri?.parent ?? this.location?.root)?.toString() !== root) return;
+        this.referenceMediaRoot = root;
+        this.referenceMediaUris = uris;
+    }
+
     protected resolveEditMediaUri(path: string, editUri: URI): URI {
+        const normalized = path.replace(/\\/g, '/');
+        if (normalized.startsWith('assets/') && normalized.split('/').some(part => part === '..' || part === '.')) throw new Error('素材パスがプロジェクトの外を指しています');
+        if (this.referenceMediaRoot === editUri.parent.toString() && this.referenceMediaUris[normalized]) {
+            return new URI(this.referenceMediaUris[normalized]);
+        }
         if (/^[a-z][a-z\d+.-]*:/iu.test(path) && !/^[a-z]:[\\/]/iu.test(path)) {
             return new URI(path);
         }

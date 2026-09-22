@@ -1,3 +1,5 @@
+import { referencePresentation } from '../common/project-asset-reference';
+import { ProjectAssetReference, AssetBundleOutcome } from '../common/akari-project-protocol';
 import { MaterialSwapRequest, SwapCandidates, rankSwapCandidates } from '../common/material-swap-candidates';
 import {
     GENERATION_PICK_PRIMARY_SELECTED_EVENT, GenerationPickCandidate, GenerationPickController,
@@ -257,6 +259,8 @@ interface MaterialCardEntry {
      * 設定されている場合、タイトル/サムネ/種別バッジは meta.json 由来の値で表示する。
      */
     assetGroup?: { category: string };
+    reference?: ProjectAssetReference;
+    missing?: boolean;
 }
 
 /** 下段「できたもの」の 1 件。4 グループ（編集データ / 企画・メモ / 書き出し / レポート）。read-only。 */
@@ -595,6 +599,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
 
     @postConstruct()
     protected init(): void {
+        this.toDispose.push({ dispose: () => this.referenceWatches.dispose() });
         installCatalogFocusPulseStyle();
         window.addEventListener('keydown', this.handleGenerationPickKey, true);
         window.addEventListener(GENERATION_PICK_PRIMARY_SELECTED_EVENT, this.handleGenerationPrimarySelected);
@@ -762,12 +767,17 @@ export class AkariRoleBucketsWidget extends ReactWidget {
 
     // --- 素材カード ---------------------------------------------------------
 
+    protected referenceWatches = new DisposableCollection();
+    protected referenceWatchRoot = '';
+    protected referenceWatchParents = new Set<string>();
+
     protected transcriptStateByPath: Record<string, TranscriptState> = {};
 
     protected async loadMaterials(): Promise<void> {
         const root = this.workflow.workspaceRoot;
         const generation = ++this.materialsGeneration;
         if (!root) {
+            this.referenceWatches.dispose();
             this.materials = [];
             this.unorganizedMaterials = [];
             this.materialsLoadedOnce = false;
@@ -776,9 +786,10 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         }
         this.materialsLoading = true;
         this.update();
-        const [assetEntries, rootFiles] = await Promise.all([
+        const [assetEntries, rootFiles, references] = await Promise.all([
             this.collectAssetEntries(root.resolve('assets')),
-            this.collectUnorganizedRootFiles(root)
+            this.collectUnorganizedRootFiles(root),
+            this.projectService.listProjectAssetReferences(root.toString())
         ]);
         const [fileMaterials, groupMaterials, unorganizedMaterials] = await Promise.all([
             Promise.all(assetEntries.files.map(file => this.buildMaterialEntry(root, file, false))),
@@ -793,7 +804,21 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         if (generation !== this.materialsGeneration) {
             return; // A newer load superseded this one (e.g. rapid watch events); discard stale results.
         }
-        const materials = [...fileMaterials, ...groupMaterials];
+        this.referenceWatches.dispose();
+        this.referenceWatches = new DisposableCollection();
+        if (this.referenceWatchRoot !== root.toString()) this.referenceWatchParents.clear();
+        this.referenceWatchRoot = root.toString();
+        for (const ref of references) if (ref.libraryDir) this.referenceWatchParents.add(URI.fromFilePath(ref.libraryDir).parent.toString());
+        const libraryParents = [...this.referenceWatchParents];
+        for (const parent of libraryParents) this.referenceWatches.push(this.files.watch(new URI(parent), { recursive: true, excludes: [] }));
+        this.referenceWatches.push(this.files.onDidFilesChange(event => {
+            if (libraryParents.some(parent => event.changes.some(change => new URI(parent).isEqualOrParent(change.resource)))) void this.loadMaterials();
+        }));
+        const referenceMaterials = await this.buildReferenceMaterials(root, references);
+        if (generation !== this.materialsGeneration) return;
+        const referencedDirectories = new Set(referenceMaterials.map(entry => entry.relativePath));
+        const materials = [...fileMaterials.filter(entry => !referenceMaterials.some(ref => entry.relativePath.startsWith(`${ref.relativePath}/`))),
+            ...groupMaterials.filter(entry => !referencedDirectories.has(entry.relativePath)), ...referenceMaterials];
         materials.sort((left, right) => left.name.localeCompare(right.name, 'ja'));
         this.transcriptStateByPath = states;
         this.materials = materials;
@@ -906,6 +931,50 @@ export class AkariRoleBucketsWidget extends ReactWidget {
      * クリック対象（uri）はディレクトリ自体を開けないため、preview.png → meta.json →
      * ディレクトリ自身の順にフォールバックする（最低限、素材として選択できること）。
      */
+    protected async buildReferenceMaterials(root: URI, references: ProjectAssetReference[]): Promise<MaterialCardEntry[]> {
+        const result: MaterialCardEntry[] = [];
+        for (const reference of references) {
+            const state = referencePresentation(reference);
+            // Old copy-era groups keep their cards and actions unchanged.
+            try {
+                const local = await this.files.resolve(root.resolve(state.relativePath));
+                const files = this.toAssetBinChildren(local).filter(child => !child.isDirectory)
+                    .map(child => ({ name: child.name, path: '', bytes: 0 }));
+                if (!referencePresentation({ ...reference, files }).missing) continue;
+            } catch { /* No local group: use the ledger. */ }
+            let card: MaterialCardEntry | undefined;
+            if (reference.libraryDir) {
+                try {
+                    const directory = await this.files.resolve(URI.fromFilePath(reference.libraryDir));
+                    // Only expose files accepted by the node containment check.
+                    const allowed = new Set(reference.files.filter(file => !file.name.includes('/')).map(file => file.name));
+                    card = await this.buildAssetGroupEntry(root, { ...directory,
+                        children: directory.children?.filter(child => !child.isDirectory && allowed.has(child.resource.path.base)) });
+                }
+                catch { /* A disappeared directory stays visible as a missing reference. */ }
+            }
+            const known = this.assetCatalogItems.find(item => item.key === `${reference.category}/${reference.id}`);
+            const media = resolveLibraryAssetMedia(known ?? { category: reference.category },
+                reference.files.filter(file => !file.name.includes('/')).map(file => ({ name: file.name, isDirectory: false })));
+            const openName = media.mediaName ?? assetGroupOpenTarget(
+                reference.files.map(file => ({ name: file.name, isDirectory: false })), reference.category);
+            const openFile = reference.files.find(file => file.name === openName);
+            const preview = reference.files.find(file => file.name === 'preview.png');
+            result.push({
+                ...(card ?? { uri: root.resolve(`${state.relativePath}/meta.json`), kind: 'other', analyzed: false, unorganized: false }),
+                ...(openFile ? { uri: URI.fromFilePath(openFile.path) } : {}),
+                thumbnailUri: preview ? URI.fromFilePath(preview.path) : undefined,
+                name: reference.title ?? known?.title ?? reference.id,
+                relativePath: state.relativePath,
+                mediaRelativePath: media.mediaName ? `${state.relativePath}/${media.mediaName}` : undefined,
+                kind: media.kind === 'other' ? card?.kind ?? 'other' : media.kind,
+                assetGroup: { category: reference.category }, reference,
+                missing: state.missing
+            });
+        }
+        return result;
+    }
+
     protected async buildAssetGroupEntry(root: URI, dirStat: FileStat): Promise<MaterialCardEntry> {
         const relativePath = this.workflow.relativePath(dirStat.resource) ?? dirStat.resource.path.base;
         const dirName = dirStat.resource.path.base;
@@ -992,7 +1061,8 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     protected handleMaterialsFileChange(root: URI, assetsUri: URI, event: FileChangesEvent): void {
         const rootKey = root.toString();
         const relevant = event.changes.some(change => {
-            if (root.resolve('.akari/sidecars').isEqualOrParent(change.resource)
+            if (change.resource.toString() === root.resolve('.akari/asset-references.json').toString()
+                || root.resolve('.akari/sidecars').isEqualOrParent(change.resource)
                 || root.resolve('.akari/events').isEqualOrParent(change.resource)) return true;
             if (assetsUri.isEqualOrParent(change.resource)) {
                 return true;
@@ -1124,8 +1194,8 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         event.preventDefault();
         event.stopPropagation();
         const target: MaterialContextMenuTarget = entry.unorganized ? 'unorganized' : 'material';
-        const items = buildMaterialContextMenuItems(target, isOSX, { materialKind: entry.kind, assetGroup: !!entry.assetGroup });
-        if (entry.assetGroup && entry.thumbnailUri) {
+        const items = buildMaterialContextMenuItems(target, isOSX, { materialKind: entry.kind, assetGroup: !!entry.assetGroup, reference: !!entry.reference });
+        if (!entry.reference && entry.assetGroup && entry.thumbnailUri) {
             items.push(OPEN_PREVIEW_IMAGE_ITEM);
         }
         openAkariContextMenu({
@@ -1138,6 +1208,18 @@ export class AkariRoleBucketsWidget extends ReactWidget {
 
     protected handleMaterialContextMenuAction(id: string, entry: MaterialCardEntry): void {
         switch (id) {
+            case 'view-library':
+                this.topView = 'catalog';
+                this.librarySourceFilter = 'all';
+                this.libraryCategory = undefined;
+                this.catalogCategory = 'all';
+                this.libraryFolderFilter = undefined;
+                this.catalogQuery = entry.name;
+                this.update();
+                break;
+            case 'remove-reference':
+                void this.removeMaterialReference(entry);
+                break;
             case 'open-preview-image':
                 if (entry.assetGroup && entry.thumbnailUri) {
                     void this.openFile(entry.thumbnailUri);
@@ -1183,6 +1265,66 @@ export class AkariRoleBucketsWidget extends ReactWidget {
             default:
                 break;
         }
+    }
+
+    protected async retryMaterialReference(entry: MaterialCardEntry): Promise<void> {
+        const root = this.workflow.workspaceRoot;
+        if (!root || !entry.reference) return;
+        try {
+            const result = await this.projectService.resolveAsset(entry.reference.id, root.toString(), { force: true });
+            if (result.success === false) this.messages.error(result.error);
+            await this.loadMaterials();
+        } catch (error) { this.messages.error(`素材を取得できませんでした: ${String(error)}`); }
+    }
+
+    protected async removeMaterialReference(entry: MaterialCardEntry): Promise<void> {
+        const root = this.workflow.workspaceRoot;
+        if (!root || !entry.reference) return;
+        try {
+            if (!await this.confirmReferenceImpact(`${entry.relativePath}/`, false, 'このプロジェクトから外す')) return;
+            if (this.workflow.workspaceRoot?.toString() !== root.toString()) return;
+            await this.projectService.removeProjectAssetReference(root.toString(), entry.reference);
+            await this.loadMaterials();
+        } catch (error) { this.messages.error(String(error)); }
+    }
+
+    protected bundleBusy = false;
+    protected bundleResult?: AssetBundleOutcome;
+
+    protected async bundleMaterials(): Promise<void> {
+        const root = this.workflow.workspaceRoot;
+        if (!root || this.bundleBusy) return;
+        this.bundleBusy = true;
+        this.bundleResult = undefined;
+        this.update();
+        try {
+            const plan = await this.projectService.bundleProjectAssets(root.toString(), true);
+            const msg = `${plan.planned.length} 件・${(plan.bytes / 1024 / 1024).toFixed(2)} MB を集めます。`
+                + (plan.unknownSizeCount ? `（容量不明 ${plan.unknownSizeCount} 件）` : '')
+                + (plan.restrictedCount ? `\n再配布できない素材が ${plan.restrictedCount} 件含まれます` : '');
+            if (this.workflow.workspaceRoot?.toString() !== root.toString()) return;
+            if (!plan.planned.length) { this.messages.info('実体化する参照はありません'); return; }
+            if (!await new ConfirmDialog({ title: '素材をまとめる', msg, ok: 'まとめる', cancel: 'キャンセル' }).open()) return;
+            if (this.workflow.workspaceRoot?.toString() !== root.toString()) return;
+            const result = await this.projectService.bundleProjectAssets(root.toString(), false);
+            if (this.workflow.workspaceRoot?.toString() !== root.toString()) return;
+            this.bundleResult = result;
+            await this.loadMaterials();
+        } catch (error) { this.messages.error(`素材をまとめられませんでした: ${String(error)}`); }
+        finally { this.bundleBusy = false; this.update(); }
+    }
+
+    protected renderBundleMaterials(): React.ReactNode {
+        return <div style={{ padding: '8px 12px', borderTop: AKARI_BORDER.hairline }}>
+            <button disabled={this.bundleBusy} onClick={() => void this.bundleMaterials()}>素材をまとめる</button>
+            {this.bundleResult && <div role='status' style={{ maxHeight: '180px', overflow: 'auto' }}>
+                <p>{this.bundleResult.materialized.length} 件をまとめました。</p>
+                {this.bundleResult.materialized.length > 0 && <ul>{this.bundleResult.materialized.map(key => <li key={key}>{key}</li>)}</ul>}
+                {this.bundleResult.failures.length > 0 && <><p>次の素材は参照のまま残っています。</p><ul>
+                    {this.bundleResult.failures.map(failure => <li key={failure.key}>{failure.key}: {failure.message}</li>)}
+                </ul></>}
+            </div>}
+        </div>;
     }
 
     /**
@@ -2083,7 +2225,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                 this.messages.warn('プロジェクトが切り替わったため、素材を追加しませんでした。');
                 return undefined;
             }
-            const directory = URI.fromFilePath(outcome.projectAssetPath);
+            const directory = URI.fromFilePath(outcome.reference ? outcome.libraryDir : outcome.projectAssetPath);
             const stat = await this.files.resolve(directory);
             const media = resolveLibraryAssetMedia(item, this.toAssetBinChildren(stat));
             this.assetCatalogItems = this.assetCatalogItems.map(entry =>
@@ -2094,7 +2236,9 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                 this.messages.warn('この素材は直接置けません');
                 return undefined;
             }
-            const relativePath = root.relative(directory.resolve(media.mediaName))?.toString();
+            const relativePath = outcome.reference
+                ? `assets/${item.category}/${item.id}/${media.mediaName}`
+                : root.relative(directory.resolve(media.mediaName))?.toString();
             if (!relativePath) {
                 this.messages.error('素材のプロジェクト内パスを解決できませんでした。');
                 return undefined;
@@ -2361,6 +2505,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                 <div style={{ flex: '1 1 auto', overflow: 'auto', minHeight: 0 }}>
                     {this.topView === 'materials' ? this.renderMaterialsTab() : this.renderCatalogTab()}
                 </div>
+                {this.topView === 'materials' && this.workflow.workspaceRoot && this.renderBundleMaterials()}
             </div>
         );
     }
@@ -2659,13 +2804,15 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         const transcriptLabel = `文字起こし ${transcriptStatus}`;
         // D&D 対象は video/audio/image かつ非未整理のみ（司令塔裁定1）。other・未整理カードは
         // draggable にしない（未整理は「assets へ移動」が先 — 既存の moveToAssets 導線を優先する）。
-        const draggable = !this.generationPick.request && !entry.unorganized
+        const draggable = !entry.missing && !this.generationPick.request && !entry.unorganized
             && (entry.kind === 'video' || entry.kind === 'audio' || entry.kind === 'image');
         return (
             <div
                 key={entry.uri.toString()}
                 data-akari-material-path={entry.relativePath}
                 data-akari-material-unorganized={entry.unorganized ? 'true' : 'false'}
+                data-akari-material-reference={entry.reference ? 'true' : undefined}
+                data-akari-material-missing={entry.missing ? 'true' : undefined}
                 data-akari-material-asset-group={entry.assetGroup ? 'true' : 'false'}
                 // docs/contract-2026-08-11-review-session-ui-events.md #2: asset:<path> opt-in target.
                 data-akari-ui={`asset:${entry.relativePath}`}
@@ -2674,7 +2821,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                 onDragStart={draggable ? event => this.handleMaterialDragStart(event, entry) : undefined}
                 onDragEnd={draggable ? () => this.handleMaterialDragEnd() : undefined}
                 onMouseDown={!this.generationPick.request && entry.unorganized ? event => this.handleUnorganizedMaterialMouseDown(event) : undefined}
-                onClick={() => void this.openFile(entry.uri)}
+                onClick={() => { if (!entry.missing) void this.openFile(entry.uri); }}
                 onContextMenu={event => this.openMaterialContextMenu(event, entry)}
                 title={entry.name}
                 {...this.generationPickCardProps(pickCandidate)}
@@ -2690,6 +2837,13 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                     border: AKARI_BORDER.ghost
                 }}
             >
+                {entry.missing && entry.reference && (() => {
+                    const known = this.assetCatalogItems.find(item => item.key === `${entry.reference.category}/${entry.reference.id}`);
+                    const state = referencePresentation(entry.reference, known?.sourceKind === 'lab');
+                    return state.lab
+                        ? <button onClick={event => { event.stopPropagation(); void this.retryMaterialReference(entry); }}>もう一度取得</button>
+                        : <span>入れ直してください</span>;
+                })()}
                 <div
                     style={{
                         position: 'relative',
@@ -2744,6 +2898,8 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                         >
                             {layout.kindLabel}
                         </span>
+                        {entry.reference && <span data-akari-reference-badge>参照</span>}
+                        {entry.missing && <span data-akari-reference-missing>見つかりません</span>}
                         {entry.unorganized && (
                             <span
                                 title='未整理'

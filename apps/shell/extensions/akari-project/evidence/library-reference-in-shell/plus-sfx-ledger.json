@@ -1,0 +1,9 @@
+{
+  "version": 0,
+  "references": [
+    {
+      "id": "ref-beep",
+      "category": "audio"
+    }
+  ]
+}

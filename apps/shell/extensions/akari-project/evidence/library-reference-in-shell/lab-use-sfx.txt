@@ -1,0 +1,14 @@
+diff exit=0 (0=assets 不変)
+{
+  "version": 0,
+  "references": [
+    {
+      "id": "sfx-bell-tree",
+      "category": "audio"
+    }
+  ]
+}
+total 136
+drwxr-xr-x@ 3 ryoma  wheel     96 Sep 22 14:30 .
+drwxr-xr-x@ 4 ryoma  wheel    128 Sep 22 14:30 ..
+-rw-r--r--@ 1 ryoma  wheel  69096 Sep 22 14:30 sfx-bell-tree.mp3

@@ -12,11 +12,13 @@ import { rewritePreviewFragmentAssets } from './fragment-assets';
 export async function prepareVisualThumbnailPage(
     editPath: string, itemId: string, assets: OverlayRuntimeAssetUrls,
     createStream: (uri: string) => Promise<VideoStreamReference>, disposeStream: (id: string) => Promise<void>,
-    editSnapshot?: string
+    editSnapshot?: string, resolveReference?: (declaredPath: string) => Promise<string | undefined>
 ): Promise<VisualThumbnailPage> {
     const root = await realpath(dirname(editPath));
     const dependencies = new Set<string>();
     const localPath = async (path: string): Promise<string> => {
+        const referenced = resolveReference && path.replace(/\\/g, '/').startsWith('assets/') ? await resolveReference(path) : undefined;
+        if (referenced) { dependencies.add(pathToFileURL(referenced).href); return referenced; }
         const target = await realpath(resolve(root, path));
         const rel = relative(root, target);
         if (rel === '..' || rel.startsWith('..\\') || rel.startsWith('../') || isAbsolute(rel)) {
@@ -67,7 +69,7 @@ export async function prepareVisualThumbnailPage(
     const start = target?.at ?? Number(overlays[0].start);
     const duration = target?.duration ?? Number(overlays[0].duration);
     return { ...await buildVisualThumbnailPage(overlays, { width: internal.output.width, height: internal.output.height, fps: internal.output.fps }, visualThumbnailSampleTimes(start, duration), assets,
-        root, createStream, disposeStream, { dependencies, htmlByPath, htmlPathById }), editSnapshot: snapshot };
+        root, createStream, disposeStream, { dependencies, htmlByPath, htmlPathById, resolveReference }), editSnapshot: snapshot };
 }
 
 /** The shared asset rewriting/stream lifetime and renderer path for clips and material cards. */
@@ -75,10 +77,12 @@ export async function buildVisualThumbnailPage(
     overlays: Record<string, unknown>[], output: { width: number; height: number; fps: number }, times: number | readonly number[],
     assets: OverlayRuntimeAssetUrls, root: string,
     createStream: (uri: string) => Promise<VideoStreamReference>, disposeStream: (id: string) => Promise<void>,
-    inputs: { dependencies?: Set<string>; htmlByPath?: Map<string, string>; htmlPathById?: Map<string, string> } = {}
+    inputs: { dependencies?: Set<string>; htmlByPath?: Map<string, string>; htmlPathById?: Map<string, string>; resolveReference?: (declaredPath: string) => Promise<string | undefined> } = {}
 ): Promise<VisualThumbnailPage> {
-    const { dependencies = new Set<string>(), htmlByPath = new Map<string, string>(), htmlPathById = new Map<string, string>() } = inputs;
+    const { dependencies = new Set<string>(), htmlByPath = new Map<string, string>(), htmlPathById = new Map<string, string>(), resolveReference } = inputs;
     const localPath = async (path: string): Promise<string> => {
+        const referenced = resolveReference && path.replace(/\\/g, '/').startsWith('assets/') ? await resolveReference(path) : undefined;
+        if (referenced) { dependencies.add(pathToFileURL(referenced).href); return referenced; }
         const target = await realpath(resolve(root, path));
         const rel = relative(root, target);
         if (rel === '..' || rel.startsWith('..\\') || rel.startsWith('../') || isAbsolute(rel)) {
@@ -110,7 +114,7 @@ export async function buildVisualThumbnailPage(
                 css = css.replace(match[0], match[4].trim() ? `@media ${match[4]}{${imported}}` : imported);
             }
             const rewritten = await rewritePreviewFragmentAssets(`<style>${css}</style>`,
-                { projectRoot: root, htmlPath: ref, overlayId: String(overlays[0].id) }, stream);
+                { projectRoot: root, htmlPath: ref, overlayId: String(overlays[0].id) }, stream, resolveReference);
             if (rewritten.warnings.length) throw new Error(rewritten.warnings.join('\n'));
             return rewritten.html.slice(7, -8);
         };
@@ -127,7 +131,7 @@ export async function buildVisualThumbnailPage(
                 if (!href || /^(?:[a-z]+:|\/|\\)/i.test(href)) throw new Error('Thumbnail stylesheets must be project relative');
                 html = html.replace(match[0], `<style>${await stylesheet(join(dirname(htmlPath), href))}</style>`);
             }
-            const rewritten = await rewritePreviewFragmentAssets(html, { projectRoot: root, htmlPath, overlayId: String(overlay.id) }, stream);
+            const rewritten = await rewritePreviewFragmentAssets(html, { projectRoot: root, htmlPath, overlayId: String(overlay.id) }, stream, resolveReference);
             if (rewritten.warnings.length) throw new Error(rewritten.warnings.join('\n'));
             html = rewritten.html;
             const vars = overlay.vars && typeof overlay.vars === 'object' && !Array.isArray(overlay.vars)

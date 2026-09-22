@@ -555,6 +555,14 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         }
     }
 
+    async projectReferenceMediaUris(request: { projectRootUri: string; declaredPaths?: string[] }): Promise<Record<string, string>> {
+        const modulePath = await this.findGenerationAsset('packages/asset-resolver/src/shell-reference.mjs');
+        const importEsm = new Function('specifier', 'return import(specifier)') as
+            (specifier: string) => Promise<{ projectReferenceMediaUris(project: string, env: NodeJS.ProcessEnv, paths?: string[]): Promise<Record<string, string>> }>;
+        const module = await importEsm(pathToFileURL(modulePath).toString());
+        return module.projectReferenceMediaUris(this.fsPath(request.projectRootUri), process.env, request.declaredPaths);
+    }
+
     protected async findGenerationAsset(relativeTarget: string): Promise<string> {
         const resourcesPath = (process as NodeJS.Process & { resourcesPath?: string }).resourcesPath;
         const starts = [__dirname, ...(resourcesPath ? [resourcesPath] : [])];
