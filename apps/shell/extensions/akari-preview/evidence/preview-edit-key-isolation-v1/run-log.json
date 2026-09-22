@@ -1,0 +1,370 @@
+{
+  "status": "PASS",
+  "startedAt": "2026-09-22T06:36:31.285Z",
+  "finishedAt": "2026-09-22T06:36:59.259Z",
+  "records": [
+    {
+      "step": 1,
+      "title": "Backspace edits one character; item survives, zero host events",
+      "status": "ok",
+      "observations": {
+        "before": {
+          "version": 2,
+          "output": {
+            "width": 640,
+            "height": 360,
+            "fps": 30
+          },
+          "sources": [],
+          "tracks": [
+            {
+              "id": "visual-part",
+              "lane": "visual",
+              "items": [
+                {
+                  "id": "part",
+                  "at": 0,
+                  "duration": 120,
+                  "transform": {
+                    "x": 0,
+                    "y": 0
+                  },
+                  "source": {
+                    "kind": "html",
+                    "path": "overlays/part.html",
+                    "part": "title",
+                    "text": "あいう"
+                  }
+                }
+              ]
+            },
+            {
+              "id": "visual-plain",
+              "lane": "visual",
+              "items": [
+                {
+                  "id": "plain",
+                  "at": 0,
+                  "duration": 120,
+                  "transform": {
+                    "x": 0,
+                    "y": 0
+                  },
+                  "source": {
+                    "kind": "html",
+                    "path": "overlays/plain.html"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "text": "あい",
+        "after": {
+          "version": 2,
+          "output": {
+            "width": 640,
+            "height": 360,
+            "fps": 30
+          },
+          "sources": [],
+          "tracks": [
+            {
+              "id": "visual-part",
+              "lane": "visual",
+              "items": [
+                {
+                  "id": "part",
+                  "at": 0,
+                  "duration": 120,
+                  "transform": {
+                    "x": 0,
+                    "y": 0
+                  },
+                  "source": {
+                    "kind": "html",
+                    "path": "overlays/part.html",
+                    "part": "title",
+                    "text": "あいう"
+                  }
+                }
+              ]
+            },
+            {
+              "id": "visual-plain",
+              "lane": "visual",
+              "items": [
+                {
+                  "id": "plain",
+                  "at": 0,
+                  "duration": 120,
+                  "transform": {
+                    "x": 0,
+                    "y": 0
+                  },
+                  "source": {
+                    "kind": "html",
+                    "path": "overlays/plain.html"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "events": []
+      }
+    },
+    {
+      "step": 2,
+      "title": "Space/c/f insert text without playback or tool changes",
+      "status": "ok",
+      "observations": {
+        "before": {
+          "playing": "再生",
+          "tool": "select"
+        },
+        "text": "あい cf",
+        "after": {
+          "playing": "再生",
+          "tool": "select"
+        },
+        "events": []
+      }
+    },
+    {
+      "step": 4,
+      "title": "Enter saves source.text and ordinary HTML",
+      "status": "ok",
+      "observations": {
+        "part": {
+          "id": "part",
+          "at": 0,
+          "duration": 120,
+          "transform": {
+            "x": 0,
+            "y": 0
+          },
+          "source": {
+            "kind": "html",
+            "path": "overlays/part.html",
+            "part": "title",
+            "text": "あい cf"
+          }
+        },
+        "html": "<div style=\"position: absolute; left: 300px; top: 70px; color: white; font: 32px sans-serif;\">あい</div>"
+      }
+    },
+    {
+      "step": 3,
+      "title": "unedited Backspace reaches host once and deletes disposable leaf",
+      "status": "ok",
+      "observations": {
+        "before": {
+          "version": 2,
+          "output": {
+            "width": 640,
+            "height": 360,
+            "fps": 30
+          },
+          "sources": [],
+          "tracks": [
+            {
+              "id": "visual-part",
+              "lane": "visual",
+              "items": [
+                {
+                  "id": "part",
+                  "at": 0,
+                  "duration": 120,
+                  "transform": {
+                    "x": 0,
+                    "y": 0
+                  },
+                  "source": {
+                    "kind": "html",
+                    "path": "overlays/part.html",
+                    "part": "title",
+                    "text": "あい cf"
+                  }
+                }
+              ]
+            },
+            {
+              "id": "visual-plain",
+              "lane": "visual",
+              "items": [
+                {
+                  "id": "plain",
+                  "at": 0,
+                  "duration": 120,
+                  "transform": {
+                    "x": 0,
+                    "y": 0
+                  },
+                  "source": {
+                    "kind": "html",
+                    "path": "overlays/plain.html"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "events": [
+          {
+            "type": "keydown",
+            "key": "Backspace",
+            "code": "Backspace",
+            "isTrusted": false
+          }
+        ],
+        "after": {
+          "version": 2,
+          "output": {
+            "width": 640,
+            "height": 360,
+            "fps": 30
+          },
+          "sources": [],
+          "tracks": [
+            {
+              "id": "visual-part",
+              "lane": "visual",
+              "items": [
+                {
+                  "id": "part",
+                  "at": 0,
+                  "duration": 120,
+                  "transform": {
+                    "x": 0,
+                    "y": 0
+                  },
+                  "source": {
+                    "kind": "html",
+                    "path": "overlays/part.html",
+                    "part": "title",
+                    "text": "あい cf"
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "events": [
+    {
+      "kind": "preview-focus",
+      "at": 1790059009746,
+      "data": {
+        "label": "before Backspace",
+        "hasFocus": true,
+        "instance": null,
+        "activeElement": {
+          "tag": "DIV",
+          "id": "",
+          "editable": true
+        }
+      }
+    },
+    {
+      "kind": "preview-focus",
+      "at": 1790059010763,
+      "data": {
+        "label": "before  ",
+        "hasFocus": true,
+        "instance": null,
+        "activeElement": {
+          "tag": "DIV",
+          "id": "",
+          "editable": true
+        }
+      }
+    },
+    {
+      "kind": "preview-focus",
+      "at": 1790059011151,
+      "data": {
+        "label": "before c",
+        "hasFocus": true,
+        "instance": null,
+        "activeElement": {
+          "tag": "DIV",
+          "id": "",
+          "editable": true
+        }
+      }
+    },
+    {
+      "kind": "preview-focus",
+      "at": 1790059011522,
+      "data": {
+        "label": "before f",
+        "hasFocus": true,
+        "instance": null,
+        "activeElement": {
+          "tag": "DIV",
+          "id": "",
+          "editable": true
+        }
+      }
+    },
+    {
+      "kind": "preview-focus",
+      "at": 1790059012190,
+      "data": {
+        "label": "before Enter",
+        "hasFocus": true,
+        "instance": null,
+        "activeElement": {
+          "tag": "DIV",
+          "id": "",
+          "editable": true
+        }
+      }
+    },
+    {
+      "kind": "preview-focus",
+      "at": 1790059013392,
+      "data": {
+        "label": "before Backspace",
+        "hasFocus": true,
+        "instance": null,
+        "activeElement": {
+          "tag": "DIV",
+          "id": "",
+          "editable": true
+        }
+      }
+    },
+    {
+      "kind": "preview-focus",
+      "at": 1790059013733,
+      "data": {
+        "label": "before Enter",
+        "hasFocus": true,
+        "instance": null,
+        "activeElement": {
+          "tag": "DIV",
+          "id": "",
+          "editable": true
+        }
+      }
+    },
+    {
+      "kind": "preview-focus",
+      "at": 1790059017509,
+      "data": {
+        "label": "before Backspace",
+        "hasFocus": true,
+        "instance": null,
+        "activeElement": {
+          "tag": "BODY",
+          "id": "",
+          "editable": false
+        }
+      }
+    }
+  ]
+}
