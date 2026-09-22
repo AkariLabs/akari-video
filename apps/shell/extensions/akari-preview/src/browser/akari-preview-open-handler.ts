@@ -97,6 +97,8 @@ import { resolvePreviewCaptionTrackOrder } from '../common/caption-track-order';
 import { previewContentEnd } from '../common/preview-content-end';
 import { captionEntryAnimationsSettled } from '../common/caption-hit-region';
 import {
+    placedCaptionPositionFromRects,
+    type CaptionCuePosition,
     persistCaptionCuePosition,
     persistCaptionCuePositionReset,
     persistCaptionGroupPosition,
@@ -335,6 +337,8 @@ type AnimatedPreviewCaption = PreviewCaption & CaptionAnimatorSummary;
 interface PreviewCaptionClockInput extends AnimatedPreviewCaption {
     /** 読込層だけが扱う時刻 domain。webview へ渡す前に必ず output へ正規化する。 */
     clockDomain: PreviewCaptionClockDomain;
+    /** Original declaration, retained for placed-text manipulation after clock projection. */
+    timeDomain?: 'source' | 'output';
     /** 複数 source の source-domain cue を該当 cut だけへ射影するための任意 source id。 */
     clockSourceId?: string;
 }
@@ -831,7 +835,7 @@ interface CaptionWriteRequest {
         | { text: string }
         | { groupZone: CaptionZoneValue }
         | { groupPosition: { anchor: 'bc' | 'tc'; position: { x?: number; y: number } } }
-        | { cuePosition: { anchor: 'bc' | 'tc'; position: { x?: number; y: number } } }
+        | { cuePosition: CaptionCuePosition }
         | {
             plateTransform: {
                 captionIds: string[];
@@ -839,7 +843,7 @@ interface CaptionWriteRequest {
                 rotate?: number;
                 cuePosition?: {
                     captionId: string;
-                    value: { anchor: 'bc' | 'tc'; position: { x?: number; y: number } };
+                    value: CaptionCuePosition;
                 };
             };
         }
@@ -6049,6 +6053,12 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         }
         try {
             if (editUri) {
+                const rawRoot = JSON.parse(await this.readText(captionsUri));
+                const rawRows = Array.isArray(rawRoot) ? rawRoot
+                    : Array.isArray(rawRoot?.captions) ? rawRoot.captions : [];
+                const timeDomains = new Map<string, 'source' | 'output'>(rawRows
+                    .filter((row: { time_domain?: string } | null) => row?.time_domain === 'source' || row?.time_domain === 'output')
+                    .map((row: { id: string; time_domain: 'source' | 'output' }) => [row.id, row.time_domain]));
                 return await loadCaptionDisplayFailOpen({
                     resolve: async () => this.previewService.resolveCaptionDisplay({
                         captionsUri: captionsUri.toString(),
@@ -6058,7 +6068,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     resolved: resolved => ({
                         captions: parseResolvedPreviewCaptions(resolved).map(caption => ({
                             ...caption,
-                            clockDomain: 'output' as const
+                            clockDomain: 'output' as const,
+                            timeDomain: timeDomains.get(caption.sourceCueId ?? caption.id ?? '')
                         })),
                         emphasisWords: resolved.emphasisWords
                     }),
@@ -6109,7 +6120,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             }
         }
         const captions: PreviewCaptionClockInput[] = parsed.map((caption, index) => {
-            const raw = (caption.id ? rawById.get(caption.id) : undefined)
+            const sourceId = caption.sourceCueId ?? caption.id;
+            const raw = (sourceId ? rawById.get(sourceId) : undefined)
                 ?? (rawCaptions[index] && typeof rawCaptions[index] === 'object'
                     && !Array.isArray(rawCaptions[index])
                     ? rawCaptions[index] as Record<string, unknown> : undefined);
@@ -6120,6 +6132,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             return {
                 ...caption,
                 clockDomain: declaredDomain,
+                ...(declaredDomain !== 'legacy' ? { timeDomain: declaredDomain } : {}),
                 ...(typeof raw?.src === 'string' && raw.src ? { clockSourceId: raw.src } : {})
             };
         });
@@ -6592,7 +6605,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     && groupPosition.position.x >= 0 && groupPosition.position.x <= 1));
         const cuePosition = message?.patch?.cuePosition;
         const hasCuePosition = cuePosition
-            && (cuePosition.anchor === 'bc' || cuePosition.anchor === 'tc')
+            && ['tl', 'tc', 'tr', 'ml', 'mc', 'mr', 'bl', 'bc', 'br'].includes(cuePosition.anchor)
             && cuePosition.position && typeof cuePosition.position === 'object'
             && Number.isFinite(cuePosition.position.y)
             && cuePosition.position.y >= -1 && cuePosition.position.y <= 2
@@ -6604,7 +6617,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         const plateCuePosition = plateTransform?.cuePosition;
         const hasValidPlateCuePosition = plateCuePosition === undefined || (
             typeof plateCuePosition.captionId === 'string' && plateCuePosition.captionId.length > 0
-            && (plateCuePosition.value?.anchor === 'bc' || plateCuePosition.value?.anchor === 'tc')
+            && ['tl', 'tc', 'tr', 'ml', 'mc', 'mr', 'bl', 'bc', 'br'].includes(plateCuePosition.value?.anchor)
             && plateCuePosition.value?.position && typeof plateCuePosition.value.position === 'object'
             && Number.isFinite(plateCuePosition.value.position.y)
             && plateCuePosition.value.position.y >= -1 && plateCuePosition.value.position.y <= 2
@@ -7224,7 +7237,8 @@ ${kind === 'raw' ? '.akari-material-chip { position: absolute; top: 8px; left: 8
 .caption-row-plate[data-alt-all] .akari-caption-handle[data-h="rot"] { background:#53d1bc; }
 .caption-row-plate.akari-caption-host--editing, .caption-row-plate.akari-caption-host--editing * { cursor: text; user-select: text; }
 .caption-row-plate.akari-caption-host--styled .akari-caption__line, .caption-row-plate.akari-caption-host--styled .akari-caption__block { pointer-events: auto; }
-.caption-row-plate [data-akari-caption-editing="true"], .caption-row-plate[data-akari-caption-editing="true"] { pointer-events: auto; outline: 1px solid rgba(255,255,255,0.9); outline-offset: 3px; caret-color: currentColor; }
+.caption-row-plate [data-akari-caption-editing="true"], .caption-row-plate[data-akari-caption-editing="true"] { pointer-events: auto; outline: none; caret-color: currentColor; }
+.caption-row-plate.akari-caption-host--editing[data-selected], .caption-row-plate.akari-caption-host--editing[data-selected] .akari-caption__plate { outline: none; }
 .output-preview-link { position: absolute; top: 8px; left: 8px; z-index: 5; border: 1px solid rgba(255,255,255,0.2); border-radius: 5px; padding: 5px 9px; background: rgba(20,20,20,0.78); color: #d8e9ff; font-size: 11px; line-height: 1.35; cursor: pointer; }
 .output-preview-link:hover { color: #fff; background: rgba(45,45,45,0.9); }
 .output-preview-link[hidden] { display: none; }
@@ -12673,6 +12687,10 @@ body { display: grid; place-items: center; padding: 32px; }
             // 全面透明 mov のアルファ実測だけは elementsFromPoint で下へ素通しする。
             const handledVisualPointerDownEvents = new WeakSet();
             const handleVisualMediaPointerDown = event => {
+                // A blank click must release captions before selecting the media behind them.
+                // Otherwise selectCut/selectLayer silently clear the local caption first and
+                // pointerup can no longer notify the host that its caption selection ended.
+                if ((selectedCaptionId || activeCaptionEdit) && isSelectionReleaseTarget(event)) return;
                 // ㉔ クロップモード中は移動/選択切り替えと操作が衝突しないよう、選択中レイヤーの
                 // ボディドラッグを含め本編ステージの通常操作を止める（ハンドルは別要素なので
                 // このガードの影響を受けない）。
@@ -12984,12 +13002,13 @@ body { display: grid; place-items: center; padding: 32px; }
             const isSelectionReleaseTarget = event => {
                 if (event.target.closest?.('#layer-select-box, #cut-select-box, #caption-select-box, '
                     + '#layer-crop-box, #layer-crop-toggle, #layer-perspective-toggle, '
-                    + '#layer-perspective-panel, #caption-plate, [data-overlay-id], [data-akari-interaction], '
+                    + '#layer-perspective-panel, .caption-row-plate, [data-overlay-id], [data-akari-interaction], '
                     + 'button, [role="button"], input, textarea, select, a[href]')) return false;
                 // 全面透明 mov の可視画素判定を含め、実際の z 順を elementsFromPoint で再確認する。
-                return !findVisualMediaHitAt(event);
+                return !!selectedCaptionId || !!activeCaptionEdit || !findVisualMediaHitAt(event);
             };
             const releasePreviewSelection = () => {
+                if (activeCaptionEdit) void commitCaptionEdit();
                 if (selectedCaptionId) deselectCaption();
                 if (selectedLayerId) selectLayer(null);
                 if (cutSelected) deselectCut();
@@ -13445,7 +13464,9 @@ body { display: grid; place-items: center; padding: 32px; }
             let selectedCaptionId = null;
             let pendingCaptionDragReload = false;
             // クランプ解除は captions.json に席がないため、webview を開いている間だけ保持する。
-            const captionClampOff = new Set();
+            const captionClampOverrides = new Map();
+            const captionClampEnabled = caption => captionClampOverrides.get(caption?.sourceCueId || caption?.id)
+                ?? (caption?.timeDomain !== 'output');
             // textStyle は default_text_style とマージ済みなので、初期表示だけは cue 固有位置を推定する。
             // 書き込み後はこの Map を正としてグループ既定と cue 固有位置を区別する。
             const captionCuePositionKnown = new Map();
@@ -13582,7 +13603,7 @@ body { display: grid; place-items: center; padding: 32px; }
             };
             const updateCaptionSelectTools = () => {
                 const caption = selectedCaption();
-                const clampOn = !!selectedCaptionId && !captionClampOff.has(selectedCaptionId);
+                const clampOn = !!selectedCaptionId && captionClampEnabled(caption);
                 captionClampChip.textContent = clampOn
                     ? '🧲 はみ出し防止 ON' : '🧲 はみ出し防止 OFF';
                 captionClampChip.classList.toggle('on', clampOn);
@@ -13691,6 +13712,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 if (!centered) position.x = roundCaptionRatio((plateRect.left - frameRect.x) / frameRect.width);
                 return { anchor, position };
             };
+            const placedCaptionPositionFromRects = (${placedCaptionPositionFromRects.toString()});
             const captionCuePositionFromRects = (plateRect, frameRect, clampOn) => {
                 if (!(frameRect.width > 0) || !(frameRect.height > 0)) {
                     throw new Error('出力フレームの幅と高さは正数である必要があります');
@@ -13773,8 +13795,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 event.preventDefault();
                 event.stopPropagation();
                 if (!selectedCaptionId) return;
-                if (captionClampOff.has(selectedCaptionId)) captionClampOff.delete(selectedCaptionId);
-                else captionClampOff.add(selectedCaptionId);
+                captionClampOverrides.set(selectedCaptionId, !captionClampEnabled(selectedCaption()));
                 updateCaptionSelectTools();
             });
             captionPositionReset.addEventListener('click', event => {
@@ -13818,10 +13839,10 @@ body { display: grid; place-items: center; padding: 32px; }
                 const nextText = (edit.element.textContent || '').normalize('NFC').trim();
                 activeCaptionEdit = null;
                 restoreCaptionEditElement(edit);
-                if (nextText === edit.originalText) {
-                    rerenderCaptionAfterEdit();
-                    return;
-                }
+                // Restore styled lines/tokens immediately, including while the write is pending.
+                // Subsequent dragging must measure the rendered plate, not the temporary editor.
+                rerenderCaptionAfterEdit();
+                if (nextText === edit.originalText) return;
                 try {
                     await window.akari.engine.captionWrite(edit.captionId, { text: nextText });
                     if (nextText.trim().length === 0) {
@@ -13861,7 +13882,15 @@ body { display: grid; place-items: center; padding: 32px; }
                 }
                 if (isPlaying) togglePlayback();
                 selectCaption(captionId);
-                const element = captionPlate.querySelector('.akari-caption__plate') || captionPlate;
+                const layoutPlate = captionPlate.querySelector('.akari-caption__plate');
+                // Keep the full-width layout wrapper pointer-transparent. Editing only the ink
+                // line lets a click beside the text blur/commit and release the selection.
+                if (layoutPlate) {
+                    const line = document.createElement('div');
+                    line.className = 'akari-caption__line';
+                    layoutPlate.replaceChildren(line);
+                }
+                const element = layoutPlate?.firstElementChild || captionPlate;
                 activeCaptionEdit = {
                     captionId,
                     originalText: caption.text || '',
@@ -14020,8 +14049,9 @@ body { display: grid; place-items: center; padding: 32px; }
                 if (handle && beginCaptionHandleDrag(event, handle, caption, cueId)) return;
                 event.preventDefault();
                 event.stopPropagation();
-                const groupMode = event.altKey;
-                const clampOn = !captionClampOff.has(cueId);
+                const placedText = caption.timeDomain === 'output';
+                const groupMode = event.altKey && !placedText;
+                const clampOn = captionClampEnabled(caption);
                 selectCaption(cueId);
                 setCaptionGroupMode(groupMode);
                 const pointerId = event.pointerId;
@@ -14056,12 +14086,12 @@ body { display: grid; place-items: center; padding: 32px; }
                     let outputDy = nowOutputPoint.y - startOutputPoint.y;
                     const movedCenter = (startPlateRect.left + startPlateRect.right) / 2 + outputDx;
                     const centerRatio = (movedCenter - outputFrame.x) / outputFrame.width;
-                    if (Math.abs(centerRatio - 0.5) < 0.03) {
+                    if (!placedText && Math.abs(centerRatio - 0.5) < 0.03) {
                         outputDx += outputFrame.x + outputFrame.width * 0.5 - movedCenter;
                     }
                     const movedBottom = startPlateRect.bottom + outputDy;
                     const bottomRatio = (movedBottom - outputFrame.y) / outputFrame.height;
-                    if (Math.abs(bottomRatio - 0.93) < 0.02) {
+                    if (!placedText && Math.abs(bottomRatio - 0.93) < 0.02) {
                         outputDy += outputFrame.y + outputFrame.height * 0.93 - movedBottom;
                     }
                     if (!groupMode && clampOn) {
@@ -14077,7 +14107,7 @@ body { display: grid; place-items: center; padding: 32px; }
                             ? maxDy : Math.min(maxDy, Math.max(minDy, outputDy));
                     }
                     captionPlate.style.translate = outputDx + 'px ' + outputDy + 'px';
-                    setCaptionDragGuides(true, frameRect);
+                    setCaptionDragGuides(!placedText, frameRect);
                     updateCaptionSelectBoxForRect(captionVisualRect());
                 };
                 const finish = async cancelled => {
@@ -14097,9 +14127,11 @@ body { display: grid; place-items: center; padding: 32px; }
                             );
                             await window.akari.engine.captionWrite(cueId, { groupPosition });
                         } else {
-                            const cuePosition = captionCuePositionFromRects(
-                                captionVisualRect(), outputFrame, clampOn
-                            );
+                            const cuePosition = placedText
+                                ? placedCaptionPositionFromRects(captionVisualRect(), outputFrame, {
+                                    anchor: caption.textStyle?.text_anchor || 'bc', clamp: clampOn
+                                })
+                                : captionCuePositionFromRects(captionVisualRect(), outputFrame, clampOn);
                             const scale = Number.isFinite(caption.textStyle?.scale) ? caption.textStyle.scale : 1;
                             const rotate = Number.isFinite(caption.textStyle?.rotate) ? caption.textStyle.rotate : 0;
                             await window.akari.engine.captionWrite(cueId, {
@@ -16741,7 +16773,7 @@ body { display: grid; place-items: center; padding: 32px; }
             }, { passive: false });
             const isDirectManipulationTarget = (target, pointerEvent) => {
                 if (!(target instanceof Element)) return false;
-                if (target.closest('[data-overlay-id], [data-akari-interaction], #caption-plate, '
+                if (target.closest('[data-overlay-id], [data-akari-interaction], .caption-row-plate, '
                     + '#layer-select-box, #layer-crop-box, #layer-crop-toggle, '
                     + '#layer-perspective-toggle, #layer-perspective-panel, #cut-select-box, #caption-select-box')) {
                     return true;

@@ -46,6 +46,10 @@ export class AkariColorContribution implements ColorContribution {
             { id: 'akariTheme.placedTextViolet', defaults: t('placedTextViolet'), description: '置いた文字: 紫' },
             { id: 'akariTheme.placedTextGreen', defaults: t('placedTextGreen'), description: '置いた文字: 緑' },
             { id: 'akariTheme.placedTextPink', defaults: t('placedTextPink'), description: '置いた文字: 桃' },
+            { id: 'akariTheme.placedTextOrange', defaults: t('placedTextOrange'), description: '置いた文字: 橙' },
+            { id: 'akariTheme.placedTextCyan', defaults: t('placedTextCyan'), description: '置いた文字: 水色' },
+            { id: 'akariTheme.placedTextYellow', defaults: t('placedTextYellow'), description: '置いた文字: 黄' },
+            { id: 'akariTheme.placedTextRed', defaults: t('placedTextRed'), description: '置いた文字: 赤' },
             // --- AKARI 独自トークン（既存 VS Code 標準色に該当が無い LP 概念。
             //     webview 内では --vscode-akariTheme-* として同じ値がミラーされる） ---
             { id: 'akariTheme.accent', defaults: t('accent'), description: 'AKARI LP accent' },

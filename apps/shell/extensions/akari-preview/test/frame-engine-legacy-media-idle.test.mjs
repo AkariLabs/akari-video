@@ -152,7 +152,8 @@ test('capture delegation selects media covering HTML/captions once and leaves fo
     const surface = name => ({ addEventListener: (type, listener, capture) => listeners.push({ name, type, listener, capture }) });
     const video = { dataset: { akariCutIndex: '0' }, style: { zIndex: '15' } };
     const context = {
-        frameEngineMediaIdle: true, video, stillImage: {}, previewStage: surface('preview'),
+        frameEngineMediaIdle: true, selectedCaptionId: null, activeCaptionEdit: null,
+        video, stillImage: {}, previewStage: surface('preview'),
         layersStage: surface('layers'), stage: {}, penModeActive: false, rectModeActive: false, cropModeActive: false,
         findVisualMediaHitAt: () => video,
         selectCut: () => calls.push('cut'), cutDragTarget: () => video,

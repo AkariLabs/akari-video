@@ -9,6 +9,7 @@ import { fileURLToPath } from 'node:url';
 
 import {
     captionCuePositionFromRects,
+    placedCaptionPositionFromRects,
     captionGroupPositionFromRects,
     clearCaptionCuePositionSource,
     persistCaptionCuePosition,
@@ -366,7 +367,7 @@ test('caption group badge, drag guides, and inspector zone highlight are wired',
 });
 
 test('caption cue drag clamp, reset, and Alt group mode are wired', () => {
-    assert.match(handlerSource, /captionClampOff/);
+    assert.match(handlerSource, /captionClampOverrides/);
     assert.match(handlerSource, /akari-caption-clamp-chip/);
     assert.match(handlerSource, /akari-caption-position-reset/);
     assert.match(handlerSource, /cuePosition: \{ captionId: cueId, value: cuePosition \}/);
@@ -542,4 +543,39 @@ test('caption text passes the project lint gate and preserves timing, style, and
     } finally {
         await rm(root, { recursive: true, force: true });
     }
+});
+
+test('placed text keeps all nine anchors and exact positions through save and reload at five drop locations', () => {
+    const frame = { x: 100, y: 50, width: 1000, height: 500 };
+    for (const anchor of ['tl', 'tc', 'tr', 'ml', 'mc', 'mr', 'bl', 'bc', 'br']) {
+        for (const [left, top] of [[.415, .4], [.02, .03], [.96, .3], [.3, .731], [.2734, .4567]]) {
+            const plate = {
+                left: frame.x + left * frame.width, right: frame.x + (left + .2) * frame.width,
+                top: frame.y + top * frame.height, bottom: frame.y + (top + .2) * frame.height
+            };
+            const value = placedCaptionPositionFromRects(plate, frame, { anchor, clamp: false });
+            assert.equal(value.anchor, anchor);
+            assert.equal(value.position.x, left, 'x is always explicit; no central snap or edge clamp');
+            const source = JSON.stringify({ captions: [{ id: 'c-0001', time_domain: 'output', text_style: { color: '#fff', text_anchor: anchor } }] });
+            const saved = JSON.parse(updateCaptionCuePositionSource(source, 'c-0001', value)).captions[0];
+            assert.equal(saved.text_style.text_anchor, anchor);
+            assert.equal(saved.text_style.color, '#fff');
+            const yOffset = anchor[0] === 'm' ? .1 : anchor[0] === 'b' ? .2 : 0;
+            assert.ok(Math.abs(saved.text_style.position.y - yOffset - top) < .0001, 'anchor reconstructs the same top after reload');
+            assert.equal(saved.text_style.position.x, left);
+        }
+    }
+});
+
+test('placed text clamp is opt-in and preserves the anchor without any snapping', () => {
+    const frame = { x: 0, y: 0, width: 1000, height: 500 };
+    const plate = { left: 950, right: 1150, top: 455, bottom: 555 };
+    assert.deepEqual(placedCaptionPositionFromRects(plate, frame, { anchor: 'mc', clamp: false }), {
+        anchor: 'mc', position: { x: .95, y: 1.01 }
+    });
+    assert.deepEqual(placedCaptionPositionFromRects(plate, frame, { anchor: 'mc', clamp: true }), {
+        anchor: 'mc', position: { x: .8, y: .9 }
+    });
+    assert.throws(() => placedCaptionPositionFromRects(plate, { ...frame, width: 0 }, { anchor: 'mc', clamp: false }));
+    assert.throws(() => placedCaptionPositionFromRects({ ...plate, left: NaN }, frame, { anchor: 'mc', clamp: false }));
 });

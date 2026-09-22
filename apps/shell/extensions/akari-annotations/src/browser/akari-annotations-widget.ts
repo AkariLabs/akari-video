@@ -1,4 +1,4 @@
-import { placeTextCaption, PLACE_TEXT_COMMAND_ID, type PlaceTextOptions } from '../common/place-text';
+import { placeTextCaption, type PlaceTextOptions } from '../common/place-text';
 import { timelineGapAt, type TimelineGap } from '../common/timeline-gap';
 import { calculateFrameDraw, type FrameDrawRange } from '../common/timeline-frame-draw';
 import { advanceMaterialTrialWindow, MaterialTrialWindow } from '../common/material-trial-window';
@@ -866,7 +866,6 @@ export class AkariAnnotationsWidget extends BaseWidget {
 
     protected readonly toolbar = document.createElement('div');
     protected readonly frameToolButton = document.createElement('button');
-    protected readonly placeTextButton = document.createElement('button');
     protected placingText = false;
     protected cancelFrameDraw: (() => void) | undefined;
     protected readonly selectToolButton = document.createElement('button');
@@ -1375,16 +1374,6 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.razorToolButton.addEventListener('click', () => this.setToolMode('razor'));
         this.configureIconButton(this.frameToolButton, 'codicon-preview', '仮枠ツール', '仮枠 (F)');
         this.frameToolButton.addEventListener('click', () => this.setToolMode('frame'));
-        this.configureIconButton(this.placeTextButton, 'codicon-text-size', '文字を置く', '文字を置く');
-        this.placeTextButton.classList.remove('akari-annotations-icon-button');
-        this.placeTextButton.classList.add('akari-annotations-text-button', 'akari-timeline-place-text');
-        this.placeTextButton.textContent = 'T 文字を置く';
-        this.placeTextButton.style.width = 'auto';
-        this.placeTextButton.style.whiteSpace = 'nowrap';
-        this.placeTextButton.style.flexShrink = '0';
-        this.placeTextButton.addEventListener('click', () => {
-            void this.commands.executeCommand(PLACE_TEXT_COMMAND_ID, {}, this.location?.editUri?.toString());
-        });
         this.configureIconButton(this.snapToggleButton, 'codicon-magnet', 'マグネット', 'マグネット（スナップ）切替 (M / N)');
         this.snapToggleButton.addEventListener('click', () => this.setSnapEnabled(!this.snapEnabled));
         this.configureIconButton(this.undoButton, 'codicon-discard', '元に戻す', '元に戻す (⌘Z)');
@@ -1396,7 +1385,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.configureIconButton(this.compactButton, 'codicon-collapse-all', '詰める', 'クリップ間の空白を詰める');
         this.compactButton.addEventListener('click', () => void this.performCompactCuts());
         this.toolbar.append(
-            this.selectToolButton, this.razorToolButton, this.frameToolButton, this.placeTextButton,
+            this.selectToolButton, this.razorToolButton, this.frameToolButton,
             this.createToolbarSeparator(),
             this.snapToggleButton,
             this.createToolbarSeparator(),

@@ -113,3 +113,14 @@ test('render, caption selection, and styled animation consume outputTime only', 
     assert.match(pointerHandler, /captionForEvent\(event\)/u);
     assert.doesNotMatch(pointerHandler, /const time = video\.currentTime|resolvedTimeline \?/u);
 });
+
+test('original output declaration survives normalization without classifying speech as placed text', () => {
+    const normalized = normalizePreviewCaptionClock([
+        { id: 'placed', start: 0, end: 2, text: 'placed', clockDomain: 'output', timeDomain: 'output' },
+        { id: 'speech', start: 2, end: 3, text: 'speech', clockDomain: 'source', timeDomain: 'source' },
+        { id: 'legacy-gap', start: 3, end: 4, text: 'gap', clockDomain: 'legacy' }
+    ], segments);
+    assert.equal(normalized.find(cue => cue.id === 'placed').timeDomain, 'output');
+    assert.equal(normalized.find(cue => cue.sourceCueId === 'speech').timeDomain, 'source');
+    assert.equal(normalized.find(cue => cue.id === 'legacy-gap').timeDomain, undefined);
+});

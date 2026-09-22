@@ -1,3 +1,5 @@
+import type { CaptionCuePosition } from './caption-zone-write';
+
 export const CAPTION_SCALE_MIN = 0.4;
 export const CAPTION_SCALE_MAX = 3;
 export const CAPTION_ROTATE_MIN = -180;
@@ -18,10 +20,7 @@ export interface CaptionPlateTransformPatch {
 
 export interface CaptionPlateCuePosition {
     captionId: string;
-    value: {
-        anchor: 'bc' | 'tc';
-        position: { x?: number; y: number };
-    };
+    value: CaptionCuePosition;
 }
 
 export interface CaptionPlateLintResult {

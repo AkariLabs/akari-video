@@ -57,8 +57,8 @@ test('a freshly reloaded preview without a selected cut does not report deselect
 test('user click outside and Escape retain their explicit deselection notifications',()=>{
  const body=source.match(/const releasePreviewSelection = \(\) => \{([\s\S]*?)\n            \};/)[1];
  const calls=[];
- new Function('selectedCaptionId','selectedLayerId','cutSelected','deselectCaption','selectLayer','deselectCut',body)(
-  null,'broll-1',true,()=>{},(...args)=>calls.push(['layer',...args]),(...args)=>calls.push(['cut',...args]));
+ new Function('activeCaptionEdit','selectedCaptionId','selectedLayerId','cutSelected','deselectCaption','selectLayer','deselectCut',body)(
+  null,null,'broll-1',true,()=>{},(...args)=>calls.push(['layer',...args]),(...args)=>calls.push(['cut',...args]));
  assert.deepEqual(calls,[['layer',null],['cut']]);
  assert.match(source,/else if \(cutSelected\) deselectCut\(\);/);
 });

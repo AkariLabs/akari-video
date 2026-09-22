@@ -56,25 +56,15 @@ test('rejected placement keeps selection intact and re-enables the button', asyn
     assert.equal(f.widget.placeTextButton.disabled, false);
 });
 
-test('both entry buttons invoke the same command and preserve the existing tool modes', () => {
+test('only the transcript entry remains; the placement command and timeline tools are retained', () => {
     assert.match(text, /placeTextButton\.className = 'akari-daihon-retime akari-daihon-place-text'/);
     assert.match(text, /placeTextButton\.textContent = 'T この行から文字を置く'/);
     assert.match(text, /placeTextButton\.addEventListener\('click', \(\) => void this\.placeTextFromSelection\(\)\)/);
     const timeline = readFileSync(new URL('../../akari-annotations/src/browser/akari-annotations-widget.ts', import.meta.url), 'utf8');
-    assert.match(timeline, /placeTextButton\.classList\.add\('akari-annotations-text-button', 'akari-timeline-place-text'\)/);
-    assert.match(timeline, /executeCommand\(PLACE_TEXT_COMMAND_ID, \{\}, this\.location\?\.editUri\?\.toString\(\)\)/);
-    assert.match(timeline, /this\.frameToolButton, this\.placeTextButton/);
+    assert.doesNotMatch(timeline, /placeTextButton|akari-timeline-place-text|T 文字を置く/);
+    assert.match(timeline, /this\.selectToolButton, this\.razorToolButton, this\.frameToolButton,/);
+    const commands = readFileSync(new URL('../../akari-annotations/src/browser/akari-annotations-commands.ts', import.meta.url), 'utf8');
+    assert.match(commands, /PLACE_TEXT_COMMAND_ID/);
     assert.doesNotMatch(timeline, /setToolMode\('text'\)/);
     assert.equal(rowCaptionId, nextDaihonCaptionId);
-});
-
-
-test('place-text button stays on one line and does not shrink in a narrow toolbar', () => {
-    const timeline = readFileSync(new URL('../../akari-annotations/src/browser/akari-annotations-widget.ts', import.meta.url), 'utf8');
-    const assignments = [...timeline.matchAll(/this\.placeTextButton\.style\.\w+ = '[^']*';/g)].map(match => match[0]);
-    const widget = { placeTextButton: { style: {} } };
-    new Function(assignments.join('\n')).call(widget);
-    assert.equal(widget.placeTextButton.style.width, 'auto');
-    assert.equal(widget.placeTextButton.style.whiteSpace, 'nowrap');
-    assert.equal(widget.placeTextButton.style.flexShrink, '0');
 });

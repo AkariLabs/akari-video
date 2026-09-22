@@ -101,6 +101,7 @@ function harness(overrides = {}) {
         suppressClick: false, drag: null, zoom: 1, pan: { x: 0, y: 0 },
         CLICK_THRESHOLD_PX: 4, Element: class Element {},
         clampPan: value => value, renderZoom() {},
+        commitCaptionEdit() { calls.push('commit'); context.activeCaptionEdit = null; },
         deselectCaption() { calls.push('caption'); context.selectedCaptionId = null; },
         selectLayer(id) { calls.push('layer'); context.selectedLayerId = id; },
         deselectCut() { calls.push('cut'); context.cutSelected = false; },
@@ -186,7 +187,7 @@ for (const [name, selection] of selections) {
 test('protected selection controls and captions never release on pointer or click', () => {
     for (const selector of ['#layer-select-box', '#cut-select-box', '#caption-select-box',
         '#layer-crop-box', '#layer-crop-toggle', '#layer-perspective-toggle', '#layer-perspective-panel',
-        '#caption-plate', '[data-overlay-id]', 'button']) {
+        '.caption-row-plate', '[data-overlay-id]', 'button']) {
         const { dispatchPointer, calls } = harness({ cutSelected: true, selectedLayerId: 'l1', selectedCaptionId: 'c1' });
         const target = eventTarget(selector);
         dispatchPointer('pointerdown', { target });
@@ -328,4 +329,41 @@ test('media hits use transformed cut bounds and numeric track order instead of l
     front.video.naturalHeight = 360;
     front.video.videoHeight = 0;
     assert.equal(context.hit(point), front.video, 'still images use their natural dimensions');
+});
+
+for (const editing of [false, true]) {
+    test(`blank caption layer and media background release captions (editing=${editing})`, () => {
+        for (const target of [eventTarget('#caption-plate'), eventTarget()]) {
+            const { calls, dispatchPointer } = harness({ selectedCaptionId: 'c1', activeCaptionEdit: editing ? {} : null });
+            const position = { target, clientX: 400, clientY: 200 };
+            dispatchPointer('pointerdown', position);
+            dispatchPointer('pointerup', position);
+            dispatchPointer('click', position);
+            assert.deepEqual(calls, editing ? ['commit', 'caption'] : ['caption']);
+        }
+    });
+}
+
+test('blank media pointerdown cannot silently replace a caption before its release notification', () => {
+    for (const editing of [false, true]) {
+        const { context, dispatchPointer, calls } = harness({ selectedCaptionId: 'c1', activeCaptionEdit: editing ? {} : null });
+        let mediaSelections = 0;
+        Object.assign(context, {
+            handledVisualPointerDownEvents: new WeakSet(), layersStage: {}, stage: {},
+            selectCut() { mediaSelections++; context.selectedCaptionId = null; },
+            pointerTranslationFrom: () => () => ({}), cutDragTarget: () => ({}), beginMediaTransformDrag() {}
+        });
+        vm.runInContext(declaration('handleVisualMediaPointerDown') + '\nglobalThis.mediaDown = handleVisualMediaPointerDown;', context);
+        const target = Object.assign(context.previewStage, { closest: () => null });
+        const location = { target, clientX: 400, clientY: 200 };
+        dispatchPointer('pointerdown', location);
+        context.mediaDown(pointer('pointerdown', target, location));
+        assert.equal(mediaSelections, 0);
+        dispatchPointer('pointerup', location);
+        dispatchPointer('click', location);
+        assert.deepEqual(calls, editing ? ['commit', 'caption'] : ['caption']);
+        assert.equal(context.selectedCaptionId, null);
+        context.mediaDown(pointer('pointerdown', target, location));
+        assert.equal(mediaSelections, 1, 'the next click may select the background media normally');
+    }
 });

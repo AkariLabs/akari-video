@@ -29,7 +29,14 @@ export interface PersistCaptionTextOptions {
     write: (candidate: string) => Promise<void>;
 }
 
-export interface CaptionGroupPosition {
+export type CaptionPositionAnchor = 'tl' | 'tc' | 'tr' | 'ml' | 'mc' | 'mr' | 'bl' | 'bc' | 'br';
+
+export interface CaptionCuePosition {
+    anchor: CaptionPositionAnchor;
+    position: { x?: number; y: number };
+}
+
+export interface CaptionGroupPosition extends CaptionCuePosition {
     anchor: 'bc' | 'tc';
     position: { x?: number; y: number };
 }
@@ -58,7 +65,7 @@ export interface PersistCaptionGroupPositionOptions {
 export interface PersistCaptionCuePositionOptions {
     source: string;
     captionId: string;
-    value: CaptionGroupPosition;
+    value: CaptionCuePosition;
     lint: (candidate: string) => Promise<CaptionZoneLintResult>;
     write: (candidate: string) => Promise<void>;
 }
@@ -189,6 +196,35 @@ export function captionCuePositionFromRects(
     return { anchor, position };
 }
 
+/** Placed text keeps its anchor. Explicit x is the left edge in the caption renderer,
+ * while y addresses the top, middle or bottom according to the vertical anchor. */
+export function placedCaptionPositionFromRects(
+    plate: CaptionPlateRect,
+    frame: CaptionFrameRect,
+    options: { anchor: CaptionPositionAnchor; clamp: boolean }
+): CaptionCuePosition {
+    if (!(frame.width > 0) || !(frame.height > 0)) {
+        throw new Error('出力フレームの幅と高さは正数である必要があります');
+    }
+    const width = (plate.right - plate.left) / frame.width;
+    const height = (plate.bottom - plate.top) / frame.height;
+    let x = (plate.left - frame.x) / frame.width;
+    let top = (plate.top - frame.y) / frame.height;
+    if (![x, top, width, height].every(Number.isFinite)) {
+        throw new Error('字幕位置は有限数である必要があります');
+    }
+    if (options.clamp) {
+        x = Math.min(Math.max(0, 1 - width), Math.max(0, x));
+        top = Math.min(Math.max(0, 1 - height), Math.max(0, top));
+    }
+    const vertical = options.anchor[0];
+    const y = top + (vertical === 'b' ? height : vertical === 'm' ? height / 2 : 0);
+    return { anchor: options.anchor, position: {
+        x: Math.round(x * 10000) / 10000,
+        y: Math.round(y * 10000) / 10000
+    } };
+}
+
 /** Replace the group default zone with an anchor/position without touching cue styles. */
 export function updateCaptionGroupPositionSource(source: string, value: CaptionGroupPosition): string {
     const root = captionObjectRoot(source);
@@ -205,7 +241,7 @@ export function updateCaptionGroupPositionSource(source: string, value: CaptionG
 export function updateCaptionCuePositionSource(
     source: string,
     captionId: string,
-    value: CaptionGroupPosition
+    value: CaptionCuePosition
 ): string {
     const root: unknown = JSON.parse(source);
     const list = captionList(root);

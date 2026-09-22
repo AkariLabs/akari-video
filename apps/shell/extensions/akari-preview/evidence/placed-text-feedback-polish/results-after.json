@@ -1,0 +1,992 @@
+{
+  "phase": "after",
+  "status": "pass",
+  "checks": [
+    {
+      "name": "§4 タイムラインのツールバーに「T 文字を置く」が無い",
+      "pass": true,
+      "detail": {
+        "timelineButton": [],
+        "timelineTextMatches": [],
+        "daihonButton": [
+          "T この行から文字を置く"
+        ]
+      }
+    },
+    {
+      "name": "§0/§1 置いた文字をダブルクリック → 枠の実測",
+      "pass": true,
+      "detail": {
+        "outlined": [],
+        "selectBox": {
+          "active": true,
+          "display": "block",
+          "border": "dashed 1.5px rgb(77, 163, 255)",
+          "rect": {
+            "left": 261,
+            "top": 147.88,
+            "width": 88.92,
+            "height": 21.1
+          }
+        },
+        "editing": {
+          "el": ".akari-caption__line",
+          "outlineStyle": "none",
+          "outlineWidth": "0px",
+          "outlineColor": "rgb(255, 255, 255)",
+          "outlineOffset": "0px",
+          "rect": {
+            "left": 261,
+            "top": 147.89,
+            "width": 88.93,
+            "height": 21.1
+          },
+          "focused": true,
+          "text": "置いた文字 1"
+        },
+        "layer": {
+          "position": "absolute",
+          "pointerEvents": "none",
+          "rect": {
+            "left": 36,
+            "top": 31.88,
+            "width": 450,
+            "height": 253.13
+          }
+        }
+      }
+    },
+    {
+      "name": "§0/§2 編集中に「選択枠のすぐ外（枠と枠の間）」をクリック",
+      "pass": true,
+      "detail": {
+        "point": {
+          "x": 371.5,
+          "y": 221.98999999999998
+        },
+        "hit": "#preview-stage.",
+        "state": {
+          "selectBoxActive": false,
+          "selectedPlates": [],
+          "editing": false
+        }
+      }
+    },
+    {
+      "name": "§0/§2 編集中に文字を足してから、フレーム内の何もない所を 1 回クリック → 確定 + 選択解除",
+      "pass": true,
+      "detail": {
+        "point": {
+          "x": 90.08,
+          "y": 69.9,
+          "hit": "#preview-stage.",
+          "onPlate": false
+        },
+        "before": {
+          "selectBoxActive": true,
+          "selectedPlates": [],
+          "editing": true
+        },
+        "hostBefore": {
+          "daihonRows": [],
+          "daihonPlaced": [
+            "c-0101"
+          ],
+          "timeline": [
+            "c-0101:akari-annotations-selected"
+          ]
+        },
+        "after": {
+          "selectBoxActive": false,
+          "selectedPlates": [],
+          "editing": false
+        },
+        "hostAfter": {
+          "daihonRows": [],
+          "daihonPlaced": [],
+          "timeline": []
+        },
+        "savedText": "置いた文字 1★"
+      }
+    },
+    {
+      "name": "§0/§2 選択中（編集なし）に何もない所をクリック（フレーム内 / フレーム外）",
+      "pass": true,
+      "detail": {
+        "insideFrame": {
+          "point": {
+            "x": 90.08,
+            "y": 69.9,
+            "hit": "#preview-stage.",
+            "onPlate": false
+          },
+          "selected": {
+            "selectBoxActive": true,
+            "selectedPlates": [],
+            "editing": false
+          },
+          "hostSelected": {
+            "daihonRows": [],
+            "daihonPlaced": [
+              "c-0101"
+            ],
+            "timeline": [
+              "c-0101:akari-annotations-selected"
+            ]
+          },
+          "after": {
+            "selectBoxActive": false,
+            "selectedPlates": [],
+            "editing": false
+          },
+          "hostAfter": {
+            "daihonRows": [],
+            "daihonPlaced": [],
+            "timeline": []
+          }
+        },
+        "outsideFrame": {
+          "point": {
+            "x": 374,
+            "y": 21.875,
+            "hit": "#zoom-layer.",
+            "onPlate": false
+          },
+          "selected": {
+            "selectBoxActive": true,
+            "selectedPlates": [],
+            "editing": false
+          },
+          "hostSelected": {
+            "daihonRows": [],
+            "daihonPlaced": [
+              "c-0101"
+            ],
+            "timeline": [
+              "c-0101:akari-annotations-selected"
+            ]
+          },
+          "after": {
+            "selectBoxActive": false,
+            "selectedPlates": [],
+            "editing": false
+          },
+          "hostAfter": {
+            "daihonRows": [],
+            "daihonPlaced": [],
+            "timeline": []
+          }
+        }
+      }
+    },
+    {
+      "name": "§2 回帰: 何も選んでいないときにフレーム内をクリックすると従来どおりカットが選ばれる（記録）",
+      "pass": true,
+      "detail": {
+        "firstClick": {
+          "cut": true,
+          "caption": false
+        },
+        "secondClick": {
+          "cut": true,
+          "caption": false
+        }
+      }
+    },
+    {
+      "name": "§6 置いた文字を 5 か所へドラッグ → 落とした位置（±1%）で保存・描画",
+      "pass": true,
+      "detail": [
+        {
+          "target": "中央付近",
+          "drop": {
+            "x": 0.52,
+            "y": 0.46
+          },
+          "plateWidthRatio": 0.2273,
+          "saved": {
+            "position": {
+              "x": 0.4064,
+              "y": 0.46
+            },
+            "text_anchor": "mc"
+          },
+          "expectedSaved": {
+            "x": 0.4063,
+            "y": 0.46
+          },
+          "rendered": {
+            "x": 0.52,
+            "y": 0.46
+          },
+          "renderedError": {
+            "x": 0,
+            "y": 0
+          },
+          "savedError": {
+            "x": 0.0001,
+            "y": 0
+          }
+        },
+        {
+          "target": "左上",
+          "drop": {
+            "x": 0.16,
+            "y": 0.12
+          },
+          "plateWidthRatio": 0.2273,
+          "saved": {
+            "position": {
+              "x": 0.0464,
+              "y": 0.12
+            },
+            "text_anchor": "mc"
+          },
+          "expectedSaved": {
+            "x": 0.0463,
+            "y": 0.12
+          },
+          "rendered": {
+            "x": 0.16,
+            "y": 0.12
+          },
+          "renderedError": {
+            "x": 0,
+            "y": 0
+          },
+          "savedError": {
+            "x": 0.0001,
+            "y": 0
+          }
+        },
+        {
+          "target": "右端",
+          "drop": {
+            "x": 0.86,
+            "y": 0.5
+          },
+          "plateWidthRatio": 0.2273,
+          "saved": {
+            "position": {
+              "x": 0.7464,
+              "y": 0.5
+            },
+            "text_anchor": "mc"
+          },
+          "expectedSaved": {
+            "x": 0.7463,
+            "y": 0.5
+          },
+          "rendered": {
+            "x": 0.8601,
+            "y": 0.5
+          },
+          "renderedError": {
+            "x": 0.0001,
+            "y": 0
+          },
+          "savedError": {
+            "x": 0.0001,
+            "y": 0
+          }
+        },
+        {
+          "target": "下端付近",
+          "drop": {
+            "x": 0.14,
+            "y": 0.9
+          },
+          "plateWidthRatio": 0.1965,
+          "saved": {
+            "position": {
+              "x": 0.0417,
+              "y": 0.9
+            },
+            "text_anchor": "mc"
+          },
+          "expectedSaved": {
+            "x": 0.0417,
+            "y": 0.9
+          },
+          "rendered": {
+            "x": 0.14,
+            "y": 0.9
+          },
+          "renderedError": {
+            "x": 0,
+            "y": 0
+          },
+          "savedError": {
+            "x": 0,
+            "y": 0
+          }
+        },
+        {
+          "target": "任意",
+          "drop": {
+            "x": 0.33,
+            "y": 0.68
+          },
+          "plateWidthRatio": 0.2273,
+          "saved": {
+            "position": {
+              "x": 0.2163,
+              "y": 0.68
+            },
+            "text_anchor": "mc"
+          },
+          "expectedSaved": {
+            "x": 0.2163,
+            "y": 0.68
+          },
+          "rendered": {
+            "x": 0.33,
+            "y": 0.68
+          },
+          "renderedError": {
+            "x": 0,
+            "y": 0
+          },
+          "savedError": {
+            "x": 0,
+            "y": 0
+          }
+        }
+      ]
+    },
+    {
+      "name": "§6 置いた文字の選択中チップ（はみ出し防止）の表示",
+      "pass": true,
+      "detail": {
+        "text": "🧲 はみ出し防止 OFF",
+        "on": false,
+        "display": "block"
+      }
+    },
+    {
+      "name": "§6 回帰: 話した言葉の字幕のドラッグ（中央揃え・はみ出し防止）",
+      "pass": true,
+      "detail": {
+        "nearCenter": {
+          "text_anchor": "bc",
+          "position": {
+            "y": 0.83
+          }
+        },
+        "farRight": {
+          "text_anchor": "bc",
+          "position": {
+            "x": 0.5018,
+            "y": 0.93
+          }
+        },
+        "farRightPlateRightRatio": 0.9233
+      }
+    },
+    {
+      "name": "§2 回帰: 話した言葉の字幕もクリック選択 → 何もない所で解除 / ダブルクリック編集が開く",
+      "pass": true,
+      "detail": {
+        "selected": {
+          "selectBoxActive": true,
+          "selectedPlates": [],
+          "editing": false
+        },
+        "after": {
+          "selectBoxActive": false,
+          "selectedPlates": [],
+          "editing": false
+        },
+        "dblclickEditing": true
+      }
+    },
+    {
+      "name": "§3 台本: 再生中の行（.active）の目印",
+      "pass": true,
+      "detail": {
+        "classes": "akari-daihon-row active",
+        "borderLeftWidth": "3px",
+        "borderLeftColor": "rgba(0, 0, 0, 0)",
+        "borderLeftStyle": "solid",
+        "borderRadius": "5px",
+        "boxShadow": "none",
+        "background": "rgb(32, 43, 46)",
+        "outline": "none 0px rgb(229, 229, 229)",
+        "before": {
+          "content": "none",
+          "width": "auto",
+          "height": "auto",
+          "borderRadius": "0px",
+          "background": "rgba(0, 0, 0, 0)",
+          "left": "auto",
+          "top": "auto",
+          "bottom": "auto"
+        },
+        "after": {
+          "content": "none",
+          "width": "auto",
+          "height": "auto",
+          "borderRadius": "0px",
+          "background": "rgba(0, 0, 0, 0)",
+          "left": "auto",
+          "top": "auto",
+          "bottom": "auto"
+        }
+      }
+    },
+    {
+      "name": "§3 台本: 選択中かつ再生中（.selected.active）",
+      "pass": true,
+      "detail": {
+        "classes": "akari-daihon-row active selected",
+        "borderLeftWidth": "3px",
+        "borderLeftColor": "rgba(0, 0, 0, 0)",
+        "borderLeftStyle": "solid",
+        "borderRadius": "5px",
+        "boxShadow": "none",
+        "background": "rgb(32, 43, 46)",
+        "outline": "solid 1px rgb(245, 196, 81)",
+        "before": {
+          "content": "none",
+          "width": "auto",
+          "height": "auto",
+          "borderRadius": "0px",
+          "background": "rgba(0, 0, 0, 0)",
+          "left": "auto",
+          "top": "auto",
+          "bottom": "auto"
+        },
+        "after": {
+          "content": "none",
+          "width": "auto",
+          "height": "auto",
+          "borderRadius": "0px",
+          "background": "rgba(0, 0, 0, 0)",
+          "left": "auto",
+          "top": "auto",
+          "bottom": "auto"
+        }
+      }
+    },
+    {
+      "name": "§3 置いた文字のバー: 直線の棒（top/bottom 0・角丸 0・幅 4px）",
+      "pass": true,
+      "detail": {
+        "count": 8,
+        "bars": [
+          {
+            "row": "c-0001",
+            "id": "c-0102",
+            "classes": "akari-daihon-placed-bar first",
+            "top": "0px",
+            "bottom": "0px",
+            "width": "4px",
+            "borderRadius": "0px",
+            "boxShadow": "none",
+            "outline": "none",
+            "opacity": "0.9",
+            "filter": "none",
+            "background": "rgb(251, 146, 60)",
+            "insetTop": 0,
+            "insetBottom": 0,
+            "height": 67.95,
+            "rowHeight": 67.95
+          },
+          {
+            "row": "c-0002",
+            "id": "c-0102",
+            "classes": "akari-daihon-placed-bar last",
+            "top": "0px",
+            "bottom": "0px",
+            "width": "4px",
+            "borderRadius": "0px",
+            "boxShadow": "none",
+            "outline": "none",
+            "opacity": "0.9",
+            "filter": "none",
+            "background": "rgb(251, 146, 60)",
+            "insetTop": 0,
+            "insetBottom": 0,
+            "height": 67.95,
+            "rowHeight": 67.95
+          },
+          {
+            "row": "c-0002",
+            "id": "c-0103",
+            "classes": "akari-daihon-placed-bar first",
+            "top": "0px",
+            "bottom": "0px",
+            "width": "4px",
+            "borderRadius": "0px",
+            "boxShadow": "none",
+            "outline": "none",
+            "opacity": "0.9",
+            "filter": "none",
+            "background": "rgb(167, 139, 250)",
+            "insetTop": 0,
+            "insetBottom": 0,
+            "height": 67.95,
+            "rowHeight": 67.95
+          },
+          {
+            "row": "c-0003",
+            "id": "c-0103",
+            "classes": "akari-daihon-placed-bar last",
+            "top": "0px",
+            "bottom": "0px",
+            "width": "4px",
+            "borderRadius": "0px",
+            "boxShadow": "none",
+            "outline": "none",
+            "opacity": "0.9",
+            "filter": "none",
+            "background": "rgb(167, 139, 250)",
+            "insetTop": 0,
+            "insetBottom": 0,
+            "height": 67.95,
+            "rowHeight": 67.95
+          },
+          {
+            "row": "c-0004",
+            "id": "c-0106",
+            "classes": "akari-daihon-placed-bar first",
+            "top": "0px",
+            "bottom": "0px",
+            "width": "4px",
+            "borderRadius": "0px",
+            "boxShadow": "none",
+            "outline": "none",
+            "opacity": "0.9",
+            "filter": "none",
+            "background": "rgb(34, 211, 238)",
+            "insetTop": 0,
+            "insetBottom": 0,
+            "height": 67.95,
+            "rowHeight": 67.95
+          },
+          {
+            "row": "c-0005",
+            "id": "c-0106",
+            "classes": "akari-daihon-placed-bar last",
+            "top": "0px",
+            "bottom": "0px",
+            "width": "4px",
+            "borderRadius": "0px",
+            "boxShadow": "none",
+            "outline": "none",
+            "opacity": "0.9",
+            "filter": "none",
+            "background": "rgb(34, 211, 238)",
+            "insetTop": 0,
+            "insetBottom": 0,
+            "height": 67.95,
+            "rowHeight": 67.95
+          },
+          {
+            "row": "c-0005",
+            "id": "c-0107",
+            "classes": "akari-daihon-placed-bar first",
+            "top": "0px",
+            "bottom": "0px",
+            "width": "4px",
+            "borderRadius": "0px",
+            "boxShadow": "none",
+            "outline": "none",
+            "opacity": "0.9",
+            "filter": "none",
+            "background": "rgb(250, 204, 21)",
+            "insetTop": 0,
+            "insetBottom": 0,
+            "height": 67.95,
+            "rowHeight": 67.95
+          },
+          {
+            "row": "c-0006",
+            "id": "c-0107",
+            "classes": "akari-daihon-placed-bar last",
+            "top": "0px",
+            "bottom": "0px",
+            "width": "4px",
+            "borderRadius": "0px",
+            "boxShadow": "none",
+            "outline": "none",
+            "opacity": "0.9",
+            "filter": "none",
+            "background": "rgb(250, 204, 21)",
+            "insetTop": 0,
+            "insetBottom": 0,
+            "height": 67.95,
+            "rowHeight": 67.95
+          }
+        ]
+      }
+    },
+    {
+      "name": "§3 置いた文字のバー: 選択中も角丸・リングなし（太さか明るさで示す）",
+      "pass": true,
+      "detail": {
+        "selected": [
+          {
+            "row": "c-0002",
+            "id": "c-0103",
+            "classes": "akari-daihon-placed-bar selected first",
+            "top": "0px",
+            "bottom": "0px",
+            "width": "4px",
+            "borderRadius": "0px",
+            "boxShadow": "none",
+            "outline": "none",
+            "opacity": "1",
+            "filter": "brightness(1.3)",
+            "background": "rgb(167, 139, 250)",
+            "insetTop": 0,
+            "insetBottom": 0,
+            "height": 67.95,
+            "rowHeight": 67.95
+          },
+          {
+            "row": "c-0003",
+            "id": "c-0103",
+            "classes": "akari-daihon-placed-bar selected last",
+            "top": "0px",
+            "bottom": "0px",
+            "width": "4px",
+            "borderRadius": "0px",
+            "boxShadow": "none",
+            "outline": "none",
+            "opacity": "1",
+            "filter": "brightness(1.3)",
+            "background": "rgb(167, 139, 250)",
+            "insetTop": 0,
+            "insetBottom": 0,
+            "height": 67.95,
+            "rowHeight": 67.95
+          }
+        ],
+        "normalSample": {
+          "row": "c-0001",
+          "id": "c-0102",
+          "classes": "akari-daihon-placed-bar first",
+          "top": "0px",
+          "bottom": "0px",
+          "width": "4px",
+          "borderRadius": "0px",
+          "boxShadow": "none",
+          "outline": "none",
+          "opacity": "0.9",
+          "filter": "none",
+          "background": "rgb(251, 146, 60)",
+          "insetTop": 0,
+          "insetBottom": 0,
+          "height": 67.95,
+          "rowHeight": 67.95
+        }
+      }
+    },
+    {
+      "name": "§4 台本の「T この行から文字を置く」は従来どおり動く（10 本目を置く）",
+      "pass": true,
+      "detail": {
+        "selectedRows": [
+          "c-0008"
+        ],
+        "button": "T この行から文字を置く",
+        "added": {
+          "id": "c-0110",
+          "start": 28,
+          "end": 31.2,
+          "text": "テキストを入力",
+          "speaker": null,
+          "sourceRef": null,
+          "edited": true,
+          "time_domain": "output",
+          "text_style": {
+            "text_anchor": "mc",
+            "position": {
+              "x": 0.5,
+              "y": 0.5
+            }
+          }
+        },
+        "placedCount": 10
+      }
+    },
+    {
+      "name": "§5 置いた文字の色が 8 色以上で循環する（DOM の computed color）",
+      "pass": true,
+      "detail": {
+        "placed": 9,
+        "distinctColors": 8,
+        "colors": [
+          {
+            "id": "c-0102",
+            "bar": "rgb(251, 146, 60)",
+            "var": "#fb923c",
+            "tag": "rgb(251, 146, 60)|rgb(251, 146, 60)|color(srgb 0.984314 0.572549 0.235294 / 0.24)"
+          },
+          {
+            "id": "c-0101",
+            "tag": "rgb(56, 189, 248)|rgb(56, 189, 248)|color(srgb 0.219608 0.741176 0.972549 / 0.24)",
+            "var": "#38bdf8"
+          },
+          {
+            "id": "c-0103",
+            "bar": "rgb(167, 139, 250)",
+            "var": "#a78bfa",
+            "tag": "rgb(167, 139, 250)|rgb(167, 139, 250)|color(srgb 0.654902 0.545098 0.980392 / 0.24)"
+          },
+          {
+            "id": "c-0104",
+            "tag": "rgb(52, 211, 153)|rgb(52, 211, 153)|color(srgb 0.203922 0.827451 0.6 / 0.24)",
+            "var": "#34d399"
+          },
+          {
+            "id": "c-0106",
+            "bar": "rgb(34, 211, 238)",
+            "var": "#22d3ee",
+            "tag": "rgb(34, 211, 238)|rgb(34, 211, 238)|color(srgb 0.133333 0.827451 0.933333 / 0.24)"
+          },
+          {
+            "id": "c-0105",
+            "tag": "rgb(244, 114, 182)|rgb(244, 114, 182)|color(srgb 0.956863 0.447059 0.713726 / 0.24)",
+            "var": "#f472b6"
+          },
+          {
+            "id": "c-0107",
+            "bar": "rgb(250, 204, 21)",
+            "var": "#facc15",
+            "tag": "rgb(250, 204, 21)|rgb(250, 204, 21)|color(srgb 0.980392 0.8 0.0823529 / 0.24)"
+          },
+          {
+            "id": "c-0108",
+            "tag": "rgb(248, 113, 113)|rgb(248, 113, 113)|color(srgb 0.972549 0.443137 0.443137 / 0.24)",
+            "var": "#f87171"
+          },
+          {
+            "id": "c-0109",
+            "tag": "rgb(56, 189, 248)|rgb(56, 189, 248)|color(srgb 0.219608 0.741176 0.972549 / 0.24)",
+            "var": "#38bdf8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "§6 再読込後も最後に落とした位置に描かれる",
+      "pass": true,
+      "detail": {
+        "saved": {
+          "position": {
+            "x": 0.2163,
+            "y": 0.68
+          },
+          "text_anchor": "mc"
+        },
+        "rendered": {
+          "x": 0.3299,
+          "y": 0.68
+        },
+        "error": {
+          "x": -0.0001,
+          "y": 0
+        }
+      }
+    }
+  ],
+  "screenshots": [
+    "after-01-dblclick-editing.png",
+    "after-02-after-empty-click-editing.png",
+    "after-03-drag-3.png",
+    "after-04-daihon-active-selected.png",
+    "after-05-daihon-bar-selected.png",
+    "after-06-daihon-colors.png",
+    "after-07-reload.png"
+  ],
+  "previewWarnings": [
+    "2026-09-22T05:54:32.057Z root WARN [akari-preview] open attempt 1 failed; retrying file://<machine-path> Error: Timed out after 10000ms while opening file://<machine-path>",
+    "2026-09-22T05:54:42.072Z root ERROR [akari-preview] failed to open preview file://<machine-path> Error: Timed out after 10000ms while opening file://<machine-path>",
+    "2026-09-22T05:54:53.365Z root WARN [akari-preview] speech sidecar cut-base-speech: no audio stream: Stream map '' matches no streams. To ignore this, add a trailing '?' to the map. Failed to set value '0:a:0' for option 'map': Invalid argument Error parsing options for output file <machine-path>"
+  ],
+  "calibration": {
+    "sx": 1,
+    "sy": 1,
+    "dx": 57,
+    "dy": 39
+  },
+  "frame": {
+    "x": 36,
+    "y": 31.875,
+    "w": 450,
+    "h": 253.125
+  },
+  "emptyPoints": {
+    "insideFrame": {
+      "x": 90.08,
+      "y": 69.9,
+      "hit": "#preview-stage.",
+      "onPlate": false
+    },
+    "outsideFrame": {
+      "x": 374,
+      "y": 21.875,
+      "hit": "#zoom-layer.",
+      "onPlate": false
+    }
+  },
+  "drags": [
+    {
+      "target": "中央付近",
+      "drop": {
+        "x": 0.52,
+        "y": 0.46
+      },
+      "plateWidthRatio": 0.2273,
+      "saved": {
+        "position": {
+          "x": 0.4064,
+          "y": 0.46
+        },
+        "text_anchor": "mc"
+      },
+      "expectedSaved": {
+        "x": 0.4063,
+        "y": 0.46
+      },
+      "rendered": {
+        "x": 0.52,
+        "y": 0.46
+      },
+      "renderedError": {
+        "x": 0,
+        "y": 0
+      },
+      "savedError": {
+        "x": 0.0001,
+        "y": 0
+      }
+    },
+    {
+      "target": "左上",
+      "drop": {
+        "x": 0.16,
+        "y": 0.12
+      },
+      "plateWidthRatio": 0.2273,
+      "saved": {
+        "position": {
+          "x": 0.0464,
+          "y": 0.12
+        },
+        "text_anchor": "mc"
+      },
+      "expectedSaved": {
+        "x": 0.0463,
+        "y": 0.12
+      },
+      "rendered": {
+        "x": 0.16,
+        "y": 0.12
+      },
+      "renderedError": {
+        "x": 0,
+        "y": 0
+      },
+      "savedError": {
+        "x": 0.0001,
+        "y": 0
+      }
+    },
+    {
+      "target": "右端",
+      "drop": {
+        "x": 0.86,
+        "y": 0.5
+      },
+      "plateWidthRatio": 0.2273,
+      "saved": {
+        "position": {
+          "x": 0.7464,
+          "y": 0.5
+        },
+        "text_anchor": "mc"
+      },
+      "expectedSaved": {
+        "x": 0.7463,
+        "y": 0.5
+      },
+      "rendered": {
+        "x": 0.8601,
+        "y": 0.5
+      },
+      "renderedError": {
+        "x": 0.0001,
+        "y": 0
+      },
+      "savedError": {
+        "x": 0.0001,
+        "y": 0
+      }
+    },
+    {
+      "target": "下端付近",
+      "drop": {
+        "x": 0.14,
+        "y": 0.9
+      },
+      "plateWidthRatio": 0.1965,
+      "saved": {
+        "position": {
+          "x": 0.0417,
+          "y": 0.9
+        },
+        "text_anchor": "mc"
+      },
+      "expectedSaved": {
+        "x": 0.0417,
+        "y": 0.9
+      },
+      "rendered": {
+        "x": 0.14,
+        "y": 0.9
+      },
+      "renderedError": {
+        "x": 0,
+        "y": 0
+      },
+      "savedError": {
+        "x": 0,
+        "y": 0
+      }
+    },
+    {
+      "target": "任意",
+      "drop": {
+        "x": 0.33,
+        "y": 0.68
+      },
+      "plateWidthRatio": 0.2273,
+      "saved": {
+        "position": {
+          "x": 0.2163,
+          "y": 0.68
+        },
+        "text_anchor": "mc"
+      },
+      "expectedSaved": {
+        "x": 0.2163,
+        "y": 0.68
+      },
+      "rendered": {
+        "x": 0.33,
+        "y": 0.68
+      },
+      "renderedError": {
+        "x": 0,
+        "y": 0
+      },
+      "savedError": {
+        "x": 0,
+        "y": 0
+      }
+    }
+  ]
+}
