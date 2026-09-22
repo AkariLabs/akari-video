@@ -42,6 +42,8 @@
 
 置き場: 生成物は `assets/generated/<file>`、サイドカーは `assets/generated/<file>.meta.json`。実写や既存素材から生成するときも、**生成物の隣**に置く（元素材の隣ではない）。
 
+meta の無い静止画は、最初に下書きを書くときにシェルが `kind: still, status: done`（取り込み画像）の meta を新設する。動画・音声・html には新設しない。
+
 ```json
 {
   "version": 1,

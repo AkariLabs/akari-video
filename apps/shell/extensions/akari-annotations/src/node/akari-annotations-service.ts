@@ -480,6 +480,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         };
         if (!within(path, projectRoot)) throw new Error('素材はプロジェクト内で指定してください。');
         let original: string;
+        let imported = false;
         try {
             if (!within(await fs.realpath(path), await fs.realpath(projectRoot))) {
                 throw new Error('素材はプロジェクト内で指定してください。');
@@ -487,13 +488,39 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
             original = await fs.readFile(path, 'utf8');
         } catch (error) {
             if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
-            throw new Error('この画像には生成の記録がありません。`akari generate still` で作った仮枠か、空の枠で使えます');
+            if (!['.png', '.jpg', '.jpeg', '.webp'].includes(extname(source.path).toLowerCase())) {
+                throw new Error('この素材には生成の記録がありません。静止画か、空の枠で使えます。');
+            }
+            const canonicalRoot = await fs.realpath(projectRoot);
+            const imagePath = resolve(projectRoot, source.path);
+            if (!within(await fs.realpath(imagePath), canonicalRoot)
+                || !within(await fs.realpath(dirname(path)), canonicalRoot)) {
+                throw new Error('素材はプロジェクト内で指定してください。');
+            }
+            original = await this.importedImageGenerationMeta(imagePath, source.path, request.output?.duration_s);
+            imported = true;
         }
         const meta = JSON.parse(original);
         if (!meta || typeof meta !== 'object' || Array.isArray(meta)) throw new Error('素材の meta が不正です。');
+        const importedImage = imported || meta.provenance?.tool === 'akari shell (imported image)';
+        let inputs = request.inputs ?? {};
+        if (importedImage) {
+            inputs = { ...meta.inputs, ...inputs, prompt: inputs.prompt ?? '' };
+            const canonicalRoot = await fs.realpath(projectRoot);
+            const reference = async (value: any): Promise<any> => {
+                if (!value || value.sha256) return value;
+                const target = await fs.realpath(resolve(projectRoot, value.path));
+                if (!within(target, canonicalRoot)) throw new Error('素材はプロジェクト内で指定してください。');
+                return { ...value, sha256: createHash('sha256').update(await fs.readFile(target)).digest('hex') };
+            };
+            for (const slot of ['first_frame', 'last_frame', 'source_video']) inputs[slot] = await reference(inputs[slot]);
+            for (const slot of ['reference_images', 'reference_videos', 'reference_audios']) {
+                inputs[slot] = await Promise.all((inputs[slot] as unknown[]).map(reference));
+            }
+        }
         const next = JSON.stringify({
             kind: 'video', status: 'planned', model: { id: request.modelId },
-            inputs: request.inputs ?? {}, output: request.output ?? {}, updated_at: new Date().toISOString()
+            inputs, output: request.output ?? {}, updated_at: new Date().toISOString()
         });
         // Scan JSON tokens so every byte outside the top-level next value survives.
         // A stringify of the whole meta would change whitespace, escapes and numeric spellings.
@@ -521,12 +548,38 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         const closing = original.lastIndexOf('}');
         const content = start >= 0 ? original.slice(0, start) + next + original.slice(end)
             : original.slice(0, closing) + `${Object.keys(meta).length ? ',' : ''}"next":${next}` + original.slice(closing);
+        if (importedImage) {
+            const importEsm = new Function('specifier', 'return import(specifier)') as (specifier: string) => Promise<any>;
+            const validator = await importEsm(pathToFileURL(
+                await this.findGenerationAsset('packages/generate/src/cli/meta-validate.mjs')).toString());
+            const checked = validator.validateGenerationMeta(JSON.parse(content));
+            if (!checked.ok) throw new Error(checked.errors.join('\n'));
+        }
         const temp = `${path}.${process.pid}.${Date.now()}.${Math.random().toString(36).slice(2)}.tmp`;
         try {
             await fs.writeFile(temp, content, 'utf8');
             await fs.rename(temp, path);
         } finally { await fs.unlink(temp).catch(() => undefined); }
         return { ok: true, path: relative(projectRoot, path).split(sep).join('/') };
+    }
+
+    protected async importedImageGenerationMeta(imagePath: string, sourcePath: string, duration: unknown): Promise<string> {
+        const importEsm = new Function('specifier', 'return import(specifier)') as (specifier: string) => Promise<any>;
+        const metas = await importEsm(pathToFileURL(
+            await this.findGenerationAsset('packages/generate/src/cli/meta-still.mjs')).toString());
+        const at = new Date().toISOString();
+        const image = extname(imagePath).toLowerCase() === '.png' ? await metas.inspectPng(imagePath) : {
+            sha256: createHash('sha256').update(await fs.readFile(imagePath)).digest('hex'),
+            bytes: (await fs.stat(imagePath)).size
+        };
+        const meta = metas.doneStillMeta({ prompt: '', duration_s: duration, at, asOf: at.slice(0, 10),
+            path: sourcePath, image });
+        meta.model.id = 'none';
+        meta.job.provider = 'none';
+        meta.provenance = { created_at: at, tool: 'akari shell (imported image)' };
+        // JPEG/WebP dimensions are optional; do not claim an undefined resolution.
+        if (!image.width || !image.height) meta.output.resolution = null;
+        return JSON.stringify(meta, null, 2) + '\n';
     }
 
     async startGenerateVideo(request: StartGenerateVideoRequest): Promise<GenerationProcessResult> {

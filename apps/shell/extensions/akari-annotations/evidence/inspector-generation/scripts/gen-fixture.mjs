@@ -1,6 +1,7 @@
 #!/usr/bin/env node
+import { createHash } from 'node:crypto';
 import { spawn } from 'node:child_process';
-import { copyFile, mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
+import { copyFile, mkdir, readFile, rename, rm, symlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -38,7 +39,7 @@ await atomicJson(path.join(PROJECT, '.akari', 'connections.json'), {
   memory: []
 });
 
-for (const [name, color] of [['a', '#d6402b'], ['b', '#1f6f8b'], ['c', '#2e8b57']]) {
+for (const [name, color] of [['a', '#d6402b'], ['b', '#1f6f8b'], ['c', '#2e8b57'], ['plain', '#8257b8']]) {
   await run(FFMPEG, [
     '-hide_banner', '-loglevel', 'error', '-f', 'lavfi', '-i', `color=c=${color}:s=640x360`,
     '-frames:v', '1', path.join(PROJECT, 'assets', 'stills', `${name}.png`)
@@ -57,10 +58,32 @@ for (const name of ['a', 'b', 'c']) await atomicJson(path.join(PROJECT, 'assets'
 await atomicJson(path.join(PROJECT, 'captions.json'), { captions: [] });
 
 const edit = JSON.parse(await readFile(path.join(PROJECT, 'edit.json'), 'utf8'));
+edit.sources.push({ id: 'still-plain', path: 'assets/stills/plain.png' }, { id: 'video-plain', path: 'assets/recorded.mp4' });
+edit.tracks[0].items.push(
+  { id: 'clip-plain', at: 540, duration: 180, source: { kind: 'media', src: 'still-plain', in: 0, out: 6 } },
+  { id: 'clip-mp4', at: 720, duration: 180, source: { kind: 'media', src: 'video-plain', in: 0, out: 6 } }
+);
+await atomicJson(path.join(PROJECT, 'edit.json'), edit);
+await run(FFMPEG, ['-hide_banner', '-loglevel', 'error', '-f', 'lavfi', '-i', 'color=c=#264653:s=640x360:r=30',
+  '-t', '6', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', path.join(PROJECT, 'assets/recorded.mp4')], PROJECT);
+const movie = await readFile(path.join(PROJECT, 'assets/recorded.mp4'));
+// A failed regeneration on a video exposes the generation tab. Its sidecar points at an ordinary JSON
+// record so removing that target later tests a missing record without a watcher race.
+await atomicJson(path.join(PROJECT, 'assets/mp4-record.json'), {
+  version: 1, kind: 'video', status: 'failed',
+  result: { path: 'assets/recorded.mp4', sha256: createHash('sha256').update(movie).digest('hex'), bytes: movie.length, duration_s_actual: 6 },
+  next: { kind: 'video', status: 'planned', model: { id: 'fal:h3-i2v' },
+    inputs: { prompt: 'A quiet room.', negative_prompt: null, first_frame: null, last_frame: null,
+      reference_images: [], reference_videos: [], reference_audios: [], source_video: null, camera: null, seed: null, extra: {} },
+    output: { duration_s: 6, resolution: '768P', audio_out: true }, updated_at: new Date().toISOString() }
+});
+await symlink('mp4-record.json', path.join(PROJECT, 'assets/recorded.mp4.meta.json'));
 process.stdout.write(`${JSON.stringify({
   ok: true,
   project: 'evidence/inspector-generation/fixture/project',
   clips: edit.tracks?.[0]?.items?.map(item => item.id) ?? [],
   sidecars: ['a', 'b', 'c'].map(name => `assets/stills/${name}.png.meta.json`),
+  plainImage: 'assets/stills/plain.png',
+  videoRecord: 'assets/mp4-record.json',
   captions: true
 })}\n`);

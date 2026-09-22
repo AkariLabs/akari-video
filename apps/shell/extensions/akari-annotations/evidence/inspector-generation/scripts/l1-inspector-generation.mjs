@@ -7,6 +7,7 @@ import path from 'node:path';
 import os from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { setTimeout as sleep } from 'node:timers/promises';
+import { validateGenerationMeta } from '../../../../../../../packages/generate/src/cli/meta-validate.mjs';
 import { CDP, evalOn, listTargets, realClick, screenshot } from './cdp-lib.mjs';
 
 const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
@@ -202,17 +203,22 @@ e.value=o.value;e.dispatchEvent(new Event('change',{bubbles:true}));return{value
 }
 
 async function ensureActionVisible(cdp, selector) {
-  const visibility = await evalOn(cdp, `(async()=>{
+  let visibility;
+  for (let attempt = 1; attempt <= 5; attempt++) {
+    const measured = await evalOn(cdp, `(async()=>{
     const panel=document.querySelector('[data-akari-ui="panel:inspector"]');
     const button=panel?.querySelector(${S(selector)});
-    if(!panel||!button)throw new Error('Inspector action not found');
+    const rect=element=>{const r=element.getBoundingClientRect();return{left:r.left,top:r.top,right:r.right,bottom:r.bottom,width:r.width,height:r.height}};
+    const emptyRect={left:0,top:0,right:0,bottom:0,width:0,height:0};
+    if(!panel||!button)return{selector:${S(selector)},buttonRect:emptyRect,inspectorRect:panel?rect(panel):emptyRect,
+      visibleRect:emptyRect,connected:false,fullyVisible:false};
     button.scrollIntoView({block:'center',inline:'nearest',behavior:'instant'});
     await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
-    const rect=element=>{const r=element.getBoundingClientRect();return{left:r.left,top:r.top,right:r.right,bottom:r.bottom,width:r.width,height:r.height}};
     const buttonRect=rect(button), inspectorRect=rect(panel);
+    const connected=button.isConnected&&panel.isConnected&&panel.contains(button);
     const visibleRect={left:0,top:0,right:innerWidth,bottom:innerHeight};
     // Intersect client boxes, excluding borders and scrollbars, for every clipping ancestor.
-    for(let element=button.parentElement;element;element=element.parentElement){
+    for(let element=connected?button.parentElement:null;element;element=element.parentElement){
       const r=element.getBoundingClientRect(), style=getComputedStyle(element);
       if(element===panel||/auto|scroll|hidden|clip/.test(style.overflowX)){
         visibleRect.left=Math.max(visibleRect.left,r.left+element.clientLeft);
@@ -223,29 +229,43 @@ async function ensureActionVisible(cdp, selector) {
         visibleRect.bottom=Math.min(visibleRect.bottom,r.top+element.clientTop+element.clientHeight);
       }
     }
-    const fullyVisible=buttonRect.width>0&&buttonRect.height>0&&getComputedStyle(button).visibility==='visible'
+    const fullyVisible=connected&&buttonRect.width>0&&buttonRect.height>0&&getComputedStyle(button).visibility==='visible'
       &&buttonRect.left>=visibleRect.left&&buttonRect.right<=visibleRect.right
       &&buttonRect.top>=visibleRect.top&&buttonRect.bottom<=visibleRect.bottom;
-    return{selector:${S(selector)},buttonRect,inspectorRect,visibleRect,fullyVisible};
+    return{selector:${S(selector)},buttonRect,inspectorRect,visibleRect,connected,fullyVisible};
   })()`);
+    visibility = { ...measured, attempts: attempt };
+    if (measured.connected && measured.buttonRect.width > 0 && measured.buttonRect.height > 0) break;
+    if (attempt < 5) await sleep(120);
+  }
   assert(visibility.fullyVisible, `操作ボタンがインスペクターの可視範囲に収まらない: ${JSON.stringify(visibility)}`);
   return visibility;
 }
 
 async function measureStickyTabStrip(cdp) {
-  const measurement = await evalOn(cdp, `(async()=>{
+  let measurement;
+  for (let attempt = 1; attempt <= 5; attempt++) {
+    const measured = await evalOn(cdp, `(async()=>{
     const strip=document.querySelector('.akari-inspector-tab-strip');
-    if(!strip)throw new Error('Inspector tab strip not found');
+    if(!strip)return{scrollTop:0,scrollHeight:0,clientHeight:0,tabStripTop:0,containerTop:0,
+      topDifference:0,visible:false,connected:false,stripWidth:0,stripHeight:0};
     let container=strip.parentElement;
     while(container&&!/auto|scroll/.test(getComputedStyle(container).overflowY))container=container.parentElement;
-    if(!container)throw new Error('Inspector scroll container not found');
+    if(!container)return{scrollTop:0,scrollHeight:0,clientHeight:0,tabStripTop:0,containerTop:0,
+      topDifference:0,visible:false,connected:false,stripWidth:0,stripHeight:0};
     container.scrollTop=container.scrollHeight;
     await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
     const stripRect=strip.getBoundingClientRect(), containerRect=container.getBoundingClientRect();
+    const connected=strip.isConnected&&container.isConnected&&container.contains(strip);
     return{scrollTop:container.scrollTop,scrollHeight:container.scrollHeight,clientHeight:container.clientHeight,
       tabStripTop:stripRect.top,containerTop:containerRect.top,topDifference:Math.abs(stripRect.top-containerRect.top),
-      visible:stripRect.height>0&&stripRect.bottom<=containerRect.bottom};
+      visible:stripRect.height>0&&stripRect.bottom<=containerRect.bottom,connected,
+      stripWidth:stripRect.width,stripHeight:stripRect.height};
   })()`);
+    measurement = { ...measured, attempts: attempt };
+    if (measured.connected && measured.stripWidth > 0 && measured.stripHeight > 0) break;
+    if (attempt < 5) await sleep(120);
+  }
   out.r1 = { ...out.r1, stickyTabStrip: measurement };
   await save();
   assert(measurement.scrollTop > 0, 'タブ帯の検証でスクロールが発生していない');
@@ -291,17 +311,56 @@ const pickBand = `${materialScope} .akari-gen-pick-band`;
 const materialCard = name => `${materialScope} [data-akari-material-path="assets/stills/${name}.png"]`;
 
 async function clickElement(cdp, selector) {
-  const point = await evalOn(cdp, `(async()=>{
+  let point;
+  for (let attempt = 1; attempt <= 5; attempt++) {
+    const measured = await evalOn(cdp, `(async()=>{
     const element=document.querySelector(${S(selector)});
-    if(!element)throw new Error('Missing click target: '+${S(selector)});
+    if(!element)return{retry:true,reason:'Missing click target: '+${S(selector)}};
     element.scrollIntoView({block:'center',inline:'nearest',behavior:'instant'});
     await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
     const r=element.getBoundingClientRect();
+    if(!element.isConnected||!r.width||!r.height)return{retry:true,reason:'Click target obscured: '+${S(selector)}};
     const x=r.left+r.width/2,y=r.top+r.height/2;
-    if(!r.width||!r.height||!element.contains(document.elementFromPoint(x,y)))throw new Error('Click target obscured: '+${S(selector)});
+    if(!element.contains(document.elementFromPoint(x,y)))throw new Error('Click target obscured: '+${S(selector)});
     return{x,y};
   })()`);
+    if (!measured.retry) { point = measured; break; }
+    if (attempt === 5) throw new Error(measured.reason);
+    await sleep(120);
+  }
   await realClick(cdp, point.x, point.y); // CDP Input.dispatchMouseEvent, not DOM click().
+}
+
+async function selectGenerationTabForCut(cdp, { index, sourceId, label }) {
+  await waitEval(cdp, `document.querySelector('[data-akari-ui="timeline:cut:${index}"]')?.classList.contains('akari-annotations-selected')`,
+    { label: `${label} item 選択` });
+  const sourceRendered = `(()=>{const tab=document.querySelector('[data-akari-ui="tab:inspector-info"]');
+    const row=document.querySelector('[data-akari-ui="section:inspector-info"] [data-akari-field="src"] .akari-inspector-row-value');
+    return tab?.getAttribute('aria-selected')==='true'&&row?.textContent?.trim()===${S(sourceId)}})()`;
+  await waitEval(cdp, `Boolean(document.querySelector('[data-akari-ui="tab:inspector-info"]'))`,
+    { label: `${label} インスペクタータブ表示` });
+  let itemRenderAttempts = 0;
+  let itemRendered = false;
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    itemRenderAttempts = attempt;
+    await clickElement(cdp, '[data-akari-ui="tab:inspector-info"]');
+    itemRendered = await waitEval(cdp, sourceRendered,
+      { label: `${label} インスペクター描画`, timeoutMs: 2_000 }).then(() => true).catch(() => false);
+    if (itemRendered) break;
+  }
+  assert(itemRendered, `${label} のインスペクターに ${sourceId} が描画されない`);
+
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    const tabPoint = await waitEval(cdp, `(()=>{const tab=document.querySelector('[data-akari-ui="tab:inspector-generation"]');
+      if(!tab||tab.disabled)return null;const r=tab.getBoundingClientRect();
+      return r.width>0&&r.height>0?{x:r.left+r.width/2,y:r.top+r.height/2}:null})()`, { label: `${label} 生成タブ表示` });
+    await realClick(cdp, tabPoint.x, tabPoint.y);
+    const selected = await waitEval(cdp,
+      `document.querySelector('[data-akari-ui="tab:inspector-generation"]')?.getAttribute('aria-selected')==='true'`,
+      { label: `${label} 生成タブ選択`, timeoutMs: 2_000 }).then(() => true).catch(() => false);
+    if (selected) return { itemRenderAttempts, generationTabAttempts: attempt };
+  }
+  throw new Error(`${label} 生成タブ選択 not reached after 3 real clicks`);
 }
 
 async function measureFrames(cdp, pendingSlot) {
@@ -839,6 +898,109 @@ try {
       === JSON.stringify(referencesAfter.cards.map(card => [card.path, card.badge])), '再押下で参照または札が変化');
     const drafts = await assertCancellationDraftUnchanged(before);
     return { pending, cancelled, referencesBefore, referencesAfter, drafts };
+  });
+
+
+  await step('16. meta 無し PNG → 生成タブ → 指示文 → 動画にする → 費用承認（承認しない）', async () => {
+    const metaPath = path.join(PROJECT, 'assets/stills/plain.png.meta.json');
+    assert(!await stat(metaPath).then(() => true).catch(() => false), 'plain PNG に最初から meta がある');
+    const invocationBefore = await readFile(path.join(PROJECT, 'fake-invocation.json'), 'utf8');
+    await clickElement(cdp, '[data-akari-ui="timeline:cut:3"]');
+    await ensureInspectorVisible(cdp);
+    const tabSelection = await selectGenerationTabForCut(cdp, { index: 3, sourceId: 'still-plain', label: 'plain PNG' });
+    await ensureSection(cdp);
+    await waitEval(cdp, `Boolean(document.querySelector(${S(field('prompt'))}))`, { label: 'plain PNG 指示文' });
+    await clickElement(cdp, field('prompt'));
+    await cdp.send('Input.insertText', { text: 'A slow camera move across the room.' });
+    await cdp.send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13 });
+    await cdp.send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13 });
+    await waitEval(cdp, `document.querySelector(${S(field('prompt'))})?.value==='A slow camera move across the room.'&&!document.querySelector(${S(action('generate'))})?.disabled`, { label: 'plain PNG 下書き反映' });
+    await clickElement(cdp, action('generate'));
+    const dialog = await waitEval(cdp, `(()=>{const ds=[...document.querySelectorAll('.dialogBlock')].filter(e=>e.textContent.includes('費用承認'));return ds.length===1?{text:ds[0].textContent,count:ds.length}:null})()`, { label: 'plain PNG 費用承認' });
+    assert(dialog.text.includes('fal:h3-i2v') && /\$\d/.test(dialog.text), '費用承認のモデル・金額がない');
+    await screenshot(cdp, path.join(ROOT, '22-plain-image-cost-approval.png'));
+    out.screenshots.push('22-plain-image-cost-approval.png');
+    out.screenshotDetails.push({ name: '22-plain-image-cost-approval.png', dialog, sha256: createHash('sha256').update(await readFile(path.join(ROOT, '22-plain-image-cost-approval.png'))).digest('hex') });
+    const meta = JSON.parse(await readFile(metaPath, 'utf8'));
+    const validation = validateGenerationMeta(meta);
+    assert(validation.ok, `新設 meta schema: ${JSON.stringify(validation)}`);
+    assert(meta.kind === 'still' && meta.status === 'done' && meta.next?.kind === 'video' && meta.next?.status === 'planned', '取り込み画像の meta/next が不正');
+    assert(meta.next.inputs.prompt === 'A slow camera move across the room.', '指示文が meta に保存されていない');
+    const cancelPoint = await evalOn(cdp, `(()=>{const d=[...document.querySelectorAll('.dialogBlock')].find(e=>e.textContent.includes('費用承認'));const b=[...d.querySelectorAll('button')].find(e=>e.textContent.trim()==='キャンセル');if(!b)throw new Error('キャンセルなし');const r=b.getBoundingClientRect();return{x:r.left+r.width/2,y:r.top+r.height/2}})()`);
+    await realClick(cdp, cancelPoint.x, cancelPoint.y);
+    await waitEval(cdp, `![...document.querySelectorAll('.dialogBlock')].some(e=>e.textContent.includes('費用承認'))`, { label: '承認せず閉じる' });
+    assert(await readFile(path.join(PROJECT, 'fake-invocation.json'), 'utf8') === invocationBefore, 'キャンセル後に CLI が起動した');
+    return { initiallyMissing: true, tabSelection, dialog, approved: false, cliUnchanged: true, validation, meta };
+  });
+
+  await step('17. mp4 の記録消失 → 実クリック → ボタン直上の赤文言・スクロール・計算後スタイル', async () => {
+    await clickElement(cdp, '[data-akari-ui="timeline:cut:4"]');
+    await ensureInspectorVisible(cdp);
+    const tabSelection = await selectGenerationTabForCut(cdp, { index: 4, sourceId: 'video-plain', label: 'mp4' });
+    await ensureSection(cdp);
+    await waitEval(cdp, `document.querySelector(${S(field('prompt'))})?.value==='A quiet room.'&&!document.querySelector(${S(action('generate'))})?.disabled`, { label: 'mp4 item の生成下書き' });
+    // A normal MP4 has no generation tab. Simulate losing the generated MP4's
+    // sidecar target after it was opened, without replacing the UI or mocking RPC.
+    const invocationBefore = await readFile(path.join(PROJECT, 'fake-invocation.json'), 'utf8');
+    await rm(path.join(PROJECT, 'assets/mp4-record.json'));
+    await clickElement(cdp, action('generate'));
+    const errorSelector = '.akari-inspector-generation-action-error';
+    await waitEval(cdp, `document.querySelector(${S(errorSelector)})?.textContent.includes('この素材には生成の記録がありません')`, { label: 'mp4 ボタン直上のエラー' });
+    await sleep(4200); // Longer than showFieldNotice's four-second lifetime.
+    await shot(cdp, '23-mp4-inline-error.png', action('generate'));
+    const disclosureSelector = `${SECTION} > .akari-inspector-section-header > button.akari-inspector-section-toggle[aria-expanded]`;
+    const measurements = await evalOn(cdp, `(async()=>{
+      const error=document.querySelector(${S(errorSelector)}),button=document.querySelector(${S(action('generate'))});
+      if(!error||!button)throw new Error('エラーまたはボタンがない');
+      const rect=e=>{const r=e.getBoundingClientRect();return{left:r.left,right:r.right,top:r.top,bottom:r.bottom,width:r.width,height:r.height}};
+      const intersects=(a,b)=>a.left<b.right&&a.right>b.left&&a.top<b.bottom&&a.bottom>b.top;
+      const section=document.querySelector(${S(SECTION)});
+      const transparent=color=>color==='transparent'||/rgba\\([^)]*,\\s*0\\)/.test(color);
+      const disclosure=document.querySelector(${S(disclosureSelector)});
+      if(!disclosure)throw new Error('生成セクションの開閉見出しがない');
+      const disclosureStyle=getComputedStyle(disclosure);
+      const excludedDisclosure={text:disclosure.textContent,selector:${S(disclosureSelector)},
+        background:disclosureStyle.backgroundColor,
+        borders:['Top','Right','Bottom','Left'].map(side=>({width:disclosureStyle['border'+side+'Width'],style:disclosureStyle['border'+side+'Style'],color:disclosureStyle['border'+side+'Color']}))};
+      const controls=[...section.querySelectorAll('button,[role="button"]')].filter(e=>e!==disclosure&&!e.disabled&&e.getAttribute('aria-disabled')!=='true'&&e.getBoundingClientRect().height>0).map(e=>{
+        const s=getComputedStyle(e),background=s.backgroundColor;
+        const borders=['Top','Right','Bottom','Left'].map(side=>({width:s['border'+side+'Width'],style:s['border'+side+'Style'],color:s['border'+side+'Color']}));
+        return{text:e.textContent,rect:rect(e),background,borders,visibleSurface:!transparent(background)||borders.some(b=>parseFloat(b.width)>0&&!['none','hidden'].includes(b.style)&&!transparent(b.color))};
+      });
+      const textBadgePairs=[...section.querySelectorAll('.akari-inspector-generation-frame-hint,.akari-inspector-generation-frame-replace,.akari-inspector-generation-reference-badge')].flatMap(badge=>{
+        const siblings=[...badge.parentElement.children].filter(e=>e!==badge&&e.textContent.trim()&&e.tagName!=='IMG');
+        return siblings.map(text=>({text:text.textContent,badge:badge.textContent,textRect:rect(text),badgeRect:rect(badge),intersects:intersects(rect(text),rect(badge))}));
+      });
+      let scroller=button.parentElement;
+      while(scroller&&!/auto|scroll/.test(getComputedStyle(scroller).overflowY))scroller=scroller.parentElement;
+      if(!scroller)throw new Error('スクロール領域がない');
+      const positions=[];
+      for(const position of [0,scroller.scrollHeight]){
+        scroller.scrollTop=position;await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
+        const errorRect=rect(error),buttonRect=rect(button);
+        positions.push({scrollTop:scroller.scrollTop,errorRect,buttonRect,verticalGap:buttonRect.top-errorRect.bottom,intersects:intersects(errorRect,buttonRect)});
+      }
+      const probe=document.createElement('span');probe.style.color='var(--theia-errorForeground)';section.appendChild(probe);
+      const expectedErrorColor=getComputedStyle(probe).color;probe.remove();
+      return{text:error.textContent,role:error.getAttribute('role'),color:getComputedStyle(error).color,expectedErrorColor,positions,controls,excludedDisclosure,textBadgePairs};
+    })()`);
+    out.plainImageGeneration = { mp4Error: measurements }; await save();
+    assert(measurements.text.includes('この素材には生成の記録がありません'), '4秒後にエラーが消えた');
+    assert(measurements.color === measurements.expectedErrorColor, 'エラー色が generation-message と違う');
+    const rgb = measurements.color.match(/[\d.]+/g)?.map(Number);
+    assert(rgb?.length >= 3 && rgb[0] > rgb[1] && rgb[0] > rgb[2], 'エラー色が赤系でない');
+    assert(measurements.positions[0].scrollTop !== measurements.positions[1].scrollTop, 'スクロール位置が変わっていない');
+    assert(measurements.positions.every(p=>p.verticalGap>=0&&p.verticalGap<=40&&!p.intersects), 'スクロールでエラーとボタンが離れた/交差した');
+    assert(measurements.controls.length>0&&measurements.controls.every(c=>c.visibleSurface), '押せるものに背景/枠線がない');
+    assert(measurements.textBadgePairs.length>0&&measurements.textBadgePairs.every(p=>!p.intersects), '文字と札が交差している');
+    assert(!await stat(path.join(PROJECT, 'assets/recorded.mp4.meta.json')).then(()=>true).catch(()=>false), 'mp4 に meta を新設した');
+    await shot(cdp, '24-mp4-inline-error-scrolled.png', action('generate'), { scrollToBottom: true });
+    // Input clears the persistent error; do not blur/save another draft here.
+    await clickElement(cdp, field('prompt'));
+    await cdp.send('Input.insertText', { text: ' Changed.' });
+    await waitEval(cdp, `!document.querySelector(${S(errorSelector)})`, { label: '次の編集でエラー消失' });
+    assert(await readFile(path.join(PROJECT, 'fake-invocation.json'), 'utf8') === invocationBefore, 'mp4 エラー後に CLI が起動した');
+    return { missingSidecarTarget: true, tabSelection, retainedAfterMs: 4200, measurements, clearedOnEdit: true, cliUnchanged: true };
   });
 
   out.status = 'pass';

@@ -17,7 +17,7 @@
         ],
         "view": {
           "hidden": false,
-          "text": "▾ 生成モデルMiniMax H3 · $0.05/秒 · as_of 2026-09-12（fal:h3-i2v）MiniMax H3 · $0.05/秒 · as_of 2026-09-22（fal:h3-ref）Kling Video v3 Standard · 見積不可 · as_of 2026-09-12（fal:kling-v3-standard-i2v）Kling Video v3 Pro · $0.112/秒 · as_of 2026-09-12（fal:kling-v3-pro-i2v）Veo 3.1 · $0.2/秒 · as_of 2026-09-12（fal:veo-3.1-flf）Veo 3.1 · $0.2/秒 · as_of 2026-09-12（fal:veo-3.1-ref）Seedance 2.0 · $0.3034/秒 · as_of 2026-09-12（fal:seedance-2.0-i2v）Seedance 2.0 · $0.3034/秒 · as_of 2026-09-12（fal:seedance-2.0-ref）Seedance 2.5 · 見積不可 · as_of 2026-09-12（fal:seedance-2.5-i2v）Wan 2.7 · $0.1/秒 · as_of 2026-09-12（fal:wan-2.7-i2v）Grok Imagine Video · 見積不可 · as_of 2026-09-12（fal:grok-imagine-i2v）Vidu Q3 · 見積不可 · as_of 2026-09-12（fal:vidu-q3-i2v）指示文（prompt）最初 / 最後参照MiniMax H3 は同時に使えません。切り替えても中身は残り、送るのは選んだ方だけです。最初の絵差し替えこのクリップの絵外す最後の絵差し替え次のクリップの最初外す種類最初→最後送る絵は素材のまま（色・サイズは送りません）カメラの動きなし寄る引く左へ振る右へ振る追いかける固定長さ6 秒（cuts）解像度480P768P2K4K音声常に付く・既定は消音詳細シード（seed）隣から取る見積$0.36（as_of 2026-09-12）動画にする",
+          "text": "▾ 生成モデルMiniMax H3 · $0.05/秒 · as_of 2026-09-12（fal:h3-i2v）MiniMax H3 · $0.05/秒 · as_of 2026-09-22（fal:h3-ref）Kling Video v3 Standard · 見積不可 · as_of 2026-09-12（fal:kling-v3-standard-i2v）Kling Video v3 Pro · $0.112/秒 · as_of 2026-09-12（fal:kling-v3-pro-i2v）Veo 3.1 · $0.2/秒 · as_of 2026-09-12（fal:veo-3.1-flf）Veo 3.1 · $0.2/秒 · as_of 2026-09-12（fal:veo-3.1-ref）Seedance 2.0 · $0.3034/秒 · as_of 2026-09-12（fal:seedance-2.0-i2v）Seedance 2.0 · $0.3034/秒 · as_of 2026-09-12（fal:seedance-2.0-ref）Seedance 2.5 · 見積不可 · as_of 2026-09-12（fal:seedance-2.5-i2v）Wan 2.7 · $0.1/秒 · as_of 2026-09-12（fal:wan-2.7-i2v）Grok Imagine Video · 見積不可 · as_of 2026-09-12（fal:grok-imagine-i2v）Vidu Q3 · 見積不可 · as_of 2026-09-12（fal:vidu-q3-i2v）指示文（prompt）最初 / 最後参照MiniMax H3 は同時に使えません。切り替えても中身は残り、送るのは選んだ方だけです。最初の絵差し替えこのクリップの絵外す最後の絵差し替え次のクリップの最初外す種類最初→最後送る絵は素材のまま（色・サイズは送りません）カメラの動きなし寄る引く左へ振る右へ振る追いかける固定長さ6 秒（cuts）解像度480P768P2K4K下書き（安い・$0.05/秒）· あとで本番の画質にできる音声常に付く・既定は消音詳細シード（seed）隣から取る見積$0.36（as_of 2026-09-12）動画にする",
           "rows": [
             {
               "label": "モデル",
@@ -88,7 +88,7 @@
       "pass": true,
       "detail": {
         "hidden": false,
-        "text": "▾ 生成モデルMiniMax H3 · $0.05/秒 · as_of 2026-09-12（fal:h3-i2v）MiniMax H3 · $0.05/秒 · as_of 2026-09-22（fal:h3-ref）Kling Video v3 Standard · 見積不可 · as_of 2026-09-12（fal:kling-v3-standard-i2v）Kling Video v3 Pro · $0.112/秒 · as_of 2026-09-12（fal:kling-v3-pro-i2v）Veo 3.1 · $0.2/秒 · as_of 2026-09-12（fal:veo-3.1-flf）Veo 3.1 · $0.2/秒 · as_of 2026-09-12（fal:veo-3.1-ref）Seedance 2.0 · $0.3034/秒 · as_of 2026-09-12（fal:seedance-2.0-i2v）Seedance 2.0 · $0.3034/秒 · as_of 2026-09-12（fal:seedance-2.0-ref）Seedance 2.5 · 見積不可 · as_of 2026-09-12（fal:seedance-2.5-i2v）Wan 2.7 · $0.1/秒 · as_of 2026-09-12（fal:wan-2.7-i2v）Grok Imagine Video · 見積不可 · as_of 2026-09-12（fal:grok-imagine-i2v）Vidu Q3 · 見積不可 · as_of 2026-09-12（fal:vidu-q3-i2v）指示文（prompt）最初 / 最後参照MiniMax H3 は同時に使えません。切り替えても中身は残り、送るのは選んだ方だけです。最初の絵＋ 画像を選ぶ空なら入れなくてよいこのクリップの絵最後の絵＋ 画像を選ぶ空なら入れなくてよい次のクリップの最初種類プロンプトだけ送る絵は素材のまま（色・サイズは送りません）カメラの動きなし寄る引く左へ振る右へ振る追いかける固定長さ6 秒（cuts）解像度480P768P2K4K音声常に付く・既定は消音詳細シード（seed）隣から取る見積$0.36（as_of 2026-09-12）動画にする",
+        "text": "▾ 生成モデルMiniMax H3 · $0.05/秒 · as_of 2026-09-12（fal:h3-i2v）MiniMax H3 · $0.05/秒 · as_of 2026-09-22（fal:h3-ref）Kling Video v3 Standard · 見積不可 · as_of 2026-09-12（fal:kling-v3-standard-i2v）Kling Video v3 Pro · $0.112/秒 · as_of 2026-09-12（fal:kling-v3-pro-i2v）Veo 3.1 · $0.2/秒 · as_of 2026-09-12（fal:veo-3.1-flf）Veo 3.1 · $0.2/秒 · as_of 2026-09-12（fal:veo-3.1-ref）Seedance 2.0 · $0.3034/秒 · as_of 2026-09-12（fal:seedance-2.0-i2v）Seedance 2.0 · $0.3034/秒 · as_of 2026-09-12（fal:seedance-2.0-ref）Seedance 2.5 · 見積不可 · as_of 2026-09-12（fal:seedance-2.5-i2v）Wan 2.7 · $0.1/秒 · as_of 2026-09-12（fal:wan-2.7-i2v）Grok Imagine Video · 見積不可 · as_of 2026-09-12（fal:grok-imagine-i2v）Vidu Q3 · 見積不可 · as_of 2026-09-12（fal:vidu-q3-i2v）指示文（prompt）最初 / 最後参照MiniMax H3 は同時に使えません。切り替えても中身は残り、送るのは選んだ方だけです。最初の絵＋ 画像を選ぶ空なら入れなくてよいこのクリップの絵最後の絵＋ 画像を選ぶ空なら入れなくてよい次のクリップの最初種類プロンプトだけ送る絵は素材のまま（色・サイズは送りません）カメラの動きなし寄る引く左へ振る右へ振る追いかける固定長さ6 秒（cuts）解像度480P768P2K4K下書き（安い・$0.05/秒）· あとで本番の画質にできる音声常に付く・既定は消音詳細シード（seed）隣から取る見積$0.36（as_of 2026-09-12）動画にする",
         "rows": [
           {
             "label": "モデル",
@@ -183,7 +183,9 @@
             "right": 1057,
             "bottom": 642
           },
-          "fullyVisible": true
+          "connected": true,
+          "fullyVisible": true,
+          "attempts": 1
         }
       }
     },
@@ -220,7 +222,7 @@
             "resolution": "768P",
             "audio_out": true
           },
-          "updated_at": "2026-09-21T18:50:54.962Z"
+          "updated_at": "2026-09-22T21:34:50.784Z"
         }
       }
     },
@@ -253,7 +255,9 @@
             "right": 1057,
             "bottom": 642
           },
-          "fullyVisible": true
+          "connected": true,
+          "fullyVisible": true,
+          "attempts": 1
         }
       }
     },
@@ -262,12 +266,12 @@
       "pass": true,
       "detail": {
         "before": {
-          "edit": 1790016573180.073,
-          "captions": 1790016575007.6206
+          "edit": 1790112816717.492,
+          "captions": 1790112816716.6987
         },
         "after": {
-          "edit": 1790016573180.073,
-          "captions": 1790016575007.6206
+          "edit": 1790112816717.492,
+          "captions": 1790112816716.6987
         }
       }
     },
@@ -1026,8 +1030,8 @@
         ],
         "metaUnchanged": true,
         "mtimesAfter": {
-          "edit": 1790016573180.073,
-          "captions": 1790016575007.6206
+          "edit": 1790112816717.492,
+          "captions": 1790112816716.6987
         }
       }
     },
@@ -1060,7 +1064,7 @@
             "resolution": "768P",
             "audio_out": true
           },
-          "updated_at": "2026-09-21T18:51:10.897Z"
+          "updated_at": "2026-09-22T21:35:06.038Z"
         },
         "measurements": {
           "cards": [],
@@ -1158,7 +1162,7 @@
             "resolution": "768P",
             "audio_out": true
           },
-          "updated_at": "2026-09-21T18:51:14.163Z"
+          "updated_at": "2026-09-22T21:35:09.360Z"
         },
         "measurements": {
           "cards": [
@@ -1361,7 +1365,7 @@
             "resolution": "768P",
             "audio_out": true
           },
-          "updated_at": "2026-09-21T18:51:14.793Z"
+          "updated_at": "2026-09-22T21:35:09.957Z"
         },
         "frames": [
           {
@@ -1499,7 +1503,7 @@
             "resolution": "768P",
             "audio_out": true
           },
-          "updated_at": "2026-09-21T18:51:15.413Z"
+          "updated_at": "2026-09-22T21:35:10.538Z"
         },
         "measurements": {
           "cards": [
@@ -1665,12 +1669,12 @@
           "frames": 0
         },
         "mtimesBefore": {
-          "edit": 1790016573180.073,
-          "captions": 1790016575007.6206
+          "edit": 1790112816717.492,
+          "captions": 1790112816716.6987
         },
         "after": {
-          "edit": 1790016573180.073,
-          "captions": 1790016575007.6206
+          "edit": 1790112816717.492,
+          "captions": 1790112816716.6987
         }
       }
     },
@@ -2036,15 +2040,15 @@
             "assets/stills/a.png.meta.json": {
               "beforeBytes": 614,
               "afterBytes": 614,
-              "beforeSha256": "4eadacbd54e4a4918f1e67e064eebfe8491793a320bd744bace60f2db4d27944",
-              "afterSha256": "4eadacbd54e4a4918f1e67e064eebfe8491793a320bd744bace60f2db4d27944",
+              "beforeSha256": "6c0f374cfff1a7919ea14a3b942e05be5439fc4fecc22dad5208e3cea469f050",
+              "afterSha256": "6c0f374cfff1a7919ea14a3b942e05be5439fc4fecc22dad5208e3cea469f050",
               "bytesUnchanged": true
             },
             "edit.json": {
-              "beforeBytes": 782,
-              "afterBytes": 782,
-              "beforeSha256": "30f229e0d3cb5e2bc1fdff3566a22ac984155a659d929ef4d9bb94dc4a2e583a",
-              "afterSha256": "30f229e0d3cb5e2bc1fdff3566a22ac984155a659d929ef4d9bb94dc4a2e583a",
+              "beforeBytes": 1802,
+              "afterBytes": 1802,
+              "beforeSha256": "90aafe5a1882cc51ce4578677e22bacf999d62d5aba5ced38f3372cb50654a1d",
+              "afterSha256": "90aafe5a1882cc51ce4578677e22bacf999d62d5aba5ced38f3372cb50654a1d",
               "bytesUnchanged": true
             },
             "captions.json": {
@@ -2085,7 +2089,7 @@
               "resolution": "768P",
               "audio_out": true
             },
-            "updated_at": "2026-09-21T18:51:16.443Z"
+            "updated_at": "2026-09-22T21:35:11.606Z"
           },
           "nextAfter": {
             "kind": "video",
@@ -2117,7 +2121,7 @@
               "resolution": "768P",
               "audio_out": true
             },
-            "updated_at": "2026-09-21T18:51:16.443Z"
+            "updated_at": "2026-09-22T21:35:11.606Z"
           },
           "nextUnchanged": true
         }
@@ -2597,15 +2601,15 @@
             "assets/stills/a.png.meta.json": {
               "beforeBytes": 618,
               "afterBytes": 618,
-              "beforeSha256": "b366aabf04118fdf18d1782b712b9934c50f3179a5f34f8c2818bbac440913a2",
-              "afterSha256": "b366aabf04118fdf18d1782b712b9934c50f3179a5f34f8c2818bbac440913a2",
+              "beforeSha256": "7928e2a63e31cfddd1b6f566f5bc05d020c75086acd26130ac3ab3d8397f0033",
+              "afterSha256": "7928e2a63e31cfddd1b6f566f5bc05d020c75086acd26130ac3ab3d8397f0033",
               "bytesUnchanged": true
             },
             "edit.json": {
-              "beforeBytes": 782,
-              "afterBytes": 782,
-              "beforeSha256": "30f229e0d3cb5e2bc1fdff3566a22ac984155a659d929ef4d9bb94dc4a2e583a",
-              "afterSha256": "30f229e0d3cb5e2bc1fdff3566a22ac984155a659d929ef4d9bb94dc4a2e583a",
+              "beforeBytes": 1802,
+              "afterBytes": 1802,
+              "beforeSha256": "90aafe5a1882cc51ce4578677e22bacf999d62d5aba5ced38f3372cb50654a1d",
+              "afterSha256": "90aafe5a1882cc51ce4578677e22bacf999d62d5aba5ced38f3372cb50654a1d",
               "bytesUnchanged": true
             },
             "captions.json": {
@@ -2646,7 +2650,7 @@
               "resolution": "768P",
               "audio_out": true
             },
-            "updated_at": "2026-09-21T18:51:20.594Z"
+            "updated_at": "2026-09-22T21:35:15.751Z"
           },
           "nextAfter": {
             "kind": "video",
@@ -2678,10 +2682,819 @@
               "resolution": "768P",
               "audio_out": true
             },
-            "updated_at": "2026-09-21T18:51:20.594Z"
+            "updated_at": "2026-09-22T21:35:15.751Z"
           },
           "nextUnchanged": true
         }
+      }
+    },
+    {
+      "name": "16. meta 無し PNG → 生成タブ → 指示文 → 動画にする → 費用承認（承認しない）",
+      "pass": true,
+      "detail": {
+        "initiallyMissing": true,
+        "tabSelection": {
+          "itemRenderAttempts": 1,
+          "generationTabAttempts": 1
+        },
+        "dialog": {
+          "text": "費用承認$0.30（as_of 2026-09-12）で fal:h3-i2v に送ります。費用承認しますかキャンセル費用承認する",
+          "count": 1
+        },
+        "approved": false,
+        "cliUnchanged": true,
+        "validation": {
+          "ok": true,
+          "errors": []
+        },
+        "meta": {
+          "version": 1,
+          "kind": "still",
+          "status": "done",
+          "model": {
+            "id": "none",
+            "as_of": "2026-09-22"
+          },
+          "inputs": {
+            "prompt": "",
+            "negative_prompt": null,
+            "first_frame": null,
+            "last_frame": null,
+            "reference_images": [],
+            "reference_videos": [],
+            "reference_audios": [],
+            "source_video": null,
+            "mode": null,
+            "camera": null,
+            "seed": null,
+            "extra": {}
+          },
+          "output": {
+            "duration_s": 6,
+            "resolution": "640x360",
+            "aspect": null,
+            "audio_out": null
+          },
+          "cost": {
+            "estimate_usd": 0,
+            "actual_usd": null,
+            "unit": "usd_per_image",
+            "source": "estimate"
+          },
+          "job": {
+            "provider": "none",
+            "started_at": "2026-09-22T21:35:20.307Z",
+            "stale_after_s": 900
+          },
+          "provenance": {
+            "created_at": "2026-09-22T21:35:20.307Z",
+            "tool": "akari shell (imported image)"
+          },
+          "history": [
+            {
+              "at": "2026-09-22T21:35:20.307Z",
+              "status": "done",
+              "reason": null
+            }
+          ],
+          "result": {
+            "path": "assets/stills/plain.png",
+            "sha256": "2db812cb4ac6eda33e0ddfd7b2ab857df451fec63e15efe721a6849c3f159278",
+            "bytes": 1507,
+            "duration_s_actual": 6,
+            "width": 640,
+            "height": 360
+          },
+          "next": {
+            "kind": "video",
+            "status": "planned",
+            "model": {
+              "id": "fal:h3-i2v"
+            },
+            "inputs": {
+              "prompt": "A slow camera move across the room.",
+              "negative_prompt": null,
+              "first_frame": {
+                "path": "assets/stills/plain.png",
+                "source_id": "still-plain",
+                "sha256": "2db812cb4ac6eda33e0ddfd7b2ab857df451fec63e15efe721a6849c3f159278"
+              },
+              "last_frame": null,
+              "reference_images": [],
+              "reference_videos": [],
+              "reference_audios": [],
+              "source_video": null,
+              "mode": null,
+              "camera": null,
+              "seed": null,
+              "extra": {},
+              "frames_or_refs": "frames"
+            },
+            "output": {
+              "duration_s": 6,
+              "resolution": "480P",
+              "audio_out": true
+            },
+            "updated_at": "2026-09-22T21:35:20.406Z"
+          }
+        }
+      }
+    },
+    {
+      "name": "17. mp4 の記録消失 → 実クリック → ボタン直上の赤文言・スクロール・計算後スタイル",
+      "pass": true,
+      "detail": {
+        "missingSidecarTarget": true,
+        "tabSelection": {
+          "itemRenderAttempts": 1,
+          "generationTabAttempts": 1
+        },
+        "retainedAfterMs": 4200,
+        "measurements": {
+          "text": "この素材には生成の記録がありません。静止画か、空の枠で使えます。",
+          "role": "alert",
+          "color": "rgb(244, 135, 113)",
+          "expectedErrorColor": "rgb(244, 135, 113)",
+          "positions": [
+            {
+              "scrollTop": 0,
+              "errorRect": {
+                "left": 645,
+                "right": 1047,
+                "top": 835.5,
+                "bottom": 874.5,
+                "width": 402,
+                "height": 39
+              },
+              "buttonRect": {
+                "left": 964.3515625,
+                "right": 1051.3515625,
+                "top": 900.75,
+                "bottom": 932.25,
+                "width": 87,
+                "height": 31.5
+              },
+              "verticalGap": 26.25,
+              "intersects": false
+            },
+            {
+              "scrollTop": 327.5,
+              "errorRect": {
+                "left": 645,
+                "right": 1047,
+                "top": 508,
+                "bottom": 547,
+                "width": 402,
+                "height": 39
+              },
+              "buttonRect": {
+                "left": 964.3515625,
+                "right": 1051.3515625,
+                "top": 573.25,
+                "bottom": 604.75,
+                "width": 87,
+                "height": 31.5
+              },
+              "verticalGap": 26.25,
+              "intersects": false
+            }
+          ],
+          "controls": [
+            {
+              "text": "最初 / 最後",
+              "rect": {
+                "left": 645,
+                "right": 726.046875,
+                "top": -118,
+                "bottom": -90.5,
+                "width": 81.046875,
+                "height": 27.5
+              },
+              "background": "rgb(249, 115, 22)",
+              "borders": [
+                {
+                  "width": "1px",
+                  "style": "solid",
+                  "color": "rgb(251, 146, 60)"
+                },
+                {
+                  "width": "1px",
+                  "style": "solid",
+                  "color": "rgb(251, 146, 60)"
+                },
+                {
+                  "width": "1px",
+                  "style": "solid",
+                  "color": "rgb(251, 146, 60)"
+                },
+                {
+                  "width": "1px",
+                  "style": "solid",
+                  "color": "rgb(251, 146, 60)"
+                }
+              ],
+              "visibleSurface": true
+            },
+            {
+              "text": "参照",
+              "rect": {
+                "left": 729.046875,
+                "right": 773.046875,
+                "top": -118,
+                "bottom": -90.5,
+                "width": 44,
+                "height": 27.5
+              },
+              "background": "rgb(20, 20, 20)",
+              "borders": [
+                {
+                  "width": "1px",
+                  "style": "solid",
+                  "color": "rgb(27, 27, 27)"
+                },
+                {
+                  "width": "1px",
+                  "style": "solid",
+                  "color": "rgb(27, 27, 27)"
+                },
+                {
+                  "width": "1px",
+                  "style": "solid",
+                  "color": "rgb(27, 27, 27)"
+                },
+                {
+                  "width": "1px",
+                  "style": "solid",
+                  "color": "rgb(27, 27, 27)"
+                }
+              ],
+              "visibleSurface": true
+            },
+            {
+              "text": "＋ 画像を選ぶ空なら入れなくてよい",
+              "rect": {
+                "left": 645,
+                "right": 841,
+                "top": -1,
+                "bottom": 95,
+                "width": 196,
+                "height": 96
+              },
+              "background": "rgba(167, 139, 250, 0.08)",
+              "borders": [
+                {
+                  "width": "1px",
+                  "style": "solid",
+                  "color": "rgb(167, 139, 250)"
+                },
+                {
+                  "width": "1px",
+                  "style": "solid",
+                  "color": "rgb(167, 139, 250)"
+                },
+                {
+                  "width": "1px",
+                  "style": "solid",
+                  "color": "rgb(167, 139, 250)"
+                },
+                {
+                  "width": "1px",
+                  "style": "solid",
+                  "color": "rgb(167, 139, 250)"
+                }
+              ],
+              "visibleSurface": true
+            },
+            {
+              "text": "このクリップの絵",
+              "rect": {
+                "left": 645,
+                "right": 770.2265625,
+                "top": 106,
+                "bottom": 137.5,
+                "width": 125.2265625,
+                "height": 31.5
+              },
+              "background": "rgb(20, 20, 20)",
+              "borders": [
+                {
+                  "width": "1px",
+                  "style": "solid",
+                  "color": "rgb(27, 27, 27)"
+                },
+                {
+                  "width": "1px",
+                  "style": "solid",
+                  "color": "rgb(27, 27, 27)"
+                },
+                {
+                  "width": "1px",
+                  "style": "solid",
+                  "color": "rgb(27, 27, 27)"
+                },
+                {
+                  "width": "1px",
+                  "style": "solid",
+                  "color": "rgb(27, 27, 27)"
+                }
+              ],
+              "visibleSurface": true
+            },
+            {
+              "text": "前のクリップの最後のコマ",
+              "rect": {
+                "left": 645,
+                "right": 822.2265625,
+                "top": 140.5,
+                "bottom": 172,
+                "width": 177.2265625,
+                "height": 31.5
+              },
+              "background": "rgb(20, 20, 20)",
+              "borders": [
+                {
+                  "width": "1px",
+                  "style": "solid",
+                  "color": "rgb(27, 27, 27)"
+                },
+                {
+                  "width": "1px",
+                  "style": "solid",
+                  "color": "rgb(27, 27, 27)"
+                },
+                {
+                  "width": "1px",
+                  "style": "solid",
+                  "color": "rgb(27, 27, 27)"
+                },
+                {
+                  "width": "1px",
+                  "style": "solid",
+                  "color": "rgb(27, 27, 27)"
+                }
+              ],
+              "visibleSurface": true
+            },
+            {
+              "text": "＋ 画像を選ぶ空なら入れなくてよい",
+              "rect": {
+                "left": 851,
+                "right": 1047,
+                "top": -1,
+                "bottom": 95,
+                "width": 196,
+                "height": 96
+              },
+              "background": "rgba(167, 139, 250, 0.08)",
+              "borders": [
+                {
+                  "width": "1px",
+                  "style": "solid",
+                  "color": "rgb(167, 139, 250)"
+                },
+                {
+                  "width": "1px",
+                  "style": "solid",
+                  "color": "rgb(167, 139, 250)"
+                },
+                {
+                  "width": "1px",
+                  "style": "solid",
+                  "color": "rgb(167, 139, 250)"
+                },
+                {
+                  "width": "1px",
+                  "style": "solid",
+                  "color": "rgb(167, 139, 250)"
+                }
+              ],
+              "visibleSurface": true
+            },
+            {
+              "text": "なし",
+              "rect": {
+                "left": 645,
+                "right": 689,
+                "top": 265.5,
+                "bottom": 293,
+                "width": 44,
+                "height": 27.5
+              },
+              "background": "rgb(249, 115, 22)",
+              "borders": [
+                {
+                  "width": "1px",
+                  "style": "solid",
+                  "color": "rgb(251, 146, 60)"
+                },
+                {
+                  "width": "1px",
+                  "style": "solid",
+                  "color": "rgb(251, 146, 60)"
+                },
+                {
+                  "width": "1px",
+                  "style": "solid",
+                  "color": "rgb(251, 146, 60)"
+                },
+                {
+                  "width": "1px",
+                  "style": "solid",
+                  "color": "rgb(251, 146, 60)"
+                }
+              ],
+              "visibleSurface": true
+            },
+            {
+              "text": "寄る",
+              "rect": {
+                "left": 692,
+                "right": 736,
+                "top": 265.5,
+                "bottom": 293,
+                "width": 44,
+                "height": 27.5
+              },
+              "background": "rgb(20, 20, 20)",
+              "borders": [
+                {
+                  "width": "1px",
+                  "style": "solid",
+                  "color": "rgb(27, 27, 27)"
+                },
+                {
+                  "width": "1px",
+                  "style": "solid",
+                  "color": "rgb(27, 27, 27)"
+                },
+                {
+                  "width": "1px",
+                  "style": "solid",
+                  "color": "rgb(27, 27, 27)"
+                },
+                {
+                  "width": "1px",
+                  "style": "solid",
+                  "color": "rgb(27, 27, 27)"
+                }
+              ],
+              "visibleSurface": true
+            },
+            {
+              "text": "引く",
+              "rect": {
+                "left": 739,
+                "right": 783,
+                "top": 265.5,
+                "bottom": 293,
+                "width": 44,
+                "height": 27.5
+              },
+              "background": "rgb(20, 20, 20)",
+              "borders": [
+                {
+                  "width": "1px",
+                  "style": "solid",
+                  "color": "rgb(27, 27, 27)"
+                },
+                {
+                  "width": "1px",
+                  "style": "solid",
+                  "color": "rgb(27, 27, 27)"
+                },
+                {
+                  "width": "1px",
+                  "style": "solid",
+                  "color": "rgb(27, 27, 27)"
+                },
+                {
+                  "width": "1px",
+                  "style": "solid",
+                  "color": "rgb(27, 27, 27)"
+                }
+              ],
+              "visibleSurface": true
+            },
+            {
+              "text": "左へ振る",
+              "rect": {
+                "left": 786,
+                "right": 856,
+                "top": 265.5,
+                "bottom": 293,
+                "width": 70,
+                "height": 27.5
+              },
+              "background": "rgb(20, 20, 20)",
+              "borders": [
+                {
+                  "width": "1px",
+                  "style": "solid",
+                  "color": "rgb(27, 27, 27)"
+                },
+                {
+                  "width": "1px",
+                  "style": "solid",
+                  "color": "rgb(27, 27, 27)"
+                },
+                {
+                  "width": "1px",
+                  "style": "solid",
+                  "color": "rgb(27, 27, 27)"
+                },
+                {
+                  "width": "1px",
+                  "style": "solid",
+                  "color": "rgb(27, 27, 27)"
+                }
+              ],
+              "visibleSurface": true
+            },
+            {
+              "text": "右へ振る",
+              "rect": {
+                "left": 859,
+                "right": 929,
+                "top": 265.5,
+                "bottom": 293,
+                "width": 70,
+                "height": 27.5
+              },
+              "background": "rgb(20, 20, 20)",
+              "borders": [
+                {
+                  "width": "1px",
+                  "style": "solid",
+                  "color": "rgb(27, 27, 27)"
+                },
+                {
+                  "width": "1px",
+                  "style": "solid",
+                  "color": "rgb(27, 27, 27)"
+                },
+                {
+                  "width": "1px",
+                  "style": "solid",
+                  "color": "rgb(27, 27, 27)"
+                },
+                {
+                  "width": "1px",
+                  "style": "solid",
+                  "color": "rgb(27, 27, 27)"
+                }
+              ],
+              "visibleSurface": true
+            },
+            {
+              "text": "追いかける",
+              "rect": {
+                "left": 932,
+                "right": 1014.6171875,
+                "top": 265.5,
+                "bottom": 293,
+                "width": 82.6171875,
+                "height": 27.5
+              },
+              "background": "rgb(20, 20, 20)",
+              "borders": [
+                {
+                  "width": "1px",
+                  "style": "solid",
+                  "color": "rgb(27, 27, 27)"
+                },
+                {
+                  "width": "1px",
+                  "style": "solid",
+                  "color": "rgb(27, 27, 27)"
+                },
+                {
+                  "width": "1px",
+                  "style": "solid",
+                  "color": "rgb(27, 27, 27)"
+                },
+                {
+                  "width": "1px",
+                  "style": "solid",
+                  "color": "rgb(27, 27, 27)"
+                }
+              ],
+              "visibleSurface": true
+            },
+            {
+              "text": "固定",
+              "rect": {
+                "left": 645,
+                "right": 689,
+                "top": 296,
+                "bottom": 323.5,
+                "width": 44,
+                "height": 27.5
+              },
+              "background": "rgb(20, 20, 20)",
+              "borders": [
+                {
+                  "width": "1px",
+                  "style": "solid",
+                  "color": "rgb(27, 27, 27)"
+                },
+                {
+                  "width": "1px",
+                  "style": "solid",
+                  "color": "rgb(27, 27, 27)"
+                },
+                {
+                  "width": "1px",
+                  "style": "solid",
+                  "color": "rgb(27, 27, 27)"
+                },
+                {
+                  "width": "1px",
+                  "style": "solid",
+                  "color": "rgb(27, 27, 27)"
+                }
+              ],
+              "visibleSurface": true
+            },
+            {
+              "text": "隣から取る",
+              "rect": {
+                "left": 645,
+                "right": 732,
+                "top": 573.25,
+                "bottom": 604.75,
+                "width": 87,
+                "height": 31.5
+              },
+              "background": "rgb(20, 20, 20)",
+              "borders": [
+                {
+                  "width": "1px",
+                  "style": "solid",
+                  "color": "rgb(27, 27, 27)"
+                },
+                {
+                  "width": "1px",
+                  "style": "solid",
+                  "color": "rgb(27, 27, 27)"
+                },
+                {
+                  "width": "1px",
+                  "style": "solid",
+                  "color": "rgb(27, 27, 27)"
+                },
+                {
+                  "width": "1px",
+                  "style": "solid",
+                  "color": "rgb(27, 27, 27)"
+                }
+              ],
+              "visibleSurface": true
+            },
+            {
+              "text": "同じ入力でもう一度",
+              "rect": {
+                "left": 819.3515625,
+                "right": 958.3515625,
+                "top": 573.25,
+                "bottom": 604.75,
+                "width": 139,
+                "height": 31.5
+              },
+              "background": "rgb(20, 20, 20)",
+              "borders": [
+                {
+                  "width": "1px",
+                  "style": "solid",
+                  "color": "rgb(27, 27, 27)"
+                },
+                {
+                  "width": "1px",
+                  "style": "solid",
+                  "color": "rgb(27, 27, 27)"
+                },
+                {
+                  "width": "1px",
+                  "style": "solid",
+                  "color": "rgb(27, 27, 27)"
+                },
+                {
+                  "width": "1px",
+                  "style": "solid",
+                  "color": "rgb(27, 27, 27)"
+                }
+              ],
+              "visibleSurface": true
+            },
+            {
+              "text": "動画にする",
+              "rect": {
+                "left": 964.3515625,
+                "right": 1051.3515625,
+                "top": 573.25,
+                "bottom": 604.75,
+                "width": 87,
+                "height": 31.5
+              },
+              "background": "rgb(249, 115, 22)",
+              "borders": [
+                {
+                  "width": "1px",
+                  "style": "solid",
+                  "color": "rgb(249, 115, 22)"
+                },
+                {
+                  "width": "1px",
+                  "style": "solid",
+                  "color": "rgb(249, 115, 22)"
+                },
+                {
+                  "width": "1px",
+                  "style": "solid",
+                  "color": "rgb(249, 115, 22)"
+                },
+                {
+                  "width": "1px",
+                  "style": "solid",
+                  "color": "rgb(249, 115, 22)"
+                }
+              ],
+              "visibleSurface": true
+            }
+          ],
+          "excludedDisclosure": {
+            "text": "▾ 生成",
+            "selector": "[data-akari-ui=\"section:inspector-generation\"] > .akari-inspector-section-header > button.akari-inspector-section-toggle[aria-expanded]",
+            "background": "rgba(0, 0, 0, 0)",
+            "borders": [
+              {
+                "width": "0px",
+                "style": "none",
+                "color": "rgb(204, 204, 204)"
+              },
+              {
+                "width": "0px",
+                "style": "none",
+                "color": "rgb(204, 204, 204)"
+              },
+              {
+                "width": "0px",
+                "style": "none",
+                "color": "rgb(204, 204, 204)"
+              },
+              {
+                "width": "0px",
+                "style": "none",
+                "color": "rgb(204, 204, 204)"
+              }
+            ]
+          },
+          "textBadgePairs": [
+            {
+              "text": "＋ 画像を選ぶ",
+              "badge": "空なら入れなくてよい",
+              "textRect": {
+                "left": 708.4140625,
+                "right": 777.578125,
+                "top": 29.75,
+                "bottom": 46.25,
+                "width": 69.1640625,
+                "height": 16.5
+              },
+              "badgeRect": {
+                "left": 693,
+                "right": 793,
+                "top": 49.25,
+                "bottom": 64.25,
+                "width": 100,
+                "height": 15
+              },
+              "intersects": false
+            },
+            {
+              "text": "＋ 画像を選ぶ",
+              "badge": "空なら入れなくてよい",
+              "textRect": {
+                "left": 914.4140625,
+                "right": 983.578125,
+                "top": 29.75,
+                "bottom": 46.25,
+                "width": 69.1640625,
+                "height": 16.5
+              },
+              "badgeRect": {
+                "left": 899,
+                "right": 999,
+                "top": 49.25,
+                "bottom": 64.25,
+                "width": 100,
+                "height": 15
+              },
+              "intersects": false
+            }
+          ]
+        },
+        "clearedOnEdit": true,
+        "cliUnchanged": true
       }
     }
   ],
@@ -2704,26 +3517,29 @@
     "18-frame-reclick-pending.png",
     "19-frame-reclick-cancelled.png",
     "20-reference-reclick-pending.png",
-    "21-reference-reclick-cancelled.png"
+    "21-reference-reclick-cancelled.png",
+    "22-plain-image-cost-approval.png",
+    "23-mp4-inline-error.png",
+    "24-mp4-inline-error-scrolled.png"
   ],
   "screenshotDetails": [
     {
       "name": "01-h3-first-to-last.png",
-      "sha256": "b42090795ed9726acad7fe0f646e517b3fda87f0216d62d1331f08d4f0b7eae1",
+      "sha256": "45fe929b792e0a5ebd30577bc3448a0a0221764e20818cbbedecc30273868038",
       "inspectorFront": true,
       "sectionVisible": true,
       "modelRow": "MiniMax H3 · $0.05/秒 · as_of 2026-09-12（fal:h3-i2v）"
     },
     {
       "name": "02-prompt-only.png",
-      "sha256": "dd9bf65fb3728a433e558e4ee115f2b1b1665b32ad904434bde09a6637186665",
+      "sha256": "fb0bf9c85d51f7371fd4dd2e3781e1f1c8b6ac75ebb0e87ef8e8cea699737a5e",
       "inspectorFront": true,
       "sectionVisible": true,
       "modelRow": "MiniMax H3 · $0.05/秒 · as_of 2026-09-12（fal:h3-i2v）"
     },
     {
       "name": "04-failed-retry.png",
-      "sha256": "f24b053ec60059e0d1422986f284b00c358c9dc496d42c9affa017f1790c14bb",
+      "sha256": "4e9bd4461e055c8edd9472d57e5a9fd8e55a00d112197f2cae8c7d152d269dad",
       "inspectorFront": true,
       "sectionVisible": true,
       "modelRow": "MiniMax H3 · $0.05/秒 · as_of 2026-09-12（fal:h3-i2v）",
@@ -2751,28 +3567,34 @@
           "right": 1057,
           "bottom": 642
         },
-        "fullyVisible": true
+        "connected": true,
+        "fullyVisible": true,
+        "attempts": 1
       }
     },
     {
       "name": "07-sticky-tab-strip.png",
-      "sha256": "fab0ea6c059858057131e24d68035a24c23cdb79cf51d3cb4a11de55874c5f08",
+      "sha256": "4e9bd4461e055c8edd9472d57e5a9fd8e55a00d112197f2cae8c7d152d269dad",
       "inspectorFront": true,
       "sectionVisible": true,
       "modelRow": "MiniMax H3 · $0.05/秒 · as_of 2026-09-12（fal:h3-i2v）",
       "stickyTabStrip": {
-        "scrollTop": 223.5,
-        "scrollHeight": 827,
+        "scrollTop": 249.5,
+        "scrollHeight": 853,
         "clientHeight": 603,
         "tabStripTop": 39,
         "containerTop": 39,
         "topDifference": 0,
-        "visible": true
+        "visible": true,
+        "connected": true,
+        "stripWidth": 402,
+        "stripHeight": 33.5,
+        "attempts": 1
       }
     },
     {
       "name": "08-frame-empty.png",
-      "sha256": "d032e123c1167bb19be34360431eb1f7959da168ee7a923756abddbe8c2784a5",
+      "sha256": "aa5891eb8c1fa2a881211ffde13fd8f502dfb6ec3e0a7d6d508a2ab2600504cb",
       "inspectorFront": true,
       "sectionVisible": true,
       "modelRow": "MiniMax H3 · $0.05/秒 · as_of 2026-09-12（fal:h3-i2v）",
@@ -2800,12 +3622,14 @@
           "right": 1057,
           "bottom": 642
         },
-        "fullyVisible": true
+        "connected": true,
+        "fullyVisible": true,
+        "attempts": 1
       }
     },
     {
       "name": "09-frame-picking.png",
-      "sha256": "8aa55e75466218074d90a8bd09ed06f7ca964536ffb6350bc765b779817ca2c1",
+      "sha256": "63682187cc3501bac2483badce1c754e5e6a04dead60fab6de0f6283bb06be1a",
       "inspectorFront": true,
       "sectionVisible": true,
       "modelRow": "MiniMax H3 · $0.05/秒 · as_of 2026-09-12（fal:h3-i2v）",
@@ -2833,12 +3657,14 @@
           "right": 1057,
           "bottom": 642
         },
-        "fullyVisible": true
+        "connected": true,
+        "fullyVisible": true,
+        "attempts": 1
       }
     },
     {
       "name": "10-frame-picked.png",
-      "sha256": "c9639f1f630d646de1d9b31de6cc3e12102586a473ac254846bc69a07214ad52",
+      "sha256": "6270d34c5d63a6b38be130969620ee91b1a99482c205d92d4cdd64c52776ee1d",
       "inspectorFront": true,
       "sectionVisible": true,
       "modelRow": "MiniMax H3 · $0.05/秒 · as_of 2026-09-12（fal:h3-i2v）",
@@ -2866,12 +3692,14 @@
           "right": 1057,
           "bottom": 642
         },
-        "fullyVisible": true
+        "connected": true,
+        "fullyVisible": true,
+        "attempts": 1
       }
     },
     {
       "name": "11-frame-replaced.png",
-      "sha256": "9be0cf0873481ea6698379ad37bd6aa223d36748003b2ac2ba8dfd3d6f2c7127",
+      "sha256": "7e6528e9333725355aec8f3ce15bc092cffd4560c6838e1976ea4820e0f66780",
       "inspectorFront": true,
       "sectionVisible": true,
       "modelRow": "MiniMax H3 · $0.05/秒 · as_of 2026-09-12（fal:h3-i2v）",
@@ -2899,12 +3727,14 @@
           "right": 1057,
           "bottom": 642
         },
-        "fullyVisible": true
+        "connected": true,
+        "fullyVisible": true,
+        "attempts": 1
       }
     },
     {
       "name": "12-frame-cancelled.png",
-      "sha256": "e4225331850ad227b26908d452a40328d0aa2982b4e98a71056a5f2ec9c396ce",
+      "sha256": "7e6528e9333725355aec8f3ce15bc092cffd4560c6838e1976ea4820e0f66780",
       "inspectorFront": true,
       "sectionVisible": true,
       "modelRow": "MiniMax H3 · $0.05/秒 · as_of 2026-09-12（fal:h3-i2v）",
@@ -2932,12 +3762,14 @@
           "right": 1057,
           "bottom": 642
         },
-        "fullyVisible": true
+        "connected": true,
+        "fullyVisible": true,
+        "attempts": 1
       }
     },
     {
       "name": "13-reference-empty.png",
-      "sha256": "bf70fc0e117898f63ec14651439620ffb4f3766b623966de109a3bd5f1f73300",
+      "sha256": "a6a345d6679238a938c9b8c9776adbd0b66410444e94d67a107ce04db3131e57",
       "inspectorFront": true,
       "sectionVisible": true,
       "modelRow": "MiniMax H3 · $0.05/秒 · as_of 2026-09-22（fal:h3-ref）",
@@ -2965,12 +3797,14 @@
           "right": 1057,
           "bottom": 642
         },
-        "fullyVisible": true
+        "connected": true,
+        "fullyVisible": true,
+        "attempts": 1
       }
     },
     {
       "name": "14-reference-picking-two.png",
-      "sha256": "71362daa59df9518a41c1e2c5a67cf8df4e47c4e688f22c8b5860cccd008e8ad",
+      "sha256": "ca60ecbae17398902da18f9e22cb6ce2e1e80033580cbd181da6b6319ea79559",
       "inspectorFront": true,
       "sectionVisible": true,
       "modelRow": "MiniMax H3 · $0.05/秒 · as_of 2026-09-22（fal:h3-ref）",
@@ -2998,12 +3832,14 @@
           "right": 1057,
           "bottom": 642
         },
-        "fullyVisible": true
+        "connected": true,
+        "fullyVisible": true,
+        "attempts": 1
       }
     },
     {
       "name": "15-reference-two.png",
-      "sha256": "6e37b272976157336c9bce3afbec77892c555cd93703d6cce1a00aba261c4b0a",
+      "sha256": "bdf77b0e7867ed4a7fff5959522dd195377c792ae3c279f94bdaff7a6299b969",
       "inspectorFront": true,
       "sectionVisible": true,
       "modelRow": "MiniMax H3 · $0.05/秒 · as_of 2026-09-22（fal:h3-ref）",
@@ -3031,12 +3867,14 @@
           "right": 1057,
           "bottom": 642
         },
-        "fullyVisible": true
+        "connected": true,
+        "fullyVisible": true,
+        "attempts": 1
       }
     },
     {
       "name": "16-reference-frames-restored.png",
-      "sha256": "07fe17b8a5c292f900324391a0e0fdbecd64f5e09abe248b87822411187c1e94",
+      "sha256": "365f9fc4b29b49a3b9562a073b9abcf7347c0953cd9dfd9110a6457f317af092",
       "inspectorFront": true,
       "sectionVisible": true,
       "modelRow": "MiniMax H3 · $0.05/秒 · as_of 2026-09-12（fal:h3-i2v）",
@@ -3064,12 +3902,14 @@
           "right": 1057,
           "bottom": 642
         },
-        "fullyVisible": true
+        "connected": true,
+        "fullyVisible": true,
+        "attempts": 1
       }
     },
     {
       "name": "17-reference-restored.png",
-      "sha256": "7ca2342da72ea7e3f9ea15269f1214689ea5556f498c87eb15b07ea7127c69ab",
+      "sha256": "bdf77b0e7867ed4a7fff5959522dd195377c792ae3c279f94bdaff7a6299b969",
       "inspectorFront": true,
       "sectionVisible": true,
       "modelRow": "MiniMax H3 · $0.05/秒 · as_of 2026-09-22（fal:h3-ref）",
@@ -3097,12 +3937,14 @@
           "right": 1057,
           "bottom": 642
         },
-        "fullyVisible": true
+        "connected": true,
+        "fullyVisible": true,
+        "attempts": 1
       }
     },
     {
       "name": "18-frame-reclick-pending.png",
-      "sha256": "5d18b8b88ae13c6bc299611bfe64b76526930cb843c67ba92e4f148ea68b2673",
+      "sha256": "c642afd475d4a2a52b3f0191bd36d0fca765160917b681dab1016b242af50f4c",
       "inspectorFront": true,
       "sectionVisible": true,
       "modelRow": "MiniMax H3 · $0.05/秒 · as_of 2026-09-12（fal:h3-i2v）",
@@ -3130,12 +3972,14 @@
           "right": 1057,
           "bottom": 642
         },
-        "fullyVisible": true
+        "connected": true,
+        "fullyVisible": true,
+        "attempts": 1
       }
     },
     {
       "name": "19-frame-reclick-cancelled.png",
-      "sha256": "d6d99ead01c182d3135a1ea517ae3c98ced0521ed787ca85f38a1c06adb05de1",
+      "sha256": "1ab10cbfc6c42856cf0d81c7a94aa24c97ae9b6fb8b4b7d4ddbe18b602d00ca8",
       "inspectorFront": true,
       "sectionVisible": true,
       "modelRow": "MiniMax H3 · $0.05/秒 · as_of 2026-09-12（fal:h3-i2v）",
@@ -3163,12 +4007,14 @@
           "right": 1057,
           "bottom": 642
         },
-        "fullyVisible": true
+        "connected": true,
+        "fullyVisible": true,
+        "attempts": 1
       }
     },
     {
       "name": "20-reference-reclick-pending.png",
-      "sha256": "24d7c911fd144193edec596324bb72d05f213ba6cfe66a238a67ae3b05bfb6a3",
+      "sha256": "92529f7f3757f666291d8fe7e8ad3f78bd7fc11d0a20230b8f384b99760391d3",
       "inspectorFront": true,
       "sectionVisible": true,
       "modelRow": "MiniMax H3 · $0.05/秒 · as_of 2026-09-22（fal:h3-ref）",
@@ -3196,12 +4042,14 @@
           "right": 1057,
           "bottom": 642
         },
-        "fullyVisible": true
+        "connected": true,
+        "fullyVisible": true,
+        "attempts": 1
       }
     },
     {
       "name": "21-reference-reclick-cancelled.png",
-      "sha256": "a815d965ad163a9f17f88f6b525ae63125c71ede08248c481142d2cc559ddcc5",
+      "sha256": "b0056c3f21d82a8a80957d6f5e607b77b9039845e1fe9a5953adbf3d157b53f5",
       "inspectorFront": true,
       "sectionVisible": true,
       "modelRow": "MiniMax H3 · $0.05/秒 · as_of 2026-09-22（fal:h3-ref）",
@@ -3229,12 +4077,105 @@
           "right": 1057,
           "bottom": 642
         },
-        "fullyVisible": true
+        "connected": true,
+        "fullyVisible": true,
+        "attempts": 1
+      }
+    },
+    {
+      "name": "22-plain-image-cost-approval.png",
+      "dialog": {
+        "text": "費用承認$0.30（as_of 2026-09-12）で fal:h3-i2v に送ります。費用承認しますかキャンセル費用承認する",
+        "count": 1
+      },
+      "sha256": "ed3ce17317f5bc719bc3c0cac7e00dca8fdea80c4cb6cff7571f2c4eece4678e"
+    },
+    {
+      "name": "23-mp4-inline-error.png",
+      "sha256": "cb8df235f644e0908e30b586d2701db70679db76d4d64b7f3f8ea99112eb889a",
+      "inspectorFront": true,
+      "sectionVisible": true,
+      "modelRow": "MiniMax H3 · $0.05/秒 · as_of 2026-09-12（fal:h3-i2v）",
+      "actionVisibility": {
+        "selector": "[data-akari-generation-action=\"generate\"]",
+        "buttonRect": {
+          "left": 964.3515625,
+          "top": 573.25,
+          "right": 1051.3515625,
+          "bottom": 604.75,
+          "width": 87,
+          "height": 31.5
+        },
+        "inspectorRect": {
+          "left": 635,
+          "top": 39,
+          "right": 1072,
+          "bottom": 642,
+          "width": 437,
+          "height": 603
+        },
+        "visibleRect": {
+          "left": 635,
+          "top": 39,
+          "right": 1057,
+          "bottom": 642
+        },
+        "connected": true,
+        "fullyVisible": true,
+        "attempts": 1
+      }
+    },
+    {
+      "name": "24-mp4-inline-error-scrolled.png",
+      "sha256": "e2575710518fa66874f219dc92148e95e10a8bcad1a7f71274f27c0d96b31117",
+      "inspectorFront": true,
+      "sectionVisible": true,
+      "modelRow": "MiniMax H3 · $0.05/秒 · as_of 2026-09-12（fal:h3-i2v）",
+      "stickyTabStrip": {
+        "scrollTop": 327.5,
+        "scrollHeight": 931,
+        "clientHeight": 603,
+        "tabStripTop": 39,
+        "containerTop": 39,
+        "topDifference": 0,
+        "visible": true,
+        "connected": true,
+        "stripWidth": 402,
+        "stripHeight": 33.5,
+        "attempts": 1
+      },
+      "actionVisibility": {
+        "selector": "[data-akari-generation-action=\"generate\"]",
+        "buttonRect": {
+          "left": 964.3515625,
+          "top": 573.25,
+          "right": 1051.3515625,
+          "bottom": 604.75,
+          "width": 87,
+          "height": 31.5
+        },
+        "inspectorRect": {
+          "left": 635,
+          "top": 39,
+          "right": 1072,
+          "bottom": 642,
+          "width": 437,
+          "height": 603
+        },
+        "visibleRect": {
+          "left": 635,
+          "top": 39,
+          "right": 1057,
+          "bottom": 642
+        },
+        "connected": true,
+        "fullyVisible": true,
+        "attempts": 1
       }
     }
   ],
   "cleanup": {
-    "killedPid": 43867,
+    "killedPid": 90281,
     "survivingProcesses": 0,
     "survivingBackendMain": 0,
     "alive": 0,
@@ -3246,13 +4187,17 @@
     "clips": [
       "clip-a",
       "clip-b",
-      "clip-c"
+      "clip-c",
+      "clip-plain",
+      "clip-mp4"
     ],
     "sidecars": [
       "assets/stills/a.png.meta.json",
       "assets/stills/b.png.meta.json",
       "assets/stills/c.png.meta.json"
     ],
+    "plainImage": "assets/stills/plain.png",
+    "videoRecord": "assets/mp4-record.json",
     "captions": true
   },
   "preloadOverlay": "removed",
@@ -3328,13 +4273,17 @@
       }
     },
     "stickyTabStrip": {
-      "scrollTop": 223.5,
-      "scrollHeight": 827,
+      "scrollTop": 327.5,
+      "scrollHeight": 931,
       "clientHeight": 603,
       "tabStripTop": 39,
       "containerTop": 39,
       "topDifference": 0,
-      "visible": true
+      "visible": true,
+      "connected": true,
+      "stripWidth": 402,
+      "stripHeight": 33.5,
+      "attempts": 1
     }
   },
   "pickCancellation": {
@@ -3442,15 +4391,15 @@
           "assets/stills/a.png.meta.json": {
             "beforeBytes": 614,
             "afterBytes": 614,
-            "beforeSha256": "4eadacbd54e4a4918f1e67e064eebfe8491793a320bd744bace60f2db4d27944",
-            "afterSha256": "4eadacbd54e4a4918f1e67e064eebfe8491793a320bd744bace60f2db4d27944",
+            "beforeSha256": "6c0f374cfff1a7919ea14a3b942e05be5439fc4fecc22dad5208e3cea469f050",
+            "afterSha256": "6c0f374cfff1a7919ea14a3b942e05be5439fc4fecc22dad5208e3cea469f050",
             "bytesUnchanged": true
           },
           "edit.json": {
-            "beforeBytes": 782,
-            "afterBytes": 782,
-            "beforeSha256": "30f229e0d3cb5e2bc1fdff3566a22ac984155a659d929ef4d9bb94dc4a2e583a",
-            "afterSha256": "30f229e0d3cb5e2bc1fdff3566a22ac984155a659d929ef4d9bb94dc4a2e583a",
+            "beforeBytes": 1802,
+            "afterBytes": 1802,
+            "beforeSha256": "90aafe5a1882cc51ce4578677e22bacf999d62d5aba5ced38f3372cb50654a1d",
+            "afterSha256": "90aafe5a1882cc51ce4578677e22bacf999d62d5aba5ced38f3372cb50654a1d",
             "bytesUnchanged": true
           },
           "captions.json": {
@@ -3491,7 +4440,7 @@
             "resolution": "768P",
             "audio_out": true
           },
-          "updated_at": "2026-09-21T18:51:16.443Z"
+          "updated_at": "2026-09-22T21:35:11.606Z"
         },
         "nextAfter": {
           "kind": "video",
@@ -3523,7 +4472,7 @@
             "resolution": "768P",
             "audio_out": true
           },
-          "updated_at": "2026-09-21T18:51:16.443Z"
+          "updated_at": "2026-09-22T21:35:11.606Z"
         },
         "nextUnchanged": true
       },
@@ -3532,15 +4481,15 @@
           "assets/stills/a.png.meta.json": {
             "beforeBytes": 618,
             "afterBytes": 618,
-            "beforeSha256": "b366aabf04118fdf18d1782b712b9934c50f3179a5f34f8c2818bbac440913a2",
-            "afterSha256": "b366aabf04118fdf18d1782b712b9934c50f3179a5f34f8c2818bbac440913a2",
+            "beforeSha256": "7928e2a63e31cfddd1b6f566f5bc05d020c75086acd26130ac3ab3d8397f0033",
+            "afterSha256": "7928e2a63e31cfddd1b6f566f5bc05d020c75086acd26130ac3ab3d8397f0033",
             "bytesUnchanged": true
           },
           "edit.json": {
-            "beforeBytes": 782,
-            "afterBytes": 782,
-            "beforeSha256": "30f229e0d3cb5e2bc1fdff3566a22ac984155a659d929ef4d9bb94dc4a2e583a",
-            "afterSha256": "30f229e0d3cb5e2bc1fdff3566a22ac984155a659d929ef4d9bb94dc4a2e583a",
+            "beforeBytes": 1802,
+            "afterBytes": 1802,
+            "beforeSha256": "90aafe5a1882cc51ce4578677e22bacf999d62d5aba5ced38f3372cb50654a1d",
+            "afterSha256": "90aafe5a1882cc51ce4578677e22bacf999d62d5aba5ced38f3372cb50654a1d",
             "bytesUnchanged": true
           },
           "captions.json": {
@@ -3581,7 +4530,7 @@
             "resolution": "768P",
             "audio_out": true
           },
-          "updated_at": "2026-09-21T18:51:20.594Z"
+          "updated_at": "2026-09-22T21:35:15.751Z"
         },
         "nextAfter": {
           "kind": "video",
@@ -3613,7 +4562,7 @@
             "resolution": "768P",
             "audio_out": true
           },
-          "updated_at": "2026-09-21T18:51:20.594Z"
+          "updated_at": "2026-09-22T21:35:15.751Z"
         },
         "nextUnchanged": true
       }
@@ -3758,6 +4707,691 @@
           }
         ]
       }
+    }
+  },
+  "plainImageGeneration": {
+    "mp4Error": {
+      "text": "この素材には生成の記録がありません。静止画か、空の枠で使えます。",
+      "role": "alert",
+      "color": "rgb(244, 135, 113)",
+      "expectedErrorColor": "rgb(244, 135, 113)",
+      "positions": [
+        {
+          "scrollTop": 0,
+          "errorRect": {
+            "left": 645,
+            "right": 1047,
+            "top": 835.5,
+            "bottom": 874.5,
+            "width": 402,
+            "height": 39
+          },
+          "buttonRect": {
+            "left": 964.3515625,
+            "right": 1051.3515625,
+            "top": 900.75,
+            "bottom": 932.25,
+            "width": 87,
+            "height": 31.5
+          },
+          "verticalGap": 26.25,
+          "intersects": false
+        },
+        {
+          "scrollTop": 327.5,
+          "errorRect": {
+            "left": 645,
+            "right": 1047,
+            "top": 508,
+            "bottom": 547,
+            "width": 402,
+            "height": 39
+          },
+          "buttonRect": {
+            "left": 964.3515625,
+            "right": 1051.3515625,
+            "top": 573.25,
+            "bottom": 604.75,
+            "width": 87,
+            "height": 31.5
+          },
+          "verticalGap": 26.25,
+          "intersects": false
+        }
+      ],
+      "controls": [
+        {
+          "text": "最初 / 最後",
+          "rect": {
+            "left": 645,
+            "right": 726.046875,
+            "top": -118,
+            "bottom": -90.5,
+            "width": 81.046875,
+            "height": 27.5
+          },
+          "background": "rgb(249, 115, 22)",
+          "borders": [
+            {
+              "width": "1px",
+              "style": "solid",
+              "color": "rgb(251, 146, 60)"
+            },
+            {
+              "width": "1px",
+              "style": "solid",
+              "color": "rgb(251, 146, 60)"
+            },
+            {
+              "width": "1px",
+              "style": "solid",
+              "color": "rgb(251, 146, 60)"
+            },
+            {
+              "width": "1px",
+              "style": "solid",
+              "color": "rgb(251, 146, 60)"
+            }
+          ],
+          "visibleSurface": true
+        },
+        {
+          "text": "参照",
+          "rect": {
+            "left": 729.046875,
+            "right": 773.046875,
+            "top": -118,
+            "bottom": -90.5,
+            "width": 44,
+            "height": 27.5
+          },
+          "background": "rgb(20, 20, 20)",
+          "borders": [
+            {
+              "width": "1px",
+              "style": "solid",
+              "color": "rgb(27, 27, 27)"
+            },
+            {
+              "width": "1px",
+              "style": "solid",
+              "color": "rgb(27, 27, 27)"
+            },
+            {
+              "width": "1px",
+              "style": "solid",
+              "color": "rgb(27, 27, 27)"
+            },
+            {
+              "width": "1px",
+              "style": "solid",
+              "color": "rgb(27, 27, 27)"
+            }
+          ],
+          "visibleSurface": true
+        },
+        {
+          "text": "＋ 画像を選ぶ空なら入れなくてよい",
+          "rect": {
+            "left": 645,
+            "right": 841,
+            "top": -1,
+            "bottom": 95,
+            "width": 196,
+            "height": 96
+          },
+          "background": "rgba(167, 139, 250, 0.08)",
+          "borders": [
+            {
+              "width": "1px",
+              "style": "solid",
+              "color": "rgb(167, 139, 250)"
+            },
+            {
+              "width": "1px",
+              "style": "solid",
+              "color": "rgb(167, 139, 250)"
+            },
+            {
+              "width": "1px",
+              "style": "solid",
+              "color": "rgb(167, 139, 250)"
+            },
+            {
+              "width": "1px",
+              "style": "solid",
+              "color": "rgb(167, 139, 250)"
+            }
+          ],
+          "visibleSurface": true
+        },
+        {
+          "text": "このクリップの絵",
+          "rect": {
+            "left": 645,
+            "right": 770.2265625,
+            "top": 106,
+            "bottom": 137.5,
+            "width": 125.2265625,
+            "height": 31.5
+          },
+          "background": "rgb(20, 20, 20)",
+          "borders": [
+            {
+              "width": "1px",
+              "style": "solid",
+              "color": "rgb(27, 27, 27)"
+            },
+            {
+              "width": "1px",
+              "style": "solid",
+              "color": "rgb(27, 27, 27)"
+            },
+            {
+              "width": "1px",
+              "style": "solid",
+              "color": "rgb(27, 27, 27)"
+            },
+            {
+              "width": "1px",
+              "style": "solid",
+              "color": "rgb(27, 27, 27)"
+            }
+          ],
+          "visibleSurface": true
+        },
+        {
+          "text": "前のクリップの最後のコマ",
+          "rect": {
+            "left": 645,
+            "right": 822.2265625,
+            "top": 140.5,
+            "bottom": 172,
+            "width": 177.2265625,
+            "height": 31.5
+          },
+          "background": "rgb(20, 20, 20)",
+          "borders": [
+            {
+              "width": "1px",
+              "style": "solid",
+              "color": "rgb(27, 27, 27)"
+            },
+            {
+              "width": "1px",
+              "style": "solid",
+              "color": "rgb(27, 27, 27)"
+            },
+            {
+              "width": "1px",
+              "style": "solid",
+              "color": "rgb(27, 27, 27)"
+            },
+            {
+              "width": "1px",
+              "style": "solid",
+              "color": "rgb(27, 27, 27)"
+            }
+          ],
+          "visibleSurface": true
+        },
+        {
+          "text": "＋ 画像を選ぶ空なら入れなくてよい",
+          "rect": {
+            "left": 851,
+            "right": 1047,
+            "top": -1,
+            "bottom": 95,
+            "width": 196,
+            "height": 96
+          },
+          "background": "rgba(167, 139, 250, 0.08)",
+          "borders": [
+            {
+              "width": "1px",
+              "style": "solid",
+              "color": "rgb(167, 139, 250)"
+            },
+            {
+              "width": "1px",
+              "style": "solid",
+              "color": "rgb(167, 139, 250)"
+            },
+            {
+              "width": "1px",
+              "style": "solid",
+              "color": "rgb(167, 139, 250)"
+            },
+            {
+              "width": "1px",
+              "style": "solid",
+              "color": "rgb(167, 139, 250)"
+            }
+          ],
+          "visibleSurface": true
+        },
+        {
+          "text": "なし",
+          "rect": {
+            "left": 645,
+            "right": 689,
+            "top": 265.5,
+            "bottom": 293,
+            "width": 44,
+            "height": 27.5
+          },
+          "background": "rgb(249, 115, 22)",
+          "borders": [
+            {
+              "width": "1px",
+              "style": "solid",
+              "color": "rgb(251, 146, 60)"
+            },
+            {
+              "width": "1px",
+              "style": "solid",
+              "color": "rgb(251, 146, 60)"
+            },
+            {
+              "width": "1px",
+              "style": "solid",
+              "color": "rgb(251, 146, 60)"
+            },
+            {
+              "width": "1px",
+              "style": "solid",
+              "color": "rgb(251, 146, 60)"
+            }
+          ],
+          "visibleSurface": true
+        },
+        {
+          "text": "寄る",
+          "rect": {
+            "left": 692,
+            "right": 736,
+            "top": 265.5,
+            "bottom": 293,
+            "width": 44,
+            "height": 27.5
+          },
+          "background": "rgb(20, 20, 20)",
+          "borders": [
+            {
+              "width": "1px",
+              "style": "solid",
+              "color": "rgb(27, 27, 27)"
+            },
+            {
+              "width": "1px",
+              "style": "solid",
+              "color": "rgb(27, 27, 27)"
+            },
+            {
+              "width": "1px",
+              "style": "solid",
+              "color": "rgb(27, 27, 27)"
+            },
+            {
+              "width": "1px",
+              "style": "solid",
+              "color": "rgb(27, 27, 27)"
+            }
+          ],
+          "visibleSurface": true
+        },
+        {
+          "text": "引く",
+          "rect": {
+            "left": 739,
+            "right": 783,
+            "top": 265.5,
+            "bottom": 293,
+            "width": 44,
+            "height": 27.5
+          },
+          "background": "rgb(20, 20, 20)",
+          "borders": [
+            {
+              "width": "1px",
+              "style": "solid",
+              "color": "rgb(27, 27, 27)"
+            },
+            {
+              "width": "1px",
+              "style": "solid",
+              "color": "rgb(27, 27, 27)"
+            },
+            {
+              "width": "1px",
+              "style": "solid",
+              "color": "rgb(27, 27, 27)"
+            },
+            {
+              "width": "1px",
+              "style": "solid",
+              "color": "rgb(27, 27, 27)"
+            }
+          ],
+          "visibleSurface": true
+        },
+        {
+          "text": "左へ振る",
+          "rect": {
+            "left": 786,
+            "right": 856,
+            "top": 265.5,
+            "bottom": 293,
+            "width": 70,
+            "height": 27.5
+          },
+          "background": "rgb(20, 20, 20)",
+          "borders": [
+            {
+              "width": "1px",
+              "style": "solid",
+              "color": "rgb(27, 27, 27)"
+            },
+            {
+              "width": "1px",
+              "style": "solid",
+              "color": "rgb(27, 27, 27)"
+            },
+            {
+              "width": "1px",
+              "style": "solid",
+              "color": "rgb(27, 27, 27)"
+            },
+            {
+              "width": "1px",
+              "style": "solid",
+              "color": "rgb(27, 27, 27)"
+            }
+          ],
+          "visibleSurface": true
+        },
+        {
+          "text": "右へ振る",
+          "rect": {
+            "left": 859,
+            "right": 929,
+            "top": 265.5,
+            "bottom": 293,
+            "width": 70,
+            "height": 27.5
+          },
+          "background": "rgb(20, 20, 20)",
+          "borders": [
+            {
+              "width": "1px",
+              "style": "solid",
+              "color": "rgb(27, 27, 27)"
+            },
+            {
+              "width": "1px",
+              "style": "solid",
+              "color": "rgb(27, 27, 27)"
+            },
+            {
+              "width": "1px",
+              "style": "solid",
+              "color": "rgb(27, 27, 27)"
+            },
+            {
+              "width": "1px",
+              "style": "solid",
+              "color": "rgb(27, 27, 27)"
+            }
+          ],
+          "visibleSurface": true
+        },
+        {
+          "text": "追いかける",
+          "rect": {
+            "left": 932,
+            "right": 1014.6171875,
+            "top": 265.5,
+            "bottom": 293,
+            "width": 82.6171875,
+            "height": 27.5
+          },
+          "background": "rgb(20, 20, 20)",
+          "borders": [
+            {
+              "width": "1px",
+              "style": "solid",
+              "color": "rgb(27, 27, 27)"
+            },
+            {
+              "width": "1px",
+              "style": "solid",
+              "color": "rgb(27, 27, 27)"
+            },
+            {
+              "width": "1px",
+              "style": "solid",
+              "color": "rgb(27, 27, 27)"
+            },
+            {
+              "width": "1px",
+              "style": "solid",
+              "color": "rgb(27, 27, 27)"
+            }
+          ],
+          "visibleSurface": true
+        },
+        {
+          "text": "固定",
+          "rect": {
+            "left": 645,
+            "right": 689,
+            "top": 296,
+            "bottom": 323.5,
+            "width": 44,
+            "height": 27.5
+          },
+          "background": "rgb(20, 20, 20)",
+          "borders": [
+            {
+              "width": "1px",
+              "style": "solid",
+              "color": "rgb(27, 27, 27)"
+            },
+            {
+              "width": "1px",
+              "style": "solid",
+              "color": "rgb(27, 27, 27)"
+            },
+            {
+              "width": "1px",
+              "style": "solid",
+              "color": "rgb(27, 27, 27)"
+            },
+            {
+              "width": "1px",
+              "style": "solid",
+              "color": "rgb(27, 27, 27)"
+            }
+          ],
+          "visibleSurface": true
+        },
+        {
+          "text": "隣から取る",
+          "rect": {
+            "left": 645,
+            "right": 732,
+            "top": 573.25,
+            "bottom": 604.75,
+            "width": 87,
+            "height": 31.5
+          },
+          "background": "rgb(20, 20, 20)",
+          "borders": [
+            {
+              "width": "1px",
+              "style": "solid",
+              "color": "rgb(27, 27, 27)"
+            },
+            {
+              "width": "1px",
+              "style": "solid",
+              "color": "rgb(27, 27, 27)"
+            },
+            {
+              "width": "1px",
+              "style": "solid",
+              "color": "rgb(27, 27, 27)"
+            },
+            {
+              "width": "1px",
+              "style": "solid",
+              "color": "rgb(27, 27, 27)"
+            }
+          ],
+          "visibleSurface": true
+        },
+        {
+          "text": "同じ入力でもう一度",
+          "rect": {
+            "left": 819.3515625,
+            "right": 958.3515625,
+            "top": 573.25,
+            "bottom": 604.75,
+            "width": 139,
+            "height": 31.5
+          },
+          "background": "rgb(20, 20, 20)",
+          "borders": [
+            {
+              "width": "1px",
+              "style": "solid",
+              "color": "rgb(27, 27, 27)"
+            },
+            {
+              "width": "1px",
+              "style": "solid",
+              "color": "rgb(27, 27, 27)"
+            },
+            {
+              "width": "1px",
+              "style": "solid",
+              "color": "rgb(27, 27, 27)"
+            },
+            {
+              "width": "1px",
+              "style": "solid",
+              "color": "rgb(27, 27, 27)"
+            }
+          ],
+          "visibleSurface": true
+        },
+        {
+          "text": "動画にする",
+          "rect": {
+            "left": 964.3515625,
+            "right": 1051.3515625,
+            "top": 573.25,
+            "bottom": 604.75,
+            "width": 87,
+            "height": 31.5
+          },
+          "background": "rgb(249, 115, 22)",
+          "borders": [
+            {
+              "width": "1px",
+              "style": "solid",
+              "color": "rgb(249, 115, 22)"
+            },
+            {
+              "width": "1px",
+              "style": "solid",
+              "color": "rgb(249, 115, 22)"
+            },
+            {
+              "width": "1px",
+              "style": "solid",
+              "color": "rgb(249, 115, 22)"
+            },
+            {
+              "width": "1px",
+              "style": "solid",
+              "color": "rgb(249, 115, 22)"
+            }
+          ],
+          "visibleSurface": true
+        }
+      ],
+      "excludedDisclosure": {
+        "text": "▾ 生成",
+        "selector": "[data-akari-ui=\"section:inspector-generation\"] > .akari-inspector-section-header > button.akari-inspector-section-toggle[aria-expanded]",
+        "background": "rgba(0, 0, 0, 0)",
+        "borders": [
+          {
+            "width": "0px",
+            "style": "none",
+            "color": "rgb(204, 204, 204)"
+          },
+          {
+            "width": "0px",
+            "style": "none",
+            "color": "rgb(204, 204, 204)"
+          },
+          {
+            "width": "0px",
+            "style": "none",
+            "color": "rgb(204, 204, 204)"
+          },
+          {
+            "width": "0px",
+            "style": "none",
+            "color": "rgb(204, 204, 204)"
+          }
+        ]
+      },
+      "textBadgePairs": [
+        {
+          "text": "＋ 画像を選ぶ",
+          "badge": "空なら入れなくてよい",
+          "textRect": {
+            "left": 708.4140625,
+            "right": 777.578125,
+            "top": 29.75,
+            "bottom": 46.25,
+            "width": 69.1640625,
+            "height": 16.5
+          },
+          "badgeRect": {
+            "left": 693,
+            "right": 793,
+            "top": 49.25,
+            "bottom": 64.25,
+            "width": 100,
+            "height": 15
+          },
+          "intersects": false
+        },
+        {
+          "text": "＋ 画像を選ぶ",
+          "badge": "空なら入れなくてよい",
+          "textRect": {
+            "left": 914.4140625,
+            "right": 983.578125,
+            "top": 29.75,
+            "bottom": 46.25,
+            "width": 69.1640625,
+            "height": 16.5
+          },
+          "badgeRect": {
+            "left": 899,
+            "right": 999,
+            "top": 49.25,
+            "bottom": 64.25,
+            "width": 100,
+            "height": 15
+          },
+          "intersects": false
+        }
+      ]
     }
   }
 }

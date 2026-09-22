@@ -2416,6 +2416,7 @@ export class AkariInspectorWidget extends BaseWidget {
     protected readonly generationWrites = new Map<string, Promise<void>>();
     protected generationDetailsOpen = false;
     protected readonly generationDraftTimers = new Map<string, number>();
+    protected generationActionError?: { key: string; draft: string; text: string; clear: () => void };
 
     protected batchSelectionKey?: string;
     protected batchItems: GenerationBatchItem[] = [];
@@ -3085,6 +3086,8 @@ export class AkariInspectorWidget extends BaseWidget {
     .akari-inspector-widget .akari-inspector-generation-camera { margin: 10px 0; }
     .akari-inspector-widget .akari-inspector-generation-details { margin: 10px 0; padding: 6px; border: 1px solid var(--akari-line); }
     .akari-inspector-widget .akari-inspector-generation-footer { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+    .akari-inspector-widget .akari-inspector-generation-footer:has(> .akari-inspector-generation-action-error) { display: grid; grid-template-columns: auto minmax(0, 1fr); }
+    .akari-inspector-widget .akari-inspector-generation-action-error { grid-column: 1 / -1; min-width: 0; overflow-wrap: anywhere; }
     .akari-inspector-widget .akari-inspector-generation-submit-group { display: flex; flex: 1 1 auto; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 6px; margin-left: auto; min-width: 0; }
     .akari-inspector-widget .akari-inspector-generation-submit-group > button { flex: 0 1 auto; white-space: normal; overflow-wrap: anywhere; }
     .akari-inspector-widget .akari-inspector-generation-submit-group > .akari-inspector-generation-estimate { flex: 0 1 auto; min-width: 0; white-space: normal; text-align: right; justify-content: flex-end; }
@@ -5174,8 +5177,22 @@ export class AkariInspectorWidget extends BaseWidget {
             return;
         }
         if (field.name === 'generation-actions') {
+            const identity = this.generationIdentity(snapshot);
+            const draftRevision = (): string => JSON.stringify(identity ? this.generationDrafts.get(identity.key) : null);
+            if (this.generationActionError && (this.generationActionError.key !== identity?.key
+                || this.generationActionError.draft !== draftRevision())) this.generationActionError.clear();
             const footer = document.createElement('div');
             footer.className = 'akari-inspector-generation-footer';
+            const paintError = (): void => {
+                footer.querySelector('.akari-inspector-generation-action-error')?.remove();
+                if (!this.generationActionError || this.generationActionError.key !== identity?.key) return;
+                const error = document.createElement('div');
+                error.className = 'akari-inspector-generation-action-error akari-inspector-generation-error';
+                error.setAttribute('role', 'alert');
+                error.textContent = this.generationActionError.text;
+                footer.prepend(error);
+            };
+            paintError();
             const submitGroup = document.createElement('div');
             submitGroup.className = 'akari-inspector-generation-submit-group';
             const estimate = parent.querySelector('.akari-inspector-generation-estimate');
@@ -5189,9 +5206,28 @@ export class AkariInspectorWidget extends BaseWidget {
                 button.textContent = action.label;
                 button.disabled = !!action.disabled;
                 button.setAttribute('data-akari-generation-action', action.name);
-                button.addEventListener('click', () => void action.action(snapshot).then(result => {
-                    if (!result.ok) this.showFieldNotice(result.message ?? '操作に失敗しました。');
-                }));
+                button.addEventListener('click', () => {
+                    this.generationActionError?.clear();
+                    const revision = draftRevision();
+                    void action.action(snapshot).then(result => {
+                        if (result.ok) return;
+                        const message = result.message ?? '操作に失敗しました。';
+                        this.showFieldNotice(message);
+                        if (!identity || this.generationIdentity(this.model.snapshot)?.key !== identity.key
+                            || draftRevision() !== revision) return;
+                        this.generationActionError?.clear();
+                        const clear = (): void => {
+                            this.generationActionError = undefined;
+                            for (const event of ['click', 'input', 'change']) this.body.removeEventListener(event, clear, true);
+                            this.body.querySelectorAll('.akari-inspector-generation-action-error').forEach(row => row.remove());
+                        };
+                        this.generationActionError = { key: identity.key, draft: revision, text: message, clear };
+                        // Capture the next interaction before its handler; unrelated re-renders keep the error.
+                        for (const event of ['click', 'input', 'change']) this.body.addEventListener(event, clear, true);
+                        if (footer.isConnected) paintError();
+                        else this.render();
+                    });
+                });
                 (action.name === 'copy-adjacent' ? footer : submitGroup).appendChild(button);
             }
             footer.appendChild(submitGroup);
