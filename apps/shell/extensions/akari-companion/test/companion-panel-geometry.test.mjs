@@ -12,7 +12,7 @@ import {
 
 test('パネルの大きさを境界内へ丸める', () => {
   assert.deepEqual(clampPanelSize(43, 43), { width: 44, height: 44 });
-  assert.deepEqual(clampPanelSize(721, 361), { width: 720, height: 360 });
+  assert.deepEqual(clampPanelSize(721, 721), { width: 720, height: 720 });
   assert.deepEqual(clampPanelSize(100.6, 100.4), { width: 101, height: 100 });
   assert.deepEqual(
     clampPanelSize(Number.NaN, Number.POSITIVE_INFINITY, { width: 120, height: 80 }),

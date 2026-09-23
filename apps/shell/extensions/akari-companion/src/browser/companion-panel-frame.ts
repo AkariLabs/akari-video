@@ -7,6 +7,7 @@ import {
     clampPanelY,
     isSameOriginPanelPath,
     normalizePanelMode,
+    PANEL_DEFAULT_WIDTH,
     PanelMode,
     PanelSize
 } from '../common/companion-panel-geometry';
@@ -23,14 +24,16 @@ interface DragState {
 
 const PANEL_PLACEMENT_STORAGE_KEY = 'akari.companion.panel.placement';
 const DRAG_THRESHOLD_PX = 4;
+const RESIZE_MIN_WIDTH = 360;
+const RESIZE_MAX_WIDTH = 720;
 /** これより小さい枠では「しまう」を出さない（32px の角が枠をほぼ覆ってしまうため）。 */
 const CORNER_MIN_WIDTH = 140;
 const CORNER_MIN_HEIGHT = 72;
 /** ツールバーは起動のあとも動く（タブが増える・帯の高さが決まる）ので、位置を見張る間隔。 */
 const ANCHOR_WATCH_MS = 500;
 
-/** 利用者が動かしたときだけ覚える。動かしていなければ既定（ボタンの真下）へ戻す。 */
-interface StoredPlacement { x: number; y: number; }
+/** 位置と横幅は別々に覚える。横幅だけでは自由配置にしない。 */
+interface StoredPlacement { x?: number; y?: number; width?: number; }
 
 export class CompanionPanelFrame {
     protected readonly doc: Document;
@@ -39,7 +42,10 @@ export class CompanionPanelFrame {
     protected panelEl: HTMLDivElement | undefined;
     protected iframeEl: HTMLIFrameElement | undefined;
     protected cornerEl: HTMLButtonElement | undefined;
+    protected resizeEl: HTMLButtonElement | undefined;
     protected size: PanelSize = clampPanelSize(undefined, undefined);
+    protected defaultWidth = PANEL_DEFAULT_WIDTH;
+    protected userWidth: number | undefined;
     protected x = 0;
     protected y = 0;
     protected mode: PanelMode = 'tab';
@@ -52,6 +58,8 @@ export class CompanionPanelFrame {
     protected lastAnchorKey = '';
     protected dragSurface: HTMLDivElement | undefined;
     protected dragLast: { x: number; y: number } | undefined;
+    protected resize: { startClientX: number; startWidth: number; right: number } | undefined;
+    protected resizeSurface: HTMLDivElement | undefined;
 
     constructor(deps: CompanionPanelFrameDeps) {
         this.doc = deps.doc;
@@ -69,9 +77,12 @@ export class CompanionPanelFrame {
         if (!isSameOriginPanelPath(panelPath)
             || !Number.isInteger(port) || port <= 0 || port > 65535) return;
 
-        this.size = clampPanelSize(initialSize?.width, initialSize?.height);
+        this.size = this.clampSize(initialSize?.width, initialSize?.height);
+        this.defaultWidth = this.size.width;
         const stored = this.readStoredPlacement();
-        this.userMoved = Boolean(stored);
+        this.userWidth = stored?.width;
+        if (this.userWidth !== undefined) this.size.width = this.userWidth;
+        this.userMoved = stored?.x !== undefined && stored?.y !== undefined;
         this.x = clampPanelX(stored?.x, this.win.innerWidth, this.size.width);
         this.y = clampPanelY(stored?.y, this.win.innerHeight, this.size.height);
         this.mode = 'tab';
@@ -92,13 +103,22 @@ export class CompanionPanelFrame {
         corner.setAttribute('aria-label', 'AKARI バイブをしまう');
         corner.textContent = '×';
         corner.addEventListener('mousedown', this.handleCornerMouseDown);
+        const resize = this.resizeEl = this.doc.createElement('button');
+        resize.type = 'button';
+        resize.className = 'akari-companion-panel-resize';
+        resize.setAttribute('title', 'AKARI バイブの横幅を変える');
+        resize.setAttribute('aria-label', 'AKARI バイブの横幅を変える');
+        resize.textContent = '◢';
+        resize.addEventListener('mousedown', this.handleResizeMouseDown);
 
-        panel.append(iframe, corner);
+        panel.append(iframe, corner, resize);
         this.rootEl.append(panel);
         this.panelEl = panel;
         this.iframeEl = iframe;
+        iframe.addEventListener('load', this.handleFrameLoad);
         this.applyLayout();
         this.placeByAnchor();
+        this.postFrameWidth();
         this.startAnchorWatch();
         this.win.addEventListener('blur', this.handleWindowBlur);
         this.win.addEventListener('message', this.handleMessage);
@@ -107,6 +127,7 @@ export class CompanionPanelFrame {
 
     unmount(): void {
         this.endDrag();
+        this.endResize();
         this.stopAnchorWatch();
         this.win.removeEventListener('blur', this.handleWindowBlur);
         this.win.removeEventListener('message', this.handleMessage);
@@ -118,12 +139,15 @@ export class CompanionPanelFrame {
         this.panelEl = undefined;
         this.iframeEl = undefined;
         this.cornerEl = undefined;
+        this.resizeEl = undefined;
     }
 
     applyInstruction(args: CompanionPanelArgs): void {
         if (!this.panelEl) return;
-        this.size = clampPanelSize(args.width, args.height, this.size);
-        this.mode = normalizePanelMode(args.mode, this.mode);
+        const mode = normalizePanelMode(args.mode, this.mode);
+        this.size = this.clampSize(mode === 'tab' ? this.userWidth ?? args.width : args.width,
+            args.height, this.size);
+        this.mode = mode;
         if (typeof args.x === 'number' && Number.isFinite(args.x) && !this.userMoved) {
             this.userMoved = true;
             this.x = args.x;
@@ -194,6 +218,10 @@ export class CompanionPanelFrame {
 
     protected readonly handleDragMove = (event: MouseEvent): void => {
         if (!this.dragSurface) return;
+        if ((event.buttons & 1) === 0) {
+            this.endDrag();
+            return;
+        }
         // 画面の座標で測る。枠が動いても基準が動かない。
         if (this.dragLast) this.moveBy(event.screenX - this.dragLast.x, event.screenY - this.dragLast.y);
         this.dragLast = { x: event.screenX, y: event.screenY };
@@ -214,11 +242,14 @@ export class CompanionPanelFrame {
         this.applyLayout();
     }
 
-    /** 既定の置き場所へ戻す（利用者が動かした位置は捨てる）。 */
+    /** 既定の置き場所と横幅へ戻す。 */
     resetPlacement(): void {
         this.userMoved = false;
+        this.userWidth = undefined;
+        this.size = this.clampSize(this.defaultWidth, this.size.height);
         this.clearStoredPlacement();
         this.placeByAnchor();
+        this.postFrameWidth();
     }
 
     protected startAnchorWatch(): void {
@@ -278,14 +309,31 @@ export class CompanionPanelFrame {
         this.panelEl.style.height = `${this.size.height}px`;
         this.panelEl.dataset.mode = this.mode;
         this.panelEl.style.display = this.hidden ? 'none' : '';
-        if (this.cornerEl) {
+        if (this.cornerEl || this.resizeEl) {
             // 小さい枠では「しまう」を出さない。閉じるのはタブ帯のボタン、動かすのは枠の中身。
             const roomy = this.size.width >= CORNER_MIN_WIDTH && this.size.height >= CORNER_MIN_HEIGHT;
-            this.cornerEl.style.display = roomy ? '' : 'none';
+            if (this.cornerEl) this.cornerEl.style.display = roomy ? '' : 'none';
+            if (this.resizeEl) this.resizeEl.style.display = roomy && this.mode === 'tab' ? '' : 'none';
         }
     }
 
+    protected clampSize(width: number | undefined, height: number | undefined, fallback?: PanelSize): PanelSize {
+        const size = clampPanelSize(width, height, fallback);
+        return { width: size.width, height: Math.min(size.height, Math.max(0, this.win.innerHeight)) };
+    }
+
+    protected postFrameWidth(): void {
+        this.iframeEl?.contentWindow?.postMessage(
+            { type: 'akari-companion-frame', width: this.size.width }, '*');
+    }
+
+    protected readonly handleFrameLoad = (): void => {
+        this.postFrameWidth();
+    };
+
     protected readonly handleWindowBlur = (): void => {
+        this.endDrag();
+        this.endResize();
         if (this.iframeEl && this.doc.activeElement === this.iframeEl) {
             this.iframeEl.blur();
             (this.doc.body as HTMLElement).focus?.();
@@ -310,6 +358,7 @@ export class CompanionPanelFrame {
         // 指の下から逃げてしまい、中身には入力が届かなくなるため（実機で観測）。
         if (data.drag) {
             if (data.drag.phase === 'start') this.beginDrag();
+            else if (data.drag.phase === 'end') this.endDrag();
             else this.moveBy(data.drag.dx, data.drag.dy);
             return;
         }
@@ -360,16 +409,69 @@ export class CompanionPanelFrame {
     };
 
     protected readonly handleWindowResize = (): void => {
+        this.size = this.clampSize(this.size.width, this.size.height);
         this.placeByAnchor();
     };
+
+    protected readonly handleResizeMouseDown = (event: MouseEvent): void => {
+        if (event.button !== 0 || !this.panelEl || this.resize) return;
+        event.preventDefault();
+        event.stopPropagation();
+        const surface = this.doc.createElement('div');
+        surface.className = 'akari-companion-resize-surface';
+        surface.setAttribute('style', 'position:fixed; inset:0; pointer-events:auto; cursor:nesw-resize; z-index:1;');
+        this.rootEl.append(surface);
+        this.resizeSurface = surface;
+        this.resize = { startClientX: event.clientX, startWidth: this.size.width, right: this.x + this.size.width };
+        this.win.addEventListener('mousemove', this.handleResizeMouseMove, true);
+        this.win.addEventListener('mouseup', this.handleResizeMouseUp, true);
+    };
+
+    protected readonly handleResizeMouseMove = (event: MouseEvent): void => {
+        if (!this.resize) return;
+        if ((event.buttons & 1) === 0) {
+            this.endResize();
+            return;
+        }
+        const width = Math.min(RESIZE_MAX_WIDTH,
+            Math.max(RESIZE_MIN_WIDTH, Math.round(this.resize.startWidth + this.resize.startClientX - event.clientX)));
+        if (width === this.size.width) return;
+        this.userWidth = width;
+        this.size.width = width;
+        this.x = clampPanelX(this.resize.right - width, this.win.innerWidth, width);
+        this.applyLayout();
+        this.writeStoredPlacement();
+        this.postFrameWidth();
+    };
+
+    protected readonly handleResizeMouseUp = (): void => {
+        this.endResize();
+    };
+
+    protected endResize(): void {
+        if (!this.resize) return;
+        this.resize = undefined;
+        this.win.removeEventListener('mousemove', this.handleResizeMouseMove, true);
+        this.win.removeEventListener('mouseup', this.handleResizeMouseUp, true);
+        this.resizeSurface?.remove();
+        this.resizeSurface = undefined;
+    }
 
     protected readStoredPlacement(): StoredPlacement | undefined {
         try {
             const raw = this.win.localStorage.getItem(PANEL_PLACEMENT_STORAGE_KEY);
             if (raw === null) return undefined;
-            const parsed = JSON.parse(raw) as { x?: unknown; y?: unknown };
-            if (!Number.isFinite(parsed?.x) || !Number.isFinite(parsed?.y)) return undefined;
-            return { x: parsed.x as number, y: parsed.y as number };
+            const parsed = JSON.parse(raw) as { x?: unknown; y?: unknown; width?: unknown };
+            const stored: StoredPlacement = {};
+            if (typeof parsed?.x === 'number' && Number.isFinite(parsed.x)
+                && typeof parsed?.y === 'number' && Number.isFinite(parsed.y)) {
+                stored.x = parsed.x;
+                stored.y = parsed.y;
+            }
+            if (typeof parsed?.width === 'number' && Number.isFinite(parsed.width)) {
+                stored.width = Math.min(RESIZE_MAX_WIDTH, Math.max(RESIZE_MIN_WIDTH, Math.round(parsed.width)));
+            }
+            return Object.keys(stored).length ? stored : undefined;
         } catch {
             return undefined;
         }
@@ -378,7 +480,10 @@ export class CompanionPanelFrame {
     protected writeStoredPlacement(): void {
         try {
             this.win.localStorage.setItem(PANEL_PLACEMENT_STORAGE_KEY,
-                JSON.stringify({ x: this.x, y: this.y }));
+                JSON.stringify({
+                    ...(this.userMoved ? { x: this.x, y: this.y } : {}),
+                    ...(this.userWidth !== undefined ? { width: this.userWidth } : {})
+                }));
         } catch {
             // 保存できない環境では現在の表示だけを維持する。
         }
