@@ -1,0 +1,317 @@
+{
+  "status": "PASS",
+  "checks": [
+    {
+      "name": "empty frame label before generation",
+      "passed": true,
+      "measured": "音声frame-a.wav空の枠（音）"
+    },
+    {
+      "name": "VOICEVOX free panel",
+      "passed": true,
+      "measured": true
+    },
+    {
+      "name": "engine badges and names do not intersect",
+      "passed": true,
+      "measured": [
+        false,
+        false
+      ]
+    },
+    {
+      "name": "enabled buttons have background or border",
+      "passed": true,
+      "measured": [
+        {
+          "name": "← AI",
+          "background": "rgb(26, 26, 26)",
+          "border": "1px"
+        }
+      ]
+    },
+    {
+      "name": "voice and enabled generate button visible",
+      "passed": true,
+      "measured": {
+        "voice": "1",
+        "button": "声を作る",
+        "voiceRect": {
+          "top": 532,
+          "bottom": 566
+        },
+        "buttonRect": {
+          "top": 604.5,
+          "bottom": 642
+        }
+      }
+    },
+    {
+      "name": "engine badges and names do not intersect",
+      "passed": true,
+      "measured": [
+        false,
+        false
+      ]
+    },
+    {
+      "name": "enabled buttons have background or border",
+      "passed": true,
+      "measured": [
+        {
+          "name": "← AI",
+          "background": "rgb(26, 26, 26)",
+          "border": "1px"
+        },
+        {
+          "name": "声を作る",
+          "background": "rgb(26, 26, 26)",
+          "border": "1px"
+        }
+      ]
+    },
+    {
+      "name": "enabled generate button has measured background or border",
+      "passed": true,
+      "measured": [
+        {
+          "name": "声を作る",
+          "background": "rgb(26, 26, 26)",
+          "border": "1px"
+        }
+      ]
+    },
+    {
+      "name": "frame replaced with 1.5s wav",
+      "passed": true,
+      "measured": {
+        "row": {
+          "id": "frame-a",
+          "at": 0,
+          "duration": 45,
+          "source": {
+            "kind": "media",
+            "src": "narration-src-1",
+            "in": 0,
+            "out": 1.5
+          },
+          "role": "narration"
+        },
+        "source": {
+          "id": "narration-src-1",
+          "path": "out/narration/n-0001.wav"
+        }
+      }
+    },
+    {
+      "name": "timeline clip label changes to generated wav",
+      "passed": true,
+      "measured": {
+        "before": "音声frame-a.wav空の枠（音）",
+        "after": "音声frame-a n-0001.wav"
+      }
+    },
+    {
+      "name": "after placement AI returns to tiles with narration disabled",
+      "passed": true,
+      "measured": true
+    },
+    {
+      "name": "one undo restores empty frame",
+      "passed": true,
+      "measured": {
+        "source": "assets/generated/frame-a.wav",
+        "trackCount": 2
+      }
+    },
+    {
+      "name": "undo re-enables narration and removes placement line",
+      "passed": true,
+      "measured": true
+    },
+    {
+      "name": "lower track and following clip unchanged",
+      "passed": true,
+      "measured": [
+        {
+          "id": "a1",
+          "items": [
+            [
+              "frame-b",
+              120
+            ]
+          ]
+        },
+        {
+          "id": "audio",
+          "items": [
+            [
+              "frame-a",
+              0
+            ],
+            [
+              "following",
+              195
+            ],
+            [
+              "interview",
+              270
+            ]
+          ]
+        },
+        {
+          "id": "video",
+          "items": [
+            [
+              "scene",
+              0
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "name": "A2 placement line states the 1.5s overflow",
+      "passed": true,
+      "measured": "A2 に置きました（枠より 1.5 秒長いため）"
+    },
+    {
+      "name": "filled audio disabled with reason",
+      "passed": true,
+      "measured": true
+    },
+    {
+      "name": "fake generated twice; paid calls zero",
+      "passed": true,
+      "measured": {
+        "engines": 1,
+        "voices": 2,
+        "generated": 2,
+        "paidAttempts": 0
+      }
+    }
+  ],
+  "clicks": [
+    {
+      "name": "select frame-a",
+      "attempt": 1,
+      "passed": true
+    },
+    {
+      "name": "AI tab",
+      "attempt": 1,
+      "passed": true
+    },
+    {
+      "name": "narration panel",
+      "attempt": 1,
+      "passed": true
+    },
+    {
+      "name": "script field",
+      "attempt": 1,
+      "passed": true
+    },
+    {
+      "name": "generate 1.5s",
+      "attempt": 1,
+      "passed": true
+    },
+    {
+      "name": "undo",
+      "attempt": 1,
+      "passed": true
+    },
+    {
+      "name": "select frame-b",
+      "attempt": 1,
+      "passed": true
+    },
+    {
+      "name": "second narration panel",
+      "attempt": 1,
+      "passed": true
+    },
+    {
+      "name": "script field",
+      "attempt": 1,
+      "passed": true
+    },
+    {
+      "name": "generate 3.5s",
+      "attempt": 1,
+      "passed": true
+    },
+    {
+      "name": "select interview",
+      "attempt": 1,
+      "passed": true
+    }
+  ],
+  "screenshots": [
+    {
+      "name": "01-narration-panel.png",
+      "bytes": 230168
+    },
+    {
+      "name": "01b-narration-voice.png",
+      "bytes": 235960
+    },
+    {
+      "name": "02-frame-replaced.png",
+      "bytes": 306750
+    },
+    {
+      "name": "03-after-undo.png",
+      "bytes": 311036
+    },
+    {
+      "name": "04-lower-track.png",
+      "bytes": 307713
+    },
+    {
+      "name": "05-filled-audio-disabled.png",
+      "bytes": 298625
+    }
+  ],
+  "measurements": {
+    "labelTextIntersect": false,
+    "buttons": [
+      {
+        "name": "← AI",
+        "background": "rgb(26, 26, 26)",
+        "border": "1px"
+      },
+      {
+        "name": "← AI",
+        "background": "rgb(26, 26, 26)",
+        "border": "1px"
+      },
+      {
+        "name": "声を作る",
+        "background": "rgb(26, 26, 26)",
+        "border": "1px"
+      }
+    ],
+    "clipBefore": "音声frame-a.wav空の枠（音）",
+    "clipAfter": "音声frame-a n-0001.wav",
+    "placementLine": "A2 に置きました（枠より 1.5 秒長いため）"
+  },
+  "fakeCli": {
+    "engines": 1,
+    "voices": 2,
+    "generated": 2,
+    "paidAttempts": 0
+  },
+  "fixture": {
+    "project": "<TEMP>/project",
+    "ids": [
+      "frame-a",
+      "frame-b",
+      "interview"
+    ],
+    "fps": 30
+  },
+  "killedPid": 63214,
+  "electronExited": true
+}

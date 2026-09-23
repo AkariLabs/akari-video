@@ -1,3 +1,5 @@
+import type { NarrationEngine } from './akari-annotations-protocol';
+
 export interface AiCatalogModel {
     id: string;
     kind: string;
@@ -33,7 +35,7 @@ export interface AiTile { id: string; label: string; image: AiImage; enabled: bo
 export interface AiTileGroup { group: AiActionGroup; tiles: AiTile[] }
 
 /** Video routes use the generation model catalog; transcription delegates engine choice to the daihon dialog. */
-export function aiActionCatalog(models: readonly AiCatalogModel[]): AiAction[] {
+export function aiActionCatalog(models: readonly AiCatalogModel[], narrationEngines?: readonly NarrationEngine[]): AiAction[] {
     return [{
         id: 'still', group: 'make', label: '静止画', image: 'still',
         visibleFor: ['empty-frame', 'still', 'video', 'generated-video'],
@@ -51,7 +53,16 @@ export function aiActionCatalog(models: readonly AiCatalogModel[]): AiAction[] {
                 : (row.provider ?? row.id.split(':')[0]) === 'local' ? 'local' : 'cli',
             cost: row.price ? 'paid' : 'free'
         }))
-    }, {
+    }, ...(narrationEngines ? [{
+        id: 'narration', group: 'make', label: 'ナレーション', image: 'narration',
+        visibleFor: ['empty-audio-frame', 'audio'] as AiTargetKind[], accepts: ['empty-audio-frame'] as AiTargetKind[],
+        reasonWhenDisabled: '空いている音声の枠で使えます', output: 'audio' as const, placement: 'replace' as const,
+        routes: narrationEngines.filter(engine => ['voicevox', 'gemini-tts', 'irodori'].includes(engine.id))
+            .map(engine => ({ id: engine.id, label: engine.label,
+                kind: engine.place === 'cloud' ? 'api' as const : 'local' as const,
+                cost: (engine.price?.usd_per_1000_chars ?? 0) > 0 || engine.place === 'cloud'
+                    ? 'paid' as const : 'free' as const }))
+    } as AiAction] : []), {
         id: 'transcribe', group: 'refine', label: '文字起こし', image: 'transcribe',
         visibleFor: ['audio', 'video', 'generated-video', 'still', 'empty-frame', 'empty-audio-frame',
             'material-audio', 'material-video'],

@@ -2,11 +2,12 @@ import URI from '@theia/core/lib/common/uri';
 import { CommandRegistry } from '@theia/core/lib/common';
 import { GENERATION_PICK_INTO_COMMAND_ID, GENERATION_CANCEL_PICK_COMMAND_ID, type GenerationPickRequest, type GenerationPickResult } from '../common/generation-pick-mirror';
 import { AkariAnnotationsService } from '../common/akari-annotations-protocol';
-import type { GenerationValidationResult, TranscriptSummary } from '../common/akari-annotations-protocol';
+import type { GenerationValidationResult, TranscriptSummary, NarrationEngine } from '../common/akari-annotations-protocol';
 import { resolveGenerationState, selectGenerationSidecarForSource, TRANSITION_VOCABULARY } from '@akari-video/edit-store';
 import { ApplicationShell, BaseWidget } from '@theia/core/lib/browser';
 import { WidgetManager } from '@theia/core/lib/browser/widget-manager';
 import { ConfirmDialog } from '@theia/core/lib/browser/dialogs';
+import { PreferenceService } from '@theia/core/lib/common/preferences';
 import { FileDialogService } from '@theia/filesystem/lib/browser';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
 import { WorkspaceService } from '@theia/workspace/lib/browser/workspace-service';
@@ -38,6 +39,8 @@ import { appendAiStillNotice, appendAiStillPanel, nearestStillAspect, replaceSti
 import { appendAiTranscribePanel, resolveAiTranscribeTarget, type AiTranscribeTarget } from './inspector/ai-transcribe-panel';
 import { appendAiMaterialView } from './inspector/ai-material-view';
 import { AKARI_MATERIAL_SELECTED_EVENT, materialSelectionFromDetail, type AkariMaterialSelection } from '../common/material-selected-event';
+import { appendAiNarrationPanel, chooseAiNarrationVoice, generateAiNarration, initialAiNarrationState, type AiNarrationState } from './inspector/ai-narration-panel';
+import { aiNarrationSourcePath } from '../common/ai-narration-placement';
 import { createInspectorIcon } from './inspector/icons';
 import {
     CAPTION_BACKGROUND_ON_OPACITY, captionEffectFromStyle, captionEffectPatch,
@@ -2556,6 +2559,14 @@ export class AkariInspectorWidget extends BaseWidget {
     @inject(WidgetManager)
     protected readonly stillWidgetManager!: WidgetManager;
 
+    @inject(PreferenceService)
+    protected readonly narrationPreferences!: PreferenceService;
+
+    protected narrationIrodoriUrl(): string {
+        return this.narrationPreferences?.get<string>('akari.narration.irodoriUrl', 'http://127.0.0.1:8088')
+            ?? 'http://127.0.0.1:8088';
+    }
+
     protected generationFramePick?: { key: string; slot: string };
     protected generationFramePickMessage?: { key: string; text: string };
 
@@ -2584,6 +2595,13 @@ export class AkariInspectorWidget extends BaseWidget {
     protected aiCatalogFailed = false;
     protected aiCatalogFailureWorkspace?: string;
     protected aiCatalogLoading?: Promise<void>;
+    protected narrationEngines: NarrationEngine[] = [];
+    protected narrationStates = new Map<string, AiNarrationState>();
+    protected narrationPlacementNotice?: { clipKey: string; sourcePath: string; label: string };
+    protected narrationSourcePath?: string;
+    protected narrationSourceCheckVersion = 0;
+    protected narrationLoadRevision = 0;
+    protected narrationTick?: number;
     protected aiView?: AiTabView;
     protected aiViewClipKey?: string;
     protected aiStillSelectionClipKey?: string;
@@ -2716,6 +2734,20 @@ export class AkariInspectorWidget extends BaseWidget {
 .akari-inspector-widget button.akari-inspector-ai-material-tab-active { color: var(--akari-accent); border-bottom: 2px solid var(--akari-accent); font-weight: 700; }
 .akari-inspector-ai-material-info, .akari-inspector-ai-material-empty { padding: 12px 10px; color: var(--akari-muted); font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
 .akari-inspector-ai-material-info p { margin: 0 0 8px; }
+.akari-inspector-ai-narration-panel { display: grid; gap: 11px; min-width: 0; padding: 8px 2px 14px; }
+.akari-inspector-ai-narration-label { display: grid; gap: 5px; font-size: 12px; font-weight: 600; }
+.akari-inspector-ai-narration-textarea, .akari-inspector-ai-narration-voice { box-sizing: border-box; width: 100%; padding: 8px; color: var(--akari-ink); background: var(--akari-card); border: 1px solid var(--akari-line); border-radius: 5px; font: inherit; }
+.akari-inspector-ai-narration-textarea { min-height: 70px; resize: vertical; }
+.akari-inspector-ai-narration-heading { margin: 0; font-size: 12px; }
+.akari-inspector-ai-narration-engines { display: grid; gap: 7px; }
+.akari-inspector-ai-narration-engine { display: flex; gap: 8px; align-items: start; padding: 9px; background: var(--akari-elevated); border: 1px solid var(--akari-line); border-radius: 6px; cursor: pointer; }
+.akari-inspector-ai-narration-engine:has(input:checked) { border-color: var(--akari-accent); }
+.akari-inspector-ai-narration-engine:has(input:disabled) { opacity: .65; cursor: default; }
+.akari-inspector-ai-narration-engine-text { display: grid; gap: 3px; font-size: 11px; }
+.akari-inspector-ai-narration-engine-cost, .akari-inspector-ai-narration-engine-availability, .akari-inspector-ai-narration-estimate, .akari-inspector-ai-narration-progress, .akari-inspector-ai-narration-placement { color: var(--akari-muted); font-size: 11px; margin: 0; }
+.akari-inspector-ai-narration-error { color: var(--akari-danger, #e36b6b); font-size: 11px; margin: 0; overflow-wrap: anywhere; }
+.akari-inspector-widget button.akari-inspector-ai-narration-button { padding: 8px 10px; color: var(--akari-ink); background: var(--akari-elevated); border: 1px solid var(--akari-line); border-radius: 5px; cursor: pointer; }
+.akari-inspector-widget button.akari-inspector-ai-narration-button:disabled { opacity: .55; cursor: default; }
 .akari-inspector-generation-gap { display: grid; gap: 12px; padding: 12px; min-width: 0; }
 .akari-inspector-generation-gap h3, .akari-inspector-generation-gap p { margin: 0; line-height: 1.6; overflow-wrap: anywhere; }
 .akari-inspector-generation-gap-ends { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; }
@@ -3562,6 +3594,13 @@ export class AkariInspectorWidget extends BaseWidget {
             this.render();
         }));
         this.toDispose.push(this.fileService.onDidFilesChange(event => {
+            if (this.materialSelection || this.model.snapshot?.kind !== 'audio') return;
+            const root = this.workspaceService.tryGetRoots()[0]?.resource;
+            if (root && event.changes.some(change => change.resource.toString() === root.resolve('edit.json').toString())) {
+                this.render();
+            }
+        }));
+        this.toDispose.push(this.fileService.onDidFilesChange(event => {
             if (!event.changes.some(change => /(?:\.inputs\.json|\.meta\.json)$/u.test(change.resource.path.toString()))) return;
             const current = this.generationIdentity(this.model.snapshot);
             if (!current) return;
@@ -4056,23 +4095,35 @@ export class AkariInspectorWidget extends BaseWidget {
         const generationDone = !!generationIdentity && this.generationDone?.has(generationIdentity.key) === true;
         const transcribeKey = JSON.stringify([
             this.workspaceService.tryGetRoots()[0]?.resource.toString() ?? '', sectionKind,
-            rowSnapshot.kind === 'cut' ? rowSnapshot.itemId ?? rowSnapshot.index : rowSnapshot.id
+            rowSnapshot.kind === 'cut' ? rowSnapshot.itemId ?? rowSnapshot.index : rowSnapshot.id,
+            rowSnapshot.kind === 'audio' ? rowSnapshot.label : undefined
         ]);
         if (this.transcribeKey !== transcribeKey) {
+            this.narrationSourceCheckVersion = (this.narrationSourceCheckVersion ?? 0) + 1;
+            this.narrationLoadRevision = (this.narrationLoadRevision ?? 0) + 1;
+            if (this.transcribeKey !== undefined && rowSnapshot.kind === 'audio') {
+                this.narrationPlacementNotice = undefined;
+                const state = this.narrationStates?.get(this.aiViewClipKey ?? '');
+                if (state) state.placement = undefined;
+            }
             this.transcribeKey = transcribeKey;
             this.transcribeTarget = undefined;
             this.transcribeSummary = { state: 'none', segments: [], total: 0 };
             this.transcribeRunning = false;
             this.transcribePolling = false;
             this.audioPlanned = false;
+            this.narrationSourcePath = undefined;
             this.transcribeLoading = undefined;
         }
         if (['cut', 'layer', 'item', 'audio'].includes(sectionKind) && !this.transcribeLoading) {
             void this.loadAiTranscribeTarget?.(rowSnapshot, transcribeKey);
         }
+        if (rowSnapshot.kind === 'audio' && this.narrationSourcePath) {
+            void this.verifyAiNarrationSource?.(rowSnapshot, transcribeKey);
+        }
         // Older render harnesses instantiate only extracted methods and have no AI catalog state.
         const aiGroups = this.aiCatalogLoaded === undefined ? [] : describeAiTiles(
-            aiActionCatalog(this.generationCatalog),
+            aiActionCatalog(this.generationCatalog, this.narrationEngines),
             aiTargetKindFor({ hasIdentity: !!generationIdentity, generationDone, generationState,
                 audio: sectionKind === 'audio', audioPlanned: this.audioPlanned })
         );
@@ -4115,6 +4166,7 @@ export class AkariInspectorWidget extends BaseWidget {
         this.appendTabStrip(sectionKind, tabs, activeTab, generationTodo);
 
         if (activeTab === 'generation' && this.aiCatalogLoaded) {
+            if (this.aiViewClipKey !== clipKey) this.narrationPlacementNotice = undefined;
             this.aiView = aiTabViewFor({
                 clipKey, previousClipKey: this.aiViewClipKey, previousView: this.aiView,
                 generationState, generationDone, forcePanel: aiAvailability.forcePanel
@@ -4122,9 +4174,18 @@ export class AkariInspectorWidget extends BaseWidget {
             this.aiViewClipKey = clipKey;
             if (this.aiView === 'tiles') {
                 if (stillNotice) appendAiStillNotice(this.body, stillNotice);
+                if (this.narrationPlacementNotice?.clipKey === clipKey
+                    && this.narrationPlacementNotice.sourcePath === this.narrationSourcePath && sectionKind === 'audio') {
+                    const notice = document.createElement('p');
+                    notice.className = 'akari-inspector-ai-narration-placement';
+                    notice.textContent = this.narrationPlacementNotice.label; this.body.append(notice);
+                }
                 appendAiTiles(this.body, aiGroups, id => {
-                    if (id !== 'video' && id !== 'still' && id !== 'transcribe') return;
+                    if (id !== 'video' && id !== 'still' && id !== 'transcribe' && id !== 'narration') return;
                     this.aiView = id;
+                    if (id === 'narration' && rowSnapshot.kind === 'audio') {
+                        void this.loadAiNarrationVoices(clipKey);
+                    }
                     this.render();
                 }, this.transcribeSummary.state === 'done');
                 return;
@@ -4138,7 +4199,8 @@ export class AkariInspectorWidget extends BaseWidget {
                 this.appendStillPanel(generationIdentity);
                 return;
             }
-            appendAiBack(this.body, this.aiView === 'transcribe' ? '文字起こし' : '動画にする', () => {
+            appendAiBack(this.body, this.aiView === 'transcribe' ? '文字起こし'
+                : this.aiView === 'narration' ? 'ナレーション' : '動画にする', () => {
                 this.aiView = 'tiles';
                 this.transcribePolling = false;
                 this.render();
@@ -4166,6 +4228,22 @@ export class AkariInspectorWidget extends BaseWidget {
                     }
                     void this.refreshAiTranscript(transcribeKey);
                 }, 5000);
+                return;
+            }
+            if (this.aiView === 'narration' && rowSnapshot.kind === 'audio') {
+                const state = this.narrationStates.get(clipKey) ?? initialAiNarrationState(this.narrationEngines);
+                this.narrationStates.set(clipKey, state);
+                appendAiNarrationPanel(this.body, state, this.narrationEngines, {
+                    change: () => {
+                        const button = this.body.querySelector<HTMLButtonElement>('.akari-inspector-ai-narration-button');
+                        if (button) button.disabled = !state.script.trim() || !state.voiceId || state.running
+                            || state.engineId === 'irodori' && state.voiceId === 'custom' && !state.style?.trim();
+                    },
+                    chooseEngine: id => { state.engineId = id; state.voiceId = ''; state.voices = [];
+                        void this.loadAiNarrationVoices(clipKey); this.render(); },
+                    generate: () => void this.startAiNarration(clipKey, rowSnapshot.id, rowSnapshot.outputStart),
+                    cancel: () => void this.cancelAiNarration(clipKey)
+                });
                 return;
             }
         }
@@ -4335,6 +4413,7 @@ export class AkariInspectorWidget extends BaseWidget {
 
     override dispose(): void {
         if (this.transcribeTimer) clearInterval(this.transcribeTimer);
+        if (this.narrationTick) window.clearInterval(this.narrationTick);
         this.cancelGenerationFramePick();
         this.syncAdjustCompare(undefined, '');
         this.lutGeneration++;
@@ -4849,14 +4928,19 @@ export class AkariInspectorWidget extends BaseWidget {
     }
 
     protected loadAiTranscribeTarget(snapshot: InspectorSnapshot, key: string): Promise<void> {
+        const revision = this.narrationLoadRevision;
         this.transcribeLoading = (async () => {
             try {
                 await this.workspaceService.ready;
                 const root = this.workspaceService.tryGetRoots()[0]?.resource;
                 if (!root) return;
                 const edit = JSON.parse((await this.fileService.readFile(root.resolve('edit.json'))).value.toString());
-                const target = resolveAiTranscribeTarget(snapshot, edit);
-                if (this.transcribeKey !== key) return;
+                const sourcePath = snapshot.kind === 'audio' ? aiNarrationSourcePath(edit, snapshot.id) : undefined;
+                const resolved = resolveAiTranscribeTarget(snapshot, edit);
+                const target = resolved && sourcePath
+                    ? { ...resolved, relativePath: sourcePath, name: sourcePath.split('/').pop() || sourcePath } : resolved;
+                if (this.transcribeKey !== key || this.narrationLoadRevision !== revision) return;
+                if (snapshot.kind === 'audio') this.narrationSourcePath = sourcePath ?? target?.relativePath;
                 const present = target && await this.fileService.exists(root.resolve(target.relativePath));
                 this.transcribeTarget = present ? target : undefined;
                 if (this.transcribeTarget) {
@@ -4868,15 +4952,43 @@ export class AkariInspectorWidget extends BaseWidget {
                             projectRootUri: root.toString(), sourcePaths: [target.relativePath]
                         }) : Promise.resolve({ entries: [] })
                     ]);
-                    if (this.transcribeKey !== key) return;
+                    if (this.transcribeKey !== key || this.narrationLoadRevision !== revision) return;
                     this.transcribeSummary = summary;
                     this.audioPlanned = sidecars.entries.some(entry => entry.sourcePath === target.relativePath
                         && entry.meta.kind === 'audio' && entry.meta.status === 'planned');
+                    if (this.audioPlanned) {
+                        this.narrationPlacementNotice = undefined;
+                        const state = this.narrationStates?.get(this.aiViewClipKey ?? '');
+                        if (state) state.placement = undefined;
+                    }
+                } else if (snapshot.kind === 'audio') {
+                    this.audioPlanned = false;
                 }
             } catch { /* Missing media is explained by the panel. */ }
-            if (this.transcribeKey === key && !this.isDisposed) this.render();
+            if (this.transcribeKey === key && this.narrationLoadRevision === revision && !this.isDisposed) this.render();
         })();
         return this.transcribeLoading;
+    }
+
+    protected async verifyAiNarrationSource(snapshot: InspectorSnapshot, key: string): Promise<void> {
+        if (snapshot.kind !== 'audio') return;
+        const version = ++this.narrationSourceCheckVersion;
+        try {
+            const root = this.workspaceService.tryGetRoots()[0]?.resource;
+            if (!root) return;
+            const edit = JSON.parse((await this.fileService.readFile(root.resolve('edit.json'))).value.toString());
+            const sourcePath = aiNarrationSourcePath(edit, snapshot.id);
+            if (version !== this.narrationSourceCheckVersion || this.transcribeKey !== key
+                || !sourcePath || sourcePath === this.narrationSourcePath) return;
+            this.narrationSourcePath = undefined;
+            this.narrationPlacementNotice = undefined;
+            const state = this.narrationStates?.get(this.aiViewClipKey ?? '');
+            if (state) state.placement = undefined;
+            this.transcribeKey = undefined;
+            this.transcribeLoading = undefined;
+            this.audioPlanned = false;
+            if (!this.isDisposed) this.render();
+        } catch { /* A later timeline render can retry after a transient edit read. */ }
     }
 
     protected async refreshAiTranscript(key: string): Promise<void> {
@@ -4893,6 +5005,80 @@ export class AkariInspectorWidget extends BaseWidget {
             this.transcribePolling = false;
             this.render();
         }
+    }
+
+    protected async loadAiNarrationVoices(key: string): Promise<void> {
+        const state = this.narrationStates.get(key) ?? initialAiNarrationState(this.narrationEngines);
+        this.narrationStates.set(key, state);
+        const root = this.workspaceService.tryGetRoots()[0]?.resource;
+        if (!root || !state.engineId) return;
+        const engineId = state.engineId;
+        try {
+            const result = await this.layerAudioService.listNarrationVoices(root.toString(), engineId,
+                engineId === 'irodori' ? this.narrationIrodoriUrl() : undefined);
+            if (this.aiViewClipKey !== key || state.engineId !== engineId) return;
+            chooseAiNarrationVoice(state, result.voices);
+            this.render();
+        } catch (error) { state.error = String(error); this.render(); }
+    }
+
+    protected async startAiNarration(key: string, itemId: string, atSeconds: number): Promise<void> {
+        const state = this.narrationStates.get(key);
+        const root = this.workspaceService.tryGetRoots()[0]?.resource;
+        const engine = this.narrationEngines.find(row => row.id === state?.engineId);
+        if (!state || !root || !engine || state.running) return;
+        state.error = undefined; state.cancelled = false; state.running = true; state.startedAt = Date.now();
+        this.render();
+        if (this.narrationTick) window.clearInterval(this.narrationTick);
+        this.narrationTick = window.setInterval(() => {
+            if (state.running && this.aiView === 'narration') {
+                const progress = this.body.querySelector<HTMLElement>('.akari-inspector-ai-narration-progress');
+                if (progress) progress.textContent = `声を作っています · ${Math.floor((Date.now() - state.startedAt!) / 1000)} 秒`;
+            }
+        }, 1000);
+        try {
+            const edit = JSON.parse((await this.fileService.readFile(root.resolve('edit.json'))).value.toString());
+            const fps = Number(edit.output?.fps ?? 30);
+            const timeline = this.stillWidgetManager.getWidgets('akari-annotations-widget').find(widget => {
+                const location = (widget as unknown as { location?: { root?: URI } }).location;
+                return !widget.isDisposed && location?.root?.toString() === root.toString();
+            }) as unknown as { commitEditMutation?: (label: string, mutate: (doc: any) => any) => Promise<unknown> } | undefined;
+            if (!timeline?.commitEditMutation) throw new Error('タイムラインの編集履歴が見つかりません。');
+            const label = await generateAiNarration({ state, engine, projectRootUri: root.toString(), itemId,
+                atSeconds, service: this.layerAudioService,
+                irodoriUrl: engine.id === 'irodori' ? this.narrationIrodoriUrl() : undefined,
+                confirm: message => new ConfirmDialog(message).open(),
+                commit: (name, mutate) => timeline.commitEditMutation!(name, mutate), fps });
+            if (label) {
+                const placedEdit = JSON.parse((await this.fileService.readFile(root.resolve('edit.json'))).value.toString());
+                const sourcePath = aiNarrationSourcePath(placedEdit, itemId);
+                state.placement = label;
+                this.narrationPlacementNotice = sourcePath ? { clipKey: key, sourcePath, label } : undefined;
+                this.audioPlanned = false;
+                this.narrationSourceCheckVersion = (this.narrationSourceCheckVersion ?? 0) + 1;
+                this.narrationLoadRevision = (this.narrationLoadRevision ?? 0) + 1;
+                this.transcribeKey = undefined;
+                this.transcribeLoading = undefined;
+                this.aiView = 'tiles';
+            }
+        } catch (error) {
+            if (!state.cancelled) state.error = error instanceof Error ? error.message : String(error);
+        } finally {
+            state.running = false;
+            if (this.narrationTick) window.clearInterval(this.narrationTick);
+            this.narrationTick = undefined;
+            if (!this.isDisposed) this.render();
+        }
+    }
+
+    protected async cancelAiNarration(key: string): Promise<void> {
+        const state = this.narrationStates.get(key);
+        const root = this.workspaceService.tryGetRoots()[0]?.resource;
+        if (!state || !root) return;
+        state.cancelled = true; state.running = false;
+        try { await this.layerAudioService.cancelNarration(root.toString()); }
+        catch (error) { state.error = String(error); }
+        this.render();
     }
 
     protected loadAiCatalog(): Promise<void> {
@@ -4912,6 +5098,11 @@ export class AkariInspectorWidget extends BaseWidget {
                     const catalog = await this.layerAudioService.readGenerationCatalog();
                     this.generationCatalog = catalog.models.filter(row => row.kind === 'video') as unknown as GenerationCatalogRow[];
                 }
+                try {
+                    const narration = await this.layerAudioService.listNarrationEngines(root.toString(), this.narrationIrodoriUrl());
+                    this.narrationEngines = narration.engines.filter(engine =>
+                        ['voicevox', 'gemini-tts', 'irodori'].includes(engine.id));
+                } catch { this.narrationEngines = []; }
                 this.aiCatalogLoaded = true;
                 this.render();
             } catch (error) {
