@@ -98,6 +98,13 @@ export interface MaterialGhostVisibility {
     readonly rejected: boolean;
 }
 
+/** 枠には短い案内だけを出す。詳細な拒否理由はフッターへ渡す。 */
+export function materialGhostRejectLabel(reason: string): string {
+    if (reason.includes('ロック中')) return 'ロック中';
+    if (reason.includes('レーン') || reason.includes('段へ')) return 'レーン違い';
+    return '置けません';
+}
+
 /**
  * 拒否時も本体を表示し、拒否フラグで赤い枠と理由へ切り替える（挿入線は出さない）。
  * 受理時に insertTrack があり audio 以外なら、本体ゴースト（新行が入る位置）+

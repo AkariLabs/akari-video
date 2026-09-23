@@ -1,0 +1,118 @@
+{
+ "id": "c-0002",
+ "dx": 45,
+ "dy": 60,
+ "at": "2026-09-23T01:52:18.918Z",
+ "rowsBefore": [
+  {
+   "trackId": "t-placed-text-display",
+   "top": 433.9,
+   "h": 24
+  },
+  {
+   "trackId": "v-captions",
+   "top": 459.9,
+   "h": 24
+  },
+  {
+   "trackId": "v-main",
+   "top": 485.9,
+   "h": 48
+  },
+  {
+   "trackId": "a1",
+   "top": 535.9,
+   "h": 28
+  }
+ ],
+ "labels": [
+  {
+   "text": "文字",
+   "cls": "akari-track-header-name",
+   "top": 438.1,
+   "height": 16.5,
+   "visible": true
+  },
+  {
+   "text": "字幕",
+   "cls": "akari-track-header-name",
+   "top": 464.1,
+   "height": 16.5,
+   "visible": true
+  }
+ ],
+ "chipBefore": {
+  "id": "c-0002",
+  "lane": "v-captions",
+  "left": 567.4,
+  "top": 459.9,
+  "width": 117.8,
+  "height": 22,
+  "text": "まずはコーヒーを淹れるところから",
+  "bg": "color(srgb 0.694118 0.501961 0.843137 / 0.68)",
+  "border": "rgb(204, 204, 204)",
+  "cls": "akari-annotations-strip-hit-target akari-annotations-caption-playing"
+ },
+ "captionBefore": {
+  "id": "c-0002",
+  "start": 3,
+  "end": 5.5,
+  "text": "まずはコーヒーを淹れるところから",
+  "speaker": null,
+  "sourceRef": null,
+  "edited": false,
+  "src": "a"
+ },
+ "during": {
+  "pointer": {
+   "x": 652.4,
+   "y": 530.9
+  },
+  "ghostCandidates": [],
+  "dragFeedback": "00:00:03.500 – 00:00:06.000（隣の字幕で止まりました）",
+  "footer": "文字のタイミングを調整を元に戻しました。"
+ },
+ "captionsChanged": true,
+ "editJsonByteEqual": false,
+ "captionAfter": {
+  "id": "c-0002",
+  "start": 3.5,
+  "end": 6,
+  "text": "まずはコーヒーを淹れるところから",
+  "speaker": null,
+  "sourceRef": null,
+  "edited": true,
+  "src": "a"
+ },
+ "otherCaptionsUnchanged": true,
+ "chipAfter": {
+  "id": "c-0002",
+  "lane": "v-captions",
+  "left": 590.9,
+  "top": 459.9,
+  "width": 117.8,
+  "height": 22,
+  "text": "まずはコーヒーを淹れるところから",
+  "bg": "color(srgb 0.694118 0.501961 0.843137 / 0.68)",
+  "border": "rgb(204, 204, 204)",
+  "cls": "akari-annotations-strip-hit-target"
+ },
+ "footerAfter": "字幕のタイミングを調整しました。",
+ "undo": {
+  "presses": 1,
+  "captionsByteEqual": true,
+  "editJsonByteEqual": true,
+  "chip": {
+   "id": "c-0002",
+   "lane": "v-captions",
+   "left": 567.4,
+   "top": 459.9,
+   "width": 117.8,
+   "height": 22,
+   "text": "まずはコーヒーを淹れるところから",
+   "bg": "color(srgb 0.694118 0.501961 0.843137 / 0.68)",
+   "border": "rgb(204, 204, 204)",
+   "cls": "akari-annotations-strip-hit-target"
+  }
+ }
+}

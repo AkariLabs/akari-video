@@ -9,7 +9,7 @@ const { isTrackLocked, lockedTrackMessage } = require('../lib/common/track-lock-
 const { indexEditV2Items } = require('../lib/common/edit-v2-mutations.js');
 const { linkedCutIdOf, linkedAudioItemIdOf } = require('@akari-video/edit-store');
 const { withCaptionsDisplaySupplement } = require('../lib/common/derive-timeline-tracks.js');
-const { computeMaterialGhostRange, materialGhostVisibility } = require('../lib/common/timeline-material-insert.js');
+const { computeMaterialGhostRange, materialGhostRejectLabel, materialGhostVisibility } = require('../lib/common/timeline-material-insert.js');
 const source = ts.createSourceFile('widget.ts', readFileSync(
   new URL('../src/browser/akari-annotations-widget.ts', import.meta.url), 'utf8'
 ), ts.ScriptTarget.Latest, true);
@@ -38,9 +38,10 @@ const code = ts.transpileModule(`class Handler { ${names.map(methodText).join('\
 class Element {}
 const Handler = new Function('isTrackLocked', 'lockedTrackMessage', 'TRACK_FLAG_STORAGE_PREFIX', 'Element',
   'withCaptionsDisplaySupplement', 'linkedCutIdOf', 'linkedAudioItemIdOf', 'indexEditV2Items',
-  'computeMaterialGhostRange', 'materialGhostVisibility', `${code}\nreturn Handler;`)(
+  'computeMaterialGhostRange', 'materialGhostRejectLabel', 'materialGhostVisibility', `${code}\nreturn Handler;`)(
   isTrackLocked, lockedTrackMessage, 'test-track-flags', Element, withCaptionsDisplaySupplement,
-  linkedCutIdOf, linkedAudioItemIdOf, indexEditV2Items, computeMaterialGhostRange, materialGhostVisibility
+  linkedCutIdOf, linkedAudioItemIdOf, indexEditV2Items, computeMaterialGhostRange,
+  materialGhostRejectLabel, materialGhostVisibility
 );
 
 test('a reused clip remains interactive after keyed geometry resets pointer events', () => {
@@ -332,7 +333,7 @@ test('material hover shows a rejected ghost on a locked target, then drop reject
   assert.equal(context.ghostHidden, false);
   assert.equal(context.materialGhost.style.display, 'block');
   assert.equal(classes.has('akari-annotations-ghost-rejected'), true);
-  assert.equal(context.materialGhost.textContent, lockedTrackMessage('本編'));
+  assert.equal(context.materialGhost.textContent, 'ロック中');
   assert.equal(context.materialGhost.style.outline, '2px solid #f14c4c');
   const target = context.resolveMaterialDropTarget('video', 10);
   assert.equal(target.rejected, true);

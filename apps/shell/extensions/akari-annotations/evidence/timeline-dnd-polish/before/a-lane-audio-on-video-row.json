@@ -1,0 +1,140 @@
+{
+ "payload": {
+  "relativePath": "assets/audio/bell-tree.wav",
+  "kind": "audio",
+  "durationSeconds": 1.5
+ },
+ "points": [
+  [
+   600,
+   510
+  ],
+  [
+   600,
+   550
+  ],
+  [
+   600,
+   510
+  ]
+ ],
+ "at": "2026-09-23T01:50:01.618Z",
+ "shaBefore": "e7759846764426fb57de7776a88c9644154d96236b60cb26824b0fbde14dd123",
+ "hovers": [
+  {
+   "x": 600,
+   "y": 510,
+   "ghost": {
+    "x": 600,
+    "y": 484.9,
+    "w": 70.9,
+    "h": 48,
+    "rejected": true,
+    "border": "2px solid rgb(241, 76, 76)",
+    "outline": "rgb(241, 76, 76) solid 2px",
+    "background": "rgba(241, 76, 76, 0.25)",
+    "color": "rgb(241, 76, 76)",
+    "fontSize": "11px",
+    "lineHeight": "13.2px",
+    "whiteSpace": "normal",
+    "textOverflow": "clip",
+    "text": "映像のレーンには音を置けません。",
+    "textLines": 4,
+    "textRect": {
+     "y": 488.9,
+     "h": 52.6,
+     "w": 55
+    },
+    "scrollHeight": 57,
+    "clientHeight": 44,
+    "textClipped": true
+   },
+   "row": {
+    "trackId": "v-main",
+    "y": 485.9,
+    "h": 48
+   },
+   "ghostMinusRowHeight": 0,
+   "insertLine": false,
+   "footer": "映像のレーンには音を置けません。"
+  },
+  {
+   "x": 600,
+   "y": 550,
+   "ghost": {
+    "x": 600,
+    "y": 534.9,
+    "w": 70.9,
+    "h": 28,
+    "rejected": false,
+    "border": "1px dashed rgb(77, 208, 200)",
+    "outline": "rgb(249, 115, 22) solid 2px",
+    "background": "rgba(77, 208, 200, 0.22)",
+    "color": "rgb(204, 204, 204)",
+    "fontSize": "13px",
+    "lineHeight": "normal",
+    "whiteSpace": "normal",
+    "textOverflow": "clip",
+    "text": "",
+    "textLines": 0,
+    "textRect": null,
+    "scrollHeight": 26,
+    "clientHeight": 26,
+    "textClipped": false
+   },
+   "row": {
+    "trackId": "a1",
+    "y": 535.9,
+    "h": 28
+   },
+   "ghostMinusRowHeight": 0,
+   "insertLine": false,
+   "footer": "映像のレーンには音を置けません。"
+  },
+  {
+   "x": 600,
+   "y": 510,
+   "ghost": {
+    "x": 600,
+    "y": 484.9,
+    "w": 70.9,
+    "h": 48,
+    "rejected": true,
+    "border": "2px solid rgb(241, 76, 76)",
+    "outline": "rgb(241, 76, 76) solid 2px",
+    "background": "rgba(241, 76, 76, 0.25)",
+    "color": "rgb(241, 76, 76)",
+    "fontSize": "11px",
+    "lineHeight": "13.2px",
+    "whiteSpace": "normal",
+    "textOverflow": "clip",
+    "text": "映像のレーンには音を置けません。",
+    "textLines": 4,
+    "textRect": {
+     "y": 488.9,
+     "h": 52.6,
+     "w": 55
+    },
+    "scrollHeight": 57,
+    "clientHeight": 44,
+    "textClipped": true
+   },
+   "row": {
+    "trackId": "v-main",
+    "y": 485.9,
+    "h": 48
+   },
+   "ghostMinusRowHeight": 0,
+   "insertLine": false,
+   "footer": "映像のレーンには音を置けません。"
+  }
+ ],
+ "editChanged": false,
+ "afterDrop": {
+  "ghost": null,
+  "row": null,
+  "ghostMinusRowHeight": null,
+  "insertLine": false,
+  "footer": "映像のレーンには音を置けません。"
+ }
+}

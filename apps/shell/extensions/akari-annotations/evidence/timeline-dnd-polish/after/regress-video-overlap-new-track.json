@@ -1,0 +1,91 @@
+{
+ "payload": {
+  "relativePath": "assets/video/raw-clip.mp4",
+  "kind": "video",
+  "durationSeconds": 4
+ },
+ "points": [
+  [
+   600,
+   510
+  ]
+ ],
+ "at": "2026-09-23T02:35:13.331Z",
+ "shaBefore": "e7759846764426fb57de7776a88c9644154d96236b60cb26824b0fbde14dd123",
+ "hovers": [
+  {
+   "x": 600,
+   "y": 510,
+   "ghost": {
+    "x": 600,
+    "y": 484.9,
+    "w": 189.1,
+    "h": 48,
+    "rejected": false,
+    "border": "2px solid rgb(249, 115, 22)",
+    "outline": "none",
+    "background": "rgba(77, 208, 200, 0.22)",
+    "color": "rgb(204, 204, 204)",
+    "fontSize": "13px",
+    "lineHeight": "normal",
+    "whiteSpace": "normal",
+    "textOverflow": "clip",
+    "text": "",
+    "textLines": 0,
+    "textRect": null,
+    "scrollHeight": 44,
+    "clientHeight": 44,
+    "textClipped": false
+   },
+   "row": {
+    "trackId": "v-main",
+    "y": 485.9,
+    "h": 48
+   },
+   "ghostMinusRowHeight": 0,
+   "insertLine": true,
+   "footer": "重なるので新しいトラックに置きます"
+  }
+ ],
+ "editChanged": true,
+ "tracksAfter": [
+  {
+   "id": "v-main",
+   "lane": "visual",
+   "items": [
+    "cut-base@0+360"
+   ]
+  },
+  {
+   "id": "v1",
+   "lane": "visual",
+   "items": [
+    "clip-1@111+120"
+   ]
+  },
+  {
+   "id": "v-captions",
+   "lane": "visual",
+   "items": [
+    "captions@0+360"
+   ]
+  },
+  {
+   "id": "a1",
+   "lane": "audio",
+   "items": []
+  }
+ ],
+ "audioAfter": null,
+ "afterDrop": {
+  "ghost": null,
+  "row": null,
+  "ghostMinusRowHeight": null,
+  "insertLine": false,
+  "footer": "タイムラインに素材を追加しました。重なりを避けて新しいトラックに置きました。"
+ },
+ "undo": {
+  "presses": 1,
+  "byteIdentical": true
+ }
+}

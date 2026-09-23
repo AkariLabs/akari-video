@@ -283,10 +283,12 @@ import {
     planCutDrop,
     IMAGE_LAYER_DEFAULT_DURATION_SECONDS,
     materialDropDecision,
+    materialGhostRejectLabel,
     materialGhostVisibility,
     MaterialDragKind,
     MaterialDropZone,
 } from '../common/timeline-material-insert';
+import { planPlacedTextMove } from '../common/placed-text-drag';
 import { OPEN_AKARI_INSPECTOR_ID, OPEN_AKARI_REVIEW_PANEL_ID } from './akari-annotations-commands';
 import { closeTimelineContextMenu, openTimelineContextMenu, withAudioTrimMenuItem } from './akari-timeline-context-menu';
 import { AkariAudioKeyframeDialog } from './akari-audio-keyframe-dialog';
@@ -6285,16 +6287,17 @@ export class AkariAnnotationsWidget extends BaseWidget {
         );
         this.setGhostRange(this.materialGhost, range.start, range.end);
         this.setGhostRejected(this.materialGhost, visibility.rejected);
-        this.materialGhost.textContent = visibility.rejected ? target.reason || '素材をここには置けません。' : '';
+        this.materialGhost.textContent = visibility.rejected ? materialGhostRejectLabel(target.reason || '') : '';
         const rejectedColor = '#f14c4c';
         Object.assign(this.materialGhost.style, {
             background: visibility.rejected
                 ? 'rgba(241, 76, 76, .25)' : 'rgba(77, 208, 200, .22)',
             color: visibility.rejected ? rejectedColor : '',
             fontSize: visibility.rejected ? '11px' : '',
-            whiteSpace: visibility.rejected ? 'normal' : '',
+            whiteSpace: visibility.rejected ? 'nowrap' : '',
             overflow: visibility.rejected ? 'hidden' : '',
-            wordBreak: visibility.rejected ? 'break-all' : '',
+            textOverflow: visibility.rejected ? 'ellipsis' : '',
+            wordBreak: '',
             lineHeight: visibility.rejected ? '1.2' : '',
             padding: visibility.rejected ? '2px 4px' : ''
         });
@@ -6326,7 +6329,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         delete this.materialGhost.dataset.akariInsertionPreview;
         Object.assign(this.materialGhost.style, {
             display: 'none', border: '1px dashed #4dd0c8', background: 'rgba(77, 208, 200, .22)',
-            color: '', fontSize: '', whiteSpace: '', overflow: '', wordBreak: '',
+            color: '', fontSize: '', whiteSpace: '', overflow: '', textOverflow: '', wordBreak: '',
             lineHeight: '', padding: '', opacity: '', zIndex: '10'
         });
         this.hideTrackInsertIndicator();
@@ -14394,8 +14397,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
                         showGuide,
                         originalEdges
                     );
-                    start = Math.max(0, snap.time);
-                    end = state.originalEnd + (start - state.originalStart);
+                    const plan = planPlacedTextMove({
+                        originalStart: state.originalStart, originalEnd: state.originalEnd,
+                        proposedStart: snap.time, originalTop: state.element.style.top, clientY
+                    });
+                    start = plan.start;
+                    end = plan.end;
+                    state.ghost.style.top = plan.top;
                     snapped = snap.snapped;
                 } else {
                     const originalEdge = state.mode === 'start' ? state.originalStart : state.originalEnd;

@@ -4,7 +4,7 @@ import test from 'node:test';
 import ts from 'typescript';
 import * as mutations from '../lib/common/edit-v2-mutations.js';
 import { materialOverlapInsertIndex } from '../lib/common/material-drop-overlap.js';
-import { computeMaterialGhostRange, materialGhostVisibility } from '../lib/common/timeline-material-insert.js';
+import { computeMaterialGhostRange, materialGhostRejectLabel, materialGhostVisibility } from '../lib/common/timeline-material-insert.js';
 import { hitTestTimelineTrackDrop } from '../lib/common/timeline-track-drop.js';
 import { libraryAssetGhostPayload } from '../lib/browser/library-drop-model.js';
 
@@ -23,7 +23,8 @@ const bindings = {
     insertAudioSfxPreferV2: mutations.insertAudioSfxPreferV2,
     insertV2Track: mutations.insertTrack, insertV2Item: mutations.insertItem,
     updateV2Item: mutations.updateItem, materialOverlapInsertIndex, computeMaterialGhostRange,
-    materialGhostVisibility, hitTestTimelineTrackDrop, libraryAssetGhostPayload, lockedTrackMessage: id => `locked: ${id}`,
+    materialGhostVisibility, materialGhostRejectLabel, hitTestTimelineTrackDrop, libraryAssetGhostPayload,
+    lockedTrackMessage: id => `locked: ${id}`,
     IMAGE_LAYER_DEFAULT_DURATION_SECONDS: 5, MATERIAL_INSERT_FALLBACK_DURATION_SECONDS: 3,
     SUBROW_STRIDE: 32, LANE_GAP: 4
 };
@@ -119,7 +120,7 @@ test('ロック行・レーン違いの拒否と本編・行間・音0本のタ�
     f.handler.lockedId = 'v1';
     assert.equal(drag(f, 'video', 3, 'v1').dataTransfer.dropEffect, 'none');
     assert.equal(f.handler.materialGhost.style.display, 'block');
-    assert.equal(f.handler.materialGhost.textContent, 'locked: v1');
+    assert.equal(f.handler.materialGhost.textContent, '置けません');
     f.handler.lockedId = undefined;
     assert.equal(drag(f, 'audio', 3, 'v1').dataTransfer.dropEffect, 'none');
     assert.equal(drag(f, 'video', 3, 'a1').dataTransfer.dropEffect, 'none');
@@ -228,11 +229,11 @@ test('hideMaterialGhost は拒否クラスを外し、オレンジの outline �
     assert.equal(h.trackInsertIndicator.style.display, 'none');
 });
 
-test('拒否理由は枠内で折り返し、受理時と hide 後は whiteSpace / overflow / padding を含む文字スタイルを消す', () => {
+test('拒否理由は枠内で1行にし、受理時と hide 後は文字スタイルを消す', () => {
     const f = fixture([track('a1', 'audio'), track('v1', 'visual')]);
     const h = f.handler;
     const rejectedStyles = {
-        whiteSpace: 'normal', overflow: 'hidden', wordBreak: 'break-all', lineHeight: '1.2',
+        whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: '1.2',
         padding: '2px 4px', fontSize: '11px'
     };
     for (const reset of [() => drag(f, 'audio', 3, 'a1'), () => h.hideMaterialGhost()]) {
@@ -310,7 +311,7 @@ for (const kind of ['video', 'image', 'audio']) {
                 assert.equal(h.materialGhost.style.outline, '2px solid #f14c4c');
                 assert.equal(h.materialGhost.style.color, '#f14c4c');
                 assert.equal(h.materialGhost.style.background, 'rgba(241, 76, 76, .25)');
-                assert.equal(h.materialGhost.textContent, reason);
+                assert.equal(h.materialGhost.textContent, locked ? '置けません' : 'レーン違い');
                 assert.equal(h.footer.textContent, reason);
                 assert.equal(h.materialGhost.dataset.akariInsertionPreview, undefined);
                 assert.equal(h.trackInsertIndicator.style.display, 'none');
