@@ -310,6 +310,50 @@ test('壊れた meta.json があっても engines --json は fal を needs に�
   }
 });
 
+test('voices --engine fal-qwen3 は一時 HOME / AKARI_HOME の fal の声だけを返す', async () => {
+  const scratch = await mkdtemp(join(tmpdir(), 'akari-narration-fal-voices-'));
+  const home = join(scratch, 'home');
+  const akariHome = join(scratch, 'akari');
+  const env = { HOME: home, AKARI_HOME: akariHome };
+  const inspect = async () => {
+    const output = collectLogs();
+    const result = await runNarrationCommand(['voices', '--engine', 'fal-qwen3', '--json'], {
+      ...output, engineRuntime: { env },
+    });
+    assert.equal(result.exitCode, 0, output.errors.join('\n'));
+    assert.equal(output.lines.length, 1);
+    return JSON.parse(output.lines[0]).voices;
+  };
+  try {
+    assert.deepEqual(await inspect(), []);
+
+    const fal = join(akariHome, 'avatars', 'person', 'voice', 'new-fal');
+    const irodori = join(akariHome, 'avatars', 'person', 'voice', 'local-only');
+    await mkdir(fal, { recursive: true });
+    await mkdir(irodori, { recursive: true });
+    await writeFile(join(fal, 'meta.json'), JSON.stringify({ version: 2, label: '新しい声',
+      engines: { 'fal-qwen3': { embedding_source_url: 'https://example.invalid/new' } } }));
+    await writeFile(join(irodori, 'meta.json'), JSON.stringify({ version: 2, label: '彩だけ',
+      engines: { irodori: { voice_id: 'local-only' } } }));
+    assert.deepEqual(await inspect(), [{ id: 'new-fal', label: '新しい声' }]);
+
+    const legacy = join(home, '.config', 'akari-video', 'voice-profiles', 'old-fal');
+    await mkdir(legacy, { recursive: true });
+    await writeFile(join(legacy, 'meta.json'), JSON.stringify({ embedding_source_url: 'https://example.invalid/old' }));
+    assert.deepEqual(await inspect(), [
+      { id: 'new-fal', label: '新しい声' },
+      { id: 'old-fal', label: 'old-fal', legacy: true },
+    ]);
+
+    const broken = join(akariHome, 'avatars', 'person', 'voice', 'broken');
+    await mkdir(broken, { recursive: true });
+    await writeFile(join(broken, 'meta.json'), '{ invalid json');
+    assert.deepEqual(await inspect(), []);
+  } finally {
+    await rm(scratch, { recursive: true, force: true });
+  }
+});
+
 test('engines の fal availability は共通鍵の新旧・指定・環境変数を反映し、鍵を表示しない', async () => {
   const scratch = await mkdtemp(join(tmpdir(), 'akari-narration-credentials-'));
   const names = ['HOME', 'AKARI_HOME', 'AKARI_CREDENTIALS_FILE', 'FAL_KEY', 'VOICEVOX_RUN'];

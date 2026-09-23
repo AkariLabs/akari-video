@@ -766,6 +766,21 @@ async function synthesizeIrodori(readingText, options, fetchImpl = fetch) {
   return buffer;
 }
 
+function resolveProfileEnv(runtime = {}) {
+  const env = runtime.env || process.env;
+  const homeDir = env.HOME || env.USERPROFILE || os.homedir();
+  return { ...env, HOME: homeDir, AKARI_HOME: env.AKARI_HOME || path.join(homeDir, ".akari") };
+}
+
+function listFalProfiles(runtime = {}) {
+  try {
+    return listProfiles(resolveProfileEnv(runtime)).filter((profile) => profile.legacy || profile.engines.includes("fal-qwen3"));
+  } catch {
+    // listProfiles はメタデータの読み取り失敗時に throw する。CLI の一覧は維持する。
+    return [];
+  }
+}
+
 async function listEngines(runtime = {}) {
   let voicevox;
   const state = await probeVoicevox(runtime.fetchImpl || fetch);
@@ -789,12 +804,7 @@ async function listEngines(runtime = {}) {
   const falAvailability = configured
     ? { state: "available", label: "fal を使用できます" }
     : { state: "unconfigured", label: "fal の鍵を登録" };
-  const env = runtime.env || process.env;
-  const homeDir = env.HOME || env.USERPROFILE || os.homedir();
-  const profileEnv = { ...env, HOME: homeDir, AKARI_HOME: env.AKARI_HOME || path.join(homeDir, ".akari") };
-  let profilesWithFal = 0;
-  try { profilesWithFal = listProfiles(profileEnv).filter((profile) => profile.legacy || profile.engines.includes("fal-qwen3")).length; }
-  catch { /* 壊れた声メタデータがあっても他のエンジン一覧は返す。 */ }
+  const profilesWithFal = listFalProfiles(runtime).length;
   let endpoint;
   try { endpoint = irodoriEndpoint(runtime.irodoriUrl, runtime.env || process.env); }
   catch (error) { if (!(error instanceof PublicError)) throw error; }
@@ -813,7 +823,7 @@ async function listEngines(runtime = {}) {
   ] };
 }
 
-async function listVoices(engine) {
+async function listVoices(engine, runtime = {}) {
   if (engine === "irodori") return [...IRODORI_RECIPES.map(({ id, label, default: isDefault }) => ({ id, label, ...(isDefault ? { default: true } : {}) })),
     { id: "custom", label: "自分で書く（声の指示）" }];
   if (engine === "gemini-tts") return GEMINI_VOICES;
@@ -831,9 +841,7 @@ async function listVoices(engine) {
     }
   }
   if (engine === "fal-qwen3") {
-    const profilesDir = path.join(os.homedir(), ".config", "akari-video", "voice-profiles");
-    return fs.existsSync(profilesDir) ? fs.readdirSync(profilesDir, { withFileTypes: true })
-      .filter((entry) => entry.isDirectory()).map((entry) => ({ id: entry.name, label: entry.name })) : [];
+    return listFalProfiles(runtime).map(({ id, label, legacy }) => ({ id, label, ...(legacy ? { legacy: true } : {}) }));
   }
   throw new PublicError(`声一覧に対応していないエンジンです: ${engine}`, 2);
 }
@@ -1069,7 +1077,7 @@ export async function runNarrationCommand(args, commandOptions = {}) {
     try {
       const { engine, irodoriUrl } = parseListArguments(args);
       printCompactJson(args[0] === "engines" ? await listEngines({ ...commandOptions.engineRuntime, irodoriUrl }) :
-        { version: 1, engine, voices: await listVoices(engine) }, io.log);
+        { version: 1, engine, voices: await listVoices(engine, commandOptions.engineRuntime) }, io.log);
       return { exitCode: 0 };
     } catch (error) {
       const message = error instanceof PublicError ? error.message : "声一覧を取得できませんでした";
