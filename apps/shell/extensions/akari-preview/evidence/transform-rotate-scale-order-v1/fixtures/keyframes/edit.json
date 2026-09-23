@@ -1,0 +1,43 @@
+{
+  "version": 2,
+  "output": {
+    "width": 640,
+    "height": 360,
+    "fps": 30
+  },
+  "sources": [],
+  "tracks": [
+    {
+      "id": "visual",
+      "lane": "visual",
+      "items": [
+        {
+          "id": "leaf",
+          "at": 0,
+          "duration": 60,
+          "source": {
+            "kind": "html",
+            "path": "rectangle.html"
+          },
+          "transform": {
+            "scale": 1
+          },
+          "keyframes": [
+            {
+              "t": 0,
+              "transform": {
+                "scale": 1
+              }
+            },
+            {
+              "t": 60,
+              "transform": {
+                "scaleX": 2
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

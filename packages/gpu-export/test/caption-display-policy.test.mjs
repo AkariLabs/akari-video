@@ -92,8 +92,8 @@ test("GPU と OSR は display_policy 下でも同じ字幕 HTML と同じ本数�
   }
 });
 
-test("display_policy 未宣言のプロジェクトは HEAD のバイト列を保つ", () => {
-  // 期待値は HEAD（4fa9143e）の buildGpuPage / buildOsrPage を同じ入力で走らせて採取した。
+test("display_policy 未宣言の字幕スプライトは既存バイト列を保ち、ページは R·S 順を使う", () => {
+  // 字幕スプライトは HEAD（4fa9143e）の値を維持。ページ HTML は R·S 順へ変えた値を固定する。
   // 埋め込みフォントの絶対 file URL は機械依存なので落としてから固定する。
   const digest = value => createHash("sha256")
     .update(String(value).replace(/file:[^"')]+/gu, "file:FONT")).digest("hex");
@@ -108,11 +108,11 @@ test("display_policy 未宣言のプロジェクトは HEAD のバイト列を�
   };
   const expected = {
     legacyArray: {
-      html: "06407001ec693f04a170506c3f349663466c22a56ff1f4aea6ad8e93756c2ac1",
+      html: "30ec4fdd13fa0beece6390d8e7399f401b588a8a0f8140c071ebdd88cee17a08",
       sprites: "098383a86319d00280b2fa1a3ca50ec7b3f523a179d6b1de81e8c807ba828a2d",
     },
     legacyObject: {
-      html: "c9481c6208e83d21271ce890f1e6edda144c1f296cca4a48ebe7c77868e57aa5",
+      html: "d45b096973210e01300bdda82367b87fb22b70d2cbbc367f99b1c6b13cf92193",
       sprites: "028a14e13e68cfdf9377a386490965f88019d96cac3d72c4c6ef53d4bf224865",
     },
   };

@@ -1,0 +1,175 @@
+{
+  "measuredAt": "2026-09-23T01:33:32.072Z",
+  "frames": [
+    0,
+    15,
+    30,
+    45,
+    59
+  ],
+  "checks": [
+    {
+      "name": "legacy-read-byte-invariant",
+      "pass": true
+    },
+    {
+      "name": "legacy-canonical-byte-invariant",
+      "pass": true
+    },
+    {
+      "name": "group-axis-rejected",
+      "pass": true
+    }
+  ],
+  "surfaces": [
+    {
+      "fixture": "group-leaf",
+      "surface": "web",
+      "measuredAt": "2026-09-23T01:33:32.080Z",
+      "status": "passed",
+      "outputs": [
+        {
+          "frameNumber": 0,
+          "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-rotate-scale-order/apps/shell/extensions/akari-preview/evidence/transform-rotate-scale-order-v1/results/group-leaf/web/frame-0.png",
+          "measured": {
+            "width": 254.00634765625,
+            "height": 189.9519230769231,
+            "renderedTime": 0,
+            "renderedFrame": 0,
+            "seekMax": 2,
+            "stage": {
+              "x": 16,
+              "y": 59,
+              "width": 1248,
+              "height": 702
+            },
+            "usedFragmentBounds": true
+          },
+          "expected": {
+            "width": 254.00635094610968,
+            "height": 189.9519052838329
+          },
+          "pass": true
+        },
+        {
+          "frameNumber": 15,
+          "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-rotate-scale-order/apps/shell/extensions/akari-preview/evidence/transform-rotate-scale-order-v1/results/group-leaf/web/frame-15.png",
+          "measured": {
+            "width": 254.00634765625,
+            "height": 189.9519230769231,
+            "renderedTime": 0.5,
+            "renderedFrame": 15,
+            "seekMax": 2,
+            "stage": {
+              "x": 16,
+              "y": 59,
+              "width": 1248,
+              "height": 702
+            },
+            "usedFragmentBounds": true
+          },
+          "expected": {
+            "width": 254.00635094610968,
+            "height": 189.9519052838329
+          },
+          "pass": true
+        },
+        {
+          "frameNumber": 30,
+          "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-rotate-scale-order/apps/shell/extensions/akari-preview/evidence/transform-rotate-scale-order-v1/results/group-leaf/web/frame-30.png",
+          "measured": {
+            "width": 254.00634765625,
+            "height": 189.9519230769231,
+            "renderedTime": 1,
+            "renderedFrame": 30,
+            "seekMax": 2,
+            "stage": {
+              "x": 16,
+              "y": 59,
+              "width": 1248,
+              "height": 702
+            },
+            "usedFragmentBounds": true
+          },
+          "expected": {
+            "width": 254.00635094610968,
+            "height": 189.9519052838329
+          },
+          "pass": true
+        },
+        {
+          "frameNumber": 45,
+          "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-rotate-scale-order/apps/shell/extensions/akari-preview/evidence/transform-rotate-scale-order-v1/results/group-leaf/web/frame-45.png",
+          "measured": {
+            "width": 254.00634765625,
+            "height": 189.9519230769231,
+            "renderedTime": 1.5,
+            "renderedFrame": 45,
+            "seekMax": 2,
+            "stage": {
+              "x": 16,
+              "y": 59,
+              "width": 1248,
+              "height": 702
+            },
+            "usedFragmentBounds": true
+          },
+          "expected": {
+            "width": 254.00635094610968,
+            "height": 189.9519052838329
+          },
+          "pass": true
+        },
+        {
+          "frameNumber": 59,
+          "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-rotate-scale-order/apps/shell/extensions/akari-preview/evidence/transform-rotate-scale-order-v1/results/group-leaf/web/frame-59.png",
+          "measured": {
+            "width": 254.00634765625,
+            "height": 189.9519230769231,
+            "renderedTime": 1.9666666666666666,
+            "renderedFrame": 59,
+            "seekMax": 2,
+            "stage": {
+              "x": 16,
+              "y": 59,
+              "width": 1248,
+              "height": 702
+            },
+            "usedFragmentBounds": true
+          },
+          "expected": {
+            "width": 254.00635094610968,
+            "height": 189.9519052838329
+          },
+          "pass": true
+        }
+      ]
+    }
+  ],
+  "comparisons": [],
+  "comparisonCriterion": {
+    "boundsTolerancePx": 1,
+    "mad": "diagnostic-only",
+    "madBaselineAllowance": 1
+  },
+  "passScope": "selected captures and available comparisons only",
+  "madBaselines": {
+    "gpu": {
+      "fixture": "legacy",
+      "aggregation": "max of available legacy frames",
+      "mad": null,
+      "frames": []
+    },
+    "osr": {
+      "fixture": "legacy",
+      "aggregation": "max of available legacy frames",
+      "mad": null,
+      "frames": []
+    }
+  },
+  "pass": true,
+  "shell": {
+    "status": "not-run",
+    "reason": "Tier 2: open a fixture in the built shell and run shell-cdp.mjs against its CDP endpoint."
+  }
+}

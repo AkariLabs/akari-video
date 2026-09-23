@@ -1,0 +1,484 @@
+{
+  "recordedAt": "2026-09-23T01:34:06.227Z",
+  "quick": false,
+  "runs": [
+    {
+      "script": "./runtime-dom.mjs",
+      "args": [],
+      "exit": 0,
+      "output": "{\"pass\":true,\"measurements\":35}\n"
+    },
+    {
+      "script": "./run-shell.mjs",
+      "args": [],
+      "exit": 0,
+      "output": "scale-x: PASS\nscale-y: PASS\nrotated: PASS\ngroup-leaf: PASS\nuniform-rotated: PASS\nkeyframes: PASS\nlegacy-keyframes: PASS\n/Users/ryoma/_edit/30_products/akari-video-wt/transform-rotate-scale-order/apps/shell/extensions/akari-preview/evidence/transform-rotate-scale-order-v1/results/shell-results.json\n"
+    },
+    {
+      "script": "./run.mjs",
+      "args": [
+        "--case",
+        "scale-x",
+        "--surface",
+        "web"
+      ],
+      "exit": 0,
+      "output": "scale-x web: passed\n"
+    },
+    {
+      "script": "./run.mjs",
+      "args": [
+        "--case",
+        "scale-x",
+        "--surface",
+        "gpu",
+        "--electron",
+        "/Users/ryoma/_edit/30_products/akari-video-wt/transform-rotate-scale-order/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron"
+      ],
+      "exit": 0,
+      "output": "PROGRESS frame=5 total=5\nscale-x gpu: passed\n"
+    },
+    {
+      "script": "./run.mjs",
+      "args": [
+        "--case",
+        "scale-x",
+        "--surface",
+        "osr",
+        "--electron",
+        "/Users/ryoma/_edit/30_products/akari-video-wt/transform-rotate-scale-order/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron"
+      ],
+      "exit": 0,
+      "output": "PROGRESS frame=1 total=5\nPROGRESS frame=2 total=5\nPROGRESS frame=3 total=5\nPROGRESS frame=4 total=5\nPROGRESS frame=5 total=5\nscale-x osr: passed\n"
+    },
+    {
+      "script": "./run.mjs",
+      "args": [
+        "--case",
+        "scale-y",
+        "--surface",
+        "web"
+      ],
+      "exit": 0,
+      "output": "scale-y web: passed\n"
+    },
+    {
+      "script": "./run.mjs",
+      "args": [
+        "--case",
+        "scale-y",
+        "--surface",
+        "gpu",
+        "--electron",
+        "/Users/ryoma/_edit/30_products/akari-video-wt/transform-rotate-scale-order/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron"
+      ],
+      "exit": 0,
+      "output": "PROGRESS frame=5 total=5\nscale-y gpu: passed\n"
+    },
+    {
+      "script": "./run.mjs",
+      "args": [
+        "--case",
+        "scale-y",
+        "--surface",
+        "osr",
+        "--electron",
+        "/Users/ryoma/_edit/30_products/akari-video-wt/transform-rotate-scale-order/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron"
+      ],
+      "exit": 0,
+      "output": "PROGRESS frame=1 total=5\nPROGRESS frame=2 total=5\nPROGRESS frame=3 total=5\nPROGRESS frame=4 total=5\nPROGRESS frame=5 total=5\nscale-y osr: passed\n"
+    },
+    {
+      "script": "./run.mjs",
+      "args": [
+        "--case",
+        "rotated",
+        "--surface",
+        "web"
+      ],
+      "exit": 0,
+      "output": "rotated web: passed\n"
+    },
+    {
+      "script": "./run.mjs",
+      "args": [
+        "--case",
+        "rotated",
+        "--surface",
+        "gpu",
+        "--electron",
+        "/Users/ryoma/_edit/30_products/akari-video-wt/transform-rotate-scale-order/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron"
+      ],
+      "exit": 0,
+      "output": "PROGRESS frame=5 total=5\nrotated gpu: passed\n"
+    },
+    {
+      "script": "./run.mjs",
+      "args": [
+        "--case",
+        "rotated",
+        "--surface",
+        "osr",
+        "--electron",
+        "/Users/ryoma/_edit/30_products/akari-video-wt/transform-rotate-scale-order/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron"
+      ],
+      "exit": 0,
+      "output": "PROGRESS frame=1 total=5\nPROGRESS frame=2 total=5\nPROGRESS frame=3 total=5\nPROGRESS frame=4 total=5\nPROGRESS frame=5 total=5\nrotated osr: passed\n"
+    },
+    {
+      "script": "./run.mjs",
+      "args": [
+        "--case",
+        "group-leaf",
+        "--surface",
+        "web"
+      ],
+      "exit": 0,
+      "output": "group-leaf web: passed\n"
+    },
+    {
+      "script": "./run.mjs",
+      "args": [
+        "--case",
+        "group-leaf",
+        "--surface",
+        "gpu",
+        "--electron",
+        "/Users/ryoma/_edit/30_products/akari-video-wt/transform-rotate-scale-order/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron"
+      ],
+      "exit": 0,
+      "output": "PROGRESS frame=5 total=5\ngroup-leaf gpu: passed\n"
+    },
+    {
+      "script": "./run.mjs",
+      "args": [
+        "--case",
+        "group-leaf",
+        "--surface",
+        "osr",
+        "--electron",
+        "/Users/ryoma/_edit/30_products/akari-video-wt/transform-rotate-scale-order/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron"
+      ],
+      "exit": 0,
+      "output": "PROGRESS frame=1 total=5\nPROGRESS frame=2 total=5\nPROGRESS frame=3 total=5\nPROGRESS frame=4 total=5\nPROGRESS frame=5 total=5\ngroup-leaf osr: passed\n"
+    },
+    {
+      "script": "./run.mjs",
+      "args": [
+        "--case",
+        "uniform-rotated",
+        "--surface",
+        "web"
+      ],
+      "exit": 0,
+      "output": "uniform-rotated web: passed\n"
+    },
+    {
+      "script": "./run.mjs",
+      "args": [
+        "--case",
+        "uniform-rotated",
+        "--surface",
+        "gpu",
+        "--electron",
+        "/Users/ryoma/_edit/30_products/akari-video-wt/transform-rotate-scale-order/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron"
+      ],
+      "exit": 0,
+      "output": "PROGRESS frame=5 total=5\nuniform-rotated gpu: passed\n"
+    },
+    {
+      "script": "./run.mjs",
+      "args": [
+        "--case",
+        "uniform-rotated",
+        "--surface",
+        "osr",
+        "--electron",
+        "/Users/ryoma/_edit/30_products/akari-video-wt/transform-rotate-scale-order/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron"
+      ],
+      "exit": 0,
+      "output": "PROGRESS frame=1 total=5\nPROGRESS frame=2 total=5\nPROGRESS frame=3 total=5\nPROGRESS frame=4 total=5\nPROGRESS frame=5 total=5\nuniform-rotated osr: passed\n"
+    },
+    {
+      "script": "./run.mjs",
+      "args": [
+        "--case",
+        "keyframes",
+        "--surface",
+        "web"
+      ],
+      "exit": 0,
+      "output": "keyframes web: passed\n"
+    },
+    {
+      "script": "./run.mjs",
+      "args": [
+        "--case",
+        "keyframes",
+        "--surface",
+        "gpu",
+        "--electron",
+        "/Users/ryoma/_edit/30_products/akari-video-wt/transform-rotate-scale-order/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron"
+      ],
+      "exit": 0,
+      "output": "PROGRESS frame=5 total=5\nkeyframes gpu: passed\n"
+    },
+    {
+      "script": "./run.mjs",
+      "args": [
+        "--case",
+        "keyframes",
+        "--surface",
+        "osr",
+        "--electron",
+        "/Users/ryoma/_edit/30_products/akari-video-wt/transform-rotate-scale-order/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron"
+      ],
+      "exit": 0,
+      "output": "PROGRESS frame=1 total=5\nPROGRESS frame=2 total=5\nPROGRESS frame=3 total=5\nPROGRESS frame=4 total=5\nPROGRESS frame=5 total=5\nkeyframes osr: passed\n"
+    },
+    {
+      "script": "./run.mjs",
+      "args": [
+        "--case",
+        "legacy",
+        "--surface",
+        "web"
+      ],
+      "exit": 0,
+      "output": "legacy web: passed\n"
+    },
+    {
+      "script": "./run.mjs",
+      "args": [
+        "--case",
+        "legacy",
+        "--surface",
+        "gpu",
+        "--electron",
+        "/Users/ryoma/_edit/30_products/akari-video-wt/transform-rotate-scale-order/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron"
+      ],
+      "exit": 0,
+      "output": "PROGRESS frame=5 total=5\nlegacy gpu: passed\n"
+    },
+    {
+      "script": "./run.mjs",
+      "args": [
+        "--case",
+        "legacy",
+        "--surface",
+        "osr",
+        "--electron",
+        "/Users/ryoma/_edit/30_products/akari-video-wt/transform-rotate-scale-order/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron"
+      ],
+      "exit": 0,
+      "output": "PROGRESS frame=1 total=5\nPROGRESS frame=2 total=5\nPROGRESS frame=3 total=5\nPROGRESS frame=4 total=5\nPROGRESS frame=5 total=5\nlegacy osr: passed\n"
+    },
+    {
+      "script": "./run.mjs",
+      "args": [
+        "--case",
+        "legacy-keyframes",
+        "--surface",
+        "web"
+      ],
+      "exit": 0,
+      "output": "legacy-keyframes web: passed\n"
+    },
+    {
+      "script": "./run.mjs",
+      "args": [
+        "--case",
+        "legacy-keyframes",
+        "--surface",
+        "gpu",
+        "--electron",
+        "/Users/ryoma/_edit/30_products/akari-video-wt/transform-rotate-scale-order/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron"
+      ],
+      "exit": 0,
+      "output": "PROGRESS frame=5 total=5\nlegacy-keyframes gpu: passed\n"
+    },
+    {
+      "script": "./run.mjs",
+      "args": [
+        "--case",
+        "legacy-keyframes",
+        "--surface",
+        "osr",
+        "--electron",
+        "/Users/ryoma/_edit/30_products/akari-video-wt/transform-rotate-scale-order/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron"
+      ],
+      "exit": 0,
+      "output": "PROGRESS frame=1 total=5\nPROGRESS frame=2 total=5\nPROGRESS frame=3 total=5\nPROGRESS frame=4 total=5\nPROGRESS frame=5 total=5\nlegacy-keyframes osr: passed\n"
+    },
+    {
+      "script": "./merge-results.mjs",
+      "args": [],
+      "exit": 0,
+      "output": "{\"pass\":true,\"surfaces\":24,\"comparisons\":70,\"missingSurfaces\":[]}\n"
+    }
+  ],
+  "browserDom": {
+    "pass": true,
+    "measurements": 35,
+    "cornerChecks": 30,
+    "maxAngleErrorDeg": 0.000005247456107659026,
+    "pixelChecks": 20,
+    "pixelPass": true
+  },
+  "shell": {
+    "pass": true,
+    "cases": [
+      {
+        "fixture": "scale-x",
+        "pass": true
+      },
+      {
+        "fixture": "scale-y",
+        "pass": true
+      },
+      {
+        "fixture": "rotated",
+        "pass": true
+      },
+      {
+        "fixture": "group-leaf",
+        "pass": true
+      },
+      {
+        "fixture": "uniform-rotated",
+        "pass": true
+      },
+      {
+        "fixture": "keyframes",
+        "pass": true
+      },
+      {
+        "fixture": "legacy-keyframes",
+        "pass": true
+      }
+    ]
+  },
+  "surfaces": [
+    {
+      "fixture": "group-leaf",
+      "surface": "gpu",
+      "status": "passed"
+    },
+    {
+      "fixture": "keyframes",
+      "surface": "gpu",
+      "status": "passed"
+    },
+    {
+      "fixture": "legacy-keyframes",
+      "surface": "gpu",
+      "status": "passed"
+    },
+    {
+      "fixture": "legacy",
+      "surface": "gpu",
+      "status": "passed"
+    },
+    {
+      "fixture": "rotated",
+      "surface": "gpu",
+      "status": "passed"
+    },
+    {
+      "fixture": "scale-x",
+      "surface": "gpu",
+      "status": "passed"
+    },
+    {
+      "fixture": "scale-y",
+      "surface": "gpu",
+      "status": "passed"
+    },
+    {
+      "fixture": "uniform-rotated",
+      "surface": "gpu",
+      "status": "passed"
+    },
+    {
+      "fixture": "group-leaf",
+      "surface": "osr",
+      "status": "passed"
+    },
+    {
+      "fixture": "keyframes",
+      "surface": "osr",
+      "status": "passed"
+    },
+    {
+      "fixture": "legacy-keyframes",
+      "surface": "osr",
+      "status": "passed"
+    },
+    {
+      "fixture": "legacy",
+      "surface": "osr",
+      "status": "passed"
+    },
+    {
+      "fixture": "rotated",
+      "surface": "osr",
+      "status": "passed"
+    },
+    {
+      "fixture": "scale-x",
+      "surface": "osr",
+      "status": "passed"
+    },
+    {
+      "fixture": "scale-y",
+      "surface": "osr",
+      "status": "passed"
+    },
+    {
+      "fixture": "uniform-rotated",
+      "surface": "osr",
+      "status": "passed"
+    },
+    {
+      "fixture": "group-leaf",
+      "surface": "web",
+      "status": "passed"
+    },
+    {
+      "fixture": "keyframes",
+      "surface": "web",
+      "status": "passed"
+    },
+    {
+      "fixture": "legacy-keyframes",
+      "surface": "web",
+      "status": "passed"
+    },
+    {
+      "fixture": "legacy",
+      "surface": "web",
+      "status": "passed"
+    },
+    {
+      "fixture": "rotated",
+      "surface": "web",
+      "status": "passed"
+    },
+    {
+      "fixture": "scale-x",
+      "surface": "web",
+      "status": "passed"
+    },
+    {
+      "fixture": "scale-y",
+      "surface": "web",
+      "status": "passed"
+    },
+    {
+      "fixture": "uniform-rotated",
+      "surface": "web",
+      "status": "passed"
+    }
+  ],
+  "fullParityPass": true
+}

@@ -1,0 +1,149 @@
+{
+  "version": 1,
+  "status": "completed",
+  "operation": "capture",
+  "mode": "gpu",
+  "framesRequested": [
+    0,
+    15,
+    30,
+    45,
+    59
+  ],
+  "framesCompleted": 5,
+  "width": 640,
+  "height": 360,
+  "fps": 30,
+  "duration": 2,
+  "gpu": {
+    "platform": "darwin",
+    "chromium": "142.0.7444.265",
+    "devices": [
+      {
+        "vendor_id": 4203,
+        "device_id": 0,
+        "device_string": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1, Version 26.2 (Build 25C56))",
+        "active": true,
+        "gpu_preference": 0
+      }
+    ]
+  },
+  "verify": {
+    "mode": "stamp",
+    "matched": true,
+    "frames": [
+      {
+        "frameNumber": 0,
+        "matched": true,
+        "decodedFrameNumber": 0,
+        "expectedFrameNumber": 0,
+        "retries": 0
+      },
+      {
+        "frameNumber": 15,
+        "matched": true,
+        "decodedFrameNumber": 15,
+        "expectedFrameNumber": 15,
+        "retries": 0
+      },
+      {
+        "frameNumber": 30,
+        "matched": true,
+        "decodedFrameNumber": 30,
+        "expectedFrameNumber": 30,
+        "retries": 0
+      },
+      {
+        "frameNumber": 45,
+        "matched": true,
+        "decodedFrameNumber": 45,
+        "expectedFrameNumber": 45,
+        "retries": 0
+      },
+      {
+        "frameNumber": 59,
+        "matched": true,
+        "decodedFrameNumber": 59,
+        "expectedFrameNumber": 59,
+        "retries": 0
+      }
+    ]
+  },
+  "outputs": [
+    {
+      "frameNumber": 0,
+      "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-rotate-scale-order/apps/shell/extensions/akari-preview/evidence/transform-rotate-scale-order-v1/results/keyframes/osr/frame-0.png",
+      "sha256": "98524650e3cef5f99bc4fed6ecc8560c30d3ca6bd6d91c0c731a969eea44611c"
+    },
+    {
+      "frameNumber": 15,
+      "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-rotate-scale-order/apps/shell/extensions/akari-preview/evidence/transform-rotate-scale-order-v1/results/keyframes/osr/frame-15.png",
+      "sha256": "7dfd919d2310b88083b4bc264ffa3b45deba7bb41ef2eed4eeeed923be9b38bc"
+    },
+    {
+      "frameNumber": 30,
+      "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-rotate-scale-order/apps/shell/extensions/akari-preview/evidence/transform-rotate-scale-order-v1/results/keyframes/osr/frame-30.png",
+      "sha256": "ca50f78dc8eefe5c1097fa50e3df5edd79d205be2ab3dae01d8228e256649e35"
+    },
+    {
+      "frameNumber": 45,
+      "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-rotate-scale-order/apps/shell/extensions/akari-preview/evidence/transform-rotate-scale-order-v1/results/keyframes/osr/frame-45.png",
+      "sha256": "1aa35bf6486980e7a9aef839c6dbd68eba4dca275f88444b9b64b0428d77d5ce"
+    },
+    {
+      "frameNumber": 59,
+      "path": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-rotate-scale-order/apps/shell/extensions/akari-preview/evidence/transform-rotate-scale-order-v1/results/keyframes/osr/frame-59.png",
+      "sha256": "ec97b18af2785fd686dd21b6b8241ef3101ffe57f0f6ec6dafd0576e08c076a8"
+    }
+  ],
+  "paintTimeouts": [],
+  "emptyPaints": [],
+  "page": {
+    "version": 1,
+    "dimensions": {
+      "width": 640,
+      "height": 360,
+      "pageHeight": 361
+    },
+    "fps": 30,
+    "duration": 2,
+    "layers": [
+      "engine-canvas",
+      "dom-captions",
+      "html-overlays",
+      "three-canvas"
+    ],
+    "captionOverlayCount": 0,
+    "overlayCount": 1,
+    "lutApplication": "none",
+    "adjustApplication": "none",
+    "stampRow": true
+  },
+  "viewport": {
+    "requested": {
+      "width": 640,
+      "height": 361
+    },
+    "measured": {
+      "width": 640,
+      "height": 361
+    },
+    "emulated": false,
+    "display": {
+      "width": 1680,
+      "height": 1050
+    },
+    "work_area": {
+      "width": 1680,
+      "height": 959
+    }
+  },
+  "warm_up": {
+    "attempts": 2,
+    "empty_attempts": 1,
+    "elapsed_ms": 22,
+    "satisfied": true
+  },
+  "elapsedMs": 556.520541,
+  "warnings": []
+}

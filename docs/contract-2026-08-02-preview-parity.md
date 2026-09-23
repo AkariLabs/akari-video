@@ -64,8 +64,8 @@ cut 境界の選択は宣言順ではなく解決済みタイムラインと z-o
 > 等比親との合成は子の各有効値に親の `scale` を掛け、逆変換は同じ値で割る。
 > 書き込み時に両軸の有効値が等しければ `scale` に畳む。既存の `scale` だけの宣言は変更しない。
 > keyframes は端点を各軸の有効値へ解決してから補間する（`scale` と `scaleX` の混在も可）。
-> overlay の CSS は `translate(...) scale(sx, sy) rotate(...)`、素材は crop の幅・高さへ
-> 各軸を掛けて回転する。四隅 resize は両軸へ同じ倍率を掛け、縦横比を維持する。
+> overlay の CSS は `translate(...) rotate(...) scale(sx, sy)`。overlay も素材も
+> 各軸で伸ばしてから回転する（R·S）。素材は crop の幅・高さへ各軸を掛ける。四隅 resize は両軸へ同じ倍率を掛け、縦横比を維持する。
 
 - `framing.crop` は fit 済みフレームを窓抜きして出力寸法へ再拡大する。
 - `framing.keyframes`、transform keyframes は cut 内の出力秒で評価し、hold / linear / ease-in-out の
