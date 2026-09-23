@@ -41,6 +41,7 @@ export function formatDoctorReport(report) {
       : report.fal_key?.source === 'credentials.env'
         ? report.fal_key.credentials_path
         : '環境変数にも credentials.env にもありません'],
+    ['鍵の置き場', report.fal_key?.location ?? 'なし', '新 / 旧 / 両方'],
     ['path', report.path.on_path ? 'ok' : 'missing', report.path.cli_shim_dir],
   ];
   const widths = [

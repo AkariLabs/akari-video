@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { readCredentials } from '../../../creator-root/src/index.mjs';
 
 export const DEFAULT_JUDGE_URL = 'http://127.0.0.1:4748';
 export const SERVE_JUDGE_URL = 'https://akari.video/api/vibe';
@@ -59,9 +60,13 @@ function providerKeyValue(value) {
 }
 
 function storedProviderKey({ env, home, readFile }) {
-    for (const file of [env.AKARI_CREDENTIALS_FILE,
-        path.join(home, '.config/akari-video/credentials.env'),
-        path.join(home, '.config/akari/openrouter.env')].filter(Boolean)) {
+    try {
+        const shared = readCredentials({ ...env, HOME: home, USERPROFILE: home },
+            readFile === fs.readFileSync ? {} : { readFile });
+        const key = providerKeyValue(shared.values.get('OPENROUTER_API_KEY'));
+        if (key) return key;
+    } catch { /* Missing credentials mean unset. */ }
+    for (const file of [path.join(home, '.config/akari/openrouter.env')]) {
         try {
             for (const line of readFile(file, 'utf8').split(/\r?\n/)) {
                 const match = line.match(/^\s*OPENROUTER_API_KEY\s*=\s*(.*?)\s*$/);

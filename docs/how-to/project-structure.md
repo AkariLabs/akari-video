@@ -64,7 +64,7 @@ entries only; recently updated candidates and symbolic links remain undecided.
 
 | Location | Role |
 |---|---|
-| `~/.config/akari-video/credentials.env` | Where API keys actually live (never put them in the project) |
+| `~/.akari/credentials.env` | Where API keys actually live (never put them in the project) |
 | `~/.akari-video/assets/` | The personal-scope asset library |
 
 ## Git compatibility

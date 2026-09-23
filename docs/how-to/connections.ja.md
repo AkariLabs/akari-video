@@ -10,8 +10,10 @@
 - **ローカル完結の範囲は接続なしで使える** — プロキシ生成・whisper.cpp 文字起こし・
   編集・lint・書き出しは外部接続不要
 - **API キーはチャットに出さない** — キーの実体は
-  `~/.config/akari-video/credentials.env`（プロジェクト外）に置き、
+  `~/.akari/credentials.env`（プロジェクト外）に置き、
   connections レジストリは**参照**だけを持つ
+- **旧い場所のキーも読める** — まだ移していないキーは旧い場所から読みます。
+  新しく登録するキーは `~/.akari/credentials.env` に保存します
 - **作業場が既定、プロジェクトは上書き** — 既定レジストリは
   `<creator-root>/.akari/connections.json` に置きます。プロジェクトの
   `.akari/connections.json` は任意のオーバーレイで、作業場レジストリが無ければ

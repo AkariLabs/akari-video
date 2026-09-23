@@ -3,7 +3,6 @@
 // 接続レジストリを、無償・読み取り専用の確認だけで更新する。
 
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -11,6 +10,8 @@ import { importPackage } from "./resolve-packages.mjs";
 
 let DEFAULT_CONNECTIONS_REGISTRY;
 let resolveConnections;
+let credentialsPaths;
+let readSharedCredentials;
 
 async function loadDependencies() {
   const [creatorRoot, connections] = await Promise.all([
@@ -18,6 +19,8 @@ async function loadDependencies() {
     import("./resolve-connections.mjs"),
   ]);
   DEFAULT_CONNECTIONS_REGISTRY = creatorRoot.DEFAULT_CONNECTIONS_REGISTRY;
+  credentialsPaths = creatorRoot.credentialsPaths;
+  readSharedCredentials = creatorRoot.readCredentials;
   resolveConnections = connections.resolveConnections;
 }
 
@@ -45,10 +48,8 @@ async function main() {
     ? path.dirname(path.dirname(connectionsPath))
     : inputPath;
   const reportPath = path.join(projectRoot, ".akari", "reports", "connections-report.html");
-  const credentialsPath = path.resolve(
-    process.env.AKARI_CREDENTIALS_FILE ?? path.join(os.homedir(), ".config", "akari-video", "credentials.env"),
-  );
   await loadDependencies();
+  const credentialsPath = credentialsPaths().primary;
   const context = { inputPath, connectionsPath, projectRoot, reportPath, credentialsPath };
   if (inputPath.endsWith(".json")) {
     await mainLegacy(context);
@@ -60,6 +61,8 @@ async function main() {
 async function mainLegacy({ connectionsPath, reportPath, credentialsPath }) {
   const registry = readRegistry(connectionsPath);
   const credentialState = readCredentials(credentialsPath);
+  warnParseWarnings(credentialState.parseWarnings);
+  console.log(`鍵の置き場: ${credentialState.location}`);
   const checkedAt = new Date().toISOString();
 
   if (credentialState.exists && !credentialState.securePermissions) {
@@ -94,6 +97,8 @@ async function mainResolved({ projectRoot, reportPath, credentialsPath }) {
   const resolved = await resolveConnections({ projectRoot });
   const registry = clone(resolved.effective);
   const credentialState = readCredentials(credentialsPath);
+  warnParseWarnings(credentialState.parseWarnings);
+  console.log(`鍵の置き場: ${credentialState.location}`);
   const checkedAt = new Date().toISOString();
 
   if (credentialState.exists && !credentialState.securePermissions) {
@@ -206,48 +211,20 @@ function clone(value) {
 }
 
 function readCredentials(credentialsPath) {
-  let stat;
-  try {
-    stat = fs.statSync(credentialsPath);
-  } catch (error) {
-    if (error && error.code === "ENOENT") {
-      return { exists: false, securePermissions: false, mode: null, values: new Map(), parseWarnings: [] };
-    }
-    throw error;
-  }
-  if (!stat.isFile()) throw new Error("credentials.env が通常ファイルではありません");
+  const state = readSharedCredentials();
+  const mode = state.primaryExists ? state.primaryMode : state.legacyMode;
+  return { exists: state.primaryExists || state.legacyExists, securePermissions: mode === 0o600,
+    mode: mode === null ? null : mode.toString(8).padStart(3, "0"), values: state.values, parseWarnings: state.warnings,
+    location: state.primaryExists && state.legacyExists ? "両方" : state.primaryExists ? "新" : state.legacyExists ? "旧" : "なし" };
+}
 
-  const mode = (stat.mode & 0o777).toString(8).padStart(3, "0");
-  const values = new Map();
-  const parseWarnings = [];
-  const source = fs.readFileSync(credentialsPath, "utf8");
-  for (const [index, originalLine] of source.split(/\r?\n/).entries()) {
-    const line = originalLine.trim();
-    if (!line || line.startsWith("#")) continue;
-    const separator = line.indexOf("=");
-    if (separator < 1) {
-      parseWarnings.push(index + 1);
-      continue;
+function warnParseWarnings(warnings) {
+  for (const source of ["primary", "legacy"]) {
+    const lines = warnings.filter((warning) => warning.source === source).map((warning) => `${warning.line} 行目`);
+    if (lines.length > 0) {
+      console.warn(`警告: credentials.env（${source === "primary" ? "新" : "旧"}）の ${lines.join("、")}を KEY=VALUE として読めませんでした。`);
     }
-    const name = line.slice(0, separator).trim();
-    if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(name)) {
-      parseWarnings.push(index + 1);
-      continue;
-    }
-    let value = line.slice(separator + 1).trim();
-    if (
-      value.length >= 2 &&
-      ((value.startsWith('"') && value.endsWith('"')) ||
-        (value.startsWith("'") && value.endsWith("'")))
-    ) {
-      value = value.slice(1, -1);
-    }
-    values.set(name, value);
   }
-  if (parseWarnings.length > 0) {
-    console.warn(`警告: credentials.env の ${parseWarnings.map((line) => `${line} 行目`).join("、")}を KEY=VALUE として読めませんでした。`);
-  }
-  return { exists: true, securePermissions: mode === "600", mode, values, parseWarnings };
 }
 
 export function resolveProviderKey(envName, credentialState, env) {

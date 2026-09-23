@@ -9,7 +9,8 @@ function fixture(extra = {}) {
     const files = new Map([
         [path.join(env.AKARI_HOME,'store-credentials.json'),JSON.stringify({token:'lab-stored-value'})],
         [env.AKARI_CREDENTIALS_FILE,'OPENROUTER_API_KEY=provider-custom-value'],
-        [path.join(home,'.config/akari-video/credentials.env'),'OPENROUTER_API_KEY=provider-current-value'],
+        [path.join(env.AKARI_HOME,'credentials.env'),'OPENROUTER_API_KEY=provider-primary-value'],
+        [path.join(home,'.config','akari-video','credentials.env'),'OPENROUTER_API_KEY=provider-current-value'],
         [path.join(home,'.config/akari/openrouter.env'),'OPENROUTER_API_KEY=provider-legacy-value'],
     ]);
     const calls = [];
@@ -26,18 +27,22 @@ test('credential precedence and file reload happen on each request',async () => 
     assert.equal(f.calls.at(-1).options.headers['x-akari-provider-key'],f.env.OPENROUTER_API_KEY);
     assert.equal(f.calls.at(-1).options.headers.Authorization,'Bearer '+f.env.AKARI_VOICE_JUDGE_TOKEN);
     delete f.env.OPENROUTER_API_KEY; delete f.env.AKARI_VOICE_JUDGE_TOKEN;
+    const customFile = f.env.AKARI_CREDENTIALS_FILE;
     for (const [file,expected] of [[f.env.AKARI_CREDENTIALS_FILE,'provider-custom-value'],
-        [path.join(f.home,'.config/akari-video/credentials.env'),'provider-current-value'],
+        [path.join(f.env.AKARI_HOME,'credentials.env'),'provider-primary-value'],
+        [path.join(f.home,'.config','akari-video','credentials.env'),'provider-current-value'],
         [path.join(f.home,'.config/akari/openrouter.env'),'provider-legacy-value']]) {
         await f.client.judge({});
         assert.equal(f.calls.at(-1).options.headers['x-akari-provider-key'],expected);
         assert.equal(f.calls.at(-1).options.headers.Authorization,'Bearer lab-stored-value');
         f.files.delete(file);
+        if (file === f.env.AKARI_CREDENTIALS_FILE) delete f.env.AKARI_CREDENTIALS_FILE;
     }
     assert.deepEqual(credentialStatus(f),{lab:'connected',providerKey:'missing'});
     const count = f.calls.length;
     await assert.rejects(f.client.judge({})); assert.equal(f.calls.length,count);
-    f.files.set(f.env.AKARI_CREDENTIALS_FILE,'OPENROUTER_API_KEY=provider-replaced-value');
+    f.env.AKARI_CREDENTIALS_FILE = customFile;
+    f.files.set(customFile,'OPENROUTER_API_KEY=provider-replaced-value');
     f.files.set(path.join(f.env.AKARI_HOME,'store-credentials.json'),JSON.stringify({token:'lab-replaced-value'}));
     await f.client.judge({});
     assert.equal(f.calls.at(-1).options.headers.Authorization,'Bearer lab-replaced-value');

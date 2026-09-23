@@ -58,7 +58,7 @@ Windows（WSL2 含む）に対応しています。詳細は [dev/windows-build.
 「セットアップの状態を確認して」（setup-library のツールチェック）。
 
 **Q. API キーを設定したのに使えない**
-「doctor かけて」で疎通診断を。キーの実体は `~/.config/akari-video/credentials.env`、
+「doctor かけて」で疎通診断を。キーの実体は `~/.akari/credentials.env`、
 プロジェクト内には参照だけ、が正しい配置です。
 
 **Q. `apps/shell` を自前ビルドした後、`npm start` がウィンドウを出さずに無言終了する（Apple Silicon）**

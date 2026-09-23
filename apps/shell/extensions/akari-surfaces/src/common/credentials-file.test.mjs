@@ -35,7 +35,8 @@ function spyConsole(t) {
 
 test('credentials path resolves the override or supplied home without accessing either', () => {
     assert.equal(credentialsFilePath({ AKARI_CREDENTIALS_FILE: '/tmp/test.env' }, '/tmp/test-home'), '/tmp/test.env');
-    assert.equal(credentialsFilePath({}, '/tmp/test-home'), '/tmp/test-home/.config/akari-video/credentials.env');
+    assert.equal(credentialsFilePath({}, '/tmp/test-home'), '/tmp/test-home/.akari/credentials.env');
+    assert.equal(credentialsFilePath({ AKARI_HOME: '/tmp/akari-home' }, '/tmp/test-home'), '/tmp/akari-home/credentials.env');
 });
 
 test('parse matches doctor: comments, whitespace, quotes and last duplicate win', () => {
@@ -198,4 +199,31 @@ test('service RPC uses isolated credentials, exported adapters, masked results a
     assert.equal((await service.checkConnection('groq')).doctor.status, 'unconfigured');
     assert.deepEqual(fs.readdirSync(root).sort(), ['config', 'store']);
     assert.deepEqual(fs.readdirSync(path.dirname(file)), ['credentials.env']);
+});
+
+test('service sanitizes adapter output and keeps saved credential when check throws', async t => {
+    const { file } = fixture(t);
+    overrideEnv(t, 'AKARI_CREDENTIALS_FILE', file);
+    const { AkariConnectionsServiceImpl } = await import('../../lib/node/akari-connections-service.js');
+    const service = new AkariConnectionsServiceImpl();
+    const original = service.loadModule.bind(service);
+    let fail = false;
+    service.loadModule = async relative => relative === 'skills/manage-connections/bin/doctor.mjs'
+        ? { adapters: { groq: async () => {
+            if (fail) throw new Error(SECRET);
+            return { status: 'invented', detail: SECRET, last_checked: SECRET, extra: SECRET };
+        } } }
+        : original(relative);
+    const saved = await service.setCredential('groq', SECRET);
+    assert.deepEqual(Object.keys(saved.doctor).sort(), ['detail', 'last_checked', 'status']);
+    assert.equal(saved.doctor.status, 'unchecked');
+    assert.equal(JSON.stringify(saved).includes(SECRET), false);
+    const checked = await service.checkConnection('groq');
+    assert.equal(JSON.stringify(checked).includes(SECRET), false);
+    fail = true;
+    const savedAgain = await service.setCredential('groq', SECRET);
+    assert.equal(savedAgain.ok, true);
+    assert.equal(savedAgain.doctor.status, 'unchecked');
+    assert.equal(readCredentials(file).values.get('GROQ_API_KEY'), SECRET);
+    assert.equal(JSON.stringify(savedAgain).includes(SECRET), false);
 });

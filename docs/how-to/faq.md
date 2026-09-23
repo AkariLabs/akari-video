@@ -66,7 +66,7 @@ setup-library).
 
 **Q. I set an API key but it's still not working**
 Ask to "run doctor" for a connectivity diagnosis. The key itself should live at
-`~/.config/akari-video/credentials.env`, with only a reference inside the
+`~/.akari/credentials.env`, with only a reference inside the
 project — that's the correct layout.
 
 **Q. After building `apps/shell` from source, `npm start` exits silently with no window (Apple Silicon)**

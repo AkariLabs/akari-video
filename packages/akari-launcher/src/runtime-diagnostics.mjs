@@ -1,10 +1,14 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import path, { dirname, join, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { findExecutable } from './path-lookup.mjs';
 import { readInstalledAppVersionInfo, readOwnVersion, resolveAkariHome } from './update-check.mjs';
+import { resolveLauncherAssets } from './repo-assets.mjs';
+
+const creatorRootModulePath = resolveLauncherAssets().creatorRootModulePath;
+const creatorCredentials = creatorRootModulePath ? await import(pathToFileURL(creatorRootModulePath).href) : null;
 
 const THIS_DIRECTORY = dirname(fileURLToPath(import.meta.url));
 const ANCESTOR_SEARCH_MAX_DEPTH = 10;
@@ -162,26 +166,19 @@ export async function resolveDoctorReport(options = {}) {
 }
 
 function resolveFalKeySource({ env, homeDirectory }) {
-  const credentialsPath = env.AKARI_CREDENTIALS_FILE
-    ?? join(homeDirectory ?? homedir(), '.config', 'akari-video', 'credentials.env');
+  const credentialEnv = homeDirectory ? { ...env, HOME: homeDirectory, USERPROFILE: homeDirectory } : env;
+  const credentialsPath = creatorCredentials?.credentialsPaths(credentialEnv).primary
+    ?? join(resolveAkariHome(credentialEnv), 'credentials.env');
+  let state;
+  try { state = creatorCredentials?.readCredentials(credentialEnv); }
+  catch { state = { values: new Map(), primaryExists: false, legacyExists: false }; }
+  state ??= { values: new Map(), primaryExists: false, legacyExists: false };
+  const location = state.primaryExists && state.legacyExists ? '両方' : state.primaryExists ? '新' : state.legacyExists ? '旧' : 'なし';
   if (typeof env.FAL_KEY === 'string' && env.FAL_KEY.trim().length > 0) {
-    return { source: 'env', credentials_path: credentialsPath };
+    return { source: 'env', credentials_path: credentialsPath, location };
   }
-  try {
-    const source = readFileSync(credentialsPath, 'utf8');
-    for (const originalLine of source.split(/\r?\n/u)) {
-      const line = originalLine.trim();
-      if (!line || line.startsWith('#')) continue;
-      const separator = line.indexOf('=');
-      if (separator < 1 || line.slice(0, separator).trim() !== 'FAL_KEY') continue;
-      if (line.slice(separator + 1).trim().length > 0) {
-        return { source: 'credentials.env', credentials_path: credentialsPath };
-      }
-    }
-  } catch {
-    // credentials.env が無い・読めない場合も doctor 自体は継続する。
-  }
-  return { source: 'missing', credentials_path: credentialsPath };
+  if (state.values.get('FAL_KEY')?.trim()) return { source: 'credentials.env', credentials_path: credentialsPath, location };
+  return { source: 'missing', credentials_path: credentialsPath, location };
 }
 
 export async function resolveGpuExportAvailability(options = {}) {

@@ -39,11 +39,11 @@ AKARI Video がマシン上に持ってよい場所は次の 3 つ**だけ**で�
 | 場所 | macOS | Windows | 触る者 | 更新時 |
 |---|---|---|---|---|
 | アプリ本体（エンジン + 同梱物） | `/Applications/` 等 | `%LOCALAPPDATA%\Programs\` 等 | 誰も編集しない | 丸ごと入れ替え |
-| マシン状態・設定 | `~/.akari/`（`AKARI_HOME` で上書き可・既存規約） + 資格情報 `~/.config/akari-video/credentials.env`（既存） | 同左（`%USERPROFILE%` 起点） | アプリのみ | 保持 |
+| マシン状態・設定 | `~/.akari/`（`AKARI_HOME` で上書き可）内に資格情報 `credentials.env` も置く | 同左（`%USERPROFILE%` 起点） | アプリのみ | 保持 |
 | **作業場** | 既定 `~/Akari/`（2026-08-08 改訂。旧既定 `~/AkariVideo/` — §11 参照） | 既定 `%USERPROFILE%\Akari\` | 人間 + エージェント（§4 の所有権に従う） | **壊さない**（migration のみ） |
 
-- マシン状態の実パスは**既存実装の規約を追認**する（`~/.akari/` = 更新キャッシュ・接続マーカー・
-  可搬 Node runtime 等 / 資格情報は `~/.config/akari-video/credentials.env`）。新たな隠し場所を増やさない
+- マシン状態は `~/.akari/` に揃える（更新キャッシュ・接続マーカー・
+  可搬 Node runtime・資格情報 `credentials.env` 等）。新たな隠し場所を増やさない
 - 原則: マシン状態には**ユーザーの内容物（作品・素材・記憶）を置かない**。
   旧音源ライブラリの例外は 2026-09-21 の移行で回収した。素材は作業場 `library/` へ移し、
   マシン設定の `library-location.json` に置き場を固定する（作業場なし・同期フォルダは移さない）。

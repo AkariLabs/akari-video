@@ -33,7 +33,7 @@ node "$SETUP_CHAT_SKILL/bin/doctor.mjs" [プロジェクトルート]
 置き場と KEY 名だけを案内する。**エージェントは書き込まない**。
 
 ```
-~/.config/akari-video/credentials.env      # 権限は 600
+~/.akari/credentials.env      # 権限は 600
 AKARI_TELEGRAM_BOT_TOKEN=<BotFather が出した値>
 ```
 

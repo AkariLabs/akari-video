@@ -1,0 +1,46 @@
+{
+  "status": "pass",
+  "checks": [
+    {
+      "name": "旧だけの fal 鍵が登録済み・旧い場所の札を表示",
+      "pass": true,
+      "detail": {
+        "registered": true,
+        "legacyBadge": true
+      }
+    },
+    {
+      "name": "移行で新へコピー・600・旧を残し札を消す",
+      "pass": true,
+      "detail": {
+        "copied": true,
+        "primaryMode": "600",
+        "legacyPreserved": true,
+        "badgeGone": true
+      }
+    },
+    {
+      "name": "画面から groq を登録し新だけへ保存",
+      "pass": true,
+      "detail": {
+        "registered": true,
+        "primaryOnly": true,
+        "legacyPreserved": true
+      }
+    },
+    {
+      "name": "既存の Discord 設定を移行・登録後も保持",
+      "pass": true,
+      "detail": {
+        "webhookPreserved": true,
+        "commentPreserved": true
+      }
+    }
+  ],
+  "electron": {
+    "pid": 21737,
+    "cdpPort": 19661,
+    "pidMatched": true,
+    "isolated": true
+  }
+}

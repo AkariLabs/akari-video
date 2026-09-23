@@ -64,6 +64,29 @@ test('診断 zip は直近ログの時刻と重要度だけを残し、鍵と個
     assert.ok(zip.includes(Buffer.from('recent-logs.txt')));
 });
 
+test('診断 zip は旧い鍵ファイル由来の値も伏せる', async t => {
+    const root = await mkdtemp(join(tmpdir(), 'akari-settings-legacy-redaction-'));
+    const original = { HOME: process.env.HOME, USERPROFILE: process.env.USERPROFILE, AKARI_HOME: process.env.AKARI_HOME };
+    Object.assign(process.env, { HOME: root, USERPROFILE: root, AKARI_HOME: join(root, 'akari-home') });
+    t.after(async () => {
+        for (const [key, value] of Object.entries(original)) {
+            if (value === undefined) delete process.env[key]; else process.env[key] = value;
+        }
+        await rm(root, { recursive: true, force: true });
+    });
+    const legacy = join(root, '.config', 'akari-video', 'credentials.env');
+    const secret = 'dummy-legacy-value';
+    await mkdir(join(root, 'akari-home', 'logs'), { recursive: true });
+    await mkdir(join(root, '.config', 'akari-video'), { recursive: true });
+    await writeFile(legacy, `FAL_KEY=${secret}\n`);
+    await writeFile(join(root, 'akari-home', 'logs', 'example.log'), `${new Date().toISOString()} WARN note ${secret}\n`);
+    const destination = join(root, 'diagnostic.zip');
+    await new AkariSettingsMaintenanceServiceImpl().exportDiagnostics(destination);
+    const zip = await readFile(destination);
+    assert.equal(zip.includes(Buffer.from(secret)), false);
+    assert.ok(zip.includes(Buffer.from('[REDACTED]')));
+});
+
 test('匿名化はホーム・利用者名・sk/key/Bearer・JSON の鍵を伏せる', () => {
     const options = { homeDir: '/Users/person', username: 'person', secretValues: ['from-credentials-env'] };
     const input = '/Users/person/video.mp4 sk-abcd1234 key=plain Bearer opaque from-credentials-env person';

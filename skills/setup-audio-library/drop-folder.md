@@ -10,9 +10,9 @@
 ## 1. ドロップフォルダの場所
 
 既定は `~/.akari/audio-drop/`（2026-07-25 第三裁定でプロジェクト外置き場所の基底を
-`~/.akari/` に統一。`~/.config/akari-video/credentials.env` や
-`~/.config/akari-video/voice-profiles/` は認証情報の置き場として別論点のため現状維持
-— いずれも user レベル・git 管理外の置き場である点は共通）。
+`~/.akari/` に統一。鍵の置き場は現在 `~/.akari/credentials.env`。
+`~/.config/akari-video/voice-profiles/` は別論点だが、いずれも
+user レベル・git 管理外の置き場である）。
 ユーザーがブラウザでダウンロードしたファイルを、そのままこのフォルダへ移動・保存して
 もらう。`~/Downloads` を直接監視しない（無関係なダウンロードと混在し誤登録するリスクを
 避けるため、音源専用の場所を切る）。

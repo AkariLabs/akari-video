@@ -21,7 +21,7 @@ test('import scanner sees multiline, commented and nested expressions', () => {
     const parsed = inspectImports(`${keyword} /* gap */ ('./ok.mjs'); export {x} from './other.mjs';`);
     assert.deepEqual(parsed.imports.map(i=>i.specifier),['./ok.mjs','./other.mjs']);
 });
-test('an unreferenced module still fails and only the sibling library may escape', () => {
+test('an unreferenced module still fails and only approved workspace libraries may escape', () => {
     const keyword = 'im'+'port';
     const files = new Map([
         ['entry.mjs',Buffer.from('export const ok = true;')],

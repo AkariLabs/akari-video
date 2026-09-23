@@ -10,8 +10,10 @@ integrations) are centrally managed by the `manage-connections` skill.
 - **Local-only work needs no connection** — proxy generation, whisper.cpp
   transcription, editing, lint, and export all work with no external connection
 - **API keys never appear in chat** — the key itself lives in
-  `~/.config/akari-video/credentials.env` (outside the project); connections
+  `~/.akari/credentials.env` (outside the project); connections
   registries hold only a **reference** to it
+- **Older keys still work** — AKARI reads keys from the former location when they
+  have not been copied yet. New keys are saved in `~/.akari/credentials.env`.
 - **Workspace defaults, project overrides** — the default registry lives at
   `<creator-root>/.akari/connections.json`. A project's `.akari/connections.json`
   is an optional overlay; when no workspace registry exists, AKARI Video falls

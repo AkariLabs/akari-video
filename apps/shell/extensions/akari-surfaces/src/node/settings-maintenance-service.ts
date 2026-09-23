@@ -3,6 +3,8 @@ import * as fs from 'fs/promises';
 import * as os from 'os';
 import * as path from 'path';
 import { spawn } from 'child_process';
+import { existsSync } from 'fs';
+import { pathToFileURL } from 'url';
 import { AkariSettingsMaintenanceService, PartnerDetail, StorageCleanTarget, StorageEntry, StorageSnapshot } from '../common/settings-maintenance-protocol';
 import { AKARI_APP_ICON } from '../browser/settings/app-icon';
 import { resolveUpdateChannel } from '../common/shell-update-applier';
@@ -86,6 +88,28 @@ async function credentialValues(locations: readonly string[]): Promise<string[]>
         } catch { /* 鍵が無い構成 */ }
     }
     return values;
+}
+
+const importEsm = new Function('specifier', 'return import(specifier)') as (specifier: string) => Promise<{
+    readCredentials(env: NodeJS.ProcessEnv): { values: Map<string, string> };
+}>;
+
+async function sharedCredentialValues(): Promise<string[]> {
+    const resources = (process as NodeJS.Process & { resourcesPath?: string }).resourcesPath;
+    for (const start of [resources, __dirname, process.cwd()].filter((value): value is string => !!value)) {
+        let directory = start;
+        for (let depth = 0; depth < 12; depth++) {
+            const candidate = path.join(directory, 'packages/creator-root/src/index.mjs');
+            if (existsSync(candidate)) {
+                const creator = await importEsm(pathToFileURL(candidate).href);
+                return [...creator.readCredentials(process.env).values.values()];
+            }
+            const parent = path.dirname(directory);
+            if (parent === directory) break;
+            directory = parent;
+        }
+    }
+    throw new Error('資格情報を匿名化できません。');
 }
 
 function crc32(data: Buffer): number {
@@ -248,9 +272,9 @@ export class AkariSettingsMaintenanceServiceImpl implements AkariSettingsMainten
         if (!path.isAbsolute(target) || !target.endsWith('.zip')) { throw new Error('Invalid diagnostic destination'); }
         const info = await this.appInfo();
         const workspace = safeRoot(workspaceRoot);
-        const secrets = await credentialValues([path.join(home(), 'credentials.env'),
+        const secrets = [...await sharedCredentialValues(), ...await credentialValues([
             ...(workspace ? [path.join(workspace, '.akari', 'credentials.env')] : []),
-            ...(credentialsPath && path.isAbsolute(credentialsPath) ? [credentialsPath] : [])]);
+            ...(credentialsPath && path.isAbsolute(credentialsPath) ? [credentialsPath] : [])])];
         const sanitizerOptions = { homeDir: os.homedir(), username: os.userInfo().username, secretValues: secrets };
         const sanitize = (value: string): string => sanitizeDiagnosticText(value, sanitizerOptions);
         await fs.mkdir(path.dirname(target), { recursive: true });

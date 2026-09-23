@@ -4,8 +4,7 @@
 // 契約: docs/contract-2026-08-12-chat-approval-v0.md
 
 import { realpathSync } from "node:fs";
-import { readFile, stat } from "node:fs/promises";
-import { homedir } from "node:os";
+import { readFile } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
@@ -14,22 +13,24 @@ import { importPackage } from "./resolve-packages.mjs";
 
 let CHAT_ENV_KEY;
 let TOKEN_ENV_KEY;
-let parseCredentials;
+let credentialsPaths;
+let readSharedCredentials;
 
 async function loadDependencies() {
-  const telegram = await importPackage("chat-bridge/src/telegram-core.mjs", { from: import.meta.url });
+  const [telegram, creatorRoot] = await Promise.all([
+    importPackage("chat-bridge/src/telegram-core.mjs", { from: import.meta.url }),
+    importPackage("creator-root/src/index.mjs", { from: import.meta.url }),
+  ]);
   CHAT_ENV_KEY = telegram.CHAT_ENV_KEY;
   TOKEN_ENV_KEY = telegram.TOKEN_ENV_KEY;
-  parseCredentials = telegram.parseCredentials;
+  credentialsPaths = creatorRoot.credentialsPaths;
+  readSharedCredentials = creatorRoot.readCredentials;
 }
 
 const PROVIDER_ID = "telegram-approval";
 
 function credentialsPath() {
-  return (
-    process.env.AKARI_CREDENTIALS_FILE ??
-    path.join(homedir(), ".config", "akari-video", "credentials.env")
-  );
+  return credentialsPaths().primary;
 }
 
 async function inspectCredentials() {
@@ -44,27 +45,14 @@ async function inspectCredentials() {
     chatIdPresent: false,
   };
 
-  let fileStat;
-  try {
-    fileStat = await stat(filePath);
-  } catch {
-    return result;
-  }
-
-  if (!fileStat.isFile()) return result;
-
+  const state = readSharedCredentials();
+  if (!state.primaryExists && !state.legacyExists) return result;
   result.exists = true;
-  result.mode = (fileStat.mode & 0o777).toString(8).padStart(3, "0");
+  result.mode = (state.primaryExists ? state.primaryMode : state.legacyMode).toString(8).padStart(3, "0");
   result.modeIsSafe = result.mode === "600";
 
-  let text;
-  try {
-    text = await readFile(filePath, "utf8");
-  } catch {
-    return result;
-  }
-
-  const { token, chatId } = parseCredentials(text);
+  const token = state.values.get(TOKEN_ENV_KEY) ?? null;
+  const chatId = state.values.get(CHAT_ENV_KEY) ?? null;
   result.tokenPresent = token !== null;
   // 形だけ検査する（<数字>:<英数記号>）。値そのものは出力しない。
   result.tokenLooksWellFormed = token === null ? null : /^\d{5,}:[A-Za-z0-9_-]{20,}$/.test(token);

@@ -64,7 +64,7 @@ AKARI Video のプロジェクトは「ファイル契約」で動きます。�
 
 | 場所 | 役割 |
 |---|---|
-| `~/.config/akari-video/credentials.env` | API キーの実体（プロジェクトに入れない） |
+| `~/.akari/credentials.env` | API キーの実体（プロジェクトに入れない） |
 | `~/.akari-video/assets/` | 個人スコープの素材ライブラリ |
 
 ## git との相性

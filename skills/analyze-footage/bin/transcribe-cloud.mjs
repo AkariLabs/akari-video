@@ -5,6 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { isMainModule } from "./is-main-module.mjs";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 const PROVIDERS = {
   scribe: {
@@ -24,6 +25,24 @@ const PROVIDERS = {
 };
 
 class PublicError extends Error {}
+
+function creatorRootFile(env = process.env) {
+  const relative = path.join("packages", "creator-root", "src", "index.mjs");
+  let directory = path.dirname(fileURLToPath(import.meta.url));
+  while (true) {
+    const candidate = path.join(directory, relative);
+    if (fs.existsSync(candidate) && fs.statSync(candidate).isFile()) return candidate;
+    const parent = path.dirname(directory);
+    if (parent === directory) break;
+    directory = parent;
+  }
+  for (const root of [env.AKARI_MONOREPO, env.AKARI_INSTALL_DIR ?? path.join(os.homedir(), ".akari", "app")]) {
+    if (!root) continue;
+    const candidate = path.join(path.resolve(root), relative);
+    if (fs.existsSync(candidate) && fs.statSync(candidate).isFile()) return candidate;
+  }
+  throw new PublicError("セットアップするには次を実行してください: curl -fsSL https://raw.githubusercontent.com/AkariLabs/akari-video/main/install.sh | bash");
+}
 
 function printJson(value) {
   process.stdout.write(`${JSON.stringify(value)}\n`);
@@ -71,13 +90,6 @@ function parseArguments(argv) {
   return options;
 }
 
-function credentialsPath() {
-  return path.resolve(
-    process.env.AKARI_CREDENTIALS_FILE
-      ?? path.join(os.homedir(), ".config", "akari-video", "credentials.env"),
-  );
-}
-
 function readRegistry(projectRoot) {
   const registryPath = path.join(projectRoot, ".akari", "connections.json");
   let registry;
@@ -92,33 +104,10 @@ function readRegistry(projectRoot) {
   return registry;
 }
 
-function readCredentials() {
-  let source;
-  try {
-    source = fs.readFileSync(credentialsPath(), "utf8");
-  } catch (error) {
-    if (error?.code === "ENOENT") return new Map();
-    throw new PublicError("credentials.env を読めません");
-  }
-  const values = new Map();
-  for (const originalLine of source.split(/\r?\n/)) {
-    const line = originalLine.trim();
-    if (!line || line.startsWith("#")) continue;
-    const separator = line.indexOf("=");
-    if (separator < 1) continue;
-    const name = line.slice(0, separator).trim();
-    if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(name)) continue;
-    let value = line.slice(separator + 1).trim();
-    if (
-      value.length >= 2
-      && ((value.startsWith('"') && value.endsWith('"'))
-        || (value.startsWith("'") && value.endsWith("'")))
-    ) {
-      value = value.slice(1, -1);
-    }
-    values.set(name, value);
-  }
-  return values;
+async function readCredentials() {
+  const creatorRoot = await import(pathToFileURL(creatorRootFile()).href);
+  try { return creatorRoot.readCredentials().values; }
+  catch { throw new PublicError("credentials.env を読めません"); }
 }
 
 function extractEnvName(value) {
@@ -150,12 +139,12 @@ function decisionOption(id, rtf, qualityNote, duration, hourlyUsd) {
   };
 }
 
-function runDecisionCard(options) {
+async function runDecisionCard(options) {
   if (!Number.isFinite(options.duration) || options.duration <= 0) {
     throw new PublicError("--duration には正の source 秒を指定してください");
   }
   const registry = readRegistry(options.projectRoot);
-  const credentials = readCredentials();
+  const credentials = await readCredentials();
   const availableCloud = Object.entries(PROVIDERS).filter(([, configuration]) => (
     configuredProvider(registry, credentials, configuration.connectionId)
   ));
@@ -450,7 +439,7 @@ async function runSend(options) {
 
   const configuration = PROVIDERS[options.provider];
   const registry = readRegistry(options.projectRoot);
-  const credentials = readCredentials();
+  const credentials = await readCredentials();
   const connection = configuredProvider(registry, credentials, configuration.connectionId);
   if (!connection) throw new PublicError("provider は doctor ok かつ credentials.env 設定済みである必要があります");
 
@@ -477,7 +466,7 @@ async function main() {
   let options;
   try {
     options = parseArguments(process.argv.slice(2));
-    if (options.mode === "decision-card") runDecisionCard(options);
+    if (options.mode === "decision-card") await runDecisionCard(options);
     else await runSend(options);
   } catch (error) {
     const reason = error instanceof PublicError ? error.message : "内部処理に失敗しました";

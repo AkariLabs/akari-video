@@ -6,6 +6,8 @@ import test from "node:test";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 import { importPackage, resolvePackageFile } from "../resolve-packages.mjs";
+import { spawnSync } from "node:child_process";
+import { cp } from "node:fs/promises";
 
 async function withScratch(run) {
   const scratch = await mkdtemp(path.join(tmpdir(), "akari-resolve-packages-"));
@@ -103,4 +105,33 @@ test("3 スキルの resolve-packages.mjs は同一内容", async () => {
   ];
   const expected = await readFile(current, "utf8");
   for (const copy of copies) assert.equal(await readFile(copy, "utf8"), expected);
+});
+
+test("配布先の doctor はロードでき、実行時に creator-root を解決する", async () => {
+  await withScratch(async scratch => {
+    const source = fileURLToPath(new URL("..", import.meta.url));
+    const target = path.join(scratch, "bin");
+    await cp(source, target, { recursive: true, filter: file => !file.includes(`${path.sep}test${path.sep}`) });
+    const entry = path.join(target, "doctor.mjs");
+    const repo = path.resolve(source, "..", "..", "..");
+    const env = { ...process.env, HOME: scratch, AKARI_MONOREPO: repo, AKARI_INSTALL_DIR: path.join(scratch, "missing-app"), AKARI_HOME: path.join(scratch, "home") };
+    const imported = spawnSync(process.execPath, ["--input-type=module", "-e", "await import(process.argv[1])", pathToFileURL(entry).href], { env, encoding: "utf8" });
+    assert.equal(imported.status, 0, imported.stderr);
+    const project = path.join(scratch, "project");
+    await mkdir(project);
+    const run = spawnSync(process.execPath, [entry, project], { env, encoding: "utf8" });
+    assert.equal(run.status, 0, run.stderr);
+    await mkdir(path.join(scratch, ".config", "akari-video"), { recursive: true });
+    await mkdir(path.join(scratch, "home"), { recursive: true });
+    await writeFile(path.join(scratch, ".config", "akari-video", "credentials.env"), "BAD LINE\n", "utf8");
+    await writeFile(path.join(scratch, "home", "credentials.env"), "BAD-NAME=value\n", "utf8");
+    const warned = spawnSync(process.execPath, [entry, project], { env, encoding: "utf8" });
+    assert.equal(warned.status, 0, warned.stderr);
+    assert.match(warned.stderr, /credentials.env（新）の 1 行目を KEY=VALUE として読めませんでした/);
+    assert.match(warned.stderr, /credentials.env（旧）の 1 行目を KEY=VALUE として読めませんでした/);
+    const missing = spawnSync(process.execPath, [entry, project], { env: { ...env, AKARI_MONOREPO: "" }, encoding: "utf8" });
+    assert.equal(missing.status, 1);
+    assert.match(missing.stderr, /セットアップするには/);
+    assert.doesNotMatch(missing.stderr, /ERR_MODULE_NOT_FOUND/);
+  });
 });

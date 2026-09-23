@@ -9,9 +9,16 @@ import {
     GenerationDefaultsResult, ProviderBalanceResult, providerHasBalanceEndpoint, SetCredentialResult
 } from '../common/akari-connections-protocol';
 import {
-    checkCredential, ConnectionProvider, credentialEnvName, credentialsFilePath, DoctorAdapter,
-    formatConnections, readCredentials, setCredentialAndCheck, writeCredential
+    ConnectionProvider, credentialEnvName, DoctorAdapter, formatConnections, maskedTail, safeDoctor
 } from '../common/credentials-file';
+
+interface CreatorCredentials {
+    credentialsPaths(env?: NodeJS.ProcessEnv): { primary: string; legacy: string | null };
+    readCredentials(env?: NodeJS.ProcessEnv): { values: Map<string, string>; sources: Record<string, 'primary' | 'legacy'>;
+        primaryExists: boolean; primaryMode: number | null };
+    writeCredential(key: string, value: string, env?: NodeJS.ProcessEnv): void;
+    deleteCredential(key: string, env?: NodeJS.ProcessEnv): void;
+}
 
 // tsc's CommonJS transform must not turn ESM imports into require().
 const importEsm = new Function('specifier', 'return import(specifier)') as <T>(specifier: string) => Promise<T>;
@@ -374,8 +381,11 @@ export class AkariConnectionsServiceImpl implements AkariConnectionsService {
         return this.serialize(async () => {
             try {
                 const registry = await this.registry();
-                const filePath = credentialsFilePath();
-                const state = readCredentials(filePath);
+                const credentials = await this.loadModule<CreatorCredentials>('packages/creator-root/src/index.mjs');
+                const filePath = credentials.credentialsPaths().primary;
+                const shared = credentials.readCredentials();
+                const state = { values: shared.values, sources: shared.sources,
+                    exists: shared.primaryExists, secure_permissions: shared.primaryMode === 0o600 };
                 const storePath = path.join(process.env.AKARI_HOME || path.join(os.homedir(), '.akari'), 'store-credentials.json');
                 const store = { exists: false, connected: false };
                 try {
@@ -397,8 +407,12 @@ export class AkariConnectionsServiceImpl implements AkariConnectionsService {
         return this.serialize(async () => {
             try {
                 const provider = await this.provider(id);
-                const filePath = credentialsFilePath();
-                return await setCredentialAndCheck(filePath, credentialEnvName(provider), value, () => this.inspect(provider, filePath));
+                const credentials = await this.loadModule<CreatorCredentials>('packages/creator-root/src/index.mjs');
+                credentials.writeCredential(credentialEnvName(provider), value);
+                let doctor: ConnectionDoctor;
+                try { doctor = await this.inspect(provider); }
+                catch { doctor = { status: 'unchecked', detail: '接続を確認できませんでした。', last_checked: new Date().toISOString() }; }
+                return { ok: true, masked_tail: maskedTail(value), doctor: safeDoctor(doctor, value, new Date().toISOString()) };
             } catch { throw new Error('資格情報を登録できません。入力と保存先の権限を確認してください。'); }
         });
     }
@@ -407,7 +421,8 @@ export class AkariConnectionsServiceImpl implements AkariConnectionsService {
         return this.serialize(async () => {
             try {
                 const provider = await this.provider(id);
-                writeCredential(credentialsFilePath(), credentialEnvName(provider), null);
+                const credentials = await this.loadModule<CreatorCredentials>('packages/creator-root/src/index.mjs');
+                credentials.deleteCredential(credentialEnvName(provider));
                 this.doctors.delete(id);
                 return { ok: true };
             } catch { throw new Error('資格情報を削除できません。'); }
@@ -416,8 +431,22 @@ export class AkariConnectionsServiceImpl implements AkariConnectionsService {
 
     async checkConnection(id: string): Promise<{ doctor: ConnectionDoctor }> {
         return this.serialize(async () => {
-            try { return { doctor: await this.inspect(await this.provider(id), credentialsFilePath()) }; }
+            try { return { doctor: await this.inspect(await this.provider(id)) }; }
             catch { throw new Error('接続を確認できません。'); }
+        });
+    }
+
+    async migrateCredential(id: string): Promise<{ ok: boolean }> {
+        return this.serialize(async () => {
+            try {
+                const provider = await this.provider(id);
+                const credentials = await this.loadModule<CreatorCredentials>('packages/creator-root/src/index.mjs');
+                const key = credentialEnvName(provider);
+                const state = credentials.readCredentials();
+                if (state.sources[key] !== 'legacy') { return { ok: false }; }
+                credentials.writeCredential(key, state.values.get(key)!);
+                return { ok: true };
+            } catch { throw new Error('資格情報を移せません。'); }
         });
     }
 
@@ -427,7 +456,7 @@ export class AkariConnectionsServiceImpl implements AkariConnectionsService {
             return { ok: false, error: 'この接続は残高の問い合わせに対応していません。', checked_at };
         }
         let secret: string | undefined;
-        try { secret = readCredentials(credentialsFilePath()).values.get(credentialEnvName(await this.provider(id))); }
+        try { secret = (await this.loadModule<CreatorCredentials>('packages/creator-root/src/index.mjs')).readCredentials().values.get(credentialEnvName(await this.provider(id))); }
         catch { return { ok: false, error: '登録済みのキーを読めませんでした。', checked_at }; }
         if (!secret) { return { ok: false, error: 'API キーが未登録です。', checked_at }; }
         const request = BALANCE_REQUESTS[id];
@@ -455,11 +484,14 @@ export class AkariConnectionsServiceImpl implements AkariConnectionsService {
         }
     }
 
-    protected async inspect(provider: ConnectionProvider, filePath: string): Promise<ConnectionDoctor> {
+    protected async inspect(provider: ConnectionProvider): Promise<ConnectionDoctor> {
         let doctor: ConnectionDoctor;
         try {
             const module = await this.loadModule<{ adapters: Record<string, DoctorAdapter> }>('skills/manage-connections/bin/doctor.mjs');
-            doctor = await checkCredential(filePath, credentialEnvName(provider), module.adapters[provider.id]);
+            const secret = (await this.loadModule<CreatorCredentials>('packages/creator-root/src/index.mjs')).readCredentials().values.get(credentialEnvName(provider));
+            const checkedAt = new Date().toISOString();
+            doctor = secret ? safeDoctor(await module.adapters[provider.id](secret, checkedAt), secret, checkedAt)
+                : { status: 'unconfigured', detail: '未登録', last_checked: null };
         } catch {
             doctor = { status: 'unchecked', detail: '接続を確認できませんでした。', last_checked: new Date().toISOString() };
         }

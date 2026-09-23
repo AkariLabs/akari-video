@@ -18,6 +18,7 @@ export interface ConnectionRow {
     env_name: string;
     configured: boolean;
     masked_tail: string | null;
+    source?: 'primary' | 'legacy';
     doctor: ConnectionDoctor;
 }
 
@@ -116,6 +117,7 @@ export interface ProviderBalanceResult {
 export interface AkariConnectionsService {
     listConnections(): Promise<ConnectionsList>;
     setCredential(id: string, value: string): Promise<SetCredentialResult>;
+    migrateCredential(id: string): Promise<{ ok: boolean }>;
     deleteCredential(id: string): Promise<{ ok: boolean }>;
     checkConnection(id: string): Promise<{ doctor: ConnectionDoctor }>;
     readGenerationDefaults(): Promise<GenerationDefaultsResult>;

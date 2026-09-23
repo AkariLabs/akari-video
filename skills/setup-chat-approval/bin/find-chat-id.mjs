@@ -4,30 +4,30 @@
 // トークンは出力に出さない。
 
 import { realpathSync } from "node:fs";
-import { readFile } from "node:fs/promises";
-import { homedir } from "node:os";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 
 import { importPackage } from "./resolve-packages.mjs";
 
-let parseCredentials;
 let redactToken;
+let credentialsPaths;
+let readCredentials;
 
 async function loadDependencies() {
-  const telegram = await importPackage("chat-bridge/src/telegram-core.mjs", { from: import.meta.url });
-  parseCredentials = telegram.parseCredentials;
+  const [telegram, creatorRoot] = await Promise.all([
+    importPackage("chat-bridge/src/telegram-core.mjs", { from: import.meta.url }),
+    importPackage("creator-root/src/index.mjs", { from: import.meta.url }),
+  ]);
   redactToken = telegram.redactToken;
+  credentialsPaths = creatorRoot.credentialsPaths;
+  readCredentials = creatorRoot.readCredentials;
 }
 
 async function main() {
   await loadDependencies();
-  const filePath =
-    process.env.AKARI_CREDENTIALS_FILE ??
-    path.join(homedir(), ".config", "akari-video", "credentials.env");
-
-  const { token } = parseCredentials(await readFile(filePath, "utf8"));
+  const filePath = credentialsPaths().primary;
+  const token = readCredentials().values.get('AKARI_TELEGRAM_BOT_TOKEN') ?? null;
   if (token === null) {
     console.error(`AKARI_TELEGRAM_BOT_TOKEN が ${filePath} にありません。`);
     process.exit(1);

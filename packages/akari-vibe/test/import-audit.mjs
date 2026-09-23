@@ -133,9 +133,10 @@ export function inspectImports(source) {
 export function importTarget(name, specifier) {
     if (specifier.startsWith('node:')) return {builtin:true};
     if (!specifier.startsWith('./') && !specifier.startsWith('../')) return {error:'bare/absolute import'};
-    // Only the sibling edit-store library may be external to this package.
+    // Shared workspace libraries used by the shipped companion.
     const target = path.posix.normalize(path.posix.join(path.posix.dirname(name),specifier));
     if (target.startsWith('../edit-store/lib/') && !/[?#\\]/.test(specifier)) return {external:true};
+    if (target === '../creator-root/src/index.mjs' && !/[?#\\]/.test(specifier)) return {external:true};
     if (/[?#\\]/.test(specifier) || target.startsWith('../') || target.startsWith('/')) return {error:'import outside package'};
     return {target};
 }

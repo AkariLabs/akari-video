@@ -5,7 +5,7 @@ import { dirname, join } from 'node:path';
 import test from 'node:test';
 
 import { runUpdateCommand } from '../src/cli.mjs';
-import { runDoctorCommand } from '../src/doctor-command.mjs';
+import { formatDoctorReport, runDoctorCommand } from '../src/doctor-command.mjs';
 import {
   determineDoctorVerdict,
   doctorExitCode,
@@ -138,6 +138,19 @@ test('verdict と exit code は ok/degraded=0、broken=1', async () => {
     assert.equal(output.length, 1);
     assert.equal(JSON.parse(output[0]).verdict, verdict);
   }
+});
+
+test('doctor は鍵の置き場を値なしで表示する', () => {
+  const report = {
+    cli: { version: 'test', entry_path: 'akari.mjs' }, app_managed: { status: 'valid' },
+    app_bundle: { found: false }, render_cut: { origin: 'none' }, edit_lint: { origin: 'none' },
+    ffmpeg: { origin: 'none' }, ffprobe: { origin: 'none' }, gpu_export: { available: false },
+    fal_key: { source: 'credentials.env', location: '両方', credentials_path: '/isolated/credentials.env' },
+    path: { on_path: false, cli_shim_dir: '/isolated/bin' }, verdict: 'degraded', next_steps: []
+  };
+  const output = formatDoctorReport(report);
+  assert.match(output, /鍵の置き場\s+両方/);
+  assert.equal(output.includes('dummy-not-a-real-key'), false);
 });
 
 for (const fixture of [

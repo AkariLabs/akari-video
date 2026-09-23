@@ -692,7 +692,7 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
         });
         section.append(groupCard('macOS のアクセス許可', ...rows),
         groupCard('外へ送るもの', settingRow('利用状況の送信', 'AKARI Video は利用状況を送っていません', statusPill('送っていない')),
-            settingRow('API キー', 'この Mac の中だけ（credentials.env）。AKARI のサーバーには送りません', action('場所を開く', () => {
+            settingRow('API キー', `鍵は ${this.credentialsPath || (OS.type() === OS.Type.Windows ? '%USERPROFILE%\\.akari\\credentials.env' : '~/.akari/credentials.env')} に保存します（この PC だけ・600）。AKARI のサーバーには送りません`, action('場所を開く', () => {
                 if (this.credentialsPath) { void this.maintenance.openPath(this.credentialsPath.replace(/[\\/][^\\/]+$/, '')); }
             }, { small: true }))));
     }
@@ -1291,7 +1291,7 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
         const detail = !credentials.exists ? `${credentials.path} · 登録すると作成します。平文・自分だけ読める権限（600）。CLI やスキルもこのファイルを読みます。`
             : credentials.secure_permissions ? `${credentials.path} · 平文・自分だけ読める権限（600）。CLI やスキルもこのファイルを読みます。`
                 : `${credentials.path} · 現在のファイル権限は 600 ではありません。次の登録・削除時に修正します。`;
-        this.storage.replaceChildren(groupCard('キーの保存先', settingRow('保存場所', detail, segmentedControl<'file' | 'encrypted'>({
+        this.storage.replaceChildren(groupCard('キーの保存先', settingRow('保存場所', `鍵は ${credentials.path} に保存します（この PC だけ・600）。${detail}`, segmentedControl<'file' | 'encrypted'>({
             label: 'キーの保存先', value: 'file', onChange: () => undefined,
             options: [{ value: 'file', label: 'このファイル' }, { value: 'encrypted', label: '暗号化', disabled: true, title: '暗号化して保存（この Mac のログイン鍵で）は準備中です' }]
         }))), settingsNote('登録後は末尾 4 桁だけを表示します。鍵はレポート・差分・チャットへ出しません。'));
@@ -1321,6 +1321,12 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
         const status = statusPill('', 'neutral');
         status.setAttribute('role', 'status');
         heading.append(element('span', row.label), status);
+        if (row.source === 'legacy') {
+            const badge = element('span', '旧い場所から読んでいます');
+            badge.className = 'akari-set-pill akari-set-pill-warn';
+            badge.setAttribute('data-credential-source', 'legacy');
+            heading.append(badge);
+        }
         if (row.id === 'fal') { heading.append(statusPill('おすすめ', 'accent')); }
         const display = PROVIDER_DISPLAY[row.id];
         const copy = element('div', display?.description ?? row.description);
@@ -1361,7 +1367,7 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
                 const list = await this.service.listConnections();
                 if (!this.isDisposed) {
                     this.renderStorage(list.credentials);
-                    this.updateConnectionSummary(list.providers);
+                    this.renderProviders(list.providers);
                 }
             } catch { detail.textContent = '操作できませんでした。入力と保存先を確認してください。'; }
             finally {
@@ -1381,6 +1387,11 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
                     row.configured = false; row.masked_tail = null;
                     row.doctor = { status: 'unconfigured', detail: '未登録', last_checked: null };
                 }), { small: true }));
+                if (row.source === 'legacy') {
+                    controls.append(action('新しい場所へ移す', () => void run(async () => {
+                        await this.service.migrateCredential(row.id);
+                    }), { small: true }));
+                }
             } else {
                 const input = textField({ label: `${row.label} の API キー`, type: 'password', placeholder: 'API キーを貼る' });
                 input.autocomplete = 'off';

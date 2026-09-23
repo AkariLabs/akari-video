@@ -326,6 +326,7 @@ function resolveHomeDir(env, platform) {
 export function resolveAkariHome(env = process.env, { platform = process.platform } = {}) {
     return env.AKARI_HOME || path.join(resolveHomeDir(env, platform), '.akari');
 }
+export { credentialsPaths, readCredentials, writeCredential, deleteCredential } from './credentials.mjs';
 
 function machinePointerPath(env, platform) {
     return path.join(resolveAkariHome(env, { platform }), MACHINE_POINTER_FILE_NAME);

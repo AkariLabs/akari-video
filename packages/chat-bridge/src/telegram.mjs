@@ -7,17 +7,15 @@
 //   - ポートを listen しない。送受信とも outbound（long polling）のみ
 //   - 受け付けるのは登録済み chat ID からの、閉じた集合の callback_data だけ
 
-import { readFile, stat } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import { basename } from "node:path";
-import { homedir } from "node:os";
-import { join } from "node:path";
+import { credentialsPaths, readCredentials } from "../../creator-root/src/index.mjs";
 
 import {
   ACTIONS,
   CHAT_ENV_KEY,
   TOKEN_ENV_KEY,
   buildKeyboard,
-  parseCredentials,
   redactToken,
   selectActions,
 } from "./telegram-core.mjs";
@@ -40,7 +38,7 @@ function usage() {
   --max-wait <秒>        承認を待つ上限（既定 3600）
   --notify-only         通知だけ送って終了する（応答を待たない）
 
-認証情報は ~/.config/akari-video/credentials.env（600）から読む。
+認証情報は ~/.akari/credentials.env（600）から読む。旧い場所も読み取る。
   ${TOKEN_ENV_KEY}=...   BotFather が発行したトークン
   ${CHAT_ENV_KEY}=...    通知先の chat ID（この ID 以外からの応答は破棄する）`;
 }
@@ -91,26 +89,22 @@ function parseArguments(argv) {
 }
 
 async function loadCredentials() {
-  const path =
-    process.env.AKARI_CREDENTIALS_FILE ??
-    join(homedir(), ".config", "akari-video", "credentials.env");
-
-  let fileStat;
-  try {
-    fileStat = await stat(path);
-  } catch {
+  const path = credentialsPaths().primary;
+  const state = readCredentials();
+  if (!state.primaryExists && !state.legacyExists) {
     throw new Error(
       `credentials.env がありません: ${path}\n` +
         `作成して 600 にし、${TOKEN_ENV_KEY} と ${CHAT_ENV_KEY} を 1 行ずつ登録してください。`,
     );
   }
 
-  const mode = (fileStat.mode & 0o777).toString(8).padStart(3, "0");
+  const mode = (state.primaryExists ? state.primaryMode : state.legacyMode).toString(8).padStart(3, "0");
   if (mode !== "600") {
     console.warn(`警告: credentials.env の権限が 600 ではありません（現在 ${mode}）。chmod 600 ${path}`);
   }
 
-  const { token, chatId } = parseCredentials(await readFile(path, "utf8"));
+  const token = state.values.get(TOKEN_ENV_KEY) ?? null;
+  const chatId = state.values.get(CHAT_ENV_KEY) ?? null;
   if (token === null) throw new Error(`${TOKEN_ENV_KEY} が credentials.env にありません: ${path}`);
   if (chatId === null) throw new Error(`${CHAT_ENV_KEY} が credentials.env にありません: ${path}`);
   return { token, chatId };

@@ -9,6 +9,7 @@ export interface CredentialState {
     exists: boolean;
     secure_permissions: boolean;
     values: Map<string, string>;
+    sources?: Record<string, 'primary' | 'legacy'>;
 }
 
 export interface ConnectionProvider {
@@ -21,7 +22,7 @@ export interface ConnectionProvider {
 export type DoctorAdapter = (secret: string, checkedAt: string) => Promise<ConnectionDoctor>;
 
 export function credentialsFilePath(env: NodeJS.ProcessEnv = process.env, home: string = os.homedir()): string {
-    return env.AKARI_CREDENTIALS_FILE ?? path.join(home, '.config', 'akari-video', 'credentials.env');
+    return env.AKARI_CREDENTIALS_FILE ?? path.join(env.AKARI_HOME || path.join(home, '.akari'), 'credentials.env');
 }
 
 const ENV_NAME = /^[A-Za-z_][A-Za-z0-9_]*$/;
@@ -135,6 +136,7 @@ export function formatConnections(
                 id: provider.id, label: labels[provider.id] ?? provider.id,
                 description: provider.notes.description, setup_url: provider.notes.setup_url, env_name,
                 configured: !!secret, masked_tail: maskedTail(secret),
+                source: state.sources?.[env_name],
                 doctor: secret ? doctors.get(provider.id) ?? { status: 'unchecked', detail: '未確認', last_checked: null } : unconfiguredDoctor()
             };
         });
@@ -163,7 +165,7 @@ export async function setCredentialAndCheck(
     return { ok: true, masked_tail: maskedTail(value), doctor: safeDoctor(doctor, value, new Date().toISOString()) };
 }
 
-function safeDoctor(doctor: ConnectionDoctor, secret: string, last_checked: string): ConnectionDoctor {
+export function safeDoctor(doctor: ConnectionDoctor, secret: string, last_checked: string): ConnectionDoctor {
     // Do not pass through arbitrary adapter fields or reflected secrets.
     const status = ['ok', 'unauthorized', 'unconfigured', 'unchecked', 'setup_required'].includes(doctor?.status) ? doctor.status : 'unchecked';
     const detail = typeof doctor?.detail === 'string' && !doctor.detail.includes(secret) ? doctor.detail : '接続結果を表示できません。';

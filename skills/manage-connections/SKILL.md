@@ -10,7 +10,7 @@ description: AKARI Video の生成プロバイダ・SNS 接続・API キー参�
 次の規則は詳細手順より常に優先する。
 
 1. **キーの値を git 管理下ファイル・HTML・ログ・会話に出さない。** 表示は常にマスク
-2. **キーは環境変数と credentials.env の 2 か所だけから探す（env が優先）。それ以外から探索せず、チャットでキーの提示を求めない。**
+2. **キーは環境変数と credentials.env（新しい場所 → 旧い場所）だけから探す（env が優先）。それ以外から探索せず、チャットでキーの提示を求めない。**
    置き場と KEY 名を案内し、人間が置く
 3. **keychain / 外部 vault を必須依存にしない**（オプションバックエンドとしてのみ将来検討）
 4. **doctor は無償・読み取り専用のみ。実生成テストはしない**（保留裁定 2026-07-17）
@@ -32,7 +32,7 @@ description: AKARI Video の生成プロバイダ・SNS 接続・API キー参�
    そのプロジェクトルート、または connections.json のパスを第 1 引数に渡す。プロジェクトルート
    で実行した結果は provider の由来レイヤー（project / workspace / default）に対応するファイルへ
    書き戻される。
-3. 環境変数にも `~/.config/akari-video/credentials.env` にも必要な鍵が無ければ、doctor が示す
+3. 環境変数にも新旧どちらの credentials.env にも必要な鍵が無ければ、doctor が示す
    置き場・KEY 名・取得先 URL を人間へ案内して停止する。代理取得・代理書き込みをしない。テストで差し替える場合だけ
    `AKARI_CREDENTIALS_FILE` にファイルパスを指定する。
 4. provider を追加する場合は、人間が credentials.env に `KEY=VALUE` を 1 行追加し、
@@ -59,7 +59,7 @@ doctor は connections.json の `doctor` ブロックを書き戻し、プロジ
 
 ## 鍵の置き場（環境変数と credentials.env）
 
-- doctor は `auth: env-key` の provider について環境変数 → credentials.env の順で鍵を探す。env が優先
+- doctor は `auth: env-key` の provider について環境変数 → 新しい credentials.env → 旧い credentials.env の順で鍵を探す。env が優先
 - 報告は `env` / `credentials.env` / `未設定` の 3 値だけで、値も末尾 4 桁も出さない
 - `akari doctor` の `fal_key` 行でも同じ 3 値が見える。鍵が無くても判定（verdict）と終了コードは変わらない
 - テストで置き場を差し替えるときだけ `AKARI_CREDENTIALS_FILE` を使う
