@@ -1,0 +1,63 @@
+{
+ "presetId": "subtitle-news",
+ "dropSpec": "t=10@Base",
+ "at": "2026-09-23T03:00:44.098Z",
+ "card": {
+  "x": 87,
+  "y": 230,
+  "draggable": null
+ },
+ "drop": {
+  "x": 897,
+  "y": 552,
+  "targetTime": 10,
+  "row": "Base",
+  "pps": 47.115625
+ },
+ "dragIntercepted": false,
+ "waitMs": 5064,
+ "captionsChanged": false,
+ "editChanged": false,
+ "newCaptions": [],
+ "afterDrop": {
+  "marked": [
+   {
+    "tag": "DIV",
+    "attrs": [
+     "data-akari-dropzone=true",
+     "data-akari-os-file-drop-target=true",
+     "data-akari-ui=panel:assets",
+     "data-akari-ui-label=素材パネル"
+    ],
+    "rect": {
+     "x": 48,
+     "y": 4,
+     "w": 226,
+     "h": 638
+    },
+    "outline": "none rgb(229, 229, 229)",
+    "bg": "rgba(0, 0, 0, 0)"
+   },
+   {
+    "tag": "DIV",
+    "attrs": [
+     "data-akari-ui=panel:timeline",
+     "data-akari-ui-label=タイムライン",
+     "data-akari-dropzone=true"
+    ],
+    "rect": {
+     "x": 283,
+     "y": 442,
+     "w": 780,
+     "h": 200
+    },
+    "outline": "none rgb(204, 204, 204)",
+    "bg": "rgb(10, 10, 10)"
+   }
+  ],
+  "outlined": [],
+  "footer": []
+ },
+ "chips": [],
+ "notices": []
+}

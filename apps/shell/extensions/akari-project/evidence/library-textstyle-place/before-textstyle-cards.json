@@ -1,0 +1,95 @@
+{
+ "at": "2026-09-23T03:00:28.055Z",
+ "count": 12,
+ "cards": [
+  {
+   "id": "textstyle/subtitle-news",
+   "draggable": null,
+   "add": 0,
+   "addLabel": null,
+   "imgs": []
+  },
+  {
+   "id": "textstyle/subtitle-standard",
+   "draggable": null,
+   "add": 0,
+   "addLabel": null,
+   "imgs": []
+  },
+  {
+   "id": "textstyle/subtitle-variety",
+   "draggable": null,
+   "add": 0,
+   "addLabel": null,
+   "imgs": []
+  },
+  {
+   "id": "textstyle/subtitle-commentary",
+   "draggable": null,
+   "add": 0,
+   "addLabel": null,
+   "imgs": []
+  },
+  {
+   "id": "textstyle/subtitle-interview",
+   "draggable": null,
+   "add": 0,
+   "addLabel": null,
+   "imgs": []
+  },
+  {
+   "id": "textstyle/narration-caption",
+   "draggable": null,
+   "add": 0,
+   "addLabel": null,
+   "imgs": []
+  },
+  {
+   "id": "textstyle/emphasis-red",
+   "draggable": null,
+   "add": 0,
+   "addLabel": null,
+   "imgs": []
+  },
+  {
+   "id": "textstyle/verdict-badge",
+   "draggable": null,
+   "add": 0,
+   "addLabel": null,
+   "imgs": []
+  },
+  {
+   "id": "textstyle/discount-text",
+   "draggable": null,
+   "add": 0,
+   "addLabel": null,
+   "imgs": []
+  },
+  {
+   "id": "textstyle/neon",
+   "draggable": null,
+   "add": 0,
+   "addLabel": null,
+   "imgs": []
+  },
+  {
+   "id": "textstyle/glitch",
+   "draggable": null,
+   "add": 0,
+   "addLabel": null,
+   "imgs": []
+  },
+  {
+   "id": "textstyle/title-impact",
+   "draggable": null,
+   "add": 0,
+   "addLabel": null,
+   "imgs": []
+  }
+ ],
+ "header": [
+  "プレビューへドラッグ、＋でプレイヘッド位置に追加",
+  "＋"
+ ],
+ "homeHint": "← ライブラリテキストスタイル12プレビューへドラッグ、＋でプレイヘッド位置に追加速報ニュースニュース風subtitle速報ニュースsubtitle読みやすい標準字幕標準字幕subtitle読みやすい標準字幕subtitleここがすごい！バラエティsubtitleここがすごい！subtitleここで一気に加速！実況テロップsubtitleここで一気に加速！subtitle「そう思いました」インタビュー字幕subtitle「そう思いました」subtitleこの街には、まだ誰も知らない物語がある。ナレーション字幕subtitleこの街には、まだ誰も知らない物語がある。subtitleここ重要！強調emphasisここ重要！emphasis買い！判定バッジemphasis買い！emphasis30% OFF割引バッジテキストprice30% OFFpriceNEONネオンdecorativeNEONdecorativeGLITCHグリッチ風decorativeGLITCHdecorative衝撃の事実インパクトtitle衝撃の事実title開発者向け: ローカルカタログ…"
+}

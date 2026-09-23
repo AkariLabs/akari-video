@@ -1,0 +1,77 @@
+{
+ "key": "broll/talkinghead-desk-ja-01",
+ "dropSpec": "t=3@Base+14",
+ "at": "2026-09-23T03:42:27.366Z",
+ "card": {
+  "x": 161,
+  "y": 227,
+  "draggable": "true"
+ },
+ "drop": {
+  "x": 567,
+  "y": 532,
+  "targetTime": 3,
+  "row": "Base"
+ },
+ "dragIntercepted": true,
+ "mimeTypes": [
+  "application/x-akari-library-item"
+ ],
+ "payload": {
+  "kind": "asset",
+  "key": "broll/talkinghead-desk-ja-01",
+  "id": "talkinghead-desk-ja-01",
+  "category": "broll",
+  "title": "自宅デスクのトーキングヘッド（日本語・37.6 秒）"
+ },
+ "duringDrag": {
+  "marked": [
+   {
+    "tag": "DIV",
+    "attrs": [
+     "data-akari-insertion-preview=true"
+    ],
+    "rect": {
+     "x": 567,
+     "y": 493,
+     "w": 142,
+     "h": 48
+    },
+    "outline": "none rgb(204, 204, 204)",
+    "bg": "rgba(77, 208, 200, 0.22)"
+   }
+  ],
+  "outlined": [],
+  "timelineScroll": {
+   "x": 425,
+   "y": 441,
+   "w": 632,
+   "h": 157,
+   "scrollTop": 0
+  },
+  "footer": []
+ },
+ "waitMs": 3013,
+ "editChanged": true,
+ "newItems": [
+  {
+   "track": "v1",
+   "id": "clip-1",
+   "at": 90,
+   "duration": 1128,
+   "source": {
+    "kind": "media",
+    "src": "src-1",
+    "in": 0,
+    "out": 37.6
+   }
+  }
+ ],
+ "newSources": [
+  {
+   "id": "src-1",
+   "path": "assets/broll/talkinghead-desk-ja-01/clip.mp4"
+  }
+ ],
+ "notices": []
+}

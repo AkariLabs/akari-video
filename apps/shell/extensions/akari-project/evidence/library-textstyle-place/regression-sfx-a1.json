@@ -1,0 +1,76 @@
+{
+ "key": "audio/sfx-bell-tree",
+ "dropSpec": "t=3@A1",
+ "at": "2026-09-23T03:42:18.215Z",
+ "card": {
+  "x": 154,
+  "y": 227,
+  "draggable": "true"
+ },
+ "drop": {
+  "x": 567,
+  "y": 558,
+  "targetTime": 3,
+  "row": "A1"
+ },
+ "dragIntercepted": true,
+ "mimeTypes": [
+  "application/x-akari-library-item"
+ ],
+ "payload": {
+  "kind": "asset",
+  "key": "audio/sfx-bell-tree",
+  "id": "sfx-bell-tree",
+  "category": "audio",
+  "title": "Bell Tree Sweep Upward, Sparkling Cascade, Isola"
+ },
+ "duringDrag": {
+  "marked": [],
+  "outlined": [
+   {
+    "cls": "",
+    "rect": {
+     "x": 567,
+     "y": 543,
+     "w": 142,
+     "h": 28
+    },
+    "outline": "rgb(249, 115, 22) solid 2px",
+    "border": "1px dashed rgb(77, 208, 200)",
+    "bg": "rgba(77, 208, 200, 0.22)",
+    "rejected": false
+   }
+  ],
+  "timelineScroll": {
+   "x": 425,
+   "y": 441,
+   "w": 632,
+   "h": 157,
+   "scrollTop": 0
+  },
+  "footer": []
+ },
+ "waitMs": 1506,
+ "editChanged": true,
+ "newItems": [
+  {
+   "track": "a1",
+   "id": "audio-1",
+   "at": 90,
+   "duration": 76,
+   "source": {
+    "kind": "media",
+    "src": "src-1",
+    "in": 0,
+    "out": 2.520979
+   }
+  }
+ ],
+ "newSources": [
+  {
+   "id": "src-1",
+   "path": "assets/audio/sfx-bell-tree/sfx-bell-tree.mp3"
+  }
+ ],
+ "notices": []
+}

@@ -298,8 +298,13 @@ import {
     hitTestTransitionBoundary,
     LibraryTransitionDragPayload,
     LibraryAssetDragPayload,
+    LibraryTextStyleDragPayload,
     parseLibraryDragPayload,
     libraryAssetGhostPayload,
+    textStyleDropStart,
+    textStyleDropBandLayout,
+    textStyleGhostEnd,
+    textStylePlaceOptions,
     parseLibraryTransitionDragPayload,
     TransitionBoundaryHitCandidate
 } from './library-drop-model';
@@ -1049,6 +1054,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
     /** ライブラリの transition D&D 中だけ保持し、適用可能なカット境界の受け皿描画を有効にする。 */
     protected libraryDragPayload: LibraryTransitionDragPayload | undefined;
     protected libraryAssetDragPayload: LibraryAssetDragPayload | undefined;
+    protected libraryTextStyleDragPayload: LibraryTextStyleDragPayload | undefined;
+    protected libraryTextStyleOutputDuration = 0;
     protected materialDragLastClientX = 0;
     protected materialDragLastClientY = 0;
     protected materialDragAutoScrollPointerY: number | undefined;
@@ -2678,16 +2685,23 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 this.materialDragPayload = libraryAssetGhostPayload(payload);
                 return;
             }
+            if (payload?.kind === 'textstyle') {
+                this.libraryTextStyleDragPayload = payload;
+                this.libraryTextStyleOutputDuration = this.editDocument
+                    ? timelineDurationSeconds(this.readEdit(JSON.stringify(this.editDocument))).seconds : 0;
+                this.renderStrip();
+                return;
+            }
             if (!payload) return;
             this.libraryDragPayload = payload;
             this.renderStrip();
         };
         const onLibraryDragEnd = (): void => this.clearLibraryTransitionDragState();
         const onWindowLibraryDrop = (): void => {
-            if (this.libraryDragPayload || this.libraryAssetDragPayload) queueMicrotask(() => this.clearLibraryTransitionDragState());
+            if (this.libraryDragPayload || this.libraryAssetDragPayload || this.libraryTextStyleDragPayload) queueMicrotask(() => this.clearLibraryTransitionDragState());
         };
         const onWindowLibraryDragLeave = (event: DragEvent): void => {
-            if ((!this.libraryDragPayload && !this.libraryAssetDragPayload) || event.relatedTarget !== null) return;
+            if ((!this.libraryDragPayload && !this.libraryAssetDragPayload && !this.libraryTextStyleDragPayload) || event.relatedTarget !== null) return;
             const outsideViewport = event.clientX <= 0 || event.clientY <= 0
                 || event.clientX >= window.innerWidth || event.clientY >= window.innerHeight;
             if (outsideViewport) this.clearLibraryTransitionDragState();
@@ -5765,7 +5779,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
 
     protected isMaterialDragTransfer(transfer: DataTransfer | null): boolean {
         return !!transfer && (transfer.types.includes(MATERIAL_DRAG_MIME)
-            || (transfer.types.includes(LIBRARY_DRAG_MIME) && this.readLibraryAssetDropPayload(transfer) !== undefined));
+            || (transfer.types.includes(LIBRARY_DRAG_MIME)
+                && (this.readLibraryAssetDropPayload(transfer) !== undefined || this.readLibraryTextStyleDropPayload?.(transfer) !== undefined)));
     }
 
     protected materialPanelDropPoint(pointerX: number, pointerY: number): TimelinePanelDropPoint {
@@ -5862,6 +5877,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
         }
         event.preventDefault();
         event.stopPropagation();
+        if (this.readLibraryTextStyleDropPayload?.(event.dataTransfer)) {
+            if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy';
+            this.updateTextStyleDropGhost(point.x);
+            return;
+        }
         const payload = this.materialDragPayload;
         const target = payload ? this.resolveMaterialDropTarget(payload.kind, point.y) : undefined;
         const locked = this.isTrackLocked(target?.targetTrackId);
@@ -5905,6 +5925,18 @@ export class AkariAnnotationsWidget extends BaseWidget {
         }
         event.preventDefault();
         event.stopPropagation();
+        const textStyle = this.readLibraryTextStyleDropPayload?.(event.dataTransfer);
+        if (textStyle) {
+            this.hideMaterialGhost();
+            this.clearLibraryTransitionDragState();
+            if (!this.location?.editUri) return;
+            const rect = this.strip.getBoundingClientRect();
+            const start = point.zone === 'header-column'
+                ? Math.max(0, this.playheadT)
+                : textStyleDropStart(point.x, rect.left, rect.width, this.viewStart, this.visibleDuration());
+            void this.commands.executeCommand(PLACE_TEXT_COMMAND_ID, textStylePlaceOptions(textStyle, start), this.location.editUri.toString());
+            return;
+        }
         const libraryAsset = this.readLibraryAssetDropPayload(event.dataTransfer);
         const payload = libraryAsset ? libraryAssetGhostPayload(libraryAsset)
             : this.readMaterialDropPayload(event.dataTransfer) ?? this.materialDragPayload;
@@ -6003,6 +6035,35 @@ export class AkariAnnotationsWidget extends BaseWidget {
         return payload?.kind === 'asset' ? payload : undefined;
     }
 
+    protected readLibraryTextStyleDropPayload(transfer: DataTransfer | null): LibraryTextStyleDragPayload | undefined {
+        if (!transfer?.types.includes(LIBRARY_DRAG_MIME)) return undefined;
+        const raw = transfer.getData(LIBRARY_DRAG_MIME);
+        const payload = raw ? parseLibraryDragPayload(raw) : this.libraryTextStyleDragPayload;
+        return payload?.kind === 'textstyle' ? payload : undefined;
+    }
+
+    protected updateTextStyleDropGhost(clientX: number): void {
+        const band = this.textStyleDropBandLayout();
+        const rect = this.strip.getBoundingClientRect();
+        const start = textStyleDropStart(clientX, rect.left, rect.width, this.viewStart, this.visibleDuration());
+        const end = textStyleGhostEnd(start, this.libraryTextStyleOutputDuration);
+        if (end <= start) { this.hideMaterialGhost(); return; }
+        this.setGhostRange(this.materialGhost, start, end);
+        this.materialGhost.textContent = '';
+        this.materialGhost.style.top = `${this.rulerRowHeightPx() + band.top - this.stripScroll.scrollTop}px`;
+        this.materialGhost.style.height = `${band.height}px`;
+        this.materialGhost.style.display = 'block';
+    }
+
+    protected textStyleDropBandLayout(): { top: number; height: number } {
+        return textStyleDropBandLayout(
+            this.laneLayout.tracks.find(layout => layout.id === PLACED_TEXT_TRACK_ID),
+            this.laneLayout.tracks.find(layout => layout.kind === 'captions'),
+            this.laneLayout.captions.top,
+            SUBROW_STRIDE
+        );
+    }
+
     protected async placeLibraryAssetAtTarget(
         asset: LibraryAssetDragPayload,
         target: ReturnType<AkariAnnotationsWidget['resolveMaterialDropTarget']>,
@@ -6035,7 +6096,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
 
     protected isLibraryTransitionDragTransfer(transfer: DataTransfer | null): boolean {
         return !!transfer && transfer.types.includes(LIBRARY_DRAG_MIME)
-            && !this.readLibraryAssetDropPayload(transfer);
+            && !this.readLibraryAssetDropPayload(transfer) && !this.readLibraryTextStyleDropPayload?.(transfer);
     }
 
     protected handleLibraryTransitionDragEnter(event: DragEvent): void {
@@ -6141,6 +6202,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected clearLibraryTransitionDragState(): void {
+        const hadTextStyle = this.libraryTextStyleDragPayload !== undefined;
+        if (this.libraryTextStyleDragPayload) {
+            this.libraryTextStyleDragPayload = undefined;
+            this.libraryTextStyleOutputDuration = 0;
+            this.hideMaterialGhost();
+        }
         if (this.libraryAssetDragPayload) {
             this.libraryAssetDragPayload = undefined;
             this.materialDragPayload = undefined;
@@ -6150,7 +6217,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         const hadPayload = this.libraryDragPayload !== undefined;
         this.libraryDragPayload = undefined;
         this.setHoveredTransitionDropTarget(undefined);
-        if (hadPayload) this.renderStrip();
+        if (hadPayload || hadTextStyle) this.renderStrip();
     }
 
     protected async applyLibraryTransitionDrop(
@@ -9018,6 +9085,19 @@ export class AkariAnnotationsWidget extends BaseWidget {
             } else if (layout.kind === 'cuts') {
                 band.style.opacity = layout.hidden ? '.28' : '1';
             }
+        }
+        if (this.libraryTextStyleDragPayload) {
+            const bandLayout = this.textStyleDropBandLayout();
+            const { element: dropBand } = this.keyedNode(
+                'strip', 'band:textstyle-drop-target', 'textstyle', () => document.createElement('div')
+            );
+            dropBand.dataset.akariTextstyleDropTarget = 'true';
+            Object.assign(dropBand.style, {
+                position: 'absolute', left: '0', right: '0', top: `${bandLayout.top}px`,
+                height: `${bandLayout.height}px`, border: '1px dashed #4dd0c8',
+                background: 'rgba(77, 208, 200, .22)', borderRadius: '3px',
+                boxSizing: 'border-box', pointerEvents: 'none', zIndex: '4'
+            });
         }
         if (beatsBandHeight > 0) this.renderBeatMarkers(beatsBandTop, beatsBandHeight);
 

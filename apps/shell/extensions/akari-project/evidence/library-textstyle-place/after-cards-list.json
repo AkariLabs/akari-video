@@ -1,0 +1,131 @@
+{
+ "at": "2026-09-23T03:41:21.591Z",
+ "count": 12,
+ "cards": [
+  {
+   "id": "textstyle/subtitle-news",
+   "draggable": "true",
+   "add": 1,
+   "addLabel": "ニュース風 をプレイヘッド位置に置く",
+   "imgs": [],
+   "thumbDraggableFalse": 1,
+   "listRow": true
+  },
+  {
+   "id": "textstyle/subtitle-standard",
+   "draggable": "true",
+   "add": 1,
+   "addLabel": "標準字幕 をプレイヘッド位置に置く",
+   "imgs": [],
+   "thumbDraggableFalse": 1,
+   "listRow": true
+  },
+  {
+   "id": "textstyle/subtitle-variety",
+   "draggable": "true",
+   "add": 1,
+   "addLabel": "バラエティ をプレイヘッド位置に置く",
+   "imgs": [],
+   "thumbDraggableFalse": 1,
+   "listRow": true
+  },
+  {
+   "id": "textstyle/subtitle-commentary",
+   "draggable": "true",
+   "add": 1,
+   "addLabel": "実況テロップ をプレイヘッド位置に置く",
+   "imgs": [],
+   "thumbDraggableFalse": 1,
+   "listRow": true
+  },
+  {
+   "id": "textstyle/subtitle-interview",
+   "draggable": "true",
+   "add": 1,
+   "addLabel": "インタビュー字幕 をプレイヘッド位置に置く",
+   "imgs": [],
+   "thumbDraggableFalse": 1,
+   "listRow": true
+  },
+  {
+   "id": "textstyle/narration-caption",
+   "draggable": "true",
+   "add": 1,
+   "addLabel": "ナレーション字幕 をプレイヘッド位置に置く",
+   "imgs": [],
+   "thumbDraggableFalse": 1,
+   "listRow": true
+  },
+  {
+   "id": "textstyle/emphasis-red",
+   "draggable": "true",
+   "add": 1,
+   "addLabel": "強調 をプレイヘッド位置に置く",
+   "imgs": [],
+   "thumbDraggableFalse": 1,
+   "listRow": true
+  },
+  {
+   "id": "textstyle/verdict-badge",
+   "draggable": "true",
+   "add": 1,
+   "addLabel": "判定バッジ をプレイヘッド位置に置く",
+   "imgs": [],
+   "thumbDraggableFalse": 1,
+   "listRow": true
+  },
+  {
+   "id": "textstyle/discount-text",
+   "draggable": "true",
+   "add": 1,
+   "addLabel": "割引バッジテキスト をプレイヘッド位置に置く",
+   "imgs": [],
+   "thumbDraggableFalse": 1,
+   "listRow": true
+  },
+  {
+   "id": "textstyle/neon",
+   "draggable": "true",
+   "add": 1,
+   "addLabel": "ネオン をプレイヘッド位置に置く",
+   "imgs": [],
+   "thumbDraggableFalse": 1,
+   "listRow": true
+  },
+  {
+   "id": "textstyle/glitch",
+   "draggable": "true",
+   "add": 1,
+   "addLabel": "グリッチ風 をプレイヘッド位置に置く",
+   "imgs": [],
+   "thumbDraggableFalse": 1,
+   "listRow": true
+  },
+  {
+   "id": "textstyle/title-impact",
+   "draggable": "true",
+   "add": 1,
+   "addLabel": "インパクト をプレイヘッド位置に置く",
+   "imgs": [],
+   "thumbDraggableFalse": 1,
+   "listRow": true
+  }
+ ],
+ "header": [
+  "タイムラインへドラッグ、＋でプレイヘッド位置に置く",
+  "＋",
+  "＋",
+  "＋",
+  "＋",
+  "＋",
+  "＋",
+  "＋",
+  "＋",
+  "＋",
+  "＋",
+  "＋",
+  "＋",
+  "＋"
+ ],
+ "homeHint": "← ライブラリテキストスタイル12タイムラインへドラッグ、＋でプレイヘッド位置に置く速報ニュースニュース風subtitle · subtitle速報ニュース＋読みやすい標準字幕標準字幕subtitle · subtitle読みやすい標準字幕＋ここがすごい！バラエティsubtitle · subtitleここがすごい！＋ここで一気に加速！実況テロップsubtitle · subtitleここで一気に加速！＋「そう思いました」インタビュー字幕subtitle · subtitle「そう思いました」＋この街には、まだ誰も知らない物語がある。ナレーション字幕subtitle · subtitleこの街には、まだ誰も知らない物語がある。＋ここ重要！強調emphasis · emphasisここ重要！＋買い！判定バッジemphasis · emphasis買い！＋30% OFF割引バッジテキストprice · price30% OFF＋NEONネオンdecorative · decorativeNEON＋GLITCHグリッチ風decorative · decorativeGLITCH＋衝撃の事実インパクトtitle · title衝撃の事実＋開発者向け: ローカルカタログ…"
+}

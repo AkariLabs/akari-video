@@ -23,6 +23,16 @@ export interface PresetShowcaseChip {
     count: number;
 }
 
+/** テキストスタイルだけを「置いた文字」のコマンド引数へ変換する。 */
+export function textStylePlaceOptions(item: Pick<PresetShowcaseItem, 'kind' | 'id'>): { stylePreset: string } | undefined {
+    return item.kind === 'textstyle' && item.id.trim() ? { stylePreset: item.id } : undefined;
+}
+
+export function presetShowcaseBottomPadding(kind: PresetShowcaseKind): number | undefined {
+    // FAB は高さ 42px・下端から 58px（top=bottom-100px）なので、上に 10px 空けて 110px。
+    return kind === 'textstyle' ? 100 + 10 : undefined;
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
     return typeof value === 'object' && value !== null && !Array.isArray(value);
 }

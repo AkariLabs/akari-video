@@ -1,0 +1,49 @@
+{
+ "presetId": "title-impact",
+ "at": "2026-09-23T03:41:43.192Z",
+ "seekClick": {
+  "x": 756,
+  "y": 429,
+  "targetTime": 7
+ },
+ "playheadDisplay": null,
+ "footerBefore": "00:00:07.001 にプレビューをシークしました。",
+ "button": {
+  "x": 241.1875,
+  "y": 444.1640625,
+  "label": "インパクト をプレイヘッド位置に置く",
+  "text": "＋"
+ },
+ "captionsChanged": true,
+ "newCaptions": [
+  {
+   "id": "c-0005",
+   "start": 7,
+   "end": 10,
+   "text": "テキストを入力",
+   "speaker": null,
+   "sourceRef": null,
+   "edited": true,
+   "time_domain": "output",
+   "style_preset": "title-impact",
+   "text_style": {
+    "text_anchor": "tc",
+    "position": {
+     "y": 0.4625
+    }
+   }
+  }
+ ],
+ "chips": [
+  {
+   "id": "c-0005",
+   "lane": "t-placed-text-display",
+   "left": 755.9,
+   "top": 465.8,
+   "width": 141.4,
+   "text": "テキストを入力",
+   "selected": true
+  }
+ ],
+ "notices": []
+}

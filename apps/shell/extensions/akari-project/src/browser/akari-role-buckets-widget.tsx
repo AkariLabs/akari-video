@@ -88,7 +88,7 @@ import { canPlaceLibraryAsset, localLibraryAssetPlacementSource, resolveLibraryA
 import { classifyMaterialKind, MaterialKind, resolveAssetGroupMedia } from '../common/asset-group-media';
 import { materialCardLayout } from '../common/material-card-layout';
 import { CatalogPack } from '../common/catalog-packs';
-import { filterPresetShowcaseItems } from '../common/preset-showcase';
+import { filterPresetShowcaseItems, presetShowcaseBottomPadding, textStylePlaceOptions } from '../common/preset-showcase';
 import {
     LIBRARY_GROUPS,
     LibraryCategoryDefinition,
@@ -4057,6 +4057,8 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         const style: React.CSSProperties = this.catalogViewMode === 'grid'
             ? { display: 'grid', gridTemplateColumns: CATALOG_GRID_COLUMNS, gap: CATALOG_GRID_GAP, padding: '10px' }
             : { display: 'flex', flexDirection: 'column', gap: '6px', padding: '10px' };
+        const bottomPadding = presetShowcaseBottomPadding(kind);
+        if (bottomPadding !== undefined) style.paddingBottom = `${bottomPadding}px`;
         return (
             <div
                 style={style}
@@ -4092,6 +4094,36 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         return 'codicon codicon-symbol-text';
     }
 
+    protected handleTextStyleDragStart(event: React.DragEvent<HTMLElement>, item: PresetShowcaseItem): void {
+        if (!textStylePlaceOptions(item)) { event.preventDefault(); return; }
+        const payload = { kind: 'textstyle', id: item.id };
+        event.dataTransfer.setData(LIBRARY_DRAG_MIME, JSON.stringify(payload));
+        event.dataTransfer.effectAllowed = 'copy';
+        window.dispatchEvent(new CustomEvent(LIBRARY_DRAG_START_EVENT, { detail: payload }));
+    }
+
+    protected async addTextStyleAtPlayhead(item: PresetShowcaseItem): Promise<void> {
+        const options = textStylePlaceOptions(item);
+        if (!options) return;
+        try {
+            await this.commandService.executeCommand('akari.caption.placeText', options);
+        } catch (error) {
+            this.messages.error(`文字を置けません: ${error instanceof Error ? error.message : String(error)}`);
+        }
+    }
+
+    protected renderTextStyleAddButton(item: PresetShowcaseItem): React.ReactNode {
+        return item.kind === 'textstyle' ? (
+            <button type='button' className='theia-button secondary'
+                data-akari-catalog-action='add' aria-label={`${item.name} をプレイヘッド位置に置く`}
+                title='プレイヘッド位置に置く'
+                style={{ fontSize: '0.78em', padding: '2px 4px', flex: '0 0 auto' }}
+                onClick={event => { event.stopPropagation(); void this.addTextStyleAtPlayhead(item); }}>
+                ＋
+            </button>
+        ) : undefined;
+    }
+
     protected renderPresetShowcaseListRow(item: PresetShowcaseItem): React.ReactNode {
         const detail = item.kind === 'textstyle'
             ? [item.category, ...item.tags.slice(0, 2)].filter(Boolean).join(' · ')
@@ -4101,6 +4133,10 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                 key={`${item.kind}/${item.id}`}
                 title={this.presetShowcaseTitle(item)}
                 data-akari-catalog-preset-item={`${item.kind}/${item.id}`}
+                data-akari-catalog-item={item.kind === 'textstyle' ? `textstyle/${item.id}` : undefined}
+                draggable={item.kind === 'textstyle' ? true : undefined}
+                onDragStart={item.kind === 'textstyle' ? event => this.handleTextStyleDragStart(event, item) : undefined}
+                onDragEnd={item.kind === 'textstyle' ? () => this.handleLibraryTransitionDragEnd() : undefined}
                 data-akari-catalog-preset-list-row
                 style={{
                     display: 'flex',
@@ -4115,14 +4151,15 @@ export class AkariRoleBucketsWidget extends ReactWidget {
             >
                 <div style={{ width: '54px', height: '32px', flex: '0 0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', borderRadius: `${AKARI_RADIUS.chip}px`, background: AKARI_SURFACE.card }}>
                     {item.sampleText
-                        ? <span style={{ maxWidth: '48px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '0.69em', fontWeight: 700 }}>{item.sampleText}</span>
-                        : <span className={this.presetShowcaseIcon(item)} aria-hidden='true' style={{ opacity: 0.55 }} />}
+                        ? <span draggable={item.kind === 'textstyle' ? false : undefined} style={{ maxWidth: '48px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '0.69em', fontWeight: 700 }}>{item.sampleText}</span>
+                        : <span draggable={item.kind === 'textstyle' ? false : undefined} className={this.presetShowcaseIcon(item)} aria-hidden='true' style={{ opacity: 0.55 }} />}
                 </div>
                 <div style={{ flex: '1 1 auto', minWidth: 0, display: 'flex', flexDirection: 'column', gap: '1px' }}>
                     <span style={{ fontSize: '0.82em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.name}</span>
                     <span style={{ fontSize: '0.69em', opacity: 0.7, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{detail}</span>
                     {item.sampleText && <span data-akari-preset-sample-text style={{ fontSize: '0.68em', opacity: 0.82, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.sampleText}</span>}
                 </div>
+                {this.renderTextStyleAddButton(item)}
             </div>
         );
     }
@@ -4134,12 +4171,16 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                 key={`${item.kind}/${item.id}`}
                 title={this.presetShowcaseTitle(item)}
                 data-akari-catalog-preset-item={`${item.kind}/${item.id}`}
+                data-akari-catalog-item={item.kind === 'textstyle' ? `textstyle/${item.id}` : undefined}
+                draggable={item.kind === 'textstyle' ? true : undefined}
+                onDragStart={item.kind === 'textstyle' ? event => this.handleTextStyleDragStart(event, item) : undefined}
+                onDragEnd={item.kind === 'textstyle' ? () => this.handleLibraryTransitionDragEnd() : undefined}
                 style={{ display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden', borderRadius: `${AKARI_RADIUS.panel}px`, background: AKARI_SURFACE.raised, border: AKARI_BORDER.ghost }}
             >
                 <div style={{ aspectRatio: '16 / 9', display: 'flex', alignItems: 'center', justifyContent: 'center', background: AKARI_SURFACE.card }}>
                     {item.sampleText
-                        ? <span style={{ maxWidth: '90%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', padding: '0 4px', fontSize: '0.8em', fontWeight: 700 }}>{item.sampleText}</span>
-                        : <span className={this.presetShowcaseIcon(item)} aria-hidden='true' style={{ fontSize: '1.45em', opacity: 0.5 }} />}
+                        ? <span draggable={item.kind === 'textstyle' ? false : undefined} style={{ maxWidth: '90%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', padding: '0 4px', fontSize: '0.8em', fontWeight: 700 }}>{item.sampleText}</span>
+                        : <span draggable={item.kind === 'textstyle' ? false : undefined} className={this.presetShowcaseIcon(item)} aria-hidden='true' style={{ fontSize: '1.45em', opacity: 0.5 }} />}
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', padding: '5px' }}>
                     <span style={{ fontSize: '0.78em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.name}</span>
@@ -4150,6 +4191,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                             <span key={tag} style={{ padding: '0 4px', borderRadius: `${AKARI_RADIUS.chip}px`, background: 'var(--theia-badge-background)', color: 'var(--theia-badge-foreground)' }}>{tag}</span>
                         ))}
                     </div>
+                    {this.renderTextStyleAddButton(item)}
                 </div>
             </div>
         );

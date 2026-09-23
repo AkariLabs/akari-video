@@ -1,0 +1,49 @@
+{
+ "presetId": "subtitle-standard",
+ "at": "2026-09-23T03:42:38.313Z",
+ "seekClick": {
+  "x": 850,
+  "y": 429,
+  "targetTime": 9
+ },
+ "playheadDisplay": null,
+ "footerBefore": "00:00:08.990 にプレビューをシークしました。",
+ "button": {
+  "x": 174.84375,
+  "y": 314.078125,
+  "label": "標準字幕 をプレイヘッド位置に置く",
+  "text": "＋"
+ },
+ "captionsChanged": true,
+ "newCaptions": [
+  {
+   "id": "c-0005",
+   "start": 9,
+   "end": 12,
+   "text": "テキストを入力",
+   "speaker": null,
+   "sourceRef": null,
+   "edited": true,
+   "time_domain": "output",
+   "style_preset": "subtitle-standard",
+   "text_style": {
+    "text_anchor": "tc",
+    "position": {
+     "y": 0.4625
+    }
+   }
+  }
+ ],
+ "chips": [
+  {
+   "id": "c-0005",
+   "lane": "t-placed-text-display",
+   "left": 850.1,
+   "top": 465.8,
+   "width": 141.4,
+   "text": "テキストを入力",
+   "selected": true
+  }
+ ],
+ "notices": []
+}
