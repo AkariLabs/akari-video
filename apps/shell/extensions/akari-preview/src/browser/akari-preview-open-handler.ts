@@ -7049,7 +7049,6 @@ ${kind === 'raw' ? '.akari-material-chip { position: absolute; top: 8px; left: 8
   background: var(--theia-editor-background); color: var(--theia-editor-foreground); font-size: 11px; }
 [data-akari-ui="preview-scope-breadcrumb"][hidden] { display: none; }
 [data-akari-ui="preview-scope-breadcrumb"] button { color: inherit; background: transparent; border: 0; cursor: pointer; }
-.akari-interaction-selection-frame[data-akari-selection-kind="group"] .akari-interaction-handle,
 .akari-interaction-selection-frame[data-akari-selection-kind="multi"] .akari-interaction-handle { display: none; }
 [data-akari-ui="preview-hover-frame"] { position: fixed; pointer-events: none; box-sizing: border-box;
   border: 1px solid var(--akari-accent); opacity: .45; z-index: 90; }

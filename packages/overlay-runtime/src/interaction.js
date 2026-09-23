@@ -136,6 +136,7 @@ function toggleScopedSelection(tree, selectedIds, scopeId, next) {
   let selectionTrackingFrame = null;
   let activeDrag = null;
   let activeResize = null;
+  let activeRotate = null;
   let activeEdit = null;
   let selftestOverlayOverride = null;
   let verticalSnapGuide = null;
@@ -835,6 +836,16 @@ function toggleScopedSelection(tree, selectedIds, scopeId, next) {
       frame.appendChild(handle);
     }
 
+    const stem = document.createElement('span');
+    stem.className = 'akari-interaction-rotate-stem';
+    stem.setAttribute('aria-hidden', 'true');
+    frame.appendChild(stem);
+    const rotate = document.createElement('span');
+    rotate.className = 'akari-interaction-handle is-rotate';
+    rotate.setAttribute('data-akari-interaction', 'selection-handle');
+    rotate.setAttribute('aria-hidden', 'true');
+    frame.appendChild(rotate);
+
     return frame;
   }
 
@@ -922,6 +933,7 @@ function toggleScopedSelection(tree, selectedIds, scopeId, next) {
   }
 
   function clearSelection() {
+    if (activeRotate) cancelRotate();
     flushNudge();
     hideHover();
     if (selectionTrackingFrame !== null) {
@@ -951,6 +963,7 @@ function toggleScopedSelection(tree, selectedIds, scopeId, next) {
 
     if (activeDrag?.container === container) cancelDrag();
     if (activeResize?.container === container) cancelResize();
+    if (activeRotate?.container === container) cancelRotate();
     if (activeEdit?.container === container) void commitEdit();
     clearSelection();
   }
@@ -1001,16 +1014,24 @@ function toggleScopedSelection(tree, selectedIds, scopeId, next) {
   }
   function refreshGroupFrame() {
     markSelectionMembers();
-    const rect = unionBounds(selectionMembers());
+    const rect = activeRotate?.group && activeRotate.overlayId === selectedId
+      ? activeRotate.startRect : unionBounds(selectionMembers());
     if (!rect) { if (selectionFrame) selectionFrame.hidden = true; return; }
     if (!selectionFrame?.isConnected) {
       selectionFrame = createSelectionFrame();
       document.body.appendChild(selectionFrame);
     }
+    if (selectionKind() === 'multi') {
+      for (const element of selectionFrame.querySelectorAll('.akari-interaction-handle, .akari-interaction-rotate-stem')) element.remove();
+    } else if (!selectionFrame.querySelector('.akari-interaction-handle')) {
+      const replacement = createSelectionFrame();
+      selectionFrame.replaceWith(replacement);
+      selectionFrame = replacement;
+    }
     selectionFrame.dataset.akariSelectionKind = selectionKind();
-    // The classic runtime also runs without shell CSS. Never leave interactive
-    // handles in a group frame on those hosts.
-    for (const handle of selectionFrame.querySelectorAll('[data-akari-interaction="selection-handle"]')) handle.remove();
+    selectionFrame.classList.toggle('is-locked', selectionMembers().some(member => !isMovable(member)));
+    selectionFrame.style.transform = activeRotate?.group && activeRotate.overlayId === selectedId
+      ? `rotate(${activeRotate.angle}deg)` : '';
     selectionFrame.hidden = false;
     Object.assign(selectionFrame.style, { left: `${rect.left}px`, top: `${rect.top}px`,
       width: `${rect.width}px`, height: `${rect.height}px` });
@@ -1121,6 +1142,7 @@ function toggleScopedSelection(tree, selectedIds, scopeId, next) {
     if (id !== null && typeof id !== 'string') return;
     if (activeDrag) cancelDrag();
     if (activeResize) cancelResize();
+    if (activeRotate) cancelRotate();
     if (activeEdit) void commitEdit();
     floorScopeId = id;
     scopeId = id;
@@ -1145,6 +1167,74 @@ function toggleScopedSelection(tree, selectedIds, scopeId, next) {
       element.style.setProperty('--y', `${transform.y + dy}px`);
     }
     refreshGroupFrame();
+  }
+
+  // Keep this classic-script copy identical to world-delta.mjs.
+  // BEGIN world-delta
+  function worldDelta(oldPose, newPose) {
+    const scale = (newPose.scale ?? 1) / (oldPose.scale ?? 1);
+    const rotate = (newPose.rotate ?? 0) - (oldPose.rotate ?? 0);
+    const radians = rotate * Math.PI / 180;
+    const cosine = Math.cos(radians), sine = Math.sin(radians);
+    const oldX = oldPose.x ?? 0, oldY = oldPose.y ?? 0;
+    return { scale, rotate,
+      x: (newPose.x ?? 0) - scale * (cosine * oldX - sine * oldY),
+      y: (newPose.y ?? 0) - scale * (sine * oldX + cosine * oldY) };
+  }
+
+  function applyWorldDelta(delta, childWorld) {
+    const radians = delta.rotate * Math.PI / 180;
+    const cosine = Math.cos(radians), sine = Math.sin(radians);
+    const x = childWorld.x ?? 0, y = childWorld.y ?? 0;
+    return { ...childWorld,
+      x: delta.x + delta.scale * (cosine * x - sine * y),
+      y: delta.y + delta.scale * (sine * x + cosine * y),
+      scale: (childWorld.scale ?? 1) * delta.scale,
+      ...(childWorld.scaleX === undefined ? {} : { scaleX: childWorld.scaleX * delta.scale }),
+      ...(childWorld.scaleY === undefined ? {} : { scaleY: childWorld.scaleY * delta.scale }),
+      rotate: (childWorld.rotate ?? 0) + delta.rotate };
+  }
+  // END world-delta
+
+  function setWorldTransform(element, transform) {
+    element.style.setProperty('--x', `${transform.x}px`);
+    element.style.setProperty('--y', `${transform.y}px`);
+    element.style.setProperty('--scale', String(transform.scale));
+    element.style.setProperty('--rotate', `${transform.rotate}deg`);
+    if (transform.scaleX !== undefined) element.style.setProperty('--scale-x', String(transform.scaleX));
+    if (transform.scaleY !== undefined) element.style.setProperty('--scale-y', String(transform.scaleY));
+  }
+
+  function groupPoseAt(gesture, nextPose) {
+    gesture.pose = nextPose;
+    const delta = worldDelta(gesture.oldPose, nextPose);
+    for (const member of gesture.members) {
+      setWorldTransform(member.element, applyWorldDelta(delta, member.transform));
+    }
+    if (!activeRotate?.group) refreshGroupFrame();
+  }
+
+  function restoreGroupPose(gesture) {
+    for (const member of gesture.members) setWorldTransform(member.element, member.transform);
+    selectionFrame.style.transform = '';
+    refreshGroupFrame();
+  }
+
+  function finishGroupTransform(gesture) {
+    const node = treeNode(gesture.overlayId);
+    const previous = node?.transform;
+    const transform = { x: gesture.pose.x, y: gesture.pose.y,
+      scale: gesture.pose.scale, rotate: gesture.pose.rotate };
+    const applied = { ...previous, ...transform };
+    if (node) node.transform = applied;
+    const record = enqueueWrite(gesture.writeContext, gesture.overlayId, { transform }, 'transform');
+    record.promise.catch(error => {
+      if (node?.transform === applied) node.transform = previous;
+      restoreGroupPose(gesture);
+      reportWriteError('transform', gesture.overlayId, error);
+    });
+    lastTransformWrite = record;
+    return record;
   }
   function moveGroupDrag(drag, dx, dy, disabled) {
     moveGroupMembers(drag, dx, dy);
@@ -1652,6 +1742,31 @@ function toggleScopedSelection(tree, selectedIds, scopeId, next) {
     return Math.min(SCALE_MAX, Math.max(SCALE_MIN, value));
   }
 
+  function rotatedLeafCorners(container, corner, transform) {
+    if (!transform.rotate) return null;
+    const previous = container.style.getPropertyValue('--rotate');
+    container.style.setProperty('--rotate', '0deg');
+    const rect = fragmentBounds(container);
+    if (previous) container.style.setProperty('--rotate', previous);
+    else container.style.removeProperty('--rotate');
+    if (!rect) return null;
+    const stageRect = stage.getBoundingClientRect();
+    const displayX = stageRect.width / stage.clientWidth;
+    const displayY = stageRect.height / stage.clientHeight;
+    const pivot = { x: stageRect.left + stageRect.width / 2 + transform.x * displayX,
+      y: stageRect.top + stageRect.height / 2 + transform.y * displayY };
+    const sx = transform.scaleX ?? transform.scale, sy = transform.scaleY ?? transform.scale;
+    const radians = transform.rotate * Math.PI / 180;
+    const cosine = Math.cos(radians), sine = Math.sin(radians);
+    const rotatePoint = point => {
+      const dx = (point.x - pivot.x) / sx, dy = (point.y - pivot.y) / sy;
+      return { x: pivot.x + sx * (cosine * dx - sine * dy),
+        y: pivot.y + sy * (sine * dx + cosine * dy) };
+    };
+    return { anchor: rotatePoint(cornerAnchorPoint(rect, corner)),
+      dragged: rotatePoint(namedCornerPoint(rect, corner)) };
+  }
+
   function releaseResizePointer(resize) {
     try {
       if (resize.handleEl?.hasPointerCapture?.(resize.pointerId)) {
@@ -1669,15 +1784,19 @@ function toggleScopedSelection(tree, selectedIds, scopeId, next) {
     // 断片ルートの矩形）を基準にする。取得できない異常系のみコンテナ矩形へ退避。
     const visualRect = fragmentBounds(container) ?? container.getBoundingClientRect();
     const corner = handleCorner(handleEl);
-    const anchorClient = cornerAnchorPoint(visualRect, corner);
-    const draggedClient = namedCornerPoint(visualRect, corner);
+    const transform = readTransform(container);
+    const rotated = rotatedLeafCorners(container, corner, transform);
+    const anchorClient = rotated?.anchor ?? cornerAnchorPoint(visualRect, corner);
+    const draggedClient = rotated?.dragged ?? namedCornerPoint(visualRect, corner);
     const anchor = stageLocalPoint(anchorClient.x, anchorClient.y);
     const dragged = stageLocalPoint(draggedClient.x, draggedClient.y);
     const pointer = stageLocalPoint(event.clientX, event.clientY);
     if (!anchor || !dragged || !pointer) return;
 
-    const startDistance = Math.hypot(pointer.x - anchor.x, pointer.y - anchor.y);
-    const transform = readTransform(container);
+    const pointerOffsetX = rotated ? dragged.x - pointer.x : 0;
+    const pointerOffsetY = rotated ? dragged.y - pointer.y : 0;
+    const startDistance = Math.hypot(pointer.x + pointerOffsetX - anchor.x,
+      pointer.y + pointerOffsetY - anchor.y);
 
     activeResize = {
       container,
@@ -1690,6 +1809,8 @@ function toggleScopedSelection(tree, selectedIds, scopeId, next) {
       draggedStageX: dragged.x,
       draggedStageY: dragged.y,
       startDistance: startDistance || 1, // 0除算回避（アンカーとハンドルが重なる異常系向け保険）
+      pointerOffsetX,
+      pointerOffsetY,
       startScale: transform.scale,
       startScaleX: transform.scaleX ?? transform.scale,
       startScaleY: transform.scaleY ?? transform.scale,
@@ -1709,6 +1830,111 @@ function toggleScopedSelection(tree, selectedIds, scopeId, next) {
     }
 
     if (event.cancelable) event.preventDefault();
+  }
+
+  function beginGroupResize(event, handleEl) {
+    if (activeEdit) void commitEdit();
+    const members = selectionMembers().map(element => ({ element, transform: readTransform(element) }));
+    if (!members.length || members.some(member => !isMovable(member.element))) return;
+    const rect = unionBounds(members.map(member => member.element));
+    if (!rect) return;
+    const corner = handleCorner(handleEl);
+    const anchorClient = cornerAnchorPoint(rect, corner);
+    const draggedClient = namedCornerPoint(rect, corner);
+    const anchor = stageLocalPoint(anchorClient.x, anchorClient.y);
+    const dragged = stageLocalPoint(draggedClient.x, draggedClient.y);
+    const pointer = stageLocalPoint(event.clientX, event.clientY);
+    if (!anchor || !dragged || !pointer) return;
+    const world = treeNode(selectedId)?.transform ?? {};
+    const oldPose = { x: world.x ?? 0, y: world.y ?? 0, scale: world.scale ?? 1,
+      rotate: world.rotate ?? 0 };
+    activeResize = { group: true, overlayId: selectedId, members, oldPose, pose: oldPose,
+      handleEl, pointerId: event.pointerId, anchorStageX: anchor.x, anchorStageY: anchor.y,
+      draggedStageX: dragged.x, draggedStageY: dragged.y,
+      startDistance: Math.hypot(pointer.x - anchor.x, pointer.y - anchor.y) || 1,
+      startScale: oldPose.scale, snapX: null, snapY: null, moved: false,
+      writeContext: captureWriteContext() };
+    try { handleEl.setPointerCapture?.(event.pointerId); } catch { /* synthetic pointer */ }
+    if (event.cancelable) event.preventDefault();
+  }
+
+  function beginRotate(event, handleEl) {
+    if (activeEdit) void commitEdit();
+    const group = groupSelection;
+    const members = group ? selectionMembers().map(element => ({ element, transform: readTransform(element) })) : [];
+    if (group && (!members.length || members.some(member => !isMovable(member.element)))) return;
+    const rect = group ? unionBounds(members.map(member => member.element)) : fragmentBounds(selectedOverlay);
+    if (!rect) return;
+    const center = stageLocalPoint(rect.left + rect.width / 2, rect.top + rect.height / 2);
+    const pointer = stageLocalPoint(event.clientX, event.clientY);
+    if (!center || !pointer) return;
+    const current = group ? treeNode(selectedId)?.transform ?? {} : readTransform(selectedOverlay);
+    const oldPose = { x: current.x ?? 0, y: current.y ?? 0, scale: current.scale ?? 1,
+      rotate: current.rotate ?? 0 };
+    activeRotate = { group, overlayId: selectedId, container: selectedOverlay, members,
+      handleEl, pointerId: event.pointerId, oldPose, pose: oldPose, startRect: rect,
+      center, startAngle: Math.atan2(pointer.y - center.y, pointer.x - center.x),
+      angle: 0, moved: false, writeContext: captureWriteContext() };
+    try { handleEl.setPointerCapture?.(event.pointerId); } catch { /* synthetic pointer */ }
+    if (event.cancelable) event.preventDefault();
+  }
+
+  function updateRotate(event) {
+    const rotation = activeRotate;
+    if (!rotation || event.pointerId !== rotation.pointerId) return;
+    const pointer = stageLocalPoint(event.clientX, event.clientY);
+    if (!pointer) return;
+    let angle = (Math.atan2(pointer.y - rotation.center.y, pointer.x - rotation.center.x)
+      - rotation.startAngle) * 180 / Math.PI;
+    if (event.shiftKey) angle = Math.round(angle / 15) * 15;
+    rotation.angle = angle;
+    if (rotation.group) {
+      const theta = angle * Math.PI / 180, cosine = Math.cos(theta), sine = Math.sin(theta);
+      const cx = rotation.center.x - stage.clientWidth / 2;
+      const cy = rotation.center.y - stage.clientHeight / 2;
+      const dx = cx - rotation.oldPose.x, dy = cy - rotation.oldPose.y;
+      groupPoseAt(rotation, { ...rotation.oldPose, rotate: rotation.oldPose.rotate + angle,
+        x: cx - (cosine * dx - sine * dy), y: cy - (sine * dx + cosine * dy) });
+      selectionFrame.style.transform = `rotate(${angle}deg)`;
+    } else {
+      rotation.container.style.setProperty('--rotate', `${rotation.oldPose.rotate + angle}deg`);
+    }
+    rotation.moved = Math.abs(angle) > .01;
+    if (event.cancelable) event.preventDefault();
+  }
+
+  function cancelRotate() {
+    if (!activeRotate) return;
+    const rotation = activeRotate;
+    activeRotate = null;
+    releaseResizePointer(rotation);
+    if (rotation.group) restoreGroupPose(rotation);
+    else {
+      rotation.container.style.setProperty('--rotate', `${rotation.oldPose.rotate}deg`);
+      refreshSelectionFrame();
+    }
+  }
+
+  function finishRotate() {
+    if (!activeRotate) return null;
+    const rotation = activeRotate;
+    activeRotate = null;
+    releaseResizePointer(rotation);
+    if (rotation.group) {
+      selectionFrame.style.transform = '';
+      refreshGroupFrame();
+      return rotation.moved ? finishGroupTransform(rotation) : null;
+    }
+    if (!rotation.moved) return null;
+    const record = enqueueWrite(rotation.writeContext, rotation.overlayId,
+      { transform: { rotate: rotation.oldPose.rotate + rotation.angle } }, 'transform');
+    record.promise.catch(error => {
+      rotation.container.style.setProperty('--rotate', `${rotation.oldPose.rotate}deg`);
+      refreshSelectionFrame();
+      reportWriteError('transform', rotation.overlayId, error);
+    });
+    lastTransformWrite = record;
+    return record;
   }
 
   // resize 中に、ドラッグしているハンドル自身のコーナーをキャンバス端/センターへ吸着
@@ -1857,14 +2083,31 @@ function toggleScopedSelection(tree, selectedIds, scopeId, next) {
     const pointer = stageLocalPoint(event.clientX, event.clientY);
     if (!pointer) return;
     const currentDistance = Math.hypot(
-      pointer.x - resize.anchorStageX,
-      pointer.y - resize.anchorStageY
+      pointer.x + (resize.pointerOffsetX ?? 0) - resize.anchorStageX,
+      pointer.y + (resize.pointerOffsetY ?? 0) - resize.anchorStageY
     );
     if (!Number.isFinite(currentDistance)) return;
 
     let nextScale = resize.startScale * (currentDistance / resize.startDistance);
     nextScale = clampScale(nextScale);
     if (Math.abs(nextScale - 1) <= SCALE_SNAP_TOLERANCE) nextScale = 1;
+
+    if (resize.group) {
+      if (event.altKey) {
+        resize.snapX = null; resize.snapY = null; hideSnapGuides();
+      } else {
+        const snapped = applyResizeSnap(resize, nextScale);
+        if (snapped !== null) nextScale = snapped;
+      }
+      const position = anchorPreservingTranslate({ startX: resize.oldPose.x,
+        startY: resize.oldPose.y, startScale: resize.startScale, scale: nextScale,
+        anchorStageX: resize.anchorStageX, anchorStageY: resize.anchorStageY });
+      if (!position) return;
+      groupPoseAt(resize, { ...resize.oldPose, ...position, scale: nextScale });
+      resize.moved = Math.abs(nextScale - resize.startScale) > 1e-6;
+      if (event.cancelable) event.preventDefault();
+      return;
+    }
 
     if (!applyResizeTransformAt(resize, nextScale)) return;
 
@@ -1888,6 +2131,12 @@ function toggleScopedSelection(tree, selectedIds, scopeId, next) {
 
     const resize = activeResize;
     activeResize = null;
+    if (resize.group) {
+      releaseResizePointer(resize);
+      hideSnapGuides();
+      restoreGroupPose(resize);
+      return;
+    }
     resize.container.style.setProperty("--x", `${resize.startX}px`);
     resize.container.style.setProperty("--y", `${resize.startY}px`);
     resize.container.style.setProperty("--scale", String(resize.startScale));
@@ -1907,6 +2156,11 @@ function toggleScopedSelection(tree, selectedIds, scopeId, next) {
     activeResize = null;
     releaseResizePointer(resize);
     hideSnapGuides();
+
+    if (resize.group) {
+      if (!resize.moved) { restoreGroupPose(resize); return null; }
+      return finishGroupTransform(resize);
+    }
 
     if (!resize.moved) return null;
 
@@ -1944,7 +2198,7 @@ function toggleScopedSelection(tree, selectedIds, scopeId, next) {
 
   function onPointerDown(event) {
     if (!interactionEnabled) return;
-    if (event.button !== 0 || activeDrag || activeResize) return;
+    if (event.button !== 0 || activeDrag || activeResize || activeRotate) return;
     flushNudge();
     hideHover();
     clickOrigin = { selectedId, scopeId, moved: false, hadMultiple: selectedIds.length > 1 };
@@ -1953,7 +2207,14 @@ function toggleScopedSelection(tree, selectedIds, scopeId, next) {
       if (event.target instanceof Element && event.target.closest('[data-akari-ui="preview-scope-breadcrumb"]')) return;
       const handle = findHandleElement(event.target);
       if (handle) {
-        if (!collectiveSelection() && isMovable(selectedOverlay)) beginResize(event, selectedOverlay, handle);
+        if (selectedIds.length > 1) return;
+        if (groupSelection) {
+          if (handle.classList.contains('is-rotate')) beginRotate(event, handle);
+          else beginGroupResize(event, handle);
+        } else if (isMovable(selectedOverlay)) {
+          if (handle.classList.contains('is-rotate')) beginRotate(event, handle);
+          else beginResize(event, selectedOverlay, handle);
+        }
         return;
       }
       const hit = overlayForEvent(event);
@@ -1985,7 +2246,8 @@ function toggleScopedSelection(tree, selectedIds, scopeId, next) {
     const handleEl = findHandleElement(event.target);
     if (handleEl) {
       if (!isMovable(selectedOverlay)) return;
-      beginResize(event, selectedOverlay, handleEl);
+      if (handleEl.classList.contains('is-rotate')) beginRotate(event, handleEl);
+      else beginResize(event, selectedOverlay, handleEl);
       return;
     }
 
@@ -2044,6 +2306,10 @@ function toggleScopedSelection(tree, selectedIds, scopeId, next) {
 
   function onPointerMove(event) {
     scheduleHover(event);
+    if (activeRotate && event.pointerId === activeRotate.pointerId) {
+      updateRotate(event);
+      return;
+    }
     if (activeResize && event.pointerId === activeResize.pointerId) {
       updateResize(event);
       return;
@@ -2093,6 +2359,10 @@ function toggleScopedSelection(tree, selectedIds, scopeId, next) {
   }
 
   function onPointerUp(event) {
+    if (activeRotate && event.pointerId === activeRotate.pointerId) {
+      finishRotate();
+      return;
+    }
     if (activeResize && event.pointerId === activeResize.pointerId) {
       finishResize();
       return;
@@ -2102,6 +2372,10 @@ function toggleScopedSelection(tree, selectedIds, scopeId, next) {
   }
 
   function onPointerCancel(event) {
+    if (activeRotate && event.pointerId === activeRotate.pointerId) {
+      cancelRotate();
+      return;
+    }
     if (activeResize && event.pointerId === activeResize.pointerId) {
       cancelResize();
       return;
@@ -2536,6 +2810,7 @@ function toggleScopedSelection(tree, selectedIds, scopeId, next) {
       if (event.key === 'Escape') {
         if (activeDrag) { cancelDrag(); handled(); return; }
         if (activeResize) { cancelResize(); handled(); return; }
+        if (activeRotate) { cancelRotate(); handled(); return; }
         if (activeEdit) { cancelEdit(); handled(); return; }
         if (selectedIds.length > 1) {
           applyScopedSelection({ selectId: selectedId, scopeId }); handled(); return;
