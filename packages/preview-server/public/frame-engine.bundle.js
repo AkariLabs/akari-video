@@ -1290,6 +1290,7 @@ var require_caption_words_rederive = __commonJS({
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.KARAOKE_MIN_WORD_MATCH_RATIO = void 0;
     exports.rederiveCaptionWords = rederiveCaptionWords;
+    exports.rebaseCaptionEmphasis = rebaseCaptionEmphasis;
     exports.applyCaptionTextEdit = applyCaptionTextEdit;
     exports.KARAOKE_MIN_WORD_MATCH_RATIO = 0.5;
     function segmenterConstructor() {
@@ -1368,9 +1369,8 @@ var require_caption_words_rederive = __commonJS({
           end: Math.max(start, Math.min(end, word.end))
         }));
       }
-      if (end <= start) {
+      if (end <= start)
         return Array.from({ length: tokenCount }, () => ({ start, end: start }));
-      }
       const ratio = words.length / tokenCount;
       return Array.from({ length: tokenCount }, (_3, index) => {
         const word = words[Math.min(Math.floor(index * ratio), words.length - 1)];
@@ -1401,15 +1401,14 @@ var require_caption_words_rederive = __commonJS({
         return { start: wordStart, end: wordEnd, text: word.text };
       });
     }
-    function rederiveCaptionWords(input) {
+    function rederiveUnalignedWords(input) {
       const oldTokens = segmentIntoWords(input.oldText);
       const newTokens = segmentIntoWords(input.newText);
       const diff = computeDiff(oldTokens.map(normalizeKey), newTokens.map(normalizeKey));
       const keepByNewIndex = /* @__PURE__ */ new Map();
       for (const operation of diff) {
-        if (operation.kind === "keep") {
+        if (operation.kind === "keep")
           keepByNewIndex.set(operation.newIdx, operation.oldIdx);
-        }
       }
       const keptCount = keepByNewIndex.size;
       const matchRatio = oldTokens.length === 0 ? 0 : keptCount / oldTokens.length;
@@ -1431,9 +1430,8 @@ var require_caption_words_rederive = __commonJS({
           continue;
         }
         const groupStart = newIndex;
-        while (newIndex + 1 < newTokens.length && !keepByNewIndex.has(newIndex + 1)) {
+        while (newIndex + 1 < newTokens.length && !keepByNewIndex.has(newIndex + 1))
           newIndex++;
-        }
         const nextOldIndex = keepByNewIndex.get(newIndex + 1);
         const intervalEnd = nextOldIndex === void 0 ? input.end : Math.max(previousEnd, roundMs(mappedOldTimes[nextOldIndex].start));
         result.push(...distributeInInterval(newTokens.slice(groupStart, newIndex + 1), previousEnd, intervalEnd));
@@ -1446,6 +1444,265 @@ var require_caption_words_rederive = __commonJS({
         matchRatio,
         degraded: false
       };
+    }
+    function rederiveCaptionWords(input) {
+      const oldText = input.oldText;
+      const newText = input.newText;
+      const words = input.words;
+      const spans = [];
+      let cursor = 0;
+      for (const word of words) {
+        const start = oldText.indexOf(word.text, cursor);
+        if (start < 0)
+          return rederiveUnalignedWords(input);
+        if (!Number.isFinite(word.start) || !Number.isFinite(word.end) || word.end <= word.start)
+          return degradedWordResult(words.length);
+        spans.push({ start, end: start + word.text.length });
+        cursor = start + word.text.length;
+      }
+      const normalizedTokens = segmentIntoWords(newText);
+      if (words.every((word) => !/\s/u.test(word.text)) && normalizedTokens.length === words.length && normalizedTokens.every((token, index) => normalizeKey(token) === normalizeKey(words[index].text))) {
+        return {
+          words: words.map((word, index) => ({ start: word.start, end: word.end, text: normalizedTokens[index] })),
+          keptCount: words.length,
+          derivedCount: 0,
+          matchRatio: 1,
+          degraded: false
+        };
+      }
+      const change = changedRange(oldText, newText);
+      if (!change)
+        return {
+          words: words.map((word) => ({ start: word.start, end: word.end, text: word.text })),
+          keptCount: words.length,
+          derivedCount: 0,
+          matchRatio: 1,
+          degraded: false
+        };
+      const affected = spans.map((span, index) => ({ span, index })).filter(({ span }) => change.oldStart === change.oldEnd ? span.start < change.oldStart && change.oldStart < span.end : span.start < change.oldEnd && span.end > change.oldStart);
+      const first = affected.length ? affected[0].index : spans.findIndex((span) => span.start >= change.oldStart);
+      const oldFrom = affected.length ? first : first < 0 ? words.length : first;
+      const oldTo = affected.length ? affected[affected.length - 1].index + 1 : oldFrom;
+      const keptCount = words.length - (oldTo - oldFrom);
+      const oldCharacterCount = toGraphemes(oldText).length;
+      const changedCharacterCount = toGraphemes(oldText.slice(change.oldStart, change.oldEnd)).length;
+      const matchRatio = oldCharacterCount ? (oldCharacterCount - changedCharacterCount) / oldCharacterCount : 0;
+      if (matchRatio < exports.KARAOKE_MIN_WORD_MATCH_RATIO) {
+        return {
+          words: [],
+          keptCount,
+          derivedCount: 0,
+          matchRatio,
+          degraded: true,
+          changedOldRange: [oldFrom, oldTo],
+          changedNewRange: [oldFrom, oldFrom]
+        };
+      }
+      const oldStart = oldFrom < oldTo ? spans[oldFrom].start : change.oldStart;
+      const oldEnd = oldFrom < oldTo ? spans[oldTo - 1].end : change.oldEnd;
+      const delta = change.newEnd - change.oldEnd;
+      const newStart = oldStart <= change.oldStart ? oldStart : oldStart >= change.oldEnd ? oldStart + delta : change.oldStart;
+      const newEnd = oldEnd >= change.oldEnd ? oldEnd + delta : oldEnd <= change.oldStart ? oldEnd : change.newEnd;
+      const replacement = newText.slice(newStart, newEnd);
+      const tokens = segmentWithWhitespace(replacement.replace(/\s+$/u, ""));
+      const before = words.slice(0, oldFrom).map((word) => ({ start: word.start, end: word.end, text: word.text }));
+      const after = words.slice(oldTo).map((word) => ({ start: word.start, end: word.end, text: word.text }));
+      const intervalStart = oldFrom < oldTo ? words[oldFrom].start : before[before.length - 1]?.end ?? input.start;
+      const intervalEnd = oldFrom < oldTo ? words[oldTo - 1].end : after[0]?.start ?? input.end;
+      let replacementWords;
+      if (tokens.length && intervalEnd - intervalStart >= tokens.length * 1e-3) {
+        replacementWords = distributeInInterval(tokens, intervalStart, intervalEnd);
+        if (replacementWords.some((word) => word.end <= word.start)) {
+          replacementWords = [{ start: intervalStart, end: intervalEnd, text: replacement }];
+        }
+      } else if (replacement && before.length) {
+        before[before.length - 1].text += replacement;
+        replacementWords = [];
+      } else if (replacement && after.length) {
+        after[0].text = replacement + after[0].text;
+        replacementWords = [];
+      } else {
+        replacementWords = [];
+      }
+      return {
+        words: [...before, ...replacementWords, ...after],
+        keptCount,
+        derivedCount: replacementWords.length,
+        matchRatio,
+        degraded: false,
+        changedOldRange: [oldFrom, oldTo],
+        changedNewRange: [oldFrom, oldFrom + replacementWords.length]
+      };
+    }
+    function degradedWordResult(count) {
+      return { words: [], keptCount: 0, derivedCount: 0, matchRatio: count ? 0 : 1, degraded: true };
+    }
+    function changedRange(oldText, newText) {
+      if (oldText === newText)
+        return void 0;
+      const oldChars = toGraphemes(oldText);
+      const newChars = toGraphemes(newText);
+      let prefix = 0;
+      while (prefix < oldChars.length && prefix < newChars.length && oldChars[prefix] === newChars[prefix])
+        prefix++;
+      let suffix = 0;
+      while (suffix < oldChars.length - prefix && suffix < newChars.length - prefix && oldChars[oldChars.length - 1 - suffix] === newChars[newChars.length - 1 - suffix])
+        suffix++;
+      return {
+        oldStart: oldChars.slice(0, prefix).join("").length,
+        oldEnd: oldChars.slice(0, oldChars.length - suffix).join("").length,
+        newEnd: newChars.slice(0, newChars.length - suffix).join("").length
+      };
+    }
+    function segmentWithWhitespace(text) {
+      const tokens = segmentIntoWords(text);
+      if (!tokens.length)
+        return text ? [text] : [];
+      const result = [];
+      let cursor = 0;
+      for (const token of tokens) {
+        const start = text.indexOf(token, cursor);
+        result.push(text.slice(cursor, start) + token);
+        cursor = start + token.length;
+      }
+      if (cursor < text.length)
+        result[result.length - 1] += text.slice(cursor);
+      return result;
+    }
+    function rebaseCaptionEmphasis(input) {
+      const { oldWords, result } = input;
+      const [oldFrom, oldTo] = result.changedOldRange ?? [0, 0];
+      const [newFrom, newTo] = result.changedNewRange ?? [0, 0];
+      const next = result.words.slice(newFrom, newTo);
+      const change = changedRange(input.oldText, input.newText);
+      const locateSpans = (text, words) => {
+        const spans = [];
+        let cursor = 0;
+        for (const word of words) {
+          const start = text.indexOf(word.text, cursor);
+          if (start < 0)
+            return void 0;
+          spans.push({ start, end: start + word.text.length });
+          cursor = start + word.text.length;
+        }
+        return spans;
+      };
+      const oldSpans = locateSpans(input.oldText, oldWords);
+      const newSpans = locateSpans(input.newText, result.words);
+      const mapBoundary = (position, endBoundary) => {
+        if (!change || position <= change.oldStart)
+          return position;
+        const delta = change.newEnd - change.oldEnd;
+        if (position >= change.oldEnd)
+          return position + delta;
+        const fraction = (position - change.oldStart) * (change.newEnd - change.oldStart) / (change.oldEnd - change.oldStart);
+        return change.oldStart + (endBoundary ? Math.ceil(fraction) : Math.floor(fraction));
+      };
+      const emphasis = [];
+      const removed = [];
+      for (const item of input.emphasis) {
+        const sourceMatches = input.src === void 0 || item.src === void 0 || item.src === input.src;
+        const overlaps = (word) => Math.min(word.end, item.t_end) - Math.max(word.start, item.t_start) > 1e-6;
+        if (result.degraded && sourceMatches && oldWords.some(overlaps)) {
+          removed.push(item);
+          continue;
+        }
+        const affected = sourceMatches && oldWords.slice(oldFrom, oldTo).some(overlaps);
+        if (!affected) {
+          emphasis.push(item);
+          continue;
+        }
+        if (oldSpans && newSpans && change) {
+          const selectedOld = oldWords.map((_word, index) => index).filter((index) => overlaps(oldWords[index]));
+          const mappedStart = mapBoundary(oldSpans[selectedOld[0]].start, false);
+          const mappedEnd = mapBoundary(oldSpans[selectedOld[selectedOld.length - 1]].end, true);
+          const selectedNew = result.words.filter((_word, index) => newSpans[index].start < mappedEnd && newSpans[index].end > mappedStart);
+          if (selectedNew.length === 0) {
+            removed.push(item);
+            continue;
+          }
+          emphasis.push({
+            ...item,
+            t_start: Math.min(...selectedNew.map((word) => word.start)),
+            t_end: Math.max(...selectedNew.map((word) => word.end)),
+            ...typeof item.word === "string" ? { word: selectedNew.map((word) => word.text).join("") } : {}
+          });
+          continue;
+        }
+        const retained = oldWords.filter((word, index) => (index < oldFrom || index >= oldTo) && overlaps(word));
+        if (result.degraded || next.length === 0 && retained.length === 0) {
+          removed.push(item);
+          continue;
+        }
+        if (next.length === 0) {
+          emphasis.push(item);
+          continue;
+        }
+        const covered = [...retained, ...next];
+        emphasis.push({
+          ...item,
+          t_start: Math.min(...covered.map((word) => word.start)),
+          t_end: Math.max(...covered.map((word) => word.end)),
+          ...typeof item.word === "string" ? { word: [...covered].sort((a, b) => a.start - b.start).map((word) => word.text).join("") } : {}
+        });
+      }
+      return { emphasis, removed };
+    }
+    function transferTextChange(oldText, newText, display) {
+      const change = changedRange(oldText, newText);
+      if (!change)
+        return { text: display, oldStart: 0, oldEnd: 0, newEnd: 0 };
+      const oldPart = oldText.slice(change.oldStart, change.oldEnd);
+      const replacement = newText.slice(change.oldStart, change.newEnd);
+      let start;
+      if (display === oldText)
+        start = change.oldStart;
+      else {
+        const left = oldText.slice(0, change.oldStart);
+        const right = oldText.slice(change.oldEnd);
+        const candidates = [];
+        for (let at2 = 0; at2 <= display.length - oldPart.length; at2++) {
+          if (oldPart && !display.startsWith(oldPart, at2))
+            continue;
+          let before = 0;
+          while (before < left.length && before < at2 && left[left.length - 1 - before] === display[at2 - 1 - before])
+            before++;
+          let after = 0;
+          const end = at2 + oldPart.length;
+          while (after < right.length && end + after < display.length && right[after] === display[end + after])
+            after++;
+          candidates.push({ start: at2, context: before + after });
+        }
+        const highest = Math.max(0, ...candidates.map((candidate) => candidate.context));
+        const best = candidates.filter((candidate) => candidate.context === highest);
+        if (highest === 0 || best.length !== 1)
+          return void 0;
+        start = best[0].start;
+      }
+      if (start < 0)
+        return void 0;
+      const text = display.slice(0, start) + replacement + display.slice(start + oldPart.length);
+      return { text, oldStart: start, oldEnd: start + oldPart.length, newEnd: start + replacement.length };
+    }
+    function transferFragments(oldText, newText, fragments) {
+      const display = fragments.join("");
+      if (display !== oldText)
+        return void 0;
+      const change = transferTextChange(oldText, newText, display);
+      if (!change)
+        return void 0;
+      const delta = change.newEnd - change.oldEnd;
+      let oldBoundary = 0;
+      let prior = 0;
+      const next = [];
+      for (const fragment of fragments.slice(0, -1)) {
+        oldBoundary += fragment.length;
+        const boundary = oldBoundary <= change.oldStart ? oldBoundary : oldBoundary >= change.oldEnd ? oldBoundary + delta : change.oldStart + Math.round((oldBoundary - change.oldStart) * (change.newEnd - change.oldStart) / (change.oldEnd - change.oldStart));
+        next.push(change.text.slice(prior, boundary));
+        prior = boundary;
+      }
+      next.push(change.text.slice(prior));
+      return next.every(Boolean) && next.join("") === change.text ? next : void 0;
     }
     function applyCaptionTextEdit(record, newText) {
       const normalizedText = newText.normalize("NFC").trim();
@@ -1471,8 +1728,23 @@ var require_caption_words_rederive = __commonJS({
           next.words = rederive.words;
         }
       }
-      delete next.display_text;
-      delete next.display_fragments;
+      if (typeof record.display_text === "string") {
+        const transferred = transferTextChange(record.text, normalizedText, record.display_text);
+        if (transferred)
+          next.display_text = transferred.text;
+        else
+          delete next.display_text;
+      }
+      if (Array.isArray(record.display_fragments) && (typeof record.display_text !== "string" || typeof next.display_text === "string")) {
+        const oldDisplay = typeof record.display_text === "string" ? record.display_text : record.text;
+        const nextDisplay = typeof next.display_text === "string" ? next.display_text : normalizedText;
+        const fragments = transferFragments(oldDisplay, nextDisplay, record.display_fragments);
+        if (fragments)
+          next.display_fragments = fragments;
+        else
+          delete next.display_fragments;
+      } else
+        delete next.display_fragments;
       return { record: next, ...rederive ? { rederive } : {} };
     }
   }
@@ -1996,10 +2268,26 @@ var require_caption_store = __commonJS({
       const array = locateCaptionArray(source);
       const element = findCaptionElement(array.elements, captionId);
       let nextElement = element.text;
+      let nextEmphasis;
+      let oldEmphasis;
       if (updates.text !== void 0) {
         const parsed = JSON.parse(nextElement);
         const applied = (0, caption_words_rederive_1.applyCaptionTextEdit)(parsed, updates.text);
         if (applied.record !== parsed) {
+          const root = JSON.parse(source);
+          if (!Array.isArray(root) && isRecord2(root) && Array.isArray(root.emphasis_words) && Array.isArray(parsed.words) && applied.rederive) {
+            oldEmphasis = root.emphasis_words;
+            const rebased = (0, caption_words_rederive_1.rebaseCaptionEmphasis)({
+              emphasis: oldEmphasis,
+              oldWords: parsed.words,
+              result: applied.rederive,
+              oldText: parsed.text,
+              newText: applied.record.text,
+              ...typeof parsed.src === "string" ? { src: parsed.src } : {}
+            });
+            if (rebased.removed.length || rebased.emphasis.some((entry, index) => entry !== oldEmphasis[index]))
+              nextEmphasis = rebased.emphasis;
+          }
           nextElement = replaceCaptionJsonProperty(nextElement, "text", applied.record.text, captionId);
           nextElement = replaceCaptionJsonProperty(nextElement, "edited", applied.record.edited, captionId);
           nextElement = syncOptionalCaptionProperty(nextElement, "words", applied.record.words, captionId);
@@ -2021,7 +2309,37 @@ var require_caption_store = __commonJS({
         const next = updates.displayTiming === "speech-tight" ? "speech-tight" : void 0;
         nextElement = syncOptionalCaptionProperty(nextElement, "display_timing", next, captionId);
       }
-      return replaceElement(source, array.openIndex + 1, element, nextElement);
+      let updated = replaceElement(source, array.openIndex + 1, element, nextElement);
+      if (nextEmphasis && oldEmphasis) {
+        const property = locateTopLevelProperty(updated, "emphasis_words");
+        if (!property)
+          throw new Error("emphasis_words \u914D\u5217\u3092\u7279\u5B9A\u3067\u304D\u307E\u305B\u3093\u3002");
+        const colon = property.text.indexOf(":");
+        const open = updated.indexOf("[", property.start + colon + 1);
+        if (open < 0 || open >= property.end)
+          throw new Error("emphasis_words \u914D\u5217\u3092\u7279\u5B9A\u3067\u304D\u307E\u305B\u3093\u3002");
+        const close = (0, edit_store_1.findMatchingBracket)(updated, open);
+        const inner = updated.slice(open + 1, close);
+        const elements = (0, edit_store_1.splitTopLevelElements)(inner);
+        if (elements.length !== oldEmphasis.length)
+          throw new Error("emphasis_words \u914D\u5217\u3092\u7279\u5B9A\u3067\u304D\u307E\u305B\u3093\u3002");
+        const byId = new Map(nextEmphasis.map((entry) => [entry.id, entry]));
+        const kept = elements.flatMap((entry, index) => {
+          const old = oldEmphasis[index];
+          const next = byId.get(old.id);
+          return next ? [{ index, text: next === old ? entry.text : JSON.stringify(next) }] : [];
+        });
+        let nextInner = "";
+        kept.forEach((entry, keptIndex) => {
+          const originalIndex = entry.index;
+          const separator = originalIndex === 0 ? inner.slice(0, elements[0].start) : inner.slice(elements[originalIndex - 1].end, elements[originalIndex].start);
+          nextInner += (keptIndex === 0 ? separator.replace(/^,/u, "") : separator) + entry.text;
+        });
+        if (kept.length)
+          nextInner += inner.slice(elements[elements.length - 1].end);
+        updated = updated.slice(0, open + 1) + nextInner + updated.slice(close);
+      }
+      return updated;
     }
     function applyWordBookToCaptionsInSource(source, changes) {
       if (changes.length === 0) {
@@ -4090,14 +4408,45 @@ var require_caption_display = __commonJS({
         if (caption.time_domain === "output")
           return;
         const projected = projectedCaptions[index];
-        if (!Array.isArray(projected.words) || projected.words.length === 0 || projected.words.map((word) => String(word.text)).join("") !== projected.displayText)
+        if (!Array.isArray(projected.words) || projected.words.length === 0)
           return;
+        let entries = projected.words.map((word) => ({ word, synthetic: false }));
+        const visible = (items) => items.map((item) => String(item.word.text).replace(/\s/gu, ""));
+        if (visible(entries).join("") !== projected.displayText.replace(/\s/gu, "") && !projected.changed && Array.isArray(caption.words)) {
+          const rescued = caption.words.flatMap((value, wordIndex) => {
+            if (projected.words.includes(value))
+              return [{ word: value, synthetic: false }];
+            if (!isRecord2(value) || typeof value.text !== "string" || !value.text || !finiteNonNegative2(value.start) || !finiteNonNegative2(value.end) || value.start !== value.end)
+              return [];
+            const later = caption.words.slice(wordIndex + 1).find((candidate) => projected.words.includes(candidate));
+            const earlier = caption.words.slice(0, wordIndex).reverse().find((candidate) => projected.words.includes(candidate));
+            const anchor = later ?? earlier ?? projected.words[0];
+            return [{ word: { text: value.text, start: anchor.start, end: anchor.end }, synthetic: true }];
+          });
+          if (visible(rescued).join("") === projected.displayText.replace(/\s/gu, ""))
+            entries = rescued;
+        }
+        const visibleWords = visible(entries);
+        if (visibleWords.join("") !== projected.displayText.replace(/\s/gu, ""))
+          return;
+        let displayCursor = 0;
+        const alignedTexts = visibleWords.map((visible2) => {
+          const start = displayCursor;
+          let matched = "";
+          while (displayCursor < projected.displayText.length && matched.length < visible2.length) {
+            const char = projected.displayText[displayCursor++];
+            if (!/\s/u.test(char))
+              matched += char;
+          }
+          return projected.displayText.slice(start, displayCursor);
+        });
+        alignedTexts[alignedTexts.length - 1] += projected.displayText.slice(displayCursor);
         let offset = 0;
-        const words = projected.words.map((word) => {
-          const text = String(word.text);
+        const words = entries.map(({ word, synthetic }, wordIndex) => {
+          const text = alignedTexts[wordIndex];
           let emphasis;
           let styleVars = null;
-          for (const candidate of emphasisWords) {
+          for (const candidate of synthetic ? [] : emphasisWords) {
             const sourceMatches = !(strictText(candidate.src) && strictText(caption.src)) || candidate.src === caption.src;
             if (!sourceMatches || Math.min(word.end, candidate.t_end) - Math.max(word.start, candidate.t_start) <= PROJECTION_EPSILON)
               continue;
@@ -4119,6 +4468,12 @@ var require_caption_display = __commonJS({
           return value;
         });
         expandProjectedWordStyles(words, projected.displayText, locale);
+        entries.forEach((entry, wordIndex) => {
+          if (entry.synthetic) {
+            delete words[wordIndex].preset_id;
+            delete words[wordIndex].style_vars;
+          }
+        });
         if (words.some((word) => word.preset_id))
           result.set(index, words);
       });
