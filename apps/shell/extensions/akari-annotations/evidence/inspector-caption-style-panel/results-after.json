@@ -1,6 +1,6 @@
 {
   "phase": "after",
-  "status": "fail",
+  "status": "pass",
   "port": 9475,
   "cases": [
     {
@@ -14,12 +14,16 @@
       "styleFields": [
         "caption-color",
         "caption-size",
+        "caption-font-weight",
+        "caption-line-height",
+        "caption-letter-spacing",
         "caption-stroke-color",
         "caption-stroke-width",
         "caption-style-bg-enabled",
         "caption-background-mode",
         "caption-background-color",
         "caption-background-opacity",
+        "caption-background-padding",
         "caption-background-radius",
         "caption-style-effect",
         "caption-zone"
@@ -106,6 +110,21 @@
                 "name": "caption-size",
                 "label": "大きさ",
                 "value": "大きさpx（既定）"
+              },
+              {
+                "name": "caption-font-weight",
+                "label": "太さ",
+                "value": "太さ普通太字極太"
+              },
+              {
+                "name": "caption-line-height",
+                "label": "行間",
+                "value": "行間（既定）"
+              },
+              {
+                "name": "caption-letter-spacing",
+                "label": "字間",
+                "value": "字間em（既定）"
               }
             ]
           },
@@ -152,6 +171,11 @@
                 "value": "不透明度%（既定）"
               },
               {
+                "name": "caption-background-padding",
+                "label": "余白",
+                "value": "余白px（既定）"
+              },
+              {
                 "name": "caption-background-radius",
                 "label": "角丸",
                 "value": "角丸px（既定）"
@@ -166,7 +190,7 @@
               {
                 "name": "caption-style-effect",
                 "label": "種類",
-                "value": "種類AaなしAa袋文字"
+                "value": "種類AaなしAa影Aa浮き出しAaネオンAa袋文字"
               }
             ]
           },
@@ -225,12 +249,16 @@
       "styleFields": [
         "caption-color",
         "caption-size",
+        "caption-font-weight",
+        "caption-line-height",
+        "caption-letter-spacing",
         "caption-stroke-color",
         "caption-stroke-width",
         "caption-style-bg-enabled",
         "caption-background-mode",
         "caption-background-color",
         "caption-background-opacity",
+        "caption-background-padding",
         "caption-background-radius",
         "caption-style-effect",
         "caption-zone"
@@ -317,6 +345,21 @@
                 "name": "caption-size",
                 "label": "大きさ",
                 "value": "大きさpx（既定）"
+              },
+              {
+                "name": "caption-font-weight",
+                "label": "太さ",
+                "value": "太さ普通太字極太"
+              },
+              {
+                "name": "caption-line-height",
+                "label": "行間",
+                "value": "行間（既定）"
+              },
+              {
+                "name": "caption-letter-spacing",
+                "label": "字間",
+                "value": "字間em（既定）"
               }
             ]
           },
@@ -363,6 +406,11 @@
                 "value": "不透明度%"
               },
               {
+                "name": "caption-background-padding",
+                "label": "余白",
+                "value": "余白px（既定）"
+              },
+              {
                 "name": "caption-background-radius",
                 "label": "角丸",
                 "value": "角丸px"
@@ -377,7 +425,7 @@
               {
                 "name": "caption-style-effect",
                 "label": "種類",
-                "value": "種類AaなしAa袋文字"
+                "value": "種類AaなしAa影Aa浮き出しAaネオンAa袋文字"
               }
             ]
           },
@@ -436,12 +484,16 @@
       "styleFields": [
         "caption-color",
         "caption-size",
+        "caption-font-weight",
+        "caption-line-height",
+        "caption-letter-spacing",
         "caption-stroke-color",
         "caption-stroke-width",
         "caption-style-bg-enabled",
         "caption-background-mode",
         "caption-background-color",
         "caption-background-opacity",
+        "caption-background-padding",
         "caption-background-radius",
         "caption-style-effect",
         "caption-style-effect-color",
@@ -530,6 +582,21 @@
                 "name": "caption-size",
                 "label": "大きさ",
                 "value": "大きさpx"
+              },
+              {
+                "name": "caption-font-weight",
+                "label": "太さ",
+                "value": "太さ普通太字極太"
+              },
+              {
+                "name": "caption-line-height",
+                "label": "行間",
+                "value": "行間（既定）"
+              },
+              {
+                "name": "caption-letter-spacing",
+                "label": "字間",
+                "value": "字間em（既定）"
               }
             ]
           },
@@ -576,6 +643,11 @@
                 "value": "不透明度%（既定）"
               },
               {
+                "name": "caption-background-padding",
+                "label": "余白",
+                "value": "余白px（既定）"
+              },
+              {
                 "name": "caption-background-radius",
                 "label": "角丸",
                 "value": "角丸px（既定）"
@@ -590,7 +662,7 @@
               {
                 "name": "caption-style-effect",
                 "label": "種類",
-                "value": "種類AaなしAa袋文字"
+                "value": "種類AaなしAa影Aa浮き出しAaネオンAa袋文字"
               },
               {
                 "name": "caption-style-effect-color",
@@ -600,7 +672,7 @@
               {
                 "name": "caption-style-effect-strength",
                 "label": "強さ",
-                "value": "強さpx"
+                "value": "強さ"
               }
             ]
           },
@@ -659,12 +731,16 @@
       "styleFields": [
         "caption-color",
         "caption-size",
+        "caption-font-weight",
+        "caption-line-height",
+        "caption-letter-spacing",
         "caption-stroke-color",
         "caption-stroke-width",
         "caption-style-bg-enabled",
         "caption-background-mode",
         "caption-background-color",
         "caption-background-opacity",
+        "caption-background-padding",
         "caption-background-radius",
         "caption-style-effect",
         "caption-zone"
@@ -751,6 +827,21 @@
                 "name": "caption-size",
                 "label": "大きさ",
                 "value": "大きさpx（既定）"
+              },
+              {
+                "name": "caption-font-weight",
+                "label": "太さ",
+                "value": "太さ普通太字極太"
+              },
+              {
+                "name": "caption-line-height",
+                "label": "行間",
+                "value": "行間（既定）"
+              },
+              {
+                "name": "caption-letter-spacing",
+                "label": "字間",
+                "value": "字間em（既定）"
               }
             ]
           },
@@ -797,6 +888,11 @@
                 "value": "不透明度%（既定）"
               },
               {
+                "name": "caption-background-padding",
+                "label": "余白",
+                "value": "余白px（既定）"
+              },
+              {
                 "name": "caption-background-radius",
                 "label": "角丸",
                 "value": "角丸px（既定）"
@@ -811,7 +907,7 @@
               {
                 "name": "caption-style-effect",
                 "label": "種類",
-                "value": "種類AaなしAa袋文字"
+                "value": "種類AaなしAa影Aa浮き出しAaネオンAa袋文字"
               }
             ]
           },
@@ -872,12 +968,16 @@
       "styleFields": [
         "caption-color",
         "caption-size",
+        "caption-font-weight",
+        "caption-line-height",
+        "caption-letter-spacing",
         "caption-stroke-color",
         "caption-stroke-width",
         "caption-style-bg-enabled",
         "caption-background-mode",
         "caption-background-color",
         "caption-background-opacity",
+        "caption-background-padding",
         "caption-background-radius",
         "caption-style-effect",
         "caption-zone"
@@ -925,6 +1025,21 @@
                 "name": "caption-size",
                 "label": "大きさ",
                 "value": "大きさpx"
+              },
+              {
+                "name": "caption-font-weight",
+                "label": "太さ",
+                "value": "太さ普通太字極太"
+              },
+              {
+                "name": "caption-line-height",
+                "label": "行間",
+                "value": "行間"
+              },
+              {
+                "name": "caption-letter-spacing",
+                "label": "字間",
+                "value": "字間em"
               }
             ]
           },
@@ -971,6 +1086,11 @@
                 "value": "不透明度%"
               },
               {
+                "name": "caption-background-padding",
+                "label": "余白",
+                "value": "余白px"
+              },
+              {
                 "name": "caption-background-radius",
                 "label": "角丸",
                 "value": "角丸px"
@@ -985,7 +1105,7 @@
               {
                 "name": "caption-style-effect",
                 "label": "種類",
-                "value": "種類AaなしAa袋文字"
+                "value": "種類AaなしAa影Aa浮き出しAaネオンAa袋文字"
               }
             ]
           },
@@ -1019,12 +1139,16 @@
       "styleFields": [
         "caption-color",
         "caption-size",
+        "caption-font-weight",
+        "caption-line-height",
+        "caption-letter-spacing",
         "caption-stroke-color",
         "caption-stroke-width",
         "caption-style-bg-enabled",
         "caption-background-mode",
         "caption-background-color",
         "caption-background-opacity",
+        "caption-background-padding",
         "caption-background-radius",
         "caption-style-effect",
         "caption-zone"
@@ -1072,6 +1196,21 @@
                 "name": "caption-size",
                 "label": "大きさ",
                 "value": "大きさpx"
+              },
+              {
+                "name": "caption-font-weight",
+                "label": "太さ",
+                "value": "太さ普通太字極太"
+              },
+              {
+                "name": "caption-line-height",
+                "label": "行間",
+                "value": "行間"
+              },
+              {
+                "name": "caption-letter-spacing",
+                "label": "字間",
+                "value": "字間em"
               }
             ]
           },
@@ -1118,6 +1257,11 @@
                 "value": "不透明度%"
               },
               {
+                "name": "caption-background-padding",
+                "label": "余白",
+                "value": "余白px"
+              },
+              {
                 "name": "caption-background-radius",
                 "label": "角丸",
                 "value": "角丸px"
@@ -1132,7 +1276,7 @@
               {
                 "name": "caption-style-effect",
                 "label": "種類",
-                "value": "種類AaなしAa袋文字"
+                "value": "種類AaなしAa影Aa浮き出しAaネオンAa袋文字"
               }
             ]
           },
@@ -1161,7 +1305,7 @@
       "detail": {
         "pass": true,
         "hasStyleSection": true,
-        "styleFieldCount": 11
+        "styleFieldCount": 15
       }
     },
     {
@@ -1170,7 +1314,7 @@
       "detail": {
         "pass": true,
         "hasStyleSection": true,
-        "styleFieldCount": 11
+        "styleFieldCount": 15
       }
     },
     {
@@ -1179,7 +1323,7 @@
       "detail": {
         "pass": true,
         "hasStyleSection": true,
-        "styleFieldCount": 13
+        "styleFieldCount": 17
       }
     },
     {
@@ -1188,7 +1332,7 @@
       "detail": {
         "pass": true,
         "hasStyleSection": true,
-        "styleFieldCount": 11
+        "styleFieldCount": 15
       }
     },
     {
@@ -1197,7 +1341,7 @@
       "detail": {
         "pass": true,
         "hasStyleSection": true,
-        "styleFieldCount": 11
+        "styleFieldCount": 15
       }
     },
     {
@@ -1206,7 +1350,7 @@
       "detail": {
         "pass": true,
         "hasStyleSection": true,
-        "styleFieldCount": 11
+        "styleFieldCount": 15
       }
     },
     {
@@ -1250,7 +1394,10 @@
             "label": "文字",
             "fields": [
               "caption-color",
-              "caption-size"
+              "caption-size",
+              "caption-font-weight",
+              "caption-line-height",
+              "caption-letter-spacing"
             ]
           },
           {
@@ -1269,6 +1416,7 @@
               "caption-background-mode",
               "caption-background-color",
               "caption-background-opacity",
+              "caption-background-padding",
               "caption-background-radius"
             ]
           },
@@ -1812,15 +1960,29 @@
       }
     },
     {
-      "name": "効果: なし / 袋文字 のプレビュー（効果 4 種以上は満たさない — shadow / glow の書き込み経路が無い）",
-      "pass": false,
+      "name": "効果（r0 の回帰）: なし / 袋文字 のプレビュー（効果 5 種は l1-r1.mjs）",
+      "pass": true,
       "detail": {
-        "pass": false,
-        "reason": "効果 4 種以上は未達（契約逸脱: 影・浮き出し・ネオンは shadow / glow が既存の書き込み経路に無い）",
+        "pass": true,
         "tiles": [
           {
             "value": "none",
             "label": "Aaなし",
+            "pressed": "false"
+          },
+          {
+            "value": "shadow",
+            "label": "Aa影",
+            "pressed": "false"
+          },
+          {
+            "value": "raised",
+            "label": "Aa浮き出し",
+            "pressed": "false"
+          },
+          {
+            "value": "neon",
+            "label": "Aaネオン",
             "pressed": "false"
           },
           {
@@ -1934,7 +2096,7 @@
         "tab": true,
         "atFlash": {
           "inView": false,
-          "top": 851
+          "top": 999
         },
         "bottom": 469,
         "rootBottom": 874,
@@ -1955,7 +2117,7 @@
         "tab": true,
         "atFlash": {
           "inView": true,
-          "top": 639
+          "top": 782
         },
         "bottom": 469,
         "rootBottom": 874,
@@ -1976,7 +2138,7 @@
         "tab": true,
         "atFlash": {
           "inView": true,
-          "top": 493
+          "top": 503
         },
         "bottom": 469,
         "rootBottom": 874,
@@ -1991,7 +2153,7 @@
         "pass": true,
         "flashing": true,
         "inView": true,
-        "top": 391,
+        "top": 320,
         "activeInTarget": false,
         "active": "BODY:",
         "tab": true,
@@ -1999,7 +2161,7 @@
           "inView": true,
           "top": 458
         },
-        "bottom": 522,
+        "bottom": 593,
         "rootBottom": 874,
         "flashRemovedAfterMs900": true,
         "screenshot": "after-reveal-caption-style.png"
@@ -2237,6 +2399,1343 @@
           "outside": []
         }
       }
+    },
+    {
+      "name": "r1 cards: 文字に 太さ・行間・字間、座布団に 余白、効果に 5 タイル（単体 / 複数 / プリセット / 置いた文字）",
+      "pass": true,
+      "detail": {
+        "pass": true,
+        "tiles": [
+          {
+            "value": "none",
+            "label": "Aaなし",
+            "sample": true,
+            "emoji": false
+          },
+          {
+            "value": "shadow",
+            "label": "Aa影",
+            "sample": true,
+            "emoji": false
+          },
+          {
+            "value": "raised",
+            "label": "Aa浮き出し",
+            "sample": true,
+            "emoji": false
+          },
+          {
+            "value": "neon",
+            "label": "Aaネオン",
+            "sample": true,
+            "emoji": false
+          },
+          {
+            "value": "outline",
+            "label": "Aa袋文字",
+            "sample": true,
+            "emoji": false
+          }
+        ],
+        "cards": {
+          "single": [
+            {
+              "label": "文字",
+              "fields": [
+                "caption-color",
+                "caption-size",
+                "caption-font-weight",
+                "caption-line-height",
+                "caption-letter-spacing"
+              ]
+            },
+            {
+              "label": "縁取り",
+              "fields": [
+                "caption-stroke-color",
+                "caption-stroke-width"
+              ]
+            },
+            {
+              "label": "座布団",
+              "fields": [
+                "caption-style-bg-enabled",
+                "caption-background-mode",
+                "caption-background-color",
+                "caption-background-opacity",
+                "caption-background-padding",
+                "caption-background-radius"
+              ]
+            },
+            {
+              "label": "効果",
+              "fields": [
+                "caption-style-effect"
+              ]
+            },
+            {
+              "label": "位置",
+              "fields": [
+                "caption-zone"
+              ]
+            }
+          ],
+          "multi": [
+            {
+              "label": "文字",
+              "fields": [
+                "caption-color",
+                "caption-size",
+                "caption-font-weight",
+                "caption-line-height",
+                "caption-letter-spacing"
+              ]
+            },
+            {
+              "label": "縁取り",
+              "fields": [
+                "caption-stroke-color",
+                "caption-stroke-width"
+              ]
+            },
+            {
+              "label": "座布団",
+              "fields": [
+                "caption-style-bg-enabled",
+                "caption-background-mode",
+                "caption-background-color",
+                "caption-background-opacity",
+                "caption-background-padding",
+                "caption-background-radius"
+              ]
+            },
+            {
+              "label": "効果",
+              "fields": [
+                "caption-style-effect"
+              ]
+            },
+            {
+              "label": "位置",
+              "fields": [
+                "caption-zone"
+              ]
+            }
+          ],
+          "preset": [
+            {
+              "label": "文字",
+              "fields": [
+                "caption-color",
+                "caption-size",
+                "caption-font-weight",
+                "caption-line-height",
+                "caption-letter-spacing"
+              ]
+            },
+            {
+              "label": "縁取り",
+              "fields": [
+                "caption-stroke-color",
+                "caption-stroke-width"
+              ]
+            },
+            {
+              "label": "座布団",
+              "fields": [
+                "caption-style-bg-enabled",
+                "caption-background-mode",
+                "caption-background-color",
+                "caption-background-opacity",
+                "caption-background-padding",
+                "caption-background-radius"
+              ]
+            },
+            {
+              "label": "効果",
+              "fields": [
+                "caption-style-effect",
+                "caption-style-effect-color",
+                "caption-style-effect-strength"
+              ]
+            },
+            {
+              "label": "位置",
+              "fields": [
+                "caption-zone"
+              ]
+            }
+          ],
+          "placed": [
+            {
+              "label": "文字",
+              "fields": [
+                "caption-color",
+                "caption-size",
+                "caption-font-weight",
+                "caption-line-height",
+                "caption-letter-spacing"
+              ]
+            },
+            {
+              "label": "縁取り",
+              "fields": [
+                "caption-stroke-color",
+                "caption-stroke-width"
+              ]
+            },
+            {
+              "label": "座布団",
+              "fields": [
+                "caption-style-bg-enabled",
+                "caption-background-mode",
+                "caption-background-color",
+                "caption-background-opacity",
+                "caption-background-padding",
+                "caption-background-radius"
+              ]
+            },
+            {
+              "label": "効果",
+              "fields": [
+                "caption-style-effect"
+              ]
+            },
+            {
+              "label": "位置",
+              "fields": [
+                "caption-zone"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "r1 cards screenshot dark",
+      "pass": true,
+      "detail": {
+        "screenshots": [
+          "after-r1-cards-dark.png",
+          "after-r1-cards-multi-dark.png"
+        ]
+      }
+    },
+    {
+      "name": "r1 cards screenshot light",
+      "pass": true,
+      "detail": {
+        "screenshots": [
+          "after-r1-cards-light.png",
+          "after-r1-cards-multi-light.png"
+        ]
+      }
+    },
+    {
+      "name": "r1 write: 文字 / 太さ 普通",
+      "pass": true,
+      "detail": {
+        "pass": true,
+        "saved": {
+          "font_weight": 400,
+          "weight": 400
+        },
+        "preview": {
+          "fontWeight": "400",
+          "lineHeight": "53.96px",
+          "letterSpacing": "normal",
+          "stroke": "5.32px rgba(0, 0, 0, 0.9)",
+          "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+          "bgs": [],
+          "lineBox": {
+            "w": 147,
+            "h": 34
+          }
+        }
+      }
+    },
+    {
+      "name": "r1 write: 文字 / 太さ 極太",
+      "pass": true,
+      "detail": {
+        "pass": true,
+        "saved": {
+          "font_weight": 900,
+          "weight": 900
+        },
+        "preview": {
+          "fontWeight": "900",
+          "lineHeight": "53.96px",
+          "letterSpacing": "normal",
+          "stroke": "5.32px rgba(0, 0, 0, 0.9)",
+          "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+          "bgs": [],
+          "lineBox": {
+            "w": 147,
+            "h": 34
+          }
+        }
+      }
+    },
+    {
+      "name": "r1 write: 文字 / 行間",
+      "pass": true,
+      "detail": {
+        "pass": true,
+        "saved": {
+          "font_weight": 900,
+          "weight": 900,
+          "line_height": 1.9
+        },
+        "preview": {
+          "fontWeight": "900",
+          "lineHeight": "72.2px",
+          "letterSpacing": "normal",
+          "stroke": "5.32px rgba(0, 0, 0, 0.9)",
+          "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+          "bgs": [],
+          "lineBox": {
+            "w": 147,
+            "h": 44
+          }
+        }
+      }
+    },
+    {
+      "name": "r1 write: 文字 / 字間",
+      "pass": true,
+      "detail": {
+        "pass": true,
+        "saved": {
+          "font_weight": 900,
+          "weight": 900,
+          "line_height": 1.9,
+          "letter_spacing_em": 0.2
+        },
+        "preview": {
+          "fontWeight": "900",
+          "lineHeight": "72.2px",
+          "letterSpacing": "7.6px",
+          "stroke": "5.32px rgba(0, 0, 0, 0.9)",
+          "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+          "bgs": [],
+          "lineBox": {
+            "w": 173,
+            "h": 44
+          }
+        }
+      }
+    },
+    {
+      "name": "r1 write: 座布団 / 敷く",
+      "pass": true,
+      "detail": {
+        "pass": true,
+        "saved": {
+          "font_weight": 900,
+          "weight": 900,
+          "line_height": 1.9,
+          "letter_spacing_em": 0.2,
+          "background": {
+            "opacity": 0.6
+          }
+        },
+        "preview": {
+          "fontWeight": "900",
+          "lineHeight": "72.2px",
+          "letterSpacing": "7.6px",
+          "stroke": "5.32px rgba(0, 0, 0, 0.9)",
+          "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+          "bgs": [
+            {
+              "cls": "akari-caption__line",
+              "bg": "rgba(0, 0, 0, 0.6)",
+              "padding": "3.04px 15.96px",
+              "radius": "10px",
+              "w": 173,
+              "h": 44
+            },
+            {
+              "cls": "akari-caption__line",
+              "bg": "rgba(0, 0, 0, 0.6)",
+              "padding": "3.04px 15.96px",
+              "radius": "10px",
+              "w": 199,
+              "h": 44
+            }
+          ],
+          "lineBox": {
+            "w": 173,
+            "h": 44
+          }
+        }
+      }
+    },
+    {
+      "name": "r1 write: 座布団 / 余白",
+      "pass": true,
+      "detail": {
+        "pass": true,
+        "saved": {
+          "font_weight": 900,
+          "weight": 900,
+          "line_height": 1.9,
+          "letter_spacing_em": 0.2,
+          "background": {
+            "opacity": 0.6,
+            "padding_px": 14
+          }
+        },
+        "preview": {
+          "fontWeight": "900",
+          "lineHeight": "72.2px",
+          "letterSpacing": "7.6px",
+          "stroke": "5.32px rgba(0, 0, 0, 0.9)",
+          "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+          "bgs": [
+            {
+              "cls": "akari-caption__line",
+              "bg": "rgba(0, 0, 0, 0.6)",
+              "padding": "14px",
+              "radius": "10px",
+              "w": 171,
+              "h": 57
+            },
+            {
+              "cls": "akari-caption__line",
+              "bg": "rgba(0, 0, 0, 0.6)",
+              "padding": "14px",
+              "radius": "10px",
+              "w": 196,
+              "h": 57
+            }
+          ],
+          "lineBox": {
+            "w": 171,
+            "h": 57
+          }
+        }
+      }
+    },
+    {
+      "name": "r1 write: 効果 / 影",
+      "pass": true,
+      "detail": {
+        "pass": true,
+        "saved": {
+          "font_weight": 900,
+          "weight": 900,
+          "line_height": 1.9,
+          "letter_spacing_em": 0.2,
+          "background": {
+            "opacity": 0.6,
+            "padding_px": 14
+          },
+          "shadow": {
+            "color": "#000000",
+            "opacity": 0.75,
+            "blur_px": 2,
+            "distance_px": 8.5,
+            "angle_deg": 45
+          },
+          "stroke": {
+            "color": "#000000",
+            "width_px": 1.5
+          }
+        },
+        "preview": {
+          "fontWeight": "900",
+          "lineHeight": "72.2px",
+          "letterSpacing": "7.6px",
+          "stroke": "3px rgb(0, 0, 0)",
+          "textShadow": "rgba(0, 0, 0, 0.75) 6.01px 6.01px 2px",
+          "bgs": [
+            {
+              "cls": "akari-caption__line",
+              "bg": "rgba(0, 0, 0, 0.6)",
+              "padding": "14px",
+              "radius": "10px",
+              "w": 171,
+              "h": 57
+            },
+            {
+              "cls": "akari-caption__line",
+              "bg": "rgba(0, 0, 0, 0.6)",
+              "padding": "14px",
+              "radius": "10px",
+              "w": 196,
+              "h": 57
+            }
+          ],
+          "lineBox": {
+            "w": 171,
+            "h": 57
+          }
+        }
+      }
+    },
+    {
+      "name": "r1 write: 効果 / 影 の色",
+      "pass": true,
+      "detail": {
+        "pass": true,
+        "saved": {
+          "font_weight": 900,
+          "weight": 900,
+          "line_height": 1.9,
+          "letter_spacing_em": 0.2,
+          "background": {
+            "opacity": 0.6,
+            "padding_px": 14
+          },
+          "shadow": {
+            "color": "#E02020",
+            "opacity": 0.75,
+            "blur_px": 2,
+            "distance_px": 8.5,
+            "angle_deg": 45
+          },
+          "stroke": {
+            "color": "#000000",
+            "width_px": 1.5
+          }
+        },
+        "preview": {
+          "fontWeight": "900",
+          "lineHeight": "72.2px",
+          "letterSpacing": "7.6px",
+          "stroke": "3px rgb(0, 0, 0)",
+          "textShadow": "rgba(224, 32, 32, 0.75) 6.01px 6.01px 2px",
+          "bgs": [
+            {
+              "cls": "akari-caption__line",
+              "bg": "rgba(0, 0, 0, 0.6)",
+              "padding": "14px",
+              "radius": "10px",
+              "w": 171,
+              "h": 57
+            },
+            {
+              "cls": "akari-caption__line",
+              "bg": "rgba(0, 0, 0, 0.6)",
+              "padding": "14px",
+              "radius": "10px",
+              "w": 196,
+              "h": 57
+            }
+          ],
+          "lineBox": {
+            "w": 171,
+            "h": 57
+          }
+        }
+      }
+    },
+    {
+      "name": "r1 write: 効果 / 影 の強さ",
+      "pass": true,
+      "detail": {
+        "pass": true,
+        "saved": {
+          "font_weight": 900,
+          "weight": 900,
+          "line_height": 1.9,
+          "letter_spacing_em": 0.2,
+          "background": {
+            "opacity": 0.6,
+            "padding_px": 14
+          },
+          "shadow": {
+            "color": "#E02020",
+            "opacity": 0.75,
+            "blur_px": 4,
+            "distance_px": 17,
+            "angle_deg": 45
+          },
+          "stroke": {
+            "color": "#000000",
+            "width_px": 1.5
+          }
+        },
+        "preview": {
+          "fontWeight": "900",
+          "lineHeight": "72.2px",
+          "letterSpacing": "7.6px",
+          "stroke": "3px rgb(0, 0, 0)",
+          "textShadow": "rgba(224, 32, 32, 0.75) 12.02px 12.02px 4px",
+          "bgs": [
+            {
+              "cls": "akari-caption__line",
+              "bg": "rgba(0, 0, 0, 0.6)",
+              "padding": "14px",
+              "radius": "10px",
+              "w": 171,
+              "h": 57
+            },
+            {
+              "cls": "akari-caption__line",
+              "bg": "rgba(0, 0, 0, 0.6)",
+              "padding": "14px",
+              "radius": "10px",
+              "w": 196,
+              "h": 57
+            }
+          ],
+          "lineBox": {
+            "w": 171,
+            "h": 57
+          }
+        }
+      }
+    },
+    {
+      "name": "r1 write: 効果 / 浮き出し",
+      "pass": true,
+      "detail": {
+        "pass": true,
+        "saved": {
+          "font_weight": 900,
+          "weight": 900,
+          "line_height": 1.9,
+          "letter_spacing_em": 0.2,
+          "background": {
+            "opacity": 0.6,
+            "padding_px": 14
+          },
+          "shadow": {
+            "color": "#000000",
+            "opacity": 0.6,
+            "blur_px": 14,
+            "distance_px": 4,
+            "angle_deg": 90
+          },
+          "stroke": {
+            "color": "#000000",
+            "width_px": 1.5
+          }
+        },
+        "preview": {
+          "fontWeight": "900",
+          "lineHeight": "72.2px",
+          "letterSpacing": "7.6px",
+          "stroke": "3px rgb(0, 0, 0)",
+          "textShadow": "rgba(0, 0, 0, 0.6) 0px 4px 14px",
+          "bgs": [
+            {
+              "cls": "akari-caption__line",
+              "bg": "rgba(0, 0, 0, 0.6)",
+              "padding": "14px",
+              "radius": "10px",
+              "w": 171,
+              "h": 57
+            },
+            {
+              "cls": "akari-caption__line",
+              "bg": "rgba(0, 0, 0, 0.6)",
+              "padding": "14px",
+              "radius": "10px",
+              "w": 196,
+              "h": 57
+            }
+          ],
+          "lineBox": {
+            "w": 171,
+            "h": 57
+          }
+        }
+      }
+    },
+    {
+      "name": "r1 write: 効果 / 浮き出し の色",
+      "pass": true,
+      "detail": {
+        "pass": true,
+        "saved": {
+          "font_weight": 900,
+          "weight": 900,
+          "line_height": 1.9,
+          "letter_spacing_em": 0.2,
+          "background": {
+            "opacity": 0.6,
+            "padding_px": 14
+          },
+          "shadow": {
+            "color": "#E02020",
+            "opacity": 0.6,
+            "blur_px": 14,
+            "distance_px": 4,
+            "angle_deg": 90
+          },
+          "stroke": {
+            "color": "#000000",
+            "width_px": 1.5
+          }
+        },
+        "preview": {
+          "fontWeight": "900",
+          "lineHeight": "72.2px",
+          "letterSpacing": "7.6px",
+          "stroke": "3px rgb(0, 0, 0)",
+          "textShadow": "rgba(224, 32, 32, 0.6) 0px 4px 14px",
+          "bgs": [
+            {
+              "cls": "akari-caption__line",
+              "bg": "rgba(0, 0, 0, 0.6)",
+              "padding": "14px",
+              "radius": "10px",
+              "w": 171,
+              "h": 57
+            },
+            {
+              "cls": "akari-caption__line",
+              "bg": "rgba(0, 0, 0, 0.6)",
+              "padding": "14px",
+              "radius": "10px",
+              "w": 196,
+              "h": 57
+            }
+          ],
+          "lineBox": {
+            "w": 171,
+            "h": 57
+          }
+        }
+      }
+    },
+    {
+      "name": "r1 write: 効果 / ネオン",
+      "pass": true,
+      "detail": {
+        "pass": true,
+        "saved": {
+          "font_weight": 900,
+          "weight": 900,
+          "line_height": 1.9,
+          "letter_spacing_em": 0.2,
+          "background": {
+            "opacity": 0.6,
+            "padding_px": 14
+          },
+          "stroke": {
+            "color": "#000000",
+            "width_px": 1.5
+          },
+          "glow": {
+            "color": "#39D5FF",
+            "density": 60,
+            "spread": 12
+          }
+        },
+        "preview": {
+          "fontWeight": "900",
+          "lineHeight": "72.2px",
+          "letterSpacing": "7.6px",
+          "stroke": "3px rgb(0, 0, 0)",
+          "textShadow": "rgb(57, 213, 255) 0px 0px 12px, rgba(57, 213, 255, 0.7) 0px 0px 24px",
+          "bgs": [
+            {
+              "cls": "akari-caption__line",
+              "bg": "rgba(0, 0, 0, 0.6)",
+              "padding": "14px",
+              "radius": "10px",
+              "w": 171,
+              "h": 57
+            },
+            {
+              "cls": "akari-caption__line",
+              "bg": "rgba(0, 0, 0, 0.6)",
+              "padding": "14px",
+              "radius": "10px",
+              "w": 196,
+              "h": 57
+            }
+          ],
+          "lineBox": {
+            "w": 171,
+            "h": 57
+          }
+        }
+      }
+    },
+    {
+      "name": "r1 write: 効果 / ネオン の強さ",
+      "pass": true,
+      "detail": {
+        "pass": true,
+        "saved": {
+          "font_weight": 900,
+          "weight": 900,
+          "line_height": 1.9,
+          "letter_spacing_em": 0.2,
+          "background": {
+            "opacity": 0.6,
+            "padding_px": 14
+          },
+          "stroke": {
+            "color": "#000000",
+            "width_px": 1.5
+          },
+          "glow": {
+            "color": "#39D5FF",
+            "density": 60,
+            "spread": 18
+          }
+        },
+        "preview": {
+          "fontWeight": "900",
+          "lineHeight": "72.2px",
+          "letterSpacing": "7.6px",
+          "stroke": "3px rgb(0, 0, 0)",
+          "textShadow": "rgb(57, 213, 255) 0px 0px 18px, rgba(57, 213, 255, 0.7) 0px 0px 36px",
+          "bgs": [
+            {
+              "cls": "akari-caption__line",
+              "bg": "rgba(0, 0, 0, 0.6)",
+              "padding": "14px",
+              "radius": "10px",
+              "w": 171,
+              "h": 57
+            },
+            {
+              "cls": "akari-caption__line",
+              "bg": "rgba(0, 0, 0, 0.6)",
+              "padding": "14px",
+              "radius": "10px",
+              "w": 196,
+              "h": 57
+            }
+          ],
+          "lineBox": {
+            "w": 171,
+            "h": 57
+          }
+        }
+      }
+    },
+    {
+      "name": "r1 write: 効果 / ネオン の色",
+      "pass": true,
+      "detail": {
+        "pass": true,
+        "saved": {
+          "font_weight": 900,
+          "weight": 900,
+          "line_height": 1.9,
+          "letter_spacing_em": 0.2,
+          "background": {
+            "opacity": 0.6,
+            "padding_px": 14
+          },
+          "stroke": {
+            "color": "#000000",
+            "width_px": 1.5
+          },
+          "glow": {
+            "color": "#E02020",
+            "density": 60,
+            "spread": 18
+          }
+        },
+        "preview": {
+          "fontWeight": "900",
+          "lineHeight": "72.2px",
+          "letterSpacing": "7.6px",
+          "stroke": "3px rgb(0, 0, 0)",
+          "textShadow": "rgb(224, 32, 32) 0px 0px 18px, rgba(224, 32, 32, 0.7) 0px 0px 36px",
+          "bgs": [
+            {
+              "cls": "akari-caption__line",
+              "bg": "rgba(0, 0, 0, 0.6)",
+              "padding": "14px",
+              "radius": "10px",
+              "w": 171,
+              "h": 57
+            },
+            {
+              "cls": "akari-caption__line",
+              "bg": "rgba(0, 0, 0, 0.6)",
+              "padding": "14px",
+              "radius": "10px",
+              "w": 196,
+              "h": 57
+            }
+          ],
+          "lineBox": {
+            "w": 171,
+            "h": 57
+          }
+        }
+      }
+    },
+    {
+      "name": "r1 write: 効果 / 袋文字",
+      "pass": true,
+      "detail": {
+        "pass": true,
+        "saved": {
+          "font_weight": 900,
+          "weight": 900,
+          "line_height": 1.9,
+          "letter_spacing_em": 0.2,
+          "background": {
+            "opacity": 0.6,
+            "padding_px": 14
+          },
+          "stroke": {
+            "color": "#000000",
+            "width_px": 6
+          }
+        },
+        "preview": {
+          "fontWeight": "900",
+          "lineHeight": "72.2px",
+          "letterSpacing": "7.6px",
+          "stroke": "12px rgb(0, 0, 0)",
+          "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+          "bgs": [
+            {
+              "cls": "akari-caption__line",
+              "bg": "rgba(0, 0, 0, 0.6)",
+              "padding": "14px",
+              "radius": "10px",
+              "w": 171,
+              "h": 57
+            },
+            {
+              "cls": "akari-caption__line",
+              "bg": "rgba(0, 0, 0, 0.6)",
+              "padding": "14px",
+              "radius": "10px",
+              "w": 196,
+              "h": 57
+            }
+          ],
+          "lineBox": {
+            "w": 171,
+            "h": 57
+          }
+        }
+      }
+    },
+    {
+      "name": "r1 write: 効果 / なし",
+      "pass": true,
+      "detail": {
+        "pass": true,
+        "saved": {
+          "font_weight": 900,
+          "weight": 900,
+          "line_height": 1.9,
+          "letter_spacing_em": 0.2,
+          "background": {
+            "opacity": 0.6,
+            "padding_px": 14
+          },
+          "stroke": {
+            "color": "#000000",
+            "width_px": 1.5
+          }
+        },
+        "preview": {
+          "fontWeight": "900",
+          "lineHeight": "72.2px",
+          "letterSpacing": "7.6px",
+          "stroke": "3px rgb(0, 0, 0)",
+          "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+          "bgs": [
+            {
+              "cls": "akari-caption__line",
+              "bg": "rgba(0, 0, 0, 0.6)",
+              "padding": "14px",
+              "radius": "10px",
+              "w": 171,
+              "h": 57
+            },
+            {
+              "cls": "akari-caption__line",
+              "bg": "rgba(0, 0, 0, 0.6)",
+              "padding": "14px",
+              "radius": "10px",
+              "w": 196,
+              "h": 57
+            }
+          ],
+          "lineBox": {
+            "w": 171,
+            "h": 57
+          }
+        }
+      }
+    },
+    {
+      "name": "r1 書き出し用の保存値（効果 4 種 × 効果の色 赤 + なし）",
+      "pass": true,
+      "detail": {
+        "pass": true,
+        "variants": {
+          "shadow": {
+            "text_style": {
+              "font_weight": 900,
+              "weight": 900,
+              "line_height": 1.9,
+              "letter_spacing_em": 0.2,
+              "background": {
+                "opacity": 0.6,
+                "padding_px": 14
+              },
+              "stroke": {
+                "color": "#000000",
+                "width_px": 1.5
+              },
+              "shadow": {
+                "color": "#E02020",
+                "opacity": 0.75,
+                "blur_px": 2,
+                "distance_px": 8.5,
+                "angle_deg": 45
+              }
+            },
+            "preview": {
+              "textShadow": "rgba(224, 32, 32, 0.75) 6.01px 6.01px 2px",
+              "stroke": "3px rgb(0, 0, 0)"
+            }
+          },
+          "raised": {
+            "text_style": {
+              "font_weight": 900,
+              "weight": 900,
+              "line_height": 1.9,
+              "letter_spacing_em": 0.2,
+              "background": {
+                "opacity": 0.6,
+                "padding_px": 14
+              },
+              "stroke": {
+                "color": "#000000",
+                "width_px": 1.5
+              },
+              "shadow": {
+                "color": "#E02020",
+                "opacity": 0.6,
+                "blur_px": 14,
+                "distance_px": 4,
+                "angle_deg": 90
+              }
+            },
+            "preview": {
+              "textShadow": "rgba(224, 32, 32, 0.6) 0px 4px 14px",
+              "stroke": "3px rgb(0, 0, 0)"
+            }
+          },
+          "neon": {
+            "text_style": {
+              "font_weight": 900,
+              "weight": 900,
+              "line_height": 1.9,
+              "letter_spacing_em": 0.2,
+              "background": {
+                "opacity": 0.6,
+                "padding_px": 14
+              },
+              "stroke": {
+                "color": "#000000",
+                "width_px": 1.5
+              },
+              "glow": {
+                "color": "#E02020",
+                "density": 60,
+                "spread": 12
+              }
+            },
+            "preview": {
+              "textShadow": "rgb(224, 32, 32) 0px 0px 12px, rgba(224, 32, 32, 0.7) 0px 0px 24px",
+              "stroke": "3px rgb(0, 0, 0)"
+            }
+          },
+          "outline": {
+            "text_style": {
+              "font_weight": 900,
+              "weight": 900,
+              "line_height": 1.9,
+              "letter_spacing_em": 0.2,
+              "background": {
+                "opacity": 0.6,
+                "padding_px": 14
+              },
+              "stroke": {
+                "color": "#E02020",
+                "width_px": 6
+              }
+            },
+            "preview": {
+              "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+              "stroke": "12px rgb(224, 32, 32)"
+            }
+          },
+          "none": {
+            "text_style": {
+              "font_weight": 900,
+              "weight": 900,
+              "line_height": 1.9,
+              "letter_spacing_em": 0.2,
+              "background": {
+                "opacity": 0.6,
+                "padding_px": 14
+              },
+              "stroke": {
+                "color": "#000000",
+                "width_px": 1.5
+              }
+            },
+            "preview": {
+              "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+              "stroke": "3px rgb(0, 0, 0)"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "r1 プリセット付き字幕: 太さ 普通 が効く・効果 なし で影が消える・影 に戻せる",
+      "pass": true,
+      "detail": {
+        "pass": true,
+        "base": {
+          "fontWeight": "700",
+          "textShadow": "rgba(0, 0, 0, 0.6) 0px 6px 6px"
+        },
+        "effectBefore": [
+          "shadow"
+        ],
+        "weight": {
+          "saved": {
+            "font_weight": 400,
+            "weight": 400
+          },
+          "fontWeight": "400"
+        },
+        "none": {
+          "saved": {
+            "font_weight": 400,
+            "weight": 400,
+            "shadow": {
+              "color": "#000000",
+              "opacity": 0
+            },
+            "stroke": {
+              "color": "#000000",
+              "width_px": 1.5
+            }
+          },
+          "textShadow": "rgba(0, 0, 0, 0) 0px 6px 6px",
+          "pressed": [
+            "none"
+          ],
+          "screenshot": "r1-preset-effect-none.png"
+        },
+        "shadow": {
+          "saved": {
+            "font_weight": 400,
+            "weight": 400,
+            "shadow": {
+              "color": "#000000",
+              "opacity": 0.75,
+              "blur_px": 2,
+              "distance_px": 8.5,
+              "angle_deg": 45
+            },
+            "stroke": {
+              "color": "#000000",
+              "width_px": 1.5
+            }
+          },
+          "textShadow": "rgba(0, 0, 0, 0.75) 6.01px 6.01px 2px"
+        }
+      }
+    },
+    {
+      "name": "r1 複数選択 3 本: 太さ・行間・座布団（敷く・まとめて・余白）が 3 本とも書き換わる",
+      "pass": true,
+      "detail": {
+        "pass": true,
+        "before": [
+          {
+            "id": "c-0006",
+            "style_preset": null,
+            "text_style": {
+              "font_weight": 900,
+              "weight": 900,
+              "line_height": 1.9,
+              "letter_spacing_em": 0.2,
+              "background": {
+                "opacity": 0.6,
+                "padding_px": 14
+              },
+              "stroke": {
+                "color": "#000000",
+                "width_px": 1.5
+              }
+            }
+          },
+          {
+            "id": "c-0007",
+            "style_preset": "subtitle-variety",
+            "text_style": {
+              "font_weight": 400,
+              "weight": 400,
+              "shadow": {
+                "color": "#000000",
+                "opacity": 0.75,
+                "blur_px": 2,
+                "distance_px": 8.5,
+                "angle_deg": 45
+              },
+              "stroke": {
+                "color": "#000000",
+                "width_px": 1.5
+              }
+            }
+          },
+          {
+            "id": "c-0008",
+            "style_preset": null,
+            "text_style": null
+          }
+        ],
+        "after": [
+          {
+            "id": "c-0006",
+            "text_style": {
+              "font_weight": 900,
+              "weight": 900,
+              "line_height": 1.6,
+              "letter_spacing_em": 0.2,
+              "background": {
+                "opacity": 0.6,
+                "padding_px": 10,
+                "mode": "block"
+              },
+              "stroke": {
+                "color": "#000000",
+                "width_px": 1.5
+              }
+            }
+          },
+          {
+            "id": "c-0007",
+            "text_style": {
+              "font_weight": 900,
+              "weight": 900,
+              "shadow": {
+                "color": "#000000",
+                "opacity": 0.75,
+                "blur_px": 2,
+                "distance_px": 8.5,
+                "angle_deg": 45
+              },
+              "stroke": {
+                "color": "#000000",
+                "width_px": 1.5
+              },
+              "line_height": 1.6,
+              "background": {
+                "opacity": 0.6,
+                "mode": "block",
+                "padding_px": 10
+              }
+            }
+          },
+          {
+            "id": "c-0008",
+            "text_style": {
+              "font_weight": 900,
+              "weight": 900,
+              "line_height": 1.6,
+              "background": {
+                "opacity": 0.6,
+                "mode": "block",
+                "padding_px": 10
+              }
+            }
+          }
+        ],
+        "previews": {
+          "c-0006": {
+            "unmatched": false,
+            "fontWeight": "900",
+            "lineHeight": "60.8px",
+            "bgs": [
+              {
+                "cls": "akari-caption__block",
+                "bg": "rgba(0, 0, 0, 0.6)",
+                "padding": "10px",
+                "radius": "10px",
+                "w": 192,
+                "h": 82
+              }
+            ]
+          },
+          "c-0007": {
+            "unmatched": false,
+            "fontWeight": "900",
+            "lineHeight": "128px",
+            "bgs": [
+              {
+                "cls": "akari-caption__block",
+                "bg": "rgba(0, 0, 0, 0.6)",
+                "padding": "10px",
+                "radius": "10px",
+                "w": 373,
+                "h": 84
+              }
+            ]
+          },
+          "c-0008": {
+            "unmatched": false,
+            "fontWeight": "900",
+            "lineHeight": "60.8px",
+            "bgs": [
+              {
+                "cls": "akari-caption__block",
+                "bg": "rgba(0, 0, 0, 0.6)",
+                "padding": "10px",
+                "radius": "10px",
+                "w": 183,
+                "h": 46
+              }
+            ]
+          }
+        },
+        "screenshot": "after-r1-multi-after-writes.png"
+      }
+    },
+    {
+      "name": "r1 取り消し: 効果（影）1 回の書き込みが 1 回の取り消しで戻る",
+      "pass": true,
+      "detail": {
+        "pass": true,
+        "commandId": "AkariEditHistoryService.undo()",
+        "before": {
+          "font_weight": 900,
+          "weight": 900,
+          "line_height": 1.6,
+          "background": {
+            "opacity": 0.6,
+            "mode": "block",
+            "padding_px": 10
+          }
+        },
+        "after": {
+          "font_weight": 900,
+          "weight": 900,
+          "line_height": 1.6,
+          "background": {
+            "opacity": 0.6,
+            "mode": "block",
+            "padding_px": 10
+          }
+        }
+      }
     }
   ],
   "screenshots": [
@@ -2246,6 +3745,7 @@
     "after-case-placed.png",
     "after-case-multi.png",
     "after-case-multi-mixed.png",
+    "after-full-dark.png",
     "after-case-spoken-2line-bg-light.png",
     "after-cards-dark.png",
     "after-cards-multi-dark.png",
@@ -2260,7 +3760,12 @@
     "after-reveal-caption-style-stroke-color.png",
     "after-reveal-caption-style-color.png",
     "after-reveal-caption-style.png",
-    "after-width-240-dark.png"
+    "after-width-240-dark.png",
+    "after-r1-cards-dark.png",
+    "after-r1-cards-multi-dark.png",
+    "after-r1-cards-light.png",
+    "after-r1-cards-multi-light.png",
+    "after-r1-multi-after-writes.png"
   ],
   "writes": [
     {
@@ -2550,7 +4055,7 @@
           {
             "cls": "akari-caption__line",
             "bg": "rgba(30, 58, 138, 0.85)",
-            "radius": "10px",
+            "radius": "41px",
             "w": 494,
             "h": 46
           }
@@ -2855,12 +4360,27 @@
       }
     }
   ],
-  "pid": 55811,
+  "pid": 47112,
   "capsuleMax": 41,
   "effectTiles": [
     {
       "value": "none",
       "label": "Aaなし",
+      "pressed": "false"
+    },
+    {
+      "value": "shadow",
+      "label": "Aa影",
+      "pressed": "false"
+    },
+    {
+      "value": "raised",
+      "label": "Aa浮き出し",
+      "pressed": "false"
+    },
+    {
+      "value": "neon",
+      "label": "Aaネオン",
       "pressed": "false"
     },
     {
@@ -2998,5 +4518,1247 @@
       "bad": [],
       "outside": []
     }
-  ]
+  ],
+  "r1": {
+    "writes": [
+      {
+        "field": "文字 / 太さ 普通",
+        "text_style": {
+          "font_weight": 400,
+          "weight": 400
+        },
+        "previewBefore": {
+          "fontWeight": "700",
+          "lineHeight": "53.96px",
+          "letterSpacing": "normal",
+          "stroke": "5.32px rgba(0, 0, 0, 0.9)",
+          "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+          "bgs": [],
+          "lineBox": {
+            "w": 147,
+            "h": 34
+          }
+        },
+        "previewAfter": {
+          "fontWeight": "400",
+          "lineHeight": "53.96px",
+          "letterSpacing": "normal",
+          "stroke": "5.32px rgba(0, 0, 0, 0.9)",
+          "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+          "bgs": [],
+          "lineBox": {
+            "w": 147,
+            "h": 34
+          }
+        },
+        "effectPressed": [
+          "none"
+        ]
+      },
+      {
+        "field": "文字 / 太さ 極太",
+        "text_style": {
+          "font_weight": 900,
+          "weight": 900
+        },
+        "previewBefore": {
+          "fontWeight": "400",
+          "lineHeight": "53.96px",
+          "letterSpacing": "normal",
+          "stroke": "5.32px rgba(0, 0, 0, 0.9)",
+          "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+          "bgs": [],
+          "lineBox": {
+            "w": 147,
+            "h": 34
+          }
+        },
+        "previewAfter": {
+          "fontWeight": "900",
+          "lineHeight": "53.96px",
+          "letterSpacing": "normal",
+          "stroke": "5.32px rgba(0, 0, 0, 0.9)",
+          "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+          "bgs": [],
+          "lineBox": {
+            "w": 147,
+            "h": 34
+          }
+        },
+        "effectPressed": [
+          "none"
+        ]
+      },
+      {
+        "field": "文字 / 行間",
+        "text_style": {
+          "font_weight": 900,
+          "weight": 900,
+          "line_height": 1.9
+        },
+        "previewBefore": {
+          "fontWeight": "900",
+          "lineHeight": "53.96px",
+          "letterSpacing": "normal",
+          "stroke": "5.32px rgba(0, 0, 0, 0.9)",
+          "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+          "bgs": [],
+          "lineBox": {
+            "w": 147,
+            "h": 34
+          }
+        },
+        "previewAfter": {
+          "fontWeight": "900",
+          "lineHeight": "72.2px",
+          "letterSpacing": "normal",
+          "stroke": "5.32px rgba(0, 0, 0, 0.9)",
+          "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+          "bgs": [],
+          "lineBox": {
+            "w": 147,
+            "h": 44
+          }
+        },
+        "effectPressed": [
+          "none"
+        ]
+      },
+      {
+        "field": "文字 / 字間",
+        "text_style": {
+          "font_weight": 900,
+          "weight": 900,
+          "line_height": 1.9,
+          "letter_spacing_em": 0.2
+        },
+        "previewBefore": {
+          "fontWeight": "900",
+          "lineHeight": "72.2px",
+          "letterSpacing": "normal",
+          "stroke": "5.32px rgba(0, 0, 0, 0.9)",
+          "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+          "bgs": [],
+          "lineBox": {
+            "w": 147,
+            "h": 44
+          }
+        },
+        "previewAfter": {
+          "fontWeight": "900",
+          "lineHeight": "72.2px",
+          "letterSpacing": "7.6px",
+          "stroke": "5.32px rgba(0, 0, 0, 0.9)",
+          "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+          "bgs": [],
+          "lineBox": {
+            "w": 173,
+            "h": 44
+          }
+        },
+        "effectPressed": [
+          "none"
+        ]
+      },
+      {
+        "field": "座布団 / 敷く",
+        "text_style": {
+          "font_weight": 900,
+          "weight": 900,
+          "line_height": 1.9,
+          "letter_spacing_em": 0.2,
+          "background": {
+            "opacity": 0.6
+          }
+        },
+        "previewBefore": {
+          "fontWeight": "900",
+          "lineHeight": "72.2px",
+          "letterSpacing": "7.6px",
+          "stroke": "5.32px rgba(0, 0, 0, 0.9)",
+          "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+          "bgs": [],
+          "lineBox": {
+            "w": 173,
+            "h": 44
+          }
+        },
+        "previewAfter": {
+          "fontWeight": "900",
+          "lineHeight": "72.2px",
+          "letterSpacing": "7.6px",
+          "stroke": "5.32px rgba(0, 0, 0, 0.9)",
+          "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+          "bgs": [
+            {
+              "cls": "akari-caption__line",
+              "bg": "rgba(0, 0, 0, 0.6)",
+              "padding": "3.04px 15.96px",
+              "radius": "10px",
+              "w": 173,
+              "h": 44
+            },
+            {
+              "cls": "akari-caption__line",
+              "bg": "rgba(0, 0, 0, 0.6)",
+              "padding": "3.04px 15.96px",
+              "radius": "10px",
+              "w": 199,
+              "h": 44
+            }
+          ],
+          "lineBox": {
+            "w": 173,
+            "h": 44
+          }
+        },
+        "effectPressed": [
+          "none"
+        ]
+      },
+      {
+        "field": "座布団 / 余白",
+        "text_style": {
+          "font_weight": 900,
+          "weight": 900,
+          "line_height": 1.9,
+          "letter_spacing_em": 0.2,
+          "background": {
+            "opacity": 0.6,
+            "padding_px": 14
+          }
+        },
+        "previewBefore": {
+          "fontWeight": "900",
+          "lineHeight": "72.2px",
+          "letterSpacing": "7.6px",
+          "stroke": "5.32px rgba(0, 0, 0, 0.9)",
+          "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+          "bgs": [
+            {
+              "cls": "akari-caption__line",
+              "bg": "rgba(0, 0, 0, 0.6)",
+              "padding": "3.04px 15.96px",
+              "radius": "10px",
+              "w": 173,
+              "h": 44
+            },
+            {
+              "cls": "akari-caption__line",
+              "bg": "rgba(0, 0, 0, 0.6)",
+              "padding": "3.04px 15.96px",
+              "radius": "10px",
+              "w": 199,
+              "h": 44
+            }
+          ],
+          "lineBox": {
+            "w": 173,
+            "h": 44
+          }
+        },
+        "previewAfter": {
+          "fontWeight": "900",
+          "lineHeight": "72.2px",
+          "letterSpacing": "7.6px",
+          "stroke": "5.32px rgba(0, 0, 0, 0.9)",
+          "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+          "bgs": [
+            {
+              "cls": "akari-caption__line",
+              "bg": "rgba(0, 0, 0, 0.6)",
+              "padding": "14px",
+              "radius": "10px",
+              "w": 171,
+              "h": 57
+            },
+            {
+              "cls": "akari-caption__line",
+              "bg": "rgba(0, 0, 0, 0.6)",
+              "padding": "14px",
+              "radius": "10px",
+              "w": 196,
+              "h": 57
+            }
+          ],
+          "lineBox": {
+            "w": 171,
+            "h": 57
+          }
+        },
+        "effectPressed": [
+          "none"
+        ]
+      },
+      {
+        "field": "効果 / 影",
+        "text_style": {
+          "font_weight": 900,
+          "weight": 900,
+          "line_height": 1.9,
+          "letter_spacing_em": 0.2,
+          "background": {
+            "opacity": 0.6,
+            "padding_px": 14
+          },
+          "shadow": {
+            "color": "#000000",
+            "opacity": 0.75,
+            "blur_px": 2,
+            "distance_px": 8.5,
+            "angle_deg": 45
+          },
+          "stroke": {
+            "color": "#000000",
+            "width_px": 1.5
+          }
+        },
+        "previewBefore": {
+          "fontWeight": "900",
+          "lineHeight": "72.2px",
+          "letterSpacing": "7.6px",
+          "stroke": "5.32px rgba(0, 0, 0, 0.9)",
+          "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+          "bgs": [
+            {
+              "cls": "akari-caption__line",
+              "bg": "rgba(0, 0, 0, 0.6)",
+              "padding": "14px",
+              "radius": "10px",
+              "w": 171,
+              "h": 57
+            },
+            {
+              "cls": "akari-caption__line",
+              "bg": "rgba(0, 0, 0, 0.6)",
+              "padding": "14px",
+              "radius": "10px",
+              "w": 196,
+              "h": 57
+            }
+          ],
+          "lineBox": {
+            "w": 171,
+            "h": 57
+          }
+        },
+        "previewAfter": {
+          "fontWeight": "900",
+          "lineHeight": "72.2px",
+          "letterSpacing": "7.6px",
+          "stroke": "3px rgb(0, 0, 0)",
+          "textShadow": "rgba(0, 0, 0, 0.75) 6.01px 6.01px 2px",
+          "bgs": [
+            {
+              "cls": "akari-caption__line",
+              "bg": "rgba(0, 0, 0, 0.6)",
+              "padding": "14px",
+              "radius": "10px",
+              "w": 171,
+              "h": 57
+            },
+            {
+              "cls": "akari-caption__line",
+              "bg": "rgba(0, 0, 0, 0.6)",
+              "padding": "14px",
+              "radius": "10px",
+              "w": 196,
+              "h": 57
+            }
+          ],
+          "lineBox": {
+            "w": 171,
+            "h": 57
+          }
+        },
+        "effectPressed": [
+          "shadow"
+        ],
+        "screenshot": "r1-effect-shadow.png"
+      },
+      {
+        "field": "効果 / 影 の色",
+        "text_style": {
+          "font_weight": 900,
+          "weight": 900,
+          "line_height": 1.9,
+          "letter_spacing_em": 0.2,
+          "background": {
+            "opacity": 0.6,
+            "padding_px": 14
+          },
+          "shadow": {
+            "color": "#E02020",
+            "opacity": 0.75,
+            "blur_px": 2,
+            "distance_px": 8.5,
+            "angle_deg": 45
+          },
+          "stroke": {
+            "color": "#000000",
+            "width_px": 1.5
+          }
+        },
+        "previewBefore": {
+          "fontWeight": "900",
+          "lineHeight": "72.2px",
+          "letterSpacing": "7.6px",
+          "stroke": "3px rgb(0, 0, 0)",
+          "textShadow": "rgba(0, 0, 0, 0.75) 6.01px 6.01px 2px",
+          "bgs": [
+            {
+              "cls": "akari-caption__line",
+              "bg": "rgba(0, 0, 0, 0.6)",
+              "padding": "14px",
+              "radius": "10px",
+              "w": 171,
+              "h": 57
+            },
+            {
+              "cls": "akari-caption__line",
+              "bg": "rgba(0, 0, 0, 0.6)",
+              "padding": "14px",
+              "radius": "10px",
+              "w": 196,
+              "h": 57
+            }
+          ],
+          "lineBox": {
+            "w": 171,
+            "h": 57
+          }
+        },
+        "previewAfter": {
+          "fontWeight": "900",
+          "lineHeight": "72.2px",
+          "letterSpacing": "7.6px",
+          "stroke": "3px rgb(0, 0, 0)",
+          "textShadow": "rgba(224, 32, 32, 0.75) 6.01px 6.01px 2px",
+          "bgs": [
+            {
+              "cls": "akari-caption__line",
+              "bg": "rgba(0, 0, 0, 0.6)",
+              "padding": "14px",
+              "radius": "10px",
+              "w": 171,
+              "h": 57
+            },
+            {
+              "cls": "akari-caption__line",
+              "bg": "rgba(0, 0, 0, 0.6)",
+              "padding": "14px",
+              "radius": "10px",
+              "w": 196,
+              "h": 57
+            }
+          ],
+          "lineBox": {
+            "w": 171,
+            "h": 57
+          }
+        },
+        "effectPressed": [
+          "shadow"
+        ]
+      },
+      {
+        "field": "効果 / 影 の強さ",
+        "text_style": {
+          "font_weight": 900,
+          "weight": 900,
+          "line_height": 1.9,
+          "letter_spacing_em": 0.2,
+          "background": {
+            "opacity": 0.6,
+            "padding_px": 14
+          },
+          "shadow": {
+            "color": "#E02020",
+            "opacity": 0.75,
+            "blur_px": 4,
+            "distance_px": 17,
+            "angle_deg": 45
+          },
+          "stroke": {
+            "color": "#000000",
+            "width_px": 1.5
+          }
+        },
+        "previewBefore": {
+          "fontWeight": "900",
+          "lineHeight": "72.2px",
+          "letterSpacing": "7.6px",
+          "stroke": "3px rgb(0, 0, 0)",
+          "textShadow": "rgba(224, 32, 32, 0.75) 6.01px 6.01px 2px",
+          "bgs": [
+            {
+              "cls": "akari-caption__line",
+              "bg": "rgba(0, 0, 0, 0.6)",
+              "padding": "14px",
+              "radius": "10px",
+              "w": 171,
+              "h": 57
+            },
+            {
+              "cls": "akari-caption__line",
+              "bg": "rgba(0, 0, 0, 0.6)",
+              "padding": "14px",
+              "radius": "10px",
+              "w": 196,
+              "h": 57
+            }
+          ],
+          "lineBox": {
+            "w": 171,
+            "h": 57
+          }
+        },
+        "previewAfter": {
+          "fontWeight": "900",
+          "lineHeight": "72.2px",
+          "letterSpacing": "7.6px",
+          "stroke": "3px rgb(0, 0, 0)",
+          "textShadow": "rgba(224, 32, 32, 0.75) 12.02px 12.02px 4px",
+          "bgs": [
+            {
+              "cls": "akari-caption__line",
+              "bg": "rgba(0, 0, 0, 0.6)",
+              "padding": "14px",
+              "radius": "10px",
+              "w": 171,
+              "h": 57
+            },
+            {
+              "cls": "akari-caption__line",
+              "bg": "rgba(0, 0, 0, 0.6)",
+              "padding": "14px",
+              "radius": "10px",
+              "w": 196,
+              "h": 57
+            }
+          ],
+          "lineBox": {
+            "w": 171,
+            "h": 57
+          }
+        },
+        "effectPressed": [
+          "shadow"
+        ]
+      },
+      {
+        "field": "効果 / 浮き出し",
+        "text_style": {
+          "font_weight": 900,
+          "weight": 900,
+          "line_height": 1.9,
+          "letter_spacing_em": 0.2,
+          "background": {
+            "opacity": 0.6,
+            "padding_px": 14
+          },
+          "shadow": {
+            "color": "#000000",
+            "opacity": 0.6,
+            "blur_px": 14,
+            "distance_px": 4,
+            "angle_deg": 90
+          },
+          "stroke": {
+            "color": "#000000",
+            "width_px": 1.5
+          }
+        },
+        "previewBefore": {
+          "fontWeight": "900",
+          "lineHeight": "72.2px",
+          "letterSpacing": "7.6px",
+          "stroke": "3px rgb(0, 0, 0)",
+          "textShadow": "rgba(224, 32, 32, 0.75) 12.02px 12.02px 4px",
+          "bgs": [
+            {
+              "cls": "akari-caption__line",
+              "bg": "rgba(0, 0, 0, 0.6)",
+              "padding": "14px",
+              "radius": "10px",
+              "w": 171,
+              "h": 57
+            },
+            {
+              "cls": "akari-caption__line",
+              "bg": "rgba(0, 0, 0, 0.6)",
+              "padding": "14px",
+              "radius": "10px",
+              "w": 196,
+              "h": 57
+            }
+          ],
+          "lineBox": {
+            "w": 171,
+            "h": 57
+          }
+        },
+        "previewAfter": {
+          "fontWeight": "900",
+          "lineHeight": "72.2px",
+          "letterSpacing": "7.6px",
+          "stroke": "3px rgb(0, 0, 0)",
+          "textShadow": "rgba(0, 0, 0, 0.6) 0px 4px 14px",
+          "bgs": [
+            {
+              "cls": "akari-caption__line",
+              "bg": "rgba(0, 0, 0, 0.6)",
+              "padding": "14px",
+              "radius": "10px",
+              "w": 171,
+              "h": 57
+            },
+            {
+              "cls": "akari-caption__line",
+              "bg": "rgba(0, 0, 0, 0.6)",
+              "padding": "14px",
+              "radius": "10px",
+              "w": 196,
+              "h": 57
+            }
+          ],
+          "lineBox": {
+            "w": 171,
+            "h": 57
+          }
+        },
+        "effectPressed": [
+          "raised"
+        ],
+        "screenshot": "r1-effect-raised.png"
+      },
+      {
+        "field": "効果 / 浮き出し の色",
+        "text_style": {
+          "font_weight": 900,
+          "weight": 900,
+          "line_height": 1.9,
+          "letter_spacing_em": 0.2,
+          "background": {
+            "opacity": 0.6,
+            "padding_px": 14
+          },
+          "shadow": {
+            "color": "#E02020",
+            "opacity": 0.6,
+            "blur_px": 14,
+            "distance_px": 4,
+            "angle_deg": 90
+          },
+          "stroke": {
+            "color": "#000000",
+            "width_px": 1.5
+          }
+        },
+        "previewBefore": {
+          "fontWeight": "900",
+          "lineHeight": "72.2px",
+          "letterSpacing": "7.6px",
+          "stroke": "3px rgb(0, 0, 0)",
+          "textShadow": "rgba(0, 0, 0, 0.6) 0px 4px 14px",
+          "bgs": [
+            {
+              "cls": "akari-caption__line",
+              "bg": "rgba(0, 0, 0, 0.6)",
+              "padding": "14px",
+              "radius": "10px",
+              "w": 171,
+              "h": 57
+            },
+            {
+              "cls": "akari-caption__line",
+              "bg": "rgba(0, 0, 0, 0.6)",
+              "padding": "14px",
+              "radius": "10px",
+              "w": 196,
+              "h": 57
+            }
+          ],
+          "lineBox": {
+            "w": 171,
+            "h": 57
+          }
+        },
+        "previewAfter": {
+          "fontWeight": "900",
+          "lineHeight": "72.2px",
+          "letterSpacing": "7.6px",
+          "stroke": "3px rgb(0, 0, 0)",
+          "textShadow": "rgba(224, 32, 32, 0.6) 0px 4px 14px",
+          "bgs": [
+            {
+              "cls": "akari-caption__line",
+              "bg": "rgba(0, 0, 0, 0.6)",
+              "padding": "14px",
+              "radius": "10px",
+              "w": 171,
+              "h": 57
+            },
+            {
+              "cls": "akari-caption__line",
+              "bg": "rgba(0, 0, 0, 0.6)",
+              "padding": "14px",
+              "radius": "10px",
+              "w": 196,
+              "h": 57
+            }
+          ],
+          "lineBox": {
+            "w": 171,
+            "h": 57
+          }
+        },
+        "effectPressed": [
+          "raised"
+        ]
+      },
+      {
+        "field": "効果 / ネオン",
+        "text_style": {
+          "font_weight": 900,
+          "weight": 900,
+          "line_height": 1.9,
+          "letter_spacing_em": 0.2,
+          "background": {
+            "opacity": 0.6,
+            "padding_px": 14
+          },
+          "stroke": {
+            "color": "#000000",
+            "width_px": 1.5
+          },
+          "glow": {
+            "color": "#39D5FF",
+            "density": 60,
+            "spread": 12
+          }
+        },
+        "previewBefore": {
+          "fontWeight": "900",
+          "lineHeight": "72.2px",
+          "letterSpacing": "7.6px",
+          "stroke": "3px rgb(0, 0, 0)",
+          "textShadow": "rgba(224, 32, 32, 0.6) 0px 4px 14px",
+          "bgs": [
+            {
+              "cls": "akari-caption__line",
+              "bg": "rgba(0, 0, 0, 0.6)",
+              "padding": "14px",
+              "radius": "10px",
+              "w": 171,
+              "h": 57
+            },
+            {
+              "cls": "akari-caption__line",
+              "bg": "rgba(0, 0, 0, 0.6)",
+              "padding": "14px",
+              "radius": "10px",
+              "w": 196,
+              "h": 57
+            }
+          ],
+          "lineBox": {
+            "w": 171,
+            "h": 57
+          }
+        },
+        "previewAfter": {
+          "fontWeight": "900",
+          "lineHeight": "72.2px",
+          "letterSpacing": "7.6px",
+          "stroke": "3px rgb(0, 0, 0)",
+          "textShadow": "rgb(57, 213, 255) 0px 0px 12px, rgba(57, 213, 255, 0.7) 0px 0px 24px",
+          "bgs": [
+            {
+              "cls": "akari-caption__line",
+              "bg": "rgba(0, 0, 0, 0.6)",
+              "padding": "14px",
+              "radius": "10px",
+              "w": 171,
+              "h": 57
+            },
+            {
+              "cls": "akari-caption__line",
+              "bg": "rgba(0, 0, 0, 0.6)",
+              "padding": "14px",
+              "radius": "10px",
+              "w": 196,
+              "h": 57
+            }
+          ],
+          "lineBox": {
+            "w": 171,
+            "h": 57
+          }
+        },
+        "effectPressed": [
+          "neon"
+        ],
+        "screenshot": "r1-effect-neon.png"
+      },
+      {
+        "field": "効果 / ネオン の強さ",
+        "text_style": {
+          "font_weight": 900,
+          "weight": 900,
+          "line_height": 1.9,
+          "letter_spacing_em": 0.2,
+          "background": {
+            "opacity": 0.6,
+            "padding_px": 14
+          },
+          "stroke": {
+            "color": "#000000",
+            "width_px": 1.5
+          },
+          "glow": {
+            "color": "#39D5FF",
+            "density": 60,
+            "spread": 18
+          }
+        },
+        "previewBefore": {
+          "fontWeight": "900",
+          "lineHeight": "72.2px",
+          "letterSpacing": "7.6px",
+          "stroke": "3px rgb(0, 0, 0)",
+          "textShadow": "rgb(57, 213, 255) 0px 0px 12px, rgba(57, 213, 255, 0.7) 0px 0px 24px",
+          "bgs": [
+            {
+              "cls": "akari-caption__line",
+              "bg": "rgba(0, 0, 0, 0.6)",
+              "padding": "14px",
+              "radius": "10px",
+              "w": 171,
+              "h": 57
+            },
+            {
+              "cls": "akari-caption__line",
+              "bg": "rgba(0, 0, 0, 0.6)",
+              "padding": "14px",
+              "radius": "10px",
+              "w": 196,
+              "h": 57
+            }
+          ],
+          "lineBox": {
+            "w": 171,
+            "h": 57
+          }
+        },
+        "previewAfter": {
+          "fontWeight": "900",
+          "lineHeight": "72.2px",
+          "letterSpacing": "7.6px",
+          "stroke": "3px rgb(0, 0, 0)",
+          "textShadow": "rgb(57, 213, 255) 0px 0px 18px, rgba(57, 213, 255, 0.7) 0px 0px 36px",
+          "bgs": [
+            {
+              "cls": "akari-caption__line",
+              "bg": "rgba(0, 0, 0, 0.6)",
+              "padding": "14px",
+              "radius": "10px",
+              "w": 171,
+              "h": 57
+            },
+            {
+              "cls": "akari-caption__line",
+              "bg": "rgba(0, 0, 0, 0.6)",
+              "padding": "14px",
+              "radius": "10px",
+              "w": 196,
+              "h": 57
+            }
+          ],
+          "lineBox": {
+            "w": 171,
+            "h": 57
+          }
+        },
+        "effectPressed": [
+          "neon"
+        ]
+      },
+      {
+        "field": "効果 / ネオン の色",
+        "text_style": {
+          "font_weight": 900,
+          "weight": 900,
+          "line_height": 1.9,
+          "letter_spacing_em": 0.2,
+          "background": {
+            "opacity": 0.6,
+            "padding_px": 14
+          },
+          "stroke": {
+            "color": "#000000",
+            "width_px": 1.5
+          },
+          "glow": {
+            "color": "#E02020",
+            "density": 60,
+            "spread": 18
+          }
+        },
+        "previewBefore": {
+          "fontWeight": "900",
+          "lineHeight": "72.2px",
+          "letterSpacing": "7.6px",
+          "stroke": "3px rgb(0, 0, 0)",
+          "textShadow": "rgb(57, 213, 255) 0px 0px 18px, rgba(57, 213, 255, 0.7) 0px 0px 36px",
+          "bgs": [
+            {
+              "cls": "akari-caption__line",
+              "bg": "rgba(0, 0, 0, 0.6)",
+              "padding": "14px",
+              "radius": "10px",
+              "w": 171,
+              "h": 57
+            },
+            {
+              "cls": "akari-caption__line",
+              "bg": "rgba(0, 0, 0, 0.6)",
+              "padding": "14px",
+              "radius": "10px",
+              "w": 196,
+              "h": 57
+            }
+          ],
+          "lineBox": {
+            "w": 171,
+            "h": 57
+          }
+        },
+        "previewAfter": {
+          "fontWeight": "900",
+          "lineHeight": "72.2px",
+          "letterSpacing": "7.6px",
+          "stroke": "3px rgb(0, 0, 0)",
+          "textShadow": "rgb(224, 32, 32) 0px 0px 18px, rgba(224, 32, 32, 0.7) 0px 0px 36px",
+          "bgs": [
+            {
+              "cls": "akari-caption__line",
+              "bg": "rgba(0, 0, 0, 0.6)",
+              "padding": "14px",
+              "radius": "10px",
+              "w": 171,
+              "h": 57
+            },
+            {
+              "cls": "akari-caption__line",
+              "bg": "rgba(0, 0, 0, 0.6)",
+              "padding": "14px",
+              "radius": "10px",
+              "w": 196,
+              "h": 57
+            }
+          ],
+          "lineBox": {
+            "w": 171,
+            "h": 57
+          }
+        },
+        "effectPressed": [
+          "neon"
+        ]
+      },
+      {
+        "field": "効果 / 袋文字",
+        "text_style": {
+          "font_weight": 900,
+          "weight": 900,
+          "line_height": 1.9,
+          "letter_spacing_em": 0.2,
+          "background": {
+            "opacity": 0.6,
+            "padding_px": 14
+          },
+          "stroke": {
+            "color": "#000000",
+            "width_px": 6
+          }
+        },
+        "previewBefore": {
+          "fontWeight": "900",
+          "lineHeight": "72.2px",
+          "letterSpacing": "7.6px",
+          "stroke": "3px rgb(0, 0, 0)",
+          "textShadow": "rgb(224, 32, 32) 0px 0px 18px, rgba(224, 32, 32, 0.7) 0px 0px 36px",
+          "bgs": [
+            {
+              "cls": "akari-caption__line",
+              "bg": "rgba(0, 0, 0, 0.6)",
+              "padding": "14px",
+              "radius": "10px",
+              "w": 171,
+              "h": 57
+            },
+            {
+              "cls": "akari-caption__line",
+              "bg": "rgba(0, 0, 0, 0.6)",
+              "padding": "14px",
+              "radius": "10px",
+              "w": 196,
+              "h": 57
+            }
+          ],
+          "lineBox": {
+            "w": 171,
+            "h": 57
+          }
+        },
+        "previewAfter": {
+          "fontWeight": "900",
+          "lineHeight": "72.2px",
+          "letterSpacing": "7.6px",
+          "stroke": "12px rgb(0, 0, 0)",
+          "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+          "bgs": [
+            {
+              "cls": "akari-caption__line",
+              "bg": "rgba(0, 0, 0, 0.6)",
+              "padding": "14px",
+              "radius": "10px",
+              "w": 171,
+              "h": 57
+            },
+            {
+              "cls": "akari-caption__line",
+              "bg": "rgba(0, 0, 0, 0.6)",
+              "padding": "14px",
+              "radius": "10px",
+              "w": 196,
+              "h": 57
+            }
+          ],
+          "lineBox": {
+            "w": 171,
+            "h": 57
+          }
+        },
+        "effectPressed": [
+          "outline"
+        ],
+        "screenshot": "r1-effect-outline.png"
+      },
+      {
+        "field": "効果 / なし",
+        "text_style": {
+          "font_weight": 900,
+          "weight": 900,
+          "line_height": 1.9,
+          "letter_spacing_em": 0.2,
+          "background": {
+            "opacity": 0.6,
+            "padding_px": 14
+          },
+          "stroke": {
+            "color": "#000000",
+            "width_px": 1.5
+          }
+        },
+        "previewBefore": {
+          "fontWeight": "900",
+          "lineHeight": "72.2px",
+          "letterSpacing": "7.6px",
+          "stroke": "12px rgb(0, 0, 0)",
+          "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+          "bgs": [
+            {
+              "cls": "akari-caption__line",
+              "bg": "rgba(0, 0, 0, 0.6)",
+              "padding": "14px",
+              "radius": "10px",
+              "w": 171,
+              "h": 57
+            },
+            {
+              "cls": "akari-caption__line",
+              "bg": "rgba(0, 0, 0, 0.6)",
+              "padding": "14px",
+              "radius": "10px",
+              "w": 196,
+              "h": 57
+            }
+          ],
+          "lineBox": {
+            "w": 171,
+            "h": 57
+          }
+        },
+        "previewAfter": {
+          "fontWeight": "900",
+          "lineHeight": "72.2px",
+          "letterSpacing": "7.6px",
+          "stroke": "3px rgb(0, 0, 0)",
+          "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+          "bgs": [
+            {
+              "cls": "akari-caption__line",
+              "bg": "rgba(0, 0, 0, 0.6)",
+              "padding": "14px",
+              "radius": "10px",
+              "w": 171,
+              "h": 57
+            },
+            {
+              "cls": "akari-caption__line",
+              "bg": "rgba(0, 0, 0, 0.6)",
+              "padding": "14px",
+              "radius": "10px",
+              "w": 196,
+              "h": 57
+            }
+          ],
+          "lineBox": {
+            "w": 171,
+            "h": 57
+          }
+        },
+        "effectPressed": [
+          "none"
+        ],
+        "screenshot": "r1-effect-none.png"
+      }
+    ],
+    "screenshots": [
+      "after-r1-cards-dark.png",
+      "after-r1-cards-multi-dark.png",
+      "after-r1-cards-light.png",
+      "after-r1-cards-multi-light.png",
+      "r1-effect-shadow.png",
+      "r1-effect-raised.png",
+      "r1-effect-neon.png",
+      "r1-effect-outline.png",
+      "r1-effect-none.png",
+      "r1-preset-effect-none.png",
+      "after-r1-multi-after-writes.png"
+    ],
+    "exportVariants": {
+      "shadow": {
+        "text_style": {
+          "font_weight": 900,
+          "weight": 900,
+          "line_height": 1.9,
+          "letter_spacing_em": 0.2,
+          "background": {
+            "opacity": 0.6,
+            "padding_px": 14
+          },
+          "stroke": {
+            "color": "#000000",
+            "width_px": 1.5
+          },
+          "shadow": {
+            "color": "#E02020",
+            "opacity": 0.75,
+            "blur_px": 2,
+            "distance_px": 8.5,
+            "angle_deg": 45
+          }
+        },
+        "preview": {
+          "textShadow": "rgba(224, 32, 32, 0.75) 6.01px 6.01px 2px",
+          "stroke": "3px rgb(0, 0, 0)"
+        }
+      },
+      "raised": {
+        "text_style": {
+          "font_weight": 900,
+          "weight": 900,
+          "line_height": 1.9,
+          "letter_spacing_em": 0.2,
+          "background": {
+            "opacity": 0.6,
+            "padding_px": 14
+          },
+          "stroke": {
+            "color": "#000000",
+            "width_px": 1.5
+          },
+          "shadow": {
+            "color": "#E02020",
+            "opacity": 0.6,
+            "blur_px": 14,
+            "distance_px": 4,
+            "angle_deg": 90
+          }
+        },
+        "preview": {
+          "textShadow": "rgba(224, 32, 32, 0.6) 0px 4px 14px",
+          "stroke": "3px rgb(0, 0, 0)"
+        }
+      },
+      "neon": {
+        "text_style": {
+          "font_weight": 900,
+          "weight": 900,
+          "line_height": 1.9,
+          "letter_spacing_em": 0.2,
+          "background": {
+            "opacity": 0.6,
+            "padding_px": 14
+          },
+          "stroke": {
+            "color": "#000000",
+            "width_px": 1.5
+          },
+          "glow": {
+            "color": "#E02020",
+            "density": 60,
+            "spread": 12
+          }
+        },
+        "preview": {
+          "textShadow": "rgb(224, 32, 32) 0px 0px 12px, rgba(224, 32, 32, 0.7) 0px 0px 24px",
+          "stroke": "3px rgb(0, 0, 0)"
+        }
+      },
+      "outline": {
+        "text_style": {
+          "font_weight": 900,
+          "weight": 900,
+          "line_height": 1.9,
+          "letter_spacing_em": 0.2,
+          "background": {
+            "opacity": 0.6,
+            "padding_px": 14
+          },
+          "stroke": {
+            "color": "#E02020",
+            "width_px": 6
+          }
+        },
+        "preview": {
+          "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+          "stroke": "12px rgb(224, 32, 32)"
+        }
+      },
+      "none": {
+        "text_style": {
+          "font_weight": 900,
+          "weight": 900,
+          "line_height": 1.9,
+          "letter_spacing_em": 0.2,
+          "background": {
+            "opacity": 0.6,
+            "padding_px": 14
+          },
+          "stroke": {
+            "color": "#000000",
+            "width_px": 1.5
+          }
+        },
+        "preview": {
+          "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+          "stroke": "3px rgb(0, 0, 0)"
+        }
+      }
+    }
+  }
 }

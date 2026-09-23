@@ -1,5 +1,5 @@
 import type { EditAudioKeyframe, TransitionType } from '@akari-video/edit-store';
-import type { CaptionDisplayPolicy, CaptionTextStyle } from '@akari-video/edit-store';
+import type { CaptionDisplayPolicy, CaptionTextStyle, CaptionTextStylePatch } from '@akari-video/edit-store';
 import type { GenerationBindingView, GenerationSidecarMeta } from './generation-sidecar';
 
 export const AKARI_ANNOTATIONS_SERVICE_PATH = '/services/akari-annotations';
@@ -686,22 +686,7 @@ export interface SetCaptionTextStyleRequest {
     captionsUri: string;
     projectRootUri: string;
     captionId: string;
-    textStyle: {
-        color?: string | null;
-        sizePx?: number | null;
-        stroke?: {
-            color?: string | null;
-            widthPx?: number | null;
-        };
-        background?: {
-            color?: string | null;
-            opacity?: number | null;
-            radiusPx?: number | null;
-        };
-        animation?: { in?: TextAnimationSlotPatch | null; out?: TextAnimationSlotPatch | null } | null;
-        zone?: 'top-left' | 'top' | 'top-right' | 'left' | 'center' | 'right'
-            | 'bottom-left' | 'bottom' | 'bottom-right' | null;
-    };
+    textStyle: CaptionTextStylePatch;
 }
 
 export interface SetCaptionStylePresetRequest {

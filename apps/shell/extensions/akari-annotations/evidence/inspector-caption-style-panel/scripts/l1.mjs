@@ -163,6 +163,9 @@ try {
     if (PHASE === 'after') {
         const { runAfter } = await import('./l1-after.mjs');
         await runAfter(ctx);
+        // r1（差し戻し r1 で足した欄・効果 5 種・プリセット付き字幕・複数選択 3 本・取り消し）
+        const { runR1 } = await import('./l1-r1.mjs');
+        await runR1(ctx);
     }
     out.status = out.checks.every(c => c.pass) ? (PHASE === 'before' ? 'observed' : 'pass') : 'fail';
 } catch (error) {

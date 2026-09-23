@@ -189,7 +189,7 @@ export async function runAfter(ctx) {
     });
 
     // ---- 4. 効果（書ける項目で表せるのは なし / 袋文字 の 2 種）: プレビュー ----
-    await check('効果: なし / 袋文字 のプレビュー（効果 4 種以上は満たさない — shadow / glow の書き込み経路が無い）', async () => {
+    await check('効果（r0 の回帰）: なし / 袋文字 のプレビュー（効果 5 種は l1-r1.mjs）', async () => {
         await select([ID], T);
         await click(`${ROW('caption-style-effect')} button[data-value="outline"]`);
         await waitFor('outline', async () => (await rowOf(ID)).text_style?.stroke?.width_px === 6, 20_000);
@@ -207,7 +207,7 @@ export async function runAfter(ctx) {
         const none = await waitFor('preview none', async () => { const q = await plate(ID); return q && /0, 0, 0/.test(q.strokeColor) && parseFloat(q.strokeWidth) < 5 && q; }, 30_000).catch(() => plate(ID));
         const noneShot = await shotPreview('effect-none');
         out.effectTiles = tiles;
-        return { pass: false, reason: '効果 4 種以上は未達（契約逸脱: 影・浮き出し・ネオンは shadow / glow が既存の書き込み経路に無い）', tiles, outline: { stroke: `${outline.strokeWidth} ${outline.strokeColor}`, textShadow: outline.textShadow.slice(0, 120) }, none: { stroke: `${none.strokeWidth} ${none.strokeColor}`, textShadow: none.textShadow.slice(0, 120) }, shots: [outlineShot, noneShot] };
+        return { pass: /224, 32, 32/.test(outline.strokeColor) && parseFloat(outline.strokeWidth) >= 10 && /0, 0, 0/.test(none.strokeColor) && parseFloat(none.strokeWidth) < 5, tiles, outline: { stroke: `${outline.strokeWidth} ${outline.strokeColor}`, textShadow: outline.textShadow.slice(0, 120) }, none: { stroke: `${none.strokeWidth} ${none.strokeColor}`, textShadow: none.textShadow.slice(0, 120) }, shots: [outlineShot, noneShot] };
     });
 
     // ---- 5. 複数選択（3 本）: 縁取りの太さ・座布団（敷く・形）を変えると 3 本とも書き換わる ----

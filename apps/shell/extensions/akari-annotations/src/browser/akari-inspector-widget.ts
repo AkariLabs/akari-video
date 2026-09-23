@@ -38,7 +38,8 @@ import { appendAiStillNotice, appendAiStillPanel, nearestStillAspect, replaceSti
 import { appendAiTranscribePanel, resolveAiTranscribeTarget, type AiTranscribeTarget } from './inspector/ai-transcribe-panel';
 import { createInspectorIcon } from './inspector/icons';
 import {
-    CAPTION_BACKGROUND_ON_OPACITY, captionEffectFromWidth, captionEffectWrites,
+    CAPTION_BACKGROUND_ON_OPACITY, captionEffectFromStyle, captionEffectPatch,
+    captionEffectColorPatch, captionEffectStrength, captionEffectStrengthPatch,
     resolveCaptionRevealField
 } from './inspector/caption-style-effects';
 import { worldInstructionCopy } from '../common/world-instruction-copy';
@@ -173,7 +174,7 @@ interface InspectorFieldDef<TSnapshot = InspectorSnapshot> {
     getEditValue?: (snapshot: TSnapshot) => string;
     /** フィールドの値型に対応した入力 UI。 */
     inputKind?: 'boolean-select' | 'select' | 'zone-grid' | 'scrub-number' | 'slider-number'
-        | 'caption-toggle' | 'caption-mode' | 'caption-effect' | 'number' | 'color' | 'text' | 'media';
+        | 'caption-toggle' | 'caption-mode' | 'caption-effect' | 'caption-weight' | 'number' | 'color' | 'text' | 'media';
     options?: readonly string[];
     optionTitles?: Readonly<Record<string, string>>;
     scrubStep?: number;
@@ -287,11 +288,15 @@ function formatAudioKindLabel(audioKind: TimelineAudioSelection['audioKind']): s
 const CAPTION_STYLE_DEFAULTS = {
     color: '#FFFFFF',
     sizePx: 38,
+    fontWeight: 700,
+    lineHeight: 1.42,
+    letterSpacingEm: 0,
     strokeColor: '#000000',
     strokeWidthPx: 1.5,
     backgroundColor: '#000000',
     backgroundOpacity: 0,
     backgroundRadiusPx: 10,
+    backgroundPaddingPx: 0,
     backgroundMode: 'per-line',
     zone: 'bottom'
 } as const;
@@ -302,12 +307,17 @@ const CAPTION_PLATE_CAPSULE_HALF_HEIGHT_EM = (1.42 + 0.08 * 2) / 2;
 type CaptionStyleFieldKey =
     | 'color'
     | 'size'
+    | 'font-weight'
+    | 'line-height'
+    | 'letter-spacing'
     | 'stroke-color'
     | 'stroke-width'
     | 'background-color'
     | 'background-opacity'
     | 'background-radius'
+    | 'background-padding'
     | 'background-mode'
+    | 'effect'
     | 'zone';
 
 function captionStyleDisplayValue<T>(
@@ -1056,6 +1066,7 @@ function CAPTION_SECTIONS(
 ): InspectorSection[] {
     const raw = snapshot.textStyle;
     const effective = snapshot.effectiveTextStyle;
+    const currentEffect = captionEffectFromStyle(effective);
     const requestOptions = options.targets ? { targets: options.targets } : {};
     const colorField = (
         label: string,
@@ -1084,11 +1095,13 @@ function CAPTION_SECTIONS(
         effectiveValue: number | undefined,
         fallback: number,
         kind: 'caption-style-size' | 'caption-style-stroke-width'
-            | 'caption-style-bg-opacity' | 'caption-style-bg-radius',
+            | 'caption-style-bg-opacity' | 'caption-style-bg-radius'
+            | 'caption-style-line-height' | 'caption-style-letter-spacing'
+            | 'caption-style-bg-padding',
         min: number,
         max: number | undefined,
         step: number,
-        unit: 'px' | '%',
+        unit: 'px' | '%' | 'em' | '',
         invalidMessage: string
     ): InspectorFieldDef<TimelineCaptionSelection> => ({
         name: `caption-${fieldKey}`, label,
@@ -1099,9 +1112,12 @@ function CAPTION_SECTIONS(
         inputKind: 'slider-number',
         scrubStep: step,
         sliderMax: fieldKey === 'size' ? 160 : fieldKey === 'stroke-width' ? 20
-            : fieldKey === 'background-opacity' ? 1
-                : Math.round((effective?.sizePx ?? CAPTION_STYLE_DEFAULTS.sizePx)
-                    * CAPTION_PLATE_CAPSULE_HALF_HEIGHT_EM * 2) / 2,
+            : fieldKey === 'line-height' ? 2.2 : fieldKey === 'letter-spacing' ? 0.4
+                : fieldKey === 'background-padding' ? 40
+                    : fieldKey === 'background-opacity' ? 1
+                        : Math.round(((effective?.sizePx ?? CAPTION_STYLE_DEFAULTS.sizePx)
+                            * CAPTION_PLATE_CAPSULE_HALF_HEIGHT_EM
+                            + (effective?.background?.paddingPx ?? CAPTION_STYLE_DEFAULTS.backgroundPaddingPx)) * 2) / 2,
         unit,
         ...(fieldKey === 'background-opacity' ? { displayScale: 100 } : {}),
         min,
@@ -1179,6 +1195,26 @@ function CAPTION_SECTIONS(
                     'px',
                     'サイズは正の数で入力してください。'
                 ),
+                {
+                    name: 'caption-font-weight', label: '太さ', inputKind: 'caption-weight',
+                    getValue: () => options.mixedFields?.has('font-weight') ? '—'
+                        : captionStyleDisplayValue(raw?.weight ?? raw?.fontWeight,
+                            effective?.weight ?? effective?.fontWeight, CAPTION_STYLE_DEFAULTS.fontWeight),
+                    getEditValue: () => options.mixedFields?.has('font-weight') ? '—'
+                        : String(effective?.weight ?? effective?.fontWeight ?? CAPTION_STYLE_DEFAULTS.fontWeight),
+                    write: async (_snapshot, value) => {
+                        const weight = Number(value);
+                        if (![400, 700, 900].includes(weight)) return { ok: false, message: '太さを選んでください。' };
+                        return requestWrite({ kind: 'caption-style-font-weight', id: snapshot.id,
+                            value: weight, ...requestOptions });
+                    }
+                },
+                numberField('行間', 'line-height', raw?.lineHeight, effective?.lineHeight,
+                    CAPTION_STYLE_DEFAULTS.lineHeight, 'caption-style-line-height',
+                    0.9, 2.2, 0.05, '', '行間は 0.9〜2.2 で入力してください。'),
+                numberField('字間', 'letter-spacing', raw?.letterSpacingEm, effective?.letterSpacingEm,
+                    CAPTION_STYLE_DEFAULTS.letterSpacingEm, 'caption-style-letter-spacing',
+                    -0.1, 0.4, 0.01, 'em', '字間は -0.1〜0.4 で入力してください。'),
                 colorField(
                     '色',
                     'stroke-color',
@@ -1249,6 +1285,9 @@ function CAPTION_SECTIONS(
                     '%',
                     '座布団不透明度は 0〜1 の範囲で入力してください。'
                 ),
+                numberField('余白', 'background-padding', raw?.background?.paddingPx,
+                    effective?.background?.paddingPx, CAPTION_STYLE_DEFAULTS.backgroundPaddingPx,
+                    'caption-style-bg-padding', 0, undefined, 1, 'px', '余白は 0 以上で入力してください。'),
                 numberField(
                     '角丸',
                     'background-radius',
@@ -1264,31 +1303,53 @@ function CAPTION_SECTIONS(
                 ),
                 {
                     name: 'caption-style-effect', label: '種類', inputKind: 'caption-effect',
-                    getValue: () => options.mixedFields?.has('stroke-width') ? '—'
-                        : captionEffectFromWidth(effective?.stroke?.widthPx ?? CAPTION_STYLE_DEFAULTS.strokeWidthPx),
+                    getValue: () => options.mixedFields?.has('effect') ? '—' : currentEffect,
                     write: async (_snapshot, nextValue) => {
-                        if (nextValue !== 'none' && nextValue !== 'outline') {
+                        if (!['none', 'shadow', 'raised', 'neon', 'outline'].includes(nextValue)) {
                             return { ok: false, message: '効果を選んでください。' };
                         }
-                        for (const patch of captionEffectWrites(nextValue,
-                            effective?.color ?? CAPTION_STYLE_DEFAULTS.color)) {
-                            const result = patch.kind === 'caption-style-stroke-color'
-                                ? await requestWrite({ kind: patch.kind, id: snapshot.id,
-                                    value: String(patch.value), ...requestOptions })
-                                : await requestWrite({ kind: patch.kind, id: snapshot.id,
-                                    value: Number(patch.value), ...requestOptions });
-                            if (!result.ok) return result;
-                        }
-                        return { ok: true };
+                        return requestWrite({ kind: 'caption-style-effect', id: snapshot.id,
+                            value: captionEffectPatch(nextValue as 'none' | 'shadow' | 'raised' | 'neon' | 'outline',
+                                effective?.color ?? CAPTION_STYLE_DEFAULTS.color), ...requestOptions });
                     }
                 },
-                { ...colorField('効果の色', 'stroke-color', raw?.stroke?.color, effective?.stroke?.color,
-                    CAPTION_STYLE_DEFAULTS.strokeColor, 'caption-style-stroke-color'),
-                name: 'caption-style-effect-color', revealName: undefined },
-                { ...numberField('強さ', 'stroke-width', raw?.stroke?.widthPx,
-                    effective?.stroke?.widthPx, CAPTION_STYLE_DEFAULTS.strokeWidthPx,
-                    'caption-style-stroke-width', 0, undefined, 0.5, 'px', '強さは 0 以上で入力してください。'),
-                name: 'caption-style-effect-strength' },
+                {
+                    name: 'caption-style-effect-color', label: '効果の色', inputKind: 'color',
+                    getValue: () => options.mixedFields?.has('effect') ? '—'
+                        : currentEffect === 'neon' ? effective?.glow?.color ?? '#39D5FF'
+                            : currentEffect === 'outline' ? effective?.stroke?.color ?? '#000000'
+                                : effective?.shadow?.color ?? '#000000',
+                    getEditValue: () => currentEffect === 'neon' ? effective?.glow?.color ?? '#39D5FF'
+                        : currentEffect === 'outline' ? effective?.stroke?.color ?? '#000000'
+                            : effective?.shadow?.color ?? '#000000',
+                    write: async (_snapshot, value) => {
+                        if (!isCaptionHexColor(value)) return { ok: false, message: '色は hex で入力してください。' };
+                        return requestWrite({ kind: 'caption-style-effect', id: snapshot.id,
+                            value: captionEffectColorPatch(effective ?? {}, value), ...requestOptions });
+                    }
+                },
+                {
+                    name: 'caption-style-effect-strength', label: '強さ', inputKind: 'slider-number',
+                    getValue: () => options.mixedFields?.has('effect') ? '—'
+                        : captionStyleDisplayValue(
+                            currentEffect === 'neon' ? raw?.glow?.spread
+                                : currentEffect === 'outline' ? raw?.stroke?.widthPx
+                                    : raw?.shadow?.distancePx,
+                            captionEffectStrength(effective ?? {}),
+                            currentEffect === 'outline' ? 6 : 1),
+                    getEditValue: () => String(captionEffectStrength(effective ?? {})),
+                    min: 0, sliderMax: currentEffect === 'outline' ? 20 : 8,
+                    scrubStep: currentEffect === 'outline' ? 0.5 : 0.1,
+                    unit: currentEffect === 'outline' ? 'px' : '',
+                    write: async (_snapshot, value) => {
+                        const strength = Number(value);
+                        if (!Number.isFinite(strength) || strength < 0) {
+                            return { ok: false, message: '強さは 0 以上で入力してください。' };
+                        }
+                        return requestWrite({ kind: 'caption-style-effect', id: snapshot.id,
+                            value: captionEffectStrengthPatch(effective ?? {}, strength), ...requestOptions });
+                    }
+                },
                 {
                     name: 'caption-zone', label: '位置',
                     getValue: () => options.mixedFields?.has('zone')
@@ -1343,19 +1404,17 @@ function CAPTION_SECTIONS(
         if (section.id !== 'style') return [section];
         const fields = section.fields;
         return [
-            { id: 'style', label: '文字', fields: fields.slice(0, 2) },
-            { id: 'style:stroke', label: '縁取り', fields: fields.slice(2, 4) },
-            { id: 'style:background', label: '座布団', fields: fields.slice(4, 9), body: () => {
+            { id: 'style', label: '文字', fields: fields.slice(0, 5) },
+            { id: 'style:stroke', label: '縁取り', fields: fields.slice(5, 7) },
+            { id: 'style:background', label: '座布団', fields: fields.slice(7, 13), body: () => {
                 const note = document.createElement('p');
                 note.className = 'akari-caption-radius-note';
                 note.textContent = '角丸を最大にすると文字に沿った丸い座布団（カプセル）になる';
                 return note;
             } },
-            { id: 'style:effect', label: '効果', fields: fields.slice(9,
-                options.mixedFields?.has('stroke-width')
-                    || captionEffectFromWidth(effective?.stroke?.widthPx ?? CAPTION_STYLE_DEFAULTS.strokeWidthPx) === 'none'
-                    ? 10 : 12) },
-            { id: 'style:position', label: '位置', fields: fields.slice(12) }
+            { id: 'style:effect', label: '効果', fields: fields.slice(13,
+                options.mixedFields?.has('effect') || currentEffect === 'none' ? 14 : 16) },
+            { id: 'style:position', label: '位置', fields: fields.slice(16) }
         ];
     });
 }
@@ -1395,6 +1454,13 @@ function MULTI_CAPTION_SECTIONS(
             snapshot.effectiveTextStyle?.color ?? CAPTION_STYLE_DEFAULTS.color),
         sizePx: common('size', snapshot =>
             snapshot.effectiveTextStyle?.sizePx ?? CAPTION_STYLE_DEFAULTS.sizePx),
+        fontWeight: common('font-weight', snapshot =>
+            snapshot.effectiveTextStyle?.weight ?? snapshot.effectiveTextStyle?.fontWeight
+                ?? CAPTION_STYLE_DEFAULTS.fontWeight),
+        lineHeight: common('line-height', snapshot =>
+            snapshot.effectiveTextStyle?.lineHeight ?? CAPTION_STYLE_DEFAULTS.lineHeight),
+        letterSpacingEm: common('letter-spacing', snapshot =>
+            snapshot.effectiveTextStyle?.letterSpacingEm ?? CAPTION_STYLE_DEFAULTS.letterSpacingEm),
         stroke: {
             color: common('stroke-color', snapshot =>
                 snapshot.effectiveTextStyle?.stroke?.color ?? CAPTION_STYLE_DEFAULTS.strokeColor),
@@ -1408,12 +1474,22 @@ function MULTI_CAPTION_SECTIONS(
                 effectiveCaptionBackgroundOpacity(snapshot.effectiveTextStyle)),
             radiusPx: common('background-radius', snapshot =>
                 snapshot.effectiveTextStyle?.background?.radiusPx ?? CAPTION_STYLE_DEFAULTS.backgroundRadiusPx),
+            paddingPx: common('background-padding', snapshot =>
+                snapshot.effectiveTextStyle?.background?.paddingPx ?? CAPTION_STYLE_DEFAULTS.backgroundPaddingPx),
             mode: common('background-mode', snapshot =>
                 snapshot.effectiveTextStyle?.background?.mode ?? CAPTION_STYLE_DEFAULTS.backgroundMode)
         },
         zone: common('zone', snapshot =>
             snapshot.effectiveTextStyle?.zone ?? CAPTION_STYLE_DEFAULTS.zone)
     };
+    const effect = common('effect', snapshot => captionEffectFromStyle(snapshot.effectiveTextStyle));
+    if (!mixedFields.has('effect')) {
+        if (effect === 'shadow' || effect === 'raised') {
+            effectiveStyle.shadow = snapshots[0].effectiveTextStyle?.shadow;
+        } else if (effect === 'neon') {
+            effectiveStyle.glow = snapshots[0].effectiveTextStyle?.glow;
+        }
+    }
     const aggregate: TimelineCaptionSelection = {
         ...snapshots[0],
         textStyle: effectiveStyle,
@@ -2785,9 +2861,10 @@ export class AkariInspectorWidget extends BaseWidget {
         white-space: nowrap;
     }
     .akari-inspector-widget .akari-caption-slider-number input[type="number"] {
-        flex: 0 0 48px;
-        width: 48px;
-        min-width: 0;
+        /* 符号付き小数 5 文字とネイティブの上下ボタンを収める。 */
+        flex: 0 0 72px;
+        width: 72px;
+        min-width: 72px;
     }
     .akari-inspector-widget .akari-caption-slider-unit,
     .akari-inspector-widget .akari-caption-default-note {
@@ -2802,11 +2879,25 @@ export class AkariInspectorWidget extends BaseWidget {
         line-height: 1.4;
     }
     .akari-inspector-widget .akari-caption-mode-choices,
-    .akari-inspector-widget .akari-caption-effect-choices {
+    .akari-inspector-widget .akari-caption-effect-choices,
+    .akari-inspector-widget .akari-caption-weight-choices {
         display: grid;
         grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 5px;
         min-width: 0;
+    }
+    .akari-inspector-widget .akari-caption-weight-choices {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+    .akari-inspector-widget .akari-caption-effect-choices {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+    .akari-inspector-widget .akari-caption-effect-choices .akari-caption-choice {
+        font-size: 10px;
+        line-height: 1.25;
+        white-space: normal;
+        overflow-wrap: anywhere;
+        text-align: center;
     }
     .akari-inspector-widget .akari-caption-choice {
         display: flex;
@@ -2829,7 +2920,7 @@ export class AkariInspectorWidget extends BaseWidget {
         color: var(--akari-ink);
     }
     .akari-inspector-widget .akari-caption-effect-sample {
-        font-size: 17px;
+        font-size: 15px;
         font-weight: 700;
         line-height: 1;
         color: var(--akari-ink);
@@ -2837,6 +2928,15 @@ export class AkariInspectorWidget extends BaseWidget {
     .akari-inspector-widget .akari-caption-effect-sample-outline {
         -webkit-text-stroke: 2px var(--akari-muted);
         paint-order: stroke fill;
+    }
+    .akari-inspector-widget .akari-caption-effect-sample-shadow {
+        text-shadow: 4px 4px 2px rgba(0, 0, 0, .75);
+    }
+    .akari-inspector-widget .akari-caption-effect-sample-raised {
+        text-shadow: 0 4px 10px rgba(0, 0, 0, .6);
+    }
+    .akari-inspector-widget .akari-caption-effect-sample-neon {
+        text-shadow: 0 0 5px #39D5FF, 0 0 10px #39D5FF;
     }
     .akari-inspector-widget .akari-caption-toggle {
         display: inline-flex;
@@ -5928,13 +6028,18 @@ export class AkariInspectorWidget extends BaseWidget {
             return;
         }
 
-        if (field.inputKind === 'caption-mode' || field.inputKind === 'caption-effect') {
+        if (field.inputKind === 'caption-mode' || field.inputKind === 'caption-effect'
+            || field.inputKind === 'caption-weight') {
             const choices = document.createElement('div');
             choices.className = field.inputKind === 'caption-mode'
-                ? 'akari-caption-mode-choices' : 'akari-caption-effect-choices';
+                ? 'akari-caption-mode-choices' : field.inputKind === 'caption-weight'
+                    ? 'akari-caption-weight-choices' : 'akari-caption-effect-choices';
             const values = field.inputKind === 'caption-mode'
                 ? [['per-line', '行ごと'], ['block', 'まとめて']]
-                : [['none', 'なし'], ['outline', '袋文字']];
+                : field.inputKind === 'caption-weight'
+                    ? [['400', '普通'], ['700', '太字'], ['900', '極太']]
+                    : [['none', 'なし'], ['shadow', '影'], ['raised', '浮き出し'],
+                        ['neon', 'ネオン'], ['outline', '袋文字']];
             for (const [value, label] of values) {
                 const button = document.createElement('button');
                 button.type = 'button';
@@ -5943,7 +6048,7 @@ export class AkariInspectorWidget extends BaseWidget {
                 button.dataset.value = value;
                 if (field.inputKind === 'caption-mode') {
                     button.appendChild(createInspectorIcon(value === 'per-line' ? 'plateLine' : 'plateBlock'));
-                } else {
+                } else if (field.inputKind === 'caption-effect') {
                     const sample = document.createElement('span');
                     sample.className = `akari-caption-effect-sample akari-caption-effect-sample-${value}`;
                     sample.textContent = 'Aa';
@@ -5951,7 +6056,7 @@ export class AkariInspectorWidget extends BaseWidget {
                 }
                 button.appendChild(document.createTextNode(label));
                 button.addEventListener('click', () => {
-                    if (field.inputKind === 'caption-effect') {
+                    if (field.inputKind === 'caption-effect' || field.inputKind === 'caption-weight') {
                         void write(snapshot, value).then(result => {
                             if (!result.ok) this.showFieldNotice(result.message ?? '効果を書き込めませんでした。');
                         });

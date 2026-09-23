@@ -2,7 +2,7 @@ import type { MaterialSwapTarget } from '../common/material-replacement';
 import { Emitter, Event } from '@theia/core/lib/common';
 import { injectable } from '@theia/core/shared/inversify';
 import type { EditAudioKeyframe, ReadableTransitionType, TransitionType } from '@akari-video/edit-store';
-import type { CaptionBackgroundMode, CaptionTextStyle, CaptionZone } from '../common/caption-store';
+import type { CaptionBackgroundMode, CaptionGlow, CaptionShadow, CaptionTextStyle, CaptionTextStylePatch, CaptionZone } from '../common/caption-store';
 import type { CutFraming, CutFramingKeyframe } from './inspector/framing-fields';
 import type { CutFreeze } from './inspector/freeze-fields';
 import type { InspectorAdjustPath, InspectorAdjustSnapshot, InspectorAdjustValue } from './inspector/adjust-fields';
@@ -345,6 +345,14 @@ type InspectorWriteOperation =
     | { kind: 'caption-speaker'; id: string; value: string | null }
     | { kind: 'caption-style-color'; id: string; value: string }
     | { kind: 'caption-style-size'; id: string; value: number }
+    | { kind: 'caption-style-font-weight'; id: string; value: number }
+    | { kind: 'caption-style-line-height'; id: string; value: number }
+    | { kind: 'caption-style-letter-spacing'; id: string; value: number }
+    | { kind: 'caption-style-font-family'; id: string; value: string }
+    | { kind: 'caption-style-bg-padding'; id: string; value: number }
+    | { kind: 'caption-style-shadow'; id: string; value: CaptionShadow | null }
+    | { kind: 'caption-style-glow'; id: string; value: CaptionGlow | null }
+    | { kind: 'caption-style-effect'; id: string; value: CaptionTextStylePatch }
     | { kind: 'caption-style-stroke-color'; id: string; value: string }
     | { kind: 'caption-style-stroke-width'; id: string; value: number }
     | { kind: 'caption-style-bg-color'; id: string; value: string }

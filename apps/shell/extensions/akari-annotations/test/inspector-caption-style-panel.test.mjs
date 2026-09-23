@@ -6,7 +6,9 @@ import { composeInspectorSections } from '../lib/browser/inspector/section-model
 import { filterInspectorSoloSections } from '../lib/browser/inspector/solo-model.js';
 import {
     CAPTION_BACKGROUND_ON_OPACITY, CAPTION_OUTLINE_WIDTH_PX,
-    captionEffectFromWidth, captionEffectWrites, resolveCaptionRevealField
+    captionEffectFromWidth, captionEffectWrites, captionEffectFromStyle, captionEffectPatch,
+    captionEffectColorPatch, captionEffectStrength, captionEffectStrengthPatch,
+    captionPresetAwareStylePatch, resolveCaptionRevealField
 } from '../lib/browser/inspector/caption-style-effects.js';
 
 const source = readFileSync(new URL('../src/browser/akari-inspector-widget.ts', import.meta.url), 'utf8');
@@ -36,10 +38,12 @@ const code = ts.transpileModule(declarations.join('\n'), {
 }).outputText;
 const { captionSections, multiCaptionSections } = new Function(
     'composeInspectorSections', 'CAPTION_ZONES', 'CAPTION_BACKGROUND_ON_OPACITY',
-    'captionEffectFromWidth', 'captionEffectWrites',
+    'captionEffectFromStyle', 'captionEffectPatch', 'captionEffectColorPatch',
+    'captionEffectStrength', 'captionEffectStrengthPatch',
     `${code}\nreturn { captionSections: CAPTION_SECTIONS, multiCaptionSections: MULTI_CAPTION_SECTIONS };`
 )(composeInspectorSections, ['top', 'middle', 'bottom'], CAPTION_BACKGROUND_ON_OPACITY,
-    captionEffectFromWidth, captionEffectWrites);
+    captionEffectFromStyle, captionEffectPatch, captionEffectColorPatch,
+    captionEffectStrength, captionEffectStrengthPatch);
 
 const caption = (id, extra = {}) => ({
     kind: 'caption', id, text: '字幕', sourceStart: 0, sourceEnd: 2, ...extra
@@ -61,6 +65,12 @@ test('字幕の全種類と複数選択に同じ五枚のスタイルカード�
         ['文字', '縁取り', '座布団', '効果', '位置']);
     assert.match(field(captionSections(caption('plain'), async () => ({ ok: true })),
         'caption-size').getValue(), /（既定）/u);
+    const plain = captionSections(caption('plain'), async () => ({ ok: true }));
+    assert.equal(field(plain, 'caption-font-weight').getValue(), '700（既定）');
+    assert.equal(field(plain, 'caption-font-weight').getEditValue(), '700');
+    assert.equal(field(plain, 'caption-line-height').getValue(), '1.42（既定）');
+    assert.equal(field(plain, 'caption-letter-spacing').getValue(), '0（既定）');
+    assert.match(source, /\.akari-caption-effect-choices\s*\{\s*grid-template-columns: repeat\(3, minmax\(0, 1fr\)\)/u);
     assert.match(source, /case 'caption':\s+sections = CAPTION_SECTIONS/u);
     assert.match(source, /sections = MULTI_CAPTION_SECTIONS/u);
 });
@@ -75,11 +85,15 @@ test('単体と複数選択の各項目を既存 requestWrite kind に送る', a
         for (const [name, value, kind] of [
             ['caption-color', '#123456', 'caption-style-color'],
             ['caption-size', '48', 'caption-style-size'],
+            ['caption-font-weight', '700', 'caption-style-font-weight'],
+            ['caption-line-height', '1.5', 'caption-style-line-height'],
+            ['caption-letter-spacing', '0.05', 'caption-style-letter-spacing'],
             ['caption-stroke-color', '#112233', 'caption-style-stroke-color'],
             ['caption-stroke-width', '4.5', 'caption-style-stroke-width'],
             ['caption-background-mode', 'block', 'caption-style-bg-mode'],
             ['caption-background-color', '#334455', 'caption-style-bg-color'],
             ['caption-background-opacity', '0.7', 'caption-style-bg-opacity'],
+            ['caption-background-padding', '12', 'caption-style-bg-padding'],
             ['caption-background-radius', '30', 'caption-style-bg-radius']
         ]) {
             const entry = field(sections, name);
@@ -106,8 +120,8 @@ test('単体と複数選択で短い欄ラベルと明示した単位を使う',
         multiCaptionSections(snapshots, async () => ({ ok: true }), {})
     ]) {
         assert.deepEqual(cards(sections).map(card => card.fields.map(entry => entry.label)), [
-            ['色', '大きさ'], ['色', '太さ'],
-            ['表示', '形', '色', '不透明度', '角丸'],
+            ['色', '大きさ', '太さ', '行間', '字間'], ['色', '太さ'],
+            ['表示', '形', '色', '不透明度', '余白', '角丸'],
             ['種類', '効果の色', '強さ'], ['位置']
         ]);
         for (const [name, unit] of [
@@ -119,6 +133,18 @@ test('単体と複数選択で短い欄ラベルと明示した単位を使う',
     assert.match(source, /角丸を最大にすると文字に沿った丸い座布団（カプセル）になる/u);
     assert.match(source, /valueGroup\.append\(number, unit, defaultNote\)/u);
     assert.match(source, /\.akari-caption-slider-value\s*\{[^}]*display: inline-flex;[^}]*white-space: nowrap;/u);
+});
+
+test('スライダー数値欄は符号付き小数五文字と上下ボタンを収める幅を持つ', () => {
+    const rule = source.match(/\.akari-inspector-widget \.akari-caption-slider-number input\[type="number"\] \{([^}]+)\}/u)?.[1];
+    assert.ok(rule);
+    const width = Number(rule.match(/width:\s*(\d+)px/u)?.[1]);
+    assert.ok(width >= 72, `number input width: ${width}px`);
+    assert.match(rule, new RegExp(`flex:\\s*0 0 ${width}px`, 'u'));
+    assert.match(source, /\.akari-caption-slider-number\s*\{[^}]*flex-wrap: wrap;/u);
+    for (const value of ['2.20', '-0.10', '3.00', '160', '100']) {
+        assert.ok(value.length <= 5);
+    }
 });
 
 test('座布団の敷く操作と効果は書ける項目だけを更新する', async () => {
@@ -147,11 +173,10 @@ test('座布団の敷く操作と効果は書ける項目だけを更新する',
         ['caption-style-effect', 'caption-style-effect-color', 'caption-style-effect-strength']);
     writes.length = 0;
     await field(sections, 'caption-style-effect').write(caption('one'), 'outline');
-    assert.deepEqual(writes.map(write => write.kind),
-        ['caption-style-stroke-color', 'caption-style-stroke-width']);
+    assert.deepEqual(writes.map(write => write.kind), ['caption-style-effect']);
     writes.length = 0;
     await field(sections, 'caption-style-effect').write(caption('one'), 'none');
-    assert.deepEqual(writes.map(write => write.value), ['#000000', 1.5]);
+    assert.deepEqual(writes.map(write => write.value), [captionEffectPatch('none', '#FFFFFF')]);
     const multiWrites = [];
     const multi = multiCaptionSections([caption('one'), caption('two')],
         async request => { multiWrites.push(request); return { ok: true }; }, {});
@@ -159,6 +184,75 @@ test('座布団の敷く操作と効果は書ける項目だけを更新する',
     await field(multi, 'caption-style-effect').write(caption('one'), 'outline');
     assert.ok(multiWrites.every(write => write.targets?.length === 2));
     assert.match(source, /\['per-line', '行ごと'\], \['block', 'まとめて'\]/u);
+});
+
+test('効果五種は保存値から判定し一操作で排他的な項目を書く', async () => {
+    const expected = {
+        none: { shadow: null, glow: null, stroke: { color: '#000000', widthPx: 1.5 } },
+        shadow: { shadow: { color: '#000000', opacity: 0.75, distancePx: 8.5,
+            angleDeg: 45, blurPx: 2 }, glow: null, stroke: { color: '#000000', widthPx: 1.5 } },
+        raised: { shadow: { color: '#000000', opacity: 0.6, distancePx: 4,
+            angleDeg: 90, blurPx: 14 }, glow: null, stroke: { color: '#000000', widthPx: 1.5 } },
+        neon: { shadow: null, glow: { color: '#39D5FF', density: 60, spread: 12 },
+            stroke: { color: '#000000', widthPx: 1.5 } },
+        outline: { shadow: null, glow: null, stroke: { color: '#000000', widthPx: 6 } }
+    };
+    for (const [effect, patch] of Object.entries(expected)) {
+        assert.deepEqual(captionEffectPatch(effect, '#FFFFFF'), patch);
+        const writes = [];
+        const sections = captionSections(caption('one'), async request => {
+            writes.push(request); return { ok: true };
+        });
+        await field(sections, 'caption-style-effect').write(caption('one'), effect);
+        assert.deepEqual(writes, [{ kind: 'caption-style-effect', id: 'one', value: patch }]);
+    }
+    assert.equal(captionEffectFromStyle({ glow: { color: '#FFFFFF' },
+        shadow: { color: '#000000' } }), 'neon');
+    assert.equal(captionEffectFromStyle({ shadow: { color: '#000000', blurPx: 14, distancePx: 4 } }), 'raised');
+    assert.equal(captionEffectFromStyle({ shadow: { color: '#000000', blurPx: 2, distancePx: 8.5 } }), 'shadow');
+    assert.equal(captionEffectFromStyle({ stroke: { widthPx: 6 } }), 'outline');
+    assert.equal(captionEffectFromStyle({}), 'none');
+    assert.equal(captionEffectFromStyle({ shadow: { color: '#000000', opacity: 0 },
+        glow: { color: '#000000', density: 0 } }), 'none');
+    assert.deepEqual(captionPresetAwareStylePatch({ shadow: null, glow: null }, 'neon'), {
+        shadow: { color: '#000000', opacity: 0 }, glow: { color: '#000000', density: 0 }
+    });
+    assert.deepEqual(captionPresetAwareStylePatch({ shadow: null, glow: null }, undefined),
+        { shadow: null, glow: null });
+});
+
+test('影とネオンの色と強さは現在の効果オブジェクトを更新する', () => {
+    const shadow = captionEffectPatch('shadow', '#FFFFFF');
+    assert.deepEqual(captionEffectColorPatch(shadow, '#ABCDEF'),
+        { shadow: { ...shadow.shadow, color: '#ABCDEF' } });
+    assert.deepEqual(captionEffectStrengthPatch(shadow, 2),
+        { shadow: { ...shadow.shadow, distancePx: 17, blurPx: 4 } });
+    const neon = captionEffectPatch('neon', '#FFFFFF');
+    assert.deepEqual(captionEffectColorPatch(neon, '#ABCDEF'),
+        { glow: { ...neon.glow, color: '#ABCDEF' } });
+    assert.deepEqual(captionEffectStrengthPatch(neon, 2),
+        { glow: { ...neon.glow, spread: 24 } });
+});
+
+test('効果の微調整欄は単体と複数選択で一つのパッチ要求を送る', async () => {
+    const style = { shadow: { color: '#000000', opacity: 0.75,
+        distancePx: 8.5, blurPx: 2, angleDeg: 45 } };
+    const snapshots = [caption('one', { effectiveTextStyle: style }),
+        caption('two', { effectiveTextStyle: style })];
+    for (const multi of [false, true]) {
+        const writes = [];
+        const sections = multi
+            ? multiCaptionSections(snapshots, async request => { writes.push(request); return { ok: true }; }, {})
+            : captionSections(snapshots[0], async request => { writes.push(request); return { ok: true }; });
+        await field(sections, 'caption-style-effect-color').write(snapshots[0], '#ABCDEF');
+        await field(sections, 'caption-style-effect-strength').write(snapshots[0], '2');
+        assert.deepEqual(writes.map(write => write.value), [
+            { shadow: { ...style.shadow, color: '#ABCDEF' } },
+            { shadow: { ...style.shadow, distancePx: 17, blurPx: 4 } }
+        ]);
+        assert.ok(writes.every(write => write.kind === 'caption-style-effect'));
+        assert.ok(writes.every(write => multi ? write.targets?.length === 2 : write.targets === undefined));
+    }
 });
 
 test('revealField は既知の欄を選び、未知または不正な引数はスタイル先頭に戻す', () => {
