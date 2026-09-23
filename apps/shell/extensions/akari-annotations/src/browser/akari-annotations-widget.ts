@@ -4021,8 +4021,40 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 if (!raw) throw new Error(`クリップが見つかりません: ${itemId}`);
                 if (request.path.startsWith('transform.')) {
                     const field = request.path.slice('transform.'.length);
-                    const transform = { ...(raw.transform ?? {}), [field]: request.value };
-                    if (request.value === null) delete transform[field];
+                    const transform: Record<string, unknown> = { ...(raw.transform ?? {}) };
+                    if (field === 'scale' && typeof request.value === 'number') {
+                        const base = typeof transform.scale === 'number' ? transform.scale : 1;
+                        const x = typeof transform.scaleX === 'number' ? transform.scaleX : base;
+                        const y = typeof transform.scaleY === 'number' ? transform.scaleY : base;
+                        const previous = Math.sqrt(x * y);
+                        const ratio = previous > 0 ? request.value / previous : 1;
+                        transform.scaleX = x * ratio;
+                        transform.scaleY = y * ratio;
+                        transform.scale = request.value;
+                    } else if (field === 'scale' && request.value === null) {
+                        delete transform.scale;
+                        delete transform.scaleX;
+                        delete transform.scaleY;
+                    } else if ((field === 'scaleX' || field === 'scaleY') && request.value === null) {
+                        const other = field === 'scaleX' ? 'scaleY' : 'scaleX';
+                        const uniform = typeof transform[other] === 'number' ? transform[other] as number
+                            : typeof transform.scale === 'number' ? transform.scale : 1;
+                        transform.scale = uniform;
+                        delete transform.scaleX;
+                        delete transform.scaleY;
+                    } else if (request.value === null) {
+                        delete transform[field];
+                    } else {
+                        transform[field] = request.value;
+                    }
+                    const base = typeof transform.scale === 'number' ? transform.scale : 1;
+                    const x = typeof transform.scaleX === 'number' ? transform.scaleX : base;
+                    const y = typeof transform.scaleY === 'number' ? transform.scaleY : base;
+                    if (!(field === 'scale' && request.value === null) && Math.abs(x - y) < 1e-9) {
+                        transform.scale = x;
+                        delete transform.scaleX;
+                        delete transform.scaleY;
+                    }
                     patch = { transform };
                     label = 'クリップの変形を変更';
                 } else if (request.path.startsWith('crop.')) {

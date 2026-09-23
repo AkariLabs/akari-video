@@ -655,7 +655,37 @@ test('cut / layer / overlay / item の変形節は拡縮・回転を既定 field
     assert.match(transformFields, /name: 'transform-scale'/u);
     assert.match(transformFields, /name: 'transform-rotate'/u);
     assert.doesNotMatch(source, /const optionalFields/u);
-    assert.match(source, /\{ id: 'transform', label: '変形', fields: transformFields \}/u);
+    assert.match(source, /\{ id: 'transform', label: '変形', fields: (?:transformFields|\['group', 'bag'\]\.includes\(snapshot\.itemKind\))/u);
+  }
+});
+
+test('HTML leaf has effective width/height percent controls; group and bag do not', async () => {
+  const writes = [];
+  const write = async request => { writes.push(request); return { ok: true }; };
+  const snapshot = visualSnapshot('item', { sourceKind: 'html', itemKind: 'part',
+    transform: { scale: 1, scaleX: 1.5, scaleY: .75 } });
+  const fields = itemSections(snapshot, write).find(section => section.id === 'transform').fields;
+  const scale = fields.find(field => field.name === 'transform-scale');
+  const width = fields.find(field => field.name === 'transform-scaleX');
+  const height = fields.find(field => field.name === 'transform-scaleY');
+  assert.ok(scale && width && height);
+  assert.ok(Math.abs(Number(scale.getValue(snapshot)) - Math.sqrt(1.5 * .75) * 100) < 1e-9);
+  assert.equal(width.getValue(snapshot), '150');
+  assert.equal(height.getValue(snapshot), '75');
+  for (const field of [width, height]) {
+    assert.equal(field.unit, '%');
+    assert.equal(field.removable, true);
+    assert.equal(field.scrubStep, 1);
+    assert.equal(field.min, 1);
+  }
+  await width.write(snapshot, '125');
+  await height.reset();
+  assert.deepEqual(writes.map(request => [request.path, request.value]),
+    [['transform.scaleX', 1.25], ['transform.scaleY', null]]);
+  for (const itemKind of ['group', 'bag']) {
+    const names = itemSections({ ...snapshot, itemKind }, write)
+      .find(section => section.id === 'transform').fields.map(field => field.name);
+    assert.ok(!names.includes('transform-scaleX') && !names.includes('transform-scaleY'));
   }
 });
 

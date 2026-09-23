@@ -63,6 +63,66 @@ test('frame engine keeps legacy cut index and layer ID addressing and ignores mi
   assert.equal(summaryWithLivePreview({}, { target: { kind: 'item', id: 'absent' }, field: 'x', value: 3 }).cuts, undefined);
 });
 
+test('tree HTML live scale preserves axis ratio and axis previews accept restoration', () => {
+  const current = { cuts: [], layers: [], tree: [{ id: 'html-leaf',
+    transform: { scale: 1, scaleX: 1.5, scaleY: .75 } }] };
+  const target = { kind: 'item', id: 'html-leaf' };
+  const halfway = summaryWithLivePreview(current, { target, field: 'scale', value: .5 });
+  const a = halfway.tree[0].transform;
+  assert.ok(Math.abs(Math.sqrt(a.scaleX * a.scaleY) - .5) < 1e-9);
+  assert.ok(Math.abs(a.scaleX / a.scaleY - 2) < 1e-9);
+  const restored = summaryWithLivePreview(current, { target, field: 'scaleX', value: 1.5 });
+  assert.equal(restored.tree[0].transform.scaleX, 1.5);
+  assert.deepEqual(current.tree[0].transform, { scale: 1, scaleX: 1.5, scaleY: .75 });
+});
+
+test('grouped HTML live width and X stay in world coordinates through a bag and restore', () => {
+  const parent = { x: 100, y: 0, scale: 2, rotate: 90 };
+  const original = { x: 90, y: 20, scale: 2, scaleX: 3, scaleY: 1.5, rotate: 120 };
+  const tree = [
+    { id: 'group', kind: 'group', parentId: null, transform: parent },
+    { id: 'bag', kind: 'bag', parentId: 'group', transform: { x: 999, scale: 9 } },
+    { id: 'html-leaf', kind: 'leaf', parentId: 'bag', transform: original }
+  ];
+  const current = { cuts: [], layers: [], tree };
+  const target = { kind: 'item', id: 'html-leaf' };
+  const world = (field, value) => summaryWithLivePreview(current, { target, field, value }).tree[2].transform;
+  assert.deepEqual(world('scaleX', 2), { x: 90, y: 20, scale: 2, scaleX: 4, scaleY: 1.5, rotate: 120 });
+  assert.deepEqual(world('x', 25), { x: 90, y: 50, scale: 2, scaleX: 3, scaleY: 1.5, rotate: 120 });
+  assert.deepEqual(world('scaleX', 1.5), original);
+  assert.deepEqual(world('x', 10), original);
+
+  const css = new Map();
+  const overlay = {
+    getAttribute: name => name === 'data-overlay-id' ? 'html-leaf' : null,
+    style: { setProperty: (name, value) => css.set(name, value), removeProperty: name => css.delete(name) }
+  };
+  const previousStage = globalThis.stage, previousSummary = globalThis.summary;
+  globalThis.stage = { querySelectorAll: () => [overlay] };
+  globalThis.summary = current;
+  try {
+    receive(target, 'scaleX', 2);
+    assert.deepEqual(Object.fromEntries(css), {
+      '--x': '90px', '--y': '20px', '--scale': '2',
+      '--scale-x': '4', '--scale-y': '1.5', '--rotate': '120deg'
+    });
+    receive(target, 'x', 25);
+    assert.equal(css.get('--x'), '90px');
+    assert.equal(css.get('--y'), '50px');
+    receive(target, 'scaleX', 1.5);
+    receive(target, 'x', 10);
+    assert.deepEqual(Object.fromEntries(css), {
+      '--x': '90px', '--y': '20px', '--scale': '2',
+      '--scale-x': '3', '--scale-y': '1.5', '--rotate': '120deg'
+    });
+  } finally {
+    if (previousStage === undefined) delete globalThis.stage;
+    else globalThis.stage = previousStage;
+    if (previousSummary === undefined) delete globalThis.summary;
+    else globalThis.summary = previousSummary;
+  }
+});
+
 function receive(target, field, value, engineActive = false) {
   const video = { dataset: { akariCutId: 'base-item' }, style: {} };
   const layer = { dataset: { akariLayerId: 'upper-item' }, style: {} };

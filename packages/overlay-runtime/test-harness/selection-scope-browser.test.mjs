@@ -88,7 +88,8 @@ async function bounds(page) {
     const frame = document.querySelector('.akari-interaction-selection-frame');
     return { frame: frame && rect(frame), union: { left: Math.min(...boxes.map(r => r.left)), top: Math.min(...boxes.map(r => r.top)),
       right: Math.max(...boxes.map(r => r.right)), bottom: Math.max(...boxes.map(r => r.bottom)) },
-      handles: frame?.querySelectorAll('[data-akari-interaction="selection-handle"]').length };
+      handles: [...(frame?.querySelectorAll('[data-akari-interaction="selection-handle"]') ?? [])]
+        .filter(handle => getComputedStyle(handle).display !== 'none').length };
   });
 }
 const near = (a, b) => Object.keys(a).every(k => Math.abs(a[k] - b[k]) < 2);
@@ -366,7 +367,7 @@ test('hierarchical interaction gestures in the classic browser runtime', async t
         await page.keyboard.type(' legacy'); await page.keyboard.press('Escape');
         const after = await state(page);
         const writes = await page.evaluate(() => window.writes);
-        assert.equal(after.selectedId, 'plain'); assert.equal(after.activeEdit, false); assert.equal(handles, 5);
+        assert.equal(after.selectedId, 'plain'); assert.equal(after.activeEdit, false); assert.equal(handles, 9);
         assert.equal(writes.length, 2); assert.notEqual(writes[1].patch.transform.scale, 1);
         traces.push({ selected, after, writes, handles });
       } finally { await page.close(); }

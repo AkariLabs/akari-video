@@ -108,7 +108,7 @@ test('Escape restores HTML/part/slot content, mirrors, attributes and selection 
   }
 });
 
-test('pointermove Alt disables snapping immediately; Shift retains leaf/group/resize snapping', async t => {
+test('pointermove Alt disables snapping; Shift frees corner axes while preserving move snap', async t => {
   const browser = await launchBrowser(); t.after(() => browser.close());
   for (const kind of ['leaf', 'group', 'resize']) await t.test(kind, async () => {
     const page = await fixture(browser, { id: 'sample', part: null,
@@ -132,7 +132,12 @@ test('pointermove Alt disables snapping immediately; Shift retains leaf/group/re
       }
       if (kind !== 'resize') assert.ok(Math.abs(results[0]) < 0.1, JSON.stringify(results));
       assert.ok(Math.abs(results[0] - results[1]) > 0.5, JSON.stringify(results));
-      assert.deepEqual(results, [results[0], results[1], results[0], results[1], results[0]]);
+      if (kind === 'resize') {
+        assert.ok(Math.abs(results[2] - results[0]) > 0.1, JSON.stringify(results));
+        assert.deepEqual([results[3], results[4]], [results[1], results[0]]);
+      } else {
+        assert.deepEqual(results, [results[0], results[1], results[0], results[1], results[0]]);
+      }
       await page.keyboard.press('Escape');
       await cdp.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x, y, button: 'left', clickCount: 1 });
       await cdp.detach();

@@ -103,6 +103,16 @@ function context(source = { kind: 'media', src: 'main' }) {
 }
 const request = { kind: 'item-field', id: 'visual-1', path: 'mask', value: 'maskgrad' };
 
+test('overall scale reset removes uniform and axis keys while preserving other transform fields', async () => {
+    const state = context();
+    state.rawKeyframeItem().transform = { x: 12, rotate: 30, scale: 0.5, scaleX: 1.5, scaleY: 0.75 };
+    assert.deepEqual(await handleWrite.call(state, {
+        kind: 'item-field', id: 'visual-1', path: 'transform.scale', value: null
+    }), { ok: true });
+    assert.deepEqual(state.rawKeyframeItem().transform, { x: 12, rotate: 30 });
+    assert.equal(state.commits, 1);
+});
+
 test('mask 保存と「なし」は動画・静止画どちらでも item 直下のキーを追加・削除する', async () => {
     for (const src of ['main', 'still']) {
         const state = context({ kind: 'media', src });
