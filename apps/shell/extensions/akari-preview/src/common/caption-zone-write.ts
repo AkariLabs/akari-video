@@ -235,6 +235,31 @@ export function updateCaptionCuePositionSource(
     return `${JSON.stringify(root, undefined, 2)}\n`;
 }
 
+/** Commit one drag's cue positions as one captions.json document update. */
+export function updateCaptionCuePositionsSource(
+    source: string,
+    positions: readonly { captionId: string; value: CaptionCuePosition }[]
+): string {
+    const root: unknown = JSON.parse(source);
+    const list = captionList(root);
+    const seen = new Set<string>();
+    for (const { captionId, value } of positions) {
+        if (seen.has(captionId)) throw new Error(`字幕 ID が重複しています: ${captionId}`);
+        seen.add(captionId);
+        const caption = list[captionIndex(list, captionId)] as Record<string, unknown>;
+        const current = caption.text_style;
+        const style = current && typeof current === 'object' && !Array.isArray(current)
+            ? current as Record<string, unknown> : {};
+        style.text_anchor = value.anchor;
+        style.position = value.position.x === undefined
+            ? { y: value.position.y }
+            : { x: value.position.x, y: value.position.y };
+        delete style.zone;
+        caption.text_style = style;
+    }
+    return `${JSON.stringify(root, undefined, 2)}\n`;
+}
+
 /** Remove one cue's explicit anchor/position, retaining any unrelated cue style fields. */
 export function clearCaptionCuePositionSource(source: string, captionId: string): string {
     const root: unknown = JSON.parse(source);

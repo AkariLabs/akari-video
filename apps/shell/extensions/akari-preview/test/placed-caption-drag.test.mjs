@@ -22,6 +22,7 @@ test('actual drag listeners share snapping, preserve placed anchors, and write t
             const context = {
                 captionLayer: { addEventListener: (_type, listener) => { pointerdown = listener; } },
                 captionGroupToolEnabled: false, captionSnapEnabled: true,
+                selectedCaptionIds: new Set(['placed']), captions: [caption],
                 activeCaptionEdit: null, captionForEvent: () => caption,
                 beginCaptionHandleDrag: () => false, selectCaption() {}, setCaptionGroupMode() {},
                 captionClampEnabled: () => false, captionCuePositionKnown: new Map(),

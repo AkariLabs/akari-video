@@ -110,6 +110,7 @@ import {
     persistCaptionText,
     persistCaptionZone,
     updateCaptionToolStyleSource,
+    updateCaptionCuePositionsSource,
     resetCaptionCueGeometrySource,
     type CaptionToolStylePatch
 } from '../common/caption-zone-write';
@@ -845,6 +846,7 @@ interface CaptionWriteRequest {
         | { groupZone: CaptionZoneValue }
         | { groupPosition: CaptionCuePosition }
         | { cuePosition: CaptionCuePosition }
+        | { cuePositions: { captionId: string; value: CaptionCuePosition }[] }
         | {
             plateTransform: {
                 captionIds: string[];
@@ -1283,6 +1285,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
     protected readonly timelineOverlaySelections = new Map<string, string | null>();
     protected readonly timelineLayerSelections = new Map<string, string | null>();
     protected readonly primaryTimelineSelections = new Map<string, { kind: 'cut' | 'caption'; id: string } | null>();
+    protected readonly timelineCaptionSelections = new Map<string, { captionIds: string[]; primaryCaptionId: string | null }>();
     protected reviewSessionRecorder: ReviewSessionRecorder | undefined;
     protected reviewSessionRecordingIndicator: ReviewSessionRecordingIndicator | undefined;
     protected readonly reviewSessionStateByEdit = new Map<string, ReviewSessionUiState>();
@@ -1610,6 +1613,23 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         };
         window.addEventListener('akari.timeline.primarySelected', onPrimarySelected);
         this.lifecycleDisposables.push({ dispose: () => window.removeEventListener('akari.timeline.primarySelected', onPrimarySelected) });
+        const onTimelineCaptionSelectionChanged = (event: Event): void => {
+            const detail = (event as CustomEvent<{
+                editUri?: unknown; captionIds?: unknown; primaryCaptionId?: unknown
+            }>).detail;
+            if (typeof detail?.editUri !== 'string' || !Array.isArray(detail.captionIds)) return;
+            const key = new URI(detail.editUri).normalizePath().toString();
+            const captionIds = detail.captionIds.filter((id): id is string => typeof id === 'string');
+            const primaryCaptionId = typeof detail.primaryCaptionId === 'string'
+                && captionIds.includes(detail.primaryCaptionId) ? detail.primaryCaptionId : null;
+            const selection = { captionIds, primaryCaptionId };
+            this.timelineCaptionSelections.set(key, selection);
+            this.openOutputPreviews.get(key)?.sendMessage({ type: 'akari-preview-set-selected-captions', ...selection });
+        };
+        window.addEventListener('akari.timeline.captionSelectionChanged', onTimelineCaptionSelectionChanged);
+        this.lifecycleDisposables.push({
+            dispose: () => window.removeEventListener('akari.timeline.captionSelectionChanged', onTimelineCaptionSelectionChanged)
+        });
         const onDaihonSelectionChanged = (event: Event): void => {
             const detail = (event as CustomEvent<{ editUri?: unknown; captionIds?: unknown }>).detail;
             if (typeof detail?.editUri !== 'string' || !Array.isArray(detail.captionIds)) return;
@@ -3260,6 +3280,11 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 if (key && this.primaryTimelineSelections.has(key)) {
                     widget.sendMessage({ type: 'akari-preview-select-primary', selection: this.primaryTimelineSelections.get(key) });
                 }
+                if (key && this.timelineCaptionSelections.has(key)) {
+                    widget.sendMessage({
+                        type: 'akari-preview-set-selected-captions', ...this.timelineCaptionSelections.get(key)
+                    });
+                }
             }
             if (message?.type === 'akari-preview-generation-request' && kind === 'output') {
                 this.queueGenerationUpdate(widget);
@@ -3784,6 +3809,11 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         if (!editUri) {
             return;
         }
+        const key = editUri.normalizePath().toString();
+        const previous = this.timelineCaptionSelections.get(key)?.captionIds ?? [];
+        const captionIds = message.captionId && previous.includes(message.captionId)
+            ? previous : message.captionId ? [message.captionId] : [];
+        this.timelineCaptionSelections.set(key, { captionIds, primaryCaptionId: message.captionId });
         window.dispatchEvent(new CustomEvent(PREVIEW_CAPTION_SELECTED_EVENT, {
             detail: {
                 editUri: editUri.normalizePath().toString(),
@@ -6580,6 +6610,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             };
             const toolStyle = 'toolStyle' in request.patch ? request.patch.toolStyle : undefined;
             const geometryReset = 'cueGeometryReset' in request.patch ? request.patch.cueGeometryReset : undefined;
+            const cuePositions = 'cuePositions' in request.patch ? request.patch.cuePositions : undefined;
             const lintResult = geometryReset
                 ? await (async () => {
                     const candidate = resetCaptionCueGeometrySource(originalText, geometryReset.captionIds);
@@ -6615,6 +6646,13 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     })
                 : 'cuePosition' in request.patch
                     ? await persistCaptionCuePosition({ ...persistOptions, value: request.patch.cuePosition })
+                    : cuePositions
+                        ? await (async () => {
+                            const candidate = updateCaptionCuePositionsSource(originalText, cuePositions);
+                            const result = await persistOptions.lint(candidate);
+                            if (result.pass) await persistOptions.write(candidate);
+                            return result;
+                        })()
                     : 'cuePositionReset' in request.patch
                         ? await persistCaptionCuePositionReset(persistOptions)
                         : 'groupPosition' in request.patch
@@ -6664,6 +6702,12 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             && Number.isFinite(cuePosition.position.y)
             && (cuePosition.position.x === undefined
                 || Number.isFinite(cuePosition.position.x));
+        const cuePositions = message?.patch?.cuePositions;
+        const hasCuePositions = Array.isArray(cuePositions) && cuePositions.length > 1
+            && cuePositions.every((entry: any) => typeof entry?.captionId === 'string'
+                && ['tl', 'tc', 'tr', 'ml', 'mc', 'mr', 'bl', 'bc', 'br'].includes(entry.value?.anchor)
+                && Number.isFinite(entry.value?.position?.x)
+                && Number.isFinite(entry.value?.position?.y));
         const hasCuePositionReset = message?.patch?.cuePositionReset === true;
         const geometryReset = message?.patch?.cueGeometryReset;
         const hasGeometryReset = !!geometryReset && Array.isArray(geometryReset.captionIds)
@@ -6711,7 +6755,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             && message.patch
             && typeof message.patch === 'object'
             && [hasZone, hasText, hasGroupZone, !!hasGroupPosition,
-                !!hasCuePosition, hasCuePositionReset, hasPlateTransform, hasToolStyle, hasGeometryReset].filter(Boolean).length === 1;
+                !!hasCuePosition, hasCuePositions, hasCuePositionReset, hasPlateTransform, hasToolStyle, hasGeometryReset].filter(Boolean).length === 1;
     }
 
     protected async persistCaptionGroupZoneForWidget(
@@ -7234,6 +7278,8 @@ ${kind === 'raw' ? '.akari-material-chip { position: absolute; top: 8px; left: 8
 :root { --akari-caption-select-color: #4da3ff; }
 #caption-select-box { position: absolute; z-index: 1900; box-sizing: border-box; border: 1.5px solid var(--akari-caption-select-color); box-shadow: 0 0 0 1px rgba(0,0,0,0.35); pointer-events: none; display: none; }
 #caption-select-box.is-active { display: block; }
+#caption-multi-select-boxes { position: absolute; inset: 0; z-index: 1899; pointer-events: none; }
+.caption-multi-select-box { position: absolute; box-sizing: border-box; border: 1px dashed var(--akari-caption-select-color); box-shadow: 0 0 0 1px rgba(0,0,0,.35); pointer-events: none; }
 #caption-select-box[data-alt-all] { border-style: dashed; }
 #caption-select-box .akari-caption-select-tools { position: absolute; left: 50%; transform: translateX(-50%); bottom: calc(100% + 6px); display: flex; align-items: center; gap: 2px; padding: 3px; border: 1px solid #333842; border-radius: 8px; background: rgba(24,26,31,.96); box-shadow: 0 4px 14px #0008; white-space: nowrap; pointer-events: auto; }
 .akari-caption-tool-separator { width: 1px; height: 18px; margin: 0 3px; background: #333842; }
@@ -7390,6 +7436,7 @@ html.akari-gen-capturing #layer-select-box,
 html.akari-gen-capturing #layer-crop-box,
 html.akari-gen-capturing #cut-select-box,
 html.akari-gen-capturing #caption-select-box,
+html.akari-gen-capturing #caption-multi-select-boxes,
 html.akari-gen-capturing [data-akari-handle],
 html.akari-gen-capturing [data-akari-crop-handle],
 html.akari-gen-capturing [data-akari-crop-edge] { visibility: hidden !important; }
@@ -13573,6 +13620,9 @@ body { display: grid; place-items: center; padding: 32px; }
             // 書き込み後はこの Map を正としてグループ既定と cue 固有位置を区別する。
             const captionCuePositionKnown = new Map();
             const captionSelectBox = document.getElementById('caption-select-box');
+            const captionMultiSelectBoxes = document.createElement('div');
+            captionMultiSelectBoxes.id = 'caption-multi-select-boxes';
+            captionSelectBox.parentElement.appendChild(captionMultiSelectBoxes);
             const captionTool = name => captionSelectBox.querySelector('[data-caption-tool="' + name + '"]');
             const setCaptionToolTip = (name, message) => {
                 captionTool(name).querySelector('.akari-caption-tool-tip').textContent = message;
@@ -13759,6 +13809,27 @@ body { display: grid; place-items: center; padding: 32px; }
                 updateCaptionSelectTools();
                 updateCaptionRowBox();
             };
+            const updateCaptionMultiSelectBoxes = () => {
+                captionMultiSelectBoxes.replaceChildren();
+                if (selectedCaptionIds.size < 2) return;
+                const frameRect = window.akari.computeOutputFrameRect();
+                const frameScale = window.akari.stageScale() || 1;
+                for (const row of captionRows.values()) {
+                    const id = row.caption.sourceCueId || row.caption.id;
+                    if (!selectedCaptionIds.has(id) || id === selectedCaptionId) continue;
+                    const rect = captionVisualRect(row.plate);
+                    const box = document.createElement('div');
+                    box.className = 'caption-multi-select-box';
+                    box.dataset.captionId = id;
+                    setRectStyle(box, {
+                        left: frameRect.x + rect.left * frameScale,
+                        right: frameRect.x + rect.right * frameScale,
+                        top: frameRect.y + rect.top * frameScale,
+                        bottom: frameRect.y + rect.bottom * frameScale
+                    });
+                    captionMultiSelectBoxes.appendChild(box);
+                }
+            };
             const updateCaptionZoneHighlight = zone => {
                 if (!zone) {
                     captionZoneHighlight.classList.remove('is-active');
@@ -13878,6 +13949,7 @@ body { display: grid; place-items: center; padding: 32px; }
             };
             const updateCaptionSelectBox = () => {
                 syncCaptionHandleBox();
+                updateCaptionMultiSelectBoxes();
                 if (!selectedCaptionId) {
                     captionSelectBox.classList.remove('is-active');
                     captionPalette.hidden = true;
@@ -13901,7 +13973,7 @@ body { display: grid; place-items: center; padding: 32px; }
             const selectCaption = (captionId, options) => {
                 const report = !options || options.report !== false;
                 // Keep a host-selected group when one of its cues becomes primary.
-                if (!(selectedCaptionIds.size > 1 && selectedCaptionIds.has(captionId))) {
+                if (!options?.preserveGroup && !(selectedCaptionIds.size > 1 && selectedCaptionIds.has(captionId))) {
                     selectedCaptionIds = captionId ? new Set([captionId]) : new Set();
                 }
                 applyCaptionSelectionAttrs();
@@ -14285,7 +14357,40 @@ body { display: grid; place-items: center; padding: 32px; }
                 const startClientY = event.clientY;
                 const startPlateRect = captionVisualRect();
                 const startOutputPoint = captionOutputPoint(startClientX, startClientY);
+                const moveIds = !groupMode && selectedCaptionIds.has(cueId)
+                    ? [...selectedCaptionIds].filter(id => captions.some(item => (item.sourceCueId || item.id) === id))
+                    : [];
+                const multiMove = moveIds.length > 1;
+                const startRects = new Map();
+                if (multiMove) {
+                    for (const id of moveIds) {
+                        if (id === cueId) { startRects.set(id, startPlateRect); continue; }
+                        const visible = [...captionRows.values()].find(row =>
+                            (row.caption.sourceCueId || row.caption.id) === id);
+                        if (visible) { startRects.set(id, captionVisualRect(visible.plate)); continue; }
+                        const candidate = captions.find(item => (item.sourceCueId || item.id) === id);
+                        const measuringPlate = document.createElement('div');
+                        measuringPlate.className = 'caption-row-plate akari-caption-host--styled';
+                        measuringPlate.style.visibility = 'hidden';
+                        if (candidate.timeDomain === 'output') measuringPlate.dataset.outputCaption = '';
+                        applyCaptionStyleVars(candidate, measuringPlate);
+                        const hasWords = Array.isArray(candidate.words) && candidate.words.length > 0;
+                        const hasEmphasis = hasWords && candidate.words.some(word => findMatchingEmphasis(word));
+                        const reveal = hasWords && (candidate.style === 'reveal'
+                            || (!candidate.style && captionPortrait
+                                && splitCaptionLines(candidate.text || '', captionLineBudget).length > 1));
+                        const usesWords = hasWords && (candidate.style === 'karaoke'
+                            || candidate.style === 'pop' || candidate.style === 'reveal-word'
+                            || hasEmphasis || reveal);
+                        measuringPlate.innerHTML = usesWords
+                            ? renderStyledCaptionFragment(candidate) : renderPlainCaptionFragment(candidate);
+                        captionLayer.appendChild(measuringPlate);
+                        startRects.set(id, captionVisualRect(measuringPlate));
+                        measuringPlate.remove();
+                    }
+                }
                 let moved = false;
+                let lastOutputDelta = { x: 0, y: 0 };
                 selectionDragActive = true;
                 try { captionPlate.setPointerCapture(pointerId); } catch (_error) { /* not capturable */ }
                 const outputFrame = captionOutputFrame();
@@ -14340,12 +14445,27 @@ body { display: grid; place-items: center; padding: 32px; }
                         if (snap.y) outputDy += snap.y.correction;
                         window.akari.interaction.showSnapGuides(snap.x, snap.y);
                     }
-                    captionPlate.style.translate = outputDx + 'px ' + outputDy + 'px';
-                    updateCaptionSelectBoxForRect(captionVisualRect());
+                    lastOutputDelta = { x: outputDx, y: outputDy };
+                    if (multiMove) {
+                        for (const row of captionRows.values()) {
+                            if (selectedCaptionIds.has(row.caption.sourceCueId || row.caption.id)) {
+                                row.plate.style.translate = outputDx + 'px ' + outputDy + 'px';
+                            }
+                        }
+                        updateCaptionSelectBox();
+                    } else {
+                        captionPlate.style.translate = outputDx + 'px ' + outputDy + 'px';
+                        updateCaptionSelectBoxForRect(captionVisualRect());
+                    }
                 };
                 const finish = async cancelled => {
                     cleanup();
                     if (cancelled || !moved) {
+                        for (const row of captionRows.values()) {
+                            if (multiMove && selectedCaptionIds.has(row.caption.sourceCueId || row.caption.id)) {
+                                row.plate.style.translate = '';
+                            }
+                        }
                         captionPlate.style.translate = '';
                         updateCaptionSelectBox();
                         return;
@@ -14359,6 +14479,25 @@ body { display: grid; place-items: center; padding: 32px; }
                                 startAnchor
                             );
                             await window.akari.engine.captionWrite(cueId, { groupPosition });
+                        } else if (multiMove) {
+                            const cuePositions = moveIds.map(id => {
+                                const target = captions.find(item => (item.sourceCueId || item.id) === id);
+                                const rect = startRects.get(id);
+                                const movedRect = {
+                                    left: rect.left + lastOutputDelta.x,
+                                    right: rect.right + lastOutputDelta.x,
+                                    top: rect.top + lastOutputDelta.y,
+                                    bottom: rect.bottom + lastOutputDelta.y
+                                };
+                                const anchor = target.textStyle?.text_anchor || 'bc';
+                                const clamp = captionClampEnabled(target);
+                                const value = target.timeDomain === 'output'
+                                    ? placedCaptionPositionFromRects(movedRect, outputFrame, { anchor, clamp })
+                                    : captionCuePositionFromRects(movedRect, outputFrame, clamp, anchor);
+                                return { captionId: id, value };
+                            });
+                            await window.akari.engine.captionWrite(cueId, { cuePositions });
+                            for (const id of moveIds) captionCuePositionKnown.set(id, true);
                         } else {
                             const cuePosition = placedText
                                 ? placedCaptionPositionFromRects(captionVisualRect(), outputFrame, {
@@ -14372,6 +14511,7 @@ body { display: grid; place-items: center; padding: 32px; }
                         }
                     } catch (error) {
                         pendingCaptionDragReload = false;
+                        if (multiMove) for (const row of captionRows.values()) row.plate.style.translate = '';
                         captionPlate.style.translate = '';
                         console.warn('[akari-preview] caption position write rejected; reverting', error);
                         window.akari.showWriteError(error);
@@ -15677,7 +15817,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     renderCaptionRow(caption, row);
                 }
                 if (requestedCutId !== undefined) updateCutSelectBox();
-                if (selectedCaptionId) updateCaptionSelectBox();
+                if (selectedCaptionId || selectedCaptionIds.size > 0) updateCaptionSelectBox();
             };
             window.addEventListener('akari-frame-engine-seek', event => {
                 const time = event.detail?.time;
@@ -17660,7 +17800,17 @@ body { display: grid; place-items: center; padding: 32px; }
                 }
                 if (message && message.type === 'akari-preview-set-selected-captions') {
                     selectedCaptionIds = new Set(Array.isArray(message.captionIds) ? message.captionIds : []);
+                    if (Object.prototype.hasOwnProperty.call(message, 'primaryCaptionId')) {
+                        selectCaption(selectedCaptionIds.has(message.primaryCaptionId)
+                            ? message.primaryCaptionId : null, { report: false, preserveGroup: true });
+                    } else if (!selectedCaptionIds.has(selectedCaptionId)) {
+                        const visible = [...captionRows.values()].find(row =>
+                            selectedCaptionIds.has(row.caption.sourceCueId || row.caption.id));
+                        selectCaption(visible ? visible.caption.sourceCueId || visible.caption.id : null,
+                            { report: false, preserveGroup: true });
+                    }
                     applyCaptionSelectionAttrs();
+                    updateCaptionSelectBox();
                     return;
                 }
                 if (message && message.type === 'akari-preview-captions-update') {

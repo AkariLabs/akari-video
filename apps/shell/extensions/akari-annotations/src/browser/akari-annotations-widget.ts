@@ -21,6 +21,7 @@ import { selectGenerationSidecarForSource, setCaptionTimingLine } from '@akari-v
 import { maskSourceOptionsForSources } from './inspector/mask-fields';
 import { CommandRegistry, CommandService, Disposable, MessageService } from '@theia/core/lib/common';
 import { BinaryBuffer } from '@theia/core/lib/common/buffer';
+import { isOSX } from '@theia/core/lib/common/os';
 import { ApplicationShell, BaseWidget, StorageService } from '@theia/core/lib/browser';
 import { ContextKeyService } from '@theia/core/lib/browser/context-key-service';
 import { KeybindingRegistry } from '@theia/core/lib/browser/keybinding';
@@ -3038,8 +3039,31 @@ export class AkariAnnotationsWidget extends BaseWidget {
         }
         const editUri = this.location?.editUri?.toString() ?? '';
         window.dispatchEvent(new CustomEvent('akari.timeline.primarySelected', { detail: { editUri, selection: target } }));
+        const selectedCaptionIds = this.multiSelection.flatMap(item => {
+            if (item.kind === 'caption') return [item.id];
+            if (item.kind !== 'item') return [];
+            const raw = this.rawKeyframeItem(item.id);
+            const id = captionIdForTreeSelection(item,
+                raw?.source?.kind === 'caption' ? raw.source.id : undefined);
+            return id ? [id] : [];
+        });
+        const captionIds = this.multiSelection.length > 0
+            ? selectedCaptionIds.length === this.multiSelection.length ? selectedCaptionIds : []
+            : target?.kind === 'caption' ? [target.id] : [];
+        this.selectionModel.selectedCaptionIds = captionIds;
+        this.applyCaptionStateClasses();
+        window.dispatchEvent(new CustomEvent('akari.timeline.captionSelectionChanged', {
+            detail: { editUri, captionIds, primaryCaptionId: target?.kind === 'caption' ? target.id : null }
+        }));
         window.dispatchEvent(new CustomEvent(TIMELINE_OVERLAY_SELECTED_EVENT, { detail: { editUri, overlayId } }));
         window.dispatchEvent(new CustomEvent(TIMELINE_LAYER_SELECTED_EVENT, { detail: { editUri, layerId } }));
+    }
+
+    protected shouldToggleMultiSelection(
+        event: Pick<MouseEvent, 'shiftKey' | 'metaKey' | 'ctrlKey'>,
+        macOS = isOSX
+    ): boolean {
+        return event.shiftKey || (macOS ? event.metaKey : event.ctrlKey);
     }
 
     protected toggleMultiSelection(item: TimelineSelectionItem): void {
@@ -3054,6 +3078,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.multiSelection = candidates.length > 1 ? candidates : [];
         this.pushSelectionSnapshot();
         this.applySelectionClass();
+        this.publishPrimaryPreviewSelection(this.selection ?? candidates[candidates.length - 1]);
     }
 
     /**
@@ -4616,14 +4641,23 @@ export class AkariAnnotationsWidget extends BaseWidget {
             return;
         }
         if (captionId === null) {
-            if (this.selection?.kind === 'caption' || (this.selection?.kind === 'item'
+            if (this.multiSelection.some(item => item.kind === 'caption'
+                || this.selectionRenderKeys(item).some(key => key.startsWith('caption:')))
+                || this.selection?.kind === 'caption' || (this.selection?.kind === 'item'
                 && this.selectionRenderKeys(this.selection).some(key => key.startsWith('caption:')))) {
                 this.applySelection(undefined, false);
+                this.selectionModel.selectedCaptionIds = [];
+                this.applyCaptionStateClasses();
             }
             return;
         }
         if (this.captions.some(caption => caption.id === captionId)) {
-            this.applySelection({ kind: 'caption', id: captionId }, false);
+            if (!this.multiSelection.some(item => this.selectionRenderKeys(item).includes(`caption:${captionId}`)
+                || (item.kind === 'caption' && item.id === captionId))) {
+                this.applySelection({ kind: 'caption', id: captionId }, false);
+                this.selectionModel.selectedCaptionIds = [captionId];
+                this.applyCaptionStateClasses();
+            }
             this.revealPreviewSelection();
         }
     }
@@ -9295,7 +9329,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                         return;
                     }
                     const selected = this.selectionForTreeRow(row);
-                    if (event.shiftKey) this.toggleMultiSelection(selected);
+                    if (this.shouldToggleMultiSelection(event)) this.toggleMultiSelection(selected);
                     else this.applySelection(selected);
                 });
             }
@@ -11244,7 +11278,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     return;
                 }
                 const selected = this.selectionForTreeRow(treeRow);
-                if (event.shiftKey) this.toggleMultiSelection(selected);
+                if (this.shouldToggleMultiSelection(event)) this.toggleMultiSelection(selected);
                 else this.applySelection(selected);
             });
             row.addEventListener('pointerdown', event => event.stopPropagation());
@@ -13011,7 +13045,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 event.stopPropagation();
                 if (event.button === 0) {
                     const selected = this.selectionFromDragState(dragDetail);
-                    if (event.shiftKey) this.toggleMultiSelection(selected);
+                    if (this.shouldToggleMultiSelection(event)) this.toggleMultiSelection(selected);
                     else this.applySelection(selected);
                 }
                 return;
@@ -13134,7 +13168,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 event.stopPropagation();
                 if (event.button === 0) {
                     const selected = this.selectionFromDragState(dragDetail);
-                    if (event.shiftKey) this.toggleMultiSelection(selected);
+                    if (this.shouldToggleMultiSelection(event)) this.toggleMultiSelection(selected);
                     else this.applySelection(selected);
                 }
                 return;
@@ -14243,7 +14277,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 event.stopPropagation();
                 if (event.button === 0) {
                     const selected = this.selectionFromDragState(dragDetail);
-                    if (event.shiftKey) this.toggleMultiSelection(selected);
+                    if (this.shouldToggleMultiSelection(event)) this.toggleMultiSelection(selected);
                     else this.applySelection(selected);
                 }
                 return;
@@ -14358,7 +14392,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                         return;
                     }
                 }
-                if (event.shiftKey) this.toggleMultiSelection(selected);
+                if (this.shouldToggleMultiSelection(event)) this.toggleMultiSelection(selected);
                 else this.applySelection(selected);
                 return;
             }
@@ -16642,6 +16676,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 this.multiSelection = selected;
                 this.pushSelectionSnapshot();
                 this.applySelectionClass();
+                this.publishPrimaryPreviewSelection(selected[selected.length - 1]);
             } else {
                 this.applySelection(undefined);
             }

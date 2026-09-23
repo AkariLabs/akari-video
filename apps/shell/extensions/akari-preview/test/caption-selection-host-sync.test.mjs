@@ -37,6 +37,7 @@ for (const origin of ['preview', 'transcript', 'timeline']) {
                 window: eventWindow, PREVIEW_CAPTION_SELECTED_EVENT: 'akari.preview.captionSelected',
                 CustomEvent: class { constructor(type, options) { this.type = type; this.detail = options.detail; } }
             });
+            host.timelineCaptionSelections = new Map();
             const widget = { akariPreviewEditUri: { normalizePath() { return this; }, toString: () => editUri } };
             const transcript = hostMethod('../../akari-transcript/src/browser/daihon/akari-daihon-widget.ts', 'receivePlacedSelection', { clearSelection: () => ({ selected: [] }) });
             let transcriptRenders = 0;
@@ -49,6 +50,7 @@ for (const origin of ['preview', 'transcript', 'timeline']) {
             Object.assign(timeline, {
                 canHandlePlaybackTick: uri => uri === editUri, captions: [{ id: 'c-0101' }],
                 selectionModel: { selectedCaptionIds: [] }, applyCaptionStateClasses() {}, revealPreviewSelection() {},
+                multiSelection: [],
                 applySelection(selection, notify) { assert.equal(notify, false); this.selection = selection; }
             });
             callbacks.push(event => timeline.handleCaptionSelection(event.detail.editUri, event.detail.captionId));

@@ -107,6 +107,7 @@ html,body{margin:0;width:${width}px;height:${height}px;overflow:hidden}
 </style></head><body><div id="caption-plate"></div><script>
 const captionLayer=document.getElementById('caption-plate'); const captionRows=new Map();
 const stage=document.body;
+let selectedCaptionIds=new Set();
 ${inlineScript(selectionSource)}
 const captions=[{id:'caption-fixture',start:10,end:14,text:'字幕',style:'pop',textStyle:{color:'#fff'},words:[{start:10,end:11,text:'字幕'}]}];
 let outputTime=0;

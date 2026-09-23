@@ -32,7 +32,7 @@ test('concurrent rows keep independent styles, animation clocks, hit regions and
   ];
   const context = vm.createContext({
     captionLayer: layer, captionRows: rows, captions: cues, outputTime: 3,
-    selectedCaptionId: null, requestedCutId: undefined, activeCaptionEdit: null,
+    selectedCaptionId: null, selectedCaptionIds: new Set(), requestedCutId: undefined, activeCaptionEdit: null,
     captionPortrait: false, captionLineBudget: 20,
     document: { createElement: () => new Element() },
     window: { AkariEditKernel: { findActiveCaptions }, addEventListener() {}, akari: { interaction: { syncOverlayHitRegion: plate => synced.push(plate) } } },

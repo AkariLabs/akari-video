@@ -6,7 +6,10 @@ import test from 'node:test';
 const source = readFileSync(new URL('../lib/browser/akari-annotations-widget.js', import.meta.url), 'utf8');
 const start = source.indexOf('    updateTrimAffordance(');
 const end = source.indexOf('    updateDragPreview(', start);
-const Widget = new Function(`const DRAG_THRESHOLD_PX = 3; return class { ${source.slice(start, end)} };`)();
+const modifierStart = source.indexOf('    shouldToggleMultiSelection(');
+const modifierEnd = source.indexOf('\n    }', modifierStart) + 6;
+const Widget = new Function('os_1', `const DRAG_THRESHOLD_PX = 3; return class {
+    ${source.slice(modifierStart, modifierEnd)} ${source.slice(start, end)} };`)({ isOSX: process.platform === 'darwin' });
 function fixture(detail) {
     const handlers = new Map();
     const element = {

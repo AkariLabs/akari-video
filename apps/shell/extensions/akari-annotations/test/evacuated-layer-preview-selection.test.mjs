@@ -13,7 +13,8 @@ function setup(cutItemIds = ['lower-cut']) {
         class { constructor(type, options) { this.type = type; this.detail = options.detail; } },
         { captionIdForTreeSelection: (_, id) => id }, 'overlay', 'layer');
     const widget = Object.assign(new Widget(), { cutItemIds, layers: [{ id: 'upper-v2-id' }],
-        location: { editUri: { toString: () => '/edit.json' } }, rawKeyframeItem: () => ({ source: { kind: 'video' } }) });
+        location: { editUri: { toString: () => '/edit.json' } }, rawKeyframeItem: () => ({ source: { kind: 'video' } }),
+        multiSelection: [], selectionModel: {}, applyCaptionStateClasses() {} });
     return { widget, events };
 }
 
@@ -23,6 +24,7 @@ for (const selection of [{ kind: 'layer', id: 'upper-v2-id' }, { kind: 'item', i
         widget.publishPrimaryPreviewSelection(selection);
         assert.deepEqual(events.map(event => [event.type, event.detail]), [
             ['akari.timeline.primarySelected', { editUri: '/edit.json', selection: null }],
+            ['akari.timeline.captionSelectionChanged', { editUri: '/edit.json', captionIds: [], primaryCaptionId: null }],
             ['overlay', { editUri: '/edit.json', overlayId: null }],
             ['layer', { editUri: '/edit.json', layerId: 'upper-v2-id' }]
         ]);

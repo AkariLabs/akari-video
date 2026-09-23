@@ -21,7 +21,7 @@ const names = [
   'performDeleteSelected', 'performDeleteSelectedCut', 'performDeleteMultiSelected',
   'moveTimelineKeyframe', 'removeSelectedKeyframes', 'moveAggregateKeyframes', 'deleteTimelineTrack',
   'commitDrag', 'commitEditV2Drag', 'installDragListeners', 'installTrimmerDrag',
-  'installAudioTrimmerDrag', 'installTreeRowDrag', 'selectionFromDragState',
+  'installAudioTrimmerDrag', 'installTreeRowDrag', 'selectionFromDragState', 'shouldToggleMultiSelection',
   'handleMaterialDrop', 'readLibraryAssetDropPayload', 'resolveMaterialDropTarget', 'updateMaterialGhost',
   'handleLibraryTransitionDrop', 'handleLibraryTransitionDragOver', 'applyTrackLockAppearance',
   'timelineSelectionFromElement',
@@ -36,10 +36,10 @@ const code = ts.transpileModule(`class Handler { ${names.map(methodText).join('\
   compilerOptions: { target: ts.ScriptTarget.ES2021 },
 }).outputText;
 class Element {}
-const Handler = new Function('isTrackLocked', 'lockedTrackMessage', 'TRACK_FLAG_STORAGE_PREFIX', 'Element',
+const Handler = new Function('isTrackLocked', 'lockedTrackMessage', 'TRACK_FLAG_STORAGE_PREFIX', 'Element', 'isOSX',
   'withCaptionsDisplaySupplement', 'linkedCutIdOf', 'linkedAudioItemIdOf', 'indexEditV2Items',
   'computeMaterialGhostRange', 'materialGhostRejectLabel', 'materialGhostVisibility', `${code}\nreturn Handler;`)(
-  isTrackLocked, lockedTrackMessage, 'test-track-flags', Element, withCaptionsDisplaySupplement,
+  isTrackLocked, lockedTrackMessage, 'test-track-flags', Element, process.platform === 'darwin', withCaptionsDisplaySupplement,
   linkedCutIdOf, linkedAudioItemIdOf, indexEditV2Items, computeMaterialGhostRange,
   materialGhostRejectLabel, materialGhostVisibility
 );

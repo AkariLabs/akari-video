@@ -1,0 +1,1298 @@
+{
+  "phase": "after",
+  "status": "fail",
+  "checks": [
+    {
+      "name": "S0 1 本だけ: タイムラインでクリック → 本体ドラッグで その 1 本だけ動く（保存値・移動量が BEFORE と同じ）",
+      "pass": true,
+      "detail": {
+        "timeline": [
+          "c-0004"
+        ],
+        "preview": [
+          {
+            "plate": "caption-plate-c-0004-output-1",
+            "selected": true,
+            "handles": 5,
+            "frames": [
+              {
+                "id": "caption-select-box",
+                "cls": "is-active",
+                "kind": "border",
+                "style": "solid",
+                "color": "rgb(77, 163, 255)",
+                "width": 1.5,
+                "rect": {
+                  "left": 175.21,
+                  "top": 353.8,
+                  "width": 397.55,
+                  "height": 31.7
+                }
+              }
+            ]
+          }
+        ],
+        "changedIds": [
+          "c-0004"
+        ],
+        "diff": [
+          {
+            "id": "c-0004",
+            "before": null,
+            "after": {
+              "text_anchor": "bc",
+              "position": {
+                "x": 0.2651,
+                "y": 0.95
+              }
+            }
+          }
+        ],
+        "writeCount": 1,
+        "delta": {
+          "c-0004": {
+            "dx": 39.98,
+            "dy": 7.6,
+            "dw": 0
+          }
+        },
+        "undoRestoresBytes": false,
+        "vsBefore": {
+          "dx": 0,
+          "dy": 0,
+          "undoBefore": false,
+          "undoAfter": false,
+          "savedSame": true
+        }
+      }
+    },
+    {
+      "name": "S1 Cmd クリック 3 本: タイムラインとプレビューの選択・見えている 3 本に枠",
+      "pass": true,
+      "detail": {
+        "timeline": [
+          "c-0101",
+          "c-0102",
+          "c-0103"
+        ],
+        "preview": [
+          {
+            "plate": "caption-plate-c-0101",
+            "selected": true,
+            "handles": 5,
+            "frames": [
+              {
+                "id": null,
+                "cls": "caption-multi-select-box",
+                "kind": "border",
+                "style": "dashed",
+                "color": "rgb(77, 163, 255)",
+                "width": 1,
+                "rect": {
+                  "left": 245.86,
+                  "top": 77.5,
+                  "width": 256.27,
+                  "height": 31.7
+                }
+              }
+            ]
+          },
+          {
+            "plate": "caption-plate-c-0102",
+            "selected": true,
+            "handles": 5,
+            "frames": [
+              {
+                "id": null,
+                "cls": "caption-multi-select-box",
+                "kind": "border",
+                "style": "dashed",
+                "color": "rgb(77, 163, 255)",
+                "width": 1,
+                "rect": {
+                  "left": 245.16,
+                  "top": 176.36,
+                  "width": 257.67,
+                  "height": 31.7
+                }
+              }
+            ]
+          },
+          {
+            "plate": "caption-plate-c-0103",
+            "selected": true,
+            "handles": 5,
+            "frames": [
+              {
+                "id": "caption-select-box",
+                "cls": "is-active",
+                "kind": "border",
+                "style": "solid",
+                "color": "rgb(77, 163, 255)",
+                "width": 1.5,
+                "rect": {
+                  "left": 245.16,
+                  "top": 267.63,
+                  "width": 257.67,
+                  "height": 31.7
+                }
+              }
+            ]
+          }
+        ],
+        "tools": [
+          {
+            "left": 237,
+            "top": 227,
+            "width": 273
+          }
+        ]
+      }
+    },
+    {
+      "name": "S1 本体ドラッグ 40px → 3 本とも同じ量・書き込み 1 回",
+      "pass": true,
+      "detail": {
+        "changedIds": [
+          "c-0101",
+          "c-0102",
+          "c-0103"
+        ],
+        "diff": [
+          {
+            "id": "c-0101",
+            "before": {
+              "position": {
+                "y": 0.12
+              },
+              "text_anchor": "tc"
+            },
+            "after": {
+              "position": {
+                "x": 0.3696,
+                "y": 0.12
+              },
+              "text_anchor": "tc"
+            }
+          },
+          {
+            "id": "c-0102",
+            "before": {
+              "position": {
+                "y": 0.38
+              },
+              "text_anchor": "tc"
+            },
+            "after": {
+              "position": {
+                "x": 0.3686,
+                "y": 0.38
+              },
+              "text_anchor": "tc"
+            }
+          },
+          {
+            "id": "c-0103",
+            "before": {
+              "position": {
+                "y": 0.62
+              },
+              "text_anchor": "tc"
+            },
+            "after": {
+              "position": {
+                "x": 0.3686,
+                "y": 0.62
+              },
+              "text_anchor": "tc"
+            }
+          }
+        ],
+        "writeCount": 1,
+        "delta": {
+          "c-0101": {
+            "dx": 39.99,
+            "dy": 0,
+            "dw": 0
+          },
+          "c-0102": {
+            "dx": 40.01,
+            "dy": 0,
+            "dw": 0
+          },
+          "c-0103": {
+            "dx": 40.01,
+            "dy": 0,
+            "dw": 0
+          }
+        },
+        "undoRestoresBytes": false,
+        "afterUndoDelta": {
+          "c-0101": {
+            "dx": 39.99,
+            "dy": 0,
+            "dw": 0
+          },
+          "c-0102": {
+            "dx": 40.01,
+            "dy": 0,
+            "dw": 0
+          },
+          "c-0103": {
+            "dx": 40.01,
+            "dy": 0,
+            "dw": 0
+          }
+        },
+        "redoRestoresBytes": true
+      }
+    },
+    {
+      "name": "S1 undo 1 回で 3 本とも戻る（Cmd+Z = akari.timeline.undo）",
+      "pass": false,
+      "error": "Error: {\"undoRestoresBytes\":false,\"afterUndoDelta\":{\"c-0101\":{\"dx\":39.99,\"dy\":0,\"dw\":0},\"c-0102\":{\"dx\":40.01,\"dy\":0,\"dw\":0},\"c-0103\":{\"dx\":40.01,\"dy\":0,\"dw\":0}}}\n    at assert (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/caption-multiselect-move/scripts/l1.mjs:45:74)\n    at file://<worktree>/apps/shell/extensions/akari-annotations/evidence/caption-multiselect-move/scripts/l1.mjs:325:13\n    at check (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/caption-multiselect-move/scripts/l1.mjs:49:33)\n    at file://<worktree>/apps/shell/extensions/akari-annotations/evidence/caption-multiselect-move/scripts/l1.mjs:323:15"
+    },
+    {
+      "name": "S1 角のつまみ → 3 本とも同じ倍率",
+      "pass": true,
+      "detail": {
+        "scales": {
+          "c-0001": null,
+          "c-0002": null,
+          "c-0003": null,
+          "c-0004": null,
+          "c-0101": 1.235,
+          "c-0102": 1.235,
+          "c-0103": 1.235
+        }
+      }
+    },
+    {
+      "name": "S2 範囲選択 3 本: タイムラインとプレビューの選択・見えている選択中に枠",
+      "pass": true,
+      "detail": {
+        "marquee": {
+          "start": {
+            "x": 208.93489583333334,
+            "y": 741.890625
+          },
+          "end": {
+            "x": 486.05555555555554,
+            "y": 743.890625
+          },
+          "startFree": {
+            "ok": true,
+            "hit": ""
+          }
+        },
+        "timeline": [
+          "c-0001",
+          "c-0002",
+          "c-0003"
+        ],
+        "preview": [
+          {
+            "plate": "caption-plate-c-0001-output-1",
+            "selected": true,
+            "handles": 5,
+            "frames": [
+              {
+                "id": null,
+                "cls": "caption-multi-select-box",
+                "kind": "border",
+                "style": "dashed",
+                "color": "rgb(77, 163, 255)",
+                "width": 1,
+                "rect": {
+                  "left": 205.62,
+                  "top": 353.8,
+                  "width": 336.74,
+                  "height": 31.7
+                }
+              }
+            ]
+          }
+        ],
+        "tools": []
+      }
+    },
+    {
+      "name": "S2 本体ドラッグ 40px → 見えていない 2 本も同じ量・書き込み 1 回",
+      "pass": true,
+      "detail": {
+        "changedIds": [
+          "c-0001",
+          "c-0002",
+          "c-0003"
+        ],
+        "diff": [
+          {
+            "id": "c-0001",
+            "before": null,
+            "after": {
+              "text_anchor": "bc",
+              "position": {
+                "x": 0.3101,
+                "y": 0.95
+              }
+            }
+          },
+          {
+            "id": "c-0002",
+            "before": null,
+            "after": {
+              "text_anchor": "bc",
+              "position": {
+                "x": 0.3092,
+                "y": 0.95
+              }
+            }
+          },
+          {
+            "id": "c-0003",
+            "before": null,
+            "after": {
+              "text_anchor": "bc",
+              "position": {
+                "x": 0.3245,
+                "y": 0.95
+              }
+            }
+          }
+        ],
+        "writeCount": 1,
+        "delta": {
+          "c-0001": {
+            "dx": 40,
+            "dy": 7.6,
+            "dw": 0
+          },
+          "c-0002": {
+            "dx": 40,
+            "dy": 7.6,
+            "dw": 0
+          },
+          "c-0003": {
+            "dx": 40,
+            "dy": 7.6,
+            "dw": 0
+          }
+        },
+        "undoRestoresBytes": false,
+        "redoRestoresBytes": true
+      }
+    },
+    {
+      "name": "S2 undo 1 回で 3 本とも戻る（Cmd+Z = akari.timeline.undo）",
+      "pass": false,
+      "error": "Error: {\"undoRestoresBytes\":false}\n    at assert (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/caption-multiselect-move/scripts/l1.mjs:45:74)\n    at file://<worktree>/apps/shell/extensions/akari-annotations/evidence/caption-multiselect-move/scripts/l1.mjs:389:13\n    at check (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/caption-multiselect-move/scripts/l1.mjs:49:33)\n    at file://<worktree>/apps/shell/extensions/akari-annotations/evidence/caption-multiselect-move/scripts/l1.mjs:387:15"
+    },
+    {
+      "name": "再読込: S1（拡縮後）/ S2 の位置が起動し直した後も同じ（±1px）",
+      "pass": true,
+      "detail": {
+        "s1": {
+          "before": {
+            "c-0101": {
+              "left": 176.77,
+              "top": 41.9,
+              "w": 316.5,
+              "h": 39.15
+            },
+            "c-0102": {
+              "left": 176.1,
+              "top": 140.77,
+              "w": 318.23,
+              "h": 39.15
+            },
+            "c-0103": {
+              "left": 176.1,
+              "top": 232.03,
+              "w": 318.23,
+              "h": 39.15
+            }
+          },
+          "after": {
+            "c-0101": {
+              "left": 176.77,
+              "top": 41.9,
+              "w": 316.5,
+              "h": 39.15
+            },
+            "c-0102": {
+              "left": 176.1,
+              "top": 140.77,
+              "w": 318.23,
+              "h": 39.15
+            },
+            "c-0103": {
+              "left": 176.1,
+              "top": 232.03,
+              "w": 318.23,
+              "h": 39.15
+            }
+          },
+          "diff": {
+            "c-0101": {
+              "dx": 0,
+              "dy": 0,
+              "dw": 0
+            },
+            "c-0102": {
+              "dx": 0,
+              "dy": 0,
+              "dw": 0
+            },
+            "c-0103": {
+              "dx": 0,
+              "dy": 0,
+              "dw": 0
+            }
+          }
+        },
+        "s2": {
+          "before": {
+            "c-0001": {
+              "left": 209.62,
+              "top": 329.53,
+              "w": 336.75,
+              "h": 31.7
+            },
+            "c-0002": {
+              "left": 209.02,
+              "top": 329.53,
+              "w": 337.95,
+              "h": 31.7
+            },
+            "c-0003": {
+              "left": 219.36,
+              "top": 329.53,
+              "w": 317.28,
+              "h": 31.7
+            }
+          },
+          "after": {
+            "c-0001": {
+              "left": 209.62,
+              "top": 329.53,
+              "w": 336.75,
+              "h": 31.7
+            },
+            "c-0002": {
+              "left": 209.02,
+              "top": 329.53,
+              "w": 337.95,
+              "h": 31.7
+            },
+            "c-0003": {
+              "left": 219.36,
+              "top": 329.53,
+              "w": 317.28,
+              "h": 31.7
+            }
+          },
+          "diff": {
+            "c-0001": {
+              "dx": 0,
+              "dy": 0,
+              "dw": 0
+            },
+            "c-0002": {
+              "dx": 0,
+              "dy": 0,
+              "dw": 0
+            },
+            "c-0003": {
+              "dx": 0,
+              "dy": 0,
+              "dw": 0
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "S3 台本の Cmd+A → プレビューの選択 → 本体ドラッグ → undo",
+      "pass": true,
+      "detail": {
+        "daihonSelected": [
+          "c-0001",
+          "c-0002",
+          "c-0003",
+          "c-0004"
+        ],
+        "timeline": [
+          "c-0001",
+          "c-0002",
+          "c-0003",
+          "c-0004"
+        ],
+        "preview": [
+          {
+            "plate": "caption-plate-c-0001-output-1",
+            "selected": true,
+            "handles": 5,
+            "frames": [
+              {
+                "id": "caption-select-box",
+                "cls": "is-active",
+                "kind": "border",
+                "style": "solid",
+                "color": "rgb(77, 163, 255)",
+                "width": 1.5,
+                "rect": {
+                  "left": 245.62,
+                  "top": 361.41,
+                  "width": 336.74,
+                  "height": 31.7
+                }
+              }
+            ]
+          }
+        ],
+        "changedIds": [
+          "c-0001",
+          "c-0002",
+          "c-0003",
+          "c-0004"
+        ],
+        "writeCount": 1,
+        "undoRestoresBytes": false,
+        "vsBefore": {
+          "daihonSame": true,
+          "timelineSame": true,
+          "before": {
+            "daihon": [
+              "c-0001",
+              "c-0002",
+              "c-0003",
+              "c-0004"
+            ],
+            "timeline": [
+              "c-0001",
+              "c-0002",
+              "c-0003",
+              "c-0004"
+            ],
+            "changedIds": [
+              "c-0001"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "name": "S4 全字幕モード: ⌥ドラッグで群の既定位置 → undo",
+      "pass": true,
+      "detail": {
+        "defaultTextStyle": {
+          "before": {
+            "zone": "bottom"
+          },
+          "after": {
+            "text_anchor": "bc",
+            "position": {
+              "x": 0.3243,
+              "y": 0.8711
+            }
+          }
+        },
+        "changedIds": [],
+        "writeCount": 1,
+        "undoRestoresBytes": false,
+        "vsBefore": {
+          "defaultShapeSame": true,
+          "changedSame": true,
+          "undoBefore": false,
+          "before": {
+            "before": {
+              "zone": "bottom"
+            },
+            "after": {
+              "text_anchor": "bc",
+              "position": {
+                "x": 0.2651,
+                "y": 0.8711
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "screenshots": [
+    "after-s1-01-selected.png",
+    "after-s1-02-dragged.png",
+    "after-s1-03-scaled.png",
+    "after-s2-01-selected.png",
+    "after-s2-02-dragged-c-0002.png",
+    "after-s3-01-daihon-select-all.png"
+  ],
+  "pids": [
+    88656,
+    6632
+  ],
+  "consoleWarnings": [
+    "2026-09-23T08:57:17.891Z root WARN [akari-annotations] failed to resolve caption display; using whole caption bands Error: resolveCaptionDisplay returned null\n    at Hac (file://<worktree>/apps/shell/lib/frontend/bundle.js:13944:36699)\n    ",
+    "2026-09-23T08:57:22.176Z root WARN [akari-preview] speech sidecar cut-base-speech: no audio stream: Stream map '' matches no streams. To ignore this, add a trailing '?' to the map. Failed to set value '0:a:0' for option 'map': Invalid argument Error parsing options for output file <machine-path>"
+  ],
+  "frame": {
+    "x": 36,
+    "y": 31.875,
+    "w": 676,
+    "h": 380.25
+  },
+  "chips": {
+    "c-0001": {
+      "left": 222.34375,
+      "right": 302.796875,
+      "top": 730.890625,
+      "bottom": 752.890625,
+      "x": 246.4796875,
+      "y": 741.890625,
+      "selected": false
+    },
+    "c-0002": {
+      "left": 311.7421875,
+      "right": 392.1953125,
+      "top": 730.890625,
+      "bottom": 752.890625,
+      "x": 335.878125,
+      "y": 741.890625,
+      "selected": false
+    },
+    "c-0003": {
+      "left": 401.1328125,
+      "right": 481.5859375,
+      "top": 730.890625,
+      "bottom": 752.890625,
+      "x": 425.26875,
+      "y": 741.890625,
+      "selected": false
+    },
+    "c-0004": {
+      "left": 490.5234375,
+      "right": 570.9765625,
+      "top": 730.890625,
+      "bottom": 752.890625,
+      "x": 514.659375,
+      "y": 741.890625,
+      "selected": false
+    },
+    "c-0101": {
+      "left": 579.921875,
+      "right": 691.6640625,
+      "top": 656.890625,
+      "bottom": 678.890625,
+      "x": 613.44453125,
+      "y": 667.890625,
+      "selected": false
+    },
+    "c-0102": {
+      "left": 579.921875,
+      "right": 691.6640625,
+      "top": 680.890625,
+      "bottom": 702.890625,
+      "x": 613.44453125,
+      "y": 691.890625,
+      "selected": false
+    },
+    "c-0103": {
+      "left": 579.921875,
+      "right": 691.6640625,
+      "top": 704.890625,
+      "bottom": 726.890625,
+      "x": 613.44453125,
+      "y": 715.890625,
+      "selected": false
+    }
+  },
+  "s0": {
+    "timeline": [
+      "c-0004"
+    ],
+    "preview": [
+      {
+        "plate": "caption-plate-c-0004-output-1",
+        "selected": true,
+        "handles": 5,
+        "frames": [
+          {
+            "id": "caption-select-box",
+            "cls": "is-active",
+            "kind": "border",
+            "style": "solid",
+            "color": "rgb(77, 163, 255)",
+            "width": 1.5,
+            "rect": {
+              "left": 175.21,
+              "top": 353.8,
+              "width": 397.55,
+              "height": 31.7
+            }
+          }
+        ]
+      }
+    ],
+    "changedIds": [
+      "c-0004"
+    ],
+    "diff": [
+      {
+        "id": "c-0004",
+        "before": null,
+        "after": {
+          "text_anchor": "bc",
+          "position": {
+            "x": 0.2651,
+            "y": 0.95
+          }
+        }
+      }
+    ],
+    "writeCount": 1,
+    "delta": {
+      "c-0004": {
+        "dx": 39.98,
+        "dy": 7.6,
+        "dw": 0
+      }
+    },
+    "undoRestoresBytes": false,
+    "vsBefore": {
+      "dx": 0,
+      "dy": 0,
+      "undoBefore": false,
+      "undoAfter": false,
+      "savedSame": true
+    }
+  },
+  "s1Selection": {
+    "timeline": [
+      "c-0101",
+      "c-0102",
+      "c-0103"
+    ],
+    "preview": [
+      {
+        "plate": "caption-plate-c-0101",
+        "selected": true,
+        "handles": 5,
+        "frames": [
+          {
+            "id": null,
+            "cls": "caption-multi-select-box",
+            "kind": "border",
+            "style": "dashed",
+            "color": "rgb(77, 163, 255)",
+            "width": 1,
+            "rect": {
+              "left": 245.86,
+              "top": 77.5,
+              "width": 256.27,
+              "height": 31.7
+            }
+          }
+        ]
+      },
+      {
+        "plate": "caption-plate-c-0102",
+        "selected": true,
+        "handles": 5,
+        "frames": [
+          {
+            "id": null,
+            "cls": "caption-multi-select-box",
+            "kind": "border",
+            "style": "dashed",
+            "color": "rgb(77, 163, 255)",
+            "width": 1,
+            "rect": {
+              "left": 245.16,
+              "top": 176.36,
+              "width": 257.67,
+              "height": 31.7
+            }
+          }
+        ]
+      },
+      {
+        "plate": "caption-plate-c-0103",
+        "selected": true,
+        "handles": 5,
+        "frames": [
+          {
+            "id": "caption-select-box",
+            "cls": "is-active",
+            "kind": "border",
+            "style": "solid",
+            "color": "rgb(77, 163, 255)",
+            "width": 1.5,
+            "rect": {
+              "left": 245.16,
+              "top": 267.63,
+              "width": 257.67,
+              "height": 31.7
+            }
+          }
+        ]
+      }
+    ],
+    "tools": [
+      {
+        "left": 237,
+        "top": 227,
+        "width": 273
+      }
+    ]
+  },
+  "s1Drag": {
+    "changedIds": [
+      "c-0101",
+      "c-0102",
+      "c-0103"
+    ],
+    "diff": [
+      {
+        "id": "c-0101",
+        "before": {
+          "position": {
+            "y": 0.12
+          },
+          "text_anchor": "tc"
+        },
+        "after": {
+          "position": {
+            "x": 0.3696,
+            "y": 0.12
+          },
+          "text_anchor": "tc"
+        }
+      },
+      {
+        "id": "c-0102",
+        "before": {
+          "position": {
+            "y": 0.38
+          },
+          "text_anchor": "tc"
+        },
+        "after": {
+          "position": {
+            "x": 0.3686,
+            "y": 0.38
+          },
+          "text_anchor": "tc"
+        }
+      },
+      {
+        "id": "c-0103",
+        "before": {
+          "position": {
+            "y": 0.62
+          },
+          "text_anchor": "tc"
+        },
+        "after": {
+          "position": {
+            "x": 0.3686,
+            "y": 0.62
+          },
+          "text_anchor": "tc"
+        }
+      }
+    ],
+    "writeCount": 1,
+    "delta": {
+      "c-0101": {
+        "dx": 39.99,
+        "dy": 0,
+        "dw": 0
+      },
+      "c-0102": {
+        "dx": 40.01,
+        "dy": 0,
+        "dw": 0
+      },
+      "c-0103": {
+        "dx": 40.01,
+        "dy": 0,
+        "dw": 0
+      }
+    },
+    "undoRestoresBytes": false,
+    "afterUndoDelta": {
+      "c-0101": {
+        "dx": 39.99,
+        "dy": 0,
+        "dw": 0
+      },
+      "c-0102": {
+        "dx": 40.01,
+        "dy": 0,
+        "dw": 0
+      },
+      "c-0103": {
+        "dx": 40.01,
+        "dy": 0,
+        "dw": 0
+      }
+    },
+    "redoRestoresBytes": true
+  },
+  "s1Scale": {
+    "scales": {
+      "c-0001": null,
+      "c-0002": null,
+      "c-0003": null,
+      "c-0004": null,
+      "c-0101": 1.235,
+      "c-0102": 1.235,
+      "c-0103": 1.235
+    }
+  },
+  "s2Selection": {
+    "marquee": {
+      "start": {
+        "x": 208.93489583333334,
+        "y": 741.890625
+      },
+      "end": {
+        "x": 486.05555555555554,
+        "y": 743.890625
+      },
+      "startFree": {
+        "ok": true,
+        "hit": ""
+      }
+    },
+    "timeline": [
+      "c-0001",
+      "c-0002",
+      "c-0003"
+    ],
+    "preview": [
+      {
+        "plate": "caption-plate-c-0001-output-1",
+        "selected": true,
+        "handles": 5,
+        "frames": [
+          {
+            "id": null,
+            "cls": "caption-multi-select-box",
+            "kind": "border",
+            "style": "dashed",
+            "color": "rgb(77, 163, 255)",
+            "width": 1,
+            "rect": {
+              "left": 205.62,
+              "top": 353.8,
+              "width": 336.74,
+              "height": 31.7
+            }
+          }
+        ]
+      }
+    ],
+    "tools": []
+  },
+  "s2Drag": {
+    "changedIds": [
+      "c-0001",
+      "c-0002",
+      "c-0003"
+    ],
+    "diff": [
+      {
+        "id": "c-0001",
+        "before": null,
+        "after": {
+          "text_anchor": "bc",
+          "position": {
+            "x": 0.3101,
+            "y": 0.95
+          }
+        }
+      },
+      {
+        "id": "c-0002",
+        "before": null,
+        "after": {
+          "text_anchor": "bc",
+          "position": {
+            "x": 0.3092,
+            "y": 0.95
+          }
+        }
+      },
+      {
+        "id": "c-0003",
+        "before": null,
+        "after": {
+          "text_anchor": "bc",
+          "position": {
+            "x": 0.3245,
+            "y": 0.95
+          }
+        }
+      }
+    ],
+    "writeCount": 1,
+    "delta": {
+      "c-0001": {
+        "dx": 40,
+        "dy": 7.6,
+        "dw": 0
+      },
+      "c-0002": {
+        "dx": 40,
+        "dy": 7.6,
+        "dw": 0
+      },
+      "c-0003": {
+        "dx": 40,
+        "dy": 7.6,
+        "dw": 0
+      }
+    },
+    "undoRestoresBytes": false,
+    "redoRestoresBytes": true
+  },
+  "s3": {
+    "daihonSelected": [
+      "c-0001",
+      "c-0002",
+      "c-0003",
+      "c-0004"
+    ],
+    "timeline": [
+      "c-0001",
+      "c-0002",
+      "c-0003",
+      "c-0004"
+    ],
+    "preview": [
+      {
+        "plate": "caption-plate-c-0001-output-1",
+        "selected": true,
+        "handles": 5,
+        "frames": [
+          {
+            "id": "caption-select-box",
+            "cls": "is-active",
+            "kind": "border",
+            "style": "solid",
+            "color": "rgb(77, 163, 255)",
+            "width": 1.5,
+            "rect": {
+              "left": 245.62,
+              "top": 361.41,
+              "width": 336.74,
+              "height": 31.7
+            }
+          }
+        ]
+      }
+    ],
+    "changedIds": [
+      "c-0001",
+      "c-0002",
+      "c-0003",
+      "c-0004"
+    ],
+    "writeCount": 1,
+    "undoRestoresBytes": false,
+    "vsBefore": {
+      "daihonSame": true,
+      "timelineSame": true,
+      "before": {
+        "daihon": [
+          "c-0001",
+          "c-0002",
+          "c-0003",
+          "c-0004"
+        ],
+        "timeline": [
+          "c-0001",
+          "c-0002",
+          "c-0003",
+          "c-0004"
+        ],
+        "changedIds": [
+          "c-0001"
+        ]
+      }
+    }
+  },
+  "s4": {
+    "defaultTextStyle": {
+      "before": {
+        "zone": "bottom"
+      },
+      "after": {
+        "text_anchor": "bc",
+        "position": {
+          "x": 0.3243,
+          "y": 0.8711
+        }
+      }
+    },
+    "changedIds": [],
+    "writeCount": 1,
+    "undoRestoresBytes": false,
+    "vsBefore": {
+      "defaultShapeSame": true,
+      "changedSame": true,
+      "undoBefore": false,
+      "before": {
+        "before": {
+          "zone": "bottom"
+        },
+        "after": {
+          "text_anchor": "bc",
+          "position": {
+            "x": 0.2651,
+            "y": 0.8711
+          }
+        }
+      }
+    }
+  },
+  "finalCaptions": {
+    "default_text_style": {
+      "text_anchor": "bc",
+      "position": {
+        "x": 0.3243,
+        "y": 0.8711
+      }
+    },
+    "captions": [
+      {
+        "id": "c-0001",
+        "start": 1,
+        "end": 4.6,
+        "text": "今日は朝のルーティンを紹介します",
+        "speaker": null,
+        "sourceRef": {
+          "segment": 0
+        },
+        "edited": false,
+        "text_style": {
+          "text_anchor": "bc",
+          "position": {
+            "x": 0.3693,
+            "y": 0.95
+          }
+        }
+      },
+      {
+        "id": "c-0002",
+        "start": 5,
+        "end": 8.6,
+        "text": "まずはコーヒーを淹れるところから",
+        "speaker": null,
+        "sourceRef": {
+          "segment": 1
+        },
+        "edited": false,
+        "text_style": {
+          "text_anchor": "bc",
+          "position": {
+            "x": 0.3684,
+            "y": 0.95
+          }
+        }
+      },
+      {
+        "id": "c-0003",
+        "start": 9,
+        "end": 12.6,
+        "text": "お湯は少し冷ましてから注ぎます",
+        "speaker": null,
+        "sourceRef": {
+          "segment": 2
+        },
+        "edited": false,
+        "text_style": {
+          "text_anchor": "bc",
+          "position": {
+            "x": 0.3837,
+            "y": 0.95
+          }
+        }
+      },
+      {
+        "id": "c-0004",
+        "start": 13,
+        "end": 16.6,
+        "text": "パソコンを開いて今日の予定を確認します",
+        "speaker": null,
+        "sourceRef": {
+          "segment": 3
+        },
+        "edited": false,
+        "text_style": {
+          "text_anchor": "bc",
+          "position": {
+            "x": 0.3243,
+            "y": 0.95
+          }
+        }
+      },
+      {
+        "id": "c-0101",
+        "start": 17,
+        "end": 22,
+        "text": "ひとつめの置いた文字です",
+        "time_domain": "output",
+        "sourceRef": null,
+        "edited": true,
+        "speaker": null,
+        "text_style": {
+          "position": {
+            "x": 0.3696,
+            "y": 0.12
+          },
+          "text_anchor": "tc",
+          "scale": 1.235
+        }
+      },
+      {
+        "id": "c-0102",
+        "start": 17,
+        "end": 22,
+        "text": "ふたつめの置いた文字です",
+        "time_domain": "output",
+        "sourceRef": null,
+        "edited": true,
+        "speaker": null,
+        "text_style": {
+          "position": {
+            "x": 0.3686,
+            "y": 0.38
+          },
+          "text_anchor": "tc",
+          "scale": 1.235
+        }
+      },
+      {
+        "id": "c-0103",
+        "start": 17,
+        "end": 22,
+        "text": "みっつめの置いた文字です",
+        "time_domain": "output",
+        "sourceRef": null,
+        "edited": true,
+        "speaker": null,
+        "text_style": {
+          "position": {
+            "x": 0.3686,
+            "y": 0.62
+          },
+          "text_anchor": "tc",
+          "scale": 1.235
+        }
+      }
+    ]
+  }
+}
