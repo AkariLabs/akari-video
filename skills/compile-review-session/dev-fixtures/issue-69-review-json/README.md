@@ -19,7 +19,7 @@
 
 ## 再現手順と実測
 
-`node skills/compile-review-session/evidence/issue-69-review-json/reproduce.mjs before` と `... after` を実行した。スクリプトは一時プロジェクトを作り、修正前の `review-store.mjs` は Git の基点から読み出す。9 件追加し、`s-0011/session.json` に ID を記録する。**消失した状態だけを模すために** `review.json` を一時プロジェクト内で削除し、別セッション相当の 2 件を追加する。削除を起こしたアプリ操作自体は再現できていない。
+`node skills/compile-review-session/dev-fixtures/issue-69-review-json/reproduce.mjs before` と `... after` を実行した。スクリプトは一時プロジェクトを作り、修正前の `review-store.mjs` は Git の基点から読み出す。9 件追加し、`s-0011/session.json` に ID を記録する。**消失した状態だけを模すために** `review.json` を一時プロジェクト内で削除し、別セッション相当の 2 件を追加する。削除を起こしたアプリ操作自体は再現できていない。
 
 | 状態 | 初回 | 2 回目の結果 | 再利用 |
 |---|---:|---|---|
@@ -50,5 +50,5 @@
 - `node --test skills/compile-review-session/test/*.test.mjs skills/address-review/test/*.test.mjs`：78 件成功。
 - `node --test apps/shell/extensions/akari-annotations/test/review-loss.test.mjs`：10 件成功（version 1 の書き込み拒否・ロック解放後のイベント記録を含む）。
 - 前回の関連 3 ファイル合同実行は 34 件成功。今回の変更後は上記 `review-loss.test.mjs` を再実行した。
-- `node skills/compile-review-session/evidence/issue-69-review-json/reproduce.mjs race-before` / `race-after`：残存 8/24 件 → 24/24 件。
+- `node skills/compile-review-session/dev-fixtures/issue-69-review-json/reproduce.mjs race-before` / `race-after`：残存 8/24 件 → 24/24 件。
 - `npx tsc -b extensions/akari-theme extensions/akari-preview extensions/akari-annotations`（`apps/shell` から実行）：既存の `read-aloud-dialog.ts` の型エラー 2 件で exit 1。対象の JavaScript 出力は生成され、上記 10 件を実行できた。
