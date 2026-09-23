@@ -47,6 +47,63 @@ import { AkariImageAnnotationDialog } from './akari-image-annotation-dialog';
 import { OPEN_AKARI_REVIEW_BOARD, OPEN_AKARI_SESSION_VIEWER } from './akari-annotations-commands';
 import { AnnotationStatusFilter, ReviewModel, reviewSessionBadge } from './review-model';
 
+export interface ReviewScrollRow {
+    id: string;
+    top: number;
+    bottom: number;
+}
+
+export interface ReviewScrollAnchor {
+    id: string;
+    offset: number;
+    order: string[];
+}
+
+/** 再描画前の表示先頭。先頭にいるときは新しい行も先頭から見せる。 */
+export function captureReviewScrollAnchor(
+    rows: readonly ReviewScrollRow[], containerTop: number, scrollTop: number
+): ReviewScrollAnchor | undefined {
+    if (scrollTop <= 0) return undefined;
+    const firstVisible = rows.find(row => row.bottom > containerTop);
+    if (!firstVisible) return undefined;
+    return {
+        id: firstVisible.id,
+        offset: firstVisible.top - containerTop,
+        order: rows.map(row => row.id)
+    };
+}
+
+/** 旧アンカーが消えた場合は旧順の次、次も無ければ前を同じ位置へ置く。 */
+export function restoreReviewScrollTop(
+    anchor: ReviewScrollAnchor | undefined, rows: readonly ReviewScrollRow[],
+    containerTop: number, scrollTop: number, maxScrollTop: number
+): number {
+    if (!anchor) return Math.max(0, Math.min(scrollTop, maxScrollTop));
+    const byId = new Map(rows.map(row => [row.id, row]));
+    let row = byId.get(anchor.id);
+    if (!row) {
+        const index = anchor.order.indexOf(anchor.id);
+        for (let i = index + 1; i < anchor.order.length && !row; i++) {
+            row = byId.get(anchor.order[i]);
+        }
+        for (let i = index - 1; i >= 0 && !row; i--) {
+            row = byId.get(anchor.order[i]);
+        }
+    }
+    if (!row) return Math.max(0, Math.min(scrollTop, maxScrollTop));
+    return Math.max(0, Math.min(scrollTop + row.top - containerTop - anchor.offset, maxScrollTop));
+}
+
+/** DOM の位置測定だけを純関数の外に置く。 */
+export function readReviewScrollRows(container: HTMLElement, firstAttribute: string, secondAttribute: string): ReviewScrollRow[] {
+    return Array.from(container.children).flatMap(child => {
+        const id = child.getAttribute(firstAttribute) ?? child.getAttribute(secondAttribute);
+        if (id === null) return [];
+        const rect = child.getBoundingClientRect();
+        return [{ id, top: rect.top, bottom: rect.bottom }];
+    });
+}
+
 /** doc: target のブロック存在チェック結果（契約 §6 の劣化規約に対応）。 */
 type DocTargetHealth = 'ok' | 'path-missing' | 'block-missing';
 /** image: target のファイル存在チェック結果（同じく契約 §6。block-id の概念が無い分 doc より単純）。 */
@@ -957,6 +1014,11 @@ export class AkariReviewPanelWidget extends BaseWidget {
         // 一覧が再描画されるたびに劣化状態を再確認する（ファイルのリネーム・差し替えを
         // ライブセッション中に検知できるよう、レンダーパスをまたいでキャッシュしない）。
         this.docTargetHealthCache.clear();
+        const containerTop = this.listContainer.getBoundingClientRect().top;
+        const anchor = captureReviewScrollAnchor(
+            readReviewScrollRows(this.listContainer, 'data-annotation-row', 'data-annotation-undo'),
+            containerTop, this.listContainer.scrollTop
+        );
         this.listContainer.replaceChildren();
         const annotationsById = new Map(this.model.filtered().map(annotation => [annotation.id, annotation]));
         for (const { annotation } of this.pendingUndo.values()) {
@@ -973,6 +1035,7 @@ export class AkariReviewPanelWidget extends BaseWidget {
             empty.style.color = 'var(--theia-descriptionForeground)';
             empty.style.padding = '8px 2px';
             this.listContainer.appendChild(empty);
+            this.restoreListScroll(anchor);
             return;
         }
         for (const annotation of filtered) {
@@ -980,6 +1043,17 @@ export class AkariReviewPanelWidget extends BaseWidget {
                 ? this.renderUndoRow(annotation)
                 : this.renderAnnotationRow(annotation));
         }
+        this.restoreListScroll(anchor);
+    }
+
+    protected restoreListScroll(anchor: ReviewScrollAnchor | undefined): void {
+        this.listContainer.scrollTop = restoreReviewScrollTop(
+            anchor,
+            readReviewScrollRows(this.listContainer, 'data-annotation-row', 'data-annotation-undo'),
+            this.listContainer.getBoundingClientRect().top,
+            this.listContainer.scrollTop,
+            this.listContainer.scrollHeight - this.listContainer.clientHeight
+        );
     }
 
     protected renderUndoRow(annotation: Annotation): HTMLDivElement {

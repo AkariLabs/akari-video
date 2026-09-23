@@ -1,0 +1,590 @@
+{
+  "label": "after",
+  "status": "PASS",
+  "results": {
+    "p1": true,
+    "p2": true,
+    "p2b": true,
+    "p3": true,
+    "b1": true,
+    "b2": true
+  },
+  "log": [
+    {
+      "step": "launched",
+      "pid": 43958,
+      "label": "after",
+      "port": 9484
+    },
+    {
+      "step": "panel-ready",
+      "rows": 15
+    },
+    {
+      "step": "scenario",
+      "name": "p1-panel-all-resolve-12",
+      "scope": "panel",
+      "pass": true,
+      "before": {
+        "scrollTop": 1467,
+        "firstVisibleId": "a-0012",
+        "firstVisibleOffset": 0,
+        "rowHeight": 133,
+        "scrollHeight": 2003,
+        "clientHeight": 321
+      },
+      "after": {
+        "scrollTop": 1467,
+        "firstVisibleId": "a-0012",
+        "firstVisibleOffset": 0,
+        "scrollHeight": 1964,
+        "clientHeight": 321
+      },
+      "anchor": {
+        "id": "a-0012",
+        "beforeOffset": 0,
+        "afterOffset": 0,
+        "offsetDelta": 0,
+        "tolerance": 133
+      },
+      "scrollLog": [],
+      "act": {
+        "clicked": true,
+        "savedStatus": "resolved",
+        "savedRecord": {
+          "id": "a-0012",
+          "createdAt": "2026-09-23T10:12:00.000Z",
+          "src": null,
+          "sourceT": 24,
+          "sourceRange": null,
+          "timelineT": null,
+          "target": null,
+          "targetKind": "instant",
+          "region": null,
+          "strokes": null,
+          "refs": null,
+          "insertPosition": null,
+          "intent": "fix",
+          "text": "注釈 12 件目: テロップの位置を少し上げたい",
+          "input": "typed",
+          "audio": null,
+          "poses": null,
+          "status": "resolved",
+          "response": {
+            "summary": "12 件目を直しました",
+            "action": "edited",
+            "respondedAt": "2026-09-23T11:00:00.000Z"
+          }
+        }
+      },
+      "screenshots": [
+        "after-p1-panel-all-resolve-12-1-before.png",
+        "after-p1-panel-all-resolve-12-2-after.png"
+      ],
+      "orderBefore": [
+        "a-0001",
+        "a-0002",
+        "a-0003",
+        "a-0004",
+        "a-0005",
+        "a-0006",
+        "a-0007",
+        "a-0008",
+        "a-0009",
+        "a-0010",
+        "a-0011",
+        "a-0012",
+        "a-0013",
+        "a-0014",
+        "a-0015"
+      ],
+      "orderAfter": [
+        "a-0001",
+        "a-0002",
+        "a-0003",
+        "a-0004",
+        "a-0005",
+        "a-0006",
+        "a-0007",
+        "a-0008",
+        "a-0009",
+        "a-0010",
+        "a-0011",
+        "a-0012",
+        "a-0013",
+        "a-0014",
+        "a-0015"
+      ]
+    },
+    {
+      "step": "scenario",
+      "name": "p2-panel-addressed-resolve-13",
+      "scope": "panel",
+      "pass": true,
+      "before": {
+        "scrollTop": 1467,
+        "firstVisibleId": "a-0013",
+        "firstVisibleOffset": 0,
+        "rowHeight": 133,
+        "scrollHeight": 1870,
+        "clientHeight": 321
+      },
+      "after": {
+        "scrollTop": 1416,
+        "firstVisibleId": "a-0011",
+        "firstVisibleOffset": -82,
+        "scrollHeight": 1737,
+        "clientHeight": 321
+      },
+      "anchor": {
+        "id": "a-0014",
+        "beforeOffset": 0,
+        "afterOffset": 51,
+        "offsetDelta": 51,
+        "tolerance": 133
+      },
+      "scrollLog": [
+        {
+          "t": 2451,
+          "scrollTop": 1416
+        }
+      ],
+      "act": {
+        "clicked": true,
+        "savedStatus": "resolved",
+        "indexInList": 12
+      },
+      "screenshots": [
+        "after-p2-panel-addressed-resolve-13-1-before.png",
+        "after-p2-panel-addressed-resolve-13-2-after.png"
+      ],
+      "orderBefore": [
+        "a-0001",
+        "a-0002",
+        "a-0003",
+        "a-0004",
+        "a-0005",
+        "a-0006",
+        "a-0007",
+        "a-0008",
+        "a-0009",
+        "a-0010",
+        "a-0011",
+        "a-0013",
+        "a-0014",
+        "a-0015"
+      ],
+      "orderAfter": [
+        "a-0001",
+        "a-0002",
+        "a-0003",
+        "a-0004",
+        "a-0005",
+        "a-0006",
+        "a-0007",
+        "a-0008",
+        "a-0009",
+        "a-0010",
+        "a-0011",
+        "a-0014",
+        "a-0015"
+      ],
+      "clampedAtEnd": true
+    },
+    {
+      "step": "scenario",
+      "name": "p2b-panel-addressed-resolve-mid",
+      "scope": "panel",
+      "pass": true,
+      "before": {
+        "scrollTop": 536,
+        "firstVisibleId": "a-0005",
+        "firstVisibleOffset": 0,
+        "rowHeight": 133,
+        "scrollHeight": 1737,
+        "clientHeight": 321
+      },
+      "after": {
+        "scrollTop": 536,
+        "firstVisibleId": "a-0006",
+        "firstVisibleOffset": 0,
+        "scrollHeight": 1604,
+        "clientHeight": 321
+      },
+      "anchor": {
+        "id": "a-0006",
+        "beforeOffset": 0,
+        "afterOffset": 0,
+        "offsetDelta": 0,
+        "tolerance": 133
+      },
+      "scrollLog": [],
+      "act": {
+        "clicked": true,
+        "savedStatus": "resolved"
+      },
+      "screenshots": [
+        "after-p2b-panel-addressed-resolve-mid-1-before.png",
+        "after-p2b-panel-addressed-resolve-mid-2-after.png"
+      ],
+      "orderBefore": [
+        "a-0001",
+        "a-0002",
+        "a-0003",
+        "a-0004",
+        "a-0005",
+        "a-0006",
+        "a-0007",
+        "a-0008",
+        "a-0009",
+        "a-0010",
+        "a-0011",
+        "a-0014",
+        "a-0015"
+      ],
+      "orderAfter": [
+        "a-0001",
+        "a-0002",
+        "a-0003",
+        "a-0004",
+        "a-0006",
+        "a-0007",
+        "a-0008",
+        "a-0009",
+        "a-0010",
+        "a-0011",
+        "a-0014",
+        "a-0015"
+      ]
+    },
+    {
+      "step": "scenario",
+      "name": "p3-panel-external-add",
+      "scope": "panel",
+      "pass": true,
+      "before": {
+        "scrollTop": 1565.5,
+        "firstVisibleId": "a-0013",
+        "firstVisibleOffset": -43.5,
+        "rowHeight": 94,
+        "scrollHeight": 1886,
+        "clientHeight": 321
+      },
+      "after": {
+        "scrollTop": 1698,
+        "firstVisibleId": "a-0013",
+        "firstVisibleOffset": -43,
+        "scrollHeight": 2019,
+        "clientHeight": 321
+      },
+      "anchor": {
+        "id": "a-0013",
+        "beforeOffset": -43.5,
+        "afterOffset": -43,
+        "offsetDelta": 0.5,
+        "tolerance": 94
+      },
+      "scrollLog": [
+        {
+          "t": 212,
+          "scrollTop": 1698
+        }
+      ],
+      "act": {
+        "added": "a-0016"
+      },
+      "screenshots": [
+        "after-p3-panel-external-add-1-before.png",
+        "after-p3-panel-external-add-2-after.png"
+      ],
+      "orderBefore": [
+        "a-0001",
+        "a-0002",
+        "a-0003",
+        "a-0004",
+        "a-0005",
+        "a-0006",
+        "a-0007",
+        "a-0008",
+        "a-0009",
+        "a-0010",
+        "a-0011",
+        "a-0012",
+        "a-0013",
+        "a-0014",
+        "a-0015"
+      ],
+      "orderAfter": [
+        "a-0016",
+        "a-0001",
+        "a-0002",
+        "a-0003",
+        "a-0004",
+        "a-0005",
+        "a-0006",
+        "a-0007",
+        "a-0008",
+        "a-0009",
+        "a-0010",
+        "a-0011",
+        "a-0012",
+        "a-0013",
+        "a-0014",
+        "a-0015"
+      ]
+    },
+    {
+      "step": "scenario",
+      "name": "b1-board-resolve-12th",
+      "scope": "board:addressed",
+      "pass": true,
+      "before": {
+        "scrollTop": 3069.5,
+        "firstVisibleId": "a-0014",
+        "firstVisibleOffset": 0,
+        "rowHeight": 270.5,
+        "scrollHeight": 3633,
+        "clientHeight": 225
+      },
+      "after": {
+        "scrollTop": 3069.5,
+        "firstVisibleId": "a-0015",
+        "firstVisibleOffset": 0,
+        "scrollHeight": 3354,
+        "clientHeight": 225
+      },
+      "anchor": {
+        "id": "a-0015",
+        "beforeOffset": 0,
+        "afterOffset": 0,
+        "offsetDelta": 0,
+        "tolerance": 270.5
+      },
+      "scrollLog": [
+        {
+          "t": 10881,
+          "scrollTop": 1659
+        }
+      ],
+      "act": {
+        "target": "a-0014",
+        "clicked": true,
+        "savedStatus": "resolved",
+        "savedRecord": {
+          "id": "a-0014",
+          "createdAt": "2026-09-23T10:14:00.000Z",
+          "src": null,
+          "sourceT": 28,
+          "sourceRange": null,
+          "timelineT": null,
+          "target": null,
+          "targetKind": "instant",
+          "region": null,
+          "strokes": null,
+          "refs": null,
+          "insertPosition": null,
+          "intent": "fix",
+          "text": "注釈 14 件目: テロップの位置を少し上げたい",
+          "input": "typed",
+          "audio": null,
+          "poses": null,
+          "status": "resolved",
+          "response": {
+            "summary": "14 件目を直しました",
+            "action": "edited",
+            "respondedAt": "2026-09-23T11:00:00.000Z"
+          }
+        }
+      },
+      "screenshots": [
+        "after-b1-board-resolve-12th-1-before.png",
+        "after-b1-board-resolve-12th-2-after.png"
+      ],
+      "orderBefore": [
+        "a-0016",
+        "a-0001",
+        "a-0002",
+        "a-0003",
+        "a-0004",
+        "a-0006",
+        "a-0007",
+        "a-0008",
+        "a-0009",
+        "a-0010",
+        "a-0011",
+        "a-0014",
+        "a-0015"
+      ],
+      "orderAfter": [
+        "a-0016",
+        "a-0001",
+        "a-0002",
+        "a-0003",
+        "a-0004",
+        "a-0006",
+        "a-0007",
+        "a-0008",
+        "a-0009",
+        "a-0010",
+        "a-0011",
+        "a-0015"
+      ]
+    },
+    {
+      "step": "scenario",
+      "name": "b2-board-external-add",
+      "scope": "board:addressed",
+      "pass": true,
+      "before": {
+        "scrollTop": 3129.5,
+        "firstVisibleId": "a-0015",
+        "firstVisibleOffset": -60,
+        "rowHeight": 270.5,
+        "scrollHeight": 3354,
+        "clientHeight": 225
+      },
+      "after": {
+        "scrollTop": 3408,
+        "firstVisibleId": "a-0015",
+        "firstVisibleOffset": -60,
+        "scrollHeight": 3633,
+        "clientHeight": 225
+      },
+      "anchor": {
+        "id": "a-0015",
+        "beforeOffset": -60,
+        "afterOffset": -60,
+        "offsetDelta": 0,
+        "tolerance": 270.5
+      },
+      "scrollLog": [
+        {
+          "t": 17967,
+          "scrollTop": 1792
+        },
+        {
+          "t": 1559,
+          "scrollTop": 3408
+        }
+      ],
+      "act": {
+        "added": "a-0017"
+      },
+      "screenshots": [
+        "after-b2-board-external-add-1-before.png",
+        "after-b2-board-external-add-2-after.png"
+      ],
+      "orderBefore": [
+        "a-0016",
+        "a-0001",
+        "a-0002",
+        "a-0003",
+        "a-0004",
+        "a-0006",
+        "a-0007",
+        "a-0008",
+        "a-0009",
+        "a-0010",
+        "a-0011",
+        "a-0015"
+      ],
+      "orderAfter": [
+        "a-0017",
+        "a-0016",
+        "a-0001",
+        "a-0002",
+        "a-0003",
+        "a-0004",
+        "a-0006",
+        "a-0007",
+        "a-0008",
+        "a-0009",
+        "a-0010",
+        "a-0011",
+        "a-0015"
+      ]
+    },
+    {
+      "step": "done",
+      "status": "PASS",
+      "results": {
+        "p1": true,
+        "p2": true,
+        "p2b": true,
+        "p3": true,
+        "b1": true,
+        "b2": true
+      }
+    }
+  ],
+  "finalReviewStatuses": [
+    {
+      "id": "a-0001",
+      "status": "addressed"
+    },
+    {
+      "id": "a-0002",
+      "status": "addressed"
+    },
+    {
+      "id": "a-0003",
+      "status": "addressed"
+    },
+    {
+      "id": "a-0004",
+      "status": "addressed"
+    },
+    {
+      "id": "a-0005",
+      "status": "resolved"
+    },
+    {
+      "id": "a-0006",
+      "status": "addressed"
+    },
+    {
+      "id": "a-0007",
+      "status": "addressed"
+    },
+    {
+      "id": "a-0008",
+      "status": "addressed"
+    },
+    {
+      "id": "a-0009",
+      "status": "addressed"
+    },
+    {
+      "id": "a-0010",
+      "status": "addressed"
+    },
+    {
+      "id": "a-0011",
+      "status": "addressed"
+    },
+    {
+      "id": "a-0012",
+      "status": "resolved"
+    },
+    {
+      "id": "a-0013",
+      "status": "resolved"
+    },
+    {
+      "id": "a-0014",
+      "status": "resolved"
+    },
+    {
+      "id": "a-0015",
+      "status": "addressed"
+    },
+    {
+      "id": "a-0016",
+      "status": "addressed"
+    },
+    {
+      "id": "a-0017",
+      "status": "addressed"
+    }
+  ]
+}

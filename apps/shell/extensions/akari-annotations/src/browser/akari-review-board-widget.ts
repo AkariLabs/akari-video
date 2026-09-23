@@ -34,6 +34,7 @@ import {
     sessionIdForAnnotation
 } from './review-model';
 import { AKARI_WARNING_TEXT_COLOR, createAkariNoticeBanner } from './akari-notice-banner';
+import { captureReviewScrollAnchor, readReviewScrollRows, restoreReviewScrollTop } from './akari-review-panel-widget';
 import {
     compileClipboardFailureNotice,
     compileCopiedMessage,
@@ -386,6 +387,11 @@ export class AkariReviewBoardWidget extends BaseWidget {
             }
             const annotations = byStatus.get(def.status) ?? [];
             elements.count.textContent = String(annotations.length);
+            const containerTop = elements.list.getBoundingClientRect().top;
+            const anchor = captureReviewScrollAnchor(
+                readReviewScrollRows(elements.list, 'data-board-card', 'data-board-undo'),
+                containerTop, elements.list.scrollTop
+            );
             elements.list.replaceChildren();
             if (annotations.length === 0) {
                 const empty = document.createElement('div');
@@ -393,13 +399,20 @@ export class AkariReviewBoardWidget extends BaseWidget {
                 empty.style.color = 'var(--theia-descriptionForeground)';
                 empty.style.padding = '8px 2px';
                 elements.list.appendChild(empty);
-                continue;
+            } else {
+                for (const annotation of annotations) {
+                    elements.list.appendChild(this.pendingUndo.has(annotation.id)
+                        ? this.renderUndoCard(annotation)
+                        : this.renderCard(annotation));
+                }
             }
-            for (const annotation of annotations) {
-                elements.list.appendChild(this.pendingUndo.has(annotation.id)
-                    ? this.renderUndoCard(annotation)
-                    : this.renderCard(annotation));
-            }
+            elements.list.scrollTop = restoreReviewScrollTop(
+                anchor,
+                readReviewScrollRows(elements.list, 'data-board-card', 'data-board-undo'),
+                elements.list.getBoundingClientRect().top,
+                elements.list.scrollTop,
+                elements.list.scrollHeight - elements.list.clientHeight
+            );
         }
     }
 
