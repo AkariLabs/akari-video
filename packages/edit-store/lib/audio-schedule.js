@@ -38,17 +38,39 @@ function buildWebAudioSchedule(input) {
         ...(duckKeys.includes('narration') ? narrationIntervals : []),
         ...(duckKeys.includes('speech') ? speechIntervals : [])
     ]);
+    const warnUnduckedTarget = (id, clipStartSec, clipDurationSec) => {
+        if (duckKeys.length === 0)
+            return;
+        const label = `audio ducking target ${id} (duck_keys: ${JSON.stringify(duckKeys)})`;
+        if (duckIntervals.length === 0) {
+            warnings.push(`${label}: no duck key intervals are available; ducking was not applied`);
+        }
+        else if (!duckIntervals.some(interval => interval.startSec < clipStartSec + clipDurationSec && interval.endSec > clipStartSec)) {
+            warnings.push(`${label}: duck key intervals do not overlap the clip; ducking was not applied`);
+        }
+    };
     const items = [];
     const bgm = audio.bgm;
     if (bgm && (0, audio_ownership_1.isAudioItemAudible)(undefined, bgm)) {
         const scheduled = scheduleBgm(bgm, timelineDurationSec, startAtSec, duckIntervals, warnings);
         if (scheduled)
             items.push(scheduled);
+        if (bgm.ducking === true && finitePositive(bgm.durationSec)) {
+            const clipStartSec = typeof bgm.t === 'number' && Number.isFinite(bgm.t) && bgm.t > 0 ? bgm.t : 0;
+            const clipDurationSec = finitePositive(bgm.duration)
+                ? Math.min(timelineDurationSec - clipStartSec, bgm.duration) : timelineDurationSec - clipStartSec;
+            if (clipDurationSec > 0) {
+                warnUnduckedTarget(typeof bgm.id === 'string' && bgm.id ? bgm.id : 'bgm', clipStartSec, clipDurationSec);
+            }
+        }
     }
     for (const item of sfx) {
         const scheduled = scheduleTimed(item, timelineDurationSec, startAtSec, duckIntervals);
         if (scheduled)
             items.push(scheduled);
+        if (item.spec.ducking === true) {
+            warnUnduckedTarget(item.id, item.t, Math.min(item.itemDurationSec, timelineDurationSec - item.t));
+        }
     }
     for (const item of narration) {
         const scheduled = scheduleTimed(item, timelineDurationSec, startAtSec, duckIntervals);

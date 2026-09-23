@@ -1,0 +1,125 @@
+{
+  "issue": 80,
+  "engine": "osr",
+  "launcher_tier": 2,
+  "fps": 30,
+  "default_duck_db": -12,
+  "overlap_export": {
+    "edit": "edit-overlap.json",
+    "layout": "narration at 5 / duration 173 (0.167s-5.934s); bgm at 0 / duration 786 (0-26.2s), gain_db -6, ducking true",
+    "before": {
+      "envelope": {
+        "duck_keys": [
+          "narration",
+          "speech"
+        ],
+        "speech_intervals": 0,
+        "ducked_items": [
+          "bgm"
+        ],
+        "keyframed_items": []
+      },
+      "bgm_220hz_mean_db": {
+        "overlap_1_5_to_5s": -48.2,
+        "bgm_only_8_to_18s": -36.1
+      }
+    },
+    "after": {
+      "envelope": {
+        "duck_keys": [
+          "narration",
+          "speech"
+        ],
+        "speech_intervals": 1,
+        "ducked_items": [
+          "bgm"
+        ],
+        "keyframed_items": []
+      },
+      "bgm_220hz_mean_db": {
+        "overlap_1_5_to_5s": -48.2,
+        "bgm_only_8_to_18s": -36.1
+      }
+    },
+    "bgm_duck_depth_db": -12.1,
+    "measurement": "ffmpeg volumedetect on the rendered mp4 after two bandpass=f=220:q=8 stages (bgm is a 220 Hz tone, narration a 1 kHz tone)"
+  },
+  "reported_layout_plan": {
+    "edit": "edit-reported-layout.json",
+    "note": "narration 0.167s-5.934s and bgm 32.3s-58.5s never overlap",
+    "before": {
+      "envelope": {
+        "duck_keys": [
+          "narration",
+          "speech"
+        ],
+        "speech_intervals": 0,
+        "ducked_items": [],
+        "keyframed_items": []
+      },
+      "ducking_warning": null
+    },
+    "after": {
+      "envelope": {
+        "duck_keys": [
+          "narration",
+          "speech"
+        ],
+        "speech_intervals": 1,
+        "ducked_items": [],
+        "keyframed_items": []
+      },
+      "warning": "audio ducking target bgm (duck_keys: [\"narration\",\"speech\"]): duck key intervals do not overlap the clip; ducking was not applied"
+    }
+  },
+  "no_key_plan": {
+    "edit": "edit-no-key.json",
+    "note": "duck_keys [\"narration\"], narration item muted",
+    "before": {
+      "envelope": {
+        "duck_keys": [
+          "narration"
+        ],
+        "speech_intervals": 0,
+        "ducked_items": [],
+        "keyframed_items": []
+      },
+      "ducking_warning": null
+    },
+    "after": {
+      "envelope": {
+        "duck_keys": [
+          "narration"
+        ],
+        "speech_intervals": 0,
+        "ducked_items": [],
+        "keyframed_items": []
+      },
+      "warning": "audio ducking target bgm (duck_keys: [\"narration\"]): no duck key intervals are available; ducking was not applied"
+    }
+  },
+  "preview_schedule": {
+    "overlap": {
+      "duckIntervals": [
+        {
+          "startSec": 0.16666666666666666,
+          "endSec": 5.933666666666667
+        }
+      ],
+      "before_warnings": [],
+      "after_warnings": []
+    },
+    "reported_layout": {
+      "duckIntervals": [
+        {
+          "startSec": 0.16666666666666666,
+          "endSec": 5.933666666666667
+        }
+      ],
+      "before_warnings": [],
+      "after_warnings": [
+        "audio ducking target bgm (duck_keys: [\"narration\",\"speech\"]): duck key intervals do not overlap the clip; ducking was not applied"
+      ]
+    }
+  }
+}

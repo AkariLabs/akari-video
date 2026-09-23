@@ -225,12 +225,26 @@ export function buildAudioMixCommand({
       startSec: track.t, endSec: Math.min(duration, track.t + track.durationSec),
     }))] : []),
   ]);
+  const warnUnduckedTarget = (id, clipStartSec, clipDurationSec) => {
+    if (duckKeys.length === 0) return;
+    const label = `audio ducking target ${id} (duck_keys: ${JSON.stringify(duckKeys)})`;
+    if (duckIntervals.length === 0) {
+      warnings.push(`${label}: no duck key intervals are available; ducking was not applied`);
+    } else if (!duckIntervals.some(interval =>
+      interval.startSec < clipStartSec + clipDurationSec && interval.endSec > clipStartSec)) {
+      warnings.push(`${label}: duck key intervals do not overlap the clip; ducking was not applied`);
+    }
+  };
   const envelopes = [];
   const duckedItems = new Set();
   const keyframedItems = new Set();
   const envelopeProvenance = () => ({
     duck_keys: duckKeys,
-    speech_intervals: speech.intervals.length + (duckKeys.includes("speech") ? speechTracks.length : 0),
+    speech_intervals: hasDuckTarget
+      ? (duckKeys.includes("narration") ? narrationIntervals.length : 0)
+        + (duckKeys.includes("speech") ? speech.intervals.length + speechTracks.filter(track =>
+          Math.min(duration, track.t + track.durationSec) > track.t).length : 0)
+      : speech.intervals.length + (duckKeys.includes("speech") ? speechTracks.length : 0),
     ducked_items: [...duckedItems],
     keyframed_items: [...keyframedItems],
   });
@@ -360,6 +374,7 @@ export function buildAudioMixCommand({
     const bgmStart = Math.max(0, Number(audio.bgm.t ?? 0));
     const bgmDuration = Math.min(duration - bgmStart,
       Number(audio.bgm.duration) > 0 ? Number(audio.bgm.duration) : duration - bgmStart);
+    if (audio.bgm.ducking === true) warnUnduckedTarget(audio.bgm.id ?? "bgm", bgmStart, bgmDuration);
     const bgmSourcePath = resolve(projectRoot, audio.bgm.path);
     const bgmIn = resolveBgmInSeconds(audio.bgm, ffprobeCommand, bgmSourcePath);
     warnings.push(...bgmIn.warnings);
@@ -442,6 +457,9 @@ export function buildAudioMixCommand({
     const effectiveDuration = trim.effectiveDuration === null
       ? Math.max(0, duration - (sfx.t ?? 0))
       : Math.min(trim.effectiveDuration, Math.max(0, duration - (sfx.t ?? 0)));
+    if (sfx.ducking === true && effectiveDuration > 0) {
+      warnUnduckedTarget(sfx.id ?? `sfx-${index}`, sfx.t ?? 0, effectiveDuration);
+    }
     const sfxEnvelope = createClipEnvelope({
       item: sfx,
       intervals: sfx.ducking === true ? duckIntervals : [],

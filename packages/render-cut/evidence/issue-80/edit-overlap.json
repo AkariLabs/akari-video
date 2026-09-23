@@ -1,0 +1,30 @@
+{
+  "version": 2,
+  "output": { "width": 320, "height": 180, "fps": 30 },
+  "sources": [
+    { "id": "camera", "path": "assets/camera.mp4" },
+    { "id": "narration", "path": "assets/narration.wav" },
+    { "id": "bgm", "path": "assets/bgm.wav" },
+    {
+      "id": "before",
+      "path": "exports/before.mp4",
+      "proxy": null
+    },
+    {
+      "id": "after",
+      "path": "exports/after.mp4",
+      "proxy": null
+    }
+  ],
+  "tracks": [
+    { "id": "v1", "lane": "visual", "items": [
+      { "id": "cam-1", "at": 0, "duration": 900, "source": { "kind": "media", "src": "camera", "in": 0, "out": 30 } }
+    ] },
+    { "id": "a1", "lane": "audio", "items": [
+      { "id": "nar-1", "role": "narration", "at": 5, "duration": 173, "source": { "kind": "media", "src": "narration", "in": 0, "out": 5.767 } }
+    ] },
+    { "id": "a2", "lane": "audio", "items": [
+      { "id": "bgm-1", "role": "bgm", "at": 0, "duration": 786, "gain_db": -6, "ducking": true, "source": { "kind": "media", "src": "bgm", "in": 0, "out": 26.2 } }
+    ] }
+  ]
+}
