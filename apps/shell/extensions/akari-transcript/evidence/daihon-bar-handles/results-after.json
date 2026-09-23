@@ -1,0 +1,385 @@
+{
+  "phase": "after",
+  "status": "pass",
+  "checks": [
+    {
+      "name": "1 下端のカード: 数字のボタンなし・全部の行に / 文字を編集 / 削除 / 閉じる + 説明 1 行",
+      "pass": true,
+      "detail": {
+        "selected": [
+          "p-b"
+        ],
+        "editorFor": "p-b",
+        "editorButtons": [
+          {
+            "action": "all",
+            "label": "全部の行に",
+            "disabled": false
+          },
+          {
+            "action": "edit-text",
+            "label": "文字を編集",
+            "disabled": false
+          },
+          {
+            "action": "delete",
+            "label": "削除",
+            "disabled": false
+          },
+          {
+            "action": "close",
+            "label": "閉じる",
+            "disabled": false
+          }
+        ],
+        "editorHelp": "範囲は左の棒の両端を引いて変えます",
+        "editorText": "T 豆: エチオピア 浅煎り2 行目 〜 4 行目（0:04.00 〜 0:15.19）全部の行に文字を編集削除閉じる範囲は左の棒の両端を引いて変えます"
+      }
+    },
+    {
+      "name": "2 右クリックメニュー: 全部の行に / 文字を編集 / 削除",
+      "pass": true,
+      "detail": {
+        "items": [
+          "全部の行に",
+          "文字を編集",
+          "削除"
+        ]
+      }
+    },
+    {
+      "name": "3 棒の当たり判定: 中心・左 4px 外・右 4px 外のクリックで選択（見た目 4px のまま）",
+      "pass": true,
+      "detail": {
+        "css": {
+          "width": "4px",
+          "background": "rgb(251, 146, 60)",
+          "borderRadius": "0px",
+          "beforeContent": "\"\"",
+          "beforeInset": "0px -5px 0px -5px",
+          "gapToPrevLane": 2
+        },
+        "clicks": [
+          {
+            "dx": 0,
+            "x": 830,
+            "y": 280.96484375,
+            "barLeft": 828,
+            "barWidth": 4,
+            "hit": {
+              "cls": "akari-daihon-placed-bar",
+              "captionId": "p-b"
+            },
+            "selected": [
+              "p-b"
+            ],
+            "editorFor": "p-b"
+          },
+          {
+            "dx": -4,
+            "x": 826,
+            "y": 280.96484375,
+            "barLeft": 828,
+            "barWidth": 4,
+            "hit": {
+              "cls": "akari-daihon-placed-bar",
+              "captionId": "p-b"
+            },
+            "selected": [
+              "p-b"
+            ],
+            "editorFor": "p-b"
+          },
+          {
+            "dx": 4,
+            "x": 834,
+            "y": 280.96484375,
+            "barLeft": 828,
+            "barWidth": 4,
+            "hit": {
+              "cls": "akari-daihon-placed-bar",
+              "captionId": "p-b"
+            },
+            "selected": [
+              "p-b"
+            ],
+            "editorFor": "p-b"
+          }
+        ]
+      }
+    },
+    {
+      "name": "3b 隣の棒の広げた当たりが見えている棒を奪わない: p-a（左の列）の中心クリックで p-a が選ばれる",
+      "pass": true,
+      "detail": {
+        "point": {
+          "x": 824,
+          "y": 280.96484375
+        },
+        "hit": {
+          "cls": "akari-daihon-placed-bar",
+          "captionId": "p-b"
+        },
+        "editorFor": "p-a"
+      }
+    },
+    {
+      "name": "4 つまみ:選択中の棒の先頭行の上端・最終行の下端に白い 12×6 のつまみ",
+      "pass": true,
+      "detail": {
+        "handles": [
+          {
+            "edge": "start",
+            "row": "s-2",
+            "inColumns": true,
+            "hitSelf": true,
+            "captionId": "p-b",
+            "width": 12,
+            "height": 6,
+            "top": 186.9453125,
+            "bottom": 192.9453125,
+            "x": 830,
+            "y": 189.9453125,
+            "rowTop": 189.9453125,
+            "rowBottom": 257.890625,
+            "barTop": 189.9453125,
+            "barBottom": 257.890625,
+            "cursor": "ns-resize",
+            "background": "rgb(229, 229, 229)",
+            "borderRadius": "2px"
+          },
+          {
+            "edge": "end",
+            "row": "s-4",
+            "inColumns": true,
+            "hitSelf": true,
+            "captionId": "p-b",
+            "width": 12,
+            "height": 6,
+            "top": 347.1875,
+            "bottom": 353.1875,
+            "x": 830,
+            "y": 350.1875,
+            "rowTop": 304.0390625,
+            "rowBottom": 350.1875,
+            "barTop": 304.0390625,
+            "barBottom": 350.1875,
+            "cursor": "ns-resize",
+            "background": "rgb(229, 229, 229)",
+            "borderRadius": "2px"
+          }
+        ]
+      }
+    },
+    {
+      "name": "5 下のつまみを 1 行下へ → end が次の行（s-5）の終わり 19.2 → Cmd+Z 1 手で byte 一致",
+      "pass": true,
+      "detail": {
+        "drag": {
+          "handle": {
+            "row": "s-4",
+            "y": 350.1875
+          },
+          "toRow": "s-5",
+          "toY": 384.16015625,
+          "hover": {
+            "bars": [
+              "s-2",
+              "s-3",
+              "s-4",
+              "s-5"
+            ],
+            "fileUnchanged": true
+          }
+        },
+        "saved": {
+          "start": 4,
+          "end": 19.2,
+          "time_domain": "output"
+        },
+        "barsAfter": [
+          "s-2",
+          "s-3",
+          "s-4",
+          "s-5"
+        ],
+        "editorFor": "p-b",
+        "undoByteIdentical": true,
+        "barsAfterUndo": [
+          "s-2",
+          "s-3",
+          "s-4"
+        ]
+      }
+    },
+    {
+      "name": "6 上のつまみを 1 行上へ → start が前の行（s-1）の始まり 0 → Cmd+Z 1 手で byte 一致",
+      "pass": true,
+      "detail": {
+        "drag": {
+          "handle": {
+            "row": "s-2",
+            "y": 189.9453125
+          },
+          "toRow": "s-1",
+          "toY": 155.97265625,
+          "hover": {
+            "bars": [
+              "s-1",
+              "s-2",
+              "s-3",
+              "s-4"
+            ],
+            "tagRow": "s-1",
+            "fileUnchanged": true
+          }
+        },
+        "saved": {
+          "start": 0,
+          "end": 15.2
+        },
+        "undoByteIdentical": true
+      }
+    },
+    {
+      "name": "7 逆転しない: 上のつまみを最終行より下（s-8）へ → start は最終行 s-4 の始まり 12 で止まる / 下のつまみを先頭行より上（s-1）へ → end は s-2 の終わり 7.2",
+      "pass": true,
+      "detail": {
+        "topToS8": {
+          "start": 12,
+          "end": 15.2
+        },
+        "bottomToS1": {
+          "start": 4,
+          "end": 7.2
+        },
+        "undoByteIdentical": true
+      }
+    },
+    {
+      "name": "8 「全部の行に」で最初から最後まで（0 〜 31.2）→ Cmd+Z 1 手で byte 一致",
+      "pass": true,
+      "detail": {
+        "saved": {
+          "start": 0,
+          "end": 31.2
+        },
+        "bars": [
+          "s-1",
+          "s-2",
+          "s-3",
+          "s-4",
+          "s-5",
+          "s-6",
+          "s-7",
+          "s-8"
+        ],
+        "undoByteIdentical": true
+      }
+    },
+    {
+      "name": "9 1 行の文字（p-c・棒なし）: 選ぶと札の横に上下のつまみ → 下を 1 行下へで end 23.2 → Cmd+Z 1 手で byte 一致",
+      "pass": true,
+      "detail": {
+        "handles": [
+          {
+            "edge": "start",
+            "row": "s-5",
+            "inColumns": false,
+            "hitSelf": true,
+            "captionId": "p-c",
+            "width": 12,
+            "height": 6,
+            "top": 389.3359375,
+            "bottom": 395.3359375,
+            "x": 848,
+            "y": 392.3359375,
+            "rowTop": 350.1875,
+            "rowBottom": 418.1328125,
+            "barTop": null,
+            "barBottom": null,
+            "cursor": "ns-resize",
+            "background": "rgb(229, 229, 229)",
+            "borderRadius": "2px"
+          },
+          {
+            "edge": "end",
+            "row": "s-5",
+            "inColumns": false,
+            "hitSelf": true,
+            "captionId": "p-c",
+            "width": 12,
+            "height": 6,
+            "top": 411.1328125,
+            "bottom": 417.1328125,
+            "x": 848,
+            "y": 414.1328125,
+            "rowTop": 350.1875,
+            "rowBottom": 418.1328125,
+            "barTop": null,
+            "barBottom": null,
+            "cursor": "ns-resize",
+            "background": "rgb(229, 229, 229)",
+            "borderRadius": "2px"
+          }
+        ],
+        "tagLeft": 854,
+        "drag": {
+          "handle": {
+            "row": "s-5",
+            "y": 414.1328125
+          },
+          "toRow": "s-6",
+          "toY": 452.10546875,
+          "hover": {
+            "bars": [
+              "s-5",
+              "s-6"
+            ],
+            "fileUnchanged": true
+          }
+        },
+        "saved": {
+          "start": 16.2,
+          "end": 23.2
+        },
+        "undoByteIdentical": true
+      }
+    },
+    {
+      "name": "10 置いた文字 0 本: 行の箱・padding・head / rows の箱・エディタ非表示が BEFORE と一致",
+      "pass": true,
+      "detail": {
+        "identicalToBefore": true,
+        "rowCount": 8,
+        "handles": 0,
+        "head": {
+          "top": 39,
+          "bottom": 119,
+          "left": 814,
+          "right": 1392,
+          "height": 80
+        },
+        "rows": {
+          "top": 119,
+          "bottom": 848,
+          "left": 814,
+          "right": 1392,
+          "height": 729
+        }
+      }
+    }
+  ],
+  "screenshots": [
+    "after-01-card-handles.png",
+    "after-02-menu.png",
+    "after-03-bar-click-plus4.png",
+    "after-04-drag-end-preview.png",
+    "after-05-drag-end-saved.png",
+    "after-06-drag-start-saved.png",
+    "after-07-all-rows.png",
+    "after-08-single-handles.png",
+    "after-09-single-extended.png",
+    "after-10-none.png"
+  ]
+}

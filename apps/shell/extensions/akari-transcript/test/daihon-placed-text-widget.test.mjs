@@ -181,7 +181,7 @@ test('範囲カードは行リストの後ろ・footer の前に置き、下か�
   assert.match(source, /prefers-reduced-motion: reduce[^\n]*\.akari-daihon-placed-editor \{ animation:none/);
 });
 
-test('札の右クリックメニューは 7 操作を持ち、範囲変更と文字編集につながる', () => {
+test('札の右クリックメニューは数字の操作を持たず、カードと同じ語を使う', () => {
   const oldDocument = globalThis.document, oldCss = globalThis.CSS;
   globalThis.CSS = { escape: value => value };
   globalThis.document = { createElement: () => ({ dataset: {}, classList: { add() {} },
@@ -194,13 +194,10 @@ test('札の右クリックメニューは 7 操作を持ち、範囲変更と�
   });
   try {
     instance.openPlacedMenu('p2');
-    assert.deepEqual(pop.children.map(button => button.textContent), [
-      '前へ 1 行広げる', '前を 1 行縮める', '後ろへ 1 行広げる', '後ろを 1 行縮める',
-      '全体', '文字を編集', '削除'
-    ]);
-    pop.children[2].onclick({ stopPropagation() {} });
-    pop.children[5].onclick({ stopPropagation() {} });
-    assert.deepEqual(actions, [['expand-end', 'p2'], ['text', 'p2']]);
+    assert.deepEqual(pop.children.map(button => button.textContent), ['全部の行に', '文字を編集', '削除']);
+    pop.children[0].onclick({ stopPropagation() {} });
+    pop.children[1].onclick({ stopPropagation() {} });
+    assert.deepEqual(actions, [['all', 'p2'], ['text', 'p2']]);
   } finally {
     if (oldDocument === undefined) delete globalThis.document; else globalThis.document = oldDocument;
     if (oldCss === undefined) delete globalThis.CSS; else globalThis.CSS = oldCss;
@@ -268,4 +265,134 @@ test('札の行移動は setCaptionTiming を 1 履歴で呼び timeDomain を�
   assert.equal(calls.length, 1);
   assert.deepEqual([calls[0].start, calls[0].end], [16, 27]);
   assert.equal(Object.hasOwn(calls[0], 'timeDomain'), false);
+});
+
+function fakeNode(tag = 'div') {
+  const node = { tag, dataset: {}, children: [], listeners: {}, style: { setProperty() {} },
+    classList: { toggle() {}, add() {} }, hidden: false,
+    append(...children) { for (const child of children) { child.parent = this; this.children.push(child); } },
+    appendChild(child) { child.parent = this; this.children.push(child); },
+    prepend(child) { child.parent = this; this.children.unshift(child); },
+    replaceChildren(...children) { this.children = children; },
+    querySelectorAll() { return []; }, remove() {}, setAttribute() {},
+    addEventListener(type, listener) { this.listeners[type] = listener; },
+    get childElementCount() { return this.children.length; }
+  };
+  return node;
+}
+const descendants = node => [node, ...node.children.flatMap(descendants)];
+
+test('カードは 4 操作と説明だけを表示し、閉じるで既存の経路を呼ぶ', () => {
+  const oldDocument = globalThis.document;
+  globalThis.document = { createElement: tag => fakeNode(tag) };
+  let closed = 0;
+  const editor = fakeNode();
+  const instance = widget({ placedEditor: editor, closePlacedEditor() { closed++; },
+    renderPlacedEditor: AkariDaihonWidget.prototype.renderPlacedEditor });
+  try {
+    instance.renderPlacedEditor(instance.placedRanges().find(range => range.captionId === 'p2'));
+    const actions = editor.children.find(node => node.className === 'akari-daihon-placed-actions');
+    assert.deepEqual(actions.children.map(button => button.textContent), ['全部の行に', '文字を編集', '削除', '閉じる']);
+    assert.equal(editor.children.at(-1).textContent, '範囲は左の棒の両端を引いて変えます');
+    actions.children.at(-1).listeners.click();
+    assert.equal(closed, 1);
+    instance.renderPlacedEditor(undefined);
+    assert.equal(editor.hidden, true);
+    assert.equal(editor.children.length, 0, '置いた文字がなければ説明も出ない');
+  } finally { if (oldDocument === undefined) delete globalThis.document; else globalThis.document = oldDocument; }
+});
+
+test('棒の当たりは左右 5px 広く、選択時だけ先頭と末尾につまみを出す', () => {
+  const source = readFileSync(new URL('../src/browser/daihon/akari-daihon-widget.ts', import.meta.url), 'utf8');
+  assert.match(source, /\.akari-daihon-widget \.akari-daihon-placed-bar::before \{ content:""; position:absolute; inset:0 -5px; \}/);
+  assert.match(source, /\.akari-daihon-widget \.akari-daihon-placed-bar \{[^}]*width:4px/);
+  assert.match(source, /\.akari-daihon-row\.has-placed-handle \{ z-index:2; \}/);
+  assert.match(source, /\.akari-daihon-placed-handle \{[^}]*z-index:3/);
+  const oldDocument = globalThis.document;
+  globalThis.document = { createElement: tag => fakeNode(tag) };
+  const roots = new Map(spoken.map(row => [row.id, { root: fakeNode() }]));
+  const rowsNode = fakeNode();
+  const instance = widget({ elements: roots, rowsNode,
+    renderPlacedText: AkariDaihonWidget.prototype.renderPlacedText,
+    renderPlacedEditor() {} });
+  try {
+    instance.renderPlacedText();
+    assert.equal([...roots.values()].flatMap(({ root }) => descendants(root)).filter(node => node.dataset.edge).length, 0);
+    for (const { root } of roots.values()) root.children = [];
+    instance.placedSelection = 'p2';
+    instance.renderPlacedText();
+    const handles = [...roots.entries()].flatMap(([id, { root }]) => descendants(root)
+      .filter(node => node.dataset.edge).map(node => [id, node.dataset.edge]));
+    assert.deepEqual(handles, [['r1', 'start'], ['r3', 'end']]);
+    for (const id of ['r1', 'r3']) {
+      const handle = descendants(roots.get(id).root).find(node => node.dataset.edge);
+      assert.equal(handle.parent.className, 'akari-daihon-placed-columns', 'つまみは filter のある棒の外に置く');
+      assert.equal(handle.parent.children.at(-1), handle, 'つまみは棒より後に重ねる');
+    }
+    for (const { root } of roots.values()) root.children = [];
+    instance.placedSelection = 'p3';
+    instance.renderPlacedText();
+    const single = descendants(roots.get('r4').root).filter(node => node.dataset.edge);
+    assert.deepEqual(single.map(node => node.dataset.edge), ['start', 'end']);
+    assert.ok(descendants(roots.get('r4').root).some(node => node.className === 'akari-daihon-placed-single'));
+  } finally { if (oldDocument === undefined) delete globalThis.document; else globalThis.document = oldDocument; }
+});
+
+test('隣の広い当たり領域より見えている棒の本体を優先し、半開の右端は隣へ渡す', () => {
+  const oldDocument = globalThis.document;
+  globalThis.document = { createElement: tag => fakeNode(tag) };
+  const roots = new Map(spoken.map(row => [row.id, { root: fakeNode() }]));
+  const selected = [];
+  const instance = widget({ elements: roots, rowsNode: fakeNode(),
+    renderPlacedText: AkariDaihonWidget.prototype.renderPlacedText, renderPlacedEditor() {},
+    selectPlacedText(id) { selected.push(id); this.placedSelection = id; }
+  });
+  try {
+    instance.renderPlacedText();
+    const columns = roots.get('r2').root.children.find(node => node.className === 'akari-daihon-placed-columns');
+    const bars = columns.children.filter(node => node.className === 'akari-daihon-placed-bar');
+    assert.deepEqual(bars.map(node => node.dataset.captionId), ['p1', 'p2']);
+    bars[0].getBoundingClientRect = () => ({ left: 0, right: 4 });
+    bars[1].getBoundingClientRect = () => ({ left: 6, right: 10 });
+    columns.querySelectorAll = () => bars;
+    const click = x => bars[1].listeners.click({ clientX: x, detail: 1, stopPropagation() {} });
+    click(2); // p2 の ::before が p1 の可視本体を覆っても p1 が選ばれる
+    assert.deepEqual(selected, ['p1']);
+    instance.lastPlacedClick = undefined;
+    click(4); // p1 の右端は本体の外、p2 の中心から左へ 4px
+    assert.deepEqual(selected, ['p1', 'p2']);
+    assert.equal(instance.placedBarBodyCaption(columns, 10, 'p2'), 'p2');
+  } finally { if (oldDocument === undefined) delete globalThis.document; else globalThis.document = oldDocument; }
+});
+
+test('つまみのドラッグ中は仮描画し、離したときだけ 1 回保存する', async () => {
+  const oldDocument = globalThis.document;
+  globalThis.document = { createElement: tag => fakeNode(tag) };
+  const calls = [], histories = [], previews = [];
+  const roots = new Map(spoken.map((row, index) => [row.id,
+    { root: { getBoundingClientRect: () => ({ bottom: (index + 1) * 40 }) } }]));
+  const rowsNode = { setPointerCapture() {}, hasPointerCapture: () => true, releasePointerCapture() {} };
+  const instance = widget({ placedSelection: 'p2', elements: roots, rowsNode,
+    renderPlacedText() { previews.push(this.placedEdgeDrag?.timing ?? null); },
+    async withHistory(label, operation) { histories.push(label); await operation(); },
+    annotationsService: { async setCaptionTiming(request) { calls.push(request); } }
+  });
+  try {
+    const handle = instance.createPlacedEdgeHandle(instance.placedRanges().find(range => range.captionId === 'p2'), 'end');
+    handle.listeners.pointerdown({ button: 0, pointerId: 7, clientY: 130, preventDefault() {}, stopPropagation() {} });
+    instance.handlePlacedEdgeMove({ pointerId: 7, clientY: 180 });
+    assert.deepEqual(previews.at(-1), { start: 4, end: 19 });
+    assert.equal(calls.length, 0);
+    instance.handlePlacedEdgeUp({ pointerId: 7, type: 'pointerup' });
+    await new Promise(resolve => setImmediate(resolve));
+    assert.deepEqual(histories, ['置いた文字: 範囲を変更']);
+    assert.equal(calls.length, 1);
+    assert.deepEqual([calls[0].start, calls[0].end], [4, 19]);
+    assert.equal(Object.hasOwn(calls[0], 'timeDomain'), false);
+    handle.listeners.pointerdown({ button: 0, pointerId: 8, clientY: 130, preventDefault() {}, stopPropagation() {} });
+    instance.handlePlacedEdgeMove({ pointerId: 8, clientY: 180 });
+    instance.handlePlacedEdgeUp({ pointerId: 8, type: 'pointercancel' });
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(calls.length, 1);
+  } finally { if (oldDocument === undefined) delete globalThis.document; else globalThis.document = oldDocument; }
 });

@@ -1,5 +1,5 @@
 import { PLACE_TEXT_COMMAND_ID } from 'akari-annotations/lib/common/place-text';
-import { placedTextRanges, placedTextLanes, placedTextTiming, placedTextDropTiming, type PlacedTextAction, type PlacedTextRange } from '../../common/daihon-placed-text';
+import { placedTextRanges, placedTextLanes, placedTextTiming, placedTextDropTiming, placedTextEdgeTiming, type PlacedTextAction, type PlacedTextRange } from '../../common/daihon-placed-text';
 import { DaihonOpenTarget, isValidDaihonWordRange, resolveDaihonFocusRowId } from '../../common/daihon-focus-target';
 import { installDaihonFocusPulseStyle, triggerFocusPulse } from '../../common/daihon-focus-pulse-style';
 import { AkariProjectService, type TranscribeCuts } from 'akari-project/lib/common/akari-project-protocol';
@@ -397,8 +397,15 @@ const STYLE = `
 .akari-daihon-row { padding-left:calc(8px + var(--placed-width, 0px)); }
 .akari-daihon-placed-columns { position:absolute; left:0; top:0; bottom:0; width:var(--placed-width, 0px); padding:0; display:flex; gap:2px; }
 .akari-daihon-rows.has-placed-bars .akari-daihon-row { margin-top:0; margin-bottom:0; }
+.akari-daihon-row.has-placed-handle { z-index:2; }
 .akari-daihon-rows.has-placed-bars .akari-daihon-gapzone { margin-top:-4px; margin-bottom:-4px; }
 .akari-daihon-widget .akari-daihon-placed-bar { position:absolute; top:0; bottom:0; width:4px; min-width:0; padding:0; margin:0; border:0; border-radius:0; background:var(--placed-color); cursor:pointer; opacity:.9; }
+.akari-daihon-widget .akari-daihon-placed-bar::before { content:""; position:absolute; inset:0 -5px; }
+.akari-daihon-placed-handle { position:absolute; z-index:3; left:-4px; width:12px; height:6px; border-radius:2px; background:var(--theia-editor-foreground, #fff); cursor:ns-resize; touch-action:none; }
+.akari-daihon-placed-handle.top { top:-3px; }
+.akari-daihon-placed-handle.bot { bottom:-3px; }
+.akari-daihon-placed-single { display:inline-block; position:relative; margin-left:14px; }
+.akari-daihon-placed-single .akari-daihon-placed-handle { left:-12px; }
 .akari-daihon-widget .akari-daihon-placed-tag { display:inline-block; font-family:inherit; font-size:10.5px; line-height:1.6; border:0; border-radius:4px; padding:1px 7px; margin:3px 6px 0 0; color:var(--placed-color); background:color-mix(in srgb, var(--placed-color) 24%, transparent); cursor:pointer; overflow-wrap:anywhere; text-align:left; }
 .akari-daihon-widget .akari-daihon-placed-bar.selected { border:0; box-shadow:none; filter:brightness(1.3); opacity:1; }
 .akari-daihon-widget .akari-daihon-placed-tag.selected { border:0; box-shadow:0 0 0 1px var(--theia-editor-foreground, #fff); opacity:1; }
@@ -408,6 +415,7 @@ const STYLE = `
 .akari-daihon-placed-actions { display:flex; gap:6px; flex-wrap:wrap; margin-top:7px; }
 .akari-daihon-placed-actions button { border:0; border-radius:6px; background:var(--theia-button-secondaryBackground, #1a1a1a); color:inherit; font-size:11.5px; padding:4px 9px; cursor:pointer; }
 .akari-daihon-placed-actions button:disabled { opacity:.4; cursor:default; }
+.akari-daihon-placed-help { margin-top:6px; color:var(--akari-muted); font-size:10px; }
 @media (prefers-reduced-motion: reduce) { .akari-daihon-rows { scroll-behavior:auto; } .akari-daihon-placed-editor { animation:none; } }
 `;
 
@@ -465,6 +473,8 @@ export class AkariDaihonWidget extends BaseWidget {
     protected placedBusy = false;
     protected placedEditing: EditingState | undefined;
     protected placedDrag: { captionId: string; pointerId: number; x: number; y: number; moved: boolean; targetIndex: number | null } | undefined;
+    protected placedEdgeDrag: { captionId: string; pointerId: number; edge: 'start' | 'end'; y: number;
+        range: PlacedTextRange; timing: { start: number; end: number } | null } | undefined;
     protected suppressPlacedClick = false;
     protected lastPlacedClick: { captionId: string; at: number } | undefined;
     protected readonly placedEditor = document.createElement('div');
@@ -722,13 +732,21 @@ export class AkariDaihonWidget extends BaseWidget {
         this.toDispose.push({ dispose: () => document.removeEventListener('pointerup', pointerUp) });
         const placedMove = (event: PointerEvent): void => this.handlePlacedPointerMove(event);
         const placedUp = (event: PointerEvent): void => this.handlePlacedPointerUp(event);
+        const edgeMove = (event: PointerEvent): void => this.handlePlacedEdgeMove(event);
+        const edgeUp = (event: PointerEvent): void => this.handlePlacedEdgeUp(event);
         document.addEventListener('pointermove', placedMove);
         document.addEventListener('pointerup', placedUp);
         document.addEventListener('pointercancel', placedUp);
+        document.addEventListener('pointermove', edgeMove);
+        document.addEventListener('pointerup', edgeUp);
+        document.addEventListener('pointercancel', edgeUp);
         this.toDispose.push({ dispose: () => {
             document.removeEventListener('pointermove', placedMove);
             document.removeEventListener('pointerup', placedUp);
             document.removeEventListener('pointercancel', placedUp);
+            document.removeEventListener('pointermove', edgeMove);
+            document.removeEventListener('pointerup', edgeUp);
+            document.removeEventListener('pointercancel', edgeUp);
         } });
         const closePopFromOutside = (event: MouseEvent): void => {
             if (Date.now() - this.popOpenedAt < 50) return;
@@ -739,7 +757,7 @@ export class AkariDaihonWidget extends BaseWidget {
         document.addEventListener('click', closePopFromOutside);
         this.toDispose.push({ dispose: () => document.removeEventListener('click', closePopFromOutside) });
         const closePlacedFromOutside = (event: MouseEvent): void => {
-            if (!this.placedSelection || this.placedEditing) return;
+            if (!this.placedSelection || this.placedEditing || this.suppressPlacedClick) return;
             const target = event.target;
             if (target instanceof Node
                 && !(target instanceof Element && target.closest('.akari-daihon-placed-tag, .akari-daihon-placed-bar, .akari-daihon-placed-editor, .akari-daihon-placed-menu'))) {
@@ -747,7 +765,15 @@ export class AkariDaihonWidget extends BaseWidget {
             }
         };
         const closePlacedOnEscape = (event: KeyboardEvent): void => {
-            if (event.key === 'Escape' && this.placedSelection && !this.placedEditing) {
+            if (event.key === 'Escape' && this.placedEdgeDrag) {
+                event.preventDefault();
+                const pointerId = this.placedEdgeDrag.pointerId;
+                this.placedEdgeDrag = undefined;
+                if (this.rowsNode.hasPointerCapture(pointerId)) this.rowsNode.releasePointerCapture(pointerId);
+                this.suppressRowClick = true;
+                setTimeout(() => { this.suppressPlacedClick = false; this.suppressRowClick = false; }, 0);
+                this.renderPlacedText();
+            } else if (event.key === 'Escape' && this.placedSelection && !this.placedEditing) {
                 event.preventDefault();
                 this.closePlacedEditor();
             }
@@ -1448,8 +1474,21 @@ export class AkariDaihonWidget extends BaseWidget {
         this.renderPlacedText();
     }
 
+    /** A visible 4px bar body wins over a neighboring bar's transparent hit area. */
+    protected placedBarBodyCaption(columns: HTMLElement, x: number, fallback: string): string {
+        for (const bar of Array.from(columns.querySelectorAll<HTMLButtonElement>('.akari-daihon-placed-bar'))) {
+            const rect = bar.getBoundingClientRect();
+            if (x >= rect.left && x < rect.right) return bar.dataset.captionId ?? fallback;
+        }
+        return fallback;
+    }
+
     protected renderPlacedText(): void {
-        const ranges = this.placedRanges();
+        const preview = this.placedEdgeDrag;
+        const ranges = preview?.timing ? placedTextRanges(this.sourceCaptions.map(caption => ({
+            ...caption, style: caption.style ?? null,
+            ...(caption.id === preview.captionId ? preview.timing! : {})
+        })), this.rows) : this.placedRanges();
         const layout = placedTextLanes(ranges);
         if (!this.sourceCaptions.some(caption => caption.id === this.placedSelection && caption.timeDomain === 'output')) {
             this.placedSelection = undefined;
@@ -1460,11 +1499,14 @@ export class AkariDaihonWidget extends BaseWidget {
             const root = this.elements.get(row.id)?.root;
             if (!root) return;
             root.querySelectorAll('.akari-daihon-placed-columns, .akari-daihon-placed-tags').forEach(node => node.remove());
+            root.classList.toggle('has-placed-handle', ranges.some(range => range.captionId === this.placedSelection
+                && range.last > range.first && (index === range.first || index === range.last)));
             const columns = document.createElement('div');
             columns.className = 'akari-daihon-placed-columns';
             columns.dataset.laneCount = String(layout.count);
             const tags = document.createElement('div');
             tags.className = 'akari-daihon-placed-tags';
+            const handles: HTMLSpanElement[] = [];
             for (const range of ranges) {
                 const color = PLACED_TEXT_COLORS[range.colorIndex % PLACED_TEXT_COLORS.length];
                 const makeButton = (className: string): HTMLButtonElement => {
@@ -1479,21 +1521,25 @@ export class AkariDaihonWidget extends BaseWidget {
                     button.addEventListener('click', event => {
                         event.stopPropagation();
                         if (this.suppressPlacedClick) return;
+                        const captionId = className === 'akari-daihon-placed-bar' && event.detail !== 0
+                            ? this.placedBarBodyCaption(columns, event.clientX, range.captionId) : range.captionId;
                         const now = Date.now();
-                        const doubleClick = event.detail >= 2 || (this.lastPlacedClick?.captionId === range.captionId
+                        const doubleClick = event.detail >= 2 || (this.lastPlacedClick?.captionId === captionId
                             && now - this.lastPlacedClick.at < 400);
-                        this.lastPlacedClick = { captionId: range.captionId, at: now };
-                        if (doubleClick) { this.startPlacedEdit(range.captionId); return; }
-                        if (this.placedSelection === range.captionId) this.closePlacedEditor();
-                        else this.selectPlacedText(range.captionId);
+                        this.lastPlacedClick = { captionId, at: now };
+                        if (doubleClick) { this.startPlacedEdit(captionId); return; }
+                        if (this.placedSelection === captionId) this.closePlacedEditor();
+                        else this.selectPlacedText(captionId);
                     });
                     button.addEventListener('dblclick', event => {
                         event.preventDefault(); event.stopPropagation();
-                        this.startPlacedEdit(range.captionId);
+                        this.startPlacedEdit(className === 'akari-daihon-placed-bar'
+                            ? this.placedBarBodyCaption(columns, event.clientX, range.captionId) : range.captionId);
                     });
                     button.addEventListener('contextmenu', event => {
                         event.preventDefault(); event.stopPropagation();
-                        this.openPlacedMenu(range.captionId);
+                        this.openPlacedMenu(className === 'akari-daihon-placed-bar'
+                            ? this.placedBarBodyCaption(columns, event.clientX, range.captionId) : range.captionId);
                     });
                     return button;
                 };
@@ -1505,6 +1551,18 @@ export class AkariDaihonWidget extends BaseWidget {
                     bar.classList.toggle('first', index === range.first);
                     bar.classList.toggle('last', index === range.last);
                     bar.setAttribute('aria-label', `${range.text} · ${range.first + 1}〜${range.last + 1} 行`);
+                    if (range.captionId === this.placedSelection) {
+                        if (index === range.first) {
+                            const handle = this.createPlacedEdgeHandle(range, 'start');
+                            handle.style.left = `${lane * 6 - 4}px`;
+                            handles.push(handle);
+                        }
+                        if (index === range.last) {
+                            const handle = this.createPlacedEdgeHandle(range, 'end');
+                            handle.style.left = `${lane * 6 - 4}px`;
+                            handles.push(handle);
+                        }
+                    }
                     columns.appendChild(bar);
                 }
                 if (index === range.first) {
@@ -1517,9 +1575,15 @@ export class AkariDaihonWidget extends BaseWidget {
                         : range.last > range.first ? ` · ${range.last - range.first + 1} 行` : '';
                     tag.textContent = `T ${range.text}${suffix}`;
                     tag.addEventListener('pointerdown', event => this.startPlacedPointerDrag(event, range.captionId));
-                    tags.appendChild(tag);
+                    if (range.first === range.last && range.captionId === this.placedSelection) {
+                        const single = document.createElement('span');
+                        single.className = 'akari-daihon-placed-single';
+                        single.append(tag, this.createPlacedEdgeHandle(range, 'start'), this.createPlacedEdgeHandle(range, 'end'));
+                        tags.appendChild(single);
+                    } else tags.appendChild(tag);
                 }
             }
+            columns.append(...handles);
             root.prepend(columns);
             if (tags.childElementCount) root.appendChild(tags);
         });
@@ -1544,25 +1608,27 @@ export class AkariDaihonWidget extends BaseWidget {
         readout.textContent = `${range.first + 1} 行目 〜 ${range.last + 1} 行目（${this.formatTime(range.start)} 〜 ${this.formatTime(range.end)}）`;
         const actions = document.createElement('div');
         actions.className = 'akari-daihon-placed-actions';
-        const choices: Array<[PlacedTextAction | 'delete' | 'edit-text', string]> = [
-            ['expand-start', '前へ 1 行広げる'], ['shrink-start', '前を 1 行縮める'],
-            ['expand-end', '後ろへ 1 行広げる'], ['shrink-end', '後ろを 1 行縮める'],
-            ['all', '全体'], ['edit-text', '文字を編集'], ['delete', '削除']
+        const choices: Array<[PlacedTextAction | 'delete' | 'edit-text' | 'close', string]> = [
+            ['all', '全部の行に'], ['edit-text', '文字を編集'], ['delete', '削除'], ['close', '閉じる']
         ];
         for (const [action, label] of choices) {
             const button = document.createElement('button');
             button.type = 'button';
             button.dataset.action = action;
             button.textContent = label;
-            button.disabled = this.placedBusy || (action !== 'delete' && action !== 'edit-text'
+            button.disabled = this.placedBusy || (action !== 'delete' && action !== 'edit-text' && action !== 'close'
                 && !placedTextTiming(range, this.rows, action));
             button.addEventListener('click', () => {
-                if (action === 'edit-text') this.startPlacedEdit(range.captionId);
+                if (action === 'close') this.closePlacedEditor();
+                else if (action === 'edit-text') this.startPlacedEdit(range.captionId);
                 else void this.editPlacedText(range.captionId, action, label);
             });
             actions.appendChild(button);
         }
-        this.placedEditor.append(title, readout, actions);
+        const help = document.createElement('div');
+        help.className = 'akari-daihon-placed-help';
+        help.textContent = '範囲は左の棒の両端を引いて変えます';
+        this.placedEditor.append(title, readout, actions, help);
     }
 
     protected openPlacedMenu(captionId: string): void {
@@ -1574,9 +1640,7 @@ export class AkariDaihonWidget extends BaseWidget {
         const pop = this.openPop(anchor);
         pop.classList.add('akari-daihon-placed-menu');
         const choices: Array<[PlacedTextAction | 'edit-text' | 'delete', string]> = [
-            ['expand-start', '前へ 1 行広げる'], ['shrink-start', '前を 1 行縮める'],
-            ['expand-end', '後ろへ 1 行広げる'], ['shrink-end', '後ろを 1 行縮める'],
-            ['all', '全体'], ['edit-text', '文字を編集'], ['delete', '削除']
+            ['all', '全部の行に'], ['edit-text', '文字を編集'], ['delete', '削除']
         ];
         for (const [action, label] of choices) {
             const button = document.createElement('button');
@@ -1647,6 +1711,56 @@ export class AkariDaihonWidget extends BaseWidget {
         }
     }
 
+    protected createPlacedEdgeHandle(range: PlacedTextRange, edge: 'start' | 'end'): HTMLSpanElement {
+        const handle = document.createElement('span');
+        handle.className = `akari-daihon-placed-handle ${edge === 'start' ? 'top' : 'bot'}`;
+        handle.dataset.edge = edge;
+        handle.setAttribute('aria-label', `${range.text}の${edge === 'start' ? '開始' : '終了'}位置を変更`);
+        handle.addEventListener('pointerdown', event => {
+            event.preventDefault();
+            event.stopPropagation();
+            if (event.button !== 0 || this.placedEditing || this.placedBusy) return;
+            this.suppressPlacedClick = true;
+            this.rowsNode.setPointerCapture(event.pointerId);
+            this.placedEdgeDrag = { captionId: range.captionId, pointerId: event.pointerId, edge,
+                y: event.clientY, range: this.placedRanges().find(item => item.captionId === range.captionId) ?? range,
+                timing: null };
+        });
+        handle.addEventListener('click', event => { event.preventDefault(); event.stopPropagation(); });
+        return handle;
+    }
+
+    protected placedEdgeIndex(y: number): number | null {
+        if (!this.rows.length) return null;
+        for (let index = 0; index < this.rows.length; index++) {
+            const root = this.elements.get(this.rows[index].id)?.root;
+            if (root && y < root.getBoundingClientRect().bottom) return index;
+        }
+        return this.rows.length - 1;
+    }
+
+    protected handlePlacedEdgeMove(event: PointerEvent): void {
+        const drag = this.placedEdgeDrag;
+        if (!drag || drag.pointerId !== event.pointerId || Math.abs(event.clientY - drag.y) < 3) return;
+        const index = this.placedEdgeIndex(event.clientY);
+        const timing = index === null ? null : placedTextEdgeTiming(drag.range, this.rows, drag.edge, index);
+        if (timing?.start === drag.timing?.start && timing?.end === drag.timing?.end) return;
+        drag.timing = timing;
+        this.renderPlacedText();
+    }
+
+    protected handlePlacedEdgeUp(event: PointerEvent): void {
+        const drag = this.placedEdgeDrag;
+        if (!drag || drag.pointerId !== event.pointerId) return;
+        this.placedEdgeDrag = undefined;
+        if (this.rowsNode.hasPointerCapture(event.pointerId)) this.rowsNode.releasePointerCapture(event.pointerId);
+        const timing = event.type === 'pointercancel' ? null : drag.timing;
+        this.suppressRowClick = true;
+        setTimeout(() => { this.suppressPlacedClick = false; this.suppressRowClick = false; }, 0);
+        if (timing) void this.movePlacedText(drag.captionId, timing, '範囲を変更');
+        else this.renderPlacedText();
+    }
+
     protected startPlacedPointerDrag(event: PointerEvent, captionId: string): void {
         if (event.button !== 0 || this.placedEditing || this.placedBusy) return;
         event.stopPropagation();
@@ -1693,18 +1807,18 @@ export class AkariDaihonWidget extends BaseWidget {
         if (timing) void this.movePlacedText(drag.captionId, timing);
     }
 
-    protected async movePlacedText(captionId: string, timing: { start: number; end: number }): Promise<void> {
+    protected async movePlacedText(captionId: string, timing: { start: number; end: number }, label = '行を移動'): Promise<void> {
         if (this.placedBusy || !this.captionsUri || !this.rootUri) return;
         this.placedBusy = true;
         try {
-            await this.withHistory('置いた文字: 行を移動', async () => {
+            await this.withHistory(`置いた文字: ${label}`, async () => {
                 await this.annotationsService.setCaptionTiming({
                     captionsUri: this.captionsUri!.toString(), projectRootUri: this.rootUri!.toString(),
                     captionId, ...timing, edited: true
                 });
             });
             await this.reload();
-            this.notify('置いた文字を移動しました。');
+            this.notify(`置いた文字: ${label}`);
         } catch (error) {
             await this.reload();
             this.notify(this.errorMessage(error));

@@ -1,0 +1,272 @@
+{
+  "phase": "before",
+  "status": "done",
+  "observations": {
+    "tagClick": {
+      "selected": [
+        "p-b"
+      ],
+      "editorOpen": true,
+      "editorFor": "p-b",
+      "editorButtons": [
+        {
+          "action": "expand-start",
+          "label": "前へ 1 行広げる",
+          "disabled": false
+        },
+        {
+          "action": "shrink-start",
+          "label": "前を 1 行縮める",
+          "disabled": false
+        },
+        {
+          "action": "expand-end",
+          "label": "後ろへ 1 行広げる",
+          "disabled": false
+        },
+        {
+          "action": "shrink-end",
+          "label": "後ろを 1 行縮める",
+          "disabled": false
+        },
+        {
+          "action": "all",
+          "label": "全体",
+          "disabled": false
+        },
+        {
+          "action": "edit-text",
+          "label": "文字を編集",
+          "disabled": false
+        },
+        {
+          "action": "delete",
+          "label": "削除",
+          "disabled": false
+        }
+      ],
+      "editorText": "T 豆: エチオピア 浅煎り2 行目 〜 4 行目（0:04.00 〜 0:15.19）前へ 1 行広げる前を 1 行縮める後ろへ 1 行広げる後ろを 1 行縮める全体文字を編集削除",
+      "handles": 0
+    },
+    "contextMenu": [
+      "前へ 1 行広げる",
+      "前を 1 行縮める",
+      "後ろへ 1 行広げる",
+      "後ろを 1 行縮める",
+      "全体",
+      "文字を編集",
+      "削除"
+    ],
+    "barCss": {
+      "width": "4px",
+      "background": "rgb(251, 146, 60)",
+      "borderRadius": "0px",
+      "beforeContent": "none",
+      "beforeInset": "auto auto auto auto"
+    },
+    "barClicks": [
+      {
+        "label": "p-b bar center",
+        "dx": 0,
+        "bar": {
+          "width": 4,
+          "height": 46.1484375,
+          "left": 828
+        },
+        "point": {
+          "x": 830,
+          "y": 280.96484375
+        },
+        "elementAtPoint": {
+          "tag": "BUTTON",
+          "cls": "akari-daihon-placed-bar",
+          "captionId": "p-b"
+        },
+        "selected": [
+          "p-b"
+        ],
+        "editorOpen": true,
+        "editorFor": "p-b",
+        "editorButtons": [
+          {
+            "action": "expand-start",
+            "label": "前へ 1 行広げる",
+            "disabled": false
+          },
+          {
+            "action": "shrink-start",
+            "label": "前を 1 行縮める",
+            "disabled": false
+          },
+          {
+            "action": "expand-end",
+            "label": "後ろへ 1 行広げる",
+            "disabled": false
+          },
+          {
+            "action": "shrink-end",
+            "label": "後ろを 1 行縮める",
+            "disabled": false
+          },
+          {
+            "action": "all",
+            "label": "全体",
+            "disabled": false
+          },
+          {
+            "action": "edit-text",
+            "label": "文字を編集",
+            "disabled": false
+          },
+          {
+            "action": "delete",
+            "label": "削除",
+            "disabled": false
+          }
+        ],
+        "editorText": "T 豆: エチオピア 浅煎り2 行目 〜 4 行目（0:04.00 〜 0:15.19）前へ 1 行広げる前を 1 行縮める後ろへ 1 行広げる後ろを 1 行縮める全体文字を編集削除",
+        "handles": 0
+      },
+      {
+        "label": "p-b bar center -4px",
+        "dx": -4,
+        "bar": {
+          "width": 4,
+          "height": 46.1484375,
+          "left": 828
+        },
+        "point": {
+          "x": 826,
+          "y": 280.96484375
+        },
+        "elementAtPoint": {
+          "tag": "DIV",
+          "cls": "akari-daihon-placed-columns",
+          "captionId": null
+        },
+        "selected": [],
+        "editorOpen": false,
+        "editorFor": null,
+        "editorButtons": [],
+        "editorText": null,
+        "handles": 0
+      },
+      {
+        "label": "p-b bar center +4px",
+        "dx": 4,
+        "bar": {
+          "width": 4,
+          "height": 46.1484375,
+          "left": 828
+        },
+        "point": {
+          "x": 834,
+          "y": 280.96484375
+        },
+        "elementAtPoint": {
+          "tag": "DIV",
+          "cls": "akari-daihon-row",
+          "captionId": "s-3"
+        },
+        "selected": [],
+        "editorOpen": false,
+        "editorFor": null,
+        "editorButtons": [],
+        "editorText": null,
+        "handles": 0
+      }
+    ],
+    "none": {
+      "head": {
+        "top": 39,
+        "bottom": 119,
+        "left": 814,
+        "right": 1392,
+        "height": 80
+      },
+      "rows": {
+        "top": 119,
+        "bottom": 848,
+        "left": 814,
+        "right": 1392,
+        "height": 729
+      },
+      "editorHidden": true,
+      "bars": 0,
+      "rowBoxes": [
+        {
+          "id": "s-1",
+          "top": 123,
+          "bottom": 169.15,
+          "left": 819,
+          "right": 1387,
+          "height": 46.15,
+          "paddingLeft": "8px"
+        },
+        {
+          "id": "s-2",
+          "top": 173.15,
+          "bottom": 219.3,
+          "left": 819,
+          "right": 1387,
+          "height": 46.15,
+          "paddingLeft": "8px"
+        },
+        {
+          "id": "s-3",
+          "top": 223.3,
+          "bottom": 269.45,
+          "left": 819,
+          "right": 1387,
+          "height": 46.15,
+          "paddingLeft": "8px"
+        },
+        {
+          "id": "s-4",
+          "top": 273.45,
+          "bottom": 319.59,
+          "left": 819,
+          "right": 1387,
+          "height": 46.15,
+          "paddingLeft": "8px"
+        },
+        {
+          "id": "s-5",
+          "top": 323.59,
+          "bottom": 369.74,
+          "left": 819,
+          "right": 1387,
+          "height": 46.15,
+          "paddingLeft": "8px"
+        },
+        {
+          "id": "s-6",
+          "top": 373.74,
+          "bottom": 419.89,
+          "left": 819,
+          "right": 1387,
+          "height": 46.15,
+          "paddingLeft": "8px"
+        },
+        {
+          "id": "s-7",
+          "top": 423.89,
+          "bottom": 470.04,
+          "left": 819,
+          "right": 1387,
+          "height": 46.15,
+          "paddingLeft": "8px"
+        },
+        {
+          "id": "s-8",
+          "top": 474.04,
+          "bottom": 520.19,
+          "left": 819,
+          "right": 1387,
+          "height": 46.15,
+          "paddingLeft": "8px"
+        }
+      ]
+    }
+  }
+}

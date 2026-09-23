@@ -70,3 +70,17 @@ export function placedTextDropTiming(range: PlacedTextRange, rows: readonly Outp
     if (!span || target < 0 || target + span > outputIndices.length) return null;
     return { start: rows[targetIndex].outStart!, end: rows[outputIndices[target + span - 1]].outEnd! };
 }
+
+/** Snap one edge to an output row while retaining the other edge's exact time. */
+export function placedTextEdgeTiming(range: PlacedTextRange, rows: readonly OutputRow[], edge: 'start' | 'end', targetIndex: number): { start: number; end: number } | null {
+    const indices = rows.flatMap((row, index) => timed(row) ? [index] : []);
+    if (!indices.includes(range.first) || !indices.includes(range.last) || !Number.isInteger(targetIndex)) return null;
+    const nearest = indices.reduce<number | null>((nearest, index) => nearest === null
+        || Math.abs(index - targetIndex) < Math.abs(nearest - targetIndex) ? index : nearest, null);
+    if (nearest === null) return null;
+    const target = edge === 'start' ? Math.min(nearest, range.last) : Math.max(nearest, range.first);
+    if (target === (edge === 'start' ? range.first : range.last)) return null;
+    const start = edge === 'start' ? rows[target].outStart! : range.start;
+    const end = edge === 'end' ? rows[target].outEnd! : range.end;
+    return end > start && (start !== range.start || end !== range.end) ? { start, end } : null;
+}

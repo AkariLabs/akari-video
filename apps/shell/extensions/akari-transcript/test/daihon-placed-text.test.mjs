@@ -3,7 +3,7 @@ import test from 'node:test';
 import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
 const { buildDaihonRows } = require('../lib/common/daihon-row-model.js');
-const { placedTextRanges, placedTextLanes, placedTextTiming, placedTextDropTiming } = require('../lib/common/daihon-placed-text.js');
+const { placedTextRanges, placedTextLanes, placedTextTiming, placedTextDropTiming, placedTextEdgeTiming } = require('../lib/common/daihon-placed-text.js');
 const caption = (id, start, end, timeDomain) => ({ id, start, end, text: id, style: null, timeDomain });
 const rows = buildDaihonRows(Array.from({ length: 8 }, (_, i) => caption(`r${i}`, i * 4, (i + 1) * 4)), null);
 const captions = [caption('p1', 0, 32, 'output'), caption('p2', 4, 16, 'output'),
@@ -77,4 +77,19 @@ test('札のドロップ先から出力区間を決める: 1 行・複数行・�
     assert.equal(placedTextDropTiming(three, cutRows, 4), null, 'カット行へは落とせない');
     assert.deepEqual(placedTextDropTiming(three, cutRows, 3), { start: 12, end: 28 }, 'カット行は行数に数えない');
     assert.equal(placedTextDropTiming(three, cutRows, -1), null);
+});
+
+test('両端のつまみは指した出力行に吸着し、反対側の秒を保つ', () => {
+    const [range] = placedTextRanges([caption('p', 12.5, 19.5, 'output')], rows);
+    assert.deepEqual(placedTextEdgeTiming(range, rows, 'start', 1), { start: 4, end: 19.5 }, '上端を 2 行上へ');
+    assert.deepEqual(placedTextEdgeTiming(range, rows, 'end', 5), { start: 12.5, end: 24 }, '下端を 1 行下へ');
+    assert.deepEqual(placedTextEdgeTiming(range, rows, 'start', 7), { start: 16, end: 19.5 }, '上端は最終行で止まる');
+    assert.deepEqual(placedTextEdgeTiming(range, rows, 'end', 0), { start: 12.5, end: 16 }, '下端は先頭行で止まる');
+    assert.equal(placedTextEdgeTiming(range, rows, 'start', 3), null, '元の行へ戻すと変化なし');
+    assert.equal(placedTextEdgeTiming(range, rows, 'end', 4), null);
+    const cutRows = rows.map((row, index) => index === 2 ? { ...row, outStart: null, outEnd: null } : row);
+    assert.deepEqual(placedTextEdgeTiming(range, cutRows, 'start', 2), { start: 4, end: 19.5 }, 'カット行は近い出力行へ');
+    const [single] = placedTextRanges([caption('single', 16, 19, 'output')], rows);
+    assert.equal(placedTextEdgeTiming(single, rows, 'start', 7), null, '1 行の逆転はしない');
+    assert.equal(placedTextEdgeTiming(single, rows, 'end', 0), null, '1 行の逆転はしない');
 });
