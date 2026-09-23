@@ -60,3 +60,13 @@ export function placedTextTiming(range: PlacedTextRange, rows: readonly OutputRo
     }
     return end > start && (start !== range.start || end !== range.end) ? { start, end } : null;
 }
+
+/** Move a span by its number of output rows. Cut rows cannot be a drop target and do not count. */
+export function placedTextDropTiming(range: PlacedTextRange, rows: readonly OutputRow[], targetIndex: number): { start: number; end: number } | null {
+    if (targetIndex === range.first || !timed(rows[targetIndex] ?? { outStart: null, outEnd: null })) return null;
+    const outputIndices = rows.flatMap((row, index) => timed(row) ? [index] : []);
+    const span = outputIndices.filter(index => index >= range.first && index <= range.last).length;
+    const target = outputIndices.indexOf(targetIndex);
+    if (!span || target < 0 || target + span > outputIndices.length) return null;
+    return { start: rows[targetIndex].outStart!, end: rows[outputIndices[target + span - 1]].outEnd! };
+}

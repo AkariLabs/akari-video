@@ -1,0 +1,251 @@
+{
+  "phase": "before",
+  "status": "done",
+  "observations": {
+    "click": {
+      "idle": {
+        "widget": {
+          "top": 39,
+          "bottom": 874,
+          "left": 814,
+          "right": 1392,
+          "height": 835
+        },
+        "head": {
+          "top": 39,
+          "bottom": 119,
+          "left": 814,
+          "right": 1392,
+          "height": 80
+        },
+        "rows": {
+          "top": 119,
+          "bottom": 848,
+          "left": 814,
+          "right": 1392,
+          "height": 729
+        },
+        "editor": null,
+        "editorHidden": true,
+        "editorText": null,
+        "rowTops": [
+          {
+            "id": "s-1",
+            "top": 122
+          },
+          {
+            "id": "s-2",
+            "top": 189.95
+          },
+          {
+            "id": "s-3",
+            "top": 257.89
+          },
+          {
+            "id": "s-4",
+            "top": 304.04
+          },
+          {
+            "id": "s-5",
+            "top": 350.19
+          },
+          {
+            "id": "s-6",
+            "top": 418.13
+          },
+          {
+            "id": "s-7",
+            "top": 486.08
+          },
+          {
+            "id": "s-8",
+            "top": 532.23
+          }
+        ]
+      },
+      "selected": {
+        "widget": {
+          "top": 39,
+          "bottom": 874,
+          "left": 814,
+          "right": 1392,
+          "height": 835
+        },
+        "head": {
+          "top": 39,
+          "bottom": 119,
+          "left": 814,
+          "right": 1392,
+          "height": 80
+        },
+        "rows": {
+          "top": 238,
+          "bottom": 848,
+          "left": 814,
+          "right": 1392,
+          "height": 610
+        },
+        "editor": {
+          "top": 119,
+          "bottom": 238,
+          "left": 814,
+          "right": 1392,
+          "height": 119
+        },
+        "editorHidden": false,
+        "editorText": "T 豆: エチオピア 浅煎り2 行目 〜 4 行目（0:04.00 〜 0:15.19）前へ 1 行広げる前を 1 行縮める後ろへ 1 行広げる後ろを 1 行縮める全体削除文字を編集",
+        "rowTops": [
+          {
+            "id": "s-1",
+            "top": 241
+          },
+          {
+            "id": "s-2",
+            "top": 308.95
+          },
+          {
+            "id": "s-3",
+            "top": 376.89
+          },
+          {
+            "id": "s-4",
+            "top": 423.04
+          },
+          {
+            "id": "s-5",
+            "top": 469.19
+          },
+          {
+            "id": "s-6",
+            "top": 537.13
+          },
+          {
+            "id": "s-7",
+            "top": 605.08
+          },
+          {
+            "id": "s-8",
+            "top": 651.23
+          }
+        ]
+      },
+      "rowTopShift": [
+        {
+          "id": "s-1",
+          "delta": 119
+        },
+        {
+          "id": "s-2",
+          "delta": 119
+        },
+        {
+          "id": "s-3",
+          "delta": 119
+        },
+        {
+          "id": "s-4",
+          "delta": 119
+        },
+        {
+          "id": "s-5",
+          "delta": 119
+        },
+        {
+          "id": "s-6",
+          "delta": 119
+        },
+        {
+          "id": "s-7",
+          "delta": 119
+        },
+        {
+          "id": "s-8",
+          "delta": 119
+        }
+      ],
+      "editorBelowHead": 0,
+      "editorAboveRows": true
+    },
+    "doubleClick": {
+      "activeTag": "BODY",
+      "activeClass": "monaco-enable-motion underline-links vs-dark dark-theia mac theia-dark",
+      "inputInsideTag": false,
+      "inputsInRows": 0,
+      "tagStillButton": "BUTTON",
+      "editorFor": "p-c",
+      "captionsChanged": false
+    },
+    "drag": {
+      "draggable": false,
+      "before": {
+        "start": 16.2,
+        "end": 19
+      },
+      "after": {
+        "start": 16.2,
+        "end": 19
+      },
+      "captionsChanged": false
+    },
+    "none": {
+      "widget": {
+        "top": 39,
+        "bottom": 874,
+        "left": 814,
+        "right": 1392,
+        "height": 835
+      },
+      "head": {
+        "top": 39,
+        "bottom": 119,
+        "left": 814,
+        "right": 1392,
+        "height": 80
+      },
+      "rows": {
+        "top": 119,
+        "bottom": 848,
+        "left": 814,
+        "right": 1392,
+        "height": 729
+      },
+      "editor": null,
+      "editorHidden": true,
+      "editorText": null,
+      "rowTops": [
+        {
+          "id": "s-1",
+          "top": 123
+        },
+        {
+          "id": "s-2",
+          "top": 173.15
+        },
+        {
+          "id": "s-3",
+          "top": 223.3
+        },
+        {
+          "id": "s-4",
+          "top": 273.45
+        },
+        {
+          "id": "s-5",
+          "top": 323.59
+        },
+        {
+          "id": "s-6",
+          "top": 373.74
+        },
+        {
+          "id": "s-7",
+          "top": 423.89
+        },
+        {
+          "id": "s-8",
+          "top": 474.04
+        }
+      ]
+    }
+  }
+}

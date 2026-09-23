@@ -1,5 +1,5 @@
 import { PLACE_TEXT_COMMAND_ID } from 'akari-annotations/lib/common/place-text';
-import { placedTextRanges, placedTextLanes, placedTextTiming, type PlacedTextAction, type PlacedTextRange } from '../../common/daihon-placed-text';
+import { placedTextRanges, placedTextLanes, placedTextTiming, placedTextDropTiming, type PlacedTextAction, type PlacedTextRange } from '../../common/daihon-placed-text';
 import { DaihonOpenTarget, isValidDaihonWordRange, resolveDaihonFocusRowId } from '../../common/daihon-focus-target';
 import { installDaihonFocusPulseStyle, triggerFocusPulse } from '../../common/daihon-focus-pulse-style';
 import { AkariProjectService, type TranscribeCuts } from 'akari-project/lib/common/akari-project-protocol';
@@ -245,6 +245,7 @@ const STYLE = `
 .akari-daihon-row.selected { outline:1px solid var(--akari-accent); background:var(--theia-akariTheme-accentTint); }
 .akari-daihon-row.selected .akari-daihon-row-head::before { content:"✓"; color:var(--akari-accent); font-size:9px; font-weight:700; margin-right:2px; }
 .akari-daihon-row.selected.active { box-shadow:none; }
+.akari-daihon-row.placed-drop-target { outline:1px solid var(--akari-accent); background:var(--theia-akariTheme-accentTint); }
 .akari-daihon-row.qc-hidden { display:none; }
 .akari-daihon-row.speaker-hidden { display:none; }
 .akari-daihon-row.iscut { opacity:.5; }
@@ -401,12 +402,13 @@ const STYLE = `
 .akari-daihon-widget .akari-daihon-placed-tag { display:inline-block; font-family:inherit; font-size:10.5px; line-height:1.6; border:0; border-radius:4px; padding:1px 7px; margin:3px 6px 0 0; color:var(--placed-color); background:color-mix(in srgb, var(--placed-color) 24%, transparent); cursor:pointer; overflow-wrap:anywhere; text-align:left; }
 .akari-daihon-widget .akari-daihon-placed-bar.selected { border:0; box-shadow:none; filter:brightness(1.3); opacity:1; }
 .akari-daihon-widget .akari-daihon-placed-tag.selected { border:0; box-shadow:0 0 0 1px var(--theia-editor-foreground, #fff); opacity:1; }
-.akari-daihon-placed-editor { padding:8px 11px; background:var(--theia-editorWidget-background, #141414); flex-shrink:0; }
+.akari-daihon-placed-editor { padding:8px 11px; background:var(--theia-editorWidget-background, #141414); flex-shrink:0; animation:akari-daihon-placed-enter 180ms ease-out both; }
 .akari-daihon-placed-editor[hidden] { display:none; }
+@keyframes akari-daihon-placed-enter { from { transform:translateY(100%); opacity:0; } to { transform:translateY(0); opacity:1; } }
 .akari-daihon-placed-actions { display:flex; gap:6px; flex-wrap:wrap; margin-top:7px; }
 .akari-daihon-placed-actions button { border:0; border-radius:6px; background:var(--theia-button-secondaryBackground, #1a1a1a); color:inherit; font-size:11.5px; padding:4px 9px; cursor:pointer; }
 .akari-daihon-placed-actions button:disabled { opacity:.4; cursor:default; }
-@media (prefers-reduced-motion: reduce) { .akari-daihon-rows { scroll-behavior:auto; } }
+@media (prefers-reduced-motion: reduce) { .akari-daihon-rows { scroll-behavior:auto; } .akari-daihon-placed-editor { animation:none; } }
 `;
 
 function installStyle(): void {
@@ -460,6 +462,10 @@ export class AkariDaihonWidget extends BaseWidget {
     protected readonly cutsButton = document.createElement('button');
     protected placedSelection: string | undefined;
     protected placedBusy = false;
+    protected placedEditing: EditingState | undefined;
+    protected placedDrag: { captionId: string; pointerId: number; x: number; y: number; moved: boolean; targetIndex: number | null } | undefined;
+    protected suppressPlacedClick = false;
+    protected lastPlacedClick: { captionId: string; at: number } | undefined;
     protected readonly placedEditor = document.createElement('div');
     protected readonly rowsNode = document.createElement('div');
     protected readonly selectionBar = document.createElement('div');
@@ -661,7 +667,7 @@ export class AkariDaihonWidget extends BaseWidget {
         this.footer.textContent = '秒数や語をクリックするとプレビューへシークします。';
         this.placedEditor.className = 'akari-daihon-placed-editor';
         this.placedEditor.hidden = true;
-        this.node.append(header, this.placedEditor, this.rowsNode, this.selectionBar, this.footer);
+        this.node.append(header, this.rowsNode, this.selectionBar, this.placedEditor, this.footer);
         const previewSelection = (event: Event): void => {
             const detail = (event as CustomEvent<{ editUri?: string; captionId?: string }>).detail;
             this.receivePlacedSelection(detail?.editUri, detail?.captionId);
@@ -704,6 +710,16 @@ export class AkariDaihonWidget extends BaseWidget {
         };
         document.addEventListener('pointerup', pointerUp);
         this.toDispose.push({ dispose: () => document.removeEventListener('pointerup', pointerUp) });
+        const placedMove = (event: PointerEvent): void => this.handlePlacedPointerMove(event);
+        const placedUp = (event: PointerEvent): void => this.handlePlacedPointerUp(event);
+        document.addEventListener('pointermove', placedMove);
+        document.addEventListener('pointerup', placedUp);
+        document.addEventListener('pointercancel', placedUp);
+        this.toDispose.push({ dispose: () => {
+            document.removeEventListener('pointermove', placedMove);
+            document.removeEventListener('pointerup', placedUp);
+            document.removeEventListener('pointercancel', placedUp);
+        } });
         const closePopFromOutside = (event: MouseEvent): void => {
             if (Date.now() - this.popOpenedAt < 50) return;
             const pop = document.querySelector<HTMLElement>('.akari-daihon-pop');
@@ -712,6 +728,26 @@ export class AkariDaihonWidget extends BaseWidget {
         };
         document.addEventListener('click', closePopFromOutside);
         this.toDispose.push({ dispose: () => document.removeEventListener('click', closePopFromOutside) });
+        const closePlacedFromOutside = (event: MouseEvent): void => {
+            if (!this.placedSelection || this.placedEditing) return;
+            const target = event.target;
+            if (target instanceof Node
+                && !(target instanceof Element && target.closest('.akari-daihon-placed-tag, .akari-daihon-placed-bar, .akari-daihon-placed-editor, .akari-daihon-placed-menu'))) {
+                this.closePlacedEditor();
+            }
+        };
+        const closePlacedOnEscape = (event: KeyboardEvent): void => {
+            if (event.key === 'Escape' && this.placedSelection && !this.placedEditing) {
+                event.preventDefault();
+                this.closePlacedEditor();
+            }
+        };
+        document.addEventListener('click', closePlacedFromOutside);
+        document.addEventListener('keydown', closePlacedOnEscape);
+        this.toDispose.push({ dispose: () => {
+            document.removeEventListener('click', closePlacedFromOutside);
+            document.removeEventListener('keydown', closePlacedOnEscape);
+        } });
         if (this.historyService) {
             const onDidPush = this.historyService.onDidPush;
             this.toDispose.push(onDidPush(entry => {
@@ -1396,6 +1432,12 @@ export class AkariDaihonWidget extends BaseWidget {
         window.dispatchEvent(new CustomEvent(PREVIEW_CAPTION_SELECTED_EVENT, { detail: { editUri, captionId } }));
     }
 
+    protected closePlacedEditor(): void {
+        this.placedSelection = undefined;
+        this.closePop();
+        this.renderPlacedText();
+    }
+
     protected renderPlacedText(): void {
         const ranges = this.placedRanges();
         const layout = placedTextLanes(ranges);
@@ -1424,7 +1466,25 @@ export class AkariDaihonWidget extends BaseWidget {
                     button.classList.toggle('selected', range.captionId === this.placedSelection);
                     button.setAttribute('aria-pressed', String(range.captionId === this.placedSelection));
                     button.title = range.text;
-                    button.addEventListener('click', event => { event.stopPropagation(); this.selectPlacedText(range.captionId); });
+                    button.addEventListener('click', event => {
+                        event.stopPropagation();
+                        if (this.suppressPlacedClick) return;
+                        const now = Date.now();
+                        const doubleClick = event.detail >= 2 || (this.lastPlacedClick?.captionId === range.captionId
+                            && now - this.lastPlacedClick.at < 400);
+                        this.lastPlacedClick = { captionId: range.captionId, at: now };
+                        if (doubleClick) { this.startPlacedEdit(range.captionId); return; }
+                        if (this.placedSelection === range.captionId) this.closePlacedEditor();
+                        else this.selectPlacedText(range.captionId);
+                    });
+                    button.addEventListener('dblclick', event => {
+                        event.preventDefault(); event.stopPropagation();
+                        this.startPlacedEdit(range.captionId);
+                    });
+                    button.addEventListener('contextmenu', event => {
+                        event.preventDefault(); event.stopPropagation();
+                        this.openPlacedMenu(range.captionId);
+                    });
                     return button;
                 };
                 const lane = layout.lanes.get(range.captionId);
@@ -1438,10 +1498,15 @@ export class AkariDaihonWidget extends BaseWidget {
                     columns.appendChild(bar);
                 }
                 if (index === range.first) {
+                    if (this.placedEditing?.id === range.captionId && this.placedEditing.input.parentElement) {
+                        tags.appendChild(this.placedEditing.input.parentElement);
+                        continue;
+                    }
                     const tag = makeButton('akari-daihon-placed-tag');
                     const suffix = range.first === 0 && range.last === this.rows.length - 1 ? ' · 全体'
                         : range.last > range.first ? ` · ${range.last - range.first + 1} 行` : '';
                     tag.textContent = `T ${range.text}${suffix}`;
+                    tag.addEventListener('pointerdown', event => this.startPlacedPointerDrag(event, range.captionId));
                     tags.appendChild(tag);
                 }
             }
@@ -1452,9 +1517,15 @@ export class AkariDaihonWidget extends BaseWidget {
     }
 
     protected renderPlacedEditor(range: PlacedTextRange | undefined): void {
+        const opening = this.placedEditor.hidden && !!range;
         this.placedEditor.replaceChildren();
         this.placedEditor.hidden = !range;
         if (!range) return;
+        if (opening) {
+            this.placedEditor.style.animation = 'none';
+            void this.placedEditor.offsetWidth;
+            this.placedEditor.style.animation = '';
+        }
         this.placedEditor.dataset.captionId = range.captionId;
         const title = document.createElement('div');
         title.textContent = `T ${range.text}`;
@@ -1466,7 +1537,7 @@ export class AkariDaihonWidget extends BaseWidget {
         const choices: Array<[PlacedTextAction | 'delete' | 'edit-text', string]> = [
             ['expand-start', '前へ 1 行広げる'], ['shrink-start', '前を 1 行縮める'],
             ['expand-end', '後ろへ 1 行広げる'], ['shrink-end', '後ろを 1 行縮める'],
-            ['all', '全体'], ['delete', '削除'], ['edit-text', '文字を編集']
+            ['all', '全体'], ['edit-text', '文字を編集'], ['delete', '削除']
         ];
         for (const [action, label] of choices) {
             const button = document.createElement('button');
@@ -1476,12 +1547,161 @@ export class AkariDaihonWidget extends BaseWidget {
             button.disabled = this.placedBusy || (action !== 'delete' && action !== 'edit-text'
                 && !placedTextTiming(range, this.rows, action));
             button.addEventListener('click', () => {
-                if (action === 'edit-text') void this.focusCaptionInspector(range.captionId);
+                if (action === 'edit-text') this.startPlacedEdit(range.captionId);
                 else void this.editPlacedText(range.captionId, action, label);
             });
             actions.appendChild(button);
         }
         this.placedEditor.append(title, readout, actions);
+    }
+
+    protected openPlacedMenu(captionId: string): void {
+        if (this.placedSelection !== captionId) this.selectPlacedText(captionId);
+        const range = this.placedRanges().find(candidate => candidate.captionId === captionId);
+        if (!range) return;
+        const anchor = this.rowsNode.querySelector<HTMLElement>(`.akari-daihon-placed-tag[data-caption-id="${CSS.escape(captionId)}"]`);
+        if (!anchor) return;
+        const pop = this.openPop(anchor);
+        pop.classList.add('akari-daihon-placed-menu');
+        const choices: Array<[PlacedTextAction | 'edit-text' | 'delete', string]> = [
+            ['expand-start', '前へ 1 行広げる'], ['shrink-start', '前を 1 行縮める'],
+            ['expand-end', '後ろへ 1 行広げる'], ['shrink-end', '後ろを 1 行縮める'],
+            ['all', '全体'], ['edit-text', '文字を編集'], ['delete', '削除']
+        ];
+        for (const [action, label] of choices) {
+            const button = document.createElement('button');
+            button.type = 'button'; button.dataset.action = action; button.textContent = label;
+            button.disabled = this.placedBusy || (action !== 'edit-text' && action !== 'delete'
+                && !placedTextTiming(range, this.rows, action));
+            if (action === 'delete') button.classList.add('danger');
+            button.addEventListener('click', click => {
+                click.stopPropagation();
+                this.closePop();
+                if (action === 'edit-text') this.startPlacedEdit(captionId);
+                else void this.editPlacedText(captionId, action, label);
+            });
+            pop.appendChild(button);
+        }
+    }
+
+    protected startPlacedEdit(captionId: string): void {
+        if (this.placedEditing || this.placedBusy || !this.captionsUri || !this.rootUri) return;
+        const range = this.placedRanges().find(candidate => candidate.captionId === captionId);
+        if (!range) return;
+        this.closePop();
+        if (this.placedSelection !== captionId) this.selectPlacedText(captionId);
+        const tag = this.rowsNode.querySelector<HTMLElement>(`.akari-daihon-placed-tag[data-caption-id="${CSS.escape(captionId)}"]`);
+        if (!tag) return;
+        const editor = document.createElement('div');
+        editor.className = 'akari-daihon-row-edit akari-daihon-placed-inline-edit';
+        const input = document.createElement('input');
+        input.value = range.text;
+        input.setAttribute('aria-label', `${captionId} の置いた文字`);
+        editor.appendChild(input);
+        tag.replaceWith(editor);
+        const state: EditingState = { id: captionId, input, original: range.text, cancelled: false, committing: false };
+        this.placedEditing = state;
+        input.addEventListener('keydown', event => {
+            if (event.key === 'Enter') { event.preventDefault(); input.blur(); }
+            else if (event.key === 'Escape') { event.preventDefault(); state.cancelled = true; input.blur(); }
+        });
+        input.addEventListener('blur', () => void this.finishPlacedEdit(state));
+        input.focus(); input.select();
+    }
+
+    protected async finishPlacedEdit(state: EditingState): Promise<void> {
+        if (state.committing || this.placedEditing !== state) return;
+        state.committing = true;
+        const value = state.input.value;
+        if (state.cancelled || value === state.original || !value.trim()) {
+            if (!state.cancelled && !value.trim()) this.notify('字幕のテキストは空にできません。');
+            this.placedEditing = undefined;
+            this.renderPlacedText();
+            return;
+        }
+        state.input.disabled = true;
+        try {
+            await this.withHistory('置いた文字: 文字を編集', async () => {
+                await this.annotationsService.setCaptionFields({
+                    captionsUri: this.captionsUri!.toString(), projectRootUri: this.rootUri!.toString(),
+                    captionId: state.id, text: value
+                });
+            });
+            this.placedEditing = undefined;
+            await this.reload();
+            this.notify('置いた文字を更新しました。');
+        } catch (error) {
+            this.placedEditing = undefined;
+            this.renderPlacedText();
+            this.notify(this.errorMessage(error));
+        }
+    }
+
+    protected startPlacedPointerDrag(event: PointerEvent, captionId: string): void {
+        if (event.button !== 0 || this.placedEditing || this.placedBusy) return;
+        event.stopPropagation();
+        (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
+        this.placedDrag = { captionId, pointerId: event.pointerId, x: event.clientX, y: event.clientY,
+            moved: false, targetIndex: null };
+    }
+
+    protected placedDropIndex(x: number, y: number): number | null {
+        const row = document.elementFromPoint(x, y)?.closest<HTMLElement>('.akari-daihon-row');
+        if (!row || !this.rowsNode.contains(row)) return null;
+        const index = this.rows.findIndex(candidate => candidate.id === row.dataset.captionId);
+        return index < 0 ? null : index;
+    }
+
+    protected handlePlacedPointerMove(event: PointerEvent): void {
+        const drag = this.placedDrag;
+        if (!drag || drag.pointerId !== event.pointerId) return;
+        if (!drag.moved && Math.hypot(event.clientX - drag.x, event.clientY - drag.y) < 5) return;
+        drag.moved = true;
+        const range = this.placedRanges().find(candidate => candidate.captionId === drag.captionId);
+        const index = this.placedDropIndex(event.clientX, event.clientY);
+        const target = range && index !== null && placedTextDropTiming(range, this.rows, index) ? index : null;
+        if (drag.targetIndex === target) return;
+        this.rows.forEach(row => this.elements.get(row.id)?.root.classList.remove('placed-drop-target'));
+        drag.targetIndex = target;
+        if (target !== null) this.elements.get(this.rows[target].id)?.root.classList.add('placed-drop-target');
+    }
+
+    protected handlePlacedPointerUp(event: PointerEvent): void {
+        const drag = this.placedDrag;
+        if (!drag || drag.pointerId !== event.pointerId) return;
+        this.placedDrag = undefined;
+        this.rows.forEach(row => this.elements.get(row.id)?.root.classList.remove('placed-drop-target'));
+        if (!drag.moved) return;
+        this.lastPlacedClick = undefined;
+        this.suppressPlacedClick = true;
+        this.suppressRowClick = true;
+        setTimeout(() => { this.suppressPlacedClick = false; this.suppressRowClick = false; }, 0);
+        if (event.type === 'pointercancel') return;
+        const range = this.placedRanges().find(candidate => candidate.captionId === drag.captionId);
+        const index = this.placedDropIndex(event.clientX, event.clientY);
+        const timing = range && index !== null ? placedTextDropTiming(range, this.rows, index) : null;
+        if (timing) void this.movePlacedText(drag.captionId, timing);
+    }
+
+    protected async movePlacedText(captionId: string, timing: { start: number; end: number }): Promise<void> {
+        if (this.placedBusy || !this.captionsUri || !this.rootUri) return;
+        this.placedBusy = true;
+        try {
+            await this.withHistory('置いた文字: 行を移動', async () => {
+                await this.annotationsService.setCaptionTiming({
+                    captionsUri: this.captionsUri!.toString(), projectRootUri: this.rootUri!.toString(),
+                    captionId, ...timing, edited: true
+                });
+            });
+            await this.reload();
+            this.notify('置いた文字を移動しました。');
+        } catch (error) {
+            await this.reload();
+            this.notify(this.errorMessage(error));
+        } finally {
+            this.placedBusy = false;
+            this.renderPlacedText();
+        }
     }
 
     protected async editPlacedText(captionId: string, action: PlacedTextAction | 'delete', label: string): Promise<void> {
