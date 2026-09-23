@@ -218,11 +218,11 @@ interface CanvasStrokeRecord {
 export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
     protected readonly narrationCli = new NarrationCliManager();
 
-    async listNarrationEngines(_projectRootUri: string): Promise<NarrationEnginesResult> {
-        return this.narrationCli.engines();
+    async listNarrationEngines(_projectRootUri: string, irodoriUrl?: string): Promise<NarrationEnginesResult> {
+        return this.narrationCli.engines(irodoriUrl);
     }
-    async listNarrationVoices(_projectRootUri: string, engine: string): Promise<NarrationVoicesResult> {
-        return this.narrationCli.voices(engine);
+    async listNarrationVoices(_projectRootUri: string, engine: string, irodoriUrl?: string): Promise<NarrationVoicesResult> {
+        return this.narrationCli.voices(engine, irodoriUrl);
     }
     async generateNarration(request: GenerateNarrationRequest): Promise<GenerateNarrationResult> {
         if (['gemini-tts', 'fal-qwen3'].includes(request.engine) && request.approved !== true) {

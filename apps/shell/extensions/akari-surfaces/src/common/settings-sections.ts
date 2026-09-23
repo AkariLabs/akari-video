@@ -68,6 +68,14 @@ export const AKARI_TRANSCRIBE_COMPARE_SET = 'akari.transcribe.compareSet';
 export const AKARI_TRANSCRIBE_AUTO_CUTS = 'akari.transcribe.autoCuts';
 export const AKARI_NARRATION_ENGINE = 'akari.narration.engine';
 export const AKARI_NARRATION_VOICE = 'akari.narration.voice';
+export const AKARI_NARRATION_IRODORI_URL = 'akari.narration.irodoriUrl';
+export function isValidIrodoriUrl(value: string): boolean {
+    try {
+        const url = new URL(value);
+        return (url.protocol === 'http:' || url.protocol === 'https:') && Boolean(url.hostname)
+            && !url.username && !url.password && !url.search && !url.hash;
+    } catch { return false; }
+}
 // テーマのスキーマは Theia、書き出しは akari-shell-strip/akari-export-preferences.ts が所有。
 // 設定キーは文字列ミラー、OS ごとのエンコーダ選択肢は所有拡張から共有する。
 export const WORKBENCH_COLOR_THEME = 'workbench.colorTheme';
@@ -97,7 +105,7 @@ export const SECTION_PREFERENCE_KEYS: Record<SettingsSectionId, readonly string[
     connections: [], // API キーは PreferenceService ではなく接続サービスが所有する。
     partner: [AKARI_PARTNER_REOPEN],
     transcribe: [AKARI_TRANSCRIBE_MODE, AKARI_TRANSCRIBE_BACKEND, AKARI_TRANSCRIBE_COMPARE_SET, AKARI_TRANSCRIBE_AUTO_CUTS],
-    narration: [AKARI_NARRATION_ENGINE, AKARI_NARRATION_VOICE],
+    narration: [AKARI_NARRATION_ENGINE, AKARI_NARRATION_VOICE, AKARI_NARRATION_IRODORI_URL],
     quality: [AKARI_QUALITY_TIER, AKARI_TIMELINE_VISUAL_THUMBNAILS],
     notifications: [AKARI_AGENT_TURN_END_NOTIFICATION],
     tools: [AKARI_CATALOG_ROOT],

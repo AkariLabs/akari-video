@@ -77,8 +77,8 @@ export class NarrationCli implements AkariNarrationEnginesService {
         return false;
     }
 
-    async narrationEngines(): Promise<{ engines: NarrationEngineRow[]; voicevoxCaskAvailable: boolean }> {
-        const [result, voicevoxCaskAvailable] = await Promise.all([this.run(['engines']), this.voicevoxCaskAvailable()]);
+    async narrationEngines(irodoriUrl?: string): Promise<{ engines: NarrationEngineRow[]; voicevoxCaskAvailable: boolean }> {
+        const [result, voicevoxCaskAvailable] = await Promise.all([this.run(['engines', ...(irodoriUrl ? ['--irodori-url', irodoriUrl] : [])]), this.voicevoxCaskAvailable()]);
         return { engines: result.engines as NarrationEngineRow[], voicevoxCaskAvailable };
     }
 

@@ -6,9 +6,9 @@ export const AKARI_ANNOTATIONS_SERVICE_PATH = '/services/akari-annotations';
 export const AkariAnnotationsService = Symbol('AkariAnnotationsService');
 
 export interface NarrationEngine {
-    id: string; label: string; place: 'local' | 'cloud'; provider?: string;
+    id: string; label: string; place: 'local' | 'network' | 'cloud'; provider?: string; experimental?: boolean;
     price?: { usd_per_1000_chars: number; verified: boolean; as_of?: string };
-    availability: { state: 'available' | 'needs' | 'unconfigured' | 'unsupported'; label: string };
+    availability: { state: 'available' | 'needs' | 'unconfigured' | 'unsupported'; label: string; detail?: { url?: string; setup_url?: string } };
     default_voice?: string; credit_required?: boolean;
     supports?: { speed: boolean; style: boolean };
 }
@@ -16,7 +16,7 @@ export interface NarrationVoice { id: string; label: string; default?: boolean; 
 export interface NarrationEnginesResult { version: number; engines: NarrationEngine[] }
 export interface NarrationVoicesResult { version: number; engine: string; voices: NarrationVoice[] }
 export interface GenerateNarrationRequest {
-    projectRootUri: string; engine: string; voice: string; speed?: number; style?: string;
+    projectRootUri: string; engine: string; voice: string; speed?: number; style?: string; irodoriUrl?: string;
     script: string; reading: string; captionId?: string | null; t: number; approved?: boolean;
 }
 export interface GenerateNarrationResult {
@@ -841,8 +841,8 @@ export interface RemoveSfxResult extends DeleteArrayItemResult {
 }
 
 export interface AkariAnnotationsService {
-    listNarrationEngines(projectRootUri: string): Promise<NarrationEnginesResult>;
-    listNarrationVoices(projectRootUri: string, engine: string): Promise<NarrationVoicesResult>;
+    listNarrationEngines(projectRootUri: string, irodoriUrl?: string): Promise<NarrationEnginesResult>;
+    listNarrationVoices(projectRootUri: string, engine: string, irodoriUrl?: string): Promise<NarrationVoicesResult>;
     generateNarration(request: GenerateNarrationRequest): Promise<GenerateNarrationResult>;
     applyNarration(request: ApplyNarrationRequest): Promise<{ id: string }>;
     applyNarrations(request: ApplyNarrationsRequest): Promise<{ ids: string[] }>;

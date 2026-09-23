@@ -11,13 +11,17 @@ export function selectReadAloudVoice(voices: readonly NarrationVoice[], preferre
     return voices.find(voice => voice.id === preferred) ?? voices.find(voice => voice.default) ?? voices[0];
 }
 
+export function irodoriCustomVoiceMissing(engineId: string | undefined, voiceId: string, style: string): boolean {
+    return engineId === 'irodori' && voiceId === 'custom' && !style.trim();
+}
+
 export function narrationEstimate(engine: NarrationEngine, reading: string): {
     chars: number; usd: number; yen: number; provisional: boolean; label: string
 } {
     const chars = reading.length;
     const usd = chars / 1000 * (engine.price?.usd_per_1000_chars ?? 0);
     return { chars, usd, yen: Math.round(usd * 150), provisional: engine.price?.verified === false,
-        label: engine.place === 'local' ? '費用 ¥0' : `見積 $${usd.toFixed(3)}（≈ ¥${Math.round(usd * 150)}）· 承認 1 回` };
+        label: engine.place !== 'cloud' ? '費用 ¥0' : `見積 $${usd.toFixed(3)}（≈ ¥${Math.round(usd * 150)}）· 承認 1 回` };
 }
 
 export interface ReadAloudRow { id: string; text: string; start: number; end: number;
@@ -37,7 +41,7 @@ export function batchNarrationEstimate(engine: NarrationEngine, readings: readon
 
 export type OverflowChoice = 'extend' | 'retry' | 'keep';
 export function defaultOverflowAction(input: { frameSeconds: number; durationSeconds: number;
-    timeDomain: 'source' | 'output'; enginePlace: 'local' | 'cloud'; speedSupported: boolean;
+    timeDomain: 'source' | 'output'; enginePlace: 'local' | 'network' | 'cloud'; speedSupported: boolean;
     start: number; nextStart?: number }): { choice: OverflowChoice; extendEnd?: number; remainder: number; recommendedSpeed: number } {
     const comparison = compareNarrationDuration(input.frameSeconds, input.durationSeconds, input.timeDomain, input.speedSupported);
     if (comparison.overflow <= 0) return { choice: 'keep', remainder: 0, recommendedSpeed: comparison.recommendedSpeed };
@@ -46,7 +50,7 @@ export function defaultOverflowAction(input: { frameSeconds: number; durationSec
         const extendEnd = Math.min(desired, Math.max(input.start + input.frameSeconds, input.nextStart ?? Infinity));
         return { choice: 'extend', extendEnd, remainder: Math.max(0, desired - extendEnd), recommendedSpeed: comparison.recommendedSpeed };
     }
-    if (input.enginePlace === 'local' && input.speedSupported) return {
+    if (input.enginePlace !== 'cloud' && input.speedSupported) return {
         choice: 'retry', remainder: comparison.overflow, recommendedSpeed: comparison.recommendedSpeed
     };
     return { choice: 'keep', remainder: comparison.overflow, recommendedSpeed: comparison.recommendedSpeed };
@@ -64,9 +68,9 @@ export function readAloudPreviewPlan(engine: NarrationEngine, reading: string): 
     buttonLabel: string; footnote: string; needsApproval: boolean;
     confirm?: { title: string; msg: string; ok: string; cancel: string };
 } {
-    if (engine.place === 'local') return {
+    if (engine.place !== 'cloud') return {
         buttonLabel: '▶ 試聴',
-        footnote: 'ローカルなので費用承認なし。作った音声はまず試聴、置くのはその後。',
+        footnote: engine.id === 'irodori' ? '彩は時間がかかります（お試し）。作った音声を試聴してから置きます。' : 'ローカルなので費用承認なし。作った音声はまず試聴、置くのはその後。',
         needsApproval: false
     };
     const quote = narrationEstimate(engine, reading);

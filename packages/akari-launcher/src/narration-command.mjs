@@ -14,6 +14,28 @@ const FAL_TTS_URL = "https://fal.run/fal-ai/qwen-3-tts/text-to-speech/1.7b";
 const FAL_USD_PER_1000_CHARS = 0.09;
 const GEMINI_TTS_URL = "https://fal.run/fal-ai/gemini-tts";
 const GEMINI_USD_PER_1000_CHARS = 0.05;
+const IRODORI_DEFAULT_URL = "http://127.0.0.1:8088";
+const IRODORI_SETUP_URL = "https://github.com/Aratako/Irodori-TTS-Server";
+const IRODORI_RECIPES = [
+  { id: "narrator-male", label: "落ち着いた男性ナレーター", caption: "落ち着いた低めの男性の声。聞き取りやすく、ナレーションのように丁寧に話す。", default: true },
+  { id: "bright-female", label: "明るい若い女性", caption: "明るく元気な若い女性の声。はきはきと楽しそうに話す。" },
+  { id: "slow-explainer", label: "低くゆっくりした解説", caption: "低めで落ち着いた声。ゆっくり、一語ずつ丁寧に説明する。" },
+];
+function irodoriEndpoint(value, env = process.env) {
+  const raw = value ?? env.AKARI_IRODORI_URL ?? IRODORI_DEFAULT_URL;
+  let url;
+  try { url = new URL(raw); } catch { throw new PublicError("--irodori-url は http または https の URL にしてください", 2); }
+  if (!["http:", "https:"].includes(url.protocol) || !url.hostname || url.username || url.password || url.search || url.hash) {
+    throw new PublicError("--irodori-url は http または https のサーバー URL にしてください", 2);
+  }
+  return { base: `${url.origin}${url.pathname.replace(/\/+$/, "")}`, server: `${url.hostname}:${url.port || (url.protocol === "https:" ? "443" : "80")}`,
+    network: !["127.0.0.1", "localhost", "[::1]"].includes(url.hostname) };
+}
+function irodoriTimeout(env = process.env) {
+  const value = Number(env.AKARI_IRODORI_TIMEOUT_MS ?? 600_000);
+  if (!Number.isSafeInteger(value) || value <= 0) throw new PublicError("AKARI_IRODORI_TIMEOUT_MS は正の整数にしてください", 2);
+  return value;
+}
 const GEMINI_VOICES = Object.entries({
   Leda: "Youthful", Achernar: "Soft", Achird: "Friendly", Algenib: "Gravelly",
   Algieba: "Smooth", Alnilam: "Firm", Aoede: "Breezy", Autonoe: "Bright",
@@ -29,11 +51,11 @@ const GEMINI_VOICES = Object.entries({
 const usage = [
   "使い方:",
   "  akari narration generate \\",
-  "    --project <projectDir> --engine <voicevox|gemini-tts|fal-qwen3> \\",
+  "    --project <projectDir> --engine <voicevox|gemini-tts|irodori|fal-qwen3> \\",
   "    (--reading-file <読み原稿.txt> | --text <原稿>) [--script-file <表示原稿.txt>] \\",
   "    [--t <タイムライン秒>] [--gain-db 0] [--id n-0001] \\",
   "    [--speaker 3] [--voice Leda] [--style <text>] [--speed 1] \\",
-  "    [--profile owner-ja] [--caption-ref c-0001] [--dry-run] [--yes] [--apply] [--json]",
+  "    [--profile owner-ja] [--irodori-url http://127.0.0.1:8088] [--caption-ref c-0001] [--dry-run] [--yes] [--apply] [--json]",
 ].join("\n");
 const commandUsage = [
   "使い方: akari narration <subcommand> [options]",
@@ -75,7 +97,7 @@ function isFiniteNumber(value) {
 const VALUE_OPTIONS = new Set([
   "--project", "--engine", "--reading-file", "--script-file",
   "--t", "--gain-db", "--id", "--speaker", "--profile",
-  "--voice", "--style", "--speed", "--text", "--caption-ref",
+  "--voice", "--style", "--speed", "--text", "--caption-ref", "--irodori-url",
 ]);
 const FLAG_OPTIONS = new Set(["--dry-run", "--yes", "--apply", "--json"]);
 
@@ -93,7 +115,7 @@ function parseArguments(argv) {
     id: null,
     speaker: "3",
     profile: null,
-    voice: "Leda", style: null, speed: null, text: null, captionRef: null, json: false,
+    voice: null, style: null, speed: null, text: null, captionRef: null, irodoriUrl: null, json: false,
     dryRun: false,
     yes: false,
     apply: false,
@@ -121,6 +143,7 @@ function parseArguments(argv) {
         case "--speed": options.speed = Number(value); break;
         case "--text": options.text = value; break;
         case "--caption-ref": options.captionRef = value; break;
+        case "--irodori-url": options.irodoriUrl = value; break;
         default: break;
       }
     } else if (argument === "--dry-run") {
@@ -137,15 +160,22 @@ function parseArguments(argv) {
   }
 
   if (!options.project) throw new PublicError("--project が必要です");
-  if (!["voicevox", "gemini-tts", "fal-qwen3"].includes(options.engine)) {
-    throw new PublicError("--engine には voicevox、gemini-tts または fal-qwen3 を指定してください", 2);
+  if (!["voicevox", "gemini-tts", "irodori", "fal-qwen3"].includes(options.engine)) {
+    throw new PublicError("--engine には voicevox、gemini-tts、irodori または fal-qwen3 を指定してください", 2);
   }
+  if (options.engine === "irodori") {
+    options.voice ??= "narrator-male";
+    if (!IRODORI_RECIPES.some(recipe => recipe.id === options.voice) && options.voice !== "custom") throw new PublicError("彩の声レシピが不明です", 2);
+    if (options.voice === "custom" && !options.style?.trim()) throw new PublicError("自分で書く声には --style が必要です", 2);
+    options.irodori = irodoriEndpoint(options.irodoriUrl);
+    irodoriTimeout();
+  } else options.voice ??= "Leda";
   if (!options.readingFile && !options.text) throw new PublicError("--reading-file または --text が必要です");
   if (options.engine === "gemini-tts" && !GEMINI_VOICES.some(({ id }) => id === options.voice)) {
     throw new PublicError(`--voice に使える声: ${GEMINI_VOICES.map(({ id }) => id).join(", ")}`, 2);
   }
-  if (options.speed !== null && (!isFiniteNumber(options.speed) || options.speed < 0.5 || options.speed > 2)) {
-    throw new PublicError("--speed は 0.5 から 2.0 の範囲で指定してください", 2);
+  if (options.speed !== null && (!isFiniteNumber(options.speed) || options.speed < (options.engine === "irodori" ? 0.25 : 0.5) || options.speed > (options.engine === "irodori" ? 4 : 2))) {
+    throw new PublicError(options.engine === "irodori" ? "--speed は 0.25 から 4.0 の範囲で指定してください" : "--speed は 0.5 から 2.0 の範囲で指定してください", 2);
   }
   if (options.captionRef !== null && !/^c-\d{4}$/.test(options.captionRef)) {
     throw new PublicError("--caption-ref は c- に続く 4 桁の数字で指定してください", 2);
@@ -203,7 +233,7 @@ function computeNextId(projectDir) {
 }
 
 function extensionFor(engine) {
-  return engine === "voicevox" ? "wav" : "mp3";
+  return ["voicevox", "irodori"].includes(engine) ? "wav" : "mp3";
 }
 
 function relativeOutputPath(id, engine) {
@@ -612,6 +642,30 @@ function maskKey(secret) {
   return secret ? "***configured***" : "***unconfigured***";
 }
 
+async function probeIrodori(endpoint, fetchImpl = fetch) {
+  try {
+    const response = await fetchImpl(`${endpoint.base}/health`, { signal: AbortSignal.timeout(2000) });
+    return response.ok;
+  } catch { return false; }
+}
+
+async function synthesizeIrodori(readingText, options, fetchImpl = fetch) {
+  const caption = options.style?.trim() || IRODORI_RECIPES.find(recipe => recipe.id === options.voice)?.caption;
+  let response;
+  try {
+    response = await fetchImpl(`${options.irodori.base}/v1/audio/speech`, {
+      method: "POST", headers: { "Content-Type": "application/json" }, signal: AbortSignal.timeout(irodoriTimeout()),
+      body: JSON.stringify({ model: "irodori-tts", input: readingText, voice: "none", response_format: "wav",
+        speed: options.speed ?? 1, irodori: { caption } }),
+    });
+  } catch (error) { throw new PublicError(`彩サーバーに接続できません: ${error?.message ?? error}`); }
+  const buffer = Buffer.from(await response.arrayBuffer());
+  if (!response.ok || buffer.toString("ascii", 0, 4) !== "RIFF" || buffer.toString("ascii", 8, 12) !== "WAVE") {
+    throw new PublicError(`彩サーバーが音声を返しませんでした（HTTP ${response.status}）: ${buffer.toString("utf8", 0, 300)}`);
+  }
+  return buffer;
+}
+
 async function listEngines(runtime = {}) {
   let voicevox;
   const state = await probeVoicevox(runtime.fetchImpl || fetch);
@@ -635,15 +689,27 @@ async function listEngines(runtime = {}) {
     : { state: "unconfigured", label: "fal の鍵を登録" };
   const profilesDir = path.join(os.homedir(), ".config", "akari-video", "voice-profiles");
   const hasProfiles = fs.existsSync(profilesDir) && fs.readdirSync(profilesDir, { withFileTypes: true }).some((entry) => entry.isDirectory());
+  let endpoint;
+  try { endpoint = irodoriEndpoint(runtime.irodoriUrl, runtime.env || process.env); }
+  catch (error) { if (!(error instanceof PublicError)) throw error; }
+  const irodoriAvailable = endpoint ? await probeIrodori(endpoint, runtime.fetchImpl || fetch) : false;
   return { version: 1, engines: [
     { id: "voicevox", label: "VOICEVOX", place: "local", price: { usd_per_1000_chars: 0, verified: true }, availability: voicevox, credit_required: true, supports: { speed: true, style: false } },
     { id: "gemini-tts", label: "Gemini 2.5 Flash TTS", place: "cloud", provider: "fal", price: { usd_per_1000_chars: GEMINI_USD_PER_1000_CHARS, verified: false, as_of: "2026-09-22" }, availability: falAvailability, default_voice: "Leda", credit_required: false, supports: { speed: false, style: true } },
-    { id: "irodori", label: "彩（Irodori-TTS）", place: "local", availability: { state: "unsupported", label: "近日" } },
+    { id: "irodori", label: "彩（Irodori-TTS）", place: endpoint?.network ? "network" : "local", experimental: true,
+      price: { usd_per_1000_chars: 0, verified: true }, credit_required: false, default_voice: "narrator-male",
+      supports: { speed: true, style: true }, availability: !endpoint
+        ? { state: "unconfigured", label: "接続先 URL が正しくありません（お試し）", detail: { setup_url: IRODORI_SETUP_URL } }
+        : irodoriAvailable
+        ? { state: "available", label: "お試し · 接続済み", detail: { url: endpoint.server } }
+        : { state: "unconfigured", label: "Irodori サーバーにつながりません（お試し）", detail: { setup_url: IRODORI_SETUP_URL } } },
     { id: "fal-qwen3", label: "fal Qwen3-TTS", place: "cloud", provider: "fal", price: { usd_per_1000_chars: FAL_USD_PER_1000_CHARS, verified: false }, availability: !configured ? falAvailability : hasProfiles ? { state: "available", label: "声プロファイルを使用できます" } : { state: "needs", label: "声プロファイルを作成" }, credit_required: false, supports: { speed: false, style: false } },
   ] };
 }
 
 async function listVoices(engine) {
+  if (engine === "irodori") return [...IRODORI_RECIPES.map(({ id, label, default: isDefault }) => ({ id, label, ...(isDefault ? { default: true } : {}) })),
+    { id: "custom", label: "自分で書く（声の指示）" }];
   if (engine === "gemini-tts") return GEMINI_VOICES;
   if (engine === "voicevox") {
     const handle = await ensureVoicevoxEngine();
@@ -668,13 +734,15 @@ async function listVoices(engine) {
 
 function parseListArguments(args) {
   let engine = null;
+  let irodoriUrl = null;
   for (let index = 1; index < args.length; index += 1) {
     if (args[index] === "--json") continue;
     if (args[index] === "--engine" && args[index + 1]) { engine = args[++index]; continue; }
+    if (args[index] === "--irodori-url" && args[index + 1]) { irodoriUrl = args[++index]; continue; }
     throw new PublicError(`不明な引数です: ${args[index]}`, 2);
   }
   if (args[0] === "voices" && !engine) throw new PublicError("voices には --engine が必要です", 2);
-  return engine;
+  return { engine, irodoriUrl };
 }
 
 async function runDryRun(options, readingText, io) {
@@ -708,6 +776,13 @@ async function runDryRun(options, readingText, io) {
     }, io.log);
     return;
   }
+  if (options.engine === "irodori") {
+    emit({ dry_run: true, engine: options.engine, output_path: outputPath, estimated_cost_usd: 0,
+      request: { endpoint: `${options.irodori.base}/v1/audio/speech`, body: { model: "irodori-tts", input: readingText,
+        voice: "none", response_format: "wav", speed: options.speed ?? 1,
+        irodori: { caption: options.style?.trim() || IRODORI_RECIPES.find(recipe => recipe.id === options.voice)?.caption } } } }, io.log);
+    return;
+  }
   const falKey = resolveFalKey();
   const meta = readProfileMeta(options.profile);
   const payload = buildFalPayload(readingText, meta);
@@ -726,7 +801,7 @@ async function runDryRun(options, readingText, io) {
 }
 
 function durationForAudio(buffer, outputPath, engine, warnings) {
-  if (engine === "voicevox") {
+  if (["voicevox", "irodori"].includes(engine)) {
     if (buffer.length >= 44 && buffer.toString("ascii", 0, 4) === "RIFF") {
       const bytesPerSecond = buffer.readUInt32LE(28);
       const dataOffset = buffer.indexOf("data", 36, "ascii");
@@ -763,7 +838,7 @@ async function runGenerate(options, io) {
   let provenance;
   let costUsd = 0;
   const warnings = [];
-  if (options.speed !== null && options.engine !== "voicevox") {
+  if (options.speed !== null && !["voicevox", "irodori"].includes(options.engine)) {
     const warning = `${options.engine} は --speed に対応していないため無視しました`;
     warnings.push(warning);
     io.logError(warning);
@@ -791,6 +866,10 @@ async function runGenerate(options, io) {
     } finally {
       if (engineHandle.startedByUs) await stopVoicevoxEngine(engineHandle.child);
     }
+  } else if (options.engine === "irodori") {
+    audioBuffer = await synthesizeIrodori(readingText, options);
+    provenance = { provider: "irodori", engine: "irodori-tts-v4-small", voice: options.style?.trim() ? "caption:custom" : `recipe:${options.voice}`,
+      generated_at: new Date().toISOString(), experimental: true, server: options.irodori.server };
   } else {
     const estimatedCostUsd = options.engine === "gemini-tts"
       ? estimateGeminiTtsCostUsd(readingText.length) : estimateFalCostUsd(readingText);
@@ -837,7 +916,7 @@ async function runGenerate(options, io) {
   if (options.json) printCompactJson({ version: 1, status: "ok", id, path: relativePath,
     duration_s: duration, engine: options.engine, voice: provenance.voice, cost_usd: costUsd,
     applied: options.apply, caption_ref: options.captionRef, provenance, warnings,
-    ...(options.speed !== null ? { speed_applied: options.engine === "voicevox" } : {}) }, io.log);
+    ...(options.speed !== null ? { speed_applied: ["voicevox", "irodori"].includes(options.engine) } : {}) }, io.log);
   else printJson(entry, io.log);
   return 0;
 }
@@ -871,8 +950,9 @@ export async function runNarrationCommand(args, commandOptions = {}) {
   }
   if (["engines", "voices"].includes(args[0])) {
     try {
-      const engine = parseListArguments(args);
-      printCompactJson(args[0] === "engines" ? await listEngines(commandOptions.engineRuntime) : { version: 1, engine, voices: await listVoices(engine) }, io.log);
+      const { engine, irodoriUrl } = parseListArguments(args);
+      printCompactJson(args[0] === "engines" ? await listEngines({ ...commandOptions.engineRuntime, irodoriUrl }) :
+        { version: 1, engine, voices: await listVoices(engine) }, io.log);
       return { exitCode: 0 };
     } catch (error) {
       const message = error instanceof PublicError ? error.message : "声一覧を取得できませんでした";

@@ -9,6 +9,7 @@ export const AKARI_TRANSCRIBE_COMPARE_SET = 'akari.transcribe.compareSet';
 export const AKARI_TRANSCRIBE_AUTO_CUTS = 'akari.transcribe.autoCuts';
 export const AKARI_NARRATION_ENGINE = 'akari.narration.engine';
 export const AKARI_NARRATION_VOICE = 'akari.narration.voice';
+export const AKARI_NARRATION_IRODORI_URL = 'akari.narration.irodoriUrl';
 
 export const AKARI_QUALITY_TIER = 'akari.qualityTier';
 export const AKARI_TIMELINE_VISUAL_THUMBNAILS = 'akari.timeline.visualThumbnails';
@@ -22,6 +23,7 @@ const AKARI_PREFERENCE_SCHEMA: PreferenceSchema = {
     properties: {
         [AKARI_NARRATION_ENGINE]: { type: 'string', default: 'voicevox', description: '読み上げの既定エンジン' },
         [AKARI_NARRATION_VOICE]: { type: 'object', default: {}, description: 'エンジン別の読み上げ音声' },
+        [AKARI_NARRATION_IRODORI_URL]: { type: 'string', default: 'http://127.0.0.1:8088', description: '彩サーバーの接続先 URL' },
         [AKARI_TRANSCRIBE_MODE]: {
             type: 'string', enum: ['simple', 'advanced'], default: 'simple',
             description: '文字起こしのモード（簡単 / アドバンス）'

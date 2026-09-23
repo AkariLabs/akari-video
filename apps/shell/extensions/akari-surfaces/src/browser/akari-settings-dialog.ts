@@ -35,7 +35,7 @@ import { AkariHomeCommands } from './akari-home-command-contribution';
 import { AkariNarrationEnginesService, NarrationEngineRow } from '../common/narration-engines-protocol';
 import {
     AKARI_TRANSCRIBE_MODE, AKARI_TRANSCRIBE_AUTO_CUTS, AKARI_TRANSCRIBE_BACKEND, AKARI_TRANSCRIBE_COMPARE_SET,
-    AKARI_NARRATION_ENGINE, AKARI_NARRATION_VOICE,
+    AKARI_NARRATION_ENGINE, AKARI_NARRATION_VOICE, AKARI_NARRATION_IRODORI_URL,
     AKARI_QUALITY_TIER, AKARI_DEVELOPER_MODE, AKARI_AGENT_TURN_END_NOTIFICATION, AKARI_CATALOG_ROOT,
     AKARI_TIMELINE_VISUAL_THUMBNAILS,
     WORKBENCH_COLOR_THEME, AKARI_EXPORT_QUALITY, AKARI_EXPORT_OUTPUT_DIRECTORY, AKARI_EXPORT_FILENAME_PATTERN,
@@ -44,7 +44,7 @@ import {
     normalizeQualityTier, normalizeTheme, normalizeExportQuality, normalizeOutputDirectory,
     sectionForPreferenceKey, resolveSettingsSectionId, settingsSectionElementId, isSettingsSectionVisible,
     SETTINGS_SECTION_DESCRIPTIONS, SETTINGS_LAST_SECTION_KEY, initialSettingsSection, QUALITY_TIER_RESERVED_NOTE,
-    normalizeExportEncoder, normalizeExportCodec, normalizeExportFps
+    normalizeExportEncoder, normalizeExportCodec, normalizeExportFps, isValidIrodoriUrl
 } from '../common/settings-sections';
 import { AKARI_APPEARANCE_THEME_MODE, AKARI_APPEARANCE_ZOOM, STATUS_BAR_KEYS, AKARI_PARTNER_REOPEN, clampZoom, matchesSettingsSearch, formatShortReleaseDate } from '../common/settings-sections';
 import { PARTNER_CLI_ICON_CLASSES, PARTNER_CATALOG } from 'akari-partner/lib/browser/partner-catalog';
@@ -912,6 +912,7 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
         section.replaceChildren(...this.sectionHeading('narration'));
         const voicevox = this.narrationState?.engines.find(row => row.id === 'voicevox');
         const gemini = this.narrationState?.engines.find(row => row.id === 'gemini-tts');
+        const irodoriState = this.narrationState?.engines.find(row => row.id === 'irodori');
         const voicevoxDetail = voicevox?.availability.detail;
         const voicevoxRunning = voicevoxDetail?.running === true;
         const voicevoxFound = voicevoxDetail?.app_found === true;
@@ -923,7 +924,7 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
             Object.assign(card.style, { padding: '14px 16px', borderBottom: '1px solid var(--theia-border-color, #404040)' });
             const heading = element('div');
             Object.assign(heading.style, { display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' });
-            heading.append(element('strong', label), statusPill(state, state.startsWith('起動中') || state === 'fal の鍵あり' ? 'ok' : 'neutral'));
+            heading.append(element('strong', label), statusPill(state, state.startsWith('起動中') || state === 'fal の鍵あり' || state === 'お試し · 接続済み' ? 'ok' : 'neutral'));
             const detail = element('div', description);
             detail.style.opacity = '0.8';
             const actions = element('div');
@@ -977,9 +978,55 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
         const connectionsButton = action('接続と API キーへ', () => this.showSection('connections'), { small: true });
         connectionsButton.setAttribute('data-akari-narration-action', 'connections');
         geminiCard.actions.append(connectionsButton);
-        const irodori = engineCard('irodori', '彩（Irodori-TTS）', '近日',
-            'この Mac · 無料 · MIT。M1 では生成が重いため、動作確認のあとで追加します');
-        irodori.card.style.opacity = '0.65';
+        const irodori = engineCard('irodori', '彩（Irodori-TTS）', this.narrationLoading ? '確認中…' :
+            irodoriState?.availability.state === 'available' ? 'お試し · 接続済み' : 'つながりません',
+            'Irodori-TTS（MIT）を別に起動したサーバーにつないで使います。GPU のある PC（Windows + NVIDIA 推奨）で動かすのがおすすめです。この Mac では重くて実用的でないことがあります。');
+        const experimentalPill = statusPill('お試し', 'neutral');
+        experimentalPill.setAttribute('data-akari-experimental', 'true');
+        irodori.card.querySelector('strong')?.after(experimentalPill);
+        const irodoriUrl = element('input'); irodoriUrl.type = 'text';
+        irodoriUrl.value = this.preferences.get(AKARI_NARRATION_IRODORI_URL) ?? 'http://127.0.0.1:8088';
+        irodoriUrl.setAttribute('aria-label', '彩の接続先 URL'); irodoriUrl.setAttribute('data-akari-irodori-url', 'true');
+        const invalidUrlNote = settingsNote('接続先は http または https の URL を入力してください。');
+        invalidUrlNote.hidden = true; invalidUrlNote.setAttribute('data-akari-irodori-url-error', 'true');
+        const saveUrl = action('保存', () => {
+            const value = irodoriUrl.value.trim();
+            if (!isValidIrodoriUrl(value)) { invalidUrlNote.hidden = false; return; }
+            invalidUrlNote.hidden = true;
+            this.savePreference(AKARI_NARRATION_IRODORI_URL, value);
+            void this.preferenceWrites.then(() => this.refreshNarrationState());
+        }, { small: true });
+        saveUrl.setAttribute('data-akari-narration-action', 'save-irodori-url');
+        irodori.card.append(settingRow('接続先 URL', '同じ PC または別の PC の Irodori サーバー', irodoriUrl, saveUrl));
+        irodori.card.append(invalidUrlNote);
+        const checkIrodori = action('接続を確かめる', () => void this.refreshNarrationState(), { small: true });
+        checkIrodori.setAttribute('data-akari-narration-action', 'check-irodori');
+        irodori.actions.append(checkIrodori);
+        const setup = element('details'); const summary = element('summary', 'サーバーの立て方'); setup.append(summary);
+        const commandLine = (command: string): HTMLElement => {
+            const pre = element('pre'); pre.append(element('code', command)); return pre;
+        };
+        const setupSteps = (platform: string, backends: readonly { label: string; command: string }[]): void => {
+            setup.append(element('h4', platform), commandLine('git clone https://github.com/Aratako/Irodori-TTS-Server.git'),
+                commandLine('cd Irodori-TTS-Server'));
+            for (const backend of backends) setup.append(element('p', backend.label), commandLine(backend.command));
+            setup.append(commandLine('cp .env.example .env'),
+                commandLine('uv run --no-sync python -m irodori_openai_tts --host 0.0.0.0 --port 8088'));
+        };
+        setupSteps('Windows（PowerShell）', [
+            { label: 'NVIDIA GPU', command: 'uv sync --extra cu128' },
+            { label: 'CPU のみ', command: 'uv sync --extra cpu' }
+        ]);
+        setupSteps('Linux', [
+            { label: 'NVIDIA GPU', command: 'uv sync --extra cu128' },
+            { label: 'AMD GPU（ROCm）', command: 'uv sync --extra rocm' },
+            { label: 'CPU のみ', command: 'uv sync --extra cpu' }
+        ]);
+        setupSteps('macOS', [{ label: 'GPU 用 extra はありません。CPU 実行は重いため、GPU のある別 PC を推奨します。', command: 'uv sync' }]);
+        setup.append(element('p', '別の PC から使うときは、AKARI の接続先に http://<その PC の IP>:8088 を入れ、ファイアウォールで 8088 を開けてください。'));
+        irodori.card.append(setup);
+        const officialIrodori = action('公式リポジトリを開く', () => this.windows.openNewWindow('https://github.com/Aratako/Irodori-TTS-Server', { external: true }), { small: true });
+        officialIrodori.setAttribute('data-akari-narration-action', 'irodori-official'); irodori.actions.append(officialIrodori);
         section.append(groupCard('エンジン', vv.card, geminiCard.card, irodori.card));
         if (this.narrationError) section.append(settingsNote(this.narrationError));
         const engine = this.preferences.get(AKARI_NARRATION_ENGINE);
@@ -993,8 +1040,9 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
             settingRow('既定のエンジン', '読み上げのポップアップを開いたときに選ぶエンジン',
                 dropdown({ label: '既定のエンジン', options: [
                     { value: 'voicevox', label: 'VOICEVOX · この Mac · 無料' },
-                    { value: 'gemini-tts', label: 'Gemini 2.5 Flash TTS · fal.ai 経由 · 従量' }
-                ], value: engine === 'gemini-tts' ? 'gemini-tts' : 'voicevox',
+                    { value: 'gemini-tts', label: 'Gemini 2.5 Flash TTS · fal.ai 経由 · 従量' },
+                    { value: 'irodori', label: '彩 · お試し' }
+                ], value: engine === 'gemini-tts' || engine === 'irodori' ? engine : 'voicevox',
                 onChange: value => this.savePreference(AKARI_NARRATION_ENGINE, value) })),
             settingRow('Gemini の既定の声', 'Gemini 2.5 Flash TTS で使う声',
                 dropdown({ label: 'Gemini の既定の声', options: GEMINI_NARRATION_VOICES.map(id => ({ value: id, label: id })),
@@ -1014,7 +1062,7 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
     protected async refreshNarrationState(): Promise<void> {
         this.narrationLoading = true;
         this.renderNarration();
-        try { this.narrationState = await this.narrationService.narrationEngines(); this.narrationError = ''; }
+        try { this.narrationState = await this.narrationService.narrationEngines(this.preferences.get<string>(AKARI_NARRATION_IRODORI_URL, 'http://127.0.0.1:8088')); this.narrationError = ''; }
         catch (error) { this.narrationError = error instanceof Error ? error.message : '状態を取得できませんでした。'; }
         finally { this.narrationLoading = false; if (!this.isDisposed) this.renderNarration(); }
     }

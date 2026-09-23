@@ -7,6 +7,123 @@ import test from 'node:test';
 import { runNarrationCommand } from '../src/narration-command.mjs';
 import { readInternalEdit, projectLegacyEdit } from '../../edit-store/lib/index.js';
 
+test('彩: URL 優先順・声レシピ・自由 caption・速度・provenance と非音声エラー', async () => {
+  const scratch = await mkdtemp(join(tmpdir(), 'akari-irodori-'));
+  const oldFetch = globalThis.fetch;
+  const oldUrl = process.env.AKARI_IRODORI_URL;
+  const oldTimeout = process.env.AKARI_IRODORI_TIMEOUT_MS;
+  const calls = [];
+  try {
+    process.env.AKARI_IRODORI_URL = 'http://env.invalid:8088/';
+    process.env.AKARI_IRODORI_TIMEOUT_MS = '12345';
+    globalThis.fetch = async (url, init) => {
+      calls.push({ url, init });
+      return { ok: true, status: 200, headers: { get: () => 'audio/wav' }, arrayBuffer: async () => fakeWav(1) };
+    };
+    const run = async (...options) => {
+      const output = collectLogs();
+      const result = await runNarrationCommand(['generate', '--project', scratch, '--engine', 'irodori', '--text', 'こんにちは', '--json', ...options], output);
+      return { result, json: JSON.parse(output.lines.at(-1)) };
+    };
+    let value = await run('--voice', 'bright-female', '--speed', '4');
+    assert.equal(value.result.exitCode, 0);
+    assert.equal(calls[0].url, 'http://env.invalid:8088/v1/audio/speech');
+    assert.equal(calls[0].init.signal.reason, undefined);
+    assert.deepEqual(JSON.parse(calls[0].init.body), { model: 'irodori-tts', input: 'こんにちは', voice: 'none', response_format: 'wav',
+      speed: 4, irodori: { caption: '明るく元気な若い女性の声。はきはきと楽しそうに話す。' } });
+    assert.equal(value.json.provenance.voice, 'recipe:bright-female');
+    assert.equal(value.json.provenance.server, 'env.invalid:8088');
+    assert.equal(value.json.provenance.experimental, true);
+    assert.equal(value.json.speed_applied, true);
+    assert.equal(value.json.duration_s, 1);
+    value = await run('--irodori-url', 'https://option.invalid:443/', '--voice', 'custom', '--style', '低く話す');
+    assert.equal(value.result.exitCode, 0);
+    assert.equal(calls[1].url, 'https://option.invalid/v1/audio/speech');
+    assert.equal(JSON.parse(calls[1].init.body).irodori.caption, '低く話す');
+    assert.equal(value.json.provenance.voice, 'caption:custom');
+    value = await run('--irodori-url', 'http://proxy.invalid/tts/');
+    assert.equal(value.result.exitCode, 0);
+    assert.equal(calls[2].url, 'http://proxy.invalid/tts/v1/audio/speech');
+    assert.equal(value.json.provenance.server, 'proxy.invalid:80');
+    for (const url of ['file:///tmp/speech', 'http://user:pass@host.invalid', 'http://host.invalid/?secret=1']) {
+      assert.equal((await run('--irodori-url', url)).result.exitCode, 2);
+    }
+    assert.equal((await run('--voice', 'custom')).result.exitCode, 2);
+    process.env.AKARI_IRODORI_TIMEOUT_MS = 'bad';
+    assert.equal((await run()).result.exitCode, 2);
+    process.env.AKARI_IRODORI_TIMEOUT_MS = '20';
+    globalThis.fetch = async (_url, init) => new Promise((_resolve, reject) => {
+      init.signal.addEventListener('abort', () => reject(init.signal.reason), { once: true });
+    });
+    value = await run();
+    assert.equal(value.result.exitCode, 1);
+    assert.match(value.json.error, /接続できません/);
+    process.env.AKARI_IRODORI_TIMEOUT_MS = '12345';
+    globalThis.fetch = async () => ({ ok: false, status: 500, headers: { get: () => 'application/json' },
+      arrayBuffer: async () => Buffer.from('{"error":"model unavailable"}') });
+    value = await run();
+    assert.equal(value.result.exitCode, 1);
+    assert.match(value.json.error, /model unavailable/);
+    delete process.env.AKARI_IRODORI_URL;
+    const defaultOutput = collectLogs();
+    assert.equal((await runNarrationCommand(['generate', '--project', scratch, '--engine', 'irodori', '--text', 'こんにちは', '--dry-run', '--json'], defaultOutput)).exitCode, 0);
+    assert.equal(JSON.parse(defaultOutput.lines[0]).request.endpoint, 'http://127.0.0.1:8088/v1/audio/speech');
+  } finally {
+    globalThis.fetch = oldFetch;
+    if (oldUrl === undefined) delete process.env.AKARI_IRODORI_URL; else process.env.AKARI_IRODORI_URL = oldUrl;
+    if (oldTimeout === undefined) delete process.env.AKARI_IRODORI_TIMEOUT_MS; else process.env.AKARI_IRODORI_TIMEOUT_MS = oldTimeout;
+    await rm(scratch, { recursive: true, force: true });
+  }
+});
+
+test('彩 engines は health で available / unconfigured と network を返し、voices は固定 4 件', async () => {
+  const oldFetch = globalThis.fetch;
+  try {
+    let healthy = true;
+    globalThis.fetch = async url => ({ ok: String(url).includes('/health') && healthy, json: async () => '0.0.0' });
+    const list = async url => {
+      const output = collectLogs();
+      assert.equal((await runNarrationCommand(['engines', '--json', '--irodori-url', url], output)).exitCode, 0);
+      return JSON.parse(output.lines[0]).engines.find(row => row.id === 'irodori');
+    };
+    let row = await list('http://192.0.2.1:8088/');
+    assert.equal(row.place, 'network'); assert.equal(row.availability.state, 'available');
+    assert.equal(row.availability.detail.url, '192.0.2.1:8088');
+    healthy = false; row = await list('http://127.0.0.1:8088');
+    assert.equal(row.place, 'local'); assert.equal(row.availability.state, 'unconfigured');
+    assert.match(row.availability.detail.setup_url, /Irodori-TTS-Server/);
+    const output = collectLogs();
+    assert.equal((await runNarrationCommand(['voices', '--engine', 'irodori', '--json'], output)).exitCode, 0);
+    const voices = JSON.parse(output.lines[0]).voices;
+    assert.deepEqual(voices.map(voice => voice.id), ['narrator-male', 'bright-female', 'slow-explainer', 'custom']);
+    assert.equal(voices[0].default, true);
+  } finally { globalThis.fetch = oldFetch; }
+});
+
+test('彩 URL が不正でも engines 全体は exit 0、彩だけ unconfigured・静的 voices は取得可', async () => {
+  const oldUrl = process.env.AKARI_IRODORI_URL;
+  const oldFetch = globalThis.fetch;
+  try {
+    process.env.AKARI_IRODORI_URL = 'not a URL';
+    globalThis.fetch = async () => ({ ok: false, json: async () => '0.0.0' });
+    for (const args of [['engines', '--json'], ['engines', '--json', '--irodori-url', 'file:///tmp/model']]) {
+      const output = collectLogs();
+      assert.equal((await runNarrationCommand(args, output)).exitCode, 0);
+      const engines = JSON.parse(output.lines[0]).engines;
+      assert.deepEqual(engines.map(row => row.id), ['voicevox', 'gemini-tts', 'irodori', 'fal-qwen3']);
+      assert.equal(engines[2].availability.state, 'unconfigured');
+      assert.match(engines[2].availability.label, /接続先 URL が正しくありません/);
+      assert.match(engines[2].availability.detail.setup_url, /Irodori-TTS-Server/);
+    }
+    const output = collectLogs();
+    assert.equal((await runNarrationCommand(['voices', '--engine', 'irodori', '--irodori-url', 'broken', '--json'], output)).exitCode, 0);
+    assert.equal(JSON.parse(output.lines[0]).voices.length, 4);
+  } finally {
+    globalThis.fetch = oldFetch;
+    if (oldUrl === undefined) delete process.env.AKARI_IRODORI_URL; else process.env.AKARI_IRODORI_URL = oldUrl;
+  }
+});
+
 function collectLogs() {
   const lines = [];
   const errors = [];
@@ -91,7 +208,7 @@ test('engines JSON: VOICEVOX の available / needs / unconfigured と fal 鍵状
     assert.deepEqual(result.engines[0].availability.detail.running, false);
     assert.deepEqual(result.engines[0].availability.detail.app_found, false);
     assert.equal(result.engines[1].availability.state, 'unconfigured');
-    assert.equal(result.engines[2].availability.state, 'unsupported');
+    assert.equal(result.engines[2].availability.state, 'unconfigured');
     assert.equal(JSON.stringify(result).includes(scratch), false);
     await writeFile(process.env.VOICEVOX_RUN, '');
     await writeFile(process.env.AKARI_CREDENTIALS_FILE, 'FAL_KEY=test-secret');

@@ -22,13 +22,13 @@ test('narration RPC は Electron node モードで CLI を呼び、鍵を返さ�
         return child;
     };
     const cli = new NarrationCli({ env: { AKARI_GENERATE_CLI: '/fake/akari.mjs', FAL_KEY: 'never-expose' }, spawnImpl });
-    const list = await cli.narrationEngines();
+    const list = await cli.narrationEngines('http://127.0.0.1:4567');
     assert.equal(list.engines[0].availability.detail.app_found, true);
     assert.equal(JSON.stringify(list).includes('never-expose'), false);
     await cli.startNarrationEngine('voicevox');
     await cli.stopNarrationEngine('voicevox');
     assert.deepEqual(calls.filter(([, args]) => args[1] === 'narration').map(([, args]) => args.slice(2)), [
-        ['engines', '--json'], ['start', '--engine', 'voicevox', '--json'], ['stop', '--engine', 'voicevox', '--json']
+        ['engines', '--irodori-url', 'http://127.0.0.1:4567', '--json'], ['start', '--engine', 'voicevox', '--json'], ['stop', '--engine', 'voicevox', '--json']
     ]);
     assert.ok(calls.filter(([, args]) => args[1] === 'narration').every(([, , options]) => options.env.ELECTRON_RUN_AS_NODE === '1'));
 });

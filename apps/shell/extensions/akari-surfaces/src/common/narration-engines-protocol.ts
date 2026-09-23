@@ -3,11 +3,11 @@ export const AkariNarrationEnginesService = Symbol('AkariNarrationEnginesService
 
 export interface NarrationEngineRow {
     id: string;
-    availability: { state: string; detail?: { running?: boolean; version?: string; app_found?: boolean; managed?: boolean } };
+    availability: { state: string; label?: string; detail?: { running?: boolean; version?: string; app_found?: boolean; managed?: boolean; url?: string; setup_url?: string } };
 }
 
 export interface AkariNarrationEnginesService {
-    narrationEngines(): Promise<{ engines: NarrationEngineRow[]; voicevoxCaskAvailable: boolean }>;
+    narrationEngines(irodoriUrl?: string): Promise<{ engines: NarrationEngineRow[]; voicevoxCaskAvailable: boolean }>;
     startNarrationEngine(engine: 'voicevox'): Promise<void>;
     stopNarrationEngine(engine: 'voicevox'): Promise<void>;
     previewVoicevox(): Promise<string>;

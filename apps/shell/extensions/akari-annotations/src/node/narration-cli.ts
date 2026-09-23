@@ -11,9 +11,11 @@ export class NarrationCliManager {
 
     constructor(protected readonly spawnImpl: typeof spawn = spawn) {}
 
-    async engines(): Promise<NarrationEnginesResult> { return this.run(['narration', 'engines', '--json']) as Promise<NarrationEnginesResult>; }
-    async voices(engine: string): Promise<NarrationVoicesResult> {
-        return this.run(['narration', 'voices', '--engine', engine, '--json']) as Promise<NarrationVoicesResult>;
+    async engines(irodoriUrl?: string): Promise<NarrationEnginesResult> {
+        return this.run(['narration', 'engines', '--json', ...(irodoriUrl ? ['--irodori-url', irodoriUrl] : [])]) as Promise<NarrationEnginesResult>;
+    }
+    async voices(engine: string, irodoriUrl?: string): Promise<NarrationVoicesResult> {
+        return this.run(['narration', 'voices', '--engine', engine, '--json', ...(irodoriUrl ? ['--irodori-url', irodoriUrl] : [])]) as Promise<NarrationVoicesResult>;
     }
     async generate(request: GenerateNarrationRequest, root: string): Promise<GenerateNarrationResult> {
         if (['gemini-tts', 'fal-qwen3'].includes(request.engine) && request.approved !== true) {
@@ -30,8 +32,9 @@ export class NarrationCliManager {
                 '--text', request.script, '--reading-file', readingFile, '--id', id, '--json'];
             if (request.engine === 'voicevox') args.push('--speaker', request.voice);
             else args.push('--voice', request.voice);
-            if (request.speed !== undefined && request.engine === 'voicevox') args.push('--speed', String(request.speed));
-            if (request.style && request.engine === 'gemini-tts') args.push('--style', request.style);
+            if (request.speed !== undefined && ['voicevox', 'irodori'].includes(request.engine)) args.push('--speed', String(request.speed));
+            if (request.style && ['gemini-tts', 'irodori'].includes(request.engine)) args.push('--style', request.style);
+            if (request.irodoriUrl) args.push('--irodori-url', request.irodoriUrl);
             if (request.captionId) args.push('--caption-ref', request.captionId);
             if (['gemini-tts', 'fal-qwen3'].includes(request.engine)) args.push('--yes');
             return await this.run(args, root, true) as GenerateNarrationResult;

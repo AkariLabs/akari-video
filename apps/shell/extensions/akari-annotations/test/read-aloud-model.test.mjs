@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { narrationEstimate, batchNarrationEstimate, compareNarrationDuration, defaultOverflowAction, readAloudPreviewPlan, selectReadAloudEngine, selectReadAloudVoice, selectReadAloudRows, staleNarrations } from '../lib/common/read-aloud-model.js';
+import { narrationEstimate, batchNarrationEstimate, compareNarrationDuration, defaultOverflowAction, irodoriCustomVoiceMissing, readAloudPreviewPlan, selectReadAloudEngine, selectReadAloudVoice, selectReadAloudRows, staleNarrations } from '../lib/common/read-aloud-model.js';
 
 const available = { state: 'available', label: '使用可' };
 const engines = [
@@ -67,6 +67,18 @@ test('VOICEVOX の試聴計画は費用承認を要求しない', () => {
     assert.equal(plan.buttonLabel, '▶ 試聴');
     assert.equal(plan.needsApproval, false);
     assert.equal(plan.confirm, undefined);
+});
+
+test('彩は接続状態に従って選べ、別 PC でも無料・自由入力の声指示が必須', () => {
+    const irodori = { id: 'irodori', label: '彩', place: 'network', experimental: true,
+        availability: { state: 'available', label: 'お試し · 接続済み' }, price: { usd_per_1000_chars: 0, verified: true } };
+    assert.equal(selectReadAloudEngine([irodori])?.id, 'irodori');
+    assert.equal(selectReadAloudEngine([{ ...irodori, availability: { state: 'unconfigured', label: 'つながりません' } }]), undefined);
+    assert.equal(narrationEstimate(irodori, 'こんにちは').label, '費用 ¥0');
+    assert.equal(readAloudPreviewPlan(irodori, 'こんにちは').needsApproval, false);
+    assert.equal(irodoriCustomVoiceMissing('irodori', 'custom', ' '), true);
+    assert.equal(irodoriCustomVoiceMissing('irodori', 'custom', '低い声'), false);
+    assert.equal(irodoriCustomVoiceMissing('irodori', 'bright-female', ''), false);
 });
 
 test('対象行は空文字とカット済みを除き、出力時間の順に並べる', () => {

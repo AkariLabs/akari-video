@@ -4,7 +4,7 @@
 
 ```
 akari narration generate \
-  --project <projectDir> --engine <voicevox|fal-qwen3> \
+  --project <projectDir> --engine <voicevox|gemini-tts|irodori|fal-qwen3> \
   --reading-file <読み原稿.txt> [--script-file <表示原稿.txt>] \
   --t <タイムライン秒> [--gain-db 0] [--id n-0001] \
   [--speaker 3]              # voicevox 用（既定 3 = ずんだもん/ノーマル）
@@ -16,7 +16,7 @@ akari narration generate \
 - `--script-file` は任意。渡した場合、表示原稿として `script` に記録される
 - `--id` を省略すると、`<projectDir>/edit.json` の `audio.narration[]` にある既存 id の最大値 + 1
   （無ければ `n-0001`）を自動採番する
-- 出力音声は `<projectDir>/out/narration/<id>.<wav|mp3>` に保存される（voicevox は wav、fal-qwen3 は mp3）
+- 出力音声は `<projectDir>/out/narration/<id>.<wav|mp3>` に保存される（voicevox / irodori は wav、fal-qwen3 / gemini-tts は mp3）
 - `--apply` を付けると `edit.json` の `audio.narration[]` にエントリを追加し（`audio` / `narration` が
   無ければ作る）、直後に `packages/schemas/bin/validate-edit.mjs` を実行する。NG なら書き込みを
   ロールバックする
@@ -38,7 +38,15 @@ akari narration generate \
   （キャラクターごとのクレジット表記義務。ハードルール 6）
 - 費用はゼロ。承認ゲートは不要（`--dry-run` 以外はそのまま実行される）
 
+## irodori アダプタ（お試し）
+
+- AKARI はモデルを起動しない。別に起動した Irodori-TTS-Server へ `--engine irodori --irodori-url <url>` で接続する。URL はオプション → `AKARI_IRODORI_URL` → `http://127.0.0.1:8088` の順で決まる。別 PC のサーバーも指定できる。
+- `--voice` は `narrator-male`（既定・落ち着いた男性ナレーター）、`bright-female`（明るい若い女性）、`slow-explainer`（低くゆっくりした解説）の声レシピから選ぶ。`--voice custom --style <声の指示>` で自分で書ける。`--style` を付けるとレシピの caption を置き換える。
+- `voice: "none"` と `irodori.caption` を `/v1/audio/speech` に送り、wav を保存する。参照音声・声クローンは扱わない。`--speed` は 0.25〜4.0。既定のタイムアウトは 600 秒で、`AKARI_IRODORI_TIMEOUT_MS` で変更できる。GPU を推奨し、処理に時間がかかる。
+- 費用は 0。provenance は `provider: irodori`、`engine: irodori-tts-v4-small`、`voice: recipe:<id>` または `caption:custom`、`experimental: true`、`server: <host:port>` を記録する。
+
 ## fal-qwen3 アダプタ（自声クローン）
+
 
 - `~/.config/akari-video/voice-profiles/<profile>/meta.json` の `embedding_source_url` /
   `reference_text` を使い、`https://fal.run/fal-ai/qwen-3-tts/text-to-speech/1.7b` へ
@@ -62,7 +70,7 @@ akari narration generate \
 ## エンジン一覧・声一覧の JSON 口
 
 - `akari narration engines --json` は接続状態を含むエンジン一覧を返す。VOICEVOX の起動はしない。
-- `akari narration voices --engine <voicevox|gemini-tts|fal-qwen3> --json` は声一覧を返す。VOICEVOX の声取得時だけ必要に応じて起動する。
+- `akari narration voices --engine <voicevox|gemini-tts|irodori|fal-qwen3> --json` は声一覧を返す。VOICEVOX の声取得時だけ必要に応じて起動する。
 - `akari narration generate ... --json` は stdout に結果 JSON を 1 行で返し、経過ログを stderr に出す。Gemini の費用承認待ちは exit 2 と `status: needs_approval` を返す。
 
 ## VOICEVOX の常駐起動と停止

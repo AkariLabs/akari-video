@@ -1,0 +1,63 @@
+{
+  "status": "pass",
+  "checks": [
+    {
+      "name": "設定で彩が「お試し」・URL 保存・接続を確かめる",
+      "pass": true,
+      "measured": {
+        "savedUrl": "http://loopback:56538",
+        "pill": "お試し · 接続済み"
+      },
+      "seconds": 11.69
+    },
+    {
+      "name": "ポップアップで彩を選択・お試しピル",
+      "pass": true,
+      "measured": {
+        "selected": true,
+        "pill": "お試し"
+      },
+      "seconds": 2.85
+    },
+    {
+      "name": "明るい若い女性で試聴し、送信 JSON を検査",
+      "pass": true,
+      "measured": {
+        "model": "irodori-tts",
+        "voice": "none",
+        "caption": "明るく元気な若い女性の声。はきはきと楽しそうに話す。",
+        "requestCount": 1
+      },
+      "seconds": 1.33
+    },
+    {
+      "name": "置いた narration の provenance を検査",
+      "pass": true,
+      "measured": {
+        "count": 1,
+        "provider": "irodori",
+        "experimental": true
+      },
+      "seconds": 0.44
+    },
+    {
+      "name": "自分で書く声の指示は必須・入力後に送信",
+      "pass": true,
+      "measured": {
+        "emptyDisabled": true,
+        "caption": "低く、ゆっくり話す。",
+        "requestCount": 2
+      },
+      "seconds": 3.6
+    },
+    {
+      "name": "偽サーバー停止後に接続不可・バッジで設定を開く",
+      "pass": true,
+      "measured": {
+        "badge": "Irodori サーバーにつながりません（お試し）",
+        "openedSection": "narration"
+      },
+      "seconds": 1.73
+    }
+  ]
+}
