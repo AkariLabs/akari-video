@@ -1502,14 +1502,13 @@
         x: stageRect.left + stageRect.width / 2 + transform.x * displayX,
         y: stageRect.top + stageRect.height / 2 + transform.y * displayY
       };
-      const sx = transform.scaleX ?? transform.scale, sy = transform.scaleY ?? transform.scale;
       const radians = transform.rotate * Math.PI / 180;
       const cosine = Math.cos(radians), sine = Math.sin(radians);
       const rotatePoint = (point) => {
-        const dx = (point.x - pivot.x) / sx, dy = (point.y - pivot.y) / sy;
+        const dx = (point.x - pivot.x) / displayX, dy = (point.y - pivot.y) / displayY;
         return {
-          x: pivot.x + sx * (cosine * dx - sine * dy),
-          y: pivot.y + sy * (sine * dx + cosine * dy)
+          x: pivot.x + displayX * (cosine * dx - sine * dy),
+          y: pivot.y + displayY * (sine * dx + cosine * dy)
         };
       };
       return {
