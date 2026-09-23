@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
-import { descendantLeafIds, enterScope, exitScope, lineage, resolveScopedSelection } from '../src/selection-scope.mjs';
+import { descendantLeafIds, enterScope, exitScope, lineage, marqueeHits, resolveScopedSelection } from '../src/selection-scope.mjs';
 
 const tree = [
   { id: 'outer', parentId: null, kind: 'group' },
@@ -56,6 +56,21 @@ test('classic interaction copy exactly matches canonical pure functions', () => 
   const classic = readFileSync(new URL('../src/interaction.js', import.meta.url), 'utf8');
   assert.ok(block(canonical).length > 100);
   assert.equal(block(classic), block(canonical));
+});
+
+test('marquee intersects, includes touching edges, and ignores unavailable or out-of-floor candidates', () => {
+  const candidates = [
+    { id: 'inside', bounds: { left: 10, top: 10, right: 20, bottom: 20 } },
+    { id: 'touch', bounds: { left: 30, top: 0, right: 40, bottom: 10 } },
+    { id: 'outside', bounds: { left: 31, top: 11, right: 50, bottom: 20 } },
+    { id: 'unmounted', bounds: null }
+  ];
+  const rect = { left: 20, top: 10, right: 30, bottom: 30 };
+  assert.deepEqual(marqueeHits(candidates, rect), ['inside', 'touch']);
+  assert.deepEqual(marqueeHits(candidates.filter(candidate => candidate.id !== 'touch'), rect), ['inside'],
+    'the scope/floor candidate filter excludes siblings outside its subtree');
+  assert.deepEqual(marqueeHits([], rect), []);
+  assert.deepEqual(marqueeHits(candidates, null), []);
 });
 
 test('idle floor Esc passes through; selection or deeper scope still handles it', async () => {

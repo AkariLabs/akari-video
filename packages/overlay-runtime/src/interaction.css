@@ -15,6 +15,17 @@
   display: none;
 }
 
+[data-akari-ui="preview-marquee"] {
+  position: fixed;
+  pointer-events: none;
+  box-sizing: border-box;
+  border: 1px solid var(--akari-accent, #4da3ff);
+  background: rgba(77, 163, 255, 0.14);
+  z-index: 91;
+}
+
+[data-akari-interaction-marquee-hit] { outline: 1px solid var(--akari-accent, #4da3ff); }
+
 /* 背景は選択できるが動かせない。拡縮ハンドルを消し、
    枠を破線にして「選べるが移動できない」ことを視覚でも伝える。 */
 .akari-interaction-selection-frame.is-locked[data-akari-interaction] {
