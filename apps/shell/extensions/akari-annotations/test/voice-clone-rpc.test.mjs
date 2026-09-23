@@ -29,13 +29,21 @@ test('voice RPC は C1 の引数を渡し、有償操作は承認なしで spawn
   } finally { if (prior === undefined) delete process.env.AKARI_GENERATE_CLI; else process.env.AKARI_GENERATE_CLI = prior; }
 });
 
-test('録音の一時ファイルを保存し、voiceDiscard がそのファイルだけ消す', async () => {
+test('録音は分割チャンクで一時ファイルに保存し、voiceDiscard で消す', async () => {
   const service = new AkariAnnotationsServiceImpl();
-  const { path } = await service.voiceSaveRecording({ bytes: [82, 73, 70, 70], extension: 'wav' });
-  assert.deepEqual([...await readFile(path)], [82, 73, 70, 70]);
+  const { token } = await service.voiceBeginRecording('wav');
+  await service.voiceAppendRecording({ token, chunk: Buffer.from('RI').toString('base64') });
+  await service.voiceAppendRecording({ token, chunk: Buffer.from('FF').toString('base64') });
+  const { path } = await service.voiceFinishRecording(token);
+  assert.equal((await readFile(path)).toString(), 'RIFF');
   await service.voiceDiscard({ tempPaths: [path] });
   await assert.rejects(access(path), /ENOENT/u);
-  await assert.rejects(service.voiceSaveRecording({ bytes: [1], extension: 'evil' }), /不正/u);
+  const unfinished = await service.voiceBeginRecording('m4a');
+  await service.voiceAppendRecording({ token: unfinished.token, chunk: 'AQID' });
+  const incompletePath = service.voiceRecordings.get(unfinished.token).path;
+  await service.voiceAbortRecording(unfinished.token);
+  await assert.rejects(access(incompletePath), /ENOENT/u);
+  await assert.rejects(service.voiceBeginRecording('evil'), /不正/u);
 });
 
 test('service も fal の費用承認前には CLI を呼ばない', async () => {
@@ -51,7 +59,7 @@ test('voiceDiscard は未作成 profile と所有外・危険な一時パスを�
   const service = new AkariAnnotationsServiceImpl(), other = new AkariAnnotationsServiceImpl();
   let deletes = 0;
   service.narrationCli = { voiceDelete: async () => { deletes++; } };
-  const foreign = await other.voiceSaveRecording({ bytes: [1], extension: 'wav' });
+  const foreign = await other.voiceBeginRecording('wav').then(async ({ token }) => { await other.voiceAppendRecording({ token, chunk: 'AQ==' }); return other.voiceFinishRecording(token); });
   const unsafe = await mkdtemp(path.join(tmpdir(), 'not-akari-voice-'));
   const unsafeFile = path.join(unsafe, 'recording.wav');
   try {
@@ -99,31 +107,16 @@ function wav() {
   return out;
 }
 
-test('追加録音を連結して全原稿を再照合し、正本のハッシュを更新する', async () => {
-  const dir = await mkdtemp(path.join(tmpdir(), 'akari-voice-extend-test-'));
-  const original = path.join(dir, 'ref-recording.wav'), extra = path.join(dir, 'extra.wav');
-  const metaPath = path.join(dir, 'meta.json');
-  try {
-    await writeFile(original, wav()); await writeFile(extra, wav());
-    await writeFile(metaPath, JSON.stringify({ version: 2, profile: 'p', reference_text: '最初の原稿',
-      reference: { duration_s: 15, sha256: 'old', script_version: 'quick-v1', verification: { score: .9 } }, engines: {} }));
-    const service = new AkariAnnotationsServiceImpl();
-    service.voiceCreatedPaths.set('p', dir);
-    let expected;
-    service.narrationCli = {
-      voiceCheck: async () => ({ pass: true, reasons: [], checks: { duration: { value_s: 60, ok: true },
-        script: { ok: true, score: .91 } } }),
-      voiceScripts: async () => ({ scripts: [{ id: 'extended-v1', text: '追加の原稿' }] }),
-      voiceVerifyCombined: async (_file, text) => { expected = text; return { status: 'ok', score: .91, backend: 'speech-analyzer' }; }
-    };
-    const result = await service.voiceExtend({ profile: 'p', audioPath: extra });
-    const bytes = await readFile(original), meta = JSON.parse(await readFile(metaPath, 'utf8'));
-    assert.equal(expected, '最初の原稿追加の原稿');
-    assert.equal(meta.reference_text, expected);
-    assert.equal(meta.reference.duration_s, 75);
-    assert.equal(meta.reference.verification.score, .91);
-    assert.equal(meta.reference.sha256, createHash('sha256').update(bytes).digest('hex'));
-    assert.ok(bytes.length > wav().length);
-    assert.equal(result.path, original);
-  } finally { await rm(dir, { recursive: true, force: true }); }
+test('rename と extend は CLI に委ね、シェルは meta.json を書かない', async () => {
+  const service = new AkariAnnotationsServiceImpl();
+  service.voiceCreatedProfiles.add('p');
+  const calls = [];
+  service.narrationCli = {
+    voiceRename: async (...args) => { calls.push(['rename', ...args]); },
+    voiceExtend: async (...args) => { calls.push(['extend', ...args]); return { path: '/tmp/combined.wav', warnings: ['stale'] }; }
+  };
+  const result = await service.voiceExtend({ profile: 'p', audioPath: '/tmp/extra.wav' });
+  await service.voiceFinalize({ profile: 'p', label: '新しい名前' });
+  assert.deepEqual(calls, [['extend', 'p', '/tmp/extra.wav'], ['rename', 'p', '新しい名前']]);
+  assert.equal(result.warnings.length, 1);
 });

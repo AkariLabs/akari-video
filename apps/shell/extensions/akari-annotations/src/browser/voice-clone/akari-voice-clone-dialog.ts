@@ -4,7 +4,8 @@ import { FileService } from '@theia/filesystem/lib/browser/file-service';
 import { PreferenceService } from '@theia/core/lib/common/preferences';
 import type { AkariAnnotationsService, NarrationEngine, VoiceCheckResult, VoiceEngine, VoiceScript } from '../../common/akari-annotations-protocol';
 import { VOICE_STEPS, voiceCanNext, voiceCheckReason, voiceCheckRows, voiceCopyDefaults, voiceId, voiceNextStep,
-    voiceShouldDiscardProfileForRecording, type VoiceStep } from '../../common/voice-clone-model';
+    voiceShouldDiscardProfileForRecording, voiceStorageDisplay, type VoiceStep } from '../../common/voice-clone-model';
+import { falKeyAvailable } from '../../common/read-aloud-model';
 
 const el = <K extends keyof HTMLElementTagNameMap>(tag: K, text?: string): HTMLElementTagNameMap[K] => {
     const node = document.createElement(tag); if (text !== undefined) node.textContent = text; return node;
@@ -46,6 +47,8 @@ export class AkariVoiceCloneDialog extends AbstractDialog<string | undefined> {
     protected meterPeak = 0;
     protected error?: string;
     protected extending = false;
+    protected storage = { root: '', home: '' };
+    protected staleWarning = '';
 
     constructor(protected readonly service: AkariAnnotationsService, protected readonly files: FileService,
         protected readonly preferences: PreferenceService, protected readonly avatar: string,
@@ -84,9 +87,10 @@ export class AkariVoiceCloneDialog extends AbstractDialog<string | undefined> {
     protected irodoriUrl(): string { return this.preferences.get<string>('akari.narration.irodoriUrl', 'http://127.0.0.1:8088'); }
     protected async load(): Promise<void> {
         try {
-            const [scripts, profiles, engines] = await Promise.all([
-                this.service.voiceScripts(), this.service.voiceProfiles(), this.service.listNarrationEngines('', this.irodoriUrl())
+            const [scripts, profiles, engines, storage] = await Promise.all([
+                this.service.voiceScripts(), this.service.voiceProfiles(), this.service.listNarrationEngines('', this.irodoriUrl()), this.service.voiceStorageRoot()
             ]);
+            this.storage = storage;
             this.scripts = scripts.scripts;
             this.existingIds = profiles.profiles.map(profile => profile.id);
             this.engines = engines.engines;
@@ -211,9 +215,18 @@ export class AkariVoiceCloneDialog extends AbstractDialog<string | undefined> {
     }
     protected async useBlob(blob: Blob, extension: 'm4a' | 'wav' | 'mp3' | 'webm'): Promise<void> {
         this.busy = true; this.updateButtons();
+        let token: string | undefined;
         try {
-            const bytes = [...new Uint8Array(await blob.arrayBuffer())];
-            const result = await this.service.voiceSaveRecording({ bytes, extension });
+            ({ token } = await this.service.voiceBeginRecording(extension));
+            // 分割して渡し、数 MB の録音を単一の JSON 配列にしない。
+            for (let offset = 0; offset < blob.size; offset += 192 * 1024) {
+                const bytes = new Uint8Array(await blob.slice(offset, offset + 192 * 1024).arrayBuffer());
+                let binary = '';
+                for (const byte of bytes) binary += String.fromCharCode(byte);
+                await this.service.voiceAppendRecording({ token: token!, chunk: btoa(binary) });
+            }
+            const result = await this.service.voiceFinishRecording(token!);
+            token = undefined;
             this.tempPaths.push(result.path);
             if (voiceShouldDiscardProfileForRecording(this.profile, this.extending)) {
                 await this.service.voiceDiscard({ profile: this.profile, tempPaths: [], irodoriUrl: this.irodoriUrl() });
@@ -223,7 +236,7 @@ export class AkariVoiceCloneDialog extends AbstractDialog<string | undefined> {
             this.audioPath = result.path; this.check = undefined;
             if (this.audioUrl) URL.revokeObjectURL(this.audioUrl);
             this.audioUrl = URL.createObjectURL(blob);
-        } catch (error) { this.error = String(error); }
+        } catch (error) { if (token) await this.service.voiceAbortRecording(token); this.error = String(error); }
         finally { this.busy = false; this.render(); }
     }
     protected renderCheck(): void {
@@ -243,8 +256,8 @@ export class AkariVoiceCloneDialog extends AbstractDialog<string | undefined> {
         const options: Array<{ engine: VoiceEngine; title: string; note: string; available: boolean }> = [
             { engine: 'irodori', title: '自分の PC でつくる · 彩 · 無料 · お試し', note: this.irodoriUrl(),
                 available: this.engines.some(item => item.id === 'irodori' && item.availability.state === 'available') },
-            { engine: 'fal-qwen3', title: 'クラウドでつくる · fal.ai', note: '声づくり 約 $0.01 · 読み上げ $0.09 / 1000 字',
-                available: this.engines.some(item => item.id === 'fal-qwen3' && item.availability.state === 'available')
+            { engine: 'fal-qwen3', title: 'クラウド（fal）でつくる', note: '声づくり 約 $0.01 · 読み上げ $0.09 / 1000 字',
+                available: falKeyAvailable(this.engines.find(item => item.id === 'fal-qwen3'))
                     && this.consentCloud && this.check?.checks.script.ok === true }
         ];
         for (const option of options) {
@@ -262,17 +275,25 @@ export class AkariVoiceCloneDialog extends AbstractDialog<string | undefined> {
         this.body.append(el('p', '同じ文を、録った声と作った声で聞き比べます。'));
         const text = el('input'); text.type = 'text'; text.value = this.tryText; text.setAttribute('aria-label', '試す文'); text.style.width = '100%';
         text.addEventListener('input', () => { this.tryText = text.value; }); this.body.append(text);
-        if (this.audioUrl) { const title = el('div', 'A 録った声'); const audio = el('audio'); audio.controls = true; audio.src = this.audioUrl; this.body.append(title, audio); }
+        if (this.audioUrl) { const card = el('div'); card.append(el('div', 'A 録った声')); const row = el('div');
+            Object.assign(row.style, { display: 'flex', alignItems: 'center', gap: '8px' });
+            const audio = el('audio'); audio.controls = true; audio.src = this.audioUrl; row.append(audio); card.append(row); this.body.append(card); }
         for (const engine of this.copied) {
-            const card = el('div', `B 作った声（${engine === 'irodori' ? '彩' : 'fal.ai'}）`);
+            const card = el('div', `B 作った声（${engine === 'irodori' ? '彩（自分の PC）' : 'クラウド（fal）'}）`);
             card.dataset.voiceCompare = engine;
-            const audio = el('audio'); audio.controls = true; audio.src = this.generated[engine] ?? ''; card.append(audio);
-            const button = el('button', '試す'); button.addEventListener('click', () => void this.tryEngine(engine)); card.append(button); this.body.append(card);
+            const row = el('div'); Object.assign(row.style, { display: 'flex', alignItems: 'center', gap: '8px' });
+            const audio = el('audio'); audio.controls = true; audio.src = this.generated[engine] ?? ''; row.append(audio);
+            const button = el('button', '試す'); button.addEventListener('click', () => void this.tryEngine(engine)); row.append(button); card.append(row); this.body.append(card);
         }
         const retry = el('button', 'もう一度つくる'); retry.addEventListener('click', () => { this.step = 'copy'; this.render(); });
         const extended = el('button', 'もっと似せる（60 秒の原稿を追加で録る）'); extended.addEventListener('click', () => void this.restartWithScript('extended-v1'));
         const reRecord = el('button', '似ていないので録り直す'); reRecord.addEventListener('click', () => void this.restartWithScript('quick-v1'));
         this.body.append(retry, extended, reRecord);
+        if (this.staleWarning) {
+            const warning = el('div', '写しが古くなりました。作り直しますか？');
+            const remake = el('button', '写しを作り直す'); remake.addEventListener('click', () => { this.step = 'copy'; this.render(); });
+            warning.append(remake); this.body.append(warning);
+        }
     }
     protected async restartWithScript(script: VoiceScript['id']): Promise<void> {
         this.busy = true; this.updateButtons();
@@ -294,9 +315,10 @@ export class AkariVoiceCloneDialog extends AbstractDialog<string | undefined> {
         label.addEventListener('input', () => { this.label = label.value; this.updateButtons(); });
         this.body.append(el('label', '名前'), label);
         const id = this.profile ?? voiceId(this.label, this.existingIds, `${this.avatar}-narration`);
-        this.body.append(el('div', `保存先: ~/.akari/avatars/${this.avatar}/voice/${id}/`),
+        const display = voiceStorageDisplay(this.storage.root, this.storage.home, this.avatar, id);
+        this.body.append(el('div', `保存先: ${display}`),
             el('div', '正本: 録音 ref-recording.wav・同意と照合の記録'),
-            el('div', `写し: ${this.copied.join('・') || 'なし（録音だけ）'}`),
+            el('div', `写し: ${this.copied.map(engine => engine === 'irodori' ? '彩（自分の PC）' : 'クラウド（fal）').join('・') || 'なし（録音だけ）'}`),
             el('div', '消すとき: 設定「読み上げ」→ 自分の声 → 消す。fal 側の声は残ります。'));
     }
     protected async advance(): Promise<void> {
@@ -310,13 +332,14 @@ export class AkariVoiceCloneDialog extends AbstractDialog<string | undefined> {
             } else if (this.step === 'check') {
                 if (this.extending && this.profile) {
                     const updated = await this.service.voiceExtend({ profile: this.profile, audioPath: this.audioPath! });
+                    this.staleWarning = updated.warnings?.length ? '写しが古くなりました。作り直しますか？' : '';
                     const audio = await this.files.readFile(URI.fromFilePath(updated.path));
                     if (this.audioUrl) URL.revokeObjectURL(this.audioUrl);
                     this.audioUrl = URL.createObjectURL(new Blob([audio.value.buffer as ArrayBuffer], { type: 'audio/wav' }));
                     this.extending = false;
                 }
                 const defaults = voiceCopyDefaults({ irodoriAvailable: this.engines.some(item => item.id === 'irodori' && item.availability.state === 'available'),
-                    falAvailable: this.engines.some(item => item.id === 'fal-qwen3' && item.availability.state === 'available'),
+                    falAvailable: falKeyAvailable(this.engines.find(item => item.id === 'fal-qwen3')),
                     consentCloud: this.consentCloud, scriptOk: this.check!.checks.script.ok });
                 this.selected = defaults; this.step = 'copy';
             } else if (this.step === 'copy') {
@@ -332,7 +355,7 @@ export class AkariVoiceCloneDialog extends AbstractDialog<string | undefined> {
                 }
                 this.copied = [];
                 for (const engine of this.selected) {
-                    this.note.textContent = `${engine} の写しを作っています…`;
+                    this.note.textContent = `${engine === 'irodori' ? '彩（自分の PC）' : 'クラウド（fal）'} の写しを作っています…`;
                     await this.service.voiceCopy({ profile: this.profile, engine, irodoriUrl: this.irodoriUrl(), approved: engine === 'fal-qwen3' });
                     this.copied.push(engine);
                 }

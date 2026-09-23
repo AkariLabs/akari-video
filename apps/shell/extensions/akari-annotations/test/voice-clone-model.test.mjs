@@ -1,7 +1,14 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { voiceCanNext, voiceCheckReason, voiceCheckRows, voiceCopyDefaults, voiceDefaultAvatar,
-  voiceId, voiceNextStep, voiceShouldDiscardProfileForRecording } from '../lib/common/voice-clone-model.js';
+  voiceId, voiceNextStep, voiceShouldDiscardProfileForRecording, voiceStorageDisplay } from '../lib/common/voice-clone-model.js';
+
+test('保存先は実ホーム配下だけ ~ にし、外部 AKARI_HOME と Windows を保持する', () => {
+  assert.equal(voiceStorageDisplay('/tmp/home/.akari', '/tmp/home', 'me', 'voice'), '~/.akari/avatars/me/voice/voice/');
+  assert.equal(voiceStorageDisplay('/tmp/akari-home', '/tmp/home', 'me', 'voice'), '/tmp/akari-home/avatars/me/voice/voice/');
+  assert.equal(voiceStorageDisplay('C:\\Users\\Me\\.akari', 'C:\\Users\\Me', 'me', 'voice'), '~\\.akari\\avatars\\me\\voice\\voice\\');
+  assert.equal(voiceStorageDisplay('D:\\Akari', 'C:\\Users\\Me', 'me', 'voice'), 'D:\\Akari\\avatars\\me\\voice\\voice\\');
+});
 
 const check = { pass: true, reasons: [], checks: {
   duration: { value_s: 21, ok: true }, level: { peak_db: -3, mean_db: -19, ok: true },

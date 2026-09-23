@@ -2,6 +2,17 @@ import type { VoiceAvatar, VoiceCheckResult, VoiceEngine } from './akari-annotat
 
 export type VoiceStep = 'consent' | 'record' | 'check' | 'copy' | 'compare' | 'save';
 export const VOICE_STEPS: VoiceStep[] = ['consent', 'record', 'check', 'copy', 'compare', 'save'];
+export function voiceStorageDisplay(root: string, home: string, avatar: string, id: string): string {
+    const windows = /^[A-Za-z]:[\\/]/u.test(root);
+    const separator = windows ? '\\' : '/';
+    const normalized = (value: string): string => value.replace(/[\\/]/gu, separator).replace(/[\\/]+$/u, '');
+    const base = normalized(root);
+    const absolute = `${base}${separator}avatars${separator}${avatar}${separator}voice${separator}${id}${separator}`;
+    const homePath = normalized(home);
+    const compared = windows ? absolute.toLowerCase() : absolute;
+    const prefix = windows ? `${homePath}${separator}`.toLowerCase() : `${homePath}${separator}`;
+    return homePath && compared.startsWith(prefix) ? `~${absolute.slice(homePath.length)}` : absolute;
+}
 export function voiceNextStep(step: VoiceStep, direction: 1 | -1, copyCount?: number): VoiceStep {
     if (copyCount === 0 && step === 'copy' && direction === 1) return 'save';
     if (copyCount === 0 && step === 'save' && direction === -1) return 'copy';

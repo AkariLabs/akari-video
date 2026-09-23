@@ -17,6 +17,12 @@ export class NarrationCliManager {
     async voiceProfiles(avatar?: string): Promise<{ profiles: VoiceProfileSummary[] }> {
         return this.run(['voice', 'profiles', ...(avatar ? ['--avatar', avatar] : []), '--json']) as Promise<{ profiles: VoiceProfileSummary[] }>;
     }
+    async voiceRename(profile: string, label: string): Promise<void> {
+        await this.run(['voice', 'rename', '--profile', profile, '--label', label, '--json']);
+    }
+    async voiceExtend(profile: string, audioPath: string): Promise<{ path: string; warnings?: string[]; score?: number }> {
+        return this.run(['voice', 'extend', '--profile', profile, '--audio', audioPath, '--script', 'extended-v1', '--json']) as Promise<{ path: string; warnings?: string[]; score?: number }>;
+    }
     async voiceCheck(audioPath: string, script: VoiceScript['id']): Promise<VoiceCheckResult> {
         return this.run(['voice', 'check', '--audio', audioPath, '--script', script, '--json']) as Promise<VoiceCheckResult>;
     }
@@ -80,6 +86,7 @@ export class NarrationCliManager {
                 '--text', request.script, '--reading-file', readingFile, '--id', id, '--json'];
             if (request.engine === 'voicevox') args.push('--speaker', request.voice);
             else args.push('--voice', request.voice);
+            if (request.profile) args.push('--profile', request.profile);
             if (request.speed !== undefined && ['voicevox', 'irodori'].includes(request.engine)) args.push('--speed', String(request.speed));
             if (request.style && ['gemini-tts', 'irodori'].includes(request.engine)) args.push('--style', request.style);
             if (request.irodoriUrl) args.push('--irodori-url', request.irodoriUrl);

@@ -1,0 +1,123 @@
+{
+  "status": "pass",
+  "executedAt": "2026-09-23T20:29:25.152Z",
+  "cdp": {
+    "port": 19691,
+    "launchedPid": 24456,
+    "connectedPid": 24456,
+    "pidMatched": true
+  },
+  "electron": {
+    "processGone": true,
+    "portClosed": true
+  },
+  "voicevox": {
+    "engine": "headless",
+    "processGone": true,
+    "portClosedAtEnd": true,
+    "port": 50021,
+    "pid": 22185,
+    "startedByScript": true
+  },
+  "fakeIrodori": {
+    "pid": 24274,
+    "processGone": true,
+    "portClosed": true,
+    "port": 62018
+  },
+  "checks": [
+    {
+      "name": "読み上げ 4 枚目に自分の声と新・旧 2 声",
+      "pass": true,
+      "measured": {
+        "cards": 4,
+        "options": [
+          "sample-narration",
+          "owner-ja",
+          "__create__"
+        ],
+        "defaultFirst": true
+      },
+      "seconds": 0.82
+    },
+    {
+      "name": "新しい声を試聴・置く・voice ID と provenance",
+      "pass": true,
+      "measured": {
+        "voice": "akari-sample-narration",
+        "provenance": "profile:sample-narration",
+        "resultLabel": "自分の声（サンプルの声）",
+        "placeClicks": 1
+      },
+      "seconds": 1.25
+    },
+    {
+      "name": "旧い owner-ja は鍵なしで生成不可",
+      "pass": true,
+      "measured": {
+        "badge": "写しがありません",
+        "disabled": true
+      },
+      "seconds": 0.76
+    },
+    {
+      "name": "設定の自分の声 2 行と旧い場所ピル",
+      "pass": true,
+      "measured": {
+        "rows": [
+          {
+            "id": "owner-ja",
+            "legacy": true
+          },
+          {
+            "id": "sample-narration",
+            "legacy": false
+          }
+        ],
+        "defaultLabel": "自分の声（サンプルの声）"
+      },
+      "seconds": 1.89
+    },
+    {
+      "name": "名前変更が設定とポップアップに反映",
+      "pass": true,
+      "measured": {
+        "settingsLabel": "名前を変えた声",
+        "popupLabel": "名前を変えた声",
+        "loadingComplete": true
+      },
+      "seconds": 3.47
+    },
+    {
+      "name": "旧い声の移行は新旧を残し旧い場所ピルを外す",
+      "pass": true,
+      "measured": {
+        "newExists": true,
+        "oldExists": true,
+        "rows": 2,
+        "legacyPillGone": true
+      },
+      "seconds": 1.14
+    },
+    {
+      "name": "新しい声を消すと正本が消え偽彩に DELETE",
+      "pass": true,
+      "measured": {
+        "profileGone": true,
+        "deleteRequest": true
+      },
+      "seconds": 0.93
+    },
+    {
+      "name": "ウィザード保存先は一時 AKARI_HOME の実パス",
+      "pass": true,
+      "measured": {
+        "exactPathMatch": true,
+        "outsideHome": true,
+        "tildeOmitted": false,
+        "copyLabel": "彩（自分の PC）"
+      },
+      "seconds": 2.84
+    }
+  ]
+}
