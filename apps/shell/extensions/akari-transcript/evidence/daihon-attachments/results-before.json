@@ -1,0 +1,164 @@
+{
+  "phase": "before",
+  "status": "done",
+  "fixtures": {
+    "attach": {
+      "rowCount": 8,
+      "rows": [
+        {
+          "index": 0,
+          "id": "s-1",
+          "text": "今日は朝のルーティンを紹介します··· ",
+          "tags": [
+            "T MORNING ROUTINE · 全体"
+          ],
+          "bars": 1,
+          "attachNodes": 0
+        },
+        {
+          "index": 1,
+          "id": "s-2",
+          "text": "まずはコーヒーを淹れるところから··· ",
+          "tags": [],
+          "bars": 1,
+          "attachNodes": 0
+        },
+        {
+          "index": 2,
+          "id": "s-3",
+          "text": "豆は挽きたてが一番おいしい··· 32.",
+          "tags": [],
+          "bars": 1,
+          "attachNodes": 0
+        },
+        {
+          "index": 3,
+          "id": "s-4",
+          "text": "お湯は少し冷ましてから注ぎます··· 3",
+          "tags": [],
+          "bars": 1,
+          "attachNodes": 0
+        },
+        {
+          "index": 4,
+          "id": "s-5",
+          "text": "蒸らしは 30 秒くらい··· 32.0",
+          "tags": [],
+          "bars": 1,
+          "attachNodes": 0
+        },
+        {
+          "index": 5,
+          "id": "s-6",
+          "text": "その間にデスクを片付けます··· 32.",
+          "tags": [
+            "T 今日の予定 · 2 行"
+          ],
+          "bars": 2,
+          "attachNodes": 0
+        },
+        {
+          "index": 6,
+          "id": "s-7",
+          "text": "パソコンを開いて今日の予定を確認··· ",
+          "tags": [],
+          "bars": 2,
+          "attachNodes": 0
+        },
+        {
+          "index": 7,
+          "id": "s-8",
+          "text": "最後にチャンネル登録お願いします",
+          "tags": [],
+          "bars": 1,
+          "attachNodes": 0
+        }
+      ],
+      "bodyHasAttachmentNames": {
+        "logo": false,
+        "lower": false,
+        "beans": false,
+        "many": false
+      },
+      "attachmentTagCount": 0,
+      "screenshot": "before-01-attach.png"
+    },
+    "many": {
+      "rowCount": 8,
+      "rows": [
+        {
+          "index": 0,
+          "id": "s-1",
+          "text": "今日は朝のルーティンを紹介します··· ",
+          "tags": [],
+          "bars": 0,
+          "attachNodes": 0
+        },
+        {
+          "index": 1,
+          "id": "s-2",
+          "text": "まずはコーヒーを淹れるところから··· ",
+          "tags": [],
+          "bars": 0,
+          "attachNodes": 0
+        },
+        {
+          "index": 2,
+          "id": "s-3",
+          "text": "豆は挽きたてが一番おいしい··· 32.",
+          "tags": [],
+          "bars": 0,
+          "attachNodes": 0
+        },
+        {
+          "index": 3,
+          "id": "s-4",
+          "text": "お湯は少し冷ましてから注ぎます··· 3",
+          "tags": [],
+          "bars": 0,
+          "attachNodes": 0
+        },
+        {
+          "index": 4,
+          "id": "s-5",
+          "text": "蒸らしは 30 秒くらい··· 32.0",
+          "tags": [],
+          "bars": 0,
+          "attachNodes": 0
+        },
+        {
+          "index": 5,
+          "id": "s-6",
+          "text": "その間にデスクを片付けます··· 32.",
+          "tags": [],
+          "bars": 0,
+          "attachNodes": 0
+        },
+        {
+          "index": 6,
+          "id": "s-7",
+          "text": "パソコンを開いて今日の予定を確認··· ",
+          "tags": [],
+          "bars": 0,
+          "attachNodes": 0
+        },
+        {
+          "index": 7,
+          "id": "s-8",
+          "text": "最後にチャンネル登録お願いします",
+          "tags": [],
+          "bars": 0,
+          "attachNodes": 0
+        }
+      ],
+      "bodyHasAttachmentNames": {
+        "logo": false,
+        "lower": false,
+        "beans": false,
+        "many": false
+      },
+      "attachmentTagCount": 0,
+      "screenshot": "before-02-many.png"
+    }
+  }
+}

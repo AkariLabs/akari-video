@@ -52,6 +52,12 @@ export class AkariDaihonContribution implements CommandContribution, FrontendApp
                     type: 'boolean',
                     default: true,
                     description: '台本の本文に自動・手置きの表示区切りを表示する'
+                },
+                'akari.daihon.attachmentMode': {
+                    type: 'string',
+                    enum: ['all', 'text', 'none'],
+                    default: 'all',
+                    description: '台本に表示する添付の種類'
                 }
             }
         });

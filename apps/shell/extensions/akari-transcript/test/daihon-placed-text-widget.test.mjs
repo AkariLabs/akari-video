@@ -4,23 +4,24 @@ import Module, { createRequire } from 'node:module';
 import { readFileSync } from 'node:fs';
 
 const require = createRequire(import.meta.url);
+const editMutations = require('akari-annotations/lib/common/edit-v2-mutations');
 const decorator = () => () => {};
 class BaseWidget {}
 class DisposableCollection { push() {} dispose() {} }
 const stubs = {
-  '@theia/core/lib/browser': { BaseWidget, codicon: () => '' },
+  '@theia/core/lib/browser': { BaseWidget, codicon: () => '', open: (opener, uri, options) => opener.open(uri, options) },
   '@theia/core/lib/browser/dialogs': { AbstractDialog: class {}, ConfirmDialog: class {}, Dialog: {} },
   '@theia/core/lib/common': {
     DisposableCollection, CommandService: Symbol('CommandService'),
     nls: { localize: (_key, value) => value }
   },
-  '@theia/core/lib/common/preferences': {}, '@theia/core/lib/common/quick-pick-service': {},
+  '@theia/core/lib/common/preferences': { PreferenceScope: { User: 0 } }, '@theia/core/lib/common/quick-pick-service': {},
   '@theia/core/lib/common/uri': { default: class URI {} },
   '@theia/core/shared/inversify': { inject: decorator, injectable: decorator, postConstruct: decorator },
   '@theia/filesystem/lib/browser/file-service': {}, '@theia/workspace/lib/browser/workspace-service': {},
   'akari-annotations/lib/browser/akari-edit-history-service': {},
   'akari-annotations/lib/common/akari-annotations-protocol': {},
-  'akari-annotations/lib/common/edit-v2-mutations': {},
+  'akari-annotations/lib/common/edit-v2-mutations': editMutations,
   'akari-project/lib/common/akari-project-protocol': {}
 };
 const original = Module._load;
@@ -395,4 +396,138 @@ test('つまみのドラッグ中は仮描画し、離したときだけ 1 回�
     await new Promise(resolve => setImmediate(resolve));
     assert.equal(calls.length, 1);
   } finally { if (oldDocument === undefined) delete globalThis.document; else globalThis.document = oldDocument; }
+});
+
+test('添付モードと 5 列以上の自動折り畳みを実際の札・棒 DOM に反映する', () => {
+  const oldDocument = globalThis.document;
+  globalThis.document = { createElement: tag => fakeNode(tag) };
+  const roots = new Map(spoken.map(row => [row.id, { root: fakeNode() }]));
+  const attachmentRanges = Array.from({ length: 5 }, (_, index) => ({
+    id: `a${index}`, kind: index === 0 ? 'image' : 'html', name: `素材${index}`,
+    path: index === 0 ? 'assets/photo.png' : 'assets/card.html', first: 0, last: 7,
+    start: 0, end: 32, atFrames: 0, durationFrames: 960, colorIndex: 4 + index
+  }));
+  const instance = widget({ elements: roots, rowsNode: fakeNode(), attachments: attachmentRanges,
+    attachmentMode: 'all', renderPlacedText: AkariDaihonWidget.prototype.renderPlacedText,
+    renderPlacedEditor() {}, editUri: { parent: { resolve: path => ({ normalizePath() { return this; }, toString: () => `file:///project/${path}` }) } }
+  });
+  const rowNodes = () => descendants(roots.get('r0').root);
+  const reset = () => { for (const { root } of roots.values()) root.children = []; };
+  try {
+    instance.renderPlacedText();
+    assert.equal(rowNodes().filter(node => node.className === 'akari-daihon-placed-bar akari-daihon-attachment-bar').length, 3);
+    assert.equal(rowNodes().filter(node => node.className === 'akari-daihon-placed-bar').length, 1);
+    assert.deepEqual(rowNodes().filter(node => node.className === 'akari-daihon-attachment-folded')
+      .map(node => node.textContent), ['▮5', '▮6']);
+    assert.equal(rowNodes().find(node => node.className === 'akari-daihon-attachment-thumb').src,
+      'file:///project/assets/photo.png');
+    reset(); instance.attachmentMode = 'text'; instance.renderPlacedText();
+    assert.equal(rowNodes().filter(node => node.dataset.attachmentId).length, 0);
+    assert.ok(rowNodes().some(node => node.dataset.captionId === 'p1'));
+    reset(); instance.attachmentMode = 'none'; instance.renderPlacedText();
+    assert.equal(rowNodes().filter(node => node.dataset.attachmentId || node.dataset.captionId === 'p1').length, 0);
+  } finally { if (oldDocument === undefined) delete globalThis.document; else globalThis.document = oldDocument; }
+});
+
+test('添付の札は全体・複数行・1 行の接尾辞を出し、同名 caption/item も別列に置く', () => {
+  const oldDocument = globalThis.document;
+  globalThis.document = { createElement: tag => fakeNode(tag) };
+  const roots = new Map(spoken.map(row => [row.id, { root: fakeNode() }]));
+  const attachments = [
+    { id: 'p1', kind: 'html', name: 'ロゴ', path: 'logo.html', first: 0, last: 7, colorIndex: 4 },
+    { id: 'band', kind: 'html', name: '下帯', path: 'band.html', first: 1, last: 3, colorIndex: 5 },
+    { id: 'image', kind: 'image', name: 'beans.png', path: 'beans.png', first: 2, last: 2, colorIndex: 6 }
+  ].map(item => ({ ...item, start: item.first * 4, end: (item.last + 1) * 4,
+    atFrames: item.first * 120, durationFrames: (item.last - item.first + 1) * 120 }));
+  const instance = widget({ elements: roots, rowsNode: fakeNode(), attachments,
+    attachmentMode: 'all', renderPlacedText: AkariDaihonWidget.prototype.renderPlacedText,
+    renderPlacedEditor() {}, editUri: { parent: { resolve: path => ({ normalizePath() { return this; }, toString: () => `file:///project/${path}` }) } }
+  });
+  try {
+    instance.renderPlacedText();
+    const nodes = [...roots.values()].flatMap(({ root }) => descendants(root));
+    const tagText = id => nodes.find(node => node.dataset.attachmentId === id && node.className?.includes('attachment-tag'))
+      .children.find(node => node.tag === 'span' && node.className !== 'akari-daihon-attachment-icon').textContent;
+    assert.equal(tagText('p1'), 'ロゴ · 全体');
+    assert.equal(tagText('band'), '下帯 · 3 行');
+    assert.equal(tagText('image'), 'beans.png');
+    const row = descendants(roots.get('r2').root);
+    const textBar = row.find(node => node.className === 'akari-daihon-placed-bar' && node.dataset.captionId === 'p1');
+    const itemBar = row.find(node => node.className?.includes('attachment-bar') && node.dataset.attachmentId === 'p1');
+    assert.notEqual(textBar.dataset.lane, itemBar.dataset.lane);
+  } finally { if (oldDocument === undefined) delete globalThis.document; else globalThis.document = oldDocument; }
+});
+
+test('画像を開く前に item 選択を待ち、画像 handler が返すタブを最後に前面化する', async () => {
+  const events = [];
+  let finishFocus;
+  const focused = new Promise(resolve => { finishFocus = resolve; });
+  const instance = widget({ closePop() {}, renderWordSelection() {}, setSelection() {},
+    editUri: { parent: { resolve: path => ({ normalizePath() { return this; }, toString: () => `file:///project/${path}` }) } },
+    commands: { async executeCommand(id, request) { events.push(['focus', id, request.itemId]); await focused; } },
+    opener: { async open(uri) { events.push(['open', uri.toString()]); return { id: 'image-widget' }; } },
+    applicationShell: { async activateWidget(id) { events.push(['activate', id]); } }
+  });
+  const pending = instance.openAttachment({ id: 'image', kind: 'image', name: 'beans.png', path: 'assets/beans.png' });
+  await new Promise(resolve => setImmediate(resolve));
+  assert.deepEqual(events, [['focus', 'akari.timeline.focusItem', 'image']]);
+  finishFocus();
+  await pending;
+  assert.deepEqual(events, [
+    ['focus', 'akari.timeline.focusItem', 'image'],
+    ['open', 'file:///project/assets/beans.png'],
+    ['activate', 'image-widget']
+  ]);
+});
+
+test('添付の移動は v2 snapshot API と 1 手の履歴を使う', async () => {
+  const calls = [], histories = [];
+  const edit = { version: 2, output: { fps: 30 }, tracks: [{ id: 'visual-1', lane: 'visual', items: [
+    { id: 'band', at: 120, duration: 360, source: { kind: 'html', path: 'band.html' } }
+  ] }] };
+  const instance = widget({ async readText() { return JSON.stringify(edit); },
+    async withHistory(label, operation) { histories.push(label); await operation(); },
+    annotationsService: { async writeEditSnapshot(request) { calls.push(request); } }
+  });
+  await instance.writeAttachmentTiming('band', 240, 480, '範囲を変更');
+  assert.deepEqual(histories, ['添付: 範囲を変更']);
+  assert.equal(calls.length, 1);
+  assert.deepEqual(JSON.parse(calls[0].editSource).tracks[0].items[0],
+    { id: 'band', at: 240, duration: 480, source: { kind: 'html', path: 'band.html' } });
+});
+
+test('添付表示モードはユーザー設定へ保存する', async () => {
+  const saved = [];
+  const button = { dataset: { attachmentMode: 'text' }, classList: { toggle(_name, active) { this.active = active; } },
+    setAttribute(name, value) { this[name] = value; } };
+  const instance = widget({ attachmentModeNode: { querySelectorAll: () => [button] },
+    preferences: { async set(...args) { saved.push(args); } } });
+  instance.setAttachmentMode('text');
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(instance.attachmentMode, 'text');
+  assert.equal(button.classList.active, true);
+  assert.equal(button['aria-pressed'], 'true');
+  assert.equal(saved[0][0], 'akari.daihon.attachmentMode');
+  assert.equal(saved[0][1], 'text');
+});
+
+test('添付の範囲変更は Cmd+Z 相当の 1 手で edit.json 原文へ戻る', async () => {
+  const entries = [];
+  const original = '{\n  "version": 2,\n  "output": {"fps":30},\n  "sources": [],\n  "tracks": [{"id":"visual-1","lane":"visual","items":[{"id":"band","at":120,"duration":360,"source":{"kind":"html","path":"band.html"}}]}]\n}\n';
+  let document = original;
+  const instance = widget({
+    async readText(target) { return target === this.editUri ? document : '[]'; },
+    async reload() {},
+    annotationsService: { async writeEditSnapshot(request) { document = request.editSource; } }
+  });
+  setDaihonHistoryService({ push: entry => entries.push(entry) });
+  try {
+    await instance.writeAttachmentTiming('band', 120, 480, '範囲を変更');
+    assert.equal(entries.length, 1);
+    assert.equal(JSON.parse(document).tracks[0].items[0].duration, 480);
+    await entries[0].undo();
+    assert.equal(document, original);
+    await entries[0].redo();
+    assert.equal(JSON.parse(document).tracks[0].items[0].duration, 480);
+  } finally { setDaihonHistoryService(undefined); }
 });
