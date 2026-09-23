@@ -1459,6 +1459,7 @@ export interface LegacyEditView {
     audioNarration: EditAudioNarration[];
     audioSpeech?: EditAudioNarration[];
     audioBgm?: EditAudioBgm;
+    audioBgms: EditAudioBgm[];
     timeline?: { tracks: EditTimelineTrack[] };
     fps: number;
     warnings: string[];
@@ -1475,7 +1476,7 @@ export function projectLegacyEdit(internal: InternalEdit): LegacyEditView {
     const audioSfx: Array<{ index: number; value: EditAudioSfx }> = [];
     const audioNarration: Array<{ index: number; value: EditAudioNarration }> = [];
     const audioSpeech: Array<{ index: number; value: EditAudioNarration }> = [];
-    let audioBgm: EditAudioBgm | undefined;
+    const audioBgms: EditAudioBgm[] = [];
 
     for (const track of internal.tracks) {
         if (track.lane === 'audio' && !isAudioItemAudible(track, undefined)) continue;
@@ -1505,7 +1506,7 @@ export function projectLegacyEdit(internal: InternalEdit): LegacyEditView {
                             audioSpeech.push({ index: item.legacy.index, value: value as EditAudioNarration });
                             break;
                         case 'bgm':
-                            audioBgm = value as EditAudioBgm;
+                            audioBgms.push(value as EditAudioBgm);
                             break;
                         case 'layers':
                             layers.push({ index: item.legacy.index, value: (track.lane === 'visual' && track.muted === true
@@ -1551,7 +1552,8 @@ export function projectLegacyEdit(internal: InternalEdit): LegacyEditView {
         audioSfx: byDeclarationOrder(audioSfx),
         audioNarration: byDeclarationOrder(audioNarration),
         ...(audioSpeech.length ? { audioSpeech: byDeclarationOrder(audioSpeech) } : {}),
-        ...(audioBgm ? { audioBgm } : {}),
+        audioBgms: audioBgms.sort((a, b) => (a.t ?? 0) - (b.t ?? 0)),
+        ...(audioBgms.length ? { audioBgm: audioBgms[0] } : {}),
         ...(internal.tracksDeclared ? { timeline: { tracks: declaredTracks } } : {}),
         fps: internal.output.fps,
         warnings: internal.warnings

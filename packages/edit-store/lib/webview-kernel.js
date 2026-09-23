@@ -1318,26 +1318,27 @@ var AkariEditKernel = (() => {
       }
     };
     const items = [];
-    const bgm = audio.bgm;
-    if (bgm && isAudioItemAudible(void 0, bgm)) {
-      const scheduled = scheduleBgm(bgm, timelineDurationSec, startAtSec, duckIntervals, warnings);
-      if (scheduled) items.push(scheduled);
-      if (bgm.ducking === true && finitePositive(bgm.durationSec)) {
-        const clipStartSec = typeof bgm.t === "number" && Number.isFinite(bgm.t) && bgm.t > 0 ? bgm.t : 0;
-        const clipDurationSec = finitePositive(bgm.duration) ? Math.min(timelineDurationSec - clipStartSec, bgm.duration) : timelineDurationSec - clipStartSec;
-        if (clipDurationSec > 0) {
-          warnUnduckedTarget(
-            typeof bgm.id === "string" && bgm.id ? bgm.id : "bgm",
-            clipStartSec,
-            clipDurationSec
-          );
+    for (const bgm of audio.bgms ?? (audio.bgm ? [audio.bgm] : [])) {
+      if (bgm && isAudioItemAudible(void 0, bgm)) {
+        const scheduled = scheduleBgm(bgm, timelineDurationSec, startAtSec, duckIntervals, warnings);
+        if (scheduled) items.push(scheduled);
+        if (bgm.ducking === true && finitePositive(bgm.durationSec)) {
+          const clipStartSec = typeof bgm.t === "number" && Number.isFinite(bgm.t) && bgm.t > 0 ? bgm.t : 0;
+          const clipDurationSec = finitePositive(bgm.duration) ? Math.min(timelineDurationSec - clipStartSec, bgm.duration) : timelineDurationSec - clipStartSec;
+          if (clipDurationSec > 0) {
+            warnUnduckedTarget(
+              typeof bgm.id === "string" && bgm.id ? bgm.id : "bgm",
+              clipStartSec,
+              clipDurationSec
+            );
+          }
         }
-      }
-      if (bgm.ducking === void 0 && duckKeys.length > 0 && finitePositive(bgm.durationSec)) {
-        const clipStartSec = typeof bgm.t === "number" && Number.isFinite(bgm.t) && bgm.t > 0 ? bgm.t : 0;
-        const clipDurationSec = finitePositive(bgm.duration) ? Math.min(timelineDurationSec - clipStartSec, bgm.duration) : timelineDurationSec - clipStartSec;
-        if (clipDurationSec > 0 && duckIntervals.some((interval) => interval.startSec < clipStartSec + clipDurationSec && interval.endSec > clipStartSec)) {
-          warnings.push(`audio bgm ${typeof bgm.id === "string" && bgm.id ? bgm.id : "bgm"} overlaps duck key intervals (duck_keys: ${JSON.stringify(duckKeys)}) but ducking is not enabled; set "ducking": true on the item to duck it under narration`);
+        if (bgm.ducking === void 0 && duckKeys.length > 0 && finitePositive(bgm.durationSec)) {
+          const clipStartSec = typeof bgm.t === "number" && Number.isFinite(bgm.t) && bgm.t > 0 ? bgm.t : 0;
+          const clipDurationSec = finitePositive(bgm.duration) ? Math.min(timelineDurationSec - clipStartSec, bgm.duration) : timelineDurationSec - clipStartSec;
+          if (clipDurationSec > 0 && duckIntervals.some((interval) => interval.startSec < clipStartSec + clipDurationSec && interval.endSec > clipStartSec)) {
+            warnings.push(`audio bgm ${typeof bgm.id === "string" && bgm.id ? bgm.id : "bgm"} overlaps duck key intervals (duck_keys: ${JSON.stringify(duckKeys)}) but ducking is not enabled; set "ducking": true on the item to duck it under narration`);
+          }
         }
       }
     }
@@ -3714,7 +3715,7 @@ var AkariEditKernel = (() => {
     const audioSfx = [];
     const audioNarration = [];
     const audioSpeech = [];
-    let audioBgm;
+    const audioBgms = [];
     for (const track of internal.tracks) {
       if (track.lane === "audio" && !isAudioItemAudible(track, void 0)) continue;
       for (const item of track.items) {
@@ -3738,7 +3739,7 @@ var AkariEditKernel = (() => {
                 audioSpeech.push({ index: item.legacy.index, value });
                 break;
               case "bgm":
-                audioBgm = value;
+                audioBgms.push(value);
                 break;
               case "layers":
                 layers.push({ index: item.legacy.index, value: track.lane === "visual" && track.muted === true ? { ...value, mute: true } : value });
@@ -3775,7 +3776,8 @@ var AkariEditKernel = (() => {
       audioSfx: byDeclarationOrder(audioSfx),
       audioNarration: byDeclarationOrder(audioNarration),
       ...audioSpeech.length ? { audioSpeech: byDeclarationOrder(audioSpeech) } : {},
-      ...audioBgm ? { audioBgm } : {},
+      audioBgms: audioBgms.sort((a, b) => (a.t ?? 0) - (b.t ?? 0)),
+      ...audioBgms.length ? { audioBgm: audioBgms[0] } : {},
       ...internal.tracksDeclared ? { timeline: { tracks: declaredTracks } } : {},
       fps: internal.output.fps,
       warnings: internal.warnings

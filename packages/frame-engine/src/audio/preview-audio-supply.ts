@@ -82,6 +82,7 @@ interface PreviewScheduledItem {
 
 interface PreviewScheduleDeclaration {
   bgm?: WebAudioDecodedItem;
+  bgms?: WebAudioDecodedItem[];
   sfx?: WebAudioDecodedItem[];
   narration?: WebAudioDecodedItem[];
   speech?: PreviewSpeechDeclaration[];
@@ -1284,9 +1285,10 @@ export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): Pr
       durationSec: item.durationSec,
       ...(!item.sidecar ? { sidecar: undefined } : {}),
     }));
-    const bgm = normalized.find((_, index) => scheduled[index]?.kind === 'bgm');
+    const bgms = normalized.filter((_, index) => scheduled[index]?.kind === 'bgm');
     return {
-      ...(bgm ? { bgm } : {}),
+      bgms,
+      ...(bgms.length ? { bgm: bgms[0] } : {}),
       sfx: normalized.filter((_, index) => scheduled[index]?.kind === 'sfx'),
       narration: normalized.filter((_, index) => scheduled[index]?.kind === 'narration'),
     };

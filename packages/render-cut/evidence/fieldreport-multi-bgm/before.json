@@ -1,0 +1,287 @@
+{
+  "adjacent": {
+    "preview": {
+      "items": [
+        {
+          "id": "bgm",
+          "start": 3,
+          "end": 6,
+          "minimumEnvelopeGain": 0.251188643150958
+        }
+      ]
+    },
+    "lint": "fail",
+    "lintErrors": [
+      "v2.audio-bgm-multiple"
+    ],
+    "bgmError": [
+      "BGM music-1 [0, 90)、music-2 [90, 180)。重なり: なし。現在のミックスは BGM を 1 本だけ扱うため、曲を詰めて繋ぐ場合は音源側で 1 ファイルに編集してください。"
+    ],
+    "projectedBgms": [
+      {
+        "path": "two.wav",
+        "t": 3,
+        "duration": 3
+      }
+    ],
+    "projectedBgm": "two.wav",
+    "legacyBgms": 0,
+    "plan": {
+      "operation": "ffmpeg",
+      "inputCount": 5,
+      "bgmFilterCount": 4,
+      "ducked": [
+        "bgm"
+      ]
+    },
+    "renderError": null,
+    "windows": [
+      {
+        "at": 0.5,
+        "rms": 0,
+        "hz": 0,
+        "tone440": 0,
+        "tone880": 0,
+        "decodeExit": 0
+      },
+      {
+        "at": 1.25,
+        "rms": 0.08832,
+        "hz": 1195,
+        "tone440": 0,
+        "tone880": 0,
+        "decodeExit": 0
+      },
+      {
+        "at": 2.5,
+        "rms": 0,
+        "hz": 0,
+        "tone440": 0,
+        "tone880": 0,
+        "decodeExit": 0
+      },
+      {
+        "at": 3.5,
+        "rms": 0.08834,
+        "hz": 875,
+        "tone440": 0,
+        "tone880": 0.12493,
+        "decodeExit": 0
+      },
+      {
+        "at": 4.25,
+        "rms": 0.09106,
+        "hz": 1195,
+        "tone440": 0,
+        "tone880": 0.03136,
+        "decodeExit": 0
+      },
+      {
+        "at": 4.5,
+        "rms": 0.02665,
+        "hz": 880,
+        "tone440": 0.00003,
+        "tone880": 0.0375,
+        "decodeExit": 0
+      },
+      {
+        "at": 5.5,
+        "rms": 0.08834,
+        "hz": 875,
+        "tone440": 0,
+        "tone880": 0.12494,
+        "decodeExit": 0
+      }
+    ]
+  },
+  "gap": {
+    "preview": {
+      "items": [
+        {
+          "id": "bgm",
+          "start": 4,
+          "end": 6,
+          "minimumEnvelopeGain": 0.251188643150958
+        }
+      ]
+    },
+    "lint": "fail",
+    "lintErrors": [
+      "v2.audio-bgm-multiple"
+    ],
+    "bgmError": [
+      "BGM music-1 [0, 60)、music-2 [120, 180)。重なり: なし。現在のミックスは BGM を 1 本だけ扱うため、曲を詰めて繋ぐ場合は音源側で 1 ファイルに編集してください。"
+    ],
+    "projectedBgms": [
+      {
+        "path": "two.wav",
+        "t": 4,
+        "duration": 2
+      }
+    ],
+    "projectedBgm": "two.wav",
+    "legacyBgms": 0,
+    "plan": {
+      "operation": "ffmpeg",
+      "inputCount": 5,
+      "bgmFilterCount": 4,
+      "ducked": [
+        "bgm"
+      ]
+    },
+    "renderError": null,
+    "windows": [
+      {
+        "at": 0.5,
+        "rms": 0,
+        "hz": 0,
+        "tone440": 0,
+        "tone880": 0,
+        "decodeExit": 0
+      },
+      {
+        "at": 1.25,
+        "rms": 0.08832,
+        "hz": 1195,
+        "tone440": 0,
+        "tone880": 0,
+        "decodeExit": 0
+      },
+      {
+        "at": 2.5,
+        "rms": 0,
+        "hz": 0,
+        "tone440": 0,
+        "tone880": 0,
+        "decodeExit": 0
+      },
+      {
+        "at": 3.5,
+        "rms": 0,
+        "hz": 0,
+        "tone440": 0,
+        "tone880": 0,
+        "decodeExit": 0
+      },
+      {
+        "at": 4.25,
+        "rms": 0.09106,
+        "hz": 1195,
+        "tone440": 0,
+        "tone880": 0.03136,
+        "decodeExit": 0
+      },
+      {
+        "at": 4.5,
+        "rms": 0.02665,
+        "hz": 880,
+        "tone440": 0.00003,
+        "tone880": 0.0375,
+        "decodeExit": 0
+      },
+      {
+        "at": 5.5,
+        "rms": 0.08834,
+        "hz": 875,
+        "tone440": 0,
+        "tone880": 0.12494,
+        "decodeExit": 0
+      }
+    ]
+  },
+  "overlap": {
+    "preview": {
+      "items": [
+        {
+          "id": "bgm",
+          "start": 3,
+          "end": 6,
+          "minimumEnvelopeGain": 0.251188643150958
+        }
+      ]
+    },
+    "lint": "fail",
+    "lintErrors": [
+      "v2.audio-bgm-multiple"
+    ],
+    "bgmError": [
+      "BGM music-1 [0, 120)、music-2 [90, 180)。重なり: music-1 / music-2 [90, 120)。現在のミックスは BGM を 1 本だけ扱うため、曲を詰めて繋ぐ場合は音源側で 1 ファイルに編集してください。"
+    ],
+    "projectedBgms": [
+      {
+        "path": "two.wav",
+        "t": 3,
+        "duration": 3
+      }
+    ],
+    "projectedBgm": "two.wav",
+    "legacyBgms": 0,
+    "plan": {
+      "operation": "ffmpeg",
+      "inputCount": 5,
+      "bgmFilterCount": 4,
+      "ducked": [
+        "bgm"
+      ]
+    },
+    "renderError": null,
+    "windows": [
+      {
+        "at": 0.5,
+        "rms": 0,
+        "hz": 0,
+        "tone440": 0,
+        "tone880": 0,
+        "decodeExit": 0
+      },
+      {
+        "at": 1.25,
+        "rms": 0.08832,
+        "hz": 1195,
+        "tone440": 0,
+        "tone880": 0,
+        "decodeExit": 0
+      },
+      {
+        "at": 2.5,
+        "rms": 0,
+        "hz": 0,
+        "tone440": 0,
+        "tone880": 0,
+        "decodeExit": 0
+      },
+      {
+        "at": 3.5,
+        "rms": 0.08834,
+        "hz": 875,
+        "tone440": 0,
+        "tone880": 0.12493,
+        "decodeExit": 0
+      },
+      {
+        "at": 4.25,
+        "rms": 0.09106,
+        "hz": 1195,
+        "tone440": 0,
+        "tone880": 0.03136,
+        "decodeExit": 0
+      },
+      {
+        "at": 4.5,
+        "rms": 0.02665,
+        "hz": 880,
+        "tone440": 0.00003,
+        "tone880": 0.0375,
+        "decodeExit": 0
+      },
+      {
+        "at": 5.5,
+        "rms": 0.08834,
+        "hz": 875,
+        "tone440": 0,
+        "tone880": 0.12494,
+        "decodeExit": 0
+      }
+    ]
+  }
+}

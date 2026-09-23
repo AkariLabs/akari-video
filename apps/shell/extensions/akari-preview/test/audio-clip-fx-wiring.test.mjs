@@ -22,7 +22,7 @@ test('sfx, narration, speech and bgm requests all adopt clip FX with the corresp
     assert.match(audioSource, /resolveSource\(item\.path, label, \{[^]*?\}, kind === 'speech' \? 'narration' : kind,[^]*?item\.t,\s*audioClipFxOf\(item, kind\)/);
     assert.match(audioSource, /timed\(audio\.sfx, 'sfx'\)/);
     assert.match(audioSource, /timed\(audio\.narration, 'narration'\)/);
-    assert.match(audioSource, /resolveSource\(rawBgm\.path, 'audio\.bgm', \{ inSec: bgmIn \?\? 0 \}, 'bgm', 'bgm', 0, audioClipFxOf\(rawBgm, 'bgm'\)\)/);
+    assert.match(audioSource, /resolveSource\(rawBgm\.path, 'audio\.bgm', \{ inSec: bgmIn \?\? 0 \}, 'bgm', String\(rawBgm\.id[^]*?Number\(rawBgm\.t \?\? 0\), audioClipFxOf\(rawBgm, 'bgm'\)\)/);
 });
 
 test('FX requests keep source fallback and cache keys on the shared request path', () => {

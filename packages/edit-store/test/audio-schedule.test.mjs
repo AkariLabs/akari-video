@@ -392,3 +392,27 @@ test('explicit BGM end stays fixed when a later caption extends the output', () 
     assert.equal(after.items.length, 0);
   }
 });
+
+test('two BGM clips schedule independently and both use the shared duck envelope', () => {
+  const result = buildWebAudioSchedule({
+    timelineDurationSec: 6, startAtSec: 0,
+    audio: { bgms: [
+      { id: 'first', t: 0, duration: 3, durationSec: 8, ducking: true },
+      { id: 'second', t: 3, duration: 3, durationSec: 8, ducking: true },
+    ] },
+    speechKeyIntervals: [{ startSec: 2.75, endSec: 3.25 }],
+  });
+  const bgms = result.items.filter(item => item.kind === 'bgm');
+  assert.deepEqual(bgms.map(item => item.id), ['first', 'second']);
+  assert.deepEqual(bgms.map(item => [item.timelineStartSec, item.timelineEndSec]), [[0, 3], [3, 6]]);
+  for (const item of bgms) assert.ok(item.envelopeEvents.some(event => event.value < 1));
+  const gap = buildWebAudioSchedule({
+    timelineDurationSec: 6, startAtSec: 2.5,
+    audio: { bgms: [
+      { id: 'first', t: 0, duration: 2, durationSec: 8 },
+      { id: 'second', t: 4, duration: 2, durationSec: 8 },
+    ] },
+  });
+  assert.deepEqual(gap.items.filter(item => item.kind === 'bgm').map(item => item.id), ['second']);
+  assert.equal(gap.items[0].delaySec, 1.5);
+});

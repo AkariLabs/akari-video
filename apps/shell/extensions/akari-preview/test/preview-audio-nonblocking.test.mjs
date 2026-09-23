@@ -331,3 +331,21 @@ test('差分更新では採用した sidecar の stream だけを保持する', 
     assert.deepEqual(model.assetStreamIds, ['source', 'duplicate-sidecar']);
     assert.equal(f.widget.akariPreviewAssetUrlByUri.get('preview-audio:speech:voice:new-key'), 'new-url');
 });
+
+test('差分更新は 2 本目以降の BGM sidecar stream も保持する', () => {
+    const f = lifecycle();
+    const model = {
+        assetStreamIds: ['source', 'first-sidecar', 'second-sidecar', 'unused-sidecar'],
+        previewAudioStreams: new Map([
+            ['preview-audio:bgm:first', { id: 'first-sidecar', url: 'first-url' }],
+            ['preview-audio:bgm:second', { id: 'second-sidecar', url: 'second-url' }],
+            ['preview-audio:bgm:unused', { id: 'unused-sidecar', url: 'unused-url' }]
+        ])
+    };
+    const first = { id: 'first', sidecar: { path: 'first-url' } };
+    const summary = { audio: { bgm: first, bgms: [first, { id: 'second', sidecar: { path: 'second-url' } }] } };
+    f.host.retainPreviewAudioStreams(f.widget, model, summary);
+    assert.deepEqual([...f.widget.akariPreviewAssetStreamIds].sort(), ['first-sidecar', 'second-sidecar']);
+    assert.deepEqual(model.assetStreamIds, ['source', 'unused-sidecar']);
+    assert.equal(f.widget.akariPreviewAssetUrlByUri.get('preview-audio:bgm:second'), 'second-url');
+});

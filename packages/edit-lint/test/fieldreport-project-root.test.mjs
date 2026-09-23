@@ -81,10 +81,13 @@ test('multiple BGM error names clips, frame ranges, overlap, and the safe edit p
     await writeFile(join(root, 'edit.json'), JSON.stringify(edit));
     const adjacent = await lintProject(root);
     const adjacentMessage = adjacent.findings.find(f => f.check === 'v2.audio-bgm-multiple')?.message ?? '';
-    assert.match(adjacentMessage, /music-1 \[0, 30\)/);
-    assert.match(adjacentMessage, /music-2 \[30, 60\)/);
-    assert.match(adjacentMessage, /重なり: なし/);
-    assert.match(adjacentMessage, /音源側で 1 ファイルに編集/);
+    assert.equal(adjacentMessage, '');
+    assert.equal(adjacent.verdict, 'pass');
+    edit.tracks[1].items[0].at = 40;
+    await writeFile(join(root, 'edit.json'), JSON.stringify(edit));
+    const spaced = await lintProject(root);
+    assert.equal(spaced.verdict, 'pass');
+    assert.equal(spaced.findings.some(f => f.check === 'v2.audio-bgm-multiple'), false);
     edit.tracks[1].items[0].at = 20;
     await writeFile(join(root, 'edit.json'), JSON.stringify(edit));
     const overlapping = await lintProject(root);

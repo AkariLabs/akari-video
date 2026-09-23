@@ -591,6 +591,7 @@ interface EditSummaryAudioSource {
 }
 
 interface EditSummaryBgm extends EditSummaryAudioSource {
+    id?: string;
     t?: number;
     duration?: number;
     track?: number;
@@ -629,6 +630,7 @@ interface EditSummaryTimedAudio extends EditSummaryAudioSource {
 
 interface EditSummaryAudio {
     bgm?: EditSummaryBgm;
+    bgms?: EditSummaryBgm[];
     sfx: EditSummaryTimedAudio[];
     narration: EditSummaryTimedAudio[];
     speech: EditSummaryTimedAudio[];
@@ -4577,7 +4579,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
     // Incremental refresh discards duplicate asset streams. Newly ready sidecars must survive it.
     protected retainPreviewAudioStreams(widget: PreviewWidgetMarker, model: PreviewModel, summary: EditSummary): void {
         const audio = summary.audio;
-        const urls = new Set([audio?.bgm, ...(audio?.sfx ?? []), ...(audio?.narration ?? []),
+        const urls = new Set([...(audio?.bgms ?? (audio?.bgm ? [audio.bgm] : [])), ...(audio?.sfx ?? []), ...(audio?.narration ?? []),
             ...(audio?.speech ?? []), ...(audio?.embeddedSpeech ?? [])]
             .flatMap(item => item?.sidecar?.path ? [item.sidecar.path] : []));
         const kept = new Set<string>();
@@ -4663,7 +4665,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 pending.splice(pending.indexOf(item), 1);
                 const summary = widget.akariPreviewSummary;
                 const audio = summary?.audio;
-                const target = item.kind === 'bgm' ? audio?.bgm
+                const target = item.kind === 'bgm' ? (audio?.bgms?.find(value => value.id === item.id) ?? (audio?.bgms ? undefined : audio?.bgm))
                     : audio?.[item.audioCollection ?? (item.kind === 'speech' ? 'embeddedSpeech' : item.kind)]
                         ?.find(value => value.id === item.id);
                 if (!target || !summary) {
@@ -5527,13 +5529,20 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 const item = entry.item;
                 if (!item) continue;
                 const target = item.kind === 'speech' ? embeddedSpeech.find(value => value.id === item.id)
-                    : item.kind === 'bgm' ? audio?.bgm
+                    : item.kind === 'bgm' ? (audio?.bgms?.find(value => value.id === item.id) ?? (audio?.bgms ? undefined : audio?.bgm))
                         : audio?.[item.audioCollection ?? item.kind]?.find(value => value.id === item.id);
                 if (!target) continue;
                 if (entry.resolve) {
                     const fields = await entry.resolve();
                     if (fields) Object.assign(target, fields);
-                    else if (audio && item.kind === 'bgm') delete audio.bgm;
+                    else if (audio && item.kind === 'bgm') {
+                        if (audio.bgms) {
+                            audio.bgms = audio.bgms.filter(value => value !== target);
+                            audio.bgm = audio.bgms[0];
+                        } else {
+                            delete audio.bgm;
+                        }
+                    }
                     else if (audio && (item.kind === 'sfx' || item.kind === 'narration')) {
                         const timedCollection = item.audioCollection ?? item.kind;
                         audio[timedCollection] = audio[timedCollection].filter(value => value !== target);
@@ -5670,7 +5679,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             }
             return undefined;
         }
-        const audio = value as { bgm?: unknown; sfx?: unknown; narration?: unknown; speech?: unknown };
+        const audio = value as { bgm?: unknown; bgms?: unknown; sfx?: unknown; narration?: unknown; speech?: unknown };
         const resolveSource = async (
             pathValue: unknown,
             label: string,
@@ -5927,13 +5936,14 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             return resolved;
         };
 
-        let bgm: EditSummaryBgm | undefined;
-        if (audio.bgm !== undefined) {
-            const rawBgm = audio.bgm as {
+        const bgms: EditSummaryBgm[] = [];
+        for (const [bgmIndex, rawValue] of (Array.isArray(audio.bgms) ? audio.bgms : audio.bgm !== undefined ? [audio.bgm] : []).entries()) {
+            const rawBgm = rawValue as {
                 mute?: unknown;
                 t?: unknown;
                 duration?: unknown;
                 path?: unknown;
+                id?: unknown;
                 gain_db?: unknown;
                 ducking?: unknown;
                 duck_db?: unknown;
@@ -5975,11 +5985,12 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                             console.warn('[akari-preview] audio.bgm.in を無視しました（0以上の有限 number ではありません）', rawBgm.in);
                         }
                     }
-                    const source = await resolveSource(rawBgm.path, 'audio.bgm', { inSec: bgmIn ?? 0 }, 'bgm', 'bgm', 0, audioClipFxOf(rawBgm, 'bgm'));
+                    const source = await resolveSource(rawBgm.path, 'audio.bgm', { inSec: bgmIn ?? 0 }, 'bgm', String(rawBgm.id ?? `bgm-${bgmIndex}`), Number(rawBgm.t ?? 0), audioClipFxOf(rawBgm, 'bgm'));
                     const normalizedKeyframes = keyframes(rawBgm.keyframes, 'audio.bgm');
                     if (source) {
-                        bgm = {
+                        bgms.push({
                             src: source.src,
+                            id: typeof rawBgm.id === 'string' ? rawBgm.id : `bgm-${bgmIndex}`,
                             ...(typeof rawBgm.t === 'number' ? { t: rawBgm.t } : {}),
                             ...(typeof rawBgm.duration === 'number' && rawBgm.duration > 0 ? { duration: rawBgm.duration } : {}),
                             ...(source.sidecar ? { sidecar: source.sidecar } : {}),
@@ -5992,7 +6003,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                             ...duckOptions(rawBgm, 'audio.bgm'),
                             ...fades,
                             ...(bgmIn !== undefined ? { in: bgmIn } : {})
-                        };
+                        });
                     }
                 }
             }
@@ -6000,10 +6011,10 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         const [sfx, narration, speech] = await Promise.all([
             timed(audio.sfx, 'sfx'), timed(audio.narration, 'narration'), timed(audio.speech, 'speech')
         ]);
-        if (!bgm && sfx.length === 0 && narration.length === 0 && speech.length === 0) {
+        if (bgms.length === 0 && sfx.length === 0 && narration.length === 0 && speech.length === 0) {
             return undefined;
         }
-        return { bgm, sfx, narration, speech };
+        return { bgm: bgms[0], bgms, sfx, narration, speech };
     }
 
     // task/2026-08-10-preview-bug-sweep (B3): binary glTF (.glb) header/JSON-chunk sniff for
@@ -8419,7 +8430,7 @@ body { display: grid; place-items: center; padding: 32px; }
             };
             const createPreviewAudio = () => {
                 let config = initial.summary && initial.summary.audio;
-                const hasAudio = config && (config.bgm
+                const hasAudio = config && ((Array.isArray(config.bgms) && config.bgms.length > 0) || config.bgm
                     || (Array.isArray(config.sfx) && config.sfx.length > 0)
                     || (Array.isArray(config.narration) && config.narration.length > 0)
                     || (Array.isArray(config.speech) && config.speech.some(item => item.role === 'speech')));
@@ -8488,7 +8499,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 // 音声エンベロープの正本は packages/edit-store/src/envelope.ts。
                 const computeDuckEnvelopeFn = (${computeDuckEnvelope.toString()});
                 const evaluateEnvelopeDbFn = (${evaluateEnvelopeDb.toString()});
-                const decoded = { bgm: null, sfx: [], narration: [] };
+                const decoded = { bgm: null, bgms: [], sfx: [], narration: [] };
                 let timelineDuration = 0;
                 let loadPromise = null;
                 let generation = 0;
@@ -8578,14 +8589,16 @@ body { display: grid; place-items: center; padding: 32px; }
                             return (await Promise.all(valid.map(spec => decodeOne(kind, spec)))).filter(Boolean);
                         };
                         const [bgm, sfx, narration] = await Promise.all([
-                            config.bgm ? decodeOne('bgm', { ...config.bgm, id: 'bgm' }) : Promise.resolve(null),
+                            Promise.all((config.bgms || (config.bgm ? [config.bgm] : [])).map((item, index) =>
+                                decodeOne('bgm', { ...item, id: item.id || ('bgm-' + index) }))),
                             timed('sfx', config.sfx),
                             timed('narration', [
                                 ...(config.narration || []),
                                 ...(config.speech || []).filter(item => item.role === 'speech')
                             ])
                         ]);
-                        decoded.bgm = bgm;
+                        decoded.bgms = bgm.filter(Boolean);
+                        decoded.bgm = decoded.bgms[0] || null;
                         decoded.sfx = sfx;
                         decoded.narration = narration;
                         if (context.state !== 'closed') {
@@ -8593,7 +8606,7 @@ body { display: grid; place-items: center; padding: 32px; }
                                 contextState: context.state,
                                 timelineDuration,
                                 decoded: {
-                                    bgm: Boolean(decoded.bgm),
+                                    bgm: decoded.bgms.length,
                                     sfx: decoded.sfx.map(item => item.id),
                                     narration: decoded.narration.map(item => item.id)
                                 }
@@ -8650,44 +8663,35 @@ body { display: grid; place-items: center; padding: 32px; }
                         duckGainDb: evaluateEnvelopeDbFn(duckEnvelope, localSec)
                     };
                 };
-                const fadeMultiplierAt = timelineTime => {
-                    if (!decoded.bgm) return 1;
-                    const total = timelineDuration;
-                    const rawIn = decoded.bgm.fadeIn;
-                    const rawOut = decoded.bgm.fadeOut;
+                const fadeMultiplierAt = (item, timelineTime) => {
+                    const total = Number(item.duration) > 0 ? item.duration : timelineDuration;
+                    const local = timelineTime - (Number(item.t) || 0);
+                    const rawIn = item.fadeIn;
+                    const rawOut = item.fadeOut;
                     const fadeIn = Number.isFinite(rawIn) && rawIn > 0 ? Math.min(rawIn, total / 2) : 0;
                     const fadeOut = Number.isFinite(rawOut) && rawOut > 0 ? Math.min(rawOut, total / 2) : 0;
                     let multiplier = 1;
-                    if (fadeIn > 0 && timelineTime < fadeIn) multiplier = Math.min(multiplier, timelineTime / fadeIn);
-                    if (fadeOut > 0 && timelineTime > total - fadeOut) {
-                        multiplier = Math.min(multiplier, (total - timelineTime) / fadeOut);
-                    }
+                    if (fadeIn > 0 && local < fadeIn) multiplier = Math.min(multiplier, local / fadeIn);
+                    if (fadeOut > 0 && local > total - fadeOut) multiplier = Math.min(multiplier, (total - local) / fadeOut);
                     return Math.max(0, Math.min(1, multiplier));
                 };
                 const applyBgmEnvelope = timelineTime => {
-                    if (!decoded.bgm) return;
-                    const { keyframeGainDb, duckGainDb } = envelopeDbAt(
-                        decoded.bgm, timelineTime, 0, timelineDuration
-                    );
-                    const fadeMultiplier = fadeMultiplierAt(timelineTime);
-                    if (bgmGain) {
-                        bgmGain.gain.value = allAudioMuted || mutedAudioTracks.has(decoded.bgm.track ?? 0)
-                            ? 0 : dbToLinear(decoded.bgm.gainDb) * fadeMultiplier;
-                    }
-                    if (bgmEnvelopeGain) bgmEnvelopeGain.gain.value = dbToLinear(keyframeGainDb + duckGainDb);
-                    if (duckGainDb !== lastDuckGainDb) {
-                        lastDuckGainDb = duckGainDb;
-                        console.info('[akari-preview] bgm duck gain', {
-                            timelineTime,
-                            baseGainDb: decoded.bgm ? decoded.bgm.gainDb : null,
-                            duckGainDb,
-                            keyframeGainDb,
-                            appliedGainDb: decoded.bgm ? decoded.bgm.gainDb + keyframeGainDb + duckGainDb : null,
-                            fadeMultiplier,
-                            appliedLinear: decoded.bgm
-                                ? dbToLinear(decoded.bgm.gainDb + keyframeGainDb + duckGainDb) * fadeMultiplier
-                                : null
-                        });
+                    for (const node of active.filter(candidate => candidate.kind === 'bgm')) {
+                        const item = node.spec;
+                        const clipStart = Number(item.t) || 0;
+                        const clipDuration = Number(item.duration) > 0 ? item.duration : timelineDuration - clipStart;
+                        const { keyframeGainDb, duckGainDb } = envelopeDbAt(item, timelineTime, clipStart, clipDuration);
+                        const fadeMultiplier = fadeMultiplierAt(item, timelineTime);
+                        node.gain.gain.value = allAudioMuted || mutedAudioTracks.has(item.track ?? 0)
+                            ? 0 : dbToLinear(item.gainDb) * fadeMultiplier;
+                        node.envelopeGain.gain.value = dbToLinear(keyframeGainDb + duckGainDb);
+                        if (duckGainDb !== lastDuckGainDb) {
+                            lastDuckGainDb = duckGainDb;
+                            console.info('[akari-preview] bgm duck gain', {
+                                timelineTime, id: item.id, duckGainDb, keyframeGainDb,
+                                appliedGainDb: item.gainDb + keyframeGainDb + duckGainDb
+                            });
+                        }
                     }
                 };
                 const scheduleFrom = async timelineTime => {
@@ -8701,38 +8705,35 @@ body { display: grid; place-items: center; padding: 32px; }
                     let scheduledBgm = false;
                     let scheduledSfx = 0;
                     let scheduledNarration = 0;
-                    if (decoded.bgm && remaining > 0) {
+                    for (const item of decoded.bgms) {
+                        const clipStart = Number(item.t) || 0;
+                        const clipEnd = Math.min(timelineDuration, clipStart + (Number(item.duration) > 0 ? item.duration : timelineDuration - clipStart));
+                        if (clipEnd <= startAt || clipEnd <= clipStart) continue;
                         try {
                             const source = context.createBufferSource();
                             const gain = context.createGain();
                             const envelopeGain = context.createGain();
-                            source.buffer = decoded.bgm.buffer;
+                            source.buffer = item.buffer;
                             source.loop = true;
                             source.playbackRate.value = playbackRate;
                             source.connect(gain);
                             gain.connect(envelopeGain);
                             envelopeGain.connect(masterGain);
-                            bgmGain = gain;
-                            bgmEnvelopeGain = envelopeGain;
-                            applyBgmEnvelope(startAt);
-                            registerSource(
-                                source, gain, envelopeGain, 'bgm', 'bgm', decoded.bgm.track ?? 0, decoded.bgm,
-                                dbToLinear(decoded.bgm.gainDb)
-                            );
-                            // audio.bgm.in: file-internal start offset, composed with the existing
-                            // timeline-position-to-source-position mapping via bgmLoopOffsetSecondsFn.
-                            // loop=true means once playback reaches the buffer's own end it wraps to
-                            // source position 0 (not back to in) -- the existing loop semantics are
-                            // otherwise untouched; this only computes where playback begins.
-                            const bgmOffset = bgmLoopOffsetSecondsFn(decoded.bgm.sourceOffset || 0, startAt, decoded.bgm.durationSec);
-                            source.start(contextStart, bgmOffset);
-                            source.stop(contextStart + remaining / playbackRate);
+                            if (!bgmGain) { bgmGain = gain; bgmEnvelopeGain = envelopeGain; }
+                            registerSource(source, gain, envelopeGain, 'bgm', item.id, item.track ?? 0, item,
+                                dbToLinear(item.gainDb));
+                            const timelineSourceStart = Math.max(startAt, clipStart);
+                            const delay = timelineSourceStart - startAt;
+                            const sourceElapsed = timelineSourceStart - clipStart;
+                            const bgmOffset = bgmLoopOffsetSecondsFn(item.sourceOffset || 0, sourceElapsed, item.durationSec);
+                            source.start(contextStart + delay / playbackRate, bgmOffset);
+                            source.stop(contextStart + (clipEnd - startAt) / playbackRate);
                             scheduledBgm = true;
                         } catch (error) {
-                            warnUnavailable('bgm', 'bgm', error);
-                            bgmGain = null;
+                            warnUnavailable('bgm', item.id, error);
                         }
                     }
+                    applyBgmEnvelope(startAt);
                     const scheduleTimed = (kind, item) => {
                         // audio.sfx.in: material source offset, composed via resolveTimedScheduleWindowFn
                         // with the existing resume-from-mid-playback offset -- when item.sourceOffset is
@@ -8826,20 +8827,22 @@ body { display: grid; place-items: center; padding: 32px; }
                         stopSources();
                     },
                     scrubBgm: timelineTime => {
-                        if (!decoded.bgm || !decoded.bgm.buffer) return undefined;
+                        const bgm = decoded.bgms.find(item => timelineTime >= (Number(item.t) || 0)
+                            && timelineTime < (Number(item.t) || 0) + (Number(item.duration) > 0 ? item.duration : timelineDuration));
+                        if (!bgm || !bgm.buffer) return undefined;
                         if (!scrubBgmGain) {
                             scrubBgmGain = context.createGain();
                             scrubBgmGain.gain.value = 0;
                             scrubBgmGain.connect(masterGain);
                         }
-                        const muted = allAudioMuted || mutedAudioTracks.has(decoded.bgm.track ?? 0);
+                        const muted = allAudioMuted || mutedAudioTracks.has(bgm.track ?? 0);
                         // 既存の envelope 埋め込みはモジュール内 helper を toString() で持ち込めず
                         // webview で参照エラーになることがある。スクラブ断片は envelope 無しでも
                         // 本編と BGM を鳴らし続けることを優先する。
                         let envelopeDb = 0;
                         try {
                             const { keyframeGainDb, duckGainDb } = envelopeDbAt(
-                                decoded.bgm, timelineTime, 0, timelineDuration
+                                bgm, timelineTime, Number(bgm.t) || 0, Number(bgm.duration) > 0 ? bgm.duration : timelineDuration
                             );
                             if (Number.isFinite(keyframeGainDb + duckGainDb)) {
                                 envelopeDb = keyframeGainDb + duckGainDb;
@@ -8848,12 +8851,12 @@ body { display: grid; place-items: center; padding: 32px; }
                             envelopeDb = 0;
                         }
                         scrubBgmGain.gain.value = muted ? 0
-                            : dbToLinear(decoded.bgm.gainDb + envelopeDb)
-                                * fadeMultiplierAt(timelineTime);
-                        scrubBgmGain._buffer = decoded.bgm.buffer;
+                            : dbToLinear(bgm.gainDb + envelopeDb)
+                                * fadeMultiplierAt(bgm, timelineTime);
+                        scrubBgmGain._buffer = bgm.buffer;
                         return {
                             node: scrubBgmGain,
-                            spec: { t: 0, in: decoded.bgm.sourceOffset || 0, loop: true }
+                            spec: { t: Number(bgm.t) || 0, in: bgm.sourceOffset || 0, loop: true }
                         };
                     },
                     updateConfig: async (nextConfig, timelineTime, playing) => {
@@ -8861,6 +8864,7 @@ body { display: grid; place-items: center; padding: 32px; }
                         stopSources();
                         config = nextConfig || { sfx: [], narration: [] };
                         decoded.bgm = null;
+                        decoded.bgms = [];
                         decoded.sfx = [];
                         decoded.narration = [];
                         loadPromise = null;
@@ -8894,7 +8898,7 @@ body { display: grid; place-items: center; padding: 32px; }
                         contextState: context.state,
                         timelineDuration,
                         decoded: {
-                            bgm: Boolean(decoded.bgm),
+                            bgm: decoded.bgms.length,
                             bgmSourceOffset: decoded.bgm ? decoded.bgm.sourceOffset || 0 : null,
                             sfx: decoded.sfx.map(item => ({ id: item.id, t: item.t, durationSec: item.durationSec, sourceOffset: item.sourceOffset || 0 })),
                             narration: decoded.narration.map(item => ({ id: item.id, t: item.t, durationSec: item.durationSec }))
@@ -10014,7 +10018,8 @@ body { display: grid; place-items: center; padding: 32px; }
                     };
                     const audio = value && value.audio;
                     if (audio && typeof audio === 'object') {
-                        appendAudio('bgm', audio.bgm, 'bgm');
+                        (audio.bgms || (audio.bgm ? [audio.bgm] : [])).forEach((item, index) =>
+                            appendAudio('bgm', item, item.id || 'bgm-' + (index + 1)));
                         if (Array.isArray(audio.sfx)) {
                             audio.sfx.forEach((item, index) => appendAudio('sfx', item, 'sfx-' + (index + 1)));
                         }
@@ -11083,7 +11088,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 const revision = ++audioDurationProbeRevision;
                 let bgmEnd = 0;
                 const audio = summary.audio ?? {};
-                const items = [audio.bgm, ...(audio.sfx ?? []), ...(audio.narration ?? []),
+                const items = [...(audio.bgms ?? (audio.bgm ? [audio.bgm] : [])), ...(audio.sfx ?? []), ...(audio.narration ?? []),
                     ...(audio.speech ?? []).filter(item => item.role === 'speech')].filter(Boolean);
                 const probeSharedDuration = createSharedDurationProbeFn(probeMediaDurationSeconds, {
                     maxInFlight: 4,
@@ -11123,7 +11128,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     if (inSeconds >= materialDuration || outSeconds <= inSeconds) return null;
                     const duration = (outSeconds - inSeconds) / (Number(item.speed) > 0 ? Number(item.speed) : 1);
                     const end = at + (Number(item.durationSec) > 0 ? Math.min(duration, Number(item.durationSec)) : duration);
-                    if (item === audio.bgm) { bgmEnd = end; return null; }
+                    if ((audio.bgms ?? (audio.bgm ? [audio.bgm] : [])).includes(item)) { bgmEnd = Math.max(bgmEnd, end); return null; }
                     return end;
                 }));
                 if (revision !== audioDurationProbeRevision) return;

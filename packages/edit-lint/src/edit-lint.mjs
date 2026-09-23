@@ -1264,9 +1264,9 @@ function validateEditV2(edit, findings) {
         }
       }
     }
-    addFinding(findings, {
+    if (overlaps.length) addFinding(findings, {
       severity: "error", check: "v2.audio-bgm-multiple",
-      message: `BGM ${bgmItems.map(describe).join('、')}。重なり: ${overlaps.length ? overlaps.join('、') : 'なし'}。現在のミックスは BGM を 1 本だけ扱うため、曲を詰めて繋ぐ場合は音源側で 1 ファイルに編集してください。`,
+      message: `BGM ${bgmItems.map(describe).join('、')}。重なり: ${overlaps.length ? overlaps.join('、') : 'なし'}。BGM の時間が重ならないように配置してください。`,
       path: "edit.json#tracks",
     });
   }

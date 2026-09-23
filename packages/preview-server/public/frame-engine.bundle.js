@@ -8431,7 +8431,7 @@ var require_internal_model = __commonJS({
       const audioSfx = [];
       const audioNarration = [];
       const audioSpeech = [];
-      let audioBgm;
+      const audioBgms = [];
       for (const track of internal.tracks) {
         if (track.lane === "audio" && !(0, audio_ownership_1.isAudioItemAudible)(track, void 0))
           continue;
@@ -8456,7 +8456,7 @@ var require_internal_model = __commonJS({
                   audioSpeech.push({ index: item.legacy.index, value });
                   break;
                 case "bgm":
-                  audioBgm = value;
+                  audioBgms.push(value);
                   break;
                 case "layers":
                   layers.push({ index: item.legacy.index, value: track.lane === "visual" && track.muted === true ? { ...value, mute: true } : value });
@@ -8493,7 +8493,8 @@ var require_internal_model = __commonJS({
         audioSfx: byDeclarationOrder(audioSfx),
         audioNarration: byDeclarationOrder(audioNarration),
         ...audioSpeech.length ? { audioSpeech: byDeclarationOrder(audioSpeech) } : {},
-        ...audioBgm ? { audioBgm } : {},
+        audioBgms: audioBgms.sort((a, b) => (a.t ?? 0) - (b.t ?? 0)),
+        ...audioBgms.length ? { audioBgm: audioBgms[0] } : {},
         ...internal.tracksDeclared ? { timeline: { tracks: declaredTracks } } : {},
         fps: internal.output.fps,
         warnings: internal.warnings
@@ -8537,7 +8538,8 @@ var require_legacy_audio_view = __commonJS({
       const sfx = [];
       const narration = [];
       const speech = [];
-      let bgm;
+      const bgms = [];
+      const bgmItemIds = [];
       for (const item of ordered) {
         if (item.legacy.value === void 0)
           continue;
@@ -8554,14 +8556,20 @@ var require_legacy_audio_view = __commonJS({
             narration.push(declaration);
             break;
           case "bgm":
-            bgm = declaration;
+            bgms.push(declaration);
+            bgmItemIds.push(item.id);
             break;
           default:
             break;
         }
       }
+      if (bgms.length > 1)
+        bgms.forEach((bgm, index) => {
+          bgm.id = bgmItemIds[index];
+        });
       return {
-        ...bgm !== void 0 ? { bgm } : {},
+        ...bgms.length > 1 ? { bgms: bgms.sort((a, b) => Number(a.t ?? 0) - Number(b.t ?? 0)) } : {},
+        ...bgms.length ? { bgm: bgms[0] } : {},
         sfx,
         narration,
         ...speech.length ? { speech } : {}
@@ -9357,23 +9365,24 @@ var require_audio_schedule = __commonJS({
         }
       };
       const items = [];
-      const bgm = audio.bgm;
-      if (bgm && (0, audio_ownership_1.isAudioItemAudible)(void 0, bgm)) {
-        const scheduled = scheduleBgm(bgm, timelineDurationSec, startAtSec, duckIntervals, warnings);
-        if (scheduled)
-          items.push(scheduled);
-        if (bgm.ducking === true && finitePositive3(bgm.durationSec)) {
-          const clipStartSec = typeof bgm.t === "number" && Number.isFinite(bgm.t) && bgm.t > 0 ? bgm.t : 0;
-          const clipDurationSec = finitePositive3(bgm.duration) ? Math.min(timelineDurationSec - clipStartSec, bgm.duration) : timelineDurationSec - clipStartSec;
-          if (clipDurationSec > 0) {
-            warnUnduckedTarget(typeof bgm.id === "string" && bgm.id ? bgm.id : "bgm", clipStartSec, clipDurationSec);
+      for (const bgm of audio.bgms ?? (audio.bgm ? [audio.bgm] : [])) {
+        if (bgm && (0, audio_ownership_1.isAudioItemAudible)(void 0, bgm)) {
+          const scheduled = scheduleBgm(bgm, timelineDurationSec, startAtSec, duckIntervals, warnings);
+          if (scheduled)
+            items.push(scheduled);
+          if (bgm.ducking === true && finitePositive3(bgm.durationSec)) {
+            const clipStartSec = typeof bgm.t === "number" && Number.isFinite(bgm.t) && bgm.t > 0 ? bgm.t : 0;
+            const clipDurationSec = finitePositive3(bgm.duration) ? Math.min(timelineDurationSec - clipStartSec, bgm.duration) : timelineDurationSec - clipStartSec;
+            if (clipDurationSec > 0) {
+              warnUnduckedTarget(typeof bgm.id === "string" && bgm.id ? bgm.id : "bgm", clipStartSec, clipDurationSec);
+            }
           }
-        }
-        if (bgm.ducking === void 0 && duckKeys.length > 0 && finitePositive3(bgm.durationSec)) {
-          const clipStartSec = typeof bgm.t === "number" && Number.isFinite(bgm.t) && bgm.t > 0 ? bgm.t : 0;
-          const clipDurationSec = finitePositive3(bgm.duration) ? Math.min(timelineDurationSec - clipStartSec, bgm.duration) : timelineDurationSec - clipStartSec;
-          if (clipDurationSec > 0 && duckIntervals.some((interval) => interval.startSec < clipStartSec + clipDurationSec && interval.endSec > clipStartSec)) {
-            warnings.push(`audio bgm ${typeof bgm.id === "string" && bgm.id ? bgm.id : "bgm"} overlaps duck key intervals (duck_keys: ${JSON.stringify(duckKeys)}) but ducking is not enabled; set "ducking": true on the item to duck it under narration`);
+          if (bgm.ducking === void 0 && duckKeys.length > 0 && finitePositive3(bgm.durationSec)) {
+            const clipStartSec = typeof bgm.t === "number" && Number.isFinite(bgm.t) && bgm.t > 0 ? bgm.t : 0;
+            const clipDurationSec = finitePositive3(bgm.duration) ? Math.min(timelineDurationSec - clipStartSec, bgm.duration) : timelineDurationSec - clipStartSec;
+            if (clipDurationSec > 0 && duckIntervals.some((interval) => interval.startSec < clipStartSec + clipDurationSec && interval.endSec > clipStartSec)) {
+              warnings.push(`audio bgm ${typeof bgm.id === "string" && bgm.id ? bgm.id : "bgm"} overlaps duck key intervals (duck_keys: ${JSON.stringify(duckKeys)}) but ducking is not enabled; set "ducking": true on the item to duck it under narration`);
+            }
           }
         }
       }
@@ -12108,6 +12117,7 @@ var require_legacy_parse = __commonJS({
         layers,
         audioSfx,
         audioNarration,
+        audioBgms: audioBgm ? [audioBgm] : [],
         ...audioBgm ? { audioBgm } : {},
         ...timeline ? { timeline } : {},
         fps,
@@ -30038,9 +30048,10 @@ function createPreviewAudioSupply(options) {
       durationSec: item.durationSec,
       ...!item.sidecar ? { sidecar: void 0 } : {}
     }));
-    const bgm = normalized.find((_3, index) => scheduled[index]?.kind === "bgm");
+    const bgms = normalized.filter((_3, index) => scheduled[index]?.kind === "bgm");
     return {
-      ...bgm ? { bgm } : {},
+      bgms,
+      ...bgms.length ? { bgm: bgms[0] } : {},
       sfx: normalized.filter((_3, index) => scheduled[index]?.kind === "sfx"),
       narration: normalized.filter((_3, index) => scheduled[index]?.kind === "narration")
     };

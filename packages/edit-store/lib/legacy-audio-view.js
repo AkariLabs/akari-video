@@ -4,7 +4,8 @@ exports.projectLegacyAudioView = projectLegacyAudioView;
 const audio_ownership_1 = require("./audio-ownership");
 /**
  * 内部表現の audio item だけから legacy audio 形を組み立てる純関数。
- * render-cut の互換射影と同じく legacy.index 順で処理し、bgm は単数として後勝ちにする。
+ * render-cut の互換射影と同じく legacy.index 順で処理し、BGM は開始時刻順に並べる。
+ * 単数 bgm は最初の 1 本を返す互換値。
  */
 function projectLegacyAudioView(internal) {
     const ordered = internal.tracks
@@ -18,7 +19,8 @@ function projectLegacyAudioView(internal) {
     const sfx = [];
     const narration = [];
     const speech = [];
-    let bgm;
+    const bgms = [];
+    const bgmItemIds = [];
     for (const item of ordered) {
         if (item.legacy.value === undefined)
             continue;
@@ -35,14 +37,18 @@ function projectLegacyAudioView(internal) {
                 narration.push(declaration);
                 break;
             case 'bgm':
-                bgm = declaration;
+                bgms.push(declaration);
+                bgmItemIds.push(item.id);
                 break;
             default:
                 break;
         }
     }
+    if (bgms.length > 1)
+        bgms.forEach((bgm, index) => { bgm.id = bgmItemIds[index]; });
     return {
-        ...(bgm !== undefined ? { bgm } : {}),
+        ...(bgms.length > 1 ? { bgms: bgms.sort((a, b) => Number(a.t ?? 0) - Number(b.t ?? 0)) } : {}),
+        ...(bgms.length ? { bgm: bgms[0] } : {}),
         sfx,
         narration,
         ...(speech.length ? { speech } : {})

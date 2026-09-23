@@ -357,3 +357,22 @@ test('legacy independent speech decodes the same nonzero trim as narration', asy
     assert.equal(decoded.durationSec, 5);
     assert.equal(decoded.sourceOffset, 3);
 });
+
+test('shell summary schedules both BGM clips through its bundled frame engine', async t => {
+    const edit = {
+        version: 2, output: { width: 320, height: 180, fps: 30 },
+        sources: [{ id: 'one', path: 'one.wav' }, { id: 'two', path: 'two.wav' }],
+        tracks: [
+            { id: 'first-track', lane: 'audio', items: [{ id: 'first', role: 'bgm', at: 0, duration: 240,
+                source: { kind: 'media', src: 'one', in: 0, out: 8 } }] },
+            { id: 'second-track', lane: 'audio', items: [{ id: 'second', role: 'bgm', at: 240, duration: 240,
+                source: { kind: 'media', src: 'two', in: 0, out: 8 } }] },
+        ]
+    };
+    const { summary, context, plans, supply } = await supplyFor(t, edit, {}, () => ({ state: 'not-needed' }));
+    assert.deepEqual(plain(summary.audio.bgms.map(item => item.t)), [0, 8]);
+    assert.deepEqual(plain(plans.at(-1).items.filter(item => item.kind === 'bgm').map(item => item.id)), ['first', 'second']);
+    assert.equal(supply.debug().scheduled.bgm, 2);
+    assert.equal(context.sources.length, 2);
+    assert.ok(context.sources[1].starts[0][0] > context.sources[0].starts[0][0]);
+});

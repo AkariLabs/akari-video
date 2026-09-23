@@ -67,6 +67,7 @@ const VERSION = 1;
 const packageRequire = createRequire(import.meta.url);
 const {
   timelineDurationSeconds,
+  projectLegacyAudioView,
   toAnchorCaptions,
 } = packageRequire("../../edit-store/lib/index.js");
 // owner.json lets the next run reclaim a crashed process immediately. Directories created before
@@ -242,6 +243,8 @@ export async function renderProject(input, options = {}, io = console) {
   const declaredInputs = await enumerateDeclaredRenderInputs({
     projectRoot, edit, editText, captionFontAsset, internalEdit, env,
   });
+  declaredInputs.push(...await additionalBgmInputs({ projectRoot, edit, editText, internalEdit, env }));
+  declaredInputs.sort((a, b) => a.role.localeCompare(b.role, "en") || a.path.localeCompare(b.path, "en"));
   const inputSnapshot = await hashDeclaredRenderInputs(declaredInputs, { useConsumedText: true });
   const inputs = Object.fromEntries(
     inputSnapshot.map((input) => [input.path, {
@@ -291,6 +294,14 @@ export async function renderProject(input, options = {}, io = console) {
       : await createRunTemporaryDirectory(renderTmpRoot);
   edit = projectRendererCompatibilityEdit(parsedEdit, internalEdit, temporaryDirectory);
   const planningEdit = projectResolvedMediaPaths({ projectRoot, edit, inputs: declaredInputs });
+  const bgms = projectLegacyAudioView(internalEdit).bgms ?? [];
+  if (bgms.length > 1) {
+    const bgmBindings = new Map(declaredInputs.filter(input => input.scope === "library")
+      .map(input => [resolve(projectRoot, input.path), input.absolute_path]));
+    planningEdit.audio.bgms = bgms.map(item => ({
+      ...item, path: bgmBindings.get(resolve(projectRoot, item.path)) ?? item.path,
+    }));
+  }
   ensureOutputDoesNotReplaceInput(projectRoot, planningEdit, outputPath);
 
   const plan = buildPlan({
@@ -708,6 +719,10 @@ export async function renderProject(input, options = {}, io = console) {
       receiptDeclaredInputs = await enumerateDeclaredRenderInputs({
         projectRoot, edit, editText: receiptEditText, captionFontAsset, internalEdit, env,
       });
+      receiptDeclaredInputs.push(...await additionalBgmInputs({
+        projectRoot, edit, editText: receiptEditText, internalEdit, env,
+      }));
+      receiptDeclaredInputs.sort((a, b) => a.role.localeCompare(b.role, "en") || a.path.localeCompare(b.path, "en"));
       receiptInputSnapshot = await hashDeclaredRenderInputs(receiptDeclaredInputs, { useConsumedText: true });
       const receiptStarted = performance.now();
       const receipt = await createImmutableRenderReceipt({
@@ -1103,6 +1118,23 @@ async function measureCapabilities(
   return { ...shared, sourceInputs };
 }
 
+async function additionalBgmInputs({ projectRoot, edit, editText, internalEdit, env }) {
+  const bgms = projectLegacyAudioView(internalEdit).bgms ?? [];
+  const extra = [];
+  for (const [index, bgm] of bgms.slice(1).entries()) {
+    const single = await enumerateDeclaredRenderInputs({
+      projectRoot,
+      edit: { ...edit, cuts: [], sources: [], overlays: [], layers: [], audio: { bgm } },
+      editText,
+      internalEdit: null,
+      env,
+    });
+    const input = single.find(value => value.role === "audio:bgm");
+    if (input) extra.push({ ...input, role: `audio:bgm:${index + 1}` });
+  }
+  return extra;
+}
+
 async function collectInputReceipts(projectRoot, edit, editText) {
   const files = new Map([["edit.json", { path: join(projectRoot, "edit.json"), text: editText }]]);
   for (const source of usedSources(edit)) {
@@ -1113,8 +1145,10 @@ async function collectInputReceipts(projectRoot, edit, editText) {
   }
   const captionsPath = join(projectRoot, "captions.json");
   if (await isRegularFile(captionsPath)) files.set("captions.json", { path: captionsPath });
-  const bgm = audioPath(edit.audio?.bgm);
-  if (bgm) addReference(files, projectRoot, "audio:bgm", bgm);
+  for (const [index, item] of (edit.audio?.bgms ?? (edit.audio?.bgm ? [edit.audio.bgm] : [])).entries()) {
+    const bgm = audioPath(item);
+    if (bgm) addReference(files, projectRoot, index === 0 ? "audio:bgm" : `audio:bgm:${index}`, bgm);
+  }
   for (const [index, sfx] of (edit.audio?.sfx ?? []).entries()) {
     const path = audioPath(sfx);
     if (path) addReference(files, projectRoot, `audio:sfx:${index}`, path);
@@ -2215,8 +2249,10 @@ function ensureOutputDoesNotReplaceInput(projectRoot, edit, outputPath) {
   ];
   const captions = resolve(projectRoot, "captions.json");
   if (existsSync(captions)) inputs.push(captions);
-  const bgm = audioPath(edit.audio?.bgm);
-  if (bgm) inputs.push(resolve(projectRoot, bgm));
+  for (const item of edit.audio?.bgms ?? (edit.audio?.bgm ? [edit.audio.bgm] : [])) {
+    const bgm = audioPath(item);
+    if (bgm) inputs.push(resolve(projectRoot, bgm));
+  }
   for (const value of edit.audio?.sfx ?? []) {
     const path = audioPath(value);
     if (path) inputs.push(resolve(projectRoot, path));

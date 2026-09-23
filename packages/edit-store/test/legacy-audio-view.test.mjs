@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { projectLegacyAudioView, readInternalEdit } from '../lib/index.js';
+import { projectLegacyAudioView, projectLegacyEdit, readInternalEdit } from '../lib/index.js';
 import { migrateEditToV2 } from '../lib/migrate/index.js';
 
 const legacyFixture = version => ({
@@ -170,7 +170,7 @@ test('legacy.index 順・宣言とのマージ・snake_case 保持・gainDb 正�
   });
 });
 
-test('tracks とトップレベル audio.bgm が同時に存在しても bgm は単数', () => {
+test('tracks とトップレベル audio.bgm は時刻順の配列と先頭互換値を返す', () => {
   const internal = readInternalEdit({
     version: 2,
     output: { width: 1280, height: 720, fps: 30 },
@@ -183,7 +183,8 @@ test('tracks とトップレベル audio.bgm が同時に存在しても bgm は
   });
   const projected = projectLegacyAudioView(internal);
   assert.equal(projected.bgm ? 1 : 0, 1);
-  assert.equal(projected.bgm.path, 'fallback.wav');
+  assert.equal(projected.bgm.path, 'track.wav');
+  assert.deepEqual(projected.bgms.map(item => item.path), ['track.wav', 'fallback.wav']);
 });
 
 test('v2 audio keyframe のフレーム時刻を legacy view の秒へ変換する', () => {
@@ -246,4 +247,24 @@ test('fade を宣言しない narration には fade_in / fade_out が生えな�
   const projected = projectLegacyAudioView(internal).narration[0];
   assert.equal('fade_in' in projected, false);
   assert.equal('fade_out' in projected, false);
+});
+
+test('audioBgms and bgms follow clip start times while singular compatibility returns the first', () => {
+  const internal = readInternalEdit({
+    version: 2, output: { width: 320, height: 180, fps: 30 },
+    sources: [{ id: 'one', path: 'one.wav' }, { id: 'two', path: 'two.wav' }],
+    tracks: [
+      { id: 'late', lane: 'audio', items: [{ id: 'second', role: 'bgm', at: 90, duration: 90,
+        source: { kind: 'media', src: 'two', in: 0, out: 3 } }] },
+      { id: 'early', lane: 'audio', items: [{ id: 'first', role: 'bgm', at: 0, duration: 90,
+        source: { kind: 'media', src: 'one', in: 0, out: 3 } }] },
+    ],
+  });
+  const legacy = projectLegacyEdit(internal);
+  const audio = projectLegacyAudioView(internal);
+  assert.deepEqual(legacy.audioBgms.map(item => item.path), ['one.wav', 'two.wav']);
+  assert.equal(legacy.audioBgm.path, 'one.wav');
+  assert.deepEqual(audio.bgms.map(item => item.path), ['one.wav', 'two.wav']);
+  assert.deepEqual(audio.bgms.map(item => item.id), ['first', 'second']);
+  assert.equal(audio.bgm.path, 'one.wav');
 });

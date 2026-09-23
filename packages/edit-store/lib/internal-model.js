@@ -1162,7 +1162,7 @@ function projectLegacyEdit(internal) {
     const audioSfx = [];
     const audioNarration = [];
     const audioSpeech = [];
-    let audioBgm;
+    const audioBgms = [];
     for (const track of internal.tracks) {
         if (track.lane === 'audio' && !(0, audio_ownership_1.isAudioItemAudible)(track, undefined))
             continue;
@@ -1192,7 +1192,7 @@ function projectLegacyEdit(internal) {
                             audioSpeech.push({ index: item.legacy.index, value: value });
                             break;
                         case 'bgm':
-                            audioBgm = value;
+                            audioBgms.push(value);
                             break;
                         case 'layers':
                             layers.push({ index: item.legacy.index, value: (track.lane === 'visual' && track.muted === true
@@ -1237,7 +1237,8 @@ function projectLegacyEdit(internal) {
         audioSfx: byDeclarationOrder(audioSfx),
         audioNarration: byDeclarationOrder(audioNarration),
         ...(audioSpeech.length ? { audioSpeech: byDeclarationOrder(audioSpeech) } : {}),
-        ...(audioBgm ? { audioBgm } : {}),
+        audioBgms: audioBgms.sort((a, b) => (a.t ?? 0) - (b.t ?? 0)),
+        ...(audioBgms.length ? { audioBgm: audioBgms[0] } : {}),
         ...(internal.tracksDeclared ? { timeline: { tracks: declaredTracks } } : {}),
         fps: internal.output.fps,
         warnings: internal.warnings

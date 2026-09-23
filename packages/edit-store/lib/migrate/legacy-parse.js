@@ -553,6 +553,7 @@ function parseEdit(source) {
         layers,
         audioSfx,
         audioNarration,
+        audioBgms: audioBgm ? [audioBgm] : [],
         ...(audioBgm ? { audioBgm } : {}),
         ...(timeline ? { timeline } : {}),
         fps,

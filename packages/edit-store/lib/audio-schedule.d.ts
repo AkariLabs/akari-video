@@ -42,6 +42,7 @@ export interface WebAudioSidecar {
 }
 export interface WebAudioScheduleDeclaration {
     bgm?: WebAudioDecodedItem;
+    bgms?: WebAudioDecodedItem[];
     sfx?: WebAudioDecodedItem[];
     narration?: WebAudioDecodedItem[];
     speech?: WebAudioSpeechDeclaration[];

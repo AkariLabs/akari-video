@@ -2615,3 +2615,24 @@ test('existing layer mute messages update only the layer scope, including bulk a
   apply({ type: 'akari-preview-set-track-visibility-v2', scope: 'layers', track: 3, muted: false });
   assert.deepEqual(state.layers, []);
 });
+
+test('two decoded BGM declarations reach the schedule and both receive WebAudio nodes', async t => {
+  const context = new FakeContext(new Map([[1, buffer(8)], [2, buffer(8)]]));
+  const inputs = [];
+  const supply = createPreviewAudioSupply({
+    timelineDurationSec: 6,
+    contextFactory: () => context,
+    declarations: [
+      { kind: 'bgm', id: 'first', url: '/one.wav', spec: { id: 'first', t: 0, duration: 3, ducking: true } },
+      { kind: 'bgm', id: 'second', url: '/two.wav', spec: { id: 'second', t: 3, duration: 3, ducking: true } },
+    ],
+    fetchImpl: async url => response(url === '/one.wav' ? 1 : 2),
+    scheduleBuilder: input => { inputs.push(plain(input)); return buildWebAudioSchedule(input); },
+  });
+  t.after(() => supply.dispose());
+  supply.playFrom(0);
+  await flush();
+  assert.equal(supply.debug().scheduled.bgm, 2);
+  assert.equal(context.sources.length, 2);
+  assert.deepEqual(inputs.at(-1).audio.bgms.map(item => item.id), ['first', 'second']);
+});
