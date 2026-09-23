@@ -245,6 +245,7 @@ export function generateCaptionOverlays(captions, cuts, options = {}) {
               displayTokens: rangeTokens,
               textStyleActive: textStyle !== null,
               backgroundMode: textStyle?.background?.mode,
+              backgroundFit: textStyle?.background?.fit,
               extendedBackground: usesExtendedPerLineBackground(textStyle?.background),
               captionAnimation,
               animator: caption.animator,
@@ -255,6 +256,7 @@ export function generateCaptionOverlays(captions, cuts, options = {}) {
               baseFontSize,
               textStyleActive: textStyle !== null,
               backgroundMode: textStyle?.background?.mode,
+              backgroundFit: textStyle?.background?.fit,
               extendedBackground: usesExtendedPerLineBackground(textStyle?.background),
               captionAnimation,
               animator: caption.animator,
@@ -320,6 +322,10 @@ export function renderResolvedSingleLineCaption(text, lines, cue) {
       ? lines.map(escapeHtml).join('</p><p class="akari-caption__line">')
       : escapeHtml(text);
   const wordPresetCss = hasWordStyles ? `    ${RESOLVED_CAPTION_WORD_PRESET_CSS}\n` : '';
+  const framePlateCss = cue?.style_vars?.['--caption-plate-fit'] === 'frame'
+    ? `    .akari-caption--single-line .akari-caption__plate { left: 4%; right: 4%; width: auto; box-sizing: border-box; }
+    .akari-caption--single-line .akari-caption__line { box-sizing: border-box; width: 100%; max-width: none; margin: 0; background: var(--plate-bg, var(--plate-ext-bg, transparent)); border-radius: var(--plate-radius, var(--plate-ext-radius, 0)); }
+` : '';
   return `<div class="akari-caption akari-caption--single-line">
   <style>
     ${RESOLVED_CAPTION_FONT_FACE_CSS}
@@ -377,7 +383,7 @@ export function renderResolvedSingleLineCaption(text, lines, cue) {
       animation:none;
       transform:none;
     }
-${wordPresetCss}  </style>
+${wordPresetCss}${framePlateCss}  </style>
   <div class="akari-caption__plate"><p class="akari-caption__line">${renderedText}</p></div>
 </div>`;
 }
@@ -806,6 +812,13 @@ export function renderCaptionFragment(text, options = {}) {
       transform: translate(var(--plate-offset-x, 0px), var(--plate-offset-y, 0px));
     }`
     : "";
+  const framePlateCss = options.backgroundFit === "frame"
+    ? `
+    .akari-caption__plate { left: 4%; right: 4%; width: auto; }
+    .akari-caption__line { box-sizing: border-box; width: 100%; max-width: none; margin: 0; }
+    .akari-caption__line::before { left: 0; right: 0; }
+    .akari-caption__block { box-sizing: border-box; width: 100%; max-width: none; margin: 0; }`
+    : "";
 
   return `<div class="akari-caption">
   <style>
@@ -842,7 +855,7 @@ ${linePlacementCss}
       border-radius: var(--plate-radius, 10px);
       background: var(--plate-bg, transparent);
 ${lineTextAlignCss}      white-space: pre;
-${writingModeCss}    }${blockPlateCss}${extendedPlateCss}
+${writingModeCss}    }${blockPlateCss}${extendedPlateCss}${framePlateCss}
     @keyframes akari-caption-fade {
       from { opacity: 0; transform: translateY(0.18em); }
       to { opacity: 1; transform: translateY(0); }
@@ -988,6 +1001,13 @@ export function renderStyledCaptionFragment(words, style, options = {}) {
       transform: translate(var(--plate-offset-x, 0px), var(--plate-offset-y, 0px));
     }`
     : "";
+  const framePlateCss = options.backgroundFit === "frame"
+    ? `
+    .akari-caption__plate { left: 4%; right: 4%; width: auto; }
+    .akari-caption__line { box-sizing: border-box; width: 100%; max-width: none; margin: 0; }
+    .akari-caption__line::before { left: 0; right: 0; }
+    .akari-caption__block { box-sizing: border-box; width: 100%; max-width: none; margin: 0; }`
+    : "";
 
   const emphasisCss = hasEmphasis ? renderEmphasisCss() : "";
   const revealWordCss = effectiveStyle === REVEAL_WORD_STYLE ? renderRevealWordCss() : "";
@@ -1028,7 +1048,7 @@ ${linePlacementCss}
       border-radius: var(--plate-radius, 10px);
       background: var(--plate-bg, transparent);
 ${lineTextAlignCss}      white-space: pre;
-${writingModeCss}    }${blockPlateCss}${extendedPlateCss}
+${writingModeCss}    }${blockPlateCss}${extendedPlateCss}${framePlateCss}
     .akari-caption__tok {
       display: inline-block;
       vertical-align: baseline;

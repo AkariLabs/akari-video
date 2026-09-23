@@ -2,6 +2,7 @@ import { type CaptionWordTiming } from './caption-words-rederive';
 export declare const CAPTION_ZONES: readonly ["top-left", "top", "top-right", "left", "center", "right", "bottom-left", "bottom", "bottom-right"];
 export type CaptionZone = typeof CAPTION_ZONES[number];
 export type CaptionBackgroundMode = 'per-line' | 'block';
+export type CaptionBackgroundFit = 'text' | 'frame';
 export type CaptionAlign = 'left' | 'center' | 'right';
 export type CaptionVerticalAlign = 'top' | 'middle' | 'bottom';
 export type CaptionTextTransform = 'upper' | 'uppercase' | 'lower' | 'lowercase' | 'title' | 'capitalize' | 'none';
@@ -84,6 +85,7 @@ export interface CaptionTextStyle {
         offsetX?: number;
         offsetY?: number;
         mode?: CaptionBackgroundMode;
+        fit?: CaptionBackgroundFit;
     };
     zone?: CaptionZone;
     layout?: CaptionLayout;
@@ -108,6 +110,7 @@ export interface CaptionTextStylePatch {
         radiusPx?: number | null;
         paddingPx?: number | null;
         mode?: CaptionBackgroundMode | null;
+        fit?: CaptionBackgroundFit | null;
     };
     animation?: {
         in?: {

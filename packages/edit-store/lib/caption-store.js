@@ -323,7 +323,8 @@ function updateCaptionTextStyleInSource(source, captionId, updates) {
             opacity: updates.background?.opacity,
             radius_px: updates.background?.radiusPx,
             padding_px: updates.background?.paddingPx,
-            mode: updates.background?.mode
+            mode: updates.background?.mode,
+            fit: updates.background?.fit
         }, `字幕 ${captionId} の text_style.background`);
         textStyle = updateAnimationStyleObject(textStyle, updates.animation, `字幕 ${captionId} の text_style.animation`);
         nextElement = Object.keys(JSON.parse(textStyle)).length === 0
@@ -1015,6 +1016,9 @@ function normalizeTextStyle(value, onUnknownKeys) {
         if (value.background.mode === 'per-line' || value.background.mode === 'block') {
             background.mode = value.background.mode;
         }
+        if (value.background.fit === 'text' || value.background.fit === 'frame') {
+            background.fit = value.background.fit;
+        }
         if (Object.keys(background).length > 0) {
             style.background = background;
         }
@@ -1219,7 +1223,8 @@ function textStyleToJson(style) {
                 ...(style.background.heightPct !== undefined ? { height_pct: style.background.heightPct } : {}),
                 ...(style.background.offsetX !== undefined ? { offset_x: style.background.offsetX } : {}),
                 ...(style.background.offsetY !== undefined ? { offset_y: style.background.offsetY } : {}),
-                ...(style.background.mode !== undefined ? { mode: style.background.mode } : {})
+                ...(style.background.mode !== undefined ? { mode: style.background.mode } : {}),
+                ...(style.background.fit !== undefined ? { fit: style.background.fit } : {})
             }
         } : {}),
         ...(style.zone !== undefined ? { zone: style.zone } : {}),
@@ -1262,7 +1267,7 @@ function validateTextStylePatch(updates) {
         || updates.stroke?.color !== undefined || updates.stroke?.widthPx !== undefined
         || updates.background?.color !== undefined || updates.background?.opacity !== undefined
         || updates.background?.radiusPx !== undefined || updates.background?.paddingPx !== undefined
-        || updates.background?.mode !== undefined
+        || updates.background?.mode !== undefined || updates.background?.fit !== undefined
         || updates.animation !== undefined;
     if (!hasUpdate) {
         throw new Error('変更する字幕スタイルのフィールドを指定してください。');
@@ -1353,6 +1358,10 @@ function validateTextStylePatch(updates) {
         && updates.background.mode !== 'per-line' && updates.background.mode !== 'block') {
         throw new Error('字幕の座布団の形が不正です。');
     }
+    if (updates.background?.fit !== undefined && updates.background.fit !== null
+        && updates.background.fit !== 'text' && updates.background.fit !== 'frame') {
+        throw new Error('字幕の座布団の幅が不正です。');
+    }
     if (updates.zone !== undefined && updates.zone !== null && !exports.CAPTION_ZONES.includes(updates.zone)) {
         throw new Error('字幕の位置が不正です。');
     }
@@ -1415,7 +1424,9 @@ function textStylePatchToJson(updates) {
                 ...(updates.background.paddingPx !== undefined && updates.background.paddingPx !== null
                     ? { padding_px: updates.background.paddingPx } : {}),
                 ...(updates.background.mode !== undefined && updates.background.mode !== null
-                    ? { mode: updates.background.mode } : {})
+                    ? { mode: updates.background.mode } : {}),
+                ...(updates.background.fit !== undefined && updates.background.fit !== null
+                    ? { fit: updates.background.fit } : {})
             }
         } : {}),
         ...(updates.animation && Object.values(updates.animation).some(value => value !== undefined && value !== null) ? {

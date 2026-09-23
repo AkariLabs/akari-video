@@ -35,6 +35,15 @@ test('既存 style を外科編集し null は項目を消す', () => {
     { background: { paddingPx: null } }), JSON.parse(caption())[0]);
 });
 
+test('座布団 fit は他の background を保って追加でき、text 選択でキーを消す', () => {
+  const source = caption({ background: { color: '#111111', width_pct: 100, mode: 'block' } });
+  const frame = updateCaptionTextStyleInSource(source, 'c-1', { background: { fit: 'frame' } });
+  assert.deepEqual(JSON.parse(frame)[0].text_style.background,
+    { color: '#111111', width_pct: 100, mode: 'block', fit: 'frame' });
+  assert.equal(updateCaptionTextStyleInSource(frame, 'c-1', { background: { fit: null } }), source);
+  assert.throws(() => write(source, { background: { fit: 'foo' } }), /座布団の幅/u);
+});
+
 test('shadow と glow はオブジェクトごと置換・削除する', () => {
   const source = caption({ shadow: { color: '#111111', blur_px: 20 }, glow: { color: '#FFFFFF' } });
   const changed = write(source, { shadow: { color: '#000000', distancePx: 4 }, glow: null }).text_style;

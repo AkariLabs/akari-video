@@ -3,8 +3,9 @@ import test from 'node:test';
 import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);
-const { clampDockHeight, readDockHeight, dockTabs, dockActions, rowDockTitle, lookPatch, currentLookSwatch,
-  shouldCloseDockOnEscape } = require('../lib/common/daihon-dock.js');
+const { clampDockHeight, readDockHeight, dockTabs, dockActions, dockLookState, rowDockTitle,
+  lookPatch, currentLookSwatch, currentLookFit, hasLookCushion,
+  shouldCloseDockOnEscape, shouldRefreshLookDock } = require('../lib/common/daihon-dock.js');
 
 test('高さの記憶値を読み、140px からパネル 80% へ収める', () => {
   assert.equal(clampDockHeight(50, 500), 140);
@@ -51,9 +52,44 @@ test('見た目の書き込み引数は setCaptionTextStyle の camelCase patch'
   assert.deepEqual(lookPatch('color', '#ffffff'), { color: '#ffffff' });
   assert.deepEqual(lookPatch('background', 'none'), { background: { opacity: 0 } });
   assert.deepEqual(lookPatch('background', '#000000'), { background: { color: '#000000', opacity: 1 } });
+  assert.deepEqual(lookPatch('fit', 'frame'), { background: { fit: 'frame' } });
+  assert.deepEqual(lookPatch('fit', 'text'), { background: { fit: null } });
   assert.deepEqual(lookPatch('size', 38), { sizePx: 38 });
   assert.deepEqual(lookPatch('spacing', .12), { letterSpacingEm: .12 });
   assert.deepEqual(lookPatch('stroke', 3), { stroke: { widthPx: 3, color: '#000000' } });
+});
+
+test('座布団の幅の選択印は行固有値を優先し、未指定は文字幅', () => {
+  assert.equal(currentLookFit({}, {}), 'text');
+  assert.equal(currentLookFit({}, { background: { fit: 'frame' } }), 'frame');
+  assert.equal(currentLookFit({ background: { fit: 'text' } }, { background: { fit: 'frame' } }), 'text');
+  assert.equal(currentLookFit({}, {}, { background: { fit: 'frame' } }), 'frame');
+  assert.equal(hasLookCushion({}, {}), false);
+  assert.equal(hasLookCushion({ background: { opacity: 1 } }, {}), true);
+  assert.equal(hasLookCushion({ background: { opacity: 0 } }, { background: { color: '#111111' } }), false);
+  assert.equal(hasLookCushion({}, {}, { background: { color: '#111111' } }), true);
+});
+
+test('見た目タブの選択印と無効判定は再読込した字幕に追随する', () => {
+  const frame = [{ textStyle: { background: { color: '#111111', fit: 'frame' } } }];
+  const none = [{ textStyle: { background: { color: '#111111', opacity: 0, fit: 'frame' } } }];
+  const restored = [{ textStyle: { background: { color: '#111111' } } }];
+  assert.deepEqual(dockLookState(frame), {
+    textColor: undefined, backgroundColor: '#111111', fit: 'frame', fitDisabled: false
+  });
+  assert.deepEqual(dockLookState(none), {
+    textColor: undefined, backgroundColor: 'none', fit: 'frame', fitDisabled: true
+  });
+  assert.deepEqual(dockLookState(restored), {
+    textColor: undefined, backgroundColor: '#111111', fit: 'text', fitDisabled: false
+  });
+  assert.equal(shouldRefreshLookDock('row', 'look', true), true);
+  assert.equal(shouldRefreshLookDock('row', 'look', false), false);
+  assert.equal(shouldRefreshLookDock('row', 'template', true), false);
+  assert.equal(shouldRefreshLookDock('row', 'anim', true), false);
+  assert.equal(shouldRefreshLookDock('row', 'emphasis', true), false);
+  assert.equal(shouldRefreshLookDock('row', 'time', true), false);
+  assert.equal(shouldRefreshLookDock('placed', 'look', true), false);
 });
 
 test('色の選択印は行固有値、次にプリセット値を読む', () => {

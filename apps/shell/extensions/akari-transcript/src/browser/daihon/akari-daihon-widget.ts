@@ -99,8 +99,8 @@ import {
     type DaihonSilenceSpan
 } from '../../common/daihon-silence';
 import { orderPresetsForPicker, presetCardStyle } from '../../common/daihon-preset-card';
-import { clampDockHeight, currentLookSwatch, dockActions, dockTabs, lookPatch, readDockHeight, rowDockTitle,
-    shouldCloseDockOnEscape, type DockKind, type DockTab, type LookField } from '../../common/daihon-dock';
+import { clampDockHeight, dockActions, dockLookState, dockTabs, lookPatch, readDockHeight, rowDockTitle,
+    shouldCloseDockOnEscape, shouldRefreshLookDock, type DockKind, type DockLookState, type DockTab, type LookField } from '../../common/daihon-dock';
 import {
     addWordRange, extendWordRange, normalizeWordRanges, removeWordRange, wordRangeSummary, wordsOf,
     type DaihonWordRange
@@ -443,6 +443,8 @@ const STYLE = `
 .akari-daihon-look-field button.akari-daihon-look-swatch { display:inline-block; width:20px; height:20px; min-width:20px; padding:0; border:1px solid var(--akari-line); background:var(--akari-elevated); }
 .akari-daihon-look-field button.akari-daihon-look-swatch.none { background:repeating-linear-gradient(45deg, var(--akari-elevated) 0 3px, var(--akari-line) 3px 6px); }
 .akari-daihon-look-field button.akari-daihon-look-swatch.selected { outline:2px solid var(--akari-accent); outline-offset:1px; }
+.akari-daihon-look-field button[aria-pressed="true"]:not(.akari-daihon-look-swatch) { background:var(--akari-control-pressed); color:var(--akari-accent); }
+.akari-daihon-look-field button:disabled { opacity:.45; cursor:default; }
 .akari-daihon-look-field input { max-width:105px; min-width:0; }
 .akari-daihon-look-detail { border:0; background:none; color:var(--akari-accent); cursor:pointer; padding:5px 0; }
 .akari-daihon-placed-actions { display:flex; gap:6px; flex-wrap:wrap; margin-top:7px; }
@@ -541,6 +543,7 @@ export class AkariDaihonWidget extends BaseWidget {
     protected showBreaks = true;
     protected captionsRoot: unknown = [];
     protected sourceCaptions: Caption[] = [];
+    protected defaultCaptionTextStyle: unknown;
     protected displayKnobs: DaihonDisplayKnobs = readDaihonDisplayKnobs([]);
     protected segments: TimelineSegment[] = [];
     protected editSources: { id: string; path: string }[] = [];
@@ -1148,6 +1151,7 @@ export class AkariDaihonWidget extends BaseWidget {
             const extras = this.captionExtras(captionsSource);
             this.captionExtraById = extras;
             this.sourceCaptions = parsed.captions;
+            this.defaultCaptionTextStyle = parsed.shape.defaultTextStyle;
             const edit = JSON.parse(editSource) as { output?: { fps?: number } };
             this.editFps = edit.output?.fps || 30;
             const captions = this.daihonCaptionsForDisplay();
@@ -1171,6 +1175,7 @@ export class AkariDaihonWidget extends BaseWidget {
             this.cutsButton.textContent = cutsJumpButtonLabel(combinedCuts);
             this.renderRows(next);
             for (const [id, elements] of this.elements) elements.root.style.borderLeft = this.handEditedCaptionIds.has(id) ? '3px solid #6fa8ff' : '';
+            this.refreshDockLook();
             if (parsed.warnings.length) this.notify(parsed.warnings[0]);
         } catch (error) {
             this.notify(`台本を読み取れません: ${this.errorMessage(error)}`);
@@ -2087,8 +2092,7 @@ export class AkariDaihonWidget extends BaseWidget {
 
     protected renderDockLook(ids: string[]): void {
         const colors = ['#ffffff', '#111111', '#facc15', '#ff5a5a', '#38bdf8', '#34d399'];
-        const caption = ids.length === 1 ? this.sourceCaptions.find(item => item.id === ids[0]) : undefined;
-        const presetStyle = caption?.stylePreset ? TEXTSTYLE_CATALOG[caption.stylePreset]?.style : undefined;
+        const look = this.dockLookState(ids);
         const field = (key: LookField, label: string): HTMLDivElement => {
             const div = document.createElement('div'); div.className = 'akari-daihon-look-field'; div.dataset.lookField = key;
             const title = document.createElement('label'); title.textContent = label; div.appendChild(title);
@@ -2097,7 +2101,7 @@ export class AkariDaihonWidget extends BaseWidget {
         const options = (key: LookField, label: string, values: Array<[string, string | number]>): void => {
             const div = field(key, label);
             const current = key === 'color' || key === 'background'
-                ? currentLookSwatch(caption?.textStyle, presetStyle, key) : undefined;
+                ? key === 'color' ? look.textColor : look.backgroundColor : undefined;
             for (const [name, value] of values) {
                 const button = document.createElement('button'); button.type = 'button';
                 button.dataset.lookValue = String(value);
@@ -2117,6 +2121,15 @@ export class AkariDaihonWidget extends BaseWidget {
         };
         options('color', '文字色', colors.map(color => [color, color]));
         options('background', '座布団の色', [['なし', 'none'], ...colors.map(color => [color, color] as [string, string])]);
+        const fitField = field('fit', '座布団の幅');
+        for (const [label, value] of [['文字に合わせる', 'text'], ['画面幅', 'frame']] as const) {
+            const button = document.createElement('button'); button.type = 'button';
+            button.textContent = label; button.dataset.lookValue = value;
+            button.disabled = look.fitDisabled;
+            button.setAttribute('aria-pressed', String(look.fit === value));
+            button.addEventListener('click', () => void this.saveDockLook(ids, 'fit', value));
+            fitField.appendChild(button);
+        }
         options('size', '大きさ', [['小', 28], ['中', 38], ['大', 56], ['特大', 72]]);
         options('spacing', '字間', [['狭い', -0.05], ['標準', 0], ['広い', 0.12]]);
         options('stroke', '縁取り', [['なし', 0], ['細', 1.5], ['太', 3]]);
@@ -2125,6 +2138,34 @@ export class AkariDaihonWidget extends BaseWidget {
         detail.textContent = 'もっと細かく → インスペクターで開く';
         detail.addEventListener('click', () => void this.focusCaptionInspector(ids[0]));
         this.dockBody.appendChild(detail);
+    }
+
+    protected dockLookState(ids: string[]): DockLookState {
+        return dockLookState(ids.map(id => {
+            const caption = this.sourceCaptions.find(item => item.id === id);
+            return {
+                textStyle: caption?.textStyle,
+                presetStyle: caption?.stylePreset ? TEXTSTYLE_CATALOG[caption.stylePreset]?.style : undefined
+            };
+        }), this.defaultCaptionTextStyle);
+    }
+
+    protected refreshDockLook(): void {
+        if (!shouldRefreshLookDock(this.dockKind, this.dockTab, this.placedEditor.classList.contains('open'))) return;
+        const look = this.dockLookState(this.dockTargetIds());
+        for (const [field, selected] of [
+            ['color', look.textColor], ['background', look.backgroundColor], ['fit', look.fit]
+        ] as const) {
+            const buttons = this.dockBody.querySelectorAll<HTMLButtonElement>(
+                `.akari-daihon-look-field[data-look-field="${field}"] button[data-look-value]`
+            );
+            buttons.forEach(button => {
+                const pressed = selected?.toLowerCase() === button.dataset.lookValue?.toLowerCase();
+                button.setAttribute('aria-pressed', String(pressed));
+                if (field === 'fit') button.disabled = look.fitDisabled;
+                else button.classList.toggle('selected', pressed);
+            });
+        }
     }
 
     protected async saveDockLook(ids: string[], field: LookField, value: string | number): Promise<void> {
@@ -2136,6 +2177,7 @@ export class AkariDaihonWidget extends BaseWidget {
                     textStyle: lookPatch(field, value) as Parameters<AkariAnnotationsService['setCaptionTextStyle']>[0]['textStyle']
                 });
             });
+            await this.reload();
             this.notify('字幕の見た目を変更しました');
         } catch (error) { await this.reload(); this.notify(this.errorMessage(error)); }
     }

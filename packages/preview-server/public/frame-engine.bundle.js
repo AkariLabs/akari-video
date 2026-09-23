@@ -2395,7 +2395,8 @@ var require_caption_store = __commonJS({
           opacity: updates.background?.opacity,
           radius_px: updates.background?.radiusPx,
           padding_px: updates.background?.paddingPx,
-          mode: updates.background?.mode
+          mode: updates.background?.mode,
+          fit: updates.background?.fit
         }, `\u5B57\u5E55 ${captionId} \u306E text_style.background`);
         textStyle = updateAnimationStyleObject(textStyle, updates.animation, `\u5B57\u5E55 ${captionId} \u306E text_style.animation`);
         nextElement = Object.keys(JSON.parse(textStyle)).length === 0 ? removeObjectProperty(nextElement, "text_style") : nextElement.slice(0, located.start) + textStyle + nextElement.slice(located.end);
@@ -3078,6 +3079,9 @@ var require_caption_store = __commonJS({
         if (value.background.mode === "per-line" || value.background.mode === "block") {
           background.mode = value.background.mode;
         }
+        if (value.background.fit === "text" || value.background.fit === "frame") {
+          background.fit = value.background.fit;
+        }
         if (Object.keys(background).length > 0) {
           style.background = background;
         }
@@ -3264,7 +3268,8 @@ var require_caption_store = __commonJS({
             ...style.background.heightPct !== void 0 ? { height_pct: style.background.heightPct } : {},
             ...style.background.offsetX !== void 0 ? { offset_x: style.background.offsetX } : {},
             ...style.background.offsetY !== void 0 ? { offset_y: style.background.offsetY } : {},
-            ...style.background.mode !== void 0 ? { mode: style.background.mode } : {}
+            ...style.background.mode !== void 0 ? { mode: style.background.mode } : {},
+            ...style.background.fit !== void 0 ? { fit: style.background.fit } : {}
           }
         } : {},
         ...style.zone !== void 0 ? { zone: style.zone } : {},
@@ -3300,7 +3305,7 @@ var require_caption_store = __commonJS({
       return typeof value === "string" && /^#(?:[0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/iu.test(value);
     }
     function validateTextStylePatch(updates) {
-      const hasUpdate = updates.color !== void 0 || updates.sizePx !== void 0 || updates.zone !== void 0 || updates.fontWeight !== void 0 || updates.weight !== void 0 || updates.lineHeight !== void 0 || updates.letterSpacingEm !== void 0 || updates.fontFamily !== void 0 || updates.shadow !== void 0 || updates.glow !== void 0 || updates.stroke?.color !== void 0 || updates.stroke?.widthPx !== void 0 || updates.background?.color !== void 0 || updates.background?.opacity !== void 0 || updates.background?.radiusPx !== void 0 || updates.background?.paddingPx !== void 0 || updates.background?.mode !== void 0 || updates.animation !== void 0;
+      const hasUpdate = updates.color !== void 0 || updates.sizePx !== void 0 || updates.zone !== void 0 || updates.fontWeight !== void 0 || updates.weight !== void 0 || updates.lineHeight !== void 0 || updates.letterSpacingEm !== void 0 || updates.fontFamily !== void 0 || updates.shadow !== void 0 || updates.glow !== void 0 || updates.stroke?.color !== void 0 || updates.stroke?.widthPx !== void 0 || updates.background?.color !== void 0 || updates.background?.opacity !== void 0 || updates.background?.radiusPx !== void 0 || updates.background?.paddingPx !== void 0 || updates.background?.mode !== void 0 || updates.background?.fit !== void 0 || updates.animation !== void 0;
       if (!hasUpdate) {
         throw new Error("\u5909\u66F4\u3059\u308B\u5B57\u5E55\u30B9\u30BF\u30A4\u30EB\u306E\u30D5\u30A3\u30FC\u30EB\u30C9\u3092\u6307\u5B9A\u3057\u3066\u304F\u3060\u3055\u3044\u3002");
       }
@@ -3376,6 +3381,9 @@ var require_caption_store = __commonJS({
       if (updates.background?.mode !== void 0 && updates.background.mode !== null && updates.background.mode !== "per-line" && updates.background.mode !== "block") {
         throw new Error("\u5B57\u5E55\u306E\u5EA7\u5E03\u56E3\u306E\u5F62\u304C\u4E0D\u6B63\u3067\u3059\u3002");
       }
+      if (updates.background?.fit !== void 0 && updates.background.fit !== null && updates.background.fit !== "text" && updates.background.fit !== "frame") {
+        throw new Error("\u5B57\u5E55\u306E\u5EA7\u5E03\u56E3\u306E\u5E45\u304C\u4E0D\u6B63\u3067\u3059\u3002");
+      }
       if (updates.zone !== void 0 && updates.zone !== null && !exports.CAPTION_ZONES.includes(updates.zone)) {
         throw new Error("\u5B57\u5E55\u306E\u4F4D\u7F6E\u304C\u4E0D\u6B63\u3067\u3059\u3002");
       }
@@ -3424,7 +3432,8 @@ var require_caption_store = __commonJS({
             ...updates.background.opacity !== void 0 && updates.background.opacity !== null ? { opacity: updates.background.opacity } : {},
             ...updates.background.radiusPx !== void 0 && updates.background.radiusPx !== null ? { radius_px: updates.background.radiusPx } : {},
             ...updates.background.paddingPx !== void 0 && updates.background.paddingPx !== null ? { padding_px: updates.background.paddingPx } : {},
-            ...updates.background.mode !== void 0 && updates.background.mode !== null ? { mode: updates.background.mode } : {}
+            ...updates.background.mode !== void 0 && updates.background.mode !== null ? { mode: updates.background.mode } : {},
+            ...updates.background.fit !== void 0 && updates.background.fit !== null ? { fit: updates.background.fit } : {}
           }
         } : {},
         ...updates.animation && Object.values(updates.animation).some((value) => value !== void 0 && value !== null) ? {
@@ -4176,7 +4185,8 @@ var require_caption_display = __commonJS({
       "width_pct",
       "height_pct",
       "offset_x",
-      "offset_y"
+      "offset_y",
+      "fit"
     ]);
     var CAPTION_ALIGN_VALUES = /* @__PURE__ */ new Set(["left", "center", "right"]);
     var CAPTION_VERTICAL_ALIGN_VALUES = /* @__PURE__ */ new Set(["top", "middle", "bottom"]);
@@ -4745,6 +4755,9 @@ var require_caption_display = __commonJS({
       }
       if (Object.prototype.hasOwnProperty.call(value, "mode") && value.mode !== "per-line" && value.mode !== "block") {
         fail("INVALID_TEXT_STYLE", `${label}.mode must be per-line or block`);
+      }
+      if (Object.prototype.hasOwnProperty.call(value, "fit") && value.fit !== "text" && value.fit !== "frame") {
+        fail("INVALID_TEXT_STYLE", `${label}.fit must be text or frame`);
       }
       for (const key of ["padding_px", "width_pct", "height_pct"]) {
         if (Object.prototype.hasOwnProperty.call(value, key) && !finiteNonNegative2(value[key])) {
@@ -5446,7 +5459,8 @@ var require_caption_display = __commonJS({
           ...finiteNumber(value.background.width_pct) ? { width_pct: value.background.width_pct } : {},
           ...finiteNumber(value.background.offset_x) ? { offset_x: value.background.offset_x } : {},
           ...finiteNumber(value.background.offset_y) ? { offset_y: value.background.offset_y } : {},
-          ...value.background.mode === "per-line" || value.background.mode === "block" ? { mode: value.background.mode } : {}
+          ...value.background.mode === "per-line" || value.background.mode === "block" ? { mode: value.background.mode } : {},
+          ...value.background.fit === "text" || value.background.fit === "frame" ? { fit: value.background.fit } : {}
         } } : {},
         ...typeof value.zone === "string" ? { zone: value.zone } : {}
       };
@@ -5465,7 +5479,7 @@ var require_caption_display = __commonJS({
       return Object.keys(merged).length > 0 ? merged : null;
     }
     function usesPercentageBackground(background) {
-      return isRecord2(background) && (finiteNumber(background.width_pct) && background.width_pct > 0 || finiteNumber(background.height_pct) && background.height_pct > 0);
+      return isRecord2(background) && (background.fit !== "frame" && finiteNumber(background.width_pct) && background.width_pct > 0 || finiteNumber(background.height_pct) && background.height_pct > 0);
     }
     function usesExtendedPerLineBackground(background) {
       if (!isRecord2(background) || background.mode === "block")
@@ -5555,6 +5569,9 @@ var require_caption_display = __commonJS({
       const px = (value) => scaleCaptionPx(value, scale);
       const extendedBackground = usesExtendedPerLineBackground(style.background);
       const percentageBackground = usesPercentageBackground(style.background);
+      if (isRecord2(style.background) && style.background.fit === "frame") {
+        vars["--caption-plate-fit"] = "frame";
+      }
       if (typeof style.color === "string")
         vars["--caption-color"] = style.color;
       if (finiteNumber(style.size_px))
@@ -5594,7 +5611,9 @@ var require_caption_display = __commonJS({
       if (style.vertical)
         vars["--caption-writing-mode"] = "vertical-rl";
       if (extendedBackground && isRecord2(style.background)) {
-        vars["--plate-ext-width"] = percentageBackground ? `${style.background.width_pct ?? 0}%` : `${px(style.background.padding_px ?? 0)}px`;
+        if (style.background.fit !== "frame") {
+          vars["--plate-ext-width"] = percentageBackground ? `${style.background.width_pct ?? 0}%` : `${px(style.background.padding_px ?? 0)}px`;
+        }
         vars["--plate-ext-height"] = percentageBackground ? `${style.background.height_pct ?? 0}%` : `${px(style.background.padding_px ?? 0)}px`;
         if (finiteNumber(style.background.offset_x))
           vars["--plate-offset-x"] = `${px(style.background.offset_x)}px`;

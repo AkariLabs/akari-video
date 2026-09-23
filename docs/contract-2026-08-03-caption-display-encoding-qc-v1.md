@@ -109,6 +109,7 @@ scaled, matching the reference-pixel path.
 | `background.offset_x`, `background.offset_y` | `--plate-offset-x` / `--plate-offset-y` | yes |
 | `letter_spacing_em` | `--caption-letter-spacing` (`em`) | no |
 | `max_width_pct`, `background.width_pct`, `background.height_pct` | `--caption-line-max-width` / `--plate-ext-*` (`%`) | no |
+| `background.fit` | `text` (default) keeps the existing text-sized plate; `frame` spans the caption frame inside its 4% side margins, takes precedence over `width_pct`, and preserves vertical padding in per-line and block modes | no |
 | `line_height`, `shadow.opacity`, `shadow.angle_deg`, `glow.density`, `background.opacity` | unitless | no |
 | `position.x`, `position.y` | frame ratio 0..1 | no |
 

@@ -61,6 +61,7 @@
         "radius_px": { "type": "number", "minimum": 0 },
         "padding_px": { "type": "number", "minimum": 0 },
         "width_pct": { "type": "number", "minimum": 0 },
+        "fit": { "type": "string", "enum": ["text", "frame"], "default": "text" },
         "height_pct": { "type": "number", "minimum": 0 },
         "offset_x": { "type": "number" },
         "offset_y": { "type": "number" },

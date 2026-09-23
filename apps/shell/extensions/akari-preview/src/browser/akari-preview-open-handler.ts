@@ -15804,6 +15804,12 @@ body { display: grid; place-items: center; padding: 32px; }
                     ? '.akari-caption__block{display:flex;flex-direction:column;width:max-content;max-width:var(--caption-line-max-width,92%);margin:var(--caption-line-margin,0 auto);gap:var(--plate-gap,4px);padding:var(--plate-pad-y,0.08em) var(--plate-pad-x,0.42em);border-radius:var(--plate-block-radius,10px);background:var(--plate-block-bg,transparent);}'
                         + '.akari-caption__block .akari-caption__line{width:auto;max-width:none;margin:0;padding:0;border-radius:0;background:transparent;}'
                     : '';
+                const frameFitCss = caption.textStyle?.background?.fit === 'frame'
+                    ? '.akari-caption__plate{left:4%;right:4%;width:auto;}'
+                        + '.akari-caption__line{box-sizing:border-box;width:100%;max-width:none;margin:0;}'
+                        + '.akari-caption__line::before{left:0;right:0;}'
+                        + '.akari-caption__block{box-sizing:border-box;width:100%;max-width:none;margin:0;}'
+                    : '';
                 const emphasisCss = hasEmphasis
                     ? '.akari-caption{--akari-emphasis-joy:var(--vscode-akariTheme-accentLighter,#fdba74);--akari-emphasis-pain:var(--vscode-errorForeground,#ff798c);--akari-emphasis-surprise:var(--vscode-akariTheme-accentLight,#fb923c);--akari-emphasis-anger:var(--vscode-errorForeground,#ff798c);--akari-emphasis-sadness:var(--vscode-descriptionForeground,#a3a3a3);--akari-emphasis-emphasis:var(--vscode-akariTheme-accent,#f97316);}'
                         + '@keyframes akari-emphasis-one-char-bang{from{opacity:0;transform:scale(1.6);}to{opacity:1;transform:scale(1);}}'
@@ -15822,6 +15828,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     + '.akari-caption__line{position:relative;isolation:isolate;width:max-content;max-width:var(--caption-line-max-width,92%);margin:var(--caption-line-margin,0 auto);padding:var(--plate-pad-y,0.08em) var(--plate-pad-x,0.42em);border-radius:var(--plate-radius,10px);background:var(--plate-bg,transparent);text-align:var(--caption-text-align,center);white-space:pre;}'
                     + '.akari-caption__line::before{content:"";position:absolute;inset:calc(0px - var(--plate-ext-height,0px)) calc(0px - var(--plate-ext-width,0px));z-index:-1;border-radius:var(--plate-ext-radius,10px);background:var(--plate-ext-bg,transparent);transform:translate(var(--plate-offset-x,0px),var(--plate-offset-y,0px));}'
                     + blockCss
+                    + frameFitCss
                     + '.akari-caption__tok{display:inline-block;vertical-align:baseline;line-height:1;paint-order:stroke fill;will-change:transform,color;}'
                     + '@keyframes akari-caption-karaoke-lit{from{color:var(--caption-color,#fff);}to{color:var(--caption-highlight-color,#ffd94a);}}'
                     + '@keyframes akari-caption-pop{0%{transform:translateY(0) scale(1);}50%{transform:translateY(-0.08em) scale(1.12);}100%{transform:translateY(0) scale(1);}}'
@@ -15836,6 +15843,10 @@ body { display: grid; place-items: center; padding: 32px; }
                 const renderChars = captionCharRenderer(caption.animator);
                 const renderText = renderChars || escapeCaptionHtml;
                 if (caption.resolvedTimeline) {
+                    const resolvedFrameCss = caption.textStyleVars?.['--caption-plate-fit'] === 'frame'
+                        ? '.akari-caption--single-line .akari-caption__plate{left:4%;right:4%;width:auto;box-sizing:border-box;}'
+                            + '.akari-caption--single-line .akari-caption__line{box-sizing:border-box;width:100%;max-width:none;margin:0;background:var(--plate-bg,var(--plate-ext-bg,transparent));border-radius:var(--plate-radius,var(--plate-ext-radius,0));}'
+                        : '';
                     if (caption.wordStyles && caption.resolvedWords) {
                         let currentLine = caption.resolvedWords.length ? caption.resolvedWords[0].line : 0;
                         const markup = caption.resolvedWords.map((word, index) => {
@@ -15854,6 +15865,7 @@ body { display: grid; place-items: center; padding: 32px; }
                         }).join('');
                         return ${JSON.stringify(RESOLVED_SINGLE_LINE_FRAGMENT_OPEN)}
                             + ${JSON.stringify(RESOLVED_SINGLE_LINE_CAPTION_CSS)}
+                            + resolvedFrameCss
                             + '.akari-caption__tok{display:inline-block;vertical-align:baseline;line-height:1;paint-order:stroke fill;white-space:pre;--caption-tok-color:initial;--caption-tok-font-size:initial;--caption-tok-font-family:initial;--caption-tok-font-weight:initial;--caption-tok-font-style:initial;--caption-tok-text-decoration:initial;--caption-tok-letter-spacing:initial;--caption-tok-line-height:initial;--caption-tok-text-transform:initial;--caption-tok-webkit-text-stroke:initial;--caption-tok-paint-order:initial;--caption-tok-text-shadow:initial;}.akari-caption__tok--preset{color:var(--caption-tok-color,inherit);font-size:var(--caption-tok-font-size,inherit);font-family:var(--caption-tok-font-family,inherit);font-weight:var(--caption-tok-font-weight,inherit);font-style:var(--caption-tok-font-style,inherit);text-decoration:var(--caption-tok-text-decoration,inherit);letter-spacing:var(--caption-tok-letter-spacing,inherit);line-height:var(--caption-tok-line-height,1);text-transform:var(--caption-tok-text-transform,inherit);-webkit-text-stroke:var(--caption-tok-webkit-text-stroke,inherit);paint-order:var(--caption-tok-paint-order,stroke fill);text-shadow:var(--caption-tok-text-shadow,inherit);}'
                             + ${JSON.stringify(RESOLVED_SINGLE_LINE_FRAGMENT_MIDDLE)}
                             + markup
@@ -15867,6 +15879,7 @@ body { display: grid; place-items: center; padding: 32px; }
                         : renderText(caption.text);
                     return ${JSON.stringify(RESOLVED_SINGLE_LINE_FRAGMENT_OPEN)}
                         + ${JSON.stringify(RESOLVED_SINGLE_LINE_CAPTION_CSS)}
+                        + resolvedFrameCss
                         + ${JSON.stringify(RESOLVED_SINGLE_LINE_FRAGMENT_MIDDLE)}
                         + resolvedMarkup
                         + ${JSON.stringify(RESOLVED_SINGLE_LINE_FRAGMENT_CLOSE)};
@@ -15884,16 +15897,24 @@ body { display: grid; place-items: center; padding: 32px; }
                     ? '.akari-caption__block{display:flex;flex-direction:column;width:max-content;max-width:var(--caption-line-max-width,92%);margin:var(--caption-line-margin,0 auto);gap:var(--plate-gap,4px);padding:var(--plate-pad-y,0.08em) var(--plate-pad-x,0.42em);border-radius:var(--plate-block-radius,10px);background:var(--plate-block-bg,transparent);}'
                         + '.akari-caption__block .akari-caption__line{width:auto;max-width:none;margin:0;padding:0;border-radius:0;background:transparent;}'
                     : '';
+                const frameFitCss = caption.textStyle?.background?.fit === 'frame'
+                    ? '.akari-caption__plate{left:4%;right:4%;width:auto;}'
+                        + '.akari-caption__line{box-sizing:border-box;width:100%;max-width:none;margin:0;}'
+                        + '.akari-caption__line::before{left:0;right:0;}'
+                        + '.akari-caption__block{box-sizing:border-box;width:100%;max-width:none;margin:0;}'
+                    : '';
                 return '<div class="akari-caption"><style>'
                     + '.akari-caption{position:absolute;inset:0;pointer-events:none;color:var(--caption-color,#fff);-webkit-text-stroke:var(--caption-webkit-text-stroke,var(--caption-stroke,0.14em rgba(0,0,0,.9)));paint-order:var(--caption-paint-order,stroke fill);text-shadow:var(--caption-text-shadow,0 2px 8px rgba(0,0,0,.35));font-family:var(--caption-font-family,"AKARI Noto Sans JP","Noto Sans JP",sans-serif);font-size:var(--caption-font-size,38px);font-weight:var(--caption-font-weight,700);font-style:var(--caption-font-style,normal);text-decoration:var(--caption-text-decoration,none);letter-spacing:var(--caption-letter-spacing,normal);text-transform:var(--caption-text-transform,none);line-height:var(--caption-word-line-height,var(--caption-line-height,1.42));writing-mode:var(--caption-writing-mode,horizontal-tb);text-align:center;}'
                     + '.akari-caption__plate{position:absolute;top:var(--caption-top,auto);translate:var(--caption-translate,none);left:var(--caption-left,0);right:var(--caption-right,0);bottom:var(--caption-bottom,7%);width:var(--caption-width,auto);display:flex;flex-direction:column;justify-content:var(--caption-justify-content,flex-start);align-items:var(--caption-align-items,stretch);gap:var(--plate-gap,4px);rotate:var(--caption-rotate,0deg);scale:var(--caption-scale,1);transform-origin:center;}'
                     + '.akari-caption__line{position:relative;isolation:isolate;width:max-content;max-width:var(--caption-line-max-width,92%);margin:var(--caption-line-margin,0 auto);padding:var(--plate-pad-y,0.08em) var(--plate-pad-x,0.42em);border-radius:var(--plate-radius,10px);background:var(--plate-bg,transparent);text-align:var(--caption-text-align,center);white-space:pre;}'
                     + '.akari-caption__line::before{content:"";position:absolute;inset:calc(0px - var(--plate-ext-height,0px)) calc(0px - var(--plate-ext-width,0px));z-index:-1;border-radius:var(--plate-ext-radius,10px);background:var(--plate-ext-bg,transparent);transform:translate(var(--plate-offset-x,0px),var(--plate-offset-y,0px));}'
                     + blockCss
+                    + frameFitCss
                     + '</style><div class="akari-caption__plate">' + plateMarkup + '</div></div>';
             };
             const captionStyleVariableNames = ${JSON.stringify(RESOLVED_CAPTION_STYLE_VARIABLE_NAMES)};
             const applyCaptionStyleVars = (caption, captionPlate) => {
+                captionPlate.style.removeProperty('--caption-plate-fit');
                 for (const name of captionStyleVariableNames) {
                     captionPlate.style.removeProperty(name);
                 }

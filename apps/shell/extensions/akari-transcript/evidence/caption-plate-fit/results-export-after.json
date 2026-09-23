@@ -1,0 +1,379 @@
+{
+  "phase": "after",
+  "runs": [
+    {
+      "project": "p-block",
+      "engine": "gpu",
+      "background": {
+        "color": "#ff0000",
+        "mode": "block"
+      },
+      "lintExit": 0,
+      "samples": [
+        {
+          "file": "p-block/exports/gpu.mp4",
+          "t": "0.5",
+          "plateWidthPx": 136,
+          "left": 572,
+          "right": 707,
+          "row": 580,
+          "plateHeightRows": 76,
+          "frameWidth": 1280,
+          "ratio": 0.106
+        },
+        {
+          "file": "p-block/exports/gpu.mp4",
+          "t": "1.5",
+          "plateWidthPx": 712,
+          "left": 284,
+          "right": 995,
+          "row": 580,
+          "plateHeightRows": 76,
+          "frameWidth": 1280,
+          "ratio": 0.556
+        }
+      ],
+      "renderExit": 0,
+      "renderSec": 52
+    },
+    {
+      "project": "p-frame",
+      "engine": "gpu",
+      "background": {
+        "color": "#ff0000",
+        "fit": "frame"
+      },
+      "lintExit": 0,
+      "samples": [
+        {
+          "file": "p-frame/exports/gpu.mp4",
+          "t": "0.5",
+          "plateWidthPx": 1176,
+          "left": 52,
+          "right": 1227,
+          "row": 577,
+          "plateHeightRows": 76,
+          "frameWidth": 1280,
+          "ratio": 0.919
+        },
+        {
+          "file": "p-frame/exports/gpu.mp4",
+          "t": "1.5",
+          "plateWidthPx": 1176,
+          "left": 52,
+          "right": 1227,
+          "row": 576,
+          "plateHeightRows": 76,
+          "frameWidth": 1280,
+          "ratio": 0.919
+        }
+      ],
+      "renderExit": 0,
+      "renderSec": 9
+    },
+    {
+      "project": "p-frame-block",
+      "engine": "gpu",
+      "background": {
+        "color": "#ff0000",
+        "mode": "block",
+        "fit": "frame"
+      },
+      "lintExit": 0,
+      "samples": [
+        {
+          "file": "p-frame-block/exports/gpu.mp4",
+          "t": "0.5",
+          "plateWidthPx": 1176,
+          "left": 52,
+          "right": 1227,
+          "row": 577,
+          "plateHeightRows": 76,
+          "frameWidth": 1280,
+          "ratio": 0.919
+        },
+        {
+          "file": "p-frame-block/exports/gpu.mp4",
+          "t": "1.5",
+          "plateWidthPx": 1176,
+          "left": 52,
+          "right": 1227,
+          "row": 576,
+          "plateHeightRows": 76,
+          "frameWidth": 1280,
+          "ratio": 0.919
+        }
+      ],
+      "renderExit": 0,
+      "renderSec": 6
+    },
+    {
+      "project": "p-frame-pad16",
+      "engine": "gpu",
+      "background": {
+        "color": "#ff0000",
+        "padding_px": 16,
+        "fit": "frame"
+      },
+      "lintExit": 0,
+      "samples": [
+        {
+          "file": "p-frame-pad16/exports/gpu.mp4",
+          "t": "0.5",
+          "plateWidthPx": 1176,
+          "left": 52,
+          "right": 1227,
+          "row": 553,
+          "plateHeightRows": 100,
+          "frameWidth": 1280,
+          "ratio": 0.919
+        },
+        {
+          "file": "p-frame-pad16/exports/gpu.mp4",
+          "t": "1.5",
+          "plateWidthPx": 1176,
+          "left": 52,
+          "right": 1227,
+          "row": 553,
+          "plateHeightRows": 100,
+          "frameWidth": 1280,
+          "ratio": 0.919
+        }
+      ],
+      "renderExit": 0,
+      "renderSec": 4
+    },
+    {
+      "project": "p-frame-w100",
+      "engine": "gpu",
+      "background": {
+        "color": "#ff0000",
+        "width_pct": 100,
+        "fit": "frame"
+      },
+      "lintExit": 0,
+      "samples": [
+        {
+          "file": "p-frame-w100/exports/gpu.mp4",
+          "t": "0.5",
+          "plateWidthPx": 1176,
+          "left": 52,
+          "right": 1227,
+          "row": 577,
+          "plateHeightRows": 76,
+          "frameWidth": 1280,
+          "ratio": 0.919
+        },
+        {
+          "file": "p-frame-w100/exports/gpu.mp4",
+          "t": "1.5",
+          "plateWidthPx": 1176,
+          "left": 52,
+          "right": 1227,
+          "row": 576,
+          "plateHeightRows": 76,
+          "frameWidth": 1280,
+          "ratio": 0.919
+        }
+      ],
+      "renderExit": 0,
+      "renderSec": 5
+    },
+    {
+      "project": "p-none",
+      "engine": "gpu",
+      "background": {
+        "color": "#ff0000"
+      },
+      "lintExit": 0,
+      "samples": [
+        {
+          "file": "p-none/exports/gpu.mp4",
+          "t": "0.5",
+          "plateWidthPx": 136,
+          "left": 572,
+          "right": 707,
+          "row": 580,
+          "plateHeightRows": 76,
+          "frameWidth": 1280,
+          "ratio": 0.106
+        },
+        {
+          "file": "p-none/exports/gpu.mp4",
+          "t": "1.5",
+          "plateWidthPx": 712,
+          "left": 284,
+          "right": 995,
+          "row": 580,
+          "plateHeightRows": 76,
+          "frameWidth": 1280,
+          "ratio": 0.556
+        }
+      ],
+      "renderExit": 0,
+      "renderSec": 6
+    },
+    {
+      "project": "p-pad16",
+      "engine": "gpu",
+      "background": {
+        "color": "#ff0000",
+        "padding_px": 16
+      },
+      "lintExit": 0,
+      "samples": [
+        {
+          "file": "p-pad16/exports/gpu.mp4",
+          "t": "0.5",
+          "plateWidthPx": 128,
+          "left": 576,
+          "right": 703,
+          "row": 556,
+          "plateHeightRows": 100,
+          "frameWidth": 1280,
+          "ratio": 0.1
+        },
+        {
+          "file": "p-pad16/exports/gpu.mp4",
+          "t": "1.5",
+          "plateWidthPx": 704,
+          "left": 288,
+          "right": 991,
+          "row": 556,
+          "plateHeightRows": 100,
+          "frameWidth": 1280,
+          "ratio": 0.55
+        }
+      ],
+      "renderExit": 0,
+      "renderSec": 8
+    },
+    {
+      "project": "p-text",
+      "engine": "gpu",
+      "background": {
+        "color": "#ff0000",
+        "fit": "text"
+      },
+      "lintExit": 0,
+      "samples": [
+        {
+          "file": "p-text/exports/gpu.mp4",
+          "t": "0.5",
+          "plateWidthPx": 136,
+          "left": 572,
+          "right": 707,
+          "row": 580,
+          "plateHeightRows": 76,
+          "frameWidth": 1280,
+          "ratio": 0.106
+        },
+        {
+          "file": "p-text/exports/gpu.mp4",
+          "t": "1.5",
+          "plateWidthPx": 712,
+          "left": 284,
+          "right": 995,
+          "row": 580,
+          "plateHeightRows": 76,
+          "frameWidth": 1280,
+          "ratio": 0.556
+        }
+      ],
+      "renderExit": 0,
+      "renderSec": 5
+    },
+    {
+      "project": "p-w100",
+      "engine": "gpu",
+      "background": {
+        "color": "#ff0000",
+        "width_pct": 100
+      },
+      "lintExit": 0,
+      "samples": [
+        {
+          "file": "p-w100/exports/gpu.mp4",
+          "t": "0.5",
+          "plateWidthPx": 288,
+          "left": 496,
+          "right": 783,
+          "row": 588,
+          "plateHeightRows": 68,
+          "frameWidth": 1280,
+          "ratio": 0.225
+        },
+        {
+          "file": "p-w100/exports/gpu.mp4",
+          "t": "1.5",
+          "plateWidthPx": 1280,
+          "left": 0,
+          "right": 1279,
+          "row": 580,
+          "plateHeightRows": 68,
+          "frameWidth": 1280,
+          "ratio": 1
+        }
+      ],
+      "renderExit": 0,
+      "renderSec": 6
+    },
+    {
+      "project": "p-frame",
+      "engine": "osr",
+      "background": {
+        "color": "#ff0000",
+        "fit": "frame"
+      },
+      "lintExit": 0,
+      "samples": [
+        {
+          "file": "p-frame/exports/osr.mp4",
+          "t": "0.5",
+          "plateWidthPx": 0,
+          "plateHeightRows": 0,
+          "frameWidth": 1280,
+          "ratio": 0
+        },
+        {
+          "file": "p-frame/exports/osr.mp4",
+          "t": "1.5",
+          "plateWidthPx": 0,
+          "plateHeightRows": 0,
+          "frameWidth": 1280,
+          "ratio": 0
+        }
+      ],
+      "renderExit": 0,
+      "renderSec": 11
+    },
+    {
+      "project": "p-none",
+      "engine": "osr",
+      "background": {
+        "color": "#ff0000"
+      },
+      "lintExit": 0,
+      "samples": [
+        {
+          "file": "p-none/exports/osr.mp4",
+          "t": "0.5",
+          "plateWidthPx": 0,
+          "plateHeightRows": 0,
+          "frameWidth": 1280,
+          "ratio": 0
+        },
+        {
+          "file": "p-none/exports/osr.mp4",
+          "t": "1.5",
+          "plateWidthPx": 0,
+          "plateHeightRows": 0,
+          "frameWidth": 1280,
+          "ratio": 0
+        }
+      ],
+      "renderExit": 0,
+      "renderSec": 6
+    }
+  ]
+}

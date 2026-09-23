@@ -1,0 +1,176 @@
+{
+  "phase": "after",
+  "status": "pass",
+  "checks": [
+    {
+      "name": "1 見た目タブに「座布団の幅: 文字に合わせる / 画面幅」がある",
+      "pass": true,
+      "detail": {
+        "fields": [
+          {
+            "field": "color",
+            "label": "文字色"
+          },
+          {
+            "field": "background",
+            "label": "座布団の色"
+          },
+          {
+            "field": "fit",
+            "label": "座布団の幅"
+          },
+          {
+            "field": "size",
+            "label": "大きさ"
+          },
+          {
+            "field": "spacing",
+            "label": "字間"
+          },
+          {
+            "field": "stroke",
+            "label": "縁取り"
+          }
+        ],
+        "fit": {
+          "label": "座布団の幅",
+          "text": "座布団の幅文字に合わせる画面幅",
+          "buttons": [
+            {
+              "value": "text",
+              "label": "文字に合わせる",
+              "disabled": false,
+              "pressed": "true"
+            },
+            {
+              "value": "frame",
+              "label": "画面幅",
+              "disabled": false,
+              "pressed": "false"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "2 画面幅 → fit: frame → プレビューの座布団が枠いっぱい → Cmd+Z 1 手で byte 一致",
+      "pass": true,
+      "detail": {
+        "written": {
+          "background": {
+            "fit": "frame"
+          }
+        },
+        "otherRowTextStyle": null,
+        "fitState": {
+          "label": "座布団の幅",
+          "text": "座布団の幅文字に合わせる画面幅",
+          "buttons": [
+            {
+              "value": "text",
+              "label": "文字に合わせる",
+              "disabled": false,
+              "pressed": "false"
+            },
+            {
+              "value": "frame",
+              "label": "画面幅",
+              "disabled": false,
+              "pressed": "true"
+            }
+          ]
+        },
+        "previewBefore": {
+          "frameWidth": 450,
+          "captionPlateBoxWidth": 414,
+          "lineText": "短い",
+          "lineWidth": 47.92,
+          "lineHeight": 26.66,
+          "fitVar": null
+        },
+        "previewFrame": {
+          "frameWidth": 450,
+          "captionPlateBoxWidth": 414,
+          "lineText": "短い",
+          "lineWidth": 414,
+          "lineHeight": 26.66,
+          "fitVar": "frame",
+          "pixelRedRun": 414,
+          "ratioToPlateBox": 1
+        },
+        "previewAfterUndo": {
+          "frameWidth": 450,
+          "captionPlateBoxWidth": 414,
+          "lineText": "短い",
+          "lineWidth": 47.92,
+          "lineHeight": 26.66,
+          "fitVar": null
+        },
+        "undo": "byte-identical after 1 Cmd+Z"
+      }
+    },
+    {
+      "name": "3 画面幅 → 文字に合わせる → fit が消える",
+      "pass": true,
+      "detail": {
+        "textStyleAfter": null,
+        "fitState": {
+          "label": "座布団の幅",
+          "text": "座布団の幅文字に合わせる画面幅",
+          "buttons": [
+            {
+              "value": "text",
+              "label": "文字に合わせる",
+              "disabled": false,
+              "pressed": "true"
+            },
+            {
+              "value": "frame",
+              "label": "画面幅",
+              "disabled": false,
+              "pressed": "false"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "4 座布団の色「なし」→ 幅の 2 択が無効",
+      "pass": true,
+      "detail": {
+        "fitState": {
+          "label": "座布団の幅",
+          "text": "座布団の幅文字に合わせる画面幅",
+          "buttons": [
+            {
+              "value": "text",
+              "label": "文字に合わせる",
+              "disabled": true,
+              "pressed": "true"
+            },
+            {
+              "value": "frame",
+              "label": "画面幅",
+              "disabled": true,
+              "pressed": "false"
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "screenshots": [
+    "after-look-01-look-tab.png",
+    "after-look-02-frame.png",
+    "after-look-03-text.png",
+    "after-look-04-no-cushion.png"
+  ],
+  "previewBefore": {
+    "frameWidth": 450,
+    "captionPlateBoxWidth": 414,
+    "lineText": "短い",
+    "lineWidth": 47.92,
+    "lineHeight": 26.66,
+    "fitVar": null
+  }
+}

@@ -4043,7 +4043,8 @@ var AkariEditKernel = (() => {
         ...finiteNumber(value.background.width_pct) ? { width_pct: value.background.width_pct } : {},
         ...finiteNumber(value.background.offset_x) ? { offset_x: value.background.offset_x } : {},
         ...finiteNumber(value.background.offset_y) ? { offset_y: value.background.offset_y } : {},
-        ...value.background.mode === "per-line" || value.background.mode === "block" ? { mode: value.background.mode } : {}
+        ...value.background.mode === "per-line" || value.background.mode === "block" ? { mode: value.background.mode } : {},
+        ...value.background.fit === "text" || value.background.fit === "frame" ? { fit: value.background.fit } : {}
       } } : {},
       ...typeof value.zone === "string" ? { zone: value.zone } : {}
     };
@@ -4061,7 +4062,7 @@ var AkariEditKernel = (() => {
     return Object.keys(merged).length > 0 ? merged : null;
   }
   function usesPercentageBackground(background) {
-    return isRecord4(background) && (finiteNumber(background.width_pct) && background.width_pct > 0 || finiteNumber(background.height_pct) && background.height_pct > 0);
+    return isRecord4(background) && (background.fit !== "frame" && finiteNumber(background.width_pct) && background.width_pct > 0 || finiteNumber(background.height_pct) && background.height_pct > 0);
   }
   function usesExtendedPerLineBackground(background) {
     if (!isRecord4(background) || background.mode === "block") return false;
@@ -4146,6 +4147,9 @@ var AkariEditKernel = (() => {
     const px = (value) => scaleCaptionPx(value, scale);
     const extendedBackground = usesExtendedPerLineBackground(style.background);
     const percentageBackground = usesPercentageBackground(style.background);
+    if (isRecord4(style.background) && style.background.fit === "frame") {
+      vars["--caption-plate-fit"] = "frame";
+    }
     if (typeof style.color === "string") vars["--caption-color"] = style.color;
     if (finiteNumber(style.size_px)) vars["--caption-font-size"] = `${px(style.size_px)}px`;
     if (isRecord4(style.stroke) && (typeof style.stroke.color === "string" || finiteNumber(style.stroke.width_px))) {
@@ -4177,7 +4181,9 @@ var AkariEditKernel = (() => {
     if (finiteNumber(style.max_width_pct)) vars["--caption-line-max-width"] = `${style.max_width_pct}%`;
     if (style.vertical) vars["--caption-writing-mode"] = "vertical-rl";
     if (extendedBackground && isRecord4(style.background)) {
-      vars["--plate-ext-width"] = percentageBackground ? `${style.background.width_pct ?? 0}%` : `${px(style.background.padding_px ?? 0)}px`;
+      if (style.background.fit !== "frame") {
+        vars["--plate-ext-width"] = percentageBackground ? `${style.background.width_pct ?? 0}%` : `${px(style.background.padding_px ?? 0)}px`;
+      }
       vars["--plate-ext-height"] = percentageBackground ? `${style.background.height_pct ?? 0}%` : `${px(style.background.padding_px ?? 0)}px`;
       if (finiteNumber(style.background.offset_x)) vars["--plate-offset-x"] = `${px(style.background.offset_x)}px`;
       if (finiteNumber(style.background.offset_y)) vars["--plate-offset-y"] = `${px(style.background.offset_y)}px`;

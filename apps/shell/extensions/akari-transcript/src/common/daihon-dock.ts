@@ -1,7 +1,7 @@
 export type DockKind = 'row' | 'placed';
 export type DockTab = 'text' | 'template' | 'look' | 'anim' | 'emphasis' | 'time';
 export type DockAction = 'cut' | 'split' | 'merge-selected' | 'merge-next' | 'speech-tight' | 'insert-below' | 'delete' | 'all' | 'duplicate';
-export type LookField = 'color' | 'background' | 'size' | 'spacing' | 'stroke';
+export type LookField = 'color' | 'background' | 'fit' | 'size' | 'spacing' | 'stroke';
 
 export function dockTabs(kind: DockKind): DockTab[] {
     return kind === 'row' ? ['template', 'look', 'anim', 'emphasis', 'time']
@@ -38,10 +38,53 @@ export function lookPatch(field: LookField, value: string | number): Record<stri
         case 'color': return { color: String(value) };
         case 'background': return value === 'none'
             ? { background: { opacity: 0 } } : { background: { color: String(value), opacity: 1 } };
+        case 'fit': return { background: { fit: value === 'frame' ? 'frame' : null } };
         case 'size': return { sizePx: Number(value) };
         case 'spacing': return { letterSpacingEm: Number(value) };
         case 'stroke': return { stroke: { widthPx: Number(value), color: '#000000' } };
     }
+}
+
+export function currentLookFit(textStyle: unknown, presetStyle: unknown, defaultStyle?: unknown): 'text' | 'frame' {
+    const direct = object(object(textStyle).background);
+    const preset = object(object(presetStyle).background);
+    const fallback = object(object(defaultStyle).background);
+    return (direct.fit ?? preset.fit ?? fallback.fit) === 'frame' ? 'frame' : 'text';
+}
+
+export function hasLookCushion(textStyle: unknown, presetStyle: unknown, defaultStyle?: unknown): boolean {
+    const background = {
+        ...object(object(defaultStyle).background),
+        ...object(object(presetStyle).background),
+        ...object(object(textStyle).background)
+    };
+    if (background.opacity === 0) return false;
+    return typeof background.color === 'string' || typeof background.opacity === 'number' && background.opacity > 0;
+}
+
+export interface DockLookState {
+    textColor: string | undefined;
+    backgroundColor: string | undefined;
+    fit: 'text' | 'frame';
+    fitDisabled: boolean;
+}
+
+export function dockLookState(
+    rows: ReadonlyArray<{ textStyle?: unknown; presetStyle?: unknown }>,
+    defaultStyle?: unknown
+): DockLookState {
+    const single = rows.length === 1 ? rows[0] : undefined;
+    return {
+        textColor: currentLookSwatch(single?.textStyle, single?.presetStyle, 'color'),
+        backgroundColor: currentLookSwatch(single?.textStyle, single?.presetStyle, 'background'),
+        fit: currentLookFit(single?.textStyle, single?.presetStyle, defaultStyle),
+        fitDisabled: rows.length === 0 || rows.every(row =>
+            !hasLookCushion(row.textStyle, row.presetStyle, defaultStyle))
+    };
+}
+
+export function shouldRefreshLookDock(kind: DockKind | undefined, tab: DockTab, open: boolean): boolean {
+    return kind === 'row' && tab === 'look' && open;
 }
 
 const object = (value: unknown): Record<string, unknown> =>
