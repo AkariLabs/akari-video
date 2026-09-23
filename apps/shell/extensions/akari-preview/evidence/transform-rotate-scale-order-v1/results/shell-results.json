@@ -1,0 +1,757 @@
+{
+  "startedAt": "2026-09-23T01:31:28.281Z",
+  "executable": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-rotate-scale-order/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron",
+  "port": 9837,
+  "tolerancePx": 1,
+  "pass": true,
+  "cases": [
+    {
+      "fixture": "scale-x",
+      "expectedFrames": [
+        0
+      ],
+      "pass": true,
+      "measurements": [
+        {
+          "frame": 0,
+          "measured": {
+            "width": 200,
+            "height": 60.000004008877525,
+            "time": 0,
+            "frame": 0,
+            "tickSequence": 2,
+            "seekValue": 0,
+            "stage": {
+              "width": 812,
+              "height": 456.7499694824219
+            },
+            "clientBounds": {
+              "left": 315.125,
+              "top": 214.9375,
+              "width": 253.75,
+              "height": 76.125
+            },
+            "matrix": "matrix(2, 0, 0, 1, 0, 0)",
+            "scaleX": "2",
+            "scaleY": "1",
+            "corners": [
+              null,
+              null,
+              null,
+              null
+            ]
+          },
+          "expected": {
+            "width": 200,
+            "height": 60
+          },
+          "delta": {
+            "width": 0,
+            "height": 0.000004008877525052412
+          },
+          "angleErrorDeg": null,
+          "pass": true,
+          "screenshot": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-rotate-scale-order/apps/shell/extensions/akari-preview/evidence/transform-rotate-scale-order-v1/results/shell-scale-x-frame-0.png"
+        }
+      ],
+      "startedAt": "2026-09-23T01:31:28.285Z",
+      "project": "/private/var/folders/j1/hl65g8x91mv4hl8rm7q04j440000gn/T/akari-axis-shell-hDhBre/project",
+      "editSha256": "a486f41702fe55b92b08f693b1b18e7dd96427dc73d1510db9ee572c08970cec",
+      "electronLog": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-rotate-scale-order/apps/shell/extensions/akari-preview/evidence/transform-rotate-scale-order-v1/results/shell-scale-x-electron.log",
+      "editUnchanged": true,
+      "electronExit": {
+        "code": 0,
+        "signal": null
+      },
+      "workspaceRemoved": true,
+      "finishedAt": "2026-09-23T01:31:44.342Z"
+    },
+    {
+      "fixture": "scale-y",
+      "expectedFrames": [
+        0
+      ],
+      "pass": true,
+      "measurements": [
+        {
+          "frame": 0,
+          "measured": {
+            "width": 99.99997594673646,
+            "height": 30.00001403107134,
+            "time": 0,
+            "frame": 0,
+            "tickSequence": 2,
+            "seekValue": 0,
+            "stage": {
+              "width": 812,
+              "height": 456.7499694824219
+            },
+            "clientBounds": {
+              "left": 378.5625,
+              "top": 233.96873474121094,
+              "width": 126.87496948242188,
+              "height": 38.06251525878906
+            },
+            "matrix": "matrix(1, 0, 0, 0.5, 0, 0)",
+            "scaleX": "1",
+            "scaleY": "0.5",
+            "corners": [
+              null,
+              null,
+              null,
+              null
+            ]
+          },
+          "expected": {
+            "width": 100,
+            "height": 30
+          },
+          "delta": {
+            "width": -0.00002405326354448789,
+            "height": 0.000014031071341236157
+          },
+          "angleErrorDeg": null,
+          "pass": true,
+          "screenshot": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-rotate-scale-order/apps/shell/extensions/akari-preview/evidence/transform-rotate-scale-order-v1/results/shell-scale-y-frame-0.png"
+        }
+      ],
+      "startedAt": "2026-09-23T01:31:44.343Z",
+      "project": "/private/var/folders/j1/hl65g8x91mv4hl8rm7q04j440000gn/T/akari-axis-shell-hc55tK/project",
+      "editSha256": "8711851f950f4c8fb28f6c50eb919d44f9128be5b36663e42ecc8fce4cf18f76",
+      "electronLog": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-rotate-scale-order/apps/shell/extensions/akari-preview/evidence/transform-rotate-scale-order-v1/results/shell-scale-y-electron.log",
+      "editUnchanged": true,
+      "electronExit": {
+        "code": 0,
+        "signal": null
+      },
+      "workspaceRemoved": true,
+      "finishedAt": "2026-09-23T01:31:55.459Z"
+    },
+    {
+      "fixture": "rotated",
+      "expectedFrames": [
+        0
+      ],
+      "pass": true,
+      "measurements": [
+        {
+          "frame": 0,
+          "measured": {
+            "width": 152.40381099907634,
+            "height": 113.97112926672352,
+            "time": 0,
+            "frame": 0,
+            "tickSequence": 2,
+            "seekValue": 0,
+            "stage": {
+              "width": 812,
+              "height": 456.7499694824219
+            },
+            "clientBounds": {
+              "left": 345.3188171386719,
+              "top": 180.69955444335938,
+              "width": 193.36233520507812,
+              "height": 144.60086059570312
+            },
+            "matrix": "matrix(1.29904, 0.75, -0.375, 0.649519, 0, 0)",
+            "scaleX": "1.5",
+            "scaleY": "0.75",
+            "corners": [
+              {
+                "x": 373.8656921386719,
+                "y": 180.69955444335938
+              },
+              {
+                "x": 538.68115234375,
+                "y": 275.8558044433594
+              },
+              {
+                "x": 510.13427734375,
+                "y": 325.3004150390625
+              },
+              {
+                "x": 345.3188171386719,
+                "y": 230.14418029785156
+              }
+            ]
+          },
+          "expected": {
+            "width": 152.4038105676658,
+            "height": 113.97114317029973
+          },
+          "delta": {
+            "width": 4.3141054106854426e-7,
+            "height": -0.00001390357620323357
+          },
+          "angleErrorDeg": 0.000013781510520401661,
+          "pass": true,
+          "screenshot": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-rotate-scale-order/apps/shell/extensions/akari-preview/evidence/transform-rotate-scale-order-v1/results/shell-rotated-frame-0.png"
+        }
+      ],
+      "startedAt": "2026-09-23T01:31:55.462Z",
+      "project": "/private/var/folders/j1/hl65g8x91mv4hl8rm7q04j440000gn/T/akari-axis-shell-EGaJm7/project",
+      "editSha256": "ccd53e3832c1eafbde38030ef2ec65e9019d9e0ed9b9b54338d2dc5fd693508e",
+      "electronLog": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-rotate-scale-order/apps/shell/extensions/akari-preview/evidence/transform-rotate-scale-order-v1/results/shell-rotated-electron.log",
+      "editUnchanged": true,
+      "electronExit": {
+        "code": 0,
+        "signal": null
+      },
+      "workspaceRemoved": true,
+      "finishedAt": "2026-09-23T01:32:07.608Z"
+    },
+    {
+      "fixture": "group-leaf",
+      "expectedFrames": [
+        0
+      ],
+      "pass": true,
+      "measurements": [
+        {
+          "frame": 0,
+          "measured": {
+            "width": 254.0063356296182,
+            "height": 189.951906164471,
+            "time": 0,
+            "frame": 0,
+            "tickSequence": 2,
+            "seekValue": 0,
+            "stage": {
+              "width": 812,
+              "height": 456.7499694824219
+            },
+            "clientBounds": {
+              "left": 306.2397155761719,
+              "top": 145.186767578125,
+              "width": 322.2705383300781,
+              "height": 241.00146484375
+            },
+            "matrix": "matrix(2.16506, 1.25, -0.625, 1.08253, 20, 10)",
+            "scaleX": "2.5",
+            "scaleY": "1.25",
+            "corners": [
+              {
+                "x": 353.8178405761719,
+                "y": 145.186767578125
+              },
+              {
+                "x": 628.51025390625,
+                "y": 303.7804870605469
+              },
+              {
+                "x": 580.93212890625,
+                "y": 386.188232421875
+              },
+              {
+                "x": 306.2397155761719,
+                "y": 227.594482421875
+              }
+            ]
+          },
+          "expected": {
+            "width": 254.00635094610968,
+            "height": 189.9519052838329
+          },
+          "delta": {
+            "width": -0.000015316491470684923,
+            "height": 8.806381117665296e-7
+          },
+          "angleErrorDeg": 0.0000016573146422558511,
+          "pass": true,
+          "screenshot": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-rotate-scale-order/apps/shell/extensions/akari-preview/evidence/transform-rotate-scale-order-v1/results/shell-group-leaf-frame-0.png"
+        }
+      ],
+      "startedAt": "2026-09-23T01:32:07.609Z",
+      "project": "/private/var/folders/j1/hl65g8x91mv4hl8rm7q04j440000gn/T/akari-axis-shell-nmLf0L/project",
+      "editSha256": "dcf309bc47e2ba24a6f9fdfc02142778e6fbe0b11c4a148107dd18e0a933b9d4",
+      "electronLog": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-rotate-scale-order/apps/shell/extensions/akari-preview/evidence/transform-rotate-scale-order-v1/results/shell-group-leaf-electron.log",
+      "editUnchanged": true,
+      "electronExit": {
+        "code": 0,
+        "signal": null
+      },
+      "workspaceRemoved": true,
+      "finishedAt": "2026-09-23T01:32:18.186Z"
+    },
+    {
+      "fixture": "uniform-rotated",
+      "expectedFrames": [
+        0
+      ],
+      "pass": true,
+      "measurements": [
+        {
+          "frame": 0,
+          "measured": {
+            "width": 145.75317984144087,
+            "height": 127.4519140151895,
+            "time": 0,
+            "frame": 0,
+            "tickSequence": 2,
+            "seekValue": 0,
+            "stage": {
+              "width": 812,
+              "height": 456.7499694824219
+            },
+            "clientBounds": {
+              "left": 349.5378112792969,
+              "top": 172.14768981933594,
+              "width": 184.92434692382812,
+              "height": 161.70460510253906
+            },
+            "matrix": "matrix(1.08253, 0.625, -0.625, 1.08253, 0, 0)",
+            "scaleX": "",
+            "scaleY": "",
+            "corners": [
+              {
+                "x": 397.1159362792969,
+                "y": 172.14768981933594
+              },
+              {
+                "x": 534.462158203125,
+                "y": 251.44456481933594
+              },
+              {
+                "x": 486.884033203125,
+                "y": 333.852294921875
+              },
+              {
+                "x": 349.5378112792969,
+                "y": 254.555419921875
+              }
+            ]
+          },
+          "expected": {
+            "width": 145.75317547305482,
+            "height": 127.4519052838329
+          },
+          "delta": {
+            "width": 0.000004368386044006911,
+            "height": 0.000008731356601288098
+          },
+          "angleErrorDeg": 9.187669597366382e-7,
+          "pass": true,
+          "screenshot": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-rotate-scale-order/apps/shell/extensions/akari-preview/evidence/transform-rotate-scale-order-v1/results/shell-uniform-rotated-frame-0.png"
+        }
+      ],
+      "startedAt": "2026-09-23T01:32:18.187Z",
+      "project": "/private/var/folders/j1/hl65g8x91mv4hl8rm7q04j440000gn/T/akari-axis-shell-4pxJL4/project",
+      "editSha256": "4e57999d506470f7710cdb13a2e596434e79721d9fc17260b91ae259ec12ac31",
+      "electronLog": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-rotate-scale-order/apps/shell/extensions/akari-preview/evidence/transform-rotate-scale-order-v1/results/shell-uniform-rotated-electron.log",
+      "editUnchanged": true,
+      "electronExit": {
+        "code": 0,
+        "signal": null
+      },
+      "workspaceRemoved": true,
+      "finishedAt": "2026-09-23T01:32:28.563Z"
+    },
+    {
+      "fixture": "keyframes",
+      "expectedFrames": [
+        0,
+        30,
+        45,
+        58
+      ],
+      "pass": true,
+      "measurements": [
+        {
+          "frame": 0,
+          "measured": {
+            "width": 99.99997594673646,
+            "height": 60.000004008877525,
+            "time": 0,
+            "frame": 0,
+            "tickSequence": 2,
+            "seekValue": 0,
+            "stage": {
+              "width": 812,
+              "height": 456.7499694824219
+            },
+            "clientBounds": {
+              "left": 378.5625,
+              "top": 214.9375,
+              "width": 126.87496948242188,
+              "height": 76.125
+            },
+            "matrix": "matrix(1, 0, 0, 1, 0, 0)",
+            "scaleX": "1",
+            "scaleY": "1",
+            "corners": [
+              null,
+              null,
+              null,
+              null
+            ]
+          },
+          "expected": {
+            "width": 100,
+            "height": 60
+          },
+          "delta": {
+            "width": -0.00002405326354448789,
+            "height": 0.000004008877525052412
+          },
+          "angleErrorDeg": null,
+          "pass": true,
+          "screenshot": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-rotate-scale-order/apps/shell/extensions/akari-preview/evidence/transform-rotate-scale-order-v1/results/shell-keyframes-frame-0.png"
+        },
+        {
+          "frame": 30,
+          "measured": {
+            "width": 150,
+            "height": 60.000004008877525,
+            "time": 1,
+            "frame": 30,
+            "tickSequence": 3,
+            "seekValue": 1,
+            "stage": {
+              "width": 812,
+              "height": 456.7499694824219
+            },
+            "clientBounds": {
+              "left": 346.84375,
+              "top": 214.9375,
+              "width": 190.3125,
+              "height": 76.125
+            },
+            "matrix": "matrix(1.5, 0, 0, 1, 0, 0)",
+            "scaleX": "1.5",
+            "scaleY": "1",
+            "corners": [
+              null,
+              null,
+              null,
+              null
+            ]
+          },
+          "expected": {
+            "width": 150,
+            "height": 60
+          },
+          "delta": {
+            "width": 0,
+            "height": 0.000004008877525052412
+          },
+          "angleErrorDeg": null,
+          "pass": true,
+          "screenshot": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-rotate-scale-order/apps/shell/extensions/akari-preview/evidence/transform-rotate-scale-order-v1/results/shell-keyframes-frame-30.png"
+        },
+        {
+          "frame": 45,
+          "measured": {
+            "width": 175,
+            "height": 60.000004008877525,
+            "time": 1.5,
+            "frame": 45,
+            "tickSequence": 4,
+            "seekValue": 1.5,
+            "stage": {
+              "width": 812,
+              "height": 456.7499694824219
+            },
+            "clientBounds": {
+              "left": 330.984375,
+              "top": 214.9375,
+              "width": 222.03125,
+              "height": 76.125
+            },
+            "matrix": "matrix(1.75, 0, 0, 1, 0, 0)",
+            "scaleX": "1.75",
+            "scaleY": "1",
+            "corners": [
+              null,
+              null,
+              null,
+              null
+            ]
+          },
+          "expected": {
+            "width": 175,
+            "height": 60
+          },
+          "delta": {
+            "width": 0,
+            "height": 0.000004008877525052412
+          },
+          "angleErrorDeg": null,
+          "pass": true,
+          "screenshot": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-rotate-scale-order/apps/shell/extensions/akari-preview/evidence/transform-rotate-scale-order-v1/results/shell-keyframes-frame-45.png"
+        },
+        {
+          "frame": 58,
+          "measured": {
+            "width": 196.66667468442117,
+            "height": 60.000004008877525,
+            "time": 1.9333333333333333,
+            "frame": 58,
+            "tickSequence": 5,
+            "seekValue": 1.93333333333333,
+            "stage": {
+              "width": 812,
+              "height": 456.7499694824219
+            },
+            "clientBounds": {
+              "left": 317.2395324707031,
+              "top": 214.9375,
+              "width": 249.52084350585938,
+              "height": 76.125
+            },
+            "matrix": "matrix(1.96667, 0, 0, 1, 0, 0)",
+            "scaleX": "1.966666667",
+            "scaleY": "1",
+            "corners": [
+              null,
+              null,
+              null,
+              null
+            ]
+          },
+          "expected": {
+            "width": 196.66666666666669,
+            "height": 60
+          },
+          "delta": {
+            "width": 0.000008017754481670636,
+            "height": 0.000004008877525052412
+          },
+          "angleErrorDeg": null,
+          "pass": true,
+          "screenshot": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-rotate-scale-order/apps/shell/extensions/akari-preview/evidence/transform-rotate-scale-order-v1/results/shell-keyframes-frame-58.png"
+        }
+      ],
+      "startedAt": "2026-09-23T01:32:28.564Z",
+      "project": "/private/var/folders/j1/hl65g8x91mv4hl8rm7q04j440000gn/T/akari-axis-shell-DC9sXi/project",
+      "editSha256": "49041ae50385781d1e164f918cf0461231aa3734db7cd04fcbc7aa10f113126a",
+      "electronLog": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-rotate-scale-order/apps/shell/extensions/akari-preview/evidence/transform-rotate-scale-order-v1/results/shell-keyframes-electron.log",
+      "editUnchanged": true,
+      "terminalSeekDiagnostic": {
+        "frame": 59,
+        "status": "unavailable",
+        "error": "timeout: rendered frame 59",
+        "lastState": {
+          "clock": {
+            "seconds": 1.9333333333333333,
+            "sequence": 6
+          },
+          "seek": {
+            "min": "0",
+            "max": "2",
+            "value": "1.93333333333333"
+          }
+        }
+      },
+      "electronExit": {
+        "code": 0,
+        "signal": null
+      },
+      "workspaceRemoved": true,
+      "finishedAt": "2026-09-23T01:32:48.408Z"
+    },
+    {
+      "fixture": "legacy-keyframes",
+      "expectedFrames": [
+        0,
+        30,
+        45,
+        58
+      ],
+      "pass": true,
+      "measurements": [
+        {
+          "frame": 0,
+          "measured": {
+            "width": 99.99997594673646,
+            "height": 60.000004008877525,
+            "time": 0,
+            "frame": 0,
+            "tickSequence": 2,
+            "seekValue": 0,
+            "stage": {
+              "width": 812,
+              "height": 456.7499694824219
+            },
+            "clientBounds": {
+              "left": 378.5625,
+              "top": 214.9375,
+              "width": 126.87496948242188,
+              "height": 76.125
+            },
+            "matrix": "matrix(1, 0, 0, 1, 0, 0)",
+            "scaleX": "",
+            "scaleY": "",
+            "corners": [
+              null,
+              null,
+              null,
+              null
+            ]
+          },
+          "expected": {
+            "width": 100,
+            "height": 60
+          },
+          "delta": {
+            "width": -0.00002405326354448789,
+            "height": 0.000004008877525052412
+          },
+          "angleErrorDeg": null,
+          "pass": true,
+          "screenshot": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-rotate-scale-order/apps/shell/extensions/akari-preview/evidence/transform-rotate-scale-order-v1/results/shell-legacy-keyframes-frame-0.png"
+        },
+        {
+          "frame": 30,
+          "measured": {
+            "width": 150,
+            "height": 90.0000060133163,
+            "time": 1,
+            "frame": 30,
+            "tickSequence": 3,
+            "seekValue": 1,
+            "stage": {
+              "width": 812,
+              "height": 456.7499694824219
+            },
+            "clientBounds": {
+              "left": 346.84375,
+              "top": 195.90625,
+              "width": 190.3125,
+              "height": 114.1875
+            },
+            "matrix": "matrix(1.5, 0, 0, 1.5, 0, 0)",
+            "scaleX": "",
+            "scaleY": "",
+            "corners": [
+              null,
+              null,
+              null,
+              null
+            ]
+          },
+          "expected": {
+            "width": 150,
+            "height": 90
+          },
+          "delta": {
+            "width": 0,
+            "height": 0.000006013316294684046
+          },
+          "angleErrorDeg": null,
+          "pass": true,
+          "screenshot": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-rotate-scale-order/apps/shell/extensions/akari-preview/evidence/transform-rotate-scale-order-v1/results/shell-legacy-keyframes-frame-30.png"
+        },
+        {
+          "frame": 45,
+          "measured": {
+            "width": 175,
+            "height": 105.00000701553567,
+            "time": 1.5,
+            "frame": 45,
+            "tickSequence": 4,
+            "seekValue": 1.5,
+            "stage": {
+              "width": 812,
+              "height": 456.7499694824219
+            },
+            "clientBounds": {
+              "left": 330.984375,
+              "top": 186.390625,
+              "width": 222.03125,
+              "height": 133.21875
+            },
+            "matrix": "matrix(1.75, 0, 0, 1.75, 0, 0)",
+            "scaleX": "",
+            "scaleY": "",
+            "corners": [
+              null,
+              null,
+              null,
+              null
+            ]
+          },
+          "expected": {
+            "width": 175,
+            "height": 105
+          },
+          "delta": {
+            "width": 0,
+            "height": 0.000007015535672394435
+          },
+          "angleErrorDeg": null,
+          "pass": true,
+          "screenshot": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-rotate-scale-order/apps/shell/extensions/akari-preview/evidence/transform-rotate-scale-order-v1/results/shell-legacy-keyframes-frame-45.png"
+        },
+        {
+          "frame": 58,
+          "measured": {
+            "width": 196.66667468442117,
+            "height": 118.00000307347277,
+            "time": 1.9333333333333333,
+            "frame": 58,
+            "tickSequence": 5,
+            "seekValue": 1.93333333333333,
+            "stage": {
+              "width": 812,
+              "height": 456.7499694824219
+            },
+            "clientBounds": {
+              "left": 317.2395324707031,
+              "top": 178.14373779296875,
+              "width": 249.52084350585938,
+              "height": 149.71249389648438
+            },
+            "matrix": "matrix(1.96667, 0, 0, 1.96667, 0, 0)",
+            "scaleX": "",
+            "scaleY": "",
+            "corners": [
+              null,
+              null,
+              null,
+              null
+            ]
+          },
+          "expected": {
+            "width": 196.66666666666669,
+            "height": 118
+          },
+          "delta": {
+            "width": 0.000008017754481670636,
+            "height": 0.0000030734727687331542
+          },
+          "angleErrorDeg": null,
+          "pass": true,
+          "screenshot": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-rotate-scale-order/apps/shell/extensions/akari-preview/evidence/transform-rotate-scale-order-v1/results/shell-legacy-keyframes-frame-58.png"
+        }
+      ],
+      "startedAt": "2026-09-23T01:32:48.409Z",
+      "project": "/private/var/folders/j1/hl65g8x91mv4hl8rm7q04j440000gn/T/akari-axis-shell-SEsdUT/project",
+      "editSha256": "ab2f6f7ee3de229ea0f910fab33742e48c48dda65bcd1477ebf868d7a17a907e",
+      "electronLog": "/Users/ryoma/_edit/30_products/akari-video-wt/transform-rotate-scale-order/apps/shell/extensions/akari-preview/evidence/transform-rotate-scale-order-v1/results/shell-legacy-keyframes-electron.log",
+      "editUnchanged": true,
+      "terminalSeekDiagnostic": {
+        "frame": 59,
+        "status": "unavailable",
+        "error": "timeout: rendered frame 59",
+        "lastState": {
+          "clock": {
+            "seconds": 1.9333333333333333,
+            "sequence": 6
+          },
+          "seek": {
+            "min": "0",
+            "max": "2",
+            "value": "1.93333333333333"
+          }
+        }
+      },
+      "electronExit": {
+        "code": 0,
+        "signal": null
+      },
+      "workspaceRemoved": true,
+      "finishedAt": "2026-09-23T01:33:12.053Z"
+    }
+  ],
+  "finishedAt": "2026-09-23T01:33:12.054Z"
+}

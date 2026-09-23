@@ -65,6 +65,9 @@ export function renderOverlaySheet({ overlays, edit, projectRoot, duration }) {
   const overlayScaleCss = usesAxisScale
     ? "scale(var(--scale-x, var(--scale, 1)), var(--scale-y, var(--scale, 1)))"
     : "scale(var(--scale, 1))";
+  const overlayRotateScaleCss = usesAxisScale
+    ? `rotate(var(--rotate, 0deg)) ${overlayScaleCss}`
+    : `${overlayScaleCss} rotate(var(--rotate, 0deg))`;
   const strippedOverlayHtml = orderedOverlays.map((overlay) => stripHtmlComments(overlay.html));
   const hasTextSlotParams = orderedOverlays.some((overlay) =>
     overlay.params && typeof overlay.params === "object" && !Array.isArray(overlay.params)
@@ -172,7 +175,7 @@ export function renderOverlaySheet({ overlays, edit, projectRoot, duration }) {
   <style>
     html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: transparent !important; }
     #stage { position: relative; width: ${edit.output.width}px; height: ${edit.output.height}px; overflow: hidden; background: transparent; }
-    .akari-overlay-container { position: absolute; inset: 0; visibility: hidden; pointer-events: none; transform: translate(var(--x, 0px), var(--y, 0px)) ${overlayScaleCss} rotate(var(--rotate, 0deg)); transform-origin: center; }
+    .akari-overlay-container { position: absolute; inset: 0; visibility: hidden; pointer-events: none; transform: translate(var(--x, 0px), var(--y, 0px)) ${overlayRotateScaleCss}; transform-origin: center; }
     .akari-overlay-container > .scene-content { position: absolute; inset: 0; }
   </style>${motionVocabularyStyle}${itemKeyframesRuntimeScripts}${runtimeScripts}
 </head>

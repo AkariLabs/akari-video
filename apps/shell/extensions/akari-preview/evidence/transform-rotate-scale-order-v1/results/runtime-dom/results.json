@@ -1,0 +1,1635 @@
+{
+  "description": "Classic shell runtime versus export overlay sheet in Chrome (supplemental)",
+  "measurements": [
+    {
+      "fixture": "scale-x",
+      "frame": 0,
+      "classic": {
+        "width": 200,
+        "height": 60,
+        "left": 220,
+        "top": 150
+      },
+      "export-sheet": {
+        "width": 200,
+        "height": 60,
+        "left": 220,
+        "top": 150
+      },
+      "expected": {
+        "width": 200,
+        "height": 60
+      },
+      "pass": true
+    },
+    {
+      "fixture": "scale-x",
+      "frame": 15,
+      "classic": {
+        "width": 200,
+        "height": 60,
+        "left": 220,
+        "top": 150
+      },
+      "export-sheet": {
+        "width": 200,
+        "height": 60,
+        "left": 220,
+        "top": 150
+      },
+      "expected": {
+        "width": 200,
+        "height": 60
+      },
+      "pass": true
+    },
+    {
+      "fixture": "scale-x",
+      "frame": 30,
+      "classic": {
+        "width": 200,
+        "height": 60,
+        "left": 220,
+        "top": 150
+      },
+      "export-sheet": {
+        "width": 200,
+        "height": 60,
+        "left": 220,
+        "top": 150
+      },
+      "expected": {
+        "width": 200,
+        "height": 60
+      },
+      "pass": true
+    },
+    {
+      "fixture": "scale-x",
+      "frame": 45,
+      "classic": {
+        "width": 200,
+        "height": 60,
+        "left": 220,
+        "top": 150
+      },
+      "export-sheet": {
+        "width": 200,
+        "height": 60,
+        "left": 220,
+        "top": 150
+      },
+      "expected": {
+        "width": 200,
+        "height": 60
+      },
+      "pass": true
+    },
+    {
+      "fixture": "scale-x",
+      "frame": 59,
+      "classic": {
+        "width": 200,
+        "height": 60,
+        "left": 220,
+        "top": 150
+      },
+      "export-sheet": {
+        "width": 200,
+        "height": 60,
+        "left": 220,
+        "top": 150
+      },
+      "expected": {
+        "width": 200,
+        "height": 60
+      },
+      "pass": true
+    },
+    {
+      "fixture": "scale-y",
+      "frame": 0,
+      "classic": {
+        "width": 100,
+        "height": 30,
+        "left": 270,
+        "top": 165
+      },
+      "export-sheet": {
+        "width": 100,
+        "height": 30,
+        "left": 270,
+        "top": 165
+      },
+      "expected": {
+        "width": 100,
+        "height": 30
+      },
+      "pass": true
+    },
+    {
+      "fixture": "scale-y",
+      "frame": 15,
+      "classic": {
+        "width": 100,
+        "height": 30,
+        "left": 270,
+        "top": 165
+      },
+      "export-sheet": {
+        "width": 100,
+        "height": 30,
+        "left": 270,
+        "top": 165
+      },
+      "expected": {
+        "width": 100,
+        "height": 30
+      },
+      "pass": true
+    },
+    {
+      "fixture": "scale-y",
+      "frame": 30,
+      "classic": {
+        "width": 100,
+        "height": 30,
+        "left": 270,
+        "top": 165
+      },
+      "export-sheet": {
+        "width": 100,
+        "height": 30,
+        "left": 270,
+        "top": 165
+      },
+      "expected": {
+        "width": 100,
+        "height": 30
+      },
+      "pass": true
+    },
+    {
+      "fixture": "scale-y",
+      "frame": 45,
+      "classic": {
+        "width": 100,
+        "height": 30,
+        "left": 270,
+        "top": 165
+      },
+      "export-sheet": {
+        "width": 100,
+        "height": 30,
+        "left": 270,
+        "top": 165
+      },
+      "expected": {
+        "width": 100,
+        "height": 30
+      },
+      "pass": true
+    },
+    {
+      "fixture": "scale-y",
+      "frame": 59,
+      "classic": {
+        "width": 100,
+        "height": 30,
+        "left": 270,
+        "top": 165
+      },
+      "export-sheet": {
+        "width": 100,
+        "height": 30,
+        "left": 270,
+        "top": 165
+      },
+      "expected": {
+        "width": 100,
+        "height": 30
+      },
+      "pass": true
+    },
+    {
+      "fixture": "rotated",
+      "frame": 0,
+      "classic": {
+        "width": 152.40380859375,
+        "height": 113.97113800048828,
+        "left": 243.798095703125,
+        "top": 123.0144271850586
+      },
+      "export-sheet": {
+        "width": 152.40380859375,
+        "height": 113.97113800048828,
+        "left": 243.798095703125,
+        "top": 123.0144271850586
+      },
+      "expected": {
+        "width": 152.4038105676658,
+        "height": 113.97114317029973
+      },
+      "pass": true
+    },
+    {
+      "fixture": "rotated",
+      "frame": 15,
+      "classic": {
+        "width": 152.40380859375,
+        "height": 113.97113800048828,
+        "left": 243.798095703125,
+        "top": 123.0144271850586
+      },
+      "export-sheet": {
+        "width": 152.40380859375,
+        "height": 113.97113800048828,
+        "left": 243.798095703125,
+        "top": 123.0144271850586
+      },
+      "expected": {
+        "width": 152.4038105676658,
+        "height": 113.97114317029973
+      },
+      "pass": true
+    },
+    {
+      "fixture": "rotated",
+      "frame": 30,
+      "classic": {
+        "width": 152.40380859375,
+        "height": 113.97113800048828,
+        "left": 243.798095703125,
+        "top": 123.0144271850586
+      },
+      "export-sheet": {
+        "width": 152.40380859375,
+        "height": 113.97113800048828,
+        "left": 243.798095703125,
+        "top": 123.0144271850586
+      },
+      "expected": {
+        "width": 152.4038105676658,
+        "height": 113.97114317029973
+      },
+      "pass": true
+    },
+    {
+      "fixture": "rotated",
+      "frame": 45,
+      "classic": {
+        "width": 152.40380859375,
+        "height": 113.97113800048828,
+        "left": 243.798095703125,
+        "top": 123.0144271850586
+      },
+      "export-sheet": {
+        "width": 152.40380859375,
+        "height": 113.97113800048828,
+        "left": 243.798095703125,
+        "top": 123.0144271850586
+      },
+      "expected": {
+        "width": 152.4038105676658,
+        "height": 113.97114317029973
+      },
+      "pass": true
+    },
+    {
+      "fixture": "rotated",
+      "frame": 59,
+      "classic": {
+        "width": 152.40380859375,
+        "height": 113.97113800048828,
+        "left": 243.798095703125,
+        "top": 123.0144271850586
+      },
+      "export-sheet": {
+        "width": 152.40380859375,
+        "height": 113.97113800048828,
+        "left": 243.798095703125,
+        "top": 123.0144271850586
+      },
+      "expected": {
+        "width": 152.4038105676658,
+        "height": 113.97114317029973
+      },
+      "pass": true
+    },
+    {
+      "fixture": "group-leaf",
+      "frame": 0,
+      "classic": {
+        "width": 254.00634765625,
+        "height": 189.951904296875,
+        "left": 212.996826171875,
+        "top": 95.0240478515625
+      },
+      "export-sheet": {
+        "width": 254.00634765625,
+        "height": 189.951904296875,
+        "left": 212.996826171875,
+        "top": 95.0240478515625
+      },
+      "expected": {
+        "width": 254.00635094610968,
+        "height": 189.9519052838329
+      },
+      "pass": true
+    },
+    {
+      "fixture": "group-leaf",
+      "frame": 15,
+      "classic": {
+        "width": 254.00634765625,
+        "height": 189.951904296875,
+        "left": 212.996826171875,
+        "top": 95.0240478515625
+      },
+      "export-sheet": {
+        "width": 254.00634765625,
+        "height": 189.951904296875,
+        "left": 212.996826171875,
+        "top": 95.0240478515625
+      },
+      "expected": {
+        "width": 254.00635094610968,
+        "height": 189.9519052838329
+      },
+      "pass": true
+    },
+    {
+      "fixture": "group-leaf",
+      "frame": 30,
+      "classic": {
+        "width": 254.00634765625,
+        "height": 189.951904296875,
+        "left": 212.996826171875,
+        "top": 95.0240478515625
+      },
+      "export-sheet": {
+        "width": 254.00634765625,
+        "height": 189.951904296875,
+        "left": 212.996826171875,
+        "top": 95.0240478515625
+      },
+      "expected": {
+        "width": 254.00635094610968,
+        "height": 189.9519052838329
+      },
+      "pass": true
+    },
+    {
+      "fixture": "group-leaf",
+      "frame": 45,
+      "classic": {
+        "width": 254.00634765625,
+        "height": 189.951904296875,
+        "left": 212.996826171875,
+        "top": 95.0240478515625
+      },
+      "export-sheet": {
+        "width": 254.00634765625,
+        "height": 189.951904296875,
+        "left": 212.996826171875,
+        "top": 95.0240478515625
+      },
+      "expected": {
+        "width": 254.00635094610968,
+        "height": 189.9519052838329
+      },
+      "pass": true
+    },
+    {
+      "fixture": "group-leaf",
+      "frame": 59,
+      "classic": {
+        "width": 254.00634765625,
+        "height": 189.951904296875,
+        "left": 212.996826171875,
+        "top": 95.0240478515625
+      },
+      "export-sheet": {
+        "width": 254.00634765625,
+        "height": 189.951904296875,
+        "left": 212.996826171875,
+        "top": 95.0240478515625
+      },
+      "expected": {
+        "width": 254.00635094610968,
+        "height": 189.9519052838329
+      },
+      "pass": true
+    },
+    {
+      "fixture": "uniform-rotated",
+      "frame": 0,
+      "classic": {
+        "width": 145.753173828125,
+        "height": 127.451904296875,
+        "left": 247.1234130859375,
+        "top": 116.2740478515625
+      },
+      "export-sheet": {
+        "width": 145.753173828125,
+        "height": 127.451904296875,
+        "left": 247.1234130859375,
+        "top": 116.2740478515625
+      },
+      "expected": {
+        "width": 145.75317547305482,
+        "height": 127.4519052838329
+      },
+      "pass": true
+    },
+    {
+      "fixture": "uniform-rotated",
+      "frame": 15,
+      "classic": {
+        "width": 145.753173828125,
+        "height": 127.451904296875,
+        "left": 247.1234130859375,
+        "top": 116.2740478515625
+      },
+      "export-sheet": {
+        "width": 145.753173828125,
+        "height": 127.451904296875,
+        "left": 247.1234130859375,
+        "top": 116.2740478515625
+      },
+      "expected": {
+        "width": 145.75317547305482,
+        "height": 127.4519052838329
+      },
+      "pass": true
+    },
+    {
+      "fixture": "uniform-rotated",
+      "frame": 30,
+      "classic": {
+        "width": 145.753173828125,
+        "height": 127.451904296875,
+        "left": 247.1234130859375,
+        "top": 116.2740478515625
+      },
+      "export-sheet": {
+        "width": 145.753173828125,
+        "height": 127.451904296875,
+        "left": 247.1234130859375,
+        "top": 116.2740478515625
+      },
+      "expected": {
+        "width": 145.75317547305482,
+        "height": 127.4519052838329
+      },
+      "pass": true
+    },
+    {
+      "fixture": "uniform-rotated",
+      "frame": 45,
+      "classic": {
+        "width": 145.753173828125,
+        "height": 127.451904296875,
+        "left": 247.1234130859375,
+        "top": 116.2740478515625
+      },
+      "export-sheet": {
+        "width": 145.753173828125,
+        "height": 127.451904296875,
+        "left": 247.1234130859375,
+        "top": 116.2740478515625
+      },
+      "expected": {
+        "width": 145.75317547305482,
+        "height": 127.4519052838329
+      },
+      "pass": true
+    },
+    {
+      "fixture": "uniform-rotated",
+      "frame": 59,
+      "classic": {
+        "width": 145.753173828125,
+        "height": 127.451904296875,
+        "left": 247.1234130859375,
+        "top": 116.2740478515625
+      },
+      "export-sheet": {
+        "width": 145.753173828125,
+        "height": 127.451904296875,
+        "left": 247.1234130859375,
+        "top": 116.2740478515625
+      },
+      "expected": {
+        "width": 145.75317547305482,
+        "height": 127.4519052838329
+      },
+      "pass": true
+    },
+    {
+      "fixture": "keyframes",
+      "frame": 0,
+      "classic": {
+        "width": 100,
+        "height": 60,
+        "left": 270,
+        "top": 150
+      },
+      "export-sheet": {
+        "width": 100,
+        "height": 60,
+        "left": 270,
+        "top": 150
+      },
+      "expected": {
+        "width": 100,
+        "height": 60
+      },
+      "pass": true
+    },
+    {
+      "fixture": "keyframes",
+      "frame": 15,
+      "classic": {
+        "width": 125,
+        "height": 60,
+        "left": 257.5,
+        "top": 150
+      },
+      "export-sheet": {
+        "width": 125,
+        "height": 60,
+        "left": 257.5,
+        "top": 150
+      },
+      "expected": {
+        "width": 125,
+        "height": 60
+      },
+      "pass": true
+    },
+    {
+      "fixture": "keyframes",
+      "frame": 30,
+      "classic": {
+        "width": 150,
+        "height": 60,
+        "left": 245,
+        "top": 150
+      },
+      "export-sheet": {
+        "width": 150,
+        "height": 60,
+        "left": 245,
+        "top": 150
+      },
+      "expected": {
+        "width": 150,
+        "height": 60
+      },
+      "pass": true
+    },
+    {
+      "fixture": "keyframes",
+      "frame": 45,
+      "classic": {
+        "width": 175,
+        "height": 60,
+        "left": 232.5,
+        "top": 150
+      },
+      "export-sheet": {
+        "width": 175,
+        "height": 60,
+        "left": 232.5,
+        "top": 150
+      },
+      "expected": {
+        "width": 175,
+        "height": 60
+      },
+      "pass": true
+    },
+    {
+      "fixture": "keyframes",
+      "frame": 59,
+      "classic": {
+        "width": 198.33331298828125,
+        "height": 60,
+        "left": 220.83331298828125,
+        "top": 150
+      },
+      "export-sheet": {
+        "width": 198.33331298828125,
+        "height": 60,
+        "left": 220.83331298828125,
+        "top": 150
+      },
+      "expected": {
+        "width": 198.33333333333334,
+        "height": 60
+      },
+      "pass": true
+    },
+    {
+      "fixture": "legacy",
+      "frame": 0,
+      "classic": {
+        "width": 125,
+        "height": 75,
+        "left": 257.5,
+        "top": 142.5
+      },
+      "export-sheet": {
+        "width": 125,
+        "height": 75,
+        "left": 257.5,
+        "top": 142.5
+      },
+      "expected": {
+        "width": 125,
+        "height": 75
+      },
+      "pass": true
+    },
+    {
+      "fixture": "legacy",
+      "frame": 15,
+      "classic": {
+        "width": 125,
+        "height": 75,
+        "left": 257.5,
+        "top": 142.5
+      },
+      "export-sheet": {
+        "width": 125,
+        "height": 75,
+        "left": 257.5,
+        "top": 142.5
+      },
+      "expected": {
+        "width": 125,
+        "height": 75
+      },
+      "pass": true
+    },
+    {
+      "fixture": "legacy",
+      "frame": 30,
+      "classic": {
+        "width": 125,
+        "height": 75,
+        "left": 257.5,
+        "top": 142.5
+      },
+      "export-sheet": {
+        "width": 125,
+        "height": 75,
+        "left": 257.5,
+        "top": 142.5
+      },
+      "expected": {
+        "width": 125,
+        "height": 75
+      },
+      "pass": true
+    },
+    {
+      "fixture": "legacy",
+      "frame": 45,
+      "classic": {
+        "width": 125,
+        "height": 75,
+        "left": 257.5,
+        "top": 142.5
+      },
+      "export-sheet": {
+        "width": 125,
+        "height": 75,
+        "left": 257.5,
+        "top": 142.5
+      },
+      "expected": {
+        "width": 125,
+        "height": 75
+      },
+      "pass": true
+    },
+    {
+      "fixture": "legacy",
+      "frame": 59,
+      "classic": {
+        "width": 125,
+        "height": 75,
+        "left": 257.5,
+        "top": 142.5
+      },
+      "export-sheet": {
+        "width": 125,
+        "height": 75,
+        "left": 257.5,
+        "top": 142.5
+      },
+      "expected": {
+        "width": 125,
+        "height": 75
+      },
+      "pass": true
+    }
+  ],
+  "cornerChecks": [
+    {
+      "fixture": "rotated",
+      "frame": 0,
+      "surface": "classic",
+      "corners": [
+        {
+          "x": 266.298095703125,
+          "y": 123.0144271850586
+        },
+        {
+          "x": 396.201904296875,
+          "y": 198.01443481445312
+        },
+        {
+          "x": 373.701904296875,
+          "y": 236.98556518554688
+        },
+        {
+          "x": 243.798095703125,
+          "y": 161.98556518554688
+        }
+      ],
+      "angleErrorDeg": 0.000005247456107659026,
+      "pass": true
+    },
+    {
+      "fixture": "rotated",
+      "frame": 0,
+      "surface": "export-sheet",
+      "corners": [
+        {
+          "x": 266.298095703125,
+          "y": 123.0144271850586
+        },
+        {
+          "x": 396.201904296875,
+          "y": 198.01443481445312
+        },
+        {
+          "x": 373.701904296875,
+          "y": 236.98556518554688
+        },
+        {
+          "x": 243.798095703125,
+          "y": 161.98556518554688
+        }
+      ],
+      "angleErrorDeg": 0.000005247456107659026,
+      "pass": true
+    },
+    {
+      "fixture": "rotated",
+      "frame": 15,
+      "surface": "classic",
+      "corners": [
+        {
+          "x": 266.298095703125,
+          "y": 123.0144271850586
+        },
+        {
+          "x": 396.201904296875,
+          "y": 198.01443481445312
+        },
+        {
+          "x": 373.701904296875,
+          "y": 236.98556518554688
+        },
+        {
+          "x": 243.798095703125,
+          "y": 161.98556518554688
+        }
+      ],
+      "angleErrorDeg": 0.000005247456107659026,
+      "pass": true
+    },
+    {
+      "fixture": "rotated",
+      "frame": 15,
+      "surface": "export-sheet",
+      "corners": [
+        {
+          "x": 266.298095703125,
+          "y": 123.0144271850586
+        },
+        {
+          "x": 396.201904296875,
+          "y": 198.01443481445312
+        },
+        {
+          "x": 373.701904296875,
+          "y": 236.98556518554688
+        },
+        {
+          "x": 243.798095703125,
+          "y": 161.98556518554688
+        }
+      ],
+      "angleErrorDeg": 0.000005247456107659026,
+      "pass": true
+    },
+    {
+      "fixture": "rotated",
+      "frame": 30,
+      "surface": "classic",
+      "corners": [
+        {
+          "x": 266.298095703125,
+          "y": 123.0144271850586
+        },
+        {
+          "x": 396.201904296875,
+          "y": 198.01443481445312
+        },
+        {
+          "x": 373.701904296875,
+          "y": 236.98556518554688
+        },
+        {
+          "x": 243.798095703125,
+          "y": 161.98556518554688
+        }
+      ],
+      "angleErrorDeg": 0.000005247456107659026,
+      "pass": true
+    },
+    {
+      "fixture": "rotated",
+      "frame": 30,
+      "surface": "export-sheet",
+      "corners": [
+        {
+          "x": 266.298095703125,
+          "y": 123.0144271850586
+        },
+        {
+          "x": 396.201904296875,
+          "y": 198.01443481445312
+        },
+        {
+          "x": 373.701904296875,
+          "y": 236.98556518554688
+        },
+        {
+          "x": 243.798095703125,
+          "y": 161.98556518554688
+        }
+      ],
+      "angleErrorDeg": 0.000005247456107659026,
+      "pass": true
+    },
+    {
+      "fixture": "rotated",
+      "frame": 45,
+      "surface": "classic",
+      "corners": [
+        {
+          "x": 266.298095703125,
+          "y": 123.0144271850586
+        },
+        {
+          "x": 396.201904296875,
+          "y": 198.01443481445312
+        },
+        {
+          "x": 373.701904296875,
+          "y": 236.98556518554688
+        },
+        {
+          "x": 243.798095703125,
+          "y": 161.98556518554688
+        }
+      ],
+      "angleErrorDeg": 0.000005247456107659026,
+      "pass": true
+    },
+    {
+      "fixture": "rotated",
+      "frame": 45,
+      "surface": "export-sheet",
+      "corners": [
+        {
+          "x": 266.298095703125,
+          "y": 123.0144271850586
+        },
+        {
+          "x": 396.201904296875,
+          "y": 198.01443481445312
+        },
+        {
+          "x": 373.701904296875,
+          "y": 236.98556518554688
+        },
+        {
+          "x": 243.798095703125,
+          "y": 161.98556518554688
+        }
+      ],
+      "angleErrorDeg": 0.000005247456107659026,
+      "pass": true
+    },
+    {
+      "fixture": "rotated",
+      "frame": 59,
+      "surface": "classic",
+      "corners": [
+        {
+          "x": 266.298095703125,
+          "y": 123.0144271850586
+        },
+        {
+          "x": 396.201904296875,
+          "y": 198.01443481445312
+        },
+        {
+          "x": 373.701904296875,
+          "y": 236.98556518554688
+        },
+        {
+          "x": 243.798095703125,
+          "y": 161.98556518554688
+        }
+      ],
+      "angleErrorDeg": 0.000005247456107659026,
+      "pass": true
+    },
+    {
+      "fixture": "rotated",
+      "frame": 59,
+      "surface": "export-sheet",
+      "corners": [
+        {
+          "x": 266.298095703125,
+          "y": 123.0144271850586
+        },
+        {
+          "x": 396.201904296875,
+          "y": 198.01443481445312
+        },
+        {
+          "x": 373.701904296875,
+          "y": 236.98556518554688
+        },
+        {
+          "x": 243.798095703125,
+          "y": 161.98556518554688
+        }
+      ],
+      "angleErrorDeg": 0.000005247456107659026,
+      "pass": true
+    },
+    {
+      "fixture": "group-leaf",
+      "frame": 0,
+      "surface": "classic",
+      "corners": [
+        {
+          "x": 250.496826171875,
+          "y": 95.0240478515625
+        },
+        {
+          "x": 467.003173828125,
+          "y": 220.0240478515625
+        },
+        {
+          "x": 429.503173828125,
+          "y": 284.9759521484375
+        },
+        {
+          "x": 212.996826171875,
+          "y": 159.9759521484375
+        }
+      ],
+      "angleErrorDeg": 0,
+      "pass": true
+    },
+    {
+      "fixture": "group-leaf",
+      "frame": 0,
+      "surface": "export-sheet",
+      "corners": [
+        {
+          "x": 250.496826171875,
+          "y": 95.0240478515625
+        },
+        {
+          "x": 467.003173828125,
+          "y": 220.0240478515625
+        },
+        {
+          "x": 429.503173828125,
+          "y": 284.9759521484375
+        },
+        {
+          "x": 212.996826171875,
+          "y": 159.9759521484375
+        }
+      ],
+      "angleErrorDeg": 0,
+      "pass": true
+    },
+    {
+      "fixture": "group-leaf",
+      "frame": 15,
+      "surface": "classic",
+      "corners": [
+        {
+          "x": 250.496826171875,
+          "y": 95.0240478515625
+        },
+        {
+          "x": 467.003173828125,
+          "y": 220.0240478515625
+        },
+        {
+          "x": 429.503173828125,
+          "y": 284.9759521484375
+        },
+        {
+          "x": 212.996826171875,
+          "y": 159.9759521484375
+        }
+      ],
+      "angleErrorDeg": 0,
+      "pass": true
+    },
+    {
+      "fixture": "group-leaf",
+      "frame": 15,
+      "surface": "export-sheet",
+      "corners": [
+        {
+          "x": 250.496826171875,
+          "y": 95.0240478515625
+        },
+        {
+          "x": 467.003173828125,
+          "y": 220.0240478515625
+        },
+        {
+          "x": 429.503173828125,
+          "y": 284.9759521484375
+        },
+        {
+          "x": 212.996826171875,
+          "y": 159.9759521484375
+        }
+      ],
+      "angleErrorDeg": 0,
+      "pass": true
+    },
+    {
+      "fixture": "group-leaf",
+      "frame": 30,
+      "surface": "classic",
+      "corners": [
+        {
+          "x": 250.496826171875,
+          "y": 95.0240478515625
+        },
+        {
+          "x": 467.003173828125,
+          "y": 220.0240478515625
+        },
+        {
+          "x": 429.503173828125,
+          "y": 284.9759521484375
+        },
+        {
+          "x": 212.996826171875,
+          "y": 159.9759521484375
+        }
+      ],
+      "angleErrorDeg": 0,
+      "pass": true
+    },
+    {
+      "fixture": "group-leaf",
+      "frame": 30,
+      "surface": "export-sheet",
+      "corners": [
+        {
+          "x": 250.496826171875,
+          "y": 95.0240478515625
+        },
+        {
+          "x": 467.003173828125,
+          "y": 220.0240478515625
+        },
+        {
+          "x": 429.503173828125,
+          "y": 284.9759521484375
+        },
+        {
+          "x": 212.996826171875,
+          "y": 159.9759521484375
+        }
+      ],
+      "angleErrorDeg": 0,
+      "pass": true
+    },
+    {
+      "fixture": "group-leaf",
+      "frame": 45,
+      "surface": "classic",
+      "corners": [
+        {
+          "x": 250.496826171875,
+          "y": 95.0240478515625
+        },
+        {
+          "x": 467.003173828125,
+          "y": 220.0240478515625
+        },
+        {
+          "x": 429.503173828125,
+          "y": 284.9759521484375
+        },
+        {
+          "x": 212.996826171875,
+          "y": 159.9759521484375
+        }
+      ],
+      "angleErrorDeg": 0,
+      "pass": true
+    },
+    {
+      "fixture": "group-leaf",
+      "frame": 45,
+      "surface": "export-sheet",
+      "corners": [
+        {
+          "x": 250.496826171875,
+          "y": 95.0240478515625
+        },
+        {
+          "x": 467.003173828125,
+          "y": 220.0240478515625
+        },
+        {
+          "x": 429.503173828125,
+          "y": 284.9759521484375
+        },
+        {
+          "x": 212.996826171875,
+          "y": 159.9759521484375
+        }
+      ],
+      "angleErrorDeg": 0,
+      "pass": true
+    },
+    {
+      "fixture": "group-leaf",
+      "frame": 59,
+      "surface": "classic",
+      "corners": [
+        {
+          "x": 250.496826171875,
+          "y": 95.0240478515625
+        },
+        {
+          "x": 467.003173828125,
+          "y": 220.0240478515625
+        },
+        {
+          "x": 429.503173828125,
+          "y": 284.9759521484375
+        },
+        {
+          "x": 212.996826171875,
+          "y": 159.9759521484375
+        }
+      ],
+      "angleErrorDeg": 0,
+      "pass": true
+    },
+    {
+      "fixture": "group-leaf",
+      "frame": 59,
+      "surface": "export-sheet",
+      "corners": [
+        {
+          "x": 250.496826171875,
+          "y": 95.0240478515625
+        },
+        {
+          "x": 467.003173828125,
+          "y": 220.0240478515625
+        },
+        {
+          "x": 429.503173828125,
+          "y": 284.9759521484375
+        },
+        {
+          "x": 212.996826171875,
+          "y": 159.9759521484375
+        }
+      ],
+      "angleErrorDeg": 0,
+      "pass": true
+    },
+    {
+      "fixture": "uniform-rotated",
+      "frame": 0,
+      "surface": "classic",
+      "corners": [
+        {
+          "x": 284.6234130859375,
+          "y": 116.2740478515625
+        },
+        {
+          "x": 392.8765869140625,
+          "y": 178.7740478515625
+        },
+        {
+          "x": 355.3765869140625,
+          "y": 243.7259521484375
+        },
+        {
+          "x": 247.1234130859375,
+          "y": 181.2259521484375
+        }
+      ],
+      "angleErrorDeg": 0,
+      "pass": true
+    },
+    {
+      "fixture": "uniform-rotated",
+      "frame": 0,
+      "surface": "export-sheet",
+      "corners": [
+        {
+          "x": 284.6234130859375,
+          "y": 116.2740478515625
+        },
+        {
+          "x": 392.8765869140625,
+          "y": 178.7740478515625
+        },
+        {
+          "x": 355.3765869140625,
+          "y": 243.7259521484375
+        },
+        {
+          "x": 247.1234130859375,
+          "y": 181.2259521484375
+        }
+      ],
+      "angleErrorDeg": 0,
+      "pass": true
+    },
+    {
+      "fixture": "uniform-rotated",
+      "frame": 15,
+      "surface": "classic",
+      "corners": [
+        {
+          "x": 284.6234130859375,
+          "y": 116.2740478515625
+        },
+        {
+          "x": 392.8765869140625,
+          "y": 178.7740478515625
+        },
+        {
+          "x": 355.3765869140625,
+          "y": 243.7259521484375
+        },
+        {
+          "x": 247.1234130859375,
+          "y": 181.2259521484375
+        }
+      ],
+      "angleErrorDeg": 0,
+      "pass": true
+    },
+    {
+      "fixture": "uniform-rotated",
+      "frame": 15,
+      "surface": "export-sheet",
+      "corners": [
+        {
+          "x": 284.6234130859375,
+          "y": 116.2740478515625
+        },
+        {
+          "x": 392.8765869140625,
+          "y": 178.7740478515625
+        },
+        {
+          "x": 355.3765869140625,
+          "y": 243.7259521484375
+        },
+        {
+          "x": 247.1234130859375,
+          "y": 181.2259521484375
+        }
+      ],
+      "angleErrorDeg": 0,
+      "pass": true
+    },
+    {
+      "fixture": "uniform-rotated",
+      "frame": 30,
+      "surface": "classic",
+      "corners": [
+        {
+          "x": 284.6234130859375,
+          "y": 116.2740478515625
+        },
+        {
+          "x": 392.8765869140625,
+          "y": 178.7740478515625
+        },
+        {
+          "x": 355.3765869140625,
+          "y": 243.7259521484375
+        },
+        {
+          "x": 247.1234130859375,
+          "y": 181.2259521484375
+        }
+      ],
+      "angleErrorDeg": 0,
+      "pass": true
+    },
+    {
+      "fixture": "uniform-rotated",
+      "frame": 30,
+      "surface": "export-sheet",
+      "corners": [
+        {
+          "x": 284.6234130859375,
+          "y": 116.2740478515625
+        },
+        {
+          "x": 392.8765869140625,
+          "y": 178.7740478515625
+        },
+        {
+          "x": 355.3765869140625,
+          "y": 243.7259521484375
+        },
+        {
+          "x": 247.1234130859375,
+          "y": 181.2259521484375
+        }
+      ],
+      "angleErrorDeg": 0,
+      "pass": true
+    },
+    {
+      "fixture": "uniform-rotated",
+      "frame": 45,
+      "surface": "classic",
+      "corners": [
+        {
+          "x": 284.6234130859375,
+          "y": 116.2740478515625
+        },
+        {
+          "x": 392.8765869140625,
+          "y": 178.7740478515625
+        },
+        {
+          "x": 355.3765869140625,
+          "y": 243.7259521484375
+        },
+        {
+          "x": 247.1234130859375,
+          "y": 181.2259521484375
+        }
+      ],
+      "angleErrorDeg": 0,
+      "pass": true
+    },
+    {
+      "fixture": "uniform-rotated",
+      "frame": 45,
+      "surface": "export-sheet",
+      "corners": [
+        {
+          "x": 284.6234130859375,
+          "y": 116.2740478515625
+        },
+        {
+          "x": 392.8765869140625,
+          "y": 178.7740478515625
+        },
+        {
+          "x": 355.3765869140625,
+          "y": 243.7259521484375
+        },
+        {
+          "x": 247.1234130859375,
+          "y": 181.2259521484375
+        }
+      ],
+      "angleErrorDeg": 0,
+      "pass": true
+    },
+    {
+      "fixture": "uniform-rotated",
+      "frame": 59,
+      "surface": "classic",
+      "corners": [
+        {
+          "x": 284.6234130859375,
+          "y": 116.2740478515625
+        },
+        {
+          "x": 392.8765869140625,
+          "y": 178.7740478515625
+        },
+        {
+          "x": 355.3765869140625,
+          "y": 243.7259521484375
+        },
+        {
+          "x": 247.1234130859375,
+          "y": 181.2259521484375
+        }
+      ],
+      "angleErrorDeg": 0,
+      "pass": true
+    },
+    {
+      "fixture": "uniform-rotated",
+      "frame": 59,
+      "surface": "export-sheet",
+      "corners": [
+        {
+          "x": 284.6234130859375,
+          "y": 116.2740478515625
+        },
+        {
+          "x": 392.8765869140625,
+          "y": 178.7740478515625
+        },
+        {
+          "x": 355.3765869140625,
+          "y": 243.7259521484375
+        },
+        {
+          "x": 247.1234130859375,
+          "y": 181.2259521484375
+        }
+      ],
+      "angleErrorDeg": 0,
+      "pass": true
+    }
+  ],
+  "pixelChecks": [
+    {
+      "fixture": "uniform-rotated",
+      "frame": 0,
+      "surface": "classic",
+      "mode": "old CSS order",
+      "pass": true
+    },
+    {
+      "fixture": "uniform-rotated",
+      "frame": 0,
+      "surface": "export-sheet",
+      "mode": "old CSS order",
+      "pass": true
+    },
+    {
+      "fixture": "uniform-rotated",
+      "frame": 15,
+      "surface": "classic",
+      "mode": "old CSS order",
+      "pass": true
+    },
+    {
+      "fixture": "uniform-rotated",
+      "frame": 15,
+      "surface": "export-sheet",
+      "mode": "old CSS order",
+      "pass": true
+    },
+    {
+      "fixture": "uniform-rotated",
+      "frame": 30,
+      "surface": "classic",
+      "mode": "old CSS order",
+      "pass": true
+    },
+    {
+      "fixture": "uniform-rotated",
+      "frame": 30,
+      "surface": "export-sheet",
+      "mode": "old CSS order",
+      "pass": true
+    },
+    {
+      "fixture": "uniform-rotated",
+      "frame": 45,
+      "surface": "classic",
+      "mode": "old CSS order",
+      "pass": true
+    },
+    {
+      "fixture": "uniform-rotated",
+      "frame": 45,
+      "surface": "export-sheet",
+      "mode": "old CSS order",
+      "pass": true
+    },
+    {
+      "fixture": "uniform-rotated",
+      "frame": 59,
+      "surface": "classic",
+      "mode": "old CSS order",
+      "pass": true
+    },
+    {
+      "fixture": "uniform-rotated",
+      "frame": 59,
+      "surface": "export-sheet",
+      "mode": "old CSS order",
+      "pass": true
+    },
+    {
+      "fixture": "legacy",
+      "frame": 0,
+      "surface": "classic",
+      "mode": "P3b-1 baseline",
+      "pass": true
+    },
+    {
+      "fixture": "legacy",
+      "frame": 0,
+      "surface": "export-sheet",
+      "mode": "P3b-1 baseline",
+      "pass": true
+    },
+    {
+      "fixture": "legacy",
+      "frame": 15,
+      "surface": "classic",
+      "mode": "P3b-1 baseline",
+      "pass": true
+    },
+    {
+      "fixture": "legacy",
+      "frame": 15,
+      "surface": "export-sheet",
+      "mode": "P3b-1 baseline",
+      "pass": true
+    },
+    {
+      "fixture": "legacy",
+      "frame": 30,
+      "surface": "classic",
+      "mode": "P3b-1 baseline",
+      "pass": true
+    },
+    {
+      "fixture": "legacy",
+      "frame": 30,
+      "surface": "export-sheet",
+      "mode": "P3b-1 baseline",
+      "pass": true
+    },
+    {
+      "fixture": "legacy",
+      "frame": 45,
+      "surface": "classic",
+      "mode": "P3b-1 baseline",
+      "pass": true
+    },
+    {
+      "fixture": "legacy",
+      "frame": 45,
+      "surface": "export-sheet",
+      "mode": "P3b-1 baseline",
+      "pass": true
+    },
+    {
+      "fixture": "legacy",
+      "frame": 59,
+      "surface": "classic",
+      "mode": "P3b-1 baseline",
+      "pass": true
+    },
+    {
+      "fixture": "legacy",
+      "frame": 59,
+      "surface": "export-sheet",
+      "mode": "P3b-1 baseline",
+      "pass": true
+    }
+  ],
+  "pass": true
+}

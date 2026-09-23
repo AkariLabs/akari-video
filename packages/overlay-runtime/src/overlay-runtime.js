@@ -203,7 +203,7 @@ function createOverlayRuntime(options = {}) {
       container.style.setProperty("--rotate", isBackground ? "0deg" : `${finiteNumber(transform.rotate, 0)}deg`);
       container.style.transform =
         "translate(var(--x,0px), var(--y,0px)) " +
-        "scale(var(--scale-x,var(--scale,1)),var(--scale-y,var(--scale,1))) rotate(var(--rotate,0deg))";
+        "rotate(var(--rotate,0deg)) scale(var(--scale-x,var(--scale,1)),var(--scale-y,var(--scale,1)))";
 
       const template = document.createElement("template");
       template.innerHTML = overlay.html ?? "";

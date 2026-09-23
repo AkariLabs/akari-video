@@ -23,8 +23,8 @@ updated: 2026-08-30
 > 等比親との合成は子の各有効値に親の `scale` を掛け、逆変換は同じ値で割る。
 > 書き込み時に両軸の有効値が等しければ `scale` に畳む。既存の `scale` だけの宣言は変更しない。
 > keyframes は端点を各軸の有効値へ解決してから補間する（`scale` と `scaleX` の混在も可）。
-> overlay の CSS は `translate(...) scale(sx, sy) rotate(...)`、素材は crop の幅・高さへ
-> 各軸を掛けて回転する。四隅 resize は両軸へ同じ倍率を掛け、縦横比を維持する。
+> overlay の CSS は `translate(...) rotate(...) scale(sx, sy)`。overlay も素材も
+> 各軸で伸ばしてから回転する（R·S）。素材は crop の幅・高さへ各軸を掛ける。四隅 resize は両軸へ同じ倍率を掛け、縦横比を維持する。
 
 - `keyframes[]` はレイヤー / アイテムの `transform` / `crop` / `perspective` を時間で動かす共通機構
 - `t` は**ローカル時間**: v1 `layers[].keyframes[].t` はレイヤー内秒（`layerItem.t` を 0 とする。`cuts[].framing.keyframes[].t` と同じ規約）、

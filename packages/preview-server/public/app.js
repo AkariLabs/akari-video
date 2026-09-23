@@ -3856,7 +3856,7 @@ function createOverlayRuntime() {
         else c.style.removeProperty(css);
       }
       c.style.setProperty('--rotate', isBackground ? '0deg' : `${t.rotate||0}deg`);
-      c.style.transform = 'translate(var(--x,0px), var(--y,0px)) scale(var(--scale-x,var(--scale,1)),var(--scale-y,var(--scale,1))) rotate(var(--rotate,0deg))';
+      c.style.transform = 'translate(var(--x,0px), var(--y,0px)) rotate(var(--rotate,0deg)) scale(var(--scale-x,var(--scale,1)),var(--scale-y,var(--scale,1)))';
       if (o.vars && typeof o.vars === 'object') {
         for (const [k, v] of Object.entries(o.vars)) {
           if (k.startsWith('--') && (typeof v === 'string' || typeof v === 'number')) c.style.setProperty(k, String(v));

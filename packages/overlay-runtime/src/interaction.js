@@ -1755,13 +1755,14 @@ function toggleScopedSelection(tree, selectedIds, scopeId, next) {
     const displayY = stageRect.height / stage.clientHeight;
     const pivot = { x: stageRect.left + stageRect.width / 2 + transform.x * displayX,
       y: stageRect.top + stageRect.height / 2 + transform.y * displayY };
-    const sx = transform.scaleX ?? transform.scale, sy = transform.scaleY ?? transform.scale;
     const radians = transform.rotate * Math.PI / 180;
     const cosine = Math.cos(radians), sine = Math.sin(radians);
     const rotatePoint = point => {
-      const dx = (point.x - pivot.x) / sx, dy = (point.y - pivot.y) / sy;
-      return { x: pivot.x + sx * (cosine * dx - sine * dy),
-        y: pivot.y + sy * (sine * dx + cosine * dy) };
+      // The unrotated bounds already include axis scale. CSS applies R after S,
+      // so rotate those displayed corners around the same pivot without S^-1.
+      const dx = (point.x - pivot.x) / displayX, dy = (point.y - pivot.y) / displayY;
+      return { x: pivot.x + displayX * (cosine * dx - sine * dy),
+        y: pivot.y + displayY * (sine * dx + cosine * dy) };
     };
     return { anchor: rotatePoint(cornerAnchorPoint(rect, corner)),
       dragged: rotatePoint(namedCornerPoint(rect, corner)) };

@@ -1,0 +1,100 @@
+{
+  "recordedAt": "2026-09-23",
+  "checks": {
+    "overlay-targeted": {
+      "tests": 8,
+      "pass": 8,
+      "fail": 0,
+      "skipped": 0,
+      "failures": []
+    },
+    "render-targeted": {
+      "tests": 9,
+      "pass": 7,
+      "fail": 2,
+      "skipped": 0,
+      "failures": [
+        "glass-free 2D and 3D sheets match pre-glass baseline bytes (83.683583ms)",
+        "sheet injects vgpu only for declarations and preserves existing static/three sheets byte-for-byte (70.585791ms)",
+        "glass-free 2D and 3D sheets match pre-glass baseline bytes (83.683583ms)",
+        "sheet injects vgpu only for declarations and preserves existing static/three sheets byte-for-byte (70.585791ms)"
+      ]
+    },
+    "gpu-targeted": {
+      "tests": 14,
+      "pass": 13,
+      "fail": 1,
+      "skipped": 0,
+      "failures": [
+        "display_policy 未宣言のプロジェクトは HEAD のバイト列を保つ (4.3625ms)",
+        "display_policy 未宣言のプロジェクトは HEAD のバイト列を保つ (4.3625ms)"
+      ]
+    },
+    "gpu-export-full": {
+      "tests": 405,
+      "pass": 400,
+      "fail": 5,
+      "skipped": 0,
+      "failures": [
+        "test/caption-animator.test.mjs (348.904166ms)",
+        "test/memory-hard-stop-fallback.test.mjs (660.690166ms)",
+        "test/page-builder.test.mjs (483.809084ms)",
+        "test/preview.test.mjs (524.952416ms)",
+        "test/viewport.test.mjs (373.112167ms)",
+        "test/caption-animator.test.mjs (348.904166ms)",
+        "test/memory-hard-stop-fallback.test.mjs (660.690166ms)",
+        "test/page-builder.test.mjs (483.809084ms)",
+        "test/preview.test.mjs (524.952416ms)",
+        "test/viewport.test.mjs (373.112167ms)"
+      ]
+    },
+    "preview-targeted": {
+      "tests": 2,
+      "pass": 1,
+      "fail": 1,
+      "skipped": 0,
+      "failures": [
+        "packages/preview-server/test/v2-projection.test.mjs (161.669625ms)",
+        "packages/preview-server/test/v2-projection.test.mjs (161.669625ms)"
+      ]
+    },
+    "preview-server-full": {
+      "tests": 355,
+      "pass": 335,
+      "fail": 14,
+      "skipped": 6,
+      "failures": [
+        "packages/preview-server/test/audio-declick-measurement.test.mjs (242.106459ms)",
+        "packages/preview-server/test/caption-anchor-position.test.mjs (161.903167ms)",
+        "packages/preview-server/test/caption-line-style-parity.test.mjs (449.060125ms)",
+        "packages/preview-server/test/caption-visual-parity.test.mjs (179.655375ms)",
+        "packages/preview-server/test/cut-write-staleness.test.mjs (177.877834ms)",
+        "summary rewrites fragment URLs and PUT preserves the declared fragment path (74.080875ms)",
+        "missing references remain visible in summary and reach frameEngine warnings (16.710959ms)",
+        "packages/preview-server/test/item-keyframes.test.mjs (578.49925ms)",
+        "project PCM serves a 96000-byte HTTP Range with exposed headers and a full GET with Accept-Ranges (82.782583ms)",
+        "packages/preview-server/test/preview.test.mjs (434.122958ms)",
+        "packages/preview-server/test/three-text-runtime.test.mjs (428.811417ms)",
+        "packages/preview-server/test/transition-write-guard.test.mjs (393.279792ms)",
+        "packages/preview-server/test/v2-projection.test.mjs (306.4565ms)",
+        "packages/preview-server/test/video-fx-webui.test.mjs (294.708834ms)",
+        "packages/preview-server/test/audio-declick-measurement.test.mjs (242.106459ms)",
+        "packages/preview-server/test/caption-anchor-position.test.mjs (161.903167ms)",
+        "packages/preview-server/test/caption-line-style-parity.test.mjs (449.060125ms)",
+        "packages/preview-server/test/caption-visual-parity.test.mjs (179.655375ms)",
+        "packages/preview-server/test/cut-write-staleness.test.mjs (177.877834ms)",
+        "summary rewrites fragment URLs and PUT preserves the declared fragment path (74.080875ms)"
+      ]
+    }
+  },
+  "fullSuiteContext": {
+    "overlay-runtime": "attempted; blocked tests use localhost listen or optional modules unavailable in this worktree",
+    "render-cut": "attempted; two fixed hash baselines already fail at 2589c836, additional media tests require Electron or localhost listen",
+    "gpu-export": "five remaining failures are missing optional typescript/electron modules or environment-dependent tests",
+    "preview-server": "missing playwright and localhost listen prevent full pass"
+  },
+  "knownBaselineHashes": {
+    "legacyRenderSheet": "c55d539aab8c2ebfd1a1137e271a905a6dc1f91d5b773706e464d610b33862b0",
+    "staticVGPUActual": "0eb935f1cb0f6e0b560a2184fbbda2fd6da05e684efd096df0cce561040d411d"
+  }
+}

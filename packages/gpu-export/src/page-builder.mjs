@@ -215,7 +215,7 @@ export function buildGpuPage({
     #akari-dom-stage { position: absolute; inset: 0; width: ${width}px; height: ${height}px; overflow: hidden; z-index: -2; background: transparent; }
     .akari-dom-host { position: absolute; inset: 0; width: ${width}px; height: ${height}px; }
     .akari-dom-root { position: absolute; inset: 0; width: ${width}px; height: ${height}px; background: transparent; }
-    .akari-dom-container { position: absolute; inset: 0; visibility: hidden; pointer-events: none; transform: translate(var(--x, 0px), var(--y, 0px)) scale(var(--scale, 1)) rotate(var(--rotate, 0deg)); transform-origin: center; }
+    .akari-dom-container { position: absolute; inset: 0; visibility: hidden; pointer-events: none; transform: translate(var(--x, 0px), var(--y, 0px)) rotate(var(--rotate, 0deg)) scale(var(--scale, 1)); transform-origin: center; }
     .akari-dom-container > .scene-content { position: absolute; inset: 0; }
     .akari-dom-sentinel { position: absolute; left: 0; top: 0; width: 8px; height: 8px; z-index: 2147483647; pointer-events: none; }
   </style>

@@ -507,7 +507,7 @@
     const xhtml = serializeHtmlToXhtml(html);
     return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
       <foreignObject width="100%" height="100%">
-        <div xmlns="http://www.w3.org/1999/xhtml" class="akari-sprite-root" style="position:relative;width:${width}px;height:${height}px;overflow:hidden;background:transparent;container-type:size;transform:translate(var(--x, 0px), var(--y, 0px)) scale(var(--scale-x, var(--scale, 1)), var(--scale-y, var(--scale, 1))) rotate(var(--rotate, 0deg));transform-origin:center;${varsCss(vars)}">
+        <div xmlns="http://www.w3.org/1999/xhtml" class="akari-sprite-root" style="position:relative;width:${width}px;height:${height}px;overflow:hidden;background:transparent;container-type:size;transform:translate(var(--x, 0px), var(--y, 0px)) rotate(var(--rotate, 0deg)) scale(var(--scale-x, var(--scale, 1)), var(--scale-y, var(--scale, 1)));transform-origin:center;${varsCss(vars)}">
           <style>html,body{margin:0;width:100%;height:100%;overflow:hidden}${extraCss}</style>${xhtml}
         </div>
       </foreignObject>
@@ -1030,7 +1030,7 @@
     const scopedBandCss = scopeCaptionCss(bandCss, prefix);
     return `<foreignObject x="0" y="${offsetY}" width="${config.width}" height="${textureRect.height}">
       <div xmlns="http://www.w3.org/1999/xhtml" style="position:relative;width:${config.width}px;height:${textureRect.height}px;overflow:hidden">
-        <div class="akari-sprite-root" data-akari-band="${bandIndex}" style="position:absolute;left:0;top:${-textureRect.y}px;width:${config.width}px;height:${config.height}px;overflow:hidden;background:transparent;container-type:size;transform:translate(var(--x, 0px), var(--y, 0px)) scale(var(--scale-x, var(--scale, 1)), var(--scale-y, var(--scale, 1))) rotate(var(--rotate, 0deg));transform-origin:center;${varsCss(value.vars)}">
+        <div class="akari-sprite-root" data-akari-band="${bandIndex}" style="position:absolute;left:0;top:${-textureRect.y}px;width:${config.width}px;height:${config.height}px;overflow:hidden;background:transparent;container-type:size;transform:translate(var(--x, 0px), var(--y, 0px)) rotate(var(--rotate, 0deg)) scale(var(--scale-x, var(--scale, 1)), var(--scale-y, var(--scale, 1)));transform-origin:center;${varsCss(value.vars)}">
           <style>html,body{margin:0;width:${config.width}px;height:${config.height}px;overflow:hidden}${sharedCss}${scopedBandCss}</style>${xhtml}
         </div>
       </div>
@@ -1042,7 +1042,7 @@
     const scopedBandCss = scopeCaptionCss(bandCss, `[data-akari-band="0"]`);
     return removeDuplicateCaptionFontFaces(`<svg xmlns="http://www.w3.org/2000/svg" width="${config.width}" height="${textureRect.height}" viewBox="0 ${textureRect.y} ${config.width} ${textureRect.height}">
       <foreignObject x="0" y="0" width="${config.width}" height="${config.height}">
-        <div xmlns="http://www.w3.org/1999/xhtml" class="akari-sprite-root" data-akari-band="0" style="position:relative;width:${config.width}px;height:${config.height}px;overflow:hidden;background:transparent;container-type:size;transform:translate(var(--x, 0px), var(--y, 0px)) scale(var(--scale-x, var(--scale, 1)), var(--scale-y, var(--scale, 1))) rotate(var(--rotate, 0deg));transform-origin:center;${varsCss(value.vars)}">
+        <div xmlns="http://www.w3.org/1999/xhtml" class="akari-sprite-root" data-akari-band="0" style="position:relative;width:${config.width}px;height:${config.height}px;overflow:hidden;background:transparent;container-type:size;transform:translate(var(--x, 0px), var(--y, 0px)) rotate(var(--rotate, 0deg)) scale(var(--scale-x, var(--scale, 1)), var(--scale-y, var(--scale, 1)));transform-origin:center;${varsCss(value.vars)}">
           <style>html,body{margin:0;width:${config.width}px;height:${config.height}px;overflow:hidden}${sharedCss}${scopedBandCss}</style>${xhtml}
         </div>
       </foreignObject>
@@ -2094,7 +2094,7 @@
           for (const [key, css] of [["scaleX", "--scale-x"], ["scaleY", "--scale-y"]]) {
             if (background || (transform[key] !== undefined && declaration?.vars?.[css] === undefined)) container.style.setProperty(css, background ? "1" : String(transform[key]));
           }
-          container.style.transform = "translate(var(--x, 0px), var(--y, 0px)) scale(var(--scale-x, var(--scale, 1)), var(--scale-y, var(--scale, 1))) rotate(var(--rotate, 0deg))";
+          container.style.transform = "translate(var(--x, 0px), var(--y, 0px)) rotate(var(--rotate, 0deg)) scale(var(--scale-x, var(--scale, 1)), var(--scale-y, var(--scale, 1)))";
           const content = document.createElement("div");
           content.className = "scene-content";
           content.insertAdjacentHTML("beforeend", applyTextSlotParams(entry.html, entry.params));
