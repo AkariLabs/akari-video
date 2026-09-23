@@ -1,0 +1,675 @@
+{
+  "phase": "rerun",
+  "status": "pass",
+  "checks": [
+    {
+      "name": "1 並び: ロゴ=棒(全行)+先頭行に札 / 下帯=棒(3 行)+札 / 画像=札だけ（サムネイル）/ 置いた文字と同じ列の規則",
+      "pass": true,
+      "detail": {
+        "lanes": {
+          "p-a": [
+            0
+          ],
+          "ov-logo": [
+            1
+          ],
+          "ov-lower": [
+            2
+          ],
+          "p-d": [
+            2
+          ]
+        },
+        "rows": [
+          {
+            "row": "s-1",
+            "bars": [
+              {
+                "id": "p-a",
+                "kind": "text",
+                "lane": 0,
+                "left": "0px"
+              },
+              {
+                "id": "ov-logo",
+                "kind": "html",
+                "lane": 1,
+                "left": "6px"
+              }
+            ],
+            "tags": [
+              {
+                "id": "p-a",
+                "kind": "text",
+                "text": "T MORNING ROUTINE · 全体",
+                "icon": null,
+                "thumb": null,
+                "folded": null,
+                "selected": false
+              },
+              {
+                "id": "ov-logo",
+                "kind": "html",
+                "text": "<>YouTube ロゴ · 全体",
+                "icon": "<>",
+                "thumb": null,
+                "folded": null,
+                "selected": false
+              }
+            ]
+          },
+          {
+            "row": "s-2",
+            "bars": [
+              {
+                "id": "p-a",
+                "kind": "text",
+                "lane": 0,
+                "left": "0px"
+              },
+              {
+                "id": "ov-logo",
+                "kind": "html",
+                "lane": 1,
+                "left": "6px"
+              },
+              {
+                "id": "ov-lower",
+                "kind": "html",
+                "lane": 2,
+                "left": "12px"
+              }
+            ],
+            "tags": [
+              {
+                "id": "ov-lower",
+                "kind": "html",
+                "text": "<>下帯: チャプター 1 · 3 行",
+                "icon": "<>",
+                "thumb": null,
+                "folded": null,
+                "selected": false
+              }
+            ]
+          },
+          {
+            "row": "s-3",
+            "bars": [
+              {
+                "id": "p-a",
+                "kind": "text",
+                "lane": 0,
+                "left": "0px"
+              },
+              {
+                "id": "ov-logo",
+                "kind": "html",
+                "lane": 1,
+                "left": "6px"
+              },
+              {
+                "id": "ov-lower",
+                "kind": "html",
+                "lane": 2,
+                "left": "12px"
+              }
+            ],
+            "tags": [
+              {
+                "id": "img-beans",
+                "kind": "image",
+                "text": "coffee-beans.png",
+                "icon": null,
+                "thumb": {
+                  "loaded": true,
+                  "naturalWidth": 160,
+                  "width": 22,
+                  "height": 14,
+                  "rowHeight": 68.046875
+                },
+                "folded": null,
+                "selected": false
+              }
+            ]
+          },
+          {
+            "row": "s-4",
+            "bars": [
+              {
+                "id": "p-a",
+                "kind": "text",
+                "lane": 0,
+                "left": "0px"
+              },
+              {
+                "id": "ov-logo",
+                "kind": "html",
+                "lane": 1,
+                "left": "6px"
+              },
+              {
+                "id": "ov-lower",
+                "kind": "html",
+                "lane": 2,
+                "left": "12px"
+              }
+            ],
+            "tags": []
+          },
+          {
+            "row": "s-5",
+            "bars": [
+              {
+                "id": "p-a",
+                "kind": "text",
+                "lane": 0,
+                "left": "0px"
+              },
+              {
+                "id": "ov-logo",
+                "kind": "html",
+                "lane": 1,
+                "left": "6px"
+              }
+            ],
+            "tags": []
+          },
+          {
+            "row": "s-6",
+            "bars": [
+              {
+                "id": "p-a",
+                "kind": "text",
+                "lane": 0,
+                "left": "0px"
+              },
+              {
+                "id": "p-d",
+                "kind": "text",
+                "lane": 2,
+                "left": "12px"
+              },
+              {
+                "id": "ov-logo",
+                "kind": "html",
+                "lane": 1,
+                "left": "6px"
+              }
+            ],
+            "tags": [
+              {
+                "id": "p-d",
+                "kind": "text",
+                "text": "T 今日の予定 · 2 行",
+                "icon": null,
+                "thumb": null,
+                "folded": null,
+                "selected": false
+              }
+            ]
+          },
+          {
+            "row": "s-7",
+            "bars": [
+              {
+                "id": "p-a",
+                "kind": "text",
+                "lane": 0,
+                "left": "0px"
+              },
+              {
+                "id": "p-d",
+                "kind": "text",
+                "lane": 2,
+                "left": "12px"
+              },
+              {
+                "id": "ov-logo",
+                "kind": "html",
+                "lane": 1,
+                "left": "6px"
+              }
+            ],
+            "tags": []
+          },
+          {
+            "row": "s-8",
+            "bars": [
+              {
+                "id": "p-a",
+                "kind": "text",
+                "lane": 0,
+                "left": "0px"
+              },
+              {
+                "id": "ov-logo",
+                "kind": "html",
+                "lane": 1,
+                "left": "6px"
+              }
+            ],
+            "tags": []
+          }
+        ],
+        "mode": {
+          "buttons": [
+            {
+              "mode": "all",
+              "label": "全部",
+              "active": true
+            },
+            {
+              "mode": "text",
+              "label": "文字だけ",
+              "active": false
+            },
+            {
+              "mode": "none",
+              "label": "隠す",
+              "active": false
+            }
+          ],
+          "attachmentNodes": 14,
+          "textBars": 10,
+          "textTags": 2
+        }
+      }
+    },
+    {
+      "name": "2 札のクリック = 選択（タイムラインの選択へ同期）",
+      "pass": true,
+      "detail": {
+        "handles": [
+          {
+            "edge": "start",
+            "row": "s-2",
+            "x": 836,
+            "y": 216.546875,
+            "hitSelf": true
+          },
+          {
+            "edge": "end",
+            "row": "s-4",
+            "x": 836,
+            "y": 398.6875,
+            "hitSelf": true
+          }
+        ],
+        "timelineSelected": [
+          "ov-lower"
+        ]
+      }
+    },
+    {
+      "name": "3 下帯の下のつまみを 1 行下へ → duration が伸びる → Cmd+Z 1 手で byte 一致",
+      "pass": true,
+      "detail": {
+        "notices": [
+          "このフォルダを AKARI Video プロジェクトとして使いますか？（フォルダ構成の作成と、作業の節目の記録を始めます）",
+          "このフォルダを AKARI Video プロジェクトとして使いますか？（フォルダ構成の作成と、作業の節目の記録を始めます）"
+        ],
+        "hover": {
+          "bars": [
+            "s-2",
+            "s-3",
+            "s-4",
+            "s-5"
+          ],
+          "fileUnchanged": true
+        },
+        "before": {
+          "at": 120,
+          "duration": 336
+        },
+        "saved": {
+          "at": 120,
+          "duration": 456
+        },
+        "barsAfter": [
+          "s-2",
+          "s-3",
+          "s-4",
+          "s-5"
+        ],
+        "undoByteIdentical": true,
+        "barsAfterUndo": [
+          "s-2",
+          "s-3",
+          "s-4",
+          "s-5"
+        ]
+      }
+    },
+    {
+      "name": "4 下帯の札を 2 行下へドラッグ → at が移る（duration 保つ）→ Cmd+Z 1 手で byte 一致",
+      "pass": true,
+      "detail": {
+        "notices": [
+          "このフォルダを AKARI Video プロジェクトとして使いますか？（フォルダ構成の作成と、作業の節目の記録を始めます）",
+          "保存後の検証で問題が見つかりました: [captions.schema] id must match c- followed by four digits",
+          "このフォルダを AKARI Video プロジェクトとして使いますか？（フォルダ構成の作成と、作業の節目の記録を始めます）",
+          "保存後の検証で問題が見つかりました: [captions.schema] id must match c- followed by four digits"
+        ],
+        "hover": [
+          "s-4"
+        ],
+        "saved": {
+          "at": 360,
+          "duration": 336
+        },
+        "tagRowAfter": "s-4",
+        "barsAfter": [
+          "s-4",
+          "s-5",
+          "s-6"
+        ],
+        "undoByteIdentical": true,
+        "tagRowAfterUndo": "s-2"
+      }
+    },
+    {
+      "name": "5 表示モード: 文字だけ = 添付が消えて置いた文字は残る / 隠す = すべて消える",
+      "pass": true,
+      "detail": {
+        "initial": {
+          "buttons": [
+            {
+              "mode": "all",
+              "label": "全部",
+              "active": true
+            },
+            {
+              "mode": "text",
+              "label": "文字だけ",
+              "active": false
+            },
+            {
+              "mode": "none",
+              "label": "隠す",
+              "active": false
+            }
+          ],
+          "attachmentNodes": 14,
+          "textBars": 10,
+          "textTags": 2
+        },
+        "text": {
+          "buttons": [
+            {
+              "mode": "all",
+              "label": "全部",
+              "active": false
+            },
+            {
+              "mode": "text",
+              "label": "文字だけ",
+              "active": true
+            },
+            {
+              "mode": "none",
+              "label": "隠す",
+              "active": false
+            }
+          ],
+          "attachmentNodes": 0,
+          "textBars": 10,
+          "textTags": 2
+        },
+        "none": {
+          "buttons": [
+            {
+              "mode": "all",
+              "label": "全部",
+              "active": false
+            },
+            {
+              "mode": "text",
+              "label": "文字だけ",
+              "active": false
+            },
+            {
+              "mode": "none",
+              "label": "隠す",
+              "active": true
+            }
+          ],
+          "attachmentNodes": 0,
+          "textBars": 0,
+          "textTags": 0
+        }
+      }
+    },
+    {
+      "name": "7 札のダブルクリック = 素材を開く（画像・HTML）",
+      "pass": true,
+      "detail": {
+        "img-beans": {
+          "tabs": [
+            "素材",
+            "設定",
+            "メニュー",
+            "素材",
+            "設定",
+            "メニュー",
+            "設定",
+            "素材",
+            "メニュー",
+            "ホーム",
+            "出力プレビュー",
+            "素材プレビュー",
+            "タイムライン",
+            "パートナーを追加",
+            "台本",
+            "カット",
+            "注釈",
+            "インスペクター",
+            "パートナーを追加",
+            "台本",
+            "カット",
+            "注釈",
+            "インスペクター",
+            "パートナーを追加",
+            "台本",
+            "カット",
+            "注釈",
+            "インスペクター"
+          ],
+          "current": [
+            "素材",
+            "素材",
+            "素材",
+            "素材プレビュー",
+            "タイムライン",
+            "台本",
+            "台本",
+            "台本"
+          ],
+          "content": [
+            {
+              "tag": "text",
+              "src": "coffee-beans.png"
+            }
+          ]
+        },
+        "ov-lower": {
+          "tabs": [
+            "素材",
+            "設定",
+            "メニュー",
+            "素材",
+            "設定",
+            "メニュー",
+            "設定",
+            "素材",
+            "メニュー",
+            "ホーム",
+            "出力プレビュー",
+            "lower-third.html",
+            "素材プレビュー",
+            "タイムライン",
+            "パートナーを追加",
+            "台本",
+            "カット",
+            "注釈",
+            "インスペクター",
+            "パートナーを追加",
+            "台本",
+            "カット",
+            "注釈",
+            "インスペクター",
+            "パートナーを追加",
+            "台本",
+            "カット",
+            "注釈",
+            "インスペクター"
+          ],
+          "current": [
+            "素材",
+            "素材",
+            "素材",
+            "lower-third.html",
+            "タイムライン",
+            "台本",
+            "台本",
+            "台本"
+          ],
+          "content": null
+        }
+      }
+    },
+    {
+      "name": "6a 再起動前に「隠す」を選ぶ",
+      "pass": true,
+      "detail": {
+        "buttons": [
+          {
+            "mode": "all",
+            "label": "全部",
+            "active": false
+          },
+          {
+            "mode": "text",
+            "label": "文字だけ",
+            "active": false
+          },
+          {
+            "mode": "none",
+            "label": "隠す",
+            "active": true
+          }
+        ],
+        "attachmentNodes": 0,
+        "textBars": 0,
+        "textTags": 0
+      }
+    },
+    {
+      "name": "6b 再起動後も表示モード（隠す）が保たれ、全部に戻せる",
+      "pass": true,
+      "detail": {
+        "restarted": {
+          "buttons": [
+            {
+              "mode": "all",
+              "label": "全部",
+              "active": false
+            },
+            {
+              "mode": "text",
+              "label": "文字だけ",
+              "active": false
+            },
+            {
+              "mode": "none",
+              "label": "隠す",
+              "active": true
+            }
+          ],
+          "attachmentNodes": 0,
+          "textBars": 0,
+          "textTags": 0
+        },
+        "back": {
+          "buttons": [
+            {
+              "mode": "all",
+              "label": "全部",
+              "active": true
+            },
+            {
+              "mode": "text",
+              "label": "文字だけ",
+              "active": false
+            },
+            {
+              "mode": "none",
+              "label": "隠す",
+              "active": false
+            }
+          ],
+          "attachmentNodes": 14,
+          "textBars": 10,
+          "textTags": 2
+        }
+      }
+    },
+    {
+      "name": "8 添付 6 本（列 6 本）→ 棒は 4 本まで・残りは札に ▮N",
+      "pass": true,
+      "detail": {
+        "perRow": [
+          4,
+          4,
+          3,
+          2,
+          1,
+          0,
+          0,
+          0
+        ],
+        "lanes": [
+          0,
+          1,
+          2,
+          3
+        ],
+        "barred": [
+          "ov-many-1",
+          "ov-many-2",
+          "ov-many-3",
+          "ov-many-4"
+        ],
+        "folded": [
+          {
+            "id": "ov-many-5",
+            "folded": "▮5"
+          },
+          {
+            "id": "ov-many-6",
+            "folded": "▮6"
+          }
+        ],
+        "tags": [
+          "<>帯 1 · 2 行",
+          "<>帯 2 · 3 行",
+          "<>帯 3 · 4 行",
+          "<>帯 4 · 5 行",
+          "<>帯 5 · 6 行▮5",
+          "<>帯 6 · 7 行▮6"
+        ]
+      }
+    }
+  ],
+  "screenshots": [
+    "rerun-01-attach.png",
+    "rerun-02-selected.png",
+    "rerun-03-expand-end.png",
+    "rerun-04-drag-tag.png",
+    "rerun-05-mode-text.png",
+    "rerun-06-mode-none.png",
+    "rerun-07-open-img-beans.png",
+    "rerun-07-open-ov-lower.png",
+    "rerun-08-restart-none.png",
+    "rerun-09-many-folded.png"
+  ]
+}

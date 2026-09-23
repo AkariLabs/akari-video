@@ -32,7 +32,7 @@ export function placedTextRanges(captions: readonly DaihonCaptionLike[], rows: r
 }
 
 /** Inclusive row spans: adjacent, non-overlapping spans reuse the first free lane. */
-export function placedTextLanes(ranges: readonly PlacedTextRange[]): { lanes: Map<string, number>; count: number; width: number } {
+export function placedTextLanes(ranges: readonly (Pick<PlacedTextRange, 'first' | 'last' | 'colorIndex'> & { id?: string; captionId?: string })[]): { lanes: Map<string, number>; count: number; width: number } {
     const ends: number[] = [];
     const lanes = new Map<string, number>();
     for (const range of ranges.filter(item => item.last > item.first).slice()
@@ -40,7 +40,8 @@ export function placedTextLanes(ranges: readonly PlacedTextRange[]): { lanes: Ma
         let lane = ends.findIndex(end => end < range.first);
         if (lane < 0) lane = ends.length;
         ends[lane] = range.last;
-        lanes.set(range.captionId, lane);
+        const id = range.id ?? range.captionId;
+        if (id) lanes.set(id, lane);
     }
     return { lanes, count: ends.length, width: ends.length ? ends.length * 4 + (ends.length - 1) * 2 : 0 };
 }

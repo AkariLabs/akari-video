@@ -11,8 +11,11 @@ const view = require('../lib/common/cuts-view.js');
 const decorator = () => () => {};
 const element = (_tag, text = '') => ({
     textContent: text, style: {}, dataset: {}, children: [],
-    setAttribute() {}, addEventListener() {}, classList: { add() {} },
+    setAttribute() {}, addEventListener() {}, classList: { add() {}, toggle() {} },
     append(...children) { this.children.push(...children); },
+    appendChild(child) { this.children.push(child); },
+    insertBefore(child, before) { this.children.splice(this.children.indexOf(before), 0, child); },
+    querySelectorAll() { return []; },
     replaceChildren(...children) { this.children = children; }
 });
 class BaseWidget {

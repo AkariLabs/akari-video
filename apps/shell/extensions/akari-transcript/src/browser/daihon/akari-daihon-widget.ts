@@ -1,5 +1,6 @@
 import { PLACE_TEXT_COMMAND_ID } from 'akari-annotations/lib/common/place-text';
 import { placedTextRanges, placedTextLanes, placedTextTiming, placedTextDropTiming, placedTextEdgeTiming, type PlacedTextAction, type PlacedTextRange } from '../../common/daihon-placed-text';
+import { attachmentRanges, visibleAttachmentRanges, visibleLaneCount, isAttachmentItem, type AttachmentMode, type AttachmentRange } from '../../common/daihon-attachments';
 import { DaihonOpenTarget, isValidDaihonWordRange, resolveDaihonFocusRowId } from '../../common/daihon-focus-target';
 import { installDaihonFocusPulseStyle, triggerFocusPulse } from '../../common/daihon-focus-pulse-style';
 import { AkariProjectService, type TranscribeCuts } from 'akari-project/lib/common/akari-project-protocol';
@@ -17,7 +18,7 @@ import {
 } from '../../common/captions-button';
 import URI from '@theia/core/lib/common/uri';
 import { CommandService } from '@theia/core/lib/common';
-import { BaseWidget, ApplicationShell, OpenerService } from '@theia/core/lib/browser';
+import { BaseWidget, ApplicationShell, OpenerService, open } from '@theia/core/lib/browser';
 import { FileStat } from '@theia/filesystem/lib/common/files';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
 import { WorkspaceService } from '@theia/workspace/lib/browser/workspace-service';
@@ -102,7 +103,7 @@ import {
     addWordRange, extendWordRange, normalizeWordRanges, removeWordRange, wordRangeSummary, wordsOf,
     type DaihonWordRange
 } from '../../common/daihon-word-selection';
-import { stringifyEditV2, updateItemDurationAndShiftFollowing } from 'akari-annotations/lib/common/edit-v2-mutations';
+import { stringifyEditV2, updateItem, updateItemDurationAndShiftFollowing } from 'akari-annotations/lib/common/edit-v2-mutations';
 import {
     fragmentBoundaries,
     freezeAndRemoveCaptionBoundary,
@@ -155,6 +156,8 @@ const TOGGLE_PREVIEW_PLAYBACK_COMMAND_ID = 'akari.preview.togglePlayback';
 const MIN_WORD_INSERT_GAP_SEC = 0.1;
 const DAIHON_WORD_UNIT_PREFERENCE = 'akari.daihon.wordUnit';
 const DAIHON_SHOW_BREAKS_PREFERENCE = 'akari.daihon.showBreaks';
+const DAIHON_ATTACHMENT_MODE_PREFERENCE = 'akari.daihon.attachmentMode';
+const FOCUS_TIMELINE_ITEM_COMMAND_ID = 'akari.timeline.focusItem';
 const INTERACTIVE_SELECTOR = '.akari-daihon-placed-bar, .akari-daihon-placed-tag, .akari-daihon-speaker, button.akari-daihon-tc, .akari-daihon-word, .akari-daihon-word-unk, input, .akari-daihon-badge-qc, .akari-daihon-gapchip, button.akari-daihon-cut, button.akari-daihon-split, button.akari-daihon-gear, button.akari-daihon-selgear, .akari-daihon-splitmark, .akari-daihon-gapzone, .akari-daihon-gapdraft, .akari-daihon-word-filler, button.akari-daihon-silence, button.akari-daihon-selcut, button.akari-daihon-selmerge, button.akari-daihon-selmerge-next, button.akari-daihon-tpl, button.akari-daihon-seltpl, .akari-daihon-tplcard, .akari-daihon-cutcell, .akari-daihon-cutrange, .akari-daihon-pop, .akari-daihon-minitl, .akari-daihon-wgap, .akari-daihon-wordbar, .akari-daihon-wordcm, .akari-daihon-slash';
 
 interface PreviewPlaybackTick {
@@ -409,6 +412,13 @@ const STYLE = `
 .akari-daihon-widget .akari-daihon-placed-tag { display:inline-block; font-family:inherit; font-size:10.5px; line-height:1.6; border:0; border-radius:4px; padding:1px 7px; margin:3px 6px 0 0; color:var(--placed-color); background:color-mix(in srgb, var(--placed-color) 24%, transparent); cursor:pointer; overflow-wrap:anywhere; text-align:left; }
 .akari-daihon-widget .akari-daihon-placed-bar.selected { border:0; box-shadow:none; filter:brightness(1.3); opacity:1; }
 .akari-daihon-widget .akari-daihon-placed-tag.selected { border:0; box-shadow:0 0 0 1px var(--theia-editor-foreground, #fff); opacity:1; }
+.akari-daihon-attachment-mode { display:inline-flex; align-items:center; gap:2px; font-size:10px; white-space:nowrap; }
+.akari-daihon-attachment-mode button { font:inherit; border:0; border-radius:4px; padding:2px 5px; color:var(--akari-muted); background:transparent; cursor:pointer; }
+.akari-daihon-attachment-mode button.active { color:var(--akari-ink, var(--theia-foreground)); background:var(--akari-card); }
+.akari-daihon-attachment-tag { display:inline-flex !important; align-items:center; gap:5px; cursor:grab !important; }
+.akari-daihon-attachment-icon { display:inline-grid; place-items:center; width:17px; height:14px; border:1px solid currentColor; border-radius:3px; font-size:9px; line-height:1; flex:none; }
+.akari-daihon-attachment-thumb { display:block; width:22px; height:14px; object-fit:cover; border-radius:2px; flex:none; }
+.akari-daihon-attachment-folded { font-size:10px; opacity:.75; margin-left:3px; }
 .akari-daihon-placed-editor { padding:8px 11px; background:var(--theia-editorWidget-background, #141414); flex-shrink:0; animation:akari-daihon-placed-enter 180ms ease-out both; }
 .akari-daihon-placed-editor[hidden] { display:none; }
 @keyframes akari-daihon-placed-enter { from { transform:translateY(100%); opacity:0; } to { transform:translateY(0); opacity:1; } }
@@ -469,6 +479,15 @@ export class AkariDaihonWidget extends BaseWidget {
     protected readonly qcButton = document.createElement('button');
     protected readonly silenceButton = document.createElement('button');
     protected readonly cutsButton = document.createElement('button');
+    protected readonly attachmentModeNode = document.createElement('div');
+    protected attachmentMode: AttachmentMode = 'all';
+    protected attachments: AttachmentRange[] = [];
+    protected editFps = 30;
+    protected attachmentSelection: string | undefined;
+    protected attachmentOpening: string | undefined;
+    protected attachmentDrag: { id: string; pointerId: number; x: number; y: number; moved: boolean } | undefined;
+    protected attachmentEdgeDrag: { id: string; pointerId: number; edge: 'start' | 'end'; y: number; range: AttachmentRange;
+        timing: { start: number; end: number } | null } | undefined;
     protected placedSelection: string | undefined;
     protected placedBusy = false;
     protected placedEditing: EditingState | undefined;
@@ -623,8 +642,18 @@ export class AkariDaihonWidget extends BaseWidget {
                 this.notify(`カット候補を開けません: ${this.errorMessage(error)}`);
             }
         });
+        this.attachmentModeNode.className = 'akari-daihon-attachment-mode';
+        this.attachmentModeNode.textContent = '添付:';
+        for (const [mode, label] of [['all', '全部'], ['text', '文字だけ'], ['none', '隠す']] as const) {
+            const button = document.createElement('button');
+            button.type = 'button'; button.textContent = label; button.dataset.attachmentMode = mode;
+            button.addEventListener('click', event => { event.stopPropagation(); this.setAttachmentMode(mode); });
+            this.attachmentModeNode.appendChild(button);
+        }
+        this.updateAttachmentModeButtons();
         header.style.flexWrap = 'wrap';
         header.append(title, this.count, spacer, this.captionsButton, this.placeTextButton, this.retimeButton, this.historyButton, this.displayButton, this.tplButton, this.qcButton, this.silenceButton, this.cutsButton);
+        header.insertBefore(this.attachmentModeNode, this.captionsButton);
         if (typeof this.placeTextButton.after === 'function') this.placeTextButton.after(this.readAloudButton);
         else header.append(this.readAloudButton);
 
@@ -704,12 +733,29 @@ export class AkariDaihonWidget extends BaseWidget {
         const timelineSelection = (event: Event): void => {
             const detail = (event as CustomEvent<{ editUri?: string; selection?: { kind: string; id: string } }>).detail;
             this.receivePlacedSelection(detail?.editUri, detail?.selection?.kind === 'caption' ? detail.selection.id : undefined);
+            if (detail?.editUri === this.editUri?.normalizePath().toString()) {
+                const id = this.attachments.some(item => item.id === detail.selection?.id) ? detail.selection?.id : undefined;
+                if (id !== this.attachmentSelection) { this.attachmentSelection = id; this.renderPlacedText(); }
+            }
+        };
+        const attachmentSelection = (event: Event): void => {
+            const detail = (event as CustomEvent<{ editUri?: string; videoUri?: string; overlayId?: string | null;
+                layerId?: string | null }>).detail;
+            if ((detail?.editUri ?? detail?.videoUri) !== this.editUri?.normalizePath().toString()) return;
+            const id = detail.overlayId ?? detail.layerId;
+            if (!id) return;
+            const next = this.attachments.some(item => item.id === id) ? id ?? undefined : undefined;
+            if (next !== this.attachmentSelection) { this.attachmentSelection = next; this.renderPlacedText(); }
         };
         window.addEventListener(PREVIEW_CAPTION_SELECTED_EVENT, previewSelection);
         window.addEventListener('akari.timeline.primarySelected', timelineSelection);
+        for (const name of ['akari.timeline.overlaySelected', 'akari.timeline.layerSelected',
+            'akari.preview.overlaySelected', 'akari.preview.layerSelected']) window.addEventListener(name, attachmentSelection);
         this.toDispose.push({ dispose: () => {
             window.removeEventListener(PREVIEW_CAPTION_SELECTED_EVENT, previewSelection);
             window.removeEventListener('akari.timeline.primarySelected', timelineSelection);
+            for (const name of ['akari.timeline.overlaySelected', 'akari.timeline.layerSelected',
+                'akari.preview.overlaySelected', 'akari.preview.layerSelected']) window.removeEventListener(name, attachmentSelection);
         } });
 
         const tick = (event: Event): void => this.handlePlaybackTick(
@@ -743,12 +789,22 @@ export class AkariDaihonWidget extends BaseWidget {
         const placedUp = (event: PointerEvent): void => this.handlePlacedPointerUp(event);
         const edgeMove = (event: PointerEvent): void => this.handlePlacedEdgeMove(event);
         const edgeUp = (event: PointerEvent): void => this.handlePlacedEdgeUp(event);
+        const attachmentMove = (event: PointerEvent): void => this.handleAttachmentPointerMove(event);
+        const attachmentUp = (event: PointerEvent): void => this.handleAttachmentPointerUp(event);
+        const attachmentEdgeMove = (event: PointerEvent): void => this.handleAttachmentEdgeMove(event);
+        const attachmentEdgeUp = (event: PointerEvent): void => this.handleAttachmentEdgeUp(event);
         document.addEventListener('pointermove', placedMove);
         document.addEventListener('pointerup', placedUp);
         document.addEventListener('pointercancel', placedUp);
         document.addEventListener('pointermove', edgeMove);
         document.addEventListener('pointerup', edgeUp);
         document.addEventListener('pointercancel', edgeUp);
+        document.addEventListener('pointermove', attachmentMove);
+        document.addEventListener('pointerup', attachmentUp);
+        document.addEventListener('pointercancel', attachmentUp);
+        document.addEventListener('pointermove', attachmentEdgeMove);
+        document.addEventListener('pointerup', attachmentEdgeUp);
+        document.addEventListener('pointercancel', attachmentEdgeUp);
         this.toDispose.push({ dispose: () => {
             document.removeEventListener('pointermove', placedMove);
             document.removeEventListener('pointerup', placedUp);
@@ -756,6 +812,12 @@ export class AkariDaihonWidget extends BaseWidget {
             document.removeEventListener('pointermove', edgeMove);
             document.removeEventListener('pointerup', edgeUp);
             document.removeEventListener('pointercancel', edgeUp);
+            document.removeEventListener('pointermove', attachmentMove);
+            document.removeEventListener('pointerup', attachmentUp);
+            document.removeEventListener('pointercancel', attachmentUp);
+            document.removeEventListener('pointermove', attachmentEdgeMove);
+            document.removeEventListener('pointerup', attachmentEdgeUp);
+            document.removeEventListener('pointercancel', attachmentEdgeUp);
         } });
         const closePopFromOutside = (event: MouseEvent): void => {
             if (Date.now() - this.popOpenedAt < 50) return;
@@ -890,6 +952,9 @@ export class AkariDaihonWidget extends BaseWidget {
         this.configured = true;
         this.wordUnit = this.preferences.get(DAIHON_WORD_UNIT_PREFERENCE) === 'token' ? 'token' : 'word';
         this.showBreaks = readDaihonShowBreaks(this.preferences.get(DAIHON_SHOW_BREAKS_PREFERENCE));
+        const attachmentMode = this.preferences.get(DAIHON_ATTACHMENT_MODE_PREFERENCE);
+        this.attachmentMode = attachmentMode === 'text' || attachmentMode === 'none' ? attachmentMode : 'all';
+        this.updateAttachmentModeButtons();
         await this.workspaceService.ready;
         const roots = await this.workspaceService.roots;
         const root = roots[0]?.resource;
@@ -1058,10 +1123,14 @@ export class AkariDaihonWidget extends BaseWidget {
             const extras = this.captionExtras(captionsSource);
             this.captionExtraById = extras;
             this.sourceCaptions = parsed.captions;
+            const edit = JSON.parse(editSource) as { output?: { fps?: number } };
+            this.editFps = edit.output?.fps || 30;
             const captions = this.daihonCaptionsForDisplay();
             this.wordPresetByRowId = this.resolveWordPresets(this.captionsRoot, captions);
             this.segments = this.timelineSegments(editSource, captions.length > 0);
             const next = buildDaihonRows(captions, this.segments);
+            this.attachments = attachmentRanges(edit as Parameters<typeof attachmentRanges>[0], next,
+                this.sourceCaptions.filter(caption => caption.timeDomain === 'output').length);
             this.handEditedCaptionIds.clear();
             let combinedCuts: TranscribeCuts | null = null;
             for (const source of this.editSources) {
@@ -1427,12 +1496,29 @@ export class AkariDaihonWidget extends BaseWidget {
         return placedTextRanges(this.sourceCaptions.map(caption => ({ ...caption, style: caption.style ?? null })), this.rows);
     }
 
+    protected setAttachmentMode(mode: AttachmentMode): void {
+        this.attachmentMode = mode;
+        this.updateAttachmentModeButtons();
+        void this.preferences.set(DAIHON_ATTACHMENT_MODE_PREFERENCE, mode, PreferenceScope.User)
+            .catch(error => this.notify(this.errorMessage(error)));
+        this.renderPlacedText();
+    }
+
+    protected updateAttachmentModeButtons(): void {
+        this.attachmentModeNode.querySelectorAll<HTMLButtonElement>('button[data-attachment-mode]').forEach(button => {
+            const active = button.dataset.attachmentMode === this.attachmentMode;
+            button.classList.toggle('active', active);
+            button.setAttribute('aria-pressed', String(active));
+        });
+    }
+
     protected receivePlacedSelection(editUri: string | undefined, captionId: string | undefined): void {
         if (!editUri || editUri !== this.editUri?.normalizePath().toString()) return;
         const id = this.sourceCaptions.some(caption => caption.id === captionId && caption.timeDomain === 'output')
             ? captionId : undefined;
         if (id === this.placedSelection) return;
         if (id) {
+            this.attachmentSelection = undefined;
             this.wordRanges = [];
             this.renderWordSelection();
             this.setSelection(clearSelection(), false);
@@ -1464,6 +1550,7 @@ export class AkariDaihonWidget extends BaseWidget {
 
     protected selectPlacedText(captionId: string): void {
         this.closePop();
+        this.attachmentSelection = undefined;
         this.wordRanges = [];
         this.renderWordSelection();
         this.setSelection(clearSelection(), false);
@@ -1485,31 +1572,53 @@ export class AkariDaihonWidget extends BaseWidget {
 
     /** A visible 4px bar body wins over a neighboring bar's transparent hit area. */
     protected placedBarBodyCaption(columns: HTMLElement, x: number, fallback: string): string {
-        for (const bar of Array.from(columns.querySelectorAll<HTMLButtonElement>('.akari-daihon-placed-bar'))) {
+        for (const bar of Array.from(columns.querySelectorAll<HTMLButtonElement>('.akari-daihon-placed-bar[data-caption-id]'))) {
             const rect = bar.getBoundingClientRect();
             if (x >= rect.left && x < rect.right) return bar.dataset.captionId ?? fallback;
         }
         return fallback;
     }
 
+    protected placedBarBodyAttachment(columns: HTMLElement, x: number): string | undefined {
+        for (const bar of Array.from(columns.querySelectorAll<HTMLButtonElement>('.akari-daihon-attachment-bar'))) {
+            const rect = bar.getBoundingClientRect();
+            if (x >= rect.left && x < rect.right) return bar.dataset.attachmentId;
+        }
+        return undefined;
+    }
+
     protected renderPlacedText(): void {
         const preview = this.placedEdgeDrag;
-        const ranges = preview?.timing ? placedTextRanges(this.sourceCaptions.map(caption => ({
+        const allTextRanges = preview?.timing ? placedTextRanges(this.sourceCaptions.map(caption => ({
             ...caption, style: caption.style ?? null,
             ...(caption.id === preview.captionId ? preview.timing! : {})
         })), this.rows) : this.placedRanges();
-        const layout = placedTextLanes(ranges);
+        const ranges = this.attachmentMode === 'none' ? [] : allTextRanges;
+        const attachmentPreview = this.attachmentEdgeDrag;
+        const attachments = this.attachmentMode === 'all' ? (this.attachments ?? []).map(range => {
+            if (range.id !== attachmentPreview?.id || !attachmentPreview.timing) return range;
+            const { start, end } = attachmentPreview.timing;
+            const overlapping = this.rows.flatMap((row, index) => row.outStart !== null && row.outEnd !== null
+                && row.outStart < end && start < row.outEnd ? [index] : []);
+            return overlapping.length ? { ...range, start, end, first: overlapping[0], last: overlapping[overlapping.length - 1] } : range;
+        }) : [];
+        const shared = visibleAttachmentRanges<PlacedTextRange | AttachmentRange>(this.attachmentMode, allTextRanges, attachments);
+        const layout = placedTextLanes(shared.map(range => ({ ...range,
+            id: 'captionId' in range ? `text:${range.captionId}` : `item:${range.id}` })));
+        const shownLanes = visibleLaneCount(layout.count);
         if (!this.sourceCaptions.some(caption => caption.id === this.placedSelection && caption.timeDomain === 'output')) {
             this.placedSelection = undefined;
         }
-        this.rowsNode.style.setProperty('--placed-width', `${layout.width}px`);
-        this.rowsNode.classList.toggle('has-placed-bars', layout.count > 0);
+        this.rowsNode.style.setProperty('--placed-width', `${shownLanes ? shownLanes * 4 + (shownLanes - 1) * 2 : 0}px`);
+        this.rowsNode.classList.toggle('has-placed-bars', shownLanes > 0);
         this.rows.forEach((row, index) => {
             const root = this.elements.get(row.id)?.root;
             if (!root) return;
             root.querySelectorAll('.akari-daihon-placed-columns, .akari-daihon-placed-tags').forEach(node => node.remove());
             root.classList.toggle('has-placed-handle', ranges.some(range => range.captionId === this.placedSelection
-                && range.last > range.first && (index === range.first || index === range.last)));
+                && range.last > range.first && (index === range.first || index === range.last))
+                || attachments.some(range => range.id === this.attachmentSelection && range.last > range.first
+                    && (index === range.first || index === range.last)));
             const columns = document.createElement('div');
             columns.className = 'akari-daihon-placed-columns';
             columns.dataset.laneCount = String(layout.count);
@@ -1530,6 +1639,9 @@ export class AkariDaihonWidget extends BaseWidget {
                     button.addEventListener('click', event => {
                         event.stopPropagation();
                         if (this.suppressPlacedClick) return;
+                        const attachmentId = className === 'akari-daihon-placed-bar' && event.detail !== 0
+                            ? this.placedBarBodyAttachment(columns, event.clientX) : undefined;
+                        if (attachmentId) { void this.selectAttachment(attachmentId); return; }
                         const captionId = className === 'akari-daihon-placed-bar' && event.detail !== 0
                             ? this.placedBarBodyCaption(columns, event.clientX, range.captionId) : range.captionId;
                         const now = Date.now();
@@ -1552,8 +1664,8 @@ export class AkariDaihonWidget extends BaseWidget {
                     });
                     return button;
                 };
-                const lane = layout.lanes.get(range.captionId);
-                if (lane !== undefined && index >= range.first && index <= range.last) {
+                const lane = layout.lanes.get(`text:${range.captionId}`);
+                if (lane !== undefined && lane < shownLanes && index >= range.first && index <= range.last) {
                     const bar = makeButton('akari-daihon-placed-bar');
                     bar.dataset.lane = String(lane);
                     bar.style.left = `${lane * 6}px`;
@@ -1583,6 +1695,12 @@ export class AkariDaihonWidget extends BaseWidget {
                     const suffix = range.first === 0 && range.last === this.rows.length - 1 ? ' · 全体'
                         : range.last > range.first ? ` · ${range.last - range.first + 1} 行` : '';
                     tag.textContent = `T ${range.text}${suffix}`;
+                    if (lane !== undefined && lane >= shownLanes) {
+                        const folded = document.createElement('span');
+                        folded.className = 'akari-daihon-attachment-folded';
+                        folded.textContent = `▮${lane + 1}`;
+                        tag.appendChild(folded);
+                    }
                     tag.addEventListener('pointerdown', event => this.startPlacedPointerDrag(event, range.captionId));
                     if (range.first === range.last && range.captionId === this.placedSelection) {
                         const single = document.createElement('span');
@@ -1592,11 +1710,207 @@ export class AkariDaihonWidget extends BaseWidget {
                     } else tags.appendChild(tag);
                 }
             }
+            for (const range of attachments) {
+                const lane = layout.lanes.get(`item:${range.id}`);
+                const color = PLACED_TEXT_COLORS[range.colorIndex % PLACED_TEXT_COLORS.length];
+                if (lane !== undefined && lane < shownLanes && index >= range.first && index <= range.last) {
+                    const bar = document.createElement('button');
+                    bar.type = 'button'; bar.className = 'akari-daihon-placed-bar akari-daihon-attachment-bar';
+                    bar.dataset.attachmentId = range.id; bar.dataset.attachmentKind = range.kind;
+                    bar.dataset.lane = String(lane); bar.style.left = `${lane * 6}px`;
+                    bar.style.setProperty('--placed-color', color);
+                    bar.classList.toggle('selected', range.id === this.attachmentSelection);
+                    bar.classList.toggle('first', index === range.first);
+                    bar.classList.toggle('last', index === range.last);
+                    bar.setAttribute('aria-pressed', String(range.id === this.attachmentSelection));
+                    bar.setAttribute('aria-label', `${range.name} · ${range.first + 1}〜${range.last + 1} 行`);
+                    bar.title = range.name;
+                    bar.addEventListener('click', event => {
+                        event.stopPropagation();
+                        if (event.detail === 0) { void this.selectAttachment(range.id); return; }
+                        const captionId = this.placedBarBodyCaption(columns, event.clientX, '');
+                        if (captionId) this.selectPlacedText(captionId);
+                        else void this.selectAttachment(this.placedBarBodyAttachment(columns, event.clientX) ?? range.id);
+                    });
+                    columns.appendChild(bar);
+                    if (range.id === this.attachmentSelection) {
+                        if (index === range.first) handles.push(this.createAttachmentEdgeHandle(range, 'start', lane));
+                        if (index === range.last) handles.push(this.createAttachmentEdgeHandle(range, 'end', lane));
+                    }
+                }
+                if (index !== range.first) continue;
+                const tag = document.createElement('button');
+                tag.type = 'button'; tag.className = 'akari-daihon-placed-tag akari-daihon-attachment-tag';
+                tag.dataset.attachmentId = range.id; tag.dataset.attachmentKind = range.kind;
+                tag.style.setProperty('--placed-color', color);
+                tag.classList.toggle('selected', range.id === this.attachmentSelection);
+                tag.setAttribute('aria-pressed', String(range.id === this.attachmentSelection));
+                tag.title = range.name;
+                const icon = document.createElement(range.kind === 'image' ? 'img' : 'span');
+                if (range.kind === 'image') {
+                    icon.className = 'akari-daihon-attachment-thumb';
+                    (icon as HTMLImageElement).src = this.editUri?.parent.resolve(range.path).normalizePath().toString() ?? '';
+                    (icon as HTMLImageElement).alt = '';
+                } else { icon.className = 'akari-daihon-attachment-icon'; icon.textContent = '<>'; }
+                const name = document.createElement('span');
+                const suffix = range.first === 0 && range.last === this.rows.length - 1 ? ' · 全体'
+                    : range.last > range.first ? ` · ${range.last - range.first + 1} 行` : '';
+                name.textContent = `${range.name}${suffix}`;
+                tag.append(icon, name);
+                if (lane !== undefined && lane >= shownLanes) {
+                    const folded = document.createElement('span');
+                    folded.className = 'akari-daihon-attachment-folded'; folded.textContent = `▮${lane + 1}`;
+                    tag.appendChild(folded);
+                }
+                tag.addEventListener('click', event => {
+                    event.stopPropagation();
+                    if (this.suppressPlacedClick) return;
+                    if (event.detail >= 2) void this.openAttachment(range);
+                    else void this.selectAttachment(range.id);
+                });
+                tag.addEventListener('dblclick', event => { event.preventDefault(); event.stopPropagation(); void this.openAttachment(range); });
+                tag.addEventListener('pointerdown', event => this.startAttachmentDrag(event, range.id));
+                if (range.first === range.last && range.id === this.attachmentSelection) {
+                    const single = document.createElement('span');
+                    single.className = 'akari-daihon-placed-single';
+                    const start = this.createAttachmentEdgeHandle(range, 'start', lane ?? 0);
+                    const end = this.createAttachmentEdgeHandle(range, 'end', lane ?? 0);
+                    start.style.left = '-12px'; end.style.left = '-12px';
+                    single.append(tag, start, end);
+                    tags.appendChild(single);
+                } else tags.appendChild(tag);
+            }
             columns.append(...handles);
             root.prepend(columns);
             if (tags.childElementCount) root.appendChild(tags);
         });
         this.renderPlacedEditor(ranges.find(range => range.captionId === this.placedSelection));
+    }
+
+    protected async selectAttachment(id: string): Promise<void> {
+        this.closePop();
+        this.wordRanges = [];
+        this.renderWordSelection();
+        this.setSelection(clearSelection(), false);
+        this.placedSelection = undefined;
+        this.attachmentSelection = id;
+        this.renderPlacedText();
+        try {
+            await this.commands.executeCommand(FOCUS_TIMELINE_ITEM_COMMAND_ID,
+                { itemId: id, seek: false, reveal: true });
+        } catch (error) { this.notify(this.errorMessage(error)); }
+    }
+
+    protected async openAttachment(range: AttachmentRange): Promise<void> {
+        if (this.attachmentOpening === range.id) return;
+        this.attachmentOpening = range.id;
+        try {
+            await this.selectAttachment(range.id);
+            if (!this.editUri) return;
+            const opened = await open(this.opener, this.editUri.parent.resolve(range.path).normalizePath(), { mode: 'activate' });
+            if (range.kind === 'image' && 'id' in opened && typeof opened.id === 'string') {
+                await this.applicationShell.activateWidget(opened.id);
+            }
+        } catch (error) { this.notify(this.errorMessage(error)); }
+        finally { this.attachmentOpening = undefined; }
+    }
+
+    protected createAttachmentEdgeHandle(range: AttachmentRange, edge: 'start' | 'end', lane: number): HTMLSpanElement {
+        const handle = document.createElement('span');
+        handle.className = `akari-daihon-placed-handle ${edge === 'start' ? 'top' : 'bot'}`;
+        handle.dataset.edge = edge;
+        handle.dataset.attachmentId = range.id;
+        handle.style.left = `${lane * 6 - 4}px`;
+        handle.setAttribute('aria-label', `${range.name}の${edge === 'start' ? '開始' : '終了'}位置を変更`);
+        handle.addEventListener('pointerdown', event => {
+            event.preventDefault(); event.stopPropagation();
+            if (event.button !== 0 || this.placedBusy) return;
+            this.suppressPlacedClick = true;
+            this.rowsNode.setPointerCapture(event.pointerId);
+            this.attachmentEdgeDrag = { id: range.id, pointerId: event.pointerId, edge, y: event.clientY, range, timing: null };
+        });
+        handle.addEventListener('click', event => { event.preventDefault(); event.stopPropagation(); });
+        return handle;
+    }
+
+    protected handleAttachmentEdgeMove(event: PointerEvent): void {
+        const drag = this.attachmentEdgeDrag;
+        if (!drag || drag.pointerId !== event.pointerId || Math.abs(event.clientY - drag.y) < 3) return;
+        const index = this.placedEdgeIndex(event.clientY);
+        const timing = index === null ? null : placedTextEdgeTiming({ ...drag.range, captionId: drag.id, text: drag.range.name },
+            this.rows, drag.edge, index);
+        if (timing?.start === drag.timing?.start && timing?.end === drag.timing?.end) return;
+        drag.timing = timing;
+        this.renderPlacedText();
+    }
+
+    protected handleAttachmentEdgeUp(event: PointerEvent): void {
+        const drag = this.attachmentEdgeDrag;
+        if (!drag || drag.pointerId !== event.pointerId) return;
+        this.attachmentEdgeDrag = undefined;
+        if (this.rowsNode.hasPointerCapture(event.pointerId)) this.rowsNode.releasePointerCapture(event.pointerId);
+        this.suppressRowClick = true;
+        setTimeout(() => { this.suppressPlacedClick = false; this.suppressRowClick = false; }, 0);
+        if (event.type === 'pointercancel' || !drag.timing) { this.renderPlacedText(); return; }
+        const at = Math.round(drag.timing.start * this.editFps);
+        const duration = Math.round(drag.timing.end * this.editFps) - at;
+        void this.writeAttachmentTiming(drag.id, at, duration, '範囲を変更');
+    }
+
+    protected startAttachmentDrag(event: PointerEvent, id: string): void {
+        if (event.button !== 0 || this.placedBusy) return;
+        event.stopPropagation();
+        (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
+        this.attachmentDrag = { id, pointerId: event.pointerId, x: event.clientX, y: event.clientY, moved: false };
+    }
+
+    protected handleAttachmentPointerMove(event: PointerEvent): void {
+        const drag = this.attachmentDrag;
+        if (!drag || drag.pointerId !== event.pointerId) return;
+        if (!drag.moved && Math.hypot(event.clientX - drag.x, event.clientY - drag.y) < 5) return;
+        drag.moved = true;
+        const index = this.placedDropIndex(event.clientX, event.clientY);
+        this.rows.forEach(row => this.elements.get(row.id)?.root.classList.remove('placed-drop-target'));
+        if (index !== null && this.rows[index].outStart !== null) {
+            this.elements.get(this.rows[index].id)?.root.classList.add('placed-drop-target');
+        }
+    }
+
+    protected handleAttachmentPointerUp(event: PointerEvent): void {
+        const drag = this.attachmentDrag;
+        if (!drag || drag.pointerId !== event.pointerId) return;
+        this.attachmentDrag = undefined;
+        this.rows.forEach(row => this.elements.get(row.id)?.root.classList.remove('placed-drop-target'));
+        if (!drag.moved) return;
+        this.suppressPlacedClick = true;
+        this.suppressRowClick = true;
+        setTimeout(() => { this.suppressPlacedClick = false; this.suppressRowClick = false; }, 0);
+        if (event.type === 'pointercancel') return;
+        const range = this.attachments.find(item => item.id === drag.id);
+        const index = this.placedDropIndex(event.clientX, event.clientY);
+        const at = index === null ? null : this.rows[index].outStart;
+        if (range && at !== null && at !== undefined && index !== range.first) {
+            void this.writeAttachmentTiming(drag.id, Math.round(at * this.editFps), range.durationFrames, '行を移動');
+        }
+    }
+
+    protected async writeAttachmentTiming(id: string, at: number, duration: number, label: string): Promise<void> {
+        if (this.placedBusy || !this.editUri || !this.rootUri) return;
+        this.placedBusy = true;
+        try {
+            await this.withHistory(`添付: ${label}`, async () => {
+                const source = await this.readText(this.editUri!);
+                const edit = JSON.parse(source) as Record<string, unknown>;
+                if (!isAttachmentItem(edit as unknown as Parameters<typeof isAttachmentItem>[0], id)) {
+                    throw new Error(`添付 ${id} が見つかりません。`);
+                }
+                const editSource = stringifyEditV2(updateItem(edit, { itemId: id, patch: { at, duration } }));
+                await this.annotationsService.writeEditSnapshot({ editUri: this.editUri!.toString(),
+                    projectRootUri: this.rootUri!.toString(), editSource });
+            });
+            await this.reload();
+        } catch (error) { await this.reload(); this.notify(this.errorMessage(error)); }
+        finally { this.placedBusy = false; this.renderPlacedText(); }
     }
 
     protected renderPlacedEditor(range: PlacedTextRange | undefined): void {
