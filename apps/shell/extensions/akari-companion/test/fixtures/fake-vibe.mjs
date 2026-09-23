@@ -47,6 +47,11 @@ process.stdin.on('data', chunk => {
   if (mode === 'wrong-protocol') return process.stdout.write('{"type":"listening","port":1,"protocol":1}\n');
   if (mode === 'wrong-type') return process.stdout.write('{"type":"ready","port":1,"protocol":0}\n');
   if (mode === 'oversized') return process.stdout.write('x'.repeat(4097));
+  if (mode === 'delayed-line') {
+    setTimeout(() => process.stdout.write('{"type":"listening","port":1,"protocol":0}\n'),
+      Number(process.env.FAKE_VIBE_ANNOUNCE_DELAY_MS));
+    return;
+  }
   server = createServer(async (request, response) => {
     if (request.headers.authorization !== `Bearer ${token}`) {
       response.writeHead(401).end();

@@ -11,6 +11,8 @@ import { AnchorRect } from '../common/companion-panel-geometry';
 export const COMPANION_TOGGLE_COMMAND_ID = 'akari.companion.togglePanel';
 export const COMPANION_TOGGLE_ATTRIBUTE = 'data-akari-companion-toggle';
 export const COMPANION_TOGGLE_LABEL = 'AKARI バイブ';
+export const COMPANION_STARTING_LABEL = 'AKARI バイブを起動しています…';
+export const COMPANION_STARTING_LABEL_DELAY_MS = 5_000;
 /**
  * 「変更を見る」は同じ group の priority 100。Theia のツールバーは
  * `items.sort(PRIORITY_COMPARATOR).reverse()` で DOM に並べたうえで、
@@ -52,9 +54,12 @@ export class CompanionToolbarContribution implements TabBarToolbarContribution {
     protected readonly commands!: CommandRegistry;
 
     protected state: CompanionToolbarState | undefined;
+    protected startingLabelTimer: ReturnType<typeof setTimeout> | undefined;
+    protected slowStarting = false;
 
     setState(state: CompanionToolbarState | undefined): void {
         this.state = state;
+        if (!state) this.resetStartingLabel();
     }
 
     registerToolbarItems(toolbar: TabBarToolbarRegistry): void {
@@ -76,8 +81,21 @@ export class CompanionToolbarContribution implements TabBarToolbarContribution {
         const enabled = Boolean(this.state?.enabled());
         const starting = Boolean(this.state?.starting());
         const open = Boolean(this.state?.open());
+        if (starting && !this.slowStarting && !this.startingLabelTimer) {
+            this.startingLabelTimer = setTimeout(() => {
+                this.startingLabelTimer = undefined;
+                if (!this.state?.starting()) return;
+                this.slowStarting = true;
+                this.refresh(doc);
+            }, COMPANION_STARTING_LABEL_DELAY_MS);
+        } else if (!starting) {
+            this.resetStartingLabel();
+        }
+        const label = this.slowStarting && starting ? COMPANION_STARTING_LABEL : COMPANION_TOGGLE_LABEL;
         for (const button of toolbarButtons(doc)) {
             button.style.display = enabled ? 'inline-flex' : 'none';
+            button.setAttribute('title', label);
+            button.setAttribute('aria-label', label);
             button.dataset.starting = String(starting);
             button.setAttribute('aria-busy', String(starting));
             button.dataset.open = open ? 'true' : 'false';
@@ -85,15 +103,22 @@ export class CompanionToolbarContribution implements TabBarToolbarContribution {
         }
     }
 
+    protected resetStartingLabel(): void {
+        if (this.startingLabelTimer) clearTimeout(this.startingLabelTimer);
+        this.startingLabelTimer = undefined;
+        this.slowStarting = false;
+    }
+
     protected renderButton(): React.ReactNode {
         const open = Boolean(this.state?.open());
         const enabled = Boolean(this.state?.enabled());
         const starting = Boolean(this.state?.starting());
+        const label = this.slowStarting && starting ? COMPANION_STARTING_LABEL : COMPANION_TOGGLE_LABEL;
         return React.createElement('button', {
             type: 'button',
             className: 'theia-button secondary akari-companion-toggle',
-            title: COMPANION_TOGGLE_LABEL,
-            'aria-label': COMPANION_TOGGLE_LABEL,
+            title: label,
+            'aria-label': label,
             'aria-pressed': open,
             [COMPANION_TOGGLE_ATTRIBUTE]: '',
             'data-starting': String(starting),

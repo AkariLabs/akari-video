@@ -4,6 +4,8 @@ import { promises as fs } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { CompanionAddress } from './companion-home';
 
+export const DEFAULT_COMPANION_STARTUP_TIMEOUT_MS = 20_000;
+
 export interface CompanionProcessOptions {
     env?: NodeJS.ProcessEnv;
     resourcesPath?: string;
@@ -93,7 +95,8 @@ export class CompanionProcess {
                     finish(new Error('invalid listening announcement'));
                 }
             };
-            const timer = setTimeout(() => finish(new Error('listening announcement timed out')), this.options.startupTimeoutMs ?? 5000);
+            const timer = setTimeout(() => finish(new Error('listening announcement timed out')),
+                this.options.startupTimeoutMs ?? DEFAULT_COMPANION_STARTUP_TIMEOUT_MS);
             this.rejectStart = error => finish(error);
             child.stdout.on('data', readLine);
             child.once('error', () => finish(new Error('child process could not start')));
