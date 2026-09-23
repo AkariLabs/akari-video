@@ -11,8 +11,8 @@ class URI {
  static fromFilePath(path){return new URI(path);}
 }
 const Widget=new Function('library_asset_placement_1','uri_1',`return class {${rest.slice(0,rest.indexOf('\n    }')+6)}}`)(placement,{default:URI});
-function fixture({category='audio',id='sfx-test',names=['sfx-test.mp3'],mediaUrl,missing=false,missingFile=false,state='available',origin='resolver'}={}) {
- let resolves=0,localReads=0,loads=0;
+function fixture({category='audio',id='sfx-test',names=['sfx-test.mp3'],mediaUrl,missing=false,missingFile=false,state='available',origin='resolver',usageFails=false}={}) {
+ let resolves=0,localReads=0,loads=0,usageWrites=0;
  const root=new URI('/project'),item={category,id,key:`${category}/${id}`,mediaUrl,state,origin};
  const directory=`/project/assets/${category}/${id}`;
  const w=Object.assign(new Widget(),{workflow:{workspaceRoot:root},assetCatalogItems:[item],resolvingAssetKeys:new Set(),update(){},
@@ -26,10 +26,10 @@ function fixture({category='audio',id='sfx-test',names=['sfx-test.mp3'],mediaUrl
    }
    throw Error('file missing');
   }},
-  projectService:{resolveAsset:async()=>{resolves++;return{success:true,projectAssetPath:directory};}},
+  projectService:{resolveAsset:async()=>{resolves++;return{success:true,projectAssetPath:directory};},recordLibraryUsage:async()=>{usageWrites++;if(usageFails)throw Error('journal unavailable');}},
   loadMaterials:async()=>{loads++;},loadAssetCatalogView:async()=>{throw Error('catalog fetch must not run');}
  });
- return{w,item,counts:()=>({resolves,localReads,loads})};
+ return{w,item,counts:()=>({resolves,localReads,loads}),usageWrites:()=>usageWrites};
 }
 for(const config of [
  {},
@@ -39,9 +39,19 @@ for(const config of [
 ]) test(`installed ${config.id??'sfx'} is resolved locally without catalog/network/thumbnail reload`,async()=>{
  const f=fixture(config),result=await f.w.resolveCatalogMaterial(f.item.key,{preferExisting:true});
  assert.equal(result.cached,true);assert.equal(f.counts().resolves,0);assert.equal(f.counts().loads,0);
+ assert.equal(f.usageWrites(),1);
  assert.equal(f.counts().localReads,2);
  if(config.mediaUrl)assert.equal(result.relativePath,'assets/audio/bgm-test/take-b.mp3');
  if(config.category==='still')assert.equal(result.kind,'image');
+});
+test('cached placement stays on the cache path when usage journal append fails',async()=>{
+ const f=fixture({usageFails:true}),warning=console.warn;
+ console.warn=()=>{};
+ try{
+  const result=await f.w.resolveCatalogMaterial(f.item.key,{preferExisting:true});
+  assert.equal(result.cached,true);assert.equal(f.counts().resolves,0);assert.equal(f.usageWrites(),1);
+  await new Promise(resolve=>setImmediate(resolve));
+ }finally{console.warn=warning;}
 });
 test('missing files fall back to the existing resolver',async()=>{
  const f=fixture({missing:true});assert.deepEqual(await f.w.resolveCatalogMaterial(f.item.key,{preferExisting:true}),

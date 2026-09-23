@@ -18,6 +18,7 @@ import { cacheCatalog, loadCatalog } from '../src/catalog.mjs';
 import { resolve as resolveAsset } from '../src/resolve.mjs';
 import { DEFAULT_CATALOG_URL, DEFAULT_STORE_API } from '../src/service-urls.mjs';
 import { composeState } from '../src/state.mjs';
+import { checkLibrary, projectCredits } from '../src/library-check.mjs';
 
 function flagValue(args, name) {
   const i = args.indexOf(name);
@@ -34,6 +35,8 @@ function validateArgs(sub, args) {
     migrate: { values: [], flags: ['--dry-run'], max: 0 },
     sync: { values: [], flags: [], max: 0 },
     browse: { values: ['--port'], flags: [], max: 0 },
+    check: { values: ['--project'], flags: ['--json'], max: 0 },
+    credits: { values: ['--project'], flags: [], max: 0 },
   };
   const spec = specs[sub];
   if (!spec) throw new Error(`不明なコマンド: ${sub}`);
@@ -53,6 +56,7 @@ function validateArgs(sub, args) {
     throw new Error('add は <path...> --plan または --apply <plan.json> を指定してください');
   }
   if (sub === 'bundle' && !seen.has('--project')) throw new Error('--project <dir> が必要です');
+  if (sub === 'credits' && !seen.has('--project')) throw new Error('--project <dir> が必要です');
   if (sub === 'fetch') {
     if (args[0] !== positional[0]) throw new Error('fetch の先頭には素材 ID を指定してください');
     if (seen.has('--reference') && !seen.has('--project')) throw new Error('--reference には --project <dir> が必要です');
@@ -177,8 +181,22 @@ async function cmdBrowse(args, env) {
   // サーバプロセスを起動したまま維持する（declare-server.mjs 等と同じ流儀）
 }
 
+async function cmdCheck(args, env) {
+  const result = await checkLibrary({ env, project: flagValue(args, '--project') });
+  if (args.includes('--json')) console.log(JSON.stringify(result, null, 2));
+  else {
+    console.log(`問題なし ${result.ok} 件 / 注意 ${result.warnings.length} 件 / エラー ${result.errors.length} 件`);
+    for (const row of result.findings) console.log(`${row.level === 'error' ? 'エラー' : '注意'}: ${row.category}/${row.id}: ${row.message} (${row.dir})`);
+  }
+  if (result.errors.length) process.exitCode = 1;
+}
+
+async function cmdCredits(args, env) {
+  console.log((await projectCredits(flagValue(args, '--project'), env)).join('\n'));
+}
+
 function printUsage() {
-  console.log(`使い方: akari-assets <list|add|fetch|bundle|migrate|sync|browse> [options]
+  console.log(`使い方: akari-assets <list|add|fetch|bundle|migrate|sync|browse|check|credits> [options]
 
   list [--category <c>] [--source <lab|site|own>] [--json]
                                           出どころ・取得状態つき素材一覧
@@ -190,6 +208,8 @@ function printUsage() {
   migrate [--dry-run]                     ライブラリを作業場へ移行
   sync                                    カタログを取得してローカルにキャッシュ（オフライン用）
   browse [--port <n>]                     ローカル HTTP サーバでカタログを閲覧・投入（既定 8910）
+  check [--project <dir>] [--json]         ライブラリを読み取り専用で点検
+  credits --project <dir>                 プロジェクトのクレジット文面を一覧
 
 環境変数:
   AKARI_HOME             マシン設定の置き場（既定: ~/.akari）
@@ -227,6 +247,8 @@ async function main() {
   if (sub === 'bundle') return cmdBundle(rest, env);
   if (sub === 'sync') return cmdSync(rest, env);
   if (sub === 'browse') return cmdBrowse(rest, env);
+  if (sub === 'check') return cmdCheck(rest, env);
+  if (sub === 'credits') return cmdCredits(rest, env);
 
   printUsage();
   process.exitCode = sub && sub !== '--help' && sub !== '-h' ? 1 : 0;

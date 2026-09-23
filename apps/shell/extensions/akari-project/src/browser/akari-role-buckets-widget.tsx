@@ -80,8 +80,9 @@ import {
 } from '../common/asset-catalog-view';
 import {
     countLibraryCategory, filterLibraryCatalogItems, filterLibrarySources, includesLibraryLab,
-    LIBRARY_SOURCE_FILTERS, LibrarySourceFilter, recentLibraryEntries, RecentLibraryEntry
+    LIBRARY_SOURCE_FILTERS, LibrarySourceFilter, recentLibraryEntries, RecentLibraryEntry, rankRecentLibraryItems
 } from '../common/library-source-view';
+import { libraryCardContextMenuItems, libraryRemovalWarning } from '../common/library-card-context-menu-items';
 import { AssetBinChildNode, isAssetBinGroupDirectory } from '../common/asset-bin-grouping';
 import { canPlaceLibraryAsset, localLibraryAssetPlacementSource, resolveLibraryAssetMedia, RESOLVE_LIBRARY_MATERIAL_COMMAND_ID } from '../common/library-asset-placement';
 import { classifyMaterialKind, MaterialKind, resolveAssetGroupMedia } from '../common/asset-group-media';
@@ -785,6 +786,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         if (!root) {
             this.referenceWatches.dispose();
             this.materials = [];
+            this.projectCreditLines = [];
             this.unorganizedMaterials = [];
             this.materialsLoadedOnce = false;
             this.update();
@@ -792,10 +794,11 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         }
         this.materialsLoading = true;
         this.update();
-        const [assetEntries, rootFiles, references] = await Promise.all([
+        const [assetEntries, rootFiles, references, credits] = await Promise.all([
             this.collectAssetEntries(root.resolve('assets')),
             this.collectUnorganizedRootFiles(root),
-            this.projectService.listProjectAssetReferences(root.toString())
+            this.projectService.listProjectAssetReferences(root.toString()),
+            this.projectService.projectCredits(root.toString()).catch(() => [] as string[])
         ]);
         const [fileMaterials, groupMaterials, unorganizedMaterials] = await Promise.all([
             Promise.all(assetEntries.files.map(file => this.buildMaterialEntry(root, file, false))),
@@ -828,6 +831,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         materials.sort((left, right) => left.name.localeCompare(right.name, 'ja'));
         this.transcriptStateByPath = states;
         this.materials = materials;
+        this.projectCreditLines = credits;
         this.unorganizedMaterials = unorganizedMaterials;
         this.materialsLoading = false;
         this.materialsLoadedOnce = true;
@@ -1355,6 +1359,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     }
 
     protected bundleBusy = false;
+    protected projectCreditLines: string[] = [];
     protected bundleResult?: AssetBundleOutcome;
 
     protected async bundleMaterials(): Promise<void> {
@@ -1383,6 +1388,9 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     protected renderBundleMaterials(): React.ReactNode {
         return <div style={{ padding: '8px 12px', borderTop: AKARI_BORDER.hairline }}>
             <button disabled={this.bundleBusy} onClick={() => void this.bundleMaterials()}>素材をまとめる</button>
+            {(this.projectCreditLines?.length ?? 0) > 0 && <button onClick={() => void navigator.clipboard.writeText(this.projectCreditLines.join('\n'))
+                .then(() => this.messages.info('クレジットをコピーしました'))
+                .catch(() => this.messages.error('クレジットをコピーできませんでした'))}>クレジットをコピー</button>}
             {this.bundleResult && <div role='status' style={{ maxHeight: '180px', overflow: 'auto' }}>
                 <p>{this.bundleResult.materialized.length} 件をまとめました。</p>
                 {this.bundleResult.materialized.length > 0 && <ul>{this.bundleResult.materialized.map(key => <li key={key}>{key}</li>)}</ul>}
@@ -1882,11 +1890,13 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         this.update();
         const preferenceRoot = this.preferences.get<string>(AKARI_CATALOG_ROOT_PREFERENCE, '');
         this.catalogPickError = undefined;
-        const [view, presetShowcase] = await Promise.all([
+        const [view, presetShowcase, usage] = await Promise.all([
             this.projectService.getAssetCatalogView(preferenceRoot),
-            this.projectService.getPresetShowcase().catch(() => EMPTY_PRESET_SHOWCASE)
+            this.projectService.getPresetShowcase().catch(() => EMPTY_PRESET_SHOWCASE),
+            this.projectService.getLibraryUsage().catch(() => ({} as Record<string, { count: number; lastUsedAt: string; projects: string[] }>))
         ]);
-        this.assetCatalogItems = view.items;
+        this.assetCatalogItems = view.items.map(item => ({ ...item,
+            usageCount: usage[item.key]?.count ?? 0, lastUsedAt: usage[item.key]?.lastUsedAt }));
         this.catalogPacks = view.packs;
         this.catalogResolver = view.resolver;
         this.catalogEntitlementsStatus = view.entitlementsStatus;
@@ -1958,7 +1968,8 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     }
 
     protected filteredCatalogItems(): AssetCatalogViewItem[] {
-        return filterLibraryCatalogItems(this.assetCatalogItems, this.librarySourceFilter, this.catalogQuery, this.catalogCategory, this.libraryFolderFilter);
+        return rankRecentLibraryItems(filterLibraryCatalogItems(this.assetCatalogItems, this.librarySourceFilter, this.catalogQuery, this.catalogCategory, this.libraryFolderFilter),
+            item => this.catalogQuery && item.title.toLocaleLowerCase().includes(this.catalogQuery.toLocaleLowerCase()) ? 1 : 0);
     }
 
     protected catalogCategoryChips(): CatalogCategoryChip[] {
@@ -2228,6 +2239,8 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                 this.messages.error(`素材を取得できませんでした: ${outcome.error}`);
                 return;
             }
+            this.assetCatalogItems = this.assetCatalogItems.map(entry => entry.key === item.key
+                ? { ...entry, usageCount: (entry.usageCount ?? 0) + 1, lastUsedAt: new Date().toISOString() } : entry);
             this.refreshAfterAssetCatalogImport(item.key);
         } catch {
             this.messages.error('素材を取得できませんでした。ネットワーク環境をご確認ください。');
@@ -2275,6 +2288,14 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                         const actual = await this.files.resolve(file);
                         const relativePath = root.relative(file)?.toString();
                         if (!actual.isDirectory && relativePath && this.workflow.workspaceRoot?.toString() === root.toString()) {
+                            void Promise.resolve().then(() => this.projectService.recordLibraryUsage(item.category, item.id, root.toString()))
+                                .then(() => {
+                                    if (this.workflow.workspaceRoot?.toString() !== root.toString()) return;
+                                    this.assetCatalogItems = this.assetCatalogItems.map(entry => entry.key === key
+                                        ? { ...entry, usageCount: (entry.usageCount ?? 0) + 1, lastUsedAt: new Date().toISOString() } : entry);
+                                    this.update();
+                                })
+                                .catch(error => console.warn('ライブラリの使用記録を書けませんでした', error));
                             return { relativePath, kind: media.kind, cached: true };
                         }
                     }
@@ -2289,6 +2310,8 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                 this.messages.error(`素材を取得できませんでした: ${outcome.error}`);
                 return undefined;
             }
+            this.assetCatalogItems = this.assetCatalogItems.map(entry => entry.key === key
+                ? { ...entry, usageCount: (entry.usageCount ?? 0) + 1, lastUsedAt: new Date().toISOString() } : entry);
             if (this.workflow.workspaceRoot?.toString() !== root.toString()) {
                 this.messages.warn('プロジェクトが切り替わったため、素材を追加しませんでした。');
                 return undefined;
@@ -2540,6 +2563,8 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                 )}
                 {libraryOnly && <LibraryImportSheet service={this.projectService} isOSX={isOSX}
                     overlayHost={this.node}
+                    projectUri={this.workflow.workspaceRoot?.toString()}
+                    revealLibraryPath={path => void this.revealInFileManagerCommand(URI.fromFilePath(path))}
                     siteCategory={this.libraryCategory}
                     openSite={id => this.commandService.executeCommand('akari.assetSite.open', id)}
                     askSiteAgent={prompt => this.commandService.executeCommand(PARTNER_INJECT_PROMPT_COMMAND_ID, prompt)}
@@ -3123,7 +3148,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         if (!entries.length) { return undefined; }
         return (
             <section data-recent-strip style={{ paddingTop: '8px' }}>
-                <div style={{ fontSize: '0.75em', fontWeight: 700, paddingBottom: '6px' }}>最近入れた</div>
+                <div style={{ fontSize: '0.75em', fontWeight: 700, paddingBottom: '6px' }}>最近入れた・よく使う</div>
                 <div style={{ display: 'flex', gap: '6px', overflowX: 'auto', paddingBottom: '4px' }}>
                     {entries.map(entry => (
                         <button
@@ -3409,7 +3434,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     }
 
     protected renderLibraryPackBody(): React.ReactNode {
-        const filtered = filterLibraryCatalogItems(this.assetCatalogItems, this.librarySourceFilter, this.catalogQuery, 'all');
+        const filtered = rankRecentLibraryItems(filterLibraryCatalogItems(this.assetCatalogItems, this.librarySourceFilter, this.catalogQuery, 'all'));
         const { groups } = groupCatalogItemsByPack(filtered, this.catalogPacks);
         const totalGroups = groupCatalogItemsByPack(this.assetCatalogItems, this.catalogPacks).groups.length;
         return (
@@ -3579,7 +3604,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                 <div style={this.catalogViewMode === 'grid'
                     ? { display: 'grid', gridTemplateColumns: CATALOG_GRID_COLUMNS, gap: CATALOG_GRID_GAP }
                     : { display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                    {group.items.map(item => this.renderCatalogItem(item))}
+                    {rankRecentLibraryItems(group.items).map(item => this.renderCatalogItem(item))}
                 </div>
             </div>
         );
@@ -3952,6 +3977,30 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         return this.catalogViewMode === 'list' ? this.renderCatalogListRow(item) : this.renderCatalogCard(item);
     }
 
+    protected openLibraryCardMenu(item: AssetCatalogViewItem, x: number, y: number): void {
+        const items = libraryCardContextMenuItems(item);
+        if (!items.length) return;
+        openAkariContextMenu({ x, y, items, onSelect: id => {
+            if (id === 'reveal') void this.revealInFileManagerCommand(URI.fromFilePath(item.libraryDir!));
+            if (id === 'remove-library') void this.removeLibraryItem(item);
+        } });
+    }
+
+    protected async removeLibraryItem(item: AssetCatalogViewItem): Promise<void> {
+        if (!item.libraryDir) return;
+        try {
+            const usage = await this.projectService.getLibraryUsage();
+            const warning = libraryRemovalWarning(item, usage[item.key]?.projects ?? []);
+            const confirmed = await new ConfirmDialog({
+                title: `${item.title} をライブラリから消しますか？`, msg: warning,
+                ok: 'ゴミ箱へ移す', cancel: 'キャンセル'
+            }).open();
+            if (!confirmed) return;
+            await this.files.delete(URI.fromFilePath(item.libraryDir), { recursive: true, useTrash: true });
+            await this.loadAssetCatalogView();
+        } catch (error) { this.messages.error(`ライブラリから消せませんでした: ${String(error)}`); }
+    }
+
     protected renderPresetShowcase(kind: PresetShowcaseKind): React.ReactNode {
         const items = this.filteredPresetShowcaseItems(kind);
         if (!items.length) {
@@ -4080,6 +4129,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                 draggable={!this.generationPick.request && this.canDragCatalogAsset(item)}
                 onDragStart={event => this.handleCatalogAssetDragStart(event, item)}
                 onDragEnd={() => this.handleLibraryTransitionDragEnd()}
+                onContextMenu={event => { event.preventDefault(); this.openLibraryCardMenu(item, event.clientX, event.clientY); }}
                 data-akari-catalog-item={item.key}
                 data-akari-catalog-item-state={item.state ?? 'local'}
                 data-akari-catalog-list-row
@@ -4144,6 +4194,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                             <span className={this.playingCatalogAudioKey === item.key ? 'codicon codicon-debug-stop' : 'codicon codicon-play'} aria-hidden='true' />
                         </button>
                     )}
+                    {!!item.usageCount && <small data-akari-library-usage>{item.usageCount} 回</small>}
                     <div style={{ minWidth: 0, maxWidth: '100%' }}>{!this.generationPick.request && this.renderCatalogCardActions(item)}</div>
                 </div>
             </div>
@@ -4164,6 +4215,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                 draggable={!this.generationPick.request && this.canDragCatalogAsset(item)}
                 onDragStart={event => this.handleCatalogAssetDragStart(event, item)}
                 onDragEnd={() => this.handleLibraryTransitionDragEnd()}
+                onContextMenu={event => { event.preventDefault(); this.openLibraryCardMenu(item, event.clientX, event.clientY); }}
                 data-akari-catalog-item={item.key}
                 data-akari-catalog-item-state={item.state ?? 'local'}
                 // docs/contract-2026-08-11-review-session-ui-events.md #2: asset:<catalog key> opt-in target.
@@ -4203,6 +4255,9 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                             style={{ fontSize: '1.45em', opacity: 0.5 }}
                         />}
                     {this.renderAssetStateBadge(item)}
+                    {libraryCardContextMenuItems(item).length > 0 && <button type='button' aria-label={`${item.title} のメニュー`}
+                        style={{ position: 'absolute', right: 4, top: 4, zIndex: 2 }}
+                        onClick={event => { event.stopPropagation(); this.openLibraryCardMenu(item, event.clientX, event.clientY); }}>⋯</button>}
                     {this.renderAssetDistributionBadge(item)}
                     {this.renderSiteSubscriptionBadge(item)}
                     {!this.generationPick.request && this.renderCatalogAudioControl(item)}
@@ -4214,6 +4269,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                     </span>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '3px', fontSize: '0.66em', opacity: 0.85, overflow: 'hidden' }}>
                         <span>{item.category}</span>
+                        {!!item.usageCount && <span data-akari-library-usage>{item.usageCount} 回</span>}
                         {tags.map(tag => (
                             <span
                                 key={tag}

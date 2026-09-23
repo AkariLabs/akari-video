@@ -63,7 +63,7 @@ test('最近の帯は新しい順・フォルダで集約・最大8件・入力�
     assert.equal(filterLibraryCatalogItems(items, 'own', '', 'audio:bgm', '旅行').length, 2);
 });
 
-test('帯は own/site の置き場素材だけ。空・Lab・未取得・無効日付は非表示', () => {
+test('帯は own/site と使用済み Lab。空・未使用 Lab・未取得・無効日付は非表示', () => {
     assert.deepEqual(recentLibraryEntries([], 'all'), []);
     const items = [view('own'), view('site', { sourceKind: 'site' }), view('lab', { sourceKind: 'lab' }),
         view('invalid', { addedAt: 'invalid' }), view('remote', { libraryDir: undefined }),
@@ -72,6 +72,8 @@ test('帯は own/site の置き場素材だけ。空・Lab・未取得・無効�
     assert.equal(recentLibraryEntries(items, 'own').length, 1);
     assert.equal(recentLibraryEntries(items, 'site').length, 1);
     assert.deepEqual(recentLibraryEntries(items, 'lab'), []);
+    const usedLab = { ...view('used-lab', { sourceKind: 'lab' }), usageCount: 2 };
+    assert.deepEqual(recentLibraryEntries([usedLab], 'lab').map(entry => entry.itemKey), [usedLab.key]);
 });
 
 test('置き場の主メディアとサムネは file URI。空白・日本語・# をエンコード', () => {

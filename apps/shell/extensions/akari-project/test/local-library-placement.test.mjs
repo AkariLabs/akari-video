@@ -46,6 +46,13 @@ test('実子プロセスで置き場を検証し、コピーせず参照を記�
     assert.deepEqual(JSON.parse(await readFile(join(f.project, '.akari/asset-references.json'), 'utf8')).references, [{ category: 'audio', id: 'sample' }]);
     assert.equal(await readFile(join(f.source.libraryDir, 'sound.wav'), 'utf8'), 'original media');
     assert.equal(await readFile(join(f.destination, 'sentinel.txt'), 'utf8'), 'previous project asset');
+    const second = join(f.root, 'second-project');
+    await mkdir(second);
+    assert.equal((await f.service.placeLibraryAsset(f.source, pathToFileURL(second).href)).success, true);
+    const usage = (await readFile(join(f.env.AKARI_HOME, 'library-usage.jsonl'), 'utf8')).trim().split('\n').map(JSON.parse);
+    assert.deepEqual(usage.map(row => [row.category, row.id, row.project]), [
+        ['audio', 'sample', f.project], ['audio', 'sample', second]
+    ]);
 });
 
 test('移行前の置き場も resolver の read roots に従って参照できる', async t => {
@@ -147,6 +154,8 @@ test('Lab は reference:true で記帳し、まとめる dry-run は無変更・
     assert.equal(result.success, true);
     assert.equal(result.reference, true);
     assert.equal(result.libraryDir, f.source.libraryDir);
+    assert.deepEqual((await readFile(join(f.env.AKARI_HOME, 'library-usage.jsonl'), 'utf8')).trim().split('\n').map(JSON.parse)
+        .map(row => [row.category, row.id, row.project]), [['audio', 'sample', f.project]]);
     await assert.rejects(readFile(join(f.destination, 'sound.wav')), { code: 'ENOENT' });
     const ledger = join(f.project, '.akari/asset-references.json');
     await writeFile(ledger, JSON.stringify({ version: 0, references: [{ category: 'audio', id: 'sample' }, { category: 'audio', id: 'missing' }] }));
