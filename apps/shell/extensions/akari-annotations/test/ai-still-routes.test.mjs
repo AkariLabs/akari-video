@@ -5,7 +5,8 @@ import { tmpdir } from 'node:os';
 import { delimiter, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { inflateSync } from 'node:zlib';
-import { StillGenerationManager } from '../lib/node/still-generation.js';
+import { spawn } from 'node:child_process';
+import { IMAGE_PROBE_TIMEOUT_MS, StillGenerationManager } from '../lib/node/still-generation.js';
 import { appendAiStillPanel, savedStillRoute } from '../lib/browser/inspector/ai-still-panel.js';
 import { validateGenerationMeta } from '../../../../../packages/generate/src/cli/meta-validate.mjs';
 
@@ -29,43 +30,78 @@ async function workspace() {
   } }));
   return dir;
 }
-function manager(dir, overrides = {}, probeTimeoutMs = 5000) {
+function manager(dir, overrides = {}, probeTimeoutMsByRoute) {
   return new StillGenerationManager(findAsset, { env: { ...process.env, PATH: `${bin}${delimiter}${process.env.PATH}`,
     FAKE_IMAGE_STATE_FILE: join(dir, 'image-state'), FAKE_IMAGE_LOG: join(dir, 'calls.jsonl'),
     AKARI_CODEX_BIN: join(bin, 'codex'), AKARI_AGY_BIN: join(bin, 'agy'), AKARI_GROK_BIN: join(bin, 'grok'),
-    ...overrides }, probeTimeoutMs });
+    ...overrides }, probeTimeoutMsByRoute });
 }
+
+test('手段ごとの既定上限', () => {
+  assert.deepEqual(IMAGE_PROBE_TIMEOUT_MS, { codex: 5000, antigravity: 20000, grok: 20000 });
+});
 
 test('3 手段の ready / signed-out / missing と Grok の一回再確認', async () => {
   const dir = await workspace();
   try {
-    const states = await manager(dir, {}, 60_000).probeImageRoutes();
+    const states = await manager(dir).probeImageRoutes();
     assert.deepEqual(states.map(x => [x.id, x.state]), [['codex', 'ready'], ['antigravity', 'ready'], ['grok', 'ready']]);
     await writeFile(join(dir, 'image-state'), 'signed-out');
-    const out = await manager(dir, {}, 60_000).probeImageRoutes();
+    const out = await manager(dir).probeImageRoutes();
     assert.deepEqual(out.map(x => x.state), ['ready', 'signed-out', 'signed-out']);
     assert.ok(out.every(x => !x.detail.includes('@')));
     const calls = (await readFile(join(dir, 'calls.jsonl'), 'utf8')).trim().split('\n').map(JSON.parse);
     assert.equal(calls.filter(x => x.route === 'grok' && x.args[0] === 'models').length, 3);
     await writeFile(join(dir, 'image-state'), 'transient');
-    assert.equal((await manager(dir, {}, 60_000).probeImageRoutes())[2].state, 'ready');
+    assert.equal((await manager(dir).probeImageRoutes())[2].state, 'ready');
+    assert.deepEqual((await manager(dir).probeImageRoutes(['grok'])).map(x => x.id), ['grok']);
     const missing = await manager(dir, { AKARI_CODEX_BIN: join(dir, 'no-codex'), AKARI_AGY_BIN: join(dir, 'no-agy'), AKARI_GROK_BIN: join(dir, 'no-grok') }).probeImageRoutes();
     assert.ok(missing.every(x => x.state === 'missing'));
   } finally { await rm(dir, { recursive: true, force: true }); }
 });
 
-test('各手段の probe は 5 秒で打ち切り、鍵を外す', async () => {
+test('Antigravity / Grok は打ち切りを一回確かめ直して unknown にし、鍵を外す', async () => {
   const dir = await workspace();
   try {
     await writeFile(join(dir, 'image-state'), 'sleep');
     const started = Date.now();
     const states = await manager(dir, { FAL_KEY: 'secret', GROQ_API_KEY: 'secret', OPENAI_API_KEY: 'secret',
-      GEMINI_API_KEY: 'secret', GOOGLE_API_KEY: 'secret', XAI_API_KEY: 'secret' }).probeImageRoutes();
-    assert.ok(Date.now() - started >= 4900 && Date.now() - started < 10000);
-    assert.equal(states[1].state, 'missing');
-    assert.equal(states[2].state, 'missing');
+      GEMINI_API_KEY: 'secret', GOOGLE_API_KEY: 'secret', XAI_API_KEY: 'secret' },
+    { antigravity: 1500, grok: 1500 }).probeImageRoutes();
+    assert.ok(Date.now() - started >= 2900);
+    assert.equal(states[0].state, 'ready');
+    assert.equal(states[1].state, 'unknown');
+    assert.equal(states[2].state, 'unknown');
+    assert.equal(states[1].detail, '確かめられませんでした（1.5 秒で打ち切り）');
     const calls = (await readFile(join(dir, 'calls.jsonl'), 'utf8')).trim().split('\n').map(JSON.parse);
     assert.ok(calls.every(x => x.keys.length === 0));
+    for (const route of ['agy', 'grok']) assert.equal(calls.filter(x => x.route === route && x.args[0] === 'models').length, 2);
+  } finally { await rm(dir, { recursive: true, force: true }); }
+});
+
+test('各試行に独立した上限があり、一回目の打ち切り後に ready になれる', async () => {
+  const dir = await workspace();
+  try {
+    await writeFile(join(dir, 'image-state'), 'sleep-once');
+    const states = await manager(dir, {}, { antigravity: 1500, grok: 1500 }).probeImageRoutes(['antigravity', 'grok']);
+    assert.deepEqual(states.map(x => x.state), ['ready', 'ready']);
+    const calls = (await readFile(join(dir, 'calls.jsonl'), 'utf8')).trim().split('\n').map(JSON.parse);
+    for (const route of ['agy', 'grok']) assert.equal(calls.filter(x => x.route === route && x.args[0] === 'models').length, 2);
+  } finally { await rm(dir, { recursive: true, force: true }); }
+});
+
+test('Codex は 5 秒で打ち切って missing にし、確かめ直さない', async () => {
+  const dir = await workspace();
+  try {
+    await writeFile(join(dir, 'image-state'), 'sleep');
+    let calls = 0;
+    const instance = new StillGenerationManager(findAsset, { env: { ...process.env, PATH: `${bin}${delimiter}${process.env.PATH}`,
+      AKARI_CODEX_BIN: join(bin, 'codex'), FAKE_CODEX_STATE_FILE: join(dir, 'image-state') },
+      spawnProcess: (...args) => { calls++; return spawn(...args); } });
+    const [route] = await instance.probeImageRoutes(['codex']);
+    assert.equal(route.state, 'missing');
+    assert.equal(route.detail, '確かめられませんでした（5 秒で打ち切り）');
+    assert.equal(calls, 1);
   } finally { await rm(dir, { recursive: true, force: true }); }
 });
 
@@ -143,7 +179,7 @@ test('キャンセルは公開ファイルを作らない', async () => {
   } finally { await rm(dir, { recursive: true, force: true }); }
 });
 
-test('パネルはラジオ 3 行、選択を保存し、未 ready では作れない', () => {
+test('パネルは手段ごとの確認中と unknown の案内・作成可否を表示する', () => {
   class Node {
     constructor(tag) { this.tag = tag; this.children = []; this.attributes = new Map(); this.listeners = new Map(); this.value = ''; }
     appendChild(node) { this.children.push(node); return node; }
@@ -170,6 +206,27 @@ test('パネルはラジオ 3 行、選択を保存し、未 ready では作れ�
     const second = new Node('root');
     appendAiStillPanel(second, state, { change() {}, probe() {}, generate() {}, cancel() {} });
     assert.equal(walk(second).find(x => x.attributes.get('data-akari-inspector-ai-create') === 'true').disabled, true);
+    state.routes[2] = { id: 'grok', state: 'missing', detail: '' };
+    const missing = new Node('root');
+    appendAiStillPanel(missing, state, { change() {}, probe() {}, generate() {}, cancel() {} });
+    assert.equal(walk(missing).find(x => x.attributes.get('data-akari-inspector-ai-create') === 'true').disabled, true);
+    state.routes[2] = { id: 'grok', state: 'unknown', detail: '確かめられませんでした（20 秒で打ち切り）' };
+    state.error = '生成に失敗しました';
+    const unknown = new Node('root');
+    appendAiStillPanel(unknown, state, { change() {}, probe() {}, generate() {}, cancel() {} });
+    assert.equal(walk(unknown).find(x => x.attributes.get('data-akari-inspector-ai-create') === 'true').disabled, false);
+    assert.equal(walk(unknown).find(x => x.attributes.get('data-akari-inspector-ai-retry') === 'true').disabled, false);
+    assert.ok(walk(unknown).some(x => x.className === 'akari-inspector-ai-still-next' && x.textContent === '状態を確かめ直すか、そのまま作ってみてください'));
+    assert.ok(walk(unknown).some(x => x.className === 'akari-inspector-ai-still-badge' && x.textContent === '確かめられませんでした'));
+    state.probing = true;
+    state.probingRoutes = new Set(['antigravity']);
+    const checking = new Node('root');
+    appendAiStillPanel(checking, state, { change() {}, probe() {}, generate() {}, cancel() {} });
+    const badges = walk(checking).filter(x => x.className === 'akari-inspector-ai-still-badge');
+    assert.deepEqual(badges.map(x => x.textContent), ['使える', '確かめています…', '確かめられませんでした']);
+    assert.deepEqual(badges.map(x => x.attributes.get('data-akari-inspector-ai-route-state')), ['ready', 'checking', 'unknown']);
+    assert.equal(walk(checking).find(x => x.attributes.get('data-akari-inspector-ai-refresh') === 'true').disabled, true);
+    assert.equal(walk(checking).find(x => x.attributes.get('data-akari-inspector-ai-create') === 'true').disabled, false);
   } finally {
     if (previousDocument) Object.defineProperty(globalThis, 'document', previousDocument); else delete globalThis.document;
     if (previousStorage) Object.defineProperty(globalThis, 'localStorage', previousStorage); else delete globalThis.localStorage;

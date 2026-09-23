@@ -53,6 +53,12 @@ if (process.env.FAKE_IMAGE_LOG) await appendFile(process.env.FAKE_IMAGE_LOG,
   `${JSON.stringify({ route, args: process.argv.slice(2), keys: ['FAL_KEY', 'GROQ_API_KEY', 'OPENAI_API_KEY', 'GEMINI_API_KEY', 'GOOGLE_API_KEY', 'XAI_API_KEY'].filter(name => name in process.env) })}\n`);
 if (process.argv[2] === 'models') {
   if (mode === 'sleep') await sleep(7000);
+  if (mode === 'sleep-once') {
+    const countFile = `${stateFile}.${route}.count`;
+    const count = Number(await readFile(countFile, 'utf8').catch(() => '0')) + 1;
+    await writeFile(countFile, String(count));
+    if (count === 1) await sleep(7000);
+  }
   if (route === 'grok') {
     if (mode === 'transient') {
       const countFile = `${stateFile}.count`;

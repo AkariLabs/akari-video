@@ -222,7 +222,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
     protected readonly narrationCli = new NarrationCliManager();
     protected readonly stillGeneration = new StillGenerationManager(path => this.findGenerationAsset(path));
 
-    async probeImageRoutes(): Promise<ImageRouteState[]> { return this.stillGeneration.probeImageRoutes(); }
+    async probeImageRoutes(routes?: ImageRouteState['id'][]): Promise<ImageRouteState[]> { return this.stillGeneration.probeImageRoutes(routes); }
     async startGenerateStill(request: StartGenerateStillRequest): Promise<GenerateStillResult> {
         return this.stillGeneration.startGenerateStill(this.fsPath(request.projectRootUri), request);
     }

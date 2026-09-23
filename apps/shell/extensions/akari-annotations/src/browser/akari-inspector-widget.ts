@@ -35,7 +35,7 @@ import {
 import { createSelectionHeader } from './inspector/selection-header';
 import { aiActionCatalog, describeAiTiles } from '../common/ai-action-catalog';
 import { aiTabAvailabilityFor, aiTabViewFor, aiTargetKindFor, appendAiBack, appendAiTiles, type AiTabView } from './inspector/ai-tiles';
-import { appendAiStillNotice, appendAiStillPanel, nearestStillAspect, replaceStillInEdit, savedStillRoute, stillDimensionMismatch, stillMismatchNotice, type AiStillState } from './inspector/ai-still-panel';
+import { appendAiStillNotice, appendAiStillPanel, nearestStillAspect, replaceStillInEdit, savedStillRoute, stillDimensionMismatch, stillMismatchNotice, stillRouteIds, type AiStillState } from './inspector/ai-still-panel';
 import { appendAiTranscribePanel, resolveAiTranscribeTarget, type AiTranscribeTarget } from './inspector/ai-transcribe-panel';
 import { appendAiMaterialView } from './inspector/ai-material-view';
 import { AKARI_MATERIAL_SELECTED_EVENT, materialSelectionFromDetail, type AkariMaterialSelection } from '../common/material-selected-event';
@@ -5150,18 +5150,34 @@ export class AkariInspectorWidget extends BaseWidget {
 
     protected async probeStillRoute(key: string): Promise<void> {
         const state = this.aiStillStates.get(key);
-        if (!state) return;
+        if (!state || state.probingRoutes?.size) return;
         state.probing = true;
+        const probingRoutes = new Set(stillRouteIds);
+        state.probingRoutes = probingRoutes;
         if (this.aiView === 'still') this.render();
-        try { state.routes = await this.layerAudioService.probeImageRoutes(); }
-        catch { state.routes = (['codex', 'antigravity', 'grok'] as const).map(id => ({ id, state: 'missing', detail: '確かめられませんでした' })); }
-        finally { state.probing = false; if (this.aiView === 'still') this.render(); }
+        await Promise.all(stillRouteIds.map(async id => {
+            try {
+                const [route] = await this.layerAudioService.probeImageRoutes([id]);
+                if (!route || route.id !== id) throw new Error('状態を取得できませんでした');
+                state.routes = [...(state.routes ?? []).filter(row => row.id !== id), route];
+            } catch {
+                state.routes = [...(state.routes ?? []).filter(row => row.id !== id),
+                    { id, state: 'missing', detail: '確かめられませんでした' }];
+            } finally {
+                probingRoutes.delete(id);
+                if (!probingRoutes.size) state.probing = false;
+                if (this.aiView === 'still') this.render();
+            }
+        }));
     }
 
     protected async startStillGeneration(identity: { key: string; itemId: string; sourcePath: string }): Promise<void> {
         const state = this.aiStillStates.get(identity.key);
         const root = this.workspaceService.tryGetRoots()[0]?.resource;
-        if (!state || !root || state.running || state.routes?.find(route => route.id === (state.routeId ?? 'codex'))?.state !== 'ready' || !state.prompt.trim()) return;
+        const selectedRoute = state?.routeId ?? 'codex';
+        const routeState = state?.routes?.find(route => route.id === selectedRoute)?.state;
+        if (!state || !root || state.running || state.probingRoutes?.has(selectedRoute) ||
+            (routeState !== 'ready' && routeState !== 'unknown') || !state.prompt.trim()) return;
         state.running = true;
         state.startedAt = Date.now();
         state.error = undefined;

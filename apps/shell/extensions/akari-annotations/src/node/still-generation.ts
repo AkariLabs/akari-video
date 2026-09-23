@@ -13,6 +13,9 @@ const redact = (value: unknown): string => String(value ?? '')
 const brief = (value: unknown, lines = 2): string => redact(value).split(/\r?\n/u).map(line => line.trim()).filter(Boolean).slice(-lines).join(' / ').slice(0, 500);
 const keyNames = ['FAL_KEY', 'GROQ_API_KEY', 'OPENAI_API_KEY', 'GEMINI_API_KEY', 'GOOGLE_API_KEY', 'XAI_API_KEY'];
 type Route = ImageRouteState['id'];
+export const IMAGE_PROBE_TIMEOUT_MS: Readonly<Record<Route, number>> = {
+    codex: 5000, antigravity: 20000, grok: 20000
+};
 const aspectText: Record<StartGenerateStillRequest['aspect'], string> = {
     '16:9': '横長 16:9 の画像。', '9:16': '縦長 9:16 の画像。', '1:1': '正方形 1:1 の画像。'
 };
@@ -20,7 +23,10 @@ const aspectText: Record<StartGenerateStillRequest['aspect'], string> = {
 export class StillGenerationManager {
     private readonly active = new Map<string, { child?: ChildProcess; cancelled: boolean }>();
     constructor(private readonly findAsset: Asset, private readonly options: {
-        env?: NodeJS.ProcessEnv; spawnProcess?: SpawnProcess; probeTimeoutMs?: number;
+        env?: NodeJS.ProcessEnv; spawnProcess?: SpawnProcess;
+        /** Legacy override for every route; route-specific values take precedence. */
+        probeTimeoutMs?: number;
+        probeTimeoutMsByRoute?: Partial<Record<Route, number>>;
     } = {}) {}
 
     private get env(): NodeJS.ProcessEnv { return this.options.env ?? process.env; }
@@ -48,8 +54,8 @@ export class StillGenerationManager {
     }
     async resolveCodex(): Promise<string | undefined> { return this.resolveCli('codex'); }
 
-    async probeImageRoutes(): Promise<ImageRouteState[]> {
-        return Promise.all((['codex', 'antigravity', 'grok'] as const).map(route => this.probeRoute(route)));
+    async probeImageRoutes(routes: Route[] = ['codex', 'antigravity', 'grok']): Promise<ImageRouteState[]> {
+        return Promise.all(routes.map(route => this.probeRoute(route)));
     }
 
     private async probeRoute(route: Route): Promise<ImageRouteState> {
@@ -57,7 +63,8 @@ export class StillGenerationManager {
         const label = route === 'antigravity' ? 'Antigravity' : route === 'grok' ? 'Grok' : 'Codex';
         if (!cli) return { id: route, state: 'missing', detail: `${label} CLI が見つかりません` };
         const args = route === 'codex' ? ['login', 'status'] : ['models'];
-        const deadline = Date.now() + (this.options.probeTimeoutMs ?? 5000);
+        const timeoutMs = this.options.probeTimeoutMsByRoute?.[route] ?? this.options.probeTimeoutMs ?? IMAGE_PROBE_TIMEOUT_MS[route];
+        const timeoutDetail = `確かめられませんでした（${timeoutMs / 1000} 秒で打ち切り）`;
         const inspect = (): Promise<{ code: number | null; output: string; stdout: string; timedOut: boolean }> =>
             new Promise(resolvePromise => {
             let output = '';
@@ -70,7 +77,7 @@ export class StillGenerationManager {
                 clearTimeout(timer);
                 resolvePromise({ code, output, stdout, timedOut });
             };
-            const timer = setTimeout(() => { child?.kill('SIGKILL'); finish(null, true); }, Math.max(1, deadline - Date.now()));
+            const timer = setTimeout(() => { child?.kill('SIGKILL'); finish(null, true); }, timeoutMs);
             try {
                 child = this.spawnProcess(cli, args, { env: this.spawnEnv(cli), stdio: ['ignore', 'pipe', 'pipe'] });
                 child.stdout?.on('data', chunk => { if (output.length < 2000) output += String(chunk); if (stdout.length < 2000) stdout += String(chunk); });
@@ -80,12 +87,13 @@ export class StillGenerationManager {
             } catch (error) { output += `\n${String(error)}`; finish(null); }
         });
         const first = await inspect();
-        if (first.timedOut) return { id: route, state: 'missing', detail: '確かめられませんでした（5 秒で打ち切り）' };
-        if (first.code === null) return { id: route, state: 'missing', detail: '確かめられませんでした' };
+        if (first.timedOut && route === 'codex') return { id: route, state: 'missing', detail: timeoutDetail };
+        if (first.code === null && !first.timedOut) return { id: route, state: 'missing', detail: '確かめられませんでした' };
         let last = first;
-        if (route === 'grok' && /^You are not authenticated/iu.test(first.stdout.trimStart().split(/\r?\n/u)[0] ?? '')) {
+        if (first.timedOut || (route === 'grok' && /^You are not authenticated/iu.test(first.stdout.trimStart().split(/\r?\n/u)[0] ?? ''))) {
             last = await inspect();
-            if (last.timedOut) return { id: route, state: 'missing', detail: '確かめられませんでした（5 秒で打ち切り）' };
+            if (last.timedOut) return { id: route, state: 'unknown', detail: timeoutDetail };
+            if (last.code === null) return { id: route, state: 'missing', detail: '確かめられませんでした' };
         }
         const ready = route === 'codex' ? last.code === 0 && /Logged in/iu.test(last.output)
             : route === 'antigravity' ? last.code === 0 && last.stdout.split(/\r?\n/u).some(line => /^\S+\t\S+/u.test(line))
