@@ -51,6 +51,20 @@ akari narration generate \
   exit 2**（費用宣言 → 明示承認、ハードルール 4）
 - provenance は `provider: fal` / `engine: qwen-3-tts-1.7b` / `voice: profile:<name>` を記録する
 
+## gemini-tts アダプタ（fal 経由）
+
+- `--engine gemini-tts --voice Leda` が既定。`--voice` は 30 声から選び、`--style <text>` で話し方を指定できる。
+- 費用見積りは暫定 `$0.05 / 1000 字`。価格未検証のため一覧の `price.verified` と provenance の `price_verified` は `false`。`--yes` 無しでは送信しない。
+- `--speed` は Gemini 側で非対応のため警告して無視する。VOICEVOX では `/audio_query` の `speedScale` に渡す。
+- `--text <原稿>` で文を直接渡せる。`--reading-file` を併用すれば表示文と読みを分けられる。`--caption-ref c-0001 --apply` で生成元の字幕 ID を記録する。
+- `--t` は `--apply` 時に必須。`--apply` しない生成・承認見積りでは省略でき、省略時は 0 秒扱い。
+
+## エンジン一覧・声一覧の JSON 口
+
+- `akari narration engines --json` は接続状態を含むエンジン一覧を返す。VOICEVOX の起動はしない。
+- `akari narration voices --engine <voicevox|gemini-tts|fal-qwen3> --json` は声一覧を返す。VOICEVOX の声取得時だけ必要に応じて起動する。
+- `akari narration generate ... --json` は stdout に結果 JSON を 1 行で返し、経過ログを stderr に出す。Gemini の費用承認待ちは exit 2 と `status: needs_approval` を返す。
+
 ## ElevenLabs（凍結中）
 
 ElevenLabs は今回のスキルではアダプタを実装しない。凍結中のため、実行時にも選択肢として提示しない

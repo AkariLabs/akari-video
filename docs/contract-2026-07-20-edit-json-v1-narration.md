@@ -192,3 +192,8 @@ narration 音声ファイルの実尺解析（ffprobe 等）を要する別契�
 - ducking のサイドチェイン入力を narration トラックへ切り替える実装（プレビュー/書き出し双方）
 - narration の実尺を考慮した区間重複検出（§6）
 - `audio.narration[].provenance.provider` の enum 強制（現状は文書上の例示のみ）
+
+## 追記 2026-09-22: `caption_ref`
+
+ナレーションには、生成元の字幕 ID を表す任意の `caption_ref`（`c-` と 4 桁の数字）を追加できる。
+字幕は別ファイルなので参照先の存在確認は行わない。追加のみの進化であり、edit.json の `version` は変更しない。

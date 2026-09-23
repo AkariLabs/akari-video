@@ -1,10 +1,11 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, rm, writeFile, readFile, copyFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 
 import { runNarrationCommand } from '../src/narration-command.mjs';
+import { readInternalEdit, projectLegacyEdit } from '../../edit-store/lib/index.js';
 
 function collectLogs() {
   const lines = [];
@@ -53,4 +54,192 @@ test('akari narration generate --dry-run: VOICEVOX を起動せず従来形式�
   } finally {
     await rm(scratch, { recursive: true, force: true });
   }
+});
+
+function fakeWav(seconds = 3) {
+  const dataBytes = 24000 * 2 * seconds;
+  const wav = Buffer.alloc(44 + dataBytes);
+  wav.write('RIFF'); wav.writeUInt32LE(wav.length - 8, 4); wav.write('WAVE', 8);
+  wav.write('fmt ', 12); wav.writeUInt32LE(16, 16); wav.writeUInt16LE(1, 20);
+  wav.writeUInt16LE(1, 22); wav.writeUInt32LE(24000, 24); wav.writeUInt32LE(48000, 28);
+  wav.writeUInt16LE(2, 32); wav.writeUInt16LE(16, 34); wav.write('data', 36);
+  wav.writeUInt32LE(dataBytes, 40);
+  return wav;
+}
+
+test('engines JSON: VOICEVOX の available / needs / unconfigured と fal 鍵状態', async () => {
+  const scratch = await mkdtemp(join(tmpdir(), 'akari-narration-list-'));
+  const priorFetch = globalThis.fetch;
+  const priorRun = process.env.VOICEVOX_RUN;
+  const priorCredentials = process.env.AKARI_CREDENTIALS_FILE;
+  try {
+    process.env.AKARI_CREDENTIALS_FILE = join(scratch, 'credentials.env');
+    process.env.VOICEVOX_RUN = join(scratch, 'run');
+    let up = false;
+    globalThis.fetch = async () => ({ ok: up });
+    const get = async () => {
+      const output = collectLogs();
+      assert.equal((await runNarrationCommand(['engines', '--json'], output)).exitCode, 0);
+      assert.equal(output.lines.length, 1);
+      return JSON.parse(output.lines[0]);
+    };
+    let result = await get();
+    assert.deepEqual(result.engines.map(engine => engine.id), ['voicevox', 'gemini-tts', 'irodori', 'fal-qwen3']);
+    assert.equal(result.engines[0].availability.state, 'unconfigured');
+    assert.equal(result.engines[1].availability.state, 'unconfigured');
+    assert.equal(result.engines[2].availability.state, 'unsupported');
+    assert.equal(JSON.stringify(result).includes(scratch), false);
+    await writeFile(process.env.VOICEVOX_RUN, '');
+    await writeFile(process.env.AKARI_CREDENTIALS_FILE, 'FAL_KEY=test-secret');
+    result = await get();
+    assert.equal(result.engines[0].availability.state, 'needs');
+    assert.equal(result.engines[1].availability.state, 'available');
+    assert.equal(JSON.stringify(result).includes('test-secret'), false);
+    up = true;
+    result = await get();
+    assert.equal(result.engines[0].availability.state, 'available');
+  } finally {
+    globalThis.fetch = priorFetch;
+    if (priorRun === undefined) delete process.env.VOICEVOX_RUN; else process.env.VOICEVOX_RUN = priorRun;
+    if (priorCredentials === undefined) delete process.env.AKARI_CREDENTIALS_FILE; else process.env.AKARI_CREDENTIALS_FILE = priorCredentials;
+    await rm(scratch, { recursive: true, force: true });
+  }
+});
+
+test('Gemini voices JSON は Leda が先頭で 30 声', async () => {
+  const output = collectLogs();
+  assert.equal((await runNarrationCommand(['voices', '--engine', 'gemini-tts', '--json'], output)).exitCode, 0);
+  const json = JSON.parse(output.lines[0]);
+  assert.equal(json.voices.length, 30);
+  assert.deepEqual(json.voices[0], { id: 'Leda', label: 'Leda（Youthful）', default: true });
+});
+
+test('VOICEVOX voices JSON は speakers.styles を平坦化する', async () => {
+  const priorFetch = globalThis.fetch;
+  try {
+    globalThis.fetch = async url => url.endsWith('/version')
+      ? { ok: true }
+      : { ok: true, json: async () => [{ name: 'ずんだもん', styles: [{ id: 3, name: 'ノーマル' }, { id: 1, name: 'あまあま' }] }] };
+    const output = collectLogs();
+    assert.equal((await runNarrationCommand(['voices', '--engine', 'voicevox', '--json'], output)).exitCode, 0);
+    assert.deepEqual(JSON.parse(output.lines[0]).voices, [
+      { id: '3', label: 'ずんだもん ノーマル', group: 'ずんだもん' },
+      { id: '1', label: 'ずんだもん あまあま', group: 'ずんだもん' },
+    ]);
+  } finally { globalThis.fetch = priorFetch; }
+});
+
+test('Gemini の enum 外の声と未承認は送信せず exit 2', async () => {
+  const scratch = await mkdtemp(join(tmpdir(), 'akari-narration-approval-'));
+  const priorFetch = globalThis.fetch;
+  try {
+    let calls = 0;
+    globalThis.fetch = async () => { calls += 1; throw new Error('unexpected fetch'); };
+    const base = ['generate', '--project', scratch, '--engine', 'gemini-tts', '--text', 'こんにちは', '--json'];
+    const bad = collectLogs();
+    assert.equal((await runNarrationCommand([...base, '--voice', 'Foo'], bad)).exitCode, 2);
+    assert.match(bad.errors[0], /Leda/);
+    assert.match(bad.errors[0], /Zubenelgenubi/);
+    const pending = collectLogs();
+    assert.equal((await runNarrationCommand(base, pending)).exitCode, 2);
+    assert.equal(pending.lines.length, 1);
+    assert.deepEqual(JSON.parse(pending.lines[0]), { version: 1, status: 'needs_approval', estimate_usd: 0.00025, chars: 5 });
+    const pendingWithSpeed = collectLogs();
+    assert.equal((await runNarrationCommand([...base, '--speed', '1.2'], pendingWithSpeed)).exitCode, 2);
+    assert.equal(JSON.parse(pendingWithSpeed.lines[0]).speed_applied, false);
+    assert.equal(JSON.parse(pendingWithSpeed.lines[0]).warnings.length, 1);
+    assert.equal(calls, 0);
+  } finally {
+    globalThis.fetch = priorFetch;
+    await rm(scratch, { recursive: true, force: true });
+  }
+});
+
+test('--apply は --t 必須、--apply 無しの省略は 0 秒扱い', async () => {
+  const scratch = await mkdtemp(join(tmpdir(), 'akari-narration-time-'));
+  try {
+    const output = collectLogs();
+    assert.equal((await runNarrationCommand(['generate', '--project', scratch, '--engine', 'voicevox',
+      '--text', 'こんにちは', '--apply', '--json'], output)).exitCode, 1);
+    assert.match(output.errors[0], /--t/);
+    const dryRun = collectLogs();
+    assert.equal((await runNarrationCommand(['generate', '--project', scratch, '--engine', 'voicevox',
+      '--text', 'こんにちは', '--dry-run', '--json'], dryRun)).exitCode, 0);
+    assert.equal(dryRun.lines.length, 1);
+  } finally { await rm(scratch, { recursive: true, force: true }); }
+});
+
+test('Gemini --json は 1 行・ログを stderr・speed 警告・payload と provenance', async () => {
+  const scratch = await mkdtemp(join(tmpdir(), 'akari-narration-gemini-'));
+  const priorFetch = globalThis.fetch;
+  const priorCredentials = process.env.AKARI_CREDENTIALS_FILE;
+  try {
+    process.env.AKARI_CREDENTIALS_FILE = join(scratch, 'credentials.env');
+    await writeFile(process.env.AKARI_CREDENTIALS_FILE, 'FAL_KEY=test-secret');
+    const requests = [];
+    globalThis.fetch = async (url, init) => {
+      requests.push({ url, init });
+      return url === 'https://fal.run/fal-ai/gemini-tts'
+        ? { ok: true, json: async () => ({ audio: { url: 'https://example.invalid/audio.mp3' } }) }
+        : { ok: true, arrayBuffer: async () => Buffer.from('mock-mp3') };
+    };
+    const output = collectLogs();
+    const result = await runNarrationCommand(['generate', '--project', scratch, '--engine', 'gemini-tts',
+      '--text', 'こんにちは', '--t', '0', '--voice', 'Leda', '--style', '穏やかに', '--speed', '1.2', '--yes', '--json'], output);
+    assert.equal(result.exitCode, 0);
+    assert.equal(output.lines.length, 1);
+    assert.match(output.errors.join('\n'), /推定費用/);
+    assert.match(output.errors.join('\n'), /--speed に対応していない/);
+    const json = JSON.parse(output.lines[0]);
+    assert.equal(json.status, 'ok');
+    assert.equal(json.speed_applied, false);
+    assert.equal(json.warnings.length >= 1, true);
+    assert.equal(json.provenance.price_verified, false);
+    assert.equal(json.provenance.voice, 'gemini:Leda');
+    assert.equal(requests.length, 2);
+    assert.deepEqual(JSON.parse(requests[0].init.body), {
+      prompt: 'こんにちは', voice: 'Leda', model: 'gemini-2.5-flash-tts',
+      output_format: 'mp3', language_code: 'Japanese (Japan)', style_instructions: '穏やかに',
+    });
+  } finally {
+    globalThis.fetch = priorFetch;
+    if (priorCredentials === undefined) delete process.env.AKARI_CREDENTIALS_FILE; else process.env.AKARI_CREDENTIALS_FILE = priorCredentials;
+    await rm(scratch, { recursive: true, force: true });
+  }
+});
+
+test('VOICEVOX speedScale と caption_ref は v1 / v2 の --apply 後も検証を通る', async () => {
+  const priorFetch = globalThis.fetch;
+  const wav = fakeWav();
+  const synthesisBodies = [];
+  globalThis.fetch = async (url, init = {}) => {
+    if (url.endsWith('/version')) return { ok: true, json: async () => '0.0.0' };
+    if (url.endsWith('/speakers')) return { ok: true, json: async () => [{ name: 'ずんだもん', styles: [{ id: 3, name: 'ノーマル' }] }] };
+    if (url.includes('/audio_query')) return { ok: true, json: async () => ({ speedScale: 1 }) };
+    if (url.includes('/synthesis')) {
+      synthesisBodies.push(JSON.parse(init.body));
+      return { ok: true, arrayBuffer: async () => wav };
+    }
+    throw new Error(`unexpected URL ${url}`);
+  };
+  try {
+    for (const [version, fixture] of [[1, 'schemas/examples/edit-v1-sample/edit.json'], [2, 'edit-store/test/fixtures/edit-v2.json']]) {
+      const scratch = await mkdtemp(join(tmpdir(), 'akari-narration-apply-'));
+      try {
+        await copyFile(new URL(`../../${fixture}`, import.meta.url), join(scratch, 'edit.json'));
+        const output = collectLogs();
+        const result = await runNarrationCommand(['generate', '--project', scratch, '--engine', 'voicevox',
+          '--text', 'こんにちは', '--t', '0', '--speed', '1.2', '--caption-ref', 'c-0002', '--apply', '--json'], output);
+        assert.equal(result.exitCode, 0, output.errors.join('\n'));
+        const json = JSON.parse(output.lines[0]);
+        assert.equal(json.duration_s, 3);
+        assert.equal(json.speed_applied, true);
+        const edit = JSON.parse(await readFile(join(scratch, 'edit.json')));
+        const entry = edit.audio.narration.at(-1);
+        assert.equal(entry.caption_ref, 'c-0002');
+        if (version === 2) assert.equal(projectLegacyEdit(readInternalEdit(edit)).audioNarration.some(item => item.id === entry.id), true);
+      } finally { await rm(scratch, { recursive: true, force: true }); }
+    }
+    assert.deepEqual(synthesisBodies.map(body => body.speedScale), [1.2, 1.2]);
+  } finally { globalThis.fetch = priorFetch; }
 });

@@ -832,6 +832,7 @@
         "duck_release": { "type": "number", "minimum": 0, "maximum": 5, "default": 0.8 },
         "script": { "type": "string" },
         "reading": { "type": "string" },
+        "caption_ref": { "type": "string", "pattern": "^c-\\d{4}$" },
         "provenance": { "$ref": "#/$defs/narrationProvenance" }
       },
       "$comment": "再生区間 = 素材の [in, out)。in は素材秒・省略時 0（素材頭から）。out は素材秒・省略時 素材末尾まで。タイムライン上の開始は t（timeline 秒）。out > in は edit-lint が検証し、実尺越えは render-cut が素材末尾へクランプする。"
@@ -1817,6 +1818,7 @@
         "duck_release": { "type": "number", "minimum": 0, "maximum": 5, "default": 0.8 },
         "script": { "type": "string" },
         "reading": { "type": "string" },
+        "caption_ref": { "type": "string", "pattern": "^c-\\d{4}$" },
         "provenance": { "$ref": "#/$defs/narrationProvenance" }
       },
       "$comment": "audio lane 専用 item。role 省略時は sfx。at/duration は整数フレームで、duration 0 は実尺未解決を表す明示的センチネル。素材側 in/out と fade は秒。script/reading/provenance は narration 用の任意メタデータ。\ncontract-2026-09-06-cut-audio-split-v0.md: link は編集上の関連（同じ edit 内の visual media id と一対一）で、source や時刻の再計算命令ではない。mute 省略は false。speech は分離した本編音声。"

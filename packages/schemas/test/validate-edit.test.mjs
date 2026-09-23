@@ -61,6 +61,34 @@ test("narration with bgm and full provenance passes", () => {
   assert.match(executed.stdout, /^OK: /);
 });
 
+test("caption_ref is accepted on v1 narration and rejected when malformed", () => {
+  const directory = mkdtempSync(join(tmpdir(), "akari-caption-ref-"));
+  const edit = JSON.parse(readFileSync(join(exampleRoot, "edit-narration-valid", "edit.json"), "utf8"));
+  const editPath = join(directory, "edit.json");
+  edit.audio.narration[0].caption_ref = "c-0002";
+  writeFileSync(editPath, JSON.stringify(edit));
+  assert.equal(spawnSync(process.execPath, [cliPath, editPath], { encoding: "utf8" }).status, 0);
+  edit.audio.narration[0].caption_ref = "bad";
+  writeFileSync(editPath, JSON.stringify(edit));
+  const invalid = spawnSync(process.execPath, [cliPath, editPath], { encoding: "utf8" });
+  assert.equal(invalid.status, 1);
+  assert.match(invalid.stderr, /caption_ref/);
+});
+
+test("caption_ref is accepted on a v2 audio lane narration item", () => {
+  const directory = mkdtempSync(join(tmpdir(), "akari-caption-ref-v2-"));
+  const edit = JSON.parse(readFileSync(join(exampleRoot, "edit-v2-adjust-valid", "edit.json"), "utf8"));
+  edit.tracks.push({ id: "a-narration", lane: "audio", items: [{
+    id: "n-0002", role: "narration", at: 0, duration: 30,
+    source: { kind: "media", path: "out/narration/n-0002.wav" },
+    caption_ref: "c-0002",
+  }] });
+  const editPath = join(directory, "edit.json");
+  writeFileSync(editPath, JSON.stringify(edit));
+  const valid = spawnSync(process.execPath, [cliPath, editPath], { encoding: "utf8" });
+  assert.equal(valid.status, 0, valid.stderr);
+});
+
 test("narration id must match n-#### pattern", () => {
   const executed = run("edit-narration-invalid-id");
   assert.equal(executed.status, 1, executed.stdout);

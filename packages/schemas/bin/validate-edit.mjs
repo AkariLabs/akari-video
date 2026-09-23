@@ -919,6 +919,7 @@ function validateNarration(value) {
       ids.add(item.id);
     }
     validateNonEmptyString(item.path, `${label}.path`);
+    if (hasOwn(item, "caption_ref") && (typeof item.caption_ref !== "string" || !/^c-\d{4}$/.test(item.caption_ref))) fail(`${label}.caption_ref は c- に続く 4 桁の数字である必要があります`);
     if (!isFiniteNumber(item.t) || item.t < 0) {
       fail(`${label}.t は 0 以上の有限数である必要があります`);
     }
