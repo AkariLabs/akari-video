@@ -1,0 +1,74 @@
+{
+  "mock_responses": [
+    {
+      "credits": "200: total_credits=10, total_usage=3.25",
+      "key": "200: limit_remaining=2.5",
+      "requests": ["/api/v1/credits", "/api/v1/key"],
+      "display": "口座の残高 残り $6.75 · キーの上限 残り $2.50"
+    },
+    {
+      "credits": "403",
+      "key": "200: limit_remaining=null, usage=7.5",
+      "requests": ["/api/v1/credits", "/api/v1/key"],
+      "display": "キーの上限なし · 使用 $7.50",
+      "account_url": "https://openrouter.ai/settings/credits"
+    },
+    {
+      "credits": "403",
+      "key": "403",
+      "requests": ["/api/v1/credits", "/api/v1/key"],
+      "display": null,
+      "error": "キーの上限を取得できませんでした（HTTP 403）。"
+    }
+  ],
+  "electron_dev": {
+    "about_dark_naturalWidth": 512,
+    "about_light_naturalWidth": 512,
+    "update_toast_dark_naturalWidth": 512,
+    "update_toast_light_naturalWidth": 512,
+    "screenshots": ["about-dark.png", "about-light.png", "update-toast-dark.png", "update-toast-light.png"]
+  },
+  "previous_icon_reference_in_packaged_renderer": {
+    "src_attribute": "../../resources/icons/icon-512.png",
+    "currentSrc": "file:///Users/ryoma/_edit/30_products/akari-video-wt/balance-and-app-icon/apps/shell/electron-builder-out/mac-arm64/AKARI%20Video.app/Contents/Resources/app.asar/resources/icons/icon-512.png",
+    "image_event": "error",
+    "naturalWidth": 0,
+    "cdp_network_error": "net::ERR_FILE_NOT_FOUND",
+    "backend_cwd": "/",
+    "app_asar_contains_resources_icons_icon_512_png": false,
+    "app_asar_contains_bundled_app_icon_js": true
+  },
+  "packaged_asar": {
+    "cwd": "/",
+    "appInfo_icon_prefix": "data:image/png;base64,",
+    "appInfo_icon_bytes": 37885,
+    "frontend_bundle_contains_icon_data_uri": true,
+    "electron_about_dark_naturalWidth": 512,
+    "electron_about_light_naturalWidth": 512,
+    "electron_update_toast_dark_naturalWidth": 512,
+    "electron_update_toast_light_naturalWidth": 512,
+    "screenshots": ["packaged-about-toast.png", "packaged-light.png"]
+  },
+  "packaged_settings_with_loopback_server": {
+    "credits_403_key_200": {
+      "display": "キーの上限 残り $4.72",
+      "account_link_visible": true,
+      "screenshot": "balance-key-limit.png"
+    },
+    "credits_200_key_200": {
+      "display": "口座の残高 残り $6.75 · キーの上限 残り $2.50",
+      "account_link_visible": false,
+      "screenshot": "balance-account.png"
+    }
+  },
+  "statusbar_with_loopback_server": {
+    "credits_200_key_200": {
+      "display": "ryoma · 口座の残高 残り $6.75 · キーの上限 残り $2.50",
+      "screenshot": "statusbar-account.png"
+    },
+    "credits_403_key_200": {
+      "display": "ryoma · キーの上限 残り $4.72",
+      "screenshot": "statusbar-key-limit.png"
+    }
+  }
+}

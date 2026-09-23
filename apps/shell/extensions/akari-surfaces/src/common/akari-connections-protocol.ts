@@ -69,8 +69,8 @@ export interface GenerationCatalog { models: GenerationCatalogModel[] }
  * `balance` が false のサービスは公式に API キーで残高を取る口が無いので、管理画面（billing_url）へのリンクだけ出す。
  */
 export const PROVIDER_BALANCE_SUPPORT: Readonly<Record<string, { balance: boolean; docs: readonly string[]; billing_url: string }>> = {
-    // GET https://openrouter.ai/api/v1/key（通常キー・Bearer）→ data.limit_remaining（null = キーに上限なし）/ data.usage。
-    // 口座全体の GET /api/v1/credits は Management key 専用なので使わない。
+    // GET /api/v1/credits は Management key なら口座残高を返す。通常キーの 401/403 は
+    // GET /api/v1/key に切り替え、口座残高と混同しない表示にする。
     openrouter: {
         balance: true, billing_url: 'https://openrouter.ai/settings/credits',
         docs: ['https://openrouter.ai/docs/api_reference/limits', 'https://openrouter.ai/docs/api-reference/get-credits']
@@ -104,8 +104,10 @@ export function providerHasBalanceEndpoint(id: string): boolean {
 /** 残高の問い合わせ結果。表示用の 1 行だけを返す（生の応答・キーは返さない）。 */
 export interface ProviderBalanceResult {
     ok: boolean;
-    /** ok のとき: 「残り $4.72」形式の 1 行。 */
+    /** ok のとき: 口座残高かキーの上限かを明示した 1 行。 */
     display?: string;
+    /** OpenRouter の通常キーで口座残高が読めないときに案内する管理画面。 */
+    account_url?: string;
     /** 失敗のとき: 1 行のエラー。 */
     error?: string;
     checked_at: string;
