@@ -1,0 +1,39 @@
+{
+  "phase": "before",
+  "renderSeconds": 4,
+  "rasterizer": {
+    "planned": "gpu",
+    "adopted": "gpu",
+    "attempts": [
+      {
+        "method": "gpu",
+        "status": "adopted",
+        "reason": null
+      }
+    ]
+  },
+  "verify": "pass",
+  "frameAtSeconds": 1.5,
+  "row": {
+    "text": "テキストを入力",
+    "text_style": {
+      "text_anchor": "mc",
+      "position": {
+        "x": 0.5,
+        "y": 0.5
+      }
+    }
+  },
+  "textBox": {
+    "left": 0.5148,
+    "right": 0.7164,
+    "top": 0.4764,
+    "bottom": 0.525
+  },
+  "center": {
+    "x": 0.6156,
+    "y": 0.5007
+  },
+  "brightPixels": 2856,
+  "screenshot": "before-07-export-frame.png"
+}

@@ -56,17 +56,21 @@ async function fixture(t, captions) {
         request: { captionsUri: pathToFileURL(captionsPath).toString(), projectRootUri: pathToFileURL(root).toString() } };
 }
 
-test('command defaults use output playhead, central position and the shared caption id generator', () => {
+test('command defaults center the plate with tc and omitted x, and use the shared caption id generator', () => {
     assert.deepEqual(placeTextCaption({}, 4, 20, ['c-0002', 'c-0012']), {
         id: 'c-0013', start: 4, end: 7, text: 'テキストを入力', timeDomain: 'output',
-        sourceRef: null, edited: true, speaker: null, textStyle: { position: { x: .5, y: .5 }, textAnchor: 'mc' }
+        sourceRef: null, edited: true, speaker: null, textStyle: { position: { y: .4625 }, textAnchor: 'tc' }
     });
+    // Preview tc treats y as the top; half of a default 38px × 1.42 line on 720px is 0.03747.
+    assert.ok(Math.abs(.4625 + (38 * 1.42 / 2 / 720) - .5) < .001);
+    assert.deepEqual(placeTextCaption({ position: { y: .3 } }, 0, 10, []).textStyle.position, { y: .3 });
     assert.equal(placeTextCaption({}, 8, 10, []).end, 10);
     assert.equal(placeTextCaption({}, 0, 0, []).end, 3);
     assert.equal(nextDaihonCaptionId(['c-9999']), 'c-10000');
     assert.throws(() => placeTextCaption({}, 10, 10, []), /時刻/);
     assert.throws(() => placeTextCaption({ start: NaN }, 0, 10, []), /時刻/);
     assert.throws(() => placeTextCaption({ position: { x: 2, y: 0 } }, 0, 10, []), /位置/);
+    assert.throws(() => placeTextCaption({ position: { x: NaN, y: 0 } }, 0, 10, []), /位置/);
 });
 
 test('missing captions.json: one insertion includes preset, selects/seeks, one undo removes file, redo restores all fields', async t => {
@@ -76,7 +80,7 @@ test('missing captions.json: one insertion includes preset, selects/seeks, one u
     const after = await readFile(f.captionsPath, 'utf8');
     assert.deepEqual(JSON.parse(after).captions[0], {
         id, start: 2, end: 5, text: 'テキストを入力', speaker: null, sourceRef: null, edited: true,
-        time_domain: 'output', text_style: { position: { x: .5, y: .5 }, text_anchor: 'mc' }, style_preset: 'title-impact'
+        time_domain: 'output', text_style: { position: { y: .4625 }, text_anchor: 'tc' }, style_preset: 'title-impact'
     });
     assert.equal(f.service.writes.length, 1);
     assert.equal(f.history.length, 1);

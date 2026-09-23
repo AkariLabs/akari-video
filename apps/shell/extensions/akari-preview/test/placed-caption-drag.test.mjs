@@ -83,6 +83,38 @@ test('inline editor has no second outline and uses an ink line rather than the f
     assert.match(edit, /element.style.userSelect = 'text'/);
 });
 
+test('output cues keep a frame-relative plate width and unbounded single lines at every x', () => {
+    const plateRule = source.match(/\.caption-row-plate\[data-output-caption\] \.akari-caption__plate \{[^}]+\}/)?.[0];
+    const lineRule = source.match(/\.caption-row-plate\[data-output-caption\] \.akari-caption__line[^\n]+/)?.[0];
+    assert.match(plateRule, /width: 92%; right: auto/);
+    assert.match(lineRule, /max-width: none; flex-shrink: 0/);
+    assert.match(section('const renderCaptionRow =', '            const renderCaption ='), /caption\?\.timeDomain === 'output'/);
+    assert.equal((source.match(/\.caption-row-plate\[data-output-caption\]/g) ?? []).length, 3);
+});
+
+test('renderCaptionRow clears output-only styling when the caption is absent', () => {
+    const context = {
+        activeCaptionEdit: null,
+        applyCaptionStyleVars() {},
+        applyCaptionRowSelectionAttrs() {},
+        captionEntryAnimationsSettledFn: () => true,
+        window: { akari: { interaction: { syncOverlayHitRegion() {} } } }
+    };
+    const renderCaptionRow = vm.runInNewContext(`${section('const renderCaptionRow =', '            const renderCaption = () =>')} renderCaptionRow`, context);
+    for (const caption of [undefined, null]) {
+        const plate = {
+            dataset: { outputCaption: '' },
+            classList: { toggle(name, enabled) { assert.equal(name, 'akari-caption-host--styled'); assert.equal(enabled, false); } },
+            innerHTML: 'previous caption'
+        };
+        const row = { plate, renderedCaption: { id: 'previous' }, styledCaptionActive: true, captionHitRegionPending: false };
+        assert.doesNotThrow(() => renderCaptionRow(caption, row));
+        assert.equal(Object.hasOwn(plate.dataset, 'outputCaption'), false);
+        assert.equal(plate.innerHTML, '');
+        assert.equal(row.styledCaptionActive, false);
+    }
+});
+
 const compiled = readFileSync(new URL('../lib/browser/akari-preview-open-handler.js', import.meta.url), 'utf8');
 function hostMethod(name, bindings = {}) {
     const start = compiled.search(new RegExp(`^    (?:async )?${name}\\(`, 'm'));
@@ -116,6 +148,7 @@ test('resolved captions retain original domains using source cue ids, not their 
             parseResolvedPreviewCaptions: value => value.captions
         }, console
     });
+    host.lastLoadedCaptions = new Map();
     host.readText = async () => JSON.stringify({ captions: [
         { id: 'p1', time_domain: 'output' }, { id: 's1', time_domain: 'source' }
     ] });
@@ -125,4 +158,47 @@ test('resolved captions retain original domains using source cue ids, not their 
     const result = await host.loadPreviewCaptions('captions.json', 'edit.json');
     assert.deepEqual(Array.from(result.captions, cue => cue.timeDomain), ['output', 'source']);
     assert.ok(result.captions.every(cue => cue.clockDomain === 'output'));
+});
+
+test('partial JSON keeps the last captions; a valid empty file or deletion clears them', async () => {
+    let sourceText = JSON.stringify({ captions: [{ id: 'p1', time_domain: 'output' }] });
+    let exists = true;
+    const host = hostMethod('loadPreviewCaptions', {
+        akari_preview_captions_1: {
+            loadCaptionDisplayFailOpen: async options => options.resolved(await options.resolve()),
+            parseResolvedPreviewCaptions: value => value.captions
+        }, console: { warn() {} }, setTimeout
+    });
+    host.lastLoadedCaptions = new Map();
+    host.readText = async () => {
+        if (!exists) throw Object.assign(new Error('missing'), { code: 'ENOENT' });
+        return sourceText;
+    };
+    host.currentWorkspaceRoots = async () => [];
+    host.previewService = { resolveCaptionDisplay: async () => ({ captions: JSON.parse(sourceText).captions
+        .map(row => ({ id: row.id, sourceCueId: row.id, start: 0, end: 2, text: row.id })) }) };
+    host.fileService = { exists: async () => exists };
+    const initial = await host.loadPreviewCaptions('captions.json', 'edit.json');
+    sourceText = '{"captions":[{"id":"p';
+    const duringWrite = await host.loadPreviewCaptions('captions.json', 'edit.json');
+    assert.deepEqual(Array.from(duringWrite.captions, cue => cue.id), ['p1']);
+    assert.strictEqual(duringWrite, initial);
+    sourceText = '{"captions":[]}';
+    assert.deepEqual(Array.from((await host.loadPreviewCaptions('captions.json', 'edit.json')).captions), []);
+    sourceText = JSON.stringify({ captions: [{ id: 'p2', time_domain: 'output' }] });
+    assert.deepEqual(Array.from((await host.loadPreviewCaptions('captions.json', 'edit.json')).captions,
+        cue => cue.id), ['p2']);
+    sourceText = '';
+    const duringTruncate = host.loadPreviewCaptions('captions.json', 'edit.json');
+    setTimeout(() => { sourceText = JSON.stringify({ captions: [{ id: 'p3', time_domain: 'output' }] }); }, 20);
+    assert.deepEqual(Array.from((await duringTruncate).captions, cue => cue.id), ['p3']);
+    sourceText = '';
+    assert.deepEqual(Array.from((await host.loadPreviewCaptions('captions.json', 'edit.json')).captions), []);
+    sourceText = JSON.stringify({ captions: [{ id: 'p4', time_domain: 'output' }] });
+    assert.deepEqual(Array.from((await host.loadPreviewCaptions('captions.json', 'edit.json')).captions,
+        cue => cue.id), ['p4']);
+    exists = false;
+    sourceText = '';
+    assert.deepEqual(Array.from((await host.loadPreviewCaptions('captions.json', 'edit.json')).captions), []);
+    assert.equal(host.lastLoadedCaptions.size, 0);
 });

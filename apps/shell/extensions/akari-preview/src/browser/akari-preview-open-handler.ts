@@ -1252,6 +1252,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
     protected readonly reviewTransportByEdit = new Map<string, ReviewTransportSnapshot>();
     protected readonly lastRawEditVersionByUri = new Map<string, 0 | 1 | 2>();
     protected readonly captionDisplayFallbackState: { lastCode?: string } = {};
+    protected readonly lastLoadedCaptions = new Map<string, LoadedPreviewCaptions>();
     protected readonly migrationCompactionPrompted = new Set<string>();
     // task/2026-08-09-drop-hevc-proxy: 実際に再生失敗した動画（videoUri.toString() をキー）だけを
     // 憶えておくフォールバック台帳。既定経路（resolveStreamVideoUri）はここに載っている場合だけ
@@ -4673,7 +4674,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         // 字幕の解決（resolveCaptionDisplay = backend RPC）は edit.json の内容にも依存するので
         // 通知に全文が載っていても省けない（captions.json は別ファイルで通知に含まれない）。
         // edit.json 読み出しとは先に並走させる。正規化時には captions 段の導出へ必要なので
-        // await する（loadPreviewCaptions は内部で catch して [] を返すため reject しない）。
+        // await する（途中書き込みで読めない間は直前の字幕を保持する）。
         const captionsPromise = this.loadPreviewCaptions(captionsUri, editUri);
         const rawCaptionsPromise = captionsUri
             ? this.readText(captionsUri).catch(() => '') : Promise.resolve('');
@@ -6048,15 +6049,29 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         if (!captionsUri) {
             return { captions: [] };
         }
+        const key = captionsUri.toString();
         try {
+            let source = await this.readText(captionsUri);
+            if (!source.trim()) {
+                // A truncate-and-write can expose a zero-byte file briefly. Confirm that
+                // it stays empty before clearing captions; partial nonempty JSON stays cached.
+                await new Promise<void>(resolve => setTimeout(resolve, 150));
+                source = await this.readText(captionsUri);
+                if (!source.trim()) {
+                    const empty = { captions: [] };
+                    this.lastLoadedCaptions.set(key, empty);
+                    return empty;
+                }
+            }
+            let loaded: LoadedPreviewCaptions;
             if (editUri) {
-                const rawRoot = JSON.parse(await this.readText(captionsUri));
+                const rawRoot = JSON.parse(source);
                 const rawRows = Array.isArray(rawRoot) ? rawRoot
                     : Array.isArray(rawRoot?.captions) ? rawRoot.captions : [];
                 const timeDomains = new Map<string, 'source' | 'output'>(rawRows
                     .filter((row: { time_domain?: string } | null) => row?.time_domain === 'source' || row?.time_domain === 'output')
                     .map((row: { id: string; time_domain: 'source' | 'output' }) => [row.id, row.time_domain]));
-                return await loadCaptionDisplayFailOpen({
+                loaded = await loadCaptionDisplayFailOpen({
                     resolve: async () => this.previewService.resolveCaptionDisplay({
                         captionsUri: captionsUri.toString(),
                         editUri: editUri.toString(),
@@ -6076,12 +6091,17 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     ),
                     state: this.captionDisplayFallbackState
                 });
+            } else {
+                loaded = await this.loadLegacyPreviewCaptions(captionsUri, editUri);
             }
-            return await this.loadLegacyPreviewCaptions(captionsUri, editUri);
+            this.lastLoadedCaptions.set(key, loaded);
+            return loaded;
         } catch (error) {
             if (await this.fileService.exists(captionsUri)) {
-                console.warn(`[akari-preview] failed to load ${captionsUri.toString()}; hiding captions`, error);
+                console.warn(`[akari-preview] failed to load ${key}; keeping previous captions`, error);
+                return this.lastLoadedCaptions.get(key) ?? { captions: [] };
             }
+            this.lastLoadedCaptions.delete(key);
             return { captions: [] };
         }
     }
@@ -7216,6 +7236,8 @@ ${kind === 'raw' ? '.akari-material-chip { position: absolute; top: 8px; left: 8
 .caption-row-plate:empty { display: none; }
 .caption-row-plate.akari-caption-host--editing:empty { display: block; min-width: 1em; min-height: 1.42em; }
 .caption-row-plate.akari-caption-host--styled { pointer-events: none; inset: 0; max-width: none; transform: none; padding: 0; border-radius: 0; background: none; text-shadow: none; white-space: normal; --caption-font-size: ${captionFontSize}px; }
+.caption-row-plate[data-output-caption] .akari-caption__plate { width: 92%; right: auto; }
+.caption-row-plate[data-output-caption] .akari-caption__line, .caption-row-plate[data-output-caption] .akari-caption__block { max-width: none; flex-shrink: 0; }
 .caption-row-plate[data-selected] { outline: 1.5px solid #f5c451; outline-offset: 4px; }
 .caption-row-plate[data-alt-all] { outline-style: dashed; outline-color: #53d1bc; }
 .caption-row-plate.akari-caption-host--styled[data-selected] { outline: none; }
@@ -15367,6 +15389,8 @@ body { display: grid; place-items: center; padding: 32px; }
                                 && splitCaptionLines(caption.text || '', captionLineBudget).length > 1));
                     row.styledCaptionActive = Boolean(caption);
                     captionPlate.classList.toggle('akari-caption-host--styled', row.styledCaptionActive);
+                    if (caption?.timeDomain === 'output') captionPlate.dataset.outputCaption = '';
+                    else delete captionPlate.dataset.outputCaption;
                     if (caption) {
                         const usesWords = hasCaptionWords
                             && ((caption.style === 'karaoke' || caption.style === 'pop')

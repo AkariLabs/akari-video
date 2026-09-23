@@ -1,0 +1,1354 @@
+{
+  "phase": "before",
+  "status": "fail",
+  "checks": [
+    {
+      "name": "回帰: 話した言葉の字幕の寸法（1 行 / 折り返す長い行）",
+      "pass": true,
+      "detail": {
+        "short": {
+          "w": 336.75,
+          "h": 31.7,
+          "lines": 1,
+          "cx": 0.5,
+          "cy": 0.8883,
+          "maxWidth": "92%",
+          "whiteSpace": "pre"
+        },
+        "long": {
+          "w": 275.34,
+          "h": 31.7,
+          "lines": 1,
+          "cx": 0.5,
+          "cy": 0.6215,
+          "maxWidth": "92%",
+          "whiteSpace": "pre"
+        }
+      }
+    },
+    {
+      "name": "(a) akari.caption.placeText の既定で置いた文字の位置（プレート中心）",
+      "pass": true,
+      "detail": {
+        "id": "c-0104",
+        "saved": {
+          "text": "テキストを入力",
+          "text_style": {
+            "text_anchor": "mc",
+            "position": {
+              "x": 0.5,
+              "y": 0.5
+            }
+          },
+          "time_domain": "output"
+        },
+        "center": {
+          "x": 0.6159,
+          "y": 0.5
+        },
+        "leftEdge": 0.5,
+        "widthRatio": 0.2319,
+        "lines": 1,
+        "chain": {
+          "row": {
+            "cls": "caption-row-plate.akari-caption-host--styled",
+            "left": 36,
+            "top": 31.88,
+            "width": 676,
+            "height": 380.25,
+            "position": "absolute",
+            "styleLeft": "0px",
+            "styleRight": "0px",
+            "styleWidth": "1280px",
+            "maxWidth": "none",
+            "whiteSpace": "normal",
+            "transform": "none",
+            "display": "block"
+          },
+          "plate": {
+            "cls": "akari-caption__plate",
+            "left": 374,
+            "top": 206.15,
+            "width": 310.96,
+            "height": 31.7,
+            "position": "absolute",
+            "styleLeft": "640px",
+            "styleRight": "51.1953px",
+            "styleWidth": "588.805px",
+            "maxWidth": "none",
+            "whiteSpace": "normal",
+            "transform": "matrix(1, 0, 0, 1, 0, 0)",
+            "display": "flex"
+          },
+          "line": {
+            "cls": "akari-caption__line",
+            "left": 374,
+            "top": 206.15,
+            "width": 156.73,
+            "height": 31.7,
+            "position": "relative",
+            "styleLeft": "0px",
+            "styleRight": "0px",
+            "styleWidth": "296.773px",
+            "maxWidth": "92%",
+            "whiteSpace": "pre",
+            "transform": "none",
+            "display": "block"
+          }
+        }
+      }
+    },
+    {
+      "name": "(a) 既定で置いた文字をドラッグ → 落とした位置（±1%）で保存・描画・アンカー不変",
+      "pass": true,
+      "detail": {
+        "anchor": "mc",
+        "drags": [
+          {
+            "target": "左上寄り",
+            "drop": {
+              "x": 0.3,
+              "y": 0.3
+            },
+            "saved": {
+              "text_anchor": "mc",
+              "position": {
+                "x": 0.1841,
+                "y": 0.3
+              }
+            },
+            "widthBeforePx": 156.73,
+            "widthAfterDropPx": 156.73,
+            "widthSettledPx": 156.73,
+            "widthRatio": 0.2319,
+            "lines": 1,
+            "heightPx": 31.7,
+            "text": "テキストを入力",
+            "rendered": {
+              "x": 0.3,
+              "y": 0.3
+            },
+            "renderedError": {
+              "x": 0,
+              "y": 0
+            },
+            "chain": {
+              "row": {
+                "cls": "caption-row-plate.akari-caption-host--styled",
+                "left": 36,
+                "top": 31.88,
+                "width": 676,
+                "height": 380.25,
+                "position": "absolute",
+                "styleLeft": "0px",
+                "styleRight": "0px",
+                "styleWidth": "1280px",
+                "maxWidth": "none",
+                "whiteSpace": "normal",
+                "transform": "none",
+                "display": "block"
+              },
+              "plate": {
+                "cls": "akari-caption__plate",
+                "left": 160.45,
+                "top": 130.1,
+                "width": 524.51,
+                "height": 31.7,
+                "position": "absolute",
+                "styleLeft": "235.641px",
+                "styleRight": "51.1953px",
+                "styleWidth": "993.164px",
+                "maxWidth": "none",
+                "whiteSpace": "normal",
+                "transform": "matrix(1, 0, 0, 1, 0, 0)",
+                "display": "flex"
+              },
+              "line": {
+                "cls": "akari-caption__line",
+                "left": 160.45,
+                "top": 130.1,
+                "width": 156.73,
+                "height": 31.7,
+                "position": "relative",
+                "styleLeft": "0px",
+                "styleRight": "0px",
+                "styleWidth": "296.773px",
+                "maxWidth": "92%",
+                "whiteSpace": "pre",
+                "transform": "none",
+                "display": "block"
+              }
+            }
+          },
+          {
+            "target": "右下寄り",
+            "drop": {
+              "x": 0.7,
+              "y": 0.75
+            },
+            "saved": {
+              "text_anchor": "mc",
+              "position": {
+                "x": 0.5841,
+                "y": 0.75
+              }
+            },
+            "widthBeforePx": 156.73,
+            "widthAfterDropPx": 156.73,
+            "widthSettledPx": 156.73,
+            "widthRatio": 0.2319,
+            "lines": 1,
+            "heightPx": 31.7,
+            "text": "テキストを入力",
+            "rendered": {
+              "x": 0.7,
+              "y": 0.75
+            },
+            "renderedError": {
+              "x": 0,
+              "y": 0
+            },
+            "chain": {
+              "row": {
+                "cls": "caption-row-plate.akari-caption-host--styled",
+                "left": 36,
+                "top": 31.88,
+                "width": 676,
+                "height": 380.25,
+                "position": "absolute",
+                "styleLeft": "0px",
+                "styleRight": "0px",
+                "styleWidth": "1280px",
+                "maxWidth": "none",
+                "whiteSpace": "normal",
+                "transform": "none",
+                "display": "block"
+              },
+              "plate": {
+                "cls": "akari-caption__plate",
+                "left": 430.85,
+                "top": 301.21,
+                "width": 254.11,
+                "height": 31.7,
+                "position": "absolute",
+                "styleLeft": "747.641px",
+                "styleRight": "51.1953px",
+                "styleWidth": "481.164px",
+                "maxWidth": "none",
+                "whiteSpace": "normal",
+                "transform": "matrix(1, 0, 0, 1, 0, 0)",
+                "display": "flex"
+              },
+              "line": {
+                "cls": "akari-caption__line",
+                "left": 430.85,
+                "top": 301.21,
+                "width": 156.73,
+                "height": 31.7,
+                "position": "relative",
+                "styleLeft": "0px",
+                "styleRight": "0px",
+                "styleWidth": "296.773px",
+                "maxWidth": "92%",
+                "whiteSpace": "pre",
+                "transform": "none",
+                "display": "block"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "(b) 置いた文字を右へ動かしたときの文字の行の幅（旧来の mc の行）",
+      "pass": true,
+      "detail": {
+        "initial": {
+          "w": 133.59,
+          "widthRatio": 0.1976,
+          "lines": 1,
+          "chain": {
+            "row": {
+              "cls": "caption-row-plate.akari-caption-host--styled",
+              "left": 36,
+              "top": 31.88,
+              "width": 676,
+              "height": 380.25,
+              "position": "absolute",
+              "styleLeft": "0px",
+              "styleRight": "0px",
+              "styleWidth": "1280px",
+              "maxWidth": "none",
+              "whiteSpace": "normal",
+              "transform": "none",
+              "display": "block"
+            },
+            "plate": {
+              "cls": "akari-caption__plate",
+              "left": 374,
+              "top": 206.15,
+              "width": 310.96,
+              "height": 31.7,
+              "position": "absolute",
+              "styleLeft": "640px",
+              "styleRight": "51.1953px",
+              "styleWidth": "588.805px",
+              "maxWidth": "none",
+              "whiteSpace": "normal",
+              "transform": "matrix(1, 0, 0, 1, 0, 0)",
+              "display": "flex"
+            },
+            "line": {
+              "cls": "akari-caption__line",
+              "left": 374,
+              "top": 206.15,
+              "width": 133.59,
+              "height": 31.7,
+              "position": "relative",
+              "styleLeft": "0px",
+              "styleRight": "0px",
+              "styleWidth": "252.945px",
+              "maxWidth": "92%",
+              "whiteSpace": "pre",
+              "transform": "none",
+              "display": "block"
+            }
+          }
+        },
+        "drags": [
+          {
+            "target": "中央やや左",
+            "drop": {
+              "x": 0.4,
+              "y": 0.4
+            },
+            "saved": {
+              "position": {
+                "x": 0.6055,
+                "y": -0.0422
+              },
+              "text_anchor": "mc"
+            },
+            "widthBeforePx": 133.59,
+            "widthAfterDropPx": 133.59,
+            "widthSettledPx": 133.59,
+            "widthRatio": 0.1976,
+            "lines": 1,
+            "heightPx": 31.7,
+            "text": "置いた文字 1",
+            "rendered": {
+              "x": 0.7043,
+              "y": 0
+            },
+            "renderedError": {
+              "x": 0.3043,
+              "y": -0.4
+            },
+            "chain": {
+              "row": {
+                "cls": "caption-row-plate.akari-caption-host--styled",
+                "left": 36,
+                "top": 31.88,
+                "width": 676,
+                "height": 380.25,
+                "position": "absolute",
+                "styleLeft": "0px",
+                "styleRight": "0px",
+                "styleWidth": "1280px",
+                "maxWidth": "none",
+                "whiteSpace": "normal",
+                "transform": "none",
+                "display": "block"
+              },
+              "plate": {
+                "cls": "akari-caption__plate",
+                "left": 445.32,
+                "top": 16.02,
+                "width": 239.64,
+                "height": 31.7,
+                "position": "absolute",
+                "styleLeft": "775.039px",
+                "styleRight": "51.1953px",
+                "styleWidth": "453.766px",
+                "maxWidth": "none",
+                "whiteSpace": "normal",
+                "transform": "matrix(1, 0, 0, 1, 0, 0)",
+                "display": "flex"
+              },
+              "line": {
+                "cls": "akari-caption__line",
+                "left": 445.32,
+                "top": 16.02,
+                "width": 133.59,
+                "height": 31.7,
+                "position": "relative",
+                "styleLeft": "0px",
+                "styleRight": "0px",
+                "styleWidth": "252.945px",
+                "maxWidth": "92%",
+                "whiteSpace": "pre",
+                "transform": "none",
+                "display": "block"
+              }
+            }
+          },
+          {
+            "target": "右寄り",
+            "drop": {
+              "x": 0.7,
+              "y": 0.4
+            },
+            "saved": {
+              "position": {
+                "x": 0.6012,
+                "y": 0.4
+              },
+              "text_anchor": "mc"
+            },
+            "widthBeforePx": 133.59,
+            "widthAfterDropPx": 133.59,
+            "widthSettledPx": 133.59,
+            "widthRatio": 0.1976,
+            "lines": 1,
+            "heightPx": 31.7,
+            "text": "置いた文字 1",
+            "rendered": {
+              "x": 0.7,
+              "y": 0.4
+            },
+            "renderedError": {
+              "x": 0,
+              "y": 0
+            },
+            "chain": {
+              "row": {
+                "cls": "caption-row-plate.akari-caption-host--styled",
+                "left": 36,
+                "top": 31.88,
+                "width": 676,
+                "height": 380.25,
+                "position": "absolute",
+                "styleLeft": "0px",
+                "styleRight": "0px",
+                "styleWidth": "1280px",
+                "maxWidth": "none",
+                "whiteSpace": "normal",
+                "transform": "none",
+                "display": "block"
+              },
+              "plate": {
+                "cls": "akari-caption__plate",
+                "left": 442.41,
+                "top": 168.12,
+                "width": 242.55,
+                "height": 31.7,
+                "position": "absolute",
+                "styleLeft": "769.531px",
+                "styleRight": "51.1953px",
+                "styleWidth": "459.273px",
+                "maxWidth": "none",
+                "whiteSpace": "normal",
+                "transform": "matrix(1, 0, 0, 1, 0, 0)",
+                "display": "flex"
+              },
+              "line": {
+                "cls": "akari-caption__line",
+                "left": 442.41,
+                "top": 168.12,
+                "width": 133.59,
+                "height": 31.7,
+                "position": "relative",
+                "styleLeft": "0px",
+                "styleRight": "0px",
+                "styleWidth": "252.945px",
+                "maxWidth": "92%",
+                "whiteSpace": "pre",
+                "transform": "none",
+                "display": "block"
+              }
+            }
+          },
+          {
+            "target": "右端",
+            "drop": {
+              "x": 0.86,
+              "y": 0.5
+            },
+            "saved": {
+              "position": {
+                "x": 0.7612,
+                "y": 0.5
+              },
+              "text_anchor": "mc"
+            },
+            "widthBeforePx": 133.59,
+            "widthAfterDropPx": 123.64,
+            "widthSettledPx": 123.64,
+            "widthRatio": 0.1829,
+            "lines": 1,
+            "heightPx": 31.7,
+            "text": "置いた文字 1",
+            "rendered": {
+              "x": 0.8526,
+              "y": 0.5
+            },
+            "renderedError": {
+              "x": -0.0074,
+              "y": 0
+            },
+            "chain": {
+              "row": {
+                "cls": "caption-row-plate.akari-caption-host--styled",
+                "left": 36,
+                "top": 31.88,
+                "width": 676,
+                "height": 380.25,
+                "position": "absolute",
+                "styleLeft": "0px",
+                "styleRight": "0px",
+                "styleWidth": "1280px",
+                "maxWidth": "none",
+                "whiteSpace": "normal",
+                "transform": "none",
+                "display": "block"
+              },
+              "plate": {
+                "cls": "akari-caption__plate",
+                "left": 550.57,
+                "top": 206.15,
+                "width": 134.39,
+                "height": 31.7,
+                "position": "absolute",
+                "styleLeft": "974.336px",
+                "styleRight": "51.1953px",
+                "styleWidth": "254.469px",
+                "maxWidth": "none",
+                "whiteSpace": "normal",
+                "transform": "matrix(1, 0, 0, 1, 0, 0)",
+                "display": "flex"
+              },
+              "line": {
+                "cls": "akari-caption__line",
+                "left": 550.57,
+                "top": 206.15,
+                "width": 123.64,
+                "height": 31.7,
+                "position": "relative",
+                "styleLeft": "0px",
+                "styleRight": "0px",
+                "styleWidth": "234.109px",
+                "maxWidth": "92%",
+                "whiteSpace": "pre",
+                "transform": "none",
+                "display": "block"
+              }
+            }
+          },
+          {
+            "target": "右端の外へはみ出す",
+            "drop": {
+              "x": 0.97,
+              "y": 0.6
+            },
+            "saved": {
+              "position": {
+                "x": 0.8785,
+                "y": 0.6
+              },
+              "text_anchor": "mc"
+            },
+            "widthBeforePx": 123.64,
+            "widthAfterDropPx": 50.69,
+            "widthSettledPx": 50.69,
+            "widthRatio": 0.075,
+            "lines": 1,
+            "heightPx": 31.7,
+            "text": "置いた文字 1",
+            "rendered": {
+              "x": 0.916,
+              "y": 0.6
+            },
+            "renderedError": {
+              "x": -0.054,
+              "y": 0
+            },
+            "chain": {
+              "row": {
+                "cls": "caption-row-plate.akari-caption-host--styled",
+                "left": 36,
+                "top": 31.88,
+                "width": 676,
+                "height": 380.25,
+                "position": "absolute",
+                "styleLeft": "0px",
+                "styleRight": "0px",
+                "styleWidth": "1280px",
+                "maxWidth": "none",
+                "whiteSpace": "normal",
+                "transform": "none",
+                "display": "block"
+              },
+              "plate": {
+                "cls": "akari-caption__plate",
+                "left": 629.86,
+                "top": 244.17,
+                "width": 55.1,
+                "height": 31.7,
+                "position": "absolute",
+                "styleLeft": "1124.48px",
+                "styleRight": "51.1953px",
+                "styleWidth": "104.328px",
+                "maxWidth": "none",
+                "whiteSpace": "normal",
+                "transform": "matrix(1, 0, 0, 1, 0, 0)",
+                "display": "flex"
+              },
+              "line": {
+                "cls": "akari-caption__line",
+                "left": 629.86,
+                "top": 244.17,
+                "width": 50.69,
+                "height": 31.7,
+                "position": "relative",
+                "styleLeft": "0px",
+                "styleRight": "0px",
+                "styleWidth": "95.9766px",
+                "maxWidth": "92%",
+                "whiteSpace": "pre",
+                "transform": "none",
+                "display": "block"
+              }
+            }
+          }
+        ],
+        "overflowRightEdge": 0.9535
+      }
+    },
+    {
+      "name": "(b) 既定で置いた文字を右端へ → 行の幅",
+      "pass": true,
+      "detail": {
+        "initialW": 156.73,
+        "drag": {
+          "target": "右端",
+          "drop": {
+            "x": 0.9,
+            "y": 0.5
+          },
+          "saved": {
+            "text_anchor": "mc",
+            "position": {
+              "x": 0.7841,
+              "y": 0.5
+            }
+          },
+          "widthBeforePx": 156.73,
+          "widthAfterDropPx": 109.4,
+          "widthSettledPx": 109.4,
+          "widthRatio": 0.1618,
+          "lines": 1,
+          "heightPx": 31.7,
+          "text": "テキストを入力",
+          "rendered": {
+            "x": 0.865,
+            "y": 0.5
+          },
+          "renderedError": {
+            "x": -0.035,
+            "y": 0
+          },
+          "chain": {
+            "row": {
+              "cls": "caption-row-plate.akari-caption-host--styled",
+              "left": 36,
+              "top": 31.88,
+              "width": 676,
+              "height": 380.25,
+              "position": "absolute",
+              "styleLeft": "0px",
+              "styleRight": "0px",
+              "styleWidth": "1280px",
+              "maxWidth": "none",
+              "whiteSpace": "normal",
+              "transform": "none",
+              "display": "block"
+            },
+            "plate": {
+              "cls": "akari-caption__plate",
+              "left": 566.05,
+              "top": 206.15,
+              "width": 118.91,
+              "height": 31.7,
+              "position": "absolute",
+              "styleLeft": "1003.64px",
+              "styleRight": "51.1953px",
+              "styleWidth": "225.164px",
+              "maxWidth": "none",
+              "whiteSpace": "normal",
+              "transform": "matrix(1, 0, 0, 1, 0, 0)",
+              "display": "flex"
+            },
+            "line": {
+              "cls": "akari-caption__line",
+              "left": 566.05,
+              "top": 206.15,
+              "width": 109.4,
+              "height": 31.7,
+              "position": "relative",
+              "styleLeft": "0px",
+              "styleRight": "0px",
+              "styleWidth": "207.148px",
+              "maxWidth": "92%",
+              "whiteSpace": "pre",
+              "transform": "none",
+              "display": "block"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "(a) 再読込の確認用に既定で置いた文字をもう一度ドラッグ",
+      "pass": true,
+      "detail": {
+        "target": "再読込の確認用",
+        "drop": {
+          "x": 0.62,
+          "y": 0.35
+        },
+        "saved": {
+          "text_anchor": "mc",
+          "position": {
+            "x": 0.5391,
+            "y": 0.35
+          }
+        },
+        "widthBeforePx": 109.4,
+        "widthAfterDropPx": 156.73,
+        "widthSettledPx": 156.73,
+        "widthRatio": 0.2319,
+        "lines": 1,
+        "heightPx": 31.7,
+        "text": "テキストを入力",
+        "rendered": {
+          "x": 0.655,
+          "y": 0.35
+        },
+        "renderedError": {
+          "x": 0.035,
+          "y": 0
+        },
+        "chain": {
+          "row": {
+            "cls": "caption-row-plate.akari-caption-host--styled",
+            "left": 36,
+            "top": 31.88,
+            "width": 676,
+            "height": 380.25,
+            "position": "absolute",
+            "styleLeft": "0px",
+            "styleRight": "0px",
+            "styleWidth": "1280px",
+            "maxWidth": "none",
+            "whiteSpace": "normal",
+            "transform": "none",
+            "display": "block"
+          },
+          "plate": {
+            "cls": "akari-caption__plate",
+            "left": 400.43,
+            "top": 149.11,
+            "width": 284.53,
+            "height": 31.7,
+            "position": "absolute",
+            "styleLeft": "690.047px",
+            "styleRight": "51.1953px",
+            "styleWidth": "538.758px",
+            "maxWidth": "none",
+            "whiteSpace": "normal",
+            "transform": "matrix(1, 0, 0, 1, 0, 0)",
+            "display": "flex"
+          },
+          "line": {
+            "cls": "akari-caption__line",
+            "left": 400.43,
+            "top": 149.11,
+            "width": 156.73,
+            "height": 31.7,
+            "position": "relative",
+            "styleLeft": "0px",
+            "styleRight": "0px",
+            "styleWidth": "296.773px",
+            "maxWidth": "92%",
+            "whiteSpace": "pre",
+            "transform": "none",
+            "display": "block"
+          }
+        }
+      }
+    },
+    {
+      "name": "(c) アプリ内の書き込み（置いた文字のドラッグ）を 10 回連続 → 字幕の本数の最小値",
+      "pass": true,
+      "detail": {
+        "baseline": 2,
+        "writes": 10,
+        "samples": 7802,
+        "min": 2,
+        "zeroSamples": 0,
+        "zeroSpansMs": [],
+        "counts": {
+          "2": 7802
+        },
+        "durationMs": 25352,
+        "warnings": []
+      }
+    },
+    {
+      "name": "(c) captions.json への書き込み途中を挟む外部書き込みを 10 回連続 → 字幕の本数の最小値",
+      "pass": true,
+      "detail": {
+        "baseline": 2,
+        "writes": 10,
+        "samples": 2116,
+        "min": 0,
+        "zeroSamples": 476,
+        "zeroSpansMs": [
+          240,
+          137,
+          152,
+          136,
+          137,
+          145,
+          184,
+          138,
+          132,
+          140
+        ],
+        "counts": {
+          "0": 476,
+          "2": 1640
+        },
+        "durationMs": 6824,
+        "warnings": [
+          "2026-09-22T23:55:28.207Z root WARN [akari-preview] failed to load file://<machine-path> hiding captions SyntaxError: Unterminated string in JSON at position 1520 (line 81 column 18)\n    at JS",
+          "2026-09-22T23:55:28.642Z root WARN [akari-preview] failed to load file://<machine-path> hiding captions SyntaxError: Unterminated string in JSON at position 1520 (line 81 column 18)\n    at JS",
+          "2026-09-22T23:55:29.010Z root WARN [akari-preview] failed to load file://<machine-path> hiding captions SyntaxError: Unterminated string in JSON at position 1520 (line 81 column 18)\n    at JS",
+          "2026-09-22T23:55:29.405Z root WARN [akari-preview] failed to load file://<machine-path> hiding captions SyntaxError: Unterminated string in JSON at position 1520 (line 81 column 18)\n    at JS",
+          "2026-09-22T23:55:29.790Z root WARN [akari-preview] failed to load file://<machine-path> hiding captions SyntaxError: Unterminated string in JSON at position 1520 (line 81 column 18)\n    at JS",
+          "2026-09-22T23:55:30.167Z root WARN [akari-preview] failed to load file://<machine-path> hiding captions SyntaxError: Unterminated string in JSON at position 1520 (line 81 column 18)\n    at JS",
+          "2026-09-22T23:55:30.550Z root WARN [akari-preview] failed to load file://<machine-path> hiding captions SyntaxError: Unterminated string in JSON at position 1520 (line 81 column 18)\n    at JS",
+          "2026-09-22T23:55:30.927Z root WARN [akari-preview] failed to load file://<machine-path> hiding captions SyntaxError: Unterminated string in JSON at position 1520 (line 81 column 18)\n    at JS",
+          "2026-09-22T23:55:31.313Z root WARN [akari-preview] failed to load file://<machine-path> hiding captions SyntaxError: Unterminated string in JSON at position 1520 (line 81 column 18)\n    at JS",
+          "2026-09-22T23:55:31.694Z root WARN [akari-preview] failed to load file://<machine-path> hiding captions SyntaxError: Unterminated string in JSON at position 1521 (line 81 column 18)\n    at JS"
+        ],
+        "finalText": "蒸らしは 30 秒くらい (10)",
+        "afterPlates": 2
+      }
+    }
+  ],
+  "screenshots": [
+    "before-01-default-placed.png",
+    "before-02-default-dragged.png",
+    "before-03-right-edge.png",
+    "before-04-overflow.png",
+    "before-05-after-writes.png"
+  ],
+  "pids": [
+    84125,
+    94782
+  ],
+  "previewWarnings": [
+    "2026-09-22T23:53:37.835Z root WARN [akari-annotations] failed to resolve caption display; using whole caption bands Error: resolveCaptionDisplay returned null\n    at trc (file://<worktree>/apps/shell/lib/frontend/bundle.js:13670:36699)\n ",
+    "2026-09-22T23:53:38.791Z root WARN [akari-preview] speech sidecar cut-base-speech: no audio stream: Stream map '' matches no streams. To ignore this, add a trailing '?' to the map. Failed to set value '0:a:0' for option 'map': Invalid argument Error parsing options for output file <machine-path>",
+    "2026-09-22T23:55:28.207Z root WARN [akari-preview] failed to load file://<machine-path> hiding captions SyntaxError: Unterminated string in JSON at position 1520 (line 81 column 18)\n    at JS",
+    "2026-09-22T23:55:28.642Z root WARN [akari-preview] failed to load file://<machine-path> hiding captions SyntaxError: Unterminated string in JSON at position 1520 (line 81 column 18)\n    at JS",
+    "2026-09-22T23:55:29.010Z root WARN [akari-preview] failed to load file://<machine-path> hiding captions SyntaxError: Unterminated string in JSON at position 1520 (line 81 column 18)\n    at JS",
+    "2026-09-22T23:55:29.405Z root WARN [akari-preview] failed to load file://<machine-path> hiding captions SyntaxError: Unterminated string in JSON at position 1520 (line 81 column 18)\n    at JS",
+    "2026-09-22T23:55:29.790Z root WARN [akari-preview] failed to load file://<machine-path> hiding captions SyntaxError: Unterminated string in JSON at position 1520 (line 81 column 18)\n    at JS",
+    "2026-09-22T23:55:30.167Z root WARN [akari-preview] failed to load file://<machine-path> hiding captions SyntaxError: Unterminated string in JSON at position 1520 (line 81 column 18)\n    at JS",
+    "2026-09-22T23:55:30.550Z root WARN [akari-preview] failed to load file://<machine-path> hiding captions SyntaxError: Unterminated string in JSON at position 1520 (line 81 column 18)\n    at JS",
+    "2026-09-22T23:55:30.927Z root WARN [akari-preview] failed to load file://<machine-path> hiding captions SyntaxError: Unterminated string in JSON at position 1520 (line 81 column 18)\n    at JS",
+    "2026-09-22T23:55:31.313Z root WARN [akari-preview] failed to load file://<machine-path> hiding captions SyntaxError: Unterminated string in JSON at position 1520 (line 81 column 18)\n    at JS",
+    "2026-09-22T23:55:31.694Z root WARN [akari-preview] failed to load file://<machine-path> hiding captions SyntaxError: Unterminated string in JSON at position 1521 (line 81 column 18)\n    at JS"
+  ],
+  "calibration": {
+    "sx": 1,
+    "sy": 1,
+    "dx": 57,
+    "dy": 39
+  },
+  "frame": {
+    "x": 36,
+    "y": 31.875,
+    "w": 676,
+    "h": 380.25
+  },
+  "placedId": "c-0104",
+  "newDrags": [
+    {
+      "target": "左上寄り",
+      "drop": {
+        "x": 0.3,
+        "y": 0.3
+      },
+      "saved": {
+        "text_anchor": "mc",
+        "position": {
+          "x": 0.1841,
+          "y": 0.3
+        }
+      },
+      "widthBeforePx": 156.73,
+      "widthAfterDropPx": 156.73,
+      "widthSettledPx": 156.73,
+      "widthRatio": 0.2319,
+      "lines": 1,
+      "heightPx": 31.7,
+      "text": "テキストを入力",
+      "rendered": {
+        "x": 0.3,
+        "y": 0.3
+      },
+      "renderedError": {
+        "x": 0,
+        "y": 0
+      },
+      "chain": {
+        "row": {
+          "cls": "caption-row-plate.akari-caption-host--styled",
+          "left": 36,
+          "top": 31.88,
+          "width": 676,
+          "height": 380.25,
+          "position": "absolute",
+          "styleLeft": "0px",
+          "styleRight": "0px",
+          "styleWidth": "1280px",
+          "maxWidth": "none",
+          "whiteSpace": "normal",
+          "transform": "none",
+          "display": "block"
+        },
+        "plate": {
+          "cls": "akari-caption__plate",
+          "left": 160.45,
+          "top": 130.1,
+          "width": 524.51,
+          "height": 31.7,
+          "position": "absolute",
+          "styleLeft": "235.641px",
+          "styleRight": "51.1953px",
+          "styleWidth": "993.164px",
+          "maxWidth": "none",
+          "whiteSpace": "normal",
+          "transform": "matrix(1, 0, 0, 1, 0, 0)",
+          "display": "flex"
+        },
+        "line": {
+          "cls": "akari-caption__line",
+          "left": 160.45,
+          "top": 130.1,
+          "width": 156.73,
+          "height": 31.7,
+          "position": "relative",
+          "styleLeft": "0px",
+          "styleRight": "0px",
+          "styleWidth": "296.773px",
+          "maxWidth": "92%",
+          "whiteSpace": "pre",
+          "transform": "none",
+          "display": "block"
+        }
+      }
+    },
+    {
+      "target": "右下寄り",
+      "drop": {
+        "x": 0.7,
+        "y": 0.75
+      },
+      "saved": {
+        "text_anchor": "mc",
+        "position": {
+          "x": 0.5841,
+          "y": 0.75
+        }
+      },
+      "widthBeforePx": 156.73,
+      "widthAfterDropPx": 156.73,
+      "widthSettledPx": 156.73,
+      "widthRatio": 0.2319,
+      "lines": 1,
+      "heightPx": 31.7,
+      "text": "テキストを入力",
+      "rendered": {
+        "x": 0.7,
+        "y": 0.75
+      },
+      "renderedError": {
+        "x": 0,
+        "y": 0
+      },
+      "chain": {
+        "row": {
+          "cls": "caption-row-plate.akari-caption-host--styled",
+          "left": 36,
+          "top": 31.88,
+          "width": 676,
+          "height": 380.25,
+          "position": "absolute",
+          "styleLeft": "0px",
+          "styleRight": "0px",
+          "styleWidth": "1280px",
+          "maxWidth": "none",
+          "whiteSpace": "normal",
+          "transform": "none",
+          "display": "block"
+        },
+        "plate": {
+          "cls": "akari-caption__plate",
+          "left": 430.85,
+          "top": 301.21,
+          "width": 254.11,
+          "height": 31.7,
+          "position": "absolute",
+          "styleLeft": "747.641px",
+          "styleRight": "51.1953px",
+          "styleWidth": "481.164px",
+          "maxWidth": "none",
+          "whiteSpace": "normal",
+          "transform": "matrix(1, 0, 0, 1, 0, 0)",
+          "display": "flex"
+        },
+        "line": {
+          "cls": "akari-caption__line",
+          "left": 430.85,
+          "top": 301.21,
+          "width": 156.73,
+          "height": 31.7,
+          "position": "relative",
+          "styleLeft": "0px",
+          "styleRight": "0px",
+          "styleWidth": "296.773px",
+          "maxWidth": "92%",
+          "whiteSpace": "pre",
+          "transform": "none",
+          "display": "block"
+        }
+      }
+    }
+  ],
+  "widthDrags": [
+    {
+      "target": "中央やや左",
+      "drop": {
+        "x": 0.4,
+        "y": 0.4
+      },
+      "saved": {
+        "position": {
+          "x": 0.6055,
+          "y": -0.0422
+        },
+        "text_anchor": "mc"
+      },
+      "widthBeforePx": 133.59,
+      "widthAfterDropPx": 133.59,
+      "widthSettledPx": 133.59,
+      "widthRatio": 0.1976,
+      "lines": 1,
+      "heightPx": 31.7,
+      "text": "置いた文字 1",
+      "rendered": {
+        "x": 0.7043,
+        "y": 0
+      },
+      "renderedError": {
+        "x": 0.3043,
+        "y": -0.4
+      },
+      "chain": {
+        "row": {
+          "cls": "caption-row-plate.akari-caption-host--styled",
+          "left": 36,
+          "top": 31.88,
+          "width": 676,
+          "height": 380.25,
+          "position": "absolute",
+          "styleLeft": "0px",
+          "styleRight": "0px",
+          "styleWidth": "1280px",
+          "maxWidth": "none",
+          "whiteSpace": "normal",
+          "transform": "none",
+          "display": "block"
+        },
+        "plate": {
+          "cls": "akari-caption__plate",
+          "left": 445.32,
+          "top": 16.02,
+          "width": 239.64,
+          "height": 31.7,
+          "position": "absolute",
+          "styleLeft": "775.039px",
+          "styleRight": "51.1953px",
+          "styleWidth": "453.766px",
+          "maxWidth": "none",
+          "whiteSpace": "normal",
+          "transform": "matrix(1, 0, 0, 1, 0, 0)",
+          "display": "flex"
+        },
+        "line": {
+          "cls": "akari-caption__line",
+          "left": 445.32,
+          "top": 16.02,
+          "width": 133.59,
+          "height": 31.7,
+          "position": "relative",
+          "styleLeft": "0px",
+          "styleRight": "0px",
+          "styleWidth": "252.945px",
+          "maxWidth": "92%",
+          "whiteSpace": "pre",
+          "transform": "none",
+          "display": "block"
+        }
+      }
+    },
+    {
+      "target": "右寄り",
+      "drop": {
+        "x": 0.7,
+        "y": 0.4
+      },
+      "saved": {
+        "position": {
+          "x": 0.6012,
+          "y": 0.4
+        },
+        "text_anchor": "mc"
+      },
+      "widthBeforePx": 133.59,
+      "widthAfterDropPx": 133.59,
+      "widthSettledPx": 133.59,
+      "widthRatio": 0.1976,
+      "lines": 1,
+      "heightPx": 31.7,
+      "text": "置いた文字 1",
+      "rendered": {
+        "x": 0.7,
+        "y": 0.4
+      },
+      "renderedError": {
+        "x": 0,
+        "y": 0
+      },
+      "chain": {
+        "row": {
+          "cls": "caption-row-plate.akari-caption-host--styled",
+          "left": 36,
+          "top": 31.88,
+          "width": 676,
+          "height": 380.25,
+          "position": "absolute",
+          "styleLeft": "0px",
+          "styleRight": "0px",
+          "styleWidth": "1280px",
+          "maxWidth": "none",
+          "whiteSpace": "normal",
+          "transform": "none",
+          "display": "block"
+        },
+        "plate": {
+          "cls": "akari-caption__plate",
+          "left": 442.41,
+          "top": 168.12,
+          "width": 242.55,
+          "height": 31.7,
+          "position": "absolute",
+          "styleLeft": "769.531px",
+          "styleRight": "51.1953px",
+          "styleWidth": "459.273px",
+          "maxWidth": "none",
+          "whiteSpace": "normal",
+          "transform": "matrix(1, 0, 0, 1, 0, 0)",
+          "display": "flex"
+        },
+        "line": {
+          "cls": "akari-caption__line",
+          "left": 442.41,
+          "top": 168.12,
+          "width": 133.59,
+          "height": 31.7,
+          "position": "relative",
+          "styleLeft": "0px",
+          "styleRight": "0px",
+          "styleWidth": "252.945px",
+          "maxWidth": "92%",
+          "whiteSpace": "pre",
+          "transform": "none",
+          "display": "block"
+        }
+      }
+    },
+    {
+      "target": "右端",
+      "drop": {
+        "x": 0.86,
+        "y": 0.5
+      },
+      "saved": {
+        "position": {
+          "x": 0.7612,
+          "y": 0.5
+        },
+        "text_anchor": "mc"
+      },
+      "widthBeforePx": 133.59,
+      "widthAfterDropPx": 123.64,
+      "widthSettledPx": 123.64,
+      "widthRatio": 0.1829,
+      "lines": 1,
+      "heightPx": 31.7,
+      "text": "置いた文字 1",
+      "rendered": {
+        "x": 0.8526,
+        "y": 0.5
+      },
+      "renderedError": {
+        "x": -0.0074,
+        "y": 0
+      },
+      "chain": {
+        "row": {
+          "cls": "caption-row-plate.akari-caption-host--styled",
+          "left": 36,
+          "top": 31.88,
+          "width": 676,
+          "height": 380.25,
+          "position": "absolute",
+          "styleLeft": "0px",
+          "styleRight": "0px",
+          "styleWidth": "1280px",
+          "maxWidth": "none",
+          "whiteSpace": "normal",
+          "transform": "none",
+          "display": "block"
+        },
+        "plate": {
+          "cls": "akari-caption__plate",
+          "left": 550.57,
+          "top": 206.15,
+          "width": 134.39,
+          "height": 31.7,
+          "position": "absolute",
+          "styleLeft": "974.336px",
+          "styleRight": "51.1953px",
+          "styleWidth": "254.469px",
+          "maxWidth": "none",
+          "whiteSpace": "normal",
+          "transform": "matrix(1, 0, 0, 1, 0, 0)",
+          "display": "flex"
+        },
+        "line": {
+          "cls": "akari-caption__line",
+          "left": 550.57,
+          "top": 206.15,
+          "width": 123.64,
+          "height": 31.7,
+          "position": "relative",
+          "styleLeft": "0px",
+          "styleRight": "0px",
+          "styleWidth": "234.109px",
+          "maxWidth": "92%",
+          "whiteSpace": "pre",
+          "transform": "none",
+          "display": "block"
+        }
+      }
+    },
+    {
+      "target": "右端の外へはみ出す",
+      "drop": {
+        "x": 0.97,
+        "y": 0.6
+      },
+      "saved": {
+        "position": {
+          "x": 0.8785,
+          "y": 0.6
+        },
+        "text_anchor": "mc"
+      },
+      "widthBeforePx": 123.64,
+      "widthAfterDropPx": 50.69,
+      "widthSettledPx": 50.69,
+      "widthRatio": 0.075,
+      "lines": 1,
+      "heightPx": 31.7,
+      "text": "置いた文字 1",
+      "rendered": {
+        "x": 0.916,
+        "y": 0.6
+      },
+      "renderedError": {
+        "x": -0.054,
+        "y": 0
+      },
+      "chain": {
+        "row": {
+          "cls": "caption-row-plate.akari-caption-host--styled",
+          "left": 36,
+          "top": 31.88,
+          "width": 676,
+          "height": 380.25,
+          "position": "absolute",
+          "styleLeft": "0px",
+          "styleRight": "0px",
+          "styleWidth": "1280px",
+          "maxWidth": "none",
+          "whiteSpace": "normal",
+          "transform": "none",
+          "display": "block"
+        },
+        "plate": {
+          "cls": "akari-caption__plate",
+          "left": 629.86,
+          "top": 244.17,
+          "width": 55.1,
+          "height": 31.7,
+          "position": "absolute",
+          "styleLeft": "1124.48px",
+          "styleRight": "51.1953px",
+          "styleWidth": "104.328px",
+          "maxWidth": "none",
+          "whiteSpace": "normal",
+          "transform": "matrix(1, 0, 0, 1, 0, 0)",
+          "display": "flex"
+        },
+        "line": {
+          "cls": "akari-caption__line",
+          "left": 629.86,
+          "top": 244.17,
+          "width": 50.69,
+          "height": 31.7,
+          "position": "relative",
+          "styleLeft": "0px",
+          "styleRight": "0px",
+          "styleWidth": "95.9766px",
+          "maxWidth": "92%",
+          "whiteSpace": "pre",
+          "transform": "none",
+          "display": "block"
+        }
+      }
+    }
+  ],
+  "lastNewDrop": {
+    "name": "再読込の確認用",
+    "x": 0.62,
+    "y": 0.35
+  },
+  "error": "Error: p1 plate not reached\n    at waitFor (file://<worktree>/apps/shell/extensions/akari-preview/evidence/placed-text-position-polish/scripts/l1.mjs:51:11)\n    at async openAll (file://<worktree>/apps/shell/extensions/akari-preview/evidence/placed-text-position-polish/scripts/l1.mjs:117:5)\n    at async file://<worktree>/apps/shell/extensions/akari-preview/evidence/placed-text-position-polish/scripts/l1.mjs:352:19"
+}

@@ -6,7 +6,7 @@ export interface PlaceTextOptions {
     start?: number;
     end?: number;
     text?: string;
-    position?: { x: number; y: number };
+    position?: { x?: number; y: number };
     stylePreset?: string;
 }
 
@@ -18,14 +18,17 @@ export function placeTextCaption(options: PlaceTextOptions, playhead: number, du
     if (!Number.isFinite(start) || start < 0 || !Number.isFinite(end) || end <= start) {
         throw new Error('文字を置く開始・終了時刻を確認してください。');
     }
-    const position = options.position ?? { x: 0.5, y: 0.5 };
-    if (![position.x, position.y].every(value => Number.isFinite(value) && value >= 0 && value <= 1)) {
+    // tc uses top = y. At the default 38px / 1.42 line height on a 720px output,
+    // half a line is 0.0375 of the frame, so this puts the plate center near 0.5.
+    const position = options.position ?? { y: 0.4625 };
+    if ((position.x !== undefined && (!Number.isFinite(position.x) || position.x < 0 || position.x > 1))
+        || !Number.isFinite(position.y) || position.y < 0 || position.y > 1) {
         throw new Error('文字の位置は 0〜1 の範囲で指定してください。');
     }
     return {
         id: nextDaihonCaptionId(existingIds), start, end, text: options.text ?? 'テキストを入力',
         timeDomain: 'output', sourceRef: null, edited: true, speaker: null,
-        textStyle: { position, textAnchor: 'mc' }, ...(options.stylePreset === undefined ? {} : { stylePreset: options.stylePreset })
+        textStyle: { position, textAnchor: 'tc' }, ...(options.stylePreset === undefined ? {} : { stylePreset: options.stylePreset })
     };
 }
 
