@@ -1820,6 +1820,8 @@ function OVERLAY_SECTIONS(
         ? snapshot.payload.transform as Record<string, unknown> : {};
     const number = (key: string, fallback: number): number =>
         typeof transform[key] === 'number' ? transform[key] as number : fallback;
+    const overallScale = (): number => Math.sqrt(number('scaleX', number('scale', 1))
+        * number('scaleY', number('scale', 1)));
     const cropFields = CROP_FIELDS(snapshot, 'item', requestWrite);
     const transformFields: InspectorFieldDef<TimelineOverlaySelection>[] = [
         {
@@ -1836,11 +1838,21 @@ function OVERLAY_SECTIONS(
         },
         {
             name: 'transform-scale', label: '拡縮', unit: '%', removable: true,
-            getValue: () => String(number('scale', 1) * 100), getEditValue: () => String(number('scale', 1) * 100),
-            inputKind: 'scrub-number', scrubStep: 1, min: 1,
+            getValue: () => String(overallScale() * 100), getEditValue: () => String(overallScale() * 100),
+            inputKind: 'scrub-number', scrubStep: 1, min: 1, liveField: 'scale',
             write: async (_snapshot, value) => requestWrite({ kind: 'item-field', id: snapshot.id, path: 'transform.scale', value: Number(value) / 100 }),
             reset: () => requestWrite({ kind: 'item-field', id: snapshot.id, path: 'transform.scale', value: null })
         },
+        ...(['scaleX', 'scaleY'] as const).map((axis, index): InspectorFieldDef<TimelineOverlaySelection> => ({
+            name: `transform-${axis}`, label: index === 0 ? '幅' : '高さ', unit: '%', removable: true,
+            getValue: () => String(number(axis, number('scale', 1)) * 100),
+            getEditValue: () => String(number(axis, number('scale', 1)) * 100),
+            inputKind: 'scrub-number', scrubStep: 1, min: 1, liveField: axis,
+            write: async (_snapshot, value) => requestWrite({
+                kind: 'item-field', id: snapshot.id, path: `transform.${axis}`, value: Number(value) / 100
+            }),
+            reset: () => requestWrite({ kind: 'item-field', id: snapshot.id, path: `transform.${axis}`, value: null })
+        })),
         {
             name: 'transform-rotate', label: '回転', unit: '°', removable: true,
             getValue: () => String(number('rotate', 0)), getEditValue: () => String(number('rotate', 0)),
@@ -2027,8 +2039,10 @@ function TREE_ITEM_SECTIONS(
     snapshot: TimelineTreeItemSnapshot,
     requestWrite: (request: InspectorWriteRequest) => Promise<InspectorWriteResult>
 ): InspectorSection[] {
-    const number = (key: 'x' | 'y' | 'scale' | 'rotate', fallback: number): number =>
+    const number = (key: 'x' | 'y' | 'scale' | 'scaleX' | 'scaleY' | 'rotate', fallback: number): number =>
         typeof snapshot.transform?.[key] === 'number' ? snapshot.transform[key]! : fallback;
+    const axisScale = (axis: 'scaleX' | 'scaleY'): number => number(axis, number('scale', 1));
+    const overallScale = (): number => Math.sqrt(axisScale('scaleX') * axisScale('scaleY'));
     const cropFields = CROP_FIELDS(snapshot, 'item', requestWrite);
     const perspectiveSection = {
         id: 'perspective', label: 'パース（4 隅）', collapsedByDefault: true,
@@ -2051,12 +2065,21 @@ function TREE_ITEM_SECTIONS(
         },
         {
             name: 'transform-scale', label: '拡縮', unit: '%', removable: true,
-            getValue: () => String(number('scale', 1) * 100), getEditValue: () => String(number('scale', 1) * 100),
+            getValue: () => String(overallScale() * 100), getEditValue: () => String(overallScale() * 100),
             inputKind: 'scrub-number', scrubStep: 1, min: 1, liveField: 'scale',
             write: async (_snapshot, value) => requestWrite({
                 kind: 'item-field', id: snapshot.id, path: 'transform.scale', value: Number(value) / 100
             }), reset: () => requestWrite({ kind: 'item-field', id: snapshot.id, path: 'transform.scale', value: null })
         },
+        ...(['scaleX', 'scaleY'] as const).map((axis, index): InspectorFieldDef<TimelineTreeItemSnapshot> => ({
+            name: `transform-${axis}`, label: index === 0 ? '幅' : '高さ', unit: '%', removable: true,
+            getValue: () => String(axisScale(axis) * 100), getEditValue: () => String(axisScale(axis) * 100),
+            inputKind: 'scrub-number', scrubStep: 1, min: 1, liveField: axis,
+            write: async (_snapshot, value) => requestWrite({
+                kind: 'item-field', id: snapshot.id, path: `transform.${axis}`, value: Number(value) / 100
+            }),
+            reset: () => requestWrite({ kind: 'item-field', id: snapshot.id, path: `transform.${axis}`, value: null })
+        })),
         {
             name: 'transform-rotate', label: '回転', unit: '°', removable: true,
             getValue: () => String(number('rotate', 0)), getEditValue: () => String(number('rotate', 0)),
@@ -2072,7 +2095,9 @@ function TREE_ITEM_SECTIONS(
             { name: 'item-start', label: '出力位置', getValue: () => formatTimestamp(snapshot.outputStart) },
             { name: 'item-duration', label: '尺', getValue: () => formatDurationSeconds(snapshot.duration) }
         ] },
-        { id: 'transform', label: '変形', fields: transformFields },
+        { id: 'transform', label: '変形', fields: ['group', 'bag'].includes(snapshot.itemKind)
+            ? transformFields.filter(field => field.name !== 'transform-scaleX' && field.name !== 'transform-scaleY')
+            : transformFields },
         { id: 'crop', label: 'クロップ', fields: cropFields },
         perspectiveSection,
         ...(snapshot.sourceKind === 'html' ? [] : [{
@@ -4148,6 +4173,7 @@ export class AkariInspectorWidget extends BaseWidget {
         const key = `akari.inspector.optional.v1:${kind}:${field.name}`;
         const saved = window.localStorage.getItem(key);
         if (saved !== null) return saved === 'true';
+        if (field.name === 'transform-scaleX' || field.name === 'transform-scaleY') return true;
         const transform = snapshot.kind === 'cut' || snapshot.kind === 'layer' || snapshot.kind === 'item'
             ? snapshot.transform : snapshot.kind === 'overlay' && snapshot.payload.transform
                 && typeof snapshot.payload.transform === 'object' && !Array.isArray(snapshot.payload.transform)
@@ -5066,7 +5092,7 @@ export class AkariInspectorWidget extends BaseWidget {
         if (snapshot.kind !== 'cut' && snapshot.kind !== 'layer'
             && snapshot.kind !== 'overlay' && snapshot.kind !== 'item') return;
         const leaf = selection.property.startsWith('transform.')
-            ? selection.property.substring('transform.'.length) as 'x' | 'y' | 'scale' | 'rotate'
+            ? selection.property.substring('transform.'.length) as 'x' | 'y' | 'scale' | 'scaleX' | 'scaleY' | 'rotate'
             : 'opacity';
         const transform = snapshot.kind === 'overlay'
             && snapshot.payload.transform && typeof snapshot.payload.transform === 'object'
@@ -5077,7 +5103,9 @@ export class AkariInspectorWidget extends BaseWidget {
         const raw = leaf === 'opacity'
             ? (snapshot.kind === 'overlay' ? snapshot.payload.opacity : snapshot.opacity)
             : transform?.[leaf];
-        const value = typeof raw === 'number' ? raw : leaf === 'scale' || leaf === 'opacity' ? 1 : 0;
+        const value = typeof raw === 'number' ? raw
+            : leaf === 'scaleX' || leaf === 'scaleY' ? Number(transform?.scale ?? 1)
+                : leaf === 'scale' || leaf === 'opacity' ? 1 : 0;
         const target: LivePreviewTarget = snapshot.kind === 'cut'
             ? { kind: 'cut', index: snapshot.index }
             : snapshot.kind === 'layer' ? { kind: 'layer', id: snapshot.id }
@@ -5097,13 +5125,15 @@ export class AkariInspectorWidget extends BaseWidget {
             : fieldName === 'transform-x' ? 'transform.x'
                 : fieldName === 'transform-y' ? 'transform.y'
                     : fieldName === 'transform-scale' ? 'transform.scale'
+                        : fieldName === 'transform-scaleX' ? 'transform.scaleX' as KeyframeSeatProperty
+                            : fieldName === 'transform-scaleY' ? 'transform.scaleY' as KeyframeSeatProperty
                         : fieldName === 'transform-rotate' ? 'transform.rotate'
                             : fieldName === 'opacity' ? 'opacity' : undefined;
         if (!property) return undefined;
         const rowProperty = keyframeRowPropertyOf(property);
         const itemId = snapshot.kind === 'cut' ? `cut:${snapshot.index}` : snapshot.id;
         const selected = this.model.keyframeSelection;
-        const keyframeValue = fieldName === 'transform-scale' ? value / 100 : value;
+        const keyframeValue = /^transform-scale(?:X|Y)?$/u.test(fieldName) ? value / 100 : value;
         const hasKeyframes = snapshot.keyframes?.some(point =>
             keyframeValueAt(point, rowProperty) !== undefined) ?? false;
         const request = (action: Exclude<KeyframeControlRequest['action'], 'easing'>): void => {
@@ -5551,7 +5581,8 @@ export class AkariInspectorWidget extends BaseWidget {
                 if (target) {
                     sendLive = value => this.model.requestLivePreview?.({
                         target, field: liveField,
-                        value: fieldName.endsWith('scale') && field.unit === '%' ? value / 100 : value
+                        value: /^transform-scale(?:X|Y)?$/u.test(fieldName) && field.unit === '%'
+                            ? value / 100 : value
                     });
                 }
             }

@@ -835,6 +835,13 @@ function toggleScopedSelection(tree, selectedIds, scopeId, next) {
       handle.setAttribute("aria-hidden", "true");
       frame.appendChild(handle);
     }
+    for (const edge of ["n", "e", "s", "w"]) {
+      const handle = document.createElement("span");
+      handle.className = `akari-interaction-handle is-edge is-${edge}`;
+      handle.setAttribute("data-akari-interaction", "selection-handle");
+      handle.setAttribute("aria-hidden", "true");
+      frame.appendChild(handle);
+    }
 
     const stem = document.createElement('span');
     stem.className = 'akari-interaction-rotate-stem';
@@ -853,7 +860,8 @@ function toggleScopedSelection(tree, selectedIds, scopeId, next) {
     if (collectiveSelection()) { refreshGroupFrame(); return; }
     if (!stage || !isSelectable(selectedOverlay)) return;
 
-    const rect = fragmentBounds(selectedOverlay);
+    const transform = readTransform(selectedOverlay);
+    const rect = transform.rotate ? unrotatedLeafBounds(selectedOverlay) : fragmentBounds(selectedOverlay);
     if (!rect) {
       if (selectionFrame) selectionFrame.hidden = true;
       return;
@@ -883,6 +891,7 @@ function toggleScopedSelection(tree, selectedIds, scopeId, next) {
     // interaction.css の .is-locked）。isMovable ではなく isBackgroundRole を見るのは、
     // 選択自体は許すが移動系操作だけを塞ぐという役割分担を CSS 側にも一致させるため。
     selectionFrame.classList.toggle("is-locked", isBackgroundRole(selectedOverlay));
+    selectionFrame.dataset.akariSelectionKind = 'leaf';
 
     const usableRect =
       [rect.left, rect.top, rect.width, rect.height].every(Number.isFinite) &&
@@ -896,6 +905,10 @@ function toggleScopedSelection(tree, selectedIds, scopeId, next) {
     selectionFrame.style.top = `${rect.top}px`;
     selectionFrame.style.width = `${rect.width}px`;
     selectionFrame.style.height = `${rect.height}px`;
+    const pivot = leafPivotClient(transform);
+    selectionFrame.style.transformOrigin = pivot
+      ? `${pivot.x - rect.left}px ${pivot.y - rect.top}px` : 'center';
+    selectionFrame.style.transform = transform.rotate ? `rotate(${transform.rotate}deg)` : '';
   }
 
   function trackSelectionFrame() {
@@ -1030,6 +1043,7 @@ function toggleScopedSelection(tree, selectedIds, scopeId, next) {
     }
     selectionFrame.dataset.akariSelectionKind = selectionKind();
     selectionFrame.classList.toggle('is-locked', selectionMembers().some(member => !isMovable(member)));
+    selectionFrame.style.transformOrigin = 'center';
     selectionFrame.style.transform = activeRotate?.group && activeRotate.overlayId === selectedId
       ? `rotate(${activeRotate.angle}deg)` : '';
     selectionFrame.hidden = false;
@@ -1196,6 +1210,24 @@ function toggleScopedSelection(tree, selectedIds, scopeId, next) {
   }
   // END world-delta
 
+  function syncLeafTransformOnSuccess(record, overlayId, transform) {
+    record.promise.then(() => {
+      const node = treeNode(overlayId);
+      if (node?.kind === 'leaf') node.transform = { ...transform };
+    }, () => undefined);
+  }
+
+  function syncGroupDescendants(overlayId, oldPose, newPose, members) {
+    const delta = worldDelta(oldPose, newPose);
+    const memberWorlds = new Map(members.map(member => [member.element.dataset.overlayId, member.transform]));
+    const tree = selectionTree();
+    for (const node of tree) {
+      if (node.id === overlayId || !lineage(tree, node.id).includes(overlayId)) continue;
+      const world = node.transform ?? memberWorlds.get(node.id);
+      if (world) node.transform = applyWorldDelta(delta, world);
+    }
+  }
+
   function setWorldTransform(element, transform) {
     element.style.setProperty('--x', `${transform.x}px`);
     element.style.setProperty('--y', `${transform.y}px`);
@@ -1228,6 +1260,8 @@ function toggleScopedSelection(tree, selectedIds, scopeId, next) {
     const applied = { ...previous, ...transform };
     if (node) node.transform = applied;
     const record = enqueueWrite(gesture.writeContext, gesture.overlayId, { transform }, 'transform');
+    record.promise.then(() => syncGroupDescendants(gesture.overlayId, previous ?? {}, applied, gesture.members),
+      () => undefined);
     record.promise.catch(error => {
       if (node?.transform === applied) node.transform = previous;
       restoreGroupPose(gesture);
@@ -1264,12 +1298,20 @@ function toggleScopedSelection(tree, selectedIds, scopeId, next) {
       previousTransform: treeNode(drag.overlayId)?.transform, x: drag.startX, y: drag.startY }];
     const writes = targets.map(target => {
       const transform = { x: target.x + drag.dx, y: target.y + drag.dy };
-      target.appliedTransform = { ...target.previousTransform, ...transform };
+      target.appliedTransform = target.node?.kind === 'leaf' && containerById(target.id)
+        ? readTransform(containerById(target.id)) : { ...target.previousTransform, ...transform };
       if (target.node) target.node.transform = target.appliedTransform;
       return { overlayId: target.id, patch: { transform } };
     });
     const record = writes.length > 1 ? enqueueWriteBatch(drag.writeContext, writes)
       : enqueueWrite(drag.writeContext, writes[0].overlayId, writes[0].patch, 'transform');
+    record.promise.then(() => {
+      for (const target of targets) {
+        if (target.node?.kind === 'group') {
+          syncGroupDescendants(target.id, target.previousTransform ?? {}, target.appliedTransform, drag.members);
+        }
+      }
+    }, () => undefined);
     record.promise.catch(error => {
       for (const target of targets) {
         if (target.node?.transform === target.appliedTransform) target.node.transform = target.previousTransform;
@@ -1291,6 +1333,7 @@ function toggleScopedSelection(tree, selectedIds, scopeId, next) {
     const transform = { ...session.transform,
       x: session.startX + session.dx, y: session.startY + session.dy };
     const record = enqueueWrite(session.writeContext, session.overlayId, { transform }, 'transform');
+    syncLeafTransformOnSuccess(record, session.overlayId, transform);
     lastTransformWrite = record;
     record.promise.catch(() => {
       const current = readTransform(session.container);
@@ -1444,6 +1487,7 @@ function toggleScopedSelection(tree, selectedIds, scopeId, next) {
       { transform },
       "transform"
     );
+    syncLeafTransformOnSuccess(record, drag.overlayId, transform);
     lastTransformWrite = record;
     return record;
   }
@@ -1704,6 +1748,11 @@ function toggleScopedSelection(tree, selectedIds, scopeId, next) {
     return null;
   }
 
+  function handleEdge(handleEl) {
+    if (!handleEl.classList.contains('is-edge')) return null;
+    return ['n', 'e', 's', 'w'].find(edge => handleEl.classList.contains(`is-${edge}`)) ?? null;
+  }
+
   // アンカーは「ドラッグしているハンドルの対角コーナー」（例: se ハンドルなら nw）。
   function cornerAnchorPoint(rect, corner) {
     switch (corner) {
@@ -1737,24 +1786,47 @@ function toggleScopedSelection(tree, selectedIds, scopeId, next) {
     }
   }
 
+  function edgePoint(rect, edge, opposite = false) {
+    const side = opposite ? { n: 's', e: 'w', s: 'n', w: 'e' }[edge] : edge;
+    switch (side) {
+      case 'n': return { x: rect.left + rect.width / 2, y: rect.top };
+      case 'e': return { x: rect.right, y: rect.top + rect.height / 2 };
+      case 's': return { x: rect.left + rect.width / 2, y: rect.bottom };
+      default: return { x: rect.left, y: rect.top + rect.height / 2 };
+    }
+  }
+
   function clampScale(value) {
     if (!Number.isFinite(value)) return 1;
     return Math.min(SCALE_MAX, Math.max(SCALE_MIN, value));
   }
 
-  function rotatedLeafCorners(container, corner, transform) {
-    if (!transform.rotate) return null;
+  function unrotatedLeafBounds(container) {
     const previous = container.style.getPropertyValue('--rotate');
     container.style.setProperty('--rotate', '0deg');
     const rect = fragmentBounds(container);
     if (previous) container.style.setProperty('--rotate', previous);
     else container.style.removeProperty('--rotate');
+    return rect;
+  }
+
+  function leafPivotClient(transform) {
+    if (!stage) return null;
+    const stageRect = stage.getBoundingClientRect();
+    const displayX = stageRect.width / stage.clientWidth;
+    const displayY = stageRect.height / stage.clientHeight;
+    return { x: stageRect.left + stageRect.width / 2 + transform.x * displayX,
+      y: stageRect.top + stageRect.height / 2 + transform.y * displayY };
+  }
+
+  function rotatedLeafCorners(container, corner, transform, edge = null) {
+    if (!transform.rotate) return null;
+    const rect = unrotatedLeafBounds(container);
     if (!rect) return null;
     const stageRect = stage.getBoundingClientRect();
     const displayX = stageRect.width / stage.clientWidth;
     const displayY = stageRect.height / stage.clientHeight;
-    const pivot = { x: stageRect.left + stageRect.width / 2 + transform.x * displayX,
-      y: stageRect.top + stageRect.height / 2 + transform.y * displayY };
+    const pivot = leafPivotClient(transform);
     const radians = transform.rotate * Math.PI / 180;
     const cosine = Math.cos(radians), sine = Math.sin(radians);
     const rotatePoint = point => {
@@ -1764,8 +1836,8 @@ function toggleScopedSelection(tree, selectedIds, scopeId, next) {
       return { x: pivot.x + displayX * (cosine * dx - sine * dy),
         y: pivot.y + displayY * (sine * dx + cosine * dy) };
     };
-    return { anchor: rotatePoint(cornerAnchorPoint(rect, corner)),
-      dragged: rotatePoint(namedCornerPoint(rect, corner)) };
+    return { anchor: rotatePoint(edge ? edgePoint(rect, edge, true) : cornerAnchorPoint(rect, corner)),
+      dragged: rotatePoint(edge ? edgePoint(rect, edge) : namedCornerPoint(rect, corner)) };
   }
 
   function releaseResizePointer(resize) {
@@ -1785,10 +1857,11 @@ function toggleScopedSelection(tree, selectedIds, scopeId, next) {
     // 断片ルートの矩形）を基準にする。取得できない異常系のみコンテナ矩形へ退避。
     const visualRect = fragmentBounds(container) ?? container.getBoundingClientRect();
     const corner = handleCorner(handleEl);
+    const edge = handleEdge(handleEl);
     const transform = readTransform(container);
-    const rotated = rotatedLeafCorners(container, corner, transform);
-    const anchorClient = rotated?.anchor ?? cornerAnchorPoint(visualRect, corner);
-    const draggedClient = rotated?.dragged ?? namedCornerPoint(visualRect, corner);
+    const rotated = rotatedLeafCorners(container, corner, transform, edge);
+    const anchorClient = rotated?.anchor ?? (edge ? edgePoint(visualRect, edge, true) : cornerAnchorPoint(visualRect, corner));
+    const draggedClient = rotated?.dragged ?? (edge ? edgePoint(visualRect, edge) : namedCornerPoint(visualRect, corner));
     const anchor = stageLocalPoint(anchorClient.x, anchorClient.y);
     const dragged = stageLocalPoint(draggedClient.x, draggedClient.y);
     const pointer = stageLocalPoint(event.clientX, event.clientY);
@@ -1805,6 +1878,8 @@ function toggleScopedSelection(tree, selectedIds, scopeId, next) {
       overlayId: container.dataset.overlayId ?? "",
       pointerId: event.pointerId,
       corner,
+      edge,
+      rotation: transform.rotate * Math.PI / 180,
       anchorStageX: anchor.x,
       anchorStageY: anchor.y,
       draggedStageX: dragged.x,
@@ -1929,6 +2004,7 @@ function toggleScopedSelection(tree, selectedIds, scopeId, next) {
     if (!rotation.moved) return null;
     const record = enqueueWrite(rotation.writeContext, rotation.overlayId,
       { transform: { rotate: rotation.oldPose.rotate + rotation.angle } }, 'transform');
+    syncLeafTransformOnSuccess(record, rotation.overlayId, readTransform(rotation.container));
     record.promise.catch(error => {
       rotation.container.style.setProperty('--rotate', `${rotation.oldPose.rotate}deg`);
       refreshSelectionFrame();
@@ -2073,8 +2149,99 @@ function toggleScopedSelection(tree, selectedIds, scopeId, next) {
     if (resize.axisCss.some(Boolean)) {
       resize.container.style.setProperty("--scale-x", String(resize.startScaleX * scaleValue / resize.startScale));
       resize.container.style.setProperty("--scale-y", String(resize.startScaleY * scaleValue / resize.startScale));
+    } else {
+      resize.container.style.removeProperty('--scale-x');
+      resize.container.style.removeProperty('--scale-y');
     }
     return true;
+  }
+
+  function axisResizePosition(resize, ratioX, ratioY) {
+    const cosine = Math.cos(resize.rotation), sine = Math.sin(resize.rotation);
+    const dx = resize.anchorStageX - stage.clientWidth / 2 - resize.startX;
+    const dy = resize.anchorStageY - stage.clientHeight / 2 - resize.startY;
+    const localX = cosine * dx + sine * dy;
+    const localY = -sine * dx + cosine * dy;
+    return {
+      x: resize.anchorStageX - stage.clientWidth / 2
+        - (cosine * ratioX * localX - sine * ratioY * localY),
+      y: resize.anchorStageY - stage.clientHeight / 2
+        - (sine * ratioX * localX + cosine * ratioY * localY),
+    };
+  }
+
+  function applyAxisResize(resize, scaleX, scaleY) {
+    const position = axisResizePosition(resize,
+      scaleX / resize.startScaleX, scaleY / resize.startScaleY);
+    resize.container.style.setProperty('--x', `${position.x}px`);
+    resize.container.style.setProperty('--y', `${position.y}px`);
+    resize.container.style.setProperty('--scale-x', String(scaleX));
+    resize.container.style.setProperty('--scale-y', String(scaleY));
+  }
+
+  function axisResizeSnap(resize, axis, scaleX, scaleY) {
+    const ratio = axis === 'x' ? scaleX / resize.startScaleX : scaleY / resize.startScaleY;
+    const radians = resize.rotation;
+    const cosine = Math.cos(radians), sine = Math.sin(radians);
+    const startDx = resize.draggedStageX - resize.anchorStageX;
+    const startDy = resize.draggedStageY - resize.anchorStageY;
+    const localDistance = axis === 'x' ? cosine * startDx + sine * startDy
+      : -sine * startDx + cosine * startDy;
+    const vector = axis === 'x'
+      ? { x: cosine * localDistance, y: sine * localDistance }
+      : { x: -sine * localDistance, y: cosine * localDistance };
+    const targets = canvasSnapTargets();
+    const displayScale = currentDisplayScale();
+    let best = null;
+    for (const coordinate of ['x', 'y']) {
+      const coefficient = vector[coordinate];
+      if (Math.abs(coefficient) < 1e-6) continue;
+      const anchor = coordinate === 'x' ? resize.anchorStageX : resize.anchorStageY;
+      const dragged = anchor + coefficient * ratio;
+      for (let index = 0; index < targets[coordinate].length; index += 1) {
+        const target = targets[coordinate][index];
+        const distance = Math.abs(target - dragged) * displayScale;
+        const previous = coordinate === 'x' ? resize.snapX : resize.snapY;
+        const limit = previous?.targetIndex === index ? SNAP_RELEASE_DISTANCE : SNAP_DISTANCE;
+        if (distance <= limit && (!best || distance < best.distance)) {
+          best = { coordinate, targetIndex: index, target, distance,
+            scale: clampScale((target - anchor) / coefficient
+              * (axis === 'x' ? resize.startScaleX : resize.startScaleY)) };
+        }
+      }
+    }
+    resize.snapX = best?.coordinate === 'x' ? best : null;
+    resize.snapY = best?.coordinate === 'y' ? best : null;
+    showSnapGuides(resize.snapX, resize.snapY);
+    return best?.scale ?? (axis === 'x' ? scaleX : scaleY);
+  }
+
+  function updateAxisResize(resize, event, pointer) {
+    const cosine = Math.cos(resize.rotation), sine = Math.sin(resize.rotation);
+    const dx = pointer.x + resize.pointerOffsetX - resize.anchorStageX;
+    const dy = pointer.y + resize.pointerOffsetY - resize.anchorStageY;
+    const startDx = resize.draggedStageX - resize.anchorStageX;
+    const startDy = resize.draggedStageY - resize.anchorStageY;
+    const x0 = cosine * startDx + sine * startDy;
+    const y0 = -sine * startDx + cosine * startDy;
+    const useX = !resize.edge || resize.edge === 'e' || resize.edge === 'w';
+    const useY = !resize.edge || resize.edge === 'n' || resize.edge === 's';
+    let scaleX = useX && Math.abs(x0) > 1e-6
+      ? clampScale(resize.startScaleX * (cosine * dx + sine * dy) / x0) : resize.startScaleX;
+    let scaleY = useY && Math.abs(y0) > 1e-6
+      ? clampScale(resize.startScaleY * (-sine * dx + cosine * dy) / y0) : resize.startScaleY;
+    if (event.altKey) {
+      resize.snapX = null; resize.snapY = null; hideSnapGuides();
+    } else if (resize.edge) {
+      if (useX) scaleX = axisResizeSnap(resize, 'x', scaleX, scaleY);
+      else scaleY = axisResizeSnap(resize, 'y', scaleX, scaleY);
+    } else {
+      hideSnapGuides();
+    }
+    applyAxisResize(resize, scaleX, scaleY);
+    resize.moved = Math.abs(scaleX - resize.startScaleX) > 1e-6
+      || Math.abs(scaleY - resize.startScaleY) > 1e-6;
+    if (event.cancelable) event.preventDefault();
   }
 
   function updateResize(event) {
@@ -2083,6 +2250,10 @@ function toggleScopedSelection(tree, selectedIds, scopeId, next) {
 
     const pointer = stageLocalPoint(event.clientX, event.clientY);
     if (!pointer) return;
+    if (!resize.group && (resize.edge || event.shiftKey)) {
+      updateAxisResize(resize, event, pointer);
+      return;
+    }
     const currentDistance = Math.hypot(
       pointer.x + (resize.pointerOffsetX ?? 0) - resize.anchorStageX,
       pointer.y + (resize.pointerOffsetY ?? 0) - resize.anchorStageY
@@ -2166,6 +2337,11 @@ function toggleScopedSelection(tree, selectedIds, scopeId, next) {
     if (!resize.moved) return null;
 
     const transform = readTransform(resize.container);
+    if (resize.edge === 'e' || resize.edge === 'w') {
+      if (!resize.axisCss[1]) delete transform.scaleY;
+    } else if (resize.edge && !resize.axisCss[0]) {
+      delete transform.scaleX;
+    }
     if (transform.scaleX !== undefined && transform.scaleX === transform.scaleY) {
       transform.scale = transform.scaleX;
       delete transform.scaleX;
@@ -2177,6 +2353,7 @@ function toggleScopedSelection(tree, selectedIds, scopeId, next) {
       { transform },
       "transform"
     );
+    syncLeafTransformOnSuccess(record, resize.overlayId, transform);
     lastTransformWrite = record;
     return record;
   }

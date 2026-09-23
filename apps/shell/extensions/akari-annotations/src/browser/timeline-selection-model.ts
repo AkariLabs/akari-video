@@ -22,7 +22,7 @@ export interface TimelineCutSelection {
     outputStart: number;
     outputEnd: number;
     playheadSeconds?: number;
-    transform?: { x?: number; y?: number; scale?: number; rotate?: number };
+    transform?: { x?: number; y?: number; scale?: number; scaleX?: number; scaleY?: number; rotate?: number };
     framing?: CutFraming;
     freeze?: CutFreeze;
     opacity?: number;
@@ -94,7 +94,7 @@ export interface TimelineLayerSelection {
     src?: string;
     preset?: string;
     params?: Record<string, unknown>;
-    transform?: { x?: number; y?: number; scale?: number; rotate?: number };
+    transform?: { x?: number; y?: number; scale?: number; scaleX?: number; scaleY?: number; rotate?: number };
     crop?: TimelineCropSnapshot;
     adjust?: InspectorAdjustSnapshot;
     opacity?: number;
@@ -124,7 +124,7 @@ export interface TimelineTreeItemSnapshot extends TimelineTreeItemSelection {
     outputStart: number;
     duration: number;
     durationFrames: number;
-    transform?: { x?: number; y?: number; scale?: number; rotate?: number };
+    transform?: { x?: number; y?: number; scale?: number; scaleX?: number; scaleY?: number; rotate?: number };
     opacity?: number;
     crop?: TimelineCropSnapshot;
     adjust?: InspectorAdjustSnapshot;
@@ -306,7 +306,7 @@ type InspectorWriteOperation =
     | {
         kind: 'item-field';
         id: string;
-        path: 'transform.x' | 'transform.y' | 'transform.scale' | 'transform.rotate'
+        path: 'transform.x' | 'transform.y' | 'transform.scale' | 'transform.scaleX' | 'transform.scaleY' | 'transform.rotate'
             | 'crop.x' | 'crop.y' | 'crop.w' | 'crop.h'
             | InspectorAdjustPath
             | 'opacity' | 'blend' | 'perspective' | 'mask' | 'motion' | 'animator' | `source.vars.${string}` | `source.params.${string}`
@@ -431,7 +431,7 @@ export interface AdjustBypassRequest { target: LivePreviewTarget; enabled: boole
 
 export interface LivePreviewRequest {
     target: LivePreviewTarget;
-    field: 'x' | 'y' | 'scale' | 'rotate' | 'opacity'
+    field: 'x' | 'y' | 'scale' | 'scaleX' | 'scaleY' | 'rotate' | 'opacity'
         | 'crop.x' | 'crop.y' | 'crop.w' | 'crop.h'
         | `perspective.${'tl' | 'tr' | 'bl' | 'br'}.${'x' | 'y'}`;
     value: number;

@@ -125,6 +125,8 @@ test('multi-selection native browser gestures', async t => {
     await page.evaluate(() => { window.rejectBatch = true; }); await drag(page, 'a');
     assert.deepEqual(await pose(page), before);
     assert.equal(await page.evaluate(() => window.batches.length), 1);
+    assert.ok((await page.evaluate(() => window.akari.state.summary.tree
+      .filter(node => ['a', 'b', 'c'].includes(node.id)).every(node => node.transform === undefined))));
   });
   await scenario('nudge affects all immediately then batches once after 400ms idle', async page => {
     await selectThree(page);
@@ -159,6 +161,10 @@ test('multi-selection native browser gestures', async t => {
     })));
     const positions = await pose(page);
     assert.deepEqual(positions.filter(p => ['a','nested'].includes(p.id)).map(({ x,y }) => ({ x,y })), Array(2).fill({ x: 23, y: 17 }));
+    assert.deepEqual(await page.evaluate(() => ['a', 'g', 'nested'].map(id => {
+      const transform = window.akari.state.summary.tree.find(node => node.id === id).transform;
+      return { x: transform.x, y: transform.y };
+    })), Array(3).fill({ x: 23, y: 17 }));
     await page.evaluate(() => window.akari.interaction.selectFromTimeline('b'));
     assert.deepEqual((await state(page)).ids, ['b']);
     await selectThree(page); await page.mouse.click(10, 330);

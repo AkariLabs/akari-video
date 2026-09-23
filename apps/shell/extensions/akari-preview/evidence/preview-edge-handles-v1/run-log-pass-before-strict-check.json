@@ -1,0 +1,466 @@
+{
+  "status": "PASS",
+  "port": 9771,
+  "records": [
+    {
+      "number": 1,
+      "label": "leaf has four corners, four edges and rotation",
+      "status": "ok",
+      "values": {
+        "kind": "leaf",
+        "points": {
+          "nw": {
+            "x": 412.546875,
+            "y": 427.609375
+          },
+          "ne": {
+            "x": 476.515625,
+            "y": 427.609375
+          },
+          "se": {
+            "x": 476.515625,
+            "y": 450.34375
+          },
+          "sw": {
+            "x": 412.546875,
+            "y": 450.34375
+          },
+          "n": {
+            "x": 444.53125,
+            "y": 427.609375
+          },
+          "e": {
+            "x": 476.515625,
+            "y": 438.9765625
+          },
+          "s": {
+            "x": 444.53125,
+            "y": 450.34375
+          },
+          "w": {
+            "x": 412.546875,
+            "y": 438.9765625
+          },
+          "rotate": {
+            "x": 444.53125,
+            "y": 405.609375
+          }
+        },
+        "rotate": ""
+      }
+    },
+    {
+      "number": 2,
+      "label": "right edge scales X, anchors left, writes once",
+      "status": "ok",
+      "values": {
+        "gesture": {
+          "count": 1,
+          "write": {
+            "id": "g1.first",
+            "patch": {
+              "transform": {
+                "x": 432.0144182653932,
+                "y": -105,
+                "scale": 1,
+                "scaleX": 1.5000474126785668,
+                "rotate": 0
+              }
+            }
+          },
+          "response": {
+            "type": "akari-preview-overlay-write-response",
+            "requestId": "akari-preview-1",
+            "ok": true
+          },
+          "reloaded": false
+        },
+        "old": {
+          "x": 10,
+          "y": 5,
+          "scale": 1,
+          "rotate": 0
+        },
+        "saved": {
+          "x": 162.0144182653932,
+          "y": 5,
+          "scale": 1,
+          "scaleX": 1.5000474126785668,
+          "scaleY": 1,
+          "rotate": 0
+        },
+        "anchorBefore": {
+          "x": 412.546875,
+          "y": 438.9765625
+        },
+        "anchorAfter": {
+          "x": 412.546875,
+          "y": 438.9765625
+        }
+      }
+    },
+    {
+      "number": 3,
+      "label": "bottom edge scales Y only",
+      "status": "ok",
+      "values": {
+        "old": {
+          "x": 162.0144182653932,
+          "y": 5,
+          "scale": 1,
+          "scaleX": 1.5000474126785668,
+          "scaleY": 1,
+          "rotate": 0
+        },
+        "saved": {
+          "x": 162.0144182653932,
+          "y": -140.94194868924956,
+          "scale": 1,
+          "scaleX": 1.5000474126785668,
+          "scaleY": 2.0099790181583583,
+          "rotate": 0
+        },
+        "gesture": {
+          "count": 1,
+          "write": {
+            "id": "g1.first",
+            "patch": {
+              "transform": {
+                "x": 432.0144182653932,
+                "y": -250.94194868924956,
+                "scale": 1,
+                "scaleX": 1.5000474126785668,
+                "scaleY": 2.0099790181583583,
+                "rotate": 0
+              }
+            }
+          },
+          "response": {
+            "type": "akari-preview-overlay-write-response",
+            "requestId": "akari-preview-2",
+            "ok": true
+          },
+          "reloaded": false
+        }
+      }
+    },
+    {
+      "number": 4,
+      "label": "rotated edge keeps rectangular corners",
+      "status": "ok",
+      "values": {
+        "gesture": {
+          "count": 1,
+          "write": {
+            "id": "g1.second",
+            "patch": {
+              "transform": {
+                "x": 517.5947448265186,
+                "y": -75.5596370353316,
+                "scale": 1,
+                "scaleX": 1.5226339503319601,
+                "rotate": 30
+              }
+            }
+          },
+          "response": {
+            "type": "akari-preview-overlay-write-response",
+            "requestId": "akari-preview-3",
+            "ok": true
+          },
+          "reloaded": false
+        },
+        "cosine": 4.5989637501308466e-8,
+        "corners": {
+          "nw": {
+            "x": 498.7935028076172,
+            "y": 147.12486267089844
+          },
+          "ne": {
+            "x": 584.056396484375,
+            "y": 196.35142517089844
+          },
+          "se": {
+            "x": 572.689208984375,
+            "y": 216.03997039794922
+          },
+          "sw": {
+            "x": 487.4263153076172,
+            "y": 166.81340789794922
+          },
+          "n": {
+            "x": 541.4249267578125,
+            "y": 171.73814392089844
+          },
+          "e": {
+            "x": 578.372802734375,
+            "y": 206.1957015991211
+          },
+          "s": {
+            "x": 530.0577392578125,
+            "y": 191.42668914794922
+          },
+          "w": {
+            "x": 493.1099090576172,
+            "y": 156.9691390991211
+          },
+          "rotate": {
+            "x": 552.4249572753906,
+            "y": 152.68558502197266
+          }
+        },
+        "rotation": "rotate(30deg)"
+      }
+    },
+    {
+      "number": 5,
+      "label": "Shift corner is free, plain corner proportional",
+      "status": "ok",
+      "values": {
+        "free": {
+          "count": 1,
+          "write": {
+            "id": "g1.first",
+            "patch": {
+              "transform": {
+                "x": 574.8205448416753,
+                "y": -268.417899811564,
+                "scale": 1,
+                "scaleX": 1.969804368349794,
+                "scaleY": 2.13091988249623,
+                "rotate": 0
+              }
+            }
+          },
+          "response": {
+            "type": "akari-preview-overlay-write-response",
+            "requestId": "akari-preview-4",
+            "ok": true
+          },
+          "reloaded": false
+        },
+        "plain": {
+          "count": 1,
+          "write": {
+            "id": "g1.first",
+            "patch": {
+              "transform": {
+                "x": 674.2626530718413,
+                "y": -319.55176452459443,
+                "scale": 1.166063291387366,
+                "scaleX": 2.2969165651471726,
+                "scaleY": 2.484787451866333,
+                "rotate": 0
+              }
+            }
+          },
+          "response": {
+            "type": "akari-preview-overlay-write-response",
+            "requestId": "akari-preview-5",
+            "ok": true
+          },
+          "reloaded": false
+        },
+        "freePose": {
+          "x": 304.8205448416753,
+          "y": -158.41789981156398,
+          "scale": 1,
+          "scaleX": 1.969804368349794,
+          "scaleY": 2.13091988249623,
+          "rotate": 0
+        },
+        "plainPose": {
+          "x": 404.2626530718413,
+          "y": -209.55176452459443,
+          "scale": 1.166063291387366,
+          "scaleX": 2.2969165651471726,
+          "scaleY": 2.484787451866333,
+          "rotate": 0
+        }
+      }
+    },
+    {
+      "number": 6,
+      "label": "group has no edge handles",
+      "status": "ok",
+      "values": {
+        "kind": "group",
+        "points": {
+          "nw": {
+            "x": 412.546875,
+            "y": 146.765625
+          },
+          "ne": {
+            "x": 584.421875,
+            "y": 146.765625
+          },
+          "se": {
+            "x": 584.421875,
+            "y": 487.0859375
+          },
+          "sw": {
+            "x": 412.546875,
+            "y": 487.0859375
+          },
+          "n": null,
+          "e": null,
+          "s": null,
+          "w": null,
+          "rotate": {
+            "x": 498.484375,
+            "y": 124.765625
+          }
+        },
+        "rotate": ""
+      }
+    },
+    {
+      "number": 7,
+      "label": "width scrub is live and commits to edit.json",
+      "status": "ok",
+      "values": {
+        "before": {
+          "x": 404.2626530718413,
+          "y": -209.55176452459443,
+          "scale": 1.166063291387366,
+          "scaleX": 2.2969165651471726,
+          "scaleY": 2.484787451866333,
+          "rotate": 0
+        },
+        "parentScale": 1,
+        "observed": {
+          "before": {
+            "x": 1211,
+            "y": 405.5,
+            "value": "230"
+          },
+          "beforeWorld": "2.2969165651471726",
+          "live": {
+            "x": "2.4969165651471728",
+            "y": "1"
+          },
+          "restored": null,
+          "previous": {
+            "contextId": 2,
+            "targetId": "B917F10B628B0BF4D59834E534F8F1A2"
+          },
+          "retry": null
+        },
+        "saved": {
+          "x": 404.2626530718413,
+          "y": -209.55176452459443,
+          "scale": 1.166063291387366,
+          "scaleX": 2.4969165651471728,
+          "scaleY": 2.484787451866333,
+          "rotate": 0
+        },
+        "cancelled": {
+          "before": {
+            "x": 1211,
+            "y": 405.5,
+            "value": "250"
+          },
+          "beforeWorld": "2.4969165651471728",
+          "live": {
+            "x": "2.6169165651471724",
+            "y": "2.484787451866333"
+          },
+          "restored": "2.4969165651471728",
+          "previous": {
+            "contextId": 3,
+            "targetId": "B917F10B628B0BF4D59834E534F8F1A2"
+          },
+          "after": {
+            "x": 1211,
+            "y": 405.5,
+            "value": "250"
+          },
+          "retry": null
+        }
+      }
+    },
+    {
+      "number": 8,
+      "label": "preview edge updates inspector width",
+      "status": "ok",
+      "values": {
+        "before": {
+          "x": 1211,
+          "y": 405.5,
+          "value": "250"
+        },
+        "gesture": {
+          "count": 1,
+          "write": {
+            "id": "g1.first",
+            "patch": {
+              "transform": {
+                "x": 780.1902884362734,
+                "y": -319.55176452459443,
+                "scale": 1.166063291387366,
+                "scaleX": 2.8453627164660835,
+                "scaleY": 2.484787451866333,
+                "rotate": 0
+              }
+            }
+          },
+          "response": {
+            "type": "akari-preview-overlay-write-response",
+            "requestId": "akari-preview-1",
+            "ok": true
+          },
+          "reloaded": false
+        },
+        "after": {
+          "x": 1211,
+          "y": 405.5,
+          "value": "285"
+        }
+      }
+    },
+    {
+      "number": 9,
+      "label": "overall scale 50 to 100 preserves axis ratio",
+      "status": "ok",
+      "values": {
+        "initial": {
+          "x": 510.19028843627336,
+          "y": -209.55176452459443,
+          "scale": 1.166063291387366,
+          "scaleX": 2.8453627164660835,
+          "scaleY": 2.484787451866333,
+          "rotate": 0
+        },
+        "at50": {
+          "x": 510.19028843627336,
+          "y": -209.55176452459443,
+          "scale": 0.5,
+          "scaleX": 0.535049792538294,
+          "scaleY": 0.46724623294215606,
+          "rotate": 0
+        },
+        "at100": {
+          "x": 510.19028843627336,
+          "y": -209.55176452459443,
+          "scale": 1,
+          "scaleX": 1.0700995850765882,
+          "scaleY": 0.9344924658843123,
+          "rotate": 0
+        }
+      }
+    }
+  ],
+  "retries": [
+    {
+      "reselect": "timeline row",
+      "reason": "timeout hittable g1.first",
+      "at": "2026-09-23T07:49:08.662Z"
+    },
+    {
+      "reselect": "timeline row",
+      "reason": "timeout hittable g1.first",
+      "at": "2026-09-23T07:50:09.447Z"
+    }
+  ],
+  "error": null
+}

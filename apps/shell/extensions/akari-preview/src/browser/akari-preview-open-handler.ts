@@ -10417,6 +10417,73 @@ body { display: grid; place-items: center; padding: 32px; }
                     if (!target || !Number.isFinite(message.value) || typeof message.field !== 'string') {
                         return current;
                     }
+                    const applyTransformField = original => {
+                        const transform = { ...(original || {}) };
+                        const base = Number.isFinite(transform.scale) ? transform.scale : 1;
+                        const x = Number.isFinite(transform.scaleX) ? transform.scaleX : base;
+                        const y = Number.isFinite(transform.scaleY) ? transform.scaleY : base;
+                        if (message.field === 'scale') {
+                            const previous = Math.sqrt(x * y);
+                            const ratio = previous > 0 ? message.value / previous : 1;
+                            transform.scaleX = x * ratio;
+                            transform.scaleY = y * ratio;
+                            transform.scale = message.value;
+                        } else transform[message.field] = message.value;
+                        return transform;
+                    };
+                    if (target.kind === 'item' && Array.isArray(current.tree)
+                        && current.tree.some(node => String(node.id) === String(target.id))) {
+                        if (['x', 'y', 'scale', 'scaleX', 'scaleY', 'rotate'].includes(message.field)) {
+                            const nodes = current.tree;
+                            const selected = nodes.find(node => String(node.id) === String(target.id));
+                            const committedNodes = typeof window === 'undefined'
+                                ? [] : window.akari?.state?.summary?.tree || [];
+                            let ancestorId = selected.parentId;
+                            let parent = {};
+                            const seen = new Set();
+                            while (ancestorId != null && !seen.has(String(ancestorId))) {
+                                seen.add(String(ancestorId));
+                                const ancestor = nodes.find(node => String(node.id) === String(ancestorId));
+                                if (!ancestor) break;
+                                if (ancestor.kind === 'group') {
+                                    parent = committedNodes.find(node => String(node.id) === String(ancestor.id))?.transform
+                                        || ancestor.transform || {};
+                                    break;
+                                }
+                                ancestorId = ancestor.parentId;
+                            }
+                            // The frame engine keeps its own summary object. Preview gestures update
+                            // state.summary.tree after persistence, so use that committed world pose.
+                            const committed = committedNodes.find(node => String(node.id) === String(target.id));
+                            const world = committed?.transform || selected.transform || {};
+                            const parentScale = parent.scale ?? 1;
+                            const radians = (parent.rotate ?? 0) * Math.PI / 180;
+                            const cosine = Math.cos(radians), sine = Math.sin(radians);
+                            const dx = (world.x ?? 0) - (parent.x ?? 0);
+                            const dy = (world.y ?? 0) - (parent.y ?? 0);
+                            const local = {
+                                x: (cosine * dx + sine * dy) / parentScale,
+                                y: (-sine * dx + cosine * dy) / parentScale,
+                                scale: (world.scale ?? 1) / parentScale,
+                                scaleX: (world.scaleX ?? world.scale ?? 1) / parentScale,
+                                scaleY: (world.scaleY ?? world.scale ?? 1) / parentScale,
+                                rotate: (world.rotate ?? 0) - (parent.rotate ?? 0)
+                            };
+                            const next = applyTransformField(local);
+                            const sx = parentScale * (next.scaleX ?? next.scale ?? 1);
+                            const sy = parentScale * (next.scaleY ?? next.scale ?? 1);
+                            const transformed = {
+                                x: (parent.x ?? 0) + parentScale * (cosine * next.x - sine * next.y),
+                                y: (parent.y ?? 0) + parentScale * (sine * next.x + cosine * next.y),
+                                ...(sx === sy ? { scale: sx } : {
+                                    scale: parentScale * (next.scale ?? 1), scaleX: sx, scaleY: sy
+                                }),
+                                rotate: (parent.rotate ?? 0) + next.rotate
+                            };
+                            return { ...current, tree: nodes.map(node => node === selected
+                                ? { ...node, transform: transformed } : node) };
+                        }
+                    }
                     const collection = target.kind === 'cut' ? 'cuts'
                         : target.kind === 'item'
                             ? (Array.isArray(current.cuts) && current.cuts.some(entry =>
@@ -10447,8 +10514,8 @@ body { display: grid; place-items: center; padding: 32px; }
                         entry.perspective = { corners };
                     } else if (message.field === 'opacity') {
                         entry.opacity = message.value;
-                    } else if (['x', 'y', 'scale', 'rotate'].includes(message.field)) {
-                        entry.transform = { ...(entry.transform || {}), [message.field]: message.value };
+                    } else if (['x', 'y', 'scale', 'scaleX', 'scaleY', 'rotate'].includes(message.field)) {
+                        entry.transform = applyTransformField(entry.transform);
                     } else {
                         return current;
                     }
@@ -18034,6 +18101,8 @@ body { display: grid; place-items: center; padding: 32px; }
                         if (message.field === 'x') element.dataset.akariTransformX = String(message.value);
                         else if (message.field === 'y') element.dataset.akariTransformY = String(message.value);
                         else if (message.field === 'scale') element.dataset.akariTransformScale = String(message.value);
+                        else if (message.field === 'scaleX') element.dataset.akariTransformScaleX = String(message.value);
+                        else if (message.field === 'scaleY') element.dataset.akariTransformScaleY = String(message.value);
                         else if (message.field === 'rotate') element.dataset.akariTransformRotate = String(message.value);
                         else if (message.field === 'opacity') element.style.opacity = String(message.value);
                         else if (message.field === 'crop.x') element.dataset.akariCropX = String(message.value);
@@ -18048,6 +18117,85 @@ body { display: grid; place-items: center; padding: 32px; }
                         if (message.field !== 'opacity') video.dataset.akariCutTransformActive = 'true';
                         applyLiveField(video);
                     } else if (typeof message.target.id === 'string') {
+                        const overlay = Array.from(typeof stage !== 'undefined' && stage
+                            ? stage.querySelectorAll('[data-overlay-id]') : [])
+                            .find(element => element.getAttribute('data-overlay-id') === message.target.id);
+                        if (overlay && message.target.kind === 'item') {
+                            const nodes = Array.isArray(summary.tree) ? summary.tree : [];
+                            const selected = nodes.find(node => String(node.id) === message.target.id);
+                            if (selected && ['x', 'y', 'scale', 'scaleX', 'scaleY', 'rotate'].includes(message.field)) {
+                                let ancestorId = selected.parentId;
+                                let parent = {};
+                                const seen = new Set();
+                                while (ancestorId != null && !seen.has(String(ancestorId))) {
+                                    seen.add(String(ancestorId));
+                                    const ancestor = nodes.find(node => String(node.id) === String(ancestorId));
+                                    if (!ancestor) break;
+                                    if (ancestor.kind === 'group') { parent = ancestor.transform || {}; break; }
+                                    ancestorId = ancestor.parentId;
+                                }
+                                const inlineNumber = (name, fallback) => {
+                                    const value = Number.parseFloat(overlay.style.getPropertyValue?.(name) || '');
+                                    return Number.isFinite(value) ? value : fallback;
+                                };
+                                const stored = selected.transform || {};
+                                const inlineScale = Boolean(overlay.style.getPropertyValue?.('--scale')?.trim());
+                                const inlineAxis = ['--scale-x', '--scale-y'].some(name =>
+                                    overlay.style.getPropertyValue?.(name)?.trim());
+                                const scale = inlineNumber('--scale', stored.scale ?? 1);
+                                const scaleX = inlineNumber('--scale-x', inlineScale ? scale : stored.scaleX ?? scale);
+                                const scaleY = inlineNumber('--scale-y', inlineScale ? scale : stored.scaleY ?? scale);
+                                const world = {
+                                    x: inlineNumber('--x', stored.x ?? 0),
+                                    y: inlineNumber('--y', stored.y ?? 0),
+                                    scale: inlineAxis && scaleX === scaleY ? scaleX : scale,
+                                    ...((inlineAxis || !inlineScale && (stored.scaleX !== undefined || stored.scaleY !== undefined))
+                                        && scaleX !== scaleY ? { scaleX, scaleY } : {}),
+                                    rotate: inlineNumber('--rotate', stored.rotate ?? 0)
+                                };
+                                const parentScale = parent.scale ?? 1;
+                                const radians = (parent.rotate ?? 0) * Math.PI / 180;
+                                const cosine = Math.cos(radians), sine = Math.sin(radians);
+                                const dx = (world.x ?? 0) - (parent.x ?? 0);
+                                const dy = (world.y ?? 0) - (parent.y ?? 0);
+                                const local = {
+                                    x: (cosine * dx + sine * dy) / parentScale,
+                                    y: (-sine * dx + cosine * dy) / parentScale,
+                                    scale: (world.scale ?? 1) / parentScale,
+                                    scaleX: (world.scaleX ?? world.scale ?? 1) / parentScale,
+                                    scaleY: (world.scaleY ?? world.scale ?? 1) / parentScale,
+                                    rotate: (world.rotate ?? 0) - (parent.rotate ?? 0)
+                                };
+                                if (message.field === 'scale') {
+                                    const previous = Math.sqrt(local.scaleX * local.scaleY);
+                                    const ratio = previous > 0 ? message.value / previous : 1;
+                                    local.scaleX *= ratio;
+                                    local.scaleY *= ratio;
+                                    local.scale = message.value;
+                                } else local[message.field] = message.value;
+                                const sx = parentScale * (local.scaleX ?? local.scale ?? 1);
+                                const sy = parentScale * (local.scaleY ?? local.scale ?? 1);
+                                const next = {
+                                    x: (parent.x ?? 0) + parentScale * (cosine * local.x - sine * local.y),
+                                    y: (parent.y ?? 0) + parentScale * (sine * local.x + cosine * local.y),
+                                    scale: sx === sy ? sx : parentScale * (local.scale ?? 1),
+                                    scaleX: sx, scaleY: sy,
+                                    rotate: (parent.rotate ?? 0) + local.rotate
+                                };
+                                overlay.style.setProperty('--x', String(next.x) + 'px');
+                                overlay.style.setProperty('--y', String(next.y) + 'px');
+                                overlay.style.setProperty('--scale', String(next.scale));
+                                if (sx === sy) {
+                                    overlay.style.removeProperty('--scale-x');
+                                    overlay.style.removeProperty('--scale-y');
+                                } else {
+                                    overlay.style.setProperty('--scale-x', String(next.scaleX));
+                                    overlay.style.setProperty('--scale-y', String(next.scaleY));
+                                }
+                                overlay.style.setProperty('--rotate', String(next.rotate) + 'deg');
+                            }
+                            if (message.field === 'opacity') overlay.style.opacity = String(message.value);
+                        }
                         if (message.target.kind === 'item' && video.dataset.akariCutId === message.target.id) {
                             if (message.field !== 'opacity') video.dataset.akariCutTransformActive = 'true';
                             applyLiveField(video);
