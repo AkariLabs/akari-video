@@ -60,6 +60,9 @@ class Element {
 
 function fixture() {
   const values = new Map();
+  const timers = new Map();
+  let now = 0;
+  let nextTimerId = 1;
   const doc = {
     body: new Element('body'),
     createElement: tag => new Element(tag),
@@ -84,12 +87,29 @@ function fixture() {
       for (const listener of [...(listeners.get(type) ?? [])]) listener(event);
     },
     setInterval: () => 1,
-    clearInterval() {}
+    clearInterval() {},
+    setTimeout(fn, ms) {
+      const id = nextTimerId++;
+      timers.set(id, { fn, at: now + ms });
+      return id;
+    },
+    clearTimeout(id) { timers.delete(id); }
   };
+  function advance(ms) {
+    const until = now + ms;
+    while (true) {
+      const next = [...timers].sort((a, b) => a[1].at - b[1].at)[0];
+      if (!next || next[1].at > until) break;
+      now = next[1].at;
+      timers.delete(next[0]);
+      next[1].fn();
+    }
+    now = until;
+  }
   const frame = new CompanionPanelFrame({ doc, win });
   const mount = (width = 620) => frame.mount('/panel', 1234, { width, height: 200 });
   const message = data => win.dispatch('message', { source: frame.iframeEl.contentWindow, data });
-  return { frame, win, values, mount, message };
+  return { frame, win, values, timers, advance, mount, message };
 }
 
 function mouse(clientX, buttons = 1) {
@@ -97,36 +117,74 @@ function mouse(clientX, buttons = 1) {
     preventDefault() {}, stopPropagation() {} };
 }
 
-test('左ボタンを離した mousemove で枠を動かさずドラッグを終える', () => {
-  const { frame, win, mount, message } = fixture();
+test('(a) start 後の差分 3 回で枠が合計 90,30 動く', () => {
+  const { frame, mount, message } = fixture();
   mount();
+  const { x, y } = frame;
   message({ type: 'akari-companion-panel', drag: { phase: 'start' } });
-  win.dispatch('mousemove', mouse(100));
-  const left = frame.panelEl.style.left;
-  win.dispatch('mousemove', mouse(180, 0));
-  assert.equal(frame.panelEl.style.left, left);
-  assert.equal(frame.dragSurface, undefined);
-  win.dispatch('mousemove', mouse(240));
-  assert.equal(frame.panelEl.style.left, left);
+  for (let i = 0; i < 3; i++) message({ type: 'akari-companion-panel', drag: { dx: 30, dy: 10 } });
+  assert.equal(frame.x, x + 90);
+  assert.equal(frame.y, y + 30);
+  assert.equal(frame.rootEl.children.length, 1);
   frame.unmount();
 });
 
-test('中身の drag end と window blur でドラッグを終える', () => {
+test('(b) 親の mousemove はボタンが離れていても中身の移動を終えず動かさない', () => {
   const { frame, win, mount, message } = fixture();
   mount();
   message({ type: 'akari-companion-panel', drag: { phase: 'start' } });
-  win.dispatch('mousemove', mouse(100));
-  const left = frame.panelEl.style.left;
-  message({ type: 'akari-companion-panel', drag: { phase: 'end', dx: 200, dy: 0 } });
-  assert.equal(frame.dragSurface, undefined);
-  assert.equal(frame.panelEl.style.left, left);
+  const { x, y } = frame;
+  win.dispatch('mousemove', mouse(400, 0));
+  assert.equal(frame.x, x);
+  assert.equal(frame.y, y);
+  assert.equal(frame.contentDragging, true);
+  message({ type: 'akari-companion-panel', drag: { dx: 30, dy: 10 } });
+  assert.equal(frame.x, x + 30);
+  frame.unmount();
+});
+
+test('(d) start から 2 秒で終了し、差分・blur・unmount でタイマーを片付ける', () => {
+  const { frame, win, timers, advance, mount, message } = fixture();
+  mount();
+  message({ type: 'akari-companion-panel', drag: { phase: 'start' } });
+  assert.equal(timers.size, 1);
+  advance(1999);
+  assert.equal(frame.contentDragging, true);
+  advance(1);
+  assert.equal(frame.contentDragging, false);
+  assert.equal(timers.size, 0);
+  message({ type: 'akari-companion-panel', drag: { phase: 'start' } });
+  advance(1999);
+  message({ type: 'akari-companion-panel', drag: { dx: 10, dy: 0 } });
+  advance(1999);
+  assert.equal(frame.contentDragging, true);
+  advance(1);
+  assert.equal(frame.contentDragging, false);
+  assert.equal(timers.size, 0);
   message({ type: 'akari-companion-panel', drag: { phase: 'start' } });
   win.dispatch('blur');
-  assert.equal(frame.dragSurface, undefined);
+  assert.equal(timers.size, 0);
+  assert.equal(frame.contentDragging, false);
+  message({ type: 'akari-companion-panel', drag: { phase: 'start' } });
+  frame.unmount();
+  assert.equal(timers.size, 0);
+});
+
+test('(e) 三角を置かず、左端と左下角に透明なリサイズ帯を置く', async () => {
+  const { frame, mount } = fixture();
+  mount();
+  assert.equal(frame.panelEl.children.length, 4);
+  assert.equal(frame.panelEl.children.some(child => child.textContent === '◢' || child.className === 'akari-companion-panel-resize'), false);
+  assert.equal(frame.resizeEdgeEl.className, 'akari-companion-panel-edge-left');
+  assert.equal(frame.resizeCornerEl.className, 'akari-companion-panel-edge-corner');
+  const style = await readFile(new URL('../src/browser/companion-panel-pulse-style.ts', import.meta.url), 'utf8');
+  assert.match(style, /\.akari-companion-panel-edge-left \{[^}]*top: 0;[^}]*bottom: 0;[^}]*width: 6px;[^}]*cursor: ew-resize;/s);
+  assert.match(style, /\.akari-companion-panel-edge-corner \{[^}]*bottom: 0;[^}]*width: 10px;[^}]*height: 10px;[^}]*cursor: nesw-resize;/s);
+  assert.match(style, /\.akari-companion-panel-edge-left,\s*\.akari-companion-panel-edge-corner \{[^}]*z-index: 2;/s);
   frame.unmount();
 });
 
-test('左下のつまみは幅を丸めて保存し次の mount と iframe へ渡す', () => {
+test('(f) 左端の帯を左へ動かすと右端固定で幅を保存・通知し、720 で止まる', () => {
   const { frame, win, values, mount, message } = fixture();
   frame.setAnchorProvider(() => ({ left: 900, right: 940, bottom: 40 }));
   mount();
@@ -134,15 +192,17 @@ test('左下のつまみは幅を丸めて保存し次の mount と iframe へ�
   assert.deepEqual(firstIframe.messages.at(-1), [{ type: 'akari-companion-frame', width: 620 }, '*']);
   firstIframe.dispatch('load');
   assert.deepEqual(firstIframe.messages.at(-1), [{ type: 'akari-companion-frame', width: 620 }, '*']);
-  const grip = frame.resizeEl;
-  assert.equal(grip.attributes['aria-label'], 'AKARI バイブの横幅を変える');
+  const grip = frame.resizeEdgeEl;
   assert.equal(grip.attributes.title, 'AKARI バイブの横幅を変える');
   const right = frame.x + frame.size.width;
   grip.dispatch('mousedown', mouse(400));
-  win.dispatch('mousemove', mouse(100));
+  win.dispatch('mousemove', mouse(300));
   assert.equal(frame.size.width, 720);
   assert.equal(frame.x + frame.size.width, right);
   assert.deepEqual(firstIframe.messages.at(-1), [{ type: 'akari-companion-frame', width: 720 }, '*']);
+  assert.deepEqual(JSON.parse(values.get(storageKey)), { width: 720 });
+  win.dispatch('mousemove', mouse(200));
+  assert.equal(frame.size.width, 720);
   win.dispatch('mousemove', mouse(1000));
   assert.equal(frame.size.width, 360);
   assert.equal(frame.x + frame.size.width, right);
@@ -162,22 +222,60 @@ test('左下のつまみは幅を丸めて保存し次の mount と iframe へ�
   frame.unmount();
 });
 
-test('pill は中身の幅と角丸を使い、つまみは pill と小さい枠で隠す', async () => {
+test('(g) つかんだまま 3 秒止めても次の差分で合計 20 動く', () => {
+  const { frame, timers, advance, mount, message } = fixture();
+  mount();
+  const x = frame.x;
+  message({ type: 'akari-companion-panel', drag: { phase: 'start' } });
+  message({ type: 'akari-companion-panel', drag: { dx: 10, dy: 0 } });
+  advance(3000);
+  assert.equal(frame.contentDragging, false);
+  assert.equal(timers.size, 0);
+  message({ type: 'akari-companion-panel', drag: { dx: 10, dy: 0 } });
+  assert.equal(frame.x, x + 20);
+  assert.equal(frame.contentDragging, true);
+  assert.equal(timers.size, 1);
+  frame.unmount();
+});
+
+test('(h) start 前と end 後の差分でも枠が動く', () => {
+  const { frame, timers, mount, message } = fixture();
+  mount();
+  const { x, y } = frame;
+  const delta = { type: 'akari-companion-panel', drag: { dx: 30, dy: 10 } };
+  message(delta);
+  assert.deepEqual([frame.x, frame.y], [x + 30, y + 10]);
+  assert.equal(frame.contentDragging, true);
+  message({ type: 'akari-companion-panel', drag: { phase: 'end', dx: 200, dy: 100 } });
+  assert.deepEqual([frame.x, frame.y], [x + 30, y + 10]);
+  assert.equal(frame.contentDragging, false);
+  assert.equal(timers.size, 0);
+  message(delta);
+  assert.deepEqual([frame.x, frame.y], [x + 60, y + 20]);
+  assert.equal(frame.contentDragging, true);
+  assert.equal(timers.size, 1);
+  frame.unmount();
+});
+
+test('pill は中身の幅と角丸を使い、リサイズ帯は pill と小さい枠で隠す', async () => {
   const { frame, win, mount, message } = fixture();
   mount();
-  frame.resizeEl.dispatch('mousedown', mouse(400));
+  frame.resizeEdgeEl.dispatch('mousedown', mouse(400));
   win.dispatch('mousemove', mouse(1000));
   win.dispatch('mouseup');
   assert.equal(frame.size.width, 360);
   message({ type: 'akari-companion-panel', width: 44, height: 44, mode: 'pill' });
   assert.equal(frame.size.width, 44);
-  assert.equal(frame.resizeEl.style.display, 'none');
+  assert.equal(frame.resizeEdgeEl.style.display, 'none');
+  assert.equal(frame.resizeCornerEl.style.display, 'none');
   message({ type: 'akari-companion-panel', width: 620, height: 200, mode: 'tab' });
   assert.equal(frame.size.width, 360);
-  assert.equal(frame.resizeEl.style.display, '');
+  assert.equal(frame.resizeEdgeEl.style.display, '');
+  assert.equal(frame.resizeCornerEl.style.display, '');
   frame.resetPlacement();
   message({ type: 'akari-companion-panel', width: 100, height: 60, mode: 'tab' });
-  assert.equal(frame.resizeEl.style.display, 'none');
+  assert.equal(frame.resizeEdgeEl.style.display, 'none');
+  assert.equal(frame.resizeCornerEl.style.display, 'none');
   assert.equal(frame.cornerEl.style.display, 'none');
   frame.unmount();
 
@@ -185,13 +283,13 @@ test('pill は中身の幅と角丸を使い、つまみは pill と小さい枠
   assert.match(style, /\.akari-companion-panel\[data-mode='pill'\] \{\s*border-radius: 22px;/);
 });
 
-test('つまみの操作面は押下中だけ iframe の上を覆う', () => {
+test('リサイズの操作面は押下中だけ iframe の上を覆う', () => {
   const { frame, win, mount } = fixture();
   mount();
-  const grip = frame.resizeEl;
+  const grip = frame.resizeEdgeEl;
   grip.dispatch('mousedown', mouse(400));
   assert.equal(frame.resizeSurface.className, 'akari-companion-resize-surface');
-  assert.match(frame.resizeSurface.attributes.style, /position:fixed; inset:0; pointer-events:auto; cursor:nesw-resize/);
+  assert.match(frame.resizeSurface.attributes.style, /position:fixed; inset:0; pointer-events:auto; cursor:ew-resize/);
   assert.equal(frame.resizeSurface.parent, frame.rootEl);
   win.dispatch('mousemove', mouse(350));
   assert.equal(frame.size.width, 670);
@@ -202,6 +300,9 @@ test('つまみの操作面は押下中だけ iframe の上を覆う', () => {
   grip.dispatch('mousedown', mouse(400));
   win.dispatch('mouseup');
   assert.equal(frame.resizeSurface, undefined);
+  frame.resizeCornerEl.dispatch('mousedown', mouse(400));
+  assert.match(frame.resizeSurface.attributes.style, /cursor:nesw-resize/);
+  win.dispatch('mouseup');
   grip.dispatch('mousedown', mouse(400));
   win.dispatch('blur');
   assert.equal(frame.resizeSurface, undefined);

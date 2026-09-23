@@ -34,9 +34,9 @@ test('呼び出しボタンは「変更を見る」より左に出て、枠の�
   // つかんで動かすのは「動いた差」で受ける（中身に絶対位置を持たせると左端へ飛ぶ）。
   assert.match(frame, /moveBy\(data\.drag\.dx, data\.drag\.dy\)/);
   assert.match(frame, /moveBy\(dx: unknown, dy: unknown\)/);
-  // つかんだあとは枠が画面いっぱいの面で受ける（iframe が指の下から逃げても切れない）。
-  assert.match(frame, /akari-companion-drag-surface/);
-  assert.match(frame, /event\.screenX - this\.dragLast\.x/);
+  // 中身から届いた差分だけで動かし、親のマウスイベントに依存しない。
+  assert.match(frame, /else if \(Number\.isFinite\(data\.drag\.dx\) && Number\.isFinite\(data\.drag\.dy\)\)/);
+  assert.doesNotMatch(frame, /akari-companion-drag-surface|handleDragMove/);
 });
 
 test('枠は安全な iframe と局所的な操作面だけを持つ', async () => {

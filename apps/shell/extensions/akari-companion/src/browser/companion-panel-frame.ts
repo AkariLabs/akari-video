@@ -42,7 +42,8 @@ export class CompanionPanelFrame {
     protected panelEl: HTMLDivElement | undefined;
     protected iframeEl: HTMLIFrameElement | undefined;
     protected cornerEl: HTMLButtonElement | undefined;
-    protected resizeEl: HTMLButtonElement | undefined;
+    protected resizeEdgeEl: HTMLDivElement | undefined;
+    protected resizeCornerEl: HTMLDivElement | undefined;
     protected size: PanelSize = clampPanelSize(undefined, undefined);
     protected defaultWidth = PANEL_DEFAULT_WIDTH;
     protected userWidth: number | undefined;
@@ -56,8 +57,8 @@ export class CompanionPanelFrame {
     protected onHiddenChanged: ((hidden: boolean) => void) | undefined;
     protected anchorWatch: unknown;
     protected lastAnchorKey = '';
-    protected dragSurface: HTMLDivElement | undefined;
-    protected dragLast: { x: number; y: number } | undefined;
+    protected contentDragging = false;
+    protected contentDragTimeout: number | undefined;
     protected resize: { startClientX: number; startWidth: number; right: number } | undefined;
     protected resizeSurface: HTMLDivElement | undefined;
 
@@ -103,15 +104,16 @@ export class CompanionPanelFrame {
         corner.setAttribute('aria-label', 'AKARI バイブをしまう');
         corner.textContent = '×';
         corner.addEventListener('mousedown', this.handleCornerMouseDown);
-        const resize = this.resizeEl = this.doc.createElement('button');
-        resize.type = 'button';
-        resize.className = 'akari-companion-panel-resize';
-        resize.setAttribute('title', 'AKARI バイブの横幅を変える');
-        resize.setAttribute('aria-label', 'AKARI バイブの横幅を変える');
-        resize.textContent = '◢';
-        resize.addEventListener('mousedown', this.handleResizeMouseDown);
+        const resizeEdge = this.resizeEdgeEl = this.doc.createElement('div');
+        resizeEdge.className = 'akari-companion-panel-edge-left';
+        resizeEdge.setAttribute('title', 'AKARI バイブの横幅を変える');
+        resizeEdge.addEventListener('mousedown', event => this.handleResizeMouseDown(event, 'ew-resize'));
+        const resizeCorner = this.resizeCornerEl = this.doc.createElement('div');
+        resizeCorner.className = 'akari-companion-panel-edge-corner';
+        resizeCorner.setAttribute('title', 'AKARI バイブの横幅を変える');
+        resizeCorner.addEventListener('mousedown', event => this.handleResizeMouseDown(event, 'nesw-resize'));
 
-        panel.append(iframe, corner, resize);
+        panel.append(iframe, corner, resizeEdge, resizeCorner);
         this.rootEl.append(panel);
         this.panelEl = panel;
         this.iframeEl = iframe;
@@ -139,7 +141,8 @@ export class CompanionPanelFrame {
         this.panelEl = undefined;
         this.iframeEl = undefined;
         this.cornerEl = undefined;
-        this.resizeEl = undefined;
+        this.resizeEdgeEl = undefined;
+        this.resizeCornerEl = undefined;
     }
 
     applyInstruction(args: CompanionPanelArgs): void {
@@ -191,45 +194,24 @@ export class CompanionPanelFrame {
         this.onHiddenChanged?.(this.hidden);
     }
 
-    /**
-     * 中身から「つかんだ」と言われたら、画面いっぱいの透明な面を敷いて、
-     * 離すまでの動きを枠が直接受ける（iframe が指の下から逃げても切れない）。
-     */
-    protected beginDrag(): void {
-        if (!this.panelEl || this.dragSurface) return;
-        const surface = this.doc.createElement('div');
-        surface.className = 'akari-companion-drag-surface';
-        surface.setAttribute('style', 'position:fixed; inset:0; pointer-events:auto; cursor:move; z-index:1;');
-        this.rootEl.append(surface);
-        this.dragSurface = surface;
-        this.dragLast = undefined;
-        this.win.addEventListener('mousemove', this.handleDragMove, true);
-        this.win.addEventListener('mouseup', this.handleDragEnd, true);
+    protected startContentDrag(): void {
+        if (!this.panelEl) return;
+        this.contentDragging = true;
+        this.resetContentDragTimeout();
     }
 
     protected endDrag(): void {
-        if (!this.dragSurface) return;
-        this.win.removeEventListener('mousemove', this.handleDragMove, true);
-        this.win.removeEventListener('mouseup', this.handleDragEnd, true);
-        this.dragSurface.remove();
-        this.dragSurface = undefined;
-        this.dragLast = undefined;
+        this.contentDragging = false;
+        if (this.contentDragTimeout !== undefined) {
+            this.win.clearTimeout(this.contentDragTimeout);
+            this.contentDragTimeout = undefined;
+        }
     }
 
-    protected readonly handleDragMove = (event: MouseEvent): void => {
-        if (!this.dragSurface) return;
-        if ((event.buttons & 1) === 0) {
-            this.endDrag();
-            return;
-        }
-        // 画面の座標で測る。枠が動いても基準が動かない。
-        if (this.dragLast) this.moveBy(event.screenX - this.dragLast.x, event.screenY - this.dragLast.y);
-        this.dragLast = { x: event.screenX, y: event.screenY };
-    };
-
-    protected readonly handleDragEnd = (): void => {
-        this.endDrag();
-    };
+    protected resetContentDragTimeout(): void {
+        if (this.contentDragTimeout !== undefined) this.win.clearTimeout(this.contentDragTimeout);
+        this.contentDragTimeout = this.win.setTimeout(() => this.endDrag(), 2000);
+    }
 
     /** つかんで動かしたぶんだけ動かす。動かした時点で「自由に浮いている」扱いになる。 */
     moveBy(dx: unknown, dy: unknown): void {
@@ -309,11 +291,13 @@ export class CompanionPanelFrame {
         this.panelEl.style.height = `${this.size.height}px`;
         this.panelEl.dataset.mode = this.mode;
         this.panelEl.style.display = this.hidden ? 'none' : '';
-        if (this.cornerEl || this.resizeEl) {
+        if (this.cornerEl || this.resizeEdgeEl || this.resizeCornerEl) {
             // 小さい枠では「しまう」を出さない。閉じるのはタブ帯のボタン、動かすのは枠の中身。
             const roomy = this.size.width >= CORNER_MIN_WIDTH && this.size.height >= CORNER_MIN_HEIGHT;
             if (this.cornerEl) this.cornerEl.style.display = roomy ? '' : 'none';
-            if (this.resizeEl) this.resizeEl.style.display = roomy && this.mode === 'tab' ? '' : 'none';
+            const resizeDisplay = roomy && this.mode === 'tab' ? '' : 'none';
+            if (this.resizeEdgeEl) this.resizeEdgeEl.style.display = resizeDisplay;
+            if (this.resizeCornerEl) this.resizeCornerEl.style.display = resizeDisplay;
         }
     }
 
@@ -354,12 +338,14 @@ export class CompanionPanelFrame {
         if (!data || data.type !== 'akari-companion-panel') return;
         // 中身が「既定の置き場所へ戻して」と言ってきたら、覚えている位置を捨てる。
         if (data.placement === 'default') this.resetPlacement();
-        // 中身の帯をつかんだら、そこから先は枠が引き受ける。枠が動くと iframe は
-        // 指の下から逃げてしまい、中身には入力が届かなくなるため（実機で観測）。
+        // 中身が送る画面座標の差だけで動かす。親の mousemove は移動に使わない。
         if (data.drag) {
-            if (data.drag.phase === 'start') this.beginDrag();
+            if (data.drag.phase === 'start') this.startContentDrag();
             else if (data.drag.phase === 'end') this.endDrag();
-            else this.moveBy(data.drag.dx, data.drag.dy);
+            else if (Number.isFinite(data.drag.dx) && Number.isFinite(data.drag.dy)) {
+                this.moveBy(data.drag.dx, data.drag.dy);
+                this.startContentDrag();
+            }
             return;
         }
         this.applyInstruction({
@@ -413,13 +399,13 @@ export class CompanionPanelFrame {
         this.placeByAnchor();
     };
 
-    protected readonly handleResizeMouseDown = (event: MouseEvent): void => {
+    protected readonly handleResizeMouseDown = (event: MouseEvent, cursor: 'ew-resize' | 'nesw-resize'): void => {
         if (event.button !== 0 || !this.panelEl || this.resize) return;
         event.preventDefault();
         event.stopPropagation();
         const surface = this.doc.createElement('div');
         surface.className = 'akari-companion-resize-surface';
-        surface.setAttribute('style', 'position:fixed; inset:0; pointer-events:auto; cursor:nesw-resize; z-index:1;');
+        surface.setAttribute('style', `position:fixed; inset:0; pointer-events:auto; cursor:${cursor}; z-index:1;`);
         this.rootEl.append(surface);
         this.resizeSurface = surface;
         this.resize = { startClientX: event.clientX, startWidth: this.size.width, right: this.x + this.size.width };
