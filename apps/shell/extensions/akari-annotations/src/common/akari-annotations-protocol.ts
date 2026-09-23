@@ -15,6 +15,11 @@ export interface NarrationEngine {
 export interface NarrationVoice { id: string; label: string; default?: boolean; group?: string }
 export interface NarrationEnginesResult { version: number; engines: NarrationEngine[] }
 export interface NarrationVoicesResult { version: number; engine: string; voices: NarrationVoice[] }
+export interface VerifyNarrationRequest { projectRootUri: string; audio: string; text: string; reading?: string }
+export interface VerifyNarrationResult { version: number; status: 'ok'; id: string | null; score: number;
+    verdict: 'ok' | 'check' | 'ng'; expected: string; heard: string;
+    diffs: Array<{ expected: string; heard: string }>; backend: string; elapsed_s: number; reading?: string }
+export interface NarrationVerificationBackend { status: 'ok' | 'unavailable'; backend?: string; reason?: string }
 export interface GenerateNarrationRequest {
     projectRootUri: string; engine: string; voice: string; speed?: number; style?: string; irodoriUrl?: string;
     script: string; reading: string; captionId?: string | null; t: number; approved?: boolean;
@@ -838,6 +843,9 @@ export interface RemoveSfxResult extends DeleteArrayItemResult {
 export interface AkariAnnotationsService {
     listNarrationEngines(projectRootUri: string, irodoriUrl?: string): Promise<NarrationEnginesResult>;
     listNarrationVoices(projectRootUri: string, engine: string, irodoriUrl?: string): Promise<NarrationVoicesResult>;
+    startNarrationEngine(projectRootUri: string, engine: string): Promise<{ status: string }>;
+    narrationVerificationBackend(projectRootUri: string): Promise<NarrationVerificationBackend>;
+    verifyNarration(request: VerifyNarrationRequest): Promise<VerifyNarrationResult>;
     generateNarration(request: GenerateNarrationRequest): Promise<GenerateNarrationResult>;
     applyNarration(request: ApplyNarrationRequest): Promise<{ id: string }>;
     applyNarrations(request: ApplyNarrationsRequest): Promise<{ ids: string[] }>;

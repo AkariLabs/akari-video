@@ -5,7 +5,8 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { spawn, spawnSync } from "node:child_process";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
+import { resolveLauncherAssets } from "./repo-assets.mjs";
 
 const VOICEVOX_BASE_URL = "http://127.0.0.1:50021";
 const VOICEVOX_RUN_ENV = "VOICEVOX_RUN";
@@ -66,9 +67,144 @@ const commandUsage = [
   "  start     VOICEVOX エンジンを起動する",
   "  stop      AKARI が起動した VOICEVOX エンジンを止める",
   "  voices    声一覧を表示する",
+  "  verify    生成音声をこの Mac で聞き取り、字幕と照合する",
   "",
   usage,
 ].join("\n");
+const verifyUsage = "使い方: akari narration verify --project <root> (--id <n-NNNN> | --audio <path> --text <字幕の文字>) [--reading <読み原稿>] [--backend auto|speechanalyzer|whisper] [--record <dir>] --json";
+export const VERIFY_THRESHOLDS = Object.freeze({ ok: 0.9, check: 0.7 });
+
+export function normalizeVerifyText(value) {
+  return String(value ?? "").normalize("NFKC").toLowerCase().replace(/[\p{P}\p{S}\s]/gu, "");
+}
+
+export function verifyLanguage(expected) {
+  return /[\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Han}]/u.test(String(expected ?? "").normalize("NFKC")) ? "ja" : "auto";
+}
+
+export function compareNarrationText(expected, heard) {
+  const a = [...normalizeVerifyText(expected)], b = [...normalizeVerifyText(heard)];
+  const dp = Array.from({ length: a.length + 1 }, () => new Uint32Array(b.length + 1));
+  for (let i = 0; i <= a.length; i++) dp[i][0] = i;
+  for (let j = 0; j <= b.length; j++) dp[0][j] = j;
+  for (let i = 1; i <= a.length; i++) for (let j = 1; j <= b.length; j++) {
+    dp[i][j] = Math.min(dp[i - 1][j] + 1, dp[i][j - 1] + 1, dp[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+  }
+  const operations = [];
+  let i = a.length, j = b.length;
+  while (i || j) {
+    if (i && j && a[i - 1] === b[j - 1] && dp[i][j] === dp[i - 1][j - 1]) {
+      operations.push({ equal: true }); i--; j--;
+    } else if (i && j && dp[i][j] === dp[i - 1][j - 1] + 1) {
+      operations.push({ expected: a[--i], heard: b[--j] });
+    } else if (i && dp[i][j] === dp[i - 1][j] + 1) {
+      operations.push({ expected: a[--i], heard: "" });
+    } else {
+      operations.push({ expected: "", heard: b[--j] });
+    }
+  }
+  const diffs = [];
+  let current;
+  for (const operation of operations.reverse()) {
+    if (operation.equal) { if (current) diffs.push(current); current = null; }
+    else {
+      current ??= { expected: "", heard: "" };
+      current.expected += operation.expected; current.heard += operation.heard;
+    }
+  }
+  if (current) diffs.push(current);
+  const rawScore = a.length || b.length ? 1 - dp[a.length][b.length] / Math.max(a.length, b.length) : 1;
+  const score = Number(rawScore.toFixed(3));
+  return { score, verdict: score >= VERIFY_THRESHOLDS.ok ? "ok" : score >= VERIFY_THRESHOLDS.check ? "check" : "ng", diffs };
+}
+
+function parseVerifyArguments(args) {
+  const options = { backend: "auto", reading: null, record: null, checkBackend: false };
+  const keys = new Set(["--project", "--id", "--audio", "--text", "--reading", "--backend", "--record"]);
+  for (let index = 1; index < args.length; index++) {
+    const flag = args[index];
+    if (flag === "--json" || flag === "--check-backend") { if (flag === "--check-backend") options.checkBackend = true; continue; }
+    if (!keys.has(flag) || !args[index + 1] || args[index + 1].startsWith("--")) throw new PublicError(`引数が不正です: ${flag}\n${verifyUsage}`, 2);
+    options[flag.slice(2)] = args[++index];
+  }
+  if (!options.project || !["auto", "speechanalyzer", "whisper"].includes(options.backend)) throw new PublicError(verifyUsage, 2);
+  if (!options.checkBackend && ((!!options.id) === (!!options.audio)) ) throw new PublicError(verifyUsage, 2);
+  if (options.id && !/^n-\d{4}$/.test(options.id)) throw new PublicError("--id は n- に続く 4 桁です", 2);
+  if (options.audio && options.text === undefined) throw new PublicError("--audio には --text が必要です", 2);
+  return options;
+}
+
+function resolveTranscribeModulePath(runtime = {}) {
+  const assets = (runtime.resolveLauncherAssets ?? resolveLauncherAssets)();
+  const relative = path.join("packages", "akari-tools", "src", "media", "transcribe.mjs");
+  const candidates = [path.join(assets.repoRoot, relative),
+    assets.mediaScript ? path.resolve(path.dirname(assets.mediaScript), "..", "src", "media", "transcribe.mjs") : null,
+    path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "vendor", relative)];
+  return candidates.find(candidate => candidate && fs.existsSync(candidate)) ?? null;
+}
+
+async function loadTranscribeModule(runtime = {}) {
+  const modulePath = (runtime.resolveTranscribeModulePath ?? resolveTranscribeModulePath)(runtime);
+  if (!modulePath) throw new PublicError("ローカル文字起こしの実装が同梱されていません", 3);
+  try { return await import(pathToFileURL(modulePath).href); }
+  catch { throw new PublicError("ローカル文字起こしの実装を読み込めません", 3); }
+}
+
+function verifyBackend(requested, runtime, transcribe) {
+  const speech = (runtime.speechAnalyzerAvailable ?? transcribe.speechAnalyzerAvailable)();
+  const whisper = (runtime.resolveWhisper ?? transcribe.resolveWhisper)();
+  if (requested === "speechanalyzer" && speech || requested === "whisper" && whisper || requested === "auto" && (speech || whisper)) {
+    return requested === "auto" ? speech ? "speech-analyzer" : "whisper-cpp" : requested === "whisper" ? "whisper-cpp" : "speech-analyzer";
+  }
+  throw new PublicError(requested === "speechanalyzer" ? "SpeechAnalyzer を利用できません" : requested === "whisper" ? "whisper.cpp の実行ファイルまたはモデルが見つかりません" : "この Mac に利用できる文字起こし backend がありません（SpeechAnalyzer / whisper.cpp）", 3);
+}
+
+async function runVerify(options, io, runtime = {}) {
+  let backend;
+  let transcribe;
+  try {
+    transcribe = await (runtime.loadTranscribeModule ?? loadTranscribeModule)(runtime);
+    backend = verifyBackend(options.backend, runtime, transcribe);
+  }
+  catch (error) {
+    if (error instanceof PublicError && error.exitCode === 3) { printCompactJson({ status: "unavailable", reason: error.message }, io.log); return 3; }
+    throw error;
+  }
+  if (options.checkBackend) { printCompactJson({ status: "ok", backend }, io.log); return 0; }
+  const root = path.resolve(options.project);
+  let entry;
+  if (options.id) {
+    const edit = JSON.parse(fs.readFileSync(path.join(root, "edit.json"), "utf8"));
+    entry = edit.audio?.narration?.find(item => item.id === options.id);
+    if (!entry?.path || typeof entry.script !== "string") throw new PublicError(`音声 ${options.id} または字幕の文字が見つかりません`, 2);
+  }
+  const expected = entry?.script ?? options.text;
+  const audio = path.resolve(root, entry?.path ?? options.audio);
+  if (entry && !audio.startsWith(root + path.sep)) throw new PublicError("音声パスがプロジェクト外です", 2);
+  const temporary = fs.mkdtempSync(path.join(os.tmpdir(), "akari-narration-verify-"));
+  const started = performance.now();
+  try {
+    const copy = path.join(temporary, path.basename(audio));
+    fs.copyFileSync(audio, copy);
+    const transcript = await (runtime.transcribeMedia ?? transcribe.transcribeMedia)(copy, {
+      cwd: temporary, noRecord: true, wordBook: false, lang: verifyLanguage(expected),
+      ...(options.backend === "auto" ? {} : { backend }),
+    });
+    const heard = (transcript.segments ?? []).map(segment => segment.text ?? "").join("").trim();
+    const comparison = compareNarrationText(expected, heard);
+    const result = { version: 1, status: "ok", id: options.id ?? null, ...comparison, expected, heard,
+      ...(options.reading !== null ? { reading: options.reading } : {}),
+      backend: transcript.backend ?? backend, elapsed_s: Number(((performance.now() - started) / 1000).toFixed(3)) };
+    if (options.record) {
+      fs.mkdirSync(options.record, { recursive: true });
+      fs.appendFileSync(path.join(options.record, "narration-verify.jsonl"), `${JSON.stringify({ expected, reading: options.reading ?? entry?.reading ?? null,
+        heard, score: result.score, verdict: result.verdict, engine: entry?.provenance?.engine ?? null,
+        voice: entry?.provenance?.voice ?? null, backend: result.backend, generated_at: new Date().toISOString() })}\n`);
+    }
+    printCompactJson(result, io.log);
+    return 0;
+  } finally { fs.rmSync(temporary, { recursive: true, force: true }); }
+}
 
 class PublicError extends Error {
   constructor(message, exitCode = 1) {
@@ -934,6 +1070,16 @@ export async function runNarrationCommand(args, commandOptions = {}) {
   if (args[0] === 'generate' && (args.includes('--help') || args.includes('-h'))) {
     io.log(usage);
     return { exitCode: 0 };
+  }
+  if (args[0] === 'verify') {
+    try { return { exitCode: await runVerify(parseVerifyArguments(args), io, commandOptions.verifyRuntime) }; }
+    catch (error) {
+      const code = error instanceof PublicError ? error.exitCode : 1;
+      const message = error instanceof PublicError ? error.message : `聞き取りに失敗しました: ${error?.message ?? error}`;
+      io.logError(message);
+      printCompactJson({ error: message }, io.log);
+      return { exitCode: code };
+    }
   }
   if (["start", "stop"].includes(args[0])) {
     try {

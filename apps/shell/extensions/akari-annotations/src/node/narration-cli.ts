@@ -3,7 +3,7 @@ import { promises as fs } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { GenerationCliManager } from './generation-cli';
-import type { GenerateNarrationRequest, GenerateNarrationResult, NarrationEnginesResult, NarrationVoicesResult } from '../common/akari-annotations-protocol';
+import type { GenerateNarrationRequest, GenerateNarrationResult, NarrationEnginesResult, NarrationVoicesResult, NarrationVerificationBackend, VerifyNarrationRequest, VerifyNarrationResult } from '../common/akari-annotations-protocol';
 
 export class NarrationCliManager {
     protected readonly resolver = new GenerationCliManager();
@@ -16,6 +16,17 @@ export class NarrationCliManager {
     }
     async voices(engine: string, irodoriUrl?: string): Promise<NarrationVoicesResult> {
         return this.run(['narration', 'voices', '--engine', engine, '--json', ...(irodoriUrl ? ['--irodori-url', irodoriUrl] : [])]) as Promise<NarrationVoicesResult>;
+    }
+    async start(engine: string): Promise<{ status: string }> {
+        if (engine !== 'voicevox') throw new Error('VOICEVOX だけ起動できます。');
+        return this.run(['narration', 'start', '--engine', engine, '--json']) as Promise<{ status: string }>;
+    }
+    async verificationBackend(root: string): Promise<NarrationVerificationBackend> {
+        return this.run(['narration', 'verify', '--project', root, '--check-backend', '--json'], undefined, false, true) as Promise<NarrationVerificationBackend>;
+    }
+    async verify(request: VerifyNarrationRequest, root: string): Promise<VerifyNarrationResult> {
+        return this.run(['narration', 'verify', '--project', root, '--audio', request.audio,
+            '--text', request.text, ...(request.reading ? ['--reading', request.reading] : []), '--json'], root) as Promise<VerifyNarrationResult>;
     }
     async generate(request: GenerateNarrationRequest, root: string): Promise<GenerateNarrationResult> {
         if (['gemini-tts', 'fal-qwen3'].includes(request.engine) && request.approved !== true) {
@@ -67,7 +78,7 @@ export class NarrationCliManager {
         const timer = setTimeout(() => { if (child.exitCode === null) child.kill('SIGKILL'); }, 3000);
         child.once('close', () => clearTimeout(timer));
     }
-    protected async run(args: string[], key?: string, allowApprovalExit = false): Promise<unknown> {
+    protected async run(args: string[], key?: string, allowApprovalExit = false, allowUnavailableExit = false): Promise<unknown> {
         const cli = await this.resolver.resolveCli();
         if (!cli) throw new Error('akari narration CLI が見つかりません。');
         if (key && this.children.has(key)) throw new Error('読み上げを生成中です。');
@@ -85,7 +96,8 @@ export class NarrationCliManager {
                 let parsed: Record<string, unknown>;
                 try { parsed = JSON.parse(stdout.trim()); }
                 catch { reject(new Error(stderr.trim() || '読み上げ CLI の応答を読めません。')); return; }
-                if (code !== 0 && !(allowApprovalExit && code === 2 && parsed.status === 'needs_approval')) {
+                if (code !== 0 && !(allowApprovalExit && code === 2 && parsed.status === 'needs_approval')
+                    && !(allowUnavailableExit && code === 3 && parsed.status === 'unavailable')) {
                     reject(new Error(String(parsed.error ?? stderr.trim() ?? '読み上げ CLI が失敗しました。'))); return;
                 }
                 resolve(parsed);

@@ -3,8 +3,8 @@ import { AbstractDialog, ConfirmDialog } from '@theia/core/lib/browser/dialogs';
 import { CommandService } from '@theia/core/lib/common';
 import { PreferenceScope, PreferenceService } from '@theia/core/lib/common/preferences';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
-import type { AkariAnnotationsService, GenerateNarrationResult, NarrationEngine, NarrationVoice } from '../../common/akari-annotations-protocol';
-import { batchNarrationEstimate, compareNarrationDuration, defaultOverflowAction, irodoriCustomVoiceMissing, narrationEstimate, readAloudPreviewPlan, selectReadAloudEngine, selectReadAloudVoice, type OverflowChoice, type ReadAloudRow } from '../../common/read-aloud-model';
+import type { AkariAnnotationsService, GenerateNarrationResult, NarrationEngine, NarrationVoice, VerifyNarrationResult } from '../../common/akari-annotations-protocol';
+import { batchNarrationEstimate, batchRetryAction, compareNarrationDuration, defaultOverflowAction, irodoriCustomVoiceMissing, narrationEstimate, prepareReadAloudEngine, readAloudPreviewPlan, selectReadAloudEngine, selectReadAloudVoice, type OverflowChoice, type ReadAloudRow } from '../../common/read-aloud-model';
 
 export interface ReadAloudTarget {
     captionIds: string[]; captionId?: string; text: string; start: number; end?: number;
@@ -15,7 +15,8 @@ export interface ReadAloudPlacement { result: GenerateNarrationResult; script: s
     captionId?: string; extendEnd?: number; overflow?: number }
 
 interface BatchRowState { row: ReadAloudRow; reading: string; status: 'wait' | 'running' | 'done' | 'failed';
-    result?: GenerateNarrationResult; error?: string; choice: OverflowChoice; remainder: number; extendEnd?: number; retried?: boolean }
+    result?: GenerateNarrationResult; verification?: VerifyNarrationResult; verificationError?: string;
+    verifiedReading?: string; error?: string; choice: OverflowChoice; remainder: number; extendEnd?: number; retried?: boolean }
 
 const element = <K extends keyof HTMLElementTagNameMap>(tag: K, content?: string): HTMLElementTagNameMap[K] => {
     const node = document.createElement(tag); if (content !== undefined) node.textContent = content; return node;
@@ -37,6 +38,10 @@ export class AkariReadAloudDialog extends AbstractDialog<ReadAloudPlacement[] | 
     protected readonly foot = element('div');
     protected readonly footnote = element('span');
     protected readonly previewButton = element('button', '▶ 試聴');
+    protected readonly verifyButton = element('button', '🔍 聞き取りで確かめる');
+    protected readonly verifyNode = element('div');
+    protected readonly verifyBatch = element('input');
+    protected verificationAvailable = false;
     protected readonly placeButton = element('button', '置く');
     protected engines: NarrationEngine[] = [];
     protected engine?: NarrationEngine;
@@ -91,11 +96,18 @@ export class AkariReadAloudDialog extends AbstractDialog<ReadAloudPlacement[] | 
         this.reading.placeholder = '読み原稿'; this.reading.setAttribute('aria-label', '読み原稿');
         this.reading.addEventListener('input', () => { this.invalidate(); this.updateEstimate(); });
         if (this.batchRows.length > 1) {
-            this.body.append(this.batchList, this.progress);
+            this.verifyBatch.type = 'checkbox'; this.verifyBatch.disabled = true;
+            this.verifyBatch.dataset.readAloudVerifyBatch = 'true';
+            const verifyLabel = element('label', 'できたら聞き取りで確かめる'); verifyLabel.prepend(this.verifyBatch);
+            this.body.append(verifyLabel, element('small', '聞き取りはこの Mac の中だけ。費用も送信もありません。'), this.batchList, this.progress);
             this.renderBatchRows();
             this.body.append(this.estimate, this.resultNode, this.notice);
         } else {
-            this.body.append(element('label', '読み原稿'), this.reading, this.estimate, this.resultNode, this.notice);
+            this.verifyButton.disabled = true; this.verifyButton.style.display = 'none';
+            this.verifyButton.dataset.readAloudAction = 'verify';
+            this.verifyButton.addEventListener('click', () => void this.verifySingle());
+            this.body.append(element('label', '読み原稿'), this.reading, this.estimate, this.resultNode,
+                this.verifyButton, this.verifyNode, element('small', '聞き取りはこの Mac の中だけ。費用も送信もありません。'), this.notice);
         }
         Object.assign(this.foot.style, { display: 'flex', alignItems: 'center', gap: '8px', padding: '12px 16px', borderTop: '1px solid #555' });
         this.footnote.style.flex = '1';
@@ -118,6 +130,7 @@ export class AkariReadAloudDialog extends AbstractDialog<ReadAloudPlacement[] | 
             if (this.audioUrl) URL.revokeObjectURL(this.audioUrl);
         } });
         void this.refreshEngines();
+        void this.refreshVerificationBackend();
     }
 
     get value(): ReadAloudPlacement[] | undefined { return this.placements; }
@@ -140,15 +153,16 @@ export class AkariReadAloudDialog extends AbstractDialog<ReadAloudPlacement[] | 
     }
     protected invalidate(): void {
         this.result = undefined; this.placeButton.disabled = true; this.resultNode.replaceChildren();
-        for (const state of this.batchRows) { state.status = 'wait'; state.result = undefined; state.retried = false; }
+        this.verifyNode.replaceChildren(); this.verifyButton.style.display = 'none';
+        for (const state of this.batchRows) { state.status = 'wait'; state.result = undefined; state.verification = undefined; state.retried = false; }
         if (this.batchRows.length > 1) this.renderBatchRows();
     }
 
-    protected async refreshEngines(): Promise<void> {
+    protected async refreshEngines(): Promise<readonly NarrationEngine[]> {
         try {
             const response = await this.service.listNarrationEngines(this.target.projectRootUri, this.irodoriUrl());
             this.engines = response.engines.filter(engine => ['voicevox', 'gemini-tts', 'irodori'].includes(engine.id));
-            const preferred = this.preferences.get<string>('akari.narration.engine', 'voicevox');
+            const preferred = this.engine?.id ?? this.preferences.get<string>('akari.narration.engine', 'voicevox');
             const selected = selectReadAloudEngine(this.engines, preferred);
             let remoteHost = '接続先を確認';
             try { remoteHost = new URL(this.irodoriUrl()).host; } catch { /* 保存済み URL が不正でも他カードは描画する。 */ }
@@ -165,7 +179,7 @@ export class AkariReadAloudDialog extends AbstractDialog<ReadAloudPlacement[] | 
                 if (engine.experimental) { const pill = element('span', 'お試し'); pill.dataset.akariExperimental = 'true'; pill.style.marginLeft = '6px'; card.append(pill); }
                 card.append(element('div', engine.place === 'network' ? `別の PC · ${engine.availability.detail?.url ?? remoteHost}` : engine.place === 'local' ? 'この Mac · 無料' :
                     `クラウド · fal.ai 経由 · $${engine.price?.usd_per_1000_chars ?? 0} / 1000 字${engine.price?.verified === false ? '（暫定）' : ''}`));
-                if (engine.id === 'irodori') card.append(element('small', 'GPU 推奨 · 処理が重い'));
+                if (engine.id === 'irodori') { const note = element('small', 'GPU 推奨 · 処理が重い'); note.style.display = 'block'; card.append(note); }
                 const badge = engine.availability.state === 'needs' || engine.availability.state === 'unconfigured'
                     ? element('button', engine.availability.label) : element('span', engine.availability.label);
                 badge.dataset.availability = engine.availability.state;
@@ -173,10 +187,48 @@ export class AkariReadAloudDialog extends AbstractDialog<ReadAloudPlacement[] | 
                     void this.commands.executeCommand('akari.settings.open', engine.id === 'gemini-tts' ? 'connections' : 'narration')
                         .then(() => this.refreshEngines());
                 });
+                if (engine.id === 'irodori') badge.style.display = 'block';
                 card.append(badge); this.cards.append(card);
             }
-            if (selected) await this.chooseEngine(selected);
+            if (selected && this.engine?.id === selected.id) this.engine = selected;
+            else if (selected) await this.chooseEngine(selected);
         } catch (error) { this.notice.textContent = String(error); }
+        return this.engines;
+    }
+
+    protected async refreshVerificationBackend(): Promise<void> {
+        try {
+            const result = await this.service.narrationVerificationBackend(this.target.projectRootUri);
+            this.verificationAvailable = result.status === 'ok';
+            const tooltip = 'この Mac の文字起こし（SpeechAnalyzer / Whisper）が必要です';
+            this.verifyButton.disabled = !this.verificationAvailable || !this.result;
+            this.verifyButton.title = this.verificationAvailable ? '' : tooltip;
+            this.verifyBatch.disabled = !this.verificationAvailable;
+            this.verifyBatch.title = this.verificationAvailable ? '' : tooltip;
+            if (!this.verificationAvailable) this.verifyBatch.checked = false;
+        } catch {
+            this.verificationAvailable = false;
+            this.verifyButton.disabled = true; this.verifyBatch.disabled = true;
+            this.verifyButton.title = this.verifyBatch.title = 'この Mac の文字起こし（SpeechAnalyzer / Whisper）が必要です';
+        }
+    }
+
+    protected async ensureVoicevoxReady(): Promise<void> {
+        if (!this.engine || this.engine.id !== 'voicevox' || this.engine.availability.state !== 'needs') return;
+        this.notice.textContent = 'VOICEVOX を起動しています…';
+        await prepareReadAloudEngine(this.engine,
+            () => this.service.startNarrationEngine(this.target.projectRootUri, 'voicevox'),
+            () => this.refreshEngines());
+        this.notice.textContent = '';
+    }
+
+    protected async prepareGenerationEngine(engine: NarrationEngine): Promise<void> {
+        await this.ensureVoicevoxReady();
+        await this.refreshEngines();
+        await this.ensureVoicevoxReady();
+        if (this.engine?.id !== engine.id || this.engine.availability.state !== 'available') {
+            throw new Error(`${engine.label} を利用できません。`);
+        }
     }
 
     protected async chooseEngine(engine: NarrationEngine): Promise<void> {
@@ -234,6 +286,7 @@ export class AkariReadAloudDialog extends AbstractDialog<ReadAloudPlacement[] | 
         }
         this.running = true; this.previewButton.disabled = true; this.previewButton.textContent = '生成中…'; this.notice.textContent = engine.id === 'irodori' ? '彩は時間がかかります（お試し）' : '';
         try {
+            await this.prepareGenerationEngine(engine);
             const result = await this.service.generateNarration({ projectRootUri: this.target.projectRootUri,
                 engine: engine.id, voice: this.voiceSelect.value, speed: engine.supports?.speed ? Number(this.speed.value) : undefined,
                 style: engine.id === 'gemini-tts' || engine.id === 'irodori' && this.voiceSelect.value === 'custom' ? this.styleInput.value : undefined,
@@ -241,6 +294,8 @@ export class AkariReadAloudDialog extends AbstractDialog<ReadAloudPlacement[] | 
                 captionId: this.target.captionId ?? null, t: this.target.start, approved });
             if (result.status !== 'ok' || !result.path || result.duration_s === undefined) throw new Error('音声を生成できませんでした。');
             this.result = result;
+            this.verifyButton.style.display = '';
+            this.verifyButton.disabled = !this.verificationAvailable;
             const file = await this.files.readFile(new URI(this.target.projectRootUri).resolve(result.path));
             if (this.audioUrl) URL.revokeObjectURL(this.audioUrl);
             this.audioUrl = URL.createObjectURL(new Blob([file.value.buffer as ArrayBuffer], { type: result.path.endsWith('.wav') ? 'audio/wav' : 'audio/mpeg' }));
@@ -269,7 +324,23 @@ export class AkariReadAloudDialog extends AbstractDialog<ReadAloudPlacement[] | 
             }
             this.placeButton.disabled = false;
         } catch (error) { this.notice.textContent = String(error); }
-        finally { this.running = false; this.updatePreviewAvailability(); this.previewButton.textContent = plan.buttonLabel; }
+        finally { await this.refreshEngines(); this.running = false; this.updatePreviewAvailability(); this.previewButton.textContent = plan.buttonLabel; }
+    }
+
+    protected async verifySingle(): Promise<void> {
+        if (!this.result?.path || !this.verificationAvailable || this.running) return;
+        this.verifyButton.disabled = true; this.verifyNode.textContent = '聞き取り中…';
+        try {
+            const result = await this.service.verifyNarration({ projectRootUri: this.target.projectRootUri,
+                audio: this.result.path, text: this.script(), reading: this.readingText() });
+            this.verifyNode.replaceChildren(element('div', `一致 ${Math.round(result.score * 100)}% · ${result.verdict}`));
+            for (const diff of result.diffs) this.verifyNode.append(element('div', `予定: ${diff.expected || '（なし）'} → 聞こえた: ${diff.heard || '（なし）'}`));
+            if (result.diffs.length) {
+                const revise = element('button', '読み原稿を直して作り直す');
+                revise.addEventListener('click', () => this.reading.focus()); this.verifyNode.append(revise);
+            }
+        } catch (error) { this.verifyNode.textContent = String(error); }
+        finally { this.verifyButton.disabled = !this.verificationAvailable; }
     }
 
     protected async place(): Promise<void> {
@@ -338,21 +409,44 @@ export class AkariReadAloudDialog extends AbstractDialog<ReadAloudPlacement[] | 
             Object.assign(line.style, { display: 'flex', alignItems: 'center', gap: '8px', padding: '6px', borderBottom: '1px solid #555' });
             line.append(element('span', `${state.row.outputStart?.toFixed(1) ?? '—'} s`), element('span', state.row.text));
             const input = element('input'); input.value = state.reading; input.setAttribute('aria-label', `読み原稿 ${index + 1}`);
-            input.style.flex = '1'; input.addEventListener('input', () => {
-                state.reading = input.value; state.status = 'wait'; state.result = undefined; this.placeButton.disabled = true; this.updateEstimate();
+            input.style.flex = '1'; input.disabled = this.running; input.addEventListener('input', () => {
+                state.reading = input.value;
+                if (state.status !== 'failed') state.status = state.verifiedReading === state.reading ? 'done' : 'wait';
+                this.placeButton.disabled = state.status !== 'done'; this.updateEstimate();
+                statusLabel.textContent = state.status === 'done' ? doneLabel : state.status === 'failed' ? `失敗: ${state.error ?? ''}` : '読みを修正中';
+                if (verificationBadge) verificationBadge.style.display = state.status === 'done' ? '' : 'none';
+                if (playButton) playButton.style.display = state.status === 'done' ? '' : 'none';
             }); line.append(input);
-            line.append(element('span', state.status === 'done'
-                ? `✓ ${(state.result?.duration_s ?? 0).toFixed(1)} s / 枠 ${(state.row.end - state.row.start).toFixed(1)}`
+            const doneLabel = `✓ ${(state.result?.duration_s ?? 0).toFixed(1)} s / 枠 ${(state.row.end - state.row.start).toFixed(1)}`
                     + `${state.choice === 'extend' ? ' · 枠を伸ばす' : ''}`
-                    + `${state.remainder ? ` · はみ出し +${state.remainder.toFixed(1)} s` : ''}`
-                : state.status === 'running' ? '◌ 生成中' : state.status === 'failed' ? `失敗: ${state.error ?? ''}` : '待ち'));
-            if (state.result?.path) {
+                    + `${state.remainder ? ` · はみ出し +${state.remainder.toFixed(1)} s` : ''}`;
+            const statusLabel = element('span', state.status === 'done' ? doneLabel
+                : state.status === 'running' ? '◌ 生成中' : state.status === 'failed' ? `失敗: ${state.error ?? ''}`
+                    : state.verifiedReading !== undefined ? '読みを修正中' : '待ち');
+            line.append(statusLabel);
+            let verificationBadge: HTMLSpanElement | undefined;
+            let playButton: HTMLButtonElement | undefined;
+            if (state.status === 'done' && state.verification) {
+                const badge = element('span', `一致 ${Math.round(state.verification.score * 100)}% · ${state.verification.verdict}`);
+                badge.dataset.verifyVerdict = state.verification.verdict;
+                badge.style.color = state.verification.verdict === 'ng' ? '#ff7777' : state.verification.verdict === 'check' ? '#e9bc55' : '#aaa';
+                verificationBadge = badge;
+                line.append(badge);
+            } else if (state.verificationError) line.append(element('span', `聞き取り失敗: ${state.verificationError}`));
+            if (state.status === 'done' && state.result?.path) {
                 const play = element('button', '▶'); play.type = 'button'; play.setAttribute('aria-label', `試聴 ${index + 1}`);
                 play.addEventListener('click', () => void this.playBatchRow(state)); line.append(play);
+                playButton = play;
             }
-            if (state.status === 'failed') {
-                const retry = element('button', 'もう一度'); retry.type = 'button';
-                retry.addEventListener('click', () => void this.generateBatch([state])); line.append(retry);
+            const retryAction = () => batchRetryAction({ status: state.status, verdict: state.verification?.verdict,
+                reading: state.reading, verifiedReading: state.verifiedReading });
+            if (retryAction() !== 'none') {
+                const retry = element('button', 'もう一度'); retry.type = 'button'; retry.disabled = this.running;
+                retry.addEventListener('click', () => {
+                    const action = retryAction();
+                    if (action === 'focus-reading') input.focus();
+                    else if (action === 'regenerate') void this.generateBatch([state]);
+                }); line.append(retry);
             }
             if (state.status === 'done' && (state.result?.duration_s ?? 0) > state.row.end - state.row.start) {
                 const choice = element('select'); choice.setAttribute('aria-label', `枠超過 ${index + 1}`);
@@ -408,8 +502,14 @@ export class AkariReadAloudDialog extends AbstractDialog<ReadAloudPlacement[] | 
         this.running = true; this.cancelled = false; this.cancelButton.style.display = '';
         this.notice.textContent = engine.id === 'irodori' ? '彩は時間がかかります（お試し）' : '';
         this.previewButton.disabled = true;
+        try { await this.prepareGenerationEngine(engine); }
+        catch (error) {
+            this.notice.textContent = String(error); this.running = false; this.cancelButton.style.display = 'none';
+            this.updatePreviewAvailability(); return;
+        }
         for (const state of pending) {
             if (this.cancelled) break;
+            state.result = undefined; state.verification = undefined; state.verifiedReading = undefined;
             state.status = 'running'; this.renderBatchRows();
             try {
                 const generate = (speed?: number) => this.service.generateNarration({ projectRootUri: this.target.projectRootUri,
@@ -431,11 +531,19 @@ export class AkariReadAloudDialog extends AbstractDialog<ReadAloudPlacement[] | 
                     } catch (error) { state.error = `推奨速度での作り直しに失敗: ${String(error)}`; }
                     action = { ...action, choice: 'keep', remainder: Math.max(0, result.duration_s - (state.row.end - state.row.start)) };
                 }
-                state.result = result; state.choice = action.choice; state.remainder = action.remainder;
+                state.result = result; state.verifiedReading = state.reading; state.verificationError = undefined;
+                state.choice = action.choice; state.remainder = action.remainder;
                 state.extendEnd = action.extendEnd; state.status = 'done';
+                this.renderBatchRows();
+                if (this.verifyBatch.checked && this.verificationAvailable) {
+                    try { state.verification = await this.service.verifyNarration({ projectRootUri: this.target.projectRootUri,
+                        audio: result.path, text: state.row.text, reading: state.reading }); }
+                    catch (error) { state.verificationError = String(error); }
+                }
             } catch (error) { state.error = String(error); state.status = 'failed'; }
             this.renderBatchRows();
         }
+        await this.refreshEngines();
         this.running = false; this.cancelButton.style.display = 'none'; this.updatePreviewAvailability();
         this.renderBatchRows();
     }
