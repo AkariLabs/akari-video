@@ -28,7 +28,7 @@
     "target": { "$ref": "#/$defs/target" },
     "autonomy": {
       "enum": ["full-auto", "checkpoint", "collaborative"],
-      "description": "おまかせ度。そのまま（言った通りに入れて見ずに書き出す）/ 提案つき（既定。良さそうな物も入れて見せる。判子は書き出しの 1 回）/ 一緒に作る（方針・素材・実行の要所で確認）"
+      "description": "おまかせ度。そのまま（言った通りに入れて見ずに書き出す）/ 提案つき（既定。良さそうな物も入れて見せる。確認は書き出しの 1 回）/ 一緒に作る（方針・素材・実行の要所で確認）"
     },
     "status": {
       "enum": ["draft", "submitted"],

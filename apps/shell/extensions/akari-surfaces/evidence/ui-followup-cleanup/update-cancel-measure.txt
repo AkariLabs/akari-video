@@ -1,0 +1,54 @@
+== before
+2 written=16777216 socketBytes=16777905 buffered=131072
+-rw-r--r--@ 1 ryoma  staff  16777216 Sep 23 19:58 temp-AKARI-Video-0.1.99-mac-arm64.zip
+COMMAND     PID  USER   FD   TYPE             DEVICE SIZE/OFF NODE NAME
+node      97622 ryoma   13u  IPv4 0xf6326e535e21951a      0t0  TCP 127.0.0.1:8764->127.0.0.1:56563 (ESTABLISHED)
+Electron  97996 ryoma   24u  IPv4 0xc98fb14a0690d130      0t0  TCP 127.0.0.1:56563->127.0.0.1:8764 (ESTABLISHED)
+Electron  97996 ryoma   31u  IPv4 0xa29f77a7c2d762e7      0t0  TCP 127.0.0.1:56592->127.0.0.1:8764 (CLOSE_WAIT)
+clicked やめる 2026-09-23T10:58:44.824Z
+== +4s
+2026-09-23T10:58:09.972Z #2 GET /AKARI-Video-0.1.99-mac-arm64.zip
+2026-09-23T10:58:15.435Z #3 GET /latest.json
+2 written=20185088 socketBytes=20185777 buffered=131072
+COMMAND     PID  USER   FD   TYPE             DEVICE SIZE/OFF NODE NAME
+node      97622 ryoma   13u  IPv4 0xf6326e535e21951a      0t0  TCP 127.0.0.1:8764->127.0.0.1:56563 (ESTABLISHED)
+Electron  97996 ryoma   24u  IPv4 0xc98fb14a0690d130      0t0  TCP 127.0.0.1:56563->127.0.0.1:8764 (ESTABLISHED)
+Electron  97996 ryoma   31u  IPv4 0xa29f77a7c2d762e7      0t0  TCP 127.0.0.1:56592->127.0.0.1:8764 (CLOSE_WAIT)
+pending:
+total 0
+drwxr-xr-x@ 2 ryoma  staff  64 Sep 23 19:58 .
+drwxr-xr-x@ 3 ryoma  staff  96 Sep 23 19:58 ..
+akari-home:
+catalog-cache.json
+cli
+shell-last-version.json
+update-check.json
+no toast
+== +10s
+2 written=25034752 socketBytes=25035441 buffered=131072
+COMMAND     PID  USER   FD   TYPE             DEVICE SIZE/OFF NODE NAME
+node      97622 ryoma   13u  IPv4 0xf6326e535e21951a      0t0  TCP 127.0.0.1:8764->127.0.0.1:56563 (ESTABLISHED)
+Electron  97996 ryoma   24u  IPv4 0xc98fb14a0690d130      0t0  TCP 127.0.0.1:56563->127.0.0.1:8764 (ESTABLISHED)
+Electron  97996 ryoma   31u  IPv4 0xa29f77a7c2d762e7      0t0  TCP 127.0.0.1:56592->127.0.0.1:8764 (CLOSE_WAIT)
+tcp4 127.0.0.1:56563<->127.0.0.1:8764,25559729,
+tcp4 127.0.0.1:56592<->127.0.0.1:8764,372,
+== transfer end
+2026-09-23T10:58:15.435Z #3 GET /latest.json
+2026-09-23T11:00:11.132Z #2 complete 62914560
+2026-09-23T11:00:11.134Z #2 response closed written=62914560 socketBytes=62915249
+pending:
+total 0
+drwxr-xr-x@ 2 ryoma  staff  64 Sep 23 19:58 .
+drwxr-xr-x@ 3 ryoma  staff  96 Sep 23 19:58 ..
+total 0
+drwxr-xr-x@   3 ryoma  staff    96 Sep 23 19:58 .
+drwx------+ 216 ryoma  staff  6912 Sep 23 19:59 ..
+drwxr-xr-x@   2 ryoma  staff    64 Sep 23 19:58 pending
+COMMAND   PID  USER   FD   TYPE             DEVICE SIZE/OFF NODE NAME
+clicked recheck 2026-09-23T11:00:57.200Z
+== recheck +8s
+2026-09-23T11:00:57.219Z #5 GET /latest-mac.yml?noCache=1k36uq0nk
+2026-09-23T11:00:57.270Z #6 GET /AKARI-Video-0.1.99-mac-arm64.zip
+-rw-r--r--@ 1 ryoma  staff  4194304 Sep 23 20:01 temp-AKARI-Video-0.1.99-mac-arm64.zip
+toast: v0.1.99 をダウンロード中 × ダウンロードしています。裏で続きます。 変更点 やめる
+cancel again true

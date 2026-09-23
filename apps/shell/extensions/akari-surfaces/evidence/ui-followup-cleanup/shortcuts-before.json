@@ -1,0 +1,2371 @@
+{
+"total": 471,
+"conflicts": 8,
+"conflictRows": [
+"akari.home.newWindow",
+"terminal:new:active:workspace",
+"editor.action.selectAll",
+"workbench.action.newWindow",
+"search.action.replace",
+"search.action.replaceAll",
+"core.selectAll",
+"workbench.action.terminal.toggleTerminal"
+],
+"rows": [
+{
+"id": "akari.timeline.undo",
+"cond": "!akariHistoryEditableFocus",
+"conflict": false
+},
+{
+"id": "akari.timeline.redo",
+"cond": "!akariHistoryEditableFocus",
+"conflict": false
+},
+{
+"id": "akari.timeline.selectTool",
+"cond": "タイムライン",
+"conflict": false
+},
+{
+"id": "akari.timeline.razorTool",
+"cond": "タイムライン",
+"conflict": false
+},
+{
+"id": "akari.timeline.frameTool",
+"cond": "タイムライン",
+"conflict": false
+},
+{
+"id": "akari.timeline.toggleSnap",
+"cond": "タイムライン",
+"conflict": false
+},
+{
+"id": "akari.caption.placeText",
+"cond": "タイムライン",
+"conflict": false
+},
+{
+"id": "akari.timeline.delete",
+"cond": "タイムライン",
+"conflict": false
+},
+{
+"id": "akari.timeline.deleteKeyframe",
+"cond": "キーフレームを選んでいるとき",
+"conflict": false
+},
+{
+"id": "akari.timeline.deleteOneSide",
+"cond": "タイムライン",
+"conflict": false
+},
+{
+"id": "akari.timeline.copy",
+"cond": "タイムライン",
+"conflict": false
+},
+{
+"id": "akari.timeline.cut",
+"cond": "タイムライン",
+"conflict": false
+},
+{
+"id": "akari.timeline.paste",
+"cond": "タイムライン",
+"conflict": false
+},
+{
+"id": "akari.timeline.group",
+"cond": "タイムライン",
+"conflict": false
+},
+{
+"id": "akari.timeline.ungroup",
+"cond": "タイムライン",
+"conflict": false
+},
+{
+"id": "akari.timeline.moveTrackUp",
+"cond": "タイムライン",
+"conflict": false
+},
+{
+"id": "akari.timeline.moveTrackDown",
+"cond": "タイムライン",
+"conflict": false
+},
+{
+"id": "akari.timeline.nudgeleft",
+"cond": "タイムライン",
+"conflict": false
+},
+{
+"id": "akari.timeline.nudgeright",
+"cond": "タイムライン",
+"conflict": false
+},
+{
+"id": "akari.timeline.nudgeup",
+"cond": "タイムライン",
+"conflict": false
+},
+{
+"id": "akari.timeline.nudgedown",
+"cond": "タイムライン",
+"conflict": false
+},
+{
+"id": "akari.timeline.nudge10left",
+"cond": "タイムライン",
+"conflict": false
+},
+{
+"id": "akari.timeline.nudge10right",
+"cond": "タイムライン",
+"conflict": false
+},
+{
+"id": "akari.timeline.nudge10up",
+"cond": "タイムライン",
+"conflict": false
+},
+{
+"id": "akari.timeline.nudge10down",
+"cond": "タイムライン",
+"conflict": false
+},
+{
+"id": "akari.timeline.selectParent",
+"cond": "タイムライン",
+"conflict": false
+},
+{
+"id": "akari.timeline.selectChild",
+"cond": "タイムライン",
+"conflict": false
+},
+{
+"id": "akari.timeline.clearSelection",
+"cond": "タイムライン",
+"conflict": false
+},
+{
+"id": "akari.timeline.togglePlayback",
+"cond": "タイムライン",
+"conflict": false
+},
+{
+"id": "akari.timeline.previousFrame",
+"cond": "タイムライン",
+"conflict": false
+},
+{
+"id": "akari.timeline.nextFrame",
+"cond": "タイムライン",
+"conflict": false
+},
+{
+"id": "akari.timeline.previousSecond",
+"cond": "タイムライン",
+"conflict": false
+},
+{
+"id": "akari.timeline.nextSecond",
+"cond": "タイムライン",
+"conflict": false
+},
+{
+"id": "akari.preview.openAudioMeter",
+"cond": "いつでも",
+"conflict": false
+},
+{
+"id": "akari.daihon.selectAllRows",
+"cond": "台本の一覧",
+"conflict": false
+},
+{
+"id": "akari.daihon.clearRowSelection",
+"cond": "台本の一覧",
+"conflict": false
+},
+{
+"id": "akari.daihon.open",
+"cond": "いつでも",
+"conflict": false
+},
+{
+"id": "akari.caption.readAloud",
+"cond": "いつでも",
+"conflict": false
+},
+{
+"id": "akari.transcript.open",
+"cond": "いつでも",
+"conflict": false
+},
+{
+"id": "akari.home.newWindow",
+"cond": "いつでも",
+"conflict": true
+},
+{
+"id": "akari.settings.open",
+"cond": "いつでも",
+"conflict": false
+},
+{
+"id": "akari.inspector.clearSolo",
+"cond": "インスペクター",
+"conflict": false
+},
+{
+"id": "akari.inspector.stepup",
+"cond": "数値の欄",
+"conflict": false
+},
+{
+"id": "akari.inspector.stepdown",
+"cond": "数値の欄",
+"conflict": false
+},
+{
+"id": "akari.inspector.step10up",
+"cond": "数値の欄",
+"conflict": false
+},
+{
+"id": "akari.inspector.step10down",
+"cond": "数値の欄",
+"conflict": false
+},
+{
+"id": "akari.inspector.open",
+"cond": "いつでも",
+"conflict": false
+},
+{
+"id": "akari.partner.send",
+"cond": "いつでも",
+"conflict": false
+},
+{
+"id": "akari.partner.beginOnboarding",
+"cond": "いつでも",
+"conflict": false
+},
+{
+"id": "akari.partner.open",
+"cond": "いつでも",
+"conflict": false
+},
+{
+"id": "akari.partner.injectPrompt",
+"cond": "いつでも",
+"conflict": false
+},
+{
+"id": "akari.project.disconnectStoreAccount",
+"cond": "いつでも",
+"conflict": false
+},
+{
+"id": "akari.companion.resetPanelPlacement",
+"cond": "いつでも",
+"conflict": false
+},
+{
+"id": "akari.companion.togglePanel",
+"cond": "いつでも",
+"conflict": false
+},
+{
+"id": "akari.sessionViewer.open",
+"cond": "いつでも",
+"conflict": false
+},
+{
+"id": "akari.catalog.open",
+"cond": "いつでも",
+"conflict": false
+},
+{
+"id": "akari.cuts.open",
+"cond": "いつでも",
+"conflict": false
+},
+{
+"id": "akari.canvas.open",
+"cond": "いつでも",
+"conflict": false
+},
+{
+"id": "akari.mode.set.full-auto",
+"cond": "いつでも",
+"conflict": false
+},
+{
+"id": "akari.annotations.open",
+"cond": "いつでも",
+"conflict": false
+},
+{
+"id": "akari.world.openBesidePreview",
+"cond": "いつでも",
+"conflict": false
+},
+{
+"id": "akari.home.openProjectLauncher",
+"cond": "いつでも",
+"conflict": false
+},
+{
+"id": "akari.project.revealProjectRoot",
+"cond": "いつでも",
+"conflict": false
+},
+{
+"id": "akari.menu.listOpenTargets",
+"cond": "いつでも",
+"conflict": false
+},
+{
+"id": "akari.menu.listSkills",
+"cond": "いつでも",
+"conflict": false
+},
+{
+"id": "akari.menu.focus",
+"cond": "いつでも",
+"conflict": false
+},
+{
+"id": "akari.review.board.open",
+"cond": "いつでも",
+"conflict": false
+},
+{
+"id": "akari.mode.set.collaborative",
+"cond": "いつでも",
+"conflict": false
+},
+{
+"id": "akari.project.toggleDeveloperMode",
+"cond": "いつでも",
+"conflict": false
+},
+{
+"id": "akari.update.testDownloading",
+"cond": "いつでも",
+"conflict": false
+},
+{
+"id": "akari.update.testFound",
+"cond": "いつでも",
+"conflict": false
+},
+{
+"id": "akari.update.testReady",
+"cond": "いつでも",
+"conflict": false
+},
+{
+"id": "akari.home.openFirstRunSetup",
+"cond": "いつでも",
+"conflict": false
+},
+{
+"id": "akari.project.new",
+"cond": "いつでも",
+"conflict": false
+},
+{
+"id": "akari.home.newProject",
+"cond": "いつでも",
+"conflict": false
+},
+{
+"id": "akari.home.openIntakeForm",
+"cond": "いつでも",
+"conflict": false
+},
+{
+"id": "akari.assetSite.highlight",
+"cond": "いつでも",
+"conflict": false
+},
+{
+"id": "akari.assetSite.open",
+"cond": "いつでも",
+"conflict": false
+},
+{
+"id": "akari.library.changeLocation",
+"cond": "いつでも",
+"conflict": false
+},
+{
+"id": "akari.world.openMap",
+"cond": "いつでも",
+"conflict": false
+},
+{
+"id": "akari.review.open",
+"cond": "いつでも",
+"conflict": false
+},
+{
+"id": "akari.mode.set.checkpoint",
+"cond": "いつでも",
+"conflict": false
+},
+{
+"id": "akari.transcribe.openDialog",
+"cond": "いつでも",
+"conflict": false
+},
+{
+"id": "akari.project.showChanges",
+"cond": "いつでも",
+"conflict": false
+},
+{
+"id": "workbench.action.focusEighthEditorGroup",
+"cond": "いつでも",
+"conflict": false
+},
+{
+"id": "workbench.action.focusFifthEditorGroup",
+"cond": "いつでも",
+"conflict": false
+},
+{
+"id": "workbench.action.focusFourthEditorGroup",
+"cond": "いつでも",
+"conflict": false
+},
+{
+"id": "workbench.action.focusNinthEditorGroup",
+"cond": "いつでも",
+"conflict": false
+},
+{
+"id": "workbench.action.focusSecondEditorGroup",
+"cond": "いつでも",
+"conflict": false
+},
+{
+"id": "workbench.action.focusSeventhEditorGroup",
+"cond": "いつでも",
+"conflict": false
+},
+{
+"id": "workbench.action.focusSixthEditorGroup",
+"cond": "いつでも",
+"conflict": false
+},
+{
+"id": "workbench.action.focusThirdEditorGroup",
+"cond": "いつでも",
+"conflict": false
+},
+{
+"id": "editor.action.inlineSuggest.commit",
+"cond": "inInlineEditsPreviewEditor / inlineEditIsVisible && tabShouldAcceptInlineEdit && !editorHoverFocus…",
+"conflict": false
+},
+{
+"id": "editor.action.inlineSuggest.commitAlternativeAction",
+"cond": "inlineEditIsVisible && inlineSuggestionAlternativeActionVisible / inInlineEditsPreviewEditor",
+"conflict": false
+},
+{
+"id": "editor.action.inlineSuggest.acceptNextWord",
+"cond": "cursorBeforeGhostText && inlineSuggestionVisible && !accessibilityMod…",
+"conflict": false
+},
+{
+"id": "acceptAlternativeSelectedSuggestion",
+"cond": "suggestWidgetHasFocusedSuggestion && suggestWidgetVisible && textInpu…",
+"conflict": false
+},
+{
+"id": "acceptRenameInput",
+"cond": "editorFocus && renameInputVisible && !isComposing",
+"conflict": false
+},
+{
+"id": "acceptRenameInputWithPreview",
+"cond": "config.editor.rename.enablePreview && editorFocus && renameInputVisib…",
+"conflict": false
+},
+{
+"id": "acceptSelectedCodeAction",
+"cond": "codeActionMenuVisible",
+"conflict": false
+},
+{
+"id": "acceptSelectedSuggestion",
+"cond": "acceptSuggestionOnEnter && suggestWidgetHasFocusedSuggestion && sugge… / suggestWidgetHasFocusedSuggestion && suggestWidgetVisible && textInpu…",
+"conflict": false
+},
+{
+"id": "editor.action.insertCursorAbove",
+"cond": "editorTextFocus",
+"conflict": false
+},
+{
+"id": "editor.action.insertCursorBelow",
+"cond": "editorTextFocus",
+"conflict": false
+},
+{
+"id": "editor.action.insertCursorAtEndOfEachLineSelected",
+"cond": "editorTextFocus",
+"conflict": false
+},
+{
+"id": "editor.action.addCommentLine",
+"cond": "editorTextFocus && !editorReadonly",
+"conflict": false
+},
+{
+"id": "editor.action.addSelectionToNextFindMatch",
+"cond": "editorFocus",
+"conflict": false
+},
+{
+"id": "editor.action.autoFix",
+"cond": "textInputFocus && !editorReadonly && supportedCodeAction =~ /(\\s|^)qu…",
+"conflict": false
+},
+{
+"id": "editor.action.cancelSelectionAnchor",
+"cond": "editorTextFocus && selectionAnchorSet",
+"conflict": false
+},
+{
+"id": "cancelLinkedEditingInput",
+"cond": "LinkedEditingInputVisible && editorTextFocus",
+"conflict": false
+},
+{
+"id": "cancelRenameInput",
+"cond": "editorFocus && renameInputVisible",
+"conflict": false
+},
+{
+"id": "cancelSelection",
+"cond": "editorHasSelection && textInputFocus",
+"conflict": false
+},
+{
+"id": "editor.action.changeAll",
+"cond": "editorTextFocus && !editorReadonly",
+"conflict": false
+},
+{
+"id": "notebook.cell.changeToCode",
+"cond": "!editorTextFocus && notebookEditorFocused && notebookCellFocused && n…",
+"conflict": false
+},
+{
+"id": "notebook.cell.changeToMarkdown",
+"cond": "!editorTextFocus && notebookEditorFocused && notebookCellFocused && n…",
+"conflict": false
+},
+{
+"id": "notebook.cell.change-presentation",
+"cond": "notebookEditorFocused && notebookCellFocused && notebookCellType == '…",
+"conflict": false
+},
+{
+"id": "terminal:clear",
+"cond": "terminalFocus",
+"conflict": false
+},
+{
+"id": "notebook.cell.clear-outputs",
+"cond": "notebookEditorFocused && notebookCellFocused && notebookCellType == '…",
+"conflict": false
+},
+{
+"id": "core.close.all.main.tabs",
+"cond": "いつでも",
+"conflict": false
+},
+{
+"id": "editor.action.dirtydiff.close",
+"cond": "dirtyDiffVisible",
+"conflict": false
+},
+{
+"id": "core.close.other.main.tabs",
+"cond": "いつでも",
+"conflict": false
+},
+{
+"id": "core.close.main.tab",
+"cond": "いつでも",
+"conflict": false
+},
+{
+"id": "close.window",
+"cond": "いつでも",
+"conflict": false
+},
+{
+"id": "closeFindWidget",
+"cond": "editorFocus && findWidgetVisible && !isComposing",
+"conflict": false
+},
+{
+"id": "closeMarkersNavigation",
+"cond": "editorFocus && markersNavigationVisible",
+"conflict": false
+},
+{
+"id": "closeParameterHints",
+"cond": "editorFocus && parameterHintsVisible",
+"conflict": false
+},
+{
+"id": "closeReferenceSearch",
+"cond": "editorTextFocus && referenceSearchVisible && !config.editor.stablePee… / inReferenceSearchEditor && !config.editor.stablePeek",
+"conflict": false
+},
+{
+"id": "core.collapse.all.tabs",
+"cond": "いつでも",
+"conflict": false
+},
+{
+"id": "core.collapse.tab",
+"cond": "いつでも",
+"conflict": false
+},
+{
+"id": "workbench.action.selectTheme",
+"cond": "いつでも",
+"conflict": false
+},
+{
+"id": "console.execute",
+"cond": "consoleInputFocus",
+"conflict": false
+},
+{
+"id": "console.navigateNext",
+"cond": "consoleInputFocus && consoleNavigationForwardEnabled",
+"conflict": false
+},
+{
+"id": "console.navigatePrevious",
+"cond": "consoleInputFocus && consoleNavigationBackEnabled",
+"conflict": false
+},
+{
+"id": "console.selectAll",
+"cond": "consoleContentFocus",
+"conflict": false
+},
+{
+"id": "workbench.action.debug.continue",
+"cond": "inDebugMode",
+"conflict": false
+},
+{
+"id": "core.copy",
+"cond": "いつでも",
+"conflict": false
+},
+{
+"id": "search.action.copyMatch",
+"cond": "searchViewletFocus && !inputBoxFocus",
+"conflict": false
+},
+{
+"id": "editor.action.copyLinesDownAction",
+"cond": "editorTextFocus && !editorReadonly",
+"conflict": false
+},
+{
+"id": "editor.action.copyLinesUpAction",
+"cond": "editorTextFocus && !editorReadonly",
+"conflict": false
+},
+{
+"id": "core.copy.path",
+"cond": "!editorFocus",
+"conflict": false
+},
+{
+"id": "navigator.copyRelativeFilePath",
+"cond": "!editorFocus",
+"conflict": false
+},
+{
+"id": "workbench.action.terminal.copySelection",
+"cond": "terminalFocus",
+"conflict": false
+},
+{
+"id": "editor.createFoldingRangeFromSelection",
+"cond": "editorTextFocus && foldingEnabled",
+"conflict": false
+},
+{
+"id": "terminal:new",
+"cond": "いつでも",
+"conflict": false
+},
+{
+"id": "terminal:new:active:workspace",
+"cond": "いつでも",
+"conflict": true
+},
+{
+"id": "cursorUndo",
+"cond": "textInputFocus",
+"conflict": false
+},
+{
+"id": "cursorBottom",
+"cond": "textInputFocus",
+"conflict": false
+},
+{
+"id": "cursorBottomSelect",
+"cond": "textInputFocus",
+"conflict": false
+},
+{
+"id": "cursorColumnSelectDown",
+"cond": "editorColumnSelection && textInputFocus / textInputFocus",
+"conflict": false
+},
+{
+"id": "cursorColumnSelectLeft",
+"cond": "editorColumnSelection && textInputFocus / textInputFocus",
+"conflict": false
+},
+{
+"id": "cursorColumnSelectPageDown",
+"cond": "editorColumnSelection && textInputFocus / textInputFocus",
+"conflict": false
+},
+{
+"id": "cursorColumnSelectPageUp",
+"cond": "editorColumnSelection && textInputFocus / textInputFocus",
+"conflict": false
+},
+{
+"id": "cursorColumnSelectRight",
+"cond": "editorColumnSelection && textInputFocus / textInputFocus",
+"conflict": false
+},
+{
+"id": "cursorColumnSelectUp",
+"cond": "editorColumnSelection && textInputFocus / textInputFocus",
+"conflict": false
+},
+{
+"id": "cursorDown",
+"cond": "textInputFocus",
+"conflict": false
+},
+{
+"id": "cursorDownSelect",
+"cond": "textInputFocus",
+"conflict": false
+},
+{
+"id": "cursorEnd",
+"cond": "textInputFocus",
+"conflict": false
+},
+{
+"id": "cursorEndSelect",
+"cond": "textInputFocus",
+"conflict": false
+},
+{
+"id": "cursorHome",
+"cond": "textInputFocus",
+"conflict": false
+},
+{
+"id": "cursorHomeSelect",
+"cond": "textInputFocus",
+"conflict": false
+},
+{
+"id": "cursorLeft",
+"cond": "textInputFocus",
+"conflict": false
+},
+{
+"id": "cursorLeftSelect",
+"cond": "textInputFocus",
+"conflict": false
+},
+{
+"id": "cursorLineEnd",
+"cond": "textInputFocus",
+"conflict": false
+},
+{
+"id": "cursorLineEndSelect",
+"cond": "textInputFocus",
+"conflict": false
+},
+{
+"id": "cursorLineStart",
+"cond": "textInputFocus",
+"conflict": false
+},
+{
+"id": "cursorLineStartSelect",
+"cond": "textInputFocus",
+"conflict": false
+},
+{
+"id": "cursorPageDown",
+"cond": "textInputFocus",
+"conflict": false
+},
+{
+"id": "cursorPageDownSelect",
+"cond": "textInputFocus",
+"conflict": false
+},
+{
+"id": "cursorPageUp",
+"cond": "textInputFocus",
+"conflict": false
+},
+{
+"id": "cursorPageUpSelect",
+"cond": "textInputFocus",
+"conflict": false
+},
+{
+"id": "cursorRight",
+"cond": "textInputFocus",
+"conflict": false
+},
+{
+"id": "cursorRightSelect",
+"cond": "textInputFocus",
+"conflict": false
+},
+{
+"id": "cursorTop",
+"cond": "textInputFocus",
+"conflict": false
+},
+{
+"id": "cursorTopSelect",
+"cond": "textInputFocus",
+"conflict": false
+},
+{
+"id": "cursorUp",
+"cond": "textInputFocus",
+"conflict": false
+},
+{
+"id": "cursorUpSelect",
+"cond": "textInputFocus",
+"conflict": false
+},
+{
+"id": "cursorWordEndRight",
+"cond": "textInputFocus",
+"conflict": false
+},
+{
+"id": "cursorWordEndRightSelect",
+"cond": "textInputFocus",
+"conflict": false
+},
+{
+"id": "cursorWordLeft",
+"cond": "textInputFocus",
+"conflict": false
+},
+{
+"id": "cursorWordLeftSelect",
+"cond": "textInputFocus",
+"conflict": false
+},
+{
+"id": "cursorWordPartLeft",
+"cond": "textInputFocus",
+"conflict": false
+},
+{
+"id": "cursorWordPartLeftSelect",
+"cond": "textInputFocus",
+"conflict": false
+},
+{
+"id": "cursorWordPartRight",
+"cond": "textInputFocus",
+"conflict": false
+},
+{
+"id": "cursorWordPartRightSelect",
+"cond": "textInputFocus",
+"conflict": false
+},
+{
+"id": "core.cut",
+"cond": "いつでも",
+"conflict": false
+},
+{
+"id": "debug.breakpointWidget.accept",
+"cond": "breakpointWidgetFocus && !suggestWidgetVisible",
+"conflict": false
+},
+{
+"id": "debug.breakpointWidget.close",
+"cond": "isBreakpointWidgetVisible || (breakpointWidgetFocus && !suggestWidget…",
+"conflict": false
+},
+{
+"id": "file.delete",
+"cond": "filesExplorerFocus",
+"conflict": false
+},
+{
+"id": "deleteAllLeft",
+"cond": "textInputFocus && !editorReadonly",
+"conflict": false
+},
+{
+"id": "deleteAllRight",
+"cond": "textInputFocus && !editorReadonly",
+"conflict": false
+},
+{
+"id": "editor.action.deleteLines",
+"cond": "textInputFocus && !editorReadonly",
+"conflict": false
+},
+{
+"id": "deleteLeft",
+"cond": "textInputFocus",
+"conflict": false
+},
+{
+"id": "deleteRight",
+"cond": "textInputFocus",
+"conflict": false
+},
+{
+"id": "deleteWordLeft",
+"cond": "textInputFocus && !editorReadonly",
+"conflict": false
+},
+{
+"id": "deleteWordPartLeft",
+"cond": "textInputFocus && !editorReadonly",
+"conflict": false
+},
+{
+"id": "deleteWordPartRight",
+"cond": "textInputFocus && !editorReadonly",
+"conflict": false
+},
+{
+"id": "deleteWordRight",
+"cond": "textInputFocus && !editorReadonly",
+"conflict": false
+},
+{
+"id": "diffEditor.exitCompareMove",
+"cond": "comparingMovedCode",
+"conflict": false
+},
+{
+"id": "search.action.remove",
+"cond": "searchViewletFocus && !inputBoxFocus",
+"conflict": false
+},
+{
+"id": "editor.action.accessibleDiffViewer.next",
+"cond": "isInDiffEditor",
+"conflict": false
+},
+{
+"id": "editor.action.accessibleDiffViewer.prev",
+"cond": "isInDiffEditor",
+"conflict": false
+},
+{
+"id": "editor.action.goToFocusedStickyScrollLine",
+"cond": "stickyScrollFocused",
+"conflict": false
+},
+{
+"id": "editor.action.goToImplementation",
+"cond": "editorHasImplementationProvider && editorTextFocus",
+"conflict": false
+},
+{
+"id": "editor.action.goToReferences",
+"cond": "editorHasReferenceProvider && editorTextFocus && !inReferenceSearchEd…",
+"conflict": false
+},
+{
+"id": "editor.action.peekDefinition",
+"cond": "editorHasDefinitionProvider && editorTextFocus && !inReferenceSearchE…",
+"conflict": false
+},
+{
+"id": "editor.action.peekImplementation",
+"cond": "editorHasImplementationProvider && editorTextFocus && !inReferenceSea…",
+"conflict": false
+},
+{
+"id": "editor.action.replaceAll",
+"cond": "editorFocus && findWidgetVisible && replaceInputFocussed / editorFocus && findWidgetVisible",
+"conflict": false
+},
+{
+"id": "editor.action.replaceOne",
+"cond": "editorFocus && findWidgetVisible && replaceInputFocussed / editorFocus && findWidgetVisible",
+"conflict": false
+},
+{
+"id": "editor.action.revealDefinition",
+"cond": "editorHasDefinitionProvider && editorTextFocus && isWeb / editorHasDefinitionProvider && editorTextFocus",
+"conflict": false
+},
+{
+"id": "editor.action.revealDefinitionAside",
+"cond": "editorHasDefinitionProvider && editorTextFocus && isWeb && !isInEmbed… / editorHasDefinitionProvider && editorTextFocus && !isInEmbeddedEditor",
+"conflict": false
+},
+{
+"id": "editor.action.selectAll",
+"cond": "いつでも",
+"conflict": true
+},
+{
+"id": "editor.action.selectAllMatches",
+"cond": "editorFocus && findWidgetVisible",
+"conflict": false
+},
+{
+"id": "editor.action.selectEditor",
+"cond": "stickyScrollFocused",
+"conflict": false
+},
+{
+"id": "editor.action.selectNextStickyScrollLine",
+"cond": "stickyScrollFocused",
+"conflict": false
+},
+{
+"id": "editor.action.selectPreviousStickyScrollLine",
+"cond": "stickyScrollFocused",
+"conflict": false
+},
+{
+"id": "editor.action.toggleTabFocusMode",
+"cond": "いつでも",
+"conflict": false
+},
+{
+"id": "editor.cancelOperation",
+"cond": "cancellableOperation",
+"conflict": false
+},
+{
+"id": "editor.changeDropType",
+"cond": "dropWidgetVisible",
+"conflict": false
+},
+{
+"id": "editor.changePasteType",
+"cond": "pasteWidgetVisible",
+"conflict": false
+},
+{
+"id": "editor.gotoNextSymbolFromResult",
+"cond": "hasSymbols",
+"conflict": false
+},
+{
+"id": "editor.gotoNextSymbolFromResult.cancel",
+"cond": "hasSymbols",
+"conflict": false
+},
+{
+"id": "editor.hideDropWidget",
+"cond": "dropWidgetVisible",
+"conflict": false
+},
+{
+"id": "editor.hidePasteWidget",
+"cond": "pasteWidgetVisible",
+"conflict": false
+},
+{
+"id": "notebook.cell.execute-cell",
+"cond": "notebookCellListFocused && notebookEditorFocused && notebookCellFocus…",
+"conflict": false
+},
+{
+"id": "notebook.cell.execute-cell-and-insert-below",
+"cond": "notebookCellListFocused && notebookEditorFocused && notebookCellFocused",
+"conflict": false
+},
+{
+"id": "notebook.cell.execute-cell-and-focus-next",
+"cond": "notebookCellListFocused && notebookEditorFocused && notebookCellFocused",
+"conflict": false
+},
+{
+"id": "expandLineSelection",
+"cond": "textInputFocus",
+"conflict": false
+},
+{
+"id": "editor.action.smartSelect.expand",
+"cond": "editorTextFocus",
+"conflict": false
+},
+{
+"id": "actions.find",
+"cond": "editorFocus || editorIsOpen",
+"conflict": false
+},
+{
+"id": "core.find",
+"cond": "いつでも",
+"conflict": false
+},
+{
+"id": "terminal:find",
+"cond": "terminalFocus",
+"conflict": false
+},
+{
+"id": "search-in-workspace.open",
+"cond": "いつでも",
+"conflict": false
+},
+{
+"id": "search-in-workspace.in-folder",
+"cond": "explorerResourceIsFolder",
+"conflict": false
+},
+{
+"id": "editor.action.nextMatchFindAction",
+"cond": "editorFocus && findInputFocussed / editorFocus",
+"conflict": false
+},
+{
+"id": "editor.action.nextSelectionMatchFindAction",
+"cond": "editorFocus",
+"conflict": false
+},
+{
+"id": "editor.action.previousMatchFindAction",
+"cond": "editorFocus && findInputFocussed / editorFocus",
+"conflict": false
+},
+{
+"id": "editor.action.previousSelectionMatchFindAction",
+"cond": "editorFocus",
+"conflict": false
+},
+{
+"id": "actions.findWithSelection",
+"cond": "いつでも",
+"conflict": false
+},
+{
+"id": "workbench.action.focusFirstEditorGroup",
+"cond": "いつでも",
+"conflict": false
+},
+{
+"id": "search.action.focusNextSearchResult",
+"cond": "hasSearchResult",
+"conflict": false
+},
+{
+"id": "search.action.focusPreviousSearchResult",
+"cond": "hasSearchResult",
+"conflict": false
+},
+{
+"id": "focusNextRenameSuggestion",
+"cond": "renameInputVisible",
+"conflict": false
+},
+{
+"id": "focusPreviousRenameSuggestion",
+"cond": "renameInputVisible",
+"conflict": false
+},
+{
+"id": "focusSuggestion",
+"cond": "suggestWidgetVisible && textInputFocus && !suggestWidgetHasFocusedSug…",
+"conflict": false
+},
+{
+"id": "editor.fold",
+"cond": "editorTextFocus && foldingEnabled",
+"conflict": false
+},
+{
+"id": "editor.foldAll",
+"cond": "editorTextFocus && foldingEnabled",
+"conflict": false
+},
+{
+"id": "editor.foldAllBlockComments",
+"cond": "editorTextFocus && foldingEnabled",
+"conflict": false
+},
+{
+"id": "editor.foldAllExcept",
+"cond": "editorTextFocus && foldingEnabled",
+"conflict": false
+},
+{
+"id": "editor.foldAllMarkerRegions",
+"cond": "editorTextFocus && foldingEnabled",
+"conflict": false
+},
+{
+"id": "editor.foldLevel1",
+"cond": "editorTextFocus && foldingEnabled",
+"conflict": false
+},
+{
+"id": "editor.foldLevel2",
+"cond": "editorTextFocus && foldingEnabled",
+"conflict": false
+},
+{
+"id": "editor.foldLevel3",
+"cond": "editorTextFocus && foldingEnabled",
+"conflict": false
+},
+{
+"id": "editor.foldLevel4",
+"cond": "editorTextFocus && foldingEnabled",
+"conflict": false
+},
+{
+"id": "editor.foldLevel5",
+"cond": "editorTextFocus && foldingEnabled",
+"conflict": false
+},
+{
+"id": "editor.foldLevel6",
+"cond": "editorTextFocus && foldingEnabled",
+"conflict": false
+},
+{
+"id": "editor.foldLevel7",
+"cond": "editorTextFocus && foldingEnabled",
+"conflict": false
+},
+{
+"id": "editor.foldRecursively",
+"cond": "editorTextFocus && foldingEnabled",
+"conflict": false
+},
+{
+"id": "editor.action.formatDocument",
+"cond": "editorHasDocumentFormattingProvider && editorTextFocus && !editorRead…",
+"conflict": false
+},
+{
+"id": "editor.action.formatSelection",
+"cond": "editorHasDocumentSelectionFormattingProvider && editorTextFocus && !e…",
+"conflict": false
+},
+{
+"id": "textEditor.commands.go.back",
+"cond": "いつでも",
+"conflict": false
+},
+{
+"id": "textEditor.commands.go.forward",
+"cond": "いつでも",
+"conflict": false
+},
+{
+"id": "editor.action.goToBottomHover",
+"cond": "editorHoverFocused",
+"conflict": false
+},
+{
+"id": "editor.action.jumpToBracket",
+"cond": "editorTextFocus",
+"conflict": false
+},
+{
+"id": "textEditor.commands.go.lastEdit",
+"cond": "いつでも",
+"conflict": false
+},
+{
+"id": "editor.action.gotoLine",
+"cond": "editorFocus",
+"conflict": false
+},
+{
+"id": "workbench.action.editor.nextChange",
+"cond": "editorTextFocus",
+"conflict": false
+},
+{
+"id": "editor.action.marker.next",
+"cond": "editorFocus",
+"conflict": false
+},
+{
+"id": "editor.action.marker.nextInFiles",
+"cond": "editorFocus",
+"conflict": false
+},
+{
+"id": "editor.action.wordHighlight.next",
+"cond": "editorTextFocus && hasWordHighlights",
+"conflict": false
+},
+{
+"id": "workbench.action.editor.previousChange",
+"cond": "editorTextFocus",
+"conflict": false
+},
+{
+"id": "editor.action.marker.prev",
+"cond": "editorFocus",
+"conflict": false
+},
+{
+"id": "editor.action.marker.prevInFiles",
+"cond": "editorFocus",
+"conflict": false
+},
+{
+"id": "editor.action.wordHighlight.prev",
+"cond": "editorTextFocus && hasWordHighlights",
+"conflict": false
+},
+{
+"id": "languages.workspace.symbol",
+"cond": "いつでも",
+"conflict": false
+},
+{
+"id": "editor.action.quickOutline",
+"cond": "editorFocus && editorHasDocumentSymbolProvider",
+"conflict": false
+},
+{
+"id": "editor.action.goToTopHover",
+"cond": "editorHoverFocused",
+"conflict": false
+},
+{
+"id": "goToNextReference",
+"cond": "inReferenceSearchEditor || referenceSearchVisible",
+"conflict": false
+},
+{
+"id": "goToPreviousReference",
+"cond": "inReferenceSearchEditor || referenceSearchVisible",
+"conflict": false
+},
+{
+"id": "terminal:find:cancel",
+"cond": "terminalHideSearch",
+"conflict": false
+},
+{
+"id": "editor.action.inlineSuggest.hide",
+"cond": "inlineEditIsVisible || inlineSuggestionVisible / inInlineEditsPreviewEditor",
+"conflict": false
+},
+{
+"id": "notifications.commands.hide",
+"cond": "notificationsVisible",
+"conflict": false
+},
+{
+"id": "editor.action.hideColorPicker",
+"cond": "standaloneColorPickerVisible",
+"conflict": false
+},
+{
+"id": "hideCodeActionWidget",
+"cond": "codeActionMenuVisible",
+"conflict": false
+},
+{
+"id": "hideSuggestWidget",
+"cond": "suggestWidgetVisible && textInputFocus",
+"conflict": false
+},
+{
+"id": "history.showNext",
+"cond": "historyNavigationForwardsEnabled && historyNavigationWidgetFocus && !…",
+"conflict": false
+},
+{
+"id": "history.showPrevious",
+"cond": "historyNavigationBackwardsEnabled && historyNavigationWidgetFocus && …",
+"conflict": false
+},
+{
+"id": "editor.action.indentLines",
+"cond": "editorTextFocus && !editorReadonly",
+"conflict": false
+},
+{
+"id": "editor.debug.action.inlineBreakpoint",
+"cond": "editorTextFocus",
+"conflict": false
+},
+{
+"id": "editor.action.insertColorWithStandaloneColorPicker",
+"cond": "standaloneColorPickerFocused",
+"conflict": false
+},
+{
+"id": "editor.action.insertLineBefore",
+"cond": "editorTextFocus && !editorReadonly",
+"conflict": false
+},
+{
+"id": "editor.action.insertLineAfter",
+"cond": "editorTextFocus && !editorReadonly",
+"conflict": false
+},
+{
+"id": "insertBestCompletion",
+"cond": "atEndOfWord && textInputFocus && !hasOtherSuggestions && !inSnippetMo…",
+"conflict": false
+},
+{
+"id": "insertNextSuggestion",
+"cond": "hasOtherSuggestions && textInputFocus && !inSnippetMode && !suggestWi…",
+"conflict": false
+},
+{
+"id": "insertPrevSuggestion",
+"cond": "hasOtherSuggestions && textInputFocus && !inSnippetMode && !suggestWi…",
+"conflict": false
+},
+{
+"id": "editor.action.joinLines",
+"cond": "editorTextFocus && !editorReadonly",
+"conflict": false
+},
+{
+"id": "editor.action.inlineSuggest.jump",
+"cond": "inlineEditIsVisible && tabShouldJumpToInlineEdit && !editorHoverFocus…",
+"conflict": false
+},
+{
+"id": "jumpToNextSnippetPlaceholder",
+"cond": "hasNextTabstop && inSnippetMode && textInputFocus",
+"conflict": false
+},
+{
+"id": "jumpToPrevSnippetPlaceholder",
+"cond": "hasPrevTabstop && inSnippetMode && textInputFocus",
+"conflict": false
+},
+{
+"id": "workbench.action.keepEditor",
+"cond": "いつでも",
+"conflict": false
+},
+{
+"id": "leaveEditorMessage",
+"cond": "messageVisible",
+"conflict": false
+},
+{
+"id": "leaveSnippet",
+"cond": "inSnippetMode && textInputFocus",
+"conflict": false
+},
+{
+"id": "lineBreakInsert",
+"cond": "textInputFocus && !editorReadonly",
+"conflict": false
+},
+{
+"id": "editor.action.moveSelectionToNextFindMatch",
+"cond": "editorFocus",
+"conflict": false
+},
+{
+"id": "editor.action.moveLinesDownAction",
+"cond": "editorTextFocus && !editorReadonly",
+"conflict": false
+},
+{
+"id": "editor.action.moveLinesUpAction",
+"cond": "editorTextFocus && !editorReadonly",
+"conflict": false
+},
+{
+"id": "workbench.action.files.pickNewFile",
+"cond": "いつでも",
+"conflict": false
+},
+{
+"id": "workbench.action.files.newUntitledFile",
+"cond": "いつでも",
+"conflict": false
+},
+{
+"id": "workbench.action.newWindow",
+"cond": "いつでも",
+"conflict": true
+},
+{
+"id": "notebook.cell.copy",
+"cond": "notebookEditorFocused && !inputFocus && !notebookOutputFocused",
+"conflict": false
+},
+{
+"id": "notebook.cell.cut",
+"cond": "notebookEditorFocused && !inputFocus && !notebookOutputFocused",
+"conflict": false
+},
+{
+"id": "notebook.cell.edit",
+"cond": "!editorTextFocus && !inputFocus && notebookEditorFocused && notebookC…",
+"conflict": false
+},
+{
+"id": "notebook.cell.paste",
+"cond": "notebookEditorFocused && !inputFocus && !notebookOutputFocused",
+"conflict": false
+},
+{
+"id": "notebook.cell.split",
+"cond": "editorTextFocus && notebookEditorFocused && notebookCellFocused",
+"conflict": false
+},
+{
+"id": "notebook.cell.stop-edit",
+"cond": "editorTextFocus && notebookEditorFocused && !suggestWidgetVisible / editorTextFocus && notebookEditorFocused && notebookCellType == 'mark…",
+"conflict": false
+},
+{
+"id": "notebook.centerActiveCell",
+"cond": "notebookEditorFocused",
+"conflict": false
+},
+{
+"id": "notebook.change-selected-cell",
+"cond": "(!editorTextFocus || cellEditorCursorPositionLastLine) && !suggestWid… / (!editorTextFocus || cellEditorCursorPositionFirstLine) && !suggestWi…",
+"conflict": false
+},
+{
+"id": "notebook.find",
+"cond": "notebookEditorFocused",
+"conflict": false
+},
+{
+"id": "callhierarchy:open",
+"cond": "いつでも",
+"conflict": false
+},
+{
+"id": "file-search.openFile",
+"cond": "いつでも",
+"conflict": false
+},
+{
+"id": "keymaps:open",
+"cond": "いつでも",
+"conflict": false
+},
+{
+"id": "workspace:openRecent",
+"cond": "いつでも",
+"conflict": false
+},
+{
+"id": "preferences:open",
+"cond": "いつでも",
+"conflict": false
+},
+{
+"id": "workspace:openWorkspace",
+"cond": "いつでも",
+"conflict": false
+},
+{
+"id": "workspace:open",
+"cond": "いつでも",
+"conflict": false
+},
+{
+"id": "openReferenceToSide",
+"cond": "listFocus && referenceSearchVisible && !inputFocus && !treeElementCan…",
+"conflict": false
+},
+{
+"id": "editor.action.organizeImports",
+"cond": "textInputFocus && !editorReadonly && supportedCodeAction =~ /(\\s|^)so…",
+"conflict": false
+},
+{
+"id": "outdent",
+"cond": "editorTextFocus && !editorReadonly && !editorTabMovesFocus",
+"conflict": false
+},
+{
+"id": "editor.action.outdentLines",
+"cond": "editorTextFocus && !editorReadonly",
+"conflict": false
+},
+{
+"id": "editor.action.pageDownHover",
+"cond": "editorHoverFocused",
+"conflict": false
+},
+{
+"id": "editor.action.pageUpHover",
+"cond": "editorHoverFocused",
+"conflict": false
+},
+{
+"id": "core.paste",
+"cond": "いつでも",
+"conflict": false
+},
+{
+"id": "workbench.action.terminal.paste",
+"cond": "terminalFocus",
+"conflict": false
+},
+{
+"id": "workbench.action.debug.pause",
+"cond": "inDebugMode",
+"conflict": false
+},
+{
+"id": "workbench.action.pinEditor",
+"cond": "!activeEditorIsPinned",
+"conflict": false
+},
+{
+"id": "previewSelectedCodeAction",
+"cond": "codeActionMenuVisible",
+"conflict": false
+},
+{
+"id": "editor.action.quickFix",
+"cond": "editorHasCodeActionsProvider && textInputFocus && !editorReadonly",
+"conflict": false
+},
+{
+"id": "quickInput.accept",
+"cond": "inQuickInput && !isComposing && quickInputType != 'quickWidget'",
+"conflict": false
+},
+{
+"id": "quickInput.acceptInBackground",
+"cond": "cursorAtEndOfQuickInputBox && inQuickInput && quickInputType == 'quic…",
+"conflict": false
+},
+{
+"id": "quickInput.first",
+"cond": "inQuickInput && quickInputType == 'quickPick' || inQuickInput && quic…",
+"conflict": false
+},
+{
+"id": "quickInput.hide",
+"cond": "inQuickInput",
+"conflict": false
+},
+{
+"id": "quickInput.last",
+"cond": "inQuickInput && quickInputType == 'quickPick' || inQuickInput && quic…",
+"conflict": false
+},
+{
+"id": "quickInput.next",
+"cond": "inQuickInput && quickInputType == 'quickPick' || inQuickInput && quic…",
+"conflict": false
+},
+{
+"id": "quickInput.nextSeparator",
+"cond": "inQuickInput && quickInputType == 'quickPick' || inQuickInput && quic…",
+"conflict": false
+},
+{
+"id": "quickInput.nextSeparatorWithQuickAccessFallback",
+"cond": "inQuickInput && quickInputType == 'quickPick' || inQuickInput && quic…",
+"conflict": false
+},
+{
+"id": "quickInput.pageNext",
+"cond": "inQuickInput && quickInputType == 'quickPick' || inQuickInput && quic…",
+"conflict": false
+},
+{
+"id": "quickInput.pagePrevious",
+"cond": "inQuickInput && quickInputType == 'quickPick' || inQuickInput && quic…",
+"conflict": false
+},
+{
+"id": "quickInput.previous",
+"cond": "inQuickInput && quickInputType == 'quickPick' || inQuickInput && quic…",
+"conflict": false
+},
+{
+"id": "quickInput.previousSeparator",
+"cond": "inQuickInput && quickInputType == 'quickPick' || inQuickInput && quic…",
+"conflict": false
+},
+{
+"id": "quickInput.previousSeparatorWithQuickAccessFallback",
+"cond": "inQuickInput && quickInputType == 'quickPick' || inQuickInput && quic…",
+"conflict": false
+},
+{
+"id": "quickInput.toggleCheckbox",
+"cond": "inQuickInput && !inputFocus && quickInputType == 'quickPick' || inQui…",
+"conflict": false
+},
+{
+"id": "quickInput.toggleHover",
+"cond": "inQuickInput && quickInputType == 'quickPick' || inQuickInput && quic…",
+"conflict": false
+},
+{
+"id": "core.redo",
+"cond": "いつでも",
+"conflict": false
+},
+{
+"id": "editor.action.refactor",
+"cond": "editorHasCodeActionsProvider && textInputFocus && !editorReadonly",
+"conflict": false
+},
+{
+"id": "view.reload",
+"cond": "いつでも",
+"conflict": false
+},
+{
+"id": "editor.action.removeBrackets",
+"cond": "editorTextFocus",
+"conflict": false
+},
+{
+"id": "editor.action.removeCommentLine",
+"cond": "editorTextFocus && !editorReadonly",
+"conflict": false
+},
+{
+"id": "editor.removeManualFoldingRanges",
+"cond": "editorTextFocus && foldingEnabled",
+"conflict": false
+},
+{
+"id": "removeSecondaryCursors",
+"cond": "editorHasMultipleSelections && textInputFocus",
+"conflict": false
+},
+{
+"id": "file.rename",
+"cond": "filesExplorerFocus",
+"conflict": false
+},
+{
+"id": "editor.action.rename",
+"cond": "editorHasRenameProvider && editorTextFocus && !editorReadonly",
+"conflict": false
+},
+{
+"id": "workbench.action.reopenClosedEditor",
+"cond": "いつでも",
+"conflict": false
+},
+{
+"id": "core.replace",
+"cond": "いつでも",
+"conflict": false
+},
+{
+"id": "editor.action.startFindReplaceAction",
+"cond": "editorFocus || editorIsOpen",
+"conflict": false
+},
+{
+"id": "editor.action.inPlaceReplace.down",
+"cond": "editorTextFocus && !editorReadonly",
+"conflict": false
+},
+{
+"id": "editor.action.inPlaceReplace.up",
+"cond": "editorTextFocus && !editorReadonly",
+"conflict": false
+},
+{
+"id": "task:run:last",
+"cond": "!textInputFocus || editorReadonly",
+"conflict": false
+},
+{
+"id": "view.resetZoom",
+"cond": "いつでも",
+"conflict": false
+},
+{
+"id": "workbench.action.debug.restart",
+"cond": "inDebugMode",
+"conflict": false
+},
+{
+"id": "navigator.reveal",
+"cond": "いつでも",
+"conflict": false
+},
+{
+"id": "revealFileInOS",
+"cond": "filesExplorerFocus",
+"conflict": false
+},
+{
+"id": "revealReference",
+"cond": "listFocus && referenceSearchVisible && !inputFocus && !treeElementCan…",
+"conflict": false
+},
+{
+"id": "core.save",
+"cond": "いつでも",
+"conflict": false
+},
+{
+"id": "core.saveAll",
+"cond": "いつでも",
+"conflict": false
+},
+{
+"id": "file.saveAs",
+"cond": "いつでも",
+"conflict": false
+},
+{
+"id": "core.saveWithoutFormatting",
+"cond": "いつでも",
+"conflict": false
+},
+{
+"id": "scm.acceptInput",
+"cond": "scmFocus",
+"conflict": false
+},
+{
+"id": "terminal:scroll:line:down",
+"cond": "terminalFocus",
+"conflict": false
+},
+{
+"id": "terminal:scroll:page:down",
+"cond": "terminalFocus",
+"conflict": false
+},
+{
+"id": "editor.action.scrollDownHover",
+"cond": "editorHoverFocused",
+"conflict": false
+},
+{
+"id": "editor.action.scrollLeftHover",
+"cond": "editorHoverFocused",
+"conflict": false
+},
+{
+"id": "editor.action.scrollRightHover",
+"cond": "editorHoverFocused",
+"conflict": false
+},
+{
+"id": "terminal:scroll:top",
+"cond": "terminalFocus",
+"conflict": false
+},
+{
+"id": "terminal:scroll:line:up",
+"cond": "terminalFocus",
+"conflict": false
+},
+{
+"id": "terminal:scroll:page:up",
+"cond": "terminalFocus",
+"conflict": false
+},
+{
+"id": "editor.action.scrollUpHover",
+"cond": "editorHoverFocused",
+"conflict": false
+},
+{
+"id": "scrollLineDown",
+"cond": "textInputFocus",
+"conflict": false
+},
+{
+"id": "scrollLineUp",
+"cond": "textInputFocus",
+"conflict": false
+},
+{
+"id": "scrollPageDown",
+"cond": "textInputFocus",
+"conflict": false
+},
+{
+"id": "scrollPageUp",
+"cond": "textInputFocus",
+"conflict": false
+},
+{
+"id": "search.action.replace",
+"cond": "searchViewletFocus && replaceActive",
+"conflict": true
+},
+{
+"id": "search.action.replaceAll",
+"cond": "searchViewletFocus && replaceActive",
+"conflict": true
+},
+{
+"id": "core.selectAll",
+"cond": "いつでも",
+"conflict": true
+},
+{
+"id": "terminal:select:all",
+"cond": "terminalFocus",
+"conflict": false
+},
+{
+"id": "editor.action.selectHighlights",
+"cond": "editorFocus",
+"conflict": false
+},
+{
+"id": "editor.action.selectFromAnchorToCursor",
+"cond": "editorTextFocus && selectionAnchorSet",
+"conflict": false
+},
+{
+"id": "selectNextCodeAction",
+"cond": "codeActionMenuVisible",
+"conflict": false
+},
+{
+"id": "selectNextPageSuggestion",
+"cond": "suggestWidgetMultipleSuggestions && suggestWidgetVisible && textInput…",
+"conflict": false
+},
+{
+"id": "selectNextSuggestion",
+"cond": "suggestWidgetMultipleSuggestions && suggestWidgetVisible && textInput…",
+"conflict": false
+},
+{
+"id": "selectPrevCodeAction",
+"cond": "codeActionMenuVisible",
+"conflict": false
+},
+{
+"id": "selectPrevPageSuggestion",
+"cond": "suggestWidgetMultipleSuggestions && suggestWidgetVisible && textInput…",
+"conflict": false
+},
+{
+"id": "selectPrevSuggestion",
+"cond": "suggestWidgetMultipleSuggestions && suggestWidgetVisible && textInput…",
+"conflict": false
+},
+{
+"id": "editor.action.setSelectionAnchor",
+"cond": "editorTextFocus",
+"conflict": false
+},
+{
+"id": "workbench.action.showAllEditors",
+"cond": "いつでも",
+"conflict": false
+},
+{
+"id": "editor.action.showContextMenu",
+"cond": "textInputFocus",
+"conflict": false
+},
+{
+"id": "editor.action.dirtydiff.next",
+"cond": "editorTextFocus",
+"conflict": false
+},
+{
+"id": "editor.action.inlineSuggest.showNext",
+"cond": "inlineSuggestionVisible && !editorReadonly",
+"conflict": false
+},
+{
+"id": "core.nextTab",
+"cond": "いつでも",
+"conflict": false
+},
+{
+"id": "editor.action.showHover",
+"cond": "editorTextFocus",
+"conflict": false
+},
+{
+"id": "editor.action.dirtydiff.previous",
+"cond": "editorTextFocus",
+"conflict": false
+},
+{
+"id": "editor.action.inlineSuggest.showPrevious",
+"cond": "inlineSuggestionVisible && !editorReadonly",
+"conflict": false
+},
+{
+"id": "core.previousTab",
+"cond": "いつでも",
+"conflict": false
+},
+{
+"id": "showNextParameterHint",
+"cond": "editorFocus && parameterHintsMultipleSignatures && parameterHintsVisible",
+"conflict": false
+},
+{
+"id": "showPrevParameterHint",
+"cond": "editorFocus && parameterHintsMultipleSignatures && parameterHintsVisible",
+"conflict": false
+},
+{
+"id": "editor.action.smartSelect.shrink",
+"cond": "editorTextFocus",
+"conflict": false
+},
+{
+"id": "workbench.action.splitEditor",
+"cond": "いつでも",
+"conflict": false
+},
+{
+"id": "workbench.action.splitEditorOrthogonal",
+"cond": "いつでも",
+"conflict": false
+},
+{
+"id": "workbench.action.debug.start",
+"cond": "!inDebugMode",
+"conflict": false
+},
+{
+"id": "editor.action.linkedEditing",
+"cond": "editorHasRenameProvider && editorTextFocus && !editorReadonly",
+"conflict": false
+},
+{
+"id": "workbench.action.debug.run",
+"cond": "!inDebugMode",
+"conflict": false
+},
+{
+"id": "workbench.action.debug.stepInto",
+"cond": "inDebugMode",
+"conflict": false
+},
+{
+"id": "workbench.action.debug.stepOut",
+"cond": "inDebugMode",
+"conflict": false
+},
+{
+"id": "workbench.action.debug.stepOver",
+"cond": "inDebugMode",
+"conflict": false
+},
+{
+"id": "workbench.action.debug.stop",
+"cond": "inDebugMode",
+"conflict": false
+},
+{
+"id": "typehierarchy:open-subtype",
+"cond": "いつでも",
+"conflict": false
+},
+{
+"id": "suggestWidgetCopy",
+"cond": "suggestWidgetDetailsFocused",
+"conflict": false
+},
+{
+"id": "tab",
+"cond": "editorTextFocus && !editorReadonly && !editorTabMovesFocus",
+"conflict": false
+},
+{
+"id": "editor.action.blockComment",
+"cond": "editorTextFocus && !editorReadonly",
+"conflict": false
+},
+{
+"id": "core.toggle.bottom.panel",
+"cond": "いつでも",
+"conflict": false
+},
+{
+"id": "editor.debug.action.toggleBreakpoint",
+"cond": "editorTextFocus",
+"conflict": false
+},
+{
+"id": "callhierarchy:toggle",
+"cond": "いつでも",
+"conflict": false
+},
+{
+"id": "debug:toggle",
+"cond": "いつでも",
+"conflict": false
+},
+{
+"id": "debug:console:toggle",
+"cond": "いつでも",
+"conflict": false
+},
+{
+"id": "theia.toggleDevTools",
+"cond": "いつでも",
+"conflict": false
+},
+{
+"id": "fileNavigator:toggle",
+"cond": "いつでも",
+"conflict": false
+},
+{
+"id": "vsxExtensions.toggle",
+"cond": "いつでも",
+"conflict": false
+},
+{
+"id": "editor.toggleFold",
+"cond": "editorTextFocus && foldingEnabled",
+"conflict": false
+},
+{
+"id": "editor.toggleFoldRecursively",
+"cond": "editorTextFocus && foldingEnabled",
+"conflict": false
+},
+{
+"id": "workbench.action.toggleFullScreen",
+"cond": "いつでも",
+"conflict": false
+},
+{
+"id": "navigator.toggle.hidden.files",
+"cond": "filesExplorerFocus",
+"conflict": false
+},
+{
+"id": "editor.action.commentLine",
+"cond": "editorTextFocus && !editorReadonly",
+"conflict": false
+},
+{
+"id": "core.toggleMaximized",
+"cond": "いつでも",
+"conflict": false
+},
+{
+"id": "outlineView:toggle",
+"cond": "いつでも",
+"conflict": false
+},
+{
+"id": "output:toggle",
+"cond": "いつでも",
+"conflict": false
+},
+{
+"id": "problemsView:toggle",
+"cond": "いつでも",
+"conflict": false
+},
+{
+"id": "scmView:toggle",
+"cond": "いつでも",
+"conflict": false
+},
+{
+"id": "workbench.action.terminal.toggleTerminal",
+"cond": "いつでも",
+"conflict": true
+},
+{
+"id": "typehierarchy:toggle",
+"cond": "いつでも",
+"conflict": false
+},
+{
+"id": "toggleExplainMode",
+"cond": "suggestWidgetVisible",
+"conflict": false
+},
+{
+"id": "toggleFindCaseSensitive",
+"cond": "editorFocus",
+"conflict": false
+},
+{
+"id": "toggleFindInSelection",
+"cond": "editorFocus",
+"conflict": false
+},
+{
+"id": "toggleFindRegex",
+"cond": "editorFocus",
+"conflict": false
+},
+{
+"id": "toggleFindWholeWord",
+"cond": "editorFocus",
+"conflict": false
+},
+{
+"id": "togglePeekWidgetFocus",
+"cond": "inReferenceSearchEditor || referenceSearchVisible",
+"conflict": false
+},
+{
+"id": "togglePreserveCase",
+"cond": "editorFocus",
+"conflict": false
+},
+{
+"id": "toggleSuggestionDetails",
+"cond": "suggestWidgetHasFocusedSuggestion && suggestWidgetVisible && textInpu…",
+"conflict": false
+},
+{
+"id": "toggleSuggestionFocus",
+"cond": "suggestWidgetVisible && textInputFocus",
+"conflict": false
+},
+{
+"id": "editor.action.transposeLetters",
+"cond": "textInputFocus && !editorReadonly",
+"conflict": false
+},
+{
+"id": "editor.action.triggerParameterHints",
+"cond": "editorHasSignatureHelpProvider && editorTextFocus",
+"conflict": false
+},
+{
+"id": "editor.action.triggerSuggest",
+"cond": "editorHasCompletionItemProvider && textInputFocus && !editorReadonly …",
+"conflict": false
+},
+{
+"id": "editor.action.trimTrailingWhitespace",
+"cond": "editorTextFocus && !editorReadonly",
+"conflict": false
+},
+{
+"id": "core.undo",
+"cond": "いつでも",
+"conflict": false
+},
+{
+"id": "editor.unfold",
+"cond": "editorTextFocus && foldingEnabled",
+"conflict": false
+},
+{
+"id": "editor.unfoldAll",
+"cond": "editorTextFocus && foldingEnabled",
+"conflict": false
+},
+{
+"id": "editor.unfoldAllExcept",
+"cond": "editorTextFocus && foldingEnabled",
+"conflict": false
+},
+{
+"id": "editor.unfoldAllMarkerRegions",
+"cond": "editorTextFocus && foldingEnabled",
+"conflict": false
+},
+{
+"id": "editor.unfoldRecursively",
+"cond": "editorTextFocus && foldingEnabled",
+"conflict": false
+},
+{
+"id": "workbench.action.unpinEditor",
+"cond": "activeEditorIsPinned",
+"conflict": false
+},
+{
+"id": "editor.action.toggleWordWrap",
+"cond": "いつでも",
+"conflict": false
+},
+{
+"id": "workbench.action.closeQuickOpen",
+"cond": "inQuickOpen",
+"conflict": false
+},
+{
+"id": "workbench.action.showCommands",
+"cond": "いつでも",
+"conflict": false
+},
+{
+"id": "workbench.action.showHover",
+"cond": "いつでも",
+"conflict": false
+},
+{
+"id": "view.zoomIn",
+"cond": "いつでも",
+"conflict": false
+},
+{
+"id": "view.zoomOut",
+"cond": "いつでも",
+"conflict": false
+}
+]
+}
