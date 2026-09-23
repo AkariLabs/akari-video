@@ -38,25 +38,24 @@
     user-select: none;
   }
   .panel.expanded {
-    width: 620px;
+    width: var(--expanded-width, 620px);
     height: auto;
     min-height: 92px;
-    max-height: 360px;
+    max-height: var(--expanded-max-height, 360px);
     padding: 0 10px 10px 0;
-    border: 1px solid var(--line);
-    border-radius: 0 0 16px 16px;
+    border-radius: 0;
     background: var(--panel);
-    box-shadow: 0 14px 34px rgba(0, 0, 0, .38);
   }
   .mainbar {
     display: flex;
-    align-items: flex-start;
+    align-items: center;
     width: 44px;
     min-height: 44px;
     touch-action: none;
   }
   .expanded .mainbar {
     width: 100%;
+    padding-block: 5px;
     padding-right: 34px;
     cursor: grab;
   }
@@ -82,20 +81,6 @@
     animation: breathe 2.7s ease-in-out infinite;
     transform: scale(var(--level, 1));
   }
-  .orb::after {
-    content: "";
-    position: absolute;
-    left: 50%;
-    top: 50%;
-    width: 8px;
-    height: 13px;
-    border: 2px solid white;
-    border-top-left-radius: 7px;
-    border-top-right-radius: 7px;
-    border-bottom: 0;
-    transform: translate(-50%, -58%);
-    opacity: .92;
-  }
   .mic.judging .orb { animation: judging .72s ease-in-out infinite; }
   .mic.off .orb {
     background: #71717a;
@@ -112,7 +97,7 @@
     display: none;
     min-width: 0;
     flex: 1;
-    padding: 6px 0 4px 6px;
+    padding-left: 6px;
   }
   .expanded .summary { display: block; }
   .heard {
@@ -128,6 +113,7 @@
     -webkit-line-clamp: 2;
   }
   .heard.partial { color: var(--muted); font-weight: 500; }
+  .heard:empty { display: none; }
   .outcome-row {
     display: flex;
     align-items: center;
@@ -135,14 +121,13 @@
     min-width: 0;
     margin-top: 4px;
   }
+  .heard:empty + .outcome-row { margin-top: 0; }
   .outcome {
     min-width: 0;
-    overflow: hidden;
     color: var(--muted);
     font-size: 11px;
     line-height: 1.35;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    overflow-wrap: anywhere;
   }
   .state {
     flex: none;
@@ -153,15 +138,23 @@
     font-size: 10px;
     line-height: 16px;
   }
+  .state[hidden] { display: none; }
   .state.exec, .state.judging { border-color: var(--accent); color: var(--accent); }
   .content { display: none; padding-left: 10px; }
-  .expanded .content { display: block; }
+  .expanded .content { display: block; padding-top: 1px; }
   .toolbar {
     display: flex;
     align-items: center;
     gap: 6px;
     min-height: 30px;
+    padding-top: 6px;
     border-top: 1px solid var(--line);
+  }
+  .toolbar .plain-button {
+    min-height: 24px;
+    padding: 2px 6px;
+    font-size: 10px;
+    line-height: 16px;
   }
   .plain-button, .undo-button {
     min-height: 24px;
@@ -221,7 +214,7 @@
   .details { padding: 7px; }
   .detail-grid {
     display: grid;
-    grid-template-columns: 58px minmax(88px, 1fr) 96px 45px minmax(98px, 1.3fr);
+    grid-template-columns: 58px minmax(0, 1fr) 72px 36px minmax(0, 1.3fr);
     align-items: center;
     gap: 4px 7px;
     font-size: 10px;
@@ -307,7 +300,7 @@
       <div id="heard" class="heard" data-testid="heard"></div>
       <div class="outcome-row">
         <div id="outcome" class="outcome">待機中</div>
-        <span id="state" class="state">待機</span>
+        <span id="state" class="state" hidden>待機</span>
       </div>
     </div>
   </div>
@@ -498,6 +491,9 @@
     listening = Boolean(on);
     mic.classList.toggle('off', !listening);
     mic.title = listening ? '聞いています（押すと止める）' : '止まっています（押すと始める）';
+    if (state.textContent === '待機' || state.textContent === '聞いています') {
+      setState(listening ? '聞いています' : '待機');
+    }
     renderMicNote();
   }
 
@@ -509,6 +505,7 @@
   function setState(text, kind = '') {
     state.textContent = text;
     state.className = `state${kind ? ` ${kind}` : ''}`;
+    state.hidden = text === '待機';
   }
 
   function formatTimestamp(seconds) {
@@ -838,11 +835,20 @@
     window.parent.postMessage({
       type: 'akari-companion-panel',
       width: clamp(Math.round(rect.width), 44, 720),
-      height: clamp(Math.round(rect.height), 44, 360),
+      height: clamp(Math.round(rect.height), 44, 720),
       mode,
       ...extra
     }, '*');
   }
+
+  window.addEventListener('message', (event) => {
+    if (event.source !== window.parent || event.data?.type !== 'akari-companion-frame') return;
+    const width = event.data.width;
+    if (typeof width !== 'number' || !Number.isFinite(width)) return;
+    panel.style.setProperty('--expanded-width', `${clamp(Math.round(width), 360, 720)}px`);
+    panel.style.setProperty('--expanded-max-height', '720px');
+    reportSize();
+  });
 
   // 位置は枠（シェルの側）が持っている。ここは「動いた差」だけを伝える
   // （中身に絶対位置を持たせると、つかんだ瞬間に画面の左端へ飛ぶ）。
