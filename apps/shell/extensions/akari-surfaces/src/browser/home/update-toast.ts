@@ -1,6 +1,11 @@
-import { injectable } from '@theia/core/shared/inversify';
+import URI from '@theia/core/lib/common/uri';
+import { BinaryBuffer } from '@theia/core/lib/common/buffer';
+import { EnvVariablesServer } from '@theia/core/lib/common/env-variables';
+import { FileService } from '@theia/filesystem/lib/browser/file-service';
+import { inject, injectable } from '@theia/core/shared/inversify';
 import { UpdateStage, noticeStorageKey, shouldAutoShowNotice } from './home-model';
 import { AKARI_APP_ICON } from '../settings/app-icon';
+import { UPDATER_CANCEL_REQUEST_FILENAME } from '../../electron-common/electron-api';
 
 export interface UpdateToastState {
     stage: UpdateStage;
@@ -20,14 +25,19 @@ export class AkariUpdateToast {
     protected observer: MutationObserver | undefined;
     protected state: UpdateToastState | undefined;
     protected visible = false;
+    protected cancelledVersion: string | undefined;
+    @inject(FileService) protected readonly files!: FileService;
+    @inject(EnvVariablesServer) protected readonly env!: EnvVariablesServer;
     onDownload: () => void = () => undefined;
     onRestart: () => void = () => undefined;
     onDismiss: () => void = () => undefined;
 
     setState(next: UpdateToastState | undefined, options: { dismissed?: boolean } = {}): void {
+        const previousStage = this.state?.stage;
         const autoShow = shouldAutoShowNotice(next, this.state, !!next && !!sessionStorage.getItem(noticeStorageKey(next.version)), options.dismissed);
         this.state = next;
-        if (autoShow) { this.visible = true; }
+        if (autoShow && !(next?.stage === 'found' && next.version === this.cancelledVersion)) { this.visible = true; }
+        if (next?.stage === 'downloading' && previousStage !== 'downloading') { this.cancelledVersion = undefined; }
         if (!next) { this.visible = false; }
         this.render();
     }
@@ -72,6 +82,21 @@ export class AkariUpdateToast {
 
     protected later(): void {
         if (this.state) { sessionStorage.setItem(noticeStorageKey(this.state.version), '1'); }
+        this.visible = false;
+        this.render();
+    }
+
+    protected async cancelDownload(): Promise<void> {
+        const state = this.state;
+        if (!state || state.stage !== 'downloading') { return; }
+        const override = await this.env.getValue('AKARI_HOME');
+        const home = override?.value ? URI.fromFilePath(override.value) :
+            new URI(await this.env.getHomeDirUri()).resolve('.akari');
+        await this.files.createFolder(home, { fromUserGesture: false });
+        await this.files.writeFile(home.resolve(UPDATER_CANCEL_REQUEST_FILENAME),
+            BinaryBuffer.fromString(JSON.stringify({ version: state.version, time: Date.now() })));
+        this.cancelledVersion = state.version;
+        sessionStorage.removeItem(noticeStorageKey(state.version));
         this.visible = false;
         this.render();
     }
@@ -157,7 +182,7 @@ export class AkariUpdateToast {
             toast.appendChild(copy);
             const actions = this.element('div', 'akari-update-actions');
             if (state.stage === 'found') { actions.append(this.button('後で', () => this.later()), this.button('ダウンロード', () => this.onDownload(), true)); }
-            if (state.stage === 'downloading') { actions.append(this.button('やめる', () => this.later())); }
+            if (state.stage === 'downloading') { actions.append(this.button('やめる', () => { void this.cancelDownload().catch(error => console.error('[akari-surfaces] 更新の取消要求に失敗しました:', error)); })); }
             if (state.stage === 'ready') { actions.append(this.button('次に起動したとき', () => this.later()), this.button('更新して再起動', () => this.onRestart(), true)); }
             toast.appendChild(actions);
             host.appendChild(toast);

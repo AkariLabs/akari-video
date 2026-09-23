@@ -1,10 +1,10 @@
 import { ElectronMainApplication, ElectronMainApplicationContribution } from '@theia/core/lib/electron-main/electron-main-application';
 import { app, BrowserWindow, ipcMain } from '@theia/core/electron-shared/electron';
 import { injectable } from '@theia/core/shared/inversify';
-import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
+import { appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync, unlinkSync, writeFileSync } from 'fs';
 import { homedir } from 'os';
 import { dirname, join } from 'path';
-import { autoUpdater, UpdateInfo } from 'electron-updater';
+import { autoUpdater, UpdateCheckResult, UpdateInfo } from 'electron-updater';
 import { parseUpdateCache } from '../common/update-feed';
 import {
     buildFallbackAppUpdateYml,
@@ -16,11 +16,13 @@ import {
     ShellUpdaterEvent,
     shouldApplyFeedUrlFallback
 } from '../common/shell-update-applier';
-import { CHANNEL_UPDATER_CHECK, CHANNEL_UPDATER_EVENT, CHANNEL_UPDATER_GET_STATE, CHANNEL_UPDATER_RESTART } from '../electron-common/electron-api';
+import { CHANNEL_UPDATER_CHECK, CHANNEL_UPDATER_EVENT, CHANNEL_UPDATER_GET_STATE, CHANNEL_UPDATER_RESTART,
+    isUpdaterCancelRequest, isUpdaterTemporaryFileName, UPDATER_CANCEL_REQUEST_FILENAME, UpdaterRequestTracker } from '../electron-common/electron-api';
 
 /** U2 のフロントエンド/CLI と共有するキャッシュファイル名（update-feed.ts の同名定数と同じ値 — 複製の経緯は同ファイル冒頭コメント参照）。 */
 const UPDATE_CACHE_FILENAME = 'update-check.json';
 const UPDATER_LOG_FILENAME = 'updater.log';
+const TEST_UPDATE_CONFIG_FILENAME = 'akari-updater-l1.yml';
 
 /**
  * 定期再チェック間隔（4 時間）。起動時 1 回だけのチェックだと、アプリを何日も
@@ -47,6 +49,9 @@ const CHECK_INTERVAL_MS = 4 * 60 * 60 * 1000;
 @injectable()
 export class AkariUpdaterElectronMain implements ElectronMainApplicationContribution {
     protected lastEvent: ShellUpdaterEvent | undefined;
+    protected activeDownload: { version: string; timer: ReturnType<typeof setInterval>; startedAt: number; result: UpdateCheckResult; cancelling: boolean } | undefined;
+    protected readonly updaterRequests = new UpdaterRequestTracker();
+    protected requestTrackingInstalled = false;
 
     onStart(_application: ElectronMainApplication): void {
         ipcMain.handle(CHANNEL_UPDATER_GET_STATE, async (): Promise<ShellUpdaterEvent | undefined> => this.lastEvent);
@@ -68,8 +73,15 @@ export class AkariUpdaterElectronMain implements ElectronMainApplicationContribu
     }
 
     protected configureAndCheck(): void {
+        const testFeedUrl = process.env.AKARI_UPDATER_TEST_FEED_URL;
         const appUpdateYmlExists = existsSync(join(process.resourcesPath, 'app-update.yml'));
-        if (shouldApplyFeedUrlFallback(app.isPackaged, appUpdateYmlExists)) {
+        if (testFeedUrl) {
+            const configPath = join(app.getPath('userData'), TEST_UPDATE_CONFIG_FILENAME);
+            mkdirSync(dirname(configPath), { recursive: true });
+            writeFileSync(configPath, `provider: generic\nurl: ${JSON.stringify(testFeedUrl)}\nupdaterCacheDirName: akari-video-updater-l1\n`, 'utf8');
+            autoUpdater.forceDevUpdateConfig = true;
+            autoUpdater.updateConfigPath = configPath;
+        } else if (shouldApplyFeedUrlFallback(app.isPackaged, appUpdateYmlExists)) {
             autoUpdater.setFeedURL(FALLBACK_FEED_OPTIONS);
             this.applyFallbackUpdateConfig();
         }
@@ -77,6 +89,7 @@ export class AkariUpdaterElectronMain implements ElectronMainApplicationContribu
         autoUpdater.autoDownload = true;
         autoUpdater.autoInstallOnAppQuit = true;
         autoUpdater.allowPrerelease = this.readUpdateSettings().channel === 'prerelease';
+        this.trackUpdaterRequests();
 
         autoUpdater.on('checking-for-update', () => this.emit({ kind: 'checking-for-update' }));
         autoUpdater.on('update-available', (info: UpdateInfo) => this.emit({ kind: 'update-available', version: info.version }));
@@ -90,6 +103,29 @@ export class AkariUpdaterElectronMain implements ElectronMainApplicationContribu
         // （未署名の開発ビルド・オフライン・GitHub API 失敗のいずれもここに落ちる）。
         this.safeCheck();
         setInterval(() => this.safeCheck(), CHECK_INTERVAL_MS);
+    }
+
+    protected trackUpdaterRequests(): void {
+        if (this.requestTrackingInstalled) { return; }
+        this.requestTrackingInstalled = true;
+        // electron-updater 6.8.9 passes onCancel to HttpExecutor.doDownload but does not
+        // connect it to ClientRequest.abort(). Track the actual requests so cancelling
+        // also stops Chromium's in-flight transfer, including redirected requests.
+        const updater = autoUpdater as unknown as { httpExecutor?: { createRequest?: (...args: unknown[]) => unknown } | null };
+        const executor = updater.httpExecutor;
+        if (!executor || typeof executor.createRequest !== 'function') {
+            console.warn('[akari-surfaces] updater の createRequest が使えず、通信の追跡を省略しました');
+            return;
+        }
+        const original = executor.createRequest;
+        executor.createRequest = (...args: unknown[]): unknown => {
+            const request = Reflect.apply(original, executor, args);
+            try { return this.updaterRequests.track(request); }
+            catch (error) {
+                console.error('[akari-surfaces] updater 通信の追跡に失敗しました:', error);
+                return request;
+            }
+        };
     }
 
     /**
@@ -118,6 +154,7 @@ export class AkariUpdaterElectronMain implements ElectronMainApplicationContribu
     }
 
     protected safeCheck(manual = false): void {
+        if (this.activeDownload) { return; }
         const settings = this.readUpdateSettings();
         autoUpdater.allowPrerelease = settings.channel === 'prerelease';
         if (!manual && !settings.autoCheck) { return; }
@@ -125,9 +162,63 @@ export class AkariUpdaterElectronMain implements ElectronMainApplicationContribu
             this.recordUpdaterError('App Translocation を検知しました', new Error('App Translocation'));
             return;
         }
-        autoUpdater.checkForUpdates().catch(error => {
+        const startedAt = Date.now();
+        autoUpdater.checkForUpdates().then(result => {
+            if (!this.activeDownload && result?.isUpdateAvailable && result.cancellationToken && result.downloadPromise) {
+                this.watchDownload(result, startedAt);
+            }
+        }).catch(error => {
             this.recordUpdaterError('checkForUpdates に失敗しました', error);
         });
+    }
+
+    protected watchDownload(result: UpdateCheckResult, startedAt: number): void {
+        const version = result.updateInfo.version;
+        const active = { version, startedAt, result, cancelling: false, timer: undefined as unknown as ReturnType<typeof setInterval> };
+        const requestPath = join(process.env.AKARI_HOME || join(homedir(), '.akari'), UPDATER_CANCEL_REQUEST_FILENAME);
+        active.timer = setInterval(() => {
+            if (!existsSync(requestPath) || active.cancelling) { return; }
+            let request = '';
+            try { request = readFileSync(requestPath, 'utf8'); JSON.parse(request); }
+            catch (error) { console.error('[akari-surfaces] 取消要求の読み取りに失敗しました:', error); return; }
+            try { unlinkSync(requestPath); }
+            catch (error) { console.error('[akari-surfaces] 取消要求の削除に失敗しました:', error); return; }
+            if (!isUpdaterCancelRequest(request, version, startedAt, Date.now())) { return; }
+            active.cancelling = true;
+            clearInterval(active.timer);
+            result.cancellationToken!.cancel();
+            for (const error of this.updaterRequests.abortAll()) {
+                console.error('[akari-surfaces] 更新通信の中断に失敗しました:', error);
+            }
+            void this.finishCancellation(active);
+        }, 200);
+        this.activeDownload = active;
+        void result.downloadPromise!.then(() => {
+            if (!active.cancelling) { clearInterval(active.timer); if (this.activeDownload === active) { this.activeDownload = undefined; } }
+        }, () => {
+            if (!active.cancelling) { clearInterval(active.timer); if (this.activeDownload === active) { this.activeDownload = undefined; } }
+        });
+    }
+
+    protected async finishCancellation(active: { version: string; timer: ReturnType<typeof setInterval>; startedAt: number; result: UpdateCheckResult; cancelling: boolean }): Promise<void> {
+        let cancelled = false;
+        try { await active.result.downloadPromise; } catch { cancelled = true; }
+        if (!cancelled) { this.activeDownload = undefined; return; }
+        // AppUpdater.executeDownload clears pending on CancellationError. Remove only
+        // leftover temp-* files, including createTempUpdateFile's numbered fallback.
+        const helper = (autoUpdater as unknown as { downloadedUpdateHelper?: { cacheDirForPendingUpdate: string } }).downloadedUpdateHelper;
+        if (helper && existsSync(helper.cacheDirForPendingUpdate)) {
+            try {
+                for (const name of readdirSync(helper.cacheDirForPendingUpdate)) {
+                    if (isUpdaterTemporaryFileName(name)) {
+                        try { unlinkSync(join(helper.cacheDirForPendingUpdate, name)); }
+                        catch (error) { console.error('[akari-surfaces] 更新一時ファイルの削除に失敗しました:', error); }
+                    }
+                }
+            } catch (error) { console.error('[akari-surfaces] 更新一時ファイルの削除に失敗しました:', error); }
+        }
+        this.activeDownload = undefined;
+        this.emit({ kind: 'update-not-available' });
     }
 
     /**
