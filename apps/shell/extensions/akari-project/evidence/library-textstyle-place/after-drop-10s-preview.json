@@ -1,0 +1,23 @@
+{
+ "at": "2026-09-23T03:41:35.530Z",
+ "plates": [
+  {
+   "id": "caption-plate-c-0004-output-1",
+   "text": "お湯は少し冷ましてから注ぎます",
+   "classes": "caption-row-plate akari-caption-host--styled",
+   "stylePreset": null,
+   "color": "rgb(255, 255, 255)",
+   "background": "rgba(0, 0, 0, 0)",
+   "fontWeight": "700"
+  },
+  {
+   "id": "caption-plate-c-0005",
+   "text": "テキストを入力",
+   "classes": "caption-row-plate akari-caption-host--styled",
+   "stylePreset": null,
+   "color": "rgb(255, 255, 255)",
+   "background": "rgb(198, 40, 40)",
+   "fontWeight": "700"
+  }
+ ]
+}

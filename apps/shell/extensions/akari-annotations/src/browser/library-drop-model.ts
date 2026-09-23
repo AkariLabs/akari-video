@@ -15,7 +15,37 @@ export interface LibraryAssetDragPayload {
     title: string;
 }
 
-export type LibraryDragPayload = LibraryTransitionDragPayload | LibraryAssetDragPayload;
+export interface LibraryTextStyleDragPayload {
+    kind: 'textstyle';
+    id: string;
+}
+
+export type LibraryDragPayload = LibraryTransitionDragPayload | LibraryAssetDragPayload | LibraryTextStyleDragPayload;
+
+export function textStylePlaceOptions(payload: LibraryTextStyleDragPayload, start: number): { start: number; stylePreset: string } {
+    return { start, stylePreset: payload.id };
+}
+
+/** タイムラインの可視区間を出力時刻へ換算する。 */
+export function textStyleDropStart(clientX: number, stripLeft: number, stripWidth: number, viewStart: number, visibleDuration: number): number {
+    const ratio = stripWidth > 0 ? Math.min(1, Math.max(0, (clientX - stripLeft) / stripWidth)) : 0;
+    return Math.max(0, viewStart + ratio * visibleDuration);
+}
+
+/** placeText の既定 3 秒と同じく、出力がある場合だけ終端をその尺で切る。 */
+export function textStyleGhostEnd(start: number, outputDuration: number): number {
+    return outputDuration > 0 ? Math.min(start + 3, outputDuration) : start + 3;
+}
+
+export function textStyleDropBandLayout(
+    placedTextRow: { top: number; height: number } | undefined,
+    captionRow: { top: number } | undefined,
+    fallbackTop: number,
+    rowStride: number
+): { top: number; height: number } {
+    if (placedTextRow) return { top: placedTextRow.top, height: Math.max(rowStride, placedTextRow.height) };
+    return { top: captionRow ? captionRow.top - rowStride : fallbackTop, height: rowStride };
+}
 
 export function libraryAssetMaterialKind(category: string): 'audio' | 'video' | 'image' | undefined {
     switch (category) {
@@ -35,6 +65,10 @@ export function parseLibraryDragPayload(value: unknown): LibraryDragPayload | un
     if (!decoded || typeof decoded !== 'object' || Array.isArray(decoded)) return undefined;
     const candidate = decoded as Record<string, unknown>;
     if (candidate.kind === 'transition') return parseLibraryTransitionDragPayload(decoded);
+    if (candidate.kind === 'textstyle') {
+        return typeof candidate.id === 'string' && candidate.id.trim()
+            ? { kind: 'textstyle', id: candidate.id } : undefined;
+    }
     if (candidate.kind !== 'asset' || candidate.state === 'locked'
         || typeof candidate.category !== 'string' || !libraryAssetMaterialKind(candidate.category)
         || !['key', 'id', 'title'].every(key => typeof candidate[key] === 'string' && (candidate[key] as string).trim().length > 0)

@@ -44,7 +44,7 @@ export const LIBRARY_GROUPS = [
     {
         label: '文字・飾り',
         categories: [
-            { key: 'textstyle', label: 'テキストスタイル', icon: '字', hint: 'プレビューへドラッグ、＋でプレイヘッド位置に追加', status: 'live', chipKey: 'preset:textstyle' },
+            { key: 'textstyle', label: 'テキストスタイル', icon: '字', hint: 'タイムラインへドラッグ、＋でプレイヘッド位置に置く', status: 'live', chipKey: 'preset:textstyle' },
             { key: 'textanim', label: 'テキストアニメ', icon: '動', hint: '選択中のテロップに適用（次のラウンドで有効化）', status: 'live', chipKey: 'preset:textanim' },
             { key: 'font', label: 'フォント', icon: 'Aa', hint: '「使う」でこのプロジェクトのフォントに追加', status: 'live', chipKey: 'font' },
             { key: 'shapes', label: '図形', icon: '◇', hint: '図形素材は近日利用できるようになります', status: 'soon' },

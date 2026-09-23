@@ -1,0 +1,69 @@
+{
+ "presetId": "subtitle-news",
+ "dropSpec": "t=10@Base",
+ "at": "2026-09-23T03:16:07.474Z",
+ "card": {
+  "x": 87,
+  "y": 230,
+  "draggable": "true"
+ },
+ "drop": {
+  "x": 897,
+  "y": 563,
+  "targetTime": 10,
+  "row": "Base",
+  "pps": 47.11875
+ },
+ "dragIntercepted": true,
+ "mimeTypes": [
+  "application/x-akari-library-item"
+ ],
+ "payload": {
+  "kind": "textstyle",
+  "id": "subtitle-news"
+ },
+ "duringDrag": {
+  "marked": [],
+  "outlined": [
+   {
+    "cls": "",
+    "rect": {
+     "x": 897,
+     "y": 488,
+     "w": 142,
+     "h": 24
+    },
+    "outline": "rgb(249, 115, 22) solid 2px",
+    "border": "1px dashed rgb(77, 208, 200)",
+    "bg": "rgba(77, 208, 200, 0.22)",
+    "rejected": false
+   }
+  ],
+  "timelineScroll": {
+   "x": 425,
+   "y": 488,
+   "w": 632,
+   "h": 110,
+   "scrollTop": 0
+  },
+  "footer": []
+ },
+ "waitMs": 5034,
+ "captionsChanged": false,
+ "editChanged": false,
+ "newCaptions": [],
+ "afterDrop": {
+  "marked": [],
+  "outlined": [],
+  "timelineScroll": {
+   "x": 425,
+   "y": 488,
+   "w": 632,
+   "h": 110,
+   "scrollTop": 0
+  },
+  "footer": []
+ },
+ "chips": [],
+ "notices": []
+}

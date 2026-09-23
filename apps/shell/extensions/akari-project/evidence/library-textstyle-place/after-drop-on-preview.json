@@ -1,0 +1,122 @@
+{
+ "presetId": "subtitle-news",
+ "dropSpec": "673,143",
+ "at": "2026-09-23T03:41:55.781Z",
+ "card": {
+  "x": 87,
+  "y": 230,
+  "draggable": "true"
+ },
+ "drop": {
+  "x": 673,
+  "y": 143
+ },
+ "dragIntercepted": true,
+ "mimeTypes": [
+  "application/x-akari-library-item"
+ ],
+ "payload": {
+  "kind": "textstyle",
+  "id": "subtitle-news"
+ },
+ "atDragStart": {
+  "marked": [
+   {
+    "tag": "DIV",
+    "attrs": [
+     "data-akari-textstyle-drop-target=true"
+    ],
+    "rect": {
+     "x": 426,
+     "y": 444,
+     "w": 622,
+     "h": 24
+    },
+    "outline": "none rgb(204, 204, 204)",
+    "bg": "rgba(77, 208, 200, 0.22)"
+   }
+  ],
+  "outlined": [
+   {
+    "cls": "",
+    "rect": {
+     "x": 426,
+     "y": 444,
+     "w": 622,
+     "h": 24
+    },
+    "outline": "",
+    "border": "1px dashed rgb(77, 208, 200)",
+    "bg": "rgba(77, 208, 200, 0.22)",
+    "rejected": false
+   }
+  ],
+  "timelineScroll": {
+   "x": 425,
+   "y": 441,
+   "w": 632,
+   "h": 157,
+   "scrollTop": 0
+  },
+  "footer": []
+ },
+ "duringDrag": {
+  "marked": [
+   {
+    "tag": "DIV",
+    "attrs": [
+     "data-akari-textstyle-drop-target=true"
+    ],
+    "rect": {
+     "x": 426,
+     "y": 444,
+     "w": 622,
+     "h": 24
+    },
+    "outline": "none rgb(204, 204, 204)",
+    "bg": "rgba(77, 208, 200, 0.22)"
+   }
+  ],
+  "outlined": [
+   {
+    "cls": "",
+    "rect": {
+     "x": 426,
+     "y": 444,
+     "w": 622,
+     "h": 24
+    },
+    "outline": "",
+    "border": "1px dashed rgb(77, 208, 200)",
+    "bg": "rgba(77, 208, 200, 0.22)",
+    "rejected": false
+   }
+  ],
+  "timelineScroll": {
+   "x": 425,
+   "y": 441,
+   "w": 632,
+   "h": 157,
+   "scrollTop": 0
+  },
+  "footer": []
+ },
+ "waitMs": 5031,
+ "captionsChanged": false,
+ "editChanged": false,
+ "newCaptions": [],
+ "afterDrop": {
+  "marked": [],
+  "outlined": [],
+  "timelineScroll": {
+   "x": 425,
+   "y": 441,
+   "w": 632,
+   "h": 157,
+   "scrollTop": 0
+  },
+  "footer": []
+ },
+ "chips": [],
+ "notices": []
+}

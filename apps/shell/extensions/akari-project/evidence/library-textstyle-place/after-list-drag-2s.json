@@ -1,0 +1,166 @@
+{
+ "presetId": "narration-caption",
+ "dropSpec": "t=2@Base",
+ "at": "2026-09-23T03:41:21.862Z",
+ "card": {
+  "x": 154,
+  "y": 353,
+  "draggable": "true"
+ },
+ "drop": {
+  "x": 520,
+  "y": 518,
+  "targetTime": 2,
+  "row": "Base",
+  "pps": 47.11875
+ },
+ "dragIntercepted": true,
+ "mimeTypes": [
+  "application/x-akari-library-item"
+ ],
+ "payload": {
+  "kind": "textstyle",
+  "id": "narration-caption"
+ },
+ "atDragStart": {
+  "marked": [
+   {
+    "tag": "DIV",
+    "attrs": [
+     "data-akari-textstyle-drop-target=true"
+    ],
+    "rect": {
+     "x": 426,
+     "y": 444,
+     "w": 622,
+     "h": 24
+    },
+    "outline": "none rgb(204, 204, 204)",
+    "bg": "rgba(77, 208, 200, 0.22)"
+   }
+  ],
+  "outlined": [
+   {
+    "cls": "",
+    "rect": {
+     "x": 426,
+     "y": 444,
+     "w": 622,
+     "h": 24
+    },
+    "outline": "",
+    "border": "1px dashed rgb(77, 208, 200)",
+    "bg": "rgba(77, 208, 200, 0.22)",
+    "rejected": false
+   }
+  ],
+  "timelineScroll": {
+   "x": 425,
+   "y": 441,
+   "w": 632,
+   "h": 157,
+   "scrollTop": 0
+  },
+  "footer": []
+ },
+ "duringDrag": {
+  "marked": [
+   {
+    "tag": "DIV",
+    "attrs": [
+     "data-akari-textstyle-drop-target=true"
+    ],
+    "rect": {
+     "x": 426,
+     "y": 444,
+     "w": 622,
+     "h": 24
+    },
+    "outline": "none rgb(204, 204, 204)",
+    "bg": "rgba(77, 208, 200, 0.22)"
+   }
+  ],
+  "outlined": [
+   {
+    "cls": "",
+    "rect": {
+     "x": 426,
+     "y": 444,
+     "w": 622,
+     "h": 24
+    },
+    "outline": "",
+    "border": "1px dashed rgb(77, 208, 200)",
+    "bg": "rgba(77, 208, 200, 0.22)",
+    "rejected": false
+   },
+   {
+    "cls": "",
+    "rect": {
+     "x": 520,
+     "y": 443,
+     "w": 142,
+     "h": 24
+    },
+    "outline": "",
+    "border": "1px dashed rgb(77, 208, 200)",
+    "bg": "rgba(77, 208, 200, 0.22)",
+    "rejected": false
+   }
+  ],
+  "timelineScroll": {
+   "x": 425,
+   "y": 441,
+   "w": 632,
+   "h": 157,
+   "scrollTop": 0
+  },
+  "footer": []
+ },
+ "waitMs": 251,
+ "captionsChanged": true,
+ "editChanged": false,
+ "newCaptions": [
+  {
+   "id": "c-0005",
+   "start": 2.0087890625,
+   "end": 5.0087890625,
+   "text": "テキストを入力",
+   "speaker": null,
+   "sourceRef": null,
+   "edited": true,
+   "time_domain": "output",
+   "style_preset": "narration-caption",
+   "text_style": {
+    "text_anchor": "tc",
+    "position": {
+     "y": 0.4625
+    }
+   }
+  }
+ ],
+ "afterDrop": {
+  "marked": [],
+  "outlined": [],
+  "timelineScroll": {
+   "x": 425,
+   "y": 441,
+   "w": 632,
+   "h": 157,
+   "scrollTop": 0
+  },
+  "footer": []
+ },
+ "chips": [
+  {
+   "id": "c-0005",
+   "lane": "t-placed-text-display",
+   "left": 520.7,
+   "top": 465.8,
+   "width": 141.4,
+   "text": "テキストを入力",
+   "selected": true
+  }
+ ],
+ "notices": []
+}
