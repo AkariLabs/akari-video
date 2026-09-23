@@ -4,6 +4,8 @@ import URI from '@theia/core/lib/common/uri';
 import { AkariProjectService } from '../common/akari-project-protocol';
 import { LibraryImportItem, LibraryImportPlan, LibraryImportResult, LIBRARY_IMPORT_KINDS, libraryImportGroups } from '../common/library-import';
 import { hoverPopupPosition } from '../common/material-card-hover';
+import { AssetSiteListing } from '../common/asset-sites';
+import { composeSiteAgentPrompt } from '../common/asset-site-prompt';
 
 interface Props {
     service: AkariProjectService; isOSX: boolean;
@@ -13,6 +15,10 @@ interface Props {
     imported(result: LibraryImportResult): Promise<void>;
     stopAudio(): void;
     consumed(): void;
+    siteCategory?: string;
+    openSite(id: string): Promise<void>;
+    askSiteAgent(prompt: string): Promise<void>;
+    openLab(): void;
 }
 const css = `
 .akari-library-import button { cursor:pointer; }
@@ -51,6 +57,10 @@ export function focusLibraryImportSheet(element: HTMLElement | null): void {
 export function LibraryImportSheet(props: Props): React.ReactElement {
     const [menu, setMenu] = React.useState(false);
     const [open, setOpen] = React.useState(false);
+    const [sitesOpen, setSitesOpen] = React.useState(false);
+    const [sites, setSites] = React.useState<AssetSiteListing[]>([]);
+    const [siteTab, setSiteTab] = React.useState<'audio' | 'font' | 'visual'>('audio');
+    const [siteRequest, setSiteRequest] = React.useState('');
     const [plan, setPlan] = React.useState<LibraryImportPlan>();
     const [busy, setBusy] = React.useState<'plan' | 'apply'>();
     const [error, setError] = React.useState('');
@@ -75,6 +85,12 @@ export function LibraryImportSheet(props: Props): React.ReactElement {
         if (mounted.current) setPlaying(undefined);
     };
     const close = (): void => { if (busy === 'apply') return; generation.current++; stop(); hideHover(); setOpen(false); setBusy(undefined); };
+    const showSites = (): void => {
+        setMenu(false); setSitesOpen(true); setError('');
+        setSiteTab(props.siteCategory?.includes('font') ? 'font' :
+            props.siteCategory?.includes('still') || props.siteCategory?.includes('broll') ? 'visual' : 'audio');
+        void props.service.getAssetSiteListings().then(setSites).catch(e => setError(String(e)));
+    };
     React.useEffect(() => { mounted.current = true; return () => { mounted.current = false; generation.current++; stop(); if (hoverDelay.current) clearTimeout(hoverDelay.current); }; }, []);
     React.useEffect(() => {
         if (!open) return;
@@ -180,9 +196,46 @@ export function LibraryImportSheet(props: Props): React.ReactElement {
                 background: 'var(--theia-editor-background)', border: '1px solid var(--theia-panel-border)', boxShadow: '0 4px 16px #0005' }}
                 onClick={event => event.stopPropagation()} onKeyDown={event => { if (event.key === 'Escape') setMenu(false); }}>
                 <button type='button' role='menuitem' onClick={() => { setMenu(false); setPlan(undefined); setError(''); setOpen(true); }}>ローカルから取り込む</button>
-                <button type='button' role='menuitem' disabled>素材サイトでさがす（今後追加）</button>
+                <button type='button' role='menuitem' onClick={showSites}>素材サイトでさがす</button>
                 <button type='button' role='menuitem' disabled>URL を貼って入れる（今後追加）</button><hr style={{ width: '100%' }} />
                 <button type='button' role='menuitem' disabled>ライブラリを点検（今後追加）</button>
+            </div>
+        </div>}
+        {sitesOpen && <div className='akari-import-backdrop' data-akari-site-sheet
+            style={{ left: bounds.left, top: bounds.top, width: bounds.width, height: bounds.height }}
+            onMouseDown={event => { if (event.target === event.currentTarget) setSitesOpen(false); }}>
+            <div tabIndex={-1} role='dialog' aria-modal='true' aria-label='素材サイトでさがす' className='akari-import-sheet'>
+                <header><strong>素材サイトでさがす</strong></header>
+                <div className='akari-import-scroll'>
+                    <button type='button' onClick={() => { setSitesOpen(false); props.openLab(); }}>まず AKARI Lab から</button>
+                    <div style={{ margin: '12px 0' }}><label>エージェントに頼む（自由文）
+                        <textarea value={siteRequest} onChange={event => setSiteRequest(event.target.value)} /></label>
+                        <button type='button' onClick={() => { setSitesOpen(false); void props.askSiteAgent(composeSiteAgentPrompt(undefined, siteRequest)); }}>エージェントに頼む</button>
+                    </div>
+                    <div role='tablist' aria-label='素材サイトの種類'>
+                        {([['audio', '音'], ['font', 'フォント'], ['visual', '映像・画像']] as const).map(([key, label]) =>
+                            <button key={key} type='button' role='tab' aria-selected={siteTab === key} onClick={() => setSiteTab(key)}>{label}</button>)}
+                    </div>
+                    {sites.filter(value => value.site.tab === siteTab && value.site.price === 'free').map(value =>
+                        <div className='akari-import-group' key={value.site.id} style={{ padding: 10 }}>
+                            <strong>{value.site.name}</strong> <small>無料</small>
+                            <div><small>{siteTab === 'audio' ? '音素材' : siteTab === 'font' ? 'フォント' : '映像・画像'}</small></div>
+                            <p>{value.site.terms.summary_ja}</p>
+                            {value.recommendations.length > 0 && <small>定番 {value.recommendations.length} 件</small>}
+                            <div><button type='button' onClick={() => { setSitesOpen(false); void props.openSite(value.site.id); }}>開く</button>
+                                <button type='button' onClick={() => { setSitesOpen(false); void props.askSiteAgent(composeSiteAgentPrompt(value.site, siteRequest)); }}>エージェントに頼む</button></div>
+                        </div>)}
+                    <details className='akari-import-group'><summary>有料・サブスクのサービス（{sites.filter(value => value.site.tab === siteTab && value.site.price !== 'free').length}）</summary>
+                        {sites.filter(value => value.site.tab === siteTab && value.site.price !== 'free').map(value =>
+                            <div className='akari-import-row' key={value.site.id}><strong>{value.site.name}</strong>
+                                <small>{value.site.price === 'subscription' ? 'サブスク' : '買い切り'}</small>
+                                <small>{siteTab === 'audio' ? '音素材' : siteTab === 'font' ? 'フォント' : '映像・画像'}</small>
+                                <span>{value.site.terms.summary_ja}</span>
+                                <button type='button' onClick={() => { setSitesOpen(false); void props.openSite(value.site.id); }}>開く</button>
+                                <button type='button' onClick={() => { setSitesOpen(false); void props.askSiteAgent(composeSiteAgentPrompt(value.site, siteRequest)); }}>エージェントに頼む</button></div>)}</details>
+                    {error && <p role='alert'>{error}</p>}
+                </div>
+                <footer><button type='button' onClick={() => setSitesOpen(false)}>閉じる</button></footer>
             </div>
         </div>}
         {open && <div className='akari-import-backdrop' style={{ left: bounds.left, top: bounds.top, width: bounds.width, height: bounds.height }}

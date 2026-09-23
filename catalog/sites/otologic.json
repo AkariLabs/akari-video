@@ -1,0 +1,25 @@
+{
+  "id": "otologic",
+  "name": "OtoLogic",
+  "tab": "audio",
+  "entry_url": "https://otologic.jp/",
+  "hosts": [
+    "otologic.jp"
+  ],
+  "download_hosts": [],
+  "price": "free",
+  "terms": {
+    "summary_ja": "無料版は CC BY 4.0 で商用利用可。「OtoLogic」の表示が必須。有償のクレジット不要ライセンスもある。",
+    "source_url": "https://otologic.jp/free/license.html",
+    "checked_at": "2026-09-23"
+  },
+  "attribution": {
+    "required": true,
+    "text": "OtoLogic"
+  },
+  "direct_fetch_allowed": false,
+  "recommendations": [
+    "audio/otologic-motion-pop-sfx-pack",
+    "audio/otologic-sfx-selection"
+  ]
+}

@@ -296,6 +296,7 @@ export interface BuildCaptionsRequest extends TranscribeOptions { projectRoot: s
 export type BuildCaptionsResult = { needsForce: true } | { needsForce?: false; [key: string]: unknown };
 
 export interface AkariProjectService {
+    getAssetSiteListings(): Promise<import('./asset-sites').AssetSiteListing[]>;
     planLibraryImport(paths: string[]): Promise<LibraryImportPlan>;
     applyLibraryImport(plan: LibraryImportPlan): Promise<LibraryImportResult>;
     previewLibraryImportAudio(path: string): Promise<{ image?: string; error?: string }>;

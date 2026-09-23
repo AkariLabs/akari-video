@@ -1,0 +1,22 @@
+{
+  "id": "amachamusic",
+  "name": "甘茶の音楽工房",
+  "tab": "audio",
+  "entry_url": "https://amachamusic.chagasi.com/",
+  "hosts": [
+    "amachamusic.chagasi.com"
+  ],
+  "download_hosts": [],
+  "price": "free",
+  "terms": {
+    "summary_ja": "商用利用無料。クレジット任意（甘茶の音楽工房）。音楽だけの販売・二次配布・音声ファイルへの直リンクは禁止。ダウンロードページから利用者が取得する。",
+    "source_url": "https://amachamusic.chagasi.com/terms.html",
+    "checked_at": "2026-09-21"
+  },
+  "attribution": {
+    "required": false,
+    "text": "甘茶の音楽工房"
+  },
+  "direct_fetch_allowed": false,
+  "recommendations": []
+}

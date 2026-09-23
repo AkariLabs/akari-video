@@ -1,0 +1,371 @@
+{
+  "measuredAt": "2026-09-23T00:56:38.808Z",
+  "aStandalone": {
+    "mode": "a",
+    "steps": {
+      "initial": {
+        "widgetRect": {
+          "x": 0,
+          "y": 0,
+          "width": 900,
+          "height": 618
+        },
+        "viewBounds": {
+          "x": 0,
+          "y": 0,
+          "width": 900,
+          "height": 618
+        },
+        "windowBounds": {
+          "x": 390,
+          "y": 200,
+          "width": 900,
+          "height": 650
+        }
+      },
+      "tabHidden": {
+        "widgetRect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "viewBounds": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "windowBounds": {
+          "x": 390,
+          "y": 200,
+          "width": 900,
+          "height": 650
+        }
+      },
+      "split": {
+        "widgetRect": {
+          "x": 0,
+          "y": 0,
+          "width": 450,
+          "height": 618
+        },
+        "viewBounds": {
+          "x": 0,
+          "y": 0,
+          "width": 450,
+          "height": 618
+        },
+        "windowBounds": {
+          "x": 390,
+          "y": 200,
+          "width": 900,
+          "height": 650
+        }
+      },
+      "resize": {
+        "widgetRect": {
+          "x": 0,
+          "y": 0,
+          "width": 520,
+          "height": 708
+        },
+        "viewBounds": {
+          "x": 0,
+          "y": 0,
+          "width": 520,
+          "height": 708
+        },
+        "windowBounds": {
+          "x": 390,
+          "y": 200,
+          "width": 1040,
+          "height": 740
+        }
+      },
+      "move": {
+        "widgetRect": {
+          "x": 0,
+          "y": 0,
+          "width": 520,
+          "height": 708
+        },
+        "viewBounds": {
+          "x": 0,
+          "y": 0,
+          "width": 520,
+          "height": 708
+        },
+        "windowBounds": {
+          "x": 425,
+          "y": 225,
+          "width": 1040,
+          "height": 740
+        }
+      }
+    }
+  },
+  "b": {
+    "mode": "b",
+    "steps": {
+      "initial": {
+        "attached": true,
+        "widgetRect": {
+          "x": 0,
+          "y": 0,
+          "width": 900,
+          "height": 618,
+          "top": 0,
+          "right": 900,
+          "bottom": 618,
+          "left": 0
+        },
+        "viewBounds": {
+          "x": 0,
+          "y": 0,
+          "width": 900,
+          "height": 618,
+          "top": 0,
+          "right": 900,
+          "bottom": 618,
+          "left": 0
+        },
+        "windowBounds": {
+          "x": 390,
+          "y": 200,
+          "width": 900,
+          "height": 650
+        }
+      },
+      "tabHidden": {
+        "attached": true,
+        "widgetRect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0,
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        },
+        "viewBounds": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0,
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        },
+        "windowBounds": {
+          "x": 390,
+          "y": 200,
+          "width": 900,
+          "height": 650
+        }
+      },
+      "split": {
+        "attached": true,
+        "widgetRect": {
+          "x": 0,
+          "y": 0,
+          "width": 450,
+          "height": 618,
+          "top": 0,
+          "right": 450,
+          "bottom": 618,
+          "left": 0
+        },
+        "viewBounds": {
+          "x": 0,
+          "y": 0,
+          "width": 450,
+          "height": 618,
+          "top": 0,
+          "right": 450,
+          "bottom": 618,
+          "left": 0
+        },
+        "windowBounds": {
+          "x": 390,
+          "y": 200,
+          "width": 900,
+          "height": 650
+        }
+      },
+      "resize": {
+        "attached": true,
+        "widgetRect": {
+          "x": 0,
+          "y": 0,
+          "width": 520,
+          "height": 708,
+          "top": 0,
+          "right": 520,
+          "bottom": 708,
+          "left": 0
+        },
+        "viewBounds": {
+          "x": 0,
+          "y": 0,
+          "width": 520,
+          "height": 708,
+          "top": 0,
+          "right": 520,
+          "bottom": 708,
+          "left": 0
+        },
+        "windowBounds": {
+          "x": 390,
+          "y": 200,
+          "width": 1040,
+          "height": 740
+        }
+      },
+      "move": {
+        "attached": true,
+        "widgetRect": {
+          "x": 0,
+          "y": 0,
+          "width": 520,
+          "height": 708,
+          "top": 0,
+          "right": 520,
+          "bottom": 708,
+          "left": 0
+        },
+        "viewBounds": {
+          "x": 0,
+          "y": 0,
+          "width": 520,
+          "height": 708,
+          "top": 0,
+          "right": 520,
+          "bottom": 708,
+          "left": 0
+        },
+        "windowBounds": {
+          "x": 425,
+          "y": 225,
+          "width": 1040,
+          "height": 740
+        }
+      }
+    },
+    "checks": {
+      "attached": true,
+      "tabHidden": true,
+      "splitMatches": true,
+      "resizeMatches": true,
+      "moveMatches": true
+    }
+  },
+  "c": {
+    "mode": "c",
+    "steps": {
+      "initial": {
+        "parentBounds": {
+          "x": 390,
+          "y": 200,
+          "width": 900,
+          "height": 650
+        },
+        "childBounds": {
+          "x": 440,
+          "y": 270,
+          "width": 400,
+          "height": 300
+        },
+        "childVisible": false,
+        "offset": {
+          "x": 50,
+          "y": 70
+        }
+      },
+      "tabHidden": {
+        "parentBounds": {
+          "x": 390,
+          "y": 200,
+          "width": 900,
+          "height": 650
+        },
+        "childBounds": {
+          "x": 440,
+          "y": 270,
+          "width": 400,
+          "height": 300
+        },
+        "childVisible": false,
+        "offset": {
+          "x": 50,
+          "y": 70
+        }
+      },
+      "split": {
+        "parentBounds": {
+          "x": 390,
+          "y": 200,
+          "width": 900,
+          "height": 650
+        },
+        "childBounds": {
+          "x": 840,
+          "y": 270,
+          "width": 400,
+          "height": 300
+        },
+        "childVisible": true,
+        "offset": {
+          "x": 450,
+          "y": 70
+        }
+      },
+      "resize": {
+        "parentBounds": {
+          "x": 390,
+          "y": 200,
+          "width": 1040,
+          "height": 740
+        },
+        "childBounds": {
+          "x": 840,
+          "y": 270,
+          "width": 400,
+          "height": 300
+        },
+        "childVisible": true,
+        "offset": {
+          "x": 450,
+          "y": 70
+        }
+      },
+      "move": {
+        "parentBounds": {
+          "x": 425,
+          "y": 225,
+          "width": 1040,
+          "height": 740
+        },
+        "childBounds": {
+          "x": 875,
+          "y": 295,
+          "width": 400,
+          "height": 300
+        },
+        "childVisible": true,
+        "offset": {
+          "x": 450,
+          "y": 70
+        }
+      }
+    },
+    "checks": {
+      "tabHidden": true,
+      "splitOffset": true,
+      "resizeRetainedOffset": true,
+      "moveRetainedOffset": true
+    }
+  }
+}

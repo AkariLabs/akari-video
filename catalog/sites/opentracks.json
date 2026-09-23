@@ -1,0 +1,23 @@
+{
+  "id": "opentracks",
+  "name": "OpenTracks",
+  "tab": "audio",
+  "entry_url": "https://opentracks.com/",
+  "hosts": [
+    "opentracks.com",
+    "dova-worker.tracks-cid.workers.dev"
+  ],
+  "download_hosts": [],
+  "price": "free",
+  "terms": {
+    "summary_ja": "商用利用無料。クレジット不要。再配布、音源ファイルへの直リンク、bot等による自動収集、AI学習は禁止。ダウンロード配信ホストは未確認のため追加しない。",
+    "source_url": "https://opentracks.com/help/articles/terms/",
+    "checked_at": "2026-09-21"
+  },
+  "attribution": {
+    "required": false,
+    "text": ""
+  },
+  "direct_fetch_allowed": false,
+  "recommendations": []
+}

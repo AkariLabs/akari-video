@@ -1,0 +1,30 @@
+{
+  "id": "soundeffect-lab",
+  "name": "効果音ラボ",
+  "tab": "audio",
+  "entry_url": "https://soundeffect-lab.info/",
+  "hosts": [
+    "soundeffect-lab.info"
+  ],
+  "download_hosts": [],
+  "price": "free",
+  "terms": {
+    "summary_ja": "商用利用無料。クレジット不要。素材の再配布・音声ファイルへの直リンク・AI学習は禁止。AKARIの既定素材に同梱しない。おすすめはカテゴリページ。",
+    "source_url": "https://soundeffect-lab.info/agreement/",
+    "checked_at": "2026-09-21"
+  },
+  "attribution": {
+    "required": false,
+    "text": ""
+  },
+  "direct_fetch_allowed": false,
+  "recommendations": [
+    "audio/candidates/soundeffect-lab-doon1",
+    "audio/candidates/soundeffect-lab-clapping-hands",
+    "audio/candidates/soundeffect-lab-people-performance-cheer",
+    "audio/soundeffect-lab-scene-transition",
+    "audio/soundeffect-lab-ambient-life-pack",
+    "audio/soundeffect-lab-ui-signal-pack",
+    "audio/soundeffect-lab-anime-direction-pack"
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:akari-video:schema:site:v0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "name", "tab", "entry_url", "hosts", "download_hosts", "price", "terms", "attribution", "direct_fetch_allowed", "recommendations"],
+  "properties": {
+    "id": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" },
+    "name": { "type": "string", "minLength": 1 },
+    "tab": { "enum": ["audio", "font", "visual"] },
+    "entry_url": { "type": "string", "pattern": "^https://" },
+    "hosts": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string", "pattern": "^(\\*\\.)?[a-z0-9.-]+$" } },
+    "download_hosts": { "type": "array", "uniqueItems": true, "items": { "type": "string", "pattern": "^(\\*\\.)?[a-z0-9.-]+$" } },
+    "price": { "enum": ["free", "subscription", "purchase"] },
+    "terms": { "type": "object", "additionalProperties": false, "required": ["summary_ja", "source_url", "checked_at"], "properties": {
+      "summary_ja": { "type": "string", "minLength": 1 },
+      "source_url": { "type": "string", "pattern": "^https://" },
+      "checked_at": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$" }
+    } },
+    "attribution": { "type": "object", "additionalProperties": false, "required": ["required", "text"], "properties": {
+      "required": { "type": "boolean" }, "text": { "type": "string" }
+    } },
+    "direct_fetch_allowed": { "const": false },
+    "recommendations": { "type": "array", "uniqueItems": true, "items": { "type": "string", "pattern": "^(audio|font|broll|still|scene3d|overlay)/(candidates/)?[a-zA-Z0-9_-]+$" } }
+  }
+}

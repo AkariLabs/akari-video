@@ -41,6 +41,9 @@ Report privately if the issue involves:
   Content that could steer an agent into exfiltrating data or running unintended
   commands is a vulnerability here, not a docs problem
 - Cross-project data access through the `.akari/` file contracts
+- The built-in asset-site browser crossing its dedicated session boundary,
+  navigating outside a listed host, accepting downloads from unlisted hosts,
+  or retaining temporary downloads after its tab closes
 
 ## Public issues are OK for
 

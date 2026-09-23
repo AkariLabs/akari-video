@@ -1,0 +1,29 @@
+{
+  "id": "maoudamashii",
+  "name": "魔王魂",
+  "tab": "audio",
+  "entry_url": "https://maou.audio/",
+  "hosts": [
+    "maou.audio"
+  ],
+  "download_hosts": [],
+  "price": "free",
+  "terms": {
+    "summary_ja": "商用利用無料。「音楽：魔王魂」の表示が必須（BGM・効果音への置換可）。単品再配布・AI学習は禁止。",
+    "source_url": "https://maou.audio/rule/",
+    "checked_at": "2026-09-21"
+  },
+  "attribution": {
+    "required": true,
+    "text": "音楽：魔王魂"
+  },
+  "direct_fetch_allowed": false,
+  "recommendations": [
+    "audio/maoudamashii-se-system-category",
+    "audio/maoudamashii-se-magic-category",
+    "audio/maoudamashii-bgm-neorock",
+    "audio/maoudamashii-se-onepoint-category",
+    "audio/maoudamashii-bgm-piano",
+    "audio/maoudamashii-object-sound-15"
+  ]
+}

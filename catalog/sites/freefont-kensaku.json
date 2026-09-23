@@ -1,0 +1,32 @@
+{
+  "id": "freefont-kensaku",
+  "name": "フリーフォントケンサク",
+  "tab": "font",
+  "entry_url": "https://cute-freefont.flop.jp/",
+  "hosts": [
+    "cute-freefont.flop.jp",
+    "booth.pm",
+    "*.booth.pm",
+    "type-labo.jp",
+    "www.type-labo.jp"
+  ],
+  "download_hosts": [],
+  "price": "free",
+  "terms": {
+    "summary_ja": "紹介サイト。実配布先の規約を個別に確認する。BOOTHやタイプラボ等に移る場合があるが、HTTPのみの配布先はアプリ内で開かない。出典の消えたとりさんのフォントはおすすめに含めない。",
+    "source_url": "https://cute-freefont.flop.jp/",
+    "checked_at": "2026-09-21"
+  },
+  "attribution": {
+    "required": false,
+    "text": ""
+  },
+  "direct_fetch_allowed": false,
+  "recommendations": [
+    "font/ruika",
+    "font/isego",
+    "font/zero-gothic",
+    "font/wanpaku-ruika",
+    "font/check-and-oudan"
+  ]
+}

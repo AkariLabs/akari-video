@@ -10,10 +10,12 @@
     "validate-motion": "bin/validate-motion.mjs",
     "validate-plan": "bin/validate-plan.mjs",
     "validate-review": "bin/validate-review.mjs",
-    "validate-world-map": "bin/validate-world-map.mjs"
+    "validate-world-map": "bin/validate-world-map.mjs",
+    "validate-sites": "bin/validate-sites.mjs"
   },
   "scripts": {
-    "test": "node --test \"test/*.mjs\""
+    "test": "node --test \"test/*.mjs\"",
+    "validate:sites": "node bin/validate-sites.mjs"
   },
   "devDependencies": {
     "ajv": "^8.17.1"
