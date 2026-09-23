@@ -19785,7 +19785,7 @@ function valueAt(points, pick, t) {
   }
   return pick(last);
 }
-function computeLayerKeyframesVisual(keyframes, layerLocalSeconds, statics = {}) {
+function computeLayerKeyframesVisual(keyframes, layerLocalSeconds, statics = {}, cutStaticFallback = false) {
   const points = (keyframes ?? []).filter((point) => finite(point?.t) && point.t >= 0).slice().sort((left, right) => left.t - right.t);
   if (points.length < 2) return null;
   const t = finite(layerLocalSeconds) ? layerLocalSeconds : 0;
@@ -19797,13 +19797,14 @@ function computeLayerKeyframesVisual(keyframes, layerLocalSeconds, statics = {})
     (point) => finite(point.transform?.[name]) ? point.transform[name] : name === "scaleX" || name === "scaleY" ? point.transform?.scale ?? statics?.[name] ?? statics?.scale ?? fallback : fallback,
     t
   );
-  const rawScale = transformPoints.length ? leaf("scale", 1) : 1;
+  const staticLeaf = (name, fallback) => cutStaticFallback && finite(statics?.[name]) ? statics[name] : fallback;
+  const rawScale = transformPoints.length ? leaf("scale", staticLeaf("scale", 1)) : 1;
   const transform = transformPoints.length ? {
-    x: leaf("x", 0),
-    y: leaf("y", 0),
+    x: leaf("x", staticLeaf("x", 0)),
+    y: leaf("y", staticLeaf("y", 0)),
     scale: rawScale > 0 ? rawScale : 1,
     ...statics?.scaleX !== void 0 || statics?.scaleY !== void 0 || transformPoints.some((point) => point.transform?.scaleX !== void 0 || point.transform?.scaleY !== void 0) ? { scaleX: Math.max(Number.EPSILON, leaf("scaleX", 1)), scaleY: Math.max(Number.EPSILON, leaf("scaleY", 1)) } : {},
-    rotateDegrees: leaf("rotate", 0)
+    rotateDegrees: leaf("rotate", staticLeaf("rotate", 0))
   } : null;
   const cropPoints = points.filter(
     (point) => point.crop && finite(point.crop.x) && finite(point.crop.y) && finite(point.crop.w) && point.crop.w > 0 && finite(point.crop.h) && point.crop.h > 0
@@ -23093,7 +23094,7 @@ function interpolateFraming(keyframes, playbackSeconds) {
   };
 }
 function layerStyleVisualAt(cut, localSeconds) {
-  const animated = computeLayerKeyframesVisual(cut.keyframes, localSeconds, cut.transform);
+  const animated = computeLayerKeyframesVisual(cut.keyframes, localSeconds, cut.transform, true);
   const staticCrop = cut.crop ?? { x: 0, y: 0, w: 1, h: 1 };
   const crop = animated?.crop ?? {
     x: finite4(staticCrop.x, 0),
@@ -23122,9 +23123,8 @@ function layerStyleVisualAt(cut, localSeconds) {
       rotateDegrees: transform.rotateDegrees
     },
     opacity: clamp3(animated?.opacity ?? finite4(cut.opacity, 1), 0, 1),
-    layerStyle: {
-      crop: { x: clamp3(crop.x, 0, 1 - width), y: clamp3(crop.y, 0, 1 - height), width, height }
-    }
+    // Transform-only keyframes retain the canvas-fit path used by an unkeyed cut.
+    ...cut.crop || animated?.crop || cut.perspective || animated?.perspective || cut.motion?.in?.preset === "wipe" || cut.motion?.out?.preset === "wipe" ? { layerStyle: { crop: { x: clamp3(crop.x, 0, 1 - width), y: clamp3(crop.y, 0, 1 - height), width, height } } } : {}
   };
 }
 function motionTransform(transform, motion2) {

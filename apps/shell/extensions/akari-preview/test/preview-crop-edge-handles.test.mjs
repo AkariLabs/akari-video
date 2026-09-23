@@ -89,14 +89,14 @@ test('辺バー / 角点 / 回転の pointerdown は cut と layer で同じ関�
     assert.match(cutHandles, /if \(corner === 'rotate'\) \{[\s\S]*beginMediaTransformDrag\(cutDragTarget\(\), event,/u);
     // 裁定 7: cut の角ドラッグの基準 box は選択枠と同じ関数から取る。
     assert.match(cutHandles, /const startBox = cutSelectBoxGeometry\(\);/u);
-    assert.match(source, /const cutSelectBoxGeometry = \(\) => \{[\s\S]*cutLayerStyleBoxPxFn\(natural, cutCropNow\(\), transform\.scale\)/u);
+    assert.match(source, /const cutSelectBoxGeometry = \(\) => \{[\s\S]*cutLayerStyleBoxPxFn\(natural, cutCropNow\(\), scaleX, scaleY\)/u);
 });
 
-test('layer-style へ入っていない cut に初めて crop を書くときだけ fit を焼き込む', () => {
+test('素材実寸の箱に初めて入る cut の crop にだけ fit を焼き込む', () => {
     const cutTarget = section('const cutDragTarget = () => {', 'const updateCutSelectBox');
     assert.match(
         cutTarget,
-        /cropEntryTransform: \(transform, natural\) => \(\s*cutSelectionVideo\(\)\.dataset\.akariCutLayerStyleActive !== 'true'\s*\?\s*cutLayerStyleEntryTransformFn\(/u
+        /cropEntryTransform: \(transform, natural\) => \(\s*cutSelectionVideo\(\)\.dataset\.akariCutCropDeclared !== 'true'\s*\?\s*cutLayerStyleEntryTransformFn\(/u
     );
     assert.match(cutTarget, /transform, natural\.width, natural\.height, outputWidth, outputHeight, outputGeometry/u);
     assert.match(cutTarget, /: \{ \.\.\.transform \}/u);

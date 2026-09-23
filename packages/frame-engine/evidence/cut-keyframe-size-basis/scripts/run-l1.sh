@@ -1,0 +1,72 @@
+#!/bin/bash
+set -euo pipefail
+SCRIPTS_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd -P)
+EVIDENCE_DIR=$(CDPATH= cd -- "$SCRIPTS_DIR/.." && pwd -P)
+SHELL_DIR=$(CDPATH= cd -- "$SCRIPTS_DIR/../../../../../apps/shell" && pwd -P)
+MODE=${1:-}
+if [ "$MODE" != before ] && [ "$MODE" != after ]; then
+  echo 'usage: run-l1.sh before|after' >&2
+  exit 2
+fi
+PORT=${AKARI_CDP_PORT:-9495}
+WORKSPACE=$(cd "$(mktemp -d -t cut-keyframe-size-basis-workspace)" && pwd -P)
+USERDATA=$(cd "$(mktemp -d -t cut-keyframe-size-basis-userdata)" && pwd -P)
+CONFIGDIR=$(cd "$(mktemp -d -t cut-keyframe-size-basis-config)" && pwd -P)
+AKARIHOME=$(cd "$(mktemp -d -t cut-keyframe-size-basis-home)" && pwd -P)
+ELECTRON_LOG="$WORKSPACE/electron.log"
+ELECTRON_BIN=${ELECTRON_BIN:-"$SHELL_DIR/../../node_modules/electron/dist/Electron.app/Contents/MacOS/Electron"}
+ELECTRON_PID=''
+RUNNER_STARTED=0
+cleanup() {
+  local result=$?
+  if [ "$result" -ne 0 ] && [ "$RUNNER_STARTED" -eq 0 ]; then
+    node "$SCRIPTS_DIR/run-l1.mjs" "$PORT" "$WORKSPACE" "$EVIDENCE_DIR" "$MODE" --startup-failed || true
+  fi
+  if [ -n "$ELECTRON_PID" ] && kill -0 "$ELECTRON_PID" 2>/dev/null; then
+    kill -TERM "$ELECTRON_PID" 2>/dev/null || true
+    for i in 1 2 3 4 5; do kill -0 "$ELECTRON_PID" 2>/dev/null || break; sleep 1; done
+    if kill -0 "$ELECTRON_PID" 2>/dev/null; then kill -KILL "$ELECTRON_PID" 2>/dev/null || true; fi
+    wait "$ELECTRON_PID" 2>/dev/null || true
+  fi
+  echo "electron_pid=$ELECTRON_PID gone=$(kill -0 "$ELECTRON_PID" 2>/dev/null && echo false || echo true)" >> /tmp/ckb/cleanup-$MODE.log
+  curl --fail --silent --max-time 2 "http://127.0.0.1:$PORT/json/version" >/dev/null 2>&1 && echo port_closed=false >> /tmp/ckb/cleanup-$MODE.log || echo port_closed=true >> /tmp/ckb/cleanup-$MODE.log
+  rm -rf "$WORKSPACE" "$USERDATA" "$CONFIGDIR" "$AKARIHOME"
+  return "$result"
+}
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+node --input-type=module - "$PORT" <<'NODE'
+import net from 'node:net';
+const port = Number(process.argv[2]);
+if (!Number.isInteger(port) || port < 1 || port > 65535) throw Error('Invalid AKARI_CDP_PORT');
+const server = net.createServer();
+server.on('error', error => { console.error(`CDP port ${port}: ${error.message}`); process.exitCode = 1; });
+server.listen(port, '127.0.0.1', () => server.close());
+NODE
+node "$SCRIPTS_DIR/prepare-fixture.mjs" "$WORKSPACE"
+ffmpeg -loglevel error -f lavfi -i color=c=blue:s=100x160:r=30:d=6 -c:v libx264 -pix_fmt yuv420p -y "$WORKSPACE/project/assets/video.mp4"
+THEIA_CONFIG_DIR="$CONFIGDIR" AKARI_HOME="$AKARIHOME" "$ELECTRON_BIN" "$SHELL_DIR" "$WORKSPACE/project" \
+  --remote-debugging-port="$PORT" --user-data-dir="$USERDATA" --no-sandbox \
+  --disable-background-timer-throttling --disable-backgrounding-occluded-windows \
+  --disable-renderer-backgrounding > "$ELECTRON_LOG" 2>&1 &
+ELECTRON_PID=$!
+READY=0
+DEADLINE=$((SECONDS + 600))
+while [ "$SECONDS" -lt "$DEADLINE" ]; do
+  if ! kill -0 "$ELECTRON_PID" 2>/dev/null; then break; fi
+  if curl --fail --silent --max-time 2 "http://127.0.0.1:$PORT/json/version" >/dev/null 2>&1 \
+    && rg -Fq "Changed application state from 'initialized_layout' to 'ready'" "$ELECTRON_LOG"; then
+    READY=1
+    break
+  fi
+  sleep 1
+done
+RUNNER_STARTED=1
+echo "electron_pid=$ELECTRON_PID cdp_port=$PORT cdp_owner=$(lsof -nP -iTCP:$PORT -sTCP:LISTEN -t | tr '\n' ' ')" > /tmp/ckb/start-$MODE.log
+if [ "$READY" -ne 1 ]; then
+  tail -100 "$ELECTRON_LOG" >&2
+  node "$SCRIPTS_DIR/run-l1.mjs" "$PORT" "$WORKSPACE" "$EVIDENCE_DIR" "$MODE" --startup-failed
+  exit 1
+fi
+node "$SCRIPTS_DIR/run-l1.mjs" "$PORT" "$WORKSPACE" "$EVIDENCE_DIR" "$MODE"

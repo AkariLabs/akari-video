@@ -1,0 +1,66 @@
+{
+  "base": "8d96eed5",
+  "rows": [
+    {
+      "media": "still",
+      "state": "crop-static",
+      "corners": {
+        "nw": {
+          "x": 336.4453125,
+          "y": 206.71875
+        },
+        "ne": {
+          "x": 547.546875,
+          "y": 206.71875
+        },
+        "se": {
+          "x": 547.546875,
+          "y": 546.28125
+        },
+        "sw": {
+          "x": 336.4453125,
+          "y": 546.28125
+        },
+        "e": null,
+        "s": null,
+        "rotate": {
+          "x": 441.9921875,
+          "y": 178.71875
+        }
+      },
+      "screenshot": "baseline-still-crop-static.png",
+      "ok": true
+    },
+    {
+      "media": "video",
+      "state": "crop-static",
+      "corners": {
+        "nw": {
+          "x": 336.4453125,
+          "y": 206.71875
+        },
+        "ne": {
+          "x": 547.546875,
+          "y": 206.71875
+        },
+        "se": {
+          "x": 547.546875,
+          "y": 546.28125
+        },
+        "sw": {
+          "x": 336.4453125,
+          "y": 546.28125
+        },
+        "e": null,
+        "s": null,
+        "rotate": {
+          "x": 441.9921875,
+          "y": 178.71875
+        }
+      },
+      "screenshot": "baseline-video-crop-static.png",
+      "ok": true
+    }
+  ],
+  "error": null
+}

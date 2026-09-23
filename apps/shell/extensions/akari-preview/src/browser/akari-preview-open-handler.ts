@@ -9251,12 +9251,14 @@ body { display: grid; place-items: center; padding: 32px; }
                 width: media.tagName === 'IMG' ? media.naturalWidth : media.videoWidth,
                 height: media.tagName === 'IMG' ? media.naturalHeight : media.videoHeight
             });
-            const applyLayerStyleMediaLayout = (media, outputWidth, outputHeight) => {
+            const applyLayerStyleMediaLayout = (media, outputWidth, outputHeight, cut = false) => {
                 const natural = mediaNaturalSize(media);
                 if (!(natural.width > 0) || !(natural.height > 0)) return false;
                 const x = Number(media.dataset.akariTransformX) || 0;
                 const y = Number(media.dataset.akariTransformY) || 0;
                 const scale = Number(media.dataset.akariTransformScale) || 1;
+                const scaleX = cut ? (Number(media.dataset.akariTransformScaleX) || scale) : scale;
+                const scaleY = cut ? (Number(media.dataset.akariTransformScaleY) || scale) : scale;
                 const rotate = Number(media.dataset.akariTransformRotate) || 0;
                 const cropX = Number(media.dataset.akariCropX) || 0;
                 const cropY = Number(media.dataset.akariCropY) || 0;
@@ -9267,8 +9269,8 @@ body { display: grid; place-items: center; padding: 32px; }
                 const pivotXPct = (cropX + cropW / 2) * 100;
                 const pivotYPct = (cropY + cropH / 2) * 100;
                 media.style.objectFit = 'fill';
-                media.style.width = (natural.width * scale) + 'px';
-                media.style.height = (natural.height * scale) + 'px';
+                media.style.width = (natural.width * scaleX) + 'px';
+                media.style.height = (natural.height * scaleY) + 'px';
                 media.style.left = (outputWidth / 2 + x) + 'px';
                 media.style.top = (outputHeight / 2 + y) + 'px';
                 media.style.transformOrigin = pivotXPct + '% ' + pivotYPct + '%';
@@ -9277,8 +9279,8 @@ body { display: grid; place-items: center; padding: 32px; }
                 if (perspectiveRaw) {
                     let corners = null;
                     try { corners = JSON.parse(perspectiveRaw); } catch (_error) { corners = null; }
-                    const boxWidthPx = natural.width * cropW * scale;
-                    const boxHeightPx = natural.height * cropH * scale;
+                    const boxWidthPx = natural.width * cropW * scaleX;
+                    const boxHeightPx = natural.height * cropH * scaleY;
                     try {
                         const visual = corners
                             ? computeLayerPerspectiveVisualFn({ corners }, boxWidthPx, boxHeightPx) : null;
@@ -9313,7 +9315,24 @@ body { display: grid; place-items: center; padding: 32px; }
                 if (!media || media.dataset.akariCutLayerStyleActive !== 'true') return false;
                 const outputWidth = Number(output.width || 1280);
                 const outputHeight = Number(output.height || 720);
-                return applyLayerStyleMediaLayout(media, outputWidth, outputHeight);
+                if (media.dataset.akariCutCropDeclared !== 'true') {
+                    const x = Number(media.dataset.akariTransformX) || 0;
+                    const y = Number(media.dataset.akariTransformY) || 0;
+                    const scale = Number(media.dataset.akariTransformScale) || 1;
+                    const scaleX = Number(media.dataset.akariTransformScaleX) || scale;
+                    const scaleY = Number(media.dataset.akariTransformScaleY) || scale;
+                    const rotate = Number(media.dataset.akariTransformRotate) || 0;
+                    media.style.objectFit = 'contain';
+                    media.style.width = outputWidth + 'px';
+                    media.style.height = outputHeight + 'px';
+                    media.style.left = (outputWidth / 2 + x) + 'px';
+                    media.style.top = (outputHeight / 2 + y) + 'px';
+                    media.style.transformOrigin = '50% 50%';
+                    media.style.transform = 'translate(-50%, -50%) rotate(' + rotate + 'deg) scale(' + scaleX + ', ' + scaleY + ')';
+                    media.style.clipPath = '';
+                    return true;
+                }
+                return applyLayerStyleMediaLayout(media, outputWidth, outputHeight, true);
             };
             window.akari.applyCutLayerStyleLayout = applyCutLayerStyleLayout;
             const updateStageScale = () => {
@@ -11795,9 +11814,13 @@ body { display: grid; place-items: center; padding: 32px; }
                     delete media.dataset.akariCropH;
                     delete media.dataset.akariPerspectiveCorners;
                     delete media.dataset.akariCropClipPath;
+                    delete media.dataset.akariCutCropDeclared;
                     return false;
                 }
                 const transform = segment.transform || {};
+                media.dataset.akariCutCropDeclared = String(Boolean(segment.crop || segment.perspective
+                    || segment.keyframes?.some(point => point?.crop || point?.perspective)
+                    || segment.motion?.in?.preset === 'wipe' || segment.motion?.out?.preset === 'wipe'));
                 media.dataset.akariTransformX = String(Number.isFinite(transform.x) ? transform.x : 0);
                 media.dataset.akariTransformY = String(Number.isFinite(transform.y) ? transform.y : 0);
                 media.dataset.akariTransformScale = String(
@@ -11824,7 +11847,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     try {
                         // layer と同じ純関数を同じ cut-local/output 秒で評価する。outputTime 由来なので
                         // media の seeked 待ちに依存せず、再生とシークの双方で同じ値へ着地する。
-                        const resolved = computeLayerKeyframesVisualFn(segment.keyframes, localTime);
+                        const resolved = computeLayerKeyframesVisualFn(segment.keyframes, localTime, segment.transform || {}, true);
                         if (resolved?.transform) {
                             media.dataset.akariTransformX = String(resolved.transform.x);
                             media.dataset.akariTransformY = String(resolved.transform.y);
@@ -13586,9 +13609,8 @@ body { display: grid; place-items: center; padding: 32px; }
             const outputGeometry = summary.output && typeof summary.output.geometry === 'string'
                 ? summary.output.geometry : undefined;
             const outputGeometryIsSource = outputGeometry === 'source';
-            // 裁定 7: crop / perspective / keyframes を持つ cut は「ソース実寸 × scale」の
-            // layer-style で描かれる（出力寸法 × scale ではない）。選択枠と角ドラッグの基準 box は
-            // どちらもこの 1 関数から取る。
+            // crop / perspective / wipe の cut は素材実寸の箱を保つ。
+            // transform-only の点はキーフレーム無しと同じ出力枠を使う。
             const cutUsesLayerStyleBox = () => cutSelectionVideo().dataset.akariCutLayerStyleActive === 'true'
                 || outputGeometryIsSource;
             const cutSelectBoxGeometry = () => {
@@ -13596,10 +13618,13 @@ body { display: grid; place-items: center; padding: 32px; }
                 const outputHeight = Number(summary.output && summary.output.height) || 720;
                 const transform = cutTransformNow();
                 const natural = cutNaturalSizeNow();
-                const useLayerStyle = cutUsesLayerStyleBox() && natural.width > 0 && natural.height > 0;
+                const scaleX = Number(cutSelectionVideo().dataset.akariTransformScaleX) || transform.scale;
+                const scaleY = Number(cutSelectionVideo().dataset.akariTransformScaleY) || transform.scale;
+                const useLayerStyle = cutUsesLayerStyleBox() && natural.width > 0 && natural.height > 0
+                    && cutSelectionVideo().dataset.akariCutCropDeclared === 'true';
                 const size = useLayerStyle
-                    ? cutLayerStyleBoxPxFn(natural, cutCropNow(), transform.scale)
-                    : { width: outputWidth * transform.scale, height: outputHeight * transform.scale };
+                    ? cutLayerStyleBoxPxFn(natural, cutCropNow(), scaleX, scaleY)
+                    : { width: outputWidth * scaleX, height: outputHeight * scaleY };
                 return {
                     width: size.width,
                     height: size.height,
@@ -13688,9 +13713,9 @@ body { display: grid; place-items: center; padding: 32px; }
                     naturalSize: cutNaturalSizeNow,
                     transformNow: cutTransformNow,
                     cropNow: cutCropNow,
-                    // 裁定 5: layer-style へ入っていない cut に初めて crop を書くときだけ fit を焼く。
+                    // 素材実寸の箱へ初めて入るときは、従来どおり fit を scale へ焼く。
                     cropEntryTransform: (transform, natural) => (
-                        cutSelectionVideo().dataset.akariCutLayerStyleActive !== 'true'
+                        cutSelectionVideo().dataset.akariCutCropDeclared !== 'true'
                             ? cutLayerStyleEntryTransformFn(
                                 transform, natural.width, natural.height, outputWidth, outputHeight, outputGeometry
                             )

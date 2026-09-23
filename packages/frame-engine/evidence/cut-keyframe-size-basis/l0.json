@@ -1,0 +1,201 @@
+{
+  "packages": {
+    "frameEngine": {
+      "before": {
+        "tests": 576,
+        "pass": 570,
+        "fail": 2,
+        "skip": 4,
+        "failures": [
+          "再生中の組み直しが最初の窓を待つ間に届いた次の ready も拾い、組み直しは 2 回だけ行う",
+          "同じ tick の updateAudio は prefetch に合流し、finally と then が重なっても組み直しは 1 回だけ行う"
+        ]
+      },
+      "after": {
+        "tests": 582,
+        "pass": 576,
+        "fail": 2,
+        "skip": 4,
+        "failures": [
+          "再生中の組み直しが最初の窓を待つ間に届いた次の ready も拾い、組み直しは 2 回だけ行う",
+          "同じ tick の updateAudio は prefetch に合流し、finally と then が重なっても組み直しは 1 回だけ行う"
+        ]
+      },
+      "sameFailSet": true
+    },
+    "akariPreview": {
+      "before": {
+        "tests": 1460,
+        "pass": 1460,
+        "fail": 0,
+        "skip": 0,
+        "failures": []
+      },
+      "after": {
+        "tests": 1463,
+        "pass": 1463,
+        "fail": 0,
+        "skip": 0,
+        "failures": []
+      },
+      "sameFailSet": true
+    },
+    "editStore": {
+      "before": {
+        "tests": 922,
+        "pass": 922,
+        "fail": 0,
+        "skip": 0,
+        "failures": []
+      },
+      "after": {
+        "tests": 922,
+        "pass": 922,
+        "fail": 0,
+        "skip": 0,
+        "failures": []
+      },
+      "sameFailSet": true
+    },
+    "renderCut": {
+      "before": {
+        "tests": 642,
+        "pass": 610,
+        "fail": 32,
+        "skip": 0,
+        "failures": [
+          "bgm.fadeIn=3 ramps RMS up monotonically at 0.5s/1.5s/3.5s, then holds steady (real rendered output)",
+          "bgm.fadeOut=3 is symmetric with fadeIn=3: the tail ramp mirrors the head ramp",
+          "bgm.fadeIn/fadeOut omitted keeps the filtergraph free of afade (regression invariant)",
+          "bgm.fadeIn exceeding half the timeline duration is clamped at render time (not just linted)",
+          "audio.master.loudnorm normalizes the final output to the target LUFS within +/-1 LU",
+          "explicit -1.7 dBTP real render keeps filter output and independent decoded input evidence distinct and receipt-bound",
+          "audio.master with loudnorm omitted defaults to -14 LUFS",
+          "audio.master absent preserves today's copy-only behavior (non-regression)",
+          "audio filter process failure preserves a content-addressed artifact and MEASUREMENT_ERROR receipt",
+          "failed-render artifact persistence refuses child symlinks and a retargeted reports parent without external writes",
+          "narration merges into the final mix; output audio exists and total duration matches the video",
+          "narration gain_db is honored: -20dB output is measurably quieter than 0dB during the narration window",
+          "asplit 廃止後も ducking:true で narration は実出力に可聴のまま",
+          "a narration file that cannot be found is skipped with a warning; the render still succeeds with BGM only",
+          "a narration file that cannot be decoded is skipped with a warning; the render still succeeds with BGM only",
+          "sfx.fade_in=1 ramps RMS up monotonically within the clip's own window (real rendered output)",
+          "sfx.fade_out=1 is symmetric with fade_in=1 within a 4s clip window (tail mirrors head)",
+          "sfx.fade_in exceeding half the clip's effective (in/out-trimmed) duration is clamped at render time",
+          "sfx.fade_in/fade_out on an in/out-trimmed clip apply to the trimmed window, not the whole material",
+          "sfx in/out plays only the material's [in,out) window, at t, for (out-in) seconds (real render)",
+          "sfx.out exceeding the material's real duration clamps to the material's end (real render, no overrun)",
+          "sfx.in at/beyond the material's real duration is silently skipped with a warning",
+          "bgm.in seeks the material's internal start offset -- output head content matches material at t=in (real render)",
+          "audio.master.true_peak_dbtp=-1 on high-pressure material: final mp4's real ebur128 true peak stays at or under 0 dBFS (裁定B margin)",
+          "audio.master.true_peak_dbtp omitted keeps today's unmargined -1.5 dBTP default (no regression)",
+          "two concurrent render-cut runs against the same project do not corrupt each other's render-tmp",
+          "a stale (>24h old) leftover run directory is swept on the next real run; a fresh one is left alone",
+          "glass-free 2D and 3D sheets match pre-glass baseline bytes",
+          "legacy output keeps the original CSS bytes",
+          "sheet injects vgpu only for declarations and preserves existing static/three sheets byte-for-byte"
+        ]
+      },
+      "after": {
+        "tests": 642,
+        "pass": 610,
+        "fail": 32,
+        "skip": 0,
+        "failures": [
+          "bgm.fadeIn=3 ramps RMS up monotonically at 0.5s/1.5s/3.5s, then holds steady (real rendered output)",
+          "bgm.fadeOut=3 is symmetric with fadeIn=3: the tail ramp mirrors the head ramp",
+          "bgm.fadeIn/fadeOut omitted keeps the filtergraph free of afade (regression invariant)",
+          "bgm.fadeIn exceeding half the timeline duration is clamped at render time (not just linted)",
+          "audio.master.loudnorm normalizes the final output to the target LUFS within +/-1 LU",
+          "explicit -1.7 dBTP real render keeps filter output and independent decoded input evidence distinct and receipt-bound",
+          "audio.master with loudnorm omitted defaults to -14 LUFS",
+          "audio.master absent preserves today's copy-only behavior (non-regression)",
+          "audio filter process failure preserves a content-addressed artifact and MEASUREMENT_ERROR receipt",
+          "failed-render artifact persistence refuses child symlinks and a retargeted reports parent without external writes",
+          "narration merges into the final mix; output audio exists and total duration matches the video",
+          "narration gain_db is honored: -20dB output is measurably quieter than 0dB during the narration window",
+          "asplit 廃止後も ducking:true で narration は実出力に可聴のまま",
+          "a narration file that cannot be found is skipped with a warning; the render still succeeds with BGM only",
+          "a narration file that cannot be decoded is skipped with a warning; the render still succeeds with BGM only",
+          "sfx.fade_in=1 ramps RMS up monotonically within the clip's own window (real rendered output)",
+          "sfx.fade_out=1 is symmetric with fade_in=1 within a 4s clip window (tail mirrors head)",
+          "sfx.fade_in exceeding half the clip's effective (in/out-trimmed) duration is clamped at render time",
+          "sfx.fade_in/fade_out on an in/out-trimmed clip apply to the trimmed window, not the whole material",
+          "sfx in/out plays only the material's [in,out) window, at t, for (out-in) seconds (real render)",
+          "sfx.out exceeding the material's real duration clamps to the material's end (real render, no overrun)",
+          "sfx.in at/beyond the material's real duration is silently skipped with a warning",
+          "bgm.in seeks the material's internal start offset -- output head content matches material at t=in (real render)",
+          "audio.master.true_peak_dbtp=-1 on high-pressure material: final mp4's real ebur128 true peak stays at or under 0 dBFS (裁定B margin)",
+          "audio.master.true_peak_dbtp omitted keeps today's unmargined -1.5 dBTP default (no regression)",
+          "two concurrent render-cut runs against the same project do not corrupt each other's render-tmp",
+          "a stale (>24h old) leftover run directory is swept on the next real run; a fresh one is left alone",
+          "glass-free 2D and 3D sheets match pre-glass baseline bytes",
+          "legacy output keeps the original CSS bytes",
+          "sheet injects vgpu only for declarations and preserves existing static/three sheets byte-for-byte"
+        ]
+      },
+      "sameFailSet": true
+    },
+    "osrExport": {
+      "before": {
+        "tests": 213,
+        "pass": 213,
+        "fail": 0,
+        "skip": 0,
+        "failures": []
+      },
+      "after": {
+        "tests": 213,
+        "pass": 213,
+        "fail": 0,
+        "skip": 0,
+        "failures": []
+      },
+      "sameFailSet": true
+    },
+    "gpuExport": {
+      "before": {
+        "tests": 465,
+        "pass": 465,
+        "fail": 0,
+        "skip": 0,
+        "failures": []
+      },
+      "after": {
+        "tests": 465,
+        "pass": 465,
+        "fail": 0,
+        "skip": 0,
+        "failures": []
+      },
+      "sameFailSet": true
+    }
+  },
+  "shell": {
+    "buildExt": "pass",
+    "build": "pass",
+    "lint": "pass (1 existing warning)"
+  },
+  "drift": "pass",
+  "golden": "attempted after; renderer returned DecoderExecutionError before assertions (non-proprietary Electron libffmpeg)",
+  "round3": {
+    "preview": {
+      "tests": 1463,
+      "pass": 1463,
+      "fail": 0
+    },
+    "frameEngine": {
+      "tests": 582,
+      "pass": 576,
+      "fail": 2,
+      "skip": 4,
+      "sameFailSet": true
+    },
+    "shell": {
+      "buildExt": "pass",
+      "lint": "pass (0 errors, 1 existing warning)"
+    },
+    "bundleHashesUnchanged": true,
+    "drift": "pass"
+  }
+}

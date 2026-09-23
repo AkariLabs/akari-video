@@ -25,6 +25,8 @@ export interface LayerKeyframeTransform {
     y?: number;
     scale?: number;
     rotate?: number;
+    scaleX?: number;
+    scaleY?: number;
 }
 
 export interface LayerKeyframeCrop {
@@ -48,7 +50,7 @@ export interface LayerKeyframePoint {
 
 export interface ResolvedLayerKeyframeState {
     /** null when no keyframe point declares `transform` -- caller keeps the layer's own static/default x/y/scale/rotate. */
-    transform: { x: number; y: number; scale: number; rotate: number } | null;
+    transform: { x: number; y: number; scale: number; scaleX?: number; scaleY?: number; rotate: number } | null;
     /** null when no keyframe point declares a usable `crop` -- caller keeps the layer's own static crop (or none). */
     crop: LayerKeyframeCrop | null;
     /** null when no keyframe point declares a usable `perspective` -- caller keeps the layer's own static perspective (or none). */
@@ -66,7 +68,9 @@ export interface ResolvedLayerKeyframeState {
  */
 export function computeLayerKeyframesVisual(
     keyframes: unknown,
-    layerLocalSeconds: number
+    layerLocalSeconds: number,
+    statics: LayerKeyframeTransform = {},
+    cutStaticFallback = false
 ): ResolvedLayerKeyframeState | null {
     const isFiniteNumber = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value);
     const isPlainObject = (value: unknown): value is Record<string, unknown> =>
@@ -121,12 +125,23 @@ export function computeLayerKeyframesVisual(
                 const value = point.transform ? point.transform[name] : undefined;
                 return isFiniteNumber(value) ? (value as number) : fallback;
             }, t);
-        const scaleRaw = leaf('scale', 1);
+        const staticLeaf = (name: 'x' | 'y' | 'scale' | 'rotate', fallback: number): number =>
+            cutStaticFallback && isFiniteNumber(statics[name]) ? statics[name] as number : fallback;
+        const scaleRaw = leaf('scale', staticLeaf('scale', 1));
+        const hasAxes = statics.scaleX !== undefined || statics.scaleY !== undefined
+            || transformDeclaring.some(point => point.transform?.scaleX !== undefined || point.transform?.scaleY !== undefined);
+        const axis = (name: 'scaleX' | 'scaleY'): number => piecewiseValueAt(transformDeclaring, point => {
+            const value = point.transform?.[name];
+            const fallback = point.transform?.scale ?? statics[name] ?? statics.scale ?? 1;
+            return isFiniteNumber(value) ? value : fallback;
+        }, t);
         transform = {
-            x: leaf('x', 0),
-            y: leaf('y', 0),
+            x: leaf('x', staticLeaf('x', 0)),
+            y: leaf('y', staticLeaf('y', 0)),
             scale: scaleRaw > 0 ? scaleRaw : 1,
-            rotate: leaf('rotate', 0)
+            ...(hasAxes ? { scaleX: Math.max(Number.EPSILON, axis('scaleX')),
+                scaleY: Math.max(Number.EPSILON, axis('scaleY')) } : {}),
+            rotate: leaf('rotate', staticLeaf('rotate', 0))
         };
     }
 

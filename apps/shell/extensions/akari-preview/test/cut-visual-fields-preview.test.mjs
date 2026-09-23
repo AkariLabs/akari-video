@@ -133,9 +133,9 @@ test('cut rendering reuses the layer pure functions and shared layer-style layou
     assert.match(source, /import \{ cropAnchorCorrectedTransform \} from '\.\.\/common\/layer-crop-anchor'/);
     assert.match(source, /import \{ computeLayerKeyframesVisual \} from '\.\.\/common\/layer-keyframes-visual'/);
     assert.match(source, /applyLayerStyleMediaLayout\(layerVideo, outputWidth, outputHeight\)/);
-    assert.match(source, /return applyLayerStyleMediaLayout\(media, outputWidth, outputHeight\)/);
+    assert.match(source, /return applyLayerStyleMediaLayout\(media, outputWidth, outputHeight, true\)/);
     assert.match(source, /computeLayerPerspectiveVisualFn\(\{ corners \}, boxWidthPx, boxHeightPx\)/);
-    assert.match(source, /computeLayerKeyframesVisualFn\(segment\.keyframes, localTime\)/);
+    assert.match(source, /computeLayerKeyframesVisualFn\(segment\.keyframes, localTime, segment\.transform \|\| \{\}, true\)/);
 });
 
 test('cut keyframes are evaluated from output-local time on both playback ticks and seeks', () => {
