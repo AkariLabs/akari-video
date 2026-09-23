@@ -1,0 +1,1264 @@
+{
+  "phase": "before",
+  "status": "done",
+  "observations": {
+    "idle": {
+      "tops": [
+        {
+          "id": "c-0001",
+          "top": 148,
+          "height": 69.13
+        },
+        {
+          "id": "c-0002",
+          "top": 217.13,
+          "height": 47.33
+        },
+        {
+          "id": "c-0003",
+          "top": 264.45,
+          "height": 47.33
+        },
+        {
+          "id": "c-0004",
+          "top": 311.78,
+          "height": 47.33
+        },
+        {
+          "id": "c-0005",
+          "top": 359.11,
+          "height": 47.33
+        },
+        {
+          "id": "c-0006",
+          "top": 406.44,
+          "height": 69.13
+        },
+        {
+          "id": "c-0007",
+          "top": 475.56,
+          "height": 47.33
+        },
+        {
+          "id": "c-0008",
+          "top": 522.89,
+          "height": 47.33
+        }
+      ],
+      "surfaces": {
+        "pops": [],
+        "editor": null,
+        "selectionBar": null,
+        "menus": [],
+        "inRowsNonRow": [
+          "akari-daihon-gapzone",
+          "akari-daihon-gapzone",
+          "akari-daihon-gapzone",
+          "akari-daihon-gapzone",
+          "akari-daihon-gapzone",
+          "akari-daihon-gapzone",
+          "akari-daihon-gapzone"
+        ],
+        "widget": {
+          "top": 39,
+          "bottom": 874,
+          "left": 814,
+          "right": 1392,
+          "height": 835,
+          "width": 578
+        },
+        "rowsBox": {
+          "top": 145,
+          "bottom": 848,
+          "left": 814,
+          "right": 1392,
+          "height": 703,
+          "width": 578
+        },
+        "head": {
+          "top": 39,
+          "bottom": 145,
+          "left": 814,
+          "right": 1392,
+          "height": 106,
+          "width": 578
+        },
+        "headButtons": [
+          "全部",
+          "文字だけ",
+          "隠す",
+          "文字起こしして字幕を作る",
+          "T この行から文字を置く",
+          "🔊 読み上げ",
+          "⏱ 発話に合わせ直す",
+          "🕘 履歴",
+          "⚙ 表示 18字 · 1行",
+          "🎨 テンプレ",
+          "QC ✓",
+          "無音短縮…",
+          "カット候補へ（0 / 0）"
+        ]
+      }
+    },
+    "a1_rowClick": {
+      "surfaces": {
+        "pops": [],
+        "editor": null,
+        "selectionBar": null,
+        "menus": [],
+        "inRowsNonRow": [
+          "akari-daihon-gapzone",
+          "akari-daihon-gapzone",
+          "akari-daihon-gapzone",
+          "akari-daihon-gapzone",
+          "akari-daihon-gapzone",
+          "akari-daihon-gapzone",
+          "akari-daihon-gapzone"
+        ],
+        "widget": {
+          "top": 39,
+          "bottom": 874,
+          "left": 814,
+          "right": 1392,
+          "height": 835,
+          "width": 578
+        },
+        "rowsBox": {
+          "top": 145,
+          "bottom": 848,
+          "left": 814,
+          "right": 1392,
+          "height": 703,
+          "width": 578
+        },
+        "head": {
+          "top": 39,
+          "bottom": 145,
+          "left": 814,
+          "right": 1392,
+          "height": 106,
+          "width": 578
+        },
+        "headButtons": [
+          "全部",
+          "文字だけ",
+          "隠す",
+          "文字起こしして字幕を作る",
+          "T この行から文字を置く",
+          "🔊 読み上げ",
+          "⏱ 発話に合わせ直す",
+          "🕘 履歴",
+          "⚙ 表示 18字 · 1行",
+          "🎨 テンプレ",
+          "QC ✓",
+          "無音短縮…",
+          "カット候補へ（0 / 0）"
+        ]
+      },
+      "rowShift": [
+        {
+          "id": "c-0001",
+          "dTop": 0,
+          "dHeight": 0
+        },
+        {
+          "id": "c-0002",
+          "dTop": 0,
+          "dHeight": 0
+        },
+        {
+          "id": "c-0003",
+          "dTop": 0,
+          "dHeight": 0
+        },
+        {
+          "id": "c-0004",
+          "dTop": 0,
+          "dHeight": 0
+        },
+        {
+          "id": "c-0005",
+          "dTop": 0,
+          "dHeight": 0
+        },
+        {
+          "id": "c-0006",
+          "dTop": 0,
+          "dHeight": 0
+        },
+        {
+          "id": "c-0007",
+          "dTop": 0,
+          "dHeight": 0
+        },
+        {
+          "id": "c-0008",
+          "dTop": 0,
+          "dHeight": 0
+        }
+      ],
+      "maxRowShiftPx": 0
+    },
+    "a1b_rowShiftClick": {
+      "surfaces": {
+        "pops": [],
+        "editor": null,
+        "selectionBar": {
+          "box": {
+            "top": 712.5,
+            "bottom": 848,
+            "left": 814,
+            "right": 1392,
+            "height": 135.5,
+            "width": 578
+          },
+          "buttons": [
+            "🎨 テンプレ適用",
+            "⧉ 選択行を結合",
+            "次の行と結合",
+            "発話にぴったり",
+            "✂ 選択行をカット",
+            "✕ 解除"
+          ]
+        },
+        "menus": [],
+        "inRowsNonRow": [
+          "akari-daihon-gapzone",
+          "akari-daihon-gapzone",
+          "akari-daihon-gapzone",
+          "akari-daihon-gapzone",
+          "akari-daihon-gapzone",
+          "akari-daihon-gapzone",
+          "akari-daihon-gapzone"
+        ],
+        "widget": {
+          "top": 39,
+          "bottom": 874,
+          "left": 814,
+          "right": 1392,
+          "height": 835,
+          "width": 578
+        },
+        "rowsBox": {
+          "top": 145,
+          "bottom": 712.5,
+          "left": 814,
+          "right": 1392,
+          "height": 567.5,
+          "width": 578
+        },
+        "head": {
+          "top": 39,
+          "bottom": 145,
+          "left": 814,
+          "right": 1392,
+          "height": 106,
+          "width": 578
+        },
+        "headButtons": [
+          "全部",
+          "文字だけ",
+          "隠す",
+          "文字起こしして字幕を作る",
+          "T この行から文字を置く",
+          "🔊 読み上げ",
+          "⏱ 発話に合わせ直す",
+          "🕘 履歴",
+          "⚙ 表示 18字 · 1行",
+          "🎨 テンプレ",
+          "QC ✓",
+          "無音短縮…",
+          "カット候補へ（0 / 0）"
+        ]
+      },
+      "rowShift": [
+        {
+          "id": "c-0001",
+          "dTop": 0,
+          "dHeight": 0
+        },
+        {
+          "id": "c-0002",
+          "dTop": 0,
+          "dHeight": 0
+        },
+        {
+          "id": "c-0003",
+          "dTop": 0,
+          "dHeight": 0
+        },
+        {
+          "id": "c-0004",
+          "dTop": 0,
+          "dHeight": 0
+        },
+        {
+          "id": "c-0005",
+          "dTop": 0,
+          "dHeight": 0
+        },
+        {
+          "id": "c-0006",
+          "dTop": 0,
+          "dHeight": 0
+        },
+        {
+          "id": "c-0007",
+          "dTop": 0,
+          "dHeight": 0
+        },
+        {
+          "id": "c-0008",
+          "dTop": 0,
+          "dHeight": 0
+        }
+      ],
+      "maxRowShiftPx": 0
+    },
+    "a2_headerTemplate": {
+      "surfaces": {
+        "pops": [
+          {
+            "className": "akari-daihon-pop",
+            "box": {
+              "top": 113.5,
+              "bottom": 592,
+              "left": 1162,
+              "right": 1446,
+              "height": 478.5,
+              "width": 284
+            },
+            "insideRows": false,
+            "parent": "BODY",
+            "position": "fixed",
+            "title": "字幕テンプレ — 適用先: 選択 1 行",
+            "buttons": [],
+            "cards": [
+              "テンプレなし",
+              "標準",
+              "ポップ",
+              "ニュース帯",
+              "ナレーション字幕",
+              "実況テロップ",
+              "インタビュー字幕",
+              "強調",
+              "判定バッジ",
+              "割引バッジテキスト",
+              "グリッチ風",
+              "ネオン",
+              "インパクト"
+            ],
+            "text": "字幕テンプレ — 適用先: 選択 1 行あア12テンプレなしあア12標準あア12ポップあア12ニュース帯あア12ナレーション字幕あア12実況テロップあア12インタビュー字幕あア12強調あア12判定バッジあア12割引バッジテキストあア12グリッチ風あア12ネオンあア12インパクト"
+          }
+        ],
+        "editor": null,
+        "selectionBar": {
+          "box": {
+            "top": 712.5,
+            "bottom": 848,
+            "left": 814,
+            "right": 1392,
+            "height": 135.5,
+            "width": 578
+          },
+          "buttons": [
+            "🎨 テンプレ適用",
+            "⧉ 選択行を結合",
+            "次の行と結合",
+            "発話にぴったり",
+            "✂ 選択行をカット",
+            "✕ 解除"
+          ]
+        },
+        "menus": [],
+        "inRowsNonRow": [
+          "akari-daihon-gapzone",
+          "akari-daihon-gapzone",
+          "akari-daihon-gapzone",
+          "akari-daihon-gapzone",
+          "akari-daihon-gapzone",
+          "akari-daihon-gapzone",
+          "akari-daihon-gapzone"
+        ],
+        "widget": {
+          "top": 39,
+          "bottom": 874,
+          "left": 814,
+          "right": 1392,
+          "height": 835,
+          "width": 578
+        },
+        "rowsBox": {
+          "top": 145,
+          "bottom": 712.5,
+          "left": 814,
+          "right": 1392,
+          "height": 567.5,
+          "width": 578
+        },
+        "head": {
+          "top": 39,
+          "bottom": 145,
+          "left": 814,
+          "right": 1392,
+          "height": 106,
+          "width": 578
+        },
+        "headButtons": [
+          "全部",
+          "文字だけ",
+          "隠す",
+          "文字起こしして字幕を作る",
+          "T この行から文字を置く",
+          "🔊 読み上げ",
+          "⏱ 発話に合わせ直す",
+          "🕘 履歴",
+          "⚙ 表示 18字 · 1行",
+          "🎨 テンプレ",
+          "QC ✓",
+          "無音短縮…",
+          "カット候補へ（0 / 0）"
+        ]
+      },
+      "rowShift": [
+        {
+          "id": "c-0001",
+          "dTop": 0,
+          "dHeight": 0
+        },
+        {
+          "id": "c-0002",
+          "dTop": 0,
+          "dHeight": 0
+        },
+        {
+          "id": "c-0003",
+          "dTop": 0,
+          "dHeight": 0
+        },
+        {
+          "id": "c-0004",
+          "dTop": 0,
+          "dHeight": 0
+        },
+        {
+          "id": "c-0005",
+          "dTop": 0,
+          "dHeight": 0
+        },
+        {
+          "id": "c-0006",
+          "dTop": 0,
+          "dHeight": 0
+        },
+        {
+          "id": "c-0007",
+          "dTop": 0,
+          "dHeight": 0
+        },
+        {
+          "id": "c-0008",
+          "dTop": 0,
+          "dHeight": 0
+        }
+      ],
+      "maxRowShiftPx": 0
+    },
+    "a3_wordClick": {
+      "surfaces": {
+        "pops": [
+          {
+            "className": "akari-daihon-pop akari-daihon-wordbar",
+            "box": {
+              "top": 308.95,
+              "bottom": 351.95,
+              "left": 868.13,
+              "right": 1298.79,
+              "height": 43,
+              "width": 430.66
+            },
+            "insideRows": false,
+            "parent": "BODY",
+            "position": "fixed",
+            "title": null,
+            "buttons": [
+              "▶",
+              "🎨 テンプレ",
+              "✨ 強調",
+              "✂",
+              "＋ 語",
+              "✕"
+            ],
+            "cards": [],
+            "text": "1 語 · 0:08.80–0:09.55▶🎨 テンプレ✨ 強調✂＋ 語✕"
+          }
+        ],
+        "editor": null,
+        "selectionBar": null,
+        "menus": [],
+        "inRowsNonRow": [
+          "akari-daihon-gapzone",
+          "akari-daihon-gapzone",
+          "akari-daihon-gapzone",
+          "akari-daihon-gapzone",
+          "akari-daihon-gapzone",
+          "akari-daihon-gapzone",
+          "akari-daihon-gapzone"
+        ],
+        "widget": {
+          "top": 39,
+          "bottom": 874,
+          "left": 814,
+          "right": 1392,
+          "height": 835,
+          "width": 578
+        },
+        "rowsBox": {
+          "top": 145,
+          "bottom": 848,
+          "left": 814,
+          "right": 1392,
+          "height": 703,
+          "width": 578
+        },
+        "head": {
+          "top": 39,
+          "bottom": 145,
+          "left": 814,
+          "right": 1392,
+          "height": 106,
+          "width": 578
+        },
+        "headButtons": [
+          "全部",
+          "文字だけ",
+          "隠す",
+          "文字起こしして字幕を作る",
+          "T この行から文字を置く",
+          "🔊 読み上げ",
+          "⏱ 発話に合わせ直す",
+          "🕘 履歴",
+          "⚙ 表示 18字 · 1行",
+          "🎨 テンプレ",
+          "QC ✓",
+          "無音短縮…",
+          "カット候補へ（0 / 0）"
+        ]
+      },
+      "rowShift": [
+        {
+          "id": "c-0001",
+          "dTop": 0,
+          "dHeight": 0
+        },
+        {
+          "id": "c-0002",
+          "dTop": 0,
+          "dHeight": 0
+        },
+        {
+          "id": "c-0003",
+          "dTop": 0,
+          "dHeight": 0
+        },
+        {
+          "id": "c-0004",
+          "dTop": 0,
+          "dHeight": 0
+        },
+        {
+          "id": "c-0005",
+          "dTop": 0,
+          "dHeight": 0
+        },
+        {
+          "id": "c-0006",
+          "dTop": 0,
+          "dHeight": 0
+        },
+        {
+          "id": "c-0007",
+          "dTop": 0,
+          "dHeight": 0
+        },
+        {
+          "id": "c-0008",
+          "dTop": 0,
+          "dHeight": 0
+        }
+      ],
+      "maxRowShiftPx": 0
+    },
+    "wordBarTemplateButton": true,
+    "a3b_wordTemplate": {
+      "surfaces": {
+        "pops": [
+          {
+            "className": "akari-daihon-pop",
+            "box": {
+              "top": 308.95,
+              "bottom": 546.45,
+              "left": 868.13,
+              "right": 1182.13,
+              "height": 237.5,
+              "width": 314
+            },
+            "insideRows": false,
+            "parent": "BODY",
+            "position": "fixed",
+            "title": null,
+            "buttons": [
+              "← 戻る"
+            ],
+            "cards": [
+              "ネオン",
+              "グリッチ風",
+              "インパクト",
+              "強調",
+              "判定バッジ"
+            ],
+            "text": "← 戻る挽きたてがネオン挽きたてがグリッチ風挽きたてがインパクト挽きたてが強調挽きたてが判定バッジ"
+          }
+        ],
+        "editor": null,
+        "selectionBar": null,
+        "menus": [],
+        "inRowsNonRow": [
+          "akari-daihon-gapzone",
+          "akari-daihon-gapzone",
+          "akari-daihon-gapzone",
+          "akari-daihon-gapzone",
+          "akari-daihon-gapzone",
+          "akari-daihon-gapzone",
+          "akari-daihon-gapzone"
+        ],
+        "widget": {
+          "top": 39,
+          "bottom": 874,
+          "left": 814,
+          "right": 1392,
+          "height": 835,
+          "width": 578
+        },
+        "rowsBox": {
+          "top": 145,
+          "bottom": 848,
+          "left": 814,
+          "right": 1392,
+          "height": 703,
+          "width": 578
+        },
+        "head": {
+          "top": 39,
+          "bottom": 145,
+          "left": 814,
+          "right": 1392,
+          "height": 106,
+          "width": 578
+        },
+        "headButtons": [
+          "全部",
+          "文字だけ",
+          "隠す",
+          "文字起こしして字幕を作る",
+          "T この行から文字を置く",
+          "🔊 読み上げ",
+          "⏱ 発話に合わせ直す",
+          "🕘 履歴",
+          "⚙ 表示 18字 · 1行",
+          "🎨 テンプレ",
+          "QC ✓",
+          "無音短縮…",
+          "カット候補へ（0 / 0）"
+        ]
+      },
+      "rowShift": [
+        {
+          "id": "c-0001",
+          "dTop": 0,
+          "dHeight": 0
+        },
+        {
+          "id": "c-0002",
+          "dTop": 0,
+          "dHeight": 0
+        },
+        {
+          "id": "c-0003",
+          "dTop": 0,
+          "dHeight": 0
+        },
+        {
+          "id": "c-0004",
+          "dTop": 0,
+          "dHeight": 0
+        },
+        {
+          "id": "c-0005",
+          "dTop": 0,
+          "dHeight": 0
+        },
+        {
+          "id": "c-0006",
+          "dTop": 0,
+          "dHeight": 0
+        },
+        {
+          "id": "c-0007",
+          "dTop": 0,
+          "dHeight": 0
+        },
+        {
+          "id": "c-0008",
+          "dTop": 0,
+          "dHeight": 0
+        }
+      ],
+      "maxRowShiftPx": 0
+    },
+    "a4_rowGear": {
+      "surfaces": {
+        "pops": [
+          {
+            "className": "akari-daihon-pop",
+            "box": {
+              "top": 288.95,
+              "bottom": 476.95,
+              "left": 975.33,
+              "right": 1249.33,
+              "height": 188,
+              "width": 274
+            },
+            "insideRows": false,
+            "parent": "BODY",
+            "position": "fixed",
+            "title": "c-0003 の字幕設定",
+            "buttons": [
+              "⚙ インスペクターで開く →"
+            ],
+            "cards": [],
+            "text": "c-0003 の字幕設定スタイルカラオケ（読み上げ追従）通常表示（カラオケなし）表示行の時間いっぱい（余韻あり）発話にぴったり前 0.00 秒 / 後 0.05 秒を詰めますアニメなしフェードフェード（下から）スライドアップポップタイプライター⚙ インスペクターで開く →"
+          }
+        ],
+        "editor": null,
+        "selectionBar": null,
+        "menus": [],
+        "inRowsNonRow": [
+          "akari-daihon-gapzone",
+          "akari-daihon-gapzone",
+          "akari-daihon-gapzone",
+          "akari-daihon-gapzone",
+          "akari-daihon-gapzone",
+          "akari-daihon-gapzone",
+          "akari-daihon-gapzone"
+        ],
+        "widget": {
+          "top": 39,
+          "bottom": 874,
+          "left": 814,
+          "right": 1392,
+          "height": 835,
+          "width": 578
+        },
+        "rowsBox": {
+          "top": 145,
+          "bottom": 848,
+          "left": 814,
+          "right": 1392,
+          "height": 703,
+          "width": 578
+        },
+        "head": {
+          "top": 39,
+          "bottom": 145,
+          "left": 814,
+          "right": 1392,
+          "height": 106,
+          "width": 578
+        },
+        "headButtons": [
+          "全部",
+          "文字だけ",
+          "隠す",
+          "文字起こしして字幕を作る",
+          "T この行から文字を置く",
+          "🔊 読み上げ",
+          "⏱ 発話に合わせ直す",
+          "🕘 履歴",
+          "⚙ 表示 18字 · 1行",
+          "🎨 テンプレ",
+          "QC ✓",
+          "無音短縮…",
+          "カット候補へ（0 / 0）"
+        ]
+      },
+      "rowShift": [
+        {
+          "id": "c-0001",
+          "dTop": 0,
+          "dHeight": 0
+        },
+        {
+          "id": "c-0002",
+          "dTop": 0,
+          "dHeight": 0
+        },
+        {
+          "id": "c-0003",
+          "dTop": 0,
+          "dHeight": 0
+        },
+        {
+          "id": "c-0004",
+          "dTop": 0,
+          "dHeight": 0
+        },
+        {
+          "id": "c-0005",
+          "dTop": 0,
+          "dHeight": 0
+        },
+        {
+          "id": "c-0006",
+          "dTop": 0,
+          "dHeight": 0
+        },
+        {
+          "id": "c-0007",
+          "dTop": 0,
+          "dHeight": 0
+        },
+        {
+          "id": "c-0008",
+          "dTop": 0,
+          "dHeight": 0
+        }
+      ],
+      "maxRowShiftPx": 0
+    },
+    "a5_wordContextMenu": {
+      "surfaces": {
+        "pops": [
+          {
+            "className": "akari-daihon-pop akari-daihon-wordcm",
+            "box": {
+              "top": 172,
+              "bottom": 891.5,
+              "left": 901,
+              "right": 1292.75,
+              "height": 719.5,
+              "width": 391.75
+            },
+            "insideRows": false,
+            "parent": "BODY",
+            "position": "fixed",
+            "title": "この語「挽きたてが」",
+            "buttons": [
+              "▶ ここから再生",
+              "✎ 直す",
+              "📖 辞書に覚える",
+              "✂ 映像ごとカット",
+              "字幕からだけ消す",
+              "⏸ この語の間だけ止める（Freeze）",
+              "ネオン",
+              "グリッチ風",
+              "インパクト",
+              "強調",
+              "判定バッジ",
+              "強調を外す",
+              "🖼 画像 Coming soon",
+              "🎬 B-roll Coming soon",
+              "🅰 テロップ Coming soon",
+              "＋ 語 Coming soon",
+              "⏸ 間 0.5 秒⌘;",
+              "／ ここで改行（表示だけ・行は 1 つのまま）⇧⏎",
+              "⏎ ここで分割（行が 2 つになる）⏎",
+              "前の行と結合⌫",
+              "次の行と結合",
+              "この行だけの字幕にする（同じ素材の他クリップでは出さない）",
+              "#ff5c5c",
+              "#ffb347",
+              "#f5c451",
+              "#6fd18a",
+              "#4fa8ff",
+              "#c77dff"
+            ],
+            "cards": [],
+            "text": "この語「挽きたてが」▶ ここから再生✎ 直す📖 辞書に覚える✂ 映像ごとカット字幕からだけ消す⏸ この語の間だけ止める（Freeze）強調ネオングリッチ風インパクト強調判定バッジ強調を外す挿入「一番」の前に🖼 画像 Coming soon🎬 B-roll Coming soon🅰 テロップ Coming soon＋ 語 Coming soon⏸ 間 0.5 秒⌘;行／ ここで改行（表示だけ・行は 1 つのまま）⇧⏎⏎ ここで分割（行が 2 つになる）⏎前の行と結合⌫次の行と結合この行だけの字幕にする（同じ素材の他クリップでは出さない）マーク#ff5c5c#ffb347#f5c451#6fd18a#4fa8ff#c77dff"
+          }
+        ],
+        "editor": null,
+        "selectionBar": null,
+        "menus": [],
+        "inRowsNonRow": [
+          "akari-daihon-gapzone",
+          "akari-daihon-gapzone",
+          "akari-daihon-gapzone",
+          "akari-daihon-gapzone",
+          "akari-daihon-gapzone",
+          "akari-daihon-gapzone",
+          "akari-daihon-gapzone"
+        ],
+        "widget": {
+          "top": 39,
+          "bottom": 874,
+          "left": 814,
+          "right": 1392,
+          "height": 835,
+          "width": 578
+        },
+        "rowsBox": {
+          "top": 145,
+          "bottom": 848,
+          "left": 814,
+          "right": 1392,
+          "height": 703,
+          "width": 578
+        },
+        "head": {
+          "top": 39,
+          "bottom": 145,
+          "left": 814,
+          "right": 1392,
+          "height": 106,
+          "width": 578
+        },
+        "headButtons": [
+          "全部",
+          "文字だけ",
+          "隠す",
+          "文字起こしして字幕を作る",
+          "T この行から文字を置く",
+          "🔊 読み上げ",
+          "⏱ 発話に合わせ直す",
+          "🕘 履歴",
+          "⚙ 表示 18字 · 1行",
+          "🎨 テンプレ",
+          "QC ✓",
+          "無音短縮…",
+          "カット候補へ（0 / 0）"
+        ]
+      },
+      "rowShift": [
+        {
+          "id": "c-0001",
+          "dTop": 0,
+          "dHeight": 0
+        },
+        {
+          "id": "c-0002",
+          "dTop": 0,
+          "dHeight": 0
+        },
+        {
+          "id": "c-0003",
+          "dTop": 0,
+          "dHeight": 0
+        },
+        {
+          "id": "c-0004",
+          "dTop": 0,
+          "dHeight": 0
+        },
+        {
+          "id": "c-0005",
+          "dTop": 0,
+          "dHeight": 0
+        },
+        {
+          "id": "c-0006",
+          "dTop": 0,
+          "dHeight": 0
+        },
+        {
+          "id": "c-0007",
+          "dTop": 0,
+          "dHeight": 0
+        },
+        {
+          "id": "c-0008",
+          "dTop": 0,
+          "dHeight": 0
+        }
+      ],
+      "maxRowShiftPx": 0
+    },
+    "b1_placedTagClick": {
+      "surfaces": {
+        "pops": [],
+        "editor": {
+          "box": {
+            "top": 739.5,
+            "bottom": 848,
+            "left": 814,
+            "right": 1392,
+            "height": 108.5,
+            "width": 578
+          },
+          "text": "T 今日の予定6 行目 〜 7 行目（0:20.00 〜 0:27.19）全部の行に文字を編集削除閉じる範囲は左の棒の両端を引いて変えます",
+          "buttons": [
+            "全部の行に",
+            "文字を編集",
+            "削除",
+            "閉じる"
+          ],
+          "children": [
+            "",
+            "",
+            "akari-daihon-placed-actions",
+            "akari-daihon-placed-help"
+          ]
+        },
+        "selectionBar": null,
+        "menus": [],
+        "inRowsNonRow": [
+          "akari-daihon-gapzone",
+          "akari-daihon-gapzone",
+          "akari-daihon-gapzone",
+          "akari-daihon-gapzone",
+          "akari-daihon-gapzone",
+          "akari-daihon-gapzone",
+          "akari-daihon-gapzone"
+        ],
+        "widget": {
+          "top": 39,
+          "bottom": 874,
+          "left": 814,
+          "right": 1392,
+          "height": 835,
+          "width": 578
+        },
+        "rowsBox": {
+          "top": 145,
+          "bottom": 739.5,
+          "left": 814,
+          "right": 1392,
+          "height": 594.5,
+          "width": 578
+        },
+        "head": {
+          "top": 39,
+          "bottom": 145,
+          "left": 814,
+          "right": 1392,
+          "height": 106,
+          "width": 578
+        },
+        "headButtons": [
+          "全部",
+          "文字だけ",
+          "隠す",
+          "文字起こしして字幕を作る",
+          "T この行から文字を置く",
+          "🔊 読み上げ",
+          "⏱ 発話に合わせ直す",
+          "🕘 履歴",
+          "⚙ 表示 18字 · 1行",
+          "🎨 テンプレ",
+          "QC ✓",
+          "無音短縮…",
+          "カット候補へ（0 / 0）"
+        ]
+      },
+      "rowShift": [
+        {
+          "id": "c-0001",
+          "dTop": 0,
+          "dHeight": 0
+        },
+        {
+          "id": "c-0002",
+          "dTop": 0,
+          "dHeight": 0
+        },
+        {
+          "id": "c-0003",
+          "dTop": 0,
+          "dHeight": 0
+        },
+        {
+          "id": "c-0004",
+          "dTop": 0,
+          "dHeight": 0
+        },
+        {
+          "id": "c-0005",
+          "dTop": 0,
+          "dHeight": 0
+        },
+        {
+          "id": "c-0006",
+          "dTop": 0,
+          "dHeight": 0
+        },
+        {
+          "id": "c-0007",
+          "dTop": 0,
+          "dHeight": 0
+        },
+        {
+          "id": "c-0008",
+          "dTop": 0,
+          "dHeight": 0
+        }
+      ],
+      "maxRowShiftPx": 0
+    },
+    "b2_placedContextMenu": {
+      "surfaces": {
+        "pops": [
+          {
+            "className": "akari-daihon-pop akari-daihon-placed-menu",
+            "box": {
+              "top": 475.56,
+              "bottom": 584.56,
+              "left": 840,
+              "right": 1022,
+              "height": 109,
+              "width": 182
+            },
+            "insideRows": false,
+            "parent": "BODY",
+            "position": "fixed",
+            "title": null,
+            "buttons": [
+              "全部の行に",
+              "文字を編集",
+              "削除"
+            ],
+            "cards": [],
+            "text": "全部の行に文字を編集削除"
+          }
+        ],
+        "editor": {
+          "box": {
+            "top": 739.5,
+            "bottom": 848,
+            "left": 814,
+            "right": 1392,
+            "height": 108.5,
+            "width": 578
+          },
+          "text": "T 今日の予定6 行目 〜 7 行目（0:20.00 〜 0:27.19）全部の行に文字を編集削除閉じる範囲は左の棒の両端を引いて変えます",
+          "buttons": [
+            "全部の行に",
+            "文字を編集",
+            "削除",
+            "閉じる"
+          ],
+          "children": [
+            "",
+            "",
+            "akari-daihon-placed-actions",
+            "akari-daihon-placed-help"
+          ]
+        },
+        "selectionBar": null,
+        "menus": [],
+        "inRowsNonRow": [
+          "akari-daihon-gapzone",
+          "akari-daihon-gapzone",
+          "akari-daihon-gapzone",
+          "akari-daihon-gapzone",
+          "akari-daihon-gapzone",
+          "akari-daihon-gapzone",
+          "akari-daihon-gapzone"
+        ],
+        "widget": {
+          "top": 39,
+          "bottom": 874,
+          "left": 814,
+          "right": 1392,
+          "height": 835,
+          "width": 578
+        },
+        "rowsBox": {
+          "top": 145,
+          "bottom": 739.5,
+          "left": 814,
+          "right": 1392,
+          "height": 594.5,
+          "width": 578
+        },
+        "head": {
+          "top": 39,
+          "bottom": 145,
+          "left": 814,
+          "right": 1392,
+          "height": 106,
+          "width": 578
+        },
+        "headButtons": [
+          "全部",
+          "文字だけ",
+          "隠す",
+          "文字起こしして字幕を作る",
+          "T この行から文字を置く",
+          "🔊 読み上げ",
+          "⏱ 発話に合わせ直す",
+          "🕘 履歴",
+          "⚙ 表示 18字 · 1行",
+          "🎨 テンプレ",
+          "QC ✓",
+          "無音短縮…",
+          "カット候補へ（0 / 0）"
+        ]
+      },
+      "rowShift": [
+        {
+          "id": "c-0001",
+          "dTop": 0,
+          "dHeight": 0
+        },
+        {
+          "id": "c-0002",
+          "dTop": 0,
+          "dHeight": 0
+        },
+        {
+          "id": "c-0003",
+          "dTop": 0,
+          "dHeight": 0
+        },
+        {
+          "id": "c-0004",
+          "dTop": 0,
+          "dHeight": 0
+        },
+        {
+          "id": "c-0005",
+          "dTop": 0,
+          "dHeight": 0
+        },
+        {
+          "id": "c-0006",
+          "dTop": 0,
+          "dHeight": 0
+        },
+        {
+          "id": "c-0007",
+          "dTop": 0,
+          "dHeight": 0
+        },
+        {
+          "id": "c-0008",
+          "dTop": 0,
+          "dHeight": 0
+        }
+      ],
+      "maxRowShiftPx": 0
+    }
+  },
+  "screenshots": [
+    "before-00-idle.png",
+    "before-01-row-click.png",
+    "before-02-row-selected.png",
+    "before-03-header-template.png",
+    "before-04-word-bar.png",
+    "before-05-word-template.png",
+    "before-06-row-gear.png",
+    "before-07-word-context.png",
+    "before-08-placed-editor.png",
+    "before-09-placed-context.png"
+  ]
+}

@@ -1,14 +1,13 @@
 export type WordMenuAction = { kind: 'play' } | { kind: 'edit' } | { kind: 'dictionary' } | { kind: 'cut-video' }
-    | { kind: 'caption-only' } | { kind: 'freeze' } | { kind: 'preset'; presetId: string } | { kind: 'preset-clear' }
+    | { kind: 'caption-only' } | { kind: 'freeze' }
     | { kind: 'coming-soon'; what: string } | { kind: 'pause' } | { kind: 'break' } | { kind: 'split' }
     | { kind: 'merge-prev' } | { kind: 'merge-next' } | { kind: 'insert-word' } | { kind: 'item-captions' } | { kind: 'mark'; color: string };
 export interface WordMenuItem { label: string; action?: WordMenuAction; accel?: string; disabled?: boolean; title?: string; danger?: boolean }
-export interface WordMenuGroup { title: string; note?: string; items: WordMenuItem[]; presets?: { id: string; name: string }[]; colors?: string[] }
+export interface WordMenuGroup { title: string; note?: string; items: WordMenuItem[]; colors?: string[] }
 
 const COLORS = ['#ff5c5c', '#ffb347', '#f5c451', '#6fd18a', '#4fa8ff', '#c77dff'];
 export function wordContextMenuGroups(input: {
     rangeCount: number; wordCount: number; text: string; nextWordText: string;
-    presets: readonly { id: string; name: string }[];
     splitAvailable: boolean; mergeAvailable: boolean; mergeNextAvailable: boolean;
     wordInsertAvailable: boolean; itemCaptionsAvailable: boolean;
 }): WordMenuGroup[] {
@@ -22,10 +21,6 @@ export function wordContextMenuGroups(input: {
             { label: '✂ 映像ごとカット', action: { kind: 'cut-video' }, danger: true },
             { label: '字幕からだけ消す', action: { kind: 'caption-only' } },
             { label: '⏸ この語の間だけ止める（Freeze）', action: { kind: 'freeze' } }
-        ] },
-        { title: '強調', presets: [...input.presets], items: [
-            ...input.presets.map(preset => ({ label: preset.name, action: { kind: 'preset' as const, presetId: preset.id } })),
-            { label: '強調を外す', action: { kind: 'preset-clear' } }
         ] },
         { title: '挿入', note: `「${input.nextWordText}」の前に`, items: [
             coming('🖼 画像 Coming soon', '画像'), coming('🎬 B-roll Coming soon', 'B-roll'),
@@ -58,19 +53,8 @@ export function openWordContextMenu(options: {
         const title = document.createElement('div'); title.className = 'akari-daihon-pttl'; title.textContent = group.title;
         pop.appendChild(title);
         if (group.note) { const note = document.createElement('div'); note.className = 'akari-daihon-cmnote'; note.textContent = group.note; pop.appendChild(note); }
-        if (group.presets) {
-            const presets = document.createElement('div'); presets.className = 'akari-daihon-cmpresets';
-            for (const preset of group.presets) {
-                const button = document.createElement('button'); button.type = 'button'; button.dataset.presetId = preset.id;
-                button.textContent = preset.name; button.addEventListener('click', event => {
-                    event.stopPropagation(); options.onAction({ kind: 'preset', presetId: preset.id });
-                }); presets.appendChild(button);
-            }
-            pop.appendChild(presets);
-        }
         const items = document.createElement('div'); items.className = group.colors ? 'akari-daihon-cmcolors' : 'akari-daihon-cmitems';
         for (const item of group.items) {
-            if (group.presets && item.action?.kind === 'preset') continue;
             const button = document.createElement('button'); button.type = 'button'; button.textContent = item.label;
             if (item.danger) button.classList.add('danger');
             if (item.disabled) button.classList.add('disabled');

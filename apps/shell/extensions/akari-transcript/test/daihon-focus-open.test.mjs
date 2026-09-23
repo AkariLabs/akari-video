@@ -9,7 +9,7 @@ const source = await readFile(new URL('../src/browser/daihon/akari-daihon-widget
 const contribution = await readFile(new URL('../src/browser/daihon/akari-daihon-contribution.ts', import.meta.url), 'utf8');
 const method = source.slice(source.indexOf('    async focusTarget('), source.indexOf('    showError('));
 const calls = ['scrollIntoView', 'setSelection', 'openWordBar', 'openGearPop',
-  'openCutRangeEditorForSelection', 'openTplPicker', 'openWordPresetPicker', 'openDisplayPop',
+  'openCutRangeEditorForSelection', 'openRowDock', 'openDisplayPop',
   'openHistoryPop', 'openSilenceBatch', 'applyQcFilter', 'triggerFocusPulse'];
 
 test('external focus uses existing selection and panel actions', () => {
@@ -86,12 +86,11 @@ test('speaker-only requests filter, while empty requests do nothing', async () =
   assert.equal(root.hidden, true);
 });
 
-test('row and word templates choose the appropriate picker after selecting', async () => {
+test('row and word templates choose the appropriate dock tab after selecting', async () => {
   for (const wordRange of [undefined, { from: 0, to: 1 }]) {
     const { widget, events } = fixture();
     assert.equal(await widget.focusTarget({ captionId: 'a', wordRange, open: 'template' }), true);
-    const picker = wordRange ? 'openWordPresetPicker' : 'openTplPicker';
-    assert.ok(events.indexOf(picker) > events.indexOf('selection'));
+    assert.ok(events.indexOf('openRowDock') > events.indexOf('selection'));
     assert.equal(events.includes('openWordBar'), !!wordRange);
   }
 });

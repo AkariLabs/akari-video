@@ -99,6 +99,8 @@ import {
     type DaihonSilenceSpan
 } from '../../common/daihon-silence';
 import { orderPresetsForPicker, presetCardStyle } from '../../common/daihon-preset-card';
+import { clampDockHeight, currentLookSwatch, dockActions, dockTabs, lookPatch, readDockHeight,
+    shouldCloseDockOnEscape, type DockKind, type DockTab, type LookField } from '../../common/daihon-dock';
 import {
     addWordRange, extendWordRange, normalizeWordRanges, removeWordRange, wordRangeSummary, wordsOf,
     type DaihonWordRange
@@ -231,7 +233,7 @@ const PLACED_TEXT_COLORS = [
 
 const STYLE_ID = 'akari-daihon-widget-style';
 const STYLE = `
-.akari-daihon-widget { background:var(--theia-editor-background); color:var(--akari-ink, var(--theia-foreground)); display:flex; flex-direction:column; height:100%; overflow:hidden; }
+.akari-daihon-widget { background:var(--theia-editor-background); color:var(--akari-ink, var(--theia-foreground)); display:flex; flex-direction:column; height:100%; overflow:hidden; position:relative; }
 .akari-daihon-head { display:flex; align-items:center; gap:7px; padding:8px 11px; border-bottom:1px solid var(--akari-line-inner); flex-wrap:nowrap; }
 .akari-daihon-title { visibility:hidden; font-weight:700; font-size:13px; white-space:nowrap; }
 .akari-daihon-count { font-size:10px; color:var(--akari-muted); font-family:"JetBrains Mono",ui-monospace,monospace; white-space:nowrap; }
@@ -239,7 +241,8 @@ const STYLE = `
 .akari-daihon-qc { font-size:10.5px; font-weight:700; border-radius:999px; padding:1px 9px; white-space:nowrap; background:none; cursor:pointer; }
 .akari-daihon-qc.ok { color:color-mix(in srgb, #6fdc9f 40%, var(--akari-ink, var(--theia-foreground))); border:1px solid rgba(111,220,159,.35); }
 .akari-daihon-qc.warn { color:color-mix(in srgb, #f0b45a 40%, var(--akari-ink, var(--theia-foreground))); border:1px solid rgba(240,180,90,.45); }
-.akari-daihon-rows { overflow-y:auto; padding:3px 5px 14px; flex:1; scroll-behavior:smooth; user-select:none; }
+.akari-daihon-rows-region { position:relative; flex:1; min-height:0; overflow:hidden; }
+.akari-daihon-rows { overflow-y:auto; padding:3px 5px 14px; height:100%; box-sizing:border-box; scroll-behavior:smooth; user-select:none; }
 .akari-daihon-rows input { user-select:text; }
 .akari-daihon-empty { color:var(--akari-muted); font-size:12px; line-height:1.6; padding:24px 16px; text-align:center; }
 .akari-daihon-row { position:relative; border-left:3px solid transparent; border-radius:5px; padding:3px 7px 4px 8px; margin:1px 0; transition:background .12s,border-color .12s; }
@@ -419,14 +422,37 @@ const STYLE = `
 .akari-daihon-attachment-icon { display:inline-grid; place-items:center; width:17px; height:14px; border:1px solid currentColor; border-radius:3px; font-size:9px; line-height:1; flex:none; }
 .akari-daihon-attachment-thumb { display:block; width:22px; height:14px; object-fit:cover; border-radius:2px; flex:none; }
 .akari-daihon-attachment-folded { font-size:10px; opacity:.75; margin-left:3px; }
-.akari-daihon-placed-editor { padding:8px 11px; background:var(--theia-editorWidget-background, #141414); flex-shrink:0; animation:akari-daihon-placed-enter 180ms ease-out both; }
-.akari-daihon-placed-editor[hidden] { display:none; }
-@keyframes akari-daihon-placed-enter { from { transform:translateY(100%); opacity:0; } to { transform:translateY(0); opacity:1; } }
+.akari-daihon-rows.docked { padding-bottom:calc(var(--dockh, 50%) + 8px); }
+.akari-daihon-dock { position:absolute; left:0; right:0; bottom:0; z-index:12; height:var(--dockh, 50%); min-height:min(140px, 100%); max-height:var(--dockmax, 100%); box-sizing:border-box; display:flex; flex-direction:column; background:var(--theia-editorWidget-background, #141414); border-top:1px solid var(--akari-line); transform:translateY(100%); transition:transform 180ms ease-out; visibility:hidden; }
+.akari-daihon-dock.open { transform:translateY(0); visibility:visible; }
+.akari-daihon-dock[hidden] { display:none; }
+.akari-daihon-dock-grip { flex:none; height:10px; cursor:ns-resize; touch-action:none; display:flex; justify-content:center; align-items:center; }
+.akari-daihon-dock-grip::before { content:""; width:36px; height:3px; border-radius:2px; background:var(--akari-muted); }
+.akari-daihon-dock-head { display:flex; align-items:center; gap:6px; padding:3px 10px; min-height:25px; font-size:11px; }
+.akari-daihon-dock-title { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1; }
+.akari-daihon-dock-close { border:0; background:none; color:inherit; cursor:pointer; }
+.akari-daihon-dock-tabs { display:flex; overflow-x:auto; flex:none; border-bottom:1px solid var(--akari-line); }
+.akari-daihon-dock-tabs button { border:0; border-bottom:2px solid transparent; background:none; color:var(--akari-muted); padding:5px 7px; cursor:pointer; white-space:nowrap; }
+.akari-daihon-dock-tabs button.active { color:inherit; border-bottom-color:var(--akari-accent); }
+.akari-daihon-dock-body { padding:8px 10px; flex:1; min-height:0; overflow-y:auto; overscroll-behavior:contain; }
+.akari-daihon-dock-cats { display:flex; flex-wrap:wrap; gap:4px; margin-bottom:8px; }
+.akari-daihon-dock-cats button { border:0; border-radius:10px; background:var(--akari-elevated); color:inherit; padding:2px 7px; cursor:pointer; }
+.akari-daihon-dock-cats button.active { background:var(--akari-accent); color:var(--theia-editor-background); }
+.akari-daihon-dock-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:5px; }
+.akari-daihon-dock-grid .akari-daihon-tplcard { min-width:0; }
+.akari-daihon-look-field { display:flex; align-items:center; flex-wrap:wrap; gap:5px; margin:6px 0; font-size:11px; }
+.akari-daihon-look-field label { width:76px; color:var(--akari-muted); }
+.akari-daihon-look-field button { border:1px solid var(--akari-line); border-radius:4px; background:var(--akari-elevated); color:inherit; cursor:pointer; padding:3px 6px; }
+.akari-daihon-look-field button.akari-daihon-look-swatch { display:inline-block; width:20px; height:20px; min-width:20px; padding:0; border:1px solid var(--akari-line); background:var(--akari-elevated); }
+.akari-daihon-look-field button.akari-daihon-look-swatch.none { background:repeating-linear-gradient(45deg, var(--akari-elevated) 0 3px, var(--akari-line) 3px 6px); }
+.akari-daihon-look-field button.akari-daihon-look-swatch.selected { outline:2px solid var(--akari-accent); outline-offset:1px; }
+.akari-daihon-look-field input { max-width:105px; min-width:0; }
+.akari-daihon-look-detail { border:0; background:none; color:var(--akari-accent); cursor:pointer; padding:5px 0; }
 .akari-daihon-placed-actions { display:flex; gap:6px; flex-wrap:wrap; margin-top:7px; }
 .akari-daihon-placed-actions button { border:0; border-radius:6px; background:var(--theia-button-secondaryBackground, #1a1a1a); color:inherit; font-size:11.5px; padding:4px 9px; cursor:pointer; }
 .akari-daihon-placed-actions button:disabled { opacity:.4; cursor:default; }
 .akari-daihon-placed-help { margin-top:6px; color:var(--akari-muted); font-size:10px; }
-@media (prefers-reduced-motion: reduce) { .akari-daihon-rows { scroll-behavior:auto; } .akari-daihon-placed-editor { animation:none; } }
+@media (prefers-reduced-motion: reduce) { .akari-daihon-rows { scroll-behavior:auto; } .akari-daihon-dock { transition:none; } }
 `;
 
 function installStyle(): void {
@@ -497,6 +523,14 @@ export class AkariDaihonWidget extends BaseWidget {
     protected suppressPlacedClick = false;
     protected lastPlacedClick: { captionId: string; at: number } | undefined;
     protected readonly placedEditor = document.createElement('div');
+    protected readonly rowsRegion = document.createElement('div');
+    protected dockKind: DockKind | undefined;
+    protected dockTab: DockTab = 'template';
+    protected dockCategory = 'all';
+    protected readonly dockGrip = document.createElement('div');
+    protected readonly dockTitle = document.createElement('strong');
+    protected readonly dockTabsNode = document.createElement('div');
+    protected readonly dockBody = document.createElement('div');
     protected readonly rowsNode = document.createElement('div');
     protected readonly selectionBar = document.createElement('div');
     protected readonly selectionCount = document.createElement('span');
@@ -580,10 +614,11 @@ export class AkariDaihonWidget extends BaseWidget {
         this.tplButton.type = 'button';
         this.tplButton.className = 'akari-daihon-tpl';
         this.tplButton.textContent = '🎨 テンプレ';
-        this.tplButton.title = '字幕テンプレを適用（選択中の行、なければ全行）';
+        this.tplButton.title = '選択中の行にテンプレ';
+        this.tplButton.disabled = true;
         this.tplButton.addEventListener('click', event => {
             event.stopPropagation();
-            this.openTplPicker(event.currentTarget as HTMLElement);
+            this.openRowDock('template');
         });
         this.silenceButton.type = 'button';
         this.silenceButton.className = 'akari-daihon-silence';
@@ -675,8 +710,7 @@ export class AkariDaihonWidget extends BaseWidget {
         const rowShortcut = (event: Event): void => {
             if (!this.rowsNode.contains(document.activeElement)) return;
             const action = (event as CustomEvent<'selectAll' | 'clear'>).detail;
-            if (action === 'selectAll') this.setSelection(selectAll(this.rowOrder()));
-            else if (action === 'clear') this.setSelection(clearSelection());
+            this.handleRowShortcut(action);
         };
         window.addEventListener('akari.daihon.rowShortcut', rowShortcut);
         this.toDispose.push({ dispose: () => window.removeEventListener('akari.daihon.rowShortcut', rowShortcut) });
@@ -702,7 +736,7 @@ export class AkariDaihonWidget extends BaseWidget {
         selectionTpl.textContent = '🎨 テンプレ適用';
         selectionTpl.addEventListener('click', event => {
             event.stopPropagation();
-            this.openTplPicker(event.currentTarget as HTMLElement);
+            this.openRowDock('template');
         });
         this.selectionMerge.type = 'button';
         this.selectionMerge.className = 'akari-daihon-selmerge';
@@ -723,9 +757,41 @@ export class AkariDaihonWidget extends BaseWidget {
 
         this.footer.className = 'akari-daihon-footer';
         this.footer.textContent = '秒数や語をクリックするとプレビューへシークします。';
-        this.placedEditor.className = 'akari-daihon-placed-editor';
-        this.placedEditor.hidden = true;
-        this.node.append(header, this.rowsNode, this.selectionBar, this.placedEditor, this.footer);
+        this.placedEditor.className = 'akari-daihon-placed-editor akari-daihon-dock';
+        this.dockGrip.className = 'akari-daihon-dock-grip';
+        this.dockGrip.title = '上下に引いて高さを変える';
+        this.dockTitle.className = 'akari-daihon-dock-title';
+        const dockHead = document.createElement('div');
+        dockHead.className = 'akari-daihon-dock-head';
+        const dockClose = document.createElement('button');
+        dockClose.className = 'akari-daihon-dock-close'; dockClose.type = 'button'; dockClose.textContent = '✕';
+        dockClose.addEventListener('click', () => this.closeDock());
+        dockHead.append(this.dockTitle, dockClose);
+        this.dockTabsNode.className = 'akari-daihon-dock-tabs';
+        this.dockBody.className = 'akari-daihon-dock-body';
+        this.placedEditor.append(this.dockGrip, dockHead, this.dockTabsNode, this.dockBody);
+        this.rowsRegion.className = 'akari-daihon-rows-region';
+        this.rowsRegion.append(this.rowsNode, this.placedEditor);
+        this.node.append(header, this.rowsRegion, this.selectionBar, this.footer);
+        this.restoreDockHeight();
+        if (typeof ResizeObserver !== 'undefined') {
+            const observer = new ResizeObserver(() => this.restoreDockHeight());
+            observer.observe(this.node);
+            observer.observe(this.rowsRegion);
+            this.toDispose.push({ dispose: () => observer.disconnect() });
+        }
+        this.dockGrip.addEventListener('pointerdown', event => this.startDockResize(event));
+        this.node.addEventListener('click', event => {
+            const target = event.target as Element;
+            if (target === this.rowsNode || target === this.node) this.closeDock();
+        });
+        const dockEscape = (event: KeyboardEvent): void => {
+            const active = document.activeElement;
+            if (shouldCloseDockOnEscape(event.key, !!this.dockKind && this.placedEditor.classList.contains('open'),
+                !!active && this.node.contains(active), active === document.body)) this.closeDock();
+        };
+        document.addEventListener('keydown', dockEscape);
+        this.toDispose.push({ dispose: () => document.removeEventListener('keydown', dockEscape) });
         const previewSelection = (event: Event): void => {
             const detail = (event as CustomEvent<{ editUri?: string; captionId?: string }>).detail;
             this.receivePlacedSelection(detail?.editUri, detail?.captionId);
@@ -909,9 +975,8 @@ export class AkariDaihonWidget extends BaseWidget {
             case 'qc': this.qcFilter = true; this.applyQcFilter(); break;
             case 'template': {
                 if (validWordRange && target.wordRange && row) {
-                    const anchor = this.elements.get(row.id)?.words[target.wordRange.from];
-                    if (anchor) this.openWordPresetPicker(anchor);
-                } else if (row) this.openTplPicker(this.tplButton);
+                    this.openRowDock('emphasis');
+                } else if (row) this.openRowDock('template');
                 break;
             }
             case 'gear': {
@@ -985,6 +1050,7 @@ export class AkariDaihonWidget extends BaseWidget {
 
     protected override onAfterAttach(message: Message): void {
         super.onAfterAttach(message);
+        this.restoreDockHeight();
         this.update();
     }
 
@@ -1524,6 +1590,7 @@ export class AkariDaihonWidget extends BaseWidget {
             this.setSelection(clearSelection(), false);
         }
         this.placedSelection = id;
+        if (id) this.dockTab = 'text';
         this.renderPlacedText();
     }
 
@@ -1555,6 +1622,7 @@ export class AkariDaihonWidget extends BaseWidget {
         this.renderWordSelection();
         this.setSelection(clearSelection(), false);
         this.placedSelection = captionId;
+        this.dockTab = 'text';
         this.renderPlacedText();
         const editUri = this.editUri?.normalizePath().toString();
         if (!editUri) return;
@@ -1649,8 +1717,7 @@ export class AkariDaihonWidget extends BaseWidget {
                             && now - this.lastPlacedClick.at < 400);
                         this.lastPlacedClick = { captionId, at: now };
                         if (doubleClick) { this.startPlacedEdit(captionId); return; }
-                        if (this.placedSelection === captionId) this.closePlacedEditor();
-                        else this.selectPlacedText(captionId);
+                        this.selectPlacedText(captionId);
                     });
                     button.addEventListener('dblclick', event => {
                         event.preventDefault(); event.stopPropagation();
@@ -1914,44 +1981,265 @@ export class AkariDaihonWidget extends BaseWidget {
     }
 
     protected renderPlacedEditor(range: PlacedTextRange | undefined): void {
-        const opening = this.placedEditor.hidden && !!range;
-        this.placedEditor.replaceChildren();
-        this.placedEditor.hidden = !range;
-        if (!range) return;
-        if (opening) {
-            this.placedEditor.style.animation = 'none';
-            void this.placedEditor.offsetWidth;
-            this.placedEditor.style.animation = '';
+        if (!range) {
+            if (this.dockKind === 'placed') this.closeDock();
+            return;
         }
+        this.dockKind = 'placed';
+        if (!dockTabs('placed').includes(this.dockTab)) this.dockTab = 'text';
         this.placedEditor.dataset.captionId = range.captionId;
-        const title = document.createElement('div');
-        title.textContent = `T ${range.text}`;
-        title.style.color = PLACED_TEXT_COLORS[range.colorIndex % PLACED_TEXT_COLORS.length];
-        const readout = document.createElement('div');
-        readout.textContent = `${range.first + 1} 行目 〜 ${range.last + 1} 行目（${this.formatTime(range.start)} 〜 ${this.formatTime(range.end)}）`;
-        const actions = document.createElement('div');
-        actions.className = 'akari-daihon-placed-actions';
-        const choices: Array<[PlacedTextAction | 'delete' | 'edit-text' | 'close', string]> = [
-            ['all', '全部の行に'], ['edit-text', '文字を編集'], ['delete', '削除'], ['close', '閉じる']
-        ];
-        for (const [action, label] of choices) {
-            const button = document.createElement('button');
-            button.type = 'button';
-            button.dataset.action = action;
-            button.textContent = label;
-            button.disabled = this.placedBusy || (action !== 'delete' && action !== 'edit-text' && action !== 'close'
-                && !placedTextTiming(range, this.rows, action));
-            button.addEventListener('click', () => {
-                if (action === 'close') this.closePlacedEditor();
-                else if (action === 'edit-text') this.startPlacedEdit(range.captionId);
-                else void this.editPlacedText(range.captionId, action, label);
-            });
-            actions.appendChild(button);
+        this.renderDock();
+    }
+
+    protected restoreDockHeight(): void {
+        const panelHeight = this.node.getBoundingClientRect().height;
+        const rowsHeight = this.rowsRegion.getBoundingClientRect().height;
+        if (panelHeight <= 0 || rowsHeight <= 0) return;
+        let saved: string | null = null;
+        try { saved = localStorage.getItem('akari.daihon.dockHeight'); } catch { /* storage can be disabled */ }
+        const height = readDockHeight(saved, panelHeight, rowsHeight)
+            ?? clampDockHeight(panelHeight * .5, panelHeight, rowsHeight);
+        this.node.style.setProperty('--dockmax', `${Math.min(panelHeight * .8, rowsHeight)}px`);
+        this.node.style.setProperty('--dockh', `${height}px`);
+    }
+
+    protected startDockResize(event: PointerEvent): void {
+        event.preventDefault(); event.stopPropagation();
+        const grip = this.dockGrip;
+        grip.setPointerCapture(event.pointerId);
+        const move = (next: PointerEvent): void => {
+            const panel = this.node.getBoundingClientRect();
+            const rows = this.rowsRegion.getBoundingClientRect();
+            const height = clampDockHeight(rows.bottom - next.clientY, panel.height, rows.height);
+            this.node.style.setProperty('--dockh', `${height}px`);
+            try { localStorage.setItem('akari.daihon.dockHeight', `${height}px`); } catch { /* storage can be disabled */ }
+        };
+        const up = (): void => {
+            grip.removeEventListener('pointermove', move);
+            grip.removeEventListener('pointerup', up);
+            grip.removeEventListener('pointercancel', up);
+        };
+        grip.addEventListener('pointermove', move);
+        grip.addEventListener('pointerup', up);
+        grip.addEventListener('pointercancel', up);
+    }
+
+    protected closeDock(): void {
+        this.dockKind = undefined;
+        this.placedSelection = undefined;
+        this.placedEditor.classList.remove('open');
+        this.rowsNode.classList.remove('docked');
+        delete this.placedEditor.dataset.captionId;
+        this.renderPlacedText();
+    }
+
+    protected openRowDock(tab: DockTab): void {
+        if (!this.selection.selected.length) return;
+        this.dockKind = 'row';
+        this.dockTab = tab;
+        delete this.placedEditor.dataset.captionId;
+        this.renderDock();
+    }
+
+    protected dockTargetIds(): string[] {
+        return this.dockKind === 'placed' ? (this.placedSelection ? [this.placedSelection] : [])
+            : selectedRowIds(this.rowOrder(), this.selection, this.altAll);
+    }
+
+    protected renderDock(): void {
+        const kind = this.dockKind;
+        if (!kind) return;
+        const ids = this.dockTargetIds();
+        if (!ids.length) { this.closeDock(); return; }
+        const placed = kind === 'placed' ? this.placedRanges().find(item => item.captionId === ids[0]) : undefined;
+        const row = this.rows.find(item => item.id === ids[0]);
+        this.dockTitle.textContent = kind === 'placed' ? `T ${placed?.text ?? ''}`
+            : ids.length > 1 ? `${ids.length} 行を編集` : row?.text ?? '';
+        this.dockTabsNode.replaceChildren();
+        const labels: Record<DockTab, string> = { text: '文字', template: 'テンプレ', look: '見た目',
+            anim: 'アニメ', emphasis: '強調', time: '時刻' };
+        for (const tab of dockTabs(kind)) {
+            const button = document.createElement('button'); button.type = 'button';
+            button.dataset.dockTab = tab; button.textContent = labels[tab];
+            button.classList.toggle('active', this.dockTab === tab);
+            button.addEventListener('click', () => { this.dockTab = tab; this.renderDock(); });
+            this.dockTabsNode.appendChild(button);
         }
-        const help = document.createElement('div');
-        help.className = 'akari-daihon-placed-help';
-        help.textContent = '範囲は左の棒の両端を引いて変えます';
-        this.placedEditor.append(title, readout, actions, help);
+        this.dockBody.replaceChildren();
+        switch (this.dockTab) {
+            case 'text': if (placed) this.renderDockText(placed); break;
+            case 'template': this.renderDockTemplates(ids); break;
+            case 'look': this.renderDockLook(ids); break;
+            case 'anim': this.renderDockAnimation(ids); break;
+            case 'emphasis': this.renderDockEmphasis(); break;
+            case 'time': if (row) this.renderDockTime(row); break;
+        }
+        this.placedEditor.classList.add('open');
+        this.placedEditor.hidden = false;
+        this.rowsNode.classList.add('docked');
+    }
+
+    protected renderDockText(range: PlacedTextRange): void {
+        const edit = this.popButton('文字を編集', () => this.startPlacedEdit(range.captionId));
+        const all = this.popButton('全部の行に', () => void this.editPlacedText(range.captionId, 'all', '全部の行に'));
+        all.disabled = this.placedBusy || !placedTextTiming(range, this.rows, 'all');
+        const note = document.createElement('div'); note.className = 'akari-daihon-placed-help';
+        note.textContent = '範囲は左の棒の両端を引いて変えます';
+        this.dockBody.append(edit, all, note);
+    }
+
+    protected renderDockTemplates(ids: string[]): void {
+        const presets = orderPresetsForPicker(TEXTSTYLE_CATALOG);
+        const categories = [['all', 'すべて'], ['subtitle', '字幕'], ['emphasis', '強調'],
+            ['title', '見出し'], ['price', '価格'], ['decorative', 'バラエティ']];
+        const cats = document.createElement('div'); cats.className = 'akari-daihon-dock-cats';
+        for (const [category, label] of categories) {
+            const button = document.createElement('button'); button.type = 'button'; button.textContent = label;
+            button.dataset.dockCategory = category; button.classList.toggle('active', this.dockCategory === category);
+            button.addEventListener('click', () => { this.dockCategory = category; this.renderDock(); });
+            cats.appendChild(button);
+        }
+        const grid = document.createElement('div'); grid.className = 'akari-daihon-dock-grid';
+        if (this.dockCategory === 'all') {
+            const none = document.createElement('button'); none.type = 'button';
+            none.className = 'akari-daihon-tplcard'; none.dataset.presetId = '';
+            none.textContent = 'テンプレなし';
+            none.addEventListener('click', () => void this.applyPreset(ids, null, 'テンプレなし', true));
+            grid.appendChild(none);
+        }
+        for (const item of presets.filter(preset => this.dockCategory === 'all' || preset.category === this.dockCategory)) {
+            const card = document.createElement('button'); card.type = 'button';
+            card.className = 'akari-daihon-tplcard'; card.dataset.presetId = item.id;
+            const preview = document.createElement('span'); preview.className = 'tprev'; preview.textContent = 'あア12';
+            Object.assign(preview.style, presetCardStyle(item.style));
+            const name = document.createElement('span'); name.className = 'tname'; name.textContent = item.name;
+            card.append(preview, name);
+            card.addEventListener('click', () => void this.applyPreset(ids, item.id, item.name, true));
+            grid.appendChild(card);
+        }
+        this.dockBody.append(cats, grid);
+    }
+
+    protected renderDockLook(ids: string[]): void {
+        const colors = ['#ffffff', '#111111', '#facc15', '#ff5a5a', '#38bdf8', '#34d399'];
+        const caption = ids.length === 1 ? this.sourceCaptions.find(item => item.id === ids[0]) : undefined;
+        const presetStyle = caption?.stylePreset ? TEXTSTYLE_CATALOG[caption.stylePreset]?.style : undefined;
+        const field = (key: LookField, label: string): HTMLDivElement => {
+            const div = document.createElement('div'); div.className = 'akari-daihon-look-field'; div.dataset.lookField = key;
+            const title = document.createElement('label'); title.textContent = label; div.appendChild(title);
+            this.dockBody.appendChild(div); return div;
+        };
+        const options = (key: LookField, label: string, values: Array<[string, string | number]>): void => {
+            const div = field(key, label);
+            const current = key === 'color' || key === 'background'
+                ? currentLookSwatch(caption?.textStyle, presetStyle, key) : undefined;
+            for (const [name, value] of values) {
+                const button = document.createElement('button'); button.type = 'button';
+                button.dataset.lookValue = String(value);
+                if (key === 'color' || key === 'background') {
+                    button.className = 'akari-daihon-look-swatch';
+                    button.title = `${label}: ${name}`;
+                    button.setAttribute('aria-label', button.title);
+                    const selected = current?.toLowerCase() === String(value).toLowerCase();
+                    button.classList.toggle('selected', selected);
+                    button.setAttribute('aria-pressed', String(selected));
+                    if (value === 'none') button.classList.add('none');
+                    else button.style.backgroundColor = String(value);
+                } else button.textContent = name;
+                button.addEventListener('click', () => void this.saveDockLook(ids, key, value));
+                div.appendChild(button);
+            }
+        };
+        options('color', '文字色', colors.map(color => [color, color]));
+        options('background', '座布団の色', [['なし', 'none'], ...colors.map(color => [color, color] as [string, string])]);
+        options('size', '大きさ', [['小', 28], ['中', 38], ['大', 56], ['特大', 72]]);
+        options('spacing', '字間', [['狭い', -0.05], ['標準', 0], ['広い', 0.12]]);
+        options('stroke', '縁取り', [['なし', 0], ['細', 1.5], ['太', 3]]);
+        const detail = document.createElement('button'); detail.type = 'button';
+        detail.className = 'akari-daihon-look-detail'; detail.dataset.dockDetail = 'inspector';
+        detail.textContent = 'もっと細かく → インスペクターで開く';
+        detail.addEventListener('click', () => void this.focusCaptionInspector(ids[0]));
+        this.dockBody.appendChild(detail);
+    }
+
+    protected async saveDockLook(ids: string[], field: LookField, value: string | number): Promise<void> {
+        if (!this.captionsUri || !this.rootUri) return;
+        try {
+            await this.withHistory('字幕の見た目を変更', async () => {
+                for (const captionId of ids) await this.annotationsService.setCaptionTextStyle({
+                    captionsUri: this.captionsUri!.toString(), projectRootUri: this.rootUri!.toString(), captionId,
+                    textStyle: lookPatch(field, value) as Parameters<AkariAnnotationsService['setCaptionTextStyle']>[0]['textStyle']
+                });
+            });
+            this.notify('字幕の見た目を変更しました');
+        } catch (error) { await this.reload(); this.notify(this.errorMessage(error)); }
+    }
+
+    protected renderDockAnimation(ids: string[]): void {
+        const grid = document.createElement('div'); grid.className = 'akari-daihon-dock-grid';
+        for (const preset of DAIHON_GEAR_ANIM_PRESETS) {
+            const button = document.createElement('button'); button.type = 'button'; button.className = 'akari-daihon-tplcard';
+            button.dataset.animId = preset.id ?? ''; button.textContent = preset.label;
+            button.addEventListener('click', () => void this.saveDockAnimation(ids, preset.id));
+            grid.appendChild(button);
+        }
+        this.dockBody.appendChild(grid);
+    }
+
+    protected async saveDockAnimation(ids: string[], animationId: string | null): Promise<void> {
+        if (ids.length === 1) { await this.saveCaptionAnimation(ids[0], animationId); return; }
+        if (!this.captionsUri || !this.rootUri) return;
+        try {
+            await this.withHistory('字幕アニメを変更', async () => {
+                for (const captionId of ids) await this.annotationsService.setCaptionTextStyle({
+                    captionsUri: this.captionsUri!.toString(), projectRootUri: this.rootUri!.toString(), captionId,
+                    textStyle: { animation: animationId === null ? null : { in: { id: animationId }, out: { id: animationId } } }
+                });
+            });
+        } catch (error) { await this.reload(); this.notify(this.errorMessage(error)); }
+    }
+
+    protected renderDockEmphasis(): void {
+        const spans = this.selectedRangeSpans();
+        const label = document.createElement('div'); label.textContent = spans.map(span => span.word).join('・') || '単語を選んでください';
+        const grid = document.createElement('div'); grid.className = 'akari-daihon-dock-grid';
+        for (const item of this.wordPresetCards()) {
+            const button = document.createElement('button'); button.type = 'button'; button.className = 'akari-daihon-tplcard';
+            button.dataset.emphasisPreset = item.id; button.disabled = !spans.length;
+            const preview = document.createElement('span'); preview.className = 'tprev';
+            preview.textContent = spans.map(span => span.word).join('・').slice(0, 9) || 'あア12';
+            Object.assign(preview.style, presetCardStyle(item.style));
+            const name = document.createElement('span'); name.className = 'tname'; name.textContent = item.name;
+            button.append(preview, name);
+            button.addEventListener('click', () => void this.applyWordPreset(item.id)); grid.appendChild(button);
+        }
+        const clear = this.popButton('強調を外す', () => void this.clearWordPreset()); clear.disabled = !spans.length;
+        this.dockBody.append(label, grid, clear);
+    }
+
+    protected renderDockTime(row: DaihonRow): void {
+        for (const [name, key, value] of [['開始', 'start', row.start], ['終了', 'end', row.end]] as const) {
+            const field = document.createElement('div'); field.className = 'akari-daihon-look-field';
+            const label = document.createElement('label'); label.textContent = name;
+            const input = document.createElement('input'); input.type = 'number'; input.min = '0'; input.step = '0.01';
+            input.value = String(value); input.dataset.dockTime = key;
+            input.addEventListener('change', () => void this.saveDockTime(row, key, Number(input.value)));
+            field.append(label, input); this.dockBody.appendChild(field);
+        }
+    }
+
+    protected async saveDockTime(row: DaihonRow, key: 'start' | 'end', value: number): Promise<void> {
+        if (!this.captionsUri || !this.rootUri || !Number.isFinite(value) || value < 0) return;
+        const start = key === 'start' ? value : row.start;
+        const end = key === 'end' ? value : row.end;
+        if (end <= start) { this.notify('終了は開始より後にしてください'); return; }
+        try {
+            await this.withHistory('字幕の時刻を変更', () => this.annotationsService.setCaptionTiming({
+                captionsUri: this.captionsUri!.toString(), projectRootUri: this.rootUri!.toString(),
+                captionId: row.id, start, end, edited: true
+            }).then(() => undefined));
+            await this.reload();
+        } catch (error) { await this.reload(); this.notify(this.errorMessage(error)); }
     }
 
     protected openPlacedMenu(captionId: string): void {
@@ -1962,23 +2250,75 @@ export class AkariDaihonWidget extends BaseWidget {
         if (!anchor) return;
         const pop = this.openPop(anchor);
         pop.classList.add('akari-daihon-placed-menu');
-        const choices: Array<[PlacedTextAction | 'edit-text' | 'delete', string]> = [
-            ['all', '全部の行に'], ['edit-text', '文字を編集'], ['delete', '削除']
-        ];
-        for (const [action, label] of choices) {
+        const actions = dockActions('placed', { all: !!placedTextTiming(range, this.rows, 'all'), delete: true });
+        for (const action of actions) {
+            if (action !== 'all' && action !== 'delete') continue;
+            const label = action === 'all' ? '全部の行に' : '削除';
             const button = document.createElement('button');
             button.type = 'button'; button.dataset.action = action; button.textContent = label;
-            button.disabled = this.placedBusy || (action !== 'edit-text' && action !== 'delete'
-                && !placedTextTiming(range, this.rows, action));
+            button.disabled = this.placedBusy;
             if (action === 'delete') button.classList.add('danger');
             button.addEventListener('click', click => {
                 click.stopPropagation();
                 this.closePop();
-                if (action === 'edit-text') this.startPlacedEdit(captionId);
-                else void this.editPlacedText(captionId, action, label);
+                void this.editPlacedText(captionId, action, label);
             });
             pop.appendChild(button);
         }
+    }
+
+    protected openRowMenu(event: MouseEvent, row: DaihonRow): void {
+        this.closePop();
+        if (this.dockKind) this.closeDock();
+        this.setSelection({ selected: [row.id], anchorId: row.id });
+        const next = this.rows[this.rows.findIndex(item => item.id === row.id) + 1];
+        const available = {
+            cut: row.outStart !== null && row.outEnd !== null,
+            split: canSplitRow(row),
+            'merge-next': !!next && canMergeRows(this.rows, [row.id, next.id]).ok,
+            'insert-below': !!next && next.start - row.end >= .35,
+            delete: true
+        };
+        const menu = document.createElement('div'); menu.className = 'akari-daihon-pop akari-daihon-row-menu';
+        menu.style.left = `${Math.min(event.clientX, window.innerWidth - 190)}px`;
+        menu.style.top = `${Math.min(event.clientY, window.innerHeight - 220)}px`;
+        const labels = { cut: 'ここで切る', split: '分割', 'merge-next': '次の行と結合',
+            'insert-below': '下に行を足す', delete: '削除', all: '全部の行に' };
+        for (const action of dockActions('row', available)) {
+            const button = this.popButton(labels[action], () => {
+                this.closePop();
+                switch (action) {
+                    case 'cut': void this.cutRows([row]); break;
+                    case 'split': this.enterSplitMode(row); break;
+                    case 'merge-next': void this.mergeSelectedRowWithNext(); break;
+                    case 'insert-below': {
+                        const zone = this.rowsNode.querySelector<HTMLElement>(`.akari-daihon-gapzone[data-prev-row-id="${CSS.escape(row.id)}"]`);
+                        if (zone && next) this.openGapDraft(zone, row, next);
+                        break;
+                    }
+                    case 'delete': void this.deleteDockRow(row.id); break;
+                }
+            });
+            button.dataset.rowAction = action;
+            menu.appendChild(button);
+        }
+        document.body.appendChild(menu);
+    }
+
+    protected enterSplitMode(row: DaihonRow): void {
+        this.splitModeRowId = row.id;
+        this.replaceRenderedRow(row);
+    }
+
+    protected async deleteDockRow(captionId: string): Promise<void> {
+        if (!this.captionsUri || !this.rootUri) return;
+        try {
+            await this.withHistory('字幕の行を削除', () => this.annotationsService.removeCaption({
+                captionsUri: this.captionsUri!.toString(), projectRootUri: this.rootUri!.toString(), captionId
+            }).then(() => undefined));
+            this.closeDock();
+            await this.reload();
+        } catch (error) { this.notify(this.errorMessage(error)); }
     }
 
     protected startPlacedEdit(captionId: string): void {
@@ -2188,6 +2528,11 @@ export class AkariDaihonWidget extends BaseWidget {
             && rowIssues(row, this.captionOverflowUnitsById.get(row.id)).length === 0);
         root.addEventListener('click', event => this.handleRowClick(event, row.id));
         root.addEventListener('pointerdown', event => this.handleRowPointerDown(event, row.id));
+        root.addEventListener('contextmenu', event => {
+            if ((event.target as Element).closest('.akari-daihon-placed-tag, .akari-daihon-placed-bar')) return;
+            event.preventDefault();
+            this.openRowMenu(event, row);
+        });
 
         const head = document.createElement('div');
         head.className = 'akari-daihon-row-head';
@@ -2336,6 +2681,8 @@ export class AkariDaihonWidget extends BaseWidget {
                     const output = row.timeDomain === 'output'
                         ? word.start : sourceToOutput(this.segments, word.start);
                     void this.seek(output);
+                    this.setSelection({ selected: [row.id], anchorId: row.id });
+                    this.openRowDock('emphasis');
                 });
                 span.addEventListener('contextmenu', event => {
                     event.preventDefault(); event.stopPropagation();
@@ -2365,6 +2712,8 @@ export class AkariDaihonWidget extends BaseWidget {
             span.addEventListener('click', event => {
                 event.stopPropagation();
                 void this.seek(row.outStart);
+                this.setSelection({ selected: [row.id], anchorId: row.id });
+                this.openRowDock('template');
             });
             // 不一致の words の時刻で本文にカラオケ強調を付けない。
             if (!row.words?.length) words.push(span);
@@ -3433,21 +3782,23 @@ export class AkariDaihonWidget extends BaseWidget {
         name: string,
         selected: boolean
     ): Promise<void> {
-        captionIds = captionIds.filter(id => this.rows.some(row => row.id === id));
+        captionIds = captionIds.filter(id => this.sourceCaptions.some(caption => caption.id === id));
         if (!this.captionsUri || !this.rootUri || captionIds.length === 0) return;
         try {
-            const result = await this.annotationsService.setCaptionStylePreset({
-                captionsUri: this.captionsUri.toString(),
-                projectRootUri: this.rootUri.toString(),
-                captionIds,
-                presetId
+            let changed = 0;
+            await this.withHistory('字幕テンプレを適用', async () => {
+                const result = await this.annotationsService.setCaptionStylePreset({
+                    captionsUri: this.captionsUri!.toString(),
+                    projectRootUri: this.rootUri!.toString(), captionIds, presetId
+                });
+                changed = result.changed;
             });
-            if (result.changed === 0) {
+            if (changed === 0) {
                 this.notify('変更はありません（changed: 0）');
             } else if (presetId === null) {
-                this.notify(`テンプレを解除（${result.changed} 行）`);
+                this.notify(`テンプレを解除（${changed} 行）`);
             } else {
-                this.notify(`「${name}」を${selected ? '選択' : '全'} ${result.changed} 行に適用`);
+                this.notify(`「${name}」を${selected ? '選択' : '全'} ${changed} 行に適用`);
             }
         } catch (error) {
             this.notify(this.errorMessage(error));
@@ -3845,23 +4196,10 @@ export class AkariDaihonWidget extends BaseWidget {
     }
 
     protected openWordBar(): void {
-        if (!this.wordRanges.length) { this.closePop(); return; }
+        if (!this.wordRanges.length) return;
         const first = this.wordRanges[0];
-        const anchor = this.elements.get(first.row)?.words[first.a];
-        if (!anchor) return;
-        const summary = wordRangeSummary(this.selectionRows(), this.wordRanges);
-        const pop = this.openPop(anchor); pop.classList.add('akari-daihon-wordbar');
-        const label = document.createElement('span'); label.className = 'summary';
-        label.textContent = summary.rangeCount === 1
-            ? `${summary.wordCount} 語 · ${this.formatTime(summary.start ?? 0)}–${this.formatTime(summary.end ?? 0)}`
-            : `${summary.rangeCount} 範囲 · ${summary.wordCount} 語`;
-        pop.append(label,
-            this.popButton('▶', () => this.runWordOperation(() => this.seekSelectedFirst())),
-            this.popButton('🎨 テンプレ', () => this.openWordPresetPicker(anchor)),
-            this.popButton('✨ 強調', () => this.runWordOperation(() => this.applyWordPreset('emphasis-red'))),
-            this.popButton('✂', () => this.openCutRangeEditorForSelection(), 'danger'),
-            this.wordInsertButton('＋ 語', first.row, Math.max(first.a, first.b), pop),
-            this.popButton('✕', () => { this.wordRanges = []; this.renderWordSelection(); this.closePop(); }));
+        this.setSelection({ selected: [first.row], anchorId: first.row });
+        this.openRowDock('emphasis');
     }
 
     protected wordPresetCards(): Array<{ id: string; name: string; style: Record<string, unknown> }> {
@@ -4082,7 +4420,6 @@ export class AkariDaihonWidget extends BaseWidget {
         const nextRow = this.rows[this.rows.findIndex(candidate => candidate.id === row.id) + 1];
         const groups = wordContextMenuGroups({ rangeCount: summary.rangeCount, wordCount: summary.wordCount,
             text: summary.text, nextWordText: row.words?.[Math.min(index + 1, row.words.length - 1)]?.text ?? '',
-            presets: this.wordPresetCards().map(({ id, name }) => ({ id, name })),
             splitAvailable: canSplitRow(row) && new Set(this.wordRanges.map(range => range.row)).size === 1,
             mergeAvailable: !!previousRow && canMergeRows(this.rows, [previousRow.id, row.id]).ok,
             mergeNextAvailable: !!nextRow && canMergeRows(this.rows, [row.id, nextRow.id]).ok,
@@ -4103,8 +4440,6 @@ export class AkariDaihonWidget extends BaseWidget {
                 case 'cut-video': this.openCutRangeEditorForSelection(); break;
                 case 'caption-only': await this.removeSelectedCaptionWords(); break;
                 case 'freeze': case 'pause': await this.insertPause(row, index); break;
-                case 'preset': await this.applyWordPreset(action.presetId); break;
-                case 'preset-clear': await this.clearWordPreset(); break;
                 case 'break': await this.toggleWordBreak(row, Math.max(1, index)); break;
                 case 'mark': await this.markWords(action.color); break;
                 case 'coming-soon': this.comingSoon(action.what); break;
@@ -4236,9 +4571,12 @@ export class AkariDaihonWidget extends BaseWidget {
         });
         if (action.kind === 'seek') {
             void this.seek(this.rows.find(row => row.id === id)?.outStart ?? null);
+            this.setSelection({ selected: [id], anchorId: id });
+            this.openRowDock('template');
             return;
         }
         this.setSelection(applySelectionClick(this.selection, this.rowOrder(), id, action.modifiers));
+        this.openRowDock('template');
     }
 
     protected handleRowPointerDown(event: PointerEvent, id: string): void {
@@ -4261,6 +4599,14 @@ export class AkariDaihonWidget extends BaseWidget {
 
     protected rowOrder(): string[] {
         return this.rows.map(row => row.id);
+    }
+
+    protected handleRowShortcut(action: 'selectAll' | 'clear'): void {
+        if (action === 'selectAll') this.setSelection(selectAll(this.rowOrder()));
+        else if (action === 'clear') {
+            this.setSelection(clearSelection());
+            if (this.dockKind && this.placedEditor.classList.contains('open')) this.closeDock();
+        }
     }
 
     protected applyRowSelectionClasses(): void {
@@ -4292,6 +4638,7 @@ export class AkariDaihonWidget extends BaseWidget {
             for (const id of plan.remove) this.elements.get(id)?.root.classList.remove('selected');
         }
         const count = next.selected.length;
+        if (this.tplButton) this.tplButton.disabled = count === 0;
         this.selectionBar.hidden = count === 0;
         this.selectionCount.textContent = `${count} 行選択（Shift=範囲 / ⌘=追加 / ドラッグ=まとめて）`;
         this.updateSelectionMerge();

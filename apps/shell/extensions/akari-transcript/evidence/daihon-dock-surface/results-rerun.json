@@ -1,0 +1,527 @@
+{
+  "phase": "rerun",
+  "status": "pass",
+  "checks": [
+    {
+      "name": "1 行のクリックでドックが下端に出る・行の top は不変・選択バーを覆わない",
+      "pass": true,
+      "detail": {
+        "maxRowTopShiftPx": 0,
+        "dock": {
+          "top": 294.5,
+          "bottom": 712.5,
+          "left": 814,
+          "right": 1392,
+          "height": 418,
+          "width": 578
+        },
+        "widget": {
+          "top": 39,
+          "bottom": 874,
+          "left": 814,
+          "right": 1392,
+          "height": 835,
+          "width": 578
+        },
+        "heightRatioOfPanel": 0.501,
+        "selbar": {
+          "top": 712.5,
+          "bottom": 848,
+          "left": 814,
+          "right": 1392,
+          "height": 135.5,
+          "width": 578
+        },
+        "footer": {
+          "top": 848,
+          "bottom": 874,
+          "left": 814,
+          "right": 1392,
+          "height": 26,
+          "width": 578
+        },
+        "title": "豆は挽きたてが一番おいしい",
+        "tabs": [
+          {
+            "tab": "template",
+            "label": "テンプレ",
+            "active": true
+          },
+          {
+            "tab": "look",
+            "label": "見た目",
+            "active": false
+          },
+          {
+            "tab": "anim",
+            "label": "アニメ",
+            "active": false
+          },
+          {
+            "tab": "emphasis",
+            "label": "強調",
+            "active": false
+          },
+          {
+            "tab": "time",
+            "label": "時刻",
+            "active": false
+          }
+        ],
+        "rowsDocked": true,
+        "inline": {
+          "height": "",
+          "maxHeight": "",
+          "minHeight": ""
+        }
+      }
+    },
+    {
+      "name": "2 タブを切り替えてもドックの高さが同じ（±1px）・行の top も不変",
+      "pass": true,
+      "detail": {
+        "heights": {
+          "template": {
+            "height": 418,
+            "bodyClient": 344,
+            "bodyScroll": 355,
+            "overflowY": "auto"
+          },
+          "look": {
+            "height": 418,
+            "bodyClient": 344,
+            "bodyScroll": 344,
+            "overflowY": "auto"
+          },
+          "anim": {
+            "height": 418,
+            "bodyClient": 344,
+            "bodyScroll": 344,
+            "overflowY": "auto"
+          },
+          "emphasis": {
+            "height": 418,
+            "bodyClient": 344,
+            "bodyScroll": 344,
+            "overflowY": "auto"
+          },
+          "time": {
+            "height": 418,
+            "bodyClient": 344,
+            "bodyScroll": 344,
+            "overflowY": "auto"
+          }
+        },
+        "spreadPx": 0,
+        "maxRowTopShiftPx": 0,
+        "lookFields": [
+          {
+            "field": "color",
+            "label": "文字色",
+            "values": [
+              "#ffffff",
+              "#111111",
+              "#facc15",
+              "#ff5a5a",
+              "#38bdf8",
+              "#34d399"
+            ]
+          },
+          {
+            "field": "background",
+            "label": "座布団の色",
+            "values": [
+              "none",
+              "#ffffff",
+              "#111111",
+              "#facc15",
+              "#ff5a5a",
+              "#38bdf8",
+              "#34d399"
+            ]
+          },
+          {
+            "field": "size",
+            "label": "大きさ",
+            "values": [
+              "28",
+              "38",
+              "56",
+              "72"
+            ]
+          },
+          {
+            "field": "spacing",
+            "label": "字間",
+            "values": [
+              "-0.05",
+              "0",
+              "0.12"
+            ]
+          },
+          {
+            "field": "stroke",
+            "label": "縁取り",
+            "values": [
+              "0",
+              "1.5",
+              "3"
+            ]
+          }
+        ],
+        "lookClicked": true
+      }
+    },
+    {
+      "name": "3 テンプレを選ぶ → style_preset が変わる → Cmd+Z 1 手で byte 一致",
+      "pass": true,
+      "detail": {
+        "categories": [
+          "すべて",
+          "字幕",
+          "強調",
+          "見出し",
+          "価格",
+          "バラエティ"
+        ],
+        "cards": [
+          "",
+          "subtitle-standard",
+          "subtitle-variety",
+          "subtitle-news",
+          "narration-caption",
+          "subtitle-commentary",
+          "subtitle-interview",
+          "emphasis-red",
+          "verdict-badge",
+          "discount-text",
+          "glitch",
+          "neon",
+          "title-impact"
+        ],
+        "afterPreset": "subtitle-news",
+        "othersWithPreset": [],
+        "undo": "byte-identical after 1 Cmd+Z"
+      }
+    },
+    {
+      "name": "4 見た目の文字色 → 書き込まれる → Cmd+Z 1 手で byte 一致",
+      "pass": true,
+      "detail": {
+        "written": {
+          "color": "#facc15"
+        },
+        "undo": "byte-identical after 1 Cmd+Z"
+      }
+    },
+    {
+      "name": "5 複数行選択 → テンプレを一括適用 → Cmd+Z 1 手で byte 一致",
+      "pass": true,
+      "detail": {
+        "title": "2 行を編集",
+        "presets": [
+          "subtitle-variety",
+          "subtitle-variety"
+        ],
+        "undo": "byte-identical after 1 Cmd+Z"
+      }
+    },
+    {
+      "name": "6 単語のクリック → 強調タブがその単語で開く → 強調 → Cmd+Z 1 手",
+      "pass": true,
+      "detail": {
+        "bodyText": "挽きたてが挽きたてがネオン挽きたてがグリッチ風挽きたてがインパクト挽きたてが強調挽きたてが判定バッジ強調を外す",
+        "maxRowTopShiftPx": 0,
+        "presets": [
+          "neon",
+          "glitch",
+          "title-impact",
+          "emphasis-red",
+          "verdict-badge"
+        ],
+        "emphasis": [
+          {
+            "id": "e-0001",
+            "t_start": 8.8,
+            "t_end": 9.55,
+            "word": "挽きたてが",
+            "emotion": "neutral",
+            "style_preset": "neon"
+          }
+        ],
+        "undo": "byte-identical after 1 Cmd+Z"
+      }
+    },
+    {
+      "name": "8 右クリックは操作だけ・行の右クリックでドックは開かない・行の下にピッカーが出ない",
+      "pass": true,
+      "detail": {
+        "rowMenu": [
+          "ここで切る",
+          "分割",
+          "次の行と結合",
+          "下に行を足す",
+          "削除"
+        ],
+        "rowMenuActions": [
+          "cut",
+          "split",
+          "merge-next",
+          "insert-below",
+          "delete"
+        ],
+        "wordMenu": [
+          "▶ ここから再生",
+          "✎ 直す",
+          "📖 辞書に覚える",
+          "✂ 映像ごとカット",
+          "字幕からだけ消す",
+          "⏸ この語の間だけ止める（Freeze）",
+          "🖼 画像 Coming soon",
+          "🎬 B-roll Coming soon",
+          "🅰 テロップ Coming soon",
+          "＋ 語 Coming soon",
+          "⏸ 間 0.5 秒⌘;",
+          "／ ここで改行（表示だけ・行は 1 つのまま）⇧⏎",
+          "⏎ ここで分割（行が 2 つになる）⏎",
+          "前の行と結合⌫",
+          "次の行と結合",
+          "この行だけの字幕にする（同じ素材の他クリップでは出さない）",
+          "#ff5c5c",
+          "#ffb347",
+          "#f5c451",
+          "#6fd18a",
+          "#4fa8ff",
+          "#c77dff"
+        ],
+        "placedMenu": [
+          "全部の行に",
+          "削除"
+        ],
+        "rowRightClickOpenedDock": false,
+        "maxRowTopShiftPx": 0
+      }
+    },
+    {
+      "name": "8b 行メニューの「分割」は分割モードに入る",
+      "pass": true,
+      "detail": {
+        "splitting": true,
+        "marks": 3
+      }
+    },
+    {
+      "name": "9 置いた文字の札 → 文字 / テンプレ / 見た目 / アニメ・高さは行のときと同じ",
+      "pass": true,
+      "detail": {
+        "title": "T 今日の予定",
+        "tabs": [
+          {
+            "tab": "text",
+            "label": "文字",
+            "active": true
+          },
+          {
+            "tab": "template",
+            "label": "テンプレ",
+            "active": false
+          },
+          {
+            "tab": "look",
+            "label": "見た目",
+            "active": false
+          },
+          {
+            "tab": "anim",
+            "label": "アニメ",
+            "active": false
+          }
+        ],
+        "heights": [
+          418,
+          418,
+          418,
+          418
+        ],
+        "rowDockHeight": 418,
+        "text": "文字を編集全部の行に範囲は左の棒の両端を引いて変えます",
+        "maxRowTopShiftPx": 0
+      }
+    },
+    {
+      "name": "10 閉じる: Esc / ✕ / 何もない所のクリック",
+      "pass": true,
+      "detail": {
+        "esc": true,
+        "close": true,
+        "blank": true,
+        "blankHit": "akari-daihon-rows has-placed-bars docked"
+      }
+    },
+    {
+      "name": "7 「もっと細かく」でインスペクターがその字幕を開く",
+      "pass": true,
+      "detail": {
+        "events": [
+          "c-0003"
+        ],
+        "inspector": {
+          "header": "豆は挽きたてが一番おいしい00:08.0 – 00:11.2 · 字幕",
+          "text": "豆は挽きたてが一番おいしい00:08.0 – 00:11.2 · 字幕テキスト情報時間出力位置00:00:08.000尺3.20 秒内容テキスト話者編集済みいいえ文字色大きさpx（既定）太さ普通太字極太行間（既定）字間em（既定）縁取り色太さpx（既定）座布団表示座布団を敷く形行ごとまとめて色不透明度%（既定）余白px（既定）角丸px（既定）角丸を最大にすると文字に沿った丸い座布団（カプセル）になる効果種類AaなしAa影Aa浮き出しAaネオンAa袋文字位置位置タイミングstart00:00:08.000end00:00:11.200尺3.20 秒sourceRef.segment2 .akari-inspector-ai-list { display: grid; gap: 16px; padding: 8px 2px; min-width: 0; } .akari-inspector-a",
+          "tabs": [
+            {
+              "id": "tab:inspector-text",
+              "active": true
+            },
+            {
+              "id": "tab:inspector-info",
+              "active": false
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "11a つまみを引いて高さを変える",
+      "pass": true,
+      "detail": {
+        "before": 418,
+        "after": 532,
+        "stored": "532px",
+        "dockh": "532px",
+        "tabHeightsAfterResize": [
+          532,
+          532,
+          532
+        ],
+        "panel": 835
+      }
+    },
+    {
+      "name": "11b 再起動後も同じ高さ",
+      "pass": true,
+      "detail": {
+        "afterRestart": 532,
+        "dragged": 532,
+        "stored": "532px",
+        "panel": 835
+      }
+    }
+  ],
+  "screenshots": [
+    "rerun-00-idle.png",
+    "rerun-01-row-dock.png",
+    "rerun-02-look-tab.png",
+    "rerun-02-time-tab.png",
+    "rerun-03-template-applied.png",
+    "rerun-04-look-color.png",
+    "rerun-05-multi-template.png",
+    "rerun-06-word-emphasis.png",
+    "rerun-08-row-context.png",
+    "rerun-08-word-context.png",
+    "rerun-08-placed-context.png",
+    "rerun-08b-split-mode.png",
+    "rerun-09-placed-dock.png",
+    "rerun-07-inspector.png",
+    "rerun-11-resized.png",
+    "rerun-11-restarted.png"
+  ],
+  "idle": {
+    "tops": [
+      {
+        "id": "c-0001",
+        "top": 148,
+        "height": 69.13
+      },
+      {
+        "id": "c-0002",
+        "top": 217.13,
+        "height": 47.33
+      },
+      {
+        "id": "c-0003",
+        "top": 264.45,
+        "height": 47.33
+      },
+      {
+        "id": "c-0004",
+        "top": 311.78,
+        "height": 47.33
+      },
+      {
+        "id": "c-0005",
+        "top": 359.11,
+        "height": 47.33
+      },
+      {
+        "id": "c-0006",
+        "top": 406.44,
+        "height": 69.13
+      },
+      {
+        "id": "c-0007",
+        "top": 475.56,
+        "height": 47.33
+      },
+      {
+        "id": "c-0008",
+        "top": 522.89,
+        "height": 47.33
+      }
+    ],
+    "dock": {
+      "open": false,
+      "box": {
+        "top": 848,
+        "bottom": 1266,
+        "left": 814,
+        "right": 1392,
+        "height": 418,
+        "width": 578
+      },
+      "widget": {
+        "top": 39,
+        "bottom": 874,
+        "left": 814,
+        "right": 1392,
+        "height": 835,
+        "width": 578
+      },
+      "rows": {
+        "top": 145,
+        "bottom": 848,
+        "left": 814,
+        "right": 1392,
+        "height": 703,
+        "width": 578
+      },
+      "selbar": null,
+      "footer": {
+        "top": 848,
+        "bottom": 874,
+        "left": 814,
+        "right": 1392,
+        "height": 26,
+        "width": 578
+      },
+      "inline": {
+        "height": "",
+        "maxHeight": "",
+        "minHeight": ""
+      },
+      "dockh": "418px",
+      "title": "",
+      "tabs": [],
+      "body": {
+        "clientHeight": 375,
+        "scrollHeight": 375,
+        "overflowY": "auto",
+        "text": ""
+      },
+      "rowsDocked": false,
+      "pickersInRows": 0,
+      "rowsChildren": [],
+      "floatingPops": []
+    }
+  }
+}

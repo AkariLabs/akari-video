@@ -11,6 +11,7 @@ const view = require('../lib/common/cuts-view.js');
 const decorator = () => () => {};
 const element = (_tag, text = '') => ({
     textContent: text, style: {}, dataset: {}, children: [],
+    getBoundingClientRect() { return { height: 0, bottom: 0 }; },
     setAttribute() {}, addEventListener() {}, classList: { add() {}, toggle() {} },
     append(...children) { this.children.push(...children); },
     appendChild(child) { this.children.push(child); },
