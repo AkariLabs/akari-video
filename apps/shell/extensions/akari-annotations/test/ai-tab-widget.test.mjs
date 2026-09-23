@@ -6,6 +6,7 @@ import { cutSnapshot } from './helpers/perspective-transition-fixture.mjs';
 import { InspectorTabState, assignSectionToTab, initialTabFor, tabsForKind } from '../lib/browser/inspector/tab-model.js';
 import { aiActionCatalog, describeAiTiles } from '../lib/common/ai-action-catalog.js';
 import { aiTabAvailabilityFor, aiTabViewFor, aiTargetKindFor, appendAiBack, appendAiTiles } from '../lib/browser/inspector/ai-tiles.js';
+import { appendAiStillNotice, stillMismatchNotice } from '../lib/browser/inspector/ai-still-panel.js';
 
 const source = readFileSync(new URL('../src/browser/akari-inspector-widget.ts', import.meta.url), 'utf8');
 const ast = ts.createSourceFile('widget.ts', source, ts.ScriptTarget.Latest, true);
@@ -15,8 +16,12 @@ const dependencies = {
   CAPTION_ZONE_HOVER_EVENT: '', createSelectionHeader: () => new FakeNode('header'),
   CUT_SECTIONS: (_snapshot, _write, fields) => fields ? [{ id: 'generation', label: '生成', fields }] : [],
   layerAudioControls: new WeakMap(),
-  tabsForKind, initialTabFor, assignSectionToTab, aiActionCatalog, describeAiTiles,
-  aiTabAvailabilityFor, aiTabViewFor, aiTargetKindFor, appendAiBack, appendAiTiles
+  tabsForKind, initialTabFor, assignSectionToTab,
+  // The route-zero cases below intentionally blank both actions, including the new still route.
+  aiActionCatalog: models => models.length ? aiActionCatalog(models)
+    : aiActionCatalog(models).map(row => ({ ...row, routes: [] })), describeAiTiles,
+  aiTabAvailabilityFor, aiTabViewFor, aiTargetKindFor, appendAiBack, appendAiTiles,
+  appendAiStillNotice, stillMismatchNotice
 };
 const code = ts.transpileModule(`class Harness {
 ${['render', 'tabSourceHint', 'generationIdentity', 'appendTabStrip', 'loadAiCatalog'].map(method).join('\n')}
@@ -64,6 +69,7 @@ function fixture(options = {}) {
   instance.workspaceService = { ready: Promise.resolve(), tryGetRoots: () => [{ resource: { toString: () => 'file:///fixture' } }] };
   instance.layerAudioService = { readGenerationCatalog: async () => ({ models: [route] }) };
   instance.generationCatalog = options.routes === false ? [] : [route];
+  instance.aiStillStates = new Map();
   instance.aiCatalogLoaded = true;
   instance.aiCatalogFailed = false;
   instance.generationStates = new Map([[clip.itemId, options.state ?? 'none']]);

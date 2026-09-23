@@ -207,6 +207,8 @@ Kling v3 standard i2v / Kling v3 pro i2v / Veo 3.1 first-last / Veo 3.1 referenc
 
 ## 7. 差し替え規則（done になったとき）
 
+空の枠・静止画は AI タブの「静止画」（Codex）で作った絵へ差し替えられる。item と映像・色の設定を保ち、差し替えは undo 1 回で戻る。
+
 ### 7-1. 何を書き換えるか
 
 同じ item の `sources[].path` を mp4 に。item id・トラック・`at` は不変。静止画の path は生成物 meta の `placeholder`（§3-2）に残る（由来。9/13 時点の meta は `inputs.first_frame`）。**1 手の undo**。

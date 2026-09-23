@@ -127,6 +127,8 @@ import { measureAudioForLevel } from './audio-level-resolver';
 import { setSfxFadeInSource } from '../common/sfx-fade-store';
 import { setAudioDuckInSource, setAudioKeyframesInSource } from '../common/audio-envelope-store';
 import { GenerationCliManager, generationDraftPath } from './generation-cli';
+import { StillGenerationManager } from './still-generation';
+import type { StartGenerateStillRequest, GenerateStillResult, ImageRouteState } from '../common/akari-annotations-protocol';
 import {
     appendAnnotationLine,
     emptyReviewSource,
@@ -216,6 +218,15 @@ interface CanvasStrokeRecord {
 @injectable()
 export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
     protected readonly narrationCli = new NarrationCliManager();
+    protected readonly stillGeneration = new StillGenerationManager(path => this.findGenerationAsset(path));
+
+    async probeImageRoutes(): Promise<ImageRouteState[]> { return this.stillGeneration.probeImageRoutes(); }
+    async startGenerateStill(request: StartGenerateStillRequest): Promise<GenerateStillResult> {
+        return this.stillGeneration.startGenerateStill(this.fsPath(request.projectRootUri), request);
+    }
+    async cancelGenerateStill(request: GenerationProcessRequest): Promise<void> {
+        this.stillGeneration.cancelGenerateStill(request.itemId);
+    }
 
     async listNarrationEngines(_projectRootUri: string, irodoriUrl?: string): Promise<NarrationEnginesResult> {
         return this.narrationCli.engines(irodoriUrl);

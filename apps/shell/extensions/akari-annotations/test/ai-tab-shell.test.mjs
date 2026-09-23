@@ -9,25 +9,27 @@ const catalog = aiActionCatalog(models);
 
 test('AI 行為カタログは動画モデルから実働 route を作る', () => {
   assert.deepEqual(catalog.map(row => [row.id, row.group, row.output, row.placement]),
-    [['video', 'make', 'video', 'replace']]);
-  assert.deepEqual(catalog[0].routes, [{ id: 'fal:h3-i2v', label: 'MiniMax H3', kind: 'api', cost: 'paid' }]);
-  assert.deepEqual(aiActionCatalog(models.filter(row => row.kind !== 'video'))[0].routes, []);
+    [['still', 'make', 'image', 'replace'], ['video', 'make', 'video', 'replace']]);
+  assert.deepEqual(catalog[1].routes, [{ id: 'fal:h3-i2v', label: 'MiniMax H3', kind: 'api', cost: 'paid' }]);
+  assert.deepEqual(aiActionCatalog(models.filter(row => row.kind !== 'video'))[1].routes, []);
 });
 
-for (const [name, target, count, enabled, reason] of [
-  ['静止画', 'still', 1, true, undefined],
-  ['空の枠', 'empty-frame', 1, true, undefined],
-  ['ふつうの動画', 'video', 1, false, '静止画か空の枠で使えます'],
-  ['生成済み動画', 'generated-video', 1, true, undefined],
-  ['音声', 'audio', 0, undefined, undefined]
+for (const [name, target, count, stillEnabled, videoEnabled, videoReason] of [
+  ['静止画', 'still', 1, true, true, undefined],
+  ['空の枠', 'empty-frame', 1, true, true, undefined],
+  ['ふつうの動画', 'video', 1, false, false, '静止画か空の枠で使えます'],
+  ['生成済み動画', 'generated-video', 1, false, true, undefined],
+  ['音声', 'audio', 0, undefined, undefined, undefined]
 ]) {
   test(`describeAiTiles: ${name}`, () => {
     const groups = describeAiTiles(catalog, target);
     assert.equal(groups.length, count);
-    if (count) assert.deepEqual(groups[0], { group: 'make', tiles: [{
-      id: 'video', label: '動画にする', image: 'video', enabled,
-      ...(reason ? { reason } : {})
-    }] });
+    if (count) assert.deepEqual(groups[0], { group: 'make', tiles: [
+      { id: 'still', label: '静止画', image: 'still', enabled: stillEnabled,
+        ...(!stillEnabled ? { reason: '空の枠か静止画で使えます' } : {}) },
+      { id: 'video', label: '動画にする', image: 'video', enabled: videoEnabled,
+        ...(videoReason ? { reason: videoReason } : {}) }
+    ] });
   });
 }
 

@@ -1,0 +1,335 @@
+{
+  "status": "PASS",
+  "step": "cleanup",
+  "boot": {
+    "preload": {
+      "checks": 1,
+      "last": {
+        "ready": true,
+        "present": false,
+        "visible": false,
+        "display": null,
+        "visibility": null,
+        "opacity": null,
+        "preloadPresent": false,
+        "hitAtCut": {
+          "tag": "DIV",
+          "class": "akari-annotations-strip-clip akari-generation-planned akari-generation-chip-layo"
+        }
+      },
+      "samples": [
+        {
+          "elapsedMs": 44,
+          "ready": true,
+          "present": false,
+          "visible": false,
+          "display": null,
+          "visibility": null,
+          "opacity": null,
+          "preloadPresent": false,
+          "hitAtCut": {
+            "tag": "DIV",
+            "class": "akari-annotations-strip-clip akari-generation-planned akari-generation-chip-layo"
+          }
+        }
+      ]
+    },
+    "cutHit": {
+      "checks": 1,
+      "last": {
+        "ready": true,
+        "target": true,
+        "hit": {
+          "tag": "DIV",
+          "class": "akari-annotations-strip-clip akari-generation-planned akari-generation-chip-layo"
+        },
+        "preloadPresent": false,
+        "hitAtCut": {
+          "tag": "DIV",
+          "class": "akari-annotations-strip-clip akari-generation-planned akari-generation-chip-layo"
+        }
+      },
+      "samples": [
+        {
+          "elapsedMs": 29,
+          "ready": true,
+          "target": true,
+          "hit": {
+            "tag": "DIV",
+            "class": "akari-annotations-strip-clip akari-generation-planned akari-generation-chip-layo"
+          },
+          "preloadPresent": false,
+          "hitAtCut": {
+            "tag": "DIV",
+            "class": "akari-annotations-strip-clip akari-generation-planned akari-generation-chip-layo"
+          }
+        }
+      ]
+    }
+  },
+  "checks": [
+    {
+      "name": "still precedes video",
+      "pass": true,
+      "measured": [
+        "静止画",
+        "動画にする"
+      ]
+    },
+    {
+      "name": "badge and route text do not intersect",
+      "pass": true,
+      "measured": {
+        "intersects": false,
+        "styled": true,
+        "disabled": true,
+        "badge": "使える",
+        "buttons": 5
+      }
+    },
+    {
+      "name": "clickable buttons have a background or border",
+      "pass": true,
+      "measured": {
+        "intersects": false,
+        "styled": true,
+        "disabled": true,
+        "badge": "使える",
+        "buttons": 5
+      }
+    },
+    {
+      "name": "empty prompt disables 作る",
+      "pass": true,
+      "measured": {
+        "intersects": false,
+        "styled": true,
+        "disabled": true,
+        "badge": "使える",
+        "buttons": 5
+      }
+    },
+    {
+      "name": "prompt, aspects and route exist",
+      "pass": true,
+      "measured": {
+        "intersects": false,
+        "styled": true,
+        "disabled": true,
+        "badge": "使える",
+        "buttons": 5
+      }
+    },
+    {
+      "name": "one source added and item geometry intact",
+      "pass": true,
+      "measured": {
+        "id": "clip-b",
+        "at": 180,
+        "duration": 180,
+        "source": {
+          "kind": "media",
+          "src": "still-src-1",
+          "in": 0,
+          "out": 6
+        }
+      }
+    },
+    {
+      "name": "one undo restores empty frame",
+      "pass": true,
+      "measured": {
+        "id": "clip-b",
+        "at": 180,
+        "duration": 180,
+        "source": {
+          "kind": "media",
+          "src": "still-b",
+          "in": 0,
+          "out": 6
+        }
+      }
+    },
+    {
+      "name": "badge and route text do not intersect",
+      "pass": true,
+      "measured": {
+        "intersects": false,
+        "styled": true,
+        "disabled": true,
+        "badge": "サインインが必要",
+        "buttons": 5
+      }
+    },
+    {
+      "name": "clickable buttons have a background or border",
+      "pass": true,
+      "measured": {
+        "intersects": false,
+        "styled": true,
+        "disabled": true,
+        "badge": "サインインが必要",
+        "buttons": 5
+      }
+    },
+    {
+      "name": "signed-out 作る has disabled attribute",
+      "pass": true,
+      "measured": {
+        "intersects": false,
+        "styled": true,
+        "disabled": true,
+        "badge": "サインインが必要",
+        "buttons": 5
+      }
+    },
+    {
+      "name": "failure reason redacts email",
+      "pass": true,
+      "measured": "画像を作れません: <email>"
+    },
+    {
+      "name": "badge and route text do not intersect",
+      "pass": true,
+      "measured": {
+        "intersects": false,
+        "styled": true,
+        "disabled": false,
+        "badge": "使える",
+        "buttons": 6
+      }
+    },
+    {
+      "name": "clickable buttons have a background or border",
+      "pass": true,
+      "measured": {
+        "intersects": false,
+        "styled": true,
+        "disabled": false,
+        "badge": "使える",
+        "buttons": 6
+      }
+    },
+    {
+      "name": "at least six screenshots",
+      "pass": true,
+      "measured": [
+        "01-list.png",
+        "02-panel.png",
+        "03-progress.png",
+        "04-replaced.png",
+        "05-undo.png",
+        "06-signed-out.png",
+        "07-failure.png"
+      ]
+    }
+  ],
+  "clicks": [
+    {
+      "name": "select cut 1",
+      "attempt": 1,
+      "passed": true
+    },
+    {
+      "name": "open AI",
+      "attempt": 1,
+      "passed": true
+    },
+    {
+      "name": "still panel",
+      "attempt": 1,
+      "passed": true
+    },
+    {
+      "name": "progress",
+      "attempt": 1,
+      "passed": true
+    },
+    {
+      "name": "undo click",
+      "attempt": 1,
+      "passed": true
+    },
+    {
+      "name": "open still again",
+      "attempt": 1,
+      "passed": true
+    },
+    {
+      "name": "signed out",
+      "attempt": 1,
+      "passed": true
+    },
+    {
+      "name": "ready again",
+      "attempt": 1,
+      "passed": true
+    },
+    {
+      "name": "failure progress",
+      "attempt": 1,
+      "passed": true
+    }
+  ],
+  "screenshots": [
+    {
+      "name": "01-list.png",
+      "bytes": 364503
+    },
+    {
+      "name": "02-panel.png",
+      "bytes": 241436
+    },
+    {
+      "name": "03-progress.png",
+      "bytes": 220257
+    },
+    {
+      "name": "04-replaced.png",
+      "bytes": 391571
+    },
+    {
+      "name": "05-undo.png",
+      "bytes": 391571
+    },
+    {
+      "name": "06-signed-out.png",
+      "bytes": 257590
+    },
+    {
+      "name": "07-failure.png",
+      "bytes": 244267
+    }
+  ],
+  "measurements": {
+    "badgeTextIntersect": false,
+    "clickableButtonsStyled": true,
+    "disabledCreate": false,
+    "timelineThumbnailBefore": "25f56677e63d11bde8023bb6b87c7e17f51882140e88f99e9a8ee4143b7e2955",
+    "timelineThumbnailAfter": "49f859f52fa890be7edd12e1167ad37805161ae61c223800020fb1adf1a98f16",
+    "timelineThumbnailUndo": "44f9aef7fc0ab4f9688578781f1a01aaa4c7216d20724c6ccf2dc9644ec3ddc8",
+    "previewBefore": "24378f24680bc7b54dc405ddfc1da0c03e555fed89f2fa10343e4c5804b107cc",
+    "previewAfter": "a3eb2a0a6fe7a44a2afda1da7c0c4eda7af2a8eb94179d85d0976d823e87067e",
+    "previewUndo": "1f2aea91c9b95e2131125a6643e72e45cc3260a0655c99cf9ce35e2eb765ea9b",
+    "timelineThumbnailChanged": true,
+    "previewChanged": true
+  },
+  "fixture": {
+    "ok": true,
+    "project": "evidence/ai-still-image/fixture/project",
+    "clips": [
+      "clip-a",
+      "clip-b",
+      "clip-c",
+      "clip-plain",
+      "clip-mp4"
+    ],
+    "sidecars": [
+      "assets/stills/a.png.meta.json",
+      "assets/stills/b.png.meta.json",
+      "assets/stills/c.png.meta.json"
+    ],
+    "plainImage": "assets/stills/plain.png",
+    "captions": true
+  }
+}

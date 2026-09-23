@@ -1,6 +1,6 @@
 import type { AiImage, AiTargetKind, AiTileGroup } from '../../common/ai-action-catalog';
 
-export type AiTabView = 'tiles' | 'video';
+export type AiTabView = 'tiles' | 'still' | 'video';
 
 /** The generation identity is the authority for whether a visual target can be generated. */
 export function aiTargetKindFor(options: {

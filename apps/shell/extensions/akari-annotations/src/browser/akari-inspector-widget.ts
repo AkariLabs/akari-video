@@ -5,6 +5,7 @@ import { AkariAnnotationsService } from '../common/akari-annotations-protocol';
 import type { GenerationValidationResult } from '../common/akari-annotations-protocol';
 import { resolveGenerationState, selectGenerationSidecarForSource, TRANSITION_VOCABULARY } from '@akari-video/edit-store';
 import { BaseWidget } from '@theia/core/lib/browser';
+import { WidgetManager } from '@theia/core/lib/browser/widget-manager';
 import { ConfirmDialog } from '@theia/core/lib/browser/dialogs';
 import { FileDialogService } from '@theia/filesystem/lib/browser';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
@@ -33,6 +34,7 @@ import {
 import { createSelectionHeader } from './inspector/selection-header';
 import { aiActionCatalog, describeAiTiles } from '../common/ai-action-catalog';
 import { aiTabAvailabilityFor, aiTabViewFor, aiTargetKindFor, appendAiBack, appendAiTiles, type AiTabView } from './inspector/ai-tiles';
+import { appendAiStillNotice, appendAiStillPanel, nearestStillAspect, replaceStillInEdit, stillDimensionMismatch, stillMismatchNotice, type AiStillState } from './inspector/ai-still-panel';
 import { createInspectorIcon } from './inspector/icons';
 import { worldInstructionCopy } from '../common/world-instruction-copy';
 import { keyframeRowPropertyOf, keyframeValueAt, type KeyframeSeatProperty } from './timeline/timeline-keyframe-rows';
@@ -2379,6 +2381,9 @@ export class AkariInspectorWidget extends BaseWidget {
     @inject(CommandRegistry)
     protected readonly commandRegistry!: CommandRegistry;
 
+    @inject(WidgetManager)
+    protected readonly stillWidgetManager!: WidgetManager;
+
     protected generationFramePick?: { key: string; slot: string };
     protected generationFramePickMessage?: { key: string; text: string };
 
@@ -2409,6 +2414,9 @@ export class AkariInspectorWidget extends BaseWidget {
     protected aiCatalogLoading?: Promise<void>;
     protected aiView?: AiTabView;
     protected aiViewClipKey?: string;
+    protected aiStillSelectionClipKey?: string;
+    protected readonly aiStillStates = new Map<string, AiStillState>();
+    protected aiStillTick?: number;
     protected generationDefaultModel = 'fal:h3-i2v';
     protected readonly generationDrafts = new Map<string, GenerationDraft>();
     protected readonly generationQuality = new Map<string, { modelId: string; enabled: boolean; previousResolution: string | null }>();
@@ -2489,6 +2497,25 @@ export class AkariInspectorWidget extends BaseWidget {
 .akari-inspector-ai-panel-header { display: flex; align-items: center; gap: 10px; min-width: 0; padding: 4px 2px 8px; }
 .akari-inspector-widget button.akari-inspector-ai-back { padding: 3px 5px; color: var(--akari-accent); background: transparent; border: 0; cursor: pointer; }
 .akari-inspector-ai-panel-title { margin: 0; font-size: 13px; font-weight: 700; }
+.akari-inspector-ai-still-notice { margin: 5px 2px 9px; padding: 7px 9px; border: 1px solid var(--akari-line); border-radius: 5px; font-size: 11px; line-height: 1.5; overflow-wrap: anywhere; }
+.akari-inspector-ai-still-panel { display: grid; gap: 10px; padding: 4px 2px 14px; min-width: 0; }
+.akari-inspector-ai-still-label { display: grid; gap: 5px; font-size: 12px; font-weight: 600; }
+.akari-inspector-ai-still-prompt { box-sizing: border-box; width: 100%; min-height: 104px; padding: 8px; resize: vertical; color: var(--akari-ink); background: var(--akari-card); border: 1px solid var(--akari-line); border-radius: 5px; font: inherit; font-weight: 400; }
+.akari-inspector-ai-still-aspects { display: flex; gap: 6px; }
+.akari-inspector-widget button.akari-inspector-ai-still-aspect,
+.akari-inspector-widget button.akari-inspector-ai-still-secondary { padding: 5px 9px; color: var(--akari-ink); background: var(--akari-card); border: 1px solid var(--akari-line); border-radius: 5px; cursor: pointer; }
+.akari-inspector-widget button.akari-inspector-ai-still-aspect[aria-pressed="true"] { border-color: var(--akari-accent); color: var(--akari-accent); }
+.akari-inspector-ai-still-route { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; min-height: 28px; }
+.akari-inspector-ai-still-route-name { font-size: 12px; }
+.akari-inspector-ai-still-badge { display: inline-block; padding: 2px 7px; border: 1px solid var(--akari-line); border-radius: 20px; font-size: 11px; white-space: nowrap; }
+.akari-inspector-ai-still-badge[data-akari-inspector-ai-route-state="ready"] { color: var(--akari-accent); border-color: var(--akari-accent); }
+.akari-inspector-ai-still-next,
+.akari-inspector-ai-still-progress,
+.akari-inspector-ai-still-error,
+.akari-inspector-ai-still-mismatch { margin: 0; font-size: 11px; line-height: 1.5; overflow-wrap: anywhere; }
+.akari-inspector-ai-still-error { color: var(--akari-danger, #e36b6b); }
+.akari-inspector-widget button.akari-inspector-ai-still-primary { padding: 9px 12px; color: var(--akari-bg); background: var(--akari-accent); border: 1px solid var(--akari-accent); border-radius: 5px; font-weight: 700; cursor: pointer; }
+.akari-inspector-widget button.akari-inspector-ai-still-primary:disabled { color: var(--akari-faint); background: var(--akari-card); border-color: var(--akari-line); cursor: default; }
 .akari-inspector-generation-gap { display: grid; gap: 12px; padding: 12px; min-width: 0; }
 .akari-inspector-generation-gap h3, .akari-inspector-generation-gap p { margin: 0; line-height: 1.6; overflow-wrap: anywhere; }
 .akari-inspector-generation-gap-ends { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; }
@@ -3631,6 +3658,10 @@ export class AkariInspectorWidget extends BaseWidget {
             snapshot.kind === 'multi' ? snapshot.items.map(item => item.kind === 'cut' ? item.itemId ?? item.index : item.id)
                 : rowSnapshot.kind === 'cut' ? rowSnapshot.itemId ?? rowSnapshot.index : rowSnapshot.id
         ]);
+        const stillNotice = this.aiStillStates?.size
+            ? stillMismatchNotice(this.aiStillStates, generationIdentity?.key, this.aiStillSelectionClipKey, clipKey)
+            : undefined;
+        this.aiStillSelectionClipKey = clipKey;
         const activeTab = initialTabFor({
             kind: sectionKind, tabs, persisted: this.tabState.activeTab(sectionKind, tabs), generationTodo,
             explicitTabId: this.explicitTabId, clipKey, previousClipKey: this.tabSelectionKey, currentTab: this.currentTab
@@ -3655,11 +3686,17 @@ export class AkariInspectorWidget extends BaseWidget {
             });
             this.aiViewClipKey = clipKey;
             if (this.aiView === 'tiles') {
+                if (stillNotice) appendAiStillNotice(this.body, stillNotice);
                 appendAiTiles(this.body, aiGroups, id => {
-                    if (id !== 'video') return;
-                    this.aiView = 'video';
+                    if (id !== 'video' && id !== 'still') return;
+                    this.aiView = id;
                     this.render();
                 });
+                return;
+            }
+            if (this.aiView === 'still' && generationIdentity) {
+                appendAiBack(this.body, '静止画', () => { this.aiView = 'tiles'; this.render(); });
+                this.appendStillPanel(generationIdentity);
                 return;
             }
             appendAiBack(this.body, '動画にする', () => {
@@ -4371,6 +4408,99 @@ export class AkariInspectorWidget extends BaseWidget {
             }
         })();
         return this.aiCatalogLoading;
+    }
+
+    protected appendStillPanel(identity: { key: string; itemId: string; sourcePath: string; duration: number }): void {
+        let state = this.aiStillStates.get(identity.key);
+        if (!state) {
+            const meta = this.generationTabMeta.get(identity.key) as { inputs?: { prompt?: string } } | undefined;
+            state = { prompt: meta?.inputs?.prompt ?? '', aspect: '16:9', probing: true, running: false };
+            this.aiStillStates.set(identity.key, state);
+            const root = this.workspaceService.tryGetRoots()[0]?.resource;
+            if (root) {
+                void this.fileService.read(root.resolve('edit.json')).then(file => {
+                    const output = JSON.parse(file.value.toString()).output;
+                    if (this.aiStillStates.get(identity.key) === state && output?.width && output?.height) {
+                        state!.aspect = nearestStillAspect(output.width, output.height);
+                        if (this.aiView === 'still') this.render();
+                    }
+                }).catch(() => undefined);
+            }
+            void Promise.resolve().then(() => this.probeStillRoute(identity.key));
+        }
+        appendAiStillPanel(this.body, state, {
+            change: () => this.render(),
+            probe: () => { void this.probeStillRoute(identity.key); },
+            generate: () => { void this.startStillGeneration(identity); },
+            cancel: () => { void this.cancelStillGeneration(identity); }
+        });
+    }
+
+    protected async probeStillRoute(key: string): Promise<void> {
+        const state = this.aiStillStates.get(key);
+        if (!state) return;
+        state.probing = true;
+        if (this.aiView === 'still') this.render();
+        try { state.route = (await this.layerAudioService.probeImageRoutes())[0]; }
+        catch { state.route = { id: 'codex', state: 'signed-out', detail: '確かめられませんでした' }; }
+        finally { state.probing = false; if (this.aiView === 'still') this.render(); }
+    }
+
+    protected async startStillGeneration(identity: { key: string; itemId: string; sourcePath: string }): Promise<void> {
+        const state = this.aiStillStates.get(identity.key);
+        const root = this.workspaceService.tryGetRoots()[0]?.resource;
+        if (!state || !root || state.running || state.route?.state !== 'ready' || !state.prompt.trim()) return;
+        state.running = true;
+        state.startedAt = Date.now();
+        state.error = undefined;
+        state.mismatch = undefined;
+        this.render();
+        if (this.aiStillTick) window.clearInterval(this.aiStillTick);
+        this.aiStillTick = window.setInterval(() => {
+            if (state.running && this.aiView === 'still') this.render();
+        }, 1000);
+        try {
+            const result = await this.layerAudioService.startGenerateStill({ projectRootUri: root.toString(),
+                itemId: identity.itemId, prompt: state.prompt, aspect: state.aspect });
+            if (!state.running) return;
+            if (!result.ok || !result.relativePath) throw new Error(result.reason || '生成できませんでした。');
+            state.mismatch = stillDimensionMismatch(state.aspect, result);
+            if (this.generationIdentity(this.model.snapshot)?.sourcePath !== identity.sourcePath) {
+                throw new Error('選択した枠の素材が変わりました。');
+            }
+            // The timeline owns the edit history. Its one mutation changes the source table and selected item together.
+            const timeline = this.stillWidgetManager.getWidgets('akari-annotations-widget').find(widget => {
+                const location = (widget as unknown as { location?: { root?: URI } }).location;
+                return !widget.isDisposed && location?.root?.toString() === root.toString();
+            }) as unknown as {
+                commitEditMutation?: (label: string, mutate: (doc: any) => any) => Promise<unknown>;
+            } | undefined;
+            if (!timeline?.commitEditMutation) throw new Error('タイムラインの編集履歴が見つかりません。');
+            await timeline.commitEditMutation('静止画を作る', doc => replaceStillInEdit(doc, identity.itemId, result.relativePath!));
+            this.aiView = 'tiles';
+            this.generationTabMeta.delete(identity.key);
+            this.generationStates.delete(identity.key);
+            const current = this.generationIdentity(this.model.snapshot);
+            if (current) void this.loadGeneration(current);
+        } catch (error) {
+            state.error = error instanceof Error ? error.message : String(error);
+        } finally {
+            state.running = false;
+            if (this.aiStillTick) window.clearInterval(this.aiStillTick);
+            this.aiStillTick = undefined;
+            this.render();
+        }
+    }
+
+    protected async cancelStillGeneration(identity: { key: string; itemId: string }): Promise<void> {
+        const state = this.aiStillStates.get(identity.key);
+        if (!state?.running) return;
+        state.running = false;
+        if (this.aiStillTick) window.clearInterval(this.aiStillTick);
+        this.aiStillTick = undefined;
+        const root = this.workspaceService.tryGetRoots()[0]?.resource;
+        if (root) await this.layerAudioService.cancelGenerateStill({ projectRootUri: root.toString(), itemId: identity.itemId });
+        this.render();
     }
 
     protected generationIdentity(snapshot: TimelineSelectionModel['snapshot']): {
