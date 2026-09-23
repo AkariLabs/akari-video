@@ -198,6 +198,7 @@ export function LibraryImportSheet(props: Props): React.ReactElement {
                 <button type='button' role='menuitem' onClick={() => { setMenu(false); setPlan(undefined); setError(''); setOpen(true); }}>ローカルから取り込む</button>
                 <button type='button' role='menuitem' onClick={showSites}>素材サイトでさがす</button>
                 <button type='button' role='menuitem' disabled>URL を貼って入れる（今後追加）</button><hr style={{ width: '100%' }} />
+                <button type='button' role='menuitem' onClick={() => { setMenu(false); props.overlayHost.dispatchEvent(new CustomEvent('akari.library.changeLocation')); }}>素材の置き場を変える…</button>
                 <button type='button' role='menuitem' disabled>ライブラリを点検（今後追加）</button>
             </div>
         </div>}

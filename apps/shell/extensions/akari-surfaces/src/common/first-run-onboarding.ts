@@ -5,8 +5,8 @@ export interface FirstRunOnboardingState {
     markerSeen: boolean;
 }
 
-export type FirstRunSetupStep = 'tools' | 'workspace' | 'connection';
-export type FirstRunSetupAction = 'next' | 'back' | 'workspace-created';
+export type FirstRunSetupStep = 'tools' | 'workspace' | 'library' | 'connection';
+export type FirstRunSetupAction = 'next' | 'back' | 'workspace-created' | 'skip';
 export type FirstRunSetupOpenMode = 'automatic' | 'manual';
 
 /**
@@ -20,7 +20,7 @@ export function shouldAutoOpenFirstRunSetup(state: FirstRunOnboardingState): boo
         && !state.markerSeen;
 }
 
-/** ダイアログの 3 ステップ遷移。UI から分離し、戻る／進むの境界を固定する。 */
+/** ダイアログの 4 ステップ遷移。 */
 export function nextFirstRunSetupStep(
     step: FirstRunSetupStep,
     action: FirstRunSetupAction
@@ -32,7 +32,16 @@ export function nextFirstRunSetupStep(
         return 'tools';
     }
     if (step === 'workspace' && action === 'workspace-created') {
+        return 'library';
+    }
+    if (step === 'library' && action === 'back') {
+        return 'workspace';
+    }
+    if (step === 'library' && (action === 'next' || action === 'skip')) {
         return 'connection';
+    }
+    if (step === 'connection' && action === 'back') {
+        return 'library';
     }
     return step;
 }

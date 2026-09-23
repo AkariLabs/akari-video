@@ -27,6 +27,15 @@
 export const AKARI_NEW_PROJECT_SERVICE_PATH = '/services/akari-surfaces-new-project';
 export const AkariNewProjectService = Symbol('AkariNewProjectService');
 
+export interface AkariLibraryStatus {
+    root: string;
+    cloud: string | null;
+    state: string | null;
+    previous: { count: number; bytes: number };
+    moving: boolean;
+    usage: import('./library-storage').LibraryStorageSummary;
+}
+
 export type AkariToolId = 'ffmpeg' | 'whisper' | 'yt-dlp' | 'voicevox' | 'blender' | 'xcode-clt' | 'speech-analyzer';
 export type AkariToolTier = 'required' | 'advanced' | 'recommended';
 
@@ -79,6 +88,13 @@ export interface AkariToolInstallProgress {
 }
 
 export interface AkariNewProjectService {
+    libraryStatus(): Promise<AkariLibraryStatus>;
+    isLibraryMoving(): Promise<boolean>;
+    libraryMoveProgress(): Promise<{ bytes: number; totalBytes: number } | undefined>;
+    moveLibrary(root?: string): Promise<{ state: string | null; moved: number; bytes: number; failures: Array<{ path: string; message: string }> }>;
+    declineLibraryMove(): Promise<void>;
+    labCleanupTargets(directories: string[]): Promise<string[]>;
+    takeLibraryMigrationNotice(): Promise<string | undefined>;
     /**
      * 空のフォルダーへプロジェクト雛形を作成する
      * （テンプレコピー + フォールバック補完 + スキル同梱 + git init）。

@@ -1,0 +1,15 @@
+{
+  "dialogProps": {
+    "title": "ローカルから取り込む",
+    "canSelectMany": true,
+    "canSelectFiles": false,
+    "canSelectFolders": true
+  },
+  "sheetText": "2 個を取り込みます\n\n✓ 全部読み込めることを確認しました\n\n♫ 効果音 · 1 件 beep.wav\n▧ 画像 · 1 件 red.png\nひとまとまりのセットにする\nくわしく\n閉じる\n取り込む",
+  "cmds": [
+    "akari.library.import.pickFolder",
+    "akari.catalog.open",
+    "akari.library.isMoving"
+  ],
+  "ok": true
+}

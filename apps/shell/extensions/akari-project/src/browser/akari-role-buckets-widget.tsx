@@ -602,6 +602,9 @@ export class AkariRoleBucketsWidget extends ReactWidget {
 
     @postConstruct()
     protected init(): void {
+        const changeLibraryLocation = (): void => { void this.commandService.executeCommand('akari.library.changeLocation'); };
+        this.node.addEventListener('akari.library.changeLocation', changeLibraryLocation);
+        this.toDispose.push({ dispose: () => this.node.removeEventListener('akari.library.changeLocation', changeLibraryLocation) });
         this.toDispose.push({ dispose: () => this.referenceWatches.dispose() });
         installCatalogFocusPulseStyle();
         window.addEventListener('keydown', this.handleGenerationPickKey, true);
@@ -1274,6 +1277,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     }
 
     protected async storeMaterialInLibrary(entry: MaterialCardEntry): Promise<void> {
+        if (await this.commandService?.executeCommand<boolean>('akari.library.isMoving')) { this.messages.warn('素材を移動しています。終わるまでお待ちください。'); return; }
         if (entry.reference) return;
         try {
             const uri = entry.mediaRelativePath && this.workflow.workspaceRoot
@@ -1313,13 +1317,23 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     }
 
     protected async pickLibraryImport(mode: 'both' | 'files' | 'folders'): Promise<string[]> {
+        if (await this.commandService?.executeCommand<boolean>('akari.library.isMoving')) { this.messages.warn('素材を移動しています。終わるまでお待ちください。'); return []; }
         const selected = await this.dialogs.showOpenDialog({
             title: 'ローカルから取り込む', canSelectMany: true, canSelectFiles: mode !== 'folders', canSelectFolders: mode !== 'files'
         });
         return selected ? (Array.isArray(selected) ? selected : [selected]).map(uri => uri.path.fsPath()) : [];
     }
 
+    /** Registered by the always present catalog CommandContribution. */
+    async openLibraryImportFromFolder(): Promise<void> {
+        if (this.isDisposed) return;
+        this.topView = 'catalog';
+        const paths = await this.pickLibraryImport('folders');
+        if (paths.length) { this.libraryImportRequest = { paths }; this.update(); }
+    }
+
     protected async retryMaterialReference(entry: MaterialCardEntry): Promise<void> {
+        if (await this.commandService?.executeCommand<boolean>('akari.library.isMoving')) { this.messages.warn('素材を移動しています。終わるまでお待ちください。'); return; }
         const root = this.workflow.workspaceRoot;
         if (!root || !entry.reference) return;
         try {
@@ -2191,6 +2205,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
      * 反映を確認できるようにする。in-flight は resolvingAssetKeys でスピナー/二重クリック防止。
      */
     protected async useAssetCatalogItem(item: AssetCatalogViewItem): Promise<void> {
+        if (await this.commandService?.executeCommand<boolean>('akari.library.isMoving')) { this.messages.warn('素材を移動しています。終わるまでお待ちください。'); return; }
         const root = this.workflow.workspaceRoot;
         if (!root) {
             this.messages.warn('先にプロジェクトを開いてください。');
@@ -2231,6 +2246,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
 
     /** カタログ key を既存 resolver で取り込み、配置可能な主メディアだけ返す。 */
     async resolveCatalogMaterial(key: string, options?: { preferExisting?: boolean }): Promise<{ relativePath: string; kind: MaterialKind; cached?: boolean } | undefined> {
+        if (await this.commandService?.executeCommand<boolean>('akari.library.isMoving')) { this.messages.warn('素材を移動しています。終わるまでお待ちください。'); return undefined; }
         const root = this.workflow.workspaceRoot;
         if (!root) {
             this.messages.warn('先にプロジェクトを開いてください。');

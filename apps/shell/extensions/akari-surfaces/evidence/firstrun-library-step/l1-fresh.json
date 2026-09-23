@@ -1,0 +1,30 @@
+{
+  "stepLabels": [
+    "1. 道具",
+    "2. 作業場",
+    "3. 素材",
+    "4. パートナー"
+  ],
+  "libraryText": "素材の置き場\n\n素材はここに入ります。通常は作業場の中の「library」フォルダです。あとから場所を変えることもできます。\n\n/tmp/fls-l1/run-fresh/home/Akari/library\n\nFinder で開く場所を変える…手持ちの素材フォルダがあれば入れる\n\nAKARI Video Lab の素材を使うには、アカウントをつなぎます。\n\nAKARI Video Lab とつなぐ\n戻る\n今はスキップ\n次へ",
+  "libraryPath": "/tmp/fls-l1/run-fresh/home/Akari/library",
+  "revealCalls": [
+    {
+      "id": "akari.project.revealInFileManager",
+      "args": [
+        "/tmp/fls-l1/run-fresh/home/Akari/library"
+      ]
+    }
+  ],
+  "revealTargetExists": true,
+  "backToWorkspace": true,
+  "skipToConnection": true,
+  "locationAfterSkip": {
+    "version": 0,
+    "root": "/tmp/fls-l1/run-fresh/home/Akari/library",
+    "decidedAt": "2026-09-23T01:13:57.707Z",
+    "state": "done",
+    "migratedAt": "2026-09-23T01:13:57.708Z"
+  },
+  "relaunchDialogCount": 0,
+  "ok": true
+}

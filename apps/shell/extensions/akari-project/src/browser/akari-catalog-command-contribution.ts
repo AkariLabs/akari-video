@@ -93,6 +93,13 @@ export class AkariCatalogCommandContribution implements CommandContribution {
     });
 
     registerCommands(registry: CommandRegistry): void {
+        registry.registerCommand({ id: 'akari.library.import.pickFolder' }, {
+            execute: async () => {
+                await registry.executeCommand(AkariCatalogCommands.OPEN_CATALOG.id);
+                const widget = await this.widgetManager.getOrCreateWidget<AkariRoleBucketsWidget>(AkariRoleBucketsWidget.ID);
+                await widget.openLibraryImportFromFolder();
+            }
+        });
         registry.registerCommand({ id: 'akari.catalog.openSwap' }, {
             execute: async (request: MaterialSwapRequest) => {
                 const target = await registry.executeCommand<MaterialSwapRequest | false>('akari.timeline.beginMaterialSwap', request);

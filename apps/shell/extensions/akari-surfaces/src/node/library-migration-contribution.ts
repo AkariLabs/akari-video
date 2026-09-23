@@ -14,9 +14,19 @@ const importEsm = new Function('specifier', 'return import(specifier)') as (spec
 /** Only startup wiring: all location decisions and migration live in creator-root. */
 @injectable()
 export class LibraryMigrationContribution implements BackendApplicationContribution {
+    protected notice: string | undefined;
+    protected startup: Promise<void> = Promise.resolve();
 
     async onStart(): Promise<void> {
-        await this.migrate();
+        this.startup = this.migrate(async message => { this.notice = message; });
+        await this.startup;
+    }
+
+    async takeNotice(): Promise<string | undefined> {
+        await this.startup;
+        const notice = this.notice;
+        this.notice = undefined;
+        return notice;
     }
 
     async migrate(notify?: (message: string) => Promise<void>): Promise<void> {

@@ -1,6 +1,4 @@
 import { BackendApplicationContribution } from '@theia/core/lib/node/backend-application';
-import { ConnectionContainerModule } from '@theia/core/lib/node/messaging/connection-container-module';
-import { MessageService } from '@theia/core/lib/common/message-service';
 import { LibraryMigrationContribution } from './library-migration-contribution';
 import { ContainerModule } from '@theia/core/shared/inversify';
 import { ConnectionHandler, JsonRpcConnectionHandler } from '@theia/core/lib/common/messaging';
@@ -24,16 +22,9 @@ export default new ContainerModule(bind => {
     ).inSingletonScope();
     bind(AkariNewProjectServiceImpl).toSelf().inSingletonScope();
     bind(AkariNewProjectService).toService(AkariNewProjectServiceImpl);
-    // A frontend connection is needed for the existing Theia toast service.
-    // Startup does the migration; this same implementation claims the notice once connected.
-    bind(ConnectionContainerModule).toConstantValue(ConnectionContainerModule.create(({ bind: bindConnection }) => {
-        bindConnection(ConnectionHandler).toDynamicValue(context => {
-            const migration = context.container.get(LibraryMigrationContribution);
-            const messages = context.container.get(MessageService);
-            void migration.migrate(async message => { await messages.info(message); });
-            return new JsonRpcConnectionHandler(AKARI_NEW_PROJECT_SERVICE_PATH, () => context.container.get(AkariNewProjectService));
-        }).inSingletonScope();
-    }));
+    bind(ConnectionHandler).toDynamicValue(context =>
+        new JsonRpcConnectionHandler(AKARI_NEW_PROJECT_SERVICE_PATH, () => context.container.get(AkariNewProjectService))
+    ).inSingletonScope();
     bind(AkariKitsServiceImpl).toSelf().inSingletonScope();
     bind(AkariKitsService).toService(AkariKitsServiceImpl);
     bind(ConnectionHandler).toDynamicValue(context =>

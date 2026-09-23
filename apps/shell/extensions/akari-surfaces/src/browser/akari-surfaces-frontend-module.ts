@@ -11,6 +11,7 @@ import {
 import { WindowTitleContribution } from '@theia/core/lib/browser/window/window-title-service';
 import { AkariHomeCommandContribution } from './akari-home-command-contribution';
 import { AkariHomeContribution } from './akari-home-contribution';
+import { LibraryMigrationNoticeContribution } from './library-migration-notice-contribution';
 import { AkariModeSwitchContribution } from './akari-mode-switch-contribution';
 import { AkariHomeWidget } from './akari-home-widget';
 import { AkariUpdateToast } from './home/update-toast';
@@ -36,6 +37,8 @@ export default new ContainerModule(bind => {
     bind(CommandContribution).toService(AkariSettingsCommandContribution);
     bind(AkariSettingsDialogStyleContribution).toSelf().inSingletonScope();
     bind(FrontendApplicationContribution).toService(AkariSettingsDialogStyleContribution);
+    bind(LibraryMigrationNoticeContribution).toSelf().inSingletonScope();
+    bind(FrontendApplicationContribution).toService(LibraryMigrationNoticeContribution);
 
     bind(AkariModeSwitchContribution).toSelf().inSingletonScope();
     bind(FrontendApplicationContribution).toService(AkariModeSwitchContribution);

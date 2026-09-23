@@ -7,6 +7,7 @@ import { EnvVariablesServer } from '@theia/core/lib/common/env-variables';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
 import {
     AkariNewProjectService,
+    AkariLibraryStatus,
     AkariToolCheckResponse,
     AkariToolCheckResult,
     AkariToolId,
@@ -33,6 +34,7 @@ import {
     formatDownloadProgressLabel
 } from '../common/tool-install-progress';
 import { deriveToolRowState, shouldShowToolNote, TOOL_UI, WHISPER_MODEL_SIZE_LABEL } from '../common/tool-guidance';
+import { formatLibraryBytes, libraryMoveCopy, librarySyncChoices } from '../common/library-storage';
 
 const INSTALL_PROGRESS_POLL_INTERVAL_MS = 500;
 const INDETERMINATE_PROGRESS_STYLE_ID = 'akari-tool-install-indeterminate-style';
@@ -57,7 +59,8 @@ export interface FirstRunSetupAutoOpenContext {
 const STEPS: ReadonlyArray<{ id: FirstRunSetupStep; label: string }> = [
     { id: 'tools', label: '1. 道具' },
     { id: 'workspace', label: '2. 作業場' },
-    { id: 'connection', label: '3. パートナー' }
+    { id: 'library', label: '3. 素材' },
+    { id: 'connection', label: '4. パートナー' }
 ];
 
 /**
@@ -93,6 +96,9 @@ export class AkariFirstRunSetupDialog extends AbstractDialog<void> {
     // --- 作業場ステップ v2（裁定 B） -----------------------------------------
     protected creatorRootPathDisplay: string | undefined;
     protected creatorRootPathError: string | undefined;
+    protected libraryStatus: AkariLibraryStatus | undefined;
+    protected movingLibrary = false;
+    protected libraryMoveProgress: { bytes: number; totalBytes: number } | undefined;
 
     constructor(
         protected readonly props: AkariFirstRunSetupDialogProps,
@@ -136,6 +142,7 @@ export class AkariFirstRunSetupDialog extends AbstractDialog<void> {
         }
         void this.recheckTools();
         void this.loadCreatorRootPath();
+        void this.loadLibraryStatus();
         return closed.finally(async () => {
             if (shouldRecordFirstRunMarker(mode)) {
                 await this.recordFirstRunMarker();
@@ -230,6 +237,8 @@ export class AkariFirstRunSetupDialog extends AbstractDialog<void> {
             this.renderToolsStep();
         } else if (this.step === 'workspace') {
             this.renderWorkspaceStep();
+        } else if (this.step === 'library') {
+            this.renderLibraryStep();
         } else {
             this.renderConnectionStep();
         }
@@ -634,6 +643,136 @@ export class AkariFirstRunSetupDialog extends AbstractDialog<void> {
 
     // === ステップ 3: パートナー（裁定 C1〜C3） ================================
 
+    protected async loadLibraryStatus(): Promise<void> {
+        try {
+            this.libraryStatus = await this.newProjectService.libraryStatus();
+            this.setupError = undefined;
+        } catch (error) {
+            this.setupError = error instanceof Error ? error.message : '素材の置き場を確認できませんでした。';
+        }
+        if (this.step === 'library') this.renderState();
+    }
+
+    protected renderLibraryStep(): void {
+        this.panel.removeAttribute('data-akari-setup-tools');
+        this.panel.removeAttribute('data-akari-setup-workspace');
+        this.panel.removeAttribute('data-akari-setup-connection');
+        this.panel.setAttribute('data-akari-setup-library', 'true');
+        const status = this.libraryStatus;
+        this.panel.append(createTitle('素材の置き場'), createLead('素材はここに入ります。通常は作業場の中の「library」フォルダです。あとから場所を変えることもできます。'));
+        const path = document.createElement('p');
+        path.setAttribute('data-akari-library-path', 'true');
+        path.textContent = status?.root ?? '置き場を確認しています…';
+        Object.assign(path.style, { color: BODY_TEXT_COLOR, overflowWrap: 'anywhere', fontWeight: '600' });
+        this.panel.appendChild(path);
+        const open = createButton('Finder で開く', 'secondary');
+        open.disabled = !status;
+        open.addEventListener('click', () => { if (status) void this._commands.executeCommand('akari.project.revealInFileManager', URI.fromFilePath(status.root)); });
+        const change = createButton('場所を変える…', 'secondary');
+        change.disabled = this.movingLibrary;
+        change.addEventListener('click', () => void this.changeLibraryLocation());
+        this.panel.append(open, change);
+        const moveCopy = status ? libraryMoveCopy(status.state, status.previous, status.cloud) : {};
+        if (moveCopy.transfer) this.panel.appendChild(createLead(moveCopy.transfer));
+        if (moveCopy.retained) this.panel.appendChild(createLead(moveCopy.retained));
+        if (status?.state === 'pending') {
+            if (moveCopy.sync) this.panel.appendChild(createLead(moveCopy.sync));
+            const choices = createActions();
+            for (const choice of librarySyncChoices(status.state)) {
+                const button = createButton(choice, choice === 'このまま使う' ? 'main' : 'secondary');
+                button.disabled = this.movingLibrary;
+                button.addEventListener('click', () => void this.chooseSyncLocation(choice));
+                choices.appendChild(button);
+            }
+            this.panel.appendChild(choices);
+        }
+        if (this.movingLibrary) {
+            const progress = createLead(this.libraryMoveProgress?.totalBytes
+                ? `素材を移動しています… ${formatLibraryBytes(this.libraryMoveProgress.bytes)} / ${formatLibraryBytes(this.libraryMoveProgress.totalBytes)}`
+                : '素材を移動しています… 終わるまで取り込みと取得をお待ちください。');
+            progress.setAttribute('role', 'status');
+            this.panel.appendChild(progress);
+        }
+        const importButton = createButton('手持ちの素材フォルダがあれば入れる', 'secondary');
+        importButton.disabled = this.movingLibrary;
+        importButton.addEventListener('click', () => void this.openLibraryImport());
+        this.panel.appendChild(importButton);
+        this.panel.appendChild(createLead('AKARI Video Lab の素材を使うには、アカウントをつなぎます。'));
+        const connectLab = createButton('AKARI Video Lab とつなぐ', 'secondary');
+        connectLab.addEventListener('click', () => {
+            this.close();
+            void this._commands.executeCommand('akari.settings.open', { section: 'account' });
+        });
+        this.panel.appendChild(connectLab);
+        const actions = createActions();
+        const back = createButton('戻る', 'secondary');
+        back.addEventListener('click', () => { this.step = nextFirstRunSetupStep(this.step, 'back'); this.renderState(); });
+        const skip = createButton('今はスキップ', 'secondary');
+        skip.disabled = this.movingLibrary;
+        skip.addEventListener('click', () => void this.skipLibraryStep());
+        const next = createButton('次へ', 'main');
+        next.disabled = this.movingLibrary || status?.state === 'pending';
+        next.addEventListener('click', () => void this.finishLibraryStep());
+        actions.append(back, skip, next);
+        this.panel.appendChild(actions);
+    }
+
+    protected async finishLibraryStep(): Promise<void> {
+        if (this.libraryStatus?.state === 'pending') return;
+        if (this.libraryStatus && this.libraryStatus.state !== 'done' && this.libraryStatus.state !== 'declined') {
+            this.movingLibrary = true; this.renderState();
+            try { await this.moveLibraryWithProgress(); await this.loadLibraryStatus(); }
+            catch (error) { this.setupError = error instanceof Error ? error.message : '素材を移動できませんでした。'; return; }
+            finally { this.movingLibrary = false; this.renderState(); }
+        }
+        this.step = nextFirstRunSetupStep(this.step, 'next');
+        this.renderState();
+    }
+
+    protected async skipLibraryStep(): Promise<void> {
+        if (this.libraryStatus?.state === 'pending') {
+            await this.newProjectService.declineLibraryMove();
+        } else if (this.libraryStatus?.state !== 'done' && this.libraryStatus?.state !== 'declined') {
+            try { await this.newProjectService.moveLibrary(); }
+            catch (error) { this.setupError = error instanceof Error ? error.message : '素材の置き場を準備できませんでした。'; this.renderState(); return; }
+        }
+        this.step = nextFirstRunSetupStep(this.step, 'skip');
+        this.renderState();
+    }
+
+    protected async chooseSyncLocation(choice: string): Promise<void> {
+        if (choice === '別の場所を選ぶ') { await this.changeLibraryLocation(); return; }
+        if (choice === '今は移さない') await this.newProjectService.declineLibraryMove();
+        else {
+            this.movingLibrary = true; this.renderState();
+            try { await this.moveLibraryWithProgress(); }
+            catch (error) { this.setupError = error instanceof Error ? error.message : '素材を移動できませんでした。'; return; }
+            finally { this.movingLibrary = false; this.renderState(); }
+        }
+        await this.loadLibraryStatus();
+    }
+
+    protected async changeLibraryLocation(): Promise<void> {
+        try { await this._commands.executeCommand('akari.library.changeLocation'); await this.loadLibraryStatus(); }
+        catch (error) { this.setupError = error instanceof Error ? error.message : '置き場を変えられませんでした。'; this.renderState(); }
+    }
+
+    protected async moveLibraryWithProgress(): Promise<void> {
+        const poll = window.setInterval(() => {
+            void this.newProjectService.libraryMoveProgress().then(progress => {
+                this.libraryMoveProgress = progress;
+                if (this.step === 'library') this.renderState();
+            });
+        }, 400);
+        try { await this.newProjectService.moveLibrary(); }
+        finally { window.clearInterval(poll); this.libraryMoveProgress = undefined; }
+    }
+
+    protected async openLibraryImport(): Promise<void> {
+        this.close();
+        await this._commands.executeCommand('akari.library.import.pickFolder');
+    }
+
     protected renderConnectionStep(): void {
         this.panel.removeAttribute('data-akari-setup-tools');
         this.panel.removeAttribute('data-akari-setup-workspace');
@@ -672,6 +811,7 @@ export class AkariFirstRunSetupDialog extends AbstractDialog<void> {
             await this.newProjectService.ensureCreatorRoot();
             await this.props.onWorkspaceCreated();
             this.step = nextFirstRunSetupStep(this.step, 'workspace-created');
+            await this.loadLibraryStatus();
         } catch (error) {
             console.error('[akari-surfaces] failed to create setup workspace:', error);
             this.setupError = error instanceof Error ? error.message : '作業場を作成できませんでした。';
