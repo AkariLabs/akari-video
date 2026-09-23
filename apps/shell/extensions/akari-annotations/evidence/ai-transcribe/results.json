@@ -1,58 +1,209 @@
 {
-  "status": "FAIL",
-  "checks": [],
+  "status": "PASS",
+  "checks": [
+    {
+      "name": "audio refine tile and badge",
+      "passed": true,
+      "measured": {
+        "intersect": false,
+        "background": "rgb(26, 26, 26)",
+        "border": "1px",
+        "heading": "直す"
+      }
+    },
+    {
+      "name": "01-audio-done-tile.png <= 500KB",
+      "passed": true,
+      "measured": 68472
+    },
+    {
+      "name": "first subtitle visible",
+      "passed": true,
+      "measured": true
+    },
+    {
+      "name": "02-done-panel.png <= 500KB",
+      "passed": true,
+      "measured": 61133
+    },
+    {
+      "name": "03-daihon.png <= 500KB",
+      "passed": true,
+      "measured": 47649
+    },
+    {
+      "name": "transcription RPC blocked before dialog",
+      "passed": true,
+      "measured": true
+    },
+    {
+      "name": "04-video-tile.png <= 500KB",
+      "passed": true,
+      "measured": 113956
+    },
+    {
+      "name": "05-dialog.png <= 500KB",
+      "passed": true,
+      "measured": 144302
+    },
+    {
+      "name": "still reason",
+      "passed": true,
+      "measured": "声の入った音声か動画で使えます"
+    },
+    {
+      "name": "06-still-disabled.png <= 500KB",
+      "passed": true,
+      "measured": 129994
+    },
+    {
+      "name": "clickable buttons have background or border",
+      "passed": true,
+      "measured": [
+        {
+          "name": "tile",
+          "background": "rgb(26, 26, 26)",
+          "border": "1px"
+        },
+        {
+          "name": "← AI",
+          "background": "rgb(26, 26, 26)",
+          "border": "1px"
+        },
+        {
+          "name": "台本で開く",
+          "background": "rgb(26, 26, 26)",
+          "border": "1px"
+        },
+        {
+          "name": "やり直す",
+          "background": "rgb(26, 26, 26)",
+          "border": "1px"
+        },
+        {
+          "name": "文字起こしする",
+          "background": "rgb(26, 26, 26)",
+          "border": "1px"
+        }
+      ]
+    }
+  ],
   "clicks": [
     {
       "name": "transcribed audio",
       "attempt": 1,
-      "passed": false,
-      "error": "Error: Timed out: transcribed audio point"
+      "passed": true
     },
     {
-      "name": "transcribed audio",
-      "attempt": 2,
-      "passed": false,
-      "error": "Error: Timed out: transcribed audio point"
+      "name": "AI tab",
+      "attempt": 1,
+      "passed": true
     },
     {
-      "name": "transcribed audio",
-      "attempt": 3,
-      "passed": false,
-      "error": "Error: Timed out: transcribed audio point"
+      "name": "done panel",
+      "attempt": 1,
+      "passed": true
+    },
+    {
+      "name": "open daihon",
+      "attempt": 1,
+      "passed": true
+    },
+    {
+      "name": "untranscribed video",
+      "attempt": 1,
+      "passed": true
+    },
+    {
+      "name": "AI tab",
+      "attempt": 1,
+      "passed": true
+    },
+    {
+      "name": "video transcribe panel",
+      "attempt": 1,
+      "passed": true
+    },
+    {
+      "name": "existing dialog",
+      "attempt": 1,
+      "passed": true
+    },
+    {
+      "name": "still clip",
+      "attempt": 1,
+      "passed": true
+    },
+    {
+      "name": "AI tab",
+      "attempt": 1,
+      "passed": true
     }
   ],
   "screenshots": [
     {
-      "name": "error-full.png",
-      "bytes": 14912
+      "name": "01-audio-done-tile.png",
+      "bytes": 68472
+    },
+    {
+      "name": "02-done-panel.png",
+      "bytes": 61133
+    },
+    {
+      "name": "03-daihon.png",
+      "bytes": 47649
+    },
+    {
+      "name": "04-video-tile.png",
+      "bytes": 113956
+    },
+    {
+      "name": "05-dialog.png",
+      "bytes": 144302
+    },
+    {
+      "name": "06-still-disabled.png",
+      "bytes": 129994
     }
   ],
   "measurements": {
-    "badgeTitleIntersect": null,
-    "buttons": []
+    "badgeTitleIntersect": false,
+    "buttons": [
+      {
+        "name": "tile",
+        "background": "rgb(26, 26, 26)",
+        "border": "1px"
+      },
+      {
+        "name": "← AI",
+        "background": "rgb(26, 26, 26)",
+        "border": "1px"
+      },
+      {
+        "name": "台本で開く",
+        "background": "rgb(26, 26, 26)",
+        "border": "1px"
+      },
+      {
+        "name": "やり直す",
+        "background": "rgb(26, 26, 26)",
+        "border": "1px"
+      },
+      {
+        "name": "文字起こしする",
+        "background": "rgb(26, 26, 26)",
+        "border": "1px"
+      }
+    ]
   },
-  "blockedTranscriptions": 0,
+  "blockedTranscriptions": 1,
   "fixture": {
-    "project": "/var/folders/j1/hl65g8x91mv4hl8rm7q04j440000gn/T/akari-ai-transcribe-l1-Vn3bf7/project",
+    "project": "<TEMP>/project",
     "audio": "assets/interview.wav",
     "video": "assets/ordinary.mp4",
     "still": "assets/still.png",
     "segments": 7
   },
-  "error": "Error: Timed out: transcribed audio point",
-  "failureState": {
-    "selectedClips": [],
-    "tabs": [],
-    "inspector": {
-      "present": true,
-      "tile": false,
-      "badge": false,
-      "transcribePanel": false,
-      "back": false,
-      "dialog": false
-    },
-    "notifications": 0
-  },
-  "killedPid": 80290,
+  "killedPid": 9830,
   "electronExited": true
 }

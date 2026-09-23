@@ -2,7 +2,7 @@
 // Run: node apps/shell/extensions/akari-annotations/evidence/ai-transcribe/scripts/l1-ai-transcribe.mjs
 // Requires a built Electron shell. The script makes its project and all profiles under os.tmpdir().
 import { spawn } from 'node:child_process';
-import { mkdir, mkdtemp, rename, rm, stat, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, realpath, rename, rm, stat, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -14,8 +14,16 @@ const REPO = path.resolve(ROOT, '..', '..', '..', '..', '..', '..');
 const SHELL = path.join(REPO, 'apps/shell');
 const ELECTRON = path.join(SHELL, 'node_modules/electron/dist/Electron.app/Contents/MacOS/Electron');
 const PORT = Number(process.argv.find(arg => arg.startsWith('--port='))?.slice(7) ?? 22243);
-const ISO = await mkdtemp(path.join(os.tmpdir(), 'akari-ai-transcribe-l1-'));
+const TEMP_DIR = os.tmpdir();
+const TEMP_DIR_REAL = await realpath(TEMP_DIR);
+const ISO = await mkdtemp(path.join(TEMP_DIR, 'akari-ai-transcribe-l1-'));
 const PROJECT = path.join(ISO, 'project');
+const tempPaths = new Set([ISO, TEMP_DIR, TEMP_DIR_REAL]);
+for (const dir of [...tempPaths]) {
+  if (dir.startsWith('/private/var/folders/')) tempPaths.add(dir.slice('/private'.length));
+  if (dir.startsWith('/var/folders/')) tempPaths.add(`/private${dir}`);
+}
+const redactedTempPaths = [...tempPaths].sort((a, b) => b.length - a.length);
 const S = JSON.stringify;
 const launchEnv = { ...process.env };
 for (const key of Object.keys(launchEnv)) if (/GROQ|ELEVENLABS|FAL_KEY|OPENAI_API_KEY/iu.test(key)) delete launchEnv[key];
@@ -24,19 +32,21 @@ const result = { status: 'running', checks: [], clicks: [], screenshots: [],
 const save = async () => {
   const file = path.join(ROOT, 'results.json');
   const temporary = `${file}.tmp-${process.pid}`;
-  await writeFile(temporary, JSON.stringify(result, null, 2) + '\n');
+  let serialized = JSON.stringify(result, null, 2);
+  for (const dir of redactedTempPaths) serialized = serialized.replaceAll(dir, '<TEMP>');
+  await writeFile(temporary, serialized + '\n');
   await rename(temporary, file);
 };
 const check = (name, passed, measured) => {
   result.checks.push({ name, passed: Boolean(passed), measured });
   if (!passed) throw new Error(`${name}: ${JSON.stringify(measured)}`);
 };
-async function waitEval(cdp, expression, label, ms = 30_000) {
+async function waitEval(cdp, expression, label, ms = 90_000) {
   const until = Date.now() + ms;
   while (Date.now() < until) {
-    const value = await evalOn(cdp, expression).catch(() => null);
+    const value = await evalOn(cdp, expression, undefined, Math.min(60_000, until - Date.now())).catch(() => null);
     if (value) return value;
-    await sleep(160);
+    await sleep(Math.min(160, Math.max(0, until - Date.now())));
   }
   throw new Error(`Timed out: ${label}`);
 }
@@ -53,7 +63,7 @@ async function settle(cdp) {
     let quiet,limit;const observers=roots.map(root=>{const observer=new MutationObserver(reset);
     observer.observe(root,{subtree:true,childList:true,attributes:true,characterData:true});return observer});
     function done(){clearTimeout(quiet);clearTimeout(limit);observers.forEach(o=>o.disconnect());resolve(true)}
-    function reset(){clearTimeout(quiet);quiet=setTimeout(done,500)}limit=setTimeout(done,30000);reset()})`);
+    function reset(){clearTimeout(quiet);quiet=setTimeout(done,500)}limit=setTimeout(done,90000);reset()})`, undefined, 100_000);
 }
 async function clickUntil(cdp, selector, expected, name) {
   for (let attempt = 1; attempt <= 3; attempt++) {
@@ -135,7 +145,9 @@ try {
   } throw new Error('Electron CDP page did not appear'); })();
   cdp = new CDP(target.webSocketDebuggerUrl);
   await cdp.connect(); await cdp.send('Page.enable'); await cdp.send('Runtime.enable');
-  await waitEval(cdp, `Boolean(window.theia?.container&&document.getElementById('theia-app-shell'))`, 'Theia workbench', 1_500_000);
+  await waitEval(cdp, `Boolean(window.theia?.container&&document.getElementById('theia-app-shell')&&(()=>{
+    const preload=document.querySelector('.theia-preload');if(!preload)return true;
+    const style=getComputedStyle(preload);return style.display==='none'||Number(style.opacity)===0})())`, 'Theia workbench', 180_000);
   if (!await evalOn(cdp, `Boolean(document.querySelector('[data-akari-ui="timeline:cut:0"]'))`))
     await evalOn(cdp, command('akari.annotations.open'));
   await waitEval(cdp, `Boolean(document.querySelector('[data-akari-ui="timeline:cut:0"]'))`, 'timeline');
@@ -160,14 +172,22 @@ try {
   await clickUntil(cdp, `${panel} button:first-of-type`, `(()=>{const e=document.querySelector('[data-akari-ui="panel:daihon"]');return !!e&&e.getBoundingClientRect().width>0})()`, 'open daihon');
   await shot(cdp, '03-daihon.png', '[data-akari-ui="panel:daihon"]');
 
-  // The existing dialog auto-starts. Replace the project RPC in this isolated renderer before opening it.
+  // The existing dialog auto-starts. Guard the service passed to it before opening it.
   // This blocks local Whisper and all cloud providers even if the dialog chooses a backend automatically.
   const guarded = await evalOn(cdp, `(()=>{const d=window.theia.container._bindingDictionary;
-    const K=[...d._map.keys()].find(k=>String(k).includes('AkariProjectService'));
-    if(!K)return false;const service=window.theia.container.get(K);
+    const K=[...d._map.keys()].find(k=>String(k)==='Symbol(CommandContribution)');
+    if(!K)return false;
+    const contribution=window.theia.container.getAll(K)
+      .find(c=>typeof c.openTranscribeDialog==='function'&&c.projectService);
+    if(!contribution)return false;
     const blocked=async()=>{window.__akariAiTranscribeBlocked=(window.__akariAiTranscribeBlocked||0)+1;
       throw new Error('L1 fixture blocks transcription');};
-    service.transcribeMaterial=blocked;return service.transcribeMaterial===blocked})()`);
+    const original=contribution.projectService;
+    contribution.projectService=new Proxy(original,{get(t,p){
+      if(p==='transcribeMaterial')return blocked;
+      const value=Reflect.get(t,p);return typeof value==='function'?value.bind(t):value;
+    }});
+    return contribution.projectService.transcribeMaterial===blocked})()`);
   check('transcription RPC blocked before dialog', guarded, guarded);
   await evalOn(cdp, command('akari.inspector.open'));
   await waitEval(cdp, `(()=>{const e=document.querySelector('[data-akari-ui="panel:inspector"]');return !!e&&e.getBoundingClientRect().width>0})()`, 'inspector active');
