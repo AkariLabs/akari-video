@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import { launchBrowser } from './fixtures/browser.mjs';
 import { applyPartMask } from '../src/parts.mjs';
+import { applyWorldDelta, worldDelta } from '../src/selection-scope.mjs';
 
 const runtime = readFileSync(new URL('../src/overlay-runtime.js', import.meta.url), 'utf8');
 const interaction = readFileSync(new URL('../src/interaction.js', import.meta.url), 'utf8');
@@ -91,15 +92,32 @@ async function bounds(page) {
   });
 }
 const near = (a, b) => Object.keys(a).every(k => Math.abs(a[k] - b[k]) < 2);
+const childWorlds = page => page.evaluate(() => ['a', 'b'].map(id => {
+  const element = document.querySelector(`[data-overlay-id="${id}"]`);
+  const number = name => Number.parseFloat(element.style.getPropertyValue(name));
+  return { id, x: number('--x'), y: number('--y'), scale: number('--scale'), rotate: number('--rotate') };
+}));
+function assertWorldDelta(oldPose, nextPose, starts, actuals) {
+  for (const [index, start] of starts.entries()) {
+    const expected = applyWorldDelta(worldDelta(oldPose, nextPose), start);
+    const actual = actuals[index];
+    assert.equal(actual.id, start.id);
+    for (const key of ['x', 'y', 'scale', 'rotate']) {
+      const tolerance = key === 'x' || key === 'y' ? 0.5 : 1e-3;
+      assert.ok(Math.abs(actual[key] - expected[key]) <= tolerance,
+        `${start.id}.${key}: ${actual[key]} vs ${expected[key]} (±${tolerance})`);
+    }
+  }
+}
 
 test('hierarchical interaction gestures in the classic browser runtime', async t => {
   const browser = await launchBrowser(); t.after(() => browser.close());
-  await t.test('root click selects group; frame unions visible descendants only, with no handles', async () => {
+  await t.test('root click selects group; frame unions visible descendants and has five handles', async () => {
     const page = await fixture(browser); try {
       await click(page, 'a');
       assert.equal((await state(page)).selectedId, 'outer');
       const geometry = await bounds(page);
-      assert.ok(near(geometry.frame, geometry.union), JSON.stringify(geometry)); assert.equal(geometry.handles, 0);
+      assert.ok(near(geometry.frame, geometry.union), JSON.stringify(geometry)); assert.equal(geometry.handles, 5);
       await click(page, 'a', 2);
       assert.deepEqual(await state(page), { selectedId: 'g', scopeId: 'outer', floorScopeId: null, activeEdit: false }, JSON.stringify(await page.evaluate(() => window.pointerTrace)));
       assert.match(await (await page.$('[data-akari-ui="preview-scope-breadcrumb"]')).evaluate(e => e.textContent), /全体.*Outer/u);
@@ -124,6 +142,140 @@ test('hierarchical interaction gestures in the classic browser runtime', async t
       await page.evaluate(() => { window.rejectWrite = true; });
       await click(page, 'a'); await drag(page, 'a');
       assert.ok(near((await bounds(page)).union, before.union));
+    } finally { await page.close(); }
+  });
+  await t.test('group resize changes both descendants and writes one group transform', async () => {
+    const page = await fixture(browser); try {
+      await click(page, 'a');
+      const before = await bounds(page);
+      const oldPose = await page.evaluate(() => window.akari.state.summary.tree.find(node => node.id === 'outer').transform);
+      const starts = await childWorlds(page);
+      const handle = await page.$('.akari-interaction-handle.is-se');
+      const r = await handle.boundingBox();
+      await page.mouse.move(r.x + r.width / 2, r.y + r.height / 2);
+      await page.mouse.down(); await page.keyboard.down('Alt');
+      await page.mouse.move(r.x + r.width / 2 + 45, r.y + r.height / 2 + 30, { steps: 6 });
+      await page.mouse.up(); await page.keyboard.up('Alt');
+      const result = await page.evaluate(() => ({ writes: window.writes,
+        children: ['a','b'].map(id => { const e = document.querySelector(`[data-overlay-id="${id}"]`);
+          return { x: Number.parseFloat(e.style.getPropertyValue('--x')), scale: Number(e.style.getPropertyValue('--scale')) }; }) }));
+      assert.equal(result.writes.length, 1);
+      assert.equal(result.writes[0].id, 'outer');
+      assert.ok(result.writes[0].patch.transform.scale > 1);
+      assert.ok(result.children.every(child => child.scale > 1));
+      assertWorldDelta(oldPose, result.writes[0].patch.transform, starts, await childWorlds(page));
+      assert.ok((await bounds(page)).union.right - (await bounds(page)).union.left > before.union.right - before.union.left,
+        JSON.stringify({ before, after: await bounds(page), result }));
+    } finally { await page.close(); }
+  });
+  await t.test('group rotate uses Shift 15 degrees and rollback restores children', async () => {
+    const page = await fixture(browser); try {
+      await click(page, 'a');
+      const oldPose = await page.evaluate(() => window.akari.state.summary.tree.find(node => node.id === 'outer').transform);
+      const starts = await childWorlds(page);
+      const handle = await page.$('.akari-interaction-handle.is-rotate');
+      const r = await handle.boundingBox();
+      const x = r.x + r.width / 2, y = r.y + r.height / 2;
+      await page.mouse.move(x, y); await page.mouse.down();
+      await page.keyboard.down('Shift'); await page.mouse.move(x + 35, y + 10, { steps: 5 });
+      await page.mouse.up(); await page.keyboard.up('Shift');
+      const result = await page.evaluate(() => ({ writes: window.writes,
+        angles: ['a','b'].map(id => document.querySelector(`[data-overlay-id="${id}"]`).style.getPropertyValue('--rotate')) }));
+      assert.equal(result.writes.length, 1);
+      assert.equal(result.writes[0].id, 'outer');
+      assert.equal(result.writes[0].patch.transform.rotate % 15, 0);
+      assert.ok(result.angles.every(value => Number.parseFloat(value) === result.writes[0].patch.transform.rotate));
+      assertWorldDelta(oldPose, result.writes[0].patch.transform, starts, await childWorlds(page));
+    } finally { await page.close(); }
+  });
+  await t.test('leaf rotate writes rotate only; Esc cancels group resize', async () => {
+    const page = await fixture(browser); try {
+      await click(page, 'a');
+      const groupHandle = await page.$('.akari-interaction-handle.is-se');
+      const gr = await groupHandle.boundingBox();
+      await page.mouse.move(gr.x + gr.width / 2, gr.y + gr.height / 2); await page.mouse.down();
+      await page.mouse.move(gr.x + gr.width / 2 + 40, gr.y + gr.height / 2 + 20);
+      await page.keyboard.press('Escape'); await page.mouse.up();
+      assert.deepEqual(await page.evaluate(() => window.writes), []);
+      await click(page, 'plain');
+      const rotate = await page.$('.akari-interaction-handle.is-rotate');
+      const r = await rotate.boundingBox();
+      await page.mouse.move(r.x + r.width / 2, r.y + r.height / 2); await page.mouse.down();
+      await page.keyboard.down('Shift');
+      await page.mouse.move(r.x + r.width / 2 + 35, r.y + r.height / 2 + 10, { steps: 5 });
+      await page.mouse.up(); await page.keyboard.up('Shift');
+      const writes = await page.evaluate(() => window.writes);
+      assert.equal(writes.length, 1);
+      assert.equal(writes[0].id, 'plain');
+      assert.deepEqual(Object.keys(writes[0].patch.transform), ['rotate']);
+      assert.equal(writes[0].patch.transform.rotate % 15, 0);
+    } finally { await page.close(); }
+  });
+  await t.test('failed group resize restores child poses and tree pose', async () => {
+    const page = await fixture(browser); try {
+      await click(page, 'a');
+      await page.evaluate(() => { window.rejectWrite = true; });
+      const handle = await page.$('.akari-interaction-handle.is-se');
+      const r = await handle.boundingBox();
+      await page.mouse.move(r.x + r.width / 2, r.y + r.height / 2); await page.mouse.down();
+      await page.mouse.move(r.x + r.width / 2 + 35, r.y + r.height / 2 + 20, { steps: 5 });
+      await page.mouse.up();
+      await page.waitForFunction(() => window.writes.length === 1);
+      const observed = await page.evaluate(() => ({ node: window.akari.state.summary.tree.find(n => n.id === 'outer').transform,
+        poses: ['a','b'].map(id => { const e = document.querySelector(`[data-overlay-id="${id}"]`);
+          return { scale: Number(e.style.getPropertyValue('--scale')),
+            rotate: Number.parseFloat(e.style.getPropertyValue('--rotate')) }; }) }));
+      assert.deepEqual(observed.node, { x: 0, y: 0 });
+      assert.deepEqual(observed.poses, [{ scale: 1, rotate: 0 }, { scale: 1, rotate: 0 }]);
+    } finally { await page.close(); }
+  });
+  await t.test('failed group rotation restores child angles and tree pose', async () => {
+    const page = await fixture(browser); try {
+      await click(page, 'a');
+      await page.evaluate(() => { window.rejectWrite = true; });
+      const handle = await page.$('.akari-interaction-handle.is-rotate');
+      const r = await handle.boundingBox();
+      await page.mouse.move(r.x + r.width / 2, r.y + r.height / 2); await page.mouse.down();
+      await page.mouse.move(r.x + r.width / 2 + 35, r.y + r.height / 2 + 10, { steps: 5 });
+      await page.mouse.up();
+      await page.waitForFunction(() => window.writes.length === 1);
+      const observed = await page.evaluate(() => ({ node: window.akari.state.summary.tree.find(n => n.id === 'outer').transform,
+        angles: ['a','b'].map(id => Number.parseFloat(document.querySelector(`[data-overlay-id="${id}"]`).style.getPropertyValue('--rotate'))) }));
+      assert.deepEqual(observed, { node: { x: 0, y: 0 }, angles: [0, 0] });
+    } finally { await page.close(); }
+  });
+  await t.test('rotated leaf corner resize preserves rotation and scales equally', async () => {
+    const page = await fixture(browser); try {
+      await click(page, 'plain');
+      await page.evaluate(() => document.querySelector('[data-overlay-id="plain"]').style.setProperty('--rotate', '30deg'));
+      await page.evaluate(() => new Promise(resolve => setTimeout(resolve, 50)));
+      const anchorBefore = await page.evaluate(() => {
+        const root = document.querySelector('[data-overlay-id="plain"]').firstElementChild;
+        const marker = document.createElement('span');
+        marker.dataset.resizeAnchorProbe = 'true';
+        marker.style.cssText = 'position:absolute;left:0;top:0;width:0;height:0;pointer-events:none';
+        root.appendChild(marker);
+        const rect = marker.getBoundingClientRect();
+        return { x: rect.left, y: rect.top };
+      });
+      const handle = await page.$('.akari-interaction-handle.is-se');
+      const r = await handle.boundingBox();
+      await page.mouse.move(r.x + r.width / 2, r.y + r.height / 2); await page.mouse.down();
+      await page.keyboard.down('Alt');
+      await page.mouse.move(r.x + r.width / 2 + 35, r.y + r.height / 2 + 25, { steps: 5 });
+      await page.mouse.up(); await page.keyboard.up('Alt');
+      const writes = await page.evaluate(() => window.writes);
+      assert.equal(writes.length, 1, JSON.stringify({ handle: r, state: await state(page),
+        trace: await page.evaluate(() => window.pointerTrace) }));
+      assert.equal(writes[0].id, 'plain');
+      assert.equal(writes[0].patch.transform.rotate, 30);
+      assert.ok(writes[0].patch.transform.scale > 1);
+      const anchorAfter = await page.evaluate(() => {
+        const rect = document.querySelector('[data-resize-anchor-probe="true"]').getBoundingClientRect();
+        return { x: rect.left, y: rect.top };
+      });
+      assert.ok(Math.hypot(anchorAfter.x - anchorBefore.x, anchorAfter.y - anchorBefore.y) <= 0.5,
+        JSON.stringify({ anchorBefore, anchorAfter }));
     } finally { await page.close(); }
   });
   await t.test('deep selection then text edit: Esc cancels, parent, parent, clear; no forwarded Escape', async () => {
@@ -214,7 +366,7 @@ test('hierarchical interaction gestures in the classic browser runtime', async t
         await page.keyboard.type(' legacy'); await page.keyboard.press('Escape');
         const after = await state(page);
         const writes = await page.evaluate(() => window.writes);
-        assert.equal(after.selectedId, 'plain'); assert.equal(after.activeEdit, false); assert.equal(handles, 4);
+        assert.equal(after.selectedId, 'plain'); assert.equal(after.activeEdit, false); assert.equal(handles, 5);
         assert.equal(writes.length, 2); assert.notEqual(writes[1].patch.transform.scale, 1);
         traces.push({ selected, after, writes, handles });
       } finally { await page.close(); }

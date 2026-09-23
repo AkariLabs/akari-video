@@ -1,0 +1,3287 @@
+{
+  "status": "PASS",
+  "mode": "after",
+  "startedAt": "2026-09-23T00:11:03.875Z",
+  "finishedAt": "2026-09-23T00:11:47.439Z",
+  "expectedStateAPI": {
+    "object": "window.akari.interaction",
+    "getters": [
+      "selectedId",
+      "selectedIds",
+      "selectionKind",
+      "scopeId",
+      "floorScopeId",
+      "activeEdit"
+    ]
+  },
+  "baseline": {
+    "commit": "5f51c79fd9d607913f86beb426d42251c31dbed1",
+    "editSha256": "4dc61015ec59b47762bf0ae480ababdbc09153c041bae6a87eca5baccdcd614f",
+    "edit": {
+      "version": 2,
+      "output": {
+        "width": 640,
+        "height": 360,
+        "fps": 30
+      },
+      "sources": [],
+      "tracks": [
+        {
+          "id": "v1",
+          "lane": "visual",
+          "items": [
+            {
+              "id": "s01",
+              "at": 0,
+              "duration": 120,
+              "source": {
+                "kind": "html",
+                "path": "overlays/card.html",
+                "exclude": [
+                  "C"
+                ]
+              },
+              "items": [
+                {
+                  "id": "s01.B",
+                  "at": 6,
+                  "duration": 114,
+                  "transform": {
+                    "y": -40
+                  },
+                  "source": {
+                    "kind": "html",
+                    "path": "overlays/card.html",
+                    "part": "B",
+                    "style": {
+                      "color": "red"
+                    },
+                    "text": "差し替え",
+                    "derivedFrom": "overlays/card.html#B"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "v2",
+          "lane": "visual",
+          "items": [
+            {
+              "id": "outer",
+              "at": 0,
+              "duration": 120,
+              "transform": {
+                "x": 0,
+                "y": 0
+              },
+              "source": {
+                "kind": "group"
+              },
+              "items": [
+                {
+                  "id": "g1",
+                  "at": 30,
+                  "duration": 90,
+                  "transform": {
+                    "x": 270,
+                    "y": -110,
+                    "scale": 1,
+                    "rotate": 0
+                  },
+                  "opacity": 0.5,
+                  "blend": "screen",
+                  "source": {
+                    "kind": "group"
+                  },
+                  "items": [
+                    {
+                      "id": "g1.first",
+                      "at": 0,
+                      "duration": 45,
+                      "transform": {
+                        "x": 10,
+                        "y": 5,
+                        "scale": 1,
+                        "rotate": 0
+                      },
+                      "opacity": 0.8,
+                      "source": {
+                        "kind": "html",
+                        "path": "overlays/plain.html"
+                      }
+                    },
+                    {
+                      "id": "g1.second",
+                      "at": 0,
+                      "duration": 45,
+                      "transform": {
+                        "x": 110,
+                        "y": -45,
+                        "scale": 1,
+                        "rotate": 0
+                      },
+                      "source": {
+                        "kind": "html",
+                        "path": "overlays/plain.html"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "v3",
+          "lane": "visual",
+          "items": [
+            {
+              "id": "plain",
+              "at": 0,
+              "duration": 120,
+              "source": {
+                "kind": "html",
+                "path": "overlays/plain.html"
+              }
+            }
+          ]
+        },
+        {
+          "id": "v4",
+          "lane": "visual",
+          "items": [
+            {
+              "id": "s01.C",
+              "at": 0,
+              "duration": 120,
+              "source": {
+                "kind": "html",
+                "path": "overlays/card.html",
+                "part": "C",
+                "derivedFrom": "overlays/card.html#C"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "beforeStatus": null,
+  "records": [
+    {
+      "step": 1,
+      "title": "outer shows four resize handles and rotate handle",
+      "status": "ok",
+      "observations": {
+        "preparation": {
+          "timelineBefore": {
+            "rootId": null,
+            "selectedId": null,
+            "selection": null,
+            "selectedRows": [],
+            "breadcrumbs": [
+              "全体"
+            ],
+            "zoom": "100%"
+          },
+          "focusExit": [],
+          "expansion": [],
+          "rebuild": {
+            "reason": "before step 1",
+            "path": "ApplicationShell.closeWidget -> akari.preview.ensureVisible",
+            "closed": [
+              {
+                "id": "plugin-webview:akari-output-preview-jcxdjl",
+                "disposed": true
+              }
+            ],
+            "previousInstance": 1,
+            "instance": 2
+          },
+          "previewReset": {
+            "before": {
+              "selectedId": null,
+              "selectedIds": [],
+              "selectionKind": "leaf",
+              "scopeId": null,
+              "floorScopeId": null,
+              "activeEdit": false
+            },
+            "focusBeforeClick": {
+              "hasFocus": false,
+              "instance": 2,
+              "activeElement": {
+                "tag": "BODY",
+                "id": "",
+                "editable": false
+              }
+            },
+            "point": {
+              "x": 89.28749465942383,
+              "y": 572.2046508789062,
+              "id": "plain",
+              "tag": "DIV",
+              "text": "名札なし"
+            },
+            "selected": {
+              "selectedId": "plain",
+              "selectedIds": [
+                "plain"
+              ],
+              "selectionKind": "leaf",
+              "scopeId": null,
+              "floorScopeId": null,
+              "activeEdit": false
+            },
+            "focusBeforeEscape": {
+              "hasFocus": true,
+              "instance": 2,
+              "activeElement": {
+                "tag": "BODY",
+                "id": "",
+                "editable": false
+              }
+            },
+            "after": {
+              "selectedId": null,
+              "selectedIds": [],
+              "selectionKind": "leaf",
+              "scopeId": null,
+              "floorScopeId": null,
+              "activeEdit": false
+            }
+          },
+          "preview": {
+            "selectedId": null,
+            "selectedIds": [],
+            "selectionKind": "leaf",
+            "scopeId": null,
+            "floorScopeId": null,
+            "activeEdit": false
+          },
+          "timelineAfter": {
+            "rootId": null,
+            "selectedId": "plain",
+            "selection": {
+              "kind": "item",
+              "id": "plain",
+              "itemKind": "item",
+              "trackId": "v3"
+            },
+            "selectedRows": [],
+            "breadcrumbs": [
+              "全体"
+            ],
+            "zoom": "100%"
+          }
+        },
+        "geometry": {
+          "leaves": [
+            {
+              "id": "g1.first",
+              "visible": true,
+              "bounds": {
+                "left": 411.54998779296875,
+                "top": 426.6156005859375,
+                "right": 477.5249938964844,
+                "bottom": 451.3562316894531,
+                "width": 65.97500610351562,
+                "height": 24.740631103515625
+              }
+            },
+            {
+              "id": "g1.second",
+              "visible": true,
+              "bounds": {
+                "left": 538.4249877929688,
+                "top": 363.1781005859375,
+                "right": 604.3999633789062,
+                "bottom": 387.91876220703125,
+                "width": 65.9749755859375,
+                "height": 24.74066162109375
+              }
+            }
+          ],
+          "union": {
+            "left": 411.54998779296875,
+            "top": 363.1781005859375,
+            "right": 604.3999633789062,
+            "bottom": 451.3562316894531,
+            "width": 192.8499755859375,
+            "height": 88.17813110351562
+          },
+          "frame": {
+            "left": 411.546875,
+            "top": 363.171875,
+            "right": 604.390625,
+            "bottom": 451.34375,
+            "width": 192.84375,
+            "height": 88.171875
+          },
+          "kind": "group",
+          "visibleHandles": 5
+        }
+      },
+      "startedAt": "2026-09-23T00:11:07.826Z"
+    },
+    {
+      "step": 2,
+      "title": "outer resize scales both children and writes group once",
+      "status": "ok",
+      "observations": {
+        "preparation": {
+          "timelineBefore": {
+            "rootId": null,
+            "selectedId": "outer",
+            "selection": {
+              "kind": "item",
+              "id": "outer",
+              "itemKind": "group",
+              "trackId": "v2"
+            },
+            "selectedRows": [
+              "outer"
+            ],
+            "breadcrumbs": [
+              "全体"
+            ],
+            "zoom": "100%"
+          },
+          "focusExit": [],
+          "expansion": [],
+          "rebuild": {
+            "reason": "before step 2",
+            "path": "ApplicationShell.closeWidget -> akari.preview.ensureVisible",
+            "closed": [
+              {
+                "id": "plugin-webview:akari-output-preview-jcxdjl",
+                "disposed": true
+              }
+            ],
+            "previousInstance": 2,
+            "instance": 3
+          },
+          "previewReset": {
+            "before": {
+              "selectedId": "outer",
+              "selectedIds": [
+                "outer"
+              ],
+              "selectionKind": "group",
+              "scopeId": null,
+              "floorScopeId": null,
+              "activeEdit": false
+            },
+            "focusBeforeClick": {
+              "hasFocus": false,
+              "instance": 3,
+              "activeElement": {
+                "tag": "BODY",
+                "id": "",
+                "editable": false
+              }
+            },
+            "point": {
+              "x": 89.28749465942383,
+              "y": 572.2046508789062,
+              "id": "plain",
+              "tag": "DIV",
+              "text": "名札なし"
+            },
+            "selected": {
+              "selectedId": "plain",
+              "selectedIds": [
+                "plain"
+              ],
+              "selectionKind": "leaf",
+              "scopeId": null,
+              "floorScopeId": null,
+              "activeEdit": false
+            },
+            "focusBeforeEscape": {
+              "hasFocus": true,
+              "instance": 3,
+              "activeElement": {
+                "tag": "BODY",
+                "id": "",
+                "editable": false
+              }
+            },
+            "after": {
+              "selectedId": null,
+              "selectedIds": [],
+              "selectionKind": "leaf",
+              "scopeId": null,
+              "floorScopeId": null,
+              "activeEdit": false
+            }
+          },
+          "preview": {
+            "selectedId": null,
+            "selectedIds": [],
+            "selectionKind": "leaf",
+            "scopeId": null,
+            "floorScopeId": null,
+            "activeEdit": false
+          },
+          "timelineAfter": {
+            "rootId": null,
+            "selectedId": "plain",
+            "selection": {
+              "kind": "item",
+              "id": "plain",
+              "itemKind": "item",
+              "trackId": "v3"
+            },
+            "selectedRows": [],
+            "breadcrumbs": [
+              "全体"
+            ],
+            "zoom": "100%"
+          }
+        },
+        "gesture": {
+          "from": {
+            "x": 603.390625,
+            "y": 450.34375
+          },
+          "to": {
+            "x": 648.390625,
+            "y": 480.34375
+          },
+          "journal": {
+            "writes": [
+              {
+                "overlayId": "outer",
+                "patch": {
+                  "transform": {
+                    "x": 6.096109408676931,
+                    "y": 2.667051684818748,
+                    "scale": 1.254004456867603,
+                    "rotate": 0
+                  }
+                }
+              }
+            ],
+            "responses": [
+              {
+                "type": "akari-preview-overlay-write-response",
+                "requestId": "akari-preview-1",
+                "ok": true
+              }
+            ]
+          }
+        },
+        "liveAfter": [
+          {
+            "x": 357.21735733160574,
+            "y": -129.00341628627956,
+            "scale": 1.254004456867603,
+            "rotate": 0
+          },
+          {
+            "x": 482.61780301836603,
+            "y": -191.7036391296597,
+            "scale": 1.254004456867603,
+            "rotate": 0
+          }
+        ]
+      },
+      "startedAt": "2026-09-23T00:11:10.983Z"
+    },
+    {
+      "step": 3,
+      "title": "outer rotation snaps to 15 degrees with Shift",
+      "status": "ok",
+      "observations": {
+        "preparation": {
+          "timelineBefore": {
+            "rootId": null,
+            "selectedId": "outer",
+            "selection": {
+              "kind": "item",
+              "id": "outer",
+              "itemKind": "group",
+              "trackId": "v2"
+            },
+            "selectedRows": [
+              "outer"
+            ],
+            "breadcrumbs": [
+              "全体"
+            ],
+            "zoom": "100%"
+          },
+          "focusExit": [],
+          "expansion": [],
+          "rebuild": {
+            "reason": "before step 3",
+            "path": "ApplicationShell.closeWidget -> akari.preview.ensureVisible",
+            "closed": [
+              {
+                "id": "plugin-webview:akari-output-preview-jcxdjl",
+                "disposed": true
+              }
+            ],
+            "previousInstance": 3,
+            "instance": 4
+          },
+          "previewReset": {
+            "before": {
+              "selectedId": "outer",
+              "selectedIds": [
+                "outer"
+              ],
+              "selectionKind": "group",
+              "scopeId": null,
+              "floorScopeId": null,
+              "activeEdit": false
+            },
+            "focusBeforeClick": {
+              "hasFocus": false,
+              "instance": 4,
+              "activeElement": {
+                "tag": "BODY",
+                "id": "",
+                "editable": false
+              }
+            },
+            "point": {
+              "x": 89.28749465942383,
+              "y": 572.2046508789062,
+              "id": "plain",
+              "tag": "DIV",
+              "text": "名札なし"
+            },
+            "selected": {
+              "selectedId": "plain",
+              "selectedIds": [
+                "plain"
+              ],
+              "selectionKind": "leaf",
+              "scopeId": null,
+              "floorScopeId": null,
+              "activeEdit": false
+            },
+            "focusBeforeEscape": {
+              "hasFocus": true,
+              "instance": 4,
+              "activeElement": {
+                "tag": "BODY",
+                "id": "",
+                "editable": false
+              }
+            },
+            "after": {
+              "selectedId": null,
+              "selectedIds": [],
+              "selectionKind": "leaf",
+              "scopeId": null,
+              "floorScopeId": null,
+              "activeEdit": false
+            }
+          },
+          "preview": {
+            "selectedId": null,
+            "selectedIds": [],
+            "selectionKind": "leaf",
+            "scopeId": null,
+            "floorScopeId": null,
+            "activeEdit": false
+          },
+          "timelineAfter": {
+            "rootId": null,
+            "selectedId": "plain",
+            "selection": {
+              "kind": "item",
+              "id": "plain",
+              "itemKind": "item",
+              "trackId": "v3"
+            },
+            "selectedRows": [],
+            "breadcrumbs": [
+              "全体"
+            ],
+            "zoom": "100%"
+          }
+        },
+        "gesture": {
+          "from": {
+            "x": 532.4609375,
+            "y": 342.171875
+          },
+          "to": {
+            "x": 567.4609375,
+            "y": 352.171875
+          },
+          "journal": {
+            "writes": [
+              {
+                "overlayId": "outer",
+                "patch": {
+                  "transform": {
+                    "x": 27.83732913029162,
+                    "y": -24.259858928623025,
+                    "scale": 1.254004456867603,
+                    "rotate": 27.83231033499642
+                  }
+                }
+              }
+            ],
+            "responses": [
+              {
+                "type": "akari-preview-overlay-write-response",
+                "requestId": "akari-preview-1",
+                "ok": true
+              }
+            ]
+          }
+        },
+        "betweenRotations": {
+          "reason": "after first outer rotation",
+          "path": "ApplicationShell.closeWidget -> akari.preview.ensureVisible",
+          "closed": [
+            {
+              "id": "plugin-webview:akari-output-preview-jcxdjl",
+              "disposed": true
+            }
+          ],
+          "previousInstance": 4,
+          "instance": 5
+        },
+        "shiftGesture": {
+          "from": {
+            "x": 532.4609375,
+            "y": 362.4609375
+          },
+          "to": {
+            "x": 567.4609375,
+            "y": 372.4609375
+          },
+          "journal": {
+            "writes": [
+              {
+                "overlayId": "outer",
+                "patch": {
+                  "transform": {
+                    "x": 62.32906259278343,
+                    "y": -38.31171286071459,
+                    "scale": 1.254004456867603,
+                    "rotate": 57.83231033499642
+                  }
+                }
+              }
+            ],
+            "responses": [
+              {
+                "type": "akari-preview-overlay-write-response",
+                "requestId": "akari-preview-1",
+                "ok": true
+              }
+            ]
+          }
+        }
+      },
+      "startedAt": "2026-09-23T00:11:15.102Z"
+    },
+    {
+      "step": 4,
+      "title": "bag s01 resize and rotate persist on bag only",
+      "status": "ok",
+      "observations": {
+        "preparation": {
+          "timelineBefore": {
+            "rootId": null,
+            "selectedId": "outer",
+            "selection": {
+              "kind": "item",
+              "id": "outer",
+              "itemKind": "group",
+              "trackId": "v2"
+            },
+            "selectedRows": [
+              "outer"
+            ],
+            "breadcrumbs": [
+              "全体"
+            ],
+            "zoom": "100%"
+          },
+          "focusExit": [],
+          "expansion": [],
+          "rebuild": {
+            "reason": "before step 4",
+            "path": "ApplicationShell.closeWidget -> akari.preview.ensureVisible",
+            "closed": [
+              {
+                "id": "plugin-webview:akari-output-preview-jcxdjl",
+                "disposed": true
+              }
+            ],
+            "previousInstance": 5,
+            "instance": 6
+          },
+          "previewReset": {
+            "before": {
+              "selectedId": "outer",
+              "selectedIds": [
+                "outer"
+              ],
+              "selectionKind": "group",
+              "scopeId": null,
+              "floorScopeId": null,
+              "activeEdit": false
+            },
+            "focusBeforeClick": {
+              "hasFocus": false,
+              "instance": 6,
+              "activeElement": {
+                "tag": "BODY",
+                "id": "",
+                "editable": false
+              }
+            },
+            "point": {
+              "x": 89.28749465942383,
+              "y": 572.2046508789062,
+              "id": "plain",
+              "tag": "DIV",
+              "text": "名札なし"
+            },
+            "selected": {
+              "selectedId": "plain",
+              "selectedIds": [
+                "plain"
+              ],
+              "selectionKind": "leaf",
+              "scopeId": null,
+              "floorScopeId": null,
+              "activeEdit": false
+            },
+            "focusBeforeEscape": {
+              "hasFocus": true,
+              "instance": 6,
+              "activeElement": {
+                "tag": "BODY",
+                "id": "",
+                "editable": false
+              }
+            },
+            "after": {
+              "selectedId": null,
+              "selectedIds": [],
+              "selectionKind": "leaf",
+              "scopeId": null,
+              "floorScopeId": null,
+              "activeEdit": false
+            }
+          },
+          "preview": {
+            "selectedId": null,
+            "selectedIds": [],
+            "selectionKind": "leaf",
+            "scopeId": null,
+            "floorScopeId": null,
+            "activeEdit": false
+          },
+          "timelineAfter": {
+            "rootId": null,
+            "selectedId": "plain",
+            "selection": {
+              "kind": "item",
+              "id": "plain",
+              "itemKind": "item",
+              "trackId": "v3"
+            },
+            "selectedRows": [],
+            "breadcrumbs": [
+              "全体"
+            ],
+            "zoom": "100%"
+          }
+        },
+        "resize": {
+          "from": {
+            "x": 273.5234375,
+            "y": 375.4921875
+          },
+          "to": {
+            "x": 308.5234375,
+            "y": 395.4921875
+          },
+          "journal": {
+            "writes": [
+              {
+                "overlayId": "s01",
+                "patch": {
+                  "transform": {
+                    "x": 58.060030035412524,
+                    "y": 18.357324226284575,
+                    "scale": 1.2419167918142189,
+                    "rotate": 0
+                  }
+                }
+              }
+            ],
+            "responses": [
+              {
+                "type": "akari-preview-overlay-write-response",
+                "requestId": "akari-preview-1",
+                "ok": true
+              }
+            ]
+          }
+        },
+        "betweenGestures": {
+          "reason": "after bag resize",
+          "path": "ApplicationShell.closeWidget -> akari.preview.ensureVisible",
+          "closed": [
+            {
+              "id": "plugin-webview:akari-output-preview-jcxdjl",
+              "disposed": true
+            }
+          ],
+          "previousInstance": 6,
+          "instance": 7
+        },
+        "rotate": {
+          "from": {
+            "x": 222.5859375,
+            "y": 259.21875
+          },
+          "to": {
+            "x": 252.5859375,
+            "y": 274.21875
+          },
+          "journal": {
+            "writes": [
+              {
+                "overlayId": "s01",
+                "patch": {
+                  "transform": {
+                    "x": 10.938407378916935,
+                    "y": 115.8854808019895,
+                    "scale": 1.2419167918142189,
+                    "rotate": 26.45783732220078
+                  }
+                }
+              }
+            ],
+            "responses": [
+              {
+                "type": "akari-preview-overlay-write-response",
+                "requestId": "akari-preview-1",
+                "ok": true
+              }
+            ]
+          }
+        }
+      },
+      "startedAt": "2026-09-23T00:11:22.126Z"
+    },
+    {
+      "step": 5,
+      "title": "plain leaf rotate writes rotate once",
+      "status": "ok",
+      "observations": {
+        "preparation": {
+          "timelineBefore": {
+            "rootId": null,
+            "selectedId": "s01",
+            "selection": {
+              "kind": "item",
+              "id": "s01",
+              "itemKind": "bag",
+              "trackId": "v1"
+            },
+            "selectedRows": [],
+            "breadcrumbs": [
+              "全体"
+            ],
+            "zoom": "100%"
+          },
+          "focusExit": [],
+          "expansion": [],
+          "rebuild": {
+            "reason": "before step 5",
+            "path": "ApplicationShell.closeWidget -> akari.preview.ensureVisible",
+            "closed": [
+              {
+                "id": "plugin-webview:akari-output-preview-jcxdjl",
+                "disposed": true
+              }
+            ],
+            "previousInstance": 7,
+            "instance": 8
+          },
+          "previewReset": {
+            "before": {
+              "selectedId": "s01",
+              "selectedIds": [
+                "s01"
+              ],
+              "selectionKind": "group",
+              "scopeId": null,
+              "floorScopeId": null,
+              "activeEdit": false
+            },
+            "focusBeforeClick": {
+              "hasFocus": false,
+              "instance": 8,
+              "activeElement": {
+                "tag": "BODY",
+                "id": "",
+                "editable": false
+              }
+            },
+            "point": {
+              "x": 89.28749465942383,
+              "y": 572.2046508789062,
+              "id": "plain",
+              "tag": "DIV",
+              "text": "名札なし"
+            },
+            "selected": {
+              "selectedId": "plain",
+              "selectedIds": [
+                "plain"
+              ],
+              "selectionKind": "leaf",
+              "scopeId": null,
+              "floorScopeId": null,
+              "activeEdit": false
+            },
+            "focusBeforeEscape": {
+              "hasFocus": true,
+              "instance": 8,
+              "activeElement": {
+                "tag": "BODY",
+                "id": "",
+                "editable": false
+              }
+            },
+            "after": {
+              "selectedId": null,
+              "selectedIds": [],
+              "selectionKind": "leaf",
+              "scopeId": null,
+              "floorScopeId": null,
+              "activeEdit": false
+            }
+          },
+          "preview": {
+            "selectedId": null,
+            "selectedIds": [],
+            "selectionKind": "leaf",
+            "scopeId": null,
+            "floorScopeId": null,
+            "activeEdit": false
+          },
+          "timelineAfter": {
+            "rootId": null,
+            "selectedId": "plain",
+            "selection": {
+              "kind": "item",
+              "id": "plain",
+              "itemKind": "item",
+              "trackId": "v3"
+            },
+            "selectedRows": [],
+            "breadcrumbs": [
+              "全体"
+            ],
+            "zoom": "100%"
+          }
+        },
+        "gesture": {
+          "from": {
+            "x": 89.28125,
+            "y": 538.828125
+          },
+          "to": {
+            "x": 119.28125,
+            "y": 553.828125
+          },
+          "journal": {
+            "writes": [
+              {
+                "overlayId": "plain",
+                "patch": {
+                  "transform": {
+                    "rotate": 58.51581830500487
+                  }
+                }
+              }
+            ],
+            "responses": [
+              {
+                "type": "akari-preview-overlay-write-response",
+                "requestId": "akari-preview-1",
+                "ok": true
+              }
+            ]
+          }
+        }
+      },
+      "startedAt": "2026-09-23T00:11:29.453Z"
+    },
+    {
+      "step": 6,
+      "title": "resize leaf inside rotated g1 preserves rotation and uniform ratio",
+      "status": "ok",
+      "observations": {
+        "preparation": {
+          "timelineBefore": {
+            "rootId": null,
+            "selectedId": "plain",
+            "selection": {
+              "kind": "item",
+              "id": "plain",
+              "itemKind": "item",
+              "trackId": "v3"
+            },
+            "selectedRows": [],
+            "breadcrumbs": [
+              "全体"
+            ],
+            "zoom": "100%"
+          },
+          "focusExit": [],
+          "expansion": [],
+          "rebuild": {
+            "reason": "before step 6",
+            "path": "ApplicationShell.closeWidget -> akari.preview.ensureVisible",
+            "closed": [
+              {
+                "id": "plugin-webview:akari-output-preview-jcxdjl",
+                "disposed": true
+              }
+            ],
+            "previousInstance": 8,
+            "instance": 9
+          },
+          "previewReset": {
+            "before": {
+              "selectedId": "plain",
+              "selectedIds": [
+                "plain"
+              ],
+              "selectionKind": "leaf",
+              "scopeId": null,
+              "floorScopeId": null,
+              "activeEdit": false
+            },
+            "focusBeforeClick": {
+              "hasFocus": false,
+              "instance": 9,
+              "activeElement": {
+                "tag": "BODY",
+                "id": "",
+                "editable": false
+              }
+            },
+            "point": {
+              "x": 90.89735794067383,
+              "y": 177.92163848876953,
+              "id": "plain",
+              "tag": "DIV",
+              "text": "名札なし"
+            },
+            "selected": {
+              "selectedId": "plain",
+              "selectedIds": [
+                "plain"
+              ],
+              "selectionKind": "leaf",
+              "scopeId": null,
+              "floorScopeId": null,
+              "activeEdit": false
+            },
+            "focusBeforeEscape": {
+              "hasFocus": true,
+              "instance": 9,
+              "activeElement": {
+                "tag": "BODY",
+                "id": "",
+                "editable": false
+              }
+            },
+            "after": {
+              "selectedId": null,
+              "selectedIds": [],
+              "selectionKind": "leaf",
+              "scopeId": null,
+              "floorScopeId": null,
+              "activeEdit": false
+            }
+          },
+          "preview": {
+            "selectedId": null,
+            "selectedIds": [],
+            "selectionKind": "leaf",
+            "scopeId": null,
+            "floorScopeId": null,
+            "activeEdit": false
+          },
+          "timelineAfter": {
+            "rootId": null,
+            "selectedId": "plain",
+            "selection": {
+              "kind": "item",
+              "id": "plain",
+              "itemKind": "item",
+              "trackId": "v3"
+            },
+            "selectedRows": [],
+            "breadcrumbs": [
+              "全体"
+            ],
+            "zoom": "100%"
+          }
+        },
+        "rebuild": {
+          "reason": "fixture g1 rotation setup",
+          "path": "ApplicationShell.closeWidget -> akari.preview.ensureVisible",
+          "closed": [
+            {
+              "id": "plugin-webview:akari-output-preview-jcxdjl",
+              "disposed": true
+            }
+          ],
+          "previousInstance": 9,
+          "instance": 10
+        },
+        "anchorBefore": {
+          "x": 642.5520629882812,
+          "y": 139.9203338623047
+        },
+        "gesture": {
+          "from": {
+            "x": 644.671875,
+            "y": 222.7578125
+          },
+          "to": {
+            "x": 674.671875,
+            "y": 240.7578125
+          },
+          "journal": {
+            "writes": [
+              {
+                "overlayId": "g1.first",
+                "patch": {
+                  "transform": {
+                    "x": 383.4560169297647,
+                    "y": 244.8247544088353,
+                    "scale": 1.4457496235095697,
+                    "rotate": 87.83231033499642
+                  }
+                }
+              }
+            ],
+            "responses": [
+              {
+                "type": "akari-preview-overlay-write-response",
+                "requestId": "akari-preview-1",
+                "ok": true
+              }
+            ]
+          }
+        },
+        "anchorAfter": {
+          "x": 642.5521240234375,
+          "y": 139.9203643798828
+        },
+        "anchorDrift": 0.00006823937919616058
+      },
+      "startedAt": "2026-09-23T00:11:33.479Z"
+    },
+    {
+      "step": 7,
+      "title": "Esc during group resize restores live pose without write",
+      "status": "ok",
+      "observations": {
+        "preparation": {
+          "timelineBefore": {
+            "rootId": null,
+            "selectedId": "g1.first",
+            "selection": {
+              "kind": "item",
+              "id": "g1.first",
+              "itemKind": "item",
+              "parentId": "g1",
+              "trackId": "v2"
+            },
+            "selectedRows": [
+              "g1.first"
+            ],
+            "breadcrumbs": [
+              "全体"
+            ],
+            "zoom": "100%"
+          },
+          "focusExit": [],
+          "expansion": [],
+          "rebuild": {
+            "reason": "before step 7",
+            "path": "ApplicationShell.closeWidget -> akari.preview.ensureVisible",
+            "closed": [
+              {
+                "id": "plugin-webview:akari-output-preview-jcxdjl",
+                "disposed": true
+              }
+            ],
+            "previousInstance": 10,
+            "instance": 11
+          },
+          "previewReset": {
+            "before": {
+              "selectedId": "g1.first",
+              "selectedIds": [
+                "g1.first"
+              ],
+              "selectionKind": "leaf",
+              "scopeId": "g1",
+              "floorScopeId": null,
+              "activeEdit": false
+            },
+            "focusBeforeClick": {
+              "hasFocus": false,
+              "instance": 11,
+              "activeElement": {
+                "tag": "BODY",
+                "id": "",
+                "editable": false
+              }
+            },
+            "point": {
+              "x": 90.89735794067383,
+              "y": 177.92163848876953,
+              "id": "plain",
+              "tag": "DIV",
+              "text": "名札なし"
+            },
+            "selected": {
+              "selectedId": "plain",
+              "selectedIds": [
+                "plain"
+              ],
+              "selectionKind": "leaf",
+              "scopeId": null,
+              "floorScopeId": null,
+              "activeEdit": false
+            },
+            "focusBeforeEscape": {
+              "hasFocus": true,
+              "instance": 11,
+              "activeElement": {
+                "tag": "BODY",
+                "id": "",
+                "editable": false
+              }
+            },
+            "after": {
+              "selectedId": null,
+              "selectedIds": [],
+              "selectionKind": "leaf",
+              "scopeId": null,
+              "floorScopeId": null,
+              "activeEdit": false
+            }
+          },
+          "preview": {
+            "selectedId": null,
+            "selectedIds": [],
+            "selectionKind": "leaf",
+            "scopeId": null,
+            "floorScopeId": null,
+            "activeEdit": false
+          },
+          "timelineAfter": {
+            "rootId": null,
+            "selectedId": "plain",
+            "selection": {
+              "kind": "item",
+              "id": "plain",
+              "itemKind": "item",
+              "trackId": "v3"
+            },
+            "selectedRows": [],
+            "breadcrumbs": [
+              "全体"
+            ],
+            "zoom": "100%"
+          }
+        },
+        "gesture": {
+          "from": {
+            "x": 730.1875,
+            "y": 378.734375
+          },
+          "to": {
+            "x": 770.1875,
+            "y": 403.734375
+          },
+          "journal": {
+            "writes": [],
+            "responses": []
+          }
+        },
+        "after": [
+          {
+            "x": 383.4560169297647,
+            "y": 244.8247544088353,
+            "scale": 1.4457496235095697,
+            "rotate": 87.83231033499642
+          },
+          {
+            "x": 420.9624125327596,
+            "y": 310.56305424831,
+            "scale": 1.254004456867603,
+            "rotate": 87.83231033499642
+          }
+        ]
+      },
+      "startedAt": "2026-09-23T00:11:38.211Z"
+    },
+    {
+      "step": 8,
+      "title": "existing group drag retains exact translation",
+      "status": "ok",
+      "observations": {
+        "preparation": {
+          "timelineBefore": {
+            "rootId": null,
+            "selectedId": "outer",
+            "selection": {
+              "kind": "item",
+              "id": "outer",
+              "itemKind": "group",
+              "trackId": "v2"
+            },
+            "selectedRows": [
+              "outer"
+            ],
+            "breadcrumbs": [
+              "全体"
+            ],
+            "zoom": "100%"
+          },
+          "focusExit": [],
+          "expansion": [
+            {
+              "id": "outer",
+              "operation": "already-expanded",
+              "before": "▾",
+              "attempts": [],
+              "after": "▾",
+              "visibleChild": "g1"
+            },
+            {
+              "id": "g1",
+              "operation": "already-expanded",
+              "before": "▾",
+              "attempts": [],
+              "after": "▾",
+              "visibleChild": "g1.first"
+            }
+          ],
+          "rebuild": {
+            "reason": "before step 8",
+            "path": "ApplicationShell.closeWidget -> akari.preview.ensureVisible",
+            "closed": [
+              {
+                "id": "plugin-webview:akari-output-preview-jcxdjl",
+                "disposed": true
+              }
+            ],
+            "previousInstance": 11,
+            "instance": 12
+          },
+          "previewReset": {
+            "before": {
+              "selectedId": null,
+              "selectedIds": [],
+              "selectionKind": "leaf",
+              "scopeId": null,
+              "floorScopeId": null,
+              "activeEdit": false
+            },
+            "focusBeforeClick": {
+              "hasFocus": false,
+              "instance": 12,
+              "activeElement": {
+                "tag": "BODY",
+                "id": "",
+                "editable": false
+              }
+            },
+            "point": {
+              "x": 90.89735794067383,
+              "y": 177.92163848876953,
+              "id": "plain",
+              "tag": "DIV",
+              "text": "名札なし"
+            },
+            "selected": {
+              "selectedId": "plain",
+              "selectedIds": [
+                "plain"
+              ],
+              "selectionKind": "leaf",
+              "scopeId": null,
+              "floorScopeId": null,
+              "activeEdit": false
+            },
+            "focusBeforeEscape": {
+              "hasFocus": true,
+              "instance": 12,
+              "activeElement": {
+                "tag": "BODY",
+                "id": "",
+                "editable": false
+              }
+            },
+            "after": {
+              "selectedId": null,
+              "selectedIds": [],
+              "selectionKind": "leaf",
+              "scopeId": null,
+              "floorScopeId": null,
+              "activeEdit": false
+            }
+          },
+          "preview": {
+            "selectedId": null,
+            "selectedIds": [],
+            "selectionKind": "leaf",
+            "scopeId": null,
+            "floorScopeId": null,
+            "activeEdit": false
+          },
+          "timelineAfter": {
+            "rootId": null,
+            "selectedId": "plain",
+            "selection": {
+              "kind": "item",
+              "id": "plain",
+              "itemKind": "item",
+              "trackId": "v3"
+            },
+            "selectedRows": [],
+            "breadcrumbs": [
+              "全体"
+            ],
+            "zoom": "100%"
+          }
+        },
+        "observed": {
+          "old": {
+            "x": 62.32906259278343,
+            "y": -38.31171286071459,
+            "scale": 1.254004456867603,
+            "rotate": 57.83231033499642
+          },
+          "next": {
+            "x": 76.51625471101005,
+            "y": -27.277230102093906,
+            "scale": 1.254004456867603,
+            "rotate": 57.83231033499642
+          },
+          "dx": 14.1871921182266,
+          "dy": 11.034482758620689,
+          "journal": {
+            "writes": [
+              {
+                "overlayId": "outer",
+                "patch": {
+                  "transform": {
+                    "x": 76.51625471101005,
+                    "y": -27.277230102093906
+                  }
+                }
+              }
+            ],
+            "responses": [
+              {
+                "type": "akari-preview-overlay-write-response",
+                "requestId": "akari-preview-1",
+                "ok": true
+              }
+            ]
+          }
+        }
+      },
+      "startedAt": "2026-09-23T00:11:43.224Z"
+    }
+  ],
+  "events": [
+    {
+      "kind": "preview-reset",
+      "at": 1790122268338,
+      "data": {
+        "before": {
+          "selectedId": null,
+          "selectedIds": [],
+          "selectionKind": "leaf",
+          "scopeId": null,
+          "floorScopeId": null,
+          "activeEdit": false
+        },
+        "focusBeforeClick": {
+          "hasFocus": false,
+          "instance": 2,
+          "activeElement": {
+            "tag": "BODY",
+            "id": "",
+            "editable": false
+          }
+        },
+        "point": {
+          "x": 89.28749465942383,
+          "y": 572.2046508789062,
+          "id": "plain",
+          "tag": "DIV",
+          "text": "名札なし"
+        },
+        "selected": {
+          "selectedId": "plain",
+          "selectedIds": [
+            "plain"
+          ],
+          "selectionKind": "leaf",
+          "scopeId": null,
+          "floorScopeId": null,
+          "activeEdit": false
+        },
+        "focusBeforeEscape": {
+          "hasFocus": true,
+          "instance": 2,
+          "activeElement": {
+            "tag": "BODY",
+            "id": "",
+            "editable": false
+          }
+        },
+        "after": {
+          "selectedId": null,
+          "selectedIds": [],
+          "selectionKind": "leaf",
+          "scopeId": null,
+          "floorScopeId": null,
+          "activeEdit": false
+        }
+      }
+    },
+    {
+      "kind": "preview-focus",
+      "at": 1790122268340,
+      "data": {
+        "label": "before reset click",
+        "hasFocus": false,
+        "instance": 2,
+        "activeElement": {
+          "tag": "BODY",
+          "id": "",
+          "editable": false
+        }
+      }
+    },
+    {
+      "kind": "preview-focus",
+      "at": 1790122268911,
+      "data": {
+        "label": "before Escape",
+        "hasFocus": true,
+        "instance": 2,
+        "activeElement": {
+          "tag": "BODY",
+          "id": "",
+          "editable": false
+        }
+      }
+    },
+    {
+      "kind": "preview-reset",
+      "at": 1790122269439,
+      "data": {
+        "before": {
+          "selectedId": null,
+          "selectedIds": [],
+          "selectionKind": "leaf",
+          "scopeId": null,
+          "floorScopeId": null,
+          "activeEdit": false
+        },
+        "focusBeforeClick": {
+          "hasFocus": true,
+          "instance": 2,
+          "activeElement": {
+            "tag": "BODY",
+            "id": "",
+            "editable": false
+          }
+        },
+        "point": {
+          "x": 89.28749465942383,
+          "y": 572.2046508789062,
+          "id": "plain",
+          "tag": "DIV",
+          "text": "名札なし"
+        },
+        "selected": {
+          "selectedId": "plain",
+          "selectedIds": [
+            "plain"
+          ],
+          "selectionKind": "leaf",
+          "scopeId": null,
+          "floorScopeId": null,
+          "activeEdit": false
+        },
+        "focusBeforeEscape": {
+          "hasFocus": true,
+          "instance": 2,
+          "activeElement": {
+            "tag": "BODY",
+            "id": "",
+            "editable": false
+          }
+        },
+        "after": {
+          "selectedId": null,
+          "selectedIds": [],
+          "selectionKind": "leaf",
+          "scopeId": null,
+          "floorScopeId": null,
+          "activeEdit": false
+        }
+      }
+    },
+    {
+      "kind": "preview-focus",
+      "at": 1790122269439,
+      "data": {
+        "label": "before reset click",
+        "hasFocus": true,
+        "instance": 2,
+        "activeElement": {
+          "tag": "BODY",
+          "id": "",
+          "editable": false
+        }
+      }
+    },
+    {
+      "kind": "preview-focus",
+      "at": 1790122269878,
+      "data": {
+        "label": "before Escape",
+        "hasFocus": true,
+        "instance": 2,
+        "activeElement": {
+          "tag": "BODY",
+          "id": "",
+          "editable": false
+        }
+      }
+    },
+    {
+      "kind": "preview-reset",
+      "at": 1790122271356,
+      "data": {
+        "before": {
+          "selectedId": "outer",
+          "selectedIds": [
+            "outer"
+          ],
+          "selectionKind": "group",
+          "scopeId": null,
+          "floorScopeId": null,
+          "activeEdit": false
+        },
+        "focusBeforeClick": {
+          "hasFocus": false,
+          "instance": 3,
+          "activeElement": {
+            "tag": "BODY",
+            "id": "",
+            "editable": false
+          }
+        },
+        "point": {
+          "x": 89.28749465942383,
+          "y": 572.2046508789062,
+          "id": "plain",
+          "tag": "DIV",
+          "text": "名札なし"
+        },
+        "selected": {
+          "selectedId": "plain",
+          "selectedIds": [
+            "plain"
+          ],
+          "selectionKind": "leaf",
+          "scopeId": null,
+          "floorScopeId": null,
+          "activeEdit": false
+        },
+        "focusBeforeEscape": {
+          "hasFocus": true,
+          "instance": 3,
+          "activeElement": {
+            "tag": "BODY",
+            "id": "",
+            "editable": false
+          }
+        },
+        "after": {
+          "selectedId": null,
+          "selectedIds": [],
+          "selectionKind": "leaf",
+          "scopeId": null,
+          "floorScopeId": null,
+          "activeEdit": false
+        }
+      }
+    },
+    {
+      "kind": "preview-focus",
+      "at": 1790122271358,
+      "data": {
+        "label": "before reset click",
+        "hasFocus": false,
+        "instance": 3,
+        "activeElement": {
+          "tag": "BODY",
+          "id": "",
+          "editable": false
+        }
+      }
+    },
+    {
+      "kind": "preview-focus",
+      "at": 1790122271805,
+      "data": {
+        "label": "before Escape",
+        "hasFocus": true,
+        "instance": 3,
+        "activeElement": {
+          "tag": "BODY",
+          "id": "",
+          "editable": false
+        }
+      }
+    },
+    {
+      "kind": "preview-reset",
+      "at": 1790122272332,
+      "data": {
+        "before": {
+          "selectedId": null,
+          "selectedIds": [],
+          "selectionKind": "leaf",
+          "scopeId": null,
+          "floorScopeId": null,
+          "activeEdit": false
+        },
+        "focusBeforeClick": {
+          "hasFocus": true,
+          "instance": 3,
+          "activeElement": {
+            "tag": "BODY",
+            "id": "",
+            "editable": false
+          }
+        },
+        "point": {
+          "x": 89.28749465942383,
+          "y": 572.2046508789062,
+          "id": "plain",
+          "tag": "DIV",
+          "text": "名札なし"
+        },
+        "selected": {
+          "selectedId": "plain",
+          "selectedIds": [
+            "plain"
+          ],
+          "selectionKind": "leaf",
+          "scopeId": null,
+          "floorScopeId": null,
+          "activeEdit": false
+        },
+        "focusBeforeEscape": {
+          "hasFocus": true,
+          "instance": 3,
+          "activeElement": {
+            "tag": "BODY",
+            "id": "",
+            "editable": false
+          }
+        },
+        "after": {
+          "selectedId": null,
+          "selectedIds": [],
+          "selectionKind": "leaf",
+          "scopeId": null,
+          "floorScopeId": null,
+          "activeEdit": false
+        }
+      }
+    },
+    {
+      "kind": "preview-focus",
+      "at": 1790122272333,
+      "data": {
+        "label": "before reset click",
+        "hasFocus": true,
+        "instance": 3,
+        "activeElement": {
+          "tag": "BODY",
+          "id": "",
+          "editable": false
+        }
+      }
+    },
+    {
+      "kind": "preview-focus",
+      "at": 1790122272772,
+      "data": {
+        "label": "before Escape",
+        "hasFocus": true,
+        "instance": 3,
+        "activeElement": {
+          "tag": "BODY",
+          "id": "",
+          "editable": false
+        }
+      }
+    },
+    {
+      "kind": "write",
+      "data": {
+        "overlayId": "outer",
+        "patch": {
+          "transform": {
+            "x": 6.096109408676931,
+            "y": 2.667051684818748,
+            "scale": 1.254004456867603,
+            "rotate": 0
+          }
+        }
+      },
+      "at": 1790122273917,
+      "contextId": 6
+    },
+    {
+      "kind": "response",
+      "data": {
+        "type": "akari-preview-overlay-write-response",
+        "requestId": "akari-preview-1",
+        "ok": true
+      },
+      "at": 1790122274021,
+      "contextId": 6
+    },
+    {
+      "kind": "preview-reset",
+      "at": 1790122275364,
+      "data": {
+        "before": {
+          "selectedId": "outer",
+          "selectedIds": [
+            "outer"
+          ],
+          "selectionKind": "group",
+          "scopeId": null,
+          "floorScopeId": null,
+          "activeEdit": false
+        },
+        "focusBeforeClick": {
+          "hasFocus": false,
+          "instance": 4,
+          "activeElement": {
+            "tag": "BODY",
+            "id": "",
+            "editable": false
+          }
+        },
+        "point": {
+          "x": 89.28749465942383,
+          "y": 572.2046508789062,
+          "id": "plain",
+          "tag": "DIV",
+          "text": "名札なし"
+        },
+        "selected": {
+          "selectedId": "plain",
+          "selectedIds": [
+            "plain"
+          ],
+          "selectionKind": "leaf",
+          "scopeId": null,
+          "floorScopeId": null,
+          "activeEdit": false
+        },
+        "focusBeforeEscape": {
+          "hasFocus": true,
+          "instance": 4,
+          "activeElement": {
+            "tag": "BODY",
+            "id": "",
+            "editable": false
+          }
+        },
+        "after": {
+          "selectedId": null,
+          "selectedIds": [],
+          "selectionKind": "leaf",
+          "scopeId": null,
+          "floorScopeId": null,
+          "activeEdit": false
+        }
+      }
+    },
+    {
+      "kind": "preview-focus",
+      "at": 1790122275365,
+      "data": {
+        "label": "before reset click",
+        "hasFocus": false,
+        "instance": 4,
+        "activeElement": {
+          "tag": "BODY",
+          "id": "",
+          "editable": false
+        }
+      }
+    },
+    {
+      "kind": "preview-focus",
+      "at": 1790122275822,
+      "data": {
+        "label": "before Escape",
+        "hasFocus": true,
+        "instance": 4,
+        "activeElement": {
+          "tag": "BODY",
+          "id": "",
+          "editable": false
+        }
+      }
+    },
+    {
+      "kind": "preview-reset",
+      "at": 1790122276349,
+      "data": {
+        "before": {
+          "selectedId": null,
+          "selectedIds": [],
+          "selectionKind": "leaf",
+          "scopeId": null,
+          "floorScopeId": null,
+          "activeEdit": false
+        },
+        "focusBeforeClick": {
+          "hasFocus": true,
+          "instance": 4,
+          "activeElement": {
+            "tag": "BODY",
+            "id": "",
+            "editable": false
+          }
+        },
+        "point": {
+          "x": 89.28749465942383,
+          "y": 572.2046508789062,
+          "id": "plain",
+          "tag": "DIV",
+          "text": "名札なし"
+        },
+        "selected": {
+          "selectedId": "plain",
+          "selectedIds": [
+            "plain"
+          ],
+          "selectionKind": "leaf",
+          "scopeId": null,
+          "floorScopeId": null,
+          "activeEdit": false
+        },
+        "focusBeforeEscape": {
+          "hasFocus": true,
+          "instance": 4,
+          "activeElement": {
+            "tag": "BODY",
+            "id": "",
+            "editable": false
+          }
+        },
+        "after": {
+          "selectedId": null,
+          "selectedIds": [],
+          "selectionKind": "leaf",
+          "scopeId": null,
+          "floorScopeId": null,
+          "activeEdit": false
+        }
+      }
+    },
+    {
+      "kind": "preview-focus",
+      "at": 1790122276349,
+      "data": {
+        "label": "before reset click",
+        "hasFocus": true,
+        "instance": 4,
+        "activeElement": {
+          "tag": "BODY",
+          "id": "",
+          "editable": false
+        }
+      }
+    },
+    {
+      "kind": "preview-focus",
+      "at": 1790122276789,
+      "data": {
+        "label": "before Escape",
+        "hasFocus": true,
+        "instance": 4,
+        "activeElement": {
+          "tag": "BODY",
+          "id": "",
+          "editable": false
+        }
+      }
+    },
+    {
+      "kind": "write",
+      "data": {
+        "overlayId": "outer",
+        "patch": {
+          "transform": {
+            "x": 27.83732913029162,
+            "y": -24.259858928623025,
+            "scale": 1.254004456867603,
+            "rotate": 27.83231033499642
+          }
+        }
+      },
+      "at": 1790122277933,
+      "contextId": 8
+    },
+    {
+      "kind": "response",
+      "data": {
+        "type": "akari-preview-overlay-write-response",
+        "requestId": "akari-preview-1",
+        "ok": true
+      },
+      "at": 1790122277968,
+      "contextId": 8
+    },
+    {
+      "kind": "preview-reset",
+      "at": 1790122279329,
+      "data": {
+        "before": {
+          "selectedId": "outer",
+          "selectedIds": [
+            "outer"
+          ],
+          "selectionKind": "group",
+          "scopeId": null,
+          "floorScopeId": null,
+          "activeEdit": false
+        },
+        "focusBeforeClick": {
+          "hasFocus": false,
+          "instance": 5,
+          "activeElement": {
+            "tag": "BODY",
+            "id": "",
+            "editable": false
+          }
+        },
+        "point": {
+          "x": 89.28749465942383,
+          "y": 572.2046508789062,
+          "id": "plain",
+          "tag": "DIV",
+          "text": "名札なし"
+        },
+        "selected": {
+          "selectedId": "plain",
+          "selectedIds": [
+            "plain"
+          ],
+          "selectionKind": "leaf",
+          "scopeId": null,
+          "floorScopeId": null,
+          "activeEdit": false
+        },
+        "focusBeforeEscape": {
+          "hasFocus": true,
+          "instance": 5,
+          "activeElement": {
+            "tag": "BODY",
+            "id": "",
+            "editable": false
+          }
+        },
+        "after": {
+          "selectedId": null,
+          "selectedIds": [],
+          "selectionKind": "leaf",
+          "scopeId": null,
+          "floorScopeId": null,
+          "activeEdit": false
+        }
+      }
+    },
+    {
+      "kind": "preview-focus",
+      "at": 1790122279330,
+      "data": {
+        "label": "before reset click",
+        "hasFocus": false,
+        "instance": 5,
+        "activeElement": {
+          "tag": "BODY",
+          "id": "",
+          "editable": false
+        }
+      }
+    },
+    {
+      "kind": "preview-focus",
+      "at": 1790122279772,
+      "data": {
+        "label": "before Escape",
+        "hasFocus": true,
+        "instance": 5,
+        "activeElement": {
+          "tag": "BODY",
+          "id": "",
+          "editable": false
+        }
+      }
+    },
+    {
+      "kind": "write",
+      "data": {
+        "overlayId": "outer",
+        "patch": {
+          "transform": {
+            "x": 62.32906259278343,
+            "y": -38.31171286071459,
+            "scale": 1.254004456867603,
+            "rotate": 57.83231033499642
+          }
+        }
+      },
+      "at": 1790122280917,
+      "contextId": 10
+    },
+    {
+      "kind": "response",
+      "data": {
+        "type": "akari-preview-overlay-write-response",
+        "requestId": "akari-preview-1",
+        "ok": true
+      },
+      "at": 1790122280957,
+      "contextId": 10
+    },
+    {
+      "kind": "preview-reset",
+      "at": 1790122282615,
+      "data": {
+        "before": {
+          "selectedId": "outer",
+          "selectedIds": [
+            "outer"
+          ],
+          "selectionKind": "group",
+          "scopeId": null,
+          "floorScopeId": null,
+          "activeEdit": false
+        },
+        "focusBeforeClick": {
+          "hasFocus": false,
+          "instance": 6,
+          "activeElement": {
+            "tag": "BODY",
+            "id": "",
+            "editable": false
+          }
+        },
+        "point": {
+          "x": 89.28749465942383,
+          "y": 572.2046508789062,
+          "id": "plain",
+          "tag": "DIV",
+          "text": "名札なし"
+        },
+        "selected": {
+          "selectedId": "plain",
+          "selectedIds": [
+            "plain"
+          ],
+          "selectionKind": "leaf",
+          "scopeId": null,
+          "floorScopeId": null,
+          "activeEdit": false
+        },
+        "focusBeforeEscape": {
+          "hasFocus": true,
+          "instance": 6,
+          "activeElement": {
+            "tag": "BODY",
+            "id": "",
+            "editable": false
+          }
+        },
+        "after": {
+          "selectedId": null,
+          "selectedIds": [],
+          "selectionKind": "leaf",
+          "scopeId": null,
+          "floorScopeId": null,
+          "activeEdit": false
+        }
+      }
+    },
+    {
+      "kind": "preview-focus",
+      "at": 1790122282621,
+      "data": {
+        "label": "before reset click",
+        "hasFocus": false,
+        "instance": 6,
+        "activeElement": {
+          "tag": "BODY",
+          "id": "",
+          "editable": false
+        }
+      }
+    },
+    {
+      "kind": "preview-focus",
+      "at": 1790122283086,
+      "data": {
+        "label": "before Escape",
+        "hasFocus": true,
+        "instance": 6,
+        "activeElement": {
+          "tag": "BODY",
+          "id": "",
+          "editable": false
+        }
+      }
+    },
+    {
+      "kind": "preview-reset",
+      "at": 1790122283614,
+      "data": {
+        "before": {
+          "selectedId": null,
+          "selectedIds": [],
+          "selectionKind": "leaf",
+          "scopeId": null,
+          "floorScopeId": null,
+          "activeEdit": false
+        },
+        "focusBeforeClick": {
+          "hasFocus": true,
+          "instance": 6,
+          "activeElement": {
+            "tag": "BODY",
+            "id": "",
+            "editable": false
+          }
+        },
+        "point": {
+          "x": 89.28749465942383,
+          "y": 572.2046508789062,
+          "id": "plain",
+          "tag": "DIV",
+          "text": "名札なし"
+        },
+        "selected": {
+          "selectedId": "plain",
+          "selectedIds": [
+            "plain"
+          ],
+          "selectionKind": "leaf",
+          "scopeId": null,
+          "floorScopeId": null,
+          "activeEdit": false
+        },
+        "focusBeforeEscape": {
+          "hasFocus": true,
+          "instance": 6,
+          "activeElement": {
+            "tag": "BODY",
+            "id": "",
+            "editable": false
+          }
+        },
+        "after": {
+          "selectedId": null,
+          "selectedIds": [],
+          "selectionKind": "leaf",
+          "scopeId": null,
+          "floorScopeId": null,
+          "activeEdit": false
+        }
+      }
+    },
+    {
+      "kind": "preview-focus",
+      "at": 1790122283614,
+      "data": {
+        "label": "before reset click",
+        "hasFocus": true,
+        "instance": 6,
+        "activeElement": {
+          "tag": "BODY",
+          "id": "",
+          "editable": false
+        }
+      }
+    },
+    {
+      "kind": "preview-focus",
+      "at": 1790122284051,
+      "data": {
+        "label": "before Escape",
+        "hasFocus": true,
+        "instance": 6,
+        "activeElement": {
+          "tag": "BODY",
+          "id": "",
+          "editable": false
+        }
+      }
+    },
+    {
+      "kind": "write",
+      "data": {
+        "overlayId": "s01",
+        "patch": {
+          "transform": {
+            "x": 58.060030035412524,
+            "y": 18.357324226284575,
+            "scale": 1.2419167918142189,
+            "rotate": 0
+          }
+        }
+      },
+      "at": 1790122285183,
+      "contextId": 12
+    },
+    {
+      "kind": "response",
+      "data": {
+        "type": "akari-preview-overlay-write-response",
+        "requestId": "akari-preview-1",
+        "ok": true
+      },
+      "at": 1790122285227,
+      "contextId": 12
+    },
+    {
+      "kind": "preview-reset",
+      "at": 1790122286649,
+      "data": {
+        "before": {
+          "selectedId": "s01",
+          "selectedIds": [
+            "s01"
+          ],
+          "selectionKind": "group",
+          "scopeId": null,
+          "floorScopeId": null,
+          "activeEdit": false
+        },
+        "focusBeforeClick": {
+          "hasFocus": false,
+          "instance": 7,
+          "activeElement": {
+            "tag": "BODY",
+            "id": "",
+            "editable": false
+          }
+        },
+        "point": {
+          "x": 89.28749465942383,
+          "y": 572.2046508789062,
+          "id": "plain",
+          "tag": "DIV",
+          "text": "名札なし"
+        },
+        "selected": {
+          "selectedId": "plain",
+          "selectedIds": [
+            "plain"
+          ],
+          "selectionKind": "leaf",
+          "scopeId": null,
+          "floorScopeId": null,
+          "activeEdit": false
+        },
+        "focusBeforeEscape": {
+          "hasFocus": true,
+          "instance": 7,
+          "activeElement": {
+            "tag": "BODY",
+            "id": "",
+            "editable": false
+          }
+        },
+        "after": {
+          "selectedId": null,
+          "selectedIds": [],
+          "selectionKind": "leaf",
+          "scopeId": null,
+          "floorScopeId": null,
+          "activeEdit": false
+        }
+      }
+    },
+    {
+      "kind": "preview-focus",
+      "at": 1790122286651,
+      "data": {
+        "label": "before reset click",
+        "hasFocus": false,
+        "instance": 7,
+        "activeElement": {
+          "tag": "BODY",
+          "id": "",
+          "editable": false
+        }
+      }
+    },
+    {
+      "kind": "preview-focus",
+      "at": 1790122287103,
+      "data": {
+        "label": "before Escape",
+        "hasFocus": true,
+        "instance": 7,
+        "activeElement": {
+          "tag": "BODY",
+          "id": "",
+          "editable": false
+        }
+      }
+    },
+    {
+      "kind": "write",
+      "data": {
+        "overlayId": "s01",
+        "patch": {
+          "transform": {
+            "x": 10.938407378916935,
+            "y": 115.8854808019895,
+            "scale": 1.2419167918142189,
+            "rotate": 26.45783732220078
+          }
+        }
+      },
+      "at": 1790122288250,
+      "contextId": 14
+    },
+    {
+      "kind": "response",
+      "data": {
+        "type": "akari-preview-overlay-write-response",
+        "requestId": "akari-preview-1",
+        "ok": true
+      },
+      "at": 1790122288286,
+      "contextId": 14
+    },
+    {
+      "kind": "preview-reset",
+      "at": 1790122289721,
+      "data": {
+        "before": {
+          "selectedId": "s01",
+          "selectedIds": [
+            "s01"
+          ],
+          "selectionKind": "group",
+          "scopeId": null,
+          "floorScopeId": null,
+          "activeEdit": false
+        },
+        "focusBeforeClick": {
+          "hasFocus": false,
+          "instance": 8,
+          "activeElement": {
+            "tag": "BODY",
+            "id": "",
+            "editable": false
+          }
+        },
+        "point": {
+          "x": 89.28749465942383,
+          "y": 572.2046508789062,
+          "id": "plain",
+          "tag": "DIV",
+          "text": "名札なし"
+        },
+        "selected": {
+          "selectedId": "plain",
+          "selectedIds": [
+            "plain"
+          ],
+          "selectionKind": "leaf",
+          "scopeId": null,
+          "floorScopeId": null,
+          "activeEdit": false
+        },
+        "focusBeforeEscape": {
+          "hasFocus": true,
+          "instance": 8,
+          "activeElement": {
+            "tag": "BODY",
+            "id": "",
+            "editable": false
+          }
+        },
+        "after": {
+          "selectedId": null,
+          "selectedIds": [],
+          "selectionKind": "leaf",
+          "scopeId": null,
+          "floorScopeId": null,
+          "activeEdit": false
+        }
+      }
+    },
+    {
+      "kind": "preview-focus",
+      "at": 1790122289722,
+      "data": {
+        "label": "before reset click",
+        "hasFocus": false,
+        "instance": 8,
+        "activeElement": {
+          "tag": "BODY",
+          "id": "",
+          "editable": false
+        }
+      }
+    },
+    {
+      "kind": "preview-focus",
+      "at": 1790122290174,
+      "data": {
+        "label": "before Escape",
+        "hasFocus": true,
+        "instance": 8,
+        "activeElement": {
+          "tag": "BODY",
+          "id": "",
+          "editable": false
+        }
+      }
+    },
+    {
+      "kind": "preview-reset",
+      "at": 1790122290700,
+      "data": {
+        "before": {
+          "selectedId": null,
+          "selectedIds": [],
+          "selectionKind": "leaf",
+          "scopeId": null,
+          "floorScopeId": null,
+          "activeEdit": false
+        },
+        "focusBeforeClick": {
+          "hasFocus": true,
+          "instance": 8,
+          "activeElement": {
+            "tag": "BODY",
+            "id": "",
+            "editable": false
+          }
+        },
+        "point": {
+          "x": 89.28749465942383,
+          "y": 572.2046508789062,
+          "id": "plain",
+          "tag": "DIV",
+          "text": "名札なし"
+        },
+        "selected": {
+          "selectedId": "plain",
+          "selectedIds": [
+            "plain"
+          ],
+          "selectionKind": "leaf",
+          "scopeId": null,
+          "floorScopeId": null,
+          "activeEdit": false
+        },
+        "focusBeforeEscape": {
+          "hasFocus": true,
+          "instance": 8,
+          "activeElement": {
+            "tag": "BODY",
+            "id": "",
+            "editable": false
+          }
+        },
+        "after": {
+          "selectedId": null,
+          "selectedIds": [],
+          "selectionKind": "leaf",
+          "scopeId": null,
+          "floorScopeId": null,
+          "activeEdit": false
+        }
+      }
+    },
+    {
+      "kind": "preview-focus",
+      "at": 1790122290701,
+      "data": {
+        "label": "before reset click",
+        "hasFocus": true,
+        "instance": 8,
+        "activeElement": {
+          "tag": "BODY",
+          "id": "",
+          "editable": false
+        }
+      }
+    },
+    {
+      "kind": "preview-focus",
+      "at": 1790122291139,
+      "data": {
+        "label": "before Escape",
+        "hasFocus": true,
+        "instance": 8,
+        "activeElement": {
+          "tag": "BODY",
+          "id": "",
+          "editable": false
+        }
+      }
+    },
+    {
+      "kind": "write",
+      "data": {
+        "overlayId": "plain",
+        "patch": {
+          "transform": {
+            "rotate": 58.51581830500487
+          }
+        }
+      },
+      "at": 1790122292266,
+      "contextId": 16
+    },
+    {
+      "kind": "response",
+      "data": {
+        "type": "akari-preview-overlay-write-response",
+        "requestId": "akari-preview-1",
+        "ok": true
+      },
+      "at": 1790122292301,
+      "contextId": 16
+    },
+    {
+      "kind": "preview-reset",
+      "at": 1790122293959,
+      "data": {
+        "before": {
+          "selectedId": "plain",
+          "selectedIds": [
+            "plain"
+          ],
+          "selectionKind": "leaf",
+          "scopeId": null,
+          "floorScopeId": null,
+          "activeEdit": false
+        },
+        "focusBeforeClick": {
+          "hasFocus": false,
+          "instance": 9,
+          "activeElement": {
+            "tag": "BODY",
+            "id": "",
+            "editable": false
+          }
+        },
+        "point": {
+          "x": 90.89735794067383,
+          "y": 177.92163848876953,
+          "id": "plain",
+          "tag": "DIV",
+          "text": "名札なし"
+        },
+        "selected": {
+          "selectedId": "plain",
+          "selectedIds": [
+            "plain"
+          ],
+          "selectionKind": "leaf",
+          "scopeId": null,
+          "floorScopeId": null,
+          "activeEdit": false
+        },
+        "focusBeforeEscape": {
+          "hasFocus": true,
+          "instance": 9,
+          "activeElement": {
+            "tag": "BODY",
+            "id": "",
+            "editable": false
+          }
+        },
+        "after": {
+          "selectedId": null,
+          "selectedIds": [],
+          "selectionKind": "leaf",
+          "scopeId": null,
+          "floorScopeId": null,
+          "activeEdit": false
+        }
+      }
+    },
+    {
+      "kind": "preview-focus",
+      "at": 1790122293960,
+      "data": {
+        "label": "before reset click",
+        "hasFocus": false,
+        "instance": 9,
+        "activeElement": {
+          "tag": "BODY",
+          "id": "",
+          "editable": false
+        }
+      }
+    },
+    {
+      "kind": "preview-focus",
+      "at": 1790122294416,
+      "data": {
+        "label": "before Escape",
+        "hasFocus": true,
+        "instance": 9,
+        "activeElement": {
+          "tag": "BODY",
+          "id": "",
+          "editable": false
+        }
+      }
+    },
+    {
+      "kind": "preview-reset",
+      "at": 1790122295339,
+      "data": {
+        "before": {
+          "selectedId": "plain",
+          "selectedIds": [
+            "plain"
+          ],
+          "selectionKind": "leaf",
+          "scopeId": null,
+          "floorScopeId": null,
+          "activeEdit": false
+        },
+        "focusBeforeClick": {
+          "hasFocus": false,
+          "instance": 10,
+          "activeElement": {
+            "tag": "BODY",
+            "id": "",
+            "editable": false
+          }
+        },
+        "point": {
+          "x": 90.89735794067383,
+          "y": 177.92163848876953,
+          "id": "plain",
+          "tag": "DIV",
+          "text": "名札なし"
+        },
+        "selected": {
+          "selectedId": "plain",
+          "selectedIds": [
+            "plain"
+          ],
+          "selectionKind": "leaf",
+          "scopeId": null,
+          "floorScopeId": null,
+          "activeEdit": false
+        },
+        "focusBeforeEscape": {
+          "hasFocus": true,
+          "instance": 10,
+          "activeElement": {
+            "tag": "BODY",
+            "id": "",
+            "editable": false
+          }
+        },
+        "after": {
+          "selectedId": null,
+          "selectedIds": [],
+          "selectionKind": "leaf",
+          "scopeId": null,
+          "floorScopeId": null,
+          "activeEdit": false
+        }
+      }
+    },
+    {
+      "kind": "preview-focus",
+      "at": 1790122295340,
+      "data": {
+        "label": "before reset click",
+        "hasFocus": false,
+        "instance": 10,
+        "activeElement": {
+          "tag": "BODY",
+          "id": "",
+          "editable": false
+        }
+      }
+    },
+    {
+      "kind": "preview-focus",
+      "at": 1790122295789,
+      "data": {
+        "label": "before Escape",
+        "hasFocus": true,
+        "instance": 10,
+        "activeElement": {
+          "tag": "BODY",
+          "id": "",
+          "editable": false
+        }
+      }
+    },
+    {
+      "kind": "write",
+      "data": {
+        "overlayId": "g1.first",
+        "patch": {
+          "transform": {
+            "x": 383.4560169297647,
+            "y": 244.8247544088353,
+            "scale": 1.4457496235095697,
+            "rotate": 87.83231033499642
+          }
+        }
+      },
+      "at": 1790122296954,
+      "contextId": 20
+    },
+    {
+      "kind": "response",
+      "data": {
+        "type": "akari-preview-overlay-write-response",
+        "requestId": "akari-preview-1",
+        "ok": true
+      },
+      "at": 1790122297017,
+      "contextId": 20
+    },
+    {
+      "kind": "preview-reset",
+      "at": 1790122298966,
+      "data": {
+        "before": {
+          "selectedId": "g1.first",
+          "selectedIds": [
+            "g1.first"
+          ],
+          "selectionKind": "leaf",
+          "scopeId": "g1",
+          "floorScopeId": null,
+          "activeEdit": false
+        },
+        "focusBeforeClick": {
+          "hasFocus": false,
+          "instance": 11,
+          "activeElement": {
+            "tag": "BODY",
+            "id": "",
+            "editable": false
+          }
+        },
+        "point": {
+          "x": 90.89735794067383,
+          "y": 177.92163848876953,
+          "id": "plain",
+          "tag": "DIV",
+          "text": "名札なし"
+        },
+        "selected": {
+          "selectedId": "plain",
+          "selectedIds": [
+            "plain"
+          ],
+          "selectionKind": "leaf",
+          "scopeId": null,
+          "floorScopeId": null,
+          "activeEdit": false
+        },
+        "focusBeforeEscape": {
+          "hasFocus": true,
+          "instance": 11,
+          "activeElement": {
+            "tag": "BODY",
+            "id": "",
+            "editable": false
+          }
+        },
+        "after": {
+          "selectedId": null,
+          "selectedIds": [],
+          "selectionKind": "leaf",
+          "scopeId": null,
+          "floorScopeId": null,
+          "activeEdit": false
+        }
+      }
+    },
+    {
+      "kind": "preview-focus",
+      "at": 1790122298969,
+      "data": {
+        "label": "before reset click",
+        "hasFocus": false,
+        "instance": 11,
+        "activeElement": {
+          "tag": "BODY",
+          "id": "",
+          "editable": false
+        }
+      }
+    },
+    {
+      "kind": "preview-focus",
+      "at": 1790122299443,
+      "data": {
+        "label": "before Escape",
+        "hasFocus": true,
+        "instance": 11,
+        "activeElement": {
+          "tag": "BODY",
+          "id": "",
+          "editable": false
+        }
+      }
+    },
+    {
+      "kind": "preview-reset",
+      "at": 1790122299977,
+      "data": {
+        "before": {
+          "selectedId": null,
+          "selectedIds": [],
+          "selectionKind": "leaf",
+          "scopeId": null,
+          "floorScopeId": null,
+          "activeEdit": false
+        },
+        "focusBeforeClick": {
+          "hasFocus": true,
+          "instance": 11,
+          "activeElement": {
+            "tag": "BODY",
+            "id": "",
+            "editable": false
+          }
+        },
+        "point": {
+          "x": 90.89735794067383,
+          "y": 177.92163848876953,
+          "id": "plain",
+          "tag": "DIV",
+          "text": "名札なし"
+        },
+        "selected": {
+          "selectedId": "plain",
+          "selectedIds": [
+            "plain"
+          ],
+          "selectionKind": "leaf",
+          "scopeId": null,
+          "floorScopeId": null,
+          "activeEdit": false
+        },
+        "focusBeforeEscape": {
+          "hasFocus": true,
+          "instance": 11,
+          "activeElement": {
+            "tag": "BODY",
+            "id": "",
+            "editable": false
+          }
+        },
+        "after": {
+          "selectedId": null,
+          "selectedIds": [],
+          "selectionKind": "leaf",
+          "scopeId": null,
+          "floorScopeId": null,
+          "activeEdit": false
+        }
+      }
+    },
+    {
+      "kind": "preview-focus",
+      "at": 1790122299978,
+      "data": {
+        "label": "before reset click",
+        "hasFocus": true,
+        "instance": 11,
+        "activeElement": {
+          "tag": "BODY",
+          "id": "",
+          "editable": false
+        }
+      }
+    },
+    {
+      "kind": "preview-focus",
+      "at": 1790122300436,
+      "data": {
+        "label": "before Escape",
+        "hasFocus": true,
+        "instance": 11,
+        "activeElement": {
+          "tag": "BODY",
+          "id": "",
+          "editable": false
+        }
+      }
+    },
+    {
+      "kind": "preview-focus",
+      "at": 1790122301633,
+      "data": {
+        "label": "before Escape",
+        "hasFocus": true,
+        "instance": 11,
+        "activeElement": {
+          "tag": "BODY",
+          "id": "",
+          "editable": false
+        }
+      }
+    },
+    {
+      "kind": "preview-reset",
+      "at": 1790122303856,
+      "data": {
+        "before": {
+          "selectedId": null,
+          "selectedIds": [],
+          "selectionKind": "leaf",
+          "scopeId": null,
+          "floorScopeId": null,
+          "activeEdit": false
+        },
+        "focusBeforeClick": {
+          "hasFocus": false,
+          "instance": 12,
+          "activeElement": {
+            "tag": "BODY",
+            "id": "",
+            "editable": false
+          }
+        },
+        "point": {
+          "x": 90.89735794067383,
+          "y": 177.92163848876953,
+          "id": "plain",
+          "tag": "DIV",
+          "text": "名札なし"
+        },
+        "selected": {
+          "selectedId": "plain",
+          "selectedIds": [
+            "plain"
+          ],
+          "selectionKind": "leaf",
+          "scopeId": null,
+          "floorScopeId": null,
+          "activeEdit": false
+        },
+        "focusBeforeEscape": {
+          "hasFocus": true,
+          "instance": 12,
+          "activeElement": {
+            "tag": "BODY",
+            "id": "",
+            "editable": false
+          }
+        },
+        "after": {
+          "selectedId": null,
+          "selectedIds": [],
+          "selectionKind": "leaf",
+          "scopeId": null,
+          "floorScopeId": null,
+          "activeEdit": false
+        }
+      }
+    },
+    {
+      "kind": "preview-focus",
+      "at": 1790122303857,
+      "data": {
+        "label": "before reset click",
+        "hasFocus": false,
+        "instance": 12,
+        "activeElement": {
+          "tag": "BODY",
+          "id": "",
+          "editable": false
+        }
+      }
+    },
+    {
+      "kind": "preview-focus",
+      "at": 1790122304368,
+      "data": {
+        "label": "before Escape",
+        "hasFocus": true,
+        "instance": 12,
+        "activeElement": {
+          "tag": "BODY",
+          "id": "",
+          "editable": false
+        }
+      }
+    },
+    {
+      "kind": "preview-reset",
+      "at": 1790122304959,
+      "data": {
+        "before": {
+          "selectedId": null,
+          "selectedIds": [],
+          "selectionKind": "leaf",
+          "scopeId": null,
+          "floorScopeId": null,
+          "activeEdit": false
+        },
+        "focusBeforeClick": {
+          "hasFocus": true,
+          "instance": 12,
+          "activeElement": {
+            "tag": "BODY",
+            "id": "",
+            "editable": false
+          }
+        },
+        "point": {
+          "x": 90.89735794067383,
+          "y": 177.92163848876953,
+          "id": "plain",
+          "tag": "DIV",
+          "text": "名札なし"
+        },
+        "selected": {
+          "selectedId": "plain",
+          "selectedIds": [
+            "plain"
+          ],
+          "selectionKind": "leaf",
+          "scopeId": null,
+          "floorScopeId": null,
+          "activeEdit": false
+        },
+        "focusBeforeEscape": {
+          "hasFocus": true,
+          "instance": 12,
+          "activeElement": {
+            "tag": "BODY",
+            "id": "",
+            "editable": false
+          }
+        },
+        "after": {
+          "selectedId": null,
+          "selectedIds": [],
+          "selectionKind": "leaf",
+          "scopeId": null,
+          "floorScopeId": null,
+          "activeEdit": false
+        }
+      }
+    },
+    {
+      "kind": "preview-focus",
+      "at": 1790122304960,
+      "data": {
+        "label": "before reset click",
+        "hasFocus": true,
+        "instance": 12,
+        "activeElement": {
+          "tag": "BODY",
+          "id": "",
+          "editable": false
+        }
+      }
+    },
+    {
+      "kind": "preview-focus",
+      "at": 1790122305406,
+      "data": {
+        "label": "before Escape",
+        "hasFocus": true,
+        "instance": 12,
+        "activeElement": {
+          "tag": "BODY",
+          "id": "",
+          "editable": false
+        }
+      }
+    },
+    {
+      "kind": "write",
+      "data": {
+        "overlayId": "outer",
+        "patch": {
+          "transform": {
+            "x": 76.51625471101005,
+            "y": -27.277230102093906
+          }
+        }
+      },
+      "at": 1790122306617,
+      "contextId": 24
+    },
+    {
+      "kind": "response",
+      "data": {
+        "type": "akari-preview-overlay-write-response",
+        "requestId": "akari-preview-1",
+        "ok": true
+      },
+      "at": 1790122306795,
+      "contextId": 24
+    }
+  ],
+  "finalDiff": "diff --git a/edit.json b/edit.json\nindex b97c075..99ecc06 100644\n--- a/edit.json\n+++ b/edit.json\n@@ -1,26 +1,161 @@\n {\n   \"version\": 2,\n-  \"output\": { \"width\": 640, \"height\": 360, \"fps\": 30 },\n+  \"output\": {\n+    \"width\": 640,\n+    \"height\": 360,\n+    \"fps\": 30\n+  },\n   \"sources\": [],\n   \"tracks\": [\n-    { \"id\": \"v1\", \"lane\": \"visual\", \"items\": [\n-      { \"id\": \"s01\", \"at\": 0, \"duration\": 120, \"source\": { \"kind\": \"html\", \"path\": \"overlays/card.html\", \"exclude\": [\"C\"] }, \"items\": [\n-        { \"id\": \"s01.B\", \"at\": 6, \"duration\": 114, \"transform\": { \"y\": -40 }, \"source\": { \"kind\": \"html\", \"path\": \"overlays/card.html\", \"part\": \"B\", \"style\": { \"color\": \"red\" }, \"text\": \"差し替え\", \"derivedFrom\": \"overlays/card.html#B\" } }\n-      ] }\n-    ] },\n-    { \"id\": \"v2\", \"lane\": \"visual\", \"items\": [\n-      { \"id\": \"outer\", \"at\": 0, \"duration\": 120, \"transform\": { \"x\": 0, \"y\": 0 }, \"source\": { \"kind\": \"group\" }, \"items\": [\n-        { \"id\": \"g1\", \"at\": 30, \"duration\": 90, \"transform\": { \"x\": 270, \"y\": -110, \"scale\": 1, \"rotate\": 0 }, \"opacity\": 0.5, \"blend\": \"screen\", \"source\": { \"kind\": \"group\" }, \"items\": [\n-          { \"id\": \"g1.first\", \"at\": 0, \"duration\": 45, \"transform\": { \"x\": 10, \"y\": 5, \"scale\": 1, \"rotate\": 0 }, \"opacity\": 0.8, \"source\": { \"kind\": \"html\", \"path\": \"overlays/plain.html\" } },\n-          { \"id\": \"g1.second\", \"at\": 0, \"duration\": 45, \"transform\": { \"x\": 110, \"y\": -45, \"scale\": 1, \"rotate\": 0 }, \"source\": { \"kind\": \"html\", \"path\": \"overlays/plain.html\" } }\n-        ] }\n-      ] }\n-    ] },\n-    { \"id\": \"v3\", \"lane\": \"visual\", \"items\": [\n-      { \"id\": \"plain\", \"at\": 0, \"duration\": 120, \"source\": { \"kind\": \"html\", \"path\": \"overlays/plain.html\" } }\n-    ] },\n-    { \"id\": \"v4\", \"lane\": \"visual\", \"items\": [\n-      { \"id\": \"s01.C\", \"at\": 0, \"duration\": 120, \"source\": { \"kind\": \"html\", \"path\": \"overlays/card.html\", \"part\": \"C\", \"derivedFrom\": \"overlays/card.html#C\" } }\n-    ] }\n+    {\n+      \"id\": \"v1\",\n+      \"lane\": \"visual\",\n+      \"items\": [\n+        {\n+          \"id\": \"s01\",\n+          \"at\": 0,\n+          \"duration\": 120,\n+          \"source\": {\n+            \"kind\": \"html\",\n+            \"path\": \"overlays/card.html\",\n+            \"exclude\": [\n+              \"C\"\n+            ]\n+          },\n+          \"items\": [\n+            {\n+              \"id\": \"s01.B\",\n+              \"at\": 6,\n+              \"duration\": 114,\n+              \"transform\": {\n+                \"y\": -40\n+              },\n+              \"source\": {\n+                \"kind\": \"html\",\n+                \"path\": \"overlays/card.html\",\n+                \"part\": \"B\",\n+                \"style\": {\n+                  \"color\": \"red\"\n+                },\n+                \"text\": \"差し替え\",\n+                \"derivedFrom\": \"overlays/card.html#B\"\n+              }\n+            }\n+          ],\n+          \"transform\": {\n+            \"x\": 10.938407378916935,\n+            \"y\": 115.8854808019895,\n+            \"scale\": 1.2419167918142189,\n+            \"rotate\": 26.45783732220078\n+          }\n+        }\n+      ]\n+    },\n+    {\n+      \"id\": \"v2\",\n+      \"lane\": \"visual\",\n+      \"items\": [\n+        {\n+          \"id\": \"outer\",\n+          \"at\": 0,\n+          \"duration\": 120,\n+          \"transform\": {\n+            \"x\": 76.51625471101005,\n+            \"y\": -27.277230102093906,\n+            \"scale\": 1.254004456867603,\n+            \"rotate\": 57.83231033499642\n+          },\n+          \"source\": {\n+            \"kind\": \"group\"\n+          },\n+          \"items\": [\n+            {\n+              \"id\": \"g1\",\n+              \"at\": 30,\n+              \"duration\": 90,\n+              \"transform\": {\n+                \"x\": 270,\n+                \"y\": -110,\n+                \"scale\": 1,\n+                \"rotate\": 30\n+              },\n+              \"opacity\": 0.5,\n+              \"blend\": \"screen\",\n+              \"source\": {\n+                \"kind\": \"group\"\n+              },\n+              \"items\": [\n+                {\n+                  \"id\": \"g1.first\",\n+                  \"at\": 0,\n+                  \"duration\": 45,\n+                  \"transform\": {\n+                    \"x\": 56.4835148441809,\n+                    \"y\": -17.094954641001927,\n+                    \"scale\": 1.1529062880054908,\n+                    \"rotate\": 0\n+                  },\n+                  \"opacity\": 0.8,\n+                  \"source\": {\n+                    \"kind\": \"html\",\n+                    \"path\": \"overlays/plain.html\"\n+                  }\n+                },\n+                {\n+                  \"id\": \"g1.second\",\n+                  \"at\": 0,\n+                  \"duration\": 45,\n+                  \"transform\": {\n+                    \"x\": 110,\n+                    \"y\": -45,\n+                    \"scale\": 1,\n+                    \"rotate\": 0\n+                  },\n+                  \"source\": {\n+                    \"kind\": \"html\",\n+                    \"path\": \"overlays/plain.html\"\n+                  }\n+                }\n+              ]\n+            }\n+          ]\n+        }\n+      ]\n+    },\n+    {\n+      \"id\": \"v3\",\n+      \"lane\": \"visual\",\n+      \"items\": [\n+        {\n+          \"id\": \"plain\",\n+          \"at\": 0,\n+          \"duration\": 120,\n+          \"source\": {\n+            \"kind\": \"html\",\n+            \"path\": \"overlays/plain.html\"\n+          },\n+          \"transform\": {\n+            \"rotate\": 58.51581830500487\n+          }\n+        }\n+      ]\n+    },\n+    {\n+      \"id\": \"v4\",\n+      \"lane\": \"visual\",\n+      \"items\": [\n+        {\n+          \"id\": \"s01.C\",\n+          \"at\": 0,\n+          \"duration\": 120,\n+          \"source\": {\n+            \"kind\": \"html\",\n+            \"path\": \"overlays/card.html\",\n+            \"part\": \"C\",\n+            \"derivedFrom\": \"overlays/card.html#C\"\n+          }\n+        }\n+      ]\n+    }\n   ]\n }\n"
+}

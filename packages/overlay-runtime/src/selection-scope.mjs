@@ -77,7 +77,34 @@ function toggleScopedSelection(tree, selectedIds, scopeId, next) {
 }
 
 // END selection-scope
-export { toggleScopedSelection, nextCycleCandidate, resolveScopedSelection, enterScope, exitScope, lineage, descendantLeafIds, shouldHandleScopeEscape, lazyBagForScope, selectionAncestorIds };
+export { toggleScopedSelection, nextCycleCandidate, resolveScopedSelection, enterScope, exitScope, lineage, descendantLeafIds, shouldHandleScopeEscape, lazyBagForScope, selectionAncestorIds, worldDelta, applyWorldDelta };
+
+// World-space similarity transform. Coordinates are relative to the stage centre.
+// BEGIN world-delta
+function worldDelta(oldPose, newPose) {
+  const scale = (newPose.scale ?? 1) / (oldPose.scale ?? 1);
+  const rotate = (newPose.rotate ?? 0) - (oldPose.rotate ?? 0);
+  const radians = rotate * Math.PI / 180;
+  const cosine = Math.cos(radians), sine = Math.sin(radians);
+  const oldX = oldPose.x ?? 0, oldY = oldPose.y ?? 0;
+  return { scale, rotate,
+    x: (newPose.x ?? 0) - scale * (cosine * oldX - sine * oldY),
+    y: (newPose.y ?? 0) - scale * (sine * oldX + cosine * oldY) };
+}
+
+function applyWorldDelta(delta, childWorld) {
+  const radians = delta.rotate * Math.PI / 180;
+  const cosine = Math.cos(radians), sine = Math.sin(radians);
+  const x = childWorld.x ?? 0, y = childWorld.y ?? 0;
+  return { ...childWorld,
+    x: delta.x + delta.scale * (cosine * x - sine * y),
+    y: delta.y + delta.scale * (sine * x + cosine * y),
+    scale: (childWorld.scale ?? 1) * delta.scale,
+    ...(childWorld.scaleX === undefined ? {} : { scaleX: childWorld.scaleX * delta.scale }),
+    ...(childWorld.scaleY === undefined ? {} : { scaleY: childWorld.scaleY * delta.scale }),
+    rotate: (childWorld.rotate ?? 0) + delta.rotate };
+}
+// END world-delta
 
 // Pure counterpart of the widget helper; a source equality test keeps the copy
 // in sync without importing the Electron widget into Node.
