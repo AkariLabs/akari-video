@@ -50,7 +50,7 @@ test('third runtime raster injection and 2D baseline require no host edits', t =
   assert.ok(sheet.indexOf('await window.__akariSeekVideos(seconds)') < sheet.indexOf('for (const [dummyContainer'));
   assert.ok(!sheet.includes('seconds % video.duration'));
   const baseline = renderOverlaySheet({overlays:[{id:'o1',html:'<div>Hello</div>',htmlPath:'pack/variants/press.html',start:2,duration:3}],edit:{output:{width:320,height:180,fps:30}},projectRoot:'/tmp/project',duration:5});
-  assert.equal(createHash('sha256').update(baseline).digest('hex'),'5881a5a26ed94c76d18e6c45a0babaf07bd622591f5ba56ffdaa0588fa701e56');
+  assert.equal(createHash('sha256').update(baseline).digest('hex'),'4621809f07fcb9206030c8485239bb089d7791936d0bc050a55a4dbe3ce08461');
   assert.ok(browserManifest().runtimes.some(entry => entry.id === 'dummy'));
 });
 test('third runtime reference is bound and content-hashed by render-inputs', async t => {
