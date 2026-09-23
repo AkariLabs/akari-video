@@ -1,0 +1,24 @@
+{
+  "legacyBefore": [
+    "audio/song/meta.json",
+    "audio/song/song.wav",
+    "still/photo/meta.json",
+    "still/photo/photo.png"
+  ],
+  "libraryText": "素材の置き場\n\n素材はここに入ります。通常は作業場の中の「library」フォルダです。あとから場所を変えることもできます。\n\n/tmp/fls-l1/run-legacy/home/Akari/library\n\nFinder で開く場所を変える…\n\n2 個・約 2.0 MB を新しい場所へ移します。\n\n手持ちの素材フォルダがあれば入れる\n\nAKARI Video Lab の素材を使うには、アカウントをつなぎます。\n\nAKARI Video Lab とつなぐ\n戻る\n今はスキップ\n次へ",
+  "location": {
+    "version": 0,
+    "root": "/tmp/fls-l1/run-legacy/home/Akari/library",
+    "decidedAt": "2026-09-23T01:14:33.467Z",
+    "state": "done",
+    "migratedAt": "2026-09-23T01:14:33.480Z"
+  },
+  "newLibrary": [
+    "audio/song/meta.json",
+    "audio/song/song.wav",
+    "still/photo/meta.json",
+    "still/photo/photo.png"
+  ],
+  "legacyAfter": [],
+  "ok": true
+}

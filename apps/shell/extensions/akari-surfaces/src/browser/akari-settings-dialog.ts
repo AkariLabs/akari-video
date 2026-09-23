@@ -1,11 +1,12 @@
 import { deriveStoreLabBaseUrl } from 'akari-project/lib/common/asset-catalog-view';
 import { EnvVariablesServer } from '@theia/core/lib/common/env-variables';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
+import URI from '@theia/core/lib/common/uri';
 import { FileDialogService } from '@theia/filesystem/lib/browser';
-import { AkariNewProjectService, AkariToolCheckResult, AkariToolId } from '../common/akari-new-project-protocol';
+import { AkariLibraryStatus, AkariNewProjectService, AkariToolCheckResult, AkariToolId } from '../common/akari-new-project-protocol';
 import { AkariFirstRunSetupDialog } from './akari-first-run-setup-dialog';
 import { inject, injectable } from '@theia/core/shared/inversify';
-import { AbstractDialog } from '@theia/core/lib/browser/dialogs';
+import { AbstractDialog, ConfirmDialog } from '@theia/core/lib/browser/dialogs';
 import { ApplicationShell, CommonCommands, WebSocketConnectionProvider, WidgetManager } from '@theia/core/lib/browser';
 import { WorkspaceService } from '@theia/workspace/lib/browser/workspace-service';
 import { PluginServer } from '@theia/plugin-ext/lib/common/plugin-protocol';
@@ -13,7 +14,8 @@ import { OS } from '@theia/core/lib/common/os';
 import { buildExportEncoderChoices, ExportEncoder } from 'akari-shell-strip/lib/common/export-encoder-choices';
 import { WindowService } from '@theia/core/lib/browser/window/window-service';
 import { Message } from '@theia/core/shared/@lumino/messaging';
-import { CommandContribution, CommandRegistry, CommandService } from '@theia/core/lib/common';
+import { CommandContribution, CommandRegistry, CommandService, MessageService } from '@theia/core/lib/common';
+import { formatLibraryBytes, libraryMoveCopy } from '../common/library-storage';
 import { PreferenceScope, PreferenceService, PreferenceSchemaService } from '@theia/core/lib/common/preferences';
 import { StoreConnectionFlowController, StoreConnectionFlowState } from 'akari-project/lib/common/store-connection-flow';
 import { AkariProjectService } from 'akari-project/lib/common/akari-project-protocol';
@@ -81,6 +83,7 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
     protected readonly connections = element('section');
     protected readonly providerList = element('div');
     protected readonly storage = element('div');
+    protected libraryStatus: AkariLibraryStatus | undefined;
     /** Akari アカウント節の中身（アカウント帯 + AKARI Store のグループ）。renderStore が描き直す。 */
     protected readonly storeRow = element('div');
     protected readonly sections = new Map<SettingsSectionId, HTMLElement>();
@@ -109,7 +112,7 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
         protected readonly storeService: AkariProjectService,
         protected readonly windows: WindowService,
         protected readonly commands: CommandService,
-        toolsService: AkariNewProjectService, files: FileService, env: EnvVariablesServer,
+        protected readonly toolsService: AkariNewProjectService, protected readonly files: FileService, env: EnvVariablesServer,
         protected readonly fileDialogs: FileDialogService, protected readonly maintenance: AkariSettingsMaintenanceService,
         protected readonly workspaceRoot: string | undefined, protected readonly widgetManager: WidgetManager,
         protected readonly shell: ApplicationShell, protected readonly pluginServer: PluginServer, initialSection?: SettingsSectionId
@@ -146,6 +149,7 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
         void this.loadConnections();
         void this.storeController.refreshStatus();
         void this.loadStorage();
+        void this.refreshLibraryStatus();
         void this.loadPartnerDetails();
         void this.maintenance.diagnosticDefaultPath().then(value => {
             if (!this.diagnosticPathCustomized && !this.diagnosticPath) { this.diagnosticPath = value; this.renderSection('help'); }
@@ -353,7 +357,7 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
             const copy = element('div');
             const heroTitle = element('div', '初回セットアップ');
             heroTitle.className = 'akari-set-hero-title';
-            copy.append(heroTitle, description('道具のインストール・作業場・AI パートナーを順番に案内します。いつでもやり直せます'));
+            copy.append(heroTitle, description('道具・作業場・素材・AI パートナーを順番に案内します。いつでもやり直せます'));
             hero.append(copy, open);
             const card = groupCard(undefined, hero);
             const steps = this.startProgressSteps();
@@ -530,24 +534,57 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
     }
 
     protected renderStorageSection(section: HTMLElement): void {
-        if (!this.storageSnapshot) { section.append(settingsNote('調べています…')); return; }
-        const { entries, freeBytes } = this.storageSnapshot;
-        const total = entries.reduce((sum, entry) => sum + entry.bytes, 0);
-        const summary = element('div'); summary.className = 'akari-set-storage-total';
-        summary.append(element('b', formatBytes(total)), element('span', `AKARI 全体 · Mac の空き ${freeBytes ? formatBytes(freeBytes) : '調べられませんでした'}`));
-        const usage = element('div'); usage.className = 'akari-set-storage-usage';
-        const legend = element('div'); legend.className = 'akari-set-storage-legend';
-        entries.forEach((entry, index) => {
-            const part = element('i'); part.style.width = `${total ? entry.bytes / total * 100 : 20}%`; part.style.background = STORAGE_COLORS[index];
-            usage.append(part);
-            const item = element('span', `${entry.label} ${formatBytes(entry.bytes)}`);
-            item.style.setProperty('--akari-storage-color', STORAGE_COLORS[index]); legend.append(item);
-        });
-        section.append(groupCard(undefined, summary, usage, legend));
-        const rows = entries.map(entry => this.storageDetailRow(entry));
-        const breakdown = groupCard('内訳', ...rows);
-        breakdown.querySelector('.akari-set-group-title')?.append(element('span', '行を押すと開く'));
-        section.append(breakdown);
+        if (!this.storageSnapshot) {
+            section.append(settingsNote('調べています…'));
+        } else {
+            const { entries, freeBytes } = this.storageSnapshot;
+            const total = entries.reduce((sum, entry) => sum + entry.bytes, 0);
+            const summary = element('div'); summary.className = 'akari-set-storage-total';
+            summary.append(element('b', formatBytes(total)), element('span', `AKARI 全体 · Mac の空き ${freeBytes ? formatBytes(freeBytes) : '調べられませんでした'}`));
+            const usage = element('div'); usage.className = 'akari-set-storage-usage';
+            const legend = element('div'); legend.className = 'akari-set-storage-legend';
+            entries.forEach((entry, index) => {
+                const part = element('i'); part.style.width = `${total ? entry.bytes / total * 100 : 20}%`; part.style.background = STORAGE_COLORS[index];
+                usage.append(part);
+                const item = element('span', `${entry.label} ${formatBytes(entry.bytes)}`);
+                item.style.setProperty('--akari-storage-color', STORAGE_COLORS[index]); legend.append(item);
+            });
+            section.append(groupCard(undefined, summary, usage, legend));
+            const rows = entries.map(entry => this.storageDetailRow(entry));
+            const breakdown = groupCard('内訳', ...rows);
+            breakdown.querySelector('.akari-set-group-title')?.append(element('span', '行を押すと開く'));
+            section.append(breakdown);
+        }
+        section.append(this.renderLibraryStorageCard());
+    }
+
+    protected renderLibraryStorageCard(): HTMLElement {
+        const status = this.libraryStatus;
+        const usage = status?.usage;
+        const open = action('Finder で開く', () => {
+            if (status?.root) { void this.maintenance.openPath(status.root); }
+        }, { small: true, icon: 'folder' });
+        open.disabled = !status?.root;
+        const change = action('場所を変える…', () => void this.commands.executeCommand('akari.library.changeLocation'), { small: true });
+        const clean = action('取り直せるものを片づける', () => void this.clearLabLibrary(), { small: true });
+        clean.disabled = !usage?.cleanup.length;
+        const card = groupCard('素材の置き場',
+            settingRow('現在の場所', status?.root ?? '確認中…', open, change),
+            settingRow('合計', usage ? formatLibraryBytes(usage.totalBytes) : '確認中…'),
+            settingRow('Lab から', usage ? `${formatLibraryBytes(usage.bySource.lab.bytes)}（${usage.bySource.lab.count} 個）` : '確認中…'),
+            settingRow('素材サイトから', usage ? `${formatLibraryBytes(usage.bySource.site.bytes)}（${usage.bySource.site.count} 個）` : '確認中…'),
+            settingRow('自分の', usage ? `${formatLibraryBytes(usage.bySource.own.bytes)}（${usage.bySource.own.count} 個）` : '確認中…'),
+            settingRow('取り直せるもの', 'Lab から受け取った素材だけを一覧で確認してからゴミ箱へ移します', clean));
+        card.setAttribute('data-akari-library-usage', 'true');
+        const moveCopy = status ? libraryMoveCopy(status.state, status.previous, status.cloud) : {};
+        if (moveCopy.retained) { card.append(settingsNote(moveCopy.retained)); }
+        if (status?.state === 'pending') {
+            card.append(settingRow('移動する前に確認', moveCopy.sync,
+                action('このまま使う', () => void this.acceptSyncedLibrary(), { small: true }),
+                action('別の場所を選ぶ', () => void this.commands.executeCommand('akari.library.changeLocation'), { small: true }),
+                action('今は移さない', () => void this.declineSyncedLibrary(), { small: true })));
+        }
+        return card;
     }
 
     protected storageDetailRow(entry: StorageEntry): HTMLElement {
@@ -714,6 +751,57 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
                 ...[['公式サイト', 'https://akari.video'], ['GitHub', 'https://github.com/akari-video/akari-video'], ['ライセンス', 'https://github.com/akari-video/akari-video/blob/main/LICENSE']].map(([label, url]) =>
                     action(label, () => this.windows.openNewWindow(url, { external: true }), { small: true })))));
         }).catch(() => { this.notice.textContent = 'アプリ情報を読み込めませんでした。'; });
+    }
+
+    async refreshLibraryStatus(): Promise<void> {
+        try {
+            this.libraryStatus = await this.toolsService.libraryStatus();
+            if (!this.isDisposed) { this.renderSection('storage'); }
+        } catch { this.notice.textContent = '素材の使用量を確認できませんでした。'; }
+    }
+
+    showLibraryMoveProgress(progress: { bytes: number; totalBytes: number } | undefined): void {
+        this.notice.textContent = progress?.totalBytes
+            ? `素材を移動しています… ${formatLibraryBytes(progress.bytes)} / ${formatLibraryBytes(progress.totalBytes)}`
+            : '素材を移動しています… 終わるまで取り込みと取得をお待ちください。';
+    }
+    clearLibraryMoveProgress(): void { this.notice.textContent = ''; }
+
+    protected async acceptSyncedLibrary(): Promise<void> {
+        this.showLibraryMoveProgress(undefined);
+        try { await this.toolsService.moveLibrary(); await this.refreshLibraryStatus(); this.notice.textContent = '素材を移動しました。'; }
+        catch { this.notice.textContent = '素材を移動できませんでした。'; }
+    }
+
+    protected async declineSyncedLibrary(): Promise<void> {
+        try { await this.toolsService.declineLibraryMove(); await this.refreshLibraryStatus(); }
+        catch { this.notice.textContent = '選択を保存できませんでした。'; }
+    }
+
+    protected async clearLabLibrary(): Promise<void> {
+        const targets = this.libraryStatus?.usage.cleanup ?? [];
+        if (!targets.length) { return; }
+        const list = element('div');
+        list.append(element('p', `Lab から受け取った ${targets.length} 個、合計 ${formatLibraryBytes(this.libraryStatus!.usage.cleanupBytes)} をゴミ箱へ移します。`));
+        const names = element('ul');
+        Object.assign(names.style, { maxHeight: '260px', overflow: 'auto', paddingLeft: '22px' });
+        for (const item of targets) { names.append(element('li', `${item.title}（${formatLibraryBytes(item.bytes)}）`)); }
+        list.append(names);
+        const confirmed = await new ConfirmDialog({
+            title: '取り直せる素材を片づける', msg: list, ok: 'ゴミ箱へ移す', cancel: 'やめる'
+        }).open();
+        if (!confirmed) { return; }
+        try {
+            const directories = await this.toolsService.labCleanupTargets(targets.map(item => item.libraryDir));
+            let count = 0;
+            for (const directory of directories) {
+                if (await this.toolsService.isLibraryMoving()) { throw new Error('moving'); }
+                await this.files.delete(URI.fromFilePath(directory), { recursive: true, useTrash: true });
+                count++;
+            }
+            this.notice.textContent = `${count} 個をゴミ箱へ移しました。`;
+            await this.refreshLibraryStatus();
+        } catch { this.notice.textContent = '素材を片づけられませんでした。'; }
     }
 
     /** はじめかたの進み具合。道具・接続の状態が読めたものだけ出す（読めないうちは枠ごと出さない）。 */
@@ -1326,6 +1414,7 @@ export class AkariSettingsCommandContribution implements CommandContribution {
     @inject(FileService) protected readonly files!: FileService;
     @inject(FileDialogService) protected readonly fileDialogs!: FileDialogService;
     @inject(EnvVariablesServer) protected readonly env!: EnvVariablesServer;
+    @inject(MessageService) protected readonly messages!: MessageService;
     @inject(WebSocketConnectionProvider) protected readonly connectionsProvider!: WebSocketConnectionProvider;
     @inject(WorkspaceService) protected readonly workspaceService!: WorkspaceService;
     @inject(WidgetManager) protected readonly widgetManager!: WidgetManager;
@@ -1337,6 +1426,33 @@ export class AkariSettingsCommandContribution implements CommandContribution {
     protected opened: Promise<unknown> | undefined;
 
     registerCommands(commands: CommandRegistry): void {
+        commands.registerCommand({ id: 'akari.library.isMoving' }, { execute: () => this.tools.isLibraryMoving() });
+        commands.registerCommand({ id: 'akari.library.changeLocation', label: '素材の置き場を変える…' }, {
+            execute: async () => {
+                const selected = await this.fileDialogs.showOpenDialog({
+                    title: '素材の置き場を選ぶ', canSelectFiles: false, canSelectFolders: true
+                });
+                if (!selected) { return; }
+                this.messages.info('素材を移動しています…');
+                this.dialog?.showLibraryMoveProgress(undefined);
+                const poll = window.setInterval(() => {
+                    void this.tools.libraryMoveProgress().then(value => this.dialog?.showLibraryMoveProgress(value));
+                }, 400);
+                try {
+                    const result = await this.tools.moveLibrary(selected.path.fsPath());
+                    this.messages.info(result.state === 'pending'
+                        ? '同期される場所です。移動する前に、素材の設定で確認してください。'
+                        : '素材の置き場を変えました。');
+                    await this.dialog?.refreshLibraryStatus();
+                } catch (error) {
+                    this.messages.error(error instanceof Error ? error.message : '素材を移動できませんでした。');
+                    throw error;
+                } finally {
+                    window.clearInterval(poll);
+                    this.dialog?.clearLibraryMoveProgress();
+                }
+            }
+        });
         window.addEventListener('akari-permissions', event => {
             window.akariPermissions = (event as CustomEvent<{ microphone: string }>).detail;
             this.dialog?.refreshPrivacy();

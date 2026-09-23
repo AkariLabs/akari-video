@@ -30,11 +30,13 @@ test('プロジェクトを開いているときは自動表示しない', () =>
     assert.equal(shouldAutoOpenFirstRunSetup({ ...FIRST_RUN, hasOpenProject: true }), false);
 });
 
-test('ダイアログの step は 道具 → 作業場 → 接続 と遷移し、作業場から戻れる', () => {
+test('ダイアログの step は 道具 → 作業場 → 素材 → 接続 と遷移し、戻る・スキップできる', () => {
     assert.equal(nextFirstRunSetupStep('tools', 'next'), 'workspace');
     assert.equal(nextFirstRunSetupStep('workspace', 'back'), 'tools');
-    assert.equal(nextFirstRunSetupStep('workspace', 'workspace-created'), 'connection');
-    assert.equal(nextFirstRunSetupStep('connection', 'back'), 'connection');
+    assert.equal(nextFirstRunSetupStep('workspace', 'workspace-created'), 'library');
+    assert.equal(nextFirstRunSetupStep('library', 'back'), 'workspace');
+    assert.equal(nextFirstRunSetupStep('library', 'skip'), 'connection');
+    assert.equal(nextFirstRunSetupStep('connection', 'back'), 'library');
 });
 
 test('閉じ時を含む marker 記録は自動表示だけが対象になる', () => {

@@ -1,0 +1,60 @@
+{
+  "libBefore": [
+    "audio/lab-song/lab-song.wav",
+    "audio/lab-song/meta.json",
+    "broll/intro/clip.mp4",
+    "broll/intro/meta.json",
+    "still/site-photo/meta.json",
+    "still/site-photo/site-photo.png"
+  ],
+  "firstRunShown": 0,
+  "cardSection": "id=akari-settings-storage class=akari-set-page data-akari-settings-section=storage aria-labelledby=akari-settings-storage-heading style=flex: 1 1 0%; min-height: 0px; overflow-y: auto; | heading=ストレージ",
+  "usageText": "素材の置き場\n現在の場所\n<SCRATCH>/run-later/home/Akari/library\nFinder で開く\n場所を変える…\n合計\n2.6 MB\nLab から\n1.9 MB（1 個）\n素材サイトから\n684 KB（1 個）\n自分の\n12 KB（1 個）\n取り直せるもの\nLab から受け取った素材だけを一覧で確認してからゴミ箱へ移します\n取り直せるものを片づける",
+  "cleanupDialogText": "取り直せる素材を片づける\n\nLab から受け取った 1 個、合計 1.9 MB をゴミ箱へ移します。\n\nLab の曲（1.9 MB）\nやめる\nゴミ箱へ移す",
+  "libAfterCleanup": [
+    "broll/intro/clip.mp4",
+    "broll/intro/meta.json",
+    "still/site-photo/meta.json",
+    "still/site-photo/site-photo.png"
+  ],
+  "usageAfterCleanup": "素材の置き場\n現在の場所\n<SCRATCH>/run-later/home/Akari/library\nFinder で開く\n場所を変える…\n合計\n695 KB\nLab から\n0.0 MB（0 個）\n素材サイトから\n684 KB（1 個）\n自分の\n12 KB（1 個）\n取り直せるもの\nLab から受け取った素材だけを一覧で確認してからゴミ箱へ移します\n取り直せるものを片づける",
+  "overlayAtPlus": [
+    "data-akari-project-launcher-dialog"
+  ],
+  "locationAfterChange": {
+    "version": 0,
+    "root": "<SCRATCH>/run-later/moved-library",
+    "decidedAt": "2026-09-23T01:37:37.888Z",
+    "state": "done",
+    "migratedAt": "2026-09-23T01:37:37.890Z",
+    "notifiedAt": "2026-09-23T01:37:47.186Z"
+  },
+  "movedTree": [
+    "broll/intro/clip.mp4",
+    "broll/intro/meta.json",
+    "still/site-photo/meta.json",
+    "still/site-photo/site-photo.png"
+  ],
+  "oldTreeAfterChange": [],
+  "libraryPanelText": [
+    "自分のクリップ",
+    "サイトの写真"
+  ],
+  "migrate": [
+    "- timeline.tracks: (種別, ref) の visual 行の相対順を保ち、audio 行を用途別の ref へ分離して先頭へ移行",
+    "変換前の退避先: <SCRATCH>/run-later/proj/.akari/backup/edit-2026-09-23T01-38-17-416Z.json",
+    "version 2 へ変換しました。元ファイル: <SCRATCH>/run-later/proj/.akari/backup/edit-2026-09-23T01-38-17-416Z.json",
+    ""
+  ],
+  "renderTail": [
+    "PROGRESS preview=0 path=<SCRATCH>/run-later/proj/.akari/cache/export-preview/0.jpg",
+    "PROGRESS frame=30 total=30",
+    "WARN verify.audio-level: 音声の宣言が無い無音トラック（-91 dB）",
+    "PASS: exports/out.mp4",
+    ""
+  ],
+  "renderExit": 0,
+  "outExists": true,
+  "outProbe": "stream|codec_name=h264|width=640|height=360\nstream|codec_name=aac\nformat|duration=1.000000\n",
+  "ok": true
+}

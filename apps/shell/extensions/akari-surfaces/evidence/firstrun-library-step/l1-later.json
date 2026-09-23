@@ -1,0 +1,50 @@
+{
+  "libBefore": [
+    "audio/lab-song/lab-song.wav",
+    "audio/lab-song/meta.json",
+    "broll/intro/clip.mp4",
+    "broll/intro/meta.json",
+    "still/site-photo/meta.json",
+    "still/site-photo/site-photo.png"
+  ],
+  "firstRunShown": 0,
+  "usageText": "合計: 2.6 MB\n\nLab から: 1.9 MB（1 個）\n\n素材サイトから: 684 KB（1 個）\n\n自分の: 12 KB（1 個）",
+  "cleanupDialogText": "取り直せる素材を片づける\n\nLab から受け取った 1 個、合計 1.9 MB をゴミ箱へ移します。\n\nLab の曲（1.9 MB）\nやめる\nゴミ箱へ移す",
+  "libAfterCleanup": [
+    "broll/intro/clip.mp4",
+    "broll/intro/meta.json",
+    "still/site-photo/meta.json",
+    "still/site-photo/site-photo.png"
+  ],
+  "usageAfterCleanup": "合計: 695 KB\n\nLab から: 0.0 MB（0 個）\n\n素材サイトから: 684 KB（1 個）\n\n自分の: 12 KB（1 個）",
+  "overlayAtPlus": [
+    "data-akari-project-launcher-dialog"
+  ],
+  "locationAfterChange": {
+    "version": 0,
+    "root": "/tmp/fls-l1/run-later/moved-library",
+    "decidedAt": "2026-09-23T01:15:56.135Z",
+    "state": "done",
+    "migratedAt": "2026-09-23T01:15:56.136Z",
+    "notifiedAt": "2026-09-23T01:15:59.073Z"
+  },
+  "movedTree": [
+    "broll/intro/clip.mp4",
+    "broll/intro/meta.json",
+    "still/site-photo/meta.json",
+    "still/site-photo/site-photo.png"
+  ],
+  "oldTreeAfterChange": [],
+  "libraryPanelText": [
+    "自分のクリップ",
+    "サイトの写真"
+  ],
+  "renderExit": 2,
+  "renderTail": [
+    "",
+    "render-cut execution error: このプロジェクトは古い形式です（edit.json version 1）。`akari migrate <dir>` で変換してから開いてください。将来本体から変換器が外れた後は `npx akari-migrate@<版> <dir>` を使います。",
+    ""
+  ],
+  "outExists": false,
+  "ok": true
+}

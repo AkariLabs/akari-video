@@ -1,0 +1,19 @@
+{
+  "libraryText": "素材の置き場\n\n素材はここに入ります。通常は作業場の中の「library」フォルダです。あとから場所を変えることもできます。\n\n/tmp/fls-l1/run-cloud-other/OneDrive/home/Akari/library\n\nFinder で開く場所を変える…\n\n1 個・約 1.4 MB を新しい場所へ移します。\n\nこの場所は OneDrive と同期されています。約 1.4 MB が同期に乗ります。\n\nこのまま使う\n別の場所を選ぶ\n今は移さない\n手持ちの素材フォルダがあれば入れる\n\nAKARI Video Lab の素材を使うには、アカウントをつなぎます。\n\nAKARI Video Lab とつなぐ\n戻る\n今はスキップ\n次へ",
+  "locationBefore": null,
+  "libraryTextAfter": "素材の置き場\n\n素材はここに入ります。通常は作業場の中の「library」フォルダです。あとから場所を変えることもできます。\n\n/tmp/fls-l1/run-cloud-other/local-library\n\nFinder で開く場所を変える…手持ちの素材フォルダがあれば入れる\n\nAKARI Video Lab の素材を使うには、アカウントをつなぎます。\n\nAKARI Video Lab とつなぐ\n戻る\n今はスキップ\n次へ",
+  "otherTree": [
+    "audio/song/meta.json",
+    "audio/song/song.wav"
+  ],
+  "location": {
+    "version": 0,
+    "root": "/tmp/fls-l1/run-cloud-other/local-library",
+    "decidedAt": "2026-09-23T01:15:17.813Z",
+    "state": "done",
+    "migratedAt": "2026-09-23T01:15:17.821Z"
+  },
+  "legacyAfter": [],
+  "creatorLibrary": [],
+  "ok": true
+}

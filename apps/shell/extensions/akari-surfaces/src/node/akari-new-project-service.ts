@@ -1,9 +1,13 @@
-import { injectable } from '@theia/core/shared/inversify';
+import { inject, injectable } from '@theia/core/shared/inversify';
 import { promises as fs } from 'fs';
-import { dirname, resolve } from 'path';
+import { dirname, resolve, join } from 'path';
 import { pathToFileURL } from 'url';
 import URI from '@theia/core/lib/common/uri';
-import { AkariNewProjectService, AkariToolId, AkariToolInstallProgress, AkariToolInstallResult } from '../common/akari-new-project-protocol';
+import { AkariLibraryStatus, AkariNewProjectService, AkariToolId, AkariToolInstallProgress, AkariToolInstallResult } from '../common/akari-new-project-protocol';
+import { LibraryStorageItem, summarizeLibraryStorage } from '../common/library-storage';
+import { selectLabCleanupTargets } from './library-cleanup';
+import { LibraryMigrationContribution } from './library-migration-contribution';
+import { measureLibraryBytes } from './library-measure';
 import { detectTools } from './tool-detection';
 import { installTool } from './tool-install';
 
@@ -22,6 +26,18 @@ interface ProjectScaffoldModule {
  * task 2026-08-04-home-no-root-flow）が使う範囲だけの型。
  */
 interface CreatorRootModule {
+    resolveAssetLibraryRoots(env?: NodeJS.ProcessEnv): { write: string; read: string[] };
+    readLibraryLocation(env?: NodeJS.ProcessEnv): { root: string; state: string; previousRoot?: string } | null;
+    writeLibraryLocation(value: { root: string; state: string; previousRoot?: string }, env?: NodeJS.ProcessEnv): Promise<void>;
+    cloudSyncKind(root: string): string | null;
+    migrateAssetLibrary(options?: { env?: NodeJS.ProcessEnv; dryRun?: boolean; allowCloud?: boolean; onProgress?: (value: { bytes: number; totalBytes: number }) => void }): Promise<{
+        state: string | null; root: string | null; moved: number; bytes: number; totalBytes: number;
+        skipped: string[]; failures: Array<{ path: string; message: string }>; cloud: string | null; busy?: boolean; skippedReason?: string;
+    }>;
+    changeAssetLibraryLocation(root: string, options?: { env?: NodeJS.ProcessEnv; onProgress?: (value: { bytes: number; totalBytes: number }) => void }): Promise<{
+        state: string | null; moved: number; bytes: number; failures: Array<{ path: string; message: string }>;
+        skipped?: string[]; busy?: boolean; skippedReason?: string;
+    }>;
     adoptProject(
         rootDir: string,
         projectDir: string,
@@ -70,6 +86,86 @@ const UPWARD_SEARCH_MAX_DEPTH = 12;
  */
 @injectable()
 export class AkariNewProjectServiceImpl implements AkariNewProjectService {
+    @inject(LibraryMigrationContribution)
+    protected readonly migration!: LibraryMigrationContribution;
+
+    async takeLibraryMigrationNotice(): Promise<string | undefined> {
+        return this.migration.takeNotice();
+    }
+    protected libraryMoving = false;
+    protected libraryProgress: { bytes: number; totalBytes: number } | undefined;
+    async isLibraryMoving(): Promise<boolean> { return this.libraryMoving; }
+    async libraryMoveProgress(): Promise<{ bytes: number; totalBytes: number } | undefined> { return this.libraryProgress; }
+
+    protected async localLibraryItems(): Promise<LibraryStorageItem[]> {
+        const modulePath = await this.findUpwardFile('packages/asset-resolver/src/state.mjs');
+        if (!modulePath) throw new Error('素材の一覧を読み取れませんでした。');
+        const resolver = await importEsm<{ composeState(options: { env: NodeJS.ProcessEnv; fetchImpl: () => Promise<never> }): Promise<{ items: LibraryStorageItem[] }> }>(pathToFileURL(modulePath).toString());
+        const state = await resolver.composeState({ env: process.env, fetchImpl: async () => { throw new Error('offline'); } });
+        return state.items;
+    }
+
+    async libraryStatus(): Promise<AkariLibraryStatus> {
+        const creator = await this.loadCreatorRootModule();
+        const roots = creator.resolveAssetLibraryRoots(process.env);
+        const location = creator.readLibraryLocation(process.env);
+        const preview = await creator.migrateAssetLibrary({ env: process.env, dryRun: true });
+        const legacy = location?.previousRoot ?? roots.read[roots.read.length - 1];
+        let count = 0;
+        for (const category of await fs.readdir(legacy, { withFileTypes: true }).catch(() => [])) {
+            if (!category.isDirectory()) continue;
+            for (const entry of await fs.readdir(join(legacy, category.name), { withFileTypes: true }).catch(() => [])) {
+                if (entry.isDirectory() && await fs.stat(join(legacy, category.name, entry.name, 'meta.json')).then(() => true, () => false)) count++;
+            }
+        }
+        return {
+            root: location?.state === 'declined' ? roots.write : location?.root ?? preview.root ?? roots.write,
+            cloud: preview.cloud ?? creator.cloudSyncKind(location?.root ?? preview.root ?? roots.write),
+            state: location?.state ?? preview.state,
+            previous: { count, bytes: location?.state === 'declined' ? await measureLibraryBytes(legacy) : preview.totalBytes },
+            moving: this.libraryMoving,
+            usage: summarizeLibraryStorage(await this.localLibraryItems())
+        };
+    }
+
+    async moveLibrary(root?: string): Promise<{ state: string | null; moved: number; bytes: number; failures: Array<{ path: string; message: string }> }> {
+        if (this.libraryMoving) throw new Error('素材を移動しています。終わるまでお待ちください。');
+        this.libraryMoving = true;
+        this.libraryProgress = { bytes: 0, totalBytes: 0 };
+        try {
+            const creator = await this.loadCreatorRootModule();
+            const onProgress = (value: { bytes: number; totalBytes: number }): void => { this.libraryProgress = value; };
+            const result = root
+                ? await creator.changeAssetLibraryLocation(root, { env: process.env, onProgress })
+                : await creator.migrateAssetLibrary({ env: process.env, allowCloud: true, onProgress });
+            if (result.busy || result.skippedReason || result.failures.length || result.skipped?.length
+                || (result.state !== 'done' && !(root && result.state === 'pending'))) {
+                throw new Error('素材をすべて移動できませんでした。置き場を確認して、もう一度お試しください。');
+            }
+            return result;
+        } finally { this.libraryMoving = false; this.libraryProgress = undefined; }
+    }
+
+    async declineLibraryMove(): Promise<void> {
+        const creator = await this.loadCreatorRootModule();
+        const status = await this.libraryStatus();
+        const location = creator.readLibraryLocation(process.env);
+        await creator.writeLibraryLocation({ root: status.root, state: 'declined', previousRoot: location?.previousRoot }, process.env);
+    }
+
+    async labCleanupTargets(directories: string[]): Promise<string[]> {
+        if (this.libraryMoving) throw new Error('素材を移動しています。終わるまでお待ちください。');
+        const creator = await this.loadCreatorRootModule();
+        const roots = await Promise.all(creator.resolveAssetLibraryRoots(process.env).read.map(root => fs.realpath(root).catch(() => resolve(root))));
+        const candidates = [];
+        for (const item of await this.localLibraryItems()) {
+            if (!item.libraryDir || !directories.includes(item.libraryDir)) continue;
+            const actualDir = await fs.realpath(item.libraryDir).catch(() => undefined);
+            if (!actualDir || !(await fs.stat(actualDir).catch(() => undefined))?.isDirectory()) continue;
+            candidates.push({ sourceKind: item.sourceKind, libraryDir: item.libraryDir, actualDir });
+        }
+        return selectLabCleanupTargets(candidates, roots, directories);
+    }
 
     async createProject(destinationUri: string): Promise<void> {
         const destination = new URI(destinationUri).path.fsPath();

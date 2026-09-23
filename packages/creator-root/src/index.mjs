@@ -684,7 +684,8 @@ export function readLibraryLocation(env = process.env, { platform = process.plat
     try {
         const value = JSON.parse(readFileSync(path.join(resolveAkariHome(env, { platform }), 'library-location.json'), 'utf8'));
         if (value?.version !== LIBRARY_LOCATION_VERSION || typeof value.root !== 'string'
-            || !path.isAbsolute(value.root) || !LIBRARY_STATES.has(value.state)) return null;
+            || !path.isAbsolute(value.root) || !LIBRARY_STATES.has(value.state)
+            || (value.previousRoot !== undefined && (typeof value.previousRoot !== 'string' || !path.isAbsolute(value.previousRoot)))) return null;
         return value;
     } catch { return null; }
 }
@@ -693,9 +694,11 @@ export function resolveAssetLibraryRoots(env = process.env, { platform = process
     const legacy = path.resolve(resolveAkariHome(env, { platform }), 'assets');
     const location = readLibraryLocation(env, { platform });
     const write = env.AKARI_LIBRARY_ROOT ? path.resolve(env.AKARI_LIBRARY_ROOT)
-        : location && ['migrating', 'done'].includes(location.state) ? path.resolve(location.root) : legacy;
+        : location && ['migrating', 'done'].includes(location.state) ? path.resolve(location.root)
+        : location?.previousRoot ? path.resolve(location.previousRoot) : legacy;
     const seen = new Set();
-    const read = [write, legacy].filter(root => {
+    const read = [write, location?.previousRoot, legacy].filter(root => {
+        if (!root) return false;
         let actual;
         try { actual = realpathSync(root); } catch { actual = root; }
         if (seen.has(actual)) return false;
@@ -703,11 +706,13 @@ export function resolveAssetLibraryRoots(env = process.env, { platform = process
         return true;
     });
     return { write, read,
-        source: env.AKARI_LIBRARY_ROOT ? 'env' : location && ['migrating', 'done'].includes(location.state) ? 'location' : 'legacy' };
+        source: env.AKARI_LIBRARY_ROOT ? 'env' : location && (['migrating', 'done'].includes(location.state) || location.previousRoot)
+            ? 'location' : 'legacy' };
 }
 
 export async function writeLibraryLocation(value, env = process.env, { platform = process.platform } = {}) {
-    if (!path.isAbsolute(value.root) || !LIBRARY_STATES.has(value.state)) throw new Error('Invalid library location');
+    if (!path.isAbsolute(value.root) || !LIBRARY_STATES.has(value.state)
+        || (value.previousRoot !== undefined && !path.isAbsolute(value.previousRoot))) throw new Error('Invalid library location');
     await atomicWriteJson(path.join(resolveAkariHome(env, { platform }), 'library-location.json'),
         { ...value, version: LIBRARY_LOCATION_VERSION });
 }
@@ -868,14 +873,15 @@ async function repairLibraryLinks(legacy, root, home, preserved = new Set()) {
 
 /** Explicit migrate rechecks late writes by old CLI versions; startup only resumes undecided work. */
 export async function migrateAssetLibrary({ env = process.env, platform = process.platform,
-    dryRun = false, automatic = false, notify, fsOps = {} } = {}) {
+    dryRun = false, automatic = false, notify, fsOps = {}, sourceRoot, targetRoot, allowCloud = false, onProgress } = {}) {
     const home = path.resolve(resolveAkariHome(env, { platform }));
-    const legacy = path.join(home, 'assets');
     let location = readLibraryLocation(env, { platform });
+    const legacy = sourceRoot ? path.resolve(sourceRoot) : location?.previousRoot && ['migrating', 'pending'].includes(location.state)
+        ? path.resolve(location.previousRoot) : path.join(home, 'assets');
     const result = { state: location?.state ?? null, root: null, moved: 0, bytes: 0, totalBytes: 0,
         skipped: [], failures: [], cloud: null, notified: false };
-    if (location?.state === 'declined') return result;
-    let root = env.AKARI_LIBRARY_ROOT ? path.resolve(env.AKARI_LIBRARY_ROOT) : location?.root;
+    if (location?.state === 'declined' && !targetRoot) return result;
+    let root = targetRoot ? path.resolve(targetRoot) : env.AKARI_LIBRARY_ROOT ? path.resolve(env.AKARI_LIBRARY_ROOT) : location?.root;
     if (!location?.root) {
         const creator = env.AKARI_CREATOR_ROOT || await tryMachinePointer(env, platform);
         if (!creator || !(await tryReadRootManifest(creator)).ok) return result;
@@ -915,11 +921,12 @@ export async function migrateAssetLibrary({ env = process.env, platform = proces
     if (!release) return { ...result, busy: true };
     try {
         location = readLibraryLocation(env, { platform });
-        if (location?.state === 'declined') return { ...result, state: 'declined' };
+        if (location?.state === 'declined' && !targetRoot) return { ...result, state: 'declined' };
         location = { ...location, version: LIBRARY_LOCATION_VERSION, root,
+            ...(sourceRoot ? { previousRoot: path.resolve(sourceRoot) } : {}),
             decidedAt: location?.decidedAt ?? new Date().toISOString() };
         const save = () => writeLibraryLocation(location, env, { platform });
-        if (result.cloud) {
+        if (result.cloud && !allowCloud) {
             location.state = 'pending'; await save(); return { ...result, state: 'pending' };
         }
         if (!(automatic && location.state === 'done')) {
@@ -972,6 +979,7 @@ export async function migrateAssetLibrary({ env = process.env, platform = proces
             for (const name of (await fs.readdir(legacy).catch(error => { if (error.code === 'ENOENT') return []; throw error; })).sort()) {
                 try { await moveEntry(path.join(legacy, name), path.join(root, name)); }
                 catch (error) { result.failures.push({ path: name, message: error.message }); }
+                onProgress?.({ moved: result.moved, bytes: result.bytes, totalBytes: result.totalBytes });
             }
             try { await repairLibraryLinks(legacy, root, home, preserved); }
             catch (error) { result.failures.push({ path: root, message: error.message }); }
@@ -996,8 +1004,9 @@ export async function migrateAssetLibrary({ env = process.env, platform = proces
                     result.failures.push({ path: path.relative(legacy, alias.source), message: error.message });
                 }
             }
-            location.state = result.failures.length ? 'migrating' : 'done';
+            location.state = result.failures.length || result.skipped.length ? 'migrating' : 'done';
             if (location.state === 'done') location.migratedAt ??= new Date().toISOString();
+            if (location.state === 'done') delete location.previousRoot;
             await save();
         }
         if (location.state === 'done' && !location.notifiedAt && notify) {
@@ -1009,4 +1018,15 @@ export async function migrateAssetLibrary({ env = process.env, platform = proces
         result.failures.push({ path: root, message: error.message });
         return { ...result, state: readLibraryLocation(env, { platform })?.state ?? result.state };
     } finally { await release(); }
+}
+
+/** Place changes reuse the same locked, verified migration as first launch. */
+export async function changeAssetLibraryLocation(root, { env = process.env, platform = process.platform, onProgress } = {}) {
+    if (!path.isAbsolute(root)) throw new Error('Invalid library location');
+    if (env.AKARI_LIBRARY_ROOT && path.resolve(env.AKARI_LIBRARY_ROOT) !== path.resolve(root)) {
+        throw new Error('環境変数で素材の置き場が固定されています');
+    }
+    const current = resolveAssetLibraryRoots(env, { platform }).write;
+    if (path.resolve(current) === path.resolve(root)) return { state: 'done', root, moved: 0, bytes: 0, failures: [] };
+    return migrateAssetLibrary({ env, platform, sourceRoot: current, targetRoot: root, onProgress });
 }

@@ -5,7 +5,60 @@ import { existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { createCreatorRoot, migrateAssetLibrary, resolveAssetLibraryRoots, readLibraryLocation,
-  writeLibraryLocation, cloudSyncKind, updateMachinePointer } from '../src/index.mjs';
+  writeLibraryLocation, cloudSyncKind, updateMachinePointer, changeAssetLibraryLocation } from '../src/index.mjs';
+
+test('置き場の再変更は location を書き、既存移行を使って素材を動かす', async t => {
+  const f = await fixture(t);
+  await put(path.join(f.old, 'audio', 'song', 'song.wav'), 'music');
+  assert.equal((await migrateAssetLibrary({ env: f.env })).state, 'done');
+  const destination = path.join(f.temp, 'other-library');
+  const progress = [];
+  const result = await changeAssetLibraryLocation(destination, { env: f.env, onProgress: value => progress.push(value) });
+  assert.equal(result.state, 'done');
+  assert.equal(readLibraryLocation(f.env).root, destination);
+  assert.equal(resolveAssetLibraryRoots(f.env).write, destination);
+  assert.equal(await fs.readFile(path.join(destination, 'audio', 'song', 'song.wav'), 'utf8'), 'music');
+  assert.ok(progress.length > 0);
+});
+
+test('同期フォルダ pending は旧置き場を使い、同意後に移る', async t => {
+  const f = await fixture(t);
+  await put(path.join(f.old, 'still', 'photo', 'photo.png'), 'image');
+  const destination = path.join(f.temp, 'OneDrive', 'library');
+  const pending = await changeAssetLibraryLocation(destination, { env: f.env });
+  assert.equal(pending.state, 'pending');
+  assert.equal(resolveAssetLibraryRoots(f.env).write, f.old);
+  assert.equal(await fs.readFile(path.join(f.old, 'still', 'photo', 'photo.png'), 'utf8'), 'image');
+  const moved = await migrateAssetLibrary({ env: f.env, allowCloud: true });
+  assert.equal(moved.state, 'done');
+  assert.equal(resolveAssetLibraryRoots(f.env).write, destination);
+});
+
+test('今は移さないの後でも別の置き場を選べる', async t => {
+  const f = await fixture(t);
+  await put(path.join(f.old, 'still', 'photo', 'photo.png'), 'image');
+  await writeLibraryLocation({ root: path.join(f.temp, 'OneDrive', 'library'), state: 'declined' }, f.env);
+  const destination = path.join(f.temp, 'local-library');
+  assert.equal((await changeAssetLibraryLocation(destination, { env: f.env })).state, 'done');
+  assert.equal(resolveAssetLibraryRoots(f.env).write, destination);
+});
+
+test('再変更が途中で止まっても旧置き場を読み、次回起動で続ける', async t => {
+  const f = await fixture(t);
+  await put(path.join(f.old, 'audio', 'a', 'a.wav'), 'a');
+  await put(path.join(f.old, 'still', 'b', 'b.png'), 'b');
+  await migrateAssetLibrary({ env: f.env });
+  const destination = path.join(f.temp, 'new-library');
+  await put(path.join(destination, 'still', 'b', 'collision.png'), 'other');
+  const first = await changeAssetLibraryLocation(destination, { env: f.env });
+  assert.equal(first.state, 'migrating');
+  assert.deepEqual(resolveAssetLibraryRoots(f.env).read, [destination, f.root, f.old]);
+  assert.equal(await fs.readFile(path.join(f.root, 'still', 'b', 'b.png'), 'utf8'), 'b');
+  await fs.rm(path.join(destination, 'still', 'b'), { recursive: true });
+  assert.equal((await migrateAssetLibrary({ env: f.env, automatic: true })).state, 'done');
+  assert.equal(await fs.readFile(path.join(destination, 'still', 'b', 'b.png'), 'utf8'), 'b');
+  assert.equal(readLibraryLocation(f.env).previousRoot, undefined);
+});
 
 async function fixture(t, name = 'creator') {
   const temp = await fs.mkdtemp(path.join(tmpdir(), 'library-migration-'));
