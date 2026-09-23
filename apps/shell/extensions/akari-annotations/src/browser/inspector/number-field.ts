@@ -265,6 +265,25 @@ export function createNumberField(options: NumberFieldOptions): HTMLElement {
         previewInput();
     });
     input.addEventListener('blur', () => void commitInput());
+    const stepInput = (key: string, shiftKey: boolean): void => {
+        cancelInputPreview();
+        const current = Number(input.value);
+        if (!Number.isFinite(current)) return;
+        const displayNext = numericStep(
+            current, key === 'ArrowUp' ? 1 : -1,
+            displayStep, shiftKey, displayMin, displayMax
+        );
+        const next = fromDisplay(displayNext);
+        input.value = formatNumberStep(displayNext, displayStep, options.displayPrecision);
+        options.onPreview?.(next);
+        void options.onCommit(next).then(ok => {
+            if (!ok) restore();
+        });
+    };
+    input.addEventListener('akari.inspector.numberStepShortcut', event => {
+        const detail = (event as CustomEvent<{ key: string; shiftKey: boolean }>).detail;
+        if (detail?.key === 'ArrowUp' || detail?.key === 'ArrowDown') stepInput(detail.key, detail.shiftKey);
+    });
     input.addEventListener('keydown', event => {
         if (event.key === 'Enter') {
             event.preventDefault();
@@ -273,21 +292,13 @@ export function createNumberField(options: NumberFieldOptions): HTMLElement {
             event.preventDefault();
             restore();
             input.blur();
-        } else if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
-            cancelInputPreview();
+        } else if ((event.key === 'ArrowUp' || event.key === 'ArrowDown')
+            && (event.altKey || event.metaKey || event.ctrlKey)) {
+            // The four registered bindings handle plain/Shift arrows. Other modifiers kept the
+            // same numeric step in the old input handler and have no dedicated shortcut entry.
+            if (composing || event.isComposing || event.keyCode === 229) return;
             event.preventDefault();
-            const current = Number(input.value);
-            if (!Number.isFinite(current)) return;
-            const displayNext = numericStep(
-                current, event.key === 'ArrowUp' ? 1 : -1,
-                displayStep, event.shiftKey, displayMin, displayMax
-            );
-            const next = fromDisplay(displayNext);
-            input.value = formatNumberStep(displayNext, displayStep, options.displayPrecision);
-            options.onPreview?.(next);
-            void options.onCommit(next).then(ok => {
-                if (!ok) restore();
-            });
+            stepInput(event.key, event.shiftKey);
         }
     });
 

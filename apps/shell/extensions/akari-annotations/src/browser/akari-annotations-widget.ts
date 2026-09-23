@@ -22,6 +22,8 @@ import { CommandRegistry, CommandService, Disposable, MessageService } from '@th
 import { BinaryBuffer } from '@theia/core/lib/common/buffer';
 import { ApplicationShell, BaseWidget, StorageService } from '@theia/core/lib/browser';
 import { ContextKeyService } from '@theia/core/lib/browser/context-key-service';
+import { KeybindingRegistry } from '@theia/core/lib/browser/keybinding';
+import { AKARI_SHORTCUTS } from './akari-shortcuts';
 import { PreferenceService } from '@theia/core/lib/common/preferences';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
 import { FileChangeType } from '@theia/filesystem/lib/common/files';
@@ -667,16 +669,6 @@ const TIMELINE_ADJUST_BYPASS_EVENT = 'akari.timeline.adjustBypass';
 // akari-preview 側とミラー（文字列のみ、cross-package import なし）。新規プレビューへ現在のバイパスを再送する。
 const PREVIEW_ADJUST_BYPASS_QUERY_EVENT = 'akari.preview.adjustBypassQuery';
 const TIMELINE_LOOP_RANGE_EVENT = 'akari.timeline.loopRange';
-const SHORTCUTS_HELP_TEXT = [
-    'Space: 再生 / 停止', '← →: 1フレーム移動', 'Shift+← →: 1秒移動',
-    'V / A: 選択', 'B / C: 分割', 'F: 仮枠', 'T: 文字を置く', 'N / M: スナップ切替',
-    'Delete / Backspace: 削除', 'Alt+Delete: 片側だけ削除',
-    '⌘C / ⌘X / ⌘V: コピー / カット / ペースト', '⌘G / Shift+⌘G: まとめる / ばらす',
-    'Esc: 選択解除', '\\ / Enter: 親 / 子を選ぶ',
-    'Alt+矢印: 位置を1px移動', 'Shift+Alt+矢印: 位置を10px移動',
-    ']: 1つ前へ', '[: 1つ後ろへ'
-].join('\n');
-
 // 素材カード D&D（task 2026-08-10-material-dnd-timeline 司令塔裁定4）。mime 文字列・イベント名は
 // 送信側（akari-role-buckets-widget.tsx）と独立にリテラル宣言する（PREVIEW_PLAYBACK_TICK_EVENT と
 // 同じ流儀 — 拡張間の npm 依存を作らない）。
@@ -873,6 +865,47 @@ export class AkariAnnotationsWidget extends BaseWidget {
 
     @inject(ContextKeyService)
     protected readonly contextKeys!: ContextKeyService;
+
+    @inject(KeybindingRegistry)
+    protected readonly keybindings!: KeybindingRegistry;
+
+    protected shortcutHandler?: (event: KeyboardEvent) => void;
+
+    runRegisteredShortcut(event: KeyboardEvent): void {
+        this.shortcutHandler?.(event);
+    }
+
+    getTimelineSnapEnabled(): boolean {
+        return this.snapEnabled;
+    }
+
+    canRunRegisteredShortcut(id: string): boolean {
+        if (id === 'akari.timeline.deleteKeyframe') return !!this.selectionModel.keyframeSelection;
+        if (id === 'akari.timeline.clearSelection') {
+            return !!(this.cancelFrameDraw || this.dragState || this.trimmerItemId !== undefined
+                || this.trimmerAudioId !== undefined || this.focusScope.rootId !== null
+                || this.selection || this.multiSelection.length > 0 || this.selectedGap);
+        }
+        if (id === 'akari.timeline.delete' || id === 'akari.timeline.deleteOneSide') {
+            return !!(this.selectionModel.keyframeSelection || this.selection || this.multiSelection.length > 0);
+        }
+        if (id === 'akari.timeline.selectParent' || id === 'akari.timeline.selectChild') {
+            if (this.selection?.kind !== 'item') return false;
+            return !!(id.endsWith('selectParent')
+                ? parentRow(this.timelineTreeRows, this.selection.id)
+                : childRow(this.timelineTreeRows, this.selection.id));
+        }
+        return true;
+    }
+
+    protected refreshShortcutsHelp(): void {
+        this.toolbar.title = AKARI_SHORTCUTS.filter(shortcut => shortcut.command.category === 'タイムライン'
+            || shortcut.command.category === '再生').map(shortcut => {
+            const keys = this.keybindings.getKeybindingsForCommand(shortcut.command.id)
+                .map(binding => this.keybindings.acceleratorFor(binding, '+').join(' '));
+            return `${keys.join(' / ') || '未割り当て'}: ${shortcut.command.label}`;
+        }).join('\n');
+    }
 
     @inject(MessageService)
     protected readonly messages!: MessageService;
@@ -2291,7 +2324,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
 `;
         this.node.appendChild(style);
 
-        this.toolbar.title = SHORTCUTS_HELP_TEXT;
+        this.refreshShortcutsHelp();
+        this.toDispose.push(this.keybindings.onKeybindingsChanged(() => this.refreshShortcutsHelp()));
+        this.toolbar.addEventListener('mouseenter', () => this.refreshShortcutsHelp());
         const nudgeSession = new NudgeCommitSession();
         let nudgeValue: { id: string; path: 'transform.x' | 'transform.y'; value: number } | undefined;
         const selectedVisualItemId = (): string | undefined => {
@@ -2314,8 +2349,6 @@ export class AkariAnnotationsWidget extends BaseWidget {
             // webview から転送してきた合成 keydown も通る。転送では target が iframe になって
             // isEditableTarget を素通りするため、変換判定が最後の砦になる。
             if (isImeCompositionKeydown(event)) return;
-            // キー操作は確定済みの幾何（選択・再生ヘッド位置）を前提にするため、保留中のズーム描画を先に流す。
-            this.flushStripRender();
             // Theia の表示中モーダルは window capture より後でキーを受ける。先にタイムラインが消費しない。
             const modalOpen = Array.from(document.querySelectorAll?.('.dialogOverlay, [aria-modal="true"]') ?? [])
                 .some(element => element.getClientRects().length > 0
@@ -2636,10 +2669,16 @@ export class AkariAnnotationsWidget extends BaseWidget {
             }
         }));
 
-        window.addEventListener('keydown', keydown, true);
+        this.shortcutHandler = keydown;
+        const modifiersOnly = (event: KeyboardEvent): void => {
+            if (event.key === 'Alt') this.updateDragAltKey(event.altKey);
+            if (!isImeCompositionKeydown(event)) this.flushStripRender();
+        };
+        window.addEventListener('keydown', modifiersOnly, true);
         window.addEventListener('keyup', keyup, true);
         this.toDispose.push(Disposable.create(() => {
-            window.removeEventListener('keydown', keydown, true);
+            window.removeEventListener('keydown', modifiersOnly, true);
+            this.shortcutHandler = undefined;
             window.removeEventListener('keyup', keyup, true);
             this.stripRenderThrottle.cancel();
             this.closeAnnotationPopup();

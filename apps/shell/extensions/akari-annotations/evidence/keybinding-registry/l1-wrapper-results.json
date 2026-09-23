@@ -1,0 +1,733 @@
+{
+  "electronPid": 20372,
+  "registry": {
+    "commandsWithKeys": 40,
+    "bindings": 47,
+    "rows": [
+      {
+        "id": "akari.timeline.undo",
+        "label": "元に戻す",
+        "category": "編集",
+        "keybinding": "ctrlcmd+z",
+        "accelerator": "⌘Z",
+        "when": "!akariHistoryEditableFocus",
+        "scope": 0
+      },
+      {
+        "id": "akari.timeline.redo",
+        "label": "やり直す",
+        "category": "編集",
+        "keybinding": "ctrlcmd+shift+z",
+        "accelerator": "⌘⇧Z",
+        "when": "!akariHistoryEditableFocus",
+        "scope": 0
+      },
+      {
+        "id": "akari.timeline.selectTool",
+        "label": "選択ツール",
+        "category": "タイムライン",
+        "keybinding": "a",
+        "accelerator": "A",
+        "when": "akariTimelineVisible && !akariModalOpen && !akariEditableFocus && !akariImeComposing",
+        "scope": 0
+      },
+      {
+        "id": "akari.timeline.selectTool",
+        "label": "選択ツール",
+        "category": "タイムライン",
+        "keybinding": "v",
+        "accelerator": "V",
+        "when": "akariTimelineVisible && !akariModalOpen && !akariEditableFocus && !akariImeComposing",
+        "scope": 0
+      },
+      {
+        "id": "akari.timeline.razorTool",
+        "label": "分割ツール",
+        "category": "タイムライン",
+        "keybinding": "c",
+        "accelerator": "C",
+        "when": "akariTimelineVisible && !akariModalOpen && !akariEditableFocus && !akariImeComposing",
+        "scope": 0
+      },
+      {
+        "id": "akari.timeline.razorTool",
+        "label": "分割ツール",
+        "category": "タイムライン",
+        "keybinding": "b",
+        "accelerator": "B",
+        "when": "akariTimelineVisible && !akariModalOpen && !akariEditableFocus && !akariImeComposing",
+        "scope": 0
+      },
+      {
+        "id": "akari.timeline.frameTool",
+        "label": "仮枠ツール",
+        "category": "タイムライン",
+        "keybinding": "f",
+        "accelerator": "F",
+        "when": "akariTimelineVisible && !akariModalOpen && !akariEditableFocus && !akariImeComposing",
+        "scope": 0
+      },
+      {
+        "id": "akari.timeline.toggleSnap",
+        "label": "スナップの切り替え",
+        "category": "タイムライン",
+        "keybinding": "ctrl+shift+alt+9",
+        "accelerator": "⌃⌥⇧9",
+        "when": null,
+        "scope": 1
+      },
+      {
+        "id": "akari.timeline.toggleSnap",
+        "label": "スナップの切り替え",
+        "category": "タイムライン",
+        "keybinding": "m",
+        "accelerator": "M",
+        "when": "akariTimelineVisible && !akariModalOpen && !akariEditableFocus && !akariImeComposing",
+        "scope": 0
+      },
+      {
+        "id": "akari.timeline.toggleSnap",
+        "label": "スナップの切り替え",
+        "category": "タイムライン",
+        "keybinding": "n",
+        "accelerator": "N",
+        "when": "akariTimelineVisible && !akariModalOpen && !akariEditableFocus && !akariImeComposing",
+        "scope": 0
+      },
+      {
+        "id": "akari.timeline.delete",
+        "label": "削除",
+        "category": "タイムライン",
+        "keybinding": "backspace",
+        "accelerator": "Backspace",
+        "when": "akariTimelineVisible && !akariModalOpen && !akariEditableFocus && !akariImeComposing",
+        "scope": 0
+      },
+      {
+        "id": "akari.timeline.delete",
+        "label": "削除",
+        "category": "タイムライン",
+        "keybinding": "delete",
+        "accelerator": "Delete",
+        "when": "akariTimelineVisible && !akariModalOpen && !akariEditableFocus && !akariImeComposing",
+        "scope": 0
+      },
+      {
+        "id": "akari.timeline.deleteKeyframe",
+        "label": "キーフレーム削除",
+        "category": "タイムライン",
+        "keybinding": "backspace",
+        "accelerator": "Backspace",
+        "when": "akariTimelineVisible && !akariModalOpen && !akariEditableFocus && !akariImeComposing && akariKeyframeSelected",
+        "scope": 0
+      },
+      {
+        "id": "akari.timeline.deleteKeyframe",
+        "label": "キーフレーム削除",
+        "category": "タイムライン",
+        "keybinding": "delete",
+        "accelerator": "Delete",
+        "when": "akariTimelineVisible && !akariModalOpen && !akariEditableFocus && !akariImeComposing && akariKeyframeSelected",
+        "scope": 0
+      },
+      {
+        "id": "akari.timeline.deleteOneSide",
+        "label": "映像か音声の片方だけ削除",
+        "category": "タイムライン",
+        "keybinding": "alt+backspace",
+        "accelerator": "⌥Backspace",
+        "when": "akariTimelineVisible && !akariModalOpen && !akariEditableFocus && !akariImeComposing",
+        "scope": 0
+      },
+      {
+        "id": "akari.timeline.deleteOneSide",
+        "label": "映像か音声の片方だけ削除",
+        "category": "タイムライン",
+        "keybinding": "alt+delete",
+        "accelerator": "⌥Delete",
+        "when": "akariTimelineVisible && !akariModalOpen && !akariEditableFocus && !akariImeComposing",
+        "scope": 0
+      },
+      {
+        "id": "akari.timeline.copy",
+        "label": "コピー",
+        "category": "タイムライン",
+        "keybinding": "ctrlcmd+c",
+        "accelerator": "⌘C",
+        "when": "akariTimelineVisible && !akariModalOpen && !akariEditableFocus && !akariImeComposing && (akariTimelineFocus || (!akariFocusOutsideTimeline && !akariTextSelection))",
+        "scope": 0
+      },
+      {
+        "id": "akari.timeline.cut",
+        "label": "カット",
+        "category": "タイムライン",
+        "keybinding": "ctrlcmd+x",
+        "accelerator": "⌘X",
+        "when": "akariTimelineVisible && !akariModalOpen && !akariEditableFocus && !akariImeComposing && (akariTimelineFocus || (!akariFocusOutsideTimeline && !akariTextSelection))",
+        "scope": 0
+      },
+      {
+        "id": "akari.timeline.paste",
+        "label": "ペースト",
+        "category": "タイムライン",
+        "keybinding": "ctrlcmd+v",
+        "accelerator": "⌘V",
+        "when": "akariTimelineVisible && !akariModalOpen && !akariEditableFocus && !akariImeComposing && (akariTimelineFocus || (!akariFocusOutsideTimeline && !akariTextSelection))",
+        "scope": 0
+      },
+      {
+        "id": "akari.timeline.group",
+        "label": "まとめる",
+        "category": "タイムライン",
+        "keybinding": "ctrlcmd+g",
+        "accelerator": "⌘G",
+        "when": "akariTimelineVisible && !akariModalOpen && !akariEditableFocus && !akariImeComposing",
+        "scope": 0
+      },
+      {
+        "id": "akari.timeline.ungroup",
+        "label": "ばらす",
+        "category": "タイムライン",
+        "keybinding": "ctrlcmd+shift+g",
+        "accelerator": "⌘⇧G",
+        "when": "akariTimelineVisible && !akariModalOpen && !akariEditableFocus && !akariImeComposing",
+        "scope": 0
+      },
+      {
+        "id": "akari.timeline.moveTrackUp",
+        "label": "1 つ上のトラックへ",
+        "category": "タイムライン",
+        "keybinding": "]",
+        "accelerator": "]",
+        "when": "akariTimelineVisible && !akariModalOpen && !akariEditableFocus && !akariImeComposing",
+        "scope": 0
+      },
+      {
+        "id": "akari.timeline.moveTrackDown",
+        "label": "1 つ下のトラックへ",
+        "category": "タイムライン",
+        "keybinding": "[",
+        "accelerator": "[",
+        "when": "akariTimelineVisible && !akariModalOpen && !akariEditableFocus && !akariImeComposing",
+        "scope": 0
+      },
+      {
+        "id": "akari.timeline.nudgeleft",
+        "label": "位置を 1px 動かす（左）",
+        "category": "タイムライン",
+        "keybinding": "alt+left",
+        "accelerator": "⌥←",
+        "when": "akariTimelineVisible && !akariModalOpen && !akariEditableFocus && !akariImeComposing",
+        "scope": 0
+      },
+      {
+        "id": "akari.timeline.nudge10left",
+        "label": "位置を 10px 動かす（左）",
+        "category": "タイムライン",
+        "keybinding": "shift+alt+left",
+        "accelerator": "⌥⇧←",
+        "when": "akariTimelineVisible && !akariModalOpen && !akariEditableFocus && !akariImeComposing",
+        "scope": 0
+      },
+      {
+        "id": "akari.timeline.nudgeright",
+        "label": "位置を 1px 動かす（右）",
+        "category": "タイムライン",
+        "keybinding": "alt+right",
+        "accelerator": "⌥→",
+        "when": "akariTimelineVisible && !akariModalOpen && !akariEditableFocus && !akariImeComposing",
+        "scope": 0
+      },
+      {
+        "id": "akari.timeline.nudge10right",
+        "label": "位置を 10px 動かす（右）",
+        "category": "タイムライン",
+        "keybinding": "shift+alt+right",
+        "accelerator": "⌥⇧→",
+        "when": "akariTimelineVisible && !akariModalOpen && !akariEditableFocus && !akariImeComposing",
+        "scope": 0
+      },
+      {
+        "id": "akari.timeline.nudgeup",
+        "label": "位置を 1px 動かす（上）",
+        "category": "タイムライン",
+        "keybinding": "alt+up",
+        "accelerator": "⌥↑",
+        "when": "akariTimelineVisible && !akariModalOpen && !akariEditableFocus && !akariImeComposing",
+        "scope": 0
+      },
+      {
+        "id": "akari.timeline.nudge10up",
+        "label": "位置を 10px 動かす（上）",
+        "category": "タイムライン",
+        "keybinding": "shift+alt+up",
+        "accelerator": "⌥⇧↑",
+        "when": "akariTimelineVisible && !akariModalOpen && !akariEditableFocus && !akariImeComposing",
+        "scope": 0
+      },
+      {
+        "id": "akari.timeline.nudgedown",
+        "label": "位置を 1px 動かす（下）",
+        "category": "タイムライン",
+        "keybinding": "alt+down",
+        "accelerator": "⌥↓",
+        "when": "akariTimelineVisible && !akariModalOpen && !akariEditableFocus && !akariImeComposing",
+        "scope": 0
+      },
+      {
+        "id": "akari.timeline.nudge10down",
+        "label": "位置を 10px 動かす（下）",
+        "category": "タイムライン",
+        "keybinding": "shift+alt+down",
+        "accelerator": "⌥⇧↓",
+        "when": "akariTimelineVisible && !akariModalOpen && !akariEditableFocus && !akariImeComposing",
+        "scope": 0
+      },
+      {
+        "id": "akari.timeline.selectParent",
+        "label": "親を選ぶ",
+        "category": "タイムライン",
+        "keybinding": "\\",
+        "accelerator": "⌃⌥¥",
+        "when": "akariTimelineVisible && !akariModalOpen && !akariEditableFocus && !akariImeComposing",
+        "scope": 0
+      },
+      {
+        "id": "akari.timeline.selectChild",
+        "label": "子を選ぶ",
+        "category": "タイムライン",
+        "keybinding": "enter",
+        "accelerator": "Enter",
+        "when": "akariTimelineVisible && !akariModalOpen && !akariEditableFocus && !akariImeComposing",
+        "scope": 0
+      },
+      {
+        "id": "akari.timeline.clearSelection",
+        "label": "選択を外す",
+        "category": "タイムライン",
+        "keybinding": "escape",
+        "accelerator": "Escape",
+        "when": "akariTimelineVisible && !akariModalOpen && !akariEditableFocus && !akariImeComposing && !akariFocusOutsideTimeline && !akariInspectorFocus",
+        "scope": 0
+      },
+      {
+        "id": "akari.timeline.togglePlayback",
+        "label": "再生 / 停止",
+        "category": "再生",
+        "keybinding": "space",
+        "accelerator": "Space",
+        "when": "akariTimelineVisible && !akariModalOpen && !akariEditableFocus && !akariImeComposing && !akariFocusOnControl",
+        "scope": 0
+      },
+      {
+        "id": "akari.timeline.previousFrame",
+        "label": "1 コマ戻る",
+        "category": "再生",
+        "keybinding": "left",
+        "accelerator": "←",
+        "when": "akariTimelineVisible && !akariModalOpen && !akariEditableFocus && !akariImeComposing",
+        "scope": 0
+      },
+      {
+        "id": "akari.timeline.nextFrame",
+        "label": "1 コマ進む",
+        "category": "再生",
+        "keybinding": "right",
+        "accelerator": "→",
+        "when": "akariTimelineVisible && !akariModalOpen && !akariEditableFocus && !akariImeComposing",
+        "scope": 0
+      },
+      {
+        "id": "akari.timeline.previousSecond",
+        "label": "1 秒戻る",
+        "category": "再生",
+        "keybinding": "shift+left",
+        "accelerator": "⇧←",
+        "when": "akariTimelineVisible && !akariModalOpen && !akariEditableFocus && !akariImeComposing",
+        "scope": 0
+      },
+      {
+        "id": "akari.timeline.nextSecond",
+        "label": "1 秒進む",
+        "category": "再生",
+        "keybinding": "shift+right",
+        "accelerator": "⇧→",
+        "when": "akariTimelineVisible && !akariModalOpen && !akariEditableFocus && !akariImeComposing",
+        "scope": 0
+      },
+      {
+        "id": "akari.daihon.selectAllRows",
+        "label": "行をすべて選ぶ",
+        "category": "台本",
+        "keybinding": "ctrlcmd+a",
+        "accelerator": "⌘A",
+        "when": "akariDaihonRowsFocus && !akariEditableFocus && !akariImeComposing",
+        "scope": 0
+      },
+      {
+        "id": "akari.daihon.clearRowSelection",
+        "label": "行の選択を外す",
+        "category": "台本",
+        "keybinding": "escape",
+        "accelerator": "Escape",
+        "when": "akariDaihonRowsFocus && !akariEditableFocus && !akariImeComposing",
+        "scope": 0
+      },
+      {
+        "id": "akari.inspector.clearSolo",
+        "label": "インスペクターのソロを外す",
+        "category": "インスペクター",
+        "keybinding": "escape",
+        "accelerator": "Escape",
+        "when": "akariInspectorFocus && akariInspectorSolo && !akariEditableFocus && !akariImeComposing",
+        "scope": 0
+      },
+      {
+        "id": "akari.inspector.stepup",
+        "label": "数値を 1 ずつ増減（増）",
+        "category": "インスペクター",
+        "keybinding": "up",
+        "accelerator": "↑",
+        "when": "akariNumberFieldFocus && !akariImeComposing",
+        "scope": 0
+      },
+      {
+        "id": "akari.inspector.step10up",
+        "label": "数値を 10 ずつ増減（増）",
+        "category": "インスペクター",
+        "keybinding": "shift+up",
+        "accelerator": "⇧↑",
+        "when": "akariNumberFieldFocus && !akariImeComposing",
+        "scope": 0
+      },
+      {
+        "id": "akari.inspector.stepdown",
+        "label": "数値を 1 ずつ増減（減）",
+        "category": "インスペクター",
+        "keybinding": "down",
+        "accelerator": "↓",
+        "when": "akariNumberFieldFocus && !akariImeComposing",
+        "scope": 0
+      },
+      {
+        "id": "akari.inspector.step10down",
+        "label": "数値を 10 ずつ増減（減）",
+        "category": "インスペクター",
+        "keybinding": "shift+down",
+        "accelerator": "⇧↓",
+        "when": "akariNumberFieldFocus && !akariImeComposing",
+        "scope": 0
+      },
+      {
+        "id": "akari.caption.placeText",
+        "label": "文字を置く",
+        "category": "タイムライン",
+        "keybinding": "t",
+        "accelerator": "T",
+        "when": "akariTimelineVisible && !akariModalOpen && !akariEditableFocus && !akariImeComposing",
+        "scope": 0
+      }
+    ]
+  },
+  "keymapsWidget": {
+    "title": "Keyboard Shortcuts",
+    "akariRows": 47,
+    "akariCommands": 40,
+    "japaneseLabelRows": 47,
+    "sample": [
+      {
+        "id": "akari.inspector.clearSolo",
+        "label": "インスペクター: インスペクターのソロを外す",
+        "key": "escape",
+        "when": "akariInspectorFocus && akariInspectorSolo && !akariEditableFocus && !akariImeComposing"
+      },
+      {
+        "id": "akari.inspector.stepdown",
+        "label": "インスペクター: 数値を 1 ずつ増減（減）",
+        "key": "down",
+        "when": "akariNumberFieldFocus && !akariImeComposing"
+      },
+      {
+        "id": "akari.inspector.stepup",
+        "label": "インスペクター: 数値を 1 ずつ増減（増）",
+        "key": "up",
+        "when": "akariNumberFieldFocus && !akariImeComposing"
+      },
+      {
+        "id": "akari.inspector.step10down",
+        "label": "インスペクター: 数値を 10 ずつ増減（減）",
+        "key": "shift+down",
+        "when": "akariNumberFieldFocus && !akariImeComposing"
+      },
+      {
+        "id": "akari.inspector.step10up",
+        "label": "インスペクター: 数値を 10 ずつ増減（増）",
+        "key": "shift+up",
+        "when": "akariNumberFieldFocus && !akariImeComposing"
+      },
+      {
+        "id": "akari.timeline.moveTrackDown",
+        "label": "タイムライン: 1 つ下のトラックへ",
+        "key": "[",
+        "when": "akariTimelineVisible && !akariModalOpen && !akariEditableFocus && !akariImeComposing"
+      }
+    ],
+    "visibleRowsForTimelineSearch": 34
+  },
+  "help": {
+    "lineCount": 31,
+    "missing": [],
+    "overrideLine": "⌃⌥⇧9 / M / N: スナップの切り替え",
+    "text": "A / V: 選択ツール\nC / B: 分割ツール\nF: 仮枠ツール\n⌃⌥⇧9 / M / N: スナップの切り替え\nT: 文字を置く\nBackspace / Delete: 削除\nBackspace / Delete: キーフレーム削除\n⌥Backspace / ⌥Delete: 映像か音声の片方だけ削除\n⌘C: コピー\n⌘X: カット\n⌘V: ペースト\n⌘G: まとめる\n⌘⇧G: ばらす\n]: 1 つ上のトラックへ\n[: 1 つ下のトラックへ\n⌥←: 位置を 1px 動かす（左）\n⌥⇧←: 位置を 10px 動かす（左）\n⌥→: 位置を 1px 動かす（右）\n⌥⇧→: 位置を 10px 動かす（右）\n⌥↑: 位置を 1px 動かす（上）\n⌥⇧↑: 位置を 10px 動かす（上）\n⌥↓: 位置を 1px 動かす（下）\n⌥⇧↓: 位置を 10px 動かす（下）\n⌃⌥¥: 親を選ぶ\nEnter: 子を選ぶ\nEscape: 選択を外す\nSpace: 再生 / 停止\n←: 1 コマ戻る\n→: 1 コマ進む\n⇧←: 1 秒戻る\n⇧→: 1 秒進む"
+  },
+  "space": {
+    "before": false,
+    "afterFirst": true,
+    "afterSecond": false,
+    "toggles": [
+      0,
+      1,
+      2
+    ]
+  },
+  "arrows": {
+    "before": 0.4116133333333333,
+    "afterRight": 0.4449466666666666,
+    "afterLeft": 0.4116133333333333,
+    "afterShiftRight": 1.4116133333333334,
+    "afterShiftLeft": 0.4116133333333334
+  },
+  "tools": {
+    "B": {
+      "before": "select",
+      "after": "razor"
+    },
+    "V": {
+      "before": "razor",
+      "after": "select"
+    },
+    "F": {
+      "before": "select",
+      "after": "frame"
+    },
+    "C": {
+      "before": "frame",
+      "after": "razor"
+    },
+    "A": {
+      "before": "razor",
+      "after": "select"
+    },
+    "N": {
+      "before": false,
+      "after": true
+    },
+    "M": {
+      "before": true,
+      "after": false
+    }
+  },
+  "tKey": {
+    "captionsBefore": 2,
+    "captionsAfter": 3
+  },
+  "esc": {
+    "before": "{\"kind\":\"cut\",\"index\":0}",
+    "after": null
+  },
+  "deleteUndoRedo": {
+    "before": 2,
+    "afterDelete": 1,
+    "afterUndo": 2,
+    "afterRedo": 1,
+    "afterUndoAgain": 2
+  },
+  "clipboard": {
+    "copiesBefore": 0,
+    "copiesAfter": 1,
+    "clipsBeforeCut": 2,
+    "afterCut": 1,
+    "afterPaste": 3,
+    "pasteCommandsExecuted": [
+      "akari.timeline.paste"
+    ],
+    "videoItemsAfterPaste": [
+      {
+        "id": "left",
+        "at": 0,
+        "duration": 12
+      },
+      {
+        "id": "right-copy",
+        "at": 12,
+        "duration": 60
+      },
+      {
+        "id": "left-split",
+        "at": 72,
+        "duration": 18
+      }
+    ]
+  },
+  "trackMoveSelectionAtStart": "{\"kind\":\"cut\",\"index\":0}",
+  "bracketPhysicalCodes": {
+    "]": "Backslash",
+    "[": "BracketRight"
+  },
+  "bracketDebug": {
+    "events": [],
+    "executed": [
+      "akari.timeline.moveTrackUp",
+      "akari.inspector.open"
+    ],
+    "selection": "{\"kind\":\"cut\",\"index\":0}",
+    "resolved": "[{\"key\":{\"code\":\"Backslash\",\"keyCode\":220,\"easyString\":\"\\\\\"},\"ctrl\":false,\"shift\":false,\"alt\":false,\"meta\":false}]",
+    "footer": "クリップを前後へ移動しました。",
+    "active": "monaco-enable-motion underline-links vs-dark dark-theia mac theia-dark"
+  },
+  "trackMove": {
+    "before": "video",
+    "afterBracketRight": "upper",
+    "tracksBefore": 4,
+    "tracksAfterRight": 4,
+    "selectionAfterRight": "{\"kind\":\"cut\",\"index\":0}",
+    "movedChip": "applySelection(item:left)",
+    "selectionBeforeLeft": "{\"kind\":\"item\",\"id\":\"left\",\"itemKind\":\"media\",\"trackId\":\"upper\"}",
+    "afterBracketLeft": "video"
+  },
+  "group": {
+    "multiSelectionBefore": 2,
+    "itemsBefore": 2,
+    "itemsAfter": 1,
+    "groupId": "g-1",
+    "groupChildren": 2,
+    "afterUngroup": 2,
+    "restored": 2
+  },
+  "numberField": {
+    "field": "長さ",
+    "active": "BODY.monaco-enable-motion.underline-links",
+    "before": 2,
+    "afterUp": {
+      "focused": true,
+      "value": 2.5
+    },
+    "afterShiftUp": {
+      "focused": true,
+      "value": 7.5
+    },
+    "afterAltDown": {
+      "focused": true,
+      "value": 7
+    },
+    "afterShiftDown": {
+      "focused": true,
+      "value": 2
+    }
+  },
+  "webviewForward": {
+    "frame": {
+      "active": "IFRAME",
+      "w": 581
+    },
+    "activeAtKey": "IFRAME.webview",
+    "playheadBefore": 0.4,
+    "playheadAfterRight": 0.43333333333333335,
+    "clipsBeforeDelete": 2,
+    "clipsAfterDelete": 1
+  },
+  "keymapsOverride": {
+    "file": "<TMP>/config/keymaps.json",
+    "entry": {
+      "command": "akari.timeline.toggleSnap",
+      "keybinding": "ctrl+shift+alt+9"
+    },
+    "snapBefore": false,
+    "snapAfter": true,
+    "userScopeBinding": [
+      {
+        "keybinding": "ctrl+shift+alt+9",
+        "scope": 1
+      },
+      {
+        "keybinding": "m",
+        "scope": 0
+      },
+      {
+        "keybinding": "n",
+        "scope": 0
+      }
+    ]
+  },
+  "audioDialog": {
+    "timelineSelection": "{\"kind\":\"cut\",\"index\":0}",
+    "clipsBefore": 2,
+    "beforeSpace": {
+      "open": true,
+      "deleteEnabled": true,
+      "previewPlaying": false,
+      "toggles": 2
+    },
+    "afterSpace": {
+      "previewPlaying": false,
+      "toggles": 2,
+      "dialogAudioPlays": 1,
+      "dialogAudioPaused": false
+    },
+    "afterDelete": {
+      "open": true,
+      "deleteEnabled": false,
+      "clips": 2
+    },
+    "afterFirstEsc": {
+      "open": false,
+      "deleteEnabled": false
+    }
+  },
+  "libraryCard": {
+    "focused": "DIV",
+    "before": {
+      "playing": false,
+      "toggles": 2
+    },
+    "after": {
+      "playing": false,
+      "toggles": 2
+    }
+  },
+  "daihon": {
+    "rowTotal": 2,
+    "before": 1,
+    "afterFirstEsc": 0,
+    "afterCmdA": 2,
+    "active": "DIV.akari-daihon-rows",
+    "timelineSelectionBeforeEsc": "{\"kind\":\"caption\",\"id\":\"c-0001\"}",
+    "bWithRowsFocus": {
+      "toolBefore": "select",
+      "toolAfter": "razor",
+      "active": "DIV.akari-daihon-rows"
+    }
+  },
+  "partnerCopy": {
+    "selected": "ログの文字列\n",
+    "clipboard": "ログの文字列\n",
+    "timelineSelection": "{\"kind\":\"cut\",\"index\":0}",
+    "timelineCopiesBefore": 2,
+    "timelineCopiesAfter": 2
+  },
+  "timelineClosed": {
+    "attached": false,
+    "executed": [],
+    "defaultPrevented": [
+      "b:false",
+      "v:false",
+      "t:false"
+    ],
+    "toolBefore": "select",
+    "toolAfter": "select",
+    "captionsBefore": 3,
+    "captionsAfter": 3
+  },
+  "pass": true,
+  "orphans": 0
+}

@@ -3179,8 +3179,16 @@ export class AkariInspectorWidget extends BaseWidget {
 `;
         this.node.appendChild(style);
 
+        const clearSoloShortcut = (): void => {
+            if (!this.node.contains(document.activeElement) || !this.clearSolo()) return;
+            this.render();
+        };
+        window.addEventListener('akari.inspector.clearSoloShortcut', clearSoloShortcut);
+        this.toDispose.push({ dispose: () => window.removeEventListener('akari.inspector.clearSoloShortcut', clearSoloShortcut) });
+        // Input-local Escape still reaches this widget after the input restores its own value.
         this.node.addEventListener('keydown', event => {
-            if (event.key !== 'Escape' || !this.clearSolo()) return;
+            if (event.key !== 'Escape' || !(event.target instanceof HTMLElement)
+                || !event.target.closest('input, textarea, [contenteditable="true"]') || !this.clearSolo()) return;
             event.preventDefault();
             event.stopPropagation();
             this.render();

@@ -94,5 +94,5 @@ export const ADD_MATERIAL_AT_POINT: Command = {
     id: 'akari.timeline.addMaterialAtPoint'
 };
 
-export const PLACE_TEXT: Command = { id: PLACE_TEXT_COMMAND_ID, label: '文字を置く' };
+export const PLACE_TEXT: Command = { id: PLACE_TEXT_COMMAND_ID, label: '文字を置く', category: 'タイムライン' };
 export const READ_ALOUD: Command = { id: 'akari.caption.readAloud', label: '読み上げ' };

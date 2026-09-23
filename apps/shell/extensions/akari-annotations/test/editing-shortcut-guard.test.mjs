@@ -67,12 +67,13 @@ test('inner editable Delete is stopped before Theia can synthesize an iframe key
 // (timeline / dialog / recorder) と webview 側 (preview) の両方に同じ判定を通す。
 
 test('IME composition disarms bare-key shortcuts on every global keydown consumer', () => {
-    // タイムライン: window capture のハンドラ先頭。Escape 分岐より前でなければ、変換の取り消しが
-    // ドラッグ解除やトリマー離脱に食われる。
+    // Theia command callback retains the IME guard before Escape; the remaining window capture
+    // listener applies the same guard before flushing pending geometry.
     assert.match(
         widget,
-        /const keydown = \(event: KeyboardEvent\): void => \{[\s\S]{0,600}?if \(isImeCompositionKeydown\(event\)\) return;[\s\S]{0,400}?this\.flushStripRender\(\);/
+        /const keydown = \(event: KeyboardEvent\): void => \{[\s\S]{0,600}?if \(isImeCompositionKeydown\(event\)\) return;/
     );
+    assert.match(widget, /const modifiersOnly = \(event: KeyboardEvent\): void => \{[\s\S]*?if \(!isImeCompositionKeydown\(event\)\) this\.flushStripRender\(\);/);
     assert.match(widget, /if \(event\.key === 'Escape' && this\.dragState\)/);
     assert.ok(
         widget.indexOf('isImeCompositionKeydown(event)') < widget.indexOf("if (event.key === 'Escape' && this.dragState)"),

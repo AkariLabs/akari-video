@@ -15,6 +15,10 @@ import {
     MessageService
 } from '@theia/core/lib/common';
 import { DisposableCollection } from '@theia/core/lib/common/disposable';
+import { KeybindingContribution, KeybindingRegistry } from '@theia/core/lib/browser/keybinding';
+import { ContextKeyService } from '@theia/core/lib/browser/context-key-service';
+import { AkariEditHistoryService } from './akari-edit-history-service';
+import { AkariShortcutKeybindings } from './akari-shortcut-keybindings';
 import {
     ApplicationShell,
     CommonMenus,
@@ -131,13 +135,35 @@ interface AkariInspectorOpenOptions {
 }
 
 @injectable()
-export class AkariAnnotationsContribution implements CommandContribution, FrontendApplicationContribution, MenuContribution {
+export class AkariAnnotationsContribution implements CommandContribution, FrontendApplicationContribution, MenuContribution, KeybindingContribution {
 
     @inject(WidgetManager)
     protected readonly widgetManager!: WidgetManager;
 
     @inject(CommandRegistry)
     protected readonly commands!: CommandRegistry;
+
+    @inject(KeybindingRegistry)
+    protected readonly keybindings!: KeybindingRegistry;
+
+    @inject(ContextKeyService)
+    protected readonly contextKeys!: ContextKeyService;
+
+    @inject(AkariEditHistoryService)
+    protected readonly history!: AkariEditHistoryService;
+
+    protected shortcutKeybindings?: AkariShortcutKeybindings;
+
+    protected getShortcutKeybindings(): AkariShortcutKeybindings {
+        return this.shortcutKeybindings ??= new AkariShortcutKeybindings({
+            contextKeys: this.contextKeys,
+            history: this.history,
+            widgetManager: this.widgetManager,
+            currentTimeline: () => this.timelineWidget,
+            activeWidget: () => this.shell.activeWidget,
+            trackedTimelines: () => this.timelineWidgets
+        });
+    }
 
     @inject(ApplicationShell)
     protected readonly shell!: ApplicationShell;
@@ -190,6 +216,8 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
     }
 
     async onStart(): Promise<void> {
+        this.toDispose.push(this.getShortcutKeybindings().start());
+        this.registerKeybindings(this.keybindings);
         installRightPanelTabStyle(this.shell.rightPanelHandler.tabBar);
         this.toDispose.push(this.shell.onDidChangeCurrentWidget(({ newValue }) => {
             const previewEdit = (newValue as { akariPreviewEditUri?: URI } | undefined)?.akariPreviewEditUri;
@@ -289,10 +317,12 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
     }
 
     registerCommands(commands: CommandRegistry): void {
+        this.getShortcutKeybindings().registerCommands(commands);
         commands.registerCommand(PLACE_TEXT, {
             execute: async (options: PlaceTextOptions = {}, editUri?: string) => {
                 const location = editUri ? (await this.locateAll()).find(item => item.editUri?.toString() === editUri) : undefined;
-                const widget = editUri ? (location ? await this.attachAt(location) : undefined) : await this.attach();
+                const widget = editUri ? (location ? await this.attachAt(location) : undefined)
+                    : this.getShortcutKeybindings().shortcutTimelineWidget() ?? await this.attach();
                 if (!widget) {
                     this.messages.warn('タイムラインを開いてから文字を置いてください。');
                     return;
@@ -420,6 +450,10 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
         this.toDispose.push({
             dispose: () => window.removeEventListener(PREVIEW_CAPTION_SELECTED_EVENT, onCaptionSelected)
         });
+    }
+
+    registerKeybindings(keybindings: KeybindingRegistry): void {
+        this.getShortcutKeybindings().registerKeybindings(keybindings);
     }
 
     registerMenus(menus: MenuModelRegistry): void {

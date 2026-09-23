@@ -21,7 +21,7 @@ export const TIMELINE_SEEK: Command = { id: 'akari.timeline.seek' };
 export interface TimelineSetViewArgs { startSeconds?: number; durationSeconds?: number; fit?: boolean; }
 export const TIMELINE_SET_VIEW: Command = { id: 'akari.timeline.setView' };
 
-export interface TimelineSetToolArgs { tool: 'select' | 'razor'; }
+export interface TimelineSetToolArgs { tool: 'select' | 'razor' | 'frame'; }
 export const TIMELINE_SET_TOOL: Command = { id: 'akari.timeline.setTool' };
 
 export interface TimelineSetSnapArgs { enabled: boolean; }
@@ -75,7 +75,7 @@ export class AkariTimelineFocusContribution implements CommandContribution {
         commands.registerCommand(TIMELINE_SET_TOOL, {
             execute: (request: unknown): void => {
                 const args = request as Partial<TimelineSetToolArgs> | undefined;
-                if (args?.tool !== 'select' && args?.tool !== 'razor') return;
+                if (args?.tool !== 'select' && args?.tool !== 'razor' && args?.tool !== 'frame') return;
                 this.resolveWidget()?.setTimelineToolMode(args.tool);
             }
         });

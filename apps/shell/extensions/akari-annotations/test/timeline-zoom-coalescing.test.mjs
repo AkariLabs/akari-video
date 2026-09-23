@@ -45,8 +45,9 @@ test('パン中にズーム描画が予約済みなら setViewStart はその描
 
 test('pointerdown（capture）と keydown は保留中のズーム描画を先に flush する', () => {
   assert.match(source, /this\.strip\.addEventListener\('pointerdown', \(\) => \{[^}]*this\.flushStripRender\(\);\s*this\.settlePan\(\);\s*\}, true\)/);
-  const keydown = method('const keydown = (event: KeyboardEvent): void => {', "if (event.key === 'Escape' && this.dragState)");
-  assert.ok(keydown.includes('this.flushStripRender()'));
+  const capture = method('const modifiersOnly = (event: KeyboardEvent): void => {', "window.addEventListener('keyup', keyup, true)");
+  assert.ok(capture.includes('if (!isImeCompositionKeydown(event)) this.flushStripRender()'));
+  assert.ok(capture.includes("window.addEventListener('keydown', modifiersOnly, true)"));
   assert.match(source, /window\.removeEventListener\('keyup', keyup, true\);\s*this\.stripRenderThrottle\.cancel\(\);/);
 });
 

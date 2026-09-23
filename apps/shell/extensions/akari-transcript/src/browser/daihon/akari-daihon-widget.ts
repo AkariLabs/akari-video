@@ -641,7 +641,15 @@ export class AkariDaihonWidget extends BaseWidget {
         this.rowsNode.addEventListener('pointerover', event => this.handleRowPointerOver(event));
         this.rowsNode.addEventListener('pointerdown', event => this.handleWordPointerDown(event), { capture: true });
         this.rowsNode.addEventListener('pointermove', event => this.handleWordPointerMove(event));
-        this.rowsNode.addEventListener('keydown', event => this.handleRowsKeyDown(event));
+        // The annotations keybinding contribution mirrors this event name without a package dependency.
+        const rowShortcut = (event: Event): void => {
+            if (!this.rowsNode.contains(document.activeElement)) return;
+            const action = (event as CustomEvent<'selectAll' | 'clear'>).detail;
+            if (action === 'selectAll') this.setSelection(selectAll(this.rowOrder()));
+            else if (action === 'clear') this.setSelection(clearSelection());
+        };
+        window.addEventListener('akari.daihon.rowShortcut', rowShortcut);
+        this.toDispose.push({ dispose: () => window.removeEventListener('akari.daihon.rowShortcut', rowShortcut) });
 
         this.selectionBar.className = 'akari-daihon-selbar';
         this.selectionBar.hidden = true;
@@ -3934,17 +3942,6 @@ export class AkariDaihonWidget extends BaseWidget {
         this.setSelection(applyDragRange(
             this.selection, this.rowOrder(), this.rowDrag.anchorId, id
         ));
-    }
-
-    protected handleRowsKeyDown(event: KeyboardEvent): void {
-        if (event.target instanceof HTMLInputElement) return;
-        if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'a') {
-            event.preventDefault();
-            this.setSelection(selectAll(this.rowOrder()));
-        } else if (event.key === 'Escape') {
-            event.preventDefault();
-            this.setSelection(clearSelection());
-        }
     }
 
     protected rowOrder(): string[] {

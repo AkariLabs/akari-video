@@ -155,7 +155,11 @@ for (const action of ['blur', 'Enter', 'Escape', 'ArrowUp', 'ArrowDown', '▲', 
       if (action === 'Escape') expected = 2;
       if (action === 'ArrowUp') expected = 31;
       if (action === 'ArrowDown') expected = 29;
-      f.input.emit('keydown', { key: action });
+      if (action === 'ArrowUp' || action === 'ArrowDown') {
+        f.input.emit('akari.inspector.numberStepShortcut', { detail: { key: action, shiftKey: false } });
+      } else {
+        f.input.emit('keydown', { key: action });
+      }
     }
     assert.deepEqual(f.commits, [expected]);
     assert.equal(f.previews.at(-1), expected);
@@ -165,3 +169,26 @@ for (const action of ['blur', 'Enter', 'Escape', 'ArrowUp', 'ArrowDown', '▲', 
     assert.deepEqual(f.previews, before);
   });
 }
+
+for (const modifier of ['altKey', 'metaKey', 'ctrlKey']) {
+  for (const [key, shiftKey, expected] of [
+    ['ArrowUp', false, 3], ['ArrowDown', false, 1],
+    ['ArrowUp', true, 12], ['ArrowDown', true, -8]
+  ]) {
+    test(`${modifier} ${shiftKey ? 'Shift+' : ''}${key} uses the local numeric step`, t => {
+      const f = setup(t, { value: 2 });
+      f.input.emit('keydown', { key, [modifier]: true, shiftKey });
+      assert.deepEqual(f.commits, [expected]);
+      assert.equal(Number(f.input.value), expected);
+    });
+  }
+}
+
+test('modified arrows leave the number unchanged during IME composition', t => {
+  const f = setup(t, { value: 2 });
+  f.input.emit('compositionstart');
+  f.input.emit('keydown', { key: 'ArrowUp', altKey: true });
+  f.input.emit('keydown', { key: 'ArrowDown', metaKey: true, keyCode: 229 });
+  assert.deepEqual(f.commits, []);
+  assert.equal(Number(f.input.value), 2);
+});
