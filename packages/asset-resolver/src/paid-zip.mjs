@@ -4,9 +4,7 @@
 // 検証する。カタログには実体（files[]）を一切持たせない設計（tools/publish-free.mjs 側の
 // 掲載規律の裏返し）なので、有料素材の取得経路だけこの別ルートを通る。
 //
-// zip 展開は Node.js 組み込みモジュールに API が無いため、システムの `unzip` を spawnSync で
-// 呼ぶ（外部 npm 依存は増やさない — ストアリポ worker/tools/publish-paid.mjs が入稿側で
-// 同じ理由から `zip` CLI を使っているのと対称）。
+// zip 展開は Windows 標準の tar.exe を優先し、利用可能な展開器へフォールバックする。
 
 import { spawnSync } from 'node:child_process';
 import { createWriteStream } from 'node:fs';
@@ -42,15 +40,37 @@ export async function downloadPaidZip(id, credentials, destZipPath, { env = proc
   await pipeline(Readable.fromWeb(res.body), createWriteStream(destZipPath));
 }
 
-/** zip を destDir へ展開する（システムの unzip CLI を使用）。 */
-export function extractZip(zipPath, destDir) {
-  const result = spawnSync('unzip', ['-q', '-o', zipPath, '-d', destDir], { encoding: 'utf8' });
-  if (result.status !== 0) {
-    const output = `${result.stdout ?? ''}${result.stderr ?? ''}`.trim();
-    throw new AssetResolverError(
-      `zip の展開に失敗しました（unzip コマンドが必要です）: ${output || `exit ${result.status}`}`,
-      'download_failed',
-    );
+/** All zip consumers share the same platform-independent fallback order. */
+export function extractZipWithTools(zipPath, destDir, { spawn = spawnSync, platform = process.platform, env = process.env } = {}) {
+  const attempts = [
+    [platform === 'win32' ? 'tar.exe' : 'tar', ['-xf', zipPath, '-C', destDir]],
+    ['unzip', ['-q', '-o', zipPath, '-d', destDir]],
+    [platform === 'win32' ? 'powershell.exe' : 'pwsh', [
+      '-NoLogo', '-NoProfile', '-NonInteractive', '-Command',
+      'Expand-Archive -LiteralPath $env:AKARI_ZIP_PATH -DestinationPath $env:AKARI_ZIP_DEST -Force',
+    ]],
+  ];
+  const failures = [];
+  for (const [command, args] of attempts) {
+    const result = spawn(command, args, {
+      encoding: 'utf8',
+      env: { ...env, AKARI_ZIP_PATH: zipPath, AKARI_ZIP_DEST: destDir },
+    });
+    if (result.status === 0) return;
+    if (result.error?.code !== 'ENOENT') {
+      failures.push(`${command}: ${String(result.stderr || result.stdout || result.error?.message || `exit ${result.status}`).trim()}`);
+    }
+  }
+  throw new Error(failures.length
+    ? `zip の展開に失敗しました: ${failures.join('; ')}`
+    : 'zip を展開できる道具が見つからないため失敗しました。Windows 10 以降の tar.exe、unzip、または PowerShell Expand-Archive を利用可能にしてください。');
+}
+
+export function extractZip(zipPath, destDir, options = {}) {
+  try {
+    extractZipWithTools(zipPath, destDir, options);
+  } catch (error) {
+    throw new AssetResolverError(error.message, 'download_failed');
   }
 }
 

@@ -3131,7 +3131,7 @@
         {
           "severity": "error",
           "check": "v2.audio-bgm-multiple",
-          "message": "audio lane items may declare at most one bgm role",
+          "message": "BGM music-1 [0, 30)、music-2 [30, 60)。重なり: なし。現在のミックスは BGM を 1 本だけ扱うため、曲を詰めて繋ぐ場合は音源側で 1 ファイルに編集してください。",
           "path": "edit.json#tracks"
         }
       ],
@@ -3144,7 +3144,7 @@
         {
           "severity": "error",
           "check": "v2.audio-bgm-multiple",
-          "message": "audio lane items may declare at most one bgm role",
+          "message": "BGM music-1 [0, 30)、music-2 [30, 60)。重なり: なし。現在のミックスは BGM を 1 本だけ扱うため、曲を詰めて繋ぐ場合は音源側で 1 ファイルに編集してください。",
           "path": "edit.json#tracks"
         }
       ],

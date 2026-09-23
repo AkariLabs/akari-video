@@ -59,3 +59,42 @@ test('akari assets: errors with a Japanese message + exit 1 when the resolver is
   assert.match(errors[0], /resolver/);
   assert.match(errors[0], /[぀-ヿ一-鿿]/, '日本語エラーであること');
 });
+
+test('AKARI Sounds pack id selects the first-party pack fetcher', async () => {
+  const calls = [];
+  const result = await runAssetsCommand(['fetch', 'akari-sounds-sfx'], {
+    assets: { assetResolverCliPath: 'resolver-cli', audioFetchScriptPath: 'sounds-script' },
+    spawnSoundsCli: (script, args) => { calls.push([script, args]); return { status: 0 }; },
+    spawnAssetsCli: () => { throw new Error('individual resolver must not receive a pack id'); },
+  });
+  assert.equal(result.exitCode, 0);
+  assert.deepEqual(calls, [['sounds-script', ['--pack', 'akari-sounds-sfx']]]);
+});
+
+test('AKARI Sounds jingle pack id reaches the first-party pack fetcher', async () => {
+  const calls = [];
+  const result = await runAssetsCommand(['fetch', 'akari-sounds-jingle'], {
+    assets: { assetResolverCliPath: 'resolver-cli', audioFetchScriptPath: 'sounds-script' },
+    spawnSoundsCli: (script, args) => { calls.push([script, args]); return { status: 0 }; },
+  });
+  assert.equal(result.exitCode, 0);
+  assert.deepEqual(calls, [['sounds-script', ['--pack', 'akari-sounds-jingle']]]);
+});
+
+test('catalog pack id fetches every member id', async () => {
+  const { calls, spawnAssetsCli } = recordingSpawn(0);
+  const result = await runAssetsCommand(['fetch', 'fixture-pack', '--project', 'project'], {
+    assets: { assetResolverCliPath: 'resolver-cli', repoRoot: 'repo' },
+    loadCatalog: async () => ({ items: [
+      { id: 'clip-a', tags: ['pack:fixture-pack'] },
+      { id: 'clip-b', tags: ['pack:fixture-pack'] },
+      { id: 'clip-c', tags: [] },
+    ] }),
+    spawnAssetsCli,
+  });
+  assert.equal(result.exitCode, 0);
+  assert.deepEqual(calls.map(call => call.args), [
+    ['fetch', 'clip-a', '--project', 'project'],
+    ['fetch', 'clip-b', '--project', 'project'],
+  ]);
+});

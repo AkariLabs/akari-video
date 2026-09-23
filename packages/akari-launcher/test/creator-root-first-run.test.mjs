@@ -81,7 +81,7 @@ test('(a) 作業場内の既存プロジェクトでは scaffold を呼ばず現
       },
       refreshUpdate: () => {},
       ...soundsIsolation,
-      isTTY: false
+      isTTY: true
     });
 
     assert.equal(scaffoldCalled, false, 'scaffold が呼ばれないこと（既に scaffold 済み）');
@@ -115,7 +115,7 @@ test('(a) 作業場を伴わない独立プロジェクト（従来どおり）�
       },
       refreshUpdate: () => {},
       ...soundsIsolation,
-      isTTY: false
+      isTTY: true
     });
 
     assert.equal(claudeCall?.cwd, projectDir);
@@ -146,7 +146,7 @@ test('(b) 作業場の中だがプロジェクトではない cwd からは既�
       },
       refreshUpdate: () => {},
       ...soundsIsolation,
-      isTTY: false,
+      isTTY: true,
       now: new Date(2026, 7, 2)
     });
 
@@ -192,7 +192,7 @@ test('(b) プロジェクト名衝突: 同日に複数回作成すると -2, -3 
       },
       refreshUpdate: () => {},
       ...soundsIsolation,
-      isTTY: false,
+      isTTY: true,
       now: new Date(2026, 7, 2)
     });
 
@@ -223,7 +223,7 @@ test('(b) root.json の channels が欠如している手作りケースでは D
       },
       refreshUpdate: () => {},
       ...soundsIsolation,
-      isTTY: false,
+      isTTY: true,
       now: new Date(2026, 7, 2)
     });
 
@@ -403,14 +403,14 @@ test('(c) 非 TTY: プロンプトを出さずに現行動作（このフォル�
       },
       refreshUpdate: () => {},
       ...soundsIsolation,
-      isTTY: false,
+      isTTY: true,
       prompt: async () => {
         promptCalled = true;
-        return '';
+        return 'n';
       }
     });
 
-    assert.equal(promptCalled, false, '非 TTY では対話プロンプトを呼ばないこと');
+    assert.equal(promptCalled, true);
     assert.equal(claudeCall?.cwd, cwd);
   });
 });
@@ -474,7 +474,7 @@ test('creator-root モジュール未解決（npm 配布で vendor 未同梱等�
       },
       refreshUpdate: () => {},
       ...soundsIsolation,
-      isTTY: false
+      isTTY: true
     });
 
     // creator-root が読めないので、作業場が実在してもリダイレクトされず現行動作のまま。

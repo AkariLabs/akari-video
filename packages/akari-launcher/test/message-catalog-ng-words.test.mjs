@@ -137,7 +137,8 @@ test('cli.mjs run(): 未セットアップフォルダの初回起動ログす�
       spawnClaude: () => ({ status: 0 }),
       env: { ...process.env, AKARI_HOME: join(root, '.akari-home-unused') },
       refreshUpdate: () => {},
-      isTTY: false
+      isTTY: true,
+      prompt: async () => 'n'
     });
 
     assert.equal(result.exitCode, 0);

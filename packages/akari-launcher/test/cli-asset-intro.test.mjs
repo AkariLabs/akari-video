@@ -40,7 +40,8 @@ function baseOptions(root, extra = {}) {
         spawnClaude: () => ({ status: 0 }),
         env: { ...process.env, AKARI_HOME: join(root, '.akari-home-unused') },
         refreshUpdate: () => {},
-        isTTY: false,
+        isTTY: true,
+        prompt: async () => 'n',
         ...extra
     };
 }

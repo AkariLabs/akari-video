@@ -10,6 +10,7 @@
 //
 // Usage: node bin/fetch-akari-sounds.mjs [options]
 //   --variant mp3|wav   取得する形式（既定: mp3）
+//   --pack <id>         指定したパックだけ登録する
 //   --tag <tag>         Release タグ（既定: v0）
 //   --dest <dir>        登録先ライブラリルート（既定: <ライブラリの置き場>/audio）
 //   --catalog <path>    catalog.json をローカルファイルから読む（オフライン・検証用）
@@ -28,6 +29,7 @@ import path from 'node:path';
 import { pipeline } from 'node:stream/promises';
 import { Readable } from 'node:stream';
 import { fileURLToPath } from 'node:url';
+import { extractZipWithTools } from '../../asset-resolver/src/paid-zip.mjs';
 import { generateWaveformPreview } from '../shared/waveform-preview.mjs';
 import {
     AKARI_SOUNDS_DEFAULT_TAG,
@@ -44,6 +46,7 @@ const validateAssetScript = path.join(repoRoot, 'packages', 'schemas', 'bin', 'v
 
 export const usage = `Usage: node bin/fetch-akari-sounds.mjs [options]
   --variant mp3|wav   取得する形式（既定: mp3）
+  --pack <id>         指定したパックだけ登録する
   --tag <tag>         Release タグ（既定: v0）
   --dest <dir>        登録先ライブラリルート（既定: <ライブラリの置き場>/audio）
   --catalog <path>    catalog.json をローカルファイルから読む（オフライン・検証用）
@@ -56,6 +59,7 @@ export const usage = `Usage: node bin/fetch-akari-sounds.mjs [options]
 export function parseArguments(argv) {
     const options = {
         variant: 'mp3',
+        pack: null,
         tag: AKARI_SOUNDS_DEFAULT_TAG,
         // AKARI_HOME はテスト・隔離実行用の差し替え規約（launcher の update-check / sounds-setup と同じ）
         dest: path.join(resolveAssetLibraryRoots().write, 'audio'),
@@ -68,6 +72,12 @@ export function parseArguments(argv) {
     for (let i = 0; i < argv.length; i += 1) {
         const arg = argv[i];
         if (arg === '--variant') { options.variant = argv[++i]; continue; }
+        if (arg === '--pack') {
+            const pack = argv[++i];
+            if (!pack || pack.startsWith('--')) throw new Error('--pack requires an id');
+            options.pack = pack;
+            continue;
+        }
         if (arg === '--tag') { options.tag = argv[++i]; continue; }
         if (arg === '--dest') { options.dest = path.resolve(argv[++i]); continue; }
         if (arg === '--catalog') { options.catalog = path.resolve(argv[++i]); continue; }
@@ -130,71 +140,12 @@ async function downloadToFile(url, destPath) {
     await pipeline(Readable.fromWeb(res.body), createWriteStream(destPath));
 }
 
-const manualExtractGuidance = 'unzip コマンドが見つかりません。unzip を導入するか、Release zip を手動展開して --zips-dir ではなく登録先へ直接置いてください';
-
-function commandMissing(result) {
-    return result.error?.code === 'ENOENT';
-}
-
-function commandFailure(command, zipPath, result) {
-    const output = result.stderr || result.stdout || result.error?.message || `exit ${result.status}`;
-    return `${command} 展開失敗 (${zipPath}): ${String(output).trim()}`;
-}
-
 export function unzipInto(zipPath, extractDir, {
     platform = process.platform,
     spawn = spawnSync,
     env = process.env,
 } = {}) {
-    if (platform === 'win32') {
-        const tarResult = spawn('tar.exe', ['-xf', zipPath, '-C', extractDir], { encoding: 'utf8' });
-        if (tarResult.status === 0) {
-            return;
-        }
-
-        // パスを PowerShell のコマンド文字列へ埋め込まず、環境変数で渡して引用符の罠を避ける。
-        const powershellResult = spawn('powershell.exe', [
-            '-NoLogo',
-            '-NoProfile',
-            '-NonInteractive',
-            '-Command',
-            'Expand-Archive -LiteralPath $env:AKARI_SOUNDS_ZIP_PATH -DestinationPath $env:AKARI_SOUNDS_EXTRACT_DIR -Force',
-        ], {
-            encoding: 'utf8',
-            env: {
-                ...env,
-                AKARI_SOUNDS_ZIP_PATH: zipPath,
-                AKARI_SOUNDS_EXTRACT_DIR: extractDir,
-            },
-        });
-        if (powershellResult.status === 0) {
-            return;
-        }
-        if (commandMissing(tarResult) && commandMissing(powershellResult)) {
-            throw new Error(manualExtractGuidance);
-        }
-        const failures = [];
-        if (!commandMissing(tarResult)) failures.push(commandFailure('tar.exe', zipPath, tarResult));
-        if (!commandMissing(powershellResult)) failures.push(commandFailure('PowerShell Expand-Archive', zipPath, powershellResult));
-        throw new Error(failures.join('\n'));
-    }
-
-    const unzipResult = spawn('unzip', ['-q', '-o', zipPath, '-d', extractDir], { encoding: 'utf8' });
-    if (unzipResult.status === 0) {
-        return;
-    }
-    if (!commandMissing(unzipResult)) {
-        throw new Error(commandFailure('unzip', zipPath, unzipResult));
-    }
-
-    const tarResult = spawn('tar', ['-xf', zipPath, '-C', extractDir], { encoding: 'utf8' });
-    if (tarResult.status === 0) {
-        return;
-    }
-    if (commandMissing(tarResult)) {
-        throw new Error(manualExtractGuidance);
-    }
-    throw new Error(commandFailure('tar', zipPath, tarResult));
+    return extractZipWithTools(zipPath, extractDir, { platform, spawn, env });
 }
 
 /** 展開ディレクトリ以下を再帰走査し、ファイル名（basename）→ 絶対パスの索引を作る */
@@ -217,7 +168,10 @@ export async function main() {
         return;
     }
     const catalog = await loadCatalog(options);
-    const plan = planFromCatalog(catalog, { variant: options.variant });
+    const fullPlan = planFromCatalog(catalog, { variant: options.variant });
+    const packs = options.pack ? fullPlan.packs.filter(pack => pack.id === options.pack) : fullPlan.packs;
+    if (options.pack && packs.length === 0) throw new Error(`Unknown pack id: ${options.pack}`);
+    const plan = { ...fullPlan, packs, totalFiles: packs.reduce((sum, pack) => sum + pack.files.length, 0) };
     const zipNames = zipAssetNames(options.variant);
 
     console.log(`AKARI Sounds 一括取得（${plan.library} ${plan.version ?? ''} / ${options.variant} / tag ${options.tag}）`);

@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
-import { constants as fsConstants, readFileSync, realpathSync, statSync } from "node:fs";
+import { constants as fsConstants, existsSync, readFileSync, realpathSync, statSync } from "node:fs";
 import {
   access,
   mkdir,
@@ -78,6 +78,7 @@ const USAGE = `Usage: edit-lint <project-root|edit.json path> [--media] [--json]
        [--caption-silence-warn-percent N]
        [--declarations PATH] [--ffprobe PATH]
 
+Relative paths in edit.json resolve from the nearest ancestor containing .akari/ (or the edit file directory).
 Exit codes: 0 PASS, 1 FAIL, 2 execution error`;
 
 export function loadTextstylePresetIds(repoRoot) {
@@ -96,6 +97,23 @@ export function loadTextstylePresetIds(repoRoot) {
 }
 
 export class ExecutionError extends Error {}
+
+const PROVIDER_GUIDANCE = 'provenance.provider は必須です（例: {"provider":"voicevox","credit":"VOICEVOX:ずんだもん"} / "fal" / "human"）';
+
+function providerGuidedMessage(error) {
+  const message = messageOf(error);
+  return /\.provenance\.provider\)/u.test(message) && !message.includes(PROVIDER_GUIDANCE)
+    ? `${message}。${PROVIDER_GUIDANCE}` : message;
+}
+
+function readEditWithProviderGuidance(edit, options) {
+  try {
+    return readInternalEdit(edit, options);
+  } catch (error) {
+    error.message = providerGuidedMessage(error);
+    throw error;
+  }
+}
 
 export async function runCli(argv, io = console) {
   let options;
@@ -128,7 +146,7 @@ export async function runCli(argv, io = console) {
     }
     return result.verdict === "pass" ? 0 : 1;
   } catch (error) {
-    io.error(`edit-lint execution error: ${messageOf(error)}`);
+    io.error(`edit-lint execution error: ${providerGuidedMessage(error)}`);
     return 2;
   }
 }
@@ -176,7 +194,7 @@ export async function lintProject(input, options = {}) {
     return writeResult(findings, skipped, inputs, paths, options);
   }
 
-  if (isRecord(edit) && edit.version !== 2) readInternalEdit(edit);
+  if (isRecord(edit) && edit.version !== 2) readEditWithProviderGuidance(edit);
   validateEditV2(edit, findings);
   if (isRecord(edit) && edit.version === 2) {
     await validateV2ObjectTreeFiles(edit, findings, paths);
@@ -185,7 +203,7 @@ export async function lintProject(input, options = {}) {
     return writeResult(findings, skipped, inputs, paths, options);
   }
   const rawEdit = edit;
-  const internalEdit = readInternalEdit(rawEdit, { allowCutAudioSplit: true });
+  const internalEdit = readEditWithProviderGuidance(rawEdit, { allowCutAudioSplit: true });
   const legacyEdit = projectLegacyEdit(internalEdit);
   if (engineCapabilities !== null && rawEdit.version === 2) {
     validateEngineCapabilities(rawEdit, internalEdit, engine, engineCapabilities.value, findings);
@@ -747,10 +765,15 @@ function readEngineCapabilities(options) {
     } else if (typeof options.engineCapabilitiesPath === "string") {
       text = readFileSync(options.engineCapabilitiesPath, "utf8");
     } else {
-      text = readFileSync(new URL("../../schemas/engine-capabilities.json", import.meta.url), "utf8");
+      const checkout = new URL("../../schemas/engine-capabilities.json", import.meta.url);
+      const bundled = new URL("./engine-capabilities.json", import.meta.url);
+      text = readFileSync(existsSync(checkout) ? checkout : bundled, "utf8");
     }
   } catch (error) {
-    throw new ExecutionError(`engine capability table cannot be read: ${messageOf(error)}`);
+    const location = options.engineCapabilitiesPath
+      ? `指定された対応表 ${options.engineCapabilitiesPath}`
+      : "同梱漏れ: packages/edit-lint/src/engine-capabilities.json または packages/schemas/engine-capabilities.json";
+    throw new ExecutionError(`engine capability table cannot be read (${location}): ${messageOf(error)}`);
   }
   let value;
   try {
@@ -962,7 +985,14 @@ async function resolveInput(input, options = {}) {
   if (!options.editPath && !inputStats.isDirectory() && basename(absolute) !== "edit.json") {
     throw new ExecutionError("Input file must be named edit.json");
   }
-  const projectRoot = dirname(editPath);
+  let projectRoot = dirname(editPath);
+  for (let current = projectRoot; ; current = dirname(current)) {
+    if (existsSync(join(current, ".akari")) && statSync(join(current, ".akari")).isDirectory()) {
+      projectRoot = current;
+      break;
+    }
+    if (dirname(current) === current) break;
+  }
   return {
     projectRoot,
     editPath,
@@ -1217,14 +1247,26 @@ function validateEditV2(edit, findings) {
   const bgmItems = edit.tracks.flatMap((track, trackIndex) =>
     isRecord(track) && track.lane === "audio" && Array.isArray(track.items)
       ? track.items.flatMap((item, itemIndex) =>
-        isRecord(item) && item.role === "bgm" ? [{ trackIndex, itemIndex }] : [])
+        isRecord(item) && item.role === "bgm" ? [{
+          id: item.id, trackIndex, itemIndex, start: item.at, end: item.at + item.duration,
+        }] : [])
       : []
   );
   if (bgmItems.length > 1) {
+    const describe = (item) => `${String(item.id)} [${item.start}, ${item.end})`;
+    const overlaps = [];
+    for (let i = 0; i < bgmItems.length; i += 1) {
+      for (let j = i + 1; j < bgmItems.length; j += 1) {
+        const start = Math.max(bgmItems[i].start, bgmItems[j].start);
+        const end = Math.min(bgmItems[i].end, bgmItems[j].end);
+        if (Number.isFinite(start) && Number.isFinite(end) && start < end) {
+          overlaps.push(`${String(bgmItems[i].id)} / ${String(bgmItems[j].id)} [${start}, ${end})`);
+        }
+      }
+    }
     addFinding(findings, {
-      severity: "error",
-      check: "v2.audio-bgm-multiple",
-      message: "audio lane items may declare at most one bgm role",
+      severity: "error", check: "v2.audio-bgm-multiple",
+      message: `BGM ${bgmItems.map(describe).join('、')}。重なり: ${overlaps.length ? overlaps.join('、') : 'なし'}。現在のミックスは BGM を 1 本だけ扱うため、曲を詰めて繋ぐ場合は音源側で 1 ファイルに編集してください。`,
       path: "edit.json#tracks",
     });
   }
@@ -6766,7 +6808,7 @@ function resolveReference(editPath, reference, paths = null) {
 }
 
 function resolveReferenceBinding(editPath, reference, paths = null) {
-  const projectPath = isAbsolute(reference) ? resolve(reference) : resolve(dirname(editPath), reference);
+  const projectPath = isAbsolute(reference) ? resolve(reference) : resolve(paths?.projectRoot ?? dirname(editPath), reference);
   if (paths === null || isRegularFileSync(projectPath)) {
     return { path: projectPath, libraryReference: false, scope: "project" };
   }

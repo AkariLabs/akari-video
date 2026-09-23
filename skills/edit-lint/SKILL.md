@@ -56,6 +56,8 @@ node の解決順は `AKARI_NODE_BIN` → PATH の node（20 以上）→ 同梱
    node <edit-lint> <project-root|edit.json>
    ```
 
+   edit.json 内の相対パスは、最寄りの `.akari/` を持つ祖先（無ければ edit.json のディレクトリ）を基準に解決する。`akari capture --edit` も同じ基準を使う。
+
 2. exit code と `<project>/.akari/lint.json` を確認する。`0` は PASS、`1` は FAIL、`2` は入力や実行環境のエラーを表す。
 3. FAIL なら `findings[]` を上から読み、指摘された edit.json、参照ファイル、overlay HTML、captions.json を該当行の Edit か edit-store のスクリプト API で修正する。CLI に自動修正させない。
 4. 同じコマンドを再実行し、error finding がなく `verdict: "pass"` になるまで繰り返す。analysis.json または captions.json が無い検査は `skipped[]` で確認する。

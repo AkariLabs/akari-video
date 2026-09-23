@@ -1,4 +1,6 @@
 import { spawnSync } from 'node:child_process';
+import { dirname, resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 import { resolveLauncherAssets } from './repo-assets.mjs';
 import { assetsResolverUnavailableError } from './messages.mjs';
@@ -29,6 +31,19 @@ export async function runAssetsCommand(args, options = {}) {
   const env = options.env ?? process.env;
   const assets = options.assets ?? resolveLauncherAssets();
 
+  // These catalog pack IDs are reference entries; their tracks are distributed by the
+  // first-party Sounds fetcher, while the resolver catalog contains only individual IDs.
+  if (args[0] === 'fetch' && /^akari-sounds-[a-z0-9-]+$/u.test(args[1] ?? '')) {
+    if (!assets?.audioFetchScriptPath) {
+      logError('AKARI Sounds の取得スクリプトが同梱されていません');
+      return { exitCode: 1 };
+    }
+    const spawn = options.spawnSoundsCli ?? defaultSpawnAssetsCli;
+    const fetchArgs = ['--pack', args[1], ...(args.includes('--force') ? ['--force'] : [])];
+    const result = spawn(assets.audioFetchScriptPath, fetchArgs, env);
+    return { exitCode: typeof result.status === 'number' ? result.status : 1 };
+  }
+
   const cliPath = assets?.assetResolverCliPath;
   if (!cliPath) {
     logError(assetsResolverUnavailableError());
@@ -36,6 +51,25 @@ export async function runAssetsCommand(args, options = {}) {
   }
 
   const spawnAssetsCli = options.spawnAssetsCli ?? defaultSpawnAssetsCli;
+  if (args[0] === 'fetch' && assets?.repoRoot) {
+    try {
+      const load = options.loadCatalog ?? (await import(pathToFileURL(resolve(dirname(cliPath), '../src/catalog.mjs')).href)).loadCatalog;
+      const catalog = await load({ env });
+      if (!catalog.items.some(item => item.id === args[1])) {
+        const members = catalog.items.filter(item => Array.isArray(item.tags) && item.tags.includes(`pack:${args[1]}`));
+        if (members.length > 0) {
+          let exitCode = 0;
+          for (const item of members) {
+            const result = spawnAssetsCli(cliPath, ['fetch', item.id, ...args.slice(2)], env);
+            if (result.status !== 0) exitCode = 1;
+          }
+          return { exitCode };
+        }
+      }
+    } catch {
+      // Delegate to the resolver, which owns catalog errors and offline guidance.
+    }
+  }
   const result = spawnAssetsCli(cliPath, args, env);
   const exitCode = typeof result.status === 'number' ? result.status : (result.error ? 1 : 0);
   return { exitCode };

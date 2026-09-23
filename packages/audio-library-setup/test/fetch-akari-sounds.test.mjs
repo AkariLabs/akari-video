@@ -152,6 +152,13 @@ test('未知オプションは従来どおり拒否する', () => {
     assert.throws(() => parseArguments(['--unknown']), /Unknown option: --unknown/);
 });
 
+test('--pack accepts a catalog-derived Sounds pack id before plan validation', () => {
+    assert.equal(parseArguments(['--pack', 'akari-sounds-sfx']).pack, 'akari-sounds-sfx');
+    assert.equal(parseArguments(['--pack', 'akari-sounds-jingle']).pack, 'akari-sounds-jingle');
+    assert.equal(parseArguments(['--pack', 'unknown']).pack, 'unknown');
+    assert.throws(() => parseArguments(['--pack']), /--pack requires an id/);
+});
+
 test('win32 は tar.exe を最初に使う', () => {
     const calls = [];
     unzipInto('sounds.zip', 'extract', {
@@ -175,16 +182,16 @@ test('win32 は tar.exe 失敗時に PowerShell Expand-Archive へフォール�
             calls.push({ command, args, options });
             return command === 'tar.exe'
                 ? { status: 2, stdout: '', stderr: 'tar failed' }
-                : { status: 0, stdout: '', stderr: '' };
+                : command === 'unzip' ? missingCommandResult(command) : { status: 0, stdout: '', stderr: '' };
         },
     });
-    assert.deepEqual(calls.map(({ command }) => command), ['tar.exe', 'powershell.exe']);
-    assert.match(calls[1].args.at(-1), /Expand-Archive/);
-    assert.equal(calls[1].options.env.AKARI_SOUNDS_ZIP_PATH, 'C:\\fixtures\\sounds.zip');
-    assert.equal(calls[1].options.env.AKARI_SOUNDS_EXTRACT_DIR, 'C:\\fixtures\\extract');
+    assert.deepEqual(calls.map(({ command }) => command), ['tar.exe', 'unzip', 'powershell.exe']);
+    assert.match(calls[2].args.at(-1), /Expand-Archive/);
+    assert.equal(calls[2].options.env.AKARI_ZIP_PATH, 'C:\\fixtures\\sounds.zip');
+    assert.equal(calls[2].options.env.AKARI_ZIP_DEST, 'C:\\fixtures\\extract');
 });
 
-test('POSIX は unzip を最初に使い、見つからない場合は tar -xf を試す', () => {
+test('POSIX は tar を最初に使う', () => {
     const calls = [];
     unzipInto('sounds.zip', 'extract', {
         platform: 'darwin',
@@ -195,10 +202,7 @@ test('POSIX は unzip を最初に使い、見つからない場合は tar -xf �
                 : { status: 0, stdout: '', stderr: '' };
         },
     });
-    assert.deepEqual(calls, [
-        { command: 'unzip', args: ['-q', '-o', 'sounds.zip', '-d', 'extract'] },
-        { command: 'tar', args: ['-xf', 'sounds.zip', '-C', 'extract'] },
-    ]);
+    assert.deepEqual(calls, [{ command: 'tar', args: ['-xf', 'sounds.zip', '-C', 'extract'] }]);
 });
 
 test('展開コマンドがどれも無い場合は手動展開の案内を維持する', () => {
@@ -207,7 +211,7 @@ test('展開コマンドがどれも無い場合は手動展開の案内を維�
         spawn(command) {
             return missingCommandResult(command);
         },
-    }), /Release zip を手動展開して --zips-dir ではなく登録先へ直接置いてください/);
+    }), /zip を展開できる道具が見つからない/);
 });
 
 test('POSIX の unzip が実 ZIP fixture を展開する', async (t) => {

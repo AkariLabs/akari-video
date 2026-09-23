@@ -44,7 +44,7 @@ async function main() {
   const projectRoot = inputPath.endsWith(".json")
     ? path.dirname(path.dirname(connectionsPath))
     : inputPath;
-  const reportPath = path.join(projectRoot, "connections-report.html");
+  const reportPath = path.join(projectRoot, ".akari", "reports", "connections-report.html");
   const credentialsPath = path.resolve(
     process.env.AKARI_CREDENTIALS_FILE ?? path.join(os.homedir(), ".config", "akari-video", "credentials.env"),
   );
@@ -81,6 +81,7 @@ async function mainLegacy({ connectionsPath, reportPath, credentialsPath }) {
   refuseSecretLeak(htmlOutput, secretValues);
 
   fs.writeFileSync(connectionsPath, jsonOutput, "utf8");
+  fs.mkdirSync(path.dirname(reportPath), { recursive: true });
   fs.writeFileSync(reportPath, htmlOutput, "utf8");
 
   for (const result of results) {
@@ -136,6 +137,7 @@ async function mainResolved({ projectRoot, reportPath, credentialsPath }) {
 
   const htmlOutput = renderReport(registry, results, credentialState, checkedAt, credentialsPath);
   refuseSecretLeak(htmlOutput, secretValues);
+  fs.mkdirSync(path.dirname(reportPath), { recursive: true });
   fs.writeFileSync(reportPath, htmlOutput, "utf8");
 
   if (resolved.layers.workspace) {

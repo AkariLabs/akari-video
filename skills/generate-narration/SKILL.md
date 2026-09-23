@@ -21,7 +21,7 @@ description: 原稿テキストから VOICEVOX（ローカル・ゼロ円の既�
 4. **有償レーン（fal）は費用宣言 → 明示承認後のみ実行する。** ElevenLabs は凍結中 — 選択肢として
    提示すること自体をしない
 5. **API キー直叩き禁止・manage-connections 経由のみ。** doctor が `ok` でないレーンは提示しない
-6. **provenance を毎回記録する。** VOICEVOX 系の声は credit 欄（例「VOICEVOX:ずんだもん」）が必須
+6. **provenance.provider は必須。** 例: `"provenance": {"provider": "voicevox", "credit": "VOICEVOX:ずんだもん"}`。fal なら `"provider": "fal"`、収録音声なら `"provider": "human"`。VOICEVOX 系の声は credit 欄も必須
 
 ## 実行順と目次
 

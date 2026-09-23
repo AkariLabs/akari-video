@@ -45,6 +45,42 @@ function isolatedUpdateOptions(root) {
   };
 }
 
+test('bare akari in a non-TTY checks state without launching an agent or creating root files', async () => {
+  await withScratchRoot(async (root) => {
+    await mkdir(join(root, '.akari'), { recursive: true });
+    await writeFile(join(root, '.akari', 'connections.json'), JSON.stringify({ providers: [], policy: {} }));
+    const before = (await import('node:fs/promises')).readdir(root);
+    const first = await before;
+    let launches = 0;
+    const result = await run([], {
+      ...isolatedUpdateOptions(root), projectRoot: root, assets: resolveRepoAssets(repoRoot),
+      isTTY: false, runDoctor: () => ({ status: 0 }),
+      spawnClaude: () => { launches++; return { status: 0 }; },
+      spawnOpencode: () => { launches++; return { status: 0 }; },
+      log: () => {},
+    });
+    assert.equal(result.exitCode, 0);
+    assert.equal(launches, 0);
+    assert.deepEqual(await (await import('node:fs/promises')).readdir(root), first);
+  });
+});
+
+test('bare akari in a non-TTY leaves an uninitialized folder untouched', async () => {
+  await withScratchRoot(async (root) => {
+    let launches = 0;
+    const result = await run([], {
+      ...isolatedUpdateOptions(root), projectRoot: root, assets: resolveRepoAssets(repoRoot),
+      isTTY: false, log: () => {},
+      spawnClaude: () => { launches++; return { status: 0 }; },
+      spawnOpencode: () => { launches++; return { status: 0 }; },
+    });
+    assert.equal(result.exitCode, 0);
+    assert.equal(result.scaffolded, false);
+    assert.equal(launches, 0);
+    assert.deepEqual(await (await import('node:fs/promises')).readdir(root), []);
+  });
+});
+
 test('scaffold 呼び出し: 未セットアップのフォルダでは実際の project-scaffold が呼ばれ、.akari/intake.json (draft) が生成される', async () => {
   await withScratchRoot(async (root) => {
     const { log, lines } = collectLogs();
@@ -156,7 +192,7 @@ test('claude 不在→opencode 不在: 両方無い場合は案内を出して�
       spawnClaude: () => { claudeSpawned = true; return { status: 0 }; },
       resolveOpencode: () => null,
       spawnOpencode: () => { opencodeSpawned = true; return { status: 0 }; },
-      ...isolatedUpdateOptions(root)
+      ...isolatedUpdateOptions(root), isTTY: true
     });
 
     assert.equal(claudeSpawned, false);
@@ -188,7 +224,7 @@ test('claude 不在→opencode でフォールバック: opencode が見つか�
         opencodeCall = { opencodePath, args, cwd };
         return { status: 0 };
       },
-      ...isolatedUpdateOptions(root)
+      ...isolatedUpdateOptions(root), isTTY: true
     });
 
     assert.deepEqual(opencodeCall, { opencodePath: '/fake/bin/opencode', args: [], cwd: root });
@@ -203,7 +239,7 @@ test('scaffold が例外を投げても claude 起動までは続行する（「
     const { log, lines } = collectLogs();
     let claudeCall = null;
 
-    const result = await run([], {
+    const result = await run(['--continue'], {
       projectRoot: root,
       log,
       assets: resolveRepoAssets(repoRoot),

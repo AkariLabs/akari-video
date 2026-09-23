@@ -412,17 +412,19 @@ export async function runStoreCommand(args, options = {}) {
       if (dl.exitCode !== 0) return { exitCode: 1 };
       const extractDir = path.join(stage, 'x');
       mkdirSync(extractDir, { recursive: true });
-      // unzip 優先・無ければ bsdtar（Windows 10+ の tar は zip を読める）
+      // 共有 zip 展開器は tar → unzip → Expand-Archive の順で試す。
       const extracted = options.extract
         ? options.extract(dl.filePath, extractDir)
-        : ['unzip', 'tar'].some((tool) => {
-            const cmdArgs = tool === 'unzip' ? ['-o', '-q', dl.filePath, '-d', extractDir] : ['-xf', dl.filePath, '-C', extractDir];
+        : await (async () => {
             try {
-              return spawnSync(tool, cmdArgs, { stdio: 'ignore' }).status === 0;
-            } catch {
-              return false;
-            }
-          });
+              const checkoutModule = new URL('../../asset-resolver/src/paid-zip.mjs', import.meta.url);
+              const vendorModule = new URL('../vendor/packages/asset-resolver/src/paid-zip.mjs', import.meta.url);
+              const moduleUrl = existsSync(checkoutModule) ? checkoutModule : vendorModule;
+              const { extractZipWithTools } = await import(moduleUrl.href);
+              extractZipWithTools(dl.filePath, extractDir);
+              return true;
+            } catch (error) { log(error.message); return false; }
+          })();
       if (!extracted) {
         log(`zip の展開に失敗しました。手動で展開してください: ${dl.filePath}`);
         return { exitCode: 1 };

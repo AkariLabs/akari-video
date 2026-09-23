@@ -34,7 +34,7 @@ akari narration generate \
   それ以外の platform では `VOICEVOX_RUN` 指定が必須（既定パスなし）
 - `/audio_query` → `/synthesis`（speaker id 指定）の順で呼び、wav を得る
 - `--speaker` は VOICEVOX の style id（既定 3 = ずんだもん・ノーマル）。話者名は `/speakers` から解決し、
-  provenance に `voice: speaker:<id>(<話者名>)` / `credit: VOICEVOX:<話者名>` として記録する
+  provenance に必須の `provider: voicevox` と `voice: speaker:<id>(<話者名>)` / `credit: VOICEVOX:<話者名>` を記録する（例: `{"provider":"voicevox","voice":"speaker:3","credit":"VOICEVOX:ずんだもん"}`）
   （キャラクターごとのクレジット表記義務。ハードルール 6）
 - 費用はゼロ。承認ゲートは不要（`--dry-run` 以外はそのまま実行される）
 

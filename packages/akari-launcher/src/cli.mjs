@@ -75,6 +75,13 @@ export async function run(args, options = {}) {
   );
 
   let projectRoot = options.projectRoot ?? process.cwd();
+  const bareNonInteractive = args.length === 0
+    && !(options.isTTY ?? Boolean(process.stdin.isTTY && process.stdout.isTTY));
+  if (bareNonInteractive && !detectProjectState(projectRoot).scaffolded) {
+    log(`このフォルダーは AKARI Video プロジェクトとしてまだセットアップされていません: ${projectRoot}`);
+    log('非対話シェルのため状態確認のみで終了します。');
+    return { exitCode: 0, scaffolded: false, claudeLaunched: false, opencodeLaunched: false };
+  }
 
   // 作業場（creator-root）の初回動線（契約 §5・§6-1）。`--here` はお試しモード強制
   // （現行動作）のため丸ごとスキップする（契約 §9・非 TTY と同じ現行動作互換の扱い）。
@@ -123,6 +130,11 @@ export async function run(args, options = {}) {
     }
     const runtimeDiagnostics = options.runtimeDiagnostics ?? resolveRuntimePaths({ ...options, env, platform });
     log(describeVersionStatus(versionInfo, readCacheSync(resolveCachePath(env)), runtimeDiagnostics));
+  }
+
+  if (bareNonInteractive) {
+    log('非対話シェルのため状態確認のみで終了します。');
+    return { exitCode: 0, scaffolded: state.scaffolded, claudeLaunched: false, opencodeLaunched: false };
   }
 
   // 新版通知（契約 §4-1）: キャッシュの読み比較のみ・ネットワークには一切触れない

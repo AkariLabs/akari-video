@@ -108,6 +108,7 @@ serverTest('akari 実行 1 回目: キャッシュ未形成のため通知なし
         resolveClaude: () => '/fake/bin/claude',
         spawnClaude: () => ({ status: 0 }),
         env,
+        isTTY: true,
         currentVersion: '0.1.0'
         // refreshUpdate は指定しない — 実体の triggerBackgroundRefresh を使い、
         // detached 子プロセスが実際に spawn されることまで確認する。
