@@ -930,13 +930,28 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           mkdir -p release-artifacts
-          gh release download "${{ needs.resolve-tag.outputs.tag }}" --dir release-artifacts --clobber \
+          TAG="${{ needs.resolve-tag.outputs.tag }}"
+          if ! gh release download "$TAG" --dir release-artifacts --clobber \
             --pattern "${{ env.ARTIFACT_MAC }}" \
             --pattern "*.dmg" \
             --pattern "${{ env.ARTIFACT_WIN }}" \
             --pattern "${{ env.ARTIFACT_WIN_SETUP }}" \
             --pattern "${{ env.ARTIFACT_CLI }}" \
-            --pattern "${{ env.ARTIFACT_APP }}"
+            --pattern "${{ env.ARTIFACT_APP }}"; then
+            # 公開直後に tags/<tag> の応答だけ assets が空のまま残ることがある（v0.1.80 で 25 分以上）。
+            # Release id の assets 一覧は正しいので、そちらから同じ固定名を取り直す
+            echo "gh release download が失敗 — Release id の assets 一覧から取得し直す"
+            rel_id=$(gh api "repos/${{ github.repository }}/releases/tags/$TAG" --jq .id)
+            gh api "repos/${{ github.repository }}/releases/$rel_id/assets?per_page=100" --jq '.[] | "\(.id) \(.name)"' |
+              while read -r asset_id name; do
+                case "$name" in
+                  "${{ env.ARTIFACT_MAC }}"|*.dmg|"${{ env.ARTIFACT_WIN }}"|"${{ env.ARTIFACT_WIN_SETUP }}"|"${{ env.ARTIFACT_CLI }}"|"${{ env.ARTIFACT_APP }}")
+                    gh api -H "Accept: application/octet-stream" "repos/${{ github.repository }}/releases/assets/$asset_id" > "release-artifacts/$name"
+                    echo "  取得: $name" ;;
+                esac
+              done
+            test -s "release-artifacts/${{ env.ARTIFACT_MAC }}"
+          fi
 
       - name: channel を対象 Release の現在状態から決定する
         id: channel
