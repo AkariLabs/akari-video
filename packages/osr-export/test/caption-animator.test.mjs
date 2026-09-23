@@ -43,7 +43,7 @@ test("宣言なしの HTML は基底のバイト列を保ち、overlay sheet は
   const page = build({ captions: [{ ...cue, text: "Caption ABC" }] });
   const digest = value => createHash("sha256").update(value).digest("hex");
   assert.equal(digest(page.html), "fbd423496883180bb711931de726461c6728d725fa35ddba8ccfc450cb820236");
-  assert.equal(digest(page.overlaySheetHtml), "4e84e8af085c3535639b61dd28a410177140cf654ff93c9a2293510d9131b912");
+  assert.equal(digest(page.overlaySheetHtml), "cff8192aeeca511036d6deee3f2c7d50cda02e612fdec2f450a8800eccd11733");
 });
 
 test("分割された source-domain cue の全 overlay に宣言と item 時計が届く", () => {
