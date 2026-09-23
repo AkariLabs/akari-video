@@ -1,0 +1,247 @@
+#!/usr/bin/env node
+// Run: node apps/shell/extensions/akari-annotations/evidence/ai-transcribe/scripts/l1-ai-transcribe.mjs
+// Requires a built Electron shell. The script makes its project and all profiles under os.tmpdir().
+import { spawn } from 'node:child_process';
+import { mkdir, mkdtemp, rename, rm, stat, writeFile } from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { setTimeout as sleep } from 'node:timers/promises';
+import { CDP, evalOn, listTargets, realClick } from './cdp-lib.mjs';
+
+const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
+const REPO = path.resolve(ROOT, '..', '..', '..', '..', '..', '..');
+const SHELL = path.join(REPO, 'apps/shell');
+const ELECTRON = path.join(SHELL, 'node_modules/electron/dist/Electron.app/Contents/MacOS/Electron');
+const PORT = Number(process.argv.find(arg => arg.startsWith('--port='))?.slice(7) ?? 22243);
+const ISO = await mkdtemp(path.join(os.tmpdir(), 'akari-ai-transcribe-l1-'));
+const PROJECT = path.join(ISO, 'project');
+const S = JSON.stringify;
+const launchEnv = { ...process.env };
+for (const key of Object.keys(launchEnv)) if (/GROQ|ELEVENLABS|FAL_KEY|OPENAI_API_KEY/iu.test(key)) delete launchEnv[key];
+const result = { status: 'running', checks: [], clicks: [], screenshots: [],
+  measurements: { badgeTitleIntersect: null, buttons: [] }, blockedTranscriptions: 0 };
+const save = async () => {
+  const file = path.join(ROOT, 'results.json');
+  const temporary = `${file}.tmp-${process.pid}`;
+  await writeFile(temporary, JSON.stringify(result, null, 2) + '\n');
+  await rename(temporary, file);
+};
+const check = (name, passed, measured) => {
+  result.checks.push({ name, passed: Boolean(passed), measured });
+  if (!passed) throw new Error(`${name}: ${JSON.stringify(measured)}`);
+};
+async function waitEval(cdp, expression, label, ms = 30_000) {
+  const until = Date.now() + ms;
+  while (Date.now() < until) {
+    const value = await evalOn(cdp, expression).catch(() => null);
+    if (value) return value;
+    await sleep(160);
+  }
+  throw new Error(`Timed out: ${label}`);
+}
+const command = id => `(async()=>{const d=window.theia.container._bindingDictionary;
+  const C=[...d._map.keys()].find(k=>typeof k==='function'&&typeof k.prototype?.executeCommand==='function');
+  await window.theia.container.get(C).executeCommand(${S(id)});return true})()`;
+async function dismiss(cdp) {
+  await evalOn(cdp, command('notifications.commands.clearAll')).catch(() => null);
+  await waitEval(cdp, `document.querySelectorAll('.theia-notification-list-item').length===0`, 'notifications clear', 5000).catch(() => null);
+}
+async function settle(cdp) {
+  return evalOn(cdp, `new Promise(resolve=>{const roots=['[data-akari-ui="panel:inspector"]','[data-akari-ui="panel:timeline"]']
+    .map(s=>document.querySelector(s)).filter(Boolean);if(!roots.length){resolve(true);return}
+    let quiet,limit;const observers=roots.map(root=>{const observer=new MutationObserver(reset);
+    observer.observe(root,{subtree:true,childList:true,attributes:true,characterData:true});return observer});
+    function done(){clearTimeout(quiet);clearTimeout(limit);observers.forEach(o=>o.disconnect());resolve(true)}
+    function reset(){clearTimeout(quiet);quiet=setTimeout(done,500)}limit=setTimeout(done,30000);reset()})`);
+}
+async function clickUntil(cdp, selector, expected, name) {
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    await settle(cdp);
+    await dismiss(cdp);
+    try {
+      const point = await waitEval(cdp, `(async()=>{const e=document.querySelector(${S(selector)});if(!e)return null;
+        e.scrollIntoView({block:'center',inline:'nearest',behavior:'instant'});
+        await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+        const r=e.getBoundingClientRect(),x=r.left+r.width/2,y=r.top+r.height/2;
+        const hit=document.elementFromPoint(x,y);return r.width&&r.height&&hit&&(hit===e||e.contains(hit))?{x,y}:null})()`, `${name} point`, 5000);
+      await realClick(cdp, point.x, point.y);
+      await waitEval(cdp, expected, name, 5000);
+      result.clicks.push({ name, attempt, passed: true });
+      return;
+    } catch (error) {
+      result.clicks.push({ name, attempt, passed: false, error: String(error) });
+      if (attempt === 3) throw error;
+    }
+  }
+}
+async function shot(cdp, name, selector = '[data-akari-ui="panel:inspector"]') {
+  await settle(cdp);
+  await dismiss(cdp);
+  const rect = await waitEval(cdp, `(()=>{const e=document.querySelector(${S(selector)});if(!e)return null;
+    const r=e.getBoundingClientRect();return r.width&&r.height?{x:Math.max(0,r.x),y:Math.max(0,r.y),width:r.width,height:r.height}:null})()`, `${name} rect`);
+  const { data } = await cdp.send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false,
+    clip: { ...rect, scale: 1 } });
+  const bytes = Buffer.from(data, 'base64');
+  await writeFile(path.join(ROOT, name), bytes);
+  result.screenshots.push({ name, bytes: bytes.length });
+  check(`${name} <= 500KB`, bytes.length <= 500_000, bytes.length);
+  await save();
+}
+async function runFixture() {
+  const child = spawn(process.execPath, [path.join(ROOT, 'scripts/gen-fixture.mjs'), PROJECT], { cwd: REPO, stdio: ['ignore', 'pipe', 'pipe'] });
+  let out = '', err = '';
+  child.stdout.on('data', part => { out += part; });
+  child.stderr.on('data', part => { err += part; });
+  const code = await new Promise(resolve => child.once('close', resolve));
+  if (code !== 0) throw new Error(`fixture failed: ${err}`);
+  result.fixture = JSON.parse(out.trim());
+}
+const tab = '[data-akari-ui="tab:inspector-generation"]';
+const tile = '[data-akari-inspector-ai-tile="transcribe"]';
+const panel = '.akari-inspector-ai-transcribe-panel';
+const button = label => `${panel} button.akari-inspector-ai-transcribe-button`;
+const buttonWith = label => `Boolean([...document.querySelectorAll(${S(button(label))})].find(e=>e.textContent===${S(label)}))`;
+async function openAi(cdp) {
+  const selected = `document.querySelector(${S(tab)})?.getAttribute('aria-selected')==='true'`;
+  if (!await evalOn(cdp, selected)) await clickUntil(cdp, tab, selected, 'AI tab');
+}
+async function select(cdp, selector, name) {
+  await clickUntil(cdp, selector, `Boolean(document.querySelector(${S(selector)})?.classList.contains('akari-annotations-selected'))`, name);
+  await openAi(cdp);
+}
+async function waitForExit(child, timeoutMs = 10_000) {
+  if (child.exitCode !== null || child.signalCode !== null) return true;
+  return new Promise(resolve => {
+    const onExit = () => { clearTimeout(timer); resolve(true); };
+    const timer = setTimeout(() => { child.off('exit', onExit); resolve(false); }, timeoutMs);
+    child.once('exit', onExit);
+  });
+}
+let electron, cdp;
+try {
+  await stat(ELECTRON);
+  await runFixture();
+  for (const name of ['akari-home', 'theia-config', 'user-data']) await mkdir(path.join(ISO, name));
+  electron = spawn(ELECTRON, [SHELL, PROJECT, `--remote-debugging-port=${PORT}`,
+    `--user-data-dir=${path.join(ISO, 'user-data')}`, '--window-size=1600,1000', '--no-sandbox'], {
+    cwd: REPO, env: { ...launchEnv, AKARI_HOME: path.join(ISO, 'akari-home'),
+      THEIA_CONFIG_DIR: path.join(ISO, 'theia-config') }, stdio: 'ignore'
+  });
+  electron.on('error', error => { result.launchError = String(error); });
+  const target = await (async () => { const until = Date.now() + 600_000; while (Date.now() < until) {
+    const page = await listTargets(PORT).then(rows => rows.find(row => row.type === 'page')).catch(() => null);
+    if (page) return page; await sleep(300);
+  } throw new Error('Electron CDP page did not appear'); })();
+  cdp = new CDP(target.webSocketDebuggerUrl);
+  await cdp.connect(); await cdp.send('Page.enable'); await cdp.send('Runtime.enable');
+  await waitEval(cdp, `Boolean(window.theia?.container&&document.getElementById('theia-app-shell'))`, 'Theia workbench', 1_500_000);
+  if (!await evalOn(cdp, `Boolean(document.querySelector('[data-akari-ui="timeline:cut:0"]'))`))
+    await evalOn(cdp, command('akari.annotations.open'));
+  await waitEval(cdp, `Boolean(document.querySelector('[data-akari-ui="timeline:cut:0"]'))`, 'timeline');
+  await evalOn(cdp, command('akari.inspector.open')).catch(() => null);
+  await waitEval(cdp, `Boolean(document.querySelector('[data-akari-ui="panel:inspector"]'))`, 'inspector');
+
+  await select(cdp, '[data-akari-item-kind="audio"][data-akari-item-id="interview-clip"]', 'transcribed audio');
+  await waitEval(cdp, `Boolean(document.querySelector(${S(tile)})?.querySelector('.akari-inspector-ai-done-badge'))`, 'done badge');
+  const tileMeasure = await evalOn(cdp, `(()=>{const e=document.querySelector(${S(tile)}),b=e.querySelector('.akari-inspector-ai-done-badge'),t=e.querySelector('.akari-inspector-ai-title');
+    const a=b.getBoundingClientRect(),z=t.getBoundingClientRect(),s=getComputedStyle(e);return{intersect:a.left<z.right&&a.right>z.left&&a.top<z.bottom&&a.bottom>z.top,
+    background:s.backgroundColor,border:s.borderTopWidth,heading:e.closest('.akari-inspector-ai-group')?.querySelector('h3')?.textContent}})()`);
+  result.measurements.badgeTitleIntersect = tileMeasure.intersect;
+  result.measurements.buttons.push({ name: 'tile', background: tileMeasure.background, border: tileMeasure.border });
+  check('audio refine tile and badge', tileMeasure.heading === '直す' && !tileMeasure.intersect, tileMeasure);
+  await shot(cdp, '01-audio-done-tile.png');
+  await clickUntil(cdp, tile, `Boolean(document.querySelector(${S(panel)})?.textContent.includes('文字起こし済み'))`, 'done panel');
+  await waitEval(cdp, `document.querySelectorAll('.akari-inspector-ai-transcribe-row').length===5`, 'first five segments');
+  check('first subtitle visible', await evalOn(cdp, `document.querySelector(${S(panel)})?.textContent.includes('インタビューの字幕 1')`), true);
+  result.measurements.buttons.push(...await evalOn(cdp, `(()=>[...document.querySelectorAll('.akari-inspector-ai-transcribe-button,.akari-inspector-ai-back')]
+    .map(e=>{const s=getComputedStyle(e);return{name:e.textContent,background:s.backgroundColor,border:s.borderTopWidth}}))()`));
+  await shot(cdp, '02-done-panel.png');
+  await clickUntil(cdp, `${panel} button:first-of-type`, `(()=>{const e=document.querySelector('[data-akari-ui="panel:daihon"]');return !!e&&e.getBoundingClientRect().width>0})()`, 'open daihon');
+  await shot(cdp, '03-daihon.png', '[data-akari-ui="panel:daihon"]');
+
+  // The existing dialog auto-starts. Replace the project RPC in this isolated renderer before opening it.
+  // This blocks local Whisper and all cloud providers even if the dialog chooses a backend automatically.
+  const guarded = await evalOn(cdp, `(()=>{const d=window.theia.container._bindingDictionary;
+    const K=[...d._map.keys()].find(k=>String(k).includes('AkariProjectService'));
+    if(!K)return false;const service=window.theia.container.get(K);
+    const blocked=async()=>{window.__akariAiTranscribeBlocked=(window.__akariAiTranscribeBlocked||0)+1;
+      throw new Error('L1 fixture blocks transcription');};
+    service.transcribeMaterial=blocked;return service.transcribeMaterial===blocked})()`);
+  check('transcription RPC blocked before dialog', guarded, guarded);
+  await evalOn(cdp, command('akari.inspector.open'));
+  await waitEval(cdp, `(()=>{const e=document.querySelector('[data-akari-ui="panel:inspector"]');return !!e&&e.getBoundingClientRect().width>0})()`, 'inspector active');
+  await select(cdp, '[data-akari-ui="timeline:cut:0"]', 'untranscribed video');
+  await waitEval(cdp, `Boolean(document.querySelector(${S(tile)}))`, 'video transcribe tile');
+  await shot(cdp, '04-video-tile.png');
+  await clickUntil(cdp, tile, buttonWith('文字起こしする'), 'video transcribe panel');
+  result.measurements.buttons.push(...await evalOn(cdp, `(()=>[...document.querySelectorAll('.akari-inspector-ai-transcribe-button')]
+    .map(e=>{const s=getComputedStyle(e);return{name:e.textContent,background:s.backgroundColor,border:s.borderTopWidth}}))()`));
+  await clickUntil(cdp, `${panel} button`, `Boolean(document.querySelector('[data-akari-transcribe-dialog="true"]'))`, 'existing dialog');
+  await shot(cdp, '05-dialog.png', '[data-akari-transcribe-dialog="true"]');
+  for (let count = 0; count < 3; count++) {
+    if (!await evalOn(cdp, `Boolean(document.querySelector('[data-akari-transcribe-dialog="true"]'))`)) break;
+    await cdp.send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 });
+    await cdp.send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 });
+    await sleep(250);
+  }
+  await waitEval(cdp, `!document.querySelector('[data-akari-transcribe-dialog="true"]')`, 'dialog closed');
+  result.blockedTranscriptions = await evalOn(cdp, `window.__akariAiTranscribeBlocked||0`);
+  await select(cdp, '[data-akari-ui="timeline:cut:1"]', 'still clip');
+  const disabled = await waitEval(cdp, `(()=>{const e=document.querySelector(${S(tile)});return e?.getAttribute('aria-disabled')==='true'?e.querySelector('.akari-inspector-ai-reason')?.textContent:null})()`, 'still disabled');
+  check('still reason', disabled === '声の入った音声か動画で使えます', disabled);
+  await shot(cdp, '06-still-disabled.png');
+  const buttons = await evalOn(cdp, `(()=>[...document.querySelectorAll('.akari-inspector-ai-transcribe-button,.akari-inspector-ai-back')]
+    .map(e=>{const s=getComputedStyle(e);return{name:e.textContent,background:s.backgroundColor,border:s.borderTopWidth}}))()`);
+  result.measurements.buttons.push(...buttons);
+  check('clickable buttons have background or border', result.measurements.buttons.every(row =>
+    !['transparent', 'rgba(0, 0, 0, 0)'].includes(row.background) || parseFloat(row.border) > 0), result.measurements.buttons);
+  result.status = 'PASS';
+} catch (error) {
+  result.status = 'FAIL'; result.error = String(error);
+  if (cdp) {
+    try {
+      const { data } = await cdp.send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false });
+      const bytes = Buffer.from(data, 'base64');
+      await writeFile(path.join(ROOT, 'error-full.png'), bytes);
+      result.screenshots.push({ name: 'error-full.png', bytes: bytes.length });
+    } catch (screenshotError) { result.errorScreenshot = String(screenshotError); }
+    try {
+      result.failureState = await evalOn(cdp, `(()=>({
+        selectedClips:[...document.querySelectorAll('[data-akari-ui^="timeline:cut:"].akari-annotations-selected,[data-akari-item-kind="audio"].akari-annotations-selected')]
+          .map(e=>({ui:e.getAttribute('data-akari-ui'),kind:e.getAttribute('data-akari-item-kind'),id:e.getAttribute('data-akari-item-id')})),
+        tabs:[...document.querySelectorAll('[data-akari-ui^="tab:inspector-"]')]
+          .map(e=>({id:e.getAttribute('data-akari-ui'),selected:e.getAttribute('aria-selected')})),
+        inspector:{present:!!document.querySelector('[data-akari-ui="panel:inspector"]'),
+          tile:!!document.querySelector(${S(tile)}),badge:!!document.querySelector('.akari-inspector-ai-done-badge'),
+          transcribePanel:!!document.querySelector(${S(panel)}),back:!!document.querySelector('.akari-inspector-ai-back'),
+          dialog:!!document.querySelector('[data-akari-transcribe-dialog="true"]')},
+        notifications:document.querySelectorAll('.theia-notification-list-item').length
+      }))()`);
+    } catch (stateError) { result.failureState = { error: String(stateError) }; }
+  }
+} finally {
+  try { cdp?.close(); } catch (error) { result.cleanupError = String(error); }
+  if (electron?.pid) {
+    result.killedPid = electron.pid;
+    try {
+      const signal = name => {
+        try { process.kill(electron.pid, name); }
+        catch (error) { if (error?.code !== 'ESRCH') throw error; }
+      };
+      if (electron.exitCode === null && electron.signalCode === null) signal('SIGTERM');
+      let exited = await waitForExit(electron);
+      if (!exited) {
+        signal('SIGKILL');
+        exited = await waitForExit(electron);
+      }
+      result.electronExited = exited;
+      if (!exited) throw new Error('Electron did not exit after SIGKILL');
+    } catch (error) { result.cleanupError = String(error); }
+  }
+  try {
+    await rm(ISO, { recursive: true, force: true, maxRetries: 10, retryDelay: 300 });
+  } catch (error) { result.cleanupError = String(error); }
+  try { await save(); } catch (error) { process.stderr.write(`Failed to save L1 result: ${String(error)}\n`); process.exitCode = 1; }
+}
+if (result.status !== 'PASS' || result.cleanupError) process.exitCode = 1;

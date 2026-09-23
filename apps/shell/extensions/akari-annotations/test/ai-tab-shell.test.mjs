@@ -9,34 +9,39 @@ const catalog = aiActionCatalog(models);
 
 test('AI 行為カタログは動画モデルから実働 route を作る', () => {
   assert.deepEqual(catalog.map(row => [row.id, row.group, row.output, row.placement]),
-    [['still', 'make', 'image', 'replace'], ['video', 'make', 'video', 'replace']]);
+    [['still', 'make', 'image', 'replace'], ['video', 'make', 'video', 'replace'],
+      ['transcribe', 'refine', 'captions', 'captions']]);
   assert.deepEqual(catalog[1].routes, [{ id: 'fal:h3-i2v', label: 'MiniMax H3', kind: 'api', cost: 'paid' }]);
   assert.deepEqual(aiActionCatalog(models.filter(row => row.kind !== 'video'))[1].routes, []);
 });
 
 for (const [name, target, count, stillEnabled, videoEnabled, videoReason] of [
-  ['静止画', 'still', 1, true, true, undefined],
-  ['空の枠', 'empty-frame', 1, true, true, undefined],
-  ['ふつうの動画', 'video', 1, false, false, '静止画か空の枠で使えます'],
-  ['生成済み動画', 'generated-video', 1, false, true, undefined],
-  ['音声', 'audio', 0, undefined, undefined, undefined]
+  ['静止画', 'still', 2, true, true, undefined],
+  ['空の枠', 'empty-frame', 2, true, true, undefined],
+  ['ふつうの動画', 'video', 2, false, false, '静止画か空の枠で使えます'],
+  ['生成済み動画', 'generated-video', 2, false, true, undefined],
+  ['音声', 'audio', 1, undefined, undefined, undefined]
 ]) {
   test(`describeAiTiles: ${name}`, () => {
     const groups = describeAiTiles(catalog, target);
     assert.equal(groups.length, count);
-    if (count) assert.deepEqual(groups[0], { group: 'make', tiles: [
+    if (target !== 'audio') assert.deepEqual(groups[0], { group: 'make', tiles: [
       { id: 'still', label: '静止画', image: 'still', enabled: stillEnabled,
         ...(!stillEnabled ? { reason: '空の枠か静止画で使えます' } : {}) },
       { id: 'video', label: '動画にする', image: 'video', enabled: videoEnabled,
         ...(videoReason ? { reason: videoReason } : {}) }
     ] });
+    assert.deepEqual(groups[target === 'audio' ? 0 : 1], { group: 'refine', tiles: [{
+      id: 'transcribe', label: '文字起こし', image: 'transcribe', enabled: target === 'video' || target === 'audio',
+      ...(target === 'video' || target === 'audio' ? {} : { reason: '声の入った音声か動画で使えます' })
+    }] });
   });
 }
 
 test('describeAiTiles: routes が空の行とタイル 0 枚のグループは出ない', () => {
   const empty = { ...catalog[0], routes: [] };
   assert.deepEqual(describeAiTiles([empty], 'still'), []);
-  assert.deepEqual(describeAiTiles(catalog, 'still').map(group => group.group), ['make']);
+  assert.deepEqual(describeAiTiles(catalog, 'still').map(group => group.group), ['make', 'refine']);
 });
 
 for (const [name, input, expected] of [

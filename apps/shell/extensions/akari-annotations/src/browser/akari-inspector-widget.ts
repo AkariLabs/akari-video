@@ -2,7 +2,7 @@ import URI from '@theia/core/lib/common/uri';
 import { CommandRegistry } from '@theia/core/lib/common';
 import { GENERATION_PICK_INTO_COMMAND_ID, GENERATION_CANCEL_PICK_COMMAND_ID, type GenerationPickRequest, type GenerationPickResult } from '../common/generation-pick-mirror';
 import { AkariAnnotationsService } from '../common/akari-annotations-protocol';
-import type { GenerationValidationResult } from '../common/akari-annotations-protocol';
+import type { GenerationValidationResult, TranscriptSummary } from '../common/akari-annotations-protocol';
 import { resolveGenerationState, selectGenerationSidecarForSource, TRANSITION_VOCABULARY } from '@akari-video/edit-store';
 import { BaseWidget } from '@theia/core/lib/browser';
 import { WidgetManager } from '@theia/core/lib/browser/widget-manager';
@@ -35,6 +35,7 @@ import { createSelectionHeader } from './inspector/selection-header';
 import { aiActionCatalog, describeAiTiles } from '../common/ai-action-catalog';
 import { aiTabAvailabilityFor, aiTabViewFor, aiTargetKindFor, appendAiBack, appendAiTiles, type AiTabView } from './inspector/ai-tiles';
 import { appendAiStillNotice, appendAiStillPanel, nearestStillAspect, replaceStillInEdit, stillDimensionMismatch, stillMismatchNotice, type AiStillState } from './inspector/ai-still-panel';
+import { appendAiTranscribePanel, resolveAiTranscribeTarget, type AiTranscribeTarget } from './inspector/ai-transcribe-panel';
 import { createInspectorIcon } from './inspector/icons';
 import { worldInstructionCopy } from '../common/world-instruction-copy';
 import { keyframeRowPropertyOf, keyframeValueAt, type KeyframeSeatProperty } from './timeline/timeline-keyframe-rows';
@@ -2417,6 +2418,14 @@ export class AkariInspectorWidget extends BaseWidget {
     protected aiStillSelectionClipKey?: string;
     protected readonly aiStillStates = new Map<string, AiStillState>();
     protected aiStillTick?: number;
+    protected transcribeKey?: string;
+    protected transcribeTarget?: AiTranscribeTarget;
+    protected transcribeSummary: TranscriptSummary = { state: 'none', segments: [], total: 0 };
+    protected transcribeRunning = false;
+    protected transcribePolling = false;
+    protected transcribeTimer?: ReturnType<typeof setInterval>;
+    protected transcribeLoading?: Promise<void>;
+    protected audioPlanned = false;
     protected generationDefaultModel = 'fal:h3-i2v';
     protected readonly generationDrafts = new Map<string, GenerationDraft>();
     protected readonly generationQuality = new Map<string, { modelId: string; enabled: boolean; previousResolution: string | null }>();
@@ -2486,7 +2495,7 @@ export class AkariInspectorWidget extends BaseWidget {
 .akari-inspector-ai-group { min-width: 0; }
 .akari-inspector-ai-heading { margin: 0 0 9px; font-size: 13px; font-weight: 700; }
 .akari-inspector-ai-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
-.akari-inspector-widget button.akari-inspector-ai-tile { display: flex; flex-direction: column; align-items: stretch; min-width: 0; padding: 0 0 7px; overflow: hidden; text-align: left; color: var(--akari-ink); background: var(--akari-elevated); border: 1px solid var(--akari-line); border-radius: 7px; cursor: pointer; }
+.akari-inspector-widget button.akari-inspector-ai-tile { position: relative; display: flex; flex-direction: column; align-items: stretch; min-width: 0; padding: 0 0 7px; overflow: hidden; text-align: left; color: var(--akari-ink); background: var(--akari-elevated); border: 1px solid var(--akari-line); border-radius: 7px; cursor: pointer; }
 .akari-inspector-widget button.akari-inspector-ai-tile:hover:not(.akari-inspector-ai-disabled) { border-color: var(--akari-accent); }
 .akari-inspector-ai-image { display: block; box-sizing: border-box; width: 100%; height: auto; aspect-ratio: 16 / 9; object-fit: cover; }
 .akari-inspector-ai-title { display: block; margin: 7px 8px 0; font-size: 12px; font-weight: 600; line-height: 1.35; }
@@ -2494,8 +2503,9 @@ export class AkariInspectorWidget extends BaseWidget {
 .akari-inspector-ai-disabled .akari-inspector-ai-image { filter: grayscale(1); opacity: .55; }
 .akari-inspector-ai-disabled .akari-inspector-ai-title { color: var(--akari-muted); }
 .akari-inspector-ai-reason { display: block; margin: 4px 8px 0; color: var(--akari-muted); font-size: 10px; line-height: 1.35; }
+.akari-inspector-ai-done-badge { position: absolute; top: 6px; right: 6px; padding: 2px 6px; border-radius: 4px; background: var(--akari-accent); color: var(--akari-bg); font-size: 10px; line-height: 1.3; }
 .akari-inspector-ai-panel-header { display: flex; align-items: center; gap: 10px; min-width: 0; padding: 4px 2px 8px; }
-.akari-inspector-widget button.akari-inspector-ai-back { padding: 3px 5px; color: var(--akari-accent); background: transparent; border: 0; cursor: pointer; }
+.akari-inspector-widget button.akari-inspector-ai-back { padding: 3px 5px; color: var(--akari-accent); background: var(--akari-elevated); border: 1px solid var(--akari-line); border-radius: 4px; cursor: pointer; }
 .akari-inspector-ai-panel-title { margin: 0; font-size: 13px; font-weight: 700; }
 .akari-inspector-ai-still-notice { margin: 5px 2px 9px; padding: 7px 9px; border: 1px solid var(--akari-line); border-radius: 5px; font-size: 11px; line-height: 1.5; overflow-wrap: anywhere; }
 .akari-inspector-ai-still-panel { display: grid; gap: 10px; padding: 4px 2px 14px; min-width: 0; }
@@ -2516,6 +2526,15 @@ export class AkariInspectorWidget extends BaseWidget {
 .akari-inspector-ai-still-error { color: var(--akari-danger, #e36b6b); }
 .akari-inspector-widget button.akari-inspector-ai-still-primary { padding: 9px 12px; color: var(--akari-bg); background: var(--akari-accent); border: 1px solid var(--akari-accent); border-radius: 5px; font-weight: 700; cursor: pointer; }
 .akari-inspector-widget button.akari-inspector-ai-still-primary:disabled { color: var(--akari-faint); background: var(--akari-card); border-color: var(--akari-line); cursor: default; }
+.akari-inspector-ai-transcribe-panel { display: grid; gap: 12px; min-width: 0; padding: 10px 2px; }
+.akari-inspector-ai-transcribe-detail, .akari-inspector-ai-transcribe-reason { margin: 0; color: var(--akari-muted); font-size: 12px; overflow-wrap: anywhere; }
+.akari-inspector-ai-transcribe-status { margin: 0; font-size: 13px; font-weight: 700; }
+.akari-inspector-ai-transcribe-list { display: grid; gap: 0; min-width: 0; border: 1px solid var(--akari-line); border-radius: 6px; overflow: hidden; }
+.akari-inspector-ai-transcribe-row { display: grid; grid-template-columns: 72px minmax(0, 1fr); gap: 8px; min-width: 0; padding: 8px; border-bottom: 1px solid var(--akari-line); font-size: 11px; }
+.akari-inspector-ai-transcribe-row:last-child { border-bottom: 0; }
+.akari-inspector-ai-transcribe-time { color: var(--akari-muted); white-space: nowrap; }
+.akari-inspector-ai-transcribe-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.akari-inspector-widget button.akari-inspector-ai-transcribe-button { width: 100%; padding: 8px 10px; color: var(--akari-ink); background: var(--akari-elevated); border: 1px solid var(--akari-line); border-radius: 5px; cursor: pointer; }
 .akari-inspector-generation-gap { display: grid; gap: 12px; padding: 12px; min-width: 0; }
 .akari-inspector-generation-gap h3, .akari-inspector-generation-gap p { margin: 0; line-height: 1.6; overflow-wrap: anywhere; }
 .akari-inspector-generation-gap-ends { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; }
@@ -3461,6 +3480,8 @@ export class AkariInspectorWidget extends BaseWidget {
     }
 
     protected render(): void {
+        if (this.transcribeTimer) clearInterval(this.transcribeTimer);
+        this.transcribeTimer = undefined;
         this.dispatchCaptionZoneEvent(CAPTION_ZONE_HOVER_EVENT, null);
         this.body.replaceChildren();
         this.hideFieldNotice();
@@ -3496,7 +3517,7 @@ export class AkariInspectorWidget extends BaseWidget {
 
         if (this.generationVideoPaths) this.observeGenerationVideo(snapshot);
         const generationIdentity = this.generationIdentity(snapshot);
-        if (!generationIdentity && (snapshot.kind === 'cut' || snapshot.kind === 'layer' || snapshot.kind === 'item')) {
+        if (!generationIdentity && (snapshot.kind === 'cut' || snapshot.kind === 'layer' || snapshot.kind === 'item' || snapshot.kind === 'audio')) {
             // The existing test harness transpiles render without this new loader method.
             void this.loadAiCatalog?.();
         }
@@ -3636,10 +3657,27 @@ export class AkariInspectorWidget extends BaseWidget {
         }
         const generationState = generationIdentity ? this.generationStates.get(generationIdentity.key) : undefined;
         const generationDone = !!generationIdentity && this.generationDone?.has(generationIdentity.key) === true;
+        const transcribeKey = JSON.stringify([
+            this.workspaceService.tryGetRoots()[0]?.resource.toString() ?? '', sectionKind,
+            rowSnapshot.kind === 'cut' ? rowSnapshot.itemId ?? rowSnapshot.index : rowSnapshot.id
+        ]);
+        if (this.transcribeKey !== transcribeKey) {
+            this.transcribeKey = transcribeKey;
+            this.transcribeTarget = undefined;
+            this.transcribeSummary = { state: 'none', segments: [], total: 0 };
+            this.transcribeRunning = false;
+            this.transcribePolling = false;
+            this.audioPlanned = false;
+            this.transcribeLoading = undefined;
+        }
+        if (['cut', 'layer', 'item', 'audio'].includes(sectionKind) && !this.transcribeLoading) {
+            void this.loadAiTranscribeTarget?.(rowSnapshot, transcribeKey);
+        }
         // Older render harnesses instantiate only extracted methods and have no AI catalog state.
         const aiGroups = this.aiCatalogLoaded === undefined ? [] : describeAiTiles(
             aiActionCatalog(this.generationCatalog),
-            aiTargetKindFor({ hasIdentity: !!generationIdentity, generationDone, generationState })
+            aiTargetKindFor({ hasIdentity: !!generationIdentity, generationDone, generationState,
+                audio: sectionKind === 'audio', audioPlanned: this.audioPlanned })
         );
         const aiAvailability = this.aiCatalogLoaded === undefined
             ? { enabled: !!generationIdentity, forcePanel: false }
@@ -3688,21 +3726,51 @@ export class AkariInspectorWidget extends BaseWidget {
             if (this.aiView === 'tiles') {
                 if (stillNotice) appendAiStillNotice(this.body, stillNotice);
                 appendAiTiles(this.body, aiGroups, id => {
-                    if (id !== 'video' && id !== 'still') return;
+                    if (id !== 'video' && id !== 'still' && id !== 'transcribe') return;
                     this.aiView = id;
                     this.render();
-                });
+                }, this.transcribeSummary.state === 'done');
                 return;
             }
             if (this.aiView === 'still' && generationIdentity) {
-                appendAiBack(this.body, '静止画', () => { this.aiView = 'tiles'; this.render(); });
+                appendAiBack(this.body, '静止画', () => {
+                    this.aiView = 'tiles';
+                    this.transcribePolling = false;
+                    this.render();
+                });
                 this.appendStillPanel(generationIdentity);
                 return;
             }
-            appendAiBack(this.body, '動画にする', () => {
+            appendAiBack(this.body, this.aiView === 'transcribe' ? '文字起こし' : '動画にする', () => {
                 this.aiView = 'tiles';
+                this.transcribePolling = false;
                 this.render();
             });
+            if (this.aiView === 'transcribe') {
+                const root = this.workspaceService.tryGetRoots()[0]?.resource;
+                appendAiTranscribePanel(this.body, {
+                    projectRoot: root?.toString() ?? '', target: this.transcribeTarget,
+                    summary: this.transcribeSummary, running: this.transcribeRunning,
+                    commands: this.commandRegistry,
+                    onDialogResult: result => {
+                        if (this.transcribeKey !== transcribeKey || this.aiView !== 'transcribe') return;
+                        this.transcribeRunning = result === 'running';
+                        this.transcribePolling = result === 'opened' || result === 'running';
+                        this.render();
+                    }
+                });
+                if (this.transcribePolling) this.transcribeTimer = setInterval(() => {
+                    if (this.isDisposed || this.currentTab !== 'generation' || this.aiView !== 'transcribe'
+                        || this.transcribeKey !== transcribeKey
+                        || !this.body.querySelector('.akari-inspector-ai-transcribe-panel')?.getBoundingClientRect().width) {
+                        if (this.transcribeTimer) clearInterval(this.transcribeTimer);
+                        this.transcribeTimer = undefined;
+                        return;
+                    }
+                    void this.refreshAiTranscript(transcribeKey);
+                }, 5000);
+                return;
+            }
         }
 
         let keyframeSection: InspectorSection | undefined;
@@ -3869,6 +3937,7 @@ export class AkariInspectorWidget extends BaseWidget {
     }
 
     override dispose(): void {
+        if (this.transcribeTimer) clearInterval(this.transcribeTimer);
         this.cancelGenerationFramePick();
         this.syncAdjustCompare(undefined, '');
         this.lutGeneration++;
@@ -4378,6 +4447,53 @@ export class AkariInspectorWidget extends BaseWidget {
         this.generationDrafts.delete(itemId);
         void this.loadGeneration({ key: itemId, itemId, sourcePath,
             duration: snapshot.kind === 'cut' ? snapshot.outputEnd - snapshot.outputStart : snapshot.duration });
+    }
+
+    protected loadAiTranscribeTarget(snapshot: InspectorSnapshot, key: string): Promise<void> {
+        this.transcribeLoading = (async () => {
+            try {
+                await this.workspaceService.ready;
+                const root = this.workspaceService.tryGetRoots()[0]?.resource;
+                if (!root) return;
+                const edit = JSON.parse((await this.fileService.readFile(root.resolve('edit.json'))).value.toString());
+                const target = resolveAiTranscribeTarget(snapshot, edit);
+                if (this.transcribeKey !== key) return;
+                const present = target && await this.fileService.exists(root.resolve(target.relativePath));
+                this.transcribeTarget = present ? target : undefined;
+                if (this.transcribeTarget) {
+                    const [summary, sidecars] = await Promise.all([
+                        this.layerAudioService.readTranscriptSummary({
+                            projectRootUri: root.toString(), relativePath: target.relativePath
+                        }),
+                        snapshot.kind === 'audio' ? this.layerAudioService.readGenerationSidecars({
+                            projectRootUri: root.toString(), sourcePaths: [target.relativePath]
+                        }) : Promise.resolve({ entries: [] })
+                    ]);
+                    if (this.transcribeKey !== key) return;
+                    this.transcribeSummary = summary;
+                    this.audioPlanned = sidecars.entries.some(entry => entry.sourcePath === target.relativePath
+                        && entry.meta.kind === 'audio' && entry.meta.status === 'planned');
+                }
+            } catch { /* Missing media is explained by the panel. */ }
+            if (this.transcribeKey === key && !this.isDisposed) this.render();
+        })();
+        return this.transcribeLoading;
+    }
+
+    protected async refreshAiTranscript(key: string): Promise<void> {
+        const root = this.workspaceService.tryGetRoots()[0]?.resource;
+        const target = this.transcribeTarget;
+        if (!root || !target) return;
+        const summary = await this.layerAudioService.readTranscriptSummary({
+            projectRootUri: root.toString(), relativePath: target.relativePath
+        }).catch((): TranscriptSummary => ({ state: 'none', segments: [], total: 0 }));
+        if (this.transcribeKey !== key || this.aiView !== 'transcribe' || this.isDisposed) return;
+        if (summary.state === 'done') {
+            this.transcribeSummary = summary;
+            this.transcribeRunning = false;
+            this.transcribePolling = false;
+            this.render();
+        }
     }
 
     protected loadAiCatalog(): Promise<void> {

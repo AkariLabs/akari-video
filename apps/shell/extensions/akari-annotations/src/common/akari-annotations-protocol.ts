@@ -84,6 +84,13 @@ export interface ReadGenerationSidecarsResult {
     entries: Array<{ sourcePath: string; meta: GenerationSidecarMeta; binding: GenerationBindingView | null }>;
 }
 
+export interface ReadTranscriptSummaryRequest { projectRootUri: string; relativePath: string }
+export interface TranscriptSummary {
+    state: 'none' | 'done';
+    segments: Array<{ start: number; end: number; text: string }>;
+    total: number;
+}
+
 export interface GenerationCatalogRow {
     id: string;
     kind: string;
@@ -855,6 +862,7 @@ export interface AkariAnnotationsService {
     extractSourceFrame(request: ExtractSourceFrameRequest): Promise<ExtractSourceFrameResult>;
     getClipThumbnail(request: GetClipThumbnailRequest): Promise<GetClipThumbnailResult>;
     readGenerationSidecars(request: ReadGenerationSidecarsRequest): Promise<ReadGenerationSidecarsResult>;
+    readTranscriptSummary(request: ReadTranscriptSummaryRequest): Promise<TranscriptSummary>;
     readGenerationCatalog(): Promise<ReadGenerationCatalogResult>;
     readGenerationDefaults(request: { projectRootUri: string }): Promise<ReadGenerationDefaultsResult>;
     createEmptyGenerationFrame(request: { projectRootUri: string; durationSeconds: number }): Promise<{

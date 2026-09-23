@@ -1,0 +1,58 @@
+{
+  "status": "FAIL",
+  "checks": [],
+  "clicks": [
+    {
+      "name": "transcribed audio",
+      "attempt": 1,
+      "passed": false,
+      "error": "Error: Timed out: transcribed audio point"
+    },
+    {
+      "name": "transcribed audio",
+      "attempt": 2,
+      "passed": false,
+      "error": "Error: Timed out: transcribed audio point"
+    },
+    {
+      "name": "transcribed audio",
+      "attempt": 3,
+      "passed": false,
+      "error": "Error: Timed out: transcribed audio point"
+    }
+  ],
+  "screenshots": [
+    {
+      "name": "error-full.png",
+      "bytes": 14912
+    }
+  ],
+  "measurements": {
+    "badgeTitleIntersect": null,
+    "buttons": []
+  },
+  "blockedTranscriptions": 0,
+  "fixture": {
+    "project": "/var/folders/j1/hl65g8x91mv4hl8rm7q04j440000gn/T/akari-ai-transcribe-l1-Vn3bf7/project",
+    "audio": "assets/interview.wav",
+    "video": "assets/ordinary.mp4",
+    "still": "assets/still.png",
+    "segments": 7
+  },
+  "error": "Error: Timed out: transcribed audio point",
+  "failureState": {
+    "selectedClips": [],
+    "tabs": [],
+    "inspector": {
+      "present": true,
+      "tile": false,
+      "badge": false,
+      "transcribePanel": false,
+      "back": false,
+      "dialog": false
+    },
+    "notifications": 0
+  },
+  "killedPid": 80290,
+  "electronExited": true
+}
