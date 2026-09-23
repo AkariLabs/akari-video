@@ -117,6 +117,9 @@ export interface AssetCatalogViewItem {
     addedAt?: string;
     libraryDir?: string;
     mediaFile?: string | null;
+    usageCount?: number;
+    lastUsedAt?: string;
+    favorite?: boolean;
     /** パック所属等にだけ使う。表示・検索には含めない。 */
     machineTags?: string[];
     /** `${category}/${id}`。一覧の React key・カード DOM の data 属性に使う。 */
@@ -361,8 +364,16 @@ export interface AkariProjectService {
     resolveAsset(id: string, projectUri: string, options?: { force?: boolean }): Promise<AssetResolveOutcome>;
     /** カタログ外の置き場素材を検証し、既存の CoW コピーで assets/ へ配置する。 */
     placeLibraryAsset(source: LibraryAssetPlacementSource, projectUri: string): Promise<AssetResolveOutcome>;
+    recordLibraryUsage(category: string, id: string, projectUri: string): Promise<void>;
+    getLibraryUsage(): Promise<Record<string, { count: number; lastUsedAt: string; projects: string[] }>>;
+    checkLibrary(projectUri?: string): Promise<{ ok: number; warnings: LibraryCheckFinding[]; errors: LibraryCheckFinding[] }>;
+    projectCredits(projectUri: string): Promise<string[]>;
     getStoreConnectionStatus(): Promise<StoreConnectionStatus>;
     startStoreDeviceConnection(): Promise<StoreDeviceStartOutcome>;
     pollStoreDeviceConnection(request: StoreDevicePollRequest): Promise<StoreDevicePollOutcome>;
     disconnectStoreAccount(): Promise<boolean>;
+}
+
+export interface LibraryCheckFinding {
+    level: 'warning' | 'error'; category: string; id: string; dir: string; code: string; message: string;
 }

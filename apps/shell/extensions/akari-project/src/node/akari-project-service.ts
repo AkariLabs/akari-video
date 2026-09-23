@@ -673,6 +673,10 @@ process.stdout.write(JSON.stringify({ base, items, entitlementsStatus, entitledP
 import { resolve } from ${JSON.stringify(resolveModuleUrl)};
 try {
   const result = await resolve(${JSON.stringify(id)}, { project: ${JSON.stringify(projectPath)}, reference: true, force: ${options?.force === true} });
+  if (result.referenced) {
+    const { appendLibraryUsage } = await import(${JSON.stringify(pathToFileURL(join(srcDir, 'library-usage.mjs')).toString())});
+    await appendLibraryUsage({ category: result.category, id: result.id, project: ${JSON.stringify(projectPath)} });
+  }
   process.stdout.write(JSON.stringify({ success: true, ...result }));
 } catch (error) {
   process.stdout.write(JSON.stringify({ success: false, error: error && error.message ? error.message : String(error) }));
@@ -702,6 +706,7 @@ try {
 import { realpath, stat } from 'node:fs/promises';
 import { basename, dirname, isAbsolute, join, relative, sep } from 'node:path';
 import { recordProjectReference } from ${JSON.stringify(pathToFileURL(join(srcDir, 'project-references.mjs')).toString())};
+import { appendLibraryUsage } from ${JSON.stringify(pathToFileURL(join(srcDir, 'library-usage.mjs')).toString())};
 import { ASSET_CATEGORIES } from ${JSON.stringify(pathToFileURL(join(srcDir, 'library.mjs')).toString())};
 import { resolveAssetLibraryRoots } from ${JSON.stringify(pathToFileURL(resolve(srcDir, '../../creator-root/src/index.mjs')).toString())};
 const within = (root, target) => {
@@ -748,6 +753,7 @@ try {
         throw new Error('素材の大元と重なる配置はできません');
     }
     await recordProjectReference(project, { category: source.category, id: source.id });
+    await appendLibraryUsage({ category: source.category, id: source.id, project });
     // widget の URI.relative が使えるよう、返すパスは要求されたプロジェクト表記に揃える。
     const projectAssetPath = join(${JSON.stringify(projectPath)}, 'assets', source.category, source.id);
     process.stdout.write(JSON.stringify({ success: true, projectAssetPath, reference: true, libraryDir: actual }));
@@ -764,6 +770,50 @@ try {
         } catch (error) {
             return { success: false, error: error instanceof Error ? error.message : String(error) };
         }
+    }
+
+    async recordLibraryUsage(category: string, id: string, projectUri: string): Promise<void> {
+        const srcDir = await this.findAssetResolverSrcDir();
+        if (!srcDir) throw new Error('アセット resolver が見つかりません');
+        const result = await this.runResolverScript(`
+import { appendLibraryUsage } from ${JSON.stringify(pathToFileURL(join(srcDir, 'library-usage.mjs')).toString())};
+await appendLibraryUsage(${JSON.stringify({ category, id, project: this.fsPath(projectUri) })});
+`);
+        if (result.code !== 0) throw new Error(result.stderr || '使用記録を書けませんでした');
+    }
+
+    async getLibraryUsage(): Promise<Record<string, { count: number; lastUsedAt: string; projects: string[] }>> {
+        const srcDir = await this.findAssetResolverSrcDir();
+        if (!srcDir) return {};
+        const result = await this.runResolverScript(`
+import { readLibraryUsage } from ${JSON.stringify(pathToFileURL(join(srcDir, 'library-usage.mjs')).toString())};
+process.stdout.write(JSON.stringify(await readLibraryUsage()));
+`);
+        if (result.code !== 0) throw new Error(result.stderr || '使用記録を読めませんでした');
+        return JSON.parse(result.stdout);
+    }
+
+    async checkLibrary(projectUri?: string): Promise<{ ok: number; warnings: import('../common/akari-project-protocol').LibraryCheckFinding[]; errors: import('../common/akari-project-protocol').LibraryCheckFinding[] }> {
+        const srcDir = await this.findAssetResolverSrcDir();
+        if (!srcDir) throw new Error('アセット resolver が見つかりません');
+        const project = projectUri ? this.fsPath(projectUri) : undefined;
+        const result = await this.runResolverScript(`
+import { checkLibrary } from ${JSON.stringify(pathToFileURL(join(srcDir, 'library-check.mjs')).toString())};
+process.stdout.write(JSON.stringify(await checkLibrary({ project: ${JSON.stringify(project)} })));
+`);
+        if (result.code !== 0) throw new Error(result.stderr || 'ライブラリを点検できませんでした');
+        return JSON.parse(result.stdout);
+    }
+
+    async projectCredits(projectUri: string): Promise<string[]> {
+        const srcDir = await this.findAssetResolverSrcDir();
+        if (!srcDir) throw new Error('アセット resolver が見つかりません');
+        const result = await this.runResolverScript(`
+import { projectCredits } from ${JSON.stringify(pathToFileURL(join(srcDir, 'library-check.mjs')).toString())};
+process.stdout.write(JSON.stringify(await projectCredits(${JSON.stringify(this.fsPath(projectUri))})));
+`);
+        if (result.code !== 0) throw new Error(result.stderr || 'クレジットを読めませんでした');
+        return JSON.parse(result.stdout);
     }
 
     async listProjectAssetReferences(projectUri: string): Promise<ProjectAssetReference[]> {

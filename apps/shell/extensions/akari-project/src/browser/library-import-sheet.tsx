@@ -1,7 +1,7 @@
 import * as React from '@theia/core/shared/react';
 import { createPortal } from '@theia/core/shared/react-dom';
 import URI from '@theia/core/lib/common/uri';
-import { AkariProjectService } from '../common/akari-project-protocol';
+import { AkariProjectService, LibraryCheckFinding } from '../common/akari-project-protocol';
 import { LibraryImportItem, LibraryImportPlan, LibraryImportResult, LIBRARY_IMPORT_KINDS, libraryImportGroups } from '../common/library-import';
 import { hoverPopupPosition } from '../common/material-card-hover';
 import { AssetSiteListing } from '../common/asset-sites';
@@ -19,6 +19,8 @@ interface Props {
     openSite(id: string): Promise<void>;
     askSiteAgent(prompt: string): Promise<void>;
     openLab(): void;
+    projectUri?: string;
+    revealLibraryPath(path: string): void;
 }
 const css = `
 .akari-library-import button { cursor:pointer; }
@@ -58,6 +60,9 @@ export function LibraryImportSheet(props: Props): React.ReactElement {
     const [menu, setMenu] = React.useState(false);
     const [open, setOpen] = React.useState(false);
     const [sitesOpen, setSitesOpen] = React.useState(false);
+    const [checkOpen, setCheckOpen] = React.useState(false);
+    const [checkBusy, setCheckBusy] = React.useState(false);
+    const [checkResult, setCheckResult] = React.useState<{ ok: number; warnings: LibraryCheckFinding[]; errors: LibraryCheckFinding[] }>();
     const [sites, setSites] = React.useState<AssetSiteListing[]>([]);
     const [siteTab, setSiteTab] = React.useState<'audio' | 'font' | 'visual'>('audio');
     const [siteRequest, setSiteRequest] = React.useState('');
@@ -199,7 +204,26 @@ export function LibraryImportSheet(props: Props): React.ReactElement {
                 <button type='button' role='menuitem' onClick={showSites}>素材サイトでさがす</button>
                 <button type='button' role='menuitem' disabled>URL を貼って入れる（今後追加）</button><hr style={{ width: '100%' }} />
                 <button type='button' role='menuitem' onClick={() => { setMenu(false); props.overlayHost.dispatchEvent(new CustomEvent('akari.library.changeLocation')); }}>素材の置き場を変える…</button>
-                <button type='button' role='menuitem' disabled>ライブラリを点検（今後追加）</button>
+                <button type='button' role='menuitem' onClick={() => { setMenu(false); setCheckOpen(true); setCheckBusy(true); setCheckResult(undefined); setError('');
+                    void props.service.checkLibrary(props.projectUri).then(setCheckResult).catch(e => setError(String(e))).finally(() => setCheckBusy(false)); }}>ライブラリを点検</button>
+            </div>
+        </div>}
+        {checkOpen && <div className='akari-import-backdrop' data-akari-library-check-sheet
+            style={{ left: bounds.left, top: bounds.top, width: bounds.width, height: bounds.height }}
+            onMouseDown={event => { if (event.target === event.currentTarget) setCheckOpen(false); }}>
+            <div tabIndex={-1} role='dialog' aria-modal='true' aria-label='ライブラリを点検' className='akari-import-sheet'>
+                <header><strong>ライブラリを点検</strong></header>
+                <div className='akari-import-scroll'>
+                    {checkBusy && <p role='status'>点検しています…</p>}
+                    {checkResult && <><p>問題なし {checkResult.ok} 件 · 注意 {checkResult.warnings.length} 件 · エラー {checkResult.errors.length} 件</p>
+                        {[...checkResult.errors, ...checkResult.warnings].map((finding, index) =>
+                            <div className='akari-import-row' key={`${finding.code}-${finding.category}-${finding.id}-${index}`}>
+                                <span className='akari-import-name'>{finding.level === 'error' ? 'エラー' : '注意'} · {finding.category}/{finding.id}: {finding.message}</span>
+                                {finding.level === 'error' && <button type='button' onClick={() => props.revealLibraryPath(finding.dir)}>Finder で場所を見る</button>}
+                            </div>)}</>}
+                    {error && <p role='alert'>{error}</p>}
+                </div>
+                <footer><button type='button' onClick={() => setCheckOpen(false)}>閉じる</button></footer>
             </div>
         </div>}
         {sitesOpen && <div className='akari-import-backdrop' data-akari-site-sheet

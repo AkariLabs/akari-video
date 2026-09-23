@@ -54,16 +54,35 @@ export interface RecentLibraryEntry {
     count: number;
 }
 
-/** 順位付けの唯一の入口。将来の「よく使う」もここで合成する。入力は変更しない。 */
-export function rankRecentLibraryItems(items: readonly AssetCatalogViewItem[]): AssetCatalogViewItem[] {
-    return [...items].sort((a, b) => Date.parse(b.addedAt!) - Date.parse(a.addedAt!) || a.key.localeCompare(b.key));
+export const LIBRARY_RANK_WEIGHTS = { favorite: 4, used: 3, own: 2, cached: 1 } as const;
+
+/** 意味の近さを最優先にし、同程度の候補だけ利用実績と出どころで並べる。 */
+export function compareLibraryItems(a: AssetCatalogViewItem, b: AssetCatalogViewItem,
+    relevance: (item: AssetCatalogViewItem) => number = () => 0): number {
+    const time = (value?: string): number => Date.parse(value ?? '') || 0;
+    const own = (item: AssetCatalogViewItem): number => item.sourceKind === 'own' || item.sourceKind === 'site' ? LIBRARY_RANK_WEIGHTS.own : 0;
+    return relevance(b) - relevance(a)
+        || Number(!!b.favorite) * LIBRARY_RANK_WEIGHTS.favorite - Number(!!a.favorite) * LIBRARY_RANK_WEIGHTS.favorite
+        || Number(!!b.usageCount) * LIBRARY_RANK_WEIGHTS.used - Number(!!a.usageCount) * LIBRARY_RANK_WEIGHTS.used
+        || (b.usageCount ?? 0) - (a.usageCount ?? 0)
+        || time(b.lastUsedAt) - time(a.lastUsedAt)
+        || own(b) - own(a)
+        || Number(b.state === 'cached') * LIBRARY_RANK_WEIGHTS.cached - Number(a.state === 'cached') * LIBRARY_RANK_WEIGHTS.cached
+        || time(b.addedAt) - time(a.addedAt)
+        || a.key.localeCompare(b.key);
+}
+
+export function rankRecentLibraryItems(items: readonly AssetCatalogViewItem[],
+    relevance?: (item: AssetCatalogViewItem) => number): AssetCatalogViewItem[] {
+    return [...items].sort((a, b) => compareLibraryItems(a, b, relevance));
 }
 
 /** 同じフォルダは最新の素材のカテゴリへ導く。0 件なら帯は描画しない。 */
 export function recentLibraryEntries(items: readonly AssetCatalogViewItem[], source: LibrarySourceFilter): RecentLibraryEntry[] {
     const candidates = filterLibrarySources(items, source).filter(item =>
-        item.origin === 'resolver' && (item.sourceKind === 'own' || item.sourceKind === 'site')
-        && item.libraryDir && Number.isFinite(Date.parse(item.addedAt ?? '')));
+        item.origin === 'resolver' && !!item.libraryDir
+        && (((item.sourceKind === 'own' || item.sourceKind === 'site')
+            && Number.isFinite(Date.parse(item.addedAt ?? ''))) || !!item.usageCount));
     const entries = new Map<string, RecentLibraryEntry>();
     const categories = (LIBRARY_GROUPS as readonly LibraryGroupDefinition[]).flatMap(group => group.categories);
     for (const item of rankRecentLibraryItems(candidates)) {

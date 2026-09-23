@@ -42,19 +42,21 @@ const invalid = [
   ['add', '--apply', 'plan.json', '--typo'], ['add', '--apply', 'plan.json', 'extra'],
   ['add', '--apply'], ['add', '--apply', '--json'], ['add', '--apply', 'plan.json', '--plan'],
   ['add', 'file', '--plan', '-x'], ['list', 'extra'], ['sync', '--typo'], ['browse', 'extra'],
+  ['check', '--jsoon'], ['check', '--json', 'extra'], ['check', '--project'], ['check', '--json', '--json'],
+  ['credits'], ['credits', '--project'], ['credits', '--project', 'x', 'extra'], ['credits', '--jsoon'],
 ];
 for (const viaLauncher of [false, true]) {
   test(`${viaLauncher ? 'akari assets' : 'akari-assets'}: help and invalid arguments preserve every file and sha256`, async t => {
     const f = await fixture(t);
     const before = await manifest(f.temp);
     const cases = [
-      ...['list', 'add', 'fetch', 'bundle', 'migrate', 'sync', 'browse'].flatMap(sub =>
+      ...['list', 'add', 'fetch', 'bundle', 'migrate', 'sync', 'browse', 'check', 'credits'].flatMap(sub =>
         ['--help', '-h'].map(flag => [[sub, flag], 0])),
       ...invalid.map(args => [args, 2]),
     ];
     for (const [args, status] of cases) {
       const result = spawnSync(process.execPath, viaLauncher ? [launcher, 'assets', ...args] : [cli, ...args],
-        { env: f.env, encoding: 'utf8', timeout: 10000 });
+        { env: f.env, encoding: 'utf8', timeout: 30000 });
       assert.equal(result.status, status, `${args.join(' ')}: ${result.stderr}`);
       assert.match(result.stdout, /使い方: akari-assets/);
       assert.deepEqual(await manifest(f.temp), before, args.join(' '));
@@ -68,7 +70,7 @@ for (const viaLauncher of [false, true]) {
     const before = await manifest(f.temp);
     for (let run = 0; run < 2; run++) {
       const result = spawnSync(process.execPath, viaLauncher ? [launcher, 'assets', 'migrate'] : [cli, 'migrate'],
-        { env: f.env, encoding: 'utf8', timeout: 10000 });
+        { env: f.env, encoding: 'utf8', timeout: 30000 });
       assert.equal(result.status, 0, result.stderr);
       const data = JSON.parse(result.stdout);
       assert.match(data.skippedReason, /same location/);

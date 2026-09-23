@@ -1,0 +1,37 @@
+{
+  "verified": [
+    "usageAndRanking",
+    "trashAndWarning",
+    "checkSheet",
+    "credits"
+  ],
+  "passed": true,
+  "usageAndRanking": {
+    "newLines": 2,
+    "countLabel": "2 回",
+    "usedBeforeUnusedLab": true
+  },
+  "trashAndWarning": {
+    "projectCount": 2,
+    "projectNames": [
+      "project-one",
+      "project-two"
+    ],
+    "ownAndSiteCannotRedownload": true,
+    "useTrash": true,
+    "libraryDirectoryGone": true,
+    "unavailableLabHasNoRemove": true
+  },
+  "checkSheet": {
+    "badMeta": "error",
+    "badAudio": "error",
+    "missingCredit": "warning",
+    "subscription": "warning",
+    "fileCount": 20,
+    "bytesUnchanged": true
+  },
+  "credits": {
+    "text": "Music: Fixture Artist",
+    "duplicates": 0
+  }
+}
