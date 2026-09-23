@@ -7,7 +7,7 @@ import path from "node:path";
 import { spawn, spawnSync } from "node:child_process";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { resolveLauncherAssets } from "./repo-assets.mjs";
-import { readFalKey, resolveVoiceProfile } from "./voice-command.mjs";
+import { listProfiles, readFalKey, resolveVoiceProfile } from "./voice-command.mjs";
 
 const VOICEVOX_BASE_URL = "http://127.0.0.1:50021";
 const VOICEVOX_RUN_ENV = "VOICEVOX_RUN";
@@ -789,8 +789,12 @@ async function listEngines(runtime = {}) {
   const falAvailability = configured
     ? { state: "available", label: "fal を使用できます" }
     : { state: "unconfigured", label: "fal の鍵を登録" };
-  const profilesDir = path.join(os.homedir(), ".config", "akari-video", "voice-profiles");
-  const hasProfiles = fs.existsSync(profilesDir) && fs.readdirSync(profilesDir, { withFileTypes: true }).some((entry) => entry.isDirectory());
+  const env = runtime.env || process.env;
+  const homeDir = env.HOME || env.USERPROFILE || os.homedir();
+  const profileEnv = { ...env, HOME: homeDir, AKARI_HOME: env.AKARI_HOME || path.join(homeDir, ".akari") };
+  let profilesWithFal = 0;
+  try { profilesWithFal = listProfiles(profileEnv).filter((profile) => profile.legacy || profile.engines.includes("fal-qwen3")).length; }
+  catch { /* 壊れた声メタデータがあっても他のエンジン一覧は返す。 */ }
   let endpoint;
   try { endpoint = irodoriEndpoint(runtime.irodoriUrl, runtime.env || process.env); }
   catch (error) { if (!(error instanceof PublicError)) throw error; }
@@ -805,7 +809,7 @@ async function listEngines(runtime = {}) {
         : irodoriAvailable
         ? { state: "available", label: "お試し · 接続済み", detail: { url: endpoint.server } }
         : { state: "unconfigured", label: "Irodori サーバーにつながりません（お試し）", detail: { setup_url: IRODORI_SETUP_URL } } },
-    { id: "fal-qwen3", label: "fal Qwen3-TTS", place: "cloud", provider: "fal", price: { usd_per_1000_chars: FAL_USD_PER_1000_CHARS, verified: false }, availability: !configured ? falAvailability : hasProfiles ? { state: "available", label: "声プロファイルを使用できます" } : { state: "needs", label: "声プロファイルを作成" }, credit_required: false, supports: { speed: false, style: false } },
+    { id: "fal-qwen3", label: "fal Qwen3-TTS", place: "cloud", provider: "fal", price: { usd_per_1000_chars: FAL_USD_PER_1000_CHARS, verified: false }, availability: !configured ? { ...falAvailability, detail: { profiles_with_fal: profilesWithFal } } : profilesWithFal ? { state: "available", label: "声プロファイルを使用できます", detail: { profiles_with_fal: profilesWithFal } } : { state: "needs", label: "fal の写しがある声がありません（自分の声をつくる）", detail: { profiles_with_fal: 0 } }, credit_required: false, supports: { speed: false, style: false } },
   ] };
 }
 

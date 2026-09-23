@@ -88,7 +88,7 @@ export function resolveVoiceProfile(id, env = process.env) {
   if (fs.existsSync(file)) return { dir, meta: normalizeMeta(readJson(file), true), legacy: true };
   throw new VoiceError(`声プロファイルが見つかりません: ${id}`);
 }
-function listProfiles(env, avatar) {
+export function listProfiles(env, avatar) {
   const items = [];
   const avatars = newRoot(env);
   if (fs.existsSync(avatars)) for (const person of fs.readdirSync(avatars, { withFileTypes: true })) {
