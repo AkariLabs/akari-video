@@ -3,13 +3,50 @@ import { promises as fs } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { GenerationCliManager } from './generation-cli';
-import type { GenerateNarrationRequest, GenerateNarrationResult, NarrationEnginesResult, NarrationVoicesResult, NarrationVerificationBackend, VerifyNarrationRequest, VerifyNarrationResult } from '../common/akari-annotations-protocol';
+import type { GenerateNarrationRequest, GenerateNarrationResult, NarrationEnginesResult, NarrationVoicesResult, NarrationVerificationBackend, VerifyNarrationRequest, VerifyNarrationResult, VoiceCheckResult, VoiceCopyRequest, VoiceCreateRequest, VoiceScript, VoiceTryRequest, VoiceProfileSummary } from '../common/akari-annotations-protocol';
 
 export class NarrationCliManager {
     protected readonly resolver = new GenerationCliManager();
     protected readonly children = new Map<string, ChildProcess>();
 
     constructor(protected readonly spawnImpl: typeof spawn = spawn) {}
+
+    async voiceScripts(): Promise<{ scripts: VoiceScript[] }> {
+        return this.run(['voice', 'scripts', '--json']) as Promise<{ scripts: VoiceScript[] }>;
+    }
+    async voiceProfiles(avatar?: string): Promise<{ profiles: VoiceProfileSummary[] }> {
+        return this.run(['voice', 'profiles', ...(avatar ? ['--avatar', avatar] : []), '--json']) as Promise<{ profiles: VoiceProfileSummary[] }>;
+    }
+    async voiceCheck(audioPath: string, script: VoiceScript['id']): Promise<VoiceCheckResult> {
+        return this.run(['voice', 'check', '--audio', audioPath, '--script', script, '--json']) as Promise<VoiceCheckResult>;
+    }
+    async voiceCreate(request: VoiceCreateRequest): Promise<{ status: string; profile: string; path: string }> {
+        const args = ['voice', 'create', '--avatar', request.avatar, '--id', request.id, '--label', request.label,
+            '--audio', request.audioPath, '--script', request.script, '--json'];
+        if (request.consentSelf) args.push('--consent-self');
+        if (request.consentCloud) args.push('--consent-cloud');
+        return this.run(args) as Promise<{ status: string; profile: string; path: string }>;
+    }
+    async voiceCopy(request: VoiceCopyRequest): Promise<{ status: string; profile: string; engine: VoiceCopyRequest['engine'] }> {
+        if (request.engine === 'fal-qwen3' && request.approved !== true) throw new Error('費用承認が必要です。');
+        return this.run(['voice', 'copy', '--profile', request.profile, '--engine', request.engine,
+            ...(request.irodoriUrl ? ['--irodori-url', request.irodoriUrl] : []),
+            ...(request.engine === 'fal-qwen3' ? ['--yes'] : []), '--json']) as Promise<{ status: string; profile: string; engine: VoiceCopyRequest['engine'] }>;
+    }
+    async voiceTry(request: VoiceTryRequest): Promise<{ path: string; duration_s: number; engine: VoiceCopyRequest['engine'] }> {
+        if (request.engine === 'fal-qwen3' && request.approved !== true) throw new Error('費用承認が必要です。');
+        return this.run(['voice', 'try', '--profile', request.profile, '--engine', request.engine, '--text', request.text,
+            ...(request.reading ? ['--reading', request.reading] : []),
+            ...(request.irodoriUrl ? ['--irodori-url', request.irodoriUrl] : []),
+            ...(request.engine === 'fal-qwen3' ? ['--yes'] : []), '--json']) as Promise<{ path: string; duration_s: number; engine: VoiceCopyRequest['engine'] }>;
+    }
+    async voiceDelete(profile: string, irodoriUrl?: string): Promise<void> {
+        await this.run(['voice', 'delete', '--profile', profile, ...(irodoriUrl ? ['--irodori-url', irodoriUrl] : []), '--json']);
+    }
+    async voiceVerifyCombined(audioPath: string, expected: string): Promise<VerifyNarrationResult | NarrationVerificationBackend> {
+        return this.run(['narration', 'verify', '--project', join(tmpdir(), 'akari-voice-verify'), '--audio', audioPath,
+            '--text', expected, '--json'], undefined, false, true) as Promise<VerifyNarrationResult | NarrationVerificationBackend>;
+    }
 
     async engines(irodoriUrl?: string): Promise<NarrationEnginesResult> {
         return this.run(['narration', 'engines', '--json', ...(irodoriUrl ? ['--irodori-url', irodoriUrl] : [])]) as Promise<NarrationEnginesResult>;

@@ -15,6 +15,19 @@ export interface NarrationEngine {
 export interface NarrationVoice { id: string; label: string; default?: boolean; group?: string }
 export interface NarrationEnginesResult { version: number; engines: NarrationEngine[] }
 export interface NarrationVoicesResult { version: number; engine: string; voices: NarrationVoice[] }
+export type VoiceEngine = 'irodori' | 'fal-qwen3';
+export interface VoiceScript { id: 'quick-v1' | 'extended-v1'; text: string }
+export interface VoiceCheckResult { pass: boolean; reasons: string[]; checks: {
+    duration: { value_s: number; ok: boolean }; level: { peak_db: number; mean_db: number; ok: boolean };
+    noise: { floor_db: number; ok: boolean; warn: boolean };
+    script: { ok: boolean | 'unavailable'; score?: number; backend?: string | null; verdict?: string };
+} }
+export interface VoiceCreateRequest { avatar: string; id: string; label: string; audioPath: string;
+    script: VoiceScript['id']; consentSelf: boolean; consentCloud: boolean }
+export interface VoiceCopyRequest { profile: string; engine: VoiceEngine; irodoriUrl?: string; approved?: boolean }
+export interface VoiceTryRequest extends VoiceCopyRequest { text: string; reading?: string }
+export interface VoiceProfileSummary { id: string; avatar: string | null; label: string; engines: string[] }
+export interface VoiceAvatar { id: string; displayName?: string }
 export interface VerifyNarrationRequest { projectRootUri: string; audio: string; text: string; reading?: string }
 export interface VerifyNarrationResult { version: number; status: 'ok'; id: string | null; score: number;
     verdict: 'ok' | 'check' | 'ng'; expected: string; heard: string;
@@ -841,6 +854,17 @@ export interface RemoveSfxResult extends DeleteArrayItemResult {
 }
 
 export interface AkariAnnotationsService {
+    voiceAvatars(): Promise<{ avatars: VoiceAvatar[] }>;
+    voiceScripts(): Promise<{ scripts: VoiceScript[] }>;
+    voiceProfiles(avatar?: string): Promise<{ profiles: VoiceProfileSummary[] }>;
+    voiceCheck(request: { audioPath: string; script: VoiceScript['id'] }): Promise<VoiceCheckResult>;
+    voiceCreate(request: VoiceCreateRequest): Promise<{ status: string; profile: string; path: string }>;
+    voiceCopy(request: VoiceCopyRequest): Promise<{ status: string; profile: string; engine: VoiceEngine }>;
+    voiceTry(request: VoiceTryRequest): Promise<{ path: string; duration_s: number; engine: VoiceEngine }>;
+    voiceExtend(request: { profile: string; audioPath: string }): Promise<{ path: string; score?: number }>;
+    voiceFinalize(request: { profile: string; label: string }): Promise<void>;
+    voiceSaveRecording(request: { bytes: number[]; extension?: 'webm' | 'wav' | 'm4a' | 'mp3' }): Promise<{ path: string }>;
+    voiceDiscard(request: { tempPaths: string[]; profile?: string; irodoriUrl?: string }): Promise<void>;
     listNarrationEngines(projectRootUri: string, irodoriUrl?: string): Promise<NarrationEnginesResult>;
     listNarrationVoices(projectRootUri: string, engine: string, irodoriUrl?: string): Promise<NarrationVoicesResult>;
     startNarrationEngine(projectRootUri: string, engine: string): Promise<{ status: string }>;
