@@ -112,6 +112,7 @@ const RIGHT_PANEL_FIXED_ORDER: readonly string[] = [
 interface PreviewOverlaySelection {
     videoUri?: string;
     overlayId?: string | null;
+    overlayIds?: string[];
 }
 
 interface PreviewLayerSelection {
@@ -444,13 +445,34 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
         const onOverlaySelected = (event: Event): void => {
             const request = (event as CustomEvent<PreviewOverlaySelection>).detail;
             if (request?.videoUri && (typeof request.overlayId === 'string' || request.overlayId === null)) {
-                this.timelineWidget?.handleOverlaySelection(request.videoUri, request.overlayId);
+                if (Array.isArray(request.overlayIds)) {
+                    this.timelineWidget?.handleOverlayMultiSelection(request.videoUri, request.overlayIds);
+                } else {
+                    this.timelineWidget?.handleOverlaySelection(request.videoUri, request.overlayId);
+                }
             }
         };
         window.addEventListener(PREVIEW_OVERLAY_SELECTED_EVENT, onOverlaySelected);
         this.toDispose.push({
             dispose: () => window.removeEventListener(PREVIEW_OVERLAY_SELECTED_EVENT, onOverlaySelected)
         });
+        const onPreviewGroupCommand = (event: Event): void => {
+            const request = (event as CustomEvent<{
+                editUri: string; kind: 'group' | 'ungroup'; selectedIds: string[]
+            }>).detail;
+            if (request && (request.kind === 'group' || request.kind === 'ungroup')
+                && Array.isArray(request.selectedIds)) {
+                this.timelineWidget?.runPreviewGroupCommand(request.editUri, request.kind, request.selectedIds);
+            }
+        };
+        window.addEventListener('akari.preview.groupCommand', onPreviewGroupCommand);
+        this.toDispose.push({ dispose: () => window.removeEventListener('akari.preview.groupCommand', onPreviewGroupCommand) });
+        const onPreviewGroupUnavailable = (event: Event): void => {
+            const request = (event as CustomEvent<{ editUri: string }>).detail;
+            if (request?.editUri) this.timelineWidget?.notifyPreviewBagGrouping(request.editUri);
+        };
+        window.addEventListener('akari.preview.groupUnavailable', onPreviewGroupUnavailable);
+        this.toDispose.push({ dispose: () => window.removeEventListener('akari.preview.groupUnavailable', onPreviewGroupUnavailable) });
         const onLayerSelected = (event: Event): void => {
             const request = (event as CustomEvent<PreviewLayerSelection>).detail;
             if (request?.editUri && (typeof request.layerId === 'string' || request.layerId === null)) {

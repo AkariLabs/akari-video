@@ -78,7 +78,8 @@ test('multi-selection native browser gestures', async t => {
     assert.ok(Math.abs(geometry.width - geometry.expectedWidth) < 1);
     const notified = await page.evaluate(() => window.notified);
     await click(page, 'a', 8); assert.deepEqual((await state(page)).ids, ['b','c']);
-    assert.deepEqual(await page.evaluate(() => window.notified), notified);
+    assert.deepEqual(await page.evaluate(() => window.notified), [...notified, 'c'],
+      'removing a member reports even when representative stays c');
     await click(page, 'c', 8); assert.deepEqual((await state(page)).ids, ['b']);
     await click(page, 'b', 8); assert.deepEqual((await state(page)).ids, []);
   });
@@ -140,7 +141,10 @@ test('multi-selection native browser gestures', async t => {
   await scenario('Escape cancels drag, then collapses set, then clears', async page => {
     await selectThree(page); const before = await pose(page); await drag(page, 'a', { cancel: true });
     assert.deepEqual(await pose(page), before); assert.deepEqual((await state(page)).ids, ['a','b','c']);
+    const beforeCollapse = await page.evaluate(() => window.notified.length);
     await page.keyboard.press('Escape'); assert.deepEqual((await state(page)).ids, ['c']);
+    assert.equal(await page.evaluate(() => window.notified.length), beforeCollapse + 1,
+      'Escape reports the collapsed set even when c remains representative');
     await page.keyboard.press('Escape'); assert.deepEqual((await state(page)).ids, []);
   });
   await scenario('outside scope replaces; double click and Enter collapse before drill/edit', async page => {
