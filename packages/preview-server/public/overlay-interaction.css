@@ -12,6 +12,17 @@
 .akari-interaction-selection-frame[hidden] {
   display: none;
 }
+[data-akari-ui=preview-marquee] {
+  position: fixed;
+  pointer-events: none;
+  box-sizing: border-box;
+  border: 1px solid var(--akari-accent, #4da3ff);
+  background: rgba(77, 163, 255, 0.14);
+  z-index: 91;
+}
+[data-akari-interaction-marquee-hit] {
+  outline: 1px solid var(--akari-accent, #4da3ff);
+}
 .akari-interaction-selection-frame.is-locked[data-akari-interaction] {
   border-style: dashed;
   border-color: rgba(200, 200, 200, 0.9);
