@@ -41,6 +41,7 @@ import {
 import { resolveCaptionApiPayload } from './caption-api.mjs';
 import { prepareFrameEngineAudioSummary, promotePreviewAudioSummaryAt } from './preview-audio-summary.mjs';
 import { protectedTermsFrom, resolveWordBookSync } from '../../word-book/src/index.mjs';
+import { assertNoSessionAssetUrl, patchFragmentSourceText } from '../../overlay-runtime/src/fragment-source-write.mjs';
 
 const args = process.argv.slice(2);
 let port = 3000;
@@ -745,21 +746,33 @@ const router = {
     if (edit.error) return respondPreviewReadError(res, edit.error);
     const overlay = (edit.data.overlays || []).find(o => String(o?.id) === id);
     if (!overlay) return respond(res, 404, { error: `オーバーレイが見つかりません: ${id}` });
-    if (typeof overlay.html !== 'string' || !overlay.html) {
+    // The preview projection replaces html with rewritten markup; htmlPath retains the authored file reference.
+    const htmlPath = overlay.htmlPath ?? (typeof overlay.html === 'string' && !overlay.html.trimStart().startsWith('<') ? overlay.html : null);
+    if (typeof htmlPath !== 'string' || !htmlPath) {
       return respond(res, 422, { error: `overlays[].html がファイル参照ではありません: ${id}` });
     }
-    const target = resolveSafe(projectRoot, overlay.html);
+    const target = resolveSafe(projectRoot, htmlPath);
     if (!target) return respond(res, 422, { error: 'プロジェクト外への書き込みは拒否しました' });
     try {
       if (!fs.statSync(target).isFile()) throw new Error('not a file');
     } catch {
-      return respond(res, 422, { error: `断片ファイルがありません: ${overlay.html}` });
+      return respond(res, 422, { error: `断片ファイルがありません: ${htmlPath}` });
     }
+    let source;
+    let candidate;
+    try {
+      source = fs.readFileSync(target, 'utf8');
+      candidate = patchFragmentSourceText(source, html);
+      assertNoSessionAssetUrl(candidate);
+    } catch (e) {
+      return respond(res, 422, { error: e.message });
+    }
+    if (candidate === source) return respond(res, 200, { ok: true, changed: false });
     try {
       markSelfWrite();
-      await writeAtomic(target, html);
+      await writeAtomic(target, candidate);
       wss.broadcast(JSON.stringify({ type: 'reload', ts: Date.now() }));
-      respond(res, 200, { ok: true });
+      respond(res, 200, { ok: true, changed: true });
     } catch (e) {
       respond(res, 500, { error: e.message });
     }

@@ -262,6 +262,7 @@ interface EditSummaryOverlay {
     opacity?: number;
     part?: string;
     parentId?: string;
+    blend: string;
 }
 
 interface EditSummaryLayer {
@@ -5169,6 +5170,12 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 );
             }));
             projectedOverlays.forEach((value, index) => {
+                const declaredBlend = String(value?.blend ?? 'normal');
+                const blend = LAYER_BLEND_TO_CSS.get(declaredBlend) ?? 'normal';
+                if (!LAYER_BLEND_TO_CSS.has(declaredBlend)) {
+                    unsupportedBlendCount += 1;
+                    console.warn(`[akari-preview] HTML overlay ${value?.id} blend ${declaredBlend} is unsupported; using normal composition`);
+                }
                 overlays.push({
                     id: String(value?.id ?? ''),
                     html: resolvedOverlayHtml[index],
@@ -5181,6 +5188,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     transform: this.transform(value?.transform),
                     vars: this.stringRecord(value?.vars),
                     params: this.stringRecord(value?.params),
+                    blend,
                     ...buildItemKeyframeSummaryFields(value as Record<string, unknown>),
                     ...(typeof value?.part === 'string' ? { part: value.part } : {}),
                     ...(typeof value?.parentId === 'string' ? { parentId: value.parentId } : {})
@@ -14618,6 +14626,8 @@ body { display: grid; place-items: center; padding: 32px; }
                     const track = Number.isInteger(overlay?.track) && overlay.track >= 0 ? overlay.track : 0;
                     container.setAttribute('data-akari-track', String(track));
                     container.style.zIndex = String(zForTrack(overlay?.trackId));
+                    // Blend the whole HTML item against lower items and the preview image.
+                    container.style.mixBlendMode = overlay?.blend || 'normal';
                     container.style.display = hiddenTracks.has(track) ? 'none' : '';
                 }
                 const captionZ = typeof summary.captionTrackId === 'string' && summary.captionTrackId

@@ -1,0 +1,17 @@
+{
+  "normal": {
+    "launcher_tier": 2,
+    "source": "captureFramesWithOsr receipt",
+    "stamp_matched": true
+  },
+  "screen": {
+    "launcher_tier": 2,
+    "source": "tier-2 launcher; capture run completed and stamp matched; child PID stopped after it did not exit",
+    "stamp_matched": true
+  },
+  "add": {
+    "launcher_tier": 2,
+    "source": "tier-2 launcher resolver; CLI OSR capture manifest recorded stamp match",
+    "stamp_matched": true
+  }
+}

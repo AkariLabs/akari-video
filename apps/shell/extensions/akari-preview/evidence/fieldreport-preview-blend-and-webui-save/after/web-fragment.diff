@@ -1,0 +1,8 @@
+--- before/web-fragment.html
++++ after/web-fragment-saved.html
+@@ -1,4 +1,4 @@
+ <div data-akari-fragment style="--a:1px;--b:2">
+   <style>.x{background:url("images/bg.png")}</style>
+-  <img src="images/icon.png"><span>A &amp; B</span>
++  <img src="images/icon.png"><span>C &amp; D</span>
+ </div>

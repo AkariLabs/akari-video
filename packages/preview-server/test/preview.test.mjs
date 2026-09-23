@@ -990,8 +990,40 @@ async function main() {
     });
     const written = fs.readFileSync(path.join(PROJECT, fragRel), 'utf8');
     (put1.ok && written.includes('書き換え後'))
-      ? ok('overlay-html writes markup into the referenced fragment file')
+      ? ok('overlay-html patches text in the referenced fragment file')
       : ng('overlay-html write', `HTTP ${put1.status} content=${written.slice(0, 60)}`);
+    const authored = '<div data-akari-fragment style="--a:1px;--b:2">\r\n'
+      + '  <style>.x{background:url("images/bg.png")}</style>\r\n'
+      + '  <img src="images/icon.png"><span>A &amp; B</span>'
+      + '<span data-akari-slot="label">Default <b>nested</b></span>\r\n</div>\r\n';
+    fs.writeFileSync(path.join(PROJECT, fragRel), authored);
+    const submitHtml = html => fetch(`${BASE}/api/overlay-html`, {
+      method: 'PUT', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ id: 'tf-1', html }),
+    });
+    const liveHtml = '<div data-akari-fragment="" style="--a: 1px; --b: 2;">\n'
+      + '  <style>.x{background:url("/overlays/images/bg.png")}</style>\n'
+      + '  <img src="/overlays/images/icon.png"><span>C &amp; D</span>'
+      + '<span data-akari-slot="label">Parameter</span>\n</div>\n';
+    const patched = await submitHtml(liveHtml);
+    const expected = authored.replace('A &amp; B', 'C &amp; D');
+    (patched.status === 200 && fs.readFileSync(path.join(PROJECT, fragRel), 'utf8') === expected)
+      ? ok('overlay-html preserves CRLF, slot, entity, style, and relative assets')
+      : ng('overlay-html byte preservation', `HTTP ${patched.status}`);
+    const beforeMtime = fs.statSync(path.join(PROJECT, fragRel)).mtimeMs;
+    const unchanged = await submitHtml(liveHtml);
+    (unchanged.status === 200 && (await unchanged.json()).changed === false
+      && fs.statSync(path.join(PROJECT, fragRel)).mtimeMs === beforeMtime)
+      ? ok('overlay-html does not rewrite unchanged source')
+      : ng('overlay-html unchanged write');
+    const changedStructure = await submitHtml(liveHtml.replace('<span>C', '<b>C'));
+    (changedStructure.status === 422 && fs.readFileSync(path.join(PROJECT, fragRel), 'utf8') === expected)
+      ? ok('overlay-html rejects changed structure with 422')
+      : ng('overlay-html changed structure', `HTTP ${changedStructure.status}`);
+    const temporaryUrl = await submitHtml(liveHtml.replace('C &amp; D', 'http://127.0.0.1:48785/overlays/icon.png'));
+    (temporaryUrl.status === 422 && fs.readFileSync(path.join(PROJECT, fragRel), 'utf8') === expected)
+      ? ok('overlay-html rejects preview origin with 422')
+      : ng('overlay-html temporary URL', `HTTP ${temporaryUrl.status}`);
     const editAfter = JSON.parse(fs.readFileSync(editJsonPath, 'utf8'));
     editAfter.tracks.find(track => track.id === 'test-html').items[0].source.path === fragRel
       ? ok('edit.json keeps the file reference (no inline markup)')
