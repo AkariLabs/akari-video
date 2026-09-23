@@ -1,0 +1,11 @@
+<div data-akari-fragment style="position:absolute;left:300px;top:85px;color:white;font:24px system-ui">
+  <style>
+    @keyframes rise{from{opacity:0;transform:translateY(64px)}to{opacity:1;transform:translateY(0)}}
+    @keyframes retire{to{opacity:1;transform:translateY(-42px)}}
+    @keyframes vanish{to{opacity:0;transform:translateY(-100px)}}
+    [data-akari-active] .line{position:absolute;left:0;top:0;white-space:nowrap;animation:rise .3s var(--in) both,retire .3s var(--retire) forwards,vanish .3s var(--vanish) forwards}
+  </style>
+  <span class="line" style="--in:0.2s;--retire:0.9s;--vanish:1.8s">Alpha</span>
+  <span class="line" style="--in:1.2s;--retire:1.9s;--vanish:2.8s">Beta</span>
+  <span class="line" style="--in:2.2s;--retire:2.9s;--vanish:3.8s">Gamma</span>
+</div>

@@ -1,0 +1,9 @@
+{
+  "command": "akari capture --engine osr -t 0.5 1.5 3.0 --separate --full",
+  "launcher_tier": 2,
+  "launcher_kind": "npm-electron",
+  "requested_engine": "osr",
+  "resolved_engine": "osr",
+  "stamp_matched_frames": [15, 45, 90],
+  "before_after_osr_png_byte_equal": [true, true, true]
+}

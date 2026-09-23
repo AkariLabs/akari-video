@@ -1,0 +1,1347 @@
+[
+  {
+    "name": "opened",
+    "data": true
+  },
+  {
+    "name": "initial",
+    "data": {
+      "a1": {
+        "html": "<div data-akari-fragment=\"\" style=\"--a: 1px; --b: 2; position: absolute; left: 25px; top: 20px; color: white; font: 26px system-ui; pointer-",
+        "rect": [
+          36,
+          179.125,
+          332,
+          186.75
+        ],
+        "visible": "visible"
+      },
+      "a2": {
+        "html": "<div data-akari-fragment=\"\" style=\"position: absolute; left: 20px; top: 90px; color: white; font: 28px system-ui; pointer-events: none !impo",
+        "rect": [
+          36,
+          179.125,
+          332,
+          186.75
+        ],
+        "visible": "visible"
+      },
+      "a3": {
+        "html": "<div data-akari-fragment=\"\" style=\"position: absolute; left: 300px; top: 85px; color: white; font: 24px system-ui; pointer-events: none !imp",
+        "rect": [
+          36,
+          179.125,
+          332,
+          186.75
+        ],
+        "visible": "visible"
+      },
+      "a4": {
+        "html": "<div data-akari-fragment=\"\" style=\"position: absolute; left: 30px; top: 220px; color: white; font: 14px system-ui; pointer-events: none !imp",
+        "rect": [
+          36,
+          179.125,
+          332,
+          186.75
+        ],
+        "visible": "visible"
+      },
+      "words": [
+        {
+          "text": "One",
+          "opacity": "0",
+          "transform": "matrix(1, 0, 0, 1, 0, 25)",
+          "animations": [
+            {
+              "time": 0,
+              "timing": {
+                "delay": 200,
+                "direction": "normal",
+                "duration": 340,
+                "easing": "linear",
+                "endDelay": 0,
+                "fill": "both",
+                "iterationStart": 0,
+                "iterations": 1
+              }
+            },
+            {
+              "time": 0,
+              "timing": {
+                "delay": 900,
+                "direction": "normal",
+                "duration": 150,
+                "easing": "linear",
+                "endDelay": 0,
+                "fill": "forwards",
+                "iterationStart": 0,
+                "iterations": 1
+              }
+            }
+          ]
+        },
+        {
+          "text": "Two",
+          "opacity": "0",
+          "transform": "matrix(1, 0, 0, 1, 0, 25)",
+          "animations": [
+            {
+              "time": 0,
+              "timing": {
+                "delay": 1200,
+                "direction": "normal",
+                "duration": 340,
+                "easing": "linear",
+                "endDelay": 0,
+                "fill": "both",
+                "iterationStart": 0,
+                "iterations": 1
+              }
+            },
+            {
+              "time": 0,
+              "timing": {
+                "delay": 1900,
+                "direction": "normal",
+                "duration": 150,
+                "easing": "linear",
+                "endDelay": 0,
+                "fill": "forwards",
+                "iterationStart": 0,
+                "iterations": 1
+              }
+            }
+          ]
+        },
+        {
+          "text": "Three",
+          "opacity": "0",
+          "transform": "matrix(1, 0, 0, 1, 0, 25)",
+          "animations": [
+            {
+              "time": 0,
+              "timing": {
+                "delay": 2200,
+                "direction": "normal",
+                "duration": 340,
+                "easing": "linear",
+                "endDelay": 0,
+                "fill": "both",
+                "iterationStart": 0,
+                "iterations": 1
+              }
+            },
+            {
+              "time": 0,
+              "timing": {
+                "delay": 2900,
+                "direction": "normal",
+                "duration": 150,
+                "easing": "linear",
+                "endDelay": 0,
+                "fill": "forwards",
+                "iterationStart": 0,
+                "iterations": 1
+              }
+            }
+          ]
+        }
+      ],
+      "lines": [
+        {
+          "text": "Alpha",
+          "opacity": "0",
+          "transform": "matrix(1, 0, 0, 1, 0, 64)",
+          "animations": [
+            {
+              "time": 0,
+              "timing": {
+                "delay": 200,
+                "direction": "normal",
+                "duration": 300,
+                "easing": "linear",
+                "endDelay": 0,
+                "fill": "both",
+                "iterationStart": 0,
+                "iterations": 1
+              }
+            },
+            {
+              "time": 0,
+              "timing": {
+                "delay": 900,
+                "direction": "normal",
+                "duration": 300,
+                "easing": "linear",
+                "endDelay": 0,
+                "fill": "forwards",
+                "iterationStart": 0,
+                "iterations": 1
+              }
+            },
+            {
+              "time": 0,
+              "timing": {
+                "delay": 1800,
+                "direction": "normal",
+                "duration": 300,
+                "easing": "linear",
+                "endDelay": 0,
+                "fill": "forwards",
+                "iterationStart": 0,
+                "iterations": 1
+              }
+            }
+          ]
+        },
+        {
+          "text": "Beta",
+          "opacity": "0",
+          "transform": "matrix(1, 0, 0, 1, 0, 64)",
+          "animations": [
+            {
+              "time": 0,
+              "timing": {
+                "delay": 1200,
+                "direction": "normal",
+                "duration": 300,
+                "easing": "linear",
+                "endDelay": 0,
+                "fill": "both",
+                "iterationStart": 0,
+                "iterations": 1
+              }
+            },
+            {
+              "time": 0,
+              "timing": {
+                "delay": 1900,
+                "direction": "normal",
+                "duration": 300,
+                "easing": "linear",
+                "endDelay": 0,
+                "fill": "forwards",
+                "iterationStart": 0,
+                "iterations": 1
+              }
+            },
+            {
+              "time": 0,
+              "timing": {
+                "delay": 2800,
+                "direction": "normal",
+                "duration": 300,
+                "easing": "linear",
+                "endDelay": 0,
+                "fill": "forwards",
+                "iterationStart": 0,
+                "iterations": 1
+              }
+            }
+          ]
+        },
+        {
+          "text": "Gamma",
+          "opacity": "0",
+          "transform": "matrix(1, 0, 0, 1, 0, 64)",
+          "animations": [
+            {
+              "time": 0,
+              "timing": {
+                "delay": 2200,
+                "direction": "normal",
+                "duration": 300,
+                "easing": "linear",
+                "endDelay": 0,
+                "fill": "both",
+                "iterationStart": 0,
+                "iterations": 1
+              }
+            },
+            {
+              "time": 0,
+              "timing": {
+                "delay": 2900,
+                "direction": "normal",
+                "duration": 300,
+                "easing": "linear",
+                "endDelay": 0,
+                "fill": "forwards",
+                "iterationStart": 0,
+                "iterations": 1
+              }
+            },
+            {
+              "time": 0,
+              "timing": {
+                "delay": 3800,
+                "direction": "normal",
+                "duration": 300,
+                "easing": "linear",
+                "endDelay": 0,
+                "fill": "forwards",
+                "iterationStart": 0,
+                "iterations": 1
+              }
+            }
+          ]
+        }
+      ],
+      "images": [
+        {
+          "src": "http://127.0.0.1:62385/asset/da0768d8d3b1231e29d357f6ff42a30e8cfbe7e150ec8f0de3e9a21335820d03.svg",
+          "complete": true,
+          "naturalWidth": 48,
+          "rect": [
+            51.5625,
+            293.25,
+            0,
+            0
+          ]
+        },
+        {
+          "src": "http://127.0.0.1:62385/asset/da0768d8d3b1231e29d357f6ff42a30e8cfbe7e150ec8f0de3e9a21335820d03.svg",
+          "complete": true,
+          "naturalWidth": 48,
+          "rect": [
+            100.84375,
+            293.25,
+            24.900001525878906,
+            24.9000244140625
+          ]
+        },
+        {
+          "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='48' height='48'%3E%3Crect width='48' height='48' fill='%2300ccff'/%3E%3C/svg%3E",
+          "complete": true,
+          "naturalWidth": 48,
+          "rect": [
+            150.125,
+            293.25,
+            0,
+            0
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "time-0.5",
+    "data": {
+      "seek": "runtime",
+      "state": {
+        "a1": {
+          "html": "<div data-akari-fragment=\"\" style=\"--a: 1px; --b: 2; position: absolute; left: 25px; top: 20px; color: white; font: 26px system-ui; pointer-",
+          "rect": [
+            36,
+            179.125,
+            332,
+            186.75
+          ],
+          "visible": "visible"
+        },
+        "a2": {
+          "html": "<div data-akari-fragment=\"\" style=\"position: absolute; left: 20px; top: 90px; color: white; font: 28px system-ui; pointer-events: none !impo",
+          "rect": [
+            36,
+            179.125,
+            332,
+            186.75
+          ],
+          "visible": "visible"
+        },
+        "a3": {
+          "html": "<div data-akari-fragment=\"\" style=\"position: absolute; left: 300px; top: 85px; color: white; font: 24px system-ui; pointer-events: none !imp",
+          "rect": [
+            36,
+            179.125,
+            332,
+            186.75
+          ],
+          "visible": "visible"
+        },
+        "a4": {
+          "html": "<div data-akari-fragment=\"\" style=\"position: absolute; left: 30px; top: 220px; color: white; font: 14px system-ui; pointer-events: none !imp",
+          "rect": [
+            36,
+            179.125,
+            332,
+            186.75
+          ],
+          "visible": "visible"
+        },
+        "words": [
+          {
+            "text": "One",
+            "opacity": "0.99204",
+            "transform": "matrix(1, 0, 0, 1, 0, 0.199)",
+            "animations": [
+              {
+                "time": 500,
+                "timing": {
+                  "delay": 200,
+                  "direction": "normal",
+                  "duration": 340,
+                  "easing": "linear",
+                  "endDelay": 0,
+                  "fill": "both",
+                  "iterationStart": 0,
+                  "iterations": 1
+                }
+              },
+              {
+                "time": 500,
+                "timing": {
+                  "delay": 900,
+                  "direction": "normal",
+                  "duration": 150,
+                  "easing": "linear",
+                  "endDelay": 0,
+                  "fill": "forwards",
+                  "iterationStart": 0,
+                  "iterations": 1
+                }
+              }
+            ]
+          },
+          {
+            "text": "Two",
+            "opacity": "0",
+            "transform": "matrix(1, 0, 0, 1, 0, 25)",
+            "animations": [
+              {
+                "time": 500,
+                "timing": {
+                  "delay": 1200,
+                  "direction": "normal",
+                  "duration": 340,
+                  "easing": "linear",
+                  "endDelay": 0,
+                  "fill": "both",
+                  "iterationStart": 0,
+                  "iterations": 1
+                }
+              },
+              {
+                "time": 500,
+                "timing": {
+                  "delay": 1900,
+                  "direction": "normal",
+                  "duration": 150,
+                  "easing": "linear",
+                  "endDelay": 0,
+                  "fill": "forwards",
+                  "iterationStart": 0,
+                  "iterations": 1
+                }
+              }
+            ]
+          },
+          {
+            "text": "Three",
+            "opacity": "0",
+            "transform": "matrix(1, 0, 0, 1, 0, 25)",
+            "animations": [
+              {
+                "time": 500,
+                "timing": {
+                  "delay": 2200,
+                  "direction": "normal",
+                  "duration": 340,
+                  "easing": "linear",
+                  "endDelay": 0,
+                  "fill": "both",
+                  "iterationStart": 0,
+                  "iterations": 1
+                }
+              },
+              {
+                "time": 500,
+                "timing": {
+                  "delay": 2900,
+                  "direction": "normal",
+                  "duration": 150,
+                  "easing": "linear",
+                  "endDelay": 0,
+                  "fill": "forwards",
+                  "iterationStart": 0,
+                  "iterations": 1
+                }
+              }
+            ]
+          }
+        ],
+        "lines": [
+          {
+            "text": "Alpha",
+            "opacity": "1",
+            "transform": "matrix(1, 0, 0, 1, 0, 0)",
+            "animations": [
+              {
+                "time": 500,
+                "timing": {
+                  "delay": 200,
+                  "direction": "normal",
+                  "duration": 300,
+                  "easing": "linear",
+                  "endDelay": 0,
+                  "fill": "both",
+                  "iterationStart": 0,
+                  "iterations": 1
+                }
+              },
+              {
+                "time": 500,
+                "timing": {
+                  "delay": 900,
+                  "direction": "normal",
+                  "duration": 300,
+                  "easing": "linear",
+                  "endDelay": 0,
+                  "fill": "forwards",
+                  "iterationStart": 0,
+                  "iterations": 1
+                }
+              },
+              {
+                "time": 500,
+                "timing": {
+                  "delay": 1800,
+                  "direction": "normal",
+                  "duration": 300,
+                  "easing": "linear",
+                  "endDelay": 0,
+                  "fill": "forwards",
+                  "iterationStart": 0,
+                  "iterations": 1
+                }
+              }
+            ]
+          },
+          {
+            "text": "Beta",
+            "opacity": "0",
+            "transform": "matrix(1, 0, 0, 1, 0, 64)",
+            "animations": [
+              {
+                "time": 500,
+                "timing": {
+                  "delay": 1200,
+                  "direction": "normal",
+                  "duration": 300,
+                  "easing": "linear",
+                  "endDelay": 0,
+                  "fill": "both",
+                  "iterationStart": 0,
+                  "iterations": 1
+                }
+              },
+              {
+                "time": 500,
+                "timing": {
+                  "delay": 1900,
+                  "direction": "normal",
+                  "duration": 300,
+                  "easing": "linear",
+                  "endDelay": 0,
+                  "fill": "forwards",
+                  "iterationStart": 0,
+                  "iterations": 1
+                }
+              },
+              {
+                "time": 500,
+                "timing": {
+                  "delay": 2800,
+                  "direction": "normal",
+                  "duration": 300,
+                  "easing": "linear",
+                  "endDelay": 0,
+                  "fill": "forwards",
+                  "iterationStart": 0,
+                  "iterations": 1
+                }
+              }
+            ]
+          },
+          {
+            "text": "Gamma",
+            "opacity": "0",
+            "transform": "matrix(1, 0, 0, 1, 0, 64)",
+            "animations": [
+              {
+                "time": 500,
+                "timing": {
+                  "delay": 2200,
+                  "direction": "normal",
+                  "duration": 300,
+                  "easing": "linear",
+                  "endDelay": 0,
+                  "fill": "both",
+                  "iterationStart": 0,
+                  "iterations": 1
+                }
+              },
+              {
+                "time": 500,
+                "timing": {
+                  "delay": 2900,
+                  "direction": "normal",
+                  "duration": 300,
+                  "easing": "linear",
+                  "endDelay": 0,
+                  "fill": "forwards",
+                  "iterationStart": 0,
+                  "iterations": 1
+                }
+              },
+              {
+                "time": 500,
+                "timing": {
+                  "delay": 3800,
+                  "direction": "normal",
+                  "duration": 300,
+                  "easing": "linear",
+                  "endDelay": 0,
+                  "fill": "forwards",
+                  "iterationStart": 0,
+                  "iterations": 1
+                }
+              }
+            ]
+          }
+        ],
+        "images": [
+          {
+            "src": "http://127.0.0.1:62385/asset/da0768d8d3b1231e29d357f6ff42a30e8cfbe7e150ec8f0de3e9a21335820d03.svg",
+            "complete": true,
+            "naturalWidth": 48,
+            "rect": [
+              51.5625,
+              293.25,
+              0,
+              0
+            ]
+          },
+          {
+            "src": "http://127.0.0.1:62385/asset/da0768d8d3b1231e29d357f6ff42a30e8cfbe7e150ec8f0de3e9a21335820d03.svg",
+            "complete": true,
+            "naturalWidth": 48,
+            "rect": [
+              100.84375,
+              293.25,
+              24.900001525878906,
+              24.9000244140625
+            ]
+          },
+          {
+            "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='48' height='48'%3E%3Crect width='48' height='48' fill='%2300ccff'/%3E%3C/svg%3E",
+            "complete": true,
+            "naturalWidth": 48,
+            "rect": [
+              150.125,
+              293.25,
+              0,
+              0
+            ]
+          }
+        ]
+      }
+    }
+  },
+  {
+    "name": "time-1.5",
+    "data": {
+      "seek": "runtime",
+      "state": {
+        "a1": {
+          "html": "<div data-akari-fragment=\"\" style=\"--a: 1px; --b: 2; position: absolute; left: 25px; top: 20px; color: white; font: 26px system-ui; pointer-",
+          "rect": [
+            36,
+            179.125,
+            332,
+            186.75
+          ],
+          "visible": "visible"
+        },
+        "a2": {
+          "html": "<div data-akari-fragment=\"\" style=\"position: absolute; left: 20px; top: 90px; color: white; font: 28px system-ui; pointer-events: none !impo",
+          "rect": [
+            36,
+            179.125,
+            332,
+            186.75
+          ],
+          "visible": "visible"
+        },
+        "a3": {
+          "html": "<div data-akari-fragment=\"\" style=\"position: absolute; left: 300px; top: 85px; color: white; font: 24px system-ui; pointer-events: none !imp",
+          "rect": [
+            36,
+            179.125,
+            332,
+            186.75
+          ],
+          "visible": "visible"
+        },
+        "a4": {
+          "html": "<div data-akari-fragment=\"\" style=\"position: absolute; left: 30px; top: 220px; color: white; font: 14px system-ui; pointer-events: none !imp",
+          "rect": [
+            36,
+            179.125,
+            332,
+            186.75
+          ],
+          "visible": "visible"
+        },
+        "words": [
+          {
+            "text": "One",
+            "opacity": "0",
+            "transform": "matrix(1, 0, 0, 1, 0, -25)",
+            "animations": [
+              {
+                "time": 1500,
+                "timing": {
+                  "delay": 200,
+                  "direction": "normal",
+                  "duration": 340,
+                  "easing": "linear",
+                  "endDelay": 0,
+                  "fill": "both",
+                  "iterationStart": 0,
+                  "iterations": 1
+                }
+              },
+              {
+                "time": 1500,
+                "timing": {
+                  "delay": 900,
+                  "direction": "normal",
+                  "duration": 150,
+                  "easing": "linear",
+                  "endDelay": 0,
+                  "fill": "forwards",
+                  "iterationStart": 0,
+                  "iterations": 1
+                }
+              }
+            ]
+          },
+          {
+            "text": "Two",
+            "opacity": "0.99204",
+            "transform": "matrix(1, 0, 0, 1, 0, 0.199)",
+            "animations": [
+              {
+                "time": 1500,
+                "timing": {
+                  "delay": 1200,
+                  "direction": "normal",
+                  "duration": 340,
+                  "easing": "linear",
+                  "endDelay": 0,
+                  "fill": "both",
+                  "iterationStart": 0,
+                  "iterations": 1
+                }
+              },
+              {
+                "time": 1500,
+                "timing": {
+                  "delay": 1900,
+                  "direction": "normal",
+                  "duration": 150,
+                  "easing": "linear",
+                  "endDelay": 0,
+                  "fill": "forwards",
+                  "iterationStart": 0,
+                  "iterations": 1
+                }
+              }
+            ]
+          },
+          {
+            "text": "Three",
+            "opacity": "0",
+            "transform": "matrix(1, 0, 0, 1, 0, 25)",
+            "animations": [
+              {
+                "time": 1500,
+                "timing": {
+                  "delay": 2200,
+                  "direction": "normal",
+                  "duration": 340,
+                  "easing": "linear",
+                  "endDelay": 0,
+                  "fill": "both",
+                  "iterationStart": 0,
+                  "iterations": 1
+                }
+              },
+              {
+                "time": 1500,
+                "timing": {
+                  "delay": 2900,
+                  "direction": "normal",
+                  "duration": 150,
+                  "easing": "linear",
+                  "endDelay": 0,
+                  "fill": "forwards",
+                  "iterationStart": 0,
+                  "iterations": 1
+                }
+              }
+            ]
+          }
+        ],
+        "lines": [
+          {
+            "text": "Alpha",
+            "opacity": "1",
+            "transform": "matrix(1, 0, 0, 1, 0, -42)",
+            "animations": [
+              {
+                "time": 1500,
+                "timing": {
+                  "delay": 200,
+                  "direction": "normal",
+                  "duration": 300,
+                  "easing": "linear",
+                  "endDelay": 0,
+                  "fill": "both",
+                  "iterationStart": 0,
+                  "iterations": 1
+                }
+              },
+              {
+                "time": 1500,
+                "timing": {
+                  "delay": 900,
+                  "direction": "normal",
+                  "duration": 300,
+                  "easing": "linear",
+                  "endDelay": 0,
+                  "fill": "forwards",
+                  "iterationStart": 0,
+                  "iterations": 1
+                }
+              },
+              {
+                "time": 1500,
+                "timing": {
+                  "delay": 1800,
+                  "direction": "normal",
+                  "duration": 300,
+                  "easing": "linear",
+                  "endDelay": 0,
+                  "fill": "forwards",
+                  "iterationStart": 0,
+                  "iterations": 1
+                }
+              }
+            ]
+          },
+          {
+            "text": "Beta",
+            "opacity": "1",
+            "transform": "matrix(1, 0, 0, 1, 0, 0)",
+            "animations": [
+              {
+                "time": 1500,
+                "timing": {
+                  "delay": 1200,
+                  "direction": "normal",
+                  "duration": 300,
+                  "easing": "linear",
+                  "endDelay": 0,
+                  "fill": "both",
+                  "iterationStart": 0,
+                  "iterations": 1
+                }
+              },
+              {
+                "time": 1500,
+                "timing": {
+                  "delay": 1900,
+                  "direction": "normal",
+                  "duration": 300,
+                  "easing": "linear",
+                  "endDelay": 0,
+                  "fill": "forwards",
+                  "iterationStart": 0,
+                  "iterations": 1
+                }
+              },
+              {
+                "time": 1500,
+                "timing": {
+                  "delay": 2800,
+                  "direction": "normal",
+                  "duration": 300,
+                  "easing": "linear",
+                  "endDelay": 0,
+                  "fill": "forwards",
+                  "iterationStart": 0,
+                  "iterations": 1
+                }
+              }
+            ]
+          },
+          {
+            "text": "Gamma",
+            "opacity": "0",
+            "transform": "matrix(1, 0, 0, 1, 0, 64)",
+            "animations": [
+              {
+                "time": 1500,
+                "timing": {
+                  "delay": 2200,
+                  "direction": "normal",
+                  "duration": 300,
+                  "easing": "linear",
+                  "endDelay": 0,
+                  "fill": "both",
+                  "iterationStart": 0,
+                  "iterations": 1
+                }
+              },
+              {
+                "time": 1500,
+                "timing": {
+                  "delay": 2900,
+                  "direction": "normal",
+                  "duration": 300,
+                  "easing": "linear",
+                  "endDelay": 0,
+                  "fill": "forwards",
+                  "iterationStart": 0,
+                  "iterations": 1
+                }
+              },
+              {
+                "time": 1500,
+                "timing": {
+                  "delay": 3800,
+                  "direction": "normal",
+                  "duration": 300,
+                  "easing": "linear",
+                  "endDelay": 0,
+                  "fill": "forwards",
+                  "iterationStart": 0,
+                  "iterations": 1
+                }
+              }
+            ]
+          }
+        ],
+        "images": [
+          {
+            "src": "http://127.0.0.1:62385/asset/da0768d8d3b1231e29d357f6ff42a30e8cfbe7e150ec8f0de3e9a21335820d03.svg",
+            "complete": true,
+            "naturalWidth": 48,
+            "rect": [
+              51.5625,
+              293.25,
+              0,
+              0
+            ]
+          },
+          {
+            "src": "http://127.0.0.1:62385/asset/da0768d8d3b1231e29d357f6ff42a30e8cfbe7e150ec8f0de3e9a21335820d03.svg",
+            "complete": true,
+            "naturalWidth": 48,
+            "rect": [
+              100.84375,
+              293.25,
+              24.900001525878906,
+              24.9000244140625
+            ]
+          },
+          {
+            "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='48' height='48'%3E%3Crect width='48' height='48' fill='%2300ccff'/%3E%3C/svg%3E",
+            "complete": true,
+            "naturalWidth": 48,
+            "rect": [
+              150.125,
+              293.25,
+              0,
+              0
+            ]
+          }
+        ]
+      }
+    }
+  },
+  {
+    "name": "time-3",
+    "data": {
+      "seek": "runtime",
+      "state": {
+        "a1": {
+          "html": "<div data-akari-fragment=\"\" style=\"--a: 1px; --b: 2; position: absolute; left: 25px; top: 20px; color: white; font: 26px system-ui; pointer-",
+          "rect": [
+            36,
+            179.125,
+            332,
+            186.75
+          ],
+          "visible": "visible"
+        },
+        "a2": {
+          "html": "<div data-akari-fragment=\"\" style=\"position: absolute; left: 20px; top: 90px; color: white; font: 28px system-ui; pointer-events: none !impo",
+          "rect": [
+            36,
+            179.125,
+            332,
+            186.75
+          ],
+          "visible": "visible"
+        },
+        "a3": {
+          "html": "<div data-akari-fragment=\"\" style=\"position: absolute; left: 300px; top: 85px; color: white; font: 24px system-ui; pointer-events: none !imp",
+          "rect": [
+            36,
+            179.125,
+            332,
+            186.75
+          ],
+          "visible": "visible"
+        },
+        "a4": {
+          "html": "<div data-akari-fragment=\"\" style=\"position: absolute; left: 30px; top: 220px; color: white; font: 14px system-ui; pointer-events: none !imp",
+          "rect": [
+            36,
+            179.125,
+            332,
+            186.75
+          ],
+          "visible": "visible"
+        },
+        "words": [
+          {
+            "text": "One",
+            "opacity": "0",
+            "transform": "matrix(1, 0, 0, 1, 0, -25)",
+            "animations": [
+              {
+                "time": 3000,
+                "timing": {
+                  "delay": 200,
+                  "direction": "normal",
+                  "duration": 340,
+                  "easing": "linear",
+                  "endDelay": 0,
+                  "fill": "both",
+                  "iterationStart": 0,
+                  "iterations": 1
+                }
+              },
+              {
+                "time": 3000,
+                "timing": {
+                  "delay": 900,
+                  "direction": "normal",
+                  "duration": 150,
+                  "easing": "linear",
+                  "endDelay": 0,
+                  "fill": "forwards",
+                  "iterationStart": 0,
+                  "iterations": 1
+                }
+              }
+            ]
+          },
+          {
+            "text": "Two",
+            "opacity": "0",
+            "transform": "matrix(1, 0, 0, 1, 0, -25)",
+            "animations": [
+              {
+                "time": 3000,
+                "timing": {
+                  "delay": 1200,
+                  "direction": "normal",
+                  "duration": 340,
+                  "easing": "linear",
+                  "endDelay": 0,
+                  "fill": "both",
+                  "iterationStart": 0,
+                  "iterations": 1
+                }
+              },
+              {
+                "time": 3000,
+                "timing": {
+                  "delay": 1900,
+                  "direction": "normal",
+                  "duration": 150,
+                  "easing": "linear",
+                  "endDelay": 0,
+                  "fill": "forwards",
+                  "iterationStart": 0,
+                  "iterations": 1
+                }
+              }
+            ]
+          },
+          {
+            "text": "Three",
+            "opacity": "0.075176",
+            "transform": "matrix(1, 0, 0, 1, 0, -23.1206)",
+            "animations": [
+              {
+                "time": 3000,
+                "timing": {
+                  "delay": 2200,
+                  "direction": "normal",
+                  "duration": 340,
+                  "easing": "linear",
+                  "endDelay": 0,
+                  "fill": "both",
+                  "iterationStart": 0,
+                  "iterations": 1
+                }
+              },
+              {
+                "time": 3000,
+                "timing": {
+                  "delay": 2900,
+                  "direction": "normal",
+                  "duration": 150,
+                  "easing": "linear",
+                  "endDelay": 0,
+                  "fill": "forwards",
+                  "iterationStart": 0,
+                  "iterations": 1
+                }
+              }
+            ]
+          }
+        ],
+        "lines": [
+          {
+            "text": "Alpha",
+            "opacity": "0",
+            "transform": "matrix(1, 0, 0, 1, 0, -100)",
+            "animations": [
+              {
+                "time": 3000,
+                "timing": {
+                  "delay": 200,
+                  "direction": "normal",
+                  "duration": 300,
+                  "easing": "linear",
+                  "endDelay": 0,
+                  "fill": "both",
+                  "iterationStart": 0,
+                  "iterations": 1
+                }
+              },
+              {
+                "time": 3000,
+                "timing": {
+                  "delay": 900,
+                  "direction": "normal",
+                  "duration": 300,
+                  "easing": "linear",
+                  "endDelay": 0,
+                  "fill": "forwards",
+                  "iterationStart": 0,
+                  "iterations": 1
+                }
+              },
+              {
+                "time": 3000,
+                "timing": {
+                  "delay": 1800,
+                  "direction": "normal",
+                  "duration": 300,
+                  "easing": "linear",
+                  "endDelay": 0,
+                  "fill": "forwards",
+                  "iterationStart": 0,
+                  "iterations": 1
+                }
+              }
+            ]
+          },
+          {
+            "text": "Beta",
+            "opacity": "0.075176",
+            "transform": "matrix(1, 0, 0, 1, 0, -95.6398)",
+            "animations": [
+              {
+                "time": 3000,
+                "timing": {
+                  "delay": 1200,
+                  "direction": "normal",
+                  "duration": 300,
+                  "easing": "linear",
+                  "endDelay": 0,
+                  "fill": "both",
+                  "iterationStart": 0,
+                  "iterations": 1
+                }
+              },
+              {
+                "time": 3000,
+                "timing": {
+                  "delay": 1900,
+                  "direction": "normal",
+                  "duration": 300,
+                  "easing": "linear",
+                  "endDelay": 0,
+                  "fill": "forwards",
+                  "iterationStart": 0,
+                  "iterations": 1
+                }
+              },
+              {
+                "time": 3000,
+                "timing": {
+                  "delay": 2800,
+                  "direction": "normal",
+                  "duration": 300,
+                  "easing": "linear",
+                  "endDelay": 0,
+                  "fill": "forwards",
+                  "iterationStart": 0,
+                  "iterations": 1
+                }
+              }
+            ]
+          },
+          {
+            "text": "Gamma",
+            "opacity": "1",
+            "transform": "matrix(1, 0, 0, 1, 0, -24.1862)",
+            "animations": [
+              {
+                "time": 3000,
+                "timing": {
+                  "delay": 2200,
+                  "direction": "normal",
+                  "duration": 300,
+                  "easing": "linear",
+                  "endDelay": 0,
+                  "fill": "both",
+                  "iterationStart": 0,
+                  "iterations": 1
+                }
+              },
+              {
+                "time": 3000,
+                "timing": {
+                  "delay": 2900,
+                  "direction": "normal",
+                  "duration": 300,
+                  "easing": "linear",
+                  "endDelay": 0,
+                  "fill": "forwards",
+                  "iterationStart": 0,
+                  "iterations": 1
+                }
+              },
+              {
+                "time": 3000,
+                "timing": {
+                  "delay": 3800,
+                  "direction": "normal",
+                  "duration": 300,
+                  "easing": "linear",
+                  "endDelay": 0,
+                  "fill": "forwards",
+                  "iterationStart": 0,
+                  "iterations": 1
+                }
+              }
+            ]
+          }
+        ],
+        "images": [
+          {
+            "src": "http://127.0.0.1:62385/asset/da0768d8d3b1231e29d357f6ff42a30e8cfbe7e150ec8f0de3e9a21335820d03.svg",
+            "complete": true,
+            "naturalWidth": 48,
+            "rect": [
+              51.5625,
+              293.25,
+              0,
+              0
+            ]
+          },
+          {
+            "src": "http://127.0.0.1:62385/asset/da0768d8d3b1231e29d357f6ff42a30e8cfbe7e150ec8f0de3e9a21335820d03.svg",
+            "complete": true,
+            "naturalWidth": 48,
+            "rect": [
+              100.84375,
+              293.25,
+              24.900001525878906,
+              24.9000244140625
+            ]
+          },
+          {
+            "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='48' height='48'%3E%3Crect width='48' height='48' fill='%2300ccff'/%3E%3C/svg%3E",
+            "complete": true,
+            "naturalWidth": 48,
+            "rect": [
+              150.125,
+              293.25,
+              0,
+              0
+            ]
+          }
+        ]
+      }
+    }
+  },
+  {
+    "name": "a1-before",
+    "data": {
+      "bytes": 285
+    }
+  },
+  {
+    "name": "selection",
+    "data": {
+      "changed": false,
+      "bytes": 285,
+      "loopbackLines": 0
+    }
+  },
+  {
+    "name": "handles",
+    "data": [
+      "akari-interaction-handle is-nw",
+      "akari-interaction-handle is-ne",
+      "akari-interaction-handle is-se",
+      "akari-interaction-handle is-sw",
+      "akari-interaction-handle is-rotate"
+    ]
+  },
+  {
+    "name": "knob",
+    "data": {
+      "changed": false,
+      "bytes": 285,
+      "loopbackLines": 0
+    }
+  },
+  {
+    "name": "inline-edit",
+    "data": {
+      "changed": true,
+      "bytes": 471,
+      "loopbackLines": 2
+    }
+  },
+  {
+    "name": "drag",
+    "data": {
+      "attempted": true,
+      "fragmentChanged": false,
+      "bytes": 471
+    }
+  }
+]

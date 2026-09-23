@@ -153,9 +153,27 @@ export async function resolveThreeSceneDescriptorAssets(
     return { descriptor, modelPath };
 }
 
+/** Match a JSON script declaration, never text displayed inside a fragment. */
+export function threeSceneDeclarations(html: string): string[] {
+    const declarations: string[] = [];
+    const withoutComments = html.replace(/<!--[\s\S]*?-->/g, '');
+    const scripts = /<script\b((?:"[^"]*"|'[^']*'|[^'">])*)>([\s\S]*?)<\/script\s*>/gi;
+    for (const match of withoutComments.matchAll(scripts)) {
+        const attributes = match[1];
+        if (!/(?:^|\s)type\s*=\s*(?:"application\/json"|'application\/json'|application\/json(?=\s|$))/i.test(attributes)) continue;
+        if (!/(?:^|\s)data-akari-3d-scene(?=\s|=|$)/i.test(attributes)) continue;
+        declarations.push(match[2]);
+    }
+    return declarations;
+}
+
 /** Mirrors render-cut's declaration-time gate for the optional 3D text vendor bundle. */
 export function hasThreeDimensionalTextOverlay(overlays: readonly { html: string }[]): boolean {
-    return overlays.some(overlay =>
-        overlay.html.includes('data-akari-3d-scene') && overlay.html.includes('"texts"')
-    );
+    return overlays.some(overlay => threeSceneDeclarations(overlay.html).some(body => {
+        try {
+            const descriptor: unknown = JSON.parse(body);
+            return Boolean(descriptor && typeof descriptor === 'object' && !Array.isArray(descriptor)
+                && Array.isArray((descriptor as { texts?: unknown }).texts));
+        } catch { return false; }
+    }));
 }

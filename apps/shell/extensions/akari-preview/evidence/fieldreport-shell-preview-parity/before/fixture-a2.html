@@ -1,0 +1,13 @@
+<div data-akari-fragment style="position:absolute;left:20px;top:90px;color:white;font:28px system-ui">
+  <style>
+    @keyframes enter{from{opacity:0;transform:translateY(25px)}to{opacity:1;transform:translateY(0)}}
+    @keyframes leave{to{opacity:0;transform:translateY(-25px)}}
+    [data-akari-active] .word{position:absolute;left:0;top:0;animation:enter .34s var(--in) both,leave .15s var(--out) forwards}
+  </style>
+  <div style="position:relative;width:180px;height:45px;overflow:hidden">
+    <span class="word" style="--in:0.2s;--out:0.9s">One</span>
+    <span class="word" style="--in:1.2s;--out:1.9s">Two</span>
+    <span class="word" style="--in:2.2s;--out:2.9s">Three</span>
+  </div>
+  <span style="position:absolute;top:48px;font:12px monospace">data-akari-3d-scene</span>
+</div>

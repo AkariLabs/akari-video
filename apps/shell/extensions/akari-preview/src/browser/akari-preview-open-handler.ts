@@ -89,10 +89,12 @@ import {
     sfxFadeGainSchedule
 } from '../common/audio-schedule';
 import { classifyEditAssetPath, uncToFileUriString, windowsDriveToFileUriString } from '../common/edit-asset-path';
+import { assertNoSessionAssetUrl, patchFragmentSourceText } from './fragment-source-write';
 import {
     THREE_SCENE_KEYS,
     hasThreeDimensionalTextOverlay,
-    resolveThreeSceneDescriptorAssets
+    resolveThreeSceneDescriptorAssets,
+    threeSceneDeclarations
 } from '../common/three-scene-assets';
 import { resolvePreviewCaptionTrackOrder } from '../common/caption-track-order';
 import { previewContentEnd } from '../common/preview-content-end';
@@ -5972,7 +5974,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         ensureAssetStream?: (key: string, assetUri?: URI) => Promise<{ id: string; url: string }>,
         overlayVars: Record<string, string> = {}
     ): Promise<string> {
-        if (!html.includes('data-akari-3d-scene')) {
+        if (threeSceneDeclarations(html).length === 0) {
             return html;
         }
         const document = new DOMParser().parseFromString(html, 'text/html');
@@ -6266,8 +6268,13 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 if (!(await this.fileService.exists(target))) {
                     throw new Error(`断片ファイルがありません: ${htmlPath}`);
                 }
-                this.recentWrites.set(target.toString(), Date.now());
-                await this.fileService.writeFile(target, BinaryBuffer.fromString(request.patch.html));
+                const source = await this.readText(target);
+                const candidate = patchFragmentSourceText(source, request.patch.html);
+                assertNoSessionAssetUrl(candidate);
+                if (candidate !== source) {
+                    this.recentWrites.set(target.toString(), Date.now());
+                    await this.fileService.writeFile(target, BinaryBuffer.fromString(candidate));
+                }
             }
             if (resolved.candidateText) {
                 const candidateText = resolved.candidateText;
@@ -7256,6 +7263,7 @@ ${kind === 'raw' ? '.akari-material-chip { position: absolute; top: 8px; left: 8
 #caption-zone-highlight { position: absolute; z-index: 1880; display: none; box-sizing: border-box; border: 1px dashed #4da3ff; background: rgba(77,163,255,.14); pointer-events: none; }
 #caption-zone-highlight.is-active { display: block; }
 #overlay-stage { position: absolute; top: 0; left: 0; width: ${width}px; height: ${height}px; overflow: hidden; pointer-events: none; }
+#overlay-stage [data-overlay-id] img { max-width: none; max-height: none; }
 #akari-gen-overlay { --akari-gen-inv-scale: 1; --akari-gen-band-space: 0px; position: absolute; inset: 0; pointer-events: none; z-index: 2100; }
 #akari-gen-overlay *, #akari-gen-overlay *::before, #akari-gen-overlay *::after { pointer-events: none; }
 #akari-gen-blur { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
