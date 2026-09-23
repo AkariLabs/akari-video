@@ -2,6 +2,7 @@ import { MaterialTrialHistory } from '../common/material-trial-history';
 import { Emitter, Event } from '@theia/core/lib/common';
 import { injectable, postConstruct } from '@theia/core/shared/inversify';
 import { isEditableEventTarget } from 'akari-preview/lib/common/review-tool-mode';
+import type { PreviewCaptionWrite } from 'akari-preview/lib/common/preview-caption-write';
 
 const HISTORY_LIMIT = 50;
 
@@ -17,6 +18,11 @@ export interface HistoryExecution {
     readonly kind: 'undo' | 'redo';
     readonly entry: HistoryEntry;
     readonly error?: unknown;
+}
+
+export interface PreviewCaptionHistoryIO {
+    read: (captionsUri: string) => Promise<string>;
+    write: (change: PreviewCaptionWrite, content: string) => Promise<void>;
 }
 
 @injectable()
@@ -79,6 +85,23 @@ export class AkariEditHistoryService {
         this.onDidChangeEmitter.fire();
         this.onDidPushEmitter.fire(entry);
         return entry;
+    }
+
+    /** A stale snapshot rejects through the shared history failure path without overwriting a newer file. */
+    pushPreviewCaptionWrite(change: PreviewCaptionWrite, io: PreviewCaptionHistoryIO): HistoryEntry {
+        const restore = async (expected: string, content: string): Promise<void> => {
+            if (await io.read(change.captionsUri) !== expected) {
+                throw new Error('字幕ファイルが後から変更されています');
+            }
+            await io.write(change, content);
+        };
+        return this.push({
+            label: change.label,
+            before: change.before,
+            after: change.after,
+            undo: () => restore(change.after, change.before),
+            redo: () => restore(change.before, change.after)
+        });
     }
 
     clear(): void {

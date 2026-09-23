@@ -1,0 +1,1404 @@
+{
+  "phase": "before",
+  "status": "recorded",
+  "checks": [
+    {
+      "name": "P1 1 本の移動 → Cmd+Z 1 回で操作前とバイト一致・描画も戻る → Cmd+Shift+Z で操作後とバイト一致",
+      "pass": true,
+      "detail": {
+        "changed": true,
+        "writeCount": 1,
+        "changedIds": [
+          "c-0004"
+        ],
+        "defaultChanged": false,
+        "renderChanged": {
+          "c-0004": {
+            "left": [
+              175.2,
+              215.2
+            ],
+            "top": [
+              353.8,
+              361.4
+            ]
+          }
+        },
+        "undo": {
+          "restored": false,
+          "via": "none",
+          "changedToOther": false
+        },
+        "undoRender": {
+          "same": false,
+          "diff": {
+            "c-0004": {
+              "left": [
+                175.2,
+                215.2
+              ],
+              "top": [
+                353.8,
+                361.4
+              ]
+            }
+          }
+        },
+        "redo": {
+          "restored": false,
+          "via": "none",
+          "alreadyEqual": true,
+          "changedToOther": false
+        },
+        "redoRender": {
+          "same": true
+        },
+        "final": "aa4135920e2d5be2"
+      }
+    },
+    {
+      "name": "P2 複数選択 3 本の移動（Cmd クリック）→ undo / redo",
+      "pass": true,
+      "detail": {
+        "changed": true,
+        "writeCount": 1,
+        "changedIds": [
+          "c-0101",
+          "c-0102",
+          "c-0103"
+        ],
+        "defaultChanged": false,
+        "renderChanged": {
+          "c-0101": {
+            "left": [
+              245.9,
+              285.8
+            ]
+          },
+          "c-0102": {
+            "left": [
+              245.2,
+              285.2
+            ]
+          },
+          "c-0103": {
+            "left": [
+              245.2,
+              285.2
+            ]
+          }
+        },
+        "undo": {
+          "restored": false,
+          "via": "none",
+          "changedToOther": false
+        },
+        "undoRender": {
+          "same": false,
+          "diff": {
+            "c-0101": {
+              "left": [
+                245.9,
+                285.8
+              ]
+            },
+            "c-0102": {
+              "left": [
+                245.2,
+                285.2
+              ]
+            },
+            "c-0103": {
+              "left": [
+                245.2,
+                285.2
+              ]
+            }
+          }
+        },
+        "redo": {
+          "restored": false,
+          "via": "none",
+          "alreadyEqual": true,
+          "changedToOther": false
+        },
+        "redoRender": {
+          "same": true
+        },
+        "final": "444d709a1772ba61"
+      }
+    },
+    {
+      "name": "P3 全字幕モード（⌥ドラッグ）→ undo / redo",
+      "pass": true,
+      "detail": {
+        "changed": true,
+        "writeCount": 1,
+        "changedIds": [],
+        "defaultChanged": true,
+        "renderChanged": {
+          "c-0003": {
+            "top": [
+              353.8,
+              323.8
+            ]
+          }
+        },
+        "undo": {
+          "restored": false,
+          "via": "none",
+          "changedToOther": false
+        },
+        "undoRender": {
+          "same": false,
+          "diff": {
+            "c-0003": {
+              "top": [
+                353.8,
+                323.8
+              ]
+            }
+          }
+        },
+        "redo": {
+          "restored": false,
+          "via": "none",
+          "alreadyEqual": true,
+          "changedToOther": false
+        },
+        "redoRender": {
+          "same": true
+        },
+        "final": "1f2b19c98dca97a4"
+      }
+    },
+    {
+      "name": "P4 角のつまみの拡縮 → undo / redo",
+      "pass": true,
+      "detail": {
+        "changed": true,
+        "writeCount": 1,
+        "changedIds": [
+          "c-0004"
+        ],
+        "defaultChanged": false,
+        "renderChanged": {
+          "c-0004": {
+            "left": [
+              215.2,
+              167.6
+            ],
+            "top": [
+              361.4,
+              359
+            ],
+            "w": [
+              397.6,
+              458.4
+            ],
+            "h": [
+              31.7,
+              36.6
+            ]
+          }
+        },
+        "undo": {
+          "restored": false,
+          "via": "none",
+          "changedToOther": false
+        },
+        "undoRender": {
+          "same": false,
+          "diff": {
+            "c-0004": {
+              "left": [
+                215.2,
+                167.6
+              ],
+              "top": [
+                361.4,
+                359
+              ],
+              "w": [
+                397.6,
+                458.4
+              ],
+              "h": [
+                31.7,
+                36.6
+              ]
+            }
+          }
+        },
+        "redo": {
+          "restored": false,
+          "via": "none",
+          "alreadyEqual": true,
+          "changedToOther": false
+        },
+        "redoRender": {
+          "same": true
+        },
+        "final": "b098349815029936"
+      }
+    },
+    {
+      "name": "P6 ミニパネルの太字 → undo / redo",
+      "pass": true,
+      "detail": {
+        "changed": true,
+        "writeCount": 1,
+        "changedIds": [
+          "c-0004"
+        ],
+        "defaultChanged": false,
+        "renderChanged": {
+          "c-0004": {
+            "fontWeight": [
+              "700",
+              "900"
+            ]
+          }
+        },
+        "undo": {
+          "restored": false,
+          "via": "none",
+          "changedToOther": false
+        },
+        "undoRender": {
+          "same": false,
+          "diff": {
+            "c-0004": {
+              "fontWeight": [
+                "700",
+                "900"
+              ]
+            }
+          }
+        },
+        "redo": {
+          "restored": false,
+          "via": "none",
+          "alreadyEqual": true,
+          "changedToOther": false
+        },
+        "redoRender": {
+          "same": true
+        },
+        "final": "615e120d5cba5dc6"
+      }
+    },
+    {
+      "name": "P7 ミニパネルの色（パレットの文字色）→ undo / redo",
+      "pass": true,
+      "detail": {
+        "changed": true,
+        "writeCount": 1,
+        "changedIds": [
+          "c-0004"
+        ],
+        "defaultChanged": false,
+        "renderChanged": {
+          "c-0004": {
+            "color": [
+              "rgb(255, 255, 255)",
+              "rgb(242, 102, 102)"
+            ]
+          }
+        },
+        "undo": {
+          "restored": false,
+          "via": "none",
+          "changedToOther": false
+        },
+        "undoRender": {
+          "same": false,
+          "diff": {
+            "c-0004": {
+              "color": [
+                "rgb(255, 255, 255)",
+                "rgb(242, 102, 102)"
+              ]
+            }
+          }
+        },
+        "redo": {
+          "restored": false,
+          "via": "none",
+          "alreadyEqual": true,
+          "changedToOther": false
+        },
+        "redoRender": {
+          "same": true
+        },
+        "final": "d798855540786a40"
+      }
+    },
+    {
+      "name": "P8 ミニパネルの座布団 → undo / redo",
+      "pass": true,
+      "detail": {
+        "changed": true,
+        "writeCount": 1,
+        "changedIds": [
+          "c-0004"
+        ],
+        "defaultChanged": false,
+        "renderChanged": {
+          "c-0004": {
+            "lineBg": [
+              "rgba(0, 0, 0, 0)",
+              "rgba(0, 0, 0, 0.75)"
+            ],
+            "blockBg": [
+              "rgba(0, 0, 0, 0)",
+              "rgba(0, 0, 0, 0.75)"
+            ]
+          }
+        },
+        "undo": {
+          "restored": false,
+          "via": "none",
+          "changedToOther": false
+        },
+        "undoRender": {
+          "same": false,
+          "diff": {
+            "c-0004": {
+              "lineBg": [
+                "rgba(0, 0, 0, 0)",
+                "rgba(0, 0, 0, 0.75)"
+              ],
+              "blockBg": [
+                "rgba(0, 0, 0, 0)",
+                "rgba(0, 0, 0, 0.75)"
+              ]
+            }
+          }
+        },
+        "redo": {
+          "restored": false,
+          "via": "none",
+          "alreadyEqual": true,
+          "changedToOther": false
+        },
+        "redoRender": {
+          "same": true
+        },
+        "final": "5495a4f5e552d93f"
+      }
+    },
+    {
+      "name": "P5 回転 → undo / redo",
+      "pass": true,
+      "detail": {
+        "changed": true,
+        "writeCount": 1,
+        "changedIds": [
+          "c-0004"
+        ],
+        "defaultChanged": false,
+        "renderChanged": {
+          "c-0004": {
+            "left": [
+              167.6,
+              230.6
+            ],
+            "top": [
+              359,
+              144.4
+            ],
+            "w": [
+              458.4,
+              385.9
+            ],
+            "h": [
+              36.6,
+              308.1
+            ]
+          }
+        },
+        "undo": {
+          "restored": false,
+          "via": "none",
+          "changedToOther": false
+        },
+        "undoRender": {
+          "same": false,
+          "diff": {
+            "c-0004": {
+              "left": [
+                167.6,
+                230.6
+              ],
+              "top": [
+                359,
+                144.4
+              ],
+              "w": [
+                458.4,
+                385.9
+              ],
+              "h": [
+                36.6,
+                308.1
+              ]
+            }
+          }
+        },
+        "redo": {
+          "restored": false,
+          "via": "none",
+          "alreadyEqual": true,
+          "changedToOther": false
+        },
+        "redoRender": {
+          "same": true
+        },
+        "final": "1fcbd0d920acffd3"
+      }
+    },
+    {
+      "name": "P9 既定に戻す → undo / redo",
+      "pass": true,
+      "detail": {
+        "changed": true,
+        "writeCount": 1,
+        "changedIds": [
+          "c-0004"
+        ],
+        "defaultChanged": false,
+        "renderChanged": {
+          "c-0004": {
+            "left": [
+              230.6,
+              215.3
+            ],
+            "top": [
+              144.4,
+              323.8
+            ],
+            "w": [
+              385.9,
+              397.6
+            ],
+            "h": [
+              308.1,
+              31.7
+            ]
+          }
+        },
+        "undo": {
+          "restored": false,
+          "via": "none",
+          "changedToOther": false
+        },
+        "undoRender": {
+          "same": false,
+          "diff": {
+            "c-0004": {
+              "left": [
+                230.6,
+                215.3
+              ],
+              "top": [
+                144.4,
+                323.8
+              ],
+              "w": [
+                385.9,
+                397.6
+              ],
+              "h": [
+                308.1,
+                31.7
+              ]
+            }
+          }
+        },
+        "redo": {
+          "restored": false,
+          "via": "none",
+          "alreadyEqual": true,
+          "changedToOther": false
+        },
+        "redoRender": {
+          "same": true
+        },
+        "final": "1932ec19ac19cd66"
+      }
+    },
+    {
+      "name": "P10 はみ出し防止の切り替え（観測: captions.json への書き込みがあるか）",
+      "pass": true,
+      "detail": {
+        "changed": false,
+        "writeCount": 0,
+        "renderChanged": {},
+        "undo": null
+      }
+    },
+    {
+      "name": "T0 タイムライン発（字幕のチップを時間方向へドラッグ）→ Cmd+Z / Cmd+Shift+Z",
+      "pass": true,
+      "detail": {
+        "changed": true,
+        "writeCount": 1,
+        "undo": {
+          "restored": true,
+          "via": "key"
+        },
+        "redo": {
+          "restored": true,
+          "via": "key"
+        }
+      }
+    },
+    {
+      "name": "X タイムライン発とプレビュー発を交互に 4 回 → Cmd+Z 4 回が新しい順に 1 つずつ戻る → Cmd+Shift+Z 4 回",
+      "pass": true,
+      "detail": {
+        "steps": [
+          {
+            "kind": "timeline",
+            "changed": true
+          },
+          {
+            "kind": "preview-move",
+            "changed": true
+          },
+          {
+            "kind": "timeline",
+            "changed": true
+          },
+          {
+            "kind": "preview-bold",
+            "changed": true
+          }
+        ],
+        "snaps": [
+          "5b93a9f17cdc72b2",
+          "43e34e59431e03f0",
+          "958140682aa08d01",
+          "37ddfcac86aabd27",
+          "684aaad173bf16f5"
+        ],
+        "undos": [
+          {
+            "expect": "snap3",
+            "restored": false,
+            "via": "key",
+            "changedToOther": true
+          },
+          {
+            "expect": "snap2",
+            "restored": false,
+            "via": "none",
+            "alreadyEqual": true,
+            "changedToOther": true
+          },
+          {
+            "expect": "snap1",
+            "restored": false,
+            "via": "key",
+            "changedToOther": true
+          },
+          {
+            "expect": "snap0",
+            "restored": false,
+            "via": "none",
+            "changedToOther": false
+          }
+        ],
+        "redos": [
+          {
+            "expect": "snap1",
+            "restored": false,
+            "via": "key",
+            "changedToOther": true
+          },
+          {
+            "expect": "snap2",
+            "restored": false,
+            "via": "key",
+            "changedToOther": true
+          },
+          {
+            "expect": "snap3",
+            "restored": true,
+            "via": "key"
+          },
+          {
+            "expect": "snap4",
+            "restored": false,
+            "via": "none",
+            "changedToOther": false
+          }
+        ]
+      }
+    },
+    {
+      "name": "C プレビュー発の書き込みの後に captions.json を外から書き換え → Cmd+Z は戻さずに知らせる",
+      "pass": true,
+      "detail": {
+        "opChanged": true,
+        "keptExternal": false,
+        "restoredToBefore": false,
+        "newNotices": []
+      }
+    }
+  ],
+  "screenshots": [
+    "before-p1-move-1-done.png",
+    "before-p1-move-2-undone.png",
+    "before-p2-multi-move-1-done.png",
+    "before-p2-multi-move-2-undone.png",
+    "before-p4-scale-1-done.png",
+    "before-p4-scale-2-undone.png",
+    "before-p6-bold-1-done.png",
+    "before-p6-bold-2-undone.png",
+    "before-p7-color-1-done.png",
+    "before-p7-color-2-undone.png",
+    "before-p9-reset-1-done.png",
+    "before-p9-reset-2-undone.png",
+    "before-c-conflict-notice.png"
+  ],
+  "ops": {
+    "p1-move": {
+      "changed": true,
+      "writeCount": 1,
+      "changedIds": [
+        "c-0004"
+      ],
+      "defaultChanged": false,
+      "renderChanged": {
+        "c-0004": {
+          "left": [
+            175.2,
+            215.2
+          ],
+          "top": [
+            353.8,
+            361.4
+          ]
+        }
+      },
+      "undo": {
+        "restored": false,
+        "via": "none",
+        "changedToOther": false
+      },
+      "undoRender": {
+        "same": false,
+        "diff": {
+          "c-0004": {
+            "left": [
+              175.2,
+              215.2
+            ],
+            "top": [
+              353.8,
+              361.4
+            ]
+          }
+        }
+      },
+      "redo": {
+        "restored": false,
+        "via": "none",
+        "alreadyEqual": true,
+        "changedToOther": false
+      },
+      "redoRender": {
+        "same": true
+      },
+      "final": "aa4135920e2d5be2"
+    },
+    "p2-multi-move": {
+      "changed": true,
+      "writeCount": 1,
+      "changedIds": [
+        "c-0101",
+        "c-0102",
+        "c-0103"
+      ],
+      "defaultChanged": false,
+      "renderChanged": {
+        "c-0101": {
+          "left": [
+            245.9,
+            285.8
+          ]
+        },
+        "c-0102": {
+          "left": [
+            245.2,
+            285.2
+          ]
+        },
+        "c-0103": {
+          "left": [
+            245.2,
+            285.2
+          ]
+        }
+      },
+      "undo": {
+        "restored": false,
+        "via": "none",
+        "changedToOther": false
+      },
+      "undoRender": {
+        "same": false,
+        "diff": {
+          "c-0101": {
+            "left": [
+              245.9,
+              285.8
+            ]
+          },
+          "c-0102": {
+            "left": [
+              245.2,
+              285.2
+            ]
+          },
+          "c-0103": {
+            "left": [
+              245.2,
+              285.2
+            ]
+          }
+        }
+      },
+      "redo": {
+        "restored": false,
+        "via": "none",
+        "alreadyEqual": true,
+        "changedToOther": false
+      },
+      "redoRender": {
+        "same": true
+      },
+      "final": "444d709a1772ba61"
+    },
+    "p3-group": {
+      "changed": true,
+      "writeCount": 1,
+      "changedIds": [],
+      "defaultChanged": true,
+      "renderChanged": {
+        "c-0003": {
+          "top": [
+            353.8,
+            323.8
+          ]
+        }
+      },
+      "undo": {
+        "restored": false,
+        "via": "none",
+        "changedToOther": false
+      },
+      "undoRender": {
+        "same": false,
+        "diff": {
+          "c-0003": {
+            "top": [
+              353.8,
+              323.8
+            ]
+          }
+        }
+      },
+      "redo": {
+        "restored": false,
+        "via": "none",
+        "alreadyEqual": true,
+        "changedToOther": false
+      },
+      "redoRender": {
+        "same": true
+      },
+      "final": "1f2b19c98dca97a4"
+    },
+    "p4-scale": {
+      "changed": true,
+      "writeCount": 1,
+      "changedIds": [
+        "c-0004"
+      ],
+      "defaultChanged": false,
+      "renderChanged": {
+        "c-0004": {
+          "left": [
+            215.2,
+            167.6
+          ],
+          "top": [
+            361.4,
+            359
+          ],
+          "w": [
+            397.6,
+            458.4
+          ],
+          "h": [
+            31.7,
+            36.6
+          ]
+        }
+      },
+      "undo": {
+        "restored": false,
+        "via": "none",
+        "changedToOther": false
+      },
+      "undoRender": {
+        "same": false,
+        "diff": {
+          "c-0004": {
+            "left": [
+              215.2,
+              167.6
+            ],
+            "top": [
+              361.4,
+              359
+            ],
+            "w": [
+              397.6,
+              458.4
+            ],
+            "h": [
+              31.7,
+              36.6
+            ]
+          }
+        }
+      },
+      "redo": {
+        "restored": false,
+        "via": "none",
+        "alreadyEqual": true,
+        "changedToOther": false
+      },
+      "redoRender": {
+        "same": true
+      },
+      "final": "b098349815029936"
+    },
+    "p6-bold": {
+      "changed": true,
+      "writeCount": 1,
+      "changedIds": [
+        "c-0004"
+      ],
+      "defaultChanged": false,
+      "renderChanged": {
+        "c-0004": {
+          "fontWeight": [
+            "700",
+            "900"
+          ]
+        }
+      },
+      "undo": {
+        "restored": false,
+        "via": "none",
+        "changedToOther": false
+      },
+      "undoRender": {
+        "same": false,
+        "diff": {
+          "c-0004": {
+            "fontWeight": [
+              "700",
+              "900"
+            ]
+          }
+        }
+      },
+      "redo": {
+        "restored": false,
+        "via": "none",
+        "alreadyEqual": true,
+        "changedToOther": false
+      },
+      "redoRender": {
+        "same": true
+      },
+      "final": "615e120d5cba5dc6"
+    },
+    "p7-color": {
+      "changed": true,
+      "writeCount": 1,
+      "changedIds": [
+        "c-0004"
+      ],
+      "defaultChanged": false,
+      "renderChanged": {
+        "c-0004": {
+          "color": [
+            "rgb(255, 255, 255)",
+            "rgb(242, 102, 102)"
+          ]
+        }
+      },
+      "undo": {
+        "restored": false,
+        "via": "none",
+        "changedToOther": false
+      },
+      "undoRender": {
+        "same": false,
+        "diff": {
+          "c-0004": {
+            "color": [
+              "rgb(255, 255, 255)",
+              "rgb(242, 102, 102)"
+            ]
+          }
+        }
+      },
+      "redo": {
+        "restored": false,
+        "via": "none",
+        "alreadyEqual": true,
+        "changedToOther": false
+      },
+      "redoRender": {
+        "same": true
+      },
+      "final": "d798855540786a40"
+    },
+    "p8-cushion": {
+      "changed": true,
+      "writeCount": 1,
+      "changedIds": [
+        "c-0004"
+      ],
+      "defaultChanged": false,
+      "renderChanged": {
+        "c-0004": {
+          "lineBg": [
+            "rgba(0, 0, 0, 0)",
+            "rgba(0, 0, 0, 0.75)"
+          ],
+          "blockBg": [
+            "rgba(0, 0, 0, 0)",
+            "rgba(0, 0, 0, 0.75)"
+          ]
+        }
+      },
+      "undo": {
+        "restored": false,
+        "via": "none",
+        "changedToOther": false
+      },
+      "undoRender": {
+        "same": false,
+        "diff": {
+          "c-0004": {
+            "lineBg": [
+              "rgba(0, 0, 0, 0)",
+              "rgba(0, 0, 0, 0.75)"
+            ],
+            "blockBg": [
+              "rgba(0, 0, 0, 0)",
+              "rgba(0, 0, 0, 0.75)"
+            ]
+          }
+        }
+      },
+      "redo": {
+        "restored": false,
+        "via": "none",
+        "alreadyEqual": true,
+        "changedToOther": false
+      },
+      "redoRender": {
+        "same": true
+      },
+      "final": "5495a4f5e552d93f"
+    },
+    "p5-rotate": {
+      "changed": true,
+      "writeCount": 1,
+      "changedIds": [
+        "c-0004"
+      ],
+      "defaultChanged": false,
+      "renderChanged": {
+        "c-0004": {
+          "left": [
+            167.6,
+            230.6
+          ],
+          "top": [
+            359,
+            144.4
+          ],
+          "w": [
+            458.4,
+            385.9
+          ],
+          "h": [
+            36.6,
+            308.1
+          ]
+        }
+      },
+      "undo": {
+        "restored": false,
+        "via": "none",
+        "changedToOther": false
+      },
+      "undoRender": {
+        "same": false,
+        "diff": {
+          "c-0004": {
+            "left": [
+              167.6,
+              230.6
+            ],
+            "top": [
+              359,
+              144.4
+            ],
+            "w": [
+              458.4,
+              385.9
+            ],
+            "h": [
+              36.6,
+              308.1
+            ]
+          }
+        }
+      },
+      "redo": {
+        "restored": false,
+        "via": "none",
+        "alreadyEqual": true,
+        "changedToOther": false
+      },
+      "redoRender": {
+        "same": true
+      },
+      "final": "1fcbd0d920acffd3"
+    },
+    "p9-reset": {
+      "changed": true,
+      "writeCount": 1,
+      "changedIds": [
+        "c-0004"
+      ],
+      "defaultChanged": false,
+      "renderChanged": {
+        "c-0004": {
+          "left": [
+            230.6,
+            215.3
+          ],
+          "top": [
+            144.4,
+            323.8
+          ],
+          "w": [
+            385.9,
+            397.6
+          ],
+          "h": [
+            308.1,
+            31.7
+          ]
+        }
+      },
+      "undo": {
+        "restored": false,
+        "via": "none",
+        "changedToOther": false
+      },
+      "undoRender": {
+        "same": false,
+        "diff": {
+          "c-0004": {
+            "left": [
+              230.6,
+              215.3
+            ],
+            "top": [
+              144.4,
+              323.8
+            ],
+            "w": [
+              385.9,
+              397.6
+            ],
+            "h": [
+              308.1,
+              31.7
+            ]
+          }
+        }
+      },
+      "redo": {
+        "restored": false,
+        "via": "none",
+        "alreadyEqual": true,
+        "changedToOther": false
+      },
+      "redoRender": {
+        "same": true
+      },
+      "final": "1932ec19ac19cd66"
+    },
+    "p10-clamp": {
+      "changed": false,
+      "writeCount": 0,
+      "renderChanged": {},
+      "undo": null
+    },
+    "t0-timeline": {
+      "changed": true,
+      "writeCount": 1,
+      "undo": {
+        "restored": true,
+        "via": "key"
+      },
+      "redo": {
+        "restored": true,
+        "via": "key"
+      }
+    }
+  },
+  "pids": [
+    40351
+  ],
+  "consoleWarnings": [
+    "2026-09-23T10:23:04.441Z root WARN [akari-annotations] failed to resolve caption display; using whole caption bands Error: resolveCaptionDisplay returned null\n    at Wcc (file://<machine-path>)\n    at async OIn.reloadRes",
+    "2026-09-23T10:23:15.724Z root WARN [akari-preview] speech sidecar cut-base-speech: no audio stream: Stream map '' matches no streams. To ignore this, add a trailing '?' to the map. Failed to set value '0:a:0' for option 'map': Invalid argument Error parsing options for output file <machine-path>",
+    "2026-09-23T10:37:07.869Z root WARN [akari-preview] speech sidecar cut-base-speech: no audio stream: Stream map '' matches no streams. To ignore this, add a trailing '?' to the map. Failed to set value '0:a:0' for option 'map': Invalid argument Error parsing options for output file <machine-path>",
+    "2026-09-23T10:37:09.556Z root WARN [akari-preview] speech sidecar cut-base-speech: no audio stream: Stream map '' matches no streams. To ignore this, add a trailing '?' to the map. Failed to set value '0:a:0' for option 'map': Invalid argument Error parsing options for output file <machine-path>",
+    "2026-09-23T10:37:09.804Z root WARN [akari-preview] speech sidecar cut-base-speech: no audio stream: Stream map '' matches no streams. To ignore this, add a trailing '?' to the map. Failed to set value '0:a:0' for option 'map': Invalid argument Error parsing options for output file <machine-path>",
+    "2026-09-23T10:37:55.367Z root WARN [akari-preview] speech sidecar cut-base-speech: no audio stream: Stream map '' matches no streams. To ignore this, add a trailing '?' to the map. Failed to set value '0:a:0' for option 'map': Invalid argument Error parsing options for output file <machine-path>",
+    "2026-09-23T10:39:10.878Z root WARN [akari-preview] speech sidecar cut-base-speech: no audio stream: Stream map '' matches no streams. To ignore this, add a trailing '?' to the map. Failed to set value '0:a:0' for option 'map': Invalid argument Error parsing options for output file <machine-path>"
+  ],
+  "frame": {
+    "x": 36,
+    "y": 31.875,
+    "w": 676,
+    "h": 380.25
+  },
+  "initial": "0b0b1417ed025551",
+  "rotPoint": {
+    "x": 396.81251525878906,
+    "y": 356.419921875,
+    "dy": 15.393768310546875
+  },
+  "interleave": {
+    "steps": [
+      {
+        "kind": "timeline",
+        "changed": true
+      },
+      {
+        "kind": "preview-move",
+        "changed": true
+      },
+      {
+        "kind": "timeline",
+        "changed": true
+      },
+      {
+        "kind": "preview-bold",
+        "changed": true
+      }
+    ],
+    "snaps": [
+      "5b93a9f17cdc72b2",
+      "43e34e59431e03f0",
+      "958140682aa08d01",
+      "37ddfcac86aabd27",
+      "684aaad173bf16f5"
+    ],
+    "undos": [
+      {
+        "expect": "snap3",
+        "restored": false,
+        "via": "key",
+        "changedToOther": true
+      },
+      {
+        "expect": "snap2",
+        "restored": false,
+        "via": "none",
+        "alreadyEqual": true,
+        "changedToOther": true
+      },
+      {
+        "expect": "snap1",
+        "restored": false,
+        "via": "key",
+        "changedToOther": true
+      },
+      {
+        "expect": "snap0",
+        "restored": false,
+        "via": "none",
+        "changedToOther": false
+      }
+    ],
+    "redos": [
+      {
+        "expect": "snap1",
+        "restored": false,
+        "via": "key",
+        "changedToOther": true
+      },
+      {
+        "expect": "snap2",
+        "restored": false,
+        "via": "key",
+        "changedToOther": true
+      },
+      {
+        "expect": "snap3",
+        "restored": true,
+        "via": "key"
+      },
+      {
+        "expect": "snap4",
+        "restored": false,
+        "via": "none",
+        "changedToOther": false
+      }
+    ]
+  },
+  "conflict": {
+    "opChanged": true,
+    "keptExternal": false,
+    "restoredToBefore": false,
+    "newNotices": []
+  },
+  "finalCaptions": {
+    "default_text_style": {
+      "text_anchor": "bc",
+      "position": {
+        "x": 0.2653,
+        "y": 0.8511
+      }
+    },
+    "captions": [
+      {
+        "id": "c-0001",
+        "start": 1,
+        "end": 4.6,
+        "text": "今日は朝のルーティンを紹介します",
+        "speaker": null,
+        "sourceRef": {
+          "segment": 0
+        },
+        "edited": false
+      },
+      {
+        "id": "c-0002",
+        "start": 5.4,
+        "end": 9,
+        "text": "まずはコーヒーを淹れるところから",
+        "speaker": null,
+        "sourceRef": {
+          "segment": 1
+        },
+        "edited": true
+      },
+      {
+        "id": "c-0003",
+        "start": 9,
+        "end": 12.6,
+        "text": "お湯は少し冷ましてから注ぎます",
+        "speaker": null,
+        "sourceRef": {
+          "segment": 2
+        },
+        "edited": false
+      },
+      {
+        "id": "c-0004",
+        "start": 13,
+        "end": 16.6,
+        "text": "パソコンを開いて今日の予定を確認します",
+        "speaker": null,
+        "sourceRef": {
+          "segment": 3
+        },
+        "edited": false,
+        "text_style": {
+          "font_weight": 900,
+          "weight": 900,
+          "color": "#f26666",
+          "background": {
+            "opacity": 0.75
+          },
+          "text_anchor": "bc",
+          "position": {
+            "x": 0.2059,
+            "y": 0.8511
+          }
+        }
+      },
+      {
+        "id": "c-0101",
+        "start": 17,
+        "end": 22,
+        "text": "ひとつめの置いた文字です",
+        "time_domain": "output",
+        "sourceRef": null,
+        "edited": true,
+        "speaker": null,
+        "text_style": {
+          "position": {
+            "x": 0.3696,
+            "y": 0.12
+          },
+          "text_anchor": "tc"
+        }
+      },
+      {
+        "id": "c-0102",
+        "start": 17,
+        "end": 22,
+        "text": "ふたつめの置いた文字です",
+        "time_domain": "output",
+        "sourceRef": null,
+        "edited": true,
+        "speaker": null,
+        "text_style": {
+          "position": {
+            "x": 0.3686,
+            "y": 0.38
+          },
+          "text_anchor": "tc"
+        }
+      },
+      {
+        "id": "c-0103",
+        "start": 17,
+        "end": 22,
+        "text": "みっつめの置いた文字です",
+        "time_domain": "output",
+        "sourceRef": null,
+        "edited": true,
+        "speaker": null,
+        "text_style": {
+          "position": {
+            "x": 0.3686,
+            "y": 0.62
+          },
+          "text_anchor": "tc"
+        }
+      }
+    ]
+  }
+}

@@ -18,6 +18,8 @@ import { DisposableCollection } from '@theia/core/lib/common/disposable';
 import { KeybindingContribution, KeybindingRegistry } from '@theia/core/lib/browser/keybinding';
 import { ContextKeyService } from '@theia/core/lib/browser/context-key-service';
 import { AkariEditHistoryService } from './akari-edit-history-service';
+import { AkariPreviewOpenHandler } from 'akari-preview/lib/browser/akari-preview-open-handler';
+import { AkariAnnotationsService } from '../common/akari-annotations-protocol';
 import { AkariShortcutKeybindings } from './akari-shortcut-keybindings';
 import {
     ApplicationShell,
@@ -153,6 +155,12 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
     @inject(AkariEditHistoryService)
     protected readonly history!: AkariEditHistoryService;
 
+    @inject(AkariPreviewOpenHandler)
+    protected readonly previewHandler!: AkariPreviewOpenHandler;
+
+    @inject(AkariAnnotationsService)
+    protected readonly annotationsService!: AkariAnnotationsService;
+
     protected shortcutKeybindings?: AkariShortcutKeybindings;
 
     protected getShortcutKeybindings(): AkariShortcutKeybindings {
@@ -217,6 +225,21 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
     }
 
     async onStart(): Promise<void> {
+        this.toDispose.push(this.previewHandler.onDidWriteCaption(change => {
+            this.history.pushPreviewCaptionWrite(change, {
+                read: captionsUri => this.readText(new URI(captionsUri)),
+                write: async (entry, content) => {
+                    const editUri = new URI(entry.editUri);
+                    await this.annotationsService.writeEditSnapshot({
+                        editUri: entry.editUri,
+                        projectRootUri: editUri.parent.toString(),
+                        captionsUri: entry.captionsUri,
+                        captionsSource: content
+                    });
+                    this.previewHandler.refreshCaptionsAfterHistoryWrite(entry.captionsUri);
+                }
+            });
+        }));
         this.toDispose.push(this.getShortcutKeybindings().start());
         this.registerKeybindings(this.keybindings);
         installRightPanelTabStyle(this.shell.rightPanelHandler.tabBar);

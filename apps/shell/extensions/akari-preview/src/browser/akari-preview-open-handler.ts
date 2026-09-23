@@ -13,7 +13,7 @@ import { AkariAudioMeterWidget } from './akari-audio-meter-widget';
 import { FileUri } from '@theia/core/lib/common/file-uri';
 import { selectPreviewAudioItemsAt } from '../common/preview-audio-priority';
 import { previewAudioTrimOf } from '../common/preview-audio-trim';
-import { Command, CommandRegistry, MenuModelRegistry, MessageService } from '@theia/core/lib/common';
+import { Command, CommandRegistry, Emitter, Event as TheiaEvent, MenuModelRegistry, MessageService } from '@theia/core/lib/common';
 import { BinaryBuffer } from '@theia/core/lib/common/buffer';
 import { Disposable, DisposableCollection } from '@theia/core/lib/common/disposable';
 import { EnvVariablesServer } from '@theia/core/lib/common/env-variables';
@@ -115,6 +115,7 @@ import {
     type CaptionToolStylePatch
 } from '../common/caption-zone-write';
 import { persistCaptionPlateTransform } from '../common/caption-plate-handles';
+import { PreviewCaptionWrite, previewCaptionWrite } from '../common/preview-caption-write';
 import { collectItems, hasInlineCaptions, readPreviewInternalEdit } from '../common/preview-items';
 import { filterRenderableFrameEngineLayers } from '../common/frame-engine-layer-supply';
 import { parseRenderScaleMode, resolveRenderScale, scaledOutputSize, scaleEvaluationPlan, RenderScaleMode } from '../common/frame-engine-render-scale';
@@ -1251,6 +1252,8 @@ const GLTF_HEADER_PROBE_BYTES = 64 * 1024;
 @injectable()
 export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplicationContribution {
     readonly id = 'akari-preview-open-handler';
+    protected readonly onDidWriteCaptionEmitter = new Emitter<PreviewCaptionWrite>();
+    readonly onDidWriteCaption: TheiaEvent<PreviewCaptionWrite> = this.onDidWriteCaptionEmitter.event;
     // 「最近この URI へ書いた」台帳。URI 文字列キーと resourceSuffix キーの両方を入れる
     // （ワークスペース watcher は realpath 済みの URI で通知してくるため、シンボリックリンクを
     // 跨ぐワークスペースでは URI 文字列が食い違う。suffix なら一致する）。
@@ -6581,6 +6584,37 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
     // 空白だけの text は captions.schema が保持できないため、対象 cue の削除として扱う。
     // captions.json は array ルート / {captions:[...], default_text_style} object ルートの
     // どちらも許容（schemas/captions.schema.json oneOf）ため両形を読む。
+    protected captionWriteLabel(request: CaptionWriteRequest): string {
+        const patch = request.patch;
+        if ('cueGeometryReset' in patch || 'cuePositionReset' in patch) return '字幕の位置を既定に戻す';
+        if ('toolStyle' in patch) return '字幕の見た目を変更';
+        if ('plateTransform' in patch) return '字幕を拡縮・回転';
+        if ('cuePosition' in patch || 'cuePositions' in patch || 'groupPosition' in patch) return '字幕を移動';
+        if ('text' in patch) return '字幕の文字を変更';
+        return '字幕の配置を変更';
+    }
+
+    protected notifyCaptionWrite(
+        widget: PreviewWidgetMarker, captionsUri: URI, before: string, after: string, label: string
+    ): void {
+        const editUri = widget.akariPreviewEditUri;
+        if (!editUri) return;
+        const change = previewCaptionWrite(editUri.toString(), captionsUri.toString(), before, after, label);
+        if (change) this.onDidWriteCaptionEmitter.fire(change);
+    }
+
+    /** History writes can land inside the recent-write watcher suppression window. */
+    refreshCaptionsAfterHistoryWrite(captionsUri: string): void {
+        const written = new URI(captionsUri);
+        this.markRecentWrite(written);
+        for (const widget of this.openOutputPreviews.values()) {
+            const current = widget.akariPreviewCaptionsUri;
+            if (!widget.isDisposed && current?.toString() === captionsUri) {
+                this.queueCaptionsUpdate(widget);
+            }
+        }
+    }
+
     protected async handleCaptionWrite(widget: PreviewWidgetMarker, request: CaptionWriteRequest): Promise<void> {
         const respond = (ok: boolean, error?: string): void => {
             widget.sendMessage({
@@ -6604,6 +6638,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         }
         try {
             const originalText = await this.readText(captionsUri);
+            let writtenText: string | undefined;
             const persistOptions = {
                 source: originalText,
                 captionId: request.captionId,
@@ -6614,6 +6649,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 write: async (candidateText: string) => {
                     this.markRecentWrite(captionsUri);
                     await this.fileService.writeFile(captionsUri, BinaryBuffer.fromString(candidateText));
+                    writtenText = candidateText;
                 }
             };
             const toolStyle = 'toolStyle' in request.patch ? request.patch.toolStyle : undefined;
@@ -6686,6 +6722,9 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 return;
             }
             this.queueCaptionsUpdate(widget);
+            if (writtenText !== undefined) {
+                this.notifyCaptionWrite(widget, captionsUri, originalText, writtenText, this.captionWriteLabel(request));
+            }
             respond(true);
         } catch (error) {
             respond(false, error instanceof Error ? error.message : String(error));
@@ -6774,6 +6813,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         if (!captionsUri) return;
         try {
             const source = await this.readText(captionsUri);
+            let writtenText: string | undefined;
             const lintResult = await persistCaptionGroupZone({
                 source,
                 zone,
@@ -6784,10 +6824,14 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 write: async candidateText => {
                     this.markRecentWrite(captionsUri);
                     await this.fileService.writeFile(captionsUri, BinaryBuffer.fromString(candidateText));
+                    writtenText = candidateText;
                 }
             });
             if (!lintResult.pass) throw new Error(lintResult.errors[0] ?? 'edit-lint が変更を拒否しました');
             this.queueCaptionsUpdate(widget);
+            if (writtenText !== undefined) {
+                this.notifyCaptionWrite(widget, captionsUri, source, writtenText, '字幕の配置を変更');
+            }
         } catch (error) {
             this.messages.error(error instanceof Error ? error.message : String(error));
         }
