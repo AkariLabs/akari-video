@@ -18,6 +18,19 @@ export function extractAbsoluteFragmentAssetReferences(html, htmlPath) {
   return scanReferences(html, htmlPath, true).map(({ start, end, ...reference }) => reference);
 }
 
+/** CSS url() values and source ranges for the undeclared-asset guard. */
+export function scanFragmentCssUrls(html) {
+  const values = [];
+  const unfinished = [];
+  const ranges = [];
+  scanReferences(html, "", false, {
+    onCssUrl: value => values.push(value),
+    onUnfinishedCssUrl: value => unfinished.push(value),
+    onCssRange: (start, end) => ranges.push({ start, end }),
+  });
+  return { values, unfinished, ranges };
+}
+
 /** Rewrite only asset URL tokens; raw text, comments, and surrounding syntax stay intact. */
 export function rewriteFragmentAssetUrls(html, { htmlPath, urlPrefix = "/", resolveUrl }) {
   let result = html;
@@ -95,7 +108,7 @@ function assetType(path) {
   return TYPES.get(extname(path).slice(1).toLowerCase()) ?? ["file", "application/octet-stream"];
 }
 
-function scanReferences(html, htmlPath, absoluteOnly = false) {
+function scanReferences(html, htmlPath, absoluteOnly = false, { onCssUrl, onUnfinishedCssUrl, onCssRange } = {}) {
   const references = [];
   const add = (value, offset, attribute) => {
     const raw = value.trim();
@@ -107,6 +120,7 @@ function scanReferences(html, htmlPath, absoluteOnly = false) {
     references.push({ role: assetType(path)[0], attribute, raw, path, start, end: start + raw.length });
   };
   const css = (text, offset, attribute) => {
+    onCssRange?.(offset, offset + text.length);
     // Consume comments and other strings whole: their url(...) text is not a CSS URL.
     const tokens = /\/\*[\s\S]*?\*\/|<!--[\s\S]*?-->|"(?:\\[\s\S]|[^"\\])*"|'(?:\\[\s\S]|[^'\\])*'|\burl\(/giu;
     let token;
@@ -141,10 +155,16 @@ function scanReferences(html, htmlPath, absoluteOnly = false) {
       if (quote && text[cursor] === quote) cursor++;
       while (/\s/u.test(text[cursor] ?? "") && cursor < text.length) cursor++;
       if (text[cursor] !== ")" || depth !== 0) {
+        // Keep reference extraction unchanged; the guard separately preserves its old
+        // rejection of unfinished url( using the former regex's value boundary.
+        const unfinished = /^url\(\s*["']?([^"')]+)/iu.exec(html.slice(offset + token.index));
+        if (unfinished) onUnfinishedCssUrl?.(unfinished[1]);
         tokens.lastIndex = text.length;
         continue;
       }
-      add(text.slice(start, end), offset + start, attribute);
+      const value = text.slice(start, end);
+      onCssUrl?.(value);
+      add(value, offset + start, attribute);
       tokens.lastIndex = cursor + 1;
     }
   };

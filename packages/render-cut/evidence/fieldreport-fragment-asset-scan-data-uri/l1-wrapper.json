@@ -10,6 +10,16 @@
       "after": {
         "exit": 1,
         "stderr": "overlay:neutral-card contains an undeclared local/network asset reference: ghost.png"
+      },
+      "after-r1": {
+        "exit": 0,
+        "verify_matched": true,
+        "materials": [
+          "overlays/fragment.html",
+          "overlays/b.svg",
+          "overlays/fonts/a.ttf",
+          "media/neutral.mp4"
+        ]
       }
     },
     "B": {
@@ -19,6 +29,16 @@
       "after": {
         "exit": 0,
         "verify_matched": true
+      },
+      "after-r1": {
+        "exit": 0,
+        "verify_matched": true,
+        "materials": [
+          "overlays/fragment.html",
+          "overlays/b.svg",
+          "overlays/fonts/a.ttf",
+          "media/neutral.mp4"
+        ]
       }
     },
     "C": {
@@ -38,8 +58,30 @@
           "fonts/a.ttf",
           "b.svg"
         ]
+      },
+      "after-r1": {
+        "exit": 0,
+        "verify_matched": true,
+        "materials": [
+          "overlays/fragment.html",
+          "overlays/b.svg",
+          "overlays/fonts/a.ttf",
+          "media/neutral.mp4"
+        ]
       }
     }
   },
-  "conclusion": "共有スキャナ（fragment-assets.mjs の scanReferences）は A・C で data URI を参照に数えなくなった。B は基点でも通る（括弧だけでは誤判定しない）。A・C の capture は AFTER も exit 1: render-inputs.mjs の EXTERNAL_HTML_REFERENCE_PATTERN（assertNoUndeclaredHtmlAssets）が data URI 内の url( を独立に拾う。render-inputs.mjs は本票の編集禁止範囲"
+  "conclusion": "共有スキャナ（fragment-assets.mjs の scanReferences）は A・C で data URI を参照に数えなくなった。B は基点でも通る（括弧だけでは誤判定しない）。A・C の capture は AFTER も exit 1: render-inputs.mjs の EXTERNAL_HTML_REFERENCE_PATTERN（assertNoUndeclaredHtmlAssets）が data URI 内の url( を独立に拾う。render-inputs.mjs は本票の編集禁止範囲",
+  "note-r1": "差し戻し r1 の後（render-inputs.mjs の assertNoUndeclaredHtmlAssets が CSS 文脈の url() を fragment-assets.mjs の共有トークナイザで判定）。ラッパーが同じ A・B・C に同じ akari capture --engine osr -t 0.1（launcher tier 2 = npm electron、専用の一時 AKARI_HOME）を実行。3 本とも exit 0・verify.matched true・本物の相対参照（overlays/b.svg・overlays/fonts/a.ttf）は materials に入る",
+  "guard-probe-r1": {
+    "note": "enumerateDeclaredRenderInputs に 1 断片だけの edit を渡した結果（基点 faab4242 → after-r1）。CSS 文脈の外と閉じない url( は従来どおり拒否",
+    "cases": {
+      "<script> 本文の url(secret.png)": "THROW → THROW",
+      "<p>url(text.png)</p>": "THROW → THROW",
+      "<svg><rect fill=\"url(%23g)\"/></svg>（style 以外の属性）": "THROW → THROW",
+      "<img src=\"data:...url(%23g)...\">": "THROW → THROW",
+      "<style> の閉じない url(open.png": "THROW → THROW",
+      "<style> の未宣言 url(x.png)": "THROW → THROW"
+    }
+  }
 }

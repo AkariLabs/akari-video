@@ -1,0 +1,10 @@
+{
+  "command": "akari capture -p <L1_TMP> -t 0.1 --engine osr --out <L1_TMP>/output",
+  "launcher": "npm Electron (tier 2)",
+  "variants": {
+    "A": { "description": "original neutral fixture with url(ghost.png) inside the data URI", "exit": 0 },
+    "B": { "description": "A without the data-note attributes", "exit": 0 },
+    "C": { "description": "l1-wrapper.json variantC_fragment with url(%23g) inside the data URI", "exit": 0 }
+  },
+  "note": "The only stderr line for each run was the host Electron sysctlbyname kern.hv_vmm_present diagnostic."
+}

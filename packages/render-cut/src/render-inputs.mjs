@@ -5,7 +5,7 @@ import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { CAPTION_FONT_REPOSITORY_RELATIVE_PATH, CAPTION_FONT_ROLE } from "./caption-font.mjs";
-import { extractFragmentAssetReferences } from "./fragment-assets.mjs";
+import { extractFragmentAssetReferences, scanFragmentCssUrls } from "./fragment-assets.mjs";
 import { stripHtmlComments } from "./html-scan.mjs";
 import {
   resolveAssetLibraryRoots,
@@ -13,7 +13,8 @@ import {
 } from "./library-reference.mjs";
 
 const PRESETS_LUTS_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..", "..", "presets", "luts");
-const EXTERNAL_HTML_REFERENCE_PATTERN = /(?:\b(?:src|href)\s*=\s*["']([^"']+)["']|url\(\s*["']?([^"')]+))/giu;
+const EXTERNAL_HTML_REFERENCE_PATTERN = /\b(?:src|href)\s*=\s*["']([^"']+)["']/giu;
+const NON_CSS_URL_REFERENCE_PATTERN = /url\(\s*["']?([^"')]+)/giu;
 export const ABSENT_DECLARED_INPUT_SENTINEL = "AKARI_DECLARED_INPUT_ABSENT/v1";
 
 import { extractRuntimeAssetReferences, RenderInputError } from "../../overlay-runtime/runtimes.mjs";
@@ -373,13 +374,30 @@ function addAkariInput(inputs, role, absolute) {
 function assertNoUndeclaredHtmlAssets(html, overlayLabel, fragmentReferences = []) {
   const declared = new Set(fragmentReferences.map((reference) => reference.raw));
   const activeHtml = stripHtmlComments(html);
+  const css = scanFragmentCssUrls(activeHtml);
+  const assertDeclared = value => {
+    const reference = value.trim();
+    if (reference === "" || reference.startsWith("#") || reference.startsWith("data:")) return;
+    if (declared.has(reference)) return;
+    throw new RenderInputError(`${overlayLabel} contains an undeclared local/network asset reference: ${reference}`);
+  };
   let match;
   EXTERNAL_HTML_REFERENCE_PATTERN.lastIndex = 0;
   while ((match = EXTERNAL_HTML_REFERENCE_PATTERN.exec(activeHtml)) !== null) {
-    const reference = (match[1] ?? match[2] ?? "").trim();
+    const reference = (match[1] ?? "").trim();
     if (reference === "" || reference.startsWith("#") || reference.startsWith("data:")) continue;
     if (!/^href\b/iu.test(match[0]) && declared.has(reference)) continue;
     throw new RenderInputError(`${overlayLabel} contains an undeclared local/network asset reference: ${reference}`);
+  }
+  for (const value of [...css.values, ...css.unfinished]) assertDeclared(value);
+  // Only CSS contexts may contain opaque data URI bodies. Outside them, retain
+  // the old url( regex guard, including script, text, and other attributes.
+  const nonCss = activeHtml.split("");
+  for (const { start, end } of css.ranges) nonCss.fill(" ", start, end);
+  const nonCssHtml = nonCss.join("");
+  NON_CSS_URL_REFERENCE_PATTERN.lastIndex = 0;
+  while ((match = NON_CSS_URL_REFERENCE_PATTERN.exec(nonCssHtml)) !== null) {
+    assertDeclared(match[1]);
   }
 }
 
