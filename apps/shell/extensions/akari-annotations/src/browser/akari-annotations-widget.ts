@@ -832,6 +832,83 @@ type DragPreview =
 
 @injectable()
 export class AkariAnnotationsWidget extends BaseWidget {
+    protected readonly inspectorRequestWrite = (request: InspectorWriteRequest): Promise<InspectorWriteResult> =>
+        this.handleInspectorWrite(request);
+    protected readonly inspectorRequestLivePreview = (request: LivePreviewRequest): void => {
+        this.dispatchPreviewEvent(TIMELINE_LIVE_TRANSFORM_EVENT, {
+            target: request.target, field: request.field, value: request.value,
+            ...(request.easing === undefined ? {} : { easing: request.easing })
+        });
+    };
+    protected inspectorBypass?: AdjustBypassRequest;
+    protected readonly inspectorRequestAdjustBypass = (request: AdjustBypassRequest): void => {
+        this.inspectorBypass = request.enabled ? request : undefined;
+        this.dispatchPreviewEvent(TIMELINE_ADJUST_BYPASS_EVENT, { target: request.target, enabled: request.enabled });
+    };
+    protected readonly inspectorRequestAdjustLutList = async (): Promise<string[]> => this.location
+        ? (await this.annotationsService.listAdjustLuts({ projectRootUri: this.location.root.toString() })).refs : [];
+    protected readonly inspectorRequestAdjustLutImport = async (sourcePath: string): Promise<string> => {
+        if (!this.location) throw new Error('プロジェクトが開かれていません。');
+        return (await this.annotationsService.importAdjustLut({ projectRootUri: this.location.root.toString(), sourcePath })).ref;
+    };
+    protected readonly inspectorRequestKeyframe = (request: KeyframeControlRequest): Promise<InspectorWriteResult> =>
+        this.handleKeyframeControl(request);
+    protected readonly inspectorRequestMaterialSwap = (): void => {
+        const target = this.selectedMaterialSwapTarget();
+        if (target) void this.commandRegistry.executeCommand('akari.catalog.openSwap', target);
+    };
+
+    protected claimInspectorOwner(): void {
+        const changedOwner = this.selectionModel.inspectorOwner !== this;
+        this.selectionModel.inspectorOwner = this;
+        this.selectionModel.requestWrite = this.inspectorRequestWrite;
+        this.selectionModel.requestLivePreview = this.inspectorRequestLivePreview;
+        this.selectionModel.requestAdjustBypass = this.inspectorRequestAdjustBypass;
+        this.selectionModel.requestAdjustLutList = this.inspectorRequestAdjustLutList;
+        this.selectionModel.requestAdjustLutImport = this.inspectorRequestAdjustLutImport;
+        this.selectionModel.requestKeyframe = this.inspectorRequestKeyframe;
+        this.selectionModel.requestMaterialSwap = this.inspectorRequestMaterialSwap;
+        if (changedOwner) {
+            const captionId = (item: TimelineSelectionItem): string | undefined => {
+                if (item.kind === 'caption') return item.id;
+                if (item.kind !== 'item') return undefined;
+                const raw = this.rawKeyframeItem(item.id);
+                return captionIdForTreeSelection(item, raw?.source?.kind === 'caption' ? raw.source.id : undefined);
+            };
+            const selectedCaptionIds = this.multiSelection.flatMap(item => captionId(item) ?? []);
+            const singleCaptionId = this.selection ? captionId(this.selection) : undefined;
+            this.selectionModel.selectedCaptionIds = this.multiSelection.length > 0
+                ? selectedCaptionIds.length === this.multiSelection.length ? selectedCaptionIds : []
+                : singleCaptionId ? [singleCaptionId] : [];
+            this.selectionModel.keyframeSelection = undefined;
+            this.selectionModel.audioMaster = readAudioMasterSnapshot(this.editDocument);
+            this.selectionModel.fps = this.fps;
+        }
+    }
+
+    /** Bind every inspector endpoint and refresh the selection from this timeline. */
+    public activateInspectorSelection(): void {
+        this.claimInspectorOwner();
+        this.pushSelectionSnapshot();
+    }
+
+    protected releaseInspectorOwner(): void {
+        if (this.selectionModel.inspectorOwner !== this) return;
+        if (this.inspectorBypass) this.inspectorRequestAdjustBypass({ target: this.inspectorBypass.target, enabled: false });
+        this.selectionModel.inspectorOwner = undefined;
+        this.selectionModel.requestWrite = undefined;
+        this.selectionModel.requestLivePreview = undefined;
+        this.selectionModel.requestAdjustBypass = undefined;
+        this.selectionModel.requestAdjustLutList = undefined;
+        this.selectionModel.requestAdjustLutImport = undefined;
+        this.selectionModel.requestKeyframe = undefined;
+        this.selectionModel.requestMaterialSwap = undefined;
+        this.selectionModel.materialSwapTarget = undefined;
+        this.selectionModel.selectedCaptionIds = [];
+        this.selectionModel.keyframeSelection = undefined;
+        this.selectionModel.treeSelection = undefined;
+        this.selectionModel.snapshot = undefined;
+    }
     @inject(AkariPreviewService)
     protected readonly visualPreviewService: AkariPreviewService;
 
@@ -2631,63 +2708,15 @@ export class AkariAnnotationsWidget extends BaseWidget {
             this.renderStrip();
             void this.requestSeek(time);
         }));
-        const requestWrite = (request: InspectorWriteRequest): Promise<InspectorWriteResult> =>
-            this.handleInspectorWrite(request);
-        this.selectionModel.requestWrite = requestWrite;
-        const requestLivePreview = (request: LivePreviewRequest): void => {
-            this.dispatchPreviewEvent(TIMELINE_LIVE_TRANSFORM_EVENT, {
-                target: request.target,
-                field: request.field,
-                value: request.value,
-                ...(request.easing === undefined ? {} : { easing: request.easing })
-            });
-        };
-        this.selectionModel.requestLivePreview = requestLivePreview;
-        let bypass: AdjustBypassRequest | undefined;
-        const requestAdjustBypass = (request: AdjustBypassRequest): void => {
-            bypass = request.enabled ? request : undefined;
-            this.dispatchPreviewEvent(TIMELINE_ADJUST_BYPASS_EVENT, { target: request.target, enabled: request.enabled });
-        };
         const onAdjustBypassQuery = (): void => {
-            if (bypass) {
-                this.dispatchPreviewEvent(TIMELINE_ADJUST_BYPASS_EVENT, { target: bypass.target, enabled: true });
+            if (this.selectionModel.inspectorOwner === this && this.inspectorBypass) {
+                this.dispatchPreviewEvent(TIMELINE_ADJUST_BYPASS_EVENT, { target: this.inspectorBypass.target, enabled: true });
             }
         };
         window.addEventListener(PREVIEW_ADJUST_BYPASS_QUERY_EVENT, onAdjustBypassQuery);
         this.toDispose.push(Disposable.create(() => window.removeEventListener(PREVIEW_ADJUST_BYPASS_QUERY_EVENT, onAdjustBypassQuery)));
-        const requestAdjustLutList = async (): Promise<string[]> => this.location
-            ? (await this.annotationsService.listAdjustLuts({ projectRootUri: this.location.root.toString() })).refs : [];
-        const requestAdjustLutImport = async (sourcePath: string): Promise<string> => {
-            if (!this.location) throw new Error('プロジェクトが開かれていません。');
-            return (await this.annotationsService.importAdjustLut({ projectRootUri: this.location.root.toString(), sourcePath })).ref;
-        };
-        this.selectionModel.requestAdjustBypass = requestAdjustBypass;
-        this.selectionModel.requestAdjustLutList = requestAdjustLutList;
-        this.selectionModel.requestAdjustLutImport = requestAdjustLutImport;
-        this.toDispose.push(Disposable.create(() => {
-            if (this.selectionModel.requestAdjustBypass === requestAdjustBypass) {
-                if (bypass) requestAdjustBypass({ target: bypass.target, enabled: false });
-                this.selectionModel.requestAdjustBypass = undefined;
-            }
-            if (this.selectionModel.requestAdjustLutList === requestAdjustLutList) this.selectionModel.requestAdjustLutList = undefined;
-            if (this.selectionModel.requestAdjustLutImport === requestAdjustLutImport) this.selectionModel.requestAdjustLutImport = undefined;
-        }));
-        const requestKeyframe = (request: KeyframeControlRequest): Promise<InspectorWriteResult> =>
-            this.handleKeyframeControl(request);
-        this.selectionModel.requestKeyframe = requestKeyframe;
         this.toDispose.push(this.selectionModel.onChanged(() => this.syncRightPane()));
-        this.toDispose.push(Disposable.create(() => {
-            if (this.selectionModel.requestWrite === requestWrite as (request: InspectorWriteRequest) => Promise<InspectorWriteResult>) {
-                this.selectionModel.requestWrite = undefined;
-                this.selectionModel.snapshot = undefined;
-            }
-            if (this.selectionModel.requestLivePreview === requestLivePreview) {
-                this.selectionModel.requestLivePreview = undefined;
-            }
-            if (this.selectionModel.requestKeyframe === requestKeyframe) {
-                this.selectionModel.requestKeyframe = undefined;
-            }
-        }));
+        this.toDispose.push(Disposable.create(() => this.releaseInspectorOwner()));
 
         this.shortcutHandler = keydown;
         const modifiersOnly = (event: KeyboardEvent): void => {
@@ -3003,6 +3032,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.multiSelection = [];
         if (this.selectionKey(previous) === this.selectionKey(selection)) {
             if (selection || hadMultiSelection || hadGap) {
+                this.claimInspectorOwner?.();
                 this.pushSelectionSnapshot();
                 this.applySelectionClass();
                 if (notifyPreview) this.publishPrimaryPreviewSelection(selection);
@@ -3011,6 +3041,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             return;
         }
         this.selection = selection;
+        this.claimInspectorOwner?.();
         this.pushSelectionSnapshot();
         this.applySelectionClass();
         if (notifyPreview) this.publishPrimaryPreviewSelection(selection);
@@ -3053,7 +3084,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
         const captionIds = this.multiSelection.length > 0
             ? selectedCaptionIds.length === this.multiSelection.length ? selectedCaptionIds : []
             : target?.kind === 'caption' ? [target.id] : [];
-        this.selectionModel.selectedCaptionIds = captionIds;
+        if (!this.selectionModel.inspectorOwner || this.selectionModel.inspectorOwner === this) {
+            this.selectionModel.selectedCaptionIds = captionIds;
+        }
         this.applyCaptionStateClasses();
         window.dispatchEvent(new CustomEvent('akari.timeline.captionSelectionChanged', {
             detail: { editUri, captionIds, primaryCaptionId: target?.kind === 'caption' ? target.id : null }
@@ -3079,6 +3112,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         else candidates.push(item);
         this.selection = candidates.length === 1 ? candidates[0] : undefined;
         this.multiSelection = candidates.length > 1 ? candidates : [];
+        this.claimInspectorOwner?.();
         this.pushSelectionSnapshot();
         this.applySelectionClass();
         this.publishPrimaryPreviewSelection(this.selection ?? candidates[candidates.length - 1]);
@@ -4576,6 +4610,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         } else {
             this.selection = undefined;
             this.multiSelection = ids.map(id => ({ kind: 'caption', id }));
+            this.claimInspectorOwner?.();
             this.pushSelectionSnapshot();
             this.applySelectionClass();
         }
@@ -4929,6 +4964,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
 
     /** 選択の実体を TimelineSelectionModel へ反映する。対象が消えていれば選択解除する。 */
     protected pushSelectionSnapshot(): void {
+        if (this.selectionModel.inspectorOwner && this.selectionModel.inspectorOwner !== this) return;
+        if (!this.selectionModel.inspectorOwner) this.claimInspectorOwner?.();
         if (this.selectedGap && (this.selection || this.multiSelection.length > 0)) {
             this.selectedGap = undefined;
             this.gapBand?.remove();
@@ -4945,11 +4982,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
         const target = this.selectedMaterialSwapTarget();
         if (this.materialSwap && this.selectedMaterialSwapItemId() !== this.materialSwap.target.itemId) void this.finishMaterialSwap(false);
         this.selectionModel.materialSwapTarget = target;
-        this.selectionModel.requestMaterialSwap = () => {
-            const target = this.selectedMaterialSwapTarget();
-            if (target) void this.commandRegistry.executeCommand('akari.catalog.openSwap', target);
-        };
+        this.selectionModel.requestMaterialSwap = this.inspectorRequestMaterialSwap;
         if (this.multiSelection.length > 0) {
+            this.selectionModel.treeSelection = undefined;
             const treeItems = this.multiSelection.filter(selection => selection.kind === 'item');
             if (treeItems.length > 0) {
                 const last = treeItems[treeItems.length - 1] as Extract<TimelineSelectionItem, { kind: 'item' }>;
@@ -7179,8 +7214,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
         if (generation !== this.editReloadGeneration) return;
         this.rebuildSegments();
         this.notifyCaptionSourceMappingWarning();
-        this.selectionModel.audioMaster = readAudioMasterSnapshot(this.editDocument);
-        this.selectionModel.fps = this.fps;
+        if (this.selectionModel.inspectorOwner === this) {
+            this.selectionModel.audioMaster = readAudioMasterSnapshot(this.editDocument);
+            this.selectionModel.fps = this.fps;
+        }
         this.pushSelectionSnapshot();
         await this.applyStoredTrackFlags();
         if (generation !== this.editReloadGeneration) return;
@@ -8364,9 +8401,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected remapCaptionSelections(previous: readonly CaptionRecord[], next: readonly CaptionRecord[]): void {
-        this.selectionModel.selectedCaptionIds = remapCaptionSelection(
-            previous, next, this.selectionModel.selectedCaptionIds
-        );
+        if (!this.selectionModel.inspectorOwner || this.selectionModel.inspectorOwner === this) {
+            this.selectionModel.selectedCaptionIds = remapCaptionSelection(
+                previous, next, this.selectionModel.selectedCaptionIds
+            );
+        }
         const seenMultiCaptionIds = new Set<string>();
         const nextMultiSelection: TimelineSelectionItem[] = [];
         for (const item of this.multiSelection) {
@@ -16710,6 +16749,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 this.exitTrimmerModeUnlessSelected(undefined);
                 this.selection = undefined;
                 this.multiSelection = selected;
+                this.claimInspectorOwner?.();
                 this.pushSelectionSnapshot();
                 this.applySelectionClass();
                 this.publishPrimaryPreviewSelection(selected[selected.length - 1]);

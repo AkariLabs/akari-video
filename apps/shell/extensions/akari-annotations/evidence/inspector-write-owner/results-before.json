@@ -1,0 +1,757 @@
+{
+  "phase": "before",
+  "status": "observed",
+  "port": 9483,
+  "scenarios": {
+    "two": {
+      "ops": [
+        {
+          "label": "(a) edit.json 側 c-0002 の色",
+          "target": "captions.json",
+          "field": "color",
+          "value": "#FF0000",
+          "snapshot": {
+            "kind": "caption",
+            "id": "c-0002",
+            "text": "本編の二本目です"
+          },
+          "owner": "akari-annotations-widget:short",
+          "changed": [],
+          "notices": [
+            {
+              "where": "field",
+              "text": "字幕 c-0002 が見つかりません。"
+            }
+          ],
+          "readBack": {
+            "main": null
+          }
+        },
+        {
+          "label": "(a) edit.json 側 c-0001 の色（同じ id が captions.short.json にもある）",
+          "target": "captions.json",
+          "field": "color",
+          "value": "#00AA00",
+          "snapshot": {
+            "kind": "caption",
+            "id": "c-0001",
+            "text": "本編の一本目です"
+          },
+          "owner": "akari-annotations-widget:short",
+          "changed": [
+            "captions.short.json"
+          ],
+          "notices": [],
+          "readBack": {
+            "main": null,
+            "short": "#00AA00"
+          }
+        },
+        {
+          "label": "(c) short 側 s-0002 の色",
+          "target": "captions.short.json",
+          "field": "color",
+          "value": "#0000FF",
+          "snapshot": {
+            "kind": "caption",
+            "id": "s-0002",
+            "text": "ショートの二本目"
+          },
+          "owner": "akari-annotations-widget:short",
+          "changed": [
+            "captions.short.json"
+          ],
+          "notices": [],
+          "readBack": {
+            "short": "#0000FF"
+          }
+        },
+        {
+          "label": "(c) edit.json 側 c-0002 の色（切り替えて戻った後）",
+          "target": "captions.json",
+          "field": "color",
+          "value": "#123456",
+          "snapshot": {
+            "kind": "caption",
+            "id": "c-0002",
+            "text": "本編の二本目です"
+          },
+          "owner": "akari-annotations-widget:short",
+          "changed": [],
+          "notices": [
+            {
+              "where": "field",
+              "text": "字幕 c-0002 が見つかりません。"
+            }
+          ],
+          "readBack": {
+            "main": null
+          }
+        },
+        {
+          "label": "(c) short 側 c-0001 の色",
+          "target": "captions.short.json",
+          "field": "color",
+          "value": "#AA00AA",
+          "snapshot": {
+            "kind": "caption",
+            "id": "c-0001",
+            "text": "ショートの一本目"
+          },
+          "owner": "akari-annotations-widget:short",
+          "changed": [
+            "captions.short.json"
+          ],
+          "notices": [],
+          "readBack": {
+            "main": null,
+            "short": "#AA00AA"
+          }
+        },
+        {
+          "label": "(b) 閉じた後 edit.json 側 c-0002 の色",
+          "target": "captions.json",
+          "field": "color",
+          "value": "#FF8800",
+          "snapshot": {
+            "kind": "caption",
+            "id": "c-0002",
+            "text": "本編の二本目です"
+          },
+          "owner": null,
+          "changed": [],
+          "notices": [
+            {
+              "where": "field",
+              "text": "書き込み機能が利用できません。"
+            }
+          ],
+          "readBack": {
+            "main": null
+          }
+        },
+        {
+          "label": "(b) 閉じた後 edit.json 側 c-0002 の文字",
+          "target": "captions.json",
+          "field": "text",
+          "value": "本編の二本目（直した）",
+          "snapshot": {
+            "kind": "caption",
+            "id": "c-0002",
+            "text": "本編の二本目です"
+          },
+          "owner": null,
+          "changed": [],
+          "notices": [
+            {
+              "where": "field",
+              "text": "書き込み機能が利用できません。"
+            }
+          ],
+          "readBack": {
+            "main": "本編の二本目です"
+          }
+        },
+        {
+          "label": "(b) 閉じた後 置いた文字 c-0101 の色",
+          "target": "captions.json",
+          "field": "color",
+          "value": "#22CC22",
+          "snapshot": {
+            "kind": "caption",
+            "id": "c-0101",
+            "text": "本編に置いた文字"
+          },
+          "owner": null,
+          "changed": [],
+          "notices": [
+            {
+              "where": "field",
+              "text": "書き込み機能が利用できません。"
+            }
+          ],
+          "readBack": {
+            "main": null
+          }
+        },
+        {
+          "label": "(b) 閉じた後 置いた文字 c-0101 の文字",
+          "target": "captions.json",
+          "field": "text",
+          "value": "置いた文字（直した）",
+          "snapshot": {
+            "kind": "caption",
+            "id": "c-0101",
+            "text": "本編に置いた文字"
+          },
+          "owner": null,
+          "changed": [],
+          "notices": [
+            {
+              "where": "field",
+              "text": "書き込み機能が利用できません。"
+            }
+          ],
+          "readBack": {
+            "main": "本編に置いた文字"
+          }
+        },
+        {
+          "label": "(b) 閉じた後 複数選択 c-0001 + c-0002 の色",
+          "target": "captions.json",
+          "field": "color",
+          "value": "#3344FF",
+          "snapshot": {
+            "kind": "multi",
+            "ids": [
+              "c-0001",
+              "c-0002"
+            ]
+          },
+          "owner": null,
+          "changed": [],
+          "notices": [
+            {
+              "where": "field",
+              "text": "書き込み機能が利用できません。"
+            }
+          ],
+          "readBack": {
+            "c0001": null,
+            "c0002": null
+          }
+        }
+      ],
+      "notes": [],
+      "timelinesOpened": [
+        "akari-annotations-widget",
+        "akari-annotations-widget:short"
+      ],
+      "ownerAfterOpen": "akari-annotations-widget:short",
+      "snapshotBeforeCloseShort": {
+        "kind": "caption",
+        "id": "s-0002",
+        "text": "ショートの二本目"
+      },
+      "timelinesAfterClose": [
+        "akari-annotations-widget"
+      ],
+      "snapshotAfterCloseShort": null,
+      "ownerAfterClose": null
+    },
+    "one": {
+      "ops": [
+        {
+          "label": "(d) c-0002 の色",
+          "target": "captions.json",
+          "field": "color",
+          "value": "#FF0000",
+          "snapshot": {
+            "kind": "caption",
+            "id": "c-0002",
+            "text": "本編の二本目です"
+          },
+          "owner": "akari-annotations-widget",
+          "changed": [
+            "captions.json"
+          ],
+          "notices": [],
+          "readBack": {
+            "main": "#FF0000"
+          }
+        },
+        {
+          "label": "(d) c-0002 の文字",
+          "target": "captions.json",
+          "field": "text",
+          "value": "本編の二本目（直した）",
+          "snapshot": {
+            "kind": "caption",
+            "id": "c-0002",
+            "text": "本編の二本目です"
+          },
+          "owner": "akari-annotations-widget",
+          "changed": [
+            "captions.json"
+          ],
+          "notices": [],
+          "readBack": {
+            "main": "本編の二本目（直した）"
+          }
+        },
+        {
+          "label": "(d) 置いた文字 c-0101 の色",
+          "target": "captions.json",
+          "field": "color",
+          "value": "#22CC22",
+          "snapshot": {
+            "kind": "caption",
+            "id": "c-0101",
+            "text": "本編に置いた文字"
+          },
+          "owner": "akari-annotations-widget",
+          "changed": [
+            "captions.json"
+          ],
+          "notices": [],
+          "readBack": {
+            "main": "#22CC22"
+          }
+        },
+        {
+          "label": "(d) 複数選択 c-0001 + c-0002 の色",
+          "target": "captions.json",
+          "field": "color",
+          "value": "#3344FF",
+          "snapshot": {
+            "kind": "multi",
+            "ids": [
+              "c-0001",
+              "c-0002"
+            ]
+          },
+          "owner": "akari-annotations-widget",
+          "changed": [
+            "captions.json"
+          ],
+          "notices": [],
+          "readBack": {
+            "c0001": "#3344FF",
+            "c0002": "#3344FF"
+          }
+        }
+      ],
+      "timelinesOpened": [
+        "akari-annotations-widget"
+      ]
+    },
+    "zero-missing": {
+      "ops": [
+        {
+          "label": "0 行（zero-missing）置いた直後 c-0001 の大きさ",
+          "target": "captions.json",
+          "field": "size",
+          "value": "60",
+          "snapshot": {
+            "kind": "caption",
+            "id": "c-0001",
+            "text": "テキストを入力"
+          },
+          "owner": "akari-annotations-widget",
+          "changed": [],
+          "notices": [],
+          "readBack": {
+            "size": null
+          }
+        },
+        {
+          "label": "0 行（zero-missing）置いた直後 c-0001 の色",
+          "target": "captions.json",
+          "field": "color",
+          "value": "#FF0000",
+          "snapshot": {
+            "kind": "caption",
+            "id": "c-0001",
+            "text": "テキストを入力"
+          },
+          "owner": "akari-annotations-widget",
+          "changed": [
+            "captions.json"
+          ],
+          "notices": [],
+          "readBack": {
+            "color": null
+          }
+        },
+        {
+          "label": "0 行（zero-missing）置いた直後 c-0001 の文字",
+          "target": "captions.json",
+          "field": "text",
+          "value": "最初に置いた文字",
+          "snapshot": {
+            "kind": "caption",
+            "id": "c-0001",
+            "text": "テキストを入力"
+          },
+          "owner": "akari-annotations-widget",
+          "changed": [
+            "captions.json"
+          ],
+          "notices": [],
+          "readBack": {
+            "text": "テキストを入力"
+          }
+        }
+      ],
+      "timelinesOpened": [
+        "akari-annotations-widget"
+      ],
+      "ownerAfterOpen": "akari-annotations-widget",
+      "captionsBefore": null,
+      "placedRows": [
+        {
+          "id": "c-0001",
+          "text": "テキストを入力",
+          "time_domain": "output"
+        }
+      ],
+      "noticesOnPlace": [],
+      "snapshotAfterPlace": {
+        "kind": "caption",
+        "id": "c-0001",
+        "text": "テキストを入力"
+      },
+      "timelineChipsAfterPlace": [
+        "c-0001"
+      ],
+      "placedId": "c-0001",
+      "timelinesAfterPlace": [
+        "akari-annotations-widget"
+      ]
+    },
+    "zero-empty": {
+      "ops": [
+        {
+          "label": "0 行（zero-empty）置いた直後 c-0001 の大きさ",
+          "target": "captions.json",
+          "field": "size",
+          "value": "60",
+          "snapshot": {
+            "kind": "caption",
+            "id": "c-0001",
+            "text": "テキストを入力"
+          },
+          "owner": "akari-annotations-widget",
+          "changed": [
+            "captions.json"
+          ],
+          "notices": [],
+          "readBack": {
+            "size": 60
+          }
+        },
+        {
+          "label": "0 行（zero-empty）置いた直後 c-0001 の色",
+          "target": "captions.json",
+          "field": "color",
+          "value": "#FF0000",
+          "snapshot": {
+            "kind": "caption",
+            "id": "c-0001",
+            "text": "テキストを入力"
+          },
+          "owner": "akari-annotations-widget",
+          "changed": [
+            "captions.json"
+          ],
+          "notices": [
+            {
+              "where": "toast",
+              "text": "字幕の表示設定を解決できないため、設定を無視して表示しています: CAPTION_DISPLAY_RESOLUTION_FAILED"
+            },
+            {
+              "where": "toast",
+              "text": "字幕の表示設定を解決できないため、設定を無視して表示しています: CAPTION_DISPLAY_RESOLUTION_FAILED"
+            },
+            {
+              "where": "toast",
+              "text": "字幕の表示設定を解決できないため、設定を無視して表示しています: CAPTION_DISPLAY_RESOLUTION_FAILED"
+            },
+            {
+              "where": "toast",
+              "text": "字幕の表示設定を解決できないため、設定を無視して表示しています: CAPTION_DISPLAY_RESOLUTION_FAILED"
+            }
+          ],
+          "readBack": {
+            "color": "#FF0000"
+          }
+        },
+        {
+          "label": "0 行（zero-empty）置いた直後 c-0001 の文字",
+          "target": "captions.json",
+          "field": "text",
+          "value": "最初に置いた文字",
+          "snapshot": {
+            "kind": "caption",
+            "id": "c-0001",
+            "text": "テキストを入力"
+          },
+          "owner": "akari-annotations-widget",
+          "changed": [
+            "captions.json"
+          ],
+          "notices": [],
+          "readBack": {
+            "text": "最初に置いた文字"
+          }
+        }
+      ],
+      "timelinesOpened": [
+        "akari-annotations-widget"
+      ],
+      "ownerAfterOpen": "akari-annotations-widget",
+      "captionsBefore": [],
+      "placedRows": [
+        {
+          "id": "c-0001",
+          "text": "テキストを入力",
+          "time_domain": "output"
+        }
+      ],
+      "noticesOnPlace": [],
+      "snapshotAfterPlace": {
+        "kind": "caption",
+        "id": "c-0001",
+        "text": "テキストを入力"
+      },
+      "timelineChipsAfterPlace": [
+        "c-0001"
+      ],
+      "placedId": "c-0001",
+      "timelinesAfterPlace": [
+        "akari-annotations-widget"
+      ]
+    },
+    "zero-two": {
+      "ops": [
+        {
+          "label": "0 行（zero-two）置いた直後 c-0001 の大きさ",
+          "target": "captions.json",
+          "field": "size",
+          "value": "60",
+          "snapshot": {
+            "kind": "caption",
+            "id": "c-0001",
+            "text": "テキストを入力"
+          },
+          "owner": "akari-annotations-widget:short",
+          "changed": [],
+          "notices": [
+            {
+              "where": "field",
+              "text": "字幕 c-0001 が見つかりません。"
+            }
+          ],
+          "readBack": {
+            "size": null
+          }
+        },
+        {
+          "label": "0 行（zero-two）置いた直後 c-0001 の色",
+          "target": "captions.json",
+          "field": "color",
+          "value": "#FF0000",
+          "snapshot": {
+            "kind": "caption",
+            "id": "c-0001",
+            "text": "テキストを入力"
+          },
+          "owner": "akari-annotations-widget:short",
+          "changed": [],
+          "notices": [
+            {
+              "where": "field",
+              "text": "字幕 c-0001 が見つかりません。"
+            }
+          ],
+          "readBack": {
+            "color": null
+          }
+        },
+        {
+          "label": "0 行（zero-two）置いた直後 c-0001 の文字",
+          "target": "captions.json",
+          "field": "text",
+          "value": "最初に置いた文字",
+          "snapshot": {
+            "kind": "caption",
+            "id": "c-0001",
+            "text": "テキストを入力"
+          },
+          "owner": "akari-annotations-widget:short",
+          "changed": [],
+          "notices": [
+            {
+              "where": "field",
+              "text": "字幕 c-0001 が見つかりません。"
+            }
+          ],
+          "readBack": {
+            "text": "テキストを入力"
+          }
+        }
+      ],
+      "timelinesOpened": [
+        "akari-annotations-widget",
+        "akari-annotations-widget:short"
+      ],
+      "ownerAfterOpen": "akari-annotations-widget:short",
+      "captionsBefore": null,
+      "placedRows": [
+        {
+          "id": "c-0001",
+          "text": "テキストを入力",
+          "time_domain": "output"
+        }
+      ],
+      "noticesOnPlace": [],
+      "snapshotAfterPlace": {
+        "kind": "caption",
+        "id": "c-0001",
+        "text": "テキストを入力"
+      },
+      "timelineChipsAfterPlace": [
+        "c-0001"
+      ],
+      "placedId": "c-0001",
+      "timelinesAfterPlace": [
+        "akari-annotations-widget",
+        "akari-annotations-widget:short"
+      ]
+    },
+    "zero-cold": {
+      "ops": [
+        {
+          "label": "0 行（zero-cold）置いた直後 c-0001 の大きさ",
+          "target": "captions.json",
+          "field": "size",
+          "value": "60",
+          "snapshot": {
+            "kind": "caption",
+            "id": "c-0001",
+            "text": "テキストを入力"
+          },
+          "owner": "akari-annotations-widget",
+          "changed": [
+            "captions.json"
+          ],
+          "notices": [],
+          "readBack": {
+            "size": 60
+          }
+        },
+        {
+          "label": "0 行（zero-cold）置いた直後 c-0001 の色",
+          "target": "captions.json",
+          "field": "color",
+          "value": "#FF0000",
+          "snapshot": {
+            "kind": "caption",
+            "id": "c-0001",
+            "text": "テキストを入力"
+          },
+          "owner": "akari-annotations-widget",
+          "changed": [
+            "captions.json"
+          ],
+          "notices": [],
+          "readBack": {
+            "color": "#FF0000"
+          }
+        },
+        {
+          "label": "0 行（zero-cold）置いた直後 c-0001 の文字",
+          "target": "captions.json",
+          "field": "text",
+          "value": "最初に置いた文字",
+          "snapshot": {
+            "kind": "caption",
+            "id": "c-0001",
+            "text": "テキストを入力"
+          },
+          "owner": "akari-annotations-widget",
+          "changed": [
+            "captions.json"
+          ],
+          "notices": [],
+          "readBack": {
+            "text": "最初に置いた文字"
+          }
+        }
+      ],
+      "captionsBefore": null,
+      "placedRows": [
+        {
+          "id": "c-0001",
+          "text": "テキストを入力",
+          "time_domain": "output"
+        }
+      ],
+      "noticesOnPlace": [],
+      "snapshotAfterPlace": {
+        "kind": "caption",
+        "id": "c-0001",
+        "text": "テキストを入力"
+      },
+      "timelineChipsAfterPlace": [
+        "c-0001"
+      ],
+      "placedId": "c-0001",
+      "timelinesAfterPlace": [
+        "akari-annotations-widget"
+      ]
+    },
+    "notify": {
+      "ops": [
+        {
+          "label": "書き込み失敗（例外）",
+          "target": "captions.json",
+          "field": "color",
+          "value": "#FF0000",
+          "snapshot": {
+            "kind": "caption",
+            "id": "c-0002",
+            "text": "本編の二本目です"
+          },
+          "owner": "akari-annotations-widget",
+          "changed": [],
+          "notices": [
+            {
+              "where": "field",
+              "text": "テスト: 書き込み先を外しました"
+            }
+          ]
+        },
+        {
+          "label": "書き込み失敗（例外・2 回目）",
+          "target": "captions.json",
+          "field": "color",
+          "value": "#00FF00",
+          "snapshot": {
+            "kind": "caption",
+            "id": "c-0002",
+            "text": "本編の二本目です"
+          },
+          "owner": "akari-annotations-widget",
+          "changed": [],
+          "notices": [
+            {
+              "where": "field",
+              "text": "テスト: 書き込み先を外しました"
+            }
+          ]
+        }
+      ],
+      "sabotage": true,
+      "toastsVisible": []
+    }
+  },
+  "checks": [],
+  "screenshots": [
+    "before-two-a.png",
+    "before-two-c.png",
+    "before-two-b-closed.png",
+    "before-two-b.png",
+    "before-one.png",
+    "before-zero-missing-placed.png",
+    "before-zero-missing-after-writes.png",
+    "before-zero-empty-placed.png",
+    "before-zero-empty-after-writes.png",
+    "before-zero-two-placed.png",
+    "before-zero-two-after-writes.png",
+    "before-zero-cold-placed.png",
+    "before-zero-cold-after-writes.png",
+    "before-notify-throw.png",
+    "before-notify-throw-twice.png"
+  ]
+}

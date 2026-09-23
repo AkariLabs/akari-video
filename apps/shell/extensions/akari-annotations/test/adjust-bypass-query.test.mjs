@@ -8,17 +8,23 @@ const ast = ts.createSourceFile('akari-annotations-widget.ts', source, ts.Script
 const widgetClass = ast.statements.find(statement => ts.isClassDeclaration(statement)
   && statement.members.some(member => member.name?.getText(ast) === 'dispatchPreviewEvent'));
 const dispatch = widgetClass.members.find(member => member.name?.getText(ast) === 'dispatchPreviewEvent');
+const bypassRequest = widgetClass.members.find(member => member.name?.getText(ast) === 'inspectorRequestAdjustBypass');
 const constants = ast.statements.filter(statement => ts.isVariableStatement(statement)
   && statement.declarationList.declarations.some(declaration =>
     ['TIMELINE_ADJUST_BYPASS_EVENT', 'PREVIEW_ADJUST_BYPASS_QUERY_EVENT'].includes(declaration.name.getText(ast))));
 // Run the complete bypass scope, including registration and disposal, from the real widget.
-const start = source.indexOf('let bypass: AdjustBypassRequest | undefined;');
-const end = source.indexOf('const requestKeyframe =', start);
+const start = source.indexOf('const onAdjustBypassQuery =');
+const end = source.indexOf('this.toDispose.push(this.selectionModel.onChanged', start);
 assert.ok(start >= 0 && end > start);
 const code = ts.transpileModule(`${constants.map(node => node.getText(ast)).join('\n')}
 class Handler {
   ${dispatch.getText(ast)}
-  init() { ${source.slice(start, end)} }
+  ${bypassRequest.getText(ast)}
+  init() {
+    this.selectionModel.inspectorOwner = this;
+    this.selectionModel.requestAdjustBypass = this.inspectorRequestAdjustBypass;
+    ${source.slice(start, end)}
+  }
 }`, { compilerOptions: { target: ts.ScriptTarget.ES2021 } }).outputText;
 
 function fixture() {

@@ -1,5 +1,5 @@
 import URI from '@theia/core/lib/common/uri';
-import { CommandRegistry } from '@theia/core/lib/common';
+import { CommandRegistry, MessageService } from '@theia/core/lib/common';
 import { GENERATION_PICK_INTO_COMMAND_ID, GENERATION_CANCEL_PICK_COMMAND_ID, type GenerationPickRequest, type GenerationPickResult } from '../common/generation-pick-mirror';
 import { AkariAnnotationsService } from '../common/akari-annotations-protocol';
 import type { GenerationValidationResult, TranscriptSummary, NarrationEngine } from '../common/akari-annotations-protocol';
@@ -2544,6 +2544,9 @@ export class AkariInspectorWidget extends BaseWidget {
     @inject(TimelineSelectionModel)
     protected readonly model!: TimelineSelectionModel;
 
+    @inject(MessageService)
+    protected readonly messageService!: MessageService;
+
     @inject(FileService)
     protected readonly fileService!: FileService;
 
@@ -2580,6 +2583,7 @@ export class AkariInspectorWidget extends BaseWidget {
     protected readonly body = document.createElement('div');
     protected readonly fieldNotice = document.createElement('div');
     protected fieldNoticeTimer: number | undefined;
+    protected lastWriteError?: { message: string; at: number };
     protected readonly sectionState = new InspectorSectionState(window.localStorage);
     protected readonly tabState = new InspectorTabState(window.localStorage);
     protected tabSelectionKey?: string;
@@ -5744,13 +5748,24 @@ export class AkariInspectorWidget extends BaseWidget {
         request: InspectorWriteRequest
     ): Promise<InspectorWriteResult> {
         if (!this.model.requestWrite) {
-            return { ok: false, message: '書き込み機能が利用できません。' };
+            return this.reportWriteFailure('書き込み機能が利用できません。');
         }
         try {
-            return await this.model.requestWrite(request as InspectorWriteRequest);
+            const result = await this.model.requestWrite(request);
+            return result.ok ? result : this.reportWriteFailure(result.message ?? '書き込みに失敗しました。');
         } catch (error) {
-            return { ok: false, message: error instanceof Error ? error.message : String(error) };
+            return this.reportWriteFailure(error instanceof Error ? error.message : String(error));
         }
+    }
+
+    protected reportWriteFailure(message: string): InspectorWriteResult {
+        this.showFieldNotice(message);
+        const now = Date.now();
+        if (this.lastWriteError?.message !== message || now - this.lastWriteError.at >= 4000) {
+            this.messageService.error(message);
+            this.lastWriteError = { message, at: now };
+        }
+        return { ok: false, message };
     }
 
     protected dispatchCaptionZoneEvent(type: string, zone: string | null): void {

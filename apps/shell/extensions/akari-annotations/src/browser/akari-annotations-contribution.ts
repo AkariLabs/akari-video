@@ -250,6 +250,7 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
                 void this.materialSwapOwner.finishMaterialSwap(false);
             }
             if (newValue instanceof AkariAnnotationsWidget) {
+                newValue.activateInspectorSelection();
                 if (this.materialSwapOwner && this.materialSwapOwner !== newValue) void this.materialSwapOwner.finishMaterialSwap(false);
                 this.trackTimelineWidget(newValue);
                 this.timelineWidget = newValue;

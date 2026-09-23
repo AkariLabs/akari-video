@@ -456,6 +456,9 @@ export class TimelineSelectionModel {
     protected readonly onChangedEmitter = new Emitter<void>();
     readonly onChanged: Event<void> = this.onChangedEmitter.event;
 
+    /** The timeline whose selection is currently shown by the inspector. */
+    inspectorOwner?: object;
+
     materialSwapTarget?: MaterialSwapTarget;
     requestMaterialSwap?: () => void;
 
