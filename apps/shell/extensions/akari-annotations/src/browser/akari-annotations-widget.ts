@@ -304,12 +304,14 @@ import {
     LibraryTransitionDragPayload,
     LibraryAssetDragPayload,
     LibraryTextStyleDragPayload,
+    LibraryTextDragPayload,
     parseLibraryDragPayload,
     libraryAssetGhostPayload,
     textStyleDropStart,
     textStyleDropBandLayout,
     textStyleGhostEnd,
     textStylePlaceOptions,
+    textPlaceOptions,
     parseLibraryTransitionDragPayload,
     TransitionBoundaryHitCandidate
 } from './library-drop-model';
@@ -1090,7 +1092,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     /** ライブラリの transition D&D 中だけ保持し、適用可能なカット境界の受け皿描画を有効にする。 */
     protected libraryDragPayload: LibraryTransitionDragPayload | undefined;
     protected libraryAssetDragPayload: LibraryAssetDragPayload | undefined;
-    protected libraryTextStyleDragPayload: LibraryTextStyleDragPayload | undefined;
+    protected libraryTextStyleDragPayload: LibraryTextStyleDragPayload | LibraryTextDragPayload | undefined;
     protected libraryTextStyleOutputDuration = 0;
     protected materialDragLastClientX = 0;
     protected materialDragLastClientY = 0;
@@ -2742,7 +2744,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 this.materialDragPayload = libraryAssetGhostPayload(payload);
                 return;
             }
-            if (payload?.kind === 'textstyle') {
+            if (payload?.kind === 'textstyle' || payload?.kind === 'text') {
                 this.libraryTextStyleDragPayload = payload;
                 this.libraryTextStyleOutputDuration = this.editDocument
                     ? timelineDurationSeconds(this.readEdit(JSON.stringify(this.editDocument))).seconds : 0;
@@ -6067,8 +6069,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
         }
         event.preventDefault();
         event.stopPropagation();
-        const textStyle = this.readLibraryTextStyleDropPayload?.(event.dataTransfer);
-        if (textStyle) {
+        const textPayload = this.readLibraryTextStyleDropPayload?.(event.dataTransfer);
+        if (textPayload) {
             this.hideMaterialGhost();
             this.clearLibraryTransitionDragState();
             if (!this.location?.editUri) return;
@@ -6076,7 +6078,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
             const start = point.zone === 'header-column'
                 ? Math.max(0, this.playheadT)
                 : textStyleDropStart(point.x, rect.left, rect.width, this.viewStart, this.visibleDuration());
-            void this.commands.executeCommand(PLACE_TEXT_COMMAND_ID, textStylePlaceOptions(textStyle, start), this.location.editUri.toString());
+            const options = textPayload.kind === 'text' ? textPlaceOptions(start) : textStylePlaceOptions(textPayload, start);
+            void this.commands.executeCommand(PLACE_TEXT_COMMAND_ID, options, this.location.editUri.toString());
             return;
         }
         const libraryAsset = this.readLibraryAssetDropPayload(event.dataTransfer);
@@ -6177,11 +6180,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
         return payload?.kind === 'asset' ? payload : undefined;
     }
 
-    protected readLibraryTextStyleDropPayload(transfer: DataTransfer | null): LibraryTextStyleDragPayload | undefined {
+    protected readLibraryTextStyleDropPayload(transfer: DataTransfer | null): LibraryTextStyleDragPayload | LibraryTextDragPayload | undefined {
         if (!transfer?.types.includes(LIBRARY_DRAG_MIME)) return undefined;
         const raw = transfer.getData(LIBRARY_DRAG_MIME);
         const payload = raw ? parseLibraryDragPayload(raw) : this.libraryTextStyleDragPayload;
-        return payload?.kind === 'textstyle' ? payload : undefined;
+        return payload?.kind === 'textstyle' || payload?.kind === 'text' ? payload : undefined;
     }
 
     protected updateTextStyleDropGhost(clientX: number): void {

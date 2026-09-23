@@ -1,0 +1,408 @@
+{
+  "home": true,
+  "homeRect": {
+    "x": 48,
+    "y": 115,
+    "w": 226,
+    "h": 330
+  },
+  "sections": [
+    {
+      "head": "よく使う",
+      "count": 8
+    }
+  ],
+  "categoryOrder": [
+    "shapes",
+    "stamps",
+    "image",
+    "broll",
+    "bgm",
+    "sfx",
+    "overlay",
+    "scene3d"
+  ],
+  "categories": [
+    {
+      "key": "shapes",
+      "section": "よく使う",
+      "primary": true,
+      "inDetails": false,
+      "attrs": {
+        "disabled": "",
+        "data-akari-library-primary-tile": "shapes",
+        "data-akari-library-tile-kind": "make",
+        "data-akari-library-category": "shapes",
+        "data-akari-library-soon": "true",
+        "title": "図形 — 近日"
+      },
+      "texts": [
+        "◯",
+        "図形",
+        "近日"
+      ],
+      "rect": {
+        "x": 128,
+        "y": 157,
+        "w": 66,
+        "h": 71
+      }
+    },
+    {
+      "key": "stamps",
+      "section": "よく使う",
+      "primary": true,
+      "inDetails": false,
+      "attrs": {
+        "disabled": "",
+        "data-akari-library-primary-tile": "stamps",
+        "data-akari-library-tile-kind": "make",
+        "data-akari-library-category": "stamps",
+        "data-akari-library-soon": "true",
+        "title": "スタンプ — 近日"
+      },
+      "texts": [
+        "☺",
+        "スタンプ",
+        "近日"
+      ],
+      "rect": {
+        "x": 200,
+        "y": 157,
+        "w": 66,
+        "h": 71
+      }
+    },
+    {
+      "key": "image",
+      "section": "よく使う",
+      "primary": true,
+      "inDetails": false,
+      "attrs": {
+        "data-akari-library-primary-tile": "image",
+        "data-akari-library-tile-kind": "pick",
+        "data-akari-library-category": "image",
+        "title": "画像 — 一覧から選ぶ"
+      },
+      "texts": [
+        "▦",
+        "画像",
+        "一覧から選ぶ"
+      ],
+      "rect": {
+        "x": 56,
+        "y": 234,
+        "w": 66,
+        "h": 69
+      }
+    },
+    {
+      "key": "broll",
+      "section": "よく使う",
+      "primary": true,
+      "inDetails": false,
+      "attrs": {
+        "data-akari-library-primary-tile": "broll",
+        "data-akari-library-tile-kind": "pick",
+        "data-akari-library-category": "broll",
+        "title": "B-roll — 一覧から選ぶ"
+      },
+      "texts": [
+        "▶",
+        "B-roll",
+        "一覧から選ぶ"
+      ],
+      "rect": {
+        "x": 128,
+        "y": 234,
+        "w": 66,
+        "h": 69
+      }
+    },
+    {
+      "key": "bgm",
+      "section": "よく使う",
+      "primary": true,
+      "inDetails": false,
+      "attrs": {
+        "data-akari-library-primary-tile": "bgm",
+        "data-akari-library-tile-kind": "pick",
+        "data-akari-library-category": "bgm",
+        "title": "BGM — 一覧から選ぶ"
+      },
+      "texts": [
+        "♪",
+        "BGM",
+        "一覧から選ぶ"
+      ],
+      "rect": {
+        "x": 200,
+        "y": 234,
+        "w": 66,
+        "h": 69
+      }
+    },
+    {
+      "key": "sfx",
+      "section": "よく使う",
+      "primary": true,
+      "inDetails": false,
+      "attrs": {
+        "data-akari-library-primary-tile": "sfx",
+        "data-akari-library-tile-kind": "pick",
+        "data-akari-library-category": "sfx",
+        "title": "SFX — 一覧から選ぶ"
+      },
+      "texts": [
+        "♬",
+        "SFX",
+        "一覧から選ぶ"
+      ],
+      "rect": {
+        "x": 56,
+        "y": 309,
+        "w": 66,
+        "h": 69
+      }
+    },
+    {
+      "key": "overlay",
+      "section": "よく使う",
+      "primary": true,
+      "inDetails": false,
+      "attrs": {
+        "data-akari-library-primary-tile": "overlay",
+        "data-akari-library-tile-kind": "pick",
+        "data-akari-library-category": "overlay",
+        "title": "オーバーレイ — 一覧から選ぶ"
+      },
+      "texts": [
+        "✦",
+        "オーバーレイ",
+        "一覧から選ぶ"
+      ],
+      "rect": {
+        "x": 128,
+        "y": 309,
+        "w": 66,
+        "h": 69
+      }
+    },
+    {
+      "key": "scene3d",
+      "section": "よく使う",
+      "primary": true,
+      "inDetails": false,
+      "attrs": {
+        "data-akari-library-primary-tile": "scene3d",
+        "data-akari-library-tile-kind": "pick",
+        "data-akari-library-category": "scene3d",
+        "title": "3D・アバター — 一覧から選ぶ"
+      },
+      "texts": [
+        "⬡",
+        "3D・アバター",
+        "一覧から選ぶ"
+      ],
+      "rect": {
+        "x": 200,
+        "y": 309,
+        "w": 66,
+        "h": 69
+      }
+    }
+  ],
+  "details": [
+    {
+      "tag": "BUTTON",
+      "attrs": {
+        "data-akari-library-details-toggle": "true",
+        "aria-expanded": "false"
+      },
+      "text": "▸ 詳細（文字の見た目・仕上げ・パック・マイ）"
+    }
+  ],
+  "grid": {
+    "count": 9,
+    "columns": 3,
+    "rows": 3,
+    "order": [
+      "text",
+      "shapes",
+      "stamps",
+      "image",
+      "broll",
+      "bgm",
+      "sfx",
+      "overlay",
+      "scene3d"
+    ],
+    "kinds": [
+      "make",
+      "make",
+      "make",
+      "pick",
+      "pick",
+      "pick",
+      "pick",
+      "pick",
+      "pick"
+    ],
+    "categoryAttr": [
+      null,
+      "shapes",
+      "stamps",
+      "image",
+      "broll",
+      "bgm",
+      "sfx",
+      "overlay",
+      "scene3d"
+    ],
+    "soon": [
+      null,
+      "true",
+      "true",
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ],
+    "texts": [
+      [
+        "T",
+        "テキスト",
+        "押すかドラッグで置く"
+      ],
+      [
+        "◯",
+        "図形",
+        "近日"
+      ],
+      [
+        "☺",
+        "スタンプ",
+        "近日"
+      ],
+      [
+        "▦",
+        "画像",
+        "一覧から選ぶ"
+      ],
+      [
+        "▶",
+        "B-roll",
+        "一覧から選ぶ"
+      ],
+      [
+        "♪",
+        "BGM",
+        "一覧から選ぶ"
+      ],
+      [
+        "♬",
+        "SFX",
+        "一覧から選ぶ"
+      ],
+      [
+        "✦",
+        "オーバーレイ",
+        "一覧から選ぶ"
+      ],
+      [
+        "⬡",
+        "3D・アバター",
+        "一覧から選ぶ"
+      ]
+    ],
+    "draggable": [
+      "true",
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ],
+    "gridTemplateColumns": "66.0078px 66.0156px 66.0156px",
+    "cells": [
+      {
+        "key": "text",
+        "col": 0,
+        "row": 0,
+        "borderLeft": "1px solid",
+        "borderRight": "1px solid",
+        "boxShadow": "none"
+      },
+      {
+        "key": "shapes",
+        "col": 1,
+        "row": 0,
+        "borderLeft": "1px solid",
+        "borderRight": "1px solid",
+        "boxShadow": "none"
+      },
+      {
+        "key": "stamps",
+        "col": 2,
+        "row": 0,
+        "borderLeft": "1px solid",
+        "borderRight": "1px solid",
+        "boxShadow": "none"
+      },
+      {
+        "key": "image",
+        "col": 0,
+        "row": 1,
+        "borderLeft": "1px solid",
+        "borderRight": "1px solid",
+        "boxShadow": "none"
+      },
+      {
+        "key": "broll",
+        "col": 1,
+        "row": 1,
+        "borderLeft": "1px solid",
+        "borderRight": "1px solid",
+        "boxShadow": "none"
+      },
+      {
+        "key": "bgm",
+        "col": 2,
+        "row": 1,
+        "borderLeft": "1px solid",
+        "borderRight": "1px solid",
+        "boxShadow": "none"
+      },
+      {
+        "key": "sfx",
+        "col": 0,
+        "row": 2,
+        "borderLeft": "1px solid",
+        "borderRight": "1px solid",
+        "boxShadow": "none"
+      },
+      {
+        "key": "overlay",
+        "col": 1,
+        "row": 2,
+        "borderLeft": "1px solid",
+        "borderRight": "1px solid",
+        "boxShadow": "none"
+      },
+      {
+        "key": "scene3d",
+        "col": 2,
+        "row": 2,
+        "borderLeft": "1px solid",
+        "borderRight": "1px solid",
+        "boxShadow": "none"
+      }
+    ]
+  },
+  "duplicates": []
+}

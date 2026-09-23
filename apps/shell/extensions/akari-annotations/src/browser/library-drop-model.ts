@@ -20,7 +20,15 @@ export interface LibraryTextStyleDragPayload {
     id: string;
 }
 
-export type LibraryDragPayload = LibraryTransitionDragPayload | LibraryAssetDragPayload | LibraryTextStyleDragPayload;
+export interface LibraryTextDragPayload {
+    kind: 'text';
+}
+
+export type LibraryDragPayload = LibraryTransitionDragPayload | LibraryAssetDragPayload | LibraryTextStyleDragPayload | LibraryTextDragPayload;
+
+export function textPlaceOptions(start: number): { start: number } {
+    return { start };
+}
 
 export function textStylePlaceOptions(payload: LibraryTextStyleDragPayload, start: number): { start: number; stylePreset: string } {
     return { start, stylePreset: payload.id };
@@ -65,6 +73,7 @@ export function parseLibraryDragPayload(value: unknown): LibraryDragPayload | un
     if (!decoded || typeof decoded !== 'object' || Array.isArray(decoded)) return undefined;
     const candidate = decoded as Record<string, unknown>;
     if (candidate.kind === 'transition') return parseLibraryTransitionDragPayload(decoded);
+    if (candidate.kind === 'text') return { kind: 'text' };
     if (candidate.kind === 'textstyle') {
         return typeof candidate.id === 'string' && candidate.id.trim()
             ? { kind: 'textstyle', id: candidate.id } : undefined;

@@ -81,7 +81,7 @@ export interface LibraryPrimaryTile {
 
 /** ホームの最上段。text はカテゴリ一覧を持たない配置アクション。 */
 export const LIBRARY_PRIMARY_TILES = [
-    { key: 'text', kind: 'make', label: 'テキスト', icon: 'T', hint: '押すとプレイヘッド位置に文字を置く', status: 'live' },
+    { key: 'text', kind: 'make', label: 'テキスト', icon: 'T', hint: '押すかドラッグで置く', status: 'live' },
     { key: 'shapes', kind: 'make', label: '図形', icon: '◯', hint: '近日', status: 'soon' },
     { key: 'stamps', kind: 'make', label: 'スタンプ', icon: '☺', hint: '近日', status: 'soon' },
     { key: 'image', kind: 'pick', label: '画像', icon: '▦', hint: '一覧から選ぶ', status: 'live' },

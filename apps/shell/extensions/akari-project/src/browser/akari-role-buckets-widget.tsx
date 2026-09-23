@@ -3340,6 +3340,14 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                 data-akari-library-primary-tile={tile.key} data-akari-library-tile-kind={tile.kind}
                 data-akari-library-category={tile.key === 'text' ? undefined : tile.key}
                 data-akari-library-soon={soon ? 'true' : undefined}
+                draggable={tile.key === 'text' ? true : undefined}
+                onDragStart={tile.key === 'text' ? event => {
+                    const payload = { kind: 'text' };
+                    event.dataTransfer.setData(LIBRARY_DRAG_MIME, JSON.stringify(payload));
+                    event.dataTransfer.effectAllowed = 'copy';
+                    window.dispatchEvent(new CustomEvent(LIBRARY_DRAG_START_EVENT, { detail: payload }));
+                } : undefined}
+                onDragEnd={tile.key === 'text' ? () => this.handleLibraryTransitionDragEnd() : undefined}
                 title={`${tile.label} — ${tile.hint}`}
                 onClick={soon ? undefined : event => {
                     event.stopPropagation();
@@ -3352,9 +3360,9 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                     background: AKARI_SURFACE.raised, color: AKARI_INK, cursor: soon ? 'default' : 'pointer',
                     border: AKARI_BORDER.ghost
                 }}>
-                <span style={{ fontSize: '1.15em' }}>{tile.icon}</span>
-                <span style={{ maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '0.7em' }}>{tile.label}</span>
-                <span style={{ maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '0.62em' }}>{tile.hint}</span>
+                <span draggable={tile.key === 'text' ? false : undefined} style={{ fontSize: '1.15em' }}>{tile.icon}</span>
+                <span draggable={tile.key === 'text' ? false : undefined} style={{ maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '0.7em' }}>{tile.label}</span>
+                <span draggable={tile.key === 'text' ? false : undefined} style={{ maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '0.62em' }}>{tile.hint}</span>
             </button>
         );
     }

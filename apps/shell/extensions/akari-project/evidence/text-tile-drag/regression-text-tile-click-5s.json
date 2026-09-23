@@ -1,0 +1,66 @@
+{
+ "tile": "text",
+ "at": "2026-09-23T07:00:40.257Z",
+ "seekClick": {
+  "x": 662,
+  "y": 476,
+  "targetTime": 5
+ },
+ "playheadDisplay": null,
+ "tileBefore": {
+  "x": 89.00390625,
+  "y": 192.5,
+  "disabled": false,
+  "draggable": "true",
+  "kind": "make",
+  "texts": [
+   "T",
+   "テキスト",
+   "押すかドラッグで置く"
+  ]
+ },
+ "captionsChanged": true,
+ "editChanged": false,
+ "newCaptions": [
+  {
+   "id": "c-0005",
+   "start": 5,
+   "end": 8,
+   "text": "テキストを入力",
+   "speaker": null,
+   "sourceRef": null,
+   "edited": true,
+   "time_domain": "output",
+   "text_style": {
+    "text_anchor": "tc",
+    "position": {
+     "y": 0.4625
+    }
+   }
+  }
+ ],
+ "chips": [
+  {
+   "id": "c-0005",
+   "lane": "t-placed-text-display",
+   "left": 661.6,
+   "top": 501,
+   "width": 141.4,
+   "text": "テキストを入力",
+   "selected": true
+  }
+ ],
+ "page": {
+  "homeVisible": true,
+  "category": null,
+  "title": null,
+  "count": null,
+  "cards": 0,
+  "presetCards": 0
+ },
+ "notices": [
+  "このフォルダを AKARI Video プロジェクトとして使いますか？（フォルダ構成の作成と、作業の節目の記録を始めます）使う開くだけ",
+  "このフォルダを AKARI Video プロジェクトとして使いますか？（フォルダ構成の作成と、作業の節目の記録を始めます）",
+  "このフォルダを AKARI Video プロジェクトとして使いますか？（フォルダ構成の作成と、作業の節目の記録を始めます）"
+ ]
+}

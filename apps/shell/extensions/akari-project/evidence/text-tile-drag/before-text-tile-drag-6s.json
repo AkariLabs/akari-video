@@ -1,0 +1,43 @@
+{
+ "tile": "text",
+ "dropSpec": "t=6@字幕",
+ "at": "2026-09-23T06:35:18.518Z",
+ "tileBefore": {
+  "x": 89,
+  "y": 193,
+  "draggable": null,
+  "disabled": false,
+  "title": "テキスト — 押すとプレイヘッド位置に文字を置く",
+  "texts": [
+   "T",
+   "テキスト",
+   "押すとプレイヘッド位置に文字を置く"
+  ]
+ },
+ "drop": {
+  "x": 709,
+  "y": 514,
+  "targetTime": 6,
+  "row": "字幕",
+  "pps": 47.115625
+ },
+ "dragIntercepted": false,
+ "waitMs": 5540,
+ "captionsChanged": false,
+ "editChanged": false,
+ "newCaptions": [],
+ "afterDrop": {
+  "marked": [],
+  "outlined": [],
+  "timelineScroll": {
+   "x": 425,
+   "y": 488,
+   "w": 632,
+   "h": 110,
+   "scrollTop": 11.5
+  },
+  "footer": []
+ },
+ "chips": [],
+ "notices": []
+}

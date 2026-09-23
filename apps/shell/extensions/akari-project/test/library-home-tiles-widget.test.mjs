@@ -6,17 +6,24 @@ import { LIBRARY_DETAIL_GROUPS, LIBRARY_PRIMARY_TILES } from '../lib/common/libr
 
 const source = ts.createSourceFile('widget.tsx', readFileSync(new URL('../src/browser/akari-role-buckets-widget.tsx', import.meta.url), 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
 const widget = source.statements.find(node => ts.isClassDeclaration(node) && node.name?.text === 'AkariRoleBucketsWidget');
-const methods = ['readLibraryDetailsOpen', 'toggleLibraryDetails', 'placeLibraryText', 'renderLibraryPrimaryTile', 'renderLibraryHome'];
+const methods = ['readLibraryDetailsOpen', 'toggleLibraryDetails', 'placeLibraryText', 'renderLibraryPrimaryTile', 'renderLibraryHome', 'handleLibraryTransitionDragEnd'];
 const code = ts.transpileModule(`class Handler { ${methods.map(name => {
     const member = widget.members.find(candidate => candidate.name?.getText(source) === name);
     assert.ok(member, `${name} が存在する`);
     return member.getText(source);
 }).join('\n')} }`, { compilerOptions: { target: ts.ScriptTarget.ES2021, jsx: ts.JsxEmit.React } }).outputText;
 const storage = new Map();
-const window = { localStorage: { getItem: key => storage.get(key) ?? null, setItem: (key, value) => storage.set(key, value) } };
+const events = [];
+const window = {
+    localStorage: { getItem: key => storage.get(key) ?? null, setItem: (key, value) => storage.set(key, value) },
+    dispatchEvent: event => events.push(event),
+};
+class CustomEvent {
+    constructor(type, init) { this.type = type; this.detail = init?.detail; }
+}
 const React = { createElement: (type, props, ...children) => ({ type, props: props ?? {}, children: children.flat(Infinity) }) };
-const Handler = new Function('React', 'window', 'LIBRARY_PRIMARY_TILES', 'LIBRARY_DETAIL_GROUPS', 'AKARI_LIBRARY_DETAILS_STORAGE_KEY', 'AKARI_RADIUS', 'AKARI_SURFACE', 'AKARI_BORDER', 'AKARI_INK',
-    `${code}\nreturn Handler;`)(React, window, LIBRARY_PRIMARY_TILES, LIBRARY_DETAIL_GROUPS,
+const Handler = new Function('React', 'window', 'CustomEvent', 'LIBRARY_DRAG_MIME', 'LIBRARY_DRAG_START_EVENT', 'LIBRARY_DRAG_END_EVENT', 'LIBRARY_PRIMARY_TILES', 'LIBRARY_DETAIL_GROUPS', 'AKARI_LIBRARY_DETAILS_STORAGE_KEY', 'AKARI_RADIUS', 'AKARI_SURFACE', 'AKARI_BORDER', 'AKARI_INK',
+    `${code}\nreturn Handler;`)(React, window, CustomEvent, 'application/x-akari-library-item', 'akari.library.dragStart', 'akari.library.dragEnd', LIBRARY_PRIMARY_TILES, LIBRARY_DETAIL_GROUPS,
     'akari.library.detailsOpen',
     { panel: 6 }, { card: '#111', raised: '#222' }, { ghost: '1px solid #333' }, '#fff');
 
@@ -50,13 +57,35 @@ test('ホームは主要タイルを最上段に 9 枚描き、詳細は既定�
     const grid = nodes(home, node => node.props['data-akari-library-primary-tiles'] !== undefined)[0];
     assert.equal(grid.props.style.gridTemplateColumns, 'repeat(3, minmax(0, 1fr))');
     assert.equal(tiles[0].props['data-akari-library-category'], undefined);
-    assert.equal(tiles[0].props.draggable, undefined);
+    assert.equal(tiles[0].props.draggable, true);
+    assert.ok(tiles.slice(1).every(tile => tile.props.draggable === undefined));
     assert.deepEqual(tiles.slice(3).map(node => node.props['data-akari-library-category']),
         ['image', 'broll', 'bgm', 'sfx', 'overlay', 'scene3d']);
     assert.equal(tiles[1].props['data-akari-library-soon'], 'true');
     assert.equal(tiles[2].props['data-akari-library-soon'], 'true');
     assert.equal(nodes(home, node => node.props['data-akari-library-details'] !== undefined).length, 0);
     assert.equal(nodes(home, node => node.props['data-akari-library-details-toggle'] !== undefined)[0].props['aria-expanded'], false);
+});
+
+test('テキストタイルだけが既定スタイルの payload をドラッグし、終了を通知する', () => {
+    const { handler } = fixture();
+    const tile = handler.renderLibraryPrimaryTile(LIBRARY_PRIMARY_TILES[0]);
+    const data = new Map();
+    const dataTransfer = { setData: (type, value) => data.set(type, value), effectAllowed: 'uninitialized' };
+    events.length = 0;
+    tile.props.onDragStart({ dataTransfer });
+    assert.equal(data.get('application/x-akari-library-item'), JSON.stringify({ kind: 'text' }));
+    assert.equal(dataTransfer.effectAllowed, 'copy');
+    assert.equal(events[0].type, 'akari.library.dragStart');
+    assert.deepEqual(events[0].detail, { kind: 'text' });
+    assert.ok(tile.children.every(child => child.props.draggable === false));
+    tile.props.onDragEnd();
+    assert.equal(events[1].type, 'akari.library.dragEnd');
+    for (const other of LIBRARY_PRIMARY_TILES.slice(1)) {
+        const props = handler.renderLibraryPrimaryTile(other).props;
+        assert.equal(props.onDragStart, undefined);
+        assert.equal(props.onDragEnd, undefined);
+    }
 });
 
 test('最近使った帯は 3×3 の後、詳細の開閉ボタンの前に描く', () => {

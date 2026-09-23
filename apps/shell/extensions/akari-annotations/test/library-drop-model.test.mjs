@@ -8,6 +8,7 @@ import {
   parseLibraryDragPayload,
   libraryAssetMaterialKind,
   libraryAssetGhostPayload,
+  textPlaceOptions,
 } from '../lib/browser/library-drop-model.js';
 
 test('ライブラリの transition payload は正準語彙だけを受理する', () => {
@@ -81,6 +82,21 @@ for (const [category, kind] of [['audio', 'audio'], ['broll', 'video'], ['still'
 test('直和パーサは transition を引き続き受理する', () => {
   const payload = { kind: 'transition', id: 'dissolve', name: 'ディゾルブ' };
   assert.deepEqual(parseLibraryDragPayload(JSON.stringify(payload)), payload);
+});
+
+test('text と textstyle を分けて解析し、text はスタイル指定なしで配置する', () => {
+  const textPayload = { kind: 'text' };
+  const stylePayload = { kind: 'textstyle', id: 'telop-title' };
+  for (const payload of [textPayload, stylePayload]) {
+    assert.deepEqual(parseLibraryDragPayload(payload), payload);
+    assert.deepEqual(parseLibraryDragPayload(JSON.stringify(payload)), payload);
+  }
+  assert.deepEqual(textPlaceOptions(6), { start: 6 });
+  assert.equal(Object.hasOwn(textPlaceOptions(6), 'stylePreset'), false);
+  for (const invalid of [{ kind: 'textstyle' }, { kind: 'textstyle', id: '' }, { kind: 'textstyle', id: 3 },
+    { kind: 'unknown' }, '{']) {
+    assert.equal(parseLibraryDragPayload(invalid), undefined);
+  }
 });
 
 test('asset payload の未知 kind・対象外・locked・不正な必須値を拒否する', () => {

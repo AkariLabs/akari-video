@@ -1,0 +1,28 @@
+{
+ "payload": {
+  "kind": "text"
+ },
+ "drop": {
+  "x": 709,
+  "y": 514,
+  "targetTime": 6,
+  "row": "字幕"
+ },
+ "at": "2026-09-23T06:36:49.776Z",
+ "duringDrag": {
+  "marked": [],
+  "outlined": [],
+  "timelineScroll": {
+   "x": 425,
+   "y": 488,
+   "w": 632,
+   "h": 110,
+   "scrollTop": 11.5
+  },
+  "footer": []
+ },
+ "captionsChanged": false,
+ "editChanged": false,
+ "newCaptions": [],
+ "chips": []
+}

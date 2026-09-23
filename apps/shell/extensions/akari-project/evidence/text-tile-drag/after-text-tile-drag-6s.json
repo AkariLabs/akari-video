@@ -1,0 +1,175 @@
+{
+ "tile": "text",
+ "dropSpec": "t=6@字幕",
+ "at": "2026-09-23T06:59:24.155Z",
+ "tileBefore": {
+  "x": 89,
+  "y": 193,
+  "draggable": "true",
+  "disabled": false,
+  "title": "テキスト — 押すかドラッグで置く",
+  "texts": [
+   "T",
+   "テキスト",
+   "押すかドラッグで置く"
+  ]
+ },
+ "drop": {
+  "x": 709,
+  "y": 514,
+  "targetTime": 6,
+  "row": "字幕",
+  "pps": 47.115625
+ },
+ "dragIntercepted": true,
+ "mimeTypes": [
+  "application/x-akari-library-item"
+ ],
+ "payload": {
+  "kind": "text"
+ },
+ "atDragStart": {
+  "marked": [
+   {
+    "tag": "DIV",
+    "attrs": [
+     "data-akari-textstyle-drop-target=true"
+    ],
+    "rect": {
+     "x": 426,
+     "y": 477,
+     "w": 622,
+     "h": 24
+    },
+    "outline": "none rgb(204, 204, 204)",
+    "bg": "rgba(77, 208, 200, 0.22)"
+   }
+  ],
+  "outlined": [
+   {
+    "cls": "",
+    "rect": {
+     "x": 426,
+     "y": 477,
+     "w": 622,
+     "h": 24
+    },
+    "outline": "",
+    "border": "1px dashed rgb(77, 208, 200)",
+    "bg": "rgba(77, 208, 200, 0.22)",
+    "rejected": false
+   }
+  ],
+  "timelineScroll": {
+   "x": 425,
+   "y": 488,
+   "w": 632,
+   "h": 110,
+   "scrollTop": 11.5
+  },
+  "footer": []
+ },
+ "duringDrag": {
+  "marked": [
+   {
+    "tag": "DIV",
+    "attrs": [
+     "data-akari-textstyle-drop-target=true"
+    ],
+    "rect": {
+     "x": 426,
+     "y": 477,
+     "w": 622,
+     "h": 24
+    },
+    "outline": "none rgb(204, 204, 204)",
+    "bg": "rgba(77, 208, 200, 0.22)"
+   }
+  ],
+  "outlined": [
+   {
+    "cls": "",
+    "rect": {
+     "x": 426,
+     "y": 477,
+     "w": 622,
+     "h": 24
+    },
+    "outline": "",
+    "border": "1px dashed rgb(77, 208, 200)",
+    "bg": "rgba(77, 208, 200, 0.22)",
+    "rejected": false
+   },
+   {
+    "cls": "",
+    "rect": {
+     "x": 709,
+     "y": 476,
+     "w": 142,
+     "h": 24
+    },
+    "outline": "",
+    "border": "1px dashed rgb(77, 208, 200)",
+    "bg": "rgba(77, 208, 200, 0.22)",
+    "rejected": false
+   }
+  ],
+  "timelineScroll": {
+   "x": 425,
+   "y": 488,
+   "w": 632,
+   "h": 110,
+   "scrollTop": 11.5
+  },
+  "footer": []
+ },
+ "waitMs": 257,
+ "captionsChanged": true,
+ "editChanged": false,
+ "newCaptions": [
+  {
+   "id": "c-0005",
+   "start": 6.007317256404478,
+   "end": 9.007317256404477,
+   "text": "テキストを入力",
+   "speaker": null,
+   "sourceRef": null,
+   "edited": true,
+   "time_domain": "output",
+   "text_style": {
+    "text_anchor": "tc",
+    "position": {
+     "y": 0.4625
+    }
+   }
+  }
+ ],
+ "afterDrop": {
+  "marked": [],
+  "outlined": [],
+  "timelineScroll": {
+   "x": 425,
+   "y": 488,
+   "w": 632,
+   "h": 110,
+   "scrollTop": 11.5
+  },
+  "footer": []
+ },
+ "chips": [
+  {
+   "id": "c-0005",
+   "lane": "t-placed-text-display",
+   "left": 709.1,
+   "top": 501,
+   "width": 141.4,
+   "text": "テキストを入力",
+   "selected": false
+  }
+ ],
+ "notices": [
+  "このフォルダを AKARI Video プロジェクトとして使いますか？（フォルダ構成の作成と、作業の節目の記録を始めます）使う開くだけ",
+  "このフォルダを AKARI Video プロジェクトとして使いますか？（フォルダ構成の作成と、作業の節目の記録を始めます）",
+  "このフォルダを AKARI Video プロジェクトとして使いますか？（フォルダ構成の作成と、作業の節目の記録を始めます）"
+ ]
+}

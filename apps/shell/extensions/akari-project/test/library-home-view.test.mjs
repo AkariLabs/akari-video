@@ -12,7 +12,7 @@ test('最上段はモックどおり 3×3 の 9 タイルで、作る/選ぶを�
     assert.deepEqual(LIBRARY_PRIMARY_TILES.map(tile => tile.status), [
         'live', 'soon', 'soon', 'live', 'live', 'live', 'live', 'live', 'live'
     ]);
-    assert.equal(LIBRARY_PRIMARY_TILES[0].hint, '押すとプレイヘッド位置に文字を置く');
+    assert.equal(LIBRARY_PRIMARY_TILES[0].hint, '押すかドラッグで置く');
 });
 
 test('詳細は残りの 12 カテゴリだけで、全カテゴリの外部解決を保つ', () => {
