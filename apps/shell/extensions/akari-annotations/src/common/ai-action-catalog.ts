@@ -53,8 +53,10 @@ export function aiActionCatalog(models: readonly AiCatalogModel[]): AiAction[] {
         }))
     }, {
         id: 'transcribe', group: 'refine', label: '文字起こし', image: 'transcribe',
-        visibleFor: ['audio', 'video', 'generated-video', 'still', 'empty-frame', 'empty-audio-frame'],
-        accepts: ['audio', 'video'], reasonWhenDisabled: '声の入った音声か動画で使えます',
+        visibleFor: ['audio', 'video', 'generated-video', 'still', 'empty-frame', 'empty-audio-frame',
+            'material-audio', 'material-video'],
+        accepts: ['audio', 'video', 'material-audio', 'material-video'],
+        reasonWhenDisabled: '声の入った音声か動画で使えます',
         output: 'captions', placement: 'captions',
         routes: [{ id: 'transcript', label: '台本パネルのエンジン', kind: 'local', cost: 'free' }]
     }];

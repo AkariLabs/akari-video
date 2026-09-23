@@ -87,6 +87,7 @@ import { AssetBinChildNode, isAssetBinGroupDirectory } from '../common/asset-bin
 import { canPlaceLibraryAsset, localLibraryAssetPlacementSource, resolveLibraryAssetMedia, RESOLVE_LIBRARY_MATERIAL_COMMAND_ID } from '../common/library-asset-placement';
 import { classifyMaterialKind, MaterialKind, resolveAssetGroupMedia } from '../common/asset-group-media';
 import { materialCardLayout } from '../common/material-card-layout';
+import { AKARI_MATERIAL_SELECTED_EVENT } from '../common/material-selected-event';
 import { CatalogPack } from '../common/catalog-packs';
 import { filterPresetShowcaseItems, presetShowcaseBottomPadding, textStylePlaceOptions } from '../common/preset-showcase';
 import {
@@ -2969,6 +2970,8 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     @inject(AkariPreviewService)
     protected readonly materialPreviewService!: AkariPreviewService;
 
+    protected selectedMaterialPath?: string;
+
     protected renderMaterialCard(entry: MaterialCardEntry): React.ReactNode {
         const pickCandidate: GenerationPickCandidate = { path: entry.mediaRelativePath ?? entry.relativePath, kind: entry.kind };
         const displayKind = entry.assetGroup ? 'other' : entry.kind;
@@ -2995,6 +2998,17 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                 onDragStart={draggable ? event => this.handleMaterialDragStart(event, entry) : undefined}
                 onDragEnd={draggable ? () => this.handleMaterialDragEnd() : undefined}
                 onMouseDown={!this.generationPick.request && entry.unorganized ? event => this.handleUnorganizedMaterialMouseDown(event) : undefined}
+                onClickCapture={event => {
+                    if (entry.missing || this.generationPick.request
+                        || (typeof Element !== 'undefined' && event.target instanceof Element && event.target.closest('button'))) return;
+                    this.selectedMaterialPath = entry.relativePath;
+                    this.update();
+                    const root = this.workflow.workspaceRoot;
+                    if (root) window.dispatchEvent(new CustomEvent(AKARI_MATERIAL_SELECTED_EVENT, {
+                        detail: { projectRoot: root.toString(), relativePath: entry.mediaRelativePath ?? entry.relativePath,
+                            kind: entry.assetGroup && !entry.mediaRelativePath ? 'other' : entry.kind, name: entry.name }
+                    }));
+                }}
                 onClick={() => { if (!entry.missing) void this.openFile(entry.uri); }}
                 onContextMenu={event => this.openMaterialContextMenu(event, entry)}
                 title={entry.name}
@@ -3008,7 +3022,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                     borderRadius: `${AKARI_RADIUS.panel}px`,
                     overflow: 'hidden',
                     background: AKARI_SURFACE.raised,
-                    border: AKARI_BORDER.ghost
+                    border: this.selectedMaterialPath === entry.relativePath ? AKARI_BORDER.accent : AKARI_BORDER.ghost
                 }}
             >
                 {entry.missing && entry.reference && (() => {

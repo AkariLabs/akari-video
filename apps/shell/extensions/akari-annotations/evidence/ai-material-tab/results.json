@@ -1,0 +1,58 @@
+{
+  "status": "FAIL",
+  "checks": [
+    {
+      "name": "card still opens interview.wav in the main area",
+      "passed": false,
+      "measured": {
+        "label": "素材プレビュー",
+        "bodyHasInterview": false
+      }
+    }
+  ],
+  "clicks": [
+    {
+      "name": "audio material",
+      "attempt": 1,
+      "passed": true
+    }
+  ],
+  "screenshots": [
+    {
+      "name": "error-full.png",
+      "bytes": 261674
+    }
+  ],
+  "measurements": {
+    "badgeTitleIntersect": null,
+    "buttons": [],
+    "openedMainTab": {
+      "label": "素材プレビュー",
+      "bodyHasInterview": false
+    }
+  },
+  "blockedTranscriptions": 0,
+  "fixture": {
+    "project": "<TEMP>/project",
+    "audio": "assets/interview.wav",
+    "video": "assets/ordinary.mp4",
+    "still": "assets/still.png",
+    "segments": 7
+  },
+  "error": "Error: card still opens interview.wav in the main area: {\"label\":\"素材プレビュー\",\"bodyHasInterview\":false}",
+  "failureState": {
+    "selectedClips": [],
+    "tabs": [],
+    "inspector": {
+      "present": true,
+      "tile": true,
+      "badge": true,
+      "transcribePanel": false,
+      "back": false,
+      "dialog": false
+    },
+    "notifications": 0
+  },
+  "killedPid": 15664,
+  "electronExited": true
+}

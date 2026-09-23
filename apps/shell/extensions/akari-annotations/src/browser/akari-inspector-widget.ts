@@ -4,13 +4,13 @@ import { GENERATION_PICK_INTO_COMMAND_ID, GENERATION_CANCEL_PICK_COMMAND_ID, typ
 import { AkariAnnotationsService } from '../common/akari-annotations-protocol';
 import type { GenerationValidationResult, TranscriptSummary } from '../common/akari-annotations-protocol';
 import { resolveGenerationState, selectGenerationSidecarForSource, TRANSITION_VOCABULARY } from '@akari-video/edit-store';
-import { BaseWidget } from '@theia/core/lib/browser';
+import { ApplicationShell, BaseWidget } from '@theia/core/lib/browser';
 import { WidgetManager } from '@theia/core/lib/browser/widget-manager';
 import { ConfirmDialog } from '@theia/core/lib/browser/dialogs';
 import { FileDialogService } from '@theia/filesystem/lib/browser';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
 import { WorkspaceService } from '@theia/workspace/lib/browser/workspace-service';
-import { inject, injectable, postConstruct } from '@theia/core/shared/inversify';
+import { inject, injectable, postConstruct, type Container } from '@theia/core/shared/inversify';
 import {
     InspectorWriteRequest,
     InspectorWriteResult,
@@ -36,6 +36,8 @@ import { aiActionCatalog, describeAiTiles } from '../common/ai-action-catalog';
 import { aiTabAvailabilityFor, aiTabViewFor, aiTargetKindFor, appendAiBack, appendAiTiles, type AiTabView } from './inspector/ai-tiles';
 import { appendAiStillNotice, appendAiStillPanel, nearestStillAspect, replaceStillInEdit, stillDimensionMismatch, stillMismatchNotice, type AiStillState } from './inspector/ai-still-panel';
 import { appendAiTranscribePanel, resolveAiTranscribeTarget, type AiTranscribeTarget } from './inspector/ai-transcribe-panel';
+import { appendAiMaterialView } from './inspector/ai-material-view';
+import { AKARI_MATERIAL_SELECTED_EVENT, materialSelectionFromDetail, type AkariMaterialSelection } from '../common/material-selected-event';
 import { createInspectorIcon } from './inspector/icons';
 import {
     CAPTION_BACKGROUND_ON_OPACITY, captionEffectFromStyle, captionEffectPatch,
@@ -2594,6 +2596,8 @@ export class AkariInspectorWidget extends BaseWidget {
     protected transcribePolling = false;
     protected transcribeTimer?: ReturnType<typeof setInterval>;
     protected transcribeLoading?: Promise<void>;
+    protected materialSelection?: AkariMaterialSelection;
+    protected materialTab: 'generation' | 'info' = 'generation';
     protected audioPlanned = false;
     protected generationDefaultModel = 'fal:h3-i2v';
     protected readonly generationDrafts = new Map<string, GenerationDraft>();
@@ -2704,6 +2708,14 @@ export class AkariInspectorWidget extends BaseWidget {
 .akari-inspector-ai-transcribe-time { color: var(--akari-muted); white-space: nowrap; }
 .akari-inspector-ai-transcribe-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .akari-inspector-widget button.akari-inspector-ai-transcribe-button { width: 100%; padding: 8px 10px; color: var(--akari-ink); background: var(--akari-elevated); border: 1px solid var(--akari-line); border-radius: 5px; cursor: pointer; }
+.akari-inspector-ai-material-header { display: flex; flex-direction: column; gap: 3px; padding: 12px 10px 10px; background: var(--akari-card); border-bottom: 1px solid var(--akari-line-inner); }
+.akari-inspector-ai-material-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
+.akari-inspector-ai-material-kind { color: var(--akari-muted); font-size: 11px; }
+.akari-inspector-ai-material-tabs { display: flex; border-bottom: 1px solid var(--akari-line); }
+.akari-inspector-widget button.akari-inspector-ai-material-tab { flex: 1; padding: 9px 6px; border-radius: 0; color: var(--akari-muted); }
+.akari-inspector-widget button.akari-inspector-ai-material-tab-active { color: var(--akari-accent); border-bottom: 2px solid var(--akari-accent); font-weight: 700; }
+.akari-inspector-ai-material-info, .akari-inspector-ai-material-empty { padding: 12px 10px; color: var(--akari-muted); font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
+.akari-inspector-ai-material-info p { margin: 0 0 8px; }
 .akari-inspector-generation-gap { display: grid; gap: 12px; padding: 12px; min-width: 0; }
 .akari-inspector-generation-gap h3, .akari-inspector-generation-gap p { margin: 0; line-height: 1.6; overflow-wrap: anywhere; }
 .akari-inspector-generation-gap-ends { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; }
@@ -3541,6 +3553,10 @@ export class AkariInspectorWidget extends BaseWidget {
         });
         this.toDispose.push(this.model.onChanged(() => {
             this.clearSoloForSelectionChange();
+            if (this.materialSelection) {
+                this.materialSelection = undefined;
+                this.aiView = undefined;
+            }
             this.lutGeneration++;
             this.projectLutRefs = [];
             this.render();
@@ -3805,12 +3821,67 @@ export class AkariInspectorWidget extends BaseWidget {
         this.body.appendChild(panel);
     }
 
+    selectMaterial(selection: AkariMaterialSelection): void {
+        this.materialSelection = selection;
+        this.materialTab = 'generation';
+        this.aiView = 'tiles';
+        this.transcribeKey = JSON.stringify([selection.projectRoot, selection.relativePath]);
+        this.transcribeSummary = { state: 'none', segments: [], total: 0 };
+        this.transcribeRunning = false;
+        this.transcribePolling = false;
+        this.render();
+        if (selection.mediaKind !== 'audio' && selection.mediaKind !== 'video') return;
+        void this.layerAudioService.readTranscriptSummary({
+            projectRootUri: selection.projectRoot, relativePath: selection.relativePath
+        }).then(summary => {
+            if (this.materialSelection !== selection || this.isDisposed) return;
+            this.transcribeSummary = summary;
+            this.render();
+        }).catch(() => undefined);
+    }
+
     protected render(): void {
         if (this.transcribeTimer) clearInterval(this.transcribeTimer);
         this.transcribeTimer = undefined;
         this.dispatchCaptionZoneEvent(CAPTION_ZONE_HOVER_EVENT, null);
         this.body.replaceChildren();
         this.hideFieldNotice();
+        if (this.materialSelection) {
+            const materialSelection = this.materialSelection;
+            this.syncAdjustCompare(undefined, '');
+            appendAiMaterialView(this.body, {
+                selection: materialSelection, tab: this.materialTab, view: this.aiView ?? 'tiles',
+                summary: this.transcribeSummary, running: this.transcribeRunning, commands: this.commandRegistry,
+                onTab: tab => { this.materialTab = tab; this.render(); },
+                onView: view => { this.aiView = view; this.transcribePolling = false; this.render(); },
+                onDialogResult: result => {
+                    if (this.materialSelection !== materialSelection) return;
+                    this.transcribeRunning = result === 'running';
+                    this.transcribePolling = result === 'opened' || result === 'running';
+                    this.render();
+                }
+            });
+            if (this.transcribePolling && this.materialTab === 'generation' && this.aiView === 'transcribe') {
+                const selection = materialSelection;
+                this.transcribeTimer = setInterval(() => {
+                    if (this.isDisposed || this.materialSelection !== selection || this.aiView !== 'transcribe') {
+                        if (this.transcribeTimer) clearInterval(this.transcribeTimer);
+                        this.transcribeTimer = undefined;
+                        return;
+                    }
+                    void this.layerAudioService.readTranscriptSummary({
+                        projectRootUri: selection.projectRoot, relativePath: selection.relativePath
+                    }).then(summary => {
+                        if (this.materialSelection !== selection || summary.state !== 'done') return;
+                        this.transcribeSummary = summary;
+                        this.transcribeRunning = false;
+                        this.transcribePolling = false;
+                        this.render();
+                    }).catch(() => undefined);
+                }, 5000);
+            }
+            return;
+        }
         const snapshot = this.model.snapshot;
         if (this.generationFramePick || this.generationFramePickMessage) this.syncGenerationFramePick();
         if (!snapshot || snapshot.kind === 'multi') this.syncAdjustCompare(undefined, '');
@@ -6459,3 +6530,30 @@ export class AkariInspectorWidget extends BaseWidget {
     }
 
 }
+
+// The inspector command normally attaches a timeline first. A material can exist in a
+// project without edit.json, so the event also opens the same widget directly if attach fails.
+let latestMaterialEvent = 0;
+if (typeof window !== 'undefined') window.addEventListener(AKARI_MATERIAL_SELECTED_EVENT, event => {
+    const selection = materialSelectionFromDetail((event as CustomEvent).detail);
+    if (!selection) return;
+    const sequence = ++latestMaterialEvent;
+    void (async () => {
+        const container = (window as Window & { theia?: { container?: Container } }).theia?.container;
+        if (!container) return;
+        let widget: AkariInspectorWidget | undefined;
+        try {
+            widget = await container.get(CommandRegistry).executeCommand<AkariInspectorWidget | undefined>(
+                'akari.inspector.open', { tabId: 'generation' }
+            );
+        } catch { /* A project without a timeline uses the material-only path below. */ }
+        if (sequence !== latestMaterialEvent) return;
+        if (!widget) {
+            widget = await container.get(WidgetManager).getOrCreateWidget<AkariInspectorWidget>(AkariInspectorWidget.FACTORY_ID);
+            const shell = container.get(ApplicationShell);
+            if (!widget.isAttached) shell.addWidget(widget, { area: 'right' });
+            await shell.revealWidget(widget.id);
+        }
+        if (sequence === latestMaterialEvent) widget.selectMaterial(selection);
+    })().catch(error => console.error('素材のインスペクターを開けませんでした。', error));
+});
