@@ -1,6 +1,6 @@
 import { createRequire } from "node:module";
 
-import { describeInstallSearch, resolvePackageFile } from "./install-root.mjs";
+import { describeInstallSearch, resolveNewestPackageFile } from "./install-root.mjs";
 
 const require = createRequire(import.meta.url);
 const EDIT_STORE_RELATIVE = "edit-store/lib/index.js";
@@ -13,7 +13,7 @@ function loadEditStoreForV2() {
   // issue #70: このスキルはプロジェクトへコピーされるため、相対 require はモノレポ checkout でしか
   // 通らない。install-root.mjs の候補（checkout / CLI インストール / デスクトップ版 Resources）から
   // packages/edit-store/lib/index.js を探す。
-  const editStorePath = resolvePackageFile(EDIT_STORE_RELATIVE, { from: import.meta.url });
+  const editStorePath = resolveNewestPackageFile(EDIT_STORE_RELATIVE, { from: import.meta.url });
   if (!editStorePath) {
     editStoreLoadError = new Error(
       `v2 snapshot を読めません: packages/${EDIT_STORE_RELATIVE} が見つかりません（${describeInstallSearch({ from: import.meta.url })}）。`
@@ -41,22 +41,65 @@ function loadEditStoreForV2() {
   return editStoreModule;
 }
 
+function unknownKeysFromError(error) {
+  const message = error instanceof Error ? error.message : String(error);
+  const match = /^edit\.json v2 が不正です \((edit\.json(?:\.[A-Za-z_$][\w$]*|\[\d+\])*)\): 未定義キーを使用できません: ([^。\n]+)(?:。|$)/u.exec(message);
+  if (!match) return null;
+  const keys = match[2].split(/\s*,\s*/u);
+  if (keys.length === 0 || keys.some((key) => !key || /[。\n,]/u.test(key))) return null;
+  return { path: match[1], keys };
+}
+
+function objectAtEditPath(snapshot, editPath) {
+  let value = snapshot;
+  const suffix = editPath.slice("edit.json".length);
+  const tokens = suffix.match(/\.[A-Za-z_$][\w$]*|\[\d+\]/gu) ?? [];
+  if (tokens.join("") !== suffix) return null;
+  for (const token of tokens) {
+    const key = token[0] === "." ? token.slice(1) : Number(token.slice(1, -1));
+    if (value === null || typeof value !== "object" || !Object.hasOwn(value, key)) return null;
+    value = value[key];
+  }
+  return value !== null && typeof value === "object" && !Array.isArray(value) ? value : null;
+}
+
 function reviewSnapshotView(snapshot) {
   if (snapshot?.version !== 2) {
-    return { snapshot, cutIdentityByIndex: new Map(), cutIndexByItemId: new Map() };
+    return { snapshot, cutIdentityByIndex: new Map(), cutIndexByItemId: new Map(), warnings: [] };
   }
 
   const { readInternalEdit, projectLegacyEdit } = loadEditStoreForV2();
   let internal;
   let projected;
-  try {
-    internal = readInternalEdit(snapshot);
-    projected = projectLegacyEdit(internal);
-  } catch (error) {
-    throw new Error(
-      `v2 snapshot を読めません: edit-store の互換射影に失敗しました (${error instanceof Error ? error.message : String(error)})`,
-    );
+  let candidate = snapshot;
+  const ignored = [];
+  const seen = new Set();
+  for (let attempt = 0; attempt <= 64; attempt += 1) {
+    try {
+      internal = readInternalEdit(candidate);
+      projected = projectLegacyEdit(internal);
+      break;
+    } catch (error) {
+      const unknown = attempt < 64 ? unknownKeysFromError(error) : null;
+      if (unknown) {
+        const copy = candidate === snapshot ? JSON.parse(JSON.stringify(snapshot)) : candidate;
+        const target = objectAtEditPath(copy, unknown.path);
+        if (target && unknown.keys.every((key) => Object.hasOwn(target, key) && !seen.has(`${unknown.path}.${key}`))) {
+          for (const key of unknown.keys) {
+            delete target[key];
+            seen.add(`${unknown.path}.${key}`);
+            ignored.push(`${unknown.path}.${key}`);
+          }
+          candidate = copy;
+          continue;
+        }
+      }
+      throw new Error(
+        `v2 snapshot を読めません: edit-store の互換射影に失敗しました (${error instanceof Error ? error.message : String(error)})`,
+      );
+    }
   }
+  const warnings = ignored.map((keyPath) => `edit.snapshot.json の未定義キーを無視しました: ${keyPath}`);
 
   // projectLegacyEdit と同じ legacy.index 順を使い、v2 item id と旧 cuts[] index を結ぶ。
   const cutEntries = internal.tracks.flatMap((track) => track.items
@@ -68,7 +111,7 @@ function reviewSnapshotView(snapshot) {
     trackId: entry.trackId,
   }]));
   const cutIndexByItemId = new Map(cutEntries.map((entry, cutIndex) => [entry.itemId, cutIndex]));
-  return { snapshot: projected, cutIdentityByIndex, cutIndexByItemId };
+  return { snapshot: projected, cutIdentityByIndex, cutIndexByItemId, warnings };
 }
 
 function finiteNumber(value, label) {
@@ -340,6 +383,7 @@ export function buildCutMap(snapshot) {
     overlays: Array.isArray(projectedSnapshot.overlays) ? projectedSnapshot.overlays : [],
     cutIdentityByIndex: view.cutIdentityByIndex,
     cutIndexByItemId: view.cutIndexByItemId,
+    warnings: view.warnings,
     locate,
   };
 }
@@ -352,7 +396,7 @@ export function buildCutMap(snapshot) {
 // コピーで、録画中の編集を止める仕組みは無い — 記録側が正しい環境で snapshot 側が古いケースを
 // 壊さないため）。timelineT が cut の外（clamped）なら保存値を尊重する。
 export function reconcileStrokeFrames(strokes, cutMap, { tolerance = 0.05 } = {}) {
-  const warnings = [];
+  const warnings = [...(cutMap.warnings ?? [])];
   const reconciled = (Array.isArray(strokes) ? strokes : []).map((stroke) => {
     const frame = stroke?.frame;
     if (!frame || !Number.isFinite(frame.timelineT)) return stroke;

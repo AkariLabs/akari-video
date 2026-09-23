@@ -109,6 +109,54 @@ export function resolvePackageFile(relative, options) {
   return null;
 }
 
+function launcherVersion(root) {
+  const launcher = root.endsWith(path.join("packages", "akari-launcher", "vendor"))
+    ? path.join(root, "..", "package.json")
+    : path.join(root, "packages", "akari-launcher", "package.json");
+  try {
+    const version = JSON.parse(readFileSync(launcher, "utf8")).version;
+    const match = /^(\d+)\.(\d+)\.(\d+)(?:-([\w.-]+))?$/.exec(version);
+    return match ? [Number(match[1]), Number(match[2]), Number(match[3]), match[4] ?? null] : null;
+  } catch {
+    return null;
+  }
+}
+
+function compareVersions(left, right) {
+  if (!left) return right ? -1 : 0;
+  if (!right) return 1;
+  for (let index = 0; index < 3; index += 1) {
+    if (left[index] !== right[index]) return left[index] - right[index];
+  }
+  if (left[3] === right[3]) return 0;
+  if (left[3] === null) return 1;
+  if (right[3] === null) return -1;
+  return left[3].localeCompare(right[3], undefined, { numeric: true });
+}
+
+/** 上方探索・明示 env を優先し、暗黙のインストール候補は launcher の新版を選ぶ。 */
+export function resolveNewestPackageFile(relative, options = {}) {
+  const { from = import.meta.url, env = process.env, homeDir = os.homedir() } = options;
+  const roots = candidateInstallRoots({ from, env, homeDir });
+  const priority = new Set();
+  let directory = startDirectory(from);
+  while (true) {
+    priority.add(directory);
+    const parent = path.dirname(directory);
+    if (parent === directory) break;
+    directory = parent;
+  }
+  if (env.AKARI_MONOREPO) priority.add(path.resolve(env.AKARI_MONOREPO));
+  if (env.AKARI_INSTALL_DIR) priority.add(path.resolve(env.AKARI_INSTALL_DIR));
+  const entries = roots.map((root, index) => ({
+    root, index, file: path.join(root, "packages", relative),
+  })).filter((entry) => isFile(entry.file));
+  const preferred = entries.find((entry) => priority.has(entry.root));
+  if (preferred) return preferred.file;
+  entries.sort((left, right) => compareVersions(launcherVersion(right.root), launcherVersion(left.root)) || left.index - right.index);
+  return entries[0]?.file ?? null;
+}
+
 /** 診断用: 上方探索の起点と、明示的な候補（env / ~/.akari/app / shim 由来）だけを短く並べる。 */
 export function describeInstallSearch(options = {}) {
   const roots = candidateInstallRoots(options);
