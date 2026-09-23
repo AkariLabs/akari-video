@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import * as captionStyleEffects from '../lib/browser/inspector/caption-style-effects.js';
+import * as myStyleLook from '../lib/browser/my-style-look.js';
 import { parseCaptions, updateCaptionTextStyleInSource } from '../../../../../packages/edit-store/lib/caption-store.js';
 
 const source = readFileSync(new URL('../lib/browser/akari-annotations-widget.js', import.meta.url), 'utf8');
@@ -9,7 +10,7 @@ const start = source.indexOf("                case 'caption-style-color':");
 const end = source.indexOf("                case 'bgm-duck-db':", start);
 assert.ok(start > 0 && end > start);
 const block = source.slice(start, end);
-const run = new Function('request', 'location', 'caption_style_effects_1', `return (async function () {
+const run = new Function('request', 'location', 'caption_style_effects_1', 'my_style_look_1', `return (async function () {
   switch (request.kind) { ${block} }
 }).call(this);`);
 const caption = (id, style = {}, stylePreset, rawStyle = style) => ({
@@ -62,7 +63,7 @@ async function invoke(kind, value, captions, targets, source = sourceFor(caption
     reloadCaptions: async () => {}, hideNotice: () => {}, footer: { textContent: '' }
   };
   const result = await run.call(context, { kind, id: captions[0].id, value, ...(targets ? { targets } : {}) },
-    location, captionStyleEffects);
+    location, captionStyleEffects, myStyleLook);
   assert.equal(result.ok, true);
   assert.equal(history.length, 1);
   return { calls, history, reads };
@@ -104,6 +105,33 @@ test('新 kind と効果は複数字幕の元の値を個別に保持し、undo 
     const result = await invoke(kind, value, captions, targets);
     assert.deepEqual(result.calls.map(call => call.textStyle), [style, style]);
   }
+});
+
+test('マイスタイルの見た目を 3 字幕へ一括で写し、位置を保って undo 1 回で戻す', async () => {
+  const captions = [caption('one', { color: '#111111' }), caption('two', { color: '#222222' }),
+    caption('three', { color: '#333333' })];
+  const source = JSON.stringify(captions.map((item, index) => ({ id: item.id, start: index, end: index + 1,
+    text: '字幕', speaker: null, sourceRef: null, edited: false,
+    text_style: { color: item.textStyle.color, position: { x: index / 3, y: 0.5 }, zone: 'bottom' } })));
+  const targets = captions.map(item => ({ kind: 'caption', id: item.id }));
+  const result = await invoke('caption-style-my-style', {
+    color: '#ff1744', stroke: { color: '#ffffff', width_px: 6 },
+    background: { color: '#111111', opacity: 0.7 }, position: { x: 0.9 }, zone: 'top'
+  }, captions, targets, source);
+  assert.equal(result.history.length, 1);
+  assert.equal(result.calls.length, 3);
+  let written = source;
+  for (const call of result.calls) {
+    assert.equal(call.textStyle.zone, undefined);
+    assert.equal(call.textStyle.position, undefined);
+    written = updateCaptionTextStyleInSource(written, call.captionId, call.textStyle);
+  }
+  const rows = JSON.parse(written);
+  assert.deepEqual(rows.map(row => row.text_style.position.x), [0, 1 / 3, 2 / 3]);
+  assert.deepEqual(rows.map(row => row.text_style.color), ['#ff1744', '#ff1744', '#ff1744']);
+  await result.history[0].undo();
+  for (const call of result.calls.slice(3)) written = updateCaptionTextStyleInSource(written, call.captionId, call.textStyle);
+  assert.deepEqual(JSON.parse(written), JSON.parse(source));
 });
 
 test('プリセット付き字幕の太さは合成後も選択値になり、undo は cue 側指定だけ戻す', async () => {

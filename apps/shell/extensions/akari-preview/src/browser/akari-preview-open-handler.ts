@@ -3415,6 +3415,9 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     ...(command ? [{ field: message.field }] : [])
                 );
             }
+            if (message?.type === 'akari-preview-my-style-save' && typeof message.captionId === 'string') {
+                window.dispatchEvent(new CustomEvent('akari.mystyle.open-save'));
+            }
             if (this.isReviewTransportRequest(message)) {
                 this.forwardReviewTransport(widget, message);
             }
@@ -7644,6 +7647,7 @@ html.akari-gen-capturing #caption-plate *::selection { background: transparent !
             <span class="akari-caption-tool-separator"></span>
             <button type="button" data-caption-tool="reset" aria-label="既定に戻す" hidden><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3.5 6.5A5 5 0 1 1 3 9M3 3v3.5h3.5"/></svg><span class="akari-caption-tool-tip">位置と大きさを既定に戻す</span></button>
             <button type="button" data-caption-tool="inspector" aria-label="インスペクターを開く"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg><span class="akari-caption-tool-tip">インスペクターを開く</span></button>
+            <button type="button" data-caption-tool="my-style-save" data-akari-my-style-preview-save aria-label="マイスタイルに保存"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m-4-4 4 4 4-4"/><path d="M4 17v3h16v-3"/></svg><span class="akari-caption-tool-tip">マイスタイルに保存</span></button>
           </div><div data-caption-palette hidden><div class="akari-caption-palette-tabs"><button type="button" data-palette-tab="text" class="on">文字</button><button type="button" data-palette-tab="stroke">縁取り</button><button type="button" data-palette-tab="background">座布団</button></div><div class="akari-caption-palette-grid" data-palette-colors></div><div class="akari-caption-palette-label">最近使った色</div><div class="akari-caption-palette-grid" data-palette-recent></div><button type="button" data-palette-more>他の色…</button></div></div>
           <canvas id="pen-layer" aria-hidden="true"></canvas>
         </div>
@@ -9106,6 +9110,9 @@ body { display: grid; place-items: center; padding: 32px; }
             };
             window.akari.requestCaptionInspector = field => {
                 vscode.postMessage({ type: 'akari-preview-caption-inspector', field });
+            };
+            window.akari.requestMyStyleSave = captionId => {
+                vscode.postMessage({ type: 'akari-preview-my-style-save', captionId });
             };
             window.akari.reportAltAll = on => vscode.postMessage({ type: 'akari-preview-alt-all', on });
             if (outputPreviewLink && initial.relatedEditUri) {
@@ -14298,6 +14305,9 @@ body { display: grid; place-items: center; padding: 32px; }
                 }
             });
             captionTool('inspector').addEventListener('click', () => requestCaptionInspector('caption-style'));
+            captionTool('my-style-save').addEventListener('click', () => {
+                if (selectedCaptionId) window.akari.requestMyStyleSave(selectedCaptionId);
+            });
             captionRowBoxToggle.addEventListener('click', () => {
                 captionRowBoxEnabled = !captionRowBoxEnabled;
                 captionRowBoxToggle.setAttribute('aria-pressed', String(captionRowBoxEnabled));

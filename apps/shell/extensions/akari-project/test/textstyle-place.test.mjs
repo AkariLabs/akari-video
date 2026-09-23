@@ -13,6 +13,14 @@ test('テキストスタイルだけが placeText の stylePreset 引数にな�
   assert.equal(textStylePlaceOptions({ kind: 'textstyle', id: ' ' }), undefined);
 });
 
+test('マイスタイルの＋は見た目込みの placeText を一度だけ呼ぶ', () => {
+  const start = widget.indexOf('protected async addMyStyleAtPlayhead(');
+  const end = widget.indexOf('\n    protected ', start + 1);
+  const body = widget.slice(start, end);
+  assert.match(body, /executeCommand\('akari\.caption\.placeText', \{ myStyle: style \}\)/);
+  assert.doesNotMatch(body, /akari\.mystyle\.apply/);
+});
+
 test('grid と list のテキストスタイルカードがドラッグと ＋ を持つ', () => {
   for (const method of ['renderPresetShowcaseListRow', 'renderPresetShowcaseCard']) {
     const start = widget.indexOf(`protected ${method}(`);

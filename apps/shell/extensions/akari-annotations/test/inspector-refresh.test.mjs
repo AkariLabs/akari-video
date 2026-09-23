@@ -86,3 +86,27 @@ test('字幕・音声・複数選択とサムネなしにも選択帯を描画�
     await Promise.resolve();
     assert.equal(stale.children[0].children.length, 0);
 }));
+
+test('字幕の ⋯ は見出しと同じ行で、外側クリックと Escape でメニューを閉じる', () => withInspectorDom(({ document }) => {
+    let saves = 0;
+    const header = createSelectionHeader({ kind: 'caption', text: '字幕', outputStart: 0, outputEnd: 1 },
+        async () => undefined, () => { saves++; });
+    assert.equal(header.children.length, 3);
+    assert.equal(header.style.gridTemplateColumns, '40px minmax(0, 1fr) 24px');
+    const actions = header.children[2], menu = actions.children[0], save = actions.children[1];
+    assert.equal(menu.attributes.get('title'), undefined);
+    assert.equal(save.attributes.get('title'), undefined);
+    assert.equal(save.hidden, true);
+    menu.emit('click');
+    assert.equal(save.hidden, false);
+    actions.contains = () => false;
+    document.emit('pointerdown', { target: document.body });
+    assert.equal(save.hidden, true);
+    menu.emit('click');
+    document.emit('keydown', { key: 'Escape' });
+    assert.equal(save.hidden, true);
+    menu.emit('click');
+    save.emit('click');
+    assert.equal(saves, 1);
+    assert.equal(save.hidden, true);
+}));

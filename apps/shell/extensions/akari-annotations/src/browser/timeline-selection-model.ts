@@ -360,6 +360,7 @@ type InspectorWriteOperation =
     | { kind: 'caption-style-bg-radius'; id: string; value: number }
     | { kind: 'caption-style-bg-mode'; id: string; value: CaptionBackgroundMode }
     | { kind: 'caption-style-zone'; id: string; value: CaptionZone }
+    | { kind: 'caption-style-my-style'; id: string; value: Record<string, unknown> }
     | { kind: 'sfx-gain'; id: string; value: number | null }
     | { kind: 'sfx-fade-in'; id: string; value: number | null }
     | { kind: 'sfx-fade-out'; id: string; value: number | null }

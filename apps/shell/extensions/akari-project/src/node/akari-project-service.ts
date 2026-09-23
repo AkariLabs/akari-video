@@ -67,6 +67,7 @@ import { deriveAssetDistribution, mergeAssetCatalogViews, ResolverRawCatalogItem
 import { CatalogPack, parseCatalogPacksFile } from '../common/catalog-packs';
 import { resolveResolverCatalogUrls } from './resolver-preview-url';
 import { parsePresetShowcaseJsonl } from '../common/preset-showcase';
+import { MY_STYLE_ID, MyStyle, parseMyStyle } from '../common/my-style';
 import {
     pollDeviceConnection,
     readCredentials,
@@ -372,6 +373,76 @@ export class AkariProjectServiceImpl implements AkariProjectService {
             this.loadPresetShowcaseIndex('textstyle')
         ]);
         return { lut, textanim, textstyle };
+    }
+
+    /** The library resolver is the single source of the writable root. */
+    protected async myStylesDirectory(): Promise<string> {
+        const src = await this.findAssetResolverSrcDir();
+        if (!src) throw new Error('ライブラリの置き場を解決できません。');
+        const moduleUrl = pathToFileURL(resolve(src, '../../creator-root/src/index.mjs')).toString();
+        const result = await this.runResolverScript(`import { resolveAssetLibraryRoots } from ${JSON.stringify(moduleUrl)}; process.stdout.write(resolveAssetLibraryRoots(process.env).write);`);
+        if (result.code !== 0 || !isAbsolute(result.stdout.trim())) throw new Error('ライブラリの置き場を解決できません。');
+        return join(result.stdout.trim(), 'styles');
+    }
+
+    protected myStyleFile(directory: string, id: string): string {
+        if (!MY_STYLE_ID.test(id)) throw new Error('スタイル ID が不正です。');
+        return join(directory, id, 'style.json');
+    }
+
+    protected async assertMyStyleDirectories(directory: string, id: string): Promise<void> {
+        for (const target of [directory, join(directory, id)]) {
+            const entry = await fs.lstat(target);
+            if (!entry.isDirectory() || entry.isSymbolicLink()) throw new Error('スタイルの置き場がフォルダではありません。');
+        }
+    }
+
+    async listMyStyles(): Promise<MyStyle[]> {
+        const directory = await this.myStylesDirectory();
+        let entries: Dirent[];
+        try { entries = await fs.readdir(directory, { withFileTypes: true }); }
+        catch (error) { if ((error as NodeJS.ErrnoException).code === 'ENOENT') return []; throw error; }
+        const styles: MyStyle[] = [];
+        for (const entry of entries) {
+            if (!entry.isDirectory() || !MY_STYLE_ID.test(entry.name)) continue;
+            try {
+                const parsed = parseMyStyle(JSON.parse(await fs.readFile(this.myStyleFile(directory, entry.name), 'utf8')));
+                if (parsed.id === entry.name) styles.push(parsed);
+            } catch { /* A broken card does not hide the rest of the shelf. */ }
+        }
+        return styles.sort((a, b) => b.updated_at.localeCompare(a.updated_at) || a.id.localeCompare(b.id));
+    }
+
+    async saveMyStyle(value: MyStyle): Promise<void> {
+        const style = parseMyStyle(value);
+        const directory = await this.myStylesDirectory();
+        const file = this.myStyleFile(directory, style.id);
+        await fs.mkdir(dirname(file), { recursive: true });
+        await this.assertMyStyleDirectories(directory, style.id);
+        const temp = `${file}.${process.pid}.tmp`;
+        try {
+            await fs.writeFile(temp, `${JSON.stringify(style, null, 2)}\n`, { flag: 'wx' });
+            await fs.rename(temp, file);
+        } finally { await fs.rm(temp, { force: true }); }
+    }
+
+    async renameMyStyle(id: string, name: string): Promise<void> {
+        if (!name.trim()) throw new Error('名前を入力してください。');
+        const directory = await this.myStylesDirectory();
+        const file = this.myStyleFile(directory, id);
+        await this.assertMyStyleDirectories(directory, id);
+        const style = parseMyStyle(JSON.parse(await fs.readFile(file, 'utf8')));
+        if (style.id !== id) throw new Error('スタイル ID が一致しません。');
+        await this.saveMyStyle({ ...style, name: name.trim(), updated_at: new Date().toISOString() });
+    }
+
+    async deleteMyStyle(id: string): Promise<void> {
+        const directory = await this.myStylesDirectory();
+        const file = this.myStyleFile(directory, id);
+        await this.assertMyStyleDirectories(directory, id);
+        await fs.unlink(file);
+        await fs.rm(join(dirname(file), 'thumbnail.png'), { force: true });
+        await fs.rmdir(dirname(file));
     }
 
     protected async loadPresetShowcaseIndex(kind: PresetShowcaseKind): Promise<PresetShowcase[PresetShowcaseKind]> {

@@ -1,0 +1,151 @@
+{
+  "phase": "before",
+  "base": "af19dd23",
+  "libraryRoots": {
+    "isolatedEnv": {
+      "write": "<iso>/akari-home/assets",
+      "read": [
+        "<iso>/akari-home/assets"
+      ]
+    },
+    "rule": "AKARI_LIBRARY_ROOT → $AKARI_HOME/library-location.json の root（state migrating|done）→ previousRoot → $AKARI_HOME/assets"
+  },
+  "inspectorHeader": {
+    "headerText": "今日は朝のルーティンを紹介します00:00.0 – 00:02.5 · 字幕",
+    "headerRect": {
+      "x": 822,
+      "y": 47,
+      "w": 547,
+      "h": 60
+    },
+    "buttons": [],
+    "moreButtons": []
+  },
+  "inspectorMoreMenu": null,
+  "toolsAfterTimelineSelect": null,
+  "previewTools": {
+    "rect": {
+      "x": 57,
+      "y": 262,
+      "w": 273,
+      "h": 36
+    },
+    "items": [
+      {
+        "text": "この字幕だけ動く — 押すと全字幕をまとめて動かす（⌥ドラッグでも可）",
+        "title": null,
+        "aria": "全字幕モード",
+        "data": [
+          "data-caption-tool=group"
+        ],
+        "hasSvg": true
+      },
+      {
+        "text": "吸着 ON — 近づくと中央・端に吸い付く。⌥ドラッグで一時的に無効",
+        "title": null,
+        "aria": "吸着",
+        "data": [
+          "data-caption-tool=snap"
+        ],
+        "hasSvg": true
+      },
+      {
+        "text": "はみ出し防止 OFF — ON で画面の内側に押し戻す",
+        "title": null,
+        "aria": "はみ出し防止",
+        "data": [
+          "data-caption-tool=clamp"
+        ],
+        "hasSvg": true
+      },
+      {
+        "text": "B太字のオン・オフ",
+        "title": null,
+        "aria": "太字",
+        "data": [
+          "data-caption-tool=bold"
+        ],
+        "hasSvg": false
+      },
+      {
+        "text": "文字・縁取り・座布団の色",
+        "title": null,
+        "aria": "色",
+        "data": [
+          "data-caption-tool=color"
+        ],
+        "hasSvg": true
+      },
+      {
+        "text": "座布団 OFF — 形・余白・角丸はインスペクターで",
+        "title": null,
+        "aria": "座布団",
+        "data": [
+          "data-caption-tool=cushion"
+        ],
+        "hasSvg": true
+      },
+      {
+        "text": "位置と大きさを既定に戻す",
+        "title": null,
+        "aria": "既定に戻す",
+        "data": [
+          "data-caption-tool=reset"
+        ],
+        "hasSvg": true
+      },
+      {
+        "text": "インスペクターを開く",
+        "title": null,
+        "aria": "インスペクターを開く",
+        "data": [
+          "data-caption-tool=inspector"
+        ],
+        "hasSvg": true
+      }
+    ]
+  },
+  "libraryCategories": [
+    "shapes | ◯図形近日",
+    "stamps | ☺スタンプ近日",
+    "image | ▦画像一覧から選ぶ",
+    "broll | ▶B-roll一覧から選ぶ",
+    "bgm | ♪BGM一覧から選ぶ",
+    "sfx | ♬SFX一覧から選ぶ",
+    "overlay | ✦オーバーレイ一覧から選ぶ",
+    "scene3d | ⬡3D・アバター一覧から選ぶ",
+    "textstyle | 字テキストスタイルタイムラインへドラッグ、＋でプレイヘッド位置に置く12",
+    "textanim | 動テキストアニメ選択中のテロップに適用（次のラウンドで有効化）47",
+    "font | Aaフォント「使う」でこのプロジェクトのフォントに追加31",
+    "lut | ◐LUT選択中のカットに適用（強さはインスペクター）10",
+    "transition | ⇄トランジションタイムラインのカット境界へドラッグして適用29",
+    "fx | ✳エフェクトエフェクトは近日利用できるようになります近日",
+    "motion | ∿モーションモーションは近日利用できるようになります近日",
+    "pack | ▤パックパック内の素材をまとめて取り込み2",
+    "template | ⧉テンプレートテンプレートからの新規作成は近日利用できるようになります近日",
+    "fav | ★お気に入り近日",
+    "brandkit | ◈ブランドキット近日",
+    "mypresets | ✎保存したプリセット近日"
+  ],
+  "libraryHomeTextstyleTile": "字テキストスタイルタイムラインへドラッグ、＋でプレイヘッド位置に置く12",
+  "textstyleShelf": {
+    "count": 12,
+    "ids": [
+      "textstyle/subtitle-news",
+      "textstyle/subtitle-standard",
+      "textstyle/subtitle-variety",
+      "textstyle/subtitle-commentary",
+      "textstyle/subtitle-interview",
+      "textstyle/narration-caption",
+      "textstyle/emphasis-red",
+      "textstyle/verdict-badge",
+      "textstyle/discount-text",
+      "textstyle/neon",
+      "textstyle/glitch",
+      "textstyle/title-impact"
+    ],
+    "sections": [],
+    "myStyle": false
+  },
+  "status": "ok"
+}

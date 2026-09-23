@@ -1,6 +1,8 @@
 import { LibraryImportPlan, LibraryImportResult } from './library-import';
 import { CatalogPack } from './catalog-packs';
 import { PresetShowcase } from './preset-showcase';
+import type { MyStyle } from './my-style';
+export type { MyStyle } from './my-style';
 export { PresetShowcase, PresetShowcaseItem, PresetShowcaseKind } from './preset-showcase';
 
 export const AKARI_PROJECT_SERVICE_PATH = '/services/akari-project';
@@ -356,6 +358,10 @@ export interface AkariProjectService {
     getAssetCatalogView(preferenceRoot: string | undefined): Promise<AssetCatalogView>;
     /** テロップ / LUT の参照表を、素材カタログとは別系統の読み取り専用棚として返す。 */
     getPresetShowcase(): Promise<PresetShowcase>;
+    listMyStyles(): Promise<MyStyle[]>;
+    saveMyStyle(style: MyStyle): Promise<void>;
+    renameMyStyle(id: string, name: string): Promise<void>;
+    deleteMyStyle(id: string): Promise<void>;
     /**
      * resolver 直行（エージェント非経由）で素材を解決し、指定プロジェクトの assets/ 配下へ
      * 配置する。無料 or 購入済み（entitlements 保有）のみ成功する。未購入は

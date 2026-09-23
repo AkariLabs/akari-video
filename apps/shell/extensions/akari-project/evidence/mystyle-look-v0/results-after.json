@@ -1,0 +1,667 @@
+{
+  "phase": "after",
+  "base": "af19dd23",
+  "checks": [
+    {
+      "name": "インスペクター: 字幕の見出し帯の右端に ⋯（見出しの高さは BEFORE と同じ 60px・即時の説明）",
+      "pass": true,
+      "detail": {
+        "header": {
+          "w": 273,
+          "h": 60,
+          "right": 1369
+        },
+        "button": {
+          "x": 1335,
+          "y": 64.5,
+          "w": 24,
+          "h": 24,
+          "right": 1359
+        },
+        "titleTop": null,
+        "hasTitleAttr": false,
+        "aria": "字幕のその他の操作",
+        "emoji": false,
+        "tooltip": {
+          "text": "字幕のその他の操作",
+          "ms": 80
+        }
+      }
+    },
+    {
+      "name": "⋯ → 「マイスタイルに保存…」→ ダイアログ（見た目だけ有効・動き / 効果音 / 画面効果 / 装飾は近日で無効）",
+      "pass": true,
+      "detail": {
+        "menu": {
+          "text": "マイスタイルに保存…",
+          "w": 176,
+          "h": 35.5
+        },
+        "dialog": {
+          "text": "マイスタイルに保存 / 名前 / 使いどころ / 保存する部品 /  見た目 （位置は含めない） /  動き（近日） /  効果音（近日） /  画面効果（近日） /  装飾（近日） / キャンセル / 保存",
+          "name": "今日は朝のルーティンを紹介します",
+          "parts": [
+            {
+              "kind": "look",
+              "checked": true,
+              "disabled": false,
+              "label": "見た目 （位置は含めない）"
+            },
+            {
+              "kind": "motion",
+              "checked": false,
+              "disabled": true,
+              "label": "動き（近日）"
+            },
+            {
+              "kind": "sfx",
+              "checked": false,
+              "disabled": true,
+              "label": "効果音（近日）"
+            },
+            {
+              "kind": "fx",
+              "checked": false,
+              "disabled": true,
+              "label": "画面効果（近日）"
+            },
+            {
+              "kind": "decor",
+              "checked": false,
+              "disabled": true,
+              "label": "装飾（近日）"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "保存 → ライブラリの styles/<id>/style.json（形・位置なし・絶対パスなし・実効の見た目）",
+      "pass": true,
+      "detail": {
+        "relativeFile": "styles/my-46fb1454-0b7b-47a6-8d89-3da50b1b45e8/style.json",
+        "style": {
+          "schema": "akari-style/v0",
+          "id": "my-46fb1454-0b7b-47a6-8d89-3da50b1b45e8",
+          "name": "強調テロップ",
+          "when_to_use": "驚きや大事な一言を目立たせたいとき",
+          "sample_text": "今日は朝のルーティンを紹介します",
+          "created_at": "2026-09-23T17:50:43.575Z",
+          "updated_at": "2026-09-23T17:50:43.575Z",
+          "license": "private",
+          "version": 1,
+          "parts": [
+            {
+              "kind": "look",
+              "text_style": {
+                "color": "#FFD400",
+                "size_px": 52,
+                "font_weight": 900,
+                "shadow": {
+                  "color": "#000000",
+                  "opacity": 0.6,
+                  "blur_px": 6,
+                  "distance_px": 6,
+                  "angle_deg": 90
+                },
+                "stroke": {
+                  "color": "#D12B2B",
+                  "width_px": 5
+                },
+                "background": {
+                  "color": "#1E3A8A",
+                  "opacity": 0.85,
+                  "radius_px": 12,
+                  "mode": "block"
+                },
+                "glow": null
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "保存: style_preset 付きの字幕（c-0005 = subtitle-variety）の見た目にプリセットの値が入る",
+      "pass": true,
+      "detail": {
+        "look": {
+          "color": "#fff200",
+          "size_px": 80,
+          "weight": 700,
+          "shadow": {
+            "color": "#000000",
+            "opacity": 0.6,
+            "blur_px": 6,
+            "distance_px": 6,
+            "angle_deg": 90
+          },
+          "stroke": {
+            "color": "#1a1a1a",
+            "width_px": 9
+          },
+          "glow": null,
+          "background": {
+            "opacity": 0
+          }
+        },
+        "preset": {
+          "size_px": 80,
+          "weight": 700,
+          "color": "#fff200",
+          "stroke": {
+            "color": "#1a1a1a",
+            "width_px": 9
+          },
+          "shadow": {
+            "color": "#000000",
+            "opacity": 0.6,
+            "blur_px": 6,
+            "distance_px": 6,
+            "angle_deg": 90
+          }
+        }
+      }
+    },
+    {
+      "name": "棚: テキストスタイルの棚にマイスタイル（札・部品のチップ = 見た目・名前・使いどころ）が同梱のテキストスタイルと並ぶ・崩れない",
+      "pass": true,
+      "detail": {
+        "builtIn": 12,
+        "shelf": {
+          "rect": {
+            "x": 48,
+            "y": 195.9,
+            "w": 211,
+            "h": 362.5
+          },
+          "cards": [
+            {
+              "id": "my-ef877c8c-d287-46fd-89a9-70f3580f0e29",
+              "rect": {
+                "w": 191,
+                "h": 155.5
+              },
+              "draggable": "true",
+              "badge": "マイスタイル",
+              "parts": [
+                {
+                  "kind": "look",
+                  "label": "見た目"
+                }
+              ],
+              "text": "ここがいちばん大事 / マイスタイル / バラエティ由来 / バラエティ番組風に盛り上げたいとき / 見た目",
+              "buttons": [
+                {
+                  "aria": "選択した字幕に当てる",
+                  "text": "選択した字幕に当てる",
+                  "w": 28,
+                  "h": 26
+                },
+                {
+                  "aria": "プレイヘッド位置に置く",
+                  "text": "プレイヘッド位置に置く",
+                  "w": 28,
+                  "h": 26
+                },
+                {
+                  "aria": "名前を変更",
+                  "text": "名前を変更",
+                  "w": 28,
+                  "h": 26
+                },
+                {
+                  "aria": "削除",
+                  "text": "削除",
+                  "w": 28,
+                  "h": 26
+                }
+              ],
+              "buttonRows": 1
+            },
+            {
+              "id": "my-46fb1454-0b7b-47a6-8d89-3da50b1b45e8",
+              "rect": {
+                "w": 191,
+                "h": 155.5
+              },
+              "draggable": "true",
+              "badge": "マイスタイル",
+              "parts": [
+                {
+                  "kind": "look",
+                  "label": "見た目"
+                }
+              ],
+              "text": "今日は朝のルーティンを紹介します / マイスタイル / 強調テロップ / 驚きや大事な一言を目立たせたいとき / 見た目",
+              "buttons": [
+                {
+                  "aria": "選択した字幕に当てる",
+                  "text": "選択した字幕に当てる",
+                  "w": 28,
+                  "h": 26
+                },
+                {
+                  "aria": "プレイヘッド位置に置く",
+                  "text": "プレイヘッド位置に置く",
+                  "w": 28,
+                  "h": 26
+                },
+                {
+                  "aria": "名前を変更",
+                  "text": "名前を変更",
+                  "w": 28,
+                  "h": 26
+                },
+                {
+                  "aria": "削除",
+                  "text": "削除",
+                  "w": 28,
+                  "h": 26
+                }
+              ],
+              "buttonRows": 1
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "当てる: 字幕 3 本（c-0002〜c-0004）を選んで当てる → 3 本とも同じ見た目・位置は変わらない",
+      "pass": true,
+      "detail": {
+        "before": {
+          "c-0002": {
+            "text_anchor": "bl",
+            "position": {
+              "x": 0.1,
+              "y": 0.9
+            }
+          },
+          "c-0003": null,
+          "c-0004": null
+        },
+        "after": {
+          "c-0002": {
+            "text_anchor": "bl",
+            "position": {
+              "x": 0.1,
+              "y": 0.9
+            },
+            "color": "#FFD400",
+            "size_px": 52,
+            "font_weight": 900,
+            "shadow": {
+              "color": "#000000",
+              "opacity": 0.6,
+              "blur_px": 6,
+              "distance_px": 6,
+              "angle_deg": 90
+            },
+            "stroke": {
+              "color": "#D12B2B",
+              "width_px": 5
+            },
+            "background": {
+              "color": "#1E3A8A",
+              "opacity": 0.85,
+              "radius_px": 12,
+              "mode": "block"
+            }
+          },
+          "c-0003": {
+            "color": "#FFD400",
+            "size_px": 52,
+            "font_weight": 900,
+            "shadow": {
+              "color": "#000000",
+              "opacity": 0.6,
+              "blur_px": 6,
+              "distance_px": 6,
+              "angle_deg": 90
+            },
+            "stroke": {
+              "color": "#D12B2B",
+              "width_px": 5
+            },
+            "background": {
+              "color": "#1E3A8A",
+              "opacity": 0.85,
+              "radius_px": 12,
+              "mode": "block"
+            }
+          },
+          "c-0004": {
+            "color": "#FFD400",
+            "size_px": 52,
+            "font_weight": 900,
+            "shadow": {
+              "color": "#000000",
+              "opacity": 0.6,
+              "blur_px": 6,
+              "distance_px": 6,
+              "angle_deg": 90
+            },
+            "stroke": {
+              "color": "#D12B2B",
+              "width_px": 5
+            },
+            "background": {
+              "color": "#1E3A8A",
+              "opacity": 0.85,
+              "radius_px": 12,
+              "mode": "block"
+            }
+          }
+        },
+        "notices": []
+      }
+    },
+    {
+      "name": "当てる: 出力プレビューで 3 本の見た目（文字色・縁取り・座布団・影・大きさ）が保存元 c-0001 と同じ",
+      "pass": true,
+      "detail": {
+        "styles": {
+          "c-0001": {
+            "color": "rgb(255, 212, 0)",
+            "fontSize": "52px",
+            "fontWeight": "900",
+            "stroke": "rgb(209, 43, 43) 10px",
+            "textShadow": "rgba(0, 0, 0, 0.6) 0px 6px 6px",
+            "background": "rgba(30, 58, 138, 0.85)",
+            "radius": "12px"
+          },
+          "c-0002": {
+            "color": "rgb(255, 212, 0)",
+            "fontSize": "52px",
+            "fontWeight": "900",
+            "stroke": "rgb(209, 43, 43) 10px",
+            "textShadow": "rgba(0, 0, 0, 0.6) 0px 6px 6px",
+            "background": "rgba(30, 58, 138, 0.85)",
+            "radius": "12px"
+          },
+          "c-0003": {
+            "color": "rgb(255, 212, 0)",
+            "fontSize": "52px",
+            "fontWeight": "900",
+            "stroke": "rgb(209, 43, 43) 10px",
+            "textShadow": "rgba(0, 0, 0, 0.6) 0px 6px 6px",
+            "background": "rgba(30, 58, 138, 0.85)",
+            "radius": "12px"
+          },
+          "c-0004": {
+            "color": "rgb(255, 212, 0)",
+            "fontSize": "52px",
+            "fontWeight": "900",
+            "stroke": "rgb(209, 43, 43) 10px",
+            "textShadow": "rgba(0, 0, 0, 0.6) 0px 6px 6px",
+            "background": "rgba(30, 58, 138, 0.85)",
+            "radius": "12px"
+          }
+        },
+        "waitedMs": {
+          "c-0001": 24,
+          "c-0002": 10,
+          "c-0003": 7,
+          "c-0004": 205
+        }
+      }
+    },
+    {
+      "name": "当てる: Cmd+Z 1 回で 3 本とも戻る（captions.json が fixture と byte 一致）",
+      "pass": true,
+      "detail": {
+        "captionsEqualHead": true,
+        "gitStatus": ""
+      }
+    },
+    {
+      "name": "＋: プレイヘッド 5 秒で ＋ → 置いた文字に保存した見た目・Cmd+Z 1 回で戻る",
+      "pass": true,
+      "detail": {
+        "placed": {
+          "id": "c-0006",
+          "start": 5,
+          "end": 8,
+          "text": "テキストを入力",
+          "speaker": null,
+          "sourceRef": null,
+          "edited": true,
+          "time_domain": "output",
+          "text_style": {
+            "color": "#FFD400",
+            "size_px": 52,
+            "font_weight": 900,
+            "text_anchor": "tc",
+            "position": {
+              "y": 0.4625
+            },
+            "shadow": {
+              "color": "#000000",
+              "opacity": 0.6,
+              "blur_px": 6,
+              "distance_px": 6,
+              "angle_deg": 90
+            },
+            "glow": {
+              "color": "#000000",
+              "density": 0
+            },
+            "stroke": {
+              "color": "#D12B2B",
+              "width_px": 5
+            },
+            "background": {
+              "color": "#1E3A8A",
+              "opacity": 0.85,
+              "radius_px": 12,
+              "mode": "block"
+            }
+          }
+        },
+        "undo": {
+          "captionsEqualHead": true,
+          "gitStatus": ""
+        }
+      }
+    },
+    {
+      "name": "ドラッグ: マイスタイルのカードをタイムラインの 10 秒へ → 置いた文字に見た目・Cmd+Z 1 回で戻る",
+      "pass": true,
+      "detail": {
+        "payloadKind": "mystyle",
+        "drop": {
+          "x": 813,
+          "y": 690
+        },
+        "elementAtDrop": "",
+        "placed": {
+          "id": "c-0006",
+          "start": 10.002117919921874,
+          "end": 13.002117919921874
+        },
+        "undo": {
+          "captionsEqualHead": true,
+          "gitStatus": ""
+        }
+      }
+    },
+    {
+      "name": "名前の変更: 「強調テロップ（黄）」へ → style.json とカードに反映",
+      "pass": true,
+      "detail": {
+        "dialog": {
+          "text": "マイスタイルの名前を変更 / 変更 / キャンセル",
+          "buttons": [
+            "変更",
+            "キャンセル"
+          ]
+        },
+        "name": "強調テロップ（黄）",
+        "updated_at": "2026-09-23T17:51:16.736Z",
+        "created_at": "2026-09-23T17:50:43.575Z"
+      }
+    },
+    {
+      "name": "起動し直し: マイスタイルが棚に残る（保存・手で足した 3 件）・style.json は起動で書き換わらない",
+      "pass": true,
+      "detail": {
+        "ids": [
+          "hand-motion",
+          "my-46fb1454-0b7b-47a6-8d89-3da50b1b45e8",
+          "my-ef877c8c-d287-46fd-89a9-70f3580f0e29"
+        ],
+        "motionCardParts": [
+          {
+            "kind": "look",
+            "label": "見た目"
+          },
+          {
+            "kind": "motion",
+            "label": "動き（当てない）"
+          }
+        ]
+      }
+    },
+    {
+      "name": "motion 入りを当てる: 壊れず見た目だけ当たり（animation は書かない）、1 行知らせる・Cmd+Z 1 回で戻る",
+      "pass": true,
+      "detail": {
+        "before": {
+          "text_anchor": "bl",
+          "position": {
+            "x": 0.1,
+            "y": 0.9
+          }
+        },
+        "after": {
+          "text_anchor": "bl",
+          "position": {
+            "x": 0.1,
+            "y": 0.9
+          },
+          "color": "#00E5FF",
+          "stroke": {
+            "color": "#002233",
+            "width_px": 4
+          }
+        },
+        "notice": [
+          "動き は v0 では当てません。見た目を当てました。"
+        ],
+        "undo": {
+          "captionsEqualHead": true,
+          "gitStatus": ""
+        }
+      }
+    },
+    {
+      "name": "ミニパネル: 字幕をプレビューで選ぶ → 「マイスタイルに保存」（アイコン・即時の説明・絵文字なし）→ その字幕のダイアログ",
+      "pass": true,
+      "detail": {
+        "toolsCount": 8,
+        "item": {
+          "text": "マイスタイルに保存",
+          "title": null,
+          "aria": "マイスタイルに保存",
+          "data": [
+            "data-caption-tool=my-style-save",
+            "data-akari-my-style-preview-save="
+          ],
+          "hasSvg": true
+        },
+        "tooltip": {
+          "text": "マイスタイルに保存",
+          "ms": 1
+        },
+        "dialog": {
+          "name": "豆は挽きたてが一番おいしい"
+        },
+        "escapeCloses": true
+      }
+    },
+    {
+      "name": "削除: hand-motion を削除 → フォルダごと消え、カードも消える",
+      "pass": true,
+      "detail": {
+        "dialog": {
+          "text": "マイスタイルを削除 / 手書きの動き入り を削除しますか？ / キャンセル / 削除",
+          "buttons": [
+            "キャンセル",
+            "削除"
+          ]
+        },
+        "remaining": [
+          "my-46fb1454-0b7b-47a6-8d89-3da50b1b45e8",
+          "my-ef877c8c-d287-46fd-89a9-70f3580f0e29"
+        ]
+      }
+    },
+    {
+      "name": "保存された style.json 全件: 絶対パス・位置のキーが無い",
+      "pass": true,
+      "detail": {
+        "files": [
+          "styles/my-46fb1454-0b7b-47a6-8d89-3da50b1b45e8/style.json",
+          "styles/my-ef877c8c-d287-46fd-89a9-70f3580f0e29/style.json"
+        ],
+        "savedExample": {
+          "schema": "akari-style/v0",
+          "id": "my-46fb1454-0b7b-47a6-8d89-3da50b1b45e8",
+          "name": "強調テロップ（黄）",
+          "when_to_use": "驚きや大事な一言を目立たせたいとき",
+          "sample_text": "今日は朝のルーティンを紹介します",
+          "created_at": "2026-09-23T17:50:43.575Z",
+          "updated_at": "2026-09-23T17:51:16.736Z",
+          "license": "private",
+          "version": 1,
+          "parts": [
+            {
+              "kind": "look",
+              "text_style": {
+                "color": "#FFD400",
+                "size_px": 52,
+                "font_weight": 900,
+                "shadow": {
+                  "color": "#000000",
+                  "opacity": 0.6,
+                  "blur_px": 6,
+                  "distance_px": 6,
+                  "angle_deg": 90
+                },
+                "stroke": {
+                  "color": "#D12B2B",
+                  "width_px": 5
+                },
+                "background": {
+                  "color": "#1E3A8A",
+                  "opacity": 0.85,
+                  "radius_px": 12,
+                  "mode": "block"
+                },
+                "glow": null
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "screenshots": [
+    "after-01-inspector-header.png",
+    "after-02-inspector-menu.png",
+    "after-03-save-dialog.png",
+    "after-04-library-shelf.png",
+    "after-05-applied-preview.png",
+    "after-06-plus-placed.png",
+    "after-07-shelf-after-restart.png",
+    "after-08-motion-notice.png",
+    "after-09-mini-panel-tooltip.png",
+    "after-10-delete-confirm.png"
+  ],
+  "window": {
+    "w": 1440,
+    "h": 900
+  },
+  "status": "pass"
+}

@@ -90,6 +90,7 @@ import { materialCardLayout } from '../common/material-card-layout';
 import { AKARI_MATERIAL_SELECTED_EVENT } from '../common/material-selected-event';
 import { CatalogPack } from '../common/catalog-packs';
 import { filterPresetShowcaseItems, presetShowcaseBottomPadding, textStylePlaceOptions } from '../common/preset-showcase';
+import { myStylePartLabel, myStyleSamplePresentation, type MyStyle } from '../common/my-style';
 import {
     LIBRARY_DETAIL_GROUPS,
     LIBRARY_GROUPS,
@@ -577,6 +578,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
 
     /** 素材カタログとは別系統で読む、テロップ / LUT の読み取り専用参照表。 */
     protected presetShowcase: PresetShowcase = EMPTY_PRESET_SHOWCASE;
+    protected myStyles: MyStyle[] = [];
     /** `catalog/packs.json`（無ければ空）。パック棚のグループ化はフロント側で行う。 */
     protected catalogPacks: CatalogPack[] = [];
     /**
@@ -632,6 +634,16 @@ export class AkariRoleBucketsWidget extends ReactWidget {
 
     @postConstruct()
     protected init(): void {
+        const saveMyStyle = (event: Event): void => {
+            const detail = (event as CustomEvent<{ style: MyStyle; resolve: () => void; reject: (error: unknown) => void }>).detail;
+            void this.projectService.saveMyStyle(detail.style).then(async () => {
+                this.myStyles = await this.projectService.listMyStyles();
+                this.update();
+                detail.resolve();
+            }, detail.reject);
+        };
+        window.addEventListener('akari.mystyle.save', saveMyStyle);
+        this.toDispose.push({ dispose: () => window.removeEventListener('akari.mystyle.save', saveMyStyle) });
         const changeLibraryLocation = (): void => { void this.commandService.executeCommand('akari.library.changeLocation'); };
         this.node.addEventListener('akari.library.changeLocation', changeLibraryLocation);
         this.toDispose.push({ dispose: () => this.node.removeEventListener('akari.library.changeLocation', changeLibraryLocation) });
@@ -1934,10 +1946,11 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         this.update();
         const preferenceRoot = this.preferences.get<string>(AKARI_CATALOG_ROOT_PREFERENCE, '');
         this.catalogPickError = undefined;
-        const [view, presetShowcase, usage] = await Promise.all([
+        const [view, presetShowcase, usage, myStyles] = await Promise.all([
             this.projectService.getAssetCatalogView(preferenceRoot),
             this.projectService.getPresetShowcase().catch(() => EMPTY_PRESET_SHOWCASE),
-            this.projectService.getLibraryUsage().catch(() => ({} as Record<string, { count: number; lastUsedAt: string; projects: string[] }>))
+            this.projectService.getLibraryUsage().catch(() => ({} as Record<string, { count: number; lastUsedAt: string; projects: string[] }>)),
+            this.projectService.listMyStyles().catch(() => [] as MyStyle[])
         ]);
         this.assetCatalogItems = view.items.map(item => ({ ...item,
             usageCount: usage[item.key]?.count ?? 0, lastUsedAt: usage[item.key]?.lastUsedAt }));
@@ -1945,6 +1958,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         this.catalogResolver = view.resolver;
         this.catalogEntitlementsStatus = view.entitlementsStatus;
         this.presetShowcase = presetShowcase;
+        this.myStyles = myStyles;
         this.catalogLoading = false;
         this.update();
     }
@@ -3554,6 +3568,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         };
         return (
             <div data-akari-library-preset-sections={kinds.length}>
+                {kinds.includes('textstyle') && this.renderMyStyles()}
                 {kinds.map((kind, index) => (
                     <section key={kind} data-akari-library-preset-section={kind}>
                         {(kinds.length > 1 || index > 0) && (
@@ -4176,6 +4191,102 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         return this.catalogViewMode === 'list'
             ? this.renderPresetShowcaseListRow(item)
             : this.renderPresetShowcaseCard(item);
+    }
+
+    protected renderMyStyles(): React.ReactNode {
+        const query = this.catalogQuery.trim().toLocaleLowerCase();
+        const styles = this.myStyles.filter(style => !query || `${style.name} ${style.when_to_use}`.toLocaleLowerCase().includes(query));
+        return <section data-akari-my-style-shelf>
+            <div style={{ padding: '7px 10px', fontSize: '0.76em', fontWeight: 700, borderBottom: AKARI_BORDER.hairline }}>マイスタイル</div>
+            {styles.length === 0 && <p style={{ opacity: 0.7, padding: '8px 10px', fontSize: '0.78em' }}>保存したスタイルはまだありません。</p>}
+            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)', gap: '6px', padding: '8px 10px' }}>
+                {styles.map(style => {
+                    const sampleStyle = myStyleSamplePresentation(style) as React.CSSProperties;
+                    return <div key={style.id} data-akari-my-style-card={style.id} draggable
+                        onDragStart={event => {
+                            const payload = { kind: 'mystyle', style };
+                            event.dataTransfer.setData(LIBRARY_DRAG_MIME, JSON.stringify(payload));
+                            event.dataTransfer.effectAllowed = 'copy';
+                            window.dispatchEvent(new CustomEvent(LIBRARY_DRAG_START_EVENT, { detail: payload }));
+                        }}
+                        onDragEnd={() => this.handleLibraryTransitionDragEnd()}
+                        style={{ minWidth: 0, padding: '7px', borderRadius: `${AKARI_RADIUS.panel}px`, background: AKARI_SURFACE.raised, border: AKARI_BORDER.ghost }}>
+                        <div style={{ height: '44px', display: 'flex', justifyContent: 'center', alignItems: 'center',
+                            overflow: 'hidden', background: AKARI_SURFACE.card, borderRadius: `${AKARI_RADIUS.chip}px` }}>
+                            <span data-akari-my-style-preview style={{ ...sampleStyle, maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {style.sample_text || style.name}
+                            </span>
+                        </div>
+                        <div data-akari-my-style-badge style={{ marginTop: '5px', fontSize: '0.67em', opacity: 0.7 }}>マイスタイル</div>
+                        <strong style={{ display: 'block', fontSize: '0.8em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{style.name}</strong>
+                        <div style={{ fontSize: '0.7em', opacity: 0.7, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{style.when_to_use}</div>
+                        <div style={{ display: 'flex', gap: '3px', overflow: 'hidden', whiteSpace: 'nowrap', margin: '4px 0' }}>
+                            {style.parts.map((part, index) => <span key={`${part.kind}-${index}`} data-akari-my-style-part={part.kind}
+                                style={{ display: 'inline-block', flexShrink: 0, padding: '1px 4px', borderRadius: `${AKARI_RADIUS.chip}px`,
+                                    background: 'var(--theia-badge-background)', opacity: part.kind === 'look' ? 1 : 0.55,
+                                    fontSize: '0.66em' }}>
+                                {myStylePartLabel(part.kind)}{part.kind === 'look' ? '' : '（当てない）'}</span>)}
+                        </div>
+                        <div style={{ display: 'flex', flexWrap: 'nowrap', justifyContent: 'space-between', gap: '2px' }}>
+                            {this.renderMyStyleAction('apply', style.id, 'codicon-check', '選択した字幕に当てる', () =>
+                                window.dispatchEvent(new CustomEvent('akari.mystyle.apply', { detail: { style } })))}
+                            {this.renderMyStyleAction('add', style.id, 'codicon-add', 'プレイヘッド位置に置く', () => { void this.addMyStyleAtPlayhead(style); })}
+                            {this.renderMyStyleAction('rename', style.id, 'codicon-edit', '名前を変更', () => { void this.renameMyStyle(style); })}
+                            {this.renderMyStyleAction('delete', style.id, 'codicon-trash', '削除', () => { void this.deleteMyStyle(style); })}
+                        </div>
+                    </div>;
+                })}
+            </div>
+        </section>;
+    }
+
+    protected renderMyStyleAction(action: 'apply' | 'add' | 'rename' | 'delete', id: string,
+        icon: string, label: string, onClick: () => void): React.ReactNode {
+        const toggleTip = (element: HTMLButtonElement, visible: boolean): void => {
+            element.querySelector<HTMLElement>('[data-akari-my-style-tip]')!.style.display = visible ? 'block' : 'none';
+        };
+        return <button type='button' key={action} aria-label={label}
+            data-akari-my-style-apply={action === 'apply' ? id : undefined}
+            data-akari-my-style-add={action === 'add' ? id : undefined}
+            data-akari-my-style-rename={action === 'rename' ? id : undefined}
+            data-akari-my-style-delete={action === 'delete' ? id : undefined}
+            style={{ position: 'relative', width: '28px', height: '26px', flex: '0 0 28px', minWidth: '28px',
+                padding: '2px', border: AKARI_BORDER.hairline, borderRadius: `${AKARI_RADIUS.chip}px`,
+                background: AKARI_SURFACE.card, color: AKARI_INK, cursor: 'pointer' }}
+            onMouseEnter={event => toggleTip(event.currentTarget, true)}
+            onMouseLeave={event => toggleTip(event.currentTarget, false)}
+            onFocus={event => toggleTip(event.currentTarget, true)}
+            onBlur={event => toggleTip(event.currentTarget, false)}
+            onClick={event => { event.stopPropagation(); onClick(); }}>
+            <span className={`codicon ${icon}`} aria-hidden='true' />
+            <span data-akari-my-style-tip style={{ display: 'none', position: 'absolute', bottom: 'calc(100% + 3px)', left: 0,
+                padding: '4px 6px', whiteSpace: 'nowrap', background: AKARI_SURFACE.card, border: AKARI_BORDER.hairline,
+                color: AKARI_INK, pointerEvents: 'none', zIndex: 20, fontSize: '11px' }}>{label}</span>
+        </button>;
+    }
+
+    protected async addMyStyleAtPlayhead(style: MyStyle): Promise<void> {
+        await this.commandService.executeCommand('akari.caption.placeText', { myStyle: style });
+    }
+
+    protected async renameMyStyle(style: MyStyle): Promise<void> {
+        class MyStyleRenameDialog extends SingleTextInputDialog {
+            constructor(name: string) {
+                super({ title: 'マイスタイルの名前を変更', initialValue: name, confirmButtonLabel: '変更' });
+                this.appendCloseButton('キャンセル');
+            }
+        }
+        const name = await new MyStyleRenameDialog(style.name).open();
+        if (name === undefined || !name.trim()) return;
+        try { await this.projectService.renameMyStyle(style.id, name); this.myStyles = await this.projectService.listMyStyles(); this.update(); }
+        catch (error) { this.messages.error(`名前を変更できません: ${String(error)}`); }
+    }
+
+    protected async deleteMyStyle(style: MyStyle): Promise<void> {
+        const confirmed = await new ConfirmDialog({ title: 'マイスタイルを削除', msg: `${style.name} を削除しますか？`, ok: '削除', cancel: 'キャンセル' }).open();
+        if (!confirmed) return;
+        try { await this.projectService.deleteMyStyle(style.id); this.myStyles = await this.projectService.listMyStyles(); this.update(); }
+        catch (error) { this.messages.error(`削除できません: ${String(error)}`); }
     }
 
     protected presetShowcaseTitle(item: PresetShowcaseItem): string {

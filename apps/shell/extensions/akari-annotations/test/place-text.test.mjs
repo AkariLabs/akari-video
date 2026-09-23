@@ -7,14 +7,16 @@ import { join } from 'node:path';
 import { pathToFileURL, fileURLToPath } from 'node:url';
 import ts from 'typescript';
 import { placeTextCaption, nextDaihonCaptionId } from '../lib/common/place-text.js';
+import { placedMyStyleTextStyle, myStyleApplyNotice } from '../lib/browser/my-style-look.js';
 import { AkariAnnotationsServiceImpl } from '../lib/node/akari-annotations-service.js';
 import { parseCaptions, readInternalEdit, toAnchorCaptions, timelineDurationSeconds } from '@akari-video/edit-store';
 
 const source = ts.createSourceFile('widget.ts', readFileSync(new URL('../src/browser/akari-annotations-widget.ts', import.meta.url), 'utf8'), ts.ScriptTarget.Latest, true);
 const declaration = source.statements.find(item => ts.isClassDeclaration(item) && item.name.text === 'AkariAnnotationsWidget');
 const code = ts.transpileModule(`class Widget { ${['placeText', 'withHistory'].map(name => declaration.members.find(item => item.name?.getText(source) === name).getText(source)).join('\n')} }`, { compilerOptions: { target: ts.ScriptTarget.ES2021 } }).outputText;
-const Widget = new Function('placeTextCaption', 'parseCaptions', 'readInternalEdit', 'toAnchorCaptions', 'timelineDurationSeconds', 'window', 'CustomEvent', `${code}; return Widget;`)(
+const Widget = new Function('placeTextCaption', 'parseCaptions', 'readInternalEdit', 'toAnchorCaptions', 'timelineDurationSeconds', 'placedMyStyleTextStyle', 'myStyleApplyNotice', 'window', 'CustomEvent', `${code}; return Widget;`)(
     placeTextCaption, parseCaptions, readInternalEdit, toAnchorCaptions, timelineDurationSeconds,
+    placedMyStyleTextStyle, myStyleApplyNotice,
     { dispatchEvent() {} }, class { constructor(type, options) { this.type = type; this.detail = options.detail; } });
 
 // Keep the real RPC, file reads and edit-store surgery; replace only post-write lint/git I/O.
@@ -91,6 +93,24 @@ test('missing captions.json: one insertion includes preset, selects/seeks, one u
     await assert.rejects(readFile(f.captionsPath), { code: 'ENOENT' });
     await f.history[0].redo();
     assert.equal(await readFile(f.captionsPath, 'utf8'), after);
+});
+
+test('マイスタイルの＋とドラッグは見た目を挿入時に書き、undo 1 回で元へ戻る', async t => {
+    const f = await fixture(t);
+    const myStyle = { parts: [{ kind: 'look', text_style: { color: '#ff1744',
+        stroke: { color: '#ffffff', width_px: 6 }, background: { color: '#111111', opacity: 0.7 } } },
+        { kind: 'motion', animation: { in: { id: 'pop' } } }] };
+    const id = await f.widget.placeText({ start: 1, myStyle });
+    assert.equal(id, 'c-0001', f.warnings.join(' / '));
+    assert.equal(f.history.length, 1);
+    assert.equal(f.service.writes.length, 1);
+    const after = JSON.parse(await readFile(f.captionsPath, 'utf8')).captions[0];
+    assert.equal(after.text_style.color, '#ff1744');
+    assert.deepEqual(after.text_style.stroke, { color: '#ffffff', width_px: 6 });
+    assert.deepEqual(after.text_style.position, { y: .4625 });
+    assert.deepEqual(f.notices, ['動き は v0 では当てません。見た目を当てました。']);
+    await f.history[0].undo();
+    await assert.rejects(readFile(f.captionsPath), { code: 'ENOENT' });
 });
 
 test('overlapping spoken captions are allowed; undo preserves the original bytes and metadata', async t => {

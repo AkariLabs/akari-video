@@ -3940,7 +3940,8 @@ export class AkariInspectorWidget extends BaseWidget {
             this.body.appendChild(empty);
             return;
         }
-        this.body.appendChild(createSelectionHeader(snapshot, path => this.generationThumbnail(path)));
+        this.body.appendChild(createSelectionHeader(snapshot, path => this.generationThumbnail(path),
+            () => window.dispatchEvent(new CustomEvent('akari.mystyle.open-save'))));
         if (snapshot.kind === 'gap') {
             this.tabSelectionKey = undefined;
             this.currentTab = undefined;
