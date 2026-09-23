@@ -1,7 +1,6 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { readCredentials } from '../../../creator-root/src/index.mjs';
 
 export const DEFAULT_JUDGE_URL = 'http://127.0.0.1:4748';
 export const SERVE_JUDGE_URL = 'https://akari.video/api/vibe';
@@ -59,11 +58,46 @@ function providerKeyValue(value) {
     return key || null;
 }
 
+function parseCredentialSource(source) {
+    const values = new Map();
+    for (const original of source.split(/\r?\n/)) {
+        const line = original.trim();
+        if (!line || line.startsWith('#')) continue;
+        const separator = line.indexOf('=');
+        const name = line.slice(0, separator).trim();
+        if (separator < 1 || !/^[A-Za-z_][A-Za-z0-9_]*$/.test(name)) continue;
+        let value = line.slice(separator + 1).trim();
+        if (value.length >= 2 && ((value.startsWith('"') && value.endsWith('"'))
+            || (value.startsWith("'") && value.endsWith("'")))) value = value.slice(1, -1);
+        values.set(name, value);
+    }
+    return values;
+}
+
+function readCredentialFile(file, readFile) {
+    if (!file) return null;
+    try {
+        if (readFile === fs.readFileSync && !fs.lstatSync(file).isFile()) {
+            throw new Error('Credentials path is not a regular file');
+        }
+        return readFile(file, 'utf8');
+    } catch (error) {
+        if (error.code === 'ENOENT' || (readFile !== fs.readFileSync && error.message === 'missing')) return null;
+        throw error;
+    }
+}
+
 function storedProviderKey({ env, home, readFile }) {
     try {
-        const shared = readCredentials({ ...env, HOME: home, USERPROFILE: home },
-            readFile === fs.readFileSync ? {} : { readFile });
-        const key = providerKeyValue(shared.values.get('OPENROUTER_API_KEY'));
+        const primary = env.AKARI_CREDENTIALS_FILE ?? path.join(env.AKARI_HOME || path.join(home, '.akari'), 'credentials.env');
+        const legacy = env.AKARI_CREDENTIALS_FILE ? null : path.join(home, '.config', 'akari-video', 'credentials.env');
+        const primarySource = readCredentialFile(primary, readFile);
+        const legacySource = readCredentialFile(legacy, readFile);
+        const values = new Map();
+        for (const source of [legacySource, primarySource]) {
+            if (source !== null) for (const [name, value] of parseCredentialSource(source)) values.set(name, value);
+        }
+        const key = providerKeyValue(values.get('OPENROUTER_API_KEY'));
         if (key) return key;
     } catch { /* Missing credentials mean unset. */ }
     for (const file of [path.join(home, '.config/akari/openrouter.env')]) {
