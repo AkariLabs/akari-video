@@ -21,6 +21,7 @@
     "@akari-video/edit-store": "file:../../../../packages/edit-store",
     "@theia/core": "1.73.1",
     "@theia/filesystem": "1.73.1",
+    "@theia/keymaps": "1.73.1",
     "@theia/workspace": "1.73.1",
     "@theia/editor": "1.73.1",
     "@theia/monaco": "1.73.1",
