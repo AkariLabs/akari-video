@@ -74,7 +74,8 @@ test('engine 面の当たり判定は実寸とクロップ窓を使う トラッ
     assert.match(engineBranch, /hits\.sort\(\(a, b\) => Number\(b\.style\.zIndex\) - Number\(a\.style\.zIndex\)\);/u);
     assert.match(engineBranch, /const bounds = video\.getBoundingClientRect\(\);/u);
     assert.match(engineBranch, /return hits\[0\] \|\| null;/u);
-    assert.equal((compiledHandler.match(/findVisualMediaHitAt\(event\)/gu) || []).length, 3);
+    // 増えた 1 回は shouldStartPreviewMarquee のマーキー開始判定フック内の呼び出し。
+    assert.equal((compiledHandler.match(/findVisualMediaHitAt\(event\)/gu) || []).length, 4);
 });
 
 test('engine 面の pointerdown は previewStage へ一度だけ委譲し操作 UI を横取りしない', () => {
@@ -152,6 +153,7 @@ test('capture delegation selects media covering HTML/captions once and leaves fo
     const surface = name => ({ addEventListener: (type, listener, capture) => listeners.push({ name, type, listener, capture }) });
     const video = { dataset: { akariCutIndex: '0' }, style: { zIndex: '15' } };
     const context = {
+        window: { akari: {} },
         frameEngineMediaIdle: true, selectedCaptionId: null, activeCaptionEdit: null,
         video, stillImage: {}, previewStage: surface('preview'),
         layersStage: surface('layers'), stage: {}, penModeActive: false, rectModeActive: false, cropModeActive: false,
