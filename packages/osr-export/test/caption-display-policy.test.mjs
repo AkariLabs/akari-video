@@ -66,7 +66,7 @@ test("display_policy の断片は順送りで、重ならない時間窓を持�
   assert.equal(captionLines(page.overlaySheetHtml), 3);
 });
 
-test("display_policy 未宣言のプロジェクトは HEAD のバイト列を保つ", () => {
+test("display_policy 未宣言のプロジェクトは現行の書き出しバイト列を保つ", () => {
   // 期待値は HEAD（4fa9143e）の buildOsrPage を同じ入力で走らせて採取した。
   // 埋め込みフォントの絶対 file URL は機械依存なので落としてから固定する。
   const digest = value => createHash("sha256")
@@ -83,11 +83,11 @@ test("display_policy 未宣言のプロジェクトは HEAD のバイト列を�
   const expected = {
     legacyArray: {
       html: "427e722174cab42959562359ccf7c1889926afe0efc0437e80bf5e6cc16bdcd9",
-      sheet: "4c6db081cd8c46680de553982ff922e95d4cf0a965dd6d145d72d68bb697fa48",
+      sheet: "6222e89cd70906c5d805a0a051fc41b132ea908cbf355dcd6b4d99fd2cdd4f2f",
     },
     legacyObject: {
       html: "427e722174cab42959562359ccf7c1889926afe0efc0437e80bf5e6cc16bdcd9",
-      sheet: "5561c2ef12b43592ec8e057f57bbd308634b96bb38367be1948248e4b7cdfae2",
+      sheet: "a031673466921a8bfc92aef6f9712d836a6af48f3fff61984f9760dc03638b22",
     },
   };
   for (const [name, captions] of Object.entries({ legacyArray, legacyObject })) {

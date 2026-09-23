@@ -100,6 +100,26 @@ export function buildOsrPage({
   };
   const overlaySheetHtml = renderOverlaySheet({ overlays: allOverlays, edit: projectedEdit, projectRoot, duration })
     .replace(/file:[^"')]+NotoSansJP-Variable\.ttf/gu, "/caption-font.ttf");
+  const hasOverlayBlend = allOverlays.some(overlay => overlay.blend && overlay.blend !== "normal");
+  const orderedBlendOverlays = hasOverlayBlend ? allOverlays
+    .map((overlay, index) => ({ overlay, index }))
+    .sort((left, right) => (left.overlay.z ?? 0) - (right.overlay.z ?? 0) || left.index - right.index)
+    .map(({ overlay }) => overlay) : [];
+  const blendModes = new Map([
+    ["normal", "normal"], ["screen", "screen"], ["multiply", "multiply"],
+    ["add", "plus-lighter"], ["difference", "difference"], ["darken", "darken"],
+    ["lighten", "lighten"], ["overlay", "overlay"], ["hardlight", "hard-light"],
+    ["softlight", "soft-light"],
+  ]);
+  const blendWarnings = orderedBlendOverlays
+    .filter(overlay => !blendModes.has(overlay.blend ?? "normal"))
+    .map(overlay => `HTML overlay ${overlay.id} blend ${overlay.blend} is unsupported; using normal composition`);
+  const blendFramesHtml = orderedBlendOverlays.map((overlay, index) => {
+    const sheet = renderOverlaySheet({ overlays: [overlay], edit: projectedEdit, projectRoot, duration })
+      .replace(/file:[^"')]+NotoSansJP-Variable\.ttf/gu, "/caption-font.ttf");
+    const escapedSheet = sheet.replaceAll("&", "&amp;").replaceAll('"', "&quot;").replaceAll("<", "&lt;");
+    return `<iframe class="akari-overlay-frame" data-blend="${overlay.blend ?? "normal"}" srcdoc="${escapedSheet}" scrolling="no" title="AKARI overlay ${index + 1}" style="mix-blend-mode:${blendModes.get(overlay.blend ?? "normal") ?? "normal"};z-index:${index + 1}"></iframe>`;
+  }).join("\n    ");
   const lookDeclaration = lutCubeText === null ? null : {
     cubeText: lutCubeText,
     intensity: Number(edit?.output?.look?.intensity ?? 1),
@@ -117,14 +137,14 @@ export function buildOsrPage({
     #akari-stage { position: relative; width: ${width}px; height: ${height}px; overflow: hidden; background: #000; }
     #akari-engine, #akari-overlays { position: absolute; inset: 0; width: ${width}px; height: ${height}px; border: 0; display: block; }
     #akari-engine { z-index: 0; }
-    #akari-overlays { z-index: 1; background: transparent; }
+    #akari-overlays { z-index: 1; background: transparent; }${hasOverlayBlend ? `\n    .akari-overlay-frame { position: absolute; inset: 0; width: ${width}px; height: ${height}px; border: 0; display: block; background: transparent; }` : ""}
     #akari-stamp { position: fixed; z-index: 2147483647; left: 0; bottom: 0; width: 100%; height: 1px; background: rgb(0, 0, 85); }
   </style>
 </head>
 <body>
   <div id="akari-stage">
     <canvas id="akari-engine" width="${width}" height="${height}"></canvas>
-    <iframe id="akari-overlays" src="/overlay-sheet.html" scrolling="no" title="AKARI overlays"></iframe>
+    <iframe id="akari-overlays" src="/overlay-sheet.html" scrolling="no" title="AKARI overlays"${hasOverlayBlend ? ' style="display:none"' : ""}></iframe>${hasOverlayBlend ? `\n    ${blendFramesHtml}` : ""}
   </div>
   ${stampRow ? '<div id="akari-stamp" aria-hidden="true"></div>' : ""}
   <script>window.__akariEncodeStamp=${stampFunctionSource()};window.__AKARI_OSR_CONFIG__=${safeJson(config)};</script>
@@ -150,7 +170,7 @@ export function buildOsrPage({
       stampRow,
     },
     // 字幕解決の警告（未知の style_preset・単語帳の保護語を外した行）は render-cut と同じ文面で届ける。
-    warnings: captionPlan.warnings,
+    warnings: [...captionPlan.warnings, ...blendWarnings],
   };
 }
 

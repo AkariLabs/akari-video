@@ -43,6 +43,31 @@ const edit = {
   cuts: [{ id: "cut-0", src: "main", in: 0, out: 2 }],
   overlays: [],
 };
+
+test("HTML item blend creates ordered isolated sheets with CSS composite modes", () => {
+  const overlays = [
+    { id: "base", start: 0, duration: 2, z: 0, html: '<div style="background:#345">Neutral</div>' },
+    { id: "screen", start: 0, duration: 2, z: 1, blend: "screen", html: '<div style="background:#678">Neutral</div>' },
+    { id: "add", start: 0, duration: 2, z: 2, blend: "add", html: '<div style="background:#9ab">Neutral</div>' },
+  ];
+  const page = buildOsrPage({ edit, overlays, projectRoot: "/unused", duration: 2, frameEngineBundle: "", pageRuntime: "" });
+  assert.equal((page.html.match(/class="akari-overlay-frame"/gu) ?? []).length, 3);
+  assert.match(page.html, /mix-blend-mode:screen/u);
+  assert.match(page.html, /mix-blend-mode:plus-lighter/u);
+  assert.ok(page.html.indexOf('data-blend="screen"') < page.html.indexOf('data-blend="add"'));
+  for (const [blend, css] of Object.entries({
+    normal: "normal", screen: "screen", multiply: "multiply", add: "plus-lighter",
+    difference: "difference", darken: "darken", lighten: "lighten", overlay: "overlay",
+    hardlight: "hard-light", softlight: "soft-light",
+  })) {
+    const built = buildOsrPage({ edit, overlays: [{ ...overlays[0], blend }, { ...overlays[1], blend: "screen" }],
+      projectRoot: "/unused", duration: 2, frameEngineBundle: "", pageRuntime: "" });
+    assert.match(built.html, new RegExp(`data-blend="${blend}"[\\s\\S]*?title="AKARI overlay 1" style="mix-blend-mode:${css}`));
+  }
+  const unsupported = buildOsrPage({ edit, overlays: [{ ...overlays[0], blend: "unknown" }], projectRoot: "/unused", duration: 2, frameEngineBundle: "", pageRuntime: "" });
+  assert.match(unsupported.html, /data-blend="unknown"[\s\S]*?mix-blend-mode:normal/u);
+  assert.match(unsupported.warnings[0], /blend unknown is unsupported; using normal composition/u);
+});
 const captions = [{ id: "c1", start: 0, end: 1, text: "字幕", time_domain: "output" }];
 const overlays = [{ id: "o1", start: 0, duration: 1, html: "<div>HTML</div>", transform: {}, vars: {} }];
 

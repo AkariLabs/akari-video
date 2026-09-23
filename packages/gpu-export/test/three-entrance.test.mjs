@@ -174,10 +174,10 @@ test("animation or transition on the canvas itself stays in the sampled chain", 
   assert.equal(result.entries[0].reason, "three-scene-entrance-sampled");
 });
 
-test("sampled 3D entrance routes real 3D transforms through composite", () => {
+test("sampled 3D entrance with real depth falls back from GPU", () => {
   const result = eligibility(fragment({ from: "translate(0px, 0px) rotateX(12deg)" }));
-  assert.equal(result.entries[0].classification, "three");
-  assert.equal(result.entries[0].reason, "three-scene-sampled-composite");
+  assert.equal(result.entries[0].classification, "degraded");
+  assert.equal(result.entries[0].reason, "css-3d-transform");
 });
 
 test("sampled advanced CSS fixtures distinguish outside-chain, on-chain, and unsupported script conditions", async () => {
@@ -310,8 +310,9 @@ test("composite fixtures classify with the contracted reason", async () => {
   ]) {
     const html = await readFile(join(import.meta.dirname, "fixtures", name), "utf8");
     const result = eligibility(html);
-    assert.equal(result.entries[0].classification, "three", name);
-    assert.equal(result.entries[0].reason, "three-scene-sampled-composite", name);
+    const depthAnimation = ["three-composite-s2-panel.html", "three-composite-s6-scatter.html"].includes(name);
+    assert.equal(result.entries[0].classification, depthAnimation ? "degraded" : "three", name);
+    assert.equal(result.entries[0].reason, depthAnimation ? "css-3d-transform" : "three-scene-sampled-composite", name);
   }
   const backface = await readFile(join(import.meta.dirname, "fixtures", "three-composite-backface-hidden.html"), "utf8");
   const result = eligibility(backface);
@@ -322,7 +323,7 @@ test("composite fixtures classify with the contracted reason", async () => {
 test("preserve-3d depth-sorted siblings fail closed without changing the flat s6 composite", async () => {
   const cases = [
     ["three-composite-preserve-3d-siblings.html", "degraded", "three-composite-preserve-3d-siblings"],
-    ["three-composite-s6-scatter.html", "three", "three-scene-sampled-composite"],
+    ["three-composite-s6-scatter.html", "degraded", "css-3d-transform"],
   ];
   for (const [name, classification, reason] of cases) {
     const html = await readFile(join(import.meta.dirname, "fixtures", name), "utf8");

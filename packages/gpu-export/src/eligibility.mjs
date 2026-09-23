@@ -9,6 +9,63 @@ function hasBackfaceHiddenWithDepthTransform(html) {
   return /backface-visibility\s*:\s*hidden/iu.test(html) && hasDepthTransform(html);
 }
 
+function balancedBody(source, open, close, start) {
+  let depth = 1;
+  let quote = null;
+  for (let index = start; index < source.length; index += 1) {
+    const char = source[index];
+    if (quote) {
+      if (char === "\\") { index += 1; continue; }
+      if (char === quote) quote = null;
+      continue;
+    }
+    if (char === '"' || char === "'" || char === "`") { quote = char; continue; }
+    if (char === open) depth += 1;
+    else if (char === close && --depth === 0) return source.slice(start, index);
+  }
+  return null;
+}
+
+function firstArgument(args) {
+  const closing = new Map([["(", ")"], ["[", "]"], ["{", "}"]]);
+  const stack = [];
+  let quote = null;
+  for (let index = 0; index < args.length; index += 1) {
+    const char = args[index];
+    if (quote) {
+      if (char === "\\") { index += 1; continue; }
+      if (char === quote) quote = null;
+    } else if (char === '"' || char === "'" || char === "`") quote = char;
+    else if (closing.has(char)) stack.push(closing.get(char));
+    else if (char === stack.at(-1)) stack.pop();
+    else if (char === "," && stack.length === 0) return args.slice(0, index);
+  }
+  return args;
+}
+
+function hasAuthoredDepthAnimation(html) {
+  for (const style of html.matchAll(/<style\b[^>]*>([\s\S]*?)<\/style\s*>/giu)) {
+    const css = style[1].replace(/\/\*[\s\S]*?\*\//gu, "");
+    for (const keyframes of css.matchAll(/@(?:-[a-z]+-)?keyframes\s+[\w-]+\s*\{/giu)) {
+      const body = balancedBody(css, "{", "}", keyframes.index + keyframes[0].length);
+      if (body === null || hasDepthTransform(body)) return true;
+    }
+  }
+  for (const tag of html.matchAll(/<[^>]+>/gu)) {
+    const style = tag[0].match(/\bstyle\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/iu);
+    if (style && hasDepthTransform(style[1] ?? style[2] ?? style[3])) return true;
+  }
+  for (const script of html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script\s*>/giu)) {
+    if (/\btype\s*=\s*["']application\/json["']/iu.test(script[1])) continue;
+    const body = script[2];
+    for (const animate of body.matchAll(/\.animate\s*\(/gu)) {
+      const args = balancedBody(body, "(", ")", animate.index + animate[0].length);
+      if (args === null || hasDepthTransform(firstArgument(args))) return true;
+    }
+  }
+  return false;
+}
+
 const OVERLAY_CONDITIONS = [
   ["absolute-external-url", /(?:file:\/\/\/|https?:\/\/)/iu, "external"],
   ["font-face-external-resource", /@font-face[\s\S]{0,2000}?src\s*:\s*url\((?!["']?data:)/iu, "external"],
@@ -66,6 +123,8 @@ export function evaluateGpuEligibility({
     if (overlay?.enabled === false) continue;
     const html = typeof overlay?.html === "string" ? overlay.html : "";
     const source = stripHtmlComments(html);
+    const depthTransform = hasAuthoredDepthAnimation(source)
+      || (Array.isArray(overlay?.keyframes) && hasDepthTransform(JSON.stringify(overlay.keyframes)));
     const conditions = OVERLAY_CONDITIONS
       .filter(([, pattern]) => (typeof pattern === "function" ? pattern(source) : pattern.test(source)))
       .map(([condition, , kind]) => ({ condition, kind }));
@@ -96,7 +155,9 @@ export function evaluateGpuEligibility({
       } else if (animated && withinSampledConditions) {
         const sampled = scanThreeSampled(html);
         if (sampled.ok) {
-          entries.push(entry("overlay", overlay.id ?? `overlay-${index}`, "three", "three-scene-entrance-sampled", names));
+          entries.push(entry("overlay", overlay.id ?? `overlay-${index}`,
+            depthTransform ? "degraded" : "three",
+            depthTransform ? "css-3d-transform" : "three-scene-entrance-sampled", names));
           continue;
         }
         const composite = scanThreeComposite(html);
@@ -124,6 +185,11 @@ export function evaluateGpuEligibility({
       entries.push(entry("overlay", overlay.id ?? `overlay-${index}`, "dom", "dom-layer-draw-element", names));
     } else {
       entries.push(entry("overlay", overlay.id ?? `overlay-${index}`, "degraded", names.join(", "), names));
+    }
+    const result = entries[entries.length - 1];
+    if (depthTransform && result.classification !== "degraded" && result.classification !== "unsupported") {
+      const depthConditions = names.includes("css-3d-transform") ? names : [...names, "css-3d-transform"];
+      entries[entries.length - 1] = entry("overlay", overlay.id ?? `overlay-${index}`, "degraded", "css-3d-transform", depthConditions);
     }
   }
 

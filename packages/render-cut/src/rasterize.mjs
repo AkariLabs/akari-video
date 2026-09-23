@@ -160,7 +160,7 @@ export function renderOverlaySheet({ overlays, edit, projectRoot, duration }) {
   const runtimeDrawStep = blocks.map(block => block.drawStep).join("");
   const videoSeekTarget = usesVideoTextures ? "target" : "seconds";
   const videoSeekTargetDeclaration = usesVideoTextures
-    ? `\n          const target = video.loop && Number.isFinite(video.duration) && video.duration > 0\n            ? seconds % video.duration\n            : seconds;`
+    ? `\n          const localSeconds = video.dataset.akariThreeVideoTexture !== undefined\n            ? Math.max(0, seconds - Number(video.dataset.akariThreeItemStart || 0)) : seconds;\n          const target = video.loop && Number.isFinite(video.duration) && video.duration > 0\n            ? localSeconds % video.duration\n            : localSeconds;`
     : "";
   const runtimeReadySetup = blocks.map(block => block.readySetup).join("");
   const runtimeReadyWait = blocks.map(block => block.readyWait).join("");
@@ -215,11 +215,14 @@ ${nodes}${slotRuntimeScripts}
               target: effect.target,
               keyframes: effect.getKeyframes(),
               timing: effect.getTiming(),
+              pseudoElement: effect.pseudoElement || null,
+              animation,
             });
           } catch {}
         }
         for (const conversion of conversions) {
-          conversion.target.style.animationName = 'none';
+          if (conversion.pseudoElement) conversion.animation.cancel();
+          else conversion.target.style.animationName = 'none';
         }
         for (const conversion of conversions) {
           const timing = conversion.timing;
@@ -233,6 +236,7 @@ ${nodes}${slotRuntimeScripts}
               direction: timing.direction,
               easing: timing.easing,
               fill: conversion.timing.fill,
+              ...(conversion.pseudoElement ? { pseudoElement: conversion.pseudoElement } : {}),
             });
             clone.pause();
             clone.currentTime = 0;

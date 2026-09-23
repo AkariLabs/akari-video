@@ -1,0 +1,1 @@
+{"version":2,"output":{"width":320,"height":180,"fps":30},"sources":[{"id":"main","path":"assets/neutral.png"}],"tracks":[{"id":"base","lane":"visual","items":[{"id":"base","at":0,"duration":90,"source":{"kind":"html","path":"overlays/base.html"}}]},{"id":"top","lane":"visual","items":[{"id":"top","at":0,"duration":90,"source":{"kind":"html","path":"overlays/depth.html"}}]}]}

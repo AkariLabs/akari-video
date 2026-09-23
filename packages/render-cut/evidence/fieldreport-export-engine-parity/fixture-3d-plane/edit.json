@@ -1,0 +1,1 @@
+{"version":2,"output":{"width":1920,"height":1080,"fps":10},"sources":[{"id":"main","path":"assets/neutral.png"}],"tracks":[{"id":"scene","lane":"visual","items":[{"id":"plane","at":0,"duration":20,"source":{"kind":"html","path":"overlays/plane.html"}}]}]}
