@@ -49,7 +49,9 @@ test('actual drag listeners skip placed-text snaps, preserve anchors, and write 
             listeners.get('pointerup')({ pointerId: 1 });
             await Promise.resolve();
             assert.equal(writes.length, 1);
-            const saved = writes[0][1].plateTransform.cuePosition.value;
+            // ドラッグは位置だけを送る（scale / rotate は送らない = 回転の保存直後のドラッグで古い値に戻さない）
+            assert.deepEqual(Object.keys(writes[0][1]), ['cuePosition']);
+            const saved = writes[0][1].cuePosition;
             assert.deepEqual(saved, placedCaptionPositionFromRects(landed, context.captionOutputFrame(), { anchor, clamp: false }));
             assert.equal(saved.anchor, anchor);
             assert.ok(guides.every(value => value === false));
