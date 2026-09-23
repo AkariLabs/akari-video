@@ -7,6 +7,7 @@ import path from "node:path";
 import { spawn, spawnSync } from "node:child_process";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { resolveLauncherAssets } from "./repo-assets.mjs";
+import { resolveVoiceProfile } from "./voice-command.mjs";
 
 const VOICEVOX_BASE_URL = "http://127.0.0.1:50021";
 const VOICEVOX_RUN_ENV = "VOICEVOX_RUN";
@@ -206,6 +207,14 @@ async function runVerify(options, io, runtime = {}) {
   } finally { fs.rmSync(temporary, { recursive: true, force: true }); }
 }
 
+// 録音の原稿照合を、narration verify と同じ backend・正規化・一致率で再利用する。
+export async function verifyNarrationAudio(audio, expected, backend = "auto", runtime = {}) {
+  const lines = [];
+  const code = await runVerify({ project: path.dirname(audio), audio, text: expected, backend,
+    reading: null, record: null, checkBackend: false }, { log: line => lines.push(line), logError: () => {} }, runtime);
+  return { code, result: JSON.parse(lines.at(-1)) };
+}
+
 class PublicError extends Error {
   constructor(message, exitCode = 1) {
     super(message);
@@ -301,7 +310,7 @@ function parseArguments(argv) {
   }
   if (options.engine === "irodori") {
     options.voice ??= "narrator-male";
-    if (!IRODORI_RECIPES.some(recipe => recipe.id === options.voice) && options.voice !== "custom") throw new PublicError("彩の声レシピが不明です", 2);
+    if (!options.profile && !IRODORI_RECIPES.some(recipe => recipe.id === options.voice) && options.voice !== "custom") throw new PublicError("彩の声レシピが不明です", 2);
     if (options.voice === "custom" && !options.style?.trim()) throw new PublicError("自分で書く声には --style が必要です", 2);
     options.irodori = irodoriEndpoint(options.irodoriUrl);
     irodoriTimeout();
@@ -425,31 +434,23 @@ function resolveFalKey() {
   return secret;
 }
 
-function profileMetaPath(profileName) {
-  return path.join(os.homedir(), ".config", "akari-video", "voice-profiles", profileName, "meta.json");
+function readProfileMeta(profileName) {
+  let meta;
+  try { meta = resolveVoiceProfile(profileName).meta; }
+  catch { throw new PublicError(`声プロファイルが見つかりません: ${profileName}`, 2); }
+  const embedding_source_url = meta.engines?.["fal-qwen3"]?.embedding_source_url;
+  if (!embedding_source_url) throw new PublicError(`この声には fal の写しがありません。akari voice copy で作ってください`, 2);
+  if (!meta.reference_text) throw new PublicError(`声プロファイルの reference_text がありません: ${profileName}`, 2);
+  return { ...meta, embedding_source_url };
 }
 
-function readProfileMeta(profileName) {
-  const metaPath = profileMetaPath(profileName);
-  let raw;
-  try {
-    raw = fs.readFileSync(metaPath, "utf8");
-  } catch {
-    throw new PublicError(`声プロファイルが見つかりません: ${metaPath}`);
-  }
+function irodoriProfileVoice(profileName) {
   let meta;
-  try {
-    meta = JSON.parse(raw);
-  } catch {
-    throw new PublicError(`声プロファイルの meta.json が不正な JSON です: ${metaPath}`);
-  }
-  if (typeof meta.embedding_source_url !== "string" || !meta.embedding_source_url) {
-    throw new PublicError(`声プロファイルの meta.json に embedding_source_url がありません: ${metaPath}`);
-  }
-  if (typeof meta.reference_text !== "string" || !meta.reference_text) {
-    throw new PublicError(`声プロファイルの meta.json に reference_text がありません: ${metaPath}`);
-  }
-  return meta;
+  try { meta = resolveVoiceProfile(profileName).meta; }
+  catch { throw new PublicError(`声プロファイルが見つかりません: ${profileName}`, 2); }
+  const voiceId = meta.engines?.irodori?.voice_id;
+  if (!voiceId) throw new PublicError("この声には彩の写しがありません。akari voice copy で作ってください", 2);
+  return voiceId;
 }
 
 function buildFalPayload(readingText, meta) {
@@ -786,13 +787,14 @@ async function probeIrodori(endpoint, fetchImpl = fetch) {
 }
 
 async function synthesizeIrodori(readingText, options, fetchImpl = fetch) {
-  const caption = options.style?.trim() || IRODORI_RECIPES.find(recipe => recipe.id === options.voice)?.caption;
+  const caption = options.profile ? null : options.style?.trim() || IRODORI_RECIPES.find(recipe => recipe.id === options.voice)?.caption;
+  const profileVoice = options.profile ? irodoriProfileVoice(options.profile) : null;
   let response;
   try {
     response = await fetchImpl(`${options.irodori.base}/v1/audio/speech`, {
       method: "POST", headers: { "Content-Type": "application/json" }, signal: AbortSignal.timeout(irodoriTimeout()),
-      body: JSON.stringify({ model: "irodori-tts", input: readingText, voice: "none", response_format: "wav",
-        speed: options.speed ?? 1, irodori: { caption } }),
+      body: JSON.stringify({ model: "irodori-tts", input: readingText, voice: profileVoice ?? "none", response_format: "wav",
+        speed: options.speed ?? 1, ...(caption ? { irodori: { caption } } : {}) }),
     });
   } catch (error) { throw new PublicError(`彩サーバーに接続できません: ${error?.message ?? error}`); }
   const buffer = Buffer.from(await response.arrayBuffer());
@@ -913,10 +915,11 @@ async function runDryRun(options, readingText, io) {
     return;
   }
   if (options.engine === "irodori") {
+    const profileVoice = options.profile ? irodoriProfileVoice(options.profile) : null;
     emit({ dry_run: true, engine: options.engine, output_path: outputPath, estimated_cost_usd: 0,
       request: { endpoint: `${options.irodori.base}/v1/audio/speech`, body: { model: "irodori-tts", input: readingText,
-        voice: "none", response_format: "wav", speed: options.speed ?? 1,
-        irodori: { caption: options.style?.trim() || IRODORI_RECIPES.find(recipe => recipe.id === options.voice)?.caption } } } }, io.log);
+        voice: profileVoice ?? "none", response_format: "wav", speed: options.speed ?? 1,
+        ...(profileVoice ? {} : { irodori: { caption: options.style?.trim() || IRODORI_RECIPES.find(recipe => recipe.id === options.voice)?.caption } }) } } }, io.log);
     return;
   }
   const falKey = resolveFalKey();
@@ -1004,7 +1007,7 @@ async function runGenerate(options, io) {
     }
   } else if (options.engine === "irodori") {
     audioBuffer = await synthesizeIrodori(readingText, options);
-    provenance = { provider: "irodori", engine: "irodori-tts-v4-small", voice: options.style?.trim() ? "caption:custom" : `recipe:${options.voice}`,
+    provenance = { provider: "irodori", engine: "irodori-tts-v4-small", voice: options.profile ? `profile:${options.profile}` : options.style?.trim() ? "caption:custom" : `recipe:${options.voice}`,
       generated_at: new Date().toISOString(), experimental: true, server: options.irodori.server };
   } else {
     const estimatedCostUsd = options.engine === "gemini-tts"

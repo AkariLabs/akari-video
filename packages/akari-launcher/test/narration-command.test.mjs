@@ -512,3 +512,45 @@ test('VOICEVOX speedScale と caption_ref は v1 / v2 の --apply 後も検証�
     assert.deepEqual(synthesisBodies.map(body => body.speedScale), [1.2, 1.2]);
   } finally { globalThis.fetch = priorFetch; }
 });
+
+test('narration --profile は新 → 旧の順で解決し、彩は voice_id を caption 無しで送る', async () => {
+  const scratch = await mkdtemp(join(tmpdir(), 'akari-narration-profile-'));
+  const oldHome = process.env.HOME, oldAkari = process.env.AKARI_HOME, oldCredentials = process.env.AKARI_CREDENTIALS_FILE;
+  const oldFetch = globalThis.fetch;
+  try {
+    process.env.HOME = scratch; process.env.AKARI_HOME = join(scratch, 'akari');
+    process.env.AKARI_CREDENTIALS_FILE = join(scratch, 'credentials.env');
+    await writeFile(process.env.AKARI_CREDENTIALS_FILE, 'FAL_KEY=test-only\n');
+    const oldDir = join(scratch, '.config', 'akari-video', 'voice-profiles', 'owner-ja');
+    const newDir = join(process.env.AKARI_HOME, 'avatars', 'person', 'voice', 'owner-ja');
+    const { mkdir, readFile } = await import('node:fs/promises');
+    await mkdir(oldDir, { recursive: true }); await mkdir(newDir, { recursive: true });
+    await writeFile(join(oldDir, 'meta.json'), JSON.stringify({ profile: 'owner-ja', reference_text: '旧原稿', embedding_source_url: 'https://example.invalid/old' }));
+    await writeFile(join(newDir, 'meta.json'), JSON.stringify({ version: 2, profile: 'owner-ja', reference_text: '新原稿',
+      engines: { 'fal-qwen3': { embedding_source_url: 'https://example.invalid/new' }, irodori: { voice_id: 'akari-owner-ja' } } }));
+    const fal = collectLogs();
+    assert.equal((await runNarrationCommand(['generate', '--project', scratch, '--engine', 'fal-qwen3', '--profile', 'owner-ja', '--text', 'こんにちは', '--dry-run', '--json'], fal)).exitCode, 0);
+    assert.equal(JSON.parse(fal.lines[0]).request.body.speaker_voice_embedding_file_url, 'https://example.invalid/new');
+    const iro = collectLogs();
+    assert.equal((await runNarrationCommand(['generate', '--project', scratch, '--engine', 'irodori', '--profile', 'owner-ja', '--text', 'こんにちは', '--dry-run', '--json'], iro)).exitCode, 0);
+    const body = JSON.parse(iro.lines[0]).request.body;
+    assert.equal(body.voice, 'akari-owner-ja'); assert.equal(body.irodori, undefined);
+    const meta = JSON.parse(await readFile(join(newDir, 'meta.json'), 'utf8'));
+    delete meta.engines.irodori;
+    await writeFile(join(newDir, 'meta.json'), JSON.stringify(meta));
+    const missing = collectLogs();
+    assert.equal((await runNarrationCommand(['generate', '--project', scratch, '--engine', 'irodori', '--profile', 'owner-ja', '--text', 'こんにちは', '--dry-run', '--json'], missing)).exitCode, 2);
+    assert.match(JSON.parse(missing.lines[0]).error, /彩の写しがありません/);
+    const { rm: remove } = await import('node:fs/promises');
+    await remove(newDir, { recursive: true });
+    const legacy = collectLogs();
+    assert.equal((await runNarrationCommand(['generate', '--project', scratch, '--engine', 'fal-qwen3', '--profile', 'owner-ja', '--text', 'こんにちは', '--dry-run', '--json'], legacy)).exitCode, 0);
+    assert.equal(JSON.parse(legacy.lines[0]).request.body.speaker_voice_embedding_file_url, 'https://example.invalid/old');
+  } finally {
+    globalThis.fetch = oldFetch;
+    if (oldHome === undefined) delete process.env.HOME; else process.env.HOME = oldHome;
+    if (oldAkari === undefined) delete process.env.AKARI_HOME; else process.env.AKARI_HOME = oldAkari;
+    if (oldCredentials === undefined) delete process.env.AKARI_CREDENTIALS_FILE; else process.env.AKARI_CREDENTIALS_FILE = oldCredentials;
+    await rm(scratch, { recursive: true, force: true });
+  }
+});

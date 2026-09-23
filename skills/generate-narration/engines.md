@@ -8,7 +8,7 @@ akari narration generate \
   --reading-file <読み原稿.txt> [--script-file <表示原稿.txt>] \
   --t <タイムライン秒> [--gain-db 0] [--id n-0001] \
   [--speaker 3]              # voicevox 用（既定 3 = ずんだもん/ノーマル）
-  [--profile owner-ja]       # fal-qwen3 用
+  [--profile owner-ja]       # fal-qwen3 / irodori の登録済み自声用
   [--dry-run] [--yes] [--apply]
 ```
 
@@ -39,6 +39,15 @@ akari narration generate \
 - 費用はゼロ。承認ゲートは不要（`--dry-run` 以外はそのまま実行される）
 
 ## irodori アダプタ（お試し）
+
+macOS でも公式 Irodori-TTS-Server を起動できる。サーバーの作業場で `uv sync --extra cpu` と `cp .env.example .env` を行い、次で起動する。初回はモデル約 3.3 GB の取得を含み時間がかかる。M1・16 GB の 2026-09-24 実測は初回 478 秒、2 回目以降は 5.24 秒の 1 文を約 15 秒で生成した。声クローンの品質は未検証。
+
+```sh
+IRODORI_MODEL_DEVICE=mps IRODORI_CODEC_DEVICE=mps \
+  uv run --no-sync python -m irodori_openai_tts --host 127.0.0.1 --port 8088
+```
+
+`akari voice copy --profile <id> --engine irodori` で正本の録音をサーバーに登録できる。登録後に `akari narration generate --engine irodori --profile <id>` を指定すると、登録された voice ID を使い、caption は送らない。
 
 - AKARI はモデルを起動しない。別に起動した Irodori-TTS-Server へ `--engine irodori --irodori-url <url>` で接続する。URL はオプション → `AKARI_IRODORI_URL` → `http://127.0.0.1:8088` の順で決まる。別 PC のサーバーも指定できる。
 - `--voice` は `narrator-male`（既定・落ち着いた男性ナレーター）、`bright-female`（明るい若い女性）、`slow-explainer`（低くゆっくりした解説）の声レシピから選ぶ。`--voice custom --style <声の指示>` で自分で書ける。`--style` を付けるとレシピの caption を置き換える。

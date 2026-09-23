@@ -36,6 +36,7 @@ for (const [name, args, expected] of [
   ['captions', ['captions', '--help'], 'akari captions <project-dir>'],
   ['new', ['new', '--help'], 'akari new <target-dir>'],
   ['narration', ['narration', '--help'], 'akari narration generate'],
+  ['voice', ['voice', '--help'], 'akari voice <scripts'],
   ['internal', ['internal', '--help'], 'beat-sync-render-when-idle'],
   ['assets', ['assets', '--help'], 'akari-assets <list\\|fetch\\|bundle\\|migrate\\|sync\\|browse>'],
   ['word-book', ['word-book', '--help'], 'akari-word-book <subcommand>'],

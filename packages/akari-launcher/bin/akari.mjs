@@ -3,6 +3,7 @@ import { run, runUpdateCommand } from '../src/cli.mjs';
 import { runInitCommand } from '../src/init-command.mjs';
 import { runNewCommand } from '../src/new-command.mjs';
 import { runNarrationCommand } from '../src/narration-command.mjs';
+import { runVoiceCommand } from '../src/voice-command.mjs';
 import { runInternalCommand } from '../src/internal-command.mjs';
 import { runSoundsCommand } from '../src/sounds-setup.mjs';
 import { runStatusCommand } from '../src/status-command.mjs';
@@ -78,6 +79,7 @@ const invoke = (argv[0] === '--version' || argv[0] === '-v') ? printVersion()
   : argv[0] === 'new' ? runNewCommand(argv.slice(1))
   : argv[0] === 'skills' ? runSkillsCommand(argv.slice(1))
   : argv[0] === 'narration' ? runNarrationCommand(argv.slice(1))
+  : argv[0] === 'voice' ? runVoiceCommand(argv.slice(1))
   : argv[0] === 'internal' ? runInternalCommand(argv.slice(1))
   : argv[0] === 'sounds' ? runSoundsCommand(argv.slice(1))
   : argv[0] === 'status' ? runStatusCommand(argv.slice(1))
