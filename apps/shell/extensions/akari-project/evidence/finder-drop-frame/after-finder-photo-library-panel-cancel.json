@@ -1,0 +1,69 @@
+{
+ "target": "panel",
+ "selector": "#akari-role-buckets-widget",
+ "file": "finder-photo-b3.jpeg",
+ "point": {
+  "x": 131,
+  "y": 387
+ },
+ "mode": "cancel",
+ "afterDragEnter": {
+  "panelOverlay": [
+   "ここに落とすとライブラリへ取り込みます"
+  ],
+  "homeOverlay": [],
+  "panelOverlayElement": true,
+  "timelineGhost": [],
+  "lastEvent": {
+   "type": "dragenter",
+   "defaultPrevented": true,
+   "dropEffect": "copy"
+  }
+ },
+ "duringDrag": {
+  "panelOverlay": [
+   "ここに落とすとライブラリへ取り込みます"
+  ],
+  "homeOverlay": [],
+  "panelOverlayElement": true,
+  "timelineGhost": [],
+  "lastEvent": {
+   "type": "dragover",
+   "defaultPrevented": true,
+   "dropEffect": "copy"
+  }
+ },
+ "afterLeave": {
+  "panelOverlay": [],
+  "homeOverlay": [],
+  "panelOverlayElement": false,
+  "timelineGhost": [],
+  "lastEvent": {
+   "type": "dragenter",
+   "defaultPrevented": true,
+   "dropEffect": "none"
+  }
+ },
+ "afterCancel": {
+  "panelOverlay": [],
+  "homeOverlay": [],
+  "panelOverlayElement": false,
+  "timelineGhost": [],
+  "lastEvent": {
+   "type": "dragenter",
+   "defaultPrevented": true,
+   "dropEffect": "none"
+  }
+ },
+ "pageEvents": {
+  "count": 10,
+  "types": [
+   "dragenter",
+   "dragover"
+  ],
+  "firstTypes": [
+   "Files"
+  ],
+  "dropSeen": false
+ }
+}

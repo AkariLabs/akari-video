@@ -1,0 +1,114 @@
+{
+ "src": "lib:audio/bgm-jazzhop-piano-086",
+ "grip": "title",
+ "mode": "drop",
+ "at": "2026-09-23T02:33:31.186Z",
+ "card": {
+  "rect": {
+   "x": 58,
+   "y": 201.890625,
+   "w": 38,
+   "h": 193.5
+  },
+  "draggable": "true",
+  "hasImg": true,
+  "imgDraggableAttr": "false",
+  "imgDraggableProp": false,
+  "imgPt": {
+   "x": 62.6,
+   "y": 208.290625
+  },
+  "titlePt": {
+   "x": 67.5,
+   "y": 389.390625
+  },
+  "hitImg": "IMG",
+  "hitTitle": "DIV"
+ },
+ "grip_point": {
+  "x": 67.5,
+  "y": 389.390625
+ },
+ "dragIntercepted": true,
+ "forcedFiles": [
+  "<tmp>/finder-photo.jpeg"
+ ],
+ "dragData": {
+  "types": [
+   "application/x-akari-library-item"
+  ],
+  "files": [
+   "<tmp>/finder-photo.jpeg"
+  ],
+  "itemsPreview": [
+   {
+    "mimeType": "application/x-akari-library-item",
+    "data": "{\"kind\":\"asset\",\"key\":\"audio/bgm-jazzhop-piano-086\",\"id\":\"bgm-jazzhop-piano-086\",\"category\":\"audio\",\"title\":\"After the Rain\"}"
+   }
+  ],
+  "dragOperationsMask": 1
+ },
+ "hoverPoint": {
+  "x": 130.5,
+  "y": 386.8
+ },
+ "duringDrag": {
+  "importOverlayShown": false,
+  "overlayTexts": [],
+  "timelineGhost": []
+ },
+ "pageDataTransfer": {
+  "dragstart": {
+   "types": [],
+   "files": 0,
+   "items": [],
+   "target": "DIV"
+  },
+  "dragover": [
+   {
+    "types": [
+     "application/x-akari-library-item",
+     "Files"
+    ],
+    "files": 0,
+    "items": [
+     "file:image/jpeg",
+     "string:application/x-akari-library-item"
+    ]
+   },
+   {
+    "types": [
+     "application/x-akari-library-item",
+     "Files"
+    ],
+    "files": 0,
+    "items": [
+     "file:image/jpeg",
+     "string:application/x-akari-library-item"
+    ]
+   },
+   {
+    "types": [
+     "application/x-akari-library-item",
+     "Files"
+    ],
+    "files": 0,
+    "items": [
+     "file:image/jpeg",
+     "string:application/x-akari-library-item"
+    ]
+   }
+  ]
+ },
+ "afterDrag": {
+  "importOverlayShown": false,
+  "overlayTexts": [],
+  "timelineGhost": []
+ },
+ "editChanged": false,
+ "assetsAdded": [],
+ "toasts": [
+  "素材を取り込みました。分析やプラン作成に進めます。",
+  "素材を取り込みました。分析やプラン作成に進めます。"
+ ]
+}

@@ -1,0 +1,61 @@
+{
+ "target": "panel",
+ "selector": "#akari-role-buckets-widget",
+ "file": "finder-clip.mp4",
+ "point": {
+  "x": 130,
+  "y": 387
+ },
+ "mode": "drop",
+ "afterDragEnter": {
+  "panelOverlay": [],
+  "homeOverlay": [],
+  "panelOverlayElement": false,
+  "lastEvent": {
+   "type": "dragenter",
+   "defaultPrevented": true,
+   "dropEffect": "none"
+  }
+ },
+ "duringDrag": {
+  "panelOverlay": [],
+  "homeOverlay": [],
+  "panelOverlayElement": false,
+  "lastEvent": {
+   "type": "dragover",
+   "defaultPrevented": true,
+   "dropEffect": "copy"
+  }
+ },
+ "assetsAdded": [
+  "finder-clip.mp4"
+ ],
+ "afterDrop": {
+  "panelOverlay": [],
+  "homeOverlay": [],
+  "panelOverlayElement": false,
+  "lastEvent": {
+   "type": "drop",
+   "defaultPrevented": true,
+   "dropEffect": "none"
+  }
+ },
+ "toasts": [
+  "素材を取り込みました。分析やプラン作成に進めます。",
+  "素材を取り込みました。分析やプラン作成に進めます。",
+  "1 本の動画を素材に取り込みました。タイムラインへ置くには素材カードを右クリック →「タイムラインに追加」。",
+  "1 本の動画を素材に取り込みました。タイムラインへ置くには素材カードを右クリック →「タイムラインに追加」。"
+ ],
+ "pageEvents": {
+  "count": 18,
+  "types": [
+   "dragenter",
+   "dragover",
+   "drop"
+  ],
+  "firstTypes": [
+   "Files"
+  ],
+  "dropSeen": true
+ }
+}

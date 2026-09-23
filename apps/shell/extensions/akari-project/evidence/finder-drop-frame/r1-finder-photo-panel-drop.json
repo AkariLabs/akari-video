@@ -1,0 +1,83 @@
+{
+ "target": "panel",
+ "selector": "#akari-role-buckets-widget",
+ "file": "finder-photo-a1.jpeg",
+ "point": {
+  "x": 131,
+  "y": 387
+ },
+ "mode": "drop",
+ "afterDragEnter": {
+  "panelOverlay": [],
+  "homeOverlay": [],
+  "panelOverlayElement": false,
+  "timelineGhost": [],
+  "lastEvent": {
+   "type": "dragenter",
+   "defaultPrevented": true,
+   "dropEffect": "none"
+  }
+ },
+ "duringDrag": {
+  "panelOverlay": [
+   "ここに落とすと素材に取り込みます"
+  ],
+  "homeOverlay": [],
+  "panelOverlayElement": true,
+  "timelineGhost": [],
+  "lastEvent": {
+   "type": "dragover",
+   "defaultPrevented": true,
+   "dropEffect": "copy"
+  }
+ },
+ "assetsAdded": [
+  "finder-photo-a1.jpeg"
+ ],
+ "editChanged": false,
+ "editTracksAfter": [
+  [
+   "v2",
+   []
+  ],
+  [
+   "v1",
+   [
+    "cut-1@0+180"
+   ]
+  ],
+  [
+   "a1",
+   []
+  ]
+ ],
+ "afterDrop": {
+  "panelOverlay": [],
+  "homeOverlay": [],
+  "panelOverlayElement": false,
+  "timelineGhost": [],
+  "lastEvent": {
+   "type": "drop",
+   "defaultPrevented": true,
+   "dropEffect": "none"
+  }
+ },
+ "toasts": [
+  "1 件を素材に取り込みました。",
+  "1 件を素材に取り込みました。",
+  "1 件を素材に取り込みました。",
+  "1 件を素材に取り込みました。"
+ ],
+ "pageEvents": {
+  "count": 6,
+  "types": [
+   "dragenter",
+   "dragover",
+   "drop"
+  ],
+  "firstTypes": [
+   "Files"
+  ],
+  "dropSeen": true
+ }
+}

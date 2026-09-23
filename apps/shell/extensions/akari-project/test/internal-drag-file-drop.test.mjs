@@ -64,6 +64,42 @@ test('dataTransfer が無い場合も取り込み表示を消し、取り込ま�
     assert.equal(handler.dragActive, false);
 });
 
+// task 2026-09-23-finder-drop-frame: 動画の drop は document capture に取られても枠を消す。
+test('window capture の drop / dragend が枠だけ消し、dispose で両方を外す', () => {
+    const init = widget.members.find(member => member.name?.getText(source) === 'init');
+    const body = init.getText(source);
+    for (const event of ['drop', 'dragend']) {
+        assert.match(body, new RegExp(`window\\.addEventListener\\('${event}', clearDropOverlay, true\\)`));
+        assert.match(body, new RegExp(`window\\.removeEventListener\\('${event}', clearDropOverlay, true\\)`));
+    }
+    const declaration = init.body.statements
+        .filter(ts.isVariableStatement)
+        .flatMap(statement => statement.declarationList.declarations)
+        .find(item => item.name.getText(source) === 'clearDropOverlay');
+    assert.ok(declaration?.initializer);
+    const callbackCode = ts.transpileModule(
+        `const clearDropOverlay = ${declaration.initializer.getText(source)}; return clearDropOverlay;`,
+        { compilerOptions: { target: ts.ScriptTarget.ES2021 } }
+    ).outputText;
+    const handler = Object.assign(new Handler(), { dragActive: true, update() {} });
+    const clearDropOverlay = new Function(callbackCode).call(handler);
+    clearDropOverlay({ preventDefault: () => assert.fail('drop の処理は変えない'),
+        stopPropagation: () => assert.fail('drop の処理は変えない') });
+    assert.equal(handler.dragActive, false);
+});
+
+test('dragenter は dragover と同じ OS ファイル判定へ渡す', () => {
+    const init = widget.members.find(member => member.name?.getText(source) === 'init');
+    assert.match(init.getText(source), /this\.node\.addEventListener\('dragenter', event => this\.handleDragOver\(event\)\)/);
+    const handler = Object.assign(new Handler(), { dragActive: false, update() {} });
+    const event = types => ({ dataTransfer: { types, dropEffect: 'none' },
+        preventDefault() {}, stopPropagation() {} });
+    handler.handleDragOver(event(['Files']));
+    assert.equal(handler.dragActive, true);
+    handler.handleDragOver(event(['Files', MATERIAL_DRAG_MIME]));
+    assert.equal(handler.dragActive, false);
+});
+
 test('素材・ライブラリ・プリセットのカード画像はネイティブの画像ドラッグを起動しない', () => {
     let images = 0;
     for (const name of ['renderMaterialCard', 'renderCatalogCard', 'renderCatalogListRow', 'renderPresetShowcaseCard', 'renderPresetShowcaseListRow']) {

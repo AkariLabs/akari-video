@@ -1,0 +1,83 @@
+{
+ "target": "timeline",
+ "selector": ".akari-annotations-widget",
+ "file": "finder-clip-b2.mp4",
+ "point": {
+  "x": 410,
+  "y": 554
+ },
+ "mode": "drop",
+ "afterDragEnter": {
+  "panelOverlay": [],
+  "homeOverlay": [],
+  "panelOverlayElement": false,
+  "timelineGhost": [],
+  "lastEvent": {
+   "type": "dragenter",
+   "defaultPrevented": true,
+   "dropEffect": "none"
+  }
+ },
+ "duringDrag": {
+  "panelOverlay": [],
+  "homeOverlay": [],
+  "panelOverlayElement": false,
+  "timelineGhost": [],
+  "lastEvent": {
+   "type": "dragover",
+   "defaultPrevented": true,
+   "dropEffect": "copy"
+  }
+ },
+ "assetsAdded": [
+  "finder-clip-b2.mp4"
+ ],
+ "editChanged": true,
+ "editTracksAfter": [
+  [
+   "v2",
+   [
+    "clip-1@44+60"
+   ]
+  ],
+  [
+   "v1",
+   [
+    "cut-1@0+180"
+   ]
+  ],
+  [
+   "a1",
+   []
+  ]
+ ],
+ "afterDrop": {
+  "panelOverlay": [],
+  "homeOverlay": [],
+  "panelOverlayElement": false,
+  "timelineGhost": [],
+  "lastEvent": {
+   "type": "drop",
+   "defaultPrevented": true,
+   "dropEffect": "none"
+  }
+ },
+ "toasts": [
+  "素材を取り込みました。分析やプラン作成に進めます。",
+  "素材を取り込みました。分析やプラン作成に進めます。",
+  "1 本の動画をタイムラインに置きました。",
+  "1 本の動画をタイムラインに置きました。"
+ ],
+ "pageEvents": {
+  "count": 18,
+  "types": [
+   "dragenter",
+   "dragover",
+   "drop"
+  ],
+  "firstTypes": [
+   "Files"
+  ],
+  "dropSeen": true
+ }
+}

@@ -1,0 +1,83 @@
+{
+ "target": "home",
+ "selector": ".akari-home-surface",
+ "file": "finder-photo-b5.jpeg",
+ "point": {
+  "x": 407,
+  "y": 238
+ },
+ "mode": "drop",
+ "afterDragEnter": {
+  "panelOverlay": [],
+  "homeOverlay": [],
+  "panelOverlayElement": false,
+  "timelineGhost": [],
+  "lastEvent": {
+   "type": "dragenter",
+   "defaultPrevented": true,
+   "dropEffect": "link"
+  }
+ },
+ "duringDrag": {
+  "panelOverlay": [],
+  "homeOverlay": [
+   "ここに落とすと素材に取り込みます"
+  ],
+  "panelOverlayElement": false,
+  "timelineGhost": [],
+  "lastEvent": {
+   "type": "dragover",
+   "defaultPrevented": true,
+   "dropEffect": "copy"
+  }
+ },
+ "assetsAdded": [
+  "finder-photo-b5.jpeg"
+ ],
+ "editChanged": false,
+ "editTracksAfter": [
+  [
+   "v2",
+   []
+  ],
+  [
+   "v1",
+   [
+    "cut-1@0+180"
+   ]
+  ],
+  [
+   "a1",
+   []
+  ]
+ ],
+ "afterDrop": {
+  "panelOverlay": [],
+  "homeOverlay": [],
+  "panelOverlayElement": false,
+  "timelineGhost": [],
+  "lastEvent": {
+   "type": "drop",
+   "defaultPrevented": true,
+   "dropEffect": "none"
+  }
+ },
+ "toasts": [
+  "素材を取り込みました。分析やプラン作成に進めます。",
+  "素材を取り込みました。分析やプラン作成に進めます。",
+  "素材を取り込みました。分析やプラン作成に進めます。",
+  "素材を取り込みました。分析やプラン作成に進めます。"
+ ],
+ "pageEvents": {
+  "count": 6,
+  "types": [
+   "dragenter",
+   "dragover",
+   "drop"
+  ],
+  "firstTypes": [
+   "Files"
+  ],
+  "dropSeen": true
+ }
+}

@@ -1,0 +1,63 @@
+{
+ "target": "home",
+ "selector": ".akari-home-surface",
+ "file": "finder-photo-home.jpeg",
+ "point": {
+  "x": 424,
+  "y": 401
+ },
+ "mode": "drop",
+ "afterDragEnter": {
+  "panelOverlay": [],
+  "homeOverlay": [],
+  "panelOverlayElement": false,
+  "lastEvent": {
+   "type": "dragenter",
+   "defaultPrevented": true,
+   "dropEffect": "link"
+  }
+ },
+ "duringDrag": {
+  "panelOverlay": [],
+  "homeOverlay": [
+   "ここに落とすと素材に取り込みます"
+  ],
+  "panelOverlayElement": false,
+  "lastEvent": {
+   "type": "dragover",
+   "defaultPrevented": true,
+   "dropEffect": "copy"
+  }
+ },
+ "assetsAdded": [
+  "finder-photo-home.jpeg"
+ ],
+ "afterDrop": {
+  "panelOverlay": [],
+  "homeOverlay": [],
+  "panelOverlayElement": false,
+  "lastEvent": {
+   "type": "drop",
+   "defaultPrevented": true,
+   "dropEffect": "none"
+  }
+ },
+ "toasts": [
+  "1 件を素材に取り込みました。",
+  "1 件を素材に取り込みました。",
+  "素材を取り込みました。分析やプラン作成に進めます。",
+  "素材を取り込みました。分析やプラン作成に進めます。"
+ ],
+ "pageEvents": {
+  "count": 12,
+  "types": [
+   "dragenter",
+   "dragover",
+   "drop"
+  ],
+  "firstTypes": [
+   "Files"
+  ],
+  "dropSeen": true
+ }
+}

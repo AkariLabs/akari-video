@@ -31,7 +31,7 @@ import { FileDialogService } from '@theia/filesystem/lib/browser';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
 import { WorkspaceService } from '@theia/workspace/lib/browser/workspace-service';
 import { AkariProjectService, DroppedVideo, DroppedVideoImportResult } from '../common/akari-project-protocol';
-import { isDelegatedDropInput } from '../common/delegated-drop';
+import { isDelegatedDragOverInput, isDelegatedDropInput } from '../common/delegated-drop';
 import { ElectronAkariProjectApi } from '../electron-common/electron-api';
 import { AkariProjectModeService } from './akari-project-mode-service';
 import { AkariWorkflowService } from './akari-workflow-service';
@@ -195,8 +195,9 @@ export class AkariProjectContribution implements CommandContribution, MenuContri
             void this.watchOpenRoots();
         });
         document.addEventListener('dragover', event => {
-            if (this.isDelegatedDrop(event) || this.isSelfHandledDropTarget(event.target)) {
-                // AKARI 内部ドラッグを受ける data-akari-dropzone、および Theia 本体のメインドックパネル
+            if (this.isDelegatedDragOver(event) || this.isSelfHandledDropTarget(event.target)) {
+                // task 2026-09-23-finder-drop-frame: 内部ドラッグの dropzone と OS ファイルを
+                // 受ける素材パネル、および Theia 本体のメインドックパネル
                 // （エディタ領域 — ファイルをタブとして開く自前の 3 点セットを既に持つ、
                 // application-shell.js の dockPanel.node 'dragover'/'drop'）は自前で完結する。
                 // ここで stopPropagation すると capture 段階の時点でそこまで event が
@@ -250,6 +251,16 @@ export class AkariProjectContribution implements CommandContribution, MenuContri
         const target = event.target;
         return isDelegatedDropInput({
             insideDropzone: target instanceof Element && !!target.closest('[data-akari-dropzone]'),
+            types: event.dataTransfer ? Array.from(event.dataTransfer.types) : []
+        });
+    }
+
+    /** task 2026-09-23-finder-drop-frame: Files だけの dragover は素材パネルへ通す。 */
+    protected isDelegatedDragOver(event: DragEvent): boolean {
+        const target = event.target;
+        return isDelegatedDragOverInput({
+            insideDropzone: target instanceof Element && !!target.closest('[data-akari-dropzone]'),
+            insideOsFileDropTarget: target instanceof Element && !!target.closest('[data-akari-os-file-drop-target]'),
             types: event.dataTransfer ? Array.from(event.dataTransfer.types) : []
         });
     }

@@ -649,6 +649,8 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         // akari-project-contribution.ts のグローバルハンドラ（isDelegatedDropzone）
         // に割り込まれず、このウィジェット自身が最後まで処理する。
         this.node.setAttribute('data-akari-dropzone', 'true');
+        // task 2026-09-23-finder-drop-frame: Files だけの dragover をグローバルから受け取る。
+        this.node.setAttribute('data-akari-os-file-drop-target', 'true');
         // docs/contract-2026-08-11-review-session-ui-events.md #2: panel:<id> opt-in target.
         this.node.setAttribute('data-akari-ui', 'panel:assets');
         this.node.setAttribute('data-akari-ui-label', '素材パネル');
@@ -673,9 +675,20 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         // よって自前で copy を宣言し、Theia の document ハンドラまで到達させない
         // （ホームの取り込みゾーン akari-home-widget#handleDragOver が既にこの 3 点セットで
         //   動いており、本パネルだけが dragover を持たず取り残されていた）。
+        // task 2026-09-23-finder-drop-frame: 最初の dragenter から取り込み枠を出す。
+        this.node.addEventListener('dragenter', event => this.handleDragOver(event));
         this.node.addEventListener('dragover', event => this.handleDragOver(event));
         this.node.addEventListener('dragleave', event => this.handleDragLeave(event));
         this.node.addEventListener('drop', event => this.handleDrop(event));
+        // task 2026-09-23-finder-drop-frame: 動画は document capture の drop が先に
+        // stopPropagation するため、window capture で枠だけ消す。取り込み経路は変えない。
+        const clearDropOverlay = (): void => this.setDragActive(false);
+        window.addEventListener('drop', clearDropOverlay, true);
+        window.addEventListener('dragend', clearDropOverlay, true);
+        this.toDispose.push({ dispose: () => {
+            window.removeEventListener('drop', clearDropOverlay, true);
+            window.removeEventListener('dragend', clearDropOverlay, true);
+        } });
         this.toDispose.push(this.workflow.onDidChange(() => {
             if (this.materialSwap && this.materialSwap.root !== this.workflow.workspaceRoot?.toString()) this.closeMaterialSwap();
             if (this.generationPickRoot !== this.workflow.workspaceRoot?.toString()) {

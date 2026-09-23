@@ -1,0 +1,61 @@
+{
+ "target": "panel",
+ "selector": "#akari-role-buckets-widget",
+ "file": "finder-photo.jpeg",
+ "point": {
+  "x": 130,
+  "y": 387
+ },
+ "mode": "drop",
+ "afterDragEnter": {
+  "panelOverlay": [],
+  "homeOverlay": [],
+  "panelOverlayElement": false,
+  "lastEvent": {
+   "type": "dragenter",
+   "defaultPrevented": true,
+   "dropEffect": "none"
+  }
+ },
+ "duringDrag": {
+  "panelOverlay": [],
+  "homeOverlay": [],
+  "panelOverlayElement": false,
+  "lastEvent": {
+   "type": "dragover",
+   "defaultPrevented": true,
+   "dropEffect": "copy"
+  }
+ },
+ "assetsAdded": [
+  "finder-photo.jpeg"
+ ],
+ "afterDrop": {
+  "panelOverlay": [],
+  "homeOverlay": [],
+  "panelOverlayElement": false,
+  "lastEvent": {
+   "type": "drop",
+   "defaultPrevented": true,
+   "dropEffect": "none"
+  }
+ },
+ "toasts": [
+  "1 件を素材に取り込みました。",
+  "1 件を素材に取り込みました。",
+  "1 件を素材に取り込みました。",
+  "1 件を素材に取り込みました。"
+ ],
+ "pageEvents": {
+  "count": 6,
+  "types": [
+   "dragenter",
+   "dragover",
+   "drop"
+  ],
+  "firstTypes": [
+   "Files"
+  ],
+  "dropSeen": true
+ }
+}

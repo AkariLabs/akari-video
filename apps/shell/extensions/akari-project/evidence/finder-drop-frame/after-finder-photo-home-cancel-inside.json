@@ -1,0 +1,58 @@
+{
+ "target": "home",
+ "selector": ".akari-home-surface",
+ "file": "finder-photo-b3.jpeg",
+ "point": {
+  "x": 410,
+  "y": 242
+ },
+ "mode": "cancel-inside",
+ "afterDragEnter": {
+  "panelOverlay": [],
+  "homeOverlay": [],
+  "panelOverlayElement": false,
+  "timelineGhost": [],
+  "lastEvent": {
+   "type": "dragenter",
+   "defaultPrevented": true,
+   "dropEffect": "link"
+  }
+ },
+ "duringDrag": {
+  "panelOverlay": [],
+  "homeOverlay": [
+   "ここに落とすと素材に取り込みます"
+  ],
+  "panelOverlayElement": false,
+  "timelineGhost": [],
+  "lastEvent": {
+   "type": "dragover",
+   "defaultPrevented": true,
+   "dropEffect": "copy"
+  }
+ },
+ "afterCancel": {
+  "panelOverlay": [],
+  "homeOverlay": [
+   "ここに落とすと素材に取り込みます"
+  ],
+  "panelOverlayElement": false,
+  "timelineGhost": [],
+  "lastEvent": {
+   "type": "dragover",
+   "defaultPrevented": true,
+   "dropEffect": "copy"
+  }
+ },
+ "pageEvents": {
+  "count": 4,
+  "types": [
+   "dragenter",
+   "dragover"
+  ],
+  "firstTypes": [
+   "Files"
+  ],
+  "dropSeen": false
+ }
+}

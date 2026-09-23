@@ -1,0 +1,81 @@
+{
+ "target": "timeline",
+ "selector": ".akari-annotations-widget",
+ "file": "finder-clip-tl2.mp4",
+ "point": {
+  "x": 421,
+  "y": 562
+ },
+ "mode": "drop",
+ "afterDragEnter": {
+  "panelOverlay": [],
+  "homeOverlay": [],
+  "panelOverlayElement": false,
+  "timelineGhost": [],
+  "lastEvent": {
+   "type": "dragenter",
+   "defaultPrevented": true,
+   "dropEffect": "none"
+  }
+ },
+ "duringDrag": {
+  "panelOverlay": [],
+  "homeOverlay": [],
+  "panelOverlayElement": false,
+  "timelineGhost": [],
+  "lastEvent": {
+   "type": "dragover",
+   "defaultPrevented": true,
+   "dropEffect": "copy"
+  }
+ },
+ "assetsAdded": [
+  "finder-clip-tl2.mp4"
+ ],
+ "editChanged": true,
+ "editTracksAfter": [
+  [
+   "v2",
+   [
+    "clip-1@50+60"
+   ]
+  ],
+  [
+   "v1",
+   [
+    "cut-1@0+180"
+   ]
+  ],
+  [
+   "a1",
+   []
+  ]
+ ],
+ "afterDrop": {
+  "panelOverlay": [],
+  "homeOverlay": [],
+  "panelOverlayElement": false,
+  "timelineGhost": [],
+  "lastEvent": {
+   "type": "drop",
+   "defaultPrevented": true,
+   "dropEffect": "none"
+  }
+ },
+ "toasts": [
+  "1 本の動画をタイムラインに置きました。",
+  "1 本の動画をタイムラインに置きました。"
+ ],
+ "pageEvents": {
+  "count": 12,
+  "types": [
+   "dragenter",
+   "dragover",
+   "drop"
+  ],
+  "firstTypes": [
+   "Files"
+  ],
+  "dropSeen": true
+ }
+}
