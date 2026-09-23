@@ -860,6 +860,9 @@ export interface AkariAnnotationsService {
     createEmptyGenerationFrame(request: { projectRootUri: string; durationSeconds: number }): Promise<{
         relativePath: string; sha256: string; width: number; height: number; renderer: string;
     }>;
+    createEmptyAudioFrame(request: { projectRootUri: string; durationSeconds: number }): Promise<{
+        relativePath: string; sha256: string; durationSeconds: number;
+    }>;
     validateGenerationInputs(request: ValidateGenerationInputsRequest): Promise<GenerationValidationResult>;
     writeGenerationDraft(request: WriteGenerationDraftRequest): Promise<{ ok: true; path: string }>;
     startGenerateVideo(request: StartGenerateVideoRequest): Promise<GenerationProcessResult>;

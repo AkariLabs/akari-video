@@ -17,7 +17,7 @@ export function validateGenerationMeta(meta) {
   requireKeys(meta, ["version", "kind", "status", "model", "inputs", "output", "cost", "job", "provenance", "history"], "/", fail);
 
   if (meta.version !== 1) fail("/version は 1 である必要があります");
-  validateEnum(meta.kind, ["still", "video", "frames"], "/kind", fail);
+  validateEnum(meta.kind, ["still", "video", "frames", "audio"], "/kind", fail);
   validateEnum(meta.status, STATUS_VALUES, "/status", fail);
   validateModel(meta.model, "/model", fail);
   validateInputs(meta.inputs, "/inputs", fail);

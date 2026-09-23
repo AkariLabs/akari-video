@@ -1,0 +1,34 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
+import { AkariAnnotationsServiceImpl } from '../lib/node/akari-annotations-service.js';
+import { describeNextDraft } from '@akari-video/edit-store';
+import { validateGenerationMeta } from '../../../../../packages/generate/src/cli/meta-validate.mjs';
+
+test('audio frame RPC publishes 48 kHz stereo 16-bit PCM silence and valid planned meta', async t => {
+  const root = await mkdtemp(join(tmpdir(), 'akari-frame-audio-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const before = JSON.stringify({ version: 2, output: { width: 640, height: 360, fps: 30 }, sources: [], tracks: [] });
+  await writeFile(join(root, 'edit.json'), before);
+  const service = new AkariAnnotationsServiceImpl();
+  const result = await service.createEmptyAudioFrame({ projectRootUri: pathToFileURL(root).toString(), durationSeconds: 2.5 });
+  const wav = await readFile(join(root, result.relativePath));
+  assert.match(result.relativePath, /^assets\/generated\/frame-audio-\d+-[^/]+\.wav$/);
+  assert.equal(createHash('sha256').update(wav).digest('hex'), result.sha256);
+  const ffprobe = process.env.AKARI_FFPROBE_BIN || new URL('../../../../../packages/media-bin/vendor/darwin-arm64/ffprobe', import.meta.url).pathname;
+  const probe = JSON.parse(execFileSync(ffprobe, ['-v', 'error', '-show_streams', '-show_format', '-of', 'json', join(root, result.relativePath)], { encoding: 'utf8' }));
+  assert.equal(probe.streams[0].codec_name, 'pcm_s16le');
+  assert.equal(probe.streams[0].sample_rate, '48000');
+  assert.equal(probe.streams[0].channels, 2);
+  assert.ok(Math.abs(Number(probe.format.duration) - 2.5) <= 1 / 30);
+  const meta = JSON.parse(await readFile(join(root, `${result.relativePath}.meta.json`), 'utf8'));
+  assert.deepEqual(validateGenerationMeta(meta), { ok: true, errors: [] });
+  assert.equal(meta.kind, 'audio'); assert.equal(meta.status, 'planned');
+  assert.equal(meta.inputs.prompt, ''); assert.equal(describeNextDraft(meta), null);
+  assert.equal(await readFile(join(root, 'edit.json'), 'utf8'), before);
+});

@@ -4,6 +4,8 @@
  * （ここへ Node 専用依存を戻すと browser バンドルに node builtins が混入するため分離している）。
  */
 export type GenerationState = 'none' | 'planned' | 'generating' | 'stale' | 'done' | 'failed' | 'orphan';
+export declare const GENERATION_META_KINDS: readonly ["still", "video", "frames", "audio"];
+export declare function isGenerationMetaKind(kind: unknown): kind is GenerationMetaV1['kind'];
 export interface GenerationFrameReference {
     sha256?: string;
     path?: string;
@@ -30,7 +32,7 @@ export interface GenerationNextDraft {
 }
 export interface GenerationMetaV1 {
     version: 1;
-    kind: 'still' | 'video' | 'frames';
+    kind: (typeof GENERATION_META_KINDS)[number];
     status: 'planned' | 'generating' | 'done' | 'failed';
     next?: GenerationNextDraft;
     placeholder?: {

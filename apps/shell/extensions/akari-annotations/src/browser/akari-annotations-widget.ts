@@ -2,7 +2,7 @@ import { placeTextCaption, PLACE_TEXT_COMMAND_ID, type PlaceTextOptions } from '
 import { AkariReadAloudDialog, type ReadAloudPlacement } from './read-aloud/akari-read-aloud-dialog';
 import { selectReadAloudRows, staleNarrations } from '../common/read-aloud-model';
 import { timelineGapAt, type TimelineGap } from '../common/timeline-gap';
-import { calculateFrameDraw, type FrameDrawRange } from '../common/timeline-frame-draw';
+import { calculateFrameDraw, frameDrawDestination, nextFrameTrackNumber, type FrameDrawDestination, type FrameDrawRange } from '../common/timeline-frame-draw';
 import { advanceMaterialTrialWindow, MaterialTrialWindow } from '../common/material-trial-window';
 import { logSwapTrial, SwapTrialIdentity } from 'akari-preview/lib/common/swap-trial-playback';
 import { materialSwapTarget, locateSwapItem, replaceMaterial, MaterialSwapTarget } from '../common/material-replacement';
@@ -2167,6 +2167,21 @@ export class AkariAnnotationsWidget extends BaseWidget {
         border: 2px dashed #b69aff; background: rgba(151, 104, 235, .18);
         color: #eee5ff; display: flex; align-items: center; justify-content: center;
         font-size: 12px; white-space: nowrap;
+    }
+    .akari-annotations-frame-draw.akari-annotations-frame-draw-audio {
+        border-color: #6bd6a0; background: rgba(66, 177, 120, .18); color: #d8ffe9;
+    }
+    .akari-annotations-frame-new-track {
+        position: absolute; box-sizing: border-box; pointer-events: none; z-index: 49;
+        border: 1px dashed rgba(203, 200, 255, .8); background: rgba(151, 104, 235, .14);
+    }
+    .akari-annotations-frame-new-track.akari-annotations-frame-new-track-audio {
+        border-color: #6bd6a0; background: rgba(66, 177, 120, .14);
+    }
+    .akari-annotations-frame-new-track-label {
+        position: absolute; top: 2px; left: 6px; padding: 2px 5px;
+        color: #fff; background: rgba(20, 20, 20, .85); border-radius: 3px;
+        font-size: 11px; white-space: nowrap;
     }
     .akari-annotations-widget:not(.akari-annotations-tool-razor) [data-trim-edge]:not([data-akari-locked="true"])::after {
         content: '';
@@ -7875,7 +7890,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         element.classList.remove(
             'akari-generation-none', 'akari-generation-planned', 'akari-generation-generating',
             'akari-generation-stale', 'akari-generation-done', 'akari-generation-failed',
-            'akari-generation-orphan', 'akari-generation-planned-video', 'akari-generation-chip-layout'
+            'akari-generation-orphan', 'akari-generation-planned-video', 'akari-generation-planned-audio', 'akari-generation-chip-layout'
         );
         element.dataset.akariGenerationState = generation?.state ?? 'none';
         if (generation?.state !== 'planned-video') {
@@ -7949,6 +7964,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
         } else {
             progress?.remove();
         }
+    }
+
+    protected applyAudioGenerationChip(element: HTMLElement, path: string): void {
+        this.applyGenerationChip(element, this.generationForPath(path));
     }
 
     protected appendGenerationRetry(element: HTMLElement, header: HTMLElement, badge: HTMLElement, duration?: HTMLElement | null): void {
@@ -9530,6 +9549,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 });
             }
             this.updateBgmWaveform(element, bgm, end, bgmItemHeight, actualDuration);
+            this.applyAudioGenerationChip(element, bgm.path);
         }
         // narration を実 track ref の帯に表示する。選択後の gain 更新は v2 item を優先し、
         // legacy audio.narration[] にしか無い場合も互換 mutation が同じ id へ書き戻す。
@@ -9593,6 +9613,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             this.updateNarrationWaveform(
                 element, narration, durationSeconds, itemHeight, actualDuration
             );
+            this.applyAudioGenerationChip(element, narration.path);
             const speech = this.audioSpeech?.find(item => item.id === narration.id);
             if (speech) {
                 const input = speech.in ?? 0;
@@ -9757,6 +9778,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     this.rawV2Item(sfx.id) !== undefined
                 );
             }
+            this.applyAudioGenerationChip(element, sfx.path);
         });
         // ソーストリマー（R6c2r2）: レンダーパス開始時点の trimmerItemId を固定で使い回す
         // （ループ内で対象クリップ自身の実尺未解決等により this.trimmerItemId が undefined へ
@@ -11345,9 +11367,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
     /**
      * R7-4・A/V/T 命名（2026-08-12、字幕レーンの自動命名を V 系から T 系へ分離）: トラック表示名を
      * グループ内連番 + 種別プレフィックスへ（音声 = A1, A2, …・字幕 = T1, T2, …・映像系
-     * （cuts/layers/overlays）= V1, V2, …。いずれも最下段から連番）。this.displayTimelineTracks は
-     * 配列先頭 = 画面最下段（widget の `[...tracks].reverse()` 規約）なので、配列を先頭から辿る
-     * だけで各グループとも「最下段から連番」になる（中核アルゴリズムは computeTrackAutoNames、
+     * （cuts/layers/overlays）= V1, V2, …。音声だけ上から、それ以外は最下段から連番）。
+     * this.displayTimelineTracks は配列先頭 = 画面最下段（widget の `[...tracks].reverse()` 規約）。
+     * 中核アルゴリズムは computeTrackAutoNames、
      * common/ の純粋関数として単体テスト済み）。
      */
     protected computeTrackAutoNames(): Map<string, string> {
@@ -16260,34 +16282,61 @@ export class AkariAnnotationsWidget extends BaseWidget {
         if (!doc || doc.version !== 2 || this.focusScope.rootId !== null) return;
         const stripRect = this.strip.getBoundingClientRect();
         const y = event.clientY - stripRect.top;
-        const layout = this.laneLayout.tracks.find(row => y >= row.top && y < row.top + row.height);
-        const track = (doc.tracks as Array<Record<string, any>>)?.find(row => row.id === layout?.id);
-        if (!layout || !track || track.lane !== 'visual' || this.isTrackLocked(track.id)) return;
+        const destination = frameDrawDestination({ y, layouts: this.laneLayout.tracks,
+            tracks: doc.tracks as Array<{ id: string; lane: 'visual' | 'audio'; locked?: boolean }>,
+            isLocked: id => this.isTrackLocked(id) });
+        if (!destination) return;
+        const track = 'trackId' in destination
+            ? (doc.tracks as Array<Record<string, any>>).find(row => row.id === destination.trackId) : undefined;
+        const layout = track ? this.laneLayout.tracks.find(row => row.id === track.id) : undefined;
+        if (track && !layout) return;
         const start = this.timeAtClientX(event.clientX);
         const fps = this.fps;
-        const occupied = (track.items ?? []).map(item => ({ at: item.at, duration: item.duration }));
+        const occupied = (track?.items ?? []).map(item => ({ at: item.at, duration: item.duration }));
         if (occupied.some(item => start * fps >= item.at && start * fps < item.at + item.duration)) return;
         const candidates = this.outputSnapCandidates().filter(candidate =>
             candidate.time >= this.viewStart && candidate.time <= this.viewStart + this.visibleDuration());
         const thresholdSeconds = snapThresholdSecondsFor(SNAP_THRESHOLD_PX, stripRect.width, this.visibleDuration()) ?? 0;
         const rectangle = document.createElement('div');
-        rectangle.className = 'akari-annotations-frame-draw';
+        rectangle.className = `akari-annotations-frame-draw${destination.lane === 'audio' ? ' akari-annotations-frame-draw-audio' : ''}`;
         rectangle.style.display = 'none';
         this.timelineOverlay.appendChild(rectangle);
+        const newTrackBand = 'insertIndex' in destination ? document.createElement('div') : undefined;
+        if (newTrackBand) {
+            newTrackBand.className = `akari-annotations-frame-new-track${destination.lane === 'audio' ? ' akari-annotations-frame-new-track-audio' : ''}`;
+            newTrackBand.style.display = 'none';
+            const label = document.createElement('span');
+            label.className = 'akari-annotations-frame-new-track-label';
+            const count = nextFrameTrackNumber(this.computeTrackAutoNames().values(), destination.lane);
+            label.textContent = destination.lane === 'audio'
+                ? `新しい音声トラック A${count}` : `新しい映像トラック V${count}`;
+            newTrackBand.appendChild(label);
+            this.timelineOverlay.appendChild(newTrackBand);
+        }
         let range: FrameDrawRange | null = null;
         const update = (pointer: PointerEvent): void => {
             if (pointer.pointerId !== event.pointerId) return;
             range = calculateFrameDraw({ start, end: this.timeAtClientX(pointer.clientX), fps,
                 distancePx: Math.abs(pointer.clientX - event.clientX), thresholdSeconds, candidates, occupied });
             rectangle.style.display = range ? 'flex' : 'none';
+            if (newTrackBand && !range) newTrackBand.style.display = 'none';
             if (!range) return;
             const overlay = this.timelineOverlay.getBoundingClientRect();
             const rect = this.strip.getBoundingClientRect();
             const scale = rect.width / this.visibleDuration();
+            const rows = [...this.laneLayout.tracks].sort((a, b) => a.top - b.top);
+            const bottom = rows[rows.length - 1].top + rows[rows.length - 1].height;
+            const bandHeight = destination.lane === 'visual'
+                ? Math.min(52, rows[0].top) : Math.min(52, Math.max(0, rect.height - bottom));
+            const bandTop = destination.lane === 'visual' ? rows[0].top - bandHeight : bottom;
+            if (newTrackBand) {
+                Object.assign(newTrackBand.style, { display: 'block', left: `${rect.left - overlay.left}px`,
+                    top: `${rect.top - overlay.top + bandTop}px`, width: `${rect.width}px`, height: `${bandHeight}px` });
+            }
             Object.assign(rectangle.style, {
                 left: `${rect.left - overlay.left + (range.at / fps - this.viewStart) * scale}px`,
-                top: `${rect.top - overlay.top + layout.top}px`,
-                width: `${range.duration / fps * scale}px`, height: `${layout.height}px`
+                top: `${rect.top - overlay.top + (layout?.top ?? bandTop)}px`,
+                width: `${range.duration / fps * scale}px`, height: `${newTrackBand ? bandHeight : layout!.height}px`
             });
             rectangle.textContent = `${(range.duration / fps).toFixed(1)} 秒`;
         };
@@ -16298,6 +16347,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             this.strip.removeEventListener('lostpointercapture', cancel);
             window.removeEventListener('blur', cleanup);
             rectangle.remove();
+            newTrackBand?.remove();
             this.cancelFrameDraw = undefined;
             if (this.strip.hasPointerCapture(event.pointerId)) this.strip.releasePointerCapture(event.pointerId);
         };
@@ -16306,7 +16356,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             if (pointer.pointerId !== event.pointerId) return;
             update(pointer);
             cleanup();
-            if (range) void this.commitEmptyFrame(track.id, range, fps);
+            if (range) void this.commitEmptyFrame(destination, range, fps);
         };
         this.cancelFrameDraw = cleanup;
         this.strip.setPointerCapture(event.pointerId);
@@ -16448,40 +16498,60 @@ export class AkariAnnotationsWidget extends BaseWidget {
         } finally { this.gapCommitting = false; }
     }
 
-    protected async commitEmptyFrame(trackId: string, range: FrameDrawRange, fps: number): Promise<void> {
+    protected async commitEmptyFrame(target: string | FrameDrawDestination, range: FrameDrawRange, fps: number): Promise<void> {
         const location = this.location;
         if (!location) return;
+        const destination: FrameDrawDestination = typeof target === 'string'
+            ? { lane: (this.editDocument?.tracks as Array<{ id: string; lane: 'visual' | 'audio' }> | undefined)
+                ?.find(track => track.id === target)?.lane ?? 'visual', trackId: target } : target;
         try {
-            const image = await this.annotationsService.createEmptyGenerationFrame({
-                projectRootUri: location.root.toString(), durationSeconds: range.duration / fps
-            });
+            const request = { projectRootUri: location.root.toString(), durationSeconds: range.duration / fps };
+            const image = destination.lane === 'audio'
+                ? await this.annotationsService.createEmptyAudioFrame(request)
+                : await this.annotationsService.createEmptyGenerationFrame(request);
             if (this.location?.editUri.toString() !== location.editUri.toString()) return;
             let itemId: string;
             await this.commitEditMutation('空の枠を置く', doc => {
                 if (this.location?.editUri.toString() !== location.editUri.toString()) throw new Error('プロジェクトが変わりました。');
-                const track = (doc.tracks as Array<Record<string, any>>)?.find(row => row.id === trackId);
-                if (!track || track.lane !== 'visual' || track.locked || (doc.output as { fps: number })?.fps !== fps) {
-                    throw new Error('トラックまたはフレームレートが変わりました。');
+                if ((doc.output as { fps: number })?.fps !== fps) throw new Error('フレームレートが変わりました。');
+                let next = doc;
+                let trackId: string;
+                if ('insertIndex' in destination) {
+                    const index = destination.lane === 'visual' ? (doc.tracks as Array<unknown>).length : 0;
+                    if (destination.insertIndex !== index) throw new Error('トラックの並びが変わりました。');
+                    next = insertV2Track(doc, { index, lane: destination.lane });
+                    trackId = (next.tracks as Array<{ id: string }>)[index].id;
+                } else {
+                    trackId = destination.trackId;
+                }
+                const track = (next.tracks as Array<Record<string, any>>).find(row => row.id === trackId);
+                if (!track || track.lane !== destination.lane || track.locked || this.isTrackLocked?.(track.id)) {
+                    throw new Error('トラックが変わりました。');
                 }
                 if ((track.items ?? []).some(item => item.at < range.at + range.duration && item.at + item.duration > range.at)) {
                     throw new Error('枠を置く場所に別のクリップがあります。');
                 }
-                const sources = [...(doc.sources as Array<Record<string, unknown>> ?? [])];
-                const ids = new Set([...sources.map(source => source.id), ...indexEditV2Items(doc).keys()]);
+                const sources = [...(next.sources as Array<Record<string, unknown>> ?? [])];
+                const ids = new Set([...sources.map(source => source.id), ...indexEditV2Items(next).keys()]);
                 let serial = 1;
                 while (ids.has(`frame-${serial}`) || ids.has(`frame-src-${serial}`)) serial++;
                 itemId = `frame-${serial}`;
                 const sourceId = `frame-src-${serial}`;
                 sources.push({ id: sourceId, path: image.relativePath });
-                return insertV2Item({ ...doc, sources }, trackId, {
-                    id: itemId, name: '空の枠', at: range.at, duration: range.duration,
+                return insertV2Item({ ...next, sources }, trackId, {
+                    id: itemId, name: destination.lane === 'audio' ? '空の枠（音）' : '空の枠',
+                    ...(destination.lane === 'audio' ? { role: 'narration' } : {}),
+                    at: range.at, duration: range.duration,
                     source: { kind: 'media', src: sourceId, in: 0, out: range.duration / fps }
                 });
             });
-            const index = this.cutItemIds.indexOf(itemId);
-            const row = this.timelineTreeRows.find(candidate => candidate.id === itemId);
-            if (index >= 0) this.applySelection({ kind: 'cut', index });
-            else if (row) this.applySelection(this.selectionForTreeRow(row));
+            if (destination.lane === 'audio') this.applySelection({ kind: 'audio', id: itemId });
+            else {
+                const index = this.cutItemIds.indexOf(itemId);
+                const row = this.timelineTreeRows.find(candidate => candidate.id === itemId);
+                if (index >= 0) this.applySelection({ kind: 'cut', index });
+                else if (row) this.applySelection(this.selectionForTreeRow(row));
+            }
             // Drawing a frame explicitly requests its inspector; passive selection sync only attaches it.
             await this.commands.executeCommand(OPEN_AKARI_INSPECTOR_ID);
             this.showNotice('空の枠を置きました。');

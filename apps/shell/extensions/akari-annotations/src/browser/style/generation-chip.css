@@ -7,6 +7,15 @@
     opacity: .58;
 }
 
+.akari-generation-planned-audio {
+    border: 2px dashed #6bd6a0 !important;
+    background: rgba(66, 177, 120, .17) !important;
+    opacity: 1 !important;
+}
+.akari-generation-planned-audio .akari-generation-badge {
+    color: #6bd6a0;
+}
+
 .akari-generation-generating,
 .akari-generation-stale {
     border-color: var(--theia-editorWarning-foreground, #f5c842) !important;

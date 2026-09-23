@@ -517,6 +517,68 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         }
     }
 
+    async createEmptyAudioFrame(request: { projectRootUri: string; durationSeconds: number }): Promise<{
+        relativePath: string; sha256: string; durationSeconds: number;
+    }> {
+        if (!request?.projectRootUri || !Number.isFinite(request.durationSeconds) || request.durationSeconds < 0.5) {
+            throw new Error('projectRootUri と 0.5 秒以上の尺が必要です。');
+        }
+        const root = await fs.realpath(this.fsPath(request.projectRootUri));
+        const edit = JSON.parse(await fs.readFile(join(root, 'edit.json'), 'utf8'));
+        if (edit.version !== 2) throw new Error('v2 へ変換してから編集してください。');
+        const importEsm = new Function('specifier', 'return import(specifier)') as (specifier: string) => Promise<any>;
+        const load = async (file: string): Promise<any> => importEsm(pathToFileURL(
+            await this.findGenerationAsset(file)).toString());
+        const [metas, validator, mediaBin] = await Promise.all([
+            load('packages/generate/src/cli/meta-still.mjs'),
+            load('packages/generate/src/cli/meta-validate.mjs'),
+            load('packages/media-bin/src/index.mjs')
+        ]);
+        const ffmpeg = mediaBin.resolveFfmpeg({ env: process.env });
+        const directory = join(root, 'assets', 'generated');
+        await fs.mkdir(directory, { recursive: true });
+        const rel = relative(root, await fs.realpath(directory));
+        if (rel === '..' || rel.startsWith(`..${sep}`) || isAbsolute(rel)) {
+            throw new Error('生成先はプロジェクト内で指定してください。');
+        }
+        const staging = await fs.mkdtemp(join(directory, '.frame-audio-'));
+        const id = `frame-audio-${Date.now()}-${basename(staging).slice(13)}`;
+        const relativePath = `assets/generated/${id}.wav`;
+        const target = join(root, relativePath);
+        let publishedMeta = false;
+        try {
+            const stagedWav = join(staging, 'silence.wav');
+            await execFileAsync(ffmpeg, ['-v', 'error', '-f', 'lavfi', '-i',
+                'anullsrc=channel_layout=stereo:sample_rate=48000', '-t', String(request.durationSeconds),
+                '-c:a', 'pcm_s16le', '-ar', '48000', '-ac', '2', '-y', stagedWav], { timeout: 30000 });
+            const contents = await fs.readFile(stagedWav);
+            if (contents.length <= 44 || contents.toString('ascii', 0, 4) !== 'RIFF'
+                || contents.toString('ascii', 8, 12) !== 'WAVE') throw new Error('無音 wav を作れませんでした。');
+            const sha256 = createHash('sha256').update(contents).digest('hex');
+            const at = new Date().toISOString();
+            const meta = metas.plannedStillMeta({ prompt: '', duration_s: request.durationSeconds,
+                at, asOf: at.slice(0, 10) });
+            meta.kind = 'audio';
+            meta.model = { id: 'akari:empty-audio', as_of: at.slice(0, 10) };
+            meta.output.resolution = null;
+            meta.cost = { estimate_usd: 0, actual_usd: null, unit: 'usd_per_audio', source: 'estimate' };
+            meta.job = { provider: 'local', started_at: at, stale_after_s: 900 };
+            meta.provenance = { created_at: at, tool: 'akari empty audio frame', key_source: null };
+            const checked = validator.validateGenerationMeta(meta);
+            if (!checked.ok) throw new Error(checked.errors.join('\n'));
+            await fs.writeFile(join(staging, 'meta.json'), JSON.stringify(meta, null, 2) + '\n');
+            await fs.rename(join(staging, 'meta.json'), `${target}.meta.json`);
+            publishedMeta = true;
+            await fs.rename(stagedWav, target);
+            return { relativePath, sha256, durationSeconds: request.durationSeconds };
+        } catch (error) {
+            if (publishedMeta) await fs.rm(`${target}.meta.json`, { force: true });
+            throw error;
+        } finally {
+            await fs.rm(staging, { recursive: true, force: true });
+        }
+    }
+
     async validateGenerationInputs(request: ValidateGenerationInputsRequest): Promise<GenerationValidationResult> {
         if (!request?.modelId) throw new Error('modelId が必要です。');
         const [catalog, validatorPath] = await Promise.all([

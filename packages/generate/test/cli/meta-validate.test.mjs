@@ -43,7 +43,7 @@ function mutationDocuments(fixtures) {
     ["next.updated_at 不正", byName["still-next.json"], (meta) => { meta.next.updated_at = "yesterday"; }, "updated_at"],
     ["placeholder.item_id 欠け", byName["generating-placeholder.json"], (meta) => { delete meta.placeholder.item_id; }, "item_id"],
     ["version 2", done, (meta) => { meta.version = 2; }, "version"],
-    ["kind 不正", done, (meta) => { meta.kind = "audio"; }, "kind"],
+    ["kind 不正", done, (meta) => { meta.kind = "unknown"; }, "kind"],
     ["generating の request_id 欠け", generating, (meta) => { delete meta.job.request_id; }, "request_id"],
     ["done の result 欠け", done, (meta) => { delete meta.result; }, "result"],
     ["sha256 が 63 桁", done, (meta) => { meta.result.sha256 = "a".repeat(63); }, "sha256"],
@@ -79,6 +79,15 @@ test("generation-meta fixtures 9 本を受理する", async () => {
   for (const fixture of fixtures) {
     assert.deepEqual(validateGenerationMeta(fixture.value), { ok: true, errors: [] }, fixture.label);
   }
+});
+
+test("planned audio is valid; unknown kind remains invalid", async () => {
+  const planned = JSON.parse(await readFile(path.join(FIXTURES, "planned.json"), "utf8"));
+  planned.kind = "audio";
+  planned.inputs.prompt = "";
+  assert.deepEqual(validateGenerationMeta(planned), { ok: true, errors: [] });
+  planned.kind = "unknown";
+  assert.equal(validateGenerationMeta(planned).ok, false);
 });
 
 test("generation-meta の変異 12 件以上を欄名付きで拒否する", async () => {

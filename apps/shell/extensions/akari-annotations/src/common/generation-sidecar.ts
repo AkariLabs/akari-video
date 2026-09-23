@@ -52,6 +52,9 @@ export function describeGenerationChip(
             title: `動画予定（${variety[draft?.variety ?? 'prompt']}）` };
     }
     if (state === 'planned') {
+        if (meta?.kind === 'audio') {
+            return { badge: '空の枠（音）', className: 'akari-generation-planned-audio', title: '音の空の枠' };
+        }
         const prompt = meta?.inputs?.prompt;
         return { badge: typeof prompt === 'string' && prompt.trim() ? '予定' : '空の枠',
             className: 'akari-generation-planned', title: '生成予定（絵なし）' };

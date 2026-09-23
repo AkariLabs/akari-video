@@ -60,6 +60,15 @@ test("inputs.extra はモデル固有引数を保存できる", () => {
   assert.match(result.stdout, /^OK: /);
 });
 
+test("audio planned kind is accepted and unknown kind is rejected", () => {
+  const planned = JSON.parse(fs.readFileSync(join(fixtureRoot, "planned.json"), "utf8"));
+  planned.kind = "audio";
+  planned.inputs.prompt = "";
+  assert.equal(validateTemporary(planned).status, 0);
+  planned.kind = "unknown";
+  assert.equal(validateTemporary(planned).status, 1);
+});
+
 function validateTemporary(value) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "generation-meta-schema-"));
   const target = path.join(root, "sample.mp4.meta.json");

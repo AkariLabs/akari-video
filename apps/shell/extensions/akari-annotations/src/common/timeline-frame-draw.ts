@@ -1,6 +1,39 @@
 import { resolveSnapTime, type SnapCandidate } from './timeline-snap';
 
 export interface FrameDrawRange { at: number; duration: number }
+export type FrameDrawDestination =
+    | { lane: 'visual' | 'audio'; trackId: string }
+    | { lane: 'visual' | 'audio'; insertIndex: number };
+
+/** Name the provisional outer track using the same V/A groups as the rendered headers. */
+export function nextFrameTrackNumber(names: Iterable<string>, lane: 'visual' | 'audio'): number {
+    const pattern = lane === 'audio' ? /^A\d+$/u : /^V\d+$/u;
+    let count = 0;
+    for (const name of names) if (pattern.test(name)) count++;
+    return count + 1;
+}
+
+/** Layout coordinates are strip-local; tracks are stored bottom-to-top. */
+export function frameDrawDestination(options: {
+    y: number;
+    layouts: readonly { id?: string; top: number; height: number }[];
+    tracks: readonly { id: string; lane: 'visual' | 'audio'; locked?: boolean }[];
+    isLocked?: (id: string) => boolean;
+}): FrameDrawDestination | null {
+    const { y, layouts, tracks, isLocked } = options;
+    if (!Number.isFinite(y) || layouts.length === 0) return null;
+    const rows = [...layouts].sort((a, b) => a.top - b.top);
+    const hit = rows.find(row => y >= row.top && y < row.top + row.height);
+    if (hit) {
+        const track = tracks.find(candidate => candidate.id === hit.id);
+        return track && !track.locked && !isLocked?.(track.id)
+            ? { lane: track.lane, trackId: track.id } : null;
+    }
+    if (y < rows[0].top) return { lane: 'visual', insertIndex: tracks.length };
+    const last = rows[rows.length - 1];
+    if (y >= last.top + last.height) return { lane: 'audio', insertIndex: 0 };
+    return null;
+}
 export interface FrameDrawOptions {
     start: number;
     end: number;

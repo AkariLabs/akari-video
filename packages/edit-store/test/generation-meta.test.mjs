@@ -12,6 +12,7 @@ import {
 import {
   bindingShaFor,
   describeNextDraft,
+  isGenerationMetaKind,
   resolveGenerationState,
   selectGenerationSidecarForSource,
   sidecarPathFor,
@@ -150,6 +151,17 @@ for (const row of [
     assert.equal(result.meta === null, row.sidecar === null);
   });
 }
+
+test('planned audio meta resolves without a next draft', () => {
+  const fixture = JSON.parse(fs.readFileSync(new URL('../../schemas/fixtures/generation-meta/planned.json', import.meta.url), 'utf8'));
+  fixture.kind = 'audio';
+  fixture.inputs.prompt = '';
+  assert.equal(resolveGenerationState(fixture, Date.now()), 'planned');
+  assert.equal(describeNextDraft(fixture), null);
+  assert.equal(isGenerationMetaKind('audio'), true);
+  assert.equal(isGenerationMetaKind('unknown'), false);
+  assert.equal(resolveGenerationState({ ...fixture, kind: 'unknown' }, Date.now()), 'planned');
+});
 
 for (const row of [
   { name: '改名', target: 'assets/generated/renamed.mp4' },

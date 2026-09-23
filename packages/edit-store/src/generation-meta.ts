@@ -5,6 +5,11 @@
  */
 
 export type GenerationState = 'none' | 'planned' | 'generating' | 'stale' | 'done' | 'failed' | 'orphan';
+export const GENERATION_META_KINDS = ['still', 'video', 'frames', 'audio'] as const;
+
+export function isGenerationMetaKind(kind: unknown): kind is GenerationMetaV1['kind'] {
+    return GENERATION_META_KINDS.some(candidate => candidate === kind);
+}
 
 export interface GenerationFrameReference {
     sha256?: string;
@@ -29,7 +34,7 @@ export interface GenerationNextDraft {
 
 export interface GenerationMetaV1 {
     version: 1;
-    kind: 'still' | 'video' | 'frames';
+    kind: (typeof GENERATION_META_KINDS)[number];
     status: 'planned' | 'generating' | 'done' | 'failed';
     next?: GenerationNextDraft;
     placeholder?: { path: string; sha256: string; item_id: string };

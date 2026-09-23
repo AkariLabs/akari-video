@@ -122,18 +122,17 @@ export function withPlacedTextDisplayTrack(
 /**
  * R7-4・A/V/T 命名（2026-08-12、字幕レーンの自動命名を V 系から T 系へ分離）: トラック表示名を
  * グループ内連番 + 種別プレフィックスへ（音声 = A1, A2, …・字幕 = T1, T2, …・映像系
- * （cuts/layers/overlays）= V1, V2, …。いずれも最下段から連番）。引数の tracks は widget の
+ * （cuts/layers/overlays）= V1, V2, …。音声だけ上から、それ以外は最下段から連番）。引数の tracks は widget の
  * displayTimelineTracks 規約（配列先頭 = 画面最下段）に従うこと。
  */
 export function computeTrackAutoNames(tracks: readonly EditTimelineTrack[]): Map<string, string> {
     const names = new Map<string, string>();
-    let audioCount = 0;
+    let audioCount = tracks.filter(track => track.kind === 'audio').length;
     let captionsCount = 0;
     let videoCount = 0;
     for (const track of tracks) {
         if (track.kind === 'audio') {
-            audioCount++;
-            names.set(track.id, `A${audioCount}`);
+            names.set(track.id, `A${audioCount--}`);
         } else if (track.kind === 'captions') {
             captionsCount++;
             names.set(track.id, `T${captionsCount}`);

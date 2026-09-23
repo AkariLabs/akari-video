@@ -10,7 +10,7 @@
     "next": { "$ref": "#/$defs/next" },
     "placeholder": { "$ref": "#/$defs/placeholder" },
     "version": { "const": 1 },
-    "kind": { "enum": ["still", "video", "frames"] },
+    "kind": { "enum": ["still", "video", "frames", "audio"] },
     "status": { "enum": ["planned", "generating", "done", "failed"] },
     "model": { "$ref": "#/$defs/model" },
     "inputs": { "$ref": "#/$defs/inputs" },

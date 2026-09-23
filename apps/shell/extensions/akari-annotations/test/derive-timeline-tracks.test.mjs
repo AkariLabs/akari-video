@@ -95,7 +95,7 @@ test("placed text gets its own display row directly above spoken captions, only 
 });
 
 // 命名: audio/captions/映像系の 3 分類
-test("computeTrackAutoNames splits tracks into A (audio) / T (captions) / V (cuts, layers, overlays) with per-group numbering from the bottom", () => {
+test("computeTrackAutoNames numbers audio from the top and T/V from the bottom", () => {
   // 配列先頭 = 画面最下段（widget の [...tracks].reverse() 規約）
   const tracks = [
     { id: "t-audio-0", kind: "audio", ref: 0 },
@@ -106,8 +106,8 @@ test("computeTrackAutoNames splits tracks into A (audio) / T (captions) / V (cut
     { id: "t-captions", kind: "captions" },
   ];
   const names = computeTrackAutoNames(tracks);
-  assert.equal(names.get("t-audio-0"), "A1");
-  assert.equal(names.get("t-audio-1"), "A2");
+  assert.equal(names.get("t-audio-0"), "A2");
+  assert.equal(names.get("t-audio-1"), "A1");
   assert.equal(names.get("t-cuts-0"), "V1");
   assert.equal(names.get("t-layers-0"), "V2");
   assert.equal(names.get("t-overlays-0"), "V3");
