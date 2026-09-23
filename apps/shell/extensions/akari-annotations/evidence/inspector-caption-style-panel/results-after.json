@@ -1,0 +1,3002 @@
+{
+  "phase": "after",
+  "status": "fail",
+  "port": 9475,
+  "cases": [
+    {
+      "name": "spoken",
+      "label": "話した言葉の字幕（スタイルなし）",
+      "ids": [
+        "c-0001"
+      ],
+      "screenshot": "after-case-spoken.png",
+      "hasStyleSection": true,
+      "styleFields": [
+        "caption-color",
+        "caption-size",
+        "caption-stroke-color",
+        "caption-stroke-width",
+        "caption-style-bg-enabled",
+        "caption-background-mode",
+        "caption-background-color",
+        "caption-background-opacity",
+        "caption-background-radius",
+        "caption-style-effect",
+        "caption-zone"
+      ],
+      "state": {
+        "header": "今日は朝のルーティンを紹介します00:00.0 – 00:03.2 · 字幕",
+        "tabs": [
+          {
+            "id": "text",
+            "label": "テキスト",
+            "active": true,
+            "disabled": false
+          },
+          {
+            "id": "info",
+            "label": "情報",
+            "active": false,
+            "disabled": false
+          }
+        ],
+        "sections": [
+          {
+            "id": "time",
+            "label": "時間",
+            "hidden": false,
+            "fields": [
+              {
+                "name": "caption-output-start",
+                "label": "出力位置",
+                "value": "出力位置00:00:00.000"
+              },
+              {
+                "name": "caption-output-duration",
+                "label": "尺",
+                "value": "尺3.20 秒"
+              }
+            ]
+          },
+          {
+            "id": "animator",
+            "label": "袋 captions のアニメーター（全 cue に効く）",
+            "hidden": false,
+            "fields": [
+              {
+                "name": "animator-add",
+                "label": "アニメーターを追加",
+                "value": "アニメーターを追加選択…アニメーター"
+              }
+            ]
+          },
+          {
+            "id": "content",
+            "label": "内容",
+            "hidden": false,
+            "fields": [
+              {
+                "name": "caption-text",
+                "label": "テキスト",
+                "value": "テキスト"
+              },
+              {
+                "name": "caption-speaker",
+                "label": "話者",
+                "value": "話者"
+              },
+              {
+                "name": "caption-edited",
+                "label": "編集済み",
+                "value": "編集済みいいえ"
+              }
+            ]
+          },
+          {
+            "id": "style",
+            "label": "文字",
+            "hidden": false,
+            "fields": [
+              {
+                "name": "caption-color",
+                "label": "色",
+                "value": "色"
+              },
+              {
+                "name": "caption-size",
+                "label": "大きさ",
+                "value": "大きさpx（既定）"
+              }
+            ]
+          },
+          {
+            "id": "style:stroke",
+            "label": "縁取り",
+            "hidden": false,
+            "fields": [
+              {
+                "name": "caption-stroke-color",
+                "label": "色",
+                "value": "色"
+              },
+              {
+                "name": "caption-stroke-width",
+                "label": "太さ",
+                "value": "太さpx（既定）"
+              }
+            ]
+          },
+          {
+            "id": "style:background",
+            "label": "座布団",
+            "hidden": false,
+            "fields": [
+              {
+                "name": "caption-style-bg-enabled",
+                "label": "表示",
+                "value": "表示座布団を敷く"
+              },
+              {
+                "name": "caption-background-mode",
+                "label": "形",
+                "value": "形行ごとまとめて"
+              },
+              {
+                "name": "caption-background-color",
+                "label": "色",
+                "value": "色"
+              },
+              {
+                "name": "caption-background-opacity",
+                "label": "不透明度",
+                "value": "不透明度%（既定）"
+              },
+              {
+                "name": "caption-background-radius",
+                "label": "角丸",
+                "value": "角丸px（既定）"
+              }
+            ]
+          },
+          {
+            "id": "style:effect",
+            "label": "効果",
+            "hidden": false,
+            "fields": [
+              {
+                "name": "caption-style-effect",
+                "label": "種類",
+                "value": "種類AaなしAa袋文字"
+              }
+            ]
+          },
+          {
+            "id": "style:position",
+            "label": "位置",
+            "hidden": false,
+            "fields": [
+              {
+                "name": "caption-zone",
+                "label": "位置",
+                "value": "位置保存中"
+              }
+            ]
+          },
+          {
+            "id": "timing",
+            "label": "タイミング",
+            "hidden": false,
+            "fields": [
+              {
+                "name": "caption-start",
+                "label": "start",
+                "value": "start00:00:00.000"
+              },
+              {
+                "name": "caption-end",
+                "label": "end",
+                "value": "end00:00:03.200"
+              },
+              {
+                "name": "caption-duration",
+                "label": "尺",
+                "value": "尺3.20 秒"
+              },
+              {
+                "name": "caption-source-segment",
+                "label": "sourceRef.segment",
+                "value": "sourceRef.segment1"
+              }
+            ]
+          }
+        ],
+        "scrollWidth": 289,
+        "clientWidth": 289
+      }
+    },
+    {
+      "name": "spoken-2line-bg",
+      "label": "話した言葉の字幕 2 行 + 座布団あり",
+      "ids": [
+        "c-0002"
+      ],
+      "screenshot": "after-case-spoken-2line-bg.png",
+      "hasStyleSection": true,
+      "styleFields": [
+        "caption-color",
+        "caption-size",
+        "caption-stroke-color",
+        "caption-stroke-width",
+        "caption-style-bg-enabled",
+        "caption-background-mode",
+        "caption-background-color",
+        "caption-background-opacity",
+        "caption-background-radius",
+        "caption-style-effect",
+        "caption-zone"
+      ],
+      "state": {
+        "header": "まずはコーヒーを 淹れるところから00:04.0 – 00:07.2 · 字幕",
+        "tabs": [
+          {
+            "id": "text",
+            "label": "テキスト",
+            "active": true,
+            "disabled": false
+          },
+          {
+            "id": "info",
+            "label": "情報",
+            "active": false,
+            "disabled": false
+          }
+        ],
+        "sections": [
+          {
+            "id": "time",
+            "label": "時間",
+            "hidden": false,
+            "fields": [
+              {
+                "name": "caption-output-start",
+                "label": "出力位置",
+                "value": "出力位置00:00:04.000"
+              },
+              {
+                "name": "caption-output-duration",
+                "label": "尺",
+                "value": "尺3.20 秒"
+              }
+            ]
+          },
+          {
+            "id": "animator",
+            "label": "袋 captions のアニメーター（全 cue に効く）",
+            "hidden": false,
+            "fields": [
+              {
+                "name": "animator-add",
+                "label": "アニメーターを追加",
+                "value": "アニメーターを追加選択…アニメーター"
+              }
+            ]
+          },
+          {
+            "id": "content",
+            "label": "内容",
+            "hidden": false,
+            "fields": [
+              {
+                "name": "caption-text",
+                "label": "テキスト",
+                "value": "テキスト"
+              },
+              {
+                "name": "caption-speaker",
+                "label": "話者",
+                "value": "話者"
+              },
+              {
+                "name": "caption-edited",
+                "label": "編集済み",
+                "value": "編集済みいいえ"
+              }
+            ]
+          },
+          {
+            "id": "style",
+            "label": "文字",
+            "hidden": false,
+            "fields": [
+              {
+                "name": "caption-color",
+                "label": "色",
+                "value": "色"
+              },
+              {
+                "name": "caption-size",
+                "label": "大きさ",
+                "value": "大きさpx（既定）"
+              }
+            ]
+          },
+          {
+            "id": "style:stroke",
+            "label": "縁取り",
+            "hidden": false,
+            "fields": [
+              {
+                "name": "caption-stroke-color",
+                "label": "色",
+                "value": "色"
+              },
+              {
+                "name": "caption-stroke-width",
+                "label": "太さ",
+                "value": "太さpx（既定）"
+              }
+            ]
+          },
+          {
+            "id": "style:background",
+            "label": "座布団",
+            "hidden": false,
+            "fields": [
+              {
+                "name": "caption-style-bg-enabled",
+                "label": "表示",
+                "value": "表示座布団を敷く"
+              },
+              {
+                "name": "caption-background-mode",
+                "label": "形",
+                "value": "形行ごとまとめて"
+              },
+              {
+                "name": "caption-background-color",
+                "label": "色",
+                "value": "色"
+              },
+              {
+                "name": "caption-background-opacity",
+                "label": "不透明度",
+                "value": "不透明度%"
+              },
+              {
+                "name": "caption-background-radius",
+                "label": "角丸",
+                "value": "角丸px"
+              }
+            ]
+          },
+          {
+            "id": "style:effect",
+            "label": "効果",
+            "hidden": false,
+            "fields": [
+              {
+                "name": "caption-style-effect",
+                "label": "種類",
+                "value": "種類AaなしAa袋文字"
+              }
+            ]
+          },
+          {
+            "id": "style:position",
+            "label": "位置",
+            "hidden": false,
+            "fields": [
+              {
+                "name": "caption-zone",
+                "label": "位置",
+                "value": "位置保存中"
+              }
+            ]
+          },
+          {
+            "id": "timing",
+            "label": "タイミング",
+            "hidden": false,
+            "fields": [
+              {
+                "name": "caption-start",
+                "label": "start",
+                "value": "start00:00:04.000"
+              },
+              {
+                "name": "caption-end",
+                "label": "end",
+                "value": "end00:00:07.200"
+              },
+              {
+                "name": "caption-duration",
+                "label": "尺",
+                "value": "尺3.20 秒"
+              },
+              {
+                "name": "caption-source-segment",
+                "label": "sourceRef.segment",
+                "value": "sourceRef.segment2"
+              }
+            ]
+          }
+        ],
+        "scrollWidth": 289,
+        "clientWidth": 289
+      }
+    },
+    {
+      "name": "preset",
+      "label": "スタイルプリセット付きの字幕（subtitle-variety）",
+      "ids": [
+        "c-0003"
+      ],
+      "screenshot": "after-case-preset.png",
+      "hasStyleSection": true,
+      "styleFields": [
+        "caption-color",
+        "caption-size",
+        "caption-stroke-color",
+        "caption-stroke-width",
+        "caption-style-bg-enabled",
+        "caption-background-mode",
+        "caption-background-color",
+        "caption-background-opacity",
+        "caption-background-radius",
+        "caption-style-effect",
+        "caption-style-effect-color",
+        "caption-style-effect-strength",
+        "caption-zone"
+      ],
+      "state": {
+        "header": "ここがすごい00:08.0 – 00:11.2 · 字幕",
+        "tabs": [
+          {
+            "id": "text",
+            "label": "テキスト",
+            "active": true,
+            "disabled": false
+          },
+          {
+            "id": "info",
+            "label": "情報",
+            "active": false,
+            "disabled": false
+          }
+        ],
+        "sections": [
+          {
+            "id": "time",
+            "label": "時間",
+            "hidden": false,
+            "fields": [
+              {
+                "name": "caption-output-start",
+                "label": "出力位置",
+                "value": "出力位置00:00:08.000"
+              },
+              {
+                "name": "caption-output-duration",
+                "label": "尺",
+                "value": "尺3.20 秒"
+              }
+            ]
+          },
+          {
+            "id": "animator",
+            "label": "袋 captions のアニメーター（全 cue に効く）",
+            "hidden": false,
+            "fields": [
+              {
+                "name": "animator-add",
+                "label": "アニメーターを追加",
+                "value": "アニメーターを追加選択…アニメーター"
+              }
+            ]
+          },
+          {
+            "id": "content",
+            "label": "内容",
+            "hidden": false,
+            "fields": [
+              {
+                "name": "caption-text",
+                "label": "テキスト",
+                "value": "テキスト"
+              },
+              {
+                "name": "caption-speaker",
+                "label": "話者",
+                "value": "話者"
+              },
+              {
+                "name": "caption-edited",
+                "label": "編集済み",
+                "value": "編集済みいいえ"
+              }
+            ]
+          },
+          {
+            "id": "style",
+            "label": "文字",
+            "hidden": false,
+            "fields": [
+              {
+                "name": "caption-color",
+                "label": "色",
+                "value": "色"
+              },
+              {
+                "name": "caption-size",
+                "label": "大きさ",
+                "value": "大きさpx"
+              }
+            ]
+          },
+          {
+            "id": "style:stroke",
+            "label": "縁取り",
+            "hidden": false,
+            "fields": [
+              {
+                "name": "caption-stroke-color",
+                "label": "色",
+                "value": "色"
+              },
+              {
+                "name": "caption-stroke-width",
+                "label": "太さ",
+                "value": "太さpx"
+              }
+            ]
+          },
+          {
+            "id": "style:background",
+            "label": "座布団",
+            "hidden": false,
+            "fields": [
+              {
+                "name": "caption-style-bg-enabled",
+                "label": "表示",
+                "value": "表示座布団を敷く"
+              },
+              {
+                "name": "caption-background-mode",
+                "label": "形",
+                "value": "形行ごとまとめて"
+              },
+              {
+                "name": "caption-background-color",
+                "label": "色",
+                "value": "色"
+              },
+              {
+                "name": "caption-background-opacity",
+                "label": "不透明度",
+                "value": "不透明度%（既定）"
+              },
+              {
+                "name": "caption-background-radius",
+                "label": "角丸",
+                "value": "角丸px（既定）"
+              }
+            ]
+          },
+          {
+            "id": "style:effect",
+            "label": "効果",
+            "hidden": false,
+            "fields": [
+              {
+                "name": "caption-style-effect",
+                "label": "種類",
+                "value": "種類AaなしAa袋文字"
+              },
+              {
+                "name": "caption-style-effect-color",
+                "label": "効果の色",
+                "value": "効果の色"
+              },
+              {
+                "name": "caption-style-effect-strength",
+                "label": "強さ",
+                "value": "強さpx"
+              }
+            ]
+          },
+          {
+            "id": "style:position",
+            "label": "位置",
+            "hidden": false,
+            "fields": [
+              {
+                "name": "caption-zone",
+                "label": "位置",
+                "value": "位置保存中"
+              }
+            ]
+          },
+          {
+            "id": "timing",
+            "label": "タイミング",
+            "hidden": false,
+            "fields": [
+              {
+                "name": "caption-start",
+                "label": "start",
+                "value": "start00:00:08.000"
+              },
+              {
+                "name": "caption-end",
+                "label": "end",
+                "value": "end00:00:11.200"
+              },
+              {
+                "name": "caption-duration",
+                "label": "尺",
+                "value": "尺3.20 秒"
+              },
+              {
+                "name": "caption-source-segment",
+                "label": "sourceRef.segment",
+                "value": "sourceRef.segment3"
+              }
+            ]
+          }
+        ],
+        "scrollWidth": 289,
+        "clientWidth": 289
+      }
+    },
+    {
+      "name": "placed",
+      "label": "置いた文字",
+      "ids": [
+        "c-0101"
+      ],
+      "screenshot": "after-case-placed.png",
+      "hasStyleSection": true,
+      "styleFields": [
+        "caption-color",
+        "caption-size",
+        "caption-stroke-color",
+        "caption-stroke-width",
+        "caption-style-bg-enabled",
+        "caption-background-mode",
+        "caption-background-color",
+        "caption-background-opacity",
+        "caption-background-radius",
+        "caption-style-effect",
+        "caption-zone"
+      ],
+      "state": {
+        "header": "置いた文字00:12.0 – 00:15.2 · 字幕",
+        "tabs": [
+          {
+            "id": "text",
+            "label": "テキスト",
+            "active": true,
+            "disabled": false
+          },
+          {
+            "id": "info",
+            "label": "情報",
+            "active": false,
+            "disabled": false
+          }
+        ],
+        "sections": [
+          {
+            "id": "time",
+            "label": "時間",
+            "hidden": false,
+            "fields": [
+              {
+                "name": "caption-output-start",
+                "label": "出力位置",
+                "value": "出力位置00:00:12.000"
+              },
+              {
+                "name": "caption-output-duration",
+                "label": "尺",
+                "value": "尺3.20 秒"
+              }
+            ]
+          },
+          {
+            "id": "animator",
+            "label": "袋 captions のアニメーター（全 cue に効く）",
+            "hidden": false,
+            "fields": [
+              {
+                "name": "animator-add",
+                "label": "アニメーターを追加",
+                "value": "アニメーターを追加選択…アニメーター"
+              }
+            ]
+          },
+          {
+            "id": "content",
+            "label": "内容",
+            "hidden": false,
+            "fields": [
+              {
+                "name": "caption-text",
+                "label": "テキスト",
+                "value": "テキスト"
+              },
+              {
+                "name": "caption-speaker",
+                "label": "話者",
+                "value": "話者"
+              },
+              {
+                "name": "caption-edited",
+                "label": "編集済み",
+                "value": "編集済みはい"
+              }
+            ]
+          },
+          {
+            "id": "style",
+            "label": "文字",
+            "hidden": false,
+            "fields": [
+              {
+                "name": "caption-color",
+                "label": "色",
+                "value": "色"
+              },
+              {
+                "name": "caption-size",
+                "label": "大きさ",
+                "value": "大きさpx（既定）"
+              }
+            ]
+          },
+          {
+            "id": "style:stroke",
+            "label": "縁取り",
+            "hidden": false,
+            "fields": [
+              {
+                "name": "caption-stroke-color",
+                "label": "色",
+                "value": "色"
+              },
+              {
+                "name": "caption-stroke-width",
+                "label": "太さ",
+                "value": "太さpx（既定）"
+              }
+            ]
+          },
+          {
+            "id": "style:background",
+            "label": "座布団",
+            "hidden": false,
+            "fields": [
+              {
+                "name": "caption-style-bg-enabled",
+                "label": "表示",
+                "value": "表示座布団を敷く"
+              },
+              {
+                "name": "caption-background-mode",
+                "label": "形",
+                "value": "形行ごとまとめて"
+              },
+              {
+                "name": "caption-background-color",
+                "label": "色",
+                "value": "色"
+              },
+              {
+                "name": "caption-background-opacity",
+                "label": "不透明度",
+                "value": "不透明度%（既定）"
+              },
+              {
+                "name": "caption-background-radius",
+                "label": "角丸",
+                "value": "角丸px（既定）"
+              }
+            ]
+          },
+          {
+            "id": "style:effect",
+            "label": "効果",
+            "hidden": false,
+            "fields": [
+              {
+                "name": "caption-style-effect",
+                "label": "種類",
+                "value": "種類AaなしAa袋文字"
+              }
+            ]
+          },
+          {
+            "id": "style:position",
+            "label": "位置",
+            "hidden": false,
+            "fields": [
+              {
+                "name": "caption-zone",
+                "label": "位置",
+                "value": "位置保存中"
+              }
+            ]
+          },
+          {
+            "id": "timing",
+            "label": "タイミング",
+            "hidden": false,
+            "fields": [
+              {
+                "name": "caption-start",
+                "label": "start",
+                "value": "start00:00:12.000"
+              },
+              {
+                "name": "caption-end",
+                "label": "end",
+                "value": "end00:00:15.200"
+              },
+              {
+                "name": "caption-duration",
+                "label": "尺",
+                "value": "尺3.20 秒"
+              },
+              {
+                "name": "caption-source-segment",
+                "label": "sourceRef.segment",
+                "value": "sourceRef.segment—"
+              }
+            ]
+          }
+        ],
+        "scrollWidth": 289,
+        "clientWidth": 289
+      }
+    },
+    {
+      "name": "multi",
+      "label": "複数選択（話した言葉 3 本）",
+      "ids": [
+        "c-0001",
+        "c-0004",
+        "c-0005"
+      ],
+      "screenshot": "after-case-multi.png",
+      "hasStyleSection": true,
+      "styleFields": [
+        "caption-color",
+        "caption-size",
+        "caption-stroke-color",
+        "caption-stroke-width",
+        "caption-style-bg-enabled",
+        "caption-background-mode",
+        "caption-background-color",
+        "caption-background-opacity",
+        "caption-background-radius",
+        "caption-style-effect",
+        "caption-zone"
+      ],
+      "state": {
+        "header": "3 個を選択中00:00.0 – 00:23.2 · 複数選択",
+        "tabs": [
+          {
+            "id": "text",
+            "label": "テキスト",
+            "active": true,
+            "disabled": false
+          },
+          {
+            "id": "info",
+            "label": "情報",
+            "active": false,
+            "disabled": false
+          }
+        ],
+        "sections": [
+          {
+            "id": "content",
+            "label": "内容（複数）",
+            "hidden": false,
+            "fields": [
+              {
+                "name": "caption-multi-count",
+                "label": "選択",
+                "value": "選択3 件"
+              }
+            ]
+          },
+          {
+            "id": "style",
+            "label": "文字",
+            "hidden": false,
+            "fields": [
+              {
+                "name": "caption-color",
+                "label": "色",
+                "value": "色"
+              },
+              {
+                "name": "caption-size",
+                "label": "大きさ",
+                "value": "大きさpx"
+              }
+            ]
+          },
+          {
+            "id": "style:stroke",
+            "label": "縁取り",
+            "hidden": false,
+            "fields": [
+              {
+                "name": "caption-stroke-color",
+                "label": "色",
+                "value": "色"
+              },
+              {
+                "name": "caption-stroke-width",
+                "label": "太さ",
+                "value": "太さpx"
+              }
+            ]
+          },
+          {
+            "id": "style:background",
+            "label": "座布団",
+            "hidden": false,
+            "fields": [
+              {
+                "name": "caption-style-bg-enabled",
+                "label": "表示",
+                "value": "表示座布団を敷く"
+              },
+              {
+                "name": "caption-background-mode",
+                "label": "形",
+                "value": "形行ごとまとめて"
+              },
+              {
+                "name": "caption-background-color",
+                "label": "色",
+                "value": "色"
+              },
+              {
+                "name": "caption-background-opacity",
+                "label": "不透明度",
+                "value": "不透明度%"
+              },
+              {
+                "name": "caption-background-radius",
+                "label": "角丸",
+                "value": "角丸px"
+              }
+            ]
+          },
+          {
+            "id": "style:effect",
+            "label": "効果",
+            "hidden": false,
+            "fields": [
+              {
+                "name": "caption-style-effect",
+                "label": "種類",
+                "value": "種類AaなしAa袋文字"
+              }
+            ]
+          },
+          {
+            "id": "style:position",
+            "label": "位置",
+            "hidden": false,
+            "fields": [
+              {
+                "name": "caption-zone",
+                "label": "位置",
+                "value": "位置保存中"
+              }
+            ]
+          }
+        ],
+        "scrollWidth": 289,
+        "clientWidth": 289
+      }
+    },
+    {
+      "name": "multi-mixed",
+      "label": "複数選択（話した言葉 + 置いた文字 + プリセット）",
+      "ids": [
+        "c-0001",
+        "c-0101",
+        "c-0003"
+      ],
+      "screenshot": "after-case-multi-mixed.png",
+      "hasStyleSection": true,
+      "styleFields": [
+        "caption-color",
+        "caption-size",
+        "caption-stroke-color",
+        "caption-stroke-width",
+        "caption-style-bg-enabled",
+        "caption-background-mode",
+        "caption-background-color",
+        "caption-background-opacity",
+        "caption-background-radius",
+        "caption-style-effect",
+        "caption-zone"
+      ],
+      "state": {
+        "header": "3 個を選択中00:00.0 – 00:15.2 · 複数選択",
+        "tabs": [
+          {
+            "id": "text",
+            "label": "テキスト",
+            "active": true,
+            "disabled": false
+          },
+          {
+            "id": "info",
+            "label": "情報",
+            "active": false,
+            "disabled": false
+          }
+        ],
+        "sections": [
+          {
+            "id": "content",
+            "label": "内容（複数）",
+            "hidden": false,
+            "fields": [
+              {
+                "name": "caption-multi-count",
+                "label": "選択",
+                "value": "選択3 件"
+              }
+            ]
+          },
+          {
+            "id": "style",
+            "label": "文字",
+            "hidden": false,
+            "fields": [
+              {
+                "name": "caption-color",
+                "label": "色",
+                "value": "色"
+              },
+              {
+                "name": "caption-size",
+                "label": "大きさ",
+                "value": "大きさpx"
+              }
+            ]
+          },
+          {
+            "id": "style:stroke",
+            "label": "縁取り",
+            "hidden": false,
+            "fields": [
+              {
+                "name": "caption-stroke-color",
+                "label": "色",
+                "value": "色"
+              },
+              {
+                "name": "caption-stroke-width",
+                "label": "太さ",
+                "value": "太さpx"
+              }
+            ]
+          },
+          {
+            "id": "style:background",
+            "label": "座布団",
+            "hidden": false,
+            "fields": [
+              {
+                "name": "caption-style-bg-enabled",
+                "label": "表示",
+                "value": "表示座布団を敷く"
+              },
+              {
+                "name": "caption-background-mode",
+                "label": "形",
+                "value": "形行ごとまとめて"
+              },
+              {
+                "name": "caption-background-color",
+                "label": "色",
+                "value": "色"
+              },
+              {
+                "name": "caption-background-opacity",
+                "label": "不透明度",
+                "value": "不透明度%"
+              },
+              {
+                "name": "caption-background-radius",
+                "label": "角丸",
+                "value": "角丸px"
+              }
+            ]
+          },
+          {
+            "id": "style:effect",
+            "label": "効果",
+            "hidden": false,
+            "fields": [
+              {
+                "name": "caption-style-effect",
+                "label": "種類",
+                "value": "種類AaなしAa袋文字"
+              }
+            ]
+          },
+          {
+            "id": "style:position",
+            "label": "位置",
+            "hidden": false,
+            "fields": [
+              {
+                "name": "caption-zone",
+                "label": "位置",
+                "value": "位置保存中"
+              }
+            ]
+          }
+        ],
+        "scrollWidth": 289,
+        "clientWidth": 289
+      }
+    }
+  ],
+  "checks": [
+    {
+      "name": "case:spoken",
+      "pass": true,
+      "detail": {
+        "pass": true,
+        "hasStyleSection": true,
+        "styleFieldCount": 11
+      }
+    },
+    {
+      "name": "case:spoken-2line-bg",
+      "pass": true,
+      "detail": {
+        "pass": true,
+        "hasStyleSection": true,
+        "styleFieldCount": 11
+      }
+    },
+    {
+      "name": "case:preset",
+      "pass": true,
+      "detail": {
+        "pass": true,
+        "hasStyleSection": true,
+        "styleFieldCount": 13
+      }
+    },
+    {
+      "name": "case:placed",
+      "pass": true,
+      "detail": {
+        "pass": true,
+        "hasStyleSection": true,
+        "styleFieldCount": 11
+      }
+    },
+    {
+      "name": "case:multi",
+      "pass": true,
+      "detail": {
+        "pass": true,
+        "hasStyleSection": true,
+        "styleFieldCount": 11
+      }
+    },
+    {
+      "name": "case:multi-mixed",
+      "pass": true,
+      "detail": {
+        "pass": true,
+        "hasStyleSection": true,
+        "styleFieldCount": 11
+      }
+    },
+    {
+      "name": "cards: 文字 / 縁取り / 座布団 / 効果 / 位置 の並び（単体・複数とも）",
+      "pass": true,
+      "detail": {
+        "pass": true,
+        "labels": {
+          "single": [
+            "文字",
+            "縁取り",
+            "座布団",
+            "効果",
+            "位置"
+          ],
+          "multi": [
+            "文字",
+            "縁取り",
+            "座布団",
+            "効果",
+            "位置"
+          ],
+          "placed": [
+            "文字",
+            "縁取り",
+            "座布団",
+            "効果",
+            "位置"
+          ],
+          "preset": [
+            "文字",
+            "縁取り",
+            "座布団",
+            "効果",
+            "位置"
+          ]
+        },
+        "cards": [
+          {
+            "id": "style",
+            "label": "文字",
+            "fields": [
+              "caption-color",
+              "caption-size"
+            ]
+          },
+          {
+            "id": "style:stroke",
+            "label": "縁取り",
+            "fields": [
+              "caption-stroke-color",
+              "caption-stroke-width"
+            ]
+          },
+          {
+            "id": "style:background",
+            "label": "座布団",
+            "fields": [
+              "caption-style-bg-enabled",
+              "caption-background-mode",
+              "caption-background-color",
+              "caption-background-opacity",
+              "caption-background-radius"
+            ]
+          },
+          {
+            "id": "style:effect",
+            "label": "効果",
+            "fields": [
+              "caption-style-effect"
+            ]
+          },
+          {
+            "id": "style:position",
+            "label": "位置",
+            "fields": [
+              "caption-zone"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "cards screenshot dark",
+      "pass": true,
+      "detail": {
+        "screenshots": [
+          "after-cards-dark.png",
+          "after-cards-multi-dark.png"
+        ]
+      }
+    },
+    {
+      "name": "cards screenshot light",
+      "pass": true,
+      "detail": {
+        "screenshots": [
+          "after-cards-light.png",
+          "after-cards-multi-light.png"
+        ]
+      }
+    },
+    {
+      "name": "write: 文字 / 色",
+      "pass": true,
+      "detail": {
+        "pass": true,
+        "saved": {
+          "color": "#FFD400"
+        },
+        "preview": {
+          "color": "rgb(255, 212, 0)",
+          "fontSize": "38px",
+          "stroke": "5.32px rgba(0, 0, 0, 0.9)",
+          "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+          "bgs": []
+        }
+      }
+    },
+    {
+      "name": "write: 文字 / 大きさ",
+      "pass": true,
+      "detail": {
+        "pass": true,
+        "saved": {
+          "color": "#FFD400",
+          "size_px": 52
+        },
+        "preview": {
+          "color": "rgb(255, 212, 0)",
+          "fontSize": "52px",
+          "stroke": "7.28px rgba(0, 0, 0, 0.9)",
+          "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+          "bgs": []
+        }
+      }
+    },
+    {
+      "name": "write: 縁取り / 色",
+      "pass": true,
+      "detail": {
+        "pass": true,
+        "saved": {
+          "color": "#FFD400",
+          "size_px": 52,
+          "stroke": {
+            "color": "#D12B2B"
+          }
+        },
+        "preview": {
+          "color": "rgb(255, 212, 0)",
+          "fontSize": "52px",
+          "stroke": "3px rgb(209, 43, 43)",
+          "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+          "bgs": []
+        }
+      }
+    },
+    {
+      "name": "write: 縁取り / 太さ",
+      "pass": true,
+      "detail": {
+        "pass": true,
+        "saved": {
+          "color": "#FFD400",
+          "size_px": 52,
+          "stroke": {
+            "color": "#D12B2B",
+            "width_px": 3
+          }
+        },
+        "preview": {
+          "color": "rgb(255, 212, 0)",
+          "fontSize": "52px",
+          "stroke": "6px rgb(209, 43, 43)",
+          "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+          "bgs": []
+        }
+      }
+    },
+    {
+      "name": "write: 座布団 / 敷く",
+      "pass": true,
+      "detail": {
+        "pass": true,
+        "saved": {
+          "color": "#FFD400",
+          "size_px": 52,
+          "stroke": {
+            "color": "#D12B2B",
+            "width_px": 3
+          },
+          "background": {
+            "opacity": 0.6
+          }
+        },
+        "preview": {
+          "color": "rgb(255, 212, 0)",
+          "fontSize": "52px",
+          "stroke": "6px rgb(209, 43, 43)",
+          "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+          "bgs": [
+            {
+              "cls": "akari-caption__line",
+              "bg": "rgba(0, 0, 0, 0.6)",
+              "radius": "10px",
+              "w": 494,
+              "h": 46
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "write: 座布団 / 色",
+      "pass": true,
+      "detail": {
+        "pass": true,
+        "saved": {
+          "color": "#FFD400",
+          "size_px": 52,
+          "stroke": {
+            "color": "#D12B2B",
+            "width_px": 3
+          },
+          "background": {
+            "opacity": 0.6,
+            "color": "#1E3A8A"
+          }
+        },
+        "preview": {
+          "color": "rgb(255, 212, 0)",
+          "fontSize": "52px",
+          "stroke": "6px rgb(209, 43, 43)",
+          "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+          "bgs": [
+            {
+              "cls": "akari-caption__line",
+              "bg": "rgba(30, 58, 138, 0.6)",
+              "radius": "10px",
+              "w": 494,
+              "h": 46
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "write: 座布団 / 不透明度",
+      "pass": true,
+      "detail": {
+        "pass": true,
+        "saved": {
+          "color": "#FFD400",
+          "size_px": 52,
+          "stroke": {
+            "color": "#D12B2B",
+            "width_px": 3
+          },
+          "background": {
+            "opacity": 0.85,
+            "color": "#1E3A8A"
+          }
+        },
+        "preview": {
+          "color": "rgb(255, 212, 0)",
+          "fontSize": "52px",
+          "stroke": "6px rgb(209, 43, 43)",
+          "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+          "bgs": [
+            {
+              "cls": "akari-caption__line",
+              "bg": "rgba(30, 58, 138, 0.85)",
+              "radius": "10px",
+              "w": 494,
+              "h": 46
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "write: 座布団 / 角丸（スライダーの最大 = カプセル）",
+      "pass": true,
+      "detail": {
+        "pass": true,
+        "saved": {
+          "color": "#FFD400",
+          "size_px": 52,
+          "stroke": {
+            "color": "#D12B2B",
+            "width_px": 3
+          },
+          "background": {
+            "opacity": 0.85,
+            "color": "#1E3A8A",
+            "radius_px": 41
+          }
+        },
+        "preview": {
+          "color": "rgb(255, 212, 0)",
+          "fontSize": "52px",
+          "stroke": "6px rgb(209, 43, 43)",
+          "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+          "bgs": [
+            {
+              "cls": "akari-caption__line",
+              "bg": "rgba(30, 58, 138, 0.85)",
+              "radius": "10px",
+              "w": 494,
+              "h": 46
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "write: 座布団 / 形 まとめて",
+      "pass": true,
+      "detail": {
+        "pass": true,
+        "saved": {
+          "color": "#FFD400",
+          "size_px": 52,
+          "stroke": {
+            "color": "#D12B2B",
+            "width_px": 3
+          },
+          "background": {
+            "opacity": 0.85,
+            "color": "#1E3A8A",
+            "radius_px": 41,
+            "mode": "block"
+          }
+        },
+        "preview": {
+          "color": "rgb(255, 212, 0)",
+          "fontSize": "52px",
+          "stroke": "6px rgb(209, 43, 43)",
+          "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+          "bgs": [
+            {
+              "cls": "akari-caption__block",
+              "bg": "rgba(30, 58, 138, 0.85)",
+              "radius": "41px",
+              "w": 494,
+              "h": 46
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "write: 座布団 / 形 行ごと",
+      "pass": true,
+      "detail": {
+        "pass": true,
+        "saved": {
+          "color": "#FFD400",
+          "size_px": 52,
+          "stroke": {
+            "color": "#D12B2B",
+            "width_px": 3
+          },
+          "background": {
+            "opacity": 0.85,
+            "color": "#1E3A8A",
+            "radius_px": 41,
+            "mode": "per-line"
+          }
+        },
+        "preview": {
+          "color": "rgb(255, 212, 0)",
+          "fontSize": "52px",
+          "stroke": "6px rgb(209, 43, 43)",
+          "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+          "bgs": [
+            {
+              "cls": "akari-caption__line",
+              "bg": "rgba(30, 58, 138, 0.85)",
+              "radius": "41px",
+              "w": 494,
+              "h": 46
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "write: 効果 / 袋文字",
+      "pass": true,
+      "detail": {
+        "pass": true,
+        "saved": {
+          "color": "#FFD400",
+          "size_px": 52,
+          "stroke": {
+            "color": "#000000",
+            "width_px": 6
+          },
+          "background": {
+            "opacity": 0.85,
+            "color": "#1E3A8A",
+            "radius_px": 41,
+            "mode": "per-line"
+          }
+        },
+        "preview": {
+          "color": "rgb(255, 212, 0)",
+          "fontSize": "52px",
+          "stroke": "12px rgb(0, 0, 0)",
+          "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+          "bgs": [
+            {
+              "cls": "akari-caption__line",
+              "bg": "rgba(30, 58, 138, 0.85)",
+              "radius": "41px",
+              "w": 494,
+              "h": 46
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "write: 効果 / 効果の色",
+      "pass": true,
+      "detail": {
+        "pass": true,
+        "saved": {
+          "color": "#FFD400",
+          "size_px": 52,
+          "stroke": {
+            "color": "#E02020",
+            "width_px": 6
+          },
+          "background": {
+            "opacity": 0.85,
+            "color": "#1E3A8A",
+            "radius_px": 41,
+            "mode": "per-line"
+          }
+        },
+        "preview": {
+          "color": "rgb(255, 212, 0)",
+          "fontSize": "52px",
+          "stroke": "12px rgb(224, 32, 32)",
+          "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+          "bgs": [
+            {
+              "cls": "akari-caption__line",
+              "bg": "rgba(30, 58, 138, 0.85)",
+              "radius": "41px",
+              "w": 494,
+              "h": 46
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "write: 効果 / 強さ",
+      "pass": true,
+      "detail": {
+        "pass": true,
+        "saved": {
+          "color": "#FFD400",
+          "size_px": 52,
+          "stroke": {
+            "color": "#E02020",
+            "width_px": 9
+          },
+          "background": {
+            "opacity": 0.85,
+            "color": "#1E3A8A",
+            "radius_px": 41,
+            "mode": "per-line"
+          }
+        },
+        "preview": {
+          "color": "rgb(255, 212, 0)",
+          "fontSize": "52px",
+          "stroke": "18px rgb(224, 32, 32)",
+          "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+          "bgs": [
+            {
+              "cls": "akari-caption__line",
+              "bg": "rgba(30, 58, 138, 0.85)",
+              "radius": "41px",
+              "w": 494,
+              "h": 46
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "write: 効果 / なし",
+      "pass": true,
+      "detail": {
+        "pass": true,
+        "saved": {
+          "color": "#FFD400",
+          "size_px": 52,
+          "stroke": {
+            "color": "#000000",
+            "width_px": 1.5
+          },
+          "background": {
+            "opacity": 0.85,
+            "color": "#1E3A8A",
+            "radius_px": 41,
+            "mode": "per-line"
+          }
+        },
+        "preview": {
+          "color": "rgb(255, 212, 0)",
+          "fontSize": "52px",
+          "stroke": "3px rgb(0, 0, 0)",
+          "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+          "bgs": [
+            {
+              "cls": "akari-caption__line",
+              "bg": "rgba(30, 58, 138, 0.85)",
+              "radius": "41px",
+              "w": 494,
+              "h": 46
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "write: 座布団 / 敷かない",
+      "pass": true,
+      "detail": {
+        "pass": true,
+        "saved": {
+          "color": "#FFD400",
+          "size_px": 52,
+          "stroke": {
+            "color": "#000000",
+            "width_px": 1.5
+          },
+          "background": {
+            "opacity": 0,
+            "color": "#1E3A8A",
+            "radius_px": 41,
+            "mode": "per-line"
+          }
+        },
+        "preview": {
+          "color": "rgb(255, 212, 0)",
+          "fontSize": "52px",
+          "stroke": "3px rgb(0, 0, 0)",
+          "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+          "bgs": [
+            {
+              "cls": "akari-caption__line",
+              "bg": "rgba(30, 58, 138, 0)",
+              "radius": "41px",
+              "w": 494,
+              "h": 46
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "座布団の形: 2 行の字幕で 行ごと / まとめて が切り替わる（プレビュー）",
+      "pass": true,
+      "detail": {
+        "pass": true,
+        "perLine": [
+          {
+            "cls": "akari-caption__line",
+            "bg": "rgba(30, 58, 138, 0.8)",
+            "radius": "6px",
+            "w": 190,
+            "h": 34
+          },
+          {
+            "cls": "akari-caption__line",
+            "bg": "rgba(30, 58, 138, 0.8)",
+            "radius": "6px",
+            "w": 190,
+            "h": 34
+          }
+        ],
+        "block": [
+          {
+            "cls": "akari-caption__block",
+            "bg": "rgba(30, 58, 138, 0.8)",
+            "radius": "6px",
+            "w": 190,
+            "h": 67
+          }
+        ],
+        "shots": {
+          "per-line": "after-bg-mode-per-line.png",
+          "block": "after-bg-mode-block.png"
+        }
+      }
+    },
+    {
+      "name": "効果: なし / 袋文字 のプレビュー（効果 4 種以上は満たさない — shadow / glow の書き込み経路が無い）",
+      "pass": false,
+      "detail": {
+        "pass": false,
+        "reason": "効果 4 種以上は未達（契約逸脱: 影・浮き出し・ネオンは shadow / glow が既存の書き込み経路に無い）",
+        "tiles": [
+          {
+            "value": "none",
+            "label": "Aaなし",
+            "pressed": "false"
+          },
+          {
+            "value": "outline",
+            "label": "Aa袋文字",
+            "pressed": "true"
+          }
+        ],
+        "outline": {
+          "stroke": "12px rgb(224, 32, 32)",
+          "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px"
+        },
+        "none": {
+          "stroke": "3px rgb(0, 0, 0)",
+          "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px"
+        },
+        "shots": [
+          "after-effect-outline.png",
+          "after-effect-none.png"
+        ]
+      }
+    },
+    {
+      "name": "複数選択 3 本: 縁取りの太さ・座布団を敷く・座布団の形 が 3 本とも書き換わる",
+      "pass": true,
+      "detail": {
+        "pass": true,
+        "before": [
+          {
+            "id": "c-0001",
+            "text_style": {
+              "color": "#FFD400",
+              "size_px": 52,
+              "stroke": {
+                "color": "#000000",
+                "width_px": 1.5
+              },
+              "background": {
+                "opacity": 0,
+                "color": "#1E3A8A",
+                "radius_px": 41,
+                "mode": "per-line"
+              }
+            }
+          },
+          {
+            "id": "c-0004",
+            "text_style": null
+          },
+          {
+            "id": "c-0005",
+            "text_style": null
+          }
+        ],
+        "after": [
+          {
+            "id": "c-0001",
+            "text_style": {
+              "color": "#FFD400",
+              "size_px": 52,
+              "stroke": {
+                "color": "#000000",
+                "width_px": 4
+              },
+              "background": {
+                "opacity": 0.6,
+                "color": "#1E3A8A",
+                "radius_px": 41,
+                "mode": "block"
+              }
+            }
+          },
+          {
+            "id": "c-0004",
+            "text_style": {
+              "stroke": {
+                "width_px": 4
+              },
+              "background": {
+                "opacity": 0.6,
+                "mode": "block"
+              }
+            }
+          },
+          {
+            "id": "c-0005",
+            "text_style": {
+              "stroke": {
+                "width_px": 4
+              },
+              "background": {
+                "opacity": 0.6,
+                "mode": "block"
+              }
+            }
+          }
+        ],
+        "screenshot": "after-multi-after-writes.png"
+      }
+    },
+    {
+      "name": "revealField caption-style-bg-color",
+      "pass": true,
+      "detail": {
+        "pass": true,
+        "flashing": true,
+        "inView": true,
+        "top": 445,
+        "activeInTarget": true,
+        "active": "INPUT:color",
+        "tab": true,
+        "atFlash": {
+          "inView": false,
+          "top": 851
+        },
+        "bottom": 469,
+        "rootBottom": 874,
+        "flashRemovedAfterMs900": true,
+        "screenshot": "after-reveal-caption-style-bg-color.png"
+      }
+    },
+    {
+      "name": "revealField caption-style-stroke-color",
+      "pass": true,
+      "detail": {
+        "pass": true,
+        "flashing": true,
+        "inView": true,
+        "top": 445,
+        "activeInTarget": true,
+        "active": "INPUT:color",
+        "tab": true,
+        "atFlash": {
+          "inView": true,
+          "top": 639
+        },
+        "bottom": 469,
+        "rootBottom": 874,
+        "flashRemovedAfterMs900": true,
+        "screenshot": "after-reveal-caption-style-stroke-color.png"
+      }
+    },
+    {
+      "name": "revealField caption-style-color",
+      "pass": true,
+      "detail": {
+        "pass": true,
+        "flashing": true,
+        "inView": true,
+        "top": 445,
+        "activeInTarget": true,
+        "active": "INPUT:color",
+        "tab": true,
+        "atFlash": {
+          "inView": true,
+          "top": 493
+        },
+        "bottom": 469,
+        "rootBottom": 874,
+        "flashRemovedAfterMs900": true,
+        "screenshot": "after-reveal-caption-style-color.png"
+      }
+    },
+    {
+      "name": "revealField caption-style",
+      "pass": true,
+      "detail": {
+        "pass": true,
+        "flashing": true,
+        "inView": true,
+        "top": 391,
+        "activeInTarget": false,
+        "active": "BODY:",
+        "tab": true,
+        "atFlash": {
+          "inView": true,
+          "top": 458
+        },
+        "bottom": 522,
+        "rootBottom": 874,
+        "flashRemovedAfterMs900": true,
+        "screenshot": "after-reveal-caption-style.png"
+      }
+    },
+    {
+      "name": "width 240 dark: scrollWidth <= clientWidth",
+      "pass": true,
+      "detail": {
+        "pass": true,
+        "size": {
+          "panel": 240,
+          "inspector": 184
+        },
+        "single-outline": {
+          "root": {
+            "scrollWidth": 169,
+            "clientWidth": 169
+          },
+          "scrollers": 1,
+          "bad": [],
+          "outside": []
+        },
+        "screenshot": "after-width-240-dark.png",
+        "multi": {
+          "root": {
+            "scrollWidth": 169,
+            "clientWidth": 169
+          },
+          "scrollers": 1,
+          "bad": [],
+          "outside": []
+        }
+      }
+    },
+    {
+      "name": "width 300 dark: scrollWidth <= clientWidth",
+      "pass": true,
+      "detail": {
+        "pass": true,
+        "size": {
+          "panel": 300,
+          "inspector": 244
+        },
+        "single-outline": {
+          "root": {
+            "scrollWidth": 229,
+            "clientWidth": 229
+          },
+          "scrollers": 1,
+          "bad": [],
+          "outside": []
+        },
+        "multi": {
+          "root": {
+            "scrollWidth": 229,
+            "clientWidth": 229
+          },
+          "scrollers": 1,
+          "bad": [],
+          "outside": []
+        }
+      }
+    },
+    {
+      "name": "width 360 dark: scrollWidth <= clientWidth",
+      "pass": true,
+      "detail": {
+        "pass": true,
+        "size": {
+          "panel": 360,
+          "inspector": 304
+        },
+        "single-outline": {
+          "root": {
+            "scrollWidth": 289,
+            "clientWidth": 289
+          },
+          "scrollers": 1,
+          "bad": [],
+          "outside": []
+        },
+        "multi": {
+          "root": {
+            "scrollWidth": 289,
+            "clientWidth": 289
+          },
+          "scrollers": 1,
+          "bad": [],
+          "outside": []
+        }
+      }
+    },
+    {
+      "name": "width 420 dark: scrollWidth <= clientWidth",
+      "pass": true,
+      "detail": {
+        "pass": true,
+        "size": {
+          "panel": 420,
+          "inspector": 364
+        },
+        "single-outline": {
+          "root": {
+            "scrollWidth": 349,
+            "clientWidth": 349
+          },
+          "scrollers": 1,
+          "bad": [],
+          "outside": []
+        },
+        "multi": {
+          "root": {
+            "scrollWidth": 349,
+            "clientWidth": 349
+          },
+          "scrollers": 1,
+          "bad": [],
+          "outside": []
+        }
+      }
+    },
+    {
+      "name": "width 240 light: scrollWidth <= clientWidth",
+      "pass": true,
+      "detail": {
+        "pass": true,
+        "size": {
+          "panel": 240,
+          "inspector": 184
+        },
+        "single-outline": {
+          "root": {
+            "scrollWidth": 169,
+            "clientWidth": 169
+          },
+          "scrollers": 1,
+          "bad": [],
+          "outside": []
+        },
+        "multi": {
+          "root": {
+            "scrollWidth": 169,
+            "clientWidth": 169
+          },
+          "scrollers": 1,
+          "bad": [],
+          "outside": []
+        }
+      }
+    },
+    {
+      "name": "width 300 light: scrollWidth <= clientWidth",
+      "pass": true,
+      "detail": {
+        "pass": true,
+        "size": {
+          "panel": 300,
+          "inspector": 244
+        },
+        "single-outline": {
+          "root": {
+            "scrollWidth": 229,
+            "clientWidth": 229
+          },
+          "scrollers": 1,
+          "bad": [],
+          "outside": []
+        },
+        "multi": {
+          "root": {
+            "scrollWidth": 229,
+            "clientWidth": 229
+          },
+          "scrollers": 1,
+          "bad": [],
+          "outside": []
+        }
+      }
+    },
+    {
+      "name": "width 360 light: scrollWidth <= clientWidth",
+      "pass": true,
+      "detail": {
+        "pass": true,
+        "size": {
+          "panel": 360,
+          "inspector": 304
+        },
+        "single-outline": {
+          "root": {
+            "scrollWidth": 289,
+            "clientWidth": 289
+          },
+          "scrollers": 1,
+          "bad": [],
+          "outside": []
+        },
+        "multi": {
+          "root": {
+            "scrollWidth": 289,
+            "clientWidth": 289
+          },
+          "scrollers": 1,
+          "bad": [],
+          "outside": []
+        }
+      }
+    },
+    {
+      "name": "width 420 light: scrollWidth <= clientWidth",
+      "pass": true,
+      "detail": {
+        "pass": true,
+        "size": {
+          "panel": 420,
+          "inspector": 364
+        },
+        "single-outline": {
+          "root": {
+            "scrollWidth": 349,
+            "clientWidth": 349
+          },
+          "scrollers": 1,
+          "bad": [],
+          "outside": []
+        },
+        "multi": {
+          "root": {
+            "scrollWidth": 349,
+            "clientWidth": 349
+          },
+          "scrollers": 1,
+          "bad": [],
+          "outside": []
+        }
+      }
+    }
+  ],
+  "screenshots": [
+    "after-case-spoken.png",
+    "after-case-spoken-2line-bg.png",
+    "after-case-preset.png",
+    "after-case-placed.png",
+    "after-case-multi.png",
+    "after-case-multi-mixed.png",
+    "after-case-spoken-2line-bg-light.png",
+    "after-cards-dark.png",
+    "after-cards-multi-dark.png",
+    "after-cards-light.png",
+    "after-cards-multi-light.png",
+    "after-bg-mode-per-line.png",
+    "after-bg-mode-block.png",
+    "after-effect-outline.png",
+    "after-effect-none.png",
+    "after-multi-after-writes.png",
+    "after-reveal-caption-style-bg-color.png",
+    "after-reveal-caption-style-stroke-color.png",
+    "after-reveal-caption-style-color.png",
+    "after-reveal-caption-style.png",
+    "after-width-240-dark.png"
+  ],
+  "writes": [
+    {
+      "field": "文字 / 色",
+      "text_style": {
+        "color": "#FFD400"
+      },
+      "previewBefore": {
+        "color": "rgb(255, 255, 255)",
+        "fontSize": "38px",
+        "stroke": "5.32px rgba(0, 0, 0, 0.9)",
+        "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+        "bgs": []
+      },
+      "previewAfter": {
+        "color": "rgb(255, 212, 0)",
+        "fontSize": "38px",
+        "stroke": "5.32px rgba(0, 0, 0, 0.9)",
+        "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+        "bgs": []
+      }
+    },
+    {
+      "field": "文字 / 大きさ",
+      "text_style": {
+        "color": "#FFD400",
+        "size_px": 52
+      },
+      "previewBefore": {
+        "color": "rgb(255, 212, 0)",
+        "fontSize": "38px",
+        "stroke": "5.32px rgba(0, 0, 0, 0.9)",
+        "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+        "bgs": []
+      },
+      "previewAfter": {
+        "color": "rgb(255, 212, 0)",
+        "fontSize": "52px",
+        "stroke": "7.28px rgba(0, 0, 0, 0.9)",
+        "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+        "bgs": []
+      }
+    },
+    {
+      "field": "縁取り / 色",
+      "text_style": {
+        "color": "#FFD400",
+        "size_px": 52,
+        "stroke": {
+          "color": "#D12B2B"
+        }
+      },
+      "previewBefore": {
+        "color": "rgb(255, 212, 0)",
+        "fontSize": "52px",
+        "stroke": "7.28px rgba(0, 0, 0, 0.9)",
+        "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+        "bgs": []
+      },
+      "previewAfter": {
+        "color": "rgb(255, 212, 0)",
+        "fontSize": "52px",
+        "stroke": "3px rgb(209, 43, 43)",
+        "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+        "bgs": []
+      }
+    },
+    {
+      "field": "縁取り / 太さ",
+      "text_style": {
+        "color": "#FFD400",
+        "size_px": 52,
+        "stroke": {
+          "color": "#D12B2B",
+          "width_px": 3
+        }
+      },
+      "previewBefore": {
+        "color": "rgb(255, 212, 0)",
+        "fontSize": "52px",
+        "stroke": "3px rgb(209, 43, 43)",
+        "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+        "bgs": []
+      },
+      "previewAfter": {
+        "color": "rgb(255, 212, 0)",
+        "fontSize": "52px",
+        "stroke": "6px rgb(209, 43, 43)",
+        "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+        "bgs": []
+      }
+    },
+    {
+      "field": "座布団 / 敷く",
+      "text_style": {
+        "color": "#FFD400",
+        "size_px": 52,
+        "stroke": {
+          "color": "#D12B2B",
+          "width_px": 3
+        },
+        "background": {
+          "opacity": 0.6
+        }
+      },
+      "previewBefore": {
+        "color": "rgb(255, 212, 0)",
+        "fontSize": "52px",
+        "stroke": "6px rgb(209, 43, 43)",
+        "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+        "bgs": []
+      },
+      "previewAfter": {
+        "color": "rgb(255, 212, 0)",
+        "fontSize": "52px",
+        "stroke": "6px rgb(209, 43, 43)",
+        "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+        "bgs": [
+          {
+            "cls": "akari-caption__line",
+            "bg": "rgba(0, 0, 0, 0.6)",
+            "radius": "10px",
+            "w": 494,
+            "h": 46
+          }
+        ]
+      }
+    },
+    {
+      "field": "座布団 / 色",
+      "text_style": {
+        "color": "#FFD400",
+        "size_px": 52,
+        "stroke": {
+          "color": "#D12B2B",
+          "width_px": 3
+        },
+        "background": {
+          "opacity": 0.6,
+          "color": "#1E3A8A"
+        }
+      },
+      "previewBefore": {
+        "color": "rgb(255, 212, 0)",
+        "fontSize": "52px",
+        "stroke": "6px rgb(209, 43, 43)",
+        "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+        "bgs": [
+          {
+            "cls": "akari-caption__line",
+            "bg": "rgba(0, 0, 0, 0.6)",
+            "radius": "10px",
+            "w": 494,
+            "h": 46
+          }
+        ]
+      },
+      "previewAfter": {
+        "color": "rgb(255, 212, 0)",
+        "fontSize": "52px",
+        "stroke": "6px rgb(209, 43, 43)",
+        "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+        "bgs": [
+          {
+            "cls": "akari-caption__line",
+            "bg": "rgba(30, 58, 138, 0.6)",
+            "radius": "10px",
+            "w": 494,
+            "h": 46
+          }
+        ]
+      }
+    },
+    {
+      "field": "座布団 / 不透明度",
+      "text_style": {
+        "color": "#FFD400",
+        "size_px": 52,
+        "stroke": {
+          "color": "#D12B2B",
+          "width_px": 3
+        },
+        "background": {
+          "opacity": 0.85,
+          "color": "#1E3A8A"
+        }
+      },
+      "previewBefore": {
+        "color": "rgb(255, 212, 0)",
+        "fontSize": "52px",
+        "stroke": "6px rgb(209, 43, 43)",
+        "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+        "bgs": [
+          {
+            "cls": "akari-caption__line",
+            "bg": "rgba(30, 58, 138, 0.6)",
+            "radius": "10px",
+            "w": 494,
+            "h": 46
+          }
+        ]
+      },
+      "previewAfter": {
+        "color": "rgb(255, 212, 0)",
+        "fontSize": "52px",
+        "stroke": "6px rgb(209, 43, 43)",
+        "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+        "bgs": [
+          {
+            "cls": "akari-caption__line",
+            "bg": "rgba(30, 58, 138, 0.85)",
+            "radius": "10px",
+            "w": 494,
+            "h": 46
+          }
+        ]
+      }
+    },
+    {
+      "field": "座布団 / 角丸（スライダーの最大 = カプセル）",
+      "text_style": {
+        "color": "#FFD400",
+        "size_px": 52,
+        "stroke": {
+          "color": "#D12B2B",
+          "width_px": 3
+        },
+        "background": {
+          "opacity": 0.85,
+          "color": "#1E3A8A",
+          "radius_px": 41
+        }
+      },
+      "previewBefore": {
+        "color": "rgb(255, 212, 0)",
+        "fontSize": "52px",
+        "stroke": "6px rgb(209, 43, 43)",
+        "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+        "bgs": [
+          {
+            "cls": "akari-caption__line",
+            "bg": "rgba(30, 58, 138, 0.85)",
+            "radius": "10px",
+            "w": 494,
+            "h": 46
+          }
+        ]
+      },
+      "previewAfter": {
+        "color": "rgb(255, 212, 0)",
+        "fontSize": "52px",
+        "stroke": "6px rgb(209, 43, 43)",
+        "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+        "bgs": [
+          {
+            "cls": "akari-caption__line",
+            "bg": "rgba(30, 58, 138, 0.85)",
+            "radius": "10px",
+            "w": 494,
+            "h": 46
+          }
+        ]
+      }
+    },
+    {
+      "field": "座布団 / 形 まとめて",
+      "text_style": {
+        "color": "#FFD400",
+        "size_px": 52,
+        "stroke": {
+          "color": "#D12B2B",
+          "width_px": 3
+        },
+        "background": {
+          "opacity": 0.85,
+          "color": "#1E3A8A",
+          "radius_px": 41,
+          "mode": "block"
+        }
+      },
+      "previewBefore": {
+        "color": "rgb(255, 212, 0)",
+        "fontSize": "52px",
+        "stroke": "6px rgb(209, 43, 43)",
+        "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+        "bgs": [
+          {
+            "cls": "akari-caption__line",
+            "bg": "rgba(30, 58, 138, 0.85)",
+            "radius": "10px",
+            "w": 494,
+            "h": 46
+          }
+        ]
+      },
+      "previewAfter": {
+        "color": "rgb(255, 212, 0)",
+        "fontSize": "52px",
+        "stroke": "6px rgb(209, 43, 43)",
+        "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+        "bgs": [
+          {
+            "cls": "akari-caption__block",
+            "bg": "rgba(30, 58, 138, 0.85)",
+            "radius": "41px",
+            "w": 494,
+            "h": 46
+          }
+        ]
+      }
+    },
+    {
+      "field": "座布団 / 形 行ごと",
+      "text_style": {
+        "color": "#FFD400",
+        "size_px": 52,
+        "stroke": {
+          "color": "#D12B2B",
+          "width_px": 3
+        },
+        "background": {
+          "opacity": 0.85,
+          "color": "#1E3A8A",
+          "radius_px": 41,
+          "mode": "per-line"
+        }
+      },
+      "previewBefore": {
+        "color": "rgb(255, 212, 0)",
+        "fontSize": "52px",
+        "stroke": "6px rgb(209, 43, 43)",
+        "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+        "bgs": [
+          {
+            "cls": "akari-caption__block",
+            "bg": "rgba(30, 58, 138, 0.85)",
+            "radius": "41px",
+            "w": 494,
+            "h": 46
+          }
+        ]
+      },
+      "previewAfter": {
+        "color": "rgb(255, 212, 0)",
+        "fontSize": "52px",
+        "stroke": "6px rgb(209, 43, 43)",
+        "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+        "bgs": [
+          {
+            "cls": "akari-caption__line",
+            "bg": "rgba(30, 58, 138, 0.85)",
+            "radius": "41px",
+            "w": 494,
+            "h": 46
+          }
+        ]
+      }
+    },
+    {
+      "field": "効果 / 袋文字",
+      "text_style": {
+        "color": "#FFD400",
+        "size_px": 52,
+        "stroke": {
+          "color": "#000000",
+          "width_px": 6
+        },
+        "background": {
+          "opacity": 0.85,
+          "color": "#1E3A8A",
+          "radius_px": 41,
+          "mode": "per-line"
+        }
+      },
+      "previewBefore": {
+        "color": "rgb(255, 212, 0)",
+        "fontSize": "52px",
+        "stroke": "6px rgb(209, 43, 43)",
+        "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+        "bgs": [
+          {
+            "cls": "akari-caption__line",
+            "bg": "rgba(30, 58, 138, 0.85)",
+            "radius": "41px",
+            "w": 494,
+            "h": 46
+          }
+        ]
+      },
+      "previewAfter": {
+        "color": "rgb(255, 212, 0)",
+        "fontSize": "52px",
+        "stroke": "12px rgb(0, 0, 0)",
+        "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+        "bgs": [
+          {
+            "cls": "akari-caption__line",
+            "bg": "rgba(30, 58, 138, 0.85)",
+            "radius": "41px",
+            "w": 494,
+            "h": 46
+          }
+        ]
+      }
+    },
+    {
+      "field": "効果 / 効果の色",
+      "text_style": {
+        "color": "#FFD400",
+        "size_px": 52,
+        "stroke": {
+          "color": "#E02020",
+          "width_px": 6
+        },
+        "background": {
+          "opacity": 0.85,
+          "color": "#1E3A8A",
+          "radius_px": 41,
+          "mode": "per-line"
+        }
+      },
+      "previewBefore": {
+        "color": "rgb(255, 212, 0)",
+        "fontSize": "52px",
+        "stroke": "12px rgb(0, 0, 0)",
+        "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+        "bgs": [
+          {
+            "cls": "akari-caption__line",
+            "bg": "rgba(30, 58, 138, 0.85)",
+            "radius": "41px",
+            "w": 494,
+            "h": 46
+          }
+        ]
+      },
+      "previewAfter": {
+        "color": "rgb(255, 212, 0)",
+        "fontSize": "52px",
+        "stroke": "12px rgb(224, 32, 32)",
+        "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+        "bgs": [
+          {
+            "cls": "akari-caption__line",
+            "bg": "rgba(30, 58, 138, 0.85)",
+            "radius": "41px",
+            "w": 494,
+            "h": 46
+          }
+        ]
+      }
+    },
+    {
+      "field": "効果 / 強さ",
+      "text_style": {
+        "color": "#FFD400",
+        "size_px": 52,
+        "stroke": {
+          "color": "#E02020",
+          "width_px": 9
+        },
+        "background": {
+          "opacity": 0.85,
+          "color": "#1E3A8A",
+          "radius_px": 41,
+          "mode": "per-line"
+        }
+      },
+      "previewBefore": {
+        "color": "rgb(255, 212, 0)",
+        "fontSize": "52px",
+        "stroke": "12px rgb(224, 32, 32)",
+        "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+        "bgs": [
+          {
+            "cls": "akari-caption__line",
+            "bg": "rgba(30, 58, 138, 0.85)",
+            "radius": "41px",
+            "w": 494,
+            "h": 46
+          }
+        ]
+      },
+      "previewAfter": {
+        "color": "rgb(255, 212, 0)",
+        "fontSize": "52px",
+        "stroke": "18px rgb(224, 32, 32)",
+        "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+        "bgs": [
+          {
+            "cls": "akari-caption__line",
+            "bg": "rgba(30, 58, 138, 0.85)",
+            "radius": "41px",
+            "w": 494,
+            "h": 46
+          }
+        ]
+      }
+    },
+    {
+      "field": "効果 / なし",
+      "text_style": {
+        "color": "#FFD400",
+        "size_px": 52,
+        "stroke": {
+          "color": "#000000",
+          "width_px": 1.5
+        },
+        "background": {
+          "opacity": 0.85,
+          "color": "#1E3A8A",
+          "radius_px": 41,
+          "mode": "per-line"
+        }
+      },
+      "previewBefore": {
+        "color": "rgb(255, 212, 0)",
+        "fontSize": "52px",
+        "stroke": "18px rgb(224, 32, 32)",
+        "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+        "bgs": [
+          {
+            "cls": "akari-caption__line",
+            "bg": "rgba(30, 58, 138, 0.85)",
+            "radius": "41px",
+            "w": 494,
+            "h": 46
+          }
+        ]
+      },
+      "previewAfter": {
+        "color": "rgb(255, 212, 0)",
+        "fontSize": "52px",
+        "stroke": "3px rgb(0, 0, 0)",
+        "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+        "bgs": [
+          {
+            "cls": "akari-caption__line",
+            "bg": "rgba(30, 58, 138, 0.85)",
+            "radius": "41px",
+            "w": 494,
+            "h": 46
+          }
+        ]
+      }
+    },
+    {
+      "field": "座布団 / 敷かない",
+      "text_style": {
+        "color": "#FFD400",
+        "size_px": 52,
+        "stroke": {
+          "color": "#000000",
+          "width_px": 1.5
+        },
+        "background": {
+          "opacity": 0,
+          "color": "#1E3A8A",
+          "radius_px": 41,
+          "mode": "per-line"
+        }
+      },
+      "previewBefore": {
+        "color": "rgb(255, 212, 0)",
+        "fontSize": "52px",
+        "stroke": "3px rgb(0, 0, 0)",
+        "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+        "bgs": [
+          {
+            "cls": "akari-caption__line",
+            "bg": "rgba(30, 58, 138, 0.85)",
+            "radius": "41px",
+            "w": 494,
+            "h": 46
+          }
+        ]
+      },
+      "previewAfter": {
+        "color": "rgb(255, 212, 0)",
+        "fontSize": "52px",
+        "stroke": "3px rgb(0, 0, 0)",
+        "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+        "bgs": [
+          {
+            "cls": "akari-caption__line",
+            "bg": "rgba(30, 58, 138, 0)",
+            "radius": "41px",
+            "w": 494,
+            "h": 46
+          }
+        ]
+      }
+    }
+  ],
+  "pid": 55811,
+  "capsuleMax": 41,
+  "effectTiles": [
+    {
+      "value": "none",
+      "label": "Aaなし",
+      "pressed": "false"
+    },
+    {
+      "value": "outline",
+      "label": "Aa袋文字",
+      "pressed": "true"
+    }
+  ],
+  "widths": [
+    {
+      "theme": "dark",
+      "width": 240,
+      "panel": 240,
+      "inspector": 184,
+      "single": {
+        "scrollWidth": 169,
+        "clientWidth": 169
+      },
+      "multi": {
+        "scrollWidth": 169,
+        "clientWidth": 169
+      },
+      "bad": [],
+      "outside": []
+    },
+    {
+      "theme": "dark",
+      "width": 300,
+      "panel": 300,
+      "inspector": 244,
+      "single": {
+        "scrollWidth": 229,
+        "clientWidth": 229
+      },
+      "multi": {
+        "scrollWidth": 229,
+        "clientWidth": 229
+      },
+      "bad": [],
+      "outside": []
+    },
+    {
+      "theme": "dark",
+      "width": 360,
+      "panel": 360,
+      "inspector": 304,
+      "single": {
+        "scrollWidth": 289,
+        "clientWidth": 289
+      },
+      "multi": {
+        "scrollWidth": 289,
+        "clientWidth": 289
+      },
+      "bad": [],
+      "outside": []
+    },
+    {
+      "theme": "dark",
+      "width": 420,
+      "panel": 420,
+      "inspector": 364,
+      "single": {
+        "scrollWidth": 349,
+        "clientWidth": 349
+      },
+      "multi": {
+        "scrollWidth": 349,
+        "clientWidth": 349
+      },
+      "bad": [],
+      "outside": []
+    },
+    {
+      "theme": "light",
+      "width": 240,
+      "panel": 240,
+      "inspector": 184,
+      "single": {
+        "scrollWidth": 169,
+        "clientWidth": 169
+      },
+      "multi": {
+        "scrollWidth": 169,
+        "clientWidth": 169
+      },
+      "bad": [],
+      "outside": []
+    },
+    {
+      "theme": "light",
+      "width": 300,
+      "panel": 300,
+      "inspector": 244,
+      "single": {
+        "scrollWidth": 229,
+        "clientWidth": 229
+      },
+      "multi": {
+        "scrollWidth": 229,
+        "clientWidth": 229
+      },
+      "bad": [],
+      "outside": []
+    },
+    {
+      "theme": "light",
+      "width": 360,
+      "panel": 360,
+      "inspector": 304,
+      "single": {
+        "scrollWidth": 289,
+        "clientWidth": 289
+      },
+      "multi": {
+        "scrollWidth": 289,
+        "clientWidth": 289
+      },
+      "bad": [],
+      "outside": []
+    },
+    {
+      "theme": "light",
+      "width": 420,
+      "panel": 420,
+      "inspector": 364,
+      "single": {
+        "scrollWidth": 349,
+        "clientWidth": 349
+      },
+      "multi": {
+        "scrollWidth": 349,
+        "clientWidth": 349
+      },
+      "bad": [],
+      "outside": []
+    }
+  ]
+}

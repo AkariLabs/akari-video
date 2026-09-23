@@ -1,0 +1,972 @@
+{
+  "phase": "before",
+  "status": "observed",
+  "port": 9475,
+  "cases": [
+    {
+      "name": "spoken",
+      "label": "話した言葉の字幕（スタイルなし）",
+      "ids": [
+        "c-0001"
+      ],
+      "screenshot": "before-case-spoken.png",
+      "hasStyleSection": true,
+      "styleFields": [
+        "caption-color",
+        "caption-size",
+        "caption-stroke-color",
+        "caption-stroke-width",
+        "caption-background-color",
+        "caption-background-opacity",
+        "caption-background-radius",
+        "caption-background-mode",
+        "caption-zone"
+      ],
+      "state": {
+        "header": "今日は朝のルーティンを紹介します00:00.0 – 00:03.2 · 字幕",
+        "tabs": [
+          {
+            "id": "text",
+            "label": "テキスト",
+            "active": true,
+            "disabled": false
+          },
+          {
+            "id": "info",
+            "label": "情報",
+            "active": false,
+            "disabled": false
+          }
+        ],
+        "sections": [
+          {
+            "id": "time",
+            "label": "時間",
+            "hidden": false,
+            "fields": [
+              {
+                "name": "caption-output-start",
+                "label": "出力位置",
+                "value": "出力位置00:00:00.000"
+              },
+              {
+                "name": "caption-output-duration",
+                "label": "尺",
+                "value": "尺3.20 秒"
+              }
+            ]
+          },
+          {
+            "id": "animator",
+            "label": "袋 captions のアニメーター（全 cue に効く）",
+            "hidden": false,
+            "fields": [
+              {
+                "name": "animator-add",
+                "label": "アニメーターを追加",
+                "value": "アニメーターを追加選択…アニメーター"
+              }
+            ]
+          },
+          {
+            "id": "content",
+            "label": "内容",
+            "hidden": false,
+            "fields": [
+              {
+                "name": "caption-text",
+                "label": "テキスト",
+                "value": "テキスト"
+              },
+              {
+                "name": "caption-speaker",
+                "label": "話者",
+                "value": "話者"
+              },
+              {
+                "name": "caption-edited",
+                "label": "編集済み",
+                "value": "編集済みいいえ"
+              }
+            ]
+          },
+          {
+            "id": "style",
+            "label": "スタイル",
+            "hidden": false,
+            "fields": [
+              {
+                "name": "caption-color",
+                "label": "文字色",
+                "value": "文字色"
+              },
+              {
+                "name": "caption-size",
+                "label": "サイズ (px)",
+                "value": "サイズ (px)px"
+              },
+              {
+                "name": "caption-stroke-color",
+                "label": "縁取り色",
+                "value": "縁取り色"
+              },
+              {
+                "name": "caption-stroke-width",
+                "label": "縁取り (px)",
+                "value": "縁取り (px)px"
+              },
+              {
+                "name": "caption-background-color",
+                "label": "座布団色",
+                "value": "座布団色"
+              },
+              {
+                "name": "caption-background-opacity",
+                "label": "座布団不透明度",
+                "value": "座布団不透明度%"
+              },
+              {
+                "name": "caption-background-radius",
+                "label": "座布団角丸 (px)",
+                "value": "座布団角丸 (px)px"
+              },
+              {
+                "name": "caption-background-mode",
+                "label": "座布団の形",
+                "value": "座布団の形per-lineblock"
+              },
+              {
+                "name": "caption-zone",
+                "label": "位置",
+                "value": "位置保存中"
+              }
+            ]
+          },
+          {
+            "id": "timing",
+            "label": "タイミング",
+            "hidden": false,
+            "fields": [
+              {
+                "name": "caption-start",
+                "label": "start",
+                "value": "start00:00:00.000"
+              },
+              {
+                "name": "caption-end",
+                "label": "end",
+                "value": "end00:00:03.200"
+              },
+              {
+                "name": "caption-duration",
+                "label": "尺",
+                "value": "尺3.20 秒"
+              },
+              {
+                "name": "caption-source-segment",
+                "label": "sourceRef.segment",
+                "value": "sourceRef.segment1"
+              }
+            ]
+          }
+        ],
+        "scrollWidth": 289,
+        "clientWidth": 289
+      }
+    },
+    {
+      "name": "spoken-2line-bg",
+      "label": "話した言葉の字幕 2 行 + 座布団あり",
+      "ids": [
+        "c-0002"
+      ],
+      "screenshot": "before-case-spoken-2line-bg.png",
+      "hasStyleSection": true,
+      "styleFields": [
+        "caption-color",
+        "caption-size",
+        "caption-stroke-color",
+        "caption-stroke-width",
+        "caption-background-color",
+        "caption-background-opacity",
+        "caption-background-radius",
+        "caption-background-mode",
+        "caption-zone"
+      ],
+      "state": {
+        "header": "まずはコーヒーを 淹れるところから00:04.0 – 00:07.2 · 字幕",
+        "tabs": [
+          {
+            "id": "text",
+            "label": "テキスト",
+            "active": true,
+            "disabled": false
+          },
+          {
+            "id": "info",
+            "label": "情報",
+            "active": false,
+            "disabled": false
+          }
+        ],
+        "sections": [
+          {
+            "id": "time",
+            "label": "時間",
+            "hidden": false,
+            "fields": [
+              {
+                "name": "caption-output-start",
+                "label": "出力位置",
+                "value": "出力位置00:00:04.000"
+              },
+              {
+                "name": "caption-output-duration",
+                "label": "尺",
+                "value": "尺3.20 秒"
+              }
+            ]
+          },
+          {
+            "id": "animator",
+            "label": "袋 captions のアニメーター（全 cue に効く）",
+            "hidden": false,
+            "fields": [
+              {
+                "name": "animator-add",
+                "label": "アニメーターを追加",
+                "value": "アニメーターを追加選択…アニメーター"
+              }
+            ]
+          },
+          {
+            "id": "content",
+            "label": "内容",
+            "hidden": false,
+            "fields": [
+              {
+                "name": "caption-text",
+                "label": "テキスト",
+                "value": "テキスト"
+              },
+              {
+                "name": "caption-speaker",
+                "label": "話者",
+                "value": "話者"
+              },
+              {
+                "name": "caption-edited",
+                "label": "編集済み",
+                "value": "編集済みいいえ"
+              }
+            ]
+          },
+          {
+            "id": "style",
+            "label": "スタイル",
+            "hidden": false,
+            "fields": [
+              {
+                "name": "caption-color",
+                "label": "文字色",
+                "value": "文字色"
+              },
+              {
+                "name": "caption-size",
+                "label": "サイズ (px)",
+                "value": "サイズ (px)px"
+              },
+              {
+                "name": "caption-stroke-color",
+                "label": "縁取り色",
+                "value": "縁取り色"
+              },
+              {
+                "name": "caption-stroke-width",
+                "label": "縁取り (px)",
+                "value": "縁取り (px)px"
+              },
+              {
+                "name": "caption-background-color",
+                "label": "座布団色",
+                "value": "座布団色"
+              },
+              {
+                "name": "caption-background-opacity",
+                "label": "座布団不透明度",
+                "value": "座布団不透明度%"
+              },
+              {
+                "name": "caption-background-radius",
+                "label": "座布団角丸 (px)",
+                "value": "座布団角丸 (px)px"
+              },
+              {
+                "name": "caption-background-mode",
+                "label": "座布団の形",
+                "value": "座布団の形per-lineblock"
+              },
+              {
+                "name": "caption-zone",
+                "label": "位置",
+                "value": "位置保存中"
+              }
+            ]
+          },
+          {
+            "id": "timing",
+            "label": "タイミング",
+            "hidden": false,
+            "fields": [
+              {
+                "name": "caption-start",
+                "label": "start",
+                "value": "start00:00:04.000"
+              },
+              {
+                "name": "caption-end",
+                "label": "end",
+                "value": "end00:00:07.200"
+              },
+              {
+                "name": "caption-duration",
+                "label": "尺",
+                "value": "尺3.20 秒"
+              },
+              {
+                "name": "caption-source-segment",
+                "label": "sourceRef.segment",
+                "value": "sourceRef.segment2"
+              }
+            ]
+          }
+        ],
+        "scrollWidth": 289,
+        "clientWidth": 289
+      }
+    },
+    {
+      "name": "preset",
+      "label": "スタイルプリセット付きの字幕（subtitle-variety）",
+      "ids": [
+        "c-0003"
+      ],
+      "screenshot": "before-case-preset.png",
+      "hasStyleSection": true,
+      "styleFields": [
+        "caption-color",
+        "caption-size",
+        "caption-stroke-color",
+        "caption-stroke-width",
+        "caption-background-color",
+        "caption-background-opacity",
+        "caption-background-radius",
+        "caption-background-mode",
+        "caption-zone"
+      ],
+      "state": {
+        "header": "ここがすごい00:08.0 – 00:11.2 · 字幕",
+        "tabs": [
+          {
+            "id": "text",
+            "label": "テキスト",
+            "active": true,
+            "disabled": false
+          },
+          {
+            "id": "info",
+            "label": "情報",
+            "active": false,
+            "disabled": false
+          }
+        ],
+        "sections": [
+          {
+            "id": "time",
+            "label": "時間",
+            "hidden": false,
+            "fields": [
+              {
+                "name": "caption-output-start",
+                "label": "出力位置",
+                "value": "出力位置00:00:08.000"
+              },
+              {
+                "name": "caption-output-duration",
+                "label": "尺",
+                "value": "尺3.20 秒"
+              }
+            ]
+          },
+          {
+            "id": "animator",
+            "label": "袋 captions のアニメーター（全 cue に効く）",
+            "hidden": false,
+            "fields": [
+              {
+                "name": "animator-add",
+                "label": "アニメーターを追加",
+                "value": "アニメーターを追加選択…アニメーター"
+              }
+            ]
+          },
+          {
+            "id": "content",
+            "label": "内容",
+            "hidden": false,
+            "fields": [
+              {
+                "name": "caption-text",
+                "label": "テキスト",
+                "value": "テキスト"
+              },
+              {
+                "name": "caption-speaker",
+                "label": "話者",
+                "value": "話者"
+              },
+              {
+                "name": "caption-edited",
+                "label": "編集済み",
+                "value": "編集済みいいえ"
+              }
+            ]
+          },
+          {
+            "id": "style",
+            "label": "スタイル",
+            "hidden": false,
+            "fields": [
+              {
+                "name": "caption-color",
+                "label": "文字色",
+                "value": "文字色"
+              },
+              {
+                "name": "caption-size",
+                "label": "サイズ (px)",
+                "value": "サイズ (px)px"
+              },
+              {
+                "name": "caption-stroke-color",
+                "label": "縁取り色",
+                "value": "縁取り色"
+              },
+              {
+                "name": "caption-stroke-width",
+                "label": "縁取り (px)",
+                "value": "縁取り (px)px"
+              },
+              {
+                "name": "caption-background-color",
+                "label": "座布団色",
+                "value": "座布団色"
+              },
+              {
+                "name": "caption-background-opacity",
+                "label": "座布団不透明度",
+                "value": "座布団不透明度%"
+              },
+              {
+                "name": "caption-background-radius",
+                "label": "座布団角丸 (px)",
+                "value": "座布団角丸 (px)px"
+              },
+              {
+                "name": "caption-background-mode",
+                "label": "座布団の形",
+                "value": "座布団の形per-lineblock"
+              },
+              {
+                "name": "caption-zone",
+                "label": "位置",
+                "value": "位置保存中"
+              }
+            ]
+          },
+          {
+            "id": "timing",
+            "label": "タイミング",
+            "hidden": false,
+            "fields": [
+              {
+                "name": "caption-start",
+                "label": "start",
+                "value": "start00:00:08.000"
+              },
+              {
+                "name": "caption-end",
+                "label": "end",
+                "value": "end00:00:11.200"
+              },
+              {
+                "name": "caption-duration",
+                "label": "尺",
+                "value": "尺3.20 秒"
+              },
+              {
+                "name": "caption-source-segment",
+                "label": "sourceRef.segment",
+                "value": "sourceRef.segment3"
+              }
+            ]
+          }
+        ],
+        "scrollWidth": 289,
+        "clientWidth": 289
+      }
+    },
+    {
+      "name": "placed",
+      "label": "置いた文字",
+      "ids": [
+        "c-0101"
+      ],
+      "screenshot": "before-case-placed.png",
+      "hasStyleSection": true,
+      "styleFields": [
+        "caption-color",
+        "caption-size",
+        "caption-stroke-color",
+        "caption-stroke-width",
+        "caption-background-color",
+        "caption-background-opacity",
+        "caption-background-radius",
+        "caption-background-mode",
+        "caption-zone"
+      ],
+      "state": {
+        "header": "置いた文字00:12.0 – 00:15.2 · 字幕",
+        "tabs": [
+          {
+            "id": "text",
+            "label": "テキスト",
+            "active": true,
+            "disabled": false
+          },
+          {
+            "id": "info",
+            "label": "情報",
+            "active": false,
+            "disabled": false
+          }
+        ],
+        "sections": [
+          {
+            "id": "time",
+            "label": "時間",
+            "hidden": false,
+            "fields": [
+              {
+                "name": "caption-output-start",
+                "label": "出力位置",
+                "value": "出力位置00:00:12.000"
+              },
+              {
+                "name": "caption-output-duration",
+                "label": "尺",
+                "value": "尺3.20 秒"
+              }
+            ]
+          },
+          {
+            "id": "animator",
+            "label": "袋 captions のアニメーター（全 cue に効く）",
+            "hidden": false,
+            "fields": [
+              {
+                "name": "animator-add",
+                "label": "アニメーターを追加",
+                "value": "アニメーターを追加選択…アニメーター"
+              }
+            ]
+          },
+          {
+            "id": "content",
+            "label": "内容",
+            "hidden": false,
+            "fields": [
+              {
+                "name": "caption-text",
+                "label": "テキスト",
+                "value": "テキスト"
+              },
+              {
+                "name": "caption-speaker",
+                "label": "話者",
+                "value": "話者"
+              },
+              {
+                "name": "caption-edited",
+                "label": "編集済み",
+                "value": "編集済みはい"
+              }
+            ]
+          },
+          {
+            "id": "style",
+            "label": "スタイル",
+            "hidden": false,
+            "fields": [
+              {
+                "name": "caption-color",
+                "label": "文字色",
+                "value": "文字色"
+              },
+              {
+                "name": "caption-size",
+                "label": "サイズ (px)",
+                "value": "サイズ (px)px"
+              },
+              {
+                "name": "caption-stroke-color",
+                "label": "縁取り色",
+                "value": "縁取り色"
+              },
+              {
+                "name": "caption-stroke-width",
+                "label": "縁取り (px)",
+                "value": "縁取り (px)px"
+              },
+              {
+                "name": "caption-background-color",
+                "label": "座布団色",
+                "value": "座布団色"
+              },
+              {
+                "name": "caption-background-opacity",
+                "label": "座布団不透明度",
+                "value": "座布団不透明度%"
+              },
+              {
+                "name": "caption-background-radius",
+                "label": "座布団角丸 (px)",
+                "value": "座布団角丸 (px)px"
+              },
+              {
+                "name": "caption-background-mode",
+                "label": "座布団の形",
+                "value": "座布団の形per-lineblock"
+              },
+              {
+                "name": "caption-zone",
+                "label": "位置",
+                "value": "位置保存中"
+              }
+            ]
+          },
+          {
+            "id": "timing",
+            "label": "タイミング",
+            "hidden": false,
+            "fields": [
+              {
+                "name": "caption-start",
+                "label": "start",
+                "value": "start00:00:12.000"
+              },
+              {
+                "name": "caption-end",
+                "label": "end",
+                "value": "end00:00:15.200"
+              },
+              {
+                "name": "caption-duration",
+                "label": "尺",
+                "value": "尺3.20 秒"
+              },
+              {
+                "name": "caption-source-segment",
+                "label": "sourceRef.segment",
+                "value": "sourceRef.segment—"
+              }
+            ]
+          }
+        ],
+        "scrollWidth": 289,
+        "clientWidth": 289
+      }
+    },
+    {
+      "name": "multi",
+      "label": "複数選択（話した言葉 3 本）",
+      "ids": [
+        "c-0001",
+        "c-0004",
+        "c-0005"
+      ],
+      "screenshot": "before-case-multi.png",
+      "hasStyleSection": true,
+      "styleFields": [
+        "caption-color",
+        "caption-size",
+        "caption-stroke-color",
+        "caption-stroke-width",
+        "caption-background-color",
+        "caption-background-opacity",
+        "caption-background-radius",
+        "caption-background-mode",
+        "caption-zone"
+      ],
+      "state": {
+        "header": "3 個を選択中00:00.0 – 00:23.2 · 複数選択",
+        "tabs": [
+          {
+            "id": "text",
+            "label": "テキスト",
+            "active": true,
+            "disabled": false
+          },
+          {
+            "id": "info",
+            "label": "情報",
+            "active": false,
+            "disabled": false
+          }
+        ],
+        "sections": [
+          {
+            "id": "content",
+            "label": "内容（複数）",
+            "hidden": false,
+            "fields": [
+              {
+                "name": "caption-multi-count",
+                "label": "選択",
+                "value": "選択3 件"
+              }
+            ]
+          },
+          {
+            "id": "style",
+            "label": "スタイル",
+            "hidden": false,
+            "fields": [
+              {
+                "name": "caption-color",
+                "label": "文字色",
+                "value": "文字色"
+              },
+              {
+                "name": "caption-size",
+                "label": "サイズ (px)",
+                "value": "サイズ (px)px"
+              },
+              {
+                "name": "caption-stroke-color",
+                "label": "縁取り色",
+                "value": "縁取り色"
+              },
+              {
+                "name": "caption-stroke-width",
+                "label": "縁取り (px)",
+                "value": "縁取り (px)px"
+              },
+              {
+                "name": "caption-background-color",
+                "label": "座布団色",
+                "value": "座布団色"
+              },
+              {
+                "name": "caption-background-opacity",
+                "label": "座布団不透明度",
+                "value": "座布団不透明度%"
+              },
+              {
+                "name": "caption-background-radius",
+                "label": "座布団角丸 (px)",
+                "value": "座布団角丸 (px)px"
+              },
+              {
+                "name": "caption-background-mode",
+                "label": "座布団の形",
+                "value": "座布団の形per-lineblock"
+              },
+              {
+                "name": "caption-zone",
+                "label": "位置",
+                "value": "位置保存中"
+              }
+            ]
+          }
+        ],
+        "scrollWidth": 304,
+        "clientWidth": 304
+      }
+    },
+    {
+      "name": "multi-mixed",
+      "label": "複数選択（話した言葉 + 置いた文字 + プリセット）",
+      "ids": [
+        "c-0001",
+        "c-0101",
+        "c-0003"
+      ],
+      "screenshot": "before-case-multi-mixed.png",
+      "hasStyleSection": true,
+      "styleFields": [
+        "caption-color",
+        "caption-size",
+        "caption-stroke-color",
+        "caption-stroke-width",
+        "caption-background-color",
+        "caption-background-opacity",
+        "caption-background-radius",
+        "caption-background-mode",
+        "caption-zone"
+      ],
+      "state": {
+        "header": "3 個を選択中00:00.0 – 00:15.2 · 複数選択",
+        "tabs": [
+          {
+            "id": "text",
+            "label": "テキスト",
+            "active": true,
+            "disabled": false
+          },
+          {
+            "id": "info",
+            "label": "情報",
+            "active": false,
+            "disabled": false
+          }
+        ],
+        "sections": [
+          {
+            "id": "content",
+            "label": "内容（複数）",
+            "hidden": false,
+            "fields": [
+              {
+                "name": "caption-multi-count",
+                "label": "選択",
+                "value": "選択3 件"
+              }
+            ]
+          },
+          {
+            "id": "style",
+            "label": "スタイル",
+            "hidden": false,
+            "fields": [
+              {
+                "name": "caption-color",
+                "label": "文字色",
+                "value": "文字色"
+              },
+              {
+                "name": "caption-size",
+                "label": "サイズ (px)",
+                "value": "サイズ (px)"
+              },
+              {
+                "name": "caption-stroke-color",
+                "label": "縁取り色",
+                "value": "縁取り色"
+              },
+              {
+                "name": "caption-stroke-width",
+                "label": "縁取り (px)",
+                "value": "縁取り (px)"
+              },
+              {
+                "name": "caption-background-color",
+                "label": "座布団色",
+                "value": "座布団色"
+              },
+              {
+                "name": "caption-background-opacity",
+                "label": "座布団不透明度",
+                "value": "座布団不透明度%"
+              },
+              {
+                "name": "caption-background-radius",
+                "label": "座布団角丸 (px)",
+                "value": "座布団角丸 (px)px"
+              },
+              {
+                "name": "caption-background-mode",
+                "label": "座布団の形",
+                "value": "座布団の形per-lineblock"
+              },
+              {
+                "name": "caption-zone",
+                "label": "位置",
+                "value": "位置保存中"
+              }
+            ]
+          }
+        ],
+        "scrollWidth": 304,
+        "clientWidth": 304
+      }
+    }
+  ],
+  "checks": [
+    {
+      "name": "case:spoken",
+      "pass": true,
+      "detail": {
+        "pass": true,
+        "hasStyleSection": true,
+        "styleFieldCount": 9
+      }
+    },
+    {
+      "name": "case:spoken-2line-bg",
+      "pass": true,
+      "detail": {
+        "pass": true,
+        "hasStyleSection": true,
+        "styleFieldCount": 9
+      }
+    },
+    {
+      "name": "case:preset",
+      "pass": true,
+      "detail": {
+        "pass": true,
+        "hasStyleSection": true,
+        "styleFieldCount": 9
+      }
+    },
+    {
+      "name": "case:placed",
+      "pass": true,
+      "detail": {
+        "pass": true,
+        "hasStyleSection": true,
+        "styleFieldCount": 9
+      }
+    },
+    {
+      "name": "case:multi",
+      "pass": true,
+      "detail": {
+        "pass": true,
+        "hasStyleSection": true,
+        "styleFieldCount": 9
+      }
+    },
+    {
+      "name": "case:multi-mixed",
+      "pass": true,
+      "detail": {
+        "pass": true,
+        "hasStyleSection": true,
+        "styleFieldCount": 9
+      }
+    }
+  ],
+  "screenshots": [
+    "before-case-spoken.png",
+    "before-case-spoken-2line-bg.png",
+    "before-case-preset.png",
+    "before-case-placed.png",
+    "before-case-multi.png",
+    "before-case-multi-mixed.png",
+    "before-case-spoken-2line-bg-light.png"
+  ],
+  "writes": [],
+  "pid": 52346
+}

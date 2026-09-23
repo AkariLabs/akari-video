@@ -4,6 +4,7 @@ import test from 'node:test';
 
 import {
   filterInspectorSoloSections,
+  inspectorSoloSectionMatches,
   normalizeInspectorSoloKind
 } from '../lib/browser/inspector/solo-model.js';
 
@@ -67,4 +68,12 @@ test('multi 選択を caption として扱う', () => {
 test('選択変更の購読から絞り込み解除判定を呼ぶ', () => {
   const source = readFileSync(new URL('../src/browser/akari-inspector-widget.ts', import.meta.url), 'utf8');
   assert.match(source, /this\.model\.onChanged\(\(\) => \{\s*this\.clearSoloForSelectionChange\(\);/u);
+});
+
+test('親セクション ID はコロンで区切られた子だけを含む', () => {
+  assert.equal(inspectorSoloSectionMatches('style:position', 'style'), true);
+  assert.equal(inspectorSoloSectionMatches('audio:fades', 'audio'), true);
+  assert.equal(inspectorSoloSectionMatches('adjust:basic', 'adjust:basic'), true);
+  assert.equal(inspectorSoloSectionMatches('adjust:curves', 'adjust:basic'), false);
+  assert.equal(inspectorSoloSectionMatches('stylesheet', 'style'), false);
 });

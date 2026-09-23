@@ -34,6 +34,10 @@ export function inspectorSoloFieldName(field: InspectorSoloField): string {
     return field.name ?? field.label.toLowerCase().replace(/[^a-z0-9_-]+/giu, '-');
 }
 
+export function inspectorSoloSectionMatches(sectionId: string, requestedId: string): boolean {
+    return sectionId === requestedId || sectionId.startsWith(`${requestedId}:`);
+}
+
 export function filterInspectorSoloSections<
     TField extends InspectorSoloField,
     TSection extends InspectorSoloSection<TField>
@@ -45,7 +49,7 @@ export function filterInspectorSoloSections<
     if (!solo || normalizeInspectorSoloKind(selectionKind) !== solo.kind) return [...sections];
 
     const candidates = solo.sectionId
-        ? sections.filter(section => section.id === solo.sectionId)
+        ? sections.filter(section => inspectorSoloSectionMatches(section.id, solo.sectionId!))
         : [...sections];
     if (!solo.fieldName) return candidates;
 
