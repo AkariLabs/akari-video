@@ -30,17 +30,34 @@ export function installCompanionPanelPulseStyle(doc: Document = document): void 
     height: 32px;
     padding: 0;
     border: 0;
-    border-radius: 0 10px 0 8px;
-    color: var(--theia-foreground, #f2f2f2);
-    background: color-mix(in srgb, var(--theia-editor-background, #1e1e1e) 82%, transparent);
+    color: var(--theia-descriptionForeground, rgba(255, 255, 255, 0.55));
+    background: transparent;
     font: inherit;
     line-height: 32px;
     text-align: center;
-    cursor: move;
+    cursor: pointer;
     user-select: none;
 }
 .akari-companion-panel-corner:hover {
-    background: var(--theia-toolbar-hoverBackground, rgba(255, 255, 255, 0.12));
+    color: var(--theia-foreground, #f2f2f2);
+}
+.akari-companion-panel-resize {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    z-index: 2;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    border: 0;
+    color: var(--theia-descriptionForeground, rgba(255, 255, 255, 0.55));
+    background: transparent;
+    font: inherit;
+    cursor: nesw-resize;
+    user-select: none;
+}
+.akari-companion-panel-resize:hover {
+    color: var(--theia-foreground, #f2f2f2);
 }
 /* タブ帯のボタン。待機中は灰色の丸、枠が出ているあいだは基調色で灯る。 */
 .akari-companion-toggle-dot {
