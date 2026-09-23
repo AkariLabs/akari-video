@@ -131,7 +131,6 @@ import {
     appendAnnotationLine,
     emptyReviewSource,
     isDocOrImageTarget,
-    nextAnnotationId,
     normalizeInsertPosition,
     normalizeRefs,
     normalizeRegion,
@@ -862,51 +861,54 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         }
         const reviewPath = this.fsPath(request.reviewUri);
         const root = this.fsPath(request.projectRootUri);
+        const annotation = await this.withReviewLock(reviewPath, async () => {
+            const baseSource = await this.readReviewForWrite(reviewPath, true);
+            const annotations = (JSON.parse(baseSource) as { annotations: Array<{ id?: unknown }> }).annotations;
+            const nextFromReview = annotations.reduce((maximum, annotation) => {
+                const match = typeof annotation?.id === 'string' ? /^a-(\d{4,})$/.exec(annotation.id) : null;
+                return match ? Math.max(maximum, Number(match[1])) : maximum;
+            }, 0) + 1;
+            const nextFromRecords = (await this.maximumRecordedAnnotationNumber(root)) + 1;
+            const id = `a-${String(Math.max(nextFromReview, nextFromRecords)).padStart(4, '0')}`;
+            const fieldWarnings: string[] = [];
+            const sourceRange = Array.isArray(request.sourceRange)
+                && request.sourceRange.length === 2
+                && request.sourceRange.every(entry => Number.isFinite(entry))
+                && request.sourceRange[0] < request.sourceRange[1]
+                ? [request.sourceRange[0], request.sourceRange[1]] as [number, number]
+                : null;
+            const annotation: Annotation = {
+                id,
+                createdAt: new Date().toISOString(),
+                src: typeof request.src === 'string' && request.src.trim() ? request.src : null,
+                sourceT: request.sourceT,
+                sourceRange,
+                // timelineT は非推奨（契約 §1）。リクエスト値は無視し常に null で保存する
+                timelineT: null,
+                target: request.target ?? null,
+                targetKind: normalizeTargetKind(request.targetKind, id, fieldWarnings),
+                region: normalizeRegion(request.region, id, fieldWarnings),
+                strokes: normalizeStrokes(request.strokes, id, fieldWarnings),
+                refs: normalizeRefs(request.refs, id, fieldWarnings),
+                insertPosition: normalizeInsertPosition(request.insertPosition, id, fieldWarnings),
+                intent: typeof request.intent === 'string' && request.intent.trim() ? request.intent : null,
+                text: request.text,
+                input: 'typed',
+                audio: null,
+                transcript: null,
+                session: null,
+                poses: null,
+                status: 'open',
+                response: null
+            };
+            if (fieldWarnings.length > 0) {
+                console.warn('[akari-annotations] createAnnotation:', fieldWarnings.join(' '));
+            }
+            const updated = appendAnnotationLine(baseSource, annotation);
+            await this.writeAtomic(reviewPath, updated);
 
-        let baseSource: string;
-        try {
-            baseSource = await fs.readFile(reviewPath, 'utf8');
-        } catch {
-            baseSource = emptyReviewSource();
-        }
-        const { annotations } = parseReview(baseSource);
-        const id = nextAnnotationId(annotations);
-        const fieldWarnings: string[] = [];
-        const sourceRange = Array.isArray(request.sourceRange)
-            && request.sourceRange.length === 2
-            && request.sourceRange.every(entry => Number.isFinite(entry))
-            && request.sourceRange[0] < request.sourceRange[1]
-            ? [request.sourceRange[0], request.sourceRange[1]] as [number, number]
-            : null;
-        const annotation: Annotation = {
-            id,
-            createdAt: new Date().toISOString(),
-            src: typeof request.src === 'string' && request.src.trim() ? request.src : null,
-            sourceT: request.sourceT,
-            sourceRange,
-            // timelineT は非推奨（契約 §1）。リクエスト値は無視し常に null で保存する
-            timelineT: null,
-            target: request.target ?? null,
-            targetKind: normalizeTargetKind(request.targetKind, id, fieldWarnings),
-            region: normalizeRegion(request.region, id, fieldWarnings),
-            strokes: normalizeStrokes(request.strokes, id, fieldWarnings),
-            refs: normalizeRefs(request.refs, id, fieldWarnings),
-            insertPosition: normalizeInsertPosition(request.insertPosition, id, fieldWarnings),
-            intent: typeof request.intent === 'string' && request.intent.trim() ? request.intent : null,
-            text: request.text,
-            input: 'typed',
-            audio: null,
-            transcript: null,
-            session: null,
-            poses: null,
-            status: 'open',
-            response: null
-        };
-        if (fieldWarnings.length > 0) {
-            console.warn('[akari-annotations] createAnnotation:', fieldWarnings.join(' '));
-        }
-        const updated = appendAnnotationLine(baseSource, annotation);
-        await this.writeAtomic(reviewPath, updated);
+            return annotation;
+        });
 
         let committed = false;
         try {
@@ -923,15 +925,17 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
             throw new Error('対象の注釈を特定できません。');
         }
         const reviewPath = this.fsPath(request.reviewUri);
-        const source = await fs.readFile(reviewPath, 'utf8');
-        const updated = updateStatusLine(source, request.annotationId, ['addressed'], 'resolved');
-        await this.writeAtomic(reviewPath, updated);
-        const { annotations } = parseReview(updated);
-        const annotation = annotations.find(candidate => candidate.id === request.annotationId);
-        if (!annotation) {
-            throw new Error('更新後の注釈を読み取れません。');
-        }
-        return { annotation };
+        return this.withReviewLock(reviewPath, async () => {
+            const source = await this.readReviewForWrite(reviewPath);
+            const updated = updateStatusLine(source, request.annotationId, ['addressed'], 'resolved');
+            await this.writeAtomic(reviewPath, updated);
+            const { annotations } = parseReview(updated);
+            const annotation = annotations.find(candidate => candidate.id === request.annotationId);
+            if (!annotation) {
+                throw new Error('更新後の注釈を読み取れません。');
+            }
+            return { annotation };
+        });
     }
 
     async deleteAnnotation(request: DeleteAnnotationRequest): Promise<DeleteAnnotationResult> {
@@ -939,10 +943,12 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
             throw new Error('対象の注釈を特定できません。');
         }
         const reviewPath = this.fsPath(request.reviewUri);
-        const source = await fs.readFile(reviewPath, 'utf8');
-        const { source: updated, removed } = removeAnnotationLine(source, request.annotationId);
-        await this.writeAtomic(reviewPath, updated);
-        return { annotation: removed };
+        return this.withReviewLock(reviewPath, async () => {
+            const source = await this.readReviewForWrite(reviewPath);
+            const { source: updated, removed } = removeAnnotationLine(source, request.annotationId);
+            await this.writeAtomic(reviewPath, updated);
+            return { annotation: removed };
+        });
     }
 
     async restoreAnnotation(request: RestoreAnnotationRequest): Promise<RestoreAnnotationResult> {
@@ -950,19 +956,16 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
             throw new Error('対象の注釈を特定できません。');
         }
         const reviewPath = this.fsPath(request.reviewUri);
-        let baseSource: string;
-        try {
-            baseSource = await fs.readFile(reviewPath, 'utf8');
-        } catch {
-            baseSource = emptyReviewSource();
-        }
-        const { annotations } = parseReview(baseSource);
-        if (annotations.some(existing => existing.id === request.annotation.id)) {
-            throw new Error(`注釈 ${request.annotation.id} は既に存在します。`);
-        }
-        const updated = appendAnnotationLine(baseSource, request.annotation);
-        await this.writeAtomic(reviewPath, updated);
-        return { annotation: request.annotation };
+        return this.withReviewLock(reviewPath, async () => {
+            const baseSource = await this.readReviewForWrite(reviewPath, true);
+            const annotations = (JSON.parse(baseSource) as { annotations: Array<{ id?: unknown }> }).annotations;
+            if (annotations.some(existing => existing.id === request.annotation.id)) {
+                throw new Error(`注釈 ${request.annotation.id} は既に存在します。`);
+            }
+            const updated = appendAnnotationLine(baseSource, request.annotation);
+            await this.writeAtomic(reviewPath, updated);
+            return { annotation: request.annotation };
+        });
     }
 
     /**
@@ -1988,6 +1991,90 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
 
     protected async runGit(root: string, args: string[]): Promise<{ stdout: string; stderr: string }> {
         return execFileAsync('git', ['-C', root, ...args], { encoding: 'utf8', maxBuffer: 10 * 1024 * 1024 });
+    }
+
+    protected async withReviewLock<T>(reviewPath: string, operation: () => Promise<T>): Promise<T> {
+        const lockPath = `${reviewPath}.lock`;
+        await fs.mkdir(dirname(reviewPath), { recursive: true });
+        for (let attempt = 0; ; attempt++) {
+            try {
+                await fs.mkdir(lockPath);
+                break;
+            } catch (error) {
+                if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error;
+                try {
+                    const lock = await fs.stat(lockPath);
+                    if (Date.now() - lock.mtimeMs > 60_000) {
+                        await fs.rmdir(lockPath);
+                        continue;
+                    }
+                } catch (inspectError) {
+                    if ((inspectError as NodeJS.ErrnoException).code !== 'ENOENT') throw inspectError;
+                    continue;
+                }
+                if (attempt >= 1200) {
+                    throw new Error(`review.json は別の処理が書き込み中です（${lockPath}）`);
+                }
+                await new Promise(resolve => setTimeout(resolve, 25));
+            }
+        }
+        try {
+            return await operation();
+        } finally {
+            await fs.rmdir(lockPath);
+        }
+    }
+
+    protected async readReviewForWrite(reviewPath: string, allowMissing = false): Promise<string> {
+        let source: string;
+        try {
+            source = await fs.readFile(reviewPath, 'utf8');
+        } catch (error) {
+            if (allowMissing && (error as NodeJS.ErrnoException).code === 'ENOENT') return emptyReviewSource();
+            throw error;
+        }
+        const raw = JSON.parse(source) as { version?: unknown; annotations?: unknown[] };
+        if (!raw || !Array.isArray(raw.annotations)) throw new Error('review.json に annotations 配列がありません。');
+        if (Number.isInteger(raw.version) && (raw.version as number) > 0) {
+            throw new Error(`review.json の version ${raw.version} は新しい形式です。スキル / アプリを更新してください。`);
+        }
+        return source;
+    }
+
+    protected async maximumRecordedAnnotationNumber(projectRoot: string): Promise<number> {
+        let maximum = 0;
+        for (const [directory, manifestName] of [
+            [join(projectRoot, 'review', 'sessions'), 'session.json'],
+            [join(projectRoot, 'review', 'canvas'), 'canvas.json']
+        ]) {
+            let entries;
+            try {
+                entries = await fs.readdir(directory, { withFileTypes: true });
+            } catch (error) {
+                if ((error as NodeJS.ErrnoException).code === 'ENOENT') continue;
+                throw error;
+            }
+            for (const entry of entries) {
+                if (!entry.isDirectory()) continue;
+                let source: string;
+                try {
+                    source = await fs.readFile(join(directory, entry.name, manifestName), 'utf8');
+                } catch (error) {
+                    if ((error as NodeJS.ErrnoException).code === 'ENOENT') continue;
+                    throw error;
+                }
+                const manifest = JSON.parse(source) as { compiledAnnotations?: string[] };
+                if (manifest.compiledAnnotations == null) continue;
+                if (!Array.isArray(manifest.compiledAnnotations)) {
+                    throw new Error(`${manifestName} の compiledAnnotations が配列ではありません。`);
+                }
+                for (const id of manifest.compiledAnnotations) {
+                    const match = /^a-(\d{4,})$/.exec(id);
+                    if (match) maximum = Math.max(maximum, Number(match[1]));
+                }
+            }
+        }
+        return maximum;
     }
 
     /** lint 対象外ファイル（review.json / canvas / events）用。edit.json / captions.json は writeProjectFileGuarded を使うこと。 */

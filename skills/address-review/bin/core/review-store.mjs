@@ -4,6 +4,38 @@ import path from "node:path";
 export const KNOWN_STATUSES = ["open", "addressed", "resolved"];
 export const KNOWN_ACTIONS = ["edited", "declined"];
 
+async function withReviewLock(reviewPath, operation) {
+  const lockPath = `${reviewPath}.lock`;
+  await fs.mkdir(path.dirname(reviewPath), { recursive: true });
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      await fs.mkdir(lockPath);
+      break;
+    } catch (error) {
+      if (error?.code !== "EEXIST") throw error;
+      try {
+        const lock = await fs.stat(lockPath);
+        if (Date.now() - lock.mtimeMs > 60_000) {
+          await fs.rmdir(lockPath);
+          continue;
+        }
+      } catch (inspectError) {
+        if (inspectError?.code !== "ENOENT") throw inspectError;
+        continue;
+      }
+      if (attempt >= 1200) {
+        throw new Error(`review.json は別の処理が書き込み中です（${lockPath}）`);
+      }
+      await new Promise((resolve) => setTimeout(resolve, 25));
+    }
+  }
+  try {
+    return await operation();
+  } finally {
+    await fs.rmdir(lockPath);
+  }
+}
+
 export async function writeAtomic(destination, source) {
   await fs.mkdir(path.dirname(destination), { recursive: true });
   const temporary = `${destination}.${process.pid}.${Date.now()}.tmp`;
@@ -163,48 +195,50 @@ export async function respondToAnnotation(reviewPath, { id, action, summary, res
     return { ok: false, code: "invalid-responded-at", reason: "respondedAt が不正です" };
   }
 
-  const source = await readReviewSource(reviewPath);
-  if (source === null) {
-    return { ok: false, code: "no-review", reason: "review.json がありません" };
-  }
+  return withReviewLock(reviewPath, async () => {
+    const source = await readReviewSource(reviewPath);
+    if (source === null) {
+      return { ok: false, code: "no-review", reason: "review.json がありません" };
+    }
 
-  let elements;
-  try {
-    elements = locateAnnotations(source);
-  } catch (error) {
-    return { ok: false, code: "malformed", reason: error instanceof Error ? error.message : String(error) };
-  }
+    let elements;
+    try {
+      elements = locateAnnotations(source);
+    } catch (error) {
+      return { ok: false, code: "malformed", reason: error instanceof Error ? error.message : String(error) };
+    }
 
-  const target = elements.find((element) => element.value?.id === id);
-  if (!target) {
-    return { ok: false, code: "unknown-id", reason: `未知の id です: ${id}` };
-  }
-  if (target.value.status !== "open") {
-    return {
-      ok: false,
-      code: "not-open",
-      reason: `status が "open" ではないため対応できません（現在: "${target.value.status}"）。open のみ addressed へ遷移できます`,
-    };
-  }
+    const target = elements.find((element) => element.value?.id === id);
+    if (!target) {
+      return { ok: false, code: "unknown-id", reason: `未知の id です: ${id}` };
+    }
+    if (target.value.status !== "open") {
+      return {
+        ok: false,
+        code: "not-open",
+        reason: `status が "open" ではないため対応できません（現在: "${target.value.status}"）。open のみ addressed へ遷移できます`,
+      };
+    }
 
-  let updatedRaw;
-  try {
-    updatedRaw = spliceResponseIntoAnnotation(target.raw, { action, summary, respondedAt });
-  } catch (error) {
-    return { ok: false, code: "malformed", reason: error instanceof Error ? error.message : String(error) };
-  }
-  const updatedSource = `${source.slice(0, target.start)}${updatedRaw}${source.slice(target.end)}`;
+    let updatedRaw;
+    try {
+      updatedRaw = spliceResponseIntoAnnotation(target.raw, { action, summary, respondedAt });
+    } catch (error) {
+      return { ok: false, code: "malformed", reason: error instanceof Error ? error.message : String(error) };
+    }
+    const updatedSource = `${source.slice(0, target.start)}${updatedRaw}${source.slice(target.end)}`;
 
-  // 全体が依然として有効な JSON であることをディスクへ書く前に確認する（自己防御。
-  // 通常は起きないが、想定外の入力で splice が壊れた場合に review.json を汚さない）。
-  let updatedAnnotation;
-  try {
-    const parsedDocument = parseReviewDocument(updatedSource);
-    updatedAnnotation = parsedDocument.annotations.find((annotation) => annotation.id === id);
-  } catch (error) {
-    return { ok: false, code: "malformed", reason: error instanceof Error ? error.message : String(error) };
-  }
+    // 全体が依然として有効な JSON であることをディスクへ書く前に確認する（自己防御。
+    // 通常は起きないが、想定外の入力で splice が壊れた場合に review.json を汚さない）。
+    let updatedAnnotation;
+    try {
+      const parsedDocument = parseReviewDocument(updatedSource);
+      updatedAnnotation = parsedDocument.annotations.find((annotation) => annotation.id === id);
+    } catch (error) {
+      return { ok: false, code: "malformed", reason: error instanceof Error ? error.message : String(error) };
+    }
 
-  await writeAtomic(reviewPath, updatedSource);
-  return { ok: true, annotation: updatedAnnotation };
+    await writeAtomic(reviewPath, updatedSource);
+    return { ok: true, annotation: updatedAnnotation };
+  });
 }
