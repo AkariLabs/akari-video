@@ -1,0 +1,30 @@
+{
+ "tile": "overlay",
+ "at": "2026-09-23T04:07:22.515Z",
+ "playheadDisplay": null,
+ "tileBefore": {
+  "x": 153.515625,
+  "y": 342.75,
+  "disabled": false,
+  "draggable": null,
+  "kind": "pick",
+  "texts": [
+   "✦",
+   "オーバーレイ",
+   "一覧から選ぶ"
+  ]
+ },
+ "captionsChanged": false,
+ "editChanged": false,
+ "newCaptions": [],
+ "chips": [],
+ "page": {
+  "homeVisible": false,
+  "category": "overlay",
+  "title": "「使う」でプロジェクトに追加",
+  "count": "7",
+  "cards": 7,
+  "presetCards": 0
+ },
+ "notices": []
+}

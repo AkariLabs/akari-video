@@ -1,0 +1,51 @@
+{
+ "textstyle": {
+  "returned": true,
+  "page": "textstyle"
+ },
+ "bgm": {
+  "returned": true,
+  "page": "bgm"
+ },
+ "transition": {
+  "returned": true,
+  "page": "transition"
+ },
+ "shapes": {
+  "returned": false,
+  "page": "home"
+ },
+ "text": {
+  "returned": false,
+  "page": "home"
+ },
+ "nope": {
+  "returned": false,
+  "page": "home"
+ },
+ "listCategories": {
+  "count": 20,
+  "keys": [
+   "fav:soon:undefined",
+   "brandkit:soon:undefined",
+   "mypresets:soon:undefined",
+   "bgm:live:121",
+   "sfx:live:96",
+   "broll:live:2",
+   "image:live:161",
+   "overlay:live:7",
+   "scene3d:live:6",
+   "pack:live:2",
+   "textstyle:live:12",
+   "textanim:live:47",
+   "font:live:31",
+   "shapes:soon:undefined",
+   "stamps:soon:undefined",
+   "lut:live:10",
+   "transition:live:29",
+   "fx:soon:undefined",
+   "motion:soon:undefined",
+   "template:soon:undefined"
+  ]
+ }
+}

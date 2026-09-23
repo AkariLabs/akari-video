@@ -1,0 +1,20 @@
+{
+ "beforeRestart": {
+  "stored": "true",
+  "note": "詳細を開いた状態（after-home-details-open.json の直後の状態）で終了"
+ },
+ "afterRestart1": {
+  "stored": "true",
+  "expanded": "true",
+  "details": true
+ },
+ "collapsedThenStored": {
+  "stored": "false",
+  "expanded": "false"
+ },
+ "afterRestart2": {
+  "stored": "false",
+  "expanded": "false",
+  "details": false
+ }
+}

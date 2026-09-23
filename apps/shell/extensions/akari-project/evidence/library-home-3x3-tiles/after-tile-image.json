@@ -1,0 +1,30 @@
+{
+ "tile": "image",
+ "at": "2026-09-23T04:06:02.210Z",
+ "playheadDisplay": null,
+ "tileBefore": {
+  "x": 86.50390625,
+  "y": 268.25,
+  "disabled": false,
+  "draggable": null,
+  "kind": "pick",
+  "texts": [
+   "▦",
+   "画像",
+   "一覧から選ぶ"
+  ]
+ },
+ "captionsChanged": false,
+ "editChanged": false,
+ "newCaptions": [],
+ "chips": [],
+ "page": {
+  "homeVisible": false,
+  "category": "image",
+  "title": "タイムラインへドラッグ、＋でプレイヘッド位置に追加",
+  "count": "161",
+  "cards": 161,
+  "presetCards": 0
+ },
+ "notices": []
+}

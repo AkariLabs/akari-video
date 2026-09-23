@@ -70,6 +70,46 @@ export const LIBRARY_GROUPS = [
 
 export type LibraryCategoryKey = typeof LIBRARY_GROUPS[number]['categories'][number]['key'];
 
+export interface LibraryPrimaryTile {
+    readonly key: 'text' | LibraryCategoryKey;
+    readonly kind: 'make' | 'pick';
+    readonly label: string;
+    readonly icon: string;
+    readonly hint: string;
+    readonly status: LibraryCategoryStatus;
+}
+
+/** ホームの最上段。text はカテゴリ一覧を持たない配置アクション。 */
+export const LIBRARY_PRIMARY_TILES = [
+    { key: 'text', kind: 'make', label: 'テキスト', icon: 'T', hint: '押すとプレイヘッド位置に文字を置く', status: 'live' },
+    { key: 'shapes', kind: 'make', label: '図形', icon: '◯', hint: '近日', status: 'soon' },
+    { key: 'stamps', kind: 'make', label: 'スタンプ', icon: '☺', hint: '近日', status: 'soon' },
+    { key: 'image', kind: 'pick', label: '画像', icon: '▦', hint: '一覧から選ぶ', status: 'live' },
+    { key: 'broll', kind: 'pick', label: 'B-roll', icon: '▶', hint: '一覧から選ぶ', status: 'live' },
+    { key: 'bgm', kind: 'pick', label: 'BGM', icon: '♪', hint: '一覧から選ぶ', status: 'live' },
+    { key: 'sfx', kind: 'pick', label: 'SFX', icon: '♬', hint: '一覧から選ぶ', status: 'live' },
+    { key: 'overlay', kind: 'pick', label: 'オーバーレイ', icon: '✦', hint: '一覧から選ぶ', status: 'live' },
+    { key: 'scene3d', kind: 'pick', label: '3D・アバター', icon: '⬡', hint: '一覧から選ぶ', status: 'live' }
+] as const satisfies readonly LibraryPrimaryTile[];
+
+function detailGroup(label: string, keys: readonly LibraryCategoryKey[]): LibraryGroupDefinition {
+    const categories = keys.map(key => {
+        const category = (LIBRARY_GROUPS as readonly LibraryGroupDefinition[])
+            .flatMap(group => group.categories).find(candidate => candidate.key === key);
+        if (!category) throw new Error(`未知のライブラリカテゴリです: ${key}`);
+        return category;
+    });
+    return { label, categories };
+}
+
+/** 主要タイルに移したカテゴリを除いた、詳細内の表示順。 */
+export const LIBRARY_DETAIL_GROUPS: readonly LibraryGroupDefinition[] = [
+    detailGroup('文字の見た目', ['textstyle', 'textanim', 'font']),
+    detailGroup('仕上げ', ['lut', 'transition', 'fx', 'motion']),
+    detailGroup('まとめて', ['pack', 'template']),
+    detailGroup('マイ', ['fav', 'brandkit', 'mypresets'])
+];
+
 /**
  * 外部呼び出し（コマンド引数等）の任意文字列を、実際に開けるカテゴリキーへ解決する。
  * 未知のキー・status='soon' のキーは undefined（呼び出し側はホームへフォールバックする）。

@@ -1,0 +1,30 @@
+{
+ "tile": "scene3d",
+ "at": "2026-09-23T04:07:36.754Z",
+ "playheadDisplay": null,
+ "tileBefore": {
+  "x": 220.52734375,
+  "y": 342.75,
+  "disabled": false,
+  "draggable": null,
+  "kind": "pick",
+  "texts": [
+   "⬡",
+   "3D・アバター",
+   "一覧から選ぶ"
+  ]
+ },
+ "captionsChanged": false,
+ "editChanged": false,
+ "newCaptions": [],
+ "chips": [],
+ "page": {
+  "homeVisible": false,
+  "category": "scene3d",
+  "title": "「使う」でプロジェクトに追加",
+  "count": "6",
+  "cards": 6,
+  "presetCards": 0
+ },
+ "notices": []
+}

@@ -1,0 +1,523 @@
+{
+  "home": true,
+  "homeRect": {
+    "x": 48,
+    "y": 115,
+    "w": 211,
+    "h": 1257
+  },
+  "sections": [
+    {
+      "head": "マイ",
+      "count": 3
+    },
+    {
+      "head": "音・映像・画像",
+      "count": 7
+    },
+    {
+      "head": "文字・飾り",
+      "count": 5
+    },
+    {
+      "head": "仕上げ",
+      "count": 4
+    },
+    {
+      "head": "雛形",
+      "count": 1
+    }
+  ],
+  "categoryOrder": [
+    "fav",
+    "brandkit",
+    "mypresets",
+    "bgm",
+    "sfx",
+    "broll",
+    "image",
+    "overlay",
+    "scene3d",
+    "pack",
+    "textstyle",
+    "textanim",
+    "font",
+    "shapes",
+    "stamps",
+    "lut",
+    "transition",
+    "fx",
+    "motion",
+    "template"
+  ],
+  "categories": [
+    {
+      "key": "fav",
+      "section": "マイ",
+      "primary": false,
+      "inDetails": false,
+      "attrs": {
+        "disabled": "",
+        "data-akari-library-category": "fav",
+        "data-akari-library-soon": "true",
+        "title": "お気に入り — ★を付けた素材をここに集約"
+      },
+      "texts": [
+        "★",
+        "お気に入り",
+        "近日"
+      ],
+      "rect": {
+        "x": 56,
+        "y": 157,
+        "w": 61,
+        "h": 71
+      }
+    },
+    {
+      "key": "brandkit",
+      "section": "マイ",
+      "primary": false,
+      "inDetails": false,
+      "attrs": {
+        "disabled": "",
+        "data-akari-library-category": "brandkit",
+        "data-akari-library-soon": "true",
+        "title": "ブランドキット — ロゴ・色・定番テロップをまとめて管理"
+      },
+      "texts": [
+        "◈",
+        "ブランドキット",
+        "近日"
+      ],
+      "rect": {
+        "x": 123,
+        "y": 157,
+        "w": 61,
+        "h": 71
+      }
+    },
+    {
+      "key": "mypresets",
+      "section": "マイ",
+      "primary": false,
+      "inDetails": false,
+      "attrs": {
+        "disabled": "",
+        "data-akari-library-category": "mypresets",
+        "data-akari-library-soon": "true",
+        "title": "保存したプリセット — 自分で調整したプリセットを保存"
+      },
+      "texts": [
+        "✎",
+        "保存したプリセット",
+        "近日"
+      ],
+      "rect": {
+        "x": 190,
+        "y": 157,
+        "w": 61,
+        "h": 71
+      }
+    },
+    {
+      "key": "bgm",
+      "section": "音・映像・画像",
+      "primary": false,
+      "inDetails": false,
+      "attrs": {
+        "data-akari-library-category": "bgm",
+        "data-category": "bgm",
+        "data-count": "121"
+      },
+      "texts": [
+        "♪",
+        "BGM",
+        "タイムラインへドラッグ、＋でプレイヘッド位置に追加",
+        "121"
+      ],
+      "rect": {
+        "x": 56,
+        "y": 269,
+        "w": 195,
+        "h": 49
+      }
+    },
+    {
+      "key": "sfx",
+      "section": "音・映像・画像",
+      "primary": false,
+      "inDetails": false,
+      "attrs": {
+        "data-akari-library-category": "sfx",
+        "data-category": "sfx",
+        "data-count": "96"
+      },
+      "texts": [
+        "♫",
+        "SFX",
+        "タイムラインへドラッグ、＋でプレイヘッド位置に追加",
+        "96"
+      ],
+      "rect": {
+        "x": 56,
+        "y": 324,
+        "w": 195,
+        "h": 49
+      }
+    },
+    {
+      "key": "broll",
+      "section": "音・映像・画像",
+      "primary": false,
+      "inDetails": false,
+      "attrs": {
+        "data-akari-library-category": "broll",
+        "data-category": "broll",
+        "data-count": "2"
+      },
+      "texts": [
+        "▶",
+        "B-roll",
+        "タイムラインへドラッグ、＋でプレイヘッド位置に追加",
+        "2"
+      ],
+      "rect": {
+        "x": 56,
+        "y": 379,
+        "w": 195,
+        "h": 49
+      }
+    },
+    {
+      "key": "image",
+      "section": "音・映像・画像",
+      "primary": false,
+      "inDetails": false,
+      "attrs": {
+        "data-akari-library-category": "image",
+        "data-category": "image",
+        "data-count": "161"
+      },
+      "texts": [
+        "▦",
+        "画像",
+        "タイムラインへドラッグ、＋でプレイヘッド位置に追加",
+        "161"
+      ],
+      "rect": {
+        "x": 56,
+        "y": 434,
+        "w": 195,
+        "h": 54
+      }
+    },
+    {
+      "key": "overlay",
+      "section": "音・映像・画像",
+      "primary": false,
+      "inDetails": false,
+      "attrs": {
+        "data-akari-library-category": "overlay",
+        "data-category": "overlay",
+        "data-count": "7"
+      },
+      "texts": [
+        "✦",
+        "オーバーレイ",
+        "「使う」でプロジェクトに追加",
+        "7"
+      ],
+      "rect": {
+        "x": 56,
+        "y": 493,
+        "w": 195,
+        "h": 54
+      }
+    },
+    {
+      "key": "scene3d",
+      "section": "音・映像・画像",
+      "primary": false,
+      "inDetails": false,
+      "attrs": {
+        "data-akari-library-category": "scene3d",
+        "data-category": "scene3d",
+        "data-count": "6"
+      },
+      "texts": [
+        "⬡",
+        "3D・アバター",
+        "「使う」でプロジェクトに追加",
+        "6"
+      ],
+      "rect": {
+        "x": 56,
+        "y": 553,
+        "w": 195,
+        "h": 54
+      }
+    },
+    {
+      "key": "pack",
+      "section": "音・映像・画像",
+      "primary": false,
+      "inDetails": false,
+      "attrs": {
+        "data-akari-library-category": "pack",
+        "data-category": "pack",
+        "data-count": "2"
+      },
+      "texts": [
+        "▤",
+        "パック",
+        "パック内の素材をまとめて取り込み",
+        "2"
+      ],
+      "rect": {
+        "x": 56,
+        "y": 612,
+        "w": 195,
+        "h": 54
+      }
+    },
+    {
+      "key": "textstyle",
+      "section": "文字・飾り",
+      "primary": false,
+      "inDetails": false,
+      "attrs": {
+        "data-akari-library-category": "textstyle",
+        "data-category": "textstyle",
+        "data-count": "12"
+      },
+      "texts": [
+        "字",
+        "テキストスタイル",
+        "タイムラインへドラッグ、＋でプレイヘッド位置に置く",
+        "12"
+      ],
+      "rect": {
+        "x": 56,
+        "y": 706,
+        "w": 195,
+        "h": 54
+      }
+    },
+    {
+      "key": "textanim",
+      "section": "文字・飾り",
+      "primary": false,
+      "inDetails": false,
+      "attrs": {
+        "data-akari-library-category": "textanim",
+        "data-category": "textanim",
+        "data-count": "47"
+      },
+      "texts": [
+        "動",
+        "テキストアニメ",
+        "選択中のテロップに適用（次のラウンドで有効化）",
+        "47"
+      ],
+      "rect": {
+        "x": 56,
+        "y": 766,
+        "w": 195,
+        "h": 54
+      }
+    },
+    {
+      "key": "font",
+      "section": "文字・飾り",
+      "primary": false,
+      "inDetails": false,
+      "attrs": {
+        "data-akari-library-category": "font",
+        "data-category": "font",
+        "data-count": "31"
+      },
+      "texts": [
+        "Aa",
+        "フォント",
+        "「使う」でこのプロジェクトのフォントに追加",
+        "31"
+      ],
+      "rect": {
+        "x": 56,
+        "y": 825,
+        "w": 195,
+        "h": 54
+      }
+    },
+    {
+      "key": "shapes",
+      "section": "文字・飾り",
+      "primary": false,
+      "inDetails": false,
+      "attrs": {
+        "disabled": "",
+        "data-akari-library-category": "shapes",
+        "data-category": "shapes",
+        "data-akari-library-soon": "true"
+      },
+      "texts": [
+        "◇",
+        "図形",
+        "図形素材は近日利用できるようになります",
+        "近日"
+      ],
+      "rect": {
+        "x": 56,
+        "y": 885,
+        "w": 195,
+        "h": 54
+      }
+    },
+    {
+      "key": "stamps",
+      "section": "文字・飾り",
+      "primary": false,
+      "inDetails": false,
+      "attrs": {
+        "disabled": "",
+        "data-akari-library-category": "stamps",
+        "data-category": "stamps",
+        "data-akari-library-soon": "true"
+      },
+      "texts": [
+        "✶",
+        "スタンプ",
+        "スタンプ素材は近日利用できるようになります",
+        "近日"
+      ],
+      "rect": {
+        "x": 56,
+        "y": 944,
+        "w": 195,
+        "h": 54
+      }
+    },
+    {
+      "key": "lut",
+      "section": "仕上げ",
+      "primary": false,
+      "inDetails": false,
+      "attrs": {
+        "data-akari-library-category": "lut",
+        "data-category": "lut",
+        "data-count": "10"
+      },
+      "texts": [
+        "◐",
+        "LUT",
+        "選択中のカットに適用（強さはインスペクター）",
+        "10"
+      ],
+      "rect": {
+        "x": 56,
+        "y": 1038,
+        "w": 195,
+        "h": 49
+      }
+    },
+    {
+      "key": "transition",
+      "section": "仕上げ",
+      "primary": false,
+      "inDetails": false,
+      "attrs": {
+        "data-akari-library-category": "transition",
+        "data-category": "transition",
+        "data-count": "29"
+      },
+      "texts": [
+        "⇄",
+        "トランジション",
+        "タイムラインのカット境界へドラッグして適用",
+        "29"
+      ],
+      "rect": {
+        "x": 56,
+        "y": 1093,
+        "w": 195,
+        "h": 54
+      }
+    },
+    {
+      "key": "fx",
+      "section": "仕上げ",
+      "primary": false,
+      "inDetails": false,
+      "attrs": {
+        "disabled": "",
+        "data-akari-library-category": "fx",
+        "data-category": "fx",
+        "data-akari-library-soon": "true"
+      },
+      "texts": [
+        "✳",
+        "エフェクト",
+        "エフェクトは近日利用できるようになります",
+        "近日"
+      ],
+      "rect": {
+        "x": 56,
+        "y": 1153,
+        "w": 195,
+        "h": 54
+      }
+    },
+    {
+      "key": "motion",
+      "section": "仕上げ",
+      "primary": false,
+      "inDetails": false,
+      "attrs": {
+        "disabled": "",
+        "data-akari-library-category": "motion",
+        "data-category": "motion",
+        "data-akari-library-soon": "true"
+      },
+      "texts": [
+        "∿",
+        "モーション",
+        "モーションは近日利用できるようになります",
+        "近日"
+      ],
+      "rect": {
+        "x": 56,
+        "y": 1212,
+        "w": 195,
+        "h": 54
+      }
+    },
+    {
+      "key": "template",
+      "section": "雛形",
+      "primary": false,
+      "inDetails": false,
+      "attrs": {
+        "disabled": "",
+        "data-akari-library-category": "template",
+        "data-category": "template",
+        "data-akari-library-soon": "true"
+      },
+      "texts": [
+        "⧉",
+        "テンプレート",
+        "テンプレートからの新規作成は近日利用できるようになります",
+        "近日"
+      ],
+      "rect": {
+        "x": 56,
+        "y": 1306,
+        "w": 195,
+        "h": 54
+      }
+    }
+  ],
+  "details": [],
+  "grid": null,
+  "duplicates": []
+}

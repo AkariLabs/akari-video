@@ -1,0 +1,49 @@
+{
+ "presetId": "emphasis-red",
+ "at": "2026-09-23T04:08:42.548Z",
+ "seekClick": {
+  "x": 662,
+  "y": 483,
+  "targetTime": 5
+ },
+ "playheadDisplay": null,
+ "footerBefore": "00:00:05.013 にプレビューをシークしました。",
+ "button": {
+  "x": 108.5,
+  "y": 402.46875,
+  "label": "強調 をプレイヘッド位置に置く",
+  "text": "＋"
+ },
+ "captionsChanged": true,
+ "newCaptions": [
+  {
+   "id": "c-0005",
+   "start": 5,
+   "end": 8,
+   "text": "テキストを入力",
+   "speaker": null,
+   "sourceRef": null,
+   "edited": true,
+   "time_domain": "output",
+   "style_preset": "emphasis-red",
+   "text_style": {
+    "text_anchor": "tc",
+    "position": {
+     "y": 0.4625
+    }
+   }
+  }
+ ],
+ "chips": [
+  {
+   "id": "c-0005",
+   "lane": "t-placed-text-display",
+   "left": 661.6,
+   "top": 520,
+   "width": 141.4,
+   "text": "テキストを入力",
+   "selected": true
+  }
+ ],
+ "notices": []
+}

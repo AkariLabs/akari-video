@@ -1,0 +1,62 @@
+{
+ "tile": "text",
+ "at": "2026-09-23T04:05:21.028Z",
+ "seekClick": {
+  "x": 662,
+  "y": 483,
+  "targetTime": 5
+ },
+ "playheadDisplay": null,
+ "tileBefore": {
+  "x": 86.50390625,
+  "y": 192.5,
+  "disabled": false,
+  "draggable": null,
+  "kind": "make",
+  "texts": [
+   "T",
+   "テキスト",
+   "押すとプレイヘッド位置に文字を置く"
+  ]
+ },
+ "captionsChanged": true,
+ "editChanged": false,
+ "newCaptions": [
+  {
+   "id": "c-0005",
+   "start": 5,
+   "end": 8,
+   "text": "テキストを入力",
+   "speaker": null,
+   "sourceRef": null,
+   "edited": true,
+   "time_domain": "output",
+   "text_style": {
+    "text_anchor": "tc",
+    "position": {
+     "y": 0.4625
+    }
+   }
+  }
+ ],
+ "chips": [
+  {
+   "id": "c-0005",
+   "lane": "t-placed-text-display",
+   "left": 661.6,
+   "top": 520,
+   "width": 141.4,
+   "text": "テキストを入力",
+   "selected": false
+  }
+ ],
+ "page": {
+  "homeVisible": true,
+  "category": null,
+  "title": null,
+  "count": null,
+  "cards": 0,
+  "presetCards": 0
+ },
+ "notices": []
+}

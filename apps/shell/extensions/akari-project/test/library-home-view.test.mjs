@@ -1,6 +1,36 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { LIBRARY_GROUPS, searchLibraryHome } from '../lib/common/library-home-view.js';
+import { LIBRARY_DETAIL_GROUPS, LIBRARY_GROUPS, LIBRARY_PRIMARY_TILES, resolveOpenableLibraryCategory, searchLibraryHome } from '../lib/common/library-home-view.js';
+
+test('最上段はモックどおり 3×3 の 9 タイルで、作る/選ぶを分ける', () => {
+    assert.deepEqual(LIBRARY_PRIMARY_TILES.map(tile => tile.key), [
+        'text', 'shapes', 'stamps', 'image', 'broll', 'bgm', 'sfx', 'overlay', 'scene3d'
+    ]);
+    assert.deepEqual(LIBRARY_PRIMARY_TILES.map(tile => tile.kind), [
+        'make', 'make', 'make', 'pick', 'pick', 'pick', 'pick', 'pick', 'pick'
+    ]);
+    assert.deepEqual(LIBRARY_PRIMARY_TILES.map(tile => tile.status), [
+        'live', 'soon', 'soon', 'live', 'live', 'live', 'live', 'live', 'live'
+    ]);
+    assert.equal(LIBRARY_PRIMARY_TILES[0].hint, '押すとプレイヘッド位置に文字を置く');
+});
+
+test('詳細は残りの 12 カテゴリだけで、全カテゴリの外部解決を保つ', () => {
+    assert.deepEqual(LIBRARY_DETAIL_GROUPS.map(group => group.label), ['文字の見た目', '仕上げ', 'まとめて', 'マイ']);
+    const detailKeys = LIBRARY_DETAIL_GROUPS.flatMap(group => group.categories.map(category => category.key));
+    assert.deepEqual(detailKeys, [
+        'textstyle', 'textanim', 'font', 'lut', 'transition', 'fx', 'motion',
+        'pack', 'template', 'fav', 'brandkit', 'mypresets'
+    ]);
+    const primaryCategoryKeys = LIBRARY_PRIMARY_TILES.filter(tile => tile.key !== 'text').map(tile => tile.key);
+    assert.equal(detailKeys.some(key => primaryCategoryKeys.includes(key)), false);
+    assert.deepEqual(new Set([...detailKeys, ...primaryCategoryKeys]),
+        new Set(LIBRARY_GROUPS.flatMap(group => group.categories.map(category => category.key))));
+    assert.equal(resolveOpenableLibraryCategory('bgm'), 'bgm');
+    assert.equal(resolveOpenableLibraryCategory('textstyle'), 'textstyle');
+    assert.equal(resolveOpenableLibraryCategory('text'), undefined);
+    assert.equal(resolveOpenableLibraryCategory('shapes'), undefined);
+});
 
 test('LIBRARY_GROUPS: 5 グループとカテゴリ語彙を宣言順で保持する', () => {
     assert.deepEqual(LIBRARY_GROUPS.map(group => group.label), [

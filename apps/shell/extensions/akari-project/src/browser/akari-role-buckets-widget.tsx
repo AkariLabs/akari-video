@@ -90,11 +90,14 @@ import { materialCardLayout } from '../common/material-card-layout';
 import { CatalogPack } from '../common/catalog-packs';
 import { filterPresetShowcaseItems, presetShowcaseBottomPadding, textStylePlaceOptions } from '../common/preset-showcase';
 import {
+    LIBRARY_DETAIL_GROUPS,
     LIBRARY_GROUPS,
+    LIBRARY_PRIMARY_TILES,
     LibraryCategoryDefinition,
     LibraryCategoryKey,
     LibraryCategoryStatus,
     LibraryGroupDefinition,
+    LibraryPrimaryTile,
     resolveOpenableLibraryCategory,
     searchLibraryHome
 } from '../common/library-home-view';
@@ -172,6 +175,7 @@ function installCatalogAudioDockStyle(): void {
 
 const AKARI_CATALOG_ROOT_PREFERENCE = 'akari.catalog.root';
 const AKARI_CATALOG_VIEW_MODE_STORAGE_KEY = 'akari.catalog.viewMode';
+const AKARI_LIBRARY_DETAILS_STORAGE_KEY = 'akari.library.detailsOpen';
 // 一般ユーザー向けの空状態文言（原因別。catalog-account-first-ux task.md §2）。
 // どちらも `akari.catalog.root` という preference 名・「カタログの場所」という内部語を含まない
 // — それらは開発者向け折りたたみ（renderDeveloperCatalogPanel）の中でのみ表記する。
@@ -590,6 +594,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     protected materialQuery = '';
     /** undefined = ライブラリホーム。値あり = フラット一覧から開いたカテゴリページ。 */
     protected libraryCategory?: LibraryCategoryKey;
+    protected libraryDetailsOpen = false;
     protected catalogCategory = 'all';
     protected catalogViewMode: CatalogViewMode = 'grid';
     protected readonly catalogBrokenThumbnails = new Set<string>();
@@ -702,6 +707,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         this.ensureMaterialsWatch();
         this.ensureOutputsWatch();
         this.catalogViewMode = this.readCatalogViewMode();
+        this.libraryDetailsOpen = this.readLibraryDetailsOpen();
         // カタログはワークスペース非依存（resolver 合成分・ローカル catalog/ 分ともに
         // アカウント/参照データなので）素材タブと違いプロジェクトを開く前でも読み込む。
         void this.loadAssetCatalogView();
@@ -2125,6 +2131,24 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         this.update();
     }
 
+    protected readLibraryDetailsOpen(): boolean {
+        try {
+            return window.localStorage.getItem(AKARI_LIBRARY_DETAILS_STORAGE_KEY) === 'true';
+        } catch {
+            return false;
+        }
+    }
+
+    protected toggleLibraryDetails(): void {
+        this.libraryDetailsOpen = !this.libraryDetailsOpen;
+        try {
+            window.localStorage.setItem(AKARI_LIBRARY_DETAILS_STORAGE_KEY, String(this.libraryDetailsOpen));
+        } catch {
+            // localStorage が利用できない場合も、当該セッション内の開閉は維持する。
+        }
+        this.update();
+    }
+
     protected handleCatalogThumbnailError(item: AssetCatalogViewItem): void {
         this.catalogBrokenThumbnails.add(item.key);
         this.update();
@@ -3257,8 +3281,28 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         }
         return (
             <div data-akari-library-home style={{ padding: '2px 8px 12px' }}>
+                <section style={{ marginTop: '10px' }}>
+                    <div style={{
+                        position: 'sticky', top: 0, zIndex: 4, margin: '0 -8px 6px', padding: '6px 8px 4px',
+                        background: AKARI_SURFACE.card, fontSize: '0.75em', fontWeight: 700,
+                        letterSpacing: '0.08em', opacity: 0.78
+                    }}>よく使う</div>
+                    <div data-akari-library-primary-tiles style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '6px' }}>
+                        {LIBRARY_PRIMARY_TILES.map(tile => this.renderLibraryPrimaryTile(tile))}
+                    </div>
+                </section>
                 {this.renderRecentLibraryStrip()}
-                {LIBRARY_GROUPS.map(group => (
+                <button type='button' data-akari-library-details-toggle aria-expanded={this.libraryDetailsOpen}
+                    onClick={event => { event.stopPropagation(); this.toggleLibraryDetails(); }}
+                    style={{
+                        width: '100%', marginTop: '10px', padding: '7px 8px', textAlign: 'left', cursor: 'pointer',
+                        borderRadius: `${AKARI_RADIUS.panel}px`, background: AKARI_SURFACE.raised,
+                        color: AKARI_INK, border: AKARI_BORDER.ghost, fontSize: '0.75em'
+                    }}>
+                    {this.libraryDetailsOpen ? '▾ 詳細をたたむ' : '▸ 詳細（文字の見た目・仕上げ・パック・マイ）'}
+                </button>
+                {this.libraryDetailsOpen && <div data-akari-library-details>
+                {LIBRARY_DETAIL_GROUPS.map(group => (
                     <section key={group.label} style={{ marginTop: '10px' }}>
                         <div style={{
                             position: 'sticky', top: 0, zIndex: 4, margin: '0 -8px 6px', padding: '6px 8px 4px',
@@ -3276,7 +3320,42 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                             </div>}
                     </section>
                 ))}
+                </div>}
             </div>
+        );
+    }
+
+    protected async placeLibraryText(): Promise<void> {
+        try {
+            await this.commandService.executeCommand('akari.caption.placeText');
+        } catch (error) {
+            this.messages.error(`文字を置けません: ${error instanceof Error ? error.message : String(error)}`);
+        }
+    }
+
+    protected renderLibraryPrimaryTile(tile: LibraryPrimaryTile): React.ReactNode {
+        const soon = tile.status === 'soon';
+        return (
+            <button key={tile.key} type='button' disabled={soon} aria-disabled={soon ? 'true' : undefined}
+                data-akari-library-primary-tile={tile.key} data-akari-library-tile-kind={tile.kind}
+                data-akari-library-category={tile.key === 'text' ? undefined : tile.key}
+                data-akari-library-soon={soon ? 'true' : undefined}
+                title={`${tile.label} — ${tile.hint}`}
+                onClick={soon ? undefined : event => {
+                    event.stopPropagation();
+                    if (tile.key === 'text') void this.placeLibraryText();
+                    else this.selectLibraryCategory(tile.key);
+                }}
+                style={{
+                    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px', minWidth: 0,
+                    padding: '7px 4px', borderRadius: `${AKARI_RADIUS.panel}px`, opacity: soon ? 0.48 : 1,
+                    background: AKARI_SURFACE.raised, color: AKARI_INK, cursor: soon ? 'default' : 'pointer',
+                    border: AKARI_BORDER.ghost
+                }}>
+                <span style={{ fontSize: '1.15em' }}>{tile.icon}</span>
+                <span style={{ maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '0.7em' }}>{tile.label}</span>
+                <span style={{ maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '0.62em' }}>{tile.hint}</span>
+            </button>
         );
     }
 

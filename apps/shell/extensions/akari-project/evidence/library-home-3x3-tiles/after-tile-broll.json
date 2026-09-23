@@ -1,0 +1,30 @@
+{
+ "tile": "broll",
+ "at": "2026-09-23T04:06:35.841Z",
+ "playheadDisplay": null,
+ "tileBefore": {
+  "x": 153.515625,
+  "y": 268.25,
+  "disabled": false,
+  "draggable": null,
+  "kind": "pick",
+  "texts": [
+   "▶",
+   "B-roll",
+   "一覧から選ぶ"
+  ]
+ },
+ "captionsChanged": false,
+ "editChanged": false,
+ "newCaptions": [],
+ "chips": [],
+ "page": {
+  "homeVisible": false,
+  "category": "broll",
+  "title": "タイムラインへドラッグ、＋でプレイヘッド位置に追加",
+  "count": "2",
+  "cards": 2,
+  "presetCards": 0
+ },
+ "notices": []
+}

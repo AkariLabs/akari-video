@@ -1,0 +1,30 @@
+{
+ "tile": "stamps",
+ "at": "2026-09-23T04:08:02.130Z",
+ "playheadDisplay": null,
+ "tileBefore": {
+  "x": 220.52734375,
+  "y": 192.5,
+  "disabled": true,
+  "draggable": null,
+  "kind": "make",
+  "texts": [
+   "☺",
+   "スタンプ",
+   "近日"
+  ]
+ },
+ "captionsChanged": false,
+ "editChanged": false,
+ "newCaptions": [],
+ "chips": [],
+ "page": {
+  "homeVisible": true,
+  "category": null,
+  "title": null,
+  "count": null,
+  "cards": 0,
+  "presetCards": 0
+ },
+ "notices": []
+}

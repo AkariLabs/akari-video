@@ -1,0 +1,30 @@
+{
+ "tile": "sfx",
+ "at": "2026-09-23T04:07:08.276Z",
+ "playheadDisplay": null,
+ "tileBefore": {
+  "x": 86.50390625,
+  "y": 342.75,
+  "disabled": false,
+  "draggable": null,
+  "kind": "pick",
+  "texts": [
+   "♬",
+   "SFX",
+   "一覧から選ぶ"
+  ]
+ },
+ "captionsChanged": false,
+ "editChanged": false,
+ "newCaptions": [],
+ "chips": [],
+ "page": {
+  "homeVisible": false,
+  "category": "sfx",
+  "title": "タイムラインへドラッグ、＋でプレイヘッド位置に追加",
+  "count": "96",
+  "cards": 96,
+  "presetCards": 0
+ },
+ "notices": []
+}
