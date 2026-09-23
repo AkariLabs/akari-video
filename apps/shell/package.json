@@ -1,7 +1,7 @@
 {
   "private": true,
   "name": "@akari-video/shell",
-  "version": "0.1.78",
+  "version": "0.1.79",
   "description": "AKARI Video shell — Theia Electron app, S-A shell foundation (tabshell v0 contract).",
   "dependencies": {
     "@theia/core": "1.73.1",
@@ -73,7 +73,7 @@
   "scripts": {
     "preflight": "node scripts/ensure-no-nested-extension-deps.mjs && node scripts/ensure-electron-dist.mjs",
     "prebuild": "npm run preflight && node resources/scripts/ensure-file-deps-linked.mjs",
-    "build:ext": "tsc -b extensions/akari-theme extensions/akari-preview extensions/akari-annotations extensions/akari-project extensions/akari-shell-strip extensions/akari-world-view extensions/akari-surfaces extensions/akari-partner extensions/akari-tabs extensions/akari-transcript extensions/akari-companion",
+    "build:ext": "tsc -b extensions/akari-theme extensions/akari-preview extensions/akari-annotations extensions/akari-project extensions/akari-shell-strip extensions/akari-world-view extensions/akari-partner extensions/akari-surfaces extensions/akari-tabs extensions/akari-transcript extensions/akari-companion",
     "build": "npm run build:ext && theia build --mode production",
     "postbuild": "node scripts/resign-electron.mjs",
     "postinstall": "npm run preflight && node scripts/resign-electron.mjs",

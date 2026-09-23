@@ -5,6 +5,7 @@ import URI from '@theia/core/lib/common/uri';
 import { FileDialogService } from '@theia/filesystem/lib/browser';
 import { AkariLibraryStatus, AkariNewProjectService, AkariToolCheckResult, AkariToolId } from '../common/akari-new-project-protocol';
 import { AkariFirstRunSetupDialog } from './akari-first-run-setup-dialog';
+import { AKARI_APP_ICON } from './settings/app-icon';
 import { inject, injectable } from '@theia/core/shared/inversify';
 import { AbstractDialog, ConfirmDialog } from '@theia/core/lib/browser/dialogs';
 import { ApplicationShell, CommonCommands, WebSocketConnectionProvider, WidgetManager } from '@theia/core/lib/browser';
@@ -720,7 +721,8 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
         void Promise.all([this.maintenance.appInfo(), window.electronAkariUpdater?.getLastEvent()]).then(([info, update]) => {
             if (this.isDisposed || !section.isConnected) { return; }
             section.replaceChildren(...this.sectionHeading('about'));
-            const icon = element('img'); icon.src = info.icon; icon.alt = 'AKARI Video'; icon.width = 64; icon.height = 64;
+            const icon = element('img'); icon.src = info.icon || AKARI_APP_ICON; icon.alt = 'AKARI Video'; icon.width = 64; icon.height = 64;
+            icon.onerror = () => { const logo = element('strong', 'AKARI'); logo.style.width = '64px'; icon.replaceWith(logo); };
             const hero = element('div'); hero.className = 'akari-set-about-hero';
             const identity = element('div'); identity.append(element('h3', 'AKARI Video'),
                 element('p', `v${info.version} · ${info.buildDate} ビルド · ${info.os}`));
@@ -1179,12 +1181,17 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
         value.setAttribute('role', 'status');
         const time = element('span');
         time.className = 'akari-set-bal-time';
+        const accountLink = row.id === 'openrouter'
+            ? action('口座の残高は管理画面で確認', () => this.windows.openNewWindow('https://openrouter.ai/settings/credits', { external: true }), { small: true, iconAfter: 'ext' })
+            : undefined;
+        if (accountLink) { accountLink.style.display = 'none'; }
         const button = action('残高を見る', async () => {
             button.disabled = true;
             value.className = 'akari-set-bal-value';
             value.setAttribute('data-state', 'loading');
             value.textContent = '確認中…';
             time.textContent = '';
+            if (accountLink) { accountLink.style.display = 'none'; }
             try {
                 const result = await this.service.readBalance(row.id);
                 if (this.isDisposed) { return; }
@@ -1193,6 +1200,7 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
                     value.setAttribute('data-state', 'ok');
                     time.textContent = 'たった今';
                     time.title = new Date(result.checked_at).toLocaleString('ja-JP');
+                    if (accountLink) { accountLink.style.display = result.account_url ? '' : 'none'; }
                 } else {
                     value.textContent = result.error ?? '残高を問い合わせられませんでした。';
                     value.className = 'akari-set-bal-error';
@@ -1207,7 +1215,7 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
             }
         }, { small: true, icon: 'refresh' });
         button.setAttribute('data-akari-balance-button', row.id);
-        node.append(button, value, time);
+        node.append(button, value, ...(accountLink ? [accountLink] : []), time);
         return {
             node,
             setConfigured: configured => {
@@ -1217,6 +1225,7 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
                     value.setAttribute('data-state', 'idle');
                     value.textContent = '未接続';
                     time.textContent = '';
+                    if (accountLink) { accountLink.style.display = 'none'; }
                 } else if (value.getAttribute('data-state') === 'idle') {
                     value.textContent = '—';
                 }

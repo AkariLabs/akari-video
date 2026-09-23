@@ -1,0 +1,32 @@
+{
+ "key": "audio/bgm-jazzhop-piano-086",
+ "mode": "body",
+ "target": {
+  "x": 89,
+  "y": 215.1953125,
+  "label": "✓",
+  "aria": null
+ },
+ "at": "2026-09-23T00:02:31.965Z",
+ "playheadBefore": null,
+ "dockBefore": {
+  "dock": true,
+  "audioPaused": false,
+  "cardTop": 184.2
+ },
+ "waitMs": 6049,
+ "editChanged": false,
+ "newItems": [],
+ "newSfx": [],
+ "newSources": [],
+ "tracksAfter": [
+  "v1:visual",
+  "a1:audio"
+ ],
+ "dockAfter": {
+  "dock": false,
+  "audioPaused": true,
+  "cardTop": 184.2
+ },
+ "toasts": []
+}

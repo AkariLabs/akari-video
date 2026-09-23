@@ -1,0 +1,286 @@
+{
+  "phase": "after",
+  "status": "pass",
+  "checks": [
+    {
+      "name": "札クリック: すべての行の top が変わらず、エディタは台本パネルの下端（行リストの下・footer の上）に出る",
+      "pass": true,
+      "detail": {
+        "rowTopShift": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "head": {
+          "top": 39,
+          "bottom": 119,
+          "left": 814,
+          "right": 1392,
+          "height": 80
+        },
+        "rows": {
+          "top": 119,
+          "bottom": 729,
+          "left": 814,
+          "right": 1392,
+          "height": 610
+        },
+        "editor": {
+          "top": 729,
+          "bottom": 848,
+          "left": 814,
+          "right": 1392,
+          "height": 119
+        },
+        "footer": {
+          "top": 848,
+          "bottom": 874,
+          "left": 814,
+          "right": 1392,
+          "height": 26
+        },
+        "widget": {
+          "top": 39,
+          "bottom": 874,
+          "left": 814,
+          "right": 1392,
+          "height": 835
+        },
+        "rowsBottomBefore": 848,
+        "animation": {
+          "name": "akari-daihon-placed-enter",
+          "duration": "0.18s"
+        },
+        "editorAfterRows": true
+      }
+    },
+    {
+      "name": "Esc でエディタが閉じる（行の top は変わらない）",
+      "pass": true,
+      "detail": {
+        "editorHidden": true,
+        "rowTopShift": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "name": "札の再クリック・何もない所のクリックでも閉じる",
+      "pass": true,
+      "detail": {
+        "reClick": "closed",
+        "blankClick": {
+          "x": 1103,
+          "y": 598.375,
+          "closed": true
+        }
+      }
+    },
+    {
+      "name": "札の右クリックで 7 項目、「後ろへ 1 行広げる」で end が次の行の終わり → Cmd+Z 1 手で byte 一致",
+      "pass": true,
+      "detail": {
+        "items": [
+          {
+            "action": "expand-start",
+            "label": "前へ 1 行広げる",
+            "disabled": false
+          },
+          {
+            "action": "shrink-start",
+            "label": "前を 1 行縮める",
+            "disabled": false
+          },
+          {
+            "action": "expand-end",
+            "label": "後ろへ 1 行広げる",
+            "disabled": false
+          },
+          {
+            "action": "shrink-end",
+            "label": "後ろを 1 行縮める",
+            "disabled": false
+          },
+          {
+            "action": "all",
+            "label": "全体",
+            "disabled": false
+          },
+          {
+            "action": "edit-text",
+            "label": "文字を編集",
+            "disabled": false
+          },
+          {
+            "action": "delete",
+            "label": "削除",
+            "disabled": false
+          }
+        ],
+        "after": {
+          "start": 4,
+          "end": 19.2
+        },
+        "bars": [
+          "s-2",
+          "s-3",
+          "s-4",
+          "s-5"
+        ],
+        "undoByteIdentical": true
+      }
+    },
+    {
+      "name": "札のダブルクリック → 入力欄 → Enter で text が変わる → Cmd+Z 1 手で byte 一致",
+      "pass": true,
+      "detail": {
+        "tagBox": {
+          "top": 395.3359375,
+          "left": 840
+        },
+        "editing": {
+          "value": "蒸らし 30 秒",
+          "row": "s-5",
+          "className": "akari-daihon-row-edit akari-daihon-placed-inline-edit",
+          "top": 392.3359375,
+          "left": 840,
+          "selected": [
+            0,
+            8
+          ]
+        },
+        "saved": {
+          "text": "蒸らしは 40 秒",
+          "start": 16.2,
+          "end": 19,
+          "time_domain": "output"
+        },
+        "undoByteIdentical": true
+      }
+    },
+    {
+      "name": "ダブルクリック編集の Esc は取消・空文字は保存しない",
+      "pass": true,
+      "detail": {
+        "escUnchanged": true,
+        "emptiedValue": "",
+        "emptyUnchanged": true,
+        "footer": "字幕のテキストは空にできません。"
+      }
+    },
+    {
+      "name": "札を 2 行下へドラッグ → start/end がその行の区間 → Cmd+Z 1 手で byte 一致",
+      "pass": true,
+      "detail": {
+        "from": {
+          "row": "s-5",
+          "start": 16.2,
+          "end": 19
+        },
+        "dropRow": "s-7",
+        "dropHighlight": [
+          {
+            "id": "s-7",
+            "outline": "rgb(249, 115, 22)",
+            "background": "rgb(38, 22, 12)"
+          }
+        ],
+        "after": {
+          "start": 24,
+          "end": 27.2,
+          "time_domain": "output"
+        },
+        "timeDomainKept": true,
+        "undoByteIdentical": true
+      }
+    },
+    {
+      "name": "3 行の文字を落とすと落とした行から 3 行ぶん → Cmd+Z 1 手で byte 一致",
+      "pass": true,
+      "detail": {
+        "from": {
+          "rows": [
+            "s-2",
+            "s-3",
+            "s-4"
+          ],
+          "start": 4,
+          "end": 15.2
+        },
+        "after": {
+          "start": 16,
+          "end": 27.2
+        },
+        "bars": [
+          "s-5",
+          "s-6",
+          "s-7"
+        ],
+        "tag": "T 豆: エチオピア 浅煎り · 3 行",
+        "undoByteIdentical": true
+      }
+    },
+    {
+      "name": "行の外（ヘッダー）へ落としても何も起きない",
+      "pass": true,
+      "detail": {
+        "unchanged": true,
+        "leftoverHighlights": 0
+      }
+    },
+    {
+      "name": "置いた文字 0 本: 台本の見た目（行の top・行リスト・エディタ非表示）が BEFORE と同じ",
+      "pass": true,
+      "detail": {
+        "rowTops": [
+          123,
+          173.15,
+          223.3,
+          273.45,
+          323.59,
+          373.74,
+          423.89,
+          474.04
+        ],
+        "rows": {
+          "top": 119,
+          "bottom": 848,
+          "left": 814,
+          "right": 1392,
+          "height": 729
+        },
+        "head": {
+          "top": 39,
+          "bottom": 119,
+          "left": 814,
+          "right": 1392,
+          "height": 80
+        },
+        "editorHidden": true
+      }
+    }
+  ],
+  "screenshots": [
+    "after-01-editor-dock.png",
+    "after-02-context-menu.png",
+    "after-03-menu-expand-end.png",
+    "after-04-dblclick-input.png",
+    "after-05-text-saved.png",
+    "after-06-dragging.png",
+    "after-07-dropped.png",
+    "after-08-dropped-3rows.png",
+    "after-09-none.png"
+  ]
+}

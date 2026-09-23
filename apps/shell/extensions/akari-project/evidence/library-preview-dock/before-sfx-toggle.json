@@ -1,0 +1,76 @@
+{
+ "mode": "toggle",
+ "target": {
+  "key": "audio/sfx-bell-tree",
+  "x": 233.328125,
+  "y": 259.359375
+ },
+ "before": {
+  "cardTops": [
+   184.2,
+   184.2,
+   184.2,
+   391.9,
+   391.9,
+   391.9
+  ],
+  "firstCardKey": "audio/akari-sounds-sfx",
+  "scrollTop": 0,
+  "scrollerClass": "DIV",
+  "panelRect": {
+   "top": 4,
+   "bottom": 642,
+   "left": 48,
+   "right": 376
+  },
+  "playing": [],
+  "audioBar": false,
+  "audioDock": false,
+  "dockRect": null,
+  "dockText": null,
+  "dockParentChain": null
+ },
+ "after": {
+  "cardTops": [
+   223.7,
+   223.7,
+   223.7,
+   431.4,
+   431.4,
+   431.4
+  ],
+  "firstCardKey": "audio/akari-sounds-sfx",
+  "scrollTop": 0,
+  "scrollerClass": "DIV",
+  "panelRect": {
+   "top": 4,
+   "bottom": 642,
+   "left": 48,
+   "right": 376
+  },
+  "playing": [
+   "audio/sfx-bell-tree"
+  ],
+  "audioBar": true,
+  "audioDock": false,
+  "dockRect": {
+   "top": 174,
+   "bottom": 206,
+   "height": 32,
+   "position": "static"
+  },
+  "dockText": "再生中: Bell Tree Sweep Upward, Sparkling Cascade, Isola停止",
+  "dockParentChain": [
+   "DIV.[data-akari-catalog-audio-bar]",
+   "DIV.[data-akari-catalog-item-count][data-akari-catalog-view-mode]",
+   "DIV.[data-akari-library-category]",
+   "DIV."
+  ]
+ },
+ "added": [
+  "DIV.[data-akari-catalog-audio-bar]"
+ ],
+ "cardTopShiftPx": 39.5,
+ "scrollTopDelta": 0,
+ "at": "2026-09-22T23:49:24.574Z"
+}

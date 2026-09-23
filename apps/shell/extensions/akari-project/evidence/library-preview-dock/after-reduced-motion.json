@@ -1,0 +1,17 @@
+{
+ "reduced": {
+  "matches": true,
+  "animationName": "none",
+  "opacity": "1",
+  "transform": "none"
+ },
+ "normal": {
+  "matches": false,
+  "animationName": "akari-catalog-audio-dock-enter",
+  "duration": "0.18s",
+  "opacityAt40ms": "0.948435",
+  "transformAt40ms": "matrix(1, 0, 0, 1, 0, 0.825043)",
+  "currentTime": 83
+ },
+ "at": "2026-09-23T00:01:24.606Z"
+}

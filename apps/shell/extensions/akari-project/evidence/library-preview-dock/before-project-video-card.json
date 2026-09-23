@@ -1,0 +1,18 @@
+{
+ "rel": "assets/base.mp4",
+ "before": [
+  "asset:assets/base.mp4@88",
+  "asset:assets/audio/tone.wav@88"
+ ],
+ "hover": [
+  "asset:assets/base.mp4@88",
+  "asset:assets/audio/tone.wav@88"
+ ],
+ "hoverAdded": [],
+ "click": [
+  "asset:assets/base.mp4@88",
+  "asset:assets/audio/tone.wav@88"
+ ],
+ "clickAdded": [],
+ "at": "2026-09-22T23:49:54.423Z"
+}

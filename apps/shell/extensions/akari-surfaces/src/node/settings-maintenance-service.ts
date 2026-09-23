@@ -4,6 +4,7 @@ import * as os from 'os';
 import * as path from 'path';
 import { spawn } from 'child_process';
 import { AkariSettingsMaintenanceService, PartnerDetail, StorageCleanTarget, StorageEntry, StorageSnapshot } from '../common/settings-maintenance-protocol';
+import { AKARI_APP_ICON } from '../browser/settings/app-icon';
 
 const home = (): string => process.env.AKARI_HOME || path.join(os.homedir(), '.akari');
 const localDate = (value: Date): string => `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, '0')}-${String(value.getDate()).padStart(2, '0')}`;
@@ -299,7 +300,7 @@ export class AkariSettingsMaintenanceServiceImpl implements AkariSettingsMainten
     async appInfo(): Promise<{ version: string; buildDate: string; os: string; icon: string; lastChecked?: string;
         recentChanges?: { version: string; date?: string; notesUrl?: string } }> {
         const shellRoot = process.cwd();
-        let version = '開発版'; let buildDate = '開発ビルド'; let icon = '';
+        let version = '開発版'; let buildDate = '開発ビルド'; const icon = AKARI_APP_ICON;
         for (const candidate of [path.join(shellRoot, 'package.json'), path.join(shellRoot, 'apps/shell/package.json')]) {
             try {
                 const stat = await fs.stat(candidate);
@@ -310,10 +311,6 @@ export class AkariSettingsMaintenanceServiceImpl implements AkariSettingsMainten
         for (const artifact of [path.join(shellRoot, 'lib/backend/electron-main.js'), path.join(process.resourcesPath || '', 'app.asar')]) {
             try { buildDate = localDate((await fs.stat(artifact)).mtime); break; }
             catch { /* 開発と配布で配置が異なる */ }
-        }
-        for (const candidate of [path.join(shellRoot, 'resources/icons/icon-512.png'), path.join(shellRoot, 'apps/shell/resources/icons/icon-512.png')]) {
-            try { icon = `data:image/png;base64,${(await fs.readFile(candidate)).toString('base64')}`; break; }
-            catch { /* 次の実パスを試す */ }
         }
         let lastChecked: string | undefined;
         let recentChanges: { version: string; date?: string; notesUrl?: string } | undefined;

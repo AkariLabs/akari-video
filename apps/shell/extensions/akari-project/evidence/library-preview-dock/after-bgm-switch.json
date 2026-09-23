@@ -1,0 +1,108 @@
+{
+ "mode": "toggle",
+ "target": {
+  "key": "audio/bgm-beatslide-clap-124",
+  "x": 133.328125,
+  "y": 244.859375
+ },
+ "before": {
+  "cardTops": [
+   -715.8,
+   -715.8,
+   -715.8,
+   -494.5,
+   -494.5,
+   -494.5
+  ],
+  "firstCardKey": "audio/bgm-jazzhop-piano-086",
+  "scrollTop": 900,
+  "scrollerClass": "DIV",
+  "panelRect": {
+   "top": 4,
+   "bottom": 642,
+   "left": 48,
+   "right": 376
+  },
+  "playing": [
+   "audio/bgm-tension-pulse-096"
+  ],
+  "audio": {
+   "paused": false,
+   "currentTime": 1.42,
+   "src": "bgm-tension-pulse-096.mp3"
+  },
+  "audioBar": true,
+  "audioDock": true,
+  "dockRect": {
+   "top": 554,
+   "bottom": 590,
+   "height": 36,
+   "position": "absolute"
+  },
+  "dockAnim": {
+   "name": "akari-catalog-audio-dock-enter",
+   "duration": "0.18s",
+   "zIndex": "8"
+  },
+  "dockInsideScroller": false,
+  "dockText": "再生中: Clockroom停止×",
+  "dockParentChain": [
+   "DIV.[data-akari-catalog-audio-dock][data-akari-catalog-audio-bar]",
+   "DIV.[data-akari-top-view]",
+   "DIV.",
+   "DIV.[data-akari-left-panel-layout]"
+  ]
+ },
+ "after": {
+  "cardTops": [
+   -715.8,
+   -715.8,
+   -715.8,
+   -494.5,
+   -494.5,
+   -494.5
+  ],
+  "firstCardKey": "audio/bgm-jazzhop-piano-086",
+  "scrollTop": 900,
+  "scrollerClass": "DIV",
+  "panelRect": {
+   "top": 4,
+   "bottom": 642,
+   "left": 48,
+   "right": 376
+  },
+  "playing": [
+   "audio/bgm-beatslide-clap-124"
+  ],
+  "audio": {
+   "paused": false,
+   "currentTime": 0.61,
+   "src": "bgm-beatslide-clap-124.mp3"
+  },
+  "audioBar": true,
+  "audioDock": true,
+  "dockRect": {
+   "top": 554,
+   "bottom": 590,
+   "height": 36,
+   "position": "absolute"
+  },
+  "dockAnim": {
+   "name": "akari-catalog-audio-dock-enter",
+   "duration": "0.18s",
+   "zIndex": "8"
+  },
+  "dockInsideScroller": false,
+  "dockText": "再生中: Clap Drop停止×",
+  "dockParentChain": [
+   "DIV.[data-akari-catalog-audio-dock][data-akari-catalog-audio-bar]",
+   "DIV.[data-akari-top-view]",
+   "DIV.",
+   "DIV.[data-akari-left-panel-layout]"
+  ]
+ },
+ "added": [],
+ "cardTopShiftPx": 0,
+ "scrollTopDelta": 0,
+ "at": "2026-09-22T23:59:57.526Z"
+}

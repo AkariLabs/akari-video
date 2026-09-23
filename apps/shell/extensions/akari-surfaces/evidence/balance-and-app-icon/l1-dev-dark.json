@@ -1,0 +1,101 @@
+{
+ "balance_account": {
+  "openrouter": {
+   "value": "口座の残高 残り $5.67 · キーの上限 残り $49.96",
+   "state": "ok",
+   "cls": "akari-set-bal-value",
+   "accountLinkVisible": false
+  },
+  "fal": {
+   "value": "口座のクレジット 残り $18.40",
+   "state": "ok",
+   "cls": "akari-set-bal-value",
+   "accountLinkVisible": false
+  },
+  "elevenlabs": {
+   "value": "今月の残り 87,655 クレジット",
+   "state": "ok",
+   "cls": "akari-set-bal-value",
+   "accountLinkVisible": false
+  },
+  "mockLog": [
+   "account /api/v1/credits",
+   "account /api/v1/key",
+   "account /v1/account/billing",
+   "account /v1/user/subscription"
+  ]
+ },
+ "balance_keyonly": {
+  "openrouter": {
+   "value": "キーの上限 残り $49.96",
+   "state": "ok",
+   "cls": "akari-set-bal-value",
+   "accountLinkVisible": true
+  },
+  "fal": {
+   "value": "口座のクレジット 残り $18.40",
+   "state": "ok",
+   "cls": "akari-set-bal-value",
+   "accountLinkVisible": false
+  },
+  "elevenlabs": {
+   "value": "今月の残り 87,655 クレジット",
+   "state": "ok",
+   "cls": "akari-set-bal-value",
+   "accountLinkVisible": false
+  },
+  "mockLog": [
+   "keyonly /api/v1/credits",
+   "keyonly /api/v1/key",
+   "keyonly /v1/account/billing",
+   "keyonly /v1/user/subscription"
+  ]
+ },
+ "balance_fail": {
+  "openrouter": {
+   "value": "残高を取得できませんでした（HTTP 500）。",
+   "state": "error",
+   "cls": "akari-set-bal-error",
+   "accountLinkVisible": false
+  },
+  "fal": {
+   "value": "残高を取得できませんでした（HTTP 500）。",
+   "state": "error",
+   "cls": "akari-set-bal-error",
+   "accountLinkVisible": false
+  },
+  "elevenlabs": {
+   "value": "残高を取得できませんでした（HTTP 500）。",
+   "state": "error",
+   "cls": "akari-set-bal-error",
+   "accountLinkVisible": false
+  },
+  "mockLog": [
+   "fail /api/v1/credits",
+   "fail /v1/account/billing",
+   "fail /v1/user/subscription"
+  ]
+ },
+ "about": {
+  "naturalWidth": 512,
+  "complete": true,
+  "currentSrcPrefix": "data:image/png;base64,iVBORw0K",
+  "currentSrcLen": 50538
+ },
+ "oldToastUrl": {
+  "ok": true,
+  "src": "file:///Users/ryoma/_edit/30_products/akari-video-wt/balance-and-app-icon/apps/shell/resources/icons/icon-512.png",
+  "w": 512
+ },
+ "pageUrl": "file:///Users/ryoma/_edit/30_products/akari-video-wt/balance-and-app-icon/apps/shell/lib/frontend/index.html?port=57498#/private/tmp/balance-and-app-icon-l1/ws",
+ "toast": {
+  "naturalWidth": 512,
+  "complete": true,
+  "currentSrcPrefix": "data:image/png;base64,iVBORw0K"
+ },
+ "statusbarLeft": [
+  "ryoma",
+  "0  0"
+ ],
+ "theme": "theia-dark"
+}

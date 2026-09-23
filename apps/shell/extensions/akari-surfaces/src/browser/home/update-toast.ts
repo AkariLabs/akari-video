@@ -1,5 +1,6 @@
 import { injectable } from '@theia/core/shared/inversify';
 import { UpdateStage, noticeStorageKey, shouldAutoShowNotice } from './home-model';
+import { AKARI_APP_ICON } from '../settings/app-icon';
 
 export interface UpdateToastState {
     stage: UpdateStage;
@@ -86,7 +87,8 @@ export class AkariUpdateToast {
             entry.setAttribute('role', 'button');
             entry.tabIndex = 0;
             const icon = this.element('img', '');
-            icon.src = '../../resources/icons/icon-512.png';
+            icon.src = AKARI_APP_ICON;
+            icon.onerror = () => { const logo = this.element('strong', '', 'AKARI'); icon.replaceWith(logo); };
             icon.alt = 'AKARI Video';
             entry.append(icon, this.element('span', ''));
             const reopen = (): void => {
@@ -114,7 +116,8 @@ export class AkariUpdateToast {
             toast.setAttribute('role', 'status');
             const head = this.element('div', 'akari-update-head');
             const icon = this.element('img', 'akari-update-icon');
-            icon.src = '../../resources/icons/icon-512.png';
+            icon.src = AKARI_APP_ICON;
+            icon.onerror = () => { const logo = this.element('strong', '', 'AKARI'); icon.replaceWith(logo); };
             icon.alt = 'AKARI Video';
             head.append(icon, this.element('strong', 'akari-update-title', state.stage === 'ready' ? `v${state.version} の準備ができました` : state.stage === 'downloading' ? `v${state.version} をダウンロード中` : `新しい版があります — v${state.version}`));
             const close = this.button('×', () => { this.visible = false; this.onDismiss(); this.render(); });

@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import Module, { createRequire } from 'node:module';
+import { readFileSync } from 'node:fs';
 
 const require = createRequire(import.meta.url);
 const decorator = () => () => {};
@@ -170,4 +171,101 @@ test('範囲変更/全体/削除は各 1 手で undo・redo。timeDomain を書�
     assert.equal(instance.sourceCaptions.find(item => item.id === 'p2').end, 31);
     assert.deepEqual(instance.sourceCaptions.filter(item => !item.timeDomain), spoken);
   } finally { setDaihonHistoryService(undefined); }
+});
+
+test('範囲カードは行リストの後ろ・footer の前に置き、下から表示する', () => {
+  const source = readFileSync(new URL('../src/browser/daihon/akari-daihon-widget.ts', import.meta.url), 'utf8');
+  assert.match(source, /this\.node\.append\(header, this\.rowsNode, this\.selectionBar, this\.placedEditor, this\.footer\)/);
+  assert.match(source, /\.akari-daihon-placed-editor \{[^}]*animation:akari-daihon-placed-enter 180ms/);
+  assert.match(source, /@keyframes akari-daihon-placed-enter \{ from \{ transform:translateY\(100%\)/);
+  assert.match(source, /prefers-reduced-motion: reduce[^\n]*\.akari-daihon-placed-editor \{ animation:none/);
+});
+
+test('札の右クリックメニューは 7 操作を持ち、範囲変更と文字編集につながる', () => {
+  const oldDocument = globalThis.document, oldCss = globalThis.CSS;
+  globalThis.CSS = { escape: value => value };
+  globalThis.document = { createElement: () => ({ dataset: {}, classList: { add() {} },
+    addEventListener(type, listener) { this[`on${type}`] = listener; } }) };
+  const pop = { children: [], classList: { add() {} }, appendChild(node) { this.children.push(node); } };
+  const actions = [];
+  const instance = widget({ placedSelection: 'p2', rowsNode: { querySelector: () => ({}) },
+    openPop: () => pop, closePop() {}, startPlacedEdit(id) { actions.push(['text', id]); },
+    editPlacedText(id, action) { actions.push([action, id]); }
+  });
+  try {
+    instance.openPlacedMenu('p2');
+    assert.deepEqual(pop.children.map(button => button.textContent), [
+      '前へ 1 行広げる', '前を 1 行縮める', '後ろへ 1 行広げる', '後ろを 1 行縮める',
+      '全体', '文字を編集', '削除'
+    ]);
+    pop.children[2].onclick({ stopPropagation() {} });
+    pop.children[5].onclick({ stopPropagation() {} });
+    assert.deepEqual(actions, [['expand-end', 'p2'], ['text', 'p2']]);
+  } finally {
+    if (oldDocument === undefined) delete globalThis.document; else globalThis.document = oldDocument;
+    if (oldCss === undefined) delete globalThis.CSS; else globalThis.CSS = oldCss;
+  }
+});
+
+test('札のインライン編集は Enter で確定、Esc で取消し、空文字は保存しない', async () => {
+  const oldDocument = globalThis.document, oldCss = globalThis.CSS;
+  globalThis.CSS = { escape: value => value };
+  const created = [];
+  globalThis.document = { createElement: tag => {
+    const node = { tag, listeners: {}, setAttribute() {}, appendChild(child) { this.child = child; },
+      addEventListener(type, listener) { this.listeners[type] = listener; }, focus() {}, select() {},
+      blur() { this.listeners.blur?.(); }, replaceWith(next) { this.replacement = next; } };
+    created.push(node);
+    return node;
+  } };
+  const tag = { replaceWith(next) { this.replacement = next; } };
+  const calls = [], histories = [], notices = [];
+  const instance = widget({ placedSelection: 'p2', rowsNode: { querySelector: () => tag },
+    closePop() {}, renderPlacedText() {}, notify: message => notices.push(message),
+    async withHistory(label, operation) { histories.push(label); await operation(); },
+    annotationsService: { async setCaptionFields(request) { calls.push(request); } }
+  });
+  try {
+    instance.startPlacedEdit('p2');
+    const input = instance.placedEditing.input;
+    assert.equal(tag.replacement.className, 'akari-daihon-row-edit akari-daihon-placed-inline-edit');
+    assert.equal(input.value, '3行');
+    input.value = '直した文字';
+    input.listeners.keydown({ key: 'Enter', preventDefault() {} });
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(calls[0].text, '直した文字');
+    assert.equal(calls[0].captionId, 'p2');
+    assert.deepEqual(histories, ['置いた文字: 文字を編集']);
+
+    instance.startPlacedEdit('p2');
+    const cancel = instance.placedEditing.input;
+    cancel.value = '取消す文字';
+    cancel.listeners.keydown({ key: 'Escape', preventDefault() {} });
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(calls.length, 1);
+
+    instance.startPlacedEdit('p2');
+    const empty = instance.placedEditing.input;
+    empty.value = '   ';
+    empty.listeners.keydown({ key: 'Enter', preventDefault() {} });
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(calls.length, 1);
+    assert.equal(histories.length, 1);
+    assert.ok(notices.some(message => message.includes('空にできません')));
+  } finally {
+    if (oldDocument === undefined) delete globalThis.document; else globalThis.document = oldDocument;
+    if (oldCss === undefined) delete globalThis.CSS; else globalThis.CSS = oldCss;
+  }
+});
+
+test('札の行移動は setCaptionTiming を 1 履歴で呼び timeDomain を書かない', async () => {
+  const calls = [], histories = [];
+  const instance = widget({ async withHistory(label, operation) { histories.push(label); await operation(); },
+    annotationsService: { async setCaptionTiming(request) { calls.push(request); } }
+  });
+  await instance.movePlacedText('p2', { start: 16, end: 27 });
+  assert.deepEqual(histories, ['置いた文字: 行を移動']);
+  assert.equal(calls.length, 1);
+  assert.deepEqual([calls[0].start, calls[0].end], [16, 27]);
+  assert.equal(Object.hasOwn(calls[0], 'timeDomain'), false);
 });

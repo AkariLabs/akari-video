@@ -3,7 +3,7 @@ import test from 'node:test';
 import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
 const { buildDaihonRows } = require('../lib/common/daihon-row-model.js');
-const { placedTextRanges, placedTextLanes, placedTextTiming } = require('../lib/common/daihon-placed-text.js');
+const { placedTextRanges, placedTextLanes, placedTextTiming, placedTextDropTiming } = require('../lib/common/daihon-placed-text.js');
 const caption = (id, start, end, timeDomain) => ({ id, start, end, text: id, style: null, timeDomain });
 const rows = buildDaihonRows(Array.from({ length: 8 }, (_, i) => caption(`r${i}`, i * 4, (i + 1) * 4)), null);
 const captions = [caption('p1', 0, 32, 'output'), caption('p2', 4, 16, 'output'),
@@ -64,4 +64,17 @@ test('カット行は範囲編集の時刻境界に使わない', () => {
     const cutRows = rows.map((row, index) => index === 4 ? { ...row, outStart: null, outEnd: null } : row);
     const range = placedTextRanges(captions, cutRows).find(item => item.captionId === 'p2');
     assert.deepEqual(placedTextTiming(range, cutRows, 'expand-end'), { start: 4, end: 24 });
+});
+
+test('札のドロップ先から出力区間を決める: 1 行・複数行・カット行・末尾', () => {
+    const [one] = placedTextRanges([caption('one', 4, 8, 'output')], rows);
+    assert.deepEqual(placedTextDropTiming(one, rows, 3), { start: 12, end: 16 });
+    assert.equal(placedTextDropTiming(one, rows, 1), null);
+    const [three] = placedTextRanges([caption('three', 4, 16, 'output')], rows);
+    assert.deepEqual(placedTextDropTiming(three, rows, 4), { start: 16, end: 28 });
+    assert.equal(placedTextDropTiming(three, rows, 6), null, '末尾に 3 行収まらない');
+    const cutRows = rows.map((row, index) => index === 4 ? { ...row, outStart: null, outEnd: null } : row);
+    assert.equal(placedTextDropTiming(three, cutRows, 4), null, 'カット行へは落とせない');
+    assert.deepEqual(placedTextDropTiming(three, cutRows, 3), { start: 12, end: 28 }, 'カット行は行数に数えない');
+    assert.equal(placedTextDropTiming(three, cutRows, -1), null);
 });

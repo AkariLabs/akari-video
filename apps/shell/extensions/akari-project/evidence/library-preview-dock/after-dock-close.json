@@ -1,0 +1,19 @@
+{
+ "button": "[data-akari-catalog-audio-dock-close]",
+ "label": "×",
+ "before": {
+  "dock": true,
+  "playing": [
+   "audio/bgm-beatslide-clap-124"
+  ],
+  "audioPaused": false,
+  "cardTop": -715.8
+ },
+ "after": {
+  "dock": false,
+  "playing": [],
+  "audioPaused": true,
+  "cardTop": -715.8
+ },
+ "at": "2026-09-23T00:00:07.141Z"
+}

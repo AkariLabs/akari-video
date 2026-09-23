@@ -36,10 +36,11 @@ class GenerationDefaultsServiceError extends Error { }
  * 押したときだけ readBalance から呼ぶ。読み取り専用の GET だけで、課金の発生する呼び出しはしない。
  */
 export const BALANCE_REQUESTS: Readonly<Record<string, { url: string; headers(secret: string): Record<string, string> }>> = {
-    openrouter: { url: 'https://openrouter.ai/api/v1/key', headers: secret => ({ Authorization: `Bearer ${secret}` }) },
+    openrouter: { url: 'https://openrouter.ai/api/v1/credits', headers: secret => ({ Authorization: `Bearer ${secret}` }) },
     fal: { url: 'https://api.fal.ai/v1/account/billing?expand=credits', headers: secret => ({ Authorization: `Key ${secret}` }) },
     elevenlabs: { url: 'https://api.elevenlabs.io/v1/user/subscription', headers: secret => ({ 'xi-api-key': secret }) }
 };
+export const OPENROUTER_KEY_URL = 'https://openrouter.ai/api/v1/key';
 
 /** 検証専用: ループバックの模擬サーバーへ向け替える（本番の既定では使わない・ループバック以外は無視）。 */
 export function balanceRequestUrl(url: string, env: NodeJS.ProcessEnv = process.env): string {
@@ -53,26 +54,53 @@ function money(value: number, currency: unknown): string {
     return currency === undefined || currency === 'USD' ? `$${value.toFixed(2)}` : `${value.toFixed(2)} ${String(currency)}`;
 }
 
-/** 各社の応答を「残り $x.xx」形式の 1 行へ。形が想定外なら失敗扱いにして生の応答は返さない。 */
-export function describeBalanceResponse(id: string, status: number, body: unknown): { ok: boolean; display?: string; error?: string } {
-    if (status === 401 || status === 403) {
-        return { ok: false, error: id === 'fal' ? 'このキーでは残高を見られません（fal は ADMIN 権限のキーが要ります）。' : 'キーが通りませんでした。キーを確認してください。' };
-    }
-    if (status < 200 || status >= 300) { return { ok: false, error: `残高を取得できませんでした（HTTP ${status}）。` }; }
+type BalanceDescription = { ok: boolean; display?: string; error?: string; account_url?: string };
+
+/** 各社の応答を意味が分かる 1 行へ。形が想定外なら金額を出さない。 */
+export function describeBalanceResponse(
+    id: string, status: number, body: unknown, keyResponse?: { status: number; body: unknown }
+): BalanceDescription {
     const record = (value: unknown): Record<string, unknown> | undefined =>
         typeof value === 'object' && value !== null && !Array.isArray(value) ? value as Record<string, unknown> : undefined;
     const number = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value);
     if (id === 'openrouter') {
-        const data = record(record(body)?.data);
-        if (data && number(data.limit_remaining)) { return { ok: true, display: `残り ${money(data.limit_remaining, 'USD')}` }; }
-        if (data && data.limit_remaining === null && number(data.usage)) { return { ok: true, display: `キーの上限なし · 使用 ${money(data.usage, 'USD')}` }; }
-    } else if (id === 'fal') {
+        if (status === 401 || status === 403) {
+            if (!keyResponse) { return { ok: false, error: 'キーの上限を取得できませんでした。' }; }
+            if (keyResponse.status < 200 || keyResponse.status >= 300) {
+                return { ok: false, error: `キーの上限を取得できませんでした（HTTP ${keyResponse.status}）。` };
+            }
+            const key = record(record(keyResponse.body)?.data);
+            if (key && number(key.limit_remaining)) {
+                return { ok: true, display: `キーの上限 残り ${money(key.limit_remaining, 'USD')}`, account_url: 'https://openrouter.ai/settings/credits' };
+            }
+            if (key && key.limit_remaining === null && number(key.usage)) {
+                return { ok: true, display: `キーの上限なし · 使用 ${money(key.usage, 'USD')}`, account_url: 'https://openrouter.ai/settings/credits' };
+            }
+            return { ok: false, error: 'キーの上限の応答を読み取れませんでした。' };
+        }
+        if (status < 200 || status >= 300) { return { ok: false, error: `残高を取得できませんでした（HTTP ${status}）。` }; }
+        const credits = record(record(body)?.data);
+        if (credits && number(credits.total_credits) && number(credits.total_usage)) {
+            let display = `口座の残高 残り ${money(credits.total_credits - credits.total_usage, 'USD')}`;
+            if (keyResponse?.status === 200) {
+                const key = record(record(keyResponse.body)?.data);
+                if (key && number(key.limit_remaining)) { display += ` · キーの上限 残り ${money(key.limit_remaining, 'USD')}`; }
+            }
+            return { ok: true, display };
+        }
+        return { ok: false, error: '残高の応答を読み取れませんでした。' };
+    }
+    if (status === 401 || status === 403) {
+        return { ok: false, error: id === 'fal' ? 'このキーでは残高を見られません（fal は ADMIN 権限のキーが要ります）。' : 'キーが通りませんでした。キーを確認してください。' };
+    }
+    if (status < 200 || status >= 300) { return { ok: false, error: `残高を取得できませんでした（HTTP ${status}）。` }; }
+    if (id === 'fal') {
         const credits = record(record(body)?.credits);
-        if (credits && number(credits.current_balance)) { return { ok: true, display: `残り ${money(credits.current_balance, credits.currency ?? 'USD')}` }; }
+        if (credits && number(credits.current_balance)) { return { ok: true, display: `口座のクレジット 残り ${money(credits.current_balance, credits.currency ?? 'USD')}` }; }
     } else if (id === 'elevenlabs') {
         const data = record(body);
         if (data && number(data.character_limit) && number(data.character_count)) {
-            return { ok: true, display: `残り ${Math.max(0, data.character_limit - data.character_count).toLocaleString('en-US')} クレジット` };
+            return { ok: true, display: `今月の残り ${Math.max(0, data.character_limit - data.character_count).toLocaleString('en-US')} クレジット` };
         }
     }
     return { ok: false, error: '残高の応答を読み取れませんでした。' };
@@ -404,12 +432,21 @@ export class AkariConnectionsServiceImpl implements AkariConnectionsService {
         if (!secret) { return { ok: false, error: 'API キーが未登録です。', checked_at }; }
         const request = BALANCE_REQUESTS[id];
         try {
-            const response = await fetch(balanceRequestUrl(request.url), {
-                method: 'GET', headers: { Accept: 'application/json', ...request.headers(secret) }, signal: AbortSignal.timeout(10_000)
-            });
-            let body: unknown;
-            try { body = await response.json(); } catch { body = undefined; }
-            const result = describeBalanceResponse(id, response.status, body);
+            const get = async (url: string): Promise<{ status: number; body: unknown }> => {
+                const response = await fetch(balanceRequestUrl(url), {
+                    method: 'GET', headers: { Accept: 'application/json', ...request.headers(secret) }, signal: AbortSignal.timeout(10_000)
+                });
+                let body: unknown;
+                try { body = await response.json(); } catch { body = undefined; }
+                return { status: response.status, body };
+            };
+            const primary = await get(request.url);
+            let keyResponse: { status: number; body: unknown } | undefined;
+            if (id === 'openrouter' && (primary.status === 200 || primary.status === 401 || primary.status === 403)) {
+                try { keyResponse = await get(OPENROUTER_KEY_URL); }
+                catch { /* 口座残高が読めた場合は補足の失敗を無視する */ }
+            }
+            const result = describeBalanceResponse(id, primary.status, primary.body, keyResponse);
             // 表示用の 1 行にキーが混ざることは無いが、念のため反射を止める（doctor と同じ扱い）。
             if (result.display?.includes(secret)) { return { ok: false, error: '残高の応答を読み取れませんでした。', checked_at }; }
             return { ...result, checked_at };

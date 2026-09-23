@@ -211,17 +211,21 @@ test('(e) 残高の口: OpenRouter / fal / ElevenLabs はあり、Groq / Replica
     assert.equal(providerHasBalanceEndpoint('voicevox'), false);
     const { BALANCE_REQUESTS, describeBalanceResponse, balanceRequestUrl } = require('../../lib/node/akari-connections-service.js');
     assert.deepEqual(Object.keys(BALANCE_REQUESTS).sort(), ['elevenlabs', 'fal', 'openrouter']);
-    assert.equal(BALANCE_REQUESTS.openrouter.url, 'https://openrouter.ai/api/v1/key');
+    assert.equal(BALANCE_REQUESTS.openrouter.url, 'https://openrouter.ai/api/v1/credits');
     assert.deepEqual(BALANCE_REQUESTS.openrouter.headers('k'), { Authorization: 'Bearer k' });
     assert.equal(BALANCE_REQUESTS.fal.url, 'https://api.fal.ai/v1/account/billing?expand=credits');
     assert.deepEqual(BALANCE_REQUESTS.fal.headers('k'), { Authorization: 'Key k' });
     assert.equal(BALANCE_REQUESTS.elevenlabs.url, 'https://api.elevenlabs.io/v1/user/subscription');
     assert.deepEqual(BALANCE_REQUESTS.elevenlabs.headers('k'), { 'xi-api-key': 'k' });
     // 応答 → 1 行の表示
-    assert.deepEqual(describeBalanceResponse('openrouter', 200, { data: { limit_remaining: 4.7234, usage: 1 } }), { ok: true, display: '残り $4.72' });
-    assert.deepEqual(describeBalanceResponse('openrouter', 200, { data: { limit_remaining: null, usage: 12.5 } }), { ok: true, display: 'キーの上限なし · 使用 $12.50' });
-    assert.deepEqual(describeBalanceResponse('fal', 200, { credits: { current_balance: 18.4, currency: 'USD' } }), { ok: true, display: '残り $18.40' });
-    assert.deepEqual(describeBalanceResponse('elevenlabs', 200, { character_limit: 100000, character_count: 12345 }), { ok: true, display: '残り 87,655 クレジット' });
+    assert.deepEqual(describeBalanceResponse('openrouter', 200, { data: { total_credits: 10, total_usage: 3.25 } }),
+        { ok: true, display: '口座の残高 残り $6.75' });
+    assert.deepEqual(describeBalanceResponse('openrouter', 403, {}, { status: 200, body: { data: { limit_remaining: 4.7234, usage: 1 } } }),
+        { ok: true, display: 'キーの上限 残り $4.72', account_url: 'https://openrouter.ai/settings/credits' });
+    assert.deepEqual(describeBalanceResponse('openrouter', 403, {}, { status: 200, body: { data: { limit_remaining: null, usage: 12.5 } } }),
+        { ok: true, display: 'キーの上限なし · 使用 $12.50', account_url: 'https://openrouter.ai/settings/credits' });
+    assert.deepEqual(describeBalanceResponse('fal', 200, { credits: { current_balance: 18.4, currency: 'USD' } }), { ok: true, display: '口座のクレジット 残り $18.40' });
+    assert.deepEqual(describeBalanceResponse('elevenlabs', 200, { character_limit: 100000, character_count: 12345 }), { ok: true, display: '今月の残り 87,655 クレジット' });
     assert.match(describeBalanceResponse('fal', 403, {}).error, /ADMIN/);
     assert.equal(describeBalanceResponse('openrouter', 401, {}).ok, false);
     assert.equal(describeBalanceResponse('openrouter', 500, {}).error, '残高を取得できませんでした（HTTP 500）。');

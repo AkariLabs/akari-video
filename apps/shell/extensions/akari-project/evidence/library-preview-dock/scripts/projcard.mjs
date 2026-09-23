@@ -1,0 +1,22 @@
+// Project-surface material card: hover then click; record card top shift + inserted nodes.
+import { writeFileSync } from 'node:fs';
+import { setTimeout as sleep } from 'node:timers/promises';
+import { connectMain, evalMain, realClick } from '../../materials-tab-hardening/cdp-lib.mjs';
+const [rel, out] = process.argv.slice(2);
+const cdp = await connectMain(Number(process.env.CDP_PORT || 9455));
+const ev = e => evalMain(cdp, e, 30000);
+const tops = `[...document.querySelectorAll('#akari-role-buckets-widget [data-akari-ui^="asset:"]')].map(e=>e.getAttribute('data-akari-ui')+'@'+Math.round(e.getBoundingClientRect().top*10)/10)`;
+const before = await ev(tops);
+await ev(`(() => { window.__lpdAdded = []; const m = new MutationObserver(recs => { for (const r of recs) for (const n of r.addedNodes) if (n.nodeType === 1) window.__lpdAdded.push((n.tagName + '.' + (n.className||'') + [...n.attributes].filter(x=>x.name.startsWith('data-akari')).map(x=>'['+x.name+']').join('')).slice(0,140)); }); m.observe(document.getElementById('akari-role-buckets-widget'), { childList: true, subtree: true }); window.__lpdMo = m; })()`);
+const p = await ev(`(() => { const r=document.querySelector('[data-akari-ui="asset:${rel}"]').getBoundingClientRect(); return [r.left + r.width/2, r.top + r.height/2]; })()`);
+await cdp.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: p[0], y: p[1] });
+await sleep(1500);
+const hover = await ev(tops);
+const hoverAdded = await ev(`[...new Set(window.__lpdAdded)]`);
+await ev(`window.__lpdAdded = []`);
+await realClick(cdp, p[0], p[1]);
+await sleep(1500);
+const click = await ev(tops);
+const clickAdded = await ev(`(() => { window.__lpdMo.disconnect(); return [...new Set(window.__lpdAdded)]; })()`);
+const rec = { rel, before, hover, hoverAdded, click, clickAdded, at: new Date().toISOString() };
+writeFileSync(out, JSON.stringify(rec, null, 1)); console.log(JSON.stringify(rec, null, 1)); process.exit(0);
