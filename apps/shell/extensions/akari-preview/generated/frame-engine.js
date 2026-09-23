@@ -5729,11 +5729,17 @@ ${indent}`);
     "packages/edit-store/lib/generation-meta.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
+      exports.GENERATION_META_KINDS = void 0;
+      exports.isGenerationMetaKind = isGenerationMetaKind;
       exports.sidecarPathFor = sidecarPathFor;
       exports.bindingShaFor = bindingShaFor;
       exports.resolveGenerationState = resolveGenerationState;
       exports.selectGenerationSidecarForSource = selectGenerationSidecarForSource;
       exports.describeNextDraft = describeNextDraft;
+      exports.GENERATION_META_KINDS = ["still", "video", "frames", "audio"];
+      function isGenerationMetaKind(kind) {
+        return exports.GENERATION_META_KINDS.some((candidate) => candidate === kind);
+      }
       function sidecarPathFor(sourcePath) {
         return `${sourcePath}.meta.json`;
       }

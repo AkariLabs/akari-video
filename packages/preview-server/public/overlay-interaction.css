@@ -76,6 +76,40 @@
   transform: translate(-50%, 50%);
   cursor: nesw-resize;
 }
+.akari-interaction-handle.is-edge {
+  width: 8px;
+  height: 8px;
+  border: 1px solid #fff;
+  border-radius: 1px;
+  background: #35b8e7;
+}
+.akari-interaction-handle.is-n {
+  top: 0;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  cursor: ns-resize;
+}
+.akari-interaction-handle.is-e {
+  top: 50%;
+  right: 0;
+  transform: translate(50%, -50%);
+  cursor: ew-resize;
+}
+.akari-interaction-handle.is-s {
+  bottom: 0;
+  left: 50%;
+  transform: translate(-50%, 50%);
+  cursor: ns-resize;
+}
+.akari-interaction-handle.is-w {
+  top: 50%;
+  left: 0;
+  transform: translate(-50%, -50%);
+  cursor: ew-resize;
+}
+.akari-interaction-selection-frame:not([data-akari-selection-kind=leaf]) .is-edge {
+  display: none;
+}
 .akari-interaction-rotate-stem {
   position: absolute;
   left: 50%;
