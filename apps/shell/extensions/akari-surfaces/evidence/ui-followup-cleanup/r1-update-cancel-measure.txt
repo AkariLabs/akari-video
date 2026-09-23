@@ -1,0 +1,50 @@
+== before
+2 written=9437184 socketBytes=9437873 buffered=131072
+total 18560
+-rw-r--r--@ 1 ryoma  staff  9437184 Sep 23 20:17 temp-AKARI-Video-0.1.99-mac-arm64.zip
+COMMAND     PID  USER   FD   TYPE             DEVICE SIZE/OFF NODE NAME
+node      11836 ryoma   13u  IPv4 0x6d64db8467017088      0t0  TCP 127.0.0.1:8764->127.0.0.1:62193 (ESTABLISHED)
+Electron  12061 ryoma   26u  IPv4 0x874fea9b408918ad      0t0  TCP 127.0.0.1:62193->127.0.0.1:8764 (ESTABLISHED)
+Electron  12061 ryoma   32u  IPv4 0xb95a01c20f79b918      0t0  TCP 127.0.0.1:62208->127.0.0.1:8764 (CLOSE_WAIT)
+clicked やめる 2026-09-23T11:17:19.309Z
+== +4s
+2026-09-23T11:16:54.877Z listening 8764
+2026-09-23T11:16:59.417Z #1 GET /latest-mac.yml?noCache=1k36vncce
+2026-09-23T11:16:59.450Z #2 GET /AKARI-Video-0.1.99-mac-arm64.zip
+2026-09-23T11:17:02.684Z #3 GET /latest.json
+2026-09-23T11:17:19.491Z #2 response closed written=10354688 socketBytes=10355377
+2 written=10354688 socketBytes=10355377 buffered=131072
+COMMAND     PID  USER   FD   TYPE             DEVICE SIZE/OFF NODE NAME
+Electron  12061 ryoma   32u  IPv4 0xb95a01c20f79b918      0t0  TCP 127.0.0.1:62208->127.0.0.1:8764 (CLOSE_WAIT)
+pending:
+total 0
+drwxr-xr-x@ 2 ryoma  staff  64 Sep 23 20:17 .
+drwxr-xr-x@ 3 ryoma  staff  96 Sep 23 20:16 ..
+no toast
+== +10s
+2 written=10354688 socketBytes=10355377 buffered=131072
+COMMAND     PID  USER   FD   TYPE             DEVICE SIZE/OFF NODE NAME
+Electron  12061 ryoma   32u  IPv4 0xb95a01c20f79b918      0t0  TCP 127.0.0.1:62208->127.0.0.1:8764 (CLOSE_WAIT)
+total 0
+drwxr-xr-x@ 2 ryoma  staff  64 Sep 23 20:17 .
+drwxr-xr-x@ 3 ryoma  staff  96 Sep 23 20:16 ..
+== recheck
+clicked recheck 2026-09-23T11:17:42.071Z
+== recheck +Ns
+2026-09-23T11:17:19.491Z #2 response closed written=10354688 socketBytes=10355377
+2026-09-23T11:17:42.083Z #4 GET /latest-mac.yml?noCache=1k36vom1r
+2026-09-23T11:17:42.211Z #5 GET /AKARI-Video-0.1.99-mac-arm64.zip
+5 written=3145728 socketBytes=3146417 buffered=131072
+total 6400
+-rw-r--r--@ 1 ryoma  staff  3145728 Sep 23 20:17 temp-AKARI-Video-0.1.99-mac-arm64.zip
+toast: v0.1.99 をダウンロード中 × ダウンロードしています。裏で続きます。 変更点 やめる
+clicked やめる again 2026-09-23T11:17:49.597Z
+== again +4s
+2026-09-23T11:17:42.211Z #5 GET /AKARI-Video-0.1.99-mac-arm64.zip
+2026-09-23T11:17:49.679Z #5 response closed written=3801088 socketBytes=3801777
+5 written=3801088 socketBytes=3801777 buffered=131072
+COMMAND     PID  USER   FD   TYPE             DEVICE SIZE/OFF NODE NAME
+Electron  12061 ryoma   32u  IPv4 0xb95a01c20f79b918      0t0  TCP 127.0.0.1:62208->127.0.0.1:8764 (CLOSE_WAIT)
+total 0
+drwxr-xr-x@ 2 ryoma  staff  64 Sep 23 20:17 .
+drwxr-xr-x@ 3 ryoma  staff  96 Sep 23 20:16 ..

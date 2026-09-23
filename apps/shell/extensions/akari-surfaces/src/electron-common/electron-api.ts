@@ -21,16 +21,16 @@ export function isUpdaterTemporaryFileName(name: string): boolean {
 }
 
 interface TrackedUpdaterResponse {
-    on(event: 'end' | 'error' | 'aborted', listener: () => void): unknown;
+    on(event: 'end' | 'error' | 'aborted' | 'close', listener: () => void): unknown;
 }
 
 interface TrackedUpdaterRequest {
-    on(event: 'close' | 'abort' | 'error', listener: () => void): unknown;
+    on(event: 'abort' | 'error', listener: () => void): unknown;
     on(event: 'response', listener: (response: TrackedUpdaterResponse) => void): unknown;
     abort(): void;
 }
 
-/** Tracks only live updater requests; no Electron dependency, so cancellation can be tested with fakes. */
+/** Tracks updater requests until the response finishes or fails; request close can precede the response body. */
 export class UpdaterRequestTracker {
     private readonly requests = new Set<TrackedUpdaterRequest>();
 
@@ -40,10 +40,10 @@ export class UpdaterRequestTracker {
         const request = candidate as TrackedUpdaterRequest;
         this.requests.add(request);
         const forget = (): void => { this.requests.delete(request); };
-        for (const event of ['close', 'abort', 'error'] as const) { request.on(event, forget); }
+        for (const event of ['abort', 'error'] as const) { request.on(event, forget); }
         request.on('response', response => {
             if (!response || typeof response.on !== 'function') { return; }
-            for (const event of ['end', 'error', 'aborted'] as const) { response.on(event, forget); }
+            for (const event of ['end', 'error', 'aborted', 'close'] as const) { response.on(event, forget); }
         });
         return candidate;
     }

@@ -224,7 +224,10 @@ export function normalizeShortcutKey(binding: string): string {
     }).join(' ');
 }
 
-/** Same key sequence and satisfiable when expressions on distinct active commands. */
+/** Only AKARI command rows receive a conflict badge. */
+export function isAkariShortcutCommand(id: string): boolean { return id.startsWith('akari.'); }
+
+/** Same key and satisfiable when on distinct commands, with at least one AKARI command. */
 export function shortcutConflicts(rows: readonly ShortcutRow[]): Set<string> {
     const owners = new Map<string, { id: string; binding: ShortcutBinding }[]>();
     for (const row of rows) for (const binding of row.bindings) {
@@ -236,8 +239,12 @@ export function shortcutConflicts(rows: readonly ShortcutRow[]): Set<string> {
     const conflicts = new Set<string>();
     for (const entries of owners.values()) for (let i = 0; i < entries.length; i++) for (let j = i + 1; j < entries.length; j++) {
         const a = entries[i]; const b = entries[j];
-        if (a.id !== b.id && shortcutWhensOverlap(a.binding.when, b.binding.when, a.binding.context, b.binding.context)) {
-            conflicts.add(a.id); conflicts.add(b.id);
+        const aIsAkari = isAkariShortcutCommand(a.id);
+        const bIsAkari = isAkariShortcutCommand(b.id);
+        if (a.id !== b.id && (aIsAkari || bIsAkari)
+            && shortcutWhensOverlap(a.binding.when, b.binding.when, a.binding.context, b.binding.context)) {
+            if (aIsAkari) { conflicts.add(a.id); }
+            if (bIsAkari) { conflicts.add(b.id); }
         }
     }
     return conflicts;

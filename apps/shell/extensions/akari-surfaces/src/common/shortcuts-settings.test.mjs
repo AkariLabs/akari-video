@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { SHORTCUT_GROUPS, AKARI_SHORTCUT_ORDER, compareShortcutRows, shortcutGroup, normalizeShortcutSearch, shortcutKeyText, matchesShortcut,
-    filterShortcuts, shortcutConflicts, shortcutWhensOverlap, normalizeShortcutKey, keybindingFromKeyCode, shortcutWhen } from '../../lib/common/shortcuts-settings.js';
+    filterShortcuts, shortcutConflicts, shortcutWhensOverlap, isAkariShortcutCommand, normalizeShortcutKey, keybindingFromKeyCode, shortcutWhen } from '../../lib/common/shortcuts-settings.js';
 
 test('registered AKARI command IDs map to the seven navigation groups', () => {
     assert.deepEqual(SHORTCUT_GROUPS.map(group => group.id), ['editing', 'playback', 'preview', 'script', 'panels', 'partner', 'other']);
@@ -53,19 +53,19 @@ test('AKARI registration order wins over label order, then other AKARI and Theia
     ]);
 });
 
-test('filters include user disable lines, active unassigned and overlapping conflicts', () => {
+test('filters include user disable lines, active unassigned and AKARI overlapping conflicts', () => {
     const rows = [
-        { id: 'a', label: 'A', group: 'other', bindings: [{ keybinding: 'b', when: 'timeline' }], modified: false, conflict: false },
-        { id: 'b', label: 'B', group: 'other', bindings: [{ keybinding: 'B', when: 'timeline' }], modified: true, conflict: false },
-        { id: 'c', label: 'C', group: 'other', bindings: [{ keybinding: 'b', when: 'preview' }], modified: false, conflict: false },
+        { id: 'akari.a', label: 'A', group: 'other', bindings: [{ keybinding: 'b', when: 'timeline' }], modified: false, conflict: false },
+        { id: 'theia.b', label: 'B', group: 'other', bindings: [{ keybinding: 'B', when: 'timeline' }], modified: true, conflict: false },
+        { id: 'akari.c', label: 'C', group: 'other', bindings: [{ keybinding: 'b', when: 'preview' }], modified: false, conflict: false },
         { id: 'd', label: 'D', group: 'other', bindings: [], modified: true, conflict: false }
     ];
     const conflicts = shortcutConflicts(rows);
-    assert.deepEqual([...conflicts].sort(), ['a', 'b', 'c']);
+    assert.deepEqual([...conflicts].sort(), ['akari.a', 'akari.c']);
     for (const row of rows) { row.conflict = conflicts.has(row.id); }
-    assert.deepEqual(filterShortcuts(rows, '', 'modified').map(row => row.id), ['b', 'd']);
+    assert.deepEqual(filterShortcuts(rows, '', 'modified').map(row => row.id), ['theia.b', 'd']);
     assert.deepEqual(filterShortcuts(rows, '', 'unassigned').map(row => row.id), ['d']);
-    assert.deepEqual(filterShortcuts(rows, '', 'conflicts').map(row => row.id), ['a', 'b', 'c']);
+    assert.deepEqual(filterShortcuts(rows, '', 'conflicts').map(row => row.id), ['akari.a', 'akari.c']);
     assert.deepEqual(filterShortcuts(rows, 'D', 'all').map(row => row.id), ['d']);
 });
 
@@ -103,17 +103,30 @@ test('actual Space, Delete, undo and copy bindings still overlap', () => {
     for (const [keybinding, whenA, whenB] of cases) {
         const row = (id, when) => ({ id, label: id, group: 'other', bindings: [{ keybinding, when }], modified: false, conflict: false });
         assert.deepEqual([...shortcutConflicts([row('akari.command', whenA), row('theia.command', whenB)])].sort(),
-            ['akari.command', 'theia.command'], keybinding);
+            ['akari.command'], keybinding);
     }
 });
 
-test('conflicts normalize modifier order and complete chords, exclude same command and disabled bindings', () => {
+test('conflicts badge AKARI rows only when active commands can share a key and when', () => {
     const row = (id, keybinding, when, command) => ({ id, label: id, group: 'other', bindings: [{ keybinding, when, command }], modified: false, conflict: false });
+    const cases = [
+        ['AKARI and Theia', [row('akari.a', 'b'), row('theia.b', 'B')], ['akari.a']],
+        ['two AKARI commands', [row('akari.a', 'b'), row('akari.b', 'B')], ['akari.a', 'akari.b']],
+        ['two Theia commands', [row('theia.a', 'b'), row('theia.b', 'B')], []],
+        ['exclusive when', [row('akari.a', 'b', 'A'), row('theia.b', 'b', '!A')], []],
+        ['disabled row', [row('akari.a', 'b'), row('-theia.b', 'b')], []],
+        ['disabled binding', [row('akari.a', 'b'), row('theia.b', 'b', undefined, '-theia.b')], []],
+        ['same command', [row('akari.a', 'b'), row('akari.a', 'B')], []]
+    ];
+    for (const [name, rows, expected] of cases) {
+        assert.deepEqual([...shortcutConflicts(rows)].sort(), expected, name);
+    }
+    assert.equal(isAkariShortcutCommand('akari.a'), true);
+    assert.equal(isAkariShortcutCommand('theia.a'), false);
+    assert.equal(isAkariShortcutCommand('-akari.a'), false);
     assert.equal(normalizeShortcutKey('SHIFT+CMD+B'), normalizeShortcutKey('ctrlcmd+shift+b'));
-    assert.deepEqual([...shortcutConflicts([row('a', 'shift+cmd+b'), row('b', 'ctrlcmd+shift+B')])].sort(), ['a', 'b']);
-    assert.deepEqual([...shortcutConflicts([row('a', 'ctrlcmd+k ctrlcmd+b'), row('b', 'cmd+k cmd+b'), row('c', 'cmd+k')])].sort(), ['a', 'b']);
-    assert.equal(shortcutConflicts([row('a', 'b'), row('a', 'B')]).size, 0);
-    assert.equal(shortcutConflicts([row('a', 'b'), row('b', 'b', undefined, '-b')]).size, 0);
+    assert.deepEqual([...shortcutConflicts([row('akari.a', 'shift+cmd+b'), row('theia.b', 'ctrlcmd+shift+B')])], ['akari.a']);
+    assert.deepEqual([...shortcutConflicts([row('akari.a', 'ctrlcmd+k ctrlcmd+b'), row('theia.b', 'cmd+k cmd+b'), row('akari.c', 'cmd+k')])], ['akari.a']);
 });
 
 test('AKARI negative-only when is blank without changing other labels', () => {

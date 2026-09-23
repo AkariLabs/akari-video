@@ -30,10 +30,25 @@ test('cleanup selects updater temporary files only', () => {
     for (const [name, expected] of names) { assert.equal(isUpdaterTemporaryFileName(name), expected, name); }
 });
 
+test('request close leaves a receiving response available for cancellation', () => {
+    const tracker = new UpdaterRequestTracker();
+    const request = tracker.track(new FakeRequest());
+    const response = new EventEmitter();
+    request.emit('response', response);
+    request.emit('close');
+    assert.equal(tracker.size, 1);
+    assert.deepEqual(tracker.abortAll(), []);
+    assert.equal(request.aborts, 1);
+    assert.equal(tracker.size, 0);
+    // The tracker keeps its error listeners after abort, so late transport errors cannot crash main.
+    assert.doesNotThrow(() => request.emit('error', new Error('late request error')));
+    assert.doesNotThrow(() => response.emit('error', new Error('late response error')));
+});
+
 test('updater request tracker removes each completed or aborted request', () => {
     const cases = [
-        ['close', 'request'], ['abort', 'request'], ['error', 'request'],
-        ['end', 'response'], ['error', 'response'], ['aborted', 'response']
+        ['abort', 'request'], ['error', 'request'],
+        ['end', 'response'], ['error', 'response'], ['aborted', 'response'], ['close', 'response']
     ];
     for (const [event, source] of cases) {
         const tracker = new UpdaterRequestTracker();
@@ -58,7 +73,9 @@ test('cancel aborts every outstanding request even when one abort throws', () =>
     failed.abort = () => { throw new Error('abort failed'); };
     const last = tracker.track(new FakeRequest());
     const completed = tracker.track(new FakeRequest());
-    completed.emit('close');
+    const response = new EventEmitter();
+    completed.emit('response', response);
+    response.emit('end');
     assert.equal(tracker.size, 3);
     assert.equal(tracker.abortAll().length, 1);
     assert.equal(first.aborts, 1);
