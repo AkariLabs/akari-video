@@ -35,7 +35,7 @@ test('呼び出しボタンは「変更を見る」より左に出て、枠の�
   assert.match(frame, /moveBy\(data\.drag\.dx, data\.drag\.dy\)/);
   assert.match(frame, /moveBy\(dx: unknown, dy: unknown\)/);
   // 中身から届いた差分だけで動かし、親のマウスイベントに依存しない。
-  assert.match(frame, /this\.contentDragging && Number\.isFinite\(data\.drag\.dx\)/);
+  assert.match(frame, /else if \(Number\.isFinite\(data\.drag\.dx\) && Number\.isFinite\(data\.drag\.dy\)\)/);
   assert.doesNotMatch(frame, /akari-companion-drag-surface|handleDragMove/);
 });
 

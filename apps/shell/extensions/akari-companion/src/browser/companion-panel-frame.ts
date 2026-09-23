@@ -342,9 +342,9 @@ export class CompanionPanelFrame {
         if (data.drag) {
             if (data.drag.phase === 'start') this.startContentDrag();
             else if (data.drag.phase === 'end') this.endDrag();
-            else if (this.contentDragging && Number.isFinite(data.drag.dx) && Number.isFinite(data.drag.dy)) {
+            else if (Number.isFinite(data.drag.dx) && Number.isFinite(data.drag.dy)) {
                 this.moveBy(data.drag.dx, data.drag.dy);
-                this.resetContentDragTimeout();
+                this.startContentDrag();
             }
             return;
         }

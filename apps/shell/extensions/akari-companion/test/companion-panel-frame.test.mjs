@@ -143,22 +143,6 @@ test('(b) 親の mousemove はボタンが離れていても中身の移動を�
   frame.unmount();
 });
 
-test('(c) start 前と end 後の差分では枠が動かない', () => {
-  const { frame, mount, message } = fixture();
-  mount();
-  const { x, y } = frame;
-  const delta = { type: 'akari-companion-panel', drag: { dx: 30, dy: 10 } };
-  message(delta);
-  assert.deepEqual([frame.x, frame.y], [x, y]);
-  message({ type: 'akari-companion-panel', drag: { phase: 'start' } });
-  message(delta);
-  message({ type: 'akari-companion-panel', drag: { phase: 'end', dx: 200, dy: 100 } });
-  message(delta);
-  assert.deepEqual([frame.x, frame.y], [x + 30, y + 10]);
-  assert.equal(frame.contentDragging, false);
-  frame.unmount();
-});
-
 test('(d) start から 2 秒で終了し、差分・blur・unmount でタイマーを片付ける', () => {
   const { frame, win, timers, advance, mount, message } = fixture();
   mount();
@@ -177,9 +161,6 @@ test('(d) start から 2 秒で終了し、差分・blur・unmount でタイマ�
   advance(1);
   assert.equal(frame.contentDragging, false);
   assert.equal(timers.size, 0);
-  const x = frame.x;
-  message({ type: 'akari-companion-panel', drag: { dx: 10, dy: 0 } });
-  assert.equal(frame.x, x);
   message({ type: 'akari-companion-panel', drag: { phase: 'start' } });
   win.dispatch('blur');
   assert.equal(timers.size, 0);
@@ -238,6 +219,41 @@ test('(f) 左端の帯を左へ動かすと右端固定で幅を保存・通知�
   assert.equal(frame.size.width, 620);
   assert.equal(values.has(storageKey), false);
   assert.deepEqual(frame.iframeEl.messages.at(-1), [{ type: 'akari-companion-frame', width: 620 }, '*']);
+  frame.unmount();
+});
+
+test('(g) つかんだまま 3 秒止めても次の差分で合計 20 動く', () => {
+  const { frame, timers, advance, mount, message } = fixture();
+  mount();
+  const x = frame.x;
+  message({ type: 'akari-companion-panel', drag: { phase: 'start' } });
+  message({ type: 'akari-companion-panel', drag: { dx: 10, dy: 0 } });
+  advance(3000);
+  assert.equal(frame.contentDragging, false);
+  assert.equal(timers.size, 0);
+  message({ type: 'akari-companion-panel', drag: { dx: 10, dy: 0 } });
+  assert.equal(frame.x, x + 20);
+  assert.equal(frame.contentDragging, true);
+  assert.equal(timers.size, 1);
+  frame.unmount();
+});
+
+test('(h) start 前と end 後の差分でも枠が動く', () => {
+  const { frame, timers, mount, message } = fixture();
+  mount();
+  const { x, y } = frame;
+  const delta = { type: 'akari-companion-panel', drag: { dx: 30, dy: 10 } };
+  message(delta);
+  assert.deepEqual([frame.x, frame.y], [x + 30, y + 10]);
+  assert.equal(frame.contentDragging, true);
+  message({ type: 'akari-companion-panel', drag: { phase: 'end', dx: 200, dy: 100 } });
+  assert.deepEqual([frame.x, frame.y], [x + 30, y + 10]);
+  assert.equal(frame.contentDragging, false);
+  assert.equal(timers.size, 0);
+  message(delta);
+  assert.deepEqual([frame.x, frame.y], [x + 60, y + 20]);
+  assert.equal(frame.contentDragging, true);
+  assert.equal(timers.size, 1);
   frame.unmount();
 });
 
