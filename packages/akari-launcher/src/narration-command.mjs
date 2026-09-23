@@ -7,7 +7,7 @@ import path from "node:path";
 import { spawn, spawnSync } from "node:child_process";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { resolveLauncherAssets } from "./repo-assets.mjs";
-import { resolveVoiceProfile } from "./voice-command.mjs";
+import { readFalKey, resolveVoiceProfile } from "./voice-command.mjs";
 
 const VOICEVOX_BASE_URL = "http://127.0.0.1:50021";
 const VOICEVOX_RUN_ENV = "VOICEVOX_RUN";
@@ -385,49 +385,11 @@ function relativeOutputPath(id, engine) {
   return `out/narration/${id}.${extensionFor(engine)}`;
 }
 
-// --- credentials.env（fal-qwen3 用。skills/analyze-footage/bin/transcribe-cloud.mjs と同型） ---
-
-function credentialsPath() {
-  return path.resolve(
-    process.env.AKARI_CREDENTIALS_FILE
-      ?? path.join(os.homedir(), ".config", "akari-video", "credentials.env"),
-  );
-}
-
-function readCredentials() {
-  let source;
-  try {
-    source = fs.readFileSync(credentialsPath(), "utf8");
-  } catch (error) {
-    if (error?.code === "ENOENT") return new Map();
-    throw new PublicError("credentials.env を読めません");
-  }
-  const values = new Map();
-  for (const originalLine of source.split(/\r?\n/)) {
-    const line = originalLine.trim();
-    if (!line || line.startsWith("#")) continue;
-    const separator = line.indexOf("=");
-    if (separator < 1) continue;
-    const name = line.slice(0, separator).trim();
-    if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(name)) continue;
-    let value = line.slice(separator + 1).trim();
-    if (
-      value.length >= 2
-      && ((value.startsWith('"') && value.endsWith('"'))
-        || (value.startsWith("'") && value.endsWith("'")))
-    ) {
-      value = value.slice(1, -1);
-    }
-    values.set(name, value);
-  }
-  return values;
-}
-
 function resolveFalKey() {
-  const secret = readCredentials().get("FAL_KEY");
+  const secret = readFalKey(process.env);
   if (!secret) {
     throw new PublicError(
-      `FAL_KEY が未設定です。${credentialsPath()} に FAL_KEY=... を 1 行追加してください`
+      `FAL_KEY が未設定です。<AKARI_HOME>/credentials.env に FAL_KEY=... を 1 行追加してください`
       + "（取得先: https://fal.ai/dashboard/keys）。",
     );
   }
@@ -821,7 +783,9 @@ async function listEngines(runtime = {}) {
       ? { state: "needs", label: "VOICEVOX を起動します（自動）", detail }
       : { state: "unconfigured", label: "VOICEVOX をインストール", detail: { ...detail, setup_url: "https://voicevox.hiroshiba.jp/" } };
   }
-  const configured = Boolean(readCredentials().get("FAL_KEY"));
+  let configured = false;
+  try { configured = Boolean(readFalKey(runtime.env || process.env)); }
+  catch { /* 配布物の creator-root や鍵ファイルを読めなくても一覧は返す。 */ }
   const falAvailability = configured
     ? { state: "available", label: "fal を使用できます" }
     : { state: "unconfigured", label: "fal の鍵を登録" };
@@ -909,7 +873,7 @@ async function runDryRun(options, readingText, io) {
     emit({
       dry_run: true, engine: options.engine, output_path: outputPath,
       estimated_cost_usd: estimateGeminiTtsCostUsd(readingText.length),
-      request: { endpoint: GEMINI_TTS_URL, headers: { Authorization: `Key ${maskKey(readCredentials().get("FAL_KEY"))}` },
+      request: { endpoint: GEMINI_TTS_URL, headers: { Authorization: `Key ${maskKey(readFalKey(process.env))}` },
         body: { prompt: readingText, voice: options.voice, model: "gemini-2.5-flash-tts", output_format: "mp3", language_code: "Japanese (Japan)", ...(options.style ? { style_instructions: options.style } : {}) } },
     }, io.log);
     return;

@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
-import { runVoiceCommand, checkVoiceRecording, resolveVoiceProfile, VOICE_SCRIPTS } from '../src/voice-command.mjs';
+import { runVoiceCommand, checkVoiceRecording, readFalKey, resolveVoiceProfile, VOICE_SCRIPTS } from '../src/voice-command.mjs';
 
 function sandbox() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'akari-voice-test-'));
@@ -98,6 +98,145 @@ test('create は本人同意・check 合格を要求し、voice.json の既存�
     assert.deepEqual(JSON.parse(fs.readFileSync(path.join(voiceDir, 'voice.json'))), { speaker: 3, extra: true, default_profile: 'sample' });
     const other = await run(['create', '--avatar', 'person', '--id', 'second', '--label', '別', '--audio', 'dummy.wav', '--script', 'quick-v1', '--consent-self'], runtime);
     assert.equal(other.code, 0); assert.equal(JSON.parse(fs.readFileSync(path.join(voiceDir, 'voice.json'))).default_profile, 'sample');
+  } finally { box.cleanup(); }
+});
+
+test('rename は表示名だけを原子的に変更し、旧形式を拒否する', async () => {
+  const box = sandbox();
+  try {
+    const { dir } = writeMeta(box.env, 'person', 'sample');
+    let result = await run(['rename', '--profile', 'sample', '--label', '  新しい名前  '], { env: box.env });
+    assert.equal(result.code, 0, result.json.error);
+    assert.equal(result.json.label, '新しい名前');
+    const meta = JSON.parse(fs.readFileSync(path.join(dir, 'meta.json')));
+    assert.equal(meta.label, '新しい名前'); assert.equal(meta.profile, 'sample');
+    assert.equal(fs.statSync(path.join(dir, 'meta.json')).mode & 0o777, 0o600);
+    assert.deepEqual(fs.readdirSync(dir).sort(), ['meta.json', 'ref-recording.wav']);
+    const legacy = path.join(box.env.HOME, '.config', 'akari-video', 'voice-profiles', 'old');
+    fs.mkdirSync(legacy, { recursive: true }); fs.writeFileSync(path.join(legacy, 'meta.json'), JSON.stringify({ profile: 'old', label: '旧' }));
+    result = await run(['rename', '--profile', 'old', '--label', '変更'], { env: box.env });
+    assert.equal(result.code, 2);
+    assert.equal(JSON.parse(fs.readFileSync(path.join(legacy, 'meta.json'))).label, '旧');
+  } finally { box.cleanup(); }
+});
+
+test('extend は失敗時に正本を保ち、連結後に prev・stale・警告を記録する', async () => {
+  const box = sandbox();
+  try {
+    const { dir, meta } = writeMeta(box.env, 'person', 'sample', {
+      reference: { file: 'ref-recording.wav', duration_s: 20, script_version: 'quick-v1', verification: { score: 0.9 } },
+      engines: { irodori: { voice_id: 'akari-sample' }, 'fal-qwen3': { embedding_source_url: 'https://example.invalid/embedding' } },
+    });
+    const recording = path.join(dir, 'ref-recording.wav');
+    const original = fs.readFileSync(recording);
+    const args = ['extend', '--profile', 'sample', '--audio', 'extra.wav', '--script', 'extended-v1'];
+    let result = await run(args, { ...fixtureRuntime(box.env), measureAudio: () => ({ ...validMeasure, duration_s: 44 }) });
+    assert.equal(result.code, 2);
+    assert.deepEqual(fs.readFileSync(recording), original);
+    assert.deepEqual(JSON.parse(fs.readFileSync(path.join(dir, 'meta.json'))), meta);
+    assert.equal(fs.existsSync(path.join(dir, 'ref-recording.prev.wav')), false);
+    const runtime = { ...fixtureRuntime(box.env), measureAudio: file => ({ ...validMeasure, duration_s: file === 'extra.wav' ? 60 : 80 }),
+      concatAudio: (_first, _second, output) => fs.writeFileSync(output, Buffer.from('combined wav')),
+      verifyCombined: (_file, text) => { assert.equal(text, VOICE_SCRIPTS['quick-v1'] + VOICE_SCRIPTS['extended-v1']); return validVerify; } };
+    result = await run(args, runtime);
+    assert.equal(result.code, 0, result.json.error);
+    assert.equal(result.json.duration_s, 80);
+    assert.match(result.json.warnings[0], /写しを作り直して/);
+    assert.deepEqual(fs.readFileSync(path.join(dir, 'ref-recording.prev.wav')), original);
+    assert.equal(fs.statSync(path.join(dir, 'ref-recording.prev.wav')).mode & 0o777, 0o600);
+    const updated = JSON.parse(fs.readFileSync(path.join(dir, 'meta.json')));
+    assert.equal(updated.reference.script_version, 'quick-v1+extended-v1');
+    assert.equal(updated.reference.sha256.length, 64);
+    assert.equal(updated.reference.verification.score, validVerify.score);
+    assert.equal(updated.engines.irodori.stale, true);
+    assert.equal(updated.engines['fal-qwen3'].stale, true);
+    assert.equal(updated.reference_text, VOICE_SCRIPTS['quick-v1'] + VOICE_SCRIPTS['extended-v1']);
+    assert.deepEqual(fs.readdirSync(dir).sort(), ['meta.json', 'ref-recording.prev.wav', 'ref-recording.wav']);
+    const beforeSecond = Object.fromEntries(['meta.json', 'ref-recording.prev.wav', 'ref-recording.wav']
+      .map(name => [name, fs.readFileSync(path.join(dir, name))]));
+    result = await run(args, runtime);
+    assert.equal(result.code, 2);
+    assert.deepEqual(fs.readdirSync(dir).sort(), Object.keys(beforeSecond).sort());
+    for (const [name, bytes] of Object.entries(beforeSecond)) assert.deepEqual(fs.readFileSync(path.join(dir, name)), bytes);
+    result = await run(['profiles'], { env: box.env });
+    assert.equal(result.json.profiles[0].copies.irodori.stale, true);
+    const fetchImpl = async () => new Response('{}');
+    result = await run(['copy', '--profile', 'sample', '--engine', 'irodori'], { env: box.env, fetchImpl });
+    assert.equal(result.code, 0, result.json.error);
+    assert.equal(JSON.parse(fs.readFileSync(path.join(dir, 'meta.json'))).engines.irodori.stale, undefined);
+    result = await run(['profiles'], { env: box.env });
+    assert.equal(result.json.profiles[0].copies.irodori.stale, false);
+    assert.equal(result.json.profiles[0].copies['fal-qwen3'].stale, true);
+  } finally { box.cleanup(); }
+});
+
+const ffmpegAvailable = spawnSync('ffmpeg', ['-version'], { encoding: 'utf8' }).status === 0;
+test('extend は実 ffmpeg で異なる形式の wav を 48 kHz モノラルの 80 秒に連結する', async t => {
+  if (!ffmpegAvailable) { t.skip('ffmpeg が PATH にありません'); return; }
+  const box = sandbox();
+  try {
+    const { dir } = writeMeta(box.env, 'person', 'sample', {
+      reference: { file: 'ref-recording.wav', duration_s: 20, script_version: 'quick-v1', verification: { score: 0.9 } },
+    });
+    const recording = path.join(dir, 'ref-recording.wav');
+    const addition = path.join(box.root, 'extended.wav');
+    const make = (seconds, sampleRate, channels, file) => {
+      const result = spawnSync('ffmpeg', ['-v', 'error', '-y', '-f', 'lavfi', '-i',
+        `sine=frequency=440:duration=${seconds}:sample_rate=${sampleRate}`, '-ac', String(channels), '-c:a', 'pcm_s16le', file]);
+      assert.equal(result.status, 0, result.stderr?.toString());
+    };
+    make(20, 44100, 2, recording);
+    make(60, 48000, 1, addition);
+    const original = fs.readFileSync(recording);
+    const result = await run(['extend', '--profile', 'sample', '--audio', addition, '--script', 'extended-v1'], {
+      env: box.env, verifyScript: () => validVerify, verifyCombined: () => validVerify,
+    });
+    assert.equal(result.code, 0, result.json.error);
+    const wav = fs.readFileSync(recording);
+    assert.equal(wav.toString('ascii', 0, 4), 'RIFF');
+    assert.equal(wav.toString('ascii', 8, 12), 'WAVE');
+    assert.equal(wav.readUInt16LE(22), 1);
+    assert.equal(wav.readUInt32LE(24), 48000);
+    const data = wav.indexOf('data', 36, 'ascii');
+    assert.ok(data >= 0);
+    const duration = wav.readUInt32LE(data + 4) / wav.readUInt32LE(28);
+    assert.ok(Math.abs(duration - 80) <= 0.2, `wav duration: ${duration}`);
+    const meta = JSON.parse(fs.readFileSync(path.join(dir, 'meta.json')));
+    assert.ok(Math.abs(meta.reference.duration_s - 80) <= 0.2, `meta duration: ${meta.reference.duration_s}`);
+    assert.ok(Math.abs(meta.reference.duration_s - duration) <= 0.002);
+    assert.deepEqual(fs.readFileSync(path.join(dir, 'ref-recording.prev.wav')), original);
+    assert.deepEqual(fs.readdirSync(dir).sort(), ['meta.json', 'ref-recording.prev.wav', 'ref-recording.wav']);
+  } finally { box.cleanup(); }
+});
+
+test('鍵は環境変数・指定ファイル・新・旧の順で読み、値を JSON に出さない', async () => {
+  const box = sandbox();
+  try {
+    const newer = path.join(box.env.AKARI_HOME, 'credentials.env');
+    const older = path.join(box.env.HOME, '.config', 'akari-video', 'credentials.env');
+    fs.mkdirSync(path.dirname(newer), { recursive: true }); fs.mkdirSync(path.dirname(older), { recursive: true });
+    fs.writeFileSync(older, 'FAL_KEY=legacy-dummy');
+    const env = { ...box.env, FAL_KEY: '' };
+    assert.equal(readFalKey(env), 'legacy-dummy');
+    fs.writeFileSync(newer, 'FAL_KEY=new-dummy');
+    assert.equal(readFalKey(env), 'new-dummy');
+    fs.rmSync(older); assert.equal(readFalKey(env), 'new-dummy');
+    const explicit = path.join(box.root, 'explicit.env'); fs.writeFileSync(explicit, 'FAL_KEY=explicit-dummy');
+    assert.equal(readFalKey({ ...env, AKARI_CREDENTIALS_FILE: explicit }), 'explicit-dummy');
+    assert.equal(readFalKey({ ...env, AKARI_CREDENTIALS_FILE: explicit, FAL_KEY: 'environment-dummy' }), 'environment-dummy');
+    writeMeta(box.env, 'person', 'sample');
+    const result = await run(['copy', '--profile', 'sample', '--engine', 'fal-qwen3', '--yes'], {
+      env: { ...env, AKARI_CREDENTIALS_FILE: explicit, FAL_KEY: 'environment-dummy' },
+      fetchImpl: async (_url, options) => {
+        assert.equal(options.headers.Authorization, 'Key environment-dummy');
+        return new Response(JSON.stringify({ speaker_embedding: { url: 'https://example.invalid/embedding' } }));
+      },
+    });
+    assert.equal(result.code, 0, result.json.error);
+    for (const key of ['legacy-dummy', 'new-dummy', 'explicit-dummy', 'environment-dummy']) {
+      assert.equal(JSON.stringify(result.json).includes(key), false);
+      assert.equal(result.errors.join(' ').includes(key), false);
+    }
   } finally { box.cleanup(); }
 });
 

@@ -8,6 +8,8 @@
 akari voice scripts --json
 akari voice check --audio <録音> --script quick-v1 --json
 akari voice create --avatar <人> --id <声のid> --label <表示名> --audio <録音> --script quick-v1 --consent-self --json
+akari voice rename --profile <声のid> --label <新しい表示名> --json
+akari voice extend --profile <声のid> --audio <追加録音> --script extended-v1 --json
 akari voice copy --profile <声のid> --engine irodori --json
 akari voice try --profile <声のid> --engine irodori --text 'こんにちは。' --json
 akari voice profiles --json
@@ -15,6 +17,8 @@ akari voice profiles --json
 
 - 原稿は `quick-v1`（約 20 秒）と `extended-v1`（約 60 秒）。`scripts` が返した本文をそのまま読む。`check` は長さ、音量、周囲の音、原稿との一致を確認する。周囲の音だけは警告で、作成を止めない。
 - `create` でクラウド送信に同意する場合は `--consent-cloud` を追加する。作成時には写しを作らない。
+- `rename` は新しい場所の表示名だけを変える。声 ID とディレクトリ名は変わらない。旧い声は先に `migrate-legacy` する。
+- `extend` は `extended-v1` の追加録音をチェックし、正本と連結して全文を照合し直す。前の正本は `ref-recording.prev.wav` に 1 世代だけ残る。写しがあれば `stale: true` になり、JSON の警告に従って `voice copy` で作り直す。`voice profiles --json` の `copies` に各写しの `stale` が出る。作り直した写しは `stale: false` になる。クラウドの作り直しには再度費用承認が必要。
 - 彩への `copy` は `--irodori-url`、`AKARI_IRODORI_URL`、`http://127.0.0.1:8088` の順に接続先を決める。録音を multipart で送って `akari-<id>` として登録する。ローカルサーバーへの登録は無料。
 - fal の写しは `akari voice copy --profile <id> --engine fal-qwen3 --yes --json`。約 $0.01 の費用と録音の外部送信がある。`--yes` がなければ見積りだけを返す。`try` の fal 生成にも `--yes` が必要。
 - `akari narration generate --engine irodori|fal-qwen3 --profile <id>` は新しい場所を優先し、旧い `~/.config/akari-video/voice-profiles/<id>/` も読む。彩の写しがない声は `voice copy` で登録してから使う。
@@ -63,7 +67,7 @@ akari voice profiles --json
 
 ### 5. クローン（fal `clone-voice/1.7b`）
 
-`FAL_KEY` は `~/.config/akari-video/credentials.env` から読む（manage-connections 経由のみ。
+`FAL_KEY` は `~/.akari/credentials.env` から読む（旧 `~/.config/akari-video/credentials.env` も読む。manage-connections 経由のみ。
 ハードルール 5）。参照音声を data URI にエンコードし、`reference_text` に §1 の原稿本文をそのまま
 渡して `fal-ai/qwen-3-tts/clone-voice/1.7b` を呼ぶ。応答の `speaker_embedding.url` が
 声プロファイル資産（`embedding_source_url`）になる。**有償操作**なので、実行前に対象・使う手・理由・
@@ -73,8 +77,8 @@ akari voice profiles --json
 
 ### 6. 保存
 
-`~/.config/akari-video/voice-profiles/<name>/` に以下を保存する（`credentials.env` と同じ
-ユーザーレベル・git 管理外）。
+`~/.config/akari-video/voice-profiles/<name>/` に以下を保存する（旧来の保存先。鍵は
+`~/.akari/credentials.env` を優先する。いずれもユーザーレベル・git 管理外）。
 
 - `embedding.safetensors`（または `embedding_source_url` を meta.json に記録し、資産は fal 側 URL
   参照のままでもよい。実装は `akari narration generate` の fal-qwen3 アダプタが

@@ -189,7 +189,9 @@ test('engines JSON: VOICEVOX の available / needs / unconfigured と fal 鍵状
   const priorFetch = globalThis.fetch;
   const priorRun = process.env.VOICEVOX_RUN;
   const priorCredentials = process.env.AKARI_CREDENTIALS_FILE;
+  const priorFalKey = process.env.FAL_KEY;
   try {
+    delete process.env.FAL_KEY;
     process.env.AKARI_CREDENTIALS_FILE = join(scratch, 'credentials.env');
     process.env.VOICEVOX_RUN = join(scratch, 'run');
     let up = false;
@@ -225,6 +227,53 @@ test('engines JSON: VOICEVOX の available / needs / unconfigured と fal 鍵状
     globalThis.fetch = priorFetch;
     if (priorRun === undefined) delete process.env.VOICEVOX_RUN; else process.env.VOICEVOX_RUN = priorRun;
     if (priorCredentials === undefined) delete process.env.AKARI_CREDENTIALS_FILE; else process.env.AKARI_CREDENTIALS_FILE = priorCredentials;
+    if (priorFalKey === undefined) delete process.env.FAL_KEY; else process.env.FAL_KEY = priorFalKey;
+    await rm(scratch, { recursive: true, force: true });
+  }
+});
+
+test('engines の fal availability は共通鍵の新旧・指定・環境変数を反映し、鍵を表示しない', async () => {
+  const scratch = await mkdtemp(join(tmpdir(), 'akari-narration-credentials-'));
+  const names = ['HOME', 'AKARI_HOME', 'AKARI_CREDENTIALS_FILE', 'FAL_KEY', 'VOICEVOX_RUN'];
+  const prior = Object.fromEntries(names.map(name => [name, process.env[name]]));
+  const oldFetch = globalThis.fetch;
+  try {
+    process.env.HOME = scratch;
+    process.env.AKARI_HOME = join(scratch, 'akari');
+    process.env.VOICEVOX_RUN = join(scratch, 'missing-run');
+    delete process.env.AKARI_CREDENTIALS_FILE; delete process.env.FAL_KEY;
+    globalThis.fetch = async () => ({ ok: false });
+    const newer = join(process.env.AKARI_HOME, 'credentials.env');
+    const older = join(scratch, '.config', 'akari-video', 'credentials.env');
+    const explicit = join(scratch, 'explicit.env');
+    const { mkdir } = await import('node:fs/promises');
+    await mkdir(join(scratch, '.config', 'akari-video'), { recursive: true });
+    await mkdir(process.env.AKARI_HOME, { recursive: true });
+    const inspect = async () => {
+      const output = collectLogs();
+      assert.equal((await runNarrationCommand(['engines', '--json'], { ...output,
+        engineRuntime: { pidPath: join(scratch, 'pid'), isProcessAlive: () => false } })).exitCode, 0);
+      const raw = output.lines[0];
+      for (const key of ['old-dummy', 'new-dummy', 'explicit-dummy', 'env-dummy']) assert.equal(raw.includes(key), false);
+      const engines = JSON.parse(raw).engines;
+      const state = engines.find(engine => engine.id === 'gemini-tts').availability.state;
+      if (state === 'unconfigured') assert.equal(engines.find(engine => engine.id === 'fal-qwen3').availability.state, 'unconfigured');
+      return state;
+    };
+    assert.equal(await inspect(), 'unconfigured');
+    await writeFile(older, 'FAL_KEY=old-dummy'); assert.equal(await inspect(), 'available');
+    await writeFile(newer, 'FAL_KEY=new-dummy'); assert.equal(await inspect(), 'available');
+    await writeFile(explicit, 'FAL_KEY=explicit-dummy'); process.env.AKARI_CREDENTIALS_FILE = explicit;
+    assert.equal(await inspect(), 'available');
+    process.env.FAL_KEY = 'env-dummy'; assert.equal(await inspect(), 'available');
+    delete process.env.FAL_KEY;
+    const unreadable = join(scratch, 'unreadable-credentials');
+    await mkdir(unreadable);
+    process.env.AKARI_CREDENTIALS_FILE = unreadable;
+    assert.equal(await inspect(), 'unconfigured');
+  } finally {
+    globalThis.fetch = oldFetch;
+    for (const name of names) { if (prior[name] === undefined) delete process.env[name]; else process.env[name] = prior[name]; }
     await rm(scratch, { recursive: true, force: true });
   }
 });

@@ -1,0 +1,36 @@
+{
+  "status": "ok",
+  "profile": "sample",
+  "avatar": "person",
+  "path": "<temporary-home>/akari/avatars/person/voice/sample",
+  "meta": {
+    "version": 2,
+    "profile": "sample",
+    "label": "合成テスト",
+    "avatar": "person",
+    "created_at": "2026-09-23T18:37:33.557Z",
+    "consent": {
+      "self_voice": true,
+      "cloud_upload": false,
+      "at": "2026-09-23T18:37:33.557Z",
+      "via": "akari voice create --consent-self"
+    },
+    "reference": {
+      "file": "ref-recording.wav",
+      "sha256": "4b6ceb59710c7cec47b2b4182eed7d4d9e29b91185af2e87baaa84f2472d5764",
+      "duration_s": 28.363,
+      "script_version": "quick-v1",
+      "verification": {
+        "score": 0.955,
+        "backend": "speech-analyzer"
+      },
+      "level": {
+        "peak_db": -5.63,
+        "mean_db": -30.3,
+        "floor_db": -63.19
+      }
+    },
+    "reference_text": "こんにちは。今日は、いつもの調子で、ゆっくり話してみます。朝、コーヒーを淹れながら、今日やることを整理します。窓の外では、街がゆっくり動き出しています。準備ができたら、ひとつずつ、形にしていきましょう。",
+    "engines": {}
+  }
+}
