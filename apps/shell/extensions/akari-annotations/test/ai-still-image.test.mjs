@@ -18,7 +18,11 @@ const models = [{ id: 'fal:h3-i2v', kind: 'video', provider: 'fal', price: { usd
 test('カタログの順序と対象ごとの押下可否', () => {
   const catalog = aiActionCatalog(models);
   assert.deepEqual(catalog.map(row => row.id), ['still', 'video', 'transcribe']);
-  assert.deepEqual(catalog[0].routes, [{ id: 'codex', label: 'Codex', kind: 'cli', cost: 'free' }]);
+  assert.deepEqual(catalog[0].routes, [
+    { id: 'codex', label: 'Codex', kind: 'cli', cost: 'free' },
+    { id: 'antigravity', label: 'Antigravity', kind: 'cli', cost: 'free' },
+    { id: 'grok', label: 'Grok', kind: 'cli', cost: 'free' }
+  ]);
   for (const target of ['empty-frame', 'still']) {
     assert.equal(describeAiTiles(catalog, target)[0].tiles[0].enabled, true);
   }
@@ -57,14 +61,14 @@ test('状態確認は ready / signed-out / missing / 5 秒打ち切りで秘密�
   const dir = await mkdtemp(join(tmpdir(), 'akari-still-probe-'));
   try {
     const stateFile = join(dir, 'state');
-    const manager = new StillGenerationManager(findAsset, { env: { ...process.env, AKARI_CODEX_BIN: fixture, FAKE_CODEX_STATE_FILE: stateFile } });
+    const manager = new StillGenerationManager(findAsset, { env: { ...process.env, AKARI_CODEX_BIN: fixture, AKARI_AGY_BIN: join(dir, 'missing'), AKARI_GROK_BIN: join(dir, 'missing'), FAKE_CODEX_STATE_FILE: stateFile } });
     assert.equal((await manager.probeImageRoutes())[0].state, 'ready');
     assert.doesNotMatch((await manager.probeImageRoutes())[0].detail, /person@example.com/u);
     await writeFile(stateFile, 'signed-out');
     const signedOut = (await manager.probeImageRoutes())[0];
     assert.equal(signedOut.state, 'signed-out');
     assert.doesNotMatch(signedOut.detail, /person@example.com/u);
-    const missing = new StillGenerationManager(findAsset, { env: { ...process.env, AKARI_CODEX_BIN: join(dir, 'missing') } });
+    const missing = new StillGenerationManager(findAsset, { env: { ...process.env, AKARI_CODEX_BIN: join(dir, 'missing'), AKARI_AGY_BIN: join(dir, 'missing'), AKARI_GROK_BIN: join(dir, 'missing') } });
     assert.equal((await missing.probeImageRoutes())[0].state, 'missing');
     await writeFile(stateFile, 'sleep');
     const started = Date.now();
@@ -97,7 +101,7 @@ test('probe と生成の spawn に Codex の場所を先頭にした PATH を渡
   const { dir } = await project();
   const paths = [];
   try {
-    const manager = new StillGenerationManager(findAsset, { env: { ...process.env, PATH: '/usr/bin', AKARI_CODEX_BIN: fixture },
+    const manager = new StillGenerationManager(findAsset, { env: { ...process.env, PATH: '/usr/bin', AKARI_CODEX_BIN: fixture, AKARI_AGY_BIN: join(dir, 'missing'), AKARI_GROK_BIN: join(dir, 'missing') },
       spawnProcess: (command, args, options) => {
         paths.push(options.env.PATH);
         return spawn(process.execPath, [command, ...args], options);

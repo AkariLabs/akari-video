@@ -1,0 +1,350 @@
+{
+  "status": "PASS",
+  "step": "cleanup",
+  "boot": {
+    "preload": {
+      "checks": 1,
+      "last": {
+        "ready": true,
+        "present": false,
+        "visible": false,
+        "display": null,
+        "visibility": null,
+        "opacity": null,
+        "preloadPresent": false,
+        "hitAtCut": {
+          "tag": "DIV",
+          "class": "akari-annotations-strip-clip akari-generation-planned akari-generation-chip-layo"
+        }
+      },
+      "samples": [
+        {
+          "elapsedMs": 8,
+          "ready": true,
+          "present": false,
+          "visible": false,
+          "display": null,
+          "visibility": null,
+          "opacity": null,
+          "preloadPresent": false,
+          "hitAtCut": {
+            "tag": "DIV",
+            "class": "akari-annotations-strip-clip akari-generation-planned akari-generation-chip-layo"
+          }
+        }
+      ]
+    },
+    "cutHit": {
+      "checks": 1,
+      "last": {
+        "ready": true,
+        "target": true,
+        "hit": {
+          "tag": "DIV",
+          "class": "akari-annotations-strip-clip akari-generation-planned akari-generation-chip-layo"
+        },
+        "preloadPresent": false,
+        "hitAtCut": {
+          "tag": "DIV",
+          "class": "akari-annotations-strip-clip akari-generation-planned akari-generation-chip-layo"
+        }
+      },
+      "samples": [
+        {
+          "elapsedMs": 20,
+          "ready": true,
+          "target": true,
+          "hit": {
+            "tag": "DIV",
+            "class": "akari-annotations-strip-clip akari-generation-planned akari-generation-chip-layo"
+          },
+          "preloadPresent": false,
+          "hitAtCut": {
+            "tag": "DIV",
+            "class": "akari-annotations-strip-clip akari-generation-planned akari-generation-chip-layo"
+          }
+        }
+      ]
+    }
+  },
+  "checks": [
+    {
+      "name": "three ready route rows",
+      "pass": true,
+      "measured": [
+        {
+          "id": "codex",
+          "status": "使える"
+        },
+        {
+          "id": "antigravity",
+          "status": "使える"
+        },
+        {
+          "id": "grok",
+          "status": "使える"
+        }
+      ]
+    },
+    {
+      "name": "badge and route text do not intersect",
+      "pass": true,
+      "measured": {
+        "intersects": false,
+        "styled": true,
+        "disabled": true,
+        "badge": "使える",
+        "buttons": 5
+      }
+    },
+    {
+      "name": "clickable buttons have a background or border",
+      "pass": true,
+      "measured": {
+        "intersects": false,
+        "styled": true,
+        "disabled": true,
+        "badge": "使える",
+        "buttons": 5
+      }
+    },
+    {
+      "name": "Antigravity placed image in same frame",
+      "pass": true,
+      "measured": {
+        "id": "clip-b",
+        "at": 180,
+        "duration": 180,
+        "source": {
+          "kind": "media",
+          "src": "still-src-1",
+          "in": 0,
+          "out": 6
+        }
+      }
+    },
+    {
+      "name": "Antigravity has no aspect mismatch notice",
+      "pass": true,
+      "measured": {
+        "hasMismatch": false,
+        "notices": []
+      }
+    },
+    {
+      "name": "one undo restored source",
+      "pass": true,
+      "measured": {
+        "id": "clip-b",
+        "at": 180,
+        "duration": 180,
+        "source": {
+          "kind": "media",
+          "src": "still-b",
+          "in": 0,
+          "out": 6
+        }
+      }
+    },
+    {
+      "name": "undo heading and thumbnail have redrawn",
+      "pass": true,
+      "measured": {
+        "title": "b.png",
+        "thumbnail": "2a419c8eeae130a0ef2a623b22fa6b569b8536a917af92c5e9c9ad6fc4acc682",
+        "after": "0a46a589c421e91ff4427ac9ee402a3134a8fe6a750cf22139b6672e7aca8d63",
+        "measuredUndo": "9e430ade3ada9c3823b87c3aacecd4cc467cacc41a93145e4cd8b5902600e3af"
+      }
+    },
+    {
+      "name": "undo screenshot differs from replacement",
+      "pass": true,
+      "measured": "04 and 05 screenshot bytes"
+    },
+    {
+      "name": "Grok selection is remembered",
+      "pass": true,
+      "measured": "grok"
+    },
+    {
+      "name": "Grok signed out blocks create",
+      "pass": true,
+      "measured": {
+        "disabled": true,
+        "next": "ターミナルで grok login を実行してサインインしてください"
+      }
+    },
+    {
+      "name": "Grok placed image in same frame",
+      "pass": true,
+      "measured": {
+        "id": "clip-b",
+        "at": 180,
+        "duration": 180,
+        "source": {
+          "kind": "media",
+          "src": "still-src-1",
+          "in": 0,
+          "out": 6
+        }
+      }
+    },
+    {
+      "name": "Grok has no aspect mismatch notice",
+      "pass": true,
+      "measured": {
+        "hasMismatch": false,
+        "notices": []
+      }
+    },
+    {
+      "name": "at least five screenshots",
+      "pass": true,
+      "measured": [
+        "01-three-routes.png",
+        "02-antigravity-selected.png",
+        "03-antigravity-progress.png",
+        "04-antigravity-replaced.png",
+        "05-undo.png",
+        "06-grok-signed-out.png",
+        "07-grok-progress.png",
+        "08-grok-replaced.png"
+      ]
+    }
+  ],
+  "clicks": [
+    {
+      "name": "select cut 1",
+      "attempt": 1,
+      "passed": true
+    },
+    {
+      "name": "open AI",
+      "attempt": 1,
+      "passed": true
+    },
+    {
+      "name": "still panel",
+      "attempt": 1,
+      "passed": true
+    },
+    {
+      "name": "select Antigravity",
+      "attempt": 1,
+      "passed": true
+    },
+    {
+      "name": "Antigravity progress",
+      "attempt": 1,
+      "passed": true
+    },
+    {
+      "name": "undo click",
+      "attempt": 1,
+      "passed": true
+    },
+    {
+      "name": "open still panel",
+      "attempt": 1,
+      "passed": true
+    },
+    {
+      "name": "select Grok",
+      "attempt": 1,
+      "passed": true
+    },
+    {
+      "name": "Grok signed out",
+      "attempt": 1,
+      "passed": false,
+      "reason": "Timed out: Grok signed out; elementFromPoint={\"tag\":\"BUTTON\",\"class\":\"akari-inspector-ai-still-secondary\"}"
+    },
+    {
+      "name": "Grok signed out",
+      "attempt": 2,
+      "passed": false,
+      "reason": "Timed out: Grok signed out; elementFromPoint={\"tag\":\"BUTTON\",\"class\":\"akari-inspector-ai-still-secondary\"}"
+    },
+    {
+      "name": "Grok signed out",
+      "attempt": 3,
+      "passed": true
+    },
+    {
+      "name": "Grok ready",
+      "attempt": 1,
+      "passed": true
+    },
+    {
+      "name": "Grok progress",
+      "attempt": 1,
+      "passed": true
+    }
+  ],
+  "screenshots": [
+    {
+      "name": "01-three-routes.png",
+      "bytes": 263372
+    },
+    {
+      "name": "02-antigravity-selected.png",
+      "bytes": 258916
+    },
+    {
+      "name": "03-antigravity-progress.png",
+      "bytes": 236625
+    },
+    {
+      "name": "04-antigravity-replaced.png",
+      "bytes": 403145
+    },
+    {
+      "name": "05-undo.png",
+      "bytes": 388426
+    },
+    {
+      "name": "06-grok-signed-out.png",
+      "bytes": 266004
+    },
+    {
+      "name": "07-grok-progress.png",
+      "bytes": 259597
+    },
+    {
+      "name": "08-grok-replaced.png",
+      "bytes": 405306
+    }
+  ],
+  "measurements": {
+    "badgeTextIntersect": false,
+    "clickableButtonsStyled": true,
+    "disabledCreate": true,
+    "timelineThumbnailBefore": "25f56677e63d11bde8023bb6b87c7e17f51882140e88f99e9a8ee4143b7e2955",
+    "timelineThumbnailAfter": "0a46a589c421e91ff4427ac9ee402a3134a8fe6a750cf22139b6672e7aca8d63",
+    "timelineThumbnailUndo": "9e430ade3ada9c3823b87c3aacecd4cc467cacc41a93145e4cd8b5902600e3af",
+    "previewBefore": "24378f24680bc7b54dc405ddfc1da0c03e555fed89f2fa10343e4c5804b107cc",
+    "previewAfter": "ed1ffafae255de6520d43e8ce057bf229adfdff8cccfa2e8162393ddf5fc6ef6",
+    "previewUndo": "ed1ffafae255de6520d43e8ce057bf229adfdff8cccfa2e8162393ddf5fc6ef6",
+    "timelineThumbnailChanged": true,
+    "previewChanged": true,
+    "selectedRouteStorage": "grok"
+  },
+  "fixture": {
+    "ok": true,
+    "project": "evidence/ai-still-routes/fixture/project",
+    "clips": [
+      "clip-a",
+      "clip-b",
+      "clip-c",
+      "clip-plain",
+      "clip-mp4"
+    ],
+    "sidecars": [
+      "assets/stills/a.png.meta.json",
+      "assets/stills/b.png.meta.json",
+      "assets/stills/c.png.meta.json"
+    ],
+    "plainImage": "assets/stills/plain.png",
+    "captions": true
+  }
+}

@@ -143,8 +143,8 @@ export interface GenerationProcessResult {
     stderr?: string;
     exitCode?: number | null;
 }
-export interface ImageRouteState { id: 'codex'; state: 'ready' | 'signed-out' | 'missing'; detail: string; }
-export interface StartGenerateStillRequest { projectRootUri: string; itemId: string; prompt: string; aspect: '16:9' | '9:16' | '1:1'; }
+export interface ImageRouteState { id: 'codex' | 'antigravity' | 'grok'; state: 'ready' | 'signed-out' | 'missing'; detail: string; }
+export interface StartGenerateStillRequest { projectRootUri: string; itemId: string; prompt: string; aspect: '16:9' | '9:16' | '1:1'; route?: ImageRouteState['id']; }
 export interface GenerateStillResult { ok: boolean; reason?: string; relativePath?: string; width?: number; height?: number; elapsedSeconds?: number; cancelled?: boolean; }
 
 export interface GetClipFilmstripChunkRequest {

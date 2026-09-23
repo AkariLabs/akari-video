@@ -10,7 +10,9 @@ type Asset = (path: string) => Promise<string>;
 const redact = (value: unknown): string => String(value ?? '')
     .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/giu, '<email>')
     .replaceAll(homedir(), '<HOME>');
-const brief = (value: unknown, lines = 2): string => redact(value).split(/\r?\n/u).map(line => line.trim()).filter(Boolean).slice(0, lines).join(' / ').slice(0, 500);
+const brief = (value: unknown, lines = 2): string => redact(value).split(/\r?\n/u).map(line => line.trim()).filter(Boolean).slice(-lines).join(' / ').slice(0, 500);
+const keyNames = ['FAL_KEY', 'GROQ_API_KEY', 'OPENAI_API_KEY', 'GEMINI_API_KEY', 'GOOGLE_API_KEY', 'XAI_API_KEY'];
+type Route = ImageRouteState['id'];
 const aspectText: Record<StartGenerateStillRequest['aspect'], string> = {
     '16:9': '横長 16:9 の画像。', '9:16': '縦長 9:16 の画像。', '1:1': '正方形 1:1 の画像。'
 };
@@ -27,50 +29,78 @@ export class StillGenerationManager {
     private spawnEnv(cli: string): NodeJS.ProcessEnv {
         const entries = (this.env.PATH ?? '').split(delimiter).filter(Boolean);
         const fallback = ['/opt/homebrew/bin', '/usr/local/bin', join(homedir(), '.local', 'bin')];
-        return { ...this.env, PATH: [...new Set([dirname(resolve(cli)), ...entries, ...fallback])].join(delimiter) };
+        const env = { ...this.env, PATH: [...new Set([dirname(resolve(cli)), ...entries, ...fallback])].join(delimiter) };
+        for (const name of keyNames) delete env[name];
+        return env;
     }
 
-    async resolveCodex(): Promise<string | undefined> {
-        if (this.env.AKARI_CODEX_BIN) return await fs.stat(this.env.AKARI_CODEX_BIN).then(s => s.isFile() ? this.env.AKARI_CODEX_BIN : undefined).catch(() => undefined);
+    async resolveCli(route: Route): Promise<string | undefined> {
+        const name = route === 'antigravity' ? 'agy' : route;
+        const explicit = this.env[route === 'antigravity' ? 'AKARI_AGY_BIN' : route === 'grok' ? 'AKARI_GROK_BIN' : 'AKARI_CODEX_BIN'];
+        if (explicit) return await fs.stat(explicit).then(s => s.isFile() ? explicit : undefined).catch(() => undefined);
         const pathEntries = (this.env.PATH ?? '').split(delimiter);
         const candidates = [...pathEntries, '/opt/homebrew/bin', '/usr/local/bin', join(homedir(), '.local', 'bin')]
-            .filter(Boolean).map(dir => join(dir, process.platform === 'win32' ? 'codex.exe' : 'codex'));
+            .filter(Boolean).map(dir => join(dir, process.platform === 'win32' ? `${name}.exe` : name));
         for (const candidate of candidates) {
             if (await fs.stat(candidate).then(s => s.isFile()).catch(() => false)) return candidate;
         }
         return undefined;
     }
+    async resolveCodex(): Promise<string | undefined> { return this.resolveCli('codex'); }
 
     async probeImageRoutes(): Promise<ImageRouteState[]> {
-        const cli = await this.resolveCodex();
-        if (!cli) return [{ id: 'codex', state: 'missing', detail: 'Codex CLI が見つかりません' }];
-        return new Promise(resolvePromise => {
+        return Promise.all((['codex', 'antigravity', 'grok'] as const).map(route => this.probeRoute(route)));
+    }
+
+    private async probeRoute(route: Route): Promise<ImageRouteState> {
+        const cli = await this.resolveCli(route);
+        const label = route === 'antigravity' ? 'Antigravity' : route === 'grok' ? 'Grok' : 'Codex';
+        if (!cli) return { id: route, state: 'missing', detail: `${label} CLI が見つかりません` };
+        const args = route === 'codex' ? ['login', 'status'] : ['models'];
+        const deadline = Date.now() + (this.options.probeTimeoutMs ?? 5000);
+        const inspect = (): Promise<{ code: number | null; output: string; stdout: string; timedOut: boolean }> =>
+            new Promise(resolvePromise => {
             let output = '';
+            let stdout = '';
             let finished = false;
             let child: ChildProcess;
-            const finish = (state: ImageRouteState['state'], detail: string): void => {
+            const finish = (code: number | null, timedOut = false): void => {
                 if (finished) return;
                 finished = true;
                 clearTimeout(timer);
-                resolvePromise([{ id: 'codex', state, detail: brief(detail, 1) }]);
+                resolvePromise({ code, output, stdout, timedOut });
             };
-            const timer = setTimeout(() => { child?.kill('SIGKILL'); finish('missing', '確かめられませんでした（5 秒で打ち切り）'); }, this.options.probeTimeoutMs ?? 5000);
+            const timer = setTimeout(() => { child?.kill('SIGKILL'); finish(null, true); }, Math.max(1, deadline - Date.now()));
             try {
-                child = this.spawnProcess(cli, ['login', 'status'], { env: this.spawnEnv(cli), stdio: ['ignore', 'pipe', 'pipe'] });
-                child.stdout?.on('data', chunk => { if (output.length < 2000) output += String(chunk); });
+                child = this.spawnProcess(cli, args, { env: this.spawnEnv(cli), stdio: ['ignore', 'pipe', 'pipe'] });
+                child.stdout?.on('data', chunk => { if (output.length < 2000) output += String(chunk); if (stdout.length < 2000) stdout += String(chunk); });
                 child.stderr?.on('data', chunk => { if (output.length < 2000) output += String(chunk); });
-                child.once('error', error => finish('missing', error.message));
-                child.once('close', code => finish(code === 0 && /Logged in/iu.test(output) ? 'ready' : 'signed-out', output || `exit ${code}`));
-            } catch (error) { finish('missing', String(error)); }
+                child.once('error', error => { output += `\n${error.message}`; finish(null); });
+                child.once('close', code => finish(code));
+            } catch (error) { output += `\n${String(error)}`; finish(null); }
         });
+        const first = await inspect();
+        if (first.timedOut) return { id: route, state: 'missing', detail: '確かめられませんでした（5 秒で打ち切り）' };
+        if (first.code === null) return { id: route, state: 'missing', detail: '確かめられませんでした' };
+        let last = first;
+        if (route === 'grok' && /^You are not authenticated/iu.test(first.stdout.trimStart().split(/\r?\n/u)[0] ?? '')) {
+            last = await inspect();
+            if (last.timedOut) return { id: route, state: 'missing', detail: '確かめられませんでした（5 秒で打ち切り）' };
+        }
+        const ready = route === 'codex' ? last.code === 0 && /Logged in/iu.test(last.output)
+            : route === 'antigravity' ? last.code === 0 && last.stdout.split(/\r?\n/u).some(line => /^\S+\t\S+/u.test(line))
+                : last.code === 0 && /^You are logged in/iu.test(last.stdout.trimStart().split(/\r?\n/u)[0] ?? '');
+        return { id: route, state: ready ? 'ready' : 'signed-out', detail: ready ? 'サインイン済み' : 'サインインが必要です' };
     }
 
     async startGenerateStill(projectRoot: string, request: StartGenerateStillRequest): Promise<GenerateStillResult> {
         if (!request.prompt?.trim() || !aspectText[request.aspect]) return { ok: false, reason: '指示文と画角を指定してください。' };
         if (!/^[A-Za-z0-9][A-Za-z0-9._-]*$/u.test(request.itemId)) return { ok: false, reason: 'itemId が不正です。' };
         if (this.active.has(request.itemId)) return { ok: false, reason: 'この枠は生成中です。' };
-        const cli = await this.resolveCodex();
-        if (!cli) return { ok: false, reason: 'Codex CLI が見つかりません。' };
+        const route = request.route ?? 'codex';
+        if (!(['codex', 'antigravity', 'grok'] as const).includes(route)) return { ok: false, reason: '手段が不正です。' };
+        const cli = await this.resolveCli(route);
+        if (!cli) return { ok: false, reason: `${route === 'antigravity' ? 'Antigravity' : route === 'grok' ? 'Grok' : 'Codex'} CLI が見つかりません。` };
         const root = await fs.realpath(projectRoot);
         const edit = JSON.parse(await fs.readFile(join(root, 'edit.json'), 'utf8'));
         if (edit.version !== 2) return { ok: false, reason: 'v2 へ変換してから編集してください。' };
@@ -94,27 +124,39 @@ export class StillGenerationManager {
         try {
             const importEsm = new Function('specifier', 'return import(specifier)') as (specifier: string) => Promise<any>;
             const load = async (name: string): Promise<any> => importEsm(pathToFileURL(await this.findAsset(`packages/generate/src/cli/${name}.mjs`)).toString());
-            const [codex, metas, validator] = await Promise.all([load('codex-image'), load('meta-still'), load('meta-validate')]);
+            const [generator, metas, validator] = await Promise.all([load(route === 'codex' ? 'codex-image' : route === 'antigravity' ? 'agy-image' : 'grok-image'), load('meta-still'), load('meta-validate')]);
             const prompt = `${request.prompt.trim()}\n\n${aspectText[request.aspect]}`;
-            const result = (await codex.generateCodexImages({ projectDir: root, parallel: 1,
+            const spawnProcess = ((...args: Parameters<SpawnProcess>) => {
+                const child = this.spawnProcess(...args); run.child = child;
+                if (run.cancelled) child.kill('SIGTERM');
+                return child;
+            }) as SpawnProcess;
+            const result = route === 'codex' ? (await generator.generateCodexImages({ projectDir: root, parallel: 1,
                 items: [{ id, path: stageRelative, prompt }], env: { ...this.spawnEnv(cli), AKARI_CODEX_BIN: cli },
-                spawnProcess: ((...args: Parameters<SpawnProcess>) => {
-                    const child = this.spawnProcess(...args); run.child = child;
-                    if (run.cancelled) child.kill('SIGTERM');
-                    return child;
-                }) as SpawnProcess,
+                spawnProcess,
                 log: () => undefined, logError: () => undefined
-            }))[0];
+            }))[0] : await generator[route === 'antigravity' ? 'generateAgyImage' : 'generateGrokImage']({
+                projectDir: root, item: { id, path: stageRelative, prompt }, aspect: request.aspect,
+                env: { ...this.spawnEnv(cli), [route === 'antigravity' ? 'AKARI_AGY_BIN' : 'AKARI_GROK_BIN']: cli },
+                spawnProcess
+            });
             if (run.cancelled) return { ok: false, cancelled: true, reason: '中止しました。' };
-            if (!result?.ok) return { ok: false, reason: brief(result?.error ?? 'Codex から結果が返りませんでした') };
+            if (!result?.ok) return { ok: false, reason: brief(result?.error ?? `${route} から結果が返りませんでした`) };
             const image = await metas.inspectPng(join(staging, 'image.png'));
             const sourceAbsolute = resolve(root, sourcePath);
             if (!sourceAbsolute.startsWith(root + sep)) return { ok: false, reason: '元画像のパスが不正です。' };
             const oldMeta = await fs.readFile(`${sourceAbsolute}.meta.json`, 'utf8').then(JSON.parse).catch(() => undefined);
             const at = new Date().toISOString();
             const duration_s = Number(item.duration) / (Number(edit.output?.fps) || 30);
-            let meta = metas.doneStillMeta({ prompt, duration_s, at, asOf: await metas.readCodexModelAsOf(),
+            let meta = metas.doneStillMeta({ prompt, duration_s, at, asOf: route === 'codex' ? await metas.readCodexModelAsOf() : at.slice(0, 10),
                 path: relativePath, image, elapsed_s: result.elapsed_s });
+            if (route !== 'codex') {
+                const name = route === 'antigravity' ? 'agy' : 'grok';
+                meta.model.id = `${name}:image`;
+                meta.job.provider = name;
+                meta.provenance.tool = `akari generate still --${name}`;
+                meta.provenance.key_source = `login:${name}`;
+            }
             if (oldMeta?.next?.kind === 'video') {
                 const next = oldMeta.next;
                 meta = metas.withNextVideoDraft(meta, { firstFrame: { path: relativePath, sha256: image.sha256 },
@@ -146,6 +188,6 @@ export class StillGenerationManager {
         const run = this.active.get(itemId);
         if (!run) return;
         run.cancelled = true;
-        run.child?.kill('SIGTERM');
+        run.child?.kill('SIGKILL');
     }
 }

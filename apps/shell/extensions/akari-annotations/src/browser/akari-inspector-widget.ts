@@ -35,7 +35,7 @@ import {
 import { createSelectionHeader } from './inspector/selection-header';
 import { aiActionCatalog, describeAiTiles } from '../common/ai-action-catalog';
 import { aiTabAvailabilityFor, aiTabViewFor, aiTargetKindFor, appendAiBack, appendAiTiles, type AiTabView } from './inspector/ai-tiles';
-import { appendAiStillNotice, appendAiStillPanel, nearestStillAspect, replaceStillInEdit, stillDimensionMismatch, stillMismatchNotice, type AiStillState } from './inspector/ai-still-panel';
+import { appendAiStillNotice, appendAiStillPanel, nearestStillAspect, replaceStillInEdit, savedStillRoute, stillDimensionMismatch, stillMismatchNotice, type AiStillState } from './inspector/ai-still-panel';
 import { appendAiTranscribePanel, resolveAiTranscribeTarget, type AiTranscribeTarget } from './inspector/ai-transcribe-panel';
 import { appendAiMaterialView } from './inspector/ai-material-view';
 import { AKARI_MATERIAL_SELECTED_EVENT, materialSelectionFromDetail, type AkariMaterialSelection } from '../common/material-selected-event';
@@ -2710,7 +2710,9 @@ export class AkariInspectorWidget extends BaseWidget {
 .akari-inspector-widget button.akari-inspector-ai-still-aspect,
 .akari-inspector-widget button.akari-inspector-ai-still-secondary { padding: 5px 9px; color: var(--akari-ink); background: var(--akari-card); border: 1px solid var(--akari-line); border-radius: 5px; cursor: pointer; }
 .akari-inspector-widget button.akari-inspector-ai-still-aspect[aria-pressed="true"] { border-color: var(--akari-accent); color: var(--akari-accent); }
-.akari-inspector-ai-still-route { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; min-height: 28px; }
+.akari-inspector-ai-still-routes { display: grid; gap: 4px; }
+.akari-inspector-ai-still-route { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; min-height: 30px; cursor: pointer; }
+.akari-inspector-ai-still-route-radio { accent-color: var(--akari-accent); }
 .akari-inspector-ai-still-route-name { font-size: 12px; }
 .akari-inspector-ai-still-badge { display: inline-block; padding: 2px 7px; border: 1px solid var(--akari-line); border-radius: 20px; font-size: 11px; white-space: nowrap; }
 .akari-inspector-ai-still-badge[data-akari-inspector-ai-route-state="ready"] { color: var(--akari-accent); border-color: var(--akari-accent); }
@@ -5124,7 +5126,7 @@ export class AkariInspectorWidget extends BaseWidget {
         let state = this.aiStillStates.get(identity.key);
         if (!state) {
             const meta = this.generationTabMeta.get(identity.key) as { inputs?: { prompt?: string } } | undefined;
-            state = { prompt: meta?.inputs?.prompt ?? '', aspect: '16:9', probing: true, running: false };
+            state = { prompt: meta?.inputs?.prompt ?? '', aspect: '16:9', routeId: savedStillRoute(), probing: true, running: false };
             this.aiStillStates.set(identity.key, state);
             const root = this.workspaceService.tryGetRoots()[0]?.resource;
             if (root) {
@@ -5151,15 +5153,15 @@ export class AkariInspectorWidget extends BaseWidget {
         if (!state) return;
         state.probing = true;
         if (this.aiView === 'still') this.render();
-        try { state.route = (await this.layerAudioService.probeImageRoutes())[0]; }
-        catch { state.route = { id: 'codex', state: 'signed-out', detail: '確かめられませんでした' }; }
+        try { state.routes = await this.layerAudioService.probeImageRoutes(); }
+        catch { state.routes = (['codex', 'antigravity', 'grok'] as const).map(id => ({ id, state: 'missing', detail: '確かめられませんでした' })); }
         finally { state.probing = false; if (this.aiView === 'still') this.render(); }
     }
 
     protected async startStillGeneration(identity: { key: string; itemId: string; sourcePath: string }): Promise<void> {
         const state = this.aiStillStates.get(identity.key);
         const root = this.workspaceService.tryGetRoots()[0]?.resource;
-        if (!state || !root || state.running || state.route?.state !== 'ready' || !state.prompt.trim()) return;
+        if (!state || !root || state.running || state.routes?.find(route => route.id === (state.routeId ?? 'codex'))?.state !== 'ready' || !state.prompt.trim()) return;
         state.running = true;
         state.startedAt = Date.now();
         state.error = undefined;
@@ -5171,7 +5173,7 @@ export class AkariInspectorWidget extends BaseWidget {
         }, 1000);
         try {
             const result = await this.layerAudioService.startGenerateStill({ projectRootUri: root.toString(),
-                itemId: identity.itemId, prompt: state.prompt, aspect: state.aspect });
+                itemId: identity.itemId, prompt: state.prompt, aspect: state.aspect, route: state.routeId ?? 'codex' });
             if (!state.running) return;
             if (!result.ok || !result.relativePath) throw new Error(result.reason || '生成できませんでした。');
             state.mismatch = stillDimensionMismatch(state.aspect, result);

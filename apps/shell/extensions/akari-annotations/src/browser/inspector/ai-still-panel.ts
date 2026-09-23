@@ -1,8 +1,21 @@
 import type { GenerateStillResult, ImageRouteState } from '../../common/akari-annotations-protocol';
 
 export type StillAspect = '16:9' | '9:16' | '1:1';
+export type StillRoute = ImageRouteState['id'];
+const routeStorageKey = 'akari-inspector-ai-still-route';
+export const stillRouteIds: readonly StillRoute[] = ['codex', 'antigravity', 'grok'];
+export function savedStillRoute(): StillRoute {
+    try {
+        const value = localStorage.getItem(routeStorageKey);
+        if (stillRouteIds.includes(value as StillRoute)) return value as StillRoute;
+    } catch { /* Storage may be disabled in a webview. */ }
+    return 'codex';
+}
+export function rememberStillRoute(route: StillRoute): void {
+    try { localStorage.setItem(routeStorageKey, route); } catch { /* Keep the in-memory selection. */ }
+}
 export interface AiStillState {
-    prompt: string; aspect: StillAspect; route?: ImageRouteState; probing: boolean;
+    prompt: string; aspect: StillAspect; routeId?: StillRoute; routes?: ImageRouteState[]; route?: ImageRouteState; probing: boolean;
     running: boolean; startedAt?: number; error?: string; mismatch?: string;
 }
 export interface AiStillActions {
@@ -45,7 +58,12 @@ export function imageRouteBadgeText(route: ImageRouteState | undefined, probing:
 
 export function imageRouteNextText(route: ImageRouteState | undefined): string {
     if (route?.detail.includes('確かめられませんでした')) return route.detail;
-    return route?.state === 'signed-out' ? 'ターミナルで codex login を実行してください' : 'Codex CLI が見つかりません';
+    const id = route?.id ?? 'codex';
+    if (route?.state === 'signed-out') return id === 'antigravity'
+        ? 'ターミナルで agy を起動してサインインしてください'
+        : id === 'grok' ? 'ターミナルで grok login を実行してサインインしてください'
+            : 'ターミナルで codex login を実行してください';
+    return `${id === 'antigravity' ? 'Antigravity' : id === 'grok' ? 'Grok' : 'Codex'} CLI が見つかりません`;
 }
 
 /** Timeline's commitEditMutation calls this once, so undo restores both source table and item reference. */
@@ -80,7 +98,7 @@ export function appendAiStillPanel(parent: HTMLElement, state: AiStillState, act
     prompt.rows = 5;
     prompt.value = state.prompt;
     prompt.placeholder = '作りたい絵を言葉で書いてください';
-    prompt.addEventListener('input', () => { state.prompt = prompt.value; state.error = undefined; submit.disabled = !state.prompt.trim() || state.route?.state !== 'ready' || state.running; });
+    prompt.addEventListener('input', () => { state.prompt = prompt.value; state.error = undefined; submit.disabled = !state.prompt.trim() || selectedRoute()?.state !== 'ready' || state.running; });
     promptLabel.appendChild(prompt);
     panel.appendChild(promptLabel);
     panel.appendChild(make('div', 'akari-inspector-ai-still-label', '画角'));
@@ -95,30 +113,51 @@ export function appendAiStillPanel(parent: HTMLElement, state: AiStillState, act
     }
     panel.appendChild(aspects);
     panel.appendChild(make('div', 'akari-inspector-ai-still-label', '手段'));
-    const route = make('div', 'akari-inspector-ai-still-route');
-    route.appendChild(make('span', 'akari-inspector-ai-still-route-name', 'Codex · 無料'));
-    const stateText = imageRouteBadgeText(state.route, state.probing);
-    const badge = make('span', 'akari-inspector-ai-still-badge', stateText);
-    badge.setAttribute('data-akari-inspector-ai-route-state', state.route?.state ?? 'checking');
-    route.appendChild(badge);
-    panel.appendChild(route);
+    const selectedRoute = (): ImageRouteState | undefined => state.routes?.find(row => row.id === (state.routeId ?? 'codex'))
+        ?? ((state.routeId ?? 'codex') === 'codex' ? state.route : undefined);
+    const routes = make('div', 'akari-inspector-ai-still-routes');
+    for (const id of stillRouteIds) {
+        const routeState = state.routes?.find(row => row.id === id) ?? (id === 'codex' ? state.route : undefined);
+        const label = make('label', 'akari-inspector-ai-still-route');
+        label.setAttribute('data-akari-inspector-ai-route', id);
+        const radio = make('input', 'akari-inspector-ai-still-route-radio');
+        radio.type = 'radio';
+        radio.name = 'akari-inspector-ai-still-route';
+        radio.value = id;
+        radio.disabled = state.running;
+        radio.checked = (state.routeId ?? 'codex') === id;
+        radio.addEventListener('change', () => {
+            if (!radio.checked) return;
+            state.routeId = id;
+            rememberStillRoute(id);
+            actions.change();
+        });
+        label.appendChild(radio);
+        label.appendChild(make('span', 'akari-inspector-ai-still-route-name', `${id === 'antigravity' ? 'Antigravity' : id === 'grok' ? 'Grok' : 'Codex'} · サインインの範囲`));
+        const badge = make('span', 'akari-inspector-ai-still-badge', imageRouteBadgeText(routeState, state.probing));
+        badge.setAttribute('data-akari-inspector-ai-route-state', routeState?.state ?? 'checking');
+        label.appendChild(badge);
+        routes.appendChild(label);
+    }
+    panel.appendChild(routes);
     const refresh = make('button', 'akari-inspector-ai-still-secondary', '状態を確かめ直す');
     refresh.type = 'button';
     refresh.disabled = state.probing || state.running;
     refresh.setAttribute('data-akari-inspector-ai-refresh', 'true');
     refresh.addEventListener('click', actions.probe);
     panel.appendChild(refresh);
-    if (state.route?.state !== 'ready' && !state.probing) panel.appendChild(make('p', 'akari-inspector-ai-still-next',
-        imageRouteNextText(state.route)));
+    if (selectedRoute()?.state !== 'ready' && !state.probing) panel.appendChild(make('p', 'akari-inspector-ai-still-next',
+        imageRouteNextText(selectedRoute() ?? { id: state.routeId ?? 'codex', state: 'missing', detail: '' })));
     const submit = make('button', 'akari-inspector-ai-still-primary', '作る');
     submit.type = 'button';
-    submit.disabled = !state.prompt.trim() || state.route?.state !== 'ready' || state.running;
+    submit.disabled = !state.prompt.trim() || selectedRoute()?.state !== 'ready' || state.running;
     submit.setAttribute('data-akari-inspector-ai-create', 'true');
     submit.addEventListener('click', actions.generate);
     panel.appendChild(submit);
     if (state.running) {
         const elapsed = Math.max(0, Math.floor((Date.now() - (state.startedAt ?? Date.now())) / 1000));
-        panel.appendChild(make('p', 'akari-inspector-ai-still-progress', `Codex で作っています · ${elapsed} 秒`));
+        const name = state.routeId === 'antigravity' ? 'Antigravity' : state.routeId === 'grok' ? 'Grok' : 'Codex';
+        panel.appendChild(make('p', 'akari-inspector-ai-still-progress', `${name} で作っています · ${elapsed} 秒`));
         const cancel = make('button', 'akari-inspector-ai-still-secondary', 'キャンセル');
         cancel.type = 'button';
         cancel.setAttribute('data-akari-inspector-ai-cancel', 'true');
@@ -130,7 +169,7 @@ export function appendAiStillPanel(parent: HTMLElement, state: AiStillState, act
         const retry = make('button', 'akari-inspector-ai-still-secondary', 'もう一度');
         retry.type = 'button';
         retry.setAttribute('data-akari-inspector-ai-retry', 'true');
-        retry.disabled = !state.prompt.trim() || state.route?.state !== 'ready';
+        retry.disabled = !state.prompt.trim() || selectedRoute()?.state !== 'ready';
         retry.addEventListener('click', actions.generate);
         panel.appendChild(retry);
     }
