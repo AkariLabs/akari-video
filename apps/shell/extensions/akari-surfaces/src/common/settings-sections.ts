@@ -10,6 +10,7 @@ export const SETTINGS_SECTIONS = [
     { id: 'connections', label: '接続と API キー', group: 'main', icon: 'key' },
     { id: 'partner', label: 'パートナー', group: 'main', icon: 'bot', badge: '新' },
     { id: 'transcribe', label: '文字起こし', group: 'main', icon: 'mic' },
+    { id: 'narration', label: '読み上げ', group: 'main', icon: 'mic' },
     { id: 'quality', label: 'プレビュー品質', group: 'main', icon: 'gauge' },
     { id: 'notifications', label: '通知', group: 'main', icon: 'bell' },
     { id: 'tools', label: '道具', group: 'main', icon: 'wrench' },
@@ -36,6 +37,7 @@ export const SETTINGS_SECTION_DESCRIPTIONS: Record<SettingsSectionId, string> = 
     about: 'バージョンとアップデート。',
     connections: '外部サービスの接続と API キーを管理します。生成の既定モデル（静止画・動画）もここで選びます。',
     transcribe: '文字起こしのモードとエンジンを選びます。',
+    narration: '読み上げ（音声を作る）の既定のエンジンと声。エンジンの準備は読み上げのポップアップのカードからできます。',
     quality: 'プレビューの描き方を選びます。',
     notifications: 'AI パートナーの処理が終わったときの通知を設定します。',
     tools: '動画づくりに必要な道具の状態を確認し、セットアップします。',
@@ -64,6 +66,8 @@ export const AKARI_TRANSCRIBE_MODE = 'akari.transcribe.mode';
 export const AKARI_TRANSCRIBE_BACKEND = 'akari.transcribe.backend';
 export const AKARI_TRANSCRIBE_COMPARE_SET = 'akari.transcribe.compareSet';
 export const AKARI_TRANSCRIBE_AUTO_CUTS = 'akari.transcribe.autoCuts';
+export const AKARI_NARRATION_ENGINE = 'akari.narration.engine';
+export const AKARI_NARRATION_VOICE = 'akari.narration.voice';
 // テーマのスキーマは Theia、書き出しは akari-shell-strip/akari-export-preferences.ts が所有。
 // 設定キーは文字列ミラー、OS ごとのエンコーダ選択肢は所有拡張から共有する。
 export const WORKBENCH_COLOR_THEME = 'workbench.colorTheme';
@@ -93,6 +97,7 @@ export const SECTION_PREFERENCE_KEYS: Record<SettingsSectionId, readonly string[
     connections: [], // API キーは PreferenceService ではなく接続サービスが所有する。
     partner: [AKARI_PARTNER_REOPEN],
     transcribe: [AKARI_TRANSCRIBE_MODE, AKARI_TRANSCRIBE_BACKEND, AKARI_TRANSCRIBE_COMPARE_SET, AKARI_TRANSCRIBE_AUTO_CUTS],
+    narration: [AKARI_NARRATION_ENGINE, AKARI_NARRATION_VOICE],
     quality: [AKARI_QUALITY_TIER, AKARI_TIMELINE_VISUAL_THUMBNAILS],
     notifications: [AKARI_AGENT_TURN_END_NOTIFICATION],
     tools: [AKARI_CATALOG_ROOT],
@@ -104,6 +109,7 @@ export function sectionForPreferenceKey(key: string): SettingsSectionId | undefi
     const section = SETTINGS_SECTIONS.find(item => SECTION_PREFERENCE_KEYS[item.id].includes(key));
     if (section) { return section.id; }
     if (key.startsWith('akari.transcribe.')) { return 'transcribe'; }
+    if (key.startsWith('akari.narration.')) { return 'narration'; }
     if (key.startsWith('akari.export.')) { return 'export'; }
     return undefined;
 }

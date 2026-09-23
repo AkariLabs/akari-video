@@ -34,6 +34,7 @@ import { deriveToolRowState, shouldShowToolNote, TOOL_UI, WHISPER_MODEL_SIZE_LAB
 import { AkariHomeCommands } from './akari-home-command-contribution';
 import {
     AKARI_TRANSCRIBE_MODE, AKARI_TRANSCRIBE_AUTO_CUTS, AKARI_TRANSCRIBE_BACKEND, AKARI_TRANSCRIBE_COMPARE_SET,
+    AKARI_NARRATION_ENGINE, AKARI_NARRATION_VOICE,
     AKARI_QUALITY_TIER, AKARI_DEVELOPER_MODE, AKARI_AGENT_TURN_END_NOTIFICATION, AKARI_CATALOG_ROOT,
     AKARI_TIMELINE_VISUAL_THUMBNAILS,
     WORKBENCH_COLOR_THEME, AKARI_EXPORT_QUALITY, AKARI_EXPORT_OUTPUT_DIRECTORY, AKARI_EXPORT_FILENAME_PATTERN,
@@ -69,6 +70,14 @@ const ENGINE_DESCRIPTIONS: Record<string, string> = {
 const ENGINE_SHORT_LABELS: Record<string, string> = {
     'speech-analyzer': 'SpeechAnalyzer', 'whisper-cpp': 'Whisper.cpp', 'cloud:scribe': 'Scribe', 'cloud:groq': 'Groq'
 };
+// narration-command.mjs の Gemini 30 声。既定の Leda を先頭にし、残りは名前順。
+const GEMINI_NARRATION_VOICES = [
+    'Leda', 'Achernar', 'Achird', 'Algenib', 'Algieba', 'Alnilam', 'Aoede', 'Autonoe',
+    'Callirrhoe', 'Charon', 'Despina', 'Enceladus', 'Erinome', 'Fenrir', 'Gacrux',
+    'Iapetus', 'Kore', 'Laomedeia', 'Orus', 'Puck', 'Pulcherrima', 'Rasalgethi',
+    'Sadachbia', 'Sadaltager', 'Schedar', 'Sulafat', 'Umbriel', 'Vindemiatrix',
+    'Zephyr', 'Zubenelgenubi'
+] as const;
 /** エンコーダのセグメントは短い名前で並べ、正式名は title（ホバー）に残す。 */
 const ENCODER_SHORT_LABELS: Record<ExportEncoder, string> = {
     auto: '自動', videotoolbox: 'GPU', nvenc: 'NVENC', qsv: 'QSV', amf: 'AMF', mf: 'Media Foundation', x264: 'CPU'
@@ -315,6 +324,7 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
 
     protected renderSection(id: SettingsSectionId): void {
         if (id === 'transcribe') { this.renderTranscribe(); return; }
+        if (id === 'narration') { this.renderNarration(); return; }
         if (id === 'connections') { return; }
         const section = this.sections.get(id)!;
         section.replaceChildren(...this.sectionHeading(id));
@@ -887,6 +897,38 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
         this.transcribe.append(groupCard('アドバンス',
             settingRow('比べるときは、いつもこの組', '比較は選択式（毎回ではない）。比べるエンジンに印を付けます', compare), chips,
             settingRow('カット候補を自動で作る', 'フィラー・言い直し・無音。作るだけでタイムラインには入れません', cuts)));
+    }
+
+    protected renderNarration(): void {
+        const section = this.sections.get('narration')!;
+        section.replaceChildren(...this.sectionHeading('narration'));
+        const engine = this.preferences.get(AKARI_NARRATION_ENGINE);
+        const voiceValue = this.preferences.get(AKARI_NARRATION_VOICE);
+        const voices = typeof voiceValue === 'object' && voiceValue !== null && !Array.isArray(voiceValue)
+            ? voiceValue as Record<string, unknown> : {};
+        const geminiVoice = typeof voices['gemini-tts'] === 'string' && GEMINI_NARRATION_VOICES.some(id => id === voices['gemini-tts'])
+            ? voices['gemini-tts'] : 'Leda';
+        const voicevoxSpeaker = typeof voices.voicevox === 'string' && voices.voicevox ? voices.voicevox : '未選択';
+        section.append(groupCard('既定値',
+            settingRow('既定のエンジン', '読み上げのポップアップを開いたときに選ぶエンジン',
+                dropdown({ label: '既定のエンジン', options: [
+                    { value: 'voicevox', label: 'VOICEVOX · この Mac · 無料' },
+                    { value: 'gemini-tts', label: 'Gemini 2.5 Flash TTS · fal.ai 経由 · 従量' }
+                ], value: engine === 'gemini-tts' ? 'gemini-tts' : 'voicevox',
+                onChange: value => this.savePreference(AKARI_NARRATION_ENGINE, value) })),
+            settingRow('Gemini の既定の声', 'Gemini 2.5 Flash TTS で使う声',
+                dropdown({ label: 'Gemini の既定の声', options: GEMINI_NARRATION_VOICES.map(id => ({ value: id, label: id })),
+                    value: geminiVoice, onChange: value => {
+                        const current = this.preferences.get(AKARI_NARRATION_VOICE);
+                        const saved = typeof current === 'object' && current !== null && !Array.isArray(current)
+                            ? current as Record<string, unknown> : {};
+                        this.savePreference(AKARI_NARRATION_VOICE, { ...saved, 'gemini-tts': value });
+                    } })),
+            settingRow('VOICEVOX の既定の声', '読み上げのポップアップで声を選ぶと保存されます',
+                element('span', voicevoxSpeaker))));
+        const note = settingsNote('Gemini を使うには「接続と API キー」で fal の鍵を登録します。');
+        note.append(' ', inlineLink('接続と API キーを開く', () => this.showSection('connections')));
+        section.append(note);
     }
 
     protected savePreference(key: string, value: unknown): void {

@@ -110,7 +110,7 @@ function makeDialog(values = {}, extra = {}) {
 test('(a) ナビは Akari アカウント先頭・外観を新設し、開発者モードだけが開発者グループ', () => {
     const { SETTINGS_SECTIONS, SECTION_PREFERENCE_KEYS, resolveSettingsSectionId, sectionForPreferenceKey } = require('../../lib/common/settings-sections.js');
     assert.deepEqual(SETTINGS_SECTIONS.map(section => section.label),
-        ['Akari アカウント', 'はじめかた', '書き出し', '外観', '接続と API キー', 'パートナー', '文字起こし', 'プレビュー品質', '通知', '道具', 'ストレージ', 'プライバシーとアクセス許可', '統計と利用状況', '困ったとき', 'このアプリについて', '開発者モード']);
+        ['Akari アカウント', 'はじめかた', '書き出し', '外観', '接続と API キー', 'パートナー', '文字起こし', '読み上げ', 'プレビュー品質', '通知', '道具', 'ストレージ', 'プライバシーとアクセス許可', '統計と利用状況', '困ったとき', 'このアプリについて', '開発者モード']);
     assert.deepEqual(SETTINGS_SECTIONS.filter(section => section.group === 'developer').map(section => section.id), ['developer']);
     const { SETTINGS_ICON_PATHS } = require('../../lib/browser/settings/settings-icons.js');
     for (const section of SETTINGS_SECTIONS) { assert.ok(section.icon in SETTINGS_ICON_PATHS, section.id); }

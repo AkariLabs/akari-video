@@ -10,7 +10,7 @@
           "注釈…"
         ]
       },
-      "elapsedSeconds": 1.55
+      "elapsedSeconds": 0.75
     },
     {
       "name": "押すと読み上げダイアログが開き対象の字幕テキストが見える",
@@ -19,7 +19,7 @@
         "captionId": "c-0001",
         "targetVisible": true
       },
-      "elapsedSeconds": 0.95
+      "elapsedSeconds": 0.71
     },
     {
       "name": "エンジンカードが 2 枚以上あり VOICEVOX が選ばれる",
@@ -29,7 +29,7 @@
         "voicevox": true,
         "availability": "needs"
       },
-      "elapsedSeconds": 19.88
+      "elapsedSeconds": 6.68
     },
     {
       "name": "試聴で out/narration/n-NNNN.wav ができ生成尺が表示される",
@@ -37,9 +37,9 @@
       "detail": {
         "file": "n-0001.wav",
         "durationLabel": "できた音声 2.4 s",
-        "generationSeconds": 62.9
+        "generationSeconds": 17.02
       },
-      "elapsedSeconds": 62.91
+      "elapsedSeconds": 17.03
     },
     {
       "name": "置くとナレーション帯が 1 件増え caption_ref が保存される",
@@ -49,7 +49,7 @@
         "captionRef": "c-0001",
         "itemVisible": true
       },
-      "elapsedSeconds": 2.69
+      "elapsedSeconds": 1.56
     },
     {
       "name": "⌘Z でナレーションと字幕の伸長が 1 手で戻る",
@@ -58,7 +58,7 @@
         "narrationRemoved": true,
         "captionTimingRestored": true
       },
-      "elapsedSeconds": 1.13
+      "elapsedSeconds": 0.42
     },
     {
       "name": "タイムラインと台本の読み上げボタンから同じダイアログが開く",
@@ -67,7 +67,7 @@
         "timeline": true,
         "daihon": true
       },
-      "elapsedSeconds": 5.11
+      "elapsedSeconds": 1.92
     },
     {
       "name": "Gemini の Leda と費用承認キャンセル、未設定時は接続画面を確認する",
@@ -78,8 +78,20 @@
         "connectionsOpened": true,
         "charged": false
       },
-      "elapsedSeconds": 3.67
+      "elapsedSeconds": 0.81
+    },
+    {
+      "name": "設定の読み上げ節は文字起こしの直後で、Gemini の既定の声 Kore がポップアップへ反映される",
+      "pass": true,
+      "detail": {
+        "sectionOrder": "transcribe → narration",
+        "savedVoice": "Kore",
+        "verification": "preference の保存値を読み返し",
+        "availability": "unconfigured",
+        "charged": false
+      },
+      "elapsedSeconds": 2.81
     }
   ],
-  "elapsedSeconds": 132.88
+  "elapsedSeconds": 42.22
 }

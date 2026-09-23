@@ -24,7 +24,8 @@ const names = [
     '置くとナレーション帯が 1 件増え caption_ref が保存される',
     '⌘Z でナレーションと字幕の伸長が 1 手で戻る',
     'タイムラインと台本の読み上げボタンから同じダイアログが開く',
-    'Gemini の Leda と費用承認キャンセル、未設定時は接続画面を確認する'
+    'Gemini の Leda と費用承認キャンセル、未設定時は接続画面を確認する',
+    '設定の読み上げ節は文字起こしの直後で、Gemini の既定の声 Kore がポップアップへ反映される'
 ];
 const out = { status: 'running', checks: names.map(name => ({ name, pass: false, detail: '未実行' })) };
 const runStarted = Date.now();
@@ -194,6 +195,40 @@ try {
         const cancel = await evalOn(session.cdp, `(()=>{const b=[...document.querySelectorAll('button')].find(b=>b.textContent.trim()==='キャンセル'&&b.offsetParent);b?.click();return Boolean(b)})()`);
         assert(cancel, 'キャンセルがありません');
         return { branch: 'configured', voice, approvalShown: true, charged: false };
+    });
+    await check(8, async () => {
+        if (await evalOn(session.cdp, `Boolean(document.querySelector('[data-akari-settings-dialog]'))`)) {
+            await closeDialog(session.cdp);
+            await waitEval(session.cdp, `!document.querySelector('[data-akari-settings-dialog]')`, { label: '接続設定が閉じる' });
+        }
+        if (await evalOn(session.cdp, `Boolean(document.querySelector(${q(dialog)}))`)) {
+            await closeDialog(session.cdp);
+            await waitEval(session.cdp, `!document.querySelector(${q(dialog)})`, { label: '読み上げダイアログが閉じる' });
+        }
+        await evalOn(session.cdp, fireCommand('akari.settings.open', 'narration'));
+        await waitEval(session.cdp, `Boolean(document.querySelector('[data-akari-settings-dialog] [data-akari-settings-section="narration"]:not([hidden])'))`, { label: '読み上げ設定' });
+        const order = await evalOn(session.cdp, `(()=>[...document.querySelectorAll('[data-akari-settings-dialog] [data-settings-nav]')].map(e=>e.dataset.settingsNav))()`);
+        assert(order[order.indexOf('transcribe') + 1] === 'narration', '読み上げ節が文字起こしの直後ではありません');
+        const voiceDropdown = '[data-akari-settings-section="narration"] [data-akari-dropdown="Gemini の既定の声"]';
+        await clickSelector(session.cdp, `${voiceDropdown} .akari-set-dropdown-button`);
+        await clickSelector(session.cdp, `${voiceDropdown} [role="option"][data-value="Kore"]`);
+        const selected = await waitEval(session.cdp, `(()=>{const c=window.theia.container;const key=[...c._bindingDictionary._map.keys()].find(k=>String(k)==='Symbol(PreferenceService)');return key&&c.get(key).get('akari.narration.voice')?.['gemini-tts']==='Kore'?'Kore':null})()`, { label: 'Gemini の声の保存値 Kore' });
+        assert(selected === 'Kore', '保存された Gemini の声が Kore ではありません');
+        await shot(session.cdp);
+        await closeDialog(session.cdp);
+        await waitEval(session.cdp, `!document.querySelector('[data-akari-settings-dialog]')`, { label: '設定が閉じる' });
+        await ensureDialog(session.cdp);
+        const availability = await waitEval(session.cdp, `document.querySelector(${q(card('gemini-tts') + ' [data-availability]')})?.dataset.availability`, { label: 'Gemini カードの状態' });
+        const selectable = await evalOn(session.cdp, `!document.querySelector(${q(card('gemini-tts') + ' input[type=radio]')})?.disabled`);
+        if (!selectable) {
+            return { sectionOrder: 'transcribe → narration', savedVoice: selected,
+                verification: 'preference の保存値を読み返し', availability, charged: false };
+        }
+        await clickSelector(session.cdp, `${card('gemini-tts')} input[type=radio]`);
+        const popupVoice = await waitEval(session.cdp, `document.querySelector(${q(dialog + ' select')})?.value==='Kore'?'Kore':null`, { label: 'ポップアップの Gemini 声 Kore' });
+        await shot(session.cdp);
+        return { sectionOrder: 'transcribe → narration', savedVoice: selected,
+            verification: 'ポップアップの声 select', popupVoice, charged: false };
     });
 } catch (error) {
     out.error = sanitize(error, REPO);
