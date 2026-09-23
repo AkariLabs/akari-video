@@ -29,5 +29,7 @@ export interface AkariSettingsMaintenanceService {
         recentChanges?: { version: string; date?: string; notesUrl?: string } }>;
     partnerAvailability(): Promise<Record<string, boolean>>;
     partnerDetails(): Promise<Record<string, PartnerDetail>>;
+    /** 更新の実際の設定（`~/.akari/update-preferences.json`。main プロセスの更新確認が読む正本）。 */
+    getUpdateSettings(): Promise<{ channel: 'stable' | 'prerelease'; autoCheck: boolean }>;
     setUpdateSettings(change: { channel?: 'stable' | 'prerelease'; autoCheck?: boolean }): Promise<void>;
 }

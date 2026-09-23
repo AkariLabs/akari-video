@@ -23,6 +23,7 @@ import {
     resolveAllowPrerelease,
     resolveShellUpdaterErrorReason,
     resolveUpdateButtonAction,
+    resolveUpdateChannel,
     shouldApplyFeedUrlFallback,
     shouldOpenUpdaterBrowserFallback
 } from '../../lib/common/shell-update-applier.js';
@@ -201,6 +202,14 @@ test('resolveAllowPrerelease: stable 以外（prerelease・undefined・null・�
 
 test('resolveAllowPrerelease: stable のときだけ false', () => {
     assert.equal(resolveAllowPrerelease('stable'), false);
+});
+
+test('resolveUpdateChannel: 明示的な stable だけ安定版・未設定や壊れた値はプレリリース（既定）', () => {
+    assert.equal(resolveUpdateChannel('stable'), 'stable');
+    assert.equal(resolveUpdateChannel('prerelease'), 'prerelease');
+    assert.equal(resolveUpdateChannel(undefined), 'prerelease');
+    assert.equal(resolveUpdateChannel(null), 'prerelease');
+    assert.equal(resolveUpdateChannel('beta'), 'prerelease');
 });
 
 test('formatDownloadedBannerText: downloaded: true + version ありなら文言が入る', () => {

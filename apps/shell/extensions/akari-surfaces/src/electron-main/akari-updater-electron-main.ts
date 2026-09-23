@@ -5,13 +5,12 @@ import { appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync, unlin
 import { homedir } from 'os';
 import { dirname, join } from 'path';
 import { autoUpdater, UpdateCheckResult, UpdateInfo } from 'electron-updater';
-import { parseUpdateCache } from '../common/update-feed';
 import {
     buildFallbackAppUpdateYml,
     FALLBACK_APP_UPDATE_YML_FILENAME,
     FALLBACK_FEED_OPTIONS,
     isAppTranslocationPath,
-    resolveAllowPrerelease,
+    resolveUpdateChannel,
     resolveShellUpdaterErrorReason,
     ShellUpdaterEvent,
     shouldApplyFeedUrlFallback
@@ -20,7 +19,6 @@ import { CHANNEL_UPDATER_CHECK, CHANNEL_UPDATER_EVENT, CHANNEL_UPDATER_GET_STATE
     isUpdaterCancelRequest, isUpdaterTemporaryFileName, UPDATER_CANCEL_REQUEST_FILENAME, UpdaterRequestTracker } from '../electron-common/electron-api';
 
 /** U2 のフロントエンド/CLI と共有するキャッシュファイル名（update-feed.ts の同名定数と同じ値 — 複製の経緯は同ファイル冒頭コメント参照）。 */
-const UPDATE_CACHE_FILENAME = 'update-check.json';
 const UPDATER_LOG_FILENAME = 'updater.log';
 const TEST_UPDATE_CONFIG_FILENAME = 'akari-updater-l1.yml';
 
@@ -246,32 +244,12 @@ export class AkariUpdaterElectronMain implements ElectronMainApplicationContribu
         }
     }
 
-    /**
-     * `~/.akari/update-check.json`（U2・フロントエンド/CLI と共有するキャッシュ。
-     * `AKARI_HOME` で差し替え可 — akari-home-widget.tsx の resolveAkariHomeUri と
-     * 同じ規約）の `feed.channel` を読む。無い・壊れている・未フェッチはすべて
-     * undefined（`resolveAllowPrerelease` がフェイルセーフ側 = prerelease 追従に倒す）。
-     * このファイルへの書き込みは行わない（読み取り専用 — 書き手は U2 のフロントエンド
-     * バックグラウンド fetch のみ）。
-     */
-    protected readCachedChannel(): string | undefined {
-        try {
-            const home = process.env.AKARI_HOME || join(homedir(), '.akari');
-            const raw = readFileSync(join(home, UPDATE_CACHE_FILENAME), 'utf8');
-            const cache = parseUpdateCache(raw);
-            const channel = cache?.feed?.channel;
-            return typeof channel === 'string' ? channel : undefined;
-        } catch {
-            return undefined;
-        }
-    }
-
     protected readUpdateSettings(): { channel: 'stable' | 'prerelease'; autoCheck: boolean } {
         try {
             const home = process.env.AKARI_HOME || join(homedir(), '.akari');
             const value = JSON.parse(readFileSync(join(home, 'update-preferences.json'), 'utf8')) as { channel?: string; autoCheck?: boolean };
-            return { channel: value.channel === 'prerelease' ? 'prerelease' : 'stable', autoCheck: value.autoCheck !== false };
-        } catch { return { channel: resolveAllowPrerelease(this.readCachedChannel()) ? 'prerelease' : 'stable', autoCheck: true }; }
+            return { channel: resolveUpdateChannel(value.channel), autoCheck: value.autoCheck !== false };
+        } catch { return { channel: 'prerelease', autoCheck: true }; }
     }
 
     protected emit(event: ShellUpdaterEvent): void {

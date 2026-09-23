@@ -247,6 +247,15 @@ export function resolveAllowPrerelease(channel: string | null | undefined): bool
     return channel !== 'stable';
 }
 
+/**
+ * 保存された「受け取る版」を正規化する。明示的に `'stable'` を選んだときだけ安定版、
+ * 未設定・壊れた値はすべてプレリリース追従（2026-09-24 オーナー裁定 — 安定版を既定にすると
+ * プレリリースで出た更新を見逃す人が多いため、既定はプレリリース）。
+ */
+export function resolveUpdateChannel(channel: string | null | undefined): 'stable' | 'prerelease' {
+    return resolveAllowPrerelease(channel) ? 'prerelease' : 'stable';
+}
+
 /** 「DL 済み・再起動で適用されます」バナー本文（task.md §4 指示の状態）。DL 済みでなければ空文字（バナー非表示の合図 — formatHomeBannerText と同じ流儀）。 */
 export function formatDownloadedBannerText(state: ShellUpdaterUiState): string {
     if (!state.downloaded || !state.downloadedVersion) {
