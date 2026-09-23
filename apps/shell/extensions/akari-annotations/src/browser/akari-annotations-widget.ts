@@ -148,6 +148,7 @@ import {
     parseCaptions,
     removeCaptionLine
 } from '../common/caption-store';
+import { captionCueOriginalStylePatch, captionCueStylePresetId, captionPresetAwareStylePatch } from './inspector/caption-style-effects';
 import {
     EditAudioBgm,
     EditAudioNarration,
@@ -3495,6 +3496,14 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 }
                 case 'caption-style-color':
                 case 'caption-style-size':
+                case 'caption-style-font-weight':
+                case 'caption-style-line-height':
+                case 'caption-style-letter-spacing':
+                case 'caption-style-font-family':
+                case 'caption-style-bg-padding':
+                case 'caption-style-shadow':
+                case 'caption-style-glow':
+                case 'caption-style-effect':
                 case 'caption-style-stroke-color':
                 case 'caption-style-stroke-width':
                 case 'caption-style-bg-color':
@@ -3511,6 +3520,30 @@ export class AkariAnnotationsWidget extends BaseWidget {
                             break;
                         case 'caption-style-size':
                             nextStyle = { sizePx: request.value };
+                            break;
+                        case 'caption-style-font-weight':
+                            nextStyle = { fontWeight: request.value, weight: request.value };
+                            break;
+                        case 'caption-style-line-height':
+                            nextStyle = { lineHeight: request.value };
+                            break;
+                        case 'caption-style-letter-spacing':
+                            nextStyle = { letterSpacingEm: request.value };
+                            break;
+                        case 'caption-style-font-family':
+                            nextStyle = { fontFamily: request.value };
+                            break;
+                        case 'caption-style-bg-padding':
+                            nextStyle = { background: { paddingPx: request.value } };
+                            break;
+                        case 'caption-style-shadow':
+                            nextStyle = { shadow: request.value };
+                            break;
+                        case 'caption-style-glow':
+                            nextStyle = { glow: request.value };
+                            break;
+                        case 'caption-style-effect':
+                            nextStyle = request.value;
                             break;
                         case 'caption-style-stroke-color':
                             nextStyle = { stroke: { color: request.value } };
@@ -3548,47 +3581,16 @@ export class AkariAnnotationsWidget extends BaseWidget {
                         }
                         return caption;
                     });
-                    const originalStyles = captions.map(caption => {
-                        let originalStyle: CaptionTextStylePatch;
-                        switch (request.kind) {
-                            case 'caption-style-color':
-                                originalStyle = { color: caption.textStyle?.color ?? null };
-                                break;
-                            case 'caption-style-size':
-                                originalStyle = { sizePx: caption.textStyle?.sizePx ?? null };
-                                break;
-                            case 'caption-style-stroke-color':
-                                originalStyle = { stroke: { color: caption.textStyle?.stroke?.color ?? null } };
-                                break;
-                            case 'caption-style-stroke-width':
-                                originalStyle = { stroke: { widthPx: caption.textStyle?.stroke?.widthPx ?? null } };
-                                break;
-                            case 'caption-style-bg-color':
-                                originalStyle = {
-                                    background: { color: caption.textStyle?.background?.color ?? null }
-                                };
-                                break;
-                            case 'caption-style-bg-opacity':
-                                originalStyle = {
-                                    background: { opacity: caption.textStyle?.background?.opacity ?? null }
-                                };
-                                break;
-                            case 'caption-style-bg-radius':
-                                originalStyle = {
-                                    background: { radiusPx: caption.textStyle?.background?.radiusPx ?? null }
-                                };
-                                break;
-                            case 'caption-style-bg-mode':
-                                originalStyle = {
-                                    background: { mode: caption.textStyle?.background?.mode ?? null }
-                                };
-                                break;
-                            case 'caption-style-zone':
-                                originalStyle = { zone: caption.textStyle?.zone ?? null };
-                                break;
-                        }
-                        return { id: caption.id, style: originalStyle };
-                    });
+                    const captionsSource = (await this.fileService.readFile(location.captionsUri)).value.toString();
+                    const nextStyles = captions.map(caption => ({
+                        id: caption.id,
+                        style: captionPresetAwareStylePatch(nextStyle,
+                            captionCueStylePresetId(captionsSource, caption.id))
+                    }));
+                    const originalStyles = nextStyles.map(entry => ({
+                        id: entry.id,
+                        style: captionCueOriginalStylePatch(captionsSource, entry.id, entry.style)
+                    }));
                     const applyStyles = async (
                         styles: ReadonlyArray<{ id: string; style: CaptionTextStylePatch }>
                     ): Promise<void> => {
@@ -3601,7 +3603,6 @@ export class AkariAnnotationsWidget extends BaseWidget {
                             });
                         }
                     };
-                    const nextStyles = captions.map(caption => ({ id: caption.id, style: nextStyle }));
                     await applyStyles(nextStyles);
                     this.pushHistory({
                         label: '字幕のスタイルを変更',

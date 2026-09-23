@@ -41,6 +41,7 @@ import {
     OPEN_AKARI_ANNOTATIONS,
     OPEN_AKARI_CANVAS,
     OPEN_AKARI_INSPECTOR,
+    REVEAL_AKARI_INSPECTOR_FIELD,
     OPEN_AKARI_REVIEW_BOARD,
     OPEN_AKARI_REVIEW_PANEL,
     OPEN_AKARI_SESSION_VIEWER,
@@ -345,6 +346,12 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
         });
         commands.registerCommand(OPEN_AKARI_INSPECTOR, {
             execute: (options?: AkariInspectorOpenOptions) => this.openInspectorPanel(options)
+        });
+        commands.registerCommand(REVEAL_AKARI_INSPECTOR_FIELD, {
+            execute: async (argument?: unknown) => {
+                const widget = await this.openInspectorPanel();
+                widget?.revealCaptionField(argument);
+            }
         });
         commands.registerCommand(OPEN_AKARI_REVIEW_BOARD, {
             execute: () => this.openBoard()

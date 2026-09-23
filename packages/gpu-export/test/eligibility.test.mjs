@@ -28,6 +28,32 @@ test("static HTML is same and eligible", () => {
   assert.deepEqual(result.summary, { same: 1, three: 0, dom: 0, degraded: 0, unsupported: 0 });
 });
 
+test("depth transforms in CSS animations and inline styles degrade while zero depth remains eligible", () => {
+  for (const transform of ["perspective(500px) rotateY(30deg)", "rotateX(10deg)", "translateZ(2px)", "translate3d(1px,2px,3px)", "matrix3d(1,0,0,0,0,1,0,0,0,0,1,0,0,0,2,1)"]) {
+    const html = `<style>@keyframes turn{to{transform:${transform}}}</style><div style="animation:turn 2s both">Neutral</div>`;
+    assert.equal(evaluate([{ id: "depth", html }]).entries[0].classification, "degraded", transform);
+    assert.equal(evaluate([{ id: "inline", html: `<div style="transform:${transform}">Neutral</div>` }]).eligible, false, transform);
+  }
+  assert.equal(evaluate([{ id: "preserve", html: '<div style="transform-style:preserve-3d">Neutral</div>' }]).eligible, false);
+  const item = evaluate([{ id: "item", html: '<div>Neutral</div>', keyframes: [{ transform: "translateZ(2px)" }] }]);
+  assert.equal(item.entries[0].classification, "degraded");
+  assert.ok(item.entries[0].conditions.includes("css-3d-transform"));
+  assert.equal(evaluate([{ id: "flat", html: '<style>@keyframes move{to{transform:translate3d(10px,20px,0) translateZ(0)}}</style><div style="animation:move 2s both">Neutral</div>' }]).eligible, true);
+});
+
+test("WAAPI keyframe arguments degrade for depth but static CSS geometry keeps its old route", () => {
+  const waapi = evaluate([{ id: "waapi", html: '<div>Neutral</div><script>document.querySelector("div").animate([{transform:"rotateY(30deg)"}], {duration:1000})</script>' }]);
+  assert.equal(waapi.entries[0].classification, "degraded");
+  assert.equal(waapi.entries[0].reason, "css-3d-transform, script-runtime");
+  const timingOnly = evaluate([{ id: "timing", html: '<div>Neutral</div><script>document.querySelector("div").animate([{opacity:0},{opacity:1}], {id:"rotateY(30deg)"})</script>' }]);
+  assert.notEqual(timingOnly.entries[0].reason, "css-3d-transform");
+  for (const declaration of ["transform:rotateX(20deg)", "transform-style:preserve-3d"]) {
+    const staticRule = evaluate([{ id: "static", html: `<style>.x{${declaration}}</style><div class="x">Neutral</div>` }]);
+    assert.equal(staticRule.entries[0].classification, "dom", declaration);
+    assert.equal(staticRule.entries[0].reason, "dom-layer-draw-element", declaration);
+  }
+});
+
 test("a single declarative 3D scene is eligible", () => {
   const html = '<script type="application/json" data-akari-3d-scene>{"model":"x.glb"}</script>';
   const result = evaluate([{ id: "three", html }]);

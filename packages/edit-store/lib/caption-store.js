@@ -306,6 +306,13 @@ function updateCaptionTextStyleInSource(source, captionId, updates) {
         let textStyle = located.text;
         textStyle = updateOptionalStyleProperty(textStyle, 'color', updates.color, `字幕 ${captionId} の text_style`);
         textStyle = updateOptionalStyleProperty(textStyle, 'size_px', updates.sizePx, `字幕 ${captionId} の text_style`);
+        textStyle = updateOptionalStyleProperty(textStyle, 'font_weight', updates.fontWeight, `字幕 ${captionId} の text_style`);
+        textStyle = updateOptionalStyleProperty(textStyle, 'weight', updates.weight === undefined && updates.fontWeight !== undefined ? null : updates.weight, `字幕 ${captionId} の text_style`);
+        textStyle = updateOptionalStyleProperty(textStyle, 'line_height', updates.lineHeight, `字幕 ${captionId} の text_style`);
+        textStyle = updateOptionalStyleProperty(textStyle, 'letter_spacing_em', updates.letterSpacingEm, `字幕 ${captionId} の text_style`);
+        textStyle = updateOptionalStyleProperty(textStyle, 'font_family', updates.fontFamily, `字幕 ${captionId} の text_style`);
+        textStyle = updateOptionalObjectStyleProperty(textStyle, 'shadow', updates.shadow, `字幕 ${captionId} の text_style`);
+        textStyle = updateOptionalObjectStyleProperty(textStyle, 'glow', updates.glow, `字幕 ${captionId} の text_style`);
         textStyle = updateOptionalStyleProperty(textStyle, 'zone', updates.zone, `字幕 ${captionId} の text_style`);
         textStyle = updateNestedStyleObject(textStyle, 'stroke', {
             color: updates.stroke?.color,
@@ -315,6 +322,7 @@ function updateCaptionTextStyleInSource(source, captionId, updates) {
             color: updates.background?.color,
             opacity: updates.background?.opacity,
             radius_px: updates.background?.radiusPx,
+            padding_px: updates.background?.paddingPx,
             mode: updates.background?.mode
         }, `字幕 ${captionId} の text_style.background`);
         textStyle = updateAnimationStyleObject(textStyle, updates.animation, `字幕 ${captionId} の text_style.animation`);
@@ -1248,9 +1256,13 @@ function isHexColor(value) {
 }
 function validateTextStylePatch(updates) {
     const hasUpdate = updates.color !== undefined || updates.sizePx !== undefined || updates.zone !== undefined
+        || updates.fontWeight !== undefined || updates.weight !== undefined
+        || updates.lineHeight !== undefined || updates.letterSpacingEm !== undefined
+        || updates.fontFamily !== undefined || updates.shadow !== undefined || updates.glow !== undefined
         || updates.stroke?.color !== undefined || updates.stroke?.widthPx !== undefined
         || updates.background?.color !== undefined || updates.background?.opacity !== undefined
-        || updates.background?.radiusPx !== undefined || updates.background?.mode !== undefined
+        || updates.background?.radiusPx !== undefined || updates.background?.paddingPx !== undefined
+        || updates.background?.mode !== undefined
         || updates.animation !== undefined;
     if (!hasUpdate) {
         throw new Error('変更する字幕スタイルのフィールドを指定してください。');
@@ -1263,6 +1275,66 @@ function validateTextStylePatch(updates) {
     if (updates.sizePx !== undefined && updates.sizePx !== null
         && (!Number.isFinite(updates.sizePx) || updates.sizePx <= 0)) {
         throw new Error('字幕サイズは正の数で指定してください。');
+    }
+    for (const [value, min, max, label] of [
+        [updates.fontWeight, 1, 1000, 'font_weight'],
+        [updates.weight, 100, 900, 'weight']
+    ]) {
+        if (value !== undefined && value !== null
+            && (!Number.isInteger(value) || value < min || value > max)) {
+            throw new Error(`${label} の値が不正です。`);
+        }
+    }
+    if (updates.lineHeight !== undefined && updates.lineHeight !== null
+        && (!Number.isFinite(updates.lineHeight) || updates.lineHeight <= 0)) {
+        throw new Error('字幕の行間は正の数で指定してください。');
+    }
+    if (updates.letterSpacingEm !== undefined && updates.letterSpacingEm !== null
+        && !Number.isFinite(updates.letterSpacingEm)) {
+        throw new Error('字幕の字間は有限数で指定してください。');
+    }
+    if (updates.fontFamily !== undefined && updates.fontFamily !== null
+        && (typeof updates.fontFamily !== 'string' || !updates.fontFamily.trim())) {
+        throw new Error('字幕フォント名は空にできません。');
+    }
+    if (updates.background?.paddingPx !== undefined && updates.background.paddingPx !== null
+        && (!Number.isFinite(updates.background.paddingPx) || updates.background.paddingPx < 0)) {
+        throw new Error('字幕の座布団余白は 0 以上で指定してください。');
+    }
+    for (const [name, effect, fields] of [
+        ['shadow', updates.shadow, ['blurPx', 'distancePx']],
+        ['glow', updates.glow, ['density', 'spread']]
+    ]) {
+        if (effect === undefined || effect === null)
+            continue;
+        if (typeof effect !== 'object' || Array.isArray(effect) || !isHexColor(effect.color)) {
+            throw new Error(`${name} の色は hex で指定してください。`);
+        }
+        const allowedKeys = name === 'shadow'
+            ? ['color', 'opacity', 'blurPx', 'distancePx', 'angleDeg']
+            : ['color', 'density', 'spread', 'offsetX', 'offsetY'];
+        if (Object.keys(effect).some(key => !allowedKeys.includes(key))) {
+            throw new Error(`${name} に未対応の項目があります。`);
+        }
+        for (const key of fields) {
+            const value = effect[key];
+            if (value !== undefined && (typeof value !== 'number' || !Number.isFinite(value) || value < 0)) {
+                throw new Error(`${name}.${key} は 0 以上で指定してください。`);
+            }
+        }
+    }
+    if (updates.shadow) {
+        const { opacity, angleDeg } = updates.shadow;
+        if (opacity !== undefined && (!Number.isFinite(opacity) || opacity < 0 || opacity > 1)) {
+            throw new Error('shadow.opacity は 0〜1 で指定してください。');
+        }
+        if (angleDeg !== undefined && !Number.isFinite(angleDeg)) {
+            throw new Error('shadow.angleDeg は有限数で指定してください。');
+        }
+    }
+    if (updates.glow && [updates.glow.offsetX, updates.glow.offsetY]
+        .some(value => value !== undefined && !Number.isFinite(value))) {
+        throw new Error('glow の位置は有限数で指定してください。');
     }
     if (updates.stroke?.widthPx !== undefined && updates.stroke.widthPx !== null
         && (!Number.isFinite(updates.stroke.widthPx) || updates.stroke.widthPx < 0)) {
@@ -1315,6 +1387,14 @@ function textStylePatchToJson(updates) {
     return {
         ...(updates.color !== undefined && updates.color !== null ? { color: updates.color } : {}),
         ...(updates.sizePx !== undefined && updates.sizePx !== null ? { size_px: updates.sizePx } : {}),
+        ...(updates.fontWeight !== undefined && updates.fontWeight !== null ? { font_weight: updates.fontWeight } : {}),
+        ...(updates.weight !== undefined && updates.weight !== null ? { weight: updates.weight } : {}),
+        ...(updates.lineHeight !== undefined && updates.lineHeight !== null ? { line_height: updates.lineHeight } : {}),
+        ...(updates.letterSpacingEm !== undefined && updates.letterSpacingEm !== null
+            ? { letter_spacing_em: updates.letterSpacingEm } : {}),
+        ...(updates.fontFamily !== undefined && updates.fontFamily !== null ? { font_family: updates.fontFamily } : {}),
+        ...(updates.shadow ? { shadow: shadowPatchToJson(updates.shadow) } : {}),
+        ...(updates.glow ? { glow: glowPatchToJson(updates.glow) } : {}),
         ...(updates.stroke && Object.values(updates.stroke).some(value => value !== undefined && value !== null) ? {
             stroke: {
                 ...(updates.stroke.color !== undefined && updates.stroke.color !== null
@@ -1332,6 +1412,8 @@ function textStylePatchToJson(updates) {
                     ? { opacity: updates.background.opacity } : {}),
                 ...(updates.background.radiusPx !== undefined && updates.background.radiusPx !== null
                     ? { radius_px: updates.background.radiusPx } : {}),
+                ...(updates.background.paddingPx !== undefined && updates.background.paddingPx !== null
+                    ? { padding_px: updates.background.paddingPx } : {}),
                 ...(updates.background.mode !== undefined && updates.background.mode !== null
                     ? { mode: updates.background.mode } : {})
             }
@@ -1344,6 +1426,37 @@ function textStylePatchToJson(updates) {
         } : {}),
         ...(updates.zone !== undefined && updates.zone !== null ? { zone: updates.zone } : {})
     };
+}
+function shadowPatchToJson(shadow) {
+    return {
+        color: shadow.color,
+        ...(shadow.opacity !== undefined ? { opacity: shadow.opacity } : {}),
+        ...(shadow.blurPx !== undefined ? { blur_px: shadow.blurPx } : {}),
+        ...(shadow.distancePx !== undefined ? { distance_px: shadow.distancePx } : {}),
+        ...(shadow.angleDeg !== undefined ? { angle_deg: shadow.angleDeg } : {})
+    };
+}
+function glowPatchToJson(glow) {
+    return {
+        color: glow.color,
+        ...(glow.density !== undefined ? { density: glow.density } : {}),
+        ...(glow.spread !== undefined ? { spread: glow.spread } : {}),
+        ...(glow.offsetX !== undefined ? { offset_x: glow.offsetX } : {}),
+        ...(glow.offsetY !== undefined ? { offset_y: glow.offsetY } : {})
+    };
+}
+function updateOptionalObjectStyleProperty(source, property, value, label) {
+    if (value === undefined)
+        return source;
+    const existing = locateTopLevelProperty(source, property);
+    if (value === null)
+        return existing ? removeObjectProperty(source, property) : source;
+    const json = property === 'shadow'
+        ? shadowPatchToJson(value) : glowPatchToJson(value);
+    if (!existing)
+        return appendJsonProperty(source, property, json);
+    const located = locateTopLevelObjectProperty(source, property, label);
+    return source.slice(0, located.start) + JSON.stringify(json) + source.slice(located.end);
 }
 function locateTopLevelProperty(scopeText, key) {
     const openIndex = scopeText.search(/\S/);

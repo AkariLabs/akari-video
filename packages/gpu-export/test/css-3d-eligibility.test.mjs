@@ -31,13 +31,13 @@ async function internals() {
 test("CSS 3D spike fixtures have the measured eligibility classifications", async () => {
   const expected = new Map([
     ["a-perspective-rotatey.html", "degraded"],
-    ["b-preserve-3d-cloud.html", "dom"],
-    ["c-pillar-forest.html", "dom"],
-    ["d-translatez-telop.html", "dom"],
-    ["e-translatez-only.html", "dom"],
+    ["b-preserve-3d-cloud.html", "degraded"],
+    ["c-pillar-forest.html", "degraded"],
+    ["d-translatez-telop.html", "degraded"],
+    ["e-translatez-only.html", "degraded"],
     ["f-perspective-only-2d.html", "dom"],
     ["g-2d-baseline.html", "dom"],
-    ["h-backface-control.html", "dom"],
+    ["h-backface-control.html", "degraded"],
   ]);
   for (const [file, classification] of expected) {
     const entry = evaluate(await readFile(join(FIXTURE_ROOT, file), "utf8"));

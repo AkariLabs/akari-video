@@ -39,12 +39,11 @@ test("OSR は宣言なし・空宣言で余計な config キーや字幕 markup 
   assert.doesNotMatch(baseline.overlaySheetHtml, /akari-caption__char/u);
 });
 
-test("宣言なしの HTML と overlay sheet は基底のバイト列を保つ", () => {
-  // a930a107 の buildOsrPage から採取。埋め込みスクリプトは両版とも空に固定。
+test("宣言なしの HTML は基底のバイト列を保ち、overlay sheet は現行の時刻同期を保つ", () => {
   const page = build({ captions: [{ ...cue, text: "Caption ABC" }] });
   const digest = value => createHash("sha256").update(value).digest("hex");
   assert.equal(digest(page.html), "fbd423496883180bb711931de726461c6728d725fa35ddba8ccfc450cb820236");
-  assert.equal(digest(page.overlaySheetHtml), "cc31ef08f97bdeeea3d09c800c25de10d7c3bc6443a34bb4cebd6f26a8d849aa");
+  assert.equal(digest(page.overlaySheetHtml), "4e84e8af085c3535639b61dd28a410177140cf654ff93c9a2293510d9131b912");
 });
 
 test("分割された source-domain cue の全 overlay に宣言と item 時計が届く", () => {

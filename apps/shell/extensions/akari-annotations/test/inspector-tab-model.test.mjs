@@ -28,7 +28,7 @@ test('選択 kind ごとに正しいタブ語彙と enabled 状態を返す', ()
     ['テキスト', true], ['情報', true]
   ]);
   assert.deepEqual(tabShape(tabsForKind('audio')), [
-    ['音声', true], ['情報', true]
+    ['音声', true], ['AI', true], ['情報', true]
   ]);
   assert.deepEqual(tabShape(tabsForKind('world')), [['地図', true], ['情報', true]]);
 });
@@ -229,7 +229,7 @@ for (const kind of ['cut', 'layer']) {
 test('caption / audio / world: id・ラベル・disabled title の語彙を固定する', () => withTabDom(() => {
   const vocabulary = {
     caption: [['text', 'テキスト', true, ''], ['info', '情報', true, '']],
-    audio: [['audio', '音声', true, ''], ['info', '情報', true, '']],
+    audio: [['audio', '音声', true, ''], ['generation', 'AI', true, ''], ['info', '情報', true, '']],
     world: [['world', '地図', true, ''], ['info', '情報', true, '']]
   };
   for (const [kind, expected] of Object.entries(vocabulary)) {
@@ -241,7 +241,8 @@ test('caption / audio / world: id・ラベル・disabled title の語彙を固�
     ]), expected);
     widget.body.replaceChildren();
     widget.appendTabStrip(kind, tabs.map(tab => ({ ...tab, enabled: false })), '');
-    assert.deepEqual(widget.body.children.find(child => child.className === 'akari-inspector-tab-strip').children.map(button => button.title), ['近日', '近日']);
+    assert.deepEqual(widget.body.children.find(child => child.className === 'akari-inspector-tab-strip').children.map(button => button.title),
+      kind === 'audio' ? ['近日', '近日', '近日'] : ['近日', '近日']);
   }
 }));
 

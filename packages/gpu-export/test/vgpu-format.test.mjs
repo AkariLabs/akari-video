@@ -81,6 +81,12 @@ test('HDR fixture uses two float targets and composites the bright input', async
 });
 
 // Frozen before the format change, from the starting HEAD; includes forceDegraded both ways.
+const DEPTH_ANIMATION_FIXTURES = new Set([
+  "css-3d/b-preserve-3d-cloud.html",
+  "css-3d/c-pillar-forest.html", "css-3d/d-translatez-telop.html",
+  "css-3d/e-translatez-only.html", "css-3d/h-backface-control.html",
+  "three-composite-s2-panel.html", "three-composite-s6-scatter.html",
+]);
 const baselineGroups = [
   {
     "fixtures": [
@@ -1070,7 +1076,19 @@ for (const { fixtures, expected } of baselineGroups) {
       const actual = [false, true].map(forceDegraded => evaluateGpuEligibility({
         edit: { overlays: [{ id: 'fixture', html }] }, forceDegraded,
       }));
-      assert.deepEqual(actual, expected);
+      const contracted = DEPTH_ANIMATION_FIXTURES.has(name) ? expected.map((baseline, index) => {
+        const forced = index === 1;
+        return {
+          ...baseline,
+          eligible: false,
+          entries: [{ ...baseline.entries[0], classification: forced ? "dom" : "degraded",
+            reason: forced ? "forced-dom:css-3d-transform" : "css-3d-transform",
+            ...(forced ? { forced: true } : {}) }],
+          summary: { ...baseline.summary, same: 0, three: 0, dom: Number(forced), degraded: 1,
+            ...(forced ? { forced: 1 } : {}) },
+        };
+      }) : expected;
+      assert.deepEqual(actual, contracted);
     });
   }
 }

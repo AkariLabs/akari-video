@@ -7,6 +7,7 @@ export interface AiCatalogModel {
 }
 
 export type AiTargetKind = 'still' | 'empty-frame' | 'video' | 'generated-video' | 'audio' | 'gap'
+    | 'empty-audio-frame'
     | 'material-image' | 'material-video' | 'material-audio';
 export type AiActionGroup = 'make' | 'refine';
 export type AiImage = 'video' | 'still' | 'transcribe' | 'narration';
@@ -28,10 +29,10 @@ export interface AiAction {
     placement: 'replace' | 'new-material' | 'captions' | 'new-clip';
     routes: readonly AiRoute[];
 }
-export interface AiTile { id: string; label: string; image: AiImage; enabled: boolean; reason?: string }
+export interface AiTile { id: string; label: string; image: AiImage; enabled: boolean; reason?: string; done?: boolean }
 export interface AiTileGroup { group: AiActionGroup; tiles: AiTile[] }
 
-/** The model catalog already read by the generation form is the sole source of routes. */
+/** Video routes use the generation model catalog; transcription delegates engine choice to the daihon dialog. */
 export function aiActionCatalog(models: readonly AiCatalogModel[]): AiAction[] {
     return [{
         id: 'still', group: 'make', label: '静止画', image: 'still',
@@ -50,6 +51,12 @@ export function aiActionCatalog(models: readonly AiCatalogModel[]): AiAction[] {
                 : (row.provider ?? row.id.split(':')[0]) === 'local' ? 'local' : 'cli',
             cost: row.price ? 'paid' : 'free'
         }))
+    }, {
+        id: 'transcribe', group: 'refine', label: '文字起こし', image: 'transcribe',
+        visibleFor: ['audio', 'video', 'generated-video', 'still', 'empty-frame', 'empty-audio-frame'],
+        accepts: ['audio', 'video'], reasonWhenDisabled: '声の入った音声か動画で使えます',
+        output: 'captions', placement: 'captions',
+        routes: [{ id: 'transcript', label: '台本パネルのエンジン', kind: 'local', cost: 'free' }]
     }];
 }
 

@@ -2378,6 +2378,13 @@ var require_caption_store = __commonJS({
         let textStyle = located.text;
         textStyle = updateOptionalStyleProperty(textStyle, "color", updates.color, `\u5B57\u5E55 ${captionId} \u306E text_style`);
         textStyle = updateOptionalStyleProperty(textStyle, "size_px", updates.sizePx, `\u5B57\u5E55 ${captionId} \u306E text_style`);
+        textStyle = updateOptionalStyleProperty(textStyle, "font_weight", updates.fontWeight, `\u5B57\u5E55 ${captionId} \u306E text_style`);
+        textStyle = updateOptionalStyleProperty(textStyle, "weight", updates.weight === void 0 && updates.fontWeight !== void 0 ? null : updates.weight, `\u5B57\u5E55 ${captionId} \u306E text_style`);
+        textStyle = updateOptionalStyleProperty(textStyle, "line_height", updates.lineHeight, `\u5B57\u5E55 ${captionId} \u306E text_style`);
+        textStyle = updateOptionalStyleProperty(textStyle, "letter_spacing_em", updates.letterSpacingEm, `\u5B57\u5E55 ${captionId} \u306E text_style`);
+        textStyle = updateOptionalStyleProperty(textStyle, "font_family", updates.fontFamily, `\u5B57\u5E55 ${captionId} \u306E text_style`);
+        textStyle = updateOptionalObjectStyleProperty(textStyle, "shadow", updates.shadow, `\u5B57\u5E55 ${captionId} \u306E text_style`);
+        textStyle = updateOptionalObjectStyleProperty(textStyle, "glow", updates.glow, `\u5B57\u5E55 ${captionId} \u306E text_style`);
         textStyle = updateOptionalStyleProperty(textStyle, "zone", updates.zone, `\u5B57\u5E55 ${captionId} \u306E text_style`);
         textStyle = updateNestedStyleObject(textStyle, "stroke", {
           color: updates.stroke?.color,
@@ -2387,6 +2394,7 @@ var require_caption_store = __commonJS({
           color: updates.background?.color,
           opacity: updates.background?.opacity,
           radius_px: updates.background?.radiusPx,
+          padding_px: updates.background?.paddingPx,
           mode: updates.background?.mode
         }, `\u5B57\u5E55 ${captionId} \u306E text_style.background`);
         textStyle = updateAnimationStyleObject(textStyle, updates.animation, `\u5B57\u5E55 ${captionId} \u306E text_style.animation`);
@@ -3292,7 +3300,7 @@ var require_caption_store = __commonJS({
       return typeof value === "string" && /^#(?:[0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/iu.test(value);
     }
     function validateTextStylePatch(updates) {
-      const hasUpdate = updates.color !== void 0 || updates.sizePx !== void 0 || updates.zone !== void 0 || updates.stroke?.color !== void 0 || updates.stroke?.widthPx !== void 0 || updates.background?.color !== void 0 || updates.background?.opacity !== void 0 || updates.background?.radiusPx !== void 0 || updates.background?.mode !== void 0 || updates.animation !== void 0;
+      const hasUpdate = updates.color !== void 0 || updates.sizePx !== void 0 || updates.zone !== void 0 || updates.fontWeight !== void 0 || updates.weight !== void 0 || updates.lineHeight !== void 0 || updates.letterSpacingEm !== void 0 || updates.fontFamily !== void 0 || updates.shadow !== void 0 || updates.glow !== void 0 || updates.stroke?.color !== void 0 || updates.stroke?.widthPx !== void 0 || updates.background?.color !== void 0 || updates.background?.opacity !== void 0 || updates.background?.radiusPx !== void 0 || updates.background?.paddingPx !== void 0 || updates.background?.mode !== void 0 || updates.animation !== void 0;
       if (!hasUpdate) {
         throw new Error("\u5909\u66F4\u3059\u308B\u5B57\u5E55\u30B9\u30BF\u30A4\u30EB\u306E\u30D5\u30A3\u30FC\u30EB\u30C9\u3092\u6307\u5B9A\u3057\u3066\u304F\u3060\u3055\u3044\u3002");
       }
@@ -3303,6 +3311,58 @@ var require_caption_store = __commonJS({
       }
       if (updates.sizePx !== void 0 && updates.sizePx !== null && (!Number.isFinite(updates.sizePx) || updates.sizePx <= 0)) {
         throw new Error("\u5B57\u5E55\u30B5\u30A4\u30BA\u306F\u6B63\u306E\u6570\u3067\u6307\u5B9A\u3057\u3066\u304F\u3060\u3055\u3044\u3002");
+      }
+      for (const [value, min, max, label] of [
+        [updates.fontWeight, 1, 1e3, "font_weight"],
+        [updates.weight, 100, 900, "weight"]
+      ]) {
+        if (value !== void 0 && value !== null && (!Number.isInteger(value) || value < min || value > max)) {
+          throw new Error(`${label} \u306E\u5024\u304C\u4E0D\u6B63\u3067\u3059\u3002`);
+        }
+      }
+      if (updates.lineHeight !== void 0 && updates.lineHeight !== null && (!Number.isFinite(updates.lineHeight) || updates.lineHeight <= 0)) {
+        throw new Error("\u5B57\u5E55\u306E\u884C\u9593\u306F\u6B63\u306E\u6570\u3067\u6307\u5B9A\u3057\u3066\u304F\u3060\u3055\u3044\u3002");
+      }
+      if (updates.letterSpacingEm !== void 0 && updates.letterSpacingEm !== null && !Number.isFinite(updates.letterSpacingEm)) {
+        throw new Error("\u5B57\u5E55\u306E\u5B57\u9593\u306F\u6709\u9650\u6570\u3067\u6307\u5B9A\u3057\u3066\u304F\u3060\u3055\u3044\u3002");
+      }
+      if (updates.fontFamily !== void 0 && updates.fontFamily !== null && (typeof updates.fontFamily !== "string" || !updates.fontFamily.trim())) {
+        throw new Error("\u5B57\u5E55\u30D5\u30A9\u30F3\u30C8\u540D\u306F\u7A7A\u306B\u3067\u304D\u307E\u305B\u3093\u3002");
+      }
+      if (updates.background?.paddingPx !== void 0 && updates.background.paddingPx !== null && (!Number.isFinite(updates.background.paddingPx) || updates.background.paddingPx < 0)) {
+        throw new Error("\u5B57\u5E55\u306E\u5EA7\u5E03\u56E3\u4F59\u767D\u306F 0 \u4EE5\u4E0A\u3067\u6307\u5B9A\u3057\u3066\u304F\u3060\u3055\u3044\u3002");
+      }
+      for (const [name, effect, fields] of [
+        ["shadow", updates.shadow, ["blurPx", "distancePx"]],
+        ["glow", updates.glow, ["density", "spread"]]
+      ]) {
+        if (effect === void 0 || effect === null)
+          continue;
+        if (typeof effect !== "object" || Array.isArray(effect) || !isHexColor(effect.color)) {
+          throw new Error(`${name} \u306E\u8272\u306F hex \u3067\u6307\u5B9A\u3057\u3066\u304F\u3060\u3055\u3044\u3002`);
+        }
+        const allowedKeys = name === "shadow" ? ["color", "opacity", "blurPx", "distancePx", "angleDeg"] : ["color", "density", "spread", "offsetX", "offsetY"];
+        if (Object.keys(effect).some((key) => !allowedKeys.includes(key))) {
+          throw new Error(`${name} \u306B\u672A\u5BFE\u5FDC\u306E\u9805\u76EE\u304C\u3042\u308A\u307E\u3059\u3002`);
+        }
+        for (const key of fields) {
+          const value = effect[key];
+          if (value !== void 0 && (typeof value !== "number" || !Number.isFinite(value) || value < 0)) {
+            throw new Error(`${name}.${key} \u306F 0 \u4EE5\u4E0A\u3067\u6307\u5B9A\u3057\u3066\u304F\u3060\u3055\u3044\u3002`);
+          }
+        }
+      }
+      if (updates.shadow) {
+        const { opacity, angleDeg } = updates.shadow;
+        if (opacity !== void 0 && (!Number.isFinite(opacity) || opacity < 0 || opacity > 1)) {
+          throw new Error("shadow.opacity \u306F 0\u301C1 \u3067\u6307\u5B9A\u3057\u3066\u304F\u3060\u3055\u3044\u3002");
+        }
+        if (angleDeg !== void 0 && !Number.isFinite(angleDeg)) {
+          throw new Error("shadow.angleDeg \u306F\u6709\u9650\u6570\u3067\u6307\u5B9A\u3057\u3066\u304F\u3060\u3055\u3044\u3002");
+        }
+      }
+      if (updates.glow && [updates.glow.offsetX, updates.glow.offsetY].some((value) => value !== void 0 && !Number.isFinite(value))) {
+        throw new Error("glow \u306E\u4F4D\u7F6E\u306F\u6709\u9650\u6570\u3067\u6307\u5B9A\u3057\u3066\u304F\u3060\u3055\u3044\u3002");
       }
       if (updates.stroke?.widthPx !== void 0 && updates.stroke.widthPx !== null && (!Number.isFinite(updates.stroke.widthPx) || updates.stroke.widthPx < 0)) {
         throw new Error("\u5B57\u5E55\u306E\u7E01\u53D6\u308A\u592A\u3055\u306F 0 \u4EE5\u4E0A\u3067\u6307\u5B9A\u3057\u3066\u304F\u3060\u3055\u3044\u3002");
@@ -3345,6 +3405,13 @@ var require_caption_store = __commonJS({
       return {
         ...updates.color !== void 0 && updates.color !== null ? { color: updates.color } : {},
         ...updates.sizePx !== void 0 && updates.sizePx !== null ? { size_px: updates.sizePx } : {},
+        ...updates.fontWeight !== void 0 && updates.fontWeight !== null ? { font_weight: updates.fontWeight } : {},
+        ...updates.weight !== void 0 && updates.weight !== null ? { weight: updates.weight } : {},
+        ...updates.lineHeight !== void 0 && updates.lineHeight !== null ? { line_height: updates.lineHeight } : {},
+        ...updates.letterSpacingEm !== void 0 && updates.letterSpacingEm !== null ? { letter_spacing_em: updates.letterSpacingEm } : {},
+        ...updates.fontFamily !== void 0 && updates.fontFamily !== null ? { font_family: updates.fontFamily } : {},
+        ...updates.shadow ? { shadow: shadowPatchToJson(updates.shadow) } : {},
+        ...updates.glow ? { glow: glowPatchToJson(updates.glow) } : {},
         ...updates.stroke && Object.values(updates.stroke).some((value) => value !== void 0 && value !== null) ? {
           stroke: {
             ...updates.stroke.color !== void 0 && updates.stroke.color !== null ? { color: updates.stroke.color } : {},
@@ -3356,6 +3423,7 @@ var require_caption_store = __commonJS({
             ...updates.background.color !== void 0 && updates.background.color !== null ? { color: updates.background.color } : {},
             ...updates.background.opacity !== void 0 && updates.background.opacity !== null ? { opacity: updates.background.opacity } : {},
             ...updates.background.radiusPx !== void 0 && updates.background.radiusPx !== null ? { radius_px: updates.background.radiusPx } : {},
+            ...updates.background.paddingPx !== void 0 && updates.background.paddingPx !== null ? { padding_px: updates.background.paddingPx } : {},
             ...updates.background.mode !== void 0 && updates.background.mode !== null ? { mode: updates.background.mode } : {}
           }
         } : {},
@@ -3367,6 +3435,36 @@ var require_caption_store = __commonJS({
         } : {},
         ...updates.zone !== void 0 && updates.zone !== null ? { zone: updates.zone } : {}
       };
+    }
+    function shadowPatchToJson(shadow) {
+      return {
+        color: shadow.color,
+        ...shadow.opacity !== void 0 ? { opacity: shadow.opacity } : {},
+        ...shadow.blurPx !== void 0 ? { blur_px: shadow.blurPx } : {},
+        ...shadow.distancePx !== void 0 ? { distance_px: shadow.distancePx } : {},
+        ...shadow.angleDeg !== void 0 ? { angle_deg: shadow.angleDeg } : {}
+      };
+    }
+    function glowPatchToJson(glow) {
+      return {
+        color: glow.color,
+        ...glow.density !== void 0 ? { density: glow.density } : {},
+        ...glow.spread !== void 0 ? { spread: glow.spread } : {},
+        ...glow.offsetX !== void 0 ? { offset_x: glow.offsetX } : {},
+        ...glow.offsetY !== void 0 ? { offset_y: glow.offsetY } : {}
+      };
+    }
+    function updateOptionalObjectStyleProperty(source, property, value, label) {
+      if (value === void 0)
+        return source;
+      const existing = locateTopLevelProperty(source, property);
+      if (value === null)
+        return existing ? removeObjectProperty(source, property) : source;
+      const json = property === "shadow" ? shadowPatchToJson(value) : glowPatchToJson(value);
+      if (!existing)
+        return appendJsonProperty(source, property, json);
+      const located = locateTopLevelObjectProperty(source, property, label);
+      return source.slice(0, located.start) + JSON.stringify(json) + source.slice(located.end);
     }
     function locateTopLevelProperty(scopeText, key) {
       const openIndex = scopeText.search(/\S/);

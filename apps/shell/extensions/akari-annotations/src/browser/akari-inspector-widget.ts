@@ -2,7 +2,7 @@ import URI from '@theia/core/lib/common/uri';
 import { CommandRegistry } from '@theia/core/lib/common';
 import { GENERATION_PICK_INTO_COMMAND_ID, GENERATION_CANCEL_PICK_COMMAND_ID, type GenerationPickRequest, type GenerationPickResult } from '../common/generation-pick-mirror';
 import { AkariAnnotationsService } from '../common/akari-annotations-protocol';
-import type { GenerationValidationResult } from '../common/akari-annotations-protocol';
+import type { GenerationValidationResult, TranscriptSummary } from '../common/akari-annotations-protocol';
 import { resolveGenerationState, selectGenerationSidecarForSource, TRANSITION_VOCABULARY } from '@akari-video/edit-store';
 import { BaseWidget } from '@theia/core/lib/browser';
 import { WidgetManager } from '@theia/core/lib/browser/widget-manager';
@@ -35,7 +35,13 @@ import { createSelectionHeader } from './inspector/selection-header';
 import { aiActionCatalog, describeAiTiles } from '../common/ai-action-catalog';
 import { aiTabAvailabilityFor, aiTabViewFor, aiTargetKindFor, appendAiBack, appendAiTiles, type AiTabView } from './inspector/ai-tiles';
 import { appendAiStillNotice, appendAiStillPanel, nearestStillAspect, replaceStillInEdit, stillDimensionMismatch, stillMismatchNotice, type AiStillState } from './inspector/ai-still-panel';
+import { appendAiTranscribePanel, resolveAiTranscribeTarget, type AiTranscribeTarget } from './inspector/ai-transcribe-panel';
 import { createInspectorIcon } from './inspector/icons';
+import {
+    CAPTION_BACKGROUND_ON_OPACITY, captionEffectFromStyle, captionEffectPatch,
+    captionEffectColorPatch, captionEffectStrength, captionEffectStrengthPatch,
+    resolveCaptionRevealField
+} from './inspector/caption-style-effects';
 import { worldInstructionCopy } from '../common/world-instruction-copy';
 import { keyframeRowPropertyOf, keyframeValueAt, type KeyframeSeatProperty } from './timeline/timeline-keyframe-rows';
 import { CAPTION_ZONES, type CaptionBackgroundMode, type CaptionTextStyle } from '../common/caption-store';
@@ -161,17 +167,20 @@ type AudioInspectorSnapshot = TimelineAudioSelection & {
 
 interface InspectorFieldDef<TSnapshot = InspectorSnapshot> {
     name?: string;
+    revealName?: string;
     label: string;
     getValue: (snapshot: TSnapshot) => string;
     /** 編集用入力欄の初期値。省略時は getValue の戻り値を使う。 */
     getEditValue?: (snapshot: TSnapshot) => string;
     /** フィールドの値型に対応した入力 UI。 */
-    inputKind?: 'boolean-select' | 'select' | 'zone-grid' | 'scrub-number' | 'number' | 'color' | 'text' | 'media';
+    inputKind?: 'boolean-select' | 'select' | 'zone-grid' | 'scrub-number' | 'slider-number'
+        | 'caption-toggle' | 'caption-mode' | 'caption-effect' | 'caption-weight' | 'number' | 'color' | 'text' | 'media';
     options?: readonly string[];
     optionTitles?: Readonly<Record<string, string>>;
     scrubStep?: number;
     min?: number;
     max?: number;
+    sliderMax?: number;
     unit?: string;
     displayScale?: number;
     displayOffset?: number;
@@ -279,24 +288,36 @@ function formatAudioKindLabel(audioKind: TimelineAudioSelection['audioKind']): s
 const CAPTION_STYLE_DEFAULTS = {
     color: '#FFFFFF',
     sizePx: 38,
+    fontWeight: 700,
+    lineHeight: 1.42,
+    letterSpacingEm: 0,
     strokeColor: '#000000',
     strokeWidthPx: 1.5,
     backgroundColor: '#000000',
     backgroundOpacity: 0,
     backgroundRadiusPx: 10,
+    backgroundPaddingPx: 0,
     backgroundMode: 'per-line',
     zone: 'bottom'
 } as const;
 
+// 字幕描画の line-height 1.42 + 上下 padding 0.08em ずつの半分。
+const CAPTION_PLATE_CAPSULE_HALF_HEIGHT_EM = (1.42 + 0.08 * 2) / 2;
+
 type CaptionStyleFieldKey =
     | 'color'
     | 'size'
+    | 'font-weight'
+    | 'line-height'
+    | 'letter-spacing'
     | 'stroke-color'
     | 'stroke-width'
     | 'background-color'
     | 'background-opacity'
     | 'background-radius'
+    | 'background-padding'
     | 'background-mode'
+    | 'effect'
     | 'zone';
 
 function captionStyleDisplayValue<T>(
@@ -1045,6 +1066,7 @@ function CAPTION_SECTIONS(
 ): InspectorSection[] {
     const raw = snapshot.textStyle;
     const effective = snapshot.effectiveTextStyle;
+    const currentEffect = captionEffectFromStyle(effective);
     const requestOptions = options.targets ? { targets: options.targets } : {};
     const colorField = (
         label: string,
@@ -1054,7 +1076,7 @@ function CAPTION_SECTIONS(
         fallback: string,
         kind: 'caption-style-color' | 'caption-style-stroke-color' | 'caption-style-bg-color'
     ): InspectorFieldDef<TimelineCaptionSelection> => ({
-        name: `caption-${fieldKey}`, label,
+        name: `caption-${fieldKey}`, revealName: kind, label,
         getValue: () => options.mixedFields?.has(fieldKey)
             ? '—' : captionStyleDisplayValue(rawValue, effectiveValue, fallback),
         getEditValue: () => options.mixedFields?.has(fieldKey) ? '—' : effectiveValue ?? fallback,
@@ -1073,19 +1095,30 @@ function CAPTION_SECTIONS(
         effectiveValue: number | undefined,
         fallback: number,
         kind: 'caption-style-size' | 'caption-style-stroke-width'
-            | 'caption-style-bg-opacity' | 'caption-style-bg-radius',
+            | 'caption-style-bg-opacity' | 'caption-style-bg-radius'
+            | 'caption-style-line-height' | 'caption-style-letter-spacing'
+            | 'caption-style-bg-padding',
         min: number,
         max: number | undefined,
         step: number,
+        unit: 'px' | '%' | 'em' | '',
         invalidMessage: string
     ): InspectorFieldDef<TimelineCaptionSelection> => ({
         name: `caption-${fieldKey}`, label,
         getValue: () => options.mixedFields?.has(fieldKey)
-            ? '—' : captionStyleDisplayValue(rawValue, effectiveValue, fallback),
+            ? '—' : captionStyleDisplayValue(rawValue, effectiveValue, fallback,
+                value => fieldKey === 'background-opacity' ? `${Math.round(value * 100)}%` : String(value)),
         getEditValue: () => options.mixedFields?.has(fieldKey) ? '—' : String(effectiveValue ?? fallback),
-        inputKind: 'scrub-number',
+        inputKind: 'slider-number',
         scrubStep: step,
-        unit: label.includes('(px)') ? 'px' : fieldKey === 'background-opacity' ? '%' : undefined,
+        sliderMax: fieldKey === 'size' ? 160 : fieldKey === 'stroke-width' ? 20
+            : fieldKey === 'line-height' ? 2.2 : fieldKey === 'letter-spacing' ? 0.4
+                : fieldKey === 'background-padding' ? 40
+                    : fieldKey === 'background-opacity' ? 1
+                        : Math.round(((effective?.sizePx ?? CAPTION_STYLE_DEFAULTS.sizePx)
+                            * CAPTION_PLATE_CAPSULE_HALF_HEIGHT_EM
+                            + (effective?.background?.paddingPx ?? CAPTION_STYLE_DEFAULTS.backgroundPaddingPx)) * 2) / 2,
+        unit,
         ...(fieldKey === 'background-opacity' ? { displayScale: 100 } : {}),
         min,
         ...(max !== undefined ? { max } : {}),
@@ -1098,7 +1131,7 @@ function CAPTION_SECTIONS(
             return requestWrite({ kind, id: snapshot.id, value: parsed, ...requestOptions });
         }
     });
-    return composeInspectorSections([
+    const sections = composeInspectorSections<InspectorSection>([
         {
             id: 'time', label: '時間', fields: [
                 {
@@ -1139,10 +1172,10 @@ function CAPTION_SECTIONS(
             ]
         },
         {
-            id: 'style', label: 'スタイル',
+            id: 'style', label: '文字',
             fields: [
                 colorField(
-                    '文字色',
+                    '色',
                     'color',
                     raw?.color,
                     effective?.color,
@@ -1150,7 +1183,7 @@ function CAPTION_SECTIONS(
                     'caption-style-color'
                 ),
                 numberField(
-                    'サイズ (px)',
+                    '大きさ',
                     'size',
                     raw?.sizePx,
                     effective?.sizePx,
@@ -1159,10 +1192,31 @@ function CAPTION_SECTIONS(
                     0,
                     undefined,
                     1,
+                    'px',
                     'サイズは正の数で入力してください。'
                 ),
+                {
+                    name: 'caption-font-weight', label: '太さ', inputKind: 'caption-weight',
+                    getValue: () => options.mixedFields?.has('font-weight') ? '—'
+                        : captionStyleDisplayValue(raw?.weight ?? raw?.fontWeight,
+                            effective?.weight ?? effective?.fontWeight, CAPTION_STYLE_DEFAULTS.fontWeight),
+                    getEditValue: () => options.mixedFields?.has('font-weight') ? '—'
+                        : String(effective?.weight ?? effective?.fontWeight ?? CAPTION_STYLE_DEFAULTS.fontWeight),
+                    write: async (_snapshot, value) => {
+                        const weight = Number(value);
+                        if (![400, 700, 900].includes(weight)) return { ok: false, message: '太さを選んでください。' };
+                        return requestWrite({ kind: 'caption-style-font-weight', id: snapshot.id,
+                            value: weight, ...requestOptions });
+                    }
+                },
+                numberField('行間', 'line-height', raw?.lineHeight, effective?.lineHeight,
+                    CAPTION_STYLE_DEFAULTS.lineHeight, 'caption-style-line-height',
+                    0.9, 2.2, 0.05, '', '行間は 0.9〜2.2 で入力してください。'),
+                numberField('字間', 'letter-spacing', raw?.letterSpacingEm, effective?.letterSpacingEm,
+                    CAPTION_STYLE_DEFAULTS.letterSpacingEm, 'caption-style-letter-spacing',
+                    -0.1, 0.4, 0.01, 'em', '字間は -0.1〜0.4 で入力してください。'),
                 colorField(
-                    '縁取り色',
+                    '色',
                     'stroke-color',
                     raw?.stroke?.color,
                     effective?.stroke?.color,
@@ -1170,7 +1224,7 @@ function CAPTION_SECTIONS(
                     'caption-style-stroke-color'
                 ),
                 numberField(
-                    '縁取り (px)',
+                    '太さ',
                     'stroke-width',
                     raw?.stroke?.widthPx,
                     effective?.stroke?.widthPx,
@@ -1178,11 +1232,40 @@ function CAPTION_SECTIONS(
                     'caption-style-stroke-width',
                     0,
                     undefined,
-                    0.1,
+                    0.5,
+                    'px',
                     '縁取り太さは 0 以上で入力してください。'
                 ),
+                {
+                    name: 'caption-style-bg-enabled', label: '表示', inputKind: 'caption-toggle',
+                    getValue: () => options.mixedFields?.has('background-opacity') ? '—'
+                        : effectiveCaptionBackgroundOpacity(effective) > 0 ? 'true' : 'false',
+                    getEditValue: () => options.mixedFields?.has('background-opacity') ? '—'
+                        : effectiveCaptionBackgroundOpacity(effective) > 0 ? 'true' : 'false',
+                    write: async (_snapshot, nextValue) => requestWrite({
+                        kind: 'caption-style-bg-opacity', id: snapshot.id,
+                        value: nextValue === 'true' ? CAPTION_BACKGROUND_ON_OPACITY : 0,
+                        ...requestOptions
+                    })
+                },
+                {
+                    name: 'caption-background-mode', label: '形',
+                    getValue: () => options.mixedFields?.has('background-mode') ? '—'
+                        : captionStyleDisplayValue(raw?.background?.mode, effective?.background?.mode,
+                            CAPTION_STYLE_DEFAULTS.backgroundMode),
+                    getEditValue: () => options.mixedFields?.has('background-mode') ? '—'
+                        : effective?.background?.mode ?? CAPTION_STYLE_DEFAULTS.backgroundMode,
+                    inputKind: 'caption-mode', options: ['per-line', 'block'],
+                    write: async (_snapshot, nextValue) => {
+                        if (nextValue !== 'per-line' && nextValue !== 'block') {
+                            return { ok: false, message: '座布団の形を2つの候補から選んでください。' };
+                        }
+                        return requestWrite({ kind: 'caption-style-bg-mode', id: snapshot.id,
+                            value: nextValue as CaptionBackgroundMode, ...requestOptions });
+                    }
+                },
                 colorField(
-                    '座布団色',
+                    '色',
                     'background-color',
                     raw?.background?.color,
                     effective?.background?.color,
@@ -1190,7 +1273,7 @@ function CAPTION_SECTIONS(
                     'caption-style-bg-color'
                 ),
                 numberField(
-                    '座布団不透明度',
+                    '不透明度',
                     'background-opacity',
                     raw?.background?.opacity,
                     effectiveCaptionBackgroundOpacity(effective),
@@ -1199,10 +1282,14 @@ function CAPTION_SECTIONS(
                     0,
                     1,
                     0.01,
+                    '%',
                     '座布団不透明度は 0〜1 の範囲で入力してください。'
                 ),
+                numberField('余白', 'background-padding', raw?.background?.paddingPx,
+                    effective?.background?.paddingPx, CAPTION_STYLE_DEFAULTS.backgroundPaddingPx,
+                    'caption-style-bg-padding', 0, undefined, 1, 'px', '余白は 0 以上で入力してください。'),
                 numberField(
-                    '座布団角丸 (px)',
+                    '角丸',
                     'background-radius',
                     raw?.background?.radiusPx,
                     effective?.background?.radiusPx,
@@ -1211,32 +1298,56 @@ function CAPTION_SECTIONS(
                     0,
                     undefined,
                     1,
+                    'px',
                     '座布団角丸は 0 以上で入力してください。'
                 ),
                 {
-                    name: 'caption-background-mode', label: '座布団の形',
-                    getValue: () => options.mixedFields?.has('background-mode')
-                        ? '—'
-                        : captionStyleDisplayValue(
-                            raw?.background?.mode,
-                            effective?.background?.mode,
-                            CAPTION_STYLE_DEFAULTS.backgroundMode
-                        ),
-                    getEditValue: () => options.mixedFields?.has('background-mode')
-                        ? '—'
-                        : effective?.background?.mode ?? CAPTION_STYLE_DEFAULTS.backgroundMode,
-                    inputKind: 'select',
-                    options: ['per-line', 'block'],
+                    name: 'caption-style-effect', label: '種類', inputKind: 'caption-effect',
+                    getValue: () => options.mixedFields?.has('effect') ? '—' : currentEffect,
                     write: async (_snapshot, nextValue) => {
-                        if (nextValue !== 'per-line' && nextValue !== 'block') {
-                            return { ok: false, message: '座布団の形を2つの候補から選んでください。' };
+                        if (!['none', 'shadow', 'raised', 'neon', 'outline'].includes(nextValue)) {
+                            return { ok: false, message: '効果を選んでください。' };
                         }
-                        return requestWrite({
-                            kind: 'caption-style-bg-mode',
-                            id: snapshot.id,
-                            value: nextValue as CaptionBackgroundMode,
-                            ...requestOptions
-                        });
+                        return requestWrite({ kind: 'caption-style-effect', id: snapshot.id,
+                            value: captionEffectPatch(nextValue as 'none' | 'shadow' | 'raised' | 'neon' | 'outline',
+                                effective?.color ?? CAPTION_STYLE_DEFAULTS.color), ...requestOptions });
+                    }
+                },
+                {
+                    name: 'caption-style-effect-color', label: '効果の色', inputKind: 'color',
+                    getValue: () => options.mixedFields?.has('effect') ? '—'
+                        : currentEffect === 'neon' ? effective?.glow?.color ?? '#39D5FF'
+                            : currentEffect === 'outline' ? effective?.stroke?.color ?? '#000000'
+                                : effective?.shadow?.color ?? '#000000',
+                    getEditValue: () => currentEffect === 'neon' ? effective?.glow?.color ?? '#39D5FF'
+                        : currentEffect === 'outline' ? effective?.stroke?.color ?? '#000000'
+                            : effective?.shadow?.color ?? '#000000',
+                    write: async (_snapshot, value) => {
+                        if (!isCaptionHexColor(value)) return { ok: false, message: '色は hex で入力してください。' };
+                        return requestWrite({ kind: 'caption-style-effect', id: snapshot.id,
+                            value: captionEffectColorPatch(effective ?? {}, value), ...requestOptions });
+                    }
+                },
+                {
+                    name: 'caption-style-effect-strength', label: '強さ', inputKind: 'slider-number',
+                    getValue: () => options.mixedFields?.has('effect') ? '—'
+                        : captionStyleDisplayValue(
+                            currentEffect === 'neon' ? raw?.glow?.spread
+                                : currentEffect === 'outline' ? raw?.stroke?.widthPx
+                                    : raw?.shadow?.distancePx,
+                            captionEffectStrength(effective ?? {}),
+                            currentEffect === 'outline' ? 6 : 1),
+                    getEditValue: () => String(captionEffectStrength(effective ?? {})),
+                    min: 0, sliderMax: currentEffect === 'outline' ? 20 : 8,
+                    scrubStep: currentEffect === 'outline' ? 0.5 : 0.1,
+                    unit: currentEffect === 'outline' ? 'px' : '',
+                    write: async (_snapshot, value) => {
+                        const strength = Number(value);
+                        if (!Number.isFinite(strength) || strength < 0) {
+                            return { ok: false, message: '強さは 0 以上で入力してください。' };
+                        }
+                        return requestWrite({ kind: 'caption-style-effect', id: snapshot.id,
+                            value: captionEffectStrengthPatch(effective ?? {}, strength), ...requestOptions });
                     }
                 },
                 {
@@ -1289,6 +1400,23 @@ function CAPTION_SECTIONS(
             ]
         }
     ]);
+    return sections.flatMap(section => {
+        if (section.id !== 'style') return [section];
+        const fields = section.fields;
+        return [
+            { id: 'style', label: '文字', fields: fields.slice(0, 5) },
+            { id: 'style:stroke', label: '縁取り', fields: fields.slice(5, 7) },
+            { id: 'style:background', label: '座布団', fields: fields.slice(7, 13), body: () => {
+                const note = document.createElement('p');
+                note.className = 'akari-caption-radius-note';
+                note.textContent = '角丸を最大にすると文字に沿った丸い座布団（カプセル）になる';
+                return note;
+            } },
+            { id: 'style:effect', label: '効果', fields: fields.slice(13,
+                options.mixedFields?.has('effect') || currentEffect === 'none' ? 14 : 16) },
+            { id: 'style:position', label: '位置', fields: fields.slice(16) }
+        ];
+    });
 }
 
 function commonCaptionValue<T>(
@@ -1326,6 +1454,13 @@ function MULTI_CAPTION_SECTIONS(
             snapshot.effectiveTextStyle?.color ?? CAPTION_STYLE_DEFAULTS.color),
         sizePx: common('size', snapshot =>
             snapshot.effectiveTextStyle?.sizePx ?? CAPTION_STYLE_DEFAULTS.sizePx),
+        fontWeight: common('font-weight', snapshot =>
+            snapshot.effectiveTextStyle?.weight ?? snapshot.effectiveTextStyle?.fontWeight
+                ?? CAPTION_STYLE_DEFAULTS.fontWeight),
+        lineHeight: common('line-height', snapshot =>
+            snapshot.effectiveTextStyle?.lineHeight ?? CAPTION_STYLE_DEFAULTS.lineHeight),
+        letterSpacingEm: common('letter-spacing', snapshot =>
+            snapshot.effectiveTextStyle?.letterSpacingEm ?? CAPTION_STYLE_DEFAULTS.letterSpacingEm),
         stroke: {
             color: common('stroke-color', snapshot =>
                 snapshot.effectiveTextStyle?.stroke?.color ?? CAPTION_STYLE_DEFAULTS.strokeColor),
@@ -1339,12 +1474,22 @@ function MULTI_CAPTION_SECTIONS(
                 effectiveCaptionBackgroundOpacity(snapshot.effectiveTextStyle)),
             radiusPx: common('background-radius', snapshot =>
                 snapshot.effectiveTextStyle?.background?.radiusPx ?? CAPTION_STYLE_DEFAULTS.backgroundRadiusPx),
+            paddingPx: common('background-padding', snapshot =>
+                snapshot.effectiveTextStyle?.background?.paddingPx ?? CAPTION_STYLE_DEFAULTS.backgroundPaddingPx),
             mode: common('background-mode', snapshot =>
                 snapshot.effectiveTextStyle?.background?.mode ?? CAPTION_STYLE_DEFAULTS.backgroundMode)
         },
         zone: common('zone', snapshot =>
             snapshot.effectiveTextStyle?.zone ?? CAPTION_STYLE_DEFAULTS.zone)
     };
+    const effect = common('effect', snapshot => captionEffectFromStyle(snapshot.effectiveTextStyle));
+    if (!mixedFields.has('effect')) {
+        if (effect === 'shadow' || effect === 'raised') {
+            effectiveStyle.shadow = snapshots[0].effectiveTextStyle?.shadow;
+        } else if (effect === 'neon') {
+            effectiveStyle.glow = snapshots[0].effectiveTextStyle?.glow;
+        }
+    }
     const aggregate: TimelineCaptionSelection = {
         ...snapshots[0],
         textStyle: effectiveStyle,
@@ -1354,8 +1499,8 @@ function MULTI_CAPTION_SECTIONS(
         kind: 'caption',
         id: snapshot.id
     }));
-    const styleTab = CAPTION_SECTIONS(aggregate, requestWrite, { mixedFields, targets, ...zoneActions })
-        .find(tab => tab.label === 'スタイル')!;
+    const styleCards = CAPTION_SECTIONS(aggregate, requestWrite, { mixedFields, targets, ...zoneActions })
+        .filter(section => section.id === 'style' || section.id.startsWith('style:'));
     return [
         {
             id: 'content', label: '内容（複数）',
@@ -1365,7 +1510,7 @@ function MULTI_CAPTION_SECTIONS(
                 }
             ]
         },
-        styleTab
+        ...styleCards
     ];
 }
 
@@ -2442,6 +2587,14 @@ export class AkariInspectorWidget extends BaseWidget {
     protected aiStillSelectionClipKey?: string;
     protected readonly aiStillStates = new Map<string, AiStillState>();
     protected aiStillTick?: number;
+    protected transcribeKey?: string;
+    protected transcribeTarget?: AiTranscribeTarget;
+    protected transcribeSummary: TranscriptSummary = { state: 'none', segments: [], total: 0 };
+    protected transcribeRunning = false;
+    protected transcribePolling = false;
+    protected transcribeTimer?: ReturnType<typeof setInterval>;
+    protected transcribeLoading?: Promise<void>;
+    protected audioPlanned = false;
     protected generationDefaultModel = 'fal:h3-i2v';
     protected readonly generationDrafts = new Map<string, GenerationDraft>();
     protected readonly generationQuality = new Map<string, { modelId: string; enabled: boolean; previousResolution: string | null }>();
@@ -2511,7 +2664,7 @@ export class AkariInspectorWidget extends BaseWidget {
 .akari-inspector-ai-group { min-width: 0; }
 .akari-inspector-ai-heading { margin: 0 0 9px; font-size: 13px; font-weight: 700; }
 .akari-inspector-ai-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
-.akari-inspector-widget button.akari-inspector-ai-tile { display: flex; flex-direction: column; align-items: stretch; min-width: 0; padding: 0 0 7px; overflow: hidden; text-align: left; color: var(--akari-ink); background: var(--akari-elevated); border: 1px solid var(--akari-line); border-radius: 7px; cursor: pointer; }
+.akari-inspector-widget button.akari-inspector-ai-tile { position: relative; display: flex; flex-direction: column; align-items: stretch; min-width: 0; padding: 0 0 7px; overflow: hidden; text-align: left; color: var(--akari-ink); background: var(--akari-elevated); border: 1px solid var(--akari-line); border-radius: 7px; cursor: pointer; }
 .akari-inspector-widget button.akari-inspector-ai-tile:hover:not(.akari-inspector-ai-disabled) { border-color: var(--akari-accent); }
 .akari-inspector-ai-image { display: block; box-sizing: border-box; width: 100%; height: auto; aspect-ratio: 16 / 9; object-fit: cover; }
 .akari-inspector-ai-title { display: block; margin: 7px 8px 0; font-size: 12px; font-weight: 600; line-height: 1.35; }
@@ -2519,8 +2672,9 @@ export class AkariInspectorWidget extends BaseWidget {
 .akari-inspector-ai-disabled .akari-inspector-ai-image { filter: grayscale(1); opacity: .55; }
 .akari-inspector-ai-disabled .akari-inspector-ai-title { color: var(--akari-muted); }
 .akari-inspector-ai-reason { display: block; margin: 4px 8px 0; color: var(--akari-muted); font-size: 10px; line-height: 1.35; }
+.akari-inspector-ai-done-badge { position: absolute; top: 6px; right: 6px; padding: 2px 6px; border-radius: 4px; background: var(--akari-accent); color: var(--akari-bg); font-size: 10px; line-height: 1.3; }
 .akari-inspector-ai-panel-header { display: flex; align-items: center; gap: 10px; min-width: 0; padding: 4px 2px 8px; }
-.akari-inspector-widget button.akari-inspector-ai-back { padding: 3px 5px; color: var(--akari-accent); background: transparent; border: 0; cursor: pointer; }
+.akari-inspector-widget button.akari-inspector-ai-back { padding: 3px 5px; color: var(--akari-accent); background: var(--akari-elevated); border: 1px solid var(--akari-line); border-radius: 4px; cursor: pointer; }
 .akari-inspector-ai-panel-title { margin: 0; font-size: 13px; font-weight: 700; }
 .akari-inspector-ai-still-notice { margin: 5px 2px 9px; padding: 7px 9px; border: 1px solid var(--akari-line); border-radius: 5px; font-size: 11px; line-height: 1.5; overflow-wrap: anywhere; }
 .akari-inspector-ai-still-panel { display: grid; gap: 10px; padding: 4px 2px 14px; min-width: 0; }
@@ -2541,6 +2695,15 @@ export class AkariInspectorWidget extends BaseWidget {
 .akari-inspector-ai-still-error { color: var(--akari-danger, #e36b6b); }
 .akari-inspector-widget button.akari-inspector-ai-still-primary { padding: 9px 12px; color: var(--akari-bg); background: var(--akari-accent); border: 1px solid var(--akari-accent); border-radius: 5px; font-weight: 700; cursor: pointer; }
 .akari-inspector-widget button.akari-inspector-ai-still-primary:disabled { color: var(--akari-faint); background: var(--akari-card); border-color: var(--akari-line); cursor: default; }
+.akari-inspector-ai-transcribe-panel { display: grid; gap: 12px; min-width: 0; padding: 10px 2px; }
+.akari-inspector-ai-transcribe-detail, .akari-inspector-ai-transcribe-reason { margin: 0; color: var(--akari-muted); font-size: 12px; overflow-wrap: anywhere; }
+.akari-inspector-ai-transcribe-status { margin: 0; font-size: 13px; font-weight: 700; }
+.akari-inspector-ai-transcribe-list { display: grid; gap: 0; min-width: 0; border: 1px solid var(--akari-line); border-radius: 6px; overflow: hidden; }
+.akari-inspector-ai-transcribe-row { display: grid; grid-template-columns: 72px minmax(0, 1fr); gap: 8px; min-width: 0; padding: 8px; border-bottom: 1px solid var(--akari-line); font-size: 11px; }
+.akari-inspector-ai-transcribe-row:last-child { border-bottom: 0; }
+.akari-inspector-ai-transcribe-time { color: var(--akari-muted); white-space: nowrap; }
+.akari-inspector-ai-transcribe-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.akari-inspector-widget button.akari-inspector-ai-transcribe-button { width: 100%; padding: 8px 10px; color: var(--akari-ink); background: var(--akari-elevated); border: 1px solid var(--akari-line); border-radius: 5px; cursor: pointer; }
 .akari-inspector-generation-gap { display: grid; gap: 12px; padding: 12px; min-width: 0; }
 .akari-inspector-generation-gap h3, .akari-inspector-generation-gap p { margin: 0; line-height: 1.6; overflow-wrap: anywhere; }
 .akari-inspector-generation-gap-ends { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; }
@@ -2700,6 +2863,114 @@ export class AkariInspectorWidget extends BaseWidget {
         border-radius: 2px;
         width: 100%;
         box-sizing: border-box;
+    }
+    .akari-inspector-widget .akari-caption-slider-number {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 4px;
+        min-width: 0;
+    }
+    .akari-inspector-widget .akari-caption-slider-number input[type="range"] {
+        flex: 1 1 72px;
+        min-width: 48px;
+        max-width: 100%;
+        accent-color: var(--akari-accent);
+    }
+    .akari-inspector-widget .akari-caption-slider-value {
+        display: inline-flex;
+        flex: 0 0 auto;
+        align-items: center;
+        gap: 3px;
+        max-width: 100%;
+        white-space: nowrap;
+    }
+    .akari-inspector-widget .akari-caption-slider-number input[type="number"] {
+        /* 符号付き小数 5 文字とネイティブの上下ボタンを収める。 */
+        flex: 0 0 72px;
+        width: 72px;
+        min-width: 72px;
+    }
+    .akari-inspector-widget .akari-caption-slider-unit,
+    .akari-inspector-widget .akari-caption-default-note {
+        color: var(--akari-muted);
+        font-size: 10px;
+    }
+    .akari-inspector-widget .akari-caption-default-note:empty { display: none; }
+    .akari-inspector-widget .akari-caption-radius-note {
+        margin: 0;
+        color: var(--akari-muted);
+        font-size: 10px;
+        line-height: 1.4;
+    }
+    .akari-inspector-widget .akari-caption-mode-choices,
+    .akari-inspector-widget .akari-caption-effect-choices,
+    .akari-inspector-widget .akari-caption-weight-choices {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 5px;
+        min-width: 0;
+    }
+    .akari-inspector-widget .akari-caption-weight-choices {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+    .akari-inspector-widget .akari-caption-effect-choices {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+    .akari-inspector-widget .akari-caption-effect-choices .akari-caption-choice {
+        font-size: 10px;
+        line-height: 1.25;
+        white-space: normal;
+        overflow-wrap: anywhere;
+        text-align: center;
+    }
+    .akari-inspector-widget .akari-caption-choice {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 3px;
+        min-width: 0;
+        padding: 6px 2px;
+        border: 1px solid var(--akari-line);
+        border-radius: 6px;
+        background: var(--akari-bg);
+        color: var(--akari-muted);
+        font: inherit;
+        cursor: pointer;
+    }
+    .akari-inspector-widget .akari-caption-choice[aria-pressed="true"] {
+        border-color: var(--akari-accent);
+        background: var(--akari-elevated);
+        color: var(--akari-ink);
+    }
+    .akari-inspector-widget .akari-caption-effect-sample {
+        font-size: 15px;
+        font-weight: 700;
+        line-height: 1;
+        color: var(--akari-ink);
+    }
+    .akari-inspector-widget .akari-caption-effect-sample-outline {
+        -webkit-text-stroke: 2px var(--akari-muted);
+        paint-order: stroke fill;
+    }
+    .akari-inspector-widget .akari-caption-effect-sample-shadow {
+        text-shadow: 4px 4px 2px rgba(0, 0, 0, .75);
+    }
+    .akari-inspector-widget .akari-caption-effect-sample-raised {
+        text-shadow: 0 4px 10px rgba(0, 0, 0, .6);
+    }
+    .akari-inspector-widget .akari-caption-effect-sample-neon {
+        text-shadow: 0 0 5px #39D5FF, 0 0 10px #39D5FF;
+    }
+    .akari-inspector-widget .akari-caption-toggle {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        min-width: 0;
+    }
+    .akari-inspector-widget .akari-inspector-reveal-flash {
+        animation: akari-inspector-focus-pulse 0.6s ease-out;
     }
     .akari-inspector-widget .akari-caption-zone-grid {
         display: grid;
@@ -3308,22 +3579,46 @@ export class AkariInspectorWidget extends BaseWidget {
             this.explicitTabId = options.tabId;
             this.tabState.setActiveTab(kind, options.tabId);
         }
-        if (options.sectionId) this.sectionState.setCollapsed(kind, options.sectionId, false);
         this.render();
+        const requestedSectionId = options.sectionId;
+        const matchingSections = (): Element[] => {
+            if (!requestedSectionId) return [];
+            if (typeof this.body.querySelectorAll !== 'function') {
+                const section = this.body.querySelector(`[data-akari-ui="section:inspector-${requestedSectionId}"]`);
+                return section ? [section] : [];
+            }
+            return Array.from(this.body.querySelectorAll('[data-akari-ui^="section:inspector-"]'))
+                .filter(section => {
+                    const id = section.getAttribute('data-akari-ui')!.slice('section:inspector-'.length);
+                    return id === requestedSectionId || id.startsWith(`${requestedSectionId}:`);
+                });
+        };
+        if (options.sectionId) {
+            const matches = matchingSections();
+            const needsRender = typeof this.body.querySelectorAll === 'function' && matches.some(section =>
+                section.querySelector?.('.akari-inspector-section-body')?.hasAttribute('hidden'));
+            for (const section of matches) {
+                const ui = section.getAttribute?.('data-akari-ui');
+                this.sectionState.setCollapsed(kind,
+                    ui?.startsWith('section:inspector-')
+                        ? ui.slice('section:inspector-'.length) : requestedSectionId, false);
+            }
+            if (needsRender) this.render();
+        }
         let ok = true;
         if (options.tabId) {
             ok = ok && !!this.body.querySelector(`[data-akari-ui="tab:inspector-${options.tabId}"].is-active`);
-        }
-        let sectionElement: Element | null = null;
-        if (options.sectionId) {
-            sectionElement = this.body.querySelector(`[data-akari-ui="section:inspector-${options.sectionId}"]`);
-            ok = ok && !!sectionElement;
         }
         let fieldElement: Element | null = null;
         if (options.fieldName) {
             fieldElement = this.body.querySelector(`[data-akari-field="${options.fieldName}"]`);
             ok = ok && !!fieldElement;
         }
+        let sectionElement: Element | null = options.sectionId
+            ? matchingSections().find(section => fieldElement && section.contains?.(fieldElement))
+                ?? matchingSections()[0] ?? null
+            : null;
+        if (options.sectionId) ok = ok && !!sectionElement;
         if (options.solo && sectionElement && fieldElement) {
             ok = ok && sectionElement.contains(fieldElement);
         }
@@ -3339,16 +3634,41 @@ export class AkariInspectorWidget extends BaseWidget {
                 };
                 this.soloSelectionKey = this.currentSelectionKey();
                 this.render();
-                sectionElement = options.sectionId
-                    ? this.body.querySelector(`[data-akari-ui="section:inspector-${options.sectionId}"]`)
-                    : null;
                 fieldElement = options.fieldName
                     ? this.body.querySelector(`[data-akari-field="${options.fieldName}"]`)
+                    : null;
+                sectionElement = options.sectionId
+                    ? matchingSections().find(section => fieldElement && section.contains?.(fieldElement))
+                        ?? matchingSections()[0] ?? null
                     : null;
             }
         }
         const target = fieldElement ?? sectionElement;
         if (target) this.pulse(target as HTMLElement);
+        return true;
+    }
+
+    revealCaptionField(argument: unknown): boolean {
+        const snapshot = this.model.snapshot;
+        if (snapshot?.kind !== 'caption' && !(snapshot?.kind === 'multi'
+            && snapshot.items.length > 0 && snapshot.items.every(item => item.kind === 'caption'))) {
+            return false;
+        }
+        const field = resolveCaptionRevealField(argument);
+        const sectionId = field === 'caption-style-stroke-color' ? 'style:stroke'
+            : field === 'caption-style-bg-color' ? 'style:background' : 'style';
+        if (!this.focusField({ tabId: 'text', sectionId })) return false;
+        const target = field === 'caption-style'
+            ? this.body.querySelector('[data-inspector-field="caption-style"]')
+            : this.body.querySelector(`[data-inspector-field="${field}"]`);
+        if (!(target instanceof HTMLElement)) return false;
+        target.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        target.classList.add('akari-inspector-reveal-flash');
+        window.setTimeout(() => target.classList.remove('akari-inspector-reveal-flash'), 650);
+        if (field !== 'caption-style') {
+            const input = target.querySelector<HTMLInputElement>('input[type="text"], input[type="color"]');
+            input?.focus({ preventScroll: true });
+        }
         return true;
     }
 
@@ -3486,6 +3806,8 @@ export class AkariInspectorWidget extends BaseWidget {
     }
 
     protected render(): void {
+        if (this.transcribeTimer) clearInterval(this.transcribeTimer);
+        this.transcribeTimer = undefined;
         this.dispatchCaptionZoneEvent(CAPTION_ZONE_HOVER_EVENT, null);
         this.body.replaceChildren();
         this.hideFieldNotice();
@@ -3521,7 +3843,7 @@ export class AkariInspectorWidget extends BaseWidget {
 
         if (this.generationVideoPaths) this.observeGenerationVideo(snapshot);
         const generationIdentity = this.generationIdentity(snapshot);
-        if (!generationIdentity && (snapshot.kind === 'cut' || snapshot.kind === 'layer' || snapshot.kind === 'item')) {
+        if (!generationIdentity && (snapshot.kind === 'cut' || snapshot.kind === 'layer' || snapshot.kind === 'item' || snapshot.kind === 'audio')) {
             // The existing test harness transpiles render without this new loader method.
             void this.loadAiCatalog?.();
         }
@@ -3661,10 +3983,27 @@ export class AkariInspectorWidget extends BaseWidget {
         }
         const generationState = generationIdentity ? this.generationStates.get(generationIdentity.key) : undefined;
         const generationDone = !!generationIdentity && this.generationDone?.has(generationIdentity.key) === true;
+        const transcribeKey = JSON.stringify([
+            this.workspaceService.tryGetRoots()[0]?.resource.toString() ?? '', sectionKind,
+            rowSnapshot.kind === 'cut' ? rowSnapshot.itemId ?? rowSnapshot.index : rowSnapshot.id
+        ]);
+        if (this.transcribeKey !== transcribeKey) {
+            this.transcribeKey = transcribeKey;
+            this.transcribeTarget = undefined;
+            this.transcribeSummary = { state: 'none', segments: [], total: 0 };
+            this.transcribeRunning = false;
+            this.transcribePolling = false;
+            this.audioPlanned = false;
+            this.transcribeLoading = undefined;
+        }
+        if (['cut', 'layer', 'item', 'audio'].includes(sectionKind) && !this.transcribeLoading) {
+            void this.loadAiTranscribeTarget?.(rowSnapshot, transcribeKey);
+        }
         // Older render harnesses instantiate only extracted methods and have no AI catalog state.
         const aiGroups = this.aiCatalogLoaded === undefined ? [] : describeAiTiles(
             aiActionCatalog(this.generationCatalog),
-            aiTargetKindFor({ hasIdentity: !!generationIdentity, generationDone, generationState })
+            aiTargetKindFor({ hasIdentity: !!generationIdentity, generationDone, generationState,
+                audio: sectionKind === 'audio', audioPlanned: this.audioPlanned })
         );
         const aiAvailability = this.aiCatalogLoaded === undefined
             ? { enabled: !!generationIdentity, forcePanel: false }
@@ -3713,21 +4052,51 @@ export class AkariInspectorWidget extends BaseWidget {
             if (this.aiView === 'tiles') {
                 if (stillNotice) appendAiStillNotice(this.body, stillNotice);
                 appendAiTiles(this.body, aiGroups, id => {
-                    if (id !== 'video' && id !== 'still') return;
+                    if (id !== 'video' && id !== 'still' && id !== 'transcribe') return;
                     this.aiView = id;
                     this.render();
-                });
+                }, this.transcribeSummary.state === 'done');
                 return;
             }
             if (this.aiView === 'still' && generationIdentity) {
-                appendAiBack(this.body, '静止画', () => { this.aiView = 'tiles'; this.render(); });
+                appendAiBack(this.body, '静止画', () => {
+                    this.aiView = 'tiles';
+                    this.transcribePolling = false;
+                    this.render();
+                });
                 this.appendStillPanel(generationIdentity);
                 return;
             }
-            appendAiBack(this.body, '動画にする', () => {
+            appendAiBack(this.body, this.aiView === 'transcribe' ? '文字起こし' : '動画にする', () => {
                 this.aiView = 'tiles';
+                this.transcribePolling = false;
                 this.render();
             });
+            if (this.aiView === 'transcribe') {
+                const root = this.workspaceService.tryGetRoots()[0]?.resource;
+                appendAiTranscribePanel(this.body, {
+                    projectRoot: root?.toString() ?? '', target: this.transcribeTarget,
+                    summary: this.transcribeSummary, running: this.transcribeRunning,
+                    commands: this.commandRegistry,
+                    onDialogResult: result => {
+                        if (this.transcribeKey !== transcribeKey || this.aiView !== 'transcribe') return;
+                        this.transcribeRunning = result === 'running';
+                        this.transcribePolling = result === 'opened' || result === 'running';
+                        this.render();
+                    }
+                });
+                if (this.transcribePolling) this.transcribeTimer = setInterval(() => {
+                    if (this.isDisposed || this.currentTab !== 'generation' || this.aiView !== 'transcribe'
+                        || this.transcribeKey !== transcribeKey
+                        || !this.body.querySelector('.akari-inspector-ai-transcribe-panel')?.getBoundingClientRect().width) {
+                        if (this.transcribeTimer) clearInterval(this.transcribeTimer);
+                        this.transcribeTimer = undefined;
+                        return;
+                    }
+                    void this.refreshAiTranscript(transcribeKey);
+                }, 5000);
+                return;
+            }
         }
 
         let keyframeSection: InspectorSection | undefined;
@@ -3894,6 +4263,7 @@ export class AkariInspectorWidget extends BaseWidget {
     }
 
     override dispose(): void {
+        if (this.transcribeTimer) clearInterval(this.transcribeTimer);
         this.cancelGenerationFramePick();
         this.syncAdjustCompare(undefined, '');
         this.lutGeneration++;
@@ -4055,6 +4425,7 @@ export class AkariInspectorWidget extends BaseWidget {
         const container = document.createElement('section');
         container.className = 'akari-inspector-section';
         container.setAttribute('data-akari-ui', `section:inspector-${section.id}`);
+        if (section.id === 'style') container.setAttribute('data-inspector-field', 'caption-style');
         const header = document.createElement('div');
         header.className = 'akari-inspector-section-header';
         const toggle = document.createElement('button');
@@ -4404,6 +4775,53 @@ export class AkariInspectorWidget extends BaseWidget {
         this.generationDrafts.delete(itemId);
         void this.loadGeneration({ key: itemId, itemId, sourcePath,
             duration: snapshot.kind === 'cut' ? snapshot.outputEnd - snapshot.outputStart : snapshot.duration });
+    }
+
+    protected loadAiTranscribeTarget(snapshot: InspectorSnapshot, key: string): Promise<void> {
+        this.transcribeLoading = (async () => {
+            try {
+                await this.workspaceService.ready;
+                const root = this.workspaceService.tryGetRoots()[0]?.resource;
+                if (!root) return;
+                const edit = JSON.parse((await this.fileService.readFile(root.resolve('edit.json'))).value.toString());
+                const target = resolveAiTranscribeTarget(snapshot, edit);
+                if (this.transcribeKey !== key) return;
+                const present = target && await this.fileService.exists(root.resolve(target.relativePath));
+                this.transcribeTarget = present ? target : undefined;
+                if (this.transcribeTarget) {
+                    const [summary, sidecars] = await Promise.all([
+                        this.layerAudioService.readTranscriptSummary({
+                            projectRootUri: root.toString(), relativePath: target.relativePath
+                        }),
+                        snapshot.kind === 'audio' ? this.layerAudioService.readGenerationSidecars({
+                            projectRootUri: root.toString(), sourcePaths: [target.relativePath]
+                        }) : Promise.resolve({ entries: [] })
+                    ]);
+                    if (this.transcribeKey !== key) return;
+                    this.transcribeSummary = summary;
+                    this.audioPlanned = sidecars.entries.some(entry => entry.sourcePath === target.relativePath
+                        && entry.meta.kind === 'audio' && entry.meta.status === 'planned');
+                }
+            } catch { /* Missing media is explained by the panel. */ }
+            if (this.transcribeKey === key && !this.isDisposed) this.render();
+        })();
+        return this.transcribeLoading;
+    }
+
+    protected async refreshAiTranscript(key: string): Promise<void> {
+        const root = this.workspaceService.tryGetRoots()[0]?.resource;
+        const target = this.transcribeTarget;
+        if (!root || !target) return;
+        const summary = await this.layerAudioService.readTranscriptSummary({
+            projectRootUri: root.toString(), relativePath: target.relativePath
+        }).catch((): TranscriptSummary => ({ state: 'none', segments: [], total: 0 }));
+        if (this.transcribeKey !== key || this.aiView !== 'transcribe' || this.isDisposed) return;
+        if (summary.state === 'done') {
+            this.transcribeSummary = summary;
+            this.transcribeRunning = false;
+            this.transcribePolling = false;
+            this.render();
+        }
     }
 
     protected loadAiCatalog(): Promise<void> {
@@ -5495,6 +5913,7 @@ export class AkariInspectorWidget extends BaseWidget {
         if (field.title) row.title = field.title;
         const fieldName = field.name ?? field.label.toLowerCase().replace(/[^a-z0-9_-]+/giu, '-');
         row.setAttribute('data-akari-field', fieldName);
+        if (field.revealName) row.setAttribute('data-inspector-field', field.revealName);
         const labelElement = document.createElement('div');
         labelElement.className = 'akari-inspector-row-label';
         labelElement.textContent = field.label;
@@ -5567,6 +5986,120 @@ export class AkariInspectorWidget extends BaseWidget {
             }
             return true;
         };
+
+        if (field.inputKind === 'slider-number') {
+            const control = document.createElement('div');
+            control.className = 'akari-caption-slider-number';
+            const range = document.createElement('input');
+            range.type = 'range';
+            range.min = String(field.min ?? 0);
+            range.max = String(field.sliderMax ?? field.max ?? 100);
+            range.step = String(field.scrubStep ?? 1);
+            range.value = editValue === '—' ? range.min
+                : String(Math.min(Number(range.max), Math.max(Number(range.min), Number(editValue))));
+            range.setAttribute('aria-label', `${field.label} スライダー`);
+            const number = document.createElement('input');
+            number.type = 'number';
+            number.className = 'akari-inspector-row-input';
+            const scale = field.displayScale ?? 1;
+            number.min = String(Number(range.min) * scale);
+            number.step = String(Number(range.step) * scale);
+            number.value = editValue === '—' ? '' : String(Number(editValue) * scale);
+            number.placeholder = editValue === '—' ? '—' : '';
+            number.setAttribute('aria-label', `${field.label} 数値`);
+            const unit = document.createElement('span');
+            unit.className = 'akari-caption-slider-unit';
+            unit.textContent = field.unit ?? '';
+            const defaultNote = document.createElement('span');
+            defaultNote.className = 'akari-caption-default-note';
+            defaultNote.textContent = field.getValue(snapshot).includes('（既定）') ? '（既定）' : '';
+            const valueGroup = document.createElement('span');
+            valueGroup.className = 'akari-caption-slider-value';
+            valueGroup.append(number, unit, defaultNote);
+            const commit = (raw: number): void => {
+                if (!Number.isFinite(raw)) return;
+                void commitValue(String(raw), () => {
+                    number.value = editValue === '—' ? '' : String(Number(editValue) * scale);
+                    range.value = editValue === '—' ? range.min : editValue;
+                });
+            };
+            range.addEventListener('input', () => {
+                number.value = String(Number(range.value) * scale);
+                defaultNote.textContent = '';
+            });
+            range.addEventListener('change', () => commit(Number(range.value)));
+            number.addEventListener('change', () => {
+                const raw = Number(number.value) / scale;
+                if (number.value.trim() === '' || !Number.isFinite(raw)) return;
+                range.value = String(Math.min(Number(range.max), Math.max(Number(range.min), raw)));
+                defaultNote.textContent = '';
+                commit(raw);
+            });
+            control.append(range, valueGroup);
+            row.appendChild(control);
+            parent.appendChild(row);
+            return;
+        }
+
+        if (field.inputKind === 'caption-toggle') {
+            const label = document.createElement('label');
+            label.className = 'akari-caption-toggle';
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.checked = editValue === 'true';
+            checkbox.indeterminate = editValue === '—';
+            checkbox.setAttribute('aria-label', '座布団を敷く');
+            label.append(checkbox, document.createTextNode('座布団を敷く'));
+            checkbox.addEventListener('change', () => void commitValue(String(checkbox.checked), () => {
+                checkbox.checked = editValue === 'true';
+            }));
+            row.appendChild(label);
+            parent.appendChild(row);
+            return;
+        }
+
+        if (field.inputKind === 'caption-mode' || field.inputKind === 'caption-effect'
+            || field.inputKind === 'caption-weight') {
+            const choices = document.createElement('div');
+            choices.className = field.inputKind === 'caption-mode'
+                ? 'akari-caption-mode-choices' : field.inputKind === 'caption-weight'
+                    ? 'akari-caption-weight-choices' : 'akari-caption-effect-choices';
+            const values = field.inputKind === 'caption-mode'
+                ? [['per-line', '行ごと'], ['block', 'まとめて']]
+                : field.inputKind === 'caption-weight'
+                    ? [['400', '普通'], ['700', '太字'], ['900', '極太']]
+                    : [['none', 'なし'], ['shadow', '影'], ['raised', '浮き出し'],
+                        ['neon', 'ネオン'], ['outline', '袋文字']];
+            for (const [value, label] of values) {
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.className = 'akari-caption-choice';
+                button.setAttribute('aria-pressed', String(editValue === value));
+                button.dataset.value = value;
+                if (field.inputKind === 'caption-mode') {
+                    button.appendChild(createInspectorIcon(value === 'per-line' ? 'plateLine' : 'plateBlock'));
+                } else if (field.inputKind === 'caption-effect') {
+                    const sample = document.createElement('span');
+                    sample.className = `akari-caption-effect-sample akari-caption-effect-sample-${value}`;
+                    sample.textContent = 'Aa';
+                    button.appendChild(sample);
+                }
+                button.appendChild(document.createTextNode(label));
+                button.addEventListener('click', () => {
+                    if (field.inputKind === 'caption-effect' || field.inputKind === 'caption-weight') {
+                        void write(snapshot, value).then(result => {
+                            if (!result.ok) this.showFieldNotice(result.message ?? '効果を書き込めませんでした。');
+                        });
+                    } else {
+                        void commitValue(value, () => undefined);
+                    }
+                });
+                choices.appendChild(button);
+            }
+            row.appendChild(choices);
+            parent.appendChild(row);
+            return;
+        }
 
         if (field.inputKind === 'scrub-number') {
             let sendLive: ((value: number) => void) | undefined;

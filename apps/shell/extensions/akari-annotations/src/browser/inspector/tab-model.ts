@@ -31,6 +31,7 @@ export function tabsForKind(
     if (kind === 'audio') {
         return [
             { id: 'audio', label: '音声', enabled: true },
+            { id: 'generation', label: 'AI', enabled: true },
             { ...INFO_TAB }
         ];
     }

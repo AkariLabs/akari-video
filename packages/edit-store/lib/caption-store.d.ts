@@ -91,6 +91,13 @@ export interface CaptionTextStyle {
 export interface CaptionTextStylePatch {
     color?: string | null;
     sizePx?: number | null;
+    fontWeight?: number | null;
+    weight?: number | null;
+    lineHeight?: number | null;
+    letterSpacingEm?: number | null;
+    fontFamily?: string | null;
+    shadow?: CaptionShadow | null;
+    glow?: CaptionGlow | null;
     stroke?: {
         color?: string | null;
         widthPx?: number | null;
@@ -99,6 +106,7 @@ export interface CaptionTextStylePatch {
         color?: string | null;
         opacity?: number | null;
         radiusPx?: number | null;
+        paddingPx?: number | null;
         mode?: CaptionBackgroundMode | null;
     };
     animation?: {

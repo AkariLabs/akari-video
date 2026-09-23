@@ -733,6 +733,7 @@ window.akari.threeRuntime = (() => {
     // 素材の尺より合成が長いときは巻き戻して回す。シーク側はこの loop を見て時刻を畳む
     video.loop = true;
     video.dataset.akariThreeVideoTexture = "";
+    video.dataset.akariThreeItemStart = instance.container.closest?.(".akari-overlay-container")?.dataset.start ?? "0";
     // DOM へ置くのが要点 — 決定的シークは document.querySelectorAll('video') を対象に
     // するので、DOM にいるだけで既存の機構に乗る
     video.style.cssText =

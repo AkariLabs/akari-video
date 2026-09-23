@@ -60,10 +60,12 @@ LED・コマ送り風）だけは標準の `steps()` を使う。語彙で意図
 - `will-change` を全要素へ常設しない。対象と有効期間を限定する。
 - GPU 書き出し（`--engine gpu` / `auto`）の適格性は HTML 文字列の静的判定で決まる
   （`packages/gpu-export/src/eligibility.mjs`、正本 `docs/contract-2026-08-28-gpu-export-v0.md` §2 / §9）。
-  `translate3d(x, y, 0)` / `translateZ(0)` は 2D と等価として通るが、Z が 0 以外の 3D transform
-  （`perspective` / `rotateX` / `rotateY` / `rotate3d` / `matrix3d` / `translateZ(2px)` 等）は
-  `degraded` になり GPU 経路に乗らない。GPU を狙う断片では 3D transform を使わず `translate(x, y)` /
-  `scale(x, y)` で書く。`url(#id)` の同一文書内参照と data URI は外部リソース扱いにならない。
+  `@keyframes`・WAAPI `.animate()`・アイテムの `keyframes`・要素の inline style にある奥行き変形
+  （`perspective()` / `rotateX` / `rotateY` / `rotate3d` / `matrix3d` / Z≠0 の `translateZ`・`translate3d` / `transform-style: preserve-3d`）は
+  `degraded` になり、`auto` は OSR を選ぶ。`translate3d(x, y, 0)` / `translateZ(0)` は 2D と等価で通る。
+  通常の CSS ルールにだけある静的な 3D は従来の GPU 分類を保つ。GPU を狙うアニメでは
+  `translate(x, y)` / `scale(x, y)` を使う。`url(#id)` の同一文書内参照と data URI は外部リソース扱いにならない。
+- 入場を先頭フレームから見せたい場合は、アニメーションを 1 フレーム前から始める（負の delay）。30 fps なら `animation-delay: -33.333ms`。開始時刻ちょうどは CSS の 0% 状態としてプレビュー・書き出しの両方に映る。
 
 ## 決定性チェック
 

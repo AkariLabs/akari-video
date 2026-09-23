@@ -17,7 +17,7 @@ const models = [{ id: 'fal:h3-i2v', kind: 'video', provider: 'fal', price: { usd
 
 test('カタログの順序と対象ごとの押下可否', () => {
   const catalog = aiActionCatalog(models);
-  assert.deepEqual(catalog.map(row => row.id), ['still', 'video']);
+  assert.deepEqual(catalog.map(row => row.id), ['still', 'video', 'transcribe']);
   assert.deepEqual(catalog[0].routes, [{ id: 'codex', label: 'Codex', kind: 'cli', cost: 'free' }]);
   for (const target of ['empty-frame', 'still']) {
     assert.equal(describeAiTiles(catalog, target)[0].tiles[0].enabled, true);

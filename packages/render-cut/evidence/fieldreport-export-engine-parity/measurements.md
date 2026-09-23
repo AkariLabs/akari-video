@@ -1,0 +1,16 @@
+# Export parity measurements
+
+All fixture text is neutral. Binary videos and complete launcher logs stayed in dedicated temporary workspaces; retained PNGs and this summary contain no machine paths.
+
+| Item | BEFORE | AFTER |
+|---|---|---|
+| B-1 / C-7 | Static eligibility of a depth-keyframe fixture: `eligible=true`, classification `dom`. Round-2 tier-2 GPU forced-DOM capture of frames 9/30/75 produced **three distinct** md5s, so the neutral fixture did not reproduce the reported freeze; see `depth-gpu-before-results.md` | Authored-animation/inline depth fixture: `eligible=false`, reason `css-3d-transform`; `akari capture --engine auto` resolved OSR. Frames 9/30/75: three distinct md5s in `depth-results.md`, all stamp matched. Static CSS 3D keeps its original classification. Z=0 stays eligible. |
+| B-2 | Generated overlay node was byte-identical for normal/screen/add, so blend was absent from the OSR sheet | OSR tier 2 frame 30 RGB at the overlap: normal `(128,64,32)`, screen `(152,124,144)`, add `(176,144,160)`; three distinct PNG md5s in `blend-results.md`. All ten edit blend values map to CSS modes; unknown modes warn and use normal composition. Shell HTML overlay preview stayed normal for all three variants, so preview parity is not yet met (`preview-blend-r2.md`). |
+| B-3 | Export expression used absolute timeline seconds: timeline 2.5/3.5 s, item start 2 s → video 2.5/3.5 s; preview uses local 0.5/1.5 s | Detached 3D video now carries item start. Real OSR frames 25/35 at 10 fps showed red/green quarters. Rebuilt shell preview at 2.5/3.5 s reported video `currentTime` 0.5/1.5 s and showed red/green too (`preview-video-r2.md`). |
+| B-8 | Original report described stamp failure on seek and black/missing tiles; no matching neutral fixture was captured before source edits. This item's source was unchanged. | 1920×1080 CSS and textured GLB oversized planes: midpoint seek stamp matched with one retry each. Both continuous 20-frame child runs completed with verified frame count/duration; GLB run had nine stamp retries total and no renderer warnings. Neither fixture reproduced black or missing tiles; see `large-plane-results.md`. |
+| B-9 | Reported exact-boundary entrance shows 0% | Neutral pseudo-element entrance: shell preview and OSR both show 0% at frame 0 and a small change at frame 1 (`preview-entrance-r2.md`). Documented one-frame negative delay for an entrance visible at frame 0. |
+| B-10 | Source cloned `effect.target` without the pseudo-element option; visual failure was suspected, not previously measured | Unit VM confirms `::before` clone retains `pseudoElement`, cancels the original, and leaves host style untouched. Real OSR pseudo-element changes across frames 0/1/30; see `pseudo-results.md`. |
+
+The rebuilt shell preview was captured for B-2, B-3, and B-9. B-2 revealed a separate preview-side gap outside this task's file boundary. The reported B-8 asset-specific failure remains unreproduced. The initial deterministic observations are in `before.json`.
+
+Round 3 keeps the preexisting degraded reasons when authored depth is also present: `css-3d-backface-hidden`, the original combined CSS-3D/backface/animation reason, and `three-composite-preserve-3d-siblings` (including their `forced-dom:` forms). Only fixtures previously classified `dom` or `three` receive the new `css-3d-transform` reason.

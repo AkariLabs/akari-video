@@ -9,7 +9,9 @@ const ICONS = {
     up: '<path d="M6 15l6-6 6 6"/>',
     down: '<path d="M6 9l6 6 6-6"/>',
     plus: '<path d="M12 5v14M5 12h14"/>',
-    close: '<path d="M6 6l12 12M18 6L6 18"/>'
+    close: '<path d="M6 6l12 12M18 6L6 18"/>',
+    plateLine: '<rect x="2" y="4" width="20" height="6" rx="2"/><rect x="6" y="14" width="12" height="6" rx="2"/>',
+    plateBlock: '<rect x="2" y="4" width="20" height="16" rx="3"/><path d="M6 10h12M8 15h8"/>'
 } as const;
 
 export function createInspectorIcon(name: keyof typeof ICONS): HTMLElement {

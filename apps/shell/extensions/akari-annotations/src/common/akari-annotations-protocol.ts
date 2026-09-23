@@ -1,5 +1,5 @@
 import type { EditAudioKeyframe, TransitionType } from '@akari-video/edit-store';
-import type { CaptionDisplayPolicy, CaptionTextStyle } from '@akari-video/edit-store';
+import type { CaptionDisplayPolicy, CaptionTextStyle, CaptionTextStylePatch } from '@akari-video/edit-store';
 import type { GenerationBindingView, GenerationSidecarMeta } from './generation-sidecar';
 
 export const AKARI_ANNOTATIONS_SERVICE_PATH = '/services/akari-annotations';
@@ -82,6 +82,13 @@ export interface ReadGenerationSidecarsRequest {
 
 export interface ReadGenerationSidecarsResult {
     entries: Array<{ sourcePath: string; meta: GenerationSidecarMeta; binding: GenerationBindingView | null }>;
+}
+
+export interface ReadTranscriptSummaryRequest { projectRootUri: string; relativePath: string }
+export interface TranscriptSummary {
+    state: 'none' | 'done';
+    segments: Array<{ start: number; end: number; text: string }>;
+    total: number;
 }
 
 export interface GenerationCatalogRow {
@@ -679,22 +686,7 @@ export interface SetCaptionTextStyleRequest {
     captionsUri: string;
     projectRootUri: string;
     captionId: string;
-    textStyle: {
-        color?: string | null;
-        sizePx?: number | null;
-        stroke?: {
-            color?: string | null;
-            widthPx?: number | null;
-        };
-        background?: {
-            color?: string | null;
-            opacity?: number | null;
-            radiusPx?: number | null;
-        };
-        animation?: { in?: TextAnimationSlotPatch | null; out?: TextAnimationSlotPatch | null } | null;
-        zone?: 'top-left' | 'top' | 'top-right' | 'left' | 'center' | 'right'
-            | 'bottom-left' | 'bottom' | 'bottom-right' | null;
-    };
+    textStyle: CaptionTextStylePatch;
 }
 
 export interface SetCaptionStylePresetRequest {
@@ -855,6 +847,7 @@ export interface AkariAnnotationsService {
     extractSourceFrame(request: ExtractSourceFrameRequest): Promise<ExtractSourceFrameResult>;
     getClipThumbnail(request: GetClipThumbnailRequest): Promise<GetClipThumbnailResult>;
     readGenerationSidecars(request: ReadGenerationSidecarsRequest): Promise<ReadGenerationSidecarsResult>;
+    readTranscriptSummary(request: ReadTranscriptSummaryRequest): Promise<TranscriptSummary>;
     readGenerationCatalog(): Promise<ReadGenerationCatalogResult>;
     readGenerationDefaults(request: { projectRootUri: string }): Promise<ReadGenerationDefaultsResult>;
     createEmptyGenerationFrame(request: { projectRootUri: string; durationSeconds: number }): Promise<{

@@ -46,6 +46,8 @@ import {
     ProbeSourceHasAudioResult,
     ReadGenerationSidecarsRequest,
     ReadGenerationSidecarsResult,
+    ReadTranscriptSummaryRequest,
+    TranscriptSummary,
     ReadGenerationCatalogResult,
     ReadGenerationDefaultsResult,
     ValidateGenerationInputsRequest,
@@ -352,6 +354,28 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         return mediaCache.getClipThumbnail(
             this.fsPath(request.projectRootUri), this.fsPath(request.videoUri), request.atSeconds
         );
+    }
+
+    async readTranscriptSummary(request: ReadTranscriptSummaryRequest): Promise<TranscriptSummary> {
+        const none: TranscriptSummary = { state: 'none', segments: [], total: 0 };
+        try {
+            const rel = request?.relativePath?.replace(/\\/gu, '/');
+            if (!request?.projectRootUri || !rel || isAbsolute(rel) || /^[a-z][a-z\d+.-]*:/iu.test(rel)
+                || rel.split('/').some(part => !part || part === '..' || part === '.')) return none;
+            const root = resolve(this.fsPath(request.projectRootUri));
+            const sidecar = resolve(root, '.akari', 'sidecars', `${rel}.analysis`, 'analysis.json');
+            const boundary = join(root, '.akari', 'sidecars') + sep;
+            if (!sidecar.startsWith(boundary)) return none;
+            const analysis = JSON.parse(await fs.readFile(sidecar, 'utf8')) as { transcript?: unknown };
+            if (!Array.isArray(analysis?.transcript) || analysis.transcript.length === 0) return none;
+            const segments = analysis.transcript.slice(0, 5).filter((part: unknown): part is {
+                start: number; end: number; text: string
+            } => !!part && typeof part === 'object' && typeof (part as { start?: unknown }).start === 'number'
+                && typeof (part as { end?: unknown }).end === 'number'
+                && typeof (part as { text?: unknown }).text === 'string')
+                .map(({ start, end, text }) => ({ start, end, text }));
+            return { state: 'done', segments, total: analysis.transcript.length };
+        } catch { return none; }
     }
 
     async readGenerationSidecars(request: ReadGenerationSidecarsRequest): Promise<ReadGenerationSidecarsResult> {

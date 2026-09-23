@@ -1,0 +1,74 @@
+{
+  "frameAtSeconds": 1.5,
+  "variants": [
+    {
+      "name": "outline",
+      "label": "効果 = 袋文字（効果の色 #E02020）",
+      "text_style": {
+        "color": "#FFD400",
+        "size_px": 52,
+        "stroke": {
+          "color": "#E02020",
+          "width_px": 6
+        },
+        "background": {
+          "opacity": 0.85,
+          "color": "#1E3A8A",
+          "radius_px": 41,
+          "mode": "per-line"
+        }
+      },
+      "renderSeconds": 588,
+      "rasterizer": {
+        "planned": "gpu",
+        "adopted": "gpu",
+        "attempts": [
+          {
+            "method": "gpu",
+            "status": "adopted",
+            "reason": null
+          }
+        ]
+      },
+      "verify": "pass",
+      "redStrokePixels": 15396,
+      "yellowTextPixels": 13667,
+      "screenshot": "after-export-outline.png"
+    },
+    {
+      "name": "none",
+      "label": "効果 = なし",
+      "text_style": {
+        "color": "#FFD400",
+        "size_px": 52,
+        "stroke": {
+          "color": "#000000",
+          "width_px": 1.5
+        },
+        "background": {
+          "opacity": 0.85,
+          "color": "#1E3A8A",
+          "radius_px": 41,
+          "mode": "per-line"
+        }
+      },
+      "renderSeconds": 342,
+      "rasterizer": {
+        "planned": "gpu",
+        "adopted": "gpu",
+        "attempts": [
+          {
+            "method": "gpu",
+            "status": "adopted",
+            "reason": null
+          }
+        ]
+      },
+      "verify": "pass",
+      "redStrokePixels": 0,
+      "yellowTextPixels": 13028,
+      "screenshot": "after-export-none.png"
+    }
+  ],
+  "pass": true
+}

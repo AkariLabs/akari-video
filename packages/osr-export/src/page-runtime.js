@@ -169,6 +169,8 @@
   }
 
   const overlayFrame = document.getElementById("akari-overlays");
+  const overlayFrames = [...(document.querySelectorAll?.(".akari-overlay-frame") ?? [])];
+  const activeOverlayFrames = overlayFrames.length ? overlayFrames : [overlayFrame];
   const stampRow = document.getElementById("akari-stamp");
   let engineRuntime;
 
@@ -180,8 +182,9 @@
 
   function applyCaptionAnimators(seconds) {
     if (!config.captionAnimators) return;
-    const roots = new Map(Array.from(overlayFrame.contentDocument.querySelectorAll("[data-overlay-id]"),
-      root => [root.getAttribute("data-overlay-id"), root]));
+    const roots = new Map(activeOverlayFrames.flatMap(frame =>
+      Array.from(frame.contentDocument.querySelectorAll("[data-overlay-id]"),
+        root => [root.getAttribute("data-overlay-id"), root])));
     for (const [id, declaration] of Object.entries(config.captionAnimators)) {
       if (seconds < declaration.start || seconds >= declaration.start + declaration.duration) continue;
       const root = roots.get(id);
@@ -205,16 +208,16 @@
 
   window.__akariReady = (async () => {
     await document.fonts.ready;
-    await new Promise((resolve) => {
-      if (overlayFrame.contentDocument && overlayFrame.contentDocument.readyState === "complete") resolve();
-      else overlayFrame.addEventListener("load", resolve, { once: true });
-    });
-    await overlayFrame.contentWindow.__akariReady;
+    await Promise.all(activeOverlayFrames.map(frame => new Promise((resolve) => {
+      if (frame.contentDocument && frame.contentDocument.readyState === "complete") resolve();
+      else frame.addEventListener("load", resolve, { once: true });
+    })));
+    await Promise.all(activeOverlayFrames.map(frame => frame.contentWindow.__akariReady));
     engineRuntime = new OsrFrameEngineRuntime();
     await engineRuntime.renderAt(0);
     await engineRuntime.renderAt(0);
     if (config.captionAnimators) {
-      await overlayFrame.contentWindow.__akariSeek(0);
+      await Promise.all(activeOverlayFrames.map(frame => frame.contentWindow.__akariSeek(0)));
       applyCaptionAnimators(0);
     }
     await animationFrames(2);
@@ -224,12 +227,12 @@
   window.__akariSeek = async function (seconds, frameNumber) {
     await window.__akariReady;
     await engineRuntime.renderAt(seconds);
-    const result = await overlayFrame.contentWindow.__akariSeek(seconds);
+    const results = await Promise.all(activeOverlayFrames.map(frame => frame.contentWindow.__akariSeek(seconds)));
     applyCaptionAnimators(seconds);
     stampRow.style.backgroundColor = window.__akariEncodeStamp(frameNumber).css;
     await animationFrames(2);
     return {
-      warnings: warnings.concat(result && Array.isArray(result.warnings) ? result.warnings : []),
+      warnings: warnings.concat(results.flatMap(result => result && Array.isArray(result.warnings) ? result.warnings : [])),
       // RSS はデコーダセッション数に比例して伸びる（issue #28 / #52）。run.json の memory へ運ぶ
       decoderSessions: engineRuntime.decoderSessions,
     };

@@ -21,6 +21,10 @@ export const OPEN_AKARI_INSPECTOR: Command = {
 
 export const OPEN_AKARI_INSPECTOR_ID = OPEN_AKARI_INSPECTOR.id;
 
+export const REVEAL_AKARI_INSPECTOR_FIELD: Command = {
+    id: 'akari.inspector.revealField'
+};
+
 export const OPEN_AKARI_REVIEW_BOARD: Command = {
     id: 'akari.review.board.open',
     label: 'レビューボードを開く'

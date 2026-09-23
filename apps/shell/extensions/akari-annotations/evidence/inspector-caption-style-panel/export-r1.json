@@ -1,0 +1,220 @@
+{
+  "frameAtSeconds": 1.5,
+  "variants": [
+    {
+      "name": "none",
+      "label": "なし",
+      "text_style": {
+        "font_weight": 900,
+        "weight": 900,
+        "line_height": 1.9,
+        "letter_spacing_em": 0.2,
+        "background": {
+          "opacity": 0.6,
+          "padding_px": 14
+        },
+        "stroke": {
+          "color": "#000000",
+          "width_px": 1.5
+        }
+      },
+      "preview": {
+        "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+        "stroke": "3px rgb(0, 0, 0)"
+      },
+      "renderSeconds": 19,
+      "rasterizer": {
+        "planned": "gpu",
+        "adopted": "gpu",
+        "attempts": [
+          {
+            "method": "gpu",
+            "status": "adopted",
+            "reason": null
+          }
+        ]
+      },
+      "verify": "pass",
+      "redEffectPixels": 0,
+      "redderThanNonePixels": 0,
+      "whiteTextPixels": 8156,
+      "screenshot": "r1-export-none.png"
+    },
+    {
+      "name": "shadow",
+      "label": "影",
+      "text_style": {
+        "font_weight": 900,
+        "weight": 900,
+        "line_height": 1.9,
+        "letter_spacing_em": 0.2,
+        "background": {
+          "opacity": 0.6,
+          "padding_px": 14
+        },
+        "stroke": {
+          "color": "#000000",
+          "width_px": 1.5
+        },
+        "shadow": {
+          "color": "#E02020",
+          "opacity": 0.75,
+          "blur_px": 2,
+          "distance_px": 8.5,
+          "angle_deg": 45
+        }
+      },
+      "preview": {
+        "textShadow": "rgba(224, 32, 32, 0.75) 6.01px 6.01px 2px",
+        "stroke": "3px rgb(0, 0, 0)"
+      },
+      "renderSeconds": 51,
+      "rasterizer": {
+        "planned": "gpu",
+        "adopted": "gpu",
+        "attempts": [
+          {
+            "method": "gpu",
+            "status": "adopted",
+            "reason": null
+          }
+        ]
+      },
+      "verify": "pass",
+      "redEffectPixels": 2424,
+      "redderThanNonePixels": 8161,
+      "whiteTextPixels": 8133,
+      "screenshot": "r1-export-shadow.png"
+    },
+    {
+      "name": "raised",
+      "label": "浮き出し",
+      "text_style": {
+        "font_weight": 900,
+        "weight": 900,
+        "line_height": 1.9,
+        "letter_spacing_em": 0.2,
+        "background": {
+          "opacity": 0.6,
+          "padding_px": 14
+        },
+        "stroke": {
+          "color": "#000000",
+          "width_px": 1.5
+        },
+        "shadow": {
+          "color": "#E02020",
+          "opacity": 0.6,
+          "blur_px": 14,
+          "distance_px": 4,
+          "angle_deg": 90
+        }
+      },
+      "preview": {
+        "textShadow": "rgba(224, 32, 32, 0.6) 0px 4px 14px",
+        "stroke": "3px rgb(0, 0, 0)"
+      },
+      "renderSeconds": 15,
+      "rasterizer": {
+        "planned": "gpu",
+        "adopted": "gpu",
+        "attempts": [
+          {
+            "method": "gpu",
+            "status": "adopted",
+            "reason": null
+          }
+        ]
+      },
+      "verify": "pass",
+      "redEffectPixels": 0,
+      "redderThanNonePixels": 13442,
+      "whiteTextPixels": 8173,
+      "screenshot": "r1-export-raised.png"
+    },
+    {
+      "name": "neon",
+      "label": "ネオン",
+      "text_style": {
+        "font_weight": 900,
+        "weight": 900,
+        "line_height": 1.9,
+        "letter_spacing_em": 0.2,
+        "background": {
+          "opacity": 0.6,
+          "padding_px": 14
+        },
+        "stroke": {
+          "color": "#000000",
+          "width_px": 1.5
+        },
+        "glow": {
+          "color": "#E02020",
+          "density": 60,
+          "spread": 12
+        }
+      },
+      "preview": {
+        "textShadow": "rgb(224, 32, 32) 0px 0px 12px, rgba(224, 32, 32, 0.7) 0px 0px 24px",
+        "stroke": "3px rgb(0, 0, 0)"
+      },
+      "renderSeconds": 9,
+      "rasterizer": {
+        "planned": "gpu",
+        "adopted": "gpu",
+        "attempts": [
+          {
+            "method": "gpu",
+            "status": "adopted",
+            "reason": null
+          }
+        ]
+      },
+      "verify": "pass",
+      "redEffectPixels": 561,
+      "redderThanNonePixels": 24514,
+      "whiteTextPixels": 8099,
+      "screenshot": "r1-export-neon.png"
+    },
+    {
+      "name": "outline",
+      "label": "袋文字",
+      "text_style": {
+        "font_weight": 900,
+        "weight": 900,
+        "line_height": 1.9,
+        "letter_spacing_em": 0.2,
+        "background": {
+          "opacity": 0.6,
+          "padding_px": 14
+        },
+        "stroke": {
+          "color": "#E02020",
+          "width_px": 6
+        }
+      },
+      "preview": {
+        "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+        "stroke": "12px rgb(224, 32, 32)"
+      },
+      "renderSeconds": 10,
+      "rasterizer": {
+        "planned": "gpu",
+        "adopted": "gpu",
+        "attempts": [
+          {
+            "method": "gpu",
+            "status": "adopted",
+            "reason": null
+          }
+        ]
+      },
+      "verify": "pass",
+      "redEffectPixels": 10870,
+      "redderThanNonePixels": 17707,
+      "whiteTextPixels": 7956,
+      "screenshot": "r1-export-outline.png"
+    }
+  ],
+  "pass": true
+}

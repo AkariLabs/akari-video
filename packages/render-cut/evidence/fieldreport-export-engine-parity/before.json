@@ -1,0 +1,61 @@
+{
+  "b1": {
+    "eligible": true,
+    "entries": [
+      {
+        "kind": "overlay",
+        "id": "neutral",
+        "classification": "dom",
+        "reason": "dom-layer-draw-element",
+        "conditions": [
+          "css-3d-transform",
+          "animation-timing"
+        ]
+      }
+    ],
+    "summary": {
+      "same": 0,
+      "three": 0,
+      "dom": 1,
+      "degraded": 0,
+      "unsupported": 0
+    }
+  },
+  "flat": {
+    "eligible": true,
+    "entries": [
+      {
+        "kind": "overlay",
+        "id": "neutral",
+        "classification": "dom",
+        "reason": "dom-layer-draw-element",
+        "conditions": [
+          "animation-timing"
+        ]
+      }
+    ],
+    "summary": {
+      "same": 0,
+      "three": 0,
+      "dom": 1,
+      "degraded": 0,
+      "unsupported": 0
+    }
+  },
+  "b2": {
+    "normal": "class=\"akari-overlay-container scene clip\" data-overlay-id=\"neutral\" data-start=\"0\" data-duration=\"3\" data-track-index=\"1\" style=\"--x:0px;--y:0px;--scale:1;--rotate:0deg\"><div class=\"scene-content\"><div>Neutral panel</div></div></div>",
+    "screen": "class=\"akari-overlay-container scene clip\" data-overlay-id=\"neutral\" data-start=\"0\" data-duration=\"3\" data-track-index=\"1\" style=\"--x:0px;--y:0px;--scale:1;--rotate:0deg\"><div class=\"scene-content\"><div>Neutral panel</div></div></div>",
+    "add": "class=\"akari-overlay-container scene clip\" data-overlay-id=\"neutral\" data-start=\"0\" data-duration=\"3\" data-track-index=\"1\" style=\"--x:0px;--y:0px;--scale:1;--rotate:0deg\"><div class=\"scene-content\"><div>Neutral panel</div></div></div>"
+  },
+  "b3": {
+    "sourceExpression": "seconds % video.duration",
+    "timelineSeconds": 2.5,
+    "itemStart": 2,
+    "videoDuration": 4,
+    "actualTarget": 2.5,
+    "previewTarget": 0.5
+  },
+  "b10": {
+    "sourceUsesPseudoElement": false
+  }
+}

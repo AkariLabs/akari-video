@@ -1,0 +1,226 @@
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import test from 'node:test';
+import * as captionStyleEffects from '../lib/browser/inspector/caption-style-effects.js';
+import { parseCaptions, updateCaptionTextStyleInSource } from '../../../../../packages/edit-store/lib/caption-store.js';
+
+const source = readFileSync(new URL('../lib/browser/akari-annotations-widget.js', import.meta.url), 'utf8');
+const start = source.indexOf("                case 'caption-style-color':");
+const end = source.indexOf("                case 'bgm-duck-db':", start);
+assert.ok(start > 0 && end > start);
+const block = source.slice(start, end);
+const run = new Function('request', 'location', 'caption_style_effects_1', `return (async function () {
+  switch (request.kind) { ${block} }
+}).call(this);`);
+const caption = (id, style = {}, stylePreset, rawStyle = style) => ({
+  id, textStyle: style, stylePreset, rawStyle
+});
+const location = { captionsUri: { toString: () => 'captions' }, root: { toString: () => 'root' } };
+
+function rawStyle(style) {
+  return {
+    ...(style.color !== undefined ? { color: style.color } : {}),
+    ...(style.fontWeight !== undefined ? { font_weight: style.fontWeight } : {}),
+    ...(style.weight !== undefined ? { weight: style.weight } : {}),
+    ...(style.lineHeight !== undefined ? { line_height: style.lineHeight } : {}),
+    ...(style.letterSpacingEm !== undefined ? { letter_spacing_em: style.letterSpacingEm } : {}),
+    ...(style.fontFamily !== undefined ? { font_family: style.fontFamily } : {}),
+    ...(style.shadow ? { shadow: {
+      color: style.shadow.color,
+      ...(style.shadow.opacity !== undefined ? { opacity: style.shadow.opacity } : {}),
+      ...(style.shadow.blurPx !== undefined ? { blur_px: style.shadow.blurPx } : {}),
+      ...(style.shadow.distancePx !== undefined ? { distance_px: style.shadow.distancePx } : {}),
+      ...(style.shadow.angleDeg !== undefined ? { angle_deg: style.shadow.angleDeg } : {})
+    } } : {}),
+    ...(style.glow ? { glow: { color: style.glow.color,
+      ...(style.glow.density !== undefined ? { density: style.glow.density } : {}),
+      ...(style.glow.spread !== undefined ? { spread: style.glow.spread } : {}) } } : {}),
+    ...(style.stroke ? { stroke: {
+      ...(style.stroke.color !== undefined ? { color: style.stroke.color } : {}),
+      ...(style.stroke.widthPx !== undefined ? { width_px: style.stroke.widthPx } : {})
+    } } : {})
+  };
+}
+
+const sourceFor = captions => JSON.stringify(captions.map(item => ({
+  id: item.id, start: 0, end: 1, text: '字幕', speaker: null, sourceRef: null, edited: false,
+  ...(item.stylePreset ? { style_preset: item.stylePreset } : {}),
+  ...(Object.keys(rawStyle(item.rawStyle)).length ? { text_style: rawStyle(item.rawStyle) } : {})
+})));
+
+async function invoke(kind, value, captions, targets, source = sourceFor(captions),
+  staleSource = source) {
+  const calls = [];
+  const history = [];
+  let reads = 0;
+  const context = {
+    captions,
+    lastAppliedCaptionsSource: staleSource,
+    fileService: { readFile: async () => { reads++; return { value: source }; } },
+    annotationsService: { setCaptionTextStyle: async entry => { calls.push(entry); } },
+    pushHistory: entry => { history.push(entry); },
+    reloadCaptions: async () => {}, hideNotice: () => {}, footer: { textContent: '' }
+  };
+  const result = await run.call(context, { kind, id: captions[0].id, value, ...(targets ? { targets } : {}) },
+    location, captionStyleEffects);
+  assert.equal(result.ok, true);
+  assert.equal(history.length, 1);
+  return { calls, history, reads };
+}
+
+test('太さは font_weight と weight を同値で書き、undo で両方戻す', async () => {
+  const { calls, history } = await invoke('caption-style-font-weight', 700,
+    [caption('one', { fontWeight: 500, weight: 400 })]);
+  assert.deepEqual(calls[0].textStyle, { fontWeight: 700, weight: 700 });
+  await history[0].undo();
+  assert.deepEqual(calls[1].textStyle, { fontWeight: 500, weight: 400 });
+});
+
+test('新 kind と効果は複数字幕の元の値を個別に保持し、undo は一回', async () => {
+  const captions = [caption('one', { shadow: { color: '#111111' },
+    stroke: { color: '#222222', widthPx: 5 } }), caption('two')];
+  const targets = captions.map(item => ({ kind: 'caption', id: item.id }));
+  const patch = { shadow: null, glow: { color: '#39D5FF', spread: 12 },
+    stroke: { color: '#000000', widthPx: 1.5 } };
+  const { calls, history } = await invoke('caption-style-effect', patch, captions, targets);
+  assert.equal(calls.length, 2);
+  calls.forEach(call => assert.deepEqual(call.textStyle, patch));
+  await history[0].undo();
+  assert.deepEqual(calls.slice(2).map(call => call.textStyle), [
+    { shadow: { color: '#111111' }, glow: null,
+      stroke: { color: '#222222', widthPx: 5 } },
+    { shadow: null, glow: null, stroke: { color: null, widthPx: null } }
+  ]);
+  await history[0].redo();
+  assert.equal(calls.length, 6);
+  for (const [kind, value, style] of [
+    ['caption-style-line-height', 1.5, { lineHeight: 1.5 }],
+    ['caption-style-letter-spacing', 0.05, { letterSpacingEm: 0.05 }],
+    ['caption-style-font-family', 'Dela Gothic One', { fontFamily: 'Dela Gothic One' }],
+    ['caption-style-bg-padding', 12, { background: { paddingPx: 12 } }],
+    ['caption-style-shadow', { color: '#000000' }, { shadow: { color: '#000000' } }],
+    ['caption-style-glow', { color: '#FFFFFF' }, { glow: { color: '#FFFFFF' } }]
+  ]) {
+    const result = await invoke(kind, value, captions, targets);
+    assert.deepEqual(result.calls.map(call => call.textStyle), [style, style]);
+  }
+});
+
+test('プリセット付き字幕の太さは合成後も選択値になり、undo は cue 側指定だけ戻す', async () => {
+  const input = sourceFor([caption('one', {}, 'subtitle-variety', {})]);
+  const effective = parseCaptions(input).captions[0];
+  assert.equal(effective.textStyle.weight, 700);
+  const { calls, history } = await invoke('caption-style-font-weight', 400,
+    [caption('one', effective.textStyle, 'subtitle-variety', {})], undefined, input);
+  assert.deepEqual(calls[0].textStyle, { fontWeight: 400, weight: 400 });
+  const written = updateCaptionTextStyleInSource(input, 'one', calls[0].textStyle);
+  assert.equal(parseCaptions(written).captions[0].textStyle.weight, 400);
+  await history[0].undo();
+  assert.deepEqual(calls[1].textStyle, { fontWeight: null, weight: null });
+  const restored = updateCaptionTextStyleInSource(written, 'one', calls[1].textStyle);
+  assert.equal(parseCaptions(restored).captions[0].textStyle.weight, 700);
+  assert.equal(Object.hasOwn(JSON.parse(restored)[0], 'text_style'), false);
+});
+
+test('プリセット影の「なし」は透明化し、undo で cue 側から消して影を戻す', async () => {
+  const input = sourceFor([caption('one', {}, 'subtitle-variety', {})]);
+  const effective = parseCaptions(input).captions[0];
+  const none = captionStyleEffects.captionEffectPatch('none', '#FFFFFF');
+  const { calls, history } = await invoke('caption-style-effect', none,
+    [caption('one', effective.textStyle, 'subtitle-variety', {})], undefined, input);
+  assert.deepEqual(calls[0].textStyle.shadow, { color: '#000000', opacity: 0 });
+  const written = updateCaptionTextStyleInSource(input, 'one', calls[0].textStyle);
+  assert.equal(captionStyleEffects.captionEffectFromStyle(parseCaptions(written).captions[0].textStyle), 'none');
+  await history[0].undo();
+  assert.deepEqual(calls[1].textStyle, { shadow: null, glow: null,
+    stroke: { color: null, widthPx: null } });
+  const restored = updateCaptionTextStyleInSource(written, 'one', calls[1].textStyle);
+  assert.equal(captionStyleEffects.captionEffectFromStyle(parseCaptions(restored).captions[0].textStyle),
+    'shadow');
+  assert.equal(Object.hasOwn(JSON.parse(restored)[0], 'text_style'), false);
+});
+
+test('プリセット影→なし→undo と混在複数選択は字幕ごとのパッチを使う', async () => {
+  const presets = [caption('preset', {}, 'subtitle-variety', {}),
+    caption('plain', { shadow: { color: '#222222', opacity: 0.5 } })];
+  const input = sourceFor(presets);
+  const parsed = parseCaptions(input).captions;
+  const snapshots = parsed.map((item, index) => caption(item.id, item.textStyle,
+    presets[index].stylePreset, presets[index].rawStyle));
+  const targets = snapshots.map(item => ({ kind: 'caption', id: item.id }));
+  const shadow = captionStyleEffects.captionEffectPatch('shadow', '#FFFFFF');
+  const first = await invoke('caption-style-effect', shadow, snapshots, targets, input);
+  const shadowSource = first.calls.reduce((source, call) =>
+    updateCaptionTextStyleInSource(source, call.captionId, call.textStyle), input);
+  const afterShadow = parseCaptions(shadowSource).captions.map(item =>
+    caption(item.id, item.textStyle, item.stylePreset, {}));
+  const none = captionStyleEffects.captionEffectPatch('none', '#FFFFFF');
+  const second = await invoke('caption-style-effect', none, afterShadow, targets, shadowSource);
+  assert.deepEqual(second.calls.map(call => call.textStyle.shadow),
+    [{ color: '#000000', opacity: 0 }, null]);
+  let noneSource = second.calls.reduce((source, call) =>
+    updateCaptionTextStyleInSource(source, call.captionId, call.textStyle), shadowSource);
+  assert.ok(parseCaptions(noneSource).captions.every(item =>
+    captionStyleEffects.captionEffectFromStyle(item.textStyle) === 'none'));
+  await second.history[0].undo();
+  noneSource = second.calls.slice(2).reduce((source, call) =>
+    updateCaptionTextStyleInSource(source, call.captionId, call.textStyle), noneSource);
+  assert.ok(parseCaptions(noneSource).captions.every(item =>
+    captionStyleEffects.captionEffectFromStyle(item.textStyle) === 'shadow'));
+});
+
+test('プリセット由来の影は効果の色と強さで上書きできる', async () => {
+  const input = sourceFor([caption('one', {}, 'subtitle-variety', {})]);
+  const effective = parseCaptions(input).captions[0].textStyle;
+  const color = captionStyleEffects.captionEffectColorPatch(effective, '#ABCDEF');
+  const recolored = await invoke('caption-style-effect', color,
+    [caption('one', effective, 'subtitle-variety', {})], undefined, input);
+  const colorSource = updateCaptionTextStyleInSource(input, 'one', recolored.calls[0].textStyle);
+  assert.equal(parseCaptions(colorSource).captions[0].textStyle.shadow.color, '#ABCDEF');
+  const strength = captionStyleEffects.captionEffectStrengthPatch(effective, 2);
+  const intensified = await invoke('caption-style-effect', strength,
+    [caption('one', effective, 'subtitle-variety', {})], undefined, input);
+  const strengthSource = updateCaptionTextStyleInSource(input, 'one', intensified.calls[0].textStyle);
+  assert.equal(parseCaptions(strengthSource).captions[0].textStyle.shadow.distancePx, 17);
+  assert.equal(parseCaptions(strengthSource).captions[0].textStyle.shadow.blurPx, 4);
+});
+
+test('ネオンプリセットの影と glow を「なし」で消し、色・強さも個別指定できる', async () => {
+  const input = sourceFor([caption('one', {}, 'neon', {})]);
+  const effective = parseCaptions(input).captions[0].textStyle;
+  assert.equal(captionStyleEffects.captionEffectFromStyle(effective), 'neon');
+  const none = await invoke('caption-style-effect', captionStyleEffects.captionEffectPatch('none', '#FFFFFF'),
+    [caption('one', effective, 'neon', {})], undefined, input);
+  assert.deepEqual(none.calls[0].textStyle.shadow, { color: '#000000', opacity: 0 });
+  assert.deepEqual(none.calls[0].textStyle.glow, { color: '#000000', density: 0 });
+  const noneSource = updateCaptionTextStyleInSource(input, 'one', none.calls[0].textStyle);
+  assert.equal(captionStyleEffects.captionEffectFromStyle(parseCaptions(noneSource).captions[0].textStyle), 'none');
+  const recolor = captionStyleEffects.captionEffectColorPatch(effective, '#ABCDEF');
+  const colorSource = updateCaptionTextStyleInSource(input, 'one', recolor);
+  assert.equal(parseCaptions(colorSource).captions[0].textStyle.glow.color, '#ABCDEF');
+  const strength = captionStyleEffects.captionEffectStrengthPatch(effective, 2);
+  const strengthSource = updateCaptionTextStyleInSource(input, 'one', strength);
+  assert.equal(parseCaptions(strengthSource).captions[0].textStyle.glow.spread, 24);
+});
+
+test('書き込み直前の字幕ファイルを一度読み、古いタイムライン値を undo に使わない', async () => {
+  const current = sourceFor([
+    caption('preset', {}, 'subtitle-variety', { shadow: { color: '#222222', opacity: 0.5 } }),
+    caption('plain', {}, undefined, { shadow: { color: '#333333' } })
+  ]);
+  const stale = sourceFor([
+    caption('preset', {}, undefined, { shadow: { color: '#111111' } }),
+    caption('plain', {}, undefined, { shadow: { color: '#444444' } })
+  ]);
+  const snapshots = [caption('preset'), caption('plain')];
+  const targets = snapshots.map(item => ({ kind: 'caption', id: item.id }));
+  const { calls, history, reads } = await invoke('caption-style-effect',
+    captionStyleEffects.captionEffectPatch('none', '#FFFFFF'), snapshots, targets, current, stale);
+  assert.equal(reads, 1);
+  assert.deepEqual(calls.map(call => call.textStyle.shadow),
+    [{ color: '#000000', opacity: 0 }, null]);
+  await history[0].undo();
+  assert.deepEqual(calls.slice(2).map(call => call.textStyle.shadow), [
+    { color: '#222222', opacity: 0.5 }, { color: '#333333' }
+  ]);
+});
