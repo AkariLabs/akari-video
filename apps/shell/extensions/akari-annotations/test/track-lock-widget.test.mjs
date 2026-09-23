@@ -6,7 +6,7 @@ import ts from 'typescript';
 
 const require = createRequire(import.meta.url);
 const { isTrackLocked, lockedTrackMessage } = require('../lib/common/track-lock-guard.js');
-const { indexEditV2Items } = require('../lib/common/edit-v2-mutations.js');
+const { indexEditV2Items, removeTreeV2Item } = require('../lib/common/edit-v2-mutations.js');
 const { linkedCutIdOf, linkedAudioItemIdOf } = require('@akari-video/edit-store');
 const { withCaptionsDisplaySupplement } = require('../lib/common/derive-timeline-tracks.js');
 const { computeMaterialGhostRange, materialGhostRejectLabel, materialGhostVisibility } = require('../lib/common/timeline-material-insert.js');
@@ -37,10 +37,10 @@ const code = ts.transpileModule(`class Handler { ${names.map(methodText).join('\
 }).outputText;
 class Element {}
 const Handler = new Function('isTrackLocked', 'lockedTrackMessage', 'TRACK_FLAG_STORAGE_PREFIX', 'Element', 'isOSX',
-  'withCaptionsDisplaySupplement', 'linkedCutIdOf', 'linkedAudioItemIdOf', 'indexEditV2Items',
+  'withCaptionsDisplaySupplement', 'linkedCutIdOf', 'linkedAudioItemIdOf', 'indexEditV2Items', 'removeTreeV2Item',
   'computeMaterialGhostRange', 'materialGhostRejectLabel', 'materialGhostVisibility', `${code}\nreturn Handler;`)(
   isTrackLocked, lockedTrackMessage, 'test-track-flags', Element, process.platform === 'darwin', withCaptionsDisplaySupplement,
-  linkedCutIdOf, linkedAudioItemIdOf, indexEditV2Items, computeMaterialGhostRange,
+  linkedCutIdOf, linkedAudioItemIdOf, indexEditV2Items, removeTreeV2Item, computeMaterialGhostRange,
   materialGhostRejectLabel, materialGhostVisibility
 );
 
@@ -180,7 +180,15 @@ test('mixed deletion removes only unlocked items and clears obsolete selection i
   const retained = { kind: 'cut', index: 0 };
   context.multiSelection = [retained, { kind: 'audio', id: 'sound' }];
   context.fileService = { readFile: async () => ({ value: disk }) };
-  context.writeTimelineSnapshots = async (edit, captions) => { assert.equal(captions, undefined); disk = edit; };
+  context.writeTimelineSnapshots = async (edit, captions) => {
+    assert.equal(captions, undefined);
+    const written = JSON.parse(edit);
+    // This lock fixture keeps its audio row after the real tree mutation normalizes away an empty track.
+    if (!written.tracks.some(track => track.id === 'audio')) {
+      written.tracks.push({ ...context.editDocument.tracks[1], items: [] });
+    }
+    disk = JSON.stringify(written);
+  };
   context.reloadAll = async () => {};
   context.pushSelectionSnapshot = () => {};
   context.pushHistory = entry => { context.history = entry; };

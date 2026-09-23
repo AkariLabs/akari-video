@@ -149,7 +149,7 @@ import { resolveLayerHitRegionClip } from '../common/layer-hit-region';
 import { layerDeclaredGeometryHitAt, resolveLayerDeclaredSize } from '../common/layer-declared-geometry';
 import { computeLayerKeyframesVisual } from '../common/layer-keyframes-visual';
 import { layerResizeCornerPoint } from '../common/layer-resize-anchor';
-import { buildPreviewContextMenuMessage } from '../common/preview-context-menu';
+import { buildPreviewContextMenuMessage, previewGroupMenuVisible } from '../common/preview-context-menu';
 import {
     buildCaptionAnimatorSummaryFields,
     CaptionAnimatorSummary,
@@ -1060,6 +1060,8 @@ const SEEK_OUTPUT_PREVIEW_COMMAND: Command = { id: 'akari.preview.seekOutput' };
 const TOGGLE_OUTPUT_PREVIEW_PLAYBACK_COMMAND: Command = { id: 'akari.preview.togglePlayback' };
 const COMPACT_TRACKS_COMMAND: Command = { id: 'akari.preview.compactTracks' };
 const ANNOTATE_PREVIEW_AT_POINT_COMMAND: Command = { id: 'akari.preview.annotateAtPoint' };
+const GROUP_PREVIEW_COMMAND: Command = { id: 'akari.preview.group' };
+const UNGROUP_PREVIEW_COMMAND: Command = { id: 'akari.preview.ungroup' };
 const SET_PREVIEW_FULLSCREEN_COMMAND: Command = { id: 'akari.preview.setFullscreen' };
 const SET_PREVIEW_VIEW_ZOOM_COMMAND: Command = { id: 'akari.preview.setViewZoom' };
 const SET_PREVIEW_PLAYBACK_RATE_COMMAND: Command = { id: 'akari.preview.setPlaybackRate' };
@@ -1140,6 +1142,7 @@ interface PreviewPlaybackRateRequest {
 interface PreviewOverlaySelectedRequest {
     type: 'akari-preview-overlay-selected';
     overlayId: string | null;
+    overlayIds?: string[];
     scopeId?: string | null;
 }
 
@@ -1306,6 +1309,12 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
     protected lastClipAnnotationContext: {
         editUri: string; timelineT: number; itemId?: string; kind?: 'cut';
     } | undefined;
+    protected previewGroupMenuContext?: {
+        source: 'akari-output-preview'; editUri: string; selectedIds: string[];
+        selectionKind: 'leaf' | 'group' | 'multi'; selectedNodeKind?: 'leaf' | 'group' | 'bag';
+        scopeNodeKind?: 'leaf' | 'group' | 'bag';
+        scopeId: string | null;
+    };
 
     @inject(WidgetManager)
     protected readonly widgetManager: WidgetManager;
@@ -1419,6 +1428,24 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             commandId: ANNOTATE_PREVIEW_AT_POINT_COMMAND.id,
             label: 'この位置に注釈'
         }));
+        for (const [command, label, kind] of [
+            [GROUP_PREVIEW_COMMAND, 'まとめる', 'group'],
+            [UNGROUP_PREVIEW_COMMAND, 'ばらす', 'ungroup']
+        ] as const) {
+            this.lifecycleDisposables.push(this.commandRegistry.registerCommand(command, {
+                isVisible: (context?: typeof this.previewGroupMenuContext) =>
+                    context === this.previewGroupMenuContext && previewGroupMenuVisible(context, kind),
+                execute: (context?: typeof this.previewGroupMenuContext) => {
+                    if (!context || context !== this.previewGroupMenuContext) return;
+                    window.dispatchEvent(new CustomEvent('akari.preview.groupCommand', {
+                        detail: { editUri: context.editUri, kind, selectedIds: context.selectedIds }
+                    }));
+                }
+            }));
+            this.lifecycleDisposables.push(this.menuModelRegistry.registerMenuAction(WEBVIEW_CONTEXT_MENU, {
+                commandId: command.id, label
+            }));
+        }
         this.reviewSessionRecordingIndicator = new ReviewSessionRecordingIndicator();
         this.reviewSessionRecorder = new ReviewSessionRecorder(
             this.previewService,
@@ -3222,9 +3249,28 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                         timelineT: message.timelineT,
                         ...(selection?.kind === 'cut' ? { itemId: selection.id, kind: 'cut' as const } : {})
                     };
+                    const selectedIds = Array.isArray(message.selectedIds)
+                        && message.selectedIds.every((id: unknown) => typeof id === 'string')
+                        ? [...new Set<string>(message.selectedIds)] : [];
+                    this.previewGroupMenuContext = {
+                        source: 'akari-output-preview', editUri, selectedIds,
+                        selectionKind: ['leaf', 'group', 'multi'].includes(message.selectionKind)
+                            ? message.selectionKind : 'leaf',
+                        selectedNodeKind: ['leaf', 'group', 'bag'].includes(message.selectedNodeKind)
+                            ? message.selectedNodeKind : undefined,
+                        scopeNodeKind: ['leaf', 'group', 'bag'].includes(message.scopeNodeKind)
+                            ? message.scopeNodeKind : undefined,
+                        scopeId: typeof message.scopeId === 'string' ? message.scopeId : null
+                    };
+                    if (selectedIds.length >= 2 && this.previewGroupMenuContext.selectionKind === 'multi'
+                        && (this.previewGroupMenuContext.scopeNodeKind === 'bag'
+                            || selectedIds.some(id => id.includes('#')))) {
+                        window.dispatchEvent(new CustomEvent('akari.preview.groupUnavailable', { detail: { editUri } }));
+                    }
                     const rect = widget.node.getBoundingClientRect();
                     this.contextMenuRenderer.render({
                         menuPath: WEBVIEW_CONTEXT_MENU,
+                        args: [this.previewGroupMenuContext],
                         anchor: {
                             x: rect.x + rect.width * message.x,
                             y: rect.y + rect.height * message.y
@@ -3746,6 +3792,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
     protected isOverlaySelectedRequest(message: any): message is PreviewOverlaySelectedRequest {
         return message?.type === 'akari-preview-overlay-selected'
             && (typeof message.overlayId === 'string' || message.overlayId === null)
+            && (message.overlayIds === undefined || (Array.isArray(message.overlayIds)
+                && message.overlayIds.every((id: unknown) => typeof id === 'string')))
             && (message.scopeId === undefined || message.scopeId === null || typeof message.scopeId === 'string');
     }
 
@@ -3758,6 +3806,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             detail: {
                 videoUri: editUri.normalizePath().toString(),
                 overlayId: message.overlayId,
+                ...(message.overlayIds !== undefined ? { overlayIds: message.overlayIds } : {}),
                 ...(message.scopeId !== undefined ? { scopeId: message.scopeId } : {})
             }
         }));
@@ -8206,7 +8255,16 @@ body { display: grid; place-items: center; padding: 32px; }
                     event.clientY,
                     previewStage.getBoundingClientRect(),
                     contextMenuTimelineT,
-                    selectedPrimary?.id
+                    selectedPrimary?.id,
+                    window.akari.interaction?.hasSelectionTree ? {
+                        selectedIds: window.akari.interaction.selectedIds,
+                        selectionKind: window.akari.interaction.selectionKind,
+                        selectedNodeKind: window.akari.state?.summary?.tree?.find(
+                            node => node.id === window.akari.interaction.selectedId)?.kind,
+                        scopeNodeKind: window.akari.state?.summary?.tree?.find(
+                            node => node.id === window.akari.interaction.scopeId)?.kind,
+                        scopeId: window.akari.interaction.scopeId
+                    } : undefined
                 );
                 vscode.postMessage(message);
             }, true);
@@ -8969,9 +9027,11 @@ body { display: grid; place-items: center; padding: 32px; }
                 vscode.postMessage({ type: 'akari-preview-expand-bag', bagId, requestId: ++bagExpansionRequest });
             };
             window.akari.isCurrentBagExpansion = requestId => requestId === bagExpansionRequest;
-            window.akari.reportOverlaySelection = (overlayId, scopeId) => {
+            window.akari.reportOverlaySelection = (overlayId, scopeId, overlayIds) => {
                 if (overlayId) selectedPrimary = null;
-                vscode.postMessage({ type: 'akari-preview-overlay-selected', overlayId, ...(scopeId !== undefined ? { scopeId } : {}) });
+                vscode.postMessage({ type: 'akari-preview-overlay-selected', overlayId,
+                    ...(scopeId !== undefined ? { scopeId } : {}),
+                    ...(overlayIds !== undefined ? { overlayIds } : {}) });
             };
             window.akari.reportLayerSelection = layerId => {
                 if (layerId) selectedPrimary = null;
@@ -18214,13 +18274,19 @@ body { display: grid; place-items: center; padding: 32px; }
             });
 
             let lastReportedOverlayId = null;
+            let lastReportedOverlayIds = [];
             const reportOverlaySelectionChange = (force = false, notify = true) => {
                 const selected = stage.querySelector('[data-overlay-id][data-akari-interaction-selected="true"]');
                 const interaction = window.akari.interaction;
                 const selectedOverlayId = interaction?.hasSelectionTree ? interaction.selectedId
                     : selected?.getAttribute('data-overlay-id') || null;
-                if (selectedOverlayId !== lastReportedOverlayId || force === true) {
+                const selectedOverlayIds = interaction?.hasSelectionTree ? interaction.selectedIds
+                    : selectedOverlayId ? [selectedOverlayId] : [];
+                if (selectedOverlayId !== lastReportedOverlayId || force === true
+                    || selectedOverlayIds.length !== lastReportedOverlayIds.length
+                    || selectedOverlayIds.some((id, index) => id !== lastReportedOverlayIds[index])) {
                     lastReportedOverlayId = selectedOverlayId;
+                    lastReportedOverlayIds = [...selectedOverlayIds];
                     if (!selectedOverlayId && requestedOverlayId) {
                         const item = summary.overlays.find(candidate => candidate.id === requestedOverlayId);
                         if (item && (outputTime < item.start || outputTime >= item.start + item.duration)) return;
@@ -18233,7 +18299,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     }
                     requestedOverlayId = selectedOverlayId || undefined;
                     if (notify && selectedOverlayId !== applyingOverlaySelection) {
-                        if (interaction?.hasSelectionTree) window.akari.reportOverlaySelection(selectedOverlayId, interaction.scopeId);
+                        if (interaction?.hasSelectionTree) window.akari.reportOverlaySelection(selectedOverlayId, interaction.scopeId, selectedOverlayIds);
                         else window.akari.reportOverlaySelection(selectedOverlayId);
                     }
                 }

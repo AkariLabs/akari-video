@@ -1194,6 +1194,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected snapEnabled = readStoredSnapEnabled(typeof localStorage === 'undefined' ? undefined : localStorage);
     protected selection: TimelineSelection;
     protected multiSelection: TimelineSelectionItem[] = [];
+    protected previewBagSelection?: { editUri: string; representative: string };
     /**
      * ソーストリマー（R6c-2）: dblclick 中のクリップ（cuts のインデックス）。
      * 定義中はそのクリップの帯を素材全体のフィルムストリップへ切り替え、
@@ -2495,8 +2496,15 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 event.preventDefault();
                 event.stopPropagation();
                 if (event.shiftKey) {
+                    if (this.multiSelection.length > 1) {
+                        this.footer.textContent = 'ばらすのは 1 つずつ選んでください';
+                        return;
+                    }
                     const id = selectedVisualItemId();
-                    if (!id) return;
+                    if (!id) {
+                        this.footer.textContent = 'ばらすグループを 1 つ選んでください';
+                        return;
+                    }
                     void this.commitEditMutation('ばらす', doc => ungroupTreeV2Item(doc, id).document)
                         .then(() => { this.footer.textContent = 'グループをばらしました。'; })
                         .catch(error => {
@@ -2510,7 +2518,20 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     if (item.kind === 'cut') return [this.cutItemId(item.index)];
                     return item.kind === 'caption' || item.kind === 'audio' ? [] : [item.id];
                 });
-                if (ids.length < 2) return;
+                if (this.previewBagSelection && this.location?.editUri?.normalizePath().toString() === this.previewBagSelection.editUri
+                    && (!this.selection || ('id' in this.selection
+                        && this.selection.id === this.previewBagSelection.representative))) {
+                    this.footer.textContent = '袋の中の部品はまとめられません（先に出してください）';
+                    return;
+                }
+                if (ids.length < 2) {
+                    this.footer.textContent = 'まとめるには 2 つ以上選んでください';
+                    return;
+                }
+                if (ids.some(id => id.includes('#') || this.rawV2Item(this.timelineTreeRows.find(row => row.id === id)?.parentId ?? '')?.source?.kind === 'html')) {
+                    this.footer.textContent = '袋の中の部品はまとめられません（先に出してください）';
+                    return;
+                }
                 let changedOrderIds: string[] = [];
                 void this.commitEditMutation('まとめる', doc => {
                     const result = groupTreeV2Items(doc, ids);
@@ -2991,6 +3012,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected applySelection(selection: TimelineSelection, notifyPreview = true): void {
+        if (notifyPreview) this.previewBagSelection = undefined;
         const hadGap = !!this.selectedGap;
         this.selectedGap = undefined;
         this.gapBand?.remove();
@@ -3019,6 +3041,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected publishPrimaryPreviewSelection(selection: TimelineSelection): void {
+        this.previewBagSelection = undefined;
         let target: { kind: 'cut' | 'caption'; id: string } | null = null;
         let overlayId: string | null = null;
         let layerId: string | null = null;
@@ -3068,6 +3091,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected toggleMultiSelection(item: TimelineSelectionItem): void {
+        this.previewBagSelection = undefined;
         const candidates = this.multiSelection.length > 0
             ? [...this.multiSelection]
             : this.selection ? [this.selection] : [];
@@ -4565,6 +4589,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     /** 台本 → タイムラインの片方向同期（task 2026-09-12-daihon-selection-sync 指示2）。 */
     selectCaptions(editUri: string, captionIds: readonly string[]): void {
         if (!this.canHandlePlaybackTick(editUri)) return;
+        this.previewBagSelection = undefined;
         const requested = new Set(captionIds);
         const ids = this.captions.map(caption => caption.id).filter(id => requested.has(id));
         if (ids.length === 0) {
@@ -4628,6 +4653,68 @@ export class AkariAnnotationsWidget extends BaseWidget {
         } else if (this.overlays.some(overlay => overlay.id === overlayId)) {
             this.applySelection({ kind: 'overlay', id: overlayId }, false);
             this.revealPreviewSelection();
+        }
+    }
+
+    /** プレビューの同一スコープ複数選択を、タイムラインの行へ片方向で写す。 */
+    handleOverlayMultiSelection(editUri: string, overlayIds: readonly string[]): void {
+        if (!this.canHandlePlaybackTick(editUri)) return;
+        const ids = [...new Set(overlayIds)];
+        if (ids.length < 2) {
+            this.previewBagSelection = undefined;
+            this.handleOverlaySelection(editUri, ids[0] ?? null);
+            return;
+        }
+        const representative = ids[ids.length - 1];
+        const rows = this.expandedTimelineTreeRows;
+        const bag = ids.some(id => id.includes('#') ||
+            ['html', 'captions'].includes(this.rawV2Item(rows.find(row => row.id === id)?.parentId ?? '')?.source?.kind ?? ''));
+        if (bag) {
+            this.handleOverlaySelection(editUri, representative);
+            if (!this.selection || !('id' in this.selection) || this.selection.id !== representative) {
+                this.applySelection(undefined, false);
+            }
+            this.previewBagSelection = { editUri, representative };
+            return;
+        }
+        this.previewBagSelection = undefined;
+        for (const id of ids) {
+            for (const ancestor of this.previewSelectionAncestorIds(rows, id)) {
+                if (!this.timelineCollapsedIds.has(ancestor)) continue;
+                this.timelineCollapsedState?.set(ancestor, true);
+                this.timelineCollapsedIds.delete(ancestor);
+            }
+        }
+        this.refreshTimelineTreeRows();
+        const selected = ids.map(id => {
+            const row = this.timelineTreeRows.find(candidate => candidate.id === id);
+            return row ? { kind: 'item' as const, id: row.id, itemKind: row.itemKind,
+                parentId: row.parentId, trackId: row.trackId } : undefined;
+        });
+        if (selected.some(item => item === undefined)) {
+            this.handleOverlaySelection(editUri, representative);
+            return;
+        }
+        this.selection = undefined;
+        this.multiSelection = selected as TimelineSelectionItem[];
+        this.pushSelectionSnapshot();
+        this.applySelectionClass();
+    }
+
+    runPreviewGroupCommand(editUri: string, kind: 'group' | 'ungroup', selectedIds: readonly string[]): void {
+        if (!this.canHandlePlaybackTick(editUri)) return;
+        const current = this.multiSelection.length > 0
+            ? this.multiSelection.map(item => item.kind === 'cut' ? this.cutItemId(item.index) : item.id)
+            : this.selection && 'id' in this.selection ? [this.selection.id] : [];
+        if (current.length !== selectedIds.length || current.some((id, index) => id !== selectedIds[index])) return;
+        this.runRegisteredShortcut({ key: 'g', metaKey: true, ctrlKey: false,
+            shiftKey: kind === 'ungroup', altKey: false, isComposing: false,
+            preventDefault: () => undefined, stopPropagation: () => undefined } as KeyboardEvent);
+    }
+
+    notifyPreviewBagGrouping(editUri: string): void {
+        if (this.canHandlePlaybackTick(editUri) && this.previewBagSelection?.editUri === editUri) {
+            this.footer.textContent = '袋の中の部品はまとめられません（先に出してください）';
         }
     }
 
@@ -5470,7 +5557,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
             const captionsBefore = hasCaptions
                 ? (await this.fileService.readFile(location.captionsUri)).value.toString()
                 : undefined;
-            const value = JSON.parse(editBefore) as Record<string, any>;
+            let value = JSON.parse(editBefore) as Record<string, any>;
+            const serializedBefore = JSON.stringify(value);
             const cutIndexes = new Set(selected
                 .filter((item): item is Extract<TimelineSelectionItem, { kind: 'cut' }> => item.kind === 'cut')
                 .map(item => item.index));
@@ -5490,9 +5578,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
                         .filter(([kind]) => kind !== 'caption')
                         .flatMap(([, ids]) => [...ids].filter(id => id !== 'bgm'))
                 ]);
-                value.tracks = value.tracks.map((track: any) => Array.isArray(track?.items)
-                    ? { ...track, items: track.items.filter((item: any) => !itemIds.has(item?.id)) }
-                    : track);
+                for (const id of itemIds) {
+                    // 祖先を先に消した場合、子はこの時点で存在しない。
+                    if (!indexEditV2Items(value).has(id)) continue;
+                    value = removeTreeV2Item(value, id).document;
+                }
             }
             if (Array.isArray(value.cuts) && cutIndexes.size > 0) {
                 value.cuts = value.cuts.filter((_item: unknown, index: number) => !cutIndexes.has(index));
@@ -5517,13 +5607,17 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     delete value.audio.bgm;
                 }
             }
-            let editAfter = `${JSON.stringify(value, undefined, 2)}\n`;
             let captionsAfter = captionsBefore;
             if (captionsAfter !== undefined) {
                 for (const id of idsByKind.get('caption') ?? []) {
                     captionsAfter = removeCaptionLine(captionsAfter, id);
                 }
             }
+            if (JSON.stringify(value) === serializedBefore && captionsAfter === captionsBefore) {
+                this.footer.textContent = '選択したアイテムが見つからないため削除できませんでした。';
+                return;
+            }
+            let editAfter = `${JSON.stringify(value, undefined, 2)}\n`;
             await this.writeTimelineSnapshots(editAfter, captionsAfter);
             await this.reloadAll();
             editAfter = (await this.fileService.readFile(location.editUri)).value.toString();

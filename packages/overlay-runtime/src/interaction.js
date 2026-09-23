@@ -1097,6 +1097,8 @@ function toggleScopedSelection(tree, selectedIds, scopeId, next) {
   }
   function applyScopedSelection(next, { notify = true } = {}) {
     const previousId = selectedId;
+    const previousIds = [...selectedIds];
+    const previousScopeId = scopeId;
     const wasMultiple = selectedIds.length > 1;
     const tree = selectionTree();
     if (floorScopeId !== null && next.selectId !== null
@@ -1121,7 +1123,9 @@ function toggleScopedSelection(tree, selectedIds, scopeId, next) {
       startSelectionTracking(); // Rebind to the leaf after the host response mounts it.
     }
     const unchangedMultiRepresentative = (wasMultiple || selectedIds.length > 1) && previousId === selectedId;
-    publishScopedSelection(notify && !unchangedMultiRepresentative);
+    const changedSetOrScope = previousScopeId !== scopeId || previousIds.length !== selectedIds.length
+      || previousIds.some((id, index) => id !== selectedIds[index]);
+    publishScopedSelection(notify && (!unchangedMultiRepresentative || changedSetOrScope));
     return true;
   }
   function selectScopedHit(container, event) {
@@ -1133,14 +1137,13 @@ function toggleScopedSelection(tree, selectedIds, scopeId, next) {
     if (floorScopeId !== null && !lineage(selectionTree(), next.selectId).includes(floorScopeId)) return false;
     const selection = toggleScopedSelection(selectionTree(), selectedIds, scopeId, next);
     if (selection.selectedIds.length < 2) return applyScopedSelection(selection);
-    const previousId = selectedId;
     clearSelection();
     scopeId = selection.scopeId;
     selectedIds = selection.selectedIds;
     selectedId = selection.selectId;
     refreshSelectionFrame();
     startSelectionTracking();
-    publishScopedSelection(previousId !== selectedId);
+    publishScopedSelection();
     return true;
   }
   function selectFromTimeline(id) {
