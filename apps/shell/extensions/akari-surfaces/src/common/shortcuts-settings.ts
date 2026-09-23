@@ -10,7 +10,7 @@ export const SHORTCUT_GROUPS = [
 ] as const;
 export type ShortcutGroup = typeof SHORTCUT_GROUPS[number]['id'];
 export type ShortcutFilter = 'all' | 'modified' | 'unassigned' | 'conflicts';
-export interface ShortcutBinding { keybinding: string; when?: string; context?: string; }
+export interface ShortcutBinding { keybinding: string; when?: string; context?: string; command?: string; }
 export interface ShortcutRow { id: string; label: string; group: ShortcutGroup; bindings: readonly ShortcutBinding[]; modified: boolean; conflict: boolean; }
 
 // Mirrors the mock's KEYS order with AKARI_SHORTCUTS IDs, without importing akari-annotations.
@@ -92,16 +92,154 @@ export function filterShortcuts(rows: readonly ShortcutRow[], query: string, fil
         filter === 'modified' && row.modified || filter === 'unassigned' && row.bindings.length === 0 ||
         filter === 'conflicts' && row.conflict));
 }
-/** A conflict is exact key + exact when/context on at least two distinct commands. */
+type WhenNode = { op: 'atom'; value: string } | { op: 'not'; child: WhenNode } |
+    { op: 'and' | 'or'; left: WhenNode; right: WhenNode };
+const WHEN_TERM_LIMIT = 64;
+/** Monaco's text input is a textarea. akari-shortcut-keybindings.ts sets both AKARI edit contexts
+ * via isEditableEventTarget, so these Theia contexts imply them. Other contexts stay independent. */
+const WHEN_IMPLICATIONS: Readonly<Record<string, readonly string[]>> = {
+    textInputFocus: ['akariEditableFocus', 'akariHistoryEditableFocus'],
+    editorTextFocus: ['akariEditableFocus', 'akariHistoryEditableFocus']
+};
+
+/** Unknown operators stay opaque: they never prove that two bindings are exclusive. */
+function parseWhen(input: string): WhenNode | undefined {
+    const tokens = input.match(/'(?:\\.|[^'])*'|"(?:\\.|[^"])*"|&&|\|\||==|!=|>=|<=|=~|[()!<>]|[^\s()!<>=&|]+|\S/g) ?? [];
+    let at = 0;
+    const atom = (): WhenNode | undefined => {
+        if (tokens[at] === '(') {
+            at++;
+            const inner = disjunction();
+            if (tokens[at++] !== ')') { return undefined; }
+            return inner;
+        }
+        const start = at;
+        while (at < tokens.length && !['&&', '||', ')'].includes(tokens[at])) { at++; }
+        if (at === start) { return undefined; }
+        return { op: 'atom', value: tokens.slice(start, at).join(' ').trim() };
+    };
+    const unary = (): WhenNode | undefined => {
+        if (tokens[at] === '!') {
+            at++;
+            const child = unary();
+            return child && { op: 'not', child };
+        }
+        return atom();
+    };
+    const conjunction = (): WhenNode | undefined => {
+        let left = unary();
+        while (left && tokens[at] === '&&') {
+            at++;
+            const right = unary();
+            if (!right) { return undefined; }
+            left = { op: 'and', left, right };
+        }
+        return left;
+    };
+    const disjunction = (): WhenNode | undefined => {
+        let left = conjunction();
+        while (left && tokens[at] === '||') {
+            at++;
+            const right = conjunction();
+            if (!right) { return undefined; }
+            left = { op: 'or', left, right };
+        }
+        return left;
+    };
+    const result = disjunction();
+    return at === tokens.length ? result : undefined;
+}
+
+function hasPositiveWhenIdentifier(node: WhenNode, negated = false): boolean {
+    if (node.op === 'not') { return hasPositiveWhenIdentifier(node.child, !negated); }
+    if (node.op === 'atom') { return !negated && /^[A-Za-z_][\w.]*/.test(node.value); }
+    return hasPositiveWhenIdentifier(node.left, negated) || hasPositiveWhenIdentifier(node.right, negated);
+}
+
+type Literal = { value: string; negated: boolean };
+function whenTerms(node: WhenNode, negated = false): Literal[][] | undefined {
+    if (node.op === 'not') { return whenTerms(node.child, !negated); }
+    if (node.op === 'atom') { return [[{ value: node.value, negated }]]; }
+    const left = whenTerms(node.left, negated);
+    const right = whenTerms(node.right, negated);
+    if (!left || !right) { return undefined; }
+    const join = (node.op === 'and') !== negated;
+    if (!join) { return left.length + right.length > WHEN_TERM_LIMIT ? undefined : [...left, ...right]; }
+    if (left.length * right.length > WHEN_TERM_LIMIT) { return undefined; }
+    return left.flatMap(a => right.map(b => [...a, ...b]));
+}
+
+function comparableAtom(value: string): { key: string; relation: 'bool' | 'eq' | 'ne'; value: string } {
+    const match = /^([\w.:-]+)\s*(==|!=)\s*(?:'((?:\\.|[^'])*)'|"((?:\\.|[^"])*)"|([^\s]+))$/.exec(value);
+    if (match) { return { key: match[1], relation: match[2] === '==' ? 'eq' : 'ne', value: match[3] ?? match[4] ?? match[5] }; }
+    if (/^[\w.:-]+$/.test(value)) { return { key: value, relation: 'bool', value: '' }; }
+    return { key: `opaque:${value}`, relation: 'bool', value: '' };
+}
+
+function possibleTerm(term: readonly Literal[]): boolean {
+    const yes = new Set<string>(); const no = new Set<string>();
+    const equals = new Map<string, string>(); const differs = new Map<string, Set<string>>();
+    const expanded = term.flatMap(literal => !literal.negated && WHEN_IMPLICATIONS[literal.value]
+        ? [literal, ...WHEN_IMPLICATIONS[literal.value].map(value => ({ value, negated: false }))] : [literal]);
+    for (const literal of expanded) {
+        const atom = comparableAtom(literal.value);
+        if (atom.key === 'true' || atom.key === 'false') {
+            if ((atom.key === 'true') === literal.negated) { return false; }
+            continue;
+        }
+        const relation = literal.negated ? atom.relation === 'eq' ? 'ne' : atom.relation === 'ne' ? 'eq' : 'notBool' : atom.relation;
+        if (relation === 'bool') { if (no.has(atom.key)) { return false; } yes.add(atom.key); }
+        else if (relation === 'notBool') { if (yes.has(atom.key) || equals.get(atom.key)) { return false; } no.add(atom.key); }
+        else if (relation === 'eq') {
+            if (equals.has(atom.key) && equals.get(atom.key) !== atom.value || differs.get(atom.key)?.has(atom.value) || atom.value !== '' && no.has(atom.key)) { return false; }
+            equals.set(atom.key, atom.value);
+        } else {
+            if (equals.get(atom.key) === atom.value) { return false; }
+            if (!differs.has(atom.key)) { differs.set(atom.key, new Set()); }
+            differs.get(atom.key)!.add(atom.value);
+        }
+    }
+    return true;
+}
+
+export function shortcutWhensOverlap(a?: string, b?: string, aContext?: string, bContext?: string): boolean {
+    const expressions = [a, b].filter((item): item is string => !!item?.trim());
+    const contexts = [aContext, bContext].filter((item): item is string => !!item);
+    const parsed = [...expressions.map(parseWhen), ...contexts.map(value => ({ op: 'atom', value: `context:${value}` } as WhenNode))];
+    if (parsed.some(node => !node)) { return true; }
+    let terms: Literal[][] = [[]];
+    for (const node of parsed) {
+        const next = whenTerms(node!);
+        if (!next || terms.length * next.length > WHEN_TERM_LIMIT) { return true; }
+        terms = terms.flatMap(left => next.map(right => [...left, ...right]));
+    }
+    return terms.some(possibleTerm);
+}
+
+export function normalizeShortcutKey(binding: string): string {
+    return binding.trim().toLowerCase().split(/\s+/).map(chord => {
+        const parts = chord.split('+').map(part => ({ command: 'ctrlcmd', cmd: 'ctrlcmd', meta: 'ctrlcmd', control: 'ctrl', option: 'alt' } as Record<string, string>)[part] ?? part);
+        const key = parts.pop() ?? '';
+        return `${[...new Set(parts)].sort().join('+')}+${key}`;
+    }).join(' ');
+}
+
+/** Same key sequence and satisfiable when expressions on distinct active commands. */
 export function shortcutConflicts(rows: readonly ShortcutRow[]): Set<string> {
-    const owners = new Map<string, Set<string>>();
+    const owners = new Map<string, { id: string; binding: ShortcutBinding }[]>();
     for (const row of rows) for (const binding of row.bindings) {
-        const signature = `${normalizeShortcutSearch(binding.keybinding)}\0${binding.when?.trim() ?? ''}\0${binding.context ?? ''}`;
-        if (!owners.has(signature)) { owners.set(signature, new Set()); }
-        owners.get(signature)!.add(row.id);
+        if (row.id.startsWith('-') || binding.command?.startsWith('-') || !binding.keybinding) { continue; }
+        const key = normalizeShortcutKey(binding.keybinding);
+        if (!owners.has(key)) { owners.set(key, []); }
+        owners.get(key)!.push({ id: row.id, binding });
     }
     const conflicts = new Set<string>();
-    for (const ids of owners.values()) if (ids.size > 1) for (const id of ids) conflicts.add(id);
+    for (const entries of owners.values()) for (let i = 0; i < entries.length; i++) for (let j = i + 1; j < entries.length; j++) {
+        const a = entries[i]; const b = entries[j];
+        if (a.id !== b.id && shortcutWhensOverlap(a.binding.when, b.binding.when, a.binding.context, b.binding.context)) {
+            conflicts.add(a.id); conflicts.add(b.id);
+        }
+    }
     return conflicts;
 }
 export interface ShortcutPhysicalCode {
@@ -123,6 +261,8 @@ export function shortcutWhen(when?: string): string {
     if (!when) { return 'いつでも'; }
     const positive = new Set([...when.matchAll(/(!?)\s*(akari[A-Za-z0-9_]+)/g)]
         .filter(match => !match[1]).map(match => match[2]));
+    const parsed = parseWhen(when);
+    if (/akari[A-Za-z0-9_]+/.test(when) && parsed && !hasPositiveWhenIdentifier(parsed)) { return ''; }
     if (positive.has('akariKeyframeSelected')) { return 'キーフレームを選んでいるとき'; }
     if (positive.has('akariNumberFieldFocus')) { return '数値の欄'; }
     if (positive.has('akariInspectorFocus')) { return 'インスペクター'; }

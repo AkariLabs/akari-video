@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { SHORTCUT_GROUPS, AKARI_SHORTCUT_ORDER, compareShortcutRows, shortcutGroup, normalizeShortcutSearch, shortcutKeyText, matchesShortcut,
-    filterShortcuts, shortcutConflicts, keybindingFromKeyCode, shortcutWhen } from '../../lib/common/shortcuts-settings.js';
+    filterShortcuts, shortcutConflicts, shortcutWhensOverlap, normalizeShortcutKey, keybindingFromKeyCode, shortcutWhen } from '../../lib/common/shortcuts-settings.js';
 
 test('registered AKARI command IDs map to the seven navigation groups', () => {
     assert.deepEqual(SHORTCUT_GROUPS.map(group => group.id), ['editing', 'playback', 'preview', 'script', 'panels', 'partner', 'other']);
@@ -53,7 +53,7 @@ test('AKARI registration order wins over label order, then other AKARI and Theia
     ]);
 });
 
-test('filters include user disable lines, active unassigned and exact conflicts', () => {
+test('filters include user disable lines, active unassigned and overlapping conflicts', () => {
     const rows = [
         { id: 'a', label: 'A', group: 'other', bindings: [{ keybinding: 'b', when: 'timeline' }], modified: false, conflict: false },
         { id: 'b', label: 'B', group: 'other', bindings: [{ keybinding: 'B', when: 'timeline' }], modified: true, conflict: false },
@@ -61,12 +61,69 @@ test('filters include user disable lines, active unassigned and exact conflicts'
         { id: 'd', label: 'D', group: 'other', bindings: [], modified: true, conflict: false }
     ];
     const conflicts = shortcutConflicts(rows);
-    assert.deepEqual([...conflicts].sort(), ['a', 'b']);
+    assert.deepEqual([...conflicts].sort(), ['a', 'b', 'c']);
     for (const row of rows) { row.conflict = conflicts.has(row.id); }
     assert.deepEqual(filterShortcuts(rows, '', 'modified').map(row => row.id), ['b', 'd']);
     assert.deepEqual(filterShortcuts(rows, '', 'unassigned').map(row => row.id), ['d']);
-    assert.deepEqual(filterShortcuts(rows, '', 'conflicts').map(row => row.id), ['a', 'b']);
+    assert.deepEqual(filterShortcuts(rows, '', 'conflicts').map(row => row.id), ['a', 'b', 'c']);
     assert.deepEqual(filterShortcuts(rows, 'D', 'all').map(row => row.id), ['d']);
+});
+
+test('when overlap is conservative for independent and unsupported expressions', () => {
+    const cases = [
+        ['!A', 'A', false], ["k == 'a'", "k == 'b'", false],
+        ['!A', 'B', true], [undefined, 'A', true],
+        ["akariTimelineVisible && !akariModalOpen && !akariEditableFocus && !akariImeComposing && !akariFocusOnControl",
+            "inQuickInput && !inputFocus && quickInputType == 'quickPick' || inQuickInput && !inputFocus && quickInputType == 'quickTree'", true],
+        ['akariTimelineVisible && !akariModalOpen && !akariEditableFocus && !akariImeComposing',
+            'akariTimelineVisible && !akariModalOpen && !akariEditableFocus && !akariImeComposing && akariKeyframeSelected', true],
+        ['!akariHistoryEditableFocus', undefined, true],
+        ["k == 'a'", "k != 'a'", false], ["k == 'a'", '!k', false],
+        ['X =~ /a/', '!X', true], ['X |', '!X', true],
+        ['(A || B) && !A && !B', undefined, false],
+        ['textInputFocus', 'akariTimelineVisible && !akariEditableFocus', false],
+        ['editorTextFocus', '!akariHistoryEditableFocus', false],
+        ['textInputFocus', '!akariModalOpen', true],
+        ['inputFocus', '!akariEditableFocus', true],
+        [Array.from({ length: 7 }, (_, i) => `(A${i} || B${i})`).join(' && '), '!A0 && !B0', true]
+    ];
+    for (const [a, b, expected] of cases) { assert.equal(shortcutWhensOverlap(a, b), expected, `${a} / ${b}`); }
+    assert.equal(shortcutWhensOverlap('A', 'A', 'editor', 'terminal'), true);
+});
+
+test('actual Space, Delete, undo and copy bindings still overlap', () => {
+    const cases = [
+        ['space', 'akariTimelineVisible && !akariModalOpen && !akariEditableFocus && !akariImeComposing && !akariFocusOnControl',
+            "inQuickInput && !inputFocus && quickInputType == 'quickPick' || inQuickInput && !inputFocus && quickInputType == 'quickTree'"],
+        ['delete', 'akariTimelineVisible && !akariModalOpen && !akariEditableFocus && !akariImeComposing',
+            'akariTimelineVisible && !akariModalOpen && !akariEditableFocus && !akariImeComposing && akariKeyframeSelected'],
+        ['ctrlcmd+z', '!akariHistoryEditableFocus', undefined],
+        ['ctrlcmd+c', 'akariTimelineVisible && !akariModalOpen && !akariEditableFocus && !akariImeComposing && (akariTimelineFocus || (!akariFocusOutsideTimeline && !akariTextSelection))', undefined]
+    ];
+    for (const [keybinding, whenA, whenB] of cases) {
+        const row = (id, when) => ({ id, label: id, group: 'other', bindings: [{ keybinding, when }], modified: false, conflict: false });
+        assert.deepEqual([...shortcutConflicts([row('akari.command', whenA), row('theia.command', whenB)])].sort(),
+            ['akari.command', 'theia.command'], keybinding);
+    }
+});
+
+test('conflicts normalize modifier order and complete chords, exclude same command and disabled bindings', () => {
+    const row = (id, keybinding, when, command) => ({ id, label: id, group: 'other', bindings: [{ keybinding, when, command }], modified: false, conflict: false });
+    assert.equal(normalizeShortcutKey('SHIFT+CMD+B'), normalizeShortcutKey('ctrlcmd+shift+b'));
+    assert.deepEqual([...shortcutConflicts([row('a', 'shift+cmd+b'), row('b', 'ctrlcmd+shift+B')])].sort(), ['a', 'b']);
+    assert.deepEqual([...shortcutConflicts([row('a', 'ctrlcmd+k ctrlcmd+b'), row('b', 'cmd+k cmd+b'), row('c', 'cmd+k')])].sort(), ['a', 'b']);
+    assert.equal(shortcutConflicts([row('a', 'b'), row('a', 'B')]).size, 0);
+    assert.equal(shortcutConflicts([row('a', 'b'), row('b', 'b', undefined, '-b')]).size, 0);
+});
+
+test('AKARI negative-only when is blank without changing other labels', () => {
+    const cases = [
+        ['!akariHistoryEditableFocus', ''], ['!akariModalOpen && !akariImeComposing', ''],
+        ['!akariModalOpen && inputFocus', '!akariModalOpen && inputFocus'],
+        ['akariTimelineVisible && !akariModalOpen', 'タイムライン'],
+        ['inputFocus', 'inputFocus'], [undefined, 'いつでも']
+    ];
+    for (const [when, expected] of cases) { assert.equal(shortcutWhen(when), expected); }
 });
 
 test('physical KeyCode stringification keeps Theia modifier order and ignores produced glyphs', () => {

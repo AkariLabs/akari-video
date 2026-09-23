@@ -173,10 +173,11 @@ export class ShortcutsSettingsView {
             badge.setAttribute('data-shortcuts-conflict', '');
             name.append(badge);
         }
-        const conditions = [...new Set(row.bindings.map(binding => shortcutWhen(binding.when)))];
-        if (!conditions.length) {
+        const conditions = [...new Set(row.bindings.map(binding => shortcutWhen(binding.when)).filter(Boolean))];
+        if (!row.bindings.length) {
             const original = this.registry.getKeybindingsByScope(KeybindingScope.DEFAULT).find(binding => binding.command === row.id);
-            conditions.push(shortcutWhen(original?.when));
+            const condition = shortcutWhen(original?.when);
+            if (condition) { conditions.push(condition); }
         }
         const when = el('div', 'akari-shortcuts-when', conditions.join(' / '));
         const keys = el('div', 'akari-shortcuts-keys');
