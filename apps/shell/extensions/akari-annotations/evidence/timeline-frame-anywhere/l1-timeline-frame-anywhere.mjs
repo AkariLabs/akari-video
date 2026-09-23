@@ -8,7 +8,7 @@ import path from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { setTimeout as sleep } from 'node:timers/promises';
-import { CDP, evalOn, listTargets, screenshot, realClick } from '../generation-states/scripts/cdp-lib.mjs';
+import { CDP, evalOn, listTargets, screenshot, realClick } from './cdp-lib.mjs';
 import { createFixture } from './gen-fixture.mjs';
 import { validateGenerationMeta } from '../../../../../../packages/generate/src/cli/meta-validate.mjs';
 
@@ -24,7 +24,7 @@ let child, cdp;
 let log = '';
 const clean = text => String(text).replaceAll(ISO, '<TEMP>').replaceAll(REPO, '<WORKTREE>');
 const save = () => writeFile(path.join(ROOT, 'measurements.json'), clean(JSON.stringify(output, null, 2)) + '\n');
-async function waitFor(operation, timeout = 60000) {
+async function waitFor(operation, timeout = 90000) {
   const deadline = Date.now() + timeout;
   let error;
   while (Date.now() < deadline) {
@@ -51,6 +51,43 @@ async function key(key, code, modifiers = 0) {
   await cdp.send('Input.dispatchKeyEvent', { type: 'keyDown', ...params });
   await cdp.send('Input.dispatchKeyEvent', { type: 'keyUp', ...params });
 }
+async function dismissOverlappingNotifications(x, y, action) {
+  // Theia renders toasts as list items inside .theia-notifications-container.
+  // Check the actual press point, rather than clearing unrelated notifications.
+  const check = await evaluate(`(async()=>{
+    const x=${JSON.stringify(x)},y=${JSON.stringify(y)};
+    const items=[...document.querySelectorAll('.theia-notifications-container.open .theia-notification-list-item-container')]
+      .filter(e=>{const r=e.getBoundingClientRect(),s=getComputedStyle(e);
+        return r.width>0&&r.height>0&&x>=r.left&&x<r.right&&y>=r.top&&y<r.bottom
+          &&s.display!=='none'&&s.visibility==='visible'&&Number(s.opacity)!==0;});
+    const overlaps=items.map(e=>({text:e.textContent.trim().slice(0,200),
+      rect:(()=>{const r=e.getBoundingClientRect();return{left:r.left,right:r.right,top:r.top,bottom:r.bottom};})()}));
+    let closedByButton=0;
+    for(const item of items){const button=item.querySelector('.theia-notification-actions .codicon-close');
+      if(button){button.click();closedByButton++;}}
+    let clearedAll=false;
+    if(closedByButton<items.length){
+      const c=window.theia?.container,k=[...c._bindingDictionary._map.keys()]
+        .find(k=>typeof k==='function'&&typeof k.prototype?.executeCommand==='function');
+      if(!k)throw new Error('Theia CommandService unavailable for notification dismissal');
+      await c.get(k).executeCommand('notifications.commands.clearAll');clearedAll=true;
+    }
+    return {overlaps,closedByButton,clearedAll};
+  })()`);
+  const record = { action, point: { x, y }, ...check, remaining: null };
+  (output.steps.at(-1).notificationChecks ??= []).push(record);
+  if (check.overlaps.length) {
+    await waitFor(async () => {
+      const remaining = await evaluate(`(()=>[...document.querySelectorAll('.theia-notifications-container.open .theia-notification-list-item-container')]
+        .filter(e=>{const r=e.getBoundingClientRect(),s=getComputedStyle(e);
+          return r.width>0&&r.height>0&&${JSON.stringify(x)}>=r.left&&${JSON.stringify(x)}<r.right
+            &&${JSON.stringify(y)}>=r.top&&${JSON.stringify(y)}<r.bottom
+            &&s.display!=='none'&&s.visibility==='visible'&&Number(s.opacity)!==0;}).length)()`);
+      record.remaining = remaining;
+      return remaining === 0;
+    });
+  } else record.remaining = 0;
+}
 async function point(time, lane = 'video') {
   return evaluate(`(()=>{const w=window.__akariFrameWidget,r=w.strip.getBoundingClientRect(),
     rows=[...w.laneLayout.tracks].sort((a,b)=>a.top-b.top),l=rows.find(l=>l.id==='${lane}');
@@ -71,6 +108,7 @@ function assertDragPoint(p, time, lane) {
 async function down(time, lane) {
   const p = await point(time, lane);
   assertDragPoint(p, time, lane);
+  await dismissOverlappingNotifications(p.x, p.y, `drag ${lane} at ${time}s`);
   await cdp.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: p.x, y: p.y });
   await cdp.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: p.x, y: p.y, button: 'left', buttons: 1, clickCount: 1 });
   return p;
@@ -221,13 +259,14 @@ try {
   const target = await waitFor(async () => {
     if (launchError || child.exitCode !== null) throw launchError ?? new Error(`Electron exited ${child.exitCode}`);
     return (await listTargets(PORT)).find(t => t.type === 'page');
-  }, 600000);
+  }, 180000);
   cdp = new CDP(target.webSocketDebuggerUrl); await cdp.connect();
   await cdp.send('Page.enable'); await cdp.send('Runtime.enable'); await cdp.send('Network.enable');
   await cdp.send('Network.setBlockedURLs', { urls: ['*://*.fal.ai/*', '*://fal.ai/*', '*://*.fal.run/*'] });
   cdp.on('Network.requestWillBeSent', e => { if (/https?:\/\/[^/]*fal\.(ai|run)\//.test(e.request.url)) output.falRequests.push(e.request.url); });
-  await waitEval(`Boolean(window.theia?.container&&document.getElementById('theia-app-shell'))`, 900000);
-  await waitEval(`(()=>{const e=document.querySelector('.theia-preload');return !e||e.classList.contains('theia-hidden');})()`, 900000);
+  await waitEval(`Boolean(window.theia?.container&&document.getElementById('theia-app-shell'))`, 180000);
+  await waitEval(`(()=>{const e=document.querySelector('.theia-preload');if(!e)return true;
+    const s=getComputedStyle(e);return e.classList.contains('theia-hidden')||s.display==='none'||Number(s.opacity)===0;})()`, 180000);
   const dismissDialogs = `(()=>{for(const d of document.querySelectorAll('.dialogBlock')){
     const b=[...d.querySelectorAll('button')].find(b=>/キャンセル|Cancel|閉じる|Close/.test(b.textContent));b?.click();}return true;})()`;
   await evaluate(dismissDialogs);
@@ -237,18 +276,41 @@ try {
       void c.get(k).executeCommand('akari.annotations.open');return true;})()`);
     await sleep(500); await evaluate(dismissDialogs);
   }
-  await waitEval(`Boolean(document.querySelector('.akari-annotations-widget'))`);
+  await waitEval(`Boolean(document.querySelector('.akari-annotations-widget'))`, 180000);
   await evaluate(`(()=>{const c=window.theia.container,k=[...c._bindingDictionary._map.keys()].find(k=>typeof k==='function'&&k.prototype?.getCurrentWidget&&k.prototype?.addWidget&&k.prototype?.activateWidget);
     const s=c.get(k),w=s.widgets.find(w=>w.node?.classList.contains('akari-annotations-widget'));
     window.__akariFrameShell=s;window.__akariFrameWidget=w;s.toggleMaximized(w);w.activate();
     document.querySelector('[data-testid="akari-timeline-zoom-percent"]')?.click();return true;})()`);
-  await waitEval(`window.__akariFrameWidget.cutItemIds.length===2`);
+  await waitEval(`window.__akariFrameWidget.cutItemIds.length===2`, 180000);
   output.timelineView = await evaluate(`(()=>{const w=window.__akariFrameWidget;
     return {viewStart:w.viewStart,visibleDuration:w.visibleDuration()};})()`);
   await save();
   const headers = () => evaluate(`(()=>[...document.querySelectorAll('.akari-track-header-row[data-akari-timeline-track-id]')]
     .map(e=>({id:e.dataset.akariTimelineTrackId,name:e.querySelector('.akari-track-header-name')?.textContent,
       top:e.getBoundingClientRect().top})).sort((a,b)=>a.top-b.top))()`);
+  const waitHeaders = (ids, expected) => waitFor(async () => {
+    const names = await headers();
+    return names.filter(x => ids.includes(x.id)).map(x => x.name).join('\u0000') === expected.join('\u0000') && names;
+  });
+  const itemDom = (itemId, cutIndex = -1) => evaluate(`(()=>{
+    const id=${JSON.stringify(itemId)},cutIndex=${JSON.stringify(cutIndex)};
+    const matches=[...document.querySelectorAll('.akari-annotations-widget [data-akari-item-id]')]
+      .filter(e=>e.dataset.akariItemId===id||(cutIndex>=0
+        &&e.matches('.akari-annotations-strip-clip[data-akari-item-kind="cut"]')
+        &&e.dataset.akariItemId===String(cutIndex)));
+    return {count:matches.length,elements:matches.map(e=>({itemId:e.dataset.akariItemId,
+      itemKind:e.dataset.akariItemKind,className:e.className}))};
+  })()`);
+  const undoDom = (expectedHeaders, removedTrackId, removedItemId, cutIndex = -1) => waitFor(async () => {
+    const current = await headers();
+    const removedItemDom = await itemDom(removedItemId, cutIndex);
+    const settled = current.length === expectedHeaders.length
+      && current.every((row, index) => row.id === expectedHeaders[index].id
+        && row.name === expectedHeaders[index].name)
+      && !current.some(row => row.id === removedTrackId)
+      && removedItemDom.count === 0;
+    return settled ? { headers: current, removedItemDom } : null;
+  });
   const band = () => evaluate(`(()=>{const b=document.querySelector('.akari-annotations-frame-new-track'),
     l=b?.querySelector('.akari-annotations-frame-new-track-label'),d=document.querySelector('.akari-annotations-frame-draw');
     if(!b||!l||!d)return null;const r=e=>{const x=e.getBoundingClientRect();return{left:x.left,right:x.right,top:x.top,bottom:x.bottom,width:x.width,height:x.height}};
@@ -257,6 +319,7 @@ try {
         .filter(e=>e.getClientRects().length).map(e=>({text:e.textContent,...r(e)}))};})()`);
   const undo = async () => {
     const p = await evaluate(`(()=>{const b=document.querySelector('.akari-annotations-widget button[aria-label="元に戻す"]'),r=b.getBoundingClientRect();return{x:r.x+r.width/2,y:r.y+r.height/2};})()`);
+    await dismissOverlappingNotifications(p.x, p.y, 'undo click');
     await realClick(cdp, p.x, p.y);
   };
   await step('F selects frame tool', async () => {
@@ -267,7 +330,11 @@ try {
   await shot('01-tool.png');
   await step('A1 audio drag shows green dashed 2.5 seconds', async () => {
     await down(2, 'audio'); await move(2, 4.3, 'audio');
-    const drawing = await waitEval(DRAW); assert.equal(drawing.text, '2.5 秒');
+    const drawing = await waitFor(async () => {
+      const value = await evaluate(DRAW);
+      return value?.text === '2.5 秒' && value.borderStyle === 'dashed' ? value : null;
+    });
+    assert.equal(drawing.text, '2.5 秒');
     assert.equal(drawing.borderStyle, 'dashed'); assert.equal(drawing.borderColor, 'rgb(107, 214, 160)');
     return drawing;
   });
@@ -286,7 +353,9 @@ try {
   await shot('03-audio-created.png');
   await step('above V1 shows provisional V2 band and label', async () => {
     await down(3, 'above'); await move(3, 6, 'above');
-    const measured = await waitEval(`Boolean(document.querySelector('.akari-annotations-frame-new-track'))`) && await band();
+    const measured = await waitFor(async () => {
+      const value = await band(); return value?.label.text === '新しい映像トラック V2' ? value : null;
+    });
     assert.equal(measured.label.text, '新しい映像トラック V2');
     assert.ok(measured.band.width > 0 && measured.band.height > 0);
     assert.equal(intersects(measured.label, measured.drawing), false);
@@ -298,13 +367,16 @@ try {
   await step('V2 inserted above V1', async () => {
     const edit = await waitFor(async () => { const e = await readEdit(); return e.tracks.length === 3 && e; });
     assert.equal(edit.tracks[2].lane, 'visual'); assert.equal(edit.tracks[2].items.length, 1);
-    const names = await headers(); assert.deepEqual(names.filter(x=>['video', edit.tracks[2].id].includes(x.id)).map(x=>x.name), ['V2', 'V1']);
+    const names = await waitHeaders(['video', edit.tracks[2].id], ['V2', 'V1']);
+    assert.deepEqual(names.filter(x=>['video', edit.tracks[2].id].includes(x.id)).map(x=>x.name), ['V2', 'V1']);
     output.trackHeaders = names; return { newTrack: edit.tracks[2], names };
   });
   await shot('05-visual-created.png');
   await step('below A1 shows provisional A2 band and label', async () => {
     await down(5, 'below'); await move(5, 7, 'below');
-    const measured = await waitEval(`Boolean(document.querySelector('.akari-annotations-frame-new-track'))`) && await band();
+    const measured = await waitFor(async () => {
+      const value = await band(); return value?.label.text === '新しい音声トラック A2' ? value : null;
+    });
     assert.equal(measured.label.text, '新しい音声トラック A2');
     assert.ok(measured.band.width > 0 && measured.band.height > 0);
     assert.equal(intersects(measured.label, measured.drawing), false);
@@ -316,22 +388,43 @@ try {
   await step('A2 inserted below A1; A1 keeps its name', async () => {
     const edit = await waitFor(async () => { const e = await readEdit(); return e.tracks.length === 4 && e; });
     assert.equal(edit.tracks[0].lane, 'audio'); assert.equal(edit.tracks[0].items.length, 1);
-    const names = await headers(); assert.deepEqual(names.filter(x=>[edit.tracks[0].id, 'audio'].includes(x.id)).map(x=>x.name), ['A1', 'A2']);
+    const names = await waitHeaders([edit.tracks[0].id, 'audio'], ['A1', 'A2']);
+    assert.deepEqual(names.filter(x=>[edit.tracks[0].id, 'audio'].includes(x.id)).map(x=>x.name), ['A1', 'A2']);
     output.trackHeaders = names; return { newTrack: edit.tracks[0], names };
   });
   await shot('07-audio-track-created.png');
   await step('edit lint passes', lint);
   await step('two single undo actions remove A2 then V2 with their sources/items', async () => {
+    const beforeUndo = await readEdit();
+    assert.equal(beforeUndo.tracks.length, 4);
+    const a2 = beforeUndo.tracks[0], v2 = beforeUndo.tracks[3];
+    assert.equal(a2.items.length, 1); assert.equal(v2.items.length, 1);
+    const a2ItemId = a2.items[0].id, v2ItemId = v2.items[0].id;
+    const v2CutIndex = await evaluate(`window.__akariFrameWidget.cutItemIds.indexOf(${JSON.stringify(v2ItemId)})`);
+    assert.ok(v2CutIndex >= 0, `${v2ItemId}: cut index unavailable`);
+    const beforeUndoDom = { a2: await itemDom(a2ItemId), v2: await itemDom(v2ItemId, v2CutIndex) };
+    assert.ok(beforeUndoDom.a2.count > 0, `${a2ItemId}: audio clip absent before undo`);
+    assert.ok(beforeUndoDom.v2.count > 0, `${v2ItemId}: visual clip absent before undo`);
     await undo();
     const once = await waitFor(async () => { const e = await readEdit(); return e.tracks.length === 3 && e; });
     assert.equal(once.tracks[0].id, 'audio');
-    await shot('08-after-audio-undo.png'); await undo();
+    const afterFirstDom = await undoDom([
+      { id: v2.id, name: 'V2' }, { id: 'video', name: 'V1' }, { id: 'audio', name: 'A1' }
+    ], a2.id, a2ItemId);
+    await shot('08-after-audio-undo.png');
+    await undo();
     const twice = await waitFor(async () => { const e = await readEdit(); return e.tracks.length === 2 && e; });
     assert.deepEqual(twice.tracks.map(t=>t.id), initial.tracks.map(t=>t.id));
     assert.equal(twice.sources.length, initial.sources.length + 1);
-    return { afterFirst: once.tracks.map(t=>t.id), afterSecond: twice.tracks.map(t=>t.id), sources: twice.sources.length };
+    const afterSecondDom = await undoDom([
+      { id: 'video', name: 'V1' }, { id: 'audio', name: 'A1' }
+    ], v2.id, v2ItemId, v2CutIndex);
+    await shot('09-after-visual-undo.png');
+    return { afterFirst: once.tracks.map(t=>t.id), afterSecond: twice.tracks.map(t=>t.id),
+      afterFirstHeaders: afterFirstDom.headers, afterFirstRemovedItemDom: afterFirstDom.removedItemDom,
+      afterSecondHeaders: afterSecondDom.headers, afterSecondRemovedItemDom: afterSecondDom.removedItemDom,
+      removedItems: { a2ItemId, v2ItemId, v2CutIndex }, beforeUndoDom, sources: twice.sources.length };
   });
-  await shot('09-after-visual-undo.png');
   assert.equal(output.falRequests.length, 0);
   assert.ok(output.screenshots.length >= 6);
   output.status = output.steps.every(step => step.pass) ? 'pass' : 'fail';

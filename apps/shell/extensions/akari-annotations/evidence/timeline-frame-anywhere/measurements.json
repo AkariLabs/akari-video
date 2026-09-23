@@ -1,0 +1,718 @@
+{
+  "status": "pass",
+  "driver": "Electron + CDP Input.dispatchMouseEvent",
+  "steps": [
+    {
+      "name": "F selects frame tool",
+      "pass": true,
+      "measurements": {
+        "pressed": "true"
+      },
+      "elapsedMs": 37
+    },
+    {
+      "name": "A1 audio drag shows green dashed 2.5 seconds",
+      "pass": true,
+      "notificationChecks": [
+        {
+          "action": "drag audio at 2s",
+          "point": {
+            "x": 277.5454545454545,
+            "y": 377
+          },
+          "overlaps": [],
+          "closedByButton": 0,
+          "clearedAll": false,
+          "remaining": 0
+        }
+      ],
+      "measurements": {
+        "text": "2.5 秒",
+        "rect": {
+          "left": 277.5390625,
+          "right": 445.71875,
+          "top": 363,
+          "bottom": 391,
+          "width": 168.1796875,
+          "height": 28
+        },
+        "display": "flex",
+        "borderStyle": "dashed",
+        "borderColor": "rgb(107, 214, 160)",
+        "background": "rgba(66, 177, 120, 0.18)"
+      },
+      "elapsedMs": 386
+    },
+    {
+      "name": "A1 gets silent wav and planned audio meta",
+      "pass": true,
+      "measurements": {
+        "item": {
+          "id": "frame-1",
+          "name": "空の枠（音）",
+          "at": 60,
+          "duration": 75,
+          "source": {
+            "kind": "media",
+            "src": "frame-src-1",
+            "in": 0,
+            "out": 2.5
+          },
+          "role": "narration"
+        },
+        "source": {
+          "id": "frame-src-1",
+          "path": "assets/generated/frame-audio-1790155130813-MEstmT.wav"
+        },
+        "chip": "空の枠（音）"
+      },
+      "elapsedMs": 759
+    },
+    {
+      "name": "above V1 shows provisional V2 band and label",
+      "pass": true,
+      "notificationChecks": [
+        {
+          "action": "drag above at 3s",
+          "point": {
+            "x": 344.8181818181818,
+            "y": 301
+          },
+          "overlaps": [],
+          "closedByButton": 0,
+          "clearedAll": false,
+          "remaining": 0
+        }
+      ],
+      "measurements": {
+        "band": {
+          "left": 143,
+          "right": 1105,
+          "top": 261,
+          "bottom": 313,
+          "width": 962,
+          "height": 52
+        },
+        "label": {
+          "text": "新しい映像トラック V2",
+          "left": 150,
+          "right": 276.34375,
+          "top": 264,
+          "bottom": 284.5,
+          "width": 126.34375,
+          "height": 20.5
+        },
+        "drawing": {
+          "left": 344.8125,
+          "right": 546.625,
+          "top": 261,
+          "bottom": 313,
+          "width": 201.8125,
+          "height": 52
+        },
+        "chips": [
+          {
+            "text": "空の枠（音）",
+            "left": 282.265625,
+            "right": 344.265625,
+            "top": 368,
+            "bottom": 380,
+            "width": 62,
+            "height": 12
+          },
+          {
+            "text": "静止画",
+            "left": 147,
+            "right": 182,
+            "top": 316,
+            "bottom": 328,
+            "width": 35,
+            "height": 12
+          },
+          {
+            "text": "静止画",
+            "left": 952.59375,
+            "right": 987.59375,
+            "top": 316,
+            "bottom": 328,
+            "width": 35,
+            "height": 12
+          }
+        ],
+        "chipLabelOverlaps": []
+      },
+      "elapsedMs": 411
+    },
+    {
+      "name": "V2 inserted above V1",
+      "pass": true,
+      "measurements": {
+        "newTrack": {
+          "id": "v1",
+          "lane": "visual",
+          "items": [
+            {
+              "id": "frame-2",
+              "name": "空の枠",
+              "at": 90,
+              "duration": 90,
+              "source": {
+                "kind": "media",
+                "src": "frame-src-2",
+                "in": 0,
+                "out": 3
+              }
+            }
+          ]
+        },
+        "names": [
+          {
+            "id": "v1",
+            "name": "V2",
+            "top": 289
+          },
+          {
+            "id": "video",
+            "name": "V1",
+            "top": 339
+          },
+          {
+            "id": "audio",
+            "name": "A1",
+            "top": 389
+          }
+        ]
+      },
+      "elapsedMs": 89211
+    },
+    {
+      "name": "below A1 shows provisional A2 band and label",
+      "pass": true,
+      "notificationChecks": [
+        {
+          "action": "drag below at 5s",
+          "point": {
+            "x": 479.3636363636364,
+            "y": 428
+          },
+          "overlaps": [],
+          "closedByButton": 0,
+          "clearedAll": false,
+          "remaining": 0
+        }
+      ],
+      "measurements": {
+        "band": {
+          "left": 143,
+          "right": 1105,
+          "top": 416,
+          "bottom": 468,
+          "width": 962,
+          "height": 52
+        },
+        "label": {
+          "text": "新しい音声トラック A2",
+          "left": 150,
+          "right": 276.34375,
+          "top": 419,
+          "bottom": 439.5,
+          "width": 126.34375,
+          "height": 20.5
+        },
+        "drawing": {
+          "left": 479.359375,
+          "right": 613.8984375,
+          "top": 416,
+          "bottom": 468,
+          "width": 134.5390625,
+          "height": 52
+        },
+        "chips": [
+          {
+            "text": "空の枠（音）",
+            "left": 282.265625,
+            "right": 344.265625,
+            "top": 393,
+            "bottom": 405,
+            "width": 62,
+            "height": 12
+          },
+          {
+            "text": "静止画",
+            "left": 147,
+            "right": 182,
+            "top": 341,
+            "bottom": 353,
+            "width": 35,
+            "height": 12
+          },
+          {
+            "text": "静止画",
+            "left": 952.59375,
+            "right": 987.59375,
+            "top": 341,
+            "bottom": 353,
+            "width": 35,
+            "height": 12
+          },
+          {
+            "text": "空の枠",
+            "left": 349.3984375,
+            "right": 384.3984375,
+            "top": 292,
+            "bottom": 304,
+            "width": 35,
+            "height": 12
+          }
+        ],
+        "chipLabelOverlaps": []
+      },
+      "elapsedMs": 1220
+    },
+    {
+      "name": "A2 inserted below A1; A1 keeps its name",
+      "pass": true,
+      "measurements": {
+        "newTrack": {
+          "id": "a1",
+          "lane": "audio",
+          "items": [
+            {
+              "id": "frame-3",
+              "name": "空の枠（音）",
+              "at": 150,
+              "duration": 60,
+              "source": {
+                "kind": "media",
+                "src": "frame-src-3",
+                "in": 0,
+                "out": 2
+              },
+              "role": "narration"
+            }
+          ]
+        },
+        "names": [
+          {
+            "id": "v1",
+            "name": "V2",
+            "top": 274
+          },
+          {
+            "id": "video",
+            "name": "V1",
+            "top": 324
+          },
+          {
+            "id": "audio",
+            "name": "A1",
+            "top": 374
+          },
+          {
+            "id": "a1",
+            "name": "A2",
+            "top": 404
+          }
+        ]
+      },
+      "elapsedMs": 2059
+    },
+    {
+      "name": "edit lint passes",
+      "pass": true,
+      "measurements": {
+        "version": 1,
+        "checked_at": "2026-09-23T09:20:25.921Z",
+        "inputs": {
+          "captions_json_sha256": "83a6fc4db60a62ad889db7adf3d492333df8de26c3563b997ee108739dea7bf1",
+          "edit_json_sha256": "8a6bbac9bed4606f56fdb85bfa38f3a81f0e22f83565340581319b2c9390a18b"
+        },
+        "verdict": "pass",
+        "findings": [
+          {
+            "id": "F001",
+            "severity": "warning",
+            "check": "geometry.fit-compat",
+            "message": "fit 互換モードで描画中。`normalize-geometry` で実寸基準へ移行できます",
+            "path": "edit.json#output.geometry"
+          }
+        ],
+        "skipped": [
+          {
+            "check": "analysis.json",
+            "reason": "analysis.json is absent"
+          },
+          {
+            "check": "audio.music-grid",
+            "reason": "audio.bgm is absent; music grid checks require audio.bgm.path"
+          },
+          {
+            "check": "intake",
+            "reason": ".akari/intake.json is absent"
+          },
+          {
+            "check": "media",
+            "reason": "media checks require --media"
+          },
+          {
+            "check": "review",
+            "reason": "review.json is absent"
+          }
+        ]
+      },
+      "elapsedMs": 1217
+    },
+    {
+      "name": "two single undo actions remove A2 then V2 with their sources/items",
+      "pass": true,
+      "notificationChecks": [
+        {
+          "action": "undo click",
+          "point": {
+            "x": 229.53125,
+            "y": 50.5
+          },
+          "overlaps": [],
+          "closedByButton": 0,
+          "clearedAll": false,
+          "remaining": 0
+        },
+        {
+          "action": "undo click",
+          "point": {
+            "x": 229.53125,
+            "y": 50.5
+          },
+          "overlaps": [],
+          "closedByButton": 0,
+          "clearedAll": false,
+          "remaining": 0
+        }
+      ],
+      "measurements": {
+        "afterFirst": [
+          "audio",
+          "video",
+          "v1"
+        ],
+        "afterSecond": [
+          "audio",
+          "video"
+        ],
+        "afterFirstHeaders": [
+          {
+            "id": "v1",
+            "name": "V2",
+            "top": 289
+          },
+          {
+            "id": "video",
+            "name": "V1",
+            "top": 339
+          },
+          {
+            "id": "audio",
+            "name": "A1",
+            "top": 389
+          }
+        ],
+        "afterFirstRemovedItemDom": {
+          "count": 0,
+          "elements": []
+        },
+        "afterSecondHeaders": [
+          {
+            "id": "video",
+            "name": "V1",
+            "top": 314
+          },
+          {
+            "id": "audio",
+            "name": "A1",
+            "top": 364
+          }
+        ],
+        "afterSecondRemovedItemDom": {
+          "count": 0,
+          "elements": []
+        },
+        "removedItems": {
+          "a2ItemId": "frame-3",
+          "v2ItemId": "frame-2",
+          "v2CutIndex": 2
+        },
+        "beforeUndoDom": {
+          "a2": {
+            "count": 1,
+            "elements": [
+              {
+                "itemId": "frame-3",
+                "itemKind": "audio",
+                "className": "akari-annotations-strip-audio akari-annotations-strip-audio-narration akari-generation-planned-audio akari-generation-chip-layout akari-annotations-strip-hit-target akari-annotations-selected"
+              }
+            ]
+          },
+          "v2": {
+            "count": 1,
+            "elements": [
+              {
+                "itemId": "2",
+                "itemKind": "cut",
+                "className": "akari-annotations-strip-clip akari-generation-planned akari-generation-chip-layout akari-annotations-strip-hit-target"
+              }
+            ]
+          }
+        },
+        "sources": 3
+      },
+      "elapsedMs": 3376
+    }
+  ],
+  "screenshots": [
+    "01-tool.png",
+    "02-audio-drawing.png",
+    "03-audio-created.png",
+    "04-visual-band.png",
+    "05-visual-created.png",
+    "06-audio-band.png",
+    "07-audio-track-created.png",
+    "08-after-audio-undo.png",
+    "09-after-visual-undo.png"
+  ],
+  "falRequests": [],
+  "timelineView": {
+    "viewStart": 0,
+    "visibleDuration": 14.3
+  },
+  "audioChip": "空の枠（音）",
+  "visualBand": {
+    "band": {
+      "left": 143,
+      "right": 1105,
+      "top": 261,
+      "bottom": 313,
+      "width": 962,
+      "height": 52
+    },
+    "label": {
+      "text": "新しい映像トラック V2",
+      "left": 150,
+      "right": 276.34375,
+      "top": 264,
+      "bottom": 284.5,
+      "width": 126.34375,
+      "height": 20.5
+    },
+    "drawing": {
+      "left": 344.8125,
+      "right": 546.625,
+      "top": 261,
+      "bottom": 313,
+      "width": 201.8125,
+      "height": 52
+    },
+    "chips": [
+      {
+        "text": "空の枠（音）",
+        "left": 282.265625,
+        "right": 344.265625,
+        "top": 368,
+        "bottom": 380,
+        "width": 62,
+        "height": 12
+      },
+      {
+        "text": "静止画",
+        "left": 147,
+        "right": 182,
+        "top": 316,
+        "bottom": 328,
+        "width": 35,
+        "height": 12
+      },
+      {
+        "text": "静止画",
+        "left": 952.59375,
+        "right": 987.59375,
+        "top": 316,
+        "bottom": 328,
+        "width": 35,
+        "height": 12
+      }
+    ],
+    "chipLabelOverlaps": []
+  },
+  "trackHeaders": [
+    {
+      "id": "v1",
+      "name": "V2",
+      "top": 274
+    },
+    {
+      "id": "video",
+      "name": "V1",
+      "top": 324
+    },
+    {
+      "id": "audio",
+      "name": "A1",
+      "top": 374
+    },
+    {
+      "id": "a1",
+      "name": "A2",
+      "top": 404
+    }
+  ],
+  "audioBand": {
+    "band": {
+      "left": 143,
+      "right": 1105,
+      "top": 416,
+      "bottom": 468,
+      "width": 962,
+      "height": 52
+    },
+    "label": {
+      "text": "新しい音声トラック A2",
+      "left": 150,
+      "right": 276.34375,
+      "top": 419,
+      "bottom": 439.5,
+      "width": 126.34375,
+      "height": 20.5
+    },
+    "drawing": {
+      "left": 479.359375,
+      "right": 613.8984375,
+      "top": 416,
+      "bottom": 468,
+      "width": 134.5390625,
+      "height": 52
+    },
+    "chips": [
+      {
+        "text": "空の枠（音）",
+        "left": 282.265625,
+        "right": 344.265625,
+        "top": 393,
+        "bottom": 405,
+        "width": 62,
+        "height": 12
+      },
+      {
+        "text": "静止画",
+        "left": 147,
+        "right": 182,
+        "top": 341,
+        "bottom": 353,
+        "width": 35,
+        "height": 12
+      },
+      {
+        "text": "静止画",
+        "left": 952.59375,
+        "right": 987.59375,
+        "top": 341,
+        "bottom": 353,
+        "width": 35,
+        "height": 12
+      },
+      {
+        "text": "空の枠",
+        "left": 349.3984375,
+        "right": 384.3984375,
+        "top": 292,
+        "bottom": 304,
+        "width": 35,
+        "height": 12
+      }
+    ],
+    "chipLabelOverlaps": []
+  },
+  "lint": {
+    "code": 0,
+    "stdout": "{\n  \"version\": 1,\n  \"checked_at\": \"2026-09-23T09:20:25.921Z\",\n  \"inputs\": {\n    \"captions_json_sha256\": \"83a6fc4db60a62ad889db7adf3d492333df8de26c3563b997ee108739dea7bf1\",\n    \"edit_json_sha256\": \"8a6bbac9bed4606f56fdb85bfa38f3a81f0e22f83565340581319b2c9390a18b\"\n  },\n  \"verdict\": \"pass\",\n  \"findings\": [\n    {\n      \"id\": \"F001\",\n      \"severity\": \"warning\",\n      \"check\": \"geometry.fit-compat\",\n      \"message\": \"fit 互換モードで描画中。`normalize-geometry` で実寸基準へ移行できます\",\n      \"path\": \"edit.json#output.geometry\"\n    }\n  ],\n  \"skipped\": [\n    {\n      \"check\": \"analysis.json\",\n      \"reason\": \"analysis.json is absent\"\n    },\n    {\n      \"check\": \"audio.music-grid\",\n      \"reason\": \"audio.bgm is absent; music grid checks require audio.bgm.path\"\n    },\n    {\n      \"check\": \"intake\",\n      \"reason\": \".akari/intake.json is absent\"\n    },\n    {\n      \"check\": \"media\",\n      \"reason\": \"media checks require --media\"\n    },\n    {\n      \"check\": \"review\",\n      \"reason\": \"review.json is absent\"\n    }\n  ]\n}\n",
+    "stderr": ""
+  },
+  "cleanup": {
+    "pid": 11526,
+    "signals": [
+      {
+        "pid": 11526,
+        "signal": "SIGTERM"
+      },
+      {
+        "pid": 11615,
+        "signal": "SIGTERM"
+      },
+      {
+        "pid": 11619,
+        "signal": "SIGTERM"
+      },
+      {
+        "pid": 11621,
+        "signal": "SIGTERM"
+      },
+      {
+        "pid": 12439,
+        "signal": "SIGTERM"
+      },
+      {
+        "pid": 14524,
+        "signal": "SIGTERM"
+      },
+      {
+        "pid": 20068,
+        "signal": "SIGTERM"
+      },
+      {
+        "pid": 11526,
+        "signal": "SIGKILL"
+      },
+      {
+        "pid": 20674,
+        "signal": "SIGKILL"
+      },
+      {
+        "pid": 20675,
+        "signal": "SIGKILL"
+      }
+    ],
+    "survivors": [],
+    "isolatedAkariHome": true,
+    "isolatedUserData": true,
+    "before": [
+      {
+        "pid": 11526,
+        "command": "<WORKTREE>/apps/shell/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron <WORKTREE>/apps/shell <TEMP>/project --remote-debugging-port=22218 --user-data-dir=<TEMP>/userdata --no-sandbox"
+      },
+      {
+        "pid": 11615,
+        "command": "<WORKTREE>/apps/shell/node_modules/electron/dist/Electron.app/Contents/Frameworks/Electron Helper.app/Contents/MacOS/Electron Helper <WORKTREE>/apps/shell/lib/backend/main.js <TEMP>/project --remote-debugging-port=22218 --user-data-dir=<TEMP>/userdata --no-sandbox"
+      },
+      {
+        "pid": 11619,
+        "command": "<WORKTREE>/apps/shell/node_modules/electron/dist/Electron.app/Contents/Frameworks/Electron Helper (GPU).app/Contents/MacOS/Electron Helper (GPU) --type=gpu-process --no-sandbox --user-data-dir=/private<TEMP>/userdata --gpu-preferences=SAAAAAAAAAAgAAAEAAAAAAAAAAAAAGAAAwAAAAAAAAAAAAAAAAAAAAIAAAAAAAAAAAAAAAAAAAAQAAAAAAAAABAAAAAAAAAACAAAAAAAAAAIAAAAAAAAAA== --shared-files --field-trial-handle=1718379636,r,13514297100398882620,15932510714262370272,262144 --enable-features=PdfUseShowSaveFilePicker,ScreenCaptureKitPickerScreen,ScreenCaptureKitStreamPickerSonoma --disable-features=LocalNetworkAccessChecks,MacWebContentsOcclusion,ScreenAIOCREnabled,SpareRendererForSitePerProcess,TimeoutHangingVideoCaptureStarts,TraceSiteInstanceGetProcessCreation --variations-seed-version --trace-process-track-uuid=3190708988185955192"
+      },
+      {
+        "pid": 11621,
+        "command": "<WORKTREE>/apps/shell/node_modules/electron/dist/Electron.app/Contents/Frameworks/Electron Helper.app/Contents/MacOS/Electron Helper --type=utility --utility-sub-type=network.mojom.NetworkService --lang=ja --service-sandbox-type=network --no-sandbox --user-data-dir=/private<TEMP>/userdata --shared-files --field-trial-handle=1718379636,r,13514297100398882620,15932510714262370272,262144 --enable-features=PdfUseShowSaveFilePicker,ScreenCaptureKitPickerScreen,ScreenCaptureKitStreamPickerSonoma --disable-features=LocalNetworkAccessChecks,MacWebContentsOcclusion,ScreenAIOCREnabled,SpareRendererForSitePerProcess,TimeoutHangingVideoCaptureStarts,TraceSiteInstanceGetProcessCreation --variations-seed-version --trace-process-track-uuid=3190708989122997041"
+      },
+      {
+        "pid": 12439,
+        "command": "<WORKTREE>/apps/shell/node_modules/electron/dist/Electron.app/Contents/Frameworks/Electron Helper (Renderer).app/Contents/MacOS/Electron Helper (Renderer) --type=renderer --user-data-dir=/private<TEMP>/userdata --app-path=<WORKTREE>/apps/shell --no-sandbox --no-zygote --no-sandbox --remote-debugging-port=22218 --lang=ja --num-raster-threads=4 --enable-zero-copy --enable-gpu-memory-buffer-compositor-resources --enable-main-frame-before-activation --renderer-client-id=4 --time-ticks-at-unix-epoch=-1788919385923341 --launch-time-ticks=1235732649355 --shared-files --field-trial-handle=1718379636,r,13514297100398882620,15932510714262370272,262144 --enable-features=PdfUseShowSaveFilePicker,ScreenCaptureKitPickerScreen,ScreenCaptureKitStreamPickerSonoma --disable-features=LocalNetworkAccessChecks,MacWebContentsOcclusion,ScreenAIOCREnabled,SpareRendererForSitePerProcess,TimeoutHangingVideoCaptureStarts,TraceSiteInstanceGetProcessCreation --variations-seed-version --trace-process-track-uuid=3190708990060038890"
+      },
+      {
+        "pid": 14524,
+        "command": "<WORKTREE>/apps/shell/node_modules/electron/dist/Electron.app/Contents/Frameworks/Electron Helper (Renderer).app/Contents/MacOS/Electron Helper (Renderer) --type=renderer --user-data-dir=/private<TEMP>/userdata --app-path=<WORKTREE>/apps/shell --enable-sandbox --no-sandbox --remote-debugging-port=22218 --lang=ja --num-raster-threads=4 --enable-zero-copy --enable-gpu-memory-buffer-compositor-resources --enable-main-frame-before-activation --renderer-client-id=5 --time-ticks-at-unix-epoch=-1788919385923341 --launch-time-ticks=1235749549683 --shared-files --field-trial-handle=1718379636,r,13514297100398882620,15932510714262370272,262144 --enable-features=PdfUseShowSaveFilePicker,ScreenCaptureKitPickerScreen,ScreenCaptureKitStreamPickerSonoma --disable-features=LocalNetworkAccessChecks,MacWebContentsOcclusion,ScreenAIOCREnabled,SpareRendererForSitePerProcess,TimeoutHangingVideoCaptureStarts,TraceSiteInstanceGetProcessCreation --variations-seed-version --trace-process-track-uuid=3190708990997080739"
+      },
+      {
+        "pid": 20068,
+        "command": "<WORKTREE>/apps/shell/node_modules/electron/dist/Electron.app/Contents/Frameworks/Electron Helper.app/Contents/MacOS/Electron Helper --type=utility --utility-sub-type=audio.mojom.AudioService --lang=ja --service-sandbox-type=audio --no-sandbox --message-loop-type-ui --user-data-dir=/private<TEMP>/userdata --shared-files --field-trial-handle=1718379636,r,13514297100398882620,15932510714262370272,262144 --enable-features=PdfUseShowSaveFilePicker,ScreenCaptureKitPickerScreen,ScreenCaptureKitStreamPickerSonoma --disable-features=LocalNetworkAccessChecks,MacWebContentsOcclusion,ScreenAIOCREnabled,SpareRendererForSitePerProcess,TimeoutHangingVideoCaptureStarts,TraceSiteInstanceGetProcessCreation --variations-seed-version --trace-process-track-uuid=3190708991934122588"
+      }
+    ],
+    "exited": true
+  },
+  "elapsedMs": 121087
+}
