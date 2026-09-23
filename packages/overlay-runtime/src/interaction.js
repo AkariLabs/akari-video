@@ -79,10 +79,18 @@ function toggleScopedSelection(tree, selectedIds, scopeId, next) {
   return { selectedIds: ids, selectId: ids.at(-1) ?? null, scopeId: next.scopeId };
 }
 
+// Client-space AABBs. Touching an edge counts as a hit.
+function marqueeHits(candidates, rect) {
+  if (!rect) return [];
+  return candidates.filter(({ bounds }) => bounds
+    && bounds.left <= rect.right && bounds.right >= rect.left
+    && bounds.top <= rect.bottom && bounds.bottom >= rect.top).map(({ id }) => id);
+}
+
 // END selection-scope
 
   const stage = document.getElementById("overlay-stage");
-  const dragStartDistance = 3;
+  const dragStartDistance = 4;
   const SNAP_DISTANCE = 8;
   const SNAP_RELEASE_DISTANCE = 12;
   const SAFE_MARGIN_RATIO = 0.05;
@@ -145,6 +153,8 @@ function toggleScopedSelection(tree, selectedIds, scopeId, next) {
   let nudgeTimer = null;
   let lastClick = null;
   let clickOrigin = null;
+  let pendingBlank = null;
+  let marqueeFrame = null;
   let hoverFrame = null;
   let hoverTick = null;
   let hoverEvent = null;
@@ -768,7 +778,7 @@ function toggleScopedSelection(tree, selectedIds, scopeId, next) {
   let interactionEnabled = true;
   function setEnabled(next) {
     interactionEnabled = next !== false;
-    if (!interactionEnabled) clearSelection();
+    if (!interactionEnabled) { clearMarquee(); clearSelection(); }
   }
 
   function isSelectable(container) {
@@ -1137,14 +1147,88 @@ function toggleScopedSelection(tree, selectedIds, scopeId, next) {
     if (floorScopeId !== null && !lineage(selectionTree(), next.selectId).includes(floorScopeId)) return false;
     const selection = toggleScopedSelection(selectionTree(), selectedIds, scopeId, next);
     if (selection.selectedIds.length < 2) return applyScopedSelection(selection);
+    return setScopedMultiSelection(selection.selectedIds, selection.scopeId);
+  }
+  function setScopedMultiSelection(ids, nextScopeId) {
+    if (ids.length < 2) return false;
+    const unchanged = scopeId === nextScopeId && ids.length === selectedIds.length
+      && ids.every((id, index) => id === selectedIds[index]);
+    if (unchanged) return true;
     clearSelection();
-    scopeId = selection.scopeId;
-    selectedIds = selection.selectedIds;
-    selectedId = selection.selectId;
+    scopeId = nextScopeId;
+    selectedIds = [...ids];
+    selectedId = ids.at(-1);
     refreshSelectionFrame();
     startSelectionTracking();
     publishScopedSelection();
     return true;
+  }
+
+  function marqueeCandidates() {
+    return selectionTree().filter(node => node.parentId === scopeId
+      && (floorScopeId === null || lineage(selectionTree(), node.id).includes(floorScopeId)))
+      .map(node => {
+        const leaf = containerById(node.id);
+        return { id: node.id, bounds: node.kind === 'leaf'
+          ? leaf ? fragmentBounds(leaf) : null : unionBounds(visibleMembers(node.id)) };
+      })
+      .filter(candidate => candidate.bounds);
+  }
+  function marqueeRect(start, end) {
+    const left = Math.min(start.x, end.x), top = Math.min(start.y, end.y);
+    const right = Math.max(start.x, end.x), bottom = Math.max(start.y, end.y);
+    return { left, top, right, bottom, width: right - left, height: bottom - top };
+  }
+  function clearMarquee() {
+    pendingBlank = null;
+    marqueeFrame?.remove();
+    marqueeFrame = null;
+    for (const element of stage?.children ?? []) element.removeAttribute('data-akari-interaction-marquee-hit');
+  }
+  function updateMarquee(event) {
+    const pending = pendingBlank;
+    if (!pending) return;
+    if (!marqueeFrame) {
+      marqueeFrame = document.createElement('div');
+      marqueeFrame.setAttribute('data-akari-ui', 'preview-marquee');
+      marqueeFrame.setAttribute('aria-hidden', 'true');
+      Object.assign(marqueeFrame.style, { position: 'fixed', pointerEvents: 'none',
+        boxSizing: 'border-box', border: '1px solid var(--akari-accent, #4da3ff)',
+        background: 'rgba(77, 163, 255, 0.14)', zIndex: '91' });
+      document.body.appendChild(marqueeFrame);
+    }
+    const rect = marqueeRect(pending, { x: event.clientX, y: event.clientY });
+    Object.assign(marqueeFrame.style, { left: `${rect.left}px`, top: `${rect.top}px`,
+      width: `${rect.width}px`, height: `${rect.height}px` });
+    const ids = marqueeHits(marqueeCandidates(), rect);
+    pending.hits = ids;
+    const members = new Set(ids.flatMap(id => visibleMembers(id)));
+    for (const element of stage?.children ?? []) {
+      if (members.has(element)) element.setAttribute('data-akari-interaction-marquee-hit', 'true');
+      else element.removeAttribute('data-akari-interaction-marquee-hit');
+    }
+  }
+  function finishMarquee(event) {
+    const pending = pendingBlank;
+    if (!pending) return;
+    if (!pending.started) {
+      clearMarquee();
+      if (!pending.release) return;
+      if (activeEdit) void commitEdit();
+      applyScopedSelection({ selectId: null,
+        scopeId: pending.bagExit !== undefined ? pending.bagExit : pending.scopeId });
+      return;
+    }
+    updateMarquee(event);
+    const hits = pending.hits ?? [];
+    const sibling = id => treeNode(id)?.parentId === pending.scopeId;
+    const additive = pending.shift && selectedIds.every(sibling) && scopeId === pending.scopeId;
+    const ids = additive ? [...selectedIds, ...hits.filter(id => !selectedIds.includes(id))] : hits;
+    clearMarquee();
+    if (!ids.length) {
+      if (!pending.shift) applyScopedSelection({ selectId: null, scopeId: pending.scopeId });
+    } else if (ids.length === 1) applyScopedSelection({ selectId: ids[0], scopeId: pending.scopeId });
+    else setScopedMultiSelection(ids, pending.scopeId);
   }
   function selectFromTimeline(id) {
     if (!selectionTree().length) return false;
@@ -2399,15 +2483,22 @@ function toggleScopedSelection(tree, selectedIds, scopeId, next) {
         return;
       }
       const hit = overlayForEvent(event);
+      const stageRect = stage?.getBoundingClientRect();
+      const insideStage = stageRect && event.clientX >= stageRect.left && event.clientX <= stageRect.right
+        && event.clientY >= stageRect.top && event.clientY <= stageRect.bottom;
+      const fallbackBlank = insideStage && !activeEdit
+        && !(event.target instanceof Element && event.target.closest('button, [role="button"], input, textarea, select, a[href], [data-akari-interaction]'));
+      const canMarquee = !isSelectable(hit) && !event.altKey && (window.akari.shouldStartPreviewMarquee
+        ? window.akari.shouldStartPreviewMarquee(event) : fallbackBlank);
+      if (!isSelectable(hit) && (canMarquee || insideStage)) {
+        const bag = treeNode(scopeId);
+        pendingBlank = { pointerId: event.pointerId, x: event.clientX, y: event.clientY,
+          shift: event.shiftKey, scopeId, marquee: canMarquee, release: Boolean(insideStage),
+          bagExit: bag?.kind === 'bag' && bag.lazy
+            && scopeId !== floorScopeId ? bag.parentId : undefined, started: false, hits: [] };
+        return;
+      }
       if (!isSelectable(hit)) {
-        const r = stage?.getBoundingClientRect();
-        if (r && event.clientX >= r.left && event.clientX <= r.right
-          && event.clientY >= r.top && event.clientY <= r.bottom) {
-          if (activeEdit) void commitEdit();
-          const bag = treeNode(scopeId);
-          applyScopedSelection({ selectId: null,
-            scopeId: bag?.kind === 'bag' && bag.lazy && scopeId !== floorScopeId ? bag.parentId : scopeId });
-        }
         return;
       }
       if (activeEdit?.container === hit && eventHitsElement(event, activeEdit.element)) return;
@@ -2486,6 +2577,22 @@ function toggleScopedSelection(tree, selectedIds, scopeId, next) {
   }
 
   function onPointerMove(event) {
+    if (pendingBlank && event.pointerId === pendingBlank.pointerId) {
+      const dx = event.clientX - pendingBlank.x, dy = event.clientY - pendingBlank.y;
+      if (!pendingBlank.started && dx * dx + dy * dy > dragStartDistance * dragStartDistance) {
+        if (clickOrigin) clickOrigin.moved = true;
+        if (!pendingBlank.marquee) clearMarquee();
+        else {
+          pendingBlank.started = true;
+          if (activeEdit) void commitEdit();
+        }
+      }
+      if (pendingBlank?.started) {
+        updateMarquee(event);
+        if (event.cancelable) event.preventDefault();
+        return;
+      }
+    }
     scheduleHover(event);
     if (activeRotate && event.pointerId === activeRotate.pointerId) {
       updateRotate(event);
@@ -2540,6 +2647,15 @@ function toggleScopedSelection(tree, selectedIds, scopeId, next) {
   }
 
   function onPointerUp(event) {
+    if (pendingBlank && event.pointerId === pendingBlank.pointerId) {
+      const dx = event.clientX - pendingBlank.x, dy = event.clientY - pendingBlank.y;
+      if (!pendingBlank.started && dx * dx + dy * dy > dragStartDistance * dragStartDistance) {
+        if (clickOrigin) clickOrigin.moved = true;
+        if (!pendingBlank.marquee) clearMarquee();
+        else pendingBlank.started = true;
+      }
+      if (pendingBlank) { finishMarquee(event); return; }
+    }
     if (activeRotate && event.pointerId === activeRotate.pointerId) {
       finishRotate();
       return;
@@ -2553,6 +2669,7 @@ function toggleScopedSelection(tree, selectedIds, scopeId, next) {
   }
 
   function onPointerCancel(event) {
+    if (pendingBlank && event.pointerId === pendingBlank.pointerId) { clearMarquee(); return; }
     if (activeRotate && event.pointerId === activeRotate.pointerId) {
       cancelRotate();
       return;
@@ -2989,6 +3106,7 @@ function toggleScopedSelection(tree, selectedIds, scopeId, next) {
         event.stopPropagation(); event.stopImmediatePropagation();
       };
       if (event.key === 'Escape') {
+        if (pendingBlank?.started) { clearMarquee(); handled(); return; }
         if (activeDrag) { cancelDrag(); handled(); return; }
         if (activeResize) { cancelResize(); handled(); return; }
         if (activeRotate) { cancelRotate(); handled(); return; }
@@ -3396,7 +3514,7 @@ function toggleScopedSelection(tree, selectedIds, scopeId, next) {
   window.addEventListener("keydown", onKeyDown, true);
   window.addEventListener("keyup", isolateEditKey, true);
   window.addEventListener("keypress", isolateEditKey, true);
-  window.addEventListener('blur', () => { flushNudge(); hideHover(); lastClick = null; });
+  window.addEventListener('blur', () => { clearMarquee(); flushNudge(); hideHover(); lastClick = null; });
   document.addEventListener('pointerleave', hideHover);
 
   return {

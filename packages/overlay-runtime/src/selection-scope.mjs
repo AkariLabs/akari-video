@@ -76,8 +76,16 @@ function toggleScopedSelection(tree, selectedIds, scopeId, next) {
   return { selectedIds: ids, selectId: ids.at(-1) ?? null, scopeId: next.scopeId };
 }
 
+// Client-space AABBs. Touching an edge counts as a hit.
+function marqueeHits(candidates, rect) {
+  if (!rect) return [];
+  return candidates.filter(({ bounds }) => bounds
+    && bounds.left <= rect.right && bounds.right >= rect.left
+    && bounds.top <= rect.bottom && bounds.bottom >= rect.top).map(({ id }) => id);
+}
+
 // END selection-scope
-export { toggleScopedSelection, nextCycleCandidate, resolveScopedSelection, enterScope, exitScope, lineage, descendantLeafIds, shouldHandleScopeEscape, lazyBagForScope, selectionAncestorIds, worldDelta, applyWorldDelta };
+export { toggleScopedSelection, marqueeHits, nextCycleCandidate, resolveScopedSelection, enterScope, exitScope, lineage, descendantLeafIds, shouldHandleScopeEscape, lazyBagForScope, selectionAncestorIds, worldDelta, applyWorldDelta };
 
 // World-space similarity transform. Coordinates are relative to the stage centre.
 // BEGIN world-delta

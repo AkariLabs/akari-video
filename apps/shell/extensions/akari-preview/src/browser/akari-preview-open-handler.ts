@@ -7267,6 +7267,8 @@ ${kind === 'raw' ? '.akari-material-chip { position: absolute; top: 8px; left: 8
 [data-akari-ui="preview-hover-frame"] { position: fixed; pointer-events: none; box-sizing: border-box;
   border: 1px solid var(--akari-accent); opacity: .45; z-index: 90; }
 [data-akari-ui="preview-hover-frame"][hidden] { display: none; }
+[data-akari-ui="preview-marquee"] { position: fixed; pointer-events: none; box-sizing: border-box;
+  border: 1px solid var(--akari-accent, #4da3ff); background: rgba(77, 163, 255, .14); z-index: 91; }
 .preview-pane.is-draggable { cursor: grab; touch-action: none; }
 .preview-pane.is-dragging { cursor: grabbing; }
 #zoom-layer { position: absolute; inset: 0; transform-origin: 50% 50%; will-change: transform; }
@@ -13004,11 +13006,32 @@ body { display: grid; place-items: center; padding: 32px; }
                         return !candidateEntry || layerAlphaAtPoint(candidateEntry, event.clientX, event.clientY) > 16;
                     }) || null;
             };
+            // The interaction layer asks once at pointerdown. The media and pan handlers
+            // reuse this answer so all three paths agree for the same pointer.
+            const marqueeStartDecisions = new WeakMap();
+            window.akari.shouldStartPreviewMarquee = event => {
+                if (marqueeStartDecisions.has(event)) return marqueeStartDecisions.get(event);
+                const target = event.target;
+                const blocked = event.button !== 0 || event.altKey || penModeActive || rectModeActive
+                    || selectionDragActive || cropModeActive || perspectivePanelOpen || activeCaptionEdit
+                    || window.akari.interaction?.activeEdit || !previewPane.contains(target)
+                    || !(target instanceof Element)
+                    || !!target.closest('button, [role="button"], input, textarea, select, a[href], '
+                        + '[contenteditable="true"], [data-overlay-id], [data-akari-interaction], '
+                        + '.caption-row-plate, #pen-layer, #layer-select-box, #layer-crop-box, '
+                        + '#layer-crop-toggle, #layer-perspective-toggle, #layer-perspective-panel, '
+                        + '#cut-select-box, #caption-select-box');
+                const mediaHit = blocked ? null : findVisualMediaHitAt(event);
+                const allow = !blocked && (zoom > 1.05 ? event.shiftKey : !mediaHit || event.shiftKey);
+                marqueeStartDecisions.set(event, allow);
+                return allow;
+            };
             // cuts / layers / overlays / captions は同じ #preview-layers 内で z を競う。
             // 箱は pointer-events:none、実体だけ auto なので、共通祖先から委譲しつつ
             // 全面透明 mov のアルファ実測だけは elementsFromPoint で下へ素通しする。
             const handledVisualPointerDownEvents = new WeakSet();
             const handleVisualMediaPointerDown = event => {
+                if (window.akari.shouldStartPreviewMarquee?.(event)) return;
                 // A blank click must release captions before selecting the media behind them.
                 // Otherwise selectCut/selectLayer silently clear the local caption first and
                 // pointerup can no longer notify the host that its caption selection ended.
@@ -17383,6 +17406,7 @@ body { display: grid; place-items: center; padding: 32px; }
             };
             previewPane.addEventListener('pointerdown', event => {
                 if (penModeActive || zoom <= 1.05 || event.button !== 0) return;
+                if (window.akari.shouldStartPreviewMarquee?.(event)) return;
                 // ズーム中のパン開始判定は capture 段で previewPane 配下の pointerdown を扱う。
                 // 奪っていたため、audio-notice の × 等インタラクティブ操作系の上で押しても
                 // preventDefault() が click 合成を止めてしまい押せなくなっていた（実測: Chromium は

@@ -179,7 +179,7 @@ test('legacy selection still waits for dimensions and decoded alpha data', () =>
 test('pointer hit selects and drags the evacuated item; layer target writes its v2 id', async () => {
     const entry = spec('upper-v2-id', 3);
     const calls = [];
-    const context = { frameEngineMediaIdle: false, selectedCaptionId: null, activeCaptionEdit: null,
+    const context = { window: { akari: {} }, frameEngineMediaIdle: false, selectedCaptionId: null, activeCaptionEdit: null,
         video: {}, stillImage: {}, layersStage: {}, stage: {},
         cropModeActive: false, findVisualMediaHitAt: () => entry.video,
         findLayerEntry: id => { assert.equal(id, entry.spec.id); return entry; },
