@@ -95,6 +95,34 @@ test('disconnected click starts once, opens on connection and then toggles the p
   assert.equal(u.mounted(), false);
 });
 
+test('starting label appears after five seconds and resets after failure or success', async t => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const u = ui(t);
+  const toolbar = new toolbarModule.CompanionToolbarContribution();
+  const button = { style: {}, dataset: {}, attributes: {}, setAttribute(key, value) { this.attributes[key] = value; } };
+  globalThis.document = { querySelectorAll: () => [button] };
+  toolbar.setState({ enabled: () => u.app.enabled, starting: () => u.app.starting, open: () => false });
+  u.app.toolbar = toolbar;
+  for (const succeeded of [false, true]) {
+    let resolveStart;
+    u.app.service.start = () => new Promise(resolve => { resolveStart = resolve; });
+    const pending = u.app.togglePanel();
+    assert.equal(button.dataset.starting, 'true');
+    t.mock.timers.tick(toolbarModule.COMPANION_STARTING_LABEL_DELAY_MS - 1);
+    assert.equal(button.attributes.title, toolbarModule.COMPANION_TOGGLE_LABEL);
+    t.mock.timers.tick(1);
+    assert.equal(button.attributes.title, toolbarModule.COMPANION_STARTING_LABEL);
+    assert.equal(button.attributes['aria-label'], toolbarModule.COMPANION_STARTING_LABEL);
+    assert.equal(toolbar.renderButton().props.title, toolbarModule.COMPANION_STARTING_LABEL);
+    resolveStart(succeeded);
+    await pending;
+    assert.equal(button.dataset.starting, 'false');
+    assert.equal(button.attributes.title, toolbarModule.COMPANION_TOGGLE_LABEL);
+    assert.equal(button.attributes['aria-label'], toolbarModule.COMPANION_TOGGLE_LABEL);
+  }
+  assert.deepEqual(u.warnings, ['AKARI バイブを起動できませんでした']);
+});
+
 test('missing executable or RPC failure shows startup notice and allows retry', async t => {
   const u = ui(t);
   await u.app.togglePanel();

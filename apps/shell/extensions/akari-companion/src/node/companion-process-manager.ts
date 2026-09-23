@@ -4,6 +4,8 @@ import { readConfiguredCompanionAddress } from './companion-home';
 import { CompanionLink } from './companion-link';
 import { CompanionProcess, CompanionProcessOptions } from './companion-process';
 
+export const DEFAULT_COMPANION_CONNECT_TIMEOUT_MS = 10_000;
+
 export interface CompanionOwner {
     execute(instruction: CompanionInstruction): Promise<CompanionResultMessage>;
     onConnectionState(connected: boolean, panel?: CompanionManifestPanel): void;
@@ -17,6 +19,7 @@ interface Session {
 }
 
 export interface CompanionManagerOptions extends CompanionProcessOptions {
+    connectTimeoutMs?: number;
     log?(message: string): void;
 }
 
@@ -68,7 +71,8 @@ export class CompanionProcessManager {
                 }
                 if (revision !== this.revision) return false;
                 const connected = await new Promise<boolean>(resolveConnected => {
-                    const timer = setTimeout(() => finish(false), this.options.startupTimeoutMs ?? 5000);
+                    const timer = setTimeout(() => finish(false),
+                        this.options.connectTimeoutMs ?? DEFAULT_COMPANION_CONNECT_TIMEOUT_MS);
                     const finish = (value: boolean): void => { clearTimeout(timer); resolveConnected(value); };
                     cancelConnection = () => finish(false);
                     session.link = new CompanionLink({

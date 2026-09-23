@@ -5,8 +5,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import test from 'node:test';
-import { CompanionProcess, resolveCompanionBin } from '../lib/node/companion-process.js';
-import { CompanionProcessManager } from '../lib/node/companion-process-manager.js';
+import { CompanionProcess, DEFAULT_COMPANION_STARTUP_TIMEOUT_MS, resolveCompanionBin } from '../lib/node/companion-process.js';
+import { CompanionProcessManager, DEFAULT_COMPANION_CONNECT_TIMEOUT_MS } from '../lib/node/companion-process-manager.js';
 import { readConfiguredCompanionAddress } from '../lib/node/companion-home.js';
 
 const bin = fileURLToPath(new URL('./fixtures/fake-vibe.mjs', import.meta.url));
@@ -34,7 +34,7 @@ async function fixture(t, mode = '') {
   const env = { ...process.env, AKARI_VIBE_BIN: bin, FAKE_VIBE_REPORT: report, FAKE_VIBE_MODE: mode };
   delete env.AKARI_COMPANION_CONFIG;
   const rows = async () => (await fs.readFile(report, 'utf8').catch(() => '')).trim().split('\n').filter(Boolean).map(JSON.parse);
-  const options = { env, stopTimeoutMs: 300 };
+  const options = { env, startupTimeoutMs: 5000, connectTimeoutMs: 5000, stopTimeoutMs: 300 };
   return { dir, env, options, rows, cleanup };
 }
 function owner() {
@@ -81,6 +81,44 @@ test('first-line port connects with authenticated manifest HMAC', network, async
   assert.equal(a.states.at(-1).panel.port, rows.find(row => row.type === 'listening').port);
   assert.ok(rows.some(row => row.type === 'manifest' && row.authenticated));
   assert.ok(rows.some(row => row.type === 'events'));
+});
+
+test('startup and connection have separate default deadlines', () => {
+  assert.equal(DEFAULT_COMPANION_STARTUP_TIMEOUT_MS, 20_000);
+  assert.equal(DEFAULT_COMPANION_CONNECT_TIMEOUT_MS, 10_000);
+});
+
+test('first line after eight seconds still starts', async t => {
+  const f = await fixture(t, 'delayed-line');
+  f.env.FAKE_VIBE_ANNOUNCE_DELAY_MS = '8000';
+  const child = new CompanionProcess({ ...f.options, startupTimeoutMs: undefined });
+  f.cleanup.push(() => child.stop());
+  assert.equal((await child.start(() => {})).port, 1);
+  await child.stop();
+  const rows = await f.rows();
+  assert.ok(rows.some(row => row.type === 'stopped' && row.reason === 'stdin'));
+});
+
+test('first line scheduled after 25 seconds times out and stops the child', async t => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const f = await fixture(t, 'delayed-line');
+  f.env.FAKE_VIBE_ANNOUNCE_DELAY_MS = '25000';
+  const logs = [];
+  const manager = new CompanionProcessManager({ ...f.options, startupTimeoutMs: undefined,
+    log: line => logs.push(line) });
+  f.cleanup.push(() => manager.onStop());
+  const started = manager.start(owner());
+  const deadline = Date.now() + 5000;
+  while (!(await f.rows()).some(row => row.type === 'input')) {
+    assert.ok(Date.now() < deadline, 'fixture event timed out');
+    await new Promise(resolve => setImmediate(resolve));
+  }
+  t.mock.timers.tick(DEFAULT_COMPANION_STARTUP_TIMEOUT_MS);
+  assert.equal(await started, false);
+  assert.match(logs[0], /listening announcement timed out/);
+  const rows = await f.rows();
+  assert.ok(rows.some(row => row.type === 'stopped' && row.reason === 'stdin'));
+  assert.throws(() => process.kill(rows.find(row => row.type === 'input').pid, 0), { code: 'ESRCH' });
 });
 
 test('A to B ownership stops A before B and drops A state and instructions', network, async t => {
