@@ -18,6 +18,8 @@ import { createReadStream, promises as fs } from 'fs';
 import { basename, dirname, join, relative, sep, extname, isAbsolute, resolve } from 'path';
 import { pathToFileURL } from 'url';
 import { promisify } from 'util';
+import { NarrationCliManager } from './narration-cli';
+import type { ApplyNarrationRequest, GenerateNarrationRequest, GenerateNarrationResult, NarrationEnginesResult, NarrationVoicesResult } from '../common/akari-annotations-protocol';
 import {
     ListAdjustLutsRequest, ListAdjustLutsResult, ImportAdjustLutRequest, ImportAdjustLutResult,
     AkariAnnotationsClient,
@@ -214,6 +216,54 @@ interface CanvasStrokeRecord {
 
 @injectable()
 export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
+    protected readonly narrationCli = new NarrationCliManager();
+
+    async listNarrationEngines(_projectRootUri: string): Promise<NarrationEnginesResult> {
+        return this.narrationCli.engines();
+    }
+    async listNarrationVoices(_projectRootUri: string, engine: string): Promise<NarrationVoicesResult> {
+        return this.narrationCli.voices(engine);
+    }
+    async generateNarration(request: GenerateNarrationRequest): Promise<GenerateNarrationResult> {
+        if (['gemini-tts', 'fal-qwen3'].includes(request.engine) && request.approved !== true) {
+            throw new Error('費用承認が必要です。');
+        }
+        return this.narrationCli.generate(request, this.fsPath(request.projectRootUri));
+    }
+    async cancelNarration(projectRootUri: string): Promise<void> {
+        await this.narrationCli.cancel(this.fsPath(projectRootUri));
+    }
+    async applyNarration(request: ApplyNarrationRequest): Promise<{ id: string }> {
+        const root = resolve(this.fsPath(request.projectRootUri));
+        if (!/^out\/narration\/n-\d{4}\.(wav|mp3)$/u.test(request.path)) throw new Error('音声パスが不正です。');
+        if (!Number.isFinite(request.t) || request.t < 0) throw new Error('配置時刻が不正です。');
+        const audioPath = resolve(root, request.path);
+        if (!audioPath.startsWith(join(root, 'out', 'narration') + sep)) throw new Error('音声パスが不正です。');
+        if (!(await fs.stat(audioPath).then(stat => stat.isFile()).catch(() => false))) throw new Error('音声ファイルがありません。');
+        const editPath = join(root, 'edit.json');
+        const edit = JSON.parse(await fs.readFile(editPath, 'utf8')) as Record<string, unknown>;
+        const audio = edit.audio && typeof edit.audio === 'object' && !Array.isArray(edit.audio)
+            ? edit.audio as Record<string, unknown> : {};
+        const narration = Array.isArray(audio.narration) ? audio.narration as Array<Record<string, unknown>> : [];
+        const id = request.id ?? request.path.match(/(n-\d{4})\.(?:wav|mp3)$/u)?.[1];
+        if (!id || !/^n-\d{4}$/u.test(id) || narration.some(item => item.id === id)) throw new Error('ナレーション ID が不正か重複しています。');
+        const entry: Record<string, unknown> = { id, path: request.path, t: request.t, gain_db: 0,
+            script: request.script, reading: request.reading, provenance: request.provenance ?? {} };
+        if (request.captionRef) entry.caption_ref = request.captionRef;
+        audio.narration = [...narration, entry];
+        edit.audio = audio;
+        // v2 の明示 tracks[] に音声トラックが無いと、v1 互換 narration は内部表現へ
+        // 投影されてもタイムラインの帯に対応する layout が無い。空トラックを 1 本補う。
+        if (edit.version === 2 && Array.isArray(edit.tracks)
+            && !(edit.tracks as Array<Record<string, unknown>>).some(track => track.lane === 'audio')) {
+            const tracks = edit.tracks as Array<Record<string, unknown>>;
+            let id = 'a-narration'; let suffix = 2;
+            while (tracks.some(track => track.id === id)) id = `a-narration-${suffix++}`;
+            tracks.push({ id, lane: 'audio', name: 'ナレーション', items: [] });
+        }
+        await this.writeProjectFileGuarded(editPath, `${JSON.stringify(edit, null, 2)}\n`);
+        return { id };
+    }
     protected client: AkariAnnotationsClient | undefined;
     protected readonly generationCli = new GenerationCliManager();
     protected readonly sourceShaCache = new Map<string, string>();

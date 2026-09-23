@@ -5,6 +5,31 @@ import type { GenerationBindingView, GenerationSidecarMeta } from './generation-
 export const AKARI_ANNOTATIONS_SERVICE_PATH = '/services/akari-annotations';
 export const AkariAnnotationsService = Symbol('AkariAnnotationsService');
 
+export interface NarrationEngine {
+    id: string; label: string; place: 'local' | 'cloud'; provider?: string;
+    price?: { usd_per_1000_chars: number; verified: boolean; as_of?: string };
+    availability: { state: 'available' | 'needs' | 'unconfigured' | 'unsupported'; label: string };
+    default_voice?: string; credit_required?: boolean;
+    supports?: { speed: boolean; style: boolean };
+}
+export interface NarrationVoice { id: string; label: string; default?: boolean; group?: string }
+export interface NarrationEnginesResult { version: number; engines: NarrationEngine[] }
+export interface NarrationVoicesResult { version: number; engine: string; voices: NarrationVoice[] }
+export interface GenerateNarrationRequest {
+    projectRootUri: string; engine: string; voice: string; speed?: number; style?: string;
+    script: string; reading: string; captionId?: string | null; t: number; approved?: boolean;
+}
+export interface GenerateNarrationResult {
+    version?: number; status: 'ok' | 'needs_approval'; id?: string; path?: string; duration_s?: number;
+    engine?: string; voice?: string; cost_usd?: number; applied?: boolean;
+    caption_ref?: string | null; provenance?: Record<string, unknown>; warnings?: string[];
+    estimate_usd?: number; chars?: number;
+}
+export interface ApplyNarrationRequest {
+    projectRootUri: string; path: string; t: number; script: string; reading: string;
+    provenance?: Record<string, unknown>; captionRef?: string | null; id?: string;
+}
+
 export type MediaUnavailableReason = 'ffmpeg-not-found' | 'source-missing' | 'extraction-failed';
 
 export const THUMBNAIL_WIDTH_PX = 160;
@@ -812,6 +837,11 @@ export interface RemoveSfxResult extends DeleteArrayItemResult {
 }
 
 export interface AkariAnnotationsService {
+    listNarrationEngines(projectRootUri: string): Promise<NarrationEnginesResult>;
+    listNarrationVoices(projectRootUri: string, engine: string): Promise<NarrationVoicesResult>;
+    generateNarration(request: GenerateNarrationRequest): Promise<GenerateNarrationResult>;
+    applyNarration(request: ApplyNarrationRequest): Promise<{ id: string }>;
+    cancelNarration(projectRootUri: string): Promise<void>;
     projectReferenceMediaUris(request: { projectRootUri: string; declaredPaths?: string[] }): Promise<Record<string, string>>;
     setClient(client: AkariAnnotationsClient | undefined): void;
     extractSourceFrame(request: ExtractSourceFrameRequest): Promise<ExtractSourceFrameResult>;

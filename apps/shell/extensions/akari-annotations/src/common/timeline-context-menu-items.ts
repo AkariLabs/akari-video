@@ -90,6 +90,7 @@ export function buildTimelineClipMenuItems(
         ...(audio.split.ok === false ? { disabled: true, disabledReason: audio.split.message } : {})
     });
     if (kind === 'audio' && audio.linked) items.push({ id: 'unlink-audio', label: 'リンクを解除' });
+    if (kind === 'caption') items.push({ id: 'narrate', label: '音声を作る…' });
     items.push({ id: 'annotate', label: '注釈…' });
     items.push({ id: 'delete', label: '削除', danger: true });
     return items;

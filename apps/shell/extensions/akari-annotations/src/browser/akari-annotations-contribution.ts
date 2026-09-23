@@ -30,6 +30,7 @@ import { WebviewWidget } from '@theia/plugin-ext/lib/main/browser/webview/webvie
 import { inject, injectable } from '@theia/core/shared/inversify';
 import {
     PLACE_TEXT,
+    READ_ALOUD,
     ADD_MATERIAL_AT_PLAYHEAD,
     ADD_MATERIAL_AT_POINT,
     ATTACH_AKARI_ANNOTATIONS_PASSIVE,
@@ -297,6 +298,13 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
                     return;
                 }
                 return widget.placeText(options);
+            }
+        });
+        commands.registerCommand(READ_ALOUD, {
+            execute: async (options: { captionIds?: string[] } = {}, editUri?: string) => {
+                const location = editUri ? (await this.locateAll()).find(item => item.editUri?.toString() === editUri) : undefined;
+                const widget = editUri ? (location ? await this.attachAt(location) : undefined) : await this.attach();
+                if (widget) await widget.openReadAloud({ captionIds: options.captionIds ?? [] });
             }
         });
         commands.registerCommand(OPEN_AKARI_ANNOTATIONS, {

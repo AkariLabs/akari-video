@@ -451,6 +451,7 @@ export class AkariDaihonWidget extends BaseWidget {
 
     protected readonly captionsButton = document.createElement('button');
     protected readonly placeTextButton = document.createElement('button');
+    protected readonly readAloudButton = document.createElement('button');
     protected readonly retimeButton = document.createElement('button');
     protected readonly displayButton = document.createElement('button');
     protected readonly historyButton = document.createElement('button');
@@ -572,6 +573,13 @@ export class AkariDaihonWidget extends BaseWidget {
         this.placeTextButton.className = 'akari-daihon-retime akari-daihon-place-text';
         this.placeTextButton.textContent = 'T この行から文字を置く';
         this.placeTextButton.addEventListener('click', () => void this.placeTextFromSelection());
+        this.readAloudButton.type = 'button';
+        this.readAloudButton.className = 'akari-daihon-retime akari-daihon-read-aloud';
+        this.readAloudButton.textContent = '🔊 読み上げ';
+        this.readAloudButton.addEventListener('click', () => {
+            void this.commands.executeCommand('akari.caption.readAloud',
+                { captionIds: [...this.selection.selected] }, this.editUri?.toString());
+        });
         this.retimeButton.type = 'button';
         this.retimeButton.className = 'akari-daihon-retime';
         this.retimeButton.textContent = '⏱ 発話に合わせ直す';
@@ -606,6 +614,8 @@ export class AkariDaihonWidget extends BaseWidget {
         });
         header.style.flexWrap = 'wrap';
         header.append(title, this.count, spacer, this.captionsButton, this.placeTextButton, this.retimeButton, this.historyButton, this.displayButton, this.tplButton, this.qcButton, this.silenceButton, this.cutsButton);
+        if (typeof this.placeTextButton.after === 'function') this.placeTextButton.after(this.readAloudButton);
+        else header.append(this.readAloudButton);
 
         this.rowsNode.className = 'akari-daihon-rows';
         this.rowsNode.tabIndex = 0;

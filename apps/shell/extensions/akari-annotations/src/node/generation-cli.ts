@@ -61,7 +61,7 @@ export class GenerationCliManager {
         }));
     }
 
-    protected async resolveCli(): Promise<string | undefined> {
+    async resolveCli(): Promise<string | undefined> {
         if (this.env.AKARI_GENERATE_CLI) return this.env.AKARI_GENERATE_CLI;
         const resourcesPath = (process as NodeJS.Process & { resourcesPath?: string }).resourcesPath;
         const candidates: string[] = [];

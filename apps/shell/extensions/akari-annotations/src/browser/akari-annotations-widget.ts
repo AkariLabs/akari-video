@@ -1,4 +1,5 @@
 import { placeTextCaption, PLACE_TEXT_COMMAND_ID, type PlaceTextOptions } from '../common/place-text';
+import { AkariReadAloudDialog, type ReadAloudPlacement } from './read-aloud/akari-read-aloud-dialog';
 import { timelineGapAt, type TimelineGap } from '../common/timeline-gap';
 import { calculateFrameDraw, type FrameDrawRange } from '../common/timeline-frame-draw';
 import { advanceMaterialTrialWindow, MaterialTrialWindow } from '../common/material-trial-window';
@@ -885,6 +886,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
 
     protected readonly toolbar = document.createElement('div');
     protected readonly frameToolButton = document.createElement('button');
+    protected readonly readAloudButton = document.createElement('button');
     protected placingText = false;
     protected cancelFrameDraw: (() => void) | undefined;
     protected readonly selectToolButton = document.createElement('button');
@@ -1394,6 +1396,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.razorToolButton.addEventListener('click', () => this.setToolMode('razor'));
         this.configureIconButton(this.frameToolButton, 'codicon-preview', '仮枠ツール', '仮枠 (F)');
         this.frameToolButton.addEventListener('click', () => this.setToolMode('frame'));
+        this.configureIconButton(this.readAloudButton, 'codicon-unmute', '読み上げ', '読み上げ');
+        this.readAloudButton.classList.remove('akari-annotations-icon-button');
+        this.readAloudButton.classList.add('akari-annotations-text-button', 'akari-timeline-read-aloud');
+        this.readAloudButton.textContent = '🔊 読み上げ';
+        Object.assign(this.readAloudButton.style, { width: 'auto', whiteSpace: 'nowrap', flexShrink: '0' });
+        this.readAloudButton.addEventListener('click', () => void this.openReadAloud({ captionIds: this.selectionModel.selectedCaptionIds }));
         this.configureIconButton(this.snapToggleButton, 'codicon-magnet', 'マグネット', 'マグネット（スナップ）切替 (M / N)');
         this.snapToggleButton.addEventListener('click', () => this.setSnapEnabled(!this.snapEnabled));
         this.configureIconButton(this.undoButton, 'codicon-discard', '元に戻す', '元に戻す (⌘Z)');
@@ -1405,7 +1413,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.configureIconButton(this.compactButton, 'codicon-collapse-all', '詰める', 'クリップ間の空白を詰める');
         this.compactButton.addEventListener('click', () => void this.performCompactCuts());
         this.toolbar.append(
-            this.selectToolButton, this.razorToolButton, this.frameToolButton,
+            this.selectToolButton, this.razorToolButton, this.frameToolButton, this.readAloudButton,
             this.createToolbarSeparator(),
             this.snapToggleButton,
             this.createToolbarSeparator(),
@@ -4371,6 +4379,40 @@ export class AkariAnnotationsWidget extends BaseWidget {
             await this.reloadCaptions();
         };
         this.pushHistory({ label, undo: () => restore(before), redo: () => restore(after) });
+    }
+
+    async openReadAloud(options: { captionIds: readonly string[] }): Promise<void> {
+        const location = this.location;
+        if (!location) return;
+        const captionIds = [...options.captionIds];
+        const caption = this.captions.find(item => item.id === captionIds[0]);
+        const ranges = caption ? this.captionRangeToOutputRanges(caption.id, caption.start, caption.end) : [];
+        const start = caption ? (caption.timeDomain === 'output' ? caption.start : ranges[0]?.[0]) : this.playheadT;
+        if (start === undefined) { this.showNotice('字幕の出力時刻を特定できません。'); return; }
+        const dialog = new AkariReadAloudDialog({
+            captionIds, captionId: caption?.id, text: caption?.text ?? '', start,
+            end: caption?.end, frameSeconds: caption ? caption.end - caption.start : undefined,
+            timeDomain: caption?.timeDomain,
+            projectRootUri: location.root.toString()
+        }, this.annotationsService, this.fileService, this.preferences, this.commands,
+        async (placement: ReadAloudPlacement) => {
+            const result = placement.result;
+            if (!result.path) throw new Error('音声ファイルがありません。');
+            await this.withHistory('読み上げ', async () => {
+                if (placement.captionId && placement.extendEnd !== undefined && caption?.timeDomain === 'output') {
+                    await this.annotationsService.setCaptionTiming({ captionsUri: location.captionsUri.toString(),
+                        projectRootUri: location.root.toString(), captionId: placement.captionId,
+                        start: caption.start, end: placement.extendEnd, edited: true });
+                }
+                await this.annotationsService.applyNarration({ projectRootUri: location.root.toString(),
+                    id: result.id, path: result.path!, t: placement.t, script: placement.script,
+                    reading: placement.reading, provenance: result.provenance,
+                    captionRef: placement.captionId ?? null });
+            });
+            await this.reloadEdit();
+            if (placement.extendEnd !== undefined) await this.reloadCaptions();
+        });
+        await dialog.open();
     }
 
     /** 台本 → タイムラインの片方向同期（task 2026-09-12-daihon-selection-sync 指示2）。 */
@@ -9381,6 +9423,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 `audio:${narration.id}`, narrationSignature, narration.t, end, top, itemHeight,
                 'akari-annotations-strip-audio akari-annotations-strip-audio-narration', label
             );
+            const captionRef = (narration as EditAudioNarrationWithEnvelope & { caption_ref?: string }).caption_ref;
+            if (captionRef) element.title = `字幕 ${captionRef} から作成`;
             element.dataset.akariItemKind = 'audio';
             element.dataset.akariItemId = narration.id;
             element.dataset.akariLane = layout.id ?? 'audio';
@@ -16729,7 +16773,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             if (document !== this.editDocument || !element.isConnected) return;
         }
         const baseItems = buildTimelineClipMenuItems(
-            item.kind === 'item' ? 'overlay' : item.kind,
+            item.kind === 'item' ? (item.itemKind === 'caption' ? 'caption' : 'overlay') : item.kind,
             this.clipboard !== undefined,
             row ? {
                 canSplit: this.splittableItemId(item) !== undefined,
@@ -16782,6 +16826,16 @@ export class AkariAnnotationsWidget extends BaseWidget {
         }
         if (id === 'annotate') {
             void this.requestClipAnnotation(item, clientX);
+            return;
+        }
+        if (id === 'narrate' && (item.kind === 'caption' || (item.kind === 'item' && item.itemKind === 'caption'))) {
+            const captionId = item.kind === 'caption' ? item.id
+                : this.captions.find(caption => item.id.endsWith(`#${caption.id}`))?.id
+                    ?? (this.rawV2Item(item.id)?.source?.kind === 'caption'
+                        ? this.rawV2Item(item.id)?.source?.id : undefined);
+            if (!captionId) return;
+            const selected = this.selectionModel.selectedCaptionIds;
+            void this.openReadAloud({ captionIds: selected.length >= 2 && selected.includes(captionId) ? selected : [captionId] });
             return;
         }
         if (id === 'split-audio' && item.kind === 'cut') {

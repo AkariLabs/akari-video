@@ -11,7 +11,8 @@ function ids(kind, hasClipboard) {
 
 for (const kind of ['cut', 'overlay', 'caption', 'layer', 'audio']) {
     test(`${kind}: コピー・切り取り・貼り付け・複製を全種別に出す`, () => {
-        const suffix = kind === 'cut' ? ['split', 'annotate', 'delete'] : ['annotate', 'delete'];
+        const suffix = kind === 'cut' ? ['split', 'annotate', 'delete']
+            : kind === 'caption' ? ['narrate', 'annotate', 'delete'] : ['annotate', 'delete'];
         for (const hasClipboard of [false, true]) {
             assert.deepEqual(ids(kind, hasClipboard), ['copy', 'cut', 'paste', 'duplicate', ...suffix]);
             assert.equal(!!buildTimelineClipMenuItems(kind, hasClipboard).find(item => item.id === 'paste').disabled, !hasClipboard);
@@ -21,6 +22,13 @@ for (const kind of ['cut', 'overlay', 'caption', 'layer', 'audio']) {
 
 test('BGM とナレーションはコピー・切り取り・複製を出さない', () => {
     assert.deepEqual(buildTimelineClipMenuItems('audio', true, {}, { copyable: false }).map(item => item.id), ['paste', 'annotate', 'delete']);
+});
+
+test('字幕だけ「音声を作る…」を注釈の直前へ出す', () => {
+    const caption = buildTimelineClipMenuItems('caption', false);
+    assert.equal(caption.find(item => item.id === 'narrate')?.label, '音声を作る…');
+    assert.equal(caption.findIndex(item => item.id === 'narrate') + 1, caption.findIndex(item => item.id === 'annotate'));
+    for (const kind of ['cut', 'overlay', 'layer', 'audio']) assert.ok(!ids(kind, false).includes('narrate'));
 });
 
 test('削除項目は常に danger: true を持つ', () => {
@@ -56,7 +64,7 @@ test('字幕の木アイテムは未焼成テロップを作る操作を出さ�
 });
 
 test('司令塔裁定3: 並びは常にコピー → ペースト → 分割 → 削除の順序を守る', () => {
-    const order = { copy: 0, cut: 1, paste: 2, duplicate: 3, split: 4, annotate: 5, delete: 6 };
+    const order = { copy: 0, cut: 1, paste: 2, duplicate: 3, split: 4, narrate: 5, annotate: 6, delete: 7 };
     for (const kind of ['cut', 'overlay', 'caption', 'layer', 'audio']) {
         for (const hasClipboard of [true, false]) {
             const indexes = buildTimelineClipMenuItems(kind, hasClipboard).map(item => order[item.id]);
