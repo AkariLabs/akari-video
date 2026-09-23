@@ -1,0 +1,14 @@
+AFTER: updated VENDOR_SOURCES; scratch vendor assembled by updated prepack --vendor-root.
+Scanned JavaScript files: 349
+All unresolved relative import/require references: 4
+- skills/akari/test/skills-command.test.mjs: ../../../packages/akari-launcher/test/skills-command.test.mjs [allowed: test-only launcher entry]
+- skills/edit-plan/bin/test/propose-cut-candidates.test.mjs: ./helper.mjs [allowed: scratch module fixture]
+- skills/edit-plan/bin/test/propose-cut-candidates.test.mjs: ./nested/value.mjs [allowed: scratch nested module fixture]
+- skills/edit-plan/bin/test/propose-cut-candidates.test.mjs: ./unregistered.mjs [allowed: intentional missing scratch module fixture]
+Unexpected unresolved references: 0
+Gate: GREEN (exit 0)
+Vendor validator: OK: <fixture> (exit 0)
+Source validator: OK: <fixture> (exit 0)
+Validator result parity: same exit status and normalized output
+Vendor size: 1245 files, 53551740 bytes
+Change from actual shipped vendor: +45 files, +4369072 bytes

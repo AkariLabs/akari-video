@@ -1,0 +1,8 @@
+GPL redistribution gate: check-no-gpl-redistribution.mjs exit 0; restricted 1, violations 0.
+Packaged imports gate: check-packaged-imports.mjs exit 0; 60 entries, 380 files walked, missing 0.
+Packaged imports gate skipped unavailable generated staging inputs: resources/generated-notices, resources/cli-node-modules, resources/vendor-ffmpeg.
+The vendor import gate uses the production prepack selection and copy path in an os.tmpdir issue-81 directory.
+The BEFORE proof uses the original prepack and original VENDOR_SOURCES, then runs prepack clean.
+Selection: runtimes.mjs plus the needed runtime source tree and font, with narrow additional imports for edit-lint and world-map validation. Runtime source scripts are registered as paths and read on demand; that is why the source tree is kept together.
+All vendored .mjs and .js files are scanned, including tests. Four test-only missing references are pinned in an exact-match allowlist with individual reasons. No test files are excluded from distribution or scanning.
+Vendor file/content parity against original VENDOR_SOURCES: 1,200 common files SHA-256 identical; 45 additions; 0 removals; 0 changed existing files.

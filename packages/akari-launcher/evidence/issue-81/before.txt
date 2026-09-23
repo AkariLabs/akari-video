@@ -1,0 +1,20 @@
+BEFORE: original prepack.mjs and original VENDOR_SOURCES (exact shipped selection); normal prepack followed by clean.
+Scanned JavaScript files: 319
+All unresolved relative import/require references: 12
+- packages/asset-resolver/test/add.test.mjs: ../../overlay-runtime/runtimes.mjs
+- packages/edit-lint/src/edit-lint.mjs: ../../render-cut/src/fragment-assets.mjs
+- packages/edit-lint/src/edit-lint.mjs: ../../word-book/src/index.mjs
+- packages/schemas/bin/validate-asset.mjs: ../../overlay-runtime/runtimes.mjs
+- packages/schemas/bin/validate-kit-manifest.mjs: ../../overlay-runtime/runtimes.mjs
+- packages/schemas/bin/validate-world-map.mjs: ../../akari-tools/src/world/invariants.mjs
+- packages/schemas/bin/validate-world-map.mjs: ../../akari-tools/src/world/normalize.mjs
+- packages/schemas/test/validate-word-book.test.mjs: ../../word-book/src/index.mjs
+- skills/akari/test/skills-command.test.mjs: ../../../packages/akari-launcher/test/skills-command.test.mjs
+- skills/edit-plan/bin/test/propose-cut-candidates.test.mjs: ./helper.mjs
+- skills/edit-plan/bin/test/propose-cut-candidates.test.mjs: ./nested/value.mjs
+- skills/edit-plan/bin/test/propose-cut-candidates.test.mjs: ./unregistered.mjs
+Of these, test-only allowlist: 4; unallowlisted references: 8
+Vendor validator: ERR_MODULE_NOT_FOUND (exit 1)
+Cannot find module '<tmp>/vendor/packages/overlay-runtime/runtimes.mjs' imported from '<tmp>/vendor/packages/schemas/bin/validate-asset.mjs'
+Gate with original VENDOR_SOURCES: RED (exit 1)
+Vendor size: 1200 files, 49182668 bytes

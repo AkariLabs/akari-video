@@ -14,6 +14,20 @@ export const VENDOR_SOURCES = [
   'presets/textanim',
   'assets/font/noto-sans-jp/NotoSansJP-Variable.ttf',
   'packages/schemas',
+  // schemas の asset / kit 検証は runtimes.mjs を実行し、runtime 宣言は src の
+  // レジストリ・ブラウザスクリプトと既定フォントをファイルとして読み込む。
+  'packages/overlay-runtime/runtimes.mjs',
+  'packages/overlay-runtime/src',
+  'packages/overlay-runtime/test-harness/fonts/ZenKakuGothicNew-Black.ttf',
+  // edit-lint と world-map validator が参照する実行時閉包。
+  'packages/render-cut/src/fragment-assets.mjs',
+  'packages/render-cut/src/render-inputs.mjs',
+  'packages/render-cut/src/caption-font.mjs',
+  'packages/render-cut/src/html-scan.mjs',
+  'packages/render-cut/src/library-reference.mjs',
+  'packages/word-book/src/index.mjs',
+  'packages/akari-tools/src/world/invariants.mjs',
+  'packages/akari-tools/src/world/normalize.mjs',
   'packages/project-scaffold',
   // analysis-report は package.json / README.md を capability source として既に収集する。
   // 実行に必要な CLI と同居必須テンプレートだけを追加し、test/ は配布しない。

@@ -40,6 +40,15 @@ const REPO_ROOT = path.resolve(PACKAGE_ROOT, '..', '..');
 const VENDOR_ROOT = path.join(PACKAGE_ROOT, 'vendor');
 const LICENSE_COPY = path.join(PACKAGE_ROOT, 'LICENSE');
 
+// Tests can exercise the exact release selection/copy path without leaving
+// generated files in the package working tree.
+const scratchOption = process.argv[2] === '--vendor-root';
+if (scratchOption && (process.argv.length !== 4 || !path.isAbsolute(process.argv[3]))) {
+  console.error('prepack: --vendor-root requires one absolute directory path');
+  process.exit(1);
+}
+const outputRoot = scratchOption ? process.argv[3] : VENDOR_ROOT;
+
 if (process.argv[2] === 'clean') {
   rmSync(VENDOR_ROOT, { recursive: true, force: true });
   rmSync(LICENSE_COPY, { force: true });
@@ -81,7 +90,7 @@ if (trackedFiles.length === 0) {
   process.exit(1);
 }
 
-rmSync(VENDOR_ROOT, { recursive: true, force: true });
+rmSync(outputRoot, { recursive: true, force: true });
 
 let copied = 0;
 for (const relative of trackedFiles) {
@@ -89,7 +98,7 @@ for (const relative of trackedFiles) {
     continue;
   }
   const from = path.join(REPO_ROOT, relative);
-  const to = path.join(VENDOR_ROOT, relative);
+  const to = path.join(outputRoot, relative);
   mkdirSync(path.dirname(to), { recursive: true });
   copyFileSync(from, to);
   chmodSync(to, statSync(from).mode);
@@ -97,13 +106,13 @@ for (const relative of trackedFiles) {
 }
 rewriteReferenceOnlyPackageManifests(trackedFiles);
 writeFileSync(
-  path.join(VENDOR_ROOT, '.akari-capability-sources.json'),
+  path.join(outputRoot, '.akari-capability-sources.json'),
   `${JSON.stringify({ version: 1, sources: capabilityFiles }, null, 2)}\n`,
   'utf8',
 );
-copyFileSync(path.join(REPO_ROOT, 'LICENSE'), LICENSE_COPY);
+if (!scratchOption) copyFileSync(path.join(REPO_ROOT, 'LICENSE'), LICENSE_COPY);
 
-console.error(`prepack: vendor 同梱を作成しました（追跡ファイル ${copied} 件 → ${VENDOR_ROOT}）`);
+console.error(`prepack: vendor 同梱を作成しました（追跡ファイル ${copied} 件 → ${outputRoot}）`);
 
 function rewriteReferenceOnlyPackageManifests(selectedFiles) {
   const selected = new Set(selectedFiles);
@@ -140,7 +149,7 @@ function rewriteReferenceOnlyPackageManifests(selectedFiles) {
       guidance
     };
     writeFileSync(
-      path.join(VENDOR_ROOT, manifestPath),
+      path.join(outputRoot, manifestPath),
       `${JSON.stringify(manifest, null, 2)}\n`,
       'utf8',
     );

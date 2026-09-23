@@ -1,0 +1,5 @@
+Targeted related tests: 12 total, 11 pass, 1 fail.
+Passed: vendor-import-closure, capability-distribution (both tests), cut-candidate-distribution (all three tests), repo-assets (all four tests), and the plugin mirror check in status-distribution.
+Failed: status-distribution fast-status parity test. Its shared integrity fixture uses audio start fields rejected by the current frozen converter; it fails before this test compares the vendor outputs.
+GPL redistribution gate: exit 0, restricted 1, violations 0.
+Packaged imports gate: exit 0, missing 0.

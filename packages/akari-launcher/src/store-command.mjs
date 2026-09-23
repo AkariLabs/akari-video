@@ -510,8 +510,8 @@ export async function runStoreCommand(args, options = {}) {
           }
         }
         if (!runtimeIds) {
-          // overlay-runtime は launcher の npm tarball に同梱されない。照合不能は
-          // manifest 不備ではないため warning に落とし、要求 id を既知扱いして続行する。
+          // 通常の launcher 配布には overlay-runtime が入る。旧配布物や破損した
+          // 配置で照合不能なら warning に落とし、要求 id を既知扱いして続行する。
           requirementWarnings.push('runtime registry が見つからないため runtime id の照合をスキップしました。');
           runtimeIds = manifest.requires?.runtimes ?? [];
         }
