@@ -857,6 +857,9 @@
   // （中身に絶対位置を持たせると、つかんだ瞬間に画面の左端へ飛ぶ）。
   const DRAG_THRESHOLD = 4;
   let suppressClick = false;
+  let forwardMicClick = false;
+  let previousPressStartedOnMic = false;
+  let pressStartedOnMic = false;
 
   // 差は **画面の座標** で測る。枠が動くと iframe ごと動くので、iframe の中の
   // 座標（clientX/Y）で測ると動かしたぶんが打ち消され、追いかけっこで震える。
@@ -864,8 +867,12 @@
     if (event.button !== 0) return;
     // 小さいとき（丸だけ）は帯の全部がボタンなので、ボタンの上でも受ける。
     // 4px 動くまでは押下のままなので、ふつうの押下は今までどおり効く。
+    mainbar.setPointerCapture(event.pointerId);
+    previousPressStartedOnMic = pressStartedOnMic;
+    pressStartedOnMic = event.target.closest('#mic') !== null;
     drag = { pointerId: event.pointerId, startX: event.screenX, startY: event.screenY,
-      lastX: event.screenX, lastY: event.screenY, moved: false };
+      lastX: event.screenX, lastY: event.screenY, moved: false,
+      pressedMic: pressStartedOnMic };
   });
   mainbar.addEventListener('pointermove', (event) => {
     if (!drag || drag.pointerId !== event.pointerId) return;
@@ -873,28 +880,53 @@
       if (Math.hypot(event.screenX - drag.startX, event.screenY - drag.startY) < DRAG_THRESHOLD) return;
       drag.moved = true;
       mainbar.classList.add('dragging');
-      // ここから先は枠が引き受ける（枠が動くと iframe は指の下から逃げるため）。
+      // 押したままのマウスは iframe に閉じ込められる。中身が画面座標の差を送り続け、枠を動かす。
       window.parent.postMessage({ type: 'akari-companion-panel', drag: { phase: 'start' } }, '*');
+    }
+    const dx = event.screenX - drag.lastX;
+    const dy = event.screenY - drag.lastY;
+    drag.lastX = event.screenX;
+    drag.lastY = event.screenY;
+    if (dx !== 0 || dy !== 0) {
+      window.parent.postMessage({ type: 'akari-companion-panel', drag: { dx, dy } }, '*');
     }
   });
   const stopDrag = (event) => {
     if (!drag || drag.pointerId !== event.pointerId) return;
     const moved = drag.moved;
+    forwardMicClick = !moved && event.type === 'pointerup' && drag.pressedMic;
     drag = null;
     mainbar.classList.remove('dragging');
-    if (moved) { suppressClick = true; reportSize(); }
+    if (moved) {
+      window.parent.postMessage({ type: 'akari-companion-panel', drag: { phase: 'end' } }, '*');
+      suppressClick = true;
+      reportSize();
+    }
+    if (mainbar.hasPointerCapture(event.pointerId)) mainbar.releasePointerCapture(event.pointerId);
   };
   // 動かしたときは、離したあとの押下を 1 回だけ飲み込む（丸を押して止めてしまわないため）。
   mainbar.addEventListener('click', (event) => {
-    if (!suppressClick) return;
-    suppressClick = false;
-    event.preventDefault();
-    event.stopPropagation();
+    if (suppressClick) {
+      suppressClick = false;
+      forwardMicClick = false;
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
+    // capture により click の宛先が帯になる場合も、丸の通常押下を有効にする。
+    if (forwardMicClick && !mic.contains(event.target)) {
+      forwardMicClick = false;
+      mic.click();
+    } else {
+      forwardMicClick = false;
+    }
   }, true);
   mainbar.addEventListener('pointerup', stopDrag);
   mainbar.addEventListener('pointercancel', stopDrag);
+  mainbar.addEventListener('lostpointercapture', stopDrag);
   mainbar.addEventListener('dblclick', (event) => {
-    if (event.target.closest('button')) return;
+    // capture 中は丸の二度押しも帯が target になるので、押し始めた場所で判定する。
+    if (pressStartedOnMic || previousPressStartedOnMic || event.target.closest('button')) return;
     // 二度押しで既定の置き場所へ戻す（枠の側が呼び出しボタンの真下へ置き直す）。
     mode = 'tab';
     reportSize({ placement: 'default' });
